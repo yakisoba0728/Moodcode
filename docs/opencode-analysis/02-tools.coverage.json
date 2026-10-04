@@ -1,0 +1,601 @@
+{
+  "source_commit": "907b3bc518fa48e90e8ec24dd327d13eee71c36c",
+  "source_repository": "https://github.com/anomalyco/opencode",
+  "source_checkout": "/Users/yakisoba0728/Documents/GitHub/opencode",
+  "analysis_date": "2026-10-04",
+  "timezone": "Asia/Seoul",
+  "area": "도구 실행과 파일 및 프로세스 관리",
+  "report": "02-tools.md",
+  "coverage_definitions": {
+    "reviewed_paths": "담당 주제가 중심인 소스·테스트의 주요 실행 분기, 실패 처리와 assertion을 집중 독해했다. 모든 줄의 독해나 테스트 실행을 뜻하지 않는다.",
+    "sampled_paths": "호출·통합 경계 또는 특정 테스트 assertion의 관련 구간만 선택 독해했다. 파일 전체 coverage를 주장하지 않는다.",
+    "excluded_paths": "analysis-plan의 담당 경로에서 위 두 목록에 없는 추적 파일을 이유와 함께 명시했다. import/파일명 검색은 전체 독해로 세지 않았다."
+  },
+  "reviewed_paths": [
+    "AGENTS.md",
+    "packages/codemode/AGENTS.md",
+    "packages/codemode/codemode.md",
+    "packages/codemode/package.json",
+    "packages/codemode/src/codemode.ts",
+    "packages/codemode/src/index.ts",
+    "packages/codemode/src/openapi/TODO.md",
+    "packages/codemode/src/openapi/index.ts",
+    "packages/codemode/src/stdlib/promise.ts",
+    "packages/codemode/src/tool-error.ts",
+    "packages/codemode/src/tool.ts",
+    "packages/codemode/src/values.ts",
+    "packages/core/src/agent.ts",
+    "packages/core/src/cross-spawn-spawner.ts",
+    "packages/core/src/effect/keyed-mutex.ts",
+    "packages/core/src/file-mutation.ts",
+    "packages/core/src/file.ts",
+    "packages/core/src/filesystem.ts",
+    "packages/core/src/filesystem/fff.bun.ts",
+    "packages/core/src/filesystem/fff.node.ts",
+    "packages/core/src/filesystem/ignore.ts",
+    "packages/core/src/filesystem/protected.ts",
+    "packages/core/src/filesystem/search.ts",
+    "packages/core/src/filesystem/watcher.ts",
+    "packages/core/src/fs-util.ts",
+    "packages/core/src/git.ts",
+    "packages/core/src/image.ts",
+    "packages/core/src/image/photon.ts",
+    "packages/core/src/location-mutation.ts",
+    "packages/core/src/location-services.ts",
+    "packages/core/src/location.ts",
+    "packages/core/src/patch.ts",
+    "packages/core/src/permission.ts",
+    "packages/core/src/permission/saved.ts",
+    "packages/core/src/permission/sql.ts",
+    "packages/core/src/policy.ts",
+    "packages/core/src/process.ts",
+    "packages/core/src/project.ts",
+    "packages/core/src/project/copy-strategies.ts",
+    "packages/core/src/project/directories.ts",
+    "packages/core/src/project/schema.ts",
+    "packages/core/src/project/sql.ts",
+    "packages/core/src/pty.ts",
+    "packages/core/src/pty/protocol.ts",
+    "packages/core/src/pty/pty.bun.ts",
+    "packages/core/src/pty/pty.node.ts",
+    "packages/core/src/pty/pty.ts",
+    "packages/core/src/pty/schema.ts",
+    "packages/core/src/pty/ticket.ts",
+    "packages/core/src/question.ts",
+    "packages/core/src/repository-cache.ts",
+    "packages/core/src/repository.ts",
+    "packages/core/src/ripgrep.ts",
+    "packages/core/src/ripgrep/binary.ts",
+    "packages/core/src/session/revert.ts",
+    "packages/core/src/shell.ts",
+    "packages/core/src/skill/guidance.ts",
+    "packages/core/src/snapshot.ts",
+    "packages/core/src/state.ts",
+    "packages/core/src/tool-output-store.ts",
+    "packages/core/src/tool/AGENTS.md",
+    "packages/core/src/tool/application-tools.ts",
+    "packages/core/src/tool/apply-patch.ts",
+    "packages/core/src/tool/bash.ts",
+    "packages/core/src/tool/builtins.ts",
+    "packages/core/src/tool/edit.ts",
+    "packages/core/src/tool/glob.ts",
+    "packages/core/src/tool/grep.ts",
+    "packages/core/src/tool/http-body.ts",
+    "packages/core/src/tool/question.ts",
+    "packages/core/src/tool/read-filesystem.ts",
+    "packages/core/src/tool/read.ts",
+    "packages/core/src/tool/registry.ts",
+    "packages/core/src/tool/skill.ts",
+    "packages/core/src/tool/todowrite.ts",
+    "packages/core/src/tool/tool.ts",
+    "packages/core/src/tool/tools.ts",
+    "packages/core/src/tool/webfetch.ts",
+    "packages/core/src/tool/websearch.ts",
+    "packages/core/src/tool/write.ts",
+    "packages/core/src/v1/permission.ts",
+    "packages/core/src/workspace.ts",
+    "packages/core/test/application-tools.test.ts",
+    "packages/core/test/file-mutation.test.ts",
+    "packages/core/test/git.test.ts",
+    "packages/core/test/location-filesystem.test.ts",
+    "packages/core/test/location-mutation.test.ts",
+    "packages/core/test/location.test.ts",
+    "packages/core/test/permission.test.ts",
+    "packages/core/test/policy.test.ts",
+    "packages/core/test/project.test.ts",
+    "packages/core/test/pty/info-schema.test.ts",
+    "packages/core/test/pty/protocol.test.ts",
+    "packages/core/test/pty/pty-session.test.ts",
+    "packages/core/test/pty/ticket.test.ts",
+    "packages/core/test/question.test.ts",
+    "packages/core/test/repository-cache.test.ts",
+    "packages/core/test/ripgrep.test.ts",
+    "packages/core/test/session-runner-tool-events.test.ts",
+    "packages/core/test/session-runner-tool-registry.test.ts",
+    "packages/core/test/snapshot.test.ts",
+    "packages/core/test/tool-output-store.test.ts",
+    "packages/core/test/tool-question.test.ts",
+    "packages/core/test/tool-read-filesystem.test.ts",
+    "packages/opencode/AGENTS.md",
+    "packages/opencode/src/agent/subagent-permissions.ts",
+    "packages/opencode/src/control-plane/adapters/worktree.ts",
+    "packages/opencode/src/permission/arity.ts",
+    "packages/opencode/src/permission/evaluate.ts",
+    "packages/opencode/src/permission/index.ts",
+    "packages/opencode/src/project/instance-context.ts",
+    "packages/opencode/src/question/index.ts",
+    "packages/opencode/src/question/schema.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/AGENTS.md",
+    "packages/opencode/src/session/revert.ts",
+    "packages/opencode/src/tool/apply_patch.ts",
+    "packages/opencode/src/tool/code-mode.ts",
+    "packages/opencode/src/tool/external-directory.ts",
+    "packages/opencode/src/tool/glob.ts",
+    "packages/opencode/src/tool/grep.ts",
+    "packages/opencode/src/tool/invalid.ts",
+    "packages/opencode/src/tool/json-schema.ts",
+    "packages/opencode/src/tool/mcp-websearch.ts",
+    "packages/opencode/src/tool/question.ts",
+    "packages/opencode/src/tool/read.ts",
+    "packages/opencode/src/tool/registry.ts",
+    "packages/opencode/src/tool/schema.ts",
+    "packages/opencode/src/tool/shell.ts",
+    "packages/opencode/src/tool/shell/id.ts",
+    "packages/opencode/src/tool/shell/prompt.ts",
+    "packages/opencode/src/tool/skill.ts",
+    "packages/opencode/src/tool/task.ts",
+    "packages/opencode/src/tool/todo.ts",
+    "packages/opencode/src/tool/tool.ts",
+    "packages/opencode/src/tool/truncate.ts",
+    "packages/opencode/src/tool/truncation-dir.ts",
+    "packages/opencode/src/tool/webfetch.ts",
+    "packages/opencode/src/tool/websearch.ts",
+    "packages/opencode/src/tool/write.ts",
+    "packages/opencode/src/util/process.ts",
+    "packages/opencode/test/AGENTS.md",
+    "packages/opencode/test/server/AGENTS.md",
+    "packages/schema/AGENTS.md",
+    "packages/schema/src/location.ts",
+    "packages/schema/src/permission.ts",
+    "packages/schema/src/question.ts",
+    "packages/schema/src/schema.ts",
+    "packages/server/src/handlers/permission.ts",
+    "packages/server/src/handlers/question.ts",
+    "specs/v2/tools.md"
+  ],
+  "sampled_paths": [
+    "CONTEXT.md",
+    "packages/codemode/README.md",
+    "packages/codemode/src/interpreter/runtime.ts",
+    "packages/codemode/src/openapi/runtime.ts",
+    "packages/codemode/src/openapi/spec.ts",
+    "packages/codemode/src/tool-runtime.ts",
+    "packages/codemode/src/tool-schema.ts",
+    "packages/codemode/test/codemode.test.ts",
+    "packages/codemode/test/promise.test.ts",
+    "packages/core/package.json",
+    "packages/core/src/background-job.ts",
+    "packages/core/src/catalog.ts",
+    "packages/core/src/config.ts",
+    "packages/core/src/config/plugin/agent.ts",
+    "packages/core/src/event.ts",
+    "packages/core/src/location-service-map.ts",
+    "packages/core/src/plugin/agent.ts",
+    "packages/core/src/project/copy.ts",
+    "packages/core/src/public-event-manifest.ts",
+    "packages/core/src/session.ts",
+    "packages/core/src/session/projector.ts",
+    "packages/core/src/session/runner/llm.ts",
+    "packages/core/src/session/runner/publish-llm-event.ts",
+    "packages/core/src/skill.ts",
+    "packages/core/src/util/effect-flock.ts",
+    "packages/core/test/effect/cross-spawn-spawner.test.ts",
+    "packages/core/test/filesystem/filesystem.test.ts",
+    "packages/core/test/filesystem/ignore.test.ts",
+    "packages/core/test/filesystem/search.test.ts",
+    "packages/core/test/filesystem/watcher.test.ts",
+    "packages/core/test/location-layer.test.ts",
+    "packages/core/test/patch.test.ts",
+    "packages/core/test/process/process.test.ts",
+    "packages/core/test/project-copy.test.ts",
+    "packages/core/test/repository.test.ts",
+    "packages/core/test/session-runner.test.ts",
+    "packages/core/test/session-tool-progress.test.ts",
+    "packages/core/test/shell.test.ts",
+    "packages/core/test/tool-apply-patch.test.ts",
+    "packages/core/test/tool-bash.test.ts",
+    "packages/core/test/tool-edit.test.ts",
+    "packages/core/test/tool-read.test.ts",
+    "packages/core/test/tool-skill.test.ts",
+    "packages/core/test/tool-webfetch.test.ts",
+    "packages/core/test/tool-websearch.test.ts",
+    "packages/core/test/tool-write.test.ts",
+    "packages/llm/src/schema/messages.ts",
+    "packages/llm/src/tool.ts",
+    "packages/opencode/package.json",
+    "packages/opencode/src/agent/agent.ts",
+    "packages/opencode/src/patch/index.ts",
+    "packages/opencode/src/project/project.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/pty.ts",
+    "packages/opencode/src/session/llm.ts",
+    "packages/opencode/src/session/llm/AGENTS.md",
+    "packages/opencode/src/session/llm/native-runtime.ts",
+    "packages/opencode/src/session/llm/request.ts",
+    "packages/opencode/src/session/processor.ts",
+    "packages/opencode/src/session/prompt.ts",
+    "packages/opencode/src/session/tools.ts",
+    "packages/opencode/src/snapshot/index.ts",
+    "packages/opencode/src/tool/edit.ts",
+    "packages/opencode/src/tool/plan.ts",
+    "packages/opencode/src/worktree/index.ts",
+    "packages/opencode/test/agent/plan-mode-subagent-bypass.test.ts",
+    "packages/opencode/test/permission-task.test.ts",
+    "packages/opencode/test/permission/next.test.ts",
+    "packages/opencode/test/question/question.test.ts",
+    "packages/opencode/test/session/snapshot-tool-race.test.ts",
+    "packages/opencode/test/snapshot/snapshot.test.ts",
+    "packages/opencode/test/tool/apply_patch.test.ts",
+    "packages/opencode/test/tool/code-mode-integration.test.ts",
+    "packages/opencode/test/tool/code-mode.test.ts",
+    "packages/opencode/test/tool/edit.test.ts",
+    "packages/opencode/test/tool/glob.test.ts",
+    "packages/opencode/test/tool/grep.test.ts",
+    "packages/opencode/test/tool/parameters.test.ts",
+    "packages/opencode/test/tool/question.test.ts",
+    "packages/opencode/test/tool/read.test.ts",
+    "packages/opencode/test/tool/registry.test.ts",
+    "packages/opencode/test/tool/shell.test.ts",
+    "packages/opencode/test/tool/task.test.ts",
+    "packages/opencode/test/tool/tool-define.test.ts",
+    "packages/opencode/test/tool/truncation.test.ts",
+    "packages/opencode/test/tool/write.test.ts",
+    "packages/schema/src/agent.ts",
+    "packages/schema/src/event.ts",
+    "packages/schema/src/session-event.ts",
+    "packages/schema/src/session-message.ts",
+    "packages/sdk-next/src/opencode.ts",
+    "packages/server/src/handlers/pty.ts",
+    "packages/server/src/routes.ts",
+    "specs/project.md",
+    "specs/v2/config.md",
+    "specs/v2/schema-changelog.md",
+    "specs/v2/session.md"
+  ],
+  "excluded_paths": [
+    {
+      "path": "packages/codemode/src/interpreter/model.ts",
+      "reason": "타입 보조 선언 전체는 제외했다. interpreter/tool runtime 및 OpenAPI adapter의 실제 분기와 오류 경계를 표본 조사했다."
+    },
+    {
+      "path": "packages/codemode/src/openapi/types.ts",
+      "reason": "타입 보조 선언 전체는 제외했다. interpreter/tool runtime 및 OpenAPI adapter의 실제 분기와 오류 경계를 표본 조사했다."
+    },
+    {
+      "path": "packages/codemode/src/stdlib/collections.ts",
+      "reason": "stdlib 전체 구현의 개별 함수 정확성은 제외했다. globals 제공 경계와 promise 병행·취소 계약을 우선했다."
+    },
+    {
+      "path": "packages/codemode/src/stdlib/console.ts",
+      "reason": "stdlib 전체 구현의 개별 함수 정확성은 제외했다. globals 제공 경계와 promise 병행·취소 계약을 우선했다."
+    },
+    {
+      "path": "packages/codemode/src/stdlib/date.ts",
+      "reason": "stdlib 전체 구현의 개별 함수 정확성은 제외했다. globals 제공 경계와 promise 병행·취소 계약을 우선했다."
+    },
+    {
+      "path": "packages/codemode/src/stdlib/json.ts",
+      "reason": "stdlib 전체 구현의 개별 함수 정확성은 제외했다. globals 제공 경계와 promise 병행·취소 계약을 우선했다."
+    },
+    {
+      "path": "packages/codemode/src/stdlib/math.ts",
+      "reason": "stdlib 전체 구현의 개별 함수 정확성은 제외했다. globals 제공 경계와 promise 병행·취소 계약을 우선했다."
+    },
+    {
+      "path": "packages/codemode/src/stdlib/number.ts",
+      "reason": "stdlib 전체 구현의 개별 함수 정확성은 제외했다. globals 제공 경계와 promise 병행·취소 계약을 우선했다."
+    },
+    {
+      "path": "packages/codemode/src/stdlib/object.ts",
+      "reason": "stdlib 전체 구현의 개별 함수 정확성은 제외했다. globals 제공 경계와 promise 병행·취소 계약을 우선했다."
+    },
+    {
+      "path": "packages/codemode/src/stdlib/regexp.ts",
+      "reason": "stdlib 전체 구현의 개별 함수 정확성은 제외했다. globals 제공 경계와 promise 병행·취소 계약을 우선했다."
+    },
+    {
+      "path": "packages/codemode/src/stdlib/string.ts",
+      "reason": "stdlib 전체 구현의 개별 함수 정확성은 제외했다. globals 제공 경계와 promise 병행·취소 계약을 우선했다."
+    },
+    {
+      "path": "packages/codemode/src/stdlib/url.ts",
+      "reason": "stdlib 전체 구현의 개별 함수 정확성은 제외했다. globals 제공 경계와 promise 병행·취소 계약을 우선했다."
+    },
+    {
+      "path": "packages/codemode/src/stdlib/value.ts",
+      "reason": "stdlib 전체 구현의 개별 함수 정확성은 제외했다. globals 제공 경계와 promise 병행·취소 계약을 우선했다."
+    },
+    {
+      "path": "packages/codemode/sst-env.d.ts",
+      "reason": "생성 환경 선언 파일이다. 런타임 도구 계약의 직접 구현이 아니므로 전체 독해에서 제외했다."
+    },
+    {
+      "path": "packages/codemode/test/enumeration.test.ts",
+      "reason": "codemode/promise 및 OpenCode integration의 관련 assertion을 표본 조사했다. 추가 enumeration/parity/signature/stdlib/OpenAPI suite 전체는 독해·실행하지 않았다."
+    },
+    {
+      "path": "packages/codemode/test/fixtures/openapi-happy-path.json",
+      "reason": "대형 OpenAPI fixture 자산이다. fixture 사용 지점은 확인했으나 JSON 전체와 생성 provenance는 조사하지 않았다."
+    },
+    {
+      "path": "packages/codemode/test/fixtures/opencode-v2-openapi.json",
+      "reason": "대형 OpenAPI fixture 자산이다. fixture 사용 지점은 확인했으나 JSON 전체와 생성 provenance는 조사하지 않았다."
+    },
+    {
+      "path": "packages/codemode/test/openapi.test.ts",
+      "reason": "codemode/promise 및 OpenCode integration의 관련 assertion을 표본 조사했다. 추가 enumeration/parity/signature/stdlib/OpenAPI suite 전체는 독해·실행하지 않았다."
+    },
+    {
+      "path": "packages/codemode/test/parity.test.ts",
+      "reason": "codemode/promise 및 OpenCode integration의 관련 assertion을 표본 조사했다. 추가 enumeration/parity/signature/stdlib/OpenAPI suite 전체는 독해·실행하지 않았다."
+    },
+    {
+      "path": "packages/codemode/test/signature.test.ts",
+      "reason": "codemode/promise 및 OpenCode integration의 관련 assertion을 표본 조사했다. 추가 enumeration/parity/signature/stdlib/OpenAPI suite 전체는 독해·실행하지 않았다."
+    },
+    {
+      "path": "packages/codemode/test/stdlib.test.ts",
+      "reason": "codemode/promise 및 OpenCode integration의 관련 assertion을 표본 조사했다. 추가 enumeration/parity/signature/stdlib/OpenAPI suite 전체는 독해·실행하지 않았다."
+    },
+    {
+      "path": "packages/codemode/tsconfig.json",
+      "reason": "패키지 빌드 설정의 상세는 08-build-ops 담당이다. 이 분석은 실행 경계와 package manifest를 우선했다."
+    },
+    {
+      "path": "packages/opencode/src/project/bootstrap-service.ts",
+      "reason": "Project resolver/migration 및 worktree 소비 지점을 표본 조사했다. instance/bootstrap 전체 생명주기와 VCS event integration은 01-engine/06-extensions 담당과 교차 확인할 범위다."
+    },
+    {
+      "path": "packages/opencode/src/project/bootstrap.ts",
+      "reason": "Project resolver/migration 및 worktree 소비 지점을 표본 조사했다. instance/bootstrap 전체 생명주기와 VCS event integration은 01-engine/06-extensions 담당과 교차 확인할 범위다."
+    },
+    {
+      "path": "packages/opencode/src/project/instance-runtime.ts",
+      "reason": "Project resolver/migration 및 worktree 소비 지점을 표본 조사했다. instance/bootstrap 전체 생명주기와 VCS event integration은 01-engine/06-extensions 담당과 교차 확인할 범위다."
+    },
+    {
+      "path": "packages/opencode/src/project/instance-store.ts",
+      "reason": "Project resolver/migration 및 worktree 소비 지점을 표본 조사했다. instance/bootstrap 전체 생명주기와 VCS event integration은 01-engine/06-extensions 담당과 교차 확인할 범위다."
+    },
+    {
+      "path": "packages/opencode/src/project/vcs.ts",
+      "reason": "Project resolver/migration 및 worktree 소비 지점을 표본 조사했다. instance/bootstrap 전체 생명주기와 VCS event integration은 01-engine/06-extensions 담당과 교차 확인할 범위다."
+    },
+    {
+      "path": "packages/opencode/src/tool/apply_patch.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/edit.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/glob.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/grep.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/lsp.ts",
+      "reason": "등록·V2 TODO 상태는 확인했다. LSP transport/진단·설정의 상세는 06-extensions 담당이며 legacy leaf 전체 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/lsp.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/plan-enter.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/plan-exit.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/question.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/read.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/shell/shell.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/skill.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/task.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/todowrite.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/webfetch.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/websearch.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    },
+    {
+      "path": "packages/opencode/src/tool/write.txt",
+      "reason": "도구 description/prompt 자산은 import 및 교체 지점 중심으로 확인했다. 실행·승인·저장 계약을 우선하여 전체 문구 독해는 제외했다."
+    }
+  ],
+  "unverified_points": [
+    "Bun이 일반 PATH에 없고 checkout에 의존성이 설치되지 않아 프로젝트 test/typecheck를 실행하지 않았다. 보고서의 test 설명은 소스와 assertion의 정적 확인이다.",
+    "실제 provider, MCP 외부 네트워크/stdio 서버, Exa/Parallel 호출 및 binary 다운로드/설치를 수행하지 않았다.",
+    "취약점 재현, 외부 대상 접근, symlink 권한 경계 공격 및 process/file race 실행을 수행하지 않았다. 경계 차이는 정적 계약 관찰이다.",
+    "Windows COMSPEC/PowerShell/ConPTY/taskkill cleanup, macOS/Linux native process 및 PTY 동작을 이 환경에서 실행 검증하지 않았다.",
+    "Permission/Question listener 실패, reject fanout와 crash restart pending 복구를 별도 실패 주입으로 검증하지 않았다.",
+    "여러 Location/프로세스/editor의 동시 파일 변경과 active runner/revert race의 E2E 검증은 수행하지 않았다.",
+    "큰 Git diff/tree stdout cap 초과의 실제 영향, V2 snapshot retention/GC 정책과 전체 descendant cleanup을 실행 검증하지 않았다.",
+    "PTY 2 Mi 문자열 overflow, exited 25 eviction, unbounded pending/outbound queue의 부하·backpressure를 실행 검증하지 않았다.",
+    "CodeMode stdlib 전체 함수, 모든 interpreter grammar/property 경로, OpenAPI fixtures와 모든 suite의 correctness를 감사하지 않았다.",
+    "다른 remote branch 및 Git 이력 전체를 조사하지 않았다. codemode.md의 v2 branch 설명은 현 dev 구현과 구분했다."
+  ],
+  "cross_area_questions": [
+    {
+      "question": "V2 canonical plugin/MCP boot 및 task/codemode leaf의 실제 포팅·등록 계획은 무엇인가?",
+      "areas": [
+        "01-engine",
+        "06-extensions"
+      ],
+      "basis": "builtins TODO와 tools 명세 follow-up; dev codemode는 legacy 경로"
+    },
+    {
+      "question": "같은 agent ID의 config/plugin reload가 진행 중 invocation의 권한에 적용되는 시점을 어떤 계약으로 보장하는가?",
+      "areas": [
+        "01-engine",
+        "06-extensions"
+      ],
+      "basis": "turn ID는 고정되지만 Permission.assert/always는 agent를 재조회"
+    },
+    {
+      "question": "재시작 후 approval/question pending 복구를 제공할 계획인가?",
+      "areas": [
+        "01-engine",
+        "05-data-api"
+      ],
+      "basis": "Location Map/Deferred 및 transient 이벤트; saved allow만 DB"
+    },
+    {
+      "question": "built-in이 generic ToolFailure로 바꾸는 correction feedback을 모델/UI에 보존해야 하는가?",
+      "areas": [
+        "01-engine",
+        "04-tui"
+      ],
+      "basis": "CorrectedError는 typed이지만 대부분 leaf가 내용을 소실"
+    },
+    {
+      "question": "동일 파일을 서로 다른 Location이나 외부 editor가 변경할 때 파일 mutation/revert를 어떤 수준으로 조정하는가?",
+      "areas": [
+        "01-engine",
+        "05-data-api"
+      ],
+      "basis": "Location-layer mutex, 외부 변경과 공통 transaction 없음"
+    },
+    {
+      "question": "active runner와 SessionRevert.stage/clear의 배타성 및 실패/중단 후 snapshot 귀속은 어떤 경계에서 보장하는가?",
+      "areas": [
+        "01-engine",
+        "05-data-api"
+      ],
+      "basis": "V2 진입점에 legacy busy guard 없음; end capture는 정상 step 조건"
+    },
+    {
+      "question": "V2 snapshot GC와 큰 Git stdout capture 손실의 운영 정책은 무엇인가?",
+      "areas": [
+        "08-build-ops"
+      ],
+      "basis": "legacy hourly GC 대응 loop 미확인; 일부 Git helper truncated flag 미검사"
+    },
+    {
+      "question": "grep/glob의 path authority를 read/mutation resolver와 통일할 계획인가?",
+      "areas": [
+        "05-data-api",
+        "06-extensions"
+      ],
+      "basis": "직접 Ripgrep 경로, RelativePath는 문자열 brand"
+    },
+    {
+      "question": "PTY admission/one-use ticket, outbound queue backpressure, exited replay와 Windows descendant cleanup 계약은 무엇인가?",
+      "areas": [
+        "05-data-api",
+        "07-clients",
+        "08-build-ops"
+      ],
+      "basis": "Permission 의존성 없음, native kill과 CrossSpawn 차이, unbounded pending/Queue"
+    },
+    {
+      "question": "MCP abort가 host operation 종료·cleanup 완료를 보장하는 범위는 무엇인가?",
+      "areas": [
+        "06-extensions"
+      ],
+      "basis": "interpreter fiber interruption은 외부 side effect rollback이 아님"
+    }
+  ],
+  "verification": {
+    "mode": "static source and test-assertion review; no project execution",
+    "performed": [
+      "source HEAD 일치 확인",
+      "source checkout clean 상태 확인",
+      "담당 파일·import·호출 검색",
+      "고정 커밋 GitHub 링크 파일/줄 범위 정합성 검사",
+      "coverage JSON parse 및 모든 파일 존재 확인",
+      "본인 산출물 whitespace 검사"
+    ],
+    "tests_run": false,
+    "typecheck_run": false,
+    "dependencies_installed": false,
+    "source_modified": false,
+    "provider_calls_made": false,
+    "github_source_links": 202,
+    "github_source_link_unique_paths": 127,
+    "source_head_verified": "907b3bc518fa48e90e8ec24dd327d13eee71c36c",
+    "source_checkout_clean": true,
+    "bun_in_general_path": null,
+    "node_modules_present": false
+  },
+  "assigned_paths": [
+    "packages/core/src/tool",
+    "packages/core/src/permission",
+    "packages/core/src/permission.ts",
+    "packages/core/src/policy.ts",
+    "packages/core/src/file.ts",
+    "packages/core/src/filesystem",
+    "packages/core/src/filesystem.ts",
+    "packages/core/src/file-mutation.ts",
+    "packages/core/src/location-mutation.ts",
+    "packages/core/src/pty",
+    "packages/core/src/pty.ts",
+    "packages/core/src/shell.ts",
+    "packages/core/src/process.ts",
+    "packages/core/src/snapshot.ts",
+    "packages/core/src/patch.ts",
+    "packages/core/src/tool-output-store.ts",
+    "packages/core/src/repository.ts",
+    "packages/core/src/repository-cache.ts",
+    "packages/core/src/ripgrep",
+    "packages/core/src/question.ts",
+    "packages/core/src/workspace.ts",
+    "packages/core/src/location.ts",
+    "packages/core/src/project.ts",
+    "packages/opencode/src/tool",
+    "packages/opencode/src/permission",
+    "packages/opencode/src/patch",
+    "packages/opencode/src/snapshot",
+    "packages/opencode/src/worktree",
+    "packages/opencode/src/project",
+    "packages/opencode/src/question",
+    "packages/codemode",
+    "specs/v2/tools.md",
+    "packages/core/src/git.ts",
+    "packages/core/src/image",
+    "packages/core/src/image.ts"
+  ],
+  "counts": {
+    "reviewed_paths": 150,
+    "sampled_paths": 96,
+    "excluded_paths": 44,
+    "assigned_tracked_files": 156,
+    "assigned_files_unaccounted": 0
+  }
+}

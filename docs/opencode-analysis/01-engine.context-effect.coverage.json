@@ -1,0 +1,237 @@
+{
+  "source_commit": "907b3bc518fa48e90e8ec24dd327d13eee71c36c",
+  "area": "01-engine 하위 Context Epoch/System Context/compaction/Effect·Location·V1 callback lifetime",
+  "reviewed_paths": [
+    "AGENTS.md",
+    "packages/opencode/AGENTS.md",
+    "packages/opencode/test/AGENTS.md",
+    "packages/opencode/src/session/llm/AGENTS.md",
+    "specs/v2/session.md",
+    "specs/v2/instructions.md",
+    "packages/core/package.json",
+    "packages/core/src/session/context-epoch.ts",
+    "packages/core/src/session/history.ts",
+    "packages/core/src/session/compaction.ts",
+    "packages/core/src/system-context/index.ts",
+    "packages/core/src/system-context/registry.ts",
+    "packages/core/src/system-context/builtins.ts",
+    "packages/core/src/instruction-context.ts",
+    "packages/core/src/skill/guidance.ts",
+    "packages/core/src/reference/guidance.ts",
+    "packages/core/src/effect/app-node-builder.ts",
+    "packages/core/src/effect/app-node-platform.ts",
+    "packages/core/src/effect/app-node.ts",
+    "packages/core/src/effect/keyed-mutex.ts",
+    "packages/core/src/effect/layer-node.ts",
+    "packages/core/src/effect/memo-map.ts",
+    "packages/core/src/effect/runtime.ts",
+    "packages/core/src/effect/service-use.ts",
+    "packages/core/src/location.ts",
+    "packages/core/src/location-services.ts",
+    "packages/core/src/location-service-map.ts",
+    "packages/schema/src/location.ts",
+    "packages/opencode/src/effect/app-node-builder-v1.ts",
+    "packages/opencode/src/effect/app-runtime.ts",
+    "packages/opencode/src/effect/bootstrap-runtime.ts",
+    "packages/opencode/src/effect/bridge.ts",
+    "packages/opencode/src/effect/config-service.ts",
+    "packages/opencode/src/effect/instance-ref.ts",
+    "packages/opencode/src/effect/instance-registry.ts",
+    "packages/opencode/src/effect/instance-state.ts",
+    "packages/opencode/src/effect/promise.ts",
+    "packages/opencode/src/effect/run-service.ts",
+    "packages/opencode/src/effect/runner.ts",
+    "packages/opencode/src/effect/runtime-flags.ts",
+    "packages/opencode/src/session/instruction.ts",
+    "packages/opencode/src/session/system.ts",
+    "packages/opencode/src/session/reminders.ts",
+    "packages/opencode/src/project/bootstrap.ts",
+    "packages/core/test/system-context/index.test.ts",
+    "packages/core/test/system-context/registry.test.ts",
+    "packages/core/test/system-context/builtins.test.ts",
+    "packages/core/test/instruction-context.test.ts",
+    "packages/core/test/session-compaction.test.ts",
+    "packages/core/test/session-history.test.ts",
+    "packages/core/test/effect/layer-node/layer-node.test.ts",
+    "packages/core/test/effect/layer-node/layer-node-types.test.ts",
+    "packages/core/test/effect/layer-node/node-build.test.ts",
+    "packages/core/test/effect/keyed-mutex.test.ts",
+    "packages/core/test/lib/effect.ts",
+    "patches/effect@4.0.0-beta.83.patch"
+  ],
+  "sampled_paths": [
+    {
+      "path": "CONTEXT.md",
+      "ranges": [
+        "1-145",
+        "148-225"
+      ],
+      "reason": "엔진 용어/Context 및 Effect embedded 수명 관련; SDK IR 세부는 05 경계"
+    },
+    {
+      "path": "packages/core/src/session/runner/llm.ts",
+      "ranges": [
+        "90-420"
+      ],
+      "reason": "context admission·compaction·provider turn scope 통합 계약"
+    },
+    {
+      "path": "packages/core/src/session/projector.ts",
+      "ranges": [
+        "180-265",
+        "338-405"
+      ],
+      "reason": "Moved, ContextUpdated, Compaction.Ended projection 경계"
+    },
+    {
+      "path": "packages/core/src/session/message-updater.ts",
+      "ranges": [
+        "100-180",
+        "370-394"
+      ],
+      "reason": "System update와 compaction checkpoint projection"
+    },
+    {
+      "path": "packages/core/src/session/runner/to-llm-message.ts",
+      "ranges": [
+        "130-171"
+      ],
+      "reason": "System 및 compaction checkpoint lowering"
+    },
+    {
+      "path": "packages/core/src/session/sql.ts",
+      "ranges": [
+        "160-176"
+      ],
+      "reason": "epoch 영속 계약; 상세 SQL/migration 05 담당"
+    },
+    {
+      "path": "packages/core/src/fs-util.ts",
+      "ranges": [
+        "48-99",
+        "152-181",
+        "190-274"
+      ],
+      "reason": "instruction canonical resolution·safe read·upward 순서"
+    },
+    {
+      "path": "packages/core/test/session-runner.test.ts",
+      "ranges": [
+        "650-1205",
+        "1214-1375"
+      ],
+      "reason": "context admission/agent-system/model switch/compaction 및 overflow 테스트 정적 검토"
+    },
+    {
+      "path": "packages/opencode/src/session/prompt.ts",
+      "ranges": [
+        "635-750",
+        "1248-1286"
+      ],
+      "reason": "V1 user.system·Instruction cleanup·system 조립"
+    },
+    {
+      "path": "packages/opencode/src/session/llm.ts",
+      "ranges": [
+        "88-175"
+      ],
+      "reason": "request prep 및 callback bridge 경계"
+    },
+    {
+      "path": "packages/opencode/src/session/llm/request.ts",
+      "ranges": [
+        "48-112"
+      ],
+      "reason": "V1 system 재조립/transform"
+    },
+    {
+      "path": "packages/opencode/src/tool/read.ts",
+      "ranges": [
+        "229-254",
+        "300-341",
+        "344-386"
+      ],
+      "reason": "nested instruction resolve와 persisted read metadata 경계"
+    },
+    {
+      "path": "packages/opencode/src/project/instance-store.ts",
+      "ranges": [
+        "95-180"
+      ],
+      "reason": "InstanceState dispose/reload trigger"
+    },
+    {
+      "path": "package.json",
+      "ranges": [
+        "7-17",
+        "34-66",
+        "161"
+      ],
+      "reason": "Bun/Effect pinned version 및 patch 적용 범위"
+    }
+  ],
+  "excluded_paths": [
+    {
+      "path": "packages/core/src/effect/dfdf",
+      "reason": "읽어 확인한 103-byte 임시 editor-save 안내 문자열; TS 모듈·runtime 진입점 아님"
+    },
+    {
+      "path": "packages/core/src/database/migration/*",
+      "reason": "epoch table 계약만 검토; migration/SQL 상세는 05 담당"
+    },
+    {
+      "path": "packages/core/src/tool/*",
+      "reason": "권한·도구·외부 프로세스 leaf 수명 상세 02 담당; turn scoped 소유 경계만 조사"
+    },
+    {
+      "path": "packages/opencode/src/session/compaction.ts",
+      "reason": "V1 compaction 상세는 형제 v1_engine 담당"
+    }
+  ],
+  "test_runs": [
+    {
+      "scope": "isolated-original-tests",
+      "runtime": "Bun 1.3.14; effect 4.0.0-beta.83",
+      "source_files_unchanged": true,
+      "test_edits": "각 테스트 @opencode-ai/core import 1줄만 상대경로로 치환; 원본 test/lib/effect.ts unchanged",
+      "paths": [
+        "packages/core/test/system-context/index.test.ts",
+        "packages/core/test/effect/keyed-mutex.test.ts",
+        "packages/core/test/effect/layer-node/layer-node.test.ts"
+      ],
+      "pass": 34,
+      "fail": 0,
+      "expect_calls": 52,
+      "workspace": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/opencode-01-engine-7z3udhu2/context-effect",
+      "effect_patch_applied": false,
+      "effect_patch_note": "HTTP SSE identifier-only patch; tests do not exercise it"
+    }
+  ],
+  "unverified_points": [
+    "Core package typecheck 및 LayerNode type-level assertions 미실행",
+    "production LocationServiceMap 전체 graph·TTL 만료 정리 통합실행 없음",
+    "registry/builtins/InstructionContext 및 DB/history/runner integration tests 정적 검토만",
+    "epoch reset 호출자는 전체 core rg에서 없음: 실제 move/restart destination rebaseline 미실행",
+    "baseline/tools budget dominant 상황 automatic compaction 반복 가능성 실행 미검증",
+    "기존 Location layer compaction config hot-reload 반영 미확인",
+    "epoch direct stored baseline/snapshot의 EventV2 replay/replication 재구성 보장 미검증"
+  ],
+  "cross_area_questions": [
+    {
+      "area": "05-data-api",
+      "question": "직접 저장하는 epoch baseline/snapshot의 event replay/replication 범위와 moved epoch reset 부재 확인"
+    },
+    {
+      "area": "06-extensions",
+      "question": "Location layer config snapshot 및 compaction settings hot reload, plugin ContextSource registration/reload 수명 계획"
+    },
+    {
+      "area": "02-tools",
+      "question": "leaf process/file resource cleanup 및 비가역 side effect와 turn Scope 종료 계약"
+    },
+    {
+      "area": "08-build-ops",
+      "question": "convenience ManagedRuntime dispose 미노출과 application/daemon 종료 entrypoint 실제 cleanup"
+    }
+  ]
+}

@@ -1,0 +1,715 @@
+{
+  "source_commit": "907b3bc518fa48e90e8ec24dd327d13eee71c36c",
+  "source_repository": "https://github.com/anomalyco/opencode",
+  "source_checkout": "/Users/yakisoba0728/Documents/GitHub/opencode",
+  "branch": "dev",
+  "analysis_date": "2026-10-04",
+  "timezone": "Asia/Seoul",
+  "area": "01-engine: 에이전트 엔진과 세션 실행",
+  "report": "01-engine.md",
+  "coverage_semantics": {
+    "reviewed_paths": "담당 모듈의 동작·상태·오류·수명 또는 해당 테스트를 실질적으로 읽음. byte-for-byte 구현 복사 여부는 실행 metadata로 별도 표시.",
+    "sampled_paths": "호출자·제공자 경계 또는 대표 시나리오의 필요한 구간을 읽음. 전체 파일/디렉터리 정밀 검토를 뜻하지 않음.",
+    "excluded_paths": "아래 이유에 따른 세부 조사 제외. reviewed/sampled에 명시한 예외 경로는 제외하지 않음."
+  },
+  "reviewed_paths": [
+    "AGENTS.md",
+    "package.json",
+    "packages/core/bunfig.toml",
+    "packages/core/package.json",
+    "packages/core/src/agent.ts",
+    "packages/core/src/effect/app-node-builder.ts",
+    "packages/core/src/effect/app-node-platform.ts",
+    "packages/core/src/effect/app-node.ts",
+    "packages/core/src/effect/keyed-mutex.ts",
+    "packages/core/src/effect/layer-node.ts",
+    "packages/core/src/effect/memo-map.ts",
+    "packages/core/src/effect/runtime.ts",
+    "packages/core/src/effect/service-use.ts",
+    "packages/core/src/event.ts",
+    "packages/core/src/instruction-context.ts",
+    "packages/core/src/location-service-map.ts",
+    "packages/core/src/location-services.ts",
+    "packages/core/src/location.ts",
+    "packages/core/src/reference/guidance.ts",
+    "packages/core/src/session.ts",
+    "packages/core/src/session/compaction.ts",
+    "packages/core/src/session/context-epoch.ts",
+    "packages/core/src/session/error.ts",
+    "packages/core/src/session/event.ts",
+    "packages/core/src/session/execution.ts",
+    "packages/core/src/session/execution/local.ts",
+    "packages/core/src/session/history.ts",
+    "packages/core/src/session/info.ts",
+    "packages/core/src/session/input.ts",
+    "packages/core/src/session/message-updater.ts",
+    "packages/core/src/session/message.ts",
+    "packages/core/src/session/projector.ts",
+    "packages/core/src/session/prompt.ts",
+    "packages/core/src/session/revert.ts",
+    "packages/core/src/session/run-coordinator.ts",
+    "packages/core/src/session/runner/index.ts",
+    "packages/core/src/session/runner/llm.ts",
+    "packages/core/src/session/runner/max-steps.ts",
+    "packages/core/src/session/runner/model.ts",
+    "packages/core/src/session/runner/publish-llm-event.ts",
+    "packages/core/src/session/runner/to-llm-message.ts",
+    "packages/core/src/session/schema.ts",
+    "packages/core/src/session/sql.ts",
+    "packages/core/src/session/store.ts",
+    "packages/core/src/session/todo.ts",
+    "packages/core/src/skill/guidance.ts",
+    "packages/core/src/system-context/builtins.ts",
+    "packages/core/src/system-context/index.ts",
+    "packages/core/src/system-context/registry.ts",
+    "packages/core/src/tool/AGENTS.md",
+    "packages/core/src/tool/builtins.ts",
+    "packages/core/src/tool/registry.ts",
+    "packages/core/test/agent.test.ts",
+    "packages/core/test/effect/keyed-mutex.test.ts",
+    "packages/core/test/effect/layer-node/layer-node-types.test.ts",
+    "packages/core/test/effect/layer-node/layer-node.test.ts",
+    "packages/core/test/effect/layer-node/node-build.test.ts",
+    "packages/core/test/instruction-context.test.ts",
+    "packages/core/test/lib/effect.ts",
+    "packages/core/test/session-compaction.test.ts",
+    "packages/core/test/session-history.test.ts",
+    "packages/core/test/session-run-coordinator.test.ts",
+    "packages/core/test/session-runner-message.test.ts",
+    "packages/core/test/session-runner-model.test.ts",
+    "packages/core/test/session-runner-recorded.test.ts",
+    "packages/core/test/session-runner-tool-events.test.ts",
+    "packages/core/test/session-runner-tool-registry.test.ts",
+    "packages/core/test/session-runner.test.ts",
+    "packages/core/test/system-context/builtins.test.ts",
+    "packages/core/test/system-context/index.test.ts",
+    "packages/core/test/system-context/registry.test.ts",
+    "packages/opencode/AGENTS.md",
+    "packages/opencode/src/agent/agent.ts",
+    "packages/opencode/src/agent/subagent-permissions.ts",
+    "packages/opencode/src/background/job.ts",
+    "packages/opencode/src/effect/app-node-builder-v1.ts",
+    "packages/opencode/src/effect/app-runtime.ts",
+    "packages/opencode/src/effect/bootstrap-runtime.ts",
+    "packages/opencode/src/effect/bridge.ts",
+    "packages/opencode/src/effect/config-service.ts",
+    "packages/opencode/src/effect/instance-ref.ts",
+    "packages/opencode/src/effect/instance-registry.ts",
+    "packages/opencode/src/effect/instance-state.ts",
+    "packages/opencode/src/effect/promise.ts",
+    "packages/opencode/src/effect/run-service.ts",
+    "packages/opencode/src/effect/runner.ts",
+    "packages/opencode/src/effect/runtime-flags.ts",
+    "packages/opencode/src/event-v2-bridge.ts",
+    "packages/opencode/src/project/bootstrap.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/AGENTS.md",
+    "packages/opencode/src/session/compaction.ts",
+    "packages/opencode/src/session/instruction.ts",
+    "packages/opencode/src/session/llm.ts",
+    "packages/opencode/src/session/llm/AGENTS.md",
+    "packages/opencode/src/session/overflow.ts",
+    "packages/opencode/src/session/processor.ts",
+    "packages/opencode/src/session/prompt.ts",
+    "packages/opencode/src/session/reminders.ts",
+    "packages/opencode/src/session/retry.ts",
+    "packages/opencode/src/session/revert.ts",
+    "packages/opencode/src/session/run-state.ts",
+    "packages/opencode/src/session/session.ts",
+    "packages/opencode/src/session/status.ts",
+    "packages/opencode/src/session/summary.ts",
+    "packages/opencode/src/session/system.ts",
+    "packages/opencode/src/tool/task.ts",
+    "packages/opencode/test/AGENTS.md",
+    "packages/opencode/test/agent/plan-mode-subagent-bypass.test.ts",
+    "packages/opencode/test/effect/runner.test.ts",
+    "packages/opencode/test/lib/effect.ts",
+    "packages/opencode/test/session/structured-output-integration.test.ts",
+    "packages/schema/src/location.ts",
+    "patches/effect@4.0.0-beta.83.patch",
+    "specs/v2/instructions.md",
+    "specs/v2/session.md"
+  ],
+  "sampled_paths": [
+    "CONTEXT.md",
+    "packages/cli/src/commands/handlers/default.ts",
+    "packages/cli/src/commands/handlers/serve.ts",
+    "packages/cli/src/tui.ts",
+    "packages/core/src/background-job.ts",
+    "packages/core/src/control-plane/move-session.ts",
+    "packages/core/src/fs-util.ts",
+    "packages/core/src/plugin/agent.ts",
+    "packages/core/src/v1/session.ts",
+    "packages/core/test/session-create.test.ts",
+    "packages/core/test/session-projector.test.ts",
+    "packages/core/test/session-prompt.test.ts",
+    "packages/core/test/session-tool-progress.test.ts",
+    "packages/opencode/src/cli/cmd/github.handler.ts",
+    "packages/opencode/src/cli/cmd/run.ts",
+    "packages/opencode/src/project/instance-store.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/session.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/server.ts",
+    "packages/opencode/src/session/llm/request.ts",
+    "packages/opencode/src/session/message-v2.ts",
+    "packages/opencode/src/session/tools.ts",
+    "packages/opencode/src/tool/read.ts",
+    "packages/opencode/test/agent/agent.test.ts",
+    "packages/opencode/test/session/compaction.test.ts",
+    "packages/opencode/test/session/processor-effect.test.ts",
+    "packages/opencode/test/session/prompt.test.ts",
+    "packages/opencode/test/session/snapshot-tool-race.test.ts",
+    "packages/opencode/test/session/structured-output.test.ts",
+    "packages/opencode/test/tool/task.test.ts",
+    "packages/protocol/src/groups/session.ts",
+    "packages/schema/src/prompt-input.ts",
+    "packages/schema/src/prompt.ts",
+    "packages/schema/src/v1/session.ts",
+    "packages/sdk-next/src/opencode.ts",
+    "packages/server/src/handlers/session.ts",
+    "packages/server/src/routes.ts",
+    "packages/tui/src/component/prompt/index.tsx"
+  ],
+  "excluded_paths": [
+    {
+      "path": "packages/core/src/database",
+      "reason": "05-data-api 주 담당. 엔진의 transaction·projection·history 사용 계약만 확인."
+    },
+    {
+      "path": "packages/effect-drizzle-sqlite",
+      "reason": "05-data-api 주 담당. 엔진의 transaction·projection·history 사용 계약만 확인."
+    },
+    {
+      "path": "packages/effect-sqlite-node",
+      "reason": "05-data-api 주 담당. 엔진의 transaction·projection·history 사용 계약만 확인."
+    },
+    {
+      "path": "packages/llm",
+      "reason": "03-models 주 담당. LLMClient Request/Event, model resolver, legacy LLM 호출 경계만 확인."
+    },
+    {
+      "path": "packages/opencode/src/provider",
+      "reason": "03-models 주 담당. LLMClient Request/Event, model resolver, legacy LLM 호출 경계만 확인."
+    },
+    {
+      "path": "packages/core/src/tool",
+      "reason": "02-tools 주 담당. registry/materialization/settlement 및 task/subagent engine 호출 경계는 예외로 조사."
+    },
+    {
+      "path": "packages/opencode/src/tool",
+      "reason": "02-tools 주 담당. registry/materialization/settlement 및 task/subagent engine 호출 경계는 예외로 조사."
+    },
+    {
+      "path": "packages/tui",
+      "reason": "04-tui 주 담당. 일반 submit과 CLI 연결만 표본 조사."
+    },
+    {
+      "path": "packages/core/src/plugin",
+      "reason": "06-extensions 주 담당. context/agent contribution, move placement 및 legacy hooks를 엔진 경계에서 확인."
+    },
+    {
+      "path": "packages/opencode/src/mcp",
+      "reason": "06-extensions 주 담당. context/agent contribution, move placement 및 legacy hooks를 엔진 경계에서 확인."
+    },
+    {
+      "path": "packages/opencode/src/lsp",
+      "reason": "06-extensions 주 담당. context/agent contribution, move placement 및 legacy hooks를 엔진 경계에서 확인."
+    },
+    {
+      "path": "packages/core/src/control-plane",
+      "reason": "06-extensions 주 담당. context/agent contribution, move placement 및 legacy hooks를 엔진 경계에서 확인."
+    },
+    {
+      "path": "packages/core/test/fixtures/recordings/session-runner/openai-chat-streams-text.json",
+      "reason": "recorded runner test의 cassette 사용 방식만 확인; payload 전체와 production provider 동작을 검증하지 않음."
+    },
+    {
+      "path": "packages/core/src/effect/dfdf",
+      "reason": "103-byte editor 안내 문자열을 읽어 확인함; TS 모듈·runtime 진입점이 아님."
+    },
+    {
+      "path": "specs/effect/migration.md",
+      "reason": "packages/opencode/AGENTS.md가 참조하지만 고정 커밋 checkout에 존재하지 않음. 실제 Effect code/tests를 조사함.",
+      "exists_in_checkout": false
+    }
+  ],
+  "unverified_points": [
+    "원본 package 단위 테스트 전체, DB migrations/native binding/preload 및 typecheck 미실행.",
+    "actual provider 호출, production LocationServiceMap 전체 구성과 HTTP/TUI/server end-to-end 미실행.",
+    "프로세스 crash/재시작, distributed execution ownership 및 promoted input의 provider dispatch ambiguity를 실행 검증하지 않음. 자동 post-crash continuation은 명세에서도 deferred.",
+    "실행 중 move의 즉시 interrupt·side-effect fencing 및 destination epoch 재초기화 경로는 현재 코드에서 확인되지 않음. 관련 runner 테스트는 이후 source-location fence만 검증.",
+    "SystemContext registry/builtins/instruction discovery와 DB epoch transaction의 통합 테스트 미실행.",
+    "tool child defect 시 sibling finalizer/settlement ordering, leaf side-effect 취소/보상은 정적 경로만 추적.",
+    "native V2 Step.Ended의 Session aggregate accounting과 compaction summary cost accounting은 실행 검증하지 않음.",
+    "과대 baseline/tool definitions로 automatic compaction이 반복되는 가능성은 정적 질문이며 재현하지 않음.",
+    "새 CLI native transport와 기존 TUI legacy submit 사이 전체 호환 수준은 엔진 영역에서 정적으로 확정하지 않음.",
+    "promotion 이후 existing epoch/model 준비 실패와 exact retry advisory no-op의 결합은 정적 추적 결과; 해당 조합 E2E 미실행. explicit resume/new input 이전에 실패 원인 해소 필요.",
+    "Core package typecheck 및 LayerNode type-level assertions 미실행",
+    "production LocationServiceMap 전체 graph·TTL 만료 정리 통합실행 없음",
+    "registry/builtins/InstructionContext 및 DB/history/runner integration tests 정적 검토만",
+    "epoch reset 호출자는 전체 core rg에서 없음: 실제 move/restart destination rebaseline 미실행",
+    "baseline/tools budget dominant 상황 automatic compaction 반복 가능성 실행 미검증",
+    "기존 Location layer compaction config hot-reload 반영 미확인",
+    "epoch direct stored baseline/snapshot의 EventV2 replay/replication 재구성 보장 미검증"
+  ],
+  "cross_area_questions": [
+    {
+      "area": "02-tools",
+      "questions": [
+        "native task/subagent port, parent ownership, background child와 cancellation의 계획/현재 경계는 무엇인가?",
+        "같은 Location의 다중 Session에서 file mutation 직렬화와 turn snapshot attribution은 어디까지 보장하는가?",
+        "취소된 tool side effect의 정리와 output retention 수명은 어디까지인가?"
+      ]
+    },
+    {
+      "area": "03-models",
+      "questions": [
+        "native resolver protocol/variant/OAuth/provider-specific 지원은 V1 경로와 어디까지 동등한가?",
+        "provider-error event와 raw LLMError의 caller/transcript 채널 차이를 adapter가 어떻게 보장하는가?",
+        "native runner cost:0 및 compaction summary usage accounting은 어디서 계산하는가?"
+      ]
+    },
+    {
+      "area": "04-tui,08-build-ops",
+      "questions": [
+        "새 CLI native-only server transport와 legacy TUI session.submit의 실제 호환 및 기본 배포 binary의 경로는 무엇인가?"
+      ]
+    },
+    {
+      "area": "05-data-api",
+      "questions": [
+        "native V2 Step.Ended의 Session aggregate tokens/cost 누적 경로를 보강할 계획이 있는가?",
+        "epoch operational snapshot은 replay/replication 시 어떻게 복원되는가?",
+        "move 후 epoch reset 및 active drain과 revert stage/commit의 정책은 어디에서 강제되는가?"
+      ]
+    },
+    {
+      "area": "06-extensions",
+      "questions": [
+        "configured/remote/nested instruction, plugin context registration 및 hot reload의 native 범위는 어디까지인가?",
+        "V1 message/system/parameter/header hooks와 native selected-agent/tool-policy contribution의 parity는 무엇인가?"
+      ]
+    },
+    {
+      "area": "08-build-ops",
+      "questions": [
+        "core convenience runtime의 dispose 미노출과 application/daemon 종료 entrypoint의 실제 cleanup을 어디까지 확인했는가?"
+      ]
+    }
+  ],
+  "executed_validation": {
+    "mode": "독립 임시환경에 구현과 원본 테스트 복사; 공용 소스 checkout 변경 없음",
+    "temporary_environment": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/opencode-01-engine-7z3udhu2",
+    "bun": "1.3.14",
+    "effect": "4.0.0-beta.83",
+    "passed": 75,
+    "failed": 0,
+    "expect_calls": 137,
+    "implementation_copy_audit": [
+      {
+        "source": "packages/core/src/session/run-coordinator.ts",
+        "exact_source_copy": true,
+        "sha256": "ed7c5f121e37298dcab5a1dfc9f8e4855faeabb1fe66c2df3cbc691a8e323f6e"
+      },
+      {
+        "source": "packages/opencode/src/effect/runner.ts",
+        "exact_source_copy": true,
+        "sha256": "a5c3379591415574f3fb992ffd40659f07c08e5a4fb0f251068baecb0bd6107f"
+      },
+      {
+        "source": "packages/core/src/system-context/index.ts",
+        "exact_source_copy": true,
+        "sha256": "11ec26b66880e8f538f67a6f3110df3690cd245fec6e9ebd02908e66c05c80ec"
+      },
+      {
+        "source": "packages/core/src/effect/keyed-mutex.ts",
+        "exact_source_copy": true,
+        "sha256": "e5a8e2b09efe31d44173872ced31e4f5eee7b2632f52511fde30ca391c63f09d"
+      },
+      {
+        "source": "packages/core/src/effect/layer-node.ts",
+        "exact_source_copy": true,
+        "sha256": "eededbc130f4ecdcdda906099be5aca47496cd58d3a15897ea17ab13f4a3a758"
+      }
+    ],
+    "suites": [
+      {
+        "test": "packages/core/test/session-run-coordinator.test.ts",
+        "passed": 16,
+        "failed": 0,
+        "expect_calls": 25,
+        "command": "./node_modules/.bin/bun test ./test/session-run-coordinator.test.ts",
+        "adaptation": "core source import 하나를 relative import로 변경; 원본 core test/lib/effect.ts 유지"
+      },
+      {
+        "test": "packages/opencode/test/effect/runner.test.ts",
+        "passed": 25,
+        "failed": 0,
+        "expect_calls": 60,
+        "command": "../node_modules/.bin/bun test runner.test.ts --timeout 30000",
+        "adaptation": "test imports 두 개를 relative imports로 변경; 원본 V1 test helper의 isolatedRun 및 it.live 부분만 추출"
+      },
+      {
+        "test": "packages/core/test/system-context/index.test.ts",
+        "passed": 18,
+        "failed": 0,
+        "adaptation": "source import 하나를 relative로 변경; 원본 core Effect helper 유지"
+      },
+      {
+        "test": "packages/core/test/effect/keyed-mutex.test.ts",
+        "passed": 3,
+        "failed": 0,
+        "adaptation": "source import 하나를 relative로 변경; 원본 core Effect helper 유지"
+      },
+      {
+        "test": "packages/core/test/effect/layer-node/layer-node.test.ts",
+        "passed": 13,
+        "failed": 0,
+        "adaptation": "source import 하나를 relative로 변경; 원본 core Effect helper 유지"
+      }
+    ],
+    "context_effect_combined_expect_calls": 52,
+    "not_executed": [
+      "full package test suites",
+      "DB/native binding/preload integration",
+      "type-level LayerNode tests",
+      "typecheck",
+      "actual provider calls",
+      "TUI/server/CLI end-to-end",
+      "crash/restart experiments"
+    ],
+    "supplemental_probes": [
+      {
+        "name": "Schema.Struct Location-like ref 및 LayerMap value-key reuse",
+        "command": "./node_modules/.bin/bun location-key-probe.ts",
+        "result": {
+          "equalRefs": true,
+          "sameHash": true,
+          "firstSerial": 1,
+          "reusedIdentitySerial": 1,
+          "newEqualValueSerial": 1,
+          "acquisitions": 1
+        },
+        "scope": "Effect 4.0.0-beta.83 library-level probe; production Location graph 통합 검증 및 원본 테스트 75개 수에 포함하지 않음"
+      }
+    ],
+    "effect_repository_patch_applied": false,
+    "effect_repository_patch_note": "patches/effect@4.0.0-beta.83.patch는 HTTP SSE identifier 수정; 격리 테스트는 해당 SSE API를 사용하지 않음.",
+    "context_effect_command": "../node_modules/.bin/bun test test/system-context/index.test.ts test/effect/keyed-mutex.test.ts test/effect/layer-node/layer-node.test.ts",
+    "v1_executed_test_names": [
+      "ensureRunning starts work and returns result",
+      "ensureRunning propagates work failures",
+      "concurrent callers share the same run",
+      "concurrent callers all receive same error",
+      "ensureRunning can be called again after previous run completes",
+      "second ensureRunning ignores new work if already running",
+      "cancel interrupts running work",
+      "cancel on idle is a no-op",
+      "cancel with onInterrupt resolves callers gracefully",
+      "cancel with queued callers resolves all",
+      "work can be started after cancel",
+      "cancel does not deadlock when replacement work starts before interrupted run exits",
+      "shell runs exclusively",
+      "shell rejects when run is active",
+      "shell rejects when another shell is running",
+      "cancel interrupts shell",
+      "cancel does not mask shell defects",
+      "ensureRunning queues behind shell then runs after",
+      "multiple ensureRunning callers share the queued run behind shell",
+      "cancel during shell_then_run cancels both",
+      "onIdle fires when returning to idle from running",
+      "onIdle fires on cancel",
+      "onBusy fires when shell starts",
+      "busy is true during run",
+      "busy is true during shell"
+    ]
+  },
+  "sampled_path_details": [
+    {
+      "path": "CONTEXT.md",
+      "ranges": [
+        "1-145",
+        "148-225"
+      ],
+      "reason": "엔진 용어/Context 및 Effect embedded 수명 관련; SDK IR 세부는 05 경계"
+    },
+    {
+      "path": "packages/core/src/session/runner/llm.ts",
+      "ranges": [
+        "90-420"
+      ],
+      "reason": "context admission·compaction·provider turn scope 통합 계약"
+    },
+    {
+      "path": "packages/core/src/session/projector.ts",
+      "ranges": [
+        "180-265",
+        "338-405"
+      ],
+      "reason": "Moved, ContextUpdated, Compaction.Ended projection 경계"
+    },
+    {
+      "path": "packages/core/src/session/message-updater.ts",
+      "ranges": [
+        "100-180",
+        "370-394"
+      ],
+      "reason": "System update와 compaction checkpoint projection"
+    },
+    {
+      "path": "packages/core/src/session/runner/to-llm-message.ts",
+      "ranges": [
+        "130-171"
+      ],
+      "reason": "System 및 compaction checkpoint lowering"
+    },
+    {
+      "path": "packages/core/src/session/sql.ts",
+      "ranges": [
+        "160-176"
+      ],
+      "reason": "epoch 영속 계약; 상세 SQL/migration 05 담당"
+    },
+    {
+      "path": "packages/core/src/fs-util.ts",
+      "ranges": [
+        "48-99",
+        "152-181",
+        "190-274"
+      ],
+      "reason": "instruction canonical resolution·safe read·upward 순서"
+    },
+    {
+      "path": "packages/core/test/session-runner.test.ts",
+      "ranges": [
+        "650-1205",
+        "1214-1375"
+      ],
+      "reason": "context admission/agent-system/model switch/compaction 및 overflow 테스트 정적 검토"
+    },
+    {
+      "path": "packages/opencode/src/session/prompt.ts",
+      "ranges": [
+        "635-750",
+        "1248-1286"
+      ],
+      "reason": "V1 user.system·Instruction cleanup·system 조립"
+    },
+    {
+      "path": "packages/opencode/src/session/llm.ts",
+      "ranges": [
+        "88-175"
+      ],
+      "reason": "request prep 및 callback bridge 경계"
+    },
+    {
+      "path": "packages/opencode/src/session/llm/request.ts",
+      "ranges": [
+        "48-112"
+      ],
+      "reason": "V1 system 재조립/transform"
+    },
+    {
+      "path": "packages/opencode/src/tool/read.ts",
+      "ranges": [
+        "229-254",
+        "300-341",
+        "344-386"
+      ],
+      "reason": "nested instruction resolve와 persisted read metadata 경계"
+    },
+    {
+      "path": "packages/opencode/src/project/instance-store.ts",
+      "ranges": [
+        "95-180"
+      ],
+      "reason": "InstanceState dispose/reload trigger"
+    },
+    {
+      "path": "package.json",
+      "ranges": [
+        "7-17",
+        "34-66",
+        "161"
+      ],
+      "reason": "Bun/Effect pinned version 및 patch 적용 범위"
+    },
+    {
+      "path": "packages/opencode/src/session/session.ts",
+      "ranges": [
+        "430-915"
+      ]
+    },
+    {
+      "path": "packages/opencode/src/session/message-v2.ts",
+      "ranges": [
+        "1-605",
+        "640-741"
+      ]
+    },
+    {
+      "path": "packages/opencode/src/session/tools.ts",
+      "ranges": [
+        "1-185",
+        "260-385"
+      ]
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts",
+      "ranges": [
+        "35-442"
+      ]
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/groups/session.ts",
+      "ranges": [
+        "SessionPaths and prompt/abort/command/shell/summarize definitions"
+      ]
+    },
+    {
+      "path": "packages/opencode/src/cli/cmd/run.ts",
+      "ranges": [
+        "828-878"
+      ]
+    },
+    {
+      "path": "packages/opencode/src/cli/cmd/github.handler.ts",
+      "ranges": [
+        "378-388",
+        "897-935"
+      ]
+    },
+    {
+      "path": "packages/core/src/session/projector.ts",
+      "ranges": [
+        "legacy SessionV1 projector registrations 210-335",
+        "455 node dependencies"
+      ]
+    },
+    {
+      "path": "packages/core/src/event.ts",
+      "ranges": [
+        "217-419",
+        "615 project registration",
+        "638 global node"
+      ]
+    },
+    {
+      "path": "packages/core/src/background-job.ts",
+      "ranges": [
+        "1-210"
+      ]
+    },
+    {
+      "path": "packages/core/src/v1/session.ts",
+      "ranges": [
+        "type reexports/errors"
+      ]
+    },
+    {
+      "path": "packages/schema/src/v1/session.ts",
+      "ranges": [
+        "502-506",
+        "596-638"
+      ]
+    },
+    {
+      "path": "packages/opencode/test/session/prompt.test.ts",
+      "ranges": [
+        "447-1499",
+        "1539-1987",
+        "2058-2169",
+        "2386-2470",
+        "remaining test names"
+      ]
+    },
+    {
+      "path": "packages/opencode/test/session/processor-effect.test.ts",
+      "ranges": [
+        "240-1171",
+        "setup/test names"
+      ]
+    },
+    {
+      "path": "packages/opencode/test/session/compaction.test.ts",
+      "ranges": [
+        "382-1663",
+        "setup/test names"
+      ]
+    },
+    {
+      "path": "packages/opencode/test/session/structured-output.test.ts",
+      "ranges": [
+        "1-298",
+        "remaining test names"
+      ]
+    },
+    {
+      "path": "packages/opencode/test/session/snapshot-tool-race.test.ts",
+      "ranges": [
+        "126-189"
+      ]
+    },
+    {
+      "path": "packages/opencode/test/agent/agent.test.ts",
+      "ranges": [
+        "config/mode/permission tests and steps/maxSteps normalization",
+        "remaining test names"
+      ]
+    },
+    {
+      "path": "packages/opencode/test/tool/task.test.ts",
+      "ranges": [
+        "1-275",
+        "all test names"
+      ]
+    }
+  ],
+  "asset_policy": {
+    "prompt_text_assets": "V1 provider/agent prompt .txt는 로딩·사용 위치와 대표 텍스트를 표본 확인; 모든 payload를 TS 구현처럼 전체 검토하지 않음.",
+    "recordings": "recorded test의 사용 방식만 확인; cassette payload 전체 미검토.",
+    "editor_artifacts": "core/effect/dfdf는 실행 로직이 없는 103-byte editor 안내 문자열."
+  },
+  "static_test_review_details": {
+    "v1": [
+      "prompt.test.ts: legacy events; stop/unknown/tool-calls; stop with local tools; concurrent callers and active new user; cancellation before processor creation; subtask and slash-child cancel; shell→loop; missing/read-attachment/order cases",
+      "processor-effect.test.ts: text/reasoning lifecycle; usage overflow; retry states; midstream/network errors; tool completion; 250ms orphan cleanup; interruption",
+      "compaction.test.ts: preserve tail/budget/suffix; overflow replay; previous summary anchoring; plugin context/auto continue; prune/skill; cancellation/summary no tools",
+      "structured-output.test.ts: schema defaults/storage/tool construction; tests titled AI SDK validation only inspect schema and do not execute invalid inputs",
+      "structured-output-integration.test.ts: ANTHROPIC_API_KEY gated live tests; not executed; retryCount test checks persisted format only",
+      "agent.test.ts: maxSteps→steps normalization/config; not hard stop behavior",
+      "plan-mode-subagent-bypass.test.ts: child own agent permissions and inherited session deny ceiling",
+      "tool/task.test.ts: task resume/errors/depth/permissions; abort; background promotion/extend/delete/cancel; promptOps mocked, so not full child LLM integration",
+      "snapshot-tool-race.test.ts: snapshot captured before real local bash tool execution; not executed"
+    ],
+    "cautions": [
+      "prompt.test.ts v2 prompted/synthetic test and compaction.test.ts v2 projection test are skipped; they are not evidence of current V1 emitting V2 orchestration events",
+      "some overflow tests retain BUG comments while assertions and source implement reserved input headroom; comment text is not current fact",
+      "no complete package suite or remote provider run"
+    ]
+  },
+  "source_checkout_verification": {
+    "head_matches_fixed_commit": true,
+    "current_branch": "dev",
+    "git_status_short": "",
+    "source_edits": false,
+    "source_node_modules_installed_by_this_analysis": false
+  },
+  "supporting_artifacts": [
+    "01-engine.v1-notes.md",
+    "01-engine.v2-runner-notes.md",
+    "01-engine.context-effect-notes.md",
+    "01-engine.context-effect.coverage.json"
+  ],
+  "citation_validation": {
+    "source_commit_pinned_links": 258,
+    "unique_cited_files": 93,
+    "source_file_existence_and_line_bounds_verified": true,
+    "scope": "offline fixed-checkout source validation; URLs not fetched"
+  },
+  "path_statistics": {
+    "reviewed": 115,
+    "sampled": 38,
+    "excluded_entries": 15
+  },
+  "sampled_numeric_range_bounds_verified": true
+}

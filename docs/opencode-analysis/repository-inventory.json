@@ -1,0 +1,328 @@
+{
+  "source_commit": "907b3bc518fa48e90e8ec24dd327d13eee71c36c",
+  "tracked_files": 6646,
+  "packages": [
+    {
+      "path": "artifacts/glm52-rise-video",
+      "name": "glm52-rise-video",
+      "source_files": 8,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "github",
+      "name": "github",
+      "source_files": 0,
+      "workspace_dependencies": [
+        "@opencode-ai/sdk"
+      ]
+    },
+    {
+      "path": ".",
+      "name": "opencode",
+      "source_files": 0,
+      "workspace_dependencies": [
+        "@opencode-ai/plugin",
+        "@opencode-ai/script",
+        "@opencode-ai/sdk"
+      ]
+    },
+    {
+      "path": "packages/app",
+      "name": "@opencode-ai/app",
+      "source_files": 481,
+      "workspace_dependencies": [
+        "@opencode-ai/core",
+        "@opencode-ai/schema",
+        "@opencode-ai/sdk",
+        "@opencode-ai/session-ui",
+        "@opencode-ai/ui"
+      ]
+    },
+    {
+      "path": "packages/cli",
+      "name": "@opencode-ai/cli",
+      "source_files": 17,
+      "workspace_dependencies": [
+        "@opencode-ai/core",
+        "@opencode-ai/sdk",
+        "@opencode-ai/server",
+        "@opencode-ai/tui"
+      ]
+    },
+    {
+      "path": "packages/client",
+      "name": "@opencode-ai/client",
+      "source_files": 12,
+      "workspace_dependencies": [
+        "@opencode-ai/schema",
+        "@opencode-ai/protocol"
+      ]
+    },
+    {
+      "path": "packages/codemode",
+      "name": "@opencode-ai/codemode",
+      "source_files": 26,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/console/app",
+      "name": "@opencode-ai/console-app",
+      "source_files": 283,
+      "workspace_dependencies": [
+        "@opencode-ai/console-core",
+        "@opencode-ai/console-mail",
+        "@opencode-ai/console-resource",
+        "@opencode-ai/ui"
+      ]
+    },
+    {
+      "path": "packages/console/core",
+      "name": "@opencode-ai/console-core",
+      "source_files": 36,
+      "workspace_dependencies": [
+        "@opencode-ai/console-mail",
+        "@opencode-ai/console-resource"
+      ]
+    },
+    {
+      "path": "packages/console/function",
+      "name": "@opencode-ai/console-function",
+      "source_files": 5,
+      "workspace_dependencies": [
+        "@opencode-ai/console-core",
+        "@opencode-ai/console-resource"
+      ]
+    },
+    {
+      "path": "packages/console/mail",
+      "name": "@opencode-ai/console-mail",
+      "source_files": 0,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/console/resource",
+      "name": "@opencode-ai/console-resource",
+      "source_files": 0,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/console/support",
+      "name": "@opencode-ai/console-support",
+      "source_files": 9,
+      "workspace_dependencies": [
+        "@opencode-ai/console-core"
+      ]
+    },
+    {
+      "path": "packages/core",
+      "name": "@opencode-ai/core",
+      "source_files": 323,
+      "workspace_dependencies": [
+        "@opencode-ai/effect-drizzle-sqlite",
+        "@opencode-ai/effect-sqlite-node",
+        "@opencode-ai/llm",
+        "@opencode-ai/schema",
+        "@opencode-ai/plugin"
+      ]
+    },
+    {
+      "path": "packages/desktop",
+      "name": "@opencode-ai/desktop",
+      "source_files": 126,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/effect-drizzle-sqlite",
+      "name": "@opencode-ai/effect-drizzle-sqlite",
+      "source_files": 19,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/effect-sqlite-node",
+      "name": "@opencode-ai/effect-sqlite-node",
+      "source_files": 1,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/enterprise",
+      "name": "@opencode-ai/enterprise",
+      "source_files": 13,
+      "workspace_dependencies": [
+        "@opencode-ai/core",
+        "@opencode-ai/session-ui",
+        "@opencode-ai/ui"
+      ]
+    },
+    {
+      "path": "packages/function",
+      "name": "@opencode-ai/function",
+      "source_files": 2,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/http-recorder",
+      "name": "@opencode-ai/http-recorder",
+      "source_files": 13,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/httpapi-codegen",
+      "name": "@opencode-ai/httpapi-codegen",
+      "source_files": 1,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/llm",
+      "name": "@opencode-ai/llm",
+      "source_files": 56,
+      "workspace_dependencies": [
+        "@opencode-ai/schema"
+      ]
+    },
+    {
+      "path": "packages/opencode",
+      "name": "opencode",
+      "source_files": 409,
+      "workspace_dependencies": [
+        "@opencode-ai/codemode",
+        "@opencode-ai/llm",
+        "@opencode-ai/plugin",
+        "@opencode-ai/protocol",
+        "@opencode-ai/schema",
+        "@opencode-ai/script",
+        "@opencode-ai/sdk",
+        "@opencode-ai/server",
+        "@opencode-ai/tui"
+      ]
+    },
+    {
+      "path": "packages/plugin",
+      "name": "@opencode-ai/plugin",
+      "source_files": 37,
+      "workspace_dependencies": [
+        "@opencode-ai/sdk"
+      ]
+    },
+    {
+      "path": "packages/protocol",
+      "name": "@opencode-ai/protocol",
+      "source_files": 22,
+      "workspace_dependencies": [
+        "@opencode-ai/schema"
+      ]
+    },
+    {
+      "path": "packages/schema",
+      "name": "@opencode-ai/schema",
+      "source_files": 64,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/script",
+      "name": "@opencode-ai/script",
+      "source_files": 1,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/sdk/js",
+      "name": "@opencode-ai/sdk",
+      "source_files": 39,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/sdk-next",
+      "name": "@opencode-ai/sdk-next",
+      "source_files": 3,
+      "workspace_dependencies": [
+        "@opencode-ai/client",
+        "@opencode-ai/core",
+        "@opencode-ai/server"
+      ]
+    },
+    {
+      "path": "packages/server",
+      "name": "@opencode-ai/server",
+      "source_files": 28,
+      "workspace_dependencies": [
+        "@opencode-ai/core",
+        "@opencode-ai/protocol"
+      ]
+    },
+    {
+      "path": "packages/session-ui",
+      "name": "@opencode-ai/session-ui",
+      "source_files": 114,
+      "workspace_dependencies": [
+        "@opencode-ai/core",
+        "@opencode-ai/sdk",
+        "@opencode-ai/ui"
+      ]
+    },
+    {
+      "path": "packages/slack",
+      "name": "@opencode-ai/slack",
+      "source_files": 1,
+      "workspace_dependencies": [
+        "@opencode-ai/sdk"
+      ]
+    },
+    {
+      "path": "packages/stats/app",
+      "name": "@opencode-ai/stats-app",
+      "source_files": 63,
+      "workspace_dependencies": [
+        "@opencode-ai/stats-core",
+        "@opencode-ai/ui"
+      ]
+    },
+    {
+      "path": "packages/stats/core",
+      "name": "@opencode-ai/stats-core",
+      "source_files": 24,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/stats/server",
+      "name": "@opencode-ai/stats-server",
+      "source_files": 1,
+      "workspace_dependencies": [
+        "@opencode-ai/stats-core"
+      ]
+    },
+    {
+      "path": "packages/storybook",
+      "name": "@opencode-ai/storybook",
+      "source_files": 0,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/tui",
+      "name": "@opencode-ai/tui",
+      "source_files": 185,
+      "workspace_dependencies": [
+        "@opencode-ai/core",
+        "@opencode-ai/plugin",
+        "@opencode-ai/sdk",
+        "@opencode-ai/ui"
+      ]
+    },
+    {
+      "path": "packages/ui",
+      "name": "@opencode-ai/ui",
+      "source_files": 1682,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "packages/web",
+      "name": "@opencode-ai/web",
+      "source_files": 683,
+      "workspace_dependencies": []
+    },
+    {
+      "path": "sdks/vscode",
+      "name": "opencode",
+      "source_files": 1,
+      "workspace_dependencies": []
+    }
+  ]
+}

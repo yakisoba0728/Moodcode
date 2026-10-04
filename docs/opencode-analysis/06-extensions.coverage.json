@@ -1,0 +1,865 @@
+{
+  "source_repository": "https://github.com/anomalyco/opencode",
+  "source_checkout": "/Users/yakisoba0728/Documents/GitHub/opencode",
+  "source_commit": "907b3bc518fa48e90e8ec24dd327d13eee71c36c",
+  "source_branch": "dev",
+  "analysis_date": "2026-10-04",
+  "timezone": "Asia/Seoul",
+  "session": "06-extensions",
+  "area": "설정과 플러그인 및 외부 도구 통합",
+  "source_checkout_read_only": true,
+  "reviewed_paths": [
+    ".opencode/agent/triage.md",
+    ".opencode/command/commit.md",
+    ".opencode/command/translate.md",
+    ".opencode/env.d.ts",
+    ".opencode/opencode.jsonc",
+    ".opencode/skills/effect/SKILL.md",
+    ".opencode/skills/rtl-aware-development/SKILL.md",
+    ".opencode/tool/github-pr-search.ts",
+    ".opencode/tool/github-triage.ts",
+    "AGENTS.md",
+    "github/README.md",
+    "github/action.yml",
+    "github/package.json",
+    "packages/core/package.json",
+    "packages/core/src/aisdk.ts",
+    "packages/core/src/command.ts",
+    "packages/core/src/config.ts",
+    "packages/core/src/config/agent.ts",
+    "packages/core/src/config/attachments.ts",
+    "packages/core/src/config/command.ts",
+    "packages/core/src/config/compaction.ts",
+    "packages/core/src/config/experimental.ts",
+    "packages/core/src/config/formatter.ts",
+    "packages/core/src/config/lsp.ts",
+    "packages/core/src/config/markdown.ts",
+    "packages/core/src/config/mcp.ts",
+    "packages/core/src/config/plugin.ts",
+    "packages/core/src/config/plugin/agent.ts",
+    "packages/core/src/config/plugin/command.ts",
+    "packages/core/src/config/plugin/external.ts",
+    "packages/core/src/config/plugin/provider.ts",
+    "packages/core/src/config/plugin/reference.ts",
+    "packages/core/src/config/plugin/skill.ts",
+    "packages/core/src/config/provider.ts",
+    "packages/core/src/config/reference.ts",
+    "packages/core/src/config/tool-output.ts",
+    "packages/core/src/config/watcher.ts",
+    "packages/core/src/control-plane/move-session.ts",
+    "packages/core/src/control-plane/workspace.sql.ts",
+    "packages/core/src/effect/app-node-builder.ts",
+    "packages/core/src/instruction-context.ts",
+    "packages/core/src/integration.ts",
+    "packages/core/src/integration/connection.ts",
+    "packages/core/src/location-service-map.ts",
+    "packages/core/src/location-services.ts",
+    "packages/core/src/npm-config.ts",
+    "packages/core/src/npm.ts",
+    "packages/core/src/plugin.ts",
+    "packages/core/src/plugin/agent.ts",
+    "packages/core/src/plugin/command.ts",
+    "packages/core/src/plugin/host.ts",
+    "packages/core/src/plugin/internal.ts",
+    "packages/core/src/plugin/models-dev.ts",
+    "packages/core/src/plugin/promise.ts",
+    "packages/core/src/plugin/skill.ts",
+    "packages/core/src/plugin/variant.ts",
+    "packages/core/src/reference.ts",
+    "packages/core/src/reference/guidance.ts",
+    "packages/core/src/skill.ts",
+    "packages/core/src/skill/discovery.ts",
+    "packages/core/src/skill/guidance.ts",
+    "packages/core/src/state.ts",
+    "packages/core/src/system-context/builtins.ts",
+    "packages/core/src/tool/AGENTS.md",
+    "packages/core/src/tool/builtins.ts",
+    "packages/core/src/tool/registry.ts",
+    "packages/core/src/tool/skill.ts",
+    "packages/core/src/v1/config/command.ts",
+    "packages/core/src/v1/config/config.ts",
+    "packages/core/src/v1/config/formatter.ts",
+    "packages/core/src/v1/config/lsp.ts",
+    "packages/core/src/v1/config/mcp.ts",
+    "packages/core/src/v1/config/migrate.ts",
+    "packages/core/src/v1/config/plugin.ts",
+    "packages/core/src/workspace.ts",
+    "packages/core/test/command.test.ts",
+    "packages/core/test/config/agent.test.ts",
+    "packages/core/test/config/command.test.ts",
+    "packages/core/test/config/config.test.ts",
+    "packages/core/test/config/plugin.test.ts",
+    "packages/core/test/config/skill.test.ts",
+    "packages/core/test/instruction-context.test.ts",
+    "packages/core/test/integration.test.ts",
+    "packages/core/test/plugin.test.ts",
+    "packages/core/test/plugin/command.test.ts",
+    "packages/core/test/plugin/promise.test.ts",
+    "packages/core/test/plugin/skill.test.ts",
+    "packages/core/test/reference-guidance.test.ts",
+    "packages/core/test/reference.test.ts",
+    "packages/core/test/skill-discovery.test.ts",
+    "packages/core/test/skill.test.ts",
+    "packages/core/test/skill/guidance.test.ts",
+    "packages/core/test/state.test.ts",
+    "packages/core/test/tool-skill.test.ts",
+    "packages/opencode/AGENTS.md",
+    "packages/opencode/src/acp/agent.ts",
+    "packages/opencode/src/acp/config-option.ts",
+    "packages/opencode/src/acp/content.ts",
+    "packages/opencode/src/acp/directory.ts",
+    "packages/opencode/src/acp/error.ts",
+    "packages/opencode/src/acp/event.ts",
+    "packages/opencode/src/acp/permission.ts",
+    "packages/opencode/src/acp/profile.ts",
+    "packages/opencode/src/acp/service.ts",
+    "packages/opencode/src/acp/session.ts",
+    "packages/opencode/src/acp/tool.ts",
+    "packages/opencode/src/acp/usage.ts",
+    "packages/opencode/src/cli/cmd/acp.ts",
+    "packages/opencode/src/cli/cmd/debug/lsp.ts",
+    "packages/opencode/src/cli/cmd/github.shared.ts",
+    "packages/opencode/src/cli/cmd/github.ts",
+    "packages/opencode/src/cli/cmd/plug.ts",
+    "packages/opencode/src/cli/effect-cmd.ts",
+    "packages/opencode/src/command/index.ts",
+    "packages/opencode/src/config/agent.ts",
+    "packages/opencode/src/config/command.ts",
+    "packages/opencode/src/config/config.ts",
+    "packages/opencode/src/config/entry-name.ts",
+    "packages/opencode/src/config/managed.ts",
+    "packages/opencode/src/config/markdown.ts",
+    "packages/opencode/src/config/parse.ts",
+    "packages/opencode/src/config/paths.ts",
+    "packages/opencode/src/config/plugin.ts",
+    "packages/opencode/src/config/tui-cwd.ts",
+    "packages/opencode/src/config/tui-host-attention.ts",
+    "packages/opencode/src/config/tui-migrate.ts",
+    "packages/opencode/src/config/tui.ts",
+    "packages/opencode/src/config/v2-compat.ts",
+    "packages/opencode/src/config/variable.ts",
+    "packages/opencode/src/control-plane/adapters/index.ts",
+    "packages/opencode/src/control-plane/adapters/worktree.ts",
+    "packages/opencode/src/control-plane/dev/README.md",
+    "packages/opencode/src/control-plane/dev/debug-workspace-plugin.ts",
+    "packages/opencode/src/control-plane/types.ts",
+    "packages/opencode/src/control-plane/util.ts",
+    "packages/opencode/src/control-plane/workspace-adapter-runtime.ts",
+    "packages/opencode/src/control-plane/workspace-context.ts",
+    "packages/opencode/src/control-plane/workspace.ts",
+    "packages/opencode/src/effect/bridge.ts",
+    "packages/opencode/src/effect/instance-state.ts",
+    "packages/opencode/src/effect/runtime-flags.ts",
+    "packages/opencode/src/format/formatter.ts",
+    "packages/opencode/src/format/index.ts",
+    "packages/opencode/src/ide/index.ts",
+    "packages/opencode/src/lsp/client.ts",
+    "packages/opencode/src/lsp/diagnostic.ts",
+    "packages/opencode/src/lsp/language.ts",
+    "packages/opencode/src/lsp/launch.ts",
+    "packages/opencode/src/lsp/lsp.ts",
+    "packages/opencode/src/mcp/auth.ts",
+    "packages/opencode/src/mcp/browser.ts",
+    "packages/opencode/src/mcp/catalog.ts",
+    "packages/opencode/src/mcp/index.ts",
+    "packages/opencode/src/mcp/oauth-callback.ts",
+    "packages/opencode/src/mcp/oauth-provider.ts",
+    "packages/opencode/src/plugin/index.ts",
+    "packages/opencode/src/plugin/install.ts",
+    "packages/opencode/src/plugin/loader.ts",
+    "packages/opencode/src/plugin/meta.ts",
+    "packages/opencode/src/plugin/shared.ts",
+    "packages/opencode/src/project/bootstrap.ts",
+    "packages/opencode/src/project/instance-context.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/AGENTS.md",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/control-plane.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/mcp.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/config.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/control-plane.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/mcp.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/sync.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/workspace.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/middleware/workspace-routing.ts",
+    "packages/opencode/src/server/shared/workspace-routing.ts",
+    "packages/opencode/src/session/instruction.ts",
+    "packages/opencode/src/session/llm/AGENTS.md",
+    "packages/opencode/src/skill/discovery.ts",
+    "packages/opencode/src/skill/index.ts",
+    "packages/opencode/src/tool/lsp.ts",
+    "packages/opencode/src/tool/skill.ts",
+    "packages/opencode/test/AGENTS.md",
+    "packages/opencode/test/cli/acp/helpers.ts",
+    "packages/opencode/test/cli/acp/initialize-auth.test.ts",
+    "packages/opencode/test/cli/acp/lifecycle.test.ts",
+    "packages/opencode/test/cli/acp/prompt-content.test.ts",
+    "packages/opencode/test/cli/acp/skills.test.ts",
+    "packages/opencode/test/cli/github-action.test.ts",
+    "packages/opencode/test/cli/mcp-add.test.ts",
+    "packages/opencode/test/config/entry-name.test.ts",
+    "packages/opencode/test/config/lsp.test.ts",
+    "packages/opencode/test/config/markdown.test.ts",
+    "packages/opencode/test/config/plugin.test.ts",
+    "packages/opencode/test/config/v2-compat.test.ts",
+    "packages/opencode/test/control-plane/adapters.test.ts",
+    "packages/opencode/test/fixture/mcp-lifecycle-stdio.ts",
+    "packages/opencode/test/fixture/mcp-session-recovery.ts",
+    "packages/opencode/test/format/format.test.ts",
+    "packages/opencode/test/ide/ide.test.ts",
+    "packages/opencode/test/lsp/client.test.ts",
+    "packages/opencode/test/lsp/index.test.ts",
+    "packages/opencode/test/lsp/launch.test.ts",
+    "packages/opencode/test/lsp/lifecycle.test.ts",
+    "packages/opencode/test/mcp/auth.test.ts",
+    "packages/opencode/test/mcp/browser.test.ts",
+    "packages/opencode/test/mcp/catalog.test.ts",
+    "packages/opencode/test/mcp/lifecycle.test.ts",
+    "packages/opencode/test/mcp/oauth-auto-connect.test.ts",
+    "packages/opencode/test/mcp/oauth-browser.test.ts",
+    "packages/opencode/test/mcp/oauth-callback.test.ts",
+    "packages/opencode/test/mcp/oauth-provider.test.ts",
+    "packages/opencode/test/mcp/session-recovery.test.ts",
+    "packages/opencode/test/mcp/transport.test.ts",
+    "packages/opencode/test/plugin/install-concurrency.test.ts",
+    "packages/opencode/test/plugin/install.test.ts",
+    "packages/opencode/test/plugin/meta.test.ts",
+    "packages/opencode/test/plugin/shared.test.ts",
+    "packages/opencode/test/plugin/trigger.test.ts",
+    "packages/opencode/test/plugin/workspace-adapter.test.ts",
+    "packages/opencode/test/server/AGENTS.md",
+    "packages/opencode/test/server/httpapi-mcp-oauth.test.ts",
+    "packages/opencode/test/server/httpapi-mcp.test.ts",
+    "packages/opencode/test/session/instruction.test.ts",
+    "packages/opencode/test/skill/discovery.test.ts",
+    "packages/opencode/test/skill/skill.test.ts",
+    "packages/opencode/test/tool/lsp.test.ts",
+    "packages/opencode/test/tool/skill.test.ts",
+    "packages/plugin/package.json",
+    "packages/plugin/src/example-workspace.ts",
+    "packages/plugin/src/index.ts",
+    "packages/plugin/src/tool.ts",
+    "packages/plugin/src/v2/effect/PLAN.md",
+    "packages/plugin/src/v2/effect/README.md",
+    "packages/plugin/src/v2/effect/agent.ts",
+    "packages/plugin/src/v2/effect/aisdk.ts",
+    "packages/plugin/src/v2/effect/catalog.ts",
+    "packages/plugin/src/v2/effect/command.ts",
+    "packages/plugin/src/v2/effect/context.ts",
+    "packages/plugin/src/v2/effect/event.ts",
+    "packages/plugin/src/v2/effect/filesystem.ts",
+    "packages/plugin/src/v2/effect/index.ts",
+    "packages/plugin/src/v2/effect/integration.ts",
+    "packages/plugin/src/v2/effect/location.ts",
+    "packages/plugin/src/v2/effect/npm.ts",
+    "packages/plugin/src/v2/effect/path.ts",
+    "packages/plugin/src/v2/effect/plugin.ts",
+    "packages/plugin/src/v2/effect/reference.ts",
+    "packages/plugin/src/v2/effect/registration.ts",
+    "packages/plugin/src/v2/effect/skill.ts",
+    "packages/plugin/src/v2/promise/README.md",
+    "packages/plugin/src/v2/promise/agent.ts",
+    "packages/plugin/src/v2/promise/aisdk.ts",
+    "packages/plugin/src/v2/promise/catalog.ts",
+    "packages/plugin/src/v2/promise/command.ts",
+    "packages/plugin/src/v2/promise/context.ts",
+    "packages/plugin/src/v2/promise/index.ts",
+    "packages/plugin/src/v2/promise/integration.ts",
+    "packages/plugin/src/v2/promise/plugin.ts",
+    "packages/plugin/src/v2/promise/reference.ts",
+    "packages/plugin/src/v2/promise/registration.ts",
+    "packages/plugin/src/v2/promise/skill.ts",
+    "packages/protocol/src/groups/integration.ts",
+    "packages/schema/src/integration.ts",
+    "packages/server/src/handlers/integration.ts",
+    "packages/server/src/location.ts",
+    "packages/slack/README.md",
+    "packages/slack/package.json",
+    "packages/slack/src/index.ts",
+    "sdks/vscode/README.md",
+    "sdks/vscode/package.json",
+    "sdks/vscode/src/extension.ts",
+    "specs/v2/catalog-config-plugin-lifecycle.md",
+    "specs/v2/config.md",
+    "specs/v2/instructions.md"
+  ],
+  "sampled_paths": [
+    {
+      "path": ".opencode",
+      "reason": "inventory and representative command/agent/skill source examples; other commands/glossaries/assets not fully read",
+      "kind": "directory_inventory"
+    },
+    {
+      "path": "github/index.ts",
+      "reason": "Standalone SDK/serve bootstrap and main issue/PR workflow read; remaining helpers searched for comparison with active CLI implementation"
+    },
+    {
+      "path": "package.json",
+      "reason": "patchedDependencies 관련 구간 확인"
+    },
+    {
+      "path": "packages/core/src/catalog.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/core/src/fs-util.ts",
+      "reason": "findUp/up/globUp and file I/O boundary at 130-210; full utility module belongs to broader tool/filesystem analysis"
+    },
+    {
+      "path": "packages/core/src/plugin/layer-map.example.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/core/src/session/runner/llm.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/core/src/session/runner/model.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인; 담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "180-218"
+    },
+    {
+      "path": "packages/core/test/location-layer.test.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/core/test/move-session.test.ts",
+      "reason": "Three Git-backed move cases and assertions read lines 53-230; setup and final assertions sampled"
+    },
+    {
+      "path": "packages/opencode/package.json",
+      "reason": "MCP SDK dependency/version 관련 구간 확인"
+    },
+    {
+      "path": "packages/opencode/src/agent/agent.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/opencode/src/cli/cmd/github.handler.ts",
+      "reason": "Actual run/install entry, authentication, prompt, event logging, Git push/PR and cleanup read; long GraphQL declarations/query blocks sampled"
+    },
+    {
+      "path": "packages/opencode/src/cli/cmd/mcp.ts",
+      "reason": "담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "1-170,250-355,365-570"
+    },
+    {
+      "path": "packages/opencode/src/effect/config-service.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/opencode/src/index.ts",
+      "reason": "PluginCommand import/registration lines 30 and 102; broader CLI entrypoint belongs to 08; ACP/GitHub CLI registration search only"
+    },
+    {
+      "path": "packages/opencode/src/lsp/server.ts",
+      "reason": "대형 builtin catalog의 root/spawn/download 대표 구현과 전체 inventory만 확인",
+      "ranges": "1-260,670-890,1020-1160,1147-1274 and entire ID/root/spawn/download inventory searches"
+    },
+    {
+      "path": "packages/opencode/src/plugin/tui/runtime.ts",
+      "reason": "rg call-site confirmation of PluginMeta.touchMany at 779 and installer/theme metadata calls; runtime rendering deliberately not investigated"
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/handlers/global.ts",
+      "reason": "global config mutation and disposal caller at 60-90 only"
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/handlers/instance.ts",
+      "reason": "담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "82-110"
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts",
+      "reason": "Actual ACP SDK legacy prompt/command handler and service wiring read"
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/handlers/tui.ts",
+      "reason": "VSCode prompt append event publishing read"
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/server.ts",
+      "reason": "담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인; Workspace and MoveSession layer registration search",
+      "ranges": "233-260; "
+    },
+    {
+      "path": "packages/opencode/src/session/llm/request.ts",
+      "reason": "system transformation and request parameter/header hook positions at 50-162; provider encoding belongs to 03; 담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "204-228"
+    },
+    {
+      "path": "packages/opencode/src/session/prompt.ts",
+      "reason": "plugin hook sites, instruction/system assembly, command executor at 180-420, 980-1025, 1235-1290, 1344-1498; engine loop belongs to 01; 담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "690-765,1230-1250, caller search1261"
+    },
+    {
+      "path": "packages/opencode/src/session/system.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인; reference and skill/MCP system context production at 60-148; provider built-in prompt assets not investigated; 담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "45-105,121-151"
+    },
+    {
+      "path": "packages/opencode/src/session/tools.ts",
+      "reason": "plugin before/after wrapper and permission context at 80-152; call-site search confirms additional MCP/subtask hook locations; 담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "27-57,81-89,106-121,136-489"
+    },
+    {
+      "path": "packages/opencode/src/tool/apply_patch.ts",
+      "reason": "담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "243-292"
+    },
+    {
+      "path": "packages/opencode/src/tool/code-mode.ts",
+      "reason": "담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "120-265"
+    },
+    {
+      "path": "packages/opencode/src/tool/edit.ts",
+      "reason": "담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "95-125,148-162,189-212"
+    },
+    {
+      "path": "packages/opencode/src/tool/read.ts",
+      "reason": "instruction resolve, loaded metadata and system-reminder append at 288-366; filesystem reading details belong to 02; 담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "109-124"
+    },
+    {
+      "path": "packages/opencode/src/tool/registry.ts",
+      "reason": "imports/services, plugin ToolDefinition conversion, local tool discovery, hook exposure at 1-248 and 304-350; ordinary built-in filtering and tools implementation not covered; 담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "223-300 and dependency search"
+    },
+    {
+      "path": "packages/opencode/src/tool/write.ts",
+      "reason": "담당 MCP/LSP/formatter 호출 경로 및 V2 계약과 직접 관련된 구간만 확인",
+      "ranges": "44-95"
+    },
+    {
+      "path": "packages/opencode/test/acp/config-option.test.ts",
+      "reason": "Config option/model variant parser cases indexed"
+    },
+    {
+      "path": "packages/opencode/test/acp/content.test.ts",
+      "reason": "Prompt and replay conversion cases indexed"
+    },
+    {
+      "path": "packages/opencode/test/acp/directory.test.ts",
+      "reason": "Concurrent cache, directory isolation, modes/default cases indexed"
+    },
+    {
+      "path": "packages/opencode/test/acp/error.test.ts",
+      "reason": "Safe error conversion cases indexed"
+    },
+    {
+      "path": "packages/opencode/test/acp/event.test.ts",
+      "reason": "Tool pending/replay/dedupe/output cases read and event isolation titles indexed"
+    },
+    {
+      "path": "packages/opencode/test/acp/permission.test.ts",
+      "reason": "Permission outcome/edit/multi-file/queue cases indexed; production Handler fully read"
+    },
+    {
+      "path": "packages/opencode/test/acp/service-session.test.ts",
+      "reason": "SDK fake topology and durable/history restoration, replay cases read; full test suite titles indexed"
+    },
+    {
+      "path": "packages/opencode/test/acp/session.test.ts",
+      "reason": "Session state suite indexed"
+    },
+    {
+      "path": "packages/opencode/test/acp/tool.test.ts",
+      "reason": "Kinds, locations, display/raw output and shell metadata cases indexed"
+    },
+    {
+      "path": "packages/opencode/test/acp/usage.test.ts",
+      "reason": "Token/context cache and skipped update cases indexed"
+    },
+    {
+      "path": "packages/opencode/test/cli/acp/config-options.test.ts",
+      "reason": "CLI subprocess config-option test suite indexed"
+    },
+    {
+      "path": "packages/opencode/test/config/config.test.ts",
+      "reason": "large file sampled: 1-810, 892-1018, 1100-1324; remaining tests indexed by names, including remote/managed/flags; not claimed as full review"
+    },
+    {
+      "path": "packages/opencode/test/config/fixtures/v2-compat",
+      "reason": "fixture file inventory and fixture runner tests reviewed; individual JSON snapshots not all opened",
+      "kind": "directory_inventory"
+    },
+    {
+      "path": "packages/opencode/test/control-plane/workspace.test.ts",
+      "reason": "CRUD failure retention, warp ownership/remote requests, SSE/history/fence cases indexed with exact test titles; not all fixture and assertion bodies read"
+    },
+    {
+      "path": "packages/opencode/test/fixture/lsp/fake-lsp-server.js",
+      "reason": "진단 테스트를 뒷받침하는 대표 protocol/notification 구현 확인",
+      "ranges": "1-110,163-230"
+    },
+    {
+      "path": "packages/opencode/test/lsp/jdtls-root.test.ts",
+      "reason": "대표 root 선택 사례와 전체 테스트 이름만 확인",
+      "ranges": "1-125,340-455 and all test-name search"
+    },
+    {
+      "path": "packages/opencode/test/mcp/headers.test.ts",
+      "reason": "header 관련 테스트 구간 및 일부 scaffolding 확인",
+      "ranges": "41-102 and partial scaffolding1-40"
+    },
+    {
+      "path": "packages/opencode/test/plugin/loader-shared.test.ts",
+      "reason": "sampled implementation tests at 627-943 and 1137-1306, remaining test names indexed and matched to loader/shared source"
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-control-plane.test.ts",
+      "reason": "Root move-session route test indexed"
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-workspace-routing.test.ts",
+      "reason": "Proxy/fence/503/WebSocket/control/local directory tests indexed"
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-workspace.test.ts",
+      "reason": "CRUD/worktree/local/remote/session-owned request cases indexed"
+    },
+    {
+      "path": "packages/opencode/test/server/workspace-proxy.test.ts",
+      "reason": "HTTP stream/bodyless/header/WebSocket proxy tests indexed"
+    },
+    {
+      "path": "packages/opencode/test/server/workspace-routing.test.ts",
+      "reason": "Local route/session extraction/sanitized URL tests indexed"
+    },
+    {
+      "path": "packages/opencode/test/session/prompt.test.ts",
+      "reason": "command configured shell expansion at 1814-1848 and unknown command at 2442-2475 plus command/variant test index; rest belongs to 01"
+    },
+    {
+      "path": "packages/protocol/src/groups/command.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/protocol/src/groups/reference.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/server/src/handlers/command.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/server/src/handlers/reference.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/server/src/handlers/skill.ts",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/server/src/middleware/session-location.ts",
+      "reason": "Session workspaceID lookup search; data/API owner is 05"
+    },
+    {
+      "path": "packages/server/src/routes.ts",
+      "reason": "native server가 LocationServiceMap을 실제 구성하는 경로 확인"
+    },
+    {
+      "path": "packages/tui/src/component/dialog-session-list.tsx",
+      "reason": "Workspace create/remove API caller search"
+    },
+    {
+      "path": "packages/tui/src/component/dialog-workspace-create.tsx",
+      "reason": "Adapter list and warp API injection lines 47-117 read; UI owner is 04"
+    },
+    {
+      "path": "packages/tui/src/component/dialog-workspace-list.tsx",
+      "reason": "Workspace remove/sync API caller search"
+    },
+    {
+      "path": "packages/tui/src/component/prompt/autocomplete.tsx",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/tui/src/component/prompt/index.tsx",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인; tui.prompt.append event consumption and workspace filtering lines 237-248 read; UI owner is 04"
+    },
+    {
+      "path": "packages/tui/src/component/prompt/workspace.tsx",
+      "reason": "Workspace create API caller search"
+    },
+    {
+      "path": "packages/tui/src/context/data.tsx",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/tui/src/context/project.tsx",
+      "reason": "Workspace list/status store and event subscription lines 47-79 read; UI owner is 04"
+    },
+    {
+      "path": "packages/tui/src/context/sdk.tsx",
+      "reason": "확장 주입 지점 또는 계약에 해당하는 부분만 정적 확인"
+    },
+    {
+      "path": "packages/web/src/content/docs/formatters.mdx",
+      "reason": "formatter opt-in 및 실행 설명 관련 문서 구간 확인",
+      "ranges": "1-130"
+    },
+    {
+      "path": "patches/@modelcontextprotocol%2Fsdk@1.29.0.patch",
+      "reason": "관련 CJS 및 일부 ESM 변경만 독해; 후반 중복 구현 제외",
+      "ranges": "1-390; later duplicated ESM sections not exhaustively reviewed"
+    },
+    {
+      "path": "specs/v2/schema-changelog.md",
+      "reason": "Workspace beta reset and explicit Location workspace identity references searched"
+    },
+    {
+      "path": "specs/v2/session.md",
+      "reason": "Placement contract lines 39-50 and workspace references read"
+    }
+  ],
+  "excluded_paths": [
+    {
+      "path": ".opencode/glossary",
+      "reason": "translation references, inventory only; no runtime config auto-discovery"
+    },
+    {
+      "path": ".opencode/plugins/tui-smoke.tsx",
+      "reason": "TUI sample rendering: 04 owner; tsx exclusion from legacy server auto discovery recorded"
+    },
+    {
+      "path": ".opencode/themes",
+      "reason": "visual assets: 04 owner; common theme manifest contract recorded"
+    },
+    {
+      "path": "github/bun.lock",
+      "reason": "Generated dependency lock; runtime entry and package manifest prioritized"
+    },
+    {
+      "path": "github/script",
+      "reason": "Release/publish mechanics belong to 08-build-ops"
+    },
+    {
+      "path": "packages/app/src",
+      "reason": "MCP/LSP UI rendering and subscriptions belong to 04/07; no claim of full UI review"
+    },
+    {
+      "path": "packages/core/src/credential.ts",
+      "reason": "credential persistence detailed review outside delegated scope; integration caller contracts reviewed"
+    },
+    {
+      "path": "packages/core/src/credential/sql.ts",
+      "reason": "credential persistence detailed review outside delegated scope; integration caller contracts reviewed"
+    },
+    {
+      "path": "packages/core/src/plugin/provider",
+      "reason": "공통 host/boot/contracts 외 provider별 모델/인증 구현은 03-models 주 담당"
+    },
+    {
+      "path": "packages/core/src/provider.ts",
+      "reason": "provider-specific authorization/catalog belongs to 03; integration model injection sampled only"
+    },
+    {
+      "path": "packages/core/test/plugin/provider-*.test.ts",
+      "reason": "provider 전용 behavior/tests는 03-models 주 담당"
+    },
+    {
+      "path": "packages/opencode/node_modules/@modelcontextprotocol/sdk",
+      "reason": "not present; only committed patch and project callers reviewed"
+    },
+    {
+      "path": "packages/opencode/src/lsp/server.ts",
+      "scope": "unreviewed_ranges",
+      "reason": "large builtin inventory classified sampled, not fully reviewed"
+    },
+    {
+      "path": "packages/opencode/src/plugin/azure.ts",
+      "reason": "provider-specific auth internals: 03-models owner"
+    },
+    {
+      "path": "packages/opencode/src/plugin/cerebras.ts",
+      "reason": "provider-specific auth/model internals: 03-models owner"
+    },
+    {
+      "path": "packages/opencode/src/plugin/cloudflare.ts",
+      "reason": "provider-specific auth internals: 03-models owner"
+    },
+    {
+      "path": "packages/opencode/src/plugin/digitalocean.ts",
+      "reason": "provider-specific auth internals: 03-models owner"
+    },
+    {
+      "path": "packages/opencode/src/plugin/github-copilot",
+      "reason": "Provider authentication owner is 03-models"
+    },
+    {
+      "path": "packages/opencode/src/plugin/modal",
+      "reason": "provider-specific auth/models: 03-models owner"
+    },
+    {
+      "path": "packages/opencode/src/plugin/openai",
+      "reason": "Provider authentication owner is 03-models"
+    },
+    {
+      "path": "packages/opencode/src/plugin/snowflake-cortex.ts",
+      "reason": "provider-specific auth internals: 03-models owner"
+    },
+    {
+      "path": "packages/opencode/src/plugin/tui/internal.ts",
+      "reason": "TUI plugin registry/rendering: 04-tui owner"
+    },
+    {
+      "path": "packages/opencode/src/plugin/xai.ts",
+      "reason": "provider-specific auth internals: 03-models owner"
+    },
+    {
+      "path": "packages/opencode/src/provider",
+      "reason": "provider-specific authorization/catalog belongs to 03; integration model injection sampled only"
+    },
+    {
+      "path": "packages/plugin/src/shell.ts",
+      "reason": "Bun shell public type detail beyond factory context; shell implementation belongs to 02/08"
+    },
+    {
+      "path": "packages/plugin/src/tui.ts",
+      "reason": "TUI-specific API/rendering: 04-tui owner; shared server/tui entrypoint detection included"
+    },
+    {
+      "path": "packages/tui",
+      "reason": "UI files sampled only at external extension injection points; complete rendering owner is 04-tui"
+    },
+    {
+      "path": "packages/tui/src",
+      "reason": "MCP/LSP UI rendering and subscriptions belong to 04/07; no claim of full UI review"
+    },
+    {
+      "path": "packages/web/src/content/docs/*/formatters.mdx",
+      "reason": "translation duplicates excluded; canonical English documentation sampled"
+    },
+    {
+      "path": "sdks/vscode/bun.lock",
+      "reason": "Generated dependency lock; extension contract prioritized"
+    },
+    {
+      "path": "sdks/vscode/script",
+      "reason": "Release/publish mechanics belong to 08-build-ops"
+    }
+  ],
+  "unverified_points": [
+    "Bun 및 의존성 부재로 repository tests/typecheck 미실행",
+    "State same-domain recursive reload/replacement 간 순서/coalescing은 정적 해석만 수행",
+    "Catalog finalize publish와 state commit ordering이 event subscriber에 미치는 영향은 실행 미검증",
+    "Configured plugin background completion과 Location readiness는 setup 코드 기준 분석만 수행",
+    "Git reference clone/OAuth/MCP/LSP/formatter/package installs/Slack/GitHub 실제 통신 미실행",
+    "PluginV2.add setup 완료 후 State.batch의 늦은 domain reload defect가 active map/Scope/waiter에 남기는 상태는 정적 경계 관찰만 수행",
+    "No Bun runtime tests, typecheck, or provider/network calls executed; Bun unavailable on ordinary shell PATH and node_modules absent; dependencies not installed.",
+    "Config.update writes directory/config.json although project get discovery searches opencode.json/jsonc; actual post-disposal read behavior requires integration verification.",
+    "MDM plist plugin merge bypasses origin rebuilding; consistency between plugin and plugin_origins is unverified.",
+    "Multiple .opencode directories are applied nearest-first without reversal, allowing ancestors later precedence; intended nested-directory precedence has no targeted test confirmed.",
+    "Concurrent skill add can overwrite same-name dictionary entries in completion order; deterministic duplicate-name precedence unverified.",
+    "Built-in skill virtual location '<built-in>' has no special base-directory handling in SkillTool; ancillary file scan behavior unverified.",
+    "Command-config variant survives V2 lowering but legacy Command.Info/copy drops it; actual end-to-end variant effect unverified.",
+    "Hooks.permission.ask declaration has no trigger call found in legacy source; API wiring unverified.",
+    "Fire-and-forget event hook failures and event ordering differ from awaited trigger hooks; server hot reload and cleanup under pending events unverified.",
+    "Remote instruction HttpClient test remains test.todo; timeout/body failure behavior only statically read.",
+    "Remote skill cache key uses only skill name across URL sources; collisions and concurrent refresh behavior not exercised.",
+    "V2 native MCP/LSP/formatter runtime and plugin tool registration roadmap",
+    "Core/spec startup-request timeout versus compatibility startup-catalog-execution lowering",
+    "Process-global OAuth callback/transport maps under concurrent instances and identical server names",
+    "Auth interruption and direct-auth callback server cleanup",
+    "Formatter export/name mismatch for extensions/env-only overrides",
+    "LSP inflight spawn disposal, broken-state reset and restart behavior",
+    "Real server versions, downloads, OS-specific process teardown",
+    "Integration concurrent OAuth refresh deduplication and expired credential without refresh",
+    "No tests, provider requests, source dependency installs, editor extension host, Slack events or GitHub mutations were executed; source checkout remained read-only.",
+    "Bun was not found on shell PATH and root/package source node_modules were absent.",
+    "ACP Directory refresh and event subscription/ManagedRuntime disposal were not found in the production ACP factory/CLI path; EOF lifecycle test exists but was not run.",
+    "ACP MCP registration is directory-scoped despite per-session dedupe; close clears dedupe but does not remove server MCP clients.",
+    "Adapter map unregister/dispose and ProjectV2.ID.global fallback behavior were not implemented in examined registry.",
+    "Active V2 session execution during MoveSession has no explicit cancellation in this service; downstream runner behavior needs engine-owner confirmation.",
+    "GitHub Action AGENT input is passed to environment but actual handler prompt omits agent. Deployment uses externally changing latest binary rather than necessarily the analyzed source commit.",
+    "IDE helper active production callers were not found in searched CLI/TUI/App paths. Slack thread/session mapping is process-local and real end-to-end tests were not identified."
+  ],
+  "cross_area_questions": [
+    {
+      "area": "01-engine",
+      "question": "InstructionContext 재관찰/SkillGuidance와 durable Context Epoch의 정확한 admission 경계 및 native command 입력 경로 확인"
+    },
+    {
+      "area": "03-models",
+      "question": "AISDK hook cache invalidation과 native SessionRunner에서 실제로 사용되는 provider hooks 범위 확인"
+    },
+    {
+      "area": "04-tui",
+      "question": "TUI legacy sync.command와 native data.location.command/skill 사이 사용자 명령 전환 경로 및 PluginMeta 소비를 교차 확인"
+    },
+    {
+      "area": "05-data-api",
+      "question": "Catalog finalize가 State commit 전 Event.Updated를 publish하는 순서가 subscriber read에 미치는 보장과 Location config invalidation 범위 확인"
+    },
+    {
+      "area": "05-data-api",
+      "question": "Why does local Config.update persist config.json when get discovers opencode.json/jsonc, and how does markInstanceForDisposal affect observable config?"
+    },
+    {
+      "area": "01-engine",
+      "question": "How are plugin hook failures surfaced to current prompt/turn, and does dispose race with pending event hook promises?"
+    },
+    {
+      "area": "02-tools",
+      "question": "Confirm skill permission filtering versus explicit skill slash command expansion, and inline command shell Process.text context/cancellation boundary."
+    },
+    {
+      "area": "03-models",
+      "question": "Provider auth hooks consume Plugin.list; verify override precedence and default plugin interactions without conflating framework with auth internals."
+    },
+    {
+      "area": "04-tui",
+      "question": "Verify server/TUI separate configs/entrypoints, TUI-only PluginMeta lifecycle, and TUI migration/loader error tolerance in displayed UI."
+    },
+    {
+      "area": "03",
+      "question": "provider-specific auth integration/refresh and credential persistence semantics"
+    },
+    {
+      "area": "02",
+      "question": "code-mode child tool permission and file mutation diagnostic/error budget"
+    },
+    {
+      "area": "04/07",
+      "question": "MCP ToolsChanged, BrowserOpenFailed and LSP status UI consumers"
+    },
+    {
+      "area": "05",
+      "question": "HTTP instance/location authorization middleware and V2 credential storage"
+    },
+    {
+      "area": "01-engine",
+      "question": "When native V2 MoveSession publishes Moved while SessionRunner is active, when does execution re-resolve Location and what is the intended interruption contract?"
+    },
+    {
+      "area": "04-tui",
+      "question": "Confirm VSCode tui.prompt.append consumption and workspace filtering, and full workspace create/warp UI behavior."
+    },
+    {
+      "area": "05-data-api",
+      "question": "Confirm legacy EventV2 ownership claim/replay/fence semantics remain separate from native V2 execution placement; assess move publication then source-reset failure as a non-atomic boundary."
+    },
+    {
+      "area": "03-models",
+      "question": "ACP advertises terminal opencode auth login and maps provider auth failures; authenticate itself does not issue credentials. Confirm provider-side responsibility."
+    },
+    {
+      "area": "08-build-ops",
+      "question": "Action.yml installs latest released opencode then runs CLI github handler; github/index.ts is a separate SDK development entry. Confirm packaging ownership and release version boundary."
+    }
+  ],
+  "execution_verification": {
+    "repository_tests": "not_run",
+    "typecheck": "not_run",
+    "runtime_and_external_services": "not_run",
+    "reason": "Bun은 일반 shell PATH에서 발견되지 않았고 공용 checkout에 의존성을 설치하지 않았다. 소스와 테스트/명세를 정적으로 읽었다.",
+    "artifact_checks": [
+      "source HEAD 일치",
+      "source working tree 변경 없음",
+      "coverage JSON parse 및 경로 존재",
+      "커밋 고정 source link 파일/줄 범위",
+      "Markdown code fence 균형"
+    ]
+  }
+}

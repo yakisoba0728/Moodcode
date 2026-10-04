@@ -1,0 +1,692 @@
+{
+  "source_commit": "907b3bc518fa48e90e8ec24dd327d13eee71c36c",
+  "area": "05-data-api — 영속 저장과 이벤트 및 서버 계약",
+  "analysis_date": "2026-10-04",
+  "timezone": "Asia/Seoul",
+  "source_checkout": "/Users/yakisoba0728/Documents/GitHub/opencode",
+  "source_branch": "dev",
+  "source_original_unchanged": true,
+  "report": "05-data-api.md",
+  "method": {
+    "scope": "analysis-plan.json의 05-data-api 경로를 inventory/search한 뒤 핵심 구현, 호출자, Effect service graph, schema, manifest, 관련 tests를 조사했다.",
+    "reviewed_paths_meaning": "핵심 파일의 정의와 구현/테스트 본문을 읽은 범위. 정식 테스트 실행이나 모든 가능한 interleaving 검증을 뜻하지 않는다.",
+    "sampled_paths_meaning": "대형 생성물, migration, 경계 영역 또는 tests에서 해당 계약의 관련 구간을 읽은 범위. 전체 파일·디렉터리의 전수 조사를 주장하지 않는다.",
+    "inventory_only_meaning": "rg 파일 목록 또는 import 검색에서만 본 항목은 reviewed/sampled로 넣지 않았다.",
+    "parallel_reviews": [
+      "SQLite/Event/inbox/projector",
+      "기존 HTTP/SSE/PTY/sync/share",
+      "Schema/Client/SDK/codegen",
+      "현재 Protocol/Server 및 통합 검토"
+    ],
+    "generated_handling": "생성원과 생성 script/transform을 먼저 추적하고 거대 types/sdk union은 대표 타입과 실제 transport 구간을 표본 확인했다.",
+    "source_links": {
+      "fixed_commit": "907b3bc518fa48e90e8ec24dd327d13eee71c36c",
+      "reference_count": 180,
+      "distinct_cited_files": 145
+    }
+  },
+  "reviewed_paths": [
+    "AGENTS.md",
+    "packages/client/README.md",
+    "packages/client/package.json",
+    "packages/client/script/build.ts",
+    "packages/client/src/contract.ts",
+    "packages/client/src/effect.ts",
+    "packages/client/src/generated-effect/client-error.ts",
+    "packages/client/src/generated/client-error.ts",
+    "packages/client/src/generated/client.ts",
+    "packages/client/src/index.ts",
+    "packages/client/test/contract-identity.test.ts",
+    "packages/client/test/effect.test.ts",
+    "packages/client/test/import-boundaries.test.ts",
+    "packages/client/test/promise.test.ts",
+    "packages/core/package.json",
+    "packages/core/src/database/database.ts",
+    "packages/core/src/database/migration.gen.ts",
+    "packages/core/src/database/migration.ts",
+    "packages/core/src/database/migration/20260510033149_session_usage.ts",
+    "packages/core/src/database/migration/20260601010001_normalize_storage_paths.ts",
+    "packages/core/src/database/migration/20260603040000_session_message_projection_order.ts",
+    "packages/core/src/database/migration/20260604172448_event_sourced_session_input.ts",
+    "packages/core/src/database/migration/20260622170816_reset_v2_session_state.ts",
+    "packages/core/src/database/migration/20260622202450_simplify_session_input.ts",
+    "packages/core/src/database/path.ts",
+    "packages/core/src/database/schema.sql.ts",
+    "packages/core/src/database/sqlite.bun.ts",
+    "packages/core/src/database/sqlite.node.ts",
+    "packages/core/src/database/sqlite.ts",
+    "packages/core/src/effect/app-node-builder.ts",
+    "packages/core/src/event.ts",
+    "packages/core/src/event/sql.ts",
+    "packages/core/src/location-service-map.ts",
+    "packages/core/src/pty/ticket.ts",
+    "packages/core/src/public-event-manifest.ts",
+    "packages/core/src/schema.ts",
+    "packages/core/src/session/context-epoch.ts",
+    "packages/core/src/session/event.ts",
+    "packages/core/src/session/history.ts",
+    "packages/core/src/session/input.ts",
+    "packages/core/src/session/projector.ts",
+    "packages/core/src/session/schema.ts",
+    "packages/core/src/session/sql.ts",
+    "packages/core/src/session/store.ts",
+    "packages/core/src/session/todo.ts",
+    "packages/core/src/state.ts",
+    "packages/core/src/tool/application-tools.ts",
+    "packages/core/src/v1/session.ts",
+    "packages/core/src/v2-schema.ts",
+    "packages/core/test/pty/ticket.test.ts",
+    "packages/core/test/session-history.test.ts",
+    "packages/effect-drizzle-sqlite/AGENTS.md",
+    "packages/effect-drizzle-sqlite/package.json",
+    "packages/effect-drizzle-sqlite/src/effect-sqlite/driver.ts",
+    "packages/effect-drizzle-sqlite/src/effect-sqlite/migrator.ts",
+    "packages/effect-drizzle-sqlite/src/effect-sqlite/session.ts",
+    "packages/effect-sqlite-node/package.json",
+    "packages/effect-sqlite-node/src/index.ts",
+    "packages/httpapi-codegen/README.md",
+    "packages/httpapi-codegen/package.json",
+    "packages/httpapi-codegen/test/write.test.ts",
+    "packages/opencode/AGENTS.md",
+    "packages/opencode/package.json",
+    "packages/opencode/src/bus/global.ts",
+    "packages/opencode/src/cli/cmd/import.ts",
+    "packages/opencode/src/cli/cmd/serve.ts",
+    "packages/opencode/src/cli/cmd/web.ts",
+    "packages/opencode/src/cli/tui/worker.ts",
+    "packages/opencode/src/event-v2-bridge.ts",
+    "packages/opencode/src/server/auth.ts",
+    "packages/opencode/src/server/event.ts",
+    "packages/opencode/src/server/global-lifecycle.ts",
+    "packages/opencode/src/server/init-projectors.ts",
+    "packages/opencode/src/server/projectors.ts",
+    "packages/opencode/src/server/proxy-util.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/AGENTS.md",
+    "packages/opencode/src/server/routes/instance/httpapi/api.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/event.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/experimental.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/file.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/global.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/permission.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/project.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/pty.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/query.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/question.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/groups/sync.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/config.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/control-plane.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/event.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/experimental.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/file.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/global.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/instance.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/mcp.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/permission.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/project.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/provider.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/pty.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/question.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/session-errors.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/sync.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/handlers/workspace.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/lifecycle.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/middleware/authorization.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/middleware/compression.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/middleware/cors-vary.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/middleware/error.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/middleware/fence.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/middleware/instance-context.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/middleware/proxy.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/middleware/schema-error.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/middleware/workspace-routing.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/server.ts",
+    "packages/opencode/src/server/routes/instance/httpapi/websocket-tracker.ts",
+    "packages/opencode/src/server/server.ts",
+    "packages/opencode/src/server/shared/fence.ts",
+    "packages/opencode/src/server/shared/pty-ticket.ts",
+    "packages/opencode/src/server/shared/public-ui.ts",
+    "packages/opencode/src/server/shared/tui-control.ts",
+    "packages/opencode/src/server/shared/ui.ts",
+    "packages/opencode/src/server/shared/workspace-routing.ts",
+    "packages/opencode/src/server/tui-event.ts",
+    "packages/opencode/src/share/session.ts",
+    "packages/opencode/src/share/share-next.ts",
+    "packages/opencode/src/storage/schema.ts",
+    "packages/opencode/src/sync/README.md",
+    "packages/opencode/src/sync/schema.ts",
+    "packages/opencode/test/server/AGENTS.md",
+    "packages/opencode/test/server/global-session-list.test.ts",
+    "packages/opencode/test/server/httpapi-authorization.test.ts",
+    "packages/opencode/test/server/httpapi-cors-vary.test.ts",
+    "packages/opencode/test/server/httpapi-cors.test.ts",
+    "packages/opencode/test/server/httpapi-error-middleware.test.ts",
+    "packages/opencode/test/server/httpapi-event.test.ts",
+    "packages/opencode/test/server/httpapi-sync.test.ts",
+    "packages/opencode/test/server/httpapi-v2-location.test.ts",
+    "packages/opencode/test/server/httpapi-v2-pty.test.ts",
+    "packages/opencode/test/server/session-messages.test.ts",
+    "packages/protocol/package.json",
+    "packages/protocol/src/api.ts",
+    "packages/protocol/src/errors.ts",
+    "packages/protocol/src/groups/agent.ts",
+    "packages/protocol/src/groups/command.ts",
+    "packages/protocol/src/groups/credential.ts",
+    "packages/protocol/src/groups/event.ts",
+    "packages/protocol/src/groups/fs.ts",
+    "packages/protocol/src/groups/health.ts",
+    "packages/protocol/src/groups/integration.ts",
+    "packages/protocol/src/groups/location.ts",
+    "packages/protocol/src/groups/message.ts",
+    "packages/protocol/src/groups/model.ts",
+    "packages/protocol/src/groups/permission.ts",
+    "packages/protocol/src/groups/project-copy.ts",
+    "packages/protocol/src/groups/provider.ts",
+    "packages/protocol/src/groups/pty.ts",
+    "packages/protocol/src/groups/question.ts",
+    "packages/protocol/src/groups/reference.ts",
+    "packages/protocol/src/groups/session.ts",
+    "packages/protocol/src/groups/skill.ts",
+    "packages/protocol/src/middleware/authorization.ts",
+    "packages/protocol/src/middleware/schema-error.ts",
+    "packages/protocol/test/session-cursor.test.ts",
+    "packages/schema/AGENTS.md",
+    "packages/schema/package.json",
+    "packages/schema/src/agent.ts",
+    "packages/schema/src/catalog.ts",
+    "packages/schema/src/command.ts",
+    "packages/schema/src/connection.ts",
+    "packages/schema/src/credential.ts",
+    "packages/schema/src/durable-event-manifest.ts",
+    "packages/schema/src/event-manifest.ts",
+    "packages/schema/src/event.ts",
+    "packages/schema/src/file-diff.ts",
+    "packages/schema/src/filesystem-watcher.ts",
+    "packages/schema/src/filesystem.ts",
+    "packages/schema/src/ide-event.ts",
+    "packages/schema/src/identifier.ts",
+    "packages/schema/src/index.ts",
+    "packages/schema/src/installation-event.ts",
+    "packages/schema/src/integration-id.ts",
+    "packages/schema/src/integration.ts",
+    "packages/schema/src/llm.ts",
+    "packages/schema/src/location.ts",
+    "packages/schema/src/lsp-event.ts",
+    "packages/schema/src/mcp-event.ts",
+    "packages/schema/src/model.ts",
+    "packages/schema/src/models-dev.ts",
+    "packages/schema/src/permission-saved.ts",
+    "packages/schema/src/permission.ts",
+    "packages/schema/src/plugin.ts",
+    "packages/schema/src/project-copy.ts",
+    "packages/schema/src/project-directories.ts",
+    "packages/schema/src/project-id.ts",
+    "packages/schema/src/project.ts",
+    "packages/schema/src/prompt-input.ts",
+    "packages/schema/src/prompt.ts",
+    "packages/schema/src/provider.ts",
+    "packages/schema/src/pty-ticket.ts",
+    "packages/schema/src/pty.ts",
+    "packages/schema/src/question.ts",
+    "packages/schema/src/reference.ts",
+    "packages/schema/src/revert.ts",
+    "packages/schema/src/schema.ts",
+    "packages/schema/src/server-event.ts",
+    "packages/schema/src/session-compaction-event.ts",
+    "packages/schema/src/session-delivery.ts",
+    "packages/schema/src/session-event.ts",
+    "packages/schema/src/session-id.ts",
+    "packages/schema/src/session-input.ts",
+    "packages/schema/src/session-message.ts",
+    "packages/schema/src/session-status-event.ts",
+    "packages/schema/src/session-todo.ts",
+    "packages/schema/src/session.ts",
+    "packages/schema/src/skill.ts",
+    "packages/schema/src/tui-event.ts",
+    "packages/schema/src/v1/legacy-event.ts",
+    "packages/schema/src/v1/permission.ts",
+    "packages/schema/src/v1/question.ts",
+    "packages/schema/src/vcs-event.ts",
+    "packages/schema/src/workspace-event.ts",
+    "packages/schema/src/workspace-id.ts",
+    "packages/schema/src/workspace.ts",
+    "packages/schema/src/worktree-event.ts",
+    "packages/schema/test/compatibility.test.ts",
+    "packages/schema/test/contract-hygiene.test.ts",
+    "packages/schema/test/event-manifest.test.ts",
+    "packages/schema/test/event.test.ts",
+    "packages/schema/test/legacy-event.test.ts",
+    "packages/schema/test/v1-isolation.test.ts",
+    "packages/sdk-next/README.md",
+    "packages/sdk-next/package.json",
+    "packages/sdk-next/src/index.ts",
+    "packages/sdk-next/src/opencode.ts",
+    "packages/sdk-next/src/tool.ts",
+    "packages/sdk-next/test/embedded.test.ts",
+    "packages/sdk-next/test/import-boundaries.test.ts",
+    "packages/sdk/js/package.json",
+    "packages/sdk/js/script/build.ts",
+    "packages/sdk/js/src/client.ts",
+    "packages/sdk/js/src/error-interceptor.ts",
+    "packages/sdk/js/src/index.ts",
+    "packages/sdk/js/src/process.ts",
+    "packages/sdk/js/src/server.ts",
+    "packages/sdk/js/src/v2/client.ts",
+    "packages/sdk/js/src/v2/data.ts",
+    "packages/sdk/js/src/v2/gen/core/serverSentEvents.gen.ts",
+    "packages/sdk/js/src/v2/index.ts",
+    "packages/sdk/js/src/v2/server.ts",
+    "packages/sdk/js/test/session-history.test.ts",
+    "packages/server/package.json",
+    "packages/server/src/api.ts",
+    "packages/server/src/auth.ts",
+    "packages/server/src/cors.ts",
+    "packages/server/src/handlers.ts",
+    "packages/server/src/handlers/agent.ts",
+    "packages/server/src/handlers/command.ts",
+    "packages/server/src/handlers/credential.ts",
+    "packages/server/src/handlers/event.ts",
+    "packages/server/src/handlers/fs.ts",
+    "packages/server/src/handlers/health.ts",
+    "packages/server/src/handlers/integration.ts",
+    "packages/server/src/handlers/location.ts",
+    "packages/server/src/handlers/message.ts",
+    "packages/server/src/handlers/model.ts",
+    "packages/server/src/handlers/permission.ts",
+    "packages/server/src/handlers/project-copy.ts",
+    "packages/server/src/handlers/provider.ts",
+    "packages/server/src/handlers/pty.ts",
+    "packages/server/src/handlers/question.ts",
+    "packages/server/src/handlers/reference.ts",
+    "packages/server/src/handlers/session.ts",
+    "packages/server/src/handlers/skill.ts",
+    "packages/server/src/location.ts",
+    "packages/server/src/middleware/authorization.ts",
+    "packages/server/src/middleware/schema-error.ts",
+    "packages/server/src/middleware/session-location.ts",
+    "packages/server/src/pty-environment.ts",
+    "packages/server/src/routes.ts",
+    "specs/storage/effect-sqlite-package.md",
+    "specs/storage/remove-opencode-db.md"
+  ],
+  "sampled_paths": [
+    {
+      "path": "packages/client/src/generated-effect/client.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/client/src/generated/types.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/core/drizzle.config.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/core/script/migration.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/core/src/database/schema.gen.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/core/src/location-services.ts",
+      "reason": "해당 영역의 정의·호출 경로·계약·생성 runtime 또는 관련 assertion 구간을 확인했다. 파일 전체의 모든 분기 검토를 주장하지 않는다."
+    },
+    {
+      "path": "packages/core/src/session.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/core/src/session/message-updater.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/core/src/share/sql.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/core/test/database-migration.test.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/core/test/event.test.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/core/test/session-projector.test.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/core/test/session-prompt.test.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/effect-drizzle-sqlite/test/sqlite.test.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/httpapi-codegen/src/index.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/httpapi-codegen/test/generate.test.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/opencode/src/cli/cmd/export.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/opencode/src/cli/cmd/generate.ts",
+      "reason": "해당 영역의 정의·호출 경로·계약·생성 runtime 또는 관련 assertion 구간을 확인했다. 파일 전체의 모든 분기 검토를 주장하지 않는다."
+    },
+    {
+      "path": "packages/opencode/src/control-plane/workspace.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/groups/config.ts",
+      "reason": "endpoint 계약 및 middleware 배치 표본; domain 내부 정책은 다른 담당 영역이다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/groups/control-plane.ts",
+      "reason": "endpoint 계약 및 middleware 배치 표본; domain 내부 정책은 다른 담당 영역이다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/groups/control.ts",
+      "reason": "endpoint 계약 및 middleware 배치 표본; domain 내부 정책은 다른 담당 영역이다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/groups/instance.ts",
+      "reason": "endpoint 계약 및 middleware 배치 표본; domain 내부 정책은 다른 담당 영역이다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/groups/mcp.ts",
+      "reason": "endpoint 계약 및 middleware 배치 표본; domain 내부 정책은 다른 담당 영역이다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/groups/project-copy.ts",
+      "reason": "endpoint 계약 및 middleware 배치 표본; domain 내부 정책은 다른 담당 영역이다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/groups/provider.ts",
+      "reason": "endpoint 계약 및 middleware 배치 표본; domain 내부 정책은 다른 담당 영역이다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/groups/session.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/groups/tui.ts",
+      "reason": "endpoint 계약 및 middleware 배치 표본; domain 내부 정책은 다른 담당 영역이다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/groups/workspace.ts",
+      "reason": "endpoint 계약 및 middleware 배치 표본; domain 내부 정책은 다른 담당 영역이다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/handlers/project-copy.ts",
+      "reason": "해당 영역의 정의·호출 경로·계약·생성 runtime 또는 관련 assertion 구간을 확인했다. 파일 전체의 모든 분기 검토를 주장하지 않는다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/handlers/tui.ts",
+      "reason": "해당 영역의 정의·호출 경로·계약·생성 runtime 또는 관련 assertion 구간을 확인했다. 파일 전체의 모든 분기 검토를 주장하지 않는다."
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/public.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/opencode/src/session/message-v2.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/opencode/src/session/session.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/opencode/src/session/todo.ts",
+      "reason": "해당 영역의 정의·호출 경로·계약·생성 runtime 또는 관련 assertion 구간을 확인했다. 파일 전체의 모든 분기 검토를 주장하지 않는다."
+    },
+    {
+      "path": "packages/opencode/src/storage/storage.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/opencode/test/cli/import.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-instance-context.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-listen.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-promptasync-context.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-pty.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-public-openapi.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-query-schema-drift.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-reference.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-schema-error-body.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-sdk.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/opencode/test/server/httpapi-workspace-routing.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/opencode/test/server/sdk-v1-smoke.test.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/opencode/test/share/share-next.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/opencode/test/storage/storage.test.ts",
+      "reason": "보고서의 저장·transaction·replay·HTTP·SSE·WS·공유 계약에 관련된 test와 assertion을 정적으로 읽었다. suite는 실행하지 않았다."
+    },
+    {
+      "path": "packages/schema/src/legacy-event.ts",
+      "reason": "해당 영역의 정의·호출 경로·계약·생성 runtime 또는 관련 assertion 구간을 확인했다. 파일 전체의 모든 분기 검토를 주장하지 않는다."
+    },
+    {
+      "path": "packages/schema/src/permission-v1.ts",
+      "reason": "해당 영역의 정의·호출 경로·계약·생성 runtime 또는 관련 assertion 구간을 확인했다. 파일 전체의 모든 분기 검토를 주장하지 않는다."
+    },
+    {
+      "path": "packages/schema/src/question-v1.ts",
+      "reason": "해당 영역의 정의·호출 경로·계약·생성 runtime 또는 관련 assertion 구간을 확인했다. 파일 전체의 모든 분기 검토를 주장하지 않는다."
+    },
+    {
+      "path": "packages/schema/src/session-v1.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/schema/src/v1/session.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "packages/sdk/js/src/v2/gen/client/client.gen.ts",
+      "reason": "해당 영역의 정의·호출 경로·계약·생성 runtime 또는 관련 assertion 구간을 확인했다. 파일 전체의 모든 분기 검토를 주장하지 않는다."
+    },
+    {
+      "path": "packages/sdk/js/src/v2/gen/sdk.gen.ts",
+      "reason": "해당 영역의 정의·호출 경로·계약·생성 runtime 또는 관련 assertion 구간을 확인했다. 파일 전체의 모든 분기 검토를 주장하지 않는다."
+    },
+    {
+      "path": "packages/sdk/js/src/v2/gen/types.gen.ts",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "specs/v2/api.html",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    },
+    {
+      "path": "specs/v2/schema-changelog.md",
+      "reason": "보고서 인용의 정의 또는 호출 구간을 확인했다. 경계 모듈/생성물/테스트 표본이다."
+    }
+  ],
+  "excluded_paths": [
+    {
+      "path": "packages/core/src/database/migration/** (reviewed_paths에 명시한 migration 제외)",
+      "reason": "전체 registry와 현재 full schema는 확인했다. 반복적인 역사 DDL은 전수 읽기 대신 reset/inbox/usage/path의 의미가 바뀌는 migration을 우선 조사했다."
+    },
+    {
+      "path": "packages/core/schema.json 및 과거 SQL snapshot/journal 생성 자료",
+      "reason": "현재 migration generator와 등록 경로를 조사했고 과거 snapshot의 모든 줄을 별도로 읽지 않았다."
+    },
+    {
+      "path": "packages/effect-drizzle-sqlite/src/sqlite-core/effect/**",
+      "reason": "vendored/generic query-builder 전체보다 transaction 연결·session·driver·migrator 계약과 adapter test를 우선했다."
+    },
+    {
+      "path": "packages/effect-drizzle-sqlite/examples/**",
+      "reason": "현재 application caller와 transaction 구현으로 사용 경로를 확인하여 예제 전수 조사는 제외했다."
+    },
+    {
+      "path": "packages/sdk/js/src/gen/**",
+      "reason": "기존 대형 generation 전체는 제외하고 공개 wrapper, 현재 v2 생성원, 기존 SDK reachability test 표본을 확인했다."
+    },
+    {
+      "path": "packages/sdk/js/src/v2/gen/** (sampled/reviewed에 명시한 파일 제외)",
+      "reason": "SSE/HTTP runtime 및 대표 endpoint/type는 조사했다. 반복적인 serializer/auth/query-key helper 생성물은 전수 읽지 않았다."
+    },
+    {
+      "path": "packages/httpapi-codegen/test/generated/**",
+      "reason": "fixture 생성물 전체 대신 generation 알고리즘과 동등성/consumer/writer 관련 tests를 확인했다."
+    },
+    {
+      "path": "packages/opencode/src/server/mdns.ts 및 UI 정적 자산",
+      "reason": "서버 assembly/lifecycle와 UI fallback 경계는 확인했지만 discovery 구현과 렌더링 자산은 저장/통신 계약의 상세 범위 밖이다."
+    },
+    {
+      "path": "packages/core/src/session/runner/** 및 provider turn 정책",
+      "reason": "01-engine/03-models 담당 범위. 이 보고서는 admission/promotion/settlement 저장 경계와 transport 의미를 추적한다."
+    },
+    {
+      "path": "packages/core/src/pty/pty.ts 및 native PTY process/ring-buffer 상세",
+      "reason": "02-tools 담당 범위. 이 보고서는 ticket/control API/WS cursor와 attachment/lifecycle 경계를 조사한다."
+    },
+    {
+      "path": "provider/MCP/tool/plugin의 domain 내부 구현 및 웹/TUI store 전체",
+      "reason": "02/03/04/06/07 영역에 넘길 질문을 남겼으며 HTTP schema와 handler 경계 이상의 정책·화면 구현은 중복 전수 조사하지 않았다."
+    },
+    {
+      "path": "packages/sdk/js/script/publish.ts 및 배포/CI workflow 전체",
+      "reason": "08-build-ops 담당 범위. generation entrypoint와 package script 계약은 확인했다."
+    }
+  ],
+  "execution_checks": [
+    {
+      "name": "고정 소스와 원본 보존",
+      "status": "pass",
+      "method": "git rev-parse HEAD와 git status --porcelain를 시작과 완료 때 확인했다. source HEAD가 지정 커밋과 같고 clean이다."
+    },
+    {
+      "name": "현재 generated Promise client 제한 검증",
+      "status": "pass",
+      "scenario_count": 10,
+      "runtime": "Node v26.9.0",
+      "source_files": [
+        "packages/client/src/generated/client.ts",
+        "packages/client/src/generated/client-error.ts"
+      ],
+      "method": "원본 generated 소스를 메모리에서 node:module.stripTypeScriptTypes로 strip하여 data-URL module로 import했다. ClientError constructor parameter property만 동등한 assignment로 낮췄다. fetch double의 Response/ReadableStream을 node:assert/strict로 확인했다. 파일·DB·listener·provider·외부 네트워크는 사용하지 않았다. harness는 영속 저장하지 않았다.",
+      "scenarios": [
+        "session get의 percent-encoded path와 정확한 data envelope unwrap",
+        "UTF-8 directory 및 location[directory]/location[workspace] nested query serialization",
+        "interrupt POST 및 204 응답 undefined",
+        "lazy SSE fetch, CRLF/comment 처리, 정상 EOF 후 재요청 없음, structural validation 없음",
+        "declared 401 JSON error body passthrough",
+        "unexpected 502가 ClientError UnexpectedStatus",
+        "빈 JSON body가 MalformedResponse",
+        "malformed JSON body가 MalformedResponse",
+        "HTML content type이 UnsupportedContentType",
+        "malformed SSE JSON이 stream rejection"
+      ],
+      "query_note": "올바른 Protocol workspace key를 별도로 재검증했다. 임의 nested workspaceID key serialization은 서버의 수용 증거로 사용하지 않았다."
+    },
+    {
+      "name": "보고서 인용/coverage 파일 검증",
+      "status": "pass",
+      "method": "source reference의 파일 존재와 줄 번호 범위를 확인하고 unresolved reference와 coverage 경로 중복/존재를 검사했다."
+    },
+    {
+      "name": "정식 Bun tests/typecheck/check:generated",
+      "status": "not_run",
+      "reason": "일반 PATH에 Bun이 없고 원본 checkout에 node_modules가 없다. 원본 보존 지침에 따라 의존성을 설치하거나 generation을 수행하지 않았다."
+    },
+    {
+      "name": "실제 HTTP/WS/PTY/embedded/DB migration/remote sync/share/provider",
+      "status": "not_run",
+      "reason": "정적 code/test 분석으로 한정했다. Promise fetch-double 검증은 이 end-to-end 실행의 대체물이 아니다."
+    }
+  ],
+  "unverified_points": [
+    "Bun suites, typecheck, regeneration/check:generated, native SQLite migration 및 실제 listener/PTY/embedded suite를 실행하지 않았다.",
+    "동일 SQLite를 사용하는 다중 프로세스의 migration init과 append notification/tail 보장. 현재 durable wake는 process-local이다.",
+    "outer transaction 안의 EventV2.publish가 outer COMMIT 뒤에만 live 알림을 내는지. 해당 caller는 조사한 경로에서 찾지 못했다.",
+    "projector registry의 정확한 type+version binding과 향후 여러 durable version 공존 의미.",
+    "combined host의 current /api/event encoder가 manifest 밖의 legacy PartDelta를 받는 경로는 정적 추론이다. 실제 stream 종료를 재현하지 않았다.",
+    "event-manifest test의 32/55/85 고정 기대값과 현행 35/58/88 집계 차이는 정적 불일치이며 suite 실행 실패로 보고하지 않았다.",
+    "global session timestamp-only cursor에서 동일 timestamp 경계의 누락 가능성을 실행 재현하지 않았다.",
+    "remote SSE/history handoff timing, replay 실패 뒤 catch-up, projection fence timeout/abort, 분산 warp 중간 실패 복구.",
+    "share backend의 message/part 삭제 의미와 coalesced upload 실패 후 복구. 로컬 코드에 durable outbox/resend는 확인되지 않는다.",
+    "direct-SQL import의 부분 실패 및 event-less imported session의 이후 sync/warp 계약.",
+    "current PTY shutdown tracker TODO와 실제 listener 종료/WS attachment race.",
+    "compatibility SDK session SSE generated type/after query와 actual payload 차이를 실제 network consumer에서 확인하지 않았다.",
+    "Context Epoch local snapshot과 incomplete assistant/provider continuation의 crash recovery는 01-engine 확인이 필요하다."
+  ],
+  "cross_area_questions": [
+    {
+      "area": "01-engine",
+      "question": "admitted inbox와 promoted history의 재개, incomplete assistant/provider continuation, local Context Epoch snapshot의 crash/replay 복구 계약은 무엇인가?"
+    },
+    {
+      "area": "02-tools",
+      "question": "PTY cursor/ring-buffer와 느린 WS queue, current graceful shutdown tracker, 파일 경로 및 permission/question pending Scope의 실제 수명은 무엇인가?"
+    },
+    {
+      "area": "03-models",
+      "question": "credential/account refresh 저장의 atomicity와 provider 오류/continuation을 durable session boundary에 어떻게 연결하는가?"
+    },
+    {
+      "area": "04-tui / 07-clients",
+      "question": "live stream 종료/overflow 때 session after cursor로 catch-up하는가? current global stream의 V1 durable events 및 broader compatibility union을 store가 어떻게 처리하는가?"
+    },
+    {
+      "area": "06-extensions",
+      "question": "remote workspace live replay 실패와 history catch-up, legacy warp/new MoveSession 구분, share backend 삭제/재시도 의미는 무엇인가?"
+    },
+    {
+      "area": "08-build-ops",
+      "question": "두 SDK generation pipeline과 stale manifest tests의 실제 CI 범위, current standalone API의 배포 사용 경로, compatibility SSE type/after patch 범위는 어디까지인가?"
+    }
+  ]
+}
