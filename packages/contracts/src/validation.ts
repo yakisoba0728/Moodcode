@@ -1,0 +1,190 @@
+import { DEFAULT_LIMITS, EngineError, SCHEMA_VERSION } from './index.js';
+import type { CommandEnvelope, JsonObject, RunConfig, RunConfigInput, RunLimits, SubmitInput } from './index.js';
+
+const MAX_ID_BYTES = 256;
+const MAX_PROMPT_BYTES = 131_072;
+const MAX_PATH_BYTES = 4_096;
+const encoder = new TextEncoder();
+const LIMIT_MAXIMUMS: Readonly<RunLimits> = Object.freeze({
+  maxTurns: 128,
+  maxToolCalls: 1_024,
+  maxDurationMs: 3_600_000,
+  toolTimeoutMs: 600_000,
+  maxOutputBytes: 1_048_576,
+  maxContextBytes: 4_194_304,
+});
+const LIMIT_KEYS: readonly (keyof RunLimits)[] = [
+  'maxTurns', 'maxToolCalls', 'maxDurationMs', 'toolTimeoutMs', 'maxOutputBytes', 'maxContextBytes',
+];
+const COMMAND_TYPES = new Set([
+  'engine.getCapabilities',
+  'workspace.open', 'session.create', 'session.list', 'session.getSnapshot',
+  'run.submit', 'run.cancel', 'approval.decide', 'review.getDiff', 'events.subscribe',
+]);
+
+function invalid(path: string, rule: string): never {
+  // Do not copy submitted values into errors: credential fields are unsupported.
+  throw new EngineError('INVALID_INPUT', `${path} ${rule}`, { path });
+}
+
+function object(value: unknown, path: string, keys: readonly string[]): Record<string, unknown> {
+  if (value === null || typeof value !== 'object') {
+    invalid(path, 'must be a JSON object');
+  }
+  let array: boolean;
+  let prototype: unknown;
+  let descriptors: PropertyDescriptorMap;
+  let ownKeys: (string | symbol)[];
+  try {
+    array = Array.isArray(value);
+    prototype = Object.getPrototypeOf(value);
+    descriptors = Object.getOwnPropertyDescriptors(value);
+    ownKeys = Reflect.ownKeys(value);
+  } catch {
+    invalid(path, 'must be an inspectable JSON object');
+  }
+  if (array) invalid(path, 'must be a JSON object');
+  if (prototype !== Object.prototype && prototype !== null) invalid(path, 'must be a plain JSON object');
+  const result: Record<string, unknown> = Object.create(null);
+  for (const key of ownKeys) {
+    if (typeof key !== 'string' || !keys.includes(key)) invalid(path, 'contains an unsupported field');
+    const descriptor = descriptors[key];
+    if (!descriptor || !descriptor.enumerable || !('value' in descriptor)) {
+      invalid(path, 'must contain enumerable JSON data properties');
+    }
+    result[key] = descriptor.value;
+  }
+  return result;
+}
+
+function has(value: Record<string, unknown>, key: string): boolean {
+  return Object.hasOwn(value, key);
+}
+
+function string(value: unknown, path: string, maxBytes: number, controlCharacters = false): string {
+  if (typeof value !== 'string') invalid(path, 'must be a string');
+  if (value.trim().length === 0) invalid(path, 'must not be empty');
+  if (value.includes('\0')) invalid(path, 'must not contain NUL');
+  if (controlCharacters && /[\u0000-\u001f\u007f]/u.test(value)) {
+    invalid(path, 'must not contain control characters');
+  }
+  if (value.length > maxBytes || encoder.encode(value).byteLength > maxBytes) {
+    invalid(path, `must not exceed ${maxBytes} UTF-8 bytes`);
+  }
+  return value;
+}
+
+function id(value: unknown, path: string): string {
+  return string(value, path, MAX_ID_BYTES, true);
+}
+
+function integer(value: unknown, path: string, minimum: number, maximum: number): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    invalid(path, `must be an integer between ${minimum} and ${maximum}`);
+  }
+  return value;
+}
+
+function normalizeConfig(value: unknown, defaults?: RunConfigInput): RunConfig {
+  const baseline = defaults === undefined ? undefined : normalizeConfig(defaults);
+  const config = value === undefined ? {} : object(value, 'payload.config', ['providerId', 'modelId', 'mode', 'limits']);
+  const limits = has(config, 'limits') ? object(config.limits, 'payload.config.limits', LIMIT_KEYS) : {};
+  const normalizedLimits = { ...(baseline?.limits ?? DEFAULT_LIMITS) };
+  for (const key of LIMIT_KEYS) {
+    if (has(limits, key)) {
+      normalizedLimits[key] = integer(limits[key], `payload.config.limits.${key}`, 1, LIMIT_MAXIMUMS[key]);
+    }
+  }
+  const mode = has(config, 'mode') ? config.mode : (baseline?.mode ?? 'plan');
+  if (mode !== 'plan' && mode !== 'build') invalid('payload.config.mode', 'must be plan or build');
+  return {
+    providerId: has(config, 'providerId') ? id(config.providerId, 'payload.config.providerId') : (baseline?.providerId ?? 'scripted'),
+    modelId: has(config, 'modelId') ? id(config.modelId, 'payload.config.modelId') : (baseline?.modelId ?? 'local'),
+    mode,
+    limits: normalizedLimits,
+  };
+}
+
+/** Validate and copy a submit payload; omitted config fields receive stable defaults. */
+export function normalizeSubmitInput(value: unknown, defaults?: RunConfigInput): SubmitInput {
+  const payload = object(value, 'payload', ['sessionId', 'requestId', 'prompt', 'config']);
+  if (has(payload, 'config') && payload.config === undefined) invalid('payload.config', 'must be a JSON object');
+  return {
+    sessionId: id(payload.sessionId, 'payload.sessionId'),
+    requestId: id(payload.requestId, 'payload.requestId'),
+    prompt: string(payload.prompt, 'payload.prompt', MAX_PROMPT_BYTES),
+    config: normalizeConfig(payload.config, defaults),
+  };
+}
+
+/** Validate the JSON transport envelope and return its canonical, isolated payload. */
+export function validateCommand(value: unknown, submitDefaults?: RunConfigInput): CommandEnvelope {
+  const envelope = object(value, 'command', ['schemaVersion', 'commandId', 'type', 'payload']);
+  if (envelope.schemaVersion !== SCHEMA_VERSION) {
+    throw new EngineError('UNSUPPORTED_SCHEMA_VERSION', 'command.schemaVersion must be 1', { path: 'command.schemaVersion' });
+  }
+  const commandId = id(envelope.commandId, 'command.commandId');
+  const type = string(envelope.type, 'command.type', 64, true);
+  if (!COMMAND_TYPES.has(type)) throw new EngineError('UNKNOWN_COMMAND', 'command.type is not supported', { path: 'command.type' });
+
+  let payload: JsonObject;
+  switch (type) {
+    case 'engine.getCapabilities':
+      object(envelope.payload, 'payload', []);
+      payload = {};
+      break;
+    case 'workspace.open': {
+      const input = object(envelope.payload, 'payload', ['path']);
+      payload = { path: string(input.path, 'payload.path', MAX_PATH_BYTES) };
+      break;
+    }
+    case 'session.create': {
+      const input = object(envelope.payload, 'payload', ['workspaceId', 'title']);
+      payload = { workspaceId: id(input.workspaceId, 'payload.workspaceId') };
+      if (has(input, 'title')) payload.title = string(input.title, 'payload.title', MAX_ID_BYTES, true);
+      break;
+    }
+    case 'session.list': {
+      const input = object(envelope.payload, 'payload', ['workspaceId']);
+      payload = { workspaceId: id(input.workspaceId, 'payload.workspaceId') };
+      break;
+    }
+    case 'session.getSnapshot': {
+      const input = object(envelope.payload, 'payload', ['sessionId']);
+      payload = { sessionId: id(input.sessionId, 'payload.sessionId') };
+      break;
+    }
+    case 'run.submit': {
+      const input = normalizeSubmitInput(envelope.payload, submitDefaults);
+      payload = { ...input, config: { ...input.config, limits: { ...input.config.limits } } };
+      break;
+    }
+    case 'run.cancel':
+    case 'review.getDiff': {
+      const input = object(envelope.payload, 'payload', ['runId']);
+      payload = { runId: id(input.runId, 'payload.runId') };
+      break;
+    }
+    case 'approval.decide': {
+      const input = object(envelope.payload, 'payload', ['approvalId', 'decision', 'fingerprint']);
+      if (input.decision !== 'allow' && input.decision !== 'deny') invalid('payload.decision', 'must be allow or deny');
+      payload = {
+        approvalId: id(input.approvalId, 'payload.approvalId'),
+        decision: input.decision,
+        fingerprint: string(input.fingerprint, 'payload.fingerprint', 512, true),
+      };
+      break;
+    }
+    case 'events.subscribe': {
+      const input = object(envelope.payload, 'payload', ['sessionId', 'afterSeq']);
+      payload = {
+        sessionId: id(input.sessionId, 'payload.sessionId'),
+        afterSeq: has(input, 'afterSeq') ? integer(input.afterSeq, 'payload.afterSeq', 0, Number.MAX_SAFE_INTEGER) : 0,
+      };
+      break;
+    }
+    default:
+      throw new EngineError('UNKNOWN_COMMAND', 'command.type is not supported');
+  }
+  return { schemaVersion: SCHEMA_VERSION, commandId, type, payload };
+}

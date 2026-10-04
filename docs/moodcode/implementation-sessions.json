@@ -1,0 +1,107 @@
+{
+  "createdAt": "2026-10-04T01:52:57.660Z",
+  "project": "Moodcode",
+  "scope": "E0-E4 engine; no GUI",
+  "sessions": [
+    {
+      "number": "01",
+      "title": "Moodcode 01 계약 검증·Context",
+      "threadId": "01a1049a-6d2f-7742-be43-35e02271f631",
+      "hostId": "local",
+      "model": "gpt-6.1-sol",
+      "thinking": "ultra",
+      "paths": "packages/contracts/src/validation.ts, validation.test.ts 및 packages/engine/src/context/**",
+      "report": "docs/moodcode/implementation-reports/01-contracts-context.md"
+    },
+    {
+      "number": "02",
+      "title": "Moodcode 02 SQLite·Journal·복구",
+      "threadId": "01a1049a-6e84-7f62-8a9f-9e18d5f1565a",
+      "hostId": "local",
+      "model": "gpt-6.1-sol",
+      "thinking": "ultra",
+      "paths": "packages/engine/src/storage/**",
+      "report": "docs/moodcode/implementation-reports/02-storage.md"
+    },
+    {
+      "number": "03",
+      "title": "Moodcode 03 Run Coordinator·Agent Loop",
+      "threadId": "01a1049a-70e5-7c52-a2dc-e6552398bf52",
+      "hostId": "local",
+      "model": "gpt-6.1-sol",
+      "thinking": "ultra",
+      "paths": "packages/engine/src/runner/**",
+      "report": "docs/moodcode/implementation-reports/03-runner.md"
+    },
+    {
+      "number": "04",
+      "title": "Moodcode 04 Scripted·HTTP 모델 Adapter",
+      "threadId": "01a1049a-8bd2-7550-a6fd-ce421d2c868f",
+      "hostId": "local",
+      "model": "gpt-6.1-sol",
+      "thinking": "ultra",
+      "paths": "packages/engine/src/provider/**",
+      "report": "docs/moodcode/implementation-reports/04-providers.md"
+    },
+    {
+      "number": "05",
+      "title": "Moodcode 05 Workspace·경로·Git",
+      "threadId": "01a1049a-8d65-7360-8202-463964280199",
+      "hostId": "local",
+      "model": "gpt-6.1-sol",
+      "thinking": "ultra",
+      "paths": "packages/engine/src/workspace/**",
+      "report": "docs/moodcode/implementation-reports/05-workspace.md"
+    },
+    {
+      "number": "06",
+      "title": "Moodcode 06 파일 목록·읽기·검색",
+      "threadId": "01a1049a-8f26-7a00-a149-1de9e1e4a0b8",
+      "hostId": "local",
+      "model": "gpt-6.1-sol",
+      "thinking": "ultra",
+      "paths": "packages/engine/src/tools/read/**",
+      "report": "docs/moodcode/implementation-reports/06-read-tools.md"
+    },
+    {
+      "number": "07",
+      "title": "Moodcode 07 Patch·Checkpoint·Diff",
+      "threadId": "01a1049a-90d7-72a0-a135-29bf85e8c976",
+      "hostId": "local",
+      "model": "gpt-6.1-sol",
+      "thinking": "ultra",
+      "paths": "packages/engine/src/tools/patch/** 및 packages/engine/src/review/**",
+      "report": "docs/moodcode/implementation-reports/07-patch-review.md"
+    },
+    {
+      "number": "08",
+      "title": "Moodcode 08 승인·거절·만료",
+      "threadId": "01a1049a-9353-75a2-9025-ac21ca8c26a1",
+      "hostId": "local",
+      "model": "gpt-6.1-sol",
+      "thinking": "ultra",
+      "paths": "packages/engine/src/permission/**",
+      "report": "docs/moodcode/implementation-reports/08-approvals.md"
+    },
+    {
+      "number": "09",
+      "title": "Moodcode 09 명령 실행·출력·취소",
+      "threadId": "01a1049a-9768-7cf1-9e9d-9dd75e48b76d",
+      "hostId": "local",
+      "model": "gpt-6.1-sol",
+      "thinking": "ultra",
+      "paths": "packages/engine/src/tools/command/**",
+      "report": "docs/moodcode/implementation-reports/09-command-tools.md"
+    },
+    {
+      "number": "10",
+      "title": "Moodcode 10 JSONL Harness·Electron Runtime",
+      "threadId": "01a1049a-9a60-7a33-81b6-6a89dd2b5461",
+      "hostId": "local",
+      "model": "gpt-6.1-sol",
+      "thinking": "ultra",
+      "paths": "apps/engine-harness/src/**, scripts/electron-smoke.cjs, scripts/electron-engine-child.cjs",
+      "report": "docs/moodcode/implementation-reports/10-harness.md"
+    }
+  ]
+}

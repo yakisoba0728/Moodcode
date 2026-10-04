@@ -1,0 +1,31 @@
+{
+  "name": "moodcode",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/contracts",
+    "packages/engine",
+    "apps/engine-harness"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "test": "npm run build && node scripts/test.mjs",
+    "harness": "node apps/engine-harness/dist/index.js",
+    "check": "npm run typecheck && npm test",
+    "test:electron": "npm run build && electron scripts/electron-smoke.cjs",
+    "test:electron-runtime": "npm run build && node scripts/electron-runtime-check.cjs",
+    "demo": "npm run build && node scripts/demo.mjs",
+    "doctor": "npm run build && node scripts/doctor.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "electron": "44.5.1",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  }
+}

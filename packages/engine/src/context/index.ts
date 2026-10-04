@@ -1,0 +1,350 @@
+import { constants } from 'node:fs';
+import { lstat, open } from 'node:fs/promises';
+import { isAbsolute, join } from 'node:path';
+import { EngineError, type JsonObject, type JsonValue, type Message, type ProviderReplay, type ProviderToolCall } from '@moodcode/contracts';
+import type { ContextRequest, ProviderMessage } from '../ports.js';
+
+const MAX_INSTRUCTION_BYTES = 32 * 1024;
+const INSTRUCTION_PREFIX = 'Workspace instructions (AGENTS.md):\n';
+const TRUNCATION_NOTICE = '\n[AGENTS.md truncated.]';
+
+interface ContextBlock {
+  messages: ProviderMessage[];
+  // Every entry contributes its serialized bytes and one array delimiter.
+  cost: number;
+}
+
+function checkAbort(signal: AbortSignal): void {
+  if (signal.aborted) throw new EngineError('CANCELLED', 'Context construction was cancelled.');
+}
+
+function entryCost(message: ProviderMessage): number {
+  return Buffer.byteLength(JSON.stringify(message), 'utf8') + 1;
+}
+
+function arrayBytes(cost: number, count: number): number {
+  return count === 0 ? 2 : cost + 1;
+}
+
+function block(messages: ProviderMessage[]): ContextBlock {
+  return { messages, cost: messages.reduce((sum, message) => sum + entryCost(message), 0) };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+// Reject cyclic, non-JSON, and excessively deep tool metadata before serialization.
+// The clone also prevents a provider from changing the stored history through aliases.
+function copyJson(value: unknown, ancestors = new Set<object>(), depth = 0): JsonValue | undefined {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== 'object' || depth > 64 || ancestors.has(value)) return undefined;
+  if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) return undefined;
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      const result: JsonValue[] = [];
+      for (const child of value) {
+        const copied = copyJson(child, ancestors, depth + 1);
+        if (copied === undefined) return undefined;
+        result.push(copied);
+      }
+      return result;
+    }
+    const result: { [key: string]: JsonValue } = {};
+    for (const [key, child] of Object.entries(value)) {
+      const copied = copyJson(child, ancestors, depth + 1);
+      if (copied === undefined) return undefined;
+      Object.defineProperty(result, key, { value: copied, enumerable: true, writable: true, configurable: true });
+    }
+    return result;
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function copyCalls(value: unknown): ProviderToolCall[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  const ids = new Set<string>();
+  const calls: ProviderToolCall[] = [];
+  for (const candidate of value) {
+    if (!isRecord(candidate) || typeof candidate.id !== 'string' || candidate.id.length === 0
+      || typeof candidate.name !== 'string' || candidate.name.length === 0 || ids.has(candidate.id)) return undefined;
+    const input = copyJson(candidate.input);
+    if (input === undefined) return undefined;
+    ids.add(candidate.id);
+    calls.push({ id: candidate.id, name: candidate.name, input });
+  }
+  return calls;
+}
+
+function invalidReplay(): never {
+  throw new EngineError('INVALID_CONTEXT', 'Stored provider replay metadata is malformed.');
+}
+
+/** Clone opaque replay JSON without silently removing malformed/native state. */
+function replayJson(value: unknown, ancestors = new Set<object>(), depth = 0): JsonValue {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'object' || depth > 64 || ancestors.has(value)) invalidReplay();
+  let array: boolean;
+  let prototype: unknown;
+  let descriptors: PropertyDescriptorMap;
+  let keys: (string | symbol)[];
+  try {
+    array = Array.isArray(value);
+    prototype = Object.getPrototypeOf(value);
+    descriptors = Object.getOwnPropertyDescriptors(value);
+    keys = Reflect.ownKeys(value);
+  } catch { invalidReplay(); }
+  if (prototype !== null && prototype !== (array ? Array.prototype : Object.prototype)) invalidReplay();
+  ancestors.add(value);
+  try {
+    if (array) {
+      const length = descriptors.length?.value;
+      if (!Number.isSafeInteger(length) || length < 0 || keys.length !== length + 1) invalidReplay();
+      const result: JsonValue[] = [];
+      for (let index = 0; index < length; index += 1) {
+        const descriptor = descriptors[String(index)];
+        if (!descriptor || !descriptor.enumerable || !('value' in descriptor)) invalidReplay();
+        result.push(replayJson(descriptor.value, ancestors, depth + 1));
+      }
+      return result;
+    }
+    const result: JsonObject = {};
+    for (const key of keys) {
+      if (typeof key !== 'string') invalidReplay();
+      const descriptor = descriptors[key];
+      if (!descriptor || !descriptor.enumerable || !('value' in descriptor)) invalidReplay();
+      Object.defineProperty(result, key, {
+        value: replayJson(descriptor.value, ancestors, depth + 1), enumerable: true, writable: true, configurable: true,
+      });
+    }
+    return result;
+  } finally { ancestors.delete(value); }
+}
+
+function messageReplay(message: Message): ProviderReplay | undefined {
+  let descriptor: PropertyDescriptor | undefined;
+  try {
+    descriptor = Object.getOwnPropertyDescriptor(message, 'providerReplay');
+    if (descriptor === undefined && 'providerReplay' in message) invalidReplay();
+  } catch { invalidReplay(); }
+  if (descriptor === undefined) return undefined;
+  if (!descriptor.enumerable || !('value' in descriptor)) invalidReplay();
+  if (descriptor.value === undefined) return undefined;
+  const copied = replayJson(descriptor.value);
+  if (!isRecord(copied) || Object.keys(copied).length !== 2
+    || !Object.hasOwn(copied, 'providerId') || !Object.hasOwn(copied, 'items')) invalidReplay();
+  const providerId = copied.providerId;
+  const items = copied.items;
+  if (typeof providerId !== 'string' || providerId.trim().length === 0 || providerId.length > 256
+    || Buffer.byteLength(providerId, 'utf8') > 256 || /[\u0000-\u001f\u007f]/u.test(providerId)
+    || !Array.isArray(items) || items.some((item) => !isRecord(item))) invalidReplay();
+  return { providerId, items: items as JsonObject[] };
+}
+
+function validMessage(value: unknown, sessionId: string): value is Message {
+  return isRecord(value) && value.sessionId === sessionId && typeof value.runId === 'string'
+    && typeof value.content === 'string' && ['user', 'assistant', 'tool'].includes(String(value.role));
+}
+
+function checkedMessageReplay(value: unknown, sessionId: string, providerId: string): ProviderReplay | undefined {
+  if (!isRecord(value) || value.sessionId !== sessionId) return undefined;
+  const replay = messageReplay(value as unknown as Message);
+  if (replay === undefined) return undefined;
+  if (value.role !== 'assistant') throw new EngineError('INVALID_CONTEXT', 'Provider replay is only supported on assistant messages.');
+  if (!validMessage(value, sessionId)) throw new EngineError('INVALID_CONTEXT', 'Stored message with provider replay is malformed.');
+  // Native state belongs to one transport; still validate it before switching providers.
+  return replay.providerId === providerId ? replay : undefined;
+}
+
+function historyBlocks(request: ContextRequest): ContextBlock[] {
+  const stored = request.snapshot.messages;
+  const sessionId = request.snapshot.session.id;
+  const blocks: ContextBlock[] = [];
+  for (let index = 0; index < stored.length; index += 1) {
+    checkAbort(request.signal);
+    const message = stored[index];
+    // Inspect same-session native state before filtering malformed surrounding rows.
+    const providerReplay = checkedMessageReplay(message, sessionId, request.config.providerId);
+    if (!validMessage(message, sessionId)) continue;
+    if (message.role === 'tool') continue;
+    if (message.role === 'user') {
+      blocks.push(block([{ role: 'user', content: message.content }]));
+      continue;
+    }
+    const calls = copyCalls(message.toolCalls);
+    if (calls) {
+      const expectedIds = new Set(calls.map((call) => call.id));
+      const seenIds = new Set<string>();
+      const results: ProviderMessage[] = [];
+      let valid = true;
+      let cursor = index + 1;
+      // Results must belong to this call block; pairing cannot cross another turn.
+      while (cursor < stored.length && stored[cursor]?.role === 'tool' && seenIds.size < calls.length) {
+        checkAbort(request.signal);
+        const result = stored[cursor];
+        checkedMessageReplay(result, sessionId, request.config.providerId);
+        if (!validMessage(result, sessionId) || result.runId !== message.runId
+          || typeof result.toolCallId !== 'string' || !expectedIds.has(result.toolCallId)
+          || seenIds.has(result.toolCallId)) {
+          valid = false;
+        } else {
+          seenIds.add(result.toolCallId);
+          results.push({ role: 'tool', content: result.content, toolCallId: result.toolCallId });
+        }
+        cursor += 1;
+      }
+      index = cursor - 1;
+      if (valid && seenIds.size === calls.length) {
+        blocks.push(block([{
+          role: 'assistant', content: message.content, toolCalls: calls,
+          ...(providerReplay === undefined ? {} : { providerReplay }),
+        }, ...results]));
+        continue;
+      }
+    }
+    // Interrupted/damaged calls never produce provider-visible dangling results.
+    // Preserve explanatory text without claiming the missing calls completed.
+    const declaredCalls = message.toolCalls !== undefined && !(Array.isArray(message.toolCalls) && message.toolCalls.length === 0);
+    const completedReplay = declaredCalls ? undefined : providerReplay;
+    if (message.content.length > 0 || completedReplay !== undefined) blocks.push(block([{
+      role: 'assistant', content: message.content,
+      ...(completedReplay === undefined ? {} : { providerReplay: completedReplay }),
+    }]));
+  }
+  return blocks;
+}
+
+function fsCode(error: unknown): string | undefined {
+  return isRecord(error) && typeof error.code === 'string' ? error.code : undefined;
+}
+
+async function readInstructions(request: ContextRequest): Promise<{ text: string; truncated: boolean } | undefined> {
+  checkAbort(request.signal);
+  const path = join(request.workspace.root, 'AGENTS.md');
+  try {
+    const initial = await lstat(path);
+    checkAbort(request.signal);
+    if (!initial.isFile() || initial.isSymbolicLink()) return undefined;
+    // O_NOFOLLOW closes the symlink replacement race between lstat and open.
+    // O_NONBLOCK prevents a substituted FIFO from blocking engine cancellation.
+    const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    try {
+      checkAbort(request.signal);
+      const info = await handle.stat();
+      checkAbort(request.signal);
+      if (!info.isFile() || info.dev !== initial.dev || info.ino !== initial.ino) {
+        throw new EngineError('CONTEXT_INSTRUCTIONS', 'Workspace instructions changed while being opened.');
+      }
+      const buffer = Buffer.alloc(MAX_INSTRUCTION_BYTES);
+      let bytes = 0;
+      while (bytes < buffer.length) {
+        checkAbort(request.signal);
+        const result = await handle.read(buffer, bytes, buffer.length - bytes, bytes);
+        checkAbort(request.signal);
+        if (result.bytesRead === 0) break;
+        bytes += result.bytesRead;
+      }
+      if (bytes === 0 || buffer.subarray(0, bytes).includes(0)) return undefined;
+      const truncated = info.size > bytes;
+      // Streaming decode excludes a partial UTF-8 codepoint at a bounded edge.
+      const text = new TextDecoder('utf-8').decode(buffer.subarray(0, bytes), { stream: truncated });
+      return text.length === 0 ? undefined : { text, truncated };
+    } finally {
+      await handle.close();
+    }
+  } catch (error) {
+    checkAbort(request.signal);
+    if (error instanceof EngineError) throw error;
+    if (['ENOENT', 'ENOTDIR', 'ELOOP'].includes(fsCode(error) ?? '')) return undefined;
+    throw new EngineError('CONTEXT_INSTRUCTIONS', 'Workspace instructions could not be read.');
+  }
+}
+
+function codepointPrefix(text: string, length: number): string {
+  const last = text.charCodeAt(length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) length -= 1;
+  return text.slice(0, length);
+}
+
+function fitInstructions(instructions: { text: string; truncated: boolean }, cost: number, count: number, limit: number): ProviderMessage | undefined {
+  const makeMessage = (length: number): ProviderMessage => ({
+    role: 'system',
+    content: INSTRUCTION_PREFIX + codepointPrefix(instructions.text, length)
+      + (instructions.truncated || length < instructions.text.length ? TRUNCATION_NOTICE : ''),
+  });
+  const fits = (message: ProviderMessage): boolean => Buffer.byteLength(message.content, 'utf8') <= MAX_INSTRUCTION_BYTES
+    && arrayBytes(cost + entryCost(message), count + 1) <= limit;
+  const full = makeMessage(instructions.text.length);
+  if (fits(full)) return full;
+  // Every partial candidate includes a truncation notice, so costs are monotone.
+  let low = 0;
+  let high = instructions.text.length - 1;
+  let candidate: ProviderMessage | undefined;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const current = makeMessage(middle);
+    if (fits(current)) {
+      if (codepointPrefix(instructions.text, middle).length > 0) candidate = current;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return candidate;
+}
+
+/** Build a bounded provider transcript without exposing incomplete tool exchanges. */
+export async function buildContext(request: ContextRequest): Promise<ProviderMessage[]> {
+  checkAbort(request.signal);
+  const maxContextBytes = request.config.limits.maxContextBytes;
+  if (!Number.isSafeInteger(maxContextBytes) || maxContextBytes < 2) {
+    throw new EngineError('CONTEXT_LIMIT', 'Context budget must fit a serialized message array.');
+  }
+  const reservedBytes = request.reservedBytes === undefined ? 0 : request.reservedBytes;
+  if (!Number.isSafeInteger(reservedBytes) || reservedBytes < 0) {
+    throw new EngineError('CONTEXT_LIMIT', 'Reserved context bytes must be a nonnegative safe integer.');
+  }
+  // The caller reserves tool schemas and envelope overhead; keep persisted config intact.
+  const limit = maxContextBytes - reservedBytes;
+  if (limit < 2) {
+    throw new EngineError('CONTEXT_LIMIT', 'Context reservation leaves insufficient space for a serialized message array.', {
+      maxContextBytes, reservedBytes,
+    });
+  }
+  if (!isAbsolute(request.workspace.root) || request.snapshot.session.workspaceId !== request.workspace.id
+    || !Array.isArray(request.snapshot.messages)) {
+    throw new EngineError('INVALID_CONTEXT', 'Context workspace and stored session are inconsistent.');
+  }
+  const blocks = historyBlocks(request);
+  let requiredStart = blocks.findLastIndex((item) => item.messages[0]?.role === 'user');
+  // A transcript without a user still keeps its latest valid block intact.
+  if (requiredStart < 0) requiredStart = Math.max(0, blocks.length - 1);
+  const selected = blocks.slice(requiredStart);
+  let cost = selected.reduce((sum, item) => sum + item.cost, 0);
+  let count = selected.reduce((sum, item) => sum + item.messages.length, 0);
+  if (arrayBytes(cost, count) > limit) {
+    throw new EngineError('CONTEXT_LIMIT', 'The current request and its tool results exceed the available context budget.', {
+      requiredBytes: arrayBytes(cost, count), maxContextBytes, reservedBytes, availableContextBytes: limit,
+    });
+  }
+  const instructions = await readInstructions(request);
+  checkAbort(request.signal);
+  const system = instructions ? fitInstructions(instructions, cost, count, limit) : undefined;
+  if (system) { cost += entryCost(system); count += 1; }
+  // Retain a chronological suffix of older history, with tool groups indivisible.
+  for (let index = requiredStart - 1; index >= 0; index -= 1) {
+    checkAbort(request.signal);
+    const item = blocks[index]!;
+    if (arrayBytes(cost + item.cost, count + item.messages.length) > limit) break;
+    selected.unshift(item);
+    cost += item.cost;
+    count += item.messages.length;
+  }
+  checkAbort(request.signal);
+  const messages = selected.flatMap((item) => item.messages);
+  return system ? [system, ...messages] : messages;
+}

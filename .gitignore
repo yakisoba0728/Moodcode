@@ -1,0 +1,14 @@
+node_modules/
+**/dist/
+*.tsbuildinfo
+.moodcode/
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite.artifacts/
+.DS_Store
+coverage/

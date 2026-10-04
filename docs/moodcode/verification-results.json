@@ -1,0 +1,205 @@
+{
+  "observedAt": "2026-10-04 02:53:53 UTC",
+  "pathNormalization": { "doctor.workspace.root": "<workspace>" },
+  "scope": "Moodcode engine prototype and additional services; GUI excluded",
+  "environment": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "developmentNode": "26.9.0"
+  },
+  "tests": {
+    "tests": 838,
+    "pass": 837,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 1,
+    "durationMs": 6085.050417,
+    "command": "npm test",
+    "exitCode": 0
+  },
+  "integration": {
+    "source": "packages/engine/src/integration",
+    "tests": 9,
+    "pass": 9,
+    "note": "Included in full suite; native Responses uses loopback HTTP, no real account request."
+  },
+  "demo": {
+    "exitCode": 0,
+    "provider": "scripted",
+    "state": "completed",
+    "tools": [
+      "read_file",
+      "apply_patch",
+      "run_command"
+    ],
+    "changedFiles": [
+      "math.mjs"
+    ],
+    "journalEvents": 29
+  },
+  "electronUtility": {
+    "schemaVersion": 1,
+    "type": "moodcode.electron.smoke",
+    "ok": true,
+    "main": {
+      "node": "24.21.0",
+      "electron": "44.5.1",
+      "chrome": "152.0.7977.130",
+      "windowsCreated": 0,
+      "windowCount": 0
+    },
+    "utility": {
+      "schemaVersion": 1,
+      "type": "moodcode.electron.engine.report",
+      "ok": true,
+      "runtime": {
+        "processType": "utility",
+        "node": "24.21.0",
+        "electron": "44.5.1",
+        "chrome": "152.0.7977.130",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "checks": {
+        "sqliteAvailable": true,
+        "sqliteQuery": true,
+        "compiledEngineImported": true,
+        "workspaceOpened": true,
+        "sessionCreated": true,
+        "commandApprovalRequested": true,
+        "commandApprovalVerified": true,
+        "commandApproved": true,
+        "commandCompleted": true,
+        "commandOutputVerified": true,
+        "commandCleanupConfirmed": true,
+        "commandCheckpointVerified": true,
+        "scriptedRunCompleted": true,
+        "snapshotVerified": true,
+        "journalReplayed": true,
+        "engineClosed": true,
+        "persistedSnapshotVerified": true,
+        "commandEvidencePersisted": true,
+        "reopenedEngineClosed": true
+      },
+      "run": {
+        "runId": "9905ecf8-1cf1-4b4b-b98f-a265c0f484e3",
+        "state": "completed",
+        "lastSeq": 15,
+        "replayedEvents": 15
+      },
+      "command": {
+        "command": "printf 'moodcode-electron-command\\n'",
+        "marker": "moodcode-electron-command",
+        "approvalId": "c6cc571c-53eb-4c10-ae55-9ce6fe2830ac",
+        "toolCallId": "608307e9-e328-4996-8739-72c6d443f89e",
+        "checkpointId": "ed6b4de9-11c7-4e1d-8dfb-a8ff54261b2c",
+        "cleanupConfirmed": true
+      },
+      "elapsedMs": 92
+    },
+    "utilityExitCode": 0,
+    "diagnosticsBytes": 0,
+    "diagnosticsTruncated": false,
+    "fixtureRemoved": true,
+    "elapsedMs": 266
+  },
+  "electronRuntime": {
+    "type": "moodcode.electron.runtime",
+    "ok": true,
+    "runtime": {
+      "node": "24.21.0",
+      "electron": "44.5.1"
+    },
+    "checks": {
+      "config": true,
+      "capabilities": true,
+      "observer": true,
+      "integrity": true,
+      "backup": true,
+      "executionInspection": true,
+      "diagnostics": true,
+      "closeAndReopen": true
+    }
+  },
+  "doctor": {
+    "schemaVersion": 1,
+    "observedAt": "2026-10-04T02:52:31.209Z",
+    "ok": true,
+    "runtime": {
+      "node": {
+        "actualVersion": "v26.9.0",
+        "versionRecognized": true,
+        "requiredVersion": ">=24.0.0",
+        "meetsMinimum": true,
+        "assessment": "version_comparison"
+      },
+      "platform": "darwin",
+      "architecture": "arm64",
+      "electron": {
+        "detected": false,
+        "actualVersion": null
+      },
+      "command": {
+        "platform": "darwin",
+        "supported": true,
+        "code": "POSIX_PROCESS_GROUPS",
+        "assessment": "implementation_policy"
+      }
+    },
+    "sqlite": {
+      "available": true,
+      "verified": true,
+      "version": "3.53.4",
+      "versionRecognized": true,
+      "probe": "memory_database"
+    },
+    "git": {
+      "available": true,
+      "version": "2.55.0",
+      "versionRecognized": true,
+      "status": "available",
+      "executable": "git",
+      "timeoutMs": 3000,
+      "configuration": "system_and_global_disabled",
+      "automaticFetch": "disabled",
+      "processCleanup": "posix_process_group"
+    },
+    "workspace": {
+      "status": "available",
+      "requestedPath": ".",
+      "root": "<workspace>",
+      "branch": "main",
+      "dirty": true,
+      "statusEntries": 114,
+      "untrackedEntries": 114,
+      "conflictedEntries": 0
+    },
+    "credentials": {
+      "assessment": "environment_key_presence_only",
+      "checks": [],
+      "omitted": 0
+    },
+    "warnings": [],
+    "warningsOmitted": 0,
+    "truncated": false,
+    "omittedDetails": []
+  },
+  "unverified": [
+    "Real provider credentials/model account request",
+    "Packaged Electron application including ASAR/fuses",
+    "Windows command execution",
+    "Public Linux/macOS distribution matrix"
+  ],
+  "finalReviews": {
+    "nativeReplay": {
+      "actionableBlockers": 0,
+      "method": "Read-only review plus replay/Responses/native engine integration local fixtures"
+    },
+    "lifecycle": {
+      "actionableBlockers": 0,
+      "tests": 41,
+      "pass": 41,
+      "additionalFixture": "Facade close during pending approval and backup: backup settled, one expiry, terminal-last, late allow rejected, new owner reopen succeeded"
+    }
+  }
+}

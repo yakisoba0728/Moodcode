@@ -1,0 +1,532 @@
+import { randomUUID } from 'node:crypto';
+import { types } from 'node:util';
+import {
+  EngineError, isTerminal,
+  type Checkpoint, type JsonObject, type JsonValue, type Message, type ProviderReplay, type ProviderToolCall,
+  type Run, type RunReceipt, type RunState, type SubmitInput, type ToolCallRecord,
+} from '@moodcode/contracts';
+import type {
+  CoordinatorOptions, CoordinatorPort, PreparedTool, ProviderAdapter, ProviderEvent,
+  ProviderMessage, ToolContext, ToolDefinition, ToolResult,
+} from '../ports.js';
+
+const CLEANUP_GRACE_MS = 1_000;
+const EFFECT_TOOLS = new Set(['apply_patch', 'run_command']);
+const UNSAFE_EFFECT_ERRORS = new Set([
+  'CLEANUP_UNCERTAIN', 'PROCESS_CLEANUP_FAILED', 'COMMAND_CLEANUP_UNCERTAIN',
+  'COMMAND_EFFECTS_LOCK_FAILED', 'PATCH_CHECKPOINT_FAILED',
+]);
+
+interface Owner {
+  run: Run;
+  abort: AbortController;
+  done: Promise<Run>;
+  outputBytes: number;
+  toolCount: number;
+  callIds: Set<string>;
+  checkpointIds: Set<string>;
+  terminal: boolean;
+  activeTool?: ToolCallRecord;
+  cleanupError?: EngineError;
+}
+
+interface Outcome<T> { ok: boolean; value?: T; error?: unknown }
+
+function now(): string { return new Date().toISOString(); }
+
+/** Avoid a trailing replacement character when cutting a UTF-8 string. */
+function prefixBytes(content: string, limit: number): string {
+  if (limit <= 0) return '';
+  const bytes = Buffer.from(content, 'utf8');
+  if (bytes.length <= limit) return content;
+  let end = limit;
+  while (end > 0 && (bytes[end]! & 0xc0) === 0x80) end--;
+  return bytes.subarray(0, end).toString('utf8');
+}
+
+function errorOf(error: unknown, code = 'INTERNAL_ERROR', message = 'Run execution failed'): EngineError {
+  if (error instanceof EngineError) return error;
+  return new EngineError(code, message);
+}
+
+/** Validate descriptors before copying native output: no getters, toJSON or proxy traps. */
+function copyReplay(items: unknown, providerId: string, maxBytes: number): ProviderReplay {
+  const invalid = (): never => { throw new EngineError('INVALID_PROVIDER_REPLAY', 'Provider replay must contain plain JSON output objects'); };
+  if (typeof providerId !== 'string' || !providerId.trim() || Buffer.byteLength(providerId, 'utf8') > 256 || /[\u0000-\u001f\u007f]/u.test(providerId)) return invalid();
+  let remaining = maxBytes - (Buffer.byteLength(JSON.stringify({ providerId, items: [] }), 'utf8') - 2);
+  const spend = (bytes: number): void => {
+    if (bytes > remaining) throw new EngineError('CONTEXT_LIMIT', 'Provider replay exceeds the context byte budget');
+    remaining -= bytes;
+  };
+  spend(0);
+  const ancestors = new Set<object>();
+  const copy = (value: unknown, depth: number): JsonValue => {
+    if (value === null) { spend(4); return null; }
+    if (typeof value === 'boolean') { spend(value ? 4 : 5); return value; }
+    if (typeof value === 'string') {
+      // A JS string cannot serialize to fewer bytes than its UTF-16 length.
+      if (value.length > remaining) spend(value.length);
+      spend(Buffer.byteLength(JSON.stringify(value), 'utf8'));
+      return value;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) { spend(Buffer.byteLength(JSON.stringify(value))); return value; }
+    if (!value || typeof value !== 'object' || depth > 64 || types.isProxy(value) || ancestors.has(value)) return invalid();
+    const array = Array.isArray(value);
+    const prototype: unknown = Object.getPrototypeOf(value);
+    if (array ? prototype !== Array.prototype : prototype !== Object.prototype && prototype !== null) return invalid();
+    ancestors.add(value);
+    try {
+      const keys = Reflect.ownKeys(value);
+      if (array) {
+        const length = Object.getOwnPropertyDescriptor(value, 'length')?.value as unknown;
+        if (typeof length !== 'number' || !Number.isSafeInteger(length) || length < 0 || keys.length !== length + 1) return invalid();
+        spend(2);
+        const result: JsonValue[] = [];
+        for (let index = 0; index < length; index++) {
+          const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+          if (!descriptor || !('value' in descriptor) || !descriptor.enumerable) return invalid();
+          if (index) spend(1);
+          result.push(copy(descriptor.value, depth + 1));
+        }
+        return result;
+      }
+      spend(2);
+      const result: JsonObject = {};
+      let index = 0;
+      for (const key of keys) {
+        if (typeof key !== 'string') return invalid();
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (!descriptor || !('value' in descriptor) || !descriptor.enumerable) return invalid();
+        if (index++) spend(1);
+        if (key.length > remaining) spend(key.length);
+        spend(Buffer.byteLength(JSON.stringify(key), 'utf8') + 1);
+        Object.defineProperty(result, key, { value: copy(descriptor.value, depth + 1), enumerable: true, configurable: true, writable: true });
+      }
+      return result;
+    } finally { ancestors.delete(value); }
+  };
+  if (types.isProxy(items) || !Array.isArray(items)) return invalid();
+  // Include the providerReplay object level so stored context has the same bound.
+  const copied = copy(items, 1);
+  if (!Array.isArray(copied) || copied.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) return invalid();
+  return { providerId, items: copied as JsonObject[] };
+}
+
+function uncertain(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  if (typeof record.code === 'string' && UNSAFE_EFFECT_ERRORS.has(record.code)) return true;
+  if (record.cleanupConfirmed === false || record.cleanupUncertain === true) return true;
+  return uncertain(record.data) || uncertain(record.details);
+}
+
+function checkAbort(signal: AbortSignal): void {
+  if (signal.aborted) throw signal.reason ?? new EngineError('RUN_CANCELLED', 'Run was cancelled');
+}
+
+/** Wait for an aborted operation to settle before claiming that its cleanup finished. */
+async function abortable<T>(operation: () => Promise<T>, signal: AbortSignal, label: string, cleanupGraceMs = CLEANUP_GRACE_MS): Promise<T> {
+  checkAbort(signal);
+  const pending: Promise<Outcome<T>> = Promise.resolve().then(() => { checkAbort(signal); return operation(); }).then(
+    (value) => ({ ok: true, value }), (error: unknown) => ({ ok: false, error }),
+  );
+  let onAbort!: () => void;
+  const aborted = new Promise<null>((resolve) => {
+    onAbort = () => resolve(null);
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) onAbort();
+  });
+  let result: Outcome<T> | null;
+  try { result = await Promise.race([pending, aborted]); }
+  finally { signal.removeEventListener('abort', onAbort); }
+  if (result !== null && !signal.aborted) {
+    if (!result.ok) throw result.error;
+    return result.value as T;
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cleanup = await Promise.race([
+    pending,
+    new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), cleanupGraceMs); }),
+  ]);
+  if (timer) clearTimeout(timer);
+  if (cleanup === null || uncertain(cleanup.ok ? cleanup.value : cleanup.error)) {
+    const cause = cleanup && !cleanup.ok && cleanup.error instanceof EngineError ? ` (${cleanup.error.code})` : '';
+    throw new EngineError('CLEANUP_UNCERTAIN', `${label} did not confirm cleanup after abort${cause}`);
+  }
+  checkAbort(signal);
+  throw new EngineError('INTERNAL_ERROR', 'Aborted operation lost its abort reason');
+}
+
+export class RunCoordinator implements CoordinatorPort {
+  private readonly owners = new Map<string, Owner>();
+  private readonly tools = new Map<string, ToolDefinition>();
+  private readonly unsafeWorkspaces = new Set<string>();
+  private closing = false;
+  private closePromise?: Promise<void>;
+
+  constructor(private readonly options: CoordinatorOptions) {
+    for (const tool of options.tools) {
+      if (this.tools.has(tool.name)) throw new EngineError('INVALID_CONFIG', `Duplicate tool name: ${tool.name}`);
+      this.tools.set(tool.name, tool);
+    }
+  }
+
+  submit(input: SubmitInput): RunReceipt {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
+    if (this.unsafeWorkspaces.size) {
+      const session = this.options.store.getSession(input.sessionId);
+      if (this.unsafeWorkspaces.has(session.workspaceId)) {
+        // Preserve durable request identity before refusing new effects in quarantine.
+        const known = this.options.store.getSnapshot(input.sessionId).runs.some((run) => run.requestId === input.requestId);
+        if (known) return this.options.store.admit(input);
+        throw new EngineError('CLEANUP_PENDING', 'Workspace cleanup is unconfirmed; new runs are blocked');
+      }
+    }
+    // Admission owns request identity and workspace busy checks, in that order.
+    const receipt = this.options.store.admit(input);
+    if (receipt.duplicate) return receipt;
+    const run = this.options.store.getRun(receipt.runId);
+    let resolve!: (run: Run) => void;
+    let reject!: (error: unknown) => void;
+    const done = new Promise<Run>((yes, no) => { resolve = yes; reject = no; });
+    const owner: Owner = {
+      run, abort: new AbortController(), done, outputBytes: 0, toolCount: 0,
+      callIds: new Set(), checkpointIds: new Set(), terminal: false,
+    };
+    this.owners.set(run.id, owner);
+    // Attach a rejection observer even if the caller never waits for this run.
+    void done.catch(() => {});
+    queueMicrotask(() => {
+      void this.execute(owner).then(resolve, reject).finally(() => { this.owners.delete(run.id); });
+    });
+    return receipt;
+  }
+
+  cancel(runId: string): { runId: string; state: RunState } {
+    const run = this.options.store.getRun(runId);
+    if (isTerminal(run.state)) return { runId, state: run.state };
+    const owner = this.owners.get(runId);
+    if (!owner) throw new EngineError('RUN_NOT_OWNED', 'Active run is not owned by this coordinator');
+    if (run.state !== 'cancelling') this.options.store.commit(runId, 'run.cancelling', {}, { run: { state: 'cancelling' } });
+    owner.abort.abort(new EngineError('RUN_CANCELLED', 'Run was cancelled'));
+    try { this.options.approvals.cancelRun(runId); }
+    catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Pending approval cleanup could not be confirmed'); }
+    return { runId, state: this.options.store.getRun(runId).state };
+  }
+
+  async waitForRun(runId: string): Promise<Run> {
+    const run = this.options.store.getRun(runId);
+    if (isTerminal(run.state)) return run;
+    const owner = this.owners.get(runId);
+    if (!owner) throw new EngineError('RUN_NOT_OWNED', 'Active run is not owned by this coordinator');
+    return owner.done;
+  }
+
+  close(): Promise<void> {
+    if (this.closePromise) return this.closePromise;
+    this.closing = true;
+    this.closePromise = (async () => {
+      const pending = [...this.owners.values()];
+      const failures: unknown[] = [];
+      for (const owner of pending) {
+        try { this.cancel(owner.run.id); }
+        catch (error) { owner.abort.abort(new EngineError('RUN_CANCELLED', 'Run coordinator is closing')); failures.push(error); }
+      }
+      const settled = await Promise.allSettled(pending.map((owner) => owner.done));
+      for (const result of settled) if (result.status === 'rejected') failures.push(result.reason);
+      if (failures.length) throw failures[0];
+    })();
+    return this.closePromise;
+  }
+
+  private assertLive(owner: Owner): void {
+    if (owner.terminal || isTerminal(this.options.store.getRun(owner.run.id).state)) {
+      throw new EngineError('RUN_TERMINAL', 'Run already reached a terminal state');
+    }
+    checkAbort(owner.abort.signal);
+  }
+
+  private finish(owner: Owner, state: 'completed' | 'cancelled' | 'failed', error?: EngineError): Run {
+    const run = this.options.store.getRun(owner.run.id);
+    if (owner.terminal || isTerminal(run.state)) { owner.terminal = true; return run; }
+    const failure = error ? { code: error.code.slice(0, 128), message: prefixBytes(error.message, 2_048) } : undefined;
+    if (error?.code === 'CLEANUP_UNCERTAIN') this.unsafeWorkspaces.add(run.workspaceId);
+    this.options.store.commit(run.id, `run.${state}`, failure ? { error: failure } : {}, {
+      run: { state, ...(failure ? { error: failure } : {}) },
+    });
+    owner.terminal = true;
+    return this.options.store.getRun(run.id);
+  }
+
+  private async execute(owner: Owner): Promise<Run> {
+    const { run } = owner;
+    const timer = setTimeout(() => {
+      owner.abort.abort(new EngineError('RUN_TIME_LIMIT', 'Run duration budget was exceeded'));
+      try { this.options.approvals.cancelRun(run.id); }
+      catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Pending approval cleanup could not be confirmed'); }
+    }, run.config.limits.maxDurationMs);
+    try {
+      this.assertLive(owner);
+      this.options.store.commit(run.id, 'run.started', {}, { run: { state: 'running' } });
+      const provider = this.options.providers.get(run.config.providerId);
+      if (!provider) throw new EngineError('PROVIDER_NOT_FOUND', `Unknown provider: ${run.config.providerId}`);
+      const workspace = this.options.store.getWorkspace(run.workspaceId);
+      const schemas = this.options.tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+      const reservedBytes = Buffer.byteLength(JSON.stringify({ messages: [], tools: schemas }), 'utf8') - 2;
+      const context = () => abortable(() => this.options.buildContext({
+        workspace, snapshot: this.options.store.getSnapshot(run.sessionId), config: run.config, signal: owner.abort.signal, reservedBytes,
+      }), owner.abort.signal, 'Context builder');
+      let messages = await context();
+      this.assertLive(owner);
+      messages = structuredClone(messages);
+      for (let turnIndex = 0; turnIndex < run.config.limits.maxTurns; turnIndex++) {
+        this.assertLive(owner);
+        this.checkContext(owner, messages);
+        const turn = await this.providerTurn(owner, provider, messages, turnIndex);
+        this.assertLive(owner);
+        messages.push({ role: 'assistant', content: turn.message.content, ...(turn.calls.length ? { toolCalls: turn.calls } : {}) });
+        if (turn.calls.length === 0) return this.finish(owner, 'completed');
+        for (const call of turn.calls) {
+          this.assertLive(owner);
+          const result = await this.executeTool(owner, call, workspace);
+          messages.push({ role: 'tool', content: result, toolCallId: call.id });
+        }
+        // Rebuild from committed exchanges so older context can be trimmed again.
+        if (turnIndex + 1 < run.config.limits.maxTurns) messages = structuredClone(await context());
+      }
+      throw new EngineError('TURN_LIMIT', 'Model turn budget was exceeded');
+    } catch (error) {
+      const failure = owner.cleanupError ?? errorOf(error);
+      if (owner.activeTool && !['completed', 'denied', 'failed', 'interrupted'].includes(owner.activeTool.state)) {
+        this.setTool(owner, owner.activeTool, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
+      }
+      try { this.options.approvals.cancelRun(run.id); }
+      catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Pending approval cleanup could not be confirmed'); }
+      const terminalError = owner.cleanupError ?? failure;
+      return this.finish(owner, terminalError.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed', terminalError.code === 'RUN_CANCELLED' ? undefined : terminalError);
+    } finally { clearTimeout(timer); }
+  }
+
+  private checkContext(owner: Owner, messages: ProviderMessage[]): void {
+    const schemas = this.options.tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+    if (Buffer.byteLength(JSON.stringify({ messages, tools: schemas }), 'utf8') > owner.run.config.limits.maxContextBytes) {
+      throw new EngineError('CONTEXT_LIMIT', 'Model context byte budget was exceeded');
+    }
+  }
+
+  private message(owner: Owner, role: 'assistant' | 'tool', content = ''): Message {
+    return { id: randomUUID(), sessionId: owner.run.sessionId, runId: owner.run.id, role, content, createdAt: now() };
+  }
+
+  private async providerTurn(owner: Owner, provider: ProviderAdapter, messages: ProviderMessage[], turnIndex: number): Promise<{ message: Message; calls: ProviderToolCall[] }> {
+    const message = this.message(owner, 'assistant');
+    const calls: ProviderToolCall[] = [];
+    let finish: 'stop' | 'tool_calls' | 'length' | undefined;
+    let replay: ProviderReplay | undefined;
+    const tools = this.options.tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+    let iterator: AsyncIterator<ProviderEvent> | undefined;
+    try {
+      iterator = provider.streamTurn({ runId: owner.run.id, turnIndex, modelId: owner.run.config.modelId, messages: structuredClone(messages), tools }, owner.abort.signal)[Symbol.asyncIterator]();
+      while (true) {
+        const item = await abortable(() => iterator!.next(), owner.abort.signal, 'Provider stream');
+        this.assertLive(owner);
+        if (item.done) break;
+        const event = item.value;
+        if (finish && event.type !== 'usage') throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider emitted content after finishing its turn');
+        switch (event.type) {
+          case 'text.delta': {
+            if (typeof event.delta !== 'string') throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider text delta must be a string');
+            if (!event.delta) break;
+            const text = this.consumeOutput(owner, event.delta);
+            if (text.content) {
+              message.content += text.content;
+              this.options.store.commit(owner.run.id, 'message.delta', { messageId: message.id, delta: text.content, turnIndex }, { message: { ...message } });
+            }
+            if (text.truncated) throw new EngineError('OUTPUT_LIMIT', 'Run output byte budget was exceeded');
+            break;
+          }
+          case 'tool.call': {
+            const call = event.call;
+            if (!call || typeof call.id !== 'string' || !call.id || call.id.length > 256 || typeof call.name !== 'string' || !call.name || call.name.length > 128 || call.input === undefined) {
+              throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider returned an invalid complete tool call');
+            }
+            if (owner.callIds.has(call.id)) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider reused a tool call ID');
+            if (owner.toolCount + calls.length >= owner.run.config.limits.maxToolCalls) throw new EngineError('TOOL_CALL_LIMIT', 'Tool call budget was exceeded');
+            if (Buffer.byteLength(JSON.stringify(call), 'utf8') > owner.run.config.limits.maxContextBytes) throw new EngineError('CONTEXT_LIMIT', 'Tool call input exceeds the context byte budget');
+            owner.callIds.add(call.id);
+            calls.push(structuredClone(call));
+            break;
+          }
+          case 'usage': {
+            const usage: JsonObject = { turnIndex };
+            for (const key of ['inputTokens', 'outputTokens'] as const) {
+              const count = event[key];
+              if (count === undefined) continue;
+              if (!Number.isSafeInteger(count) || count < 0) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider usage must be non-negative integer counts');
+              usage[key] = count;
+            }
+            // Missing usage remains absent; a zero count is a supplied value.
+            this.options.store.commit(owner.run.id, 'run.usage', usage);
+            break;
+          }
+          case 'finish':
+            if (!['stop', 'tool_calls', 'length'].includes(event.reason)) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider finish reason is unsupported');
+            finish = event.reason;
+            if (finish !== 'length') {
+              const descriptor = Object.getOwnPropertyDescriptor(event, 'replayItems');
+              if ((!descriptor && 'replayItems' in event) || (descriptor && !('value' in descriptor))) throw new EngineError('INVALID_PROVIDER_REPLAY', 'Provider replay must contain plain JSON output objects');
+              if (descriptor?.value !== undefined) replay = copyReplay(descriptor.value, provider.id, owner.run.config.limits.maxContextBytes);
+            }
+            break;
+          default: throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider emitted an unsupported event');
+        }
+      }
+      if (!finish) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider stream ended without a finish event');
+      if (finish === 'length') throw new EngineError('PROVIDER_LENGTH', 'Provider stopped at its output limit');
+      if ((finish === 'tool_calls') !== (calls.length > 0)) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider finish reason does not match its complete tool calls');
+      if (calls.length) message.toolCalls = calls;
+      if (replay) message.providerReplay = replay;
+      this.options.store.commit(owner.run.id, 'message.completed', { messageId: message.id, turnIndex, finishReason: finish }, { message });
+      return { message, calls };
+    } catch (error) {
+      // A return() that queues behind a non-cooperative next() must also be bounded.
+      if (iterator?.return) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const closed = await Promise.race([
+          Promise.resolve().then(() => iterator!.return!()).then(() => true, () => false),
+          new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), CLEANUP_GRACE_MS); }),
+        ]);
+        if (timer) clearTimeout(timer);
+        if (!closed) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider stream cleanup could not be confirmed');
+      }
+      throw errorOf(error, 'PROVIDER_ERROR', 'Provider failed while streaming a turn');
+    }
+  }
+
+  private consumeOutput(owner: Owner, content: string): { content: string; truncated: boolean } {
+    const available = Math.max(0, owner.run.config.limits.maxOutputBytes - owner.outputBytes);
+    const bounded = prefixBytes(content, available);
+    owner.outputBytes += Buffer.byteLength(bounded, 'utf8');
+    return { content: bounded, truncated: Buffer.byteLength(content, 'utf8') > available };
+  }
+
+  private setTool(owner: Owner, tool: ToolCallRecord, state: ToolCallRecord['state'], fields: Partial<Pick<ToolCallRecord, 'output' | 'error'>> = {}): void {
+    Object.assign(tool, { state }, fields);
+    this.options.store.commit(owner.run.id, `tool.${state}`, { toolCallId: tool.id, name: tool.name, state, ...fields }, { tool: { ...tool } });
+  }
+
+  private context(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], signal: AbortSignal, allowCheckpoint: () => boolean): ToolContext {
+    return {
+      workspace, sessionId: owner.run.sessionId, runId: owner.run.id, toolCallId: record.id,
+      signal, limits: owner.run.config.limits, artifactDir: this.options.artifactDir,
+      ...(this.options.executionLockPath ? { executionLockPath: this.options.executionLockPath } : {}),
+      recordCheckpoint: (checkpoint: Checkpoint) => {
+        // Cleanup may record observed effects after abort, until this operation settles.
+        if (!allowCheckpoint() || owner.terminal || isTerminal(this.options.store.getRun(owner.run.id).state)) throw new EngineError('RUN_TERMINAL', 'Checkpoint is outside its active tool execution');
+        if (!checkpoint.id || checkpoint.runId !== owner.run.id || checkpoint.toolCallId !== record.id || owner.checkpointIds.has(checkpoint.id)) throw new EngineError('INVALID_CHECKPOINT', 'Checkpoint identity does not match the active tool execution');
+        this.options.store.commit(owner.run.id, 'workspace.changed', { checkpointId: checkpoint.id, toolCallId: record.id, kind: checkpoint.kind, incomplete: checkpoint.incomplete ?? false, warnings: checkpoint.warnings }, { checkpoint: structuredClone(checkpoint) });
+        owner.checkpointIds.add(checkpoint.id);
+      },
+    };
+  }
+
+  private async toolOperation<T>(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], execute: boolean, operation: (context: ToolContext) => Promise<T>): Promise<T> {
+    const timeout = new AbortController();
+    const signal = AbortSignal.any([owner.abort.signal, timeout.signal]);
+    const timer = setTimeout(() => timeout.abort(new EngineError('TOOL_TIMEOUT', `Tool ${record.name} exceeded its execution timeout`)), owner.run.config.limits.toolTimeoutMs);
+    let active = execute;
+    const context = this.context(owner, record, workspace, signal, () => active);
+    // Command cleanup includes process-group termination and an after-image capture.
+    const cleanupGraceMs = execute && record.name === 'run_command' ? 5_000 : CLEANUP_GRACE_MS;
+    try { return await abortable(() => operation(context), signal, `Tool ${record.name}`, cleanupGraceMs); }
+    finally { active = false; clearTimeout(timer); }
+  }
+
+  private async executeTool(owner: Owner, call: ProviderToolCall, workspace: ToolContext['workspace']): Promise<string> {
+    owner.toolCount++;
+    // Provider IDs belong to a conversation; durable tool rows need globally unique IDs.
+    const record: ToolCallRecord = { id: randomUUID(), runId: owner.run.id, sessionId: owner.run.sessionId, name: call.name, input: call.input, state: 'requested' };
+    owner.activeTool = record;
+    this.options.store.commit(owner.run.id, 'tool.requested', { toolCallId: record.id, providerToolCallId: call.id, name: call.name, input: call.input }, { tool: record });
+    try {
+      const tool = this.tools.get(call.name);
+      if (!tool) return this.toolResult(owner, record, call, { content: JSON.stringify({ error: { code: 'UNKNOWN_TOOL', message: `Unknown tool: ${call.name}` } }), isError: true });
+      // PreparedTool is an opaque handle: tools may bind preimages to its identity.
+      const prepared = await this.toolOperation(owner, record, workspace, false, (context) => tool.prepare(call.input, context));
+      this.assertLive(owner);
+      if (prepared.name !== call.name || typeof prepared.fingerprint !== 'string' || !prepared.fingerprint || typeof prepared.requiresApproval !== 'boolean' || !prepared.preview || typeof prepared.preview !== 'object' || Array.isArray(prepared.preview)) {
+        throw new EngineError('INVALID_PREPARED_TOOL', 'Prepared tool identity or approval metadata is invalid');
+      }
+      const binding = JSON.stringify(prepared);
+      if (owner.run.config.mode === 'plan' && (prepared.requiresApproval || EFFECT_TOOLS.has(call.name))) {
+        return this.toolResult(owner, record, call, { content: JSON.stringify({ error: { code: 'PLAN_MODE_WRITE_BLOCKED', message: 'Plan mode does not allow this tool effect' } }), isError: true }, 'denied');
+      }
+      if (prepared.requiresApproval || EFFECT_TOOLS.has(call.name)) {
+        this.setTool(owner, record, 'awaiting_approval');
+        this.options.store.commit(owner.run.id, 'run.awaiting_approval', { toolCallId: record.id }, { run: { state: 'awaiting_approval' } });
+        const decision = await abortable(() => this.options.approvals.request({
+          sessionId: owner.run.sessionId, runId: owner.run.id, toolCallId: record.id,
+          toolName: prepared.name, fingerprint: prepared.fingerprint, preview: structuredClone(prepared.preview),
+        }, owner.abort.signal), owner.abort.signal, 'Approval wait');
+        this.assertLive(owner);
+        this.options.store.commit(owner.run.id, 'run.resumed', { toolCallId: record.id }, { run: { state: 'running' } });
+        const current = this.options.store.getApproval(decision.id);
+        const matches = (approval: typeof current) => approval.runId === owner.run.id && approval.sessionId === owner.run.sessionId && approval.toolCallId === record.id && approval.toolName === prepared.name && approval.fingerprint === prepared.fingerprint && approval.status === 'allowed';
+        if (!matches(current) || !matches(decision)) {
+          return this.toolResult(owner, record, call, { content: JSON.stringify({ error: { code: 'APPROVAL_DENIED', message: 'Tool approval was denied, expired, or did not match the prepared request' } }), isError: true }, 'denied');
+        }
+      }
+      this.assertLive(owner);
+      if (JSON.stringify(prepared) !== binding) throw new EngineError('PREPARED_TOOL_CHANGED', 'Prepared request changed while waiting for approval');
+      this.setTool(owner, record, 'running');
+      const result = await this.toolOperation(owner, record, workspace, true, (context) => tool.execute(prepared as PreparedTool, context));
+      this.assertLive(owner);
+      if (uncertain(result)) throw new EngineError('CLEANUP_UNCERTAIN', `Tool ${record.name} did not confirm cleanup`);
+      if (!result || typeof result.content !== 'string') throw new EngineError('INVALID_TOOL_RESULT', 'Tool result content must be a string');
+      if (result.data && typeof result.data === 'object' && !Array.isArray(result.data) && result.data.timedOut === true) {
+        this.toolResult(owner, record, call, { ...result, isError: true });
+        throw new EngineError('TOOL_TIMEOUT', `Tool ${record.name} reported an execution timeout`);
+      }
+      return this.toolResult(owner, record, call, result);
+    } catch (error) {
+      const original = errorOf(error, 'TOOL_ERROR', 'Tool operation failed');
+      // An effect may have happened without a durable checkpoint or released lease.
+      // These gaps must stop the loop even when abort arrived at the same boundary.
+      const failure = uncertain(error) && original.code !== 'CLEANUP_UNCERTAIN'
+        ? new EngineError('CLEANUP_UNCERTAIN', `Tool ${record.name} effects or cleanup are unconfirmed (${original.code})`)
+        : original;
+      if (owner.abort.signal.aborted || ['CLEANUP_UNCERTAIN', 'TOOL_TIMEOUT', 'CONTEXT_LIMIT', 'OUTPUT_LIMIT'].includes(failure.code)) {
+        if (!['completed', 'failed', 'denied', 'interrupted'].includes(record.state)) this.setTool(owner, record, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
+        throw failure;
+      }
+      // Input errors, denied permissions, and ordinary tool failures let the model adapt.
+      return this.toolResult(owner, record, call, { content: JSON.stringify({ error: { code: failure.code, message: prefixBytes(failure.message, 2_048) } }), isError: true });
+    } finally { owner.activeTool = undefined; }
+  }
+
+  private toolResult(owner: Owner, record: ToolCallRecord, call: ProviderToolCall, result: ToolResult, state?: 'denied'): string {
+    this.assertLive(owner);
+    const output = this.consumeOutput(owner, result.content);
+    const finalState = state ?? (result.isError || output.truncated ? 'failed' : 'completed');
+    const message = this.message(owner, 'tool', output.content);
+    message.toolCallId = call.id;
+    record.state = finalState;
+    record.output = output.content;
+    if (result.isError || output.truncated) record.error = output.truncated ? 'Tool output exceeded the run output budget' : prefixBytes(result.content, 2_048);
+    const payload: JsonObject = {
+      toolCallId: record.id, providerToolCallId: call.id, name: call.name,
+      output: output.content, isError: result.isError ?? false, truncated: output.truncated,
+    };
+    // Content is the model handoff; retain only bounded metadata in the journal.
+    if (result.artifacts) payload.artifacts = result.artifacts.slice(0, 32).map(({ path, bytes, truncated }) => ({ path: prefixBytes(path, 4_096), bytes, truncated }));
+    if (result.data && typeof result.data === 'object' && !Array.isArray(result.data)) {
+      const data = result.data as JsonObject;
+      if (typeof data.cleanupConfirmed === 'boolean') payload.cleanupConfirmed = data.cleanupConfirmed;
+      if (typeof data.cleanupUncertain === 'boolean') payload.cleanupUncertain = data.cleanupUncertain;
+      if (typeof data.timedOut === 'boolean') payload.timedOut = data.timedOut;
+    }
+    this.options.store.commit(owner.run.id, `tool.${finalState}`, payload, { tool: { ...record }, message });
+    if (output.truncated) throw new EngineError('OUTPUT_LIMIT', 'Run output byte budget was exceeded');
+    return output.content;
+  }
+}
