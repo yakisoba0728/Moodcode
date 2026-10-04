@@ -24,7 +24,7 @@ const invalid = (error: unknown) => error instanceof Error && 'code' in error &&
 test('desktop bridge is frozen and exposes only the typed API', () => {
   const api = createDesktopApi(new TransportDouble());
   assert.equal(Object.isFrozen(api), true);
-  assert.deepEqual(Object.keys(api).sort(), ['chooseWorkspace', 'command', 'getBootstrap', 'onHostState', 'onUpdate', 'openExternal', 'retryEngine', 'saveSettings', 'subscribe', 'unsubscribe'].sort());
+  assert.deepEqual(Object.keys(api).sort(), ['backupDatabase', 'copyText', 'getRecoveryStatus', 'recoverEngine', 'chooseWorkspace', 'command', 'getBootstrap', 'onHostState', 'onUpdate', 'openExternal', 'retryEngine', 'saveSettings', 'subscribe', 'unsubscribe'].sort());
   assert.equal('invoke' in api, false);
   assert.equal('send' in api, false);
   assert.equal('ipcRenderer' in api, false);

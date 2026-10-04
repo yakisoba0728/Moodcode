@@ -7,6 +7,8 @@ import type {
   RunReceipt,
   Session,
   SessionSnapshot,
+  SessionHistoryPage,
+  SessionMetrics,
   Workspace,
 } from "@moodcode/contracts";
 import type {
@@ -28,6 +30,7 @@ export interface FileListing {
   entries: FileEntry[];
   truncated: boolean;
   warnings: string[];
+  continuation?: string;
 }
 export interface FilePreview {
   path: string;
@@ -59,6 +62,13 @@ export interface DesktopState {
   submitting: boolean;
   version: string;
   platform: string;
+  historyPage: SessionSnapshot | null;
+  historyHasMore: boolean;
+  latestHistoryHasMore: boolean;
+  historyCursor: string | null;
+  loadingHistory: boolean;
+  historyTruncated: boolean;
+  metrics: SessionMetrics | null;
 }
 const empty = (): DesktopState => ({
   host: { state: "starting", generation: 0 },
@@ -77,6 +87,13 @@ const empty = (): DesktopState => ({
   submitting: false,
   version: "0.1.0",
   platform: "unknown",
+  historyPage: null,
+  historyHasMore: false,
+  latestHistoryHasMore: false,
+  historyCursor: null,
+  loadingHistory: false,
+  historyTruncated: false,
+  metrics: null,
 });
 
 export function createDesktopStore(
@@ -87,6 +104,7 @@ export function createDesktopStore(
   let revision = 0;
   let initializeRevision = 0;
   let reviewRevision = 0;
+  let historyRevision = 0;
   let subscription: string | undefined;
   let stopped = false;
   let refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -134,6 +152,34 @@ export function createDesktopStore(
     subscription = undefined;
     if (previous) await api.unsubscribe(previous).catch(() => {});
   }
+  async function readLatest(sessionId: string): Promise<SessionHistoryPage> {
+    if (state.capabilities?.features?.historyPaging)
+      return command<SessionHistoryPage>("session.getHistory", {
+        sessionId,
+        limit: 20,
+      });
+    const snapshot = await command<SessionSnapshot>("session.getSnapshot", {
+      sessionId,
+    });
+    return {
+      snapshot,
+      hasMore: false,
+      beforeRunId: null,
+      truncatedRecords: false,
+    };
+  }
+  async function refreshMetrics(sessionId: string, token: number) {
+    if (!state.capabilities?.features?.sessionMetrics) return;
+    try {
+      const metrics = await command<SessionMetrics>("session.getMetrics", {
+        sessionId,
+      });
+      if (token === revision && !stopped && state.sessionId === sessionId)
+        publish({ metrics });
+    } catch {
+      /* Usage is optional; a metrics read must not interrupt a Run. */
+    }
+  }
   async function refresh() {
     if (refreshPending) {
       refreshAgain = true;
@@ -144,12 +190,22 @@ export function createDesktopStore(
     if (!id || stopped) return;
     refreshPending = true;
     try {
-      const snapshot = await command<SessionSnapshot>("session.getSnapshot", {
-        sessionId: id,
-      });
+      const page = await readLatest(id);
+      const snapshot = page.snapshot;
       if (token !== revision || stopped || state.sessionId !== id) return;
       if (!state.snapshot || snapshot.lastSeq >= state.snapshot.lastSeq)
-        publish({ snapshot });
+        publish({
+          snapshot,
+          latestHistoryHasMore: page.hasMore,
+          ...(state.historyPage
+            ? {}
+            : {
+                historyHasMore: page.hasMore,
+                historyCursor: page.beforeRunId,
+                historyTruncated: page.truncatedRecords,
+              }),
+        });
+      void refreshMetrics(id, token);
       const runId = state.reviewRunId ?? snapshot.runs.at(-1)?.id;
       if (runId) {
         const choice = reviewRevision;
@@ -270,6 +326,13 @@ export function createDesktopStore(
       sessionId: null,
       sessions: [],
       snapshot: null,
+      historyPage: null,
+      historyHasMore: false,
+      latestHistoryHasMore: false,
+      historyCursor: null,
+      historyTruncated: false,
+      loadingHistory: false,
+      metrics: null,
       review: null,
       reviewRunId: null,
       error: null,
@@ -289,21 +352,37 @@ export function createDesktopStore(
   }
   async function selectSession(sessionId: string) {
     const token = ++revision;
+    historyRevision++;
     await detach();
     if (token !== revision || stopped) return;
     publish({
       sessionId,
       snapshot: null,
+      historyPage: null,
+      historyHasMore: false,
+      latestHistoryHasMore: false,
+      historyCursor: null,
+      historyTruncated: false,
+      loadingHistory: false,
+      metrics: null,
       review: null,
       reviewRunId: null,
       error: null,
     });
     try {
-      const snapshot = await command<SessionSnapshot>("session.getSnapshot", {
-        sessionId,
-      });
+      const page = await readLatest(sessionId);
+      const snapshot = page.snapshot;
       if (token !== revision || stopped) return;
-      publish({ snapshot });
+      publish({
+        snapshot,
+        historyPage: null,
+        historyHasMore: page.hasMore,
+        latestHistoryHasMore: page.hasMore,
+        historyCursor: page.beforeRunId,
+        historyTruncated: page.truncatedRecords,
+        metrics: null,
+      });
+      void refreshMetrics(sessionId, token);
       const sub = await api.subscribe(sessionId, snapshot.lastSeq);
       if (token !== revision || stopped) {
         await api.unsubscribe(sub).catch(() => {});
@@ -414,6 +493,56 @@ export function createDesktopStore(
     publish({ reviewRunId: runId, review: null });
     await refresh();
   }
+  async function loadOlder() {
+    const sessionId = state.sessionId;
+    const beforeRunId = state.historyCursor;
+    if (
+      !sessionId ||
+      !beforeRunId ||
+      !state.historyHasMore ||
+      state.loadingHistory
+    )
+      return;
+    const token = revision;
+    const choice = ++historyRevision;
+    publish({ loadingHistory: true });
+    try {
+      const page = await command<SessionHistoryPage>("session.getHistory", {
+        sessionId,
+        beforeRunId,
+        limit: 20,
+      });
+      if (
+        stopped ||
+        token !== revision ||
+        choice !== historyRevision ||
+        state.sessionId !== sessionId
+      )
+        return;
+      publish({
+        historyPage: page.snapshot,
+        historyHasMore: page.hasMore,
+        historyCursor: page.beforeRunId,
+        historyTruncated: page.truncatedRecords,
+      });
+    } catch (error) {
+      if (!stopped && token === revision && choice === historyRevision)
+        fail(error);
+    } finally {
+      if (!stopped && token === revision && choice === historyRevision)
+        publish({ loadingHistory: false });
+    }
+  }
+  function showLatest() {
+    historyRevision++;
+    publish({
+      historyPage: null,
+      historyHasMore: state.latestHistoryHasMore,
+      historyCursor: state.snapshot?.runs[0]?.id ?? null,
+      loadingHistory: false,
+      historyTruncated: false,
+    });
+  }
   async function stop() {
     stopped = true;
     revision++;
@@ -439,10 +568,20 @@ export function createDesktopStore(
     decide,
     saveSettings,
     chooseReview,
+    loadOlder,
+    showLatest,
     command,
     refresh,
     stop,
     clearError: () => publish({ error: null }),
+    refreshConnectionInfo: async () => {
+      try {
+        const data = await api.getBootstrap();
+        if (!stopped) publish({ settings: data.settings });
+      } catch (error) {
+        fail(error);
+      }
+    },
     retry: () => api.retryEngine(),
   };
 }

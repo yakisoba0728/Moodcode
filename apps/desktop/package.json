@@ -7,9 +7,12 @@
   "dependencies": {
     "@moodcode/contracts": "0.1.0",
     "@moodcode/engine": "0.1.0",
+    "highlight.js": "11.11.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "react-markdown": "10.1.0"
+    "react-markdown": "10.1.0",
+    "rehype-highlight": "7.0.2",
+    "remark-gfm": "4.0.1"
   },
   "description": "Moodcode local coding agent desktop"
 }

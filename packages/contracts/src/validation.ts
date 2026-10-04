@@ -1,4 +1,4 @@
-import { DEFAULT_LIMITS, EngineError, SCHEMA_VERSION } from './index.js';
+import { DEFAULT_LIMITS, EngineError, SCHEMA_VERSION, REASONING_EFFORTS } from './index.js';
 import type { CommandEnvelope, JsonObject, RunConfig, RunConfigInput, RunLimits, SubmitInput } from './index.js';
 
 const MAX_ID_BYTES = 256;
@@ -20,7 +20,7 @@ const LIMIT_KEYS: readonly (keyof RunLimits)[] = [
 const COMMAND_TYPES = new Set([
   'engine.getCapabilities',
   'workspace.open', 'workspace.getStatus', 'file.list', 'file.read',
-  'session.create', 'session.list', 'session.getSnapshot',
+  'session.create', 'session.list', 'session.getSnapshot', 'session.getHistory', 'session.getMetrics',
   'run.submit', 'run.cancel', 'approval.decide', 'review.getDiff', 'events.subscribe',
   'review.previewRestore', 'review.restore', 'review.history',
 ]);
@@ -118,7 +118,7 @@ function integer(value: unknown, path: string, minimum: number, maximum: number)
 
 function normalizeConfig(value: unknown, defaults?: RunConfigInput): RunConfig {
   const baseline = defaults === undefined ? undefined : normalizeConfig(defaults);
-  const config = value === undefined ? {} : object(value, 'payload.config', ['providerId', 'modelId', 'mode', 'limits']);
+  const config = value === undefined ? {} : object(value, 'payload.config', ['providerId', 'modelId', 'mode', 'limits', 'reasoningEffort']);
   const limits = has(config, 'limits') ? object(config.limits, 'payload.config.limits', LIMIT_KEYS) : {};
   const normalizedLimits = { ...(baseline?.limits ?? DEFAULT_LIMITS) };
   for (const key of LIMIT_KEYS) {
@@ -128,11 +128,14 @@ function normalizeConfig(value: unknown, defaults?: RunConfigInput): RunConfig {
   }
   const mode = has(config, 'mode') ? config.mode : (baseline?.mode ?? 'plan');
   if (mode !== 'plan' && mode !== 'build') invalid('payload.config.mode', 'must be plan or build');
+  const reasoningEffort = has(config, 'reasoningEffort') ? config.reasoningEffort : baseline?.reasoningEffort;
+  if ((has(config, 'reasoningEffort') || reasoningEffort !== undefined) && !REASONING_EFFORTS.includes(reasoningEffort as never)) invalid('payload.config.reasoningEffort', 'must be a supported reasoning effort');
   return {
     providerId: has(config, 'providerId') ? id(config.providerId, 'payload.config.providerId') : (baseline?.providerId ?? 'scripted'),
     modelId: has(config, 'modelId') ? id(config.modelId, 'payload.config.modelId') : (baseline?.modelId ?? 'local'),
     mode,
     limits: normalizedLimits,
+    ...(reasoningEffort === undefined ? {} : { reasoningEffort: reasoningEffort as import('./index.js').ReasoningEffort }),
   };
 }
 
@@ -182,9 +185,14 @@ export function validateCommand(value: unknown, submitDefaults?: RunConfigInput)
       break;
     }
     case 'file.list': {
-      const input = object(envelope.payload, 'payload', ['workspaceId', 'path']);
+      const input = object(envelope.payload, 'payload', ['workspaceId', 'path', 'limit', 'continuation']);
       payload = { workspaceId: id(input.workspaceId, 'payload.workspaceId') };
       if (has(input, 'path')) payload.path = relativePath(input.path, 'payload.path', true);
+      if (has(input, 'limit')) payload.limit = integer(input.limit, 'payload.limit', 1, 1000);
+      if (has(input, 'continuation')) {
+        if (typeof input.continuation !== 'string' || !input.continuation || encoder.encode(input.continuation).byteLength > 2048 || /[\u0000-\u001f\u007f]/u.test(input.continuation)) invalid('payload.continuation', 'must be a bounded continuation token');
+        payload.continuation = input.continuation;
+      }
       break;
     }
     case 'file.read': {
@@ -192,6 +200,14 @@ export function validateCommand(value: unknown, submitDefaults?: RunConfigInput)
       payload = { workspaceId: id(input.workspaceId, 'payload.workspaceId'), path: relativePath(input.path, 'payload.path') };
       break;
     }
+    case 'session.getHistory': {
+      const input = object(envelope.payload, 'payload', ['sessionId', 'beforeRunId', 'limit']);
+      payload = { sessionId: id(input.sessionId, 'payload.sessionId') };
+      if (has(input, 'beforeRunId')) payload.beforeRunId = id(input.beforeRunId, 'payload.beforeRunId');
+      if (has(input, 'limit')) payload.limit = integer(input.limit, 'payload.limit', 1, 50);
+      break;
+    }
+    case 'session.getMetrics':
     case 'session.getSnapshot': {
       const input = object(envelope.payload, 'payload', ['sessionId']);
       payload = { sessionId: id(input.sessionId, 'payload.sessionId') };

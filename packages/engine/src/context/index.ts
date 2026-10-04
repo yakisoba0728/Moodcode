@@ -3,6 +3,11 @@ import { lstat, open } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { EngineError, type JsonObject, type JsonValue, type Message, type ProviderReplay, type ProviderToolCall } from '@moodcode/contracts';
 import type { ContextRequest, ProviderMessage } from '../ports.js';
+import { agentInstructions } from './instructions.js';
+import { extractiveMemory, MAX_MEMORY_BYTES, MIN_MEMORY_BYTES, type MemorySource } from './memory.js';
+
+export { EXTRACTIVE_MEMORY_PREFIX } from './memory.js';
+export { AGENT_DEFAULTS_PREFIX } from './instructions.js';
 
 const MAX_INSTRUCTION_BYTES = 32 * 1024;
 const INSTRUCTION_PREFIX = 'Workspace instructions (AGENTS.md):\n';
@@ -10,6 +15,7 @@ const TRUNCATION_NOTICE = '\n[AGENTS.md truncated.]';
 
 interface ContextBlock {
   messages: ProviderMessage[];
+  sources: MemorySource[];
   // Every entry contributes its serialized bytes and one array delimiter.
   cost: number;
 }
@@ -26,8 +32,8 @@ function arrayBytes(cost: number, count: number): number {
   return count === 0 ? 2 : cost + 1;
 }
 
-function block(messages: ProviderMessage[]): ContextBlock {
-  return { messages, cost: messages.reduce((sum, message) => sum + entryCost(message), 0) };
+function block(messages: ProviderMessage[], sources: MemorySource[] = []): ContextBlock {
+  return { messages, sources, cost: messages.reduce((sum, message) => sum + entryCost(message), 0) };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -170,9 +176,10 @@ function historyBlocks(request: ContextRequest): ContextBlock[] {
     // Inspect same-session native state before filtering malformed surrounding rows.
     const providerReplay = checkedMessageReplay(message, sessionId, request.config.providerId);
     if (!validMessage(message, sessionId)) continue;
+    const source: MemorySource = { ordinal: index + 1, message };
     if (message.role === 'tool') continue;
     if (message.role === 'user') {
-      blocks.push(block([{ role: 'user', content: message.content }]));
+      blocks.push(block([{ role: 'user', content: message.content }], [source]));
       continue;
     }
     const calls = copyCalls(message.toolCalls);
@@ -180,6 +187,7 @@ function historyBlocks(request: ContextRequest): ContextBlock[] {
       const expectedIds = new Set(calls.map((call) => call.id));
       const seenIds = new Set<string>();
       const results: ProviderMessage[] = [];
+      const sources: MemorySource[] = [source];
       let valid = true;
       let cursor = index + 1;
       // Results must belong to this call block; pairing cannot cross another turn.
@@ -194,6 +202,7 @@ function historyBlocks(request: ContextRequest): ContextBlock[] {
         } else {
           seenIds.add(result.toolCallId);
           results.push({ role: 'tool', content: result.content, toolCallId: result.toolCallId });
+          sources.push({ ordinal: cursor + 1, message: result });
         }
         cursor += 1;
       }
@@ -202,7 +211,7 @@ function historyBlocks(request: ContextRequest): ContextBlock[] {
         blocks.push(block([{
           role: 'assistant', content: message.content, toolCalls: calls,
           ...(providerReplay === undefined ? {} : { providerReplay }),
-        }, ...results]));
+        }, ...results], sources));
         continue;
       }
     }
@@ -213,7 +222,7 @@ function historyBlocks(request: ContextRequest): ContextBlock[] {
     if (message.content.length > 0 || completedReplay !== undefined) blocks.push(block([{
       role: 'assistant', content: message.content,
       ...(completedReplay === undefined ? {} : { providerReplay: completedReplay }),
-    }]));
+    }], [source]));
   }
   return blocks;
 }
@@ -335,16 +344,45 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
   checkAbort(request.signal);
   const system = instructions ? fitInstructions(instructions, cost, count, limit) : undefined;
   if (system) { cost += entryCost(system); count += 1; }
+  const defaults = agentInstructions(request.config.mode);
+  const includeDefaults = arrayBytes(cost + entryCost(defaults), count + 1) <= limit
+    && Buffer.byteLength((system?.content ?? '') + defaults.content, 'utf8') <= MAX_INSTRUCTION_BYTES;
+  if (includeDefaults) { cost += entryCost(defaults); count += 1; }
+  const olderCost = blocks.slice(0, requiredStart).reduce((sum, item) => sum + item.cost, 0);
+  const available = limit - arrayBytes(cost, count);
+  // Reserve part of optional history space only when the full older transcript
+  // cannot fit. Required current exchanges and project guidance are already kept.
+  const reserve = olderCost > available ? Math.min(MAX_MEMORY_BYTES, Math.floor(available / 4)) : 0;
+  const memoryReserve = reserve >= MIN_MEMORY_BYTES ? reserve : 0;
+  let historyStart = requiredStart;
   // Retain a chronological suffix of older history, with tool groups indivisible.
   for (let index = requiredStart - 1; index >= 0; index -= 1) {
     checkAbort(request.signal);
     const item = blocks[index]!;
-    if (arrayBytes(cost + item.cost, count + item.messages.length) > limit) break;
+    if (arrayBytes(cost + item.cost + memoryReserve, count + item.messages.length) > limit) break;
     selected.unshift(item);
+    historyStart = index;
     cost += item.cost;
     count += item.messages.length;
   }
   checkAbort(request.signal);
+  const memory = historyStart > 0 ? extractiveMemory(
+    blocks.slice(0, historyStart).flatMap((item) => item.sources),
+    limit - arrayBytes(cost, count),
+  ) : undefined;
+  // Some omitted groups contain only opaque/native state and tool results. If
+  // there is no useful excerpt, reclaim the unused reservation for whole groups.
+  if (!memory && memoryReserve) {
+    for (let index = historyStart - 1; index >= 0; index--) {
+      checkAbort(request.signal);
+      const item = blocks[index]!;
+      if (arrayBytes(cost + item.cost, count + item.messages.length) > limit) break;
+      selected.unshift(item);
+      cost += item.cost;
+      count += item.messages.length;
+    }
+  }
+  checkAbort(request.signal);
   const messages = selected.flatMap((item) => item.messages);
-  return system ? [system, ...messages] : messages;
+  return [...(system ? [system] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...messages];
 }

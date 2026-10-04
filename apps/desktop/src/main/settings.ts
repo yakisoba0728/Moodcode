@@ -1,3 +1,4 @@
+import { REASONING_EFFORTS, type ReasoningEffort } from '@moodcode/contracts';
 import { constants } from 'node:fs';
 import { chmod, lstat, mkdir, open, rename, unlink } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
@@ -13,6 +14,7 @@ export interface DesktopCodexAuth {
   available: boolean;
   state: NonNullable<DesktopSettings['codexAuthState']>;
   modelId?: string;
+  models?: NonNullable<DesktopSettings['codexModels']>;
 }
 
 export interface CredentialStorage {
@@ -34,6 +36,7 @@ export interface DesktopEngineConfig {
   readonly providerId: DesktopProviderId;
   readonly modelId: string;
   readonly baseURL: string;
+  readonly reasoningEffort?: ReasoningEffort;
   readonly apiKey?: string;
 }
 
@@ -65,6 +68,7 @@ interface StoredSettings {
   modelId: string;
   baseURL: string;
   credential?: StoredCredential;
+  reasoningEffort?: ReasoningEffort;
 }
 interface Candidate {
   revision: number;
@@ -103,7 +107,7 @@ function provider(value: unknown): DesktopProviderId {
   return value as DesktopProviderId;
 }
 
-function configFields(input: Record<string, unknown>): Pick<StoredSettings, 'providerId' | 'modelId' | 'baseURL'> {
+function configFields(input: Record<string, unknown>): Pick<StoredSettings, 'providerId' | 'modelId' | 'baseURL' | 'reasoningEffort'> {
   const providerId = provider(input.providerId);
   if (typeof input.modelId !== 'string' || input.modelId.length === 0 || input.modelId.trim() !== input.modelId
     || Buffer.byteLength(input.modelId) > 512 || /[\u0000-\u001f\u007f]/u.test(input.modelId)) invalid('modelId');
@@ -117,7 +121,9 @@ function configFields(input: Record<string, unknown>): Pick<StoredSettings, 'pro
     if (!['https:', 'http:'].includes(url.protocol) || !url.hostname || url.username || url.password
       || input.baseURL.includes('?') || input.baseURL.includes('#')) invalid('baseURL');
   }
-  return { providerId, modelId: input.modelId, baseURL: input.baseURL };
+  const effort = input.reasoningEffort;
+  if (Object.hasOwn(input, 'reasoningEffort') && (effort === undefined || !REASONING_EFFORTS.includes(effort as ReasoningEffort) || !['codex', 'openai-responses'].includes(providerId))) invalid('reasoningEffort');
+  return { providerId, modelId: input.modelId, baseURL: input.baseURL, ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffort }) };
 }
 
 function key(value: unknown): string {
@@ -127,7 +133,7 @@ function key(value: unknown): string {
 }
 
 function parseDocument(value: unknown): StoredSettings {
-  const input = dataObject(value, ['schemaVersion', 'providerId', 'modelId', 'baseURL', 'credential']);
+  const input = dataObject(value, ['schemaVersion', 'providerId', 'modelId', 'baseURL', 'credential', 'reasoningEffort']);
   if (input.schemaVersion !== 1) invalid('schemaVersion');
   const result: StoredSettings = { schemaVersion: 1, ...configFields(input) };
   if (Object.hasOwn(input, 'credential')) {
@@ -179,7 +185,8 @@ export class SettingsStore {
     this.#view = this.#makeView(this.#document, 'none');
   }
 
-  getView(): DesktopSettings { return { ...this.#view }; }
+  getView(): DesktopSettings { return structuredClone(this.#view); }
+  refreshView(): DesktopSettings { this.#view = this.#makeView(this.#document, this.#view.keySource); return this.getView(); }
 
   load(): Promise<ResolvedDesktopSettings> {
     return this.#exclusive(() => this.#load());
@@ -188,12 +195,14 @@ export class SettingsStore {
   prepare(input: SaveDesktopSettings): Promise<PreparedSettings> {
     return this.#exclusive(async () => {
       if (!this.#loaded) await this.#load();
-      const fields = dataObject(input, ['providerId', 'modelId', 'baseURL', 'apiKey', 'clearKey']);
+      const fields = dataObject(input, ['providerId', 'modelId', 'baseURL', 'apiKey', 'clearKey', 'reasoningEffort']);
       if (fields.providerId === 'codex' && (fields.modelId === '' || fields.modelId === undefined)) {
         fields.modelId = this.#auth().modelId;
         if (!fields.modelId) fail('SETTINGS_CODEX_MODEL_REQUIRED', 'The Codex provider requires an explicit model identifier.');
       }
       const config = configFields(fields);
+      const knownModel = this.#auth().models?.find(model => model.id === config.modelId);
+      if (config.providerId === 'codex' && config.reasoningEffort && knownModel && !knownModel.reasoningEfforts.includes(config.reasoningEffort)) invalid('reasoningEffort');
       if (fields.clearKey !== undefined && typeof fields.clearKey !== 'boolean') invalid('clearKey');
       if (fields.apiKey !== undefined && fields.clearKey === true) invalid('credential');
       const document: StoredSettings = { schemaVersion: 1, ...config };
@@ -309,11 +318,13 @@ export class SettingsStore {
       providerId: document.providerId, modelId: document.modelId, baseURL: document.baseURL,
       keyConfigured: keySource !== 'none', keySource,
       credentialStorage: this.#storageAvailable() ? 'available' : 'unavailable',
+      ...(document.reasoningEffort ? { reasoningEffort: document.reasoningEffort } : {}),
     };
     if (this.#codexAuth || document.providerId === 'codex') {
       const auth = this.#auth();
       view.codexAuthState = auth.state;
       if (auth.modelId) view.codexModelId = auth.modelId;
+      if (auth.models) view.codexModels = structuredClone(auth.models);
     }
     return view;
   }
@@ -326,13 +337,14 @@ export class SettingsStore {
       if (auth.available !== (auth.state === 'available')) return { available: false, state: 'unreadable' };
       const validModel = typeof auth.modelId === 'string' && auth.modelId.length > 0 && auth.modelId.trim() === auth.modelId
         && Buffer.byteLength(auth.modelId) <= 512 && !/[\u0000-\u001f\u007f]/u.test(auth.modelId);
-      return { available: auth.available, state: auth.state, ...(validModel ? { modelId: auth.modelId } : {}) };
+      return { available: auth.available, state: auth.state, ...(validModel ? { modelId: auth.modelId } : {}), ...(auth.models ? { models: auth.models } : {}) };
     } catch { return { available: false, state: 'unreadable' }; }
   }
 
   #resolve(document: StoredSettings): ResolvedDesktopSettings {
-    const engineConfig: { providerId: DesktopProviderId; modelId: string; baseURL: string; apiKey?: string } = {
+    const engineConfig: { providerId: DesktopProviderId; modelId: string; baseURL: string; apiKey?: string; reasoningEffort?: ReasoningEffort } = {
       providerId: document.providerId, modelId: document.modelId, baseURL: document.baseURL,
+      ...(document.reasoningEffort ? { reasoningEffort: document.reasoningEffort } : {}),
     };
     let source: DesktopSettings['keySource'] = 'none';
     if (document.providerId === 'codex') {

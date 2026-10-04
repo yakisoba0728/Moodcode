@@ -17,6 +17,7 @@ import { createPatchTool } from './tools/patch/index.js';
 import { createCommandTool } from './tools/command/index.js';
 import { assertExecutionLockAvailable } from './tools/command/execution-lock.js';
 import { getReviewDiff, previewRestoreCheckpoint, restoreCheckpoint, type RestoreResult } from './review/index.js';
+import { readRecoveryAcknowledgments, isRestoreAcknowledged } from './recovery/index.js';
 import { ReviewJournal, type RestoreOperation, type RestoreOperationInput } from './review/audit.js';
 
 export type RestoreCommandResult = RestoreResult & {
@@ -99,6 +100,7 @@ export class MoodcodeEngine {
         providerIds: [...providers.keys()].sort(),
         tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema: structuredClone(inputSchema) })),
         modes: ['plan', 'build'], defaults: structuredClone(this.defaults),
+        features: { historyPaging: true, sessionMetrics: true },
       };
       this.coordinator = new RunCoordinator({
         store: this.store,
@@ -109,13 +111,15 @@ export class MoodcodeEngine {
         executionLockPath: this.executionLockPath,
         buildContext,
       });
-      for (const operation of this.reviewJournal.recoverPending()) {
+      const recoveredRestores = this.reviewJournal.recoverPending();
+      const recoveryAcknowledgments = canonicalDbPath ? readRecoveryAcknowledgments({ dbPath: canonicalDbPath, artifactDir: realpathSync(artifactDir) }) : [];
+      for (const operation of recoveredRestores) {
         const run = this.store.getRun(operation.runId);
         if (run.workspaceId !== operation.workspaceId || run.sessionId !== operation.sessionId
           || !this.store.listCheckpoints(run.id).some((checkpoint) => checkpoint.id === operation.checkpointId && checkpoint.runId === run.id)) {
           throw new EngineError('REVIEW_OPERATION_BINDING_MISMATCH', 'Interrupted restoration does not match the primary run and checkpoint');
         }
-        this.coordinator.quarantineWorkspace(operation.workspaceId);
+        if (!isRestoreAcknowledged(operation, recoveryAcknowledgments)) this.coordinator.quarantineWorkspace(operation.workspaceId);
       }
     } catch (error) {
       try { reviewJournal?.close(); }
@@ -145,7 +149,7 @@ export class MoodcodeEngine {
           result = await getWorkspaceStatus(this.store.getWorkspace(payload.workspaceId as string));
           break;
         case 'file.list':
-          result = await listWorkspaceFiles(this.store.getWorkspace(payload.workspaceId as string), payload.path as string | undefined);
+          result = await listWorkspaceFiles(this.store.getWorkspace(payload.workspaceId as string), payload.path as string | undefined, { ...(payload.limit === undefined ? {} : { limit: payload.limit as number }), ...(payload.continuation === undefined ? {} : { continuation: payload.continuation as string }) });
           break;
         case 'file.read':
           result = await readWorkspaceFile(this.store.getWorkspace(payload.workspaceId as string), payload.path as string);
@@ -164,6 +168,12 @@ export class MoodcodeEngine {
         }
         case 'session.getSnapshot':
           result = this.store.getSnapshot(payload.sessionId as string);
+          break;
+        case 'session.getHistory':
+          result = this.store.getHistory(payload.sessionId as string, payload.beforeRunId as string | undefined, payload.limit as number | undefined);
+          break;
+        case 'session.getMetrics':
+          result = this.store.getMetrics(payload.sessionId as string);
           break;
         case 'run.submit':
           result = this.coordinator.submit(normalizeSubmitInput(payload));

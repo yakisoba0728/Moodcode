@@ -1,6 +1,7 @@
+import { validateRecoveryInput } from '../shared/recovery.js';
 import { randomUUID } from 'node:crypto';
 import type { CommandEnvelope, CommandResult } from '@moodcode/contracts';
-import type { DesktopBootstrap, DesktopSettings, DesktopUpdate, HostStatus, SaveDesktopSettings } from '../shared/protocol.js';
+import type { DesktopBootstrap, DesktopSettings, DesktopUpdate, HostStatus, SaveDesktopSettings, DesktopRecoveryStatus, DesktopRecoveryResult } from '../shared/protocol.js';
 import type { WorkerBootstrap, WorkerEngineConfig, WorkerPush, WorkerRequest, WorkerStartPayload } from '../worker/protocol.js';
 import type { PreparedSettings, ResolvedDesktopSettings } from './settings.js';
 
@@ -60,6 +61,8 @@ function safeError(error: unknown, fallback: string, secrets: readonly string[] 
 export class DesktopHost {
   private status: HostStatus = { state: 'starting', generation: 0 };
   private connection?: Connection;
+  private readonly auxiliaries = new Set<Connection>();
+  private diagnosticTask?: Promise<DesktopRecoveryStatus>;
   private transition = false;
   private transitionSettled?: Promise<void>;
   private finishTransition?: () => void;
@@ -77,6 +80,8 @@ export class DesktopHost {
       keyConfigured: view.keyConfigured, keySource: view.keySource, credentialStorage: view.credentialStorage,
       ...(view.codexAuthState ? { codexAuthState: view.codexAuthState } : {}),
       ...(view.codexModelId ? { codexModelId: view.codexModelId } : {}),
+      ...(view.codexModels ? { codexModels: structuredClone(view.codexModels) } : {}),
+      ...(view.reasoningEffort ? { reasoningEffort: view.reasoningEffort } : {}),
     };
     return { ...publicView, ...(this.options.testScenario ? { providerId: 'scripted' as const, modelId: `desktop-${this.options.testScenario}-fixture`, baseURL: '', keyConfigured: false, keySource: 'none' as const } : {}) };
   }
@@ -161,8 +166,9 @@ export class DesktopHost {
     if (this.connection === connection && !connection.closed) this.publish('failed', new HostError('HOST_WORKER_EXITED', 'The engine utility process exited. Retry to reopen its persisted state.'));
   }
   private receive(connection: Connection, message: unknown): void {
-    if (this.connection !== connection || connection.exited || !object(message)) return;
+    if (connection.exited || !object(message)) return;
     if (message.type === 'update') {
+      if (this.connection !== connection) return;
       const push = message as unknown as WorkerPush;
       const update = push.update;
       if (typeof push.ownerId !== 'string' || push.ownerId.length > 160 || !object(update)
@@ -271,6 +277,61 @@ export class DesktopHost {
       throw failure;
     } finally { this.endTransition(); }
   }
+  private async storageRequest<T>(type: 'diagnostics' | 'recover', input: Record<string, unknown> = {}): Promise<T> {
+    if (this.closing) throw new HostError('ENGINE_CLOSED', 'Desktop is closing.');
+    const transport = this.options.spawn();
+    const connection: Connection = { transport, pending: new Map(), detach: [], exited: false, closed: false, closeRequested: false, secrets: [] };
+    this.auxiliaries.add(connection);
+    connection.detach.push(transport.onMessage(message => this.receive(connection, message)), transport.onExit(() => this.exited(connection)));
+    try { return await this.rpc(connection, type, { dbPath: this.options.dbPath, artifactDir: this.options.artifactDir, ...input }) as T; }
+    finally { await this.closeConnection(connection); this.auxiliaries.delete(connection); }
+  }
+  getRecoveryStatus(): Promise<DesktopRecoveryStatus> {
+    if (this.transition) throw new HostError('ENGINE_BUSY', 'Engine transition is in progress.');
+    if (!this.diagnosticTask) {
+      const current = this.connection;
+      const task = this.tracked<DesktopRecoveryStatus>((async () => {
+        let ownedIdle = false;
+        if (this.status.state === 'ready' && current) {
+          try { await this.rpc(current, 'assertIdle'); ownedIdle = true; } catch { /* Active work stays blocked. */ }
+        }
+        const status = await this.storageRequest<DesktopRecoveryStatus>('diagnostics');
+        // The ready engine owns both lock databases. Its verified idle handles
+        // are released by recoverEngine before mutation; all external/effect
+        // blockers still apply and are checked again inside recovery.
+        if (ownedIdle && (status.activeRunCount ?? 0) === 0 && this.connection === current && this.status.state === 'ready' && !this.transition) {
+          const blockers = status.blockers.filter(code => code !== 'RECOVERY_OWNER_BUSY');
+          return { ...status, blockers, state: blockers.length ? 'blocked' : status.pendingRestoreCount || status.marker?.active ? 'recoverable' : 'clear' };
+        }
+        return status;
+      })());
+      this.diagnosticTask = task;
+      void task.finally(() => { if (this.diagnosticTask === task) this.diagnosticTask = undefined; }).catch(() => {});
+    }
+    return this.diagnosticTask;
+  }
+  async recoverEngine(input: { fingerprint: string; acknowledged: true }): Promise<DesktopRecoveryResult> {
+    input = validateRecoveryInput(input);
+    if (this.transition || this.closing) throw new HostError('ENGINE_BUSY', 'An engine transition is already in progress.');
+    this.beginTransition();
+    let closed = false;
+    try {
+      await this.idle();
+      await this.closeConnection(this.connection);
+      closed = true;
+      this.publish('starting');
+      const result = await this.storageRequest<DesktopRecoveryResult>('recover', input);
+      await this.start(await this.loadConfig());
+      return result;
+    } catch (error) {
+      const failure = safeError(error, 'RECOVERY_FAILED');
+      if (closed) this.publish('failed', failure);
+      throw failure;
+    } finally { this.endTransition(); }
+  }
+  backupDatabase(destination: string): Promise<{ bytes: number }> {
+    return this.tracked(this.rpc(this.requireReady(), 'backup', { destination }));
+  }
   async retryEngine(): Promise<HostStatus> {
     if (this.transition || this.closing) throw new HostError('ENGINE_BUSY', 'Desktop engine settings are already changing.');
     this.beginTransition();
@@ -310,6 +371,8 @@ export class DesktopHost {
       await this.transitionSettled;
       await Promise.allSettled([...this.inflight]);
       await this.closeConnection(this.connection);
+      await Promise.all([...this.auxiliaries].map(connection => this.closeConnection(connection)));
+      this.auxiliaries.clear();
       this.publish('stopped');
     })();
     void this.closePromise.catch(error => {

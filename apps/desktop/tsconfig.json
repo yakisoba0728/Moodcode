@@ -13,6 +13,7 @@
     "src/shared/**/*.ts",
     "src/renderer/store.ts",
     "src/renderer/model.ts",
+    "src/renderer/conversation.ts",
     "src/renderer/*.test.ts"
   ],
   "references": [

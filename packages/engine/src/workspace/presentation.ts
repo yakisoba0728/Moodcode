@@ -1,21 +1,17 @@
 import { createHash } from 'node:crypto';
-import { constants } from 'node:fs';
+import { constants, type Dirent } from 'node:fs';
 import { lstat, open, opendir } from 'node:fs/promises';
 import path from 'node:path';
 import { EngineError, type Workspace } from '@moodcode/contracts';
 import { getGitStatus, resolveWorkspacePath, type GitStatusEntry } from './index.js';
+import { continuationOffset, continuationToken, excludedDirectory, ignoredWorkspacePaths, snapshotFingerprint, validateContinuation } from './ignore.js';
 
 export const WORKSPACE_PRESENTATION_LIMITS = Object.freeze({
-  maxEntries: 1_000, maxStatusEntries: 1_000, maxJsonBytes: 262_144,
+  maxEntries: 1_000, maxScanEntries: 20_000, maxStatusEntries: 1_000, maxJsonBytes: 262_144,
   maxWarnings: 20, maxFileBytes: 524_288, maxPathBytes: 4_096,
 });
 
-const exclusions = new Set([
-  '.git', 'node_modules', '.hg', '.svn', 'build', 'dist', 'coverage', 'out',
-  '.next', '.nuxt', '.output', '.svelte-kit', '.cache', '.turbo', '.vite', '.parcel-cache', '.angular',
-]);
-
-export interface WorkspacePresentationOptions { signal?: AbortSignal }
+export interface WorkspacePresentationOptions { signal?: AbortSignal; limit?: number; continuation?: string }
 export interface WorkspaceStatusPresentation {
   workspaceId: string;
   branch: string | null;
@@ -37,6 +33,7 @@ export interface WorkspaceFilesPresentation {
   entries: WorkspaceFileEntry[];
   truncated: boolean;
   warnings: string[];
+  continuation?: string;
 }
 export interface WorkspaceFilePresentation {
   path: string;
@@ -64,7 +61,7 @@ function normalizedPath(value: string, allowRoot: boolean): string {
   const parts = value.split('/');
   if (parts.includes('..')) throw new EngineError('PATH_OUTSIDE_WORKSPACE', 'Parent traversal is not allowed.');
   const selected = parts.filter((part) => part !== '' && part !== '.');
-  if (selected.some((part) => exclusions.has(part.toLowerCase()))) {
+  if (selected.some(excludedDirectory)) {
     throw new EngineError('PATH_EXCLUDED', 'Git metadata, dependency and build/cache paths are excluded from presentation.');
   }
   const relative = selected.join('/');
@@ -164,34 +161,49 @@ export async function getWorkspaceStatus(workspace: Workspace, signal?: AbortSig
   return result;
 }
 
-/** One directory only: at most 1000 inspected entries, with no recursive watcher. */
+/** One directory only, with bounded scan and authenticated snapshot continuation. */
 async function listFiles(workspace: Workspace, relativePath = '', options: WorkspacePresentationOptions = {}): Promise<WorkspaceFilesPresentation> {
   const { signal } = options;
   abort(signal);
+  const limit = options.limit ?? WORKSPACE_PRESENTATION_LIMITS.maxEntries;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > WORKSPACE_PRESENTATION_LIMITS.maxEntries) throw new EngineError('INVALID_LIMIT', 'Presentation limit must be between 1 and 1000');
+  if (options.continuation !== undefined) validateContinuation(options.continuation);
   const relative = normalizedPath(relativePath, true);
   const anchor = await rootAnchor(workspace, signal);
   const absolute = await checkedPath(workspace, relative, anchor, signal);
   const before = await lstat(absolute, { bigint: true });
   if (!before.isDirectory() || before.isSymbolicLink()) throw new EngineError('NOT_DIRECTORY', 'Only directories can be listed.');
+  if (relative && (await ignoredWorkspacePaths(workspace, [relative], signal)).has(relative)) throw new EngineError('PATH_EXCLUDED', 'This directory is excluded by Git ignore rules');
   const result: WorkspaceFilesPresentation = { path: relative, entries: [], truncated: false, warnings: [] };
   const directory = await opendir(absolute, { bufferSize: 64 });
   let inspected = 0;
+  let scanBytes = 0;
+  const candidates: Dirent[] = [];
+  let safe = true;
   for await (const entry of directory) {
     abort(signal);
-    if (inspected >= WORKSPACE_PRESENTATION_LIMITS.maxEntries) {
+    scanBytes += Buffer.byteLength(entry.name) + 64;
+    if (inspected >= WORKSPACE_PRESENTATION_LIMITS.maxScanEntries || scanBytes > WORKSPACE_PRESENTATION_LIMITS.maxJsonBytes * 4) {
       result.truncated = true;
-      warning(result.warnings, 'Directory entry limit reached; additional entries were omitted.');
+      safe = false;
+      warning(result.warnings, 'Directory scan limit reached; continuation is unavailable. Narrow the requested directory.');
       break;
     }
     inspected += 1;
-    if (exclusions.has(entry.name.toLowerCase())) continue;
+    if (!excludedDirectory(entry.name)) candidates.push(entry);
+  }
+  const ignored = await ignoredWorkspacePaths(workspace, candidates.map(entry => relative ? `${relative}/${entry.name}` : entry.name), signal);
+  const observations: string[][] = [];
+  for (const entry of candidates) {
     const child = relative ? `${relative}/${entry.name}` : entry.name;
+    if (ignored.has(child)) continue;
     try {
       normalizedPath(child, false);
       const childAbsolute = await checkedPath(workspace, child, anchor, signal);
       const metadata = await lstat(childAbsolute, { bigint: true });
       abort(signal);
       if (metadata.isSymbolicLink()) throw new EngineError('SYMLINK_NOT_ALLOWED', 'Presentation does not follow symbolic links.');
+      observations.push([child, String(metadata.dev), String(metadata.ino), String(metadata.size), String(metadata.mtimeNs), String(metadata.ctimeNs)]);
       if (metadata.isDirectory()) result.entries.push({ path: child, name: entry.name, kind: 'directory' });
       else if (metadata.isFile() && metadata.size <= BigInt(Number.MAX_SAFE_INTEGER)) {
         result.entries.push({ path: child, name: entry.name, kind: 'file', bytes: Number(metadata.size) });
@@ -200,6 +212,7 @@ async function listFiles(workspace: Workspace, relativePath = '', options: Works
       abort(signal);
       if (error instanceof EngineError && (error.code === 'WORKSPACE_ROOT_CHANGED' || error.code === 'WORKSPACE_UNAVAILABLE')) throw error;
       result.truncated = true;
+      safe = false;
       // Do not expose absolute host paths or arbitrary OS diagnostics to the GUI.
       warning(result.warnings, `${entry.name}: ${error instanceof EngineError ? error.code : code(error)}`);
     }
@@ -211,10 +224,26 @@ async function listFiles(workspace: Workspace, relativePath = '', options: Works
   }
   if (after.mtimeNs !== before.mtimeNs || after.ctimeNs !== before.ctimeNs) {
     result.truncated = true;
+    safe = false;
     warning(result.warnings, 'Directory changed during listing; request a fresh listing.');
   }
   result.entries.sort((left, right) => left.kind !== right.kind ? (left.kind === 'directory' ? -1 : 1) : left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
+  observations.sort((left, right) => left[0]!.localeCompare(right[0]!));
+  const scope = snapshotFingerprint({ kind: 'workspace.presentation', workspaceId: workspace.id, root: workspace.root, relative, limit });
+  const snapshot = snapshotFingerprint({ observations, dev: String(after.dev), ino: String(after.ino), mtime: String(after.mtimeNs), ctime: String(after.ctimeNs) });
+  const offset = continuationOffset(options.continuation, scope, snapshot, result.entries.length);
+  const total = result.entries.length;
+  result.entries = result.entries.slice(offset, offset + limit);
+  if (offset + result.entries.length < total) {
+    result.truncated = true;
+    warning(result.warnings, safe
+      ? 'Directory page entry limit reached; use continuation to request additional entries.'
+      : 'Directory page entry limit reached; a safe continuation is unavailable. Narrow the requested directory.');
+  }
+  if (safe && result.entries.length > 0 && offset + result.entries.length < total) result.continuation = continuationToken(scope, snapshot, offset + result.entries.length);
   result.truncated = fitJson(result, result.entries, result.warnings) || result.truncated;
+  delete result.continuation;
+  if (safe && result.entries.length > 0 && offset + result.entries.length < total) result.continuation = continuationToken(scope, snapshot, offset + result.entries.length);
   await checkRoot(workspace, anchor, signal);
   return result;
 }

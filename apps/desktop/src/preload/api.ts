@@ -2,6 +2,9 @@ import type { CommandEnvelope } from '@moodcode/contracts';
 import { validateCommand } from '@moodcode/contracts/validation';
 import { DESKTOP_CHANNELS } from '../main/ipc-channels.js';
 import { validateExternalURL } from '../main/security.js';
+import { validateRecoveryInput } from '../shared/recovery.js';
+import { validateClipboardText } from '../shared/clipboard.js';
+import { REASONING_EFFORTS } from '@moodcode/contracts';
 import type { DesktopApi, DesktopUpdate, HostStatus, SaveDesktopSettings } from '../shared/protocol.js';
 
 type TransportListener = (event: unknown, payload: unknown) => void;
@@ -54,7 +57,7 @@ export function validateDesktopCommand(value: unknown): CommandEnvelope {
     } else {
       const config = original.payload.config as Record<string, unknown>;
       const copied: Record<string, unknown> = {};
-      for (const key of ['providerId', 'modelId', 'mode', 'limits']) {
+      for (const key of ['providerId', 'modelId', 'mode', 'limits', 'reasoningEffort']) {
         if (Object.hasOwn(config, key)) copied[key] = key === 'limits' ? { ...(config[key] as object) } : config[key];
       }
       command.payload.config = copied as CommandEnvelope['payload'];
@@ -64,7 +67,7 @@ export function validateDesktopCommand(value: unknown): CommandEnvelope {
 }
 
 export function validateDesktopSettings(value: unknown): SaveDesktopSettings {
-  const input = record(value, ['providerId', 'modelId', 'baseURL', 'apiKey', 'clearKey']);
+  const input = record(value, ['providerId', 'modelId', 'baseURL', 'apiKey', 'clearKey', 'reasoningEffort']);
   if (input.providerId !== 'scripted' && input.providerId !== 'openai-compatible' && input.providerId !== 'openai-responses' && input.providerId !== 'codex') invalid();
   const result: SaveDesktopSettings = {
     providerId: input.providerId,
@@ -72,6 +75,10 @@ export function validateDesktopSettings(value: unknown): SaveDesktopSettings {
     baseURL: boundedString(input.baseURL, 2048, input.providerId === 'scripted' || input.providerId === 'codex'),
   };
   if (result.modelId.trim() !== result.modelId) invalid();
+  if (Object.hasOwn(input, 'reasoningEffort')) {
+    if (!REASONING_EFFORTS.includes(input.reasoningEffort as never) || !['codex', 'openai-responses'].includes(result.providerId)) invalid();
+    result.reasoningEffort = input.reasoningEffort as import('@moodcode/contracts').ReasoningEffort;
+  }
   if (result.providerId === 'scripted' || result.providerId === 'codex') {
     if (result.baseURL !== '' || Object.hasOwn(input, 'apiKey')) invalid();
   } else {
@@ -164,6 +171,10 @@ export function createDesktopApi(transport: DesktopTransport): DesktopApi {
     onHostState: (listener: (status: HostStatus) => void) => listen(DESKTOP_CHANNELS.hostState, statusPayload, listener),
     saveSettings: async (input: SaveDesktopSettings) => invoke(transport, DESKTOP_CHANNELS.saveSettings, validateDesktopSettings(input)),
     retryEngine: () => invoke(transport, DESKTOP_CHANNELS.retryEngine),
+    getRecoveryStatus: () => invoke(transport, DESKTOP_CHANNELS.diagnostics),
+    recoverEngine: input => invoke(transport, DESKTOP_CHANNELS.recover, validateRecoveryInput(input)),
+    backupDatabase: () => invoke(transport, DESKTOP_CHANNELS.backup),
     openExternal: async (url: string) => invoke(transport, DESKTOP_CHANNELS.openExternal, validateExternalURL(url)),
+    copyText: async (text: string) => invoke(transport, DESKTOP_CHANNELS.copyText, validateClipboardText(text)),
   } satisfies DesktopApi);
 }

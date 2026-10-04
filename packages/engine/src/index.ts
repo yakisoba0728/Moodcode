@@ -3,7 +3,7 @@ export type * from './ports.js';
 export { ScriptedProvider, OpenAICompatibleProvider, ResponsesProvider } from './provider/index.js';
 export type { ScriptedTurn, OpenAICompatibleProviderOptions, ResponsesProviderOptions } from './provider/index.js';
 export { CodexProvider, createCodexProvider, type CodexProviderOptions } from './provider/codex.js';
-export { getCodexAuthStatus, type CodexAuthStatus, type CodexAuthOptions } from './auth/codex.js';
+export { getCodexAuthStatus, getCodexModelCatalog, type CodexModelMetadata, type CodexAuthStatus, type CodexAuthOptions } from './auth/codex.js';
 export { loadConfig } from './config/index.js';
 export type { LoadConfigOptions, ResolvedConfig, ResolvedRunConfig, ConfigFile, ConfigProviderMetadata } from './config/index.js';
 export { getDiagnostics, DIAGNOSTICS_LIMITS } from './diagnostics/index.js';
@@ -23,3 +23,6 @@ export type { RestoreOptions, RestorePreview, RestorePreviewFile, RestoreResult,
 export { openWorkspace, resolveWorkspacePath, getGitStatus, captureWorkspace, WorkspaceObserver } from './workspace/index.js';
 export type { WorkspaceObserverOptions, WorkspaceObserverState, WorkspaceObservation, ObservedWorkspaceFile, ObservedWorkspaceChange, ObservedGitStatus } from './workspace/index.js';
 export { getWorkspaceStatus, listWorkspaceFiles, readWorkspaceFile } from './workspace/presentation.js';
+
+export { getRecoveryStatus, recoverEngine, readRecoveryAcknowledgments, isRestoreAcknowledged, RECOVERY_LIMITS } from './recovery/index.js';
+export type { RecoveryStatus, RecoveryResult, RecoveryAcknowledgment, RecoveryOptions, RecoverEngineOptions } from './recovery/index.js';

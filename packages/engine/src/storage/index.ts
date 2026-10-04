@@ -6,7 +6,7 @@ import {
   EngineError, isTerminal, SCHEMA_VERSION,
   type ApprovalRecord, type Checkpoint, type EngineEvent, type JsonObject,
   type Message, type Run, type RunReceipt, type RunState, type Session,
-  type SessionSnapshot, type SubmitInput, type ToolCallRecord, type Workspace,
+  type SessionSnapshot, type SessionHistoryPage, type SessionMetrics, type SubmitInput, type ToolCallRecord, type Workspace,
 } from '@moodcode/contracts';
 import type { CommitChange, EngineStore } from '../ports.js';
 import { backupDatabase, inspectIntegrity, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './maintenance.js';
@@ -353,6 +353,70 @@ export class SqliteStore implements EngineStore {
         lastSeq,
       };
     }, false);
+  }
+  /** GUI pages never expose native replay; the original journal remains intact. */
+  getHistory(sessionId: string, beforeRunId?: string, limit = 20): SessionHistoryPage {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) throw new EngineError('INVALID_PAGE_SIZE', 'History page size must be between 1 and 50');
+    return this.transaction(() => {
+      const session = this.getSession(sessionId);
+      let before = Number.MAX_SAFE_INTEGER;
+      if (beforeRunId !== undefined) {
+        const row = this.db.prepare('SELECT ordinal FROM runs WHERE id=? AND session_id=?').get(beforeRunId, sessionId);
+        if (!row) throw new EngineError('INVALID_HISTORY_CURSOR', 'History cursor does not belong to this session');
+        before = Number(row.ordinal);
+      }
+      const rows = this.db.prepare('SELECT ordinal, data FROM runs WHERE session_id=? AND ordinal<? ORDER BY ordinal DESC LIMIT ?').all(sessionId, before, limit).reverse();
+      const runs = rows.map(row => decode<Run>(row as DataRow));
+      const lastSeq = Number(this.db.prepare('SELECT last_seq FROM sessions WHERE id=?').get(sessionId)?.last_seq);
+      const snapshot: SessionSnapshot = { session, runs, messages: [], tools: [], approvals: [], lastSeq };
+      let truncatedRecords = false;
+      if (runs.length) {
+        const ids = runs.map(run => run.id);
+        const placeholders = ids.map(() => '?').join(',');
+        snapshot.messages = this.rows<Message>(`SELECT json_remove(data,'$.providerReplay') AS data FROM messages WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...ids);
+        snapshot.tools = this.rows<ToolCallRecord>(`SELECT data FROM tools WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...ids);
+        snapshot.approvals = this.rows<ApprovalRecord>(`SELECT data FROM approvals WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...ids);
+        // Return whole Run groups whenever possible. Dropped groups remain reachable
+        // through beforeRunId; never cut an active approval's exact preview.
+        while (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304 && snapshot.runs.length > 1) {
+          const dropped = snapshot.runs.shift()!.id;
+          snapshot.messages = snapshot.messages.filter(message => message.runId !== dropped);
+          snapshot.tools = snapshot.tools.filter(tool => tool.runId !== dropped);
+          snapshot.approvals = snapshot.approvals.filter(approval => approval.runId !== dropped);
+        }
+        // Unusually large single Runs expose their recent records with a notice.
+        // Historical native state is still available to the context builder.
+        while (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304 && snapshot.messages.length > 2) {
+          snapshot.messages.splice(1, 1); truncatedRecords = true;
+        }
+        while (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304 && snapshot.tools.some(tool => tool.state === 'completed' || tool.state === 'failed' || tool.state === 'denied')) {
+          const index = snapshot.tools.findIndex(tool => tool.state === 'completed' || tool.state === 'failed' || tool.state === 'denied');
+          snapshot.tools.splice(index, 1); truncatedRecords = true;
+        }
+        if (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304) throw new EngineError('HISTORY_PAGE_TOO_LARGE', 'The current Run exceeds the display page budget; its original records remain stored');
+      }
+      const first = snapshot.runs[0];
+      const ordinal = first ? Number(this.db.prepare('SELECT ordinal FROM runs WHERE id=?').get(first.id)?.ordinal) : 0;
+      const hasMore = Boolean(this.db.prepare('SELECT 1 FROM runs WHERE session_id=? AND ordinal<? LIMIT 1').get(sessionId, ordinal));
+      return { snapshot, hasMore, beforeRunId: first?.id ?? null, truncatedRecords };
+    }, false);
+  }
+
+  getMetrics(sessionId: string): SessionMetrics {
+    this.getSession(sessionId);
+    const rows = this.rows<EngineEvent>("SELECT data FROM events WHERE session_id=? AND type IN ('run.usage','context.prepared') ORDER BY seq DESC LIMIT 2001", sessionId);
+    const selected = rows.slice(0, 2000);
+    const usage = selected.filter(event => event.type === 'run.usage');
+    const sum = (key: 'inputTokens' | 'outputTokens'): number | null => {
+      const values = usage.flatMap(event => typeof event.payload[key] === 'number' ? [event.payload[key] as number] : []);
+      if (!values.length) return null;
+      const count = values.reduce((total, value) => total + value, 0);
+      return Number.isSafeInteger(count) ? count : null;
+    };
+    const context = selected.find(event => event.type === 'context.prepared')?.payload;
+    return { observedUsageEvents: usage.length, inputTokens: sum('inputTokens'), outputTokens: sum('outputTokens'), usageWindowTruncated: rows.length > 2000,
+      context: context && typeof context.bytes === 'number' && typeof context.limit === 'number' && typeof context.turnIndex === 'number'
+        ? { bytes: context.bytes, limit: context.limit, summaryIncluded: context.summaryIncluded === true, turnIndex: context.turnIndex } : null };
   }
   readEvents(sessionId: string, afterSeq: number, limit = PAGE_SIZE): EngineEvent[] {
     cursor(afterSeq);

@@ -3,7 +3,7 @@ import { lstat, open } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { inspect } from 'node:util';
-import { EngineError } from '@moodcode/contracts';
+import { EngineError, REASONING_EFFORTS, type ReasoningEffort } from '@moodcode/contracts';
 
 export interface CodexAuthOptions {
   /** A local Codex credential directory. Defaults to CODEX_HOME or ~/.codex. */
@@ -15,6 +15,46 @@ export interface CodexAuthOptions {
 export interface CodexAuthStatus {
   state: 'ready' | 'missing' | 'expired' | 'unreadable' | 'invalid' | 'unsupported';
   modelId?: string;
+}
+export interface CodexModelMetadata {
+  id: string;
+  displayName: string;
+  reasoningEfforts: ReasoningEffort[];
+  defaultEffort?: ReasoningEffort;
+}
+
+/** Local cache metadata only; never requests a model or refreshes credentials. */
+export async function getCodexModelCatalog(options: CodexAuthOptions = {}): Promise<CodexModelMetadata[]> {
+  cancelled(options.signal);
+  const { home, now } = settings(options);
+  let secrets: readonly string[] = [];
+  try { secrets = (await credential(home, now, options.signal, value => { secrets = value; })).secrets; }
+  catch (error) { if (isCancellation(error)) throw error; }
+  try {
+    const cache = json(await readLocalFile(join(home, 'models_cache.json'), CACHE_BYTES, options.signal));
+    if (!Array.isArray(cache.models) || cache.models.length > 4096) return [];
+    const models: CodexModelMetadata[] = [];
+    const seen = new Set<string>();
+    for (const value of cache.models) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+      const item = value as Record<string, unknown>;
+      const id = modelSlug(item.slug, secrets);
+      if (!id || seen.has(id) || item.visibility === 'hide') continue;
+      const name = item.display_name;
+      const displayName = typeof name === 'string' && name.length > 0 && Buffer.byteLength(name) <= 256
+        && !/[\u0000-\u001f\u007f]/u.test(name) && !secrets.some(secret => name.includes(secret)) ? name : id;
+      const reasoningEfforts = Array.isArray(item.supported_reasoning_levels)
+        ? [...new Set(item.supported_reasoning_levels.slice(0, 32).flatMap(level => {
+          const effort = level && typeof level === 'object' ? (level as Record<string, unknown>).effort : undefined;
+          return REASONING_EFFORTS.includes(effort as ReasoningEffort) ? [effort as ReasoningEffort] : [];
+        }))] : [];
+      const defaultEffort = reasoningEfforts.includes(item.default_reasoning_level as ReasoningEffort) ? item.default_reasoning_level as ReasoningEffort : undefined;
+      models.push({ id, displayName, reasoningEfforts, ...(defaultEffort ? { defaultEffort } : {}) });
+      seen.add(id);
+      if (models.length === 128) break;
+    }
+    return models;
+  } catch (error) { if (isCancellation(error)) throw error; return []; }
 }
 
 /** Internal transport data. This type and its reader are not facade exports. */

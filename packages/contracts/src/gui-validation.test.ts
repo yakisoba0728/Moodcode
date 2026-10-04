@@ -108,7 +108,7 @@ test('GUI identifiers reuse existing required bounded ID rules', () => {
 
 test('GUI command payloads reject every unsupported option including explicit undefined', () => {
   for (const fixture of cases) {
-    for (const [key, value] of [['options', {}], ['signal', undefined], ['force', false], ['timeoutMs', 10], ['apiKey', 'private-gui-value'], ['limit', 20]] as const) {
+    for (const [key, value] of [['options', {}], ['signal', undefined], ['force', false], ['timeoutMs', 10], ['apiKey', 'private-gui-value'], ['unsupportedLimit', 20]] as const) {
       rejects(fixture.type, { ...fixture.payload, [key]: value }, 'payload');
     }
   }

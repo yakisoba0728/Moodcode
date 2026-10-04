@@ -338,19 +338,20 @@ test('duration budget stops a real command before failed terminal and preserves 
   assertExecutionLockAvailable(f.executionLockPath);
 });
 
-test('run output exhaustion after a real command keeps bounded content, artifacts and its committed checkpoint', { timeout: 15_000, skip: process.platform === 'win32' }, async (t) => {
+test('reserved output space after a real command allows final completion while preserving artifacts and checkpoint', { timeout: 15_000, skip: process.platform === 'win32' }, async (t) => {
   const code = "const fs=require('node:fs');fs.writeFileSync('effect.txt','output effect\\n');process.stdout.write('가'.repeat(2000))";
   const p = provider('output', [[{ type: 'text.delta', delta: 'p'.repeat(200) }, commandCall('command', code), toolFinish], [stop]]);
   const f = await fixture(t, [p]);
   const receipt = f.runner.submit(f.input(undefined, undefined, { maxOutputBytes: 512 }));
   allow(f, await approval(f, receipt.runId));
   const final = await f.runner.waitForRun(receipt.runId);
-  assert.equal(final.state, 'failed'); assert.equal(final.error?.code, 'OUTPUT_LIMIT');
-  assert.equal(p.requests.length, 1);
+  assert.equal(final.state, 'completed'); assert.equal(final.error, undefined);
+  assert.equal(p.requests.length, 2);
   const snapshot = f.store.getSnapshot(f.sessions[0]!.id);
   assert.ok(snapshot.messages.filter((item) => item.role !== 'user').reduce((sum, item) => sum + Buffer.byteLength(item.content), 0) <= 512);
-  const result = f.store.readEvents(f.sessions[0]!.id, 0).find((item) => item.type === 'tool.failed')!;
-  assert.equal(result.payload.truncated, true); assert.equal(result.payload.cleanupConfirmed, true);
+  const result = f.store.readEvents(f.sessions[0]!.id, 0).find((item) => item.type === 'tool.completed')!;
+  assert.equal(result.payload.truncated, false);
+  assert.ok(Buffer.byteLength(String(result.payload.output)) < 2000); assert.equal(result.payload.cleanupConfirmed, true);
   assert.ok(Array.isArray(result.payload.artifacts));
   for (const artifact of result.payload.artifacts) {
     assert.ok(artifact && typeof artifact === 'object' && !Array.isArray(artifact));

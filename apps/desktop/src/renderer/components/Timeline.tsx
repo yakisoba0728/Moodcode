@@ -1,5 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ApprovalRecord,
   Message,
@@ -9,11 +8,29 @@ import type {
 import type { DesktopStore } from "../store.js";
 import { RUN_LABELS, TOOL_LABELS, timelineRows } from "../model.js";
 import { Icon } from "./Icon.js";
+import { CodeBlock } from "./CodeBlock.js";
+import {
+  ConversationMarkdown,
+  type OpenConversationFile,
+} from "./ConversationMarkdown.js";
+import {
+  conversationLink,
+  runErrorHelp,
+  toolInputText,
+  toolOutputView,
+} from "../conversation.js";
+
+const RUN_TIME = new Intl.DateTimeFormat("ko-KR", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 const MessageView = memo(function MessageView({
   message,
+  onOpenFile,
 }: {
   message: Message;
+  onOpenFile?: OpenConversationFile;
 }) {
   if (
     message.role === "tool" ||
@@ -34,33 +51,27 @@ const MessageView = memo(function MessageView({
           {message.role === "user" ? "나" : "Moodcode"}
         </div>
         <div className="markdown">
-          <Markdown
-            skipHtml
-            components={{
-              img: () => null,
-              a: ({ href, children }) =>
-                href && /^https?:\/\//.test(href) ? (
-                  <button
-                    className="text-link"
-                    onClick={() => {
-                      void window.moodcode?.openExternal(href).catch(() => {});
-                    }}
-                  >
-                    {children}
-                  </button>
-                ) : (
-                  <span>{children}</span>
-                ),
-            }}
-          >
-            {message.content}
-          </Markdown>
+          <ConversationMarkdown
+            content={message.content}
+            onOpenFile={onOpenFile}
+          />
         </div>
       </div>
     </div>
   );
 });
-const ToolView = memo(function ToolView({ tool }: { tool: ToolCallRecord }) {
+const ToolView = memo(function ToolView({
+  tool,
+  onOpenFile,
+}: {
+  tool: ToolCallRecord;
+  onOpenFile?: OpenConversationFile;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const output = useMemo(
+    () => (expanded ? toolOutputView(tool) : null),
+    [expanded, tool],
+  );
   const pending =
     tool.state === "running" ||
     tool.state === "requested" ||
@@ -90,7 +101,10 @@ const ToolView = memo(function ToolView({ tool }: { tool: ToolCallRecord }) {
           ? input.query
           : "";
   return (
-    <details className={`tool-card ${tool.state}`}>
+    <details
+      className={`tool-card ${tool.state}`}
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    >
       <summary>
         <span className={pending ? "spinner-small" : "tool-icon"}>
           {pending ? null : (
@@ -105,17 +119,90 @@ const ToolView = memo(function ToolView({ tool }: { tool: ToolCallRecord }) {
         <span className="tool-state">{label}</span>
         <Icon name="chevronDown" size={13} />
       </summary>
-      <div className="tool-body">
-        <div className="eyebrow">입력</div>
-        <pre>{JSON.stringify(tool.input, null, 2)}</pre>
-        {tool.output ? (
-          <>
-            <div className="eyebrow">결과</div>
-            <pre>{tool.output}</pre>
-          </>
-        ) : null}
-        {tool.error ? <p className="inline-error">{tool.error}</p> : null}
-      </div>
+      {expanded ? (
+        <div className="tool-body">
+          <div className="eyebrow">입력</div>
+          {typeof input.path === "string" &&
+          onOpenFile &&
+          conversationLink(input.path, { bareFile: true })?.kind === "file" ? (
+            <button
+              type="button"
+              className="text-link conversation-file-link"
+              onClick={() => {
+                const link = conversationLink(input.path as string, {
+                  bareFile: true,
+                });
+                if (link?.kind === "file")
+                  onOpenFile(
+                    link.path,
+                    typeof input.startLine === "number"
+                      ? input.startLine
+                      : link.line,
+                  );
+              }}
+            >
+              {input.path}
+              {typeof input.startLine === "number"
+                ? `:${input.startLine}`
+                : ""}{" "}
+              열기
+            </button>
+          ) : null}
+          <CodeBlock
+            source={toolInputText(tool.input)}
+            language="json"
+            label="도구 입력"
+          />
+          {output?.source ? (
+            <>
+              <div className="eyebrow">저장된 결과 원문</div>
+              {output.notices.map((notice) => (
+                <p className="conversation-output-note" key={notice}>
+                  {notice}
+                </p>
+              ))}
+              {output.references.length && onOpenFile ? (
+                <ul
+                  className="tool-file-references"
+                  aria-label="결과 파일 위치"
+                >
+                  {output.references.map((reference, index) => (
+                    <li
+                      key={`${reference.path}:${reference.line ?? ""}:${index}`}
+                    >
+                      <button
+                        type="button"
+                        className="text-link conversation-file-link"
+                        onClick={() =>
+                          onOpenFile(reference.path, reference.line)
+                        }
+                      >
+                        {reference.path}
+                        {reference.line ? `:${reference.line}` : ""}
+                      </button>
+                      {reference.text ? <code>{reference.text}</code> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {output.references.length >= 80 ? (
+                <p className="conversation-output-note">
+                  파일 위치 버튼은 처음 80개를 표시했어요. 나머지는 아래 결과
+                  원문에서 확인할 수 있어요.
+                </p>
+              ) : null}
+              <CodeBlock
+                source={output.source}
+                language={output.language}
+                label="도구 결과"
+              />
+            </>
+          ) : null}
+          {tool.error ? (
+            <CodeBlock source={tool.error} label="도구 오류" copy={false} />
+          ) : null}
+        </div>
+      ) : null}
     </details>
   );
 });
@@ -150,9 +237,14 @@ export function ApprovalPanel({
         </div>
         <span className="pill amber">승인 대기</span>
       </div>
-      <pre className="approval-preview">
-        {JSON.stringify(approval.preview, null, 2)}
-      </pre>
+      <div className="approval-preview">
+        <CodeBlock
+          source={JSON.stringify(approval.preview, null, 2)}
+          language="json"
+          label="승인 미리보기"
+          copy={false}
+        />
+      </div>
       <div className="approval-actions">
         <span>이번 요청에만 적용돼요.</span>
         <button
@@ -181,9 +273,11 @@ export function ApprovalPanel({
 export function Timeline({
   snapshot,
   store,
+  onOpenFile,
 }: {
   snapshot: SessionSnapshot;
   store: DesktopStore;
+  onOpenFile?: OpenConversationFile;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
@@ -212,12 +306,7 @@ export function Timeline({
         return (
           <section className="run-section" key={run.id} data-run-id={run.id}>
             <div className="run-meta">
-              <span>
-                {new Intl.DateTimeFormat("ko-KR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }).format(new Date(run.createdAt))}
-              </span>
+              <span>{RUN_TIME.format(new Date(run.createdAt))}</span>
               <span className={`run-state ${run.state}`}>
                 {RUN_LABELS[run.state]}
               </span>
@@ -232,10 +321,14 @@ export function Timeline({
             </div>
             {timelineRows(messages, tools).map((row) =>
               row.kind === "message" ? (
-                <MessageView key={row.message.id} message={row.message} />
+                <MessageView
+                  key={row.message.id}
+                  message={row.message}
+                  onOpenFile={onOpenFile}
+                />
               ) : (
                 <div className="tool-stack" key={row.tool.id}>
-                  <ToolView tool={row.tool} />
+                  <ToolView tool={row.tool} onOpenFile={onOpenFile} />
                 </div>
               ),
             )}
@@ -254,8 +347,14 @@ export function Timeline({
             ) : null}
             {run.error ? (
               <div className="run-error">
-                <strong>{run.error.code}</strong>
-                <p>{run.error.message}</p>
+                <strong>{runErrorHelp(run.error).cause}</strong>
+                <p className="run-error-action">
+                  {runErrorHelp(run.error).action}
+                </p>
+                <details>
+                  <summary>오류 원문 · {run.error.code}</summary>
+                  <p>{run.error.message}</p>
+                </details>
               </div>
             ) : null}
             {run.state === "interrupted" ? (

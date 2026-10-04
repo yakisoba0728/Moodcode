@@ -9,6 +9,8 @@ import type {
 } from "@moodcode/engine";
 import type { DesktopStore, FileListing, FilePreview } from "../store.js";
 import { buildDiff, shortPath } from "../model.js";
+import { CodeBlock } from "./CodeBlock.js";
+import type { FileTarget } from "../navigation.js";
 import { Icon } from "./Icon.js";
 
 function FileContents({ content }: { content: string }) {
@@ -79,12 +81,14 @@ export function ReviewPane({
   run,
   store,
   busy,
+  fileTarget,
 }: {
   workspace: Workspace | undefined;
   review: ReviewDiff | null;
   run: Run | undefined;
   store: DesktopStore;
   busy: boolean;
+  fileTarget?: FileTarget | null;
 }) {
   const currentWorkspace = useRef(workspace?.id);
   currentWorkspace.current = workspace?.id;
@@ -96,6 +100,8 @@ export function ReviewPane({
   const [directory, setDirectory] = useState("");
   const [listing, setListing] = useState<FileListing | null>(null);
   const [listingRevision, setListingRevision] = useState(0);
+  const [previewLine, setPreviewLine] = useState<number | undefined>();
+  const consumedTarget = useRef(0);
   const [preview, setPreview] = useState<FilePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -154,6 +160,7 @@ export function ReviewPane({
       .command<FileListing>("file.list", {
         workspaceId: workspace.id,
         path: directory,
+        limit: 100,
       })
       .then((data) => {
         if (!cancelled) {
@@ -176,7 +183,58 @@ export function ReviewPane({
       cancelled = true;
     };
   }, [directory, workspace?.id, tab, listingRevision, store]);
-  async function openFile(path: string) {
+  useEffect(() => {
+    if (
+      !fileTarget ||
+      fileTarget.workspaceId !== workspace?.id ||
+      consumedTarget.current === fileTarget.id
+    )
+      return;
+    setTab("files");
+    const parent = fileTarget.path.split("/").slice(0, -1).join("/");
+    if (directory !== parent) {
+      setDirectory(parent);
+      return;
+    }
+    consumedTarget.current = fileTarget.id;
+    void openFile(fileTarget.path, fileTarget.line);
+  }, [fileTarget, workspace?.id, directory]);
+  async function loadMore() {
+    if (
+      !workspace ||
+      !listing?.continuation ||
+      loading ||
+      listing.entries.length >= 2000
+    )
+      return;
+    const workspaceId = workspace.id,
+      request = ++fileRequest.current;
+    setLoading(true);
+    try {
+      const data = await store.command<FileListing>("file.list", {
+        workspaceId,
+        path: directory,
+        limit: 100,
+        continuation: listing.continuation,
+      });
+      if (
+        currentWorkspace.current === workspaceId &&
+        fileRequest.current === request
+      )
+        setListing({
+          ...data,
+          entries: [...listing.entries, ...data.entries].slice(0, 2000),
+        });
+    } catch (error) {
+      if (fileRequest.current === request)
+        setError(
+          error instanceof Error ? error.message : "다음 목록을 읽지 못했어요.",
+        );
+    } finally {
+      if (fileRequest.current === request) setLoading(false);
+    }
+  }
+  async function openFile(path: string, line?: number) {
     if (!workspace) return;
     const workspaceId = workspace.id,
       request = ++fileRequest.current;
@@ -190,8 +248,10 @@ export function ReviewPane({
       if (
         currentWorkspace.current === workspaceId &&
         fileRequest.current === request
-      )
+      ) {
         setPreview(file);
+        setPreviewLine(line);
+      }
     } catch (error) {
       if (
         currentWorkspace.current === workspaceId &&
@@ -527,7 +587,25 @@ export function ReviewPane({
             </button>
           ))}
           {listing?.truncated ? (
-            <p className="pane-note">파일이 많아 목록 일부만 표시했어요.</p>
+            <div className="pane-note">
+              파일 목록 일부를 표시했어요.
+              {listing.continuation ? (
+                <button
+                  className="text-button"
+                  disabled={loading || listing.entries.length >= 2000}
+                  onClick={() => {
+                    void loadMore();
+                  }}
+                >
+                  다음 파일
+                </button>
+              ) : (
+                "범위를 좁히거나 새로고침해 주세요."
+              )}
+              {listing.entries.length >= 2000
+                ? "화면 한도 2,000개에 도달했어요. 하위 폴더를 열어 주세요."
+                : ""}
+            </div>
           ) : null}
           {preview ? (
             <section className="file-inspector">
@@ -536,7 +614,36 @@ export function ReviewPane({
                 <span title={preview.path}>{shortPath(preview.path)}</span>
                 <span>읽기 전용</span>
               </div>
-              <FileContents content={preview.content} />
+              <CodeBlock
+                source={preview.content}
+                label={preview.path}
+                language={
+                  (
+                    {
+                      ts: "typescript",
+                      tsx: "typescript",
+                      js: "javascript",
+                      jsx: "javascript",
+                      py: "python",
+                      json: "json",
+                      css: "css",
+                      html: "xml",
+                      sql: "sql",
+                      md: "markdown",
+                      yaml: "yaml",
+                      yml: "yaml",
+                      sh: "bash",
+                      go: "go",
+                    } as Record<string, string>
+                  )[preview.path.split(".").pop() ?? ""]
+                }
+                initialLine={previewLine}
+              />
+              {preview.truncated ? (
+                <p className="pane-note">
+                  파일 미리보기 한도로 일부 내용만 읽었어요.
+                </p>
+              ) : null}
             </section>
           ) : null}
           {!workspace ? (

@@ -9,9 +9,11 @@ import type {
   CoordinatorOptions, CoordinatorPort, PreparedTool, ProviderAdapter, ProviderEvent,
   ProviderMessage, ToolContext, ToolDefinition, ToolResult,
 } from '../ports.js';
+import { EXTRACTIVE_MEMORY_PREFIX } from '../context/index.js';
 
 const CLEANUP_GRACE_MS = 1_000;
 const EFFECT_TOOLS = new Set(['apply_patch', 'run_command']);
+const READ_TOOLS = new Set(['list_files', 'read_file', 'search_files']);
 const UNSAFE_EFFECT_ERRORS = new Set([
   'CLEANUP_UNCERTAIN', 'PROCESS_CLEANUP_FAILED', 'COMMAND_CLEANUP_UNCERTAIN',
   'COMMAND_EFFECTS_LOCK_FAILED', 'PATCH_CHECKPOINT_FAILED',
@@ -24,6 +26,7 @@ interface Owner {
   outputBytes: number;
   toolCount: number;
   callIds: Set<string>;
+  readonlyCalls: Set<string>;
   checkpointIds: Set<string>;
   terminal: boolean;
   activeTool?: ToolCallRecord;
@@ -206,7 +209,7 @@ export class RunCoordinator implements CoordinatorPort {
     const done = new Promise<Run>((yes, no) => { resolve = yes; reject = no; });
     const owner: Owner = {
       run, abort: new AbortController(), done, outputBytes: 0, toolCount: 0,
-      callIds: new Set(), checkpointIds: new Set(), terminal: false,
+      callIds: new Set(), readonlyCalls: new Set(), checkpointIds: new Set(), terminal: false,
     };
     this.owners.set(run.id, owner);
     // Attach a rejection observer even if the caller never waits for this run.
@@ -360,7 +363,11 @@ export class RunCoordinator implements CoordinatorPort {
       messages = structuredClone(messages);
       for (let turnIndex = 0; turnIndex < run.config.limits.maxTurns; turnIndex++) {
         this.assertLive(owner);
-        this.checkContext(owner, messages);
+        const bytes = this.checkContext(owner, messages);
+        this.options.store.commit(run.id, 'context.prepared', {
+          turnIndex, bytes, limit: run.config.limits.maxContextBytes,
+          summaryIncluded: messages.some((message) => message.role === 'assistant' && message.content.startsWith(EXTRACTIVE_MEMORY_PREFIX)),
+        });
         const turn = await this.providerTurn(owner, provider, messages, turnIndex);
         this.assertLive(owner);
         messages.push({ role: 'assistant', content: turn.message.content, ...(turn.calls.length ? { toolCalls: turn.calls } : {}) });
@@ -386,11 +393,13 @@ export class RunCoordinator implements CoordinatorPort {
     } finally { clearTimeout(timer); }
   }
 
-  private checkContext(owner: Owner, messages: ProviderMessage[]): void {
+  private checkContext(owner: Owner, messages: ProviderMessage[]): number {
     const schemas = this.options.tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
-    if (Buffer.byteLength(JSON.stringify({ messages, tools: schemas }), 'utf8') > owner.run.config.limits.maxContextBytes) {
+    const bytes = Buffer.byteLength(JSON.stringify({ messages, tools: schemas }), 'utf8');
+    if (bytes > owner.run.config.limits.maxContextBytes) {
       throw new EngineError('CONTEXT_LIMIT', 'Model context byte budget was exceeded');
     }
+    return bytes;
   }
 
   private message(owner: Owner, role: 'assistant' | 'tool', content = ''): Message {
@@ -405,7 +414,9 @@ export class RunCoordinator implements CoordinatorPort {
     const tools = this.options.tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
     let iterator: AsyncIterator<ProviderEvent> | undefined;
     try {
-      iterator = provider.streamTurn({ runId: owner.run.id, turnIndex, modelId: owner.run.config.modelId, messages: structuredClone(messages), tools }, owner.abort.signal)[Symbol.asyncIterator]();
+      iterator = provider.streamTurn({ runId: owner.run.id, turnIndex, modelId: owner.run.config.modelId, messages: structuredClone(messages), tools,
+        ...(owner.run.config.reasoningEffort !== undefined ? { reasoningEffort: owner.run.config.reasoningEffort } : {}),
+      }, owner.abort.signal)[Symbol.asyncIterator]();
       while (true) {
         const item = await abortable(() => iterator!.next(), owner.abort.signal, 'Provider stream');
         this.assertLive(owner);
@@ -489,6 +500,31 @@ export class RunCoordinator implements CoordinatorPort {
     return { content: bounded, truncated: Buffer.byteLength(content, 'utf8') > available };
   }
 
+  private toolOutputBudget(owner: Owner): number {
+    // Tool observations share the run budget with every assistant delta. Keep a
+    // quarter of the configured budget (at most 4 KiB) for a final explanation.
+    const reserve = Math.min(4_096, Math.max(1, Math.floor(owner.run.config.limits.maxOutputBytes / 4)));
+    return Math.max(0, owner.run.config.limits.maxOutputBytes - owner.outputBytes - reserve);
+  }
+
+  private toolError(owner: Owner, code: string, message: string): ToolResult {
+    const budget = this.toolOutputBudget(owner);
+    const encode = (limit: number) => JSON.stringify({ error: { code, message: prefixBytes(message, limit) } });
+    let content = encode(2_048);
+    if (Buffer.byteLength(content) > budget) {
+      let low = 0;
+      let high = Math.min(2_048, Buffer.byteLength(message));
+      while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+        if (Buffer.byteLength(encode(middle)) <= budget) low = middle;
+        else high = middle - 1;
+      }
+      content = encode(low);
+      if (Buffer.byteLength(content) > budget) content = [JSON.stringify({ error: code }), '{"error":true}', '{}', '0', ''].find(value => Buffer.byteLength(value) <= budget)!;
+    }
+    return { content, isError: true };
+  }
+
   private setTool(owner: Owner, tool: ToolCallRecord, state: ToolCallRecord['state'], fields: Partial<Pick<ToolCallRecord, 'output' | 'error'>> = {}): void {
     Object.assign(tool, { state }, fields);
     this.options.store.commit(owner.run.id, `tool.${state}`, { toolCallId: tool.id, name: tool.name, state, ...fields }, { tool: { ...tool } });
@@ -497,7 +533,7 @@ export class RunCoordinator implements CoordinatorPort {
   private context(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], signal: AbortSignal, allowCheckpoint: () => boolean): ToolContext {
     return {
       workspace, sessionId: owner.run.sessionId, runId: owner.run.id, toolCallId: record.id,
-      signal, limits: owner.run.config.limits, artifactDir: this.options.artifactDir,
+      signal, limits: { ...owner.run.config.limits, maxOutputBytes: this.toolOutputBudget(owner) }, artifactDir: this.options.artifactDir,
       ...(this.options.executionLockPath ? { executionLockPath: this.options.executionLockPath } : {}),
       recordCheckpoint: (checkpoint: Checkpoint) => {
         // Cleanup may record observed effects after abort, until this operation settles.
@@ -529,7 +565,7 @@ export class RunCoordinator implements CoordinatorPort {
     this.options.store.commit(owner.run.id, 'tool.requested', { toolCallId: record.id, providerToolCallId: call.id, name: call.name, input: call.input }, { tool: record });
     try {
       const tool = this.tools.get(call.name);
-      if (!tool) return this.toolResult(owner, record, call, { content: JSON.stringify({ error: { code: 'UNKNOWN_TOOL', message: `Unknown tool: ${call.name}` } }), isError: true });
+      if (!tool) return this.toolResult(owner, record, call, this.toolError(owner, 'UNKNOWN_TOOL', `Unknown tool: ${call.name}`));
       // PreparedTool is an opaque handle: tools may bind preimages to its identity.
       const prepared = await this.toolOperation(owner, record, workspace, false, (context) => tool.prepare(call.input, context));
       this.assertLive(owner);
@@ -537,8 +573,13 @@ export class RunCoordinator implements CoordinatorPort {
         throw new EngineError('INVALID_PREPARED_TOOL', 'Prepared tool identity or approval metadata is invalid');
       }
       const binding = JSON.stringify(prepared);
+      if (READ_TOOLS.has(call.name) && !prepared.requiresApproval) {
+        const key = `${call.name}:${prepared.fingerprint}`;
+        if (owner.readonlyCalls.has(key)) throw new EngineError('REPEATED_READ_TOOL_CALL', 'This identical read was already attempted without an intervening workspace effect. Use its previous result, a continuation, a different line range, or a narrower query.');
+        owner.readonlyCalls.add(key);
+      }
       if (owner.run.config.mode === 'plan' && (prepared.requiresApproval || EFFECT_TOOLS.has(call.name))) {
-        return this.toolResult(owner, record, call, { content: JSON.stringify({ error: { code: 'PLAN_MODE_WRITE_BLOCKED', message: 'Plan mode does not allow this tool effect' } }), isError: true }, 'denied');
+        return this.toolResult(owner, record, call, this.toolError(owner, 'PLAN_MODE_WRITE_BLOCKED', 'Plan mode does not allow this tool effect'), 'denied');
       }
       if (prepared.requiresApproval || EFFECT_TOOLS.has(call.name)) {
         this.setTool(owner, record, 'awaiting_approval');
@@ -552,12 +593,13 @@ export class RunCoordinator implements CoordinatorPort {
         const current = this.options.store.getApproval(decision.id);
         const matches = (approval: typeof current) => approval.runId === owner.run.id && approval.sessionId === owner.run.sessionId && approval.toolCallId === record.id && approval.toolName === prepared.name && approval.fingerprint === prepared.fingerprint && approval.status === 'allowed';
         if (!matches(current) || !matches(decision)) {
-          return this.toolResult(owner, record, call, { content: JSON.stringify({ error: { code: 'APPROVAL_DENIED', message: 'Tool approval was denied, expired, or did not match the prepared request' } }), isError: true }, 'denied');
+          return this.toolResult(owner, record, call, this.toolError(owner, 'APPROVAL_DENIED', 'Tool approval was denied, expired, or did not match the prepared request'), 'denied');
         }
       }
       this.assertLive(owner);
       if (JSON.stringify(prepared) !== binding) throw new EngineError('PREPARED_TOOL_CHANGED', 'Prepared request changed while waiting for approval');
       this.setTool(owner, record, 'running');
+      if (prepared.requiresApproval || EFFECT_TOOLS.has(call.name)) owner.readonlyCalls.clear();
       const result = await this.toolOperation(owner, record, workspace, true, (context) => tool.execute(prepared as PreparedTool, context));
       this.assertLive(owner);
       if (uncertain(result)) throw new EngineError('CLEANUP_UNCERTAIN', `Tool ${record.name} did not confirm cleanup`);
@@ -579,7 +621,7 @@ export class RunCoordinator implements CoordinatorPort {
         throw failure;
       }
       // Input errors, denied permissions, and ordinary tool failures let the model adapt.
-      return this.toolResult(owner, record, call, { content: JSON.stringify({ error: { code: failure.code, message: prefixBytes(failure.message, 2_048) } }), isError: true });
+      return this.toolResult(owner, record, call, this.toolError(owner, failure.code, failure.message));
     } finally { owner.activeTool = undefined; }
   }
 

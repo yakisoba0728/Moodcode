@@ -210,7 +210,7 @@ try {
     .locator(".review-pane .file-row")
     .filter({ hasText: "math.mjs" })
     .click();
-  await expect(page.locator(".source-code")).toContainText("a - b");
+  await expect(page.locator(".file-inspector .conversation-code pre")).toContainText("a - b");
   checks.push(
     "restore preview rejects stale external edits; confirmed restore has durable audit; file reads work after reload; terminal journal unchanged",
   );

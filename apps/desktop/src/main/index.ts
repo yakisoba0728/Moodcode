@@ -1,6 +1,7 @@
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell, utilityProcess } from 'electron';
-import { getCodexAuthStatus } from '@moodcode/engine';
-import { mkdirSync } from 'node:fs';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, safeStorage, shell, utilityProcess } from 'electron';
+import { getCodexAuthStatus, getCodexModelCatalog } from '@moodcode/engine';
+import { validateClipboardText } from '../shared/clipboard.js';
+import { mkdirSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
@@ -28,6 +29,7 @@ app.setName('Moodcode');
 let window: BrowserWindow | undefined;
 let ownerId = randomUUID();
 let host: DesktopHost | undefined;
+let refreshSettingsMetadata: (() => Promise<void>) | undefined;
 let quitting = false;
 let quitPending = false;
 
@@ -36,12 +38,12 @@ let authMetadata: DesktopCodexAuth = { available: false, state: 'missing' };
 async function refreshCodexAuth(): Promise<void> {
   if (scenario) { authMetadata = { available: false, state: 'missing' }; return; }
   try {
-    const value: unknown = await getCodexAuthStatus();
+    const [value, models] = await Promise.all([getCodexAuthStatus(), getCodexModelCatalog()]);
     if (!value || typeof value !== 'object') { authMetadata = { available: false, state: 'unreadable' }; return; }
     const status = value as { available?: boolean; state?: string; modelId?: string };
     const state = status.state === 'ready' || status.state === 'available' ? 'available'
       : status.state === 'missing' || status.state === 'expired' || status.state === 'unreadable' ? status.state : 'unreadable';
-    authMetadata = { available: state === 'available', state, ...(typeof status.modelId === 'string' ? { modelId: status.modelId } : {}) };
+    authMetadata = { available: state === 'available', state, models, ...(typeof status.modelId === 'string' ? { modelId: status.modelId } : {}) };
   } catch { authMetadata = { available: false, state: 'unreadable' }; }
 }
 function spawnWorker(): UtilityTransport {
@@ -81,13 +83,22 @@ function requireHost(): DesktopHost {
   return host;
 }
 function installIpc(): void {
-  handle(DESKTOP_CHANNELS.bootstrap, async () => requireHost().getBootstrap());
+  handle(DESKTOP_CHANNELS.bootstrap, async () => { await refreshSettingsMetadata?.(); return requireHost().getBootstrap(); });
   handle(DESKTOP_CHANNELS.command, async args => requireHost().command(args[0] as CommandEnvelope));
   handle(DESKTOP_CHANNELS.subscribe, async (args, owner) => requireHost().subscribe(owner, args[0] as string, args[1] as number));
   handle(DESKTOP_CHANNELS.unsubscribe, async (args, owner) => requireHost().unsubscribe(owner, args[0] as string));
   handle(DESKTOP_CHANNELS.saveSettings, async args => requireHost().saveSettings(args[0] as SaveDesktopSettings));
   handle(DESKTOP_CHANNELS.retryEngine, async () => requireHost().retryEngine());
+  handle(DESKTOP_CHANNELS.diagnostics, async () => requireHost().getRecoveryStatus());
+  handle(DESKTOP_CHANNELS.recover, async args => requireHost().recoverEngine(args[0] as { fingerprint: string; acknowledged: true }));
+  handle(DESKTOP_CHANNELS.backup, async (_args, owner) => {
+    const chosen = await dialog.showSaveDialog(window!, { title: '대화 데이터베이스 백업', defaultPath: 'moodcode-backup.sqlite', filters: [{ name: 'SQLite database', extensions: ['sqlite'] }] });
+    if (chosen.canceled || !chosen.filePath) return { cancelled: true };
+    if (!window || owner !== ownerId) throw new HostError('WINDOW_RELOADED', 'The window changed while selecting the backup location.');
+    return { cancelled: false, ...await requireHost().backupDatabase(chosen.filePath) };
+  });
   handle(DESKTOP_CHANNELS.openExternal, async args => { await shell.openExternal(validateExternalURL(args[0])); });
+  handle(DESKTOP_CHANNELS.copyText, async args => { await clipboard.writeText(validateClipboardText(args[0])); });
   handle(DESKTOP_CHANNELS.chooseWorkspace, async (_args, owner) => {
     const selected = testLaunch && process.env.MOODCODE_DESKTOP_TEST_WORKSPACE
       ? process.env.MOODCODE_DESKTOP_TEST_WORKSPACE
@@ -150,7 +161,7 @@ app.on('activate', () => { if (app.isReady()) createWindow(); });
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => app.quit());
 
 void app.whenReady().then(async () => {
-  const userData = app.getPath('userData');
+  const userData = realpathSync(app.getPath('userData'));
   const credentialStorage: CredentialStorage = {
     isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
     encryptString: value => safeStorage.encryptString(value),
@@ -158,6 +169,7 @@ void app.whenReady().then(async () => {
     ...(process.platform === 'linux' ? { getSelectedStorageBackend: () => safeStorage.getSelectedStorageBackend() } : {}),
   };
   const settingsStore = new SettingsStore({ directory: userData, safeStorage: credentialStorage, environment: scenario ? {} : process.env, codexAuth: () => authMetadata });
+  refreshSettingsMetadata = async () => { await refreshCodexAuth(); settingsStore.refreshView(); };
   const settings = {
     load: async () => { await refreshCodexAuth(); return settingsStore.load(); },
     prepare: async (input: SaveDesktopSettings) => { await refreshCodexAuth(); return settingsStore.prepare(input); },

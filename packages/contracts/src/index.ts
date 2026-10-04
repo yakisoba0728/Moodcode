@@ -11,7 +11,9 @@ export interface Workspace { id: string; root: string; gitRoot: string; branch: 
 export interface Session { id: string; workspaceId: string; title: string; createdAt: string }
 export interface RunLimits { maxTurns: number; maxToolCalls: number; maxDurationMs: number; toolTimeoutMs: number; maxOutputBytes: number; maxContextBytes: number }
 export const DEFAULT_LIMITS: Readonly<RunLimits> = Object.freeze({ maxTurns: 12, maxToolCalls: 32, maxDurationMs: 300_000, toolTimeoutMs: 60_000, maxOutputBytes: 65_536, maxContextBytes: 262_144 });
-export interface RunConfig { providerId: string; modelId: string; mode: 'plan' | 'build'; limits: RunLimits }
+export const REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const;
+export type ReasoningEffort = typeof REASONING_EFFORTS[number];
+export interface RunConfig { providerId: string; modelId: string; mode: 'plan' | 'build'; limits: RunLimits; reasoningEffort?: ReasoningEffort }
 export type RunConfigInput = Partial<Omit<RunConfig, 'limits'>> & { limits?: Partial<RunLimits> };
 export interface EngineCapabilities {
   schemaVersion: number;
@@ -20,6 +22,7 @@ export interface EngineCapabilities {
   tools: { name: string; description: string; inputSchema: JsonObject }[];
   modes: ('plan' | 'build')[];
   defaults: RunConfig;
+  features?: { historyPaging: boolean; sessionMetrics: boolean };
 }
 export interface SubmitInput { sessionId: string; requestId: string; prompt: string; config: RunConfig }
 export interface Run { id: string; inputId: string; sessionId: string; workspaceId: string; requestId: string; prompt: string; config: RunConfig; state: RunState; createdAt: string; updatedAt: string; error?: { code: string; message: string } }
@@ -34,6 +37,8 @@ export interface CheckpointFile { path: string; before: string | null; after: st
 export interface Checkpoint { id: string; runId: string; toolCallId: string; kind: 'patch' | 'command'; createdAt: string; files: CheckpointFile[]; warnings: string[]; incomplete?: boolean }
 export interface EngineEvent { schemaVersion: typeof SCHEMA_VERSION; eventId: string; sessionId: string; runId: string; seq: number; timestamp: string; type: string; payload: JsonObject }
 export interface SessionSnapshot { session: Session; runs: Run[]; messages: Message[]; tools: ToolCallRecord[]; approvals: ApprovalRecord[]; lastSeq: number }
+export interface SessionHistoryPage { snapshot: SessionSnapshot; hasMore: boolean; beforeRunId: string | null; truncatedRecords: boolean }
+export interface SessionMetrics { observedUsageEvents: number; inputTokens: number | null; outputTokens: number | null; usageWindowTruncated: boolean; context: { bytes: number; limit: number; summaryIncluded: boolean; turnIndex: number } | null }
 export interface FileDiff { path: string; before: string | null; after: string | null; beforeHash: string | null; afterHash: string | null }
 export interface ReviewDiff { runId: string; files: FileDiff[]; checkpoints: Checkpoint[]; warnings: string[] }
 export interface CommandEnvelope { schemaVersion: typeof SCHEMA_VERSION; commandId: string; type: string; payload: JsonObject }

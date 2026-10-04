@@ -1,15 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
-import { EngineError, SCHEMA_VERSION, isTerminal, type EngineCapabilities } from '@moodcode/contracts';
-import { createEngine, CodexProvider, OpenAICompatibleProvider, ResponsesProvider, ScriptedProvider, type EngineOptions, type MoodcodeEngine, type ProviderAdapter } from '@moodcode/engine';
+import { EngineError, REASONING_EFFORTS, SCHEMA_VERSION, isTerminal, type EngineCapabilities } from '@moodcode/contracts';
+import { getRecoveryStatus, recoverEngine, createEngine, CodexProvider, OpenAICompatibleProvider, ResponsesProvider, ScriptedProvider, type EngineOptions, type MoodcodeEngine, type ProviderAdapter } from '@moodcode/engine';
 import type { DesktopUpdate } from '../shared/protocol.js';
 import type { WorkerBootstrap, WorkerEngineConfig, WorkerPush, WorkerResponse, WorkerStartPayload } from './protocol.js';
 import { testFixtureProvider } from './fixtures.js';
 
 export const WORKER_LIMITS = Object.freeze({ maxRequestBytes: 1_048_576, maxDepth: 32, maxNodes: 20_000, maxInflightCommands: 64,
   maxSubscriptions: 128, maxOwnerSubscriptions: 32, invalidationDelayMs: 25 });
-const TYPES = new Set(['start', 'bootstrap', 'command', 'subscribe', 'unsubscribe', 'dropOwner', 'assertIdle', 'close']);
-type WorkerEngine = Pick<MoodcodeEngine, 'store' | 'dispatch' | 'subscribe' | 'close'>;
+const TYPES = new Set(['start', 'bootstrap', 'command', 'subscribe', 'unsubscribe', 'dropOwner', 'assertIdle', 'diagnostics', 'recover', 'backup', 'close']);
+type WorkerEngine = Pick<MoodcodeEngine, 'store' | 'dispatch' | 'subscribe' | 'close'> & Partial<Pick<MoodcodeEngine, 'backup'>>;
 export interface UtilityWorkerOptions {
   emit(push: WorkerPush): void;
   createEngine?: (options: EngineOptions) => WorkerEngine;
@@ -77,11 +77,13 @@ function boundedJson(value: unknown): void {
 }
 
 function config(value: unknown, scenario?: 'coding' | 'slow'): WorkerEngineConfig {
-  const source = record(value, ['providerId', 'modelId', 'baseURL', 'apiKey']);
+  const source = record(value, ['providerId', 'modelId', 'baseURL', 'apiKey', 'reasoningEffort']);
   if (source.providerId !== 'scripted' && source.providerId !== 'openai-compatible' && source.providerId !== 'openai-responses' && source.providerId !== 'codex') {
     throw new EngineError('INVALID_CONFIG', 'Desktop provider is not supported.');
   }
   if (scenario) return { providerId: 'scripted', modelId: `desktop-${scenario}-fixture`, baseURL: '' };
+  const reasoningEffort = source.reasoningEffort;
+  if (reasoningEffort !== undefined && (!REASONING_EFFORTS.includes(reasoningEffort as never) || !['codex','openai-responses'].includes(String(source.providerId)))) throw new EngineError('INVALID_CONFIG', 'Provider reasoning effort is invalid.');
   const modelId = text(source.modelId, 'modelId');
   const baseURL = text(source.baseURL, 'baseURL', 4096, source.providerId === 'scripted' || source.providerId === 'codex');
   let apiKey: string | undefined;
@@ -93,7 +95,7 @@ function config(value: unknown, scenario?: 'coding' | 'slow'): WorkerEngineConfi
   }
   if (source.providerId === 'codex') {
     if (apiKey || baseURL !== '') throw new EngineError('INVALID_CONFIG', 'Codex uses its local authenticated session and a fixed trusted endpoint.');
-    return { providerId: 'codex', modelId, baseURL: '' };
+    return { providerId: 'codex', modelId, baseURL: '', ...(reasoningEffort ? { reasoningEffort: reasoningEffort as import('@moodcode/contracts').ReasoningEffort } : {}) };
   }
   if (source.providerId !== 'scripted') {
     if (!apiKey) throw new EngineError('API_KEY_MISSING', 'The selected remote provider requires an API key.');
@@ -104,7 +106,7 @@ function config(value: unknown, scenario?: 'coding' | 'slow'): WorkerEngineConfi
     }
     if (baseURL.includes(apiKey) || modelId.includes(apiKey)) throw new EngineError('INVALID_CONFIG', 'Provider metadata must not contain its credential.');
   }
-  return { providerId: source.providerId, modelId, baseURL, ...(apiKey ? { apiKey } : {}) };
+  return { providerId: source.providerId, modelId, baseURL, ...(apiKey ? { apiKey } : {}), ...(reasoningEffort ? { reasoningEffort: reasoningEffort as import('@moodcode/contracts').ReasoningEffort } : {}) };
 }
 function startPayload(value: unknown): WorkerStartPayload {
   const source = record(value, ['dbPath', 'artifactDir', 'config', 'testScenario']);
@@ -160,10 +162,30 @@ export class UtilityWorker {
           const provider = selectedProvider(payload);
           this.#engine = (this.#options.createEngine ?? createEngine)({
             dbPath: payload.dbPath, artifactDir: payload.artifactDir, providers: [provider],
-            defaults: { providerId: payload.config.providerId, modelId: payload.config.modelId },
+            defaults: { providerId: payload.config.providerId, modelId: payload.config.modelId, ...(payload.config.reasoningEffort ? { reasoningEffort: payload.config.reasoningEffort } : {}) },
           });
           try { result = await this.#tracked(() => this.#bootstrap()); }
           catch (error) { await this.#engine.close(); this.#engine = undefined; throw error; }
+          break;
+        }
+        case 'diagnostics':
+        case 'recover': {
+          if (this.#engine) throw new EngineError('ENGINE_BUSY', 'Recovery uses a separate worker without an active engine.');
+          const input = record(request.payload, request.type === 'recover' ? ['dbPath','artifactDir','fingerprint','acknowledged'] : ['dbPath','artifactDir']);
+          const dbPath = text(input.dbPath, 'dbPath', 4096), artifactDir = text(input.artifactDir, 'artifactDir', 4096);
+          if (!isAbsolute(dbPath) || !isAbsolute(artifactDir)) invalid();
+          if (request.type === 'recover') {
+            const fingerprint = text(input.fingerprint, 'fingerprint', 64);
+            if (!/^[a-f0-9]{64}$/.test(fingerprint) || input.acknowledged !== true) invalid();
+            result = await this.#tracked(() => recoverEngine({ dbPath, artifactDir, fingerprint, acknowledged: true }));
+          } else result = await this.#tracked(() => getRecoveryStatus({ dbPath, artifactDir }));
+          break;
+        }
+        case 'backup': {
+          const input = record(request.payload, ['destination']);
+          const destination = text(input.destination, 'destination', 4096);
+          if (!isAbsolute(destination)) invalid();
+          result = await this.#tracked(async () => { this.#assertIdle(); const engine = this.#ready(); if (!engine.backup) throw new EngineError('BACKUP_UNAVAILABLE', 'Database backup is unavailable.'); const backup = await engine.backup(destination); return { bytes: backup.bytes }; });
           break;
         }
         case 'bootstrap':

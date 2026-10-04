@@ -1,4 +1,4 @@
-import { EngineError, type ProviderToolCall } from '@moodcode/contracts';
+import { EngineError, REASONING_EFFORTS, type ProviderToolCall } from '@moodcode/contracts';
 import type { ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
 import type { OpenAICompatibleProviderOptions } from './openai-compatible.js';
 import { credentialSecrets, CredentialTextRedactor, malformed, optionalString, positiveLimit, publicError, record, redactCredentialJson, redactCredentialText } from './helpers.js';
@@ -109,6 +109,7 @@ export class ResponsesProvider implements ProviderAdapter {
     let serialized: string;
     try {
       if (typeof request.modelId !== 'string' || !request.modelId.trim()) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider requires an explicit model identifier.');
+      if (request.reasoningEffort !== undefined && !REASONING_EFFORTS.includes(request.reasoningEffort)) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider reasoning effort is invalid.');
       const input: Record<string, unknown>[] = [];
       let inputBytes = 2;
       for (const message of request.messages) {
@@ -130,6 +131,7 @@ export class ResponsesProvider implements ProviderAdapter {
       }
       serialized = JSON.stringify({
         model: request.modelId, input, stream: true, store: false, include: ['reasoning.encrypted_content'],
+        ...(request.reasoningEffort === undefined ? {} : { reasoning: { effort: request.reasoningEffort } }),
         ...(request.tools.length ? { tools: request.tools.map(tool => ({ type: 'function', name: tool.name, description: tool.description, parameters: tool.inputSchema, strict: false })) } : {}),
       });
     } catch (error) {

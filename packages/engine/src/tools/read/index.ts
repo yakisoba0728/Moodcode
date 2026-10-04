@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto';
-import { constants } from 'node:fs';
+import { constants, type Dirent } from 'node:fs';
 import { open, opendir, stat } from 'node:fs/promises';
 import { isAbsolute, posix, relative, sep, win32 } from 'node:path';
 import { EngineError, type JsonObject, type JsonValue, type Workspace } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolDefinition, ToolResult } from '../../ports.js';
 import { resolveWorkspacePath } from '../../workspace/index.js';
+import { continuationOffset, continuationToken, excludedDirectory, ignoredWorkspacePaths, snapshotFingerprint, validateContinuation } from '../../workspace/ignore.js';
 
 export const READ_TOOL_LIMITS = Object.freeze({
   maxFileBytes: 2 * 1024 * 1024,
@@ -18,12 +19,10 @@ export const READ_TOOL_LIMITS = Object.freeze({
   maxQueryBytes: 2_048,
 });
 
-const excludedDirectories = new Set(['.git', 'node_modules', '.hg', '.svn', '.next', 'dist', 'build', 'coverage']);
-const excludedDirectory = (name: string): boolean => excludedDirectories.has(name.toLowerCase());
 const maxWarnings = 20;
 type ToolName = 'list_files' | 'read_file' | 'search_files';
-interface ReadInput { path: string; startLine: number; endLine: number | null }
-interface ListInput { path: string; limit: number }
+interface ReadInput { path: string; startLine: number; endLine: number | null; continuation?: string }
+interface ListInput { path: string; limit: number; continuation?: string }
 interface SearchInput extends ListInput { query: string }
 interface ScanState {
   entriesVisited: number;
@@ -67,23 +66,25 @@ function positiveInteger(value: unknown, name: string, defaultValue?: number): n
 function normalizeInput(name: ToolName, input: unknown): JsonObject {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) return invalid('input must be an object');
   const object = input as Record<string, unknown>;
-  const allowed = name === 'read_file' ? ['path', 'startLine', 'endLine'] : name === 'search_files' ? ['path', 'query', 'limit'] : ['path', 'limit'];
+  const allowed = name === 'read_file' ? ['path', 'startLine', 'endLine', 'continuation'] : name === 'search_files' ? ['path', 'query', 'limit', 'continuation'] : ['path', 'limit', 'continuation'];
   if (Object.keys(object).some(key => !allowed.includes(key))) return invalid('input contains an unknown property');
+  const page: JsonObject = object.continuation === undefined ? {} : { continuation: object.continuation as string };
+  if (object.continuation !== undefined) validateContinuation(object.continuation as string);
   const path = relativePath(object.path, name !== 'read_file');
   if (name === 'read_file') {
     const startLine = positiveInteger(object.startLine, 'startLine', 1);
     const endLine = object.endLine === undefined ? null : positiveInteger(object.endLine, 'endLine');
     if (endLine !== null && endLine < startLine) return invalid('endLine must be greater than or equal to startLine');
-    return { path, startLine, endLine };
+    return { path, startLine, endLine, ...page };
   }
   const limit = Math.min(positiveInteger(object.limit, 'limit', name === 'list_files' ? 200 : 100), name === 'list_files' ? READ_TOOL_LIMITS.maxFiles : READ_TOOL_LIMITS.maxResults);
   if (name === 'search_files') {
     if (typeof object.query !== 'string' || object.query.length === 0 || Buffer.byteLength(object.query) > READ_TOOL_LIMITS.maxQueryBytes) {
       return invalid(`query must be nonempty and at most ${READ_TOOL_LIMITS.maxQueryBytes} UTF-8 bytes`);
     }
-    return { path, query: object.query, limit };
+    return { path, query: object.query, limit, ...page };
   }
-  return { path, limit };
+  return { path, limit, ...page };
 }
 
 function fingerprint(name: ToolName, input: JsonObject, workspace: Workspace): string {
@@ -131,6 +132,9 @@ async function* walkFiles(workspace: Workspace, path: string, signal: AbortSigna
   const canonicalParts = relative(workspace.root, absolute).split(sep);
   const directoryParts = info.isFile() ? [...lexicalParts.slice(0, -1), ...canonicalParts.slice(0, -1)] : [...lexicalParts, ...canonicalParts];
   if (directoryParts.some(excludedDirectory)) return;
+  const canonical = relative(workspace.root, absolute).split(sep).join('/');
+  const ignored = await ignoredWorkspacePaths(workspace, [path, canonical].filter(value => value && value !== '.'), signal);
+  if (ignored.has(path) || ignored.has(canonical)) return;
   if (info.isFile()) { yield { path, absolute }; return; }
   if (!info.isDirectory()) throw new EngineError('NOT_REGULAR_FILE', 'The requested path is not a regular file or directory');
   const pending = [path];
@@ -141,26 +145,34 @@ async function* walkFiles(workspace: Workspace, path: string, signal: AbortSigna
       const resolved = await resolveWorkspacePath(workspace, directory);
       cancelled(signal);
       const handle = await opendir(resolved);
-      // Streaming iteration bounds memory even when a single directory has many entries.
-      for await (const entry of handle) {
-        cancelled(signal);
-        if (state.entriesVisited >= READ_TOOL_LIMITS.maxEntries) { state.reasons.add('entries'); return; }
-        state.entriesVisited++;
-        const child = directory === '.' ? entry.name : `${directory}/${entry.name}`;
-        if (entry.isSymbolicLink()) { state.skippedSymlinks++; continue; }
-        if (entry.isDirectory()) {
-          if (!excludedDirectory(entry.name)) pending.push(child);
-        } else if (entry.isFile()) {
-          try {
-            const file = await resolveWorkspacePath(workspace, child);
-            cancelled(signal);
-            yield { path: child, absolute: file };
-          } catch (error) {
-            cancelled(signal);
-            warning(state, child, error);
+      let batch: Dirent[] = [];
+      async function* visit(entries: Dirent[]): AsyncGenerator<{ path: string; absolute: string }> {
+        const candidates = entries.filter(entry => !entry.isSymbolicLink() && (!entry.isDirectory() || !excludedDirectory(entry.name)));
+        const paths = candidates.map(entry => directory === '.' ? entry.name : `${directory}/${entry.name}`);
+        const ignored = await ignoredWorkspacePaths(workspace, paths, signal);
+        for (const [index, entry] of candidates.entries()) {
+          const child = paths[index]!;
+          if (ignored.has(child)) continue;
+          if (entry.isDirectory()) pending.push(child);
+          else if (entry.isFile()) {
+            try {
+              const file = await resolveWorkspacePath(workspace, child);
+              cancelled(signal);
+              yield { path: child, absolute: file };
+            } catch (error) { cancelled(signal); warning(state, child, error); }
           }
         }
       }
+      // Streaming iteration bounds memory even when a single directory has many entries.
+      for await (const entry of handle) {
+        cancelled(signal);
+        if (state.entriesVisited >= READ_TOOL_LIMITS.maxEntries) { yield* visit(batch); state.reasons.add('entries'); return; }
+        state.entriesVisited++;
+        if (entry.isSymbolicLink()) { state.skippedSymlinks++; continue; }
+        batch.push(entry);
+        if (batch.length >= 128) { yield* visit(batch); batch = []; }
+      }
+      yield* visit(batch);
     } catch (error) {
       cancelled(signal);
       warning(state, directory, error);
@@ -248,10 +260,11 @@ function markOutputTruncated(data: JsonObject): void {
   if (!reasons.includes('output_bytes')) reasons.push('output_bytes');
 }
 
-function boundedResult(data: JsonObject, context: ToolContext): ToolResult {
+function boundedResult(data: JsonObject, context: ToolContext, updatePage: () => void = () => {}): ToolResult {
   cancelled(context.signal);
   const budget = Number.isSafeInteger(context.limits.maxOutputBytes) ? Math.max(0, context.limits.maxOutputBytes) : 0;
   data.outputTruncated = false;
+  updatePage();
   let content = JSON.stringify(data);
   if (Buffer.byteLength(content) <= budget) return { content, data };
   markOutputTruncated(data);
@@ -267,6 +280,7 @@ function boundedResult(data: JsonObject, context: ToolContext): ToolResult {
       data.startLine = selected.length === 0 ? null : firstLine;
       data.endLine = selected.length === 0 || firstLine === null ? null : firstLine + (data.returnedLines as number) - 1;
       data.partialLastLine = selected.length > 0 && selected.length < original.length && !selected.endsWith('\n');
+      updatePage();
     };
     let low = 0;
     let high = Buffer.byteLength(original);
@@ -286,28 +300,64 @@ function boundedResult(data: JsonObject, context: ToolContext): ToolResult {
       const middle = Math.ceil((low + high) / 2);
       data[key] = items.slice(0, middle);
       data.returnedCount = middle;
+      updatePage();
       if (Buffer.byteLength(JSON.stringify(data)) <= budget) low = middle;
       else high = middle - 1;
     }
     data[key] = items.slice(0, low);
     data.returnedCount = low;
+    updatePage();
   }
   content = JSON.stringify(data);
-  // Very small budgets cannot carry even the metadata. data remains structured and accurate.
-  if (Buffer.byteLength(content) > budget) content = utf8Prefix('Tool output truncated.', budget);
+  // Even tiny handoffs stay parseable JSON; full accurate metadata remains in data.
+  if (Buffer.byteLength(content) > budget) {
+    delete data.continuation;
+    const fallbacks = [JSON.stringify({ truncated: true, error: 'TOOL_OUTPUT_BUDGET_TOO_SMALL', message: 'Use a narrower request or a larger output budget.' }), '{"truncated":true}', '{}', '0', ''];
+    content = fallbacks.find(value => Buffer.byteLength(value) <= budget)!;
+  }
   return { content, data };
+}
+
+function scope(name: ToolName, input: ListInput | ReadInput | SearchInput, context: ToolContext): string {
+  const { continuation: _continuation, ...request } = input;
+  return snapshotFingerprint({ name, workspaceId: context.workspace.id, root: context.workspace.root, request });
+}
+
+function pageUpdate(data: JsonObject, offset: number, total: number, scope: string, snapshot: string, safe: boolean, consumed: () => number): () => void {
+  return () => {
+    const next = offset + consumed();
+    data.hasMore = next < total;
+    data.pageOffset = offset;
+    delete data.continuation;
+    if (safe && next > offset && next < total) data.continuation = continuationToken(scope, snapshot, next);
+    if (next < total) data.truncated = true;
+    if (!safe && data.truncated) data.continuationUnavailable = 'Scan limits or unreadable paths prevent a safe continuation; narrow the request.';
+  };
 }
 
 async function listFiles(input: ListInput, context: ToolContext): Promise<ToolResult> {
   const state = scanState();
   const files: string[] = [];
+  const observations: JsonValue[] = [];
   for await (const file of walkFiles(context.workspace, input.path, context.signal, state)) {
-    if (files.length >= input.limit) { state.reasons.add('files'); break; }
+    if (files.length >= READ_TOOL_LIMITS.maxFiles) { state.reasons.add('files'); break; }
     files.push(file.path);
     state.filesVisited++;
+    try {
+      const metadata = await stat(file.absolute, { bigint: true });
+      observations.push([file.path, String(metadata.dev), String(metadata.ino), String(metadata.size), String(metadata.mtimeNs), String(metadata.ctimeNs)]);
+    } catch (error) { cancelled(context.signal); warning(state, file.path, error); }
   }
   files.sort();
-  return boundedResult({ path: input.path, files, returnedCount: files.length, ...scanMetadata(state) }, context);
+  observations.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  const requestScope = scope('list_files', input, context);
+  const snapshot = snapshotFingerprint({ files, observations });
+  const offset = continuationOffset(input.continuation, requestScope, snapshot, files.length);
+  const safe = state.reasons.size === 0;
+  if (files.length - offset > input.limit) state.reasons.add('files');
+  const selected = files.slice(offset, offset + input.limit);
+  const result: JsonObject = { path: input.path, files: selected, returnedCount: selected.length, ...scanMetadata(state) };
+  return boundedResult(result, context, pageUpdate(result, offset, files.length, requestScope, snapshot, safe, () => result.returnedCount as number));
 }
 
 async function readFile(input: ReadInput, context: ToolContext): Promise<ToolResult> {
@@ -318,24 +368,33 @@ async function readFile(input: ReadInput, context: ToolContext): Promise<ToolRes
   let beginning = 0;
   let selectionStart: number | null = null;
   let selectionEnd = 0;
-  let returnedLines = 0;
-  let linesTruncated = false;
   for (let index = 0; index <= text.length; index++) {
     if (index % 65_536 === 0) cancelled(context.signal);
     if (text[index] !== '\n' && !(index === text.length && beginning < text.length)) continue;
     totalLines++;
     const ending = index === text.length ? index : index + 1;
     if (totalLines >= input.startLine && (input.endLine === null || totalLines <= input.endLine)) {
-      if (returnedLines < READ_TOOL_LIMITS.maxReadLines) {
-        selectionStart ??= beginning;
-        selectionEnd = ending;
-        returnedLines++;
-      } else linesTruncated = true;
+      selectionStart ??= beginning;
+      selectionEnd = ending;
     }
     beginning = ending;
   }
-  const content = selectionStart === null ? '' : text.slice(selectionStart, selectionEnd);
-  return boundedResult({ path: input.path, sha256: createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length, encoding: 'utf-8', totalLines, requestedStartLine: input.startLine, requestedEndLine: input.endLine, startLine: returnedLines === 0 ? null : input.startLine, endLine: returnedLines === 0 ? null : input.startLine + returnedLines - 1, content, returnedBytes: Buffer.byteLength(content), returnedLines, partialLastLine: false, truncated: linesTruncated, truncationReasons: linesTruncated ? ['lines'] : [] }, context);
+  const selected = selectionStart === null ? '' : text.slice(selectionStart, selectionEnd);
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  const requestScope = scope('read_file', input, context);
+  const offset = continuationOffset(input.continuation, requestScope, sha256, selected.length);
+  let ending = offset;
+  let returnedLines = 0;
+  for (; ending < selected.length; ending++) {
+    if (selected[ending] === '\n' && ++returnedLines >= READ_TOOL_LIMITS.maxReadLines) { ending++; break; }
+  }
+  const content = selected.slice(offset, ending);
+  returnedLines = lineCount(content);
+  const prior = selected.slice(0, offset);
+  const startLine = input.startLine + lineCount(prior) - (prior.length > 0 && !prior.endsWith('\n') ? 1 : 0);
+  const linesTruncated = ending < selected.length;
+  const result: JsonObject = { path: input.path, sha256, bytes: bytes.length, encoding: 'utf-8', totalLines, requestedStartLine: input.startLine, requestedEndLine: input.endLine, startLine: returnedLines === 0 ? null : startLine, endLine: returnedLines === 0 ? null : startLine + returnedLines - 1, content, returnedBytes: Buffer.byteLength(content), returnedLines, partialFirstLine: offset > 0 && selected[offset - 1] !== '\n', partialLastLine: false, truncated: linesTruncated, truncationReasons: linesTruncated ? ['lines'] : [] };
+  return boundedResult(result, context, pageUpdate(result, offset, selected.length, requestScope, sha256, true, () => (result.content as string).length));
 }
 
 function searchLineStarts(text: string, signal: AbortSignal): { starts: number[]; end: number; truncated: boolean } {
@@ -364,6 +423,7 @@ function lineAt(starts: number[], offset: number): number {
 async function searchFiles(input: SearchInput, context: ToolContext): Promise<ToolResult> {
   const state = scanState();
   const matches: JsonObject[] = [];
+  const observations: JsonValue[] = [];
   let snippetsTruncated = 0;
   outer: for await (const file of walkFiles(context.workspace, input.path, context.signal, state)) {
     cancelled(context.signal);
@@ -379,6 +439,7 @@ async function searchFiles(input: SearchInput, context: ToolContext): Promise<To
       warning(state, file.path, error, error instanceof EngineError && error.code === 'FILE_TOO_LARGE' ? 'file_bytes' : 'unreadable');
       continue;
     }
+    observations.push([file.path, createHash('sha256').update(bytes).digest('hex')]);
     let text: string;
     try { text = decodeText(bytes); }
     catch (error) { state.skippedBinaryFiles++; continue; }
@@ -391,7 +452,7 @@ async function searchFiles(input: SearchInput, context: ToolContext): Promise<To
       cancelled(context.signal);
       const found = text.indexOf(input.query, offset);
       if (found < 0 || found + input.query.length > lines.end) break;
-      if (matches.length >= input.limit) { state.reasons.add('results'); break outer; }
+      if (matches.length >= READ_TOOL_LIMITS.maxResults) { state.reasons.add('results'); break outer; }
       const row = lineAt(lines.starts, found);
       const lineStart = lines.starts[row]!;
       const nextLineStart = lines.starts[row + 1] ?? lines.end;
@@ -410,15 +471,25 @@ async function searchFiles(input: SearchInput, context: ToolContext): Promise<To
       offset = found + input.query.length;
     }
   }
+  matches.sort((left, right) => String(left.path).localeCompare(String(right.path)) || Number(left.line) - Number(right.line) || Number(left.column) - Number(right.column));
+  const requestScope = scope('search_files', input, context);
+  observations.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  const snapshot = snapshotFingerprint({ matches, observations });
+  const offset = continuationOffset(input.continuation, requestScope, snapshot, matches.length);
+  const safe = state.reasons.size === 0;
   if (snippetsTruncated > 0) state.reasons.add('snippet_bytes');
-  return boundedResult({ path: input.path, query: input.query, matches, returnedCount: matches.length, snippetsTruncated, columnEncoding: 'utf-16', ...scanMetadata(state) }, context);
+  if (matches.length - offset > input.limit) state.reasons.add('results');
+  const selected = matches.slice(offset, offset + input.limit);
+  const result: JsonObject = { path: input.path, query: input.query, matches: selected, returnedCount: selected.length, snippetsTruncated, columnEncoding: 'utf-16', ...scanMetadata(state) };
+  return boundedResult(result, context, pageUpdate(result, offset, matches.length, requestScope, snapshot, safe, () => result.returnedCount as number));
 }
 
 export function createReadTools(): ToolDefinition[] {
+  const continuationSchema: JsonObject = { type: 'string', maxLength: 2048, description: 'Opaque continuation from this same request. Omit it to restart; changed files require a fresh request.' };
   const definitions: { name: ToolName; description: string; inputSchema: JsonObject }[] = [
-    { name: 'list_files', description: 'List regular workspace files. Excludes dependency, VCS, build and coverage directories; does not traverse symlinks.', inputSchema: { type: 'object', additionalProperties: false, properties: { path: { type: 'string' }, limit: { type: 'integer', minimum: 1 } } } },
-    { name: 'read_file', description: 'Read UTF-8 workspace text and a whole-file SHA-256 hash, optionally selecting a 1-based inclusive line range.', inputSchema: { type: 'object', required: ['path'], additionalProperties: false, properties: { path: { type: 'string' }, startLine: { type: 'integer', minimum: 1 }, endLine: { type: 'integer', minimum: 1 } } } },
-    { name: 'search_files', description: 'Search UTF-8 workspace files for a literal substring. Returns non-overlapping matches and 1-based UTF-16 columns.', inputSchema: { type: 'object', required: ['query'], additionalProperties: false, properties: { query: { type: 'string', minLength: 1 }, path: { type: 'string' }, limit: { type: 'integer', minimum: 1 } } } },
+    { name: 'list_files', description: 'List regular workspace files, respecting Git ignore rules and excluding virtual environments/dependency/cache/build directories. Does not traverse symlinks. Follow continuation only with unchanged request parameters; narrow requests when scan limits prevent continuation.', inputSchema: { type: 'object', additionalProperties: false, properties: { path: { type: 'string' }, limit: { type: 'integer', minimum: 1 }, continuation: continuationSchema } } },
+    { name: 'read_file', description: 'Read bounded UTF-8 workspace text and a whole-file SHA-256 hash, optionally selecting a 1-based inclusive line range. Large results are paged; use continuation with the same path/range, or narrow the line range. Explicit reads can inspect ignored files.', inputSchema: { type: 'object', required: ['path'], additionalProperties: false, properties: { path: { type: 'string' }, startLine: { type: 'integer', minimum: 1 }, endLine: { type: 'integer', minimum: 1 }, continuation: continuationSchema } } },
+    { name: 'search_files', description: 'Search nonignored UTF-8 workspace files for a literal substring. Returns bounded non-overlapping matches and 1-based UTF-16 columns. Follow continuation with identical query/path/limit; narrow the search if scan limits are reported.', inputSchema: { type: 'object', required: ['query'], additionalProperties: false, properties: { query: { type: 'string', minLength: 1 }, path: { type: 'string' }, limit: { type: 'integer', minimum: 1 }, continuation: continuationSchema } } },
   ];
   return definitions.map(definition => ({
     ...definition,

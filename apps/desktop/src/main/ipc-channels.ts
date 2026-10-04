@@ -8,6 +8,10 @@ export const DESKTOP_CHANNELS = Object.freeze({
   saveSettings: 'moodcode:save-settings',
   retryEngine: 'moodcode:retry-engine',
   openExternal: 'moodcode:open-external',
+  copyText: 'moodcode:copy-text',
+  diagnostics: 'moodcode:diagnostics',
+  recover: 'moodcode:recover',
+  backup: 'moodcode:backup',
   update: 'moodcode:update',
   hostState: 'moodcode:host-state',
 } as const);

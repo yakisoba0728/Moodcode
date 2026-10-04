@@ -414,7 +414,7 @@ export class ReviewJournal {
   /** Returns all unresolved interrupted records so every startup can re-quarantine. */
   recoverPending(): RestoreOperation[] {
     return this.transaction(() => {
-      const rows = this.db.prepare("SELECT * FROM review_operations WHERE state IN ('started','interrupted') ORDER BY ordinal LIMIT ?").all(REVIEW_JOURNAL_LIMITS.maxRecoveryOperations + 1);
+      const rows = this.db.prepare("SELECT * FROM review_operations WHERE state IN ('started','interrupted') OR (state='completed' AND (json_extract(result,'$.effectsUncertain')=1 OR json_extract(result,'$.executionBlocked')=1)) ORDER BY ordinal LIMIT ?").all(REVIEW_JOURNAL_LIMITS.maxRecoveryOperations + 1);
       if (rows.length > REVIEW_JOURNAL_LIMITS.maxRecoveryOperations) failure('REVIEW_JOURNAL_LIMIT_EXCEEDED', 'Too many unresolved restore operations to recover safely');
       const operations = rows.map(operationFromRow);
       const finishedAt = new Date().toISOString();

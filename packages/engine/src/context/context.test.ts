@@ -5,7 +5,18 @@ import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type JsonObject, type Message, type ProviderReplay, type ProviderToolCall, type SessionSnapshot, type Workspace } from '@moodcode/contracts';
 import type { ContextRequest, ProviderMessage, ProviderTool } from '../ports.js';
-import { buildContext } from './index.js';
+import { AGENT_DEFAULTS_PREFIX, buildContext as buildAgentContext, EXTRACTIVE_MEMORY_PREFIX } from './index.js';
+import { agentInstructions } from './instructions.js';
+
+const DEFAULTS_ENTRY_BYTES = Buffer.byteLength(JSON.stringify(agentInstructions('plan')), 'utf8') + 1;
+
+// These checks focus on persisted transcript/replay invariants. The independent
+// workflow system message and extractive memory are checked with the raw result
+// in agent-context.test.ts, including their full serialized byte budgets.
+async function buildContext(request: ContextRequest): Promise<ProviderMessage[]> {
+  return (await buildAgentContext(request)).filter((message) => !(message.role === 'system' && message.content.startsWith(AGENT_DEFAULTS_PREFIX))
+    && !(message.role === 'assistant' && message.content.startsWith(EXTRACTIVE_MEMORY_PREFIX)));
+}
 
 const createdAt = '2026-10-04T00:00:00.000Z';
 
@@ -311,14 +322,14 @@ test('buildContext measures UTF-8 JSON bytes including escaped content and tool 
   const target = [...group, latest].map(providerMessage);
   const exactBytes = jsonBytes(target);
   assert.ok(exactBytes > JSON.stringify(target).length, 'Fixture must expose UTF-8 byte/character differences');
-  const request = await fixture(t, [...group, latest], exactBytes);
+  const request = await fixture(t, [...group, latest], exactBytes + DEFAULTS_ENTRY_BYTES);
 
   const exact: ProviderMessage[] = await buildContext(request);
   assert.deepEqual(exact, target);
   assert.equal(jsonBytes(exact), exactBytes);
   assertCompleteToolGroups(exact);
 
-  request.config.limits.maxContextBytes = exactBytes - 1;
+  request.config.limits.maxContextBytes = exactBytes + DEFAULTS_ENTRY_BYTES - 1;
   const trimmed: ProviderMessage[] = await buildContext(request);
   assert.deepEqual(trimmed, required, 'An indivisible tool group must be removed when its full JSON representation does not fit');
   assert.ok(jsonBytes(trimmed) <= exactBytes - 1);
@@ -372,7 +383,7 @@ test('buildContext reserves UTF-8 tool schema and envelope bytes so the complete
     inputSchema: { type: 'object', properties: { path: { type: 'string', description: '저장소 파일 경로' } } },
   }];
   const target = messages.map(providerMessage);
-  const maxContextBytes = jsonBytes(target);
+  const maxContextBytes = jsonBytes(target) + DEFAULTS_ENTRY_BYTES;
   const emptyEnvelope = JSON.stringify({ messages: [], tools: schemas });
   const reservedBytes = Buffer.byteLength(emptyEnvelope, 'utf8') - 2;
   assert.ok(Buffer.byteLength(emptyEnvelope, 'utf8') > emptyEnvelope.length,
@@ -384,15 +395,17 @@ test('buildContext reserves UTF-8 tool schema and envelope bytes so the complete
 
   const unreserved: ProviderMessage[] = await buildContext(request);
   assert.deepEqual(unreserved, target);
-  assert.ok(Buffer.byteLength(JSON.stringify({ messages: unreserved, tools: schemas }), 'utf8') > maxContextBytes,
+  const unreservedRaw = await buildAgentContext(request);
+  assert.ok(Buffer.byteLength(JSON.stringify({ messages: unreservedRaw, tools: schemas }), 'utf8') > maxContextBytes,
     'Messages fitting alone must still expose the envelope overflow');
 
   request.reservedBytes = reservedBytes;
   const reserved: ProviderMessage[] = await buildContext(request);
   assert.ok(reserved.length < unreserved.length, 'Tool schemas must reduce space available to older history');
   assert.ok(reserved.some((message) => message.role === 'user' && message.content === messages[2]!.content));
-  const fullObjectBytes = Buffer.byteLength(JSON.stringify({ messages: reserved, tools: schemas }), 'utf8');
-  assert.equal(fullObjectBytes, jsonBytes(reserved) + reservedBytes);
+  const reservedRaw = await buildAgentContext(request);
+  const fullObjectBytes = Buffer.byteLength(JSON.stringify({ messages: reservedRaw, tools: schemas }), 'utf8');
+  assert.equal(fullObjectBytes, jsonBytes(reservedRaw) + reservedBytes);
   assert.ok(fullObjectBytes <= maxContextBytes);
   assert.equal(JSON.stringify(request.config), configBefore);
 });
@@ -661,14 +674,14 @@ test('buildContext counts all serialized opaque replay and reserved bytes when t
   const expected = [...older, latest].map(providerMessage);
   const requiredBytes = jsonBytes(expected);
   const reservedBytes = 113;
-  const request = await fixture(t, [...older, latest], requiredBytes + reservedBytes);
+  const request = await fixture(t, [...older, latest], requiredBytes + reservedBytes + DEFAULTS_ENTRY_BYTES);
   request.config.providerId = native.providerId;
   request.reservedBytes = reservedBytes;
   const before = JSON.stringify(request.snapshot);
   deepFreeze(request.snapshot);
   const exact = await buildContext(request);
   assert.deepEqual(exact, expected);
-  assert.equal(jsonBytes(exact) + reservedBytes, request.config.limits.maxContextBytes);
+  assert.equal(jsonBytes(exact) + reservedBytes + DEFAULTS_ENTRY_BYTES, request.config.limits.maxContextBytes);
   assertCompleteToolGroups(exact);
 
   request.reservedBytes += 1;

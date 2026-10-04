@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { REASONING_EFFORTS, type ReasoningEffort } from "@moodcode/contracts";
 import type {
   DesktopProviderId,
   DesktopSettings,
@@ -20,6 +21,9 @@ export function Settings({
     settings.providerId,
   );
   const [model, setModel] = useState(settings.modelId);
+  const [effort, setEffort] = useState<ReasoningEffort | "">(
+    settings.reasoningEffort ?? "",
+  );
   const [endpoint, setEndpoint] = useState(settings.baseURL);
   const [key, setKey] = useState("");
   const [clearKey, setClearKey] = useState(false);
@@ -47,6 +51,10 @@ export function Settings({
             ? { apiKey: key }
             : {}),
           ...(clearKey ? { clearKey: true } : {}),
+          ...(effort &&
+          (provider === "codex" || provider === "openai-responses")
+            ? { reasoningEffort: effort }
+            : {}),
         })
       ) {
         setKey("");
@@ -80,6 +88,15 @@ export function Settings({
           <Icon name="close" size={19} />
         </button>
       </div>
+      <button
+        className="text-button"
+        disabled={saving}
+        onClick={() => {
+          void store.refreshConnectionInfo();
+        }}
+      >
+        로그인 상태·모델 목록 새로고침
+      </button>
       <p className="dialog-description">
         작업에 사용할 모델과 로그인 방식을 선택하세요.
       </p>
@@ -90,6 +107,7 @@ export function Settings({
           onChange={(event) => {
             const id = event.target.value as DesktopProviderId;
             setProvider(id);
+            setEffort("");
             if (id === "codex") setModel(settings.codexModelId ?? "");
             else if (id === "scripted") setModel("local");
             else if (model === "local") setModel("");
@@ -120,12 +138,57 @@ export function Settings({
             모델 ID
             <input
               value={model}
-              onChange={(event) => setModel(event.target.value)}
+              onChange={(event) => {
+                setModel(event.target.value);
+                setEffort("");
+              }}
+              list={provider === "codex" ? "codex-models" : undefined}
               placeholder="사용할 모델 ID"
               autoComplete="off"
               spellCheck={false}
             />
           </label>
+          {provider === "codex" && settings.codexModels?.length ? (
+            <>
+              <datalist id="codex-models">
+                {settings.codexModels.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.displayName}
+                  </option>
+                ))}
+              </datalist>
+              <p className="field-help">
+                로컬 Codex 목록에서 선택하거나 모델 ID를 입력하세요. 사용 권한은
+                요청 시 확인해요.
+              </p>
+            </>
+          ) : null}
+          {provider === "codex" || provider === "openai-responses" ? (
+            <label className="field-label">
+              추론 강도
+              <select
+                value={effort}
+                onChange={(event) =>
+                  setEffort(event.target.value as ReasoningEffort | "")
+                }
+              >
+                <option value="">모델 기본값</option>
+                {(provider === "codex"
+                  ? (settings.codexModels?.find((item) => item.id === model)
+                      ?.reasoningEfforts ?? REASONING_EFFORTS)
+                  : REASONING_EFFORTS
+                ).map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+              <span className="field-help">
+                높은 강도는 응답 시간이 늘 수 있어요. 모델이 지원하는 값을
+                선택하세요.
+              </span>
+            </label>
+          ) : null}
           {provider === "codex" ? (
             <div className="settings-note">
               <Icon name="shield" />

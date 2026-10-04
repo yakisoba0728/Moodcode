@@ -5,6 +5,8 @@ import { activeRun, latestRun, RUN_LABELS, shortPath } from "./model.js";
 import { Icon } from "./components/Icon.js";
 import { Timeline } from "./components/Timeline.js";
 import { ReviewPane } from "./components/ReviewPane.js";
+import { workspaceFilePath, type FileTarget } from "./navigation.js";
+import { Recovery } from "./components/Recovery.js";
 import { Settings } from "./components/Settings.js";
 
 const suggestions = [
@@ -49,7 +51,10 @@ export function App({ store }: { store: DesktopStore }) {
     store.getSnapshot,
     store.getSnapshot,
   );
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [fileTarget, setFileTarget] = useState<FileTarget | null>(null);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<"plan" | "build">(() => {
     try {
@@ -72,6 +77,7 @@ export function App({ store }: { store: DesktopStore }) {
   const session = state.sessions.find((s) => s.id === state.sessionId);
   const active = activeRun(state.snapshot);
   const run =
+    state.historyPage?.runs.find((r) => r.id === state.reviewRunId) ??
     state.snapshot?.runs.find((r) => r.id === state.reviewRunId) ??
     latestRun(state.snapshot);
   const connected = state.host.state === "ready";
@@ -138,6 +144,21 @@ export function App({ store }: { store: DesktopStore }) {
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
   }, [store]);
+  function openFile(path: string, line?: number) {
+    if (!workspace) return;
+    const relative = workspaceFilePath(workspace.root, path);
+    if (!relative) {
+      setNavigationError("선택한 저장소 안의 파일만 열 수 있어요.");
+      return;
+    }
+    setNavigationError(null);
+    setFileTarget((current) => ({
+      id: (current?.id ?? 0) + 1,
+      workspaceId: workspace.id,
+      path: relative,
+      ...(line ? { line } : {}),
+    }));
+  }
   async function submit() {
     const sessionId = state.sessionId,
       prompt = draft.trim();
@@ -149,6 +170,9 @@ export function App({ store }: { store: DesktopStore }) {
         ? {
             providerId: state.settings.providerId,
             modelId: state.settings.modelId,
+            ...(state.settings.reasoningEffort
+              ? { reasoningEffort: state.settings.reasoningEffort }
+              : {}),
           }
         : {}),
     };
@@ -340,6 +364,12 @@ export function App({ store }: { store: DesktopStore }) {
               {workspace?.branch ?? (workspace ? "branch 없음" : "로컬")}
             </span>
           </header>
+          {navigationError ? (
+            <div className="error-banner" role="alert">
+              {navigationError}
+              <button onClick={() => setNavigationError(null)}>닫기</button>
+            </div>
+          ) : null}
           {state.error ? (
             <div className="error-banner" role="alert">
               <div>
@@ -400,7 +430,37 @@ export function App({ store }: { store: DesktopStore }) {
               ) : null}
             </div>
           ) : state.snapshot?.runs.length ? (
-            <Timeline snapshot={state.snapshot} store={store} />
+            <>
+              <div className="history-toolbar">
+                <button
+                  className="text-button"
+                  disabled={!state.historyHasMore || state.loadingHistory}
+                  onClick={() => {
+                    void store.loadOlder();
+                  }}
+                >
+                  {state.loadingHistory ? "기록 읽는 중…" : "이전 기록"}
+                </button>
+                {state.historyPage ? (
+                  <>
+                    <span>이전 기록을 보고 있어요.</span>
+                    <button className="text-button" onClick={store.showLatest}>
+                      최신 기록
+                    </button>
+                  </>
+                ) : null}
+                {state.historyTruncated ? (
+                  <span>
+                    큰 기록은 일부만 표시했어요. 원본은 저장돼 있어요.
+                  </span>
+                ) : null}
+              </div>
+              <Timeline
+                snapshot={state.historyPage ?? state.snapshot}
+                store={store}
+                onOpenFile={openFile}
+              />
+            </>
           ) : (
             <div className="welcome">
               <div className="welcome-symbol">
@@ -577,6 +637,9 @@ export function App({ store }: { store: DesktopStore }) {
           review={state.review}
           run={run}
           store={store}
+          fileTarget={
+            fileTarget?.workspaceId === workspace?.id ? fileTarget : null
+          }
           busy={Boolean(active) || state.submitting}
         />
       </div>
@@ -589,12 +652,32 @@ export function App({ store }: { store: DesktopStore }) {
           <span>{workspace?.branch ?? "저장소 없음"}</span>
         </div>
         <div>
+          <button className="text-button" onClick={() => setRecoveryOpen(true)}>
+            진단·복구
+          </button>
           <Icon name="shield" size={12} />
           <span>승인 후 실행</span>
           <span className="statusbar-separator" />
+          {state.metrics ? (
+            <span
+              title={
+                state.metrics.context
+                  ? `컨텍스트 ${state.metrics.context.bytes.toLocaleString()} / ${state.metrics.context.limit.toLocaleString()} bytes · 대화 요약 ${state.metrics.context.summaryIncluded ? "포함" : "없음"}`
+                  : "아직 컨텍스트 사용량이 없어요."
+              }
+            >
+              입력 {state.metrics.inputTokens?.toLocaleString() ?? "미제공"} ·
+              출력 {state.metrics.outputTokens?.toLocaleString() ?? "미제공"}
+              {state.metrics.usageWindowTruncated
+                ? " (최근 2,000개 이벤트)"
+                : ""}
+              {state.metrics.context?.summaryIncluded ? " · 요약 포함" : ""}
+            </span>
+          ) : null}
           <span>Moodcode {state.version}</span>
         </div>
       </footer>
+      {recoveryOpen ? <Recovery close={() => setRecoveryOpen(false)} /> : null}
       {settingsOpen && state.settings ? (
         <Settings
           settings={state.settings}

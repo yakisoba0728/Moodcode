@@ -1,6 +1,6 @@
 {
-  "observedAt": "2026-10-04T04:33:53.761069+00:00",
-  "scope": "Moodcode engine, Electron desktop GUI, Codex native account integration and unsigned macOS arm64 bundle",
+  "observedAt": "2026-10-04T05:50:42.980782+00:00",
+  "scope": "Bounded exploration/output, agent instructions, rich conversation UI, verified recovery, history/context memory and model reasoning settings",
   "environment": {
     "platform": "darwin",
     "architecture": "arm64",
@@ -9,14 +9,14 @@
     "embeddedNode": "24.21.0"
   },
   "tests": {
-    "tests": 1199,
-    "pass": 1198,
+    "tests": 1282,
+    "pass": 1281,
     "fail": 0,
     "cancelled": 0,
     "skipped": 1,
     "command": "npm test",
     "exitCode": 0,
-    "durationMs": 8146.398958
+    "durationMs": 8157.724209
   },
   "desktopE2E": {
     "command": "npm run test:desktop",
@@ -83,7 +83,9 @@
       "apiKeyInputRequired": false
     },
     "authFileModified": false,
-    "credentialsRecorded": false
+    "credentialsRecorded": false,
+    "evidenceStage": "previousDesktopStage",
+    "observedAt": "2026-10-04T04:33:53.761069+00:00"
   },
   "packagedDesktop": {
     "command": "npm run test:desktop-package",
@@ -105,9 +107,9 @@
     "Signed/notarized public distribution and updater",
     "Linux desktop distribution matrix",
     "Windows command process-tree execution",
-    "App-owned login/credential refresh",
-    "Recovery UI for uncertain execution/restore markers",
-    "History paging/compaction, PTY, MCP and product subagents"
+    "App-owned login/credential refresh and multiple accounts",
+    "Recovery of unrecorded process groups or escaped daemons",
+    "Semantic compaction, full-history search, PTY, MCP, worktree parallelism, product subagents and LSP"
   ],
   "previousEngineStage": {
     "observedAt": "2026-10-04 02:53:53 UTC",
@@ -342,12 +344,206 @@
   },
   "finalReadOnlyReview": {
     "remainingBlockers": 0,
-    "fixedUiIssues": 7,
-    "report": "implementation-reports/12-desktop-integration.md"
+    "report": "implementation-reports/13-engine-desktop-followup.md",
+    "normalApplicationClosed": true
   },
   "regressionFixes": {
     "observerTest": "Await actual filesystem/Git sample completion instead of fixed sleeps.",
     "processCleanup": "EPERM preserves uncertainty; bounded observation must establish group absence. Persistent denial does not confirm cleanup.",
     "processCleanupTests": 4
+  },
+  "previousDesktopStage": {
+    "observedAt": "2026-10-04T04:33:53.761069+00:00",
+    "scope": "Moodcode engine, Electron desktop GUI, Codex native account integration and unsigned macOS arm64 bundle",
+    "environment": {
+      "platform": "darwin",
+      "architecture": "arm64",
+      "developmentNode": "26.9.0",
+      "electron": "44.5.1",
+      "embeddedNode": "24.21.0"
+    },
+    "tests": {
+      "tests": 1199,
+      "pass": 1198,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 1,
+      "command": "npm test",
+      "exitCode": 0,
+      "durationMs": 8146.398958
+    },
+    "desktopE2E": {
+      "command": "npm run test:desktop",
+      "ok": true,
+      "fixtureProvider": "scripted",
+      "checks": [
+        "real utility/SQLite engine and sandbox preload",
+        "read -> explicit patch approval -> explicit command approval -> completed",
+        "reload pending approval without new run or replay",
+        "diff matches actual before/after files",
+        "stale restore rejects external changes",
+        "confirmed restore persists review history across reload",
+        "restore does not append events after Run terminal",
+        "readonly file list/read",
+        "denial leaves files unchanged and prevents command",
+        "running reload preserves Run; cancel reaches terminal",
+        "owned utility SIGKILL -> visible failure -> retry -> interrupted Run without replay"
+      ]
+    },
+    "desktopHost": {
+      "sourceTests": 132,
+      "compiledTests": 132,
+      "pass": true,
+      "nativeElectronChecks": 29,
+      "report": "implementation-reports/11-desktop-host.md"
+    },
+    "liveCodex": {
+      "explicitlyRequested": true,
+      "providerId": "codex",
+      "modelId": "gpt-6.1-sol",
+      "authState": "ready",
+      "textProbe": true,
+      "engineFlow": {
+        "state": "completed",
+        "tools": [
+          {
+            "name": "read_file",
+            "state": "completed"
+          },
+          {
+            "name": "apply_patch",
+            "state": "completed"
+          },
+          {
+            "name": "run_command",
+            "state": "completed"
+          }
+        ],
+        "patchVerified": true,
+        "commandVerified": true,
+        "exactTemporaryFixtureActionsOnly": true
+      },
+      "guiFlow": {
+        "ok": true,
+        "chain": [
+          "renderer",
+          "sandbox preload",
+          "main",
+          "utility",
+          "Codex",
+          "durable snapshot",
+          "renderer"
+        ],
+        "apiKeyInputRequired": false
+      },
+      "authFileModified": false,
+      "credentialsRecorded": false
+    },
+    "packagedDesktop": {
+      "command": "npm run test:desktop-package",
+      "ok": true,
+      "path": "release/mac-arm64/Moodcode.app",
+      "asar": true,
+      "signed": false,
+      "notarized": false,
+      "renderer": true,
+      "utilitySQLite": true,
+      "testOverridesIgnored": true,
+      "supervisor": {
+        "fromAsar": true,
+        "exitCode": 0,
+        "cleanupConfirmed": true
+      }
+    },
+    "unverified": [
+      "Signed/notarized public distribution and updater",
+      "Linux desktop distribution matrix",
+      "Windows command process-tree execution",
+      "App-owned login/credential refresh",
+      "Recovery UI for uncertain execution/restore markers",
+      "History paging/compaction, PTY, MCP and product subagents"
+    ],
+    "desktopSettings": {
+      "ok": true,
+      "nativeStorage": "available",
+      "fileMode": "0600",
+      "plaintextStored": false,
+      "rendererCredentialReflected": false,
+      "settingsErrorVisibleInDialog": true,
+      "storedKeyRemoved": true,
+      "codexSettingsSwitch": true,
+      "providerRequests": 0
+    },
+    "rendererStore": {
+      "tests": 6,
+      "pass": 6,
+      "includedInFullSuite": true,
+      "checks": [
+        "selection preserved across reinitialization",
+        "late snapshots/subscriptions discarded and detached",
+        "late diff cannot replace current review selection",
+        "host failure invalidates reads and bootstrap errors remain visible",
+        "restore metadata uncertainty remains visible",
+        "failed admission retry preserves requestId"
+      ]
+    },
+    "finalReadOnlyReview": {
+      "remainingBlockers": 0,
+      "fixedUiIssues": 7,
+      "report": "implementation-reports/12-desktop-integration.md"
+    },
+    "regressionFixes": {
+      "observerTest": "Await actual filesystem/Git sample completion instead of fixed sleeps.",
+      "processCleanup": "EPERM preserves uncertainty; bounded observation must establish group absence. Persistent denial does not confirm cleanup.",
+      "processCleanupTests": 4
+    }
+  },
+  "realAccountRequestsThisStage": 0,
+  "conversationE2E": {
+    "command": "node scripts/test-desktop-conversation.mjs",
+    "ok": true,
+    "checks": [
+      "GFM table alignment and inert unsafe HTML/links/images",
+      "declared-language highlight, 80/400-line bounded pages, lazy tool body",
+      "native exact original copy; previous materialized clipboard MIME restored",
+      "relative/inline/absolute file line jumps and outside-workspace rejection",
+      "10000-line file bounds, persisted terminal/file unchanged"
+    ],
+    "networkAttempts": 0,
+    "providerRequests": 0,
+    "testApplicationsClosed": true
+  },
+  "historyRecoveryE2E": {
+    "command": "node scripts/test-desktop-history-recovery.mjs",
+    "ok": true,
+    "checks": [
+      "25 terminal Runs: 20/5 history pages; active latest cancellation preserved",
+      "active Run recovery blocked and healthy idle diagnostic clear",
+      "real unfinished restore -> startup interruption -> explicit acknowledgment -> primary/review verified backups",
+      "backup integrity, exact original rows, bytes and SHA256 match ledger metadata",
+      "reload and full application restart preserve terminal/file/journal; only new requests admitted"
+    ],
+    "networkAttempts": 0,
+    "scriptedSeedCalls": 28,
+    "cancelledGuiRuns": 2,
+    "testApplicationsClosed": true,
+    "layoutVerified": true
+  },
+  "recovery": {
+    "sourceTests": 14,
+    "pass": 14,
+    "readOnlyDiagnosticOriginalsUnchanged": true,
+    "backupVerifiedBeforeAcknowledgment": true,
+    "originalRunReviewRowsPreserved": true,
+    "processSignalsSent": false,
+    "blockers": [
+      "live PID/group",
+      "EPERM or unsupported group observation",
+      "unrecorded group PID",
+      "stale fingerprint",
+      "busy ownership",
+      "started restore before normal reconnect"
+    ],
+    "report": "implementation-reports/13-engine-desktop-followup.md"
   }
 }

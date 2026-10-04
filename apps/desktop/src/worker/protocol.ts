@@ -7,6 +7,7 @@ export interface WorkerEngineConfig {
   modelId: string;
   baseURL: string;
   apiKey?: string;
+  reasoningEffort?: import('@moodcode/contracts').ReasoningEffort;
 }
 export interface WorkerStartPayload {
   dbPath: string;
@@ -20,7 +21,7 @@ export interface WorkerBootstrap {
 }
 export interface WorkerRequest {
   id: string;
-  type: 'start' | 'bootstrap' | 'command' | 'subscribe' | 'unsubscribe' | 'dropOwner' | 'assertIdle' | 'close';
+  type: 'start' | 'bootstrap' | 'command' | 'subscribe' | 'unsubscribe' | 'dropOwner' | 'assertIdle' | 'diagnostics' | 'recover' | 'backup' | 'close';
   payload?: unknown;
 }
 export type WorkerResponse =

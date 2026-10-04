@@ -3,6 +3,7 @@ import type {
   CommandResult,
   EngineCapabilities,
   Workspace,
+  ReasoningEffort,
 } from "@moodcode/contracts";
 
 export type DesktopProviderId =
@@ -22,6 +23,8 @@ export interface DesktopSettings {
   credentialStorage: "available" | "unavailable";
   codexAuthState?: "available" | "missing" | "expired" | "unreadable";
   codexModelId?: string;
+  codexModels?: { id: string; displayName: string; reasoningEfforts: ReasoningEffort[]; defaultEffort?: ReasoningEffort }[];
+  reasoningEffort?: ReasoningEffort;
 }
 export interface SaveDesktopSettings {
   providerId: DesktopProviderId;
@@ -29,6 +32,7 @@ export interface SaveDesktopSettings {
   baseURL: string;
   apiKey?: string;
   clearKey?: boolean;
+  reasoningEffort?: ReasoningEffort;
 }
 export interface DesktopBootstrap {
   host: HostStatus;
@@ -45,6 +49,12 @@ export interface DesktopUpdate {
   lastSeq: number;
   error?: { code: string; message: string };
 }
+export interface DesktopRecoveryStatus {
+  schemaVersion: 1; state: "clear" | "recoverable" | "blocked"; fingerprint: string | null; blockers: string[];
+  marker: { active: boolean; owner: "absent" | "alive" | "unknown"; group: "absent" | "alive" | "unknown" | "not_recorded" } | null;
+  pendingRestoreCount: number; resolvedRestoreCount: number; activeRunCount?: number;
+}
+export interface DesktopRecoveryResult { recoveryId: string; restoredAcknowledgments: number; effectMarkerCleared: boolean; backupVerified: true }
 export interface DesktopApi {
   getBootstrap(): Promise<DesktopBootstrap>;
   command(command: CommandEnvelope): Promise<CommandResult>;
@@ -56,6 +66,10 @@ export interface DesktopApi {
   saveSettings(input: SaveDesktopSettings): Promise<DesktopSettings>;
   retryEngine(): Promise<HostStatus>;
   openExternal(url: string): Promise<void>;
+  copyText?(text: string): Promise<void>;
+  getRecoveryStatus?(): Promise<DesktopRecoveryStatus>;
+  recoverEngine?(input: { fingerprint: string; acknowledged: true }): Promise<DesktopRecoveryResult>;
+  backupDatabase?(): Promise<{ cancelled: boolean; bytes?: number }>;
 }
 declare global {
   interface Window {

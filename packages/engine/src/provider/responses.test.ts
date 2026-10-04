@@ -651,3 +651,17 @@ for (const profile of invalidProfiles) {
     assert.equal(calls, 0);
   });
 }
+
+test('explicit reasoning effort reaches Responses JSON and defaults omit it without a model call on invalid input', async () => {
+  const bodies: Record<string, unknown>[] = [];
+  const provider = new ResponsesProvider({ apiKey: SECRET, fetch: async (_url, init) => {
+    bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    return new Response(wire(textStream()), { headers: { 'content-type': 'text/event-stream' } });
+  } });
+  await collect(provider, { ...request(), reasoningEffort: 'ultra' });
+  await collect(provider, request());
+  assert.deepEqual(bodies[0]?.reasoning, { effort: 'ultra' });
+  assert.equal(Object.hasOwn(bodies[1]!, 'reasoning'), false);
+  await assert.rejects(collect(provider, { ...request(), reasoningEffort: 'unknown' as never }), (error: unknown) => error instanceof EngineError && error.code === 'PROVIDER_INVALID_REQUEST');
+  assert.equal(bodies.length, 2);
+});
