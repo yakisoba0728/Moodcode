@@ -1,10 +1,11 @@
 import { EngineError, type JsonObject, type JsonValue } from '@moodcode/contracts';
 import { isDeepStrictEqual } from 'node:util';
 import type { ProviderMessage } from '../ports.js';
-import { redactJson, redactText } from './helpers.js';
+import { credentialSecrets, redactCredentialJson, redactCredentialText } from './helpers.js';
 
 export interface ReplayValidationOptions {
   apiKey?: string;
+  secrets?: readonly string[];
   maxItems: number;
   maxBytes: number;
   maxToolArgumentBytes: number;
@@ -157,7 +158,7 @@ function validateNative(items: JsonObject[], options: ReplayValidationOptions): 
       }
       if (Object.hasOwn(item, 'encrypted_content') && item.encrypted_content !== null) {
         const ciphertext = string(item.encrypted_content);
-        if (options.apiKey && ciphertext.includes(options.apiKey)) invalid();
+        if (credentialSecrets(options.apiKey, options.secrets).some(secret => ciphertext.includes(secret))) invalid();
       }
     } else invalid();
   }
@@ -167,7 +168,7 @@ function validateNative(items: JsonObject[], options: ReplayValidationOptions): 
 /** Clone native output safely for persistence and later same-provider stateless input. */
 export function validateReplayItems(value: unknown, options: ReplayValidationOptions): JsonObject[] {
   try {
-    if (options.apiKey !== undefined && (typeof options.apiKey !== 'string' || !options.apiKey)) invalid();
+    const secrets = credentialSecrets(options.apiKey, options.secrets);
     for (const [name, limit] of [['maxItems', options.maxItems], ['maxBytes', options.maxBytes], ['maxToolArgumentBytes', options.maxToolArgumentBytes], ['maxToolCalls', options.maxToolCalls]] as const) {
       if (!Number.isSafeInteger(limit) || limit < (name === 'maxBytes' ? 1 : 0) || limit > ABSOLUTE_LIMIT) invalid();
     }
@@ -176,17 +177,17 @@ export function validateReplayItems(value: unknown, options: ReplayValidationOpt
     if (!Array.isArray(cloned)) invalid();
     const original = cloned.map(object);
     const calls = validateNative(original, options);
-    const redacted = redactJson(original, options.apiKey);
+    const redacted = redactCredentialJson(original, secrets);
     if (!Array.isArray(redacted)) invalid();
     const safe = redacted.map(object);
     for (const call of calls) {
-      const input = redactJson(call.input, options.apiKey);
+      const input = redactCredentialJson(call.input, secrets);
       // Serialized arguments may contain JSON escapes hiding a credential. Redact
       // their parsed values too, preserving original formatting when unchanged.
-      const rawRedacted = redactText(call.argumentsText, options.apiKey);
+      const rawRedacted = redactCredentialText(call.argumentsText, secrets);
       const changed = rawRedacted !== call.argumentsText || !isDeepStrictEqual(input, call.input);
       const argumentsText = changed ? JSON.stringify(input) : call.argumentsText;
-      if (options.apiKey && argumentsText.includes(options.apiKey)) invalid();
+      if (secrets.some(secret => argumentsText.includes(secret))) invalid();
       safe[call.itemIndex]!.arguments = argumentsText;
     }
     const checked = cloneJson(safe, options.maxBytes);

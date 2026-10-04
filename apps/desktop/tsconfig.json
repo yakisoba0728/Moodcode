@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist/types",
+    "lib": ["ES2024", "DOM"],
+    "types": ["node", "electron"]
+  },
+  "include": [
+    "src/main/**/*.ts",
+    "src/worker/**/*.ts",
+    "src/preload/**/*.ts",
+    "src/shared/**/*.ts",
+    "src/renderer/store.ts",
+    "src/renderer/model.ts",
+    "src/renderer/*.test.ts"
+  ],
+  "references": [
+    { "path": "../../packages/contracts" },
+    { "path": "../../packages/engine" }
+  ]
+}

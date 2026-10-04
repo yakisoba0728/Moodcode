@@ -93,3 +93,94 @@ node --test packages/engine/dist/runner/coordinator.test.js packages/engine/dist
 ```
 
 source **88 tests / 88 pass / 0 fail**(약 1.59초), compiled **88 tests / 88 pass / 0 fail**(약 1.52초), strict TypeScript **exit 0**. 현재 74개 fake/unit + 14개 실제 모듈 사례다. compiled 확인에서는 소유한 runner index와 두 test만 기존 esbuild로 변환했다. 실제 provider API/계정 호출과 vendor response 의미 해석·native wire mapping은 provider 담당 범위이며 여기서는 opaque JSON과 정상 종료/기록/도구 경계만 검증했다. 전체 monorepo·Electron 검증은 통합 담당이 수행한다.
+
+## 추가 단계 — GUI 복원용 workspace maintenance lease
+
+2026-10-04 runner의 공개 메서드를 다음 형태로 확정했다. ports/facade/public index/contracts/config는 변경하지 않았다.
+
+```ts
+withWorkspaceLease<T>(
+  workspaceId: string,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T>
+
+quarantineWorkspace(workspaceId: string): void
+```
+
+메서드를 호출하면 첫 await 전에 workspace 존재를 확인하고 모든 세션의 실제 store snapshot에서 nonterminal Run을 검사한다. 다른 coordinator나 직접 store admission으로 생성되어 local owner가 없는 persisted Run도 `WORKSPACE_BUSY`로 거절한다. 같은 workspace의 다른 maintenance도 `WORKSPACE_BUSY`, cleanup 격리는 `CLEANUP_PENDING`, 닫히는 coordinator는 `ENGINE_CLOSED`로 거절하며 callback을 실행하지 않는다. 검사가 끝난 즉시 메모리에 예약하고 callback은 다음 microtask의 abort 검사 후 시작하므로 호출 직후의 submit 경합에서도 새 Run이 생성되지 않는다.
+
+예약 중 새 same-workspace submit은 `WORKSPACE_BUSY`이고 다른 workspace는 기존 admission을 계속 사용한다. 기존 session/requestId는 먼저 `store.admit`으로 돌려보내 duplicate receipt와 `REQUEST_ID_CONFLICT` 판정을 유지한다. Run cancel은 기존 owner의 abort/approval 경로를 유지하며 maintenance signal과 섞지 않는다. 정상 반환과 안전한 throw는 callback settlement 후 finally에서 예약을 해제한다.
+
+`close()`는 새 admission을 막고 진행 중 lease에 `ENGINE_CLOSED` abort reason을 동기 전달한 뒤 operation의 실제 settlement를 기다린다. 시작 전 abort면 callback 자체를 건너뛴다. maintenance에는 Run의 1초 cleanup grace를 적용하지 않으므로 복원 서비스의 파일 handle close, 변경 관측 및 effect-lock 해제가 끝나기 전에 close 성공을 알리지 않는다. 기존 owner 취소/정리도 함께 기다린다. abort listener가 close를 재호출할 때 같은 promise를 받도록 closePromise를 abort dispatch 전에 저장했다.
+
+실제 restore service가 반환하는 `effectsUncertain=true` 또는 `executionBlocked=true`, 기존 cleanup flag 및 unsafe effect error는 `CLEANUP_UNCERTAIN`으로 정규화하고 workspace를 격리한다. 진행 중 lease의 정리가 불확실하면 lease 호출과 close 양쪽이 실패한다. 반면 관측 완료된 부분 복원/취소 결과는 `failed[].mayHaveChanged`만으로 격리하지 않고 원래 T와 observations를 보존한다. 안전한 `CANCELLED`/stale preview/일반 오류는 caller에게 그대로 전달하며 close는 callback 정리가 끝난 뒤 정상 종료한다. generic T의 cyclic data/details도 처리할 수 있도록 uncertainty 검사를 visited set과 반복 stack으로 변경해 stack overflow 및 sibling flag 누락을 막았다.
+
+호출자는 effect/관측/cleanup 전체를 operation promise에 포함하고 전달받은 signal을 서비스로 넘겨야 한다. operation 안에서 자기 자신의 `runner.close()`를 await하거나 background effect를 분리하면 이 계약을 충족하지 못한다. 비협조적인 operation이 settle하지 않으면 close도 기다린다. 예약과 quarantine은 coordinator별 메모리이며 현재 facade의 단일 coordinator 경계를 보호한다. 동일 store에 여러 coordinator를 만들어 다른 인스턴스로 submit하거나 직접 store.admit을 호출하는 것을 전역으로 막는 durable maintenance lock은 아니다. 복원 효과의 crash guard는 실제 restore service의 기존 executionLockPath 잠금이 담당한다. 기존 Run의 fulfilled failed terminal을 close rejection으로 바꾸는 정책은 이 변경에 포함하지 않았다.
+
+후속 요청으로 `quarantineWorkspace`를 추가했다. 실제 `getWorkspace`로 identity를 먼저 검증한 뒤 현재 coordinator의 unsafe set에 넣으며 반복 호출은 idempotent다. startup의 restore journal pending recovery나 효과 이후 metadata 기록 실패를 통합 담당자가 확인하면 명시적으로 호출할 수 있다. 효과를 재실행하거나 기존 Run/기록을 변경하지 않고 새로운 submit과 maintenance를 `CLEANUP_PENDING`으로 차단한다. 원래 receipt의 duplicate/conflict와 store history 읽기는 계속 가능하다. 안전한 restore result에 metadata 기록 오류가 추가돼도 T를 변형하지 않으므로 caller는 복원 관측값과 기록 실패를 함께 반환하면서 workspace를 격리할 수 있다. runner가 review journal을 열거나 닫지는 않는다. root는 lease를 포함한 runner.close settlement 후 journal을 닫아야 한다.
+
+검증 파일은 기존 coordinator 단위 테스트, lifecycle integration, 새 `maintenance-integration.test.ts`다. 단위 106개는 sync 예약, persisted active 검사, close 전 callback skip, 1초가 지나도 실제 정리를 기다리는 close, 재진입 promise identity, 안전한 throw/반환 보존, unsafe flag/error, cyclic generic 결과 및 명시적 quarantine의 identity/idempotence/history 계약을 확인한다.
+
+실제 모듈 추가 13개는 다음 경계를 검증한다. 기존 lifecycle 14개도 모두 함께 통과했다.
+
+- 실제 승인 patch가 만든 checkpoint를 readonly preview 후 복원한다. 예약 중 새 submit을 거절하고 duplicate/conflict를 보존하며 다른 workspace의 실제 승인 대기 Run cancel은 maintenance signal을 바꾸지 않는다. 복원된 파일·관측 hash·effect lock 해제·후속 read Run 접수를 확인한다.
+- 별도 세션의 local owner 없는 created/running/awaiting_approval/cancelling persisted Run 모두 maintenance callback 시작 전에 busy다. 실제 restore의 writable file guard 안에서 늦게 들어온 submit과 경쟁 maintenance도 차단된다.
+- 실제 파일 변경 후 readonly accounting open을 gate해 close abort, 파일 관측, execution lock 해제, callback finally 정리를 차례로 확인한다. 안전한 cancelled RestoreResult를 그대로 반환하며 finally gate가 풀리기 전 close가 끝나지 않는다.
+- stale preview는 사용자 외부 변경을 보존하고 안전하게 lease를 해제한다. 실제 post-effect observation open에 한정한 EACCES fault injection은 unobserved result와 durable active marker를 유지하고 workspace를 격리한다. persisted uncertain effect marker와 close 중 observation failure도 caller/close의 `CLEANUP_UNCERTAIN`을 확인한다.
+- 별도 SQLite metadata-table의 완료 UPDATE를 두 번째 connection의 `BEGIN EXCLUSIVE`로 막아 native errcode 5 (`SQLITE_BUSY`)를 실제 발생시킨다. callback이 `quarantineWorkspace`를 호출한 뒤 원래 복원 결과와 `recordMetadataError` 객체 identity를 그대로 반환한다. filesystem/observations/effect-lock cleanup은 안전하게 완료되지만 새 실행/lease는 차단되고, 기존 receipts·history·getReviewDiff·다른 workspace 실행은 유지된다. 완료 metadata row는 pending 그대로다.
+
+마지막 사례는 이름 그대로 별도 실제 SQLite metadata 테이블 fixture다. 작성 시점에 통합 담당자의 `review/audit.ts`가 아직 없었으므로 `ReviewJournal` 구현 자체를 연결했다고 주장하지 않는다. production audit finish/recoverPending 및 GUI wrapper/journal close 순서는 통합 담당 소유 범위이며, runner API와 callback 결과 보존·명시적 quarantine 경계까지 검증했다.
+
+최종 검증 명령:
+
+```sh
+node_modules/.bin/tsx --test packages/engine/src/runner/coordinator.test.ts packages/engine/src/runner/lifecycle-integration.test.ts packages/engine/src/runner/maintenance-integration.test.ts
+node_modules/.bin/tsc --ignoreConfig --noEmit --strict --noUncheckedIndexedAccess --target ES2024 --module NodeNext --moduleResolution NodeNext --skipLibCheck --types node packages/engine/src/runner/index.ts packages/engine/src/runner/coordinator.test.ts packages/engine/src/runner/lifecycle-integration.test.ts packages/engine/src/runner/maintenance-integration.test.ts
+node --test packages/engine/dist/runner/coordinator.test.js packages/engine/dist/runner/lifecycle-integration.test.js packages/engine/dist/runner/maintenance-integration.test.js
+```
+
+source **133 tests / 133 pass / 0 fail**(약 2.30초), compiled **133 tests / 133 pass / 0 fail**(약 2.30초), strict TypeScript **exit 0**, skip/cancelled **0**. 현재 106개 fake/unit + 27개 실제 모듈 사례다. 설치된 esbuild로 소유한 runner index와 test 세 개만 ESM/node24 compiled 출력으로 변환했다. scoped diff whitespace 검사도 통과했다. 다른 담당 소스/config/ports/public API index는 수정하지 않았고 외부 모델 호출·의존성 설치·Git 변경 명령은 실행하지 않았다.
+
+## 후속 단계 — GUI facade·validation 통합
+
+통합 담당자의 후속 위임에 따라 이번 단계의 소유 범위는 `packages/engine/src/engine.ts`, 새 `gui-facade.integration.test.ts`, `packages/contracts/src/validation.ts`, 새 `gui-validation.test.ts`다. root가 public index exports/renderer/build/E2E/실제 Codex probe를 소유하며 여기서는 해당 파일·공용 dependency·Git commit을 변경하지 않는다.
+
+engine dispatch에 다음 여섯 명령을 연결했다.
+
+| 명령 | payload | 결과 |
+| --- | --- | --- |
+| `file.list` | `{workspaceId,path?}` | `listWorkspaceFiles`의 bounded entries/경고 |
+| `file.read` | `{workspaceId,path}` | `readWorkspaceFile`의 text/hash/경고 |
+| `workspace.getStatus` | `{workspaceId}` | `getWorkspaceStatus`의 Git 상태 |
+| `review.previewRestore` | `{runId,checkpointId}` | 실제 readonly `RestorePreview` |
+| `review.restore` | `{runId,checkpointId,previewFingerprint}` | `RestoreCommandResult` |
+| `review.history` | `{runId}` | `ReviewHistoryResult = {runId,operations}` |
+
+`RestoreCommandResult`와 `ReviewHistoryResult`를 engine.ts에서 type으로 공개했다. 복원 명령 결과는 기존 RestoreResult 필드에 `operationId: commandId`, `duplicate: boolean`, optional `recordMetadataError: {code,message}`를 더한다. audit 완료 의미는 서비스가 반환했다는 뜻이다. partial/cancelled/uncertain 결과도 observations와 실제 flags를 보존해 `ok:true` domain 결과로 반환하고, 서비스가 throw한 경우에는 기록된 실패와 `ok:false` 오류를 반환한다. audit finish가 실패한 반환 결과에는 `REVIEW_RECORD_FAILED` metadata와 경고를 추가하고 workspace를 격리한다. UI는 이 필드를 성공과 구분해 표시할 수 있다. duplicate terminal reply는 audit의 bounded stored result를 재생한다.
+
+preview/restore는 checkpoint가 요청 run의 실제 checkpoint 목록에 속하는지 먼저 검증한다. 새 restore는 terminal run만 허용하며 coordinator workspace lease와 canonical executionLockPath를 사용한다. readonly preview는 실행 중에도 activeRunIds/canRestore=false를 제공할 수 있다. workspace presentation과 review history는 효과 lease나 terminal Run commit을 만들지 않는다.
+
+별도 ReviewJournal은 파일 DB의 `realpathSync(primaryDB) + '.review.sqlite'`, memory DB는 `artifactDir/review.sqlite`다. 지정하지 않은 memory artifactDir는 instance별 임시 경로를 사용해 독립 memory 엔진끼리 같은 owner lock을 잡지 않게 했다. Journal owner를 취득한 다음 primary active-run recovery를 실행한다. `recoverPending`의 started→interrupted 및 기존 interrupted operation이 primary run/session/workspace/checkpoint binding과 일치하는지 확인하고 모든 해당 workspace를 재격리한다. 생성 실패 시 journal과 primary store를 모두 닫는다. 기존 command supervisor의 startup effect-marker guard는 유지했다.
+
+복원 중 audit.get와 commandId/binding 비교를 fresh preview·lease·quarantine보다 먼저 수행한다. 완료 기록은 효과를 재실행하지 않고 재생하며 다른 binding은 conflict, pending/interrupted는 no-replay 오류다. 동시 동일 요청은 첫 dispatch의 동기 in-flight map으로 같은 promise를 기다린다. 공개 journal API가 dispatch와 callback microtask 사이에 operation을 등록해도 callback의 두 번째 get/binding 검사로 이미 알려진 효과를 실행하지 않는다. 새 audit.start의 durable commit, 실제 복원, 성공/실패 audit.finish 및 기록 실패 처리는 모두 lease callback 안에 있어 close가 audit 저장을 앞지를 수 없다. `closePromise`를 coordinator abort 전에 저장하며 lease 정리 이후 ReviewJournal → primary store 순으로 닫는다.
+
+validation은 기존 envelope/data-property 검사와 ID 한도를 재사용한다. 여섯 명령은 허용한 필드만 받고 malformed options/undefined/getter/비JSON payload를 거절한다. file.list는 omitted path와 명시적 빈 root를 구분하고 file.read는 경로가 필수다. 상대 경로는 4096 UTF-8 byte, exact Unicode, forward slash canonical segments만 허용하며 절대/Windows drive/backslash/traversal/빈 segment/control character/unpaired surrogate를 거절한다. 제외 경로와 symlink/filesystem 검사는 presentation helper가 수행한다. restore fingerprint는 정확한 64자리 lowercase SHA-256이고 preview에는 fingerprint/options를 받지 않는다.
+
+최종 GUI facade 검증은 실제 Git workspace·SqliteStore·restore service·ReviewJournal을 연결한 7개 사례다. setup은 유효한 completed patch checkpoint를 실제 SQLite transaction으로 기록하며, 실제 승인 patch Run 자체는 앞선 runner lifecycle 검증과 root GUI E2E 범위다. 이번 facade 사례는 다음을 확인한다.
+
+- file/list/read/status 및 preview/restore 결과, 동시 동일 dispatch의 in-flight coalescence, DB reopen 후 durable duplicate replay와 fingerprint binding conflict. 사용자 파일을 다시 변경해도 같은 commandId는 효과를 재실행하지 않는다. history 조회와 복원 뒤에도 terminal primary snapshot/event seq가 그대로다.
+- 다른 Run의 checkpoint를 preview/restore로 지정하면 ownership error이고 active source Run은 restore를 거절한다. active readonly preview는 canRestore=false다.
+- started operation이 재시작 후 interrupted가 되고, 두 번째 재시작에서도 workspace가 계속 격리된다. 동일 operation의 no-replay, 기존 Run duplicate/conflict와 readonly history/file 읽기, 다른 workspace 실행은 유지된다.
+- 실제 ReviewJournal.finish의 transaction을 두 번째 SQLite connection의 `BEGIN EXCLUSIVE`로 막아 native `SQLITE_BUSY`를 발생시킨다. 효과·observations·effect lock cleanup은 완료되고 원래 결과와 `REVIEW_RECORD_FAILED`를 반환하지만, 완료 감사는 started로 남고 새 effects는 격리된다. 앞 단계의 대체 metadata-table fixture와 달리 이번에는 production ReviewJournal API를 직접 호출한다.
+- stale preview 실패는 durable failed operation으로 남고 safe failure 후 새 Run을 허용한다. 실패 요청의 duplicate는 filesystem open 0회로 기록된 오류만 반환한다.
+- dispatch admission과 lease microtask 사이 public journal start가 같은 ID를 등록하는 경합에서 filesystem 효과를 만들지 않고 pending을 반환한다.
+- 실제 restore의 after-effect accounting open을 gate해 close와 synchronous close 재진입을 발생시킨다. 같은 close promise를 유지하고 accounting 중 journal/store가 열려 있으며, 관측과 cancelled completed audit를 저장한 다음 닫는다. reopen 후 audit 완료 결과와 기존 terminal snapshot 불변을 확인한다.
+
+검증 명령:
+
+```sh
+node_modules/.bin/tsx --test packages/engine/src/engine.test.ts packages/engine/src/gui-facade.integration.test.ts packages/contracts/src/validation.test.ts packages/contracts/src/gui-validation.test.ts
+node_modules/.bin/tsc --ignoreConfig --noEmit --strict --noUncheckedIndexedAccess --target ES2024 --module NodeNext --moduleResolution NodeNext --skipLibCheck --types node packages/engine/src/engine.ts packages/engine/src/engine.test.ts packages/engine/src/gui-facade.integration.test.ts packages/contracts/src/validation.ts packages/contracts/src/validation.test.ts packages/contracts/src/gui-validation.test.ts
+```
+
+source **39 tests / 39 pass / 0 fail**(약 1.85초), strict TypeScript **exit 0**, skip/cancelled **0**. validation 기존 11 + 신규 12, facade 기존 9 + 신규 7이다. 별도의 임시 실제 Git/SQLite 실행으로 복원·durable duplicate/conflict·history·presentation·terminal sequence도 확인했고 scoped diff whitespace 검사도 통과했다. runtime source facade가 package validation import를 읽게 하기 위해 소유한 contracts validation/test의 ignored JS 출력만 기존 esbuild로 갱신했다. 전체 build/compiled/E2E/package/commit은 root 소유 범위로 남겼다. GUI·public index exports·공용 dependency·review/workspace helper 구현은 수정하지 않았다. 외부 모델/API 호출이나 기존 checkout의 Git 변경 명령은 없다. 테스트용 임시 workspace에서만 git init을 사용했다.

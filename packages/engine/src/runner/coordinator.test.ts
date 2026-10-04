@@ -47,7 +47,10 @@ class FakeStore implements EngineStore {
   private serial = 0;
 
   putWorkspace(workspace: Workspace): Workspace { return copy(workspace); }
-  getWorkspace(id: string): Workspace { assert.equal(id, this.workspace.id); return copy(this.workspace); }
+  getWorkspace(id: string): Workspace {
+    if (id !== this.workspace.id) throw new EngineError('WORKSPACE_NOT_FOUND', `Unknown workspace ${id}`);
+    return copy(this.workspace);
+  }
   listWorkspaces(): Workspace[] { return [copy(this.workspace)]; }
   createSession(session: Session): Session { return copy(session); }
   getSession(id: string): Session { assert.equal(id, this.session.id); return copy(this.session); }
@@ -1226,6 +1229,265 @@ test('finish replayItems accessor is rejected without invoking the getter or com
     assert.ok(!store.events.some((event) => event.type === 'message.completed'));
     assert.ok([...store.messages.values()].every((message) => message.providerReplay === undefined));
     assert.ok(!JSON.stringify(store.events).includes('finish getter opaque replay'));
+    assert.equal(store.terminalCommits(receipt.runId).length, 1);
+  } finally { await runner.close(); }
+});
+
+test('maintenance lease registers before its callback and preserves duplicate and conflict precedence while blocking new runs', { timeout: 5_000 }, async () => {
+  const release = deferred<void>();
+  const provider = scripted([[finish]]);
+  const { runner, input, store } = fixture(provider);
+  let entered = false;
+  try {
+    const receipt = runner.submit(input());
+    assert.equal((await runner.waitForRun(receipt.runId)).state, 'completed');
+    const lease = runner.withWorkspaceLease(store.workspace.id, async (signal) => {
+      entered = true;
+      assert.equal(signal.aborted, false);
+      await release.promise;
+      return 42;
+    });
+    assert.equal(entered, false);
+    assert.throws(() => runner.submit({ ...input(), requestId: 'blocked-new-request' }), (error: unknown) => error instanceof EngineError && error.code === 'WORKSPACE_BUSY');
+    assert.deepEqual(runner.submit(input()), { ...receipt, duplicate: true });
+    assert.throws(() => runner.submit({ ...input(), prompt: 'changed request' }), (error: unknown) => error instanceof EngineError && error.code === 'REQUEST_ID_CONFLICT');
+    await assert.rejects(async () => runner.withWorkspaceLease(store.workspace.id, async () => 'unexpected second lease'), (error: unknown) => error instanceof EngineError && error.code === 'WORKSPACE_BUSY');
+    await until(() => entered, 'maintenance callback');
+    release.resolve();
+    assert.equal(await lease, 42);
+    const next = runner.submit({ ...input(), requestId: 'after-lease' });
+    assert.equal((await runner.waitForRun(next.runId)).state, 'completed');
+    assert.equal(provider.requests.length, 2);
+  } finally { release.resolve(); await runner.close(); }
+});
+
+test('maintenance lease checks workspace existence and active persisted runs before starting its operation', { timeout: 5_000 }, async () => {
+  let callbacks = 0;
+  const provider = scripted([[finish]]);
+  const { runner, input, store } = fixture(provider);
+  try {
+    await assert.rejects(async () => runner.withWorkspaceLease('unknown-workspace', async () => { callbacks++; }), (error: unknown) => error instanceof EngineError && error.code === 'WORKSPACE_NOT_FOUND');
+    const persisted = store.admit(input());
+    await assert.rejects(async () => runner.withWorkspaceLease(store.workspace.id, async () => { callbacks++; }), (error: unknown) => error instanceof EngineError && error.code === 'WORKSPACE_BUSY');
+    assert.equal(callbacks, 0);
+    assert.equal(provider.requests.length, 0);
+    store.commit(persisted.runId, 'run.cancelled', {}, { run: { state: 'cancelled' } });
+    assert.equal(await runner.withWorkspaceLease(store.workspace.id, async () => { callbacks++; return 'released persisted run'; }), 'released persisted run');
+    assert.equal(callbacks, 1);
+  } finally { await runner.close(); }
+});
+
+test('close before the lease microtask skips its operation and blocks subsequent admission with one close promise', { timeout: 5_000 }, async () => {
+  let callbacks = 0;
+  const provider = scripted([[finish]]);
+  const { runner, input, store } = fixture(provider);
+  const lease = runner.withWorkspaceLease(store.workspace.id, async () => { callbacks++; return 'unexpected'; });
+  const observed = lease.then(() => undefined, (error: unknown) => error);
+  const closing = runner.close();
+  assert.strictEqual(runner.close(), closing);
+  assert.throws(() => runner.submit(input()), (error: unknown) => error instanceof EngineError && error.code === 'ENGINE_CLOSED');
+  await assert.rejects(async () => runner.withWorkspaceLease(store.workspace.id, async () => 'unexpected new lease'), (error: unknown) => error instanceof EngineError && error.code === 'ENGINE_CLOSED');
+  await closing;
+  const error = await observed;
+  assert.ok(error instanceof EngineError);
+  assert.equal(error.code, 'ENGINE_CLOSED');
+  assert.equal(callbacks, 0);
+  assert.equal(provider.requests.length, 0);
+  assert.equal(store.runs.size, 0);
+  assert.strictEqual(runner.close(), closing);
+});
+
+test('close aborts a started lease synchronously but awaits cleanup beyond the run grace and preserves its safe return value', { timeout: 5_000 }, async () => {
+  const release = deferred<void>();
+  const result = { cancelled: true, cleanupConfirmed: true, observedChanges: ['fixture observation'] };
+  const provider = scripted([[finish]]);
+  const { runner, input, store } = fixture(provider);
+  let signal: AbortSignal | undefined;
+  let reentrantClose: Promise<void> | undefined;
+  let leaseSettled = false;
+  let closeSettled = false;
+  const lease = runner.withWorkspaceLease(store.workspace.id, async (leaseSignal) => {
+    signal = leaseSignal;
+    leaseSignal.addEventListener('abort', () => { reentrantClose = runner.close(); }, { once: true });
+    await release.promise;
+    assert.equal(leaseSignal.aborted, true);
+    return result;
+  });
+  void lease.then(() => { leaseSettled = true; }, () => { leaseSettled = true; });
+  try {
+    await until(() => signal !== undefined, 'started maintenance lease');
+    assert.throws(() => runner.submit(input()), (error: unknown) => error instanceof EngineError && error.code === 'WORKSPACE_BUSY');
+    const closing = runner.close();
+    void closing.then(() => { closeSettled = true; }, () => { closeSettled = true; });
+    assert.equal(signal!.aborted, true);
+    assert.ok(signal!.reason instanceof EngineError);
+    assert.equal(signal!.reason.code, 'ENGINE_CLOSED');
+    assert.strictEqual(reentrantClose, closing);
+    assert.strictEqual(runner.close(), closing);
+    assert.throws(() => runner.submit(input()), (error: unknown) => error instanceof EngineError && error.code === 'ENGINE_CLOSED');
+    await new Promise<void>((resolve) => setTimeout(resolve, 1_100));
+    assert.equal(leaseSettled, false);
+    assert.equal(closeSettled, false);
+    release.resolve();
+    assert.strictEqual(await lease, result);
+    await closing;
+    assert.equal(leaseSettled, true);
+    assert.equal(closeSettled, true);
+    assert.equal(provider.requests.length, 0);
+  } finally { release.resolve(); await runner.close(); }
+});
+
+test('a safe thrown maintenance error releases its lease without quarantining the workspace', { timeout: 5_000 }, async () => {
+  const expected = new Error('Fixture safe failure');
+  const provider = scripted([[finish]]);
+  const { runner, input, store } = fixture(provider);
+  try {
+    await assert.rejects(async () => runner.withWorkspaceLease(store.workspace.id, async () => { throw expected; }), (error: unknown) => error === expected);
+    assert.equal(await runner.withWorkspaceLease(store.workspace.id, async () => 'reacquired'), 'reacquired');
+    const receipt = runner.submit(input());
+    assert.equal((await runner.waitForRun(receipt.runId)).state, 'completed');
+    assert.equal(provider.requests.length, 1);
+  } finally { await runner.close(); }
+});
+
+test('returned and thrown maintenance uncertainty quarantine new effects while retaining durable request identity', { timeout: 5_000 }, async (t) => {
+  const fixtures: { name: string; value: unknown }[] = [
+    { name: 'cleanupConfirmed=false', value: { cleanupConfirmed: false } },
+    { name: 'cleanupUncertain=true', value: { cleanupUncertain: true } },
+    { name: 'effectsUncertain=true', value: { effectsUncertain: true } },
+    { name: 'executionBlocked=true', value: { executionBlocked: true } },
+    ...['CLEANUP_UNCERTAIN', 'PROCESS_CLEANUP_FAILED', 'COMMAND_CLEANUP_UNCERTAIN', 'COMMAND_EFFECTS_LOCK_FAILED', 'PATCH_CHECKPOINT_FAILED'].map((code) => ({ name: code, value: new EngineError(code, 'Fixture unsafe maintenance outcome') })),
+  ];
+  for (const fixtureCase of fixtures) {
+    for (const thrown of [false, true]) {
+      await t.test(`${thrown ? 'throw' : 'return'} ${fixtureCase.name}`, async () => {
+        const provider = scripted([[finish]]);
+        const { runner, input, store } = fixture(provider);
+        try {
+          const receipt = runner.submit(input());
+          assert.equal((await runner.waitForRun(receipt.runId)).state, 'completed');
+          await assert.rejects(async () => runner.withWorkspaceLease(store.workspace.id, async () => {
+            if (thrown) throw fixtureCase.value;
+            return fixtureCase.value;
+          }), (error: unknown) => error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN');
+          await assert.rejects(async () => runner.withWorkspaceLease(store.workspace.id, async () => 'unexpected lease'), (error: unknown) => error instanceof EngineError && error.code === 'CLEANUP_PENDING');
+          assert.throws(() => runner.submit({ ...input(), requestId: 'new-after-uncertainty' }), (error: unknown) => error instanceof EngineError && error.code === 'CLEANUP_PENDING');
+          assert.deepEqual(runner.submit(input()), { ...receipt, duplicate: true });
+          assert.throws(() => runner.submit({ ...input(), prompt: 'changed duplicate' }), (error: unknown) => error instanceof EngineError && error.code === 'REQUEST_ID_CONFLICT');
+          assert.equal(store.runs.size, 1);
+          assert.equal(provider.requests.length, 1);
+        } finally {
+          await runner.close().catch((error: unknown) => { assert.ok(error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN'); });
+        }
+      });
+    }
+  }
+});
+
+test('close and the lease caller both reject when a running maintenance callback settles with uncertain cleanup', { timeout: 5_000 }, async (t) => {
+  for (const thrown of [false, true]) {
+    await t.test(thrown ? 'unsafe thrown error' : 'unsafe returned result', async () => {
+      const release = deferred<void>();
+      const provider = scripted([[finish]]);
+      const { runner, store } = fixture(provider);
+      let signal: AbortSignal | undefined;
+      const lease = runner.withWorkspaceLease(store.workspace.id, async (leaseSignal) => {
+        signal = leaseSignal;
+        await release.promise;
+        if (thrown) throw new EngineError('PROCESS_CLEANUP_FAILED', 'Fixture cleanup failed');
+        return { effectsUncertain: true };
+      });
+      const leaseRejected = assert.rejects(lease, (error: unknown) => error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN');
+      await until(() => signal !== undefined, 'uncertain maintenance callback');
+      const closing = runner.close();
+      const closeRejected = assert.rejects(closing, (error: unknown) => error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN');
+      assert.equal(signal!.aborted, true);
+      release.resolve();
+      await Promise.all([leaseRejected, closeRejected]);
+      assert.strictEqual(runner.close(), closing);
+    });
+  }
+});
+
+test('safe cancellation thrown by a started lease remains its caller error while close resolves after settlement', { timeout: 5_000 }, async () => {
+  const release = deferred<void>();
+  const expected = new EngineError('CANCELLED', 'Fixture maintenance cancelled safely');
+  const provider = scripted([[finish]]);
+  const { runner, store } = fixture(provider);
+  let signal: AbortSignal | undefined;
+  const lease = runner.withWorkspaceLease(store.workspace.id, async (leaseSignal) => {
+    signal = leaseSignal;
+    await release.promise;
+    throw expected;
+  });
+  const callerRejected = assert.rejects(lease, (error: unknown) => error === expected);
+  await until(() => signal !== undefined, 'safely cancelled maintenance callback');
+  const closing = runner.close();
+  assert.equal(signal!.aborted, true);
+  release.resolve();
+  await callerRejected;
+  await closing;
+  assert.strictEqual(runner.close(), closing);
+  assert.equal(provider.requests.length, 0);
+});
+
+test('generic maintenance results preserve safe cyclic identity and still detect unsafe flags nested through a cycle', { timeout: 5_000 }, async (t) => {
+  await t.test('safe cyclic result', async () => {
+    const result: { observed: string; data?: unknown; details?: unknown } = { observed: 'fixture observation' };
+    result.data = result;
+    result.details = { data: result };
+    const provider = scripted([[finish]]);
+    const { runner, input, store } = fixture(provider);
+    try {
+      assert.strictEqual(await runner.withWorkspaceLease(store.workspace.id, async () => result), result);
+      const receipt = runner.submit(input());
+      assert.equal((await runner.waitForRun(receipt.runId)).state, 'completed');
+    } finally { await runner.close(); }
+  });
+  await t.test('nested unsafe cyclic result', async () => {
+    const result: { data?: unknown; details?: unknown } = {};
+    result.data = result;
+    result.details = { data: result, executionBlocked: true };
+    const provider = scripted([[finish]]);
+    const { runner, input, store } = fixture(provider);
+    try {
+      await assert.rejects(async () => runner.withWorkspaceLease(store.workspace.id, async () => result), (error: unknown) => error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN');
+      assert.throws(() => runner.submit(input()), (error: unknown) => error instanceof EngineError && error.code === 'CLEANUP_PENDING');
+      assert.equal(provider.requests.length, 0);
+    } finally {
+      await runner.close().catch((error: unknown) => { assert.ok(error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN'); });
+    }
+  });
+});
+
+test('explicit workspace quarantine validates identity, is idempotent, and preserves completed request history without new effects', { timeout: 5_000 }, async () => {
+  const provider = scripted([[{ type: 'text.delta', delta: 'stored completed reply' }, finish]]);
+  const { runner, input, store } = fixture(provider);
+  let maintenanceCallbacks = 0;
+  try {
+    assert.throws(() => runner.quarantineWorkspace('unknown-workspace'), (error: unknown) => error instanceof EngineError && error.code === 'WORKSPACE_NOT_FOUND');
+    assert.equal(await runner.withWorkspaceLease(store.workspace.id, async () => 'valid workspace unaffected'), 'valid workspace unaffected');
+    const receipt = runner.submit(input());
+    assert.equal((await runner.waitForRun(receipt.runId)).state, 'completed');
+    const snapshot = store.getSnapshot(store.session.id);
+    const history = store.readEvents(store.session.id, 0);
+    assert.equal(runner.quarantineWorkspace(store.workspace.id), undefined);
+    assert.equal(runner.quarantineWorkspace(store.workspace.id), undefined);
+    assert.deepEqual(runner.submit(input()), { ...receipt, duplicate: true });
+    const copiedReceipt = runner.submit(input());
+    copiedReceipt.runId = 'caller-mutated-receipt';
+    assert.deepEqual(runner.submit(input()), { ...receipt, duplicate: true });
+    assert.throws(() => runner.submit({ ...input(), prompt: 'changed completed request' }), (error: unknown) => error instanceof EngineError && error.code === 'REQUEST_ID_CONFLICT');
+    assert.throws(() => runner.submit({ ...input(), requestId: 'new-after-explicit-quarantine' }), (error: unknown) => error instanceof EngineError && error.code === 'CLEANUP_PENDING');
+    await assert.rejects(async () => runner.withWorkspaceLease(store.workspace.id, async () => { maintenanceCallbacks++; }), (error: unknown) => error instanceof EngineError && error.code === 'CLEANUP_PENDING');
+    assert.equal(maintenanceCallbacks, 0);
+    assert.equal(provider.requests.length, 1);
+    assert.equal(store.runs.size, 1);
+    assert.deepEqual(store.getSnapshot(store.session.id), snapshot);
+    assert.deepEqual(store.readEvents(store.session.id, 0), history);
+    assert.ok(snapshot.messages.some((message) => message.role === 'user' && message.content === input().prompt));
+    assert.ok(snapshot.messages.some((message) => message.role === 'assistant' && message.content === 'stored completed reply'));
+    assert.equal((await runner.waitForRun(receipt.runId)).state, 'completed');
     assert.equal(store.terminalCommits(receipt.runId).length, 1);
   } finally { await runner.close(); }
 });

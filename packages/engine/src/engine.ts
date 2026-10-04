@@ -1,7 +1,8 @@
-import { mkdirSync, realpathSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { mkdirSync, mkdtempSync, realpathSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { EngineError, SCHEMA_VERSION, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type JsonValue, type Run, type RunConfig, type RunConfigInput, type Session } from '@moodcode/contracts';
+import { EngineError, isTerminal, SCHEMA_VERSION, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type JsonValue, type Run, type RunConfig, type RunConfigInput, type Session } from '@moodcode/contracts';
 import { normalizeSubmitInput, validateCommand } from '@moodcode/contracts/validation';
 import type { ProviderAdapter, ToolDefinition } from './ports.js';
 import { SqliteStore, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './storage/index.js';
@@ -9,12 +10,29 @@ import { RunCoordinator } from './runner/index.js';
 import { ScriptedProvider } from './provider/index.js';
 import { ApprovalManager } from './permission/index.js';
 import { openWorkspace } from './workspace/index.js';
+import { getWorkspaceStatus, listWorkspaceFiles, readWorkspaceFile } from './workspace/presentation.js';
 import { buildContext } from './context/index.js';
 import { createReadTools } from './tools/read/index.js';
 import { createPatchTool } from './tools/patch/index.js';
 import { createCommandTool } from './tools/command/index.js';
 import { assertExecutionLockAvailable } from './tools/command/execution-lock.js';
-import { getReviewDiff } from './review/index.js';
+import { getReviewDiff, previewRestoreCheckpoint, restoreCheckpoint, type RestoreResult } from './review/index.js';
+import { ReviewJournal, type RestoreOperation, type RestoreOperationInput } from './review/audit.js';
+
+export type RestoreCommandResult = RestoreResult & {
+  operationId: string;
+  duplicate: boolean;
+  recordMetadataError?: { code: string; message: string };
+};
+
+export interface ReviewHistoryResult {
+  runId: string;
+  operations: RestoreOperation[];
+}
+
+function metadataFailure(): { code: string; message: string } {
+  return { code: 'REVIEW_RECORD_FAILED', message: 'Restoration outcome could not be recorded; reconcile the quarantined workspace before further effects' };
+}
 
 export interface EngineOptions {
   dbPath: string;
@@ -44,10 +62,13 @@ export class MoodcodeEngine {
   readonly store: SqliteStore;
   readonly coordinator: RunCoordinator;
   readonly approvals: ApprovalManager;
+  readonly reviewJournal: ReviewJournal;
   private closing = false;
   private closePromise?: Promise<void>;
   private readonly defaults: RunConfig;
   private readonly capabilities: EngineCapabilities;
+  private readonly executionLockPath: string;
+  private readonly restoreRequests = new Map<string, { binding: RestoreOperationInput; promise: Promise<RestoreCommandResult> }>();
 
   constructor(options: EngineOptions) {
     if (!options || typeof options.dbPath !== 'string' || options.dbPath.length === 0) {
@@ -55,13 +76,18 @@ export class MoodcodeEngine {
     }
     this.defaults = normalizeSubmitInput({ sessionId: 'defaults', requestId: 'defaults', prompt: 'defaults', config: options.defaults ?? {} }).config;
     const dbPath = options.dbPath === ':memory:' ? options.dbPath : resolve(options.dbPath);
-    const artifactDir = resolve(options.artifactDir ?? `${options.dbPath}.artifacts`);
+    const artifactDir = options.artifactDir !== undefined ? resolve(options.artifactDir)
+      : dbPath === ':memory:' ? mkdtempSync(join(tmpdir(), 'moodcode-memory-artifacts-')) : resolve(`${options.dbPath}.artifacts`);
     if (dbPath !== ':memory:') mkdirSync(dirname(dbPath), { recursive: true });
     mkdirSync(artifactDir, { recursive: true, mode: 0o700 });
     this.store = new SqliteStore(dbPath);
+    let reviewJournal: ReviewJournal | undefined;
     try {
-      const executionLockPath = dbPath === ':memory:' ? resolve(artifactDir, 'effects.sqlite') : `${realpathSync(dbPath)}.effects.sqlite`;
-      verifyExecutionIdle(executionLockPath);
+      const canonicalDbPath = dbPath === ':memory:' ? undefined : realpathSync(dbPath);
+      this.executionLockPath = canonicalDbPath === undefined ? resolve(artifactDir, 'effects.sqlite') : `${canonicalDbPath}.effects.sqlite`;
+      verifyExecutionIdle(this.executionLockPath);
+      reviewJournal = new ReviewJournal(canonicalDbPath === undefined ? resolve(artifactDir, 'review.sqlite') : `${canonicalDbPath}.review.sqlite`);
+      this.reviewJournal = reviewJournal;
       this.store.recoverInterrupted();
       this.approvals = new ApprovalManager(this.store);
       const providers = new Map<string, ProviderAdapter>([['scripted', new ScriptedProvider()]]);
@@ -80,11 +106,20 @@ export class MoodcodeEngine {
         tools,
         approvals: this.approvals,
         artifactDir,
-        executionLockPath,
+        executionLockPath: this.executionLockPath,
         buildContext,
       });
+      for (const operation of this.reviewJournal.recoverPending()) {
+        const run = this.store.getRun(operation.runId);
+        if (run.workspaceId !== operation.workspaceId || run.sessionId !== operation.sessionId
+          || !this.store.listCheckpoints(run.id).some((checkpoint) => checkpoint.id === operation.checkpointId && checkpoint.runId === run.id)) {
+          throw new EngineError('REVIEW_OPERATION_BINDING_MISMATCH', 'Interrupted restoration does not match the primary run and checkpoint');
+        }
+        this.coordinator.quarantineWorkspace(operation.workspaceId);
+      }
     } catch (error) {
-      this.store.close();
+      try { reviewJournal?.close(); }
+      finally { this.store.close(); }
       throw error;
     }
   }
@@ -106,6 +141,15 @@ export class MoodcodeEngine {
           result = this.store.putWorkspace(workspace);
           break;
         }
+        case 'workspace.getStatus':
+          result = await getWorkspaceStatus(this.store.getWorkspace(payload.workspaceId as string));
+          break;
+        case 'file.list':
+          result = await listWorkspaceFiles(this.store.getWorkspace(payload.workspaceId as string), payload.path as string | undefined);
+          break;
+        case 'file.read':
+          result = await readWorkspaceFile(this.store.getWorkspace(payload.workspaceId as string), payload.path as string);
+          break;
         case 'session.create': {
           const workspaceId = payload.workspaceId as string;
           this.store.getWorkspace(workspaceId);
@@ -133,6 +177,19 @@ export class MoodcodeEngine {
         case 'review.getDiff':
           result = await getReviewDiff(this.store, payload.runId as string);
           break;
+        case 'review.previewRestore': {
+          const run = this.restoreRun(payload.runId as string, payload.checkpointId as string);
+          result = await previewRestoreCheckpoint(this.store, this.store.getWorkspace(run.workspaceId), payload.checkpointId as string, { executionLockPath: this.executionLockPath });
+          break;
+        }
+        case 'review.restore':
+          result = await this.restore(command.commandId, payload.runId as string, payload.checkpointId as string, payload.previewFingerprint as string);
+          break;
+        case 'review.history': {
+          const run = this.store.getRun(payload.runId as string);
+          result = { runId: run.id, operations: this.reviewJournal.list(run.id) } satisfies ReviewHistoryResult;
+          break;
+        }
         case 'events.subscribe':
           this.store.getSession(payload.sessionId as string);
           result = { sessionId: payload.sessionId, afterSeq: payload.afterSeq ?? 0 };
@@ -160,6 +217,91 @@ export class MoodcodeEngine {
     }
   }
 
+  private restoreRun(runId: string, checkpointId: string): Run {
+    const run = this.store.getRun(runId);
+    if (!this.store.listCheckpoints(runId).some((checkpoint) => checkpoint.id === checkpointId && checkpoint.runId === runId)) {
+      throw new EngineError('CHECKPOINT_RUN_MISMATCH', 'Checkpoint does not belong to the requested run');
+    }
+    return run;
+  }
+
+  private restoreReply(operation: RestoreOperation): RestoreCommandResult {
+    if (operation.state === 'completed' && operation.result) return { ...operation.result, operationId: operation.id, duplicate: true };
+    if (operation.state === 'started') throw new EngineError('RESTORE_PENDING', 'Restoration has already started and has no recorded final outcome; effects will not be replayed');
+    if (operation.error) throw new EngineError(operation.error.code, operation.error.message);
+    throw new EngineError('RESTORE_INTERRUPTED', 'Restoration has no confirmed outcome; effects will not be replayed');
+  }
+
+  private restore(commandId: string, runId: string, checkpointId: string, fingerprint: string): Promise<RestoreCommandResult> {
+    const sameRequest = (binding: RestoreOperationInput): boolean => binding.runId === runId && binding.checkpointId === checkpointId && binding.fingerprint === fingerprint;
+    const conflict = (): never => { throw new EngineError('REVIEW_JOURNAL_OPERATION_CONFLICT', 'Operation ID is already bound to a different restore request'); };
+    const inFlight = this.restoreRequests.get(commandId);
+    if (inFlight) {
+      if (!sameRequest(inFlight.binding)) conflict();
+      return inFlight.promise.then((result) => ({ ...result, duplicate: true }));
+    }
+    const existing = this.reviewJournal.get(commandId);
+    if (existing) {
+      if (!sameRequest(existing)) conflict();
+      const recordedRun = this.restoreRun(runId, checkpointId);
+      if (existing.sessionId !== recordedRun.sessionId || existing.workspaceId !== recordedRun.workspaceId) conflict();
+      return Promise.resolve(this.restoreReply(existing));
+    }
+    const run = this.restoreRun(runId, checkpointId);
+    if (!isTerminal(run.state)) throw new EngineError('RUN_NOT_TERMINAL', 'An active run cannot be restored');
+    const workspace = this.store.getWorkspace(run.workspaceId);
+    const binding: RestoreOperationInput = { id: commandId, runId, checkpointId, fingerprint, sessionId: run.sessionId, workspaceId: run.workspaceId };
+    let observed: RestoreCommandResult | undefined;
+    const lease = this.coordinator.withWorkspaceLease(workspace.id, async (signal) => {
+      // All audit writes stay inside the lease so close cannot release either
+      // SQLite connection while a restoration is still recording its outcome.
+      try {
+        // The public journal may have been updated after synchronous dispatch
+        // admission but before this microtask. Never execute a known operation.
+        const previous = this.reviewJournal.get(commandId);
+        if (previous) {
+          if ((Object.keys(binding) as (keyof RestoreOperationInput)[]).some((key) => previous[key] !== binding[key])) conflict();
+          observed = this.restoreReply(previous);
+          return observed;
+        }
+        this.reviewJournal.start(binding);
+      }
+      catch (error) {
+        if (error instanceof EngineError) throw error;
+        throw new EngineError('REVIEW_RECORD_FAILED', 'Restoration could not start because audit recording failed');
+      }
+      let restored: RestoreResult;
+      try { restored = await restoreCheckpoint(this.store, workspace, checkpointId, { signal, executionLockPath: this.executionLockPath, previewFingerprint: fingerprint }); }
+      catch (error) {
+        const failure = error instanceof EngineError ? error : new EngineError('RESTORE_FAILED', 'Checkpoint restoration failed');
+        try { this.reviewJournal.finish(commandId, { error: { code: failure.code, message: failure.message } }); }
+        catch {
+          this.coordinator.quarantineWorkspace(workspace.id);
+          throw new EngineError(failure.code, failure.message, { ...(failure.details ?? {}), recordMetadataError: metadataFailure() });
+        }
+        throw failure;
+      }
+      observed = { ...restored, operationId: commandId, duplicate: false };
+      if (restored.effectsUncertain || restored.executionBlocked) this.coordinator.quarantineWorkspace(workspace.id);
+      try { this.reviewJournal.finish(commandId, restored); }
+      catch {
+        this.coordinator.quarantineWorkspace(workspace.id);
+        observed.recordMetadataError = metadataFailure();
+        observed.warnings = [...observed.warnings, observed.recordMetadataError.message];
+      }
+      return observed;
+    });
+    const pending = lease.catch((error: unknown) => {
+      // A returned service result retains its observed partial effects even
+      // when the coordinator refuses to claim confirmed cleanup.
+      if (observed && error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN') return observed;
+      throw error;
+    }).finally(() => { this.restoreRequests.delete(commandId); });
+    this.restoreRequests.set(commandId, { binding, promise: pending });
+    void pending.catch(() => {});
+    return pending;
+  }
+
   subscribe(sessionId: string, afterSeq = 0, signal?: AbortSignal): AsyncIterable<EngineEvent> {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     if (!Number.isSafeInteger(afterSeq) || afterSeq < 0) throw new EngineError('INVALID_CURSOR', 'afterSeq must be a non-negative safe integer');
@@ -181,10 +323,16 @@ export class MoodcodeEngine {
   close(): Promise<void> {
     if (this.closePromise) return this.closePromise;
     this.closing = true;
-    this.closePromise = (async () => {
+    let resolve!: () => void;
+    let reject!: (error: unknown) => void;
+    this.closePromise = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
+    void (async () => {
       try { await this.coordinator.close(); }
-      finally { await this.store.closeAsync(); }
-    })();
+      finally {
+        try { this.reviewJournal.close(); }
+        finally { await this.store.closeAsync(); }
+      }
+    })().then(resolve, reject);
     return this.closePromise;
   }
 }

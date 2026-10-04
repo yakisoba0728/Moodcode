@@ -5,6 +5,7 @@ const MAX_ID_BYTES = 256;
 const MAX_PROMPT_BYTES = 131_072;
 const MAX_PATH_BYTES = 4_096;
 const encoder = new TextEncoder();
+const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 const LIMIT_MAXIMUMS: Readonly<RunLimits> = Object.freeze({
   maxTurns: 128,
   maxToolCalls: 1_024,
@@ -18,8 +19,10 @@ const LIMIT_KEYS: readonly (keyof RunLimits)[] = [
 ];
 const COMMAND_TYPES = new Set([
   'engine.getCapabilities',
-  'workspace.open', 'session.create', 'session.list', 'session.getSnapshot',
+  'workspace.open', 'workspace.getStatus', 'file.list', 'file.read',
+  'session.create', 'session.list', 'session.getSnapshot',
   'run.submit', 'run.cancel', 'approval.decide', 'review.getDiff', 'events.subscribe',
+  'review.previewRestore', 'review.restore', 'review.history',
 ]);
 
 function invalid(path: string, rule: string): never {
@@ -76,6 +79,34 @@ function string(value: unknown, path: string, maxBytes: number, controlCharacter
 
 function id(value: unknown, path: string): string {
   return string(value, path, MAX_ID_BYTES, true);
+}
+
+/** GUI paths are already canonical; presentation owns filesystem/exclusion checks. */
+function relativePath(value: unknown, path: string, allowRoot = false): string {
+  if (typeof value !== 'string') invalid(path, 'must be a string');
+  if (value === '') {
+    if (allowRoot) return value;
+    invalid(path, 'must not be empty');
+  }
+  if (value.length > MAX_PATH_BYTES) invalid(path, `must not exceed ${MAX_PATH_BYTES} UTF-8 bytes`);
+  const encoded = encoder.encode(value);
+  if (encoded.byteLength > MAX_PATH_BYTES) invalid(path, `must not exceed ${MAX_PATH_BYTES} UTF-8 bytes`);
+  if (decoder.decode(encoded) !== value) invalid(path, 'must be well-formed UTF-8 text');
+  if (/[\u0000-\u001f\u007f-\u009f]/u.test(value)) invalid(path, 'must not contain control characters');
+  if (value.includes('\\') || value.startsWith('/') || /^[A-Za-z]:/u.test(value)) {
+    invalid(path, 'must be a workspace-relative path with forward slashes');
+  }
+  if (value.split('/').some((part) => part === '' || part === '.' || part === '..')) {
+    invalid(path, 'must not contain traversal or empty path segments');
+  }
+  return value;
+}
+
+function restoreFingerprint(value: unknown): string {
+  if (typeof value !== 'string' || value.length !== 64 || !/^[a-f0-9]{64}$/u.test(value)) {
+    invalid('payload.previewFingerprint', 'must be a lowercase SHA-256 fingerprint');
+  }
+  return value;
 }
 
 function integer(value: unknown, path: string, minimum: number, maximum: number): number {
@@ -144,9 +175,21 @@ export function validateCommand(value: unknown, submitDefaults?: RunConfigInput)
       if (has(input, 'title')) payload.title = string(input.title, 'payload.title', MAX_ID_BYTES, true);
       break;
     }
-    case 'session.list': {
+    case 'session.list':
+    case 'workspace.getStatus': {
       const input = object(envelope.payload, 'payload', ['workspaceId']);
       payload = { workspaceId: id(input.workspaceId, 'payload.workspaceId') };
+      break;
+    }
+    case 'file.list': {
+      const input = object(envelope.payload, 'payload', ['workspaceId', 'path']);
+      payload = { workspaceId: id(input.workspaceId, 'payload.workspaceId') };
+      if (has(input, 'path')) payload.path = relativePath(input.path, 'payload.path', true);
+      break;
+    }
+    case 'file.read': {
+      const input = object(envelope.payload, 'payload', ['workspaceId', 'path']);
+      payload = { workspaceId: id(input.workspaceId, 'payload.workspaceId'), path: relativePath(input.path, 'payload.path') };
       break;
     }
     case 'session.getSnapshot': {
@@ -160,9 +203,18 @@ export function validateCommand(value: unknown, submitDefaults?: RunConfigInput)
       break;
     }
     case 'run.cancel':
-    case 'review.getDiff': {
+    case 'review.getDiff':
+    case 'review.history': {
       const input = object(envelope.payload, 'payload', ['runId']);
       payload = { runId: id(input.runId, 'payload.runId') };
+      break;
+    }
+    case 'review.previewRestore':
+    case 'review.restore': {
+      const keys = type === 'review.restore' ? ['runId', 'checkpointId', 'previewFingerprint'] : ['runId', 'checkpointId'];
+      const input = object(envelope.payload, 'payload', keys);
+      payload = { runId: id(input.runId, 'payload.runId'), checkpointId: id(input.checkpointId, 'payload.checkpointId') };
+      if (type === 'review.restore') payload.previewFingerprint = restoreFingerprint(input.previewFingerprint);
       break;
     }
     case 'approval.decide': {

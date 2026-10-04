@@ -58,6 +58,38 @@ export function redactText(text: string, secret: string | undefined): string {
   return secret ? text.replaceAll(secret, redactionMarker(secret)) : text;
 }
 
+/** Additional local OAuth secrets stay in private adapter state. */
+export function credentialSecrets(primary: string | undefined, additional: readonly string[] | undefined): string[] {
+  if (primary !== undefined && (typeof primary !== 'string' || !primary.length)) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider credential redaction configuration is invalid.');
+  if (additional !== undefined && (!Array.isArray(additional) || additional.length > 8)) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider credential redaction configuration is invalid.');
+  const secrets = [...new Set([...(primary ? [primary] : []), ...(additional ?? [])])];
+  if (secrets.length > 8) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider credential redaction configuration is invalid.');
+  let bytes = 0;
+  for (const secret of secrets) {
+    if (typeof secret !== 'string' || !secret.length || secret.length > 32_768 || /[^\x21-\x7e]/.test(secret)) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider credential redaction configuration is invalid.');
+    bytes += secret.length;
+  }
+  if (bytes > 131_072) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider credential redaction configuration is invalid.');
+  return secrets.sort((a, b) => b.length - a.length);
+}
+export function redactCredentialText(text: string, secrets: readonly string[]): string {
+  for (const secret of secrets) text = redactText(text, secret);
+  return text;
+}
+export function redactCredentialJson(value: unknown, secrets: readonly string[]): JsonValue {
+  let result = redactJson(value, undefined);
+  for (const secret of secrets) result = redactJson(result, secret);
+  return result;
+}
+export class CredentialTextRedactor {
+  #redactors: TextRedactor[];
+  constructor(secrets: readonly string[]) { this.#redactors = secrets.map(secret => new TextRedactor(secret)); }
+  push(text: string, final = false): string {
+    for (const redactor of this.#redactors) text = redactor.push(text, final);
+    return text;
+  }
+}
+
 /** Keep only a suffix that could become the injected secret in a later delta. */
 export class TextRedactor {
   #pending = '';

@@ -100,3 +100,60 @@ observer 13개 테스트는 실제 임시 Git repo에서 initial/add/edit/delete
 - binary/oversized/permission/limits 등의 capture warning은 보수적으로 전체 capture를 incomplete로 취급한다. unrelated warning이 있어도 absence를 `unobserved`로 표시할 수 있다. 이전 hash를 무한 보존하지 않으므로 다시 보인 경로의 `beforeHash=null`·`kind=observed`는 이전 부재의 증명이 아니다. 제외된 파일의 내용 변경이 Git status를 바꾸지 않으면 관찰되지 않을 수 있다.
 - sample 전후 검사도 root/parent TOCTOU를 원자적으로 제거하지 못한다. cancellation은 이미 진행 중인 일반 filesystem await가 반환되는 것을 기다린다. filesystem이 무한정 응답하지 않는 환경을 강제로 중단하는 별도 worker/process 분리는 구현하지 않았다. Git subprocess에는 기존 timeout과 abort가 적용된다.
 - Electron/GUI 연결과 Windows runtime 검증은 실행하지 않았다. root가 engine public exports에 `WorkspaceObserver`, `DEFAULT_WORKSPACE_OBSERVER_OPTIONS`와 관련 observation/options 타입을 re-export하면 Electron utility process에서 직접 사용할 수 있다. 공통 facade/contract 변경은 이 service에 필요하지 않다. Electron owner는 lifetime 종료 시 `stop()`을 await하고 IPC에서 Map을 배열로 명시적으로 serialize하는 것이 적절하다.
+
+## 추가 단계 — 첫 GUI용 읽기 전용 presentation
+
+2026-10-04. `packages/engine/src/workspace/presentation.ts`와 `presentation.test.ts`를 구현했다. 이 단계에서는 workspace `index.ts`를 포함해 root facade·validation·공통 exports·contracts·ports를 수정하지 않았다. root는 `./workspace/presentation.js`에서 아래 함수를 import해 연결하면 된다.
+
+정확한 API와 JSON 반환 shape:
+
+```ts
+getWorkspaceStatus(workspace: Workspace, signal?: AbortSignal): Promise<{
+  workspaceId: string;
+  branch: string | null;
+  clean: boolean;
+  dirty: boolean;
+  changedFiles: { path: string; index: string; worktree: string; originalPath?: string }[];
+  totalChangedFiles: number;
+  truncated: boolean;
+  warnings: string[];
+}>
+
+listWorkspaceFiles(workspace: Workspace, path = '', options?: {signal?: AbortSignal}): Promise<{
+  path: string;
+  entries: { path: string; name: string; kind: 'file' | 'directory'; bytes?: number }[];
+  truncated: boolean;
+  warnings: string[];
+}>
+
+readWorkspaceFile(workspace: Workspace, path: string, options?: {signal?: AbortSignal}): Promise<{
+  path: string;
+  content: string;
+  bytes: number;
+  sha256: string;
+  truncated: false;
+}>
+```
+
+추가 export는 `WORKSPACE_PRESENTATION_LIMITS`, `WorkspacePresentationOptions`, `WorkspaceStatusPresentation`, `WorkspaceFileEntry`, `WorkspaceFilesPresentation`, `WorkspaceFilePresentation`다. 기본 객체/배열만 반환하며 Map·bigint·absolute host path를 JSON payload에 넣지 않는다. 파일 읽기의 `bytes`는 원본 파일 byte 수이며 `sha256`은 원본 byte hash다. directory entry에는 `bytes`가 없다. `path`는 `./`·중복 separator를 정리한 workspace-relative 문자열이고 root listing은 `''`이다.
+
+status는 저장된 `workspace.branch`를 복사하지 않고 실제 `getGitStatus`를 호출한다. branch/index/worktree·rename·untracked filename을 보존하고 `totalChangedFiles`·`dirty/clean`은 반환 항목 제한과 독립적으로 실제 Git 결과를 유지한다. 최대 1,000 changed entries, 전체 status JSON 256KiB로 제한하고 생략 시 `truncated`·warning을 반환한다. root anchor의 canonical path·bigint dev/ino를 요청 전후 재검증한다.
+
+listing은 한 directory만 `opendir`로 관찰하고 최대 1,000 **inspected entries**에서 중단한다. 제외되거나 symlink/FIFO인 항목도 탐색 한도를 소비한다. 결과는 directory 우선·이름 순으로 정렬한다. `.git`, `node_modules`, `.hg`, `.svn`, `build`, `dist`, `coverage`, `out`, `.next`, `.nuxt`, `.output`, `.svelte-kit`, `.cache`, `.turbo`, `.vite`, `.parcel-cache`, `.angular` component를 case-insensitive하게 제외한다. 직접 요청한 제외 경로도 `PATH_EXCLUDED`로 거절하며 canonical relative path에도 같은 규칙을 적용한다. symlink·nonregular·읽을 수 없는 child는 생략하고 `truncated=true`·bounded warnings로 표시한다. 표준 excluded component 생략만으로 truncated를 표시하지 않는다. 결과 JSON은 256KiB, warnings는 20개로 제한한다. JSON prefix fitting은 binary search로 수행해 긴 경로에서 quadratic 반복을 피한다. metadata 자체가 JSON 한도를 넘으면 `PRESENTATION_TOO_LARGE`다.
+
+read는 모든 lexical symlink component(내부/외부/부재 target 포함)를 거절한다. `O_RDONLY|O_NOFOLLOW|O_NONBLOCK`, regular-file 판정과 bigint identity를 사용하며 원래 크기+1 byte 이하, 최대 512KiB+1만 descriptor에서 읽는다. 읽기 전 candidate/descriptor·읽기 후 descriptor/current path의 dev/ino·size·nanosecond mtime/ctime을 비교하고 canonical 경로·root anchor도 다시 확인한다. 512KiB는 허용하고 1 byte 초과는 거절하며 content를 자른 성공을 만들지 않는다. UTF-8 BOM·CRLF·multibyte·empty 파일을 보존한다.
+
+주요 오류 코드는 `ABORTED`, `FILE_TOO_LARGE`, `BINARY_FILE`, `INVALID_UTF8`, `FILE_CHANGED`, `SYMLINK_NOT_ALLOWED`, `NOT_REGULAR_FILE`, `NOT_DIRECTORY`, `PATH_EXCLUDED`, `INVALID_WORKSPACE_PATH`, `PATH_OUTSIDE_WORKSPACE`, `PATH_NOT_FOUND`, `PATH_NOT_DIRECTORY`, `PATH_UNAVAILABLE`, `DIRECTORY_CHANGED`, `FILE_UNREADABLE`, `DIRECTORY_UNREADABLE`, `WORKSPACE_ROOT_CHANGED`, `WORKSPACE_UNAVAILABLE`, `PRESENTATION_TOO_LARGE`다. Git subprocess 오류는 기존 Git error code를 유지한다. raw OS error는 파일/디렉터리용 typed code로 정규화해 임의 host diagnostics를 노출하지 않는다.
+
+검증 환경은 기존 macOS·Node v26.9.0·Git 2.55.0이다. 최종 명령:
+
+```sh
+node node_modules/tsx/dist/cli.mjs --test packages/engine/src/workspace/presentation.test.ts
+node node_modules/typescript/bin/tsc --ignoreConfig --noEmit --module NodeNext --moduleResolution NodeNext --target ES2023 --strict --noUncheckedIndexedAccess --skipLibCheck --types node packages/engine/src/workspace/presentation.ts packages/engine/src/workspace/presentation.test.ts
+```
+
+**source tests 14 passed / 0 failed / 0 skipped**, 약 1초. **strict noEmit exit 0**, diagnostics 없음. 별도 `/tmp/moodcode-presentation-compiled-*`에서 strict NodeNext로 관련 source/test를 emit하고 ESM package·root node_modules symlink를 구성한 `node --test <temporary>/presentation.test.js`도 **14 passed / 0 failed / 0 skipped**, 약 0.9초였다. 임시 output은 finally에서 제거했고 shared dist·전체 monorepo build는 수정하지 않았다.
+
+테스트는 실제 Git branch/index/untracked/rename/detached 상태, lazy tree·정렬·direct exclusion·lexical traversal/absolute/NUL/backslash/path-size 경계, 내부/외부/부재/parent symlink, FIFO 비차단, BOM/CRLF/multibyte/empty·원본 hash, 정확한 512KiB와 +1·binary·invalid UTF-8 코드, 1,100 files entry 제한, 800개 긴 경로 JSON 제한, 1,050 skipped symlinks의 탐색/warning 한도, pre-abort·진행 중 cancellation을 검증했다. 실제 FileHandle.read를 test-local hook으로 관찰하여 읽기 도중 파일 교체·512KiB 초과 growth·AbortSignal·real-directory root 교체를 결정적으로 유발했고 거절 코드와 실제 descriptor close를 확인했다.
+
+한계: filesystem snapshot과 후속 효과는 원자적이지 않다. parent component TOCTOU는 O_NOFOLLOW와 전후 검사만으로 완전히 제거하지 못한다. request 시작 이전 root 교체의 원래 inode는 고정 Workspace 계약에 없어서 알 수 없다. listing은 변화/entry/JSON cap 이후 incomplete subset이고 현재 child byte size도 그 순간 관찰값이다. Git branch와 status 역시 단일 atomic 시점이 아니다. UTF-8 binary 판별은 기존 read tool의 control-byte heuristic을 사용하며 모든 binary format을 구별하지 않는다. Windows short-name canonical exclusion을 재검증하도록 구현했으나 Windows·Node 24·Electron/GUI 연결은 실행 검증하지 않았다. 읽기 content 한도는 원본 byte 기준이며 JSON escaping으로 transport byte 수가 커질 수 있다. 서비스는 workspace를 쓰거나 Run/approval/DB 기록을 생성하지 않고 변경 원인을 귀속하지 않는다.

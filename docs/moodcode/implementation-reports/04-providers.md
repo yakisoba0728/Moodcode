@@ -1,6 +1,6 @@
 # 04 — 모델 공급자 구현
 
-2026-10-04, Asia/Seoul. 담당 범위 `packages/engine/src/provider/**`와 이 보고서만 수정했다. 공유 contracts/ports, package 설정, facade, Git 상태 변경 명령, 의존성 설치는 수행하지 않았다.
+2026-10-04, Asia/Seoul. 초기·Responses 담당 범위는 `packages/engine/src/provider/**`와 이 보고서였고, 후속 Codex 인증 작업에서 `packages/engine/src/auth/codex.ts`와 해당 테스트가 추가되었다. 공유 contracts/ports, package 설정, facade, Git 상태 변경 명령, 의존성 설치는 수행하지 않았다.
 
 ## 구현 파일과 export
 
@@ -61,7 +61,7 @@ text-only `length`는 `finish:length`로 반환한다. 도구 인자가 존재�
 - `node_modules/.bin/tsx --test packages/engine/src/provider/*.test.ts`: 전체 공급자 테스트 55/55 통과, 실패/취소/skip 없음.
 - 공급자 index/source/tests의 별도 타입 검사: `node_modules/.bin/tsc --ignoreConfig --noEmit --strict --noUncheckedIndexedAccess --skipLibCheck --target ES2023 --module NodeNext --moduleResolution NodeNext --types node packages/engine/src/provider/index.ts packages/engine/src/provider/openai-compatible.test.ts packages/engine/src/provider/sse.test.ts packages/engine/src/provider/scripted.test.ts` 통과. HTTP 테스트의 asynchronous mutation assertion narrowing과 iterator.return 인자를 수정했으며 ES2023에서도 컴파일된다. 통합 root가 target을 ES2024로 올려도 호환된다. 전체 monorepo build는 통합 담당 범위다.
 
-## 최종 공급자 검증
+## Responses 후속 공급자 검증
 
 - `node_modules/.bin/tsx --test packages/engine/src/provider/*.test.ts`: **213/213 통과**, 실패/취소/skip 없음. 기존 Chat Completions 34, Scripted 13, SSE 8에 Responses 114, native replay 18, 공통 redaction 26을 더한 결과다.
 - Responses 114개는 실제 로컬 `node:http` server와 injected fetch만 사용했다. flat 요청 변환, native lifecycle 종료, 점진적 text/refusal, interleaved tool 인자와 완료 조건, 부분/missing usage, malformed/unsupported/incomplete stream, UTF-8·UTF-16 경계와 모든 한도, timeout·취소·소비자 조기 종료, HTTP/transport/abort 오류의 비밀값 보호를 검증했다. 두 번의 HTTP 호출에서 native reasoning과 commentary phase/function call을 재생하고 tool output 뒤 final_answer phase를 보존했다. foreign replay fallback, same-provider binding 충돌의 HTTP 전 거절, unsafe ciphertext의 도구 공개 전 거절도 통과했다.
@@ -78,3 +78,48 @@ OpenAI Docs 스킬을 사용해 공식 [Chat Completions reference](https://deve
 실제 공급자/API 계정 호출·모델별 지원·인증 성공은 검증하지 않았다. 실제 API key를 찾거나 외부 유료 endpoint를 호출하지 않았다. 멀티모달·built-in hosted tool output·deprecated function_call·여러 choice·JSON nonstream fallback은 이 구현에 포함되지 않는다. 고정 `TurnRequest`에 model option 필드가 없어 temperature/max_tokens 등의 임의 옵션은 추가하지 않았다. capability 자동 추정이나 공급자별 fallback/재시도도 없다.
 
 공유 replay schema/port 및 public engine facade 변경은 통합 담당이 수행했다. 공급자 담당은 위 공유 파일을 직접 수정하지 않았다.
+
+## 기존 Codex 인증을 사용하는 후속 구현
+
+사용자가 지정한 기존 Codex ChatGPT 인증을 사용하는 `provider/codex.ts`와 인증 helper `auth/codex.ts`를 추가했다. 공개 API는 `CodexProvider`, `createCodexProvider(options?)`, `CodexProviderOptions`, `getCodexAuthStatus(options?)`, `CodexAuthStatus`, `CodexAuthOptions`이다. 공급자 id는 `codex`로 고정한다. 내부 `createCodexCredentialReader`/`CodexCredential`은 engine facade에서 export하지 않는다. facade와 GUI 연결은 통합 담당 범위다.
+
+공식 [Codex authentication](https://developers.openai.com/codex/auth), [SIWC models and inference](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference), [SIWC preview limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)를 검색한 뒤 페이지를 직접 확인했다. Codex 문서는 `auth.json` 또는 OS credential store와 Codex 자체의 토큰 갱신을 설명한다. 새 SIWC plan grant는 public Responses API 경로를 사용하므로 기존 Codex 로그인 토큰과 audience·경로가 같다고 가정하지 않았다.
+
+설치된 Codex 0.160.0에 대응하는 공식 commit `a956835d020762cb2b570053af06f643a11c0ecc`의 [provider 선택](https://github.com/openai/codex/blob/a956835d020762cb2b570053af06f643a11c0ecc/codex-rs/model-provider-info/src/lib.rs#L421)과 [응답 경로 결합](https://github.com/openai/codex/blob/a956835d020762cb2b570053af06f643a11c0ecc/codex-rs/codex-client/src/provider.rs#L55)을 확인했다. 기존 ChatGPT 인증의 목적지는 **`https://chatgpt.com/backend-api/codex/responses`**로 고정했다. [인증 헤더](https://github.com/openai/codex/blob/a956835d020762cb2b570053af06f643a11c0ecc/codex-rs/model-provider/src/bearer_auth_provider.rs#L31)를 따라 access token은 Authorization Bearer, account ID는 ChatGPT-Account-ID로만 전달한다. Moodcode 자체 attribution인 `originator:moodcode`, `User-Agent:Moodcode/0.1.0`을 사용한다. custom endpoint/baseURL/header/credential/id override를 거절하고 redirect를 금지한다. public API로 자동 fallback하지 않는다.
+
+CodexProvider는 기존 ResponsesProvider를 turn마다 구성하는 private fetch wrapper다. 요청의 system input은 developer로 변환하고 `instructions:""`, `store:false`, `stream:true`, 전체 context의 input 배열, encrypted reasoning include를 보낸다. 빈 instructions와 developer input의 조합은 공식 [native client](https://github.com/openai/codex/blob/a956835d020762cb2b570053af06f643a11c0ecc/codex-rs/core/src/client.rs#L902)에서 확인했다. 기존 standard route의 [flat function tool 테스트](https://github.com/openai/codex/blob/a956835d020762cb2b570053af06f643a11c0ecc/codex-rs/tools/src/tool_spec_tests.rs#L119)에 맞춰 function tool 형식을 유지한다. wrapper로 커진 최종 요청도 byte limit을 다시 검사한다. Moodcode context, runner의 tool 실행·승인·agent loop와 `codex` replay binding을 그대로 사용하며 app-server/stdio agent loop를 실행하지 않는다.
+
+인증은 `CODEX_HOME` 또는 `~/.codex`의 `auth.json`을 매 turn 다시 읽는다. auth_mode chatgpt만 사용하고 인증 파일에 쓰거나 refresh token을 교환·회전하지 않는다. 최대 128 KiB, regular file, symlink 거절/O_NOFOLLOW, open 전후 inode·device·크기·수정 시각 일치, 읽는 동안 취소, 엄격한 UTF-8·plain JSON·깊이 검증을 적용한다. access JWT의 exp를 로컬 힌트로 검사하되 서명/실제 계정 권한을 검증했다고 주장하지 않는다. missing/expired/unreadable/invalid/unsupported는 static `CODEX_AUTH_*` 오류이고 취소 reason·파일 경로·원본 오류는 공개하지 않는다. 인증 buffer는 정리 시 지운다. access/account/refresh/id 문자열은 private credential closure에만 두고 일반 JSON·inspect에 포함하지 않는다.
+
+`getCodexAuthStatus()`는 `{state, modelId?}`만 반환한다. 기본 모델은 bounded local config의 top-level model 또는 모델 캐시의 valid slug에서 조회한다. 다른 config/cache 필드와 token/account 정보는 반환하지 않는다. 실제 로컬 조회에서 **`{"state":"ready","modelId":"gpt-6.1-sol"}`**만 출력했다. ready는 안전하게 읽을 수 있는 로컬 인증 상태이며 실제 inference entitlement 확인은 아니다.
+
+ResponsesProvider에 private `redactionSecrets` 옵션을 추가해 access/refresh/id/account 문자열을 모두 기존 text/tool/replay 보호 경로에 적용했다. 도구 인자에 JSON escape로 표시된 credential도 가린다. opaque reasoning ciphertext에 어느 credential이든 포함되면 도구/finish 공개 전에 실패한다. bearer token은 HTTP header에만 넣으므로 기존 API key의 4 KiB 제한을 변경하지 않고 Codex 토큰은 최대 32 KiB까지 지원한다. 인증값을 DB/journal/renderer/log/테스트 파일에 기록하는 동작은 추가하지 않았다.
+
+## Codex 후속 최종 검증
+
+- `provider/codex.test.ts`: **33/33** 소스·컴파일 ESM 통과. 주입한 fetch만 사용해 고정 OpenAI 경로·헤더·요청, custom destination 거절, 5 KiB access token, turn마다 파일 재읽기와 무수정, auth 오류·취소, native lifecycle/usage/한도, 모든 credential의 text/tool/replay/ciphertext 보호, 두 turn의 reasoning/commentary/tool result/final_answer 재생을 검증했다.
+- `auth/codex.test.ts`: **45/45** 소스·컴파일 ESM 통과. synthetic temporary auth/config/cache만 사용해 상태 metadata, 만료·형식·크기·regular file/symlink·취소, private credential inspection, refresh 파일 교체의 다음 use 반영, 모델 slug 선택·비밀값 필터를 검증했다.
+- 공급자와 인증 전체: `node_modules/.bin/tsx --test packages/engine/src/provider/*.test.ts packages/engine/src/auth/*.test.ts`: **291/291 통과**, 실패/취소/skip 없음. 기존 213개도 변경 후 통과했다.
+- 전체 provider/auth `.ts` 및 imported ports를 `--ignoreConfig --strict --noUncheckedIndexedAccess --skipLibCheck --target ES2024 --module NodeNext --moduleResolution NodeNext --types node --rootDir packages/engine/src --outDir <temporary-directory>`로 컴파일했다. **엄격한 컴파일 통과**, 별도 ESM `node --test`로 **291/291 통과**. 최종 임시 검증 경로는 `/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-codex-verified-ucbfnzp0`이다. 공유 dist/config/npm/Git은 수정하지 않았다.
+
+실제 모델·계정 inference 요청은 공급자 담당이 실행하지 않았다. 공식 runtime 경로와 local ready 상태를 확인했고 실제 모델 probe는 통합 담당이 수행한다. OS keyring-only 인증, 이 앱의 독립 로그인/refresh, 새 SIWC grant, custom proxy route는 이번 범위에 포함되지 않는다.
+
+## 실제 Codex 응답 shape에 따른 호환성 수정
+
+통합 담당의 실제 최소 모델 probe는 HTTP 200을 받았으나 기존 generic Responses 검증에서 `PROVIDER_MALFORMED_STREAM`으로 끝났다. 통합 담당이 원본 응답·토큰·헤더 값을 저장하거나 전달하지 않고 event key/type/status/배열 shape만 제공했다. 확인된 차이는 Content-Type 헤더 생략, message added의 `status:completed`와 빈 content, 모든 text/content/item done 뒤 terminal completed의 빈 `output:[]`였다. sequence·응답 status·item identity·완료 lifecycle은 제공된 형태대로 검증한다.
+
+`ResponsesProvider.streamProfile:'codex'`를 제한적으로 추가했다. 이 profile은 id `codex`와 정확한 `https://chatgpt.com/backend-api/codex/responses`에서만 생성할 수 있다. CodexProvider 내부에서만 선택하고 호출자가 profile을 override하면 거절한다. generic/default/명시적 `responses` profile은 이전 검증을 유지한다. Codex profile은 Content-Type이 실제로 없을 때만 header 검사 예외를 적용하고, SSE bytes·JSON event·native lifecycle 검증은 그대로 수행한다. 명시적인 잘못된 Content-Type과 임의 JSON body를 받아들이지 않는다.
+
+added의 `status:completed`를 허용해도 item이 done 상태가 되지는 않는다. `arguments.done`, `text.done`, `item.done`과 최종 lifecycle이 여전히 필요하다. completed terminal의 output이 비었을 때에만 모든 output index의 검증된 `item.done` snapshot을 원래 순서로 수집한다. snapshot 누락·index gap·incomplete item·잘못된 인자/identity는 계속 거절한다. terminal에 full output이 있으면 이전 snapshot/binding 검증을 수행한다. 수집한 native output도 기존 크기/JSON/credential/replay binding 검사를 통과한 뒤에만 도구와 finish를 반환한다. 일반 Responses 동작을 완화하지 않았다.
+
+- Codex 테스트 **51/51** 통과: 18개 native-profile 회귀 사례를 추가했다. 관찰된 세 shape를 함께 재현하고 reasoning·phase·function replay 재구성, args/item done 이후에도 terminal 전 도구 미공개, full output 충돌, 잘못된/missing done, 일반 JSON 거절, 취소·reader 정리·한도·credential 보호를 확인했다.
+- Responses 테스트 **139/139** 통과: 25개 strict/profile 회귀 사례를 추가했다. 기본 profile, Codex id/경로지만 profile 생략, 명시적 `responses` profile의 엄격한 header/status/output 검사와 codex profile의 origin/path/id/enum 제한을 확인했다.
+- 공급자·인증 전체 소스 **334/334**, 별도 컴파일된 ESM **334/334** 통과. 실패/취소/skip 없음. 엄격한 ES2024/NodeNext compile도 통과했다. 최종 검증 경로: `/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-codex-native-verified-xd_6jcsc`.
+
+후속 수정에서도 공급자 담당의 실제 인증/모델 계정 호출은 없었다. 관찰된 shape를 synthetic fixture로 재현했으며 실제 provider 재시도는 통합 담당이 수행한다.
+
+## 통합 담당의 실제 모델 probe 결과
+
+2026-10-04, Asia/Seoul. 통합 담당이 호환성 수정 후 실제 Codex 계정으로 최소 텍스트 probe를 재시도했고 다음의 sanitized 결과만 전달했다: authState `ready`, model `gpt-6.1-sol`, expected static sentinel `MOODCODE_OK`와의 정확한 일치 `verified:true`, normalized events 3개, `finish:stop`. 해당 모델·계정의 이 요청에서 완료 inference와 native stream 정규화를 확인했다. 토큰·계정 값·응답 원본을 공급자 담당에게 전달하거나 기록하지 않았고 인증 파일도 수정하지 않았다.
+
+공급자 담당의 최종 로컬 검증은 소스·컴파일된 ESM 각각 **334/334 통과**와 엄격한 ES2024/NodeNext 컴파일 통과다. 이후 provider/auth 코드 변경이 없어 테스트를 반복하지 않았다. 통합 담당의 임시 Git fixture에서 자체 engine의 native read/patch/command 실호출 검증은 진행 중이며, 위 최소 텍스트 성공으로 그 tool flow까지 통과했다고 간주하지 않는다.

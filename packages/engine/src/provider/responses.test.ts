@@ -593,3 +593,61 @@ for (const acrossItems of [false, true]) {
     assert.equal(text(result.events), 'before [REDACTED] after');
   });
 }
+
+const codexBaseURL = 'https://chatgpt.com/backend-api/codex';
+const genericIdentities: { name: string; options: ResponsesProviderOptions }[] = [
+  { name: 'default identity', options: {} },
+  { name: 'Codex endpoint identity without an explicit profile', options: { id: 'codex', baseURL: codexBaseURL } },
+  { name: 'explicit Responses profile at the Codex endpoint', options: { id: 'codex', baseURL: codexBaseURL, streamProfile: 'responses' } },
+];
+for (const identity of genericIdentities) {
+  test(`generic stream stays strict about missing Content-Type: ${identity.name}`, async () => {
+    const response = new Response(new Uint8Array(Buffer.from(wire(callStream()))));
+    assert.equal(response.headers.get('content-type'), null);
+    const transport: typeof fetch = async () => response;
+    await failure(new ResponsesProvider({ ...identity.options, fetch: transport, apiKey: SECRET }), 'PROVIDER_MALFORMED_STREAM');
+  });
+
+  for (const itemType of ['message', 'function_call'] as const) {
+    test(`generic added item rejects completed status (${itemType}): ${identity.name}`, async () => {
+      const events = itemType === 'message'
+        ? [created(), added({ id: 'msg-fixture', type: 'message', role: 'assistant', status: 'completed', content: [] }), ...textItems('answer').slice(1), terminal([message('answer')])]
+        : [created(), callAdded(), ...callItems().slice(1), terminal([call()])];
+      if (itemType === 'function_call') events[1] = added(call('', 'fc-fixture', 'call-fixture', 'read_file', 'completed'));
+      const transport: typeof fetch = async () => new Response(wire(events), { headers: { 'Content-Type': 'text/event-stream' } });
+      await failure(new ResponsesProvider({ ...identity.options, fetch: transport, apiKey: SECRET }), 'PROVIDER_MALFORMED_STREAM');
+    });
+  }
+
+  test(`generic completed terminal cannot discard previously completed items: ${identity.name}`, async () => {
+    const transport: typeof fetch = async () => new Response(wire([created(), ...callItems(), terminal([])]), { headers: { 'Content-Type': 'text/event-stream' } });
+    await failure(new ResponsesProvider({ ...identity.options, fetch: transport, apiKey: SECRET }), 'PROVIDER_MALFORMED_STREAM');
+  });
+}
+
+const invalidProfiles: { name: string; options: Record<string, unknown> }[] = [
+  { name: 'foreign origin', options: { id: 'codex', baseURL: 'https://example.invalid/backend-api/codex', streamProfile: 'codex' } },
+  { name: 'deceptive hostname', options: { id: 'codex', baseURL: 'https://chatgpt.com.example.invalid/backend-api/codex', streamProfile: 'codex' } },
+  { name: 'non-HTTPS origin', options: { id: 'codex', baseURL: 'http://chatgpt.com/backend-api/codex', streamProfile: 'codex' } },
+  { name: 'foreign path', options: { id: 'codex', baseURL: 'https://chatgpt.com/v1', streamProfile: 'codex' } },
+  { name: 'Responses endpoint in place of the API prefix', options: { id: 'codex', baseURL: `${codexBaseURL}/responses`, streamProfile: 'codex' } },
+  { name: 'encoded alternate path', options: { id: 'codex', baseURL: 'https://chatgpt.com/backend-api/%63odex', streamProfile: 'codex' } },
+  { name: 'foreign id', options: { id: 'openai-responses', baseURL: codexBaseURL, streamProfile: 'codex' } },
+  { name: 'omitted id', options: { baseURL: codexBaseURL, streamProfile: 'codex' } },
+  { name: 'omitted base URL', options: { id: 'codex', streamProfile: 'codex' } },
+  { name: 'unknown profile name', options: { id: 'codex', baseURL: codexBaseURL, streamProfile: 'compatibility' } },
+  { name: 'empty profile name', options: { id: 'codex', baseURL: codexBaseURL, streamProfile: '' } },
+  { name: 'null profile', options: { id: 'codex', baseURL: codexBaseURL, streamProfile: null } },
+  { name: 'numeric profile', options: { id: 'codex', baseURL: codexBaseURL, streamProfile: 1 } },
+];
+for (const profile of invalidProfiles) {
+  test(`Codex compatibility profile configuration rejects ${profile.name} before fetch`, () => {
+    let calls = 0;
+    const transport: typeof fetch = async () => { calls++; throw new Error('Unexpected fetch.'); };
+    const options = { ...profile.options, fetch: transport, apiKey: SECRET } as unknown as ResponsesProviderOptions;
+    assert.throws(() => new ResponsesProvider(options), error => {
+      assert.ok(error instanceof EngineError); assert.equal(error.code, 'PROVIDER_INVALID_CONFIG'); noSecret(error); return true;
+    });
+    assert.equal(calls, 0);
+  });
+}

@@ -1,13 +1,17 @@
 import { EngineError, type ProviderToolCall } from '@moodcode/contracts';
 import type { ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
 import type { OpenAICompatibleProviderOptions } from './openai-compatible.js';
-import { malformed, optionalString, positiveLimit, publicError, record, redactJson, redactText, TextRedactor } from './helpers.js';
+import { credentialSecrets, CredentialTextRedactor, malformed, optionalString, positiveLimit, publicError, record, redactCredentialJson, redactCredentialText } from './helpers.js';
 import { validateReplayBinding, validateReplayItems } from './replay.js';
 import { readSseData } from './sse.js';
 
 export interface ResponsesProviderOptions extends OpenAICompatibleProviderOptions {
   /** Includes message and opaque reasoning items as well as function calls. */
   maxOutputItems?: number;
+  /** Server-side OAuth adapter secrets; never included in request JSON or diagnostics. */
+  redactionSecrets?: readonly string[];
+  /** Native Codex HTTP quirks; restricted to the fixed Codex identity and route. */
+  streamProfile?: 'responses' | 'codex';
 }
 interface TextPart { type: 'output_text' | 'refusal'; text: string; done: boolean; sawDelta: boolean }
 interface OutputItem {
@@ -15,6 +19,7 @@ interface OutputItem {
   parts: Map<number, TextPart>;
   phase?: 'commentary' | 'final_answer' | null;
   callId?: string; name?: string; arguments: string; argumentsDone: boolean; sawArgumentDelta: boolean;
+  doneSnapshot?: Record<string, unknown>;
 }
 type Usage = Extract<ProviderEvent, { type: 'usage' }>;
 type FinishReason = Extract<ProviderEvent, { type: 'finish' }>['reason'];
@@ -65,6 +70,8 @@ export class ResponsesProvider implements ProviderAdapter {
   readonly id: string;
   #endpoint: string;
   #apiKey: string | undefined;
+  #secrets: string[];
+  #codexProfile: boolean;
   #fetch: typeof globalThis.fetch;
   #limits: { timeoutMs: number; maxFrameBytes: number; maxResponseBytes: number; maxRequestBytes: number; maxToolArgumentBytes: number; maxToolCalls: number; maxOutputItems: number };
 
@@ -73,13 +80,17 @@ export class ResponsesProvider implements ProviderAdapter {
     if (this.#apiKey !== undefined && (typeof this.#apiKey !== 'string' || !this.#apiKey.length || this.#apiKey.length > 4096 || /[^\x21-\x7e]/.test(this.#apiKey))) {
       throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider API key must be a nonempty printable bearer token.');
     }
+    this.#secrets = credentialSecrets(this.#apiKey, options.redactionSecrets);
     this.id = options.id ?? 'openai-responses';
-    if (!/^[a-z][a-z0-9_-]{0,63}$/.test(this.id) || (this.#apiKey && this.id.includes(this.#apiKey))) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider identifier is invalid.');
+    if (!/^[a-z][a-z0-9_-]{0,63}$/.test(this.id) || this.#secrets.some(secret => this.id.includes(secret))) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider identifier is invalid.');
     let base: URL;
     try { base = new URL(options.baseURL ?? 'https://api.openai.com/v1'); } catch { throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider base URL is invalid.'); }
     if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider base URL must be an HTTP API prefix without credentials, query or fragment.');
     base.pathname = base.pathname.replace(/\/+$/, '') + '/responses';
     this.#endpoint = base.href;
+    if (options.streamProfile !== undefined && options.streamProfile !== 'responses' && options.streamProfile !== 'codex') throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider stream profile is invalid.');
+    this.#codexProfile = options.streamProfile === 'codex';
+    if (this.#codexProfile && (this.id !== 'codex' || this.#endpoint !== 'https://chatgpt.com/backend-api/codex/responses')) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Codex stream profile requires its fixed provider identity and route.');
     this.#fetch = options.fetch ?? globalThis.fetch;
     if (typeof this.#fetch !== 'function') throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider requires an HTTP fetch implementation.');
     this.#limits = {
@@ -104,7 +115,7 @@ export class ResponsesProvider implements ProviderAdapter {
         let messageItems: Record<string, unknown>[];
         if (message.role === 'assistant' && message.providerReplay?.providerId === this.id) {
           const replayItems = validateReplayItems(message.providerReplay.items, {
-            apiKey: this.#apiKey, maxItems: this.#limits.maxOutputItems,
+            secrets: this.#secrets, maxItems: this.#limits.maxOutputItems,
             maxBytes: this.#limits.maxRequestBytes,
             maxToolArgumentBytes: this.#limits.maxToolArgumentBytes, maxToolCalls: this.#limits.maxToolCalls,
           });
@@ -142,18 +153,21 @@ export class ResponsesProvider implements ProviderAdapter {
       });
       checkCancellation();
       if (!response.ok) throw new EngineError('PROVIDER_HTTP_ERROR', `Provider HTTP request failed with status ${response.status}.`, { status: response.status });
-      if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/event-stream' || !response.body) throw new EngineError('PROVIDER_MALFORMED_STREAM', 'Provider response must be an SSE stream.');
+      const contentType = response.headers.get('content-type');
+      const acceptsStream = contentType?.split(';')[0]?.trim().toLowerCase() === 'text/event-stream' || this.#codexProfile && contentType === null;
+      if (!acceptsStream || !response.body) throw new EngineError('PROVIDER_MALFORMED_STREAM', 'Provider response must be an SSE stream.');
 
       const items = new Map<number, OutputItem>();
       const itemIds = new Set<string>();
       const callIds = new Set<string>();
-      const redactor = new TextRedactor(this.#apiKey);
+      const redactor = new CredentialTextRedactor(this.#secrets);
       let responseId: string | undefined;
       let inProgress = false;
       let sequence: number | undefined;
       let argumentBytes = 0;
       let publicText = '';
       let terminal: Record<string, unknown> | undefined;
+      let replayOutput: unknown[] | undefined;
       let finish: FinishReason | undefined;
       const argumentSize = (before: string, after: string) => {
         argumentBytes += Buffer.byteLength(after, 'utf8') - Buffer.byteLength(before, 'utf8');
@@ -252,12 +266,25 @@ export class ResponsesProvider implements ProviderAdapter {
             if (terminal.status !== 'completed' || (terminal.incomplete_details !== undefined && terminal.incomplete_details !== null)) malformed();
             finish = callIds.size > 0 ? 'tool_calls' : 'stop';
           }
-          if (!Array.isArray(terminal.output) || terminal.output.length !== items.size) malformed();
-          for (let outputIndex = 0; outputIndex < terminal.output.length; outputIndex++) {
+          if (!Array.isArray(terminal.output)) malformed();
+          let output = terminal.output;
+          if (this.#codexProfile && finish !== 'length' && output.length === 0 && items.size > 0) {
+            // Codex's terminal can omit snapshots already delivered by item.done.
+            // A completed status on item.added never substitutes for item.done.
+            output = [];
+            for (let outputIndex = 0; outputIndex < items.size; outputIndex++) {
+              const item = items.get(outputIndex);
+              if (!item?.done || !item.doneSnapshot) malformed();
+              output.push(item.doneSnapshot);
+            }
+          }
+          if (output.length !== items.size) malformed();
+          for (let outputIndex = 0; outputIndex < output.length; outputIndex++) {
             const item = items.get(outputIndex);
             if (!item || (finish !== 'length' && !item.done)) malformed();
-            snapshot(terminal.output[outputIndex], item, finish === 'length');
+            snapshot(output[outputIndex], item, finish === 'length');
           }
+          replayOutput = output;
           break;
         }
         if (type === 'response.output_item.added') {
@@ -266,7 +293,7 @@ export class ResponsesProvider implements ProviderAdapter {
           const id = nonempty(source.id);
           if (items.has(outputIndex) || itemIds.has(id)) malformed();
           if (source.type !== 'message' && source.type !== 'function_call' && source.type !== 'reasoning') throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Provider returned an unsupported output item.');
-          if (source.status !== undefined && source.status !== 'in_progress') malformed();
+          if (source.status !== undefined && source.status !== 'in_progress' && !(this.#codexProfile && source.status === 'completed')) malformed();
           const item: OutputItem = { id, type: source.type, done: false, incomplete: false, parts: new Map(), arguments: '', argumentsDone: false, sawArgumentDelta: false };
           if (item.type === 'function_call') {
             item.callId = nonempty(source.call_id);
@@ -291,6 +318,7 @@ export class ResponsesProvider implements ProviderAdapter {
           item.incomplete = source.status === 'incomplete';
           snapshot(source, item, item.incomplete);
           if (item.type === 'message') item.phase = phase(source.phase);
+          if (this.#codexProfile) item.doneSnapshot = source;
           item.done = true;
           continue;
         }
@@ -375,17 +403,17 @@ export class ResponsesProvider implements ProviderAdapter {
       for (const [, item] of [...items.entries()].sort(([a], [b]) => a - b)) {
         if (item.type !== 'function_call') continue;
         if (!item.callId || !item.name || !item.argumentsDone || !item.done) malformed();
-        const id = redactText(item.callId, this.#apiKey);
+        const id = redactCredentialText(item.callId, this.#secrets);
         if (publicIds.has(id)) malformed();
         publicIds.add(id);
         let input: unknown;
         try { input = JSON.parse(item.arguments); } catch { malformed(); }
-        completed.push({ id, name: redactText(item.name, this.#apiKey), input: redactJson(input, this.#apiKey) });
+        completed.push({ id, name: redactCredentialText(item.name, this.#secrets), input: redactCredentialJson(input, this.#secrets) });
       }
       const usage = normalizedUsage(terminal.usage);
       const tail = redactor.push('', true);
-      const replayItems = finish === 'length' ? undefined : validateReplayItems(terminal.output, {
-        apiKey: this.#apiKey, maxItems: this.#limits.maxOutputItems,
+      const replayItems = finish === 'length' ? undefined : validateReplayItems(replayOutput, {
+        secrets: this.#secrets, maxItems: this.#limits.maxOutputItems,
         maxBytes: this.#limits.maxResponseBytes,
         maxToolArgumentBytes: this.#limits.maxToolArgumentBytes, maxToolCalls: this.#limits.maxToolCalls,
       });

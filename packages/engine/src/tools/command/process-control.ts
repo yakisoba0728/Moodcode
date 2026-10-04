@@ -28,12 +28,24 @@ export function createCommandEnvironment(source: NodeJS.ProcessEnv = process.env
 
 export function groupExists(pid: number): boolean {
   try { process.kill(-pid, 0); return true; }
-  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false; throw error; }
+  catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ESRCH') return false;
+    // Permission denial cannot establish absence. Keep observing within the
+    // cleanup deadline rather than treating a transient denial as completion.
+    if (code === 'EPERM') return true;
+    throw error;
+  }
 }
 
 function signalGroup(pid: number, signal: NodeJS.Signals): void {
   try { process.kill(-pid, signal); }
-  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; }
+  catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    // A denied signal is never proof of cleanup; settleGroup must still observe
+    // both pipe closure and group absence, or return false at the deadline.
+    if (code !== 'ESRCH' && code !== 'EPERM') throw error;
+  }
 }
 
 async function settleGroup(pid: number, closed: () => boolean, durationMs: number): Promise<boolean> {

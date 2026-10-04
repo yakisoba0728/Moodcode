@@ -12,3 +12,5 @@ node_modules/
 *.sqlite.artifacts/
 .DS_Store
 coverage/
+release/
+artifacts/

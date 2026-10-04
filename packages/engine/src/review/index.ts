@@ -33,9 +33,13 @@ export interface RestorePreviewFile {
 }
 export interface RestorePreview {
   checkpointId: string;
+  runId: string;
   workspaceId: string;
+  atomic: false;
   fingerprint: string;
   files: RestorePreviewFile[];
+  /** Ready targets only: observed postimage -> this checkpoint's preimage. */
+  diff: FileDiff[];
   activeRunIds: string[];
   canRestore: boolean;
   warnings: string[];
@@ -54,6 +58,8 @@ export interface RestoreConflict { path: string; reason: string }
 export interface RestoreFailure { path: string; error: string; mayHaveChanged: boolean }
 export interface RestoreResult {
   checkpointId: string;
+  runId: string;
+  atomic: false;
   restored: string[];
   conflicts: RestoreConflict[];
   failed: RestoreFailure[];
@@ -251,6 +257,7 @@ function loadRestore(store: EngineStore, workspace: Workspace, checkpointId: str
 }
 function restoreWarnings(checkpoint: Checkpoint): string[] {
   const warnings = [...checkpoint.warnings];
+  warnings.push('Files are restored independently; conflicts or failures can leave a partial restoration. Completed effects are not rolled back.');
   if (checkpoint.incomplete) warnings.push('Checkpoint capture was incomplete; only recorded files can be restored.');
   if (checkpoint.kind === 'command') warnings.push('Restoration covers recorded text files only; command process, directory, permission, binary-file and external effects are not undone.');
   return warnings;
@@ -405,6 +412,7 @@ async function buildRestorePreview(workspace: Workspace, checkpoint: Checkpoint,
   const counts = new Map<string, number>();
   for (const file of checkpoint.files) counts.set(file.path, (counts.get(file.path) ?? 0) + 1);
   const files: RestorePreviewFile[] = [];
+  const diff: FileDiff[] = [];
   const identities: unknown[] = [];
   for (const file of checkpoint.files) {
     assertRestoreActive(options.signal);
@@ -424,6 +432,7 @@ async function buildRestorePreview(workspace: Workspace, checkpoint: Checkpoint,
       entry.reason = errorText(error);
     }
     files.push(entry);
+    if (entry.status === 'ready') diff.push({ path: file.path, before: file.after, after: file.before, beforeHash: file.afterHash, afterHash: file.beforeHash });
     identities.push(identity);
   }
   assertRestoreActive(options.signal);
@@ -434,7 +443,7 @@ async function buildRestorePreview(workspace: Workspace, checkpoint: Checkpoint,
   // The fingerprint binds restore targets and observed state. A caller may add
   // the shared lease after a readonly preview without changing those targets.
   const fingerprint = hash(JSON.stringify({ version: 1, workspaceId: workspace.id, root: workspace.root, checkpointId: checkpoint.id, runId: checkpoint.runId, toolCallId: checkpoint.toolCallId, files, identities, activeRunIds: sortedRuns, warnings: restoreWarnings(checkpoint) }));
-  return { checkpointId: checkpoint.id, workspaceId: workspace.id, fingerprint, files, activeRunIds: sortedRuns, canRestore: !sortedRuns.length && files.every((file) => file.status === 'ready'), warnings,
+  return { checkpointId: checkpoint.id, runId: checkpoint.runId, workspaceId: workspace.id, atomic: false, fingerprint, files, diff, activeRunIds: sortedRuns, canRestore: !sortedRuns.length && files.every((file) => file.status === 'ready'), warnings,
     limits: { maxFiles: MAX_FILES, maxFileBytes: MAX_FILE_BYTES, maxTotalBytes: MAX_TOTAL_BYTES, maxMetadataBytes: MAX_RESTORE_METADATA_BYTES }, totalBytes };
 }
 
@@ -454,7 +463,7 @@ export async function restoreCheckpoint(store: EngineStore, workspace: Workspace
   const checkedWorkspace = { ...workspace };
   const { checkpoint, activeRunIds, totalBytes } = loadRestore(store, checkedWorkspace, checkpointId, checkedOptions.signal);
   if (activeRunIds.length) throw new EngineError('RESTORE_WORKSPACE_BUSY', 'An active workspace Run prevents checkpoint restoration', { activeRunIds });
-  const result: RestoreResult = { checkpointId, restored: [], conflicts: [], failed: [], warnings: restoreWarnings(checkpoint), cancelled: false, observations: [], effectsUncertain: false, executionBlocked: false };
+  const result: RestoreResult = { checkpointId, runId: checkpoint.runId, atomic: false, restored: [], conflicts: [], failed: [], warnings: restoreWarnings(checkpoint), cancelled: false, observations: [], effectsUncertain: false, executionBlocked: false };
   const counts = new Map<string, number>();
   for (const file of checkpoint.files) counts.set(file.path, (counts.get(file.path) ?? 0) + 1);
   const duplicates = new Set<string>();
@@ -614,6 +623,8 @@ export async function restoreCheckpoint(store: EngineStore, workspace: Workspace
       result.cancelled = true;
     }
     if (result.failed.some((failure) => failure.mayHaveChanged)) result.warnings.push('Restoration partially failed after filesystem effects; inspect the observed paths before retrying.');
+    const skipped = result.conflicts.length + result.failed.length;
+    if (result.restored.length > 0 && skipped > 0) result.warnings.push(`Restoration was partial: ${result.restored.length} file(s) completed; ${skipped} conflicted or failed. Completed files were not rolled back.`);
     result.executionBlocked = Boolean(lock && result.effectsUncertain);
     if (result.executionBlocked) result.warnings.push('The durable execution marker remains active because restoration effects are uncertain; reconcile them before starting further effects.');
     lock?.release(!result.effectsUncertain);

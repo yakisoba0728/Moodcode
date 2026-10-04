@@ -30,6 +30,12 @@ interface Owner {
   cleanupError?: EngineError;
 }
 
+interface WorkspaceLease {
+  abort: AbortController;
+  done: Promise<void>;
+  cleanupError?: EngineError;
+}
+
 interface Outcome<T> { ok: boolean; value?: T; error?: unknown }
 
 function now(): string { return new Date().toISOString(); }
@@ -113,11 +119,18 @@ function copyReplay(items: unknown, providerId: string, maxBytes: number): Provi
 }
 
 function uncertain(value: unknown): boolean {
-  if (!value || typeof value !== 'object') return false;
-  const record = value as Record<string, unknown>;
-  if (typeof record.code === 'string' && UNSAFE_EFFECT_ERRORS.has(record.code)) return true;
-  if (record.cleanupConfirmed === false || record.cleanupUncertain === true) return true;
-  return uncertain(record.data) || uncertain(record.details);
+  const pending = [value];
+  const seen = new Set<object>();
+  while (pending.length) {
+    const current = pending.pop();
+    if (!current || typeof current !== 'object' || seen.has(current)) continue;
+    seen.add(current);
+    const record = current as Record<string, unknown>;
+    if (typeof record.code === 'string' && UNSAFE_EFFECT_ERRORS.has(record.code)) return true;
+    if (record.cleanupConfirmed === false || record.cleanupUncertain === true || record.effectsUncertain === true || record.executionBlocked === true) return true;
+    pending.push(record.data, record.details);
+  }
+  return false;
 }
 
 function checkAbort(signal: AbortSignal): void {
@@ -159,6 +172,7 @@ async function abortable<T>(operation: () => Promise<T>, signal: AbortSignal, la
 
 export class RunCoordinator implements CoordinatorPort {
   private readonly owners = new Map<string, Owner>();
+  private readonly workspaceLeases = new Map<string, WorkspaceLease>();
   private readonly tools = new Map<string, ToolDefinition>();
   private readonly unsafeWorkspaces = new Set<string>();
   private closing = false;
@@ -173,13 +187,14 @@ export class RunCoordinator implements CoordinatorPort {
 
   submit(input: SubmitInput): RunReceipt {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
-    if (this.unsafeWorkspaces.size) {
+    if (this.unsafeWorkspaces.size || this.workspaceLeases.size) {
       const session = this.options.store.getSession(input.sessionId);
-      if (this.unsafeWorkspaces.has(session.workspaceId)) {
-        // Preserve durable request identity before refusing new effects in quarantine.
+      if (this.unsafeWorkspaces.has(session.workspaceId) || this.workspaceLeases.has(session.workspaceId)) {
+        // Preserve durable request identity before refusing new workspace work.
         const known = this.options.store.getSnapshot(input.sessionId).runs.some((run) => run.requestId === input.requestId);
         if (known) return this.options.store.admit(input);
-        throw new EngineError('CLEANUP_PENDING', 'Workspace cleanup is unconfirmed; new runs are blocked');
+        if (this.unsafeWorkspaces.has(session.workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace cleanup is unconfirmed; new runs are blocked');
+        throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
       }
     }
     // Admission owns request identity and workspace busy checks, in that order.
@@ -200,6 +215,62 @@ export class RunCoordinator implements CoordinatorPort {
       void this.execute(owner).then(resolve, reject).finally(() => { this.owners.delete(run.id); });
     });
     return receipt;
+  }
+
+  /**
+   * Hold workspace admission through every effect, observation and cleanup in
+   * operation's promise. close() signals abort and waits for that promise;
+   * operation must not await close() or detach work from its settlement.
+   */
+  withWorkspaceLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    try {
+      if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
+      this.options.store.getWorkspace(workspaceId);
+      if (this.unsafeWorkspaces.has(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace cleanup is unconfirmed; maintenance is blocked');
+      if (this.workspaceLeases.has(workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
+      // Persisted runs can be active without a local owner (for example, another
+      // coordinator admitted one). Inspect every session before registering.
+      for (const session of this.options.store.listSessions(workspaceId)) {
+        if (this.options.store.getSnapshot(session.id).runs.some((run) => !isTerminal(run.state))) {
+          throw new EngineError('WORKSPACE_BUSY', 'An active workspace run prevents maintenance');
+        }
+      }
+    } catch (error) { return Promise.reject(error); }
+    let settled!: () => void;
+    const lease: WorkspaceLease = { abort: new AbortController(), done: new Promise<void>((resolve) => { settled = resolve; }) };
+    // No await precedes this registration: immediately following submit/lease
+    // calls see the reservation even before operation's microtask starts.
+    this.workspaceLeases.set(workspaceId, lease);
+    const pending = Promise.resolve().then(async () => {
+      try {
+        checkAbort(lease.abort.signal);
+        const result = await operation(lease.abort.signal);
+        if (uncertain(result)) throw new EngineError('CLEANUP_UNCERTAIN', 'Workspace maintenance did not confirm its effects and cleanup');
+        // Preserve observed partial/cancelled restore results after abort. The
+        // callback's settlement, rather than the signal, confirms cleanup.
+        return result;
+      } catch (error) {
+        if (uncertain(error)) {
+          const cause = error instanceof EngineError && error.code !== 'CLEANUP_UNCERTAIN' ? ` (${error.code.slice(0, 128)})` : '';
+          lease.cleanupError = new EngineError('CLEANUP_UNCERTAIN', `Workspace maintenance did not confirm its effects and cleanup${cause}`);
+          this.unsafeWorkspaces.add(workspaceId);
+          throw lease.cleanupError;
+        }
+        throw error;
+      } finally {
+        this.workspaceLeases.delete(workspaceId);
+        settled();
+      }
+    });
+    // close can abort a lease whose caller has not attached a handler yet.
+    void pending.catch(() => {});
+    return pending;
+  }
+
+  /** Block new workspace work after recovery or unconfirmed effect accounting. */
+  quarantineWorkspace(workspaceId: string): void {
+    this.options.store.getWorkspace(workspaceId);
+    this.unsafeWorkspaces.add(workspaceId);
   }
 
   cancel(runId: string): { runId: string; state: RunState } {
@@ -225,17 +296,25 @@ export class RunCoordinator implements CoordinatorPort {
   close(): Promise<void> {
     if (this.closePromise) return this.closePromise;
     this.closing = true;
-    this.closePromise = (async () => {
-      const pending = [...this.owners.values()];
-      const failures: unknown[] = [];
-      for (const owner of pending) {
-        try { this.cancel(owner.run.id); }
-        catch (error) { owner.abort.abort(new EngineError('RUN_CANCELLED', 'Run coordinator is closing')); failures.push(error); }
-      }
-      const settled = await Promise.allSettled(pending.map((owner) => owner.done));
-      for (const result of settled) if (result.status === 'rejected') failures.push(result.reason);
-      if (failures.length) throw failures[0];
-    })();
+    const pending = [...this.owners.values()];
+    const leases = [...this.workspaceLeases.values()];
+    const failures: unknown[] = [];
+    let resolve!: () => void;
+    let reject!: (error: unknown) => void;
+    // Store the promise before abort dispatch: listeners may synchronously
+    // reenter close(), and must receive this same pending promise.
+    this.closePromise = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
+    for (const lease of leases) lease.abort.abort(new EngineError('ENGINE_CLOSED', 'Run coordinator is closing'));
+    for (const owner of pending) {
+      try { this.cancel(owner.run.id); }
+      catch (error) { owner.abort.abort(new EngineError('RUN_CANCELLED', 'Run coordinator is closing')); failures.push(error); }
+    }
+    void Promise.allSettled([...pending.map((owner) => owner.done), ...leases.map((lease) => lease.done)]).then((results) => {
+      for (const result of results) if (result.status === 'rejected') failures.push(result.reason);
+      for (const lease of leases) if (lease.cleanupError) failures.push(lease.cleanupError);
+      if (failures.length) reject(failures[0]);
+      else resolve();
+    }, reject);
     return this.closePromise;
   }
 

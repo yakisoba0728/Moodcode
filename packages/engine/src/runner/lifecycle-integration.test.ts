@@ -16,6 +16,7 @@ import type { CommitChange, ProviderAdapter, ProviderEvent, TurnRequest } from '
 import { buildContext } from '../context/index.js';
 import { ApprovalManager } from '../permission/index.js';
 import { ScriptedProvider, type ScriptedTurn } from '../provider/index.js';
+import { previewRestoreCheckpoint, restoreCheckpoint } from '../review/index.js';
 import { SqliteStore } from '../storage/index.js';
 import { createCommandTool } from '../tools/command/index.js';
 import { assertExecutionLockAvailable } from '../tools/command/execution-lock.js';
@@ -148,6 +149,63 @@ async function pidAt(path: string): Promise<number> {
 function assertGone(pid: number): void {
   assert.throws(() => process.kill(pid, 0), (error: unknown) => error instanceof Error && 'code' in error && error.code === 'ESRCH');
 }
+
+test('maintenance serializes actual approved patch restoration while another workspace run remains cancellable', { timeout: 15_000 }, async (t) => {
+  const writer = provider('maintenance-writer', [[patchCall('write', 'target.txt', 'baseline-0\n', 'changed-before-restore\n'), toolFinish], [stop]]);
+  const waiting = provider('maintenance-waiting', [[patchCall('waiting', 'target.txt', 'baseline-1\n', 'must-not-change\n'), toolFinish], [stop]]);
+  const reader = provider('maintenance-reader', [[{ type: 'tool.call', call: { id: 'read-restored', name: 'read_file', input: { path: 'target.txt' } } }, toolFinish], [stop]]);
+  const f = await fixture(t, [writer, waiting, reader], 2);
+  const submitted = f.input(writer.id);
+  const receipt = f.runner.submit(submitted);
+  allow(f, await approval(f, receipt.runId));
+  assert.equal((await f.runner.waitForRun(receipt.runId)).state, 'completed');
+  terminal(f.store, receipt.runId);
+  const checkpoint = f.store.listCheckpoints(receipt.runId)[0]!;
+  assert.equal(checkpoint.files[0]!.before, 'baseline-0\n');
+  let release!: () => void;
+  const proceed = new Promise<void>((resolve) => { release = resolve; });
+  let ready!: () => void;
+  const previewReady = new Promise<void>((resolve) => { ready = resolve; });
+  let leaseSignal: AbortSignal | undefined;
+  const lease = f.runner.withWorkspaceLease(f.workspaces[0]!.id, async (signal) => {
+    leaseSignal = signal;
+    const preview = await previewRestoreCheckpoint(f.store, f.workspaces[0]!, checkpoint.id, { executionLockPath: f.executionLockPath, signal });
+    assert.equal(preview.canRestore, true);
+    ready();
+    await proceed;
+    return restoreCheckpoint(f.store, f.workspaces[0]!, checkpoint.id, { executionLockPath: f.executionLockPath, previewFingerprint: preview.fingerprint, signal });
+  });
+  try {
+    assert.equal(leaseSignal, undefined, 'Reservation precedes callback execution');
+    const blocked = f.input(reader.id);
+    assert.throws(() => f.runner.submit(blocked), hasCode('WORKSPACE_BUSY'));
+    assert.equal(f.store.getSnapshot(blocked.sessionId).runs.length, 1, 'Blocked input has no durable run');
+    assert.deepEqual(f.runner.submit(submitted), { ...receipt, duplicate: true });
+    assert.throws(() => f.runner.submit({ ...submitted, prompt: 'changed duplicate' }), hasCode('REQUEST_ID_CONFLICT'));
+    await previewReady;
+    const other = f.runner.submit(f.input(waiting.id, f.sessions[1]));
+    const pending = await approval(f, other.runId);
+    assert.equal(f.runner.cancel(other.runId).state, 'cancelling');
+    assert.equal((await f.runner.waitForRun(other.runId)).state, 'cancelled');
+    assert.equal(f.store.getApproval(pending.id).status, 'expired');
+    assert.equal(leaseSignal!.aborted, false, 'Run cancellation does not abort maintenance');
+    assert.equal(await readFile(join(f.workspaces[1]!.root, 'target.txt'), 'utf8'), 'baseline-1\n');
+    terminal(f.store, other.runId);
+    release();
+    const restored = await lease;
+    assert.deepEqual(restored.restored, ['target.txt']);
+    assert.deepEqual(restored.failed, []);
+    assert.equal(restored.effectsUncertain, false);
+    assert.equal(restored.executionBlocked, false);
+    assert.equal(restored.observations[0]!.currentHash, hash('baseline-0\n'));
+    assert.equal(await readFile(join(f.workspaces[0]!.root, 'target.txt'), 'utf8'), 'baseline-0\n');
+    assertExecutionLockAvailable(f.executionLockPath);
+    const after = f.runner.submit(f.input(reader.id));
+    assert.equal((await f.runner.waitForRun(after.runId)).state, 'completed');
+    assert.ok(f.store.getSnapshot(f.sessions[0]!.id).messages.some((message) => message.runId === after.runId && message.role === 'tool' && message.content.includes('baseline-0')));
+    terminal(f.store, after.runId);
+  } finally { release(); await lease.catch(() => {}); }
+});
 
 test('real workspace owners isolate approvals, deduplicate before busy, and release only the cancelled lease', { timeout: 15_000 }, async (t) => {
   const a = provider('a', [[patchCall('shared-provider-id', 'target.txt', 'baseline-0\n', 'changed-a\n'), toolFinish], [stop]]);

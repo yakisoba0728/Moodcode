@@ -1,0 +1,15 @@
+{
+  "name": "@moodcode/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main/index.js",
+  "dependencies": {
+    "@moodcode/contracts": "0.1.0",
+    "@moodcode/engine": "0.1.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "10.1.0"
+  },
+  "description": "Moodcode local coding agent desktop"
+}

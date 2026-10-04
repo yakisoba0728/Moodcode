@@ -150,11 +150,27 @@ test('slow consumers receive only the latest snapshot with deltas against the la
 
 test('a delayed first consumer receives a latest initial snapshot', async (t) => {
   const { root, observe } = await fixture(t);
-  const observer = observe().start();
+  const observer = observe();
+  // Synchronize with real completed samples; fixed sleeps can expire while Git
+  // is still running when the complete suite contends for child processes.
+  let beforeObserved!: () => void;
+  let latestObserved!: () => void;
+  const beforeSample = new Promise<void>(resolve => { beforeObserved = resolve; });
+  const latestSample = new Promise<void>(resolve => { latestObserved = resolve; });
+  const sample = Reflect.get(observer, 'sample').bind(observer) as () => Promise<Pick<WorkspaceObservation, 'files'>>;
+  Reflect.set(observer, 'sample', async () => {
+    const result = await sample();
+    if (result.files.get('tracked.txt')?.hash === hash('before')) beforeObserved();
+    if (result.files.get('tracked.txt')?.hash === hash('latest')) latestObserved();
+    return result;
+  });
+  observer.start();
   assert.equal(observer.start(), observer);
-  await delay(180);
+  await deadline(beforeSample);
+  await delay(0); // Let the poll loop retain the observed initial sample.
   await writeFile(path.join(root, 'tracked.txt'), 'latest');
-  await delay(180);
+  await deadline(latestSample);
+  await delay(0);
   const initial = await next(observer);
   assert.equal(initial.type, 'initial');
   assert.equal(initial.files.get('tracked.txt')?.hash, hash('latest'));

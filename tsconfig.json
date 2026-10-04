@@ -9,6 +9,9 @@
     },
     {
       "path": "apps/engine-harness"
+    },
+    {
+      "path": "apps/desktop"
     }
   ]
 }

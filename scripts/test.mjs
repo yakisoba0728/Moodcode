@@ -12,7 +12,7 @@ async function collect(dir) {
   }
   return result;
 }
-const files = (await Promise.all(['packages/contracts/dist','packages/engine/dist','apps/engine-harness/dist'].map(collect))).flat().sort();
+const files = (await Promise.all(['packages/contracts/dist','packages/engine/dist','apps/engine-harness/dist','apps/desktop/dist/types'].map(collect))).flat().sort();
 if (!files.length) throw new Error('No compiled tests found');
 const result = spawnSync(process.execPath, ['--test', ...files], { stdio: 'inherit' });
 if (result.error) throw result.error;
