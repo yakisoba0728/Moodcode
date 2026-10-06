@@ -48,7 +48,7 @@ test('DB4 migration keeps legacy rows and journals unchanged and creates no synt
     migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 3));
     db.prepare('INSERT INTO workspaces VALUES(?,?,?)').run('workspace', '/tmp/example', '{"legacy":"unchanged"}');
     const before = db.prepare('SELECT * FROM workspaces').all();
-    migrateDatabase(db); assert.deepEqual(db.prepare('SELECT * FROM workspaces').all(), before);
+    migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 4)); assert.deepEqual(db.prepare('SELECT * FROM workspaces').all(), before);
     assert.equal(db.prepare('PRAGMA user_version').get()?.user_version, 4);
     assert.equal(db.prepare('SELECT count(*) AS n FROM summary_attempts').get()?.n, 0);
     assert.equal(db.prepare('SELECT count(*) AS n FROM summary_usage').get()?.n, 0);

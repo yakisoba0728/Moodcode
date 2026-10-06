@@ -1,0 +1,164 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import test, { type TestContext } from 'node:test';
+import { DEFAULT_LIMITS, EngineError, type MessagePart, type ProviderAttempt, type TurnRecord } from '@moodcode/contracts';
+import { SqliteStore } from '../storage/index.js';
+import { validateSummaryRecoveryRequest, type SummaryRecoveryRequest } from './summary.js';
+
+const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+const code = (expected: string) => (error: unknown) => error instanceof EngineError && error.code === expected;
+const config = { providerId: 'fixture', modelId: 'model', mode: 'plan' as const, limits: { ...DEFAULT_LIMITS } };
+function fixture(t: TestContext, restart = true) {
+  const directory = mkdtempSync(join(tmpdir(), 'moodcode-summary-recovery-')), path = join(directory, 'engine.sqlite');
+  let store = new SqliteStore(path), binding = hash('original physical host scope');
+  const timestamp = new Date().toISOString();
+  store.putWorkspace({ id: 'workspace', root: directory, gitRoot: directory, branch: null, createdAt: timestamp });
+  store.createSession({ id: 'session', workspaceId: 'workspace', title: 'Recovery', createdAt: timestamp });
+  store.createSession({ id: 'other', workspaceId: 'workspace', title: 'Other', createdAt: timestamp });
+  const older = store.admit({ sessionId: 'session', requestId: 'old', prompt: 'Exact historical goal', config });
+  store.commit(older.runId, 'run.started', {}, { run: { state: 'running' } });
+  store.commit(older.runId, 'message.completed', {}, { message: { id: 'old-answer', sessionId: 'session', runId: older.runId, role: 'assistant', content: 'Historical verified observation.', createdAt: timestamp } });
+  store.commit(older.runId, 'run.completed', {}, { run: { state: 'completed' } });
+  const messages = store.readModelHistory('session').snapshot.messages;
+  const source = JSON.stringify(messages.map(({ id, runId, role, content }) => ({ id, runId, role, content })));
+  const current = store.admit({ sessionId: 'session', requestId: 'current', prompt: 'Original current constraint', config });
+  store.commit(current.runId, 'run.started', {}, { run: { state: 'running' } });
+  store.createSummaryAttempt({ id: 'summary', scope: 'completed-history', sessionId: 'session', workspaceId: 'workspace', runId: current.runId,
+    providerId: config.providerId, modelId: config.modelId, sourceProjection: 'conversation-text-v1', sourceSha256: hash(source), requestSha256: hash('exact host request'), requestBytes: 100,
+    expectedMemoryRevision: 0, sourceMessageIds: messages.map(message => message.id), sourceRunIds: [older.runId] });
+  store.dispatchSummaryAttempt('summary'); store.observeSummaryAttempt('summary', { textDelta: 'Observed partial summary.', usage: { inputTokens: 9 } });
+  store.settleSummaryAttempt('summary', { state: 'uncertain', cleanupConfirmed: false, errorCode: 'CLEANUP_UNCERTAIN' });
+  const text = JSON.stringify([{ role: 'user', content: 'Original current constraint' }]);
+  store.putContextRevision({ schemaVersion: 2, id: 'context', sessionId: 'session', runId: current.runId, revision: 1, kind: 'baseline', text, sha256: hash(text), sourceIds: messages.map(message => message.id), createdAt: timestamp });
+  store.putSessionDocument('session', 'context.head', 0, { revisionId: 'context', observation: 'initial' });
+  store.commit(current.runId, 'run.failed', { error: { code: 'CLEANUP_UNCERTAIN' } }, { run: { state: 'failed', error: { code: 'CLEANUP_UNCERTAIN', message: 'Unknown summary cleanup' } } });
+  if (restart) { store.close(); store = new SqliteStore(path); }
+  store.configureSummaryRecovery(() => binding);
+  const db = new DatabaseSync(path);
+  t.after(() => { db.close(); store.close(); rmSync(directory, { recursive: true, force: true }); });
+  store.getSnapshot = () => { throw new Error('Summary recovery requires bounded owner queries'); };
+  const request = (): SummaryRecoveryRequest => {
+    const preview = store.getSummaryRecoveryPreview('session', 'summary'); assert.equal(preview.status, 'eligible', JSON.stringify(preview.blockers)); assert.ok(preview.fingerprint);
+    return { sessionId: 'session', summaryAttemptId: 'summary', requestId: 'host-decision', fingerprint: preview.fingerprint, acknowledged: true };
+  };
+  return { store, db, request, current, setBinding(value: string) { binding = value; } };
+}
+
+test('summary recovery request validation rejects proxy/getter traps without reading them and returns a detached snapshot', () => {
+  let traps = 0;
+  const value = { sessionId: 'session', summaryAttemptId: 'summary', requestId: 'request', fingerprint: 'a'.repeat(64), acknowledged: true };
+  const proxy = new Proxy(value, { getPrototypeOf() { traps++; throw new Error('Unexpected prototype trap'); }, ownKeys() { traps++; throw new Error('Unexpected keys trap'); } });
+  assert.throws(() => validateSummaryRecoveryRequest(proxy), code('SUMMARY_RECOVERY_INVALID_REQUEST')); assert.equal(traps, 0);
+  assert.throws(() => validateSummaryRecoveryRequest({ ...value, get fingerprint() { traps++; return 'a'.repeat(64); } }), code('SUMMARY_RECOVERY_INVALID_REQUEST')); assert.equal(traps, 0);
+  const snapshot = validateSummaryRecoveryRequest(value); value.sessionId = 'changed'; assert.equal(snapshot.sessionId, 'session');
+  assert.throws(() => validateSummaryRecoveryRequest({ ...value, acknowledged: false }), code('SUMMARY_RECOVERY_ACKNOWLEDGMENT_REQUIRED'));
+});
+
+test('previous-boot ACK adds one ledger and both audits without changing original summary, usage, context or pause', t => {
+  const f = fixture(t), request = f.request(), before = { attempt: f.store.getSummaryAttempt('summary'), usage: f.store.getSummaryUsage('summary'), head: f.store.getSessionDocument('session', 'context.head'), pause: f.store.getSessionControl('session') };
+  assert.equal(f.store.hasUncertainSummaries('workspace'), true);
+  const receipt = f.store.acknowledgeSummaryRecovery(request); assert.equal(receipt.duplicate, false); assert.equal(receipt.cleanupConfirmed, false); assert.equal(receipt.executionResumed, false);
+  assert.equal(f.store.hasUncertainSummaries('workspace'), false); assert.equal(f.store.getSummaryRecoveryPreview('session', 'summary').status, 'acknowledged');
+  assert.deepEqual({ attempt: f.store.getSummaryAttempt('summary'), usage: f.store.getSummaryUsage('summary'), head: f.store.getSessionDocument('session', 'context.head'), pause: f.store.getSessionControl('session') }, before);
+  assert.equal(f.store.readEvents('session', 0).filter(event => event.type === 'summary.recovery.acknowledged').length, 1);
+  assert.equal(f.store.readSessionEvents('session', 0).filter(event => event.type === 'summary.recovery.acknowledged').length, 1);
+  const duplicate = f.store.acknowledgeSummaryRecovery(request); assert.deepEqual(duplicate, { ...receipt, duplicate: true });
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM summary_recovery_acknowledgments').get()!.n, 1);
+  assert.throws(() => f.store.acknowledgeSummaryRecovery({ ...request, fingerprint: 'b'.repeat(64) }), code('SUMMARY_RECOVERY_REQUEST_CONFLICT'));
+});
+
+test('same-boot summary and another session owner cannot receive a new acknowledgment', t => {
+  const f = fixture(t, false), preview = f.store.getSummaryRecoveryPreview('session', 'summary');
+  assert.equal(preview.status, 'blocked'); assert.ok(preview.blockers.includes('SUMMARY_RECOVERY_RESTART_REQUIRED'));
+  assert.throws(() => f.store.acknowledgeSummaryRecovery({ sessionId: 'session', summaryAttemptId: 'summary', requestId: 'unsafe', fingerprint: 'a'.repeat(64), acknowledged: true }), code('SUMMARY_RECOVERY_RESTART_REQUIRED'));
+  assert.throws(() => f.store.getSummaryRecoveryPreview('other', 'summary'), code('SUMMARY_RECOVERY_OWNER_MISMATCH'));
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM summary_recovery_acknowledgments').get()!.n, 0);
+});
+
+test('mutable head changes reject stale preview but do not invalidate a completed immutable ACK', t => {
+  const f = fixture(t), stale = f.request();
+  f.store.putSessionDocument('session', 'context.head', 1, { revisionId: 'context', observation: 'concurrent host update' });
+  assert.throws(() => f.store.acknowledgeSummaryRecovery(stale), code('SUMMARY_RECOVERY_STALE'));
+  const request = f.request(); f.store.acknowledgeSummaryRecovery(request);
+  f.store.putSessionDocument('session', 'context.head', 2, { revisionId: 'context', observation: 'later explicit Run context' });
+  assert.equal(f.store.hasUncertainSummaries('workspace'), false); assert.equal(f.store.getSummaryRecoveryPreview('session', 'summary').status, 'acknowledged');
+  assert.equal(f.store.acknowledgeSummaryRecovery(request).duplicate, true);
+});
+
+for (const target of ['source-text','source-replay','revision','ledger-revision','scope'] as const) test(`ACK is inactive after immutable ${target} changes, while the original receipt is only a read-only historical decision`, t => {
+  const f = fixture(t), request = f.request(), receipt = f.store.acknowledgeSummaryRecovery(request);
+  if (target === 'source-text') f.db.prepare("UPDATE messages SET data=json_set(data,'$.content','Changed observation') WHERE id='old-answer'").run();
+  if (target === 'source-replay') f.db.prepare("UPDATE messages SET data=json_set(data,'$.providerReplay',json(?)) WHERE id='old-answer'").run('{"providerId":"fixture","items":[{"type":"opaque_changed"}]}');
+  if (target === 'revision') f.db.prepare("UPDATE context_revisions SET data=json_set(data,'$.text','Changed immutable context') WHERE id='context'").run();
+  if (target === 'ledger-revision') f.db.prepare('UPDATE summary_recovery_acknowledgments SET attempt_revision=attempt_revision+1').run();
+  if (target === 'scope') f.setBinding(hash('copied physical database and artifact directory'));
+  assert.equal(f.store.hasUncertainSummaries('workspace'), true);
+  if (target === 'scope') assert.equal(f.store.getSummaryRecoveryPreview('session', 'summary').status, 'eligible');
+  else { const preview = f.store.getSummaryRecoveryPreview('session', 'summary'); assert.equal(preview.status, 'blocked'); assert.ok(preview.blockers.includes('SUMMARY_RECOVERY_SOURCE_CHANGED')); }
+  if (target !== 'ledger-revision' && target !== 'scope') assert.deepEqual(f.store.acknowledgeSummaryRecovery(request), { ...receipt, duplicate: true });
+});
+
+for (const stream of ['events','session_events']) test(`ledger and both audit journals roll back when ${stream} publication fails`, t => {
+  const f = fixture(t), request = f.request();
+  f.db.exec(`CREATE TRIGGER reject_summary_ack BEFORE INSERT ON ${stream} WHEN NEW.type='summary.recovery.acknowledged' BEGIN SELECT RAISE(ABORT,'synthetic audit failure'); END`);
+  assert.throws(() => f.store.acknowledgeSummaryRecovery(request));
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM summary_recovery_acknowledgments').get()!.n, 0);
+  for (const table of ['events','session_events']) assert.equal(f.db.prepare(`SELECT count(*) AS n FROM ${table} WHERE type='summary.recovery.acknowledged'`).get()!.n, 0);
+  assert.equal(f.store.hasUncertainSummaries('workspace'), true); assert.equal(f.store.getSummaryAttempt('summary').state, 'uncertain');
+});
+
+test('oversized pinned source is blocked before returning its body to JavaScript', t => {
+  const f = fixture(t); f.db.prepare("UPDATE messages SET data=json_set(data,'$.content',?) WHERE id='old-answer'").run('x'.repeat(2097153));
+  const preview = f.store.getSummaryRecoveryPreview('session', 'summary'); assert.equal(preview.status, 'blocked'); assert.ok(preview.blockers.includes('SUMMARY_RECOVERY_LIMIT'));
+  assert.equal(f.store.hasUncertainSummaries('workspace'), true);
+});
+
+test('active-prefix exact tool fact reconstruction retains reused provider IDs and validates terminal Part owners', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'moodcode-prefix-recovery-')), path = join(directory, 'engine.sqlite');
+  let store = new SqliteStore(path); const createdAt = new Date().toISOString();
+  store.putWorkspace({ id: 'workspace', root: directory, gitRoot: directory, branch: null, createdAt });
+  store.createSession({ id: 'session', workspaceId: 'workspace', title: 'Active prefix recovery', createdAt });
+  const input = store.acceptInput({ sessionId: 'session', requestId: 'goal', prompt: 'Original authoritative goal', delivery: 'queue', config });
+  const run = store.promoteInput(input.inputId).run; store.commit(run.id, 'run.started', {}, { run: { state: 'running' } });
+  for (let index = 0; index < 3; index++) {
+    const turn: TurnRecord = { schemaVersion: 2, id: `turn-${index}`, sessionId: 'session', runId: run.id, index, inputIds: [input.inputId], state: 'created', createdAt };
+    store.putTurn(turn); store.putTurn({ ...turn, state: 'streaming' });
+    const attempt: ProviderAttempt = { schemaVersion: 2, id: `attempt-${index}`, sessionId: 'session', runId: run.id, turnId: turn.id, index: 0, providerId: config.providerId, modelId: config.modelId, state: 'prepared', createdAt };
+    store.putAttempt(attempt); const dispatched = store.putAttempt({ ...attempt, state: 'dispatched', dispatchedAt: createdAt });
+    const call = { id: 'reused-provider-call', name: 'read_file', input: { path: `observation-${index}.txt` } };
+    const assistantId = `assistant-${index}`, content = `Exact historical nonce-${index}`;
+    store.commit(run.id, 'message.completed', {}, { message: { id: assistantId, sessionId: 'session', runId: run.id, role: 'assistant', content: `Inspect ${index}`, toolCalls: [call], createdAt } });
+    const part: MessagePart = { schemaVersion: 2, id: `part-${index}`, sessionId: 'session', runId: run.id, turnId: turn.id, messageId: assistantId, index: 0, revision: 0, state: 'open', type: 'tool', toolCallId: `internal-${index}`, providerCallId: call.id, name: call.name, input: call.input, createdAt };
+    store.putPart(part); store.putAttempt({ ...dispatched, state: 'completed', completedAt: createdAt }); store.putTurn({ ...turn, state: 'awaiting_tools' });
+    store.commit(run.id, 'tool.completed', {}, { tool: { id: part.toolCallId, sessionId: 'session', runId: run.id, name: call.name, input: call.input, state: 'completed', output: content } });
+    store.commit(run.id, 'message.completed', {}, { message: { id: `result-${index}`, sessionId: 'session', runId: run.id, role: 'tool', toolCallId: call.id, content, createdAt } });
+    store.putPart({ ...part, revision: 1, state: 'completed', result: { output: content, isError: false, truncated: false }, completedAt: createdAt });
+    store.putTurn({ ...turn, state: 'completed', finishReason: 'tool_calls', completedAt: createdAt });
+  }
+  const source = store.readActivePrefixSource(run.id, { stage: 'between-turns', policySha256: hash('host policy'), maxSourceMessages: 128, maxSourceBytes: 65536, keepRecentTurns: 1, maxCoveredMessages: 512 });
+  assert.deepEqual(source.sourceMessageIds, ['assistant-0','result-0','assistant-1','result-1']);
+  store.createSummaryAttempt({ id: 'active-summary', scope: 'active-run-prefix', sessionId: 'session', workspaceId: 'workspace', runId: run.id, providerId: config.providerId, modelId: config.modelId,
+    sourceProjection: source.projection, sourceSha256: source.factsSha256, manifestSha256: source.manifestSha256, policySha256: source.policySha256, requestSha256: hash('exact active request'), requestBytes: 100,
+    sourceMessageIds: source.sourceMessageIds, sourceTurnIds: source.sourceTurnIds, boundaryTurnId: source.boundaryTurnId, boundaryAttemptId: source.boundaryAttemptId, expectedMemoryRevision: 0, expectedContextHeadRevision: 0 });
+  store.dispatchSummaryAttempt('active-summary'); store.observeSummaryAttempt('active-summary', { textDelta: 'Visible partial active observations' });
+  store.settleSummaryAttempt('active-summary', { state: 'uncertain', cleanupConfirmed: false, errorCode: 'CLEANUP_UNCERTAIN' });
+  store.commit(run.id, 'run.failed', {}, { run: { state: 'failed' } }); store.close(); store = new SqliteStore(path); store.configureSummaryRecovery(() => hash('unchanged physical scope'));
+  const db = new DatabaseSync(path); t.after(() => { db.close(); store.close(); rmSync(directory, { recursive: true, force: true }); });
+  const original = store.getSummaryAttempt('active-summary'), originalTurns = store.listTurns(run.id);
+  const preview = store.getSummaryRecoveryPreview('session', 'active-summary'); assert.equal(preview.status, 'eligible', JSON.stringify(preview.blockers)); assert.ok(preview.fingerprint);
+  store.acknowledgeSummaryRecovery({ sessionId: 'session', summaryAttemptId: 'active-summary', requestId: 'host-active-ack', fingerprint: preview.fingerprint, acknowledged: true });
+  assert.equal(store.hasUncertainSummaries('workspace'), false); assert.deepEqual(store.getSummaryAttempt('active-summary'), original); assert.deepEqual(store.listTurns(run.id), originalTurns);
+  db.prepare("UPDATE message_parts SET data=json_set(data,'$.runId','another-run') WHERE id='part-0'").run();
+  assert.equal(store.hasUncertainSummaries('workspace'), true); const invalid = store.getSummaryRecoveryPreview('session', 'active-summary'); assert.equal(invalid.status, 'blocked'); assert.ok(invalid.blockers.includes('SUMMARY_RECOVERY_SOURCE_CHANGED'));
+});
+
+for (const data of ['null', '{', '[]']) test(`malformed ledger ${data} is a typed blocked preview and cannot clear execution`, t => {
+  const f = fixture(t), request = f.request(); f.store.acknowledgeSummaryRecovery(request);
+  f.db.prepare('UPDATE summary_recovery_acknowledgments SET data=?').run(data);
+  assert.equal(f.store.hasUncertainSummaries('workspace'), true); const preview = f.store.getSummaryRecoveryPreview('session', 'summary');
+  assert.equal(preview.status, 'blocked'); assert.ok(preview.blockers.includes('SUMMARY_RECOVERY_SOURCE_CHANGED'));
+});

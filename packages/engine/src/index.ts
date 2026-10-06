@@ -84,3 +84,5 @@ export { getWorkspaceStatus, listWorkspaceFiles, readWorkspaceFile } from './wor
 
 export { getRecoveryStatus, recoverEngine, readRecoveryAcknowledgments, isRestoreAcknowledged, RECOVERY_LIMITS } from './recovery/index.js';
 export type { RecoveryStatus, RecoveryResult, RecoveryAcknowledgment, RecoveryOptions, RecoverEngineOptions } from './recovery/index.js';
+export type { SummaryRecoveryRequest, SummaryRecoveryPreview, SummaryRecoveryReceipt } from './recovery/summary.js';
+export { SUMMARY_RECOVERY_LIMITS } from './recovery/summary.js';

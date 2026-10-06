@@ -55,6 +55,7 @@ interface Owner {
 interface WorkspaceLease {
   abort: AbortController;
   done: Promise<void>;
+  summaryRecovery: boolean;
   cleanupError?: EngineError;
 }
 
@@ -216,18 +217,16 @@ export class RunCoordinator implements CoordinatorPort {
 
   submit(input: SubmitInput): RunReceipt {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
-    if (this.options.store.hasUncertainSummaries) {
-      const session = this.options.store.getSession(input.sessionId);
-      if (this.options.store.hasUncertainSummaries(session.workspaceId)) this.unsafeWorkspaces.add(session.workspaceId);
-    }
-    if (this.unsafeWorkspaces.size || this.workspaceLeases.size) {
-      const session = this.options.store.getSession(input.sessionId);
-      if (this.unsafeWorkspaces.has(session.workspaceId) || this.workspaceLeases.has(session.workspaceId)) {
+    const summarySession = this.options.store.hasUncertainSummaries ? this.options.store.getSession(input.sessionId) : undefined;
+    const summaryBlocked = summarySession ? this.options.store.hasUncertainSummaries!(summarySession.workspaceId) : false;
+    if (summaryBlocked || this.unsafeWorkspaces.size || this.workspaceLeases.size) {
+      const session = summarySession ?? this.options.store.getSession(input.sessionId);
+      if (summaryBlocked || this.unsafeWorkspaces.has(session.workspaceId) || this.workspaceLeases.has(session.workspaceId)) {
         // Preserve durable request identity before refusing new workspace work.
         const known = this.options.store.hasRunRequest?.(input.sessionId, input.requestId)
           ?? this.options.store.getSnapshot(input.sessionId).runs.some((run) => run.requestId === input.requestId);
         if (known) return this.options.store.admit(input);
-        if (this.unsafeWorkspaces.has(session.workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace cleanup is unconfirmed; new runs are blocked');
+        if (summaryBlocked || this.unsafeWorkspaces.has(session.workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace cleanup is unconfirmed; new runs are blocked');
         throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
       }
     }
@@ -250,6 +249,9 @@ export class RunCoordinator implements CoordinatorPort {
   }
 
   assertWorkspaceAvailable(workspaceId: string, excludedRunId?: string): void {
+    // A queued drain during an audit decision must wait without changing the
+    // session's durable pause. The decision owns this temporary reservation.
+    if (this.workspaceLeases.get(workspaceId)?.summaryRecovery) throw new EngineError('WORKSPACE_BUSY', 'A summary recovery decision is in progress');
     this.assertWorkspaceCleanupConfirmed(workspaceId);
     if (this.workspaceLeases.has(workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
     if (this.options.store.hasActiveRuns) { if (this.options.store.hasActiveRuns(workspaceId, excludedRunId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace has an active Run'); }
@@ -259,8 +261,7 @@ export class RunCoordinator implements CoordinatorPort {
   /** Resume may coexist with a live Run, but must never clear uncertain cleanup. */
   assertWorkspaceCleanupConfirmed(workspaceId: string): void {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
-    if (this.options.store.hasUncertainSummaries?.(workspaceId)) this.unsafeWorkspaces.add(workspaceId);
-    if (this.unsafeWorkspaces.has(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace execution is quarantined');
+    if (this.unsafeWorkspaces.has(workspaceId) || this.options.store.hasUncertainSummaries?.(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace execution is quarantined');
   }
 
   /** The input promotion transaction already admitted this real durable Run. */
@@ -303,10 +304,22 @@ export class RunCoordinator implements CoordinatorPort {
    * operation must not await close() or detach work from its settlement.
    */
   withWorkspaceLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    return this.workspaceLease(workspaceId, operation, false);
+  }
+
+  /** Host ledger decisions only. Keeps other quarantines and never wakes queued work. */
+  withSummaryRecoveryLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    return this.workspaceLease(workspaceId, operation, true);
+  }
+
+  private workspaceLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>, summaryRecovery: boolean): Promise<T> {
     try {
       if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
       this.options.store.getWorkspace(workspaceId);
-      this.assertWorkspaceCleanupConfirmed(workspaceId);
+      if (summaryRecovery) {
+        if (this.unsafeWorkspaces.has(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Independent workspace execution quarantine prevents summary recovery');
+        if ([...this.owners.values()].some(owner => owner.run.workspaceId === workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'A live workspace execution owner prevents summary recovery');
+      } else this.assertWorkspaceCleanupConfirmed(workspaceId);
       if (this.workspaceLeases.has(workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
       // Persisted runs can be active without a local owner. SQL stores check
       // the workspace directly; custom legacy stores retain the snapshot path.
@@ -315,7 +328,7 @@ export class RunCoordinator implements CoordinatorPort {
       if (active) throw new EngineError('WORKSPACE_BUSY', 'An active workspace run prevents maintenance');
     } catch (error) { return Promise.reject(error); }
     let settled!: () => void;
-    const lease: WorkspaceLease = { abort: new AbortController(), done: new Promise<void>((resolve) => { settled = resolve; }) };
+    const lease: WorkspaceLease = { abort: new AbortController(), done: new Promise<void>((resolve) => { settled = resolve; }), summaryRecovery };
     // No await precedes this registration: immediately following submit/lease
     // calls see the reservation even before operation's microtask starts.
     this.workspaceLeases.set(workspaceId, lease);
@@ -323,12 +336,12 @@ export class RunCoordinator implements CoordinatorPort {
       try {
         checkAbort(lease.abort.signal);
         const result = await operation(lease.abort.signal);
-        if (uncertain(result)) throw new EngineError('CLEANUP_UNCERTAIN', 'Workspace maintenance did not confirm its effects and cleanup');
+        if (!summaryRecovery && uncertain(result)) throw new EngineError('CLEANUP_UNCERTAIN', 'Workspace maintenance did not confirm its effects and cleanup');
         // Preserve observed partial/cancelled restore results after abort. The
         // callback's settlement, rather than the signal, confirms cleanup.
         return result;
       } catch (error) {
-        if (uncertain(error)) {
+        if (!summaryRecovery && uncertain(error)) {
           const cause = error instanceof EngineError && error.code !== 'CLEANUP_UNCERTAIN' ? ` (${error.code.slice(0, 128)})` : '';
           lease.cleanupError = new EngineError('CLEANUP_UNCERTAIN', `Workspace maintenance did not confirm its effects and cleanup${cause}`);
           this.unsafeWorkspaces.add(workspaceId);
@@ -338,7 +351,7 @@ export class RunCoordinator implements CoordinatorPort {
       } finally {
         this.workspaceLeases.delete(workspaceId);
         settled();
-        this.sessionHooks?.workspaceIdle(workspaceId);
+        if (!summaryRecovery) this.sessionHooks?.workspaceIdle(workspaceId);
       }
     });
     // close can abort a lease whose caller has not attached a handler yet.

@@ -70,6 +70,11 @@ export class InputScheduler {
     } catch (error) { return Promise.reject(error); }
   }
   waitForSession(sessionId: string): Promise<void> { return this.flights.get(sessionId)?.done ?? Promise.resolve(); }
+  /** Retire waiting tickets before an audit decision; durable inputs and pauses stay intact. */
+  holdSummaryRecoveryWorkspace(workspaceId: string): void {
+    this.assertOpen();
+    for (const flight of [...this.flights.values()]) if (flight.workspaceId === workspaceId && !flight.running) this.finish(flight);
+  }
   close(): Promise<void> {
     if (this.closePromise) return this.closePromise;
     this.closing = true;

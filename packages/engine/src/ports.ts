@@ -11,6 +11,7 @@ export interface EngineStore {
   getRun(id: string): Run;
   hasRunRequest?(sessionId: string, requestId: string): boolean;
   hasActiveRuns?(workspaceId: string, excludedRunId?: string): boolean;
+  /** Admission blocker: uncertain summaries without a valid explicit host decision. */
   hasUncertainSummaries?(workspaceId: string): boolean;
   commit(runId: string, type: string, payload: JsonObject, change?: CommitChange): EngineEvent;
   getSnapshot(sessionId: string): SessionSnapshot;

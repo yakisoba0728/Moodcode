@@ -7,6 +7,7 @@ import { backupDatabase } from '../storage/maintenance.js';
 import { databaseVersion } from '../storage/migrations.js';
 import { NATIVE_SESSION_TABLES } from '../storage/native-schema.js';
 import { SUMMARY_STORAGE_TABLES } from '../storage/summary-attempts.js';
+import { SUMMARY_RECOVERY_TABLES } from './summary.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
 import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
@@ -92,7 +93,8 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     if (primary && primaryVersion < 1) fail('RECOVERY_DATABASE_INVALID');
     const primaryTables = primaryVersion >= 2 ? [...PRIMARY_TABLES, ...NATIVE_SESSION_TABLES] : PRIMARY_TABLES;
     const usageTables = primaryVersion >= 3 ? [...primaryTables, 'attempt_usage'] : primaryTables;
-    const primaryHash = primary ? checkDatabase(primary, primaryVersion, primaryVersion >= 4 ? [...usageTables, ...SUMMARY_STORAGE_TABLES] : usageTables, snapshot.check) : null;
+    const summaryTables = primaryVersion >= 4 ? [...usageTables, ...SUMMARY_STORAGE_TABLES] : usageTables;
+    const primaryHash = primary ? checkDatabase(primary, primaryVersion, primaryVersion >= 5 ? [...summaryTables, ...SUMMARY_RECOVERY_TABLES] : summaryTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);
     let marker: Marker | null = null;

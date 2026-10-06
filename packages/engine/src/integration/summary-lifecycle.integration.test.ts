@@ -12,6 +12,7 @@ import { EngineError, type Run } from '@moodcode/contracts';
 import { createEngine, type EngineOptions, type MoodcodeEngine } from '../engine.js';
 import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
 import { SqliteStore } from '../storage/index.js';
+import { DB_VERSION } from '../storage/migrations.js';
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 
 type Scope = 'active-run-prefix' | 'completed-history';
@@ -271,9 +272,9 @@ test('actual completed summary owner, exact source receipt and nullable usage su
   const f = await fixture(t, { stopAfterSummaries: 1 }); assert.equal((await f.done).state, 'completed'); const id = f.summaries[0]!.id;
   const attempt = f.engine.store.getSummaryAttempt(id), usage = f.engine.store.getSummaryUsage(id), pointer = f.pointer(), raw = originalMessages(f), mainCalls = f.main.length, summaryCalls = f.summaries.length;
   await f.engine.close(); const archive = await exportEngineArchive({ dbPath: f.dbPath, artifactDir: f.artifactDir, destination: join(f.root, 'archive') });
-  assert.equal(archive.manifest.databases.find(database => database.role === 'primary')!.schemaVersion, 4);
+  assert.equal(archive.manifest.databases.find(database => database.role === 'primary')!.schemaVersion, DB_VERSION);
   const imported = await importEngineArchive({ directory: archive.directory, destination: join(f.root, 'restored') });
-  assert.equal(imported.schemaVersion, 4); assert.equal(imported.executionResumed, false);
+  assert.equal(imported.schemaVersion, DB_VERSION); assert.equal(imported.executionResumed, false);
   const restored = createEngine({ ...f.options, dbPath: imported.dbPath, artifactDir: imported.artifactDir }); t.after(() => restored.close());
   restored.store.getSnapshot = () => { throw new Error('Restored summary fixture forbids whole snapshots'); };
   assert.deepEqual(restored.store.getSummaryAttempt(id, 'session'), attempt); assert.deepEqual(restored.store.getSummaryUsage(id, 'session'), usage);

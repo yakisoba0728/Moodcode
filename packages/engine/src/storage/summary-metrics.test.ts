@@ -27,7 +27,7 @@ test('durable summary metrics preserve unknown, zero, partial usage and ordinary
   f.store.observeSummaryAttempt('partial', { usage: { inputTokens: 9, outputTokens: 3, cachedInputTokens: 2, reasoningOutputTokens: 1 } });
   f.store.settleSummaryAttempt('partial', { state: 'failed', errorCode: 'SUMMARY_INCOMPLETE', cleanupConfirmed: true });
   const before = f.store.readEvents('session', 0), report = f.store.getNativeMetrics('session');
-  assert.equal(report.schemaVersion, 3); assert.equal(report.summaryAttempts.total, 2); assert.equal(report.summaryAttempts.states.failed, 1); assert.equal(report.summaryAttempts.states.prepared, 1);
+  assert.equal(report.schemaVersion, 4); assert.equal(report.summaryAttempts.total, 2); assert.equal(report.summaryAttempts.states.failed, 1); assert.equal(report.summaryAttempts.states.prepared, 1);
   assert.equal(report.summaryAttemptUsage.samples, 1); assert.equal(report.summaryAttemptUsage.attemptsWithoutUsage, 1);
   assert.equal(report.summaryAttemptUsage.inputTokens.tokens, 9); assert.equal(report.summaryAttemptUsage.outputTokens.tokens, 3);
   assert.equal(report.summaryAttemptUsage.cachedInputTokens.tokens, 2); assert.equal(report.summaryAttemptUsage.reasoningOutputTokens.tokens, 1);

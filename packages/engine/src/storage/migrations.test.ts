@@ -69,6 +69,34 @@ test('failed v3 migration rolls back usage table/index and leaves v2 identity in
   assert.equal(databaseVersion(db),3);
 });
 
+test('DB4 to DB5 preserves uncertain summary/usage and installs an empty decision ledger with indexed quarantine', t => {
+  const { db } = fixture(t); db.exec('PRAGMA foreign_keys=ON');
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 4));
+  const run = db.prepare('SELECT id,session_id,workspace_id,data FROM runs ORDER BY ordinal LIMIT 1').get()!;
+  const owner = JSON.parse(String(run.data)) as { config: { providerId: string; modelId: string } };
+  const summary = { id: 'db4-uncertain-summary', sessionId: run.session_id, workspaceId: run.workspace_id, runId: run.id,
+    providerId: owner.config.providerId, modelId: owner.config.modelId, scope: 'completed-history', sourceProjection: 'conversation-text-v1',
+    sourceSha256: '1'.repeat(64), requestSha256: '2'.repeat(64), requestBytes: 1024, expectedMemoryRevision: 0,
+    schemaVersion: 2, revision: 3, state: 'uncertain', createdAt: '2026-10-07T00:00:00.000Z', updatedAt: '2026-10-07T00:00:01.000Z',
+    completedAt: '2026-10-07T00:00:01.000Z', cleanupConfirmed: false, publication: 'discarded', observedOutputBytes: 7, retainedTextBytes: 7,
+    partialText: 'partial', partialTextTruncated: false };
+  db.prepare('INSERT INTO summary_attempts(id,session_id,workspace_id,run_id,scope,state,revision,data) VALUES(?,?,?,?,?,?,?,?)')
+    .run(summary.id, run.session_id!, run.workspace_id!, run.id!, summary.scope, summary.state, summary.revision, JSON.stringify(summary));
+  db.prepare('INSERT INTO summary_usage(summary_attempt_id,session_id,run_id,revision,data) VALUES(?,?,?,?,?)')
+    .run(summary.id, run.session_id!, run.id!, 1, JSON.stringify({ summaryAttemptId: summary.id, usage: { inputTokens: 9, outputTokens: null, cachedInputTokens: null, reasoningOutputTokens: null } }));
+  const before = databaseContents(db);
+  const failing = [...DATABASE_MIGRATIONS.slice(0, 4), { version: 5, name: 'intentional-v5-failure', apply(database: DatabaseSync) {
+    DATABASE_MIGRATIONS[4]!.apply(database); throw new Error('DB5 rollback');
+  } }];
+  assert.throws(() => migrateDatabase(db, failing), /DB5 rollback/u); assert.equal(databaseVersion(db), 4); assert.deepEqual(databaseContents(db), before);
+  migrateDatabase(db); assert.equal(databaseVersion(db), 5);
+  assert.deepEqual(db.prepare('SELECT data FROM summary_attempts').all().map(row => String(row.data)), [JSON.stringify(summary)]);
+  assert.equal(db.prepare('SELECT count(*) AS count FROM summary_usage').get()?.count, 1);
+  assert.equal(db.prepare('SELECT count(*) AS count FROM summary_recovery_acknowledgments').get()?.count, 0);
+  assert.ok(db.prepare("EXPLAIN QUERY PLAN SELECT 1 FROM summary_attempts WHERE workspace_id=? AND state='uncertain' LIMIT 1").all(run.workspace_id!).some(row => String(row.detail).includes('summary_workspace_uncertain')));
+  assert.equal(db.prepare('PRAGMA foreign_key_check').all().length, 0);
+});
+
 test('existing v1 database is unchanged while consecutive migrations see the preceding version', t => {
   const { db } = fixture(t), versions: number[] = [];
   const oldRows = db.prepare('SELECT * FROM events ORDER BY seq').all();

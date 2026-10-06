@@ -4,6 +4,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const concurrency = Number(process.env.MOODCODE_ENGINE_TEST_CONCURRENCY ?? 4);
+if (!Number.isSafeInteger(concurrency) || concurrency < 1 || concurrency > 32) {
+  throw new Error('MOODCODE_ENGINE_TEST_CONCURRENCY must be an integer from 1 to 32');
+}
 const projects = ['packages/contracts', 'packages/engine', 'apps/engine-harness'];
 const build = spawnSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '-b', ...projects], {
   cwd: root, stdio: 'inherit',
@@ -23,6 +27,6 @@ async function collect(directory) {
 }
 const files = (await Promise.all(projects.map(project => collect(join(root, project, 'dist'))))).flat().sort();
 if (!files.length) throw new Error('No engine tests found');
-const result = spawnSync(process.execPath, ['--test', '--test-concurrency=4', ...files], { cwd: root, stdio: 'inherit' });
+const result = spawnSync(process.execPath, ['--test', `--test-concurrency=${concurrency}`, ...files], { cwd: root, stdio: 'inherit' });
 if (result.error) throw result.error;
 process.exitCode = result.status ?? 1;

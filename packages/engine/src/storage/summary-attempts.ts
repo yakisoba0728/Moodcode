@@ -75,13 +75,14 @@ function prefix(text: string, bytes: number): string {
   while (end > 0 && end < value.length && (value[end]! & 0xc0) === 0x80) end--;
   return value.subarray(0, end).toString();
 }
-function validateRecord(value: SummaryAttemptRecord): void {
+type SummaryAttemptMetadata = Omit<SummaryAttemptRecord, 'partialText'>;
+function validateMetadata(value: SummaryAttemptMetadata, textType: string, textBytes: number): void {
   plain(value, [...identityKeys, 'schemaVersion', 'revision', 'state', 'updatedAt', 'dispatchedAt', 'firstObservationAt', 'providerCompletedAt', 'completedAt', 'cleanupConfirmed', 'publication', 'providerRequestId', 'finishReason', 'observedOutputBytes', 'retainedTextBytes', 'partialText', 'partialTextTruncated', 'summaryRevisionId', 'contextRevisionId', 'errorCode', 'uncertainty']);
-  identity(Object.fromEntries(identityKeys.filter(key => Object.hasOwn(value, key)).map(key => [key, value[key as keyof SummaryAttemptRecord]])) as unknown as SummaryAttemptIdentity);
+  identity(Object.fromEntries(identityKeys.filter(key => Object.hasOwn(value, key)).map(key => [key, value[key as keyof SummaryAttemptMetadata]])) as unknown as SummaryAttemptIdentity);
   if (value.schemaVersion !== 2 || !Number.isSafeInteger(value.revision) || value.revision < 1 || !['prepared','dispatched','streaming','completed','failed','interrupted','uncertain'].includes(value.state)
-    || typeof value.cleanupConfirmed !== 'boolean' || !['pending','activated','discarded'].includes(value.publication) || typeof value.partialText !== 'string' || typeof value.partialTextTruncated !== 'boolean'
+    || typeof value.cleanupConfirmed !== 'boolean' || !['pending','activated','discarded'].includes(value.publication) || textType !== 'text' || typeof value.partialTextTruncated !== 'boolean'
     || !Number.isSafeInteger(value.observedOutputBytes) || value.observedOutputBytes < 0 || !Number.isSafeInteger(value.retainedTextBytes) || value.retainedTextBytes < 0 || value.retainedTextBytes > 65536
-    || Buffer.byteLength(value.partialText) !== value.retainedTextBytes || value.retainedTextBytes > value.observedOutputBytes) fail('INVALID_SUMMARY_RECORD', 'Stored summary state or retained byte counters are invalid');
+    || !Number.isSafeInteger(textBytes) || textBytes !== value.retainedTextBytes || value.retainedTextBytes > value.observedOutputBytes) fail('INVALID_SUMMARY_RECORD', 'Stored summary state or retained byte counters are invalid');
   for (const key of ['createdAt','updatedAt','dispatchedAt','firstObservationAt','providerCompletedAt','completedAt'] as const) if ((key === 'createdAt' || key === 'updatedAt' || value[key] !== undefined) && (typeof value[key] !== 'string' || value[key]!.length > 64 || !Number.isFinite(Date.parse(value[key]!)))) fail('INVALID_SUMMARY_RECORD', 'Stored summary timestamp is invalid');
   for (const key of ['providerRequestId','summaryRevisionId','contextRevisionId','errorCode'] as const) if (value[key] !== undefined && !id(value[key])) fail('INVALID_SUMMARY_RECORD', 'Stored summary metadata is invalid');
   if (value.finishReason !== undefined && !['stop','length','tool_calls'].includes(value.finishReason)) fail('INVALID_SUMMARY_RECORD', 'Stored summary finish reason is invalid');
@@ -89,6 +90,7 @@ function validateRecord(value: SummaryAttemptRecord): void {
   if (terminal.has(value.state) !== !!value.completedAt || value.state === 'completed' && (value.publication !== 'activated' || !value.providerCompletedAt || !value.cleanupConfirmed || !value.summaryRevisionId || value.partialTextTruncated)
     || !terminal.has(value.state) && value.publication !== 'pending' || ['failed','interrupted','uncertain'].includes(value.state) && value.publication !== 'discarded') fail('INVALID_SUMMARY_RECORD', 'Stored summary publication state is inconsistent');
 }
+function validateRecord(value: SummaryAttemptRecord): void { validateMetadata(value, typeof value.partialText === 'string' ? 'text' : 'invalid', typeof value.partialText === 'string' ? Buffer.byteLength(value.partialText) : -1); }
 function usageMerge(previous: SummaryUsageSnapshot, supplied: Partial<SummaryUsageSnapshot>): SummaryUsageSnapshot {
   plain(supplied, keys);
   const merged = { ...previous };
@@ -105,20 +107,22 @@ export class SummaryAttemptStorage {
   private emit(record: SummaryAttemptRecord, type: string, payload: JsonObject): void {
     const event = this.native.appendEvent(record.sessionId, type, payload, { runId: record.runId }); this.append(this.native.scopeRun(record.sessionId, record.runId), type, event.payload);
   }
-  private owner(record: SummaryAttemptRecord): Run {
+  private owner(record: SummaryAttemptMetadata): Run {
     const run = this.native.scopeRun(record.sessionId, record.runId), session = this.native.hooks.session(record.sessionId);
     const columns = this.db.prepare('SELECT session_id,workspace_id FROM runs WHERE id=?').get(record.runId);
     if (columns?.session_id !== record.sessionId || columns.workspace_id !== record.workspaceId || record.workspaceId !== run.workspaceId || session.workspaceId !== run.workspaceId || record.providerId !== run.config.providerId || record.modelId !== run.config.modelId) fail('SUMMARY_BINDING_MISMATCH', 'Summary owner does not match its Run provider and workspace');
     return run;
   }
-  private save(record: SummaryAttemptRecord): SummaryAttemptRecord {
+  private save(record: SummaryAttemptRecord): void {
     validateRecord(record);
     const encoded = JSON.stringify(record); if (Buffer.byteLength(encoded) > 524288) fail('SUMMARY_RECORD_LIMIT', 'Summary record exceeds its serialized byte budget');
     this.db.prepare('INSERT INTO summary_attempts(id,session_id,workspace_id,run_id,scope,state,revision,data) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,revision=excluded.revision,data=excluded.data')
       .run(record.id, record.sessionId, record.workspaceId, record.runId, record.scope, record.state, record.revision, encoded);
-    return structuredClone(record);
   }
   get(idValue: string, expectedSessionId?: string): SummaryAttemptRecord {
+    return this.read(idValue, expectedSessionId).record;
+  }
+  private read(idValue: string, expectedSessionId?: string): { record: SummaryAttemptRecord; run: Run } {
     this.native.hooks.assertOpen(); if (!id(idValue)) fail('INVALID_SUMMARY_RECORD', 'Summary attempt ID is invalid');
     const row = this.db.prepare('SELECT session_id,workspace_id,run_id,scope,state,CASE WHEN revision BETWEEN 1 AND 9007199254740991 THEN revision ELSE 0 END AS revision,length(CAST(data AS BLOB)) AS bytes FROM summary_attempts WHERE id=?').get(idValue);
     if (!row) fail('SUMMARY_ATTEMPT_NOT_FOUND', 'Summary attempt was not found');
@@ -126,10 +130,47 @@ export class SummaryAttemptStorage {
     if (Number(row.bytes) > 524288) fail('SUMMARY_RECORD_LIMIT', 'Stored summary exceeds its read bound');
     const record = JSON.parse(String(this.db.prepare('SELECT data FROM summary_attempts WHERE id=?').get(idValue)!.data)) as SummaryAttemptRecord;
     if (record.id !== idValue || record.sessionId !== row.session_id || record.workspaceId !== row.workspace_id || record.runId !== row.run_id || record.scope !== row.scope || record.state !== row.state || record.revision !== row.revision || record.schemaVersion !== 2) fail('SUMMARY_BINDING_MISMATCH', 'Summary payload and SQL owner differ');
-    validateRecord(record); this.owner(record); return record;
+    validateRecord(record); return { record, run: this.owner(record) };
+  }
+  /** Full identity/status/proof validation, with text type/UTF8 length checked in SQL. */
+  private metadata(idValue: string, expectedSessionId?: string): SummaryAttemptMetadata {
+    this.native.hooks.assertOpen(); if (!id(idValue)) fail('INVALID_SUMMARY_RECORD', 'Summary attempt ID is invalid');
+    const row = this.db.prepare(`SELECT session_id,workspace_id,run_id,scope,state,
+      CASE WHEN revision BETWEEN 1 AND 9007199254740991 THEN revision ELSE 0 END AS revision,
+      length(CAST(data AS BLOB)) AS bytes FROM summary_attempts WHERE id=?`).get(idValue);
+    if (!row) fail('SUMMARY_ATTEMPT_NOT_FOUND', 'Summary attempt was not found');
+    if (expectedSessionId !== undefined && row.session_id !== expectedSessionId) fail('SUMMARY_BINDING_MISMATCH', 'Summary attempt belongs to another session');
+    // Identity is capped at 64KiB; 16KiB additionally covers status/proof fields.
+    if (Number(row.bytes) > 524288) fail('SUMMARY_RECORD_LIMIT', 'Stored summary exceeds its read bound');
+    const projected = this.db.prepare(`SELECT json_type(data,'$.partialText') AS text_type,
+      length(CAST(json_extract(data,'$.partialText') AS BLOB)) AS text_bytes,
+      json_type(json_remove(data,'$.partialText'),'$.partialText') AS remaining_text_type,
+      length(CAST(json_remove(data,'$.partialText') AS BLOB)) AS metadata_bytes,
+      CASE WHEN length(CAST(json_remove(data,'$.partialText') AS BLOB))<=81920
+        AND json_type(json_remove(data,'$.partialText'),'$.partialText') IS NULL
+        THEN json_remove(data,'$.partialText') ELSE NULL END AS data FROM summary_attempts WHERE id=?`).get(idValue);
+    if (Number(projected?.metadata_bytes) > 81920) fail('SUMMARY_RECORD_LIMIT', 'Stored summary metadata exceeds its read bound');
+    if (projected?.text_type !== 'text' || !Number.isSafeInteger(projected.text_bytes) || Number(projected.text_bytes) > 65536 || projected.remaining_text_type !== null) fail('INVALID_SUMMARY_RECORD', 'Stored summary retained text is invalid');
+    if (typeof projected?.data !== 'string') fail('SUMMARY_RECORD_LIMIT', 'Stored summary metadata exceeds its read bound');
+    const record = JSON.parse(projected.data) as SummaryAttemptMetadata;
+    if (Object.hasOwn(record, 'partialText')) fail('INVALID_SUMMARY_RECORD', 'Summary metadata must not contain retained text');
+    if (record.id !== idValue || record.sessionId !== row.session_id || record.workspaceId !== row.workspace_id || record.runId !== row.run_id || record.scope !== row.scope || record.state !== row.state || record.revision !== row.revision || record.schemaVersion !== 2) fail('SUMMARY_BINDING_MISMATCH', 'Summary payload and SQL owner differ');
+    validateMetadata(record, String(projected.text_type), Number(projected.text_bytes)); this.owner(record); return record;
+  }
+  /** Validate once within the shared transaction, without a pre-transaction full read. */
+  private update(idValue: string, operation: (record: SummaryAttemptRecord, run: Run) => SummaryAttemptRecord): SummaryAttemptRecord {
+    this.native.hooks.assertOpen();
+    if (this.db.isTransaction) { const owned = this.read(idValue); return operation(owned.record, owned.run); }
+    let sessionId = '', changed = false;
+    const result = this.native.hooks.transaction(() => { const owned = this.read(idValue); sessionId = owned.record.sessionId; const next = operation(owned.record, owned.run); changed = next.revision !== owned.record.revision; return next; });
+    if (changed) this.native.hooks.notify(sessionId);
+    return result;
   }
   getUsage(idValue: string, expectedSessionId?: string): SummaryUsageRecord | null {
-    const attempt = this.get(idValue, expectedSessionId), row = this.db.prepare('SELECT session_id,run_id,CASE WHEN revision BETWEEN 1 AND 9007199254740991 THEN revision ELSE 0 END AS revision,length(CAST(data AS BLOB)) AS bytes FROM summary_usage WHERE summary_attempt_id=?').get(idValue);
+    return this.usageFor(this.metadata(idValue, expectedSessionId));
+  }
+  private usageFor(attempt: SummaryAttemptMetadata): SummaryUsageRecord | null {
+    const idValue = attempt.id, row = this.db.prepare('SELECT session_id,run_id,CASE WHEN revision BETWEEN 1 AND 9007199254740991 THEN revision ELSE 0 END AS revision,length(CAST(data AS BLOB)) AS bytes FROM summary_usage WHERE summary_attempt_id=?').get(idValue);
     if (!row) return null;
     if (row.session_id !== attempt.sessionId || row.run_id !== attempt.runId || Number(row.bytes) > 4096) fail('SUMMARY_BINDING_MISMATCH', 'Summary usage owner or size is invalid');
     const record = JSON.parse(String(this.db.prepare('SELECT data FROM summary_usage WHERE summary_attempt_id=?').get(idValue)!.data)) as SummaryUsageRecord;
@@ -153,9 +194,8 @@ export class SummaryAttemptStorage {
     });
   }
   dispatch(idValue: string): SummaryAttemptRecord {
-    const before = this.get(idValue);
-    return this.native.write(before.sessionId, () => {
-      const record = this.get(idValue); if (record.state !== 'prepared' || this.owner(record).state !== 'running') fail('SUMMARY_TRANSITION_INVALID', 'Summary dispatch requires a prepared live owner');
+    return this.update(idValue, (record, run) => {
+      if (record.state !== 'prepared' || run.state !== 'running') fail('SUMMARY_TRANSITION_INVALID', 'Summary dispatch requires a prepared live owner');
       const next = { ...record, state: 'dispatched' as const, revision: record.revision + 1, updatedAt: new Date().toISOString(), dispatchedAt: new Date().toISOString(), cleanupConfirmed: false };
       this.save(next); this.emit(next, 'summary.dispatched', { summaryAttemptId: idValue, scope: next.scope, providerId: next.providerId, modelId: next.modelId }); return next;
     });
@@ -163,15 +203,16 @@ export class SummaryAttemptStorage {
   observe(idValue: string, supplied: SummaryObservation): SummaryAttemptRecord {
     plain(supplied, ['textDelta', 'usage', 'providerRequestId', 'finishReason']);
     if (supplied.textDelta !== undefined && typeof supplied.textDelta !== 'string' || supplied.providerRequestId !== undefined && !id(supplied.providerRequestId) || supplied.finishReason !== undefined && !['stop', 'length', 'tool_calls'].includes(supplied.finishReason)) fail('INVALID_SUMMARY_RECORD', 'Summary observation has invalid fields');
-    const before = this.get(idValue);
-    return this.native.write(before.sessionId, () => {
-      const record = this.get(idValue), priorUsage = this.getUsage(idValue), usage = supplied.usage === undefined ? priorUsage?.usage ?? unknownUsage() : usageMerge(priorUsage?.usage ?? unknownUsage(), supplied.usage);
+    return this.update(idValue, record => {
+      const priorUsage = this.usageFor(record), usage = supplied.usage === undefined ? priorUsage?.usage ?? unknownUsage() : usageMerge(priorUsage?.usage ?? unknownUsage(), supplied.usage);
       const usageChanged = JSON.stringify(usage) !== JSON.stringify(priorUsage?.usage ?? unknownUsage());
       if (terminal.has(record.state) || record.providerCompletedAt) {
         if (usageChanged || supplied.usage === undefined || Object.keys(supplied).some(key => key !== 'usage')) fail('SUMMARY_ATTEMPT_IMMUTABLE', 'Settled provider observations cannot change'); return record;
       }
       if (!['dispatched', 'streaming'].includes(record.state)) fail('SUMMARY_TRANSITION_INVALID', 'Only dispatched summaries accept provider observations');
       if (record.providerRequestId && supplied.providerRequestId && record.providerRequestId !== supplied.providerRequestId || record.finishReason && supplied.finishReason && record.finishReason !== supplied.finishReason || record.finishReason && supplied.textDelta) fail('SUMMARY_PROTOCOL_ERROR', 'Provider request or completed text identity changed');
+      if (record.state === 'streaming' && !usageChanged && !supplied.textDelta && (supplied.providerRequestId === undefined || supplied.providerRequestId === record.providerRequestId)
+        && (supplied.finishReason === undefined || supplied.finishReason === record.finishReason)) return record;
       const now = new Date().toISOString(), next: SummaryAttemptRecord = { ...record, state: 'streaming', firstObservationAt: record.firstObservationAt ?? now, updatedAt: now, revision: record.revision + 1 };
       if (supplied.textDelta !== undefined) {
         const bytes = Buffer.byteLength(supplied.textDelta); if (!Number.isSafeInteger(next.observedOutputBytes + bytes)) fail('SUMMARY_OUTPUT_BYTES_EXHAUSTED', 'Observed summary bytes exhausted safe integers'); next.observedOutputBytes += bytes;
@@ -191,9 +232,8 @@ export class SummaryAttemptStorage {
     });
   }
   providerCompleted(idValue: string): SummaryAttemptRecord {
-    const before = this.get(idValue);
-    return this.native.write(before.sessionId, () => {
-      const record = this.get(idValue); if (record.providerCompletedAt) return record;
+    return this.update(idValue, record => {
+      if (record.providerCompletedAt) return record;
       if (record.state !== 'streaming' || record.finishReason !== 'stop' || !record.partialText.trim() || record.partialTextTruncated) fail('SUMMARY_PROTOCOL_ERROR', 'Provider completion requires a complete nonempty retained stop response');
       const next = { ...record, revision: record.revision + 1, updatedAt: new Date().toISOString(), providerCompletedAt: new Date().toISOString(), cleanupConfirmed: true };
       this.save(next); this.emit(next, 'summary.provider_completed', { summaryAttemptId: idValue, scope: record.scope, cleanupConfirmed: true }); return next;
@@ -203,9 +243,7 @@ export class SummaryAttemptStorage {
     plain(supplied, ['state', 'errorCode', 'cleanupConfirmed']);
     if (!['failed', 'interrupted', 'uncertain'].includes(supplied.state) || typeof supplied.cleanupConfirmed !== 'boolean' || supplied.errorCode !== undefined && !id(supplied.errorCode)
       || supplied.state !== 'uncertain' && !supplied.cleanupConfirmed) fail('INVALID_SUMMARY_RECORD', 'Terminal summary outcome requires honest cleanup proof');
-    const before = this.get(idValue);
-    return this.native.write(before.sessionId, () => {
-      const record = this.get(idValue);
+    return this.update(idValue, record => {
       if (terminal.has(record.state)) { if (record.state !== supplied.state || record.cleanupConfirmed !== supplied.cleanupConfirmed || record.errorCode !== supplied.errorCode) fail('SUMMARY_ATTEMPT_IMMUTABLE', 'Terminal summaries are immutable'); return record; }
       const now = new Date().toISOString(), next: SummaryAttemptRecord = { ...record, ...supplied, publication: 'discarded', revision: record.revision + 1, updatedAt: now, completedAt: now,
         ...(supplied.state === 'uncertain' ? { uncertainty: { kind: 'provider_dispatch' as const, requiresRecovery: true as const } } : {}) };
@@ -217,10 +255,10 @@ export class SummaryAttemptStorage {
     if (!this.db.isTransaction) fail('STORAGE_TRANSACTION_REQUIRED', 'Summary activation shares its checkpoint transaction');
     // Legacy journals are retained without claiming a typed backfill. Updated services always prepare a typed record.
     if (!this.db.prepare('SELECT 1 FROM summary_attempts WHERE id=?').get(idValue)) return;
-    const record = this.get(idValue), actualUsage = this.getUsage(idValue)?.usage ?? unknownUsage();
+    const { record, run } = this.read(idValue), actualUsage = this.usageFor(record)?.usage ?? unknownUsage();
     const suppliedUsage = usage as SummaryUsageSnapshot; usageMerge(unknownUsage(), suppliedUsage);
     if (record.runId !== runId || record.scope !== scope || record.state !== 'streaming' || !record.providerCompletedAt || !record.cleanupConfirmed || record.partialTextTruncated || record.partialText !== text
-      || this.owner(record).state !== 'running' || keys.some(key => !Object.hasOwn(suppliedUsage,key) || suppliedUsage[key] !== actualUsage[key])
+      || run.state !== 'running' || keys.some(key => !Object.hasOwn(suppliedUsage,key) || suppliedUsage[key] !== actualUsage[key])
       || Object.entries(binding).some(([key,value]) => JSON.stringify(record[key as keyof SummaryAttemptRecord]) !== JSON.stringify(value))) fail('SUMMARY_BINDING_MISMATCH', 'Checkpoint does not match a completed owned summary provider observation');
     const now = new Date().toISOString(); this.save({ ...record, state: 'completed', publication: 'activated', revision: record.revision + 1, updatedAt: now, completedAt: now, summaryRevisionId: revisionId,
       ...(contextRevisionId ? { contextRevisionId } : {}) });

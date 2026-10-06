@@ -218,7 +218,11 @@ test('missing Git does not claim a version or inspect workspace status', async t
 test('timeout terminates the actual Git fixture process', posixOnly, async t => {
   const markerRoot = await temporary(t);
   const marker = path.join(markerRoot, 'pid');
-  const { executable } = await fakeGit(t, `fs.writeFileSync(${JSON.stringify(marker)}, String(process.pid)); setInterval(() => {}, 1000);`);
+  const executable = path.join(markerRoot, 'stall-git');
+  const markerArgument = `'${marker.replaceAll("'", "'\\''")}'`;
+  // Publish the owned PID before an interpreter's cold startup can consume the
+  // tested timeout. exec retains that PID; this still verifies real OS cleanup.
+  await writeFile(executable, `#!/bin/sh\nprintf '%s' "$$" > ${markerArgument}\nexec /bin/sleep 30\n`, { mode: 0o700 });
   const report = await getDiagnostics({ gitExecutable: executable, timeoutMs: 500 });
   assert.equal(report.git.status, 'timeout');
   assert.equal(report.git.code, 'GIT_TIMEOUT');

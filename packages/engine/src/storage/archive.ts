@@ -10,6 +10,7 @@ import { backupDatabase } from './maintenance.js';
 import { databaseVersion, DB_VERSION } from './migrations.js';
 import { NATIVE_SESSION_TABLES } from './native-schema.js';
 import { SUMMARY_STORAGE_TABLES } from './summary-attempts.js';
+import { SUMMARY_RECOVERY_TABLES } from '../recovery/summary.js';
 import { SqliteStore } from './index.js';
 import type { ManagedWorktree } from '../worktrees/index.js';
 
@@ -124,7 +125,8 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
     if (schemaVersion < 1) fail('ARCHIVE_DATABASE_INVALID', 'Primary archive database has no supported schema');
     const tables = schemaVersion >= 2 ? [...primaryTables, ...NATIVE_SESSION_TABLES] : primaryTables;
     const usageTables = schemaVersion >= 3 ? [...tables, 'attempt_usage'] : tables;
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 4 ? [...usageTables, ...SUMMARY_STORAGE_TABLES] : usageTables, check) };
+    const summaryTables = schemaVersion >= 4 ? [...usageTables, ...SUMMARY_STORAGE_TABLES] : usageTables;
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 5 ? [...summaryTables, ...SUMMARY_RECOVERY_TABLES] : summaryTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

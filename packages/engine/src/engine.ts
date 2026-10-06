@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
@@ -46,6 +46,7 @@ import { WorkspaceChangeHub, type WorkspaceChangeWatch, type WorkspaceFileChange
 import { assertExecutionLockAvailable } from './tools/command/execution-lock.js';
 import { getReviewDiff, previewRestoreCheckpoint, restoreCheckpoint, type RestoreResult } from './review/index.js';
 import { readRecoveryAcknowledgments, isRestoreAcknowledged } from './recovery/index.js';
+import { validateSummaryRecoveryRequest, type SummaryRecoveryRequest, type SummaryRecoveryReceipt } from './recovery/summary.js';
 import { ReviewJournal, type RestoreOperation, type RestoreOperationInput } from './review/audit.js';
 import { ImageAttachmentStore } from './media/index.js';
 import { providerImages } from './media/provider.js';
@@ -219,6 +220,21 @@ export class MoodcodeEngine {
     try {
       const canonicalDbPath = dbPath === ':memory:' ? undefined : realpathSync(dbPath);
       this.storagePaths = { artifactDir: realpathSync(artifactDir), ...(canonicalDbPath ? { dbPath: canonicalDbPath } : {}) };
+      const physicalIdentity = (path: string) => {
+        const stat = statSync(path, { bigint: true });
+        return { path: realpathSync(path), dev: stat.dev.toString(), ino: stat.ino.toString() };
+      };
+      const storageBinding = {
+        database: canonicalDbPath ? physicalIdentity(canonicalDbPath) : { memory: randomUUID() },
+        artifacts: physicalIdentity(this.storagePaths.artifactDir),
+      };
+      this.store.configureSummaryRecovery(workspaceId => {
+        const database = canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database;
+        const artifacts = physicalIdentity(this.storagePaths.artifactDir);
+        if (JSON.stringify({ database, artifacts }) !== JSON.stringify(storageBinding)) throw new EngineError('SUMMARY_RECOVERY_STORAGE_CHANGED', 'Summary recovery storage identity changed during this engine lifetime');
+        const workspace = this.store.getWorkspace(workspaceId);
+        return createHash('sha256').update(JSON.stringify({ ...storageBinding, workspace: { id: workspace.id, root: workspace.root, gitRoot: workspace.gitRoot } })).digest('hex');
+      });
       this.executionLockPath = canonicalDbPath === undefined ? resolve(artifactDir, 'effects.sqlite') : `${canonicalDbPath}.effects.sqlite`;
       verifyExecutionIdle(this.executionLockPath);
       reviewJournal = new ReviewJournal(canonicalDbPath === undefined ? resolve(artifactDir, 'review.sqlite') : `${canonicalDbPath}.review.sqlite`);
@@ -725,6 +741,29 @@ export class MoodcodeEngine {
   listSummaryAttempts(sessionId: string, options?: SummaryAttemptListOptions) {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     return this.store.listSummaryAttempts(sessionId, options);
+  }
+
+  /** Host preview only; it never confirms cleanup, replays providers or changes session control. */
+  getSummaryRecoveryPreview(sessionId: string, summaryAttemptId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.getSummaryRecoveryPreview(sessionId, summaryAttemptId);
+  }
+
+  acknowledgeSummaryRecovery(request: SummaryRecoveryRequest): Promise<SummaryRecoveryReceipt> {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    try {
+      const prepared = validateSummaryRecoveryRequest(request);
+      const existing = this.store.findSummaryRecoveryReceipt(prepared);
+      if (existing) return Promise.resolve(existing);
+      const session = this.store.getSession(prepared.sessionId);
+      return this.coordinator.withSummaryRecoveryLease(session.workspaceId, async signal => {
+        if (signal.aborted) throw signal.reason ?? new EngineError('ENGINE_CLOSED', 'Summary recovery decision was cancelled');
+        verifyExecutionIdle(this.executionLockPath);
+        const receipt = this.store.acknowledgeSummaryRecovery(prepared);
+        this.scheduler.holdSummaryRecoveryWorkspace(session.workspaceId);
+        return receipt;
+      });
+    } catch (error) { return Promise.reject(error); }
   }
 
   backup(destination: string, options?: StoreBackupOptions): Promise<DatabaseBackup> {

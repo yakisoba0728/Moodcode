@@ -4,6 +4,7 @@ import { inspectIntegrity } from './maintenance.js';
 import { migrateNativeSessions } from './native-schema.js';
 import { ATTEMPT_USAGE_SCHEMA } from './native-usage.js';
 import { SUMMARY_ATTEMPT_SCHEMA } from './summary-attempts.js';
+import { SUMMARY_RECOVERY_SCHEMA } from '../recovery/summary.js';
 
 export interface DatabaseMigration {
   /** Append-only, consecutive primary database version, starting at 1. */
@@ -41,6 +42,10 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
   Object.freeze({ version: 4, name: 'durable-summary-attempts-and-image-anchor', apply: (database: DatabaseSync) => {
     database.exec(SUMMARY_ATTEMPT_SCHEMA);
     database.exec("CREATE INDEX model_session_latest_image ON messages(session_id,ordinal DESC) WHERE json_extract(data,'$.role')='user' AND json_type(data,'$.attachments')='array' AND json_array_length(data,'$.attachments')>0");
+  } }),
+  Object.freeze({ version: 5, name: 'explicit-summary-recovery-acknowledgments', apply: (database: DatabaseSync) => {
+    database.exec("CREATE INDEX summary_workspace_uncertain ON summary_attempts(workspace_id) WHERE state='uncertain'");
+    database.exec(SUMMARY_RECOVERY_SCHEMA);
   } }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;
