@@ -22,6 +22,9 @@ import type { ChildBudget } from '../child-tasks/index.js';
 export { InputScheduler, type InputSchedulerOptions } from './input-scheduler.js';
 
 const CLEANUP_GRACE_MS = 1_000;
+// Closing the owned generator can join a pending wait, then the adapter's
+// separate one-second return deadline and its durable settlement.
+const PROVIDER_CLEANUP_GRACE_MS = CLEANUP_GRACE_MS * 3;
 const EFFECT_TOOLS = new Set(['apply_patch', 'run_command']);
 const READ_TOOLS = new Set(['list_files', 'read_file', 'search_files']);
 const UNSAFE_EFFECT_ERRORS = new Set([
@@ -217,8 +220,8 @@ export class RunCoordinator implements CoordinatorPort {
 
   submit(input: SubmitInput): RunReceipt {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
-    const summarySession = this.options.store.hasUncertainSummaries ? this.options.store.getSession(input.sessionId) : undefined;
-    const summaryBlocked = summarySession ? this.options.store.hasUncertainSummaries!(summarySession.workspaceId) : false;
+    const summarySession = this.options.store.hasUncertainSummaries || this.options.store.hasUncertainExecution ? this.options.store.getSession(input.sessionId) : undefined;
+    const summaryBlocked = summarySession ? Boolean(this.options.store.hasUncertainSummaries?.(summarySession.workspaceId) || this.options.store.hasUncertainExecution?.(summarySession.workspaceId)) : false;
     if (summaryBlocked || this.unsafeWorkspaces.size || this.workspaceLeases.size) {
       const session = summarySession ?? this.options.store.getSession(input.sessionId);
       if (summaryBlocked || this.unsafeWorkspaces.has(session.workspaceId) || this.workspaceLeases.has(session.workspaceId)) {
@@ -261,7 +264,7 @@ export class RunCoordinator implements CoordinatorPort {
   /** Resume may coexist with a live Run, but must never clear uncertain cleanup. */
   assertWorkspaceCleanupConfirmed(workspaceId: string): void {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
-    if (this.unsafeWorkspaces.has(workspaceId) || this.options.store.hasUncertainSummaries?.(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace execution is quarantined');
+    if (this.unsafeWorkspaces.has(workspaceId) || this.options.store.hasUncertainSummaries?.(workspaceId) || this.options.store.hasUncertainExecution?.(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace execution is quarantined');
   }
 
   /** The input promotion transaction already admitted this real durable Run. */
@@ -720,18 +723,19 @@ export class RunCoordinator implements CoordinatorPort {
       owner.turn!.outputFinished(finish, calls.length > 0);
       return { message, calls };
     } catch (error) {
-      flush();
+      let failure = error;
+      try { flush(); } catch (flushError) { failure = flushError; }
       // A return() that queues behind a non-cooperative next() must also be bounded.
       if (iterator?.return) {
         let timer: ReturnType<typeof setTimeout> | undefined;
         const closed = await Promise.race([
-          Promise.resolve().then(() => iterator!.return!()).then(() => true, () => false),
-          new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), CLEANUP_GRACE_MS); }),
+          Promise.resolve().then(() => iterator!.return!()).then(result => result?.done === true, () => false),
+          new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), PROVIDER_CLEANUP_GRACE_MS); }),
         ]);
         if (timer) clearTimeout(timer);
         if (!closed) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider stream cleanup could not be confirmed');
       }
-      throw errorOf(error, 'PROVIDER_ERROR', 'Provider failed while streaming a turn');
+      throw errorOf(failure, 'PROVIDER_ERROR', 'Provider failed while streaming a turn');
     } finally { clearInterval(flushTimer); }
   }
 

@@ -24,7 +24,7 @@ export interface PartPage { parts: MessagePart[]; nextCursor: string | null }
 
 /** Durable execution records share the inbox's owner, transaction and versioned journal. */
 export class NativeExecutionStorage {
-  constructor(private readonly native: NativeSessionStorage) {}
+  constructor(private readonly native: NativeSessionStorage, private readonly validateSummaryDependency?: (turn: TurnRecord) => void) {}
   private get database() { return this.native.database; }
   private requireActive(sessionId: string, runId: string): void {
     if (isTerminal(this.native.scopeRun(sessionId, runId).state)) throw new EngineError('RUN_TERMINAL', 'Execution records cannot change a terminal Run');
@@ -103,6 +103,10 @@ export class NativeExecutionStorage {
         const attempt = this.database.prepare('SELECT state FROM provider_attempts WHERE turn_id=? ORDER BY attempt_index DESC LIMIT 1').get(turn.id);
         const openPart = this.database.prepare("SELECT id FROM message_parts WHERE turn_id=? AND state='open' LIMIT 1").get(turn.id);
         if (attempt?.state !== 'completed' || openPart) throw new EngineError('TURN_NOT_SETTLED', 'Turn completion requires a completed provider attempt and settled message parts');
+      }
+      if (turn.uncertainty?.summaryDependency) {
+        if (!this.validateSummaryDependency) throw new EngineError('SUMMARY_OVERFLOW_BINDING_MISMATCH', 'Turn summary dependencies require durable cleanup validation');
+        this.validateSummaryDependency(turn);
       }
       this.database.prepare('INSERT INTO session_turns(id,session_id,run_id,turn_index,state,data) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,data=excluded.data')
         .run(turn.id, turn.sessionId, turn.runId, turn.index, turn.state, JSON.stringify(turn));

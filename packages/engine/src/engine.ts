@@ -149,12 +149,12 @@ function withImageInputs(provider: ProviderAdapter, images: ImageAttachmentStore
       // closed after inner next() throws and falsely report return().done=true.
       const stream: AsyncIterableIterator<ProviderEvent> = {
         [Symbol.asyncIterator]() { return stream; },
-        async next() { await initialize(); const result = await iterator!.next(); if (result.done) confirmedDone = true; return result; },
+        async next() { await initialize(); const result = await iterator!.next(); if (result.done === true) confirmedDone = true; return result; },
         async return() {
           if (initialization) await initialization.catch(() => {});
           if (!providerEntered || confirmedDone) return { done: true, value: undefined };
           if (!iterator?.return) throw new EngineError('CLEANUP_UNCERTAIN', 'Underlying provider has no cleanup operation');
-          const result = await iterator.return(); if (result.done) confirmedDone = true; return result;
+          const result = await iterator.return(); if (result.done === true) confirmedDone = true; return result;
         },
       };
       return stream;
@@ -726,6 +726,12 @@ export class MoodcodeEngine {
   }
 
   /** Session-bound, bounded host observation; summaries are separate from ordinary Attempts. */
+  getAttemptCleanup(sessionId: string, attemptId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.store.getSession(sessionId);
+    return this.store.getAttemptCleanup(attemptId, sessionId);
+  }
+
   getSummaryAttempt(sessionId: string, summaryAttemptId: string) {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     this.store.getSession(sessionId);

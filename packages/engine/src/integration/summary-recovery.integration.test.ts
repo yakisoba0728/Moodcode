@@ -11,6 +11,7 @@ import test, { type TestContext } from 'node:test';
 import { EngineError } from '@moodcode/contracts';
 import { createEngine, type EngineOptions, type MoodcodeEngine } from '../engine.js';
 import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
+import { DB_VERSION } from '../storage/migrations.js';
 import { acquireExecutionLock } from '../tools/command/execution-lock.js';
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 
@@ -101,7 +102,7 @@ test('actual explicit host decision preserves original uncertainty and pause/bac
   assert.deepEqual(f.original(), original); assert.deepEqual(f.context(), context); assert.deepEqual(f.engine.store.getSessionControl('session'), control); assert.deepEqual(f.engine.store.getSessionControl('other-session'), otherControl);
   assert.equal(f.engine.store.getInput(queued.inputId).state, 'pending'); assert.equal(f.main.length, 1); assert.equal(f.summaries.length, 1); assert.equal(f.rows(), 1);
   assert.equal(auditCount(f, 'events'), 1); assert.equal(auditCount(f, 'session_events'), 1); assert.equal(f.engine.store.hasUncertainSummaries('workspace'), false);
-  const metrics = f.engine.store.getNativeMetrics('session'); assert.equal(metrics.schemaVersion, 4); assert.equal(metrics.recovery.uncertainSummaries, 1);
+  const metrics = f.engine.store.getNativeMetrics('session'); assert.equal(metrics.schemaVersion, 5); assert.equal(metrics.recovery.uncertainSummaries, 1);
   assert.equal(metrics.recovery.summaryRecoveryAcknowledgments, 1); assert.equal(metrics.recovery.summaryAcknowledgmentValidity, null); assert.equal(metrics.summaryAttemptUsage.billedTokens, null);
   assert.equal(f.engine.getSummaryRecoveryPreview('session', f.summaryId).status, 'acknowledged');
   const duplicate = await f.engine.acknowledgeSummaryRecovery(decision); assert.deepEqual(duplicate, { ...receipt, duplicate: true }); assert.equal(f.rows(), 1);
@@ -218,7 +219,7 @@ test('actual archive preserves the original ACK row and unknown receipt but impo
   const f = await fixture(t); await f.reopen(); const decision = request(f), receipt = await f.engine.acknowledgeSummaryRecovery(decision), original = f.original();
   const ackRow = f.reader.prepare('SELECT data FROM summary_recovery_acknowledgments WHERE id=?').get(receipt.id); assert.ok(ackRow);
   await f.engine.close(); const archive = await exportEngineArchive({ dbPath: f.dbPath, artifactDir: f.artifactDir, destination: join(f.root, 'archive') });
-  assert.equal(archive.manifest.databases.find(database => database.role === 'primary')!.schemaVersion, 5);
+  assert.equal(archive.manifest.databases.find(database => database.role === 'primary')!.schemaVersion, DB_VERSION);
   const imported = await importEngineArchive({ directory: archive.directory, destination: join(f.root, 'restored') }); assert.equal(imported.executionResumed, false);
   const restored = createEngine({ ...f.options, dbPath: imported.dbPath, artifactDir: imported.artifactDir }); t.after(() => restored.close());
   restored.store.getSnapshot = () => { throw new Error('Imported summary recovery forbids whole snapshots'); };

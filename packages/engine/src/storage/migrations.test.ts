@@ -89,12 +89,37 @@ test('DB4 to DB5 preserves uncertain summary/usage and installs an empty decisio
     DATABASE_MIGRATIONS[4]!.apply(database); throw new Error('DB5 rollback');
   } }];
   assert.throws(() => migrateDatabase(db, failing), /DB5 rollback/u); assert.equal(databaseVersion(db), 4); assert.deepEqual(databaseContents(db), before);
-  migrateDatabase(db); assert.equal(databaseVersion(db), 5);
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 5)); assert.equal(databaseVersion(db), 5);
   assert.deepEqual(db.prepare('SELECT data FROM summary_attempts').all().map(row => String(row.data)), [JSON.stringify(summary)]);
   assert.equal(db.prepare('SELECT count(*) AS count FROM summary_usage').get()?.count, 1);
   assert.equal(db.prepare('SELECT count(*) AS count FROM summary_recovery_acknowledgments').get()?.count, 0);
   assert.ok(db.prepare("EXPLAIN QUERY PLAN SELECT 1 FROM summary_attempts WHERE workspace_id=? AND state='uncertain' LIMIT 1").all(run.workspace_id!).some(row => String(row.detail).includes('summary_workspace_uncertain')));
   assert.equal(db.prepare('PRAGMA foreign_key_check').all().length, 0);
+});
+
+test('DB5 to DB6 preserves ordinary uncertainty and nullable observations without synthesizing cleanup proof', t => {
+  const { db } = fixture(t); db.exec('PRAGMA foreign_keys=ON');
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 5));
+  const run = db.prepare('SELECT id,session_id,workspace_id,data FROM runs ORDER BY ordinal LIMIT 1').get()!;
+  const config = JSON.parse(String(run.data)).config as { providerId: string; modelId: string };
+  const stamp = '2026-10-07T00:00:00.000Z', uncertainty = { kind: 'provider_dispatch', message: 'Historical response outcome remains unknown', requiresRecovery: true };
+  const turn = { schemaVersion: 2, id: 'legacy-unknown-turn', sessionId: run.session_id, runId: run.id, inputIds: ['legacy-input'], index: 0, state: 'uncertain', createdAt: stamp, completedAt: stamp, uncertainty };
+  const attempt = { schemaVersion: 2, id: 'legacy-unknown-attempt', sessionId: run.session_id, runId: run.id, turnId: turn.id, index: 0, providerId: config.providerId, modelId: config.modelId, state: 'uncertain', createdAt: stamp, dispatchedAt: stamp, completedAt: stamp, uncertainty };
+  db.prepare('INSERT INTO session_turns(id,session_id,run_id,turn_index,state,data) VALUES(?,?,?,?,?,?)').run(turn.id, run.session_id!, run.id!, 0, turn.state, JSON.stringify(turn));
+  db.prepare('INSERT INTO provider_attempts(id,session_id,run_id,turn_id,attempt_index,state,data) VALUES(?,?,?,?,?,?,?)').run(attempt.id, run.session_id!, run.id!, turn.id, 0, attempt.state, JSON.stringify(attempt));
+  db.prepare('INSERT INTO attempt_usage(attempt_id,session_id,run_id,turn_id,revision,data) VALUES(?,?,?,?,?,?)').run(attempt.id, run.session_id!, run.id!, turn.id, 1, JSON.stringify({ attemptId: attempt.id, usage: { inputTokens: 17 } }));
+  const tables = ['events','session_events','session_turns','provider_attempts','attempt_usage','messages','summary_attempts','summary_usage','summary_recovery_acknowledgments'];
+  const rows = () => Object.fromEntries(tables.map(table => [table, db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()]));
+  const beforeRows = rows(), before = databaseContents(db);
+  const failed = [...DATABASE_MIGRATIONS.slice(0, 5), { version: 6, name: 'intentional-v6-failure', apply(database: DatabaseSync) {
+    DATABASE_MIGRATIONS[5]!.apply(database); throw new Error('DB6 rollback');
+  } }];
+  assert.throws(() => migrateDatabase(db, failed), /DB6 rollback/u);
+  assert.equal(databaseVersion(db), 5); assert.deepEqual(databaseContents(db), before);
+  migrateDatabase(db); assert.equal(databaseVersion(db), 6); assert.deepEqual(rows(), beforeRows);
+  assert.equal(db.prepare('SELECT count(*) AS count FROM attempt_cleanup').get()?.count, 0);
+  assert.ok(db.prepare("EXPLAIN QUERY PLAN SELECT 1 FROM provider_attempts a JOIN runs r ON r.id=a.run_id WHERE r.workspace_id=? AND a.state='uncertain' LIMIT 1").all(run.workspace_id!).some(row => String(row.detail).includes('ordinary_uncertain_attempts')));
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
 });
 
 test('existing v1 database is unchanged while consecutive migrations see the preceding version', t => {

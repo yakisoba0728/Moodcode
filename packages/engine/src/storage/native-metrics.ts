@@ -22,11 +22,12 @@ export interface MetricDuration {
 }
 export interface MetricStates { total: number; states: Record<string, number>; serializedJsonBytes: number | null }
 export interface NativeMetricsReport {
-  schemaVersion: 4; generatedAt: string; scope: { sessionId: string | null };
+  schemaVersion: 5; generatedAt: string; scope: { sessionId: string | null };
   sessions: { total: number; paused: number; recoveryRequired: number };
   inputs: MetricStates & { queue: number; steer: number; pendingQueue: number; pendingSteer: number; pendingRequestBytes: number | null; pendingAge: MetricDuration; promotionWait: MetricDuration };
   runs: MetricStates; turns: MetricStates & { elapsed: MetricDuration };
   attempts: MetricStates & { retries: number; turnsWithRetries: number; retriesWithChangedContext: number; overflowRecoveries: null; elapsed: MetricDuration; dispatchedElapsed: MetricDuration };
+  attemptCleanup: MetricStates & { attemptsWithoutObservation: number; recordValidity: null; providerOutcomeConfirmed: null; source: 'all-typed-attempt-cleanup-records-in-scope' };
   parts: MetricStates & { types: Record<'text' | 'reasoning' | 'tool' | 'media', number>; textUtf8Bytes: number | null; reasoningUtf8Bytes: number | null };
   providerUsage: MetricUsage & { aggregation: 'observed-event-sum'; inclusiveTotals: true; latestContext: { bytes: number; limit: number; summaryIncluded: boolean; turnIndex: number } | null };
   attemptUsage: MetricUsage & { aggregation: 'latest-snapshot-per-durable-attempt'; inclusiveTotals: true; attemptsWithUsage: number; attemptsWithoutUsage: number; source: 'all-attempt_usage-records-in-scope'; billedTokens: null };
@@ -53,7 +54,7 @@ function one(database: DatabaseSync, sql: string, values: SQLInputValue[] = []):
 }
 function states(database: DatabaseSync, table: string, names: readonly string[], sessionId?: string): MetricStates {
   const where = scope(sessionId);
-  const row = one(database, `SELECT count(*) AS total,total(length(CAST(data AS BLOB))) AS bytes,${names.map(name => `count(CASE WHEN state='${name}' THEN 1 END) AS ${name}`).join(',')} FROM ${table} WHERE ${where.clause}`, where.values);
+  const row = one(database, `SELECT count(*) AS total,total(length(CAST(data AS BLOB))) AS bytes,${names.map(name => `count(CASE WHEN state='${name}' THEN 1 END) AS "${name}"`).join(',')} FROM ${table} WHERE ${where.clause}`, where.values);
   return { total: number(row, 'total'), serializedJsonBytes: safe(row.bytes), states: Object.fromEntries(names.map(name => [name, number(row, name)])) };
 }
 
@@ -162,17 +163,21 @@ export function readNativeMetrics(database: DatabaseSync, sessionId?: string, ge
     UNION SELECT r.workspace_id FROM session_turns t JOIN runs r ON r.id=t.run_id WHERE ${scope(sessionId, 't.').clause} AND t.state='uncertain'
     UNION SELECT r.workspace_id FROM provider_attempts a JOIN runs r ON r.id=a.run_id WHERE ${scope(sessionId, 'a.').clause} AND a.state='uncertain'
     UNION SELECT workspace_id FROM summary_attempts WHERE ${where.clause} AND state='uncertain'
+    UNION SELECT workspace_id FROM attempt_cleanup WHERE ${where.clause} AND state='uncertain'
     UNION SELECT workspace_id FROM runs WHERE ${where.clause} AND json_extract(data,'$.error.code')='CLEANUP_UNCERTAIN'
-  ) SELECT count(*) AS count FROM evidence`, [...where.values, ...where.values, ...where.values, ...where.values, ...where.values]);
+  ) SELECT count(*) AS count FROM evidence`, [...where.values, ...where.values, ...where.values, ...where.values, ...where.values, ...where.values]);
   const turns = states(database, 'session_turns', ['created', 'streaming', 'awaiting_tools', 'completed', 'failed', 'interrupted', 'uncertain'], sessionId);
+  const attemptCleanup = states(database, 'attempt_cleanup', ['prepared','dispatched','confirmed','uncertain','not-dispatched'], sessionId);
+  const noCleanup = one(database, `SELECT count(*) AS count FROM provider_attempts a LEFT JOIN attempt_cleanup c ON c.attempt_id=a.id AND c.session_id=a.session_id AND c.run_id=a.run_id AND c.turn_id=a.turn_id WHERE ${scope(sessionId, 'a.').clause} AND c.attempt_id IS NULL`, where.values);
   const artifactIds = number(artifactRow, 'ids'), storedKnown = number(artifactRow, 'storedKnown'), observedKnown = number(artifactRow, 'observedKnown');
   return {
-    schemaVersion: 4, generatedAt, scope: { sessionId: sessionId ?? null },
+    schemaVersion: 5, generatedAt, scope: { sessionId: sessionId ?? null },
     sessions: { total: number(sessionRow, 'total'), paused: number(sessionRow, 'paused'), recoveryRequired: number(sessionRow, 'recovery') },
     inputs: { ...inputs, queue: number(inputRow, 'queue'), steer: number(inputRow, 'steer'), pendingQueue: number(inputRow, 'pendingQueue'), pendingSteer: number(inputRow, 'pendingSteer'), pendingRequestBytes: safe(inputRow.pendingBytes), pendingAge: pendingDuration(true), promotionWait: pendingDuration(false) },
     runs: states(database, 'runs', ['created', 'running', 'awaiting_approval', 'cancelling', 'completed', 'cancelled', 'failed', 'interrupted'], sessionId),
     turns: { ...turns, elapsed: duration(database, 'session_turns', 'createdAt', 'completedAt', sessionId) },
     attempts: { ...attempts, retries: number(retryRow, 'retries'), turnsWithRetries: number(retryRow, 'turns'), retriesWithChangedContext: number(retryRow, 'changed'), overflowRecoveries: null, elapsed: duration(database, 'provider_attempts', 'createdAt', 'completedAt', sessionId), dispatchedElapsed: duration(database, 'provider_attempts', 'dispatchedAt', 'completedAt', sessionId) },
+    attemptCleanup: { ...attemptCleanup, attemptsWithoutObservation: number(noCleanup, 'count'), recordValidity: null, providerOutcomeConfirmed: null, source: 'all-typed-attempt-cleanup-records-in-scope' },
     parts: { ...parts, types: { text: number(partRow, 'text'), reasoning: number(partRow, 'reasoning'), tool: number(partRow, 'tool'), media: number(partRow, 'media') }, textUtf8Bytes: safe(partRow.textBytes), reasoningUtf8Bytes: safe(partRow.reasoningBytes) },
     providerUsage: { ...mainUsage, aggregation: 'observed-event-sum', inclusiveTotals: true, latestContext: contextValid ? { bytes: Number(contextRow.bytes), limit: Number(contextRow.budget), turnIndex: Number(contextRow.turnIndex), summaryIncluded: contextRow.summaryIncluded === 1 } : null },
     attemptUsage: { ...attemptUsage, aggregation: 'latest-snapshot-per-durable-attempt', inclusiveTotals: true,
@@ -189,6 +194,7 @@ export function readNativeMetrics(database: DatabaseSync, sessionId?: string, ge
     recovery: { pausedSessions: number(sessionRow, 'recovery'), workspacesWithDurableEvidence: number(evidenceRow, 'count'), uncertainTurns: turns.states.uncertain!, uncertainAttempts: attempts.states.uncertain!, uncertainSummaries: summaryAttempts.states.uncertain!, summaryRecoveryAcknowledgments: number(summaryRecoveryRow, 'count'), summaryAcknowledgmentValidity: null, cleanupUncertainRuns: number(cleanupRunRow, 'count'), cleanupUncertainToolEvents: number(cleanupRow, 'cleanup'), runtimeQuarantinedWorkspaces: null, externalRecoveryLedgerRecords: null },
     coverage: { records: 'all-primary-records-in-scope', usage: main.coverage, summary: summary.coverage, tools: tools.coverage, bytes: 'UTF-8 serialized JSON or declared reference metadata; never filesystem allocation', time: 'wall-clock record timestamps; not provider CPU time or time to first token', sql: 'fixed result size; full record/count aggregates may scan scoped history', usageAttribution: 'legacy event sums and durable attempt snapshots are separate observations, not billed totals', summaryAttribution: 'deduplicated only within the selected summary window', durableSummary: 'all-typed-summary-attempts-in-scope; legacy journals are not backfilled', externalStores: 'not-read' },
     unavailable: [
+      { metric: 'attemptCleanup.recordValidity/providerOutcomeConfirmed', reason: 'SQL counts reflect stored observation states, not owner/request verification or provider outcome confirmation. Legacy attempts are not backfilled.' },
       { metric: 'attempts.overflowRecoveries', reason: 'Attempt records do not persist retry/overflow causes; a changed context is not proof of overflow recovery.' },
       { metric: 'providerUsage.billedTokens/attemptUsage.billedTokens', reason: 'Observed usage is not billing reconciliation. Legacy event sums and durable per-attempt snapshots are separate projections.' },
       { metric: 'summaryAttemptUsage.billedTokens/legacySummaryAttemptLifecycle', reason: 'Durable summary usage is a separate nullable observation. Legacy events do not prove a typed attempt lifecycle and are not backfilled.' },

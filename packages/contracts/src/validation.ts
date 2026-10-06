@@ -399,9 +399,16 @@ function optionalDate(input: Record<string, unknown>, key: string, path: string)
   return has(input, key) ? { [key]: date(input[key], `${path}.${key}`) } : {};
 }
 function uncertainty(value: unknown, path: string): import('./index.js').ExecutionUncertainty {
-  const input = object(value, path, ['kind', 'message', 'requiresRecovery']);
+  const input = object(value, path, ['kind', 'message', 'requiresRecovery', 'summaryDependency']);
   if (input.requiresRecovery !== true) invalid(`${path}.requiresRecovery`, 'must be true');
-  return { kind: choice(input.kind, `${path}.kind`, ['provider_dispatch', 'tool_effect', 'cleanup', 'storage_commit']), message: string(input.message, `${path}.message`, 2048), requiresRecovery: true };
+  const kind = choice(input.kind, `${path}.kind`, ['provider_dispatch', 'tool_effect', 'cleanup', 'storage_commit']);
+  let summaryDependency: import('./index.js').ExecutionUncertainty['summaryDependency'];
+  if (has(input, 'summaryDependency')) {
+    if (kind !== 'cleanup' || path !== 'turn.uncertainty') invalid(`${path}.summaryDependency`, 'requires a Turn cleanup origin');
+    const dependency = object(input.summaryDependency, `${path}.summaryDependency`, ['summaryAttemptId', 'failedAttemptId', 'cleanupRecordSha256']);
+    summaryDependency = { summaryAttemptId: id(dependency.summaryAttemptId, `${path}.summaryDependency.summaryAttemptId`), failedAttemptId: id(dependency.failedAttemptId, `${path}.summaryDependency.failedAttemptId`), cleanupRecordSha256: hash(dependency.cleanupRecordSha256, `${path}.summaryDependency.cleanupRecordSha256`) };
+  }
+  return { kind, message: string(input.message, `${path}.message`, 2048), requiresRecovery: true, ...(summaryDependency ? { summaryDependency } : {}) };
 }
 function completed(input: Record<string, unknown>, path: string, state: string): { createdAt: string; completedAt?: string } {
   const createdAt = date(input.createdAt, `${path}.createdAt`);

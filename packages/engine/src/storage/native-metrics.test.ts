@@ -197,6 +197,30 @@ test('checkpoint aggregates count durable file images separately from declared a
   assert.equal(f.store.getNativeMetrics('other').checkpoints.total, 0);
 });
 
+for (const state of ['prepared','dispatched','confirmed','uncertain','not-dispatched'] as const) test(`typed cleanup ${state} metrics preserve separate outcome and missing observation coverage`, t => {
+  const f = fixture(t), run = f.start(), r = records(f.store, run);
+  f.store.putAttempt(r.attempt);
+  const prior = f.store.getNativeMetrics('session');
+  assert.equal(prior.attemptCleanup.total, 0); assert.equal(prior.attemptCleanup.attemptsWithoutObservation, 1);
+  f.store.createAttemptCleanup({ attemptId: r.attempt.id, sessionId: 'session', workspaceId: 'workspace', runId: run.id, turnId: r.turn.id,
+    providerId: 'scripted', modelId: 'local', requestProjection: 'engine-turn-request-v1', requestSha256: '1'.repeat(64), requestBytes: 1024 });
+  if (state !== 'prepared' && state !== 'not-dispatched') {
+    f.store.dispatchAttemptCleanup(r.attempt.id);
+    f.store.putAttempt({ ...r.attempt, state: 'dispatched', dispatchedAt: new Date().toISOString() });
+  }
+  if (state === 'confirmed') f.store.settleAttemptCleanup(r.attempt.id, { outcome: state, method: 'iterator-next-done', reason: 'natural-done' });
+  if (state === 'uncertain') f.store.settleAttemptCleanup(r.attempt.id, { outcome: state, method: 'return-missing', reason: 'error' });
+  if (state === 'not-dispatched') f.store.settleAttemptCleanup(r.attempt.id, { outcome: state, method: 'no-dispatch', reason: 'cancel' });
+  const report = f.store.getNativeMetrics('session');
+  assert.equal(report.schemaVersion, 5); assert.equal(report.attemptCleanup.total, 1); assert.equal(report.attemptCleanup.states[state], 1);
+  assert.equal(report.attemptCleanup.attemptsWithoutObservation, 0); assert.equal(report.attemptCleanup.recordValidity, null); assert.equal(report.attemptCleanup.providerOutcomeConfirmed, null);
+  assert.equal(report.attemptUsage.inputTokens.tokens, null); assert.equal(report.attemptUsage.billedTokens, null);
+  assert.equal(f.store.getNativeMetrics('other').attemptCleanup.total, 0);
+  assert.equal(report.recovery.workspacesWithDurableEvidence, state === 'uncertain' ? 1 : 0);
+  assert.equal(f.store.getNativeMetrics('other').recovery.workspacesWithDurableEvidence, 0);
+  assert.equal(f.store.getAttempt(r.attempt.id).state, state === 'prepared' || state === 'not-dispatched' ? 'prepared' : 'dispatched');
+});
+
 test('missing, malformed and backwards legacy timestamp intervals are excluded with explicit coverage', t => {
   const database = new DatabaseSync(':memory:'); t.after(() => database.close());
   database.exec('PRAGMA foreign_keys=ON'); migrateDatabase(database);

@@ -13,6 +13,8 @@ export interface EngineStore {
   hasActiveRuns?(workspaceId: string, excludedRunId?: string): boolean;
   /** Admission blocker: uncertain summaries without a valid explicit host decision. */
   hasUncertainSummaries?(workspaceId: string): boolean;
+  /** Persisted ordinary execution uncertainty, including unknown cleanup after restart. */
+  hasUncertainExecution?(workspaceId: string): boolean;
   commit(runId: string, type: string, payload: JsonObject, change?: CommitChange): EngineEvent;
   getSnapshot(sessionId: string): SessionSnapshot;
   readEvents(sessionId: string, afterSeq: number, limit?: number): EngineEvent[];
@@ -46,6 +48,11 @@ export interface ExecutionRecordStore {
   listTurns(runId: string): TurnRecord[];
   putAttempt(attempt: ProviderAttempt): ProviderAttempt;
   getAttempt(id: string): ProviderAttempt;
+  createAttemptCleanup?(identity: import('./storage/attempt-cleanup.js').AttemptCleanupIdentity): import('./storage/attempt-cleanup.js').AttemptCleanupRecord;
+  dispatchAttemptCleanup?(attemptId: string): import('./storage/attempt-cleanup.js').AttemptCleanupRecord;
+  settleAttemptCleanup?(attemptId: string, outcome: import('./storage/attempt-cleanup.js').AttemptCleanupSettlement): import('./storage/attempt-cleanup.js').AttemptCleanupRecord;
+  getAttemptCleanup?(attemptId: string, expectedSessionId?: string): import('./storage/attempt-cleanup.js').AttemptCleanupRecord;
+  getSummaryOverflowDependency?(summaryAttemptId: string, turnId: string, failedAttemptId: string): NonNullable<import('@moodcode/contracts').ExecutionUncertainty['summaryDependency']>;
   putAttemptUsage?(attemptId: string, usage: import('@moodcode/contracts').ProviderUsageSnapshot): import('@moodcode/contracts').AttemptUsageRecord;
   putPart(part: MessagePart): MessagePart;
   listParts(turnId: string): MessagePart[];

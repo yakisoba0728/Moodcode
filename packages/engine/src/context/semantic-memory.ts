@@ -64,7 +64,8 @@ export class SemanticMemoryService {
     request.budget.startSummary();
     this.store.createSummaryAttempt({ id, scope: 'completed-history', sessionId: run.sessionId, workspaceId: run.workspaceId, runId: run.id, providerId: provider.id, modelId: request.config.modelId,
       sourceProjection: 'conversation-text-v1', sourceSha256: provenance.sourceSha256, sourceMessageIds, sourceRunIds, expectedMemoryRevision,
-      requestSha256: createHash('sha256').update(serializedRequest).digest('hex'), requestBytes, createdAt, ...(prior ? { priorCheckpointId: prior.checkpoint.id } : {}) });
+      requestSha256: createHash('sha256').update(serializedRequest).digest('hex'), requestBytes, createdAt, ...(prior ? { priorCheckpointId: prior.checkpoint.id } : {}),
+      ...(request.activePrefixStage?.stage === 'overflow-recovery' ? { currentTurnId: request.activePrefixStage.currentTurnId, failedAttemptId: request.activePrefixStage.failedAttemptId } : {}) });
     const { text, usage } = await streamSummary({ store: this.store, id, request, provider, turnRequest, maxOutputBytes: Math.min(65_536, request.budget.budgets.maxSummaryBytes) });
     try {
       cancelled(request.signal);

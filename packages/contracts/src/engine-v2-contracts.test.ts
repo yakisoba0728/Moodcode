@@ -151,6 +151,19 @@ test('turn and provider attempts enforce terminal settlement and uncertainty dis
   rejects(() => validateProviderAttempt({ ...attempt, state: 'completed', dispatchedAt: expiresAt, completedAt }));
 });
 
+test('overflow summary dependencies belong only to uncertain Turn cleanup and require bounded exact identities', () => {
+  const summaryDependency = { summaryAttemptId: 'summary-1', failedAttemptId: 'failed-1', cleanupRecordSha256: 'a'.repeat(64) };
+  const origin = { kind: 'cleanup', message: 'Separate overflow summary cleanup is unknown', requiresRecovery: true, summaryDependency };
+  const record = validateTurnRecord({ ...turn, state: 'uncertain', completedAt, uncertainty: origin });
+  assert.deepEqual(record.uncertainty?.summaryDependency, summaryDependency);
+  summaryDependency.summaryAttemptId = 'mutated-source';
+  assert.equal(record.uncertainty?.summaryDependency?.summaryAttemptId, 'summary-1');
+  rejects(() => validateTurnRecord({ ...turn, state: 'uncertain', completedAt, uncertainty: { ...origin, kind: 'provider_dispatch' } }));
+  rejects(() => validateTurnRecord({ ...turn, state: 'uncertain', completedAt, uncertainty: { ...origin, summaryDependency: { ...summaryDependency, cleanupRecordSha256: 'not-sha' } } }));
+  rejects(() => validateTurnRecord({ ...turn, state: 'uncertain', completedAt, uncertainty: { ...origin, summaryDependency: { ...summaryDependency, extra: true } } }));
+  rejects(() => validateProviderAttempt({ ...attempt, state: 'uncertain', dispatchedAt: createdAt, completedAt, uncertainty: origin }));
+});
+
 test('provider call IDs are preserved separately from stable internal tool identities across turns', () => {
   const first = validateToolCallIdentity({ id: 'internal1', sessionId: 's1', runId: 'r1', turnId: 't1', attemptId: 'a1', providerCallId: 'provider-repeat' });
   const second = validateToolCallIdentity({ ...first, id: 'internal2', turnId: 't2', attemptId: 'a2' });

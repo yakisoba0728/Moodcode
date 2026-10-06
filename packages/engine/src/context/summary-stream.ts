@@ -46,7 +46,7 @@ export async function streamSummary(options: {
         if (combined.aborted) abort();
       });
       cancelled(combined);
-      if (next.done) { streamDone = true; cleanupConfirmed = true; break; }
+      if (next.done === true) { streamDone = true; cleanupConfirmed = true; break; }
       progress();
       const event = next.value;
       if (finish && event.type !== 'usage') throw new EngineError('SUMMARY_PROTOCOL_ERROR', 'Summary emitted content after finish');
@@ -86,13 +86,15 @@ export async function streamSummary(options: {
     clearTimeout(timer); clearTimeout(inactivity);
     if (!streamDone) {
       deadline.abort();
-      if (iterator?.return) {
+      let close: AsyncIterator<ProviderEvent>['return'];
+      try { close = iterator?.return; } catch { cleanupConfirmed = false; }
+      if (typeof close === 'function') {
         let cleanup: ReturnType<typeof setTimeout> | undefined;
-        cleanupConfirmed = await Promise.race([Promise.resolve().then(() => iterator!.return!()).then(result => result?.done === true, () => false),
+        cleanupConfirmed = await Promise.race([Promise.resolve().then(() => close!.call(iterator)).then(result => result?.done === true).catch(() => false),
           new Promise<boolean>(resolve => { cleanup = setTimeout(() => resolve(false), 1000); })]);
         clearTimeout(cleanup);
       } else cleanupConfirmed = !providerInvoked;
-      if (!cleanupConfirmed) failure = new EngineError('CLEANUP_UNCERTAIN', 'Summary provider cleanup could not be confirmed');
+      if (!cleanupConfirmed) failure = new EngineError('CLEANUP_UNCERTAIN', 'Summary provider cleanup could not be confirmed', { summaryAttemptId: id });
     }
   }
   if (failure !== undefined) {

@@ -23,6 +23,8 @@ import { inspectInputImageIndex, type InputImageIndexOptions, type InputImageInd
 import { readActivePrefixSourceDatabase, validateActivePrefixPublication } from './active-prefix.js';
 import { SummaryAttemptStorage, type SummaryAttemptIdentity, type SummaryAttemptRecord, type SummaryAttemptListOptions, type SummaryAttemptPage, type SummaryObservation, type SummarySettlement, type SummaryUsageRecord } from './summary-attempts.js';
 import { SummaryRecoveryStorage, captureSummaryRecoveryHighWater, type SummaryRecoveryRequest } from '../recovery/summary.js';
+import { AttemptCleanupStorage, type AttemptCleanupIdentity, type AttemptCleanupRecord, type AttemptCleanupSettlement } from './attempt-cleanup.js';
+import { hasExecutionUncertainty, summaryOverflowDependency } from './execution-uncertainty.js';
 import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefix, ActivePrefixContextPublication } from '../context/active-prefix.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
@@ -99,6 +101,7 @@ export class SqliteStore implements SessionEngineStore {
   private readonly native: NativeSessionStorage;
   private readonly executionRecords: NativeExecutionStorage;
   private readonly summaryRecords: SummaryAttemptStorage;
+  private readonly attemptCleanupRecords: AttemptCleanupStorage;
   private readonly summaryRecoveryHighWater: string;
   private summaryRecovery?: SummaryRecoveryStorage;
   private readonly waiters = new Set<Waiter>();
@@ -150,8 +153,14 @@ export class SqliteStore implements SessionEngineStore {
         admit: (input, inputId) => this.admitInTransaction(input, inputId),
         steer: (input, run) => this.steerInTransaction(input, run), notify: id => this.notify(id),
       }, hostBudgets);
-      this.executionRecords = new NativeExecutionStorage(this.native);
+      this.executionRecords = new NativeExecutionStorage(this.native, turn => {
+        const dependency = turn.uncertainty?.summaryDependency;
+        if (dependency && this.getSummaryOverflowDependency(dependency.summaryAttemptId, turn.id, dependency.failedAttemptId).cleanupRecordSha256 !== dependency.cleanupRecordSha256) {
+          throw new EngineError('SUMMARY_OVERFLOW_BINDING_MISMATCH', 'Turn dependency does not match its durable ordinary cleanup');
+        }
+      });
       this.summaryRecords = new SummaryAttemptStorage(this.native, (run, type, payload) => this.append(run, type, payload));
+      this.attemptCleanupRecords = new AttemptCleanupStorage(this.native, (run, type, payload) => this.append(run, type, payload));
       this.summaryRecoveryHighWater = captureSummaryRecoveryHighWater(db);
     } catch (error) {
       try { db?.close(); } finally { ownership?.close(); }
@@ -296,6 +305,10 @@ export class SqliteStore implements SessionEngineStore {
     this.summaryRecovery = new SummaryRecoveryStorage(this.native, this.summaryRecords, {
       bindingScope, startupHighWater: this.summaryRecoveryHighWater,
       appendLegacy: (run, type, payload) => this.append(run, type, payload),
+      getSummaryOverflowDependency: (id, turnId, failedAttemptId) => this.getSummaryOverflowDependency(id, turnId, failedAttemptId),
+      hasOtherExecutionUncertainty: (workspaceId, excludedSummaryAttemptId) => hasExecutionUncertainty(this.db, this, workspaceId, {
+        excludedSummaryAttemptId, hasValidSummaryAcknowledgment: (sessionId, id) => this.summaryRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
+      }),
     });
   }
   getSummaryRecoveryPreview(sessionId: string, summaryAttemptId: string) {
@@ -319,6 +332,15 @@ export class SqliteStore implements SessionEngineStore {
       ?? !!this.db.prepare("SELECT 1 FROM summary_attempts WHERE workspace_id=? AND state='uncertain' LIMIT 1").get(workspaceId);
   }
   getAttempt(id: string): ProviderAttempt { return this.executionRecords.getAttempt(id); }
+  createAttemptCleanup(identity: AttemptCleanupIdentity): AttemptCleanupRecord { return this.attemptCleanupRecords.create(identity); }
+  dispatchAttemptCleanup(id: string): AttemptCleanupRecord { return this.attemptCleanupRecords.dispatch(id); }
+  settleAttemptCleanup(id: string, outcome: AttemptCleanupSettlement): AttemptCleanupRecord { return this.attemptCleanupRecords.settle(id, outcome); }
+  getAttemptCleanup(id: string, expectedSessionId?: string): AttemptCleanupRecord { return this.attemptCleanupRecords.get(id, expectedSessionId); }
+  getSummaryOverflowDependency(summaryAttemptId: string, turnId: string, failedAttemptId: string) { return summaryOverflowDependency(this.db, this, summaryAttemptId, turnId, failedAttemptId); }
+  hasUncertainExecution(workspaceId: string): boolean {
+    this.getWorkspace(workspaceId);
+    return this.transaction(() => hasExecutionUncertainty(this.db, this, workspaceId, { hasValidSummaryAcknowledgment: (sessionId, id) => this.summaryRecovery?.hasValidAcknowledgment(sessionId, id) ?? false }), false);
+  }
   putPart(part: MessagePart): MessagePart { return this.executionRecords.putPart(part); }
   listParts(turnId: string): MessagePart[] { return this.executionRecords.listParts(turnId); }
   listPartsPage(turnId: string, afterPartId?: string, limit?: number): PartPage { return this.executionRecords.listPartsPage(turnId, afterPartId, limit); }
@@ -790,6 +812,7 @@ export class SqliteStore implements SessionEngineStore {
         sessions.add(run.sessionId);
       }
       this.summaryRecords.recoverInTransaction(sessions);
+      this.attemptCleanupRecords.recoverInTransaction(sessions);
       this.executionRecords.recoverInTransaction(sessions);
       return active.map(run => this.getRun(run.id));
     });

@@ -49,6 +49,8 @@ export interface ExecutionUncertainty {
   kind: 'provider_dispatch' | 'tool_effect' | 'cleanup' | 'storage_commit';
   message: string;
   requiresRecovery: true;
+  /** A Turn's uncertainty came from this separate overflow summary after confirmed ordinary cleanup. */
+  summaryDependency?: { summaryAttemptId: string; failedAttemptId: string; cleanupRecordSha256: string };
 }
 /** The primary Run remains the existing durable identity; steers add Input bindings. */
 export interface RunRecordV2 extends Run { schemaVersion: typeof SESSION_SCHEMA_VERSION; inputIds: string[]; uncertainty?: ExecutionUncertainty }

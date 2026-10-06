@@ -86,3 +86,5 @@ export { getRecoveryStatus, recoverEngine, readRecoveryAcknowledgments, isRestor
 export type { RecoveryStatus, RecoveryResult, RecoveryAcknowledgment, RecoveryOptions, RecoverEngineOptions } from './recovery/index.js';
 export type { SummaryRecoveryRequest, SummaryRecoveryPreview, SummaryRecoveryReceipt } from './recovery/summary.js';
 export { SUMMARY_RECOVERY_LIMITS } from './recovery/summary.js';
+export type { AttemptCleanupIdentity, AttemptCleanupRecord, AttemptCleanupSettlement, AttemptCleanupState, AttemptCleanupMethod, AttemptCleanupReason } from './storage/attempt-cleanup.js';
+export { ATTEMPT_CLEANUP_LIMITS } from './storage/attempt-cleanup.js';

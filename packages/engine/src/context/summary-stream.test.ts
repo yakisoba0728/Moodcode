@@ -65,6 +65,20 @@ test('missing return preserves observed partial data and classifies cleanup unce
   assert.equal((f.log.at(-1)!.data as { state: string }).state, 'uncertain');
 });
 
+for (const boundary of ['return accessor', 'done accessor'] as const) test(`summary ${boundary} failure settles uncertainty with its exact summary identity`, async () => {
+  const f = fixture();
+  const provider: ProviderAdapter = { id: 'fixture', streamTurn() { return { [Symbol.asyncIterator]() {
+    const iterator: AsyncIterator<ProviderEvent> = { async next() { throw new EngineError('PROVIDER_TRANSPORT_ERROR', 'Synthetic adapter failure'); } };
+    if (boundary === 'return accessor') Object.defineProperty(iterator, 'return', { get() { throw new Error('return accessor failed'); } });
+    else iterator.return = async () => Object.defineProperty({}, 'done', { get() { throw new Error('done accessor failed'); } }) as IteratorResult<ProviderEvent>;
+    return iterator;
+  } }; } };
+  await assert.rejects(streamSummary({ ...f, id: 'exact-summary', maxOutputBytes: 64, provider }), (error: unknown) => error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN' && error.details?.summaryAttemptId === 'exact-summary');
+  assert.deepEqual(f.log.at(-1)?.data, { state: 'uncertain', errorCode: 'CLEANUP_UNCERTAIN', cleanupConfirmed: false });
+  assert.equal(f.log.filter(item => item.type === 'settle').length, 1);
+  assert.equal(f.log.some(item => item.type === 'provider-complete'), false);
+});
+
 test('shared output failure remains fatal while the rejected observed delta is still retained', async () => {
   const f = fixture();
   f.request.consumeSummaryOutput = () => { throw new EngineError('OUTPUT_LIMIT', 'Shared budget exhausted'); };
