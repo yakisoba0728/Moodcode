@@ -1,0 +1,1638 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-07",
+  "upstreamCommit": "4ac0d9c3d169bbe81d9570013effdda3fe24d36e",
+  "moodcodeCommit": "6d9a952",
+  "analysisType": "static-source-and-test-review",
+  "runtimeTestsRun": false,
+  "appLaunched": false,
+  "credentialsRead": false,
+  "sourceCopied": false,
+  "definitions": {
+    "complete": "whole implementation source read",
+    "targeted": "selected source ranges or symbol locations read",
+    "test": "test bodies or declarations reviewed; see note; not execution evidence",
+    "spec": "instructions/specification; not implementation evidence"
+  },
+  "summary": {
+    "filesReviewed": 83,
+    "upstreamFiles": 74,
+    "moodcodeFiles": 9,
+    "completeSourceFiles": 44,
+    "pinnedSourceLinksVerified": 53
+  },
+  "files": [
+    {
+      "repository": "opencode",
+      "path": "AGENTS.md",
+      "depth": "spec",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          161
+        ]
+      ],
+      "lineCount": 161,
+      "sha256": "1c9b877668f74a1a2a735fb3aee730e8bb058d1fa34c1d96e8db1e41bbec9233",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/AGENTS.md",
+      "depth": "spec",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          131
+        ]
+      ],
+      "lineCount": 131,
+      "sha256": "3eb97d68fba764fc98daa9e2410ff559f38fa2cfa5f8aa18ebed45f1e4abd8ff",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/AGENTS.md",
+      "depth": "spec",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          59
+        ]
+      ],
+      "lineCount": 59,
+      "sha256": "c325cfc3087a6f0db38c50af8ec9eb4fb6011c6548f8b03b2405871641a311f2",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/AGENTS.md",
+      "depth": "spec",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          1,
+          100
+        ]
+      ],
+      "lineCount": 204,
+      "sha256": "0d0c71dd95b457f92fa0290886bb25633928db166a59e75ca09987295a49b305",
+      "note": "fixture/lifecycle instructions only"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/tool.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          162
+        ]
+      ],
+      "lineCount": 162,
+      "sha256": "e533238dfd3ccf5ccbbda3b8998ed1e0f502b634f6b282ad2dc901638b13f426",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/application-tools.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          57
+        ]
+      ],
+      "lineCount": 57,
+      "sha256": "f80f738aa830c3ecb9fb67c4b6e764ac1380657b4fc481e460d5273aa79cec92",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/tools.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          13
+        ]
+      ],
+      "lineCount": 13,
+      "sha256": "33336321666a1b7c4e4d872dc2f948e69fbcdbb12218999f19c83e4847c710df",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/registry.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          147
+        ]
+      ],
+      "lineCount": 147,
+      "sha256": "cf2f73a4c6ed6ede7ba1cac30dac9bdf004142461d5bbcc8d55421cb2def7254",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/builtins.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          48
+        ]
+      ],
+      "lineCount": 48,
+      "sha256": "b03c1813353ae97368b269aed4525093cede9aa823ad1f0aa6c17fd755061321",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/bash.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          207
+        ]
+      ],
+      "lineCount": 207,
+      "sha256": "a79fabfe48f831bdff6b3140beccecdc44796d43071ee68356b1052f394c4303",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/question.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          94
+        ]
+      ],
+      "lineCount": 94,
+      "sha256": "c70d2ae944d4f64ede47a3e97eaeeb7b8ee00c9ecffe19111323db69e748a48b",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/edit.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          223
+        ]
+      ],
+      "lineCount": 223,
+      "sha256": "527fe2d1fa70481c8aed6d6930866d136a1fd4aaea881e4ae8df33a9d7e7d8af",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/write.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          101
+        ]
+      ],
+      "lineCount": 101,
+      "sha256": "75d9914ff8d765e93e5add9e339b75719857f21d0e0d418bd6f0734e3a51b8cc",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/apply-patch.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          219
+        ]
+      ],
+      "lineCount": 219,
+      "sha256": "4ae3d5e0707b7acf6095529a598c00b65cd1d9a9bceddb04d7f92526f59c6ffc",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/read.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          117
+        ]
+      ],
+      "lineCount": 117,
+      "sha256": "ff3298263962058f05ec4eb2f9007ef0bc42101dbda7908ca79f46a368128752",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/glob.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          105
+        ]
+      ],
+      "lineCount": 105,
+      "sha256": "d197c4460234824c87b168edff59818ad9265ac2defceaf692f045f0cf2b8ec0",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/grep.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          137
+        ]
+      ],
+      "lineCount": 137,
+      "sha256": "e2d59350bdde470577c6ae9bdc238eed4daaee8bdaa73c7bcf42a1b076171c73",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/skill.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          109
+        ]
+      ],
+      "lineCount": 109,
+      "sha256": "48a19a835c1d5b9fd46dbe061bc810cc58e404c5f37ebf182deecf63d1cd2fc0",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/todowrite.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          62
+        ]
+      ],
+      "lineCount": 62,
+      "sha256": "6cdadab84c51b0d8c9314ac02e95a0e12904eb83ee40751b774666d20d411f5c",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/read-filesystem.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          366
+        ]
+      ],
+      "lineCount": 366,
+      "sha256": "6107729882e4856638802dba19e6c4a86bf54413c44fdb9b97e251409106ae3b",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/webfetch.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          218
+        ]
+      ],
+      "lineCount": 218,
+      "sha256": "471102cc1f4d6a879461ecd2b9ebe2b3acecc0087a053816edc60f5207762760",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/websearch.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          260
+        ]
+      ],
+      "lineCount": 260,
+      "sha256": "ba8cd7ec891f8f6bd51dce609dbdce5616a1981d8b9975250e0b8b582a134768",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/http-body.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          30
+        ]
+      ],
+      "lineCount": 30,
+      "sha256": "75dcace4c1dc93d0df508d1b021078ad0ce6c60143ff6cd70368aae341a38978",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/permission.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          310
+        ]
+      ],
+      "lineCount": 310,
+      "sha256": "f5d5b295452f2ddf17c475a24e77e302bb2b4b65d8a9e02a0f7bc5ef5504a0ba",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/permission/saved.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          79
+        ]
+      ],
+      "lineCount": 79,
+      "sha256": "069ad0d31169e71f1383cd8960d4ea1d78b1eca48e0dc2e1e1e00db1b5f7854b",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/permission/sql.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          20
+        ]
+      ],
+      "lineCount": 20,
+      "sha256": "527fd7335a017e02b49d359e318f957a18722f9ec005c75653a2d7d5e973a46a",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/question.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          153
+        ]
+      ],
+      "lineCount": 153,
+      "sha256": "2e39a1f38c4c96d8a69e4dcb50a0b13f0e30da8e894a64f6e41014b92c9a8c19",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/process.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          261
+        ]
+      ],
+      "lineCount": 261,
+      "sha256": "d7dfc1030fdec5f6354bd07b31261bddb6651cc5423d80f630b369c6a7de7dff",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/location-mutation.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          162
+        ]
+      ],
+      "lineCount": 162,
+      "sha256": "25ed98b21d27f3b0a7cd021901cf6adc1d4f9e6988ea8ecf4ad07cb777960fce",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/file-mutation.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          207
+        ]
+      ],
+      "lineCount": 207,
+      "sha256": "8e47abe63908e0f11064c70e9142c51c615273d319c53d084456092257ab4d43",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/pty.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          318
+        ]
+      ],
+      "lineCount": 318,
+      "sha256": "aabd2577b86cfd0e620bf2693e8ca2620d33e457ade597e4135357a6fd8707f5",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/pty/pty.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          25
+        ]
+      ],
+      "lineCount": 25,
+      "sha256": "33a1ce3fb588f953242afac241ece952559b166bc0998089d11fb28e3df66635",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/pty/pty.node.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          29
+        ]
+      ],
+      "lineCount": 29,
+      "sha256": "a30f18b512c37800bde3aae7ca4e6c352258adb4eb9b3cfd20d33c06ef51019c",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool-output-store.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          211
+        ]
+      ],
+      "lineCount": 211,
+      "sha256": "3eea248408c62f7ce4c56433dabdbabf8507095dda812b41a1e1168b713536b2",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/state.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          128
+        ]
+      ],
+      "lineCount": 128,
+      "sha256": "7fc1a20a7c602f79a3829da35ea841a690ba31ac030c33d93a4d26d6c18d941c",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/snapshot.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          266
+        ]
+      ],
+      "lineCount": 266,
+      "sha256": "6d90bfad6cc24ed54bfa7ea0bdb222e97e13085a6b35966445aa806f04cfb84e",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/plugin.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          167
+        ]
+      ],
+      "lineCount": 167,
+      "sha256": "ca216206cfb85b46a0babbbd0e09f9e5fbfdc403907d1694322da7b6a9152c8f",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/location-services.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          115
+        ]
+      ],
+      "lineCount": 115,
+      "sha256": "11c3a127306ebeb24237e9155ebcf3ce6af5917135b4c2b811d57d9425a3ca2d",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/cross-spawn-spawner.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          292,
+          442
+        ]
+      ],
+      "lineCount": 507,
+      "sha256": "83276c7b6389edb5881fb257754ffa89bfda7ee31fb952a7028e3c8da8fa3e2b",
+      "note": "group kill/escalation/finalizer/handle"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/plugin/host.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          1,
+          170
+        ]
+      ],
+      "lineCount": 219,
+      "sha256": "e5ac77b507c0f14c0b94194b17ceb30f739abaaac80fc559e5c5a9255d802639",
+      "note": "capability surface; remainder symbols only"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/runner/llm.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          119,
+          149
+        ],
+        [
+          150,
+          345
+        ]
+      ],
+      "lineCount": 441,
+      "sha256": "ba0b03e2b00cfe67bc98988f348ad76ba4f73d9e36fe46883710bbdc4e48c3a3",
+      "note": "tool materialization/fibers/settlement/step snapshots"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/sdk-next/src/opencode.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          49
+        ]
+      ],
+      "lineCount": 49,
+      "sha256": "ebcfcc9a35bb0554eed729e0c3bb51d0c2ce09fa6287269a65a85f3bfc37c1f7",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/tool.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          183
+        ]
+      ],
+      "lineCount": 183,
+      "sha256": "fed2bc482a40aff4fe21a7939c753bc0f36110e5ec0e8dbba1410509d4deaf88",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/registry.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          455
+        ]
+      ],
+      "lineCount": 455,
+      "sha256": "a8b24a6d58a80c42307e251905dbaa4f25ca0724569b1e531e412da934ab00fe",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/task.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          371
+        ]
+      ],
+      "lineCount": 371,
+      "sha256": "db09fa5868ad3ecfdd83aa2bb7243f85e9e2cd13d0b19fd6f307f7a337b2b36e",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/shell.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          645
+        ]
+      ],
+      "lineCount": 645,
+      "sha256": "342d742ae324782d222465c202dcdfcb7cc35a4cecf04e87f9881f1794d921ac",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/code-mode.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          310
+        ]
+      ],
+      "lineCount": 310,
+      "sha256": "9a95ddba2ea9ef15c9276ee07cf88bf729b11ade6619ed03c5c8690b46e402aa",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/write.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          104
+        ]
+      ],
+      "lineCount": 104,
+      "sha256": "861de91cc67849e138c32a697c8eb1abab8e4912bfd97811ea1866b8e9af4096",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/external-directory.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          49
+        ]
+      ],
+      "lineCount": 49,
+      "sha256": "b86477bd434aef57caf9fb1d3d72249be37c66e299aa1a864a601e1600e36bda",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/tools.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          590
+        ]
+      ],
+      "lineCount": 590,
+      "sha256": "5ad3f44682fc8e2bacb2222157943de8ab7dd663a1e0ddf5e4a213539b1f67d7",
+      "note": ""
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/permission/index.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          1,
+          180
+        ],
+        [
+          205,
+          205
+        ]
+      ],
+      "lineCount": 223,
+      "sha256": "5b9e4aa65290a39363722b9fae4c68080188d8ed76896afa0d96cd9dbfd2821d",
+      "note": "permission lifecycle/always/alias"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/prompt.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          1,
+          95
+        ],
+        [
+          1190,
+          1260
+        ],
+        [
+          1550,
+          1631
+        ]
+      ],
+      "lineCount": 1631,
+      "sha256": "f0c5bc64c0f0e966693d4a57f7ede1e9d6e188b396152f04b55303dc75b9b768",
+      "note": "SessionTools wiring and deps"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/edit.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          1,
+          217
+        ],
+        [
+          420,
+          650
+        ],
+        [
+          682,
+          737
+        ]
+      ],
+      "lineCount": 737,
+      "sha256": "f84d9d242137e1f18ce912188efb7a97b71bf4f255e0a69f16a1fe9d1ff236d4",
+      "note": "provenance/edit flow/selected matchers; fuzzy algorithms not exhaustive"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/apply_patch.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          185,
+          305
+        ]
+      ],
+      "lineCount": 313,
+      "sha256": "9bc5a1384a5e1b1cdd21943cb529dcde6e5e596706dee2111ccdb999d6b0ba22",
+      "note": "batch permission/effects/formatter/events/LSP; parse branches symbols only"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/read.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          118,
+          119
+        ],
+        [
+          250,
+          255
+        ]
+      ],
+      "lineCount": 386,
+      "sha256": "afec8294965cbd9b9e29d3453b682164f0ecdba26574ebc048e9ba21af209c68",
+      "note": "symbol-level LSP/permission"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/glob.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          28,
+          28
+        ],
+        [
+          44,
+          44
+        ]
+      ],
+      "lineCount": 76,
+      "sha256": "a5069377ae916495a72be319d218878136fc13f18551f3e16981d8c692c68a4a",
+      "note": "symbol-level permission/external"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/grep.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          39,
+          39
+        ],
+        [
+          55,
+          55
+        ]
+      ],
+      "lineCount": 115,
+      "sha256": "f7bbab8ae3fabfe3dd78b5728a283a56bff318d5b1f278d15d1c637227ff660f",
+      "note": "symbol-level permission/external"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/mcp/index.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          210,
+          410
+        ],
+        [
+          490,
+          570
+        ],
+        [
+          650,
+          785
+        ]
+      ],
+      "lineCount": 1004,
+      "sha256": "82c459309dfd005d25daecfabc1007d807d4bee23f6078434974277938a1c026",
+      "note": "transport/OAuth states/lifetime/catalog; browser auth callback not audited"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/plugin/index.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          210,
+          312
+        ]
+      ],
+      "lineCount": 318,
+      "sha256": "47c62b7cfae891d268e6b239edb0f1c46df5cb35eb11ccfd8bd4186c156024e9",
+      "note": "sequential hooks/config/event/dispose/trigger"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/lsp/lsp.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          135,
+          295
+        ]
+      ],
+      "lineCount": 507,
+      "sha256": "cc2857fe8a8d3503288591d489c1c1294a2175a684226ade81ae1167482678ea",
+      "note": "root/extension/spawn/dedup/broken/cache/dispose"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/worktree/index.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          210,
+          290
+        ],
+        [
+          350,
+          430
+        ]
+      ],
+      "lineCount": 623,
+      "sha256": "f26694e609f121825fce7882f9bf7cb3574285cecc058be28a73c7dd1022328c",
+      "note": "create/async boot/remove; reset symbols only"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/snapshot/index.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          320,
+          520
+        ]
+      ],
+      "lineCount": 807,
+      "sha256": "d301ef3dce67c870247bf65db962c2f0c7881f9ffd0e564167605111c9a2065f",
+      "note": "capture/restore/revert/batch; full Git internals not audited"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/application-tools.test.ts",
+      "depth": "test",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          287
+        ]
+      ],
+      "lineCount": 287,
+      "sha256": "6cd6b39502f8582a0cd9d1e91eb9d8c2a53d6b2d7b8dc58c27e8d315d8909b7c",
+      "note": "full test source, not executed"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/session-runner-tool-registry.test.ts",
+      "depth": "test",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          336,
+          435
+        ]
+      ],
+      "lineCount": 452,
+      "sha256": "6d4a8858801220a1afa1c3a8f911eef1034e693b0876eb8715849f9bf7e02d15",
+      "note": "stale/overlay/captured executor bodies; other test names"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/tool-bash.test.ts",
+      "depth": "test",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          135,
+          230
+        ],
+        [
+          300,
+          437
+        ]
+      ],
+      "lineCount": 437,
+      "sha256": "be2d7bfba705b46afaa7132da06f3546d2904df95a0e640002b30f8944a80fc6",
+      "note": "substituted service test bodies; live naming is not process execution proof"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/tool-edit.test.ts",
+      "depth": "test",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          384,
+          434
+        ]
+      ],
+      "lineCount": 434,
+      "sha256": "506e638be565234e18e3ce4a90a38d99b162f789607e14f98340633b09c4fe6c",
+      "note": "stale write and TODO tests; other test names"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/tool-apply-patch.test.ts",
+      "depth": "test",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          132,
+          245
+        ],
+        [
+          350,
+          436
+        ]
+      ],
+      "lineCount": 436,
+      "sha256": "d20664a50f5a16ca28b6f79de92f7c02be4c0d9d42190231df95ce5cb9fa3f53",
+      "note": "patch/moves/preconditions/partial defect/interruption bodies"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/permission.test.ts",
+      "depth": "test",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          245,
+          286
+        ]
+      ],
+      "lineCount": 315,
+      "sha256": "780aa949f7f6aa31809df7cecd068e06ce11c380e541ae5f3eede2617ed6a4c9",
+      "note": "once/decline bodies; other test names"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/pty/pty-session.test.ts",
+      "depth": "test",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          1,
+          75
+        ]
+      ],
+      "lineCount": 240,
+      "sha256": "1b86ea4a563cef46d80448ee1f8f9baad3ec747562266db6a810e9fecbddff77",
+      "note": "fixture/setup only; names searched"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/snapshot.test.ts",
+      "depth": "test",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          15,
+          16
+        ],
+        [
+          70,
+          70
+        ],
+        [
+          86,
+          86
+        ],
+        [
+          132,
+          132
+        ]
+      ],
+      "lineCount": 178,
+      "sha256": "1cb6b50949287f302cae9db18a5b244d7072ee1a722bb88389df0fa29c1eab50",
+      "note": "test declarations only"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/question.test.ts",
+      "depth": "test",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          37,
+          37
+        ],
+        [
+          63,
+          63
+        ],
+        [
+          92,
+          92
+        ]
+      ],
+      "lineCount": 114,
+      "sha256": "9b8306fce83aec8470dd7c7774016ebaaabb6a6f8686f90900dc5bc02bed05e6",
+      "note": "test declarations only"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/tool/task.test.ts",
+      "depth": "test",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          170,
+          170
+        ]
+      ],
+      "lineCount": 1101,
+      "sha256": "4b12354dbc5ce886b81512709939becb1afb9cdd3f63db0a84fe1c986cb379a4",
+      "note": "declaration/symbol discovery only"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/tool/shell.test.ts",
+      "depth": "test",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          183,
+          183
+        ],
+        [
+          222,
+          222
+        ],
+        [
+          1009,
+          1009
+        ],
+        [
+          1134,
+          1134
+        ]
+      ],
+      "lineCount": 1199,
+      "sha256": "a0ec621f29dc5ae06d41db85dcc8457d45f4de4f7a2c837e9c29bc995776bc78",
+      "note": "declaration/symbol discovery only"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/mcp/lifecycle.test.ts",
+      "depth": "test",
+      "readCompleteness": "targeted",
+      "readRanges": [],
+      "lineCount": 560,
+      "sha256": "e3553cf88878b879c2d4ca1f576ea5341d53432c45f5dcc40038432e55f67af0",
+      "note": "declaration/symbol discovery only"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/permission/index.ts",
+      "depth": "complete",
+      "readCompleteness": "full",
+      "readRanges": [
+        [
+          1,
+          250
+        ]
+      ],
+      "lineCount": 250,
+      "sha256": "befeccb78ac4735295036c8b421a8ad676432791ae9c016be960f40d80808b3e",
+      "note": ""
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/tools/patch/index.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          237,
+          340
+        ]
+      ],
+      "lineCount": 340,
+      "sha256": "02a669245eed48a1f5fb55925b8dd034c6a412a8371b5a81201fd9d512e42f9c",
+      "note": "fingerprint/one-use/precondition/partial accounting"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/tools/command/index.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          220,
+          396
+        ]
+      ],
+      "lineCount": 396,
+      "sha256": "78911d77eb4b2dd9cd4fc0a760ee9c54485e52b643391ab3be2c58335ec7e3da",
+      "note": "supervisor loss/output/checkpoint/cleanupConfirmed"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/tools/command/process-control.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          1,
+          83
+        ]
+      ],
+      "lineCount": 195,
+      "sha256": "a4cbeb9a5f21061ac69d3ee89f17784eecaac94281a35af23f65352ea83d47b5",
+      "note": "credential env/group cleanup/spawn"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/tools/read/index.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          425,
+          513
+        ]
+      ],
+      "lineCount": 513,
+      "sha256": "0889e7c9286530c49b0df269b26bb929feb3906866a49b0300179a3f3541b1e0",
+      "note": "literal search and tool definitions"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/ports.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          26,
+          29
+        ]
+      ],
+      "lineCount": 35,
+      "sha256": "82189f1bdc012d71fb1ad672ddc43adefb59e7e2b291c3d31f41bd597341e416",
+      "note": "tool public contracts"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/review/index.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          411,
+          447
+        ]
+      ],
+      "lineCount": 632,
+      "sha256": "1e97a8e28043e561b410d6a801d5293a4547872b1db2a6a5783ac906749e14c6",
+      "note": "symbol-level preview field logic"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/workspace/index.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          36,
+          36
+        ],
+        [
+          67,
+          67
+        ],
+        [
+          125,
+          125
+        ],
+        [
+          174,
+          174
+        ]
+      ],
+      "lineCount": 300,
+      "sha256": "e80df0bfafed08ccfced861b1aa1df11a7a78b72751e6cfd673de5061de666c8",
+      "note": "symbol discovery only"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/runner/index.ts",
+      "depth": "targeted",
+      "readCompleteness": "targeted",
+      "readRanges": [
+        [
+          570,
+          603
+        ]
+      ],
+      "lineCount": 653,
+      "sha256": "49a5fbc82cac55fc46b8fb485ff433118b177a10de1692fd7833e736c28eaa98",
+      "note": "symbol output prepare/plan/approval/execute; full body not reviewed"
+    }
+  ],
+  "verifiedLinks": [
+    {
+      "path": "packages/core/src/tool/builtins.ts",
+      "start": 17,
+      "end": 48
+    },
+    {
+      "path": "packages/opencode/src/session/prompt.ts",
+      "start": 1226,
+      "end": 1242
+    },
+    {
+      "path": "packages/opencode/src/session/tools.ts",
+      "start": 41,
+      "end": 130
+    },
+    {
+      "path": "packages/opencode/src/session/tools.ts",
+      "start": 388,
+      "end": 490
+    },
+    {
+      "path": "packages/core/src/location-services.ts",
+      "start": 42,
+      "end": 80
+    },
+    {
+      "path": "packages/core/src/session/runner/llm.ts",
+      "start": 207,
+      "end": 278
+    },
+    {
+      "path": "packages/core/src/session/runner/llm.ts",
+      "start": 285,
+      "end": 345
+    },
+    {
+      "path": "packages/core/src/tool/tool.ts",
+      "start": 73,
+      "end": 138
+    },
+    {
+      "path": "packages/core/src/tool/registry.ts",
+      "start": 50,
+      "end": 90
+    },
+    {
+      "path": "packages/core/src/tool/application-tools.ts",
+      "start": 32,
+      "end": 53
+    },
+    {
+      "path": "packages/core/src/state.ts",
+      "start": 95,
+      "end": 128
+    },
+    {
+      "path": "packages/core/src/tool/registry.ts",
+      "start": 50,
+      "end": 137
+    },
+    {
+      "path": "packages/core/test/session-runner-tool-registry.test.ts",
+      "start": 336,
+      "end": 445
+    },
+    {
+      "path": "packages/core/src/tool/AGENTS.md",
+      "start": 43,
+      "end": 47
+    },
+    {
+      "path": "packages/core/test/application-tools.test.ts",
+      "start": 90,
+      "end": 109
+    },
+    {
+      "path": "packages/core/src/permission.ts",
+      "start": 76,
+      "end": 167
+    },
+    {
+      "path": "packages/core/src/permission/saved.ts",
+      "start": 35,
+      "end": 75
+    },
+    {
+      "path": "packages/core/src/permission.ts",
+      "start": 179,
+      "end": 281
+    },
+    {
+      "path": "packages/opencode/src/permission/index.ts",
+      "start": 42,
+      "end": 168
+    },
+    {
+      "path": "packages/core/src/question.ts",
+      "start": 74,
+      "end": 153
+    },
+    {
+      "path": "packages/core/src/tool/question.ts",
+      "start": 50,
+      "end": 88
+    },
+    {
+      "path": "packages/core/src/tool/read-filesystem.ts",
+      "start": 11,
+      "end": 17
+    },
+    {
+      "path": "packages/core/src/tool/read-filesystem.ts",
+      "start": 208,
+      "end": 352
+    },
+    {
+      "path": "packages/core/src/tool/grep.ts",
+      "start": 80,
+      "end": 126
+    },
+    {
+      "path": "packages/core/src/location-mutation.ts",
+      "start": 90,
+      "end": 161
+    },
+    {
+      "path": "packages/core/src/file-mutation.ts",
+      "start": 71,
+      "end": 179
+    },
+    {
+      "path": "packages/core/src/tool/apply-patch.ts",
+      "start": 70,
+      "end": 189
+    },
+    {
+      "path": "packages/core/test/tool-apply-patch.test.ts",
+      "start": 374,
+      "end": 436
+    },
+    {
+      "path": "packages/opencode/src/tool/edit.ts",
+      "start": 1,
+      "end": 20
+    },
+    {
+      "path": "packages/opencode/src/tool/edit.ts",
+      "start": 124,
+      "end": 207
+    },
+    {
+      "path": "packages/core/src/tool/bash.ts",
+      "start": 118,
+      "end": 200
+    },
+    {
+      "path": "packages/core/src/cross-spawn-spawner.ts",
+      "start": 292,
+      "end": 437
+    },
+    {
+      "path": "packages/core/src/tool/bash.ts",
+      "start": 65,
+      "end": 83
+    },
+    {
+      "path": "packages/core/test/tool-bash.test.ts",
+      "start": 313,
+      "end": 344
+    },
+    {
+      "path": "packages/opencode/src/tool/shell.ts",
+      "start": 278,
+      "end": 328
+    },
+    {
+      "path": "packages/opencode/src/tool/shell.ts",
+      "start": 429,
+      "end": 604
+    },
+    {
+      "path": "packages/core/src/pty.ts",
+      "start": 14,
+      "end": 69
+    },
+    {
+      "path": "packages/core/src/pty.ts",
+      "start": 162,
+      "end": 312
+    },
+    {
+      "path": "packages/core/src/tool-output-store.ts",
+      "start": 135,
+      "end": 173
+    },
+    {
+      "path": "packages/core/src/tool-output-store.ts",
+      "start": 178,
+      "end": 210
+    },
+    {
+      "path": "packages/core/src/snapshot.ts",
+      "start": 129,
+      "end": 224
+    },
+    {
+      "path": "packages/core/src/session/runner/llm.ts",
+      "start": 325,
+      "end": 345
+    },
+    {
+      "path": "packages/opencode/src/snapshot/index.ts",
+      "start": 320,
+      "end": 440
+    },
+    {
+      "path": "packages/opencode/src/tool/task.ts",
+      "start": 107,
+      "end": 207
+    },
+    {
+      "path": "packages/opencode/src/tool/task.ts",
+      "start": 224,
+      "end": 353
+    },
+    {
+      "path": "packages/opencode/src/mcp/index.ts",
+      "start": 218,
+      "end": 377
+    },
+    {
+      "path": "packages/opencode/src/mcp/index.ts",
+      "start": 666,
+      "end": 783
+    },
+    {
+      "path": "packages/opencode/src/tool/code-mode.ts",
+      "start": 135,
+      "end": 184
+    },
+    {
+      "path": "packages/opencode/src/tool/registry.ts",
+      "start": 127,
+      "end": 210
+    },
+    {
+      "path": "packages/core/src/plugin.ts",
+      "start": 43,
+      "end": 143
+    },
+    {
+      "path": "packages/core/src/tool/AGENTS.md",
+      "start": 56,
+      "end": 59
+    },
+    {
+      "path": "packages/opencode/src/lsp/lsp.ts",
+      "start": 138,
+      "end": 283
+    },
+    {
+      "path": "packages/opencode/src/worktree/index.ts",
+      "start": 214,
+      "end": 293
+    }
+  ],
+  "limitations": [
+    "Import/hash inventory is not full file reading",
+    "Legacy fuzzy algorithms, OAuth browser callbacks, LSP RPC internals, worktree reset, Git tree internals and interpreter isolation are not exhaustive in this report",
+    "No tests executed"
+  ]
+}

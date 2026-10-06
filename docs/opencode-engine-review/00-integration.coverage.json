@@ -1,0 +1,334 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-07",
+  "sourceCommit": "4ac0d9c3d169bbe81d9570013effdda3fe24d36e",
+  "moodcodeCommit": "6d9a9527b74e543dfab55a9a401b47176d27bff8",
+  "reviewer": "root",
+  "area": "Platform assembly, host/service ownership, package boundaries, source pin/diff, licensing and independent blueprint",
+  "reviewedFiles": [
+    {
+      "path": "AGENTS.md",
+      "level": "complete",
+      "lines": 161,
+      "sha256": "1c9b877668f74a1a2a735fb3aee730e8bb058d1fa34c1d96e8db1e41bbec9233"
+    },
+    {
+      "path": "LICENSE",
+      "level": "complete",
+      "lines": 21,
+      "sha256": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b"
+    },
+    {
+      "path": "packages/ui/LICENSE",
+      "level": "complete",
+      "lines": 21,
+      "sha256": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b"
+    },
+    {
+      "path": "packages/http-recorder/LICENSE",
+      "level": "complete",
+      "lines": 21,
+      "sha256": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b"
+    },
+    {
+      "path": "package.json",
+      "level": "complete",
+      "lines": 169,
+      "sha256": "564e182ea9f962fe4ac148b2c93f6679b38cecd62d81abf6b51f5a2a88e03262"
+    },
+    {
+      "path": "packages/opencode/AGENTS.md",
+      "level": "complete",
+      "lines": 131,
+      "sha256": "3eb97d68fba764fc98daa9e2410ff559f38fa2cfa5f8aa18ebed45f1e4abd8ff"
+    },
+    {
+      "path": "packages/opencode/package.json",
+      "level": "complete",
+      "lines": 157,
+      "sha256": "8b043b2841b7e606e0982c0234527016ef3ef1e0ca8149c08a8b48e62e395572"
+    },
+    {
+      "path": "packages/core/package.json",
+      "level": "complete",
+      "lines": 133,
+      "sha256": "112c4e36452acfc1734be3ff71cc686239cb14f49605607251b628b7696c4668"
+    },
+    {
+      "path": "packages/llm/package.json",
+      "level": "complete",
+      "lines": 52,
+      "sha256": "aa00854ccb36ea82dfe5183a7094c1ea805f2f9c7b33fac3f061317c7336c1f2"
+    },
+    {
+      "path": "packages/schema/package.json",
+      "level": "complete",
+      "lines": 22,
+      "sha256": "2904ffd95e874d6e537646ab6b14b589c26f3d65b50e9b19eb3bfe5b461e7e82"
+    },
+    {
+      "path": "packages/sdk-next/package.json",
+      "level": "complete",
+      "lines": 25,
+      "sha256": "b94494a71e9323235443c3326f2bf5c8bbdedadbdbb9aae5ef713363a8265c69"
+    },
+    {
+      "path": "packages/protocol/package.json",
+      "level": "complete",
+      "lines": 22,
+      "sha256": "9e88aa72494d00f5c66bcd4c1abbbd91d2d02569e7c2b17cdca7662737be9ae7"
+    },
+    {
+      "path": "packages/server/package.json",
+      "level": "complete",
+      "lines": 25,
+      "sha256": "3f00a2fa5a037977ef2bdcdd18c61212844eb00c8143f6dbb036f9c1c5bc07ec"
+    },
+    {
+      "path": "packages/plugin/package.json",
+      "level": "complete",
+      "lines": 54,
+      "sha256": "7687c7262b075b64b79d14585cefdcc2a4658648070d0e3fa93aafc077a856de"
+    },
+    {
+      "path": "packages/codemode/package.json",
+      "level": "complete",
+      "lines": 26,
+      "sha256": "bfee55482b098e5e2f81d0536684a6c45352aa44a960e8843de17282b1218af0"
+    },
+    {
+      "path": "packages/core/src/effect/app-node.ts",
+      "level": "complete",
+      "lines": 14,
+      "sha256": "84d50e650e7354f3fcbcdc39a005cce87d35aae6519cbf4995f1252062f5b2d2"
+    },
+    {
+      "path": "packages/core/src/effect/layer-node.ts",
+      "level": "complete",
+      "lines": 333,
+      "sha256": "eededbc130f4ecdcdda906099be5aca47496cd58d3a15897ea17ab13f4a3a758"
+    },
+    {
+      "path": "packages/core/src/effect/app-node-builder.ts",
+      "level": "complete",
+      "lines": 23,
+      "sha256": "5559b4576f491567be0a833233e8770ef0dcf670e6afb621600e0b878bfac9a2"
+    },
+    {
+      "path": "packages/core/src/effect/app-node-platform.ts",
+      "level": "complete",
+      "lines": 18,
+      "sha256": "80a38cb029d2a59ea2e09e2d8f59512049a3e6a5beb1c9573fd8fd6599d2cee3"
+    },
+    {
+      "path": "packages/core/src/effect/runtime.ts",
+      "level": "complete",
+      "lines": 21,
+      "sha256": "fe1c1ad961d1fb861145864ff84b7b28e53946ea29fbd7f54ae03f8b143941fd"
+    },
+    {
+      "path": "packages/core/src/effect/memo-map.ts",
+      "level": "complete",
+      "lines": 3,
+      "sha256": "fdd26f534a919cba6ba6cf994ab8c0e5461ec77f99c87b9e961440261b46828a"
+    },
+    {
+      "path": "packages/core/src/location.ts",
+      "level": "complete",
+      "lines": 39,
+      "sha256": "644a0b788b9907c81a0248b7d965d35280f94e21edebe8b0d3abd3277561a4d0"
+    },
+    {
+      "path": "packages/core/src/location-service-map.ts",
+      "level": "complete",
+      "lines": 18,
+      "sha256": "fe25687d2fc565c54e985847f7386f081949f0c52129c81e30dec441e5d511fd"
+    },
+    {
+      "path": "packages/core/src/location-services.ts",
+      "level": "complete",
+      "lines": 115,
+      "sha256": "11c3a127306ebeb24237e9155ebcf3ce6af5917135b4c2b811d57d9425a3ca2d"
+    },
+    {
+      "path": "packages/core/src/github-copilot/README.md",
+      "level": "complete",
+      "lines": 5,
+      "sha256": "62969b3ac55adab013546f90667ff48924880bfe07cd2504de0d40a3e6eb0aa0"
+    },
+    {
+      "path": "packages/server/src/routes.ts",
+      "level": "complete",
+      "lines": 68,
+      "sha256": "88ca9ce1e28be763e9f38d323c9c8577925a4fb54699dc77b134aa467b279b4e"
+    },
+    {
+      "path": "packages/server/src/api.ts",
+      "level": "complete",
+      "lines": 8,
+      "sha256": "0565282981e12b188e7e97374b028bec5f725f9d8a38cf60d51afe4ac27396bf"
+    },
+    {
+      "path": "packages/server/src/handlers/session.ts",
+      "level": "complete",
+      "lines": 385,
+      "sha256": "16350299687e565528cabd69b821bc46378dc0ccb947c1845628c27153323b88"
+    },
+    {
+      "path": "packages/server/src/middleware/session-location.ts",
+      "level": "complete",
+      "lines": 67,
+      "sha256": "75bfc73b73f22d9a2e8193ab8f982568b0bfeac27ec8f67a1b146c71bf40def7"
+    },
+    {
+      "path": "packages/protocol/src/api.ts",
+      "level": "complete",
+      "lines": 86,
+      "sha256": "8cfc19f3d28da6ae6c9c23e1da6a754b08d8721b3dcb4020d150ec1ce9e28dea"
+    },
+    {
+      "path": "packages/sdk-next/src/opencode.ts",
+      "level": "complete",
+      "lines": 49,
+      "sha256": "ebcfcc9a35bb0554eed729e0c3bb51d0c2ce09fa6287269a65a85f3bfc37c1f7"
+    },
+    {
+      "path": "packages/opencode/src/server/server.ts",
+      "level": "complete",
+      "lines": 226,
+      "sha256": "ba4503a8da66a7e8cda86ea7ad7ea0e8e4172abcaa87abd8c35835ffa0a494f9"
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/server.ts",
+      "level": "complete",
+      "lines": 325,
+      "sha256": "8cd7786d0eeda08836e71207784f1c63080caa653126e8a70732b13aba79f5f8"
+    },
+    {
+      "path": "packages/opencode/src/server/routes/instance/httpapi/AGENTS.md",
+      "level": "complete",
+      "lines": 39,
+      "sha256": "85f198f1c3c5aeb6e2b4eef195d0e7b09710b0d43c53912a2e2d680c0be3f7b2"
+    },
+    {
+      "path": "packages/opencode/src/server/init-projectors.ts",
+      "level": "complete",
+      "lines": 3,
+      "sha256": "9e6445bfee9e6c7f762833c2bee1a22392b55df1190cbf817e4648169ed08276"
+    },
+    {
+      "path": "packages/docs/LICENSE",
+      "level": "targeted",
+      "notes": "root LICENSE와 비교해 저작권 표시 및 마지막 개행 외의 본문 일치를 확인했다.",
+      "lines": 21,
+      "sha256": "25b2b8ffd5ed7a8d2b201f215a9ca64d14db709271070d7fb5efa30894655a35"
+    },
+    {
+      "path": "packages/opencode/src/tool/edit.ts",
+      "level": "targeted",
+      "notes": "1–45: third-party attribution, import and file lock entry.",
+      "lines": 737,
+      "sha256": "f84d9d242137e1f18ce912188efb7a97b71bf4f255e0a69f16a1fe9d1ff236d4"
+    },
+    {
+      "path": "packages/opencode/src/session/message-v2.ts",
+      "level": "targeted",
+      "notes": "Previous pin to current pin diff, MIME filter and attachment projection.",
+      "lines": 750,
+      "sha256": "b55648c31423ace5c730ca085ef5429a966486fcd7bf84ab25e59453a1a9417a"
+    },
+    {
+      "path": "packages/opencode/test/session/message-v2.test.ts",
+      "level": "inventory",
+      "notes": "Changed test path and size identified; agent context review owns semantic test inspection.",
+      "lines": 1919,
+      "sha256": "d05dff661e938173fdf228d8cbafef29f450fcdfe2172b1fd3066d9fd3df271e"
+    },
+    {
+      "path": "packages/core/test/effect/layer-node/node-build.test.ts",
+      "level": "test-body-complete",
+      "notes": "All four fixtures read, not executed.",
+      "lines": 125,
+      "sha256": "c192cb9c3e87f5eb481175048e2d18ba13a8e006213aa934d7046ab2698de1d8"
+    },
+    {
+      "path": "packages/core/test/effect/layer-node/layer-node.test.ts",
+      "level": "test-body-targeted",
+      "notes": "60–102 and 159–240, plus test-name inventory; not executed.",
+      "lines": 261,
+      "sha256": "b7acff1018d09e9c430b6c2fee1a5eba4cdc43d88f4bff5a9b9df9d2d2c8178a"
+    },
+    {
+      "path": "packages/sdk-next/test/import-boundaries.test.ts",
+      "level": "test-body-complete",
+      "notes": "Full bundling-boundary fixture read, not executed.",
+      "lines": 53,
+      "sha256": "801fa21598805916f037674045ee6d3b4ff18a2b752434df74002282cb899353"
+    }
+  ],
+  "moodcodeFiles": [
+    {
+      "path": "packages/contracts/src/index.ts",
+      "level": "complete",
+      "sha256": "3ded4717cbf76a7ab864d6c6ea8437f2e00de4b148adea4136be43bfe12a1966"
+    },
+    {
+      "path": "packages/contracts/package.json",
+      "level": "complete",
+      "sha256": "af7a9ed6ee7ecc4ca8dc740261c97ae057f34e7a1de5bf9e20fb61942468d388"
+    },
+    {
+      "path": "packages/engine/src/ports.ts",
+      "level": "complete",
+      "sha256": "82189f1bdc012d71fb1ad672ddc43adefb59e7e2b291c3d31f41bd597341e416"
+    },
+    {
+      "path": "packages/engine/src/context/memory.ts",
+      "level": "complete",
+      "sha256": "e889b43694b8dcb0773e69cc4428d727d48d968898a27b40894cb5639f41fc2e"
+    },
+    {
+      "path": "packages/engine/src/engine.ts",
+      "level": "targeted",
+      "sha256": "60b1c8ca7e477f894ee93a01e997a99759f411a8f4a4cc08b5917b9d35225fce"
+    },
+    {
+      "path": "packages/engine/src/runner/index.ts",
+      "level": "targeted",
+      "sha256": "49a5fbc82cac55fc46b8fb485ff433118b177a10de1692fd7833e736c28eaa98"
+    },
+    {
+      "path": "packages/engine/src/storage/index.ts",
+      "level": "targeted",
+      "sha256": "6db4d711c604fe0caf5283efd898d6a068d694557ecc56c8c7244f4f1f4af752"
+    },
+    {
+      "path": "packages/engine/src/context/index.ts",
+      "level": "targeted",
+      "sha256": "aebb27176982251a5afe5b92fea18e2c45f8a920c882110b4995fb11d7e7b6db"
+    },
+    {
+      "path": "scripts/test.mjs",
+      "level": "complete",
+      "sha256": "19cc3136225604942011675459312a383519308f8cccd3bd1506932276904122"
+    },
+    {
+      "path": "package.json",
+      "level": "complete",
+      "sha256": "a810a9290271f12abb8087a25889b324ce32d40c25dedf9004088ee5bf59754e"
+    }
+  ],
+  "unverified": [
+    "Upstream build/typecheck/tests and actual provider/network behavior",
+    "All transitive dependency licenses and third-party assets",
+    "Every migration/fixture/provider branch semantic review",
+    "OS process cleanup and large-session performance execution"
+  ],
+  "execution": {
+    "upstreamTestsRun": false,
+    "liveModelCalls": 0,
+    "appLaunches": 0,
+    "runtimeSourceChanged": false
+  },
+  "method": "Complete means full file content read. Targeted/test entries distinguish ranges from listing. Import/path/hash inventory is separate and does not count as semantic review."
+}

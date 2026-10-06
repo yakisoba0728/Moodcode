@@ -1,0 +1,1705 @@
+{
+  "schemaVersion": 1,
+  "review": "model-context",
+  "upstreamCommit": "4ac0d9c3d169bbe81d9570013effdda3fe24d36e",
+  "comparedPriorCommit": "907b3bc518fa48e90e8ec24dd327d13eee71c36c",
+  "moodcodeCommit": "6d9a952",
+  "method": "Direct static source reading and targeted test/spec inspection. Upstream/Moodcode tests, provider requests, credentials and app launches were not executed by this reviewer.",
+  "levelDefinitions": {
+    "complete": "File read end to end in current review; static evidence only.",
+    "test_targeted": "Listed fixture/assertion ranges read; not executed.",
+    "test_inventory": "Test names/locations found; full fixture body not claimed.",
+    "spec_targeted": "Listed text ranges and matching specification inventory inspected; intent does not prove implementation.",
+    "comparison_complete": "Current Moodcode file read end to end for implementation comparison.",
+    "comparison_targeted": "Only listed Moodcode implementation ranges read.",
+    "comparison_symbol_search": "Matching Moodcode symbols/lines inspected; full body not claimed.",
+    "instruction_complete": "Applicable AGENTS file read end to end.",
+    "targeted": "Only listed line ranges read semantically; symbol inventory may additionally have been searched."
+  },
+  "files": [
+    {
+      "path": "packages/core/src/session/history.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 101,
+      "readRanges": [
+        [
+          1,
+          101
+        ]
+      ],
+      "sha256": "232f3d6b3c4ef832deab874920de0f513473acc51b5ed56488023ea3ba02d605",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/session/context-epoch.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 174,
+      "readRanges": [
+        [
+          1,
+          174
+        ]
+      ],
+      "sha256": "b6e07dccc330779192975a58d763941a9b8ae458cc6974e040c26cd149ff7fd8",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/session/compaction.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 248,
+      "readRanges": [
+        [
+          1,
+          248
+        ]
+      ],
+      "sha256": "35bc2da1578b6bb80a3c39c1d6c51f234f34ce6586dd4f9d230e2a31b257138d",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/session/runner/llm.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 441,
+      "readRanges": [
+        [
+          1,
+          441
+        ]
+      ],
+      "sha256": "ba0b03e2b00cfe67bc98988f348ad76ba4f73d9e36fe46883710bbdc4e48c3a3",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/session/runner/model.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 218,
+      "readRanges": [
+        [
+          1,
+          218
+        ]
+      ],
+      "sha256": "1750134e1bc625e39c90ea1e6ead995112cde8ba77b7efbac9638bacf3047ba5",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/session/runner/to-llm-message.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 171,
+      "readRanges": [
+        [
+          1,
+          171
+        ]
+      ],
+      "sha256": "6a4c5399cdf70bf9b1769683dca4712f6c8f8e2108fc006616504929026d23b8",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/session/runner/max-steps.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 16,
+      "readRanges": [
+        [
+          1,
+          16
+        ]
+      ],
+      "sha256": "02393226c3446c7df0ef22af4ab231cacb4653d70e295f4c59089e109131b4e8",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/system-context/index.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 320,
+      "readRanges": [
+        [
+          1,
+          320
+        ]
+      ],
+      "sha256": "11ec26b66880e8f538f67a6f3110df3690cd245fec6e9ebd02908e66c05c80ec",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/system-context/builtins.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 50,
+      "readRanges": [
+        [
+          1,
+          50
+        ]
+      ],
+      "sha256": "a5907c811772e7e93aab23884593f2e93348cca3c1cb8c3b41b0268c0a8d275e",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/system-context/registry.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 49,
+      "readRanges": [
+        [
+          1,
+          49
+        ]
+      ],
+      "sha256": "249becbb3d156c02ae016885e7b60e921aba67001f003c0fca169ca9ea81c002",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/instruction-context.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 101,
+      "readRanges": [
+        [
+          1,
+          101
+        ]
+      ],
+      "sha256": "fde78e0e5b5457d7290b832a435f29b033f770e0cae981f3d1eac22672a57e57",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/skill/guidance.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 76,
+      "readRanges": [
+        [
+          1,
+          76
+        ]
+      ],
+      "sha256": "8670759bfecdd5fb352907ab82ec5ef6e55b49866e802ec30dddc11597f41cce",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/reference/guidance.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 69,
+      "readRanges": [
+        [
+          1,
+          69
+        ]
+      ],
+      "sha256": "bb8abd7b0e315d66960ef45f67dd4fcd471af61640ab676812daae61f48dd7f7",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/agent.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 111,
+      "readRanges": [
+        [
+          1,
+          111
+        ]
+      ],
+      "sha256": "8819a8d55ccf2f25138b103f1de298e6b285d6fd602be5a23191f7e54c72ab2d",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/plugin/agent.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 202,
+      "readRanges": [
+        [
+          1,
+          202
+        ]
+      ],
+      "sha256": "c4959f11ff42f45e40ad76467446a9f60a249490039c2f0c97f0ed9f64e7779e",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/config/compaction.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 15,
+      "readRanges": [
+        [
+          1,
+          15
+        ]
+      ],
+      "sha256": "6d9247b8155b368c6de2e13b48fce9e1a87468ac442dba0a29f7b3b3cbfb10b6",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/util/token.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 5,
+      "readRanges": [
+        [
+          1,
+          5
+        ]
+      ],
+      "sha256": "a157df378a5baaf7a35ac1cb9c94dd29266d916329545529604274d6cddbc635",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/llm.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 404,
+      "readRanges": [
+        [
+          1,
+          404
+        ]
+      ],
+      "sha256": "5f1dcfb734853e39760e4dd05470f0c7d8752fc5dcc64e118c065149602e402d",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/llm/request.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 228,
+      "readRanges": [
+        [
+          1,
+          228
+        ]
+      ],
+      "sha256": "90077551a9a46e11a37f44279c584832918d722c0ba0407ff8cad8d3437dd0de",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/llm/ai-sdk.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 291,
+      "readRanges": [
+        [
+          1,
+          291
+        ]
+      ],
+      "sha256": "3d2e653811abaf230b3fea9a54049499d1be2c09dabe017ed4eb99918ee7def5",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/llm/native-request.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 196,
+      "readRanges": [
+        [
+          1,
+          196
+        ]
+      ],
+      "sha256": "ee47e4430d7bb959f0ef672ca40ad9a45acd5ca4e0df72548e01825da3208432",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/llm/native-runtime.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 195,
+      "readRanges": [
+        [
+          1,
+          195
+        ]
+      ],
+      "sha256": "ad7ba806e0b9d429ccd93b02b3583754254e6fc540450cb97e16393c28d394c2",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/compaction.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 608,
+      "readRanges": [
+        [
+          1,
+          608
+        ]
+      ],
+      "sha256": "8d478570a7e4ad32b746030d4f86a1c673949b1e2259bd716b3885d99283289a",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/overflow.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 34,
+      "readRanges": [
+        [
+          1,
+          34
+        ]
+      ],
+      "sha256": "fa0d52e8a59b737e8129d6473f9f6416567cd765c6068f854e4ea0dd3d351d10",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/instruction.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 237,
+      "readRanges": [
+        [
+          1,
+          237
+        ]
+      ],
+      "sha256": "fee79c023eae44f720d4d600f334a987ad5f7615c4a008a20c89131a92684a8f",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/system.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 154,
+      "readRanges": [
+        [
+          1,
+          154
+        ]
+      ],
+      "sha256": "7257f0660202d3e5d7ef86ee48cb4e51d5d0aa67703c274b8eb840b8ae307bbc",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/retry.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 209,
+      "readRanges": [
+        [
+          1,
+          209
+        ]
+      ],
+      "sha256": "7e24b96622f7b46586eabb68d3c2464d1c68f5cc58262f2d305878d5e55b9aed",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/route/client.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 436,
+      "readRanges": [
+        [
+          1,
+          436
+        ]
+      ],
+      "sha256": "3daf129affd63941ca575f39b908bf2a6f528a0043854b730799850d89fc5541",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/route/executor.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 385,
+      "readRanges": [
+        [
+          1,
+          385
+        ]
+      ],
+      "sha256": "4482edc712c72c8c65a164b137223689e02e9672fbb64f0dcb42b3b1f80e08e0",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/route/protocol.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 84,
+      "readRanges": [
+        [
+          1,
+          84
+        ]
+      ],
+      "sha256": "129570139773ab102329e7208ec8ba513e727a07b4e30d265f1f95a1d21f41ad",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/route/framing.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 27,
+      "readRanges": [
+        [
+          1,
+          27
+        ]
+      ],
+      "sha256": "a8ce133f5f216edf028ef8f7613eb3dfda5a1d9217c166350df9d73a88a151d9",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/route/transport/http.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 155,
+      "readRanges": [
+        [
+          1,
+          155
+        ]
+      ],
+      "sha256": "7f956da303ff5d0532498901845ee0e64a26fa78dd25697b229d3855c9483dd7",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/route/transport/websocket.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 280,
+      "readRanges": [
+        [
+          1,
+          280
+        ]
+      ],
+      "sha256": "4568240ae28702c67004628ed9ea7c1030ab6b993cf0606a5f8fac8e932155d7",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/cache-policy.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 111,
+      "readRanges": [
+        [
+          1,
+          111
+        ]
+      ],
+      "sha256": "ad5d88575b9d5bff6f2896c9737e241b8c9e4caa39761c69947d5ee9acb7eaa7",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/provider-error.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 43,
+      "readRanges": [
+        [
+          1,
+          43
+        ]
+      ],
+      "sha256": "652a9bbfa3fa2f5d1699e4ff20dc3361e7f8d2df1e1bf6dc3d2bbe99601494a8",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/schema/messages.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 312,
+      "readRanges": [
+        [
+          1,
+          312
+        ]
+      ],
+      "sha256": "1b4c2a89ca2b4786292c261c2e06f54685f462ef334bc55fc08a0059e7d5de7c",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/providers/openai.ts",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 63,
+      "readRanges": [
+        [
+          1,
+          63
+        ]
+      ],
+      "sha256": "ed9056796038052bf3ae53e98071c2cdb3d3bba6a73f877c27561d5e8d297882",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/package.json",
+      "scope": "upstream",
+      "level": "complete",
+      "lineCount": 52,
+      "readRanges": [
+        [
+          1,
+          52
+        ]
+      ],
+      "sha256": "aa00854ccb36ea82dfe5183a7094c1ea805f2f9c7b33fac3f061317c7336c1f2",
+      "executed": false
+    },
+    {
+      "path": "packages/core/src/session/runner/publish-llm-event.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 423,
+      "readRanges": [
+        [
+          300,
+          423
+        ]
+      ],
+      "sha256": "4cce9bbbf53556b63e95a7d467a646a3e215925e15b6f3cc6078399127f21968",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/message-v2.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 750,
+      "readRanges": [
+        [
+          131,
+          429
+        ],
+        [
+          495,
+          640
+        ]
+      ],
+      "sha256": "b55648c31423ace5c730ca085ef5429a966486fcd7bf84ab25e59453a1a9417a",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/session.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 1016,
+      "readRanges": [
+        [
+          338,
+          402
+        ]
+      ],
+      "sha256": "0c56ae3535e29cae0de51156eaba2842c0896309f1d6b12525566b4a8ba4c7f2",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/processor.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 732,
+      "readRanges": [
+        [
+          435,
+          493
+        ],
+        [
+          638,
+          710
+        ]
+      ],
+      "sha256": "0b31e207beda56bd9a4b9b88c9e42d89a0651dd011773748c8e2938dfc3dcb74",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/provider/provider.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 2094,
+      "readRanges": [
+        [
+          85,
+          200
+        ],
+        [
+          575,
+          755
+        ]
+      ],
+      "sha256": "9fb8958a521bbc5a70e5e6d4ecb130149115fe891fb78bca0ae73a966b9f547a",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/provider/transform.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 1922,
+      "readRanges": [
+        [
+          465,
+          514
+        ],
+        [
+          1492,
+          1545
+        ]
+      ],
+      "sha256": "ddfea009d85f61172d056216addeeabd920cd368d4d27b2f652629f7e3bcb0d2",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/effect/runtime-flags.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 78,
+      "readRanges": [
+        [
+          40,
+          62
+        ]
+      ],
+      "sha256": "5b580cb96f9d5300f8ff995a29ec5e602e0e3e0200661dfff971998562f2a1a9",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/schema/options.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 276,
+      "readRanges": [
+        [
+          1,
+          100
+        ]
+      ],
+      "sha256": "9ec1576ea68eeba00a85586a7671e3f49003a77af36032d6a3137f317a8103e0",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/schema/errors.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 207,
+      "readRanges": [
+        [
+          105,
+          190
+        ]
+      ],
+      "sha256": "a1b34b20c32343aeece5d0da5e93896f7b1102b7a2cf4e1b65609d982ba5b159",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/schema/events.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 618,
+      "readRanges": [
+        [
+          1,
+          100
+        ],
+        [
+          475,
+          618
+        ]
+      ],
+      "sha256": "949dc10a3c62b1ad633c1ef784ce3d5c7587b58950215170cd6db87815a13e41",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/llm.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 186,
+      "readRanges": [
+        [
+          1,
+          110
+        ]
+      ],
+      "sha256": "974e8bbab37e712bc58df24f76db9f3d66faf00929ad0782d3ca16db4451c2a7",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/protocols/shared.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 326,
+      "readRanges": [
+        [
+          210,
+          262
+        ]
+      ],
+      "sha256": "54174763abc26da4537ff88a111023f0bf10166e6bda79f3cf9213843d31a712",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/protocols/openai-responses.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 1022,
+      "readRanges": [
+        [
+          280,
+          524
+        ],
+        [
+          784,
+          1022
+        ]
+      ],
+      "sha256": "616b4fb54fe5645586b92b584b5d41c6f92f815335205d3efd0fa2f438c64b59",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/protocols/openai-chat.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 506,
+      "readRanges": [
+        [
+          220,
+          506
+        ]
+      ],
+      "sha256": "dd086d7ae33596a876256507dede7f5b9705aafb7cd4502155e9209bfdcc9148",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/src/protocols/anthropic-messages.ts",
+      "scope": "upstream",
+      "level": "targeted",
+      "lineCount": 855,
+      "readRanges": [
+        [
+          355,
+          540
+        ]
+      ],
+      "sha256": "7f9480cf92848569c0825726490582e1d627810fa46a58c3c474828cc65d0dd6",
+      "executed": false
+    },
+    {
+      "path": "packages/core/test/session-compaction.test.ts",
+      "scope": "upstream",
+      "level": "test_targeted",
+      "lineCount": 47,
+      "readRanges": [
+        [
+          1,
+          47
+        ]
+      ],
+      "sha256": "36d646ba07a71d477e1d52e84bb7fa4320154a695eebdbd043ede0538bc5e83d",
+      "executed": false
+    },
+    {
+      "path": "packages/core/test/session-runner.test.ts",
+      "scope": "upstream",
+      "level": "test_targeted",
+      "lineCount": 3475,
+      "readRanges": [
+        [
+          470,
+          620
+        ],
+        [
+          741,
+          1375
+        ],
+        [
+          2760,
+          2940
+        ],
+        [
+          3205,
+          3251
+        ]
+      ],
+      "sha256": "22497ea96d0a1cf32347d902ac6d06d55684255a6e8bd8853f2cceeeb0801473",
+      "executed": false
+    },
+    {
+      "path": "packages/core/test/session-runner-model.test.ts",
+      "scope": "upstream",
+      "level": "test_targeted",
+      "lineCount": 347,
+      "readRanges": [
+        [
+          275,
+          345
+        ]
+      ],
+      "sha256": "8298442b395db28e255dc96466181893914984d06f796560c7011aa73df528e7",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/test/session/llm-native.test.ts",
+      "scope": "upstream",
+      "level": "test_targeted",
+      "lineCount": 761,
+      "readRanges": [
+        [
+          390,
+          457
+        ],
+        [
+          540,
+          600
+        ]
+      ],
+      "sha256": "f2cb7fc40f0c87ca7dec520e496a3e2b8ee0c984e3d0be51753e0459511c7901",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/test/response.test.ts",
+      "scope": "upstream",
+      "level": "test_targeted",
+      "lineCount": 98,
+      "readRanges": [
+        [
+          45,
+          82
+        ]
+      ],
+      "sha256": "1a395810958521e348dd5666c243ba2789c73c1eb39da2d3b22e4116b63e48c3",
+      "executed": false
+    },
+    {
+      "path": "AGENTS.md",
+      "scope": "upstream",
+      "level": "instruction_complete",
+      "lineCount": 161,
+      "readRanges": [
+        [
+          1,
+          161
+        ]
+      ],
+      "sha256": "1c9b877668f74a1a2a735fb3aee730e8bb058d1fa34c1d96e8db1e41bbec9233",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/AGENTS.md",
+      "scope": "upstream",
+      "level": "instruction_complete",
+      "lineCount": 321,
+      "readRanges": [
+        [
+          1,
+          321
+        ]
+      ],
+      "sha256": "b791bc16d827bcf7a8a858c7e1c0af6cfc2c21051aa528d911f9bd39d6c58e32",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/AGENTS.md",
+      "scope": "upstream",
+      "level": "instruction_complete",
+      "lineCount": 131,
+      "readRanges": [
+        [
+          1,
+          131
+        ]
+      ],
+      "sha256": "3eb97d68fba764fc98daa9e2410ff559f38fa2cfa5f8aa18ebed45f1e4abd8ff",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/src/session/llm/AGENTS.md",
+      "scope": "upstream",
+      "level": "instruction_complete",
+      "lineCount": 90,
+      "readRanges": [
+        [
+          1,
+          90
+        ]
+      ],
+      "sha256": "f1c14f72f12e42b5683cd1a021cb7b1c46b92f30d0c0986940655420b99172f4",
+      "executed": false
+    },
+    {
+      "path": "packages/core/test/system-context/index.test.ts",
+      "scope": "upstream",
+      "level": "test_inventory",
+      "lineCount": 307,
+      "readRanges": [
+        [
+          23,
+          23
+        ],
+        [
+          24,
+          24
+        ],
+        [
+          39,
+          39
+        ],
+        [
+          68,
+          68
+        ],
+        [
+          105,
+          105
+        ],
+        [
+          121,
+          121
+        ],
+        [
+          132,
+          132
+        ],
+        [
+          146,
+          146
+        ],
+        [
+          160,
+          160
+        ],
+        [
+          170,
+          170
+        ],
+        [
+          181,
+          181
+        ],
+        [
+          192,
+          192
+        ],
+        [
+          202,
+          202
+        ],
+        [
+          224,
+          224
+        ],
+        [
+          249,
+          249
+        ],
+        [
+          265,
+          265
+        ],
+        [
+          276,
+          276
+        ],
+        [
+          289,
+          289
+        ],
+        [
+          298,
+          298
+        ]
+      ],
+      "sha256": "0e7313c82771172a101d35f2c0717dedb3de0cc29ebff2a875b397924b912d43",
+      "executed": false
+    },
+    {
+      "path": "packages/core/test/instruction-context.test.ts",
+      "scope": "upstream",
+      "level": "test_inventory",
+      "lineCount": 323,
+      "readRanges": [
+        [
+          31,
+          31
+        ],
+        [
+          140,
+          140
+        ],
+        [
+          175,
+          175
+        ],
+        [
+          215,
+          215
+        ],
+        [
+          258,
+          258
+        ],
+        [
+          293,
+          293
+        ]
+      ],
+      "sha256": "c92c46777cbc76a763f0da84529a3728fbdcae111b590e3f662f0a4b137bdf65",
+      "executed": false
+    },
+    {
+      "path": "packages/core/test/session-runner-message.test.ts",
+      "scope": "upstream",
+      "level": "test_targeted",
+      "lineCount": 501,
+      "readRanges": [
+        [
+          299,
+          501
+        ]
+      ],
+      "sha256": "76791aecd166a1c6369f108899022cc23d180ea5dafb2ec30f6e473a41eefc0a",
+      "executed": false
+    },
+    {
+      "path": "packages/opencode/test/session/compaction.test.ts",
+      "scope": "upstream",
+      "level": "test_inventory",
+      "lineCount": 1975,
+      "readRanges": [
+        [
+          382,
+          382
+        ],
+        [
+          566,
+          566
+        ],
+        [
+          626,
+          626
+        ],
+        [
+          814,
+          814
+        ],
+        [
+          1665,
+          1665
+        ],
+        [
+          1666,
+          1666
+        ],
+        [
+          1671,
+          1671
+        ],
+        [
+          1676,
+          1676
+        ],
+        [
+          1681,
+          1681
+        ],
+        [
+          1682,
+          1682
+        ],
+        [
+          1696,
+          1696
+        ],
+        [
+          1707,
+          1707
+        ],
+        [
+          1722,
+          1722
+        ],
+        [
+          1737,
+          1737
+        ],
+        [
+          1750,
+          1750
+        ],
+        [
+          1770,
+          1770
+        ],
+        [
+          1785,
+          1785
+        ],
+        [
+          1801,
+          1801
+        ],
+        [
+          1819,
+          1819
+        ],
+        [
+          1833,
+          1833
+        ],
+        [
+          1876,
+          1876
+        ],
+        [
+          1959,
+          1959
+        ]
+      ],
+      "sha256": "a4fc30fa7ea28c198d3480748046ba40090cb93144bdef7d9701e123fc2ac3ab",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/test/executor.test.ts",
+      "scope": "upstream",
+      "level": "test_targeted",
+      "lineCount": 458,
+      "readRanges": [
+        [
+          75,
+          180
+        ]
+      ],
+      "sha256": "bdfd2c5d775f7c4663ae4b146a759842f13b1f245e4619160e5128fd759b2e09",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/test/prepare.test.ts",
+      "scope": "upstream",
+      "level": "test_targeted",
+      "lineCount": 178,
+      "readRanges": [
+        [
+          1,
+          85
+        ]
+      ],
+      "sha256": "6afd124d4793243f5471899771d631ec0190b1ff7ab09c99e7283f524948b0f3",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/test/route.test.ts",
+      "scope": "upstream",
+      "level": "test_targeted",
+      "lineCount": 43,
+      "readRanges": [
+        [
+          1,
+          43
+        ]
+      ],
+      "sha256": "d9cebf0fc8ee6a8c0bd5f9b9e329b3c0061c4a4b91dea1978d7970875938e4dc",
+      "executed": false
+    },
+    {
+      "path": "specs/v2/session.md",
+      "scope": "upstream",
+      "level": "spec_targeted",
+      "lineCount": 231,
+      "readRanges": [
+        [
+          113,
+          175
+        ]
+      ],
+      "sha256": "6354dada656636b22bfd36092bd8bf171c84a69581f83b138ed7ac1708e7a832",
+      "executed": false
+    },
+    {
+      "path": "packages/llm/DESIGN.md",
+      "scope": "upstream",
+      "level": "spec_targeted",
+      "lineCount": 1114,
+      "readRanges": [
+        [
+          1,
+          22
+        ]
+      ],
+      "sha256": "b76e4c7b9f1f7e7aa5a5b9ba6ec32fab61adefd7cd7a1a941b273fe5f6df3a5f",
+      "executed": false
+    },
+    {
+      "path": "packages/engine/src/context/index.ts",
+      "scope": "moodcode",
+      "level": "comparison_complete",
+      "lineCount": 388,
+      "readRanges": [
+        [
+          1,
+          388
+        ]
+      ],
+      "sha256": "aebb27176982251a5afe5b92fea18e2c45f8a920c882110b4995fb11d7e7b6db",
+      "executed": false
+    },
+    {
+      "path": "packages/engine/src/context/memory.ts",
+      "scope": "moodcode",
+      "level": "comparison_complete",
+      "lineCount": 94,
+      "readRanges": [
+        [
+          1,
+          94
+        ]
+      ],
+      "sha256": "e889b43694b8dcb0773e69cc4428d727d48d968898a27b40894cb5639f41fc2e",
+      "executed": false
+    },
+    {
+      "path": "packages/engine/src/context/instructions.ts",
+      "scope": "moodcode",
+      "level": "comparison_complete",
+      "lineCount": 21,
+      "readRanges": [
+        [
+          1,
+          21
+        ]
+      ],
+      "sha256": "b01f24ef61b1f5e0e629df248deb9a6f3facc2ef620e6590d5730ee50a25ced1",
+      "executed": false
+    },
+    {
+      "path": "packages/engine/src/ports.ts",
+      "scope": "moodcode",
+      "level": "comparison_complete",
+      "lineCount": 35,
+      "readRanges": [
+        [
+          1,
+          35
+        ]
+      ],
+      "sha256": "82189f1bdc012d71fb1ad672ddc43adefb59e7e2b291c3d31f41bd597341e416",
+      "executed": false
+    },
+    {
+      "path": "packages/engine/src/provider/index.ts",
+      "scope": "moodcode",
+      "level": "comparison_complete",
+      "lineCount": 3,
+      "readRanges": [
+        [
+          1,
+          3
+        ]
+      ],
+      "sha256": "09e8fae3f8ee2e0a8b107373b5c15bc66f14f541ddbb85424ca9bd3f2e18379f",
+      "executed": false
+    },
+    {
+      "path": "packages/engine/src/provider/helpers.ts",
+      "scope": "moodcode",
+      "level": "comparison_complete",
+      "lineCount": 140,
+      "readRanges": [
+        [
+          1,
+          140
+        ]
+      ],
+      "sha256": "3e335e079b4c766ad5ea8f64cf098ef322f62601bbd9ad2a4c0badeec4b48a25",
+      "executed": false
+    },
+    {
+      "path": "packages/engine/src/runner/index.ts",
+      "scope": "moodcode",
+      "level": "comparison_targeted",
+      "lineCount": 653,
+      "readRanges": [
+        [
+          352,
+          465
+        ]
+      ],
+      "sha256": "49a5fbc82cac55fc46b8fb485ff433118b177a10de1692fd7833e736c28eaa98",
+      "executed": false
+    },
+    {
+      "path": "packages/engine/src/provider/responses.ts",
+      "scope": "moodcode",
+      "level": "comparison_symbol_search",
+      "lineCount": 439,
+      "readRanges": [
+        [
+          9,
+          9
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          24,
+          24
+        ],
+        [
+          58,
+          58
+        ],
+        [
+          75,
+          75
+        ],
+        [
+          76,
+          76
+        ],
+        [
+          94,
+          94
+        ],
+        [
+          95,
+          95
+        ],
+        [
+          97,
+          97
+        ],
+        [
+          111,
+          111
+        ],
+        [
+          112,
+          112
+        ],
+        [
+          117,
+          117
+        ],
+        [
+          118,
+          118
+        ],
+        [
+          133,
+          133
+        ],
+        [
+          134,
+          134
+        ],
+        [
+          147,
+          147
+        ],
+        [
+          151,
+          151
+        ],
+        [
+          157,
+          157
+        ],
+        [
+          212,
+          212
+        ],
+        [
+          247,
+          247
+        ],
+        [
+          253,
+          253
+        ],
+        [
+          262,
+          262
+        ],
+        [
+          268,
+          268
+        ],
+        [
+          275,
+          275
+        ],
+        [
+          297,
+          297
+        ],
+        [
+          298,
+          298
+        ],
+        [
+          320,
+          320
+        ],
+        [
+          371,
+          371
+        ],
+        [
+          372,
+          372
+        ],
+        [
+          377,
+          377
+        ],
+        [
+          389,
+          389
+        ],
+        [
+          390,
+          390
+        ],
+        [
+          392,
+          392
+        ],
+        [
+          393,
+          393
+        ],
+        [
+          399,
+          399
+        ],
+        [
+          415,
+          415
+        ],
+        [
+          425,
+          425
+        ]
+      ],
+      "sha256": "b6145adabc433cf9ef29cd3e7f34a5fb40ec614c99af2caabaa1e75328e49546",
+      "executed": false
+    },
+    {
+      "path": "packages/engine/src/provider/openai-compatible.ts",
+      "scope": "moodcode",
+      "level": "comparison_symbol_search",
+      "lineCount": 223,
+      "readRanges": [
+        [
+          12,
+          12
+        ],
+        [
+          13,
+          13
+        ],
+        [
+          24,
+          24
+        ],
+        [
+          28,
+          28
+        ],
+        [
+          33,
+          33
+        ],
+        [
+          35,
+          35
+        ],
+        [
+          36,
+          36
+        ],
+        [
+          37,
+          37
+        ],
+        [
+          39,
+          39
+        ],
+        [
+          64,
+          64
+        ],
+        [
+          79,
+          79
+        ],
+        [
+          80,
+          80
+        ],
+        [
+          82,
+          82
+        ],
+        [
+          95,
+          95
+        ],
+        [
+          97,
+          97
+        ],
+        [
+          100,
+          100
+        ],
+        [
+          115,
+          115
+        ],
+        [
+          119,
+          119
+        ],
+        [
+          125,
+          125
+        ],
+        [
+          131,
+          131
+        ],
+        [
+          140,
+          140
+        ],
+        [
+          141,
+          141
+        ],
+        [
+          142,
+          142
+        ],
+        [
+          144,
+          144
+        ],
+        [
+          208,
+          208
+        ]
+      ],
+      "sha256": "c7df1dbe290dfdd53f7c3619fd93025f6dc3d404a15088757ad131629082b174",
+      "executed": false
+    },
+    {
+      "path": "packages/engine/src/provider/codex.ts",
+      "scope": "moodcode",
+      "level": "comparison_symbol_search",
+      "lineCount": 90,
+      "readRanges": [
+        [
+          14,
+          14
+        ],
+        [
+          16,
+          16
+        ],
+        [
+          30,
+          30
+        ],
+        [
+          31,
+          31
+        ],
+        [
+          39,
+          39
+        ],
+        [
+          40,
+          40
+        ],
+        [
+          43,
+          43
+        ],
+        [
+          48,
+          48
+        ],
+        [
+          54,
+          54
+        ],
+        [
+          77,
+          77
+        ],
+        [
+          80,
+          80
+        ]
+      ],
+      "sha256": "5716477ec45ac12b0c2b8cf6accbddcae2eaf4d9829f315532594b02878d5e0a",
+      "executed": false
+    }
+  ],
+  "inventoryOnly": [
+    "packages/llm/src/tool.ts",
+    "packages/llm/src/tool-runtime.ts",
+    "packages/llm/src/index.ts",
+    "packages/llm/src/provider.ts",
+    "packages/llm/src/route/endpoint.ts",
+    "packages/llm/src/route/index.ts",
+    "packages/llm/src/route/auth.ts",
+    "packages/llm/src/route/auth-options.ts",
+    "packages/llm/src/providers/anthropic.ts",
+    "packages/llm/src/providers/xai.ts",
+    "packages/llm/src/providers/openai-options.ts",
+    "packages/llm/src/providers/google.ts",
+    "packages/llm/src/providers/cloudflare.ts",
+    "packages/llm/src/providers/openai-compatible.ts",
+    "packages/llm/src/providers/github-copilot.ts",
+    "packages/llm/src/providers/azure.ts",
+    "packages/llm/src/providers/openrouter.ts",
+    "packages/llm/src/providers/index.ts",
+    "packages/llm/src/providers/amazon-bedrock.ts",
+    "packages/llm/src/providers/openai-compatible-profile.ts",
+    "packages/llm/src/utils/record.ts",
+    "packages/llm/src/schema/ids.ts",
+    "packages/llm/src/schema/index.ts",
+    "packages/llm/src/protocols/openai-compatible-chat.ts",
+    "packages/llm/src/protocols/gemini.ts",
+    "packages/llm/src/protocols/bedrock-converse.ts",
+    "packages/llm/src/protocols/index.ts",
+    "packages/llm/src/protocols/bedrock-event-stream.ts",
+    "packages/llm/src/protocols/utils/gemini-tool-schema.ts",
+    "packages/llm/src/protocols/utils/tool-stream.ts",
+    "packages/llm/src/protocols/utils/bedrock-cache.ts",
+    "packages/llm/src/protocols/utils/bedrock-media.ts",
+    "packages/llm/src/protocols/utils/lifecycle.ts",
+    "packages/llm/src/protocols/utils/openai-options.ts",
+    "packages/llm/src/protocols/utils/tool-schema.ts",
+    "packages/llm/src/protocols/utils/cache.ts",
+    "packages/llm/src/protocols/utils/bedrock-auth.ts",
+    "packages/llm/src/route/transport/index.ts"
+  ],
+  "knownLimits": [
+    "Gemini, Bedrock and provider facade/plugin branches inventoried but not all semantically reviewed here.",
+    "Provider/model runtime parity, hosted tool media and real provider billing were not executed.",
+    "Static test assertions are supporting evidence, not current test pass claims.",
+    "Upstream instruction/spec TODOs can lag implementation; actual call paths take precedence."
+  ],
+  "independentImplementation": {
+    "runtimeSourceChanged": false,
+    "upstreamSourceVendored": false,
+    "originalPromptsOrTestsCopied": false
+  },
+  "upstreamDeltaInReviewedScope": [
+    "packages/opencode/src/session/message-v2.ts: reject unsupported xAI tool-result image MIME types; no V2 runner/context/native LLM implementation delta from previous review pin."
+  ]
+}

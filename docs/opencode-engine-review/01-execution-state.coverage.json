@@ -1,0 +1,844 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-07",
+  "upstream": {
+    "repository": "https://github.com/anomalyco/opencode",
+    "commit": "4ac0d9c3d169bbe81d9570013effdda3fe24d36e",
+    "checkout": "/Users/yakisoba0728/Documents/GitHub/opencode-engine-reference-4ac0d9c3d1"
+  },
+  "moodcode": {
+    "commit": "6d9a9527b74e543dfab55a9a401b47176d27bff8",
+    "checkout": "/Users/yakisoba0728/Documents/GitHub/Moodcode"
+  },
+  "method": "static source and selected test-body review; no test/build/live provider/app execution",
+  "claims": {
+    "allRepositoryFilesSemanticallyRead": false,
+    "upstreamTestsExecuted": false,
+    "credentialsRead": false,
+    "runtimeSourcesModified": false,
+    "originalSourceCopiedIntoMoodcode": false
+  },
+  "levelDefinitions": {
+    "complete": "본문 전체 정적 읽기",
+    "targeted": "readRanges 본문만 정밀 읽기",
+    "test": "해당 ranges의 테스트 본문 정적 읽기; 실행 안 함",
+    "spec": "instruction/spec 문서 읽기; 구현 증거와 구분"
+  },
+  "files": [
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session.ts",
+      "readLevel": "complete",
+      "lineCount": 486,
+      "readRanges": [
+        [
+          1,
+          486
+        ]
+      ],
+      "sha256": "6a82ac892612207fe3cdce0de556a7e4a06bf701557ebfe09607633641f224be",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/input.ts",
+      "readLevel": "complete",
+      "lineCount": 288,
+      "readRanges": [
+        [
+          1,
+          288
+        ]
+      ],
+      "sha256": "3f0fa5e0179f75a3a68c2befcc53d1bf46fc3414355840f4573008ec39393e29",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/execution.ts",
+      "readLevel": "complete",
+      "lineCount": 34,
+      "readRanges": [
+        [
+          1,
+          34
+        ]
+      ],
+      "sha256": "c6e75839aeddfd0fd387e045a346b1ea159b3c84bf15ceefd33c528eb3dab7d1",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/execution/local.ts",
+      "readLevel": "complete",
+      "lineCount": 46,
+      "readRanges": [
+        [
+          1,
+          46
+        ]
+      ],
+      "sha256": "445e1380ec207118a6d8f03128dc842019e35f47627e09533bb6e49a9934b229",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/run-coordinator.ts",
+      "readLevel": "complete",
+      "lineCount": 104,
+      "readRanges": [
+        [
+          1,
+          104
+        ]
+      ],
+      "sha256": "ed7c5f121e37298dcab5a1dfc9f8e4855faeabb1fe66c2df3cbc691a8e323f6e",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/store.ts",
+      "readLevel": "complete",
+      "lineCount": 63,
+      "readRanges": [
+        [
+          1,
+          63
+        ]
+      ],
+      "sha256": "f2aa4876e3c0518f6e77d98c7d0ff38637175885ad9bba4f53ed436e8321802e",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/history.ts",
+      "readLevel": "complete",
+      "lineCount": 101,
+      "readRanges": [
+        [
+          1,
+          101
+        ]
+      ],
+      "sha256": "232f3d6b3c4ef832deab874920de0f513473acc51b5ed56488023ea3ba02d605",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/sql.ts",
+      "readLevel": "complete",
+      "lineCount": 176,
+      "readRanges": [
+        [
+          1,
+          176
+        ]
+      ],
+      "sha256": "8fe00bf61948678bfd5b4f993e1e3884fca8005abcce50a8192b1d06d2b65c10",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/projector.ts",
+      "readLevel": "complete",
+      "lineCount": 455,
+      "readRanges": [
+        [
+          1,
+          455
+        ]
+      ],
+      "sha256": "79ca6021b82942c6d913526fc578cfa1fcf654b4691ed3220b4223ea5fea9590",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/message-updater.ts",
+      "readLevel": "complete",
+      "lineCount": 397,
+      "readRanges": [
+        [
+          1,
+          397
+        ]
+      ],
+      "sha256": "9b9be0e5b38eed69b8cd75fb6856e324b09e399378517df700f97bc637511886",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/runner/index.ts",
+      "readLevel": "complete",
+      "lineCount": 28,
+      "readRanges": [
+        [
+          1,
+          28
+        ]
+      ],
+      "sha256": "a0db93a1901cd1027176ed7c5c2a2bed234422035be600aff71087132eb53065",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/runner/llm.ts",
+      "readLevel": "complete",
+      "lineCount": 441,
+      "readRanges": [
+        [
+          1,
+          441
+        ]
+      ],
+      "sha256": "ba0b03e2b00cfe67bc98988f348ad76ba4f73d9e36fe46883710bbdc4e48c3a3",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/runner/publish-llm-event.ts",
+      "readLevel": "complete",
+      "lineCount": 423,
+      "readRanges": [
+        [
+          1,
+          423
+        ]
+      ],
+      "sha256": "4cce9bbbf53556b63e95a7d467a646a3e215925e15b6f3cc6078399127f21968",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/prompt.ts",
+      "readLevel": "complete",
+      "lineCount": 1,
+      "readRanges": [
+        [
+          1,
+          1
+        ]
+      ],
+      "sha256": "f617d889d032bd762f4c8f57f0839d81d320e223139c24c4838f7992cbe1679b",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/message.ts",
+      "readLevel": "complete",
+      "lineCount": 2,
+      "readRanges": [
+        [
+          1,
+          2
+        ]
+      ],
+      "sha256": "02bc45bd7c9647550817d93922df3e955d09c8bacd8c39f1e32afff9a84b86d9",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/schema.ts",
+      "readLevel": "complete",
+      "lineCount": 9,
+      "readRanges": [
+        [
+          1,
+          9
+        ]
+      ],
+      "sha256": "136518c74fdf1eae73fbe7120376147bf635a0a7143832c3afe87e4e2863f1cd",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/session/event.ts",
+      "readLevel": "complete",
+      "lineCount": 2,
+      "readRanges": [
+        [
+          1,
+          2
+        ]
+      ],
+      "sha256": "123347f1fe182db575b3999d3e21bcb524f4752d043820dfa4899cdf1326a1ad",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/src/event.ts",
+      "readLevel": "complete",
+      "lineCount": 638,
+      "readRanges": [
+        [
+          1,
+          638
+        ]
+      ],
+      "sha256": "c9cde59028948b688d8c77826526bd51eac1b2b7c7b7b71425603ccef7e32fc4",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/schema/src/session-input.ts",
+      "readLevel": "complete",
+      "lineCount": 23,
+      "readRanges": [
+        [
+          1,
+          23
+        ]
+      ],
+      "sha256": "817d9ff37c1c522b5058bb31d818035ed5a72d5328929a398cc922b1fd94cb38",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/schema/src/session-delivery.ts",
+      "readLevel": "complete",
+      "lineCount": 6,
+      "readRanges": [
+        [
+          1,
+          6
+        ]
+      ],
+      "sha256": "6c711801312cf2512c46695e44dfcba86f0e9cf9b8485aed4b435adcdba23528",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/schema/src/session-message.ts",
+      "readLevel": "complete",
+      "lineCount": 213,
+      "readRanges": [
+        [
+          1,
+          213
+        ]
+      ],
+      "sha256": "96f5ecaf45a8be46485df65d6b2d22b9e6538144e2cd5b28251fb54e13aa85fc",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/schema/src/session-event.ts",
+      "readLevel": "complete",
+      "lineCount": 521,
+      "readRanges": [
+        [
+          1,
+          521
+        ]
+      ],
+      "sha256": "d8a2ee9abba77aa0b33066af197becb81adab2f315d4f78aabfc456319666f20",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/opencode/src/session/run-state.ts",
+      "readLevel": "complete",
+      "lineCount": 151,
+      "readRanges": [
+        [
+          1,
+          151
+        ]
+      ],
+      "sha256": "75ed3e7f02474f4ff8ac88b5f24b75ffa7cdb9829770377e7c33d248df43936e",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/opencode/src/session/processor.ts",
+      "readLevel": "complete",
+      "lineCount": 732,
+      "readRanges": [
+        [
+          1,
+          732
+        ]
+      ],
+      "sha256": "0b31e207beda56bd9a4b9b88c9e42d89a0651dd011773748c8e2938dfc3dcb74",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/opencode/src/effect/runner.ts",
+      "readLevel": "complete",
+      "lineCount": 217,
+      "readRanges": [
+        [
+          1,
+          217
+        ]
+      ],
+      "sha256": "a5c3379591415574f3fb992ffd40659f07c08e5a4fb0f251068baecb0bd6107f",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/server/src/routes.ts",
+      "readLevel": "complete",
+      "lineCount": 68,
+      "readRanges": [
+        [
+          1,
+          68
+        ]
+      ],
+      "sha256": "88ca9ce1e28be763e9f38d323c9c8577925a4fb54699dc77b134aa467b279b4e",
+      "evidence": "파일 전체 정적 검토. 런타임 실행 증거 아님.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/opencode/src/session/prompt.ts",
+      "readLevel": "targeted",
+      "lineCount": 1631,
+      "readRanges": [
+        [
+          1,
+          155
+        ],
+        [
+          635,
+          700
+        ],
+        [
+          987,
+          1356
+        ],
+        [
+          1499,
+          1631
+        ]
+      ],
+      "sha256": "f0c5bc64c0f0e966693d4a57f7ede1e9d6e188b396152f04b55303dc75b9b768",
+      "evidence": "V1 입력 저장·contract와 전체 provider orchestration loop. attachments/commands/subtasks의 모든 leaf 분기는 완독하지 않음.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts",
+      "readLevel": "targeted",
+      "lineCount": 442,
+      "readRanges": [
+        [
+          285,
+          340
+        ]
+      ],
+      "sha256": "3ce829f386267181da442d499d841463a9e532db827f75a6f41d501de6f71cf6",
+      "evidence": "legacy prompt/promptAsync 실제 호출 대상",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/server/src/handlers/session.ts",
+      "readLevel": "targeted",
+      "lineCount": 385,
+      "readRanges": [
+        [
+          125,
+          170
+        ],
+        [
+          340,
+          385
+        ]
+      ],
+      "sha256": "16350299687e565528cabd69b821bc46378dc0ccb947c1845628c27153323b88",
+      "evidence": "native admission receipt, events/history와 interrupt handler",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/opencode/src/server/routes/instance/httpapi/server.ts",
+      "readLevel": "targeted",
+      "lineCount": 325,
+      "readRanges": [
+        [
+          174,
+          190
+        ],
+        [
+          278,
+          315
+        ]
+      ],
+      "sha256": "8cd7786d0eeda08836e71207784f1c63080caa653126e8a70732b13aba79f5f8",
+      "evidence": "혼합 route assembly와 local execution override",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/tui/src/component/prompt/index.tsx",
+      "readLevel": "targeted",
+      "lineCount": 1716,
+      "readRanges": [
+        [
+          1010,
+          1080
+        ],
+        [
+          1090,
+          1128
+        ]
+      ],
+      "sha256": "e8c0153b5b9dcf5b00e334d6063126dfffe5cb41333b55621d92f54e8d18639c",
+      "evidence": "일반 prompt·shell 실제 SDK 호출",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/app/src/utils/server-compat.ts",
+      "readLevel": "targeted",
+      "lineCount": 518,
+      "readRanges": [
+        [
+          148,
+          212
+        ]
+      ],
+      "sha256": "905d18016de73128cd2c143a7486efc15b768f3d3345ffbed4bc13367ef9b80e",
+      "evidence": "앱 façade legacy promptAsync/abort mapping",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "specs/v2/session.md",
+      "readLevel": "spec",
+      "lineCount": 231,
+      "readRanges": [
+        [
+          1,
+          231
+        ]
+      ],
+      "sha256": "6354dada656636b22bfd36092bd8bf171c84a69581f83b138ed7ac1708e7a832",
+      "evidence": "현재 계약·follow-up 설명 전체 읽음. 문서 checklist는 actual code보다 늦을 수 있어 구현 증거로 단독 사용하지 않음.",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/test/session-prompt.test.ts",
+      "readLevel": "test",
+      "lineCount": 584,
+      "readRanges": [
+        [
+          1,
+          584
+        ]
+      ],
+      "sha256": "e62fda6e8ade49d08f4db7cb7bee0b7554f60a7b4a6dc7f777307c59972413ec",
+      "evidence": "전체 test body 정적 검토; admission retry/conflict/promotion/replay/wake 수용 기준",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/test/session-run-coordinator.test.ts",
+      "readLevel": "test",
+      "lineCount": 418,
+      "readRanges": [
+        [
+          1,
+          140
+        ],
+        [
+          209,
+          395
+        ]
+      ],
+      "sha256": "9e135c94bf8b8e3a771508b29dcb4653e1cf9f71fdb2f31a7aa7ca065dad19d0",
+      "evidence": "join/active/scopecleanup/interrupt cleanup race/waiter cancellation/different key concurrency test body",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/test/session-runner.test.ts",
+      "readLevel": "test",
+      "lineCount": 3475,
+      "readRanges": [
+        [
+          1689,
+          1750
+        ],
+        [
+          1838,
+          2095
+        ],
+        [
+          2264,
+          2442
+        ],
+        [
+          2954,
+          3063
+        ],
+        [
+          3112,
+          3163
+        ]
+      ],
+      "sha256": "22497ea96d0a1cf32347d902ac6d06d55684255a6e8bd8853f2cceeeb0801473",
+      "evidence": "eager settlement/join/steer/queue/FIFO/pending retention/prior-process orphan/interrupt/replay/step reset 본문만",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/core/test/event.test.ts",
+      "readLevel": "test",
+      "lineCount": 1124,
+      "readRanges": [
+        [
+          175,
+          225
+        ],
+        [
+          357,
+          425
+        ]
+      ],
+      "sha256": "c599382bfa58c5a6036fd6b1252bd6daf3f322153c03be0bd1026df3158ef51d",
+      "evidence": "transaction rollback, durable storage, listener boundary 선택 본문",
+      "testsExecuted": false
+    },
+    {
+      "origin": "moodcode",
+      "path": "packages/engine/src/runner/index.ts",
+      "readLevel": "targeted",
+      "lineCount": 653,
+      "readRanges": [
+        [
+          1,
+          250
+        ],
+        [
+          270,
+          496
+        ],
+        [
+          548,
+          653
+        ]
+      ],
+      "sha256": "49a5fbc82cac55fc46b8fb485ff433118b177a10de1692fd7833e736c28eaa98",
+      "evidence": "Moodcode 현재 admission/provider loop/terminal/recovery 비교",
+      "testsExecuted": false
+    },
+    {
+      "origin": "moodcode",
+      "path": "packages/engine/src/storage/index.ts",
+      "readLevel": "targeted",
+      "lineCount": 556,
+      "readRanges": [
+        [
+          87,
+          151
+        ],
+        [
+          192,
+          255
+        ],
+        [
+          306,
+          365
+        ],
+        [
+          427,
+          525
+        ]
+      ],
+      "sha256": "6db4d711c604fe0caf5283efd898d6a068d694557ecc56c8c7244f4f1f4af752",
+      "evidence": "Moodcode 현재 admission/provider loop/terminal/recovery 비교",
+      "testsExecuted": false
+    },
+    {
+      "origin": "moodcode",
+      "path": "packages/engine/src/engine.ts",
+      "readLevel": "targeted",
+      "lineCount": 350,
+      "readRanges": [
+        [
+          131,
+          230
+        ]
+      ],
+      "sha256": "60b1c8ca7e477f894ee93a01e997a99759f411a8f4a4cc08b5917b9d35225fce",
+      "evidence": "Moodcode 현재 admission/provider loop/terminal/recovery 비교",
+      "testsExecuted": false
+    },
+    {
+      "origin": "moodcode",
+      "path": "packages/engine/src/ports.ts",
+      "readLevel": "complete",
+      "lineCount": 35,
+      "readRanges": [
+        [
+          1,
+          35
+        ]
+      ],
+      "sha256": "82189f1bdc012d71fb1ad672ddc43adefb59e7e2b291c3d31f41bd597341e416",
+      "evidence": "Moodcode 공개 port/contract 전체 읽음",
+      "testsExecuted": false
+    },
+    {
+      "origin": "moodcode",
+      "path": "packages/contracts/src/index.ts",
+      "readLevel": "complete",
+      "lineCount": 45,
+      "readRanges": [
+        [
+          1,
+          45
+        ]
+      ],
+      "sha256": "3ded4717cbf76a7ab864d6c6ea8437f2e00de4b148adea4136be43bfe12a1966",
+      "evidence": "Moodcode 공개 port/contract 전체 읽음",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "AGENTS.md",
+      "readLevel": "spec",
+      "lineCount": 161,
+      "readRanges": [
+        [
+          1,
+          161
+        ]
+      ],
+      "sha256": "1c9b877668f74a1a2a735fb3aee730e8bb058d1fa34c1d96e8db1e41bbec9233",
+      "evidence": "적용 가능한 upstream instruction 읽음",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/schema/AGENTS.md",
+      "readLevel": "spec",
+      "lineCount": 88,
+      "readRanges": [
+        [
+          1,
+          88
+        ]
+      ],
+      "sha256": "326d8238f64675cfad3f72dafebf1923873f21ae6d2eebf0bad4b5729d7aa0fc",
+      "evidence": "적용 가능한 upstream instruction 읽음",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/opencode/AGENTS.md",
+      "readLevel": "spec",
+      "lineCount": 131,
+      "readRanges": [
+        [
+          1,
+          131
+        ]
+      ],
+      "sha256": "3eb97d68fba764fc98daa9e2410ff559f38fa2cfa5f8aa18ebed45f1e4abd8ff",
+      "evidence": "적용 가능한 upstream instruction 읽음",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/opencode/test/AGENTS.md",
+      "readLevel": "spec",
+      "lineCount": 204,
+      "readRanges": [
+        [
+          1,
+          204
+        ]
+      ],
+      "sha256": "0d0c71dd95b457f92fa0290886bb25633928db166a59e75ca09987295a49b305",
+      "evidence": "적용 가능한 upstream instruction 읽음",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/opencode/src/server/routes/instance/httpapi/AGENTS.md",
+      "readLevel": "spec",
+      "lineCount": 39,
+      "readRanges": [
+        [
+          1,
+          39
+        ]
+      ],
+      "sha256": "85f198f1c3c5aeb6e2b4eef195d0e7b09710b0d43c53912a2e2d680c0be3f7b2",
+      "evidence": "적용 가능한 upstream instruction 읽음",
+      "testsExecuted": false
+    },
+    {
+      "origin": "upstream",
+      "path": "packages/opencode/test/server/AGENTS.md",
+      "readLevel": "spec",
+      "lineCount": 15,
+      "readRanges": [
+        [
+          1,
+          15
+        ]
+      ],
+      "sha256": "043b38ac4568efae5818b7a2724624dfa6b8400ecc5b7413e3868f2fd64aa27f",
+      "evidence": "적용 가능한 upstream instruction 읽음",
+      "testsExecuted": false
+    }
+  ],
+  "discoveryOnlyTestTitleSearch": [
+    "packages/core/test/session-create.test.ts",
+    "packages/core/test/session-history.test.ts",
+    "packages/core/test/session-projector.test.ts",
+    "packages/opencode/test/session/processor-effect.test.ts",
+    "packages/opencode/test/session/prompt.test.ts"
+  ],
+  "summary": {
+    "entries": 48,
+    "byLevel": {
+      "complete": 28,
+      "targeted": 9,
+      "test": 4,
+      "spec": 7
+    },
+    "sourceLinksValidated": 66,
+    "uniqueSourceLinksValidated": 66
+  },
+  "unverified": [
+    "upstream dependency install/build/typecheck/tests",
+    "live provider integration",
+    "forced process crash behavior",
+    "large SQLite session benchmarks",
+    "per-tool OS cleanup and process control",
+    "distributed execution ownership",
+    "legal clean-room provenance guarantee"
+  ]
+}

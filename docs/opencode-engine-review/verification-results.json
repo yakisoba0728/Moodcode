@@ -1,0 +1,1631 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-07",
+  "sourceCommit": "4ac0d9c3d169bbe81d9570013effdda3fe24d36e",
+  "moodcodeBaselineCommit": "6d9a9527b74e543dfab55a9a401b47176d27bff8",
+  "referenceCheckoutPreserved": true,
+  "originalCheckoutHeadPreserved": true,
+  "inventoryFilesHashChecked": 1376,
+  "coverageRecords": 264,
+  "uniqueUpstreamCoveragePaths": 206,
+  "uniqueMoodcodeCoveragePaths": 23,
+  "sourceLinksChecked": 195,
+  "uniqueSourceLinks": 194,
+  "localLinksChecked": 54,
+  "errors": [],
+  "upstreamBuildTestsExecuted": false,
+  "moodcodeRuntimeTestsRerun": false,
+  "liveProviderCalls": 0,
+  "normalAppLaunched": false,
+  "MoodcodeRuntimeSourceChanges": [],
+  "coverageEntries": [
+    {
+      "repository": "opencode",
+      "path": "AGENTS.md",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "LICENSE",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/ui/LICENSE",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/http-recorder/LICENSE",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "package.json",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/AGENTS.md",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/package.json",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/package.json",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/package.json",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/schema/package.json",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/sdk-next/package.json",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/protocol/package.json",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/server/package.json",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/plugin/package.json",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/codemode/package.json",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/effect/app-node.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/effect/layer-node.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/effect/app-node-builder.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/effect/app-node-platform.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/effect/runtime.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/effect/memo-map.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/location.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/location-service-map.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/location-services.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/github-copilot/README.md",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/server/src/routes.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/server/src/api.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/server/src/handlers/session.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/server/src/middleware/session-location.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/protocol/src/api.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/sdk-next/src/opencode.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/server/server.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/server/routes/instance/httpapi/server.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/server/routes/instance/httpapi/AGENTS.md",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/server/init-projectors.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/docs/LICENSE",
+      "level": "targeted",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/edit.ts",
+      "level": "targeted",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/message-v2.ts",
+      "level": "targeted",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/session/message-v2.test.ts",
+      "level": "inventory",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/effect/layer-node/node-build.test.ts",
+      "level": "test-body-complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/effect/layer-node/layer-node.test.ts",
+      "level": "test-body-targeted",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/sdk-next/test/import-boundaries.test.ts",
+      "level": "test-body-complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/contracts/src/index.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/contracts/package.json",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/ports.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/context/memory.ts",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/engine.ts",
+      "level": "targeted",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/runner/index.ts",
+      "level": "targeted",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/storage/index.ts",
+      "level": "targeted",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/context/index.ts",
+      "level": "targeted",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "scripts/test.mjs",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "package.json",
+      "level": "complete",
+      "reviewerReport": "00-integration.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/input.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/execution.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/execution/local.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/run-coordinator.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/store.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/history.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/sql.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/projector.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/message-updater.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/runner/index.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/runner/llm.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/runner/publish-llm-event.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/prompt.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/message.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/schema.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/event.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/event.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/schema/src/session-input.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/schema/src/session-delivery.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/schema/src/session-message.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/schema/src/session-event.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/run-state.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/processor.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/effect/runner.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/server/src/routes.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/prompt.ts",
+      "level": "targeted",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts",
+      "level": "targeted",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/server/src/handlers/session.ts",
+      "level": "targeted",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/server/routes/instance/httpapi/server.ts",
+      "level": "targeted",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/tui/src/component/prompt/index.tsx",
+      "level": "targeted",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/app/src/utils/server-compat.ts",
+      "level": "targeted",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "specs/v2/session.md",
+      "level": "spec",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/session-prompt.test.ts",
+      "level": "test",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/session-run-coordinator.test.ts",
+      "level": "test",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/session-runner.test.ts",
+      "level": "test",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/event.test.ts",
+      "level": "test",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/runner/index.ts",
+      "level": "targeted",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/storage/index.ts",
+      "level": "targeted",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/engine.ts",
+      "level": "targeted",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/ports.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/contracts/src/index.ts",
+      "level": "complete",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "AGENTS.md",
+      "level": "spec",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/schema/AGENTS.md",
+      "level": "spec",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/AGENTS.md",
+      "level": "spec",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/AGENTS.md",
+      "level": "spec",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/server/routes/instance/httpapi/AGENTS.md",
+      "level": "spec",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/server/AGENTS.md",
+      "level": "spec",
+      "reviewerReport": "01-execution-state.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/history.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/context-epoch.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/compaction.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/runner/llm.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/runner/model.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/runner/to-llm-message.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/runner/max-steps.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/system-context/index.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/system-context/builtins.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/system-context/registry.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/instruction-context.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/skill/guidance.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/reference/guidance.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/agent.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/plugin/agent.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/config/compaction.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/util/token.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/llm.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/llm/request.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/llm/ai-sdk.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/llm/native-request.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/llm/native-runtime.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/compaction.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/overflow.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/instruction.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/system.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/retry.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/route/client.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/route/executor.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/route/protocol.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/route/framing.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/route/transport/http.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/route/transport/websocket.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/cache-policy.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/provider-error.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/schema/messages.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/providers/openai.ts",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/package.json",
+      "level": "complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/runner/publish-llm-event.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/message-v2.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/session.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/processor.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/provider/provider.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/provider/transform.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/effect/runtime-flags.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/schema/options.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/schema/errors.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/schema/events.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/llm.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/protocols/shared.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/protocols/openai-responses.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/protocols/openai-chat.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/src/protocols/anthropic-messages.ts",
+      "level": "targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/session-compaction.test.ts",
+      "level": "test_targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/session-runner.test.ts",
+      "level": "test_targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/session-runner-model.test.ts",
+      "level": "test_targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/session/llm-native.test.ts",
+      "level": "test_targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/test/response.test.ts",
+      "level": "test_targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "AGENTS.md",
+      "level": "instruction_complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/AGENTS.md",
+      "level": "instruction_complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/AGENTS.md",
+      "level": "instruction_complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/llm/AGENTS.md",
+      "level": "instruction_complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/system-context/index.test.ts",
+      "level": "test_inventory",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/instruction-context.test.ts",
+      "level": "test_inventory",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/session-runner-message.test.ts",
+      "level": "test_targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/session/compaction.test.ts",
+      "level": "test_inventory",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/test/executor.test.ts",
+      "level": "test_targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/test/prepare.test.ts",
+      "level": "test_targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/test/route.test.ts",
+      "level": "test_targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "specs/v2/session.md",
+      "level": "spec_targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/llm/DESIGN.md",
+      "level": "spec_targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/context/index.ts",
+      "level": "comparison_complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/context/memory.ts",
+      "level": "comparison_complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/context/instructions.ts",
+      "level": "comparison_complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/ports.ts",
+      "level": "comparison_complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/provider/index.ts",
+      "level": "comparison_complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/provider/helpers.ts",
+      "level": "comparison_complete",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/runner/index.ts",
+      "level": "comparison_targeted",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/provider/responses.ts",
+      "level": "comparison_symbol_search",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/provider/openai-compatible.ts",
+      "level": "comparison_symbol_search",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/provider/codex.ts",
+      "level": "comparison_symbol_search",
+      "reviewerReport": "02-model-context.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "AGENTS.md",
+      "level": "spec",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/AGENTS.md",
+      "level": "spec",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/AGENTS.md",
+      "level": "spec",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/AGENTS.md",
+      "level": "spec",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/tool.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/application-tools.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/tools.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/registry.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/builtins.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/bash.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/question.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/edit.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/write.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/apply-patch.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/read.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/glob.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/grep.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/skill.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/todowrite.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/read-filesystem.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/webfetch.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/websearch.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool/http-body.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/permission.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/permission/saved.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/permission/sql.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/question.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/process.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/location-mutation.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/file-mutation.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/pty.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/pty/pty.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/pty/pty.node.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/tool-output-store.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/state.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/snapshot.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/plugin.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/location-services.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/cross-spawn-spawner.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/plugin/host.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/src/session/runner/llm.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/sdk-next/src/opencode.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/tool.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/registry.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/task.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/shell.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/code-mode.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/write.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/external-directory.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/tools.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/permission/index.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/session/prompt.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/edit.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/apply_patch.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/read.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/glob.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/tool/grep.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/mcp/index.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/plugin/index.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/lsp/lsp.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/worktree/index.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/src/snapshot/index.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/application-tools.test.ts",
+      "level": "test",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/session-runner-tool-registry.test.ts",
+      "level": "test",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/tool-bash.test.ts",
+      "level": "test",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/tool-edit.test.ts",
+      "level": "test",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/tool-apply-patch.test.ts",
+      "level": "test",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/permission.test.ts",
+      "level": "test",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/pty/pty-session.test.ts",
+      "level": "test",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/snapshot.test.ts",
+      "level": "test",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/core/test/question.test.ts",
+      "level": "test",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/tool/task.test.ts",
+      "level": "test",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/tool/shell.test.ts",
+      "level": "test",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "opencode",
+      "path": "packages/opencode/test/mcp/lifecycle.test.ts",
+      "level": "test",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/permission/index.ts",
+      "level": "complete",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/tools/patch/index.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/tools/command/index.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/tools/command/process-control.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/tools/read/index.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/ports.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/review/index.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/workspace/index.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    },
+    {
+      "repository": "moodcode",
+      "path": "packages/engine/src/runner/index.ts",
+      "level": "targeted",
+      "reviewerReport": "03-tools-permissions.coverage.json"
+    }
+  ],
+  "limits": [
+    "Inventory is not semantic full-file review. Coverage levels are author-reported reading depth, verified for paths/hashes/ranges only.",
+    "Source-link verification confirms existence/range, not every claim semantic correctness or upstream runtime behavior.",
+    "Upstream dependencies are not installed in this reference checkout and Bun is absent from shell PATH.",
+    "No all-provider compatibility, OS teardown, performance or full transitive license audit execution."
+  ],
+  "uniqueUpstreamNonInventoryPaths": 202,
+  "coverageLevelCounts": {
+    "comparison_complete": 6,
+    "comparison_symbol_search": 3,
+    "comparison_targeted": 1,
+    "complete": 151,
+    "instruction_complete": 4,
+    "inventory": 1,
+    "spec": 11,
+    "spec_targeted": 2,
+    "targeted": 54,
+    "test": 16,
+    "test-body-complete": 2,
+    "test-body-targeted": 1,
+    "test_inventory": 3,
+    "test_targeted": 9
+  },
+  "sourceImplementationReview": "Three independent scoped reviews and root integration review traced the entrypoints and key execution paths. Complete, targeted, test-body, spec and inventory-only entries are distinguished."
+}
