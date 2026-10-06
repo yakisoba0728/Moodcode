@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { EngineError, SESSION_SCHEMA_VERSION, type ContextRevision, type EngineEvent, type JsonObject } from '@moodcode/contracts';
-import type { ContextRequest, ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
+import type { ContextRequest, ProviderAdapter, ProviderMessage, TurnRequest } from '../ports.js';
 import type { SqliteStore } from '../storage/index.js';
 import type { ModelSpec } from './model-spec.js';
+import { settleSummaryFailure, streamSummary, type SummaryLifecycleStore } from './summary-stream.js';
 
 export const ACTIVE_PREFIX_MEMORY_PREFIX = '[Moodcode active-prefix memory v1]\n';
 export const ACTIVE_PREFIX_DOCUMENT = 'context.active_memory';
@@ -47,7 +48,7 @@ export interface ActivePrefixStorage {
   readActivePrefixSource(runId: string, options: ActivePrefixSourceOptions): ActivePrefixSource;
   commitActivePrefixCheckpoint(runId: string, payload: JsonObject, change: PreparedActivePrefix & ActivePrefixContextPublication): EngineEvent;
 }
-type Store = Pick<SqliteStore, 'getRun' | 'getSession' | 'getWorkspace' | 'getSessionDocument' | 'getContextRevision' | 'getLatestContextRevision' | 'nextContextRevisionIndex' | 'commit'> & ActivePrefixStorage;
+type Store = Pick<SqliteStore, 'getRun' | 'getSession' | 'getWorkspace' | 'getSessionDocument' | 'getContextRevision' | 'getLatestContextRevision' | 'nextContextRevisionIndex' | 'createSummaryAttempt'> & ActivePrefixStorage & SummaryLifecycleStore;
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const json = (value: unknown): JsonObject => JSON.parse(JSON.stringify(value)) as JsonObject;
 function cancelled(signal: AbortSignal): void { if (signal.aborted) throw signal.reason ?? new EngineError('CANCELLED', 'Active-prefix summary was cancelled'); }
@@ -73,7 +74,7 @@ export function validateActivePrefixPolicy(value: ActivePrefixPolicy): Validated
 export class ActivePrefixMemoryService {
   readonly policy: ValidatedActivePrefixPolicy;
   readonly policySha256: string;
-  private readonly candidates = new WeakMap<PreparedActivePrefix, { fingerprint: string; state: 'prepared' | 'published' | 'discarded' }>();
+  private readonly candidates = new WeakMap<PreparedActivePrefix, { fingerprint: string; state: 'prepared' | 'published' | 'discarded'; signal: AbortSignal }>();
   constructor(private readonly store: Store, policy: ActivePrefixPolicy) {
     this.policy = validateActivePrefixPolicy(policy); this.policySha256 = hash(JSON.stringify(this.policy));
   }
@@ -164,65 +165,16 @@ export class ActivePrefixMemoryService {
     this.validateSource(source, request);
     if (source.priorCheckpointId !== prior?.checkpoint.id) throw new EngineError('ACTIVE_PREFIX_SOURCE_CHANGED', 'Prepared source does not match the active checkpoint');
     turnRequest.messages.at(-1)!.content = source.sourceJson;
-    const serializedBytes = Buffer.byteLength(JSON.stringify(turnRequest));
+    const serializedRequest = JSON.stringify(turnRequest), serializedBytes = Buffer.byteLength(serializedRequest);
     if (serializedBytes > Math.min(request.config.limits.maxContextBytes, request.budget.budgets.maxSummaryBytes)
       || model?.contextWindow != null && serializedBytes + outputBytes > model.contextWindow || model?.maxOutputTokens != null && outputBytes > model.maxOutputTokens) throw new EngineError('ACTIVE_PREFIX_SOURCE_LIMIT', 'Complete summary request and conservative output reserve exceed the byte or known model budget');
     request.budget.startSummary();
-    this.store.commit(run.id, 'summary.prepared', { summaryAttemptId: id, scope: 'active-run-prefix', sourceMessageIds: source.sourceMessageIds, sourceTurnIds: source.sourceTurnIds,
-      factsSha256: source.factsSha256, manifestSha256: source.manifestSha256, expectedMemoryRevision: source.expectedMemoryRevision, expectedContextHeadRevision: source.expectedContextHeadRevision });
-    const deadline = new AbortController(), combined = AbortSignal.any([request.signal, deadline.signal]);
-    const timer = setTimeout(() => deadline.abort(new EngineError('SUMMARY_REQUEST_TIMEOUT', 'Active-prefix summary exceeded its timeout')), request.budget.budgets.providerRequestTimeoutMs);
-    let inactivity: ReturnType<typeof setTimeout> | undefined;
-    const progress = () => { clearTimeout(inactivity); inactivity = setTimeout(() => deadline.abort(new EngineError('SUMMARY_INACTIVITY_TIMEOUT', 'Active-prefix summary stopped making progress')), request.budget!.budgets.providerInactivityTimeoutMs); };
-    const usage: ActivePrefixCheckpoint['usage'] = { inputTokens: null, outputTokens: null, cachedInputTokens: null, reasoningOutputTokens: null };
-    let text = '', finished = false, streamDone = false, iterator: AsyncIterator<ProviderEvent> | undefined;
-    let failure: unknown;
-    try {
-      cancelled(combined);
-      this.store.commit(run.id, 'summary.dispatched', { summaryAttemptId: id, scope: 'active-run-prefix', providerId: provider.id, modelId: request.config.modelId });
-      iterator = provider.streamTurn(turnRequest, combined)[Symbol.asyncIterator](); progress();
-      for (;;) {
-        const next = await new Promise<IteratorResult<ProviderEvent>>((resolve, reject) => {
-          const abort = () => reject(combined.reason); combined.addEventListener('abort', abort, { once: true });
-          Promise.resolve().then(() => iterator!.next()).then(resolve, reject).finally(() => combined.removeEventListener('abort', abort));
-          if (combined.aborted) abort();
-        });
-        cancelled(combined); if (next.done) { streamDone = true; break; } progress();
-        const event = next.value;
-        if (finished && event.type !== 'usage') throw new EngineError('SUMMARY_PROTOCOL_ERROR', 'Active-prefix summary emitted content after finish');
-        if (event.type === 'text.delta') {
-          if (typeof event.delta !== 'string') throw new EngineError('SUMMARY_PROTOCOL_ERROR', 'Summary text must be a string');
-          const deltaBytes = Buffer.byteLength(event.delta);
-          // An already observed delta consumes the shared allowance even when it
-          // exceeds this summary's smaller local output cap.
-          request.consumeSummaryOutput?.(deltaBytes);
-          if (Buffer.byteLength(text) + deltaBytes > outputBytes) throw new EngineError('SUMMARY_OUTPUT_LIMIT', 'Active-prefix summary output exceeds its byte budget');
-          text += event.delta;
-        } else if (event.type === 'finish') { if (event.reason !== 'stop') throw new EngineError('SUMMARY_INCOMPLETE', 'Active-prefix summary did not finish normally'); finished = true; }
-        else if (event.type === 'usage') {
-          for (const key of Object.keys(usage) as (keyof typeof usage)[]) if (event[key] !== undefined) {
-            const value = event[key]!; if (!Number.isSafeInteger(value) || value < 0 || usage[key] !== null && value < usage[key]!) throw new EngineError('SUMMARY_PROTOCOL_ERROR', 'Summary usage snapshots must be nonnegative and nondecreasing'); usage[key] = value;
-          }
-          if (usage.cachedInputTokens !== null && usage.inputTokens !== null && usage.cachedInputTokens > usage.inputTokens || usage.reasoningOutputTokens !== null && usage.outputTokens !== null && usage.reasoningOutputTokens > usage.outputTokens) throw new EngineError('SUMMARY_PROTOCOL_ERROR', 'Summary usage subsets exceed inclusive totals');
-          this.store.commit(run.id, 'provider.usage', { purpose: 'summary', summaryAttemptId: id, scope: 'active-run-prefix', ...Object.fromEntries(Object.entries(usage).filter(([, value]) => value !== null)) });
-        } else if (event.type !== 'progress') throw new EngineError('SUMMARY_PROTOCOL_ERROR', 'Active-prefix summary permits only text, progress and usage');
-      }
-      if (!finished || !text.trim()) throw new EngineError('SUMMARY_INCOMPLETE', 'Empty or incomplete summary cannot become a checkpoint');
-      cancelled(combined);
-    } catch (error) { failure = error === undefined ? new EngineError('SUMMARY_FAILED', 'Active-prefix provider failed without an error value') : error; }
-    finally {
-      clearTimeout(timer); clearTimeout(inactivity);
-      if (!streamDone) {
-        deadline.abort();
-        if (iterator?.return) {
-          let cleanup: ReturnType<typeof setTimeout> | undefined;
-          const clean = await Promise.race([Promise.resolve().then(() => iterator!.return!()).then(() => true, () => false), new Promise<boolean>(resolve => { cleanup = setTimeout(() => resolve(false), 1000); })]);
-          clearTimeout(cleanup);
-          if (!clean) failure = new EngineError('CLEANUP_UNCERTAIN', 'Active-prefix summary provider cleanup could not be confirmed');
-        } else if (iterator) failure = new EngineError('CLEANUP_UNCERTAIN', 'Active-prefix summary iterator has no confirmed cleanup');
-      }
-    }
-    if (failure !== undefined) { this.recordFailure(run.id, id, failure); throw failure; }
+    this.store.createSummaryAttempt({ id, scope: 'active-run-prefix', sessionId: run.sessionId, workspaceId: run.workspaceId, runId: run.id, providerId: provider.id, modelId: request.config.modelId,
+      sourceProjection: source.projection, sourceSha256: source.factsSha256, manifestSha256: source.manifestSha256, policySha256: source.policySha256,
+      sourceMessageIds: source.sourceMessageIds, sourceTurnIds: source.sourceTurnIds, expectedMemoryRevision: source.expectedMemoryRevision, expectedContextHeadRevision: source.expectedContextHeadRevision,
+      boundaryTurnId: source.boundaryTurnId, boundaryAttemptId: source.boundaryAttemptId, requestSha256: hash(serializedRequest), requestBytes: serializedBytes, createdAt,
+      ...(source.priorCheckpointId ? { priorCheckpointId: source.priorCheckpointId } : {}), ...(source.currentTurnId ? { currentTurnId: source.currentTurnId } : {}), ...(source.failedAttemptId ? { failedAttemptId: source.failedAttemptId } : {}) });
+    const { text, usage } = await streamSummary({ store: this.store, id, request, provider, turnRequest, maxOutputBytes: outputBytes });
     try {
       cancelled(request.signal);
       const latest = this.store.getLatestContextRevision(run.sessionId), revisionId = randomUUID();
@@ -238,15 +190,15 @@ export class ActivePrefixMemoryService {
       // The immutable revision binds all persisted coverage/owner metadata as well as summary text.
       summaryRevision.sourceIds.push(`active-prefix-checkpoint:${hash(JSON.stringify(checkpoint))}`);
       const candidate = { source: structuredClone(source), checkpoint, summaryRevision };
-      this.candidates.set(candidate, { fingerprint: hash(JSON.stringify(candidate)), state: 'prepared' });
+      this.candidates.set(candidate, { fingerprint: hash(JSON.stringify(candidate)), state: 'prepared', signal: request.signal });
       return candidate;
-    } catch (error) { this.recordFailure(run.id, id, error); throw error; }
+    } catch (error) { this.recordFailure(id, error, request.signal.aborted); throw error; }
   }
-  private recordFailure(runId: string, id: string, error: unknown): void {
-    if (this.store.getRun(runId).state === 'running') this.store.commit(runId, 'summary.failed', { summaryAttemptId: id, scope: 'active-run-prefix', code: error instanceof EngineError ? error.code : 'SUMMARY_FAILED' });
+  private recordFailure(id: string, error: unknown, interrupted = false): void {
+    settleSummaryFailure(this.store, id, error, true, interrupted);
   }
   discard(candidate: PreparedActivePrefix, error: unknown): void {
-    this.prepared(candidate); this.candidates.get(candidate)!.state = 'discarded'; this.recordFailure(candidate.checkpoint.runId, candidate.checkpoint.id, error);
+    this.prepared(candidate); const record = this.candidates.get(candidate)!; record.state = 'discarded'; this.recordFailure(candidate.checkpoint.id, error, record.signal.aborted);
   }
   publishWithContext(request: ContextRequest, candidate: PreparedActivePrefix, context: ActivePrefixContextPublication): ActivePrefixCheckpoint {
     this.prepared(candidate);
@@ -262,6 +214,6 @@ export class ActivePrefixMemoryService {
       this.store.commitActivePrefixCheckpoint(candidate.checkpoint.runId, { summaryAttemptId: candidate.checkpoint.id, scope: 'active-run-prefix', revisionId: candidate.summaryRevision.id,
         contextRevisionId: context.contextRevision.id, usage: json(candidate.checkpoint.usage) }, { ...candidate, ...context });
       this.candidates.get(candidate)!.state = 'published'; return structuredClone(candidate.checkpoint);
-    } catch (error) { this.candidates.get(candidate)!.state = 'discarded'; this.recordFailure(candidate.checkpoint.runId, candidate.checkpoint.id, error); throw error; }
+    } catch (error) { this.candidates.get(candidate)!.state = 'discarded'; this.recordFailure(candidate.checkpoint.id, error, request.signal.aborted); throw error; }
   }
 }

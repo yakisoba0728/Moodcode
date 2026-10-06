@@ -22,7 +22,7 @@ export interface MetricDuration {
 }
 export interface MetricStates { total: number; states: Record<string, number>; serializedJsonBytes: number | null }
 export interface NativeMetricsReport {
-  schemaVersion: 2; generatedAt: string; scope: { sessionId: string | null };
+  schemaVersion: 3; generatedAt: string; scope: { sessionId: string | null };
   sessions: { total: number; paused: number; recoveryRequired: number };
   inputs: MetricStates & { queue: number; steer: number; pendingQueue: number; pendingSteer: number; pendingRequestBytes: number | null; pendingAge: MetricDuration; promotionWait: MetricDuration };
   runs: MetricStates; turns: MetricStates & { elapsed: MetricDuration };
@@ -31,10 +31,12 @@ export interface NativeMetricsReport {
   providerUsage: MetricUsage & { aggregation: 'observed-event-sum'; inclusiveTotals: true; latestContext: { bytes: number; limit: number; summaryIncluded: boolean; turnIndex: number } | null };
   attemptUsage: MetricUsage & { aggregation: 'latest-snapshot-per-durable-attempt'; inclusiveTotals: true; attemptsWithUsage: number; attemptsWithoutUsage: number; source: 'all-attempt_usage-records-in-scope'; billedTokens: null };
   summary: { preparedEvents: number; dispatchedEvents: number; completedEvents: number; failedEvents: number; revisions: number; textUtf8Bytes: number | null; usage: MetricUsage; observedAttempts: number; usageEventsWithoutAttemptId: number; aggregation: 'latest-snapshot-per-summaryAttemptId' };
+  summaryAttempts: MetricStates & { scopes: Record<'completed-history' | 'active-run-prefix', number>; providerCompletedAwaitingPublication: number; elapsed: MetricDuration; observedOutputBytes: number | null; retainedTextBytes: number | null; truncatedPartialTexts: number };
+  summaryAttemptUsage: MetricUsage & { aggregation: 'latest-snapshot-per-durable-summary-attempt'; inclusiveTotals: true; attemptsWithUsage: number; attemptsWithoutUsage: number; source: 'all-summary_usage-records-in-scope'; billedTokens: null };
   artifacts: { references: number; uniqueIds: number; incompleteReferences: number; conflictingMetadataIds: number; storedBytesKnownIds: number; storedBytesUnknownIds: number; declaredStoredBytes: number | null; observedBytesKnownIds: number; declaredObservedBytes: number | null; legacyReferences: number; legacyDeclaredBytes: number | null; checkpointBindingEvents: number; physicalFiles: null; physicalBytes: null };
   checkpoints: { total: number; incomplete: number; files: number; serializedJsonBytes: number | null };
-  recovery: { pausedSessions: number; workspacesWithDurableEvidence: number; uncertainTurns: number; uncertainAttempts: number; cleanupUncertainRuns: number; cleanupUncertainToolEvents: number; runtimeQuarantinedWorkspaces: null; externalRecoveryLedgerRecords: null };
-  coverage: { records: 'all-primary-records-in-scope'; usage: MetricEventCoverage; summary: MetricEventCoverage; tools: MetricEventCoverage; bytes: 'UTF-8 serialized JSON or declared reference metadata; never filesystem allocation'; time: 'wall-clock record timestamps; not provider CPU time or time to first token'; sql: 'fixed result size; full record/count aggregates may scan scoped history'; usageAttribution: 'legacy event sums and durable attempt snapshots are separate observations, not billed totals'; summaryAttribution: 'deduplicated only within the selected summary window'; externalStores: 'not-read' };
+  recovery: { pausedSessions: number; workspacesWithDurableEvidence: number; uncertainTurns: number; uncertainAttempts: number; uncertainSummaries: number; cleanupUncertainRuns: number; cleanupUncertainToolEvents: number; runtimeQuarantinedWorkspaces: null; externalRecoveryLedgerRecords: null };
+  coverage: { records: 'all-primary-records-in-scope'; usage: MetricEventCoverage; summary: MetricEventCoverage; tools: MetricEventCoverage; bytes: 'UTF-8 serialized JSON or declared reference metadata; never filesystem allocation'; time: 'wall-clock record timestamps; not provider CPU time or time to first token'; sql: 'fixed result size; full record/count aggregates may scan scoped history'; usageAttribution: 'legacy event sums and durable attempt snapshots are separate observations, not billed totals'; summaryAttribution: 'deduplicated only within the selected summary window'; durableSummary: 'all-typed-summary-attempts-in-scope; legacy journals are not backfilled'; externalStores: 'not-read' };
   unavailable: Array<{ metric: string; reason: string }>;
 }
 
@@ -122,6 +124,14 @@ export function readNativeMetrics(database: DatabaseSync, sessionId?: string, ge
   const mainUsage = usage(database, `${main.cte}, observations AS (SELECT payload AS usage FROM selected WHERE type='run.usage')`, 'observations', main.values);
   const attemptUsage = usage(database, `WITH observations AS (SELECT json_extract(u.data,'$.usage') AS usage FROM attempt_usage u
     JOIN provider_attempts a ON a.id=u.attempt_id AND a.session_id=u.session_id AND a.run_id=u.run_id AND a.turn_id=u.turn_id WHERE ${scope(sessionId,'u.').clause})`, 'observations', where.values);
+  const summaryAttempts = states(database, 'summary_attempts', ['prepared', 'dispatched', 'streaming', 'completed', 'failed', 'interrupted', 'uncertain'], sessionId);
+  const summaryAttemptUsage = usage(database, `WITH observations AS (SELECT json_extract(u.data,'$.usage') AS usage FROM summary_usage u
+    JOIN summary_attempts a ON a.id=u.summary_attempt_id AND a.session_id=u.session_id AND a.run_id=u.run_id WHERE ${scope(sessionId, 'u.').clause})`, 'observations', where.values);
+  const summaryAttemptRow = one(database, `SELECT count(CASE WHEN scope='completed-history' THEN 1 END) AS history,
+    count(CASE WHEN scope='active-run-prefix' THEN 1 END) AS prefix,
+    count(CASE WHEN state='streaming' AND json_extract(data,'$.providerCompletedAt') IS NOT NULL AND json_extract(data,'$.cleanupConfirmed')=1 THEN 1 END) AS awaiting,
+    total(json_extract(data,'$.observedOutputBytes')) AS observedBytes,total(json_extract(data,'$.retainedTextBytes')) AS retainedBytes,
+    count(CASE WHEN json_extract(data,'$.partialTextTruncated')=1 THEN 1 END) AS truncated FROM summary_attempts WHERE ${where.clause}`, where.values);
   const contextRow = one(database, `${main.cte} SELECT json_extract(payload,'$.bytes') AS bytes,json_extract(payload,'$.limit') AS budget,json_extract(payload,'$.turnIndex') AS turnIndex,json_extract(payload,'$.summaryIncluded') AS summaryIncluded FROM selected WHERE type='context.prepared' ORDER BY position DESC LIMIT 1`, main.values);
   const contextValid = contextRow && safe(contextRow.bytes) !== null && safe(contextRow.budget) !== null && safe(contextRow.turnIndex) !== null;
   const summary = eventWindow(database, "type IN ('summary.prepared','summary.dispatched','summary.completed','summary.failed') OR (type='provider.usage' AND json_extract(data,'$.payload.purpose')='summary')", sessionId);
@@ -150,12 +160,13 @@ export function readNativeMetrics(database: DatabaseSync, sessionId?: string, ge
     SELECT s.workspace_id FROM session_controls c JOIN sessions s ON s.id=c.session_id WHERE ${scope(sessionId, 'c.').clause} AND c.paused=1 AND json_extract(c.data,'$.reason')='recovery_required'
     UNION SELECT r.workspace_id FROM session_turns t JOIN runs r ON r.id=t.run_id WHERE ${scope(sessionId, 't.').clause} AND t.state='uncertain'
     UNION SELECT r.workspace_id FROM provider_attempts a JOIN runs r ON r.id=a.run_id WHERE ${scope(sessionId, 'a.').clause} AND a.state='uncertain'
+    UNION SELECT workspace_id FROM summary_attempts WHERE ${where.clause} AND state='uncertain'
     UNION SELECT workspace_id FROM runs WHERE ${where.clause} AND json_extract(data,'$.error.code')='CLEANUP_UNCERTAIN'
-  ) SELECT count(*) AS count FROM evidence`, [...where.values, ...where.values, ...where.values, ...where.values]);
+  ) SELECT count(*) AS count FROM evidence`, [...where.values, ...where.values, ...where.values, ...where.values, ...where.values]);
   const turns = states(database, 'session_turns', ['created', 'streaming', 'awaiting_tools', 'completed', 'failed', 'interrupted', 'uncertain'], sessionId);
   const artifactIds = number(artifactRow, 'ids'), storedKnown = number(artifactRow, 'storedKnown'), observedKnown = number(artifactRow, 'observedKnown');
   return {
-    schemaVersion: 2, generatedAt, scope: { sessionId: sessionId ?? null },
+    schemaVersion: 3, generatedAt, scope: { sessionId: sessionId ?? null },
     sessions: { total: number(sessionRow, 'total'), paused: number(sessionRow, 'paused'), recoveryRequired: number(sessionRow, 'recovery') },
     inputs: { ...inputs, queue: number(inputRow, 'queue'), steer: number(inputRow, 'steer'), pendingQueue: number(inputRow, 'pendingQueue'), pendingSteer: number(inputRow, 'pendingSteer'), pendingRequestBytes: safe(inputRow.pendingBytes), pendingAge: pendingDuration(true), promotionWait: pendingDuration(false) },
     runs: states(database, 'runs', ['created', 'running', 'awaiting_approval', 'cancelling', 'completed', 'cancelled', 'failed', 'interrupted'], sessionId),
@@ -167,13 +178,19 @@ export function readNativeMetrics(database: DatabaseSync, sessionId?: string, ge
       attemptsWithUsage: attemptUsage.samples, attemptsWithoutUsage: attempts.total-attemptUsage.samples,
       source: 'all-attempt_usage-records-in-scope', billedTokens: null },
     summary: { preparedEvents: number(summaryRow, 'prepared'), dispatchedEvents: number(summaryRow, 'dispatched'), completedEvents: number(summaryRow, 'completed'), failedEvents: number(summaryRow, 'failed'), revisions: number(revisionRow, 'count'), textUtf8Bytes: safe(revisionRow.bytes), usage: summaryUsage, observedAttempts: number(summaryRow, 'attempts'), usageEventsWithoutAttemptId: number(summaryRow, 'missingId'), aggregation: 'latest-snapshot-per-summaryAttemptId' },
+    summaryAttempts: { ...summaryAttempts, scopes: { 'completed-history': number(summaryAttemptRow, 'history'), 'active-run-prefix': number(summaryAttemptRow, 'prefix') },
+      providerCompletedAwaitingPublication: number(summaryAttemptRow, 'awaiting'), elapsed: duration(database, 'summary_attempts', 'createdAt', 'completedAt', sessionId),
+      observedOutputBytes: safe(summaryAttemptRow.observedBytes), retainedTextBytes: safe(summaryAttemptRow.retainedBytes), truncatedPartialTexts: number(summaryAttemptRow, 'truncated') },
+    summaryAttemptUsage: { ...summaryAttemptUsage, aggregation: 'latest-snapshot-per-durable-summary-attempt', inclusiveTotals: true,
+      attemptsWithUsage: summaryAttemptUsage.samples, attemptsWithoutUsage: summaryAttempts.total-summaryAttemptUsage.samples, source: 'all-summary_usage-records-in-scope', billedTokens: null },
     artifacts: { references: number(artifactRow, 'refs'), uniqueIds: artifactIds, incompleteReferences: number(artifactRow, 'incomplete'), conflictingMetadataIds: number(artifactRow, 'conflicts'), storedBytesKnownIds: storedKnown, storedBytesUnknownIds: artifactIds - storedKnown, declaredStoredBytes: storedKnown ? safe(artifactRow.storedBytes) : null, observedBytesKnownIds: observedKnown, declaredObservedBytes: observedKnown ? safe(artifactRow.observedBytes) : null, legacyReferences: number(legacyRow, 'refs'), legacyDeclaredBytes: number(legacyRow, 'known') ? safe(legacyRow.bytes) : null, checkpointBindingEvents: number(cleanupRow, 'bindings'), physicalFiles: null, physicalBytes: null },
     checkpoints: { total: number(checkpointRow, 'count'), incomplete: number(checkpointRow, 'incomplete'), files: number(checkpointRow, 'files'), serializedJsonBytes: safe(checkpointRow.bytes) },
-    recovery: { pausedSessions: number(sessionRow, 'recovery'), workspacesWithDurableEvidence: number(evidenceRow, 'count'), uncertainTurns: turns.states.uncertain!, uncertainAttempts: attempts.states.uncertain!, cleanupUncertainRuns: number(cleanupRunRow, 'count'), cleanupUncertainToolEvents: number(cleanupRow, 'cleanup'), runtimeQuarantinedWorkspaces: null, externalRecoveryLedgerRecords: null },
-    coverage: { records: 'all-primary-records-in-scope', usage: main.coverage, summary: summary.coverage, tools: tools.coverage, bytes: 'UTF-8 serialized JSON or declared reference metadata; never filesystem allocation', time: 'wall-clock record timestamps; not provider CPU time or time to first token', sql: 'fixed result size; full record/count aggregates may scan scoped history', usageAttribution: 'legacy event sums and durable attempt snapshots are separate observations, not billed totals', summaryAttribution: 'deduplicated only within the selected summary window', externalStores: 'not-read' },
+    recovery: { pausedSessions: number(sessionRow, 'recovery'), workspacesWithDurableEvidence: number(evidenceRow, 'count'), uncertainTurns: turns.states.uncertain!, uncertainAttempts: attempts.states.uncertain!, uncertainSummaries: summaryAttempts.states.uncertain!, cleanupUncertainRuns: number(cleanupRunRow, 'count'), cleanupUncertainToolEvents: number(cleanupRow, 'cleanup'), runtimeQuarantinedWorkspaces: null, externalRecoveryLedgerRecords: null },
+    coverage: { records: 'all-primary-records-in-scope', usage: main.coverage, summary: summary.coverage, tools: tools.coverage, bytes: 'UTF-8 serialized JSON or declared reference metadata; never filesystem allocation', time: 'wall-clock record timestamps; not provider CPU time or time to first token', sql: 'fixed result size; full record/count aggregates may scan scoped history', usageAttribution: 'legacy event sums and durable attempt snapshots are separate observations, not billed totals', summaryAttribution: 'deduplicated only within the selected summary window', durableSummary: 'all-typed-summary-attempts-in-scope; legacy journals are not backfilled', externalStores: 'not-read' },
     unavailable: [
       { metric: 'attempts.overflowRecoveries', reason: 'Attempt records do not persist retry/overflow causes; a changed context is not proof of overflow recovery.' },
       { metric: 'providerUsage.billedTokens/attemptUsage.billedTokens', reason: 'Observed usage is not billing reconciliation. Legacy event sums and durable per-attempt snapshots are separate projections.' },
+      { metric: 'summaryAttemptUsage.billedTokens/legacySummaryAttemptLifecycle', reason: 'Durable summary usage is a separate nullable observation. Legacy events do not prove a typed attempt lifecycle and are not backfilled.' },
       { metric: 'artifacts.physicalFiles/physicalBytes', reason: 'Primary metadata does not measure the artifact filesystem or terminal/review/recovery stores.' },
       { metric: 'recovery.runtimeQuarantinedWorkspaces', reason: 'Coordinator quarantine is runtime state; durable recovery evidence is reported separately.' },
       { metric: 'recovery.externalRecoveryLedgerRecords', reason: 'This read does not inspect external recovery acknowledgements or review journals.' },

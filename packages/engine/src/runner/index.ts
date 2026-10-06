@@ -216,6 +216,10 @@ export class RunCoordinator implements CoordinatorPort {
 
   submit(input: SubmitInput): RunReceipt {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
+    if (this.options.store.hasUncertainSummaries) {
+      const session = this.options.store.getSession(input.sessionId);
+      if (this.options.store.hasUncertainSummaries(session.workspaceId)) this.unsafeWorkspaces.add(session.workspaceId);
+    }
     if (this.unsafeWorkspaces.size || this.workspaceLeases.size) {
       const session = this.options.store.getSession(input.sessionId);
       if (this.unsafeWorkspaces.has(session.workspaceId) || this.workspaceLeases.has(session.workspaceId)) {
@@ -246,11 +250,17 @@ export class RunCoordinator implements CoordinatorPort {
   }
 
   assertWorkspaceAvailable(workspaceId: string, excludedRunId?: string): void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
-    if (this.unsafeWorkspaces.has(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace execution is quarantined');
+    this.assertWorkspaceCleanupConfirmed(workspaceId);
     if (this.workspaceLeases.has(workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
     if (this.options.store.hasActiveRuns) { if (this.options.store.hasActiveRuns(workspaceId, excludedRunId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace has an active Run'); }
     else for (const session of this.options.store.listSessions(workspaceId)) if (this.options.store.getSnapshot(session.id).runs.some(run => run.id !== excludedRunId && !isTerminal(run.state))) throw new EngineError('WORKSPACE_BUSY', 'Workspace has an active Run');
+  }
+
+  /** Resume may coexist with a live Run, but must never clear uncertain cleanup. */
+  assertWorkspaceCleanupConfirmed(workspaceId: string): void {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
+    if (this.options.store.hasUncertainSummaries?.(workspaceId)) this.unsafeWorkspaces.add(workspaceId);
+    if (this.unsafeWorkspaces.has(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace execution is quarantined');
   }
 
   /** The input promotion transaction already admitted this real durable Run. */
@@ -296,7 +306,7 @@ export class RunCoordinator implements CoordinatorPort {
     try {
       if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
       this.options.store.getWorkspace(workspaceId);
-      if (this.unsafeWorkspaces.has(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace cleanup is unconfirmed; maintenance is blocked');
+      this.assertWorkspaceCleanupConfirmed(workspaceId);
       if (this.workspaceLeases.has(workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
       // Persisted runs can be active without a local owner. SQL stores check
       // the workspace directly; custom legacy stores retain the snapshot path.

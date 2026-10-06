@@ -16,6 +16,7 @@ export interface ContextDiagnostics {
   revisionId: string; revision: number; plan: Omit<ContextPlan, 'messages'>;
   instructions: InstructionObservation; omittedDatabaseMessages: number; omittedDatabaseRuns: number;
   activeWindow?: ModelHistoryPage['activeWindow'];
+  sessionImageAnchor?: ModelHistoryPage['sessionImageAnchor'];
   mediaHistory?: MediaHistoryDiagnostics & { provenance: ImageHistoryProvenance[] };
   activePrefix?: { checkpointId: string; summaryRevisionId: string; scope: 'active-run-prefix'; projection: ActivePrefixCheckpoint['projection'];
     factsSha256: string; manifestSha256: string; policySha256: string; coveredMessageIds: string[]; protectedMessageIds: string[];
@@ -28,7 +29,7 @@ export class ContextService {
   readonly memory: SemanticMemoryService;
   readonly activePrefix?: ActivePrefixMemoryService;
   private readonly sources = new Map<string, { source: InstructionSources; leases: number }>();
-  private readonly history = new Map<string, { omittedMessages: number; omittedRuns: number; activeWindow?: ModelHistoryPage['activeWindow'] }>();
+  private readonly history = new Map<string, { omittedMessages: number; omittedRuns: number; activeWindow?: ModelHistoryPage['activeWindow']; sessionImageAnchor?: ModelHistoryPage['sessionImageAnchor'] }>();
   private readonly revisions = new Map<string, string>();
   private readonly mediaHistoryPolicy?: Required<MediaHistoryPolicy>;
   constructor(private readonly store: SqliteStore, readonly models = new ModelRegistry(), private readonly outputTokenReserve = 0, private readonly provider?: (id: string) => ProviderAdapter | undefined, options: ContextServiceOptions = {}) {
@@ -39,7 +40,7 @@ export class ContextService {
   }
   snapshot(sessionId: string, config: RunConfig): SessionSnapshot {
     const page = this.store.readModelHistory(sessionId, 512, Math.max(1024, Math.min(33_554_432, config.limits.maxContextBytes * 4)));
-    this.history.set(sessionId, { omittedMessages: page.omittedMessages, omittedRuns: page.omittedRuns, ...(page.activeWindow ? { activeWindow: page.activeWindow } : {}) });
+    this.history.set(sessionId, { omittedMessages: page.omittedMessages, omittedRuns: page.omittedRuns, ...(page.activeWindow ? { activeWindow: page.activeWindow } : {}), ...(page.sessionImageAnchor ? { sessionImageAnchor: page.sessionImageAnchor } : {}) });
     return page.snapshot;
   }
   revisionId(sessionId: string): string | undefined {
@@ -101,9 +102,22 @@ export class ContextService {
     const makePlan = async (candidate?: PreparedActivePrefix) => {
       const remembered = this.memory.project(request);
       const prefix = this.activePrefix?.project(remembered, candidate) ?? remembered;
-      const media = this.mediaHistoryPolicy ? projectMediaHistory(prefix.snapshot, { policy: this.mediaHistoryPolicy, ...(request.run ? { activeRunId: request.run.id } : {}) }, request.signal) : undefined;
-      const projected = { ...prefix, snapshot: projectToolHistory(media?.snapshot ?? prefix.snapshot, request.run?.id),
-        ...(media ? { requiredHistoryMessageIds: [...new Set([...(prefix.requiredHistoryMessageIds ?? []), ...media.requiredTextMessageIds, ...media.requiredExchangeMessageIds])], ...(media.requiredNotice ? { mediaHistoryNotice: media.requiredNotice } : {}) } : {}) };
+      // Completed-history memory may predate the bounded SQL window that exposed
+      // this image. Retain its exact user text/refs and owner above that cutoff.
+      const image = request.snapshot.messages.findLast(message => message.role === 'user' && message.attachments?.length);
+      let restored = prefix.snapshot;
+      if (image && !restored.messages.some(message => message.id === image.id)) {
+        const origin = request.snapshot.runs.find(run => run.id === image.runId);
+        if (!origin) throw new EngineError('MODEL_HISTORY_BINDING_MISMATCH', 'Required session image has no retained Run owner');
+        const selectedIds = new Set(restored.messages.map(message => message.id)); selectedIds.add(image.id);
+        const runIds = new Set(restored.runs.map(run => run.id)); runIds.add(origin.id);
+        restored = { ...restored, messages: request.snapshot.messages.filter(message => selectedIds.has(message.id)),
+          runs: request.snapshot.runs.filter(run => runIds.has(run.id)) };
+      }
+      const media = this.mediaHistoryPolicy ? projectMediaHistory(restored, { policy: this.mediaHistoryPolicy, ...(request.run ? { activeRunId: request.run.id } : {}) }, request.signal) : undefined;
+      const projected = { ...prefix, snapshot: projectToolHistory(media?.snapshot ?? restored, request.run?.id),
+        requiredHistoryMessageIds: [...new Set([...(prefix.requiredHistoryMessageIds ?? []), ...(image ? [image.id] : []), ...(media ? [...media.requiredTextMessageIds, ...media.requiredExchangeMessageIds] : [])])],
+        ...(media?.requiredNotice ? { mediaHistoryNotice: media.requiredNotice } : {}) };
       const plan = await planContext({ ...projected, instructionSources: observation.sources }, { model, outputTokens: this.outputTokenReserve });
       return { projected, media, plan };
     };
@@ -179,6 +193,7 @@ export class ContextService {
     const diagnostics: ContextDiagnostics = { revisionId, revision, plan: publicPlan,
       instructions: { ...observation, sources: observation.sources.map(source => ({ ...source, text: null })) },
       ...(this.history.get(sessionId)?.activeWindow ? { activeWindow: this.history.get(sessionId)!.activeWindow } : {}),
+      ...(this.history.get(sessionId)?.sessionImageAnchor ? { sessionImageAnchor: this.history.get(sessionId)!.sessionImageAnchor } : {}),
       ...(media ? { mediaHistory: { ...media.diagnostics, provenance: media.provenance } } : {}),
       ...(prefixCheckpoint ? { activePrefix: { checkpointId: prefixCheckpoint.id, summaryRevisionId: prefixCheckpoint.revisionId, scope: prefixCheckpoint.scope, projection: prefixCheckpoint.projection,
         factsSha256: prefixCheckpoint.factsSha256, manifestSha256: prefixCheckpoint.manifestSha256, policySha256: prefixCheckpoint.policySha256,

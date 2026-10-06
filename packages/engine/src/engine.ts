@@ -4,8 +4,9 @@ import { tmpdir } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
 import { EngineError, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, SESSION_COMMAND_TYPES, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type JsonValue, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
 import { normalizeAcceptInput, normalizeEngineBudgets, normalizeSubmitInput, validateCommand, validateSessionCommand } from '@moodcode/contracts/validation';
-import type { ProviderAdapter, ToolDefinition } from './ports.js';
+import type { ProviderAdapter, ProviderEvent, ToolDefinition } from './ports.js';
 import { SqliteStore, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './storage/index.js';
+import type { SummaryAttemptListOptions } from './storage/summary-attempts.js';
 import { RunCoordinator } from './runner/index.js';
 import { InputScheduler } from './runner/input-scheduler.js';
 import { ScriptedProvider } from './provider/index.js';
@@ -118,24 +119,44 @@ function withImageInputs(provider: ProviderAdapter, images: ImageAttachmentStore
   return { id: provider.id, ...(provider.replayProtocol ? { replayProtocol: provider.replayProtocol } : {}),
     ...(provider.retryableHttpStatuses ? { retryableHttpStatuses: provider.retryableHttpStatuses } : {}),
     ...(provider.inputModalities ? { inputModalities: provider.inputModalities } : {}),
-    async *streamTurn(request, signal) {
-      if (request.resolvedImages !== undefined) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Image bytes must be resolved by the engine');
-      const refs = new Map<string, InputImageAttachment>();
-      for (const message of request.messages) for (const ref of message.attachments ?? []) {
-        if (message.role !== 'user') throw new EngineError('PROVIDER_INVALID_REQUEST', 'Image references belong to user messages');
-        const previous = refs.get(ref.id);
-        if (previous && JSON.stringify(previous) !== JSON.stringify(ref)) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Conflicting image references');
-        refs.set(ref.id, ref);
-      }
-      if (!refs.size) { yield* provider.streamTurn(request, signal); return; }
-      const run = store.getRun(request.runId);
-      if (request.sessionId !== run.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Image request belongs to another session');
-      const modalities = models.get(provider.id, request.modelId).modalities;
-      if (!provider.inputModalities?.includes('image') || modalities !== null && !modalities.includes('image')) throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Selected provider or model does not support image input');
-      const resolvedImages = await images.resolve(run.sessionId, [...refs.values()], signal);
-      const resolved = { ...request, resolvedImages };
-      providerImages(resolved, true, signal);
-      yield* provider.streamTurn(resolved, signal);
+    streamTurn(request, signal) {
+      let iterator: AsyncIterator<ProviderEvent> | undefined, initialization: Promise<void> | undefined;
+      let providerEntered = false, confirmedDone = false;
+      const initialize = () => initialization ??= (async () => {
+        if (request.resolvedImages !== undefined) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Image bytes must be resolved by the engine');
+        const refs = new Map<string, InputImageAttachment>();
+        for (const message of request.messages) for (const ref of message.attachments ?? []) {
+          if (message.role !== 'user') throw new EngineError('PROVIDER_INVALID_REQUEST', 'Image references belong to user messages');
+          const previous = refs.get(ref.id);
+          if (previous && JSON.stringify(previous) !== JSON.stringify(ref)) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Conflicting image references');
+          refs.set(ref.id, ref);
+        }
+        let resolved = request;
+        if (refs.size) {
+          const run = store.getRun(request.runId);
+          if (request.sessionId !== run.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Image request belongs to another session');
+          const modalities = models.get(provider.id, request.modelId).modalities;
+          if (!provider.inputModalities?.includes('image') || modalities !== null && !modalities.includes('image')) throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Selected provider or model does not support image input');
+          resolved = { ...request, resolvedImages: await images.resolve(run.sessionId, [...refs.values()], signal) };
+          providerImages(resolved, true, signal);
+        }
+        if (signal.aborted) throw signal.reason ?? new EngineError('CANCELLED', 'Provider request was cancelled');
+        providerEntered = true;
+        iterator = provider.streamTurn(resolved, signal)[Symbol.asyncIterator]();
+      })();
+      // Forward the real cleanup result. An async-generator wrapper can become
+      // closed after inner next() throws and falsely report return().done=true.
+      const stream: AsyncIterableIterator<ProviderEvent> = {
+        [Symbol.asyncIterator]() { return stream; },
+        async next() { await initialize(); const result = await iterator!.next(); if (result.done) confirmedDone = true; return result; },
+        async return() {
+          if (initialization) await initialization.catch(() => {});
+          if (!providerEntered || confirmedDone) return { done: true, value: undefined };
+          if (!iterator?.return) throw new EngineError('CLEANUP_UNCERTAIN', 'Underlying provider has no cleanup operation');
+          const result = await iterator.return(); if (result.done) confirmedDone = true; return result;
+        },
+      };
+      return stream;
     },
   };
 }
@@ -686,6 +707,24 @@ export class MoodcodeEngine {
   integrityCheck(): IntegrityCheckResult {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     return this.store.integrityCheck();
+  }
+
+  /** Session-bound, bounded host observation; summaries are separate from ordinary Attempts. */
+  getSummaryAttempt(sessionId: string, summaryAttemptId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.store.getSession(sessionId);
+    return this.store.getSummaryAttempt(summaryAttemptId, sessionId);
+  }
+
+  getSummaryUsage(sessionId: string, summaryAttemptId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.store.getSession(sessionId);
+    return this.store.getSummaryUsage(summaryAttemptId, sessionId);
+  }
+
+  listSummaryAttempts(sessionId: string, options?: SummaryAttemptListOptions) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.listSummaryAttempts(sessionId, options);
   }
 
   backup(destination: string, options?: StoreBackupOptions): Promise<DatabaseBackup> {

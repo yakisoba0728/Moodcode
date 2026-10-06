@@ -114,6 +114,12 @@ test('24 completed native tool exchanges prepare exact facts without publishing 
   assert.equal(f.request.budget!.snapshot().summaryCalls, 1);
   assert.equal(f.request.budget!.snapshot().logicalTurns, 0);
   assert.deepEqual(candidate.checkpoint.usage, { inputTokens: 10, outputTokens: 4, cachedInputTokens: 3, reasoningOutputTokens: 1 });
+  const attempt = f.store.getSummaryAttempt(candidate.checkpoint.id);
+  assert.equal(attempt.scope, 'active-run-prefix'); assert.equal(attempt.state, 'streaming'); assert.equal(attempt.publication, 'pending');
+  assert.ok(attempt.providerCompletedAt); assert.equal(attempt.cleanupConfirmed, true);
+  assert.equal(attempt.partialText, candidate.summaryRevision.text); assert.equal(attempt.observedOutputBytes, outputBytes);
+  assert.equal(attempt.sourceSha256, candidate.source.factsSha256); assert.equal(attempt.manifestSha256, candidate.source.manifestSha256);
+  assert.deepEqual(f.store.getSummaryUsage(candidate.checkpoint.id)?.usage, candidate.checkpoint.usage);
 });
 
 test('candidate projection preserves original goal, current steer, image refs and latest native replay, then publishes both revisions', async t => {
@@ -129,6 +135,9 @@ test('candidate projection preserves original goal, current steer, image refs an
   assert.equal(f.store.getSessionDocument('session', 'context.head')?.data.revisionId, prepared.publication.contextRevision.id);
   assert.equal(f.store.getLatestContextRevision('session')?.id, prepared.publication.contextRevision.id);
   assert.equal(f.store.getContextRevision(checkpoint.revisionId).sha256, checkpoint.summarySha256);
+  const completed = f.store.getSummaryAttempt(checkpoint.id);
+  assert.equal(completed.state, 'completed'); assert.equal(completed.publication, 'activated');
+  assert.equal(completed.summaryRevisionId, checkpoint.revisionId); assert.equal(completed.contextRevisionId, prepared.publication.contextRevision.id);
   assert.deepEqual(f.store.getSnapshot('session').messages, raw);
   assert.throws(() => f.memory.publishWithContext(f.request, candidate, prepared.publication), hasCode('ACTIVE_PREFIX_CANDIDATE_INVALID'));
 });
@@ -142,6 +151,20 @@ test('required candidate budget failure can be discarded without advancing any a
   assert.equal(f.store.getSessionDocument('session', ACTIVE_PREFIX_DOCUMENT), null);
   assert.equal(f.store.getLatestContextRevision('session'), null);
   assert.equal(f.store.readEvents('session', 0).findLast(event => event.type === 'summary.failed')?.payload.code, 'CONTEXT_LIMIT');
+  const discarded = f.store.getSummaryAttempt(candidate.checkpoint.id);
+  assert.equal(discarded.state, 'failed'); assert.equal(discarded.publication, 'discarded'); assert.equal(discarded.cleanupConfirmed, true);
+  assert.ok(discarded.providerCompletedAt); assert.equal(discarded.partialText, candidate.summaryRevision.text);
+});
+
+test('discard after cancellation retains provider-complete proof and records interrupted for a custom signal reason', async t => {
+  const f = fixture(t), controller = new AbortController();
+  const candidate = await f.memory.prepare({ ...f.request, signal: controller.signal }, success());
+  const reason = new Error('Host stopped while planning a completed candidate'); controller.abort(reason);
+  f.memory.discard(candidate, reason);
+  const attempt = f.store.getSummaryAttempt(candidate.checkpoint.id);
+  assert.equal(attempt.state, 'interrupted'); assert.equal(attempt.publication, 'discarded'); assert.equal(attempt.cleanupConfirmed, true);
+  assert.ok(attempt.providerCompletedAt); assert.equal(attempt.partialText, candidate.summaryRevision.text);
+  assert.equal(f.store.getLatestContextRevision('session'), null); assert.equal(f.store.getSessionDocument('session', ACTIVE_PREFIX_DOCUMENT), null);
 });
 
 test('provider protocol errors and decreasing inclusive usage do not create candidates or active memory', async t => {
@@ -180,8 +203,8 @@ test('cancelled summary and dispatch journal failure prevent activation and pres
   const pending = f.memory.prepare({ ...f.request, signal: controller.signal }, slow), rejection = assert.rejects(pending);
   await dispatched; controller.abort(new EngineError('CANCELLED', 'test cancellation')); await rejection;
   assert.equal(f.store.getSessionDocument('session', ACTIVE_PREFIX_DOCUMENT), null);
-  const original = f.store.commit.bind(f.store); let calls = 0;
-  f.store.commit = (runId, type, payload, change) => { if (type === 'summary.dispatched') throw new EngineError('JOURNAL_FAILURE', 'Injected journal failure'); return original(runId, type, payload, change); };
+  let calls = 0;
+  f.store.dispatchSummaryAttempt = () => { throw new EngineError('JOURNAL_FAILURE', 'Injected journal failure'); };
   await assert.rejects(f.memory.prepare({ ...f.request, budget: new BudgetAccount(config) }, provider([], () => { calls++; })), hasCode('JOURNAL_FAILURE'));
   assert.equal(calls, 0);
   assert.equal(f.store.readEvents('session', 0).findLast(event => event.type === 'summary.failed')?.payload.code, 'JOURNAL_FAILURE');

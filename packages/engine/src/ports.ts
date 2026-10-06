@@ -11,6 +11,7 @@ export interface EngineStore {
   getRun(id: string): Run;
   hasRunRequest?(sessionId: string, requestId: string): boolean;
   hasActiveRuns?(workspaceId: string, excludedRunId?: string): boolean;
+  hasUncertainSummaries?(workspaceId: string): boolean;
   commit(runId: string, type: string, payload: JsonObject, change?: CommitChange): EngineEvent;
   getSnapshot(sessionId: string): SessionSnapshot;
   readEvents(sessionId: string, afterSeq: number, limit?: number): EngineEvent[];

@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { normalizeImageAttachments } from "@moodcode/contracts/validation";
 import {
   EngineError,
   type Message,
@@ -38,6 +39,90 @@ type Candidate = {
   role: Message["role"];
   bytes: number;
 };
+
+export interface SessionImageAnchor {
+  messageId: string;
+  runId: string;
+  source: "latest-image-user-in-session";
+  messageUtf8Bytes: number;
+  runMetadataUtf8Bytes: number;
+  physicalReadBytes: null;
+}
+type HistoryPage = {
+  snapshot: SessionSnapshot;
+  omittedRuns: number;
+  omittedMessages: number;
+  beforeRunId: string | null;
+  activeWindow?: ActiveHistoryWindow;
+  sessionImageAnchor?: SessionImageAnchor;
+};
+
+/** Preserve one exact image user across Run pagination; never reconstruct pixels from memory. */
+export function withSessionImageAnchor<T extends HistoryPage>(
+  database: DatabaseSync, page: T, maxMessages: number, maxBytes: number,
+): T {
+  const session = page.snapshot.session;
+  const metadata = database.prepare(`SELECT m.id,m.run_id,m.session_id,CAST(m.ordinal AS TEXT) AS ordinal,
+    length(CAST(m.data AS BLOB)) AS message_bytes,r.session_id AS run_session_id,r.workspace_id,
+    length(CAST(r.data AS BLOB)) AS run_bytes,r.state AS run_state
+    FROM messages m LEFT JOIN runs r ON r.id=m.run_id WHERE m.session_id=?
+    AND json_extract(m.data,'$.role')='user' AND json_type(m.data,'$.attachments')='array'
+    AND json_array_length(m.data,'$.attachments')>0 ORDER BY m.ordinal DESC LIMIT 1`).get(session.id);
+  if (!metadata) return page;
+  const ordinal = Number(metadata.ordinal), messageBytes = Number(metadata.message_bytes), runBytes = Number(metadata.run_bytes);
+  if (!Number.isSafeInteger(ordinal) || ordinal < 1 || metadata.session_id !== session.id
+    || metadata.run_session_id !== session.id || metadata.workspace_id !== session.workspaceId) {
+    throw new EngineError("MODEL_HISTORY_BINDING_MISMATCH", "Latest image anchor has an inconsistent session owner");
+  }
+  if (!Number.isSafeInteger(messageBytes) || !Number.isSafeInteger(runBytes) || messageBytes < 1 || runBytes < 1
+    || messageBytes + runBytes > maxBytes) throw new EngineError("IMAGE_CONTEXT_LIMIT", "Latest image anchor exceeds the model history byte budget");
+  const row = database.prepare("SELECT data FROM messages WHERE id=? AND session_id=? AND run_id=?").get(String(metadata.id), session.id, String(metadata.run_id));
+  const runRow = database.prepare("SELECT data FROM runs WHERE id=? AND session_id=?").get(String(metadata.run_id), session.id);
+  if (!row || !runRow) throw new EngineError("MODEL_HISTORY_BINDING_MISMATCH", "Latest image anchor owner is unavailable");
+  const message = JSON.parse(String(row.data)) as Message, origin = JSON.parse(String(runRow.data)) as Run;
+  if (message.id !== metadata.id || message.runId !== metadata.run_id || message.sessionId !== session.id || message.role !== "user"
+    || origin.id !== metadata.run_id || origin.sessionId !== session.id || origin.workspaceId !== session.workspaceId || origin.state !== metadata.run_state) {
+    throw new EngineError("MODEL_HISTORY_BINDING_MISMATCH", "Latest image anchor payload has an inconsistent owner");
+  }
+  try { if (!normalizeImageAttachments(message.attachments).length) throw new Error("empty"); }
+  catch { throw new EngineError("MODEL_HISTORY_BINDING_MISMATCH", "Latest image anchor references are invalid"); }
+  const anchor: SessionImageAnchor = { messageId: message.id, runId: origin.id, source: "latest-image-user-in-session",
+    messageUtf8Bytes: messageBytes, runMetadataUtf8Bytes: runBytes, physicalReadBytes: null };
+  let snapshot = page.snapshot, window = page.activeWindow;
+  if (!snapshot.messages.some(item => item.id === message.id)) {
+    if (window) {
+      const active = snapshot.runs.find(item => item.id === window!.runId);
+      const reservedBytes = messageBytes + (active?.id === origin.id ? 0 : runBytes) + 128;
+      if (!active || maxMessages < 2 || maxBytes - reservedBytes < 1024) throw new EngineError("IMAGE_CONTEXT_LIMIT", "Required image and current Run anchors cannot fit model history");
+      try {
+        const reduced = readActiveHistoryWindow(database, session, active, snapshot.lastSeq, maxMessages - 1, maxBytes - reservedBytes);
+        snapshot = reduced.snapshot; window = reduced.window;
+      } catch (error) {
+        if (error instanceof EngineError && error.code === "MODEL_HISTORY_LIMIT") throw new EngineError("IMAGE_CONTEXT_LIMIT", "Required image and current Run exchange cannot fit model history");
+        throw error;
+      }
+    }
+    const attach = (base: SessionSnapshot): SessionSnapshot => ({ ...base,
+      runs: base.runs.some(item => item.id === origin.id) ? base.runs : [origin, ...base.runs], messages: [message, ...base.messages] });
+    snapshot = attach(snapshot);
+    // Completed history keeps complete Run groups. Only optional older groups may
+    // be dropped to make space for this required, independently bound image user.
+    while (!window && (snapshot.messages.length > maxMessages || Buffer.byteLength(JSON.stringify(snapshot)) > maxBytes)) {
+      const removable = snapshot.runs.find(item => item.id !== origin.id && item.id !== page.snapshot.runs.at(-1)?.id);
+      if (!removable) break;
+      snapshot = { ...snapshot, runs: snapshot.runs.filter(item => item.id !== removable.id),
+        messages: snapshot.messages.filter(item => item.runId !== removable.id), tools: snapshot.tools.filter(item => item.runId !== removable.id),
+        approvals: snapshot.approvals.filter(item => item.runId !== removable.id) };
+    }
+  }
+  const bytes = Buffer.byteLength(JSON.stringify(snapshot));
+  if (snapshot.messages.length > maxMessages || bytes > maxBytes) throw new EngineError("IMAGE_CONTEXT_LIMIT", "Latest image and required current history exceed model history limits");
+  const totalRuns = Number(database.prepare("SELECT count(*) AS count FROM runs WHERE session_id=?").get(session.id)?.count);
+  const totalMessages = Number(database.prepare("SELECT count(*) AS count FROM messages WHERE session_id=?").get(session.id)?.count);
+  return { ...page, snapshot, omittedRuns: totalRuns - snapshot.runs.length, omittedMessages: totalMessages - snapshot.messages.length,
+    beforeRunId: totalRuns > snapshot.runs.length ? snapshot.runs[0]?.id ?? null : null,
+    ...(window ? { activeWindow: window } : {}), sessionImageAnchor: anchor };
+}
 
 // SQL never returns the original large content to JavaScript. All remaining fields,
 // including opaque provider replay and attachments, retain their original identity.

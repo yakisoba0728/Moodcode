@@ -93,6 +93,22 @@ try {
   report.runUsage = engine.coordinator.getRunUsage(run.id);
   report.regularAttemptUsage = engine.store.getNativeMetrics('session').attemptUsage;
   report.summaryUsage = checkpoint.usage;
+  const summaryAttempt = engine.getSummaryAttempt('session', checkpoint.id), summaryUsage = engine.getSummaryUsage('session', checkpoint.id);
+  assert.equal(summaryAttempt.state, 'completed'); assert.equal(summaryAttempt.publication, 'activated');
+  assert.equal(summaryAttempt.scope, 'active-run-prefix'); assert.equal(summaryAttempt.sourceSha256, checkpoint.factsSha256);
+  assert.equal(summaryAttempt.summaryRevisionId, checkpoint.revisionId); assert.equal(summaryAttempt.cleanupConfirmed, true);
+  assert.ok(summaryAttempt.providerCompletedAt); assert.ok(summaryAttempt.completedAt); assert.ok(summaryUsage);
+  assert.deepEqual(summaryUsage.usage, checkpoint.usage);
+  const metrics = engine.store.getNativeMetrics('session');
+  assert.equal(metrics.summaryAttempts.total, 1); assert.equal(metrics.summaryAttempts.states.completed, 1);
+  assert.equal(metrics.attempts.total, turns + 1); assert.equal(metrics.summaryAttemptUsage.inputTokens.tokens, checkpoint.usage.inputTokens);
+  assert.equal(metrics.summaryAttemptUsage.outputTokens.tokens, checkpoint.usage.outputTokens);
+  report.durableSummary = { state: summaryAttempt.state, publication: summaryAttempt.publication, scope: summaryAttempt.scope,
+    sourceProjection: summaryAttempt.sourceProjection, requestSha256: summaryAttempt.requestSha256, requestBytes: summaryAttempt.requestBytes,
+    summaryRevisionMatchesCheckpoint: true, providerCompletionRecorded: true, cleanupConfirmed: summaryAttempt.cleanupConfirmed,
+    observedOutputBytes: summaryAttempt.observedOutputBytes, retainedTextBytes: summaryAttempt.retainedTextBytes, partialTextTruncated: summaryAttempt.partialTextTruncated,
+    partialTextSha256: sha(summaryAttempt.partialText), usage: summaryUsage.usage };
+  report.durableSummaryUsageMetrics = metrics.summaryAttemptUsage;
   report.summaryUsageIncludedInRegularAttemptTotals = false;
   report.passed = true;
 } catch (error) {

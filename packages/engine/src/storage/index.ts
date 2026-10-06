@@ -17,10 +17,11 @@ import { NativeSessionStorage, type ExistingInputReceipt, type StoredInputPromot
 import { NativeExecutionStorage, type PartPage, type SessionDocument, type TurnPage } from './native-records.js';
 import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPage } from './history-search.js';
 import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js';
-import { readActiveHistoryWindow, type ActiveHistoryWindow } from './native-history.js';
+import { readActiveHistoryWindow, withSessionImageAnchor, type ActiveHistoryWindow, type SessionImageAnchor } from './native-history.js';
 import { putAttemptUsage, type AttemptUsageRecord, type AttemptUsageSnapshot } from './native-usage.js';
 import { inspectInputImageIndex, type InputImageIndexOptions, type InputImageIndexReport } from './input-image-index.js';
 import { readActivePrefixSourceDatabase, validateActivePrefixPublication } from './active-prefix.js';
+import { SummaryAttemptStorage, type SummaryAttemptIdentity, type SummaryAttemptRecord, type SummaryAttemptListOptions, type SummaryAttemptPage, type SummaryObservation, type SummarySettlement, type SummaryUsageRecord } from './summary-attempts.js';
 import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefix, ActivePrefixContextPublication } from '../context/active-prefix.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
@@ -37,6 +38,7 @@ export interface ModelHistoryPage {
   omittedMessages: number;
   beforeRunId: string | null;
   activeWindow?: ActiveHistoryWindow;
+  sessionImageAnchor?: SessionImageAnchor;
 }
 const TRANSITIONS: Record<RunState, readonly RunState[]> = {
   created: ['running', 'cancelling', 'cancelled', 'failed', 'interrupted'],
@@ -95,6 +97,7 @@ export class SqliteStore implements SessionEngineStore {
   private readonly ownership?: DatabaseSync;
   private readonly native: NativeSessionStorage;
   private readonly executionRecords: NativeExecutionStorage;
+  private readonly summaryRecords: SummaryAttemptStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -145,6 +148,7 @@ export class SqliteStore implements SessionEngineStore {
         steer: (input, run) => this.steerInTransaction(input, run), notify: id => this.notify(id),
       }, hostBudgets);
       this.executionRecords = new NativeExecutionStorage(this.native);
+      this.summaryRecords = new SummaryAttemptStorage(this.native, (run, type, payload) => this.append(run, type, payload));
     } catch (error) {
       try { db?.close(); } finally { ownership?.close(); }
       throw error;
@@ -273,6 +277,15 @@ export class SqliteStore implements SessionEngineStore {
   listTurnsPage(runId: string, afterTurnId?: string, limit?: number): TurnPage { return this.executionRecords.listTurnsPage(runId, afterTurnId, limit); }
   putAttempt(attempt: ProviderAttempt): ProviderAttempt { return this.executionRecords.putAttempt(attempt); }
   putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRecord { return putAttemptUsage(this.native, attemptId, usage); }
+  createSummaryAttempt(identity: SummaryAttemptIdentity): SummaryAttemptRecord { return this.summaryRecords.create(identity); }
+  dispatchSummaryAttempt(id: string): SummaryAttemptRecord { return this.summaryRecords.dispatch(id); }
+  observeSummaryAttempt(id: string, observation: SummaryObservation): SummaryAttemptRecord { return this.summaryRecords.observe(id, observation); }
+  markSummaryProviderCompleted(id: string): SummaryAttemptRecord { return this.summaryRecords.providerCompleted(id); }
+  settleSummaryAttempt(id: string, outcome: SummarySettlement): SummaryAttemptRecord { return this.summaryRecords.settle(id, outcome); }
+  getSummaryAttempt(id: string, expectedSessionId?: string): SummaryAttemptRecord { return this.summaryRecords.get(id, expectedSessionId); }
+  getSummaryUsage(id: string, expectedSessionId?: string): SummaryUsageRecord | null { return this.summaryRecords.getUsage(id, expectedSessionId); }
+  listSummaryAttempts(sessionId: string, options?: SummaryAttemptListOptions): SummaryAttemptPage { return this.summaryRecords.list(sessionId, options); }
+  hasUncertainSummaries(workspaceId: string): boolean { this.getWorkspace(workspaceId); return !!this.db.prepare("SELECT 1 FROM summary_attempts WHERE workspace_id=? AND state='uncertain' LIMIT 1").get(workspaceId); }
   getAttempt(id: string): ProviderAttempt { return this.executionRecords.getAttempt(id); }
   putPart(part: MessagePart): MessagePart { return this.executionRecords.putPart(part); }
   listParts(turnId: string): MessagePart[] { return this.executionRecords.listParts(turnId); }
@@ -290,6 +303,12 @@ export class SqliteStore implements SessionEngineStore {
       validateActivePrefixPublication(this.db, run, change);
       if (payload.summaryAttemptId !== change.checkpoint.id || payload.scope !== 'active-run-prefix' || payload.revisionId !== change.summaryRevision.id || payload.contextRevisionId !== change.contextRevision.id
         || canonical(payload.usage) !== canonical(change.checkpoint.usage)) throw new EngineError('ACTIVE_PREFIX_BINDING_MISMATCH', 'Summary completion payload must match its checkpoint');
+      this.summaryRecords.completeInTransaction(runId, change.checkpoint.id, 'active-run-prefix', change.summaryRevision.id, change.summaryRevision.text, change.checkpoint.usage,
+        { sessionId: run.sessionId, workspaceId: run.workspaceId, providerId: change.source.providerId, modelId: change.source.modelId, sourceProjection: change.source.projection,
+          sourceSha256: change.source.factsSha256, manifestSha256: change.source.manifestSha256, policySha256: change.source.policySha256,
+          sourceMessageIds: change.source.sourceMessageIds, sourceTurnIds: change.source.sourceTurnIds, expectedMemoryRevision: change.source.expectedMemoryRevision,
+          expectedContextHeadRevision: change.source.expectedContextHeadRevision, priorCheckpointId: change.source.priorCheckpointId,
+          boundaryTurnId: change.source.boundaryTurnId, boundaryAttemptId: change.source.boundaryAttemptId, currentTurnId: change.source.currentTurnId, failedAttemptId: change.source.failedAttemptId }, change.contextRevision.id);
       this.executionRecords.putContextRevision(change.summaryRevision);
       this.executionRecords.putContextRevision(change.contextRevision);
       this.executionRecords.putSessionDocument(run.sessionId, 'context.active_memory', change.source.expectedMemoryRevision,
@@ -310,6 +329,20 @@ export class SqliteStore implements SessionEngineStore {
       const run = this.getRun(runId);
       if (isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', 'Context activation requires an active Run');
       if (change.revision.sessionId !== run.sessionId || change.revision.runId !== run.id) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Context activation belongs to another Run');
+      if (eventType === 'summary.completed' && typeof payload.summaryAttemptId === 'string' && this.db.prepare('SELECT 1 FROM summary_attempts WHERE id=?').get(payload.summaryAttemptId)) {
+        const checkpoint = change.data.active as JsonObject | undefined;
+        if (change.kind !== 'context.memory' || change.revision.kind !== 'summary' || !checkpoint || checkpoint.version !== 1 || checkpoint.sessionId !== run.sessionId || checkpoint.runId !== runId || typeof payload.summaryAttemptId !== 'string' || payload.summaryAttemptId !== checkpoint.id || payload.revisionId !== change.revision.id || change.revision.id !== checkpoint.revisionId
+          || canonical(payload.usage) !== canonical(checkpoint.usage)) throw new EngineError('SUMMARY_BINDING_MISMATCH', 'Summary completion must match its memory checkpoint');
+        const prepared = this.summaryRecords.get(payload.summaryAttemptId, run.sessionId), priorData = this.executionRecords.getSessionDocument(run.sessionId, 'context.memory')?.data.active;
+        const prior = priorData && typeof priorData === 'object' && !Array.isArray(priorData) ? priorData as JsonObject : undefined;
+        if (checkpoint.cutoffRunId !== prepared.sourceRunIds?.at(-1) || prepared.priorCheckpointId !== undefined && (prepared.priorCheckpointId !== prior?.id || typeof prior.revisionId !== 'string')) throw new EngineError('SUMMARY_BINDING_MISMATCH', 'Summary cutoff and prior revision must match its prepared source');
+        const sourceIds = [...(prepared.sourceMessageIds ?? []), ...(prepared.priorCheckpointId ? [prior?.revisionId] : [])];
+        if (canonical(change.revision.sourceIds) !== canonical(sourceIds) || prepared.priorCheckpointId !== undefined && prepared.priorCheckpointId !== prior?.id) throw new EngineError('SUMMARY_BINDING_MISMATCH', 'Immutable summary revision must match the pinned source and prior checkpoint');
+        this.summaryRecords.completeInTransaction(runId, payload.summaryAttemptId, 'completed-history', change.revision.id, change.revision.text, checkpoint.usage,
+          { sessionId: run.sessionId, workspaceId: run.workspaceId, providerId: checkpoint.providerId as string, modelId: checkpoint.modelId as string, sourceProjection: 'conversation-text-v1',
+            sourceSha256: checkpoint.sourceSha256 as string, sourceMessageIds: checkpoint.sourceMessageIds as string[], sourceRunIds: checkpoint.sourceRunIds as string[],
+            expectedMemoryRevision: change.expectedRevision, priorCheckpointId: checkpoint.previousCheckpointId as string | undefined });
+      }
       this.executionRecords.putContextRevision(change.revision);
       this.executionRecords.putSessionDocument(run.sessionId, change.kind, change.expectedRevision, change.data);
       const validated = this.native.appendEvent(run.sessionId, eventType, payload, { runId: run.id });
@@ -525,8 +558,8 @@ export class SqliteStore implements SessionEngineStore {
         const active = readActiveHistoryWindow(this.db, session, run, lastSeq, maxMessages, maxBytes);
         const totalRuns = Number(this.db.prepare('SELECT count(*) AS count FROM runs WHERE session_id=?').get(sessionId)?.count);
         const totalMessages = Number(this.db.prepare('SELECT count(*) AS count FROM messages WHERE session_id=?').get(sessionId)?.count);
-        return { snapshot: active.snapshot, omittedRuns: totalRuns-1, omittedMessages: totalMessages-active.snapshot.messages.length,
-          beforeRunId: totalRuns > 1 ? run.id : null, activeWindow: active.window };
+        return withSessionImageAnchor(this.db, { snapshot: active.snapshot, omittedRuns: totalRuns-1, omittedMessages: totalMessages-active.snapshot.messages.length,
+          beforeRunId: totalRuns > 1 ? run.id : null, activeWindow: active.window }, maxMessages, maxBytes);
       };
       const newest = this.db.prepare('SELECT id,state FROM runs WHERE session_id=? ORDER BY ordinal DESC LIMIT 1').get(sessionId);
       if (newest && !isTerminal(String(newest.state) as RunState)) {
@@ -575,8 +608,8 @@ export class SqliteStore implements SessionEngineStore {
       }
       const totalRuns = Number(this.db.prepare('SELECT count(*) AS count FROM runs WHERE session_id=?').get(sessionId)?.count);
       const totalMessages = Number(this.db.prepare('SELECT count(*) AS count FROM messages WHERE session_id=?').get(sessionId)?.count);
-      return { snapshot, omittedRuns: totalRuns - snapshot.runs.length, omittedMessages: totalMessages - snapshot.messages.length,
-        beforeRunId: totalRuns > snapshot.runs.length ? snapshot.runs[0]?.id ?? null : null };
+      return withSessionImageAnchor(this.db, { snapshot, omittedRuns: totalRuns - snapshot.runs.length, omittedMessages: totalMessages - snapshot.messages.length,
+        beforeRunId: totalRuns > snapshot.runs.length ? snapshot.runs[0]?.id ?? null : null }, maxMessages, maxBytes);
     }, false);
   }
   /** GUI pages never expose native replay; the original journal remains intact. */
@@ -724,6 +757,7 @@ export class SqliteStore implements SessionEngineStore {
         }
         sessions.add(run.sessionId);
       }
+      this.summaryRecords.recoverInTransaction(sessions);
       this.executionRecords.recoverInTransaction(sessions);
       return active.map(run => this.getRun(run.id));
     });

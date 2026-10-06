@@ -48,6 +48,7 @@ export class InputScheduler {
     this.assertOpen();
     const session = this.options.store.getSession(sessionId);
     // Resume never clears a workspace quarantine or dispatches an interrupted Run again.
+    this.options.coordinator.assertWorkspaceCleanupConfirmed(session.workspaceId);
     if (this.options.store.getSessionControl(sessionId).reason === 'recovery_required') this.options.coordinator.assertWorkspaceAvailable(session.workspaceId);
     const control = this.options.store.setSessionPaused(sessionId, false);
     void this.wake(sessionId).catch(() => {});

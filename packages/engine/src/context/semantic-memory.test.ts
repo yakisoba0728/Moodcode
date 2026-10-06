@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULT_ENGINE_BUDGETS, DEFAULT_LIMITS, type RunConfig } from '@moodcode/contracts';
+import { DEFAULT_ENGINE_BUDGETS, DEFAULT_LIMITS, EngineError, type RunConfig } from '@moodcode/contracts';
+import { createHash } from 'node:crypto';
 import { SqliteStore } from '../storage/index.js';
 import { BudgetAccount } from '../config/budgets.js';
 import type { ContextRequest, ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
@@ -58,10 +59,10 @@ test('concurrent summaries publish against their prepared memory revision and pr
 
 test('semantic checkpoint uses a tool-free request, exact provenance, inclusive usage and immutable original messages', async t => {
   const f = fixture(t), before = f.store.getSnapshot('session').messages;
-  let bytes = 0;
+  let bytes = 0, observedRequest: TurnRequest | undefined;
   const checkpoint = await f.memory.summarize({ ...f.request, consumeSummaryOutput: count => { bytes += count; } }, provider([
     { type: 'text.delta', delta: 'Goal retained; fixture verified; continue work.' }, { type: 'usage', inputTokens: 20, outputTokens: 8, cachedInputTokens: 5, reasoningOutputTokens: 2 }, { type: 'finish', reason: 'stop' },
-  ], request => { assert.deepEqual(request.tools, []); assert.ok(request.messages[0]!.content.includes('historical')); }));
+  ], request => { observedRequest = structuredClone(request); assert.deepEqual(request.tools, []); assert.ok(request.messages[0]!.content.includes('historical')); }));
   assert.equal(bytes, Buffer.byteLength('Goal retained; fixture verified; continue work.'));
   assert.equal(f.request.budget!.snapshot().summaryCalls, 1);
   assert.deepEqual(checkpoint.usage, { inputTokens: 20, outputTokens: 8, cachedInputTokens: 5, reasoningOutputTokens: 2 });
@@ -73,6 +74,15 @@ test('semantic checkpoint uses a tool-free request, exact provenance, inclusive 
   assert.equal(projected.snapshot.messages[0]!.runId, f.currentRunId);
   assert.ok(projected.semanticMemory!.content.startsWith(SEMANTIC_MEMORY_PREFIX));
   assert.equal(f.store.readEvents('session', 0).filter(event => event.type === 'summary.completed').length, 1);
+  assert.ok(observedRequest);
+  const attempt = f.store.getSummaryAttempt(checkpoint.id);
+  assert.equal(attempt.scope, 'completed-history'); assert.equal(attempt.state, 'completed');
+  assert.equal(attempt.publication, 'activated'); assert.equal(attempt.cleanupConfirmed, true);
+  assert.ok(attempt.providerCompletedAt); assert.equal(attempt.summaryRevisionId, checkpoint.revisionId);
+  assert.equal(attempt.requestSha256, createHash('sha256').update(JSON.stringify(observedRequest)).digest('hex'));
+  assert.equal(attempt.requestBytes, Buffer.byteLength(JSON.stringify(observedRequest)));
+  assert.deepEqual(f.store.getSummaryUsage(checkpoint.id)?.usage, checkpoint.usage);
+  assert.equal(f.request.budget!.snapshot().logicalTurns, 0);
 });
 
 test('observed delta bytes remain charged to the Run when the separate semantic summary cap rejects them', async t => {
@@ -85,6 +95,63 @@ test('observed delta bytes remain charged to the Run when the separate semantic 
   assert.equal(observedBytes, 4097); assert.equal(request.budget.snapshot().summaryCalls, 1);
   assert.equal(f.store.getSessionDocument('session', 'context.memory'), null);
   assert.equal(f.store.getLatestContextRevision('session'), null);
+  const id = String(f.store.readEvents('session', 0).findLast(event => event.type === 'summary.prepared')!.payload.summaryAttemptId);
+  const attempt = f.store.getSummaryAttempt(id);
+  assert.equal(attempt.state, 'failed'); assert.equal(attempt.observedOutputBytes, 4097);
+  assert.equal(attempt.partialText, 'x'.repeat(4097)); assert.equal(attempt.cleanupConfirmed, true);
+});
+
+test('semantic decreasing cumulative usage preserves the last valid snapshot and partial output after confirmed cleanup', async t => {
+  const f = fixture(t);
+  let id: string | undefined;
+  await assert.rejects(f.memory.summarize(f.request, provider([
+    { type: 'text.delta', delta: 'Observed unfinished historical fact' },
+    { type: 'usage', inputTokens: 20, outputTokens: 4, cachedInputTokens: 5 },
+    { type: 'usage', inputTokens: 19, outputTokens: 5 },
+  ], request => { id = request.attemptId; })), (error: unknown) => error instanceof EngineError && error.code === 'SUMMARY_PROTOCOL_ERROR');
+  assert.ok(id); const attempt = f.store.getSummaryAttempt(id);
+  assert.equal(attempt.state, 'failed'); assert.equal(attempt.cleanupConfirmed, true); assert.equal(attempt.providerCompletedAt, undefined);
+  assert.equal(attempt.partialText, 'Observed unfinished historical fact');
+  assert.deepEqual(f.store.getSummaryUsage(id)?.usage, { inputTokens: 20, outputTokens: 4, cachedInputTokens: 5, reasoningOutputTokens: null });
+  assert.equal(f.store.readEvents('session', 0).filter(event => event.type === 'provider.usage' && event.payload.summaryAttemptId === id).length, 1);
+  assert.equal(f.store.getSessionDocument('session', 'context.memory'), null); assert.equal(f.store.getLatestContextRevision('session'), null);
+});
+
+test('semantic cleanup uncertainty has one terminal record and retains partial observations without activating', async t => {
+  const f = fixture(t); let id: string | undefined, index = 0;
+  const broken: ProviderAdapter = { id: 'fixture', streamTurn(request) {
+    id = request.attemptId;
+    return { [Symbol.asyncIterator]() { return { async next() {
+      if (index++ === 0) return { done: false, value: { type: 'text.delta', delta: 'Visible partial fact' } as ProviderEvent };
+      if (index === 2) return { done: false, value: { type: 'usage', inputTokens: 7 } as ProviderEvent };
+      throw undefined;
+    } }; } };
+  } };
+  await assert.rejects(f.memory.summarize(f.request, broken), (error: unknown) => error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN');
+  assert.ok(id); const attempt = f.store.getSummaryAttempt(id);
+  assert.equal(attempt.state, 'uncertain'); assert.equal(attempt.cleanupConfirmed, false);
+  assert.equal(attempt.partialText, 'Visible partial fact'); assert.equal(f.store.getSummaryUsage(id)?.usage.inputTokens, 7);
+  const events = f.store.readEvents('session', 0).filter(event => event.payload.summaryAttemptId === id);
+  assert.equal(events.filter(event => ['summary.failed', 'summary.interrupted', 'summary.uncertain', 'summary.completed'].includes(event.type)).length, 1);
+  assert.equal(events.at(-1)?.type, 'summary.uncertain');
+  assert.equal(f.store.getSessionDocument('session', 'context.memory'), null); assert.equal(f.store.getLatestContextRevision('session'), null);
+});
+
+test('a terminal Run still settles its owned interrupted summary after confirmed provider cleanup', async t => {
+  const f = fixture(t); let id: string | undefined;
+  const cancelledOwner: ProviderAdapter = { id: 'fixture', async *streamTurn(request) {
+    id = request.attemptId; yield { type: 'text.delta', delta: 'Already observed before owner cancellation' };
+    yield { type: 'usage', outputTokens: 3 };
+    f.store.commit(f.currentRunId, 'run.cancelling', {}, { run: { state: 'cancelling' } });
+    f.store.commit(f.currentRunId, 'run.cancelled', {}, { run: { state: 'cancelled' } });
+    throw new EngineError('ENGINE_CLOSED', 'Fixture owner stopped');
+  } };
+  await assert.rejects(f.memory.summarize(f.request, cancelledOwner), (error: unknown) => error instanceof EngineError && error.code === 'ENGINE_CLOSED');
+  assert.ok(id); const attempt = f.store.getSummaryAttempt(id);
+  assert.equal(attempt.state, 'interrupted'); assert.equal(attempt.cleanupConfirmed, true); assert.equal(attempt.publication, 'discarded');
+  assert.equal(attempt.partialText, 'Already observed before owner cancellation');
+  assert.equal(f.store.getRun(f.currentRunId).state, 'cancelled'); assert.equal(f.store.getSummaryUsage(id)?.usage.outputTokens, 3);
+  assert.equal(f.store.getSessionDocument('session', 'context.memory'), null);
 });
 
 test('empty, truncated, tool-producing and cancelled summaries preserve the previous active checkpoint', async t => {

@@ -75,7 +75,7 @@ export class TurnExecutor {
         if (iterator?.return) {
           // A return behind a non-cooperative next is bounded by the same cleanup rule.
           let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
-          const clean = await Promise.race([Promise.resolve().then(() => iterator!.return!()).then(() => true, () => false), new Promise<boolean>(resolve => { cleanupTimer = setTimeout(() => resolve(false), 1000); })]);
+          const clean = await Promise.race([Promise.resolve().then(() => iterator!.return!()).then(result => result?.done === true, () => false), new Promise<boolean>(resolve => { cleanupTimer = setTimeout(() => resolve(false), 1000); })]);
           clearTimeout(cleanupTimer);
           if (!clean) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider attempt cleanup could not be confirmed');
         }

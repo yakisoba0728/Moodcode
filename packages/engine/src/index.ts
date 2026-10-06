@@ -44,6 +44,9 @@ export { AnthropicProvider, type AnthropicProviderOptions, ANTHROPIC_PROVIDER_CA
 export { WorkspaceChangeHub, WORKSPACE_CHANGE_LIMITS } from './workspace/changes.js';
 export type { WorkspaceFileChange, WorkspaceChangeEvent, WorkspaceDocumentState, WorkspaceChangeWatch } from './workspace/changes.js';
 export type { NativeMetricsReport } from './storage/native-metrics.js';
+export type { SummaryAttemptIdentity, SummaryAttemptRecord, SummaryAttemptState, SummaryAttemptListOptions, SummaryAttemptPage, SummaryUsageRecord, SummaryUsageSnapshot } from './storage/summary-attempts.js';
+export type { ModelHistoryPage } from './storage/index.js';
+export type { SessionImageAnchor } from './storage/native-history.js';
 export { projectToolHistory, TOOL_HISTORY_PREFIX } from './context/tool-history.js';
 export { createArtifactReadTool } from './tools/session/artifact.js';
 export { QuestionManager } from './questions/index.js';

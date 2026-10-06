@@ -48,7 +48,7 @@ test('v1 to v2 to v3 preserves original records and installs durable usage and i
   migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,2));
   const native=db.prepare('SELECT * FROM session_events ORDER BY session_id,seq').all();
   assert.equal(databaseVersion(db),2);
-  migrateDatabase(db);
+  migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,3));
   assert.equal(databaseVersion(db),3);
   assert.equal(db.prepare('SELECT count(*) AS count FROM attempt_usage').get()?.count,0);
   assert.deepEqual(db.prepare('SELECT * FROM events ORDER BY seq').all(),legacy);
@@ -65,7 +65,7 @@ test('failed v3 migration rolls back usage table/index and leaves v2 identity in
   assert.throws(()=>migrateDatabase(db,plan),/v3 rollback/);
   assert.equal(databaseVersion(db),2);
   assert.deepEqual(databaseContents(db),before);
-  migrateDatabase(db);
+  migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,3));
   assert.equal(databaseVersion(db),3);
 });
 
