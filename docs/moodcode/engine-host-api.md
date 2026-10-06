@@ -30,6 +30,8 @@ v2 command envelope에는 `schemaVersion`, `commandId`, `type`, `payload`만 둔
 
 `mediaHistoryPolicy`는 host가 생성 시 선택·검증하는 opt-in이다. `{kind:'reference-only-older-images',version:1}`은 오래된 픽셀 전송을 줄이되 최신 픽셀·원문 user anchors·완전한 최근 tool exchange·별도 provenance notice를 필수로 유지한다. 원본 records/replay를 수정하거나 active-prefix 의미 요약을 생성하지 않는다. default 동작과 상한·실패 계약은 [이미지 경계](engine-input-media.md), storage 관측 시점·비삭제·전체 JSON cap과 close 대기는 [디스크 진단](engine-storage-usage.md)을 따른다.
 
+`activePrefixPolicy: {kind:'active-prefix-semantic',version:1}`은 별도의 host opt-in이다. 진행 중인 Run의 exact text/tool observations만 complete exchange 단위로 tools 없는 요약 요청에 전달한다. 실제 ContextPlan이 들어간 뒤 source/frontier/CAS를 다시 확인해 `context.active_memory`와 provider context를 원자 활성화한다. 원문 goal/latest steer·image user·최근 묶음은 필수로 남으며 pixels·opaque replay는 요약 사실로 변환하지 않는다. 공유 Run 예산, 실패·overflow·조회 상한과 diagnostics는 [active-prefix 명세](engine-active-prefix.md)를 따른다. 최신 active Run의 중간 image user는 이후 text steer가 와도 bounded DB window에서 별도 anchor로 유지한다.
+
 SQLite 연결에서는 유지보수 입장·중복 요청·승인 생성/취소·자식 pending 승인과 terminal assistant 결과를 owner 범위 SQL로 읽는다. `hasRunRequest`는 실제 primary Run 요청만 인정하며 queue pending과 promoted steer는 제외한다. `listPendingRunApprovals`는 모든 pending을 최대 64개/512KiB 안에서 반환하고 초과하면 부분 목록 대신 `APPROVAL_READ_LIMIT`다. `getLastRunAssistantContent`는 exact Run의 최신 assistant content만 output byte budget 안에서 반환하고 replay/tool JSON을 불러오지 않는다. 해당 optional port가 없는 custom legacy store의 coordinator/ApprovalManager는 기존 snapshot 경로를 유지한다.
 
 Instruction source cache는 최대 128개이며 idle entry를 교체한다. 진행 중인 observe는 lease로 보호하고 모든 실패·취소 후 lease를 반환한다. 캐시에서 빠진 baseline은 session document의 workspace/scope/hash 검증을 거쳐 다시 읽는다. 오래된 세션 수가 128개를 넘었다는 이유만으로 이후 실행을 막지 않는다.

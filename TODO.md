@@ -14,7 +14,7 @@
 
 **구현·검증 완료 71/75**. 열린 항목은 **E5-08, E5-13, E6-07, E6-08**이며 각각 아래에 남은 조건을 기록한다. E0-01~04는 [첫 통합 기록](docs/moodcode/engine-foundation-verification.md), 기본 native 엔진은 [첫 native 통합](docs/moodcode/engine-native-verification.md), 확장 연결과 최신 gate는 [최종 headless 검증](docs/moodcode/engine-native-final-verification.md)을 따른다. 담당 범위는 [병렬 엔진 구현](docs/moodcode/engine-implementation-waves.md)에 기록한다.
 
-기반 구현 커밋: `c2309e7`(계약·migration), `94d2a65`(native 엔진·확장), `682b1d8`(실제 child/LSP/artifact). 지속 개선은 `64435d7`과 `59d1f42`다. 최신 전체 gate는 1,715개 중 1,713 pass·실패 0·Windows 조건 2 skip, 코딩 fixture 3/3, 해당 커밋의 Codex 이미지 이력 live 2회가 통과했다. [최신 근거](docs/moodcode/engine-goal-verification.md)를 따른다.
+기반 구현 커밋: `c2309e7`(계약·migration), `94d2a65`(native 엔진·확장), `682b1d8`(실제 child/LSP/artifact). 지속 개선은 `64435d7`, `59d1f42`, `04031cb`다. 최신 전체 gate는 1,777개 중 1,775 pass·실패 0·Windows 조건 2 skip, 코딩 fixture 3/3, 해당 커밋의 Codex active-prefix 실제 요약·최종 답변 2회가 통과했다. [최신 근거](docs/moodcode/engine-goal-verification.md)를 따른다.
 
 ## 유지하고 회귀 검증할 기반
 
@@ -244,14 +244,16 @@ E5는 코딩 loop 기반을 만든 뒤 순서대로 확장한다. 초기 검증�
 - [x] **G1-06 — 독립 통합 리뷰와 전체 headless gate**: 담당을 교차해 snapshot·summary·exact retry·cleanup 결함을 수정하고 전체 회귀 및 로컬 커밋을 남긴다. 최종 gate 1,646개 중 1,644 pass·실패 0·Windows 조건 2 skip, fixture 코딩 평가 3/3.
 - [x] **G1-07 — 복합 child/미디어 live 과업 평가**: 기존 Codex 인증과 제한된 임시 fixture로 실제 실행한 모델·도구·diff·usage·cleanup을 기록한다. mocked transport 성공과 구분한다. `verify-engine-extensions.mjs --live`에서 승인된 parent→read-only child→exact retry와 red image 인식 2/2, cleanup 확인. 기존 read→patch→command live도 통과했다. 모델은 현재 Codex `gpt-6.1-sol`이다.
 - [x] **G1-08 — artifact/media 디스크·orphan 진단**: bounded 읽기 전용 scan·주 DB owner/ref index·명시적 host API·전체 JSON cap·close 대기를 연결했다. logical path/inode 크기, 관측 시점·불완전 coverage, child index 제외와 active publish→CAS race를 표시하며 삭제하지 않는다. [디스크 명세](docs/moodcode/engine-storage-usage.md), 구현 `59d1f42`.
-- [ ] **G1-09 — 이미지 이력·active-prefix 기억 정책**: 원본 refs 보존과 명시적 생략/provenance를 설계하고 text-only summary가 pixels 관측을 대신하지 않도록 검증한다.
+- [x] **G1-09 — 이미지 이력·active-prefix 기억 정책**: 두 명시적 host 정책의 원본 refs 보존·생략/provenance·exact text/tool source를 연결하고 text-only summary가 pixels 관측을 대신하지 않도록 검증했다. G1-09a/b를 각각 별도 실제 엔진 근거로 확인했다.
 - [x] **G1-09a — 명시적 이미지 이력 projection**: host opt-in으로 오래된 pixels 전송만 생략하고 최신 pixels·원문 anchors·complete exchange·필수 quoted provenance를 함께 보존한다. 원본 refs/replay·summary 거부·재시작·byte 실패와 실제 Codex 2회 요청을 검증했다. 구현 `59d1f42`, [정책과 남은 prefix 경계](docs/moodcode/research/2026-10-07-media-history-plan.md).
-- [ ] **G1-09b — active-prefix semantic checkpoint**: 별도 run/turn/attempt owner·exact source/hash·complete boundary·CAS 계약, tool-free 요약·중간 steer·cancel/output/cleanup 실패 시 기존 head 유지, 원문 goal/latest pixels/replay 보존을 구현·검증한다. 현재는 설계만 있으며 bounded 이력 누락을 의미 요약으로 표시하지 않는다.
+- [x] **G1-09b — active-prefix semantic checkpoint**: 현재 Run·완료 Turn/Attempt 증거와 별도 summaryAttemptId, exact typed text/tool source/hash·whole exchange chunk·보호된 중간 구멍·두 document/revision 원자 CAS를 연결했다. 20/50턴 관측 nonce on/off, steer/CAS/cancel/close/overflow·출력과 문맥 예산·실패/거부·media·원문 replay/refs를 검증했다. 커밋 후 실제 Codex summary 1회와 최종 답변 1회가 원문이 빠진 nonce를 정확히 회수했다. 구현 `04031cb`, [명세와 상한](docs/moodcode/engine-active-prefix.md). 별도 summary crash lifecycle/usage 합산은 G1-13으로 남긴다.
 - [x] **G1-10 — 운영 명세·최신 검증 보고서·commit 연결**: API/schema/도구 지원 목록, 성능 표본, 실제 OS/CI 한계와 최신 구현 commit을 갱신한다. 첫 묶음 구현 `64435d7`과 [검증 보고서](docs/moodcode/engine-goal-verification.md)를 연결했다. 후속 변경 때 같은 근거를 갱신한다.
 - [x] **G1-11 — 반복 요청·승인·child hotpath bounded 조회**: primary Run 요청만 exact SQL로 확인하고 maintenance 입장·승인 생성/취소·자식 pending/terminal output의 전체 snapshot 읽기를 줄였다. 신규 실제 7개 통합 fixture는 입장부터 allow/cancel/close까지 whole snapshot 0회이며 queue/steer·충돌 의미를 유지한다. custom legacy store fallback과 read limit 실패를 검증했다. 구현 `59d1f42`.
 - [x] **G1-12 — 장수 엔진 지침 cache 수명**: idle LRU 128개·진행 중 observe lease·지속 baseline 재조회로 129번째 세션이 영구 차단되던 문제를 수정했다. 실제 130개 세션, pinned LRU, 128 concurrent observations, 취소/저장 실패 후 slot 반환, 임시 read 실패와 실제 삭제를 검증했다. 구현 `59d1f42`.
+- [ ] **G1-13 — 별도 summary attempt 수명·사용량**: 요약 요청을 native model Attempt와 구분한 typed durable record로 저장하고 prepared/dispatched/completed/failed/interrupted/uncertain·재시작·close·archive owner를 검증한다. 최신 partial usage와 누락/null을 보존하며 일반 Attempt 합계와 summary 합계를 명시적으로 분리한다. 미완료 요약을 자동 재실행하거나 활성화하지 않는다.
+- [ ] **G1-14 — 여러 Run에 걸친 최신 이미지 anchor**: 현재 active Run 안에서만 보호한 최신 image anchor를 session의 이전 Run까지 확장할 정책·bounded SQL 계약을 정한다. 새 text-only Run, 과거 image-bearing Run의 cutoff/summary 거부, 재시작·원문 refs·cap 실패·실제 provider frame을 검증한다. 전체 snapshot이나 임의 blob 재읽기로 우회하지 않는다.
 
-첫 묶음 `64435d7`은 usage·active history·image import·model delegation과 독립 결함 수정을 완료했다. 두 번째 `59d1f42`는 G1-08/09a/11/12를 실제 엔진에 연결하고 전체 1,713 pass·실패 0·Windows 조건 2 skip, fixture 3/3, 실제 Codex image history 2회를 확인했다. 다음 진행은 **G1-09b active-prefix 계약·요약·원자 활성화와 실제 긴 실행 평가**다. 원래 열린 OS/provider/CI 4개는 위 한계를 유지하며 goal은 활성 상태다.
+첫 묶음 `64435d7`은 usage·active history·image import·model delegation과 독립 결함 수정을 완료했다. 두 번째 `59d1f42`는 G1-08/09a/11/12를 연결했다. 세 번째 `04031cb`는 active-prefix 기억, 최신 active Run image anchor, 요약 CAS·관측 출력 회계·steer 재계획·provider cleanup proof를 보강했다. 전체 1,775 pass·실패 0·Windows 조건 2 skip, fixture 3/3, 실제 Codex summary+answer 2회를 확인했다. 다음 진행은 **G1-13 summary attempt 수명/회계와 G1-14 session 최신 이미지 경계**다. 원래 열린 OS/provider/CI 4개는 위 한계를 유지하며 goal은 활성 상태다.
 
 다음은 **E5-13 media 입력/출력 계약·fixture → E5-08 native Windows 구현 및 OS 호스트 검증 → E6-07 첫 CI 실행 → E6-08 지원 명세 확정**이다. GUI를 다시 작업하기 전 [host API](docs/moodcode/engine-host-api.md)를 기준으로 새 엔진 기능을 노출할 범위를 정한다. host API가 있는 기능이 현재 GUI에도 노출됐다고 간주하지 않는다.
 

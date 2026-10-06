@@ -1,27 +1,28 @@
 {
-  "schemaVersion": 2,
-  "implementationCommit": "59d1f42716452e104ec526e031263b528b36078b",
-  "timestamp": "2026-10-06T21:18:11.142317+00:00",
+  "schemaVersion": 3,
+  "implementationCommit": "04031cb38fb6d98d292ee93ade1240a04c63b10e",
+  "timestamp": "2026-10-06T21:56:50.996734+00:00",
   "runtime": {
     "node": "26.9.0",
     "platform": "darwin",
     "arch": "arm64"
   },
-  "scope": "headless-engine-goal-checkpoint-2",
+  "scope": "headless-engine-goal-checkpoint-3",
   "checks": {
     "typecheck": {
       "passed": true,
-      "command": "npm run typecheck"
+      "command": "npm run typecheck",
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
     },
     "engine": {
       "command": "npm run test:engine",
-      "tests": 1715,
-      "passed": 1713,
+      "tests": 1777,
+      "passed": 1775,
       "failed": 0,
       "cancelled": 0,
       "skipped": 2,
-      "durationMs": 28489.564125,
-      "logSha256": "4f90e876f7d659145bc89a452120fe8497e8660932a98fc6e916dec18ea628b7"
+      "durationMs": 35640.412292,
+      "logSha256": "0f9d17fa4a44ede4cefc1e3ae0d9ab8272accd8a6da6f7712bd5716ca2a6e6d9"
     },
     "evaluation": [
       {
@@ -76,7 +77,7 @@
             "turnIndex": 3
           }
         },
-        "durationMs": 233
+        "durationMs": 231
       },
       {
         "taskId": "two-module-change",
@@ -104,153 +105,186 @@
             "turnIndex": 4
           }
         },
-        "durationMs": 256
+        "durationMs": 249
       }
     ],
-    "codexMediaHistory": {
-      "kind": "media-history-live",
-      "implementationCommit": "59d1f42716452e104ec526e031263b528b36078b",
+    "activePrefixLive": {
+      "kind": "active-prefix-hybrid-live",
+      "implementationCommit": "04031cb38fb6d98d292ee93ade1240a04c63b10e",
+      "timestamp": "2026-10-06T21:55:17.557Z",
       "providerId": "codex",
       "modelId": "gpt-6.1-sol",
-      "timestamp": "2026-10-06T21:16:43.678Z",
       "runtime": {
         "node": "26.9.0",
         "platform": "darwin",
         "arch": "arm64"
       },
-      "runs": [
+      "scope": {
+        "fixtureDirectedLocalReadTurns": 20,
+        "requestedRealSummaries": 1,
+        "requestedRealFinalAnswers": 1,
+        "autonomousCodingStrategyVerified": false
+      },
+      "actualRequests": [
         {
-          "state": "completed",
-          "recognizedColor": "red"
+          "purpose": "active-prefix-summary",
+          "sourceMessageCount": 4,
+          "factsSha256": "c24d8ee8935bbdb863b8811f13b15665b9a908e9257bb43c60946c9b0df125cd",
+          "observedIdentifierInQuotedToolFacts": true,
+          "requestBytes": 7642,
+          "finalUsage": {
+            "type": "usage",
+            "inputTokens": 1988,
+            "outputTokens": 187
+          }
         },
         {
-          "state": "completed",
-          "recognizedColor": "red"
-        }
-      ],
-      "transport": [
-        {
-          "imageOccurrences": 1,
-          "resolvedImages": 1,
-          "omittedOccurrences": 0,
-          "noticeRole": null,
-          "permissionOrInstruction": null,
-          "summarized": null
-        },
-        {
-          "imageOccurrences": 1,
-          "resolvedImages": 1,
-          "omittedOccurrences": 1,
-          "noticeRole": "assistant",
-          "permissionOrInstruction": false,
-          "summarized": false
+          "purpose": "final-answer",
+          "memoryContainsObservedIdentifier": true,
+          "rawIdentifierSourceInMessages": false,
+          "finalUsage": {
+            "type": "usage",
+            "inputTokens": 2689,
+            "outputTokens": 21,
+            "cachedInputTokens": 0,
+            "reasoningOutputTokens": 0
+          }
         }
       ],
       "passed": true,
       "cleanupConfirmed": true,
-      "provenance": {
-        "rawImageMessages": 2,
-        "rawBytesInTranscript": false,
-        "omittedOccurrences": 1,
-        "imageTokens": null,
-        "estimateComplete": false
+      "run": {
+        "state": "completed",
+        "error": null
       },
-      "storage": {
-        "complete": true,
-        "indexedIds": 1,
-        "candidates": 0,
-        "deletionPerformed": false
+      "memory": {
+        "nonceMatch": true,
+        "nonceSha256": "2ea136cf79795e68869386d679c0856e6d0a91a681bc0c5f1f27b2a2145c2998",
+        "originalToolResultStillStored": true,
+        "rawSourceSelected": false,
+        "coveredMessageCount": 4,
+        "factsSha256": "c24d8ee8935bbdb863b8811f13b15665b9a908e9257bb43c60946c9b0df125cd",
+        "manifestSha256": "66d2bc1bd55f4930c309d525101e4e58979f8b35b00d50aa56d992eb4bfa8658",
+        "fullSnapshotReads": 0,
+        "currentFileEvidence": false,
+        "contextBytes": 14754,
+        "contextByteLimit": 16384
       },
-      "usage": {
-        "samples": 2,
+      "runUsage": {
+        "turns": 21,
+        "toolCalls": 20,
+        "outputBytes": 28704
+      },
+      "regularAttemptUsage": {
+        "samples": 1,
         "inputTokens": {
-          "tokens": 997,
-          "observed": 2,
+          "tokens": 2689,
+          "observed": 1,
           "missing": 0,
           "invalid": 0,
           "sumOverflow": false
         },
         "outputTokens": {
-          "tokens": 10,
-          "observed": 2,
+          "tokens": 21,
+          "observed": 1,
           "missing": 0,
           "invalid": 0,
           "sumOverflow": false
         },
         "cachedInputTokens": {
           "tokens": 0,
-          "observed": 2,
+          "observed": 1,
           "missing": 0,
           "invalid": 0,
           "sumOverflow": false
         },
         "reasoningOutputTokens": {
           "tokens": 0,
-          "observed": 2,
+          "observed": 1,
           "missing": 0,
           "invalid": 0,
           "sumOverflow": false
         },
         "aggregation": "latest-snapshot-per-durable-attempt",
         "inclusiveTotals": true,
-        "attemptsWithUsage": 2,
-        "attemptsWithoutUsage": 0,
+        "attemptsWithUsage": 1,
+        "attemptsWithoutUsage": 20,
         "source": "all-attempt_usage-records-in-scope",
         "billedTokens": null
-      }
-    },
-    "independentIntegration": {
-      "boundedRetryAndChildApprovals": {
-        "passed": 7,
-        "wholeSnapshotReads": 0,
-        "sourceAndIndependentCompiled": true
       },
-      "contextMediaHistory": {
-        "passed": 5
+      "summaryUsage": {
+        "inputTokens": 1988,
+        "outputTokens": 187,
+        "cachedInputTokens": null,
+        "reasoningOutputTokens": null
       },
-      "storageFacadeAndLifecycle": {
-        "passed": 3,
-        "actualEightImportReportBound": 4096
-      },
-      "cacheAndHostOptionLifecycle": {
-        "passed": 4,
-        "sequentialSessions": 130,
-        "concurrentPinnedCapacity": 128,
-        "cacheFixtures": 3,
-        "hostOptionFixtures": 1
-      }
+      "summaryUsageIncludedInRegularAttemptTotals": false
     }
   },
-  "completed": [
-    "G1-08",
-    "G1-09a",
-    "G1-11",
-    "G1-12"
-  ],
-  "notCompleted": [
-    "G1-09b",
-    "E5-08",
-    "E5-13",
-    "E6-07",
-    "E6-08"
-  ],
-  "previousCheckpoint": {
-    "implementationCommit": "64435d705ea6e68d7e3502d64d4fd1f2976004ae",
-    "results": "engine-goal-first-verification.json",
-    "codingAndDelegationLivePhase": "previous-implementation-commit"
+  "independentReview": {
+    "activePrefixServiceTests": 14,
+    "activePrefixStorageTests": 17,
+    "actualPrefixIntegrationTests": 16,
+    "actualLatestImageAnchorTests": 2,
+    "requiredMemoryBudgetTests": 2,
+    "sourceAndCompiledIntegrationPassed": true,
+    "focus": [
+      "exact complete text/tool facts and negative outcomes",
+      "owner/source/immutable metadata binding",
+      "two-revision/two-document/v1-v2 journal atomic publication",
+      "initial required suffix overflow recovery",
+      "steer admission/CAS/cancel/close/overflow proof",
+      "shared observed output consumption",
+      "bounded raw SQL payload preflight",
+      "latest active Run image anchor and media-policy union"
+    ]
   },
-  "limitations": [
-    "Windows native process Job ownership and hosted Linux/Windows/Node24 CI were not verified",
-    "No Git remote or hosted CI run",
-    "Image container validation is not pixel decoding; image token count is unknown",
-    "Actual vision account verification is only the selected gpt-6.1-sol fixture",
-    "Media output, audio/video/file input and actual Anthropic account requests remain unsupported or unverified",
-    "No GUI launch or GUI E2E",
-    "Active-prefix omissions are not semantic summaries",
-    "Imported historical worktrees retain unverified ownership; automatic merge/cleanup/re-execution is forbidden",
-    "Disk totals are logical observations, physical allocation is unknown; traversal is non-atomic and no deletion is performed",
-    "Primary image index does not inspect child databases; orphan candidates are not a deletion authorization",
-    "Image policy is host opt-in and its provenance is bounded; no active-prefix semantic checkpoint is implemented",
-    "Hosted multi-OS CI and GUI were not executed in this checkpoint"
-  ]
+  "initialGateFailure": {
+    "command": "npm run test:engine",
+    "tests": 1775,
+    "passed": 1772,
+    "failed": 1,
+    "cancelled": 0,
+    "skipped": 2,
+    "durationMs": 41768.506834,
+    "logSha256": "7e3d9df633b0fed5192352adfa5279d370d1dc8ceac6c7237d50c88e3ce0dcfe",
+    "test": "pre-abort does not launch Git and in-flight abort terminates it",
+    "observedFailure": "Fixture process 0 survived cleanup",
+    "cause": "A newly created but still empty readiness marker was accepted as a PID; Number(empty string) is zero.",
+    "fix": "Wait for a nonempty published marker, validate positive PID before cleanup checks, and add a created-empty-marker regression. Final full gate includes the frozen latest overflow-steer fixture too."
+  },
+  "previousCheckpoints": [
+    {
+      "implementationCommit": "59d1f42716452e104ec526e031263b528b36078b",
+      "report": "engine-goal-second-verification.json"
+    },
+    {
+      "implementationCommit": "64435d705ea6e68d7e3502d64d4fd1f2976004ae",
+      "report": "engine-goal-first-verification.json"
+    }
+  ],
+  "limits": {
+    "guiLaunched": false,
+    "published": false,
+    "newCredentialsCreated": false,
+    "activePrefixHostOptIn": true,
+    "factsProjection": "text-and-complete-tool-observations-v1",
+    "opaqueReplayAndPixelsInSummarySource": false,
+    "currentFileEvidence": false,
+    "summaryUsageIncludedInRegularAttemptTotals": false,
+    "summaryCrashTypedLifecycle": "not-implemented; existing Run recovery prevents activation/retry",
+    "imageTokenCost": null,
+    "billedTokens": null,
+    "sourceMetadataMaxMessages": 1024,
+    "sourceMetadataMaxTurns": 1024,
+    "pendingSteerManifestMaxIds": 64,
+    "sqlPreflightScope": "bounded JavaScript returned metadata/payload, not physical SQLite I/O",
+    "historicalLatestImageOutsideActiveRunProtected": false,
+    "windowsNativeBackendVerified": false,
+    "realAnthropicVerified": false,
+    "otherMediaFormatsAndOutputVerified": false,
+    "hostedCIExecuted": false,
+    "gitRemoteConfigured": false,
+    "node24HostVerified": false
+  }
 }

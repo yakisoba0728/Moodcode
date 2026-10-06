@@ -24,4 +24,10 @@ Windows native Job backend, 다른 OS 호스트, 최초 hosted CI, 실제 Anthro
 
 ## 두 번째 검토 지점
 
-`59d1f42`에서 bounded storage host 진단·원본을 보존하는 이미지 이력 opt-in·반복 요청/승인/child 결과 SQL 조회·장수 instruction cache를 연결했다. 전체 1,713 pass·실패 0, fixture 3/3, 같은 커밋의 실제 Codex image history 2회가 성공했다. 다음 G1-09b는 active-prefix semantic checkpoint의 별도 owner/source/CAS 계약과 긴 실행·취소·중간 steer 검증이다. 이미지 픽셀 생략과 active-prefix 의미 요약을 하나의 완료 항목으로 합치지 않는다.
+`59d1f42`에서 bounded storage host 진단·원본을 보존하는 이미지 이력 opt-in·반복 요청/승인/child 결과 SQL 조회·장수 instruction cache를 연결했다. 전체 1,713 pass·실패 0, fixture 3/3, 같은 커밋의 실제 Codex image history 2회가 성공했다. 이 시점의 후속 G1-09b active-prefix semantic checkpoint는 아래 세 번째 검토 지점에서 구현·검증했다. 이미지 픽셀 생략과 active-prefix 의미 요약의 근거를 각각 유지한다.
+
+## 세 번째 검토 지점
+
+`04031cb`에서 G1-09b의 exact active Run text/tool observations·whole exchange chunk·protected holes·두 문서/revision 원자 activation을 연결했다. 일반 의미 요약의 준비 시점 CAS, 관측 delta의 공유 출력 회계, 요약 중 steer가 도착할 때의 제한된 재계획, underlying iterator cleanup이 없는 retry 거부와 최신 active image SQL anchor도 수정했다. 전체 1,775 pass·실패 0, fixture 3/3, 실제 Codex summary 1회와 최종 답변 1회가 도구 원문이 빠진 임의 값을 기억에서 정확히 회수했다. 20번 읽기는 fixture-directed이며 모델의 자율 코딩 전략 검증으로 확대하지 않는다.
+
+다음 로컬 작업은 G1-13 별도 summary attempt의 durable 수명·latest usage·crash/close 복구와 G1-14 여러 Run의 최신 이미지 보존 경계다. 현재 primary Run recovery가 미공개 요약의 자동 활성화/재시도를 막지만 전용 summary interrupted/uncertain record는 없다. 일반 Attempt usage와 summary usage가 아직 합쳐지지 않은 제한을 그대로 기록한다. 실제 다른 provider/OS/hosted CI와 GUI 노출은 해당 환경이 준비됐다고 간주하지 않는다.

@@ -1,6 +1,40 @@
 # 지속 개선 최신 검증
 
-2026-10-07, macOS arm64 / Node 26.9.0. 두 번째 구현 commit은 `59d1f42716452e104ec526e031263b528b36078b`다. [기계 판독 결과](engine-goal-verification.json), [목표](engine-improvement-goal.md), [TODO](../../TODO.md)를 함께 확인한다. GUI와 Electron 앱을 실행하지 않았다.
+2026-10-07, macOS arm64 / Node 26.9.0. 세 번째 구현 commit은 `04031cb38fb6d98d292ee93ade1240a04c63b10e`다. [기계 판독 결과](engine-goal-verification.json), [active-prefix 명세](engine-active-prefix.md), [TODO](../../TODO.md)를 함께 확인한다. GUI와 Electron 앱을 실행하지 않았다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 전체 TypeScript build/typecheck | 성공 |
+| 전체 headless engine gate | 1,777 tests / 1,775 pass / 0 fail / 0 cancelled / Windows 조건 2 skip |
+| coding fixture 평가 | 3/3, expected diff·검사·범위 보존 |
+| 실제 20/50턴 engine fixture | 첫 도구 관측의 임의 nonce를 exact quoted source→derived memory로 유지, 비활성 대조군에서는 최종 context에서 제거 |
+| 실제 prefix 경계 | steer·memory/head CAS·cancel/exact retry·close·overflow same-Turn retry·변경된 frontier의 retry 중단·필수 context/output/source cap |
+| 커밋 후 실제 Codex | `gpt-6.1-sol` 요약 1회·최종 답변 1회, 원본 도구 메시지가 요청에서 빠진 임의 값 정확히 회수, cleanup 확인 |
+
+`npm run typecheck`, `npm run test:engine`, `node scripts/evaluate-engine.mjs`, `node scripts/verify-active-prefix.mjs --live`로 확인했다. 실제 검증은 20번의 fixture-directed local `read_file` 뒤 실제 model summary 한 번과 최종 답변 한 번이다. 모델이 20턴 코딩 전략을 자율 선택한 평가로 표시하지 않는다. summary source는 4개 exact messages/7,642-byte 요청이며 최종 context는 envelope 포함 14,754/16,384 bytes다. 원본 관측과 refs/replay를 보존하고 full snapshot 조회는 0회였다.
+
+실제 summary usage는 input 1,988/output 187, 최종 일반 Attempt는 input 2,689/output 21이다. 요약의 cached/reasoning 값은 null이고 일반 Attempt 합계는 summary를 포함하지 않는다. 20개 fixture-directed Attempt의 미제공 usage도 0으로 만들지 않았다. 과금량은 unknown이다. 기존 로컬 Codex 인증만 사용했고 임시 DB·저장소의 종료·삭제를 확인했다.
+
+## 세 번째 구현과 독립 검토
+
+- **의미 기억**: initial goal/latest steer/image user/recent complete exchange를 보호하며 exact typed text/tool facts만 old whole exchange 단위로 요약했다. 준비된 기억과 실제 모델 ContextPlan이 모두 검증된 뒤 source/owner/frontier/CAS를 재확인해 두 revision·document와 v1/v2 activation events를 함께 저장한다. checkpoint metadata도 immutable summary revision에 hash bind한다.
+- **예산과 실패**: 알려진 모델 reserve와 실제 JSON envelope/escaping을 먼저 예약한다. 이미 관측한 output delta는 local summary cap이 거부해도 공유 Run 예산에 남는다. 이전 checkpoint의 protected suffix가 커져 초기 계획이 실패하면 다음 checkpoint로 한 번 회복할 수 있다. steer arrival·CAS·취소·불완전 출력에는 이전 기억을 유지한다.
+- **실행·저장 경계**: ordinary logical Turn/Attempt를 summary용으로 만들지 않는다. overflow recovery는 출력 전 failed Attempt와 underlying iterator cleanup 증거를 요구하며 source가 바뀌면 stale retry를 중단한다. tool facts·Part/Attempt의 payload↔SQL owner와 aggregate byte probe를 검증했다. 물리 SQLite 읽기량을 이 cap으로 보장하지 않는다.
+- **이미지와 일반 요약**: 최신 active Run의 중간 이미지가 이후 text steer 때문에 window에서 빠지던 실제 40턴 실패를 수정했다. media projection과 prefix의 required IDs를 합쳐 pixels/ref anchors를 보호했다. completed-history summary는 provider 전에 캡처한 memory revision을 CAS에 사용해 늦은 summary가 승자를 덮어쓰지 않도록 고쳤다.
+
+독립 source/compiled 16개 actual prefix integration과 14개 context·17개 storage fixtures가 의미·소유·byte·negative outcome·이미지·정리를 검증했다. 전체 gate의 첫 실행은 기존 Git diagnostics fixture가 비어 있는 준비 marker를 PID 0으로 읽어 실패했다(1,775 tests / 1 fail). 빈 marker 대기·PID 검증과 결정적 회귀를 추가했다. 최종 frozen source의 전체 1,777개는 실패 0이며 두 로그 hash와 실패 원인을 JSON에 기록했다.
+
+## 남은 범위
+
+G1-09a/b는 별도 host opt-in으로 완료했다. 다음 G1-13은 summary의 전용 durable lifecycle/usage·crash/close 복구다. 현재 Run recovery가 미공개 candidate를 자동 활성화·재시도하지 않지만 summary interrupted/uncertain 상태를 별도 record로 복원하지 않는다. G1-14는 active Run 밖 이전 Run의 최신 이미지 anchor다. 현재 메타데이터 1,024 messages/Turns, 64 pending steer, source/coverage cap 이상의 모든 과거 관측을 기억한다고 보장하지 않는다.
+
+이미지 token 비용, 실제 Anthropic·다른 media 입력/출력, Windows native Job backend, hosted Linux/Windows/Node24 CI, 새 GUI 노출은 미완료다. Git remote는 없으며 goal은 활성 상태다. 이전 live 과업은 아래 해당 구현 commit의 근거로 보존하고 이번 커밋에서 재실행했다고 표시하지 않는다.
+
+---
+
+# 두 번째 묶음의 이전 검증
+
+2026-10-07, macOS arm64 / Node 26.9.0. 두 번째 구현 commit은 `59d1f42716452e104ec526e031263b528b36078b`다. [두 번째 기계 판독 결과](engine-goal-second-verification.json), [목표](engine-improvement-goal.md), [TODO](../../TODO.md)를 함께 확인한다. GUI와 Electron 앱을 실행하지 않았다.
 
 | 검증 | 결과 |
 | --- | --- |

@@ -67,17 +67,16 @@ Root 담당의 ContextService/ContextRequest/index/engine wiring은 구현 `59d1
 
 같은 image ID를 반복한 다섯 요청에서 이 opt-in projection은 최신 occurrence 1개와 old occurrence 4개의 provenance를 만든다. Resolver에는 기존 blob 하나만 요구하며 새 import/blob를 만들지 않는다. 기본 policy가 없으면 다섯 occurrences는 그대로 남고 기존 request hard cap을 유지한다. SHA가 같다는 이유로 다른 imported IDs를 서로 바꾸거나 권한 identity를 합치지 않는다.
 
-## Active-prefix 기억의 후속 단계
+## 별도 active-prefix 기억 연결
 
-이번 모듈은 prefix text를 줄이거나 active cutoff를 만들지 않는다. 현재 생략된 active prefix를 모델이 의미적으로 요약했다고 표시하는 기능은 아직 구현하지 않았다. 이미지 policy를 텍스트 semantic checkpoint의 승인으로 해석하지 않는다.
+이미지 projection 모듈 자체는 prefix text를 줄이거나 active cutoff를 만들지 않는다. 후속 `04031cb`에서 별도 host `activePrefixPolicy`와 원자 checkpoint를 실제 엔진에 연결했다. 이미지 policy를 텍스트 semantic checkpoint의 승인으로 해석하지 않는다. [active-prefix 계약·상한](../engine-active-prefix.md), [최신 실행 근거](../engine-goal-verification.md)를 따른다.
 
-후속 active-prefix checkpoint를 구현한다면 source message IDs/ordinals와 원문 hash, parent checkpoint revision, run/turn/attempt owner, 선택한 complete exchange 경계, policy/model/protocol identity를 별도 typed 계약으로 먼저 고정해야 한다. 최초 goal·최신 steer·최신 pixels·최근 complete exchange는 checkpoint 이후에도 원문 anchor로 남아야 한다. Image는 위 provenance만 보존하며 픽셀의 의미 요약을 만들지 않는다. 이미지를 실제로 해석한 provider call과 검증된 결과가 없는 경우 “이미지를 보았다”는 사실을 새 summary에 생성할 수 없다.
+현재 active-prefix 계약은 exact typed text/tool projection의 source message IDs/ordinals/hash, prior checkpoint, Run/complete Turn/final Attempt owner, policy/provider/model identity와 input frontier를 고정한다. hash를 전체 opaque replay나 pixels까지 포함한 원문 hash로 표시하지 않는다. 최초 goal·최신 steer·image-bearing user·최근 complete exchange는 checkpoint 이후에도 원문 anchor로 남는다. 이미지를 실제로 해석한 provider call과 검증된 결과가 없는 경우 “이미지를 보았다”는 사실을 새 summary에 생성할 수 없다.
 
-새 checkpoint는 live owner의 safe boundary에서 모든 필수 byte/output/time 예산과 새 steer arrival을 다시 확인하고, 완전한 tool-free summary와 CAS publication이 성공한 뒤에만 활성화해야 한다. 취소·잘린 응답·revision conflict·효과 정리 미확정은 기존 checkpoint를 유지한다. Summary는 과거 관측이며 현재 파일 fact나 승인 grant가 아니다. 이 항목은 설계 제안이며 이번 source fixture가 semantic summary 품질·checkpoint lifecycle을 검증한 결과는 아니다.
+새 checkpoint는 live owner의 safe boundary에서 필수 byte/output/time 예산과 새 steer arrival을 다시 확인하고, 완전한 tool-free summary·ContextPlan·두 문서 CAS publication이 성공한 뒤에만 활성화된다. 취소·잘린 응답·revision conflict·정리 미확정은 기존 checkpoint를 유지한다. Summary는 과거 관측이며 현재 파일 fact나 승인 grant가 아니다. 이 문서의 최초 22개 media projection fixture를 semantic summary 품질 검증으로 확대하지 않으며, 후속 실제 20/50턴·overflow·취소·Codex 결과는 goal 보고서로 구분한다.
 
 ## 검증 범위
 
 [독립 fixtures](../../../packages/engine/src/context/media-history.test.ts) 22개가 source와 별도 esbuild ESM bundle에서 각각 통과했다. 기본 policy clone, exact raw text/refs 불변, 5회 반복 frame 생략, 최신/pinned 필수 보호, count/decoded-byte/metadata 정확 경계, ref/session 충돌, complete pair와 opaque replay 보존, media-shaped replay 명시 거부, 취소, deterministic binding을 검증했다. Mocked Responses HTTP body에서 retained image frame 1개·원래 old user text·quoted notice가 함께 전송됨을 확인했다.
 
 기존 context/agent context/tool history/media provider/media store/input-media review와 합친 source 143개가 모두 통과했고 engine noEmit도 통과했다. 검증은 macOS Darwin arm64/Node v26.9.0의 자체 fixture다. Root의 실제 엔진 wiring·integration fixture·Codex live는 위 최신 goal 보고서에 별도 근거로 기록했다. 공유 full build·전체 suite·커밋·외부 계정 호출·GUI 실행은 수행하지 않았다.
-

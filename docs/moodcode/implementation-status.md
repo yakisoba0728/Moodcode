@@ -1,6 +1,6 @@
 # Moodcode 구현 상태
 
-갱신일: 2026-10-07, Asia/Seoul. 현재 작업은 **자체 엔진 우선**이며 [TODO](../../TODO.md)의 원래 75개 중 71개와 지속 개선 G1의 두 묶음(`64435d7`, `59d1f42`)을 구현·검증했다. 최신 headless gate는 1,713 pass·실패 0·Windows 조건 2 skip이다. 최신 결과는 [goal 검증 보고서](engine-goal-verification.md), 이전 확장 결과는 [headless 검증 보고서](engine-native-final-verification.md), 공개 연결은 [host API](engine-host-api.md)를 따른다. 아래 기존 GUI·bundle 결과는 2026-10-04 기록이며 이번 엔진 작업에서 앱을 다시 실행하거나 새 기능의 GUI E2E를 수행하지 않았다.
+갱신일: 2026-10-07, Asia/Seoul. 현재 작업은 **자체 엔진 우선**이며 [TODO](../../TODO.md)의 원래 75개 중 71개와 지속 개선 G1의 세 묶음(`64435d7`, `59d1f42`, `04031cb`)을 구현·검증했다. 최신 headless gate는 1,775 pass·실패 0·Windows 조건 2 skip이다. 최신 결과는 [goal 검증 보고서](engine-goal-verification.md), 이전 확장 결과는 [headless 검증 보고서](engine-native-final-verification.md), 공개 연결은 [host API](engine-host-api.md)를 따른다. 아래 기존 GUI·bundle 결과는 2026-10-04 기록이며 이번 엔진 작업에서 앱을 다시 실행하거나 새 기능의 GUI E2E를 수행하지 않았다.
 
 ## 현재 자체 엔진 범위
 
@@ -9,7 +9,7 @@
 | 영구 입력·실행 | queue/steer inbox, exact retry·충돌·backlog, pause/resume, FIFO·workspace 공정성, 기존 즉시 run.submit 호환 |
 | 모델·기록 | durable Turn/Attempt/Part, 내부/provider call ID 분리, 제한된 provider retry, delta flush·bounded paging·read concurrency |
 | 추가 개선 | DB3의 attempt usage, active Run anchor/complete-exchange 선택, bounded image import/전송·명시적 이력 정책, 승인된 read-only delegate_task |
-| context·기억 | model metadata의 unknown/null, bounded SQL history, nested 지침과 지속 baseline·idle cache 수명, 원자 ContextRevision 활성화, tools 없는 completed-history semantic summary·한 번 overflow 복구; active-prefix 의미 요약은 후속 |
+| context·기억 | model metadata의 unknown/null, bounded SQL history, nested 지침과 지속 baseline·idle cache 수명, tools 없는 completed-history summary와 opt-in active-prefix semantic checkpoint, 실제 ContextPlan·두 문서 원자 활성화, 한 번 overflow 복구 |
 | 도구·권한 | scoped versioned runtime, structured result/artifact, exact edit·rename/delete·bounded glob/regex, deny·Plan/Build 정책, scope grant 저장·철회 |
 | 세션 상호작용 | durable tasks CAS, question·답변·거절·expiry, agent profile의 model/tool/config identity, skill/reference의 제한된 읽기 |
 | 확장 자원 | host plugin·MCP stdio/HTTP와 catalog/resource, credential reference, 실제 macOS PTY 입출력·resize·취소·강제 종료 정리 |

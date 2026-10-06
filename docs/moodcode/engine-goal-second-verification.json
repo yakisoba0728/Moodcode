@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 2,
+  "implementationCommit": "59d1f42716452e104ec526e031263b528b36078b",
+  "timestamp": "2026-10-06T21:18:11.142317+00:00",
+  "runtime": {
+    "node": "26.9.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "scope": "headless-engine-goal-checkpoint-2",
+  "checks": {
+    "typecheck": {
+      "passed": true,
+      "command": "npm run typecheck"
+    },
+    "engine": {
+      "command": "npm run test:engine",
+      "tests": 1715,
+      "passed": 1713,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "durationMs": 28489.564125,
+      "logSha256": "4f90e876f7d659145bc89a452120fe8497e8660932a98fc6e916dec18ea628b7"
+    },
+    "evaluation": [
+      {
+        "taskId": "addition-bug",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "math.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13146,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 241
+      },
+      {
+        "taskId": "empty-list-boundary",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "average.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13228,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 233
+      },
+      {
+        "taskId": "two-module-change",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "greet.mjs",
+          "strings.mjs"
+        ],
+        "toolCalls": 4,
+        "providerAttempts": 5,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 14044,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 4
+          }
+        },
+        "durationMs": 256
+      }
+    ],
+    "codexMediaHistory": {
+      "kind": "media-history-live",
+      "implementationCommit": "59d1f42716452e104ec526e031263b528b36078b",
+      "providerId": "codex",
+      "modelId": "gpt-6.1-sol",
+      "timestamp": "2026-10-06T21:16:43.678Z",
+      "runtime": {
+        "node": "26.9.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "runs": [
+        {
+          "state": "completed",
+          "recognizedColor": "red"
+        },
+        {
+          "state": "completed",
+          "recognizedColor": "red"
+        }
+      ],
+      "transport": [
+        {
+          "imageOccurrences": 1,
+          "resolvedImages": 1,
+          "omittedOccurrences": 0,
+          "noticeRole": null,
+          "permissionOrInstruction": null,
+          "summarized": null
+        },
+        {
+          "imageOccurrences": 1,
+          "resolvedImages": 1,
+          "omittedOccurrences": 1,
+          "noticeRole": "assistant",
+          "permissionOrInstruction": false,
+          "summarized": false
+        }
+      ],
+      "passed": true,
+      "cleanupConfirmed": true,
+      "provenance": {
+        "rawImageMessages": 2,
+        "rawBytesInTranscript": false,
+        "omittedOccurrences": 1,
+        "imageTokens": null,
+        "estimateComplete": false
+      },
+      "storage": {
+        "complete": true,
+        "indexedIds": 1,
+        "candidates": 0,
+        "deletionPerformed": false
+      },
+      "usage": {
+        "samples": 2,
+        "inputTokens": {
+          "tokens": 997,
+          "observed": 2,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "outputTokens": {
+          "tokens": 10,
+          "observed": 2,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "cachedInputTokens": {
+          "tokens": 0,
+          "observed": 2,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "reasoningOutputTokens": {
+          "tokens": 0,
+          "observed": 2,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "aggregation": "latest-snapshot-per-durable-attempt",
+        "inclusiveTotals": true,
+        "attemptsWithUsage": 2,
+        "attemptsWithoutUsage": 0,
+        "source": "all-attempt_usage-records-in-scope",
+        "billedTokens": null
+      }
+    },
+    "independentIntegration": {
+      "boundedRetryAndChildApprovals": {
+        "passed": 7,
+        "wholeSnapshotReads": 0,
+        "sourceAndIndependentCompiled": true
+      },
+      "contextMediaHistory": {
+        "passed": 5
+      },
+      "storageFacadeAndLifecycle": {
+        "passed": 3,
+        "actualEightImportReportBound": 4096
+      },
+      "cacheAndHostOptionLifecycle": {
+        "passed": 4,
+        "sequentialSessions": 130,
+        "concurrentPinnedCapacity": 128,
+        "cacheFixtures": 3,
+        "hostOptionFixtures": 1
+      }
+    }
+  },
+  "completed": [
+    "G1-08",
+    "G1-09a",
+    "G1-11",
+    "G1-12"
+  ],
+  "notCompleted": [
+    "G1-09b",
+    "E5-08",
+    "E5-13",
+    "E6-07",
+    "E6-08"
+  ],
+  "previousCheckpoint": {
+    "implementationCommit": "64435d705ea6e68d7e3502d64d4fd1f2976004ae",
+    "results": "engine-goal-first-verification.json",
+    "codingAndDelegationLivePhase": "previous-implementation-commit"
+  },
+  "limitations": [
+    "Windows native process Job ownership and hosted Linux/Windows/Node24 CI were not verified",
+    "No Git remote or hosted CI run",
+    "Image container validation is not pixel decoding; image token count is unknown",
+    "Actual vision account verification is only the selected gpt-6.1-sol fixture",
+    "Media output, audio/video/file input and actual Anthropic account requests remain unsupported or unverified",
+    "No GUI launch or GUI E2E",
+    "Active-prefix omissions are not semantic summaries",
+    "Imported historical worktrees retain unverified ownership; automatic merge/cleanup/re-execution is forbidden",
+    "Disk totals are logical observations, physical allocation is unknown; traversal is non-atomic and no deletion is performed",
+    "Primary image index does not inspect child databases; orphan candidates are not a deletion authorization",
+    "Image policy is host opt-in and its provenance is bounded; no active-prefix semantic checkpoint is implemented",
+    "Hosted multi-OS CI and GUI were not executed in this checkpoint"
+  ]
+}
