@@ -19,8 +19,10 @@ import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPag
 import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js';
 import { readActiveHistoryWindow, type ActiveHistoryWindow } from './native-history.js';
 import { putAttemptUsage, type AttemptUsageRecord, type AttemptUsageSnapshot } from './native-usage.js';
+import { inspectInputImageIndex, type InputImageIndexOptions, type InputImageIndexReport } from './input-image-index.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
+export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
 
 const PAGE_SIZE = 128;
 const MAX_PAGE_SIZE = 1_024;
@@ -302,6 +304,32 @@ export class SqliteStore implements SessionEngineStore {
     this.getWorkspace(workspaceId);
     return this.db.prepare("SELECT 1 FROM runs WHERE workspace_id=? AND state IN ('created','running','awaiting_approval','cancelling') AND (? IS NULL OR id<>?) LIMIT 1").get(workspaceId, excludedRunId ?? null, excludedRunId ?? null) !== undefined;
   }
+  hasRunRequest(sessionId: string, requestId: string): boolean {
+    const session = this.getSession(sessionId);
+    return this.db.prepare(`SELECT 1 FROM inputs i JOIN runs r ON r.input_id=i.id
+      WHERE i.session_id=? AND i.request_id=? AND r.session_id=? AND r.workspace_id=?
+      AND json_extract(r.data,'$.requestId')=? LIMIT 1`).get(sessionId, requestId, sessionId, session.workspaceId, requestId) !== undefined;
+  }
+  getLastRunAssistantContent(runId: string): string {
+    return this.transaction(() => {
+      const run = this.getRun(runId), session = this.getSession(run.sessionId);
+      const owner = this.db.prepare('SELECT session_id,workspace_id FROM runs WHERE id=?').get(runId)!;
+      if (run.id !== runId || session.id !== run.sessionId || session.workspaceId !== run.workspaceId || owner.session_id !== run.sessionId || owner.workspace_id !== run.workspaceId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Child output owner is inconsistent');
+      const configured = run.config?.limits?.maxOutputBytes;
+      if (!Number.isSafeInteger(configured) || configured < 1 || configured > 1_048_576) throw new EngineError('CHILD_OUTPUT_READ_LIMIT', 'Child output budget is outside the supported read bound');
+      const row = this.db.prepare(`SELECT session_id,run_id,json_type(data,'$.content') AS content_type,
+        substr(json_extract(data,'$.id'),1,257) AS payload_id,substr(json_extract(data,'$.sessionId'),1,257) AS payload_session_id,
+        substr(json_extract(data,'$.runId'),1,257) AS payload_run_id,
+        CASE WHEN length(CAST(id AS BLOB))<=256 THEN id ELSE NULL END AS id,
+        length(CAST(json_extract(data,'$.content') AS BLOB)) AS content_bytes,
+        CASE WHEN json_type(data,'$.content')='text' AND length(CAST(json_extract(data,'$.content') AS BLOB))<=? THEN json_extract(data,'$.content') ELSE NULL END AS content
+        FROM messages WHERE run_id=? AND json_extract(data,'$.role')='assistant' ORDER BY ordinal DESC LIMIT 1`).get(configured, runId);
+      if (!row) return '';
+      if (row.session_id !== run.sessionId || row.run_id !== runId || row.payload_session_id !== run.sessionId || row.payload_run_id !== runId || row.payload_id !== row.id || row.id === null) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Child output message has an inconsistent owner');
+      if (row.content_type !== 'text' || Number(row.content_bytes) > configured || typeof row.content !== 'string') throw new EngineError('CHILD_OUTPUT_READ_LIMIT', 'Latest child assistant content exceeds its bounded UTF-8 read budget');
+      return row.content;
+    }, false);
+  }
 
   private append(run: Run, type: string, payload: JsonObject): EngineEvent {
     const row = this.db.prepare('UPDATE sessions SET last_seq=last_seq+1 WHERE id=? AND last_seq < ? RETURNING last_seq').get(run.sessionId, Number.MAX_SAFE_INTEGER);
@@ -427,6 +455,32 @@ export class SqliteStore implements SessionEngineStore {
       if (Number(sizes.count) > 8 || Number(sizes.bytes) > 32_768) throw new EngineError('TOOL_APPROVAL_LIMIT', 'Tool approval projection exceeds its read budget');
       const records = this.rows<ApprovalRecord>('SELECT data FROM approvals WHERE tool_call_id=? ORDER BY ordinal LIMIT 8', toolCallId);
       for (const record of records) this.assertScope(this.getRun(tool.runId), record);
+      return records;
+    }, false);
+  }
+  /** All pending decisions or an explicit read-limit failure; never a partial list. */
+  listPendingRunApprovals(runId: string, limit = 64): ApprovalRecord[] {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64) throw new EngineError('INVALID_PAGE_SIZE', 'Pending approval read limit must be between 1 and 64');
+    return this.transaction(() => {
+      const run = this.getRun(runId), session = this.getSession(run.sessionId);
+      if (run.id !== runId || session.id !== run.sessionId || session.workspaceId !== run.workspaceId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Run approval owner is inconsistent');
+      const metadata = this.db.prepare(`SELECT a.id,a.session_id,a.run_id,a.tool_call_id,length(CAST(a.data AS BLOB)) AS bytes,
+        t.id AS tool_id,t.session_id AS tool_session_id,t.run_id AS tool_run_id,
+        substr(json_extract(t.data,'$.id'),1,257) AS tool_payload_id,
+        substr(json_extract(t.data,'$.sessionId'),1,257) AS tool_payload_session_id,
+        substr(json_extract(t.data,'$.runId'),1,257) AS tool_payload_run_id,
+        substr(json_extract(t.data,'$.name'),1,129) AS tool_name
+        FROM approvals a LEFT JOIN tools t ON t.id=a.tool_call_id WHERE a.run_id=? AND a.status='pending' ORDER BY a.ordinal LIMIT ?`).all(runId, limit + 1);
+      if (metadata.length > limit || metadata.reduce((total, row) => total + Number(row.bytes), 0) > 524_288) throw new EngineError('APPROVAL_READ_LIMIT', 'Pending approvals exceed their count or UTF-8 byte read budget');
+      const records: ApprovalRecord[] = [];
+      for (const row of metadata) {
+        if (row.session_id !== run.sessionId || row.run_id !== runId || row.tool_id !== row.tool_call_id || row.tool_session_id !== run.sessionId || row.tool_run_id !== runId
+          || row.tool_payload_id !== row.tool_id || row.tool_payload_session_id !== run.sessionId || row.tool_payload_run_id !== runId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Pending approval belongs to another owner');
+        const record = decode<ApprovalRecord>(this.row('SELECT data FROM approvals WHERE id=?', row.id as string)!);
+        this.assertScope(run, record);
+        if (record.id !== row.id || record.toolCallId !== row.tool_call_id || record.toolName !== row.tool_name || record.status !== 'pending') throw new EngineError('RECORD_SCOPE_MISMATCH', 'Pending approval payload has an inconsistent identity');
+        records.push(record);
+      }
       return records;
     }, false);
   }
@@ -568,6 +622,10 @@ export class SqliteStore implements SessionEngineStore {
       if (sessionId !== undefined) this.getSession(sessionId);
       return readNativeMetrics(this.db, sessionId);
     }, false);
+  }
+
+  inspectInputImageIndex(options?: InputImageIndexOptions): InputImageIndexReport {
+    return this.transaction(() => inspectInputImageIndex(this.db, options), false);
   }
   readEvents(sessionId: string, afterSeq: number, limit = PAGE_SIZE): EngineEvent[] {
     cursor(afterSeq);

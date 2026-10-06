@@ -6,7 +6,7 @@
 
 `createEngine(options)`는 DB owner, Run coordinator, scheduler, context, 도구 runtime, 승인·질문·세션 tasks, MCP/plugin, PTY, child, LSP, formatter, workspace 관찰을 소유한다. 기본 fixture 공급자는 scripted/local이며 실제 provider는 host가 주입하고 defaults에서 선택한다. `CodexProvider`는 기존 로컬 Codex 인증 port를 사용하고, `AnthropicProvider`는 host가 지정한 API key와 model을 사용한다. API key나 credential을 command/config/session document에 넣지 않는다.
 
-주요 `EngineOptions`는 `dbPath`, `artifactDir`, `providers`, `tools`, `defaults`, `toolPolicy`, `modelSpecs`, `agentProfiles`, `allowedToolNames`, `worktreeDirectory`, `configureChild`다. `allowedToolNames`는 초기 catalog뿐 아니라 이후 등록한 handler의 광고·실행에도 유지되는 host 상한이다. profile·Plan 정책·resource deny가 이 상한을 더 좁힐 수 있다. 기본 도구를 `tools`로 교체하면 실제 제공한 handler만 사용할 수 있다.
+주요 `EngineOptions`는 `dbPath`, `artifactDir`, `providers`, `tools`, `defaults`, `toolPolicy`, `modelSpecs`, `agentProfiles`, `allowedToolNames`, `worktreeDirectory`, `configureChild`, `mediaHistoryPolicy`다. `allowedToolNames`는 초기 catalog뿐 아니라 이후 등록한 handler의 광고·실행에도 유지되는 host 상한이다. profile·Plan 정책·resource deny가 이 상한을 더 좁힐 수 있다. 기본 도구를 `tools`로 교체하면 실제 제공한 handler만 사용할 수 있다.
 
 | 경로 | 용도 |
 |---|---|
@@ -17,6 +17,7 @@
 | `waitForRun(runId)` | 지정한 실제 Run의 terminal 정산 대기 |
 | `getCapabilities()` | 연결된 provider/tool/command 및 기본값; 실행에 적용한 host 상한 반영 |
 | `importImage(sessionId, bytes, mimeType, signal?)` | 세션 소유의 제한된 이미지 blob을 저장하고 immutable 참조 반환 |
+| `getStorageUsage({signal?, limits?})` | 주 DB 이미지 index와 engine-owned artifact/DB 경로의 bounded 읽기 전용 진단; 모델 턴에서 자동 실행하지 않음 |
 | `close()` | admission 중지와 owned Run·child·MCP/plugin·PTY·watcher·LSP·DB 종료 정산 |
 
 v2 command envelope에는 `schemaVersion`, `commandId`, `type`, `payload`만 둔다. `stream:'session-v2'`는 event/cursor에 있는 구분자이며 command 필드가 아니다. 두 journal의 seq는 교환하지 않는다. 추가 command는 [v2 명세](engine-contracts-v2.md)를 따른다.
@@ -26,6 +27,12 @@ v2 command envelope에는 `schemaVersion`, `commandId`, `type`, `payload`만 둔
 ```
 
 위 명령의 receipt는 입력 접수 결과다. scheduler가 실제 Run에 promotion하기 전에는 pending 입력을 user transcript나 가짜 Run으로 표시하지 않는다. queue는 FIFO, steer는 다음 안전 turn 경계에만 반영된다. Run cancel은 session을 pause하며 저장된 queue를 자동 실행하지 않는다. 새 작업을 이어가려면 명시적 resume을 사용한다. legacy `run.submit`은 즉시 접수·workspace busy·exact retry 의미를 보존한다.
+
+`mediaHistoryPolicy`는 host가 생성 시 선택·검증하는 opt-in이다. `{kind:'reference-only-older-images',version:1}`은 오래된 픽셀 전송을 줄이되 최신 픽셀·원문 user anchors·완전한 최근 tool exchange·별도 provenance notice를 필수로 유지한다. 원본 records/replay를 수정하거나 active-prefix 의미 요약을 생성하지 않는다. default 동작과 상한·실패 계약은 [이미지 경계](engine-input-media.md), storage 관측 시점·비삭제·전체 JSON cap과 close 대기는 [디스크 진단](engine-storage-usage.md)을 따른다.
+
+SQLite 연결에서는 유지보수 입장·중복 요청·승인 생성/취소·자식 pending 승인과 terminal assistant 결과를 owner 범위 SQL로 읽는다. `hasRunRequest`는 실제 primary Run 요청만 인정하며 queue pending과 promoted steer는 제외한다. `listPendingRunApprovals`는 모든 pending을 최대 64개/512KiB 안에서 반환하고 초과하면 부분 목록 대신 `APPROVAL_READ_LIMIT`다. `getLastRunAssistantContent`는 exact Run의 최신 assistant content만 output byte budget 안에서 반환하고 replay/tool JSON을 불러오지 않는다. 해당 optional port가 없는 custom legacy store의 coordinator/ApprovalManager는 기존 snapshot 경로를 유지한다.
+
+Instruction source cache는 최대 128개이며 idle entry를 교체한다. 진행 중인 observe는 lease로 보호하고 모든 실패·취소 후 lease를 반환한다. 캐시에서 빠진 baseline은 session document의 workspace/scope/hash 검증을 거쳐 다시 읽는다. 오래된 세션 수가 128개를 넘었다는 이유만으로 이후 실행을 막지 않는다.
 
 ## child 작업과 Git workspace
 

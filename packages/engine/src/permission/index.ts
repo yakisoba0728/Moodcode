@@ -67,7 +67,8 @@ export class ApprovalManager implements ApprovalPort {
       if (!active(run)) {
         throw new EngineError('APPROVAL_RUN_INACTIVE', 'Approval requires a running Run', { runId: run.id });
       }
-      const prior = this.store.getSnapshot(request.sessionId).approvals.find(record =>
+      const approvals = this.store.listToolApprovals?.(request.toolCallId) ?? this.store.getSnapshot(request.sessionId).approvals;
+      const prior = approvals.find(record =>
         record.runId === request.runId && record.toolCallId === request.toolCallId);
       if (signal.aborted) throw cancelled();
       if (prior) {
@@ -165,8 +166,13 @@ export class ApprovalManager implements ApprovalPort {
     for (const [id, live] of this.pending) {
       if (live.input.runId === runId) live.cancellation ??= cancelled(id);
     }
-    const records = this.store.getSnapshot(run.sessionId).approvals.filter(record =>
-      record.runId === runId && (record.status === 'pending' || this.pending.has(record.id)));
+    const records = this.store.listPendingRunApprovals
+      ? this.store.listPendingRunApprovals(runId)
+      : this.store.getSnapshot(run.sessionId).approvals.filter(record => record.runId === runId && (record.status === 'pending' || this.pending.has(record.id)));
+    const recordedIds = new Set(records.map(record => record.id));
+    if (this.store.listPendingRunApprovals) for (const [id, live] of this.pending) {
+      if (live.input.runId === runId && !recordedIds.has(id)) records.push(this.store.getApproval(id));
+    }
     let failure: unknown;
     let failed = false;
     for (const record of records) {

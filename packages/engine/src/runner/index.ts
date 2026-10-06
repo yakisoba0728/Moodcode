@@ -218,7 +218,8 @@ export class RunCoordinator implements CoordinatorPort {
       const session = this.options.store.getSession(input.sessionId);
       if (this.unsafeWorkspaces.has(session.workspaceId) || this.workspaceLeases.has(session.workspaceId)) {
         // Preserve durable request identity before refusing new workspace work.
-        const known = this.options.store.getSnapshot(input.sessionId).runs.some((run) => run.requestId === input.requestId);
+        const known = this.options.store.hasRunRequest?.(input.sessionId, input.requestId)
+          ?? this.options.store.getSnapshot(input.sessionId).runs.some((run) => run.requestId === input.requestId);
         if (known) return this.options.store.admit(input);
         if (this.unsafeWorkspaces.has(session.workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace cleanup is unconfirmed; new runs are blocked');
         throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
@@ -295,13 +296,11 @@ export class RunCoordinator implements CoordinatorPort {
       this.options.store.getWorkspace(workspaceId);
       if (this.unsafeWorkspaces.has(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace cleanup is unconfirmed; maintenance is blocked');
       if (this.workspaceLeases.has(workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
-      // Persisted runs can be active without a local owner (for example, another
-      // coordinator admitted one). Inspect every session before registering.
-      for (const session of this.options.store.listSessions(workspaceId)) {
-        if (this.options.store.getSnapshot(session.id).runs.some((run) => !isTerminal(run.state))) {
-          throw new EngineError('WORKSPACE_BUSY', 'An active workspace run prevents maintenance');
-        }
-      }
+      // Persisted runs can be active without a local owner. SQL stores check
+      // the workspace directly; custom legacy stores retain the snapshot path.
+      const active = this.options.store.hasActiveRuns?.(workspaceId)
+        ?? this.options.store.listSessions(workspaceId).some(session => this.options.store.getSnapshot(session.id).runs.some(run => !isTerminal(run.state)));
+      if (active) throw new EngineError('WORKSPACE_BUSY', 'An active workspace run prevents maintenance');
     } catch (error) { return Promise.reject(error); }
     let settled!: () => void;
     const lease: WorkspaceLease = { abort: new AbortController(), done: new Promise<void>((resolve) => { settled = resolve; }) };

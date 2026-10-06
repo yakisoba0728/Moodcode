@@ -390,12 +390,8 @@ export class EngineChildren {
               "CHILD_EXECUTION_UNCERTAIN",
               "Child execution cleanup is unconfirmed",
             );
-          const snapshot = engine.store.getSnapshot(session.id),
-            usage = engine.coordinator.getRunUsage(run.id);
-          const content =
-            snapshot.messages.findLast(
-              (message) => message.role === "assistant",
-            )?.content ?? "";
+          const usage = engine.coordinator.getRunUsage(run.id);
+          const content = engine.store.getLastRunAssistantContent(run.id);
           return {
             state:
               run.state === "completed"
@@ -433,9 +429,7 @@ export class EngineChildren {
     this.tasks.get(sessionId, childTaskId);
     const execution = this.executions.get(childTaskId);
     if (!execution || execution.closed) return [];
-    return execution.engine.store
-      .getSnapshot(execution.sessionId)
-      .approvals.filter((approval) => approval.status === "pending");
+    return execution.engine.store.listPendingRunApprovals(execution.runId);
   }
   /** The engine supplies its private effect-lock identity; callers cannot choose a workspace lease. */
   delegationHost(executionLockPath: string): DelegationHost {

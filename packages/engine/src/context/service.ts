@@ -7,23 +7,29 @@ import { planContext, type ContextPlan } from './plan.js';
 import { InstructionSources, type InstructionObservation, type InstructionSource } from './sources.js';
 import { SemanticMemoryService } from './semantic-memory.js';
 import { projectToolHistory } from './tool-history.js';
+import { projectMediaHistory, validateMediaHistoryPolicy, type MediaHistoryPolicy, type ImageHistoryProvenance, type MediaHistoryDiagnostics } from './media-history.js';
+
+export interface ContextServiceOptions { mediaHistoryPolicy?: MediaHistoryPolicy }
 
 export interface ContextDiagnostics {
   revisionId: string; revision: number; plan: Omit<ContextPlan, 'messages'>;
   instructions: InstructionObservation; omittedDatabaseMessages: number; omittedDatabaseRuns: number;
   activeWindow?: ModelHistoryPage['activeWindow'];
+  mediaHistory?: MediaHistoryDiagnostics & { provenance: ImageHistoryProvenance[] };
 }
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
 /** Produces a persisted, inspectable context only at a coordinator's safe turn boundary. */
 export class ContextService {
   readonly memory: SemanticMemoryService;
-  private readonly sources = new Map<string, InstructionSources>();
+  private readonly sources = new Map<string, { source: InstructionSources; leases: number }>();
   private readonly history = new Map<string, { omittedMessages: number; omittedRuns: number; activeWindow?: ModelHistoryPage['activeWindow'] }>();
   private readonly revisions = new Map<string, string>();
-  constructor(private readonly store: SqliteStore, readonly models = new ModelRegistry(), private readonly outputTokenReserve = 0, private readonly provider?: (id: string) => ProviderAdapter | undefined) {
+  private readonly mediaHistoryPolicy?: Required<MediaHistoryPolicy>;
+  constructor(private readonly store: SqliteStore, readonly models = new ModelRegistry(), private readonly outputTokenReserve = 0, private readonly provider?: (id: string) => ProviderAdapter | undefined, options: ContextServiceOptions = {}) {
     if (!Number.isSafeInteger(outputTokenReserve) || outputTokenReserve < 0 || outputTokenReserve > 100_000_000) throw new EngineError('INVALID_OUTPUT_RESERVE', 'Output token reserve must be a bounded nonnegative integer');
     this.memory = new SemanticMemoryService(store);
+    if (options.mediaHistoryPolicy !== undefined) this.mediaHistoryPolicy = validateMediaHistoryPolicy(options.mediaHistoryPolicy);
   }
   snapshot(sessionId: string, config: RunConfig): SessionSnapshot {
     const page = this.store.readModelHistory(sessionId, 512, Math.max(1024, Math.min(33_554_432, config.limits.maxContextBytes * 4)));
@@ -53,11 +59,16 @@ export class ContextService {
   async build(request: ContextRequest, summaryAttempted = false): Promise<ProviderMessage[]> {
     const sessionId = request.snapshot.session.id;
     const cacheKey = JSON.stringify([request.workspace.id, sessionId]);
-    let sources = this.sources.get(cacheKey);
-    if (!sources) {
-      if (this.sources.size >= 128) throw new EngineError('WORKSPACE_CONTEXT_LIMIT', 'Too many active workspace instruction caches');
+    let cached = this.sources.get(cacheKey);
+    if (!cached) {
+      if (this.sources.size >= 128) {
+        const idle = [...this.sources].find(([, entry]) => entry.leases === 0);
+        if (!idle) throw new EngineError('WORKSPACE_CONTEXT_LIMIT', 'Too many concurrent workspace instruction observations');
+        // Baselines remain in session documents and are owner-validated on reload.
+        this.sources.delete(idle[0]);
+      }
       const key = (id: string) => `instruction.${digest(id).slice(0, 32)}`;
-      sources = new InstructionSources(request.workspace.root, {
+      const source = new InstructionSources(request.workspace.root, {
         loadBaseline: id => this.store.getSessionDocument(sessionId, key(id))?.data.source as unknown as InstructionSource ?? null,
         saveBaseline: source => {
           const previous = this.store.getSessionDocument(sessionId, key(source.id));
@@ -65,12 +76,19 @@ export class ContextService {
           if (prior?.sha256 === source.sha256 && prior?.status === source.status && prior.workspaceRoot === source.workspaceRoot) return;
           this.store.putSessionDocument(sessionId, key(source.id), previous?.revision ?? 0, { source: JSON.parse(JSON.stringify(source)) as JsonObject });
         },
-      }); this.sources.set(cacheKey, sources);
+      }); cached = { source, leases: 0 }; this.sources.set(cacheKey, cached);
+    } else {
+      this.sources.delete(cacheKey); this.sources.set(cacheKey, cached);
     }
-    const observation = await sources.observe(this.relevantPaths(request), request.signal);
+    cached.leases++;
+    let observation: InstructionObservation;
+    try { observation = await cached.source.observe(this.relevantPaths(request), request.signal); }
+    finally { cached.leases--; }
     const model = this.models.get(request.config.providerId, request.config.modelId);
     const remembered = this.memory.project(request);
-    const projected = { ...remembered, snapshot: projectToolHistory(remembered.snapshot, request.run?.id) };
+    const media = this.mediaHistoryPolicy ? projectMediaHistory(remembered.snapshot, { policy: this.mediaHistoryPolicy, ...(request.run ? { activeRunId: request.run.id } : {}) }, request.signal) : undefined;
+    const projected = { ...remembered, snapshot: projectToolHistory(media?.snapshot ?? remembered.snapshot, request.run?.id),
+      ...(media ? { requiredHistoryMessageIds: [...media.requiredTextMessageIds, ...media.requiredExchangeMessageIds], ...(media.requiredNotice ? { mediaHistoryNotice: media.requiredNotice } : {}) } : {}) };
     const plan = await planContext({ ...projected, instructionSources: observation.sources }, { model, outputTokens: this.outputTokenReserve });
     const provider = this.provider?.(request.config.providerId);
     const selectedIds = new Set(plan.selectedMessageIds);
@@ -84,7 +102,8 @@ export class ContextService {
     }
     if (request.signal.aborted) throw new EngineError('CANCELLED', 'Context construction was cancelled');
     const previous = this.store.getSessionDocument(sessionId, 'context.head');
-    const sourceIds = [...plan.selectedMessageIds, ...observation.sources.filter(source => source.sha256 !== null).map(source => `${source.id}:${source.sha256}`)];
+    const sourceIds = [...plan.selectedMessageIds, ...observation.sources.filter(source => source.sha256 !== null).map(source => `${source.id}:${source.sha256}`),
+      ...(media ? [`image-policy:${media.diagnostics.policySha256}`, `image-source:${media.diagnostics.sourceSha256}`, ...media.provenance.map(item => `image-message:${item.messageId}:${digest(item)}`)] : [])];
     const bindingHash = digest({ plan: plan.sha256, sources: sourceIds, config: request.config, model: { ...model, source: { kind: model.source.kind, reference: model.source.reference } } });
     const old = previous?.data;
     const oldRevisionId = typeof old?.revisionId === 'string' ? old.revisionId : undefined;
@@ -103,6 +122,7 @@ export class ContextService {
     const diagnostics: ContextDiagnostics = { revisionId, revision, plan: publicPlan,
       instructions: { ...observation, sources: observation.sources.map(source => ({ ...source, text: null })) },
       ...(this.history.get(sessionId)?.activeWindow ? { activeWindow: this.history.get(sessionId)!.activeWindow } : {}),
+      ...(media ? { mediaHistory: { ...media.diagnostics, provenance: media.provenance } } : {}),
       omittedDatabaseMessages: this.history.get(sessionId)?.omittedMessages ?? 0, omittedDatabaseRuns: this.history.get(sessionId)?.omittedRuns ?? 0 };
     const data = { revisionId, contextRevision: revision, bindingHash, diagnostics: JSON.parse(JSON.stringify(diagnostics)) as JsonObject };
     if (pendingRevision && request.run) this.store.commitContextDocument(request.run.id, 'context.revision.activated', { contextRevisionId: revisionId, revision, sha256: pendingRevision.sha256 }, { revision: pendingRevision, kind: 'context.head', expectedRevision: previous?.revision ?? 0, data });

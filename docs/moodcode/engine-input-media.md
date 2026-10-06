@@ -38,7 +38,7 @@ provider 공용 projection은 user role의 attachment만 허용하고 각 ref와
 | Adapter | 이미지 입력 형태 | 출력 media |
 | --- | --- | --- |
 | Responses | user `input_image` + MIME data URL | 미지원 |
-| Codex | 고정 host endpoint를 유지한 Responses delegate | 미지원; 실제 계정 이미지 실행 미검증 |
+| Codex | 고정 host endpoint를 유지한 Responses delegate | 미지원; 현재 로컬 계정의 red PNG 입력은 실제 검증 |
 | Chat Completions compatible | user `image_url.url` + MIME data URL | 미지원 |
 | Anthropic Messages | user image/base64 source | 미지원 |
 | Scripted | `PROVIDER_UNSUPPORTED_INPUT` | 실제 이미지 처리 없음 |
@@ -47,4 +47,6 @@ provider 공용 projection은 user role의 attachment만 허용하고 각 ref와
 
 archive는 artifactDir 전체를 opaque regular-file tree로 캡처하므로 `artifactDir/input-media` 배치를 사용한다. SQLite session document와 media blob이 같이 복원된다. `stateDirectory/input-media`처럼 artifacts의 sibling에 놓으면 현재 archive에서 빠진다. restore가 session/workspace identity 또는 root를 바꾸면 owner rebinding을 검증한 별도 migration이 필요하고 기존 document를 임의로 재소유할 수 없다. artifact prune는 UUID artifact directory만 대상으로 하므로 input-media tree를 지우지 않는다.
 
-검증은 macOS arm64/Node 26의 실제 SQLite·filesystem fixture와 synthetic/mock HTTP로 수행했다. 새 store 24개/provider 31개 및 기존 5 provider 회귀를 포함한 source 346개가 통과했다. 이미지 파일의 실제 모델 인식, 외부 계정, production Codex credential, Linux/Windows 실행은 검증하지 않았다. [조사 근거](research/2026-10-07-media.md)와 `media/store.test.ts`, `media/provider.test.ts`가 재현 가능한 근거다.
+초기 store/provider 검증은 macOS arm64/Node 26의 실제 SQLite·filesystem fixture와 synthetic/mock HTTP로 수행했다. 새 store 24개/provider 31개 및 기존 5 provider 회귀를 포함한 source 346개가 통과했다. 이후 engine wiring과 현재 로컬 Codex 계정의 `gpt-6.1-sol` red PNG 인식을 별도로 확인했다. 상세 실행과 한계는 [최신 goal 검증](engine-goal-verification.md)을 따른다. 실제 Anthropic·다른 모델·Linux/Windows의 이미지 동작을 검증한 결과는 아니다. [조사 근거](research/2026-10-07-media.md)와 `media/store.test.ts`, `media/provider.test.ts`가 재현 가능한 근거다.
+
+`EngineOptions.mediaHistoryPolicy = {kind:'reference-only-older-images',version:1}`를 명시하면 가장 최근 이미지 메시지의 픽셀만 필수로 보존하고 오래된 메시지의 픽셀 전송을 생략한다. 원본 DB 메시지·이미지 참조·사용자 문장·opaque replay를 변경하지 않는다. 요청에는 원본 ID/hash/refs와 픽셀 생략 범위를 담은 별도 quoted assistant notice를 필수로 넣는다. 필수 goal/latest steer/complete exchange와 notice가 함께 한도에 들어가지 않으면 부분 활성화하지 않고 실패한다. 정책 부재는 기존 이미지 이력을 유지하며 occurrence 한도를 그대로 적용한다. text-only summary의 `SUMMARY_IMAGE_SOURCE_UNSUPPORTED`도 유지된다. [정책과 active-prefix 후속 경계](research/2026-10-07-media-history-plan.md)를 따른다.

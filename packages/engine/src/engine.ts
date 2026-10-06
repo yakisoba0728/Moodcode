@@ -50,6 +50,11 @@ import { ImageAttachmentStore } from './media/index.js';
 import { providerImages } from './media/provider.js';
 import type { InputImageAttachment } from '@moodcode/contracts';
 import { createDelegateTaskTool } from './child-tasks/delegation.js';
+import { validateMediaHistoryPolicy, type MediaHistoryPolicy } from './context/media-history.js';
+import { inspectEngineStorage, type StorageUsageReport, type StorageUsageLimits } from './diagnostics/storage-usage.js';
+
+export interface EngineStorageUsageOptions { signal?: AbortSignal; limits?: Partial<StorageUsageLimits> }
+export type EngineStorageUsageReport = StorageUsageReport;
 
 export type RestoreCommandResult = RestoreResult & {
   operationId: string;
@@ -79,6 +84,8 @@ export interface EngineOptions {
   toolPolicyInstance?: ToolPolicy;
   modelSpecs?: readonly ModelSpec[];
   outputTokenReserve?: number;
+  /** Explicit host policy; original transcript and image references remain durable. */
+  mediaHistoryPolicy?: MediaHistoryPolicy;
   agentProfiles?: readonly AgentProfileSpec[];
   allowedToolNames?: readonly string[];
   ptyBackend?: PtyBackend;
@@ -141,6 +148,8 @@ export class MoodcodeEngine {
   readonly context: ContextService;
   private readonly images: ImageAttachmentStore;
   private readonly pendingImages = new Set<Promise<unknown>>();
+  private readonly pendingStorage = new Set<Promise<unknown>>();
+  private readonly storagePaths: { artifactDir: string; dbPath?: string };
   private readonly validateImageInput: (sessionId: string, config: RunConfig, refs: InputImageAttachment[]) => Promise<void>;
   private readonly managedArtifacts: () => Promise<ArtifactStore>;
   readonly plugins: EnginePluginManager;
@@ -173,6 +182,7 @@ export class MoodcodeEngine {
       throw new EngineError('INVALID_CONFIG', 'dbPath must be a non-empty string');
     }
     this.defaults = normalizeSubmitInput({ sessionId: 'defaults', requestId: 'defaults', prompt: 'defaults', config: options.defaults ?? {} }).config;
+    const mediaHistoryPolicy = options.mediaHistoryPolicy === undefined ? undefined : validateMediaHistoryPolicy(options.mediaHistoryPolicy);
     const dbPath = options.dbPath === ':memory:' ? options.dbPath : resolve(options.dbPath);
     const artifactDir = options.artifactDir !== undefined ? resolve(options.artifactDir)
       : dbPath === ':memory:' ? mkdtempSync(join(tmpdir(), 'moodcode-memory-artifacts-')) : resolve(`${options.dbPath}.artifacts`);
@@ -183,6 +193,7 @@ export class MoodcodeEngine {
     let terminalJournal: SqliteTerminalJournal | undefined;
     try {
       const canonicalDbPath = dbPath === ':memory:' ? undefined : realpathSync(dbPath);
+      this.storagePaths = { artifactDir: realpathSync(artifactDir), ...(canonicalDbPath ? { dbPath: canonicalDbPath } : {}) };
       this.executionLockPath = canonicalDbPath === undefined ? resolve(artifactDir, 'effects.sqlite') : `${canonicalDbPath}.effects.sqlite`;
       verifyExecutionIdle(this.executionLockPath);
       reviewJournal = new ReviewJournal(canonicalDbPath === undefined ? resolve(artifactDir, 'review.sqlite') : `${canonicalDbPath}.review.sqlite`);
@@ -195,7 +206,7 @@ export class MoodcodeEngine {
       this.lsp = new LspManager();
       this.formatters = new FormatterRegistry();
       this.changes = new WorkspaceChangeHub({ signal: this.hostResources.signal });
-      this.children = new EngineChildren(this, options, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value));
+      this.children = new EngineChildren(this, { ...options, ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value));
       terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
@@ -220,7 +231,7 @@ export class MoodcodeEngine {
         if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
       };
       for (const [id, provider] of providers) providers.set(id, withImageInputs(provider, this.images, this.store, models));
-      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id));
+      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}) });
       const availableTools = options.tools ?? [...createReadTools(), createPatchTool(), createCommandTool(), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
@@ -678,6 +689,18 @@ export class MoodcodeEngine {
     return this.store.backup(destination, options);
   }
 
+  /** Explicit host observation. Never scans files as a side effect of a model turn. */
+  async getStorageUsage(options: EngineStorageUsageOptions = {}): Promise<EngineStorageUsageReport> {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    if (!options || typeof options !== 'object' || Array.isArray(options) || Object.keys(options).some(key => !['signal', 'limits'].includes(key))) throw new EngineError('INVALID_STORAGE_USAGE_OPTIONS', 'Storage inspection accepts only signal and bounded limits');
+    if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new EngineError('INVALID_STORAGE_USAGE_OPTIONS', 'Storage inspection requires an AbortSignal');
+    const signal = options.signal === undefined ? this.hostResources.signal : AbortSignal.any([options.signal, this.hostResources.signal]);
+    const imageIndex = this.store.inspectInputImageIndex({ signal });
+    const operation = inspectEngineStorage({ ...this.storagePaths, signal, ...(options.limits === undefined ? {} : { limits: options.limits }), imageIndex });
+    this.pendingStorage.add(operation);
+    try { return await operation; } finally { this.pendingStorage.delete(operation); }
+  }
+
   importImage(sessionId: string, data: Uint8Array, mimeType: InputImageAttachment['mimeType'], signal?: AbortSignal): Promise<InputImageAttachment> {
     if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
     const operation = this.images.import(sessionId, data, mimeType, signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal);
@@ -697,7 +720,7 @@ export class MoodcodeEngine {
         this.hostResources.abort();
         this.questions.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingImages].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }

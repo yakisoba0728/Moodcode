@@ -9,12 +9,15 @@ export interface EngineStore {
   listSessions(workspaceId: string): Session[];
   admit(input: SubmitInput): RunReceipt;
   getRun(id: string): Run;
+  hasRunRequest?(sessionId: string, requestId: string): boolean;
   hasActiveRuns?(workspaceId: string, excludedRunId?: string): boolean;
   commit(runId: string, type: string, payload: JsonObject, change?: CommitChange): EngineEvent;
   getSnapshot(sessionId: string): SessionSnapshot;
   readEvents(sessionId: string, afterSeq: number, limit?: number): EngineEvent[];
   subscribe(sessionId: string, afterSeq: number, signal?: AbortSignal): AsyncIterable<EngineEvent>;
   getApproval(id: string): ApprovalRecord;
+  listToolApprovals?(toolCallId: string): ApprovalRecord[];
+  listPendingRunApprovals?(runId: string, limit?: number): ApprovalRecord[];
   listCheckpoints(runId: string): Checkpoint[];
   recoverInterrupted(): Run[];
   close(): void;
@@ -61,7 +64,7 @@ export type ToolEffectClass = 'read' | 'state' | 'write' | 'execute' | 'network'
 export interface ToolDefinition extends ProviderTool { effectClass?: ToolEffectClass; prepare(input: unknown, context: ToolContext): Promise<PreparedTool>; execute(prepared: PreparedTool, context: ToolContext): Promise<ToolResult> }
 export interface ApprovalRequest { sessionId: string; runId: string; toolCallId: string; toolName: string; fingerprint: string; preview: JsonObject }
 export interface ApprovalPort { request(input: ApprovalRequest, signal: AbortSignal): Promise<ApprovalRecord>; decide(id: string, decision: 'allow' | 'deny', fingerprint: string): ApprovalRecord; cancelRun(runId: string): void }
-export interface ContextRequest { workspace: Workspace; snapshot: SessionSnapshot; config: RunConfig; signal: AbortSignal; reservedBytes?: number; instructionSources?: import('./context/sources.js').InstructionSource[]; run?: Run; budget?: import('./config/budgets.js').BudgetAccount; semanticMemory?: ProviderMessage; agentInstructions?: string; consumeSummaryOutput?: (bytes: number) => void }
+export interface ContextRequest { workspace: Workspace; snapshot: SessionSnapshot; config: RunConfig; signal: AbortSignal; reservedBytes?: number; instructionSources?: import('./context/sources.js').InstructionSource[]; run?: Run; budget?: import('./config/budgets.js').BudgetAccount; semanticMemory?: ProviderMessage; agentInstructions?: string; consumeSummaryOutput?: (bytes: number) => void; mediaHistoryNotice?: ProviderMessage; requiredHistoryMessageIds?: readonly string[] }
 export interface ToolCheckpointObservation { workspace: Workspace; run: Run; toolCallId: string; turnId?: string; attemptId?: string; checkpoints: readonly Checkpoint[]; signal: AbortSignal }
 export interface ChildRunReservation { signal: AbortSignal; remainingBudget: import('./child-tasks/index.js').ChildBudget; allocation: import('./child-tasks/index.js').ChildBudget }
 export interface RunUsage { turns: number; toolCalls: number; outputBytes: number }

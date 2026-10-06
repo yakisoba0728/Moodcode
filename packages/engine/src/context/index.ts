@@ -365,6 +365,11 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
     for (const item of [users[0], users.at(-1), latestExchange, current.at(-1)]) if (item) selected.add(item);
     if (!selected.size && blocks.length) selected.add(blocks.at(-1)!);
   } else for (const item of blocks.slice(requiredStart)) selected.add(item);
+  for (const id of request.requiredHistoryMessageIds ?? []) {
+    const item = blocks.find(candidate => candidate.sources.some(source => source.message.id === id));
+    if (!item) throw new EngineError('IMAGE_HISTORY_INVALID_ANCHOR', 'Required image history text or complete exchange is unavailable');
+    selected.add(item);
+  }
   // A text projection cannot stand in for omitted pixels. Keep selected history's
   // image-bearing blocks whole until an explicit media compaction policy exists.
   const imageBlocks = blocks.filter(item => item.messages.some(message => message.attachments?.length));
@@ -375,6 +380,15 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
     throw new EngineError(imageBlocks.length ? 'IMAGE_CONTEXT_LIMIT' : 'CONTEXT_LIMIT', 'Required user anchors and complete exchanges exceed the available context budget.', {
       requiredBytes: arrayBytes(cost, count), maxContextBytes, reservedBytes, availableContextBytes: limit,
     });
+  }
+  const mediaNotice = request.mediaHistoryNotice;
+  if (mediaNotice) {
+    if (mediaNotice.role !== 'assistant' || typeof mediaNotice.content !== 'string' || mediaNotice.toolCalls !== undefined
+      || mediaNotice.toolCallId !== undefined || mediaNotice.attachments !== undefined || mediaNotice.providerReplay !== undefined
+      || arrayBytes(cost + entryCost(mediaNotice), count + 1) > limit) {
+      throw new EngineError('IMAGE_HISTORY_METADATA_LIMIT', 'Required image history provenance cannot fit beside the current exchange');
+    }
+    cost += entryCost(mediaNotice); count++;
   }
   const instructions = await readInstructions(request);
   checkAbort(request.signal);
@@ -428,5 +442,5 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
   }
   checkAbort(request.signal);
   const messages = blocks.filter(item => selected.has(item)).flatMap((item) => item.messages);
-  return [...(system ? [system] : []), ...(profile ? [profile] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...messages];
+  return [...(system ? [system] : []), ...(profile ? [profile] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...(mediaNotice ? [mediaNotice] : []), ...messages];
 }
