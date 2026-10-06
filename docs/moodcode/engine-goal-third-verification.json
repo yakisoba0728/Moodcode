@@ -1,0 +1,290 @@
+{
+  "schemaVersion": 3,
+  "implementationCommit": "04031cb38fb6d98d292ee93ade1240a04c63b10e",
+  "timestamp": "2026-10-06T21:56:50.996734+00:00",
+  "runtime": {
+    "node": "26.9.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "scope": "headless-engine-goal-checkpoint-3",
+  "checks": {
+    "typecheck": {
+      "passed": true,
+      "command": "npm run typecheck",
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    "engine": {
+      "command": "npm run test:engine",
+      "tests": 1777,
+      "passed": 1775,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "durationMs": 35640.412292,
+      "logSha256": "0f9d17fa4a44ede4cefc1e3ae0d9ab8272accd8a6da6f7712bd5716ca2a6e6d9"
+    },
+    "evaluation": [
+      {
+        "taskId": "addition-bug",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "math.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13146,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 241
+      },
+      {
+        "taskId": "empty-list-boundary",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "average.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13228,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 231
+      },
+      {
+        "taskId": "two-module-change",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "greet.mjs",
+          "strings.mjs"
+        ],
+        "toolCalls": 4,
+        "providerAttempts": 5,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 14044,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 4
+          }
+        },
+        "durationMs": 249
+      }
+    ],
+    "activePrefixLive": {
+      "kind": "active-prefix-hybrid-live",
+      "implementationCommit": "04031cb38fb6d98d292ee93ade1240a04c63b10e",
+      "timestamp": "2026-10-06T21:55:17.557Z",
+      "providerId": "codex",
+      "modelId": "gpt-6.1-sol",
+      "runtime": {
+        "node": "26.9.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "scope": {
+        "fixtureDirectedLocalReadTurns": 20,
+        "requestedRealSummaries": 1,
+        "requestedRealFinalAnswers": 1,
+        "autonomousCodingStrategyVerified": false
+      },
+      "actualRequests": [
+        {
+          "purpose": "active-prefix-summary",
+          "sourceMessageCount": 4,
+          "factsSha256": "c24d8ee8935bbdb863b8811f13b15665b9a908e9257bb43c60946c9b0df125cd",
+          "observedIdentifierInQuotedToolFacts": true,
+          "requestBytes": 7642,
+          "finalUsage": {
+            "type": "usage",
+            "inputTokens": 1988,
+            "outputTokens": 187
+          }
+        },
+        {
+          "purpose": "final-answer",
+          "memoryContainsObservedIdentifier": true,
+          "rawIdentifierSourceInMessages": false,
+          "finalUsage": {
+            "type": "usage",
+            "inputTokens": 2689,
+            "outputTokens": 21,
+            "cachedInputTokens": 0,
+            "reasoningOutputTokens": 0
+          }
+        }
+      ],
+      "passed": true,
+      "cleanupConfirmed": true,
+      "run": {
+        "state": "completed",
+        "error": null
+      },
+      "memory": {
+        "nonceMatch": true,
+        "nonceSha256": "2ea136cf79795e68869386d679c0856e6d0a91a681bc0c5f1f27b2a2145c2998",
+        "originalToolResultStillStored": true,
+        "rawSourceSelected": false,
+        "coveredMessageCount": 4,
+        "factsSha256": "c24d8ee8935bbdb863b8811f13b15665b9a908e9257bb43c60946c9b0df125cd",
+        "manifestSha256": "66d2bc1bd55f4930c309d525101e4e58979f8b35b00d50aa56d992eb4bfa8658",
+        "fullSnapshotReads": 0,
+        "currentFileEvidence": false,
+        "contextBytes": 14754,
+        "contextByteLimit": 16384
+      },
+      "runUsage": {
+        "turns": 21,
+        "toolCalls": 20,
+        "outputBytes": 28704
+      },
+      "regularAttemptUsage": {
+        "samples": 1,
+        "inputTokens": {
+          "tokens": 2689,
+          "observed": 1,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "outputTokens": {
+          "tokens": 21,
+          "observed": 1,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "cachedInputTokens": {
+          "tokens": 0,
+          "observed": 1,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "reasoningOutputTokens": {
+          "tokens": 0,
+          "observed": 1,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "aggregation": "latest-snapshot-per-durable-attempt",
+        "inclusiveTotals": true,
+        "attemptsWithUsage": 1,
+        "attemptsWithoutUsage": 20,
+        "source": "all-attempt_usage-records-in-scope",
+        "billedTokens": null
+      },
+      "summaryUsage": {
+        "inputTokens": 1988,
+        "outputTokens": 187,
+        "cachedInputTokens": null,
+        "reasoningOutputTokens": null
+      },
+      "summaryUsageIncludedInRegularAttemptTotals": false
+    }
+  },
+  "independentReview": {
+    "activePrefixServiceTests": 14,
+    "activePrefixStorageTests": 17,
+    "actualPrefixIntegrationTests": 16,
+    "actualLatestImageAnchorTests": 2,
+    "requiredMemoryBudgetTests": 2,
+    "sourceAndCompiledIntegrationPassed": true,
+    "focus": [
+      "exact complete text/tool facts and negative outcomes",
+      "owner/source/immutable metadata binding",
+      "two-revision/two-document/v1-v2 journal atomic publication",
+      "initial required suffix overflow recovery",
+      "steer admission/CAS/cancel/close/overflow proof",
+      "shared observed output consumption",
+      "bounded raw SQL payload preflight",
+      "latest active Run image anchor and media-policy union"
+    ]
+  },
+  "initialGateFailure": {
+    "command": "npm run test:engine",
+    "tests": 1775,
+    "passed": 1772,
+    "failed": 1,
+    "cancelled": 0,
+    "skipped": 2,
+    "durationMs": 41768.506834,
+    "logSha256": "7e3d9df633b0fed5192352adfa5279d370d1dc8ceac6c7237d50c88e3ce0dcfe",
+    "test": "pre-abort does not launch Git and in-flight abort terminates it",
+    "observedFailure": "Fixture process 0 survived cleanup",
+    "cause": "A newly created but still empty readiness marker was accepted as a PID; Number(empty string) is zero.",
+    "fix": "Wait for a nonempty published marker, validate positive PID before cleanup checks, and add a created-empty-marker regression. Final full gate includes the frozen latest overflow-steer fixture too."
+  },
+  "previousCheckpoints": [
+    {
+      "implementationCommit": "59d1f42716452e104ec526e031263b528b36078b",
+      "report": "engine-goal-second-verification.json"
+    },
+    {
+      "implementationCommit": "64435d705ea6e68d7e3502d64d4fd1f2976004ae",
+      "report": "engine-goal-first-verification.json"
+    }
+  ],
+  "limits": {
+    "guiLaunched": false,
+    "published": false,
+    "newCredentialsCreated": false,
+    "activePrefixHostOptIn": true,
+    "factsProjection": "text-and-complete-tool-observations-v1",
+    "opaqueReplayAndPixelsInSummarySource": false,
+    "currentFileEvidence": false,
+    "summaryUsageIncludedInRegularAttemptTotals": false,
+    "summaryCrashTypedLifecycle": "not-implemented; existing Run recovery prevents activation/retry",
+    "imageTokenCost": null,
+    "billedTokens": null,
+    "sourceMetadataMaxMessages": 1024,
+    "sourceMetadataMaxTurns": 1024,
+    "pendingSteerManifestMaxIds": 64,
+    "sqlPreflightScope": "bounded JavaScript returned metadata/payload, not physical SQLite I/O",
+    "historicalLatestImageOutsideActiveRunProtected": false,
+    "windowsNativeBackendVerified": false,
+    "realAnthropicVerified": false,
+    "otherMediaFormatsAndOutputVerified": false,
+    "hostedCIExecuted": false,
+    "gitRemoteConfigured": false,
+    "node24HostVerified": false
+  }
+}

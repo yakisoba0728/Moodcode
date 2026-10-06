@@ -30,4 +30,10 @@ Windows native Job backend, 다른 OS 호스트, 최초 hosted CI, 실제 Anthro
 
 `04031cb`에서 G1-09b의 exact active Run text/tool observations·whole exchange chunk·protected holes·두 문서/revision 원자 activation을 연결했다. 일반 의미 요약의 준비 시점 CAS, 관측 delta의 공유 출력 회계, 요약 중 steer가 도착할 때의 제한된 재계획, underlying iterator cleanup이 없는 retry 거부와 최신 active image SQL anchor도 수정했다. 전체 1,775 pass·실패 0, fixture 3/3, 실제 Codex summary 1회와 최종 답변 1회가 도구 원문이 빠진 임의 값을 기억에서 정확히 회수했다. 20번 읽기는 fixture-directed이며 모델의 자율 코딩 전략 검증으로 확대하지 않는다.
 
-다음 로컬 작업은 G1-13 별도 summary attempt의 durable 수명·latest usage·crash/close 복구와 G1-14 여러 Run의 최신 이미지 보존 경계다. 현재 primary Run recovery가 미공개 요약의 자동 활성화/재시도를 막지만 전용 summary interrupted/uncertain record는 없다. 일반 Attempt usage와 summary usage가 아직 합쳐지지 않은 제한을 그대로 기록한다. 실제 다른 provider/OS/hosted CI와 GUI 노출은 해당 환경이 준비됐다고 간주하지 않는다.
+이 시점에 남겼던 G1-13/14는 아래 네 번째 검토 지점에서 구현했다. 실제 다른 provider/OS/hosted CI와 GUI 노출은 해당 환경이 준비됐다고 간주하지 않는다.
+
+## 네 번째 검토 지점
+
+`ede1519`에서 DB4 summary lifecycle·최신 nullable usage·원자 publication, 부분 출력·cancel/close·세 단계 실제 crash·archive를 연결했다. session-wide 최신 image SQL anchor·semantic cutoff 복원과 실제 text Run의 pixel 전송을 확인했다. 독립 리뷰의 image wrapper cleanup 오인, return.done=false retry, orphan summary 뒤 maintenance-first·다른 session resume 경계도 수정했다. 전체 1,848 pass·실패 0·Windows 조건 2 skip, 코딩 fixture 3/3이다. 실제 Codex summary+answer 2회와 image+재시작 text Run 2회가 같은 커밋에서 성공했다. [기계 판독 결과](engine-goal-verification.json)를 따른다.
+
+다음 로컬 작업은 G1-15 summary의 반복 retained-text 읽기·uncertainty SQL hotpath 최적화와 G1-16 명시적인 host recovery 결정 계약이다. 현재 미확인 요약의 workspace 격리를 자동 해제하지 않으며 원래 요청의 재실행·activation도 허용하지 않는다. 외부 OS/provider/CI 한계와 GUI 제외를 유지하면서 goal을 계속 진행한다.

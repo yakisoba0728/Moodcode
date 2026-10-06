@@ -72,7 +72,11 @@ archive import는 관리 worktree 경로를 복원 tree의 역사 기록으로 �
 
 host는 `importImage`에서 받은 refs를 v1 `run.submit` 또는 v2 `input.accept`의 `attachments`에 전달한다. command에는 URL·파일 경로·base64를 넣지 않는다. 실제 bytes는 `artifactDir/input-media`에 보관하고, inbox/message/context revision에는 refs만 저장한다. dispatch 직전에 session/run 소유권·hash·bytes를 다시 검사한 뒤 Responses/Codex/Anthropic/ChatCompletions payload로 변환한다. exact retry 조회는 기존 receipt를 우선하며 새로운 요청은 media를 검증한다. [미디어 한도와 encoding](engine-input-media.md)을 따른다.
 
-DB3의 `attempt_usage`는 attempt당 최신 관측 snapshot을 보존한다. session diagnostics의 `attemptUsage`와 기존 v1 `providerUsage` event sum은 별도 지표다. active Run은 초기 목표·최근 user/steer·최근 완전한 exchange를 필수로 유지하고 나머지 group을 모델 byte 한도 안에서 선택한다. DB omission과 provider projection omission을 각각 표시한다. 이미지가 있는 snapshot block은 text-only 요약으로 대체하지 않으며 보존할 수 없으면 명시적 오류를 반환한다. 이미지 token 비용과 DB 밖 이미지 이력은 미확인 범위다.
+DB4는 기존 DB3 `attempt_usage`에 별도 `summary_attempts`/`summary_usage`를 추가한다. 일반 `attemptUsage`, 요약 `summaryAttemptUsage`, 기존 v1 `providerUsage` event sum과 최근 journal `summary`는 별도 지표다. 사용량 누락은 null이며 과금량은 알 수 없다. active Run은 초기 목표·최근 user/steer·최근 완전한 exchange를 필수로 유지하고 나머지 group을 모델 byte 한도 안에서 선택한다. DB omission과 provider projection omission을 각각 표시한다.
+
+세션의 최신 image user는 이전 Run에 있어도 indexed header→exact message/Run owner를 bounded SQL로 조회해 필수로 보존한다. 완료 이력 memory의 cutoff 위로 원문 user와 refs를 복원하며 이미지가 없어진 새 text Run도 같은 pixels를 전송한다. 필수 이미지·현재 입력·complete exchange가 count/byte cap에 들어가지 않으면 typed failure를 반환한다. `ContextDiagnostics.sessionImageAnchor`는 세션 이미지 owner를, `activeWindow`는 현재 Run의 선택 범위만 표시한다. 최종 전체 snapshot/context의 hard cap을 따로 검사한다. 이미지 token 비용은 미확인 범위다.
+
+host의 `getSummaryAttempt(sessionId, summaryAttemptId)`와 `getSummaryUsage(sessionId, summaryAttemptId)`는 payload를 읽기 전에 지정 session owner를 확인한다. `listSummaryAttempts(sessionId, {afterId?, runId?, limit?})`는 최대 100개·1MiB 반환 JSON을 제한하고 `{attempts, nextCursor}`를 반환한다. usage 행이 없는 요청은 null을 반환한다. 기록은 별도 요약 요청이며 일반 model Attempt 조회 API와 섞지 않는다. unresolved 요약은 재시작 뒤 새 Run·workspace maintenance·같은 workspace의 resume를 차단한다. 기존 exact request retry 조회는 유지한다. [요약 저장·복구 명세](engine-summary-attempts.md)를 따른다. 신규 summary 조회와 이미지 진단을 GUI에 노출했다고 간주하지 않는다.
 
 ## LSP·formatter·변경 관찰
 

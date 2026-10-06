@@ -1,6 +1,47 @@
 # 지속 개선 최신 검증
 
-2026-10-07, macOS arm64 / Node 26.9.0. 세 번째 구현 commit은 `04031cb38fb6d98d292ee93ade1240a04c63b10e`다. [기계 판독 결과](engine-goal-verification.json), [active-prefix 명세](engine-active-prefix.md), [TODO](../../TODO.md)를 함께 확인한다. GUI와 Electron 앱을 실행하지 않았다.
+2026-10-07, macOS arm64 / Node 26.9.0. 네 번째 구현 commit은 `ede15196edc16f63ee8c4183f628c50d6745df2d`다. [기계 판독 결과](engine-goal-verification.json), [요약 수명 명세](engine-summary-attempts.md), [host API](engine-host-api.md), [TODO](../../TODO.md)를 함께 확인한다. GUI·Electron 앱을 실행하지 않았다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 전체 TypeScript build/typecheck | 성공 |
+| 전체 headless engine gate | 1,850 tests / 1,848 pass / 0 fail / 0 cancelled / Windows 조건 2 skip |
+| coding fixture 평가 | 3/3, expected diff·검사·범위 보존 |
+| 실제 요약 엔진 경계 | 19개 lifecycle, 8개 quarantine, 8개 provider cleanup, 두 scope 서비스·storage·metrics fixture 통과 |
+| 실제 세션 이미지 경계 | storage 10개·actual engine 5개, 재시작/40턴/cutoff/unsupported/cap·full snapshot 0 |
+| 커밋 후 실제 Codex | 요약+답변 2회, 이미지+재시작 text Run 2회 성공·종료/임시 파일 정리 확인 |
+
+`npm run typecheck`, `npm run test:engine`, `node scripts/evaluate-engine.mjs`를 실행했다. 같은 커밋에서 `node scripts/verify-active-prefix.mjs --live`, `node scripts/verify-session-image.mjs --live`를 기존 로컬 Codex 인증으로 검증했다. 새 인증·외부 발행·GUI 실행은 수행하지 않았다.
+
+## 네 번째 구현과 독립 검토
+
+- **별도 요약 기록**: DB4의 typed summary attempt와 latest nullable usage를 두 요약 서비스에 연결했다. prepared/dispatch/streaming, 정상 stop+iterator 완료·확인된 cleanup, publication 대기, 실패/interrupted/uncertain을 나눈다. summary를 ordinary Turn/Attempt로 만들지 않는다. source/owner/CAS/revision metadata를 비교하고 실제 checkpoint·pointer 활성화 트랜잭션 안에서만 completed로 바꾼다.
+- **실패·재시작**: 64KiB retention cap, UTF-8 잘림·surrogate split, 공유 output/summary allowance, partial usage 회귀, native/v1 journal fault와 양 pointer/revision rollback을 확인했다. prepared/dispatched/provider-completed unpublished 세 단계 실제 강제 종료 뒤 자동 retry·activation은 0이다. terminal Run의 미확인 요약도 정산하고 같은 workspace의 새 Run·첫 maintenance·다른 session resume를 차단한다. 기존 exact request 조회와 정상 workspace의 active Run pause/resume를 유지한다.
+- **사용량·조회**: host의 session-bound get/list, owner-before-payload·최대 100개/1MiB page와 record cap을 연결했다. metrics schema 3은 전체 typed summary 합계와 recent legacy event window, ordinary Attempt 합계를 구분한다. synthetic SQL fixture의 typed 2,101개와 recent 2,000개 event window를 따로 검증했으며 2,101번 실제 모델 호출을 뜻하지 않는다.
+- **이미지**: session-wide partial index로 최신 이미지 header 하나를 찾고 exact user·origin Run을 count/byte budget 안에 예약한다. 완료된 memory cutoff 위로 raw user와 refs를 복원한다. 새 text Run·40번 완전 tool turn·재시작·cap·잘못된 owner/reference/ordinal·지원하지 않는 provider를 검증했다. 원본 pixels/replay/refs는 수정하거나 삭제하지 않는다.
+- **추가 재현 결함 수정**: 이미지 async-generator 래퍼가 inner next 실패 뒤 cleanup 성공을 잘못 전달하던 경계를 transparent iterator로 바꿨다. 일반 provider executor도 return Promise 성공만 보던 오류를 고쳐 `done === true`를 요구한다. `done:false`인 HTTP retry와 overflow recovery는 새 dispatch 없이 uncertain으로 종료한다. 두 가지 orphan quarantine 순서 문제도 실제 fixture로 재현·수정했다.
+
+첫 전체 gate부터 실패 0이다. source focused 중 legacy Input.id와 초기 Message.id를 혼동한 이미지 fixture, 고정 DB3 migration 기대값과 native event page cap을 수정했다. 오류를 실제 production 결함과 구분해 JSON에 기록했다.
+
+## 커밋 후 실제 모델 확인
+
+`gpt-6.1-sol`에서 20번 fixture-directed local read 뒤 실제 요약 한 번·최종 답변 한 번을 실행했다. 원본 도구 메시지가 provider context에서 빠진 임의 32자리 값을 memory에서 정확히 회수했다. 요약 요청은 7,642 bytes, typed receipt는 completed/activated, partial text 790 bytes·truncation false, source와 summary revision binding·cleanup 기록이 일치했다. 최종 context는 14,754/16,384 bytes이고 전체 snapshot 조회는 0회였다. 이는 모델이 20턴 코딩 전략을 자율 선택한 평가가 아니다.
+
+요약 input 2,040/output 188은 별도 durable summary 합계에, 최종 일반 Attempt input 2,695/output 24는 ordinary 합계에 기록했다. 요약 cached/reasoning 값과 20개 fixture-directed Attempt의 usage 누락을 0으로 채우지 않았다. 과금 합계는 unknown이다.
+
+이미지 live는 첫 Run에서 실제 64×64 red PNG를 보내되 답변은 `READY`만 요청했다. 엔진을 닫고 같은 DB를 다시 연 뒤 attachments가 없는 text Run에서 색을 질문했다. 실제 모델은 red로 답했고, 두 요청 모두 정확한 이미지 frame/blob 한 개를 전송했다. 두 번째 최신 user에는 image attachment가 없고 anchor는 첫 Run의 original message와 일치했다. raw image message는 한 개, DB/context의 base64 pixels는 0이며 full snapshot 조회도 0회였다. 최종 context 2,242/8,192 bytes, 두 일반 Attempt 합계 input 592/output 20·reasoning subset 8이며 image token 비용은 unknown이다.
+
+## 남은 범위
+
+G1-13/14는 완료했다. 다음 G1-15는 요약 usage/progress 조회에서 retained text를 반복 읽는 비용과 admission uncertainty SQL index를 최적화하는 작업이다. G1-16은 unresolved summary의 명시적인 host recovery 결정 계약이다. 현재 uncertainty를 자동으로 해제하거나 원래 요약을 재실행하지 않으며 workspace 격리가 지속된다.
+
+이미지 token 비용·audio/video/file 입력과 media 출력·실제 Anthropic 계정·Windows native Job backend·hosted Linux/Windows/Node24 CI·GUI 노출은 미완료다. Git remote는 없다. metadata/source/coverage cap 안에 남는 관측만 기억하며 SQLite의 전체 물리 I/O 상한은 보장하지 않는다. goal은 활성 상태다. 아래 이전 live 과업은 각각 해당 구현 commit의 근거로 보존한다.
+
+---
+
+# 세 번째 묶음의 이전 검증
+
+2026-10-07, macOS arm64 / Node 26.9.0. 세 번째 구현 commit은 `04031cb38fb6d98d292ee93ade1240a04c63b10e`다. [세 번째 기계 판독 결과](engine-goal-third-verification.json), [active-prefix 명세](engine-active-prefix.md), [TODO](../../TODO.md)를 함께 확인한다. GUI와 Electron 앱을 실행하지 않았다.
 
 | 검증 | 결과 |
 | --- | --- |

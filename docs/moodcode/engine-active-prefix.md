@@ -32,7 +32,7 @@ summary는 historical derived memory이다. 과거 파일 변경이나 검사를
 
 ## 예산과 활성화
 
-요약은 별도의 tool-free provider 요청이다. shared Run의 summary call·출력·시간 예산을 소비하고 logical Turn, 일반 provider Attempt, input allowance를 새로 만들거나 늘리지 않는다. 이미 관측한 text delta는 local summary output cap으로 거부되더라도 공유 Run output budget에 반영한다. summary usage는 checkpoint와 별도 journal에 기록하며 DB3 일반 Attempt usage 합계에 포함됐다고 표시하지 않는다. 과금액은 알 수 없다.
+요약은 별도의 tool-free provider 요청이다. shared Run의 summary call·출력·시간 예산을 소비하고 logical Turn, 일반 provider Attempt, input allowance를 새로 만들거나 늘리지 않는다. 이미 관측한 text delta는 local summary output cap으로 거부되더라도 공유 Run output budget에 반영한다. DB4의 typed summary attempt는 prepared→dispatch/streaming→provider 완료와 publication 대기를 기록하고 원자 activation 안에서만 completed로 바뀐다. 별도 latest summary usage와 부분 출력은 실패·취소·close·재시작 뒤에도 보존하며 일반 Attempt 합계에 포함하지 않는다. 과금액은 알 수 없다. [요약 수명 명세](engine-summary-attempts.md)를 따른다.
 
 정책 source cap보다 실제 request 예산이 작으면 시스템 프롬프트·owner metadata·기존 기억의 envelope, JSON string escaping의 상계와 알려진 모델의 output reserve를 먼저 예약한다. 그 안에 들어가는 가장 이른 완전한 exchange 묶음만 선택한다. 한 exchange 자체가 넘으면 문자열을 자르거나 일부 coverage로 저장하지 않고 거부한다. source와 실제 serialized provider request를 각각 검사한다.
 
