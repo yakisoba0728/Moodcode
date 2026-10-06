@@ -4,7 +4,7 @@
 
 ## 현재 경계
 
-기본 context builder는 image-bearing block을 모두 필수로 취급한다. 텍스트 excerpt가 픽셀을 대신할 수 없으므로 image-bearing history를 문자 요약으로 교체하는 semantic memory 호출은 `SUMMARY_IMAGE_SOURCE_UNSUPPORTED`로 거부한다. 가장 최근 active Run의 원래 user goal, 최신 user/steer, 최신 complete assistant/call-result 묶음은 bounded history에서도 보존한다. 이력 원문과 native replay는 저장소에 남고 active-prefix cutoff는 생성하지 않는다. [현재 context 선택](../../../packages/engine/src/context/index.ts#L355), [summary source 거부](../../../packages/engine/src/context/semantic-memory.ts#L49), [bounded DB history](../../../packages/engine/src/storage/native-history.ts).
+기본 context builder는 image-bearing block을 모두 필수로 취급한다. 텍스트 excerpt가 픽셀을 대신할 수 없으므로 image-bearing history를 문자 요약으로 교체하는 semantic memory 호출은 `SUMMARY_IMAGE_SOURCE_UNSUPPORTED`로 거부한다. 가장 최근 active Run의 원래 user goal, 최신 user/steer, 최신 complete assistant/call-result 묶음은 bounded history에서도 보존한다. 이력 원문과 native replay는 저장소에 남고 active-prefix cutoff는 생성하지 않는다. [현재 context 선택](../../../packages/engine/src/context/index.ts), [summary source 거부](../../../packages/engine/src/context/semantic-memory.ts#L49), [bounded DB history](../../../packages/engine/src/storage/native-history.ts).
 
 입력 image hard cap은 요청당 4 occurrences/decoded 1 MiB, 이미지당 512 KiB다. 같은 exact image reference를 여러 user 메시지에서 반복해도 transport에는 각 메시지의 이미지 block이 존재하므로 occurrence와 decoded 요청 bytes를 반복 가산한다. resolved raw bytes만 exact image ID별로 한 번 공급한다. 따라서 같은 이미지가 5번 등장하면 blob이 하나여도 기본 요청은 `PROVIDER_LIMIT_EXCEEDED`로 거부한다. 이 상한은 공급자 최대값이라는 주장이 아닌 Moodcode의 로컬 보호 예산이다. [transport 검증](../../../packages/engine/src/media/provider.ts), [독립 실제 반복 입력 fixture](../../../packages/engine/src/integration/input-media-review.integration.test.ts).
 
@@ -56,7 +56,7 @@ opaque replay는 추론하거나 재작성하지 않는다. known image/audio/vi
 
 ## Root 연결 계약
 
-Root 담당의 ContextService/ContextRequest/index/engine wiring은 별도 변경이다. Projection module과 테스트만 완료했다고 기본 엔진의 정책 활성화를 완료했다고 표시하지 않는다.
+Root 담당의 ContextService/ContextRequest/index/engine wiring은 구현 `59d1f42`에 연결됐다. 아래 계약을 실제 ContextService·SQLite 5개, 엔진 6회 입력·재시작 3개, 전체 headless gate와 Codex live 2회로 검증했다. 최신 결과는 [goal 검증](../engine-goal-verification.md)을 따른다. Projection module의 자체 fixture와 engine 연결 검증을 구분한다.
 
 1. EngineOptions에 host-only policy를 두고 생성 시 validateMediaHistoryPolicy로 검증·복제한다. 모델 input, tool result, workspace instruction에서 이 정책을 활성화하지 않는다.
 2. 각 safe turn boundary에서 원본 bounded snapshot으로 한 번 파생한다. 이미 attachments가 제거된 projected snapshot에 다시 적용하면 원래 omission provenance를 재구성할 수 없으므로 raw source를 재조회한다.
@@ -79,5 +79,5 @@ Root 담당의 ContextService/ContextRequest/index/engine wiring은 별도 변�
 
 [독립 fixtures](../../../packages/engine/src/context/media-history.test.ts) 22개가 source와 별도 esbuild ESM bundle에서 각각 통과했다. 기본 policy clone, exact raw text/refs 불변, 5회 반복 frame 생략, 최신/pinned 필수 보호, count/decoded-byte/metadata 정확 경계, ref/session 충돌, complete pair와 opaque replay 보존, media-shaped replay 명시 거부, 취소, deterministic binding을 검증했다. Mocked Responses HTTP body에서 retained image frame 1개·원래 old user text·quoted notice가 함께 전송됨을 확인했다.
 
-기존 context/agent context/tool history/media provider/media store/input-media review와 합친 source 143개가 모두 통과했고 engine noEmit도 통과했다. 검증은 macOS Darwin arm64/Node v26.9.0의 자체 fixture다. Root의 실제 엔진 wiring과 그 후 integration fixture는 별도 결과로 확인해야 한다. 공유 full build·전체 suite·커밋·외부 계정 호출·GUI 실행은 수행하지 않았다.
+기존 context/agent context/tool history/media provider/media store/input-media review와 합친 source 143개가 모두 통과했고 engine noEmit도 통과했다. 검증은 macOS Darwin arm64/Node v26.9.0의 자체 fixture다. Root의 실제 엔진 wiring·integration fixture·Codex live는 위 최신 goal 보고서에 별도 근거로 기록했다. 공유 full build·전체 suite·커밋·외부 계정 호출·GUI 실행은 수행하지 않았다.
 

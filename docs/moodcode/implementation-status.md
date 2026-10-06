@@ -1,6 +1,6 @@
 # Moodcode 구현 상태
 
-갱신일: 2026-10-07, Asia/Seoul. 현재 작업은 **자체 엔진 우선**이며 [TODO](../../TODO.md)의 원래 75개 중 71개와 지속 개선 G1 첫 묶음을 구현·검증했다. 최신 결과는 [goal 검증 보고서](engine-goal-verification.md), 이전 확장 결과는 [headless 검증 보고서](engine-native-final-verification.md), 공개 연결은 [host API](engine-host-api.md)를 따른다. 아래 기존 GUI·bundle 결과는 2026-10-04 기록이며 이번 엔진 작업에서 앱을 다시 실행하거나 새 기능의 GUI E2E를 수행하지 않았다.
+갱신일: 2026-10-07, Asia/Seoul. 현재 작업은 **자체 엔진 우선**이며 [TODO](../../TODO.md)의 원래 75개 중 71개와 지속 개선 G1의 두 묶음(`64435d7`, `59d1f42`)을 구현·검증했다. 최신 headless gate는 1,713 pass·실패 0·Windows 조건 2 skip이다. 최신 결과는 [goal 검증 보고서](engine-goal-verification.md), 이전 확장 결과는 [headless 검증 보고서](engine-native-final-verification.md), 공개 연결은 [host API](engine-host-api.md)를 따른다. 아래 기존 GUI·bundle 결과는 2026-10-04 기록이며 이번 엔진 작업에서 앱을 다시 실행하거나 새 기능의 GUI E2E를 수행하지 않았다.
 
 ## 현재 자체 엔진 범위
 
@@ -8,14 +8,14 @@
 |---|---|
 | 영구 입력·실행 | queue/steer inbox, exact retry·충돌·backlog, pause/resume, FIFO·workspace 공정성, 기존 즉시 run.submit 호환 |
 | 모델·기록 | durable Turn/Attempt/Part, 내부/provider call ID 분리, 제한된 provider retry, delta flush·bounded paging·read concurrency |
-| 추가 개선 | DB3의 attempt usage, active Run anchor/complete-exchange 선택, bounded image import/전송, 승인된 read-only delegate_task |
-| context·기억 | model metadata의 unknown/null, bounded SQL history, nested 지침과 지속 baseline, 원자 ContextRevision 활성화, tools 없는 semantic summary·한 번 overflow 복구 |
+| 추가 개선 | DB3의 attempt usage, active Run anchor/complete-exchange 선택, bounded image import/전송·명시적 이력 정책, 승인된 read-only delegate_task |
+| context·기억 | model metadata의 unknown/null, bounded SQL history, nested 지침과 지속 baseline·idle cache 수명, 원자 ContextRevision 활성화, tools 없는 completed-history semantic summary·한 번 overflow 복구; active-prefix 의미 요약은 후속 |
 | 도구·권한 | scoped versioned runtime, structured result/artifact, exact edit·rename/delete·bounded glob/regex, deny·Plan/Build 정책, scope grant 저장·철회 |
 | 세션 상호작용 | durable tasks CAS, question·답변·거절·expiry, agent profile의 model/tool/config identity, skill/reference의 제한된 읽기 |
 | 확장 자원 | host plugin·MCP stdio/HTTP와 catalog/resource, credential reference, 실제 macOS PTY 입출력·resize·취소·강제 종료 정리 |
 | 실제 child | 격리 Git worktree·별도 MoodcodeEngine/DB, parent/child/grandchild의 실제 예산·deny·cancel 상속, 결과의 root inbox 중복 제거, 승인한 direct/nested 변경 통합 |
 | LSP·formatter | 명시적 host factory/formatter, 도구 checkpoint·외부 변경·review.restore의 hash/문서 버전 재동기화, 다음 모델 turn 경계·실제 process cleanup |
-| 큰 결과·관측 | 원본을 보존하는 과거 tool result 투영, owner/hash를 검증한 read_artifact paging, SQL 집계 진단의 범위·누락·unknown 표시 |
+| 큰 결과·관측 | 원본 tool result 투영·read_artifact paging, retry/승인/child 결과 bounded owner 조회, SQL 집계 및 host disk 진단의 범위·누락·unknown 표시 |
 | 운영 검증 | archive export/import·복구 ledger, 실제 강제 종료 및 1천/1만/10만 이력 측정, 코딩 fixture 3개·현재 Codex gpt-6.1-sol live 과업, headless CI 구성 |
 
 핵심 실행과 확장 연결은 GUI 없이 engine host에서 사용할 수 있다. host `startChildTask`는 살아 있는 부모 Run과 미리 준비한 worktree를 요구한다. 추가된 모델 도구 `delegate_task`는 matching approval 뒤 직접 읽기 전용 worktree/child를 준비한다. LSP/formatter/provider 등록은 명시적 host API다. 모델이나 renderer가 실행 파일·credential을 임의로 설정하는 경로는 제공하지 않는다. 지속 개선 목표의 최신 범위는 [G1 TODO](../../TODO.md)와 [목표 문서](engine-improvement-goal.md)를 따른다.
