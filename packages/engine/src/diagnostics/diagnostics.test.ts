@@ -66,16 +66,22 @@ function environment(t: TestContext, values: Record<string, string | undefined>)
 
 async function waitForFile(file: string): Promise<string> {
   for (let attempt = 0; attempt < 300; attempt++) {
-    try { return await readFile(file, 'utf8'); }
+    try {
+      // writeFileSync creates/truncates before writing its short readiness
+      // marker. An empty observation is not a published PID or JSON record.
+      const value = await readFile(file, 'utf8');
+      if (value.trim()) return value;
+    }
     catch (error) {
       if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error;
-      await new Promise(resolve => setTimeout(resolve, 10));
     }
+    await new Promise(resolve => setTimeout(resolve, 10));
   }
   throw new Error('Fixture process did not become ready');
 }
 
 async function assertProcessGone(pid: number): Promise<void> {
+  assert.ok(Number.isSafeInteger(pid) && pid > 1, 'Cleanup checks require a published process PID');
   for (let attempt = 0; attempt < 200; attempt++) {
     try { process.kill(pid, 0); }
     catch (error) {
@@ -86,6 +92,17 @@ async function assertProcessGone(pid: number): Promise<void> {
   }
   assert.fail(`Fixture process ${pid} survived cleanup`);
 }
+
+test('a created but empty readiness marker is not a published fixture PID', async t => {
+  const root = await temporary(t), marker = path.join(root, 'readiness');
+  await writeFile(marker, '');
+  let ready = false;
+  const waiting = waitForFile(marker).then(value => { ready = true; return value; });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(ready, false);
+  await writeFile(marker, '12345');
+  assert.equal(await waiting, '12345');
+});
 
 test('Node assessment separates actual version, recognized versions and minimum comparison', () => {
   for (const version of ['24.0.0', 'v24.0.0', '24.1.0', '26.9.0']) {

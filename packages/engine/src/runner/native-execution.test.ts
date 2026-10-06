@@ -228,7 +228,15 @@ test('context overflow recovers once and reuses the logical Turn with a new boun
     if (!recovered) { yield { type: 'progress' }; throw new EngineError('PROVIDER_CONTEXT_OVERFLOW', 'fixture explicit overflow'); }
     assert.equal(request.messages[0]!.content, 'compact context'); yield { type: 'text.delta', delta: 'completed' }; yield stop;
   } }, [], {}, {
-    async recoverContextOverflow(request) { assert.ok(request.run); assert.ok(request.budget); request.budget.startSummary(); recoveries++; recovered = true; },
+    async recoverContextOverflow(request) {
+      assert.ok(request.run); assert.ok(request.budget); assert.equal(request.activePrefixStage?.stage, 'overflow-recovery');
+      if (request.activePrefixStage?.stage === 'overflow-recovery') {
+        assert.equal(request.activePrefixStage.cleanupConfirmed, true);
+        assert.equal(f.store.getAttempt(request.activePrefixStage.failedAttemptId).state, 'failed');
+        assert.equal(f.store.getAttempt(request.activePrefixStage.failedAttemptId).turnId, request.activePrefixStage.currentTurnId);
+      }
+      request.budget.startSummary(); recoveries++; recovered = true;
+    },
     async buildContext() { return [{ role: 'user', content: recovered ? 'compact context' : 'initial context' }]; },
   });
   f.scheduler.accept(f.input('first')); await f.scheduler.waitForSession('s1');
@@ -236,6 +244,22 @@ test('context overflow recovers once and reuses the logical Turn with a new boun
   assert.equal(f.store.listTurns(run.id).length, 1);
   const prepared = f.store.readSessionEvents('s1', 0, 100).filter(event => event.type === 'provider.attempt.prepared');
   assert.equal(prepared.length, 2); assert.equal(prepared[0]!.turnId, prepared[1]!.turnId); assert.notEqual(prepared[0]!.attemptId, prepared[1]!.attemptId);
+});
+
+test('provider retry and overflow recovery require cleanup proof from the underlying iterator', async t => {
+  for (const overflow of [false, true]) await t.test(overflow ? 'overflow recovery' : 'HTTP retry', async nested => {
+    let calls = 0, recoveries = 0;
+    const failure = overflow ? new EngineError('PROVIDER_CONTEXT_OVERFLOW', 'explicit fixture overflow') : new EngineError('PROVIDER_HTTP_ERROR', 'fixture rate limit', { status: 429 });
+    const f = await fixture(nested, { id: 'native', streamTurn() {
+      calls++;
+      return { [Symbol.asyncIterator]() { return { async next(): Promise<IteratorResult<ProviderEvent>> { throw failure; } }; } };
+    } }, [], { budgets: normalizeEngineBudgets({ maxProviderAttempts: 3, retryBaseDelayMs: 1 }) }, { async recoverContextOverflow() { recoveries++; } });
+    f.scheduler.accept(f.input('first')); await f.scheduler.waitForSession('s1');
+    const run = f.store.getSnapshot('s1').runs[0]!;
+    assert.equal(run.state, 'failed'); assert.equal(run.error?.code, 'CLEANUP_UNCERTAIN'); assert.equal(calls, 1); assert.equal(recoveries, 0);
+    const turn = f.store.listTurns(run.id)[0]!; assert.equal(turn.state, 'uncertain');
+    assert.equal(f.store.getSessionControl('s1').paused, true);
+  });
 });
 
 test('context overflow after public output or after one recovery cannot trigger another summary or redispatch', async t => {

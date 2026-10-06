@@ -79,6 +79,7 @@ export class TurnExecutor {
           clearTimeout(cleanupTimer);
           if (!clean) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider attempt cleanup could not be confirmed');
         }
+        else if (iterator && (retry || recoverOverflow)) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider retry requires an iterator with confirmed cleanup');
         if (!retry && !recoverOverflow) throw failure;
         this.setAttempt('failed');
         if (recoverOverflow) {

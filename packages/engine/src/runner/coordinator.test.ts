@@ -237,6 +237,44 @@ const finish = { type: 'finish', reason: 'stop' } as const;
 const call = (id: string, name: string): ProviderEvent => ({ type: 'tool.call', call: { id, name, input: {} } });
 const finishTools = { type: 'finish', reason: 'tool_calls' } as const;
 
+test('steer arriving during an awaited context rebuild reaches the first provider dispatch without consuming a turn', async () => {
+  const entered = deferred<void>(), release = deferred<void>();
+  let builds = 0;
+  const provider = scripted([[finish]]);
+  const f = fixture(provider, [], async request => {
+    if (++builds === 2) { entered.resolve(); await release.promise; }
+    return request.snapshot.messages.map(({ role, content }) => ({ role, content }));
+  });
+  const pending = ['First steer before rebuilding'];
+  let serial = 0;
+  f.runner.setSessionHooks({ boundary(run) {
+    const content = pending.shift(); if (!content) return false;
+    const id = `steer-${++serial}`;
+    f.store.messages.set(id, { id, sessionId: run.sessionId, runId: run.id, role: 'user', content, createdAt: now() });
+    return true;
+  }, settled() {}, workspaceIdle() {}, cancelled() {} });
+  try {
+    const receipt = f.runner.submit(f.input());
+    await entered.promise;
+    pending.push('Latest steer admitted while context was awaiting'); release.resolve();
+    const run = await f.runner.waitForRun(receipt.runId);
+    assert.equal(run.state, 'completed'); assert.equal(provider.requests.length, 1); assert.equal(builds, 3);
+    assert.ok(provider.requests[0]!.messages.some(message => message.content === 'Latest steer admitted while context was awaiting'));
+    assert.equal(f.runner.getRunUsage(run.id).turns, 1);
+  } finally { release.resolve(); await f.runner.close(); }
+});
+
+test('continuous steer arrivals cannot create unbounded context rebuilds or a stale provider dispatch', async () => {
+  const provider = scripted([[finish]]), f = fixture(provider);
+  f.runner.setSessionHooks({ boundary() { return true; }, settled() {}, workspaceIdle() {}, cancelled() {} });
+  try {
+    const receipt = f.runner.submit(f.input()), run = await f.runner.waitForRun(receipt.runId);
+    assert.equal(run.state, 'failed'); assert.equal(run.error?.code, 'STEER_CONTEXT_LIMIT');
+    assert.equal(provider.requests.length, 0); assert.equal(f.contextRequests.length, 17);
+    assert.equal(f.runner.getRunUsage(run.id).turns, 0);
+  } finally { await f.runner.close(); }
+});
+
 test('explicit turn allowance stops continuation while the Run absolute limit remains larger', async () => {
   const provider = scripted([[call('c1', 'read_file'), finishTools], [finish]]);
   const { runner, input } = fixture(provider, [tool('read_file', false, async () => ({ content: 'observation' }))]);

@@ -8,20 +8,25 @@ import { InstructionSources, type InstructionObservation, type InstructionSource
 import { SemanticMemoryService } from './semantic-memory.js';
 import { projectToolHistory } from './tool-history.js';
 import { projectMediaHistory, validateMediaHistoryPolicy, type MediaHistoryPolicy, type ImageHistoryProvenance, type MediaHistoryDiagnostics } from './media-history.js';
+import { ActivePrefixMemoryService, type ActivePrefixPolicy, type ActivePrefixCheckpoint, type PreparedActivePrefix } from './active-prefix.js';
 
-export interface ContextServiceOptions { mediaHistoryPolicy?: MediaHistoryPolicy }
+export interface ContextServiceOptions { mediaHistoryPolicy?: MediaHistoryPolicy; activePrefixPolicy?: ActivePrefixPolicy }
 
 export interface ContextDiagnostics {
   revisionId: string; revision: number; plan: Omit<ContextPlan, 'messages'>;
   instructions: InstructionObservation; omittedDatabaseMessages: number; omittedDatabaseRuns: number;
   activeWindow?: ModelHistoryPage['activeWindow'];
   mediaHistory?: MediaHistoryDiagnostics & { provenance: ImageHistoryProvenance[] };
+  activePrefix?: { checkpointId: string; summaryRevisionId: string; scope: 'active-run-prefix'; projection: ActivePrefixCheckpoint['projection'];
+    factsSha256: string; manifestSha256: string; policySha256: string; coveredMessageIds: string[]; protectedMessageIds: string[];
+    summaryUsage: ActivePrefixCheckpoint['usage']; historicalFileEvidence: true; currentFileEvidence: false };
 }
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
 /** Produces a persisted, inspectable context only at a coordinator's safe turn boundary. */
 export class ContextService {
   readonly memory: SemanticMemoryService;
+  readonly activePrefix?: ActivePrefixMemoryService;
   private readonly sources = new Map<string, { source: InstructionSources; leases: number }>();
   private readonly history = new Map<string, { omittedMessages: number; omittedRuns: number; activeWindow?: ModelHistoryPage['activeWindow'] }>();
   private readonly revisions = new Map<string, string>();
@@ -29,6 +34,7 @@ export class ContextService {
   constructor(private readonly store: SqliteStore, readonly models = new ModelRegistry(), private readonly outputTokenReserve = 0, private readonly provider?: (id: string) => ProviderAdapter | undefined, options: ContextServiceOptions = {}) {
     if (!Number.isSafeInteger(outputTokenReserve) || outputTokenReserve < 0 || outputTokenReserve > 100_000_000) throw new EngineError('INVALID_OUTPUT_RESERVE', 'Output token reserve must be a bounded nonnegative integer');
     this.memory = new SemanticMemoryService(store);
+    if (options.activePrefixPolicy !== undefined) this.activePrefix = new ActivePrefixMemoryService(store, options.activePrefixPolicy);
     if (options.mediaHistoryPolicy !== undefined) this.mediaHistoryPolicy = validateMediaHistoryPolicy(options.mediaHistoryPolicy);
   }
   snapshot(sessionId: string, config: RunConfig): SessionSnapshot {
@@ -55,8 +61,15 @@ export class ContextService {
     }
     return [...paths];
   }
-  async recoverOverflow(request: ContextRequest, provider: ProviderAdapter): Promise<void> { await this.memory.summarize(request, provider); }
-  async build(request: ContextRequest, summaryAttempted = false): Promise<ProviderMessage[]> {
+  async recoverOverflow(request: ContextRequest, provider: ProviderAdapter): Promise<void> {
+    if (this.activePrefix && request.run && request.activePrefixStage?.stage === 'overflow-recovery') {
+      const before = this.activePrefix.active(request.snapshot.session.id, request.run.id)?.checkpoint.id;
+      await this.build(request, true, false, true);
+      if (this.activePrefix.active(request.snapshot.session.id, request.run.id)?.checkpoint.id !== before) return;
+    }
+    await this.memory.summarize(request, provider);
+  }
+  async build(request: ContextRequest, summaryAttempted = false, prefixAttempted = false, forcePrefix = false): Promise<ProviderMessage[]> {
     const sessionId = request.snapshot.session.id;
     const cacheKey = JSON.stringify([request.workspace.id, sessionId]);
     let cached = this.sources.get(cacheKey);
@@ -85,24 +98,68 @@ export class ContextService {
     try { observation = await cached.source.observe(this.relevantPaths(request), request.signal); }
     finally { cached.leases--; }
     const model = this.models.get(request.config.providerId, request.config.modelId);
-    const remembered = this.memory.project(request);
-    const media = this.mediaHistoryPolicy ? projectMediaHistory(remembered.snapshot, { policy: this.mediaHistoryPolicy, ...(request.run ? { activeRunId: request.run.id } : {}) }, request.signal) : undefined;
-    const projected = { ...remembered, snapshot: projectToolHistory(media?.snapshot ?? remembered.snapshot, request.run?.id),
-      ...(media ? { requiredHistoryMessageIds: [...media.requiredTextMessageIds, ...media.requiredExchangeMessageIds], ...(media.requiredNotice ? { mediaHistoryNotice: media.requiredNotice } : {}) } : {}) };
-    const plan = await planContext({ ...projected, instructionSources: observation.sources }, { model, outputTokens: this.outputTokenReserve });
+    const makePlan = async (candidate?: PreparedActivePrefix) => {
+      const remembered = this.memory.project(request);
+      const prefix = this.activePrefix?.project(remembered, candidate) ?? remembered;
+      const media = this.mediaHistoryPolicy ? projectMediaHistory(prefix.snapshot, { policy: this.mediaHistoryPolicy, ...(request.run ? { activeRunId: request.run.id } : {}) }, request.signal) : undefined;
+      const projected = { ...prefix, snapshot: projectToolHistory(media?.snapshot ?? prefix.snapshot, request.run?.id),
+        ...(media ? { requiredHistoryMessageIds: [...new Set([...(prefix.requiredHistoryMessageIds ?? []), ...media.requiredTextMessageIds, ...media.requiredExchangeMessageIds])], ...(media.requiredNotice ? { mediaHistoryNotice: media.requiredNotice } : {}) } : {}) };
+      const plan = await planContext({ ...projected, instructionSources: observation.sources }, { model, outputTokens: this.outputTokenReserve });
+      return { projected, media, plan };
+    };
     const provider = this.provider?.(request.config.providerId);
+    let candidate: PreparedActivePrefix | undefined;
+    let prefixTried = prefixAttempted;
+    let outcome: Awaited<ReturnType<typeof makePlan>>;
+    try { outcome = await makePlan(); }
+    catch (initialError) {
+      if (prefixTried || !this.activePrefix || !request.run || !request.budget || !provider || !(initialError instanceof EngineError)
+        || !['CONTEXT_LIMIT', 'ACTIVE_PREFIX_CONTEXT_LIMIT', 'IMAGE_CONTEXT_LIMIT', 'CONTEXT_TOKEN_LIMIT'].includes(initialError.code)) throw initialError;
+      // The predecessor protects the recent suffix it observed. After another
+      // complete exchange, a new checkpoint may cover part of that old suffix
+      // and fit even when planning with the predecessor alone no longer fits.
+      prefixTried = true;
+      try {
+        candidate = await this.activePrefix.prepare(request, provider, { model, ...(request.activePrefixStage ? { stage: request.activePrefixStage } : {}) });
+        outcome = await makePlan(candidate);
+      } catch (error) {
+        if (candidate) this.activePrefix.discard(candidate, error);
+        if (request.signal.aborted || error instanceof EngineError && ['OUTPUT_LIMIT', 'RUN_TIME_LIMIT', 'CLEANUP_UNCERTAIN'].includes(error.code)) throw error;
+        throw initialError;
+      }
+    }
+    let { projected, media, plan } = outcome;
     const selectedIds = new Set(plan.selectedMessageIds);
     const omittedDiscussion = projected.snapshot.messages.some(message => message.runId !== request.run?.id && message.role !== 'tool' && message.content.trim() && !selectedIds.has(message.id));
-    if (!summaryAttempted && omittedDiscussion && request.run && request.budget && provider) {
-      try { await this.memory.summarize(request, provider); return this.build(request, true); }
+    if (!candidate && !summaryAttempted && omittedDiscussion && request.run && request.budget && provider) {
+      try { await this.memory.summarize(request, provider); return this.build(request, true, prefixAttempted, forcePrefix); }
       catch (error) {
         if (request.signal.aborted || error instanceof EngineError && ['OUTPUT_LIMIT', 'RUN_TIME_LIMIT', 'CLEANUP_UNCERTAIN'].includes(error.code)) throw error;
         plan.warnings.push(`Semantic summary was not activated (${error instanceof EngineError ? error.code : 'SUMMARY_FAILED'}); the previous memory remains in use.`);
       }
     }
-    if (request.signal.aborted) throw new EngineError('CANCELLED', 'Context construction was cancelled');
+    const omittedActive = projected.snapshot.messages.some(message => message.runId === request.run?.id && message.role !== 'user' && !selectedIds.has(message.id))
+      || (this.history.get(sessionId)?.activeWindow?.omittedMessages ?? 0) > 0;
+    if (!candidate && !prefixTried && this.activePrefix && request.run && request.budget && provider && (forcePrefix || omittedActive)) {
+      try {
+        candidate = await this.activePrefix.prepare(request, provider, { model, ...(request.activePrefixStage ? { stage: request.activePrefixStage } : {}) });
+        ({ projected, media, plan } = await makePlan(candidate));
+      } catch (error) {
+        if (candidate) this.activePrefix.discard(candidate, error);
+        candidate = undefined;
+        if (request.signal.aborted || error instanceof EngineError && ['OUTPUT_LIMIT', 'RUN_TIME_LIMIT', 'CLEANUP_UNCERTAIN'].includes(error.code)) throw error;
+        plan.warnings.push(`Active-prefix summary was not activated (${error instanceof EngineError ? error.code : 'SUMMARY_FAILED'}); the previous checkpoint remains in use.`);
+      }
+    }
+    if (request.signal.aborted) {
+      const error = new EngineError('CANCELLED', 'Context construction was cancelled');
+      if (candidate) this.activePrefix!.discard(candidate, error);
+      throw error;
+    }
     const previous = this.store.getSessionDocument(sessionId, 'context.head');
+    const prefixCheckpoint = candidate?.checkpoint ?? (request.run ? this.activePrefix?.active(sessionId, request.run.id)?.checkpoint : undefined);
     const sourceIds = [...plan.selectedMessageIds, ...observation.sources.filter(source => source.sha256 !== null).map(source => `${source.id}:${source.sha256}`),
+      ...(prefixCheckpoint ? [prefixCheckpoint.revisionId, `active-prefix-policy:${prefixCheckpoint.policySha256}`, `active-prefix-facts:${prefixCheckpoint.factsSha256}`, `active-prefix-manifest:${prefixCheckpoint.manifestSha256}`] : []),
       ...(media ? [`image-policy:${media.diagnostics.policySha256}`, `image-source:${media.diagnostics.sourceSha256}`, ...media.provenance.map(item => `image-message:${item.messageId}:${digest(item)}`)] : [])];
     const bindingHash = digest({ plan: plan.sha256, sources: sourceIds, config: request.config, model: { ...model, source: { kind: model.source.kind, reference: model.source.reference } } });
     const old = previous?.data;
@@ -110,10 +167,10 @@ export class ContextService {
     let revisionId = oldRevisionId;
     let revision = typeof old?.contextRevision === 'number' ? old.contextRevision : 0;
     let pendingRevision: ContextRevision | undefined;
-    if (old?.bindingHash !== bindingHash || !revisionId) {
-      revisionId = randomUUID(); revision = this.store.nextContextRevisionIndex(sessionId);
+    if (candidate || old?.bindingHash !== bindingHash || !revisionId) {
+      revisionId = randomUUID(); revision = candidate ? candidate.summaryRevision.revision + 1 : this.store.nextContextRevisionIndex(sessionId);
       const text = JSON.stringify(plan.messages);
-      const latest = this.store.getLatestContextRevision(sessionId);
+      const latest = candidate?.summaryRevision ?? this.store.getLatestContextRevision(sessionId);
       pendingRevision = { schemaVersion: SESSION_SCHEMA_VERSION, id: revisionId, sessionId, revision, kind: revision === 1 ? 'baseline' : 'update',
         sourceIds, text, sha256: createHash('sha256').update(text).digest('hex'), createdAt: new Date().toISOString(), ...(request.run ? { runId: request.run.id } : {}), ...(latest ? { supersedesId: latest.id } : {}) };
     }
@@ -123,9 +180,26 @@ export class ContextService {
       instructions: { ...observation, sources: observation.sources.map(source => ({ ...source, text: null })) },
       ...(this.history.get(sessionId)?.activeWindow ? { activeWindow: this.history.get(sessionId)!.activeWindow } : {}),
       ...(media ? { mediaHistory: { ...media.diagnostics, provenance: media.provenance } } : {}),
+      ...(prefixCheckpoint ? { activePrefix: { checkpointId: prefixCheckpoint.id, summaryRevisionId: prefixCheckpoint.revisionId, scope: prefixCheckpoint.scope, projection: prefixCheckpoint.projection,
+        factsSha256: prefixCheckpoint.factsSha256, manifestSha256: prefixCheckpoint.manifestSha256, policySha256: prefixCheckpoint.policySha256,
+        coveredMessageIds: prefixCheckpoint.coveredMessageIds, protectedMessageIds: prefixCheckpoint.protectedMessageIds, summaryUsage: prefixCheckpoint.usage,
+        historicalFileEvidence: true, currentFileEvidence: false } } : {}),
       omittedDatabaseMessages: this.history.get(sessionId)?.omittedMessages ?? 0, omittedDatabaseRuns: this.history.get(sessionId)?.omittedRuns ?? 0 };
     const data = { revisionId, contextRevision: revision, bindingHash, diagnostics: JSON.parse(JSON.stringify(diagnostics)) as JsonObject };
-    if (pendingRevision && request.run) this.store.commitContextDocument(request.run.id, 'context.revision.activated', { contextRevisionId: revisionId, revision, sha256: pendingRevision.sha256 }, { revision: pendingRevision, kind: 'context.head', expectedRevision: previous?.revision ?? 0, data });
+    if (candidate && pendingRevision) {
+      try { this.activePrefix!.publishWithContext(request, candidate, { contextRevision: pendingRevision, contextData: data }); }
+      catch (error) {
+        if (request.signal.aborted || error instanceof EngineError && ['OUTPUT_LIMIT', 'RUN_TIME_LIMIT', 'CLEANUP_UNCERTAIN'].includes(error.code)) throw error;
+        if (!(error instanceof EngineError) || !['REVISION_CONFLICT', 'ACTIVE_PREFIX_SOURCE_CHANGED', 'ACTIVE_PREFIX_CONTEXT_CONFLICT'].includes(error.code)) throw error;
+        // Overflow recovery retains the existing Turn/input proof. A changed
+        // frontier stops that recovery rather than redispatching a stale request.
+        if (forcePrefix) throw error;
+        // Never retry a consumed summary. Re-read the current owner projection before
+        // dispatch so a concurrent checkpoint or steer cannot leave stale messages.
+        return this.build({ ...request, snapshot: this.snapshot(sessionId, request.config) }, true, true);
+      }
+    }
+    else if (pendingRevision && request.run) this.store.commitContextDocument(request.run.id, 'context.revision.activated', { contextRevisionId: revisionId, revision, sha256: pendingRevision.sha256 }, { revision: pendingRevision, kind: 'context.head', expectedRevision: previous?.revision ?? 0, data });
     else { if (pendingRevision) this.store.putContextRevision(pendingRevision); this.store.putSessionDocument(sessionId, 'context.head', previous?.revision ?? 0, data); }
     this.revisions.set(sessionId, revisionId);
     return messages;

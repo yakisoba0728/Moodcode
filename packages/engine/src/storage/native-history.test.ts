@@ -262,6 +262,7 @@ for (const size of [1_000, 10_000])
         ?.attachments,
       [{ ...image, id: "img_" + "b".repeat(32) }],
     );
+    assert.deepEqual(page.activeWindow!.requiredImageAnchorIds, ["latest-steer"]);
     assert.ok(page.snapshot.messages.length <= 64);
     assert.ok(Buffer.byteLength(JSON.stringify(page.snapshot)) <= 65_536);
     assert.ok(page.activeWindow!.metadataRows <= 100);
@@ -344,4 +345,46 @@ test("active required batch and original user anchor cannot be silently dropped 
     () => f.store.readModelHistory("session", 64, 1024),
     code("MODEL_HISTORY_LIMIT"),
   );
+});
+
+test("latest active image remains an exact bounded SQL anchor after a later text-only steer", t => {
+  const f = fixture(t), original = populate(f.store, f.path, 1000);
+  const later = f.store.acceptInput({ sessionId: "session", requestId: "text-after-image", prompt: "Latest text-only constraint", delivery: "steer", config });
+  f.store.promoteSteers([later.inputId], original.runId);
+  f.store.getSnapshot = () => { throw new Error("Unbounded snapshot is forbidden"); };
+  const before = f.store.readEvents("session", 0).at(-1)?.seq;
+  const page = f.store.readModelHistory("session", 64, 65_536);
+  assert.ok(page.activeWindow); assert.ok(page.activeWindow.omittedMessages > 0);
+  assert.deepEqual(page.activeWindow.requiredImageAnchorIds, ["latest-steer"]);
+  assert.deepEqual(new Set(page.activeWindow.requiredAnchorIds), new Set([page.snapshot.messages[0]!.id, "latest-steer", later.inputId]));
+  assert.deepEqual(page.snapshot.messages.find(message => message.id === "latest-steer")?.attachments, [{ ...image, id: "img_" + "b".repeat(32) }]);
+  assert.equal(page.snapshot.messages.find(message => message.id === later.inputId)?.content, "Latest text-only constraint");
+  assert.equal(page.snapshot.messages.filter(message => message.id === "latest-steer").length, 1);
+  assert.ok(page.activeWindow.metadataRows <= 101); assert.ok(page.snapshot.messages.length <= 64); assert.ok(Buffer.byteLength(JSON.stringify(page.snapshot)) <= 65_536);
+  assert.equal(page.activeWindow.summarized, false); assert.equal(f.store.readEvents("session", 0).at(-1)?.seq, before);
+});
+
+test("the latest image and user anchors deduplicate and fail closed at exact count and byte bounds", t => {
+  const f = fixture(t), receipt = f.store.admit({ sessionId: "session", requestId: "anchor-only", prompt: "Original text goal", config });
+  f.store.commit(receipt.runId, "run.started", {}, { run: { state: "running" } });
+  const pixel = f.store.acceptInput({ sessionId: "session", requestId: "image-anchor", prompt: "Retain these pixels", attachments: [image], delivery: "steer", config });
+  f.store.promoteSteers([pixel.inputId], receipt.runId);
+  // The same latest user/image occurrence consumes one message slot.
+  const deduplicated = f.store.readModelHistory("session", 2, 65_536);
+  assert.equal(deduplicated.snapshot.messages.length, 2); assert.equal(new Set(deduplicated.snapshot.messages.map(message => message.id)).size, 2);
+  const latest = f.store.acceptInput({ sessionId: "session", requestId: "latest-text-anchor", prompt: "Latest text-only goal", delivery: "steer", config });
+  f.store.promoteSteers([latest.inputId], receipt.runId);
+  f.store.getSnapshot = () => { throw new Error("Unbounded snapshot is forbidden"); };
+  assert.throws(() => f.store.readModelHistory("session", 2, 65_536), code("MODEL_HISTORY_LIMIT"));
+  const exact = f.store.readModelHistory("session", 3, 65_536); assert.equal(exact.snapshot.messages.length, 3);
+  assert.throws(() => f.store.readModelHistory("session", 3, Buffer.byteLength(JSON.stringify(exact.snapshot)) - 1), code("MODEL_HISTORY_LIMIT"));
+});
+
+test("a later oversized image-bearing anchor cannot silently fall out of the active bounded window", t => {
+  const f = fixture(t), original = populate(f.store, f.path, 1000);
+  const latestImage = f.store.acceptInput({ sessionId: "session", requestId: "oversized-image-anchor", prompt: "Image explanation ".repeat(6000), attachments: [image], delivery: "steer", config });
+  f.store.promoteSteers([latestImage.inputId], original.runId);
+  const latest = f.store.acceptInput({ sessionId: "session", requestId: "latest-text", prompt: "Latest text", delivery: "steer", config }); f.store.promoteSteers([latest.inputId], original.runId);
+  f.store.getSnapshot = () => { throw new Error("Unbounded snapshot is forbidden"); };
+  assert.throws(() => f.store.readModelHistory("session", 64, 65_536), code("MODEL_HISTORY_LIMIT"));
 });

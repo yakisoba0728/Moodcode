@@ -27,6 +27,35 @@ function provider(events: ProviderEvent[], inspect?: (request: TurnRequest) => v
   return { id: 'fixture', async *streamTurn(request) { inspect?.(request); yield* events; } };
 }
 
+test('concurrent summaries publish against their prepared memory revision and preserve the first completed checkpoint', async t => {
+  const f = fixture(t);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  t.after(() => release());
+  let entered!: () => void;
+  const dispatched = new Promise<void>(resolve => { entered = resolve; });
+  const slow: ProviderAdapter = { id: 'fixture', async *streamTurn() {
+    entered(); await gate;
+    yield { type: 'text.delta', delta: 'Stale slow summary must not overwrite the winner.' };
+    yield { type: 'finish', reason: 'stop' };
+  } };
+  const pending = f.memory.summarize(f.request, slow);
+  // Attach the rejection before the other stream publishes to avoid an
+  // unhandled rejection if either execution completes immediately.
+  const rejection = assert.rejects(pending, (error: unknown) => (error as { code: string }).code === 'REVISION_CONFLICT');
+  await dispatched;
+  const winner = await f.memory.summarize(f.request, provider([{ type: 'text.delta', delta: 'Winning complete derived memory.' }, { type: 'finish', reason: 'stop' }]));
+  const document = f.store.getSessionDocument('session', 'context.memory');
+  release(); await rejection;
+  assert.deepEqual(f.store.getSessionDocument('session', 'context.memory'), document);
+  assert.equal(f.memory.active('session')?.checkpoint.id, winner.id);
+  assert.equal(f.store.getLatestContextRevision('session')?.id, winner.revisionId);
+  const events = f.store.readEvents('session', 0);
+  assert.equal(events.filter(event => event.type === 'summary.completed').length, 1);
+  assert.ok(events.some(event => event.type === 'summary.failed' && event.payload.code === 'REVISION_CONFLICT'));
+  assert.equal(f.request.budget!.snapshot().summaryCalls, 2);
+});
+
 test('semantic checkpoint uses a tool-free request, exact provenance, inclusive usage and immutable original messages', async t => {
   const f = fixture(t), before = f.store.getSnapshot('session').messages;
   let bytes = 0;
@@ -44,6 +73,18 @@ test('semantic checkpoint uses a tool-free request, exact provenance, inclusive 
   assert.equal(projected.snapshot.messages[0]!.runId, f.currentRunId);
   assert.ok(projected.semanticMemory!.content.startsWith(SEMANTIC_MEMORY_PREFIX));
   assert.equal(f.store.readEvents('session', 0).filter(event => event.type === 'summary.completed').length, 1);
+});
+
+test('observed delta bytes remain charged to the Run when the separate semantic summary cap rejects them', async t => {
+  const f = fixture(t), budgets = { ...DEFAULT_ENGINE_BUDGETS, maxSummaryBytes: 4096 };
+  let observedBytes = 0;
+  const request = { ...f.request, config: { ...config, budgets }, budget: new BudgetAccount({ ...config, budgets }),
+    consumeSummaryOutput: (bytes: number) => { observedBytes += bytes; } };
+  await assert.rejects(f.memory.summarize(request, provider([{ type: 'text.delta', delta: 'x'.repeat(4097) }, { type: 'finish', reason: 'stop' }])),
+    (error: unknown) => (error as { code: string }).code === 'SUMMARY_OUTPUT_LIMIT');
+  assert.equal(observedBytes, 4097); assert.equal(request.budget.snapshot().summaryCalls, 1);
+  assert.equal(f.store.getSessionDocument('session', 'context.memory'), null);
+  assert.equal(f.store.getLatestContextRevision('session'), null);
 });
 
 test('empty, truncated, tool-producing and cancelled summaries preserve the previous active checkpoint', async t => {

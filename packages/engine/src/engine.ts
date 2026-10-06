@@ -51,6 +51,7 @@ import { providerImages } from './media/provider.js';
 import type { InputImageAttachment } from '@moodcode/contracts';
 import { createDelegateTaskTool } from './child-tasks/delegation.js';
 import { validateMediaHistoryPolicy, type MediaHistoryPolicy } from './context/media-history.js';
+import { validateActivePrefixPolicy, type ActivePrefixPolicy } from './context/active-prefix.js';
 import { inspectEngineStorage, type StorageUsageReport, type StorageUsageLimits } from './diagnostics/storage-usage.js';
 
 export interface EngineStorageUsageOptions { signal?: AbortSignal; limits?: Partial<StorageUsageLimits> }
@@ -86,6 +87,8 @@ export interface EngineOptions {
   outputTokenReserve?: number;
   /** Explicit host policy; original transcript and image references remain durable. */
   mediaHistoryPolicy?: MediaHistoryPolicy;
+  /** Bounded derived observations from completed exchanges of a still-active Run. */
+  activePrefixPolicy?: ActivePrefixPolicy;
   agentProfiles?: readonly AgentProfileSpec[];
   allowedToolNames?: readonly string[];
   ptyBackend?: PtyBackend;
@@ -183,6 +186,7 @@ export class MoodcodeEngine {
     }
     this.defaults = normalizeSubmitInput({ sessionId: 'defaults', requestId: 'defaults', prompt: 'defaults', config: options.defaults ?? {} }).config;
     const mediaHistoryPolicy = options.mediaHistoryPolicy === undefined ? undefined : validateMediaHistoryPolicy(options.mediaHistoryPolicy);
+    const activePrefixPolicy = options.activePrefixPolicy === undefined ? undefined : validateActivePrefixPolicy(options.activePrefixPolicy);
     const dbPath = options.dbPath === ':memory:' ? options.dbPath : resolve(options.dbPath);
     const artifactDir = options.artifactDir !== undefined ? resolve(options.artifactDir)
       : dbPath === ':memory:' ? mkdtempSync(join(tmpdir(), 'moodcode-memory-artifacts-')) : resolve(`${options.dbPath}.artifacts`);
@@ -206,7 +210,7 @@ export class MoodcodeEngine {
       this.lsp = new LspManager();
       this.formatters = new FormatterRegistry();
       this.changes = new WorkspaceChangeHub({ signal: this.hostResources.signal });
-      this.children = new EngineChildren(this, { ...options, ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value));
+      this.children = new EngineChildren(this, { ...options, ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value));
       terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
@@ -231,7 +235,7 @@ export class MoodcodeEngine {
         if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
       };
       for (const [id, provider] of providers) providers.set(id, withImageInputs(provider, this.images, this.store, models));
-      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}) });
+      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}) });
       const availableTools = options.tools ?? [...createReadTools(), createPatchTool(), createCommandTool(), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;

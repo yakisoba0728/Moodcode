@@ -390,16 +390,21 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
     }
     cost += entryCost(mediaNotice); count++;
   }
+  const semantic = request.semanticMemory, prefixMemory = request.activePrefixMemory;
+  for (const memory of [semantic, prefixMemory]) {
+    if (!memory) continue;
+    if (memory.role !== 'assistant' || typeof memory.content !== 'string' || arrayBytes(cost + entryCost(memory), count + 1) > limit) {
+      throw new EngineError(prefixMemory ? 'ACTIVE_PREFIX_CONTEXT_LIMIT' : 'CONTEXT_LIMIT', 'Required derived memory cannot fit beside the current exchange');
+    }
+    cost += entryCost(memory); count++;
+  }
+  const profile = request.agentInstructions ? { role: 'system' as const, content: request.agentInstructions } : undefined;
+  if (profile && (Buffer.byteLength(profile.content) > MAX_INSTRUCTION_BYTES || arrayBytes(cost + entryCost(profile), count + 1) > limit)) throw new EngineError(prefixMemory ? 'ACTIVE_PREFIX_CONTEXT_LIMIT' : 'CONTEXT_LIMIT', 'Agent profile instructions cannot fit the current exchange');
+  if (profile) { cost += entryCost(profile); count++; }
   const instructions = await readInstructions(request);
   checkAbort(request.signal);
   const system = instructions ? fitInstructions(instructions, cost, count, limit) : undefined;
   if (system) { cost += entryCost(system); count += 1; }
-  const profile = request.agentInstructions ? { role: 'system' as const, content: request.agentInstructions } : undefined;
-  if (profile && (Buffer.byteLength(profile.content) > MAX_INSTRUCTION_BYTES || arrayBytes(cost + entryCost(profile), count + 1) > limit)) throw new EngineError('CONTEXT_LIMIT', 'Agent profile instructions cannot fit the current exchange');
-  if (profile) { cost += entryCost(profile); count++; }
-  const semantic = request.semanticMemory;
-  if (semantic && (semantic.role !== 'assistant' || arrayBytes(cost + entryCost(semantic), count + 1) > limit)) throw new EngineError('CONTEXT_LIMIT', 'Working memory cannot fit beside the current exchange');
-  if (semantic) { cost += entryCost(semantic); count++; }
   const defaults = agentInstructions(request.config.mode);
   const includeDefaults = arrayBytes(cost + entryCost(defaults), count + 1) <= limit
     && Buffer.byteLength((system?.content ?? '') + defaults.content, 'utf8') <= MAX_INSTRUCTION_BYTES;
@@ -442,5 +447,5 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
   }
   checkAbort(request.signal);
   const messages = blocks.filter(item => selected.has(item)).flatMap((item) => item.messages);
-  return [...(system ? [system] : []), ...(profile ? [profile] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...(mediaNotice ? [mediaNotice] : []), ...messages];
+  return [...(system ? [system] : []), ...(profile ? [profile] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...(prefixMemory ? [prefixMemory] : []), ...(mediaNotice ? [mediaNotice] : []), ...messages];
 }

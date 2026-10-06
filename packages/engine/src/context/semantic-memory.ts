@@ -38,6 +38,7 @@ export class SemanticMemoryService {
     cancelled(request.signal);
     const run = this.store.getRun(request.run.id);
     if (run.state !== 'running') throw new EngineError('SUMMARY_OWNER_REQUIRED', 'Summary cannot run after its owner stops');
+    const expectedMemoryRevision = this.store.getSessionDocument(run.sessionId, 'context.memory')?.revision ?? 0;
     const prior = this.active(run.sessionId);
     const projected = this.project(request);
     const older = projected.snapshot.messages.filter(message => message.runId !== run.id);
@@ -80,8 +81,9 @@ export class SemanticMemoryService {
         if (finish && event.type !== 'usage') throw new EngineError('SUMMARY_PROTOCOL_ERROR', 'Summary emitted content after finish');
         if (event.type === 'text.delta') {
           if (typeof event.delta !== 'string') throw new EngineError('SUMMARY_PROTOCOL_ERROR', 'Summary text must be a string');
-          if (Buffer.byteLength(text) + Buffer.byteLength(event.delta) > Math.min(65_536, request.budget.budgets.maxSummaryBytes)) throw new EngineError('SUMMARY_OUTPUT_LIMIT', 'Summary output exceeded its byte limit');
-          request.consumeSummaryOutput?.(Buffer.byteLength(event.delta));
+          const bytes = Buffer.byteLength(event.delta);
+          request.consumeSummaryOutput?.(bytes);
+          if (Buffer.byteLength(text) + bytes > Math.min(65_536, request.budget.budgets.maxSummaryBytes)) throw new EngineError('SUMMARY_OUTPUT_LIMIT', 'Summary output exceeded its byte limit');
           text += event.delta;
         } else if (event.type === 'finish') { if (event.reason !== 'stop') throw new EngineError('SUMMARY_INCOMPLETE', 'Summary did not finish normally'); finish = event.reason; }
         else if (event.type === 'usage') {
@@ -99,9 +101,8 @@ export class SemanticMemoryService {
       const revision: ContextRevision = { schemaVersion: SESSION_SCHEMA_VERSION, id: revisionId, sessionId: run.sessionId, revision: this.store.nextContextRevisionIndex(run.sessionId), kind: 'summary',
         sourceIds: [...sourceMessageIds, ...(prior ? [prior.checkpoint.revisionId] : [])], text, sha256: createHash('sha256').update(text).digest('hex'), createdAt, runId: run.id, ...(latest ? { supersedesId: latest.id } : {}) };
       const checkpoint: SemanticCheckpoint = { ...provenance, version: 1, revisionId, usage };
-      const document = this.store.getSessionDocument(run.sessionId, 'context.memory');
       this.store.commitContextDocument(run.id, 'summary.completed', { summaryAttemptId: id, revisionId, usage: JSON.parse(JSON.stringify(usage)) as JsonObject }, {
-        revision, kind: 'context.memory', expectedRevision: document?.revision ?? 0, data: { active: JSON.parse(JSON.stringify(checkpoint)) as JsonObject },
+        revision, kind: 'context.memory', expectedRevision: expectedMemoryRevision, data: { active: JSON.parse(JSON.stringify(checkpoint)) as JsonObject },
       });
       return checkpoint;
     } catch (error) {

@@ -20,6 +20,8 @@ import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js
 import { readActiveHistoryWindow, type ActiveHistoryWindow } from './native-history.js';
 import { putAttemptUsage, type AttemptUsageRecord, type AttemptUsageSnapshot } from './native-usage.js';
 import { inspectInputImageIndex, type InputImageIndexOptions, type InputImageIndexReport } from './input-image-index.js';
+import { readActivePrefixSourceDatabase, validateActivePrefixPublication } from './active-prefix.js';
+import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefix, ActivePrefixContextPublication } from '../context/active-prefix.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
@@ -279,6 +281,30 @@ export class SqliteStore implements SessionEngineStore {
   getContextRevision(id: string): ContextRevision { return this.executionRecords.getContextRevision(id); }
   nextContextRevisionIndex(sessionId: string): number { return this.executionRecords.nextContextRevisionIndex(sessionId); }
   getLatestContextRevision(sessionId: string): ContextRevision | null { return this.executionRecords.getLatestContextRevision(sessionId); }
+  readActivePrefixSource(runId: string, options: ActivePrefixSourceOptions): ActivePrefixSource {
+    return this.transaction(() => readActivePrefixSourceDatabase(this.db, this.getRun(runId), options), false);
+  }
+  commitActivePrefixCheckpoint(runId: string, payload: JsonObject, change: PreparedActivePrefix & ActivePrefixContextPublication): EngineEvent {
+    const event = this.transaction(() => {
+      const run = this.getRun(runId);
+      validateActivePrefixPublication(this.db, run, change);
+      if (payload.summaryAttemptId !== change.checkpoint.id || payload.scope !== 'active-run-prefix' || payload.revisionId !== change.summaryRevision.id || payload.contextRevisionId !== change.contextRevision.id
+        || canonical(payload.usage) !== canonical(change.checkpoint.usage)) throw new EngineError('ACTIVE_PREFIX_BINDING_MISMATCH', 'Summary completion payload must match its checkpoint');
+      this.executionRecords.putContextRevision(change.summaryRevision);
+      this.executionRecords.putContextRevision(change.contextRevision);
+      this.executionRecords.putSessionDocument(run.sessionId, 'context.active_memory', change.source.expectedMemoryRevision,
+        { active: JSON.parse(JSON.stringify(change.checkpoint)) as JsonObject });
+      this.executionRecords.putSessionDocument(run.sessionId, 'context.head', change.source.expectedContextHeadRevision, change.contextData);
+      const completed = this.native.appendEvent(run.sessionId, 'summary.completed', payload, { runId });
+      const result = this.append(run, 'summary.completed', completed.payload);
+      const activated = this.native.appendEvent(run.sessionId, 'context.revision.activated', { contextRevisionId: change.contextRevision.id,
+        revision: change.contextRevision.revision, sha256: change.contextRevision.sha256, summaryAttemptId: change.checkpoint.id }, { runId });
+      this.append(run, 'context.revision.activated', activated.payload);
+      return result;
+    });
+    this.notify(event.sessionId);
+    return event;
+  }
   commitContextDocument(runId: string, eventType: string, payload: JsonObject, change: { revision: ContextRevision; kind: string; expectedRevision: number; data: JsonObject }): EngineEvent {
     const event = this.transaction(() => {
       const run = this.getRun(runId);

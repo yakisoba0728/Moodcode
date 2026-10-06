@@ -11,6 +11,8 @@ import type {
   ChildRunReservation, RunUsage,
 } from '../ports.js';
 import { EXTRACTIVE_MEMORY_PREFIX } from '../context/index.js';
+import { SEMANTIC_MEMORY_PREFIX } from '../context/semantic-memory.js';
+import { ACTIVE_PREFIX_MEMORY_PREFIX } from '../context/active-prefix.js';
 import { BudgetAccount } from '../config/budgets.js';
 import { validateToolResultEnvelope } from '@moodcode/contracts/validation';
 import { executionRecords, TurnExecutor } from './turn-executor.js';
@@ -489,7 +491,14 @@ export class RunCoordinator implements CoordinatorPort {
       messages = structuredClone(messages);
       for (let turnIndex = 0; turnIndex < run.config.limits.maxTurns; turnIndex++) {
         this.assertLive(owner);
-        if (this.sessionHooks?.boundary(run)) { owner.budget.inputPromoted(); messages = structuredClone(await context()); }
+        // Context construction may await a provider summary. Drain any steer that
+        // arrived during that await before fixing the next dispatch cutoff.
+        let steerRebuilds = 0;
+        while (this.sessionHooks?.boundary(run)) {
+          if (++steerRebuilds > 16) throw new EngineError('STEER_CONTEXT_LIMIT', 'Continuous steer arrivals exceeded the bounded context rebuild allowance');
+          owner.budget.inputPromoted(); messages = structuredClone(await context());
+          this.assertLive(owner);
+        }
         if (owner.budget.snapshot().logicalTurns + owner.childReserved.turns >= run.config.limits.maxTurns) throw new EngineError('TURN_LIMIT', 'Parent and reserved child turns reached the Run turn limit');
         owner.budget.startTurn();
         owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
@@ -497,14 +506,17 @@ export class RunCoordinator implements CoordinatorPort {
         const bytes = this.checkContext(owner, messages);
         this.options.store.commit(run.id, 'context.prepared', {
           turnIndex, bytes, limit: run.config.limits.maxContextBytes,
-          summaryIncluded: messages.some((message) => message.role === 'assistant' && message.content.startsWith(EXTRACTIVE_MEMORY_PREFIX)),
+          summaryIncluded: messages.some((message) => message.role === 'assistant' && [EXTRACTIVE_MEMORY_PREFIX, SEMANTIC_MEMORY_PREFIX, ACTIVE_PREFIX_MEMORY_PREFIX].some(prefix => message.content.startsWith(prefix))),
         });
         const records = executionRecords(this.options.store);
         const revisionId = this.options.getContextRevisionId?.(run.sessionId);
         owner.turn = new TurnExecutor({ run, index: turnIndex, inputIds: records?.listRunInputIds?.(run.id) ?? [run.inputId], budget: owner.budget,
           store: this.options.store, wait: abortable, ...(revisionId ? { contextRevisionId: revisionId } : {}), currentContextRevisionId: () => this.options.getContextRevisionId?.(run.sessionId),
           ...(this.options.recoverContextOverflow ? { recoverContextOverflow: async () => {
-            await abortable(() => this.options.recoverContextOverflow!(contextRequest(), provider), owner.abort.signal, 'Context overflow recovery');
+            const failedAttemptId = owner.turn?.attemptId;
+            await abortable(() => this.options.recoverContextOverflow!({ ...contextRequest(), ...(owner.turn && failedAttemptId ? {
+              activePrefixStage: { stage: 'overflow-recovery' as const, currentTurnId: owner.turn.id, failedAttemptId, cleanupConfirmed: true as const },
+            } : {}) }, provider), owner.abort.signal, 'Context overflow recovery');
             messages = structuredClone(await context()); this.checkContext(owner, messages); return messages;
           } } : {}) });
         const turn = await this.providerTurn(owner, provider, messages, turnIndex);

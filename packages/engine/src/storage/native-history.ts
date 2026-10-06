@@ -11,6 +11,8 @@ export interface ActiveHistoryWindow {
   runId: string;
   strategy: "initial-user-and-latest-user-with-complete-recent-exchanges";
   requiredAnchorIds: string[];
+  /** Latest image-bearing user in this active Run; historical Runs are outside this window. */
+  requiredImageAnchorIds?: string[];
   firstRecentMessageId: string | null;
   selectedMessages: number;
   omittedMessages: number;
@@ -73,15 +75,21 @@ export function readActiveHistoryWindow(
     .all(run.id, maxMessages + 1)
     .map(mapCandidate)
     .reverse();
-  const anchors = database
+  const anchorMetadata = database
     .prepare(
-      `SELECT id,ordinal,json_extract(data,'$.role') AS role,length(CAST(data AS BLOB)) AS bytes
+      `WITH latest_image AS (SELECT max(ordinal) AS ordinal FROM messages WHERE run_id=?
+       AND json_extract(data,'$.role')='user' AND json_type(data,'$.attachments')='array'
+       AND json_array_length(data,'$.attachments')>0)
+    SELECT id,ordinal,json_extract(data,'$.role') AS role,length(CAST(data AS BLOB)) AS bytes,
+     ordinal=(SELECT ordinal FROM latest_image) AS required_image
     FROM messages WHERE run_id=? AND ordinal IN
     ((SELECT min(ordinal) FROM messages WHERE run_id=? AND json_extract(data,'$.role')='user'),
-     (SELECT max(ordinal) FROM messages WHERE run_id=? AND json_extract(data,'$.role')='user')) ORDER BY ordinal`,
+     (SELECT max(ordinal) FROM messages WHERE run_id=? AND json_extract(data,'$.role')='user'),
+     (SELECT ordinal FROM latest_image)) ORDER BY ordinal`,
     )
-    .all(run.id, run.id, run.id)
-    .map(mapCandidate);
+    .all(run.id, run.id, run.id, run.id);
+  const anchors = anchorMetadata.map(mapCandidate);
+  const requiredImageAnchorIds = anchorMetadata.filter(row => Number(row.required_image) === 1).map(row => String(row.id));
   if (!anchors.length)
     throw new EngineError(
       "MODEL_HISTORY_LIMIT",
@@ -215,6 +223,7 @@ export function readActiveHistoryWindow(
       runId: run.id,
       strategy: "initial-user-and-latest-user-with-complete-recent-exchanges",
       requiredAnchorIds: [...anchorIds],
+      ...(requiredImageAnchorIds.length ? { requiredImageAnchorIds } : {}),
       firstRecentMessageId:
         messages.find((message) => !anchorIds.has(message.id))?.id ?? null,
       selectedMessages: messages.length,
