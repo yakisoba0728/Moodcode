@@ -1,13 +1,13 @@
 {
-  "schemaVersion": 4,
-  "implementationCommit": "ede15196edc16f63ee8c4183f628c50d6745df2d",
-  "timestamp": "2026-10-06T22:30:30.863797+00:00",
+  "schemaVersion": 5,
+  "implementationCommit": "29b59a115bacac79e4a55a4429618ea455b8553d",
+  "timestamp": "2026-10-06T23:20:59.392Z",
   "runtime": {
     "node": "26.9.0",
     "platform": "darwin",
     "arch": "arm64"
   },
-  "scope": "headless-engine-goal-checkpoint-4",
+  "scope": "headless-engine-goal-checkpoint-5",
   "checks": {
     "typecheck": {
       "passed": true,
@@ -15,14 +15,16 @@
       "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
     },
     "engine": {
-      "command": "npm run test:engine",
-      "tests": 1850,
-      "passed": 1848,
+      "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
+      "testConcurrency": 2,
+      "testManifestReduced": false,
+      "tests": 1896,
+      "passed": 1894,
       "failed": 0,
       "cancelled": 0,
       "skipped": 2,
-      "durationMs": 42125.488625,
-      "logSha256": "31d147dd50b52368bcea91d78d82e34d7ccceb1e947083b5a21717bd2bde4bd3"
+      "durationMs": 61446.350167,
+      "logSha256": "2dbf67a4c00d56ce3c5dcd470cd61bdae2e5d74bfb8ed50bc6d7f40043ef6a58"
     },
     "evaluation": [
       {
@@ -50,7 +52,7 @@
             "turnIndex": 3
           }
         },
-        "durationMs": 295
+        "durationMs": 532
       },
       {
         "taskId": "empty-list-boundary",
@@ -77,7 +79,7 @@
             "turnIndex": 3
           }
         },
-        "durationMs": 228
+        "durationMs": 533
       },
       {
         "taskId": "two-module-change",
@@ -99,19 +101,19 @@
           "outputTokens": null,
           "usageWindowTruncated": false,
           "context": {
-            "bytes": 14044,
+            "bytes": 14041,
             "limit": 262144,
             "summaryIncluded": false,
             "turnIndex": 4
           }
         },
-        "durationMs": 245
+        "durationMs": 739
       }
     ],
     "activePrefixLive": {
       "kind": "active-prefix-hybrid-live",
-      "implementationCommit": "ede15196edc16f63ee8c4183f628c50d6745df2d",
-      "timestamp": "2026-10-06T22:27:56.228Z",
+      "implementationCommit": "29b59a115bacac79e4a55a4429618ea455b8553d",
+      "timestamp": "2026-10-06T23:18:37.111Z",
       "providerId": "codex",
       "modelId": "gpt-6.1-sol",
       "runtime": {
@@ -129,13 +131,13 @@
         {
           "purpose": "active-prefix-summary",
           "sourceMessageCount": 4,
-          "factsSha256": "32bd3698a79f4d81c84cac43086eb432b9debad4ff2a23ad809357f5082ba5b0",
+          "factsSha256": "03a7b094aa080ab78d56746607724fb0de3a8a500bdd17dc1f1fd0220b2e1754",
           "observedIdentifierInQuotedToolFacts": true,
           "requestBytes": 7642,
           "finalUsage": {
             "type": "usage",
-            "inputTokens": 2040,
-            "outputTokens": 188
+            "inputTokens": 1964,
+            "outputTokens": 202
           }
         },
         {
@@ -144,8 +146,8 @@
           "rawIdentifierSourceInMessages": false,
           "finalUsage": {
             "type": "usage",
-            "inputTokens": 2695,
-            "outputTokens": 24,
+            "inputTokens": 2567,
+            "outputTokens": 19,
             "cachedInputTokens": 0,
             "reasoningOutputTokens": 0
           }
@@ -159,15 +161,15 @@
       },
       "memory": {
         "nonceMatch": true,
-        "nonceSha256": "5ea6c36202f7f604d9c285618e5e11374f57b049e936bdd459913bd78bf1c2b9",
+        "nonceSha256": "1fe538ff401009d23ea7ee3fba063effbbb8b8990176b1fb43f11a2db7da834e",
         "originalToolResultStillStored": true,
         "rawSourceSelected": false,
         "coveredMessageCount": 4,
-        "factsSha256": "32bd3698a79f4d81c84cac43086eb432b9debad4ff2a23ad809357f5082ba5b0",
-        "manifestSha256": "641f72f724f582fbbb46dbd8188d389f1181bb609a1bc8c35f0ad29ec8ff717f",
+        "factsSha256": "03a7b094aa080ab78d56746607724fb0de3a8a500bdd17dc1f1fd0220b2e1754",
+        "manifestSha256": "4b3ffce82cb1e0f782dddad575a3e67fbcce593d33b86a9d780ff0a035f7ef92",
         "fullSnapshotReads": 0,
         "currentFileEvidence": false,
-        "contextBytes": 14754,
+        "contextBytes": 14772,
         "contextByteLimit": 16384
       },
       "runUsage": {
@@ -178,14 +180,14 @@
       "regularAttemptUsage": {
         "samples": 1,
         "inputTokens": {
-          "tokens": 2695,
+          "tokens": 2567,
           "observed": 1,
           "missing": 0,
           "invalid": 0,
           "sumOverflow": false
         },
         "outputTokens": {
-          "tokens": 24,
+          "tokens": 19,
           "observed": 1,
           "missing": 0,
           "invalid": 0,
@@ -213,8 +215,8 @@
         "billedTokens": null
       },
       "summaryUsage": {
-        "inputTokens": 2040,
-        "outputTokens": 188,
+        "inputTokens": 1964,
+        "outputTokens": 202,
         "cachedInputTokens": null,
         "reasoningOutputTokens": null
       },
@@ -223,18 +225,18 @@
         "publication": "activated",
         "scope": "active-run-prefix",
         "sourceProjection": "text-and-complete-tool-observations-v1",
-        "requestSha256": "56ba41618cfcba5d0e8a384e214ee65434822ce851d428bd0cdb7a582de054d0",
+        "requestSha256": "40907ee4f82d54b1ef8922728120e5d6c1691eee5d0ef7657ab062c5bfd60e31",
         "requestBytes": 7642,
         "summaryRevisionMatchesCheckpoint": true,
         "providerCompletionRecorded": true,
         "cleanupConfirmed": true,
-        "observedOutputBytes": 790,
-        "retainedTextBytes": 790,
+        "observedOutputBytes": 907,
+        "retainedTextBytes": 907,
         "partialTextTruncated": false,
-        "partialTextSha256": "bde29c3963d0081d4514406d09df1d43e906d0de86a6145f199fc2b2bebf537b",
+        "partialTextSha256": "48fcda683ddd79fbf225cc495cd64c90ba6a58f2085282217365a16f4473bdd4",
         "usage": {
-          "inputTokens": 2040,
-          "outputTokens": 188,
+          "inputTokens": 1964,
+          "outputTokens": 202,
           "cachedInputTokens": null,
           "reasoningOutputTokens": null
         }
@@ -242,14 +244,14 @@
       "durableSummaryUsageMetrics": {
         "samples": 1,
         "inputTokens": {
-          "tokens": 2040,
+          "tokens": 1964,
           "observed": 1,
           "missing": 0,
           "invalid": 0,
           "sumOverflow": false
         },
         "outputTokens": {
-          "tokens": 188,
+          "tokens": 202,
           "observed": 1,
           "missing": 0,
           "invalid": 0,
@@ -278,128 +280,569 @@
       },
       "summaryUsageIncludedInRegularAttemptTotals": false
     },
-    "sessionImageLive": {
-      "kind": "session-image-restart-live",
-      "implementationCommit": "ede15196edc16f63ee8c4183f628c50d6745df2d",
-      "timestamp": "2026-10-06T22:28:57.883Z",
-      "providerId": "codex",
-      "modelId": "gpt-6.1-sol",
+    "summaryRecoveryLive": {
+      "kind": "explicit-summary-recovery-hybrid-live",
+      "implementationCommit": "29b59a115bacac79e4a55a4429618ea455b8553d",
+      "timestamp": "2026-10-06T23:18:53.379Z",
       "runtime": {
         "node": "26.9.0",
         "platform": "darwin",
         "arch": "arm64"
       },
+      "providerId": "codex",
+      "modelId": "gpt-6.1-sol",
       "actualRequests": [
         {
-          "imageOccurrences": 1,
-          "resolvedImages": 1,
-          "latestUserContainsImage": true,
-          "finalUsage": {
+          "attemptId": "721a66d2-2a04-403d-8933-050116299308",
+          "turnId": "e7dc694a-77f2-4705-961b-cb9178ceffa9",
+          "usage": {
             "type": "usage",
-            "inputTokens": 279,
+            "inputTokens": 2739,
             "outputTokens": 5,
             "cachedInputTokens": 0,
             "reasoningOutputTokens": 0
           }
-        },
-        {
-          "imageOccurrences": 1,
-          "resolvedImages": 1,
-          "latestUserContainsImage": false,
-          "finalUsage": {
-            "type": "usage",
-            "inputTokens": 313,
-            "outputTokens": 15,
-            "cachedInputTokens": 0,
-            "reasoningOutputTokens": 8
-          }
         }
       ],
+      "scope": {
+        "syntheticUncertainSummary": true,
+        "realUncertainTransportVerified": false,
+        "requestedRealNewRuns": 1,
+        "originalSummaryAutomaticallyRetried": false
+      },
       "passed": true,
       "cleanupConfirmed": true,
       "result": {
-        "firstRun": "completed",
-        "restartedTextRun": "completed",
-        "predominantColor": "red",
-        "oldAssistantNamedColor": false,
-        "currentRunHasNoImageAttachment": true,
-        "rawImageMessages": 1,
-        "referenceSha256": "ca96adb50da6a5f6cbfe03c9c5eb8ad8f1a6c88f526b8a4b9d9d7d3b9ef90157",
-        "imageBytesSha256": "ca96adb50da6a5f6cbfe03c9c5eb8ad8f1a6c88f526b8a4b9d9d7d3b9ef90157",
-        "anchorMatchesOriginalMessage": true,
-        "anchorOwnerIsEarlierRun": true,
+        "sameBootBlocked": true,
+        "originalUncertaintyRetained": true,
+        "originalUsageUnchanged": true,
+        "explicitNewRunCompleted": true,
+        "sourceSummaryRetried": false,
+        "checkpointActivatedByDecision": false,
+        "pauseUnchangedByDecision": true,
+        "acknowledgmentSurvivedHeadChangeAndRestart": true,
+        "exactDecisionRetry": true,
         "fullSnapshotReads": 0,
-        "rawPixelsInTranscript": false,
-        "contextBytes": 2242,
-        "contextByteLimit": 8192,
-        "imageTokenCost": null
-      },
-      "usage": {
-        "samples": 2,
-        "inputTokens": {
-          "tokens": 592,
-          "observed": 2,
-          "missing": 0,
-          "invalid": 0,
-          "sumOverflow": false
+        "storedUncertainSummaries": 1,
+        "acknowledgmentRecords": 1,
+        "originalSummaryUsage": {
+          "inputTokens": 9,
+          "outputTokens": null,
+          "cachedInputTokens": null,
+          "reasoningOutputTokens": null
         },
-        "outputTokens": {
-          "tokens": 20,
-          "observed": 2,
-          "missing": 0,
-          "invalid": 0,
-          "sumOverflow": false
+        "ordinaryAttemptUsage": {
+          "samples": 1,
+          "inputTokens": {
+            "tokens": 2739,
+            "observed": 1,
+            "missing": 0,
+            "invalid": 0,
+            "sumOverflow": false
+          },
+          "outputTokens": {
+            "tokens": 5,
+            "observed": 1,
+            "missing": 0,
+            "invalid": 0,
+            "sumOverflow": false
+          },
+          "cachedInputTokens": {
+            "tokens": 0,
+            "observed": 1,
+            "missing": 0,
+            "invalid": 0,
+            "sumOverflow": false
+          },
+          "reasoningOutputTokens": {
+            "tokens": 0,
+            "observed": 1,
+            "missing": 0,
+            "invalid": 0,
+            "sumOverflow": false
+          },
+          "aggregation": "latest-snapshot-per-durable-attempt",
+          "inclusiveTotals": true,
+          "attemptsWithUsage": 1,
+          "attemptsWithoutUsage": 1,
+          "source": "all-attempt_usage-records-in-scope",
+          "billedTokens": null
         },
-        "cachedInputTokens": {
-          "tokens": 0,
-          "observed": 2,
-          "missing": 0,
-          "invalid": 0,
-          "sumOverflow": false
-        },
-        "reasoningOutputTokens": {
-          "tokens": 8,
-          "observed": 2,
-          "missing": 0,
-          "invalid": 0,
-          "sumOverflow": false
-        },
-        "aggregation": "latest-snapshot-per-durable-attempt",
-        "inclusiveTotals": true,
-        "attemptsWithUsage": 2,
-        "attemptsWithoutUsage": 0,
-        "source": "all-attempt_usage-records-in-scope",
         "billedTokens": null
       }
     }
   },
-  "independentReview": {
-    "summaryServiceFocusedTests": 28,
-    "actualSummaryLifecycleTests": 19,
-    "actualSummaryQuarantineTests": 8,
-    "actualProviderCleanupProofTests": 8,
-    "sessionImageStorageTests": 10,
-    "actualSessionImageTests": 5,
-    "summaryMetricsTests": 2,
-    "sourceAndCompiledIntegrationPassed": true,
-    "focus": [
-      "typed lifecycle and publication-only completion",
-      "owner/source/CAS/revision/journal atomic rollback",
-      "nullable latest usage and ordinary Attempt separation",
-      "partial UTF-8 retention and shared budgets",
-      "cancel/close and three real process crash boundaries",
-      "orphan terminal-Run summary quarantine, maintenance-first and other-session resume-first",
-      "transparent image wrapper and done-false HTTP/overflow cleanup proof",
-      "session-wide latest image SQL anchor, restart/cutoff/cap and unsupported provider"
+  "performance": {
+    "summaryHotpath": {
+      "baselineCommit": "ede15196edc16f63ee8c4183f628c50d6745df2d",
+      "baselineSourceSha256": "1edaec5d64c6be8e7d3090f552d45927e59e7a2ba703724ca0d9e736eb7ab98c",
+      "method": "Same synthetic primary fixture and real 65536-byte provider observation; baseline storage class pinned to committed source; optimized class from current full TypeScript build",
+      "results": [
+        {
+          "records": 1000,
+          "implementation": "ede1519-baseline",
+          "scope": "SQL-values-returned-to-JavaScript;not-physical-I/O",
+          "getUsage": {
+            "returnedSqlBytes": 67849,
+            "queries": 7,
+            "summaryFullPayloadReads": 1,
+            "summaryTextBytesReturned": 65536,
+            "writeStatements": 0,
+            "elapsedMs": 0.9301249999999968
+          },
+          "duplicateUsage": {
+            "returnedSqlBytes": 202775,
+            "queries": 17,
+            "summaryFullPayloadReads": 3,
+            "summaryTextBytesReturned": 196608,
+            "writeStatements": 1,
+            "elapsedMs": 1.3843749999999986
+          },
+          "duplicateProgress": {
+            "returnedSqlBytes": 202775,
+            "queries": 17,
+            "summaryFullPayloadReads": 3,
+            "summaryTextBytesReturned": 196608,
+            "writeStatements": 1,
+            "elapsedMs": 0.9267079999999979
+          },
+          "textObservation": {
+            "returnedSqlBytes": 202775,
+            "queries": 17,
+            "summaryFullPayloadReads": 3,
+            "summaryTextBytesReturned": 196608,
+            "writeStatements": 1,
+            "elapsedMs": 1.389415999999997
+          },
+          "settlement": {
+            "returnedSqlBytes": 136206,
+            "queries": 15,
+            "summaryFullPayloadReads": 2,
+            "summaryTextBytesReturned": 131072,
+            "writeStatements": 4,
+            "elapsedMs": 1.5996669999999966
+          }
+        },
+        {
+          "records": 1000,
+          "implementation": "working-tree-optimized",
+          "scope": "SQL-values-returned-to-JavaScript;not-physical-I/O",
+          "getUsage": {
+            "returnedSqlBytes": 2378,
+            "queries": 7,
+            "summaryFullPayloadReads": 0,
+            "summaryTextBytesReturned": 0,
+            "writeStatements": 0,
+            "elapsedMs": 0.25816700000000026
+          },
+          "duplicateUsage": {
+            "returnedSqlBytes": 67849,
+            "queries": 7,
+            "summaryFullPayloadReads": 1,
+            "summaryTextBytesReturned": 65536,
+            "writeStatements": 0,
+            "elapsedMs": 0.15354199999999452
+          },
+          "duplicateProgress": {
+            "returnedSqlBytes": 67849,
+            "queries": 7,
+            "summaryFullPayloadReads": 1,
+            "summaryTextBytesReturned": 65536,
+            "writeStatements": 0,
+            "elapsedMs": 0.228749999999998
+          },
+          "textObservation": {
+            "returnedSqlBytes": 67849,
+            "queries": 7,
+            "summaryFullPayloadReads": 1,
+            "summaryTextBytesReturned": 65536,
+            "writeStatements": 1,
+            "elapsedMs": 0.247166
+          },
+          "settlement": {
+            "returnedSqlBytes": 68744,
+            "queries": 10,
+            "summaryFullPayloadReads": 1,
+            "summaryTextBytesReturned": 65536,
+            "writeStatements": 4,
+            "elapsedMs": 0.9255420000000001
+          }
+        },
+        {
+          "records": 10000,
+          "implementation": "ede1519-baseline",
+          "scope": "SQL-values-returned-to-JavaScript;not-physical-I/O",
+          "getUsage": {
+            "returnedSqlBytes": 67849,
+            "queries": 7,
+            "summaryFullPayloadReads": 1,
+            "summaryTextBytesReturned": 65536,
+            "writeStatements": 0,
+            "elapsedMs": 0.2192500000000024
+          },
+          "duplicateUsage": {
+            "returnedSqlBytes": 202775,
+            "queries": 17,
+            "summaryFullPayloadReads": 3,
+            "summaryTextBytesReturned": 196608,
+            "writeStatements": 1,
+            "elapsedMs": 1.0149590000000046
+          },
+          "duplicateProgress": {
+            "returnedSqlBytes": 202775,
+            "queries": 17,
+            "summaryFullPayloadReads": 3,
+            "summaryTextBytesReturned": 196608,
+            "writeStatements": 1,
+            "elapsedMs": 0.6301670000000001
+          },
+          "textObservation": {
+            "returnedSqlBytes": 202775,
+            "queries": 17,
+            "summaryFullPayloadReads": 3,
+            "summaryTextBytesReturned": 196608,
+            "writeStatements": 1,
+            "elapsedMs": 0.8902080000000012
+          },
+          "settlement": {
+            "returnedSqlBytes": 136206,
+            "queries": 15,
+            "summaryFullPayloadReads": 2,
+            "summaryTextBytesReturned": 131072,
+            "writeStatements": 4,
+            "elapsedMs": 0.6262080000000054
+          }
+        },
+        {
+          "records": 10000,
+          "implementation": "working-tree-optimized",
+          "scope": "SQL-values-returned-to-JavaScript;not-physical-I/O",
+          "getUsage": {
+            "returnedSqlBytes": 2378,
+            "queries": 7,
+            "summaryFullPayloadReads": 0,
+            "summaryTextBytesReturned": 0,
+            "writeStatements": 0,
+            "elapsedMs": 0.19074999999998
+          },
+          "duplicateUsage": {
+            "returnedSqlBytes": 67849,
+            "queries": 7,
+            "summaryFullPayloadReads": 1,
+            "summaryTextBytesReturned": 65536,
+            "writeStatements": 0,
+            "elapsedMs": 0.14420800000002032
+          },
+          "duplicateProgress": {
+            "returnedSqlBytes": 67849,
+            "queries": 7,
+            "summaryFullPayloadReads": 1,
+            "summaryTextBytesReturned": 65536,
+            "writeStatements": 0,
+            "elapsedMs": 0.12424999999998931
+          },
+          "textObservation": {
+            "returnedSqlBytes": 67849,
+            "queries": 7,
+            "summaryFullPayloadReads": 1,
+            "summaryTextBytesReturned": 65536,
+            "writeStatements": 1,
+            "elapsedMs": 0.22354099999998311
+          },
+          "settlement": {
+            "returnedSqlBytes": 68744,
+            "queries": 10,
+            "summaryFullPayloadReads": 1,
+            "summaryTextBytesReturned": 65536,
+            "writeStatements": 4,
+            "elapsedMs": 0.28033300000001304
+          }
+        }
+      ],
+      "optimizedImplementationCommit": "29b59a115bacac79e4a55a4429618ea455b8553d",
+      "timingInterpretation": "Single-operation observation; not a throughput distribution or production latency guarantee",
+      "measuredBeforeCommit": true,
+      "summaryStorageSourceUnchangedForCommit": true
+    },
+    "quarantinePredicate": [
+      {
+        "scope": "SQL-values-returned-to-JavaScript;not-physical-I/O",
+        "results": [
+          {
+            "count": 1000,
+            "scopes": [
+              {
+                "workspace": "workspace",
+                "blocked": true,
+                "returnedSqlBytes": 204,
+                "queries": 2,
+                "summaryFullPayloadReads": 0,
+                "summaryTextBytesReturned": 0,
+                "writeStatements": 0,
+                "elapsedMs": 0.07220900000000086
+              },
+              {
+                "workspace": "unrelated",
+                "blocked": true,
+                "returnedSqlBytes": 182,
+                "queries": 2,
+                "summaryFullPayloadReads": 0,
+                "summaryTextBytesReturned": 0,
+                "writeStatements": 0,
+                "elapsedMs": 0.01462500000000233
+              },
+              {
+                "workspace": "clear",
+                "blocked": false,
+                "returnedSqlBytes": 163,
+                "queries": 2,
+                "summaryFullPayloadReads": 0,
+                "summaryTextBytesReturned": 0,
+                "writeStatements": 0,
+                "elapsedMs": 0.01812500000000483
+              }
+            ]
+          },
+          {
+            "count": 10000,
+            "scopes": [
+              {
+                "workspace": "workspace",
+                "blocked": true,
+                "returnedSqlBytes": 204,
+                "queries": 2,
+                "summaryFullPayloadReads": 0,
+                "summaryTextBytesReturned": 0,
+                "writeStatements": 0,
+                "elapsedMs": 0.02549999999999386
+              },
+              {
+                "workspace": "unrelated",
+                "blocked": true,
+                "returnedSqlBytes": 182,
+                "queries": 2,
+                "summaryFullPayloadReads": 0,
+                "summaryTextBytesReturned": 0,
+                "writeStatements": 0,
+                "elapsedMs": 0.02258400000000904
+              },
+              {
+                "workspace": "clear",
+                "blocked": false,
+                "returnedSqlBytes": 163,
+                "queries": 2,
+                "summaryFullPayloadReads": 0,
+                "summaryTextBytesReturned": 0,
+                "writeStatements": 0,
+                "elapsedMs": 0.011499999999998067
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "scope": "SQL-values-returned-to-JavaScript;not-physical-I/O",
+        "configured": true,
+        "results": [
+          {
+            "count": 1000,
+            "scopes": [
+              {
+                "workspace": "workspace",
+                "blocked": true,
+                "returnedSqlBytes": 211,
+                "queries": 3,
+                "summaryFullPayloadReads": 0,
+                "summaryTextBytesReturned": 0,
+                "writeStatements": 0,
+                "elapsedMs": 0.0979159999999979
+              },
+              {
+                "workspace": "unrelated",
+                "blocked": true,
+                "returnedSqlBytes": 189,
+                "queries": 3,
+                "summaryFullPayloadReads": 0,
+                "summaryTextBytesReturned": 0,
+                "writeStatements": 0,
+                "elapsedMs": 0.02333299999999383
+              },
+              {
+                "workspace": "clear",
+                "blocked": false,
+                "returnedSqlBytes": 163,
+                "queries": 2,
+                "summaryFullPayloadReads": 0,
+                "summaryTextBytesReturned": 0,
+                "writeStatements": 0,
+                "elapsedMs": 0.010625000000004547
+              }
+            ]
+          },
+          {
+            "count": 10000,
+            "scopes": [
+              {
+                "workspace": "workspace",
+                "blocked": true,
+                "returnedSqlBytes": 211,
+                "queries": 3,
+                "summaryFullPayloadReads": 0,
+                "summaryTextBytesReturned": 0,
+                "writeStatements": 0,
+                "elapsedMs": 0.04620900000000461
+              },
+              {
+                "workspace": "unrelated",
+                "blocked": true,
+                "returnedSqlBytes": 189,
+                "queries": 3,
+                "summaryFullPayloadReads": 0,
+                "summaryTextBytesReturned": 0,
+                "writeStatements": 0,
+                "elapsedMs": 0.026416999999995028
+              },
+              {
+                "workspace": "clear",
+                "blocked": false,
+                "returnedSqlBytes": 163,
+                "queries": 2,
+                "summaryFullPayloadReads": 0,
+                "summaryTextBytesReturned": 0,
+                "writeStatements": 0,
+                "elapsedMs": 0.010417000000003895
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "scope": "first-unacknowledged-SQL-evidence;not-physical-I/O",
+        "count": 10000,
+        "returnedSqlBytes": 211,
+        "queries": 3,
+        "summaryFullPayloadReads": 0,
+        "summaryTextBytesReturned": 0,
+        "writeStatements": 0,
+        "elapsedMs": 0.16404099999999744
+      },
+      {
+        "scope": "synthetic-acknowledgment-candidate-cap;not-physical-I/O",
+        "count": 10000,
+        "returnedSqlBytes": 2987,
+        "queries": 4,
+        "summaryFullPayloadReads": 0,
+        "summaryTextBytesReturned": 0,
+        "writeStatements": 0,
+        "elapsedMs": 3.814582999999999
+      }
     ]
   },
-  "initialGateFailure": null,
-  "fixtureCorrections": [
-    "Legacy admission Input.id and initial Message.id are distinct; image corruption/assertion fixtures now bind the actual Message.id.",
-    "Existing migration version-3 fixtures explicitly use migration slice(0,3).",
-    "Native event reads use their real page cap; exact summary event count fixtures use SQL scalar counts."
+  "independentReview": {
+    "summaryRecoveryUnitTests": 16,
+    "actualSummaryRecoveryIntegrationTests": 12,
+    "summaryRecoveryLeaseTests": 7,
+    "summaryHotpathTests": 7,
+    "quarantineHotpathTests": 3,
+    "focusedRuns": [
+      {
+        "scope": "root migrations/hotpath/metrics/archive compiled",
+        "tests": 31,
+        "passed": 31
+      },
+      {
+        "scope": "root summary recovery unit compiled",
+        "tests": 16,
+        "passed": 16
+      },
+      {
+        "scope": "root earlier integration 11 + lease 7 compiled",
+        "tests": 18,
+        "passed": 18
+      },
+      {
+        "scope": "agent latest summary recovery source and independent bundle",
+        "testsPerRun": 12,
+        "passedPerRun": 12
+      },
+      {
+        "scope": "root final diagnostic + quarantine fixes",
+        "tests": 37,
+        "passed": 37
+      }
+    ],
+    "countsAdditive": false,
+    "focus": [
+      "owner/source/projection/replay/revision and physical storage binding",
+      "before-boot eligibility, nullable usage, active-prefix exact source SHA",
+      "immutable pins versus mutable context-head decision CAS",
+      "exact decision retry during maintenance or independent runtime quarantine",
+      "quiescent lease, unpaused other-session backlog, no pause/inbox mutation or automatic wake",
+      "native/v1 rollback and actual owned SIGKILL before and after acknowledgment COMMIT",
+      "archive/import retains audit but requires a new physical-store decision",
+      "SQL metadata-only usage and no-write identical streaming observations",
+      "partial index and conservative 64-candidate evidence cap"
+    ]
+  },
+  "gateAttempts": [
+    {
+      "attempt": 1,
+      "command": "npm run test:engine",
+      "exitCode": 1,
+      "tests": 1896,
+      "passed": 1893,
+      "failed": 1,
+      "cancelled": 0,
+      "skipped": 2,
+      "durationMs": 42755.002958,
+      "logSha256": "e5bd727e47235a83178afcbe9a2d465b5fdbd836d78e76c873f042a81563747d",
+      "cause": "Fixture expected three SQL queries; indexed empty-workspace preflight correctly added a fourth. Updated expected query count and purpose."
+    },
+    {
+      "attempt": 2,
+      "command": "npm run test:engine",
+      "exitCode": 1,
+      "tests": 1896,
+      "passed": 1893,
+      "failed": 1,
+      "cancelled": 0,
+      "skipped": 2,
+      "durationMs": 42332.8265,
+      "logSha256": "2f0612ed5dc8de6d0053e0c94019b51e63b133978140c9f6443416b479bf5af9",
+      "cause": "Existing 500ms actual-Git timeout fixture killed a cold Node interpreter before the readiness PID marker. POSIX shell publishes owned PID then execs sleep; actual OS termination assertion retained."
+    },
+    {
+      "attempt": 3,
+      "command": "npm run test:engine",
+      "exitCode": 137,
+      "completeAggregate": false,
+      "confirmedCause": null,
+      "logSha256": "057cae3295710e3d4d3b66446af907c87a59e7ac8c97bf249dbde45d945f83cc",
+      "note": "No completed aggregate. Not counted as a pass and not attributed to OOM without evidence."
+    },
+    {
+      "attempt": 4,
+      "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
+      "exitCode": 0,
+      "tests": 1896,
+      "passed": 1894,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "durationMs": 61446.350167,
+      "logSha256": "2dbf67a4c00d56ce3c5dcd470cd61bdae2e5d74bfb8ed50bc6d7f40043ef6a58",
+      "cause": null
+    }
+  ],
+  "correctedProductionIssues": [
+    "Recovery lease checked summary admission before workspace ownership; other queued session could be paused during ACK. Dedicated lease now returns WORKSPACE_BUSY first and preserves durable backlog/control.",
+    "Persisted summary uncertainty previously polluted generic runtime quarantine; persisted decision predicate and genuine unsafe effects now remain distinct."
   ],
   "previousCheckpoints": [
+    {
+      "implementationCommit": "ede15196edc16f63ee8c4183f628c50d6745df2d",
+      "report": "engine-goal-fourth-verification.json"
+    },
     {
       "implementationCommit": "04031cb38fb6d98d292ee93ade1240a04c63b10e",
       "report": "engine-goal-third-verification.json"
@@ -411,6 +854,62 @@
     {
       "implementationCommit": "64435d705ea6e68d7e3502d64d4fd1f2976004ae",
       "report": "engine-goal-first-verification.json"
+    }
+  ],
+  "evidenceFiles": [
+    {
+      "kind": "typecheck",
+      "path": "/tmp/moodcode-engine-wave5-typecheck.log",
+      "sha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670",
+      "durable": false
+    },
+    {
+      "kind": "engine",
+      "path": "/tmp/moodcode-engine-wave5-tests.log",
+      "sha256": "2dbf67a4c00d56ce3c5dcd470cd61bdae2e5d74bfb8ed50bc6d7f40043ef6a58",
+      "durable": false
+    },
+    {
+      "kind": "evaluation",
+      "path": "/tmp/moodcode-engine-wave5-evaluation.json",
+      "sha256": "30949bc03ea122c65eea4dbe221c36e57d3f51c0809ce3b14ea6b6b1887ea7db",
+      "durable": false
+    },
+    {
+      "kind": "evaluationStderr",
+      "path": "/tmp/moodcode-engine-wave5-evaluation.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "durable": false
+    },
+    {
+      "kind": "hotpath",
+      "path": "/tmp/moodcode-engine-wave5-hotpath.json",
+      "sha256": "2e253e442a46b43b48a538d9afda1ce373cbf05498c0059e8f213e6ef93ce3f5",
+      "durable": false
+    },
+    {
+      "kind": "activePrefixLive",
+      "path": "/tmp/moodcode-engine-wave5-prefix-live.json",
+      "sha256": "01954e810e49ec3d0e200fcc95bcc9736dfd0c3ccc25dd47d4b5ba6778cc3bad",
+      "durable": false
+    },
+    {
+      "kind": "activePrefixStderr",
+      "path": "/tmp/moodcode-engine-wave5-prefix-live.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "durable": false
+    },
+    {
+      "kind": "summaryRecoveryLive",
+      "path": "/tmp/moodcode-engine-wave5-recovery-live.json",
+      "sha256": "ca089e65d88ab801955fe3bab261c09f69799f022fdd6c95fc324335d3a36efe",
+      "durable": false
+    },
+    {
+      "kind": "summaryRecoveryStderr",
+      "path": "/tmp/moodcode-engine-wave5-recovery-live.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "durable": false
     }
   ],
   "limits": {
@@ -436,8 +935,8 @@
     "hostedCIExecuted": false,
     "gitRemoteConfigured": false,
     "node24HostVerified": false,
-    "primaryDatabaseVersion": 4,
-    "nativeMetricsSchemaVersion": 3,
+    "primaryDatabaseVersion": 5,
+    "nativeMetricsSchemaVersion": 4,
     "summaryUsageAggregation": "separate latest-snapshot-per-durable-summary-attempt; no billing total",
     "summaryRetainedTextMaxUtf8Bytes": 65536,
     "summaryRecordMaxJsonBytes": 524288,
@@ -445,7 +944,24 @@
     "summaryListMaxJsonBytes": 1048576,
     "sessionImageAnchorSource": "one indexed latest image header, exact message and origin Run preflighted under model history budgets",
     "physicalSqliteReadBytes": null,
-    "uncertainSummaryRecoveryAcknowledgment": "not implemented; quarantine persists; no automatic assumption of cleanup",
-    "summaryHotpathMetadataOnlyOptimization": "remaining"
+    "uncertainSummaryRecoveryAcknowledgment": "Explicit previous-boot host decision on exact physical store/owner/source/revision; preserves uncertain state and never retries/activates/resumes; generic execution uncertainty remains blocked",
+    "summaryHotpathMetadataOnlyOptimization": "Implemented; metadata-only usage, single full record per mutation, duplicate observation no durable write, workspace partial index",
+    "summaryRecovery": {
+      "maxCandidates": 64,
+      "maxSourceMessages": 512,
+      "maxSourceTurnsAndRuns": 128,
+      "maxSelectedSourceEvidenceBytes": 2097152,
+      "maxSelectedInspectionEvidenceBytes": 8388608,
+      "maxLedgerJsonBytes": 65536,
+      "budgetScope": "Selected attempt/usage/source/ledger/pinned-record evidence; not all SQL returned owner/header metadata or physical I/O",
+      "modelToolOrGuiExposure": false,
+      "actualProjectUnknownSummariesAcknowledged": false,
+      "realUncertainCodexTransportVerified": false,
+      "ordinaryAttemptDurableCleanupProof": "remaining G1-17; no backfill from terminal state",
+      "acknowledgmentValidityInMetrics": null
+    },
+    "engineTestDefaultConcurrency": 4,
+    "engineTestVerifiedConcurrency": 2,
+    "goalActive": true
   }
 }

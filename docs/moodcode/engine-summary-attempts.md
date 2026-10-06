@@ -24,10 +24,14 @@ provider가 끝난 결과에도 checkpoint CAS·source frontier·최종 context 
 
 사용량의 input/output/cache/reasoning 네 필드는 관측 전에는 `null`이다. 최신 누적 snapshot만 보관하고 감소·음수·unsafe integer·inclusive total을 넘는 subset을 거부한다. cache/reasoning은 inclusive total의 부분량이며 더하지 않는다. 실패·중단·불확실한 요청도 마지막 유효 snapshot을 보존한다. terminal 상태에서는 동일 snapshot의 중복만 허용한다. 일반 Attempt 합계, 별도 요약 합계와 legacy journal 합계는 서로 다른 관측 지표이며 과금 합계로 표시하지 않는다.
 
-native metrics schema 3의 `summaryAttempts`는 typed 상태와 부분 출력·publication 대기 수를, `summaryAttemptUsage`는 전체 typed 요청의 최신 사용량과 usage가 없는 요청 수를 반환한다. 기존 `summary`는 최근 2,000개 matching journal window의 관측을 계속 표시한다. DB1~3의 이벤트에서 typed 수명을 추정해 backfill하지 않는다.
+native metrics schema 4의 `summaryAttempts`는 typed 상태와 부분 출력·publication 대기 수를, `summaryAttemptUsage`는 전체 typed 요청의 최신 사용량과 usage가 없는 요청 수를 반환한다. 기존 `summary`는 최근 2,000개 matching journal window의 관측을 계속 표시한다. DB1~3의 이벤트에서 typed 수명을 추정해 backfill하지 않는다. DB5의 결정 ledger 수는 원래 uncertainty 수와 별도로 집계하며 유효한 cleanup 수로 표시하지 않는다.
+
+usage 조회는 retained text를 제외한 제한된 metadata projection과 SQL UTF-8 byte 검증을 사용한다. streaming 변경은 트랜잭션 안에서 전체 summary를 한 번 읽고, 이미 반영한 usage/progress를 다시 쓰지 않는다. `updatedAt`는 마지막 실제 저장 변경 시각이다. 서비스의 실시간 inactivity timer는 progress를 계속 관측한다.
 
 ## 재시작과 host 조회
 
 재시작 시 prepared 요청은 interrupted, dispatched/streaming 중 cleanup proof가 없는 요청은 uncertain으로 정산한다. provider 완료와 cleanup이 확인됐지만 공개되지 않은 후보는 interrupted가 된다. 원래 Run이 terminal이어도 해당 요청의 owner를 확인해 정산한다. 미완료 후보를 자동 요청하거나 활성화하지 않는다. uncertainty는 session/workspace의 durable recovery 근거로 남는다. archive/export/import는 typed 상태와 usage를 보존하며 import가 실행 재개를 의미하지 않는다.
 
 host는 session owner를 지정해 `getSummaryAttempt`, `getSummaryUsage`, `listSummaryAttempts`로 조회한다. 목록은 최대 100개와 별도 반환 byte cap을 적용하고, 잘못된 session/run cursor와 다른 owner의 요청을 거부한다. GUI 화면에 노출했다는 뜻은 아니다. [host API](engine-host-api.md), [active-prefix](engine-active-prefix.md), [최신 검증](engine-goal-verification.md)을 함께 따른다.
+
+재시작 뒤에도 unresolved uncertainty는 새 작업을 차단한다. [명시적 host 복구 계약](engine-summary-recovery.md)은 부팅 전 기록과 정확한 source·저장소 binding을 확인해 별도 결정을 저장한다. 원래 요약을 재실행·활성화하거나 cleanup 상태를 성공으로 바꾸지 않는다.

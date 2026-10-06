@@ -78,6 +78,8 @@ DB4는 기존 DB3 `attempt_usage`에 별도 `summary_attempts`/`summary_usage`�
 
 host의 `getSummaryAttempt(sessionId, summaryAttemptId)`와 `getSummaryUsage(sessionId, summaryAttemptId)`는 payload를 읽기 전에 지정 session owner를 확인한다. `listSummaryAttempts(sessionId, {afterId?, runId?, limit?})`는 최대 100개·1MiB 반환 JSON을 제한하고 `{attempts, nextCursor}`를 반환한다. usage 행이 없는 요청은 null을 반환한다. 기록은 별도 요약 요청이며 일반 model Attempt 조회 API와 섞지 않는다. unresolved 요약은 재시작 뒤 새 Run·workspace maintenance·같은 workspace의 resume를 차단한다. 기존 exact request retry 조회는 유지한다. [요약 저장·복구 명세](engine-summary-attempts.md)를 따른다. 신규 summary 조회와 이미지 진단을 GUI에 노출했다고 간주하지 않는다.
 
+DB5의 `getSummaryRecoveryPreview(sessionId, summaryAttemptId)`와 비동기 `acknowledgeSummaryRecovery({sessionId, summaryAttemptId, requestId, fingerprint, acknowledged: true})`는 부팅 전 불확실 요약에만 별도의 host 결정을 연결한다. 이 결정은 원본 uncertainty/usage/context/pause/inbox를 보존하며 다른 명령·복원·일반 실행 격리를 해제하지 않는다. 정확한 decision retry는 기존 receipt를 반환한다. 자동 provider 재시도·후보 activation·session resume 없이 명시적 새 작업만 이어갈 수 있다. [fingerprint·물리 저장소·적용 범위](engine-summary-recovery.md)를 따른다.
+
 ## LSP·formatter·변경 관찰
 
 `registerLanguageServer(serverId, factory, languageForPath)`는 host가 선택한 factory와 경로→language selector를 등록한다. `StdioLspConnection`의 executable/args는 신뢰하는 host가 지정한다. 모델이 경로에서 LSP 서버를 자동 설치하거나 실행하지 않는다. `formatters.register(id, formatter)`는 현재 content를 받아 제한된 UTF-8 결과를 반환하는 host callback을 등록하고 해제 함수를 제공한다.

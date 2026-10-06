@@ -1,6 +1,56 @@
 # 지속 개선 최신 검증
 
-2026-10-07, macOS arm64 / Node 26.9.0. 네 번째 구현 commit은 `ede15196edc16f63ee8c4183f628c50d6745df2d`다. [기계 판독 결과](engine-goal-verification.json), [요약 수명 명세](engine-summary-attempts.md), [host API](engine-host-api.md), [TODO](../../TODO.md)를 함께 확인한다. GUI·Electron 앱을 실행하지 않았다.
+2026-10-07, macOS arm64 / Node 26.9.0. 다섯 번째 구현 commit은 `29b59a115bacac79e4a55a4429618ea455b8553d`다. [기계 판독 결과](engine-goal-verification.json), [명시적 host 복구 계약](engine-summary-recovery.md), [요약 수명·사용량](engine-summary-attempts.md), [TODO](../../TODO.md)를 함께 확인한다. GUI·Electron 앱을 실행하지 않았다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 전체 TypeScript build/typecheck | 성공 |
+| 전체 headless engine gate | 1,896 tests / 1,894 pass / 0 fail / 0 cancelled / Windows 조건 2 skip |
+| coding fixture 평가 | 3/3, expected diff·검사·범위 보존 |
+| 실제 복구 엔진 경계 | 12개 integration·7개 lease·16개 source unit, journal rollback·commit 전후 실제 SIGKILL·archive/import·queue 보존 |
+| 저장소 측정 | 같은 1k/10k typed fixture·64KiB 부분 출력, 이전 commit class와 현재 구현 비교·실제 partial index plan 확인 |
+| 커밋 후 실제 Codex | summary+answer 2회, 임시 uncertainty 결정 뒤 명시적 새 Run 1회 성공·종료/임시 파일 정리 확인 |
+
+`npm run typecheck`, `MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine`, `node scripts/evaluate-engine.mjs`를 실행했다. 전체 gate의 테스트 목록을 줄이지 않았고 기본 동시성은 4로 유지한다. 후속 검증은 동일한 구현 commit에서 `node scripts/verify-active-prefix.mjs --live`, `node scripts/verify-summary-recovery.mjs --live`를 기존 로컬 Codex 인증으로 실행했다. source·compiled focused 결과는 서로 겹치므로 전체 테스트 수에 더하지 않는다.
+
+## 다섯 번째 구현과 독립 검토
+
+- **명시적 복구 결정**: DB5의 append-only `summary_recovery_acknowledgments`와 host preview/ACK를 연결했다. startup recovery 전에 캡처한 부팅 frontier·정확한 owner/source/revision·usage·결정 시 context baseline·물리 DB/artifact identity를 검증한다. ledger·native/v1 audit는 한 트랜잭션이며 결정은 원래 uncertainty·usage·부분 출력·memory·pause·inbox를 보존한다.
+- **수명과 격리**: 전용 quiescent lease는 일반 실행·command cleanup·복원·maintenance·별도 runtime quarantine을 계속 차단한다. 결정 중 다른 session의 unpaused ticket이 자동 pause되던 실제 경계를 수정했다. 대기 ticket만 정리하고 durable inbox/control과 명시적 후속 실행을 유지한다. persisted summary blocker를 generic runtime quarantine에 섞지 않는다.
+- **반복과 재시작**: 같은 request/fingerprint는 이후 context head 변화·재시작·maintenance·다른 runtime quarantine에도 읽기 전용 원래 receipt를 반환한다. 승인된 불변 source/pins가 바뀌면 새 실행을 차단한다. archive/import는 ledger를 보존하지만 새 물리 저장소에서 원래 결정을 실행 허용 근거로 쓰지 않는다. 실제 자식 프로세스의 ACK COMMIT 전 SIGKILL은 record/audit 0개, COMMIT 후 SIGKILL은 1개를 보존했다. 자동 provider retry·checkpoint activation은 0이다.
+- **조회와 스트리밍**: usage는 retained text 없이 metadata와 owner/proof를 검증한다. 쓰기 경로는 트랜잭션 안에서 full record를 한 번 읽고 같은 usage/progress/빈 delta는 상태 전환 이후 durable write를 생략한다. 실제 관측·nullable 사용량·UTF-8·정산·journal rollback 의미는 유지한다. DB5의 workspace uncertainty partial index를 fallback과 configured admission에 연결했다.
+- **migration·검사 상한**: DB4의 opaque 기록·nullable usage·native/v1 event를 보존하며 DB5에 빈 ledger와 index를 추가한다. 주입한 migration failure는 rollback한다. 64개 후보·source 512 messages/128 Turns 또는 Runs·선택 증거 2MiB/8MiB·ledger 64KiB 한도를 넘거나 증거가 불완전하면 차단한다. owner/header 추가 조회를 포함한 모든 SQL 반환량이나 SQLite 물리 I/O를 이 예산으로 보장하지 않는다.
+
+## 저장소 비용의 조건부 측정
+
+동일한 synthetic primary fixture에 실제 65,536-byte summary observation을 기록하고 이전 `ede1519`의 storage class와 현재 빌드 class를 각각 실행했다. baseline source SHA-256은 `1edaec5d64c6be8e7d3090f552d45927e59e7a2ba703724ca0d9e736eb7ab98c`다. 1천/1만 행 모두 아래 SQL 반환량·query·write 수가 같다. 이는 JS로 반환된 SQL 값의 계측이며 물리 디스크 읽기량이나 production 처리량이 아니다. 한 번씩의 elapsed 값은 JSON에 그대로 남겼다.
+
+| 연산 | 이전 → 현재 JS SQL bytes | 이전 → 현재 query | 이전 → 현재 write |
+| --- | --- | --- | --- |
+| getUsage | 67,849 → 2,378 | 7 → 7 | 0 → 0 |
+| 같은 usage/progress | 202,775 → 67,849 | 17 → 7 | 1 → 0 |
+| text observation | 202,775 → 67,849 | 17 → 7 | 1 → 1 |
+| terminal settlement | 136,206 → 68,744 | 15 → 10 | 4 → 4 |
+
+최종 gate의 configured uncertainty 조회는 첫 미승인 후보에 211 bytes·3 query, unrelated workspace에 189 bytes·3 query, clear workspace에 163 bytes·2 query를 반환했다. 모두 summary text·큰 context·snapshot·write는 0이다. 1만 불확실 후보에서도 첫 미승인 행은 211 bytes로 차단했고, synthetic ledger cardinality로 후보 상한을 넘겼을 때는 65개 identity의 2,987 bytes·4 query 후 차단했다. synthetic ledger 행을 유효한 ACK로 인정한 검증이 아니다.
+
+## 커밋 후 실제 모델 확인
+
+`gpt-6.1-sol`에서 20번 fixture-directed local read 뒤 실제 summary 한 번과 최종 답변 한 번을 실행했다. 원본 도구 메시지가 요청에서 빠진 임의 값을 memory에서 정확히 회수했고, typed summary는 completed/activated·cleanup true였다. 요약 요청 7,642 bytes, retained text 907 bytes·truncation false, 최종 context 14,772/16,384 bytes, full snapshot 0회다. summary input 1,964/output 202와 ordinary Attempt input 2,567/output 19는 별도 합계이며 미제공 summary cached/reasoning·20개 fixture usage는 null/누락으로 유지했다. 모델의 20턴 자율 코딩 전략 평가로 확대하지 않는다.
+
+복구 live의 uncertainty는 cleanup 연산이 없는 **임시 provider fixture**다. 같은 boot의 preview 차단, restart 후 eligible, exact host ACK, 원래 state/usage/부분 출력·pause/memory 보존을 먼저 검증했다. 이후 실제 Codex 새 Run 한 번이 `READY`로 완료됐고 input 2,739/output 5를 관측했다. head 변화와 두 번째 재시작 뒤 ACK가 유효하고 exact retry는 duplicate이며 source summary retry·candidate activation은 0이다. stored uncertain은 여전히 1개, 결정 record 1개, full snapshot 0회다. 실제 Codex transport가 불확실해진 상황이나 원격 cleanup/과금을 검증했다고 표시하지 않는다. 실제 프로젝트의 unresolved 기록에는 결정을 내리지 않았다.
+
+## 전체 gate의 재실행 기록과 남은 범위
+
+첫 gate의 후보 상한 fixture는 추가된 empty-workspace indexed preflight를 포함하지 않아 query 기대값 3/실제 4로 실패했다. 두 번째는 기존 Git timeout fixture의 Node interpreter가 500ms 안에 PID marker를 쓰지 못했다. 첫 fixture의 실제 query 수를 반영하고, 두 번째 fixture는 POSIX shell이 owned PID를 먼저 쓰고 `exec sleep`해 실제 OS 종료 검증을 유지하도록 수정했다. 세 번째 전체 실행은 aggregate 없이 exit 137로 끝났고 원인은 확정하지 못했다. 세 결과와 hash를 성공 결과와 구분해 JSON에 보존했다. 최종 같은 테스트 목록의 동시성 2 실행은 1,896개·실패 0이다.
+
+G1-15/16을 완료했다. 다음 **G1-17**은 일반 provider Attempt의 실제 cleanup 관측을 durable 증거로 남기는 작업이다. overflow 요약과 일반 Turn/Attempt가 함께 uncertain이면 현재 host 결정도 차단하며, 기존 상태에서 cleanup을 추정해 backfill하지 않는다. 이미지 token 비용·다른 media·실제 Anthropic·Windows native backend·hosted Linux/Windows/Node24 CI·GUI 노출은 남아 있다. Git remote는 없고 goal은 활성 상태다. 아래 과거 결과는 해당 구현 commit의 근거로 보존한다.
+
+---
+
+# 네 번째 묶음의 이전 검증
+
+2026-10-07, macOS arm64 / Node 26.9.0. 네 번째 구현 commit은 `ede15196edc16f63ee8c4183f628c50d6745df2d`다. [네 번째 기계 판독 결과](engine-goal-fourth-verification.json), [요약 수명 명세](engine-summary-attempts.md), [host API](engine-host-api.md), [TODO](../../TODO.md)를 함께 확인한다. GUI·Electron 앱을 실행하지 않았다.
 
 | 검증 | 결과 |
 | --- | --- |

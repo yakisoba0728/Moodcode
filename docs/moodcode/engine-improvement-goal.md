@@ -34,6 +34,14 @@ Windows native Job backend, 다른 OS 호스트, 최초 hosted CI, 실제 Anthro
 
 ## 네 번째 검토 지점
 
-`ede1519`에서 DB4 summary lifecycle·최신 nullable usage·원자 publication, 부분 출력·cancel/close·세 단계 실제 crash·archive를 연결했다. session-wide 최신 image SQL anchor·semantic cutoff 복원과 실제 text Run의 pixel 전송을 확인했다. 독립 리뷰의 image wrapper cleanup 오인, return.done=false retry, orphan summary 뒤 maintenance-first·다른 session resume 경계도 수정했다. 전체 1,848 pass·실패 0·Windows 조건 2 skip, 코딩 fixture 3/3이다. 실제 Codex summary+answer 2회와 image+재시작 text Run 2회가 같은 커밋에서 성공했다. [기계 판독 결과](engine-goal-verification.json)를 따른다.
+`ede1519`에서 DB4 summary lifecycle·최신 nullable usage·원자 publication, 부분 출력·cancel/close·세 단계 실제 crash·archive를 연결했다. session-wide 최신 image SQL anchor·semantic cutoff 복원과 실제 text Run의 pixel 전송을 확인했다. 독립 리뷰의 image wrapper cleanup 오인, return.done=false retry, orphan summary 뒤 maintenance-first·다른 session resume 경계도 수정했다. 전체 1,848 pass·실패 0·Windows 조건 2 skip, 코딩 fixture 3/3이다. 실제 Codex summary+answer 2회와 image+재시작 text Run 2회가 같은 커밋에서 성공했다. [네 번째 기계 판독 결과](engine-goal-fourth-verification.json)를 따른다.
 
-다음 로컬 작업은 G1-15 summary의 반복 retained-text 읽기·uncertainty SQL hotpath 최적화와 G1-16 명시적인 host recovery 결정 계약이다. 현재 미확인 요약의 workspace 격리를 자동 해제하지 않으며 원래 요청의 재실행·activation도 허용하지 않는다. 외부 OS/provider/CI 한계와 GUI 제외를 유지하면서 goal을 계속 진행한다.
+이 시점의 G1-15/16은 아래 다섯 번째 검토 지점에서 구현했다. 원래 미확인 요청을 자동으로 재실행·활성화하거나 cleanup 성공으로 바꾸지 않는다.
+
+## 다섯 번째 검토 지점
+
+`29b59a1`에서 DB5의 명시적 host 복구 결정·정확한 owner/source/revision/fingerprint·physical store binding과 전용 lease를 연결했다. 실제 COMMIT 전후 SIGKILL·journal rollback·archive/import·다른 실행 격리·context head 변화·exact decision retry를 검증했다. 결정은 원래 uncertainty와 durable queue/control을 보존하며 명시적 새 실행만 이어갈 수 있다. 사용자가 잠든 동안 프로젝트의 실제 unresolved 기록을 대신 승인하지 않는다.
+
+동일한 1k/10k typed fixture와 64KiB 부분 출력에서 이전 class의 usage 조회 67,849 bytes를 2,378 bytes로 줄였고 중복 usage/progress write는 1→0이다. 실제 partial index 조회와 선택 증거 한도를 확인했다. 물리 I/O나 반복 처리량 보장으로 표시하지 않는다. 전체 gate는 동시성 2의 같은 목록에서 1,894 pass·실패 0·Windows 조건 2 skip, fixture 3/3이다. 커밋 후 실제 Codex summary+answer 2회와 임시 uncertainty 결정 뒤 새 Run 1회가 성공했다. 이전 두 fixture 실패와 원인 미확정 exit 137도 [최신 근거](engine-goal-verification.json)에 기록했다.
+
+다음 G1-17은 일반 provider Attempt의 durable cleanup 증거다. overflow 요약과 다른 일반 실행 uncertainty가 함께 있으면 현재 결정도 차단한다. 기존 상태에서 cleanup을 추정해 backfill하지 않는다. 외부 OS/provider/CI 한계와 GUI 제외를 유지하면서 goal을 계속 진행한다.

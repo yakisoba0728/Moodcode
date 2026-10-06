@@ -1,0 +1,451 @@
+{
+  "schemaVersion": 4,
+  "implementationCommit": "ede15196edc16f63ee8c4183f628c50d6745df2d",
+  "timestamp": "2026-10-06T22:30:30.863797+00:00",
+  "runtime": {
+    "node": "26.9.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "scope": "headless-engine-goal-checkpoint-4",
+  "checks": {
+    "typecheck": {
+      "passed": true,
+      "command": "npm run typecheck",
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    "engine": {
+      "command": "npm run test:engine",
+      "tests": 1850,
+      "passed": 1848,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "durationMs": 42125.488625,
+      "logSha256": "31d147dd50b52368bcea91d78d82e34d7ccceb1e947083b5a21717bd2bde4bd3"
+    },
+    "evaluation": [
+      {
+        "taskId": "addition-bug",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "math.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13146,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 295
+      },
+      {
+        "taskId": "empty-list-boundary",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "average.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13228,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 228
+      },
+      {
+        "taskId": "two-module-change",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "greet.mjs",
+          "strings.mjs"
+        ],
+        "toolCalls": 4,
+        "providerAttempts": 5,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 14044,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 4
+          }
+        },
+        "durationMs": 245
+      }
+    ],
+    "activePrefixLive": {
+      "kind": "active-prefix-hybrid-live",
+      "implementationCommit": "ede15196edc16f63ee8c4183f628c50d6745df2d",
+      "timestamp": "2026-10-06T22:27:56.228Z",
+      "providerId": "codex",
+      "modelId": "gpt-6.1-sol",
+      "runtime": {
+        "node": "26.9.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "scope": {
+        "fixtureDirectedLocalReadTurns": 20,
+        "requestedRealSummaries": 1,
+        "requestedRealFinalAnswers": 1,
+        "autonomousCodingStrategyVerified": false
+      },
+      "actualRequests": [
+        {
+          "purpose": "active-prefix-summary",
+          "sourceMessageCount": 4,
+          "factsSha256": "32bd3698a79f4d81c84cac43086eb432b9debad4ff2a23ad809357f5082ba5b0",
+          "observedIdentifierInQuotedToolFacts": true,
+          "requestBytes": 7642,
+          "finalUsage": {
+            "type": "usage",
+            "inputTokens": 2040,
+            "outputTokens": 188
+          }
+        },
+        {
+          "purpose": "final-answer",
+          "memoryContainsObservedIdentifier": true,
+          "rawIdentifierSourceInMessages": false,
+          "finalUsage": {
+            "type": "usage",
+            "inputTokens": 2695,
+            "outputTokens": 24,
+            "cachedInputTokens": 0,
+            "reasoningOutputTokens": 0
+          }
+        }
+      ],
+      "passed": true,
+      "cleanupConfirmed": true,
+      "run": {
+        "state": "completed",
+        "error": null
+      },
+      "memory": {
+        "nonceMatch": true,
+        "nonceSha256": "5ea6c36202f7f604d9c285618e5e11374f57b049e936bdd459913bd78bf1c2b9",
+        "originalToolResultStillStored": true,
+        "rawSourceSelected": false,
+        "coveredMessageCount": 4,
+        "factsSha256": "32bd3698a79f4d81c84cac43086eb432b9debad4ff2a23ad809357f5082ba5b0",
+        "manifestSha256": "641f72f724f582fbbb46dbd8188d389f1181bb609a1bc8c35f0ad29ec8ff717f",
+        "fullSnapshotReads": 0,
+        "currentFileEvidence": false,
+        "contextBytes": 14754,
+        "contextByteLimit": 16384
+      },
+      "runUsage": {
+        "turns": 21,
+        "toolCalls": 20,
+        "outputBytes": 28704
+      },
+      "regularAttemptUsage": {
+        "samples": 1,
+        "inputTokens": {
+          "tokens": 2695,
+          "observed": 1,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "outputTokens": {
+          "tokens": 24,
+          "observed": 1,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "cachedInputTokens": {
+          "tokens": 0,
+          "observed": 1,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "reasoningOutputTokens": {
+          "tokens": 0,
+          "observed": 1,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "aggregation": "latest-snapshot-per-durable-attempt",
+        "inclusiveTotals": true,
+        "attemptsWithUsage": 1,
+        "attemptsWithoutUsage": 20,
+        "source": "all-attempt_usage-records-in-scope",
+        "billedTokens": null
+      },
+      "summaryUsage": {
+        "inputTokens": 2040,
+        "outputTokens": 188,
+        "cachedInputTokens": null,
+        "reasoningOutputTokens": null
+      },
+      "durableSummary": {
+        "state": "completed",
+        "publication": "activated",
+        "scope": "active-run-prefix",
+        "sourceProjection": "text-and-complete-tool-observations-v1",
+        "requestSha256": "56ba41618cfcba5d0e8a384e214ee65434822ce851d428bd0cdb7a582de054d0",
+        "requestBytes": 7642,
+        "summaryRevisionMatchesCheckpoint": true,
+        "providerCompletionRecorded": true,
+        "cleanupConfirmed": true,
+        "observedOutputBytes": 790,
+        "retainedTextBytes": 790,
+        "partialTextTruncated": false,
+        "partialTextSha256": "bde29c3963d0081d4514406d09df1d43e906d0de86a6145f199fc2b2bebf537b",
+        "usage": {
+          "inputTokens": 2040,
+          "outputTokens": 188,
+          "cachedInputTokens": null,
+          "reasoningOutputTokens": null
+        }
+      },
+      "durableSummaryUsageMetrics": {
+        "samples": 1,
+        "inputTokens": {
+          "tokens": 2040,
+          "observed": 1,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "outputTokens": {
+          "tokens": 188,
+          "observed": 1,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "cachedInputTokens": {
+          "tokens": null,
+          "observed": 0,
+          "missing": 1,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "reasoningOutputTokens": {
+          "tokens": null,
+          "observed": 0,
+          "missing": 1,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "aggregation": "latest-snapshot-per-durable-summary-attempt",
+        "inclusiveTotals": true,
+        "attemptsWithUsage": 1,
+        "attemptsWithoutUsage": 0,
+        "source": "all-summary_usage-records-in-scope",
+        "billedTokens": null
+      },
+      "summaryUsageIncludedInRegularAttemptTotals": false
+    },
+    "sessionImageLive": {
+      "kind": "session-image-restart-live",
+      "implementationCommit": "ede15196edc16f63ee8c4183f628c50d6745df2d",
+      "timestamp": "2026-10-06T22:28:57.883Z",
+      "providerId": "codex",
+      "modelId": "gpt-6.1-sol",
+      "runtime": {
+        "node": "26.9.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "actualRequests": [
+        {
+          "imageOccurrences": 1,
+          "resolvedImages": 1,
+          "latestUserContainsImage": true,
+          "finalUsage": {
+            "type": "usage",
+            "inputTokens": 279,
+            "outputTokens": 5,
+            "cachedInputTokens": 0,
+            "reasoningOutputTokens": 0
+          }
+        },
+        {
+          "imageOccurrences": 1,
+          "resolvedImages": 1,
+          "latestUserContainsImage": false,
+          "finalUsage": {
+            "type": "usage",
+            "inputTokens": 313,
+            "outputTokens": 15,
+            "cachedInputTokens": 0,
+            "reasoningOutputTokens": 8
+          }
+        }
+      ],
+      "passed": true,
+      "cleanupConfirmed": true,
+      "result": {
+        "firstRun": "completed",
+        "restartedTextRun": "completed",
+        "predominantColor": "red",
+        "oldAssistantNamedColor": false,
+        "currentRunHasNoImageAttachment": true,
+        "rawImageMessages": 1,
+        "referenceSha256": "ca96adb50da6a5f6cbfe03c9c5eb8ad8f1a6c88f526b8a4b9d9d7d3b9ef90157",
+        "imageBytesSha256": "ca96adb50da6a5f6cbfe03c9c5eb8ad8f1a6c88f526b8a4b9d9d7d3b9ef90157",
+        "anchorMatchesOriginalMessage": true,
+        "anchorOwnerIsEarlierRun": true,
+        "fullSnapshotReads": 0,
+        "rawPixelsInTranscript": false,
+        "contextBytes": 2242,
+        "contextByteLimit": 8192,
+        "imageTokenCost": null
+      },
+      "usage": {
+        "samples": 2,
+        "inputTokens": {
+          "tokens": 592,
+          "observed": 2,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "outputTokens": {
+          "tokens": 20,
+          "observed": 2,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "cachedInputTokens": {
+          "tokens": 0,
+          "observed": 2,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "reasoningOutputTokens": {
+          "tokens": 8,
+          "observed": 2,
+          "missing": 0,
+          "invalid": 0,
+          "sumOverflow": false
+        },
+        "aggregation": "latest-snapshot-per-durable-attempt",
+        "inclusiveTotals": true,
+        "attemptsWithUsage": 2,
+        "attemptsWithoutUsage": 0,
+        "source": "all-attempt_usage-records-in-scope",
+        "billedTokens": null
+      }
+    }
+  },
+  "independentReview": {
+    "summaryServiceFocusedTests": 28,
+    "actualSummaryLifecycleTests": 19,
+    "actualSummaryQuarantineTests": 8,
+    "actualProviderCleanupProofTests": 8,
+    "sessionImageStorageTests": 10,
+    "actualSessionImageTests": 5,
+    "summaryMetricsTests": 2,
+    "sourceAndCompiledIntegrationPassed": true,
+    "focus": [
+      "typed lifecycle and publication-only completion",
+      "owner/source/CAS/revision/journal atomic rollback",
+      "nullable latest usage and ordinary Attempt separation",
+      "partial UTF-8 retention and shared budgets",
+      "cancel/close and three real process crash boundaries",
+      "orphan terminal-Run summary quarantine, maintenance-first and other-session resume-first",
+      "transparent image wrapper and done-false HTTP/overflow cleanup proof",
+      "session-wide latest image SQL anchor, restart/cutoff/cap and unsupported provider"
+    ]
+  },
+  "initialGateFailure": null,
+  "fixtureCorrections": [
+    "Legacy admission Input.id and initial Message.id are distinct; image corruption/assertion fixtures now bind the actual Message.id.",
+    "Existing migration version-3 fixtures explicitly use migration slice(0,3).",
+    "Native event reads use their real page cap; exact summary event count fixtures use SQL scalar counts."
+  ],
+  "previousCheckpoints": [
+    {
+      "implementationCommit": "04031cb38fb6d98d292ee93ade1240a04c63b10e",
+      "report": "engine-goal-third-verification.json"
+    },
+    {
+      "implementationCommit": "59d1f42716452e104ec526e031263b528b36078b",
+      "report": "engine-goal-second-verification.json"
+    },
+    {
+      "implementationCommit": "64435d705ea6e68d7e3502d64d4fd1f2976004ae",
+      "report": "engine-goal-first-verification.json"
+    }
+  ],
+  "limits": {
+    "guiLaunched": false,
+    "published": false,
+    "newCredentialsCreated": false,
+    "activePrefixHostOptIn": true,
+    "factsProjection": "text-and-complete-tool-observations-v1",
+    "opaqueReplayAndPixelsInSummarySource": false,
+    "currentFileEvidence": false,
+    "summaryUsageIncludedInRegularAttemptTotals": false,
+    "summaryCrashTypedLifecycle": "implemented; unpublished provider-completed candidates interrupted, cleanup-unknown candidates uncertain; no automatic retry/activation",
+    "imageTokenCost": null,
+    "billedTokens": null,
+    "sourceMetadataMaxMessages": 1024,
+    "sourceMetadataMaxTurns": 1024,
+    "pendingSteerManifestMaxIds": 64,
+    "sqlPreflightScope": "bounded JavaScript returned metadata/payload, not physical SQLite I/O",
+    "historicalLatestImageOutsideActiveRunProtected": true,
+    "windowsNativeBackendVerified": false,
+    "realAnthropicVerified": false,
+    "otherMediaFormatsAndOutputVerified": false,
+    "hostedCIExecuted": false,
+    "gitRemoteConfigured": false,
+    "node24HostVerified": false,
+    "primaryDatabaseVersion": 4,
+    "nativeMetricsSchemaVersion": 3,
+    "summaryUsageAggregation": "separate latest-snapshot-per-durable-summary-attempt; no billing total",
+    "summaryRetainedTextMaxUtf8Bytes": 65536,
+    "summaryRecordMaxJsonBytes": 524288,
+    "summaryListMaxRecords": 100,
+    "summaryListMaxJsonBytes": 1048576,
+    "sessionImageAnchorSource": "one indexed latest image header, exact message and origin Run preflighted under model history budgets",
+    "physicalSqliteReadBytes": null,
+    "uncertainSummaryRecoveryAcknowledgment": "not implemented; quarantine persists; no automatic assumption of cleanup",
+    "summaryHotpathMetadataOnlyOptimization": "remaining"
+  }
+}
