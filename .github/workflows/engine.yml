@@ -1,0 +1,148 @@
+name: Engine headless
+
+on:
+  pull_request:
+    paths:
+      - "packages/contracts/**"
+      - "packages/engine/**"
+      - "apps/engine-harness/**"
+      - "scripts/test-engine.mjs"
+      - "scripts/evaluate-engine.mjs"
+      - "scripts/prepare-pty.mjs"
+      - "package*.json"
+      - "tsconfig*.json"
+      - ".github/**"
+      - "docs/moodcode/engine-ci.md"
+  push:
+    paths:
+      - "packages/contracts/**"
+      - "packages/engine/**"
+      - "apps/engine-harness/**"
+      - "scripts/test-engine.mjs"
+      - "scripts/evaluate-engine.mjs"
+      - "scripts/prepare-pty.mjs"
+      - "package*.json"
+      - "tsconfig*.json"
+      - ".github/**"
+      - "docs/moodcode/engine-ci.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Installing workspace dev dependencies must not download or launch Electron.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+  CI: "true"
+
+jobs:
+  posix:
+    name: Headless ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+        node: ["24.x", "26.x"]
+    env:
+      MOODCODE_CI_LANE: posix-full
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Record environment and planned scope
+        run: node .github/scripts/engine-ci.mjs metadata
+      - name: Install locked dependencies including optional PTY
+        id: install
+        shell: bash
+        run: |
+          set -o pipefail
+          npm ci --include=optional 2>&1 | tee artifacts/engine-ci/install.log
+      - name: Prepare and require the native POSIX PTY capability
+        run: node .github/scripts/engine-ci.mjs prepare-pty
+      - name: Validate the headless CI launcher
+        run: node --test .github/scripts/engine-ci.test.mjs
+      - name: Typecheck contracts, engine and harness
+        run: node .github/scripts/engine-ci.mjs typecheck
+      - name: Build only headless projects
+        run: node .github/scripts/engine-ci.mjs build
+      - name: Run complete headless fixtures
+        run: node .github/scripts/engine-ci.mjs test
+      - name: Run scripted local engine evaluation
+        run: node .github/scripts/engine-ci.mjs eval
+      - name: Record outcome summary
+        if: always()
+        env:
+          MOODCODE_CI_INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          MOODCODE_CI_JOB_STATUS: ${{ job.status }}
+        run: node .github/scripts/engine-ci.mjs summary
+      - name: Upload results and failure logs
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: engine-${{ matrix.os }}-node-${{ matrix.node }}-attempt-${{ github.run_attempt }}
+          path: artifacts/engine-ci/
+          retention-days: 14
+          if-no-files-found: warn
+
+  windows-portable:
+    name: Portable contracts/storage only / Windows / Node ${{ matrix.node }}
+    runs-on: windows-2025
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["24.x", "26.x"]
+    env:
+      MOODCODE_CI_LANE: windows-portable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Record partial Windows scope
+        run: node .github/scripts/engine-ci.mjs metadata
+      - name: Install locked dependencies
+        id: install
+        shell: pwsh
+        run: |
+          npm ci --include=optional *>&1 | Tee-Object -FilePath artifacts/engine-ci/install.log
+          exit $LASTEXITCODE
+      - name: Record PTY helper preparation without claiming Windows native support
+        run: node .github/scripts/engine-ci.mjs prepare-pty
+      - name: Validate the headless CI launcher
+        run: node --test .github/scripts/engine-ci.test.mjs
+      - name: Typecheck contracts, engine and harness source
+        run: node .github/scripts/engine-ci.mjs typecheck
+      - name: Build only headless projects
+        run: node .github/scripts/engine-ci.mjs build
+      - name: Run portable contracts and selected SQLite/native-port fixtures
+        run: node .github/scripts/engine-ci.mjs test-windows
+      - name: Record partial outcome summary
+        if: always()
+        env:
+          MOODCODE_CI_INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          MOODCODE_CI_JOB_STATUS: ${{ job.status }}
+        run: node .github/scripts/engine-ci.mjs summary
+      - name: Upload partial results and failure logs
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: engine-windows-portable-node-${{ matrix.node }}-attempt-${{ github.run_attempt }}
+          path: artifacts/engine-ci/
+          retention-days: 14
+          if-no-files-found: warn

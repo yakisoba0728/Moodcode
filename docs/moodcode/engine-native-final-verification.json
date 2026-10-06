@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "stage": "engine-native-extensions",
+  "verifiedAt": "2026-10-06T19:58:58.340573+00:00",
+  "timezone": "Asia/Seoul",
+  "baselineCommit": "94d2a6596d11cdd8d6e5441b7089e2879bd5179d",
+  "implementationCommit": null,
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "completedTodoIds": [
+    "E0-01",
+    "E0-02",
+    "E0-03",
+    "E0-04",
+    "E0-05",
+    "E0-06",
+    "E0-07",
+    "E0-08",
+    "E1-01",
+    "E1-02",
+    "E1-03",
+    "E1-04",
+    "E1-05",
+    "E1-06",
+    "E1-07",
+    "E1-08",
+    "E1-09",
+    "E1-10",
+    "E1-11",
+    "E2-01",
+    "E2-02",
+    "E2-03",
+    "E2-04",
+    "E2-05",
+    "E2-06",
+    "E2-07",
+    "E2-08",
+    "E2-09",
+    "E2-10",
+    "E2-11",
+    "E3-01",
+    "E3-02",
+    "E3-03",
+    "E3-04",
+    "E3-05",
+    "E3-06",
+    "E3-07",
+    "E3-08",
+    "E3-09",
+    "E3-10",
+    "E3-11",
+    "E3-12",
+    "E4-01",
+    "E4-02",
+    "E4-03",
+    "E4-04",
+    "E4-05",
+    "E4-06",
+    "E4-07",
+    "E4-08",
+    "E4-09",
+    "E4-10",
+    "E4-11",
+    "E4-12",
+    "E5-01",
+    "E5-02",
+    "E5-03",
+    "E5-04",
+    "E5-05",
+    "E5-06",
+    "E5-07",
+    "E5-09",
+    "E5-10",
+    "E5-11",
+    "E5-12",
+    "E6-01",
+    "E6-02",
+    "E6-03",
+    "E6-04",
+    "E6-05",
+    "E6-06"
+  ],
+  "remainingTodoIds": [
+    "E5-08",
+    "E5-13",
+    "E6-07",
+    "E6-08"
+  ],
+  "workspaceTypecheck": {
+    "command": "npm run typecheck",
+    "state": "passed"
+  },
+  "engineTests": {
+    "command": "npm run test:engine",
+    "tests": 1527,
+    "pass": 1525,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 2,
+    "todo": 0,
+    "durationMs": 24574.194208,
+    "skipReason": "Two Windows-specific process ownership conditions cannot run on macOS"
+  },
+  "desktopHostUnitTests": {
+    "command": "node --test --test-concurrency=4 apps/desktop/dist/types/{main,preload,worker,renderer}/*.test.js",
+    "tests": 170,
+    "pass": 170,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "durationMs": 1884.987,
+    "electronLaunched": false
+  },
+  "codingEvaluation": {
+    "schemaVersion": 1,
+    "kind": "engine-fixture-evaluation",
+    "timestamp": "2026-10-06T19:48:07.058Z",
+    "tasks": [
+      {
+        "taskId": "addition-bug",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "math.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 12125,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 280
+      },
+      {
+        "taskId": "empty-list-boundary",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "average.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 12209,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 235
+      },
+      {
+        "taskId": "two-module-change",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "greet.mjs",
+          "strings.mjs"
+        ],
+        "toolCalls": 4,
+        "providerAttempts": 5,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13025,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 4
+          }
+        },
+        "durationMs": 263
+      }
+    ]
+  },
+  "liveCodingTask": {
+    "command": "node scripts/verify-codex.mjs --live",
+    "credentialSource": "existing user-authorized local Codex authentication",
+    "temporaryFixtureOnly": true,
+    "fixtureRemoved": true,
+    "result": {
+      "provider": "codex",
+      "modelId": "gpt-6.1-sol",
+      "state": "completed",
+      "errorCode": null,
+      "approved": [
+        "apply_patch",
+        "run_command"
+      ],
+      "tools": [
+        {
+          "name": "read_file",
+          "state": "completed"
+        },
+        {
+          "name": "apply_patch",
+          "state": "completed"
+        },
+        {
+          "name": "run_command",
+          "state": "completed"
+        }
+      ],
+      "patchVerified": true,
+      "commandVerified": true
+    }
+  },
+  "ciLauncherTests": {
+    "command": "node --test .github/scripts/engine-ci.test.mjs",
+    "tests": 2,
+    "pass": 2,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "durationMs": 40.664
+  },
+  "desktopStarted": false,
+  "hostedCiExecuted": false,
+  "linuxFullEngineVerified": false,
+  "windowsFullEngineVerified": false,
+  "currentNode24MatrixVerified": false,
+  "anthropicLiveVerified": false,
+  "mediaInputOutputSupported": false,
+  "limitations": [
+    "Native Windows Job Object binding and actual process-tree/timeout/crash verification are incomplete",
+    "Media input/output ports and adapter fixtures are incomplete; Anthropic advertises text only",
+    "No Git remote is configured, so the new hosted CI matrix has not executed",
+    "New engine extensions have host APIs but no new GUI flow or app bundle verification",
+    "Current oversized Run history may fail MODEL_HISTORY_LIMIT instead of reading an unbounded transcript",
+    "Metrics report observed usage coverage and null for unknown disk, billing, runtime quarantine and external ledger facts",
+    "Workspace observation versions and recent terminal coordinator usage are bounded process-local data",
+    "Parent terminal alone does not establish child cleanup; child task wait or engine.close must settle ownership"
+  ]
+}

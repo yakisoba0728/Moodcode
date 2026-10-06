@@ -4,7 +4,7 @@ Electron 기반 로컬 코딩 에이전트다. 자체 TypeScript/Node 엔진, �
 
 엔진이 세션·요청 접수·모델 turn loop·도구·승인·취소·SQLite 기록과 replay를 소유한다. 모델 adapter는 한 turn의 통신만 담당한다. GUI는 같은 엔진을 Electron utility process에서 실행하며 sandbox preload bridge로 연결한다. 설정 파일, 저장소 변경 감시, DB 검사·백업, 변경 복원 preview와 runtime 진단도 구현했다. 실제 완료 범위와 검증 결과는 [구현 상태](docs/moodcode/implementation-status.md)에 기록한다.
 
-현재 후속 작업은 내부 엔진 우선이다. [엔진 구현 TODO](TODO.md)에 항목별 선행 작업·완료 조건·진행 상태를 관리하며, 첫 작업은 입력·Run·Turn·Part·ContextRevision 계약을 정하는 E0-01이다.
+현재 후속 작업은 내부 엔진 우선이다. [엔진 구현 TODO](TODO.md)의 75개 항목 중 71개를 구현·검증했다. durable queue/steer·Turn/Part·의미 요약·scoped tools·MCP·PTY·worktree child 실행·승인한 변경 통합·LSP/formatter·archive·진단을 자체 엔진에 연결했다. [최신 headless 검증](docs/moodcode/engine-native-final-verification.md)과 [host API](docs/moodcode/engine-host-api.md)가 현재 지원 범위의 기준이다. 새 엔진 기능의 GUI 노출은 후속이다.
 
 ## 개발 실행
 
@@ -37,6 +37,15 @@ Codex에 로그인되어 있고 로컬 모델 설정이 있으면 기본 연결�
 
 실행 환경의 npm이 설치 script 승인을 요구하면 Electron runtime과 esbuild의 설치 상태를 확인한다. 저장소 테스트와 Electron smoke는 각각 다른 실행 경계를 확인한다.
 
+앱을 열지 않는 엔진 검증은 다음과 같다. 기본 테스트와 평가는 로컬 fixture이며, live 검증만 현재 Codex 계정의 사용량을 소비한다.
+
+```sh
+npm run typecheck
+npm run test:engine
+node scripts/evaluate-engine.mjs
+node scripts/verify-codex.mjs --live
+```
+
 ## JSONL harness
 
 stdin에 command envelope를 한 줄씩 전달한다. 실행 중에도 승인과 취소 command를 보낼 수 있다. stdout은 JSONL result/event, stderr는 진단이다. EOF와 signal은 진행 중인 실행을 정리하고 종료한다.
@@ -48,6 +57,8 @@ stdin에 command envelope를 한 줄씩 전달한다. 실행 중에도 승인과
 반환된 workspace ID로 `session.create`를 호출하고 session ID로 `run.submit`을 호출한다. config가 없으면 scripted/local, plan 모드와 기본 budget를 사용한다. `run.submit` 결과는 접수 receipt이며 최종 응답은 event/snapshot에서 조회한다.
 
 지원 command는 `engine.getCapabilities`, `workspace.open`, `workspace.getStatus`, `file.list`, `file.read`, `session.create`, `session.list`, `session.getSnapshot`, `session.getHistory`, `session.getMetrics`, `run.submit`, `run.cancel`, `approval.decide`, `review.getDiff`, `review.previewRestore`, `review.restore`, `review.history`, `events.subscribe`다. 파일 쓰기와 명령 실행은 build 모드에서도 요청별 승인이 필요하다. 같은 workspace는 활성 Run 하나다. 같은 session/request ID의 재전송은 기존 접수 결과를 반환한다.
+
+v2 command envelope는 `schemaVersion:2`를 사용하며 queue/steer inbox·pause/resume·독립 session events·Turns/Parts/artifact·tasks/questions/context/history/diagnostics 조회를 제공한다. event와 cursor의 `stream`은 `'session-v2'`이고 v1 seq와 v2 seq는 서로 다른 cursor다. [v2 계약](docs/moodcode/engine-contracts-v2.md)과 런타임 capabilities를 확인한다. `run.submit`은 기존 즉시 실행·busy·중복 접수 의미를 유지한다.
 
 모델 adapter는 `scripted`, `openai-compatible`(Chat Completions), `openai-responses`(Responses), `codex`(현재 Codex 로그인)다. 데스크톱은 네 종류를 선택할 수 있고 JSONL harness 설정은 기존 세 종류를 지원한다. Responses의 reasoning·phase·원본 도구 호출 항목은 SQLite에 보존하고 후속 turn에서 재생한다. HTTP adapter는 호출자가 지정한 endpoint·model·API key를 사용한다. 현재 Codex 계정의 `gpt-6.1-sol` 실제 응답과 read→patch 승인→명령 승인→완료를 검증했다. 다른 공급자·모델·계정 권한은 별도 검증 대상이다. Harness의 API key는 환경 변수로 주입한다.
 
@@ -93,6 +104,6 @@ Run은 완료·실패·사용자 취소·프로세스 중단을 구별한다. �
 
 복원은 workspace lease 안에서 확인한 fingerprint를 재검증한다. 별도 SQLite review journal에 효과 전 시작과 결과를 기록하므로 완료된 Run의 terminal-last 규칙을 유지한다. 미확정 복원 기록은 재시작 후에도 해당 workspace의 새 실행을 차단한다. 복구 확인은 원본 복원 기록·Run을 수정하지 않고 별도 ledger에 exact binding을 저장한다. 중단된 모델·도구는 자동 재실행하지 않는다. 진단 화면의 대화 DB 백업 버튼은 대화 DB만 저장하며, 복구 절차의 자동 백업은 대화·복원 DB를 함께 보존한다.
 
-현재 대화형 PTY·MCP·멀티 에이전트·앱 자체 로그인/토큰 갱신·compaction·서명된 공개 배포는 구현 범위 밖이다. 임의 shell 명령의 모든 부작용이나 동시에 외부에서 편집한 파일의 원인을 정확히 복원한다고 보장하지 않는다.
+대화형 PTY·MCP·worktree child 실행·의미 요약은 엔진 API로 구현했으며 GUI 연결은 후속이다. Anthropic adapter는 host 등록 방식으로 text/tool·공개 reasoning summary·replay를 제공하고 synthetic fixture로 검증했다. 앱 자체 로그인/토큰 갱신·미디어 입력/출력·native Windows process-tree·서명된 공개 배포는 미완료다. [CI 구성](docs/moodcode/engine-ci.md)은 작성했지만 Linux/Windows의 실제 Actions 실행 결과는 없다. 임의 shell 명령의 모든 부작용이나 동시에 외부에서 편집한 파일의 원인을 정확히 복원한다고 보장하지 않는다.
 
 [엔진 명세](docs/moodcode/engine-spec.md) · [구현 계획](docs/moodcode/implementation-plan.md) · [병렬 작업 계약](docs/moodcode/parallel-implementation.md) · [세션 목록](docs/moodcode/implementation-sessions.json)

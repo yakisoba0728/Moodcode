@@ -28,8 +28,10 @@ export interface HarnessOutcome { exitCode: number; reason: 'eof' | 'signal' | '
 
 const COMMANDS = new Set([
   'engine.getCapabilities',
-  'workspace.open', 'session.create', 'session.list', 'session.getSnapshot',
+  'workspace.open', 'workspace.getStatus', 'file.list', 'file.read',
+  'session.create', 'session.list', 'session.getSnapshot', 'session.getHistory', 'session.getMetrics',
   'run.submit', 'run.cancel', 'approval.decide', 'review.getDiff', 'events.subscribe',
+  'review.previewRestore', 'review.restore', 'review.history',
 ]);
 const CONTROL_COMMANDS = new Set(['run.cancel', 'approval.decide', 'input.cancel', 'session.pause', 'session.resume']);
 const MAX_ERROR_MESSAGE = 2_048;

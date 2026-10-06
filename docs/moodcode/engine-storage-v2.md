@@ -46,3 +46,5 @@ Context revision은 session별 revision 1부터 연속이며 text의 SHA-256을 
 `native-crash.test.ts`는 실제 child process의 admission·promotion·attempt prepared·provider dispatch·Run settlement 직전/직후를 SIGSTOP→SIGKILL한다. 재시작 후 기존 provider 호출/자체 fixture write-tool effect 수의 추가가 0이고, 원본 v1/v2 event prefix·Input identity·completed Turn이 유지되는 것을 확인한다. dispatched attempt는 uncertain, prepared attempt는 interrupted이며 active Run과 session은 interrupted/recovery_required로 보호한다. 이미 완료된 Run 뒤의 pending queue도 startup에서 자동 실행하지 않는다. 해당 6개 signal fixture는 Windows에서 skip한다.
 
 Focused storage test는 실제 v1 migration, injected journal rollback, 요청 충돌/용량, atomic queue/steer promotion, dual subscriptions, provider dispatch recovery, Part prefix/terminal guards, CAS rollback, bounded model query를 검증한다. 라이브 provider와 GUI는 이 테스트 범위에 포함하지 않는다.
+
+`getNativeMetrics(sessionId?)`는 전체 primary 상태 SQL 집계와 범주별 최신 2,000 matching v1 이벤트 관측을 read transaction으로 제공한다. 기존 `getMetrics`는 유지하고, event coverage·usage 포함 관계·byte/time 출처·외부 저장소 미관측은 [Native 지표 계약](engine-native-metrics.md)을 따른다.

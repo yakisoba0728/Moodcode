@@ -69,7 +69,7 @@ export class TurnExecutor {
       } catch (error) {
         const failure = combined.aborted ? combined.reason : error;
         const retry = !observed && !signal.aborted && failure instanceof EngineError && failure.code === 'PROVIDER_HTTP_ERROR'
-          && (failure.details?.status === 429 || failure.details?.status === 503) && index + 1 < budgets.maxProviderAttempts;
+          && (provider.retryableHttpStatuses ?? [429, 503]).includes(failure.details?.status as number) && index + 1 < budgets.maxProviderAttempts;
         const recoverOverflow = !contentObserved && !overflowRecovered && !signal.aborted && failure instanceof EngineError && failure.code === 'PROVIDER_CONTEXT_OVERFLOW'
           && this.options.recoverContextOverflow !== undefined && index + 1 < budgets.maxProviderAttempts;
         if (iterator?.return) {

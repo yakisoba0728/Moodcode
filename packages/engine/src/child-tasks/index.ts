@@ -87,11 +87,16 @@ export interface ChildTaskOptions {
   documents: GrantDocumentPort;
   worktrees: WorktreeManager;
   host: ChildTaskHost;
+  /** Synchronous live-parent reservation, after durable intent/ownership and before any host dispatch. */
+  beforeDispatch?(task: ChildTaskRecord): void;
   now?: () => number;
   cleanupTimeoutMs?: number;
 }
 interface Pool {
+  /** Lineage only for new pools; the legacy form used this as its allocation key. */
   rootRunId: string;
+  /** Missing only in legacy journals. New reservations charge the immediate parent. */
+  parentRunId?: string;
   capacity: ChildBudget;
   reserved: ChildBudget;
 }
@@ -266,6 +271,13 @@ export class ChildTaskManager {
       new Set(tasks.map((t) => t.id)).size !== tasks.length ||
       pools.some(
         (p) =>
+          typeof p.rootRunId !== "string" ||
+          !p.rootRunId ||
+          Buffer.byteLength(p.rootRunId) > 256 ||
+          (p.parentRunId !== undefined &&
+            (typeof p.parentRunId !== "string" ||
+              !p.parentRunId ||
+              Buffer.byteLength(p.parentRunId) > 256)) ||
           !validBudget(p.capacity) ||
           !p.reserved ||
           KEYS.some(
@@ -274,7 +286,9 @@ export class ChildTaskManager {
               p.reserved[k] < 0 ||
               p.reserved[k] > p.capacity[k],
           ),
-      )
+      ) ||
+      new Set(pools.map((p) => p.parentRunId ?? p.rootRunId)).size !==
+        pools.length
     )
       throw new EngineError(
         "INVALID_CHILD_JOURNAL",
@@ -321,6 +335,61 @@ export class ChildTaskManager {
     });
     this.commit(sessionId, journal);
     return clone(task);
+  }
+  /** This path is allowed only while host.start is proven not to have been called. */
+  private failBeforeDispatch(
+    task: ChildTaskRecord,
+    error: unknown,
+  ): ChildTaskRecord {
+    const journal = this.journal(task.sessionId);
+    const stored = journal.tasks.find((value) => value.id === task.id);
+    const pool = journal.pools.find(
+      (value) => (value.parentRunId ?? value.rootRunId) === task.parentRunId,
+    );
+    if (
+      !stored ||
+      stored.state !== "starting" ||
+      !pool ||
+      KEYS.some((key) => pool.reserved[key] < task.budget[key])
+    ) {
+      throw new EngineError(
+        "CHILD_ADMISSION_UNCERTAIN",
+        "Undispatched child reservation could not be reconciled",
+      );
+    }
+    for (const key of KEYS) pool.reserved[key] -= task.budget[key];
+    stored.state =
+      error instanceof EngineError && error.code === "CANCELLED"
+        ? "cancelled"
+        : "failed";
+    stored.errorCode =
+      error instanceof EngineError ? error.code : "CHILD_ADMISSION_FAILED";
+    stored.updatedAt = new Date(this.now()).toISOString();
+    this.commit(task.sessionId, journal);
+    try {
+      // A failed ownership claim may already belong to somebody else. Never
+      // release another task's owner when recording a known pre-dispatch failure.
+      if (
+        this.options.worktrees.get(task.sessionId, task.worktreeId).ownerId ===
+        task.id
+      ) {
+        this.options.worktrees.releaseOwnership(
+          task.sessionId,
+          task.worktreeId,
+          task.id,
+        );
+      }
+    } catch {
+      this.update(task.sessionId, task.id, {
+        state: "uncertain",
+        errorCode: "CHILD_CLEANUP_UNCERTAIN",
+      });
+      throw new EngineError(
+        "CHILD_CLEANUP_UNCERTAIN",
+        "Undispatched child worktree ownership could not be released",
+      );
+    }
+    return clone(stored);
   }
   list(sessionId: string): ChildTaskRecord[] {
     return this.journal(sessionId).tasks;
@@ -461,10 +530,18 @@ export class ChildTaskManager {
         "Concurrent child admission changed request or worktree ownership",
       );
     const rootRunId = parent?.rootRunId ?? input.parentRunId;
-    let pool = journal.pools.find((p) => p.rootRunId === rootRunId);
+    let pool = journal.pools.find(
+      (p) => (p.parentRunId ?? p.rootRunId) === input.parentRunId,
+    );
+    if (pool && pool.rootRunId !== rootRunId)
+      throw new EngineError(
+        "CHILD_PARENT_MISMATCH",
+        "Child budget pool belongs to different root lineage",
+      );
     if (!pool) {
       pool = {
         rootRunId,
+        parentRunId: input.parentRunId,
         capacity: clone(input.remainingBudget),
         reserved: { turns: 0, toolCalls: 0, outputBytes: 0, durationMs: 0 },
       };
@@ -477,7 +554,7 @@ export class ChildTaskManager {
     )
       throw new EngineError(
         "CHILD_BUDGET_EXCEEDED",
-        "Sibling and descendant allocations exhaust the parent shared budget",
+        "Sibling allocations exhaust their immediate parent's shared budget",
       );
     for (const k of KEYS) pool.reserved[k] += input.allocation[k];
     const id = `child_${randomUUID().replaceAll("-", "")}`;
@@ -504,12 +581,19 @@ export class ChildTaskManager {
     this.commit(input.sessionId, journal);
     try {
       this.options.worktrees.claimOwnership(input.sessionId, worktree.id, id);
+      if (this.closing || parentSignal.aborted) throw cancelled();
+      const result = this.options.beforeDispatch?.(clone(task));
+      if (result !== undefined) {
+        // A promise-returning callback cannot reserve authority after dispatch.
+        void Promise.resolve(result).catch(() => {});
+        throw new EngineError(
+          "INVALID_CHILD_ADMISSION_HOOK",
+          "Child admission hook must synchronously return void",
+        );
+      }
+      if (this.closing || parentSignal.aborted) throw cancelled();
     } catch (error) {
-      this.update(input.sessionId, id, {
-        state: "failed",
-        errorCode:
-          error instanceof EngineError ? error.code : "CHILD_OWNERSHIP_FAILED",
-      });
+      this.failBeforeDispatch(task, error);
       throw error;
     }
     const controller = new AbortController();

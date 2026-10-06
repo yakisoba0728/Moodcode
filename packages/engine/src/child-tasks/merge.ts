@@ -18,6 +18,7 @@ import type { ChildTaskManager } from "./index.js";
 export function createChildMergeTool(
   tasks: ChildTaskManager,
   worktrees: WorktreeManager,
+  rootSessionId?: string,
 ): ToolDefinition {
   return createPatchAdapter({
     name: "merge_child_changes",
@@ -42,7 +43,8 @@ export function createChildMergeTool(
           "INVALID_CHILD_MERGE",
           "Merge requires one exact child task identity",
         );
-      const task = tasks.get(context.sessionId, input.childTaskId);
+      const sessionId = rootSessionId ?? context.sessionId;
+      const task = tasks.get(sessionId, input.childTaskId);
       if (
         task.state !== "completed" ||
         !task.outcome ||
@@ -52,7 +54,7 @@ export function createChildMergeTool(
           "CHILD_MERGE_UNAVAILABLE",
           "Merge requires an observed completed child owned by this parent run",
         );
-      const worktree = worktrees.get(context.sessionId, task.worktreeId);
+      const worktree = worktrees.get(sessionId, task.worktreeId);
       if (
         worktree.baseRoot !== context.workspace.root ||
         worktree.workspaceId !== context.workspace.id

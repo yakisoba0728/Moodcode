@@ -1,6 +1,6 @@
 # Moodcode 엔진 계약 v2
 
-구현 범위: E0-01·E0-02 계약과 validator. 런타임 연결은 별도 E1·E2 단계에서 검증한다. OpenCode 구현·프롬프트·테스트를 복사하지 않고 Moodcode의 기존 durable Run 계약에 추가했다.
+구현 범위: E0-01·E0-02 계약과 validator, 이후 실제 inbox·scheduler·native 실행·조회 연결. 최신 실행 검증은 [headless 통합 보고서](engine-native-final-verification.md)를 따른다. OpenCode 구현·프롬프트·테스트를 복사하지 않고 Moodcode의 기존 durable Run 계약에 추가했다.
 
 ## 기존 API와 새 journal
 
@@ -10,7 +10,7 @@
 
 `projectSessionEventToV1(event, legacySeq)`는 실제 runId가 있고 v1에 대응하는 이벤트만 투영한다. 새 입력·제어 이벤트는 제외한다. 반드시 v1 journal이 할당한 별도 seq를 전달해야 한다. 투영 helper만으로 기존 journal에 이벤트를 자동 기록하지 않는다.
 
-첫 입력·제어 명령은 `input.accept`, `input.list`, `input.cancel`, `session.pause`, `session.resume`, `session.events`다. 추가 계약은 `engine.getCapabilities`, `run.getTurns`, `turn.getParts`, `artifact.get`, session tasks 조회·CAS 수정, question 조회·답변·거부, `session.getContext`, `session.searchHistory`다. history query는 UTF-8 1024 bytes의 literal text이며 page·response byte 상한과 owner-bound beforeMessageId를 둔다. `validateSessionCommand`는 기본적으로 `COMMAND_UNAVAILABLE`을 반환하며 실제 handler가 준비된 host의 명시적 `enabledCommands`만 허용한다. 기존 `validateCommand`는 v1 경로를 유지한다. 향후 schemaVersion은 두 validator에서 `UNSUPPORTED_SCHEMA_VERSION`으로 거부한다. v2 결과는 별도 `SessionCommandResult`다. capabilities의 선택적 `extensions`는 실제 연결된 command/schema만 광고한다.
+첫 입력·제어 명령은 `input.accept`, `input.list`, `input.cancel`, `session.pause`, `session.resume`, `session.events`다. 추가 계약은 `engine.getCapabilities`, `run.getTurns`, `turn.getParts`, `artifact.get`, session tasks 조회·CAS 수정, question 조회·답변·거부, `session.getContext`, `session.searchHistory`, `session.getDiagnostics`다. history query는 UTF-8 1024 bytes의 literal text이며 page·response byte 상한과 owner-bound beforeMessageId를 둔다. diagnostics는 `{sessionId}`를 받아 [known/null 및 관측 범위를 표시한 metrics](engine-native-metrics.md), context 진단, workspace 관찰 상태를 반환한다. `validateSessionCommand`는 기본적으로 `COMMAND_UNAVAILABLE`을 반환하며 실제 handler가 준비된 host의 명시적 `enabledCommands`만 허용한다. 기존 `validateCommand`는 v1 경로를 유지한다. 향후 schemaVersion은 두 validator에서 `UNSUPPORTED_SCHEMA_VERSION`으로 거부한다. v2 결과는 별도 `SessionCommandResult`다. capabilities의 선택적 `extensions`는 실제 연결된 command/schema만 광고한다.
 
 ## identity와 수명
 
@@ -50,6 +50,8 @@ validator는 객체를 독립 복사하고 정확한 enum·bounded integer·cano
 `ArtifactReference`는 파일 경로 대신 identity/hash/retention·부분 결과 정보를 공개한다. `observedBytes`는 읽은 원본 bytes다. producer loss를 아는 경우 `observedBytes=storedBytes+artifactTruncatedBytes+producerTruncatedBytes`, 전체 loss를 모르는 stream 종료는 `producerTruncatedBytes=null`이며 observedBytes는 retained+artifact-truncated의 하한이다. complete=true는 completed outcome, producer/artifact loss 0인 경우에만 가능하다. expiresAt은 createdAt 이후다. 파일 hash·owner·size·retention은 artifact 저장 모듈에서 검증한다.
 
 `ToolResultEnvelope`는 displayContent와 modelContent를 구분하고 structuredData/metadata/warnings/artifactRefs를 담는다. 기존 `ToolResult.content/isError/data/artifacts`는 그대로이며 선택적 structuredResult를 추가했다. `ArtifactCheckpointBinding`은 실제 Run/internal tool/선택적 turn·attempt와 checkpoint·artifact IDs를 연결하고 partial을 표시한다. runner는 같은 실행의 checkpoint·refs를 검증한 뒤 `checkpoint.artifacts` event에 identity/hash/partial을 기록한다. 기존 immutable Checkpoint와 review 소비자는 새 필드를 요구하지 않는다. unconfirmed tool cleanup은 artifact 결과에 관계없이 recovery-required로 남긴다.
+
+`Message.toolResult?`는 outcome·warnings·artifactRefs의 additive metadata다. 도구 결과 message와 같은 원자 commit에 저장하며 기존 content·provider replay·transcript를 바꾸지 않는다. 오래된 큰 결과는 모델 context에서만 제한된 관측 요약과 artifact identity로 투영한다. `read_artifact`는 같은 session의 과거 owner/hash에 해당하는 원본 bytes를 page로 읽으며, 과거 관측을 현재 파일 상태로 표시하지 않는다. provider call ID와 artifact의 내부 tool ID는 서로 다른 identity다.
 
 ## 검증
 

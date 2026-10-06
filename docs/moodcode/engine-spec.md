@@ -2,6 +2,8 @@
 
 작성일: 2026-10-04, Asia/Seoul. Electron·자체 엔진·엔진 우선 개발은 사용자 확정이다. TypeScript/Node·내장 SQLite와 아래 API를 구현했다. 이 문서는 단계별 설계 계약이며, 실제 소스·검증 결과와 아직 남은 범위는 [구현 상태](./implementation-status.md)를 따른다.
 
+2026-10-07 갱신: 아래 첫 구현의 v1 계약을 보존하며 [v2 계약](engine-contracts-v2.md)의 영구 inbox·Turn/Part·ContextRevision·tasks/questions·진단을 추가했다. 실제 host 확장과 소유권·종료·OS 제한은 [host API](engine-host-api.md), 검증 범위는 [최종 headless 보고서](engine-native-final-verification.md), 미완료 조건은 [TODO](../../TODO.md)를 따른다. v1 설계의 향후 계획 문장은 최신 구현 완료 여부의 근거로 사용하지 않는다.
+
 ## 첫 목표와 실행 형태
 
 첫 목표는 **로컬 workspace에서 세션을 만들고 입력 하나를 접수해 응답을 기록하며, 중지·재시작 후에도 결과를 조회하는 엔진**이다. 테스트용 provider로 이 흐름을 완성하고, 실제 provider와 파일·명령 도구를 순서대로 추가한다. 최종 엔진 목표는 작은 코드 수정과 검증을 끝내는 것이다.

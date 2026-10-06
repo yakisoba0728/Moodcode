@@ -25,3 +25,18 @@
 ## 검증과 한계
 
 첫 묶음은 [통합 검증](./engine-foundation-verification.md)을 통과했다. E0-01~04만 완료 처리하며 설정/artifact/context/transport 기반의 후속 연결은 진행 중이다. 실계정 요청과 OS별 실제 실행은 fixture 결과와 구별한다. 현재 호스트에서 확인하지 못한 Windows 실행이나 외부 서비스 연결을 완료로 표시하지 않는다.
+
+## 이후 native 구현과 확장 연결
+
+첫 묶음의 상태는 위 역사 기록으로 보존한다. 이후 같은 세 에이전트를 재사용해 실행·저장/context·도구/확장을 병렬 구현하고 root가 실제 엔진으로 연결했다. 공용 build와 전체 gate는 root가 직렬로 실행해 공유 dist 및 DB fixture 충돌을 피했다.
+
+| 담당 | 후속 구현·검증 | 실제 통합 검증 |
+|---|---|---|
+| engine_execution_review | native turn/provider·process·PTY 수명, 실제 부모 예산 포트, 변경 정산 callback | 독립 child→부모 및 grandchild→child→root 승인 merge, 실제 stdio LSP/formatter·restore·descendant cleanup, JSONL 전체 v1 명령 |
+| engine_context_review | schema 2·영구 inbox/records/query/archive, instruction baseline, SQL metrics·성능 | 실제 parent/child/grandchild의 예약 debit·취소·프로파일·deny 정책·root 결과 inbox |
+| engine_tools_review | artifacts·runtime·권한·파일/search·MCP/plugin/credential·worktrees·LSP/formatter, workspace Hub·Anthropic·CI | 과거 큰 tool 결과→read_artifact 실제 loop, 원본 bytes와 owner·변조·expiry, CI launcher 제한 범위 |
+| root | 공용 contracts/config·scheduler·context/runner wiring, EngineChildren·LSP/Hub·진단·tool history 연결 | headless 전체 gate·호스트 unit 호환, fixture 평가 3개·명시적 Codex live, TODO/명세·문서·커밋 |
+
+독립 모듈만 작성했던 child/LSP는 실제 engine/SQLite/Git/process fixture의 연결 검증 이후 완료 처리했다. 예약은 immediate parent의 현재 예산을 사용하며 사전 실패와 dispatch 뒤 불확실성을 구분한다. 원본 transcript/opaque replay·immutable checkpoint·원래 Git HEAD를 보존한다.
+
+최신 완료는 71/75이며 [검증 보고서](engine-native-final-verification.md)를 따른다. Windows native binding·media port·첫 hosted CI/최종 OS 명세는 열린 항목이다. 이번 작업 중 Electron 앱은 실행하지 않았다.

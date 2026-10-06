@@ -100,7 +100,7 @@ export interface SessionEventV2 {
   type: string; payload: JsonObject; runId?: string; inputId?: string; turnId?: string; attemptId?: string;
 }
 export interface SessionEventCursor { schemaVersion: typeof SESSION_SCHEMA_VERSION; stream: 'session-v2'; sessionId: string; afterSeq: number }
-export const SESSION_COMMAND_TYPES = ['input.accept', 'input.list', 'input.cancel', 'session.pause', 'session.resume', 'session.events', 'engine.getCapabilities', 'run.getTurns', 'turn.getParts', 'artifact.get', 'session.getTasks', 'session.setTasks', 'question.list', 'question.answer', 'question.reject', 'session.getContext', 'session.searchHistory'] as const;
+export const SESSION_COMMAND_TYPES = ['input.accept', 'input.list', 'input.cancel', 'session.pause', 'session.resume', 'session.events', 'engine.getCapabilities', 'run.getTurns', 'turn.getParts', 'artifact.get', 'session.getTasks', 'session.setTasks', 'question.list', 'question.answer', 'question.reject', 'session.getContext', 'session.searchHistory', 'session.getDiagnostics'] as const;
 export type SessionCommandType = typeof SESSION_COMMAND_TYPES[number];
 export interface SessionCommandEnvelope { schemaVersion: typeof SESSION_SCHEMA_VERSION; commandId: string; type: SessionCommandType; payload: JsonObject }
 export interface SessionCommandResult { schemaVersion: typeof SESSION_SCHEMA_VERSION; commandId: string; ok: boolean; result?: JsonValue; error?: { code: string; message: string; details?: JsonObject } }

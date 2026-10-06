@@ -4,8 +4,9 @@ import type { ContextRequest, ProviderAdapter, ProviderMessage } from '../ports.
 import type { SqliteStore } from '../storage/index.js';
 import { ModelRegistry } from './model-spec.js';
 import { planContext, type ContextPlan } from './plan.js';
-import { InstructionSources, type InstructionObservation } from './sources.js';
+import { InstructionSources, type InstructionObservation, type InstructionSource } from './sources.js';
 import { SemanticMemoryService } from './semantic-memory.js';
+import { projectToolHistory } from './tool-history.js';
 
 export interface ContextDiagnostics {
   revisionId: string; revision: number; plan: Omit<ContextPlan, 'messages'>;
@@ -49,14 +50,26 @@ export class ContextService {
   }
   async recoverOverflow(request: ContextRequest, provider: ProviderAdapter): Promise<void> { await this.memory.summarize(request, provider); }
   async build(request: ContextRequest, summaryAttempted = false): Promise<ProviderMessage[]> {
-    let sources = this.sources.get(request.workspace.id);
+    const sessionId = request.snapshot.session.id;
+    const cacheKey = JSON.stringify([request.workspace.id, sessionId]);
+    let sources = this.sources.get(cacheKey);
     if (!sources) {
       if (this.sources.size >= 128) throw new EngineError('WORKSPACE_CONTEXT_LIMIT', 'Too many active workspace instruction caches');
-      sources = new InstructionSources(request.workspace.root); this.sources.set(request.workspace.id, sources);
+      const key = (id: string) => `instruction.${digest(id).slice(0, 32)}`;
+      sources = new InstructionSources(request.workspace.root, {
+        loadBaseline: id => this.store.getSessionDocument(sessionId, key(id))?.data.source as unknown as InstructionSource ?? null,
+        saveBaseline: source => {
+          const previous = this.store.getSessionDocument(sessionId, key(source.id));
+          const prior = previous?.data.source as unknown as InstructionSource | undefined;
+          if (prior?.sha256 === source.sha256 && prior?.status === source.status && prior.workspaceRoot === source.workspaceRoot) return;
+          this.store.putSessionDocument(sessionId, key(source.id), previous?.revision ?? 0, { source: JSON.parse(JSON.stringify(source)) as JsonObject });
+        },
+      }); this.sources.set(cacheKey, sources);
     }
     const observation = await sources.observe(this.relevantPaths(request), request.signal);
     const model = this.models.get(request.config.providerId, request.config.modelId);
-    const projected = this.memory.project(request);
+    const remembered = this.memory.project(request);
+    const projected = { ...remembered, snapshot: projectToolHistory(remembered.snapshot, request.run?.id) };
     const plan = await planContext({ ...projected, instructionSources: observation.sources }, { model, outputTokens: this.outputTokenReserve });
     const provider = this.provider?.(request.config.providerId);
     const selectedIds = new Set(plan.selectedMessageIds);
@@ -69,7 +82,6 @@ export class ContextService {
       }
     }
     if (request.signal.aborted) throw new EngineError('CANCELLED', 'Context construction was cancelled');
-    const sessionId = request.snapshot.session.id;
     const previous = this.store.getSessionDocument(sessionId, 'context.head');
     const sourceIds = [...plan.selectedMessageIds, ...observation.sources.filter(source => source.sha256 !== null).map(source => `${source.id}:${source.sha256}`)];
     const bindingHash = digest({ plan: plan.sha256, sources: sourceIds, config: request.config, model: { ...model, source: { kind: model.source.kind, reference: model.source.reference } } });
@@ -77,20 +89,22 @@ export class ContextService {
     const oldRevisionId = typeof old?.revisionId === 'string' ? old.revisionId : undefined;
     let revisionId = oldRevisionId;
     let revision = typeof old?.contextRevision === 'number' ? old.contextRevision : 0;
+    let pendingRevision: ContextRevision | undefined;
     if (old?.bindingHash !== bindingHash || !revisionId) {
       revisionId = randomUUID(); revision = this.store.nextContextRevisionIndex(sessionId);
       const text = JSON.stringify(plan.messages);
       const latest = this.store.getLatestContextRevision(sessionId);
-      const record: ContextRevision = { schemaVersion: SESSION_SCHEMA_VERSION, id: revisionId, sessionId, revision, kind: revision === 1 ? 'baseline' : 'update',
-        sourceIds, text, sha256: createHash('sha256').update(text).digest('hex'), createdAt: new Date().toISOString(), ...(latest ? { supersedesId: latest.id } : {}) };
-      this.store.putContextRevision(record);
+      pendingRevision = { schemaVersion: SESSION_SCHEMA_VERSION, id: revisionId, sessionId, revision, kind: revision === 1 ? 'baseline' : 'update',
+        sourceIds, text, sha256: createHash('sha256').update(text).digest('hex'), createdAt: new Date().toISOString(), ...(request.run ? { runId: request.run.id } : {}), ...(latest ? { supersedesId: latest.id } : {}) };
     }
     const { messages, ...publicPlan } = plan;
     // Text is retained in ContextRevision; diagnostics carry source hashes and observations only.
     const diagnostics: ContextDiagnostics = { revisionId, revision, plan: publicPlan,
       instructions: { ...observation, sources: observation.sources.map(source => ({ ...source, text: null })) },
       omittedDatabaseMessages: this.history.get(sessionId)?.omittedMessages ?? 0, omittedDatabaseRuns: this.history.get(sessionId)?.omittedRuns ?? 0 };
-    this.store.putSessionDocument(sessionId, 'context.head', previous?.revision ?? 0, { revisionId, contextRevision: revision, bindingHash, diagnostics: JSON.parse(JSON.stringify(diagnostics)) as JsonObject });
+    const data = { revisionId, contextRevision: revision, bindingHash, diagnostics: JSON.parse(JSON.stringify(diagnostics)) as JsonObject };
+    if (pendingRevision && request.run) this.store.commitContextDocument(request.run.id, 'context.revision.activated', { contextRevisionId: revisionId, revision, sha256: pendingRevision.sha256 }, { revision: pendingRevision, kind: 'context.head', expectedRevision: previous?.revision ?? 0, data });
+    else { if (pendingRevision) this.store.putContextRevision(pendingRevision); this.store.putSessionDocument(sessionId, 'context.head', previous?.revision ?? 0, data); }
     this.revisions.set(sessionId, revisionId);
     return messages;
   }

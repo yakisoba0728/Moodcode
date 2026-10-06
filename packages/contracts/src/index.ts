@@ -32,7 +32,7 @@ export interface RunReceipt { runId: string; inputId: string; admittedSeq: numbe
 export interface ProviderToolCall { id: string; name: string; input: JsonValue }
 /** Provider-native completed output for manual replay; opaque to tools and the UI. */
 export interface ProviderReplay { providerId: string; items: JsonObject[]; modelId?: string; protocol?: string; version?: number }
-export interface Message { id: string; sessionId: string; runId: string; role: 'user' | 'assistant' | 'tool'; content: string; createdAt: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay }
+export interface Message { id: string; sessionId: string; runId: string; role: 'user' | 'assistant' | 'tool'; content: string; createdAt: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay; toolResult?: Pick<import('./v2.js').ToolResultEnvelope, 'artifactRefs' | 'warnings' | 'outcome'> }
 export interface ToolCallRecord { id: string; runId: string; sessionId: string; name: string; input: JsonValue; state: 'requested' | 'awaiting_approval' | 'running' | 'completed' | 'failed' | 'denied' | 'interrupted'; output?: string; error?: string }
 export interface ApprovalRecord { id: string; sessionId: string; runId: string; toolCallId: string; toolName: string; fingerprint: string; preview: JsonObject; status: 'pending' | 'allowed' | 'denied' | 'expired'; createdAt: string; resolvedAt?: string }
 export interface CheckpointFile { path: string; before: string | null; after: string | null; beforeHash: string | null; afterHash: string | null }

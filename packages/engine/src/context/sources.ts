@@ -13,8 +13,14 @@ export interface InstructionSource {
   text: string | null;
   observedAt: string;
   retainedBaseline: boolean;
+  /** Required on persisted baselines; prevents an instruction ID crossing workspace roots. */
+  workspaceRoot?: string;
 }
 export interface InstructionObservation { sources: InstructionSource[]; changedSourceIds: string[]; warnings: string[] }
+export interface InstructionBaselinePersistence {
+  loadBaseline(id: string): InstructionSource | null;
+  saveBaseline(source: InstructionSource): void;
+}
 const MAX_SOURCES = 32;
 const MAX_SOURCE_BYTES = 32_768;
 
@@ -26,8 +32,30 @@ function errorCode(error: unknown): string | undefined { return (error as { code
 /** Root instructions precede deeper scopes; only paths relevant to this request are discovered. */
 export class InstructionSources {
   private readonly baseline = new Map<string, InstructionSource>();
-  constructor(private readonly root: string) {
-    if (!isAbsolute(root)) throw new EngineError('INVALID_WORKSPACE', 'Instruction discovery requires an absolute workspace root');
+  private readonly workspaceRoot: string;
+  constructor(private readonly root: string, private readonly persistence?: InstructionBaselinePersistence) {
+    if (!isAbsolute(root) || root.includes('\0') || Buffer.byteLength(root) > 4096) throw new EngineError('INVALID_WORKSPACE', 'Instruction discovery requires a bounded absolute workspace root');
+    this.workspaceRoot = resolve(root);
+  }
+  private loadBaseline(id: string, path: string): InstructionSource | undefined {
+    const cached = this.baseline.get(id);
+    if (cached || !this.persistence) return cached;
+    const value = this.persistence.loadBaseline(id);
+    if (value === null) return undefined;
+    const fail = (): never => { throw new EngineError('INSTRUCTION_BASELINE_INVALID', 'Persisted instruction baseline failed workspace, scope, status or content validation', { sourceId: id }); };
+    if (!value || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return fail();
+    const keys = ['id', 'path', 'scope', 'status', 'sha256', 'text', 'observedAt', 'retainedBaseline', 'workspaceRoot'];
+    if (Object.keys(value).some(key => !keys.includes(key))) return fail();
+    if (value.workspaceRoot !== this.workspaceRoot || value.id !== id || value.path !== path || value.scope !== (dirname(path) === '.' ? '' : dirname(path)) || value.retainedBaseline !== false) return fail();
+    if (typeof value.observedAt !== 'string' || value.observedAt.length > 64 || !Number.isFinite(Date.parse(value.observedAt)) || new Date(value.observedAt).toISOString() !== value.observedAt) return fail();
+    if (value.status === 'missing') {
+      if (value.text !== null || value.sha256 !== null) return fail();
+    } else if (value.status === 'available') {
+      if (typeof value.text !== 'string' || Buffer.byteLength(value.text) > MAX_SOURCE_BYTES || Buffer.from(value.text).toString('utf8') !== value.text || typeof value.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(value.sha256) || createHash('sha256').update(value.text).digest('hex') !== value.sha256) return fail();
+    } else return fail();
+    const baseline = structuredClone(value);
+    this.baseline.set(id, baseline);
+    return baseline;
   }
   private candidates(paths: readonly string[]): string[] {
     const result = new Set(['AGENTS.md']);
@@ -97,16 +125,22 @@ export class InstructionSources {
     const warnings: string[] = [];
     for (const path of this.candidates(paths)) {
       const id = `instruction:${path.split(sep).join('/')}`;
-      const previous = this.baseline.get(id);
+      const previous = this.loadBaseline(id, path);
       const observation = await this.read(path, signal);
       const retained = observation.status === 'unavailable' && previous?.text !== null && previous?.text !== undefined;
       const text = retained ? previous!.text : observation.text;
       const source: InstructionSource = { id, path, scope: dirname(path) === '.' ? '' : dirname(path), status: observation.status,
-        text, sha256: text === null ? null : createHash('sha256').update(text).digest('hex'), observedAt: new Date().toISOString(), retainedBaseline: retained };
+        text, sha256: text === null ? null : createHash('sha256').update(text).digest('hex'), observedAt: new Date().toISOString(), retainedBaseline: retained,
+        ...(this.persistence ? { workspaceRoot: this.workspaceRoot } : {}) };
       if (observation.status === 'unavailable') warnings.push(`Instruction source ${path} is unavailable${retained ? '; previous baseline retained' : ''}.`);
       if (previous?.sha256 !== source.sha256) changedSourceIds.push(id);
       // Deleted files remove their baseline; transient failures retain the last valid text.
-      if (observation.status !== 'unavailable') this.baseline.set(id, structuredClone(source));
+      if (observation.status !== 'unavailable') {
+        // Persist before changing the cache. A rejected write cannot become a
+        // memory-only baseline that disappears after restart.
+        this.persistence?.saveBaseline(structuredClone(source));
+        this.baseline.set(id, structuredClone(source));
+      }
       sources.push(source);
     }
     return { sources, changedSourceIds, warnings };

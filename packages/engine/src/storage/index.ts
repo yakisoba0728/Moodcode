@@ -15,7 +15,9 @@ import { databaseVersion, DB_VERSION, migrateDatabase } from './migrations.js';
 import { NativeSessionStorage, type StoredInputPromotion } from './native.js';
 import { NativeExecutionStorage, type PartPage, type SessionDocument, type TurnPage } from './native-records.js';
 import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPage } from './history-search.js';
+import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
+export type { NativeMetricsReport } from './native-metrics.js';
 
 const PAGE_SIZE = 128;
 const MAX_PAGE_SIZE = 1_024;
@@ -513,6 +515,12 @@ export class SqliteStore implements SessionEngineStore {
     return { observedUsageEvents: usage.length, inputTokens: sum('inputTokens'), outputTokens: sum('outputTokens'), usageWindowTruncated: rows.length > 2000,
       context: context && typeof context.bytes === 'number' && typeof context.limit === 'number' && typeof context.turnIndex === 'number'
         ? { bytes: context.bytes, limit: context.limit, summaryIncluded: context.summaryIncluded === true, turnIndex: context.turnIndex } : null };
+  }
+  getNativeMetrics(sessionId?: string): NativeMetricsReport {
+    return this.transaction(() => {
+      if (sessionId !== undefined) this.getSession(sessionId);
+      return readNativeMetrics(this.db, sessionId);
+    }, false);
   }
   readEvents(sessionId: string, afterSeq: number, limit = PAGE_SIZE): EngineEvent[] {
     cursor(afterSeq);

@@ -2,7 +2,7 @@
 
 갱신일: 2026-10-07, Asia/Seoul. 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
 
-상태: 자체 엔진의 inbox·실행·provider·context·도구·MCP·PTY·저장 확장을 병렬 구현하고 headless 통합 검증을 통과했다. 남은 확장의 실제 연결과 운영 검증을 병렬로 진행한다. 이 파일을 구현 진행 상태의 기준으로 사용한다.
+상태: 자체 엔진의 inbox·실행·provider·context·도구·MCP·PTY·저장과 실제 child 실행·변경 통합·LSP 연결을 구현했다. headless 통합 및 현재 Codex 계정의 실제 코딩 과업을 검증했다. 이 파일을 구현 진행 상태의 기준으로 사용한다.
 
 ## 작업 규칙
 
@@ -12,7 +12,7 @@
 - OpenCode에서 확인한 동작을 Moodcode 계약과 자체 fixture로 구현한다. 원본 코드·프롬프트·도구 설명·테스트를 이름만 바꿔 가져오지 않는다. 실제 외부 코드 재사용이 필요하면 출처와 고지를 별도로 기록한다.
 - 각 단계는 headless engine/harness로 검증한다. 기본 회귀는 fixture를 사용하고, 실제 계정 요청은 명시적으로 분리한다. GUI·서명·앱 업데이트는 이 목록의 구현 범위에 넣지 않는다.
 
-진행 중: **E3-11, E4-12, E5-10~12, E6-06~07**. **새 구현 완료 64/75**. E0-01~04는 [첫 통합 기록](docs/moodcode/engine-foundation-verification.md), 이후 완료 항목은 [native 통합 검증](docs/moodcode/engine-native-verification.md)을 따른다. 테스트로 개별 완료 조건을 확인한 독립 확장은 순차 선행 조건과 병렬로 완료 처리했으며, 연결되지 않은 child/LSP 기능은 미완료로 유지한다. 담당 범위는 [병렬 엔진 구현](docs/moodcode/engine-implementation-waves.md)에 기록한다.
+**구현·검증 완료 71/75**. 열린 항목은 **E5-08, E5-13, E6-07, E6-08**이며 각각 아래에 남은 조건을 기록한다. E0-01~04는 [첫 통합 기록](docs/moodcode/engine-foundation-verification.md), 기본 native 엔진은 [첫 native 통합](docs/moodcode/engine-native-verification.md), 확장 연결과 최신 gate는 [최종 headless 검증](docs/moodcode/engine-native-final-verification.md)을 따른다. 담당 범위는 [병렬 엔진 구현](docs/moodcode/engine-implementation-waves.md)에 기록한다.
 
 ## 유지하고 회귀 검증할 기반
 
@@ -25,7 +25,7 @@
 | 명령·취소·복구 | supervisor·effect marker, 종료 미확정 격리, 재시작 후 자동 효과 재실행 금지 | [command](packages/engine/src/tools/command/index.ts), [recovery](packages/engine/src/recovery/index.ts) |
 | 변경 복원 | 현재 파일 충돌 검사, maintenance lease, review journal·복구 ledger binding | [review](packages/engine/src/review/index.ts), [audit](packages/engine/src/review/audit.ts) |
 
-이 표는 현재 소스와 이전 검증 기록을 요약한다. 이번 TODO 작성에서 테스트를 재실행했다는 뜻은 아니다. 현재 기능과 한계는 [구현 상태](docs/moodcode/implementation-status.md)를 따른다.
+이 표는 보존한 계약이다. 최신 검증은 앱을 열지 않고 엔진 전체 회귀·호스트 unit 호환·fixture 평가·명시적 Codex live 과업으로 수행했다. GUI E2E와 bundle의 이전 결과는 이번 엔진 검증과 구분한다. 현재 기능과 한계는 [구현 상태](docs/moodcode/implementation-status.md)를 따른다.
 
 ## 구현 순서
 
@@ -140,7 +140,7 @@ E0→E1→E2→E3→E4를 우선한다. E4 완료 뒤 E6-01~E6-04로 기본 엔�
   선행: E3-08. 완료: 빈 요약·불완전 finish·실패·취소에는 이전 revision을 유지하고, 성공 시 recent exchange와 출처를 함께 투영한다.
 - [x] **E3-10 — overflow 한 번 복구 구현** `[신규]`
   선행: E3-09. 완료: 출력·tool effect 시작 전 논리 turn에서 1회만 요약 후 request를 재구성하고 두 번째 overflow와 출력 후 실패는 반복하지 않는다.
-- [ ] **E3-11 — 큰 tool history의 artifact 투영 개선** `[개선]`
+- [x] **E3-11 — 큰 tool history의 artifact 투영 개선** `[개선]`
   선행: E3-10. 완료: 이전 결과를 bounded 구조화 요약/참조로 표현하며 active call/result 쌍, warnings와 미완료 작업 정보를 유지한다.
 - [x] **E3-12 — 이력 검색·context 진단 구현** `[신규]`
   선행: E3-11. 완료: 원본 이력 검색과 context provenance를 제한된 query로 조회한다. summary가 현재 파일 상태의 증거인 것처럼 표시되지 않는다.
@@ -171,7 +171,7 @@ E0→E1→E2→E3→E4를 우선한다. E4 완료 뒤 E6-01~E6-04로 기본 엔�
   선행: E4-09. 완료: 도구 정책·모델/추론 설정·지침·turn allowance를 갖는 profile을 만들고 mode와 별도로 관리한다. 전환은 안전 경계에 반영한다.
 - [x] **E4-11 — skill/reference·session TODO 도구 구현** `[신규]`
   선행: E4-10. 완료: 로컬 skill/reference discovery·bounded context injection과 session task 상태 저장/조회 도구를 구현한다. 대기 입력·실행 결과·사용자 승인과 혼동하지 않는다.
-- [ ] **E4-12 — 파일 변경 이벤트·observer/review 연계 구현** `[개선]`
+- [x] **E4-12 — 파일 변경 이벤트·observer/review 연계 구현** `[개선]`
   선행: E4-11. 완료: 내부 도구와 외부 편집의 변경 관찰을 하나의 workspace 변경 계약으로 연결하고 중복·늦은 이벤트·다음 turn 재읽기를 검증한다.
 
 ## E5 — 엔진 확장과 실행 backend
@@ -194,16 +194,18 @@ E5는 코딩 loop 기반을 만든 뒤 순서대로 확장한다. 초기 검증�
   선행: E5-06. 완료: 부모 종료·분리·process group 정리를 실제 OS에서 확인한다. 저장된 terminal 기록이 살아 있는 프로세스의 증거가 되지 않도록 한다.
 - [ ] **E5-08 — Windows process-tree backend 구현** `[신규]`
   선행: E5-05. 완료: Job Object 등 실제 소유·종료 확인 backend와 기존 process port를 연결하고 Windows에서 child tree·timeout·crash를 검증한다.
+  현재: ownership port와 명시적 unavailable 처리는 구현했다. native Job Object binding과 실제 Windows 실행 호스트가 필요하다. macOS의 fake port fixture·OS skip은 완료 근거로 사용하지 않는다.
 - [x] **E5-09 — worktree lifecycle 구현** `[신규]`
   선행: E4-12. 완료: create/boot/ready/failure/cleanup을 durable 상태로 기록하고 기존 사용자 수정·branch/path를 보존한다. Git 준비 완료와 실행 완료를 구분한다.
-- [ ] **E5-10 — child task·cancel·budget 상속 구현** `[신규]`
+- [x] **E5-10 — child task·cancel·budget 상속 구현** `[신규]`
   선행: E5-09. 완료: parent/child depth·도구 권한·전체 budget·격리 workspace·부모 취소를 정의하고 detached 작업의 소유권을 명시한다.
-- [ ] **E5-11 — child 결과 전달·변경 통합 구현** `[신규]`
+- [x] **E5-11 — child 결과 전달·변경 통합 구현** `[신규]`
   선행: E5-10. 완료: task 결과 입력의 중복 방지와 변경 충돌·preview·검증을 처리한다. 효과·merge를 자동 성공으로 간주하지 않는다.
-- [ ] **E5-12 — engine-side LSP/formatter port 구현** `[신규]`
+- [x] **E5-12 — engine-side LSP/formatter port 구현** `[신규]`
   선행: E4-12. 완료: spawn deduplication·document update·diagnostics·format 결과와 timeout/close를 구현하고 파일 변경 event에 연결한다. 에디터 UI는 후속이다.
 - [ ] **E5-13 — 추가 provider·multimodal adapter 검증** `[확장]`
   선행: E3-12, E4-12. 완료: 필요 provider 하나씩 text/tool/reasoning/media·usage·retry·cancel fixture를 통과하고 실제 확인한 capability만 제공한다.
+  현재: Anthropic text/tool·공개 reasoning summary·opaque replay·usage·retry/cancel 계약을 53개 synthetic fixture로 검증했다. [adapter 명세](docs/moodcode/engine-anthropic.md)를 따른다. media는 명시적으로 미지원이며 입력/출력 port와 provider별 fixture가 남았다. Anthropic 실제 계정 검증도 수행하지 않았다.
 
 ## E6 — 작업 품질·장애·성능·운영
 
@@ -211,7 +213,7 @@ E5는 코딩 loop 기반을 만든 뒤 순서대로 확장한다. 초기 검증�
 
 - [x] **E6-01 — 대표 코딩 과업 평가 harness 구축** `[신규·검증]`
   선행: E4-12. 완료: 임시 repository의 작은 수정·버그 수정·여러 파일 변경 과업을 정의하고 expected diff·검사·횟수·시간·usage·실패 원인을 기록한다.
-- [ ] **E6-02 — 기본 엔진 실제 모델 과업 검증** `[검증]`
+- [x] **E6-02 — 기본 엔진 실제 모델 과업 검증** `[검증]`
   선행: E6-01. 완료: 명시적 live 검증으로 코드 변경·검사 결과·목표 보존을 확인하고 fixture 성공과 구분한다. 공급자/모델별 실행한 범위만 기록한다.
 - [x] **E6-03 — crash·경합·record/effect 경계 검증** `[검증]`
   선행: E6-01. 완료: admission/promotion/dispatch/승인/effect/settlement/review 시점의 강제 종료를 재현하고 기록·격리·자동 재실행 0을 확인한다.
@@ -219,16 +221,18 @@ E5는 코딩 loop 기반을 만든 뒤 순서대로 확장한다. 초기 검증�
   선행: E6-01. 완료: 1천/1만/10만 메시지의 DB 읽기량·대기 시간·메모리·구독 압력을 측정하고 목표값·한계를 근거와 함께 정한다.
 - [x] **E6-05 — 전체 엔진 데이터 backup/export/import 개선** `[개선]`
   선행: E6-03. 완료: primary/review/recovery ledger·artifact를 일관된 manifest/hash로 보존·복원하고 schema migration·부분 실패·복구 중단을 검증한다.
-- [ ] **E6-06 — 진단·metrics·오류 원인 정리** `[개선]`
+- [x] **E6-06 — 진단·metrics·오류 원인 정리** `[개선]`
   선행: E6-03, E6-04. 완료: queue·turn·retry·summary·cleanup·quarantine·artifact의 관찰 지표와 사용자용 오류를 정리하고 누락 값·표본 범위를 표시한다.
 - [ ] **E6-07 — 엔진 CI·OS별 지원 검증 연결** `[신규·검증]`
   선행: E6-05, E6-06. 완료: 엔진 검증을 기본 CI에 연결하고 macOS/Linux/Windows의 실제 pass/skip·미지원 경계를 기록한다. 확장 backend는 해당 E5 항목 완료 후 추가한다.
+  현재: [CI workflow](.github/workflows/engine.yml)와 headless launcher를 구성하고 로컬 launcher 2개 테스트를 통과했다. 이 저장소에는 Git remote가 없어 Actions를 실행하지 못했다. Linux/Windows 및 Node24 hosted 결과를 확인한 뒤 완료 처리한다. [OS별 정확한 범위](docs/moodcode/engine-ci.md)를 따른다.
 - [ ] **E6-08 — 확장 통합과 구현 명세 갱신** `[검증·문서]`
   선행: E6-02, E6-07 및 구현한 E5 항목. 완료: 실제 지원 목록·command/schema·복구/성능/OS 한계를 갱신하고 핵심 엔진 배포·host 연결 가능 상태를 정리한다. 미완료 E5는 열린 TODO로 남긴다.
+  현재: 지원 목록·host API·schema·복구/성능 한계와 검증 보고서를 갱신했다. macOS headless host 연결은 검증했다. 선행 E6-07의 실제 CI 결과와 OS 지원 명세 확정이 남아 있어 항목을 열어 둔다.
 
 ## 다음 작업과 개선 우선순위
 
-첫 세 항목은 **E0-01 데이터·event 계약 → E0-02 API 호환 → E0-03 migration 체계**다. 그 뒤 기존 데이터·복구를 회귀 검증하면서 새 inbox와 scheduler를 구현한다.
+다음은 **E5-13 media 입력/출력 계약·fixture → E5-08 native Windows 구현 및 OS 호스트 검증 → E6-07 첫 CI 실행 → E6-08 지원 명세 확정**이다. GUI를 다시 작업하기 전 [host API](docs/moodcode/engine-host-api.md)를 기준으로 새 엔진 기능을 노출할 범위를 정한다. host API가 있는 기능이 현재 GUI에도 노출됐다고 간주하지 않는다.
 
 OpenCode보다 보강할 기준은 영구 Run/attempt 추적, cancel 후 자동 새 작업 방지, summary/retry까지 포함한 budget, file 효과 승인 binding, 큰 session의 DB 읽기량 제한, 확장 자원의 종료 확인이다. 기존 구현을 전부 폐기하지 않고 이 기준에 맞춰 내부 경계를 하나씩 정리한다.
 

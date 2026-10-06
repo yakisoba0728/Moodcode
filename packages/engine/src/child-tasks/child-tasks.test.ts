@@ -11,7 +11,11 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { DEFAULT_LIMITS, type Checkpoint } from "@moodcode/contracts";
+import {
+  DEFAULT_LIMITS,
+  EngineError,
+  type Checkpoint,
+} from "@moodcode/contracts";
 import { SqliteStore } from "../storage/index.js";
 import { openWorkspace } from "../workspace/index.js";
 import { WorktreeManager } from "../worktrees/index.js";
@@ -20,6 +24,7 @@ import {
   type ChildTaskHost,
   type ChildStart,
   type ChildOutcome,
+  type ChildTaskOptions,
 } from "./index.js";
 import { createChildMergeTool } from "./merge.js";
 import type { ToolContext } from "../ports.js";
@@ -33,7 +38,11 @@ const outcome = (state: ChildOutcome["state"] = "completed"): ChildOutcome => ({
   content: "child result",
   usage: { turns: 1, toolCalls: 0, outputBytes: 12 },
 });
-async function fixture(t: test.TestContext, host: ChildTaskHost) {
+async function fixture(
+  t: test.TestContext,
+  host: ChildTaskHost,
+  extra: Pick<ChildTaskOptions, "beforeDispatch"> = {},
+) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "moodcode-child-")));
   const repo = join(root, "repo");
   await mkdir(repo);
@@ -71,6 +80,7 @@ async function fixture(t: test.TestContext, host: ChildTaskHost) {
     worktrees,
     host,
     cleanupTimeoutMs: 30,
+    ...extra,
   });
   t.after(async () => {
     await manager.close().catch(() => {});
@@ -166,6 +176,135 @@ test("tool escalation and shared sibling budget overflow fail before host dispat
     code("CHILD_BUDGET_EXCEEDED"),
   );
   assert.equal(calls, 2);
+});
+test("beforeDispatch runs after verified durable ownership and never runs for rejected preflight", async (t) => {
+  const order: string[] = [],
+    host = completedHost();
+  const start = host.start;
+  host.start = async (request) => {
+    order.push("host");
+    assert.deepEqual(request.task.toolNames, ["read_file"]);
+    return start(request);
+  };
+  let f!: Awaited<ReturnType<typeof fixture>>;
+  f = await fixture(t, host, {
+    beforeDispatch(task) {
+      order.push("reservation");
+      assert.equal(f.manager.get("s", task.id).state, "starting");
+      assert.equal(f.worktrees.get("s", task.worktreeId).ownerId, task.id);
+      task.toolNames.push("mutated-copy");
+    },
+  });
+  for (const change of [
+    { prompt: "x".repeat(32769) },
+    { requestedTools: ["run_command"] },
+    { worktreeId: "missing" },
+  ])
+    await assert.rejects(
+      f.manager.start({ ...f.input, ...change }, fresh().signal),
+    );
+  const original = f.worktrees.verify;
+  f.worktrees.verify = async () => {
+    throw new EngineError(
+      "WORKTREE_REPOSITORY_MISMATCH",
+      "fixture preflight failed",
+    );
+  };
+  await assert.rejects(
+    f.manager.start(f.input, fresh().signal),
+    code("WORKTREE_REPOSITORY_MISMATCH"),
+  );
+  f.worktrees.verify = original;
+  assert.deepEqual(order, []);
+  assert.equal(f.manager.list("s").length, 0);
+  assert.equal(f.store.getSessionDocument("s", "engine.child_tasks"), null);
+  const task = await f.manager.start(f.input, fresh().signal);
+  await f.manager.wait("s", task.id);
+  assert.deepEqual(order, ["reservation", "host"]);
+  assert.deepEqual(f.manager.get("s", task.id).toolNames, ["read_file"]);
+});
+test("failed live-parent reservation is a known undispatched failure and returns its unused pool allocation", async (t) => {
+  let fail = true,
+    dispatches = 0,
+    reservations = 0;
+  const host = completedHost(),
+    start = host.start;
+  host.start = async (request) => {
+    dispatches++;
+    return start(request);
+  };
+  const f = await fixture(t, host, {
+    beforeDispatch() {
+      if (fail)
+        throw new EngineError(
+          "PARENT_RUN_NOT_ACTIVE",
+          "fixture parent finished during verify",
+        );
+      reservations++;
+    },
+  });
+  await assert.rejects(
+    f.manager.start(f.input, fresh().signal),
+    code("PARENT_RUN_NOT_ACTIVE"),
+  );
+  const failed = f.manager.list("s")[0]!;
+  assert.equal(failed.state, "failed");
+  assert.equal(failed.errorCode, "PARENT_RUN_NOT_ACTIVE");
+  assert.equal(failed.outcome, undefined);
+  assert.equal(dispatches, 0);
+  assert.equal(reservations, 0);
+  assert.equal(f.worktrees.get("s", f.worktree.id).ownerId, undefined);
+  const document = f.store.getSessionDocument("s", "engine.child_tasks")!;
+  assert.deepEqual(
+    (
+      document.data.pools as unknown as { reserved: ChildStart["allocation"] }[]
+    )[0]!.reserved,
+    { turns: 0, toolCalls: 0, outputBytes: 0, durationMs: 0 },
+  );
+  await assert.rejects(
+    f.manager.deliver("s", failed.id),
+    code("CHILD_RESULT_UNAVAILABLE"),
+  );
+  fail = false;
+  const full = await f.manager.start(
+    {
+      ...f.input,
+      requestId: "after-known-failure",
+      allocation: { ...f.input.remainingBudget },
+    },
+    fresh().signal,
+  );
+  assert.equal((await f.manager.wait("s", full.id)).state, "completed");
+  assert.equal(dispatches, 1);
+  assert.equal(reservations, 1);
+});
+test("a host dispatch rejection remains uncertain with reserved budget and worktree ownership retained", async (t) => {
+  let reservations = 0,
+    dispatches = 0;
+  const host = completedHost();
+  host.start = async () => {
+    dispatches++;
+    throw new Error("possible host effect before rejected handle");
+  };
+  const f = await fixture(t, host, {
+    beforeDispatch() {
+      reservations++;
+    },
+  });
+  const task = await f.manager.start(f.input, fresh().signal),
+    settled = await f.manager.wait("s", task.id);
+  assert.equal(settled.state, "uncertain");
+  assert.equal(settled.errorCode, "CHILD_EXECUTION_UNCERTAIN");
+  assert.equal(reservations, 1);
+  assert.equal(dispatches, 1);
+  assert.equal(f.worktrees.get("s", f.worktree.id).ownerId, task.id);
+  assert.deepEqual(
+    (
+      f.store.getSessionDocument("s", "engine.child_tasks")!.data
+        .pools as unknown as { reserved: ChildStart["allocation"] }[]
+    )[0]!.reserved,
+    f.input.allocation,
+  );
 });
 test("parent cancellation waits for owned child cancel and reports observed terminal outcome", async (t) => {
   let settle!: (v: ChildOutcome) => void;
@@ -397,4 +536,136 @@ test("nested children inherit exact live parent authority and depth cap before d
   await Promise.all(
     [first, second, third].map((task) => manager.wait("s", task.id)),
   );
+});
+test("a fully allocated root child can split its own remaining budget among grandchildren without double charging lineage", async (t) => {
+  const stops: (() => void)[] = [],
+    host = completedHost();
+  let dispatches = 0;
+  host.start = async ({ task }) => {
+    dispatches++;
+    let finish!: (value: ChildOutcome) => void;
+    const done = new Promise<ChildOutcome>((resolve) => {
+      finish = resolve;
+    });
+    const stop = () => finish(outcome("cancelled"));
+    stops.push(stop);
+    return {
+      runId: `run_${task.id}`,
+      wait: () => done,
+      cancel: async () => {
+        stop();
+      },
+    };
+  };
+  const f = await fixture(t, host);
+  const parent = await f.manager.start(
+    { ...f.input, allocation: { ...f.input.remainingBudget } },
+    fresh().signal,
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  const worktrees = [];
+  for (const requestId of ["nested-one", "nested-two", "nested-overflow"])
+    worktrees.push(
+      await f.worktrees.create(
+        { sessionId: "s", requestId, workspace: f.workspace },
+        fresh().signal,
+      ),
+    );
+  const nested = {
+    ...f.input,
+    parentTaskId: parent.id,
+    parentRunId: `run_${parent.id}`,
+    remainingBudget: {
+      turns: 3,
+      toolCalls: 3,
+      outputBytes: 900,
+      durationMs: 9000,
+    },
+    allocation: { turns: 1, toolCalls: 1, outputBytes: 200, durationMs: 2000 },
+  };
+  const one = await f.manager.start(
+    { ...nested, requestId: "nested-one", worktreeId: worktrees[0]!.id },
+    fresh().signal,
+  );
+  const two = await f.manager.start(
+    { ...nested, requestId: "nested-two", worktreeId: worktrees[1]!.id },
+    fresh().signal,
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  await assert.rejects(
+    f.manager.start(
+      {
+        ...nested,
+        requestId: "nested-overflow",
+        worktreeId: worktrees[2]!.id,
+        allocation: { ...nested.allocation, turns: 2 },
+      },
+      fresh().signal,
+    ),
+    code("CHILD_BUDGET_EXCEEDED"),
+  );
+  assert.equal(dispatches, 3);
+  const pools = f.store.getSessionDocument("s", "engine.child_tasks")!.data
+    .pools as unknown as {
+    rootRunId: string;
+    parentRunId: string;
+    reserved: ChildStart["allocation"];
+  }[];
+  assert.equal(pools.length, 2);
+  assert.deepEqual(
+    pools.find((pool) => pool.parentRunId === "parent")!.reserved,
+    f.input.remainingBudget,
+  );
+  assert.equal(
+    pools.find((pool) => pool.parentRunId === `run_${parent.id}`)!.reserved
+      .turns,
+    2,
+  );
+  assert.ok(pools.every((pool) => pool.rootRunId === "parent"));
+  for (const stop of stops) stop();
+  await Promise.all(
+    [parent, one, two].map((task) => f.manager.wait("s", task.id)),
+  );
+});
+test("legacy root-only pools remain charged when a new manager reads their journal", async (t) => {
+  const f = await fixture(t, completedHost());
+  const first = await f.manager.start(f.input, fresh().signal);
+  await f.manager.wait("s", first.id);
+  const document = f.store.getSessionDocument("s", "engine.child_tasks")!;
+  const pool = (
+    document.data.pools as unknown as {
+      parentRunId?: string;
+      reserved: ChildStart["allocation"];
+    }[]
+  )[0]!;
+  delete pool.parentRunId;
+  pool.reserved.turns = 3;
+  f.store.putSessionDocument(
+    "s",
+    "engine.child_tasks",
+    document.revision,
+    document.data,
+  );
+  let reservations = 0;
+  const restarted = new ChildTaskManager({
+    documents: f.store,
+    worktrees: f.worktrees,
+    host: completedHost(),
+    beforeDispatch() {
+      reservations++;
+    },
+  });
+  await assert.rejects(
+    restarted.start(
+      { ...f.input, requestId: "legacy-overflow" },
+      fresh().signal,
+    ),
+    code("CHILD_BUDGET_EXCEEDED"),
+  );
+  assert.equal(reservations, 0);
+  const retained = (
+    f.store.getSessionDocument("s", "engine.child_tasks")!.data
+      .pools as unknown as { reserved: ChildStart["allocation"] }[]
+  )[0]!;
+  assert.equal(retained.reserved.turns, 3);
 });

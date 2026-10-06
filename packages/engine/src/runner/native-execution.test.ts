@@ -299,10 +299,107 @@ test('checkpoint artifact mappings preserve immutable checkpoint state, hashes a
     if (scenario === 'complete' || scenario === 'partial') {
       assert.equal(run.state, 'completed'); assert.equal(mappings.length, 1); assert.equal(mappings[0]!.payload.partial, scenario === 'partial');
       assert.equal(mappings[0]!.payload.toolCallId, snapshot.tools[0]!.id); assert.match(String((mappings[0]!.payload.artifacts as { sha256: string }[])[0]!.sha256), /^[a-f0-9]{64}$/);
+      const message = snapshot.messages.find(message => message.role === 'tool')!;
+      assert.equal(message.content, 'model'); assert.equal(message.toolResult!.outcome, 'completed'); assert.deepEqual(message.toolResult!.warnings, []);
+      assert.equal(message.toolResult!.artifactRefs.length, 1); assert.equal(message.toolResult!.artifactRefs[0]!.identity.toolCallId, snapshot.tools[0]!.id);
+      assert.equal(message.toolResult!.artifactRefs[0]!.sha256, (mappings[0]!.payload.artifacts as { sha256: string }[])[0]!.sha256);
     } else {
       assert.equal(mappings.length, 0);
       if (scenario === 'wrong-owner') assert.match(snapshot.tools[0]!.output!, /CHECKPOINT_ARTIFACT_MISMATCH/);
       else { assert.equal(run.state, 'failed'); assert.equal(run.error?.code, 'CLEANUP_UNCERTAIN'); }
     }
+  });
+});
+
+test('parent child reservations use measured usage, permanent caps and the real terminal cancellation signal', async t => {
+  const release = gate(), started = gate(); t.after(release.resolve);
+  let settled = false;
+  const f = await fixture(t, { id: 'native', async *streamTurn() {
+    try { yield { type: 'text.delta', delta: 'xy' }; yield { type: 'reasoning.delta', delta: 'zz' }; started.resolve(); await release.promise; yield { type: 'text.delta', delta: '!' }; yield stop; }
+    finally { settled = true; }
+  } }, [], { limits: { ...DEFAULT_LIMITS, maxTurns: 4, maxToolCalls: 4, maxOutputBytes: 16, maxDurationMs: 5000 } });
+  const receipt = f.scheduler.accept(f.input('parent')); await started.promise;
+  const runId = f.store.getInput(receipt.inputId).runId!;
+  assert.deepEqual(f.coordinator.getRunUsage(runId), { turns: 1, toolCalls: 0, outputBytes: 4 });
+  const allocation = { turns: 1, toolCalls: 2, outputBytes: 4, durationMs: 1000 };
+  const reservation = f.coordinator.reserveChildRun(runId, allocation);
+  assert.equal(f.coordinator.getRunCancellationSignal(runId), reservation.signal);
+  assert.equal(reservation.signal.aborted, false); assert.equal(reservation.remainingBudget.turns, 3); assert.equal(reservation.remainingBudget.outputBytes, 12);
+  allocation.outputBytes = 999; reservation.allocation.outputBytes = 888; reservation.remainingBudget.turns = 999;
+  const remaining = f.coordinator.getRemainingChildBudget(runId);
+  assert.equal(remaining.turns, 2); assert.equal(remaining.toolCalls, 2); assert.equal(remaining.outputBytes, 8); assert.ok(remaining.durationMs > 0 && remaining.durationMs <= 5000);
+  assert.throws(() => f.coordinator.reserveChildRun(runId, { turns: 1, toolCalls: 3, outputBytes: 0, durationMs: 1000 }), error => error instanceof EngineError && error.code === 'CHILD_BUDGET_EXCEEDED');
+  assert.equal(f.coordinator.getRemainingChildBudget(runId).toolCalls, 2);
+  const second = f.coordinator.reserveChildRun(runId, { turns: 1, toolCalls: 0, outputBytes: 0, durationMs: 1000 });
+  assert.equal(second.signal, reservation.signal);
+  let terminalObserved = false;
+  reservation.signal.addEventListener('abort', () => {
+    assert.equal(settled, true); assert.equal(f.store.getRun(runId).state, 'completed');
+    assert.equal(f.store.listTurns(runId).every(turn => turn.state === 'completed' && f.store.listParts(turn.id).every(part => part.state !== 'open')), true);
+    assert.deepEqual(f.coordinator.getRunUsage(runId), { turns: 1, toolCalls: 0, outputBytes: 5 }); terminalObserved = true;
+  }, { once: true });
+  release.resolve(); await f.scheduler.waitForSession('s1');
+  assert.equal(terminalObserved, true); assert.equal(reservation.signal.aborted, true);
+  assert.deepEqual(f.coordinator.getRunUsage(runId), { turns: 1, toolCalls: 0, outputBytes: 5 });
+  assert.throws(() => f.coordinator.reserveChildRun(runId, { turns: 1, toolCalls: 0, outputBytes: 0, durationMs: 1000 }), error => error instanceof EngineError && error.code === 'PARENT_RUN_NOT_ACTIVE');
+  assert.throws(() => f.coordinator.getRunCancellationSignal(runId), error => error instanceof EngineError && error.code === 'PARENT_RUN_NOT_ACTIVE');
+});
+
+test('reserved child caps limit parent tools, next turns and streamed output before effects or redispatch', async t => {
+  for (const cap of ['tools', 'turns', 'output'] as const) await t.test(cap, async nested => {
+    const release = gate(), started = gate(); nested.after(release.resolve);
+    let executions = 0, providerTurns = 0;
+    const tool: ToolDefinition = { name: 'read_fixture', effectClass: 'read', description: 'fixture', inputSchema: { type: 'object' }, async prepare() { return { name: this.name, input: null, fingerprint: 'read', preview: {}, requiresApproval: false }; }, async execute() { executions++; return { content: '' }; } };
+    const f = await fixture(nested, { id: 'native', async *streamTurn() {
+      providerTurns++; if (cap === 'output') yield { type: 'text.delta', delta: 'a' };
+      started.resolve(); await release.promise;
+      if (cap === 'output') { yield { type: 'text.delta', delta: 'bcdef' }; yield stop; }
+      else { yield { type: 'tool.call', call: { id: 'proposal', name: tool.name, input: null } }; yield { type: 'finish', reason: 'tool_calls' }; }
+    } }, [tool], { limits: { ...DEFAULT_LIMITS, maxTurns: 2, maxToolCalls: cap === 'tools' ? 1 : 2, maxOutputBytes: 8, maxDurationMs: 5000 } });
+    const receipt = f.scheduler.accept(f.input('parent')); await started.promise;
+    const runId = f.store.getInput(receipt.inputId).runId!;
+    const reservation = f.coordinator.reserveChildRun(runId, { turns: 1, toolCalls: cap === 'tools' ? 1 : 0, outputBytes: cap === 'output' ? 4 : 0, durationMs: 1000 });
+    release.resolve(); await f.scheduler.waitForSession('s1');
+    const run = f.store.getRun(runId); assert.equal(run.state, 'failed'); assert.equal(run.error!.code, cap === 'tools' ? 'TOOL_CALL_LIMIT' : cap === 'turns' ? 'TURN_LIMIT' : 'OUTPUT_LIMIT');
+    assert.equal(providerTurns, 1); assert.equal(executions, cap === 'turns' ? 1 : 0); assert.equal(reservation.signal.aborted, true);
+    assert.deepEqual(f.coordinator.getRunUsage(runId), { turns: 1, toolCalls: cap === 'turns' ? 1 : 0, outputBytes: cap === 'output' ? 4 : 0 });
+    if (cap === 'output') assert.equal(f.store.getSnapshot('s1').messages.find(message => message.role === 'assistant')!.content, 'abcd');
+  });
+});
+
+test('checkpoint observers run after tool settlement and cannot replace completed or uncertain tool outcomes', async t => {
+  for (const behavior of ['completed', 'observer-failed', 'cleanup-uncertain'] as const) await t.test(behavior, async nested => {
+    let settled = false, observations = 0;
+    const tool: ToolDefinition = { name: 'checkpoint_fixture', effectClass: 'state', description: 'fixture', inputSchema: { type: 'object' }, async prepare() { return { name: this.name, input: null, fingerprint: 'checkpoint', preview: {}, requiresApproval: false }; }, async execute(_prepared, context) {
+      try { context.recordCheckpoint({ id: 'checkpoint', runId: context.runId, toolCallId: context.toolCallId, kind: 'command', files: [], warnings: [], createdAt: new Date().toISOString() }); return { content: 'observed', ...(behavior === 'cleanup-uncertain' ? { data: { cleanupConfirmed: false } } : {}) }; }
+      finally { settled = true; }
+    } };
+    const f = await fixture(nested, { id: 'native', async *streamTurn(request) { if (request.turnIndex === 0) { yield { type: 'tool.call', call: { id: 'proposal', name: tool.name, input: null } }; yield { type: 'finish', reason: 'tool_calls' }; } else yield stop; } }, [tool], {}, {
+      onToolCheckpoint(observation) {
+        observations++; assert.equal(settled, true); assert.equal(observation.run.sessionId, 's1'); assert.equal(observation.workspace.id, 'w1');
+        assert.equal(observation.checkpoints[0]!.toolCallId, observation.toolCallId); assert.notEqual(observation.toolCallId, 'proposal'); assert.ok(observation.turnId); assert.ok(observation.attemptId);
+        observation.checkpoints[0]!.warnings.push('mutated observer copy');
+        if (behavior === 'observer-failed') throw new Error('observer fixture failed');
+      },
+    });
+    f.scheduler.accept(f.input('first')); await f.scheduler.waitForSession('s1');
+    const run = f.store.getSnapshot('s1').runs[0]!; assert.equal(observations, 1); assert.deepEqual(f.store.listCheckpoints(run.id)[0]!.warnings, []);
+    assert.equal(run.state, behavior === 'cleanup-uncertain' ? 'failed' : 'completed');
+    if (behavior === 'cleanup-uncertain') assert.equal(run.error!.code, 'CLEANUP_UNCERTAIN');
+    assert.equal(f.store.readEvents('s1', 0, 100).filter(event => event.type === 'workspace.observation_failed').length, behavior === 'observer-failed' ? 1 : 0);
+  });
+});
+
+test('provider-specific 529 retries occur only before any public stream event', async t => {
+  for (const visible of [false, true]) await t.test(visible ? 'public prefix forbids retry' : 'rejection permits bounded retry', async nested => {
+    let calls = 0;
+    const f = await fixture(nested, { id: 'native', retryableHttpStatuses: [429, 500, 503, 504, 529], async *streamTurn() {
+      if (++calls === 1) { if (visible) yield { type: 'text.delta', delta: 'prefix' }; throw new EngineError('PROVIDER_HTTP_ERROR', 'overloaded', { status: 529, retryAfterMs: 0 }); }
+      yield { type: 'text.delta', delta: 'success' }; yield stop;
+    } }, [], { budgets: normalizeEngineBudgets({ retryBaseDelayMs: 0 }) });
+    f.scheduler.accept(f.input('first')); await f.scheduler.waitForSession('s1');
+    const run = f.store.getSnapshot('s1').runs[0]!; assert.equal(run.state, visible ? 'failed' : 'completed'); assert.equal(calls, visible ? 1 : 2);
+    assert.equal(f.store.listTurns(run.id).length, 1);
+    assert.equal(f.store.readSessionEvents('s1', 0, 100).filter(event => event.type === 'provider.attempt.prepared').length, calls);
   });
 });

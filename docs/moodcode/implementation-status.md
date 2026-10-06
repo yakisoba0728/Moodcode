@@ -1,6 +1,29 @@
 # Moodcode 구현 상태
 
-갱신일: 2026-10-04, Asia/Seoul. 자체 엔진에 Electron 데스크톱 GUI를 연결했다. 작업 범위를 나누어 인증·workspace·복원·host와 탐색·대화·복구·장기 이력을 병렬 구현하고 통합했다. [실행 결과](./verification-results.json), [실행 안내](../../README.md), [모듈별 보고서](./implementation-reports/)에서 근거와 세부 한도를 확인할 수 있다.
+갱신일: 2026-10-07, Asia/Seoul. 현재 작업은 **자체 엔진 우선**이며 [TODO](../../TODO.md)의 75개 중 71개를 구현·검증했다. 최신 엔진 결과는 [headless 검증 보고서](engine-native-final-verification.md), 공개 연결은 [host API](engine-host-api.md)를 따른다. 아래 기존 GUI·bundle 결과는 2026-10-04 기록이며 이번 엔진 작업에서 앱을 다시 실행하거나 새 기능의 GUI E2E를 수행하지 않았다.
+
+## 현재 자체 엔진 범위
+
+| 범위 | 구현·연결한 동작 |
+|---|---|
+| 영구 입력·실행 | queue/steer inbox, exact retry·충돌·backlog, pause/resume, FIFO·workspace 공정성, 기존 즉시 run.submit 호환 |
+| 모델·기록 | durable Turn/Attempt/Part, 내부/provider call ID 분리, 제한된 provider retry, delta flush·bounded paging·read concurrency |
+| context·기억 | model metadata의 unknown/null, bounded SQL history, nested 지침과 지속 baseline, 원자 ContextRevision 활성화, tools 없는 semantic summary·한 번 overflow 복구 |
+| 도구·권한 | scoped versioned runtime, structured result/artifact, exact edit·rename/delete·bounded glob/regex, deny·Plan/Build 정책, scope grant 저장·철회 |
+| 세션 상호작용 | durable tasks CAS, question·답변·거절·expiry, agent profile의 model/tool/config identity, skill/reference의 제한된 읽기 |
+| 확장 자원 | host plugin·MCP stdio/HTTP와 catalog/resource, credential reference, 실제 macOS PTY 입출력·resize·취소·강제 종료 정리 |
+| 실제 child | 격리 Git worktree·별도 MoodcodeEngine/DB, parent/child/grandchild의 실제 예산·deny·cancel 상속, 결과의 root inbox 중복 제거, 승인한 direct/nested 변경 통합 |
+| LSP·formatter | 명시적 host factory/formatter, 도구 checkpoint·외부 변경·review.restore의 hash/문서 버전 재동기화, 다음 모델 turn 경계·실제 process cleanup |
+| 큰 결과·관측 | 원본을 보존하는 과거 tool result 투영, owner/hash를 검증한 read_artifact paging, SQL 집계 진단의 범위·누락·unknown 표시 |
+| 운영 검증 | archive export/import·복구 ledger, 실제 강제 종료 및 1천/1만/10만 이력 측정, 코딩 fixture 3개·현재 Codex gpt-6.1-sol live 과업, headless CI 구성 |
+
+핵심 실행과 확장 연결은 GUI 없이 engine host에서 사용할 수 있다. child 시작·worktree 준비·LSP/formatter/provider 등록은 명시적 host API이며 모델이나 renderer가 실행 파일·credential을 임의로 설정하는 경로가 아니다. child 작업 시작은 살아 있는 부모 Run과 미리 준비한 worktree를 요구한다.
+
+Anthropic 추가 adapter는 text/tool·공개 reasoning summary·opaque replay·usage·retry/cancel을 synthetic fixture로 검증했다. 실제 Anthropic 계정 요청과 이미지·음성·영상·파일 input/output은 미검증·미지원이다. Windows는 실제 native process ownership binding이 없고, 새 CI의 Linux/Windows/Node24 hosted 실행도 아직 없다. 이 조건과 최종 OS 지원 명세가 열린 4개 TODO다.
+
+## 기존 데스크톱 연결 기록
+
+2026-10-04에 자체 엔진을 Electron GUI에 연결하고 인증·workspace·복원·host·탐색·대화·복구·이력을 통합했다. [이전 실행 결과](./verification-results.json), [실행 안내](../../README.md), [모듈별 보고서](./implementation-reports/)는 그 단계의 근거다. 새 엔진의 inbox·tasks/questions·MCP·PTY·child·LSP·semantic 진단을 화면에 노출하는 작업은 별도 후속이다.
 
 ## 현재 사용 가능한 흐름
 
@@ -10,7 +33,7 @@
 
 Codex에 로그인되어 있고 로컬 모델 설정이 있으면 기본 공급자는 Codex다. 현재 계정의 `gpt-6.1-sol`로 실제 모델·도구 loop를 검증했다. 토큰은 매 turn 로컬 인증에서 읽고 고정된 Codex 경로로만 전송한다. 인증 파일을 갱신하지 않으며, renderer·설정·journal에 인증값을 저장하지 않는다. 앱 자체 로그인·토큰 갱신은 후속 범위다. 별도 API 키를 쓰는 공급자는 safeStorage 암호화 또는 환경 변수로 연결한다.
 
-## 구현 결과
+## 기존 GUI 단계의 구현 결과
 
 | 범위 | 현재 동작 |
 |---|---|
@@ -35,7 +58,7 @@ Codex에 로그인되어 있고 로컬 모델 설정이 있으면 기본 공급�
 
 현재 단계의 한도·검증 근거는 [후속 구현 보고서](./implementation-reports/13-engine-desktop-followup.md)에 기록했다. 이전 실제 Codex 계정 검증은 아래 기록으로 보존하며, 이번 회귀 검증에는 실제 공급자 호출이 포함되지 않는다.
 
-## 검증 결과
+## 기존 GUI 단계의 검증 결과
 
 | 실행 | 결과 |
 |---|---|
@@ -54,7 +77,7 @@ Codex에 로그인되어 있고 로컬 모델 설정이 있으면 기본 공급�
 
 ## 공개 연결 범위
 
-공개 command는 `engine.getCapabilities`, `workspace.open`, `workspace.getStatus`, `file.list`, `file.read`, `session.create`, `session.list`, `session.getSnapshot`, `session.getHistory`, `session.getMetrics`, `run.submit`, `run.cancel`, `approval.decide`, `review.getDiff`, `review.previewRestore`, `review.restore`, `review.history`, `events.subscribe`다. GUI와 JSONL은 같은 계약 검증을 사용한다.
+기존 v1 command는 `engine.getCapabilities`, `workspace.open`, `workspace.getStatus`, `file.list`, `file.read`, `session.create`, `session.list`, `session.getSnapshot`, `session.getHistory`, `session.getMetrics`, `run.submit`, `run.cancel`, `approval.decide`, `review.getDiff`, `review.previewRestore`, `review.restore`, `review.history`, `events.subscribe`다. GUI는 기존 계약을 사용한다. engine/JSONL의 추가 v2 명령은 [현재 계약](engine-contracts-v2.md)을 따른다. GUI preload의 공개 목록이 새 engine host API 전체로 자동 확장되는 것은 아니다.
 
 `review.restore`는 command ID를 작업 ID로 기록하고, 같은 binding의 재전송은 기록된 결과를 돌려준다. 새 복원은 terminal Run의 checkpoint여야 하며, 같은 workspace의 Run·복원 lease와 동시에 진행하지 않는다. 중단된 복원 기록이나 결과 기록 실패는 해당 workspace의 추가 실행을 차단한다.
 
@@ -65,7 +88,7 @@ Codex에 로그인되어 있고 로컬 모델 설정이 있으면 기본 공급�
 - group PID가 없는 effect marker, 살아 있는 프로세스, 접근 권한 부족, daemon 등 종료를 증명할 수 없는 상태는 복구 화면에서도 차단한다.
 - macOS 서명·공증·설치/업데이트, Linux 지원 검증, Windows process-tree 실행. 현재 bundle은 서명되지 않은 개발용 앱이다.
 - 앱 자체 Codex 로그인·토큰 갱신, 다중 계정 선택, 추가 공급자·모델별 실제 계정 검증.
-- 고급 semantic compaction·전체 이력 검색, 대화형 PTY, MCP, worktree 병렬 실행, 제품 subagent와 LSP/편집 기능.
+- 엔진에서 구현한 semantic memory·이력 검색·PTY·MCP·worktree child·LSP/formatter의 GUI 연결, child 실행과 승인·결과를 사용자가 조작하는 화면.
 - 원래 POSIX process group을 벗어난 daemon, 저장소 밖 효과, binary·directory·mode·ownership 전체 복원은 지원 범위 밖이다. 파일 복원은 독립 적용이므로 부분 실패가 가능하다.
 
-OpenCode GUI의 주요 코딩 작업 경로를 연결한 첫 버전이며, 전체 제품 기능의 동등 구현을 의미하지 않는다. 서명된 공개 배포와 장기 세션 기능은 후속 단계다.
+기존 GUI는 주요 코딩 작업 경로를 연결한 첫 버전이다. 자체 엔진의 최신 확장은 전체 제품 기능 동등성이나 서명된 공개 배포를 의미하지 않는다. 지원한 범위와 실제 검증한 OS/provider만 보고서에 기록한다.

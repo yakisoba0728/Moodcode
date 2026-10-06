@@ -8,6 +8,7 @@ import {
 import type {
   CoordinatorOptions, CoordinatorPort, PreparedTool, ProviderAdapter, ProviderEvent,
   ProviderMessage, ToolContext, ToolDefinition, ToolResult,
+  ChildRunReservation, RunUsage,
 } from '../ports.js';
 import { EXTRACTIVE_MEMORY_PREFIX } from '../context/index.js';
 import { BudgetAccount } from '../config/budgets.js';
@@ -15,6 +16,7 @@ import { validateToolResultEnvelope } from '@moodcode/contracts/validation';
 import { executionRecords, TurnExecutor } from './turn-executor.js';
 import type { ToolCatalogue } from '../tools/runtime/index.js';
 import { bindCheckpointArtifacts } from '../artifacts/result.js';
+import type { ChildBudget } from '../child-tasks/index.js';
 export { InputScheduler, type InputSchedulerOptions } from './input-scheduler.js';
 
 const CLEANUP_GRACE_MS = 1_000;
@@ -43,6 +45,8 @@ interface Owner {
   invocations: Map<string, string>;
   activeTools: Map<string, ToolCallRecord>;
   readBatchWidth: number;
+  deadline: number;
+  childReserved: Omit<ChildBudget, 'durationMs'>;
   cleanupError?: EngineError;
 }
 
@@ -191,6 +195,7 @@ export class RunCoordinator implements CoordinatorPort {
   private readonly workspaceLeases = new Map<string, WorkspaceLease>();
   private readonly tools = new Map<string, ToolDefinition>();
   private readonly unsafeWorkspaces = new Set<string>();
+  private readonly finalUsage = new Map<string, Readonly<RunUsage>>();
   private closing = false;
   private closePromise?: Promise<void>;
   private sessionHooks?: {
@@ -263,6 +268,7 @@ export class RunCoordinator implements CoordinatorPort {
     const owner: Owner = {
       run, abort: new AbortController(), done, outputBytes: 0, toolCount: 0, budget: new BudgetAccount(run.config),
       callIds: new Set(), readonlyCalls: new Set(), checkpointIds: new Set(), checkpoints: new Map(), terminal: false, invocations: new Map(), activeTools: new Map(), readBatchWidth: 1,
+      deadline: Date.now() + run.config.limits.maxDurationMs, childReserved: { turns: 0, toolCalls: 0, outputBytes: 0 },
     };
     this.owners.set(run.id, owner);
     // Attach a rejection observer even if the caller never waits for this run.
@@ -389,15 +395,63 @@ export class RunCoordinator implements CoordinatorPort {
     checkAbort(owner.abort.signal);
   }
 
+  /** Child allocations permanently reduce the active parent's absolute caps. */
+  reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
+    const owner = this.owners.get(runId);
+    if (!owner) throw new EngineError('PARENT_RUN_NOT_ACTIVE', 'Child allocation requires an active owned parent Run');
+    this.assertLive(owner);
+    const remainingBudget = this.remainingChildBudget(owner);
+    if (!allocation || typeof allocation !== 'object' || Array.isArray(allocation) || Object.keys(allocation).some(key => !['turns', 'toolCalls', 'outputBytes', 'durationMs'].includes(key))
+      || !['turns', 'toolCalls', 'outputBytes', 'durationMs'].every(key => Number.isSafeInteger(allocation[key as keyof ChildBudget]) && allocation[key as keyof ChildBudget] >= 0 && allocation[key as keyof ChildBudget] <= remainingBudget[key as keyof ChildBudget])
+      || allocation.turns < 1 || allocation.durationMs < 1) throw new EngineError('CHILD_BUDGET_EXCEEDED', 'Child allocation must fit the active parent remaining budget');
+    const selected = { ...allocation };
+    for (const key of ['turns', 'toolCalls', 'outputBytes'] as const) owner.childReserved[key] += selected[key];
+    return { signal: owner.abort.signal, remainingBudget, allocation: selected };
+  }
+
+  getRemainingChildBudget(runId: string): ChildBudget {
+    const owner = this.owners.get(runId);
+    if (!owner) throw new EngineError('PARENT_RUN_NOT_ACTIVE', 'Child budget inspection requires an active owned parent Run');
+    this.assertLive(owner); return this.remainingChildBudget(owner);
+  }
+
+  getRunCancellationSignal(runId: string): AbortSignal {
+    const owner = this.owners.get(runId);
+    if (!owner) throw new EngineError('PARENT_RUN_NOT_ACTIVE', 'Child cancellation ownership requires an active owned parent Run');
+    this.assertLive(owner); return owner.abort.signal;
+  }
+
+  getRunUsage(runId: string): Readonly<RunUsage> {
+    const owner = this.owners.get(runId);
+    if (owner) return Object.freeze({ turns: owner.budget.snapshot().logicalTurns, toolCalls: owner.toolCount, outputBytes: owner.outputBytes });
+    const usage = this.finalUsage.get(runId);
+    if (!usage) throw new EngineError('RUN_USAGE_UNAVAILABLE', 'Measured Run usage is not retained by this coordinator');
+    return Object.freeze({ ...usage });
+  }
+
+  private remainingChildBudget(owner: Owner): ChildBudget {
+    const usage = owner.budget.snapshot(), limits = owner.run.config.limits;
+    return { turns: Math.max(0, limits.maxTurns - usage.logicalTurns - owner.childReserved.turns),
+      toolCalls: Math.max(0, limits.maxToolCalls - Math.max(owner.toolCount, usage.toolCalls) - owner.childReserved.toolCalls),
+      outputBytes: Math.max(0, limits.maxOutputBytes - owner.outputBytes - owner.childReserved.outputBytes),
+      durationMs: Math.max(0, owner.deadline - Date.now()) };
+  }
+
   private finish(owner: Owner, state: 'completed' | 'cancelled' | 'failed', error?: EngineError): Run {
     const run = this.options.store.getRun(owner.run.id);
-    if (owner.terminal || isTerminal(run.state)) { owner.terminal = true; return run; }
+    if (owner.terminal || isTerminal(run.state)) { owner.terminal = true; if (!owner.abort.signal.aborted) owner.abort.abort(new EngineError('PARENT_RUN_TERMINAL', 'The owning parent Run reached a terminal state')); return run; }
     const failure = error ? { code: error.code.slice(0, 128), message: prefixBytes(error.message, 2_048) } : undefined;
     if (error?.code === 'CLEANUP_UNCERTAIN') this.unsafeWorkspaces.add(run.workspaceId);
     this.options.store.commit(run.id, `run.${state}`, failure ? { error: failure } : {}, {
       run: { state, ...(failure ? { error: failure } : {}) },
     });
     owner.terminal = true;
+    this.finalUsage.delete(run.id);
+    this.finalUsage.set(run.id, Object.freeze({ turns: owner.budget.snapshot().logicalTurns, toolCalls: owner.toolCount, outputBytes: owner.outputBytes }));
+    if (this.finalUsage.size > 256) this.finalUsage.delete(this.finalUsage.keys().next().value!);
+    // Provider/tool settlement has completed. Owned children must not outlive
+    // either successful parent completion or failure/cancellation.
+    if (!owner.abort.signal.aborted) owner.abort.abort(new EngineError('PARENT_RUN_TERMINAL', 'The owning parent Run reached a terminal state'));
     return this.options.store.getRun(run.id);
   }
 
@@ -426,7 +480,7 @@ export class RunCoordinator implements CoordinatorPort {
         workspace, snapshot: this.options.contextSnapshot?.(run.sessionId, run.config) ?? this.options.store.getSnapshot(run.sessionId), config: run.config, signal: owner.abort.signal, reservedBytes, run, budget: owner.budget,
         consumeSummaryOutput: (bytes: number) => {
           if (!Number.isSafeInteger(bytes) || bytes < 0) throw new EngineError('INVALID_BUDGET_USAGE', 'Summary output bytes must be a nonnegative safe integer');
-          if (bytes > run.config.limits.maxOutputBytes - owner.outputBytes) throw new EngineError('OUTPUT_LIMIT', 'Summary output exceeds the remaining Run output budget');
+          if (bytes > run.config.limits.maxOutputBytes - owner.outputBytes - owner.childReserved.outputBytes) throw new EngineError('OUTPUT_LIMIT', 'Summary output exceeds the remaining Run output budget');
           owner.outputBytes += bytes;
         },
       });
@@ -437,6 +491,7 @@ export class RunCoordinator implements CoordinatorPort {
       for (let turnIndex = 0; turnIndex < run.config.limits.maxTurns; turnIndex++) {
         this.assertLive(owner);
         if (this.sessionHooks?.boundary(run)) { owner.budget.inputPromoted(); messages = structuredClone(await context()); }
+        if (owner.budget.snapshot().logicalTurns + owner.childReserved.turns >= run.config.limits.maxTurns) throw new EngineError('TURN_LIMIT', 'Parent and reserved child turns reached the Run turn limit');
         owner.budget.startTurn();
         owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
         owner.invocations.clear();
@@ -455,6 +510,7 @@ export class RunCoordinator implements CoordinatorPort {
           } } : {}) });
         const turn = await this.providerTurn(owner, provider, messages, turnIndex);
         this.assertLive(owner);
+        if (turn.calls.length > this.remainingChildBudget(owner).toolCalls) throw new EngineError('TOOL_CALL_LIMIT', 'Parent and reserved child tools reached the Run tool limit');
         owner.budget.reserveToolCalls(turn.calls.length);
         messages.push({ role: 'assistant', content: turn.message.content, ...(turn.calls.length ? { toolCalls: turn.calls } : {}) });
         if (turn.calls.length === 0) {
@@ -570,7 +626,7 @@ export class RunCoordinator implements CoordinatorPort {
               throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider returned an invalid complete tool call');
             }
             if (calls.some(previous => previous.id === call.id) || (!owner.turn!.records && owner.callIds.has(call.id))) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider reused a tool call ID');
-            if (owner.toolCount + calls.length >= owner.run.config.limits.maxToolCalls) throw new EngineError('TOOL_CALL_LIMIT', 'Tool call budget was exceeded');
+            if (owner.toolCount + calls.length + owner.childReserved.toolCalls >= owner.run.config.limits.maxToolCalls) throw new EngineError('TOOL_CALL_LIMIT', 'Tool call budget was exceeded');
             if (Buffer.byteLength(JSON.stringify(call), 'utf8') > owner.run.config.limits.maxContextBytes) throw new EngineError('CONTEXT_LIMIT', 'Tool call input exceeds the context byte budget');
             owner.callIds.add(call.id);
             calls.push(structuredClone(call));
@@ -639,7 +695,7 @@ export class RunCoordinator implements CoordinatorPort {
   }
 
   private consumeOutput(owner: Owner, content: string): { content: string; truncated: boolean } {
-    const available = Math.max(0, owner.run.config.limits.maxOutputBytes - owner.outputBytes);
+    const available = Math.max(0, owner.run.config.limits.maxOutputBytes - owner.outputBytes - owner.childReserved.outputBytes);
     const bounded = prefixBytes(content, available);
     owner.outputBytes += Buffer.byteLength(bounded, 'utf8');
     return { content: bounded, truncated: Buffer.byteLength(content, 'utf8') > available };
@@ -648,8 +704,9 @@ export class RunCoordinator implements CoordinatorPort {
   private toolOutputBudget(owner: Owner): number {
     // Tool observations share the run budget with every assistant delta. Keep a
     // quarter of the configured budget (at most 4 KiB) for a final explanation.
-    const reserve = Math.min(4_096, Math.max(1, Math.floor(owner.run.config.limits.maxOutputBytes / 4)));
-    return Math.floor(Math.max(0, owner.run.config.limits.maxOutputBytes - owner.outputBytes - reserve) / owner.readBatchWidth);
+    const availableCap = owner.run.config.limits.maxOutputBytes - owner.childReserved.outputBytes;
+    const reserve = Math.min(4_096, Math.max(1, Math.floor(availableCap / 4)));
+    return Math.floor(Math.max(0, availableCap - owner.outputBytes - reserve) / owner.readBatchWidth);
   }
 
   private toolError(owner: Owner, code: string, message: string): ToolResult {
@@ -772,7 +829,22 @@ export class RunCoordinator implements CoordinatorPort {
       }
       // Input errors, denied permissions, and ordinary tool failures let the model adapt.
       return this.toolResult(owner, record, call, this.toolError(owner, failure.code, failure.message));
-    } finally { owner.activeTools.delete(record.id); }
+    } finally {
+      if (this.options.onToolCheckpoint) {
+        const checkpoints = [...owner.checkpoints.values()].filter(checkpoint => checkpoint.toolCallId === record.id);
+        if (checkpoints.length) {
+          try {
+            await abortable(() => Promise.resolve(this.options.onToolCheckpoint!({ workspace: structuredClone(workspace), run: structuredClone(this.options.store.getRun(owner.run.id)), toolCallId: record.id,
+              ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}), checkpoints: structuredClone(checkpoints), signal: owner.abort.signal })), AbortSignal.timeout(2_000), 'Workspace checkpoint observation');
+          } catch {
+            // Observer/LSP delivery is metadata. Durable checkpoint ownership and
+            // the tool's real effect/cleanup result remain authoritative.
+            try { this.options.store.commit(owner.run.id, 'workspace.observation_failed', { toolCallId: record.id, checkpointIds: checkpoints.map(checkpoint => checkpoint.id) }); } catch { /* Preserve an existing tool failure. */ }
+          }
+        }
+      }
+      owner.activeTools.delete(record.id);
+    }
   }
 
   private toolResult(owner: Owner, record: ToolCallRecord, call: ProviderToolCall, result: ToolResult, state?: 'denied'): string {
@@ -797,6 +869,7 @@ export class RunCoordinator implements CoordinatorPort {
     const finalState = state ?? (result.isError || output.truncated ? 'failed' : 'completed');
     const message = this.message(owner, 'tool', output.content);
     message.toolCallId = call.id;
+    if (structured) message.toolResult = { artifactRefs: structuredClone(structured.artifactRefs), warnings: [...structured.warnings], outcome: structured.outcome };
     record.state = finalState;
     record.output = output.content;
     if (result.isError || output.truncated) record.error = output.truncated ? 'Tool output exceeded the run output budget' : prefixBytes(result.content, 2_048);

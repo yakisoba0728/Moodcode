@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { EngineError, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, SESSION_COMMAND_TYPES, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type JsonValue, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
 import { normalizeAcceptInput, normalizeEngineBudgets, normalizeSubmitInput, validateCommand, validateSessionCommand } from '@moodcode/contracts/validation';
 import type { ProviderAdapter, ToolDefinition } from './ports.js';
@@ -29,11 +29,19 @@ import { SessionTaskService } from './session-state/index.js';
 import { createSessionTaskTools } from './tools/session/index.js';
 import { createQuestionTool } from './tools/session/question.js';
 import { createLocalReferenceTools } from './tools/session/skills.js';
+import { createArtifactReadTool } from './tools/session/artifact.js';
 import { ArtifactStore } from './artifacts/store.js';
 import { EnginePluginManager, type EnginePlugin, type ActivePlugin } from './plugins/index.js';
 import { McpClient, registerMcp, type McpRegistration } from './mcp/index.js';
 import { AgentProfiles, type AgentProfileSpec } from './agents/index.js';
 import { TerminalService, SqliteTerminalJournal, type PtyBackend } from './terminals/index.js';
+import { EngineChildren, type EngineChildRequest } from './child-tasks/engine-host.js';
+import type { ChildTaskManager, ChildTaskRecord } from './child-tasks/index.js';
+import type { WorktreeManager } from './worktrees/index.js';
+import { createChildMergeTool } from './child-tasks/merge.js';
+import { LspManager, type LspFactory } from './lsp/index.js';
+import { FormatterRegistry, createFormatTool, createLspFormatTool } from './formatters/index.js';
+import { WorkspaceChangeHub, type WorkspaceChangeWatch, type WorkspaceFileChange } from './workspace/changes.js';
 import { assertExecutionLockAvailable } from './tools/command/execution-lock.js';
 import { getReviewDiff, previewRestoreCheckpoint, restoreCheckpoint, type RestoreResult } from './review/index.js';
 import { readRecoveryAcknowledgments, isRestoreAcknowledged } from './recovery/index.js';
@@ -54,7 +62,7 @@ function metadataFailure(): { code: string; message: string } {
   return { code: 'REVIEW_RECORD_FAILED', message: 'Restoration outcome could not be recorded; reconcile the quarantined workspace before further effects' };
 }
 
-const NATIVE_COMMANDS_ENABLED = ['input.accept', 'input.list', 'input.cancel', 'session.pause', 'session.resume', 'session.events', 'engine.getCapabilities', 'run.getTurns', 'turn.getParts', 'artifact.get', 'session.getTasks', 'session.setTasks', 'question.list', 'question.answer', 'question.reject', 'session.getContext', 'session.searchHistory'] as const;
+const NATIVE_COMMANDS_ENABLED = ['input.accept', 'input.list', 'input.cancel', 'session.pause', 'session.resume', 'session.events', 'engine.getCapabilities', 'run.getTurns', 'turn.getParts', 'artifact.get', 'session.getTasks', 'session.setTasks', 'question.list', 'question.answer', 'question.reject', 'session.getContext', 'session.searchHistory', 'session.getDiagnostics'] as const;
 
 export interface EngineOptions {
   dbPath: string;
@@ -63,11 +71,17 @@ export interface EngineOptions {
   tools?: ToolDefinition[];
   defaults?: RunConfigInput;
   toolPolicy?: readonly ToolPolicyRule[];
+  /** Trusted host policy shared by an owned child; grants remain local to each engine. */
+  toolPolicyInstance?: ToolPolicy;
   modelSpecs?: readonly ModelSpec[];
   outputTokenReserve?: number;
   agentProfiles?: readonly AgentProfileSpec[];
   allowedToolNames?: readonly string[];
   ptyBackend?: PtyBackend;
+  worktreeDirectory?: string;
+  /** Root task namespace for a host-owned nested engine. No additional tools or grants. */
+  childTaskScope?: { tasks: ChildTaskManager; worktrees: WorktreeManager; sessionId: string };
+  configureChild?: (engine: MoodcodeEngine, task: Readonly<ChildTaskRecord>) => void;
 }
 function json(value: unknown): JsonValue {
   const encoded = JSON.stringify(value);
@@ -99,6 +113,14 @@ export class MoodcodeEngine {
   readonly plugins: EnginePluginManager;
   readonly profiles: AgentProfiles;
   readonly terminals: TerminalService;
+  readonly children: EngineChildren;
+  readonly lsp: LspManager;
+  readonly formatters: FormatterRegistry;
+  readonly changes: WorkspaceChangeHub;
+  private readonly watchConsumers = new Map<string, Promise<void>>();
+  private readonly languageServers = new Map<string, (path: string) => string | null>();
+  private readonly lspChanges = new Map<string, { version: number; done: Promise<void> }>();
+  private readonly observationFailures = new Map<string, string>();
   private readonly terminalJournal: SqliteTerminalJournal;
   private readonly hostResources = new AbortController();
   private readonly mcp = new Map<string, McpRegistration>();
@@ -108,6 +130,7 @@ export class MoodcodeEngine {
   private closing = false;
   private closePromise?: Promise<void>;
   private readonly defaults: RunConfig;
+  private readonly hostAllowedTools?: readonly string[];
   private readonly capabilities: EngineCapabilities;
   private readonly executionLockPath: string;
   private readonly restoreRequests = new Map<string, { binding: RestoreOperationInput; promise: Promise<RestoreCommandResult> }>();
@@ -136,6 +159,10 @@ export class MoodcodeEngine {
       this.questions = new QuestionManager(this.store);
       this.tasks = new SessionTaskService(this.store);
       this.profiles = new AgentProfiles(this.store, options.agentProfiles);
+      this.lsp = new LspManager();
+      this.formatters = new FormatterRegistry();
+      this.changes = new WorkspaceChangeHub({ signal: this.hostResources.signal });
+      this.children = new EngineChildren(this, options, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value));
       terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
@@ -153,10 +180,12 @@ export class MoodcodeEngine {
       const providers = new Map<string, ProviderAdapter>([['scripted', new ScriptedProvider()]]);
       for (const provider of options.providers ?? []) providers.set(provider.id, provider);
       this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id));
-      const availableTools = options.tools ?? [...createReadTools(), createPatchTool(), createCommandTool(), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools()];
+      const availableTools = options.tools ?? [...createReadTools(), createPatchTool(), createCommandTool(), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId)];
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
+      this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
       const tools = options.allowedToolNames ? availableTools.filter(tool => options.allowedToolNames!.includes(tool.name)) : availableTools;
-      this.toolRuntime = new ScopedToolRuntime({ policy: new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts });
+      if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
+      this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts });
       for (const tool of tools) this.toolRuntime.register('engine', tool, options.tools ? {} : { revalidate: async (prepared, context) => {
         const current = await tool.prepare(prepared.input, context);
         if (current.fingerprint !== prepared.fingerprint || JSON.stringify(current.preview) !== JSON.stringify(prepared.preview)) throw new EngineError('TOOL_APPROVAL_STALE', 'Tool resources changed since scoped authorization');
@@ -181,9 +210,17 @@ export class MoodcodeEngine {
         buildContext: request => this.context.build({ ...request, agentInstructions: this.profiles.forRun(request.snapshot.session.id, request.config)?.instructions }),
         contextSnapshot: (sessionId, config) => this.context.snapshot(sessionId, config),
         getContextRevisionId: sessionId => this.context.revisionId(sessionId),
-        getAllowedTools: run => this.profiles.forRun(run.sessionId, run.config)?.tools,
+        getAllowedTools: run => {
+          const profile = this.profiles.forRun(run.sessionId, run.config)?.tools;
+          return this.hostAllowedTools ? (profile ? profile.filter(name => this.hostAllowedTools!.includes(name)) : this.hostAllowedTools) : profile;
+        },
         recoverContextOverflow: (request, provider) => this.context.recoverOverflow(request, provider),
         toolRuntime: this.toolRuntime,
+        onToolCheckpoint: async observation => {
+          await this.watchWorkspace(observation.workspace.id);
+          const changes = await this.changes.recordCheckpoint({ ...observation, sessionId: observation.run.sessionId, runId: observation.run.id });
+          await Promise.all(changes.map(change => this.syncLanguageServers(change)));
+        },
       });
       this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator });
       const recoveredRestores = this.reviewJournal.recoverPending();
@@ -234,6 +271,10 @@ export class MoodcodeEngine {
         }
         case 'session.getTasks': result = this.tasks.get(payload.sessionId as string); break;
         case 'session.getContext': result = this.context.diagnostics(payload.sessionId as string); break;
+        case 'session.getDiagnostics': {
+          const session = this.store.getSession(payload.sessionId as string);
+          result = { metrics: this.store.getNativeMetrics(session.id), context: this.context.diagnostics(session.id), workspaceObservation: { failure: this.observationFailures.get(session.workspaceId) ?? null, active: this.watchConsumers.has(session.workspaceId) } }; break;
+        }
         case 'session.searchHistory': result = this.store.searchHistory(payload.sessionId as string, { query: payload.query as string, beforeMessageId: payload.beforeMessageId as string | undefined, limit: payload.limit as number, maxBytes: payload.maxBytes as number }); break;
         case 'session.setTasks': result = this.tasks.replace(payload.sessionId as string, payload.expectedRevision as number, payload.tasks); break;
         case 'question.list': result = this.questions.list(payload.sessionId as string); break;
@@ -434,6 +475,16 @@ export class MoodcodeEngine {
       }
       observed = { ...restored, operationId: commandId, duplicate: false };
       if (restored.effectsUncertain || restored.executionBlocked) this.coordinator.quarantineWorkspace(workspace.id);
+      if (restored.restored.length) {
+        const checkpoint = this.store.listCheckpoints(run.id).find(item => item.id === checkpointId)!;
+        try {
+          await this.watchWorkspace(workspace.id);
+          const restoredPaths = new Set(restored.restored);
+          const changes = await this.changes.recordCheckpoint({ workspace, sessionId: run.sessionId, runId: run.id, toolCallId: checkpoint.toolCallId, signal,
+            checkpoints: [{ ...checkpoint, id: `restore_${createHash('sha256').update(commandId).digest('hex')}`, createdAt: new Date().toISOString(), files: checkpoint.files.filter(file => restoredPaths.has(file.path)).map(file => ({ ...file, before: file.after, after: file.before, beforeHash: file.afterHash, afterHash: file.beforeHash })) }] });
+          await Promise.all(changes.map(change => this.syncLanguageServers(change)));
+        } catch { observed.warnings.push('Restoration effects were recorded, but workspace observation or language-service delivery could not be confirmed.'); }
+      }
       try { this.reviewJournal.finish(commandId, restored); }
       catch {
         this.coordinator.quarantineWorkspace(workspace.id);
@@ -468,8 +519,75 @@ export class MoodcodeEngine {
 
   waitForRun(runId: string): Promise<Run> { return this.coordinator.waitForRun(runId); }
 
+  startChildTask(request: EngineChildRequest) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.children.start(request);
+  }
+
+  registerLanguageServer(serverId: string, factory: LspFactory, languageForPath: (path: string) => string | null): void {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    if (typeof languageForPath !== 'function') throw new EngineError('INVALID_LSP_CONFIG', 'Host must explicitly select supported language paths');
+    this.lsp.register(serverId, factory); this.languageServers.set(serverId, languageForPath);
+  }
+
+  async watchWorkspace(workspaceId: string): Promise<WorkspaceChangeWatch> {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    const workspace = this.store.getWorkspace(workspaceId), watch = await this.changes.watch(workspace, { signal: this.hostResources.signal });
+    if (!this.watchConsumers.has(workspaceId)) {
+      const consumer = (async () => {
+        try { for await (const event of this.changes.subscribe(workspaceId, 0, this.hostResources.signal)) {
+          if (event.type === 'change') await this.syncLanguageServers(event.change);
+          else if (event.type === 'incomplete') this.observationFailures.set(workspaceId, event.code);
+        } } catch (error) { if (!this.hostResources.signal.aborted) this.observationFailures.set(workspaceId, error instanceof EngineError ? error.code : 'WORKSPACE_OBSERVATION_FAILED'); }
+      })();
+      this.watchConsumers.set(workspaceId, consumer);
+    }
+    return watch;
+  }
+
+  private syncLanguageServers(change: WorkspaceFileChange): Promise<void> {
+    const workspace = this.store.getWorkspace(change.workspaceId);
+    return Promise.all([...this.languageServers].map(async ([serverId, selectLanguage]) => {
+      const language = selectLanguage(change.path); if (!language) return;
+      const key = JSON.stringify([workspace.id, serverId, change.path]), known = this.lspChanges.get(key);
+      if (known && known.version >= change.documentVersion) return known.done;
+      const done = this.lsp.fileChanged(workspace, serverId, change.path, language, change.kind, this.hostResources.signal).catch(error => {
+        this.observationFailures.set(workspace.id, error instanceof EngineError ? error.code : 'LSP_UPDATE_FAILED');
+        if (this.lspChanges.get(key)?.done === done) this.lspChanges.delete(key);
+      });
+      this.lspChanges.set(key, { version: change.documentVersion, done });
+      if (this.lspChanges.size > 256) this.lspChanges.delete(this.lspChanges.keys().next().value!);
+      return done;
+    })).then(() => {});
+  }
+
+  createWorktree(sessionId: string, requestId: string, reference?: string) {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    const session = this.store.getSession(sessionId), workspace = this.store.getWorkspace(session.workspaceId);
+    this.children.recover(sessionId);
+    return this.coordinator.withWorkspaceLease(workspace.id, signal => this.children.worktrees.create({ sessionId, requestId, workspace, ...(reference ? { reference } : {}) }, signal));
+  }
+
+  cleanupWorktree(sessionId: string, worktreeId: string) {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    const session = this.store.getSession(sessionId);
+    return this.coordinator.withWorkspaceLease(session.workspaceId, signal => this.children.worktrees.cleanup(sessionId, worktreeId, signal));
+  }
+
+  prepareChildWorktree(sessionId: string, parentWorktreeId: string, requestId: string, reference?: string) {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    const session = this.store.getSession(sessionId);
+    this.children.recover(sessionId);
+    return this.coordinator.withWorkspaceLease(session.workspaceId, async signal => {
+      const parent = this.children.worktrees.get(sessionId, parentWorktreeId);
+      if (parent.ownerId) throw new EngineError('CHILD_WORKTREE_BUSY', 'Prepare nested worktrees before an execution owns their parent');
+      const workspace = await this.children.worktrees.verify(parent, signal);
+      return this.children.worktrees.create({ sessionId, requestId, workspace, ...(reference ? { reference } : {}) }, signal);
+    });
+  }
+
   getCapabilities(): EngineCapabilities {
-    return { ...structuredClone(this.capabilities), tools: [...this.toolRuntime.catalogue('engine', 'build').tools] };
+    return { ...structuredClone(this.capabilities), tools: [...this.toolRuntime.catalogue('engine', 'build', this.hostAllowedTools).tools] };
   }
 
   private refreshToolScopes(): void {
@@ -528,7 +646,7 @@ export class MoodcodeEngine {
         this.hostResources.abort();
         this.questions.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.scheduler.close(), this.coordinator.close(), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }

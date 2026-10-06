@@ -65,3 +65,25 @@ test('real context overflow recovery activates semantic memory and retries once 
   assert.equal(attempts.length, 2); assert.equal(normalCalls, 3); assert.equal(summaryCalls, 1); assert.ok(f.engine.context.memory.active(f.sessionId));
   assert.equal(snapshot.messages.filter(message => message.role === 'user').length, 2, 'summary requests never become new user transcript entries');
 });
+
+test('host allowlist survives later registrations and diagnostics expose bounded known observations', async t => {
+  let executed = false;
+  const f = await fixture(t, { allowedToolNames: ['read_file'], providers: [{ id: 'fixture', async *streamTurn(request) {
+    assert.deepEqual(request.tools.map(tool => tool.name), ['read_file']);
+    if (request.turnIndex === 0) yield { type: 'tool.call', call: { id: 'late', name: 'late_state', input: {} } };
+    else yield { type: 'text.delta', delta: 'Observed the denied call.' };
+    yield { type: 'finish', reason: request.turnIndex === 0 ? 'tool_calls' : 'stop' };
+  } }] });
+  f.engine.toolRuntime.register('engine', { name: 'late_state', description: 'Fixture host registration', effectClass: 'state', inputSchema: { type: 'object' },
+    async prepare() { return { name: 'late_state', input: {}, fingerprint: 'fixture', requiresApproval: false, preview: {} }; },
+    async execute() { executed = true; return { content: 'never' }; } });
+  assert.deepEqual(f.engine.getCapabilities().tools.map(tool => tool.name), ['read_file']);
+  const result = await f.engine.dispatchSession({ schemaVersion: 2, commandId: 'late', type: 'input.accept', payload: { sessionId: f.sessionId, requestId: 'late', prompt: 'Check the host boundary', delivery: 'queue', config: { providerId: 'fixture', modelId: 'fixture' } } }); assert.equal(result.ok, true);
+  await f.engine.waitForSession(f.sessionId); const snapshot = f.engine.store.getSnapshot(f.sessionId);
+  assert.equal(snapshot.runs[0]!.state, 'completed'); assert.equal(snapshot.tools[0]!.state, 'denied'); assert.equal(executed, false);
+  const diagnostics = await f.engine.dispatchSession({ schemaVersion: 2, commandId: 'diagnostics', type: 'session.getDiagnostics', payload: { sessionId: f.sessionId } }); assert.equal(diagnostics.ok, true);
+  const observed = diagnostics.result as { metrics: { scope: { sessionId: string }; turns: { total: number }; providerUsage: { inputTokens: { tokens: number | null } }; coverage: { records: string } }; context: { revisionId: string } };
+  assert.equal(observed.metrics.scope.sessionId, f.sessionId); assert.equal(observed.metrics.turns.total, 2); assert.equal(observed.metrics.providerUsage.inputTokens.tokens, null);
+  assert.equal(observed.metrics.coverage.records, 'all-primary-records-in-scope'); assert.ok(observed.context.revisionId);
+  assert.ok(Buffer.byteLength(JSON.stringify(observed)) < 20000);
+});
