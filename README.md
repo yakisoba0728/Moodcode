@@ -4,6 +4,8 @@ Electron 기반 로컬 코딩 에이전트다. 자체 TypeScript/Node 엔진, �
 
 엔진이 세션·요청 접수·모델 turn loop·도구·승인·취소·SQLite 기록과 replay를 소유한다. 모델 adapter는 한 turn의 통신만 담당한다. GUI는 같은 엔진을 Electron utility process에서 실행하며 sandbox preload bridge로 연결한다. 설정 파일, 저장소 변경 감시, DB 검사·백업, 변경 복원 preview와 runtime 진단도 구현했다. 실제 완료 범위와 검증 결과는 [구현 상태](docs/moodcode/implementation-status.md)에 기록한다.
 
+현재 후속 작업은 내부 엔진 우선이다. [엔진 구현 TODO](TODO.md)에 항목별 선행 작업·완료 조건·진행 상태를 관리하며, 첫 작업은 입력·Run·Turn·Part·ContextRevision 계약을 정하는 E0-01이다.
+
 ## 개발 실행
 
 현재 개발 runtime은 `.nvmrc`의 Node 26.9.0이며, 최소 Node 24의 `node:sqlite` API를 사용한다. Git이 필요하다. macOS arm64 개발용 앱 bundle과 ASAR 내부 supervisor를 검증했다. 서명·공증·공개 지원 OS 검증은 후속 단계다.
