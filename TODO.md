@@ -245,7 +245,7 @@ E5는 코딩 loop 기반을 만든 뒤 순서대로 확장한다. 초기 검증�
 - [x] **G1-07 — 복합 child/미디어 live 과업 평가**: 기존 Codex 인증과 제한된 임시 fixture로 실제 실행한 모델·도구·diff·usage·cleanup을 기록한다. mocked transport 성공과 구분한다. `verify-engine-extensions.mjs --live`에서 승인된 parent→read-only child→exact retry와 red image 인식 2/2, cleanup 확인. 기존 read→patch→command live도 통과했다. 모델은 현재 Codex `gpt-6.1-sol`이다.
 - [ ] **G1-08 — artifact/media 디스크·orphan 진단**: bounded scan, source/관측 시점·불완전 coverage, owner와 실행 중 상태를 보존하는 retention 경계를 구현한다.
 - [ ] **G1-09 — 이미지 이력·active-prefix 기억 정책**: 원본 refs 보존과 명시적 생략/provenance를 설계하고 text-only summary가 pixels 관측을 대신하지 않도록 검증한다.
-- [ ] **G1-10 — 운영 명세·최신 검증 보고서·commit 연결**: API/schema/도구 지원 목록, 성능 표본, 실제 OS/CI 한계와 최신 구현 commit을 갱신한다.
+- [x] **G1-10 — 운영 명세·최신 검증 보고서·commit 연결**: API/schema/도구 지원 목록, 성능 표본, 실제 OS/CI 한계와 최신 구현 commit을 갱신한다. 첫 묶음 구현 `64435d7`과 [검증 보고서](docs/moodcode/engine-goal-verification.md)를 연결했다. 후속 변경 때 같은 근거를 갱신한다.
 
 첫 묶음: G1-01~07 구현·검증 완료. 독립 리뷰의 이미지 summary/exact retry·조기 context overflow·archive child identity·async configureChild 문제를 수정했다. 최종 1,646개 중 1,644 pass·실패 0·Windows 조건 2 skip, 실제 read 560개/92개, fixture 코딩 평가 3/3, Codex live 3과업을 확인했다. 다음은 G1-08 디스크/orphan 진단과 G1-09 명시적 이력 정책이며 goal은 계속 활성 상태다.
 

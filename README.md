@@ -6,7 +6,7 @@ Electron 기반 로컬 코딩 에이전트다. 자체 TypeScript/Node 엔진, �
 
 현재 후속 작업은 내부 엔진 우선이다. [엔진 구현 TODO](TODO.md)의 75개 항목 중 71개를 구현·검증했다. durable queue/steer·Turn/Part·의미 요약·scoped tools·MCP·PTY·worktree child 실행·승인한 변경 통합·LSP/formatter·archive·진단을 자체 엔진에 연결했다. [최신 headless 검증](docs/moodcode/engine-native-final-verification.md)과 [host API](docs/moodcode/engine-host-api.md)가 현재 지원 범위의 기준이다. 새 엔진 기능의 GUI 노출은 후속이다.
 
-지속 개선 goal에서는 OpenCode/pi/Amp/Claude Code/Codex의 공개 근거를 비교하며 자체 엔진을 확장한다. DB3 attempt usage·긴 active Run 선택·bounded image 입력·승인된 읽기 전용 `delegate_task`를 추가했다. [목표·진행 범위](docs/moodcode/engine-improvement-goal.md)와 [G1 TODO](TODO.md)를 따른다.
+지속 개선 goal에서는 OpenCode/pi/Amp/Claude Code/Codex의 공개 근거를 비교하며 자체 엔진을 확장한다. DB3 attempt usage·긴 active Run 선택·bounded image 입력·승인된 읽기 전용 `delegate_task`를 추가했다. [최신 검증](docs/moodcode/engine-goal-verification.md), [목표·진행 범위](docs/moodcode/engine-improvement-goal.md), [G1 TODO](TODO.md)를 따른다.
 
 ## 개발 실행
 
