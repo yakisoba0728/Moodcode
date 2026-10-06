@@ -1,17 +1,22 @@
 import { constants } from 'node:fs';
 import { lstat, open } from 'node:fs/promises';
 import { dirname, join, parse, relative, resolve, sep } from 'node:path';
-import { EngineError, type RunConfig, type RunLimits } from '@moodcode/contracts';
+import { EngineError, type EngineBudgets, type RunConfig, type RunLimits } from '@moodcode/contracts';
 import { normalizeSubmitInput } from '@moodcode/contracts/validation';
 
 const MAX_CONFIG_BYTES = 65_536;
 const MAX_PROVIDERS = 64;
 const signalAborted = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted')!.get!;
-const RUN_FIELDS = ['providerId', 'modelId', 'mode', 'limits'] as const;
+const RUN_FIELDS = ['providerId', 'modelId', 'mode', 'limits', 'reasoningEffort', 'budgets'] as const;
 const LIMIT_FIELDS: readonly (keyof RunLimits)[] = [
   'maxTurns', 'maxToolCalls', 'maxDurationMs', 'toolTimeoutMs', 'maxOutputBytes', 'maxContextBytes',
 ];
 type Source = 'options' | 'user' | 'workspace';
+const BUDGET_FIELDS: readonly (keyof EngineBudgets)[] = [
+  'turnAllowance', 'maxToolCallsPerTurn', 'maxPendingInputs', 'maxPendingBytes', 'maxSteerBatch',
+  'maxReadConcurrency', 'maxProviderAttempts', 'providerRequestTimeoutMs', 'providerInactivityTimeoutMs',
+  'retryBaseDelayMs', 'maxSummaryCalls', 'maxSummaryBytes', 'maxArtifactBytes', 'maxProducerBytes',
+];
 
 export interface LoadConfigOptions {
   userConfigPath?: string;
@@ -30,6 +35,8 @@ export interface ConfigFile {
   modelId?: string;
   mode?: RunConfig['mode'];
   limits?: Partial<RunLimits>;
+  reasoningEffort?: RunConfig['reasoningEffort'];
+  budgets?: Partial<EngineBudgets>;
   providers?: Record<string, ConfigProviderMetadata>;
 }
 
@@ -40,7 +47,7 @@ export interface ResolvedConfig {
 }
 
 interface Layer {
-  runConfig: Partial<Omit<RunConfig, 'limits'>> & { limits?: Partial<RunLimits> };
+  runConfig: Partial<Omit<RunConfig, 'limits' | 'budgets'>> & { limits?: Partial<RunLimits>; budgets?: Partial<EngineBudgets> };
   providers: Record<string, ConfigProviderMetadata>;
 }
 
@@ -90,7 +97,7 @@ function validateRun(value: unknown, source: Source): RunConfig {
     // Forward a known schema path, never the offending value or a native exception.
     const path = error instanceof EngineError ? error.details?.path : undefined;
     const field = typeof path === 'string' && path.startsWith('payload.config.') ? path.slice('payload.config.'.length) : 'runConfig';
-    const known = [...RUN_FIELDS, ...LIMIT_FIELDS.map((key) => `limits.${key}`)];
+    const known: readonly string[] = [...RUN_FIELDS, ...LIMIT_FIELDS.map((key) => `limits.${key}`), ...BUDGET_FIELDS.map((key) => `budgets.${key}`)];
     invalid(source, known.includes(field) ? field : 'runConfig', 'does not match the supported run configuration');
   }
 }
@@ -129,10 +136,16 @@ function validateLayer(value: unknown, source: Source): Layer {
   if (Object.hasOwn(runInput, 'providerId')) runConfig.providerId = normalized.providerId;
   if (Object.hasOwn(runInput, 'modelId')) runConfig.modelId = normalized.modelId;
   if (Object.hasOwn(runInput, 'mode')) runConfig.mode = normalized.mode;
+  if (Object.hasOwn(runInput, 'reasoningEffort')) runConfig.reasoningEffort = normalized.reasoningEffort;
   if (Object.hasOwn(runInput, 'limits')) {
     const limits = runInput.limits as Record<string, number>;
     runConfig.limits = {};
     for (const key of LIMIT_FIELDS) if (Object.hasOwn(limits, key)) runConfig.limits[key] = normalized.limits[key];
+  }
+  if (Object.hasOwn(runInput, 'budgets')) {
+    const budgets = runInput.budgets as Record<string, number>;
+    runConfig.budgets = {};
+    for (const key of BUDGET_FIELDS) if (Object.hasOwn(budgets, key)) runConfig.budgets[key] = normalized.budgets![key];
   }
   const providers: Record<string, ConfigProviderMetadata> = Object.create(null);
   if (Object.hasOwn(input, 'providers')) {
@@ -263,7 +276,10 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Resol
     const layer = await readLayer(path, source, signal);
     cancelled(signal, source);
     if (!layer) continue;
-    runConfig = validateRun({ ...runConfig, ...layer.runConfig, limits: { ...runConfig.limits, ...layer.runConfig.limits } }, source);
+    runConfig = validateRun({
+      ...runConfig, ...layer.runConfig, limits: { ...runConfig.limits, ...layer.runConfig.limits },
+      ...(runConfig.budgets === undefined && layer.runConfig.budgets === undefined ? {} : { budgets: { ...runConfig.budgets, ...layer.runConfig.budgets } }),
+    }, source);
     for (const [id, metadata] of Object.entries(layer.providers)) providers[id] = { ...providers[id], ...metadata };
     if (Object.keys(providers).length > MAX_PROVIDERS) invalid(source, 'providers', 'must not exceed 64 resolved provider entries');
   }
@@ -271,6 +287,7 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Resol
   for (const metadata of Object.values(providers)) Object.freeze(metadata);
   Object.freeze(providers);
   Object.freeze(runConfig.limits);
+  if (runConfig.budgets) Object.freeze(runConfig.budgets);
   Object.freeze(runConfig);
   return Object.freeze({ runConfig, providers });
 }

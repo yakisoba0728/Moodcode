@@ -2,17 +2,17 @@
 
 갱신일: 2026-10-07, Asia/Seoul. 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
 
-상태: 구현 목록 정리 완료. 아래 새 구현 항목은 모두 대기이며, 이번 목록 작성으로 구현 완료 표시를 하지 않는다. 다음 작업은 **E0-01**이다. 이 파일을 구현 진행 상태의 기준으로 사용한다.
+상태: 사용자의 병렬 구현 승인에 따라 E0 기반 구현을 진행 중이다. 계약·DB migration·artifact 저장을 에이전트별로 나누고, 설정·통합·검증은 주 세션에서 담당한다. 이 파일을 구현 진행 상태의 기준으로 사용한다.
 
 ## 작업 규칙
 
 - `[ ]`는 미완료, `[x]`는 해당 완료 조건과 필요한 검증을 만족한 항목이다. 착수한 항목은 별도로 아래 `진행 중`에 기록한다. blocked 항목은 원인과 해제 조건을 해당 항목 아래에 남긴다.
 - 항목 ID는 유지한다. 범위를 나누면 하위 ID를 추가하고, 순서를 바꾸면 선행 조건도 함께 갱신한다. 같은 기능을 여러 문서에서 따로 완료 처리하지 않는다.
-- 한 항목씩 구현·검증·검토·커밋한다. 커밋은 실제로 검증 가능한 변경 단위로 묶을 수 있으며, 완료 항목에 검증 명령·보고서와 커밋을 연결한다. 설계 문서 작성만으로 실행 기능을 완료 처리하지 않는다.
+- 선행 계약을 합의한 작업은 파일 담당 범위를 나누어 병렬 구현한다. 통합·검증·검토·커밋은 검증 가능한 변경 단위로 진행하고, 완료 항목에 검증 명령·보고서와 커밋을 연결한다. 설계 문서나 독립 모듈 작성만으로 연결되지 않은 실행 기능을 완료 처리하지 않는다.
 - OpenCode에서 확인한 동작을 Moodcode 계약과 자체 fixture로 구현한다. 원본 코드·프롬프트·도구 설명·테스트를 이름만 바꿔 가져오지 않는다. 실제 외부 코드 재사용이 필요하면 출처와 고지를 별도로 기록한다.
 - 각 단계는 headless engine/harness로 검증한다. 기본 회귀는 fixture를 사용하고, 실제 계정 요청은 명시적으로 분리한다. GUI·서명·앱 업데이트는 이 목록의 구현 범위에 넣지 않는다.
 
-진행 중: 없음. **새 구현 완료 0/75**. 기존 기능은 아래 보존 대상이며 새 TODO의 완료 수에 포함하지 않는다.
+진행 중: **E0-05~E0-08, E1, E2, E3 기반, E4 기반**. **새 구현 완료 4/75**. E0-01~04 검증·커밋은 [첫 통합 기록](docs/moodcode/engine-foundation-verification.md)을 따른다. 담당 범위는 [병렬 엔진 구현](docs/moodcode/engine-implementation-waves.md)에 기록한다. 기존 기능은 아래 보존 대상이며 새 TODO의 완료 수에 포함하지 않는다.
 
 ## 유지하고 회귀 검증할 기반
 
@@ -45,13 +45,13 @@ E0→E1→E2→E3→E4를 우선한다. E4 완료 뒤 E6-01~E6-04로 기본 엔�
 
 주요 경로: [contracts](packages/contracts/src/index.ts), [validation](packages/contracts/src/validation.ts), [ports](packages/engine/src/ports.ts), [storage](packages/engine/src/storage/index.ts), [engine](packages/engine/src/engine.ts). 이번 단계에서는 새 schema와 책임 경계를 먼저 고정한다.
 
-- [ ] **E0-01 — Input·Run·Turn·Part·ContextRevision 계약 확정** `[신규 계약]`
+- [x] **E0-01 — Input·Run·Turn·Part·ContextRevision 계약 확정** `[신규 계약]`
   선행: 없음. 완료: 내부 ID와 provider call ID, 입력 상태·Run binding, Run 생성 전 입력 이벤트의 owner/sequence, attempt/terminal·불확실 상태를 정의하고 자체 contract fixture로 확인한다.
-- [ ] **E0-02 — 공개 API·event 버전 호환 확정** `[개선]`
+- [x] **E0-02 — 공개 API·event 버전 호환 확정** `[개선]`
   선행: E0-01. 완료: 기존 `run.submit` receipt와 busy 의미를 유지하고, 새 commands·capabilities·v1 consumer projection·unknown version 거부를 명시한다.
-- [ ] **E0-03 — 순차 DB migration 체계 정리** `[개선]`
+- [x] **E0-03 — 순차 DB migration 체계 정리** `[개선]`
   선행: E0-02. 완료: 현재 DB v1을 fixture로 유지하고 schema 변경별 migration, 실패 rollback, future DB 거부, 기존 owner·backup 동작을 검증한다. 새 테이블은 각 기능 단계에서 추가한다.
-- [ ] **E0-04 — 기존 기록·복구 호환 fixture 고정** `[보존·검증]`
+- [x] **E0-04 — 기존 기록·복구 호환 fixture 고정** `[보존·검증]`
   선행: E0-03. 완료: 기존 Run/message/tool/approval/checkpoint·review·ledger를 새 코드로 읽고 terminal과 복원 binding·미확정 격리가 유지되는 것을 확인한다.
 - [ ] **E0-05 — 엔진 책임과 ports 분리** `[재구성]`
   선행: E0-04. 완료: admission, scheduler, turn executor, context projection, tool runtime, workspace scope의 경계를 정리하고 현재 coding loop의 관찰 가능한 결과를 보존한다.

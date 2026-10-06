@@ -1,0 +1,85 @@
+import { DatabaseSync } from 'node:sqlite';
+import { EngineError } from '@moodcode/contracts';
+import { inspectIntegrity } from './maintenance.js';
+
+export interface DatabaseMigration {
+  /** Append-only, consecutive primary database version, starting at 1. */
+  readonly version: number;
+  readonly name: string;
+  /** Synchronous SQL/data changes only; the framework owns the transaction and user_version. */
+  readonly apply: (database: DatabaseSync) => void;
+}
+
+const INITIAL_SCHEMA = `
+  CREATE TABLE workspaces (id TEXT PRIMARY KEY, root TEXT NOT NULL UNIQUE, data TEXT NOT NULL) STRICT;
+  CREATE TABLE sessions (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), last_seq INTEGER NOT NULL DEFAULT 0 CHECK(last_seq >= 0), data TEXT NOT NULL) STRICT;
+  CREATE TABLE inputs (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), request_id TEXT NOT NULL, fingerprint TEXT NOT NULL, admitted_seq INTEGER NOT NULL, data TEXT NOT NULL, UNIQUE(session_id, request_id)) STRICT;
+  CREATE TABLE runs (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, input_id TEXT NOT NULL UNIQUE REFERENCES inputs(id), session_id TEXT NOT NULL REFERENCES sessions(id), workspace_id TEXT NOT NULL REFERENCES workspaces(id), state TEXT NOT NULL CHECK(state IN ('created','running','awaiting_approval','cancelling','completed','cancelled','failed','interrupted')), data TEXT NOT NULL) STRICT;
+  CREATE UNIQUE INDEX one_active_run_per_workspace ON runs(workspace_id) WHERE state IN ('created','running','awaiting_approval','cancelling');
+  CREATE TABLE messages (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id), data TEXT NOT NULL) STRICT;
+  CREATE TABLE tools (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id), state TEXT NOT NULL, data TEXT NOT NULL) STRICT;
+  CREATE TABLE approvals (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id), tool_call_id TEXT NOT NULL REFERENCES tools(id), status TEXT NOT NULL, data TEXT NOT NULL) STRICT;
+  CREATE TABLE checkpoints (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, run_id TEXT NOT NULL REFERENCES runs(id), tool_call_id TEXT NOT NULL REFERENCES tools(id), data TEXT NOT NULL) STRICT;
+  CREATE TABLE events (session_id TEXT NOT NULL REFERENCES sessions(id), seq INTEGER NOT NULL CHECK(seq > 0), event_id TEXT NOT NULL UNIQUE, run_id TEXT NOT NULL REFERENCES runs(id), type TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(session_id, seq)) STRICT;
+  CREATE INDEX runs_session ON runs(session_id, ordinal);
+  CREATE INDEX messages_session ON messages(session_id, ordinal);
+  CREATE INDEX tools_session ON tools(session_id, ordinal);
+  CREATE INDEX approvals_session ON approvals(session_id, ordinal);
+  CREATE INDEX checkpoints_run ON checkpoints(run_id, ordinal);
+`;
+
+export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
+  Object.freeze({ version: 1, name: 'initial-engine-records', apply: (database: DatabaseSync) => { database.exec(INITIAL_SCHEMA); } }),
+]);
+export const DB_VERSION = DATABASE_MIGRATIONS.length;
+
+/** Read before changing connection pragmas, especially for a database from a newer engine. */
+export function databaseVersion(database: DatabaseSync, maximum = DB_VERSION): number {
+  const version = Number(database.prepare('PRAGMA user_version').get()?.user_version);
+  if (!Number.isSafeInteger(version) || version < 0 || version > maximum) {
+    throw new EngineError('DB_VERSION_UNSUPPORTED', `Database version ${version} is unsupported (maximum ${maximum})`);
+  }
+  return version;
+}
+
+function validatePlan(migrations: readonly DatabaseMigration[]): void {
+  for (const [index, migration] of migrations.entries()) {
+    if (migration.version !== index + 1 || !/^[a-z0-9][a-z0-9-]{0,127}$/.test(migration.name) || typeof migration.apply !== 'function') {
+      throw new EngineError('DB_MIGRATION_PLAN_INVALID', 'Database migrations must have consecutive versions and bounded names');
+    }
+  }
+}
+
+/**
+ * Apply the complete pending chain in one transaction. Any failed migration or
+ * integrity check rolls back every pending change, including all version updates.
+ * Existing records and secondary review/recovery databases are not rewritten.
+ */
+export function migrateDatabase(database: DatabaseSync, migrations: readonly DatabaseMigration[] = DATABASE_MIGRATIONS): void {
+  validatePlan(migrations);
+  const targetVersion = migrations.length;
+  const initialVersion = databaseVersion(database, targetVersion);
+  if (initialVersion === targetVersion) return;
+  if (database.isTransaction) throw new EngineError('DB_MIGRATION_TRANSACTION_ACTIVE', 'Database migration requires its own transaction');
+  if (database.prepare('PRAGMA foreign_keys').get()?.foreign_keys !== 1) {
+    throw new EngineError('DB_MIGRATION_FOREIGN_KEYS_DISABLED', 'Database migration requires foreign key enforcement');
+  }
+  database.exec('BEGIN IMMEDIATE');
+  try {
+    const currentVersion = databaseVersion(database, targetVersion);
+    for (const migration of migrations.slice(currentVersion)) {
+      const result = migration.apply(database);
+      if (result !== undefined || !database.isTransaction || databaseVersion(database, targetVersion) !== migration.version - 1) {
+        throw new EngineError('DB_MIGRATION_CONTRACT_INVALID', 'Database migrations must be synchronous and leave transaction/version ownership to the framework');
+      }
+      database.exec(`PRAGMA user_version=${migration.version}`);
+    }
+    if (!inspectIntegrity(database, targetVersion).ok) {
+      throw new EngineError('DB_INTEGRITY_FAILED', 'Database migration failed SQLite integrity or foreign key checks');
+    }
+    database.exec('COMMIT');
+  } catch (error) {
+    try { if (database.isTransaction) database.exec('ROLLBACK'); } catch { /* Preserve the migration failure. */ }
+    throw error;
+  }
+}

@@ -10,6 +10,7 @@ import type {
   ProviderMessage, ToolContext, ToolDefinition, ToolResult,
 } from '../ports.js';
 import { EXTRACTIVE_MEMORY_PREFIX } from '../context/index.js';
+import { BudgetAccount } from '../config/budgets.js';
 
 const CLEANUP_GRACE_MS = 1_000;
 const EFFECT_TOOLS = new Set(['apply_patch', 'run_command']);
@@ -25,6 +26,7 @@ interface Owner {
   done: Promise<Run>;
   outputBytes: number;
   toolCount: number;
+  budget: BudgetAccount;
   callIds: Set<string>;
   readonlyCalls: Set<string>;
   checkpointIds: Set<string>;
@@ -208,7 +210,7 @@ export class RunCoordinator implements CoordinatorPort {
     let reject!: (error: unknown) => void;
     const done = new Promise<Run>((yes, no) => { resolve = yes; reject = no; });
     const owner: Owner = {
-      run, abort: new AbortController(), done, outputBytes: 0, toolCount: 0,
+      run, abort: new AbortController(), done, outputBytes: 0, toolCount: 0, budget: new BudgetAccount(run.config),
       callIds: new Set(), readonlyCalls: new Set(), checkpointIds: new Set(), terminal: false,
     };
     this.owners.set(run.id, owner);
@@ -363,6 +365,7 @@ export class RunCoordinator implements CoordinatorPort {
       messages = structuredClone(messages);
       for (let turnIndex = 0; turnIndex < run.config.limits.maxTurns; turnIndex++) {
         this.assertLive(owner);
+        owner.budget.startTurn();
         const bytes = this.checkContext(owner, messages);
         this.options.store.commit(run.id, 'context.prepared', {
           turnIndex, bytes, limit: run.config.limits.maxContextBytes,
@@ -370,6 +373,7 @@ export class RunCoordinator implements CoordinatorPort {
         });
         const turn = await this.providerTurn(owner, provider, messages, turnIndex);
         this.assertLive(owner);
+        owner.budget.reserveToolCalls(turn.calls.length);
         messages.push({ role: 'assistant', content: turn.message.content, ...(turn.calls.length ? { toolCalls: turn.calls } : {}) });
         if (turn.calls.length === 0) return this.finish(owner, 'completed');
         for (const call of turn.calls) {
@@ -407,6 +411,7 @@ export class RunCoordinator implements CoordinatorPort {
   }
 
   private async providerTurn(owner: Owner, provider: ProviderAdapter, messages: ProviderMessage[], turnIndex: number): Promise<{ message: Message; calls: ProviderToolCall[] }> {
+    owner.budget.startProviderAttempt();
     const message = this.message(owner, 'assistant');
     const calls: ProviderToolCall[] = [];
     let finish: 'stop' | 'tool_calls' | 'length' | undefined;
@@ -534,6 +539,7 @@ export class RunCoordinator implements CoordinatorPort {
     return {
       workspace, sessionId: owner.run.sessionId, runId: owner.run.id, toolCallId: record.id,
       signal, limits: { ...owner.run.config.limits, maxOutputBytes: this.toolOutputBudget(owner) }, artifactDir: this.options.artifactDir,
+      budgets: { ...owner.budget.budgets },
       ...(this.options.executionLockPath ? { executionLockPath: this.options.executionLockPath } : {}),
       recordCheckpoint: (checkpoint: Checkpoint) => {
         // Cleanup may record observed effects after abort, until this operation settles.

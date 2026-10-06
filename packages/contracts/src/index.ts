@@ -13,8 +13,8 @@ export interface RunLimits { maxTurns: number; maxToolCalls: number; maxDuration
 export const DEFAULT_LIMITS: Readonly<RunLimits> = Object.freeze({ maxTurns: 12, maxToolCalls: 32, maxDurationMs: 300_000, toolTimeoutMs: 60_000, maxOutputBytes: 65_536, maxContextBytes: 262_144 });
 export const REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const;
 export type ReasoningEffort = typeof REASONING_EFFORTS[number];
-export interface RunConfig { providerId: string; modelId: string; mode: 'plan' | 'build'; limits: RunLimits; reasoningEffort?: ReasoningEffort }
-export type RunConfigInput = Partial<Omit<RunConfig, 'limits'>> & { limits?: Partial<RunLimits> };
+export interface RunConfig { providerId: string; modelId: string; mode: 'plan' | 'build'; limits: RunLimits; reasoningEffort?: ReasoningEffort; budgets?: import('./v2.js').EngineBudgets }
+export type RunConfigInput = Partial<Omit<RunConfig, 'limits' | 'budgets'>> & { limits?: Partial<RunLimits>; budgets?: Partial<import('./v2.js').EngineBudgets> };
 export interface EngineCapabilities {
   schemaVersion: number;
   runtime: { node: string; electron: string | null; platform: string; commandExecution: 'posix-process-group' | 'unsupported' };
@@ -23,6 +23,8 @@ export interface EngineCapabilities {
   modes: ('plan' | 'build')[];
   defaults: RunConfig;
   features?: { historyPaging: boolean; sessionMetrics: boolean };
+  /** Advertise only commands wired to an implemented engine handler. */
+  extensions?: { sessionSchemaVersions: number[]; commands: string[] };
 }
 export interface SubmitInput { sessionId: string; requestId: string; prompt: string; config: RunConfig }
 export interface Run { id: string; inputId: string; sessionId: string; workspaceId: string; requestId: string; prompt: string; config: RunConfig; state: RunState; createdAt: string; updatedAt: string; error?: { code: string; message: string } }
@@ -43,3 +45,4 @@ export interface FileDiff { path: string; before: string | null; after: string |
 export interface ReviewDiff { runId: string; files: FileDiff[]; checkpoints: Checkpoint[]; warnings: string[] }
 export interface CommandEnvelope { schemaVersion: typeof SCHEMA_VERSION; commandId: string; type: string; payload: JsonObject }
 export interface CommandResult { schemaVersion: typeof SCHEMA_VERSION; commandId: string; ok: boolean; result?: JsonValue; error?: { code: string; message: string; details?: JsonObject } }
+export * from './v2.js';

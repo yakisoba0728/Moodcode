@@ -16,6 +16,8 @@
     "build": "tsc -b",
     "typecheck": "tsc -b --pretty false",
     "test": "npm run build && node scripts/test.mjs",
+    "test:engine": "node scripts/test-engine.mjs",
+    "eval:engine": "npm run build && node scripts/evaluate-engine.mjs",
     "harness": "node apps/engine-harness/dist/index.js",
     "check": "npm run typecheck && npm test",
     "test:electron": "npm run build && electron scripts/electron-smoke.cjs",

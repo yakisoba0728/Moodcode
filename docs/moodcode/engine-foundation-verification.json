@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "stage": "engine-foundation",
+  "completedTodoIds": [
+    "E0-01",
+    "E0-02",
+    "E0-03",
+    "E0-04"
+  ],
+  "testCommand": "npm run test:engine",
+  "testResult": {
+    "tests": 1173,
+    "pass": 1172,
+    "fail": 0,
+    "skipped": 1
+  },
+  "workspaceTypecheck": "passed",
+  "platform": "Darwin",
+  "architecture": "arm64",
+  "liveProviderRequests": false,
+  "desktopStarted": false,
+  "codingEvaluation": {
+    "schemaVersion": 1,
+    "kind": "engine-fixture-evaluation",
+    "timestamp": "2026-10-06T17:43:44.077Z",
+    "tasks": [
+      {
+        "taskId": "addition-bug",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "math.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 6123,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 343
+      },
+      {
+        "taskId": "empty-list-boundary",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "average.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 6205,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 325
+      },
+      {
+        "taskId": "two-module-change",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "greet.mjs",
+          "strings.mjs"
+        ],
+        "toolCalls": 4,
+        "providerAttempts": 5,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 7021,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 4
+          }
+        },
+        "durationMs": 387
+      }
+    ]
+  },
+  "limitations": [
+    "Native inbox/turn store and scheduler not yet connected",
+    "Artifact producer wiring pending",
+    "Context planning modules pending runtime integration",
+    "Linux and Windows execution not verified"
+  ]
+}

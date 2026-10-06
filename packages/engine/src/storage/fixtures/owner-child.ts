@@ -47,4 +47,7 @@ process.stdout.write(`${JSON.stringify({
   sessionId: session.id, runId: receipt.runId, toolId: tool.id, approvalId,
   lastSeq: store.getSnapshot(session.id).lastSeq,
 })}\n`);
-setInterval(() => {}, 1_000);
+// The process represents a live engine owner; keep its store reachable even when
+// no client command is pending. Otherwise SQLite handle finalizers can release
+// the lock while this fixture's empty timer is still alive.
+setInterval(() => { store.getRun(receipt.runId); }, 1_000);

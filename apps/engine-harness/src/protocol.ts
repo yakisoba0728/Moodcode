@@ -1,10 +1,12 @@
-import type { CommandEnvelope, CommandResult, EngineEvent } from '@moodcode/contracts';
+import { SESSION_COMMAND_TYPES, type CommandEnvelope, type CommandResult, type EngineEvent, type SessionCommandEnvelope, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
 import type { Readable, Writable } from 'node:stream';
 import type { EventEmitter } from 'node:events';
 
 export interface HarnessEngine {
   dispatch(command: CommandEnvelope): Promise<CommandResult>;
+  dispatchSession?(command: SessionCommandEnvelope): Promise<SessionCommandResult>;
   subscribe(sessionId: string, afterSeq: number, signal?: AbortSignal): AsyncIterable<EngineEvent>;
+  subscribeSession?(sessionId: string, afterSeq: number, signal?: AbortSignal): AsyncIterable<SessionEventV2>;
   close(): void | Promise<void>;
 }
 
@@ -29,7 +31,7 @@ const COMMANDS = new Set([
   'workspace.open', 'session.create', 'session.list', 'session.getSnapshot',
   'run.submit', 'run.cancel', 'approval.decide', 'review.getDiff', 'events.subscribe',
 ]);
-const CONTROL_COMMANDS = new Set(['run.cancel', 'approval.decide']);
+const CONTROL_COMMANDS = new Set(['run.cancel', 'approval.decide', 'input.cancel', 'session.pause', 'session.resume']);
 const MAX_ERROR_MESSAGE = 2_048;
 
 class ProtocolError extends Error {
@@ -41,12 +43,12 @@ function redact(text: string, secrets: readonly string[]): string {
   return text;
 }
 
-function errorResult(commandId: string, error: unknown, secrets: readonly string[]): CommandResult {
+function errorResult(commandId: string, error: unknown, secrets: readonly string[], schemaVersion: 1 | 2 = 1): CommandResult | SessionCommandResult {
   const value = error as { code?: unknown; message?: unknown; details?: unknown } | null;
   const code = typeof value?.code === 'string' ? value.code : 'INTERNAL_ERROR';
   const message = typeof value?.message === 'string' ? value.message : 'Command failed';
   // Details can include caller input or transport errors. Keep the public failure bounded.
-  return { schemaVersion: 1, commandId, ok: false, error: { code: redact(code, secrets).slice(0, 128), message: redact(message, secrets).slice(0, MAX_ERROR_MESSAGE) } };
+  return { schemaVersion, commandId, ok: false, error: { code: redact(code, secrets).slice(0, 128), message: redact(message, secrets).slice(0, MAX_ERROR_MESSAGE) } };
 }
 
 function commandId(value: unknown): string {
@@ -55,14 +57,17 @@ function commandId(value: unknown): string {
   return typeof id === 'string' && id.length <= 256 ? id : '';
 }
 
-function envelope(value: unknown): CommandEnvelope {
+function envelope(value: unknown): CommandEnvelope | SessionCommandEnvelope {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ProtocolError('INVALID_COMMAND', 'Expected a command object');
   const record = value as Record<string, unknown>;
-  if (record.schemaVersion !== 1) throw new ProtocolError('UNSUPPORTED_SCHEMA_VERSION', 'Expected schemaVersion 1');
+  if (record.schemaVersion !== 1 && record.schemaVersion !== 2) throw new ProtocolError('UNSUPPORTED_SCHEMA_VERSION', 'Expected schemaVersion 1 or 2');
   if (!commandId(value).trim()) throw new ProtocolError('INVALID_COMMAND', 'commandId must be a nonempty string of at most 256 characters');
-  if (typeof record.type !== 'string' || !COMMANDS.has(record.type)) throw new ProtocolError('UNKNOWN_COMMAND', 'Unknown command type');
+  if (typeof record.type !== 'string' || !(record.schemaVersion === 2 ? SESSION_COMMAND_TYPES.includes(record.type as SessionCommandEnvelope['type']) : COMMANDS.has(record.type))) {
+    if (record.schemaVersion === 2 && typeof record.type === 'string' && COMMANDS.has(record.type)) throw new ProtocolError('UNSUPPORTED_SCHEMA_VERSION', 'This command requires schemaVersion 1');
+    throw new ProtocolError('UNKNOWN_COMMAND', 'Unknown command type');
+  }
   if (!record.payload || typeof record.payload !== 'object' || Array.isArray(record.payload)) throw new ProtocolError('INVALID_COMMAND', 'payload must be an object');
-  return value as CommandEnvelope;
+  return value as CommandEnvelope | SessionCommandEnvelope;
 }
 
 interface PendingWrite { line: Buffer; resolve(): void; reject(error: Error): void }
@@ -164,7 +169,7 @@ export function runHarness(engine: HarnessEngine, options: HarnessOptions): Prom
   const maxSubscriptions = options.maxSubscriptions ?? 32;
   const shutdownTimeoutMs = options.shutdownTimeoutMs ?? 10_000;
   const commands = new Set<Promise<void>>();
-  const dispatches = new Set<Promise<CommandResult>>();
+  const dispatches = new Set<Promise<CommandResult | SessionCommandResult>>();
   const subscriptions = new Map<string, { abort: AbortController; task: Promise<void> }>();
   let normalCommands = 0;
   let controlCommands = 0;
@@ -200,30 +205,32 @@ export function runHarness(engine: HarnessEngine, options: HarnessOptions): Prom
     void stop('error', 1);
   });
 
-  async function sendError(id: string, error: unknown): Promise<void> {
-    try { await writer.send({ type: 'result', ...errorResult(id, error, secrets) }); }
+  async function sendError(id: string, error: unknown, schemaVersion: 1 | 2 = 1): Promise<void> {
+    try { await writer.send({ type: 'result', ...errorResult(id, error, secrets, schemaVersion) }); }
     catch (failure) { diagnose(failure); void stop('error', 1); }
   }
 
-  async function pumpSubscription(id: string, sessionId: string, afterSeq: number, abort: AbortController): Promise<void> {
+  async function pumpSubscription(id: string, sessionId: string, afterSeq: number, abort: AbortController, schemaVersion: 1 | 2): Promise<void> {
     try {
-      for await (const event of engine.subscribe(sessionId, afterSeq, abort.signal)) {
+      const events = schemaVersion === 2 ? engine.subscribeSession!(sessionId, afterSeq, abort.signal) : engine.subscribe(sessionId, afterSeq, abort.signal);
+      for await (const event of events) {
         if (abort.signal.aborted) break;
         await writer.send({ type: 'event', subscriptionId: id, event });
       }
     } catch (error) {
       if (!abort.signal.aborted) {
-        try { await writer.send({ type: 'subscription.error', subscriptionId: id, ...errorResult(id, error, secrets) }); }
+        try { await writer.send({ type: 'subscription.error', subscriptionId: id, ...errorResult(id, error, secrets, schemaVersion) }); }
         catch (failure) { diagnose(failure); void stop('error', 1); }
       }
     } finally { subscriptions.delete(id); }
   }
 
-  async function handle(command: CommandEnvelope): Promise<void> {
+  async function handle(command: CommandEnvelope | SessionCommandEnvelope): Promise<void> {
     const id = command.commandId;
     let subscription: { sessionId: string; afterSeq: number } | undefined;
     try {
-      if (command.type === 'events.subscribe') {
+      if (command.type === 'events.subscribe' || command.type === 'session.events') {
+        if (command.schemaVersion === 2 && !engine.subscribeSession) throw new ProtocolError('COMMAND_UNAVAILABLE', 'Session event streaming is unavailable');
         if (subscriptions.has(id)) throw new ProtocolError('DUPLICATE_SUBSCRIPTION', 'A subscription with this commandId is already active');
         if (subscriptions.size >= maxSubscriptions) throw new ProtocolError('SUBSCRIPTION_LIMIT', 'Too many active subscriptions');
         const { sessionId, afterSeq = 0 } = command.payload;
@@ -232,19 +239,20 @@ export function runHarness(engine: HarnessEngine, options: HarnessOptions): Prom
         // Reserve capacity before awaiting dispatch so concurrent subscriptions cannot bypass the cap.
         subscriptions.set(id, { abort: new AbortController(), task: Promise.resolve() });
       }
-      const dispatch = engine.dispatch(command);
+      if (command.schemaVersion === 2 && !engine.dispatchSession) throw new ProtocolError('COMMAND_UNAVAILABLE', 'Session commands are unavailable');
+      const dispatch = command.schemaVersion === 2 ? engine.dispatchSession!(command) : engine.dispatch(command);
       dispatches.add(dispatch);
-      let result: CommandResult;
+      let result: CommandResult | SessionCommandResult;
       try { result = await dispatch; }
       finally { dispatches.delete(dispatch); }
-      await writer.send({ ...(result.ok ? result : errorResult(id, result.error, secrets)), type: 'result' });
+      await writer.send({ ...(result.ok ? result : errorResult(id, result.error, secrets, command.schemaVersion)), type: 'result' });
       if (subscription) {
         const reservation = subscriptions.get(id);
         if (result.ok && !stopping && reservation) {
-          reservation.task = pumpSubscription(id, subscription.sessionId, subscription.afterSeq, reservation.abort);
+          reservation.task = pumpSubscription(id, subscription.sessionId, subscription.afterSeq, reservation.abort, command.schemaVersion);
         } else { reservation?.abort.abort(); subscriptions.delete(id); }
       }
-    } catch (error) { if (subscription) subscriptions.delete(id); await sendError(id, error); }
+    } catch (error) { if (subscription) subscriptions.delete(id); await sendError(id, error, command.schemaVersion); }
   }
 
   function schedule(task: Promise<void>): void {
@@ -267,7 +275,8 @@ export function runHarness(engine: HarnessEngine, options: HarnessOptions): Prom
     } catch (error) {
       // A malformed UTF-8 sequence is also a malformed JSON record.
       if (error instanceof TypeError) error = new ProtocolError('INVALID_JSON', 'Input must be valid UTF-8 JSON');
-      schedule(sendError(commandId(value), error));
+      const schemaVersion = value && typeof value === 'object' && (value as { schemaVersion?: unknown }).schemaVersion === 2 ? 2 : 1;
+      schedule(sendError(commandId(value), error, schemaVersion));
     }
   }
 

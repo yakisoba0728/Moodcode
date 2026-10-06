@@ -10,9 +10,9 @@ import {
 } from '@moodcode/contracts';
 import type { CommitChange, EngineStore } from '../ports.js';
 import { backupDatabase, inspectIntegrity, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './maintenance.js';
+import { databaseVersion, DB_VERSION, migrateDatabase } from './migrations.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 
-const DB_VERSION = 1;
 const PAGE_SIZE = 128;
 const MAX_PAGE_SIZE = 1_024;
 type DataRow = { data: string };
@@ -109,13 +109,10 @@ export class SqliteStore implements EngineStore {
         }
       }
       db = new DatabaseSync(path, { timeout: 1_000 });
-      const version = Number(db.prepare('PRAGMA user_version').get()?.user_version);
-      if (!Number.isInteger(version) || version < 0 || version > DB_VERSION) {
-        throw new EngineError('DB_VERSION_UNSUPPORTED', `Database version ${version} is unsupported (maximum ${DB_VERSION})`);
-      }
+      databaseVersion(db);
       // Inspect user_version before making any changes to a future-version database.
       db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL');
-      if (version === 0) this.migrate(db);
+      migrateDatabase(db);
       if (path !== ':memory:') assertSingleLink(path);
       this.db = db;
       this.ownership = ownership;
@@ -123,31 +120,6 @@ export class SqliteStore implements EngineStore {
       try { db?.close(); } finally { ownership?.close(); }
       throw error;
     }
-  }
-
-  private migrate(db: DatabaseSync): void {
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      db.exec(`
-        CREATE TABLE workspaces (id TEXT PRIMARY KEY, root TEXT NOT NULL UNIQUE, data TEXT NOT NULL) STRICT;
-        CREATE TABLE sessions (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), last_seq INTEGER NOT NULL DEFAULT 0 CHECK(last_seq >= 0), data TEXT NOT NULL) STRICT;
-        CREATE TABLE inputs (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), request_id TEXT NOT NULL, fingerprint TEXT NOT NULL, admitted_seq INTEGER NOT NULL, data TEXT NOT NULL, UNIQUE(session_id, request_id)) STRICT;
-        CREATE TABLE runs (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, input_id TEXT NOT NULL UNIQUE REFERENCES inputs(id), session_id TEXT NOT NULL REFERENCES sessions(id), workspace_id TEXT NOT NULL REFERENCES workspaces(id), state TEXT NOT NULL CHECK(state IN (${ACTIVE_STATES},'completed','cancelled','failed','interrupted')), data TEXT NOT NULL) STRICT;
-        CREATE UNIQUE INDEX one_active_run_per_workspace ON runs(workspace_id) WHERE state IN (${ACTIVE_STATES});
-        CREATE TABLE messages (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id), data TEXT NOT NULL) STRICT;
-        CREATE TABLE tools (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id), state TEXT NOT NULL, data TEXT NOT NULL) STRICT;
-        CREATE TABLE approvals (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id), tool_call_id TEXT NOT NULL REFERENCES tools(id), status TEXT NOT NULL, data TEXT NOT NULL) STRICT;
-        CREATE TABLE checkpoints (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, run_id TEXT NOT NULL REFERENCES runs(id), tool_call_id TEXT NOT NULL REFERENCES tools(id), data TEXT NOT NULL) STRICT;
-        CREATE TABLE events (session_id TEXT NOT NULL REFERENCES sessions(id), seq INTEGER NOT NULL CHECK(seq > 0), event_id TEXT NOT NULL UNIQUE, run_id TEXT NOT NULL REFERENCES runs(id), type TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(session_id, seq)) STRICT;
-        CREATE INDEX runs_session ON runs(session_id, ordinal);
-        CREATE INDEX messages_session ON messages(session_id, ordinal);
-        CREATE INDEX tools_session ON tools(session_id, ordinal);
-        CREATE INDEX approvals_session ON approvals(session_id, ordinal);
-        CREATE INDEX checkpoints_run ON checkpoints(run_id, ordinal);
-        PRAGMA user_version=1;
-      `);
-      db.exec('COMMIT');
-    } catch (error) { try { db.exec('ROLLBACK'); } catch { /* SQLite may already have rolled back. */ } throw error; }
   }
 
   private assertOpen(): void {

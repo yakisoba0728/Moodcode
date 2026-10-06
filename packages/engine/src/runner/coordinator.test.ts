@@ -13,6 +13,7 @@ import type {
   ToolResult, TurnRequest,
 } from '../ports.js';
 import { RunCoordinator } from './index.js';
+import { normalizeEngineBudgets } from '@moodcode/contracts/validation';
 
 const now = (): string => new Date().toISOString();
 const copy = <T>(value: T): T => structuredClone(value);
@@ -235,6 +236,35 @@ function fixture(provider: FakeProvider, tools: ToolDefinition[] = [], buildCont
 const finish = { type: 'finish', reason: 'stop' } as const;
 const call = (id: string, name: string): ProviderEvent => ({ type: 'tool.call', call: { id, name, input: {} } });
 const finishTools = { type: 'finish', reason: 'tool_calls' } as const;
+
+test('explicit turn allowance stops continuation while the Run absolute limit remains larger', async () => {
+  const provider = scripted([[call('c1', 'read_file'), finishTools], [finish]]);
+  const { runner, input } = fixture(provider, [tool('read_file', false, async () => ({ content: 'observation' }))]);
+  try {
+    const request = input('build', { maxTurns: 4 });
+    request.config.budgets = normalizeEngineBudgets({ turnAllowance: 1 });
+    const receipt = runner.submit(request);
+    const run = await runner.waitForRun(receipt.runId);
+    assert.equal(run.state, 'failed');
+    assert.equal(run.error?.code, 'TURN_ALLOWANCE');
+    assert.equal(provider.requests.length, 1);
+  } finally { await runner.close(); }
+});
+
+test('per-turn tool allowance refuses an entire oversized batch before any tool effect', async () => {
+  const provider = scripted([[call('c1', 'read_file'), call('c2', 'read_file'), finishTools], [finish]]);
+  let executions = 0;
+  const { runner, input, store } = fixture(provider, [tool('read_file', false, async () => { executions++; return { content: 'observation' }; })]);
+  try {
+    const request = input('build', { maxToolCalls: 9 });
+    request.config.budgets = normalizeEngineBudgets({ maxToolCallsPerTurn: 1 });
+    const receipt = runner.submit(request);
+    const run = await runner.waitForRun(receipt.runId);
+    assert.equal(run.error?.code, 'TURN_TOOL_LIMIT');
+    assert.equal(executions, 0);
+    assert.equal(store.toolRows.size, 0);
+  } finally { await runner.close(); }
+});
 
 test('duplicate admission reuses both an active and completed run without calling the provider twice', { timeout: 5_000 }, async () => {
   const release = deferred<void>();
