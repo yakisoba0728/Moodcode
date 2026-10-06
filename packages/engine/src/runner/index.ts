@@ -597,7 +597,7 @@ export class RunCoordinator implements CoordinatorPort {
     const tools = [...(owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema })))];
     let iterator: AsyncIterator<ProviderEvent> | undefined;
     try {
-      iterator = owner.turn!.stream(provider, { runId: owner.run.id, turnIndex, modelId: owner.run.config.modelId, messages: structuredClone(messages), tools,
+      iterator = owner.turn!.stream(provider, { runId: owner.run.id, sessionId: owner.run.sessionId, turnIndex, modelId: owner.run.config.modelId, messages: structuredClone(messages), tools,
         ...(owner.run.config.reasoningEffort !== undefined ? { reasoningEffort: owner.run.config.reasoningEffort } : {}),
       }, owner.abort.signal)[Symbol.asyncIterator]();
       while (true) {
@@ -642,6 +642,13 @@ export class RunCoordinator implements CoordinatorPort {
             }
             if (event.cachedInputTokens !== undefined && event.inputTokens !== undefined && event.cachedInputTokens > event.inputTokens || event.reasoningOutputTokens !== undefined && event.outputTokens !== undefined && event.reasoningOutputTokens > event.outputTokens) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider usage details exceed inclusive totals');
             // Missing usage remains absent; a zero count is a supplied value.
+            if (owner.turn?.attemptId && owner.turn.records?.putAttemptUsage) {
+              const { inputTokens, outputTokens, cachedInputTokens, reasoningOutputTokens } = event;
+              owner.turn.records.putAttemptUsage(owner.turn.attemptId, {
+                ...(inputTokens === undefined ? {} : { inputTokens }), ...(outputTokens === undefined ? {} : { outputTokens }),
+                ...(cachedInputTokens === undefined ? {} : { cachedInputTokens }), ...(reasoningOutputTokens === undefined ? {} : { reasoningOutputTokens }),
+              });
+            }
             this.options.store.commit(owner.run.id, 'run.usage', usage);
             break;
           }

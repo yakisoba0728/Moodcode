@@ -3,6 +3,7 @@ import { createCodexCredentialReader, type CodexAuthOptions } from '../auth/code
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 import { positiveLimit } from './helpers.js';
 import { ResponsesProvider, type ResponsesProviderOptions } from './responses.js';
+import { providerImages } from '../media/provider.js';
 
 // Existing Codex ChatGPT credentials are scoped to this native Codex route.
 // They are not the new Sign in with ChatGPT direct-API grant.
@@ -27,6 +28,7 @@ function invalidConfiguration(): never {
 export class CodexProvider implements ProviderAdapter {
   readonly id = 'codex';
   readonly replayProtocol = 'codex-responses';
+  readonly inputModalities = Object.freeze(['text', 'image'] as const);
   #reader: ReturnType<typeof createCodexCredentialReader>;
   #fetch: typeof globalThis.fetch;
   #options: Pick<CodexProviderOptions, 'timeoutMs' | 'maxFrameBytes' | 'maxResponseBytes' | 'maxRequestBytes' | 'maxToolArgumentBytes' | 'maxToolCalls' | 'maxOutputItems'>;
@@ -51,6 +53,9 @@ export class CodexProvider implements ProviderAdapter {
   }
 
   async *streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+    if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
+    // Invalid media must fail before any host credential source is consulted.
+    providerImages(request, true, signal);
     const provider = await this.#reader.use(signal, credential => {
       const transport: typeof fetch = async (url, init) => {
         if (String(url) !== ENDPOINT || init?.method !== 'POST' || typeof init.body !== 'string' || init.redirect !== 'error') invalidConfiguration();

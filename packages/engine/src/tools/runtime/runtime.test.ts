@@ -11,6 +11,18 @@ const code = (expected: string) => (e: unknown) => { assert.equal((e as { code: 
 function context(): ToolContext { return { workspace: { id: 'w', root: '/workspace', gitRoot: '/workspace', branch: null, createdAt: new Date().toISOString() }, sessionId: 's', runId: 'r', toolCallId: 'call', turnId: 'turn', attemptId: 'attempt', signal: new AbortController().signal, limits: { ...DEFAULT_LIMITS }, artifactDir: '/artifacts', recordCheckpoint() {} }; }
 function tool(name = 'custom', requiresApproval = false): ToolDefinition & { calls: number } { const source = { name, description: 'test', inputSchema: { type: 'object' }, calls: 0, async prepare(input: unknown) { return { name, input: input as never, fingerprint: 'inner-hash', requiresApproval, preview: { action: name } }; }, async execute() { source.calls++; return { content: 'full result', data: { value: 1 } }; } }; return source; }
 function approval(status: ApprovalRecord['status'] = 'allowed'): ApprovalPort { return { async request(input) { return { id: 'approval', ...input, status, createdAt: new Date().toISOString() }; }, decide() { throw new Error('unused'); }, cancelRun() {} }; }
+test('exact approval cannot be skipped by configured allow or a valid reusable grant', async () => {
+  const policy = new ToolPolicy([{ tool: 'delegate_task', decision: 'allow' }]);
+  const runtime = new ScopedToolRuntime({ policy }), source = tool('delegate_task', true);
+  runtime.register('scope', source, { effect: 'execute', exactApproval: true, revalidate: async () => {} });
+  const grant = runtime.grants.issue({ workspaceId: 'w', sessionId: 's', toolName: source.name, effect: 'execute', policyVersion: policy.version, ttlMs: 1000 });
+  const ctx = context(), delegate = runtime.delegate('scope', source.name);
+  const denied = await delegate.prepare({}, ctx); assert.equal(denied.requiresApproval, true);
+  await assert.rejects(runtime.executeApproved(denied, ctx, approval('denied')), code('TOOL_APPROVAL_DENIED')); assert.equal(source.calls, 0);
+  await runtime.executeApproved(await delegate.prepare({}, ctx), ctx, approval()); assert.equal(source.calls, 1);
+  assert.ok(runtime.grants.find(grant, policy.version));
+  policy.replace([{ tool: source.name, decision: 'deny' }]); assert.equal(runtime.catalogue('scope').tools.length, 0);
+});
 test('catalogue captures schemas and function registrations and rejects stale or copied handles', () => {
   const runtime = new ScopedToolRuntime(); const source = tool('read_file'); const dispose = runtime.register('scope', source); const first = runtime.catalogue('scope'); source.inputSchema.type = 'array'; source.execute = async () => ({ content: 'changed' }); assert.equal(first.tools[0]?.inputSchema.type, 'object'); assert.throws(() => runtime.resolve(structuredClone(first), 'read_file'), code('TOOL_CATALOGUE_STALE')); const registered = runtime.resolve(first, 'read_file'); assert.equal(registered.effectClass, 'read'); dispose(); assert.throws(() => runtime.resolve(first, 'read_file'), code('TOOL_CATALOGUE_STALE')); dispose();
 });

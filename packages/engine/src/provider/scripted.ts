@@ -1,4 +1,5 @@
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
+import { providerImages } from '../media/provider.js';
 
 export interface ScriptedTurn {
   events: ProviderEvent[];
@@ -53,6 +54,7 @@ function echo(prompt: string | undefined): string {
 /** A deterministic, local provider for harness runs and failure scenarios. */
 export class ScriptedProvider implements ProviderAdapter {
   readonly id = 'scripted';
+  readonly inputModalities = Object.freeze(['text'] as const);
   readonly #turns: ScriptedTurn[];
   #callCount = 0;
 
@@ -80,6 +82,7 @@ export class ScriptedProvider implements ProviderAdapter {
 
   async *#stream(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
     checkCancellation(signal);
+    providerImages(request, false, signal);
     if (!Number.isSafeInteger(request.turnIndex) || request.turnIndex < 0) {
       throw new RangeError('Scripted provider turnIndex must be a non-negative safe integer.');
     }

@@ -14,6 +14,8 @@ import { DB_VERSION } from './migrations.js';
 import { exportEngineArchive, importEngineArchive, validateEngineArchive } from './archive.js';
 import { restoreV1Fixture } from './fixtures/v1-fixture.js';
 import { V1_DATABASE_FIXTURE } from './fixtures/v1-database.js';
+import { ImageAttachmentStore } from '../media/store.js';
+import { png } from '../media/fixtures.js';
 
 const code = (value: string) => (error: unknown) => error instanceof EngineError && error.code === value;
 function fixture(t: TestContext) {
@@ -25,6 +27,21 @@ function fixture(t: TestContext) {
   return { directory, dbPath, artifactDir, destination, stores, source: { dbPath, artifactDir, destination } };
 }
 const rows = (path: string, table: string) => { const db = new DatabaseSync(path, { readOnly: true }); try { return db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(); } finally { db.close(); } };
+test('input image bytes and owner metadata survive offline archive without rebinding session ownership',async t=>{
+  const f=fixture(t),store=new SqliteStore(f.dbPath);f.stores.push(store);
+  const run=store.getRun(V1_DATABASE_FIXTURE.ids.activeRunId);
+  const media=new ImageAttachmentStore({directory:join(f.artifactDir,'input-media'),documents:store});
+  const bytes=png(),ref=await media.import(run.sessionId,bytes,'image/png');
+  store.createSession({id:'other-image-session',workspaceId:run.workspaceId,title:'Other',createdAt:new Date().toISOString()});
+  store.close();
+  const archive=await exportEngineArchive(f.source);
+  assert.ok(archive.manifest.artifacts.some(file=>file.file===`artifacts/input-media/${ref.id}.blob`));
+  const imported=await importEngineArchive({directory:f.destination,destination:join(f.directory,'imported-images')});
+  const restored=new SqliteStore(imported.dbPath);f.stores.push(restored);
+  const resolved=new ImageAttachmentStore({directory:join(imported.artifactDir,'input-media'),documents:restored});
+  assert.deepEqual(Buffer.from((await resolved.resolve(run.sessionId,[ref]))[0]!.data,'base64'),bytes);
+  await assert.rejects(resolved.resolve('other-image-session',[ref]),code('RECORD_SCOPE_MISMATCH'));
+});
 async function killAtBoundary(t: TestContext, f: ReturnType<typeof fixture>, mode: 'export' | 'import', source: string, destination: string, phase: 'staging' | 'publish'): Promise<void> {
   const scratch = join(f.directory, `scratch-${mode}`); mkdirSync(scratch);
   const sourceMode = import.meta.url.endsWith('.ts');
@@ -92,6 +109,7 @@ test('native inbox, dispatched attempts, durable Part prefixes and stopped effec
   store.putTurn(turn);
   const attempt = { schemaVersion: 2 as const, id: 'archive-attempt', sessionId: run.sessionId, runId: run.id, turnId: turn.id, index: 0, providerId: run.config.providerId, modelId: run.config.modelId, state: 'prepared' as const, createdAt: now };
   store.putAttempt(attempt); store.putAttempt({ ...attempt, state: 'dispatched', dispatchedAt: now });
+  const usage=store.putAttemptUsage(attempt.id,{inputTokens:23,outputTokens:2});
   store.putPart({ schemaVersion: 2, id: 'archive-part', sessionId: run.sessionId, runId: run.id, turnId: turn.id, messageId: 'archive-message', index: 0, revision: 0, state: 'open', type: 'text', text: 'durable prefix', createdAt: now });
   const nativeEvents = store.readSessionEvents(run.sessionId, 0); store.close();
   const effect = new DatabaseSync(f.dbPath + '.effects.sqlite');
@@ -104,6 +122,7 @@ test('native inbox, dispatched attempts, durable Part prefixes and stopped effec
   const restored = new SqliteStore(imported.dbPath); f.stores.push(restored);
   assert.equal(restored.getInput(accepted.inputId).state, 'pending');
   assert.equal(restored.getAttempt(attempt.id).state, 'dispatched');
+  assert.deepEqual(restored.putAttemptUsage(attempt.id,{inputTokens:23}),usage);
   assert.equal(restored.listParts(turn.id)[0]?.type, 'text');
   assert.deepEqual(restored.readSessionEvents(run.sessionId, 0).slice(0, nativeEvents.length), nativeEvents);
   assert.deepEqual(rows(imported.dbPath + '.effects.sqlite', 'command_execution'), originalEffect);

@@ -1,4 +1,4 @@
-import type { JsonObject, JsonValue, Run, RunConfig, RunReceipt } from './index.js';
+import type { InputImageAttachment, JsonObject, JsonValue, Run, RunConfig, RunReceipt } from './index.js';
 
 /** Independent session journal; existing v1 commands, event sequence and Run stay valid. */
 export const SESSION_SCHEMA_VERSION = 2 as const;
@@ -26,7 +26,7 @@ export const DEFAULT_ENGINE_BUDGETS: Readonly<EngineBudgets> = Object.freeze({
 });
 export type InputDelivery = 'queue' | 'steer';
 export type InputState = 'pending' | 'promoted' | 'cancelled';
-export interface AcceptInput { sessionId: string; requestId: string; prompt: string; config: RunConfig; delivery: InputDelivery }
+export interface AcceptInput { sessionId: string; requestId: string; prompt: string; config: RunConfig; delivery: InputDelivery; attachments?: InputImageAttachment[] }
 export interface InputRecord extends AcceptInput {
   schemaVersion: typeof SESSION_SCHEMA_VERSION;
   id: string;
@@ -66,6 +66,9 @@ export interface ProviderAttempt {
   providerId: string; modelId: string; state: AttemptState; createdAt: string;
   dispatchedAt?: string; completedAt?: string; providerRequestId?: string; contextRevisionId?: string; uncertainty?: ExecutionUncertainty;
 }
+/** Provider observations are inclusive totals; cached/reasoning fields are subsets. */
+export interface ProviderUsageSnapshot { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; reasoningOutputTokens?: number }
+export interface AttemptUsageRecord { attemptId: string; sessionId: string; runId: string; turnId: string; revision: number; usage: ProviderUsageSnapshot; observedAt: string }
 export interface ToolCallIdentity { id: string; sessionId: string; runId: string; turnId: string; attemptId: string; providerCallId: string }
 export interface ArtifactIdentity { sessionId: string; runId: string; toolCallId: string; turnId?: string; attemptId?: string }
 export interface ArtifactReference {

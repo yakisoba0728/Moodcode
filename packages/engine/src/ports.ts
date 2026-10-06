@@ -41,17 +41,19 @@ export interface ExecutionRecordStore {
   listTurns(runId: string): TurnRecord[];
   putAttempt(attempt: ProviderAttempt): ProviderAttempt;
   getAttempt(id: string): ProviderAttempt;
+  putAttemptUsage?(attemptId: string, usage: import('@moodcode/contracts').ProviderUsageSnapshot): import('@moodcode/contracts').AttemptUsageRecord;
   putPart(part: MessagePart): MessagePart;
   listParts(turnId: string): MessagePart[];
   putContextRevision(revision: ContextRevision): ContextRevision;
   getContextRevision(id: string): ContextRevision;
 }
 export interface SessionEngineStore extends EngineStore, SessionInboxPort, ExecutionRecordStore {}
-export interface ProviderMessage { role: 'system' | 'user' | 'assistant' | 'tool'; content: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay }
+export interface ResolvedInputImage { attachment: import('@moodcode/contracts').InputImageAttachment; data: string }
+export interface ProviderMessage { role: 'system' | 'user' | 'assistant' | 'tool'; content: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay; attachments?: import('@moodcode/contracts').InputImageAttachment[] }
 export interface ProviderTool { name: string; description: string; inputSchema: JsonObject }
-export interface TurnRequest { runId: string; turnIndex: number; modelId: string; messages: ProviderMessage[]; tools: ProviderTool[]; reasoningEffort?: import('@moodcode/contracts').ReasoningEffort; turnId?: string; attemptId?: string; includeMetadata?: boolean }
+export interface TurnRequest { runId: string; turnIndex: number; modelId: string; messages: ProviderMessage[]; tools: ProviderTool[]; reasoningEffort?: import('@moodcode/contracts').ReasoningEffort; turnId?: string; attemptId?: string; includeMetadata?: boolean; sessionId?: string; resolvedImages?: ResolvedInputImage[] }
 export type ProviderEvent = { type: 'text.delta'; delta: string } | { type: 'progress'; providerRequestId?: string } | { type: 'reasoning.delta'; delta: string } | { type: 'media'; mime: string; name?: string; artifact: import('@moodcode/contracts').ArtifactReference } | { type: 'tool.call'; call: ProviderToolCall } | { type: 'usage'; inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; reasoningOutputTokens?: number } | { type: 'finish'; reason: 'stop' | 'tool_calls' | 'length'; replayItems?: JsonObject[] };
-export interface ProviderAdapter { readonly id: string; readonly replayProtocol?: string; readonly retryableHttpStatuses?: readonly number[]; streamTurn(request: TurnRequest, signal: AbortSignal): AsyncIterable<ProviderEvent> }
+export interface ProviderAdapter { readonly id: string; readonly replayProtocol?: string; readonly retryableHttpStatuses?: readonly number[]; readonly inputModalities?: readonly ('text' | 'image')[]; streamTurn(request: TurnRequest, signal: AbortSignal): AsyncIterable<ProviderEvent> }
 export interface ToolContext { workspace: Workspace; sessionId: string; runId: string; toolCallId: string; signal: AbortSignal; limits: RunLimits; artifactDir: string; executionLockPath?: string; recordCheckpoint(checkpoint: Checkpoint): void; budgets?: EngineBudgets; turnId?: string; attemptId?: string }
 export interface PreparedTool { name: string; input: JsonValue; fingerprint: string; requiresApproval: boolean; preview: JsonObject; data?: JsonValue }
 export interface ToolResult { content: string; isError?: boolean; data?: JsonValue; artifacts?: { path: string; bytes: number; truncated: boolean }[]; structuredResult?: ToolResultEnvelope }

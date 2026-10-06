@@ -18,4 +18,12 @@ dispatch 전 starting 기록을 저장하고 worktree ownership을 child ID로 c
 
 `engine.createWorktree` 및 nested `prepareChildWorktree`는 부모 Run 시작 전에 maintenance lease 안에서 수행한다. 살아 있는 root Run 동안 준비할 수 없다. `engine.startChildTask`는 살아 있는 실제 부모 Run에만 연결되며 준비된 worktree를 요구한다. child 상태·wait/deliver는 `engine.children.tasks`, 승인은 `children.approvals/decide`로 연결한다. 부모 waitForRun의 반환만으로 child cleanup 완료를 가정하지 않고 task wait 또는 engine.close를 기다린다. `EngineChildren`의 종료 grace는 7초이며 미확정 cleanup은 owner를 유지한다. 재시작 후 host는 `children.recover(sessionId)`를 호출하고 실제 실행을 자동 재개하지 않는다.
 
+`createDelegateTaskTool(children.delegationHost(engineEffectLockPath))`는 Build 전용 모델 도구 `delegate_task`다. 호스트는 runtime에 `exactApproval:true`로 등록하고 grant revalidation을 적용하지 않는다. prepare는 requestId·32 KiB 이하 prompt·네 종류의 allocation·부모 HEAD commit·profile/권한 identity·명시적 읽기 도구를 고정한다. 기본 도구는 list_files/read_file/search_files/glob_files/regex_search 중 부모의 실제 읽기 핸들러 교집합이다. provider/model/효과 도구/중첩 모델 위임 override는 받지 않는다. 현재 남은 시간·예산은 승인 지문에 포함하지 않으며 실제 dispatch 직전에 재검사한다.
+
+이 모델 경로는 부모의 serial tool 실행과 실제 session/run/toolCall 레코드 및 allowed approval에 속한 effect lock에서만 detached worktree를 준비한다. 기존 maintenance API의 lease를 우회하는 일반 호스트 기능이 아니다. Git hook·filter·fsmonitor·자동 maintenance/gc·lazy fetch를 제한하는 safeCheckout을 사용하고 해석하지 못한 설정은 거부한다. sourceRoot/lock identity·HEAD·profile·read catalogue를 승인 후 다시 확인한다. Git metadata의 준비 기록이나 cleanup 관찰이 불확실하면 원래 active marker와 관리 경로를 보존한다. 기존 다른 command marker를 덮어쓰거나 해제하지 않는다.
+
+자식은 pinned commit snapshot에서 실행하므로 부모의 미커밋 파일은 포함하지 않는다. 같은 부모/requestId의 정확한 재요청은 기존 worktree와 child task를 join하고 이미 예약한 allocation을 다시 차감하지 않는다. 현재 invocation의 tool timeout·부모 취소와 child deadline이 실제 child engine에 연결된다. 완료는 8 KiB 이하의 도구 관측 결과이며 journal summary 자체는 4 KiB 이하다. `deliver`·새 input·자동 queue promotion·파일 병합·Git commit은 실행하지 않는다. 프로그램 API의 효과를 허용한 자식은 계속 자신의 독립 승인을 요구한다. worktree와 Git 옵션은 OS filesystem sandbox를 대체하지 않는다.
+
+공개 행동 비교와 근거는 [2026-10-07 delegation 연구](../../../../docs/moodcode/research/2026-10-07-delegation.md)에 있다. 새 fixture는 실제 temporary Git/별도 child engine에서 모델 위임 승인, 잘못된 fingerprint/owner, exhausted-budget exact retry, pinned dirty-source 분리, parent 취소, HEAD 변경, 기존 effect marker 보존과 실제 hook/filter 미실행을 확인한다.
+
 검증은 manager의 실제 worktree·취소·dispatch/receipt·복구 경계와 기본 엔진의 parent/child/grandchild 5개, 승인한 direct/nested merge 3개 fixture를 포함한다. 각 child는 실제 독립 engine을 사용하며 예산 debit·프로파일·공유 deny 정책·취소 cleanup·중복 input·원본 Git HEAD 불변을 확인한다. 이 fixture는 실제 외부 provider 호출을 하지 않는다.

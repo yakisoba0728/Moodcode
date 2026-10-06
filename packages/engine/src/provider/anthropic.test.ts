@@ -79,9 +79,9 @@ test('defaults are explicit model/text API with no credential discovery or silen
   await collect(new AnthropicProvider({ fetch: async (endpoint, options) => { url = String(endpoint); init = options!; return new Response(wire(textStream()), { headers: { 'Content-Type': 'text/event-stream' } }); } }));
   assert.equal(url, 'https://api.anthropic.com/v1/messages'); assert.equal(init.redirect, 'error'); assert.equal(new Headers(init.headers).get('x-api-key'), null);
   assert.equal(JSON.parse(String(init.body)).tools, undefined);
-  assert.deepEqual(ANTHROPIC_PROVIDER_CAPABILITIES.inputModalities, ['text']); assert.equal(ANTHROPIC_PROVIDER_CAPABILITIES.media, false);
+  assert.deepEqual(ANTHROPIC_PROVIDER_CAPABILITIES.inputModalities, ['text', 'image']); assert.equal(ANTHROPIC_PROVIDER_CAPABILITIES.media, false);
   const spec = anthropicModelSpec('fixture-explicit-model', { observedAt: '2026-10-07T00:00:00Z' });
-  assert.equal(spec.contextWindow, null); assert.equal(spec.maxOutputTokens, null); assert.equal(spec.source.kind, 'host'); assert.deepEqual(spec.modalities, ['text']);
+  assert.equal(spec.contextWindow, null); assert.equal(spec.maxOutputTokens, null); assert.equal(spec.source.kind, 'host'); assert.deepEqual(spec.modalities, ['text', 'image']);
   assert.equal(anthropicModelSpec('fixture', { thinking: 'disabled' }).reasoning, false);
 });
 

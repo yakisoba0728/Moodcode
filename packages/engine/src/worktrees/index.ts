@@ -8,6 +8,7 @@ import {
 } from "@moodcode/contracts";
 import type { GrantDocumentPort } from "../permission/grants.js";
 import { runGit } from "../workspace/git.js";
+import { safeCheckoutArguments } from "./safe-checkout.js";
 export type WorktreeState =
   | "creating"
   | "booting"
@@ -34,12 +35,15 @@ export interface ManagedWorktree {
   inode?: string;
   ownerId?: string;
   errorCode?: string;
+  relocation?: { archiveId: string; manifestSha256: string; originalRoot: string; ownershipVerified: false };
 }
 export interface WorktreeCreate {
   sessionId: string;
   requestId: string;
   workspace: Workspace;
   reference?: string;
+  /** Delegation-only checkout: disable hooks, filters, lazy fetch and automatic helpers. */
+  safeCheckout?: boolean;
 }
 export interface WorktreeManagerOptions {
   directory: string;
@@ -306,6 +310,7 @@ export class WorktreeManager {
       !input.requestId ||
       Buffer.byteLength(input.requestId) > 128 ||
       !input.workspace?.id ||
+      (input.safeCheckout !== undefined && typeof input.safeCheckout !== "boolean") ||
       signal.aborted
     )
       throw new EngineError(
@@ -334,6 +339,7 @@ export class WorktreeManager {
           workspaceId: input.workspace.id,
           root: input.workspace.root,
           reference,
+          ...(input.safeCheckout ? { safeCheckout: true } : {}),
         }),
       )
       .digest("hex");
@@ -349,9 +355,10 @@ export class WorktreeManager {
       return prior;
     }
     await safeDirectory(this.directory);
+    const checkoutArgs = input.safeCheckout ? await safeCheckoutArguments(root, signal) : [];
     const resolved = await runGit(
       root,
-      ["rev-parse", "--verify", "--end-of-options", `${reference}^{commit}`],
+      [...checkoutArgs, "rev-parse", "--verify", "--end-of-options", `${reference}^{commit}`],
       { signal },
     );
     if (resolved.code !== 0)
@@ -410,7 +417,7 @@ export class WorktreeManager {
       gitAttempted = true;
       const added = await runGit(
         root,
-        ["worktree", "add", "--detach", record.root, baseCommit],
+        [...checkoutArgs, "worktree", "add", "--detach", record.root, baseCommit],
         { signal, timeoutMs: 60_000 },
       );
       if (added.code !== 0)
@@ -491,6 +498,7 @@ export class WorktreeManager {
     signal: AbortSignal,
   ): Promise<Workspace> {
     const owned = this.get(record.sessionId, record.id);
+    if (owned.relocation) throw new EngineError('WORKTREE_RELOCATION_UNVERIFIED', 'Archived worktree files are historical data; ownership and Git registration have not been rebound');
     if (
       [
         "root",

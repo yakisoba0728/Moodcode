@@ -2,6 +2,8 @@ import { EngineError, type ProviderToolCall } from '@moodcode/contracts';
 import type { ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
 import { malformed, optionalString, positiveLimit, providerHttpFailure, providerRemoteError, publicError, record, redactJson, redactText, TextRedactor } from './helpers.js';
 import { readSseData } from './sse.js';
+import { messageImages, providerImages } from '../media/provider.js';
+import type { ResolvedInputImage } from '../ports.js';
 
 export interface OpenAICompatibleProviderOptions {
   /** API prefix, such as https://api.openai.com/v1 or a local fixture URL. */
@@ -50,8 +52,13 @@ function usageEvent(value: unknown, includeMetadata = false): Usage {
   return event;
 }
 
-function messageBody(message: ProviderMessage): Record<string, unknown> {
+function messageBody(message: ProviderMessage, images: ReadonlyMap<string, ResolvedInputImage>): Record<string, unknown> {
   const result: Record<string, unknown> = { role: message.role, content: message.content };
+  const media = messageImages(message, images);
+  if (media.length) result.content = [
+    ...media.map(image => ({ type: 'image_url', image_url: { url: `data:${image.attachment.mimeType};base64,${image.data}`, detail: 'auto' } })),
+    ...(message.content ? [{ type: 'text', text: message.content }] : []),
+  ];
   if (message.role === 'assistant' && message.toolCalls?.length) {
     result.tool_calls = message.toolCalls.map(call => ({ id: call.id, type: 'function', function: { name: call.name, arguments: JSON.stringify(call.input) } }));
   }
@@ -65,6 +72,7 @@ function messageBody(message: ProviderMessage): Record<string, unknown> {
 /** One HTTP/SSE turn. Tool execution, retries and the agent loop belong to the runner. */
 export class OpenAICompatibleProvider implements ProviderAdapter {
   readonly id: string;
+  readonly inputModalities = Object.freeze(['text', 'image'] as const);
   #endpoint: string;
   #apiKey: string | undefined;
   #fetch: typeof globalThis.fetch;
@@ -99,14 +107,15 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
     let serialized: string;
     try {
       if (typeof request.modelId !== 'string' || !request.modelId.trim()) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider requires an explicit model identifier.');
+      const images = providerImages(request, true, signal);
       serialized = JSON.stringify({
         model: request.modelId,
-        messages: request.messages.map(messageBody),
+        messages: request.messages.map(message => messageBody(message, images)),
         ...(request.tools.length === 0 ? {} : { tools: request.tools.map(tool => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.inputSchema } })) }),
         n: 1, stream: true, stream_options: { include_usage: true },
       });
     } catch (error) {
-      if (error instanceof EngineError && error.code === 'PROVIDER_INVALID_REQUEST') throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider request is invalid.');
+      if (error instanceof EngineError && ['PROVIDER_INVALID_REQUEST', 'PROVIDER_LIMIT_EXCEEDED', 'PROVIDER_CANCELLED'].includes(error.code)) throw publicError(error);
       throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider request could not be encoded.');
     }
     if (Buffer.byteLength(serialized, 'utf8') > this.#limits.maxRequestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');
@@ -152,6 +161,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
         const choice = record(chunk.choices[0]);
         if (choice.index !== 0) malformed();
         const delta = record(choice.delta);
+        if (['audio', 'image', 'images', 'video'].some(key => delta[key] !== undefined && delta[key] !== null)) throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Provider returned unsupported media output.');
         if (delta.role !== undefined && delta.role !== null && delta.role !== 'assistant') malformed();
         if (delta.function_call !== undefined && delta.function_call !== null) throw new EngineError('PROVIDER_UNSUPPORTED_FINISH_REASON', 'Provider returned a deprecated function call.');
         for (const value of [delta.content, delta.refusal]) {

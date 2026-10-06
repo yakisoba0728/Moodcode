@@ -9,13 +9,16 @@ import {
   type Message, type Run, type RunReceipt, type RunState, type Session,
   type SessionSnapshot, type SessionControl, type SessionEventV2, type SessionHistoryPage, type SessionMetrics, type SubmitInput, type ToolCallRecord, type TurnRecord, type Workspace,
 } from '@moodcode/contracts';
+import { normalizeImageAttachments } from '@moodcode/contracts/validation';
 import type { CommitChange, SessionEngineStore } from '../ports.js';
 import { backupDatabase, inspectIntegrity, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './maintenance.js';
 import { databaseVersion, DB_VERSION, migrateDatabase } from './migrations.js';
-import { NativeSessionStorage, type StoredInputPromotion } from './native.js';
+import { NativeSessionStorage, type ExistingInputReceipt, type StoredInputPromotion } from './native.js';
 import { NativeExecutionStorage, type PartPage, type SessionDocument, type TurnPage } from './native-records.js';
 import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPage } from './history-search.js';
 import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js';
+import { readActiveHistoryWindow, type ActiveHistoryWindow } from './native-history.js';
+import { putAttemptUsage, type AttemptUsageRecord, type AttemptUsageSnapshot } from './native-usage.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 
@@ -29,6 +32,7 @@ export interface ModelHistoryPage {
   omittedRuns: number;
   omittedMessages: number;
   beforeRunId: string | null;
+  activeWindow?: ActiveHistoryWindow;
 }
 const TRANSITIONS: Record<RunState, readonly RunState[]> = {
   created: ['running', 'cancelling', 'cancelled', 'failed', 'interrupted'],
@@ -228,21 +232,26 @@ export class SqliteStore implements SessionEngineStore {
         id: randomUUID(), inputId, sessionId: session.id, workspaceId: session.workspaceId,
         requestId: input.requestId, prompt: input.prompt, config: input.config,
         state: 'created', createdAt: timestamp, updatedAt: timestamp,
+        ...(input.attachments === undefined ? {} : { attachments: normalizeImageAttachments(input.attachments) }),
       };
       this.db.prepare('INSERT INTO inputs(id,session_id,request_id,fingerprint,admitted_seq,data) VALUES(?,?,?,?,0,?)').run(inputId, session.id, input.requestId, fingerprint, encode(input));
       this.db.prepare('INSERT INTO runs(id,input_id,session_id,workspace_id,state,data) VALUES(?,?,?,?,?,?)').run(run.id, inputId, session.id, session.workspaceId, run.state, encode(run));
-      const message: Message = { id: randomUUID(), sessionId: session.id, runId: run.id, role: 'user', content: input.prompt, createdAt: timestamp };
+      const message: Message = { id: randomUUID(), sessionId: session.id, runId: run.id, role: 'user', content: input.prompt, createdAt: timestamp,
+        ...(run.attachments === undefined ? {} : { attachments: structuredClone(run.attachments) }) };
       this.writeMessage(run, message);
       const admitted = this.append(run, 'input.admitted', { runId: run.id, inputId, requestId: input.requestId });
       this.db.prepare('UPDATE inputs SET admitted_seq=? WHERE id=?').run(admitted.seq, inputId);
       return { runId: run.id, inputId, admittedSeq: admitted.seq, duplicate: false };
   }
   private steerInTransaction(input: InputRecord, run: Run): number {
-    const message: Message = { id: input.id, sessionId: input.sessionId, runId: run.id, role: 'user', content: input.prompt, createdAt: new Date().toISOString() };
+    const message: Message = { id: input.id, sessionId: input.sessionId, runId: run.id, role: 'user', content: input.prompt, createdAt: new Date().toISOString(),
+      ...(input.attachments === undefined ? {} : { attachments: normalizeImageAttachments(input.attachments) }) };
     this.writeMessage(run, message);
     return this.append(run, 'input.steered', { inputId: input.id, requestId: input.requestId, messageId: message.id }).seq;
   }
   acceptInput(input: AcceptInput): InputReceipt { return this.native.acceptInput(input); }
+  lookupInputReceipt(input: AcceptInput): ExistingInputReceipt | undefined { return this.native.lookupInputReceipt(input); }
+  lookupRunReceipt(input: SubmitInput): RunReceipt | undefined { return this.native.lookupRunReceipt(input); }
   getInput(id: string): InputRecord { return this.native.getInput(id); }
   listInputs(sessionId: string, position?: InputCursor, limit?: number): InputPage { return this.native.listInputs(sessionId, position, limit); }
   pendingInputs(sessionId: string, delivery?: AcceptInput['delivery'], limit?: number): InputRecord[] { return this.native.pendingInputs(sessionId, delivery, limit); }
@@ -259,6 +268,7 @@ export class SqliteStore implements SessionEngineStore {
   listTurns(runId: string): TurnRecord[] { return this.executionRecords.listTurns(runId); }
   listTurnsPage(runId: string, afterTurnId?: string, limit?: number): TurnPage { return this.executionRecords.listTurnsPage(runId, afterTurnId, limit); }
   putAttempt(attempt: ProviderAttempt): ProviderAttempt { return this.executionRecords.putAttempt(attempt); }
+  putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRecord { return putAttemptUsage(this.native, attemptId, usage); }
   getAttempt(id: string): ProviderAttempt { return this.executionRecords.getAttempt(id); }
   putPart(part: MessagePart): MessagePart { return this.executionRecords.putPart(part); }
   listParts(turnId: string): MessagePart[] { return this.executionRecords.listParts(turnId); }
@@ -402,6 +412,24 @@ export class SqliteStore implements SessionEngineStore {
       };
     }, false);
   }
+  getToolCall(toolCallId: string): ToolCallRecord {
+    this.assertOpen();
+    const row = this.row('SELECT data FROM tools WHERE id=?', toolCallId);
+    if (!row) throw new EngineError('TOOL_NOT_FOUND', 'Tool call was not found');
+    const tool = decode<ToolCallRecord>(row);
+    this.assertScope(this.getRun(tool.runId), tool);
+    return tool;
+  }
+  listToolApprovals(toolCallId: string): ApprovalRecord[] {
+    return this.transaction(() => {
+      const tool = this.getToolCall(toolCallId);
+      const sizes = this.db.prepare('SELECT count(*) AS count,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM approvals WHERE tool_call_id=?').get(toolCallId)!;
+      if (Number(sizes.count) > 8 || Number(sizes.bytes) > 32_768) throw new EngineError('TOOL_APPROVAL_LIMIT', 'Tool approval projection exceeds its read budget');
+      const records = this.rows<ApprovalRecord>('SELECT data FROM approvals WHERE tool_call_id=? ORDER BY ordinal LIMIT 8', toolCallId);
+      for (const record of records) this.assertScope(this.getRun(tool.runId), record);
+      return records;
+    }, false);
+  }
   /** Model context reads whole recent Run groups without first loading the entire transcript. */
   searchHistory(sessionId: string, options: HistorySearchOptions): HistorySearchPage {
     return this.transaction(() => { this.getSession(sessionId); return searchHistoryDatabase(this.db, sessionId, options); }, false);
@@ -412,6 +440,21 @@ export class SqliteStore implements SessionEngineStore {
     }
     return this.transaction(() => {
       const session = this.getSession(sessionId);
+      const activePage = (run: Run): ModelHistoryPage => {
+        const lastSeq = Number(this.db.prepare('SELECT last_seq FROM sessions WHERE id=?').get(sessionId)?.last_seq);
+        const active = readActiveHistoryWindow(this.db, session, run, lastSeq, maxMessages, maxBytes);
+        const totalRuns = Number(this.db.prepare('SELECT count(*) AS count FROM runs WHERE session_id=?').get(sessionId)?.count);
+        const totalMessages = Number(this.db.prepare('SELECT count(*) AS count FROM messages WHERE session_id=?').get(sessionId)?.count);
+        return { snapshot: active.snapshot, omittedRuns: totalRuns-1, omittedMessages: totalMessages-active.snapshot.messages.length,
+          beforeRunId: totalRuns > 1 ? run.id : null, activeWindow: active.window };
+      };
+      const newest = this.db.prepare('SELECT id,state FROM runs WHERE session_id=? ORDER BY ordinal DESC LIMIT 1').get(sessionId);
+      if (newest && !isTerminal(String(newest.state) as RunState)) {
+        // Cardinality first: a long active Run must not scan all message/tool JSON
+        // just to discover that its complete group cannot fit this bounded read.
+        const count = Number(this.db.prepare('SELECT count(*) AS count FROM messages WHERE run_id=?').get(String(newest.id))?.count);
+        if (count > maxMessages) return activePage(this.getRun(String(newest.id)));
+      }
       const candidates = this.db.prepare(`SELECT runs.id,runs.ordinal,length(CAST(runs.data AS BLOB)) AS run_bytes,
         (SELECT count(*) FROM messages WHERE run_id=runs.id) AS message_count,
         coalesce((SELECT sum(length(CAST(data AS BLOB))) FROM messages WHERE run_id=runs.id),0) AS message_bytes,
@@ -424,7 +467,11 @@ export class SqliteStore implements SessionEngineStore {
         const count = Number(row.message_count);
         const requiredBytes = Number(row.run_bytes) + Number(row.message_bytes) + Number(row.tool_bytes) + Number(row.approval_bytes) + 128;
         if (messages + count > maxMessages || bytes + requiredBytes > maxBytes) {
-          if (!selected.length) throw new EngineError('MODEL_HISTORY_LIMIT', 'The newest complete Run exceeds the required model history budget');
+          if (!selected.length) {
+            const run = this.getRun(String(row.id));
+            if (!isTerminal(run.state)) return activePage(run);
+            throw new EngineError('MODEL_HISTORY_LIMIT', 'The newest complete Run exceeds the required model history budget');
+          }
           break;
         }
         selected.push(String(row.id)); messages += count; bytes += requiredBytes;

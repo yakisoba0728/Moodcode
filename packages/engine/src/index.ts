@@ -58,6 +58,8 @@ export * from './child-tasks/index.js';
 export { createChildMergeTool } from './child-tasks/merge.js';
 export { EngineChildren } from './child-tasks/engine-host.js';
 export type { EngineChildRequest } from './child-tasks/engine-host.js';
+export * from './child-tasks/delegation.js';
+export * from './media/index.js';
 export * from './lsp/index.js';
 export * from './formatters/index.js';
 export * from './tools/command/backends.js';

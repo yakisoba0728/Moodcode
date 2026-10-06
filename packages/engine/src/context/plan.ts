@@ -4,7 +4,7 @@ import type { ContextRequest, ProviderMessage } from '../ports.js';
 import { buildContext } from './index.js';
 import type { ModelSpec } from './model-spec.js';
 
-export interface TokenEstimate { tokens: number; source: 'utf8-byte-upper-bound'; estimated: true }
+export interface TokenEstimate { tokens: number; source: 'utf8-byte-upper-bound'; estimated: true; imageTokens?: null; complete?: false }
 export interface ContextPlan {
   messages: ProviderMessage[];
   sha256: string;
@@ -21,7 +21,8 @@ export interface ContextPlan {
 
 /** A conservative fallback, explicitly separate from measured provider usage. */
 export function estimateTokens(messages: ProviderMessage[], envelopeBytes = 0): TokenEstimate {
-  return { tokens: Buffer.byteLength(JSON.stringify(messages)) + envelopeBytes, source: 'utf8-byte-upper-bound', estimated: true };
+  return { tokens: Buffer.byteLength(JSON.stringify(messages)) + envelopeBytes, source: 'utf8-byte-upper-bound', estimated: true,
+    ...(messages.some(message => message.attachments?.length) ? { imageTokens: null, complete: false } as const : {}) };
 }
 
 export async function planContext(request: ContextRequest, options: { model?: ModelSpec; outputTokens?: number } = {}): Promise<ContextPlan> {
@@ -48,7 +49,8 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
   for (const selected of [...messages].reverse()) {
     if (selected.role === 'system') continue;
     const index = request.snapshot.messages.findLastIndex((message, position) => position <= previous && message.role === selected.role
-      && message.content === selected.content && message.toolCallId === selected.toolCallId);
+      && message.content === selected.content && message.toolCallId === selected.toolCallId
+      && JSON.stringify(message.attachments) === JSON.stringify(selected.attachments));
     if (index >= 0) { selectedMessageIds.unshift(request.snapshot.messages[index]!.id); previous = index - 1; }
   }
   return {
@@ -56,6 +58,7 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
     omittedMessageCount: Math.max(0, request.snapshot.messages.length - selectedMessageIds.length),
     reservations: { envelopeBytes, outputTokens }, bytes, byteLimit: effectiveByteLimit,
     inputEstimate, tokenLimit, model: { providerId: request.config.providerId, modelId: request.config.modelId, source: model?.source ?? null },
-    warnings: tokenLimit === null ? ['Model context window is unknown; only the byte hard cap is enforced.'] : ['Token count is a conservative UTF-8 estimate, not measured usage.'],
+    warnings: [...(tokenLimit === null ? ['Model context window is unknown; only the byte hard cap is enforced.'] : ['Token count is a conservative UTF-8 estimate, not measured usage.']),
+      ...(inputEstimate.complete === false ? ['Image token cost is unknown; the UTF-8 estimate covers text and reference metadata only. Image byte caps are enforced separately; the complete model token window is not verified.'] : [])],
   };
 }

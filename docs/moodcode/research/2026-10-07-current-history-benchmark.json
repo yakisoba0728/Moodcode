@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-10-06T20:30:17.442815+00:00",
+  "node": "v26.9.0",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "source": "Synthetic local SQLite current Run fixtures; exact1k/10k messages, up to16 parallel tool calls, middle steering, large Korean results, artifact/image refs and opaque replay; source tests;5 warmups+30 query samples",
+  "limitations": [
+    "No live providers or GUI.",
+    "Physical I/O bytes and provider billing were not measured.",
+    "Tests run in a shared development host; latency is not a production SLO.",
+    "metadataRows counts candidate-selection rows only; aggregate/session/header rows and physical/index visits are not included. Scoped count aggregates still scan indexes.",
+    "Query payload JSON includes provenance;maxBytes caps snapshot JSON rather than the enclosing report."
+  ],
+  "measurements": [
+    {
+      "targetMessages": 1000,
+      "totalMessages": 1000,
+      "samples": 30,
+      "warmups": 5,
+      "p50Ms": 4.558458999999971,
+      "p95Ms": 6.821666999999991,
+      "maxMs": 6.938125000000014,
+      "snapshotJsonBytes": 33505,
+      "queryPayloadJsonBytes": 35116,
+      "metadataRows": 100,
+      "selectedMessages": 14,
+      "omittedMessages": 986,
+      "physicalReadBytes": null
+    },
+    {
+      "targetMessages": 10000,
+      "totalMessages": 10000,
+      "samples": 30,
+      "warmups": 5,
+      "p50Ms": 13.441083000000162,
+      "p95Ms": 27.199333999999908,
+      "maxMs": 34.485957999999755,
+      "snapshotJsonBytes": 48198,
+      "queryPayloadJsonBytes": 50328,
+      "metadataRows": 100,
+      "selectedMessages": 21,
+      "omittedMessages": 9979,
+      "physicalReadBytes": null
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { DEFAULT_LIMITS, DEFAULT_ENGINE_BUDGETS, EngineError, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, SESSION_COMMAND_TYPES, REASONING_EFFORTS } from './index.js';
+import { DEFAULT_LIMITS, DEFAULT_ENGINE_BUDGETS, EngineError, INPUT_IMAGE_LIMITS, INPUT_IMAGE_MIME_TYPES, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, SESSION_COMMAND_TYPES, REASONING_EFFORTS } from './index.js';
 import type { AcceptInput, ArtifactCheckpointBinding, ArtifactReference, ContextRevision, EngineBudgets, EngineEvent, InputReceipt, InputRecord, MessagePart, ProviderAttempt, RunRecordV2, SessionCommandEnvelope, SessionCommandType, SessionEventCursor, SessionEventV2, ToolCallIdentity, ToolResultEnvelope, TurnRecord, CommandEnvelope, JsonObject, JsonValue, RunConfig, RunConfigInput, RunLimits, SubmitInput } from './index.js';
 
 const MAX_ID_BYTES = 256;
@@ -150,13 +150,14 @@ function normalizeConfig(value: unknown, defaults?: RunConfigInput): RunConfig {
 
 /** Validate and copy a submit payload; omitted config fields receive stable defaults. */
 export function normalizeSubmitInput(value: unknown, defaults?: RunConfigInput): SubmitInput {
-  const payload = object(value, 'payload', ['sessionId', 'requestId', 'prompt', 'config']);
+  const payload = object(value, 'payload', ['sessionId', 'requestId', 'prompt', 'config', 'attachments']);
   if (has(payload, 'config') && payload.config === undefined) invalid('payload.config', 'must be a JSON object');
   return {
     sessionId: id(payload.sessionId, 'payload.sessionId'),
     requestId: id(payload.requestId, 'payload.requestId'),
     prompt: string(payload.prompt, 'payload.prompt', MAX_PROMPT_BYTES),
     config: normalizeConfig(payload.config, defaults),
+    ...(has(payload, 'attachments') ? { attachments: normalizeImageAttachments(payload.attachments) } : {}),
   };
 }
 
@@ -285,11 +286,37 @@ export function normalizeEngineBudgets(value?: unknown, defaults?: Partial<Engin
 }
 
 export function normalizeAcceptInput(value: unknown, defaults?: RunConfigInput): AcceptInput {
-  const input = object(value, 'payload', ['sessionId', 'requestId', 'prompt', 'config', 'delivery']);
+  const input = object(value, 'payload', ['sessionId', 'requestId', 'prompt', 'config', 'delivery', 'attachments']);
   const delivery = has(input, 'delivery') ? input.delivery : 'steer';
   if (delivery !== 'queue' && delivery !== 'steer') invalid('payload.delivery', 'must be queue or steer');
   return { ...normalizeSubmitInput({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt,
-    ...(has(input, 'config') ? { config: input.config } : {}) }, defaults), delivery };
+    ...(has(input, 'config') ? { config: input.config } : {}), ...(has(input, 'attachments') ? { attachments: input.attachments } : {}) }, defaults), delivery };
+}
+
+/** Validate only imported immutable references; never interpret user URLs, paths or media bytes. */
+export function normalizeImageAttachments(value: unknown, path = 'payload.attachments'): import('./index.js').InputImageAttachment[] {
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) invalid(path, 'must be a plain dense array');
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const length = Object.getOwnPropertyDescriptor(value, 'length')?.value as number;
+  if (!Number.isSafeInteger(length) || length < 0 || length > INPUT_IMAGE_LIMITS.maxCount || Reflect.ownKeys(value).length !== length + 1) invalid(path, 'must contain a bounded number of image references');
+  const result: import('./index.js').InputImageAttachment[] = [], ids = new Set<string>();
+  let totalBytes = 0;
+  for (let index = 0; index < length; index++) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor?.enumerable || !('value' in descriptor)) invalid(path, 'must contain plain dense data');
+    const entryPath = `${path}.${index}`, input = object(descriptor.value, entryPath, ['id', 'kind', 'mimeType', 'bytes', 'sha256']);
+    const identity = id(input.id, `${entryPath}.id`);
+    if (!/^img_[0-9a-f]{32}$/u.test(identity)) invalid(`${entryPath}.id`, 'must identify an imported image');
+    if (ids.has(identity)) invalid(path, 'must not repeat an image identity');
+    ids.add(identity);
+    if (input.kind !== 'image') invalid(`${entryPath}.kind`, 'must be image');
+    const mimeType = choice(input.mimeType, `${entryPath}.mimeType`, INPUT_IMAGE_MIME_TYPES);
+    const bytes = integer(input.bytes, `${entryPath}.bytes`, 1, INPUT_IMAGE_LIMITS.maxImageBytes);
+    totalBytes += bytes;
+    if (totalBytes > INPUT_IMAGE_LIMITS.maxTotalBytes) invalid(path, 'exceeds the total image byte limit');
+    result.push({ id: identity, kind: 'image', mimeType, bytes, sha256: hash(input.sha256, `${entryPath}.sha256`) });
+  }
+  return result;
 }
 
 function schema2(value: unknown, path: string, keys: readonly string[]): Record<string, unknown> {
@@ -394,7 +421,7 @@ export function validateInputReceipt(value: unknown): InputReceipt {
   return { inputId: id(input.inputId, 'receipt.inputId'), admittedSeq: integer(input.admittedSeq, 'receipt.admittedSeq', 1, Number.MAX_SAFE_INTEGER), state, duplicate: bool(input.duplicate, 'receipt.duplicate'), ...inputBinding(input, 'receipt', state) };
 }
 export function validateInputRecord(value: unknown): InputRecord {
-  const input = schema2(value, 'input', ['id', 'workspaceId', 'sessionId', 'requestId', 'prompt', 'config', 'delivery', 'state', 'admittedSeq', 'createdAt', 'updatedAt', 'runId', 'promotedSeq', 'terminalReason']);
+  const input = schema2(value, 'input', ['id', 'workspaceId', 'sessionId', 'requestId', 'prompt', 'config', 'delivery', 'attachments', 'state', 'admittedSeq', 'createdAt', 'updatedAt', 'runId', 'promotedSeq', 'terminalReason']);
   const state = choice(input.state, 'input.state', ['pending', 'promoted', 'cancelled']);
   const admittedSeq = integer(input.admittedSeq, 'input.admittedSeq', 1, Number.MAX_SAFE_INTEGER);
   if ((state === 'promoted') !== has(input, 'promotedSeq')) invalid('input.promotedSeq', 'must exist exactly for promoted input');
@@ -402,12 +429,12 @@ export function validateInputRecord(value: unknown): InputRecord {
   const updatedAt = date(input.updatedAt, 'input.updatedAt');
   if (updatedAt < createdAt) invalid('input.updatedAt', 'must not precede creation');
   return { schemaVersion: SESSION_SCHEMA_VERSION, id: id(input.id, 'input.id'), workspaceId: id(input.workspaceId, 'input.workspaceId'),
-    ...normalizeAcceptInput({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt, config: input.config, delivery: input.delivery }), state, admittedSeq, createdAt, updatedAt,
+    ...normalizeAcceptInput({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt, config: input.config, delivery: input.delivery, ...(has(input, 'attachments') ? { attachments: input.attachments } : {}) }), state, admittedSeq, createdAt, updatedAt,
     ...inputBinding(input, 'input', state), ...(has(input, 'promotedSeq') ? { promotedSeq: integer(input.promotedSeq, 'input.promotedSeq', admittedSeq + 1, Number.MAX_SAFE_INTEGER) } : {}),
     ...(has(input, 'terminalReason') ? { terminalReason: string(input.terminalReason, 'input.terminalReason', 2048) } : {}) };
 }
 export function validateRunRecordV2(value: unknown): RunRecordV2 {
-  const input = schema2(value, 'run', ['id', 'inputId', 'sessionId', 'workspaceId', 'requestId', 'prompt', 'config', 'state', 'createdAt', 'updatedAt', 'error', 'inputIds', 'uncertainty']);
+  const input = schema2(value, 'run', ['id', 'inputId', 'sessionId', 'workspaceId', 'requestId', 'prompt', 'config', 'attachments', 'state', 'createdAt', 'updatedAt', 'error', 'inputIds', 'uncertainty']);
   const state = choice(input.state, 'run.state', ['created', 'running', 'awaiting_approval', 'cancelling', 'completed', 'cancelled', 'failed', 'interrupted']);
   const inputId = id(input.inputId, 'run.inputId');
   const inputIds = stringList(input.inputIds, 'run.inputIds');
@@ -417,7 +444,7 @@ export function validateRunRecordV2(value: unknown): RunRecordV2 {
   if (updatedAt < createdAt) invalid('run.updatedAt', 'must not precede creation');
   let error: RunRecordV2['error'];
   if (has(input, 'error')) { const failure = object(input.error, 'run.error', ['code', 'message']); error = { code: id(failure.code, 'run.error.code'), message: string(failure.message, 'run.error.message', 2048) }; }
-  return { schemaVersion: SESSION_SCHEMA_VERSION, id: id(input.id, 'run.id'), inputId, workspaceId: id(input.workspaceId, 'run.workspaceId'), ...normalizeSubmitInput({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt, config: input.config }), state, createdAt, updatedAt, inputIds, ...(error ? { error } : {}), ...(has(input, 'uncertainty') ? { uncertainty: uncertainty(input.uncertainty, 'run.uncertainty') } : {}) };
+  return { schemaVersion: SESSION_SCHEMA_VERSION, id: id(input.id, 'run.id'), inputId, workspaceId: id(input.workspaceId, 'run.workspaceId'), ...normalizeSubmitInput({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt, config: input.config, ...(has(input, 'attachments') ? { attachments: input.attachments } : {}) }), state, createdAt, updatedAt, inputIds, ...(error ? { error } : {}), ...(has(input, 'uncertainty') ? { uncertainty: uncertainty(input.uncertainty, 'run.uncertainty') } : {}) };
 }
 export function validateToolCallIdentity(value: unknown): ToolCallIdentity {
   const input = object(value, 'call', ['id', 'sessionId', 'runId', 'turnId', 'attemptId', 'providerCallId']);

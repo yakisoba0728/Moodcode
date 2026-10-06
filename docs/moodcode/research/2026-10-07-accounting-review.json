@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-10-06T20:47:22.019506+00:00",
+  "source": "Actual createEngine/provider fixtures:36turns/560 completed distinct-range read_file tools, one steer, plus24turns/92 completed distinct-range reads under8KiB without steer; cumulative+duplicate+trailing usage and terminal reopen; no live network provider",
+  "focusedTests": 10,
+  "passed": 10,
+  "queries": [
+    {
+      "scenario": "actual-long-coding-loop",
+      "samples": 3,
+      "queries": [
+        {
+          "elapsedMs": 4.342666000000463,
+          "snapshotJsonBytes": 516387,
+          "queryPayloadJsonBytes": 517075,
+          "physicalReadBytes": null
+        },
+        {
+          "elapsedMs": 4.286791999999878,
+          "snapshotJsonBytes": 516387,
+          "queryPayloadJsonBytes": 517075,
+          "physicalReadBytes": null
+        },
+        {
+          "elapsedMs": 3.9155829999999696,
+          "snapshotJsonBytes": 516387,
+          "queryPayloadJsonBytes": 517075,
+          "physicalReadBytes": null
+        }
+      ],
+      "currentPrefixSummarized": false
+    }
+  ],
+  "accountingCases": [
+    "Latest per attempt once versus preserved event-sum",
+    "Safe pre-observation HTTP retry leaves first-attempt usage unknown and accounts the successful attempt once",
+    "Failure and abort retain observed snapshots without replay",
+    "Native accounting journal rollback removes partial snapshot",
+    "Legacy event journal failure retains independently committed observed usage"
+  ],
+  "limitations": [
+    "physicalReadBytes=null means unmeasured filesystem/index I/O.",
+    "Three warm query samples on a shared host are evidence, not a production latency guarantee.",
+    "Current-prefix omission is explicitly not semantic summarization."
+  ],
+  "boundedProviderProjection": [
+    {
+      "scenario": "actual-small-context-no-steer",
+      "providerCalls": 24,
+      "tools": 92,
+      "byteCap": 8192,
+      "providerOmissions": 15,
+      "databaseOmissions": 95,
+      "currentPrefixSummarized": false
+    }
+  ]
+}

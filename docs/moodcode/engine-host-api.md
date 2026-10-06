@@ -16,6 +16,7 @@
 | `subscribeSession(sessionId, afterSeq, signal?)` | 별도 v2 session event journal |
 | `waitForRun(runId)` | 지정한 실제 Run의 terminal 정산 대기 |
 | `getCapabilities()` | 연결된 provider/tool/command 및 기본값; 실행에 적용한 host 상한 반영 |
+| `importImage(sessionId, bytes, mimeType, signal?)` | 세션 소유의 제한된 이미지 blob을 저장하고 immutable 참조 반환 |
 | `close()` | admission 중지와 owned Run·child·MCP/plugin·PTY·watcher·LSP·DB 종료 정산 |
 
 v2 command envelope에는 `schemaVersion`, `commandId`, `type`, `payload`만 둔다. `stream:'session-v2'`는 event/cursor에 있는 구분자이며 command 필드가 아니다. 두 journal의 seq는 교환하지 않는다. 추가 command는 [v2 명세](engine-contracts-v2.md)를 따른다.
@@ -54,6 +55,16 @@ nested 요청은 `parentTaskId`와 실제 childRunId인 `parentRunId`를 함께 
 
 `merge_child_changes`는 완료한 실제 immediate child의 변경을 부모 workspace에 제안한다. 미리보기·fingerprint·현재 preimage 검증을 거쳐 승인 후 적용하며 checkpoint/review를 남긴다. grandchild→child와 child→root는 각각 승인한다. UTF-8 일반 파일 32개·총 preimage/content 1 MiB 범위를 지원하고 Git commit을 만들지 않는다. `cleanupWorktree`는 owner가 해제된 깨끗한 관리 worktree만 정리한다. [세부 계약](../../packages/engine/src/child-tasks/README.md)을 따른다.
 
+`delegate_task`는 Build의 모델 도구다. 실제 부모 Run의 matching approval 이후 pinned Git commit의 worktree를 만들고 별도 읽기 전용 child를 실행한다. 부모의 잔여 turn/tool/output/time 안에서 예산을 예약한다. configured allow나 scoped grant가 이 요청별 승인을 생략하지 못한다. 입력은 requestId/prompt/allocation/tools이며 provider/model/권한 override를 받지 않는다. 커밋되지 않은 작업 파일은 복사하지 않는다. exact retry는 기존 child 관측을 반환하고 결과를 자동 inbox에 넣거나 변경을 병합하지 않는다.
+
+archive import는 관리 worktree 경로를 복원 tree의 역사 기록으로 옮기며 기존 inode/device/owner를 새 파일 소유권으로 재인증하지 않는다. 복원 worktree는 uncertain이고 verify/start/merge/cleanup이 거부된다. 완료 child의 exact retry 조회와 새 worktree를 사용하는 fresh 작업은 가능하다. custom artifact tree 밖 worktree는 현재 import rebinding 범위에 없다. `configureChild`는 동기 setup 계약이며 Promise/thenable 반환은 child provider 접수 전에 거부한다.
+
+## 이미지 입력과 긴 실행
+
+host는 `importImage`에서 받은 refs를 v1 `run.submit` 또는 v2 `input.accept`의 `attachments`에 전달한다. command에는 URL·파일 경로·base64를 넣지 않는다. 실제 bytes는 `artifactDir/input-media`에 보관하고, inbox/message/context revision에는 refs만 저장한다. dispatch 직전에 session/run 소유권·hash·bytes를 다시 검사한 뒤 Responses/Codex/Anthropic/ChatCompletions payload로 변환한다. exact retry 조회는 기존 receipt를 우선하며 새로운 요청은 media를 검증한다. [미디어 한도와 encoding](engine-input-media.md)을 따른다.
+
+DB3의 `attempt_usage`는 attempt당 최신 관측 snapshot을 보존한다. session diagnostics의 `attemptUsage`와 기존 v1 `providerUsage` event sum은 별도 지표다. active Run은 초기 목표·최근 user/steer·최근 완전한 exchange를 필수로 유지하고 나머지 group을 모델 byte 한도 안에서 선택한다. DB omission과 provider projection omission을 각각 표시한다. 이미지가 있는 snapshot block은 text-only 요약으로 대체하지 않으며 보존할 수 없으면 명시적 오류를 반환한다. 이미지 token 비용과 DB 밖 이미지 이력은 미확인 범위다.
+
 ## LSP·formatter·변경 관찰
 
 `registerLanguageServer(serverId, factory, languageForPath)`는 host가 선택한 factory와 경로→language selector를 등록한다. `StdioLspConnection`의 executable/args는 신뢰하는 host가 지정한다. 모델이 경로에서 LSP 서버를 자동 설치하거나 실행하지 않는다. `formatters.register(id, formatter)`는 현재 content를 받아 제한된 UTF-8 결과를 반환하는 host callback을 등록하고 해제 함수를 제공한다.
@@ -74,4 +85,4 @@ child는 root의 살아 있는 LSP/MCP 연결을 묵시적으로 빌리지 않�
 
 ## 검증과 남은 조건
 
-기본 도구 20종 및 host가 실제 등록한 도구를 제공한다. child 실행/merge, LSP formatting/restore, MCP 승인, 큰 결과의 artifact 재조회는 실제 headless 엔진과 임시 Git/process fixture로 연결을 확인했다. 현재 Codex `gpt-6.1-sol` 계정의 read→approved patch→approved command도 별도로 통과했다. 이것이 Anthropic 계정·multimodal·Windows native backend·전체 GUI 노출·공개 배포의 완료 증거는 아니다. [최신 검증 보고서](engine-native-final-verification.md)와 [열린 TODO](../../TODO.md)가 정확한 범위다.
+기본 도구 21종 및 host가 실제 등록한 도구를 제공한다. child 실행/merge, LSP formatting/restore, MCP 승인, 큰 결과의 artifact 재조회는 실제 headless 엔진과 임시 Git/process fixture로 연결을 확인했다. 현재 Codex `gpt-6.1-sol` 계정의 read→approved patch→approved command도 별도로 통과했다. 실제 Anthropic 계정·추가 media 형식·Windows native backend·전체 GUI 노출·공개 배포는 별도 검증 대상이다. [지속 개선 목표](engine-improvement-goal.md)와 [열린 TODO](../../TODO.md)가 정확한 범위다.

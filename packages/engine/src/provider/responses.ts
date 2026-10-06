@@ -4,6 +4,8 @@ import type { OpenAICompatibleProviderOptions } from './openai-compatible.js';
 import { credentialSecrets, CredentialTextRedactor, malformed, optionalString, positiveLimit, providerHttpFailure, providerRemoteError, publicError, record, redactCredentialJson, redactCredentialText } from './helpers.js';
 import { replayCompatible, validateReplayBinding, validateReplayItems } from './replay.js';
 import { readSseData } from './sse.js';
+import { messageImages, providerImages } from '../media/provider.js';
+import type { ResolvedInputImage } from '../ports.js';
 
 export interface ResponsesProviderOptions extends OpenAICompatibleProviderOptions {
   /** Includes message and opaque reasoning items as well as function calls. */
@@ -38,13 +40,18 @@ function phase(value: unknown): OutputItem['phase'] {
   if (value === undefined || value === null || value === 'commentary' || value === 'final_answer') return value;
   malformed();
 }
-function inputItems(message: ProviderMessage): Record<string, unknown>[] {
+function inputItems(message: ProviderMessage, images: ReadonlyMap<string, ResolvedInputImage>): Record<string, unknown>[] {
   if (message.role === 'tool') {
     if (!message.toolCallId) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Tool messages require a call identifier.');
     return [{ type: 'function_call_output', call_id: message.toolCallId, output: message.content }];
   }
   const items: Record<string, unknown>[] = [];
-  if (message.content || !message.toolCalls?.length) items.push({ role: message.role, content: message.content });
+  const media = messageImages(message, images);
+  if (media.length) items.push({ role: 'user', content: [
+    ...media.map(image => ({ type: 'input_image', image_url: `data:${image.attachment.mimeType};base64,${image.data}`, detail: 'auto' })),
+    ...(message.content ? [{ type: 'input_text', text: message.content }] : []),
+  ] });
+  else if (message.content || !message.toolCalls?.length) items.push({ role: message.role, content: message.content });
   if (message.role === 'assistant') {
     for (const call of message.toolCalls ?? []) {
       items.push({ type: 'function_call', call_id: call.id, name: call.name, arguments: JSON.stringify(call.input) });
@@ -75,6 +82,7 @@ function normalizedUsage(value: unknown, includeMetadata = false): Usage | undef
 export class ResponsesProvider implements ProviderAdapter {
   readonly id: string;
   readonly replayProtocol: string;
+  readonly inputModalities = Object.freeze(['text', 'image'] as const);
   #endpoint: string;
   #apiKey: string | undefined;
   #secrets: string[];
@@ -118,6 +126,7 @@ export class ResponsesProvider implements ProviderAdapter {
     try {
       if (typeof request.modelId !== 'string' || !request.modelId.trim()) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider requires an explicit model identifier.');
       if (request.reasoningEffort !== undefined && !REASONING_EFFORTS.includes(request.reasoningEffort)) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider reasoning effort is invalid.');
+      const images = providerImages(request, true, signal);
       const input: Record<string, unknown>[] = [];
       let inputBytes = 2;
       for (const message of request.messages) {
@@ -130,7 +139,7 @@ export class ResponsesProvider implements ProviderAdapter {
           });
           validateReplayBinding(message, replayItems);
           messageItems = replayItems;
-        } else messageItems = inputItems(message);
+        } else messageItems = inputItems(message, images);
         for (const item of messageItems) {
           inputBytes += Buffer.byteLength(JSON.stringify(item), 'utf8') + (input.length ? 1 : 0);
           if (inputBytes > this.#limits.maxRequestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');

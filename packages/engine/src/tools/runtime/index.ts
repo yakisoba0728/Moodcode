@@ -6,10 +6,10 @@ import { createToolResultEnvelope, enrichLegacyToolResult } from '../../artifact
 import { boundedJson } from '../../artifacts/validation.js';
 import { inferToolEffect, ToolPolicy, type ToolEffectClass } from '../../permission/policy.js';
 import { ScopedToolGrants, type GrantScope, type ScopedToolGrant } from '../../permission/grants.js';
-export interface RuntimeToolRegistration { effect?: ToolEffectClass; revalidate?: (prepared: PreparedTool, context: ToolContext) => Promise<void> }
+export interface RuntimeToolRegistration { effect?: ToolEffectClass; exactApproval?: boolean; revalidate?: (prepared: PreparedTool, context: ToolContext) => Promise<void> }
 export interface ToolCatalogue { scopeId: string; revision: number; policyVersion: number; mode: 'plan' | 'build'; tools: readonly ProviderTool[] }
 export interface ScopedToolRuntimeOptions { policy?: ToolPolicy; grants?: ScopedToolGrants; artifacts?: ArtifactStore | Promise<ArtifactStore> | (() => ArtifactStore | Promise<ArtifactStore>) }
-interface Entry { scopeId: string; token: symbol; definition: ToolDefinition; effect: ToolEffectClass; revalidate?: RuntimeToolRegistration['revalidate'] }
+interface Entry { scopeId: string; token: symbol; definition: ToolDefinition; effect: ToolEffectClass; exactApproval: boolean; revalidate?: RuntimeToolRegistration['revalidate'] }
 interface Captured { entries: Map<string, Entry>; signature: string }
 interface Request { entry: Entry; catalogue: ToolCatalogue; inner: PreparedTool; outerSnapshot: string; innerSnapshot: string; binding: string; grant?: ScopedToolGrant; grantScope: GrantScope; used: boolean }
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
@@ -47,6 +47,7 @@ export class ScopedToolRuntime {
     return createHash('sha256').update(JSON.stringify({ scope: request.catalogue.scopeId, revision: request.catalogue.revision, policyVersion: request.catalogue.policyVersion, name: request.inner.name, fingerprint: request.inner.fingerprint })).digest('hex');
   }
   register(scopeId: string, source: ToolDefinition, options: RuntimeToolRegistration = {}): () => void {
+    if (options.exactApproval !== undefined && typeof options.exactApproval !== 'boolean') fail('INVALID_TOOL_REGISTRATION', 'Exact approval must be a boolean');
     name(scopeId); name(source.name); if (typeof source.prepare !== 'function' || typeof source.execute !== 'function' || typeof source.description !== 'string' || Buffer.byteLength(source.description) > 8192) fail('INVALID_TOOL_REGISTRATION', 'Tool requires bounded schema/description and prepare/execute handlers');
     if (!this.scopes.has(scopeId) && this.scopes.size >= 128) fail('TOOL_REGISTRY_LIMIT', 'Tool scope limit exceeded');
     const entries = this.scopes.get(scopeId) ?? new Map<string, Entry>(); if (entries.has(source.name)) fail('TOOL_REGISTRATION_CONFLICT', 'Tool name already exists in this scope'); if (entries.size >= 256) fail('TOOL_REGISTRY_LIMIT', 'Tool registration limit exceeded');
@@ -54,7 +55,7 @@ export class ScopedToolRuntime {
     const schema = boundedJson(source.inputSchema, 64 * 1024) as JsonObject; if (!schema || typeof schema !== 'object' || Array.isArray(schema)) fail('INVALID_TOOL_REGISTRATION', 'Tool schema must be a JSON object');
     const effect = inferToolEffect(source.name, options.effect ?? (source as ToolDefinition & { effectClass?: ToolEffectClass }).effectClass);
     const definition: ToolDefinition = { name: source.name, description: source.description, inputSchema: schema, effectClass: effect, prepare: source.prepare.bind(source), execute: source.execute.bind(source) };
-    const entry: Entry = { scopeId, token: Symbol(source.name), definition, effect, ...(options.revalidate ? { revalidate: options.revalidate } : {}) }; entries.set(source.name, entry); this.scopes.set(scopeId, entries); this.current++;
+    const entry: Entry = { scopeId, token: Symbol(source.name), definition, effect, exactApproval: options.exactApproval === true, ...(options.revalidate ? { revalidate: options.revalidate } : {}) }; entries.set(source.name, entry); this.scopes.set(scopeId, entries); this.current++;
     return () => { const existing = this.scopes.get(scopeId); if (existing?.get(definition.name)?.token !== entry.token) return; existing.delete(definition.name); if (!existing.size) this.scopes.delete(scopeId); this.current++; };
   }
   clearScope(scopeId: string): void { if (this.scopes.delete(scopeId)) this.current++; }
@@ -96,9 +97,9 @@ export class ScopedToolRuntime {
         const targets = resources(inner);
         const policy = this.policy.evaluate({ toolName: inner.name, effect: entry.effect, mode: catalogue.mode, requiresApproval: inner.requiresApproval, resources: targets }); if (policy.decision === 'deny') fail('TOOL_POLICY_DENIED', 'Tool is denied by configured policy or execution mode');
         const grantScope: GrantScope = { workspaceId: context.workspace.id, sessionId: context.sessionId, toolName: inner.name, effect: entry.effect, ...(targets.length ? { resources: targets } : {}) };
-        const grant = entry.revalidate && entry.effect !== 'unknown' && policy.reason !== 'configured approval requirement' ? this.grants.find(grantScope, policy.version) : undefined;
+        const grant = !entry.exactApproval && entry.revalidate && entry.effect !== 'unknown' && policy.reason !== 'configured approval requirement' ? this.grants.find(grantScope, policy.version) : undefined;
         const fingerprint = createHash('sha256').update(JSON.stringify({ scope: catalogue.scopeId, revision: catalogue.revision, policyVersion: policy.version, binding: binding(context), inner: inner.fingerprint, preview: inner.preview, grantId: grant?.id, grantRevision: grant?.revision })).digest('hex');
-        const prepared: PreparedTool = { name: inner.name, input: structuredClone(inner.input), fingerprint, requiresApproval: policy.decision === 'ask' && !grant,
+        const prepared: PreparedTool = { name: inner.name, input: structuredClone(inner.input), fingerprint, requiresApproval: entry.exactApproval || policy.decision === 'ask' && !grant,
           preview: { ...structuredClone(inner.preview), toolEffect: entry.effect, policyVersion: policy.version, registryRevision: catalogue.revision, ...(grant ? { scopedGrantId: grant.id } : {}) } };
         this.requests.set(prepared, { entry, catalogue, inner, outerSnapshot: JSON.stringify(prepared), innerSnapshot: JSON.stringify(inner), binding: binding(context), grantScope, ...(grant ? { grant } : {}), used: false }); return prepared;
       }, execute: (prepared, context) => this.execute(prepared, context) };

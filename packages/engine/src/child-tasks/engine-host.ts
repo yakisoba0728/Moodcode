@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { EngineError, type Run, type Session } from "@moodcode/contracts";
 import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
 import type { MoodcodeEngine, EngineOptions } from "../engine.js";
+import { createApprovedDelegationHost } from "./delegation-host.js";
+import type { DelegationHost } from "./delegation.js";
 import { WorktreeManager } from "../worktrees/index.js";
 import {
   ChildTaskManager,
@@ -140,7 +142,7 @@ export class EngineChildren {
       run: execution.engine.store.getRun(runId),
     };
   }
-  async start(value: EngineChildRequest): Promise<ChildTaskRecord> {
+  async start(value: EngineChildRequest, executionSignal?: AbortSignal): Promise<ChildTaskRecord> {
     const request = structuredClone(value);
     if (
       !request ||
@@ -154,7 +156,6 @@ export class EngineChildren {
       );
     const key = JSON.stringify([request.sessionId, request.requestId]),
       fingerprint = digest(request);
-    this.recover(request.sessionId);
     const prior = this.admissions.get(key);
     if (prior) {
       if (prior.fingerprint !== fingerprint)
@@ -178,13 +179,16 @@ export class EngineChildren {
           "CHILD_REQUEST_CONFLICT",
           "Durable child request differs from this input",
         );
-      return durable; // Reopening never dispatches a known child or refunds its reservation.
+      if (['completed', 'failed', 'cancelled', 'uncertain'].includes(durable.state)) return durable;
+      this.recover(request.sessionId);
+      return this.tasks.get(request.sessionId, durable.id); // Recovery observes unfinished work without redispatch.
     }
     if (binding)
       throw new EngineError(
         "CHILD_DISPATCH_UNCERTAIN",
         "Prior child reservation exists without a settled dispatch record",
       );
+    this.recover(request.sessionId);
     if (this.admissions.size >= 32)
       throw new EngineError(
         "CHILD_TASK_LIMIT",
@@ -253,9 +257,8 @@ export class EngineChildren {
     const remainingBudget = parent.engine.coordinator.getRemainingChildBudget(
         parent.run.id,
       ),
-      signal = parent.engine.coordinator.getRunCancellationSignal(
-        parent.run.id,
-      );
+      parentSignal = parent.engine.coordinator.getRunCancellationSignal(parent.run.id),
+      signal = executionSignal ? AbortSignal.any([parentSignal, executionSignal]) : parentSignal;
     const input: ChildStart = {
       sessionId: request.sessionId,
       requestId: request.requestId,
@@ -333,7 +336,13 @@ export class EngineChildren {
     });
     let unlink: (() => void) | undefined;
     try {
-      this.options.configureChild?.(engine, structuredClone(request.task));
+      const configured: unknown = this.options.configureChild?.(engine, structuredClone(request.task));
+      if (configured !== null && (typeof configured === 'object' || typeof configured === 'function') && typeof (configured as { then?: unknown }).then === 'function') {
+        // Host setup is a synchronous contract. Observe rejected promises so an
+        // invalid adapter cannot detach an unhandled rejection after admission.
+        void Promise.resolve(configured).catch(() => {});
+        throw new EngineError('INVALID_CHILD_CONFIGURATION', 'Child configuration must complete synchronously before admission');
+      }
       engine.store.putWorkspace(request.workspace);
       const session: Session = {
         id: randomUUID(),
@@ -427,6 +436,10 @@ export class EngineChildren {
     return execution.engine.store
       .getSnapshot(execution.sessionId)
       .approvals.filter((approval) => approval.status === "pending");
+  }
+  /** The engine supplies its private effect-lock identity; callers cannot choose a workspace lease. */
+  delegationHost(executionLockPath: string): DelegationHost {
+    return createApprovedDelegationHost({ engine: this.root, worktrees: this.worktrees, tasks: this.tasks, executionLockPath, start: (request, signal) => this.start(request, signal) });
   }
   recover(sessionId: string): void {
     if (this.recoveredSessions.has(sessionId)) return;

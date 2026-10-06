@@ -46,6 +46,10 @@ import { assertExecutionLockAvailable } from './tools/command/execution-lock.js'
 import { getReviewDiff, previewRestoreCheckpoint, restoreCheckpoint, type RestoreResult } from './review/index.js';
 import { readRecoveryAcknowledgments, isRestoreAcknowledged } from './recovery/index.js';
 import { ReviewJournal, type RestoreOperation, type RestoreOperationInput } from './review/audit.js';
+import { ImageAttachmentStore } from './media/index.js';
+import { providerImages } from './media/provider.js';
+import type { InputImageAttachment } from '@moodcode/contracts';
+import { createDelegateTaskTool } from './child-tasks/delegation.js';
 
 export type RestoreCommandResult = RestoreResult & {
   operationId: string;
@@ -100,6 +104,32 @@ function verifyExecutionIdle(lockPath: string): void {
   }
 }
 
+function withImageInputs(provider: ProviderAdapter, images: ImageAttachmentStore, store: SqliteStore, models: ModelRegistry): ProviderAdapter {
+  return { id: provider.id, ...(provider.replayProtocol ? { replayProtocol: provider.replayProtocol } : {}),
+    ...(provider.retryableHttpStatuses ? { retryableHttpStatuses: provider.retryableHttpStatuses } : {}),
+    ...(provider.inputModalities ? { inputModalities: provider.inputModalities } : {}),
+    async *streamTurn(request, signal) {
+      if (request.resolvedImages !== undefined) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Image bytes must be resolved by the engine');
+      const refs = new Map<string, InputImageAttachment>();
+      for (const message of request.messages) for (const ref of message.attachments ?? []) {
+        if (message.role !== 'user') throw new EngineError('PROVIDER_INVALID_REQUEST', 'Image references belong to user messages');
+        const previous = refs.get(ref.id);
+        if (previous && JSON.stringify(previous) !== JSON.stringify(ref)) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Conflicting image references');
+        refs.set(ref.id, ref);
+      }
+      if (!refs.size) { yield* provider.streamTurn(request, signal); return; }
+      const run = store.getRun(request.runId);
+      if (request.sessionId !== run.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Image request belongs to another session');
+      const modalities = models.get(provider.id, request.modelId).modalities;
+      if (!provider.inputModalities?.includes('image') || modalities !== null && !modalities.includes('image')) throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Selected provider or model does not support image input');
+      const resolvedImages = await images.resolve(run.sessionId, [...refs.values()], signal);
+      const resolved = { ...request, resolvedImages };
+      providerImages(resolved, true, signal);
+      yield* provider.streamTurn(resolved, signal);
+    },
+  };
+}
+
 export class MoodcodeEngine {
   readonly store: SqliteStore;
   readonly coordinator: RunCoordinator;
@@ -109,6 +139,9 @@ export class MoodcodeEngine {
   readonly questions: QuestionManager;
   readonly tasks: SessionTaskService;
   readonly context: ContextService;
+  private readonly images: ImageAttachmentStore;
+  private readonly pendingImages = new Set<Promise<unknown>>();
+  private readonly validateImageInput: (sessionId: string, config: RunConfig, refs: InputImageAttachment[]) => Promise<void>;
   private readonly managedArtifacts: () => Promise<ArtifactStore>;
   readonly plugins: EnginePluginManager;
   readonly profiles: AgentProfiles;
@@ -172,6 +205,7 @@ export class MoodcodeEngine {
       } });
       const models = new ModelRegistry();
       for (const spec of options.modelSpecs ?? []) models.put(spec);
+      this.images = new ImageAttachmentStore({ directory: join(realpathSync(artifactDir), 'input-media'), documents: this.store });
       let artifacts: Promise<ArtifactStore> | undefined;
       const artifactBudgets = normalizeEngineBudgets(this.defaults.budgets);
       this.managedArtifacts = () => artifacts ??= ArtifactStore.open({ directory: join(realpathSync(artifactDir), 'managed'), limits: {
@@ -179,14 +213,21 @@ export class MoodcodeEngine {
       } });
       const providers = new Map<string, ProviderAdapter>([['scripted', new ScriptedProvider()]]);
       for (const provider of options.providers ?? []) providers.set(provider.id, provider);
+      this.validateImageInput = async (sessionId, config, refs) => {
+        const modalities = models.get(config.providerId, config.modelId).modalities;
+        if (!providers.get(config.providerId)?.inputModalities?.includes('image') || modalities !== null && !modalities.includes('image')) throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Selected provider or model does not support image input');
+        await this.images.resolve(sessionId, refs, this.hostResources.signal);
+        if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+      };
+      for (const [id, provider] of providers) providers.set(id, withImageInputs(provider, this.images, this.store, models));
       this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id));
-      const availableTools = options.tools ?? [...createReadTools(), createPatchTool(), createCommandTool(), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId)];
+      const availableTools = options.tools ?? [...createReadTools(), createPatchTool(), createCommandTool(), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
       const tools = options.allowedToolNames ? availableTools.filter(tool => options.allowedToolNames!.includes(tool.name)) : availableTools;
       if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
       this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts });
-      for (const tool of tools) this.toolRuntime.register('engine', tool, options.tools ? {} : { revalidate: async (prepared, context) => {
+      for (const tool of tools) this.toolRuntime.register('engine', tool, options.tools ? {} : tool.name === 'delegate_task' ? { exactApproval: true } : { revalidate: async (prepared, context) => {
         const current = await tool.prepare(prepared.input, context);
         if (current.fingerprint !== prepared.fingerprint || JSON.stringify(current.preview) !== JSON.stringify(prepared.preview)) throw new EngineError('TOOL_APPROVAL_STALE', 'Tool resources changed since scoped authorization');
       } });
@@ -255,6 +296,7 @@ export class MoodcodeEngine {
         case 'input.accept': {
           const input = normalizeAcceptInput(payload, this.defaults);
           input.config = this.profiles.apply(input.sessionId, input.config);
+          if (input.attachments?.length && !this.store.lookupInputReceipt(input)) await this.validateImageInput(input.sessionId, input.config, input.attachments);
           result = this.scheduler.accept(input); break;
         }
         case 'input.list': result = this.store.listInputs(payload.sessionId as string, payload.cursor as unknown as InputCursor | undefined, payload.limit as number); break;
@@ -357,6 +399,7 @@ export class MoodcodeEngine {
           {
             const input = normalizeSubmitInput(payload);
             input.config = this.profiles.apply(input.sessionId, input.config);
+            if (input.attachments?.length && !this.store.lookupRunReceipt(input)) await this.validateImageInput(input.sessionId, input.config, input.attachments);
             result = this.scheduler.submitLegacy(input);
           }
           break;
@@ -635,6 +678,14 @@ export class MoodcodeEngine {
     return this.store.backup(destination, options);
   }
 
+  importImage(sessionId: string, data: Uint8Array, mimeType: InputImageAttachment['mimeType'], signal?: AbortSignal): Promise<InputImageAttachment> {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    const operation = this.images.import(sessionId, data, mimeType, signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal);
+    this.pendingImages.add(operation);
+    void operation.then(() => this.pendingImages.delete(operation), () => this.pendingImages.delete(operation));
+    return operation;
+  }
+
   close(): Promise<void> {
     if (this.closePromise) return this.closePromise;
     this.closing = true;
@@ -646,7 +697,7 @@ export class MoodcodeEngine {
         this.hostResources.abort();
         this.questions.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingImages].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }

@@ -6,6 +6,7 @@ import { boundedJson, JsonBudgetError } from '../artifacts/validation.js';
 import { credentialSecrets, CredentialTextRedactor, malformed, positiveLimit, providerHttpFailure, providerRemoteError, publicError, record, redactCredentialJson, redactCredentialText } from './helpers.js';
 import { replayCompatible } from './replay.js';
 import { readSseData } from './sse.js';
+import { messageImages, providerImages } from '../media/provider.js';
 
 export interface AnthropicProviderOptions {
   /** Host-only API prefix; no environment lookup or account discovery. */
@@ -32,7 +33,7 @@ export interface AnthropicProviderOptions {
 }
 
 export const ANTHROPIC_PROVIDER_CAPABILITIES = Object.freeze({
-  inputModalities: Object.freeze(['text'] as const), outputModalities: Object.freeze(['text'] as const),
+  inputModalities: Object.freeze(['text', 'image'] as const), outputModalities: Object.freeze(['text'] as const),
   clientTools: true, publicReasoningSummary: true, nativeReplay: true, media: false,
 });
 
@@ -45,7 +46,7 @@ export function anthropicModelSpec(modelId: string, options: { providerId?: stri
     throw new EngineError('INVALID_MODEL_SPEC', 'Anthropic host metadata is invalid.');
   }
   return { providerId: options.providerId ?? 'anthropic', modelId, contextWindow: null, maxOutputTokens: null,
-    modalities: ['text'], tools: true, reasoning: options.thinking !== 'disabled', nativeReplay: true,
+    modalities: ['text', 'image'], tools: true, reasoning: options.thinking !== 'disabled', nativeReplay: true,
     source: { kind: 'host', observedAt: options.observedAt ?? new Date().toISOString(), reference: 'https://platform.claude.com/docs/en/api/messages/create' } };
 }
 
@@ -156,6 +157,7 @@ export class AnthropicProvider implements ProviderAdapter {
   readonly id: string;
   readonly replayProtocol: string;
   readonly retryableHttpStatuses = Object.freeze([429, 500, 503, 504, 529]);
+  readonly inputModalities = ANTHROPIC_PROVIDER_CAPABILITIES.inputModalities;
   #endpoint: string;
   #apiKey: string | undefined;
   #secrets: string[];
@@ -240,8 +242,9 @@ export class AnthropicProvider implements ProviderAdapter {
     } catch { invalidReplay(); }
   }
 
-  #messages(request: TurnRequest): { messages: JsonObject[]; system: JsonObject[] } {
+  #messages(request: TurnRequest, signal: AbortSignal): { messages: JsonObject[]; system: JsonObject[] } {
     const messages: JsonObject[] = [], system: JsonObject[] = [];
+    const images = providerImages(request, true, signal);
     let conversational = false;
     const pending = new Set<string>();
     const append = (role: 'user' | 'assistant', content: JsonObject[]) => {
@@ -275,7 +278,10 @@ export class AnthropicProvider implements ProviderAdapter {
         const safeCalls = redactCredentialJson(message.toolCalls ?? [], this.#secrets);
         if (text !== redactCredentialText(message.content, this.#secrets) || !isDeepStrictEqual(calls, safeCalls)) invalidReplay();
       } else {
-        content = message.content ? [{ type: 'text', text: message.content }] : [];
+        content = [
+          ...messageImages(message, images).map(image => ({ type: 'image', source: { type: 'base64', media_type: image.attachment.mimeType, data: image.data } })),
+          ...(message.content ? [{ type: 'text', text: message.content }] : []),
+        ];
         for (const call of message.toolCalls ?? []) {
           if (!call.id || !/^[a-zA-Z0-9_-]{1,128}$/u.test(call.name)) invalidRequest();
           const input = safeJson(call.input, this.#limits.maxToolArgumentBytes, 'PROVIDER_INVALID_REQUEST');
@@ -297,7 +303,7 @@ export class AnthropicProvider implements ProviderAdapter {
     let serialized: string;
     try {
       if (typeof request.modelId !== 'string' || !request.modelId.trim() || Buffer.byteLength(request.modelId) > 256 || /[\u0000-\u001f\u007f]/u.test(request.modelId)) invalidRequest();
-      const input = this.#messages(request);
+      const input = this.#messages(request, signal);
       const tools = request.tools.map(tool => {
         if (!/^[a-zA-Z0-9_-]{1,128}$/u.test(tool.name) || typeof tool.description !== 'string' || tool.inputSchema.type !== 'object') invalidRequest();
         return { name: tool.name, description: tool.description, input_schema: safeJson(tool.inputSchema, this.#limits.maxRequestBytes, 'PROVIDER_INVALID_REQUEST') };

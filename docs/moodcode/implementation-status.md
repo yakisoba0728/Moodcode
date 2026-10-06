@@ -8,6 +8,7 @@
 |---|---|
 | 영구 입력·실행 | queue/steer inbox, exact retry·충돌·backlog, pause/resume, FIFO·workspace 공정성, 기존 즉시 run.submit 호환 |
 | 모델·기록 | durable Turn/Attempt/Part, 내부/provider call ID 분리, 제한된 provider retry, delta flush·bounded paging·read concurrency |
+| 추가 개선 | DB3의 attempt usage, active Run anchor/complete-exchange 선택, bounded image import/전송, 승인된 read-only delegate_task |
 | context·기억 | model metadata의 unknown/null, bounded SQL history, nested 지침과 지속 baseline, 원자 ContextRevision 활성화, tools 없는 semantic summary·한 번 overflow 복구 |
 | 도구·권한 | scoped versioned runtime, structured result/artifact, exact edit·rename/delete·bounded glob/regex, deny·Plan/Build 정책, scope grant 저장·철회 |
 | 세션 상호작용 | durable tasks CAS, question·답변·거절·expiry, agent profile의 model/tool/config identity, skill/reference의 제한된 읽기 |
@@ -17,9 +18,9 @@
 | 큰 결과·관측 | 원본을 보존하는 과거 tool result 투영, owner/hash를 검증한 read_artifact paging, SQL 집계 진단의 범위·누락·unknown 표시 |
 | 운영 검증 | archive export/import·복구 ledger, 실제 강제 종료 및 1천/1만/10만 이력 측정, 코딩 fixture 3개·현재 Codex gpt-6.1-sol live 과업, headless CI 구성 |
 
-핵심 실행과 확장 연결은 GUI 없이 engine host에서 사용할 수 있다. child 시작·worktree 준비·LSP/formatter/provider 등록은 명시적 host API이며 모델이나 renderer가 실행 파일·credential을 임의로 설정하는 경로가 아니다. child 작업 시작은 살아 있는 부모 Run과 미리 준비한 worktree를 요구한다.
+핵심 실행과 확장 연결은 GUI 없이 engine host에서 사용할 수 있다. host `startChildTask`는 살아 있는 부모 Run과 미리 준비한 worktree를 요구한다. 추가된 모델 도구 `delegate_task`는 matching approval 뒤 직접 읽기 전용 worktree/child를 준비한다. LSP/formatter/provider 등록은 명시적 host API다. 모델이나 renderer가 실행 파일·credential을 임의로 설정하는 경로는 제공하지 않는다. 지속 개선 목표의 최신 범위는 [G1 TODO](../../TODO.md)와 [목표 문서](engine-improvement-goal.md)를 따른다.
 
-Anthropic 추가 adapter는 text/tool·공개 reasoning summary·opaque replay·usage·retry/cancel을 synthetic fixture로 검증했다. 실제 Anthropic 계정 요청과 이미지·음성·영상·파일 input/output은 미검증·미지원이다. Windows는 실제 native process ownership binding이 없고, 새 CI의 Linux/Windows/Node24 hosted 실행도 아직 없다. 이 조건과 최종 OS 지원 명세가 열린 4개 TODO다.
+Anthropic 추가 adapter는 text/tool·공개 reasoning summary·opaque replay·usage·retry/cancel과 image 입력을 synthetic fixture로 검증했다. Responses/Codex/ChatCompletions image 입력도 연결했다. 실제 모델별 이미지 capability·token 예산, Anthropic 계정, audio/video/file 입력과 media 출력은 별도 범위다. Windows native process ownership binding과 새 CI의 Linux/Windows/Node24 hosted 실행도 아직 없다. 원래 열린 4개 TODO와 지속 개선 G1 항목은 별도로 관리한다.
 
 ## 기존 데스크톱 연결 기록
 

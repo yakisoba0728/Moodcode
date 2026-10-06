@@ -2,6 +2,7 @@ import { constants } from 'node:fs';
 import { lstat, open } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { EngineError, type JsonObject, type JsonValue, type Message, type ProviderReplay, type ProviderToolCall, type RunConfig } from '@moodcode/contracts';
+import { normalizeImageAttachments } from '@moodcode/contracts/validation';
 import type { ContextRequest, ProviderMessage } from '../ports.js';
 import { agentInstructions } from './instructions.js';
 import { extractiveMemory, MAX_MEMORY_BYTES, MIN_MEMORY_BYTES, type MemorySource } from './memory.js';
@@ -190,10 +191,11 @@ function historyBlocks(request: ContextRequest): ContextBlock[] {
     // Inspect same-session native state before filtering malformed surrounding rows.
     const providerReplay = checkedMessageReplay(message, sessionId, request.config, message && typeof message === 'object' ? runModels.get(message.runId) : undefined);
     if (!validMessage(message, sessionId)) continue;
+    if (message.attachments?.length && message.role !== 'user') throw new EngineError('INVALID_CONTEXT', 'Image input references belong to user messages');
     const source: MemorySource = { ordinal: index + 1, message };
     if (message.role === 'tool') continue;
     if (message.role === 'user') {
-      blocks.push(block([{ role: 'user', content: message.content }], [source]));
+      blocks.push(block([{ role: 'user', content: message.content, ...(message.attachments === undefined ? {} : { attachments: normalizeImageAttachments(message.attachments) }) }], [source]));
       continue;
     }
     const calls = copyCalls(message.toolCalls);
@@ -355,11 +357,22 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
   let requiredStart = blocks.findLastIndex((item) => item.messages[0]?.role === 'user');
   // A transcript without a user still keeps its latest valid block intact.
   if (requiredStart < 0) requiredStart = Math.max(0, blocks.length - 1);
-  const selected = blocks.slice(requiredStart);
-  let cost = selected.reduce((sum, item) => sum + item.cost, 0);
-  let count = selected.reduce((sum, item) => sum + item.messages.length, 0);
+  const selected = new Set<ContextBlock>();
+  if (request.run) {
+    const current = blocks.filter(item => item.sources.some(source => source.message.runId === request.run!.id));
+    const users = current.filter(item => item.messages[0]?.role === 'user');
+    const latestExchange = current.findLast(item => item.messages[0]?.role === 'assistant');
+    for (const item of [users[0], users.at(-1), latestExchange, current.at(-1)]) if (item) selected.add(item);
+    if (!selected.size && blocks.length) selected.add(blocks.at(-1)!);
+  } else for (const item of blocks.slice(requiredStart)) selected.add(item);
+  // A text projection cannot stand in for omitted pixels. Keep selected history's
+  // image-bearing blocks whole until an explicit media compaction policy exists.
+  const imageBlocks = blocks.filter(item => item.messages.some(message => message.attachments?.length));
+  for (const item of imageBlocks) selected.add(item);
+  let cost = [...selected].reduce((sum, item) => sum + item.cost, 0);
+  let count = [...selected].reduce((sum, item) => sum + item.messages.length, 0);
   if (arrayBytes(cost, count) > limit) {
-    throw new EngineError('CONTEXT_LIMIT', 'The current request and its tool results exceed the available context budget.', {
+    throw new EngineError(imageBlocks.length ? 'IMAGE_CONTEXT_LIMIT' : 'CONTEXT_LIMIT', 'Required user anchors and complete exchanges exceed the available context budget.', {
       requiredBytes: arrayBytes(cost, count), maxContextBytes, reservedBytes, availableContextBytes: limit,
     });
   }
@@ -377,41 +390,43 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
   const includeDefaults = arrayBytes(cost + entryCost(defaults), count + 1) <= limit
     && Buffer.byteLength((system?.content ?? '') + defaults.content, 'utf8') <= MAX_INSTRUCTION_BYTES;
   if (includeDefaults) { cost += entryCost(defaults); count += 1; }
-  const olderCost = blocks.slice(0, requiredStart).reduce((sum, item) => sum + item.cost, 0);
+  const olderCost = blocks.filter(item => !selected.has(item)).reduce((sum, item) => sum + item.cost, 0);
   const available = limit - arrayBytes(cost, count);
   // Reserve part of optional history space only when the full older transcript
   // cannot fit. Required current exchanges and project guidance are already kept.
   const reserve = !semantic && olderCost > available ? Math.min(MAX_MEMORY_BYTES, Math.floor(available / 4)) : 0;
   const memoryReserve = reserve >= MIN_MEMORY_BYTES ? reserve : 0;
-  let historyStart = requiredStart;
-  // Retain a chronological suffix of older history, with tool groups indivisible.
-  for (let index = requiredStart - 1; index >= 0; index -= 1) {
+  let nextOptional = blocks.length - 1;
+  // The required anchors can precede the retained recent suffix. Groups remain indivisible.
+  for (; nextOptional >= 0; nextOptional -= 1) {
     checkAbort(request.signal);
-    const item = blocks[index]!;
+    const item = blocks[nextOptional]!;
+    if (selected.has(item)) continue;
     if (arrayBytes(cost + item.cost + memoryReserve, count + item.messages.length) > limit) break;
-    selected.unshift(item);
-    historyStart = index;
+    selected.add(item);
     cost += item.cost;
     count += item.messages.length;
   }
   checkAbort(request.signal);
-  const memory = semantic ?? (historyStart > 0 ? extractiveMemory(
-    blocks.slice(0, historyStart).flatMap((item) => item.sources),
+  const omitted = blocks.filter(item => !selected.has(item));
+  const memory = semantic ?? (omitted.length ? extractiveMemory(
+    omitted.flatMap((item) => item.sources),
     limit - arrayBytes(cost, count),
   ) : undefined);
   // Some omitted groups contain only opaque/native state and tool results. If
   // there is no useful excerpt, reclaim the unused reservation for whole groups.
   if (!memory && memoryReserve) {
-    for (let index = historyStart - 1; index >= 0; index--) {
+    for (; nextOptional >= 0; nextOptional--) {
       checkAbort(request.signal);
-      const item = blocks[index]!;
+      const item = blocks[nextOptional]!;
+      if (selected.has(item)) continue;
       if (arrayBytes(cost + item.cost, count + item.messages.length) > limit) break;
-      selected.unshift(item);
+      selected.add(item);
       cost += item.cost;
       count += item.messages.length;
     }
   }
   checkAbort(request.signal);
-  const messages = selected.flatMap((item) => item.messages);
+  const messages = blocks.filter(item => selected.has(item)).flatMap((item) => item.messages);
   return [...(system ? [system] : []), ...(profile ? [profile] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...messages];
 }

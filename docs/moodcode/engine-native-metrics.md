@@ -8,11 +8,11 @@
 
 관측 이벤트는 아래 세 범주마다 **최근 2,000개의 matching v1 이벤트**만 사용한다. 관련 없는 이벤트는 한도를 차지하지 않는다. 각 `coverage.usage/summary/tools`는 matchingEvents, selectedEvents, omittedEvents, truncated, oldest/latest `{sessionId,seq}`와 filter를 제공한다. 모든 session을 합친 조회는 DB insertion order를 사용하며 서로 독립인 session seq를 비교하지 않는다. cursor의 seq는 v1이고 v2 journal과 교환할 수 없다.
 
-| 범주 | Matching 이벤트 | 지표 |
-| --- | --- | --- |
-| usage | `run.usage`, `context.prepared` | main usage observation 합계, 마지막 context metadata |
+| 범주    | Matching 이벤트                                                                        | 지표                                                 |
+| ------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| usage   | `run.usage`, `context.prepared`                                                        | main usage observation 합계, 마지막 context metadata |
 | summary | `summary.prepared/dispatched/completed/failed`, `provider.usage`의 `purpose='summary'` | 요약 lifecycle 관측, attempt별 마지막 usage snapshot |
-| tools | `tool.completed/failed/denied`, `checkpoint.artifacts` | cleanup 불확실 관측, artifact 참조·binding |
+| tools   | `tool.completed/failed/denied`, `checkpoint.artifacts`                                 | cleanup 불확실 관측, artifact 참조·binding           |
 
 기존 `getMetrics(sessionId)`의 반환 형식과 의미는 그대로다. 그 API의 usageWindowTruncated 역시 모든 이벤트 가운데 최근 2,000개라는 뜻이 아니라 **run.usage/context.prepared matching 이벤트 합계의 한도**다. 새로운 report는 정확한 omitted 수와 cursor를 추가로 제공한다. v1과 v2에 동시에 기록되는 summary settlement는 v1만 읽어 두 번 세지 않는다.
 
@@ -24,7 +24,7 @@ Turn/attempt/Part는 **현재 상태**를 센다. 동일 Part의 여러 revision
 
 시간은 durable createdAt/completedAt 또는 dispatchedAt/completedAt의 간격이다. samples, missing, invalid, totalMs/minMs/maxMs를 함께 제공하며 elapsed가 없으면 합계도 null이다. parse할 수 없는 날짜와 역전된 간격은 invalid, 필요한 timestamp가 없으면 missing이다. 밀리초 간격은 SQLite julianday 차이를 반올림한다. 이는 wall clock interval이며 실제 provider CPU 시간, TTFT, tool effect 시간이나 높은 정밀도의 stopwatch 측정이 아니다. 합계가 safe integer를 넘으면 null이다.
 
-providerUsage는 선택된 `run.usage`의 필드별 **observed-event-sum**이다. input/output은 inclusive total이고 cachedInputTokens는 input의 부분집합, reasoningOutputTokens는 output의 부분집합이다. 캐시·추론 값을 inclusive total에 다시 더하지 않는다. 현재 main usage 이벤트에는 durable provider attempt ID가 없으므로 cumulative observation 중복이나 실제 청구 금액을 이 API가 확정하지 못한다. 기존의 관측 event sum을 billing total로 바꾸지 않는다.
+providerUsage는 선택된 `run.usage`의 필드별 **observed-event-sum**이다. input/output은 inclusive total이고 cachedInputTokens는 input의 부분집합, reasoningOutputTokens는 output의 부분집합이다. 캐시·추론 값을 inclusive total에 다시 더하지 않는다. 새 runner는 main usage에 attempt identity를 덧붙일 수 있지만 legacy event에는 없고 기존 event-sum은 cumulative observation 중복이나 실제 청구 금액을 확정하지 못한다. 기존의 관측 event sum을 billing total로 바꾸지 않는다.
 
 각 usage 필드는 `{tokens,observed,missing,invalid,sumOverflow}`다. 0도 observed이고, 한 번도 관측하지 못한 값은 null이다. safe nonnegative integer만 사용하며 boolean·음수·소수와 inclusive total을 초과한 cache/reasoning 값은 invalid다. 유효값과 누락이 섞인 경우 tokens는 관측된 부분 합계이며 observed/missing을 반드시 함께 확인해야 한다. 안전한 정수 범위를 넘는 합계는 null/sumOverflow=true다.
 
@@ -41,3 +41,7 @@ recovery는 recovery_required로 paused된 session, uncertain Turn/attempt, CLEA
 ## 검증
 
 `storage/native-metrics.test.ts`는 빈 DB의 null/0, session/global scope, 조회 중 양쪽 journal 불변, pending UTF-8 quota bytes, 상태/retry/context-change, Korean Part bytes, wall clock 간격의 정상·누락·불량, inclusive cache/reasoning 관계, invalid/safe-integer overflow, 요약 cumulative snapshot/dual-journal settlement 중복 제거, 실패 요약 usage, 이벤트 창 omission, artifact ID 중복/불일치/unknown metadata, checkpoint 및 durable recovery evidence를 확인한다. 사용량 검증은 로컬 fixture이며 라이브 provider의 청구 API나 실제 artifact disk usage 검증은 포함하지 않는다.
+
+## Durable attempt usage
+
+DB3의 `attemptUsage`는 전체 scope의 attempt_usage record에서 attempt별 최신 snapshot 한 개만 합산한다. 기존 providerUsage의2,000-event 창과 별개이고 둘을 더하지 않는다. attemptsWithUsage/attemptsWithoutUsage를 제공하며 관측없는 필드는 null/missing, cached/reasoning은 inclusive subset이다. 실패 전 usage도 보존하고 중복 snapshot은 멱등이다. source=all-attempt_usage-records-in-scope, aggregation=latest-snapshot-per-durable-attempt이며 billedTokens=null이다. 데이터 migration은 legacy event에서 새로운 usage record를 추정하지 않는다.

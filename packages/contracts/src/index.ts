@@ -26,13 +26,17 @@ export interface EngineCapabilities {
   /** Advertise only commands wired to an implemented engine handler. */
   extensions?: { sessionSchemaVersions: number[]; commands: string[] };
 }
-export interface SubmitInput { sessionId: string; requestId: string; prompt: string; config: RunConfig }
-export interface Run { id: string; inputId: string; sessionId: string; workspaceId: string; requestId: string; prompt: string; config: RunConfig; state: RunState; createdAt: string; updatedAt: string; error?: { code: string; message: string } }
+export const INPUT_IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;
+export const INPUT_IMAGE_LIMITS = Object.freeze({ maxCount: 4, maxImageBytes: 524_288, maxTotalBytes: 1_048_576 });
+/** Host-imported immutable bytes. Commands carry references, never paths, URLs, or base64 data. */
+export interface InputImageAttachment { id: string; kind: 'image'; mimeType: typeof INPUT_IMAGE_MIME_TYPES[number]; bytes: number; sha256: string }
+export interface SubmitInput { sessionId: string; requestId: string; prompt: string; config: RunConfig; attachments?: InputImageAttachment[] }
+export interface Run { id: string; inputId: string; sessionId: string; workspaceId: string; requestId: string; prompt: string; config: RunConfig; state: RunState; createdAt: string; updatedAt: string; error?: { code: string; message: string }; attachments?: InputImageAttachment[] }
 export interface RunReceipt { runId: string; inputId: string; admittedSeq: number; duplicate: boolean }
 export interface ProviderToolCall { id: string; name: string; input: JsonValue }
 /** Provider-native completed output for manual replay; opaque to tools and the UI. */
 export interface ProviderReplay { providerId: string; items: JsonObject[]; modelId?: string; protocol?: string; version?: number }
-export interface Message { id: string; sessionId: string; runId: string; role: 'user' | 'assistant' | 'tool'; content: string; createdAt: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay; toolResult?: Pick<import('./v2.js').ToolResultEnvelope, 'artifactRefs' | 'warnings' | 'outcome'> }
+export interface Message { id: string; sessionId: string; runId: string; role: 'user' | 'assistant' | 'tool'; content: string; createdAt: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay; toolResult?: Pick<import('./v2.js').ToolResultEnvelope, 'artifactRefs' | 'warnings' | 'outcome'>; attachments?: InputImageAttachment[] }
 export interface ToolCallRecord { id: string; runId: string; sessionId: string; name: string; input: JsonValue; state: 'requested' | 'awaiting_approval' | 'running' | 'completed' | 'failed' | 'denied' | 'interrupted'; output?: string; error?: string }
 export interface ApprovalRecord { id: string; sessionId: string; runId: string; toolCallId: string; toolName: string; fingerprint: string; preview: JsonObject; status: 'pending' | 'allowed' | 'denied' | 'expired'; createdAt: string; resolvedAt?: string }
 export interface CheckpointFile { path: string; before: string | null; after: string | null; beforeHash: string | null; afterHash: string | null }

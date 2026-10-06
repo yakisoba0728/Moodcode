@@ -19,7 +19,7 @@ const model = anthropicModelSpec(hostSelectedModelId);
 
 API key는 host가 주입한 값만 사용하며 환경 변수, Codex/Claude 계정 파일, 브라우저 토큰을 탐색하지 않는다. 기본 API prefix는 `https://api.anthropic.com/v1`이며 host가 HTTPS 또는 loopback HTTP prefix를 명시할 수 있다. URL의 사용자명·암호·query·fragment와 redirect를 허용하지 않는다. key는 private field와 `x-api-key` header에만 두고 진단에 포함하지 않는다. 추가 host 비밀은 `redactionSecrets`로 지정할 수 있다. 요청에는 `anthropic-version: 2023-06-01`과 `stream: true`를 넣는다. 인증·Messages 요청 형태의 근거는 [Messages API](https://platform.claude.com/docs/en/api/messages/create)다.
 
-요청마다 `modelId`가 필요하다. `maxTokens` 기본값 4096은 adapter의 요청 ceiling이며 특정 모델의 최대 출력 능력을 뜻하지 않는다. `anthropicModelSpec`은 실제 구현 범위인 text/client-tool/replay 및 host의 thinking 선택만 표시하고 `contextWindow`, `maxOutputTokens`는 `null`로 둔다. 실제 모델별 지원과 window 정보는 host가 별도 확인해야 한다. catalog 응답에서 제공하는 `max_input_tokens`와 `max_tokens`의 의미는 [Models API](https://platform.claude.com/docs/en/api/models/retrieve)에 명시돼 있으나 여기서는 catalog 호출을 하지 않는다.
+요청마다 `modelId`가 필요하다. `maxTokens` 기본값 4096은 adapter의 요청 ceiling이며 특정 모델의 최대 출력 능력을 뜻하지 않는다. `anthropicModelSpec`은 실제 encoding 구현 범위인 text/image/client-tool/replay 및 host의 thinking 선택만 표시하고 `contextWindow`, `maxOutputTokens`는 `null`로 둔다. 실제 모델별 지원과 window 정보는 host가 별도 확인해야 한다. catalog 응답에서 제공하는 `max_input_tokens`와 `max_tokens`의 의미는 [Models API](https://platform.claude.com/docs/en/api/models/retrieve)에 명시돼 있으나 여기서는 catalog 호출을 하지 않는다.
 
 ## 메시지와 도구
 
@@ -29,7 +29,7 @@ API key는 host가 주입한 값만 사용하며 환경 변수, Codex/Claude 계
 
 SSE에서는 `message_start` → content block start/delta/stop → `message_delta` → `message_stop`을 검증한다. `input_json_delta.partial_json`은 UTF-8 byte 한도 안에서 조립하고 종료 후 모든 call의 JSON object, ID, 이름을 검증한다. terminal stop, usage, replay 및 reader 정리가 확인된 뒤에만 `tool.call`과 `finish`를 내보낸다. 중간에 정상 call이 하나 있어도 뒤 call이 잘못됐으면 어느 call도 공개하지 않는다. 프로토콜과 누적 usage의 근거는 [Streaming messages](https://platform.claude.com/docs/en/build-with-claude/streaming)다.
 
-이미지·음성·영상·파일 입력은 현재 text port로 표현할 수 없다. 배열형 media content를 text로 가장하거나 `media` 지원을 광고하지 않으며, media output을 받으면 `PROVIDER_UNSUPPORTED_OUTPUT`이다. artifact 생성이나 media 변환도 수행하지 않는다.
+2026-10-07에 user image reference와 dispatch 직전 resolved bytes의 별도 port를 추가했다. 검증된 이미지 입력은 base64 `image` source로 전송하고 텍스트 경로는 유지한다. [이미지 입력 경계](engine-input-media.md)에 owner/hash/MIME/budgets와 미검증 범위를 설명한다. 음성·영상·파일 입력과 모든 media output은 여전히 미지원이며 output block은 `PROVIDER_UNSUPPORTED_OUTPUT`이다. capabilities의 기존 `media: false`는 output media/생성 지원이 없음을 나타내며 `inputModalities`는 text/image encoding을 표시한다.
 
 ## 공개 reasoning과 native replay
 

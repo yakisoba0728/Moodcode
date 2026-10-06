@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
 import { inspectIntegrity } from './maintenance.js';
 import { migrateNativeSessions } from './native-schema.js';
+import { ATTEMPT_USAGE_SCHEMA } from './native-usage.js';
 
 export interface DatabaseMigration {
   /** Append-only, consecutive primary database version, starting at 1. */
@@ -32,6 +33,10 @@ const INITIAL_SCHEMA = `
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
   Object.freeze({ version: 1, name: 'initial-engine-records', apply: (database: DatabaseSync) => { database.exec(INITIAL_SCHEMA); } }),
   Object.freeze({ version: 2, name: 'session-inbox-and-execution-records', apply: migrateNativeSessions }),
+  Object.freeze({ version: 3, name: 'durable-provider-attempt-usage', apply: (database: DatabaseSync) => {
+    database.exec(ATTEMPT_USAGE_SCHEMA);
+    database.exec("CREATE INDEX model_messages_role ON messages(run_id,json_extract(data,'$.role'),ordinal)");
+  } }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;
 

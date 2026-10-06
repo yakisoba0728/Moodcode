@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { EngineError, SESSION_SCHEMA_VERSION, type ContextRevision, type JsonObject, type RunConfig, type SessionSnapshot } from '@moodcode/contracts';
 import type { ContextRequest, ProviderAdapter, ProviderMessage } from '../ports.js';
-import type { SqliteStore } from '../storage/index.js';
+import type { ModelHistoryPage, SqliteStore } from '../storage/index.js';
 import { ModelRegistry } from './model-spec.js';
 import { planContext, type ContextPlan } from './plan.js';
 import { InstructionSources, type InstructionObservation, type InstructionSource } from './sources.js';
@@ -11,6 +11,7 @@ import { projectToolHistory } from './tool-history.js';
 export interface ContextDiagnostics {
   revisionId: string; revision: number; plan: Omit<ContextPlan, 'messages'>;
   instructions: InstructionObservation; omittedDatabaseMessages: number; omittedDatabaseRuns: number;
+  activeWindow?: ModelHistoryPage['activeWindow'];
 }
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
@@ -18,7 +19,7 @@ const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(va
 export class ContextService {
   readonly memory: SemanticMemoryService;
   private readonly sources = new Map<string, InstructionSources>();
-  private readonly history = new Map<string, { omittedMessages: number; omittedRuns: number }>();
+  private readonly history = new Map<string, { omittedMessages: number; omittedRuns: number; activeWindow?: ModelHistoryPage['activeWindow'] }>();
   private readonly revisions = new Map<string, string>();
   constructor(private readonly store: SqliteStore, readonly models = new ModelRegistry(), private readonly outputTokenReserve = 0, private readonly provider?: (id: string) => ProviderAdapter | undefined) {
     if (!Number.isSafeInteger(outputTokenReserve) || outputTokenReserve < 0 || outputTokenReserve > 100_000_000) throw new EngineError('INVALID_OUTPUT_RESERVE', 'Output token reserve must be a bounded nonnegative integer');
@@ -26,7 +27,7 @@ export class ContextService {
   }
   snapshot(sessionId: string, config: RunConfig): SessionSnapshot {
     const page = this.store.readModelHistory(sessionId, 512, Math.max(1024, Math.min(33_554_432, config.limits.maxContextBytes * 4)));
-    this.history.set(sessionId, { omittedMessages: page.omittedMessages, omittedRuns: page.omittedRuns });
+    this.history.set(sessionId, { omittedMessages: page.omittedMessages, omittedRuns: page.omittedRuns, ...(page.activeWindow ? { activeWindow: page.activeWindow } : {}) });
     return page.snapshot;
   }
   revisionId(sessionId: string): string | undefined {
@@ -101,6 +102,7 @@ export class ContextService {
     // Text is retained in ContextRevision; diagnostics carry source hashes and observations only.
     const diagnostics: ContextDiagnostics = { revisionId, revision, plan: publicPlan,
       instructions: { ...observation, sources: observation.sources.map(source => ({ ...source, text: null })) },
+      ...(this.history.get(sessionId)?.activeWindow ? { activeWindow: this.history.get(sessionId)!.activeWindow } : {}),
       omittedDatabaseMessages: this.history.get(sessionId)?.omittedMessages ?? 0, omittedDatabaseRuns: this.history.get(sessionId)?.omittedRuns ?? 0 };
     const data = { revisionId, contextRevision: revision, bindingHash, diagnostics: JSON.parse(JSON.stringify(diagnostics)) as JsonObject };
     if (pendingRevision && request.run) this.store.commitContextDocument(request.run.id, 'context.revision.activated', { contextRevisionId: revisionId, revision, sha256: pendingRevision.sha256 }, { revision: pendingRevision, kind: 'context.head', expectedRevision: previous?.revision ?? 0, data });

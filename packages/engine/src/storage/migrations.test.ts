@@ -42,6 +42,33 @@ test('initial migration remains v1 with Run-owned events and original SQLite con
   } finally { db.close(); }
 });
 
+test('v1 to v2 to v3 preserves original records and installs durable usage and indexed role lookup without inventing observations',t=>{
+  const {db}=fixture(t),legacy=db.prepare('SELECT * FROM events ORDER BY seq').all();
+  db.exec('PRAGMA foreign_keys=ON');
+  migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,2));
+  const native=db.prepare('SELECT * FROM session_events ORDER BY session_id,seq').all();
+  assert.equal(databaseVersion(db),2);
+  migrateDatabase(db);
+  assert.equal(databaseVersion(db),3);
+  assert.equal(db.prepare('SELECT count(*) AS count FROM attempt_usage').get()?.count,0);
+  assert.deepEqual(db.prepare('SELECT * FROM events ORDER BY seq').all(),legacy);
+  assert.deepEqual(db.prepare('SELECT * FROM session_events ORDER BY session_id,seq').all(),native);
+  const plan=db.prepare("EXPLAIN QUERY PLAN SELECT ordinal FROM messages WHERE run_id=? AND json_extract(data,'$.role')='user' ORDER BY ordinal DESC LIMIT 1").all('run');
+  assert.ok(plan.some(row=>String(row.detail).includes('model_messages_role')));
+});
+
+test('failed v3 migration rolls back usage table/index and leaves v2 identity intact',t=>{
+  const {db}=fixture(t);db.exec('PRAGMA foreign_keys=ON');
+  migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,2));
+  const before=databaseContents(db);
+  const plan=[...DATABASE_MIGRATIONS.slice(0,2),{version:3,name:'intentional-v3-failure',apply:(database:DatabaseSync)=>{DATABASE_MIGRATIONS[2]!.apply(database);throw new Error('v3 rollback');}}];
+  assert.throws(()=>migrateDatabase(db,plan),/v3 rollback/);
+  assert.equal(databaseVersion(db),2);
+  assert.deepEqual(databaseContents(db),before);
+  migrateDatabase(db);
+  assert.equal(databaseVersion(db),3);
+});
+
 test('existing v1 database is unchanged while consecutive migrations see the preceding version', t => {
   const { db } = fixture(t), versions: number[] = [];
   const oldRows = db.prepare('SELECT * FROM events ORDER BY seq').all();

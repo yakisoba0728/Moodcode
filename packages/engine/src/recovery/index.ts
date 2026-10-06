@@ -89,7 +89,8 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     if (!review) blockers.push('REVIEW_DATABASE_MISSING');
     const primaryVersion = primary ? databaseVersion(primary) : 0;
     if (primary && primaryVersion < 1) fail('RECOVERY_DATABASE_INVALID');
-    const primaryHash = primary ? checkDatabase(primary, primaryVersion, primaryVersion >= 2 ? [...PRIMARY_TABLES, ...NATIVE_SESSION_TABLES] : PRIMARY_TABLES, snapshot.check) : null;
+    const primaryTables = primaryVersion >= 2 ? [...PRIMARY_TABLES, ...NATIVE_SESSION_TABLES] : PRIMARY_TABLES;
+    const primaryHash = primary ? checkDatabase(primary, primaryVersion, primaryVersion >= 3 ? [...primaryTables, 'attempt_usage'] : primaryTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);
     let marker: Marker | null = null;

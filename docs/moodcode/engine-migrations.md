@@ -1,6 +1,6 @@
 # 엔진 데이터베이스 마이그레이션
 
-현재 primary DB 버전은 2다. `storage/migrations.ts`의 append-only 목록이 지원 버전과 적용 순서를 함께 정의한다. v1은 기존 Run·입력·메시지·도구·승인·checkpoint·이벤트의 테이블과 제약을 그대로 생성한다. v2는 session 입력·제어·독립 이벤트·Turn·provider attempt·message Part·context revision·CAS 문서를 추가한다. 기존 `events.run_id`는 NOT NULL 외래 키이며 실행 전 입력은 nullable Run binding을 가진 별도 `session_inputs`와 `session_events`에 기록한다. 가짜 Run은 만들지 않는다.
+현재 primary DB 버전은 3이다. `storage/migrations.ts`의 append-only 목록이 지원 버전과 적용 순서를 함께 정의한다. v1은 기존 Run·입력·메시지·도구·승인·checkpoint·이벤트의 테이블과 제약을 그대로 생성한다. v2는 session 입력·제어·독립 이벤트·Turn·provider attempt·message Part·context revision·CAS 문서를 추가한다. 기존 `events.run_id`는 NOT NULL 외래 키이며 실행 전 입력은 nullable Run binding을 가진 별도 `session_inputs`와 `session_events`에 기록한다. 가짜 Run은 만들지 않는다.
 
 파일 경로 정규화와 SQLite owner 획득은 기존 방식이다. 지원 버전을 넘는 DB는 connection의 WAL/synchronous 설정을 변경하기 전에 거부한다. 실패한 open은 primary와 owner 연결을 닫아 후속 소유자를 막지 않는다. migration에는 filesystem effect, provider 요청, 비동기 작업을 넣지 않는다.
 
@@ -14,6 +14,8 @@ v2 backfill은 v1 `inputs`를 원래 Run에 연결한 promoted 입력으로 추�
 
 호환 테스트는 v1 기록의 raw JSON·ordinal·FK·event cursor와 API projection을 함께 확인한다. 명시적 interrupted recovery는 active Run을 interrupted로 만들고 미완료 도구와 승인 상태를 정리하되 terminal Run과 checkpoint를 유지한다. 같은 복구를 다시 실행해 이벤트를 중복 추가하지 않는다. review의 checkpoint/run/session/workspace/fingerprint 및 outcome binding도 보존한다. 다른 파일에 복사한 ledger 확인은 새로운 파일의 미확정 상태를 해제하지 못한다.
 
-`store.backup`은 primary DB의 일관된 SQLite snapshot이다. review DB와 recovery ledger를 포함하는 전체 아카이브라고 해석하지 않는다. recovery 진단은 primary v1과 v2 모두 읽고 원본의 실제 schema version으로 backup metadata를 기록한다. 기존 v1 ledger record의 metadata·acknowledgement·file identity scope를 v2로 바꾸지 않는다. primary manifest의 미래 버전과 review의 지원되지 않는 버전은 거부한다.
+`store.backup`은 primary DB의 일관된 SQLite snapshot이다. review DB와 recovery ledger를 포함하는 전체 아카이브라고 해석하지 않는다. recovery 진단은 primary v1·v2·v3를 읽고 원본의 실제 schema version으로 backup metadata를 기록한다. 기존 v1 ledger record의 metadata·acknowledgement·file identity scope를 새 버전으로 바꾸지 않는다. primary manifest의 미래 버전과 review의 지원되지 않는 버전은 거부한다.
 
 검증 명령은 `node --import tsx --test packages/engine/src/storage/*.test.ts`다. E0-03/E0-04 구현 시점 71개, v2 inbox/execution/CAS/history 추가 시점 98개가 통과했다. 순차 적용, chain rollback, deferred FK 실패, future DB byte 보존, owner release, WAL backup, v1 기록·승인·checkpoint·복구·review·ledger 호환 및 실제 v1 recovery acknowledgement를 생성한 뒤 upgrade하는 검증을 포함한다. 전체 workspace build는 통합 담당자가 별도로 실행한다. 저장 API는 [engine-storage-v2.md](engine-storage-v2.md)에 정리한다.
+
+DB3는 `attempt_usage`에 attempt/session/Run/Turn FK owner, 최신 누적 usage snapshot, revision, observedAt을 저장한다. 과거 이벤트에서 usage를 역산하지 않아 기존 attempt의 미관측은 그대로다. `(run_id,json_extract(data,'$.role'),ordinal)` index는 긴 active Run의 user/assistant anchor 조회를 지원하며 원본 메시지를 바꾸지 않는다. DB user_version=3과 공개 session event schemaVersion=2는 별도 버전이다. 새 테이블/index 실패는 v2 상태로 rollback하며, archive/recovery의 exact table 집합도 실제 primary version에 맞춰 검증한다.

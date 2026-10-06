@@ -10,6 +10,7 @@ import { backupDatabase } from './maintenance.js';
 import { databaseVersion, DB_VERSION } from './migrations.js';
 import { NATIVE_SESSION_TABLES } from './native-schema.js';
 import { SqliteStore } from './index.js';
+import type { ManagedWorktree } from '../worktrees/index.js';
 
 export const ENGINE_ARCHIVE_VERSION = 1;
 export const ENGINE_ARCHIVE_LIMITS = Object.freeze({ maxFiles: 4096, maxFileBytes: 268_435_456, maxTotalBytes: 536_870_912, maxManifestBytes: 4_194_304 });
@@ -27,7 +28,7 @@ export interface EngineArchiveManifest {
 export interface ExportEngineArchiveOptions { dbPath: string; artifactDir: string; destination: string; signal?: AbortSignal }
 export interface ImportEngineArchiveOptions { directory: string; destination: string; signal?: AbortSignal }
 export interface EngineArchiveResult { directory: string; manifest: EngineArchiveManifest; manifestSha256: string }
-export interface ImportedEngineArchive extends EngineArchiveResult { dbPath: string; artifactDir: string; migratedFromVersion: number; schemaVersion: number; sessionsPaused: number; artifactPathMapping: { from: string; to: string }; executionResumed: false }
+export interface ImportedEngineArchive extends EngineArchiveResult { dbPath: string; artifactDir: string; migratedFromVersion: number; schemaVersion: number; sessionsPaused: number; worktreesRelocated: number; artifactPathMapping: { from: string; to: string }; executionResumed: false }
 const digest = (data: string | Buffer) => createHash('sha256').update(data).digest('hex');
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
 function abort(signal?: AbortSignal): void { if (signal?.aborted) fail('ARCHIVE_ABORTED', 'Engine archive operation was cancelled'); }
@@ -120,7 +121,8 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
   if (role === 'primary') {
     databaseVersion(db);
     if (schemaVersion < 1) fail('ARCHIVE_DATABASE_INVALID', 'Primary archive database has no supported schema');
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 2 ? [...primaryTables, ...NATIVE_SESSION_TABLES] : primaryTables, check) };
+    const tables = schemaVersion >= 2 ? [...primaryTables, ...NATIVE_SESSION_TABLES] : primaryTables;
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 3 ? [...tables,'attempt_usage'] : tables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };
@@ -262,13 +264,32 @@ export async function importEngineArchive(options: ImportEngineArchiveOptions): 
     }
     if (parseManifest(join(sourceRoot, 'manifest.json')).manifestSha256 !== archive.manifestSha256) fail('ARCHIVE_SOURCE_CHANGED', 'Archive manifest changed during import');
     const primary = archive.manifest.databases.find(item => item.role === 'primary')!;
-    const store = new SqliteStore(join(staging, databaseFiles.primary)); let sessionsPaused = 0;
-    try { for (const workspace of store.listWorkspaces()) for (const session of store.listSessions(workspace.id)) { store.setSessionPaused(session.id, true, 'recovery_required'); sessionsPaused++; } }
+    const artifactDir = join(destination, 'data', 'artifacts');
+    const store = new SqliteStore(join(staging, databaseFiles.primary)); let sessionsPaused = 0, worktreesRelocated = 0;
+    try { for (const workspace of store.listWorkspaces()) for (const session of store.listSessions(workspace.id)) {
+      const document = store.getSessionDocument(session.id, 'engine.worktrees');
+      if (document) {
+        const records = document.data.records;
+        if (document.data.schemaVersion !== 1 || !Array.isArray(records) || records.length > 128) fail('ARCHIVE_WORKTREE_BINDING_INVALID', 'Archived worktree journal is invalid');
+        const relocated = records.map(value => {
+          const record = value as unknown as ManagedWorktree;
+          if (!record || record.sessionId !== session.id || !/^worktree_[a-f0-9]{32}$/u.test(record.id)
+            || record.root !== join(archive.manifest.source.artifactDir, 'children', 'worktrees', record.id)
+            || !Number.isSafeInteger(record.revision) || record.revision < 1 || record.revision >= Number.MAX_SAFE_INTEGER) fail('ARCHIVE_WORKTREE_BINDING_INVALID', 'Archived worktree path cannot be mapped to the default owned artifact tree');
+          worktreesRelocated++;
+          return { ...record, root: join(artifactDir, 'children', 'worktrees', record.id), revision: record.revision + 1,
+            state: record.state === 'removed' ? 'removed' : 'uncertain', errorCode: 'WORKTREE_ARCHIVE_RELOCATION',
+            relocation: { archiveId: archive.manifest.archiveId, manifestSha256: archive.manifestSha256, originalRoot: record.root, ownershipVerified: false },
+          } as unknown as import('@moodcode/contracts').JsonObject;
+        });
+        store.putSessionDocument(session.id, 'engine.worktrees', document.revision, { ...document.data, records: relocated });
+      }
+      store.setSessionPaused(session.id, true, 'recovery_required'); sessionsPaused++;
+    } }
     finally { await store.closeAsync(); }
-    const receipt = { archiveId: archive.manifest.archiveId, archiveManifestSha256: archive.manifestSha256, source: archive.manifest.source, recoveryAcknowledgmentsRebound: false, migratedFromVersion: primary.schemaVersion, schemaVersion: DB_VERSION, sessionsPaused, executionResumed: false };
+    const receipt = { archiveId: archive.manifest.archiveId, archiveManifestSha256: archive.manifestSha256, source: archive.manifest.source, recoveryAcknowledgmentsRebound: false, migratedFromVersion: primary.schemaVersion, schemaVersion: DB_VERSION, sessionsPaused, worktreesRelocated, executionResumed: false };
     writeFileSync(join(staging, 'import.json'), JSON.stringify(receipt, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
     directorySync(staging); check(); publish(staging, destination); staging = undefined;
-    const artifactDir = join(destination, 'data', 'artifacts');
-    return { ...archive, directory: destination, dbPath: join(destination, 'data', databaseFiles.primary), artifactDir, migratedFromVersion: primary.schemaVersion, schemaVersion: DB_VERSION, sessionsPaused, artifactPathMapping: { from: archive.manifest.source.artifactDir, to: artifactDir }, executionResumed: false };
+    return { ...archive, directory: destination, dbPath: join(destination, 'data', databaseFiles.primary), artifactDir, migratedFromVersion: primary.schemaVersion, schemaVersion: DB_VERSION, sessionsPaused, worktreesRelocated, artifactPathMapping: { from: archive.manifest.source.artifactDir, to: artifactDir }, executionResumed: false };
   } finally { if (staging) rmSync(staging, { recursive: true, force: true }); }
 }

@@ -19,6 +19,7 @@ export interface NativeStorageHooks {
   notify(sessionId: string): void;
 }
 export interface StoredInputPromotion { input: InputRecord; run: Run; receipt: RunReceipt }
+export type ExistingInputReceipt = InputReceipt | { inputId: string; state: 'promoted'; runId: string; legacyReceipt: RunReceipt };
 type EventRefs = Pick<SessionEventV2, 'runId' | 'inputId' | 'turnId' | 'attemptId'>;
 const PAGE_BYTES = 8_388_608;
 
@@ -89,6 +90,38 @@ export class NativeSessionStorage {
   }
   private inputReceipt(input: InputRecord, duplicate: boolean): InputReceipt {
     return { inputId: input.id, admittedSeq: input.admittedSeq, state: input.state, duplicate, ...(input.runId ? { runId: input.runId } : {}) };
+  }
+  /** Identity lookup only: never backfills a legacy request or allocates an event seq. */
+  lookupInputReceipt(value: AcceptInput): ExistingInputReceipt | undefined {
+    const accepted=normalizeAcceptInput(value);
+    this.hooks.session(accepted.sessionId);
+    const fingerprint=requestIdentity(accepted);
+    const row=this.database.prepare('SELECT id,fingerprint FROM session_inputs WHERE session_id=? AND request_id=?').get(accepted.sessionId,accepted.requestId);
+    if(row) {
+      if(row.fingerprint!==fingerprint) throw new EngineError('REQUEST_ID_CONFLICT','Request ID belongs to different input, configuration, attachments or delivery');
+      const input=this.getInput(String(row.id));
+      if(input.sessionId!==accepted.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH','Input belongs to a different session');
+      return this.inputReceipt(input,true);
+    }
+    const legacy=this.database.prepare('SELECT inputs.id,inputs.data,inputs.admitted_seq,runs.id AS run_id FROM inputs JOIN runs ON runs.input_id=inputs.id WHERE inputs.session_id=? AND inputs.request_id=?').get(accepted.sessionId,accepted.requestId);
+    if(!legacy) return undefined;
+    const input=JSON.parse(String(legacy.data)) as SubmitInput;
+    if(requestIdentity({...input,delivery:'queue'})!==fingerprint) throw new EngineError('REQUEST_ID_CONFLICT','Request ID belongs to different legacy input');
+    const run=this.scopeRun(accepted.sessionId,String(legacy.run_id));
+    if(run.inputId!==legacy.id) throw new EngineError('RECORD_SCOPE_MISMATCH','Legacy receipt has inconsistent input identity');
+    const legacyReceipt:RunReceipt={inputId:String(legacy.id),runId:run.id,admittedSeq:Number(legacy.admitted_seq),duplicate:true};
+    return {inputId:legacyReceipt.inputId,state:'promoted',runId:run.id,legacyReceipt};
+  }
+  lookupRunReceipt(input: SubmitInput): RunReceipt | undefined {
+    this.hooks.session(input.sessionId);
+    const native=this.legacyReceipt(input);
+    if(native) return native;
+    const row=this.database.prepare('SELECT inputs.id,inputs.data,inputs.admitted_seq,runs.id AS run_id FROM inputs JOIN runs ON runs.input_id=inputs.id WHERE inputs.session_id=? AND inputs.request_id=?').get(input.sessionId,input.requestId);
+    if(!row) return undefined;
+    if(requestIdentity({...JSON.parse(String(row.data)),delivery:'queue'})!==requestIdentity({...input,delivery:'queue'})) throw new EngineError('REQUEST_ID_CONFLICT','Request ID belongs to different legacy input');
+    const run=this.scopeRun(input.sessionId,String(row.run_id));
+    if(run.inputId!==row.id) throw new EngineError('RECORD_SCOPE_MISMATCH','Legacy receipt has inconsistent input identity');
+    return {inputId:String(row.id),runId:run.id,admittedSeq:Number(row.admitted_seq),duplicate:true};
   }
   acceptInput(value: AcceptInput): InputReceipt {
     const accepted = normalizeAcceptInput(value);
@@ -246,7 +279,8 @@ export class NativeSessionStorage {
       // New Runs respect admission order across queue and idle steer deliveries.
       const first = this.database.prepare("SELECT id FROM session_inputs WHERE session_id=? AND state='pending' ORDER BY admitted_seq LIMIT 1").get(input.sessionId);
       if (first?.id !== inputId) throw new EngineError('INPUT_ORDER_CONFLICT', 'Promote the oldest pending input first');
-      receipt = this.hooks.admit({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt, config: input.config }, input.id);
+      receipt = this.hooks.admit({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt, config: input.config,
+        ...(input.attachments === undefined ? {} : { attachments: structuredClone(input.attachments) }) }, input.id);
       run = this.hooks.run(receipt.runId);
     }
     const promoted = validateInputRecord({ ...input, state: 'promoted', runId: run.id, promotedSeq: this.nextSeq(input.sessionId), updatedAt: new Date().toISOString() });
