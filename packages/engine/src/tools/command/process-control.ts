@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process';
 import type { Readable } from 'node:stream';
+import { EngineError } from '@moodcode/contracts';
+import type { CommandProcessBackend } from './backends.js';
 
 export const TERMINATION_LIMITS = Object.freeze({ termGraceMs: 250, killWaitMs: 2_000, pollMs: 20 });
 export interface ShellInput { command: string; cwd: string; timeoutMs: number }
@@ -73,8 +75,14 @@ export async function cleanupGroup(pid: number, closed: () => boolean = () => tr
   return settleGroup(pid, closed, TERMINATION_LIMITS.killWaitMs);
 }
 
-export async function executeShell(input: ShellInput, signal: AbortSignal, output: ShellOutput, started: (pid: number) => void, warn: (message: string) => void): Promise<ProcessOutcome> {
+export async function executeShell(input: ShellInput, signal: AbortSignal, output: ShellOutput, started: (pid: number) => void, warn: (message: string) => void, backend?: CommandProcessBackend): Promise<ProcessOutcome> {
   if (signal.aborted) return { exitCode: null, signal: null, cancelled: true, timedOut: false, cleanupConfirmed: true, started: false };
+  if (backend) {
+    const capability = backend.capability();
+    if (!capability.available || capability.platform !== process.platform || capability.processTree === 'unsupported') throw new EngineError('COMMAND_BACKEND_UNAVAILABLE', 'The injected command backend has no supported ownership on this platform');
+    return backend.execute(input, signal, output, started, warn);
+  }
+  if (!['darwin', 'linux', 'freebsd'].includes(process.platform)) throw new EngineError('COMMAND_PLATFORM_UNSUPPORTED', 'Shell execution requires a supported owned process backend');
   const child = spawn(input.command, { cwd: input.cwd, env: createCommandEnvironment(), shell: true, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
   let closed = false;
   let exited = false;

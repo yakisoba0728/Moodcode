@@ -9,6 +9,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, EngineError } from '@moodcode/contracts';
 import { SqliteStore } from './index.js';
+import { DB_VERSION } from './migrations.js';
 
 function fixture(t: TestContext): { directory: string; dbPath: string; store: SqliteStore; sessionId: string } {
   // macOS exposes /var and /tmp through symlinks; use the actual temporary root.
@@ -50,7 +51,7 @@ test('backup creates private directories and a private, independently readable S
   assert.equal(result.destination, destination);
   assert.equal(result.bytes, metadata.size);
   assert.ok(result.bytes > 0);
-  assert.equal(result.schemaVersion, 1);
+  assert.equal(result.schemaVersion, DB_VERSION);
   assert.equal(statSync(parent).mode & 0o777, 0o700);
   assert.equal(statSync(nested).mode & 0o777, 0o700);
   assert.equal(metadata.mode & 0o777, 0o600);
@@ -62,7 +63,7 @@ test('backup creates private directories and a private, independently readable S
   try {
     assert.deepEqual(reader.prepare('PRAGMA integrity_check').all().map((row) => row.integrity_check), ['ok']);
     assert.deepEqual(reader.prepare('PRAGMA foreign_key_check').all(), []);
-    assert.equal(reader.prepare('PRAGMA user_version').get()?.user_version, 1);
+    assert.equal(reader.prepare('PRAGMA user_version').get()?.user_version, DB_VERSION);
     assert.equal(reader.prepare('SELECT COUNT(*) AS n FROM events').get()?.n, before.lastSeq);
     assert.equal(reader.prepare('SELECT COUNT(*) AS n FROM messages').get()?.n, before.messages.length);
   } finally { reader.close(); }

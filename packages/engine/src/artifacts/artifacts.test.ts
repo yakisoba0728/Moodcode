@@ -45,9 +45,10 @@ test('failed stream stores reviewable partial output without exposing error text
 });
 test('noncooperating stream is interruptible and return cleanup never blocks publication', async t => {
   const { directory } = await fixture(t); const store = await ArtifactStore.open({ directory }); const controller = new AbortController();
-  const source = { [Symbol.asyncIterator]() { let first = true; return { next() { if (first) { first = false; return Promise.resolve({ done: false as const, value: 'partial' }); } return new Promise<IteratorResult<string>>(() => {}); }, return() { return new Promise<IteratorResult<string>>(() => {}); } }; } };
-  const timer = setTimeout(() => controller.abort(), 10); t.after(() => clearTimeout(timer));
-  const item = await store.put({ identity: owner, content: source, signal: controller.signal }); assert.equal(item.reference.outcome, 'interrupted'); assert.equal(item.modelContent, 'partial');
+  let blocked!: () => void; const entered = new Promise<void>(resolve => { blocked = resolve; });
+  const source = { [Symbol.asyncIterator]() { let first = true; return { next() { if (first) { first = false; return Promise.resolve({ done: false as const, value: 'partial' }); } blocked(); return new Promise<IteratorResult<string>>(() => {}); }, return() { return new Promise<IteratorResult<string>>(() => {}); } }; } };
+  const putting = store.put({ identity: owner, content: source, signal: controller.signal }); await entered; controller.abort();
+  const item = await putting; assert.equal(item.reference.outcome, 'interrupted'); assert.equal(item.modelContent, 'partial');
 });
 test('empty stream chunks cannot evade producer work limit and last observed chunk is counted', async t => {
   const { directory } = await fixture(t); const store = await ArtifactStore.open({ directory, limits: { maxProducerChunks: 2 } });

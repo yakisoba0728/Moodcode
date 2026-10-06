@@ -13,6 +13,7 @@ const PUBLIC_ERRORS: Readonly<Record<string, string>> = {
   PROVIDER_INCOMPLETE_STREAM: 'Provider stream ended before completion.',
   PROVIDER_LIMIT_EXCEEDED: 'Provider request or response exceeds a configured limit.',
   PROVIDER_REMOTE_ERROR: 'Provider reported an error in the stream.',
+  PROVIDER_CONTEXT_OVERFLOW: 'Provider rejected the request because its context window is full.',
   PROVIDER_CONTENT_FILTERED: 'Provider filtered the completion.',
   PROVIDER_UNSUPPORTED_FINISH_REASON: 'Provider returned an unsupported finish reason or function call.',
   PROVIDER_UNSUPPORTED_OUTPUT: 'Provider returned unsupported output.',
@@ -24,12 +25,55 @@ export function publicError(error: unknown): EngineError {
   if (error instanceof EngineError) {
     const status = error.details?.status;
     if (error.code === 'PROVIDER_HTTP_ERROR' && typeof status === 'number' && Number.isInteger(status) && status >= 100 && status <= 599) {
-      return new EngineError('PROVIDER_HTTP_ERROR', `Provider HTTP request failed with status ${status}.`, { status });
+      const delay = error.details?.retryAfterMs;
+      return new EngineError('PROVIDER_HTTP_ERROR', `Provider HTTP request failed with status ${status}.`, { status, ...(typeof delay === 'number' && Number.isSafeInteger(delay) && delay >= 0 && delay <= 60_000 ? { retryAfterMs: delay } : {}) });
     }
     const message = Object.hasOwn(PUBLIC_ERRORS, error.code) ? PUBLIC_ERRORS[error.code] : undefined;
     if (message) return new EngineError(error.code, message);
   }
   return new EngineError('PROVIDER_TRANSPORT_ERROR', 'Provider HTTP transport failed.');
+}
+/** Only a bounded delay survives; arbitrary server headers never enter diagnostics. */
+export function providerRemoteError(value: unknown): EngineError {
+  const code = value && typeof value === 'object' ? (value as Record<string, unknown>).code : undefined;
+  return typeof code === 'string' && ['context_length_exceeded', 'context_window_exceeded', 'context_length_overflow', 'context_size_exceeded'].includes(code)
+    ? new EngineError('PROVIDER_CONTEXT_OVERFLOW', 'Provider rejected the request because its context window is full.')
+    : new EngineError('PROVIDER_REMOTE_ERROR', 'Provider reported an error in the stream.');
+}
+export function providerHttpError(response: Response): EngineError {
+  const raw = response.headers.get('retry-after');
+  let retryAfterMs: number | undefined;
+  if (raw && raw.length <= 128) {
+    const seconds = /^\d+(?:\.\d+)?$/u.test(raw.trim()) ? Number(raw) : undefined;
+    const delay = seconds === undefined ? Date.parse(raw) - Date.now() : seconds * 1000;
+    if (Number.isFinite(delay) && delay >= 0) retryAfterMs = Math.min(60_000, Math.ceil(delay));
+  }
+  return new EngineError('PROVIDER_HTTP_ERROR', `Provider HTTP request failed with status ${response.status}.`, { status: response.status, ...(retryAfterMs === undefined ? {} : { retryAfterMs }) });
+}
+/** Inspect only bounded structured rejection codes; remote messages and body text stay private. */
+export async function providerHttpFailure(response: Response, signal: AbortSignal): Promise<EngineError> {
+  const fallback = providerHttpError(response);
+  if (![400, 413].includes(response.status) || !response.body) return fallback;
+  const reader = response.body.getReader();
+  const abort = () => { void reader.cancel().catch(() => {}); };
+  signal.addEventListener('abort', abort, { once: true });
+  try {
+    const chunks: Uint8Array[] = []; let bytes = 0;
+    while (true) {
+      if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
+      const item = await reader.read();
+      if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
+      if (item.done) break;
+      bytes += item.value.byteLength;
+      if (bytes > 8192) return fallback;
+      chunks.push(item.value);
+    }
+    let parsed: unknown;
+    try { parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))); } catch { return fallback; }
+    const value = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>).error : undefined;
+    const normalized = providerRemoteError(value);
+    return normalized.code === 'PROVIDER_CONTEXT_OVERFLOW' ? normalized : fallback;
+  } finally { signal.removeEventListener('abort', abort); await reader.cancel().catch(() => {}); reader.releaseLock(); }
 }
 
 export function record(value: unknown): Record<string, unknown> {

@@ -64,7 +64,7 @@ export interface ProviderAttempt {
   schemaVersion: typeof SESSION_SCHEMA_VERSION;
   id: string; sessionId: string; runId: string; turnId: string; index: number;
   providerId: string; modelId: string; state: AttemptState; createdAt: string;
-  dispatchedAt?: string; completedAt?: string; providerRequestId?: string; uncertainty?: ExecutionUncertainty;
+  dispatchedAt?: string; completedAt?: string; providerRequestId?: string; contextRevisionId?: string; uncertainty?: ExecutionUncertainty;
 }
 export interface ToolCallIdentity { id: string; sessionId: string; runId: string; turnId: string; attemptId: string; providerCallId: string }
 export interface ArtifactIdentity { sessionId: string; runId: string; toolCallId: string; turnId?: string; attemptId?: string }
@@ -100,7 +100,7 @@ export interface SessionEventV2 {
   type: string; payload: JsonObject; runId?: string; inputId?: string; turnId?: string; attemptId?: string;
 }
 export interface SessionEventCursor { schemaVersion: typeof SESSION_SCHEMA_VERSION; stream: 'session-v2'; sessionId: string; afterSeq: number }
-export const SESSION_COMMAND_TYPES = ['input.accept', 'input.list', 'input.cancel', 'session.pause', 'session.resume', 'session.events'] as const;
+export const SESSION_COMMAND_TYPES = ['input.accept', 'input.list', 'input.cancel', 'session.pause', 'session.resume', 'session.events', 'engine.getCapabilities', 'run.getTurns', 'turn.getParts', 'artifact.get', 'session.getTasks', 'session.setTasks', 'question.list', 'question.answer', 'question.reject', 'session.getContext', 'session.searchHistory'] as const;
 export type SessionCommandType = typeof SESSION_COMMAND_TYPES[number];
 export interface SessionCommandEnvelope { schemaVersion: typeof SESSION_SCHEMA_VERSION; commandId: string; type: SessionCommandType; payload: JsonObject }
 export interface SessionCommandResult { schemaVersion: typeof SESSION_SCHEMA_VERSION; commandId: string; ok: boolean; result?: JsonValue; error?: { code: string; message: string; details?: JsonObject } }

@@ -11,6 +11,21 @@ export interface ReplayValidationOptions {
   maxToolArgumentBytes: number;
   maxToolCalls: number;
 }
+/** Older replay has no binding; newly emitted replay is portable only within its model/protocol. */
+export function replayCompatible(message: ProviderMessage, providerId: string, modelId: string, protocol: string): boolean {
+  const replay = message.providerReplay;
+  if (!replay || replay.providerId !== providerId) return false;
+  const binding: Record<string, unknown> = {};
+  for (const key of ['modelId', 'protocol', 'version']) {
+    const descriptor = Object.getOwnPropertyDescriptor(replay, key);
+    if (!descriptor) continue;
+    if (!descriptor.enumerable || !('value' in descriptor)) invalid();
+    binding[key] = descriptor.value;
+  }
+  if (!Object.keys(binding).length) return true;
+  if (Object.keys(binding).length !== 3 || typeof binding.modelId !== 'string' || !binding.modelId.trim() || Buffer.byteLength(binding.modelId) > 256 || typeof binding.protocol !== 'string' || !binding.protocol.trim() || Buffer.byteLength(binding.protocol) > 256 || binding.version !== 1) invalid();
+  return binding.modelId === modelId && binding.protocol === protocol;
+}
 
 const ABSOLUTE_LIMIT = 2_147_483_647;
 function invalid(): never { throw new EngineError('PROVIDER_INVALID_REPLAY', 'Provider replay is invalid.'); }

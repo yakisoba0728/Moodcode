@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import { DB_VERSION } from '../storage/migrations.js';
 import type { RestoreOperation } from '../review/audit.js';
 import { canonical, checkDatabase, fail, hash, RECOVERY_LIMITS, type Snapshot } from './snapshot.js';
 
@@ -112,10 +113,10 @@ export function readAudits(db: DatabaseSync | undefined, check: () => void): { a
     if (typeof row.data !== 'string' || Number(row.bytes) > RECOVERY_LIMITS.maxLedgerRecordBytes) fail('RECOVERY_DATABASE_INVALID');
     const source = object(JSON.parse(row.data));
     const backups = object(source.backups);
-    const backup = (value: unknown): RecoveryBackupMetadata => {
+    const backup = (value: unknown, maximumVersion: number): RecoveryBackupMetadata => {
       const item = object(value);
-      if (!Number.isSafeInteger(item.bytes) || Number(item.bytes) < 1 || item.schemaVersion !== 1) fail('RECOVERY_DATABASE_INVALID');
-      return { bytes: item.bytes as number, schemaVersion: 1, sha256: digest(item.sha256) };
+      if (!Number.isSafeInteger(item.bytes) || Number(item.bytes) < 1 || !Number.isSafeInteger(item.schemaVersion) || Number(item.schemaVersion) < 1 || Number(item.schemaVersion) > maximumVersion) fail('RECOVERY_DATABASE_INVALID');
+      return { bytes: item.bytes as number, schemaVersion: item.schemaVersion as number, sha256: digest(item.sha256) };
     };
     if (!Array.isArray(source.acknowledgments) || source.acknowledgments.length > RECOVERY_LIMITS.maxOperations || typeof source.markerClearRequested !== 'boolean') fail('RECOVERY_DATABASE_INVALID');
     const acknowledgments: RecoveryAcknowledgment[] = source.acknowledgments.map(value => {
@@ -128,7 +129,7 @@ export function readAudits(db: DatabaseSync | undefined, check: () => void): { a
     const audit: RecoveryAudit = { id: boundedString(source.id), fingerprint: digest(source.fingerprint), scope: digest(source.scope),
       acknowledgedAt: timestamp(source.acknowledgedAt), markerClearRequested: source.markerClearRequested,
       markerHash: source.markerHash === null ? null : digest(source.markerHash),
-      backups: { primary: backup(backups.primary), review: backup(backups.review) }, acknowledgments };
+      backups: { primary: backup(backups.primary, DB_VERSION), review: backup(backups.review, 1) }, acknowledgments };
     if (audit.id !== row.id || canonical(audit) !== canonical(source)) fail('RECOVERY_DATABASE_INVALID');
     return audit;
   });

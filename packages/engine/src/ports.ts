@@ -9,6 +9,7 @@ export interface EngineStore {
   listSessions(workspaceId: string): Session[];
   admit(input: SubmitInput): RunReceipt;
   getRun(id: string): Run;
+  hasActiveRuns?(workspaceId: string, excludedRunId?: string): boolean;
   commit(runId: string, type: string, payload: JsonObject, change?: CommitChange): EngineEvent;
   getSnapshot(sessionId: string): SessionSnapshot;
   readEvents(sessionId: string, afterSeq: number, limit?: number): EngineEvent[];
@@ -23,6 +24,7 @@ export interface SessionInboxPort {
   acceptInput(input: AcceptInput): InputReceipt;
   getInput(id: string): InputRecord;
   listInputs(sessionId: string, cursor?: InputCursor, limit?: number): InputPage;
+  pendingInputs(sessionId: string, delivery?: AcceptInput['delivery'], limit?: number): InputRecord[];
   promoteInput(inputId: string, runId?: string): InputPromotion;
   promoteSteers(inputIds: string[], runId: string): InputRecord[];
   cancelInput(inputId: string): InputRecord;
@@ -33,6 +35,7 @@ export interface SessionInboxPort {
 }
 /** Implementations validate ownership, revisions and terminal transitions atomically. */
 export interface ExecutionRecordStore {
+  listRunInputIds?(runId: string): string[];
   putTurn(turn: TurnRecord): TurnRecord;
   getTurn(id: string): TurnRecord;
   listTurns(runId: string): TurnRecord[];
@@ -46,16 +49,17 @@ export interface ExecutionRecordStore {
 export interface SessionEngineStore extends EngineStore, SessionInboxPort, ExecutionRecordStore {}
 export interface ProviderMessage { role: 'system' | 'user' | 'assistant' | 'tool'; content: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay }
 export interface ProviderTool { name: string; description: string; inputSchema: JsonObject }
-export interface TurnRequest { runId: string; turnIndex: number; modelId: string; messages: ProviderMessage[]; tools: ProviderTool[]; reasoningEffort?: import('@moodcode/contracts').ReasoningEffort; turnId?: string; attemptId?: string }
-export type ProviderEvent = { type: 'text.delta'; delta: string } | { type: 'tool.call'; call: ProviderToolCall } | { type: 'usage'; inputTokens?: number; outputTokens?: number } | { type: 'finish'; reason: 'stop' | 'tool_calls' | 'length'; replayItems?: JsonObject[] };
-export interface ProviderAdapter { readonly id: string; streamTurn(request: TurnRequest, signal: AbortSignal): AsyncIterable<ProviderEvent> }
+export interface TurnRequest { runId: string; turnIndex: number; modelId: string; messages: ProviderMessage[]; tools: ProviderTool[]; reasoningEffort?: import('@moodcode/contracts').ReasoningEffort; turnId?: string; attemptId?: string; includeMetadata?: boolean }
+export type ProviderEvent = { type: 'text.delta'; delta: string } | { type: 'progress'; providerRequestId?: string } | { type: 'reasoning.delta'; delta: string } | { type: 'media'; mime: string; name?: string; artifact: import('@moodcode/contracts').ArtifactReference } | { type: 'tool.call'; call: ProviderToolCall } | { type: 'usage'; inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; reasoningOutputTokens?: number } | { type: 'finish'; reason: 'stop' | 'tool_calls' | 'length'; replayItems?: JsonObject[] };
+export interface ProviderAdapter { readonly id: string; readonly replayProtocol?: string; streamTurn(request: TurnRequest, signal: AbortSignal): AsyncIterable<ProviderEvent> }
 export interface ToolContext { workspace: Workspace; sessionId: string; runId: string; toolCallId: string; signal: AbortSignal; limits: RunLimits; artifactDir: string; executionLockPath?: string; recordCheckpoint(checkpoint: Checkpoint): void; budgets?: EngineBudgets; turnId?: string; attemptId?: string }
 export interface PreparedTool { name: string; input: JsonValue; fingerprint: string; requiresApproval: boolean; preview: JsonObject; data?: JsonValue }
 export interface ToolResult { content: string; isError?: boolean; data?: JsonValue; artifacts?: { path: string; bytes: number; truncated: boolean }[]; structuredResult?: ToolResultEnvelope }
-export interface ToolDefinition extends ProviderTool { prepare(input: unknown, context: ToolContext): Promise<PreparedTool>; execute(prepared: PreparedTool, context: ToolContext): Promise<ToolResult> }
+export type ToolEffectClass = 'read' | 'state' | 'write' | 'execute' | 'network' | 'unknown';
+export interface ToolDefinition extends ProviderTool { effectClass?: ToolEffectClass; prepare(input: unknown, context: ToolContext): Promise<PreparedTool>; execute(prepared: PreparedTool, context: ToolContext): Promise<ToolResult> }
 export interface ApprovalRequest { sessionId: string; runId: string; toolCallId: string; toolName: string; fingerprint: string; preview: JsonObject }
 export interface ApprovalPort { request(input: ApprovalRequest, signal: AbortSignal): Promise<ApprovalRecord>; decide(id: string, decision: 'allow' | 'deny', fingerprint: string): ApprovalRecord; cancelRun(runId: string): void }
-export interface ContextRequest { workspace: Workspace; snapshot: SessionSnapshot; config: RunConfig; signal: AbortSignal; reservedBytes?: number }
+export interface ContextRequest { workspace: Workspace; snapshot: SessionSnapshot; config: RunConfig; signal: AbortSignal; reservedBytes?: number; instructionSources?: import('./context/sources.js').InstructionSource[]; run?: Run; budget?: import('./config/budgets.js').BudgetAccount; semanticMemory?: ProviderMessage; agentInstructions?: string; consumeSummaryOutput?: (bytes: number) => void }
 export type ContextBuilder = (request: ContextRequest) => Promise<ProviderMessage[]>;
-export interface CoordinatorOptions { store: EngineStore; providers: ReadonlyMap<string, ProviderAdapter>; tools: readonly ToolDefinition[]; approvals: ApprovalPort; artifactDir: string; executionLockPath?: string; buildContext: ContextBuilder }
+export interface CoordinatorOptions { store: EngineStore; providers: ReadonlyMap<string, ProviderAdapter>; tools: readonly ToolDefinition[]; approvals: ApprovalPort; artifactDir: string; executionLockPath?: string; buildContext: ContextBuilder; contextSnapshot?: (sessionId: string, config: RunConfig) => SessionSnapshot; getContextRevisionId?: (sessionId: string) => string | undefined; toolRuntime?: import('./tools/runtime/index.js').ScopedToolRuntime; recoverContextOverflow?: (request: ContextRequest, provider: ProviderAdapter) => Promise<void>; getAllowedTools?: (run: Run) => readonly string[] | undefined }
 export interface CoordinatorPort { submit(input: SubmitInput): RunReceipt; cancel(runId: string): { runId: string; state: RunState }; waitForRun(runId: string): Promise<Run>; close(): Promise<void> }

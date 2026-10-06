@@ -1,7 +1,7 @@
 import { constants } from 'node:fs';
 import { lstat, open } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
-import { EngineError, type JsonObject, type JsonValue, type Message, type ProviderReplay, type ProviderToolCall } from '@moodcode/contracts';
+import { EngineError, type JsonObject, type JsonValue, type Message, type ProviderReplay, type ProviderToolCall, type RunConfig } from '@moodcode/contracts';
 import type { ContextRequest, ProviderMessage } from '../ports.js';
 import { agentInstructions } from './instructions.js';
 import { extractiveMemory, MAX_MEMORY_BYTES, MIN_MEMORY_BYTES, type MemorySource } from './memory.js';
@@ -141,13 +141,24 @@ function messageReplay(message: Message): ProviderReplay | undefined {
   if (!descriptor.enumerable || !('value' in descriptor)) invalidReplay();
   if (descriptor.value === undefined) return undefined;
   const copied = replayJson(descriptor.value);
-  if (!isRecord(copied) || Object.keys(copied).length !== 2
+  if (!isRecord(copied) || Object.keys(copied).some(key => !['providerId', 'items', 'modelId', 'protocol', 'version'].includes(key))
     || !Object.hasOwn(copied, 'providerId') || !Object.hasOwn(copied, 'items')) invalidReplay();
   const providerId = copied.providerId;
   const items = copied.items;
   if (typeof providerId !== 'string' || providerId.trim().length === 0 || providerId.length > 256
     || Buffer.byteLength(providerId, 'utf8') > 256 || /[\u0000-\u001f\u007f]/u.test(providerId)
     || !Array.isArray(items) || items.some((item) => !isRecord(item))) invalidReplay();
+  const bindingKeys = ['modelId', 'protocol', 'version'];
+  const supplied = bindingKeys.filter(key => Object.hasOwn(copied, key));
+  if (supplied.length !== 0 && supplied.length !== bindingKeys.length) invalidReplay();
+  if (supplied.length) {
+    for (const key of ['modelId', 'protocol']) {
+      const value = copied[key];
+      if (typeof value !== 'string' || !value.trim() || Buffer.byteLength(value) > 256 || /[\u0000-\u001f\u007f]/u.test(value)) invalidReplay();
+    }
+    if (typeof copied.version !== 'number' || !Number.isSafeInteger(copied.version) || copied.version < 1 || copied.version > 32) invalidReplay();
+    return { providerId, items: items as JsonObject[], modelId: copied.modelId as string, protocol: copied.protocol as string, version: copied.version };
+  }
   return { providerId, items: items as JsonObject[] };
 }
 
@@ -156,25 +167,28 @@ function validMessage(value: unknown, sessionId: string): value is Message {
     && typeof value.content === 'string' && ['user', 'assistant', 'tool'].includes(String(value.role));
 }
 
-function checkedMessageReplay(value: unknown, sessionId: string, providerId: string): ProviderReplay | undefined {
+function checkedMessageReplay(value: unknown, sessionId: string, config: RunConfig, originalModelId?: string): ProviderReplay | undefined {
   if (!isRecord(value) || value.sessionId !== sessionId) return undefined;
   const replay = messageReplay(value as unknown as Message);
   if (replay === undefined) return undefined;
   if (value.role !== 'assistant') throw new EngineError('INVALID_CONTEXT', 'Provider replay is only supported on assistant messages.');
   if (!validMessage(value, sessionId)) throw new EngineError('INVALID_CONTEXT', 'Stored message with provider replay is malformed.');
   // Native state belongs to one transport; still validate it before switching providers.
-  return replay.providerId === providerId ? replay : undefined;
+  if (replay.providerId !== config.providerId) return undefined;
+  const boundModel = replay.modelId ?? originalModelId;
+  return boundModel === undefined || boundModel === config.modelId ? replay : undefined;
 }
 
 function historyBlocks(request: ContextRequest): ContextBlock[] {
   const stored = request.snapshot.messages;
   const sessionId = request.snapshot.session.id;
+  const runModels = new Map(request.snapshot.runs.map(run => [run.id, run.config.modelId]));
   const blocks: ContextBlock[] = [];
   for (let index = 0; index < stored.length; index += 1) {
     checkAbort(request.signal);
     const message = stored[index];
     // Inspect same-session native state before filtering malformed surrounding rows.
-    const providerReplay = checkedMessageReplay(message, sessionId, request.config.providerId);
+    const providerReplay = checkedMessageReplay(message, sessionId, request.config, message && typeof message === 'object' ? runModels.get(message.runId) : undefined);
     if (!validMessage(message, sessionId)) continue;
     const source: MemorySource = { ordinal: index + 1, message };
     if (message.role === 'tool') continue;
@@ -194,7 +208,7 @@ function historyBlocks(request: ContextRequest): ContextBlock[] {
       while (cursor < stored.length && stored[cursor]?.role === 'tool' && seenIds.size < calls.length) {
         checkAbort(request.signal);
         const result = stored[cursor];
-        checkedMessageReplay(result, sessionId, request.config.providerId);
+        checkedMessageReplay(result, sessionId, request.config, result && typeof result === 'object' ? runModels.get(result.runId) : undefined);
         if (!validMessage(result, sessionId) || result.runId !== message.runId
           || typeof result.toolCallId !== 'string' || !expectedIds.has(result.toolCallId)
           || seenIds.has(result.toolCallId)) {
@@ -233,6 +247,15 @@ function fsCode(error: unknown): string | undefined {
 
 async function readInstructions(request: ContextRequest): Promise<{ text: string; truncated: boolean } | undefined> {
   checkAbort(request.signal);
+  if (request.instructionSources !== undefined) {
+    const sections = request.instructionSources.filter(source => source.text !== null)
+      .map(source => `[Scope: ${source.scope || 'workspace root'}; source: ${source.path}]\n${source.text}`);
+    const combined = sections.join('\n\n');
+    if (!combined) return undefined;
+    const bytes = Buffer.from(combined);
+    const truncated = bytes.length > MAX_INSTRUCTION_BYTES;
+    return { text: new TextDecoder().decode(bytes.subarray(0, MAX_INSTRUCTION_BYTES), { stream: truncated }), truncated };
+  }
   const path = join(request.workspace.root, 'AGENTS.md');
   try {
     const initial = await lstat(path);
@@ -344,6 +367,12 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
   checkAbort(request.signal);
   const system = instructions ? fitInstructions(instructions, cost, count, limit) : undefined;
   if (system) { cost += entryCost(system); count += 1; }
+  const profile = request.agentInstructions ? { role: 'system' as const, content: request.agentInstructions } : undefined;
+  if (profile && (Buffer.byteLength(profile.content) > MAX_INSTRUCTION_BYTES || arrayBytes(cost + entryCost(profile), count + 1) > limit)) throw new EngineError('CONTEXT_LIMIT', 'Agent profile instructions cannot fit the current exchange');
+  if (profile) { cost += entryCost(profile); count++; }
+  const semantic = request.semanticMemory;
+  if (semantic && (semantic.role !== 'assistant' || arrayBytes(cost + entryCost(semantic), count + 1) > limit)) throw new EngineError('CONTEXT_LIMIT', 'Working memory cannot fit beside the current exchange');
+  if (semantic) { cost += entryCost(semantic); count++; }
   const defaults = agentInstructions(request.config.mode);
   const includeDefaults = arrayBytes(cost + entryCost(defaults), count + 1) <= limit
     && Buffer.byteLength((system?.content ?? '') + defaults.content, 'utf8') <= MAX_INSTRUCTION_BYTES;
@@ -352,7 +381,7 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
   const available = limit - arrayBytes(cost, count);
   // Reserve part of optional history space only when the full older transcript
   // cannot fit. Required current exchanges and project guidance are already kept.
-  const reserve = olderCost > available ? Math.min(MAX_MEMORY_BYTES, Math.floor(available / 4)) : 0;
+  const reserve = !semantic && olderCost > available ? Math.min(MAX_MEMORY_BYTES, Math.floor(available / 4)) : 0;
   const memoryReserve = reserve >= MIN_MEMORY_BYTES ? reserve : 0;
   let historyStart = requiredStart;
   // Retain a chronological suffix of older history, with tool groups indivisible.
@@ -366,10 +395,10 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
     count += item.messages.length;
   }
   checkAbort(request.signal);
-  const memory = historyStart > 0 ? extractiveMemory(
+  const memory = semantic ?? (historyStart > 0 ? extractiveMemory(
     blocks.slice(0, historyStart).flatMap((item) => item.sources),
     limit - arrayBytes(cost, count),
-  ) : undefined;
+  ) : undefined);
   // Some omitted groups contain only opaque/native state and tool results. If
   // there is no useful excerpt, reclaim the unused reservation for whole groups.
   if (!memory && memoryReserve) {
@@ -384,5 +413,5 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
   }
   checkAbort(request.signal);
   const messages = selected.flatMap((item) => item.messages);
-  return [...(system ? [system] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...messages];
+  return [...(system ? [system] : []), ...(profile ? [profile] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...messages];
 }

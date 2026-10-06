@@ -205,17 +205,17 @@ test('native Responses replay survives the real coding loop, SQLite reopen, dupl
   assert.match(toolMessage.content, /second fixture line/);
   assert.ok(!toolMessage.content.includes('third line is outside the requested range'));
   assert.equal(snapshot.tools.length, 1);
-  assert.equal(snapshot.tools[0]?.state, 'completed');
+  assert.equal(snapshot.tools[0]?.state, 'completed', JSON.stringify(snapshot.tools[0]));
   assert.equal(snapshot.tools[0]?.name, 'read_file');
   assert.deepEqual(snapshot.tools[0]?.input, { path: 'file.txt', startLine: 1, endLine: 2 });
   assert.equal(snapshot.approvals.length, 0, 'read_file requires no mutation approval');
   const assistantWithCall = snapshot.messages.find((message) => message.role === 'assistant' && message.toolCalls?.length);
   assert.ok(assistantWithCall);
   assert.equal(assistantWithCall.content, COMMENTARY);
-  assert.deepEqual(assistantWithCall.providerReplay, { providerId: PROVIDER_ID, items: FIRST_ITEMS });
+  assert.deepEqual(assistantWithCall.providerReplay, { providerId: PROVIDER_ID, items: FIRST_ITEMS, modelId: MODEL_ID, protocol: 'openai-responses', version: 1 });
   assert.deepEqual(assistantWithCall.toolCalls, [{ id: CALL.call_id, name: 'read_file', input: { path: 'file.txt', startLine: 1, endLine: 2 } }]);
   const finalAssistant = snapshot.messages.find((message) => message.role === 'assistant' && message.content === ANSWER);
-  assert.deepEqual(finalAssistant?.providerReplay, { providerId: PROVIDER_ID, items: [ANSWER_ITEM] });
+  assert.deepEqual(finalAssistant?.providerReplay, { providerId: PROVIDER_ID, items: [ANSWER_ITEM], modelId: MODEL_ID, protocol: 'openai-responses', version: 1 });
   const originalInput = requests[0]?.input;
   assert.ok(Array.isArray(originalInput));
   assert.equal((originalInput.at(-1) as JsonObject).content, PROMPT);
@@ -258,5 +258,5 @@ test('native Responses replay survives the real coding loop, SQLite reopen, dupl
   assert.deepEqual(requests[2]?.input, [...originalInput, ...FIRST_ITEMS, toolOutput, ANSWER_ITEM, { role: 'user', content: FOLLOWUP }], 'buildContext carries stored native history through a new Run after reopening');
   const followupSnapshot = await command<SessionSnapshot>(engine, 'session.getSnapshot', { sessionId: session.id });
   assert.equal(followupSnapshot.tools.length, 1, 'the completed read call is historical and is never re-executed');
-  assert.deepEqual(followupSnapshot.messages.find((message) => message.runId === followup.runId && message.role === 'assistant')?.providerReplay, { providerId: PROVIDER_ID, items: [FOLLOWUP_ITEM] });
+  assert.deepEqual(followupSnapshot.messages.find((message) => message.runId === followup.runId && message.role === 'assistant')?.providerReplay, { providerId: PROVIDER_ID, items: [FOLLOWUP_ITEM], modelId: MODEL_ID, protocol: 'openai-responses', version: 1 });
 });

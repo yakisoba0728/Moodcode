@@ -10,6 +10,7 @@ import { DATABASE_MIGRATIONS, databaseVersion, DB_VERSION, migrateDatabase, type
 import { databaseContents, restoreFrozenDatabase } from './fixtures/v1-fixture.js';
 import { V1_DATABASE_FIXTURE } from './fixtures/v1-database.js';
 
+const V1_MIGRATIONS = DATABASE_MIGRATIONS.slice(0, 1);
 const hasCode = (code: string) => (error: unknown) => error instanceof EngineError && error.code === code;
 function fixture(t: TestContext) {
   const directory = mkdtempSync(join(tmpdir(), 'moodcode-migration-'));
@@ -26,16 +27,17 @@ function next(apply: DatabaseMigration['apply'], version = 2): DatabaseMigration
 test('initial migration remains v1 with Run-owned events and original SQLite constraints', () => {
   const db = new DatabaseSync(':memory:');
   try {
-    assert.equal(DB_VERSION, 1);
+    assert.equal(DB_VERSION, DATABASE_MIGRATIONS.length);
+    assert.equal(V1_MIGRATIONS[0]?.version, 1);
     assert.equal(Object.isFrozen(DATABASE_MIGRATIONS), true);
-    migrateDatabase(db);
+    migrateDatabase(db, V1_MIGRATIONS);
     assert.equal(databaseVersion(db), 1);
     assert.equal(db.prepare('PRAGMA integrity_check').get()?.integrity_check, 'ok');
     const runId = db.prepare('PRAGMA table_info(events)').all().find(row => row.name === 'run_id');
     assert.equal(runId?.notnull, 1);
     assert.equal(db.prepare('PRAGMA foreign_key_list(events)').all().some(row => row.from === 'run_id' && row.table === 'runs'), true);
     const before = databaseContents(db);
-    migrateDatabase(db);
+    migrateDatabase(db, V1_MIGRATIONS);
     assert.deepEqual(databaseContents(db), before);
   } finally { db.close(); }
 });
@@ -43,7 +45,7 @@ test('initial migration remains v1 with Run-owned events and original SQLite con
 test('existing v1 database is unchanged while consecutive migrations see the preceding version', t => {
   const { db } = fixture(t), versions: number[] = [];
   const oldRows = db.prepare('SELECT * FROM events ORDER BY seq').all();
-  const plan = [...DATABASE_MIGRATIONS,
+  const plan = [...V1_MIGRATIONS,
     next(database => { versions.push(databaseVersion(database, 3)); database.exec('CREATE TABLE future_projection(id TEXT PRIMARY KEY) STRICT'); }),
     next(database => { versions.push(databaseVersion(database, 3)); database.exec('ALTER TABLE future_projection ADD COLUMN detail TEXT'); }, 3),
   ];
@@ -59,20 +61,20 @@ test('existing v1 database is unchanged while consecutive migrations see the pre
 test('failure in a later migration rolls back all pending schema, record and user_version changes', t => {
   const { db } = fixture(t), before = databaseContents(db);
   const failure = new Error('intentional later migration failure');
-  const plan = [...DATABASE_MIGRATIONS,
+  const plan = [...V1_MIGRATIONS,
     next(database => { database.exec("CREATE TABLE future_projection(id TEXT); UPDATE sessions SET last_seq=999"); }),
     next(database => { database.exec("UPDATE approvals SET data='{}'"); throw failure; }, 3),
   ];
   assert.throws(() => migrateDatabase(db, plan), error => error === failure);
   assert.deepEqual(databaseContents(db), before);
   assert.equal(db.isTransaction, false);
-  migrateDatabase(db, [...DATABASE_MIGRATIONS, next(database => { database.exec('CREATE TABLE future_projection(id TEXT)'); })]);
+  migrateDatabase(db, [...V1_MIGRATIONS, next(database => { database.exec('CREATE TABLE future_projection(id TEXT)'); })]);
   assert.equal(databaseVersion(db, 2), 2, 'The rolled back version can be applied successfully later');
 });
 
 test('deferred foreign key violations reject migration before commit and restore the previous database', t => {
   const { db } = fixture(t), before = databaseContents(db);
-  const plan = [...DATABASE_MIGRATIONS, next(database => {
+  const plan = [...V1_MIGRATIONS, next(database => {
     database.exec("CREATE TABLE future_binding(workspace_id TEXT REFERENCES workspaces(id) DEFERRABLE INITIALLY DEFERRED) STRICT; INSERT INTO future_binding VALUES('absent-workspace')");
   })];
   assert.throws(() => migrateDatabase(db, plan), hasCode('DB_INTEGRITY_FAILED'));
@@ -84,7 +86,7 @@ test('gaps, duplicate versions and invalid names fail before any migration SQL',
   const { db } = fixture(t), before = databaseContents(db);
   let called = false;
   for (const bad of [next(() => { called = true; }, 3), { ...next(() => { called = true; }), version: 1 }, { ...next(() => { called = true; }), name: '' }]) {
-    assert.throws(() => migrateDatabase(db, [...DATABASE_MIGRATIONS, bad]), hasCode('DB_MIGRATION_PLAN_INVALID'));
+    assert.throws(() => migrateDatabase(db, [...V1_MIGRATIONS, bad]), hasCode('DB_MIGRATION_PLAN_INVALID'));
   }
   assert.equal(called, false);
   assert.deepEqual(databaseContents(db), before);
@@ -92,7 +94,7 @@ test('gaps, duplicate versions and invalid names fail before any migration SQL',
 
 test('migration refuses disabled foreign keys and leaves an existing caller transaction alone', t => {
   const { db } = fixture(t), before = databaseContents(db);
-  const plan = [...DATABASE_MIGRATIONS, next(database => { database.exec('CREATE TABLE future_projection(id TEXT)'); })];
+  const plan = [...V1_MIGRATIONS, next(database => { database.exec('CREATE TABLE future_projection(id TEXT)'); })];
   db.exec('PRAGMA foreign_keys=OFF');
   assert.throws(() => migrateDatabase(db, plan), hasCode('DB_MIGRATION_FOREIGN_KEYS_DISABLED'));
   assert.deepEqual(databaseContents(db), before);

@@ -1,0 +1,155 @@
+{
+  "timestamp": "2026-10-06T18:39:00.408Z",
+  "node": "v26.9.0",
+  "platform": "darwin",
+  "release": "27.0.0",
+  "arch": "arm64",
+  "exposedGc": true,
+  "source": "synthetic local SQLite fixtures, 50 messages per completed Run, UTF-8 ~1KiB message content, 30 warm samples",
+  "limitations": [
+    "Physical filesystem I/O was not measured; selected JSON bytes and SQL metadata scan bounds are recorded separately.",
+    "The pressure probe uses a slow consumer and concurrent local session-control event producer; live provider/network backpressure and slow effect cleanup are outside this benchmark.",
+    "Peak heap includes transient allocations and is affected by GC; retained heap is sampled after explicit GC when available.",
+    "Model history still scans the session message index for omitted-message counts."
+  ],
+  "measurements": [
+    {
+      "messageCount": 1000,
+      "runCount": 20,
+      "databaseBytes": 2113536,
+      "history": {
+        "samples": 30,
+        "p50Ms": 1.066790999999995,
+        "p95Ms": 1.6790420000000097,
+        "maxMs": 1.6989169999999945,
+        "responseMessages": 200,
+        "responseBytes": 232535,
+        "candidateRunMetadataLimit": 129,
+        "candidateMessageMetadataUpperBound": 1000,
+        "totalCountMetadataScans": 1000,
+        "physicalIoBytes": null,
+        "peakHeapDeltaBytes": 7644720,
+        "retainedHeapDeltaBytes": 520272
+      },
+      "subscription": {
+        "persistedBacklog": 1000,
+        "pulled": 100,
+        "bytes": 20976,
+        "elapsedMs": 2.456124999999986,
+        "pageRecordsLimit": 100,
+        "pageBytesLimit": 8388608
+      },
+      "pressure": {
+        "slowConsumerDelayMs": 1,
+        "slowPulled": 100,
+        "concurrentControlEventsProduced": 256,
+        "elapsedMs": 111.89833299999998,
+        "peakHeapDeltaBytes": 3705328,
+        "retainedHeapDeltaBytes": 255816,
+        "pendingWaitersPerSubscriber": 1,
+        "totalBacklogAfter": 1256,
+        "producerType": "local durable session-control event writes"
+      },
+      "plan": [
+        {
+          "id": 4,
+          "parent": 0,
+          "notused": 62,
+          "detail": "SEARCH messages USING INDEX model_messages_run (run_id=?)"
+        }
+      ]
+    },
+    {
+      "messageCount": 10000,
+      "runCount": 200,
+      "databaseBytes": 18165760,
+      "history": {
+        "samples": 30,
+        "p50Ms": 7.76724999999999,
+        "p95Ms": 13.276750000000106,
+        "maxMs": 16.614874999999984,
+        "responseMessages": 200,
+        "responseBytes": 232950,
+        "candidateRunMetadataLimit": 129,
+        "candidateMessageMetadataUpperBound": 6450,
+        "totalCountMetadataScans": 10000,
+        "physicalIoBytes": null,
+        "peakHeapDeltaBytes": 15334384,
+        "retainedHeapDeltaBytes": 399568
+      },
+      "subscription": {
+        "persistedBacklog": 10000,
+        "pulled": 100,
+        "bytes": 20976,
+        "elapsedMs": 1.7102909999999838,
+        "pageRecordsLimit": 100,
+        "pageBytesLimit": 8388608
+      },
+      "pressure": {
+        "slowConsumerDelayMs": 1,
+        "slowPulled": 100,
+        "concurrentControlEventsProduced": 256,
+        "elapsedMs": 116.88770799999998,
+        "peakHeapDeltaBytes": 5649416,
+        "retainedHeapDeltaBytes": -119760,
+        "pendingWaitersPerSubscriber": 1,
+        "totalBacklogAfter": 10256,
+        "producerType": "local durable session-control event writes"
+      },
+      "plan": [
+        {
+          "id": 4,
+          "parent": 0,
+          "notused": 62,
+          "detail": "SEARCH messages USING INDEX model_messages_run (run_id=?)"
+        }
+      ]
+    },
+    {
+      "messageCount": 100000,
+      "runCount": 2000,
+      "databaseBytes": 179773440,
+      "history": {
+        "samples": 30,
+        "p50Ms": 37.21879200000012,
+        "p95Ms": 46.37354200000027,
+        "maxMs": 51.631291999999576,
+        "responseMessages": 200,
+        "responseBytes": 233365,
+        "candidateRunMetadataLimit": 129,
+        "candidateMessageMetadataUpperBound": 6450,
+        "totalCountMetadataScans": 100000,
+        "physicalIoBytes": null,
+        "peakHeapDeltaBytes": 15214856,
+        "retainedHeapDeltaBytes": 386264
+      },
+      "subscription": {
+        "persistedBacklog": 100000,
+        "pulled": 100,
+        "bytes": 20976,
+        "elapsedMs": 0.805667000000085,
+        "pageRecordsLimit": 100,
+        "pageBytesLimit": 8388608
+      },
+      "pressure": {
+        "slowConsumerDelayMs": 1,
+        "slowPulled": 100,
+        "concurrentControlEventsProduced": 256,
+        "elapsedMs": 115.34187499999962,
+        "peakHeapDeltaBytes": 5622888,
+        "retainedHeapDeltaBytes": 36024,
+        "pendingWaitersPerSubscriber": 1,
+        "totalBacklogAfter": 100256,
+        "producerType": "local durable session-control event writes"
+      },
+      "plan": [
+        {
+          "id": 4,
+          "parent": 0,
+          "notused": 62,
+          "detail": "SEARCH messages USING INDEX model_messages_run (run_id=?)"
+        }
+      ]
+    }
+  ]
+}

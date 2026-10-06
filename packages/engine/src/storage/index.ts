@@ -4,13 +4,17 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import {
   EngineError, isTerminal, SCHEMA_VERSION,
-  type ApprovalRecord, type Checkpoint, type EngineEvent, type JsonObject,
+  type AcceptInput, type ApprovalRecord, type Checkpoint, type ContextRevision, type EngineBudgets, type EngineEvent,
+  type InputCursor, type InputPage, type InputReceipt, type InputRecord, type JsonObject, type MessagePart, type ProviderAttempt,
   type Message, type Run, type RunReceipt, type RunState, type Session,
-  type SessionSnapshot, type SessionHistoryPage, type SessionMetrics, type SubmitInput, type ToolCallRecord, type Workspace,
+  type SessionSnapshot, type SessionControl, type SessionEventV2, type SessionHistoryPage, type SessionMetrics, type SubmitInput, type ToolCallRecord, type TurnRecord, type Workspace,
 } from '@moodcode/contracts';
-import type { CommitChange, EngineStore } from '../ports.js';
+import type { CommitChange, SessionEngineStore } from '../ports.js';
 import { backupDatabase, inspectIntegrity, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './maintenance.js';
 import { databaseVersion, DB_VERSION, migrateDatabase } from './migrations.js';
+import { NativeSessionStorage, type StoredInputPromotion } from './native.js';
+import { NativeExecutionStorage, type PartPage, type SessionDocument, type TurnPage } from './native-records.js';
+import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPage } from './history-search.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 
 const PAGE_SIZE = 128;
@@ -18,6 +22,12 @@ const MAX_PAGE_SIZE = 1_024;
 type DataRow = { data: string };
 type Waiter = { sessionId: string; wake: () => void };
 const ACTIVE_STATES = "'created','running','awaiting_approval','cancelling'";
+export interface ModelHistoryPage {
+  snapshot: SessionSnapshot;
+  omittedRuns: number;
+  omittedMessages: number;
+  beforeRunId: string | null;
+}
 const TRANSITIONS: Record<RunState, readonly RunState[]> = {
   created: ['running', 'cancelling', 'cancelled', 'failed', 'interrupted'],
   running: ['awaiting_approval', 'cancelling', 'completed', 'failed', 'interrupted'],
@@ -69,10 +79,12 @@ function isBusy(error: unknown): boolean {
 }
 
 /** SQLite records and journal. File-backed stores own one OS-released SQLite lock. */
-export class SqliteStore implements EngineStore {
+export class SqliteStore implements SessionEngineStore {
   private readonly db: DatabaseSync;
   private readonly databasePath: string;
   private readonly ownership?: DatabaseSync;
+  private readonly native: NativeSessionStorage;
+  private readonly executionRecords: NativeExecutionStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -85,7 +97,7 @@ export class SqliteStore implements EngineStore {
   });
   private closed = false;
 
-  constructor(dbPath: string) {
+  constructor(dbPath: string, hostBudgets?: EngineBudgets) {
     // Legacy synchronous close may fail before any closeAsync caller attaches a handler.
     void this.closeCompletion.catch(() => {});
     const path = canonicalPath(dbPath);
@@ -116,6 +128,13 @@ export class SqliteStore implements EngineStore {
       if (path !== ':memory:') assertSingleLink(path);
       this.db = db;
       this.ownership = ownership;
+      this.native = new NativeSessionStorage(db, {
+        assertOpen: () => this.assertOpen(), transaction: operation => this.transaction(operation),
+        session: id => this.getSession(id), run: id => this.getRun(id),
+        admit: (input, inputId) => this.admitInTransaction(input, inputId),
+        steer: (input, run) => this.steerInTransaction(input, run), notify: id => this.notify(id),
+      }, hostBudgets);
+      this.executionRecords = new NativeExecutionStorage(this.native);
     } catch (error) {
       try { db?.close(); } finally { ownership?.close(); }
       throw error;
@@ -182,8 +201,17 @@ export class SqliteStore implements EngineStore {
   }
 
   admit(input: SubmitInput): RunReceipt {
-    let admitted: EngineEvent | undefined;
     const receipt = this.transaction(() => {
+      const existing = this.native.legacyReceipt(input);
+      if (existing) return existing;
+      const receipt = this.admitInTransaction(input);
+      this.native.bindLegacy(input, this.getRun(receipt.runId), receipt.inputId);
+      return receipt;
+    });
+    this.notify(input.sessionId);
+    return receipt;
+  }
+  private admitInTransaction(input: SubmitInput, inputId: string = randomUUID()): RunReceipt {
       const session = this.getSession(input.sessionId);
       const fingerprint = canonical(input);
       const existing = this.db.prepare('SELECT inputs.id, inputs.fingerprint, inputs.admitted_seq, runs.id AS run_id FROM inputs JOIN runs ON runs.input_id=inputs.id WHERE inputs.session_id=? AND inputs.request_id=?').get(input.sessionId, input.requestId);
@@ -194,7 +222,6 @@ export class SqliteStore implements EngineStore {
       const busy = this.db.prepare(`SELECT id FROM runs WHERE workspace_id=? AND state IN (${ACTIVE_STATES})`).get(session.workspaceId);
       if (busy) throw new EngineError('WORKSPACE_BUSY', 'Workspace already has an active run', { runId: String(busy.id), workspaceId: session.workspaceId });
       const timestamp = new Date().toISOString();
-      const inputId = randomUUID();
       const run: Run = {
         id: randomUUID(), inputId, sessionId: session.id, workspaceId: session.workspaceId,
         requestId: input.requestId, prompt: input.prompt, config: input.config,
@@ -204,18 +231,64 @@ export class SqliteStore implements EngineStore {
       this.db.prepare('INSERT INTO runs(id,input_id,session_id,workspace_id,state,data) VALUES(?,?,?,?,?,?)').run(run.id, inputId, session.id, session.workspaceId, run.state, encode(run));
       const message: Message = { id: randomUUID(), sessionId: session.id, runId: run.id, role: 'user', content: input.prompt, createdAt: timestamp };
       this.writeMessage(run, message);
-      admitted = this.append(run, 'input.admitted', { runId: run.id, inputId, requestId: input.requestId });
+      const admitted = this.append(run, 'input.admitted', { runId: run.id, inputId, requestId: input.requestId });
       this.db.prepare('UPDATE inputs SET admitted_seq=? WHERE id=?').run(admitted.seq, inputId);
       return { runId: run.id, inputId, admittedSeq: admitted.seq, duplicate: false };
-    });
-    if (admitted) this.notify(admitted.sessionId);
-    return receipt;
   }
+  private steerInTransaction(input: InputRecord, run: Run): number {
+    const message: Message = { id: input.id, sessionId: input.sessionId, runId: run.id, role: 'user', content: input.prompt, createdAt: new Date().toISOString() };
+    this.writeMessage(run, message);
+    return this.append(run, 'input.steered', { inputId: input.id, requestId: input.requestId, messageId: message.id }).seq;
+  }
+  acceptInput(input: AcceptInput): InputReceipt { return this.native.acceptInput(input); }
+  getInput(id: string): InputRecord { return this.native.getInput(id); }
+  listInputs(sessionId: string, position?: InputCursor, limit?: number): InputPage { return this.native.listInputs(sessionId, position, limit); }
+  pendingInputs(sessionId: string, delivery?: AcceptInput['delivery'], limit?: number): InputRecord[] { return this.native.pendingInputs(sessionId, delivery, limit); }
+  listRunInputIds(runId: string): string[] { return this.native.listRunInputIds(runId); }
+  listRunInputs(runId: string): InputRecord[] { return this.native.listRunInputs(runId); }
+  promoteInput(inputId: string, runId?: string): StoredInputPromotion { return this.native.promoteInput(inputId, runId); }
+  promoteSteers(inputIds: string[], runId: string): InputRecord[] { return this.native.promoteSteers(inputIds, runId); }
+  cancelInput(inputId: string): InputRecord { return this.native.cancelInput(inputId); }
+  getSessionControl(sessionId: string): SessionControl { return this.native.getSessionControl(sessionId); }
+  setSessionPaused(sessionId: string, paused: boolean, reason?: SessionControl['reason']): SessionControl { return this.native.setSessionPaused(sessionId, paused, reason); }
+  readSessionEvents(sessionId: string, afterSeq: number, limit?: number): SessionEventV2[] { return this.native.readSessionEvents(sessionId, afterSeq, limit); }
+  putTurn(turn: TurnRecord): TurnRecord { return this.executionRecords.putTurn(turn); }
+  getTurn(id: string): TurnRecord { return this.executionRecords.getTurn(id); }
+  listTurns(runId: string): TurnRecord[] { return this.executionRecords.listTurns(runId); }
+  listTurnsPage(runId: string, afterTurnId?: string, limit?: number): TurnPage { return this.executionRecords.listTurnsPage(runId, afterTurnId, limit); }
+  putAttempt(attempt: ProviderAttempt): ProviderAttempt { return this.executionRecords.putAttempt(attempt); }
+  getAttempt(id: string): ProviderAttempt { return this.executionRecords.getAttempt(id); }
+  putPart(part: MessagePart): MessagePart { return this.executionRecords.putPart(part); }
+  listParts(turnId: string): MessagePart[] { return this.executionRecords.listParts(turnId); }
+  listPartsPage(turnId: string, afterPartId?: string, limit?: number): PartPage { return this.executionRecords.listPartsPage(turnId, afterPartId, limit); }
+  putContextRevision(revision: ContextRevision): ContextRevision { return this.executionRecords.putContextRevision(revision); }
+  getContextRevision(id: string): ContextRevision { return this.executionRecords.getContextRevision(id); }
+  nextContextRevisionIndex(sessionId: string): number { return this.executionRecords.nextContextRevisionIndex(sessionId); }
+  getLatestContextRevision(sessionId: string): ContextRevision | null { return this.executionRecords.getLatestContextRevision(sessionId); }
+  commitContextDocument(runId: string, eventType: string, payload: JsonObject, change: { revision: ContextRevision; kind: string; expectedRevision: number; data: JsonObject }): EngineEvent {
+    const event = this.transaction(() => {
+      const run = this.getRun(runId);
+      if (isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', 'Context activation requires an active Run');
+      if (change.revision.sessionId !== run.sessionId || change.revision.runId !== run.id) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Context activation belongs to another Run');
+      this.executionRecords.putContextRevision(change.revision);
+      this.executionRecords.putSessionDocument(run.sessionId, change.kind, change.expectedRevision, change.data);
+      const validated = this.native.appendEvent(run.sessionId, eventType, payload, { runId: run.id });
+      return this.append(run, eventType, validated.payload);
+    });
+    this.notify(event.sessionId);
+    return event;
+  }
+  getSessionDocument(sessionId: string, kind: string): SessionDocument | null { return this.executionRecords.getSessionDocument(sessionId, kind); }
+  putSessionDocument(sessionId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument { return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data); }
   getRun(id: string): Run {
     this.assertOpen();
     const row = this.row('SELECT data FROM runs WHERE id=?', id);
     if (!row) throw new EngineError('RUN_NOT_FOUND', `Run ${id} was not found`);
     return decode(row);
+  }
+  hasActiveRuns(workspaceId: string, excludedRunId?: string): boolean {
+    this.getWorkspace(workspaceId);
+    return this.db.prepare("SELECT 1 FROM runs WHERE workspace_id=? AND state IN ('created','running','awaiting_approval','cancelling') AND (? IS NULL OR id<>?) LIMIT 1").get(workspaceId, excludedRunId ?? null, excludedRunId ?? null) !== undefined;
   }
 
   private append(run: Run, type: string, payload: JsonObject): EngineEvent {
@@ -306,6 +379,7 @@ export class SqliteStore implements EngineStore {
       // Run termination and approval expiry are one durable state change. Publish
       // the Run terminal event last, so its cursor includes all approval outcomes.
       if (target !== undefined && isTerminal(target)) this.expirePendingApprovals(run, 'run_terminal');
+      if (target === 'cancelled') this.native.setControlInTransaction(run.sessionId, true, 'run_cancelled');
       return this.append(run, type, payload);
     });
     this.notify(event.sessionId);
@@ -324,6 +398,56 @@ export class SqliteStore implements EngineStore {
         approvals: this.rows<ApprovalRecord>('SELECT data FROM approvals WHERE session_id=? ORDER BY ordinal', sessionId),
         lastSeq,
       };
+    }, false);
+  }
+  /** Model context reads whole recent Run groups without first loading the entire transcript. */
+  searchHistory(sessionId: string, options: HistorySearchOptions): HistorySearchPage {
+    return this.transaction(() => { this.getSession(sessionId); return searchHistoryDatabase(this.db, sessionId, options); }, false);
+  }
+  readModelHistory(sessionId: string, maxMessages = 200, maxBytes = 8_388_608): ModelHistoryPage {
+    if (!Number.isSafeInteger(maxMessages) || maxMessages < 1 || maxMessages > 4096 || !Number.isSafeInteger(maxBytes) || maxBytes < 1024 || maxBytes > 33_554_432) {
+      throw new EngineError('INVALID_MODEL_HISTORY_LIMIT', 'Model history needs bounded message and byte limits');
+    }
+    return this.transaction(() => {
+      const session = this.getSession(sessionId);
+      const candidates = this.db.prepare(`SELECT runs.id,runs.ordinal,length(CAST(runs.data AS BLOB)) AS run_bytes,
+        (SELECT count(*) FROM messages WHERE run_id=runs.id) AS message_count,
+        coalesce((SELECT sum(length(CAST(data AS BLOB))) FROM messages WHERE run_id=runs.id),0) AS message_bytes,
+        coalesce((SELECT sum(length(CAST(data AS BLOB))) FROM tools WHERE run_id=runs.id),0) AS tool_bytes,
+        coalesce((SELECT sum(length(CAST(data AS BLOB))) FROM approvals WHERE run_id=runs.id),0) AS approval_bytes
+        FROM runs WHERE session_id=? ORDER BY ordinal DESC LIMIT 129`).all(sessionId);
+      const selected: string[] = [];
+      let messages = 0, bytes = Buffer.byteLength(JSON.stringify(session)) + 256;
+      for (const row of candidates.slice(0, 128)) {
+        const count = Number(row.message_count);
+        const requiredBytes = Number(row.run_bytes) + Number(row.message_bytes) + Number(row.tool_bytes) + Number(row.approval_bytes) + 128;
+        if (messages + count > maxMessages || bytes + requiredBytes > maxBytes) {
+          if (!selected.length) throw new EngineError('MODEL_HISTORY_LIMIT', 'The newest complete Run exceeds the required model history budget');
+          break;
+        }
+        selected.push(String(row.id)); messages += count; bytes += requiredBytes;
+      }
+      const lastSeq = Number(this.db.prepare('SELECT last_seq FROM sessions WHERE id=?').get(sessionId)?.last_seq);
+      const snapshot: SessionSnapshot = { session, runs: [], messages: [], tools: [], approvals: [], lastSeq };
+      if (selected.length) {
+        const placeholders = selected.map(() => '?').join(',');
+        snapshot.runs = this.rows<Run>(`SELECT data FROM runs WHERE session_id=? AND id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...selected);
+        // Native continuation metadata stays available to model projection.
+        snapshot.messages = this.rows<Message>(`SELECT data FROM messages WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...selected);
+        snapshot.tools = this.rows<ToolCallRecord>(`SELECT data FROM tools WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...selected);
+        snapshot.approvals = this.rows<ApprovalRecord>(`SELECT data FROM approvals WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...selected);
+        while (Buffer.byteLength(JSON.stringify(snapshot)) > maxBytes && snapshot.runs.length > 1) {
+          const dropped = snapshot.runs.shift()!.id;
+          snapshot.messages = snapshot.messages.filter(message => message.runId !== dropped);
+          snapshot.tools = snapshot.tools.filter(tool => tool.runId !== dropped);
+          snapshot.approvals = snapshot.approvals.filter(approval => approval.runId !== dropped);
+        }
+        if (Buffer.byteLength(JSON.stringify(snapshot)) > maxBytes) throw new EngineError('MODEL_HISTORY_LIMIT', 'The newest complete Run exceeds the required model history budget');
+      }
+      const totalRuns = Number(this.db.prepare('SELECT count(*) AS count FROM runs WHERE session_id=?').get(sessionId)?.count);
+      const totalMessages = Number(this.db.prepare('SELECT count(*) AS count FROM messages WHERE session_id=?').get(sessionId)?.count);
+      return { snapshot, omittedRuns: totalRuns - snapshot.runs.length, omittedMessages: totalMessages - snapshot.messages.length,
+        beforeRunId: totalRuns > snapshot.runs.length ? snapshot.runs[0]?.id ?? null : null };
     }, false);
   }
   /** GUI pages never expose native replay; the original journal remains intact. */
@@ -396,7 +520,13 @@ export class SqliteStore implements EngineStore {
     this.getSession(sessionId);
     return this.rows('SELECT data FROM events WHERE session_id=? AND seq>? ORDER BY seq LIMIT ?', sessionId, afterSeq, limit);
   }
-  async *subscribe(sessionId: string, afterSeq: number, signal?: AbortSignal): AsyncIterable<EngineEvent> {
+  subscribe(sessionId: string, afterSeq: number, signal?: AbortSignal): AsyncIterable<EngineEvent> {
+    return this.subscribeStream(sessionId, afterSeq, (id, position) => this.readEvents(id, position), signal);
+  }
+  subscribeSessionEvents(sessionId: string, afterSeq: number, signal?: AbortSignal): AsyncIterable<SessionEventV2> {
+    return this.subscribeStream(sessionId, afterSeq, (id, position) => this.readSessionEvents(id, position), signal);
+  }
+  private async *subscribeStream<T extends { seq: number }>(sessionId: string, afterSeq: number, read: (id: string, position: number) => T[], signal?: AbortSignal): AsyncIterable<T> {
     cursor(afterSeq);
     this.getSession(sessionId);
     let position = afterSeq;
@@ -408,7 +538,7 @@ export class SqliteStore implements EngineStore {
       this.waiters.add(waiter);
       signal?.addEventListener('abort', release, { once: true });
       try {
-        const page = this.readEvents(sessionId, position);
+        const page = read(sessionId, position);
         if (page.length > 0) {
           for (const event of page) {
             if (this.closed || signal?.aborted) return;
@@ -455,6 +585,7 @@ export class SqliteStore implements EngineStore {
         }
         sessions.add(run.sessionId);
       }
+      this.executionRecords.recoverInTransaction(sessions);
       return active.map(run => this.getRun(run.id));
     });
     for (const sessionId of sessions) this.notify(sessionId);

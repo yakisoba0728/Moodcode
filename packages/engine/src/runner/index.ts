@@ -11,6 +11,11 @@ import type {
 } from '../ports.js';
 import { EXTRACTIVE_MEMORY_PREFIX } from '../context/index.js';
 import { BudgetAccount } from '../config/budgets.js';
+import { validateToolResultEnvelope } from '@moodcode/contracts/validation';
+import { executionRecords, TurnExecutor } from './turn-executor.js';
+import type { ToolCatalogue } from '../tools/runtime/index.js';
+import { bindCheckpointArtifacts } from '../artifacts/result.js';
+export { InputScheduler, type InputSchedulerOptions } from './input-scheduler.js';
 
 const CLEANUP_GRACE_MS = 1_000;
 const EFFECT_TOOLS = new Set(['apply_patch', 'run_command']);
@@ -30,8 +35,14 @@ interface Owner {
   callIds: Set<string>;
   readonlyCalls: Set<string>;
   checkpointIds: Set<string>;
+  checkpoints: Map<string, Checkpoint>;
   terminal: boolean;
-  activeTool?: ToolCallRecord;
+  turn?: TurnExecutor;
+  catalogue?: ToolCatalogue;
+  allowedTools?: ReadonlySet<string>;
+  invocations: Map<string, string>;
+  activeTools: Map<string, ToolCallRecord>;
+  readBatchWidth: number;
   cleanupError?: EngineError;
 }
 
@@ -61,10 +72,10 @@ function errorOf(error: unknown, code = 'INTERNAL_ERROR', message = 'Run executi
 }
 
 /** Validate descriptors before copying native output: no getters, toJSON or proxy traps. */
-function copyReplay(items: unknown, providerId: string, maxBytes: number): ProviderReplay {
+function copyReplay(items: unknown, providerId: string, maxBytes: number, binding: Pick<ProviderReplay, 'modelId' | 'protocol' | 'version'> = {}): ProviderReplay {
   const invalid = (): never => { throw new EngineError('INVALID_PROVIDER_REPLAY', 'Provider replay must contain plain JSON output objects'); };
   if (typeof providerId !== 'string' || !providerId.trim() || Buffer.byteLength(providerId, 'utf8') > 256 || /[\u0000-\u001f\u007f]/u.test(providerId)) return invalid();
-  let remaining = maxBytes - (Buffer.byteLength(JSON.stringify({ providerId, items: [] }), 'utf8') - 2);
+  let remaining = maxBytes - (Buffer.byteLength(JSON.stringify({ providerId, items: [], ...binding }), 'utf8') - 2);
   const spend = (bytes: number): void => {
     if (bytes > remaining) throw new EngineError('CONTEXT_LIMIT', 'Provider replay exceeds the context byte budget');
     remaining -= bytes;
@@ -120,7 +131,7 @@ function copyReplay(items: unknown, providerId: string, maxBytes: number): Provi
   // Include the providerReplay object level so stored context has the same bound.
   const copied = copy(items, 1);
   if (!Array.isArray(copied) || copied.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) return invalid();
-  return { providerId, items: copied as JsonObject[] };
+  return { providerId, items: copied as JsonObject[], ...binding };
 }
 
 function uncertain(value: unknown): boolean {
@@ -182,6 +193,12 @@ export class RunCoordinator implements CoordinatorPort {
   private readonly unsafeWorkspaces = new Set<string>();
   private closing = false;
   private closePromise?: Promise<void>;
+  private sessionHooks?: {
+    boundary(run: Run): boolean;
+    cancelled(run: Run): void;
+    settled(run: Run): void;
+    workspaceIdle(workspaceId: string): void;
+  };
 
   constructor(private readonly options: CoordinatorOptions) {
     for (const tool of options.tools) {
@@ -206,20 +223,59 @@ export class RunCoordinator implements CoordinatorPort {
     const receipt = this.options.store.admit(input);
     if (receipt.duplicate) return receipt;
     const run = this.options.store.getRun(receipt.runId);
+    this.startOwner(run);
+    return receipt;
+  }
+
+  setSessionHooks(hooks: NonNullable<RunCoordinator['sessionHooks']>): void {
+    if (this.sessionHooks) throw new EngineError('SCHEDULER_ALREADY_ATTACHED', 'Only one session scheduler can own this coordinator');
+    this.sessionHooks = hooks;
+  }
+
+  activeRun(sessionId: string): Run | undefined {
+    for (const owner of this.owners.values()) if (owner.run.sessionId === sessionId && !owner.terminal) return this.options.store.getRun(owner.run.id);
+    return undefined;
+  }
+
+  assertWorkspaceAvailable(workspaceId: string, excludedRunId?: string): void {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
+    if (this.unsafeWorkspaces.has(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace execution is quarantined');
+    if (this.workspaceLeases.has(workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
+    if (this.options.store.hasActiveRuns) { if (this.options.store.hasActiveRuns(workspaceId, excludedRunId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace has an active Run'); }
+    else for (const session of this.options.store.listSessions(workspaceId)) if (this.options.store.getSnapshot(session.id).runs.some(run => run.id !== excludedRunId && !isTerminal(run.state))) throw new EngineError('WORKSPACE_BUSY', 'Workspace has an active Run');
+  }
+
+  /** The input promotion transaction already admitted this real durable Run. */
+  startPromoted(runId: string): Promise<Run> {
+    const existing = this.owners.get(runId);
+    if (existing) return existing.done;
+    const run = this.options.store.getRun(runId);
+    if (isTerminal(run.state)) return Promise.resolve(run);
+    if (run.state !== 'created') throw new EngineError('RUN_NOT_OWNED', 'Only a newly promoted Run can start; interrupted work requires recovery');
+    this.assertWorkspaceAvailable(run.workspaceId, run.id);
+    return this.startOwner(run).done;
+  }
+
+  private startOwner(run: Run): Owner {
     let resolve!: (run: Run) => void;
     let reject!: (error: unknown) => void;
     const done = new Promise<Run>((yes, no) => { resolve = yes; reject = no; });
     const owner: Owner = {
       run, abort: new AbortController(), done, outputBytes: 0, toolCount: 0, budget: new BudgetAccount(run.config),
-      callIds: new Set(), readonlyCalls: new Set(), checkpointIds: new Set(), terminal: false,
+      callIds: new Set(), readonlyCalls: new Set(), checkpointIds: new Set(), checkpoints: new Map(), terminal: false, invocations: new Map(), activeTools: new Map(), readBatchWidth: 1,
     };
     this.owners.set(run.id, owner);
     // Attach a rejection observer even if the caller never waits for this run.
     void done.catch(() => {});
     queueMicrotask(() => {
-      void this.execute(owner).then(resolve, reject).finally(() => { this.owners.delete(run.id); });
+      void this.execute(owner).then(resolve, error => { this.unsafeWorkspaces.add(run.workspaceId); reject(error); }).finally(() => {
+        this.owners.delete(run.id);
+        try { this.sessionHooks?.settled(this.options.store.getRun(run.id)); }
+        catch { this.unsafeWorkspaces.add(run.workspaceId); }
+        try { this.sessionHooks?.workspaceIdle(run.workspaceId); } catch { this.unsafeWorkspaces.add(run.workspaceId); }
+      });
     });
-    return receipt;
+    return owner;
   }
 
   /**
@@ -265,6 +321,7 @@ export class RunCoordinator implements CoordinatorPort {
       } finally {
         this.workspaceLeases.delete(workspaceId);
         settled();
+        this.sessionHooks?.workspaceIdle(workspaceId);
       }
     });
     // close can abort a lease whose caller has not attached a handler yet.
@@ -283,6 +340,8 @@ export class RunCoordinator implements CoordinatorPort {
     if (isTerminal(run.state)) return { runId, state: run.state };
     const owner = this.owners.get(runId);
     if (!owner) throw new EngineError('RUN_NOT_OWNED', 'Active run is not owned by this coordinator');
+    try { this.sessionHooks?.cancelled(run); }
+    catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Session cancellation pause could not be recorded'); }
     if (run.state !== 'cancelling') this.options.store.commit(runId, 'run.cancelling', {}, { run: { state: 'cancelling' } });
     owner.abort.abort(new EngineError('RUN_CANCELLED', 'Run was cancelled'));
     try { this.options.approvals.cancelRun(runId); }
@@ -355,41 +414,64 @@ export class RunCoordinator implements CoordinatorPort {
       const provider = this.options.providers.get(run.config.providerId);
       if (!provider) throw new EngineError('PROVIDER_NOT_FOUND', `Unknown provider: ${run.config.providerId}`);
       const workspace = this.options.store.getWorkspace(run.workspaceId);
-      const schemas = this.options.tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+      const allowed = this.options.getAllowedTools?.(run);
+      if (allowed !== undefined) {
+        if (!Array.isArray(allowed) || allowed.length > 1024 || allowed.some(name => typeof name !== 'string' || name.length === 0 || Buffer.byteLength(name) > 256)) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'The host tool allowlist is invalid');
+        owner.allowedTools = new Set(allowed);
+      }
+      owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
+      const schemas = owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
       const reservedBytes = Buffer.byteLength(JSON.stringify({ messages: [], tools: schemas }), 'utf8') - 2;
-      const context = () => abortable(() => this.options.buildContext({
-        workspace, snapshot: this.options.store.getSnapshot(run.sessionId), config: run.config, signal: owner.abort.signal, reservedBytes,
-      }), owner.abort.signal, 'Context builder');
+      const contextRequest = () => ({
+        workspace, snapshot: this.options.contextSnapshot?.(run.sessionId, run.config) ?? this.options.store.getSnapshot(run.sessionId), config: run.config, signal: owner.abort.signal, reservedBytes, run, budget: owner.budget,
+        consumeSummaryOutput: (bytes: number) => {
+          if (!Number.isSafeInteger(bytes) || bytes < 0) throw new EngineError('INVALID_BUDGET_USAGE', 'Summary output bytes must be a nonnegative safe integer');
+          if (bytes > run.config.limits.maxOutputBytes - owner.outputBytes) throw new EngineError('OUTPUT_LIMIT', 'Summary output exceeds the remaining Run output budget');
+          owner.outputBytes += bytes;
+        },
+      });
+      const context = () => abortable(() => this.options.buildContext(contextRequest()), owner.abort.signal, 'Context builder');
       let messages = await context();
       this.assertLive(owner);
       messages = structuredClone(messages);
       for (let turnIndex = 0; turnIndex < run.config.limits.maxTurns; turnIndex++) {
         this.assertLive(owner);
+        if (this.sessionHooks?.boundary(run)) { owner.budget.inputPromoted(); messages = structuredClone(await context()); }
         owner.budget.startTurn();
+        owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
+        owner.invocations.clear();
         const bytes = this.checkContext(owner, messages);
         this.options.store.commit(run.id, 'context.prepared', {
           turnIndex, bytes, limit: run.config.limits.maxContextBytes,
           summaryIncluded: messages.some((message) => message.role === 'assistant' && message.content.startsWith(EXTRACTIVE_MEMORY_PREFIX)),
         });
+        const records = executionRecords(this.options.store);
+        const revisionId = this.options.getContextRevisionId?.(run.sessionId);
+        owner.turn = new TurnExecutor({ run, index: turnIndex, inputIds: records?.listRunInputIds?.(run.id) ?? [run.inputId], budget: owner.budget,
+          store: this.options.store, wait: abortable, ...(revisionId ? { contextRevisionId: revisionId } : {}), currentContextRevisionId: () => this.options.getContextRevisionId?.(run.sessionId),
+          ...(this.options.recoverContextOverflow ? { recoverContextOverflow: async () => {
+            await abortable(() => this.options.recoverContextOverflow!(contextRequest(), provider), owner.abort.signal, 'Context overflow recovery');
+            messages = structuredClone(await context()); this.checkContext(owner, messages); return messages;
+          } } : {}) });
         const turn = await this.providerTurn(owner, provider, messages, turnIndex);
         this.assertLive(owner);
         owner.budget.reserveToolCalls(turn.calls.length);
         messages.push({ role: 'assistant', content: turn.message.content, ...(turn.calls.length ? { toolCalls: turn.calls } : {}) });
-        if (turn.calls.length === 0) return this.finish(owner, 'completed');
-        for (const call of turn.calls) {
-          this.assertLive(owner);
-          const result = await this.executeTool(owner, call, workspace);
-          messages.push({ role: 'tool', content: result, toolCallId: call.id });
+        if (turn.calls.length === 0) {
+          if (this.sessionHooks?.boundary(run)) { owner.budget.inputPromoted(); messages = structuredClone(await context()); continue; }
+          return this.finish(owner, 'completed');
         }
+        await this.executeCalls(owner, turn.calls, workspace, messages);
+        owner.turn.complete();
         // Rebuild from committed exchanges so older context can be trimmed again.
         if (turnIndex + 1 < run.config.limits.maxTurns) messages = structuredClone(await context());
       }
       throw new EngineError('TURN_LIMIT', 'Model turn budget was exceeded');
     } catch (error) {
       const failure = owner.cleanupError ?? errorOf(error);
-      if (owner.activeTool && !['completed', 'denied', 'failed', 'interrupted'].includes(owner.activeTool.state)) {
-        this.setTool(owner, owner.activeTool, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
-      }
+      try { owner.turn?.fail(failure); }
+      catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Execution records could not be durably settled'); }
+      for (const tool of owner.activeTools.values()) if (!['completed', 'denied', 'failed', 'interrupted'].includes(tool.state)) this.setTool(owner, tool, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
       try { this.options.approvals.cancelRun(run.id); }
       catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Pending approval cleanup could not be confirmed'); }
       const terminalError = owner.cleanupError ?? failure;
@@ -397,8 +479,13 @@ export class RunCoordinator implements CoordinatorPort {
     } finally { clearTimeout(timer); }
   }
 
+  private availableTools(owner: Owner): readonly ToolDefinition[] {
+    const allowed = owner.allowedTools;
+    return allowed ? this.options.tools.filter(tool => allowed.has(tool.name)) : this.options.tools;
+  }
+
   private checkContext(owner: Owner, messages: ProviderMessage[]): number {
-    const schemas = this.options.tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+    const schemas = owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
     const bytes = Buffer.byteLength(JSON.stringify({ messages, tools: schemas }), 'utf8');
     if (bytes > owner.run.config.limits.maxContextBytes) {
       throw new EngineError('CONTEXT_LIMIT', 'Model context byte budget was exceeded');
@@ -409,17 +496,52 @@ export class RunCoordinator implements CoordinatorPort {
   private message(owner: Owner, role: 'assistant' | 'tool', content = ''): Message {
     return { id: randomUUID(), sessionId: owner.run.sessionId, runId: owner.run.id, role, content, createdAt: now() };
   }
+  private async executeCalls(owner: Owner, calls: ProviderToolCall[], workspace: ToolContext['workspace'], messages: ProviderMessage[]): Promise<void> {
+    const declaredRead = (call: ProviderToolCall): boolean => {
+      try { return (this.options.toolRuntime && owner.catalogue ? this.options.toolRuntime.resolve(owner.catalogue, call.name) : this.tools.get(call.name))?.effectClass === 'read'; }
+      catch { return false; }
+    };
+    for (let index = 0; index < calls.length;) {
+      this.assertLive(owner);
+      if (!declaredRead(calls[index]!)) {
+        const call = calls[index++]!; const content = await this.executeTool(owner, call, workspace); messages.push({ role: 'tool', content, toolCallId: call.id }); continue;
+      }
+      const batch: ProviderToolCall[] = [];
+      while (index < calls.length && declaredRead(calls[index]!) && batch.length < owner.budget.budgets.maxReadConcurrency) batch.push(calls[index++]!);
+      owner.readBatchWidth = batch.length;
+      try {
+        const outcomes = await Promise.allSettled(batch.map(async call => {
+          try { return await this.executeTool(owner, call, workspace); }
+          catch (error) { owner.abort.abort(errorOf(error)); throw error; }
+        }));
+        const failure = outcomes.find(result => result.status === 'rejected');
+        if (failure?.status === 'rejected') throw failure.reason;
+        outcomes.forEach((result, position) => { if (result.status === 'fulfilled') messages.push({ role: 'tool', content: result.value, toolCallId: batch[position]!.id }); });
+      } finally { owner.readBatchWidth = 1; }
+    }
+  }
 
   private async providerTurn(owner: Owner, provider: ProviderAdapter, messages: ProviderMessage[], turnIndex: number): Promise<{ message: Message; calls: ProviderToolCall[] }> {
-    owner.budget.startProviderAttempt();
     const message = this.message(owner, 'assistant');
     const calls: ProviderToolCall[] = [];
     let finish: 'stop' | 'tool_calls' | 'length' | undefined;
     let replay: ProviderReplay | undefined;
-    const tools = this.options.tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+    let pendingDelta = '', firstDelta = true;
+    const flush = () => {
+      if (!pendingDelta) return;
+      const delta = pendingDelta;
+      pendingDelta = '';
+      this.options.store.commit(owner.run.id, 'message.delta', { messageId: message.id, delta, turnIndex }, { message: { ...message } });
+      owner.turn!.putText(message.id, 'text', delta);
+    };
+    const flushTimer = setInterval(() => {
+      if (!pendingDelta || owner.terminal || owner.abort.signal.aborted) return;
+      try { flush(); } catch { owner.abort.abort(new EngineError('STORAGE_COMMIT_FAILED', 'Streamed output could not be persisted')); }
+    }, 16);
+    const tools = [...(owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema })))];
     let iterator: AsyncIterator<ProviderEvent> | undefined;
     try {
-      iterator = provider.streamTurn({ runId: owner.run.id, turnIndex, modelId: owner.run.config.modelId, messages: structuredClone(messages), tools,
+      iterator = owner.turn!.stream(provider, { runId: owner.run.id, turnIndex, modelId: owner.run.config.modelId, messages: structuredClone(messages), tools,
         ...(owner.run.config.reasoningEffort !== undefined ? { reasoningEffort: owner.run.config.reasoningEffort } : {}),
       }, owner.abort.signal)[Symbol.asyncIterator]();
       while (true) {
@@ -427,6 +549,7 @@ export class RunCoordinator implements CoordinatorPort {
         this.assertLive(owner);
         if (item.done) break;
         const event = item.value;
+        if (event.type !== 'text.delta') flush();
         if (finish && event.type !== 'usage') throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider emitted content after finishing its turn');
         switch (event.type) {
           case 'text.delta': {
@@ -435,7 +558,8 @@ export class RunCoordinator implements CoordinatorPort {
             const text = this.consumeOutput(owner, event.delta);
             if (text.content) {
               message.content += text.content;
-              this.options.store.commit(owner.run.id, 'message.delta', { messageId: message.id, delta: text.content, turnIndex }, { message: { ...message } });
+              pendingDelta += text.content;
+              if (firstDelta || Buffer.byteLength(pendingDelta) >= 4096) { flush(); firstDelta = false; }
             }
             if (text.truncated) throw new EngineError('OUTPUT_LIMIT', 'Run output byte budget was exceeded');
             break;
@@ -445,7 +569,7 @@ export class RunCoordinator implements CoordinatorPort {
             if (!call || typeof call.id !== 'string' || !call.id || call.id.length > 256 || typeof call.name !== 'string' || !call.name || call.name.length > 128 || call.input === undefined) {
               throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider returned an invalid complete tool call');
             }
-            if (owner.callIds.has(call.id)) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider reused a tool call ID');
+            if (calls.some(previous => previous.id === call.id) || (!owner.turn!.records && owner.callIds.has(call.id))) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider reused a tool call ID');
             if (owner.toolCount + calls.length >= owner.run.config.limits.maxToolCalls) throw new EngineError('TOOL_CALL_LIMIT', 'Tool call budget was exceeded');
             if (Buffer.byteLength(JSON.stringify(call), 'utf8') > owner.run.config.limits.maxContextBytes) throw new EngineError('CONTEXT_LIMIT', 'Tool call input exceeds the context byte budget');
             owner.callIds.add(call.id);
@@ -453,37 +577,53 @@ export class RunCoordinator implements CoordinatorPort {
             break;
           }
           case 'usage': {
-            const usage: JsonObject = { turnIndex };
-            for (const key of ['inputTokens', 'outputTokens'] as const) {
+            const usage: JsonObject = { turnIndex, ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}) };
+            for (const key of ['inputTokens', 'outputTokens', 'cachedInputTokens', 'reasoningOutputTokens'] as const) {
               const count = event[key];
               if (count === undefined) continue;
               if (!Number.isSafeInteger(count) || count < 0) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider usage must be non-negative integer counts');
               usage[key] = count;
             }
+            if (event.cachedInputTokens !== undefined && event.inputTokens !== undefined && event.cachedInputTokens > event.inputTokens || event.reasoningOutputTokens !== undefined && event.outputTokens !== undefined && event.reasoningOutputTokens > event.outputTokens) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider usage details exceed inclusive totals');
             // Missing usage remains absent; a zero count is a supplied value.
             this.options.store.commit(owner.run.id, 'run.usage', usage);
             break;
           }
+          case 'reasoning.delta': {
+            if (typeof event.delta !== 'string') throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Public reasoning summary must be a string');
+            const output = this.consumeOutput(owner, event.delta); if (output.content) owner.turn!.putText(message.id, 'reasoning', output.content);
+            if (output.truncated) throw new EngineError('OUTPUT_LIMIT', 'Run output byte budget was exceeded');
+            break;
+          }
+          case 'media': owner.turn!.putMedia(message.id, event); break;
+          case 'progress': break;
           case 'finish':
             if (!['stop', 'tool_calls', 'length'].includes(event.reason)) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider finish reason is unsupported');
             finish = event.reason;
             if (finish !== 'length') {
               const descriptor = Object.getOwnPropertyDescriptor(event, 'replayItems');
               if ((!descriptor && 'replayItems' in event) || (descriptor && !('value' in descriptor))) throw new EngineError('INVALID_PROVIDER_REPLAY', 'Provider replay must contain plain JSON output objects');
-              if (descriptor?.value !== undefined) replay = copyReplay(descriptor.value, provider.id, owner.run.config.limits.maxContextBytes);
+              if (descriptor?.value !== undefined) replay = copyReplay(descriptor.value, provider.id, owner.run.config.limits.maxContextBytes, provider.replayProtocol ? { modelId: owner.run.config.modelId, protocol: provider.replayProtocol, version: 1 } : {});
             }
             break;
           default: throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider emitted an unsupported event');
         }
       }
       if (!finish) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider stream ended without a finish event');
+      flush();
       if (finish === 'length') throw new EngineError('PROVIDER_LENGTH', 'Provider stopped at its output limit');
       if ((finish === 'tool_calls') !== (calls.length > 0)) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider finish reason does not match its complete tool calls');
       if (calls.length) message.toolCalls = calls;
       if (replay) message.providerReplay = replay;
       this.options.store.commit(owner.run.id, 'message.completed', { messageId: message.id, turnIndex, finishReason: finish }, { message });
+      for (const call of calls) {
+        const internalId = randomUUID(); owner.invocations.set(call.id, internalId);
+        owner.turn!.toolProposal(message.id, internalId, call);
+      }
+      owner.turn!.outputFinished(finish, calls.length > 0);
       return { message, calls };
     } catch (error) {
+      flush();
       // A return() that queues behind a non-cooperative next() must also be bounded.
       if (iterator?.return) {
         let timer: ReturnType<typeof setTimeout> | undefined;
@@ -495,7 +635,7 @@ export class RunCoordinator implements CoordinatorPort {
         if (!closed) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider stream cleanup could not be confirmed');
       }
       throw errorOf(error, 'PROVIDER_ERROR', 'Provider failed while streaming a turn');
-    }
+    } finally { clearInterval(flushTimer); }
   }
 
   private consumeOutput(owner: Owner, content: string): { content: string; truncated: boolean } {
@@ -509,7 +649,7 @@ export class RunCoordinator implements CoordinatorPort {
     // Tool observations share the run budget with every assistant delta. Keep a
     // quarter of the configured budget (at most 4 KiB) for a final explanation.
     const reserve = Math.min(4_096, Math.max(1, Math.floor(owner.run.config.limits.maxOutputBytes / 4)));
-    return Math.max(0, owner.run.config.limits.maxOutputBytes - owner.outputBytes - reserve);
+    return Math.floor(Math.max(0, owner.run.config.limits.maxOutputBytes - owner.outputBytes - reserve) / owner.readBatchWidth);
   }
 
   private toolError(owner: Owner, code: string, message: string): ToolResult {
@@ -540,6 +680,7 @@ export class RunCoordinator implements CoordinatorPort {
       workspace, sessionId: owner.run.sessionId, runId: owner.run.id, toolCallId: record.id,
       signal, limits: { ...owner.run.config.limits, maxOutputBytes: this.toolOutputBudget(owner) }, artifactDir: this.options.artifactDir,
       budgets: { ...owner.budget.budgets },
+      ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}),
       ...(this.options.executionLockPath ? { executionLockPath: this.options.executionLockPath } : {}),
       recordCheckpoint: (checkpoint: Checkpoint) => {
         // Cleanup may record observed effects after abort, until this operation settles.
@@ -547,6 +688,7 @@ export class RunCoordinator implements CoordinatorPort {
         if (!checkpoint.id || checkpoint.runId !== owner.run.id || checkpoint.toolCallId !== record.id || owner.checkpointIds.has(checkpoint.id)) throw new EngineError('INVALID_CHECKPOINT', 'Checkpoint identity does not match the active tool execution');
         this.options.store.commit(owner.run.id, 'workspace.changed', { checkpointId: checkpoint.id, toolCallId: record.id, kind: checkpoint.kind, incomplete: checkpoint.incomplete ?? false, warnings: checkpoint.warnings }, { checkpoint: structuredClone(checkpoint) });
         owner.checkpointIds.add(checkpoint.id);
+        owner.checkpoints.set(checkpoint.id, structuredClone(checkpoint));
       },
     };
   }
@@ -566,11 +708,12 @@ export class RunCoordinator implements CoordinatorPort {
   private async executeTool(owner: Owner, call: ProviderToolCall, workspace: ToolContext['workspace']): Promise<string> {
     owner.toolCount++;
     // Provider IDs belong to a conversation; durable tool rows need globally unique IDs.
-    const record: ToolCallRecord = { id: randomUUID(), runId: owner.run.id, sessionId: owner.run.sessionId, name: call.name, input: call.input, state: 'requested' };
-    owner.activeTool = record;
+    const record: ToolCallRecord = { id: owner.invocations.get(call.id) ?? randomUUID(), runId: owner.run.id, sessionId: owner.run.sessionId, name: call.name, input: call.input, state: 'requested' };
+    owner.activeTools.set(record.id, record);
     this.options.store.commit(owner.run.id, 'tool.requested', { toolCallId: record.id, providerToolCallId: call.id, name: call.name, input: call.input }, { tool: record });
     try {
-      const tool = this.tools.get(call.name);
+      if (owner.allowedTools && !owner.allowedTools.has(call.name)) return this.toolResult(owner, record, call, this.toolError(owner, 'TOOL_NOT_ALLOWED', 'The active agent profile does not permit this tool'), 'denied');
+      const tool = this.options.toolRuntime && owner.catalogue ? this.options.toolRuntime.resolve(owner.catalogue, call.name) : this.tools.get(call.name);
       if (!tool) return this.toolResult(owner, record, call, this.toolError(owner, 'UNKNOWN_TOOL', `Unknown tool: ${call.name}`));
       // PreparedTool is an opaque handle: tools may bind preimages to its identity.
       const prepared = await this.toolOperation(owner, record, workspace, false, (context) => tool.prepare(call.input, context));
@@ -579,15 +722,16 @@ export class RunCoordinator implements CoordinatorPort {
         throw new EngineError('INVALID_PREPARED_TOOL', 'Prepared tool identity or approval metadata is invalid');
       }
       const binding = JSON.stringify(prepared);
-      if (READ_TOOLS.has(call.name) && !prepared.requiresApproval) {
-        const key = `${call.name}:${prepared.fingerprint}`;
+      if ((tool.effectClass === 'read' || (tool.effectClass === undefined && READ_TOOLS.has(call.name))) && !prepared.requiresApproval) {
+        const key = `${call.name}:${this.options.toolRuntime ? this.options.toolRuntime.repeatIdentity(prepared) : prepared.fingerprint}`;
         if (owner.readonlyCalls.has(key)) throw new EngineError('REPEATED_READ_TOOL_CALL', 'This identical read was already attempted without an intervening workspace effect. Use its previous result, a continuation, a different line range, or a narrower query.');
         owner.readonlyCalls.add(key);
       }
-      if (owner.run.config.mode === 'plan' && (prepared.requiresApproval || EFFECT_TOOLS.has(call.name))) {
+      const effectful = tool.effectClass !== undefined && !['read', 'state'].includes(tool.effectClass) || EFFECT_TOOLS.has(call.name);
+      if (owner.run.config.mode === 'plan' && (prepared.requiresApproval || effectful)) {
         return this.toolResult(owner, record, call, this.toolError(owner, 'PLAN_MODE_WRITE_BLOCKED', 'Plan mode does not allow this tool effect'), 'denied');
       }
-      if (prepared.requiresApproval || EFFECT_TOOLS.has(call.name)) {
+      if (prepared.requiresApproval || (!this.options.toolRuntime && effectful)) {
         this.setTool(owner, record, 'awaiting_approval');
         this.options.store.commit(owner.run.id, 'run.awaiting_approval', { toolCallId: record.id }, { run: { state: 'awaiting_approval' } });
         const decision = await abortable(() => this.options.approvals.request({
@@ -595,7 +739,7 @@ export class RunCoordinator implements CoordinatorPort {
           toolName: prepared.name, fingerprint: prepared.fingerprint, preview: structuredClone(prepared.preview),
         }, owner.abort.signal), owner.abort.signal, 'Approval wait');
         this.assertLive(owner);
-        this.options.store.commit(owner.run.id, 'run.resumed', { toolCallId: record.id }, { run: { state: 'running' } });
+        if (![...owner.activeTools.values()].some(other => other.id !== record.id && other.state === 'awaiting_approval')) this.options.store.commit(owner.run.id, 'run.resumed', { toolCallId: record.id }, { run: { state: 'running' } });
         const current = this.options.store.getApproval(decision.id);
         const matches = (approval: typeof current) => approval.runId === owner.run.id && approval.sessionId === owner.run.sessionId && approval.toolCallId === record.id && approval.toolName === prepared.name && approval.fingerprint === prepared.fingerprint && approval.status === 'allowed';
         if (!matches(current) || !matches(decision)) {
@@ -605,7 +749,7 @@ export class RunCoordinator implements CoordinatorPort {
       this.assertLive(owner);
       if (JSON.stringify(prepared) !== binding) throw new EngineError('PREPARED_TOOL_CHANGED', 'Prepared request changed while waiting for approval');
       this.setTool(owner, record, 'running');
-      if (prepared.requiresApproval || EFFECT_TOOLS.has(call.name)) owner.readonlyCalls.clear();
+      if (prepared.requiresApproval || effectful) owner.readonlyCalls.clear();
       const result = await this.toolOperation(owner, record, workspace, true, (context) => tool.execute(prepared as PreparedTool, context));
       this.assertLive(owner);
       if (uncertain(result)) throw new EngineError('CLEANUP_UNCERTAIN', `Tool ${record.name} did not confirm cleanup`);
@@ -628,12 +772,28 @@ export class RunCoordinator implements CoordinatorPort {
       }
       // Input errors, denied permissions, and ordinary tool failures let the model adapt.
       return this.toolResult(owner, record, call, this.toolError(owner, failure.code, failure.message));
-    } finally { owner.activeTool = undefined; }
+    } finally { owner.activeTools.delete(record.id); }
   }
 
   private toolResult(owner: Owner, record: ToolCallRecord, call: ProviderToolCall, result: ToolResult, state?: 'denied'): string {
     this.assertLive(owner);
-    const output = this.consumeOutput(owner, result.content);
+    const structured = result.structuredResult ? validateToolResultEnvelope(result.structuredResult) : undefined;
+    if (structured?.artifactRefs.length) {
+      const identity = { sessionId: owner.run.sessionId, runId: owner.run.id, toolCallId: record.id,
+        ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}) };
+      const checkpoints = [...owner.checkpoints.values()].filter(checkpoint => checkpoint.toolCallId === record.id);
+      try {
+        if (structured.artifactRefs.length > 32 || structured.artifactRefs.some(ref => Object.keys(identity).some(key => ref.identity[key as keyof typeof ref.identity] !== identity[key as keyof typeof identity]) || Object.keys(ref.identity).some(key => ref.identity[key as keyof typeof ref.identity] !== identity[key as keyof typeof identity]))) throw new EngineError('CHECKPOINT_ARTIFACT_MISMATCH', 'Tool artifacts must match the active execution identity');
+        const bindings = checkpoints.map(checkpoint => bindCheckpointArtifacts(checkpoint, identity, structured.artifactRefs));
+        for (const binding of bindings) this.options.store.commit(owner.run.id, 'checkpoint.artifacts', {
+          ...binding, artifacts: structured.artifactRefs.map(ref => ({ artifactId: ref.id, sha256: ref.sha256, complete: ref.complete, outcome: ref.outcome })),
+        });
+      } catch (error) {
+        if (checkpoints.some(checkpoint => checkpoint.incomplete)) throw new EngineError('CLEANUP_UNCERTAIN', 'Incomplete workspace effects remain unconfirmed after artifact binding failed');
+        throw error;
+      }
+    }
+    const output = this.consumeOutput(owner, structured?.modelContent ?? result.content);
     const finalState = state ?? (result.isError || output.truncated ? 'failed' : 'completed');
     const message = this.message(owner, 'tool', output.content);
     message.toolCallId = call.id;
@@ -644,6 +804,12 @@ export class RunCoordinator implements CoordinatorPort {
       toolCallId: record.id, providerToolCallId: call.id, name: call.name,
       output: output.content, isError: result.isError ?? false, truncated: output.truncated,
     };
+    if (structured) {
+      const normalized = { ...structured, modelContent: output.content };
+      if (Buffer.byteLength(JSON.stringify(normalized)) <= owner.run.config.limits.maxContextBytes) payload.structuredResult = JSON.parse(JSON.stringify(normalized)) as JsonObject;
+      else payload.structuredResultOmitted = true;
+      payload.artifactRefs = JSON.parse(JSON.stringify(structured.artifactRefs.slice(0, 32))) as JsonValue;
+    }
     // Content is the model handoff; retain only bounded metadata in the journal.
     if (result.artifacts) payload.artifacts = result.artifacts.slice(0, 32).map(({ path, bytes, truncated }) => ({ path: prefixBytes(path, 4_096), bytes, truncated }));
     if (result.data && typeof result.data === 'object' && !Array.isArray(result.data)) {
@@ -653,6 +819,7 @@ export class RunCoordinator implements CoordinatorPort {
       if (typeof data.timedOut === 'boolean') payload.timedOut = data.timedOut;
     }
     this.options.store.commit(owner.run.id, `tool.${finalState}`, payload, { tool: { ...record }, message });
+    owner.turn?.toolResult(record.id, { output: output.content, isError: result.isError ?? false, truncated: output.truncated }, finalState !== 'completed');
     if (output.truncated) throw new EngineError('OUTPUT_LIMIT', 'Run output byte budget was exceeded');
     return output.content;
   }

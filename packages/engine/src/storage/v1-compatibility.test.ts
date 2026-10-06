@@ -7,9 +7,10 @@ import test, { type TestContext } from 'node:test';
 import { EngineError } from '@moodcode/contracts';
 import { ReviewJournal } from '../review/audit.js';
 import { getReviewDiff } from '../review/index.js';
-import { getRecoveryStatus, readRecoveryAcknowledgments } from '../recovery/index.js';
+import { getRecoveryStatus, readRecoveryAcknowledgments, recoverEngine } from '../recovery/index.js';
 import { isRestoreAcknowledged, readAudits } from '../recovery/ledger.js';
 import { SqliteStore } from './index.js';
+import { DB_VERSION } from './migrations.js';
 import { databaseContents, restoreV1Fixture } from './fixtures/v1-fixture.js';
 import { V1_DATABASE_FIXTURE } from './fixtures/v1-database.js';
 
@@ -27,9 +28,14 @@ function fixture(t: TestContext) {
   const review = () => { const journal = new ReviewJournal(path + '.review.sqlite'); journals.push(journal); return journal; };
   return { directory, path, artifactDir, open, review };
 }
-function contents(path: string): unknown {
+function contents(path: string) {
   const db = new DatabaseSync(path, { readOnly: true });
-  try { return databaseContents(db); } finally { db.close(); }
+  try {
+    const data = databaseContents(db);
+    const names = new Set<string>(V1_DATABASE_FIXTURE.primary.tables.map(table => table.name));
+    const originalSchema = new Set<string>(V1_DATABASE_FIXTURE.primary.schema.map(item => item.name));
+    return { applicationId: data.applicationId, schema: data.schema.filter(row => originalSchema.has(String(row.name))), tables: data.tables.filter(table => names.has(String(table.name))) };
+  } finally { db.close(); }
 }
 
 test('frozen v1 history keeps every durable row, replay, approval, checkpoint and event binding on open', t => {
@@ -67,7 +73,7 @@ test('frozen v1 history keeps every durable row, replay, approval, checkpoint an
   assert.deepEqual(store.getSnapshot(ids.sessionId), snapshot, 'Display/history projections cannot alter native replay');
   assert.equal(store.integrityCheck().ok, true);
   store.close();
-  assert.deepEqual(contents(f.path), before, 'No schema, ordinal, JSON or cursor rewrites are allowed at v1 open');
+  assert.deepEqual(contents(f.path), before, 'Native tables may be added, but no v1 schema, ordinal, JSON or cursor rewrites are allowed');
 });
 
 test('frozen v1 interrupted recovery expires active approval once without changing terminal result or checkpoint images', t => {
@@ -148,7 +154,7 @@ test('backup of frozen v1 preserves primary records and does not silently claim 
   const review = readFileSync(f.path + '.review.sqlite'), ledger = readFileSync(f.path + '.recovery.sqlite');
   const destination = join(f.directory, 'archive.sqlite');
   const backup = await store.backup(destination);
-  assert.equal(backup.schemaVersion, 1);
+  assert.equal(backup.schemaVersion, DB_VERSION);
   const restored = f.open(destination);
   assert.deepEqual(restored.getSnapshot(ids.sessionId), snapshot);
   assert.deepEqual(restored.readEvents(ids.sessionId, 0, 1_024), events);
@@ -156,4 +162,34 @@ test('backup of frozen v1 preserves primary records and does not silently claim 
   assert.equal(restored.integrityCheck().ok, true);
   assert.deepEqual(readFileSync(f.path + '.review.sqlite'), review);
   assert.deepEqual(readFileSync(f.path + '.recovery.sqlite'), ledger);
+});
+
+test('in-place v1 migration preserves a previously confirmed recovery binding and its v1 backup metadata', async t => {
+  const f = fixture(t), journal = f.review();
+  journal.recoverPending(); journal.close();
+  const options = { dbPath: f.path, artifactDir: f.artifactDir };
+  const before = await getRecoveryStatus(options);
+  assert.equal(before.state, 'recoverable');
+  await recoverEngine({ ...options, fingerprint: before.fingerprint!, acknowledged: true });
+  const acknowledgments = readRecoveryAcknowledgments(options);
+  assert.equal(acknowledgments.length, 2);
+  const ledgerBefore = readFileSync(f.path + '.recovery.sqlite');
+  const store = f.open();
+  assert.equal(store.integrityCheck().schemaVersion, DB_VERSION);
+  store.recoverInterrupted(); store.close();
+  assert.deepEqual(readRecoveryAcknowledgments(options), acknowledgments);
+  assert.deepEqual(readFileSync(f.path + '.recovery.sqlite'), ledgerBefore);
+  assert.equal((await getRecoveryStatus(options)).resolvedRestoreCount, 2);
+});
+
+test('recovery ledger rejects a future primary backup manifest version without rewriting the audit', t => {
+  const f = fixture(t), ledger = new DatabaseSync(f.path + '.recovery.sqlite');
+  t.after(() => ledger.close());
+  const row = ledger.prepare('SELECT data FROM recovery_audit LIMIT 1').get()!;
+  const audit = JSON.parse(String(row.data));
+  audit.backups.primary.schemaVersion = DB_VERSION + 1;
+  ledger.prepare('UPDATE recovery_audit SET data=?').run(JSON.stringify(audit));
+  const before = ledger.prepare('SELECT * FROM recovery_audit').all();
+  assert.throws(() => readAudits(ledger, () => {}), hasCode('RECOVERY_DATABASE_INVALID'));
+  assert.deepEqual(ledger.prepare('SELECT * FROM recovery_audit').all(), before);
 });

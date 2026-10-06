@@ -141,9 +141,22 @@ export function withSubmitDefaults(engine: HarnessEngine, providerOrDefaults: st
       const selected = config ?? {};
       const merged = { ...defaults, ...(defaults.limits ? { limits: { ...defaults.limits } } : {}), ...selected } as JsonObject;
       if (Object.hasOwn(selected, 'limits') && selected.limits && typeof selected.limits === 'object' && !Array.isArray(selected.limits)) merged.limits = { ...defaults.limits, ...selected.limits };
+      if (Object.hasOwn(selected, 'budgets') && selected.budgets && typeof selected.budgets === 'object' && !Array.isArray(selected.budgets)) merged.budgets = { ...defaults.budgets, ...selected.budgets };
       return engine.dispatch({ ...command, payload: { ...command.payload, config: merged } });
     },
+    ...(engine.dispatchSession ? { dispatchSession: (command: Parameters<NonNullable<HarnessEngine['dispatchSession']>>[0]) => {
+      if (command.type !== 'input.accept') return engine.dispatchSession!(command);
+      const config = command.payload.config;
+      if (Object.hasOwn(command.payload, 'config') && config === undefined) return engine.dispatchSession!(command);
+      if (config !== undefined && (!config || typeof config !== 'object' || Array.isArray(config))) return engine.dispatchSession!(command);
+      const selected = config ?? {};
+      const merged = { ...defaults, ...selected } as JsonObject;
+      if (selected.limits && typeof selected.limits === 'object' && !Array.isArray(selected.limits)) merged.limits = { ...defaults.limits, ...selected.limits };
+      if (selected.budgets && typeof selected.budgets === 'object' && !Array.isArray(selected.budgets)) merged.budgets = { ...defaults.budgets, ...selected.budgets };
+      return engine.dispatchSession!({ ...command, payload: { ...command.payload, config: merged } });
+    } } : {}),
     subscribe: (sessionId, afterSeq, signal) => engine.subscribe(sessionId, afterSeq, signal),
+    ...(engine.subscribeSession ? { subscribeSession: (sessionId: string, afterSeq: number, signal?: AbortSignal) => engine.subscribeSession!(sessionId, afterSeq, signal) } : {}),
     close: () => engine.close(),
   };
 }

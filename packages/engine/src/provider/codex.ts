@@ -26,6 +26,7 @@ function invalidConfiguration(): never {
 /** A native model turn using local Codex auth; the Moodcode runner owns tools. */
 export class CodexProvider implements ProviderAdapter {
   readonly id = 'codex';
+  readonly replayProtocol = 'codex-responses';
   #reader: ReturnType<typeof createCodexCredentialReader>;
   #fetch: typeof globalThis.fetch;
   #options: Pick<CodexProviderOptions, 'timeoutMs' | 'maxFrameBytes' | 'maxResponseBytes' | 'maxRequestBytes' | 'maxToolArgumentBytes' | 'maxToolCalls' | 'maxOutputItems'>;

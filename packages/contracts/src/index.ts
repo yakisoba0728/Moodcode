@@ -13,7 +13,7 @@ export interface RunLimits { maxTurns: number; maxToolCalls: number; maxDuration
 export const DEFAULT_LIMITS: Readonly<RunLimits> = Object.freeze({ maxTurns: 12, maxToolCalls: 32, maxDurationMs: 300_000, toolTimeoutMs: 60_000, maxOutputBytes: 65_536, maxContextBytes: 262_144 });
 export const REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const;
 export type ReasoningEffort = typeof REASONING_EFFORTS[number];
-export interface RunConfig { providerId: string; modelId: string; mode: 'plan' | 'build'; limits: RunLimits; reasoningEffort?: ReasoningEffort; budgets?: import('./v2.js').EngineBudgets }
+export interface RunConfig { providerId: string; modelId: string; mode: 'plan' | 'build'; limits: RunLimits; reasoningEffort?: ReasoningEffort; budgets?: import('./v2.js').EngineBudgets; agentProfileId?: string; agentProfileRevision?: string }
 export type RunConfigInput = Partial<Omit<RunConfig, 'limits' | 'budgets'>> & { limits?: Partial<RunLimits>; budgets?: Partial<import('./v2.js').EngineBudgets> };
 export interface EngineCapabilities {
   schemaVersion: number;
@@ -31,7 +31,7 @@ export interface Run { id: string; inputId: string; sessionId: string; workspace
 export interface RunReceipt { runId: string; inputId: string; admittedSeq: number; duplicate: boolean }
 export interface ProviderToolCall { id: string; name: string; input: JsonValue }
 /** Provider-native completed output for manual replay; opaque to tools and the UI. */
-export interface ProviderReplay { providerId: string; items: JsonObject[] }
+export interface ProviderReplay { providerId: string; items: JsonObject[]; modelId?: string; protocol?: string; version?: number }
 export interface Message { id: string; sessionId: string; runId: string; role: 'user' | 'assistant' | 'tool'; content: string; createdAt: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay }
 export interface ToolCallRecord { id: string; runId: string; sessionId: string; name: string; input: JsonValue; state: 'requested' | 'awaiting_approval' | 'running' | 'completed' | 'failed' | 'denied' | 'interrupted'; output?: string; error?: string }
 export interface ApprovalRecord { id: string; sessionId: string; runId: string; toolCallId: string; toolName: string; fingerprint: string; preview: JsonObject; status: 'pending' | 'allowed' | 'denied' | 'expired'; createdAt: string; resolvedAt?: string }

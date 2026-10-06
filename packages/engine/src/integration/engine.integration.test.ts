@@ -140,9 +140,9 @@ class CancellableProvider implements ProviderAdapter {
   readonly started = new Promise<void>((resolve) => { this.announceStarted = resolve; });
   async *streamTurn(request: TurnRequest, signal: AbortSignal): AsyncIterable<ProviderEvent> {
     this.calls++;
-    this.announceStarted();
     yield { type: 'text.delta', delta: 'Started' };
     if (request.modelId === 'finish') {
+      this.announceStarted();
       yield { type: 'finish', reason: 'stop' };
       return;
     }
@@ -150,6 +150,8 @@ class CancellableProvider implements ProviderAdapter {
       const onAbort = () => { this.aborts++; reject(signal.reason ?? new Error('aborted')); };
       if (signal.aborted) onAbort();
       else signal.addEventListener('abort', onAbort, { once: true });
+      // Readiness includes an installed cancellation listener, not only generator entry.
+      this.announceStarted();
     });
   }
 }

@@ -34,6 +34,21 @@ test('v1 omission retains its exact defaults, required Run owner and capability 
   assert.equal(Object.hasOwn(ownerless, 'runId'), false);
 });
 
+test('agent profile identity is additive, bounded and revisions cannot cross an explicit profile change', () => {
+  const configured = normalizeSubmitInput({ ...submit, config: { agentProfileId: 'builder', agentProfileRevision: 'sha256:fixture' } }).config;
+  assert.equal(configured.agentProfileId, 'builder'); assert.equal(configured.agentProfileRevision, 'sha256:fixture');
+  const inherited = normalizeSubmitInput(submit, configured).config; assert.equal(inherited.agentProfileRevision, 'sha256:fixture');
+  const changed = normalizeSubmitInput({ ...submit, config: { agentProfileId: 'reviewer' } }, configured).config; assert.equal(changed.agentProfileId, 'reviewer'); assert.equal(Object.hasOwn(changed, 'agentProfileRevision'), false);
+  for (const profile of [{ agentProfileId: undefined }, { agentProfileId: '' }, { agentProfileId: 'x'.repeat(257) }, { agentProfileRevision: 'orphan' }, { agentProfileId: 'p', agentProfileRevision: undefined }]) rejects(() => normalizeSubmitInput({ ...submit, config: profile }));
+});
+
+test('context diagnostic and literal history queries remain unavailable until wired and reject unbounded cursors', () => {
+  rejects(() => validateSessionCommand(command('session.getContext', { sessionId: 's1' })), 'COMMAND_UNAVAILABLE');
+  assert.deepEqual(validateSessionCommand(command('session.getContext', { sessionId: 's1' }), { enabledCommands }).payload, { sessionId: 's1' });
+  assert.deepEqual(validateSessionCommand(command('session.searchHistory', { sessionId: 's1', query: '%literal_' }), { enabledCommands }).payload, { sessionId: 's1', query: '%literal_', limit: 50, maxBytes: 262_144 });
+  for (const query of [{ query: '' }, { query: '한'.repeat(342) }, { query: 'ok', beforeMessageId: '' }, { query: 'ok', limit: 101 }, { query: 'ok', maxBytes: 1023 }, { query: 'ok', maxBytes: 1_048_577 }, { query: 'ok', regex: true }]) rejects(() => validateSessionCommand(command('session.searchHistory', { sessionId: 's1', ...query }), { enabledCommands }));
+});
+
 test('budget normalization merges isolated copies and rejects unknown, fractional, unsafe and zero limits', () => {
   const defaults = { turnAllowance: 9, maxSteerBatch: 3 };
   const normalized = normalizeEngineBudgets({ maxSteerBatch: 5, retryBaseDelayMs: 0 }, defaults);
@@ -206,4 +221,28 @@ test('context revision binds optional turns to Runs and rejects duplicate proven
   rejects(() => validateContextRevision({ ...revision, turnId: 't1' }));
   rejects(() => validateContextRevision({ ...revision, revision: 0 }));
   rejects(() => validateContextRevision({ ...revision, schemaVersion: 9 }), 'UNSUPPORTED_SCHEMA_VERSION');
+});
+
+test('extended native paging and artifact commands are opt-in with bounded canonical payloads', () => {
+  assert.deepEqual(validateSessionCommand(command('engine.getCapabilities', {}), { enabledCommands }).payload, {});
+  assert.equal(validateSessionCommand(command('run.getTurns', { runId: 'r1', afterTurnId: 't1' }), { enabledCommands }).payload.limit, 50);
+  assert.equal(validateSessionCommand(command('turn.getParts', { turnId: 't1', afterPartId: 'p1', limit: 100 }), { enabledCommands }).payload.limit, 100);
+  const payload = { artifactId: 'f1', sessionId: 's1', runId: 'r1', toolCallId: 'internal1' };
+  assert.deepEqual(validateSessionCommand(command('artifact.get', payload), { enabledCommands }).payload, { ...payload, offset: 0, limit: 16384 });
+  rejects(() => validateSessionCommand(command('artifact.get', { ...payload, attemptId: 'a1' }), { enabledCommands }));
+  rejects(() => validateSessionCommand(command('artifact.get', { ...payload, limit: 65537 }), { enabledCommands }));
+  rejects(() => validateSessionCommand(command('run.getTurns', { runId: 'r1', limit: 101 }), { enabledCommands }));
+  rejects(() => validateSessionCommand(command('turn.getParts', { turnId: 't1' })), 'COMMAND_UNAVAILABLE');
+});
+
+test('native task/question controls retain CAS versions and bounded JSON answers', () => {
+  const task = { sessionId: 's1', expectedRevision: 0, tasks: [{ id: 'task1', content: 'fixture', state: 'pending' }] };
+  assert.deepEqual(validateSessionCommand(command('session.setTasks', task), { enabledCommands }).payload, task);
+  for (const type of ['session.getTasks', 'question.list']) assert.deepEqual(validateSessionCommand(command(type, { sessionId: 's1' }), { enabledCommands }).payload, { sessionId: 's1' });
+  const answered = { sessionId: 's1', questionId: 'q1', version: 1, answer: { value: 'choice' } };
+  assert.deepEqual(validateSessionCommand(command('question.answer', answered), { enabledCommands }).payload, answered);
+  rejects(() => validateSessionCommand(command('question.reject', answered), { enabledCommands }));
+  rejects(() => validateSessionCommand(command('question.answer', { ...answered, version: 0 }), { enabledCommands }));
+  rejects(() => validateSessionCommand(command('question.answer', { ...answered, answer: { value: 'x'.repeat(65536) } }), { enabledCommands }));
+  rejects(() => validateSessionCommand(command('session.setTasks', { ...task, tasks: Array(129).fill(null) }), { enabledCommands }));
 });

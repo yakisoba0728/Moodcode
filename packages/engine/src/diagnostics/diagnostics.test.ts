@@ -469,9 +469,14 @@ test('timeout kills the original POSIX process group including an inherited-pipe
     fs.writeFileSync(${JSON.stringify(marker)}, JSON.stringify({ parent: process.pid, child: child.pid }));
     setInterval(() => {}, 1000);
   `);
-  const report = await getDiagnostics({ gitExecutable: executable, timeoutMs: 500 });
-  assert.equal(report.git.code, 'GIT_TIMEOUT');
+  // Startup competes with the complete engine suite. Verify the actual tree is
+  // alive before awaiting the timeout; keep the process-removal assertions.
+  const running = getDiagnostics({ gitExecutable: executable, timeoutMs: 5_000 });
   const pids = JSON.parse(await waitForFile(marker)) as { parent: number; child: number };
+  assert.doesNotThrow(() => process.kill(pids.parent, 0));
+  assert.doesNotThrow(() => process.kill(pids.child, 0));
+  const report = await running;
+  assert.equal(report.git.code, 'GIT_TIMEOUT');
   await Promise.all([assertProcessGone(pids.parent), assertProcessGone(pids.child)]);
 });
 

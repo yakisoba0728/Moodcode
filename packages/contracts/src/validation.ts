@@ -118,7 +118,7 @@ function integer(value: unknown, path: string, minimum: number, maximum: number)
 
 function normalizeConfig(value: unknown, defaults?: RunConfigInput): RunConfig {
   const baseline = defaults === undefined ? undefined : normalizeConfig(defaults);
-  const config = value === undefined ? {} : object(value, 'payload.config', ['providerId', 'modelId', 'mode', 'limits', 'reasoningEffort', 'budgets']);
+  const config = value === undefined ? {} : object(value, 'payload.config', ['providerId', 'modelId', 'mode', 'limits', 'reasoningEffort', 'budgets', 'agentProfileId', 'agentProfileRevision']);
   if (has(config, 'budgets') && config.budgets === undefined) invalid('payload.config.budgets', 'must be a JSON object');
   const limits = has(config, 'limits') ? object(config.limits, 'payload.config.limits', LIMIT_KEYS) : {};
   const normalizedLimits = { ...(baseline?.limits ?? DEFAULT_LIMITS) };
@@ -131,12 +131,19 @@ function normalizeConfig(value: unknown, defaults?: RunConfigInput): RunConfig {
   if (mode !== 'plan' && mode !== 'build') invalid('payload.config.mode', 'must be plan or build');
   const reasoningEffort = has(config, 'reasoningEffort') ? config.reasoningEffort : baseline?.reasoningEffort;
   if ((has(config, 'reasoningEffort') || reasoningEffort !== undefined) && !REASONING_EFFORTS.includes(reasoningEffort as never)) invalid('payload.config.reasoningEffort', 'must be a supported reasoning effort');
+  const profileId = has(config, 'agentProfileId') ? id(config.agentProfileId, 'payload.config.agentProfileId') : baseline?.agentProfileId;
+  // An explicit profile change cannot inherit the previous profile's revision.
+  const profileRevision = has(config, 'agentProfileRevision') ? id(config.agentProfileRevision, 'payload.config.agentProfileRevision')
+    : has(config, 'agentProfileId') && profileId !== baseline?.agentProfileId ? undefined : baseline?.agentProfileRevision;
+  if (profileRevision !== undefined && profileId === undefined) invalid('payload.config.agentProfileRevision', 'requires an agentProfileId');
   return {
     providerId: has(config, 'providerId') ? id(config.providerId, 'payload.config.providerId') : (baseline?.providerId ?? 'scripted'),
     modelId: has(config, 'modelId') ? id(config.modelId, 'payload.config.modelId') : (baseline?.modelId ?? 'local'),
     mode,
     limits: normalizedLimits,
     ...(reasoningEffort === undefined ? {} : { reasoningEffort: reasoningEffort as import('./index.js').ReasoningEffort }),
+    ...(profileId === undefined ? {} : { agentProfileId: profileId }),
+    ...(profileRevision === undefined ? {} : { agentProfileRevision: profileRevision }),
     ...(!has(config, 'budgets') && baseline?.budgets === undefined ? {} : { budgets: normalizeEngineBudgets(config.budgets, baseline?.budgets) }),
   };
 }
@@ -433,7 +440,7 @@ export function validateTurnRecord(value: unknown): TurnRecord {
     ...(has(input, 'finishReason') ? { finishReason: string(input.finishReason, 'turn.finishReason', 128, true) } : {}), ...(has(input, 'uncertainty') ? { uncertainty: uncertainty(input.uncertainty, 'turn.uncertainty') } : {}) };
 }
 export function validateProviderAttempt(value: unknown): ProviderAttempt {
-  const input = schema2(value, 'attempt', ['id', 'sessionId', 'runId', 'turnId', 'index', 'providerId', 'modelId', 'state', 'createdAt', 'dispatchedAt', 'completedAt', 'providerRequestId', 'uncertainty']);
+  const input = schema2(value, 'attempt', ['id', 'sessionId', 'runId', 'turnId', 'index', 'providerId', 'modelId', 'state', 'createdAt', 'dispatchedAt', 'completedAt', 'providerRequestId', 'contextRevisionId', 'uncertainty']);
   const state = choice(input.state, 'attempt.state', ['prepared', 'dispatched', 'streaming', 'completed', 'failed', 'interrupted', 'uncertain']);
   if (state === 'prepared' && has(input, 'dispatchedAt')) invalid('attempt.dispatchedAt', 'must be absent before dispatch');
   if (['dispatched', 'streaming', 'completed', 'uncertain'].includes(state) && !has(input, 'dispatchedAt')) invalid('attempt.dispatchedAt', 'must exist after dispatch');
@@ -441,7 +448,7 @@ export function validateProviderAttempt(value: unknown): ProviderAttempt {
   const times = completed(input, 'attempt', state);
   const dispatch = optionalDate(input, 'dispatchedAt', 'attempt');
   if (dispatch.dispatchedAt && (dispatch.dispatchedAt < times.createdAt || (times.completedAt && dispatch.dispatchedAt > times.completedAt))) invalid('attempt.dispatchedAt', 'must be within attempt lifetime');
-  return { schemaVersion: SESSION_SCHEMA_VERSION, id: id(input.id, 'attempt.id'), sessionId: id(input.sessionId, 'attempt.sessionId'), runId: id(input.runId, 'attempt.runId'), turnId: id(input.turnId, 'attempt.turnId'), index: integer(input.index, 'attempt.index', 0, 15), providerId: id(input.providerId, 'attempt.providerId'), modelId: id(input.modelId, 'attempt.modelId'), state, ...times, ...dispatch, ...optionalId(input, 'providerRequestId', 'attempt'), ...(has(input, 'uncertainty') ? { uncertainty: uncertainty(input.uncertainty, 'attempt.uncertainty') } : {}) };
+  return { schemaVersion: SESSION_SCHEMA_VERSION, id: id(input.id, 'attempt.id'), sessionId: id(input.sessionId, 'attempt.sessionId'), runId: id(input.runId, 'attempt.runId'), turnId: id(input.turnId, 'attempt.turnId'), index: integer(input.index, 'attempt.index', 0, 15), providerId: id(input.providerId, 'attempt.providerId'), modelId: id(input.modelId, 'attempt.modelId'), state, ...times, ...dispatch, ...optionalId(input, 'providerRequestId', 'attempt'), ...optionalId(input, 'contextRevisionId', 'attempt'), ...(has(input, 'uncertainty') ? { uncertainty: uncertainty(input.uncertainty, 'attempt.uncertainty') } : {}) };
 }
 export function validateArtifactReference(value: unknown): ArtifactReference {
   const input = object(value, 'artifact', ['id', 'identity', 'sha256', 'storedBytes', 'observedBytes', 'producerTruncatedBytes', 'artifactTruncatedBytes', 'createdAt', 'expiresAt', 'complete', 'outcome']);
@@ -527,6 +534,31 @@ export function validateSessionCommand(value: unknown, options: { defaults?: Run
     const value = object(input.payload, 'payload', ['sessionId', 'afterSeq', 'stream']);
     if (has(value, 'stream') && value.stream !== 'session-v2') invalid('payload.stream', 'must be session-v2');
     payload = { sessionId: id(value.sessionId, 'payload.sessionId'), stream: 'session-v2', afterSeq: has(value, 'afterSeq') ? integer(value.afterSeq, 'payload.afterSeq', 0, Number.MAX_SAFE_INTEGER) : 0 };
+  } else if (type === 'engine.getCapabilities') { object(input.payload, 'payload', []); payload = {};
+  } else if (type === 'run.getTurns' || type === 'turn.getParts') {
+    const owner = type === 'run.getTurns' ? 'runId' : 'turnId', after = type === 'run.getTurns' ? 'afterTurnId' : 'afterPartId';
+    const value = object(input.payload, 'payload', [owner, after, 'limit']);
+    payload = { [owner]: id(value[owner], `payload.${owner}`), limit: has(value, 'limit') ? integer(value.limit, 'payload.limit', 1, 100) : 50 };
+    if (has(value, after)) payload[after] = id(value[after], `payload.${after}`);
+  } else if (type === 'artifact.get') {
+    const value = object(input.payload, 'payload', ['artifactId', 'sessionId', 'runId', 'toolCallId', 'turnId', 'attemptId', 'offset', 'limit']);
+    if (has(value, 'attemptId') && !has(value, 'turnId')) invalid('payload.attemptId', 'requires a turn ID');
+    payload = { artifactId: id(value.artifactId, 'payload.artifactId'), sessionId: id(value.sessionId, 'payload.sessionId'), runId: id(value.runId, 'payload.runId'), toolCallId: id(value.toolCallId, 'payload.toolCallId'),
+      offset: has(value, 'offset') ? integer(value.offset, 'payload.offset', 0, Number.MAX_SAFE_INTEGER) : 0, limit: has(value, 'limit') ? integer(value.limit, 'payload.limit', 1, 65_536) : 16_384, ...optionalId(value, 'turnId', 'payload'), ...optionalId(value, 'attemptId', 'payload') };
+  } else if (type === 'session.setTasks') {
+    const value = object(input.payload, 'payload', ['sessionId', 'expectedRevision', 'tasks']);
+    const tasks = json(value.tasks, 'payload.tasks');
+    if (!Array.isArray(tasks) || tasks.length > 128 || encoder.encode(JSON.stringify(tasks)).length > 65_536) invalid('payload.tasks', 'must be a bounded task array');
+    payload = { sessionId: id(value.sessionId, 'payload.sessionId'), expectedRevision: integer(value.expectedRevision, 'payload.expectedRevision', 0, Number.MAX_SAFE_INTEGER), tasks };
+  } else if (type === 'question.answer' || type === 'question.reject') {
+    const value = object(input.payload, 'payload', ['sessionId', 'questionId', 'version', ...(type === 'question.answer' ? ['answer'] : [])]);
+    payload = { sessionId: id(value.sessionId, 'payload.sessionId'), questionId: id(value.questionId, 'payload.questionId'), version: integer(value.version, 'payload.version', 1, Number.MAX_SAFE_INTEGER) };
+    if (type === 'question.answer') { payload.answer = jsonObject(value.answer, 'payload.answer'); if (encoder.encode(JSON.stringify(payload.answer)).length > 65_536) invalid('payload.answer', 'must not exceed answer byte budget'); }
+  } else if (type === 'session.searchHistory') {
+    const value = object(input.payload, 'payload', ['sessionId', 'query', 'beforeMessageId', 'limit', 'maxBytes']);
+    payload = { sessionId: id(value.sessionId, 'payload.sessionId'), query: string(value.query, 'payload.query', 1024),
+      limit: has(value, 'limit') ? integer(value.limit, 'payload.limit', 1, 100) : 50,
+      maxBytes: has(value, 'maxBytes') ? integer(value.maxBytes, 'payload.maxBytes', 1024, 1_048_576) : 262_144, ...optionalId(value, 'beforeMessageId', 'payload') };
   } else {
     const value = object(input.payload, 'payload', ['sessionId']);
     payload = { sessionId: id(value.sessionId, 'payload.sessionId') };

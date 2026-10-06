@@ -4,6 +4,8 @@ import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
 import { backupDatabase } from '../storage/maintenance.js';
+import { databaseVersion } from '../storage/migrations.js';
+import { NATIVE_SESSION_TABLES } from '../storage/native-schema.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
 import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
@@ -85,7 +87,9 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     const blockers: RecoveryBlocker[] = [];
     if (!primary) blockers.push('PRIMARY_DATABASE_MISSING');
     if (!review) blockers.push('REVIEW_DATABASE_MISSING');
-    const primaryHash = primary ? checkDatabase(primary, 1, PRIMARY_TABLES, snapshot.check) : null;
+    const primaryVersion = primary ? databaseVersion(primary) : 0;
+    if (primary && primaryVersion < 1) fail('RECOVERY_DATABASE_INVALID');
+    const primaryHash = primary ? checkDatabase(primary, primaryVersion, primaryVersion >= 2 ? [...PRIMARY_TABLES, ...NATIVE_SESSION_TABLES] : PRIMARY_TABLES, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);
     let marker: Marker | null = null;
@@ -166,7 +170,7 @@ function privateFile(file: string): void {
   try { const fd = openSync(file, constants.O_RDWR | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600); closeSync(fd); }
   catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; regular(file); }
 }
-function acquire(file: string, kind: 'owner' | 'effect' | 'source'): { db: DatabaseSync; release(): void; identity: { dev: number; ino: number }; file: string } {
+export function acquireRecoveryLease(file: string, kind: 'owner' | 'effect' | 'source'): { db: DatabaseSync; release(): void; identity: { dev: number; ino: number }; file: string } {
   if (kind !== 'source') privateFile(file);
   const identity = regular(file);
   if (!identity) fail('RECOVERY_DATABASE_INVALID');
@@ -188,6 +192,7 @@ function acquire(file: string, kind: 'owner' | 'effect' | 'source'): { db: Datab
     throw safeError(error);
   }
 }
+const acquire = acquireRecoveryLease;
 function requireRecoverable(inspection: Inspection, expected: string): void {
   if (inspection.status.fingerprint !== expected) fail('RECOVERY_STALE');
   if (inspection.status.blockers.length) fail('RECOVERY_BLOCKED');
@@ -243,7 +248,9 @@ export async function recoverEngine(options: RecoverEngineOptions): Promise<Reco
       if (!db) fail('RECOVERY_BACKUP_FAILED');
       try {
         const file = join(destination, label + '.sqlite');
-        const result = await backupDatabase(db, file, 1, verify);
+        const expectedVersion = key === 'db' ? databaseVersion(db) : 1;
+        if (expectedVersion < 1) fail('RECOVERY_DATABASE_INVALID');
+        const result = await backupDatabase(db, file, expectedVersion, verify);
         const digest = verifiedFileDigest(file, verify);
         if (digest.bytes !== result.bytes) fail('RECOVERY_SOURCE_CHANGED');
         backupFiles.push({ file, ...digest });

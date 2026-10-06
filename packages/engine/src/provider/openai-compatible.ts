@@ -1,6 +1,6 @@
 import { EngineError, type ProviderToolCall } from '@moodcode/contracts';
 import type { ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
-import { malformed, optionalString, positiveLimit, publicError, record, redactJson, redactText, TextRedactor } from './helpers.js';
+import { malformed, optionalString, positiveLimit, providerHttpFailure, providerRemoteError, publicError, record, redactJson, redactText, TextRedactor } from './helpers.js';
 import { readSseData } from './sse.js';
 
 export interface OpenAICompatibleProviderOptions {
@@ -32,13 +32,19 @@ function finishReason(value: unknown): FinishReason {
   if (value === 'content_filter') throw new EngineError('PROVIDER_CONTENT_FILTERED', 'Provider filtered the completion.');
   throw new EngineError('PROVIDER_UNSUPPORTED_FINISH_REASON', 'Provider returned an unsupported finish reason.');
 }
-function usageEvent(value: unknown): Usage {
+function usageEvent(value: unknown, includeMetadata = false): Usage {
   const usage = record(value);
   const event: Usage = { type: 'usage' };
   for (const [key, target] of [['prompt_tokens', 'inputTokens'], ['completion_tokens', 'outputTokens']] as const) {
     const count = usage[key];
     if (count === undefined || count === null) continue;
     if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) malformed();
+    event[target] = count;
+  }
+  for (const [details, key, target, total] of includeMetadata ? [['prompt_tokens_details', 'cached_tokens', 'cachedInputTokens', 'inputTokens'], ['completion_tokens_details', 'reasoning_tokens', 'reasoningOutputTokens', 'outputTokens']] as const : []) {
+    if (usage[details] === undefined || usage[details] === null) continue;
+    const count = record(usage[details])[key]; if (count === undefined || count === null) continue;
+    if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0 || event[total] !== undefined && count > event[total]!) malformed();
     event[target] = count;
   }
   return event;
@@ -122,7 +128,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
         body: serialized,
       });
       checkCancellation();
-      if (!response.ok) throw new EngineError('PROVIDER_HTTP_ERROR', `Provider HTTP request failed with status ${response.status}.`, { status: response.status });
+      if (!response.ok) throw await providerHttpFailure(response, controller.signal);
       if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/event-stream' || !response.body) throw new EngineError('PROVIDER_MALFORMED_STREAM', 'Provider response must be an SSE stream.');
       const calls = new Map<number, PendingCall>();
       const redactor = new TextRedactor(this.#apiKey);
@@ -135,11 +141,11 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
         let parsed: unknown;
         try { parsed = JSON.parse(frame); } catch { malformed(); }
         const chunk = record(parsed);
-        if (chunk.error !== undefined && chunk.error !== null) throw new EngineError('PROVIDER_REMOTE_ERROR', 'Provider reported an error in the stream.');
+        if (chunk.error !== undefined && chunk.error !== null) throw providerRemoteError(chunk.error);
         if (!Array.isArray(chunk.choices) || chunk.choices.length > 1) malformed();
         if (chunk.usage !== undefined && chunk.usage !== null) {
           if (usage) malformed();
-          usage = usageEvent(chunk.usage);
+          usage = usageEvent(chunk.usage, request.includeMetadata);
         }
         if (chunk.choices.length === 0) { if (!usage) malformed(); continue; }
         if (finish !== undefined) malformed();

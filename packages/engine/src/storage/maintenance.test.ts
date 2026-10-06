@@ -6,6 +6,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type Checkpoint, type SubmitInput, type ToolCallRecord } from '@moodcode/contracts';
 import { SqliteStore } from './index.js';
+import { DB_VERSION } from './migrations.js';
 
 const now = '2026-10-04T00:00:00.000Z';
 const code = (expected: string) => (error: unknown) => error instanceof EngineError && error.code === expected;
@@ -40,7 +41,7 @@ test('integrity check includes SQLite structure, foreign keys and supported sche
   const { store, input, source } = fixture(t);
   const { terminalId } = populate(store, input);
   const before = store.getSnapshot(input.sessionId);
-  assert.deepEqual(store.integrityCheck(), { ok: true, schemaVersion: 1, errors: [], foreignKeyViolations: [] });
+  assert.deepEqual(store.integrityCheck(), { ok: true, schemaVersion: DB_VERSION, errors: [], foreignKeyViolations: [] });
   assert.deepEqual(store.getSnapshot(input.sessionId), before);
   const external = new DatabaseSync(source);
   try {
@@ -62,7 +63,7 @@ test('integrity check includes SQLite structure, foreign keys and supported sche
     assert.equal(version.ok, false);
     assert.equal(version.schemaVersion, 99);
     assert.match(version.errors[0]!, /version 99/);
-    external.exec('PRAGMA user_version=1');
+    external.exec(`PRAGMA user_version=${DB_VERSION}`);
     assert.equal(store.integrityCheck().ok, true);
   } finally { external.close(); }
 });
@@ -78,7 +79,7 @@ test('native backup includes uncheckpointed WAL rows and produces a standalone r
   writeFileSync(`${source}.effects.sqlite`, 'Unrelated effect bookkeeping fixture');
   const result = await store.backup(destination);
   assert.equal(result.destination, destination);
-  assert.equal(result.schemaVersion, 1);
+  assert.equal(result.schemaVersion, DB_VERSION);
   assert.ok(result.bytes > 0);
   assert.equal(result.bytes, statSync(destination).size);
   assert.deepEqual(readdirSync(join(directory, 'archive')), ['backup.sqlite']);
@@ -87,7 +88,7 @@ test('native backup includes uncheckpointed WAL rows and produces a standalone r
   assert.deepEqual(store.readEvents(input.sessionId, 0, 1_024), journal);
   const rawBackup = new DatabaseSync(destination, { readOnly: true });
   try {
-    assert.equal(rawBackup.prepare('PRAGMA user_version').get()?.user_version, 1);
+    assert.equal(rawBackup.prepare('PRAGMA user_version').get()?.user_version, DB_VERSION);
     assert.equal(rawBackup.prepare('PRAGMA journal_mode').get()?.journal_mode, 'delete');
     assert.equal(rawBackup.prepare('PRAGMA integrity_check').get()?.integrity_check, 'ok');
   } finally { rawBackup.close(); }
@@ -256,7 +257,7 @@ test('backup validation failure cleans partial output for corrupted foreign keys
     await assert.rejects(store.backup(destination), code('DB_VERSION_UNSUPPORTED'));
     assert.equal(existsSync(destination), false);
     assert.deepEqual(readdirSync(join(directory, 'archive')), []);
-    external.exec('PRAGMA user_version=1');
+    external.exec(`PRAGMA user_version=${DB_VERSION}`);
   } finally { external.close(); }
   await store.backup(destination);
   assert.equal(existsSync(destination), true);

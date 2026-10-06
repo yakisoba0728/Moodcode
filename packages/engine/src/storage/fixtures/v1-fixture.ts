@@ -49,7 +49,7 @@ export function restoreV1Fixture(primaryPath: string, root: string): void {
 }
 
 /** Compare durable columns, ordinals, JSON strings, constraints and indexes without API projection. */
-export function databaseContents(db: DatabaseSync): unknown {
+export function databaseContents(db: DatabaseSync) {
   const schema = db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE sql IS NOT NULL AND name NOT GLOB 'sqlite_*' ORDER BY rowid").all();
   return {
     version: db.prepare('PRAGMA user_version').get()?.user_version,

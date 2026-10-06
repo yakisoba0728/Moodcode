@@ -9,6 +9,7 @@ import test, { type TestContext } from 'node:test';
 import { EngineError } from '@moodcode/contracts';
 import { normalizeSubmitInput } from '@moodcode/contracts/validation';
 import { SqliteStore } from '../storage/index.js';
+import { DB_VERSION } from '../storage/migrations.js';
 import { ReviewJournal } from '../review/audit.js';
 import { createEngine } from '../engine.js';
 import { getRecoveryStatus, isRestoreAcknowledged, readRecoveryAcknowledgments, recoverEngine, RECOVERY_LIMITS } from './index.js';
@@ -100,7 +101,7 @@ test('explicit acknowledgment produces verified primary/review backups and exact
   for (const name of ['primary', 'review']) {
     const path = join(f.artifactDir, 'recovery', result.recoveryId, name + '.sqlite');
     const db = new DatabaseSync(path, { readOnly: true });
-    try { assert.equal(db.prepare('PRAGMA integrity_check').get()?.integrity_check, 'ok'); assert.equal(db.prepare('PRAGMA user_version').get()?.user_version, 1); assert.equal(db.prepare('PRAGMA journal_mode').get()?.journal_mode, 'delete'); }
+    try { assert.equal(db.prepare('PRAGMA integrity_check').get()?.integrity_check, 'ok'); assert.equal(db.prepare('PRAGMA user_version').get()?.user_version, name === 'primary' ? DB_VERSION : 1); assert.equal(db.prepare('PRAGMA journal_mode').get()?.journal_mode, 'delete'); }
     finally { db.close(); }
     assert.equal(lstatSync(path).mode & 0o777, 0o600);
   }

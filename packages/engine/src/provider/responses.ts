@@ -1,8 +1,8 @@
 import { EngineError, REASONING_EFFORTS, type ProviderToolCall } from '@moodcode/contracts';
 import type { ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
 import type { OpenAICompatibleProviderOptions } from './openai-compatible.js';
-import { credentialSecrets, CredentialTextRedactor, malformed, optionalString, positiveLimit, publicError, record, redactCredentialJson, redactCredentialText } from './helpers.js';
-import { validateReplayBinding, validateReplayItems } from './replay.js';
+import { credentialSecrets, CredentialTextRedactor, malformed, optionalString, positiveLimit, providerHttpFailure, providerRemoteError, publicError, record, redactCredentialJson, redactCredentialText } from './helpers.js';
+import { replayCompatible, validateReplayBinding, validateReplayItems } from './replay.js';
 import { readSseData } from './sse.js';
 
 export interface ResponsesProviderOptions extends OpenAICompatibleProviderOptions {
@@ -52,7 +52,7 @@ function inputItems(message: ProviderMessage): Record<string, unknown>[] {
   }
   return items;
 }
-function normalizedUsage(value: unknown): Usage | undefined {
+function normalizedUsage(value: unknown, includeMetadata = false): Usage | undefined {
   if (value === undefined || value === null) return undefined;
   const source = record(value);
   const event: Usage = { type: 'usage' };
@@ -62,12 +62,19 @@ function normalizedUsage(value: unknown): Usage | undefined {
     if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) malformed();
     event[target] = count;
   }
+  for (const [details, key, target, total] of includeMetadata ? [['input_tokens_details', 'cached_tokens', 'cachedInputTokens', 'inputTokens'], ['output_tokens_details', 'reasoning_tokens', 'reasoningOutputTokens', 'outputTokens']] as const : []) {
+    if (source[details] === undefined || source[details] === null) continue;
+    const count = record(source[details])[key]; if (count === undefined || count === null) continue;
+    if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0 || event[total] !== undefined && count > event[total]!) malformed();
+    event[target] = count;
+  }
   return event;
 }
 
 /** Stateless native Responses turn; the runner owns history, tool execution and retries. */
 export class ResponsesProvider implements ProviderAdapter {
   readonly id: string;
+  readonly replayProtocol: string;
   #endpoint: string;
   #apiKey: string | undefined;
   #secrets: string[];
@@ -90,6 +97,7 @@ export class ResponsesProvider implements ProviderAdapter {
     this.#endpoint = base.href;
     if (options.streamProfile !== undefined && options.streamProfile !== 'responses' && options.streamProfile !== 'codex') throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider stream profile is invalid.');
     this.#codexProfile = options.streamProfile === 'codex';
+    this.replayProtocol = this.#codexProfile ? 'codex-responses' : 'openai-responses';
     if (this.#codexProfile && (this.id !== 'codex' || this.#endpoint !== 'https://chatgpt.com/backend-api/codex/responses')) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Codex stream profile requires its fixed provider identity and route.');
     this.#fetch = options.fetch ?? globalThis.fetch;
     if (typeof this.#fetch !== 'function') throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider requires an HTTP fetch implementation.');
@@ -114,8 +122,8 @@ export class ResponsesProvider implements ProviderAdapter {
       let inputBytes = 2;
       for (const message of request.messages) {
         let messageItems: Record<string, unknown>[];
-        if (message.role === 'assistant' && message.providerReplay?.providerId === this.id) {
-          const replayItems = validateReplayItems(message.providerReplay.items, {
+        if (message.role === 'assistant' && replayCompatible(message, this.id, request.modelId, this.replayProtocol)) {
+          const replayItems = validateReplayItems(message.providerReplay!.items, {
             secrets: this.#secrets, maxItems: this.#limits.maxOutputItems,
             maxBytes: this.#limits.maxRequestBytes,
             maxToolArgumentBytes: this.#limits.maxToolArgumentBytes, maxToolCalls: this.#limits.maxToolCalls,
@@ -154,7 +162,7 @@ export class ResponsesProvider implements ProviderAdapter {
         body: serialized,
       });
       checkCancellation();
-      if (!response.ok) throw new EngineError('PROVIDER_HTTP_ERROR', `Provider HTTP request failed with status ${response.status}.`, { status: response.status });
+      if (!response.ok) throw await providerHttpFailure(response, controller.signal);
       const contentType = response.headers.get('content-type');
       const acceptsStream = contentType?.split(';')[0]?.trim().toLowerCase() === 'text/event-stream' || this.#codexProfile && contentType === null;
       if (!acceptsStream || !response.body) throw new EngineError('PROVIDER_MALFORMED_STREAM', 'Provider response must be an SSE stream.');
@@ -163,6 +171,7 @@ export class ResponsesProvider implements ProviderAdapter {
       const itemIds = new Set<string>();
       const callIds = new Set<string>();
       const redactor = new CredentialTextRedactor(this.#secrets);
+      const summaryRedactor = new CredentialTextRedactor(this.#secrets);
       let responseId: string | undefined;
       let inProgress = false;
       let sequence: number | undefined;
@@ -237,7 +246,7 @@ export class ResponsesProvider implements ProviderAdapter {
           if (typeof current !== 'number' || !Number.isSafeInteger(current) || current < 0 || (sequence !== undefined && current <= sequence)) malformed();
           sequence = current;
         }
-        if (type === 'error' || type === 'response.failed') throw new EngineError('PROVIDER_REMOTE_ERROR', 'Provider reported an error in the stream.');
+        if (type === 'error' || type === 'response.failed') throw providerRemoteError(type === 'error' ? event.error ?? event : event.response && typeof event.response === 'object' ? (event.response as Record<string, unknown>).error : undefined);
         if (type !== 'response.created' && event.response_id !== undefined && event.response_id !== responseId) malformed();
         if (type === 'response.created') {
           if (responseId !== undefined) malformed();
@@ -245,6 +254,7 @@ export class ResponsesProvider implements ProviderAdapter {
           responseId = nonempty(created.id);
           if (event.response_id !== undefined && event.response_id !== responseId) malformed();
           if (created.status !== 'in_progress') malformed();
+          if (request.includeMetadata) { checkCancellation(); yield { type: 'progress', providerRequestId: responseId }; }
           continue;
         }
         if (responseId === undefined) malformed();
@@ -252,6 +262,7 @@ export class ResponsesProvider implements ProviderAdapter {
           const progress = record(event.response);
           if (inProgress || progress.id !== responseId || progress.status !== 'in_progress') malformed();
           inProgress = true;
+          if (request.includeMetadata) { checkCancellation(); yield { type: 'progress' }; }
           continue;
         }
         if (type === 'response.completed' || type === 'response.incomplete') {
@@ -394,6 +405,8 @@ export class ResponsesProvider implements ProviderAdapter {
             const part = record(event.part);
             if (part.type !== 'summary_text' || optionalString(part.text) === undefined) malformed();
           } else if (optionalString(type.endsWith('.delta') ? event.delta : event.text) === undefined) malformed();
+          if (request.includeMetadata && type === 'response.reasoning_summary_text.delta') { const summary = summaryRedactor.push(event.delta as string); if (summary) { checkCancellation(); yield { type: 'reasoning.delta', delta: summary }; } }
+          if (request.includeMetadata && type === 'response.reasoning_summary_text.done') { const summary = summaryRedactor.push('', true); if (summary) { checkCancellation(); yield { type: 'reasoning.delta', delta: summary }; } }
           continue;
         }
         throw new EngineError('PROVIDER_UNSUPPORTED_EVENT', 'Provider returned an unsupported stream event.');
@@ -412,7 +425,7 @@ export class ResponsesProvider implements ProviderAdapter {
         try { input = JSON.parse(item.arguments); } catch { malformed(); }
         completed.push({ id, name: redactCredentialText(item.name, this.#secrets), input: redactCredentialJson(input, this.#secrets) });
       }
-      const usage = normalizedUsage(terminal.usage);
+      const usage = normalizedUsage(terminal.usage, request.includeMetadata);
       const tail = redactor.push('', true);
       const replayItems = finish === 'length' ? undefined : validateReplayItems(replayOutput, {
         secrets: this.#secrets, maxItems: this.#limits.maxOutputItems,
