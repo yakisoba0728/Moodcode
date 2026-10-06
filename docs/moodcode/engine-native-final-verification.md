@@ -2,6 +2,8 @@
 
 검증일: 2026-10-07 Asia/Seoul. 환경: macOS arm64 / Node 26.9.0. OpenCode에서 확인한 동작을 자체 계약·구현·fixture로 재구현했다. 이번 작업에서 Electron 앱을 실행하지 않았다. 실제 결과는 [JSON 기록](engine-native-final-verification.json), 진행 기준은 [TODO](../../TODO.md), 연결 명세는 [host API](engine-host-api.md)다.
 
+검증 대상 구현 커밋: `682b1d868f10d666f39c663b1b1fba27c2266266`. 기반 정리 `c2309e7`, 첫 native 통합 `94d2a65`, 확장 연결 `682b1d8` 순서로 로컬 커밋했다. 이 보고서의 이후 수정은 검증 기록 binding이며 구현 코드를 바꾸지 않는다.
+
 ## 최종 gate
 
 | 검증 | 실제 결과·범위 |

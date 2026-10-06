@@ -14,6 +14,8 @@
 
 **구현·검증 완료 71/75**. 열린 항목은 **E5-08, E5-13, E6-07, E6-08**이며 각각 아래에 남은 조건을 기록한다. E0-01~04는 [첫 통합 기록](docs/moodcode/engine-foundation-verification.md), 기본 native 엔진은 [첫 native 통합](docs/moodcode/engine-native-verification.md), 확장 연결과 최신 gate는 [최종 headless 검증](docs/moodcode/engine-native-final-verification.md)을 따른다. 담당 범위는 [병렬 엔진 구현](docs/moodcode/engine-implementation-waves.md)에 기록한다.
 
+구현 커밋: `c2309e7`(계약·migration 기반), `94d2a65`(native 엔진·확장), `682b1d8`(실제 child/LSP/artifact·진단 연결). 최신 전체 gate는 1,527개 중 1,525 pass·실패 0·Windows 조건 2 skip이며 Codex live 과업도 통과했다.
+
 ## 유지하고 회귀 검증할 기반
 
 | 현재 구현 | 보존할 계약 | 근거 |
