@@ -6,6 +6,7 @@ import {
 import { validateContextRevision, validateMessagePart, validateProviderAttempt, validateSessionEvent, validateTurnRecord } from '@moodcode/contracts/validation';
 import { NativeSessionStorage, sameRecord, storedJson } from './native.js';
 import { hasEvidenceRead, invalidateEvidenceRead, readEvidenceBody } from './evidence-read.js';
+import type { ToolRecoveryFrontiers } from './tool-recovery-frontier.js';
 
 const FINAL = new Set(['completed', 'failed', 'interrupted', 'uncertain']);
 const TURN_TRANSITIONS: Record<TurnRecord['state'], readonly TurnRecord['state'][]> = {
@@ -313,7 +314,7 @@ export class NativeExecutionStorage {
     return validation;
   }
   /** Caller shares the v1 recovery transaction; no effect is retried or treated as completed. */
-  recoverInTransaction(affectedSessions: Set<string>): void {
+  recoverInTransaction(affectedSessions: Set<string>, toolFrontiers: ToolRecoveryFrontiers = new Map()): void {
     const now = new Date().toISOString();
     const attempts = this.database.prepare("SELECT data FROM provider_attempts WHERE state IN ('prepared','dispatched','streaming') ORDER BY rowid").all();
     const ambiguous = new Set<string>();
@@ -339,9 +340,10 @@ export class NativeExecutionStorage {
     for (const row of turns) {
       const previous = validateTurnRecord(JSON.parse(String(row.data)));
       const mcp = this.database.prepare("SELECT 1 FROM mcp_executions WHERE turn_id=? AND session_id=? AND run_id=? AND (state IN ('dispatch-intent','uncertain') OR transport_cleanup_confirmed=0) LIMIT 1").get(previous.id,previous.sessionId,previous.runId);
-      const unknown = !!mcp || ambiguous.has(previous.id);
+      const runningIntent = toolFrontiers.has(previous.id);
+      const unknown = !!mcp || runningIntent || ambiguous.has(previous.id);
       const turn = validateTurnRecord({ ...previous, state: unknown ? 'uncertain' : 'interrupted', completedAt: now,
-        ...(unknown ? { uncertainty: { kind: mcp ? 'tool_effect' : 'provider_dispatch', message: mcp ? 'Turn owns a MCP call without a settled request outcome or local cleanup; no automatic retry is safe' : 'Turn contains a provider dispatch with an unknown outcome', requiresRecovery: true } } : {}) });
+        ...(unknown ? { uncertainty: { kind: mcp || runningIntent ? 'tool_effect' : 'provider_dispatch', message: mcp ? 'Turn owns a MCP call without a settled request outcome or local cleanup; no automatic retry is safe' : runningIntent ? 'Turn contains an original tool running intent without a durable generic outcome; callback entry and effects are unverified' : 'Turn contains a provider dispatch with an unknown outcome', requiresRecovery: true } } : {}) });
       this.database.prepare('UPDATE session_turns SET state=?,data=? WHERE id=?').run(turn.state, JSON.stringify(turn), turn.id);
       this.native.appendEvent(turn.sessionId, `turn.${turn.state}`, { turn: storedJson(turn) }, { runId: turn.runId, turnId: turn.id });
       affectedSessions.add(turn.sessionId);

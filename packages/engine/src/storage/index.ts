@@ -31,6 +31,7 @@ import { McpExecutionStorage, hasMcpExecutionUncertainty, type McpExecutionIdent
 import { hasExecutionUncertainty, summaryOverflowDependency } from './execution-uncertainty.js';
 import { ProviderRecoveryStorage, captureProviderRecoveryHighWater, type ProviderRecoveryRequest } from '../recovery/provider.js';
 import { hasEvidenceRead, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
+import { captureToolRecoveryFrontiers } from './tool-recovery-frontier.js';
 import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefix, ActivePrefixContextPublication } from '../context/active-prefix.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
@@ -890,6 +891,13 @@ export class SqliteStore implements SessionEngineStore {
   recoverInterrupted(): Run[] {
     const sessions = new Set<string>();
     const recovered = this.transaction(() => {
+      // Exact MCP prepared intents can prove no dispatch. Settle them before
+      // capturing generic running intent, without leaving the recovery TX.
+      this.mcpExecutionRecords.recoverInTransaction(sessions);
+      const toolFrontiers = captureToolRecoveryFrontiers(this.native, {
+        getMcpExecution: (id, sessionId) => this.mcpExecutionRecords.get(id, sessionId),
+        appendLegacy: (run, type, payload) => this.append(run, type, payload),
+      });
       const active = this.rows<Run>(`SELECT data FROM runs WHERE state IN (${ACTIVE_STATES}) ORDER BY ordinal`);
       const affected = this.rows<Run>(`SELECT DISTINCT runs.data, runs.ordinal FROM runs LEFT JOIN tools ON tools.run_id=runs.id LEFT JOIN approvals ON approvals.run_id=runs.id WHERE runs.state IN (${ACTIVE_STATES}) OR tools.state IN ('requested','awaiting_approval','running') OR approvals.status='pending' ORDER BY runs.ordinal`);
       for (let run of affected) {
@@ -909,8 +917,7 @@ export class SqliteStore implements SessionEngineStore {
       }
       this.summaryRecords.recoverInTransaction(sessions);
       this.attemptCleanupRecords.recoverInTransaction(sessions);
-      this.mcpExecutionRecords.recoverInTransaction(sessions);
-      this.executionRecords.recoverInTransaction(sessions);
+      this.executionRecords.recoverInTransaction(sessions, toolFrontiers);
       return active.map(run => this.getRun(run.id));
     });
     for (const sessionId of sessions) this.notify(sessionId);

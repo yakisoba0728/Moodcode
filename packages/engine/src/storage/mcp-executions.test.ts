@@ -205,15 +205,20 @@ test('late owner-bound settlement preserves terminal Run and existing ordinary o
   assert.deepEqual(f.store.createMcpExecution(f.identity),receipt,'Exact historical identity returns its receipt before checking live execution');
 });
 
-test('startup recovers only existing receipts and keeps unknown effect distinct from provider completion',t=>{
+test('startup recovers existing receipts and preserves receiptless native running intent independently of provider completion',t=>{
   for(const phase of ['legacy','prepared','dispatch-intent','uncertain','response-terminal'] as const){
     const f=fixture(t);if(phase!=='legacy')f.store.createMcpExecution(f.identity);if(['dispatch-intent','uncertain','response-terminal'].includes(phase))f.store.dispatchMcpExecution(f.tool.id,'http-fetch');
     if(phase==='uncertain')f.store.settleMcpExecution(f.tool.id,{outcome:'uncertain',reason:'timeout',transportCleanupConfirmed:true});
     if(phase==='response-terminal')f.store.settleMcpExecution(f.tool.id,f.terminal);
     const before=f.preserved();f.store.recoverInterrupted();assert.deepEqual(f.preserved(),before);assert.equal(f.store.getRun(f.run.id).state,'interrupted');
-    if(phase==='legacy')assert.throws(()=>f.store.getMcpExecution(f.tool.id),code('MCP_EXECUTION_NOT_FOUND'));
+    if(phase==='legacy'){
+      assert.throws(()=>f.store.getMcpExecution(f.tool.id),code('MCP_EXECUTION_NOT_FOUND'));
+      assert.equal(f.db.prepare('SELECT count(*) AS count FROM mcp_executions').get()?.count,0,'Generic recovery does not fabricate a MCP receipt');
+      assert.equal(f.store.readSessionEvents('session',0).filter(event=>event.type==='tool.recovery_frontier').length,1);
+      assert.equal(f.store.readEvents('session',0).filter(event=>event.type==='tool.recovery_frontier').length,1);
+    }
     else assert.equal(f.store.getMcpExecution(f.tool.id).state,phase==='prepared'?'not-dispatched':phase==='dispatch-intent'?'uncertain':phase);
-    const blocked=['dispatch-intent','uncertain'].includes(phase);assert.equal(f.store.hasUncertainWorkspace('workspace'),blocked);assert.equal(f.store.getTurn('turn').state,blocked?'uncertain':'interrupted');
+    const blocked=['legacy','dispatch-intent','uncertain'].includes(phase);assert.equal(f.store.hasUncertainWorkspace('workspace'),blocked);assert.equal(f.store.getTurn('turn').state,blocked?'uncertain':'interrupted');
     assert.equal(f.store.getTurn('turn').uncertainty?.kind,blocked?'tool_effect':undefined);
     if(blocked)assert.equal(f.store.getSessionControl('session').reason,'recovery_required');
     const events=f.store.readSessionEvents('session',0);f.store.recoverInterrupted();assert.deepEqual(f.store.readSessionEvents('session',0),events);
