@@ -182,6 +182,13 @@ function openReader(value: ChildDocumentReaderInput, frame: ChildDocumentReadFra
     const mirrorBody = db.prepare('SELECT data FROM child.session_documents WHERE session_id=? AND kind=? AND length(CAST(data AS BLOB))=? LIMIT 1').get(binding.child.sessionId,CHILD_STORAGE_MIRROR_KIND,bytes);
     const expectedMirror = {schemaVersion:record.schemaVersion,binding:record.binding,sha256:record.sha256};
     if (!mirrorBody || typeof mirrorBody.data !== 'string' || JSON.stringify(validateChildStorageRecord(JSON.parse(mirrorBody.data))) !== JSON.stringify(expectedMirror)) fail('CHILD_DOCUMENT_STORAGE_MIRROR_MISMATCH');
+    check();
+    if (process.platform === 'darwin' || process.platform === 'linux') {
+      // SQLite holds the immutable private file open. Removing its owned pathname
+      // avoids leaving this complete copy after a later hard kill; copy-time
+      // interruption and platforms that retain open filenames remain separate.
+      rmSync(temporary,{recursive:true,force:true}); temporary = undefined;
+    }
     let index: InputDocumentIndexReport | undefined;
     return { db,sourceName:'child',schemaVersion:version,artifactPath,check,close,readIndex() {
       check(); if (index) return structuredClone(index);
