@@ -67,6 +67,14 @@ Instruction source cache는 최대 128개이며 idle entry를 교체한다. 진�
 
 `knowledgeImportRecovery:true`에서 `previewWorkspaceKnowledgeImportAcknowledgment`와 `acknowledgeWorkspaceKnowledgeImport`, `previewWorkspaceKnowledgeImportRecovery`와 `resumeWorkspaceKnowledgeImport`를 별도로 호출한다. 현재 결속에 대한 새 workspace trust를 설정한 뒤 `previewWorkspaceKnowledgeImportActivation({workspaceId,documentKey})`와 `activateWorkspaceKnowledgeImport`로 정확한 SQL 문서 하나를 활성화한다. 해제는 `previewWorkspaceKnowledgeImportDeactivation`과 `deactivateWorkspaceKnowledgeImport`다. 모든 mutation은 `{workspaceId,requestId,approved:true,preview,reason?,signal?}`를 받으며 원래 preview 객체가 필요하다. 사용하지 않는 preview는 `releaseWorkspaceKnowledgeImportPreview`로 해제한다. `getWorkspaceKnowledgeImportFrontier`와 `getWorkspaceKnowledgeImportActivation`은 읽기 전용이다. Resume는 문서 활성화나 기존 session/inbox 재개를 수행하지 않는다. 원래 workspace의 canonical root와 device/inode가 같은 새 DB/artifact 결속만 지원한다.
 
+## 미적용 변경안과 모델 문맥
+
+`proposals: true`에서 `createProposalSet({workspaceId,requestId,proposalId?,expectedRevision?,changes,signal?})`은 실제 source capture를 검증하고 native ProposalSet·revision·전용 BLOB을 같은 SQL 트랜잭션에 저장한다. `changes`는 `{path,expectedHash,content}` full-content 항목이고 최대128파일·파일당1MiB·before/after 합산8MiB다. `expectedRevision`은 현재 head CAS이며 초기값0이다. 동일 요청은 원본 revision과 현재 head를 반환하며 파일을 다시 읽거나 head를 과거로 되돌리지 않는다.
+
+`getProposalSet(workspaceId,proposalId)`, `listProposalSets({workspaceId,cursor?,limit?,maxBytes?})`, `getProposalDiff({workspaceId,proposalId,revisionId?,cursor?,limit?,maxBytes?,signal?})`는 authoring opt-in과 독립적인 읽기 전용 API다. diff는 저장된 원본 before/after와 현재 source freshness를 구분하고 완전한 파일 단위로 생략한다. row64·전체 JSON64KiB paging 한도를 적용한다.
+
+`proposalContextPolicy: {proposalIds,slotBytes,profiles?}`는 최대8개 exact pending proposal을 실제 ContextPlan에 선택한다. `slotBytes`는 필수이며 최대32KiB다. 필수 문맥·output·repository·knowledge 예약 뒤 남은 공유 예산에 한 quoted assistant DATA entry를 넣고 head/revision/source/binding/BLOB lineage를 실제 ContextRevision/Attempt에 고정한다. 같은 Turn retry는 원본 요청을 유지하며 source/head 변화는 추가 dispatch를 거부한다. child는 선택을 상속하지 않는다. import는 head를 paused로 보존한다. 현재 승인·물리 적용 API는 구현 중이며 [현재 범위](engine-phase-two-proposals.md)를 따른다.
+
 ## child 작업과 Git workspace
 
 `createWorktree(sessionId, requestId, reference?)`는 root workspace maintenance lease를 사용해 관리용 detached worktree를 준비한다. nested 기반이 필요하면 `prepareChildWorktree(sessionId, parentWorktreeId, requestId, reference?)`를 부모 Run 및 worktree owner가 생기기 전에 호출한다. 살아 있는 root Run과 동시에 이 API로 Git 준비를 시작할 수 없다. dirty 파일·무시된 파일·Git HEAD 이동·unknown owner를 덮어써서 정리하지 않는다.

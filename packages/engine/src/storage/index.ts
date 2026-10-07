@@ -55,6 +55,10 @@ import { readKnowledgeImportDocumentProof } from '../knowledge/import-document-p
 import { KnowledgeImportRecoveryStorage } from '../knowledge/import-recovery-store.js';
 import type { KnowledgeImportRecoveryStoragePorts } from '../knowledge/import-recovery-types.js';
 import { knowledgeHash, validateBinding } from '../knowledge/validation.js';
+import { ProposalStorage, pauseImportedProposals } from '../proposals/store.js';
+import { ProposalBlobStorage } from '../proposals/blob-store.js';
+import type { ProposalStoragePorts } from '../proposals/types.js';
+import type { ProposalBlobReference } from '../proposals/types.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
@@ -143,6 +147,7 @@ export class SqliteStore implements SessionEngineStore {
   private knowledgePublicationRecords?: KnowledgePublicationStorage;
   private knowledgeFilePublicationRecords?: KnowledgeFilePublicationStorage;
   private knowledgeImportRecoveryRecords?: KnowledgeImportRecoveryStorage;
+  private proposalRecords?: ProposalStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -246,6 +251,10 @@ export class SqliteStore implements SessionEngineStore {
   readKnowledgeImportDocumentProof(workspaceId: string, documentKey: string) {
     this.assertOpen();
     return this.evidenceRead(() => readKnowledgeImportDocumentProof(this.db, workspaceId, documentKey));
+  }
+  readProposalBlobText(reference: ProposalBlobReference): string {
+    this.assertOpen();
+    return this.evidenceRead(() => new ProposalBlobStorage(this.db).readText(reference));
   }
   private notify(sessionId: string): void {
     for (const waiter of [...this.waiters]) if (waiter.sessionId === sessionId) waiter.wake();
@@ -564,10 +573,17 @@ export class SqliteStore implements SessionEngineStore {
     if (this.executionObservationRecords) throw new EngineError('EXECUTION_OBSERVATION_ALREADY_CONFIGURED', 'Native execution observations already have an original host owner');
     return this.executionObservationRecords = new DiagnosticExecutionObservationStorage(this.db, { ...ports, writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
+  createProposalStorage(ports: Omit<ProposalStoragePorts, 'writeTx' | 'getWorkspace' | 'blobs'>): ProposalStorage {
+    this.assertOpen();
+    if (this.proposalRecords) throw new EngineError('PROPOSALS_ALREADY_CONFIGURED', 'Native proposals already have an original host owner');
+    return this.proposalRecords = new ProposalStorage(this.db, { ...ports, blobs: new ProposalBlobStorage(this.db),
+      getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+  }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
   pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string, origin?: { readonly importId: string; readonly sourcePrimaryLogicalSha256: string; readonly sourceStorageBindingSha256: string }): void {
     this.transaction(() => {
       const workspace = this.getWorkspace(workspaceId);
+      pauseImportedProposals(this.db, workspaceId, archiveSha256);
       if (origin) {
         // Imported runtime capabilities are absent. Persist the ordinary native
         // interrupted-owner transition before pinning recovery; this performs

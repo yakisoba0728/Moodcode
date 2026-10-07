@@ -20,6 +20,7 @@ import { KNOWLEDGE_FILE_PUBLICATION_TABLES, validateKnowledgeFilePublicationData
 import { KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
 import { DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validateDiagnosticExecutionObservationDatabase } from '../diagnostics/execution-observation-store.js';
 import { KNOWLEDGE_IMPORT_RECOVERY_TABLES, validateKnowledgeImportRecoveryDatabase } from '../knowledge/import-recovery-store.js';
+import { PROPOSAL_TABLES, validateProposalDatabase } from '../proposals/store.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
 import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
@@ -124,7 +125,9 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     const observationTables = primaryVersion >= 14 ? [...fileTables, ...DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES] : fileTables;
     if (primary && primaryVersion >= 15) validateKnowledgeImportRecoveryDatabase(primary, snapshot.check);
     const importTables = primaryVersion >= 15 ? [...observationTables, ...KNOWLEDGE_IMPORT_RECOVERY_TABLES] : observationTables;
-    const primaryHash = primary ? checkDatabase(primary, primaryVersion, importTables, snapshot.check) : null;
+    if (primary && primaryVersion >= 16) validateProposalDatabase(primary, snapshot.check);
+    const proposalTables = primaryVersion >= 16 ? [...importTables, ...PROPOSAL_TABLES] : importTables;
+    const primaryHash = primary ? checkDatabase(primary, primaryVersion, proposalTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);
     let marker: Marker | null = null;

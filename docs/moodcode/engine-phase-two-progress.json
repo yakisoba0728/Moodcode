@@ -6,7 +6,7 @@
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
   "completedFamilies": 6,
-  "completedWorkItems": 24,
+  "completedWorkItems": 26,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -216,19 +216,25 @@
       "title": "적용 전 ProposalSet overlay",
       "priority": "P2",
       "wave": "W4",
-      "status": "pending",
+      "status": "in_progress",
       "workItems": [
         {
           "id": "MC2-05a",
           "completion": "proposal/source CAS·bounded paging",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-proposals.md",
+            "engine-phase-two-proposals-verification.json"
+          ]
         },
         {
           "id": "MC2-05b",
           "completion": "read-only diff·pending overlay context",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-proposals.md",
+            "engine-phase-two-proposals-verification.json"
+          ]
         },
         {
           "id": "MC2-05c",
@@ -242,7 +248,8 @@
           "status": "pending",
           "evidence": []
         }
-      ]
+      ],
+      "notes": "Native DB16 immutable proposal revisions and dedicated artifacts, original source/head CAS, bounded readonly diff and actual pending ContextRevision/Attempt consumption are integrated and verified. Import pauses heads while retaining native artifact identities; required context/output reservations and child noninheritance remain enforced. MC2-05c/d approved physical apply, partial/checkpoint/receipt and apply crash recovery remain pending; larger 128-file/8MiB stored proposals are not silently split into the existing 32-file/4MiB effect lane."
     },
     {
       "id": "MC2-06",
@@ -770,5 +777,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-07T20:15:43.208909+00:00"
+  "updatedAt": "2026-10-07T23:28:21.839594+00:00"
 }

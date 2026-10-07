@@ -28,6 +28,11 @@ import { FileKnowledgePublicationHost } from './knowledge/file-publication-fs.js
 import type { KnowledgeFileExecutionGuards } from './knowledge/file-execution-guards.js';
 import type { KnowledgeImportRecoveryStorage } from './knowledge/import-recovery-store.js';
 import { KnowledgeImportRecoveryService } from './knowledge/import-recovery-service.js';
+import { ProposalSourceCaptureHost } from './proposals/source-capture.js';
+import { ProposalHostService, type CreateProposalSetInput } from './proposals/host.js';
+import { ProposalOverlayContextSource, proposalContextPolicy } from './proposals/overlay.js';
+import type { ProposalContextPolicy } from './proposals/overlay.js';
+import type { ProposalStorage } from './proposals/store.js';
 import { knowledgeContextPolicy } from './knowledge/context-source.js';
 import type { KnowledgeContextPolicy } from './knowledge/context-types.js';
 import { WorkspaceTrustService, assertWorkspaceTrustSourcesCurrent } from './workspace/trust.js';
@@ -155,6 +160,10 @@ export interface EngineOptions {
   knowledgeImportRecovery?: boolean;
   /** Host-selected current approved documents, consumed as bounded read-only data. */
   knowledgeContextPolicy?: KnowledgeContextPolicy;
+  /** Host-authored pending proposals, saved separately from physical application. */
+  proposals?: boolean;
+  /** Exact host-selected pending proposals projected as read-only model data. */
+  proposalContextPolicy?: ProposalContextPolicy;
   /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
   lifecycleHooks?: readonly LifecycleHookRegistration[];
   /** Shared host policy registry for owned child engines. Captures remain Run-bound. */
@@ -325,6 +334,11 @@ export class MoodcodeEngine {
   private readonly knowledgeImportRecoveryEnabled: boolean;
   private readonly knowledgeImports: KnowledgeImportRecoveryStorage;
   private readonly knowledgeImportService: KnowledgeImportRecoveryService;
+  private readonly proposalsEnabled: boolean;
+  private readonly proposalRecords: ProposalStorage;
+  private readonly proposalSource: ProposalSourceCaptureHost;
+  private readonly proposalService: ProposalHostService;
+  private readonly proposalOverlay: ProposalOverlayContextSource;
   private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
   private readonly verificationHost: VerificationHostService;
   private readonly verificationEnabled: boolean;
@@ -356,6 +370,7 @@ export class MoodcodeEngine {
     }
     const repositoryPolicy = options.repositoryContextPolicy !== undefined ? repositoryContextPolicy(options.repositoryContextPolicy) : undefined;
     const knowledgePolicy = options.knowledgeContextPolicy === undefined ? undefined : knowledgeContextPolicy(options.knowledgeContextPolicy);
+    const proposalPolicy = options.proposalContextPolicy === undefined ? undefined : proposalContextPolicy(options.proposalContextPolicy);
     if (options.lifecycleHookRegistry !== undefined && !(options.lifecycleHookRegistry instanceof LifecycleHookRegistry)) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Shared hook registry requires an explicit trusted host registry');
     if (options.lifecycleHookRegistry && options.lifecycleHooks !== undefined) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Specify one host registry or initial hook registrations');
     this.lifecycleHooks = options.lifecycleHookRegistry ?? new LifecycleHookRegistry();
@@ -375,6 +390,8 @@ export class MoodcodeEngine {
     this.knowledgeFilePublicationEnabled = options.knowledgeFilePublication === true;
     if (options.knowledgeImportRecovery !== undefined && typeof options.knowledgeImportRecovery !== 'boolean') throw new EngineError('INVALID_CONFIG', 'knowledgeImportRecovery must be an explicit boolean');
     this.knowledgeImportRecoveryEnabled = options.knowledgeImportRecovery === true;
+    if (options.proposals !== undefined && typeof options.proposals !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposals must be an explicit boolean');
+    this.proposalsEnabled = options.proposals === true;
     if (options.diagnosticObservations !== undefined && typeof options.diagnosticObservations !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Execution observations require an explicit host boolean');
     if (this.verificationEnabled && options.tools !== undefined) throw new EngineError('INVALID_VERIFICATION_CONFIG', 'Verification requires the engine-owned command producer and core registrations');
     if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Document token cost policy must be a boolean');
@@ -454,6 +471,12 @@ export class MoodcodeEngine {
         assertCommitCurrent: record => this.knowledgePublicationService.assertCommitCurrent(record) });
       this.knowledgeImports = this.store.createKnowledgeImportRecoveryStorage({ checkBinding: knowledgeBinding,
         assertCommitCurrent: preview => this.knowledgeImportService.assertCommitCurrent(preview) });
+      this.proposalSource = new ProposalSourceCaptureHost({ checkBinding: knowledgeBinding });
+      this.proposalRecords = this.store.createProposalStorage({ checkBinding: knowledgeBinding,
+        readSourceCapture: original => this.proposalSource.read(original),
+        assertSourcesCurrent: (native, original) => this.proposalService.assertCommitCurrent(native, original) });
+      this.proposalService = new ProposalHostService(this.proposalRecords, this.proposalSource,
+        operation => this.store.readExecutionObservationEvidence(operation), this.hostResources.signal);
       this.workspaceTrust = new WorkspaceTrustService(this.workspaceKnowledge);
       const recoveryBinding = (workspaceId: string) => {
         const database = canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database;
@@ -624,9 +647,29 @@ export class MoodcodeEngine {
           assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source),
         }),
       } : undefined;
+      this.proposalOverlay = new ProposalOverlayContextSource({ checkBinding: knowledgeBinding,
+        readTx: operation => this.store.readExecutionObservationEvidence(operation),
+        getSet: (workspaceId, id) => this.proposalRecords.getSet(workspaceId, id),
+        getSelection: (workspaceId, id) => this.proposalRecords.getSelection(workspaceId, id),
+        readBlobText: reference => this.store.readProposalBlobText(reference),
+        assertSourcesCurrent: (binding, manifest, signal) => this.proposalSource.assertStoredManifestCurrent(binding, manifest, signal),
+        assertOwnerCurrent: (workspaceId, owner) => {
+          const session = this.store.getSession(owner.sessionId);
+          if (session.workspaceId !== workspaceId) throw new EngineError('PROPOSAL_CONTEXT_STALE', 'Proposal context belongs to another workspace');
+          if (owner.runId === null) {
+            if (owner.profile !== null) throw new EngineError('PROPOSAL_CONTEXT_STALE', 'Profile selection requires its original Run');
+            return;
+          }
+          const run = this.store.getRun(owner.runId);
+          if (run.sessionId !== session.id || run.workspaceId !== workspaceId || isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('PROPOSAL_CONTEXT_STALE', 'Proposal context requires its original active Run');
+          const profile = this.profiles.forRun(run.sessionId, run.config);
+          if (knowledgeHash(owner.profile) !== knowledgeHash(profile ? { id: profile.id, revision: profile.revision } : null)) throw new EngineError('PROPOSAL_CONTEXT_STALE', 'Proposal context profile differs from its admitted configuration');
+        } });
+      const proposalContext = proposalPolicy ? { source: this.proposalOverlay, policy: proposalPolicy,
+        getProfile: (run: Run) => { const profile = this.profiles.forRun(run.sessionId, run.config); return profile ? { id: profile.id, revision: profile.revision } : undefined; } } : undefined;
       this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { lifecycleHooks: this.lifecycleHooks,
         ...(options.lifecycleContextSlotBytes === undefined ? {} : { lifecycleContextSlotBytes: options.lifecycleContextSlotBytes }),
-        ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}), ...(knowledgeContext ? { knowledgeContext } : {}) });
+        ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}), ...(knowledgeContext ? { knowledgeContext } : {}), ...(proposalContext ? { proposalContext } : {}) });
       if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
       const coreCommand = createCommandTool();
       const coreTools = options.tools ?? [...createReadTools(), createPatchTool(), coreCommand, createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
@@ -1263,6 +1306,28 @@ export class MoodcodeEngine {
     return this.store.readExecutionObservationEvidence(() => this.knowledgeImports.getActivation(workspaceId, documentKey));
   }
 
+  createProposalSet(input: CreateProposalSetInput) {
+    try {
+      if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+      if (!this.proposalsEnabled) throw new EngineError('PROPOSALS_DISABLED', 'Creating pending proposals requires explicit host opt-in');
+      return this.proposalService.create(input);
+    } catch (error) { return Promise.reject(error); }
+  }
+  getProposalSet(workspaceId: string, proposalId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.proposalService.get(workspaceId, proposalId);
+  }
+  listProposalSets(input: Parameters<ProposalHostService['list']>[0]) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.proposalService.list(input);
+  }
+  getProposalDiff(input: Parameters<ProposalHostService['diff']>[0]) {
+    try {
+      if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+      return this.proposalService.diff(input);
+    } catch (error) { return Promise.reject(error); }
+  }
+
   setWorkspaceTrust(input: Parameters<WorkspaceTrustService['set']>[0]) {
     if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
     this.store.getWorkspace(input.workspaceId);
@@ -1673,7 +1738,7 @@ export class MoodcodeEngine {
         this.hostResources.abort();
         this.questions.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }

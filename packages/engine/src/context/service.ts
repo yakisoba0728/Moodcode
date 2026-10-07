@@ -14,11 +14,14 @@ import { repositoryContextPolicy, type ContextSourcePort, type PreparedRepositor
 import { knowledgeContextPolicy } from '../knowledge/context-source.js';
 import type { KnowledgeContextPolicy, KnowledgeContextProfile, KnowledgeContextSourcePort, PreparedKnowledgeContribution } from '../knowledge/context-types.js';
 import type { LifecycleCapture, LifecycleHookRegistry } from '../lifecycle/index.js';
+import { proposalContextPolicy, proposalContributionSourceIds } from '../proposals/overlay.js';
+import type { ProposalContextPolicy, ProposalContextProfile, ProposalContextSourcePort, PreparedProposalContribution } from '../proposals/overlay.js';
 
 export interface ContextServiceOptions { mediaHistoryPolicy?: MediaHistoryPolicy; activePrefixPolicy?: ActivePrefixPolicy; documentHistoryPolicy?: DocumentHistoryPolicy;
   lifecycleHooks?: LifecycleHookRegistry; lifecycleContextSlotBytes?: number;
   repositoryContext?: { source: ContextSourcePort; policy: RepositoryContextPolicy };
-  knowledgeContext?: { source: KnowledgeContextSourcePort; policy: KnowledgeContextPolicy; getProfile?: (run: Run) => KnowledgeContextProfile | undefined } }
+  knowledgeContext?: { source: KnowledgeContextSourcePort; policy: KnowledgeContextPolicy; getProfile?: (run: Run) => KnowledgeContextProfile | undefined };
+  proposalContext?: { source: ProposalContextSourcePort; policy: ProposalContextPolicy; getProfile?: (run: Run) => ProposalContextProfile | undefined } }
 
 export interface ContextDiagnostics {
   revisionId: string; revision: number; plan: Omit<ContextPlan, 'messages'>;
@@ -30,6 +33,7 @@ export interface ContextDiagnostics {
   mediaHistory?: MediaHistoryDiagnostics & { provenance: ImageHistoryProvenance[] };
   repositoryContext?: Omit<PreparedRepositoryContribution, 'messages' | 'snippets'> & { snippets: Omit<PreparedRepositoryContribution['snippets'][number], 'text'>[] };
   knowledgeContext?: Omit<PreparedKnowledgeContribution, 'messages'>;
+  proposalContext?: Omit<PreparedProposalContribution, 'messages'>;
   lifecycleContext?: { registryRevision: number; baseContextSha256: string; dataSha256: string | null; messageBytes: number; hookIds: string[] };
   activePrefix?: { checkpointId: string; summaryRevisionId: string; scope: 'active-run-prefix'; projection: ActivePrefixCheckpoint['projection'];
     factsSha256: string; manifestSha256: string; policySha256: string; coveredMessageIds: string[]; protectedMessageIds: string[];
@@ -48,9 +52,10 @@ export class ContextService {
   private readonly documentHistoryPolicy?: DocumentHistoryPolicy;
   private readonly repositoryContext?: { source: ContextSourcePort; policy: RepositoryContextPolicy };
   private readonly knowledgeContext?: NonNullable<ContextServiceOptions['knowledgeContext']>;
+  private readonly proposalContext?: NonNullable<ContextServiceOptions['proposalContext']>;
   private readonly lifecycleHooks?: LifecycleHookRegistry;
   private readonly lifecycleContextSlotBytes: number;
-  private readonly contextCaptures = new Map<string, { repository?: PreparedRepositoryContribution; knowledge?: PreparedKnowledgeContribution; lifecycle?: LifecycleCapture; revisionId: string; messagesSha256: string; runId?: string }>();
+  private readonly contextCaptures = new Map<string, { repository?: PreparedRepositoryContribution; knowledge?: PreparedKnowledgeContribution; proposal?: PreparedProposalContribution; lifecycle?: LifecycleCapture; revisionId: string; messagesSha256: string; runId?: string }>();
   private readonly contextReservations = new Map<string, symbol>();
   constructor(private readonly store: SqliteStore, readonly models = new ModelRegistry(), private readonly outputTokenReserve = 0, private readonly provider?: (id: string) => ProviderAdapter | undefined, options: ContextServiceOptions = {}) {
     if (!Number.isSafeInteger(outputTokenReserve) || outputTokenReserve < 0 || outputTokenReserve > 100_000_000) throw new EngineError('INVALID_OUTPUT_RESERVE', 'Output token reserve must be a bounded nonnegative integer');
@@ -74,11 +79,17 @@ export class ContextService {
         throw new EngineError('INVALID_KNOWLEDGE_CONTEXT', 'Knowledge context requires a separate host prepare/freshness/release source');
       this.knowledgeContext = { source: configured.source, policy: knowledgeContextPolicy(configured.policy), ...(configured.getProfile ? { getProfile: configured.getProfile } : {}) };
     }
+    if (options.proposalContext !== undefined) {
+      const configured = options.proposalContext;
+      if (!configured.source || typeof configured.source.prepare !== 'function' || typeof configured.source.assertFresh !== 'function' || typeof configured.source.release !== 'function'
+        || configured.getProfile !== undefined && typeof configured.getProfile !== 'function') throw new EngineError('INVALID_PROPOSAL_CONTEXT', 'Proposal overlay requires an original host context source');
+      this.proposalContext = { source: configured.source, policy: proposalContextPolicy(configured.policy), ...(configured.getProfile ? { getProfile: configured.getProfile } : {}) };
+    }
   }
   async assertFresh(sessionId: string | undefined, messages: readonly ProviderMessage[], signal: AbortSignal, runId?: string): Promise<void> {
     const hasLifecycle = sessionId !== undefined && this.contextCaptures.get(sessionId)?.lifecycle !== undefined;
-    if (!this.repositoryContext && !this.knowledgeContext && !hasLifecycle) return;
-    const stale = this.repositoryContext ? 'REPOSITORY_CONTEXT_STALE' : this.knowledgeContext ? 'KNOWLEDGE_CONTEXT_STALE' : 'LIFECYCLE_CONTEXT_STALE', cancelled = this.repositoryContext ? 'REPOSITORY_CONTEXT_CANCELLED' : this.knowledgeContext ? 'KNOWLEDGE_CONTEXT_CANCELLED' : 'LIFECYCLE_CONTEXT_CANCELLED';
+    if (!this.repositoryContext && !this.knowledgeContext && !this.proposalContext && !hasLifecycle) return;
+    const stale = this.repositoryContext ? 'REPOSITORY_CONTEXT_STALE' : this.knowledgeContext ? 'KNOWLEDGE_CONTEXT_STALE' : this.proposalContext ? 'PROPOSAL_CONTEXT_STALE' : 'LIFECYCLE_CONTEXT_STALE', cancelled = this.repositoryContext ? 'REPOSITORY_CONTEXT_CANCELLED' : this.knowledgeContext ? 'KNOWLEDGE_CONTEXT_CANCELLED' : this.proposalContext ? 'PROPOSAL_CONTEXT_CANCELLED' : 'LIFECYCLE_CONTEXT_CANCELLED';
     if (typeof sessionId !== 'string' || !sessionId) throw new EngineError(stale, 'Supplemental context requires its prepared session owner');
     if (signal.aborted) throw new EngineError(cancelled, 'Supplemental context dispatch was cancelled');
     const captured = this.contextCaptures.get(sessionId);
@@ -92,6 +103,7 @@ export class ContextService {
     if (!valid()) throw new EngineError(stale, 'Prepared context ownership changed during freshness validation');
     if (captured!.lifecycle) this.lifecycleHooks!.assertCurrent(captured!.lifecycle);
     if (captured!.knowledge) await this.knowledgeContext!.source.assertFresh(captured!.knowledge, signal);
+    if (captured!.proposal) await this.proposalContext!.source.assertFresh(captured!.proposal, signal);
     if (signal.aborted) throw new EngineError(cancelled, 'Supplemental context dispatch was cancelled');
     if (!valid()) throw new EngineError(stale, 'Prepared context ownership changed during freshness validation');
     if (captured!.lifecycle) this.lifecycleHooks!.assertCurrent(captured!.lifecycle);
@@ -101,6 +113,7 @@ export class ContextService {
     if (captured && (runId === undefined || captured.runId === runId)) {
       this.contextCaptures.delete(sessionId);
       if (captured.knowledge) this.knowledgeContext!.source.release(captured.knowledge);
+      if (captured.proposal) this.proposalContext!.source.release(captured.proposal);
     }
   }
   releaseRepositoryContext(sessionId: string, runId?: string): void { this.releaseContext(sessionId, runId); }
@@ -155,11 +168,13 @@ export class ContextService {
     const lifecycleSlot = lifecycle ? this.lifecycleContextSlotBytes : 0;
     const originalReservedBytes = request.reservedBytes ?? 0;
     const reservedBytes = originalReservedBytes + lifecycleSlot;
-    const reservation = this.repositoryContext || this.knowledgeContext || lifecycle ? this.reserveContextCapture(sessionId) : undefined;
+    const reservation = this.repositoryContext || this.knowledgeContext || this.proposalContext || lifecycle ? this.reserveContextCapture(sessionId) : undefined;
     const releaseReservation = () => { if (reservation && this.contextReservations.get(sessionId) === reservation) this.contextReservations.delete(sessionId); };
     const preparedKnowledge = new Set<PreparedKnowledgeContribution>();
-    const releaseDiscarded = (keep?: PreparedKnowledgeContribution) => {
+    const preparedProposals = new Set<PreparedProposalContribution>();
+    const releaseDiscarded = (keep?: PreparedKnowledgeContribution, keepProposal?: PreparedProposalContribution) => {
       for (const prepared of preparedKnowledge) if (prepared !== keep) { preparedKnowledge.delete(prepared); this.knowledgeContext!.source.release(prepared); }
+      for (const prepared of preparedProposals) if (prepared !== keepProposal) { preparedProposals.delete(prepared); this.proposalContext!.source.release(prepared); }
     };
     try {
     const cacheKey = JSON.stringify([request.workspace.id, sessionId]);
@@ -213,6 +228,7 @@ export class ContextService {
       const planRequest = { ...projected, reservedBytes, instructionSources: observation.sources };
       let contribution: PreparedRepositoryContribution | undefined;
       let knowledge: PreparedKnowledgeContribution | undefined;
+      let proposal: PreparedProposalContribution | undefined;
       try {
       const prepareRepository = (requiredMessagesBytes: number) => {
         const configured = this.repositoryContext!;
@@ -222,7 +238,7 @@ export class ContextService {
             reservedBytes, requiredMessagesBytes, contextWindow: model.contextWindow, outputTokens: this.outputTokenReserve } });
       };
       let plan: ContextPlan;
-      if (this.repositoryContext || this.knowledgeContext) {
+      if (this.repositoryContext || this.knowledgeContext || this.proposalContext) {
         const required = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve, requiredOnly: true });
         const requiredMessagesBytes = required.bytes - reservedBytes;
         if (this.repositoryContext) contribution = await prepareRepository(requiredMessagesBytes);
@@ -236,14 +252,25 @@ export class ContextService {
               contextWindow: model.contextWindow, outputTokens: this.outputTokenReserve } });
           preparedKnowledge.add(knowledge);
         }
+        if (this.proposalContext) {
+          const configured = this.proposalContext;
+          const knowledgeBytes = knowledge?.messages.reduce((sum, message) => sum + Buffer.byteLength(JSON.stringify(message)) + 1, 0) ?? 0;
+          proposal = await configured.source.prepare({ workspace: request.workspace, policy: configured.policy,
+            owner: { sessionId, runId: request.run?.id ?? null, profile: request.run ? configured.getProfile?.(request.run) ?? null : null }, signal: request.signal,
+            budget: { slotBytes: configured.policy.slotBytes, maxContextBytes: request.config.limits.maxContextBytes,
+              reservedBytes, requiredMessagesBytes: requiredMessagesBytes + repositoryBytes + knowledgeBytes,
+              contextWindow: model.contextWindow, outputTokens: this.outputTokenReserve } });
+          preparedProposals.add(proposal);
+        }
         plan = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve,
-          ...(contribution ? { repositoryMessages: contribution.messages } : {}), ...(knowledge ? { knowledgeMessages: knowledge.messages } : {}) });
+          ...(contribution ? { repositoryMessages: contribution.messages } : {}), ...(knowledge ? { knowledgeMessages: knowledge.messages } : {}), ...(proposal ? { proposalMessages: proposal.messages } : {}) });
       } else {
         plan = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve });
       }
-      return { projected, media, documents, plan, contribution, knowledge };
+      return { projected, media, documents, plan, contribution, knowledge, proposal };
       } catch (error) {
         if (knowledge && preparedKnowledge.delete(knowledge)) this.knowledgeContext!.source.release(knowledge);
+        if (proposal && preparedProposals.delete(proposal)) this.proposalContext!.source.release(proposal);
         throw error;
       }
     };
@@ -268,8 +295,8 @@ export class ContextService {
         throw initialError;
       }
     }
-    let { projected, media, documents, plan, contribution, knowledge } = outcome;
-    releaseDiscarded(knowledge);
+    let { projected, media, documents, plan, contribution, knowledge, proposal } = outcome;
+    releaseDiscarded(knowledge, proposal);
     const selectedIds = new Set(plan.selectedMessageIds);
     const omittedDiscussion = projected.snapshot.messages.some(message => message.runId !== request.run?.id && message.role !== 'tool' && message.content.trim() && !selectedIds.has(message.id));
     if (!candidate && !summaryAttempted && omittedDiscussion && request.run && request.budget && provider) {
@@ -284,8 +311,8 @@ export class ContextService {
     if (!candidate && !prefixTried && this.activePrefix && request.run && request.budget && provider && (forcePrefix || omittedActive)) {
       try {
         candidate = await this.activePrefix.prepare(request, provider, { model, ...(request.activePrefixStage ? { stage: request.activePrefixStage } : {}) });
-        ({ projected, media, documents, plan, contribution, knowledge } = await makePlan(candidate));
-        releaseDiscarded(knowledge);
+        ({ projected, media, documents, plan, contribution, knowledge, proposal } = await makePlan(candidate));
+        releaseDiscarded(knowledge, proposal);
       } catch (error) {
         if (candidate) this.activePrefix.discard(candidate, error);
         candidate = undefined;
@@ -337,6 +364,7 @@ export class ContextService {
     }
     if (contribution) await this.repositoryContext!.source.assertFresh(contribution, request.signal);
     if (knowledge) await this.knowledgeContext!.source.assertFresh(knowledge, request.signal);
+    if (proposal) await this.proposalContext!.source.assertFresh(proposal, request.signal);
     if (request.signal.aborted) throw new EngineError('CANCELLED', 'Context construction was cancelled before persistence');
     const previous = this.store.getSessionDocument(sessionId, 'context.head');
     const prefixCheckpoint = candidate?.checkpoint ?? (request.run ? this.activePrefix?.active(sessionId, request.run.id)?.checkpoint : undefined);
@@ -357,7 +385,8 @@ export class ContextService {
           `knowledge-trust:${document.trustRevisionId}:${document.trustRevisionSha256}`, `knowledge-source:${document.sourceManifestSha256}`,
           ...(document.importActivation ? [`knowledge-import-activation:${document.importActivation.activationId}:${document.importActivation.activationSha256}`,
             `knowledge-import-frontier:${document.importActivation.frontierId}:${document.importActivation.frontierSha256}`, `knowledge-import-resume:${document.importActivation.resumeDecisionSha256}`,
-            `knowledge-import-original-binding:${document.importActivation.originalBindingSha256}`] : [])])] : [])];
+            `knowledge-import-original-binding:${document.importActivation.originalBindingSha256}`] : [])])] : []),
+      ...(proposal ? [`proposal-policy:${proposal.policySha256}`, ...proposalContributionSourceIds(proposal)] : [])];
     const sourceIds = [...new Set(observedSourceIds)];
     const bindingHash = digest({ plan: plan.sha256, sources: sourceIds, config: request.config, model: { ...model, source: { kind: model.source.kind, reference: model.source.reference } } });
     const old = previous?.data;
@@ -378,6 +407,7 @@ export class ContextService {
       return { ...metadata, snippets: snippets.map(({ text: ignoredText, ...snippet }) => snippet) };
     })() : undefined;
     const knowledgeDiagnostics = knowledge ? (() => { const { messages: ignoredMessages, ...metadata } = knowledge; return metadata; })() : undefined;
+    const proposalDiagnostics = proposal ? (() => { const { messages: ignoredMessages, ...metadata } = proposal; return metadata; })() : undefined;
     // Text is retained in ContextRevision; diagnostics carry source hashes and observations only.
     const diagnostics: ContextDiagnostics = { revisionId, revision, plan: publicPlan,
       instructions: { ...observation, sources: observation.sources.map(source => ({ ...source, text: null })) },
@@ -388,6 +418,7 @@ export class ContextService {
       ...(documents ? { documentHistory: { ...documents.diagnostics, provenance: documents.provenance } } : {}),
       ...(repositoryDiagnostics ? { repositoryContext: repositoryDiagnostics } : {}),
       ...(knowledgeDiagnostics ? { knowledgeContext: knowledgeDiagnostics } : {}),
+      ...(proposalDiagnostics ? { proposalContext: proposalDiagnostics } : {}),
       ...(lifecycleDiagnostics ? { lifecycleContext: lifecycleDiagnostics } : {}),
       ...(prefixCheckpoint ? { activePrefix: { checkpointId: prefixCheckpoint.id, summaryRevisionId: prefixCheckpoint.revisionId, scope: prefixCheckpoint.scope, projection: prefixCheckpoint.projection,
         factsSha256: prefixCheckpoint.factsSha256, manifestSha256: prefixCheckpoint.manifestSha256, policySha256: prefixCheckpoint.policySha256,
@@ -411,10 +442,11 @@ export class ContextService {
     else if (pendingRevision && request.run) this.store.commitContextDocument(request.run.id, 'context.revision.activated', { contextRevisionId: revisionId, revision, sha256: pendingRevision.sha256 }, { revision: pendingRevision, kind: 'context.head', expectedRevision: previous?.revision ?? 0, data });
     else { if (pendingRevision) this.store.putContextRevision(pendingRevision); this.store.putSessionDocument(sessionId, 'context.head', previous?.revision ?? 0, data); }
     this.revisions.set(sessionId, revisionId);
-    if (contribution || knowledge || lifecycle) {
+    if (contribution || knowledge || proposal || lifecycle) {
       this.releaseContext(sessionId);
-      this.contextCaptures.set(sessionId, { ...(contribution ? { repository: contribution } : {}), ...(knowledge ? { knowledge } : {}), ...(lifecycle ? { lifecycle } : {}), revisionId, messagesSha256: digest(messages), ...(request.run ? { runId: request.run.id } : {}) });
+      this.contextCaptures.set(sessionId, { ...(contribution ? { repository: contribution } : {}), ...(knowledge ? { knowledge } : {}), ...(proposal ? { proposal } : {}), ...(lifecycle ? { lifecycle } : {}), revisionId, messagesSha256: digest(messages), ...(request.run ? { runId: request.run.id } : {}) });
       if (knowledge) preparedKnowledge.delete(knowledge);
+      if (proposal) preparedProposals.delete(proposal);
     }
     return messages;
     } finally {

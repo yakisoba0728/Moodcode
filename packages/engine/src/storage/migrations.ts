@@ -15,6 +15,7 @@ import { KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL } from '../knowledge/file-publica
 import { KNOWLEDGE_FILE_EXECUTION_GUARD_SCHEMA_SQL } from '../knowledge/file-execution-guards.js';
 import { DIAGNOSTIC_EXECUTION_OBSERVATION_SCHEMA_SQL } from '../diagnostics/execution-observation-store.js';
 import { KNOWLEDGE_IMPORT_RECOVERY_SCHEMA_SQL } from '../knowledge/import-recovery-store.js';
+import { PROPOSAL_SCHEMA_SQL } from '../proposals/store.js';
 
 export interface DatabaseMigration {
   /** Append-only, consecutive primary database version, starting at 1. */
@@ -78,6 +79,7 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
   } }),
   Object.freeze({ version: 14, name: 'native-execution-source-observations', apply: (database: DatabaseSync) => { database.exec(DIAGNOSTIC_EXECUTION_OBSERVATION_SCHEMA_SQL); } }),
   Object.freeze({ version: 15, name: 'explicit-imported-knowledge-recovery', apply: (database: DatabaseSync) => { database.exec(KNOWLEDGE_IMPORT_RECOVERY_SCHEMA_SQL); } }),
+  Object.freeze({ version: 16, name: 'native-pending-proposal-artifacts', apply: (database: DatabaseSync) => { database.exec(PROPOSAL_SCHEMA_SQL); } }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;
 

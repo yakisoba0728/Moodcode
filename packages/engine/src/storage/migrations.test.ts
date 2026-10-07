@@ -326,14 +326,29 @@ test('DB14 to DB15 retains historical pause and ownership, installs empty import
   const before = databaseContents(db);
   const failure = [...DATABASE_MIGRATIONS.slice(0, 14), { version: 15, name: 'intentional-v15-failure', apply(database: DatabaseSync) { DATABASE_MIGRATIONS[14]!.apply(database); throw new Error('DB15 rollback'); } }];
   assert.throws(() => migrateDatabase(db, failure), /DB15 rollback/u); assert.deepEqual(databaseContents(db), before);
-  migrateDatabase(db); assert.equal(databaseVersion(db), 15);
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 15)); assert.equal(databaseVersion(db), 15);
   for (const entry of before.tables) assert.deepEqual(db.prepare(`SELECT * FROM "${String(entry.name)}" ORDER BY rowid`).all(), entry.rows);
   for (const table of ['knowledge_import_frontiers','knowledge_import_frontier_heads','knowledge_import_recovery_decisions','knowledge_import_document_activations','knowledge_import_document_activation_heads']) {
     assert.equal(db.prepare(`SELECT count(*) AS count FROM ${table}`).get()!.count, 0);
     assert.ok(db.prepare(`PRAGMA foreign_key_list(${table})`).all().every(row => !['sessions','runs','tools','checkpoints','provider_attempts'].includes(String(row.table))));
   }
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
-  const after = databaseContents(db); migrateDatabase(db); assert.deepEqual(databaseContents(db), after);
+  const after = databaseContents(db); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 15)); assert.deepEqual(databaseContents(db), after);
+});
+
+test('DB15 to DB16 installs host-native proposal ownership without coding records and rolls back atomically', t => {
+  const { db } = fixture(t); db.exec('PRAGMA foreign_keys=ON'); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 15));
+  const before = databaseContents(db);
+  const failure = [...DATABASE_MIGRATIONS.slice(0, 15), { version: 16, name: 'intentional-v16-failure', apply(database: DatabaseSync) { DATABASE_MIGRATIONS[15]!.apply(database); throw new Error('DB16 rollback'); } }];
+  assert.throws(() => migrateDatabase(db, failure), /DB16 rollback/u); assert.deepEqual(databaseContents(db), before);
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 16)); assert.equal(databaseVersion(db), 16);
+  for (const entry of before.tables) assert.deepEqual(db.prepare(`SELECT * FROM "${String(entry.name)}" ORDER BY rowid`).all(), entry.rows);
+  for (const table of ['proposal_revisions','proposal_heads','proposal_blobs']) {
+    assert.equal(db.prepare(`SELECT count(*) AS count FROM ${table}`).get()!.count, 0);
+    assert.ok(db.prepare(`PRAGMA foreign_key_list(${table})`).all().every(row => !['sessions','runs','tools','checkpoints','provider_attempts'].includes(String(row.table))));
+  }
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
+  const after = databaseContents(db); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 16)); assert.deepEqual(databaseContents(db), after);
 });
 
 test('DB11 to DB12 adds workspace document CAS without fabricating legacy approval or publication and rolls back atomically', t => {

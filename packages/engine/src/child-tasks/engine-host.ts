@@ -313,6 +313,8 @@ export class EngineChildren {
       // Knowledge selectors are host authority for the parent's physical store.
       // A separately owned child starts without inherited document context.
       knowledgeContextPolicy: undefined,
+      proposals: false,
+      proposalContextPolicy: undefined,
       dbPath: join(this.directory, request.task.id, "engine.sqlite"),
       artifactDir: join(this.directory, request.task.id, "artifacts"),
       agentProfiles: profile

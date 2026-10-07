@@ -23,6 +23,7 @@ import { KNOWLEDGE_FILE_PUBLICATION_TABLES, validateKnowledgeFilePublicationData
 import { KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
 import { DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validateDiagnosticExecutionObservationDatabase } from '../diagnostics/execution-observation-store.js';
 import { KNOWLEDGE_IMPORT_RECOVERY_TABLES, validateKnowledgeImportRecoveryDatabase } from '../knowledge/import-recovery-store.js';
+import { PROPOSAL_TABLES, validateProposalDatabase } from '../proposals/store.js';
 import { knowledgeHash } from '../knowledge/validation.js';
 import { SqliteStore } from './index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
@@ -202,7 +203,12 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
       try { validateKnowledgeImportRecoveryDatabase(db, check); }
       catch { fail('ARCHIVE_KNOWLEDGE_IMPORT_INVALID', 'Archived imported knowledge recovery decisions or activation lineage are invalid'); }
     }
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 15 ? [...observationTables, ...KNOWLEDGE_IMPORT_RECOVERY_TABLES] : observationTables, check) };
+    const importTables = schemaVersion >= 15 ? [...observationTables, ...KNOWLEDGE_IMPORT_RECOVERY_TABLES] : observationTables;
+    if (schemaVersion >= 16) {
+      try { validateProposalDatabase(db, check); }
+      catch { fail('ARCHIVE_PROPOSAL_INVALID', 'Archived pending proposals or their original artifact owners are invalid'); }
+    }
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 16 ? [...importTables, ...PROPOSAL_TABLES] : importTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

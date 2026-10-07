@@ -1,0 +1,21 @@
+# MC2-05a/b — pending proposal storage and actual model context
+
+The host can save a pending full-content proposal with `proposals: true` and `createProposalSet`. A proposal has its own workspace, proposal and revision identities. Database version 16 adds immutable `proposal_revisions`, current CAS `proposal_heads` and dedicated `proposal_blobs` artifacts. It does not create a coding Session, Run, tool call or checkpoint to represent host-authored data.
+
+Physical capture reads actual selected file descriptors and pins canonical workspace/storage identity, file bytes and hashes, parent identities, metadata and missing paths. The current capture supports at most 128 files, 1 MiB per file and 8 MiB combined before and after content. Native append authenticates both original host captures, rechecks the actual sources and commits the revision, original BLOB owners and head CAS together. The JSON metadata stays separate from content. Getter/proxy, stale, cancelled and raced captures cannot append a new revision.
+
+Exact request replay returns the immutable original revision and explicitly current head without another source capture or artifact producer. It neither restores an older head nor grants application authority. Source reads cancelled or closed during an original descriptor operation are drained before the host releases its capacity and storage.
+
+`getProposalSet`, `listProposalSets` and `getProposalDiff` inspect stored native history even when authoring is disabled. Pages have separate row and serialized byte bounds. Diff uses exact captured before and after content; an external edit changes its source-freshness observation and does not replace the stored preimage. Oversized files are omitted as whole files rather than exposed as complete truncated evidence.
+
+`proposalContextPolicy` selects exact pending proposal IDs and a slot of at most 32 KiB, optionally restricted to exact admitted profiles. The actual ContextService reads current native head, revision and artifact references in one primary snapshot and validates the physical source manifest. It sends one quoted assistant DATA entry explicitly marked pending and unapplied. Native file reads and LSP still observe the actual disk.
+
+Required transcript and output reservations precede repository, knowledge and proposal supplements. The complete serialized proposal entry uses the remaining shared byte/model window budget; a whole proposal that does not fit is omitted. The actual ContextRevision source IDs include exact head, revision, source, binding and BLOB lineage. Original captures are checked before persistence and each dispatch. Same-Turn provider retries retain their original messages and revision; changed sources or head reject further dispatch. Child engines begin without inherited proposal selectors or authoring capability.
+
+Archive export, import and recovery validate the native revision/head/manifest/artifact relationships and actual BLOB hashes. Import preserves revision and artifact identity while pausing the current head; paused proposals grant no context or apply authority. Same-physical-storage restart can capture an existing pending proposal again only after its recorded source manifest is checked against the current files. Arbitrary import rebinding is not implemented.
+
+This increment implements storage, paging, readonly diff and actual pending context consumption. MC2-05c/d still require a separate exact-approved host apply owner, physical producer, native checkpoints and receipts, partial results, common lock cleanup and crash/recovery. Existing patch application supports 32 files and 4 MiB combined images; the larger stored proposal is not silently split into multiple effect approvals. Sequential filesystem observations do not establish an atomic OS snapshot or hash CAS against external writers.
+
+Final validation identities and results are recorded in `engine-phase-two-proposals-verification.json`.
+
+The frozen final implementation passed full typecheck, 3,859 engine tests (3,857 passed, zero failed, two existing Windows skips), 1,282 related source tests and three authored coding fixtures. This adds 70 tests and completes MC2-05a/b: 26 of 80 work items, six of 20 families. The overall goal remains active.

@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "stage": "MC2-05a/b pending proposal artifacts, CAS, readonly diff and actual coding context consumption",
+  "status": "passed",
+  "recordedAt": "2026-10-07T23:28:21.823891+00:00",
+  "parentCommit": "4bf433a3c7ae79bb211df2aabda37205f78ac1eb",
+  "implementationIdentity": "24 implementation/test source hashes frozen before final gates and verified unchanged after typecheck, full engine, broad source and authored coding fixture checks; evidence files excluded from their own identity.",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "newTests": 70,
+  "primaryDatabaseVersion": 16,
+  "checks": [
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-proposals-typecheck-final.log",
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "engine",
+      "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-proposals-engine-final.log",
+      "logSha256": "b500b808da075ad964d83ed5afe0a2f90b326d876e2896ce26b550d215eb93c8",
+      "tests": 3859,
+      "pass": 3857,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0,
+      "durationMs": 144022.010041
+    },
+    {
+      "kind": "source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=4 packages/engine/src/proposals/*.test.ts packages/engine/src/context/*.test.ts packages/engine/src/lifecycle/*.test.ts packages/engine/src/diagnostics/*.test.ts packages/engine/src/knowledge/*.test.ts packages/engine/src/recovery/*.test.ts packages/engine/src/tools/command/*lock*.test.ts packages/engine/src/storage/migrations.test.ts packages/engine/src/storage/archive.test.ts packages/engine/src/storage/v1-compatibility.test.ts packages/engine/src/runner/host-generation-lease.test.ts packages/engine/src/runner/summary-recovery-lease.test.ts packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts packages/engine/src/integration/children.integration.test.ts",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-proposals-source-final.log",
+      "logSha256": "ec68a248fe924e983e1b146308415152edddb9d08d6ce2519535bde22d1e098c",
+      "tests": 1282,
+      "pass": 1282,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 35136.322917
+    },
+    {
+      "kind": "fixtures",
+      "command": "node scripts/evaluate-engine.mjs",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-proposals-eval-final.log",
+      "logSha256": "7e2019f3e6b6b173699ebeb3d60e47c46b81e7908fb8907c619a63a04ca65280",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "liveProviderCalls": 0
+    }
+  ],
+  "sourceHashes": {
+    "packages/engine/src/child-tasks/engine-host.ts": "7098f7e5a40a48bc46b9271fa63e178b3bde24f1d9e0278d0affcbb3d334da4a",
+    "packages/engine/src/context/plan.ts": "bf7d7f12e9e170473b6c4ff84aac02e0fcd8b63160991a3a2aac1163405d0e3c",
+    "packages/engine/src/context/service.ts": "4d735396881ab3830c2a64caa0f4b95b5ec7e49f864ddd4454317fe54a20fdc4",
+    "packages/engine/src/engine.ts": "5cfdf60535185ff49be96fa4f8f7735f6f14efacb4678d35a0ce6fa28a94bd94",
+    "packages/engine/src/index.ts": "2d83a2ab7e25587e0fbc9dcbcd9fa6388b1eead656d690549b1e796f9a1cd1c2",
+    "packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts": "c981122210131a6d4f7f9b424b12000265dbff1688dda79925a423f750858f50",
+    "packages/engine/src/proposals/archive.test.ts": "64e72e096eff0ce5920643e2770741436fa5a7e898a873214550654394688f70",
+    "packages/engine/src/proposals/blob-store.test.ts": "5ca45ba32af790fc23bb82d8c57441bd3d6a0d8bd89b259d0d20dbd391b53a33",
+    "packages/engine/src/proposals/blob-store.ts": "e026628c55b47d599f4926cc7750c8a45eb22a30405ccdea9ab4c8016bf3215d",
+    "packages/engine/src/proposals/engine-proposals.test.ts": "1367cdea033b9eaad8d89de260cbff251d87c12f71244fea307ae268c2605b36",
+    "packages/engine/src/proposals/host.test.ts": "2c1f8cc3076b84d86e356300842fb8e43d371aaeca2bacd65810e41a34b7f102",
+    "packages/engine/src/proposals/host.ts": "0bb050726d22d132baf14b2983004fe26a94ab60607d9e150346d1f8de7f2424",
+    "packages/engine/src/proposals/overlay.test.ts": "1980424e8158f9d5a631c182ce23948024980803060878e5a3bcd947d4a1c107",
+    "packages/engine/src/proposals/overlay.ts": "424ddf2976764f121fa07bc291bab3944a59a3d6e5fbcecfb33186ce67200c93",
+    "packages/engine/src/proposals/source-capture.test.ts": "765e499766e24c98f735829e7517294445731bfbaa3622de9cb9061e29f22f40",
+    "packages/engine/src/proposals/source-capture.ts": "fe34d21aa221de85aef125dfb3fdb0212f70826a797e7c563570e32935073fb7",
+    "packages/engine/src/proposals/store.test.ts": "563caa9de231041f452024d9936fd5907c956f24a4f6e72df302cf48270f5aec",
+    "packages/engine/src/proposals/store.ts": "afb34e580c80067dc1f6303bad0b5ea0871bf7502ad5e032754b373ec84446c6",
+    "packages/engine/src/proposals/types.ts": "5bc12524e8e09ec7a8bca1771d902aa7f761886a98a0cfe328b66f184bc81ed8",
+    "packages/engine/src/recovery/index.ts": "bc5d39987757f958bae1aeddcaa84a9b559f17345ddb65fc74934e073e496050",
+    "packages/engine/src/storage/archive.ts": "b8409458cfea59b9459ecacb537b3dad611c9f477123c99766c7eedb60fb7dd5",
+    "packages/engine/src/storage/index.ts": "49fa6f1bedd60df446cffa0b2b16e6ea0db9edee83578b2f2d845d8cf00da875",
+    "packages/engine/src/storage/migrations.test.ts": "a840957b6a753360921950e4b2af1951ec41f91c8e5f9d991ab4adb813e85d90",
+    "packages/engine/src/storage/migrations.ts": "b5be53c148ddc23568c6381e53929d008d13d3a57be0ea09c1da04eaed383d44"
+  },
+  "coverage": [
+    "Actual native primary proposal/revision/BLOB identities and atomic immutable artifacts/head CAS without fabricated Session, Run, tool or checkpoint owners.",
+    "Original source descriptor captures, 128 files/1 MiB per file/8 MiB combined images, authentic original capabilities, stale/cancel/close drain and 256 concurrent source reservations.",
+    "Exact historical request revision with explicit current head, zero physical producer on duplicate, original request digest and workspace/id isolation.",
+    "Metadata-first original BLOB owner/revision/header/content SHA validation, SQL rollback, bounded pages and complete readonly before/after diff with whole-file omission.",
+    "Actual ContextRevision/ProviderAttempt request consumes pending unapplied quoted DATA and exact head/revision/source/binding/blob lineage under required transcript/output/repository/knowledge/proposal shared reservations.",
+    "Same-Turn frozen retry, current physical source/head checks before dispatch, stale first/retry dispatch zero, default-off authoring and explicit context selection, child noninheritance.",
+    "DB15 to DB16 migration preservation/rollback/FK, old archive logical identities, actual archive BLOB corruption rejection and paused-import heads preserving immutable artifacts.",
+    "Same canonical physical root restart supports fresh authenticated pending overlay capture; original ephemeral preparation cannot be forged or reused after release."
+  ],
+  "limitations": [
+    "MC2-05c/d exact approval, physical apply, checkpoint/receipt, partial effect and apply-specific SIGKILL recovery remain pending. This increment cannot apply a proposal.",
+    "Stored proposals support 128 files/8 MiB combined content while the existing physical patch lane supports 32 files/4 MiB. No automatic effect splitting is implemented.",
+    "Sequential Node filesystem observations do not establish an atomic OS snapshot or hash CAS against external writers.",
+    "Imported proposals remain paused and arbitrary root/source rebinding is unsupported. Live accounts, GUI, Windows native execution and four environment debts remain outside this increment."
+  ],
+  "integrationRepairs": [
+    "Legacy archive logical hash helper now includes actual DB16 proposal tables without changing earlier version chains.",
+    "DB14 to DB15 historical migration test now pins the historical migration slice and a separate DB15 to DB16 test covers current schema.",
+    "A malformed-header scan fixture originally corrupted a random UUID row and nondeterministically inspected valid preceding rows. It now corrupts the actual first SQL-sorted producer-issued BLOB. The first full run failed that assertion; corrected focused/source/compiled and final whole gates passed with product validation unchanged."
+  ],
+  "goalStatus": "active",
+  "completedWorkItems": 26,
+  "completedFamilies": 6,
+  "totalWorkItems": 80,
+  "totalFamilies": 20
+}
