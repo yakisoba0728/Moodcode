@@ -5,8 +5,8 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 1,
-  "completedWorkItems": 12,
+  "completedFamilies": 2,
+  "completedWorkItems": 15,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -65,7 +65,7 @@
       "title": "검증 계획·제한 repair·완료 gate",
       "priority": "P1",
       "wave": "W2",
-      "status": "in_progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-02a",
@@ -79,39 +79,50 @@
         {
           "id": "MC2-02b",
           "completion": "pass/fail/skipped/unsupported/timeout/cancelled/uncertain receipt",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
             "engine-phase-two-w2.md",
-            "engine-phase-two-w2-verification.json"
+            "engine-phase-two-w2-verification.json",
+            "engine-phase-two-w3.md",
+            "engine-phase-two-w3-verification.json"
           ]
         },
         {
           "id": "MC2-02c",
           "completion": "bounded repair·stalled decision·원래 budget",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-w3.md",
+            "engine-phase-two-w3-verification.json"
+          ]
         },
         {
           "id": "MC2-02d",
           "completion": "gate/복구·stale source·late receipt·crash·재실행 방지",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-w3.md",
+            "engine-phase-two-w3-verification.json"
+          ]
         }
       ],
-      "notes": "Host idle CAS + frozen Run scope + current source plan and exact command receipts integrated. Native cancellation/unsupported settlement, bounded repair and completion/recovery gate remain."
+      "notes": "Exact original command producer, consumed cancellation/unsupported receipts, same-Run bounded repair with original budgets, stalled/blocked decisions, source/catalogue freshness and native cleanup-backed task completion integrated. Restart/import/late receipts remain observation-only without automatic effect replay."
     },
     {
       "id": "MC2-03",
       "title": "지침 신뢰·승인형 프로젝트 기억",
       "priority": "P1",
       "wave": "W3",
-      "status": "pending",
+      "status": "in_progress",
       "workItems": [
         {
           "id": "MC2-03a",
           "completion": "trust/candidate·source/target hash·generation usage",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-w3.md",
+            "engine-phase-two-w3-verification.json"
+          ]
         },
         {
           "id": "MC2-03b",
@@ -131,7 +142,8 @@
           "status": "pending",
           "evidence": []
         }
-      ]
+      ],
+      "notes": "DB10 workspace trust/CAS, exact source/target projection, pending generation plans, bounded storage and archive import pause installed in actual Engine. Production tools-free generation owner/output/usage, candidate extraction/inbox, publish/revoke and active projection remain pending; no fake Session/Run or generation dispatch."
     },
     {
       "id": "MC2-04",
@@ -177,7 +189,7 @@
           ]
         }
       ],
-      "notes": "Registry and actual observation/deny/stop integrated; context/input rewrite and verified continuation remain."
+      "notes": "Registry and actual observation/deny/stop integrated. Verification-only continuation now uses the frozen ContextPlan and original same-Run budget; generic typed hook rewrite and continuation contract remain incomplete."
     },
     {
       "id": "MC2-05",
@@ -734,5 +746,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-07T13:22:00Z"
+  "updatedAt": "2026-10-07T15:16:02.671572+00:00"
 }

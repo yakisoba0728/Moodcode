@@ -1,6 +1,6 @@
 # Moodcode 엔진 host API
 
-2026-10-07 기준. GUI를 열지 않는 TypeScript/Node 엔진 연결 명세다. `@moodcode/engine`은 Electron·React 없이 실행한다. Node 24 이상과 Git을 요구하며 최신 실제 gate는 macOS arm64 / Node 26.9.0이다. Linux/Windows·다른 ABI 지원은 [CI 범위](engine-ci.md)와 [TODO](../../TODO.md)를 확인한다.
+2026-10-08 기준. GUI를 열지 않는 TypeScript/Node 엔진 연결 명세다. `@moodcode/engine`은 Electron·React 없이 실행한다. Node 24 이상과 Git을 요구하며 최신 실제 gate는 macOS arm64 / Node 26.9.0이다. Linux/Windows·다른 ABI 지원은 [CI 범위](engine-ci.md)와 [TODO](../../TODO.md)를 확인한다.
 
 ## 구성과 공개 연결
 
@@ -39,6 +39,25 @@ v2 command envelope에는 `schemaVersion`, `commandId`, `type`, `payload`만 둔
 SQLite 연결에서는 유지보수 입장·중복 요청·승인 생성/취소·자식 pending 승인과 terminal assistant 결과를 owner 범위 SQL로 읽는다. `hasRunRequest`는 실제 primary Run 요청만 인정하며 queue pending과 promoted steer는 제외한다. `listPendingRunApprovals`는 모든 pending을 최대 64개/512KiB 안에서 반환하고 초과하면 부분 목록 대신 `APPROVAL_READ_LIMIT`다. `getLastRunAssistantContent`는 exact Run의 최신 assistant content만 output byte budget 안에서 반환하고 replay/tool JSON을 불러오지 않는다. 해당 optional port가 없는 custom legacy store의 coordinator/ApprovalManager는 기존 snapshot 경로를 유지한다.
 
 Instruction source cache는 최대 128개이며 idle entry를 교체한다. 진행 중인 observe는 lease로 보호하고 모든 실패·취소 후 lease를 반환한다. 캐시에서 빠진 baseline은 session document의 workspace/scope/hash 검증을 거쳐 다시 읽는다. 오래된 세션 수가 128개를 넘었다는 이유만으로 이후 실행을 막지 않는다.
+
+## 검증 제어와 저장소 지식
+
+`verificationTools: true`는 host가 등록한 `verify_changes`를 노출한다. 기본 core 도구를 사용하는 설정에서만 지원하며, custom `tools`와 함께 지정하면 초기화 전에 거절한다. `registerVerificationCheck(check)`로 실제 command/cwd/profile/source revision을 등록하고 `configureVerificationSession(sessionId, expectedRevision, policy)`로 idle workspace lease 아래 검사 목록·예산·최대2단계 repair를 고정한다. `getVerificationConfiguration`과 `getVerificationState`는 저장된 설정과 정확한 Run의 계획/receipt를 조회한다.
+
+`getVerificationCompletion(sessionId, runId)`는 별도 controller snapshot을 반환한다. `completion.decision.taskVerified`는 당시 native stop boundary에서 current source·required pass·확정 cleanup을 검사한 결과다. `Run.completed`는 loop 종료 상태다. controller는 부족/실패/stale 검사를 같은 Run의 남은 예산 안에서 한 번씩 소비하고, denied/cancelled/unsupported/unknown 결과는 차단한다. 조회·restart·import는 명령을 자동 실행하지 않는다. [검증 제어](engine-verification-controller.md)와 [통합 범위](engine-phase-two-w3.md)를 따른다.
+
+DB10의 저장소 지식 API는 host 전용이며 현재 pending 기반까지 제공한다.
+
+| API | 현재 동작 |
+|---|---|
+| `previewWorkspaceTrust(workspaceId, paths)` | 실제 root/storage와 선택한 지침 파일 hash에 결속한 원본 승인 preview |
+| `setWorkspaceTrust(input)` | 원본 preview·revision CAS·dedupe·철회·expiry를 idle workspace lease에서 저장 |
+| `captureWorkspaceKnowledgeSources(workspaceId, selection)` | 명시적으로 선택한 파일/완료 대화의 bounded text와 원본 opaque projection |
+| `releaseWorkspaceKnowledgeSources(projection)` | capture 수명 해제 |
+| `captureWorkspaceKnowledgeTarget(workspaceId, path)` | 실제 absent 파일 preimage의 revision 0; 기존 파일 revision port는 아직 unavailable |
+| `prepareWorkspaceKnowledgeGeneration(input)` | 원본 projection·현재 trust/source/target을 다시 검사해 pending plan 저장 |
+
+위 계획 저장은 모델 호출이 아니다. production generation owner와 tools-free extraction은 아직 없어 candidate 생성·승인 publish·활성 문맥 projection을 제공하지 않는다. archive는 기존 trust/계획을 보존하고 import는 지식을 pause하며 새로운 물리 저장소의 권한으로 다시 결속하지 않는다. [저장소 지식 계약](engine-workspace-knowledge.md)을 따른다.
 
 ## child 작업과 Git workspace
 

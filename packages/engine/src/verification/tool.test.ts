@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
-import { DEFAULT_LIMITS, EngineError } from '@moodcode/contracts';
+import { DEFAULT_LIMITS, EngineError, type MessagePart, type ProviderAttempt, type TurnRecord } from '@moodcode/contracts';
 import type { ApprovalPort, ApprovalRequest, ToolContext, ToolDefinition } from '../ports.js';
 import { SqliteStore } from '../storage/index.js';
 import { ArtifactStore } from '../artifacts/store.js';
@@ -23,7 +23,7 @@ const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'";
 const command = (source: string) => `${quote(process.execPath)} -e ${quote(source)}`;
 const code = (expected: string) => (error: unknown) => error instanceof EngineError && error.code === expected;
 async function exists(path: string): Promise<boolean> { try { await stat(path); return true; } catch { return false; } }
-interface Options { source?: string; timeoutMs?: number; outputBytes?: number; mode?: 'plan' | 'build'; runtimeOptions?: ScopedToolRuntimeOptions; wrapCommand?: (tool: ToolDefinition) => ToolDefinition; checks?: string[] }
+interface Options { source?: string; timeoutMs?: number; outputBytes?: number; mode?: 'plan' | 'build'; runtimeOptions?: ScopedToolRuntimeOptions; wrapCommand?: (tool: ToolDefinition) => ToolDefinition; checks?: string[]; nativeOwner?: boolean }
 async function fixture(t: TestContext, options: Options = {}) {
   const base = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-verification-tool-'))), root = join(base, 'workspace'), rawDir = join(base, 'raw');
   await mkdir(root); await mkdir(rawDir); await writeFile(join(root, 'source.txt'), 'source-one');
@@ -41,7 +41,8 @@ async function fixture(t: TestContext, options: Options = {}) {
   const plans = new VerificationPlanService(store, registry), receipts = new VerificationReceiptService(plans);
   const artifacts = await ArtifactStore.open({ directory: join(base, 'managed') });
   const runtime = new ScopedToolRuntime({ artifacts, ...options.runtimeOptions });
-  const core = createCommandTool(); runtime.register('engine', options.wrapCommand?.(core) ?? core, { exactApproval: true });
+  const core = createCommandTool(), registeredCommand = options.wrapCommand?.(core) ?? core, removeCommand = runtime.register('engine', registeredCommand, { exactApproval: true });
+  const commandRegistration = runtime.captureRegistration('engine', 'run_command', registeredCommand);
   let sourceCalls = 0, artifactCalls = 0, published = 0;
   const source = async () => { const digest = sha(await readFile(join(root, 'source.txt'))); return { sha256: digest, revision: digest, checkpointId: null }; };
   const host: VerificationToolHost = { plans, receipts, getRun: id => store.getRun(id), commandRuntime: runtime,
@@ -49,9 +50,18 @@ async function fixture(t: TestContext, options: Options = {}) {
     async sourceObservation(_context, signal) { assert.equal(signal.aborted, false); sourceCalls++; return source(); }, artifacts: () => { artifactCalls++; return artifacts; } };
   const tool = createVerificationTool(host); runtime.register('engine', tool, { exactApproval: true });
   plans.create('session', run.id, 0, { checkIds: ids, source: await source() });
+  let turnIndex = 0;
   const context = (id = 'call', signal = new AbortController().signal): ToolContext => {
     store.commit(run.id, 'tool.requested', {}, { tool: { id, runId: run.id, sessionId: 'session', name: 'verify_changes', input: { checkId: ids[0]! }, state: 'running' } });
-    return { workspace, sessionId: 'session', runId: run.id, toolCallId: id, signal, limits: { ...run.config.limits }, artifactDir: rawDir,
+    const owner: { turnId?: string; attemptId?: string } = {};
+    if (options.nativeOwner) {
+      const turn: TurnRecord = { schemaVersion: 2, id: id + '-turn', sessionId: 'session', runId: run.id, inputIds: store.listRunInputIds(run.id), index: turnIndex++, state: 'created', createdAt: stamp };
+      const attempt: ProviderAttempt = { schemaVersion: 2, id: id + '-attempt', sessionId: 'session', runId: run.id, turnId: turn.id, index: 0, providerId: 'scripted', modelId: 'fixture', state: 'prepared', createdAt: stamp };
+      store.putTurn(turn); store.putTurn({ ...turn, state: 'streaming' }); store.putAttempt(attempt); store.putAttempt({ ...attempt, state: 'dispatched', dispatchedAt: stamp }); store.putAttempt({ ...attempt, state: 'completed', dispatchedAt: stamp, completedAt: stamp }); store.putTurn({ ...turn, state: 'awaiting_tools' });
+      const part: MessagePart = { schemaVersion: 2, id: id + '-part', sessionId: 'session', runId: run.id, turnId: turn.id, messageId: id + '-message', index: 0, revision: 0, type: 'tool', state: 'open', createdAt: stamp, toolCallId: id, providerCallId: id + '-provider', name: 'verify_changes', input: { checkId: ids[0]! } };
+      store.putPart(part); owner.turnId = turn.id; owner.attemptId = attempt.id;
+    }
+    return { workspace, sessionId: 'session', runId: run.id, toolCallId: id, ...owner, signal, limits: { ...run.config.limits }, artifactDir: rawDir,
       recordCheckpoint(checkpoint) { store.commit(run.id, 'workspace.changed', { checkpointId: checkpoint.id }, { checkpoint }); published++; } };
   };
   const approvals: ApprovalRequest[] = [];
@@ -62,7 +72,7 @@ async function fixture(t: TestContext, options: Options = {}) {
   const outer = () => runtime.resolve(host.captureCatalogue(contextPreview()), 'verify_changes');
   const contextPreview = (): ToolContext => ({ workspace, sessionId: 'session', runId: run.id, toolCallId: 'unused', signal: new AbortController().signal, limits: { ...run.config.limits }, artifactDir: rawDir, recordCheckpoint() {} });
   const lastReceipt = () => plans.get('session', run.id)!.receipts.at(-1)!;
-  return { base, root, rawDir, store, run, checks, removers, registry, plans, receipts, artifacts, runtime, host, tool, context, approve, approvals, outer, lastReceipt, source,
+  return { base, root, rawDir, store, run, checks, removers, registry, plans, receipts, artifacts, runtime, registeredCommand, commandRegistration, removeCommand, host, tool, context, approve, approvals, outer, lastReceipt, source,
     get sourceCalls() { return sourceCalls; }, get artifactCalls() { return artifactCalls; }, get published() { return published; } };
 }
 
@@ -143,10 +153,19 @@ test('registered command timeout is bounded and is observed as timeout with real
 });
 
 test('cancel preserves actual outcome and observes source after using an independent bounded signal', async t => {
-  const f = await fixture(t, { source: "require('fs').writeFileSync('started','yes');process.stdout.write('started cancel');setInterval(()=>{},1000)" }), abort = new AbortController(), context = f.context('cancel', abort.signal);
+  const f = await fixture(t, { source: "process.stdout.write('started cancel',()=>require('fs').writeFileSync('started','yes'));setInterval(()=>{},1000)" }), abort = new AbortController(), context = f.context('cancel', abort.signal);
   const prepared = await f.tool.prepare({ checkId: 'tests' }, context), running = f.tool.execute(prepared, context);
-  for (let i = 0; i < 100 && !await exists(join(f.root, 'started')); i++) await new Promise(done => setTimeout(done, 10));
-  assert.equal(await exists(join(f.root, 'started')), true); abort.abort();
+  const { readdir } = await import('node:fs/promises');
+  const ready = async () => {
+    if (!await exists(join(f.root, 'started'))) return false;
+    const capture = (await readdir(f.rawDir, { withFileTypes: true })).find(entry => entry.isDirectory() && entry.name.startsWith('command-'));
+    return !!capture && (await readFile(join(f.rawDir, capture.name, 'stdout.log'), 'utf8')).includes('started cancel');
+  };
+  // Observe the producer's stdout in the engine's actual capture before aborting; a startup file alone can precede output delivery.
+  const deadline = Date.now() + 5000;
+  try { while (!await ready()) { assert.ok(Date.now() < deadline, 'Actual command stdout must be captured before cancellation'); await new Promise(done => setTimeout(done, 10)); } }
+  catch (error) { abort.abort(); await running.catch(() => {}); throw error; }
+  abort.abort();
   const result = await running, receipt = f.lastReceipt(); assert.equal(receipt.status, 'cancelled'); assert.equal(receipt.observation!.cancelled, true); assert.equal(receipt.observation!.cleanup.confirmed, true); assert.notEqual(receipt.observation!.sourceAfter, null); assert.match(result.content, /started cancel/u);
 });
 
@@ -242,4 +261,120 @@ test('check output bound narrows nested command without consuming a second Run t
   assert.ok(Buffer.byteLength(result.content) <= 300); assert.equal(receipt.observation!.observedOutputBytes, 3000); assert.equal(receipt.observation!.outputAccountingComplete, true);
   const original = await f.artifacts.read(receipt.observation!.artifactRefs[0]!.id); assert.equal(original.reference.storedBytes, 3000); assert.equal(original.reference.complete, true);
   assert.equal(f.store.getRun(f.run.id).config.limits.maxOutputBytes, DEFAULT_LIMITS.maxOutputBytes);
+});
+
+function pinCommandPlatform(f: Awaited<ReturnType<typeof fixture>>, platform: string): void {
+  // A trusted host platform fixture; model input cannot supply or override this callback.
+  f.host.commandCapability = (_context, catalogue) => {
+    f.runtime.assertRegistrationCurrent(catalogue, f.commandRegistration);
+    return { producer: 'engine-owned-run-command', platform, supported: platform !== 'win32', catalogueRevision: catalogue.revision };
+  };
+}
+
+test('actual supported native command preserves the registration witness and platform in its durable receipt', async t => {
+  const f = await fixture(t); pinCommandPlatform(f, process.platform);
+  const context = f.context(), result = await f.runtime.executeApproved(await f.outer().prepare({ checkId: 'tests' }, context), context, f.approve());
+  assert.equal(f.lastReceipt().status, 'pass'); assert.equal(result.isError, false);
+  assert.deepEqual(f.lastReceipt().observation!.commandCapability, { producer: 'engine-owned-run-command', platform: process.platform, supported: true, catalogueRevision: f.runtime.revision });
+});
+
+test('trusted unsupported native capability records a not-dispatched receipt with exact approval and no inner producer preparation', async t => {
+  let preparations = 0, executions = 0;
+  const f = await fixture(t, { wrapCommand: core => ({ ...core, async prepare(input, context) { preparations++; return core.prepare(input, context); }, async execute(prepared, context) { executions++; return core.execute(prepared, context); } }) });
+  pinCommandPlatform(f, 'win32'); const context = f.context(), prepared = await f.outer().prepare({ checkId: 'tests' }, context);
+  assert.equal(prepared.requiresApproval, true); assert.equal(prepared.preview.command, f.checks[0]!.command); assert.equal(prepared.preview.cwd, f.root); assert.equal(prepared.preview.commandPreparation, 'unsupported-no-inner-preflight');
+  assert.equal(prepared.preview.commandPreflight, undefined); assert.equal((prepared.preview.verification as { commandPreparedFingerprint: null }).commandPreparedFingerprint, null);
+  assert.equal(preparations, 0); assert.equal(f.plans.get('session', f.run.id)!.receipts.length, 0);
+  const result = await f.runtime.executeApproved(prepared, context, f.approve()), receipt = f.lastReceipt();
+  assert.equal(f.approvals.length, 1); assert.equal(receipt.status, 'unsupported'); assert.equal(receipt.phase, 'settled'); assert.equal(receipt.dispatchedAt, null); assert.equal(receipt.observation!.started, false); assert.equal(receipt.observation!.exitCode, null); assert.equal(receipt.observation!.executionCheckpointId, null);
+  assert.deepEqual(receipt.observation!.cleanup, { confirmed: true, scope: 'not-dispatched', evidenceSha256: null }); assert.deepEqual(receipt.observation!.artifactRefs, []); assert.equal(receipt.observation!.commandCapability!.supported, false);
+  assert.equal(JSON.parse(result.content.split('\n')[0]!).verification.status, 'unsupported'); assert.equal(result.isError, true); assert.equal(preparations, 0); assert.equal(executions, 0); assert.equal(f.published, 0); assert.equal(f.artifactCalls, 0); assert.equal(await exists(join(f.root, 'effect.txt')), false);
+  await assert.rejects(f.runtime.executeApproved(prepared, context, f.approve()), code('INVALID_PREPARED_TOOL'));
+});
+
+test('unsupported command still requires exact outer approval and exact base command/cwd policy', async t => {
+  const denied = await fixture(t); pinCommandPlatform(denied, 'win32'); const context = denied.context();
+  await assert.rejects(denied.runtime.executeApproved(await denied.outer().prepare({ checkId: 'tests' }, context), context, denied.approve('denied')), code('TOOL_APPROVAL_DENIED'));
+  assert.equal(denied.plans.get('session', denied.run.id)!.receipts.length, 0);
+  for (const resource of ['command', 'cwd'] as const) {
+    const f = await fixture(t); pinCommandPlatform(f, 'win32'); f.runtime.policy.replace([{ tool: 'run_command', resource: resource === 'command' ? `command:${f.checks[0]!.command}` : `path:${f.root}`, decision: 'deny' }]);
+    await assert.rejects(f.tool.prepare({ checkId: 'tests' }, f.context()), code('TOOL_POLICY_DENIED')); assert.equal(f.plans.get('session', f.run.id)!.receipts.length, 0);
+  }
+});
+
+test('unsupported platform cannot expand a hidden command profile or accept model platform overrides', async t => {
+  const f = await fixture(t); pinCommandPlatform(f, 'win32'); const context = f.context();
+  await assert.rejects(f.tool.prepare({ checkId: 'tests', platform: 'win32' }, context), code('INVALID_VERIFICATION_DATA'));
+  f.host.captureCatalogue = () => f.runtime.catalogue('engine', 'build', ['verify_changes'], { id: 'builder', revision: 'profile-1' });
+  await assert.rejects(f.tool.prepare({ checkId: 'tests' }, context), code('VERIFICATION_PROFILE_DENIED')); assert.equal(f.plans.get('session', f.run.id)!.receipts.length, 0);
+});
+
+test('changed command capability or source after approval blocks unsupported intent without dispatch', async t => {
+  const f = await fixture(t); pinCommandPlatform(f, 'win32'); const context = f.context(), prepared = await f.tool.prepare({ checkId: 'tests' }, context);
+  pinCommandPlatform(f, process.platform);
+  await assert.rejects(f.tool.execute(prepared, context), code('VERIFICATION_COMMAND_CAPABILITY_STALE')); assert.equal(f.plans.get('session', f.run.id)!.receipts.length, 0);
+  const source = await fixture(t); pinCommandPlatform(source, 'win32'); const current = source.context(), captured = await source.tool.prepare({ checkId: 'tests' }, current);
+  await writeFile(join(source.root, 'source.txt'), 'changed');
+  await assert.rejects(source.tool.execute(captured, current), code('VERIFICATION_SOURCE_STALE')); assert.equal(source.plans.get('session', source.run.id)!.receipts.length, 0);
+});
+
+test('unsupported capability requires a current opaque witness of the original registered producer', async t => {
+  const f = await fixture(t); pinCommandPlatform(f, 'win32');
+  f.removeCommand(); f.runtime.register('engine', createCommandTool(), { exactApproval: true });
+  await assert.rejects(f.tool.prepare({ checkId: 'tests' }, f.context()), code('TOOL_PRODUCER_MISMATCH')); assert.equal(f.plans.get('session', f.run.id)!.receipts.length, 0);
+});
+
+test('capability getters/proxies, contradictory support and mismatched catalogue are rejected without producer effects', async t => {
+  const f = await fixture(t), context = f.context(); let touches = 0;
+  for (const capability of [
+    { producer: 'engine-owned-run-command', get platform() { touches++; return 'win32'; }, supported: false, catalogueRevision: f.runtime.revision },
+    new Proxy({}, { ownKeys() { touches++; return []; } }),
+    { producer: 'engine-owned-run-command', platform: 'win32', supported: true, catalogueRevision: f.runtime.revision },
+    { producer: 'engine-owned-run-command', platform: 'win32', supported: false, catalogueRevision: f.runtime.revision + 1 },
+  ]) {
+    f.host.commandCapability = () => capability as ReturnType<NonNullable<VerificationToolHost['commandCapability']>>;
+    await assert.rejects(f.tool.prepare({ checkId: 'tests' }, context), EngineError);
+  }
+  assert.equal(touches, 0); assert.equal(f.plans.get('session', f.run.id)!.receipts.length, 0); assert.equal(await exists(join(f.root, 'effect.txt')), false);
+});
+
+test('platform unsupported error text cannot become trusted capability or fabricate an unsupported outcome', async t => {
+  const f = await fixture(t, { wrapCommand: core => ({ ...core, async execute() { throw new EngineError('COMMAND_PLATFORM_UNSUPPORTED', 'unsupported on win32'); } }) }), context = f.context();
+  await assert.rejects(f.tool.execute(await f.tool.prepare({ checkId: 'tests' }, context), context), code('CLEANUP_UNCERTAIN'));
+  assert.equal(f.lastReceipt().status, 'uncertain'); assert.equal(f.lastReceipt().observation, null); assert.equal(f.lastReceipt().recovery, 'producer-without-outcome'); assert.notEqual(f.lastReceipt().dispatchedAt, null);
+});
+
+test('actual cancellation settles only its consumed native receipt and forwards the original outer context to the host writer', async t => {
+  const f = await fixture(t, { nativeOwner: true, source: "process.stdout.write('native cancel evidence',()=>require('fs').writeFileSync('started','yes'));setInterval(()=>{},1000)" });
+  pinCommandPlatform(f, process.platform); const abort = new AbortController(), context = f.context('native-cancel', abort.signal); let writes = 0;
+  f.host.consumedSettlementWriter = (observedContext, kind, revision, data) => {
+    assert.equal(observedContext, context); assert.equal(observedContext.signal.aborted, true); writes++;
+    return f.store.putConsumedVerificationSettlement({ runId: context.runId, toolCallId: context.toolCallId, turnId: context.turnId!, attemptId: context.attemptId! }, kind, revision, data);
+  };
+  const prepared = await f.tool.prepare({ checkId: 'tests' }, context), running = f.tool.execute(prepared, context);
+  for (let i = 0; i < 100 && !await exists(join(f.root, 'started')); i++) await new Promise(done => setTimeout(done, 10));
+  assert.equal(await exists(join(f.root, 'started')), true); f.store.commit(f.run.id, 'run.cancelling', {}, { run: { state: 'cancelling' } }); abort.abort();
+  const result = await running, receipt = f.lastReceipt(); assert.equal(writes, 1); assert.equal(receipt.status, 'cancelled'); assert.equal(receipt.phase, 'settled'); assert.equal(receipt.recovery, 'none'); assert.equal(receipt.observation!.cancelled, true); assert.equal(receipt.observation!.cleanup.confirmed, true); assert.notEqual(receipt.observation!.sourceAfter, null); assert.notEqual(receipt.observation!.executionCheckpointId, null); assert.equal(f.published, 1);
+  assert.equal(JSON.parse(result.content.split('\n')[0]!).verification.status, 'cancelled'); assert.equal(JSON.parse(result.content.split('\n')[0]!).verification.persistence, 'saved');
+  const original = await f.artifacts.read(receipt.observation!.artifactRefs[0]!.id); assert.equal(Buffer.from(original.bytes).toString('utf8'), 'native cancel evidence');
+  f.store.commit(f.run.id, 'run.cancelled', {}, { run: { state: 'cancelled' } });
+  await assert.rejects(f.tool.execute(prepared, context), code('INVALID_PREPARED_TOOL')); assert.equal(writes, 1);
+});
+
+test('consumed host writer rejection preserves pending cancellation observation without bypass or replay', async t => {
+  const f = await fixture(t, { nativeOwner: true }), context = f.context(); let writes = 0; const publish = context.recordCheckpoint;
+  context.recordCheckpoint = checkpoint => { publish(checkpoint); f.store.commit(f.run.id, 'run.cancelling', {}, { run: { state: 'cancelling' } }); };
+  f.host.consumedSettlementWriter = () => { writes++; throw new EngineError('VERIFICATION_SETTLEMENT_OWNER_INVALID', 'owner expired'); };
+  const prepared = await f.tool.prepare({ checkId: 'tests' }, context), result = await f.tool.execute(prepared, context), receipt = f.lastReceipt();
+  assert.equal(writes, 1); assert.equal(receipt.phase, 'dispatched'); assert.equal(receipt.status, null); assert.equal(receipt.observation, null); assert.equal((result.data as { exitCode: number }).exitCode, 0); assert.equal(JSON.parse(result.content.split('\n')[0]!).verification.persistence, 'pending');
+  await assert.rejects(f.tool.execute(prepared, context), code('INVALID_PREPARED_TOOL')); assert.equal(await readFile(join(f.root, 'effect.txt'), 'utf8'), 'once\n');
+});
+
+test('terminal actual result never calls consumed writer and remains pending for explicit no-replay recovery', async t => {
+  const f = await fixture(t, { nativeOwner: true }), context = f.context(); let writes = 0; const publish = context.recordCheckpoint;
+  context.recordCheckpoint = checkpoint => { publish(checkpoint); f.store.commit(f.run.id, 'run.cancelling', {}, { run: { state: 'cancelling' } }); f.store.commit(f.run.id, 'run.cancelled', {}, { run: { state: 'cancelled' } }); };
+  f.host.consumedSettlementWriter = () => { writes++; throw new Error('terminal writer must never run'); };
+  const result = await f.tool.execute(await f.tool.prepare({ checkId: 'tests' }, context), context), state = f.plans.get('session', f.run.id)!;
+  assert.equal(writes, 0); assert.equal(state.receipts[0]!.phase, 'dispatched'); assert.equal(JSON.parse(result.content.split('\n')[0]!).verification.persistence, 'pending');
+  f.receipts.recoverPending('session', f.run.id, state.revision); assert.equal(f.lastReceipt().status, 'uncertain'); assert.equal(f.lastReceipt().observation, null); assert.equal(await readFile(join(f.root, 'effect.txt'), 'utf8'), 'once\n');
 });

@@ -12,6 +12,9 @@ export interface VerificationStore extends SessionDocumentStore {
   putActiveRunDocument(runId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument;
 }
 export interface VerificationSource { sha256: string; revision: string; checkpointId: string | null }
+export interface VerificationCommandCapability { producer: 'engine-owned-run-command'; platform: string; supported: boolean; catalogueRevision: number }
+/** Host-only callback; the caller captures the actual live outer ToolContext separately. */
+export type VerificationConsumedSettlementWriter = (kind: string, expectedRevision: number, data: JsonObject) => SessionDocument;
 export interface VerificationCheckRegistration {
   id: string; revision: number; workspaceId: string;
   command: string; cwd: string; profileId: string; profileRevision: string;
@@ -36,6 +39,7 @@ export interface VerificationObservation {
   observedOutputBytes: number | null; outputAccountingComplete: boolean; artifactRefs: ArtifactReference[];
   /** False when the owned producer outcome or its published evidence is incomplete. */
   executionComplete?: boolean;
+  commandCapability?: VerificationCommandCapability;
   reasonCode: string | null;
 }
 export interface VerificationReceipt {
@@ -88,6 +92,11 @@ export function normalizeVerificationSource(value: VerificationSource): Verifica
   verificationPlain(value, ['sha256', 'revision', 'checkpointId']); verificationDigest(value.sha256); verificationText(value.revision);
   if (value.checkpointId !== null) verificationText(value.checkpointId);
   return { sha256: value.sha256, revision: value.revision, checkpointId: value.checkpointId };
+}
+export function normalizeVerificationCommandCapability(value: VerificationCommandCapability, catalogueRevision?: number): VerificationCommandCapability {
+  verificationPlain(value, ['producer', 'platform', 'supported', 'catalogueRevision']); verificationText(value.platform, 32); verificationNumber(value.catalogueRevision);
+  if (value.producer !== 'engine-owned-run-command' || !/^[a-z0-9]+$/u.test(value.platform) || typeof value.supported !== 'boolean' || value.supported !== (value.platform !== 'win32') || catalogueRevision !== undefined && value.catalogueRevision !== catalogueRevision) verificationFail('INVALID_VERIFICATION_COMMAND_CAPABILITY', 'Command capability must match the actual native producer and platform semantics');
+  return { producer: value.producer, platform: value.platform, supported: value.supported, catalogueRevision: value.catalogueRevision };
 }
 export function verificationJson(value: unknown): JsonObject {
   let nodes = 0; const ancestors = new Set<object>();

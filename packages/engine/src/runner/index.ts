@@ -22,6 +22,7 @@ import { DISCOVERY_TOOL_NAME, RunToolDiscovery, type ToolDiscoveryAction } from 
 import { bindCheckpointArtifacts } from '../artifacts/result.js';
 import type { ChildBudget } from '../child-tasks/index.js';
 import type { LifecycleCapture, LifecycleDispatchOutcome, LifecycleInvocation } from '../lifecycle/index.js';
+import type { VerificationBoundary } from '../verification/completion.js';
 export { InputScheduler, type InputSchedulerOptions } from './input-scheduler.js';
 
 const CLEANUP_GRACE_MS = 1_000;
@@ -59,6 +60,8 @@ interface Owner {
   cleanupError?: EngineError;
   lifecycle?: LifecycleCapture;
   lifecycleStopChecked?: boolean;
+  verificationContinuation?: { stageId: string; message: ProviderMessage };
+  verificationBoundary?: VerificationBoundary;
 }
 
 interface WorkspaceLease {
@@ -208,6 +211,7 @@ export class RunCoordinator implements CoordinatorPort {
   private readonly tools = new Map<string, ToolDefinition>();
   private readonly unsafeWorkspaces = new Set<string>();
   private readonly finalUsage = new Map<string, Readonly<RunUsage>>();
+  private readonly verificationSettlementOwners = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; binding: string }>();
   private closing = false;
   private closePromise?: Promise<void>;
   private sessionHooks?: {
@@ -264,6 +268,33 @@ export class RunCoordinator implements CoordinatorPort {
     owner.discovery?.assertCurrent();
     this.options.toolRuntime.assertCatalogueCurrent(owner.catalogue);
     return owner.catalogue;
+  }
+
+  /** Cancellation can settle the consumed command, without creating any new verification work. */
+  commitConsumedVerificationSettlement(context: ToolContext, kind: string, expectedRevision: number, data: JsonObject): import('../storage/native-records.js').SessionDocument {
+    const capture = this.verificationSettlementOwners.get(context);
+    const binding = JSON.stringify([context.workspace.id, context.workspace.root, context.sessionId, context.runId, context.toolCallId, context.turnId, context.attemptId]);
+    if (!capture || capture.binding !== binding || !capture.active() || capture.owner.terminal || this.owners.get(context.runId) !== capture.owner || capture.record.name !== 'verify_changes' || capture.record.state !== 'running' || capture.owner.activeTools.get(context.toolCallId) !== capture.record || capture.owner.turn?.id !== context.turnId || capture.owner.turn?.attemptId !== context.attemptId || !context.turnId || !context.attemptId || !this.options.store.putConsumedVerificationSettlement) throw new EngineError('VERIFICATION_SETTLEMENT_OWNER_INVALID', 'Consumed settlement requires the original live native verification execution owner');
+    return this.options.store.putConsumedVerificationSettlement({ runId: context.runId, toolCallId: context.toolCallId, turnId: context.turnId, attemptId: context.attemptId }, kind, expectedRevision, data);
+  }
+
+  verificationRemainingBudget(run: Run): ChildBudget {
+    const owner = this.owners.get(run.id);
+    if (!owner || owner.run.sessionId !== run.sessionId) throw new EngineError('VERIFICATION_BOUNDARY_STALE', 'Verification budget requires its current native Run owner');
+    this.assertLive(owner);
+    const remaining = this.remainingChildBudget(owner), usage = owner.budget.snapshot();
+    return { ...remaining, turns: Math.min(remaining.turns, Math.max(0, owner.budget.budgets.turnAllowance - usage.allowanceUsed)) };
+  }
+
+  assertVerificationBoundaryCurrent(run: Run, boundary: VerificationBoundary): void {
+    const owner = this.owners.get(run.id), records = executionRecords(this.options.store);
+    if (!owner || owner.run.sessionId !== run.sessionId || !owner.verificationBoundary || JSON.stringify(owner.verificationBoundary) !== JSON.stringify(boundary) || !records) throw new EngineError('VERIFICATION_BOUNDARY_STALE', 'Verification decision requires the captured current native boundary');
+    this.assertLive(owner);
+    if (boundary.phase === 'stop') {
+      const turn = owner.turn && records.getTurn(owner.turn.id), attempt = owner.turn?.attemptId && records.getAttempt(owner.turn.attemptId);
+      const cleanup = attempt && records.getAttemptCleanup?.(attempt.id, run.sessionId);
+      if (!turn || turn.id !== boundary.turnId || turn.state !== 'completed' || !attempt || attempt.turnId !== turn.id || attempt.state !== 'completed' || !boundary.providerTerminal || !boundary.nativeTurnCompleted || cleanup && cleanup.cleanupConfirmed !== true) throw new EngineError('VERIFICATION_BOUNDARY_STALE', 'Task completion requires the real completed native Turn and provider Attempt with confirmed cleanup');
+    }
   }
 
   assertWorkspaceAvailable(workspaceId: string, excludedRunId?: string): void {
@@ -580,6 +611,7 @@ export class RunCoordinator implements CoordinatorPort {
       captureCatalogue();
       const contextRequest = () => ({
         workspace, snapshot: this.options.contextSnapshot?.(run.sessionId, run.config) ?? this.options.store.getSnapshot(run.sessionId), config: run.config, signal: owner.abort.signal, reservedBytes, run, budget: owner.budget,
+        ...(owner.verificationContinuation ? { verificationContinuation: structuredClone(owner.verificationContinuation.message) } : {}),
         consumeSummaryOutput: (bytes: number) => {
           if (!Number.isSafeInteger(bytes) || bytes < 0) throw new EngineError('INVALID_BUDGET_USAGE', 'Summary output bytes must be a nonnegative safe integer');
           if (bytes > run.config.limits.maxOutputBytes - owner.outputBytes - owner.childReserved.outputBytes) throw new EngineError('OUTPUT_LIMIT', 'Summary output exceeds the remaining Run output budget');
@@ -622,6 +654,11 @@ export class RunCoordinator implements CoordinatorPort {
           break;
         }
         if (owner.budget.snapshot().logicalTurns + owner.childReserved.turns >= run.config.limits.maxTurns) throw new EngineError('TURN_LIMIT', 'Parent and reserved child turns reached the Run turn limit');
+        if (owner.verificationContinuation && this.options.verificationBeforeProvider) {
+          owner.verificationBoundary = { id: `${run.id}:next:${turnIndex}:${owner.verificationContinuation.stageId}`, phase: 'before-provider', turnId: null, providerTerminal: false, nativeTurnCompleted: false };
+          await abortable(() => this.options.verificationBeforeProvider!(run, owner.verificationBoundary!, owner.abort.signal), owner.abort.signal, 'Verification continuation boundary');
+          this.assertLive(owner);
+        }
         owner.budget.startTurn();
         owner.invocations.clear();
         const bytes = this.checkContext(owner, messages);
@@ -636,7 +673,10 @@ export class RunCoordinator implements CoordinatorPort {
         const revisionId = this.options.getContextRevisionId?.(run.sessionId);
         owner.turn = new TurnExecutor({ run, index: turnIndex, inputIds: records?.listRunInputIds?.(run.id) ?? [run.inputId], budget: owner.budget,
           store: this.options.store, wait: abortable, ...(revisionId ? { contextRevisionId: revisionId } : {}), currentContextRevisionId: () => this.options.getContextRevisionId?.(run.sessionId),
-          assertContextFresh: async (request, signal) => { await this.options.assertContextFresh?.(request, signal); assertCatalogueCurrent(); },
+          assertContextFresh: async (request, signal) => {
+            await this.options.assertContextFresh?.(request, signal); assertCatalogueCurrent();
+            if (owner.verificationContinuation && owner.verificationBoundary && this.options.verificationBeforeProvider) await this.options.verificationBeforeProvider(run, owner.verificationBoundary, signal);
+          },
           ...(this.options.recoverContextOverflow ? { recoverContextOverflow: async () => {
             assertCatalogueCurrent();
             const failedAttemptId = owner.turn?.attemptId;
@@ -648,12 +688,19 @@ export class RunCoordinator implements CoordinatorPort {
             messages = structuredClone(await context(true)); this.checkContext(owner, messages); return messages;
           } } : {}) });
         const turn = await this.providerTurn(owner, provider, messages, turnIndex);
+        owner.verificationContinuation = undefined; owner.verificationBoundary = undefined;
         this.assertLive(owner);
         if (turn.calls.length > this.remainingChildBudget(owner).toolCalls) throw new EngineError('TOOL_CALL_LIMIT', 'Parent and reserved child tools reached the Run tool limit');
         owner.budget.reserveToolCalls(turn.calls.length);
         messages.push({ role: 'assistant', content: turn.message.content, ...(turn.calls.length ? { toolCalls: turn.calls } : {}) });
         if (turn.calls.length === 0) {
           if (this.sessionHooks?.boundary(run)) { owner.budget.inputPromoted(); messages = structuredClone(await context()); continue; }
+          if (this.options.verificationStop && owner.turn) {
+            owner.verificationBoundary = { id: owner.turn.id, phase: 'stop', turnId: owner.turn.id, providerTerminal: true, nativeTurnCompleted: true };
+            const continuation = await abortable(() => this.options.verificationStop!(run, owner.verificationBoundary!, owner.abort.signal), owner.abort.signal, 'Verification completion boundary');
+            owner.verificationBoundary = undefined; this.assertLive(owner);
+            if (continuation) { owner.verificationContinuation = continuation; messages = structuredClone(await context()); continue; }
+          }
           owner.lifecycleStopChecked = true;
           await this.lifecycle(owner, 'before-stop', `${run.id}:stop`, { outcome: 'completed', turnCount: owner.budget.snapshot().logicalTurns, toolCallCount: owner.toolCount, outputBytes: owner.outputBytes });
           return this.finish(owner, 'completed');
@@ -930,7 +977,7 @@ export class RunCoordinator implements CoordinatorPort {
   }
 
   private context(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], signal: AbortSignal, allowCheckpoint: () => boolean): ToolContext {
-    return {
+    const context: ToolContext = {
       workspace, sessionId: owner.run.sessionId, runId: owner.run.id, toolCallId: record.id,
       signal, limits: { ...owner.run.config.limits, maxOutputBytes: this.toolOutputBudget(owner) }, artifactDir: this.options.artifactDir,
       budgets: { ...owner.budget.budgets },
@@ -945,6 +992,8 @@ export class RunCoordinator implements CoordinatorPort {
         owner.checkpoints.set(checkpoint.id, structuredClone(checkpoint));
       },
     };
+    if (record.name === 'verify_changes') this.verificationSettlementOwners.set(context, { owner, record, active: allowCheckpoint, binding: JSON.stringify([workspace.id, workspace.root, context.sessionId, context.runId, context.toolCallId, context.turnId, context.attemptId]) });
+    return context;
   }
 
   private async toolOperation<T>(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], execute: boolean, operation: (context: ToolContext) => Promise<T>, approval?: ApprovedMcpToolOwner['approval']): Promise<T> {

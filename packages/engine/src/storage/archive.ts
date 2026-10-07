@@ -14,6 +14,7 @@ import { SUMMARY_RECOVERY_TABLES } from '../recovery/summary.js';
 import { ATTEMPT_CLEANUP_TABLES } from './attempt-cleanup.js';
 import { PROVIDER_RECOVERY_TABLES } from '../recovery/provider.js';
 import { MCP_EXECUTION_TABLES } from './mcp-executions.js';
+import { KNOWLEDGE_LIMITS, KNOWLEDGE_STORAGE_TABLES, validateKnowledgeArchiveRow } from '../knowledge/validation.js';
 import { SqliteStore } from './index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
 import { attachments as documentAttachments, sameAttachment as sameDocumentAttachment, validateDocumentBytes } from '../documents/validation.js';
@@ -146,7 +147,15 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
     const recoveryTables = schemaVersion >= 5 ? [...summaryTables, ...SUMMARY_RECOVERY_TABLES] : summaryTables;
     const cleanupTables = schemaVersion >= 6 ? [...recoveryTables, ...ATTEMPT_CLEANUP_TABLES] : recoveryTables;
     const providerTables = schemaVersion >= 7 ? [...cleanupTables, ...PROVIDER_RECOVERY_TABLES] : cleanupTables;
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 9 ? [...providerTables, ...MCP_EXECUTION_TABLES] : providerTables, check) };
+    const mcpTables = schemaVersion >= 9 ? [...providerTables, ...MCP_EXECUTION_TABLES] : providerTables;
+    if (schemaVersion >= 10) for (const table of KNOWLEDGE_STORAGE_TABLES) {
+      for (const row of db.prepare(`SELECT id,workspace_id,length(CAST(data AS BLOB)) AS bytes,substr(data,1,65537) AS data FROM ${table} ORDER BY id`).iterate()) {
+        check(); if (Number(row.bytes) > KNOWLEDGE_LIMITS.rowBytes) fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived knowledge row exceeds its bound');
+        try { validateKnowledgeArchiveRow({ table, key: row.id, workspaceId: row.workspace_id, data: JSON.parse(String(row.data)) }); }
+        catch { fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived workspace trust or pending knowledge record is invalid'); }
+      }
+    }
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 10 ? [...mcpTables, ...KNOWLEDGE_STORAGE_TABLES] : mcpTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };
@@ -582,7 +591,7 @@ export async function importEngineArchive(options: ImportEngineArchiveOptions): 
     const primary = archive.manifest.databases.find(item => item.role === 'primary')!;
     const artifactDir = join(destination, 'data', 'artifacts');
     const store = new SqliteStore(join(staging, databaseFiles.primary)); let sessionsPaused = 0, worktreesRelocated = 0,childSessionsPaused=0;
-    try { for (const workspace of store.listWorkspaces()) for (const session of store.listSessions(workspace.id)) {
+    try { for (const workspace of store.listWorkspaces()) { store.pauseImportedWorkspaceKnowledge(workspace.id, archive.manifestSha256); for (const session of store.listSessions(workspace.id)) {
       const document = store.getSessionDocument(session.id, 'engine.worktrees');
       if (document) {
         const records = document.data.records;
@@ -601,11 +610,11 @@ export async function importEngineArchive(options: ImportEngineArchiveOptions): 
         store.putSessionDocument(session.id, 'engine.worktrees', document.revision, { ...document.data, records: relocated });
       }
       store.setSessionPaused(session.id, true, 'recovery_required'); sessionsPaused++;
-    } }
+    } } }
     finally { await store.closeAsync(); }
     for(const member of archive.manifest.documentAudit?.children??[]) {
       check();const child=new SqliteStore(join(staging,member.database.file));
-      try {for(const workspace of child.listWorkspaces())for(const session of child.listSessions(workspace.id)){child.setSessionPaused(session.id,true,'recovery_required');childSessionsPaused++;}}
+      try {for(const workspace of child.listWorkspaces()){child.pauseImportedWorkspaceKnowledge(workspace.id,archive.manifestSha256);for(const session of child.listSessions(workspace.id)){child.setSessionPaused(session.id,true,'recovery_required');childSessionsPaused++;}}}
       finally {await child.closeAsync();}
     }
     const documentAuditCoverage=archive.manifest.documentAudit?.coverage??'unchecked';

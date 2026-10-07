@@ -11,6 +11,7 @@ import { SUMMARY_RECOVERY_TABLES } from './summary.js';
 import { ATTEMPT_CLEANUP_TABLES } from '../storage/attempt-cleanup.js';
 import { PROVIDER_RECOVERY_TABLES } from './provider.js';
 import { MCP_EXECUTION_TABLES } from '../storage/mcp-executions.js';
+import { KNOWLEDGE_STORAGE_TABLES } from '../knowledge/validation.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
 import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
@@ -100,7 +101,8 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     const recoveryTables = primaryVersion >= 5 ? [...summaryTables, ...SUMMARY_RECOVERY_TABLES] : summaryTables;
     const cleanupTables = primaryVersion >= 6 ? [...recoveryTables, ...ATTEMPT_CLEANUP_TABLES] : recoveryTables;
     const providerTables = primaryVersion >= 7 ? [...cleanupTables, ...PROVIDER_RECOVERY_TABLES] : cleanupTables;
-    const primaryHash = primary ? checkDatabase(primary, primaryVersion, primaryVersion >= 9 ? [...providerTables, ...MCP_EXECUTION_TABLES] : providerTables, snapshot.check) : null;
+    const mcpTables = primaryVersion >= 9 ? [...providerTables, ...MCP_EXECUTION_TABLES] : providerTables;
+    const primaryHash = primary ? checkDatabase(primary, primaryVersion, primaryVersion >= 10 ? [...mcpTables, ...KNOWLEDGE_STORAGE_TABLES] : mcpTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);
     let marker: Marker | null = null;

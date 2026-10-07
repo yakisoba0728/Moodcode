@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, statSync } from 'node:fs';
+import { lstatSync, mkdirSync, mkdtempSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
@@ -8,6 +8,12 @@ import type { ProviderAdapter, ProviderEvent, ToolDefinition } from './ports.js'
 import { SqliteStore, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './storage/index.js';
 import type { SummaryAttemptListOptions } from './storage/summary-attempts.js';
 import { RunCoordinator } from './runner/index.js';
+import { VerificationController, verificationContinuationMessage } from './verification/controller.js';
+import type { KnowledgeStorage } from './knowledge/store.js';
+import type { KnowledgeHostAdapter, KnowledgeSourceProjection, KnowledgeSourceSelection } from './knowledge/host.js';
+import type { PrepareKnowledgeGeneration } from './knowledge/types.js';
+import { knowledgeHash } from './knowledge/validation.js';
+import { WorkspaceTrustService, assertWorkspaceTrustSourcesCurrent } from './workspace/trust.js';
 import { LifecycleHookRegistry, type LifecycleHookRegistration } from './lifecycle/index.js';
 import { exportTrajectory, validateTrajectoryOptions, type JournalProjection, type TrajectoryOptions } from './diagnostics/trajectory.js';
 import { createCodingEvidenceManifest, validateCodingEvidenceOptions, type CodingEvidenceManifest, type CodingSourceIdentity } from './diagnostics/attempt-manifest.js';
@@ -26,7 +32,7 @@ import { createCommandTool } from './tools/command/index.js';
 import { createExactEditTool } from './tools/edit/index.js';
 import { createFileActionTools } from './tools/file-actions/index.js';
 import { createPatternSearchTools } from './tools/search/index.js';
-import { ScopedToolRuntime, type ScopedToolRuntimeOptions, type RuntimeCommandPreflightOptions } from './tools/runtime/index.js';
+import { ScopedToolRuntime, type ScopedToolRuntimeOptions, type RuntimeCommandPreflightOptions, type ToolRegistrationCapture } from './tools/runtime/index.js';
 import type { RoleResourcePolicy, RoleResourcePolicySnapshot } from './permission/role-resources.js';
 import { RoleResourcePolicyRegistry } from './permission/role-policy-registry.js';
 import { readPolicyDecisionReceipts, type PolicyDecisionReceiptPage } from './permission/decision-receipts.js';
@@ -256,6 +262,10 @@ export class MoodcodeEngine {
   readonly verificationChecks: VerificationCheckRegistry;
   readonly verificationPlans: VerificationPlanService;
   readonly verificationReceipts: VerificationReceiptService;
+  readonly verificationController: VerificationController;
+  readonly workspaceKnowledge: KnowledgeStorage;
+  readonly workspaceTrust: WorkspaceTrustService;
+  private readonly knowledgeHost: KnowledgeHostAdapter;
   private readonly verificationHost: VerificationHostService;
   private readonly verificationEnabled: boolean;
   readonly formatters: FormatterRegistry;
@@ -332,6 +342,17 @@ export class MoodcodeEngine {
           if (JSON.stringify({ database, artifacts }) !== JSON.stringify(storageBinding)) throw new Error('changed');
         } catch { throw new EngineError('CHILD_STORAGE_HOST_CHANGED', 'Child storage inspection requires the unchanged host storage identity'); }
       };
+      const knowledgeBinding = (workspaceId: string) => {
+        this.verifyChildStorageIdentity();
+        for (const storagePath of [this.storagePaths.dbPath, this.storagePaths.artifactDir]) if (storagePath && (lstatSync(storagePath).isSymbolicLink() || realpathSync(storagePath) !== storagePath)) throw new EngineError('KNOWLEDGE_BINDING_MISMATCH', 'Workspace knowledge requires the unchanged physical database and artifact owner');
+        const workspace = this.store.getWorkspace(workspaceId), root = lstatSync(workspace.root, { bigint: true });
+        if (!root.isDirectory() || root.isSymbolicLink() || realpathSync(workspace.root) !== workspace.root) throw new EngineError('KNOWLEDGE_BINDING_MISMATCH', 'Workspace knowledge requires its canonical physical root');
+        return { workspaceId, root: workspace.root, rootDevice: root.dev.toString(), rootInode: root.ino.toString(), storageBindingSha256: knowledgeHash(storageBinding) };
+      };
+      this.knowledgeHost = this.store.createKnowledgeHostAdapter({ checkHostBinding: knowledgeBinding });
+      this.workspaceKnowledge = this.store.createKnowledgeStorage({ checkHostBinding: knowledgeBinding, assertTrustSourcesCurrent: assertWorkspaceTrustSourcesCurrent,
+        assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source), assertTargetCurrent: (binding, target) => this.knowledgeHost.assertTargetCurrent(binding, target) });
+      this.workspaceTrust = new WorkspaceTrustService(this.workspaceKnowledge);
       const recoveryBinding = (workspaceId: string) => {
         const database = canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database;
         const artifacts = physicalIdentity(this.storagePaths.artifactDir);
@@ -363,6 +384,28 @@ export class MoodcodeEngine {
       this.verificationPlans = new VerificationPlanService(this.store, this.verificationChecks);
       this.verificationReceipts = new VerificationReceiptService(this.verificationPlans);
       this.verificationHost = new VerificationHostService(this.store, this.verificationPlans, this.repository);
+      this.verificationController = new VerificationController(this.store, this.verificationPlans, {
+        observeSource: (run, signal) => this.verificationHost.observe({ sessionId: run.sessionId, runId: run.id, workspace: this.store.getWorkspace(run.workspaceId) }, signal),
+        readCurrentProfile: run => { const profile = this.profiles.forRun(run.sessionId, run.config); return profile ? { id: profile.id, revision: profile.revision } : null; },
+        readRemainingBudget: run => this.coordinator.verificationRemainingBudget(run),
+        readExecutionBlocker: run => {
+          if (this.store.hasDeniedVerificationTool(run.id)) return 'verification_denied';
+          const profile = this.profiles.forRun(run.sessionId, run.config);
+          const profileTools = profile?.tools;
+          const allowed = this.hostAllowedTools ? (profileTools ? profileTools.filter(name => this.hostAllowedTools!.includes(name)) : this.hostAllowedTools) : profileTools;
+          const catalogue = this.toolRuntime.catalogue('engine', run.config.mode, allowed, profile ? { id: profile.id, revision: profile.revision } : undefined);
+          if (!catalogue.tools.some(tool => tool.name === 'verify_changes') || !catalogue.tools.some(tool => tool.name === 'run_command')) return 'verification_denied';
+          const checks = this.verificationPlans.get(run.sessionId, run.id)?.plans.at(-1)?.checks ?? [];
+          if (!checks.length) for (const id of this.verificationHost.configuration(run.sessionId)?.checkIds ?? []) {
+            try { this.verificationChecks.capture(id); }
+            catch (error) { if (error instanceof EngineError && error.code === 'VERIFICATION_CHECK_NOT_FOUND') return 'check_stale'; throw error; }
+          }
+          if (checks.some(check => this.toolRuntime.policy.evaluate({ toolName: 'run_command', effect: 'execute', mode: run.config.mode, requiresApproval: true, resources: [`command:${check.command}`, `path:${check.cwd}`] }).decision === 'deny')) return 'verification_denied';
+          return null;
+        },
+        assertBoundaryCurrent: (run, boundary) => this.coordinator.assertVerificationBoundaryCurrent(run, boundary),
+        commitCurrent: (runId, kind, revision, data, verificationRevision) => this.store.putActiveVerificationControllerDocument(runId, kind, revision, data, verificationRevision),
+      });
       this.formatters = new FormatterRegistry();
       this.changes = new WorkspaceChangeHub({ signal: this.hostResources.signal });
       this.children = new EngineChildren(this, { ...options, ...(repositoryPolicy ? { repositoryContextPolicy: repositoryPolicy } : {}), ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value), storageBinding);
@@ -400,9 +443,17 @@ export class MoodcodeEngine {
       if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
       this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts,
         ...(options.roleResourcePolicy ? { roleResources: options.roleResourcePolicy } : {}), ...(options.roleResourcePolicyRegistry ? { roleResourcePolicyRegistry: options.roleResourcePolicyRegistry } : {}), ...(options.resolveRoleResources ? { resolveRoleResources: options.resolveRoleResources } : {}), ...(options.commandPreflight ? { commandPreflight: options.commandPreflight } : {}) });
-      const coreTools = options.tools ?? [...createReadTools(), createPatchTool(), createCommandTool(), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
+      const coreCommand = createCommandTool();
+      let commandRegistration: ToolRegistrationCapture | undefined;
+      const coreTools = options.tools ?? [...createReadTools(), createPatchTool(), coreCommand, createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
       const repositoryTools = options.repositoryContextTools ? [createRepositoryContextTool(this.repository)] : [];
-      const verificationTool = this.verificationEnabled ? createVerificationTool({ plans: this.verificationPlans, receipts: this.verificationReceipts, getRun: id => this.store.getRun(id), sourceObservation: (context, signal) => this.verificationHost.observe(context, AbortSignal.any([signal, this.hostResources.signal])), commandRuntime: this.toolRuntime, captureCatalogue: context => this.coordinator.captureToolCatalogue(context), artifacts: this.managedArtifacts }) : undefined;
+      const verificationTool = this.verificationEnabled ? createVerificationTool({ plans: this.verificationPlans, receipts: this.verificationReceipts, getRun: id => this.store.getRun(id), sourceObservation: (context, signal) => this.verificationHost.observe(context, AbortSignal.any([signal, this.hostResources.signal])), commandRuntime: this.toolRuntime, captureCatalogue: context => this.coordinator.captureToolCatalogue(context),
+        consumedSettlementWriter: (context, kind, revision, data) => this.coordinator.commitConsumedVerificationSettlement(context, kind, revision, data),
+        commandCapability: (_context, catalogue) => {
+          if (!commandRegistration) throw new EngineError('TOOL_PRODUCER_MISMATCH', 'The original engine command producer is unavailable');
+          this.toolRuntime.assertRegistrationCurrent(catalogue, commandRegistration);
+          return Object.freeze({ producer: 'engine-owned-run-command' as const, platform: process.platform, supported: process.platform !== 'win32', catalogueRevision: catalogue.revision });
+        }, artifacts: this.managedArtifacts }) : undefined;
       const verificationTools: ToolDefinition[] = verificationTool ? [{ ...verificationTool, prepare: async (input, context) => { await this.verificationHost.ensurePlan(context, context.signal); return verificationTool.prepare(input, context); } }] : [];
       const availableTools = toolDiscoveryPolicy ? [...coreTools, ...repositoryTools, createToolDiscoveryTool({
         identity: context => this.coordinator.toolDiscoveryIdentity(context),
@@ -415,6 +466,7 @@ export class MoodcodeEngine {
         const current = await tool.prepare(prepared.input, context);
         if (current.fingerprint !== prepared.fingerprint || JSON.stringify(current.preview) !== JSON.stringify(prepared.preview)) throw new EngineError('TOOL_APPROVAL_STALE', 'Tool resources changed since scoped authorization');
       } });
+      if (this.verificationEnabled && tools.includes(coreCommand)) commandRegistration = this.toolRuntime.captureRegistration('engine', 'run_command', coreCommand);
       this.plugins = new EnginePluginManager(this.toolRuntime);
       this.capabilities = {
         schemaVersion: SCHEMA_VERSION,
@@ -426,7 +478,26 @@ export class MoodcodeEngine {
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
       this.coordinator = new RunCoordinator({
-        ...(this.verificationEnabled ? { onRunStarted: (run, signal) => this.verificationHost.start(run, signal) } : {}),
+        ...(this.verificationEnabled ? {
+          onRunStarted: (run, signal) => this.verificationHost.start(run, signal),
+          verificationStop: async (run, boundary, signal) => {
+            if (!this.verificationHost.configuration(run.sessionId)) return null;
+            const workspace = this.store.getWorkspace(run.workspaceId);
+            if (!this.verificationPlans.get(run.sessionId, run.id)) {
+              try { await this.verificationHost.ensurePlan({ sessionId: run.sessionId, runId: run.id, workspace }, signal); }
+              catch (error) { if (!(error instanceof EngineError) || error.code !== 'VERIFICATION_CHECK_NOT_FOUND') throw error; }
+            }
+            const source = await this.verificationHost.observe({ sessionId: run.sessionId, runId: run.id, workspace }, signal), verification = this.verificationPlans.get(run.sessionId, run.id);
+            const result = await this.verificationController.evaluate(run.sessionId, run.id, this.verificationController.get(run.sessionId, run.id)?.revision ?? 0, { boundary, source, verificationRevision: verification?.revision ?? 0, planSha256: verification?.plans.at(-1)?.planSha256 ?? null }, signal);
+            const content = verificationContinuationMessage(result);
+            return content && result.result.stageId ? { stageId: result.result.stageId, message: { role: 'user' as const, content: `[Moodcode verification control v1]\n${content}` } } : null;
+          },
+          verificationBeforeProvider: async (run, boundary, signal) => {
+            const workspace = this.store.getWorkspace(run.workspaceId), source = await this.verificationHost.observe({ sessionId: run.sessionId, runId: run.id, workspace }, signal), verification = this.verificationPlans.get(run.sessionId, run.id);
+            const result = await this.verificationController.evaluate(run.sessionId, run.id, this.verificationController.get(run.sessionId, run.id)?.revision ?? 0, { boundary, source, verificationRevision: verification?.revision ?? 0, planSha256: verification?.plans.at(-1)?.planSha256 ?? null }, signal);
+            if (result.result.action === 'stop') throw new EngineError('VERIFICATION_CONTINUATION_BLOCKED', `Verification continuation stopped (${result.result.reason})`);
+          },
+        } : {}),
         lifecycleHooks: this.lifecycleHooks,
         store: this.store,
         providers,
@@ -904,6 +975,47 @@ export class MoodcodeEngine {
   getVerificationState(sessionId: string, runId: string) {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     return this.verificationPlans.get(sessionId, runId);
+  }
+
+  getVerificationCompletion(sessionId: string, runId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.verificationController.get(sessionId, runId);
+  }
+
+  previewWorkspaceTrust(workspaceId: string, paths: readonly string[]) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.workspaceTrust.preview(workspaceId, paths);
+  }
+
+  setWorkspaceTrust(input: Parameters<WorkspaceTrustService['set']>[0]) {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    this.store.getWorkspace(input.workspaceId);
+    return this.coordinator.withWorkspaceLease(input.workspaceId, async signal => { if (signal.aborted) throw signal.reason; return this.workspaceTrust.set(input); });
+  }
+
+  captureWorkspaceKnowledgeSources(workspaceId: string, selection: readonly KnowledgeSourceSelection[]) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.knowledgeHost.captureSources({ workspaceId, selection });
+  }
+
+  releaseWorkspaceKnowledgeSources(projection: KnowledgeSourceProjection): void {
+    this.knowledgeHost.releaseProjection(projection);
+  }
+
+  prepareWorkspaceKnowledgeGeneration(input: Omit<PrepareKnowledgeGeneration, 'binding' | 'source'> & { projection: KnowledgeSourceProjection }) {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    const { projection, ...plan } = input;
+    if (plan.workspaceId !== projection.workspaceId) return Promise.reject(new EngineError('KNOWLEDGE_BINDING_MISMATCH', 'Pending generation and original source projection must share the workspace'));
+    return this.coordinator.withWorkspaceLease(plan.workspaceId, async signal => {
+      if (signal.aborted) throw signal.reason;
+      this.knowledgeHost.assertProjectionFresh(projection);
+      return this.workspaceKnowledge.prepareGeneration({ ...plan, binding: projection.binding, source: projection.manifest });
+    });
+  }
+
+  captureWorkspaceKnowledgeTarget(workspaceId: string, path: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.knowledgeHost.captureFileTarget(workspaceId, path);
   }
 
   private refreshToolScopes(): void {

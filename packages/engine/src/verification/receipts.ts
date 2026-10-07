@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { validateArtifactReference } from '@moodcode/contracts/validation';
 import type { VerificationPlanService } from './plans.js';
 import {
-  VERIFICATION_LIMITS, normalizeVerificationSource, verificationDigest, verificationFail, verificationHash, verificationJson, verificationNumber, verificationPlain, verificationText,
-  type VerificationBegin, type VerificationObservation, type VerificationReceipt, type VerificationReceiptResult, type VerificationSnapshot, type VerificationSource, type VerificationState, type VerificationStatus,
+  VERIFICATION_LIMITS, normalizeVerificationCommandCapability, normalizeVerificationSource, verificationDigest, verificationFail, verificationHash, verificationJson, verificationNumber, verificationPlain, verificationText,
+  type VerificationBegin, type VerificationConsumedSettlementWriter, type VerificationObservation, type VerificationReceipt, type VerificationReceiptResult, type VerificationSnapshot, type VerificationSource, type VerificationState, type VerificationStatus,
 } from './types.js';
 
-const OBSERVATION_KEYS = ['disposition', 'command', 'cwd', 'profileId', 'profileRevision', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'sourceAfter', 'executionCheckpointId', 'exitCode', 'signal', 'started', 'cancelled', 'timedOut', 'cleanup', 'observedOutputBytes', 'outputAccountingComplete', 'artifactRefs', 'reasonCode', 'executionComplete'];
+const OBSERVATION_KEYS = ['disposition', 'command', 'cwd', 'profileId', 'profileRevision', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'sourceAfter', 'executionCheckpointId', 'exitCode', 'signal', 'started', 'cancelled', 'timedOut', 'cleanup', 'observedOutputBytes', 'outputAccountingComplete', 'artifactRefs', 'reasonCode', 'executionComplete', 'commandCapability'];
 function hashReceipt(value: Omit<VerificationReceipt, 'receiptSha256'>): VerificationReceipt { return { ...value, receiptSha256: verificationHash(value) }; }
 function current(snapshot: VerificationSnapshot, id: string): VerificationReceipt {
   verificationText(id); const receipt = snapshot.receipts.find(value => value.id === id);
@@ -24,6 +24,10 @@ export function normalizeVerificationObservation(value: VerificationObservation,
   if (copy.signal !== null && (typeof copy.signal !== 'string' || !/^SIG[A-Z0-9]{1,24}$/u.test(copy.signal))) verificationFail('INVALID_VERIFICATION_OBSERVATION', 'Observed process signal is invalid');
   if ([copy.started, copy.cancelled, copy.timedOut, copy.outputAccountingComplete].some(value => typeof value !== 'boolean') || copy.cancelled && copy.timedOut) verificationFail('INVALID_VERIFICATION_OBSERVATION', 'Execution flags must be unambiguous boolean observations');
   if (copy.executionComplete !== undefined && typeof copy.executionComplete !== 'boolean') verificationFail('INVALID_VERIFICATION_OBSERVATION', 'Execution completeness must be an actual boolean observation');
+  if (copy.commandCapability !== undefined) {
+    copy.commandCapability = normalizeVerificationCommandCapability(copy.commandCapability);
+    if (copy.disposition === 'unsupported' && copy.commandCapability.supported || copy.disposition === 'executed' && !copy.commandCapability.supported) verificationFail('INVALID_VERIFICATION_COMMAND_CAPABILITY', 'Actual disposition contradicts the pinned command platform capability');
+  }
   verificationPlain(copy.cleanup, ['confirmed', 'scope', 'evidenceSha256']);
   if (copy.cleanup.confirmed !== null && typeof copy.cleanup.confirmed !== 'boolean' || !['posix-process-group', 'windows-job', 'not-dispatched', 'unknown'].includes(copy.cleanup.scope)) verificationFail('INVALID_VERIFICATION_OBSERVATION', 'Cleanup evidence has invalid scope or confirmation');
   if (copy.cleanup.evidenceSha256 !== null) verificationDigest(copy.cleanup.evidenceSha256);
@@ -112,6 +116,16 @@ export class VerificationReceiptService {
     const { receiptSha256: _omitted, ...body } = old;
     const receipt = hashReceipt({ ...body, phase: 'settled', status, settledAt: this.plans.now(), observation, sourceStale: stale });
     const saved = this.plans.writeReceipts(snapshot, snapshot.receipts.map(value => value.id === old.id ? receipt : value));
+    return { revision: saved.revision, receipt };
+  }
+  /** Only the original live owner can settle a consumed dispatched effect while ordinary cancellation writes remain blocked. */
+  settleConsumed(sessionId: string, runId: string, expectedRevision: number, receiptId: string, value: VerificationObservation, writer: VerificationConsumedSettlementWriter): VerificationReceiptResult {
+    const snapshot = this.snapshot(sessionId, runId, expectedRevision), old = current(snapshot, receiptId);
+    if (old.phase !== 'dispatched') verificationFail('INVALID_CONSUMED_VERIFICATION_SETTLEMENT', 'Consumed settlement requires an existing dispatched receipt');
+    const observation = normalizeVerificationObservation(value, old, snapshot), { status, stale } = classifyVerificationObservation(observation);
+    const { receiptSha256: _omitted, ...body } = old;
+    const receipt = hashReceipt({ ...body, phase: 'settled', status, settledAt: this.plans.now(), observation, sourceStale: stale });
+    const saved = this.plans.writeConsumedReceipt(snapshot, receipt, writer);
     return { revision: saved.revision, receipt };
   }
   /** Administrative evidence conversion; it neither proves cleanup nor dispatches an old check. */

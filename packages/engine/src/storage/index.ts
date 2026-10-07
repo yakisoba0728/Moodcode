@@ -33,6 +33,12 @@ import { ProviderRecoveryStorage, captureProviderRecoveryHighWater, type Provide
 import { hasEvidenceRead, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
 import { captureToolRecoveryFrontiers } from './tool-recovery-frontier.js';
 import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefix, ActivePrefixContextPublication } from '../context/active-prefix.js';
+import { verificationDocumentKind, validateConsumedVerificationSettlement } from '../verification/plans.js';
+import { verificationControllerDocumentKind } from '../verification/controller.js';
+import { KnowledgeStorage } from '../knowledge/store.js';
+import type { KnowledgeStoragePorts } from '../knowledge/types.js';
+import { validateKnowledgeArchiveRow } from '../knowledge/validation.js';
+import { KnowledgeHostAdapter } from '../knowledge/host.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
@@ -479,6 +485,22 @@ export class SqliteStore implements SessionEngineStore {
     return event;
   }
   getSessionDocument(sessionId: string, kind: string): SessionDocument | null { return this.executionRecords.getSessionDocument(sessionId, kind); }
+  createKnowledgeStorage(ports: Omit<KnowledgeStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgeStorage {
+    this.assertOpen();
+    return new KnowledgeStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.transaction(operation) });
+  }
+  createKnowledgeHostAdapter(ports: Omit<ConstructorParameters<typeof KnowledgeHostAdapter>[1], 'readTx' | 'getWorkspace'>): KnowledgeHostAdapter {
+    this.assertOpen();
+    return new KnowledgeHostAdapter(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), readTx: operation => this.transaction(operation, false) });
+  }
+  /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
+  pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string): void {
+    this.transaction(() => {
+      this.getWorkspace(workspaceId);
+      const record = validateKnowledgeArchiveRow({ table: 'knowledge_import_pauses', key: workspaceId, workspaceId, data: { workspaceId, archiveSha256, createdAt: new Date().toISOString(), state: 'paused' } });
+      this.db.prepare('INSERT INTO knowledge_import_pauses(id,workspace_id,data) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(workspaceId, workspaceId, JSON.stringify(record.data));
+    });
+  }
   putSessionDocument(sessionId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument { return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data); }
   getRun(id: string): Run {
     this.assertOpen();
@@ -637,6 +659,40 @@ export class SqliteStore implements SessionEngineStore {
     return document;
   }
 
+  /** One existing dispatched receipt can settle while its real native tool still owns cleanup. */
+  putConsumedVerificationSettlement(identity: { runId: string; toolCallId: string; turnId: string; attemptId: string }, kind: string, expectedRevision: number, data: JsonObject): SessionDocument {
+    let sessionId!: string;
+    const saved = this.transaction(() => {
+      const run = this.getRun(identity.runId); sessionId = run.sessionId;
+      if (isTerminal(run.state)) throw new EngineError('RUN_TERMINAL', 'Terminal Runs cannot accept consumed settlement');
+      const tool = this.getToolCall(identity.toolCallId), turn = this.getTurn(identity.turnId), attempt = this.getAttempt(identity.attemptId);
+      const part = this.listParts(turn.id).find(value => value.type === 'tool' && value.toolCallId === tool.id);
+      if (tool.runId !== run.id || tool.sessionId !== sessionId || tool.name !== 'verify_changes' || tool.state !== 'running' || turn.runId !== run.id || turn.sessionId !== sessionId || turn.state !== 'awaiting_tools' || attempt.runId !== run.id || attempt.sessionId !== sessionId || attempt.turnId !== turn.id || attempt.state !== 'completed' || !part || part.type !== 'tool' || part.name !== tool.name || part.runId !== run.id || part.sessionId !== sessionId || part.state !== 'open') throw new EngineError('VERIFICATION_SETTLEMENT_OWNER_INVALID', 'Consumed settlement does not match the still executing native tool, Turn, Attempt and Part');
+      if (kind !== verificationDocumentKind(run.id)) throw new EngineError('VERIFICATION_SCOPE_MISMATCH', 'Consumed settlement can write only its exact Run receipt document');
+      const before = this.getSessionDocument(sessionId, kind);
+      if (!before || before.revision !== expectedRevision) throw new EngineError('SESSION_DOCUMENT_CONFLICT', 'Consumed settlement document revision changed');
+      validateConsumedVerificationSettlement(before.data, data, { sessionId, runId: run.id, toolCallId: tool.id });
+      if (before.data.workspaceId !== run.workspaceId || data.workspaceId !== run.workspaceId) throw new EngineError('VERIFICATION_SCOPE_MISMATCH', 'Consumed settlement workspace changed');
+      return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data);
+    });
+    this.notify(sessionId);
+    return saved;
+  }
+
+  /** Verification receipt revision and controller publication are one primary CAS transaction. */
+  putActiveVerificationControllerDocument(runId: string, kind: string, expectedRevision: number, data: JsonObject, expectedVerificationRevision: number): SessionDocument {
+    let sessionId!: string;
+    const saved = this.transaction(() => {
+      const run = this.getRun(runId); sessionId = run.sessionId;
+      if (isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', 'Stopped Runs cannot publish task completion or repair stages');
+      if (kind !== verificationControllerDocumentKind(runId) || data.runId !== run.id || data.sessionId !== sessionId || data.workspaceId !== run.workspaceId) throw new EngineError('VERIFICATION_SCOPE_MISMATCH', 'Controller publication must match its exact Run document');
+      const observed = this.getSessionDocument(sessionId, verificationDocumentKind(runId));
+      if ((observed?.revision ?? 0) !== expectedVerificationRevision) throw new EngineError('VERIFICATION_CONTROLLER_SOURCE_STALE', 'Verification receipt revision changed before controller CAS');
+      return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data);
+    });
+    this.notify(sessionId); return saved;
+  }
+
   getSnapshot(sessionId: string): SessionSnapshot {
     return this.transaction(() => {
       const session = this.getSession(sessionId);
@@ -658,6 +714,15 @@ export class SqliteStore implements SessionEngineStore {
     const tool = decode<ToolCallRecord>(row);
     this.assertScope(this.getRun(tool.runId), tool);
     return tool;
+  }
+
+  hasDeniedVerificationTool(runId: string): boolean {
+    const run = this.getRun(runId);
+    const row = this.db.prepare("SELECT id FROM tools WHERE run_id=? AND state='denied' AND json_extract(data,'$.name')='verify_changes' ORDER BY ordinal LIMIT 1").get(runId);
+    if (!row) return false;
+    const tool = this.getToolCall(String(row.id));
+    if (tool.sessionId !== run.sessionId || tool.runId !== run.id || tool.name !== 'verify_changes' || tool.state !== 'denied') throw new EngineError('RECORD_SCOPE_MISMATCH', 'Verification denial belongs to another native owner');
+    return true;
   }
   listToolApprovals(toolCallId: string): ApprovalRecord[] {
     return this.transaction(() => {

@@ -19,6 +19,8 @@ export interface EngineStore {
   hasUncertainExecution?(workspaceId: string): boolean;
   commit(runId: string, type: string, payload: JsonObject, change?: CommitChange): EngineEvent;
   commitRunObservation?(runId: string, type: 'lifecycle.outcome' | 'tool.policy_decision', payload: JsonObject, refs?: { turnId?: string; attemptId?: string }): EngineEvent;
+  /** Only an already consumed, still executing native verification tool may settle during cancellation. */
+  putConsumedVerificationSettlement?(identity: { runId: string; toolCallId: string; turnId: string; attemptId: string }, kind: string, expectedRevision: number, data: JsonObject): import('./storage/native-records.js').SessionDocument;
   getSnapshot(sessionId: string): SessionSnapshot;
   readEvents(sessionId: string, afterSeq: number, limit?: number): EngineEvent[];
   subscribe(sessionId: string, afterSeq: number, signal?: AbortSignal): AsyncIterable<EngineEvent>;
@@ -87,5 +89,10 @@ export interface ToolCheckpointObservation { workspace: Workspace; run: Run; too
 export interface ChildRunReservation { signal: AbortSignal; remainingBudget: import('./child-tasks/index.js').ChildBudget; allocation: import('./child-tasks/index.js').ChildBudget }
 export interface RunUsage { turns: number; toolCalls: number; outputBytes: number }
 export type ContextBuilder = (request: ContextRequest) => Promise<ProviderMessage[]>;
+export interface ContextRequest { verificationContinuation?: ProviderMessage }
+export interface CoordinatorOptions {
+  verificationStop?(run: Run, boundary: import('./verification/completion.js').VerificationBoundary, signal: AbortSignal): Promise<{ stageId: string; message: ProviderMessage } | null>;
+  verificationBeforeProvider?(run: Run, boundary: import('./verification/completion.js').VerificationBoundary, signal: AbortSignal): Promise<void>;
+}
 export interface CoordinatorOptions { releaseContext?: (sessionId: string, runId: string) => void; onRunStarted?: (run: Run, signal: AbortSignal) => Promise<void>; lifecycleHooks?: import('./lifecycle/index.js').LifecycleHookRegistry; getToolProfile?: (run: Run) => import('./tools/runtime/index.js').RuntimeToolProfile | undefined; store: EngineStore; providers: ReadonlyMap<string, ProviderAdapter>; tools: readonly ToolDefinition[]; approvals: ApprovalPort; artifactDir: string; executionLockPath?: string; buildContext: ContextBuilder; assertContextFresh?: (request: TurnRequest, signal: AbortSignal) => Promise<void>; contextSnapshot?: (sessionId: string, config: RunConfig) => SessionSnapshot; getContextRevisionId?: (sessionId: string) => string | undefined; toolRuntime?: import('./tools/runtime/index.js').ScopedToolRuntime; toolDiscoveryPolicy?: import('./tools/runtime/discovery.js').ResolvedToolDiscoveryPolicy; coreToolNames?: readonly string[]; recoverContextOverflow?: (request: ContextRequest, provider: ProviderAdapter) => Promise<void>; getAllowedTools?: (run: Run) => readonly string[] | undefined; onToolCheckpoint?: (observation: ToolCheckpointObservation) => void | Promise<void> }
 export interface CoordinatorPort { submit(input: SubmitInput): RunReceipt; cancel(runId: string): { runId: string; state: RunState }; waitForRun(runId: string): Promise<Run>; close(): Promise<void> }

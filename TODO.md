@@ -297,9 +297,9 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 2026-10-07 사용자 요청으로 새 goal을 활성화했다. [실행·종료 조건](docs/moodcode/engine-phase-two-goal.md), [80개 작업 상태](docs/moodcode/engine-phase-two-progress.json)를 따른다. 기존1차 종료와 환경 이월4개는 유지한다. 아래 항목은 실제 구현·엔진 연결·검증 뒤에만 완료 표시한다.
 
 - [ ] **MC2-01 — 저장소 문맥·LSP navigation**: P1 · W1. frozen ContextSource/snippets·공유 byte 예약·native Attempt freshness까지 연결. 자동 관련 path·real semantic 큰 corpus 품질 검증 잔여. [통합](docs/moodcode/engine-phase-two-w2.md).
-- [ ] **MC2-02 — 검증 계획·제한 repair·완료 gate**: P1 · W2. host check/source 정책·idle CAS·actual command exact approval/결과 영수증 연결. native 취소·unsupported 관측 보강, bounded repair·completion/recovery gate 잔여.
-- [ ] **MC2-03 — 지침 신뢰·승인형 프로젝트 기억**: P1 · W3. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
-- [ ] **MC2-04 — typed lifecycle·policy hook**: P1 · W1. host registry·observe/deny/stop·native 경계·child 공유 연결. context/input rewrite·검증 기반 continuation 잔여.
+- [x] **MC2-02 — 검증 계획·제한 repair·완료 gate**: P1 · W2/W3. 원본 명령 capability·실제 취소 결과/unsupported·같은 Run의 제한 repair와 원래 budget·stalled/blocked·현재 source 및 cleanup에 근거한 task completion을 연결했다. restart/import/late 결과는 자동 재실행하지 않는다. [통합](docs/moodcode/engine-phase-two-w3.md).
+- [ ] **MC2-03 — 지침 신뢰·승인형 프로젝트 기억**: P1 · W3. 실제 Engine의 workspace trust/CAS·source/target capture·pending plan·DB10 및 archive import pause 기반 연결. native tools-free generation owner·추출/inbox·승인 publish/revoke·활성 문맥 projection 잔여. [통합](docs/moodcode/engine-phase-two-w3.md).
+- [ ] **MC2-04 — typed lifecycle·policy hook**: P1 · W1. host registry·observe/deny/stop·native 경계·child 공유 연결. 검증 전용 continuation은 고정 ContextPlan과 같은 Run에 연결했고, 일반 typed hook의 context/input rewrite·continuation 계약은 잔여.
 - [ ] **MC2-05 — 적용 전 ProposalSet overlay**: P2 · W4. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-06 — 상주 child·팀 mailbox·board**: P2 · W4. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-07 — 역할 workflow·recipe·child join**: P2 · W4. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
@@ -317,9 +317,9 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 - [ ] **MC2-19 — PR SHA 기반 CI/review feedback**: P2 · W5. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-20 — coding attempt group·headless batch**: P2 · W5. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 
-### W1에서 완료한 세부 작업
+### W1/W2에서 완료한 세부 작업
 
-완료9개/전체80개. 범위별 남은 조건은 위 항목과 진행 JSON에 유지한다.
+W1/W2에서 완료한12개, W3 포함 현재 누적15개/전체80개. 범위별 남은 조건은 위 항목과 진행 JSON에 유지한다.
 
 - [x] **MC2-01a** — selected source snapshot·hash/host parser routing/ignore revision·generation CAS.
 - [x] **MC2-01b** — bounded LSP symbols/definitions/references·stale/unsupported·실제 read tool/host API.
@@ -333,3 +333,12 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 - [x] **MC2-11d** — physical alias/root·MCP 연결/정책 교체·stale 승인·deny/analyzer 실패·parent/child generation 및 승인 뒤 변경 effect 0.
 - [x] **MC2-12a** — bounded native trajectory·digest/partial/usage/source provenance·무실행 관측.
 - [x] **MC2-12b** — typed provider 오류 분류·request/cleanup·zero/unknown usage projection.
+
+### W3에서 완료한 세부 작업과 진행 중인 기반
+
+전체20개 범위 중2개, 세부80개 중15개 완료다. [검증 기록](docs/moodcode/engine-phase-two-w3-verification.json)은 현재 소스·타입 검사·전체 회귀·headless fixture 결과를 고정한다. 전체 goal은 active다.
+
+- [x] **MC2-02b** — pass/fail/skipped/unsupported/timeout/cancelled/uncertain 결과, 원본 command 등록과 실제 취소 중 단일 consumed settlement, 원래 로그·사후 source/cleanup 보존.
+- [x] **MC2-02c** — 같은 Run의 최대2단계 repair, 원래 Turn/tool/output/duration/child 예산, 중복 stage 소비 차단·stalled/blocked 판정·frozen ContextPlan control.
+- [x] **MC2-02d** — 실제 native 종료·현재 source·required pass·확정 cleanup에 근거한 task completion, retry/steer/등록 교체·late 결과·restart/import 관측과 자동 재실행 차단.
+- [ ] **MC2-03a** — trust/source/target/plan 및 DB10 기반은 실제 엔진에 연결. production native generation owner/output/usage와 candidate 생성이 없어 완료로 표시하지 않는다.

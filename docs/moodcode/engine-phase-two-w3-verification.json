@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "stage": "phase-two bounded verification controller / consumed command settlement / workspace knowledge foundation",
+  "status": "passed",
+  "recordedAt": "2026-10-07T15:20:43.228028+00:00",
+  "parentCommit": "7f3d9d470e1caa26d9cb6b069c0bbff3d0e824f0",
+  "implementationIdentity": "working-tree source/test hashes before local commit; no self-referential commit hash",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "checks": [
+    {
+      "kind": "engine",
+      "command": "npm run test:engine",
+      "exitCode": 0,
+      "logSha256": "b0a987d163f2520552239de69e64a25e6ab5aeae9832a65337acd1d0c1d1e1d7",
+      "tests": 3053,
+      "pass": 3051,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0,
+      "durationMs": 78833.97525
+    },
+    {
+      "kind": "source",
+      "command": "node --import <absolute project node_modules/tsx/dist/loader.mjs> --test --test-concurrency=4 packages/engine/src/verification/plans.test.ts packages/engine/src/verification/receipts.test.ts packages/engine/src/verification/tool.test.ts packages/engine/src/verification/execution.test.ts packages/engine/src/verification/completion.test.ts packages/engine/src/verification/controller.test.ts packages/engine/src/verification/controller-integration-races.test.ts packages/engine/src/verification/engine-verification.test.ts packages/engine/src/verification/completion-registry.test.ts packages/engine/src/context/verification-continuation.test.ts packages/engine/src/knowledge/store.test.ts packages/engine/src/knowledge/host.test.ts packages/engine/src/knowledge/engine-knowledge.test.ts packages/engine/src/workspace/trust.test.ts packages/engine/src/tools/runtime/producer-registration.test.ts packages/engine/src/storage/migrations.test.ts packages/engine/src/storage/archive.test.ts packages/engine/src/recovery/schema-bounds.test.ts",
+      "exitCode": 0,
+      "logSha256": "280a3552f77756b72969427d057bb89d35d60a629a23e64c9d360620392a404f",
+      "tests": 283,
+      "pass": 283,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 12921.819583
+    },
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "eval",
+      "command": "node scripts/evaluate-engine.mjs",
+      "exitCode": 0,
+      "logSha256": "a94939fe11cbbd15797633d67a22fdb51bfa472bdc1079490689d503deca7db4",
+      "tasks": [
+        {
+          "taskId": "addition-bug",
+          "passed": true
+        },
+        {
+          "taskId": "empty-list-boundary",
+          "passed": true
+        },
+        {
+          "taskId": "two-module-change",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "kind": "supplementary-source",
+      "command": "node --import <absolute project tsx loader> --test diagnostics.test.ts archive-child-document-inspection-review.integration.test.ts schema-bounds.test.ts",
+      "exitCode": 0,
+      "logSha256": "d379906cad51f670d7f2b63e8edeb691531225b14aec3a3eed14d212f57e439d",
+      "tests": 50,
+      "pass": 50,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 11178.564166
+    }
+  ],
+  "sourceTestPaths": [
+    "packages/engine/src/verification/plans.test.ts",
+    "packages/engine/src/verification/receipts.test.ts",
+    "packages/engine/src/verification/tool.test.ts",
+    "packages/engine/src/verification/execution.test.ts",
+    "packages/engine/src/verification/completion.test.ts",
+    "packages/engine/src/verification/controller.test.ts",
+    "packages/engine/src/verification/controller-integration-races.test.ts",
+    "packages/engine/src/verification/engine-verification.test.ts",
+    "packages/engine/src/verification/completion-registry.test.ts",
+    "packages/engine/src/context/verification-continuation.test.ts",
+    "packages/engine/src/knowledge/store.test.ts",
+    "packages/engine/src/knowledge/host.test.ts",
+    "packages/engine/src/knowledge/engine-knowledge.test.ts",
+    "packages/engine/src/workspace/trust.test.ts",
+    "packages/engine/src/tools/runtime/producer-registration.test.ts",
+    "packages/engine/src/storage/migrations.test.ts",
+    "packages/engine/src/storage/archive.test.ts",
+    "packages/engine/src/recovery/schema-bounds.test.ts"
+  ],
+  "fileSha256": {
+    "packages/engine/src/context/index.ts": "9bbc0811035535b39e11d16b863e3254be4d17d6c2450a035924b6f5a556d7fc",
+    "packages/engine/src/context/service.ts": "4e851369f741f0c25458a8c5ac9452b9088b05f5aabeb3fc37b9bb1b378986bd",
+    "packages/engine/src/context/verification-continuation.test.ts": "84905fdc50db5a1384b3ea095711ae0cf4ec65bb1467ff4e4ce034a76e46b19b",
+    "packages/engine/src/diagnostics/diagnostics.test.ts": "203773870b458c026aa738a574229db33b86d8128fe047951a41f737647c768d",
+    "packages/engine/src/engine.ts": "fc9fe6551bf723b3cbdb3b89890d3f82b7416de4661a99ec479ddb3b886020a5",
+    "packages/engine/src/index.ts": "85fc0d945c347216a686a943e6d04d907de46db816e37adb43695aee038e4f30",
+    "packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts": "24ce3aa075875f68fa9cf27f23ef493b30cfafda0b5c36c1ac3f3a2508302d76",
+    "packages/engine/src/knowledge/engine-knowledge.test.ts": "66735201219357c7d0e7febdb240c4818e6d22fff91d315bde2c9e5f4fbb2a5c",
+    "packages/engine/src/knowledge/host.test.ts": "788bff4b56d3912bd50884a2ccc6b1c5b38d665307daf587d95cf81c7904beb9",
+    "packages/engine/src/knowledge/host.ts": "0f0c5b6aeab841f58a222122782bb7365b7c8896d314c94559e3929603736509",
+    "packages/engine/src/knowledge/index.ts": "c3e696159b15d5a3e4bc5a9ca3a66fea59fa6b7de60239d5feff5062576a8d61",
+    "packages/engine/src/knowledge/store.test.ts": "b530485383b3a880fc66b2d7e97e4e380e4a1beb81dbc039900b29ab22372c07",
+    "packages/engine/src/knowledge/store.ts": "12afdd1f581a30438dba02aedbe54a377ae8672cdbd26568780db435fde4142b",
+    "packages/engine/src/knowledge/types.ts": "17070e879bf79817278b1e0b693b8cea01dd593fde77733cbaf8f52e95657a4d",
+    "packages/engine/src/knowledge/validation.ts": "b80130986190e9e84bc6fde1b4485057501cac74adf54fdeaa53b2b825ea0195",
+    "packages/engine/src/ports.ts": "2c11c6e9730033a33606744ad6bc244b78cab75d1fe328c124105d29b8b256fb",
+    "packages/engine/src/recovery/index.ts": "524d4f3b71e582441e0388c8336f75c5e7b6913d7a75654f575cc6c67e7b662c",
+    "packages/engine/src/recovery/schema-bounds.test.ts": "ec56c9aa4c48540a253b39bd066282c69d41828f66c825b864eb3c7d26c31418",
+    "packages/engine/src/recovery/snapshot.ts": "71416e925ea7e07235ccfdb875167076e54514d3de1ee82e80310bab0ff217b9",
+    "packages/engine/src/runner/index.ts": "aea27e7c06b9ecc7423b7bb1b40217b26bb54e77a1264ed2d8dc8fe1209fd4fa",
+    "packages/engine/src/storage/archive.test.ts": "a12d2578d8adce7ff2f9abe7a27defa211942d3723637146acc25de0c73ce668",
+    "packages/engine/src/storage/archive.ts": "084cd7735a315c89d396f601fd3b673d071e0cbc85172d816bb7d624ff4192aa",
+    "packages/engine/src/storage/index.ts": "83dccde263afe033b23fb3877d40247928b7203f8d4b658a7dce513b4a1bcfe0",
+    "packages/engine/src/storage/migrations.test.ts": "eb8ff5d26af94654b2e585c6202cc9f9c639f3d4dbcf838cccbf4ee749f54b71",
+    "packages/engine/src/storage/migrations.ts": "b73502f87f7d741da9f95bd5493861536a067adf7991e3f9f57808d9880a6848",
+    "packages/engine/src/tools/runtime/index.ts": "020a1b72579261b9d603e2b13ad9bd0258108c06ecb0bef3ae586709f59d4ab0",
+    "packages/engine/src/tools/runtime/producer-registration.test.ts": "4e915576f153b2ed8838f23cf7a9c194eeeeb2e14e05f8c4684f3311220f0a4c",
+    "packages/engine/src/verification/completion-registry.test.ts": "7a23d65aa5ff479b6493aa21a7669af34b065e8ff49f3bc9f6a7556b4311c3a5",
+    "packages/engine/src/verification/completion.test.ts": "27a7241e93c9c58cfb67c4350923bd5076f0be81b7bf11878069645686a9e2af",
+    "packages/engine/src/verification/completion.ts": "5a10999a33ef53b48e762b7592c864d9da33bc0f66f87be9db7b1855076e5117",
+    "packages/engine/src/verification/controller-integration-races.test.ts": "099a964ea27c18b73fc55b12d0ae4d1ce55a2a9e6a4a4c6d0fa103c82f531bfe",
+    "packages/engine/src/verification/controller.test.ts": "3ca1f21e8be9a5be3aab3ea76e6e41c30978c0e44880d26be42da4c84c56a3a0",
+    "packages/engine/src/verification/controller.ts": "6969c4a8518539fd5e2ff33f848bd5e07e15a62c0d7c849737cb943cad2c0145",
+    "packages/engine/src/verification/engine-verification.test.ts": "0da8b8c500d9c87feb36dd543171f689f9098ee07a0b07f2fdcb64d5d99c9c41",
+    "packages/engine/src/verification/execution.test.ts": "775349d98959081f634904fc8e0d00cde6223f1326d69429fff50347ba8688e6",
+    "packages/engine/src/verification/execution.ts": "9f5ab93325cf697808843c18b34fe0d7ea6bfc5c5480d8aaad5357dc283ccc65",
+    "packages/engine/src/verification/index.ts": "934d82263bc4d1461e5a3e8b8bd510d2beaf00299f90849c89518dafcce0c3c6",
+    "packages/engine/src/verification/plans.test.ts": "d4ab944f080ee040ad99bdc62f385e0fbe0f9e05ee38ae1c67046364c91d1494",
+    "packages/engine/src/verification/plans.ts": "44ea6c27756fd314b0519527f1a5e723478ca64b75c596418d7f12f6998c7ca9",
+    "packages/engine/src/verification/receipts.test.ts": "e5f5c1300db066ca5d773bcf00a69362b9a2fc50e8cfa25633c0932a153050ea",
+    "packages/engine/src/verification/receipts.ts": "ddfcb4257807973ada64df133bcdd5858c8bb5edd2897304b6adc4ab085d1404",
+    "packages/engine/src/verification/tool.test.ts": "6e23e3b4944efe64700a47d7946d19be709e2d440be455d3eb8b78da95de294a",
+    "packages/engine/src/verification/tool.ts": "5241f4138ba219b3ea05355d78a76cec6d510f1921d39a70b0cc2464b5c42946",
+    "packages/engine/src/verification/types.ts": "34f8ac43989ed8285dd8037065c821bf1e8cfb58163160cb9a286feef94a52c1",
+    "packages/engine/src/workspace/trust.test.ts": "02aa9185fa0eebfabf45707ab4a1ce0ee117674ff7ae7d4a1d593238721a6105",
+    "packages/engine/src/workspace/trust.ts": "bc7f271b24d8e3cb3870c1d682dcad8be0b6512c40a42b98c953f3e9801df5a5"
+  },
+  "completion": {
+    "goalStatus": "active",
+    "completedWorkItems": 15,
+    "totalWorkItems": 80,
+    "completedFamilies": 2,
+    "totalFamilies": 20,
+    "newlyCompleted": [
+      "MC2-02b",
+      "MC2-02c",
+      "MC2-02d"
+    ],
+    "inProgressFoundation": [
+      "MC2-03a"
+    ]
+  },
+  "resolvedGateFailures": [
+    {
+      "kind": "initial-engine-gate",
+      "failures": 2,
+      "resolution": "Real Git timeout fixture now waits within 1500 ms for observed PID readiness under concurrent load; archive child re-signed fixture includes DB10 knowledge tables in its logical hash. Production deadlines and assertions remain unchanged."
+    },
+    {
+      "kind": "initial-source-gate",
+      "failures": 1,
+      "resolution": "Cancellation fixture observes actual captured command stdout before aborting, with an explicit 5-second failure deadline. Actual source-after, cleanup, cancellation and original stdout assertions remain. Repeated source and full headless gates pass."
+    }
+  ],
+  "limits": [
+    "Verification uses explicit bounded host-selected source files and checks, not an all-repository correctness proof.",
+    "Completion is a native stop-boundary observation. Historical controller/candidates do not confer execution authority or verify later file edits.",
+    "Commands ran on local macOS/posix. Unsupported Windows capability is a no-dispatch fixture, not native Windows execution proof.",
+    "Tools-free knowledge generation owner/provider request/output/usage and production candidate append remain unavailable. MC2-03a is in progress.",
+    "Pending knowledge plans and trusted source/target captures are integrated with real Engine and DB10; absent file target only. Existing file target revision port and workspace-document publication are unsupported.",
+    "Knowledge extraction/inbox, exact approval publish/revoke, active ContextPlan projection and imported-knowledge recovery remain pending.",
+    "Generic typed hook input/context rewrite and continuation remain separate incomplete MC2-04 items.",
+    "No real semantic language-server large-corpus quality result, OS sandbox claim, GUI changes or external deployment evidence.",
+    "Evaluation uses scripted local coding fixtures, not a live model success result.",
+    "Two existing conditional test skips are retained and not counted as passes."
+  ],
+  "environmentDebts": [
+    "E5-13",
+    "E5-08",
+    "E6-07",
+    "E6-08"
+  ]
+}

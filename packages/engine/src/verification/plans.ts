@@ -4,12 +4,13 @@ import { isTerminal } from '@moodcode/contracts';
 import { normalizeVerificationObservation, classifyVerificationObservation } from './receipts.js';
 import {
   VERIFICATION_LIMITS, normalizeVerificationSource, verificationDigest, verificationFail, verificationHash, verificationJson, verificationNumber, verificationPlain, verificationText, verificationTimestamp,
-  type VerificationCheck, type VerificationCheckRegistration, type VerificationClock, type VerificationIndexPage, type VerificationPlan, type VerificationPlanSelection, type VerificationReceipt, type VerificationSnapshot, type VerificationState, type VerificationStore,
+  type VerificationCheck, type VerificationCheckRegistration, type VerificationClock, type VerificationConsumedSettlementWriter, type VerificationIndexPage, type VerificationPlan, type VerificationPlanSelection, type VerificationReceipt, type VerificationSnapshot, type VerificationState, type VerificationStore,
 } from './types.js';
 
 const INDEX_KIND = 'verification.index';
 const CHECK_KEYS = ['id', 'revision', 'workspaceId', 'command', 'cwd', 'profileId', 'profileRevision', 'sourceRevision', 'timeoutMs', 'maxOutputBytes', 'required'] as const;
 const RECEIPT_KEYS = ['schemaVersion', 'id', 'sessionId', 'runId', 'workspaceId', 'planId', 'planSha256', 'checkId', 'registrationSha256', 'attempt', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'phase', 'status', 'createdAt', 'dispatchedAt', 'settledAt', 'observation', 'sourceStale', 'recovery', 'receiptSha256'];
+const IMMUTABLE_RECEIPT_KEYS = ['schemaVersion', 'id', 'sessionId', 'runId', 'workspaceId', 'planId', 'planSha256', 'checkId', 'registrationSha256', 'attempt', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'createdAt', 'dispatchedAt'] as const;
 export function verificationDocumentKind(runId: string): string { verificationText(runId); return 'verification.run.' + verificationHash(runId).slice(0, 40); }
 function normalizeCheck(value: VerificationCheckRegistration): VerificationCheckRegistration {
   verificationPlain(value, CHECK_KEYS);
@@ -106,6 +107,21 @@ function normalizeState(value: unknown, sessionId: string, runId: string, worksp
   return state;
 }
 
+/** Pure delta validation, also consumed by the primary store transaction's independent owner guard. */
+export function validateConsumedVerificationSettlement(before: unknown, next: unknown, owner: { sessionId: string; runId: string; toolCallId: string }): void {
+  verificationPlain(owner, ['sessionId', 'runId', 'toolCallId']); verificationText(owner.sessionId); verificationText(owner.runId); verificationText(owner.toolCallId);
+  const previousData = verificationJson(before); verificationText(previousData.workspaceId);
+  const previous = normalizeState(previousData, owner.sessionId, owner.runId, previousData.workspaceId), candidate = normalizeState(next, owner.sessionId, owner.runId, previous.workspaceId);
+  if (verificationHash(previous.plans) !== verificationHash(candidate.plans) || previous.receipts.length !== candidate.receipts.length) verificationFail('INVALID_CONSUMED_VERIFICATION_SETTLEMENT', 'Consumed settlement cannot change plans or receipt counts');
+  let changed = 0;
+  for (let index = 0; index < previous.receipts.length; index++) {
+    const old = previous.receipts[index]!, replacement = candidate.receipts[index]!;
+    if (verificationHash(old) === verificationHash(replacement)) continue;
+    if (++changed !== 1 || old.toolCallId !== owner.toolCallId || old.phase !== 'dispatched' || replacement.phase !== 'settled' || replacement.recovery !== 'none' || replacement.observation === null || IMMUTABLE_RECEIPT_KEYS.some(key => verificationHash(old[key]) !== verificationHash(replacement[key]))) verificationFail('INVALID_CONSUMED_VERIFICATION_SETTLEMENT', 'Only the existing dispatched execution may publish its bound observation');
+  }
+  if (changed !== 1) verificationFail('INVALID_CONSUMED_VERIFICATION_SETTLEMENT', 'Consumed settlement must change exactly one existing dispatched receipt');
+}
+
 /** Frozen per-Run plans and bounded receipt state use existing session document CAS. */
 export class VerificationPlanService {
   constructor(private readonly store: VerificationStore, readonly registry: VerificationCheckRegistry, private readonly clock: VerificationClock = () => new Date().toISOString()) {}
@@ -183,6 +199,19 @@ export class VerificationPlanService {
     const { revision, ...state } = current;
     const next = normalizeState({ ...state, receipts }, state.sessionId, state.runId, state.workspaceId), data = verificationJson(next);
     const saved = recovery ? this.store.putSessionDocument(state.sessionId, verificationDocumentKind(state.runId), revision, data) : this.store.putActiveRunDocument(state.runId, verificationDocumentKind(state.runId), revision, data);
+    return { ...next, revision: saved.revision };
+  }
+  /** @internal The live execution owner supplies a separately authenticated consumed-settlement writer. */
+  writeConsumedReceipt(snapshot: VerificationSnapshot, receipt: VerificationReceipt, writer: VerificationConsumedSettlementWriter): VerificationSnapshot {
+    const current = this.get(snapshot.sessionId, snapshot.runId);
+    if (!current || current.revision !== snapshot.revision || verificationHash(current.plans) !== verificationHash(snapshot.plans)) verificationFail('REVISION_CONFLICT', 'Consumed verification source document changed');
+    const { run } = this.owner(snapshot.sessionId, snapshot.runId);
+    if (isTerminal(run.state)) verificationFail('RUN_TERMINAL', 'A terminal Run cannot accept a consumed verification observation');
+    if (typeof writer !== 'function') verificationFail('INVALID_CONSUMED_VERIFICATION_SETTLEMENT', 'Consumed verification requires the captured host writer');
+    const { revision, ...before } = current, data = verificationJson({ ...before, receipts: current.receipts.map(old => old.id === receipt.id ? receipt : old) });
+    validateConsumedVerificationSettlement(before, data, { sessionId: before.sessionId, runId: before.runId, toolCallId: receipt.toolCallId });
+    const next = normalizeState(data, before.sessionId, before.runId, before.workspaceId), saved = writer(verificationDocumentKind(before.runId), revision, data);
+    if (saved.revision !== revision + 1 || verificationHash(saved.data) !== verificationHash(data)) verificationFail('INVALID_CONSUMED_VERIFICATION_SETTLEMENT', 'Consumed writer did not return the exact committed document');
     return { ...next, revision: saved.revision };
   }
   private readIndex(sessionId: string): { revision: number; runIds: string[] } {

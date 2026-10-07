@@ -401,6 +401,11 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
       || arrayBytes(cost + entryCost(documentNotice), count + 1) > limit) throw new EngineError('DOCUMENT_HISTORY_METADATA_LIMIT', 'Required document provenance cannot fit beside the current exchange');
     cost += entryCost(documentNotice); count++;
   }
+  const verificationContinuation = request.verificationContinuation;
+  if (verificationContinuation) {
+    if (verificationContinuation.role !== 'user' || typeof verificationContinuation.content !== 'string' || Buffer.byteLength(verificationContinuation.content) > 9216 || Object.keys(verificationContinuation).some(key => !['role', 'content'].includes(key)) || arrayBytes(cost + entryCost(verificationContinuation), count + 1) > limit) throw new EngineError('VERIFICATION_CONTEXT_LIMIT', 'Required verification control data cannot fit within the original context budget');
+    cost += entryCost(verificationContinuation); count++;
+  }
   const semantic = request.semanticMemory, prefixMemory = request.activePrefixMemory;
   for (const memory of [semantic, prefixMemory]) {
     if (!memory) continue;
@@ -458,5 +463,5 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
   }
   checkAbort(request.signal);
   const messages = blocks.filter(item => selected.has(item)).flatMap((item) => item.messages);
-  return [...(system ? [system] : []), ...(profile ? [profile] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...(prefixMemory ? [prefixMemory] : []), ...(mediaNotice ? [mediaNotice] : []), ...(documentNotice ? [documentNotice] : []), ...messages];
+  return [...(system ? [system] : []), ...(profile ? [profile] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...(prefixMemory ? [prefixMemory] : []), ...(mediaNotice ? [mediaNotice] : []), ...(documentNotice ? [documentNotice] : []), ...messages, ...(verificationContinuation ? [verificationContinuation] : [])];
 }

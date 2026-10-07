@@ -12,6 +12,7 @@ export const RECOVERY_LIMITS = Object.freeze({
   snapshotTimeoutMs: 10_000,
   maxOperations: 1_000,
   maxLedgerRecordBytes: 4 * 1024 * 1024,
+  maxSchemaEntries: 128,
 });
 export interface RecoveryPaths { db: string; review: string; effect: string; ledger: string; artifacts: string }
 export interface Identity { dev: number; ino: number }
@@ -165,8 +166,8 @@ export function takeSnapshot(paths: RecoveryPaths): Snapshot {
 export function checkDatabase(db: DatabaseSync, version: number, expectedTables: readonly string[], check: () => void, applicationId?: number): string {
   check();
   if (db.prepare('PRAGMA user_version').get()?.user_version !== version || applicationId !== undefined && db.prepare('PRAGMA application_id').get()?.application_id !== applicationId) fail('RECOVERY_DATABASE_INVALID');
-  const schema = db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name LIMIT 65").all();
-  if (schema.length > 64) fail('RECOVERY_LIMIT_EXCEEDED');
+  const schema = db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name LIMIT ?").all(RECOVERY_LIMITS.maxSchemaEntries + 1);
+  if (schema.length > RECOVERY_LIMITS.maxSchemaEntries) fail('RECOVERY_LIMIT_EXCEEDED');
   const tables = schema.filter(row => row.type === 'table').map(row => String(row.name)).sort();
   if (canonical(tables) !== canonical([...expectedTables].sort()) || schema.some(row => row.type !== 'table' && row.type !== 'index')) fail('RECOVERY_DATABASE_INVALID');
   const result = db.prepare('PRAGMA quick_check(1)').get();

@@ -269,3 +269,14 @@ test('DB8 to DB9 installs empty MCP dispatch receipts without inferring legacy r
   assert.ok(plan.some(row=>String(row.detail).includes('mcp_executions_workspace_blocked')));assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
   const after=databaseContents(db);migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,9));assert.deepEqual(databaseContents(db),after);
 });
+
+test('DB9 to DB10 adds empty workspace trust/knowledge tables and rolls back failed installation atomically', t => {
+  const { db } = fixture(t); db.exec('PRAGMA foreign_keys=ON'); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 9));
+  const before = databaseContents(db), events = db.prepare('SELECT * FROM events ORDER BY session_id,seq').all();
+  const failure = [...DATABASE_MIGRATIONS.slice(0, 9), { version: 10, name: 'intentional-v10-failure', apply(database: DatabaseSync) { DATABASE_MIGRATIONS[9]!.apply(database); throw new Error('DB10 rollback'); } }];
+  assert.throws(() => migrateDatabase(db, failure), /DB10 rollback/u); assert.equal(databaseVersion(db), 9); assert.deepEqual(databaseContents(db), before);
+  migrateDatabase(db); assert.equal(databaseVersion(db), 10);
+  for (const table of ['workspace_trust_revisions', 'workspace_trust_heads', 'knowledge_generation_plans', 'knowledge_candidates', 'knowledge_request_receipts', 'knowledge_import_pauses']) assert.equal(db.prepare(`SELECT count(*) AS count FROM ${table}`).get()!.count, 0);
+  assert.deepEqual(db.prepare('SELECT * FROM events ORDER BY session_id,seq').all(), events); assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
+  const after = databaseContents(db); migrateDatabase(db); assert.deepEqual(databaseContents(db), after);
+});

@@ -164,7 +164,7 @@ export class ContextService {
       let plan: ContextPlan;
       try { plan = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve, ...(contribution ? { repositoryMessages: contribution.messages } : {}) }); }
       catch (error) {
-        if (!contribution || !(error instanceof EngineError) || !['CONTEXT_LIMIT', 'CONTEXT_TOKEN_LIMIT', 'ACTIVE_PREFIX_CONTEXT_LIMIT', 'IMAGE_CONTEXT_LIMIT', 'DOCUMENT_CONTEXT_LIMIT', 'IMAGE_HISTORY_METADATA_LIMIT', 'DOCUMENT_HISTORY_METADATA_LIMIT'].includes(error.code)) throw error;
+        if (!contribution || !(error instanceof EngineError) || !['CONTEXT_LIMIT', 'CONTEXT_TOKEN_LIMIT', 'ACTIVE_PREFIX_CONTEXT_LIMIT', 'IMAGE_CONTEXT_LIMIT', 'DOCUMENT_CONTEXT_LIMIT', 'IMAGE_HISTORY_METADATA_LIMIT', 'DOCUMENT_HISTORY_METADATA_LIMIT', 'VERIFICATION_CONTEXT_LIMIT'].includes(error.code)) throw error;
         // Optional evidence must never displace required current exchanges or media anchors.
         // Reprepare with the fitting base transcript's complete reservation, without silently truncating it.
         const base = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve });

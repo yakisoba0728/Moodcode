@@ -14,6 +14,8 @@ import { TOOL_DISCOVERY_LIMITS, discoveryCatalogueSignature, validateDiscoveryMa
   type ToolDiscoveryCatalogue, type ToolDiscoveryMaterializeLimits, type ToolDiscoveryMetadata } from './discovery.js';
 export interface RuntimeToolRegistration { effect?: ToolEffectClass; exactApproval?: boolean; revalidate?: (prepared: PreparedTool, context: ToolContext) => Promise<void> }
 export interface RuntimeToolProfile { id: string; revision: string }
+/** Host-owned observation of one exact registration; carries no execute capability. */
+export interface ToolRegistrationCapture { readonly scopeId: string; readonly name: string }
 export interface ToolCatalogue { scopeId: string; revision: number; policyVersion: number; mode: 'plan' | 'build'; tools: readonly ProviderTool[]; profile?: Readonly<RuntimeToolProfile>; rolePolicy?: RoleResourcePolicyGeneration }
 export interface RuntimePolicyDecisionObservation {
   readonly roleResource?: RoleResourceReceipt; readonly commandPreflight?: CommandPreflightReceipt; readonly rolePolicy?: RoleResourcePolicyGeneration;
@@ -41,7 +43,7 @@ export interface ScopedToolRuntimeOptions {
   resolveRoleResources?(observation: RuntimePreparedToolObservation): readonly RoleResource[];
   commandPreflight?: RuntimeCommandPreflightOptions;
 }
-interface Entry { scopeId: string; token: symbol; definition: ToolDefinition; descriptor: Readonly<ProviderTool>; metadata: Readonly<ToolDiscoveryMetadata>; effect: ToolEffectClass; exactApproval: boolean; revalidate?: RuntimeToolRegistration['revalidate'] }
+interface Entry { scopeId: string; token: symbol; sourceIdentity: ToolDefinition; definition: ToolDefinition; descriptor: Readonly<ProviderTool>; metadata: Readonly<ToolDiscoveryMetadata>; effect: ToolEffectClass; exactApproval: boolean; revalidate?: RuntimeToolRegistration['revalidate'] }
 interface Captured { entries: Map<string, Entry>; signature: string; roleCapture?: RoleResourcePolicyCapture }
 interface Request { entry: Entry; catalogue: ToolCatalogue; inner: PreparedTool; outerSnapshot: string; innerSnapshot: string; binding: string; grant?: ScopedToolGrant; grantScope: GrantScope; used: boolean; roleReceipt?: RoleResourceReceipt; preflightReceipt?: CommandPreflightReceipt; roleCapture?: RoleResourcePolicyCapture }
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
@@ -72,6 +74,7 @@ export class ScopedToolRuntime {
   private scopes = new Map<string, Map<string, Entry>>(); private current = 0;
   private included = new Map<string, readonly string[]>(); private artifactPromise?: Promise<ArtifactStore>;
   private captures = new WeakMap<ToolCatalogue, Captured>(); private requests = new WeakMap<PreparedTool, Request>();
+  private registrationCaptures = new WeakMap<ToolRegistrationCapture, Entry>();
   private discoveryCaptures = new WeakMap<ToolDiscoveryCatalogue, Captured>();
   private profileCaptures = new WeakMap<ToolCatalogue, Map<string, ToolCatalogue>>();
   private policyFailures = new WeakMap<object, RuntimePolicyDecisionObservation>();
@@ -135,10 +138,21 @@ export class ScopedToolRuntime {
       schemaBytes: Buffer.byteLength(JSON.stringify(schema)), definitionBytes: Buffer.byteLength(JSON.stringify(descriptor)) });
     const effect = inferToolEffect(source.name, options.effect ?? (source as ToolDefinition & { effectClass?: ToolEffectClass }).effectClass);
     const definition: ToolDefinition = { name: source.name, description: source.description, inputSchema: schema, effectClass: effect, prepare: source.prepare.bind(source), execute: source.execute.bind(source) };
-    const entry: Entry = { scopeId, token: Symbol(source.name), definition, descriptor, metadata, effect, exactApproval: options.exactApproval === true, ...(options.revalidate ? { revalidate: options.revalidate } : {}) }; entries.set(source.name, entry); this.scopes.set(scopeId, entries); this.current++;
+    const entry: Entry = { scopeId, token: Symbol(source.name), sourceIdentity: source, definition, descriptor, metadata, effect, exactApproval: options.exactApproval === true, ...(options.revalidate ? { revalidate: options.revalidate } : {}) }; entries.set(source.name, entry); this.scopes.set(scopeId, entries); this.current++;
     return () => { const existing = this.scopes.get(scopeId); if (existing?.get(definition.name)?.token !== entry.token) return; existing.delete(definition.name); if (!existing.size) this.scopes.delete(scopeId); this.current++; };
   }
   clearScope(scopeId: string): void { if (this.scopes.delete(scopeId)) this.current++; }
+  captureRegistration(scopeId: string, toolName: string, source: ToolDefinition): ToolRegistrationCapture {
+    const entry = this.scopes.get(scopeId)?.get(toolName);
+    if (!entry || entry.sourceIdentity !== source) fail('TOOL_PRODUCER_MISMATCH', 'Producer observation requires the original registered definition');
+    const capture = Object.freeze({ scopeId, name: toolName });
+    this.registrationCaptures.set(capture, entry);
+    return capture;
+  }
+  assertRegistrationCurrent(catalogue: ToolCatalogue, capture: ToolRegistrationCapture): void {
+    const captured = this.registrationCaptures.get(capture);
+    if (!captured || captured.scopeId !== capture.scopeId || captured.definition.name !== capture.name || this.entry(catalogue, capture.name) !== captured) fail('TOOL_PRODUCER_MISMATCH', 'The authenticated catalogue does not contain the captured original producer');
+  }
   catalogue(scopeId: string, mode: 'plan' | 'build' = 'build', allowedNames?: readonly string[], profile?: RuntimeToolProfile): ToolCatalogue {
     if (mode !== 'plan' && mode !== 'build') fail('INVALID_TOOL_MODE', 'Tool catalogue mode must be plan or build');
     if (allowedNames !== undefined && (!Array.isArray(allowedNames) || allowedNames.length > 256 || allowedNames.some(name => typeof name !== 'string' || !/^[A-Za-z0-9_.-]{1,128}$/.test(name)))) fail('INVALID_TOOL_ALLOWLIST', 'Tool allowlist must contain bounded exact names');

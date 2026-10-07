@@ -9,10 +9,11 @@ import { createToolResultEnvelope } from '../artifacts/result.js';
 import { textPrefix } from '../artifacts/validation.js';
 import { COMMAND_LIMITS } from '../tools/command/index.js';
 import type { ScopedToolRuntime, ToolCatalogue } from '../tools/runtime/index.js';
+import type { SessionDocument } from '../session-state/index.js';
 import type { VerificationPlanService } from './plans.js';
 import type { VerificationReceiptService } from './receipts.js';
 import { normalizeVerificationSource, verificationDigest, verificationFail, verificationHash, verificationJson, verificationNumber, verificationPlain, verificationText,
-  type VerificationCheck, type VerificationObservation, type VerificationReceipt, type VerificationSource } from './types.js';
+  type VerificationCheck, type VerificationCommandCapability, type VerificationObservation, type VerificationReceipt, type VerificationSource } from './types.js';
 
 export interface VerificationToolHost {
   plans: VerificationPlanService; receipts: VerificationReceiptService;
@@ -23,6 +24,10 @@ export interface VerificationToolHost {
   sourceObservation(context: ToolContext, signal: AbortSignal): Promise<VerificationSource>;
   /** Must contain the engine-owned createCommandTool registration; plugin output is not command evidence. */
   commandRuntime: ScopedToolRuntime;
+  /** Root independently authenticates its retained native registration witness before reading the actual execution platform. */
+  commandCapability?(context: ToolContext, catalogue: ToolCatalogue): VerificationCommandCapability;
+  /** Only the original still-live actual outer context can publish one consumed observation while cancelling. */
+  consumedSettlementWriter?(context: ToolContext, kind: string, expectedRevision: number, data: JsonObject): SessionDocument;
   artifacts: ArtifactStore | Promise<ArtifactStore> | (() => ArtifactStore | Promise<ArtifactStore>);
 }
 
