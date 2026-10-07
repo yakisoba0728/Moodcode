@@ -1,0 +1,285 @@
+{
+  "slug": "aider",
+  "head": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+  "repository": "https://github.com/Aider-AI/aider",
+  "analysisMode": "static-source-review",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/aider",
+  "moodcodeBaseline": {
+    "documentationHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineSource": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "references": [
+    {
+      "id": "AIDER-R01",
+      "path": "aider/main.py",
+      "startLine": 973,
+      "endLine": 1007,
+      "claim": "main이 모델·편집 형식·파일 집합·Git·stream·repo map·summary·lint/test 설정으로 Coder.create를 호출한다."
+    },
+    {
+      "id": "AIDER-R02",
+      "path": "aider/coders/base_coder.py",
+      "startLine": 190,
+      "endLine": 201,
+      "claim": "Coder.create는 coders.__all__ 중 edit_format이 일치하는 구현을 선택하고 미지원 형식은 거절한다."
+    },
+    {
+      "id": "AIDER-R03",
+      "path": "aider/coders/base_coder.py",
+      "startLine": 924,
+      "endLine": 944,
+      "claim": "run_one은 reflected_message를 다시 보내며 max_reflections를 적용한다."
+    },
+    {
+      "id": "AIDER-R04",
+      "path": "aider/models.py",
+      "startLine": 985,
+      "endLine": 1037,
+      "claim": "Model.send_completion은 모델별 요청 옵션과 선택적 단일 function tool을 구성하고 LiteLLM completion을 호출한다."
+    },
+    {
+      "id": "AIDER-R05",
+      "path": "aider/coders/base_coder.py",
+      "startLine": 1900,
+      "endLine": 1959,
+      "claim": "스트림의 길이 종료·function delta·reasoning·text를 처리하며 부분 응답과 렌더링 상태를 갱신한다."
+    },
+    {
+      "id": "AIDER-R06",
+      "path": "aider/coders/base_coder.py",
+      "startLine": 1276,
+      "endLine": 1295,
+      "claim": "완료 이력·repo-map·읽기 전용 파일·편집 파일·현재 메시지를 별도 chat chunk로 조립한다."
+    },
+    {
+      "id": "AIDER-R07",
+      "path": "aider/repomap.py",
+      "startLine": 279,
+      "endLine": 336,
+      "claim": "RepoMap.get_tags_raw는 tree-sitter 언어 parser/query를 사용해 심볼 정의·참조와 위치를 추출한다."
+    },
+    {
+      "id": "AIDER-R08",
+      "path": "aider/repomap.py",
+      "startLine": 490,
+      "endLine": 545,
+      "claim": "언급 심볼·현재 chat 파일·참조 빈도로 그래프 가중치를 조절하고 PageRank를 심볼 정의에 분배한다."
+    },
+    {
+      "id": "AIDER-R09",
+      "path": "aider/repomap.py",
+      "startLine": 666,
+      "endLine": 706,
+      "claim": "랭킹된 tag prefix를 렌더링·토큰 계산하며 이분 탐색으로 repo-map 크기를 조정한다. 목표 대비 15% 근접 허용 조건이 있으므로 strict hard cap과 다르다."
+    },
+    {
+      "id": "AIDER-R10",
+      "path": "aider/coders/base_coder.py",
+      "startLine": 2269,
+      "endLine": 2336,
+      "claim": "편집 파싱·dry-run·파일 권한 확인·적용을 수행하며 형식 오류를 reflected_message로 되돌린다."
+    },
+    {
+      "id": "AIDER-R11",
+      "path": "aider/coders/base_coder.py",
+      "startLine": 2191,
+      "endLine": 2240,
+      "claim": "이미 chat에 추가된 파일은 편집 허용하며 신규·추가되지 않은 파일은 확인하고 Git ignore 파일은 건너뛴다."
+    },
+    {
+      "id": "AIDER-R12",
+      "path": "aider/coders/base_coder.py",
+      "startLine": 1585,
+      "endLine": 1623,
+      "claim": "편집 후 commit·lint·제안 명령·옵션 test를 연결하고 lint/test 실패 수정 여부 확인 후 reflection을 요청한다."
+    },
+    {
+      "id": "AIDER-R13",
+      "path": "aider/history.py",
+      "startLine": 33,
+      "endLine": 96,
+      "claim": "ChatSummary는 오래된 head를 요약하고 assistant 경계로 맞춘 최근 tail을 유지하며 모델 입력과 이력 토큰 상한을 사용한다."
+    },
+    {
+      "id": "AIDER-R14",
+      "path": "aider/coders/architect_coder.py",
+      "startLine": 11,
+      "endLine": 48,
+      "claim": "ArchitectCoder는 확인된 설계 응답을 별도 editor model/edit format Coder에 보내며 비용과 commit 집합을 회수한다."
+    },
+    {
+      "id": "AIDER-R15",
+      "path": "aider/coders/base_coder.py",
+      "startLine": 2375,
+      "endLine": 2423,
+      "claim": "자동 커밋은 edited 파일 집합을 GitRepo에 전달하고 commit hash를 session 집합에 기록하며 별도 dirty baseline commit 경로가 있다."
+    },
+    {
+      "id": "AIDER-R16",
+      "path": "aider/commands.py",
+      "startLine": 570,
+      "endLine": 621,
+      "claim": "undo는 이번 chat의 aider commit·단일 parent·파일 clean 상태·이전 tree·origin branch HEAD 조건을 검사한다. 전체 원격 도달 가능성 증명은 아니다."
+    },
+    {
+      "id": "AIDER-R17",
+      "path": "aider/io.py",
+      "startLine": 1117,
+      "endLine": 1136,
+      "claim": "대화 이력은 Markdown 텍스트 파일 append이며 저장 오류 시 이후 기록을 비활성화한다."
+    },
+    {
+      "id": "AIDER-R18",
+      "path": "aider/coders/base_coder.py",
+      "startLine": 1456,
+      "endLine": 1491,
+      "claim": "모델 호출의 지정 오류는 제한된 지수 대기로 재시도하며 ContextWindowExceeded와 KeyboardInterrupt는 전송 루프를 벗어난다."
+    },
+    {
+      "id": "AIDER-R19",
+      "path": "aider/models.py",
+      "startLine": 1085,
+      "endLine": 1133,
+      "claim": "모델 설정 YAML과 LiteLLM 모델 metadata JSON5 파일을 등록하는 확장 경계가 있다."
+    },
+    {
+      "id": "AIDER-R20",
+      "path": "LICENSE.txt",
+      "startLine": 1,
+      "endLine": 11,
+      "claim": "root 실제 LICENSE.txt는 Apache License Version 2.0이다. 별도 SCM query credit는 보고서에 구분한다."
+    }
+  ],
+  "candidates": [
+    {
+      "id": "AIDER-C01",
+      "title": "심볼 관계를 이용한 저장소 구조 문맥 선정",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "bounded context·history summary·glob/regex 검색은 구현되어 있다. 확인한 context/search 경로에는 심볼 정의·참조 그래프를 요청별 구조 문맥으로 투영하는 계약이 확인되지 않았다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/plan.ts",
+        "packages/engine/src/context/sources.ts",
+        "packages/engine/src/tools/search/index.ts",
+        "packages/engine/src/workspace/changes.ts"
+      ],
+      "referenceIds": [
+        "AIDER-R06",
+        "AIDER-R07",
+        "AIDER-R08",
+        "AIDER-R09"
+      ],
+      "contract": [
+        "host가 지원 언어·parser·읽기 범위를 명시적으로 등록한다. path/hash/parser version으로 심볼 index를 식별하고 workspace 변경으로 무효화한다.",
+        "현재 요청의 파일·심볼과 정의/참조 관계로 읽기 전용 구조 후보를 선정한다. 각 항목은 path, line, source hash, 선정 사유, 누락/불확실 상태를 가진다.",
+        "ContextPlan의 기존 bytes/token reservation 안에서 구조 문맥을 배정하고 hard cap을 지킨다. parser 미지원·시간/파일 예산 초과는 bounded 파일 목록 또는 기존 검색으로 축소한다.",
+        "상위 심볼을 찾았다는 이유로 파일 편집 권한을 부여하지 않는다. upstream query·ranking 상수·prompt는 가져오지 않는다."
+      ],
+      "validation": [
+        "직접 언급 파일에서 참조되는 정의가 후보에 포함되고 같은 입력·같은 snapshot의 선정 결과가 안정적임을 독자 fixture로 확인.",
+        "동명이인·미지원 언어·삭제/rename·hash 변경·ignore·파싱 실패·취소를 분리하고 stale 위치를 현재 문맥으로 사용하지 않음.",
+        "거대 저장소에서 파일/시간/출력 cap을 지키며 history/tool-schema/output reservation과 합산한 실제 ContextPlan 상한을 초과하지 않음."
+      ]
+    },
+    {
+      "id": "AIDER-C02",
+      "title": "명시적 검증 계획과 제한된 수리 단계",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "run_command·도구 오류의 모델 피드백·LSP 진단·formatter·checkpoint 연동은 구현되어 있다. 후보는 이 기능들을 대체하지 않고 검증 계획/결과/수리 종료 조건을 명시적으로 기록하는 계층이다.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/lsp/index.ts",
+        "packages/engine/src/formatters/index.ts",
+        "packages/engine/src/engine.ts"
+      ],
+      "referenceIds": [
+        "AIDER-R03",
+        "AIDER-R10",
+        "AIDER-R12"
+      ],
+      "contract": [
+        "host/사용자가 verification plan revision과 검사 identity·변경 파일 선택·실행 순서·최대 수리 횟수를 정한다.",
+        "기존 approved command/LSP 경계를 통해 검사하고 changed checkpoint hash·실제 exit status·bounded diagnostics·artifact 참조를 결과에 결속한다. timeout·취소·cleanup uncertainty는 pass로 기록하지 않는다.",
+        "수리 동의/정책과 남은 Run 예산을 만족할 때만 실패 진단을 다음 모델 경계에 넣는다. 동일 파일 hash와 동일 진단이 반복되면 정체로 종료한다.",
+        "formatter 변경도 기존 patch 승인과 preimage 검사로 수행한다. 모델이 테스트 명령이나 승인 범위를 임의로 확대하지 못한다."
+      ],
+      "validation": [
+        "lint 실패→승인된 변경→동일 검사 재실행 pass 및 test 실패→수리 상한 종료를 독자 fixture로 확인.",
+        "deny·취소·timeout·stale 파일/LSP version·검사 실행 중 외부 수정·잘린 출력·명령 cleanup uncertainty가 false pass나 무한 재시도로 이어지지 않음.",
+        "일반 모델 도구 루프와 검증 루프가 예산·Turn·Attempt·checkpoint 소유권을 중복 소비/갱신하지 않음."
+      ]
+    },
+    {
+      "id": "AIDER-C03",
+      "title": "설계와 편집 모델 역할을 연결하는 선택적 워크플로",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "immutable agent profile와 모델 설정, 실제 격리 child, 승인된 read-only delegate_task가 이미 있다. 후보는 서로 다른 profile의 설계 출력→편집 실행을 명시적으로 결속하는 직렬 워크플로다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/child-tasks/engine-host.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/runner/index.ts"
+      ],
+      "referenceIds": [
+        "AIDER-R02",
+        "AIDER-R14",
+        "AIDER-R19"
+      ],
+      "contract": [
+        "host가 planner/editor profile revision·provider/model identity·도구 집합·예산을 사전 등록한다. workflow instance는 각 단계 Run identity와 연결한다.",
+        "planner는 읽기/설계만 수행하며 설계 artifact hash와 관측 파일 hash를 저장한다. 사용자 선택 후 editor가 해당 bounded artifact를 새 입력으로 받는다.",
+        "단계 전환은 모델 출력으로 tool 권한을 넓히지 않는다. editor는 기존 Build 승인·exact edit·cancel·budget·durable storage 계약을 따른다.",
+        "editor 실패·취소·모델 미지원·설계 이후 파일 변경 시 workflow 상태를 명시하고 자동 재시작/재편집은 하지 않는다. 별도 모델 효율 향상은 검증 전 가설이다."
+      ],
+      "validation": [
+        "planner가 쓰기 도구를 사용할 수 없고 editor가 승인된 설계 artifact와 정확한 profile revision만 사용함.",
+        "역할별 provider fixture로 요청 model/context/tool 집합과 단계별 비용/usage 소유권을 검사.",
+        "설계 승인 뒤 stale 파일·취소·process crash·중복 단계 접수에서 편집 한 번 및 이전 설계/이력 보존을 확인."
+      ]
+    },
+    {
+      "id": "AIDER-C04",
+      "title": "Run 변경과 연결한 승인형 Git 커밋 기록",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "Git worktree·child 변경 통합·hash checkpoint·diff·restore journal은 구현되어 있다. 범용 run_command로 사용자가 Git을 실행할 수도 있다. 후보는 커밋 preview와 실제 commit receipt를 Run 변경에 결속하는 전용 host 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/workspace/git.ts",
+        "packages/engine/src/worktrees/index.ts",
+        "packages/engine/src/child-tasks/merge.ts",
+        "packages/engine/src/review/index.ts",
+        "packages/engine/src/review/audit.ts"
+      ],
+      "referenceIds": [
+        "AIDER-R12",
+        "AIDER-R15",
+        "AIDER-R16"
+      ],
+      "contract": [
+        "opt-in preview가 workspace/Run/checkpoint·HEAD·index 상태·선택 경로/변경 hash·commit message를 결속하고 실제 커밋 전에 재검사한다.",
+        "이미 존재하는 사용자 변경·staged 파일을 자동으로 baseline commit하거나 함께 stage하지 않는다. text 관측으로 귀속을 확정할 수 없는 파일은 명시적 선택이 필요하다.",
+        "실행 후 실제 full commit SHA·parent·선택 변경·검증 결과·attribution 설정을 receipt로 저장한다. uncertain outcome은 조회/복구 전 추가 commit을 막는다.",
+        "commit message 생성은 선택적 bounded 보조 모델 요청이며 최종 메시지를 preview에 포함한다. 기존 checkpoint restore를 유지하며 HEAD reset 기반 undo는 별도 요구 없이는 추가하지 않는다."
+      ],
+      "validation": [
+        "사용자 staged/unstaged 변경 보존·선택 경로만 commit·HEAD/index 변경 시 stale preview 거절을 임시 독자 저장소 fixture로 확인.",
+        "hook failure·commit success 뒤 receipt crash·중복 요청·취소·큰 diff가 이중 commit이나 성공 오표시로 이어지지 않음.",
+        "검증 결과와 Run identity, full commit SHA, attribution 선택을 reopen 뒤 동일하게 조회하며 network push를 수행하지 않음."
+      ]
+    }
+  ],
+  "limitations": [
+    "upstream install/setup/test/benchmark/GUI/계정 연결/실제 모델 호출은 수행하지 않았다. 정적 코드 경로 확인은 실행 성공·성능·모델 품질의 증명이 아니다.",
+    "HEAD와 git log에서 고정 checkout의 최근 commit을 확인했지만 2026-10-07 시점의 모든 외부 유지보수·릴리스·서비스 상태를 조사하지 않았다.",
+    "README의 100+ 언어·거대 저장소 효과·거의 모든 모델·voice/IDE 기능은 전체 런타임 호환성 검증 대상이 아니었다.",
+    "핵심 Coder/model/context/편집/Git/history 경로를 분석했다. GUI·watcher·voice·browser·외부 LiteLLM·tree-sitter의 모든 구현/전이 의존성은 감사하지 않았다.",
+    "선택적 function 편집 coder 파일이 있지만 기본 coders.__all__에서 비활성인 항목을 제품의 범용 tool registry로 간주하지 않았다. 확인한 실행 경로에서 범용 MCP/격리 subagent 구현은 찾지 못했으며 제품 전체 부재를 단정하지 않는다.",
+    "LICENSE.txt의 Apache-2.0과 SCM query 출처 고지는 확인했다. 전체 의존성 license audit·법률 검토는 수행하지 않았다.",
+    "Moodcode production code·공유 문서·원본 checkout은 수정하지 않았다. 분석 두 파일에 upstream source/prompt/tool description/fixture를 복사하지 않았으며 clean-room 절차를 수행했다고 주장하지 않는다."
+  ]
+}

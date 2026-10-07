@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "concurrency": {
+    "totalSlots": 4,
+    "analysisSlots": 3
+  },
+  "projects": [
+    {
+      "slug": "aider",
+      "agent": "/root/analyze_aider",
+      "state": "complete",
+      "head": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "report": "aider.md",
+      "evidence": "aider.evidence.json"
+    },
+    {
+      "slug": "plandex",
+      "agent": "/root/analyze_plandex",
+      "state": "complete",
+      "head": "e2d772072efadbe41d2946d97d79be55532dbab5",
+      "report": "plandex.md",
+      "evidence": "plandex.evidence.json"
+    },
+    {
+      "slug": "qwen-code",
+      "agent": "/root/analyze_qwen_code",
+      "state": "complete",
+      "head": "d0ddd020c8a64279e290538f84b152fe843ed9d4",
+      "report": "qwen-code.md",
+      "evidence": "qwen-code.evidence.json"
+    },
+    {
+      "slug": "gemini-cli",
+      "agent": "/root/analyze_gemini_cli",
+      "state": "complete",
+      "head": "ef59c532f07fbb3a58dd68bac024ae217e9c73ce",
+      "report": "gemini-cli.md",
+      "evidence": "gemini-cli.evidence.json"
+    },
+    {
+      "slug": "cline",
+      "agent": "/root/analyze_cline",
+      "state": "complete",
+      "head": "55a133b751b66d42b8a3ffad76c731ad4f51577d",
+      "report": "cline.md",
+      "evidence": "cline.evidence.json"
+    },
+    {
+      "slug": "goose",
+      "agent": "/root/analyze_goose",
+      "state": "complete",
+      "head": "f9c18a81952e8895b6f2d88b0f4569f3975034af",
+      "report": "goose.md",
+      "evidence": "goose.evidence.json"
+    },
+    {
+      "slug": "openhands-sdk",
+      "agent": "/root/analyze_openhands_sdk",
+      "state": "complete",
+      "head": "608a102c637d8d8a999f49d7b04846524bd8bd1c",
+      "report": "openhands-sdk.md",
+      "evidence": "openhands-sdk.evidence.json"
+    },
+    {
+      "slug": "zoo-code",
+      "agent": "/root/analyze_zoo_code",
+      "state": "complete",
+      "head": "842b37e76d296a6381c182f2dad7822da08b9cbb",
+      "report": "zoo-code.md",
+      "evidence": "zoo-code.evidence.json"
+    },
+    {
+      "slug": "mistral-vibe",
+      "agent": "/root/analyze_mistral_vibe",
+      "state": "complete",
+      "head": "7cb91894c40bb25173abcfa36e5ea2b4b81eb28c",
+      "report": "mistral-vibe.md",
+      "evidence": "mistral-vibe.evidence.json"
+    },
+    {
+      "slug": "kimi-code",
+      "agent": "/root/analyze_kimi_code",
+      "state": "complete",
+      "head": "21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3",
+      "report": "kimi-code.md",
+      "evidence": "kimi-code.evidence.json"
+    },
+    {
+      "slug": "kilocode",
+      "agent": "/root/analyze_kilocode",
+      "state": "complete",
+      "head": "b1e7f34a4ce9fac0519714116f06fb553e185c56",
+      "report": "kilocode.md",
+      "evidence": "kilocode.evidence.json"
+    },
+    {
+      "slug": "mini-swe-agent",
+      "agent": "/root/analyze_mini_swe_agent",
+      "state": "complete",
+      "head": "04d809ceab9df28f9adaed044884180159172930",
+      "report": "mini-swe-agent.md",
+      "evidence": "mini-swe-agent.evidence.json"
+    },
+    {
+      "slug": "open-swe",
+      "agent": "/root/analyze_open_swe",
+      "state": "complete",
+      "head": "48a8445fc51246e739976c8bf5bdca3c43f27653",
+      "report": "open-swe.md",
+      "evidence": "open-swe.evidence.json"
+    },
+    {
+      "slug": "roo-code",
+      "agent": "/root/analyze_roo_code",
+      "state": "complete",
+      "head": "b867ec9145750d0ae1ff7f02d35406e9bf2a0b16",
+      "report": "roo-code.md",
+      "evidence": "roo-code.evidence.json"
+    },
+    {
+      "slug": "continue",
+      "agent": "/root/analyze_continue",
+      "state": "complete",
+      "head": "5522c6f44ca0ac3528b37244818fbfa39b5af470",
+      "report": "continue.md",
+      "evidence": "continue.evidence.json"
+    },
+    {
+      "slug": "swe-agent",
+      "agent": "/root/analyze_swe_agent",
+      "state": "complete",
+      "head": "3ea751c087f32b16e039a2233dd6eefecef325d5",
+      "report": "swe-agent.md",
+      "evidence": "swe-agent.evidence.json"
+    },
+    {
+      "slug": "kimi-cli-legacy",
+      "agent": "/root/analyze_kimi_cli_legacy",
+      "state": "complete",
+      "head": "9ab1286b8fe4e6bcd116949a27ce5e0ac3389c82",
+      "report": "kimi-cli-legacy.md",
+      "evidence": "kimi-cli-legacy.evidence.json"
+    },
+    {
+      "slug": "crush",
+      "agent": "/root/analyze_crush",
+      "state": "complete",
+      "head": "140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5",
+      "report": "crush.md",
+      "evidence": "crush.evidence.json"
+    },
+    {
+      "slug": "openhands-app",
+      "agent": "/root/analyze_openhands_app",
+      "state": "complete",
+      "head": "7ea83bab4fe71149b88b5a8a6b9efe9042cb362d",
+      "report": "openhands-app.md",
+      "evidence": "openhands-app.evidence.json"
+    }
+  ]
+}

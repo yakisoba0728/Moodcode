@@ -1,0 +1,1389 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-10-07T09:27:17.597812+00:00",
+  "moodcodeHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+  "moodcodeEngineSource": "464812f7d1af24466f57070663131f5979aeca51",
+  "root": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007",
+  "clonePolicy": {
+    "history": "full normal clone",
+    "submodules": "not recursively initialized",
+    "lfs": "filter bypass configured for four failed initial checkouts; LFS pointers retained; binaries not downloaded",
+    "execution": "static inspection only; no upstream install/test/setup",
+    "initialCheckoutRepairs": [
+      "cline",
+      "zoo-code",
+      "kilocode",
+      "roo-code"
+    ]
+  },
+  "repositories": [
+    {
+      "slug": "aider",
+      "requestedRepository": "Aider-AI/aider",
+      "requestedUrl": "https://github.com/Aider-AI/aider.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/aider",
+      "status": "cloned",
+      "head": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "branch": "main",
+      "commitDate": "2026-05-22T07:02:20-07:00",
+      "remoteUrl": "https://github.com/Aider-AI/aider.git",
+      "startedAt": "2026-10-07T09:27:17.607412+00:00",
+      "completedAt": "2026-10-07T09:27:24.996019+00:00",
+      "isShallow": false,
+      "trackedFiles": 691,
+      "licenseFiles": [
+        {
+          "path": "LICENSE.txt",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "Aider-AI/aider",
+        "html_url": "https://github.com/Aider-AI/aider",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-05-22T14:02:20Z",
+        "license": {
+          "key": "apache-2.0",
+          "name": "Apache License 2.0",
+          "spdx_id": "Apache-2.0",
+          "url": "https://api.github.com/licenses/apache-2.0",
+          "node_id": "MDc6TGljZW5zZTI="
+        },
+        "observedAt": "2026-10-07T09:27:25.309622+00:00"
+      },
+      "declaredRootLicense": "Apache-2.0",
+      "rootLicenseFiles": [
+        "LICENSE.txt"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "plandex",
+      "requestedRepository": "plandex-ai/plandex",
+      "requestedUrl": "https://github.com/plandex-ai/plandex.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/plandex",
+      "status": "cloned",
+      "head": "e2d772072efadbe41d2946d97d79be55532dbab5",
+      "branch": "main",
+      "commitDate": "2025-10-03T14:49:54-07:00",
+      "remoteUrl": "https://github.com/plandex-ai/plandex.git",
+      "startedAt": "2026-10-07T09:27:17.607513+00:00",
+      "completedAt": "2026-10-07T09:27:21.088221+00:00",
+      "isShallow": false,
+      "trackedFiles": 696,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 1070,
+          "sha256": "eda5a26207e5a30cbad304444ea650a588c54f7404368cbefdb7b9a3e206bcd0"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "plandex-ai/plandex",
+        "html_url": "https://github.com/plandex-ai/plandex",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2025-10-03T21:49:58Z",
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        },
+        "observedAt": "2026-10-07T09:27:21.433102+00:00"
+      },
+      "declaredRootLicense": "MIT",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "README says hosted Plandex Cloud winding down since 2025-10-03; does not establish entire source repository archived",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "qwen-code",
+      "requestedRepository": "QwenLM/qwen-code",
+      "requestedUrl": "https://github.com/QwenLM/qwen-code.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/qwen-code",
+      "status": "cloned",
+      "head": "d0ddd020c8a64279e290538f84b152fe843ed9d4",
+      "branch": "main",
+      "commitDate": "2026-10-07T09:08:48Z",
+      "remoteUrl": "https://github.com/QwenLM/qwen-code.git",
+      "startedAt": "2026-10-07T09:27:17.607621+00:00",
+      "completedAt": "2026-10-07T09:29:04.696524+00:00",
+      "isShallow": false,
+      "trackedFiles": 10807,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 11361,
+          "sha256": "55367b61ccd2a016a0159ad886bd66a3ee6cb5e873d0c75c803c897dd245b075"
+        },
+        {
+          "path": "docs/design/2026-07-26-manual-plan-exit-notice-delivery.md",
+          "bytes": 4669,
+          "sha256": "acf5ef4a828e3d68a489fcc1611e299884dcc4a2f229cc1ac43b88b8a7119c32"
+        },
+        {
+          "path": "docs/design/web-shell-vision-bridge-notice-i18n.md",
+          "bytes": 1338,
+          "sha256": "b273714d41a7b2e90cdc73f4f779d1b260cfc102a7bee256e2513949821d06aa"
+        },
+        {
+          "path": "packages/browser-use/NOTICE",
+          "bytes": 379,
+          "sha256": "7b07bce24dab20c5567965f71892666e91f1787f2da5328b836447ef7f8e48f6"
+        },
+        {
+          "path": "packages/cli/src/ui/opentui/use-update-notice-flush.test.ts",
+          "bytes": 2261,
+          "sha256": "685548f725a775cf912195f609e02f5df8e3de2be255e4f9e6ece5ab6ba230c8"
+        },
+        {
+          "path": "packages/cli/src/ui/opentui/use-update-notice-flush.ts",
+          "bytes": 1252,
+          "sha256": "2c34cb5fd60e1c1e9ff85ce0d79005515b733a554524480b1c323f1d4d03886e"
+        },
+        {
+          "path": "packages/cli/src/ui/utils/history-gap-notice.ts",
+          "bytes": 1320,
+          "sha256": "c4775042ceee9f7f13a1a1403bc6f4fb299aa7b2ba909fd12024b4ca3a9e3f5e"
+        },
+        {
+          "path": "packages/cli/src/ui/utils/workflow-size-notice.test.ts",
+          "bytes": 2426,
+          "sha256": "af3364221708b399b51fa72897278f2296e8d49766ca810d5b0afd68eed4ca58"
+        },
+        {
+          "path": "packages/cli/src/ui/utils/workflow-size-notice.ts",
+          "bytes": 1107,
+          "sha256": "e26f8cc203c0ff1d2411147b26b84b5c07ec25d2bb7e2f81256eaa20be74c7a5"
+        },
+        {
+          "path": "packages/core/vendor/ripgrep/COPYING",
+          "bytes": 126,
+          "sha256": "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f"
+        },
+        {
+          "path": "packages/cua-driver/scripts/node-runtime-NOTICE.md",
+          "bytes": 586,
+          "sha256": "92eb5022d0edc26ea21b6cb6e48da6329b6e81655161beb64fd2f19520048634"
+        },
+        {
+          "path": "packages/cua-driver/typescript/LICENSE.md",
+          "bytes": 1069,
+          "sha256": "c0779290c1d4783169aa3dbfb55feb505e563ef8a004bbf55298ceffcfbda8d9"
+        },
+        {
+          "path": "packages/cua-driver/typescript/NOTICE.md",
+          "bytes": 612,
+          "sha256": "7feb22a97c227f3c9ecb257e7bece88951d50e9a1109a5f8e554f448facb786e"
+        },
+        {
+          "path": "packages/desktop/NOTICE",
+          "bytes": 227,
+          "sha256": "63ec46cba8da7cf6c99dc6faef3d96f23e79bb42423f67c5d3fde86dc004d67c"
+        },
+        {
+          "path": "packages/mobile-mcp/LICENSE",
+          "bytes": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "packages/node-repl/LICENSE",
+          "bytes": 11362,
+          "sha256": "6ad909ab730416ad472f9153fa1d3679321012883c1c6d38f803aab402e40a40"
+        },
+        {
+          "path": "packages/sdk-java/qwencode/LICENSE",
+          "bytes": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "packages/vscode-ide-companion/LICENSE",
+          "bytes": 11340,
+          "sha256": "09d2d564b15d1a8be7713524b27aa8b10e55ae7cd8aeaf1e04e6059adda0de10"
+        },
+        {
+          "path": "packages/vscode-ide-companion/NOTICES.txt",
+          "bytes": 1390655,
+          "sha256": "9495f41e581958ffd9c187de940b9b8bb8a53e4bc0c33f2a0ec8a4df3d796600"
+        },
+        {
+          "path": "packages/vscode-ide-companion/scripts/generate-notices.js",
+          "bytes": 16891,
+          "sha256": "06a072a3557909f89a7a72d5b2eb632ff406ae015414ebd26d44825f21710377"
+        },
+        {
+          "path": "packages/vscode-ide-companion/scripts/generate-notices.test.js",
+          "bytes": 12619,
+          "sha256": "d25b5dba922c1c35a91064c50e43ae33cc2fe2b5bc92b68c60d3d4d18e596857"
+        },
+        {
+          "path": "packages/web-shell/client/components/ui/management-notice.test.tsx",
+          "bytes": 2264,
+          "sha256": "5a471a616afb56d6d95aad0849ccd63c2b85daa5c5a8a4723259d056e26922fc"
+        },
+        {
+          "path": "packages/web-shell/client/components/ui/management-notice.tsx",
+          "bytes": 1818,
+          "sha256": "450f69cd7f20c46b248ca4169bbbf27b4608a2eb58a5daddbe3c9791bd82af3d"
+        },
+        {
+          "path": "packages/zed-extension/LICENSE",
+          "bytes": 1067,
+          "sha256": "9f3b2411510682736508ab90b6ca7654600c847a953c9f3e5ceee42e044d18a2"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "QwenLM/qwen-code",
+        "html_url": "https://github.com/QwenLM/qwen-code",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-07T09:24:06Z",
+        "license": {
+          "key": "apache-2.0",
+          "name": "Apache License 2.0",
+          "spdx_id": "Apache-2.0",
+          "url": "https://api.github.com/licenses/apache-2.0",
+          "node_id": "MDc6TGljZW5zZTI="
+        },
+        "observedAt": "2026-10-07T09:29:05.076016+00:00"
+      },
+      "declaredRootLicense": "Apache-2.0",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "gemini-cli",
+      "requestedRepository": "google-gemini/gemini-cli",
+      "requestedUrl": "https://github.com/google-gemini/gemini-cli.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/gemini-cli",
+      "status": "cloned",
+      "head": "ef59c532f07fbb3a58dd68bac024ae217e9c73ce",
+      "branch": "main",
+      "commitDate": "2026-10-06T22:11:30Z",
+      "remoteUrl": "https://github.com/google-gemini/gemini-cli.git",
+      "startedAt": "2026-10-07T09:27:17.607718+00:00",
+      "completedAt": "2026-10-07T09:27:26.128716+00:00",
+      "isShallow": false,
+      "trackedFiles": 3027,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 11357,
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        },
+        {
+          "path": "packages/cli/src/ui/privacy/CloudFreePrivacyNotice.test.tsx",
+          "bytes": 5649,
+          "sha256": "c224db8dca8ce2e752160a664ffa3c8f3f0364047ce966a8536be6fdaced8384"
+        },
+        {
+          "path": "packages/cli/src/ui/privacy/CloudFreePrivacyNotice.tsx",
+          "bytes": 6372,
+          "sha256": "df3f17a7fdfb46379ad60c1f7d385af4e280e3b1a39831087e5ac4448e423757"
+        },
+        {
+          "path": "packages/cli/src/ui/privacy/CloudPaidPrivacyNotice.test.tsx",
+          "bytes": 1487,
+          "sha256": "59a3b25f76c09d6032a1ad80fdd438c965eef18981111fdaa258b05f6e7ed088"
+        },
+        {
+          "path": "packages/cli/src/ui/privacy/CloudPaidPrivacyNotice.tsx",
+          "bytes": 2042,
+          "sha256": "e9a58cc40918b0e71f811ba7c183baa2f6a0718c552e3ff75d5b3f84c28a1377"
+        },
+        {
+          "path": "packages/cli/src/ui/privacy/GeminiPrivacyNotice.test.tsx",
+          "bytes": 1478,
+          "sha256": "183a67c4a758e421d4e540d0fef7ca135e892c141a90464c84065aadb447f245"
+        },
+        {
+          "path": "packages/cli/src/ui/privacy/GeminiPrivacyNotice.tsx",
+          "bytes": 2077,
+          "sha256": "881447059f48ae4bbb15c7ed8127267ec93ce0c0660442c7ad64360dcd0d02a0"
+        },
+        {
+          "path": "packages/cli/src/ui/privacy/PrivacyNotice.test.tsx",
+          "bytes": 2031,
+          "sha256": "629cc8d69d3327e132754602fe9d08da863841efaf639a504e95717f6d76a90e"
+        },
+        {
+          "path": "packages/cli/src/ui/privacy/PrivacyNotice.tsx",
+          "bytes": 1163,
+          "sha256": "705a97b1c9dff468695ed30f0436105cfa780ba7ca867ae3c408a26e236e2f4c"
+        },
+        {
+          "path": "packages/vscode-ide-companion/LICENSE",
+          "bytes": 11340,
+          "sha256": "09d2d564b15d1a8be7713524b27aa8b10e55ae7cd8aeaf1e04e6059adda0de10"
+        },
+        {
+          "path": "packages/vscode-ide-companion/NOTICES.txt",
+          "bytes": 106030,
+          "sha256": "b733d065f592d904c98406fff4f38fcc3464583f5a0f9afa61707aaca008b294"
+        },
+        {
+          "path": "packages/vscode-ide-companion/scripts/generate-notices.js",
+          "bytes": 5186,
+          "sha256": "ff7f34b5c271a3cbdef980a44ab1febc7f3bb2bc02598761e5eb7e059a43d64f"
+        },
+        {
+          "path": "third_party/get-ripgrep/LICENSE",
+          "bytes": 1068,
+          "sha256": "5c904b4045138cdb9fc1e324fea096367aa06035a20f17bd39bb3c847633cf35"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "google-gemini/gemini-cli",
+        "html_url": "https://github.com/google-gemini/gemini-cli",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-07T01:31:40Z",
+        "license": {
+          "key": "apache-2.0",
+          "name": "Apache License 2.0",
+          "spdx_id": "Apache-2.0",
+          "url": "https://api.github.com/licenses/apache-2.0",
+          "node_id": "MDc6TGljZW5zZTI="
+        },
+        "observedAt": "2026-10-07T09:27:26.427785+00:00"
+      },
+      "declaredRootLicense": "Apache-2.0",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "cline",
+      "requestedRepository": "cline/cline",
+      "requestedUrl": "https://github.com/cline/cline.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/cline",
+      "status": "cloned",
+      "head": "55a133b751b66d42b8a3ffad76c731ad4f51577d",
+      "branch": "main",
+      "commitDate": "2026-10-07T17:45:01+09:00",
+      "remoteUrl": "https://github.com/cline/cline.git",
+      "startedAt": "2026-10-07T09:30:15.825858+00:00",
+      "completedAt": "2026-10-07T09:30:16.470310+00:00",
+      "isShallow": false,
+      "trackedFiles": 4186,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 11344,
+          "sha256": "f704446a5f1271608805598b557e4288cf8580477ea038c9c3d8b361f693f6b8"
+        },
+        {
+          "path": "apps/cli/src/kanban-migration/notice-dialog.test.ts",
+          "bytes": 1357,
+          "sha256": "2fb19f3996c99146bb6ea78edafbaccb340ce885150b9657999b320649320b8b"
+        },
+        {
+          "path": "apps/cli/src/kanban-migration/notice-dialog.tsx",
+          "bytes": 2733,
+          "sha256": "fb3762b08a987abbc17f9954f18b8f5be2ca8b7fd8fc76ceb779dd72132f9661"
+        },
+        {
+          "path": "apps/cli/src/kanban-migration/notice.test.ts",
+          "bytes": 4895,
+          "sha256": "5169979a268e81dd0b37e4a32394b48f0738d8a88e09238799e01d4f0f0da669"
+        },
+        {
+          "path": "apps/cli/src/kanban-migration/notice.ts",
+          "bytes": 4619,
+          "sha256": "2834f3dd81db3fb818e2fb62957c803127cc3c231c51c6378819e42214a29698"
+        },
+        {
+          "path": "apps/examples/desktop-app/webview/components/views/chat/imported-session-notice.tsx",
+          "bytes": 1335,
+          "sha256": "31507825c82eb4771d8547c38d59b6573d7ceaccdd3268e848b2efd65deb624a"
+        },
+        {
+          "path": "apps/examples/desktop-app/webview/components/views/chat/welcome-setup-notice.tsx",
+          "bytes": 1674,
+          "sha256": "4bb86bbbccb801d2c5c48327efac9012d297c09d8d68dd28fd7b0dde5d3a77eb"
+        },
+        {
+          "path": "apps/vscode/LICENSE",
+          "bytes": 11344,
+          "sha256": "f704446a5f1271608805598b557e4288cf8580477ea038c9c3d8b361f693f6b8"
+        },
+        {
+          "path": "sdk/packages/ui/RADIX-COLORS-LICENSE",
+          "bytes": 1062,
+          "sha256": "9c400881b9139571aa7acc3bd6e422a4f05223b4519169fb661298fb44bf228e"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "cline/cline",
+        "html_url": "https://github.com/cline/cline",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-07T09:22:10Z",
+        "license": {
+          "key": "apache-2.0",
+          "name": "Apache License 2.0",
+          "spdx_id": "Apache-2.0",
+          "url": "https://api.github.com/licenses/apache-2.0",
+          "node_id": "MDc6TGljZW5zZTI="
+        },
+        "observedAt": "2026-10-07T09:30:16.818421+00:00"
+      },
+      "declaredRootLicense": "Apache-2.0",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [
+        "evals/cline-bench"
+      ],
+      "rootLicenseCategory": "permissive-open-source",
+      "scopeNote": "Public shared SDK analyzed; README explicitly excludes JetBrains plugin source"
+    },
+    {
+      "slug": "goose",
+      "requestedRepository": "aaif-goose/goose",
+      "requestedUrl": "https://github.com/aaif-goose/goose.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/goose",
+      "status": "cloned",
+      "head": "f9c18a81952e8895b6f2d88b0f4569f3975034af",
+      "branch": "main",
+      "commitDate": "2026-10-07T02:38:09Z",
+      "remoteUrl": "https://github.com/aaif-goose/goose.git",
+      "startedAt": "2026-10-07T09:27:25.311037+00:00",
+      "completedAt": "2026-10-07T09:28:12.072265+00:00",
+      "isShallow": false,
+      "trackedFiles": 2533,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 11341,
+          "sha256": "44459b86c2e96fdbfd8a6b5c33d30d4b04b5293fcb2ec96fe4dcc4e0f90b8962"
+        },
+        {
+          "path": "crates/goose-mcp/licenses/chart-js.license",
+          "bytes": 1093,
+          "sha256": "41a84aa2caba645f966a18d9c2056b73e6d3a81d80bc0046bc0011a2634d4cce"
+        },
+        {
+          "path": "crates/goose-mcp/licenses/d3-js.license",
+          "bytes": 731,
+          "sha256": "3e6849627f74ff73c257a3ae1efb574015d94fc1035c05ec3c15805165efcbc4"
+        },
+        {
+          "path": "crates/goose-mcp/licenses/d3-sankey.license",
+          "bytes": 1471,
+          "sha256": "2bf785e778d67a4f5266cffcd4f2cc5bb98cde73791666e7efeb8002ba32dfa5"
+        },
+        {
+          "path": "crates/goose-mcp/licenses/leaflet-markercluster.license",
+          "bytes": 1052,
+          "sha256": "3133dacd38250bd1f524d8166cc60a016a382522e062fce143691c65bf5e4b3d"
+        },
+        {
+          "path": "crates/goose-mcp/licenses/leaflet.license",
+          "bytes": 1369,
+          "sha256": "bbc959aaef7488b38942e7f05cfd1244351f8bce54261951ea17dd7cf60f894b"
+        },
+        {
+          "path": "crates/goose-mcp/licenses/mermaid.license",
+          "bytes": 1089,
+          "sha256": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80"
+        },
+        {
+          "path": "ui/desktop/src/components/settings/providers/modal/subcomponents/SecureStorageNotice.tsx",
+          "bytes": 1097,
+          "sha256": "0e8a9c6ee37c03a9fe2daaff6c33ec96428806c1741ef81f89138ba22c18eb9e"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "aaif-goose/goose",
+        "html_url": "https://github.com/aaif-goose/goose",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-07T05:34:33Z",
+        "license": {
+          "key": "apache-2.0",
+          "name": "Apache License 2.0",
+          "spdx_id": "Apache-2.0",
+          "url": "https://api.github.com/licenses/apache-2.0",
+          "node_id": "MDc6TGljZW5zZTI="
+        },
+        "observedAt": "2026-10-07T09:28:12.392725+00:00"
+      },
+      "declaredRootLicense": "Apache-2.0",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "openhands-sdk",
+      "requestedRepository": "OpenHands/software-agent-sdk",
+      "requestedUrl": "https://github.com/OpenHands/software-agent-sdk.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/openhands-sdk",
+      "status": "cloned",
+      "head": "608a102c637d8d8a999f49d7b04846524bd8bd1c",
+      "branch": "main",
+      "commitDate": "2026-10-06T22:17:37-04:00",
+      "remoteUrl": "https://github.com/OpenHands/software-agent-sdk.git",
+      "startedAt": "2026-10-07T09:27:26.428906+00:00",
+      "completedAt": "2026-10-07T09:27:31.948702+00:00",
+      "isShallow": false,
+      "trackedFiles": 1849,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 1079,
+          "sha256": "14a9b631c658eee682c6c2973525fbdf808c3457176bc47513052c559cc5ce86"
+        },
+        {
+          "path": "clients/typescript/LICENSE",
+          "bytes": 1075,
+          "sha256": "5f81be7d1eee918d9b626e5b9b2f8fccd52d74d8f91c5e0402aaf3fe86e92399"
+        },
+        {
+          "path": "tests/fixtures/plugins/agent_plugins/agent-plugins-example/LICENSE",
+          "bytes": 1056,
+          "sha256": "1126322e2cc8d165adc4c792eeb195717de2bcc7b39be1ce77959d78e87ef685"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "OpenHands/software-agent-sdk",
+        "html_url": "https://github.com/OpenHands/software-agent-sdk",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-07T09:10:41Z",
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        },
+        "observedAt": "2026-10-07T09:27:32.270868+00:00"
+      },
+      "declaredRootLicense": "MIT",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "zoo-code",
+      "requestedRepository": "Zoo-Code-Org/Zoo-Code",
+      "requestedUrl": "https://github.com/Zoo-Code-Org/Zoo-Code.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/zoo-code",
+      "status": "cloned",
+      "head": "842b37e76d296a6381c182f2dad7822da08b9cbb",
+      "branch": "main",
+      "commitDate": "2026-10-07T04:33:59Z",
+      "remoteUrl": "https://github.com/Zoo-Code-Org/Zoo-Code.git",
+      "startedAt": "2026-10-07T09:30:15.825954+00:00",
+      "completedAt": "2026-10-07T09:30:16.492120+00:00",
+      "isShallow": false,
+      "trackedFiles": 2946,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 11339,
+          "sha256": "694dbf5b4cf4497b8f4c1fc81022f9f806dac728ce40f069fbee4f14c036aaca"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "Zoo-Code-Org/Zoo-Code",
+        "html_url": "https://github.com/Zoo-Code-Org/Zoo-Code",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-07T04:53:33Z",
+        "license": {
+          "key": "apache-2.0",
+          "name": "Apache License 2.0",
+          "spdx_id": "Apache-2.0",
+          "url": "https://api.github.com/licenses/apache-2.0",
+          "node_id": "MDc6TGljZW5zZTI="
+        },
+        "observedAt": "2026-10-07T09:30:16.834378+00:00"
+      },
+      "declaredRootLicense": "Apache-2.0",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "mistral-vibe",
+      "requestedRepository": "mistralai/mistral-vibe",
+      "requestedUrl": "https://github.com/mistralai/mistral-vibe.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/mistral-vibe",
+      "status": "cloned",
+      "head": "7cb91894c40bb25173abcfa36e5ea2b4b81eb28c",
+      "branch": "main",
+      "commitDate": "2026-10-06T14:53:29+02:00",
+      "remoteUrl": "https://github.com/mistralai/mistral-vibe.git",
+      "startedAt": "2026-10-07T09:27:46.173957+00:00",
+      "completedAt": "2026-10-07T09:27:49.183163+00:00",
+      "isShallow": false,
+      "trackedFiles": 4864,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 11340,
+          "sha256": "3375b98d59c50073c1ea6667fda7df54d122f4e8c67d1ae2fb7afdfe311abf27"
+        },
+        {
+          "path": "client-e2e/scenarios/conversation/hook_notice.py",
+          "bytes": 820,
+          "sha256": "d70d12f4c82012796b8da6b09bd85f3464579b25b69f3ccf854b7a9e47fa0b11"
+        },
+        {
+          "path": "client-e2e/scenarios/conversation/hook_notice_pre_tool.py",
+          "bytes": 810,
+          "sha256": "4b30f600f3bbef65df86037c16083fcc1ccdac8d247d698a6d345f303582f689"
+        },
+        {
+          "path": "distribution/zed/LICENSE",
+          "bytes": 11340,
+          "sha256": "3375b98d59c50073c1ea6667fda7df54d122f4e8c67d1ae2fb7afdfe311abf27"
+        },
+        {
+          "path": "tests/cli/textual_ui/test_event_handler_loop_notice.py",
+          "bytes": 1229,
+          "sha256": "c14d363b2f65f00cb4f9c406d9410633992350158e5f51cd9212f62b6d3ba79a"
+        },
+        {
+          "path": "tests/cli/textual_ui/test_inline_notice.py",
+          "bytes": 412,
+          "sha256": "41e3f571b4bacb8643c52a57edb46d7378f76321bc5c0ef5ed254d5a2c84e43c"
+        },
+        {
+          "path": "tests/snapshots/__snapshots__/test_ui_snapshot_clipboard_notice/test_snapshot_clipboard_notice_visible.svg",
+          "bytes": 12619,
+          "sha256": "8df5819cf2f6e576c7309f48b4e0ccf400ccd6b5eb59f44f2cdd55ec12074209"
+        },
+        {
+          "path": "tests/snapshots/test_ui_snapshot_clipboard_notice.py",
+          "bytes": 773,
+          "sha256": "c6cab014cb9b3daea8f6cdf9ca440a7c43e333fff0388e2d5cabc9c6930d0a8f"
+        },
+        {
+          "path": "tests/test_mcp_auth_notices.py",
+          "bytes": 6334,
+          "sha256": "593892db1f8dff1fbe6acf9151e6ab6f71b4da717a3f785f3592b81d4d120d89"
+        },
+        {
+          "path": "vibe/cli-rust/src/mcp/notices.rs",
+          "bytes": 1240,
+          "sha256": "e4dbe25fb6bb91c157bca1cddd9443c3c3512ab41fb9e997f63ceb32b362c33f"
+        },
+        {
+          "path": "vibe/cli-rust/src/resume_picker/notice.rs",
+          "bytes": 3536,
+          "sha256": "3e499680dc6b6a936a715d773b85117789b7eed70244201d53173cc4c4ed0cbe"
+        },
+        {
+          "path": "vibe/cli-rust/src/ui/notice.rs",
+          "bytes": 3673,
+          "sha256": "b9a6ed8fad5edce3803d68d60d50b10b183395c71e1a3dc58b7492b2beab9d06"
+        },
+        {
+          "path": "vibe/cli-rust/src/ui/transcript/entry/notice.rs",
+          "bytes": 3400,
+          "sha256": "debed4c4ba1e226aca31ce20f77b26ea55e2bb9251dc0eb3b90df4875788ad83"
+        },
+        {
+          "path": "vibe/cli-rust/tests/server_notices.rs",
+          "bytes": 6038,
+          "sha256": "33844e0fa7449beaa522ca0f8244235a7bea6d20558c2cbcb0b952630c5c2567"
+        },
+        {
+          "path": "vibe/cli-rust/tests/units/notice_state.rs",
+          "bytes": 352,
+          "sha256": "987599f3a6cae62cb6ad2c74961fb8025be57d80cdd7278b2c4b3d3e3d6dd61b"
+        },
+        {
+          "path": "vibe/cli/textual_ui/widgets/inline_notice.py",
+          "bytes": 1172,
+          "sha256": "4e56b2e8ab636eff87df8edebbdc40d737722fb82bf1beccfb4d92bf93c23fec"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "mistralai/mistral-vibe",
+        "html_url": "https://github.com/mistralai/mistral-vibe",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-07T07:31:40Z",
+        "license": {
+          "key": "apache-2.0",
+          "name": "Apache License 2.0",
+          "spdx_id": "Apache-2.0",
+          "url": "https://api.github.com/licenses/apache-2.0",
+          "node_id": "MDc6TGljZW5zZTI="
+        },
+        "observedAt": "2026-10-07T09:27:49.562194+00:00"
+      },
+      "declaredRootLicense": "Apache-2.0",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source",
+      "scopeNote": "Root Apache-2.0 conflicts with vibe/cli-rust/Cargo.toml license=Proprietary metadata; see project source report. Root category does not resolve subpackage rights."
+    },
+    {
+      "slug": "kimi-code",
+      "requestedRepository": "MoonshotAI/kimi-code",
+      "requestedUrl": "https://github.com/MoonshotAI/kimi-code.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/kimi-code",
+      "status": "cloned",
+      "head": "21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3",
+      "branch": "main",
+      "commitDate": "2026-09-30T15:23:40+08:00",
+      "remoteUrl": "https://github.com/MoonshotAI/kimi-code.git",
+      "startedAt": "2026-10-07T09:27:49.562949+00:00",
+      "completedAt": "2026-10-07T09:27:58.101450+00:00",
+      "isShallow": false,
+      "trackedFiles": 4436,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 1068,
+          "sha256": "23cc68e17992e0b512ae2e80afc5787d7d8e0fbfbdb4fff54ec0245508fa400e"
+        },
+        {
+          "path": "apps/kimi-code/src/utils/plugin-update-notice-state.ts",
+          "bytes": 2054,
+          "sha256": "f07eb71cb7f6f6e0074e10eebc2017c5154defda42ba57e010a1f39aed2a3dbb"
+        },
+        {
+          "path": "apps/kimi-code/test/tui/components/messages/notice.test.ts",
+          "bytes": 2762,
+          "sha256": "ebaeb64a691bd208310d80803ab4ff9103f0decfc449eba36cba37f6c4a691fe"
+        },
+        {
+          "path": "apps/vscode/LICENSE",
+          "bytes": 11357,
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        },
+        {
+          "path": "packages/pi-tui/LICENSE",
+          "bytes": 1069,
+          "sha256": "0457f5bcec3b3b211605dfb5d1a49042fd638f3686a410fe099c24a25af13c48"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "MoonshotAI/kimi-code",
+        "html_url": "https://github.com/MoonshotAI/kimi-code",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-02T12:24:22Z",
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        },
+        "observedAt": "2026-10-07T09:27:58.401837+00:00"
+      },
+      "declaredRootLicense": "MIT",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "kilocode",
+      "requestedRepository": "Kilo-Org/kilocode",
+      "requestedUrl": "https://github.com/Kilo-Org/kilocode.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/kilocode",
+      "status": "cloned",
+      "head": "b1e7f34a4ce9fac0519714116f06fb553e185c56",
+      "branch": "main",
+      "commitDate": "2026-10-07T10:36:35+02:00",
+      "remoteUrl": "https://github.com/Kilo-Org/kilocode.git",
+      "startedAt": "2026-10-07T09:30:15.826081+00:00",
+      "completedAt": "2026-10-07T09:30:16.105690+00:00",
+      "isShallow": false,
+      "trackedFiles": 10845,
+      "licenseFiles": [
+        {
+          "path": ".kilo/plans/1786990849107-jetbrains-devcontainer-unsupported-notice.md",
+          "bytes": 10969,
+          "sha256": "6bb900d2c6b8db7eaca80e4d3a15231b3d7a79948bd66b18d2d891bc2d1ca701"
+        },
+        {
+          "path": "LICENSE",
+          "bytes": 1094,
+          "sha256": "8a088af74e19c37e62906321b1072f593113058ed9eae507d899d41e6e5e5bb4"
+        },
+        {
+          "path": "packages/http-recorder/LICENSE",
+          "bytes": 1065,
+          "sha256": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b"
+        },
+        {
+          "path": "packages/kilo-memory/src/memory-notice.ts",
+          "bytes": 839,
+          "sha256": "498907c97fe470db60003bae400341788aa451574f10f30d5a392141fb403f85"
+        },
+        {
+          "path": "packages/kilo-vscode/LICENSE",
+          "bytes": 1094,
+          "sha256": "8a088af74e19c37e62906321b1072f593113058ed9eae507d899d41e6e5e5bb4"
+        },
+        {
+          "path": "packages/kilo-vscode/src/services/attention/notice.ts",
+          "bytes": 639,
+          "sha256": "260ec5aba1b005b785a0c54d956c899c060a76c70fe37556dd8ea40451ea9431"
+        },
+        {
+          "path": "packages/kilo-vscode/webview-ui/agent-manager/orphans/OrphanNotice.tsx",
+          "bytes": 2430,
+          "sha256": "395cbec88327d310c8f0d0649436355daadc7766b11ce6a2eed23861f2caaa9c"
+        },
+        {
+          "path": "packages/kilo-vscode/webview-ui/diff-viewer/DiffViewerNotice.tsx",
+          "bytes": 571,
+          "sha256": "b6703fa24d38220c24a2629e2190400ba3ed82e6104fb2393c1f12a14e6c697c"
+        },
+        {
+          "path": "packages/opencode/src/kilocode/board/notice.ts",
+          "bytes": 1192,
+          "sha256": "88e7e9e18965bfc844cfcdb3af74600269424532896311b7d82c36de1aadd0b4"
+        },
+        {
+          "path": "packages/ui/LICENSE",
+          "bytes": 1065,
+          "sha256": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "Kilo-Org/kilocode",
+        "html_url": "https://github.com/Kilo-Org/kilocode",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-07T08:46:48Z",
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        },
+        "observedAt": "2026-10-07T09:30:16.457128+00:00"
+      },
+      "declaredRootLicense": "MIT",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "mini-swe-agent",
+      "requestedRepository": "SWE-agent/mini-swe-agent",
+      "requestedUrl": "https://github.com/SWE-agent/mini-swe-agent.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/mini-swe-agent",
+      "status": "cloned",
+      "head": "04d809ceab9df28f9adaed044884180159172930",
+      "branch": "main",
+      "commitDate": "2026-09-03T01:05:59-04:00",
+      "remoteUrl": "https://github.com/SWE-agent/mini-swe-agent.git",
+      "startedAt": "2026-10-07T09:27:58.402876+00:00",
+      "completedAt": "2026-10-07T09:28:00.332534+00:00",
+      "isShallow": false,
+      "trackedFiles": 221,
+      "licenseFiles": [
+        {
+          "path": "LICENSE.md",
+          "bytes": 1094,
+          "sha256": "0f796e58f91d1c07bb2c1b1d0f8bf3a83017c3a5dec1bdc6fae733b2cd2e875b"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "SWE-agent/mini-swe-agent",
+        "html_url": "https://github.com/SWE-agent/mini-swe-agent",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-06T00:35:14Z",
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        },
+        "observedAt": "2026-10-07T09:28:00.608243+00:00"
+      },
+      "declaredRootLicense": "MIT",
+      "rootLicenseFiles": [
+        "LICENSE.md"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "open-swe",
+      "requestedRepository": "langchain-ai/open-swe",
+      "requestedUrl": "https://github.com/langchain-ai/open-swe.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/open-swe",
+      "status": "cloned",
+      "head": "48a8445fc51246e739976c8bf5bdca3c43f27653",
+      "branch": "main",
+      "commitDate": "2026-10-07T17:22:39+09:00",
+      "remoteUrl": "https://github.com/langchain-ai/open-swe.git",
+      "startedAt": "2026-10-07T09:28:00.609640+00:00",
+      "completedAt": "2026-10-07T09:28:06.294510+00:00",
+      "isShallow": false,
+      "trackedFiles": 2068,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 1070,
+          "sha256": "61e5e8faf0b76db76793ecd8aa0edca36a82bd8dba279d2a31972f026c132423"
+        },
+        {
+          "path": "ui/native/libghostty-vt/LICENSE",
+          "bytes": 1097,
+          "sha256": "386211873e5b7a02f663ae4d7adf96285999f91608f8f9f31fecfd0f4095e6f1"
+        },
+        {
+          "path": "ui/src/features/agents/lib/stream/useReconnectNotice.ts",
+          "bytes": 1779,
+          "sha256": "637a4e6f7584ac7437259fe3ee43378d7240274aed20cc3fe77b11e1d17a6d25"
+        },
+        {
+          "path": "ui/src/features/agents/terminal/ghostty/T3-LICENSE",
+          "bytes": 1070,
+          "sha256": "935d8f2af0c703f9c39517ee57cc4930b19d02d533be930b63f0e82f93614b43"
+        },
+        {
+          "path": "ui/src/features/agents/terminal/ghostty/fonts/LICENSE",
+          "bytes": 1082,
+          "sha256": "84a7a98c82140fb12c37fe42b93805baa16024cb3e5acc599b7ffe612c55d847"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "langchain-ai/open-swe",
+        "html_url": "https://github.com/langchain-ai/open-swe",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-07T08:48:22Z",
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        },
+        "observedAt": "2026-10-07T09:28:06.608297+00:00"
+      },
+      "declaredRootLicense": "MIT",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "roo-code",
+      "requestedRepository": "RooCodeInc/Roo-Code",
+      "requestedUrl": "https://github.com/RooCodeInc/Roo-Code.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/roo-code",
+      "status": "cloned",
+      "head": "b867ec9145750d0ae1ff7f02d35406e9bf2a0b16",
+      "branch": "main",
+      "commitDate": "2026-05-15T14:04:45-04:00",
+      "remoteUrl": "https://github.com/RooCodeInc/Roo-Code.git",
+      "startedAt": "2026-10-07T09:30:15.826192+00:00",
+      "completedAt": "2026-10-07T09:30:16.231774+00:00",
+      "isShallow": false,
+      "trackedFiles": 3022,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 11344,
+          "sha256": "d907e7f3f1396695c474d1376c40909921ffb1fc608d2504992809a6da1742f9"
+        },
+        {
+          "path": "apps/docs/LICENSE",
+          "bytes": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "RooCodeInc/Roo-Code",
+        "html_url": "https://github.com/RooCodeInc/Roo-Code",
+        "archived": true,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-05-15T18:08:47Z",
+        "license": {
+          "key": "apache-2.0",
+          "name": "Apache License 2.0",
+          "spdx_id": "Apache-2.0",
+          "url": "https://api.github.com/licenses/apache-2.0",
+          "node_id": "MDc6TGljZW5zZTI="
+        },
+        "observedAt": "2026-10-07T09:30:16.535362+00:00"
+      },
+      "declaredRootLicense": "Apache-2.0",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=true; historical reference",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "continue",
+      "requestedRepository": "continuedev/continue",
+      "requestedUrl": "https://github.com/continuedev/continue.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/continue",
+      "status": "cloned",
+      "head": "5522c6f44ca0ac3528b37244818fbfa39b5af470",
+      "branch": "main",
+      "commitDate": "2026-07-20T21:00:09-07:00",
+      "remoteUrl": "https://github.com/continuedev/continue.git",
+      "startedAt": "2026-10-07T09:28:12.393649+00:00",
+      "completedAt": "2026-10-07T09:28:57.438584+00:00",
+      "isShallow": false,
+      "trackedFiles": 3058,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 11348,
+          "sha256": "b14a17598cb08c4c7c82c070731126304e0a75d001ed59fb9ea3955a0b561802"
+        },
+        {
+          "path": "core/vendor/modules/@xenova/transformers/LICENSE",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "extensions/intellij/src/main/kotlin/com/github/continuedev/continueintellijextension/license/AddLicenseKey.kt",
+          "bytes": 2463,
+          "sha256": "9a89d30be9a33ff6d4446941672613bbc6b2f74078dfc5cfd126f44de871b2f0"
+        },
+        {
+          "path": "extensions/intellij/src/main/kotlin/com/github/continuedev/continueintellijextension/license/AddLicenseKeyDialog.kt",
+          "bytes": 1038,
+          "sha256": "3bf2db3e0cc714e6c152b857a3a3f10501563d9319966589b9b57b134c60e9f1"
+        },
+        {
+          "path": "extensions/vscode/LICENSE.txt",
+          "bytes": 548,
+          "sha256": "0622d2a2671c6462aa6c6a0663b92958b666aa4b0618dcf5a873f96bb6d258a5"
+        },
+        {
+          "path": "gui/public/fonts/Inter/LICENSE.txt",
+          "bytes": 4380,
+          "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+        },
+        {
+          "path": "gui/src/components/config/FatalErrorNotice.tsx",
+          "bytes": 2352,
+          "sha256": "c764a2d3e4b39070f61b6a7577d5ddd69ad61e6237aa1cd64e77d409150b74d1"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "continuedev/continue",
+        "html_url": "https://github.com/continuedev/continue",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-07T06:09:08Z",
+        "license": {
+          "key": "apache-2.0",
+          "name": "Apache License 2.0",
+          "spdx_id": "Apache-2.0",
+          "url": "https://api.github.com/licenses/apache-2.0",
+          "node_id": "MDc6TGljZW5zZTI="
+        },
+        "observedAt": "2026-10-07T09:28:57.756954+00:00"
+      },
+      "declaredRootLicense": "Apache-2.0",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "README says no longer actively maintained and read-only; API archived=false",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "swe-agent",
+      "requestedRepository": "SWE-agent/SWE-agent",
+      "requestedUrl": "https://github.com/SWE-agent/SWE-agent.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/swe-agent",
+      "status": "cloned",
+      "head": "3ea751c087f32b16e039a2233dd6eefecef325d5",
+      "branch": "main",
+      "commitDate": "2026-07-16T11:21:18-04:00",
+      "remoteUrl": "https://github.com/SWE-agent/SWE-agent.git",
+      "startedAt": "2026-10-07T09:28:26.670364+00:00",
+      "completedAt": "2026-10-07T09:28:33.775282+00:00",
+      "isShallow": false,
+      "trackedFiles": 409,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 1147,
+          "sha256": "7610ed3916f6674e34b78417894abd57ff538b3cfdda3085e3643d82acbaf31f"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "SWE-agent/SWE-agent",
+        "html_url": "https://github.com/SWE-agent/SWE-agent",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-06T00:34:40Z",
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        },
+        "observedAt": "2026-10-07T09:28:34.177612+00:00"
+      },
+      "declaredRootLicense": "MIT",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "kimi-cli-legacy",
+      "requestedRepository": "MoonshotAI/kimi-cli",
+      "requestedUrl": "https://github.com/MoonshotAI/kimi-cli.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/kimi-cli-legacy",
+      "status": "cloned",
+      "head": "9ab1286b8fe4e6bcd116949a27ce5e0ac3389c82",
+      "branch": "main",
+      "commitDate": "2026-09-22T09:29:17Z",
+      "remoteUrl": "https://github.com/MoonshotAI/kimi-cli.git",
+      "startedAt": "2026-10-07T09:28:34.178396+00:00",
+      "completedAt": "2026-10-07T09:28:38.005364+00:00",
+      "isShallow": false,
+      "trackedFiles": 991,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 11357,
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        },
+        {
+          "path": "NOTICE",
+          "bytes": 408,
+          "sha256": "6bdd9ca6fd120dcd6ba5e16bf2bacc01f42781fd2d9754ec934c5db05fcdc395"
+        },
+        {
+          "path": "packages/kaos/LICENSE",
+          "bytes": 11357,
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        },
+        {
+          "path": "packages/kaos/NOTICE",
+          "bytes": 118,
+          "sha256": "015d40c00963ac94b04e76f58ed8312ff9ac98e0173ff236a386270eb836de09"
+        },
+        {
+          "path": "packages/kosong/LICENSE",
+          "bytes": 11357,
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        },
+        {
+          "path": "packages/kosong/NOTICE",
+          "bytes": 118,
+          "sha256": "887843653ab8ecfde62922d7773f8ff5e985afeed6273aab9fefc8d86d36cb2d"
+        },
+        {
+          "path": "sdks/kimi-sdk/LICENSE",
+          "bytes": 11357,
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        },
+        {
+          "path": "sdks/kimi-sdk/NOTICE",
+          "bytes": 121,
+          "sha256": "bbbc0d2ec6378929f9a61601d33693f9b0f8f8abc76b89e14eb9ea93bcf2ac86"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "MoonshotAI/kimi-cli",
+        "html_url": "https://github.com/MoonshotAI/kimi-cli",
+        "archived": true,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-09-22T09:42:54Z",
+        "license": {
+          "key": "apache-2.0",
+          "name": "Apache License 2.0",
+          "spdx_id": "Apache-2.0",
+          "url": "https://api.github.com/licenses/apache-2.0",
+          "node_id": "MDc6TGljZW5zZTI="
+        },
+        "observedAt": "2026-10-07T09:28:38.305286+00:00"
+      },
+      "declaredRootLicense": "Apache-2.0",
+      "rootLicenseFiles": [
+        "LICENSE",
+        "NOTICE"
+      ],
+      "maintenanceNote": "GitHub API archived=true; historical reference",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    },
+    {
+      "slug": "crush",
+      "requestedRepository": "charmbracelet/crush",
+      "requestedUrl": "https://github.com/charmbracelet/crush.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/crush",
+      "status": "cloned",
+      "head": "140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5",
+      "branch": "main",
+      "commitDate": "2026-10-06T18:42:30-04:00",
+      "remoteUrl": "https://github.com/charmbracelet/crush.git",
+      "startedAt": "2026-10-07T09:28:38.306505+00:00",
+      "completedAt": "2026-10-07T09:28:43.164934+00:00",
+      "isShallow": false,
+      "trackedFiles": 1234,
+      "licenseFiles": [
+        {
+          "path": "LICENSE.md",
+          "bytes": 5318,
+          "sha256": "3faa5d4f3a51f07e4963b993f27af4b9344d7c509fa20aa856dd878788ba5f18"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "charmbracelet/crush",
+        "html_url": "https://github.com/charmbracelet/crush",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-07T07:20:18Z",
+        "license": {
+          "key": "other",
+          "name": "Other",
+          "spdx_id": "NOASSERTION",
+          "url": null,
+          "node_id": "MDc6TGljZW5zZTA="
+        },
+        "observedAt": "2026-10-07T09:28:43.521685+00:00"
+      },
+      "declaredRootLicense": "FSL-1.1-MIT",
+      "rootLicenseFiles": [
+        "LICENSE.md"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "source-available-FSL"
+    },
+    {
+      "slug": "openhands-app",
+      "requestedRepository": "OpenHands/OpenHands",
+      "requestedUrl": "https://github.com/OpenHands/OpenHands.git",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/openhands-app",
+      "status": "cloned",
+      "head": "7ea83bab4fe71149b88b5a8a6b9efe9042cb362d",
+      "branch": "main",
+      "commitDate": "2026-10-07T02:24:41Z",
+      "remoteUrl": "https://github.com/OpenHands/OpenHands.git",
+      "startedAt": "2026-10-07T09:28:38.784520+00:00",
+      "completedAt": "2026-10-07T09:29:05.550231+00:00",
+      "isShallow": false,
+      "trackedFiles": 2535,
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "bytes": 1096,
+          "sha256": "e1d1fa9f3a8d7bef24449d488fcd8f00f8f272cac297bb9bed161eb6175b876a"
+        },
+        {
+          "path": "__tests__/components/settings/agent-profiles/global-tools-notice.test.tsx",
+          "bytes": 2197,
+          "sha256": "cbc63422b9fb2a39be68d22ddda33a60fe8ed0d4842cd5f60bdbdef51625a43c"
+        },
+        {
+          "path": "src/components/features/settings/agent-profiles/global-tools-notice.tsx",
+          "bytes": 2397,
+          "sha256": "d836e643e4e545ac7dd5311be4858f257517663876d6cb86be4440a8e434dc93"
+        }
+      ],
+      "githubMetadata": {
+        "full_name": "OpenHands/OpenHands",
+        "html_url": "https://github.com/OpenHands/OpenHands",
+        "archived": false,
+        "disabled": false,
+        "default_branch": "main",
+        "pushed_at": "2026-10-07T09:14:53Z",
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        },
+        "observedAt": "2026-10-07T09:29:05.851655+00:00"
+      },
+      "declaredRootLicense": "MIT",
+      "rootLicenseFiles": [
+        "LICENSE"
+      ],
+      "maintenanceNote": "GitHub API archived=false at observation time; not a guarantee of active maintenance",
+      "uninitializedSubmodulePaths": [],
+      "rootLicenseCategory": "permissive-open-source"
+    }
+  ],
+  "scope": {
+    "listedProjects": 18,
+    "companionApplicationRepositories": 1,
+    "companionSlug": "openhands-app"
+  },
+  "analysisMode": "static source review by one subagent per repository, root evidence checks; no upstream tests executed",
+  "licenseInventoryMethod": "git tracked paths whose basenames contain license, notice or copying (case insensitive); filename inventory may include helper source files and is not a complete rights/dependency audit",
+  "trackedEntryCount": 60418
+}

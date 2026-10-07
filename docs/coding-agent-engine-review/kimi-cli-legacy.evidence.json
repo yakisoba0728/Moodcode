@@ -1,0 +1,372 @@
+{
+  "schemaVersion": 1,
+  "slug": "kimi-cli-legacy",
+  "head": "9ab1286b8fe4e6bcd116949a27ce5e0ac3389c82",
+  "repository": "https://github.com/MoonshotAI/kimi-cli",
+  "analysisMode": "static-source-review",
+  "upstreamExecution": false,
+  "moodcodeEngineSource": "464812f7d1af24466f57070663131f5979aeca51",
+  "references": [
+    {
+      "id": "L01",
+      "path": "LICENSE",
+      "startLine": 1,
+      "endLine": 16,
+      "claim": "실제 root Apache-2.0 LICENSE",
+      "fileSha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "rangeSha256": "1ce8d7dee354a0036a8dbe5a1305283b8460a7edde274b913c55a25ba28ad469"
+    },
+    {
+      "id": "L02",
+      "path": "NOTICE",
+      "startLine": 1,
+      "endLine": 14,
+      "claim": "Moonshot AI 및 OpenAI Codex skill 재사용 고지",
+      "fileSha256": "6bdd9ca6fd120dcd6ba5e16bf2bacc01f42781fd2d9754ec934c5db05fcdc395",
+      "rangeSha256": "6bdd9ca6fd120dcd6ba5e16bf2bacc01f42781fd2d9754ec934c5db05fcdc395"
+    },
+    {
+      "id": "L03",
+      "path": "README.md",
+      "startLine": 1,
+      "endLine": 57,
+      "claim": "고정 README archive 선언 및 successor/legacy PyPI alias 구분",
+      "fileSha256": "2775bc6253bc2a0366140cd0697dce62f82797ce3ff66ee1d3336bb60a379784",
+      "rangeSha256": "f925ac34fb5248dd595ec426bd63f7fda5bcbdbcb6a61715de1d912eee655c9f"
+    },
+    {
+      "id": "L04",
+      "path": "src/kimi_cli/__main__.py",
+      "startLine": 12,
+      "endLine": 63,
+      "claim": "public console main deprecation gate 및 호출되지 않는 original CLI",
+      "fileSha256": "181560fb80d8f12e20bdc193c948318fd3bf37af661f3f8eff9ee8549913a76b",
+      "rangeSha256": "9a0c6722aca9e48ada727e5c98dabc3f7c0f53db28feede3a5654972cc96d909"
+    },
+    {
+      "id": "L05",
+      "path": "src/kimi_cli/app.py",
+      "startLine": 243,
+      "endLine": 327,
+      "claim": "Runtime/Agent/Context restore/KimiSoul/HookEngine 연결",
+      "fileSha256": "51bfd939959c492e63ef3d327385ac5511ee35e83cd118fb5c83d6ffa09bf76f",
+      "rangeSha256": "ea50ea9e2a6a3c5d281a461967dae29839b0acd857883ff0503f868f2728fb1a"
+    },
+    {
+      "id": "L06",
+      "path": "src/kimi_cli/soul/kimisoul.py",
+      "startLine": 659,
+      "endLine": 759,
+      "claim": "prompt hook과 slash/flow/turn 선택, 최대 한 번 Stop continuation",
+      "fileSha256": "779e722966727741df2994dae7036aff877431cdfe6d27ce075816a12ae3240f",
+      "rangeSha256": "d17b46a29ba3d383edd5f09321364a828e930ef32e68bce327abc3e198335645"
+    },
+    {
+      "id": "L07",
+      "path": "src/kimi_cli/soul/kimisoul.py",
+      "startLine": 998,
+      "endLine": 1109,
+      "claim": "step guard/compaction/checkpoint/step/stop/steer/D-Mail rewind 루프",
+      "fileSha256": "779e722966727741df2994dae7036aff877431cdfe6d27ce075816a12ae3240f",
+      "rangeSha256": "82e55a87561f5e9b1ecda6e5d41776a50c2456956a5fbc9d1ccc354f9d0258aa"
+    },
+    {
+      "id": "L08",
+      "path": "src/kimi_cli/soul/kimisoul.py",
+      "startLine": 1190,
+      "endLine": 1346,
+      "claim": "kosong.step retry와 tool 결과 대기, shielded context 성장 및 종료 이유",
+      "fileSha256": "779e722966727741df2994dae7036aff877431cdfe6d27ce075816a12ae3240f",
+      "rangeSha256": "1bb3e28d9350d7d88892a083c5bd4b702591188a0c969113bff682dec4618223"
+    },
+    {
+      "id": "L09",
+      "path": "packages/kosong/src/kosong/__init__.py",
+      "startLine": 104,
+      "endLine": 222,
+      "claim": "generation 중 tool task/future dispatch와 provider 오류/cancel 정리",
+      "fileSha256": "b5666f63a1e55015df575b450cdc35f9970c455c95d8871bc1b350f20b431a99",
+      "rangeSha256": "42dadb476ab9d9ce5e8d6f7cec9724e303585272b4eba31d82c5158a1609af1e"
+    },
+    {
+      "id": "L10",
+      "path": "src/kimi_cli/soul/context.py",
+      "startLine": 123,
+      "endLine": 248,
+      "claim": "JSONL checkpoint, 회전 후 대화 rewind 및 message/usage append",
+      "fileSha256": "e4a66fcf0ea4b5fd463210d059d7cd5e67a813c47d2c6a40cb2dc5da7480733f",
+      "rangeSha256": "2e5bd2a9c2cbdacf6ade1cfbae4f7ba499682eab7ad876e1c34130a2b3362fc8"
+    },
+    {
+      "id": "L11",
+      "path": "src/kimi_cli/soul/denwarenji.py",
+      "startLine": 6,
+      "endLine": 39,
+      "claim": "단일 pending D-Mail·유효 checkpoint 검사·filesystem 복원 TODO",
+      "fileSha256": "a5fafb3e1b7db8f45e758fe1e4ae84346af2ebe0f5d1f4ec78bfbf00498d663d",
+      "rangeSha256": "5769d2b1e1501866ef87775f1047614f3596081ce629aa357c8f5f277855576e"
+    },
+    {
+      "id": "L12",
+      "path": "src/kimi_cli/soul/compaction.py",
+      "startLine": 110,
+      "endLine": 198,
+      "claim": "최근 user/assistant 두 개 기준 suffix와 text-only tool-free compaction",
+      "fileSha256": "9cee31d8bbfdf5d0043f2461e98902b32e64666f39c9bf62a4d30e0189a38645",
+      "rangeSha256": "8992326a7d86361ad8f5e29fd863489466330323d554b8046286e0a010e4d131"
+    },
+    {
+      "id": "L13",
+      "path": "src/kimi_cli/soul/toolset.py",
+      "startLine": 343,
+      "endLine": 486,
+      "claim": "same-step 동일 호출 결과 재사용, cross-step 반복 관측·PreToolUse block",
+      "fileSha256": "98de589911934f2786a64ecb22eee4b56c8044d714fc3244948d668cfc91bf11",
+      "rangeSha256": "2800a516d8ec2c2649bde69830dff452417950a34c0c7ff591fb82ca8fafb687"
+    },
+    {
+      "id": "L14",
+      "path": "src/kimi_cli/soul/__init__.py",
+      "startLine": 179,
+      "endLine": 254,
+      "claim": "외부 cancel event에서 soul task 취소 및 wire/UI drain",
+      "fileSha256": "da96bf565f358890f85fa0bba4f07979e9b11095a5431440cf31d03f2dfe66fa",
+      "rangeSha256": "eaffe89b1d7e90da9191fe5cf5b9c0248fb7e056ee5d3033a9b66f6b55250bdf"
+    },
+    {
+      "id": "L15",
+      "path": "src/kimi_cli/soul/approval.py",
+      "startLine": 200,
+      "endLine": 318,
+      "claim": "현재 tool/source 승인 요청 및 yolo/afk/action cache 자동 승인",
+      "fileSha256": "3c144c203589be4f5ec491d8691e095410bc847ece7c62201333a8fc8f4c6db5",
+      "rangeSha256": "e6dbef88ccd8e6521d152dd8c873a9ddb381aee6afeb7dd408d24b92f952e469"
+    },
+    {
+      "id": "L16",
+      "path": "src/kimi_cli/tools/shell/__init__.py",
+      "startLine": 221,
+      "endLine": 264,
+      "claim": "KAOS shell spawn·stdin EOF·timeout/cancel kill",
+      "fileSha256": "f40361f5c3df6a6e1819311947842bf77615cb6ef725db80004f62cfea168e3d",
+      "rangeSha256": "dc9aa7830c44227e4b1a6229f5cb232cc914b2cfd26d08f8f79cd8e43630a441"
+    },
+    {
+      "id": "L17",
+      "path": "packages/kaos/src/kaos/local.py",
+      "startLine": 38,
+      "endLine": 176,
+      "claim": "local subprocess pipes와 직접 process kill; spawn process-group 설정 부재",
+      "fileSha256": "578eef49c6be6234e214b1b7b7854cacfc775917e2fea94159ee02c3702d1648",
+      "rangeSha256": "2efd522b06848543b1c411d259fd89771bb180a705db2586e527adbb83349981"
+    },
+    {
+      "id": "L18",
+      "path": "src/kimi_cli/background/manager.py",
+      "startLine": 337,
+      "endLine": 481,
+      "claim": "background group/taskkill/control·agent cancel·heartbeat lost recovery",
+      "fileSha256": "b1fe41bde85825c9965d7a054cb18862e801ff11cb173d08ff50908b4b244fff",
+      "rangeSha256": "e9a7391d5cb2b58dcb6cd187277a3c1d6ba92ae9de9f31a9e728df8dd4106d99"
+    },
+    {
+      "id": "L19",
+      "path": "src/kimi_cli/soul/agent.py",
+      "startLine": 339,
+      "endLine": 369,
+      "claim": "child가 session/workdir/approval 등을 공유하고 D-Mail은 독립 생성",
+      "fileSha256": "47d4d2cada5bc00e3330c46f03cf4f91d020316323395ff2251d0176ac33500a",
+      "rangeSha256": "6e08410d32067a32d7ec36e2237b5d83f029c92b35c0ced77ca1a3bad126b544"
+    },
+    {
+      "id": "L20",
+      "path": "src/kimi_cli/subagents/core.py",
+      "startLine": 37,
+      "endLine": 86,
+      "claim": "per-agent context/system prompt 복원과 child KimiSoul 생성",
+      "fileSha256": "6493baa03724a834b193c61ca518ad080db1842c326a9b08f2e834350a9d4a98",
+      "rangeSha256": "f94c4a432525889f4982b2536027625a85ff66bb0fdb0cf2f0b1a04eea9a31f4"
+    },
+    {
+      "id": "L21",
+      "path": "src/kimi_cli/hooks/engine.py",
+      "startLine": 205,
+      "endLine": 337,
+      "claim": "regex/command dedupe·parallel command/wire hooks·engine error fail-open",
+      "fileSha256": "3b208bc8d8470f2e72546b9b0840e40e6a49ac6caedb42bc9470f2b0196dc117",
+      "rangeSha256": "2c1f30ff3076943198397918d747edca1e13473883fcecc307b57091553b9e92"
+    },
+    {
+      "id": "L22",
+      "path": "src/kimi_cli/soul/toolset.py",
+      "startLine": 907,
+      "endLine": 974,
+      "claim": "MCP schema tool wrapping·approval·FastMCP timeout/error 변환",
+      "fileSha256": "98de589911934f2786a64ecb22eee4b56c8044d714fc3244948d668cfc91bf11",
+      "rangeSha256": "45a1c139ea9e27e803856ee2727d1b4a4a791e1c0dc30a5bd489c1a90c752ef3"
+    },
+    {
+      "id": "L23",
+      "path": "src/kimi_cli/acp/session.py",
+      "startLine": 155,
+      "endLine": 248,
+      "claim": "ACP prompt→CLI run→stream/approval mapping 및 cancel/max-step stop reason",
+      "fileSha256": "75df616219204a73e3346250a35b40b2f14bf9aa4442267d817207f1d959c0cc",
+      "rangeSha256": "0bd7a75a261f37e80cca3b624fec9c4f4308ba77823c3aaafbc3e4ec715ce782"
+    },
+    {
+      "id": "L24",
+      "path": "src/kimi_cli/llm.py",
+      "startLine": 326,
+      "endLine": 441,
+      "claim": "Kimi/OpenAI legacy/Responses/Anthropic/Google/Vertex provider 선택",
+      "fileSha256": "2a99e4240da182d6536976df6283602d729912a5da6ab8a498cd45ec3e50ea1a",
+      "rangeSha256": "f810c16333f13b84f6c8fdaa31ccded82cd90ba0d4764cc3ced28feaa1dcc889"
+    },
+    {
+      "id": "L25",
+      "path": "src/kimi_cli/tools/file/read_media.py",
+      "startLine": 20,
+      "endLine": 148,
+      "claim": "image/video capability와 100 MiB file limit·Kimi upload/data URL 경로",
+      "fileSha256": "40d3d40bd3a4bf9d746cc182eaed454ed3a6fb81f3aed4cf9ff3463b915a44d4",
+      "rangeSha256": "77c030ef9f0f86ae80fbe2a070f10504cc6c3ee834042f13cc6ec00960bb28f1"
+    },
+    {
+      "id": "L26",
+      "path": "src/kimi_cli/tools/file/replace.py",
+      "startLine": 82,
+      "endLine": 195,
+      "claim": "문자열 편집·diff approval·plan-file 예외·쓰기; expected hash 재검사 없는 경로",
+      "fileSha256": "4ca9c9f96050f1ca7590b3827dad0b80122fc2bc4edfaa4d761c6e55395a20d2",
+      "rangeSha256": "5ed2ebddd32d345ae541b6b5ec78e113bf8fec3c51cee771f893dbb19eb04564"
+    },
+    {
+      "id": "L27",
+      "path": "src/kimi_cli/agents/default/agent.yaml",
+      "startLine": 1,
+      "endLine": 36,
+      "claim": "기본 tool/profile 구성 및 비활성 D-Mail 설정",
+      "fileSha256": "115c3d9cfacc506dc5f5ab10ddcec8cae40c27f691738b0ce38515ea10b72078",
+      "rangeSha256": "115c3d9cfacc506dc5f5ab10ddcec8cae40c27f691738b0ce38515ea10b72078"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "kimi-cli-legacy-C1",
+      "title": "효과를 보존하는 명시적 대화 분기",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "bounded context·semantic/active-prefix checkpoint·원본 journal·파일 checkpoint restore는 이미 있음. effect-aware context branch와 명시적 cutoff 선택의 추가 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/active-prefix.ts",
+        "packages/engine/src/storage/index.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/review/index.ts",
+        "packages/contracts/src/v2.ts"
+      ],
+      "referenceIds": [
+        "L07",
+        "L08",
+        "L10",
+        "L11",
+        "L27"
+      ],
+      "contract": "host의 명시적 branch 요청만 terminal Run과 cleanup-confirmed workspace에서 받는다. parent session/source cutoff/message ID·context revision·digest·기존 effect 목록을 immutable branch manifest로 고정하고 새 모델 context만 구성한다. 원본 Run/Turn/Attempt/tool/approval/terminal journal은 보존한다. 이미 수행한 파일/명령/network 효과가 현재 남아 있다는 bounded observation을 필수로 전달하고, 파일 restore는 기존 exact review API로 별도 실행한다. branch creation 재전송은 manifest identity로 dedupe하고 model의 rewind 제안은 승인이나 effect 재실행 권한이 되지 않는다.",
+      "validation": [
+        "동일 branch request의 재전송이 같은 branch를 반환하고 원본 event/terminal/승인 row가 변하지 않는다.",
+        "active Run·pending approval·cleanup uncertainty·잘못된 source cutoff를 차단한다.",
+        "branch의 모델 요청에 이미 수행한 효과와 현재 파일 관측 필요성이 포함되고 write/command는 자동 복원·재실행되지 않는다.",
+        "crash/재개/summary 상태에서 cutoff와 native replay의 complete tool exchange가 유지되고 타세션 source를 거부한다."
+      ]
+    },
+    {
+      "id": "kimi-cli-legacy-C2",
+      "title": "기존 동일 읽기 차단을 확장하는 무진전 반복 진단",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "runner 동일 read 차단·effect 후 read guard reset·scoped canonical repeat identity·도구 예산이 이미 있음. bounded 결과/실패 반복 진단과 설명 가능한 종료 사유의 추가 제안.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/context/tool-history.ts",
+        "packages/contracts/src/v2.ts"
+      ],
+      "referenceIds": [
+        "L08",
+        "L13"
+      ],
+      "contract": "기존 read guard와 exact effect 승인 계약 위에 Run-local bounded stall 관측을 둔다. key에는 selected catalogue revision, canonical prepared read identity, result outcome/digest, context revision 및 workspace effect epoch를 포함한다. 같은 실패 또는 거절 반복이 임계값을 넘으면 후속 모델에 bounded 진단을 주고 host-configured budget 안에서 명시적 stall 종료 이유를 기록한다. continuation·새 증거·steer·실제 workspace 변화는 카운터 갱신 근거로 구분한다. write/execute/network/unknown 도구의 결과 공유나 승인 재사용·재실행은 허용하지 않는다.",
+      "validation": [
+        "동일 실패/거절 반복이 한도 내에서 진단되고 종료 기록은 한 번 생성된다.",
+        "변경 후 verification read·artifact continuation·새 line range·steer는 과거 동일 read와 혼동하지 않는다.",
+        "동일 args지만 catalogue/정책/context revision이 달라진 호출을 구분한다.",
+        "effect 도구와 취소/미확정 결과는 cache/dedupe로 실행 증거를 합성하거나 재실행하지 않는다."
+      ]
+    },
+    {
+      "id": "kimi-cli-legacy-C3",
+      "title": "terminal 이전 한 번의 Stop continuation hook",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "host plugin prepared/settled metadata와 durable queue/steer, exact approval는 이미 있음. Stop lifecycle의 제한된 추가 입력 제안 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/session-state/index.ts"
+      ],
+      "referenceIds": [
+        "L06",
+        "L14",
+        "L21"
+      ],
+      "contract": "host가 등록한 hook만 terminal commit 전 bounded metadata/결과 관측으로 실행한다. hook은 종료 허용 또는 한 번의 bounded 추가 입력 제안을 반환하고 별도 source/dedupe ID를 durable inbox에 남긴다. 추가 입력은 기존 parent Run/설정의 남은 turn/tool/provider 예산과 deny/cancel 정책을 사용한다. hook은 prepared input/fingerprint/approval/credential을 변경하지 못한다. timeout/오류/cancel 정책과 재진입 금지를 고정하고 completed effect 및 이미 committed terminal 이후에는 continuation이나 tool 재실행을 만들지 않는다.",
+      "validation": [
+        "Stop hook 재진입·동일 응답 retry·재시작에서도 추가 입력이 한 번만 등록된다.",
+        "남은 예산 없음·cancel·terminal committed이면 모델/효과를 새로 시작하지 않는다.",
+        "추가 입력의 effect에는 새 exact prepare/approval가 필요하고 기존 승인 fingerprint가 유지된다.",
+        "hook observer의 post-effect 오류가 원래 result를 보존하며 실행을 반복하지 않는다."
+      ]
+    },
+    {
+      "id": "kimi-cli-legacy-C4",
+      "title": "engine owner와 승인을 보존하는 ACP host adapter",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "engine/host 분리·durable session/event·approval/cancel·image/PDF와 restore 계약이 이미 있음. ACP transport/capability 협상과 editor binding은 추가 host 범위.",
+      "moodcodePaths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/contracts/src/index.ts",
+        "packages/contracts/src/validation.ts"
+      ],
+      "referenceIds": [
+        "L14",
+        "L15",
+        "L23"
+      ],
+      "contract": "새 host adapter가 ACP protocol/capability를 협상하고 ACP session/prompt/tool-call ID를 Moodcode workspace/session/input/Run/Turn/tool ID에 명시적으로 매핑한다. client permission 응답은 기존 durable approval ID와 exact fingerprint에만 binding한다. cancel은 실제 engine owner에 전달하며 disconnect의 pending request를 종료한다. replay/page 조회를 bounded하게 제공하고 client가 지원하지 않는 question/media는 명시적 unsupported 결과를 반환한다. client file/terminal 효과 위임은 별도 owner/receipt/cleanup contract가 준비되기 전에는 허용하지 않는다.",
+      "validation": [
+        "prompt streaming·tool/result·approval once/deny·cancel이 같은 durable owner에 매핑된다.",
+        "disconnect 중 승인·늦은 응답·중복 prompt에서 stale effect 또는 이중 실행이 없다.",
+        "unsupported question/media와 provider auth/error가 명확히 반환되고 빈 answer로 성공 처리하지 않는다.",
+        "session resume/history replay 이후 tool IDs·approval fingerprint가 보존되며 capabilities 밖의 client IO를 거부한다."
+      ]
+    }
+  ],
+  "limitations": [
+    "고정 HEAD public console main은 deprecation gate이며 엔진 경로는 보존된 historical Python 소스를 분석했다. 신규 TypeScript kimi-code/PyPI legacy alias와 구분한다.",
+    "분석 모드는 static-source-review다. 설치·upstream 실행/test/build·GUI·실제 모델/계정/API·CDN installer·benchmark·crash 실험을 수행하지 않았다.",
+    "D-Mail은 기본 agent에서 비활성이고 opt-in profile 경로다. context rewind는 filesystem/native effect restore가 아니며 기본 기능으로 일반화하지 않는다.",
+    "공유 child runtime·직접 foreground kill·heartbeat recovery의 한계는 읽은 경로에 한정한다. 제품 전체 부재나 모든 OS/client/provider 안전성을 단정하지 않는다.",
+    "root/subpackage license와 NOTICE를 확인했으나 전이 의존성·native binary·미디어·외부 서비스 전체 audit 또는 법률 검토는 아니다.",
+    "원본 source/prompt/tool description/fixture/media를 복사하거나 runtime 의존성을 추가하지 않았고, source review를 clean-room 절차라고 주장하지 않는다.",
+    "다른 branch/과거 release·LFS 외부 객체·submodule 자료와 원격 migration 성공/서비스 이용조건은 확인하지 않았다."
+  ]
+}

@@ -1,0 +1,2387 @@
+{
+  "schemaVersion": 1,
+  "status": "complete",
+  "moodcodeEngineSource": "464812f7d1af24466f57070663131f5979aeca51",
+  "implementedByThisReview": false,
+  "reviewedProjects": 19,
+  "candidates": [
+    {
+      "sourceSlug": "aider",
+      "sourceHead": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "report": "aider.md",
+      "id": "AIDER-C01",
+      "title": "심볼 관계를 이용한 저장소 구조 문맥 선정",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "bounded context·history summary·glob/regex 검색은 구현되어 있다. 확인한 context/search 경로에는 심볼 정의·참조 그래프를 요청별 구조 문맥으로 투영하는 계약이 확인되지 않았다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/plan.ts",
+        "packages/engine/src/context/sources.ts",
+        "packages/engine/src/tools/search/index.ts",
+        "packages/engine/src/workspace/changes.ts"
+      ],
+      "referenceIds": [
+        "AIDER-R06",
+        "AIDER-R07",
+        "AIDER-R08",
+        "AIDER-R09"
+      ],
+      "contract": [
+        "host가 지원 언어·parser·읽기 범위를 명시적으로 등록한다. path/hash/parser version으로 심볼 index를 식별하고 workspace 변경으로 무효화한다.",
+        "현재 요청의 파일·심볼과 정의/참조 관계로 읽기 전용 구조 후보를 선정한다. 각 항목은 path, line, source hash, 선정 사유, 누락/불확실 상태를 가진다.",
+        "ContextPlan의 기존 bytes/token reservation 안에서 구조 문맥을 배정하고 hard cap을 지킨다. parser 미지원·시간/파일 예산 초과는 bounded 파일 목록 또는 기존 검색으로 축소한다.",
+        "상위 심볼을 찾았다는 이유로 파일 편집 권한을 부여하지 않는다. upstream query·ranking 상수·prompt는 가져오지 않는다."
+      ],
+      "validation": [
+        "직접 언급 파일에서 참조되는 정의가 후보에 포함되고 같은 입력·같은 snapshot의 선정 결과가 안정적임을 독자 fixture로 확인.",
+        "동명이인·미지원 언어·삭제/rename·hash 변경·ignore·파싱 실패·취소를 분리하고 stale 위치를 현재 문맥으로 사용하지 않음.",
+        "거대 저장소에서 파일/시간/출력 cap을 지키며 history/tool-schema/output reservation과 합산한 실제 ContextPlan 상한을 초과하지 않음."
+      ]
+    },
+    {
+      "sourceSlug": "aider",
+      "sourceHead": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "report": "aider.md",
+      "id": "AIDER-C02",
+      "title": "명시적 검증 계획과 제한된 수리 단계",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "run_command·도구 오류의 모델 피드백·LSP 진단·formatter·checkpoint 연동은 구현되어 있다. 후보는 이 기능들을 대체하지 않고 검증 계획/결과/수리 종료 조건을 명시적으로 기록하는 계층이다.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/lsp/index.ts",
+        "packages/engine/src/formatters/index.ts",
+        "packages/engine/src/engine.ts"
+      ],
+      "referenceIds": [
+        "AIDER-R03",
+        "AIDER-R10",
+        "AIDER-R12"
+      ],
+      "contract": [
+        "host/사용자가 verification plan revision과 검사 identity·변경 파일 선택·실행 순서·최대 수리 횟수를 정한다.",
+        "기존 approved command/LSP 경계를 통해 검사하고 changed checkpoint hash·실제 exit status·bounded diagnostics·artifact 참조를 결과에 결속한다. timeout·취소·cleanup uncertainty는 pass로 기록하지 않는다.",
+        "수리 동의/정책과 남은 Run 예산을 만족할 때만 실패 진단을 다음 모델 경계에 넣는다. 동일 파일 hash와 동일 진단이 반복되면 정체로 종료한다.",
+        "formatter 변경도 기존 patch 승인과 preimage 검사로 수행한다. 모델이 테스트 명령이나 승인 범위를 임의로 확대하지 못한다."
+      ],
+      "validation": [
+        "lint 실패→승인된 변경→동일 검사 재실행 pass 및 test 실패→수리 상한 종료를 독자 fixture로 확인.",
+        "deny·취소·timeout·stale 파일/LSP version·검사 실행 중 외부 수정·잘린 출력·명령 cleanup uncertainty가 false pass나 무한 재시도로 이어지지 않음.",
+        "일반 모델 도구 루프와 검증 루프가 예산·Turn·Attempt·checkpoint 소유권을 중복 소비/갱신하지 않음."
+      ]
+    },
+    {
+      "sourceSlug": "aider",
+      "sourceHead": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "report": "aider.md",
+      "id": "AIDER-C03",
+      "title": "설계와 편집 모델 역할을 연결하는 선택적 워크플로",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "immutable agent profile와 모델 설정, 실제 격리 child, 승인된 read-only delegate_task가 이미 있다. 후보는 서로 다른 profile의 설계 출력→편집 실행을 명시적으로 결속하는 직렬 워크플로다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/child-tasks/engine-host.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/runner/index.ts"
+      ],
+      "referenceIds": [
+        "AIDER-R02",
+        "AIDER-R14",
+        "AIDER-R19"
+      ],
+      "contract": [
+        "host가 planner/editor profile revision·provider/model identity·도구 집합·예산을 사전 등록한다. workflow instance는 각 단계 Run identity와 연결한다.",
+        "planner는 읽기/설계만 수행하며 설계 artifact hash와 관측 파일 hash를 저장한다. 사용자 선택 후 editor가 해당 bounded artifact를 새 입력으로 받는다.",
+        "단계 전환은 모델 출력으로 tool 권한을 넓히지 않는다. editor는 기존 Build 승인·exact edit·cancel·budget·durable storage 계약을 따른다.",
+        "editor 실패·취소·모델 미지원·설계 이후 파일 변경 시 workflow 상태를 명시하고 자동 재시작/재편집은 하지 않는다. 별도 모델 효율 향상은 검증 전 가설이다."
+      ],
+      "validation": [
+        "planner가 쓰기 도구를 사용할 수 없고 editor가 승인된 설계 artifact와 정확한 profile revision만 사용함.",
+        "역할별 provider fixture로 요청 model/context/tool 집합과 단계별 비용/usage 소유권을 검사.",
+        "설계 승인 뒤 stale 파일·취소·process crash·중복 단계 접수에서 편집 한 번 및 이전 설계/이력 보존을 확인."
+      ]
+    },
+    {
+      "sourceSlug": "aider",
+      "sourceHead": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "report": "aider.md",
+      "id": "AIDER-C04",
+      "title": "Run 변경과 연결한 승인형 Git 커밋 기록",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "Git worktree·child 변경 통합·hash checkpoint·diff·restore journal은 구현되어 있다. 범용 run_command로 사용자가 Git을 실행할 수도 있다. 후보는 커밋 preview와 실제 commit receipt를 Run 변경에 결속하는 전용 host 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/workspace/git.ts",
+        "packages/engine/src/worktrees/index.ts",
+        "packages/engine/src/child-tasks/merge.ts",
+        "packages/engine/src/review/index.ts",
+        "packages/engine/src/review/audit.ts"
+      ],
+      "referenceIds": [
+        "AIDER-R12",
+        "AIDER-R15",
+        "AIDER-R16"
+      ],
+      "contract": [
+        "opt-in preview가 workspace/Run/checkpoint·HEAD·index 상태·선택 경로/변경 hash·commit message를 결속하고 실제 커밋 전에 재검사한다.",
+        "이미 존재하는 사용자 변경·staged 파일을 자동으로 baseline commit하거나 함께 stage하지 않는다. text 관측으로 귀속을 확정할 수 없는 파일은 명시적 선택이 필요하다.",
+        "실행 후 실제 full commit SHA·parent·선택 변경·검증 결과·attribution 설정을 receipt로 저장한다. uncertain outcome은 조회/복구 전 추가 commit을 막는다.",
+        "commit message 생성은 선택적 bounded 보조 모델 요청이며 최종 메시지를 preview에 포함한다. 기존 checkpoint restore를 유지하며 HEAD reset 기반 undo는 별도 요구 없이는 추가하지 않는다."
+      ],
+      "validation": [
+        "사용자 staged/unstaged 변경 보존·선택 경로만 commit·HEAD/index 변경 시 stale preview 거절을 임시 독자 저장소 fixture로 확인.",
+        "hook failure·commit success 뒤 receipt crash·중복 요청·취소·큰 diff가 이중 commit이나 성공 오표시로 이어지지 않음.",
+        "검증 결과와 Run identity, full commit SHA, attribution 선택을 reopen 뒤 동일하게 조회하며 network push를 수행하지 않음."
+      ]
+    },
+    {
+      "sourceSlug": "plandex",
+      "sourceHead": "e2d772072efadbe41d2946d97d79be55532dbab5",
+      "report": "plandex.md",
+      "id": "plandex-task-context-map",
+      "title": "버전 고정 프로젝트 map과 작업별 파일 문맥 선택",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "부분 구현: bounded ContextPlan·지침 baseline·문서 버전·CAS task는 존재한다. task별 파일 의존성과 syntax map projection 계약은 확인한 경로에 없다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/plan.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/sources.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/workspace/changes.ts"
+      ],
+      "referenceIds": [
+        "R06",
+        "R08",
+        "R09",
+        "R05"
+      ],
+      "contract": [
+        "호스트가 workspace/path/content SHA/parser revision을 고정한 읽기 전용 symbol-map artifact를 만든다. 크기·시간·파일수 한도를 적용하고 unsupported/timeout/omitted를 명시한다.",
+        "기존 task CAS 문서와 별도 버전의 bounded referencedPaths를 연결하고 선택 이유·source hash·context bytes를 ContextPlan에 기록한다. 경로 선택은 파일 읽기·쓰기 권한을 부여하지 않는다.",
+        "변경 관측 후 stale map을 재생성하며 task별 필요한 파일과 필수 최근 exchange를 보존한다. 순서와 omission 정책을 결정적으로 유지한다."
+      ],
+      "validation": [
+        "언어 지원 밖·손상 문법·취소·초대형 파일에서 bounded partial/unknown 결과를 유지한다.",
+        "동일 입력 map과 context digest가 동일하고 외부 편집·rename·delete 후 이전 SHA를 재사용하지 않는다.",
+        "일반 task title만 가진 기존 기록을 계속 읽고, task의 referencedPaths가 Plan/Build·deny 정책을 확장하지 않는다."
+      ]
+    },
+    {
+      "sourceSlug": "plandex",
+      "sourceHead": "e2d772072efadbe41d2946d97d79be55532dbab5",
+      "report": "plandex.md",
+      "id": "plandex-review-proposal-overlay",
+      "title": "미적용 변경 집합과 모델 문맥의 proposal overlay",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "부분 구현: fingerprint approval·checkpoint 누적 diff·restore·격리 worktree/child merge는 이미 존재한다. 여러 turn의 미적용 제안에 대한 독립 overlay/revision 계약은 별도 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/patch/index.ts",
+        "packages/engine/src/review/index.ts",
+        "packages/engine/src/review/audit.ts",
+        "packages/engine/src/worktrees/index.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/context/service.ts"
+      ],
+      "referenceIds": [
+        "R07",
+        "R10",
+        "R11",
+        "R17",
+        "R19"
+      ],
+      "contract": [
+        "ProposalSet을 session/workspace/base hash 집합/revision에 묶고 create/update/delete/rename 제안을 실제 사용자 파일에 쓰기 전에 축적한다.",
+        "다음 모델 경계에서 승인 전 overlay를 명시적으로 project하고 source hash·proposal revision·원본과 제안의 구분을 기록한다. 동일 파일 제안은 revision 순서로 합성한다.",
+        "review accept/reject는 정확한 선택 revision과 현재 base hash를 재검사한다. 변경된 제안은 기존 승인을 재사용하지 않으며 부분 적용·취소·불확실 효과는 기존 journal 계약으로 남긴다. 명령은 별도 승인과 실행 공간을 요구한다."
+      ],
+      "validation": [
+        "두 파일·여러 turn 제안 후 accept 전 사용자 파일의 bytes가 바뀌지 않는다.",
+        "중간 제안 reject·rename/delete·외부 편집·중복 요청·재시작 후 동일 projection 또는 명시적 conflict가 나온다.",
+        "선택한 제안만 적용되고 변경된 preview·base SHA에서 stale approval이 거절된다."
+      ]
+    },
+    {
+      "sourceSlug": "plandex",
+      "sourceHead": "e2d772072efadbe41d2946d97d79be55532dbab5",
+      "report": "plandex.md",
+      "id": "plandex-edit-validation-ladder",
+      "title": "관측 결과를 남기는 제한된 편집 검증·복구 단계",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "부분 구현: 정확한 hash 편집·formatter/LSP·명령 도구·provider retry는 있다. 제안의 문법/명령 검증을 다음 repair 시도와 묶는 bounded 상태 기계는 별도 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/patch/index.ts",
+        "packages/engine/src/formatters/index.ts",
+        "packages/engine/src/lsp/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/permission/policy.ts"
+      ],
+      "referenceIds": [
+        "R13",
+        "R14",
+        "R15",
+        "R12"
+      ],
+      "contract": [
+        "호스트가 validator identity/revision을 등록하고 ProposalSet revision에 대해 syntax 또는 승인된 check 명령을 수행한다. supported/passed/failed/timeout/skipped/unknown을 구분한다.",
+        "repair는 실패 artifact와 정확한 제안 revision을 입력으로 사용한다. 시도 수·누적 시간·출력·모델 예산을 제한하고 변화가 없는 제안을 반복하지 않는다.",
+        "검증 전 취소·validator 미지원·모델 판단만 있는 상태는 성공 증명으로 승격하지 않는다. 재작성 결과는 새 SHA·preview·승인이 필요하다."
+      ],
+      "validation": [
+        "원래 문법 오류와 새 오류를 구분하며 unsupported/timeout이 passed로 기록되지 않는다.",
+        "실패→repair→새 검증의 owner/revision 연결을 확인하고 최대 시도·취소·같은 실패 반복에서 종료한다.",
+        "check 명령·새 편집이 기존 승인·deny·child 예산을 지키며 실패 후 사용자 파일 복원은 현재 hash 충돌 검사를 유지한다."
+      ]
+    },
+    {
+      "sourceSlug": "plandex",
+      "sourceHead": "e2d772072efadbe41d2946d97d79be55532dbab5",
+      "report": "plandex.md",
+      "id": "plandex-model-role-routing",
+      "title": "단계별 모델 역할과 증거 기반 escalation 기록",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "부분 구현: AgentProfiles의 immutable revision·model/tool/config binding 및 durable Turn/Attempt가 있다. 한 작업 안의 계획/편집 검증별 route 선택·escalation 계약은 추가 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/context/model-spec.ts",
+        "packages/engine/src/context/plan.ts",
+        "packages/engine/src/ports.ts"
+      ],
+      "referenceIds": [
+        "R02",
+        "R13",
+        "R20"
+      ],
+      "contract": [
+        "호스트가 role→provider/model/config revision을 명시하고 단계 선택 이유·이전 검증 outcome·route revision을 Turn/Attempt에 기록한다.",
+        "model 전환마다 capability/tool schema/context/output reserve를 다시 계산하고 공유 run 예산에서 비용을 차감한다. provider credentials와 tool scope는 호스트 등록 경계를 따른다.",
+        "stronger-model 전환은 호스트의 명시적 정책에 따른 제한된 단계이며 권한 상향을 의미하지 않는다. retry의 원 요청과 다른 model route를 혼동하지 않도록 별도 attempt binding을 둔다."
+      ],
+      "validation": [
+        "계획→작성→검증 route가 각 model metadata와 context digest로 일치한다.",
+        "fallback/escalation 중 cancel·budget exhaustion·unknown context window·도구 capability 차이를 정확히 기록한다.",
+        "role 변경이 Plan/Build·deny·승인 요구를 바꾸지 않으며 profile revision 변경 후 오래된 실행 설정을 재사용하지 않는다."
+      ]
+    },
+    {
+      "sourceSlug": "qwen-code",
+      "sourceHead": "d0ddd020c8a64279e290538f84b152fe843ed9d4",
+      "report": "qwen-code.md",
+      "id": "QWEN-C01",
+      "title": "같은 child 세션에 후속 입력을 보내는 상주 실행 계약",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "격리 child/worktree·예산/deny/cancel 상속·terminal 결과 root inbox delivery·queue/steer·pause/resume는 이미 있다. 후보는 child terminal 결과 통지를 대체하지 않고 같은 agent identity의 여러 Run과 살아 있는 입력 mailbox를 연결한다.",
+      "moodcodePaths": [
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/engine-host.ts",
+        "packages/engine/src/child-tasks/storage-binding.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/agents/index.ts"
+      ],
+      "referenceIds": [
+        "QWEN-R12",
+        "QWEN-R13",
+        "QWEN-R14",
+        "QWEN-R20"
+      ],
+      "contract": [
+        "host opt-in으로 residentAgentId·workspace/child storage binding·profile revision·policy revision·수명·총 예산과 Run 목록을 저장한다. 이미 terminal인 Run을 다시 running으로 바꾸지 않고 후속 입력마다 새 Run을 만든다.",
+        "후속 입력은 sender/recipient·messageId·payload hash·sequence·bounded bytes와 durable accepted/delivered/consumed receipt를 가진다. 실행 중에는 안전한 다음 모델 경계에 전달하고 idle에서는 새 Run을 시작한다. 동일 요청 재전송은 같은 receipt를 돌려준다.",
+        "hot reuse는 runtime/catalogue/profile/credential reference/owner lease 일치 시만 허용한다. 재시작 뒤에는 durable transcript와 현재 host 등록을 검사한 cold continuation을 사용하고 이전 prepared 승인/함수 객체를 재사용하지 않는다.",
+        "finishing의 final drain 이후에는 신규 입력을 다음 Run으로 결속하거나 명시적으로 거절한다. archive·parent cancel·revoked grant·storage uncertainty·capacity 부족은 별도 상태로 기록하고 추가 실행을 막는다.",
+        "상주 시간과 실행 시간을 구분하고 명시적 idle expiry·dispose receipt를 둔다. root의 기존 terminal child-result dedup는 Run별로 유지한다."
+      ],
+      "validation": [
+        "running→queued input→safe consumption, completed→new Run, idle expiry→cold continuation에서 입력/결과가 정확히 한 owner에 귀속됨.",
+        "final drain과 동시 입력, 이중 follow-up, cancel/archiving, 재시작·DB 실패·lease 변경·profile/registry 변경에서 유실/이중 실행/terminal Run 변경이 없음.",
+        "parent와 nested child의 budget/deny 상한, capacity와 idle cleanup deadline을 유지하고 미확정 cleanup은 다음 실행을 차단함."
+      ]
+    },
+    {
+      "sourceSlug": "qwen-code",
+      "sourceHead": "d0ddd020c8a64279e290538f84b152fe843ed9d4",
+      "report": "qwen-code.md",
+      "id": "QWEN-C02",
+      "title": "여러 agent의 팀 mailbox와 task owner·의존 관계",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "agent profiles, session task CAS, 실제 child와 root 결과 delivery는 구현되어 있다. 후보는 팀 membership·recipient mailbox·task owner/의존성·leader 활동 대기를 추가하는 계층이다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts"
+      ],
+      "referenceIds": [
+        "QWEN-R14",
+        "QWEN-R15",
+        "QWEN-R13"
+      ],
+      "contract": [
+        "teamId/membership revision에 leader·agent identity·profile·정책 상한을 host가 등록한다. team 메시지 내용 자체로 agent 생성·모델 교체·권한 승인을 수행하지 않는다.",
+        "bounded per-recipient inbox에 우선순위·sender·messageId·delivery receipt를 기록한다. 없는/terminal recipient, backlog full, team 삭제는 구분된 오류이며 broadcast는 recipient별 성공/실패 receipt를 반환한다.",
+        "기존 session tasks를 expected revision/owner/status 비교를 갖는 claim/complete 계약으로 확장한다. task dependency edge는 유효한 동일 team ID만 받으며 cycle과 완료 전 unblock을 막는다.",
+        "task claim은 권한·파일 소유권 승인이 아니다. write child는 현재 host의 격리 worktree와 기존 변경 통합 승인에 의존한다.",
+        "leader wait는 message/terminal/timeout/cancel을 분리하고 idle member만 남아 있는 경우를 명시한다. shutdown 요청과 실제 process/runtime 종료 receipt를 별도로 저장한다."
+      ],
+      "validation": [
+        "동시 두 agent claim에서 한 owner만 승리하고 stale complete/다른 owner 변경을 거절함.",
+        "sender 위조·recipient 종료·broadcast partial failure·backpressure·동시 team 삭제·재시작에서 receipt와 membership 귀속이 유지됨.",
+        "의존성 cycle·missing task·owner cancellation·idle 대기·shutdown 거절/timeout이 false completion 또는 무한 대기를 만들지 않음."
+      ]
+    },
+    {
+      "sourceSlug": "qwen-code",
+      "sourceHead": "d0ddd020c8a64279e290538f84b152fe843ed9d4",
+      "report": "qwen-code.md",
+      "id": "QWEN-C03",
+      "title": "이력에서 제안한 프로젝트 기억·skill의 승인된 발행",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "bounded context·completed-history semantic summary·active-prefix checkpoint·skill_list/skill_read/reference_read는 이미 있다. 후보는 session 요약과 별개인 프로젝트/사용자 지속 기억 및 신규·기존 skill 변경의 publication 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/tools/session/skills.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/agents/index.ts"
+      ],
+      "referenceIds": [
+        "QWEN-R09",
+        "QWEN-R10",
+        "QWEN-R11",
+        "QWEN-R19"
+      ],
+      "contract": [
+        "host opt-in과 독립 budget으로 settled history에서 tools 없는 bounded 제안을 만든다. 기억/skill 후보에 source message IDs·source hash·scope·내용 hash·생성 provider/profile·보존 기간을 저장한다. live instruction이나 승인 규칙으로 자동 승격하지 않는다.",
+        "신규와 기존 skill 수정 모두 staging에 보관하며 preview와 matching approval 이후 expected old hash/revision을 다시 검사해 발행한다. 이전 skill 직접 수정 후 나중에 stage하는 순서를 가져오지 않는다.",
+        "기억 tree/search/fetch는 허용 scope와 provenance·버전·aggregate bytes·per-ref coverage를 반환한다. recall의 selected/injected/accepted provenance를 구분하고 ContextPlan의 다른 예약과 함께 실제 상한을 지킨다.",
+        "통합·forget은 원본 기록을 보존하는 파생 revision이다. secret/민감정보 분류와 사용자가 고른 저장 범위·삭제 정책을 적용하며 프로젝트 간 전이는 명시적 선택을 요구한다.",
+        "shutdown·취소·stage 충돌·publication crash는 published 성공으로 표시하지 않는다. skill body 발행은 allowed tools/hooks를 자동 활성화하지 않으며 기존 host 승인 경계를 유지한다."
+      ],
+      "validation": [
+        "동일 이력 재처리와 동시 curator에서 후보 중복을 막고 신규/기존 skill 모두 승인 전 runtime listing에 노출되지 않음.",
+        "approve 뒤 stale preimage·취소·write failure·crash·중복 요청에서 atomic publication receipt와 이전 버전이 보존됨.",
+        "secret fixture·scope 혼선·malicious history·큰 memory tree·반복 fetch·기억 파일 교체·summary eviction에서 예산/provenance와 trust 경계가 유지됨."
+      ]
+    },
+    {
+      "sourceSlug": "qwen-code",
+      "sourceHead": "d0ddd020c8a64279e290538f84b152fe843ed9d4",
+      "report": "qwen-code.md",
+      "id": "QWEN-C04",
+      "title": "제한된 JavaScript로 기존 도구를 조합하는 선택적 code-mode",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "scoped tool runtime·same capture와 ContextPlan·discover_tools·exact prepare/approval/effect·출력 artifact·MCP/PTY/cancel은 이미 있다. 후보는 그 계약 위에서 실행되는 제한된 orchestration 언어다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/tools/runtime/discovery.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/artifacts/result.ts",
+        "packages/engine/src/ports.ts"
+      ],
+      "referenceIds": [
+        "QWEN-R08",
+        "QWEN-R16",
+        "QWEN-R18"
+      ],
+      "contract": [
+        "host opt-in의 별도 격리 worker에서 새 실행마다 JS context를 만들고 source/CPU/stack/memory/wall/output cap을 둔다. Node·filesystem·network 접근은 제공하지 않고 고정 도구 binding ID와 schema revision만 노출한다.",
+        "nested call은 같은 host tool runtime에 parentCallId·nestedCallId·snapshot revision으로 접수한다. 각 호출이 기존 prepare/approval/revalidation/effect journal을 통과하며 outer exec 승인으로 내부 모든 도구가 승인되지 않는다.",
+        "read-only independent 호출만 정책이 정한 concurrency에서 병렬화한다. mutation·approval·dependent call은 순서화하며 settlement와 일부 실패는 호출별 artifact/receipt를 유지한다.",
+        "취소·worker exit·script 완료 후 미완료 promise는 abort하고 실제 cleanup을 확인한다. nested mutation 효과가 미확정이면 outer 성공을 기록하지 않으며 recovery frontier를 유지한다.",
+        "프로그램 결과가 출력되지 않아 모델에 도달하지 않은 skill/memory payload를 이미 context에 들어갔다고 표시하지 않는다. 출력 budget과 context reservation을 실제 전송 값에 적용한다."
+      ],
+      "validation": [
+        "read 병렬 조합·mutation 직렬 조합과 일부 promise rejection에서 독자 tool fixture의 승인/효과/receipt 순서가 보존됨.",
+        "무한 루프·과다 memory/output·unknown binding·registry 변경·Plan·revoked approval·recursive exec·미await 호출이 상한 또는 policy 우회를 만들지 않음.",
+        "worker crash·cancel·MCP timeout·성공 효과 이후 출력 실패에서 미확정 상태를 보존하고 동일 nested request의 재실행을 막음."
+      ]
+    },
+    {
+      "sourceSlug": "qwen-code",
+      "sourceHead": "d0ddd020c8a64279e290538f84b152fe843ed9d4",
+      "report": "qwen-code.md",
+      "id": "QWEN-C05",
+      "title": "승인 binding을 유지하는 lifecycle hook 추가 계약",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "host plugin activation/disposal과 prepared/settled metadata 관측 hooks가 이미 있다. 후보는 prompt/session/context/terminal lifecycle 관측과 제한된 다음-turn 제안이다.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/tools/runtime/index.ts"
+      ],
+      "referenceIds": [
+        "QWEN-R04",
+        "QWEN-R17",
+        "QWEN-R08",
+        "QWEN-R19"
+      ],
+      "contract": [
+        "host가 event type/version·plugin identity/revision·allowed metadata·budget·cancel/dispose를 사전 등록한다. 기본 동작은 관측이며 local skill 경로를 executable hook으로 자동 실행하지 않는다.",
+        "prompt/context/terminal event의 immutable identity와 delivered receipt를 저장한다. async observer failure는 이미 완료된 producer 효과를 뒤집지 않고 diagnostics로 남긴다.",
+        "추가 문맥이나 계속 실행 제안은 bounded untrusted payload로 다음 입력/ContextPlan 경계에 접수한다. hook은 prepared arguments·fingerprint·policy·승인된 효과를 바꾸거나 approve 결정을 덮어쓰지 못한다.",
+        "terminal 이후 계속 실행 요청은 새 Run이므로 기존 Run terminal 불변을 유지한다. 연속 제안 횟수·중복 이유·총 예산 cap과 사용자 cancel 우선순위를 둔다.",
+        "command/HTTP/prompt hook이 꼭 필요하면 별도 host executor와 credential reference, process ownership/timeout/network allowlist 계약을 준비한다. upstream의 non-blocking_error 또는 allow-on-hook-failure는 Moodcode 권한 허가로 해석하지 않는다."
+      ],
+      "validation": [
+        "metadata observer가 prepared fingerprint를 변경할 수 없고 observer throw 뒤 producer 결과/효과가 유지됨.",
+        "동일 event 재전송·async callback 지연·terminal 경합·cancel/close·registry revoke에서 receipt 소유권과 cleanup이 유지됨.",
+        "반복 continuation·과다 context·hook failure/timeout·prompt injection이 승인 우회나 무한 Run 생성으로 이어지지 않음."
+      ]
+    },
+    {
+      "sourceSlug": "gemini-cli",
+      "sourceHead": "ef59c532f07fbb3a58dd68bac024ae217e9c73ce",
+      "report": "gemini-cli.md",
+      "id": "gemini-memory-inbox",
+      "title": "세션을 넘는 기억 후보 검토 inbox",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "세션별 semantic summary, durable session documents, bounded skill/reference 읽기는 구현되어 있다. 검토한 경계에서 여러 세션의 관찰을 후보로 추출하고 사용자가 workspace 지침/skill로 승격하는 inbox 계약은 확인하지 못했다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/tools/session/skills.ts",
+        "packages/engine/src/storage/index.ts"
+      ],
+      "referenceIds": [
+        "G11",
+        "G12",
+        "G15",
+        "G16"
+      ],
+      "contract": [
+        "기본 비활성 host 작업으로 승인된 workspace의 완료 세션만 개수/bytes/time 제한 안에서 읽는다. 다른 workspace와 credential/opaque replay를 제외한다.",
+        "후보에 원본 session/message ID/hash, source scope, 생성 모델/usage, 기대 대상 revision을 저장한다. 과거 관찰은 현재 파일 상태의 증거가 아니다.",
+        "tools 없는 추출을 우선 사용하고 후보 생성과 instruction/skill 활성화를 분리한다. 수락은 exact hash/revision을 검사하는 별도 승인 작업이다.",
+        "수락/거절/중복/expiry를 journal에 저장하고 재시작 후 pending을 보존한다. 같은 session revision의 재추출/수락은 idempotent하다."
+      ],
+      "validation": [
+        "workspace 경계 및 삭제/archived 세션 제외를 확인한다.",
+        "후보 생성만으로 active instruction/skill catalogue가 바뀌지 않고 stale hash 수락이 거절되는지 확인한다.",
+        "동시 추출/재전송/생성 취소/강제 종료/accept 직전 crash에서 중복 활성화가 없는지 검증한다."
+      ]
+    },
+    {
+      "sourceSlug": "gemini-cli",
+      "sourceHead": "ef59c532f07fbb3a58dd68bac024ae217e9c73ce",
+      "report": "gemini-cli.md",
+      "id": "gemini-artifact-distillation",
+      "title": "원본 artifact에 결합된 큰 도구 결과 요약",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "bounded ToolResultEnvelope의 display/model/data 분리, ArtifactStore/read_artifact 및 대화 semantic summary는 구현되어 있다. 추가 범위는 개별 큰 도구 결과의 선택적 모델 요약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/artifacts/result.ts",
+        "packages/engine/src/artifacts/store.ts",
+        "packages/engine/src/context/tool-history.ts",
+        "packages/engine/src/context/summary-stream.ts",
+        "packages/engine/src/runner/turn-executor.ts"
+      ],
+      "referenceIds": [
+        "G08",
+        "G09",
+        "G03"
+      ],
+      "contract": [
+        "옵트인한 결과만 immutable artifact ID/hash/length 및 toolCallId/attemptId에 묶어 tools 없는 별도 summary lifecycle을 연다. 원본 producer result와 exit/outcome을 보존한다.",
+        "원본은 기존 artifact 권한/보존 한도를 따른다. 전체 출력을 무조건 원격에 보내지 않고 source/result/usage/time budget을 host가 정한다.",
+        "derived observation 표시와 원본 paging 경로를 유지하며 complete된 요약만 원자적으로 model projection에 적용한다.",
+        "실패/timeout/cancel/overflow는 기존 bounded projection으로 돌아가고 도구를 재실행하지 않는다. cleanup uncertainty는 기존 summary recovery 계약에 결합한다."
+      ],
+      "validation": [
+        "큰 테스트 로그의 exitCode/failure/원본 hash가 축약 경로에서도 유지되는지 확인한다.",
+        "출력 내 명령이 실행되지 않고 summary request의 tools가 비어 있는지 확인한다.",
+        "artifact 만료, 빈/부분 요약, overflow/cancel/crash에서 producer result 오염과 중복 provider call이 없는지 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "gemini-cli",
+      "sourceHead": "ef59c532f07fbb3a58dd68bac024ae217e9c73ce",
+      "report": "gemini-cli.md",
+      "id": "gemini-model-lifecycle-hooks",
+      "title": "host 등록 모델·세션 lifecycle hook",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "EnginePluginManager와 metadata-only PluginToolHooks.prepared/settled는 이미 구현되어 있다. 추가 범위는 session/model/summary 경계의 제한된 observation 및 명시적 veto다.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/provider/index.ts"
+      ],
+      "referenceIds": [
+        "G05",
+        "G06",
+        "G07",
+        "G17"
+      ],
+      "contract": [
+        "host 등록 callback만 실행한다. model/repository의 shell hook 자동 선택을 허용하지 않으며 기본은 bounded metadata observation이다. credential/opaque replay를 전달하지 않는다.",
+        "beforeModel/afterModel/beforeSummary/sessionStart/sessionEnd를 durable attempt와 hook revision에 결합한다. request digest는 hook 처리 후 확정하고 retry는 같은 snapshot을 사용한다.",
+        "veto는 typed 이유를 기록한다. schema/input 변경 모드를 추가한다면 runtime revision/context reservation/prepared fingerprint/승인을 모두 재계산한다.",
+        "callback timeout/throw/cancel 및 terminal 이후 호출 금지를 정의한다. producer 반환 뒤 observation hook 실패로 producer를 재실행하지 않는다."
+      ],
+      "validation": [
+        "기존 tool hook fingerprint 불변 및 eager/discovery request snapshot을 회귀 검증한다.",
+        "해제/변경 중 dispatch, veto/timeout, retry/abort, session close에서 중복/늦은 callback을 확인한다.",
+        "민감정보 제한, metadata bytes 상한 및 원본 request mutation 격리를 검증한다."
+      ]
+    },
+    {
+      "sourceSlug": "gemini-cli",
+      "sourceHead": "ef59c532f07fbb3a58dd68bac024ae217e9c73ce",
+      "report": "gemini-cli.md",
+      "id": "gemini-os-sandbox",
+      "title": "실제 OS 격리 capability와 제한된 권한 확장",
+      "priority": "P2",
+      "cost": "XL",
+      "moodcodeStatus": "Plan/Build deny·durable scope grant·POSIX process-group cleanup·injected Windows Job Object port는 있다. CommandBackendCapability는 fileIsolation=false/networkIsolation=false이므로 OS 파일/네트워크 격리는 별도 추가 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/command/backends.ts",
+        "packages/engine/src/tools/command/process-control.ts",
+        "packages/engine/src/permission/policy.ts",
+        "packages/engine/src/permission/grants.ts",
+        "packages/engine/src/storage/tool-recovery-frontier.ts"
+      ],
+      "referenceIds": [
+        "G19",
+        "G20",
+        "G07"
+      ],
+      "contract": [
+        "지원 OS 한 개의 explicit host factory부터 시작하고 실제 파일/네트워크/프로세스 격리 capability를 각각 보고한다. backend 부재/준비 실패를 성공한 격리로 표현하지 않는다.",
+        "roots/network destinations/executable/env 정책을 canonical binding과 revision으로 저장한다. approval permission과 OS enforcement를 구분하고 child/MCP/native process에 같은 상한을 상속한다.",
+        "추가 권한은 새 intent/fingerprint/preview 및 승인에 묶으며 원래 deny를 우회하지 않는다. 일부 효과 뒤 denial은 자동 재실행하지 않고 tool-effect uncertainty/recovery에 연결한다.",
+        "grant expiry/revoke와 cancel 이후 process-tree 정리를 증명한다. unsupported OS·저장소 밖 효과는 capability/진단에 남긴다."
+      ],
+      "validation": [
+        "실제 지원 OS에서 허용 접근과 금지 경로/symlink/network를 검증한다.",
+        "권한 확장 전후 fingerprint, stale approval/revoke 및 parent/child 상한을 확인한다.",
+        "일부 효과 뒤 denial/cancel/crash에서 자동 재실행 차단과 회복 증거를 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "cline",
+      "sourceHead": "55a133b751b66d42b8a3ffad76c731ad4f51577d",
+      "report": "cline.md",
+      "id": "CLINE-C01",
+      "title": "살아 있는 팀 구성원 간 영구 mailbox와 읽음 영수증",
+      "priority": "P1",
+      "cost": "높음",
+      "moodcodeStatus": "agent profiles·CAS tasks·queue/steer inbox·terminal child result 중복 제거는 기구현. 팀 membership과 비종료 child 간 mailbox/읽음 영수증은 별도 추가 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/contracts/src/v2.ts"
+      ],
+      "referenceIds": [
+        "CLINE-R12",
+        "CLINE-R13",
+        "CLINE-R14",
+        "CLINE-R15"
+      ],
+      "contract": "host가 허가한 team/member lineage로만 메시지를 전달한다. sender/requestId 중복 제거, 수신자별 monotonic cursor/read receipt, bounded mailbox, task revision·dependency·owner CAS를 저장한다. 본문은 다음 모델 경계에서 받고 실행 중 알림은 기존 steer 계약을 따른다. terminal 결과 전달을 유지하며 저장 receipt 전에는 durable 송신 성공을 반환하지 않는다. write child의 worktree·승인·deny·예산·취소 상속을 완화하지 않는다.",
+      "validation": [
+        "재시작 전후 송신 재시도·읽음 재시도·경계 소비가 같은 메시지 ID를 반환한다.",
+        "다른 team/lineage 송신과 종료·미확정 child로의 wake를 거절한다.",
+        "mailbox overflow·task owner 충돌·approval 대기 중 메시지·child 취소에서 전달 누락과 이중 실행이 없다."
+      ]
+    },
+    {
+      "sourceSlug": "cline",
+      "sourceHead": "55a133b751b66d42b8a3ffad76c731ad4f51577d",
+      "report": "cline.md",
+      "id": "CLINE-C02",
+      "title": "예약 실행을 기존 영구 inbox에 연결하는 lease scheduler",
+      "priority": "P1",
+      "cost": "높음",
+      "moodcodeStatus": "영구 inbox·workspace 공정성·pause/resume·profile revision·durable tasks는 기구현. 날짜/cron/event trigger와 occurrence claim은 별도 추가 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/engine/src/engine.ts",
+        "packages/contracts/src/v2.ts"
+      ],
+      "referenceIds": [
+        "CLINE-R03",
+        "CLINE-R16"
+      ],
+      "contract": "schedule revision·timezone·workspace/profile pin·occurrence ID를 저장하고 occurrence→input.accept requestId를 고정한다. scheduler claim token·lease·전역/일정별 상한·missed-run 정책을 명시한다. lease 손실은 추가 제출을 중지하고 기존 실행의 소유권/cleanup 확인 없이 재실행하지 않는다. 스케줄 등록만으로 모든 도구를 자동 승인하지 않으며 미리 허용한 효과 범위 밖은 blocked/사용자 확인 상태로 남긴다.",
+      "validation": [
+        "동시 scheduler 두 개가 같은 occurrence를 하나의 durable input으로 만든다.",
+        "sleep/wake·시계 후퇴·timezone/DST·등록 revision 변경·disabled 직후 dispatch를 재현한다.",
+        "claim 직후/accept 직후 crash, lease 손실, workspace quarantine에서 같은 효과를 재실행하지 않는다."
+      ]
+    },
+    {
+      "sourceSlug": "cline",
+      "sourceHead": "55a133b751b66d42b8a3ffad76c731ad4f51577d",
+      "report": "cline.md",
+      "id": "CLINE-C03",
+      "title": "승인 binding을 보존하는 typed lifecycle hook",
+      "priority": "P2",
+      "cost": "중간~높음",
+      "moodcodeStatus": "explicit host plugin 등록·prepared/settled metadata hook은 기구현. run/turn 경계의 context contribution·deny/stop 제어 및 prepare 이전 입력 변환은 추가 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/tools/runtime/index.ts"
+      ],
+      "referenceIds": [
+        "CLINE-R04",
+        "CLINE-R07",
+        "CLINE-R08",
+        "CLINE-R17",
+        "CLINE-R18"
+      ],
+      "contract": "host가 고정한 hook ID/revision/순서와 byte/time 한도·실패 정책으로 run/turn context 및 deny/stop 결과를 받는다. 입력 변환을 허용한다면 tool.prepare 이전에만 수행하고 최종 input으로 새 fingerprint·preview를 만든다. approval 뒤에는 input·policy·prepared request 변경을 거절한다. post-effect hook 실패를 tool 미실행이나 retry 가능으로 바꾸지 않고 기존 metadata observer를 유지한다. repo hook 파일 발견만으로 실행을 허가하지 않는다.",
+      "validation": [
+        "hook 순서·중복·timeout·abort·잘못된 구조·context overflow에서 결정적 결과를 낸다.",
+        "승인 대기 중 plugin revision/input 변경은 stale 처리하며 효과 0회다.",
+        "post-effect hook 실패 후 transcript·effect receipt를 보존하고 tool을 반복 실행하지 않는다."
+      ]
+    },
+    {
+      "sourceSlug": "cline",
+      "sourceHead": "55a133b751b66d42b8a3ffad76c731ad4f51577d",
+      "report": "cline.md",
+      "id": "CLINE-C04",
+      "title": "공유 daemon·원격 host의 capability RPC와 재연결 계약",
+      "priority": "P2",
+      "cost": "높음",
+      "moodcodeStatus": "engine/host 분리·Electron utility ownership·event replay·reload detach·sender 검증은 기구현. 여러 클라이언트의 공유 daemon 및 원격 capability RPC는 추가 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/contracts/src/index.ts",
+        "packages/contracts/src/v2.ts",
+        "apps/desktop/src/main/index.ts",
+        "apps/desktop/src/worker/index.ts",
+        "apps/desktop/src/preload/api.ts"
+      ],
+      "referenceIds": [
+        "CLINE-R01",
+        "CLINE-R03",
+        "CLINE-R04"
+      ],
+      "contract": "원격 engine은 session/run의 유일 소유자이고 client는 bounded versioned commands/events를 사용한다. capability owner·연결 epoch·요청 deadline·requestId·replay cursor를 묶는다. approval 요청은 기존 exact run/tool/fingerprint와 결정 주체에 binding한다. client disconnect는 자동 effect 재시도나 engine cancel로 해석하지 않고 capability 재등록 및 run ownership handoff를 구분한다. 인증·credential 전달은 host reference로 한정한다.",
+      "validation": [
+        "client 종료/재연결·event gap·중복 request·late approval·capability owner 교체를 검증한다.",
+        "daemon 하나만 session/workspace lease를 소유하고 fallback/handoff에서 동일 input을 두 번 실행하지 않는다.",
+        "원격 연결 단절 중 accepted 효과의 receipt/uncertainty를 유지하고 다른 client의 승인을 거절한다."
+      ]
+    },
+    {
+      "sourceSlug": "goose",
+      "sourceHead": "f9c18a81952e8895b6f2d88b0f4569f3975034af",
+      "report": "goose.md",
+      "id": "GOOSE-C01",
+      "title": "고정된 레시피와 구조화 결과 계약",
+      "priority": "P1",
+      "cost": "중간~높음",
+      "moodcodeStatus": "agent profile·로컬 skill·child·제한 retry는 구현됨. 재사용 가능한 parameterized workflow 및 최종 JSON schema 결과 계약은 별도 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/session-state/index.ts"
+      ],
+      "referenceIds": [
+        "G06",
+        "G12",
+        "G13",
+        "G14"
+      ],
+      "contract": [
+        "host가 등록한 recipe ID/revision에 parameter schema·profile revision·tool selection·mode·budget·result schema를 고정한다. 모델은 등록되지 않은 recipe path·프로그램·credential을 지정할 수 없다.",
+        "실행 전에 전체 binding과 parameter 값의 preview를 만든다. recipe는 기존 Plan/Build·deny·exact prepare/approval/effect를 통과하며 부모 예산에서 child와 retry를 차감한다.",
+        "완료 결과를 bounded JSON으로 검증해 valid/invalid/denied/cancelled/uncertain 상태를 따로 기록한다. 검증 실패나 timeout 이후 효과를 자동 재실행하지 않으며 재시도 attempt와 결과 artifact 출처를 저장한다."
+      ],
+      "validation": [
+        "parameter 누락·unknown field·stale revision·순환 subrecipe·과도한 깊이를 실행 전에 거절한다.",
+        "재시도·하위 작업이 부모 budget/deny를 넘지 않고 duplicate request가 동일 receipt를 반환한다.",
+        "결과 schema 실패·승인 거절·부모 cancel·재시작을 각각 검증하고 외부 효과가 중복 실행되지 않는지 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "goose",
+      "sourceHead": "f9c18a81952e8895b6f2d88b0f4569f3975034af",
+      "report": "goose.md",
+      "id": "GOOSE-C02",
+      "title": "ACP host/외부 agent adapter와 문맥 소유권",
+      "priority": "P1",
+      "cost": "높음",
+      "moodcodeStatus": "engine/host 분리와 provider retry/cancel/recovery·MCP는 구현됨. ACP 세션 bridge와 provider-owned context를 명시하는 계약은 현재 ProviderAdapter와 별도다.",
+      "moodcodePaths": [
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/provider/index.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/recovery/provider.ts",
+        "packages/engine/src/engine.ts"
+      ],
+      "referenceIds": [
+        "G03",
+        "G08",
+        "G17",
+        "G18",
+        "G19",
+        "G20"
+      ],
+      "contract": [
+        "host factory가 외부 agent 실행 파일과 transport를 등록하고 capability를 협상한다. ACP session/run/tool-call ID를 Moodcode identity와 별도로 binding하며 세션별 single active run과 replay cursor를 유지한다.",
+        "문맥 소유권을 engine-owned/provider-owned로 명시한다. provider-owned에서는 engine summary를 외부 history에 임의 삽입하지 않으며 external session의 resume 성공 여부·model·mode·capability revision을 보존한다.",
+        "permission 요청은 payload/schema/revision이 고정된 승인 계약으로 대응한다. 대응 불가능한 실행 capability는 연결을 거절하거나 제한한다. 외부 mode가 Moodcode deny나 Plan/Build를 완화할 수 없다.",
+        "disconnect·timeout·cancel 이후 accepted 외부 실행은 outcome/cleanup proof가 확보될 때까지 uncertain으로 남긴다. 재연결만으로 완료 또는 재시도 가능 상태를 만들지 않는다."
+      ],
+      "validation": [
+        "synthetic ACP peer로 initialize/new/load/prompt/permission/cancel 및 unknown capability를 확인한다.",
+        "같은 session의 중복 prompt·connection 교체·stale 승인·외부 mode 불일치·partial stream을 검증한다.",
+        "provider-owned resume/compaction에서 history 이중 요약과 prompt 중복 전송이 없고 accepted 후 disconnect가 recovery blocker를 유지하는지 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "goose",
+      "sourceHead": "f9c18a81952e8895b6f2d88b0f4569f3975034af",
+      "report": "goose.md",
+      "id": "GOOSE-C03",
+      "title": "승인된 프로젝트·사용자 기억 publication",
+      "priority": "P2",
+      "cost": "중간",
+      "moodcodeStatus": "bounded extractive/semantic memory와 session history 검색은 구현됨. 세션 이력과 별도로 프로젝트·사용자 scope에 게시하는 기억 저장소는 추가 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/memory.ts",
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/context/sources.ts",
+        "packages/engine/src/tools/session/skills.ts",
+        "packages/engine/src/permission/policy.ts",
+        "packages/engine/src/session-state/index.ts"
+      ],
+      "referenceIds": [
+        "G08",
+        "G10",
+        "G11"
+      ],
+      "contract": [
+        "remember/remove는 scope·원문·source identity·revision·category를 preview에 고정한 승인된 상태 변경으로 취급한다. source summary를 영구 preference로 자동 승격하지 않는다.",
+        "host가 workspace/user 저장소를 고정하며 per-entry·scope·모델 투영 byte 한도와 목록/삭제/철회 계약을 제공한다. 동시 변경은 CAS로 충돌을 보고한다.",
+        "기억을 현재 지시와 구별된 source data로 context에 넣고 source·시점·scope·생략·relevance를 표시한다. 다른 프로젝트 조회는 명시적 host 정책에 따르며 archive/export에 기억 inclusion 정책을 기록한다."
+      ],
+      "validation": [
+        "동일 기억의 중복 publication·stale 승인·CAS 충돌·scope traversal·예산 초과를 확인한다.",
+        "삭제/철회 후 다음 model boundary에서 투영이 갱신되고 다른 workspace의 기억이 유출되지 않는지 확인한다.",
+        "summary 원문과 remembered preference를 독립 조회하고 사용자 승인 없이 permanent write가 생기지 않는지 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "goose",
+      "sourceHead": "f9c18a81952e8895b6f2d88b0f4569f3975034af",
+      "report": "goose.md",
+      "id": "GOOSE-C04",
+      "title": "제한된 lifecycle policy와 종료 hook",
+      "priority": "P2",
+      "cost": "중간~높음",
+      "moodcodeStatus": "plugin prepared/settled metadata hooks는 이미 구현됨. session/prompt/stop lifecycle 및 deny-only 정책 hook은 추가 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/permission/policy.ts",
+        "packages/engine/src/tools/command/process-control.ts",
+        "packages/engine/src/recovery/provider.ts"
+      ],
+      "referenceIds": [
+        "G05",
+        "G06",
+        "G15",
+        "G16"
+      ],
+      "contract": [
+        "host가 hook ID/revision·event·입력 metadata·deadline·output byte cap을 등록한다. 기존 tool approval fingerprint·prepared payload·credential·policy를 수정할 수 없으며 사전 hook의 효과는 allow 또는 추가 deny로 한정한다.",
+        "external command hook은 host supervisor의 별도 승인/effect/cleanup ledger를 사용한다. 실패·timeout·명시 deny를 구분하고 cleanup unknown이면 격리한다. read-only 관측 hook에는 외부 효과 권한을 주지 않는다.",
+        "stop hook은 bounded 진단과 후속 검증 요청만 반환한다. 후속 turn은 같은 budget/approval를 사용하고 연속 block cap·cancel 우선·재시작 dedup을 갖는다. terminal 이후 hook이 Run event를 추가할 수 없다."
+      ],
+      "validation": [
+        "stale hook revision·payload mutation·prepared fingerprint 변경·deny 완화 시도를 거절한다.",
+        "hook 실패/timeout/출력 overflow·cancel 중 hook·cleanup unknown을 별도 결과로 확인한다.",
+        "stop 반복 cap 및 종료 직전 crash에서 모델 호출과 hook 효과가 중복되지 않고 terminal 상태가 보존되는지 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "goose",
+      "sourceHead": "f9c18a81952e8895b6f2d88b0f4569f3975034af",
+      "report": "goose.md",
+      "id": "GOOSE-C05",
+      "title": "부모 turn의 durable child join과 구조화 집계",
+      "priority": "P2",
+      "cost": "중간",
+      "moodcodeStatus": "실제 worktree child·읽기 전용 모델 delegation·budget/deny/cancel 상속·terminal root inbox delivery·artifact paging은 구현됨. 여러 child의 join 조건을 부모 turn에 고정하는 계약이 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/artifacts/result.ts",
+        "packages/engine/src/tools/session/artifact.ts"
+      ],
+      "referenceIds": [
+        "G06",
+        "G12",
+        "G13",
+        "G14"
+      ],
+      "contract": [
+        "승인한 delegate batch에 child ID·parent turn·join 조건(all/first terminal)·예산·허용 tool/profile을 고정하고 durable join record로 저장한다. 모델 child는 기존 read-only worktree 규칙을 유지한다.",
+        "child의 completed/failed/cancelled/uncertain를 구별한 구조화 결과를 정확히 한 번 부모 inbox에 집계한다. 원문은 기존 artifact store에 두고 bounded summary와 reference를 전달한다.",
+        "취소 또는 재시작에서 살아 있는 child를 새로 만들지 않고 현재 owner/outcome을 재조정한다. uncertain child가 있는 all-join을 성공으로 처리하지 않으며 parent budget과 fairness를 유지한다."
+      ],
+      "validation": [
+        "완료 순서 변화·일부 실패·첫 종료 후 나머지 child 처리·부모 cancel·재시작 중 join을 확인한다.",
+        "중복 terminal delivery가 join 결과를 반복하지 않고 큰 결과가 artifact paging budget을 준수하는지 확인한다.",
+        "write child 권한 또는 부모보다 큰 budget을 모델 batch가 획득하지 못하고 unknown cleanup이 success를 막는지 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "openhands-sdk",
+      "sourceHead": "608a102c637d8d8a999f49d7b04846524bd8bd1c",
+      "report": "openhands-sdk.md",
+      "id": "OHSDK-C1",
+      "title": "실행 효과와 분리된 대화 분기·fork",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "checkpoint restore·archive·새 session 생성·격리 child는 기구현. 특정 대화 지점에서 별도 문맥 계보를 만드는 공개 계약은 확인한 기준 소스에서 찾지 못했다.",
+      "moodcodePaths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/review/index.ts",
+        "packages/engine/src/child-tasks/index.ts"
+      ],
+      "referenceIds": [
+        "S08",
+        "S09"
+      ],
+      "contract": "host가 sourceSessionId와 고정 source cursor를 지정해 새 session의 parent lineage와 완전한 exchange를 원자적으로 기록한다. 원본은 불변이며 fork는 기본 idle이다. branch 기준은 terminal 또는 완전한 tool exchange 경계로 제한하고 summary/image/document/artifact의 역사 출처를 검증해 재binding한다. 승인은 복사하지 않고 pending action·실행 효과를 재생하지 않는다. 대화 분기 자체는 파일 복원이나 worktree 복제가 아니며 현재 파일을 다시 읽어야 한다. 별도 worktree가 필요하면 기존 child/worktree 계약을 명시적으로 연결한다.",
+      "validation": [
+        "source cursor 이후 이벤트가 fork 문맥에 유입되지 않고 원본 이력이 동일함",
+        "tool-call/result 중간 및 불확실한 source 분기는 거절됨",
+        "crash 재요청은 하나의 fork ID와 lineage만 반환함",
+        "문서·이미지·summary 출처와 credential 비복사, 원 승인 비재사용을 확인함"
+      ]
+    },
+    {
+      "sourceSlug": "openhands-sdk",
+      "sourceHead": "608a102c637d8d8a999f49d7b04846524bd8bd1c",
+      "report": "openhands-sdk.md",
+      "id": "OHSDK-C2",
+      "title": "prepared 자원 집합을 사용하는 도구 병렬 실행",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "runner.executeCalls는 effectClass=read인 연속 도구를 maxReadConcurrency 아래 이미 병렬 실행하고 그 밖의 호출은 순차 실행한다. 범용 파일·terminal·외부 자원 충돌 scheduler는 추가 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/storage/tool-recovery-frontier.ts"
+      ],
+      "referenceIds": [
+        "S07",
+        "S11"
+      ],
+      "contract": "host가 등록한 도구만 prepare 단계에서 canonical resource set과 read/write mode를 선언한다. 그 집합과 tool revision은 exact fingerprint의 일부로 고정한다. 미선언 또는 외부 효과가 불명확한 호출은 workspace 단위 직렬 경로로 유지한다. 자원 잠금은 정렬해 deadlock을 피하고 effect 직전에 원 owner·승인·현재 hash를 다시 검사한다. 불충돌 도구만 제한 동시성 아래 실행하며 모델용 observation 순서는 원 call 순서로 보존한다. workspace lease·checkpoint·도구 cleanup journal은 병렬 완료와 취소를 독립적으로 추적한다.",
+      "validation": [
+        "같은 파일 read/write 및 rename의 양쪽 경로는 충돌하고 별도 파일은 허용된 동시성으로 실행됨",
+        "미선언 shell/MCP는 직렬이며 확장 자원 선언으로 자동 권한 상승하지 않음",
+        "잠금 대기 취소·부분 실패·강제 종료에서 미확정 effect가 재실행되지 않음",
+        "prepared resource 변경·외부 파일 변경은 effect 전에 stale로 차단됨"
+      ]
+    },
+    {
+      "sourceSlug": "openhands-sdk",
+      "sourceHead": "608a102c637d8d8a999f49d7b04846524bd8bd1c",
+      "report": "openhands-sdk.md",
+      "id": "OHSDK-C3",
+      "title": "terminal 기록 전 완료 검증 gate",
+      "priority": "P1",
+      "cost": "M–L",
+      "moodcodeStatus": "plugin prepared/settled metadata hook, session steer boundary, 일반 retry·coding 검증 도구는 기구현. 완료 판정에서 bounded feedback으로 추가 turn을 요청하는 host gate는 별도 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/turn-executor.ts"
+      ],
+      "referenceIds": [
+        "S04",
+        "S15"
+      ],
+      "contract": "모델의 완료 응답 후 Run terminal을 쓰기 전에 host가 고정 revision의 completion policy를 실행한다. 결과는 allow, continue와 bounded untrusted feedback, 또는 fail로 제한한다. 검증 비용·추가 turn 한도·취소 신호를 기존 Run 예산에 포함하고 동일 완료 시도 ID에 대한 gate 결과를 durable하게 기록한다. 검증 명령이나 파일 효과는 기존 approved tool 경로로만 실행한다. feedback은 user 지시로 승격하지 않으며 기존 exact approval·prepared request를 수정하지 않는다. terminal 이후 추가 이벤트를 쓰지 않는다.",
+      "validation": [
+        "실패한 검증 feedback은 terminal 전 다음 turn에서 한 번만 관측됨",
+        "재시작·중복 completion 제안에서 gate side effect와 terminal이 중복되지 않음",
+        "gate timeout·취소·반복 거절은 예산 아래 종료됨",
+        "기존 prepared/settled 관측 hook과 steer·pending approval 회귀를 확인함"
+      ]
+    },
+    {
+      "sourceSlug": "openhands-sdk",
+      "sourceHead": "608a102c637d8d8a999f49d7b04846524bd8bd1c",
+      "report": "openhands-sdk.md",
+      "id": "OHSDK-C4",
+      "title": "원격 engine host의 재접속·상태 조정",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "engine/host 분리, local utility RPC, snapshot/replay·bounded history, durable owner·uncertainty·취소는 기구현. 인증된 REST/WebSocket 또는 동등한 원격 transport와 container workspace 운용은 확인한 host에서 별도 범위다.",
+      "moodcodePaths": [
+        "apps/desktop/src/main/host.ts",
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/engine/src/storage/execution-uncertainty.ts",
+        "packages/engine/src/recovery/index.ts"
+      ],
+      "referenceIds": [
+        "S03",
+        "S18",
+        "S19",
+        "S20"
+      ],
+      "contract": "원격 host는 동일 engine command와 sequence cursor를 인증된 transport로 노출하고 engine·process owner는 서버에 남긴다. client 연결 종료와 Run cancel을 별개 요청으로 기록한다. 재접속은 snapshot cursor 이후 bounded page와 event ID/seq로 조정하며 client 메모리에 전체 history를 적재하지 않는다. admission·approval·cancel은 원 request identity로 중복 제거하고 lease generation이 다른 응답을 거절한다. container 생성·종료·credential 전달은 host만 수행한다. transport timeout 뒤 재연결은 관측을 복구하며 uncertain tool effect의 자동 재전송을 허용하지 않는다.",
+      "validation": [
+        "REST sync/stream 경합·재접속에서 누락·중복·순서 역전이 projection에 반영되지 않음",
+        "연결 종료 중 서버 Run은 계속되고 명시 cancel은 동일 owner에서 terminal까지 추적됨",
+        "늦은 이전 lease 응답·중복 run request·승인 binding 변경이 차단됨",
+        "container crash 및 서버 restart는 기존 uncertainty ledger를 보존하고 credential이 client/event/log로 전달되지 않음"
+      ]
+    },
+    {
+      "sourceSlug": "zoo-code",
+      "sourceHead": "842b37e76d296a6381c182f2dad7822da08b9cbb",
+      "report": "zoo-code.md",
+      "id": "zoo-code-C1",
+      "title": "workspace 소스 증거를 가진 의미 코드 검색",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "bounded context·semantic history memory·glob/regex·LSP는 이미 구현. 파일 chunk embedding/index 조회는 별도 계약 후보.",
+      "moodcodePaths": [
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/tools/runtime/discovery.ts",
+        "packages/engine/src/runner/tool-discovery.ts",
+        "packages/engine/src/ports.ts"
+      ],
+      "referenceIds": [
+        "Z14",
+        "Z16",
+        "Z17",
+        "Z18",
+        "Z19"
+      ],
+      "contract": [
+        "명시적 host search factory가 workspace identity, index revision, embedder/model/dimension identity와 전송 허용 정책을 고정한다. 외부 binary나 credential을 모델이 선택·설치하지 않는다.",
+        "검색 결과에 canonical workspace-relative path, 파일 hash, chunk 범위, score, source/index revision을 넣고 현재 파일과 달라진 결과를 stale 관측으로 표시한다. 검색 관측은 편집 승인을 부여하지 않는다.",
+        "query/result/index byte·top-k·시간·동시성 한도를 둔다. readiness·오류·정상 empty를 구분하며 현재 Run tool capture/discovery와 context 예약에 동일 결과 예산을 적용한다. 기존 MCP를 통한 host search 연결도 허용하되 같은 계약을 적용한다."
+      ],
+      "validation": [
+        "workspace A/B 및 worktree의 index namespace 혼선, 변경·삭제 이후 stale chunk, traversal/symlink 경계가 차단되는 fixture를 만든다.",
+        "index 미준비/정상 empty/provider 오류가 다른 결과로 남고 cancel·timeout·top-k·byte 한도가 유지되는지 검증한다.",
+        "Plan/read-only child에서 검색은 정책 범위 안에서만 노출되고 검색 결과로 write/execute 권한이 생기지 않는지 검증한다."
+      ]
+    },
+    {
+      "sourceSlug": "zoo-code",
+      "sourceHead": "842b37e76d296a6381c182f2dad7822da08b9cbb",
+      "report": "zoo-code.md",
+      "id": "zoo-code-C2",
+      "title": "역할 workflow의 durable child 대기·재개 barrier",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "versioned profiles, 실제 격리 child/worktree, budget·deny·cancel 상속과 terminal 결과 중복 제거 delivery가 이미 있다. 추가 범위는 역할 단계 및 기다리는 child 집합에 binding된 자동 continuation.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/child-tasks/engine-host.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/session-state/index.ts"
+      ],
+      "referenceIds": [
+        "Z08",
+        "Z11",
+        "Z12",
+        "Z13"
+      ],
+      "contract": [
+        "workflow stage revision, parent Run/Attempt, awaited child IDs, profile revision, delivery IDs를 하나의 durable transition에 묶는다. stage 완료 판정과 parent continuation admission은 이미 받은 terminal 결과와 일치해야 한다.",
+        "완전한 parent tool exchange의 저장과 child admission을 선행 관계로 묶고, child 결과 publication 뒤 부모가 취소·교체·archived되었거나 stage가 바뀌면 자동 continuation을 거절한다. 중단된 효과를 재실행해 단계를 맞추지 않는다.",
+        "병렬 workflow가 필요하면 기존 worktree child에 bounded child 집합 admission과 all/any 대기 정책을 명시적으로 더한다. Zoo의 기본 serial scheduler를 병렬 실행 검증 근거로 사용하지 않는다."
+      ],
+      "validation": [
+        "child 종료와 결과 전달 사이, 전달과 stage commit 사이, commit과 parent scheduler admission 사이의 crash/reopen fixture에서 중복 실행·중복 결과가 없는지 검증한다.",
+        "cancel·profile 교체·parent supersession·동시 완료 시 exact stage CAS가 stale 재개를 막는지 확인한다.",
+        "다중 child의 budget 예약·all/any 정책·부분 실패·고아 child 정리가 기존 owner lease와 cancel 규칙을 보존하는지 검증한다."
+      ]
+    },
+    {
+      "sourceSlug": "zoo-code",
+      "sourceHead": "842b37e76d296a6381c182f2dad7822da08b9cbb",
+      "report": "zoo-code.md",
+      "id": "zoo-code-C3",
+      "title": "profile별 MCP 서버·resource identity 정책",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "MCP stdio/HTTP, server scope 등록·revision, profile tools allowlist, bounded discovery, exact 승인 및 uncertainty recovery는 이미 구현. 추가는 tool 이름과 별도로 관리하는 role별 서버/resource allowlist와 공통 노출 판정.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/mcp/registration.ts",
+        "packages/engine/src/mcp/client.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/runner/tool-discovery.ts",
+        "packages/engine/src/permission/policy.ts"
+      ],
+      "referenceIds": [
+        "Z04",
+        "Z14",
+        "Z15"
+      ],
+      "contract": [
+        "host가 stable MCP client/server identity와 허용 resource URI 범위를 profile revision에 고정한다. 미설정과 빈 allowlist의 의미를 명세하며 resolve 실패는 권한 확대로 해석하지 않는다.",
+        "system/context capability, eager catalogue, discovery 후보, resource 목록·읽기 및 execute 재검증이 같은 policy snapshot을 사용한다. alias나 이력에 있는 tool 이름이 금지된 server를 다시 노출시키지 않는다.",
+        "서버 재연결·schema/resource 변경·profile 변경 때 기존 capture/prepared 승인을 무효화하며 Plan/Build·deny·exact MCP fingerprint·불확실 outcome 격리를 보존한다."
+      ],
+      "validation": [
+        "profile A에서 허용한 서버가 B의 prompt/discovery/resource/execute로 새지 않는지, 빈 목록과 resolve 실패가 동일하게 명세된 상태를 유지하는지 검증한다.",
+        "대기 중 승인 후 reconnect·profile 교체·resource catalog 변경이 stale 요청을 거절하는지 확인한다.",
+        "긴 tool catalog의 bounded discovery에서 허용 범위를 벗어난 schema가 materialize되지 않고 기존 MCP accepted/dispatched/outcome recovery 계약이 유지되는지 검증한다."
+      ]
+    },
+    {
+      "sourceSlug": "zoo-code",
+      "sourceHead": "842b37e76d296a6381c182f2dad7822da08b9cbb",
+      "report": "zoo-code.md",
+      "id": "zoo-code-C4",
+      "title": "exact command에 binding된 host preflight verdict",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "명령 exact prepare/approval/effect, deny 우선 정책, scope grants, process ownership·cleanup recovery와 metadata plugin hooks는 이미 있다. 추가는 명령 구문/위험 판정의 typed preflight 입력·출력 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/permission/policy.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts"
+      ],
+      "referenceIds": [
+        "Z06",
+        "Z07"
+      ],
+      "contract": [
+        "host가 등록한 분석기만 command bytes, canonical cwd, execution binding, policy/analyzer revision의 digest에 대해 allow/deny/unavailable verdict를 낸다. 모델은 분석기·실행 파일·규칙을 설치하거나 바꾸지 않는다.",
+        "verdict를 bounded 이유/rule ID와 함께 저장한다. allow는 기존 deny/Plan/exact approval을 우회하지 않으며, deny와 분석기 실행 실패를 분리한다. 승인 대기 중 정책·cwd·command 변경은 verdict와 준비된 승인을 함께 무효화한다.",
+        "정책상 실행하지 않은 도구 결과와 사용자의 명시적 cancel/reject를 구분해 기록한다. 후속 도구를 계속할지는 기존 batch 계약으로 결정하며 이미 발생한 명령 효과를 retry하지 않는다."
+      ],
+      "validation": [
+        "분석기 timeout/malformed output/종료 실패를 unavailable로 기록하고 명령이 시작되지 않는지 검증한다.",
+        "command/cwd/policy revision 교체·scope grant가 preflight binding을 바꾸거나 deny를 상쇄하지 못하는지 확인한다.",
+        "정책 거절과 user cancel이 다른 lifecycle 결과를 남기며 기존 process ownership·unknown cleanup 격리가 보존되는지 검증한다."
+      ]
+    },
+    {
+      "sourceSlug": "mistral-vibe",
+      "sourceHead": "7cb91894c40bb25173abcfa36e5ea2b4b81eb28c",
+      "report": "mistral-vibe.md",
+      "id": "MV-C01",
+      "title": "프로젝트 지침·설정의 신뢰 활성화와 철회",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "nested AGENTS.md와 지속 baseline, 명시적 host plugin은 이미 있다. 저장소 단위 신뢰 상태로 지침/config/hooks의 활성화를 함께 gate하는 추가 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/sources.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/permission/index.ts"
+      ],
+      "referenceIds": [
+        "MV-R09",
+        "MV-R10"
+      ],
+      "contract": [
+        "Host가 canonical workspace identity와 instruction/config digest에 trust-for-session 또는 durable-trust를 명시적으로 부여한다. 파일 보기와 behavior activation은 별도다.",
+        "trust scope는 workspace/repository 경계, 추가 root, 명시적 deny를 포함한다. session trust는 close 후 만료되고 철회/변경은 다음 모델 경계에서 기존 instruction baseline과 pending hook 활성화를 무효화한다.",
+        "Untrusted 저장소의 실행 모듈·hook·MCP credential 설정은 자동으로 activate하지 않는다. 승인 grant와 Plan/Build ceiling은 trust 이후에도 독립적으로 적용한다."
+      ],
+      "validation": [
+        "중첩 AGENTS.md, symlink/realpath 경계, additional-root에 cwd 재포함, 명시적 하위 deny가 trust를 우회하지 못한다.",
+        "resume/fork/child의 trust 범위·digest가 일치하고 session trust가 재시작에 남지 않는다.",
+        "revocation과 context capture 경합에서 stale instruction/hook의 새 실행을 거절하고 기존 baseline provenance를 보존한다."
+      ]
+    },
+    {
+      "sourceSlug": "mistral-vibe",
+      "sourceHead": "7cb91894c40bb25173abcfa36e5ea2b4b81eb28c",
+      "report": "mistral-vibe.md",
+      "id": "MV-C02",
+      "title": "승인 이전 lifecycle hook과 제한된 검증 재진입",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "Plugin prepared/settled metadata 관측이 이미 있다. 인자 검증·deny·turn 종료 후 검증 피드백을 위한 새 lifecycle 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/permission/index.ts"
+      ],
+      "referenceIds": [
+        "MV-R06",
+        "MV-R13",
+        "MV-R05"
+      ],
+      "contract": [
+        "Host 등록 hook은 propose-stage에서만 bounded input 수정 또는 denial을 반환한다. 수정된 입력을 schema 검증하고 새 prepare/capture/fingerprint를 만든 뒤 기존 exact approval을 요구한다. prepared/settled hook은 관측 전용으로 유지한다.",
+        "Hook identity/revision/order/input-output digest를 Run/Turn provenance에 기록한다. credentials는 전달하지 않고 실행형 hook은 host ownership·output/timeout/cancel 예산과 명시적 grant를 따른다.",
+        "post-turn 검증 피드백은 별도 bounded continuation request로 기록한다. 실패/취소/deny 이후 재진입과 반복 피드백은 제한하며 terminal Run 뒤 이벤트를 추가하지 않는다."
+      ],
+      "validation": [
+        "잘못된 rewrite·hook timeout·취소는 effect를 실행하지 않으며 원래 승인 fingerprint를 재사용하지 않는다.",
+        "valid rewrite도 재prepare/재승인으로 연결되고 실행 기록·모델에 보이는 입력·effect 입력이 같다.",
+        "검증 피드백의 중복/무한 retry/close 경합에서 continuation 상한 및 terminal 불변성을 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "mistral-vibe",
+      "sourceHead": "7cb91894c40bb25173abcfa36e5ea2b4b81eb28c",
+      "report": "mistral-vibe.md",
+      "id": "MV-C03",
+      "title": "살아 있는 child의 후속 입력과 mailbox receipt",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "격리 worktree child, cancel/deny/budget 상속, 승인된 read-only delegate_task와 terminal 결과 inbox delivery는 이미 있다. ready child 재사용과 running child steer를 위한 추가 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/engine-host.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/agents/index.ts"
+      ],
+      "referenceIds": [
+        "MV-R12",
+        "MV-R11",
+        "MV-R20"
+      ],
+      "contract": [
+        "Root가 child id·worktree identity·generation·operation id·prompt digest를 고정하여 message를 admit한다. running이면 기존 input scheduler steer, ready이면 새 bounded Turn을 접수한다.",
+        "영구 parent intent→child admission→parent acknowledge receipt로 중복 전송/재시작을 수렴시키고 child-result delivery id와 live-message delivery id를 분리한다.",
+        "초기 read-only/tool/profile/deny ceiling과 전체 descendant 예산을 모든 후속 Turn에 보존한다. stopped/uncertain/archived child는 명시적 오류를 반환한다."
+      ],
+      "validation": [
+        "admission 각 경계의 중단·재전송에서 동일 지시가 두 번 실행되지 않고 미확정 child는 재접수되지 않는다.",
+        "running/ready 전환과 stop/cancel의 경합, 잘못된 generation/worktree/storage binding을 거절한다.",
+        "후속 Turn을 이용해 승인 범위·read-only ceiling·상속 budget을 늘릴 수 없다."
+      ]
+    },
+    {
+      "sourceSlug": "mistral-vibe",
+      "sourceHead": "7cb91894c40bb25173abcfa36e5ea2b4b81eb28c",
+      "report": "mistral-vibe.md",
+      "id": "MV-C04",
+      "title": "기존 engine host 위의 ACP 세션 adapter",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "Engine/host 분리와 versioned command/event, durable input·승인·cancel·paging은 이미 있다. ACP 외부 protocol adapter와 capability negotiation이 추가 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/contracts/src/index.ts",
+        "packages/contracts/src/v2.ts",
+        "packages/engine/src/permission/index.ts"
+      ],
+      "referenceIds": [
+        "MV-R02",
+        "MV-R15",
+        "MV-R16"
+      ],
+      "contract": [
+        "ACP adapter는 session/input identity를 기존 host command에 매핑하고 update 이벤트를 bounded 순서로 투영한다. provider/tool loop를 두 번째로 만들지 않는다.",
+        "Client capability에 따라 image/resource/permission request를 허용하고 미지원 content 또는 mode를 명시적 protocol error로 반환한다. client 제공 tool I/O는 명시적 host factory 및 effect/approval ownership에 연결한다.",
+        "prompt cancel→run cancel→cleanup terminal을 구분하고 transport disconnect를 실행 취소와 별도로 처리한다. replay/resume에서는 tool-call/result pairing과 receipt identity를 유지한다."
+      ],
+      "validation": [
+        "합성 ACP client에서 prompt→tool approval→result→terminal update와 pagination/replay 순서를 검증한다.",
+        "cancel/close/disconnect/late callback 경합이 stale 승인·중복 Run·불완전 tool exchange를 만들지 않는다.",
+        "미지원 media·capability downgrade·잘못된 session scope에 bounded typed error를 반환한다."
+      ]
+    },
+    {
+      "sourceSlug": "kimi-code",
+      "sourceHead": "21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3",
+      "report": "kimi-code.md",
+      "id": "kimi-code-C1",
+      "title": "승인 binding을 보존하는 lifecycle hook 계약",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "plugin prepared/settled metadata hooks와 host factory는 이미 구현됨; prompt/turn/compaction lifecycle 관측과 제한된 veto 계약의 추가 제안.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/context/summary-stream.ts"
+      ],
+      "referenceIds": [
+        "K12",
+        "K16",
+        "K17"
+      ],
+      "contract": "host가 등록한 hook만 bounded metadata로 실행한다. prompt/turn/summary 상태와 관측 receipt를 제공하고, pre-effect veto는 허용하되 prepared input/fingerprint/approval binding을 변경할 수 없다. hook deadline/cancel/재진입 제한과 실패 정책을 이벤트별로 고정하고, post-effect 실패는 이미 끝난 효과를 재실행시키지 않는다. shell hook은 별도 승인된 supervisor 경계가 필요하며 model이 임의 command를 등록할 수 없다.",
+      "validation": [
+        "veto 이후 native effect가 시작되지 않는지 확인한다.",
+        "prepared fingerprint와 기존 approval의 일치가 hook 전후 유지되는지 확인한다.",
+        "cancel/timeout/reentrant hook이 terminal 중복 또는 반복 turn을 만들지 않는지 확인한다.",
+        "post-effect observer 실패와 재시작에서 tool result가 보존되고 효과가 재실행되지 않는지 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "kimi-code",
+      "sourceHead": "21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3",
+      "report": "kimi-code.md",
+      "id": "kimi-code-C2",
+      "title": "승인된 명령의 foreground→background 전환",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "command supervisor·PTY·durable tasks·queue/steer와 effect recovery marker는 이미 있음; 실행 중 명령 detach와 task completion inbox 계약의 추가 제안.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/tools/command/supervisor.ts",
+        "packages/engine/src/tools/command/execution-lock.ts",
+        "packages/engine/src/terminals/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/session-state/index.ts"
+      ],
+      "referenceIds": [
+        "K03",
+        "K13",
+        "K14"
+      ],
+      "contract": "기존 exact 승인으로 시작한 동일 command/PID ownership을 새 효과 없이 task로 전환한다. 기본 timeout은 현행 kill 의미를 유지하고 opt-in/user detach만 추가한다. supervisor는 root 종료/취소/예산을 계속 소유하며 output artifact와 completion delivery ID를 기록한다. workspace effect가 끝나지 않았으면 새 쓰기 작업과 archive/resume을 허용하지 않는다. 재시작에서 orphan 상태는 불확실하게 기록하고 명령을 자동 재실행하지 않는다.",
+      "validation": [
+        "foreground timeout의 기존 kill·cleanup 계약이 보존되는지 확인한다.",
+        "detach 시 spawn이 한 번이고 승인 fingerprint/ownership이 유지되는지 확인한다.",
+        "완료·cancel·engine SIGKILL에서 output과 completion inbox 중복 제거 및 uncertain 차단을 검증한다.",
+        "살아 있는 shell effect 동안 workspace mutation/restore가 충돌하지 않는지 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "kimi-code",
+      "sourceHead": "21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3",
+      "report": "kimi-code.md",
+      "id": "kimi-code-C3",
+      "title": "역할별 child task 재개와 최종 handoff 계약",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "agent profiles·read-only delegate_task·실제 worktree child·budget/deny/cancel 상속·terminal root delivery는 이미 구현됨; 같은 child의 승인된 후속 turn과 역할 handoff 계약의 추가 제안.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/child-tasks/engine-host.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/storage-binding.ts"
+      ],
+      "referenceIds": [
+        "K10",
+        "K15"
+      ],
+      "contract": "Moodcode profile identity/model/tools를 고정한 explore/plan/coder 역할을 host가 명시적으로 선택한다. plan/explore는 read-only 경계가 실제 도구 정책으로 강제된다. child 재개는 기존 storage/worktree owner binding과 명시적인 새 parent Run 승인 및 새 budget reservation을 요구한다. child ID와 task delivery ID를 구분하고, 완료 handoff는 bounded 결과·변경 경로·검증 출처·미완료 항목으로 구조화한다. lost tool effect를 자동 redo하지 않으며 unknown 효과는 격리한다.",
+      "validation": [
+        "profile 변경 또는 다른 workspace/storage binding으로 재개가 거부되는지 확인한다.",
+        "읽기 전용 child에서 command 및 write 효과가 실제로 거절되는지 확인한다.",
+        "parent/child 재시작 후 같은 child 기록을 재사용하면서 budget과 승인 binding이 새 Run에 정확히 연결되는지 확인한다.",
+        "빈 최종 결과·실패·취소 handoff와 중복 delivery를 구분하는지 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "kimi-code",
+      "sourceHead": "21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3",
+      "report": "kimi-code.md",
+      "id": "kimi-code-C4",
+      "title": "기존 image/PDF 경계 위의 bounded video 입력",
+      "priority": "P3",
+      "cost": "L",
+      "moodcodeStatus": "session-owned bounded image/PDF 입력·history anchors·provider token 정책·archive 검증은 이미 있음; video의 ingest/upload/capability/cache 경계는 후속 제안.",
+      "moodcodePaths": [
+        "packages/engine/src/media/store.ts",
+        "packages/engine/src/media/validation.ts",
+        "packages/engine/src/media/provider.ts",
+        "packages/engine/src/documents/provider.ts",
+        "packages/engine/src/context/media-history.ts",
+        "packages/engine/src/ports.ts"
+      ],
+      "referenceIds": [
+        "K06",
+        "K07",
+        "K19"
+      ],
+      "contract": "별도 video attachment 타입에 파일 bytes/MIME/hash/session owner와 byte/time/frame 예산을 정의한다. provider capability와 unknown-token opt-in은 image/PDF처럼 명시적 host 정책으로 결정한다. 원격 upload는 별도 effect receipt와 cancellation/expiry를 기록하며 cache를 provider/endpoint/account/media hash로 분리한다. upload 또는 capability 실패는 모델 인식 성공으로 표시하지 않고 제한된 omission metadata를 남긴다. archive에는 credential·원격 권한을 이식하지 않는다.",
+      "validation": [
+        "oversize·MIME 위장·타 세션 attachment가 provider dispatch 전에 거절되는지 확인한다.",
+        "계정/endpoint 변경에서 기존 upload ID를 재사용하지 않는지 확인한다.",
+        "upload cancel/timeout/remote expiry와 crash uncertainty를 보존하는지 확인한다.",
+        "history compaction/archive/import 후 video 누락과 재전송 정책 및 기존 image/PDF 회귀를 검증한다."
+      ]
+    },
+    {
+      "sourceSlug": "kilocode",
+      "sourceHead": "b1e7f34a4ce9fac0519714116f06fb553e185c56",
+      "report": "kilocode.md",
+      "id": "K-C01",
+      "title": "살아 있는 child 간 root 단위 공유 board",
+      "priority": "P2",
+      "cost": "M–L",
+      "moodcodeStatus": "durable input inbox·task CAS·child worktree·terminal 결과 중복 제거 전달은 이미 있음. 살아 있는 sibling의 수신자 지정 board·읽기 cursor는 추가 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/contracts/src/v2.ts"
+      ],
+      "referenceIds": [
+        "K11",
+        "K12",
+        "K15"
+      ],
+      "contract": "Host가 승인한 root task scope에만 state 도구를 노출하고 sender는 살아 있는 child owner에서 결정한다. root/sender/run/toolCall identity로 중복 제거하며 같은 identity의 다른 본문은 conflict로 거절한다. recipient와 reply는 같은 root 소속만 허용한다. 순번 cursor·clear revision·메시지/저장/문맥 byte 한도를 두고 unread는 다음 모델 경계에서 data로 전달한다. 지침·permission ceiling을 변경하지 않으며 terminal child 결과는 기존 delivery 계약을 유지한다.",
+      "validation": [
+        "sibling 동시 게시에서 순번 충돌/중복 없음; 동일 retry는 동일 receipt, 변경 retry는 conflict",
+        "다른 root·완료/취소 sender·없는 recipient/reply 거절; read-only child state 쓰기는 별도 host grant 필요",
+        "stale cursor·clear revision conflict·overflow·재시작·cancel 경계 검사",
+        "모델 경계의 예산/source identity 보존과 기존 terminal 결과 delivery 중복 제거 회귀"
+      ]
+    },
+    {
+      "sourceSlug": "kilocode",
+      "sourceHead": "b1e7f34a4ce9fac0519714116f06fb553e185c56",
+      "report": "kilocode.md",
+      "id": "K-C02",
+      "title": "출처와 승인 revision을 가진 프로젝트 기억 publication",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "세션 semantic summary·active-prefix checkpoint·bounded context·로컬 skill/reference 읽기는 이미 있음. 세션 밖 사실 승격과 다른 세션에서 승인된 project memory 재사용을 제안.",
+      "moodcodePaths": [
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/context/active-prefix.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/tools/session/skills.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/storage/index.ts"
+      ],
+      "referenceIds": [
+        "K06",
+        "K13",
+        "K17"
+      ],
+      "contract": "기존 세션 summary와 별개로 host가 project memory revision을 소유한다. 생성은 source session/message/hash·모델·시각을 가진 bounded proposal이고 추가/수정/삭제 publication은 exact preview·승인 fingerprint·CAS revision에 binding한다. 이력/추론은 현재 파일 관측과 구별한다. secret/credential 거절·redaction, raw output 자동 복제 금지, 승인 revision과 문맥 byte budget의 세션별 pin을 적용한다. 새 revision은 명시적 다음 모델 경계에서 수용하며 기억으로 permission/tool budget을 확대하지 않는다.",
+      "validation": [
+        "두 세션의 stale approval/revision은 publication 불가; source/본문 변경은 fingerprint 불일치",
+        "실패·빈 결과·cancel·crash에서 미승인 proposal은 active revision이 되지 않음",
+        "secret·긴 본문·없는 source·다른 workspace 거절과 기존 summary/active-prefix 복구 회귀",
+        "publication 감사·폐기·세션별 pinned revision·bounded projection 재현"
+      ]
+    },
+    {
+      "sourceSlug": "kilocode",
+      "sourceHead": "b1e7f34a4ce9fac0519714116f06fb553e185c56",
+      "report": "kilocode.md",
+      "id": "K-C03",
+      "title": "정책과 grant별 승인 판단 출처 기록",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "deny 우선 Plan/Build 정책·reason·policy version·exact approval·durable scoped grant 발급/소비/철회는 이미 있음. 규칙/grant/manual별 관측 metadata를 확장.",
+      "moodcodePaths": [
+        "packages/engine/src/permission/policy.ts",
+        "packages/engine/src/permission/grants.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/plugins/index.ts",
+        "packages/contracts/src/index.ts"
+      ],
+      "referenceIds": [
+        "K09",
+        "K10",
+        "K18"
+      ],
+      "contract": "prepared call에 결정·policy revision·규칙 identity·host/config/profile/manual/grant/default 출처를 기록한다. grant는 revision·소비 receipt만 기록하고 명령 원문/credential을 제외한다. denial도 같은 schema로 기록하고 복수 권한 검사는 bounded decision list에 effect/resource identity별로 보존한다. 관측 metadata는 권한이나 fingerprint를 변경하지 못한다. execution 직전 exact prepare·현재 policy/grant revalidation은 유지한다.",
+      "validation": [
+        "동일 tool/서로 다른 resource의 출처 분류와 deny 우선 보존",
+        "grant 철회·policy 변경·승인 뒤 prepare 변경 시 효과 차단/정확한 원인",
+        "result/plugin metadata 교체·retry·cancel·archive/reopen에서 출처 보존·재승인 불가",
+        "unknown 표시·byte/count 상한·명령 redaction·기존 approval/MCP native recovery 회귀"
+      ]
+    },
+    {
+      "sourceSlug": "mini-swe-agent",
+      "sourceHead": "04d809ceab9df28f9adaed044884180159172930",
+      "report": "mini-swe-agent.md",
+      "id": "MSA-C01",
+      "title": "provider 오류 분류·관측 보존 합성 검증 행렬",
+      "priority": "P1",
+      "cost": "S",
+      "moodcodeStatus": "Attempt/Part·usage·부분 tool proposal·제한된 재시도·cleanup uncertainty를 이미 구현했다. 추가 후보는 같은 코딩 loop 오류 경계의 명시적 검증 행렬이다.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/provider/openai-compatible.ts",
+        "packages/engine/src/provider/responses.ts",
+        "packages/engine/src/config/budgets.ts"
+      ],
+      "referenceIds": [
+        "MSA-R06",
+        "MSA-R08",
+        "MSA-R09",
+        "MSA-R11",
+        "MSA-R15",
+        "MSA-R20"
+      ],
+      "contract": "malformed JSON, unknown tool, output-limit, transport 오류를 독립 합성 시나리오로 분류한다. 이미 관측한 usage·부분 제안의 원래 identity를 보존하고 유효한 finish 전에는 effect를 시작하지 않는다. protocol 오류에 일반 재시도를 새로 허용하지 않고 기존 cleanup·예산 계약을 그대로 적용한다. upstream response나 fixture를 복사하지 않는다.",
+      "validation": [
+        "completion/Responses별 독자 합성 시나리오에서 오류 분류와 관측 보존을 확인한다.",
+        "usage absent/0 및 미관측 응답을 구분하고 provider Attempt 계수의 중복 증가를 검사한다.",
+        "관측 후 전송 실패·protocol 오류의 자동 재실행이 없고 tool effect가 0임을 확인한다.",
+        "부분 제안/텍스트·실패 Attempt를 재조회하고 terminal 이후 기록 금지 및 cleanup uncertainty 실행 차단을 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "mini-swe-agent",
+      "sourceHead": "04d809ceab9df28f9adaed044884180159172930",
+      "report": "mini-swe-agent.md",
+      "id": "MSA-C02",
+      "title": "고정 journal sequence의 읽기 전용 trajectory 투영",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "durable Run/Turn/Attempt/Part, bounded paging, archive export/import를 이미 구현했다. 작은 코딩 trajectory inspection/export 표현 계약을 추가하는 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/storage/native-records.ts",
+        "packages/engine/src/storage/native-history.ts",
+        "packages/engine/src/storage/archive.ts"
+      ],
+      "referenceIds": [
+        "MSA-R07",
+        "MSA-R08",
+        "MSA-R09",
+        "MSA-R14",
+        "MSA-R20"
+      ],
+      "contract": "동일 journal sequence에 고정된 읽기 전용 투영에서 원래 Run/Turn/Attempt/Part/call ID를 유지한다. model-input projection과 실행 observation, retry·summary·부분 결과를 구분한다. credential과 native opaque payload는 자동 공개하지 않는다. 이 투영은 저장/복구/실행 authority를 대체하지 않으며 읽기와 export로 도구를 실행하지 않는다.",
+      "validation": [
+        "여러 page의 순서·중복·누락과 export 전후 원본 journal 불변을 확인한다.",
+        "실패한 Attempt·부분 observation·미실행 tool과 원래 ID의 대응을 검사한다.",
+        "UTF-8/byte 상한, redaction·opaque payload 제외, snapshot 도중 저장소 변동의 binding 오류를 확인한다.",
+        "투영 import 또는 inspector reload가 Run/도구 실행을 시작하지 않음을 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "mini-swe-agent",
+      "sourceHead": "04d809ceab9df28f9adaed044884180159172930",
+      "report": "mini-swe-agent.md",
+      "id": "MSA-C03",
+      "title": "완료 증거와 source identity를 묶는 headless batch 재개",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "기존 headless coding fixture 3개와 영구 입력·실행·budget 상속은 이미 있다. batch result key 존재보다 강한 완료 조건과 재실행 기록 계약을 추가하는 후보다.",
+      "moodcodePaths": [
+        "scripts/evaluate-engine.mjs",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/config/budgets.ts"
+      ],
+      "referenceIds": [
+        "MSA-R06",
+        "MSA-R16",
+        "MSA-R17",
+        "MSA-R18"
+      ],
+      "contract": "case identity는 engine source, 독자 fixture digest, credential을 제외한 provider config hash와 예산에 묶는다. 성공 terminal·파일 결과·검증 명령·cleanup이 일치한 case만 완료로 건너뛴다. failed/cancelled/uncertain은 상태별로 보존하고 재실행마다 새 attempt identity를 사용해 과거 report를 덮어쓰지 않는다. benchmark 성능을 주장할 경우 scripted 계약 검증과 별도 실제 모델 평가를 명확히 구분한다.",
+      "validation": [
+        "report 쓰기 중단과 동일 case 동시 제출에서 완료/미완료가 혼동되지 않음을 확인한다.",
+        "기존 실패 key, config/source/fixture 변경과 다른 예산의 결과 재사용 거절을 확인한다.",
+        "pending/running 취소와 cleanup uncertainty를 분리하고 미확정 case가 자동 skip되지 않음을 확인한다.",
+        "승인 binding·최종 파일·검증 명령 결과를 다시 검사하고 scripted 통과율을 실제 모델 성공률로 표시하지 않는다."
+      ]
+    },
+    {
+      "sourceSlug": "mini-swe-agent",
+      "sourceHead": "04d809ceab9df28f9adaed044884180159172930",
+      "report": "mini-swe-agent.md",
+      "id": "MSA-C04",
+      "title": "비상주 명령과 worktree 실행의 상태 수명 검증",
+      "priority": "P2",
+      "cost": "S",
+      "moodcodeStatus": "run_command, exact preparation/approval, supervisor/process cleanup, worktree·child budget/deny 상속을 이미 구현했다. 상태 수명과 경계의 추가 검증 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/tools/command/process-control.ts",
+        "packages/engine/src/tools/command/backends.ts",
+        "packages/engine/src/worktrees/index.ts",
+        "packages/engine/src/child-tasks/index.ts"
+      ],
+      "referenceIds": [
+        "MSA-R06",
+        "MSA-R12",
+        "MSA-R13",
+        "MSA-R14"
+      ],
+      "contract": "host와 격리 worktree 명령에서 action마다 cwd/env 상태가 초기화되고 파일 효과는 유지되는 계약을 같은 행렬로 표현한다. command/workspace/timeout exact approval과 host credential 필터를 유지한다. timeout/cancel은 cleanup 증거와 결합하고 미확정 종료를 성공으로 취급하지 않는다. container 지원은 이 후보의 완료 조건에 포함하지 않는다.",
+      "validation": [
+        "두 연속 command의 cwd/env 비승계와 파일 승계를 확인한다.",
+        "nonzero exit·UTF-8 출력·bounded capture/artifact와 timeout/cancel/descendant cleanup을 확인한다.",
+        "동일 명령을 host/worktree에서 평가하며 child budget/deny가 기존대로 상속되는지 검사한다.",
+        "정리 미확정이면 다음 실행 차단과 exact approval fingerprint 유지, 실제 확인한 OS 범위 표시를 검증한다."
+      ]
+    },
+    {
+      "sourceSlug": "open-swe",
+      "sourceHead": "48a8445fc51246e739976c8bf5bdca3c43f27653",
+      "report": "open-swe.md",
+      "id": "OSWE-C1",
+      "title": "PR revision에 binding한 CI·검토 feedback watch",
+      "priority": "P1",
+      "cost": "M–L",
+      "moodcodeStatus": "durable queue/steer·Run/Turn/Attempt·제한 retry·artifact·host plugin/MCP·승인과 recovery는 기구현. GitHub PR head/check/review 상태를 지속 관측하여 다음 실행에 전달하는 공개 host 계약은 확인한 기준 소스에서 별도 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/artifacts/store.ts"
+      ],
+      "referenceIds": [
+        "OSWE-R05",
+        "OSWE-R06",
+        "OSWE-R13",
+        "OSWE-R15",
+        "OSWE-R18"
+      ],
+      "contract": "명시적 opt-in host watch는 repository identity·PR number·현재 head SHA·policy revision·credential reference를 고정한다. 외부 event는 untrusted evidence로 bounded artifact에 저장하고 event ID와 revision별 feedback generation으로 durable inbox에 중복 제거해 접수한다. required check 조회 실패는 unknown으로 남기고 성공으로 승격하지 않는다. head 변경은 이전 관측을 stale로 표시하며 제한된 후속 진단 Run을 만들 수 있으나 git push·PR/review write·CI rerun·merge는 각각 기존 exact prepare/approval/effect 경로를 거친다. 관측과 쓰기 권한은 분리하고 retry budget·expiry·pause/cancel 상태를 상속한다. 외부 dispatch/receipt의 uncertainty를 자동 재전송하지 않는다.",
+      "validation": [
+        "같은 webhook과 poll 결과가 경합해도 동일 revision feedback은 한 번만 inbox에 접수됨",
+        "PR head 변경·required check 미보고·API 권한 실패는 이전 성공/승인을 재사용하지 않음",
+        "cancel/pause/expired watch는 새 진단 Run을 만들지 않고 중복·늦은 응답을 폐기함",
+        "실패 진단은 read-only로 실행 가능하며 rerun·push·merge가 관측만으로 승인되지 않음"
+      ]
+    },
+    {
+      "sourceSlug": "open-swe",
+      "sourceHead": "48a8445fc51246e739976c8bf5bdca3c43f27653",
+      "report": "open-swe.md",
+      "id": "OSWE-C2",
+      "title": "역할별 소프트웨어 작업 단계와 검증 증거 연결",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "agent profiles·session tasks CAS·coding 도구·summary·artifact·격리 child worktree·승인한 변경 통합·root inbox delivery가 이미 있다. todo 완료와 구분된 조사/구현/검증/검토 단계의 durable transition 및 evidence gate는 추가 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/tools/session/index.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/worktrees/index.ts",
+        "packages/engine/src/artifacts/result.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/review/index.ts"
+      ],
+      "referenceIds": [
+        "OSWE-R01",
+        "OSWE-R07",
+        "OSWE-R15",
+        "OSWE-R16"
+      ],
+      "contract": "host가 workflow identity와 versioned stage policy를 고정하고 조사→구현→검증→검토→전달의 각 transition을 expectedRevision CAS로 기록한다. 이는 Open SWE에 강제 stage graph가 있다는 주장이 아니라 관측된 별도 coding/reviewer/PR 연결을 Moodcode의 명시적 계약으로 확장하는 제안이다. 단계마다 source commit/workspace revision·선택 profile·입력 artifact hash·실제 Run/child outcome을 binding하고 todo status나 모델 완료 문장만으로 검증 성공을 인정하지 않는다. verifier/reviewer에는 기존 read-only isolated child 권한을 적용하며 write child/통합은 host 승인 경로를 보존한다. 검증 command·expected outcome은 준비 시 고정하고 출력·exit code·확인하지 못한 범위를 artifact로 기록한다. 실패 feedback의 추가 turn·child 예산과 상한을 정하고 terminal Run 뒤 이벤트 추가 없이 다음 단계 Run을 만든다.",
+      "validation": [
+        "completed todo와 모델의 성공 주장만으로 verify/review stage가 완료되지 않음",
+        "검증 뒤 파일/head 변경은 evidence를 stale로 만들고 전달 전에 재검증을 요구함",
+        "독립 reviewer child가 write 권한을 받지 않고 parent budget/cancel·worktree ownership을 상속함",
+        "transition 중 crash와 반복 요청에서 단계·artifact·Run lineage가 중복되지 않으며 기존 승인·복원 계약이 유지됨"
+      ]
+    },
+    {
+      "sourceSlug": "open-swe",
+      "sourceHead": "48a8445fc51246e739976c8bf5bdca3c43f27653",
+      "report": "open-swe.md",
+      "id": "OSWE-C3",
+      "title": "host가 소유하는 지속 background command job",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "승인된 command supervisor·PTY·process cancel/cleanup·child 실행·terminal outcome의 root inbox delivery·artifact paging·uncertainty ledger는 기구현. 부모 Run 종료 후에도 host가 소유하며 결과를 접수하는 장기 command job의 durable public lifecycle은 별도 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/tools/command/supervisor.ts",
+        "packages/engine/src/terminals/service.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/storage/tool-recovery-frontier.ts",
+        "packages/engine/src/storage/execution-uncertainty.ts",
+        "packages/engine/src/artifacts/store.ts"
+      ],
+      "referenceIds": [
+        "OSWE-R10",
+        "OSWE-R12",
+        "OSWE-R13",
+        "OSWE-R19",
+        "OSWE-R20"
+      ],
+      "contract": "background 시작은 command/cwd/timeout/workspace/owner/output budget을 exact 승인으로 binding한 host job 생성이다. job은 starting/running/stopping/completed/failed/cancelled/uncertain 상태와 native owner receipt·lease generation을 별도 durable journal에 기록한다. 부모 Run이 terminal이 된 뒤에도 유지하려면 명시적 host opt-in·만료·전체 예산 및 parent cancel 정책을 준비 시 고정한다. stdout/stderr는 bounded artifact paging으로 읽고 completion은 terminal receipt를 근거로 stable request ID의 inbox 입력을 한 번 접수한다. callback/polling은 상태 관측 transport이며 process 재실행 권한이 아니다. 재시작에서 PID 재사용·receipt 없는 효과·sandbox 유실은 uncertain으로 격리하고 자동 새 job으로 대체하지 않는다. parent Run terminal 이후에는 해당 Run의 이벤트를 변경하지 않는다.",
+      "validation": [
+        "빠른 종료·callback/poll 경합·completion 접수 후 crash에서도 job result 입력이 중복되지 않음",
+        "부모 Run terminal과 명시적 stop/expiry/parent cancel의 정책이 구분되고 cleanup receipt까지 확인됨",
+        "native owner 유실·PID 재사용·부분 시작·출력 overflow는 uncertain 또는 bounded failure로 기록됨",
+        "job 승인 이후 command/cwd/limit 변경은 stale로 차단되고 archive/recovery가 살아 있는 job의 소유권을 보존함"
+      ]
+    },
+    {
+      "sourceSlug": "open-swe",
+      "sourceHead": "48a8445fc51246e739976c8bf5bdca3c43f27653",
+      "report": "open-swe.md",
+      "id": "OSWE-C4",
+      "title": "저장소 검토 선호의 evidence 기반 초안과 승인 publication",
+      "priority": "P2",
+      "cost": "M–L",
+      "moodcodeStatus": "bounded context·semantic memory·agent profile 지침·로컬 skill/reference 읽기·session documents·exact patch/approval가 이미 있다. 역사 review outcome에서 repository별 선호를 학습하고 승인된 revision을 reviewer에 공급하는 lifecycle은 추가 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/tools/session/skills.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/artifacts/store.ts"
+      ],
+      "referenceIds": [
+        "OSWE-R08",
+        "OSWE-R16",
+        "OSWE-R17"
+      ],
+      "contract": "host가 허용한 repository·review sample ID/revision·수집 기간·participant scope 아래 read-only analyzer를 실행한다. 결과는 근거 ref·sample coverage·confidence·반례·expiry가 있는 bounded derived draft artifact로 저장한다. 외부 review text는 untrusted data이며 승인·tool grants·사용자 지시로 승격하지 않는다. publication은 명시적 exact 승인과 expectedRevision CAS 이후만 활성화하고 prior revision rollback·삭제를 제공한다. reviewer는 시작 시 활성 revision/hash를 고정하며 변경이 있으면 다음 Run부터 적용한다. 문서 쓰기나 skill 변경은 기존 승인 도구를 사용하고 analyzer가 자신을 실행한 instruction을 직접 갱신하지 않는다. 자동 학습의 효과·품질은 별도 실험으로 검증한다.",
+      "validation": [
+        "개인/다른 repository의 sample이 scope를 넘어 초안 또는 reviewer context에 유입되지 않음",
+        "review text의 도구·승인 지시가 profile 권한을 바꾸지 않고 근거와 초안에 data로 보존됨",
+        "미승인/expired/stale draft는 활성 reviewer에 주입되지 않으며 publication race와 rollback이 CAS로 일관됨",
+        "sample coverage·반례·출처 누락 및 낮은 confidence를 표시하고 현재 reviewer Run의 pin이 변하지 않음"
+      ]
+    },
+    {
+      "sourceSlug": "roo-code",
+      "sourceHead": "b867ec9145750d0ae1ff7f02d35406e9bf2a0b16",
+      "report": "roo-code.md",
+      "id": "roo-code-C1",
+      "title": "workspace identity와 source freshness를 고정한 의미 코드 검색",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "bounded context·semantic history memory·glob/regex·LSP·bounded tool discovery는 이미 있다. 추가 범위는 파일 chunk 색인과 query/result의 workspace·source·index identity 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/tools/runtime/discovery.ts",
+        "packages/engine/src/runner/tool-discovery.ts",
+        "packages/engine/src/ports.ts"
+      ],
+      "referenceIds": [
+        "R05",
+        "R17",
+        "R18"
+      ],
+      "contract": [
+        "host search factory가 canonical workspace/worktree identity, index revision, embedder/model/dimension과 코드 전송 정책을 고정한다. 모델이 credential·검색 backend·실행 파일을 임의로 선택하지 못한다. tool 노출과 실제 검색은 같은 identity snapshot을 쓴다.",
+        "검색 결과에 workspace-relative canonical path, source hash, chunk 범위, score와 index/source revision을 포함한다. 현재 파일과 다른 결과는 stale 관측으로 표시하며 읽기·편집 권한을 추가하지 않는다. unavailable/error/정상 empty를 분리한다.",
+        "query/result/index bytes, top-k, 시간·동시성 상한과 cancel을 적용한다. readiness와 catalogue/schema 예산은 기존 Run capture·discovery·context 예약을 따르며 MCP로 연결한 검색 backend에도 같은 결과 계약을 적용한다."
+      ],
+      "validation": [
+        "workspace A/B·active editor 변경·격리 worktree에서 노출한 검색 tool과 실제 backend가 다른 namespace로 이동하지 않는 fixture를 만든다.",
+        "변경·삭제·rename된 chunk의 stale 판정과 traversal/symlink 경계, index 미준비/오류/정상 empty 구분을 검증한다.",
+        "cancel·timeout·top-k·byte 상한 및 Plan/read-only child의 권한 범위를 검증하고 검색 관측이 write 승인을 생성하지 않는지 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "roo-code",
+      "sourceHead": "b867ec9145750d0ae1ff7f02d35406e9bf2a0b16",
+      "report": "roo-code.md",
+      "id": "roo-code-C2",
+      "title": "역할 workflow의 durable child 대기·parent continuation",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "versioned profiles, 실제 격리 child/worktree, budget·deny·cancel 상속, root inbox의 terminal 결과 중복 제거와 queue/steer·pause/resume는 이미 있다. 추가 범위는 역할 단계와 기다리는 child 결과에 binding된 자동 parent continuation이다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/child-tasks/engine-host.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/session-state/index.ts"
+      ],
+      "referenceIds": [
+        "R03",
+        "R11",
+        "R12",
+        "R19"
+      ],
+      "contract": [
+        "workflow stage revision, parent Run/Attempt, awaited child IDs, profile revision과 terminal delivery IDs를 하나의 durable transition에 묶는다. 완전한 parent tool exchange 저장에 실패하면 child admission을 진행하지 않는다.",
+        "child 결과 publication과 stage 완료를 기록한 뒤 parent continuation을 exact CAS로 한 번만 접수한다. parent 취소·supersession·archive·stage/profile 교체 또는 stale child 결과이면 자동 재개를 거절하며 이미 실행한 효과를 재실행해 상태를 맞추지 않는다.",
+        "역할별 모델·도구·지침은 기존 profile revision과 child 권한 상속을 따른다. 병렬 all/any stage가 필요하면 bounded child 집합 admission과 예산 예약을 별도로 명세한다. Roo의 single-open 흐름은 병렬 workflow 검증 근거로 쓰지 않는다."
+      ],
+      "validation": [
+        "parent 저장/child admission, child terminal/delivery, stage commit/continuation admission 사이의 crash·reopen fixture에서 중복 실행·중복 전달이 없는지 검증한다.",
+        "cancel·profile 변경·stage 교체·늦게 온 child 완료가 stale continuation을 차단하는지 확인한다.",
+        "child 부분 실패·고아 정리·grandchild budget/deny/cancel 상속과 기존 root inbox의 중복 제거를 보존하는지 검증한다."
+      ]
+    },
+    {
+      "sourceSlug": "roo-code",
+      "sourceHead": "b867ec9145750d0ae1ff7f02d35406e9bf2a0b16",
+      "report": "roo-code.md",
+      "id": "roo-code-C3",
+      "title": "profile revision에 묶인 역할별 파일 effect 범위",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "profiles의 tool allowlist, Plan/Build, path/command resource policy·deny 우선·scope grants와 exact 편집 승인은 이미 있다. 추가 범위는 profile의 역할별 파일 범위를 기존 resource policy와 교차 적용하는 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/permission/policy.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/tools/edit/index.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/runner/index.ts"
+      ],
+      "referenceIds": [
+        "R07",
+        "R15"
+      ],
+      "contract": [
+        "host가 profile revision에 bounded path scope를 고정한다. docs 역할의 허용 파일 범위처럼 effect를 좁히는 규칙만 추가하며 기존 deny·Plan·부모/child 제한·exact approval을 완화하지 않는다. 모델의 mode switch는 범위를 확대하지 못한다.",
+        "patch·rename/delete·여러 파일 effect의 모든 canonical 대상과 rename source/destination을 prepare 시 수집하고 승인 직전/execute 시 같은 scope snapshot으로 다시 검사한다. raw model path의 regex 매치만으로 권한을 판정하지 않는다.",
+        "prompt-visible 설명과 실제 effect 판정을 일치시키며 profile/path identity 변경은 prepared 요청과 승인을 무효화한다. command·MCP·custom tool처럼 효과가 다른 경로는 파일 scope로 승인된 것으로 추정하지 않는다."
+      ],
+      "validation": [
+        "문서 scope의 multi-file patch에 범위 밖 파일·rename destination·delete가 섞인 경우 전체 effect를 거절하는 fixture를 만든다.",
+        "traversal·symlink·case/Unicode path·worktree root·profile 변경 중 pending approval에서 canonical scope와 stale binding을 검증한다.",
+        "기존 deny·Plan/read-only child·scope grant·exact edit hash 검사를 유지하고 custom/MCP/command 도구가 역할 파일 제한으로 권한을 얻지 않는지 확인한다."
+      ]
+    },
+    {
+      "sourceSlug": "roo-code",
+      "sourceHead": "b867ec9145750d0ae1ff7f02d35406e9bf2a0b16",
+      "report": "roo-code.md",
+      "id": "roo-code-C4",
+      "title": "task revision과 검증 receipt에 묶인 완료 조건",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "durable tasks CAS, structured tool result·artifact, Run terminal과 provider/tool lifecycle는 이미 있다. 추가 범위는 host가 지정한 필수 task·검증 receipt에 연결된 완료 admission이다.",
+      "moodcodePaths": [
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/tools/session/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/artifacts/index.ts"
+      ],
+      "referenceIds": [
+        "R04",
+        "R13"
+      ],
+      "contract": [
+        "host가 completion policy revision과 required task IDs·허용된 검증 receipt 종류를 Run에 고정한다. pending/in_progress task가 있거나 현재 source/workspace hash에 해당하는 필수 검증 evidence가 없으면 성공 완료를 접수하지 않고 bounded 부족 항목을 반환한다.",
+        "모델의 todo 상태와 주장만으로 검증 통과를 판정하지 않는다. command exit/structured validation receipt는 exact execution/source binding과 outcome을 보존하고 cancelled·unknown·stale 결과를 success 증거로 사용하지 않는다.",
+        "task revision·policy revision·workspace가 바뀌면 완료 검사 결과를 다시 평가한다. 실패·cancel terminal은 성공 gate로 막지 않으며 gate 실패가 임의 도구 실행·test 재시도·budget 확대를 자동 승인하지 않는다."
+      ],
+      "validation": [
+        "미완료 task·same-turn tool 실패·검증 evidence 누락·stale source hash가 서로 구분된 gate 결과를 남기는지 검증한다.",
+        "receipt 수신/완료 검사/terminal commit 사이 crash·task CAS 경합에서 성공을 중복 접수하거나 stale 증거를 승인하지 않는지 확인한다.",
+        "cancel·unknown command cleanup·child 부분 실패에서도 terminal과 예산 상한이 보존되고 gate 충족을 위한 명령 실행은 기존 승인을 요구하는지 검증한다."
+      ]
+    },
+    {
+      "sourceSlug": "continue",
+      "sourceHead": "5522c6f44ca0ac3528b37244818fbfa39b5af470",
+      "report": "continue.md",
+      "id": "CONTINUE-C01",
+      "title": "workspace/index generation에 결합한 혼합 저장소 검색",
+      "priority": "P1",
+      "cost": "높음",
+      "moodcodeStatus": "bounded context·semantic session memory·정규식 검색·LSP·workspace observer는 구현됨. branch/worktree와 embed identity별 repository index 및 FTS/vector/recent-file 조합은 별도 후보.",
+      "moodcodePaths": [
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/plan.ts",
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/tools/search/index.ts",
+        "packages/engine/src/lsp/index.ts",
+        "packages/engine/src/workspace/observer.ts"
+      ],
+      "referenceIds": [
+        "CT14",
+        "CT15",
+        "CT20"
+      ],
+      "contract": "host가 명시 등록한 repository-index service에 workspace/worktree root·content hash·index generation·embedding provider/model/schema revision을 결합한다. ignore·파일/총 bytes 한도와 delete/rename invalidation을 강제하고 FTS/vector/recent-file score·source provenance를 반환한다. dedup/rerank 결과를 ContextPlan 예약 안에서 선택한다. 외부 embed/rerank 전송은 host opt-in과 credential reference 정책을 따른다. index 미지원/stale fallback을 표시하고 session semantic memory와 분리한다.",
+      "validation": [
+        "branch 전환·분리 worktree에서 index 혼합을 막는 synthetic corpus 검사",
+        "수정/삭제/rename/ignore 변경 후 stale snippet 제거와 원문 hash 확인",
+        "embed 미등록·native index 불가·rerank 실패의 FTS/read fallback 및 degraded 표시",
+        "source/result/context UTF-8 hard cap·cancel·provenance와 ContextPlan digest 일치"
+      ]
+    },
+    {
+      "sourceSlug": "continue",
+      "sourceHead": "5522c6f44ca0ac3528b37244818fbfa39b5af470",
+      "report": "continue.md",
+      "id": "CONTINUE-C02",
+      "title": "선택한 context provider의 bounded source manifest",
+      "priority": "P1",
+      "cost": "중간",
+      "moodcodeStatus": "host provider·MCP resources·LSP·nested instructions·skill/reference bounded read·ContextPlan은 구현됨. 사용자 선택 provider/query를 단일 provenance manifest로 capture하는 host 계약이 추가 후보.",
+      "moodcodePaths": [
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/plan.ts",
+        "packages/engine/src/context/sources.ts",
+        "packages/engine/src/mcp/index.ts",
+        "packages/engine/src/lsp/index.ts",
+        "packages/engine/src/tools/session/skills.ts",
+        "packages/engine/src/agents/index.ts"
+      ],
+      "referenceIds": [
+        "CT20",
+        "CT14",
+        "CT16",
+        "CT18"
+      ],
+      "contract": "host registry의 versioned provider에 workspace/session·query·selected ranges·AbortSignal·bytes/tokens 예약을 전달한다. result는 provider/source ID·revision/hash·URI/range·trust origin·omission/degraded 사유를 반환하고 하나의 ContextPlan에 capture한다. 사용자 선택과 profile default를 구분한다. 결과 본문은 지침 권한을 추가하지 않는 자료이며 provider/query가 executable·credential·MCP scope를 늘리지 못한다. source 변경은 다음 모델 경계에서 재계획하며 진행 중 Attempt에는 frozen manifest를 유지한다.",
+      "validation": [
+        "provider/query/source 순서와 무관한 deterministic manifest digest",
+        "stale range/hash·revision 변경·timeout/cancel·result bytes 초과의 bounded 실패와 omission",
+        "skill/LSP/MCP 선택 후에도 deny/Plan/approval/scope 유지",
+        "미등록·부분 실패·동일 Attempt retry에서 source/provenance 혼합 방지"
+      ]
+    },
+    {
+      "sourceSlug": "continue",
+      "sourceHead": "5522c6f44ca0ac3528b37244818fbfa39b5af470",
+      "report": "continue.md",
+      "id": "CONTINUE-C03",
+      "title": "기존 user-owned PTY의 background 표시와 완료 전달",
+      "priority": "P2",
+      "cost": "중간~높음",
+      "moodcodeStatus": "user authority PTY·durable terminal journal·attach/replay/cancel/resize·cleanup과 durable inbox는 구현됨. 모델 Bash를 무조건 background로 넘기지 않는다. host 사용자가 시작한 job의 read-only status handle과 완료 delivery 연결이 추가 후보.",
+      "moodcodePaths": [
+        "packages/engine/src/terminals/service.ts",
+        "packages/engine/src/terminals/types.ts",
+        "packages/engine/src/terminals/journal.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/storage/index.ts",
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/tools/command/process-control.ts"
+      ],
+      "referenceIds": [
+        "CT08",
+        "CT10",
+        "CT06"
+      ],
+      "contract": "host가 승인한 user-owned job만 workspace/session·owner generation·process receipt에 결합한 status handle로 등록한다. attach/background 표시 변경은 ownership/effect/수명 한도를 바꾸지 않고 모델은 bounded status/output paging만 읽는다. 완료·실패·cleanup uncertain 확정 뒤 dedup key로 inbox에 한 번 전달하며 terminal Run에는 이벤트를 덧붙이지 않는다. 모델이 executable/env/authority를 지정하거나 올리지 못한다. crash 후 OS owner receipt 재관측 없이 running을 복구하지 않고 interrupted/uncertain을 유지한다.",
+      "validation": [
+        "detach/reload와 완료가 겹쳐도 journal·receipt·inbox 정확히 한 번",
+        "cancel/timeout/cleanup 실패/crash에서 process 부재 proof와 uncertain 차단 유지",
+        "다른 workspace/session handle 거절 및 output/backpressure 한도",
+        "정상 완료·비정상 exit·검증 결과를 구분 전달하고 원래 effect/approval binding 불변"
+      ]
+    },
+    {
+      "sourceSlug": "swe-agent",
+      "sourceHead": "3ea751c087f32b16e039a2233dd6eefecef325d5",
+      "report": "swe-agent.md",
+      "id": "SWA-C01",
+      "title": "history 투영의 source identity와 생략 사유 진단",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "이미 bounded ContextPlan·semantic memory·historical tool projection·active complete exchange가 있다. policy별 source/생략 사유 관측의 추가 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/plan.ts",
+        "packages/engine/src/context/tool-history.ts",
+        "packages/engine/src/storage/native-history.ts"
+      ],
+      "referenceIds": [
+        "SWA-R07",
+        "SWA-R13",
+        "SWA-R16"
+      ],
+      "contract": [
+        "각 투영 결과를 원래 message/Run/Turn/Attempt와 context revision·policy revision에 연결한다.",
+        "omitted observation의 이유·UTF-8 byte 수·historical file 여부를 기록하고 active exchange와 tool call ID pair를 보존한다.",
+        "원래 durable journal을 변경하지 않으며 summary publication·context activation의 기존 owner 계약을 보존한다."
+      ],
+      "validation": [
+        "같은 source/policy의 결정적 투영과 raw journal 불변.",
+        "user/tool-role 형식, processor 순서, 이미지·UTF-8 및 byte 상한.",
+        "stale file observation이 current evidence로 승격되지 않으며 call/observation pair가 완전함.",
+        "policy/config 변경 시 context revision 변경·원래 source identity 보존."
+      ]
+    },
+    {
+      "sourceSlug": "swe-agent",
+      "sourceHead": "3ea751c087f32b16e039a2233dd6eefecef325d5",
+      "report": "swe-agent.md",
+      "id": "SWA-C02",
+      "title": "실패·중단 코딩 결과의 읽기 전용 증거 manifest",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "이미 artifact·checkpoint/restore·archive export/import·native tool recovery frontier·uncertainty 차단이 있다. 산출물과 성공 판정의 별도 manifest를 제안한다.",
+      "moodcodePaths": [
+        "packages/engine/src/storage/tool-recovery-frontier.ts",
+        "packages/engine/src/storage/archive.ts",
+        "packages/engine/src/review/index.ts",
+        "packages/engine/src/artifacts/index.ts"
+      ],
+      "referenceIds": [
+        "SWA-R12",
+        "SWA-R13",
+        "SWA-R14",
+        "SWA-R18"
+      ],
+      "contract": [
+        "source journal sequence에 고정된 patch/file hash·실행된 검증 명령/outcome·cleanup disposition을 별도로 기록한다.",
+        "산출물 존재만으로 실패·중단·uncertainty terminal을 completed로 바꾸지 않는다.",
+        "manifest 수집·import는 Git stage·action replay·모델 호출·새 effect를 시작하지 않는다. unknown cleanup의 기존 차단을 보존한다.",
+        "historical diff와 current file evidence를 구분하며 변경된 filesystem은 stale로 표시한다."
+      ],
+      "validation": [
+        "patch만 존재/검증 실패/검증 미실행/실제 검증 성공을 구분.",
+        "이전 diff freshness, partial restore·다른 source sequence 거절.",
+        "cleanup uncertainty에서 실행 차단·effect 0 유지.",
+        "bounded UTF-8 artifact·수집 중 crash·export/import 후 원본 불변."
+      ]
+    },
+    {
+      "sourceSlug": "swe-agent",
+      "sourceHead": "3ea751c087f32b16e039a2233dd6eefecef325d5",
+      "report": "swe-agent.md",
+      "id": "SWA-C03",
+      "title": "검증 증거에 묶인 opt-in 코딩 작업 attempt group",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "이미 provider Attempt·agent profile·격리 child/worktree·budget/deny/cancel 상속·terminal root inbox 전달이 있다. task 전체 재시도와 read-only reviewer 선택은 별도 workflow 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/worktrees/index.ts",
+        "packages/engine/src/config/budgets.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "scripts/evaluate-engine.mjs"
+      ],
+      "referenceIds": [
+        "SWA-R06",
+        "SWA-R17",
+        "SWA-R19"
+      ],
+      "contract": [
+        "issue attempt group의 engine source/config/base commit/검증 계획 digest를 고정하고 각 시도를 별도 worktree·owner로 수행한다.",
+        "parent 잔여 예산을 실행 전 예약하고 reviewer의 read-only advisory 호출을 별도 identity·usage로 제한한다.",
+        "최종 선택 patch는 exact approval과 revalidation을 거쳐 적용한다. reviewer 평가는 test pass의 대체가 아니다.",
+        "batch skip은 같은 source/config의 성공 terminal·파일/검증/cleanup 증거가 모두 일치할 때만 허용하고 실패·취소·uncertainty 이력은 보존한다."
+      ],
+      "validation": [
+        "provider transport retry와 task attempt를 구분하고 과거 시도 report를 덮어쓰지 않음.",
+        "parent budget·deny/cancel 상속, reviewer failure·과예산, terminal 결과 inbox 중복 제거.",
+        "동시 case 제출·stale base·config 변경·실패 exit status 존재시 skip 거절.",
+        "선택 승인 뒤 patch 변경 거절·unknown cleanup 실행 차단.",
+        "scripted 계약 검증과 실제 모델 성공률을 별도 표시."
+      ]
+    },
+    {
+      "sourceSlug": "swe-agent",
+      "sourceHead": "3ea751c087f32b16e039a2233dd6eefecef325d5",
+      "report": "swe-agent.md",
+      "id": "SWA-C04",
+      "title": "호스트 도구 등록 manifest의 변경 진단",
+      "priority": "P1",
+      "cost": "S",
+      "moodcodeStatus": "이미 scoped versioned runtime·descriptor digest·bounded discovery·다음 model 경계 capture·exact prepared approval/effect가 있다. 등록 간 독립 관측/회귀 행렬의 추가 제안이다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/tools/runtime/discovery.ts",
+        "packages/engine/src/runner/tool-discovery.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/tools/edit/index.ts"
+      ],
+      "referenceIds": [
+        "SWA-R08",
+        "SWA-R09",
+        "SWA-R10",
+        "SWA-R20"
+      ],
+      "contract": [
+        "schema digest·scope/revision·effect/approval policy·descriptor/handler identity에 묶인 host 등록 manifest를 읽기 전용으로 비교한다.",
+        "upstream shell bundle/install을 도입하지 않으며 기존 host-only registration을 보존한다.",
+        "등록 변경은 다음 model boundary에서 선택된 schema에만 반영하고 prepared 승인과 현재 batch handler를 재사용하지 않는다.",
+        "lint warning·실제 file effect·검증 성공을 distinct outcome으로 관측한다."
+      ],
+      "validation": [
+        "중복 이름·scope 충돌·stale capture·hidden descriptor 상태.",
+        "type/enum/input 오류의 effect 0 및 handler/descriptor 불일치.",
+        "등록 변경 중 approval binding·same-Turn capture·discovery/schema byte 한도 보존.",
+        "editor lint warning이 검증 성공으로 표시되지 않음."
+      ]
+    },
+    {
+      "sourceSlug": "kimi-cli-legacy",
+      "sourceHead": "9ab1286b8fe4e6bcd116949a27ce5e0ac3389c82",
+      "report": "kimi-cli-legacy.md",
+      "id": "kimi-cli-legacy-C1",
+      "title": "효과를 보존하는 명시적 대화 분기",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "bounded context·semantic/active-prefix checkpoint·원본 journal·파일 checkpoint restore는 이미 있음. effect-aware context branch와 명시적 cutoff 선택의 추가 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/active-prefix.ts",
+        "packages/engine/src/storage/index.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/review/index.ts",
+        "packages/contracts/src/v2.ts"
+      ],
+      "referenceIds": [
+        "L07",
+        "L08",
+        "L10",
+        "L11",
+        "L27"
+      ],
+      "contract": "host의 명시적 branch 요청만 terminal Run과 cleanup-confirmed workspace에서 받는다. parent session/source cutoff/message ID·context revision·digest·기존 effect 목록을 immutable branch manifest로 고정하고 새 모델 context만 구성한다. 원본 Run/Turn/Attempt/tool/approval/terminal journal은 보존한다. 이미 수행한 파일/명령/network 효과가 현재 남아 있다는 bounded observation을 필수로 전달하고, 파일 restore는 기존 exact review API로 별도 실행한다. branch creation 재전송은 manifest identity로 dedupe하고 model의 rewind 제안은 승인이나 effect 재실행 권한이 되지 않는다.",
+      "validation": [
+        "동일 branch request의 재전송이 같은 branch를 반환하고 원본 event/terminal/승인 row가 변하지 않는다.",
+        "active Run·pending approval·cleanup uncertainty·잘못된 source cutoff를 차단한다.",
+        "branch의 모델 요청에 이미 수행한 효과와 현재 파일 관측 필요성이 포함되고 write/command는 자동 복원·재실행되지 않는다.",
+        "crash/재개/summary 상태에서 cutoff와 native replay의 complete tool exchange가 유지되고 타세션 source를 거부한다."
+      ]
+    },
+    {
+      "sourceSlug": "kimi-cli-legacy",
+      "sourceHead": "9ab1286b8fe4e6bcd116949a27ce5e0ac3389c82",
+      "report": "kimi-cli-legacy.md",
+      "id": "kimi-cli-legacy-C2",
+      "title": "기존 동일 읽기 차단을 확장하는 무진전 반복 진단",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "runner 동일 read 차단·effect 후 read guard reset·scoped canonical repeat identity·도구 예산이 이미 있음. bounded 결과/실패 반복 진단과 설명 가능한 종료 사유의 추가 제안.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/context/tool-history.ts",
+        "packages/contracts/src/v2.ts"
+      ],
+      "referenceIds": [
+        "L08",
+        "L13"
+      ],
+      "contract": "기존 read guard와 exact effect 승인 계약 위에 Run-local bounded stall 관측을 둔다. key에는 selected catalogue revision, canonical prepared read identity, result outcome/digest, context revision 및 workspace effect epoch를 포함한다. 같은 실패 또는 거절 반복이 임계값을 넘으면 후속 모델에 bounded 진단을 주고 host-configured budget 안에서 명시적 stall 종료 이유를 기록한다. continuation·새 증거·steer·실제 workspace 변화는 카운터 갱신 근거로 구분한다. write/execute/network/unknown 도구의 결과 공유나 승인 재사용·재실행은 허용하지 않는다.",
+      "validation": [
+        "동일 실패/거절 반복이 한도 내에서 진단되고 종료 기록은 한 번 생성된다.",
+        "변경 후 verification read·artifact continuation·새 line range·steer는 과거 동일 read와 혼동하지 않는다.",
+        "동일 args지만 catalogue/정책/context revision이 달라진 호출을 구분한다.",
+        "effect 도구와 취소/미확정 결과는 cache/dedupe로 실행 증거를 합성하거나 재실행하지 않는다."
+      ]
+    },
+    {
+      "sourceSlug": "kimi-cli-legacy",
+      "sourceHead": "9ab1286b8fe4e6bcd116949a27ce5e0ac3389c82",
+      "report": "kimi-cli-legacy.md",
+      "id": "kimi-cli-legacy-C3",
+      "title": "terminal 이전 한 번의 Stop continuation hook",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "host plugin prepared/settled metadata와 durable queue/steer, exact approval는 이미 있음. Stop lifecycle의 제한된 추가 입력 제안 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/session-state/index.ts"
+      ],
+      "referenceIds": [
+        "L06",
+        "L14",
+        "L21"
+      ],
+      "contract": "host가 등록한 hook만 terminal commit 전 bounded metadata/결과 관측으로 실행한다. hook은 종료 허용 또는 한 번의 bounded 추가 입력 제안을 반환하고 별도 source/dedupe ID를 durable inbox에 남긴다. 추가 입력은 기존 parent Run/설정의 남은 turn/tool/provider 예산과 deny/cancel 정책을 사용한다. hook은 prepared input/fingerprint/approval/credential을 변경하지 못한다. timeout/오류/cancel 정책과 재진입 금지를 고정하고 completed effect 및 이미 committed terminal 이후에는 continuation이나 tool 재실행을 만들지 않는다.",
+      "validation": [
+        "Stop hook 재진입·동일 응답 retry·재시작에서도 추가 입력이 한 번만 등록된다.",
+        "남은 예산 없음·cancel·terminal committed이면 모델/효과를 새로 시작하지 않는다.",
+        "추가 입력의 effect에는 새 exact prepare/approval가 필요하고 기존 승인 fingerprint가 유지된다.",
+        "hook observer의 post-effect 오류가 원래 result를 보존하며 실행을 반복하지 않는다."
+      ]
+    },
+    {
+      "sourceSlug": "kimi-cli-legacy",
+      "sourceHead": "9ab1286b8fe4e6bcd116949a27ce5e0ac3389c82",
+      "report": "kimi-cli-legacy.md",
+      "id": "kimi-cli-legacy-C4",
+      "title": "engine owner와 승인을 보존하는 ACP host adapter",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "engine/host 분리·durable session/event·approval/cancel·image/PDF와 restore 계약이 이미 있음. ACP transport/capability 협상과 editor binding은 추가 host 범위.",
+      "moodcodePaths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/contracts/src/index.ts",
+        "packages/contracts/src/validation.ts"
+      ],
+      "referenceIds": [
+        "L14",
+        "L15",
+        "L23"
+      ],
+      "contract": "새 host adapter가 ACP protocol/capability를 협상하고 ACP session/prompt/tool-call ID를 Moodcode workspace/session/input/Run/Turn/tool ID에 명시적으로 매핑한다. client permission 응답은 기존 durable approval ID와 exact fingerprint에만 binding한다. cancel은 실제 engine owner에 전달하며 disconnect의 pending request를 종료한다. replay/page 조회를 bounded하게 제공하고 client가 지원하지 않는 question/media는 명시적 unsupported 결과를 반환한다. client file/terminal 효과 위임은 별도 owner/receipt/cleanup contract가 준비되기 전에는 허용하지 않는다.",
+      "validation": [
+        "prompt streaming·tool/result·approval once/deny·cancel이 같은 durable owner에 매핑된다.",
+        "disconnect 중 승인·늦은 응답·중복 prompt에서 stale effect 또는 이중 실행이 없다.",
+        "unsupported question/media와 provider auth/error가 명확히 반환되고 빈 answer로 성공 처리하지 않는다.",
+        "session resume/history replay 이후 tool IDs·approval fingerprint가 보존되며 capabilities 밖의 client IO를 거부한다."
+      ]
+    },
+    {
+      "sourceSlug": "crush",
+      "sourceHead": "140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5",
+      "report": "crush.md",
+      "id": "CR-C01",
+      "title": "문서 버전에 묶인 LSP symbol navigation",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "기존 LSP manager·diagnostics·formatter·문서 hash/version 동기화가 있다. 확인한 baseline LspManager 공개 API의 symbol/definition/call hierarchy 조회를 추가하는 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/lsp/index.ts",
+        "packages/engine/src/lsp/stdio.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/engine.ts"
+      ],
+      "referenceIds": [
+        "R04",
+        "R13",
+        "R27"
+      ],
+      "contract": "명시적 host LSP factory에만 documentSymbol/definition/references/callHierarchy 조회를 추가한다. 응답을 workspace 경계·문서 hash/version·서버 capability에 묶고 count/bytes/depth 및 deadline을 제한한다. 새 읽기 도구는 active profile/tool capture와 child read-only 정책을 따른다. rename/replace는 후속 별도 prepare/approval 계약으로 남긴다.",
+      "validation": [
+        "capability 미제공·지원 안 함을 구분한다.",
+        "요청 중 외부 편집·문서 버전 변경·닫힌 server 응답은 stale로 처리한다.",
+        "workspace 밖 URI·과대 hierarchy·depth overflow·timeout·cancel 결과를 제한한다.",
+        "동일 문서의 symbol→definition→정확한 범위 읽기가 root/read-only child에서 기존 context와 approval 계약을 보존한다."
+      ]
+    },
+    {
+      "sourceSlug": "crush",
+      "sourceHead": "140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5",
+      "report": "crush.md",
+      "id": "CR-C02",
+      "title": "결과와 효과 epoch를 포함한 반복 상호작용 중단",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "기존 runner는 반복 읽기 identity를 차단하고 효과 뒤에 읽기 집합을 초기화한다. Run/Turn/tool/output 예산도 있다. 읽기 외의 동일 실패·무진전 cycle 관측을 추가하는 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/storage/native-records.ts"
+      ],
+      "referenceIds": [
+        "R07",
+        "R20"
+      ],
+      "contract": "도구 이름·정규화된 prepared identity·결과 digest·workspace/checkpoint epoch를 bounded rolling window에 기록한다. 같은 결과가 반복되고 실질적인 상태 진전이 없을 때 typed stalled 이유와 근거를 저장한다. 정책은 host 설정으로 고정하며 기존 duplicate read·출력 예산·취소·terminal 규칙을 유지한다. 원본 출력/prompt는 signature 계산 명세로 복사하지 않는다.",
+      "validation": [
+        "동일 요청/실패 결과의 반복이 설정된 창과 임계값에서 중단된다.",
+        "같은 요청의 달라진 결과·paging cursor 진전·새 checkpoint·명시적 재검증은 잘못 중단하지 않는다.",
+        "순서가 다른 병렬 결과·artifact paging·truncated output에도 bounded deterministic projection을 사용한다.",
+        "stalled 기록과 terminal이 한 번만 남고 기존 반복 읽기 거절·effect 뒤 reset 회귀가 유지된다."
+      ]
+    },
+    {
+      "sourceSlug": "crush",
+      "sourceHead": "140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5",
+      "report": "crush.md",
+      "id": "CR-C03",
+      "title": "승인과 소유권을 유지하는 session command job",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "기존 run_command supervisor·process ownership·cleanup 불확실성 격리와 host PTY·terminal journal이 있다. 모델 command가 명시적으로 job handle을 반환하고 후속 turn에서 조회하는 계약을 확장한다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/tools/command/supervisor.ts",
+        "packages/engine/src/terminals/service.ts",
+        "packages/engine/src/terminals/journal.ts",
+        "packages/engine/src/storage/execution-uncertainty.ts"
+      ],
+      "referenceIds": [
+        "R11",
+        "R12",
+        "R23"
+      ],
+      "contract": "background 실행은 사전 prepared preview에 포함한 명시적 옵션일 때만 허용한다. job은 workspace/session/approval/원래 native owner·예산에 묶이며 bounded output cursor와 cancel/finished 상태를 저장한다. 살아 있는 effect job의 workspace lease와 새 쓰기/restore 충돌을 정의하고, turn 종료·세션 취소·host 종료·재시작에서 종료 확인 또는 unknown 격리를 유지한다. 단순 context 분리로 cleanupConfirmed를 인정하지 않는다.",
+      "validation": [
+        "승인된 binding에 없는 foreground→background 변경은 거절한다.",
+        "다른 session/workspace는 job 조회·취소 권한을 얻지 못한다.",
+        "job 생존 중 변경·restore 경합은 lease 정책대로 제한한다.",
+        "job 완료·취소·timeout·host 강제 종료 및 재시작에서 owner/PID 재사용·late output·unknown cleanup이 기존 격리 규칙을 만족한다.",
+        "출력/동시 job 수/수명/조회 페이지에 공유 예산이 적용된다."
+      ]
+    },
+    {
+      "sourceSlug": "crush",
+      "sourceHead": "140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5",
+      "report": "crush.md",
+      "id": "CR-C04",
+      "title": "명시적 host 등록의 도구 정책 hook",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "기존 EnginePluginManager와 prepared/settled metadata observation hook이 있다. 실행을 차단하는 정책 결정과 외부 hook의 소유권을 추가하는 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/tools/command/supervisor.ts",
+        "packages/engine/src/storage/tool-recovery-frontier.ts"
+      ],
+      "referenceIds": [
+        "R10",
+        "R16",
+        "R23"
+      ],
+      "contract": "host가 등록한 versioned hook만 bounded metadata로 호출하고 초기 계약은 observe/deny/halt로 한정한다. allow는 기존 exact 승인 요구를 없애지 않는다. 이후 input rewrite가 필요하면 prepare 이전 새 입력으로 새 fingerprint와 승인 preview를 만들며 prepared handle을 변경하지 않는다. 외부 command hook은 명시적 owner·deadline·stdout 한도·cleanup receipt가 있어야 하며 child 적용/상속 정책을 고정한다.",
+      "validation": [
+        "hook deny/halt는 effect 전 기록되고 중복 실행·다중 terminal을 만들지 않는다.",
+        "allow나 malformed 응답이 exact approval을 우회하지 않는다.",
+        "timeout/cancel·late 응답·cleanup 미확정이 새 효과를 차단하고 원래 owner의 복구 증거를 보존한다.",
+        "prepared/settled observation과 새 정책 gate의 순서·child 상속·비밀정보 비노출을 검증한다."
+      ]
+    },
+    {
+      "sourceSlug": "openhands-app",
+      "sourceHead": "7ea83bab4fe71149b88b5a8a6b9efe9042cb362d",
+      "report": "openhands-app.md",
+      "id": "OHAPP-C1",
+      "title": "backend capability와 시작 요청의 고정 binding",
+      "priority": "P1",
+      "cost": "M–L",
+      "moodcodeStatus": "engine/host 분리, getCapabilities, host provider 등록, exact profile revision, credential audience와 local utility RPC는 기구현이다. 여러 local/remote backend를 선택한 상태에서 장시간 시작·승인·후속 요청 전체를 같은 실행 identity에 묶는 control-plane registry는 추가 범위다.",
+      "moodcodePaths": [
+        "apps/desktop/src/main/host.ts",
+        "apps/desktop/src/main/settings.ts",
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/credentials/index.ts"
+      ],
+      "referenceIds": [
+        "A07",
+        "A08",
+        "A09",
+        "A10",
+        "A14",
+        "A15"
+      ],
+      "contract": "host가 backend ID·connection revision·정규화 endpoint audience·capability revision을 관리한다. conversation/session 시작에서 이 tuple, workspace/runtime 종류, immutable profile revision과 credential reference를 고정하여 저장한다. backend 선택을 바꿔도 이미 시작한 request·승인·cancel·cleanup은 원 tuple을 사용한다. remote capability unknown은 격리·도구·승인 지원을 추정하지 않고 필요한 기능의 시작을 보류한다. inline config/profile 선택은 배타이며 immutable config digest를 같은 binding에 넣는다. credential 값은 renderer·event·settings metadata에 저장하지 않는다. 구체적인 원격 transport 구현은 OHSDK-C4와 공유할 수 있으나 이 후보는 선택/launch semantics를 정의한다.",
+      "validation": [
+        "start 중 backend/key/profile 변경에도 후속 mutation이 원 target을 유지함",
+        "이전 connection revision 응답과 승인 재사용은 거절됨",
+        "capability unknown·metadata 축 혼동·workspace 변환은 fail closed",
+        "동시 backend의 같은 session ID가 충돌하지 않고 renderer/event에 credential 값이 없음"
+      ]
+    },
+    {
+      "sourceSlug": "openhands-app",
+      "sourceHead": "7ea83bab4fe71149b88b5a8a6b9efe9042cb362d",
+      "report": "openhands-app.md",
+      "id": "OHAPP-C2",
+      "title": "recurring trigger를 기존 durable inbox에 연결하는 host 계약",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "queue/steer·pause/resume·FIFO·workspace 공정성·request dedupe·owner recovery는 기구현이다. 시간대가 있는 반복 예약·webhook trigger·job occurrence 이력·scheduler leadership는 추가 host 계층이다. 앱 source에서 외부 scheduler 본체를 검증한 후보가 아니다.",
+      "moodcodePaths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/recovery/index.ts",
+        "packages/engine/src/credentials/index.ts"
+      ],
+      "referenceIds": [
+        "A02",
+        "A06",
+        "A11",
+        "A18"
+      ],
+      "contract": "host가 고정 automation revision과 trigger occurrence identity를 저장하고 occurrence를 stable request ID로 기존 input.accept에 연결한다. schedule definition과 enabled 상태를 원자 갱신하며 import draft는 기본 비활성으로 만든다. webhook body는 bounded untrusted input이고 secret reference/target capability/profile/workspace 상한을 고정한다. queue admission 전 scheduler owner generation·timezone/misfire policy·concurrency limit을 확인한다. occurrence의 accepted/promoted/terminal을 Run과 분리해 관측하며 재시작은 receipt를 reconcile하고 uncertain effect를 재실행하지 않는다. job disable/cancel과 running Run cancel을 명시적으로 구분하고 external notification은 별도 승인된 host integration으로 제한한다.",
+      "validation": [
+        "duplicate webhook·clock rollback·DST 중복·missed trigger가 policy 아래 하나의 occurrence/receipt로 정산됨",
+        "두 scheduler owner의 경합에서 중복 promotion이 없음",
+        "disabled/import draft는 입장하지 않음",
+        "pause backlog와 workspace fairness를 보존함",
+        "pending job cancel과 running tool cleanup unknown을 구별하고 restart에서 원 효과를 자동 재전송하지 않음"
+      ]
+    },
+    {
+      "sourceSlug": "openhands-app",
+      "sourceHead": "7ea83bab4fe71149b88b5a8a6b9efe9042cb362d",
+      "report": "openhands-app.md",
+      "id": "OHAPP-C3",
+      "title": "client 효과의 durable 요청·완료 확인",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "host plugin prepared/settled metadata, 승인된 read-only child delegation, host write child·worktree owner·budget/cancel 상속, terminal 결과 inbox는 기구현이다. renderer 또는 원격 extension이 처리하는 effect를 단순 publication/ack와 실제 완료로 나누는 공개 계약은 추가 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/engine/src/storage/execution-uncertainty.ts",
+        "apps/desktop/src/main/host.ts"
+      ],
+      "referenceIds": [
+        "A10",
+        "A13",
+        "A16",
+        "A17",
+        "A20"
+      ],
+      "contract": "engine/host가 client 요청을 immutable action ID·fingerprint·capability revision과 원 session/Run/owner에 결합해 저장한다. received/dispatched/completed/failed/uncertain을 분리하고 renderer 연결 ack는 completed가 아니다. child 생성은 기존 engine-owned child admission·approval·worktree·예산 경로로만 위임한다. replay는 동일 request receipt를 반환하며 browser storage만으로 effect dedupe를 맡기지 않는다. 필요한 isolated workspace 실패는 typed failure로 종료하고 shared fallback은 새 명시적 선택·승인으로만 가능하다. 결과 feedback은 typed host/tool observation으로 넣고 user 지시로 승격하지 않는다. 모델 Turn terminal과 늦은 client 완료를 별도 event 소유 범위로 기록한다.",
+      "validation": [
+        "publication replay·renderer reload·동시 client에서 child/effect는 한 번만 admission됨",
+        "ack 뒤 browser crash는 성공으로 표시되지 않고 uncertain receipt로 복원됨",
+        "stale revision/잘못된 owner completion을 거절함",
+        "worktree failure가 shared write child로 자동 강등되지 않음",
+        "취소·parent terminal·예산 소진 이후 늦은 완료가 원 권한을 재활성화하거나 user instruction이 되지 않음"
+      ]
+    }
+  ]
+}

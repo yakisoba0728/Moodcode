@@ -1,0 +1,341 @@
+{
+  "slug": "continue",
+  "head": "5522c6f44ca0ac3528b37244818fbfa39b5af470",
+  "repository": "https://github.com/continuedev/continue",
+  "analysisMode": "static-source-review",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/continue",
+  "moodcodeBaseline": {
+    "documentationHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineSource": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "maintenance": {
+    "readmeDeclaration": "no longer actively maintained and read-only for all users",
+    "githubArchived": false,
+    "githubMetadataObservedAt": "2026-10-07T09:28:57.756954+00:00",
+    "metadataSource": "source-manifest.json; declaration and API flag are kept separate"
+  },
+  "rootLicense": "Apache-2.0",
+  "subordinateLicenseNotices": [
+    {
+      "path": "extensions/vscode/LICENSE.txt",
+      "license": "Apache-2.0 notice"
+    },
+    {
+      "path": "core/vendor/modules/@xenova/transformers/LICENSE",
+      "license": "Apache-2.0"
+    },
+    {
+      "path": "gui/public/fonts/Inter/LICENSE.txt",
+      "license": "SIL-OFL-1.1"
+    }
+  ],
+  "references": [
+    {
+      "id": "CT01",
+      "path": "README.md",
+      "startLine": 17,
+      "endLine": 43,
+      "claim": "README는 CLI·VS Code·JetBrains coding agent, 최종2.0.0, 유지보수 종료·읽기 전용을 선언한다. GitHub archived flag는 별도 관측값이다.",
+      "fileSha256": "054b77f9573011fa4ebf89d960300aabd1ebecc37d8f6f261341ba7d27d885e7",
+      "rangeSha256": "ecda8e6e56c4d37a4108414bec4c49f5d2039a9cf14fd901c0fad65afc00e861"
+    },
+    {
+      "id": "CT02",
+      "path": "LICENSE",
+      "startLine": 1,
+      "endLine": 23,
+      "claim": "root LICENSE는 Apache License 2.0이며 하위 고지와 외부 모델·서비스 조건을 대체하지 않는다.",
+      "fileSha256": "b14a17598cb08c4c7c82c070731126304e0a75d001ed59fb9ea3955a0b561802",
+      "rangeSha256": "d2b964a7978f922ff5267c06bad4a7b1da420ecc1de4df97956e0f218ec780fb"
+    },
+    {
+      "id": "CT03",
+      "path": "extensions/cli/src/commands/chat.ts",
+      "startLine": 436,
+      "endLine": 578,
+      "claim": "CLI는 headless/TUI를 나누고 services·model/API·resume history를 준비한다. headless는 processMessage 후 종료하며 새 입력 없는 resume/fork는 즉시 종료한다.",
+      "fileSha256": "01d62ed2617abdfc8be2389d13c3258cec92c246a2cbacfe93bfa60efab572a9",
+      "rangeSha256": "d519dd443ed7c2a7edc3fd62c2f684b943fc0012925632a31321c8d4a0776770"
+    },
+    {
+      "id": "CT04",
+      "path": "extensions/cli/src/stream/streamChatResponse.ts",
+      "startLine": 259,
+      "endLine": 416,
+      "claim": "CLI는 model/messages/tools와 abort signal로 backoff stream을 소비한다. content/tool delta·usage를 모으고 AbortError는 도구 없이 종료, tool call 유무로 continuation을 정한다.",
+      "fileSha256": "67de037243ea2a29702e4405b85b4553aeb82ae4d640136f2a4cd398b48871de",
+      "rangeSha256": "79fb0521e9e4c354f87099d1cbe35148f476b6aaa93f2ed15463fac3015ceed0"
+    },
+    {
+      "id": "CT05",
+      "path": "extensions/cli/src/stream/streamChatResponse.ts",
+      "startLine": 443,
+      "endLine": 581,
+      "claim": "CLI main loop는 매 반복 history·mode별 system·tools를 읽고 compaction 전후에 LLM·tool 실행을 반복한다. 도구가 없으면 종료하되 compaction 뒤 continuation을 추가할 수 있다.",
+      "fileSha256": "67de037243ea2a29702e4405b85b4553aeb82ae4d640136f2a4cd398b48871de",
+      "rangeSha256": "22980a58205cc5ee5a8588b8c00b721dbb690bfa804a2503510432eb86c2e9f5"
+    },
+    {
+      "id": "CT06",
+      "path": "extensions/cli/src/stream/streamChatResponse.helpers.ts",
+      "startLine": 495,
+      "endLine": 638,
+      "claim": "도구별 permission을 순서대로 검사하고 승인된 호출은 즉시 execution promise를 시작한다. 거절 항목은 canceled 결과로 기록하며 다음 항목은 독립 처리한다. Promise.all로 종료를 기다린다.",
+      "fileSha256": "abc32a1cfef723c9f3913024659a9f37737d2d83e3c3508bd63aedf1c630c139",
+      "rangeSha256": "1dce4bb04d81e2ad57857faf6c02853e2a21e8e527d5b1875b9e85a9fc1b1f88"
+    },
+    {
+      "id": "CT07",
+      "path": "extensions/cli/src/permissions/defaultPolicies.ts",
+      "startLine": 7,
+      "endLine": 71,
+      "claim": "CLI 기본은 writes ask, interactive Bash/MCP ask, headless Bash/wildcard allow다. Plan은 named writes exclude지만 Bash·MCP allow, Auto는 wildcard allow다.",
+      "fileSha256": "d7bdcd4d9ef8f72e494273e9b8df557d89fbf6df0d703cf970a7baf765873216",
+      "rangeSha256": "5877f249c7109d740f8dea65d4cc014d728b7c164b4f3e48c5014904a4cb9694"
+    },
+    {
+      "id": "CT08",
+      "path": "extensions/cli/src/tools/runTerminalCommand.ts",
+      "startLine": 180,
+      "endLine": 336,
+      "claim": "Bash는 병렬 수로 출력 한도를 나누고 shell을 spawn한다. background 요청은 process를 job service에 넘긴다. timeout은 출력마다 재설정되며 child.kill 후 결과를 반환한다.",
+      "fileSha256": "efdb705b615427503bb765d766028b97018d17eaba527e4bae3d274d9ab33d87",
+      "rangeSha256": "f90567004866d542e7444d313eb04a7390202ab315e592b1eb1c8b35d88a5953"
+    },
+    {
+      "id": "CT09",
+      "path": "extensions/cli/src/compaction.ts",
+      "startLine": 81,
+      "endLine": 161,
+      "claim": "compaction은 output/system 예약을 빼고 구조 유지 prune 후 같은 streamChatResponse에 isCompacting=true를 넘긴다. summary 표식과 system/summary history를 만든다.",
+      "fileSha256": "d0ef6111106c10073da4eac1d5df8a814b63bd68b67f3ecc8f7d7092426f047e",
+      "rangeSha256": "1313ca8bab5efb1e8700c6b6107de479d1c93fcd989bd7b39398b0ec31ae5998"
+    },
+    {
+      "id": "CT10",
+      "path": "extensions/cli/src/session.ts",
+      "startLine": 279,
+      "endLine": 331,
+      "claim": "CLI persistence snapshot을 HistoryManager에 저장하고 resume은 JSON mtime으로 최신 파일을 골라 로드한다. 실행 효과 재개 journal의 증거는 아니다.",
+      "fileSha256": "08f9d93f804fed2b9cb6f153f931d2fbd470466de7ab5f4f040c78e3281e3e2b",
+      "rangeSha256": "7a16d51fb3ce7e26fb1490511efe1021d7d0768884563045e55bf44e3550fb4c"
+    },
+    {
+      "id": "CT11",
+      "path": "gui/src/redux/thunks/streamNormalInput.ts",
+      "startLine": 196,
+      "endLine": 332,
+      "claim": "IDE Redux thunk는 compiled messages를 core로 stream하며 tool 상태를 갱신한다. 종료 후 preprocess·policy evaluation을 순서대로 수행하고 승인 필요/자동 허용을 나눈다.",
+      "fileSha256": "0e128d790d8f20a8a2882a79fb5205706c6f642ea2f97bfa083fe5c30bc414b5",
+      "rangeSha256": "ff7f7de2c9c3574b90be2824912ce0f996f3cd8dd35908b1840f4aeb767d4f6f"
+    },
+    {
+      "id": "CT12",
+      "path": "core/llm/streamChat.ts",
+      "startLine": 114,
+      "endLine": 142,
+      "claim": "IDE core는 selected chat model.streamChat을 호출하고 abort signal을 검사하며 chunks와 PromptLog를 반환한다. tool-loop 소유자는 함수 바깥 GUI다.",
+      "fileSha256": "674514c3deaba680974331b7e7e6e1553caaa1a1d6b53d9b984bb73b36496180",
+      "rangeSha256": "6544a0927417b192162bf0c69da22b4491ab40c9b3e77f95180dbb19ccee9554"
+    },
+    {
+      "id": "CT13",
+      "path": "gui/src/redux/thunks/callToolById.ts",
+      "startLine": 23,
+      "endLine": 149,
+      "claim": "IDE는 generated 도구를 calling으로 바꾸고 client/core 구현을 분기한다. core tools/call 결과를 저장한 뒤 streamResponseAfterToolCall로 continuation을 요청한다.",
+      "fileSha256": "ae82246fca1f17bd24b01994f49709ccce46b88a61bea8715e259da145ca96e7",
+      "rangeSha256": "4ec71d351732e564f81a0f2ae3cc348bbad9a44648b3ed13ae3b501cf8d769f7"
+    },
+    {
+      "id": "CT14",
+      "path": "core/context/retrieval/pipelines/NoRerankerRetrievalPipeline.ts",
+      "startLine": 11,
+      "endLine": 88,
+      "claim": "IDE codebase retrieval은 최근 편집·FTS·embedding·repo-map을 합치거나 experimental tool-only retrieval을 사용하며 directory filter와 dedup을 적용한다.",
+      "fileSha256": "0bfacc0d53f6f4d45603e91a9bf3c6215a3aba890f369aac57dcbe8cdcd5cdec",
+      "rangeSha256": "48889b94cfba4b33f94a5bfef2e44450ae97fa71865bb8719f58fc57008ada66"
+    },
+    {
+      "id": "CT15",
+      "path": "core/indexing/CodebaseIndexer.ts",
+      "startLine": 146,
+      "endLine": 208,
+      "claim": "embed 모델이 없으면 새 indexes를 만들지 않는다. provider dependsOnIndexing에 따라 chunk·snippet·FTS·LanceDB를 순차 생성한다.",
+      "fileSha256": "08611069f4c88ba6fee313e6df46022e3e9b07cd1f90341e47186e592e704f19",
+      "rangeSha256": "e665cb80b628f832ea33d7610ff6ecf6c74f62e381e02ce56376d558c5807ea6"
+    },
+    {
+      "id": "CT16",
+      "path": "extensions/cli/src/services/ConfigService.ts",
+      "startLine": 253,
+      "endLine": 307,
+      "claim": "CLI는 configuration·주입/추가 블록·agent file을 병합하고 Markdown rules를 내용으로 dedup한 뒤 default chat model을 추가해 상태에 저장한다.",
+      "fileSha256": "4e7133b355ea4b6725284aaae3a39121478dd691881d4467bfe8c3c824c4957d",
+      "rangeSha256": "350ac596e7c54150547994107deba8899c543118ba259d4390d1a987ce9d02af"
+    },
+    {
+      "id": "CT17",
+      "path": "extensions/cli/src/services/MCPService.ts",
+      "startLine": 180,
+      "endLine": 316,
+      "claim": "CLI MCP는 server catalogue에서 이름으로 도구를 골라 callTool을 실행하고 capability별 prompts/tools를 수집한다. unresolved secret은 headless error 또는 interactive warning이다.",
+      "fileSha256": "6447599bac7e25822a2ff219b2f9183a3b4223fa2025ce42c79b0df4ec708da7",
+      "rangeSha256": "c911ccfd97752ca61ab20d2be4b6991181579e4e3ce4fa1e09953be2700def42"
+    },
+    {
+      "id": "CT18",
+      "path": "extensions/cli/src/tools/skills.ts",
+      "startLine": 29,
+      "endLine": 82,
+      "claim": "Skills는 name/description 목록을 설명에 넣고 요청한 skill 본문·동반 파일 목록을 반환한다. 보조 파일은 Read로 요청하도록 안내한다.",
+      "fileSha256": "90aa7cf3c38f647f8b4cb9b3f34fef0da4141a979deddd5e0638d5bdcc75f0b1",
+      "rangeSha256": "37a5c33abe87420aa1900b955231e638ed515dbf3bc20e86d0e47df55087d681"
+    },
+    {
+      "id": "CT19",
+      "path": "extensions/cli/src/subagent/executor.ts",
+      "startLine": 58,
+      "endLine": 200,
+      "claim": "beta subagent는 전역 permission을 wildcard allow로 바꾸고 system/history service를 임시 교체해 같은 stream loop를 실행한다. Escape abort와 finally 복원이 있다.",
+      "fileSha256": "c8c2ad8294c34be82098511ba35dd871265d89878acdb8e64aaa1062de36eab9",
+      "rangeSha256": "ad2d3b3996b5214909c35423596ce796f78c114b114047b8ca3a991aaedfefb4"
+    },
+    {
+      "id": "CT20",
+      "path": "core/core.ts",
+      "startLine": 1373,
+      "endLine": 1426,
+      "claim": "IDE context-provider API는 provider에 chat/embed/rerank·IDE·selected code·global request options를 extras로 전달하고 반환 자료에 provider ID/UUID를 붙인다.",
+      "fileSha256": "e073a7f5bc20d5920e5472b6d434118418deb7207336ff74800ce64b79c8e934",
+      "rangeSha256": "88d941eb07f693c9a678a6b8cbcb354994ba6bf5ba10cc78ed4a1c8def979bcd"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "CONTINUE-C01",
+      "title": "workspace/index generation에 결합한 혼합 저장소 검색",
+      "priority": "P1",
+      "cost": "높음",
+      "moodcodeStatus": "bounded context·semantic session memory·정규식 검색·LSP·workspace observer는 구현됨. branch/worktree와 embed identity별 repository index 및 FTS/vector/recent-file 조합은 별도 후보.",
+      "moodcodePaths": [
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/plan.ts",
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/tools/search/index.ts",
+        "packages/engine/src/lsp/index.ts",
+        "packages/engine/src/workspace/observer.ts"
+      ],
+      "referenceIds": [
+        "CT14",
+        "CT15",
+        "CT20"
+      ],
+      "contract": "host가 명시 등록한 repository-index service에 workspace/worktree root·content hash·index generation·embedding provider/model/schema revision을 결합한다. ignore·파일/총 bytes 한도와 delete/rename invalidation을 강제하고 FTS/vector/recent-file score·source provenance를 반환한다. dedup/rerank 결과를 ContextPlan 예약 안에서 선택한다. 외부 embed/rerank 전송은 host opt-in과 credential reference 정책을 따른다. index 미지원/stale fallback을 표시하고 session semantic memory와 분리한다.",
+      "validation": [
+        "branch 전환·분리 worktree에서 index 혼합을 막는 synthetic corpus 검사",
+        "수정/삭제/rename/ignore 변경 후 stale snippet 제거와 원문 hash 확인",
+        "embed 미등록·native index 불가·rerank 실패의 FTS/read fallback 및 degraded 표시",
+        "source/result/context UTF-8 hard cap·cancel·provenance와 ContextPlan digest 일치"
+      ]
+    },
+    {
+      "id": "CONTINUE-C02",
+      "title": "선택한 context provider의 bounded source manifest",
+      "priority": "P1",
+      "cost": "중간",
+      "moodcodeStatus": "host provider·MCP resources·LSP·nested instructions·skill/reference bounded read·ContextPlan은 구현됨. 사용자 선택 provider/query를 단일 provenance manifest로 capture하는 host 계약이 추가 후보.",
+      "moodcodePaths": [
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/plan.ts",
+        "packages/engine/src/context/sources.ts",
+        "packages/engine/src/mcp/index.ts",
+        "packages/engine/src/lsp/index.ts",
+        "packages/engine/src/tools/session/skills.ts",
+        "packages/engine/src/agents/index.ts"
+      ],
+      "referenceIds": [
+        "CT20",
+        "CT14",
+        "CT16",
+        "CT18"
+      ],
+      "contract": "host registry의 versioned provider에 workspace/session·query·selected ranges·AbortSignal·bytes/tokens 예약을 전달한다. result는 provider/source ID·revision/hash·URI/range·trust origin·omission/degraded 사유를 반환하고 하나의 ContextPlan에 capture한다. 사용자 선택과 profile default를 구분한다. 결과 본문은 지침 권한을 추가하지 않는 자료이며 provider/query가 executable·credential·MCP scope를 늘리지 못한다. source 변경은 다음 모델 경계에서 재계획하며 진행 중 Attempt에는 frozen manifest를 유지한다.",
+      "validation": [
+        "provider/query/source 순서와 무관한 deterministic manifest digest",
+        "stale range/hash·revision 변경·timeout/cancel·result bytes 초과의 bounded 실패와 omission",
+        "skill/LSP/MCP 선택 후에도 deny/Plan/approval/scope 유지",
+        "미등록·부분 실패·동일 Attempt retry에서 source/provenance 혼합 방지"
+      ]
+    },
+    {
+      "id": "CONTINUE-C03",
+      "title": "기존 user-owned PTY의 background 표시와 완료 전달",
+      "priority": "P2",
+      "cost": "중간~높음",
+      "moodcodeStatus": "user authority PTY·durable terminal journal·attach/replay/cancel/resize·cleanup과 durable inbox는 구현됨. 모델 Bash를 무조건 background로 넘기지 않는다. host 사용자가 시작한 job의 read-only status handle과 완료 delivery 연결이 추가 후보.",
+      "moodcodePaths": [
+        "packages/engine/src/terminals/service.ts",
+        "packages/engine/src/terminals/types.ts",
+        "packages/engine/src/terminals/journal.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/storage/index.ts",
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/tools/command/process-control.ts"
+      ],
+      "referenceIds": [
+        "CT08",
+        "CT10",
+        "CT06"
+      ],
+      "contract": "host가 승인한 user-owned job만 workspace/session·owner generation·process receipt에 결합한 status handle로 등록한다. attach/background 표시 변경은 ownership/effect/수명 한도를 바꾸지 않고 모델은 bounded status/output paging만 읽는다. 완료·실패·cleanup uncertain 확정 뒤 dedup key로 inbox에 한 번 전달하며 terminal Run에는 이벤트를 덧붙이지 않는다. 모델이 executable/env/authority를 지정하거나 올리지 못한다. crash 후 OS owner receipt 재관측 없이 running을 복구하지 않고 interrupted/uncertain을 유지한다.",
+      "validation": [
+        "detach/reload와 완료가 겹쳐도 journal·receipt·inbox 정확히 한 번",
+        "cancel/timeout/cleanup 실패/crash에서 process 부재 proof와 uncertain 차단 유지",
+        "다른 workspace/session handle 거절 및 output/backpressure 한도",
+        "정상 완료·비정상 exit·검증 결과를 구분 전달하고 원래 effect/approval binding 불변"
+      ]
+    }
+  ],
+  "reviewedSupplementaryPaths": [
+    "extensions/cli/src/index.ts",
+    "extensions/cli/src/commands/chat.ts",
+    "extensions/cli/src/config.ts",
+    "extensions/cli/src/services/ModelService.ts",
+    "extensions/cli/src/stream/handleToolCalls.ts",
+    "extensions/cli/src/stream/streamChatResponse.helpers.ts",
+    "extensions/cli/src/tools/index.tsx",
+    "extensions/cli/src/tools/edit.ts",
+    "extensions/cli/src/tools/searchCode.ts",
+    "extensions/cli/src/tools/exit.ts",
+    "extensions/cli/src/util/loadMarkdownSkills.ts",
+    "extensions/cli/src/services/mcpTransports.ts",
+    "extensions/cli/src/services/BackgroundJobService.ts",
+    "extensions/cli/src/services/GitAiIntegrationService.ts",
+    "extensions/cli/src/hooks/fireHook.ts",
+    "extensions/cli/src/ui/hooks/useChat.ts",
+    "gui/src/redux/thunks/streamResponse.ts",
+    "gui/src/redux/thunks/streamResponseAfterToolCall.ts",
+    "core/context/providers/CodebaseContextProvider.ts",
+    "core/context/retrieval/retrieval.ts",
+    "core/indexing/LanceDbIndex.ts",
+    "core/core.ts",
+    "core/llm/index.ts",
+    "core/util/history.ts",
+    "core/config/yaml/yamlToContinueConfig.ts",
+    "extensions/vscode/LICENSE.txt",
+    "core/vendor/modules/@xenova/transformers/LICENSE",
+    "gui/public/fonts/Inter/LICENSE.txt"
+  ],
+  "limitations": [
+    "README maintenance/read-only 선언과 manifest GitHub API archived=false를 별도로 보존한다. 배포 서비스·marketplace 현재 동작은 미확인.",
+    "정적 source review만 수행했다. upstream install/build/test/runtime/LLM/계정/IDE GUI/외부 MCP·embedding·rerank·Hub·git-ai는 실행하지 않았다.",
+    "CLI/IDE orchestration과 provider 경로는 다르다. IDE indexing/autocomplete를 CLI agent loop 또는 제품 기능 동등성으로 확장하지 않는다.",
+    "정책/metadata/shell parsing은 OS sandbox 증거가 아니다. model cancellation과 Bash/MCP 효과 종료 proof를 분리하고 crash-safe effect replay/resume을 인증하지 않는다.",
+    "JSON session load는 conversation resume다. git-ai checkpoint는 선택 외부 attribution hook이며 자체 rollback/effect journal로 해석하지 않는다.",
+    "hooks 서비스/helper는 있지만 검토한 executeToolCall에는 Git AI tracking이 연결되어 있다. 일반 firePreToolUse/firePostToolUse의 main-loop wiring은 확인되지 않았다.",
+    "root·열거한 하위 license만 확인했다. dependency/model weights/generated SDK/외부 서비스 전체 terms audit나 법률 검토는 아니다.",
+    "upstream source/prompt/tool description/fixture/media/runtime dependency를 복사하지 않았다. 원본을 읽은 분석이며 clean-room이라고 주장하지 않는다."
+  ]
+}

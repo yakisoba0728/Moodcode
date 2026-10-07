@@ -1,0 +1,290 @@
+{
+  "slug": "kimi-code",
+  "head": "21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3",
+  "repository": "https://github.com/MoonshotAI/kimi-code",
+  "analysisMode": "static-source-review",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/kimi-code",
+  "moodcodeBaseline": {
+    "documentationHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineSource": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "references": [
+    {
+      "id": "K01",
+      "path": "LICENSE",
+      "startLine": 1,
+      "endLine": 21,
+      "claim": "root MIT 고지와 Moonshot AI 저작권, 고지 보존 조건.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/LICENSE#L1-L21"
+    },
+    {
+      "id": "K02",
+      "path": "README.md",
+      "startLine": 53,
+      "endLine": 126,
+      "claim": "video, MCP, plugin, subagent, lifecycle hook, ACP 주장과 pi-tui UI 기반 acknowledgment; 실행 성능·호환성 실측 근거는 아니다.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/README.md#L53-L126"
+    },
+    {
+      "id": "K03",
+      "path": "apps/kimi-code/src/cli/v2/run-v2-print.ts",
+      "startLine": 471,
+      "endLine": 584,
+      "claim": "native v2 session/main agent 생성, print auto 권한 설정, loop.submit→promptHandle.launched→turn.result 경로.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/apps/kimi-code/src/cli/v2/run-v2-print.ts#L471-L584"
+    },
+    {
+      "id": "K04",
+      "path": "packages/agent-core-v2/src/agent/loop/machine/engine.ts",
+      "startLine": 286,
+      "endLine": 343,
+      "claim": "MachineRequester와 MachineTools를 journal-backed event store, createTurnMachine/createToolMachine에 결합; credential recovery 포함.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/agent/loop/machine/engine.ts#L286-L343"
+    },
+    {
+      "id": "K05",
+      "path": "packages/agent-core-v2/src/human/agent/turn.ts",
+      "startLine": 572,
+      "endLine": 619,
+      "claim": "model 응답에 toolCalls가 있으면 acting 전환, 빈 응답 오류, 도구 없는 응답의 done 종료.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/human/agent/turn.ts#L572-L619"
+    },
+    {
+      "id": "K06",
+      "path": "packages/agent-core-v2/src/agent/llmRequester/llmRequesterService.ts",
+      "startLine": 334,
+      "endLine": 439,
+      "claim": "tool-selected history→context projector→media resolver→requester.request; stream part와 usage 경로 및 media 생략 경고.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/agent/llmRequester/llmRequesterService.ts#L334-L439"
+    },
+    {
+      "id": "K07",
+      "path": "packages/agent-core-v2/src/llm-adapter/protocol/protocolAdapterRegistry.ts",
+      "startLine": 37,
+      "endLine": 135,
+      "claim": "Kimi file upload contribution 및 OpenAI Chat/Responses, Anthropic, Google GenAI/Vertex adapter route.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/llm-adapter/protocol/protocolAdapterRegistry.ts#L37-L135"
+    },
+    {
+      "id": "K08",
+      "path": "packages/agent-core-v2/src/agent/fullCompaction/fullCompactionService.ts",
+      "startLine": 617,
+      "endLine": 775,
+      "claim": "별도 full_compaction 모델 요청, input-window 사전 축소, bounded retry/overflow shrink, history 안정성 검사 후 summary와 wire recovery pointer 활성화.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/agent/fullCompaction/fullCompactionService.ts#L617-L775"
+    },
+    {
+      "id": "K09",
+      "path": "packages/agent-core-v2/src/agent/profile/context.ts",
+      "startLine": 137,
+      "endLine": 195,
+      "claim": "brand/global .agents 및 project root→cwd 지침을 중복 제거하며 읽음; 32 KiB는 권장 초과 경고이지 hard cap이 아니다.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/agent/profile/context.ts#L137-L195"
+    },
+    {
+      "id": "K10",
+      "path": "packages/agent-core-v2/src/workspace/sessionLifecycle/sessionLifecycleService.ts",
+      "startLine": 348,
+      "endLine": 426,
+      "claim": "session resume 병합과 workspace index binding, session materialization/main agent 복원, close drain 경로.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/workspace/sessionLifecycle/sessionLifecycleService.ts#L348-L426"
+    },
+    {
+      "id": "K11",
+      "path": "packages/agent-core-v2/src/agent/undo/undoService.ts",
+      "startLine": 107,
+      "endLine": 148,
+      "claim": "quiescence와 compaction/restore 상태를 검사한 conversation branch undo, replay, engine reset; 파일 효과 복원 근거가 아니다.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/agent/undo/undoService.ts#L107-L148"
+    },
+    {
+      "id": "K12",
+      "path": "packages/agent-core-v2/src/agent/permissionGate/permissionGateService.ts",
+      "startLine": 40,
+      "endLine": 85,
+      "claim": "도구 실행 전 policy 평가 후 ask/approve/veto 분기와 approval service 호출.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/agent/permissionGate/permissionGateService.ts#L40-L85"
+    },
+    {
+      "id": "K13",
+      "path": "packages/agent-core-v2/src/agent/tools/os/bash/bashTool.ts",
+      "startLine": 185,
+      "endLine": 287,
+      "claim": "runtime lease 아래 Bash spawn, bounded output accumulator, foreground/background task 등록, timeout 또는 사용자 detach 후 background 결과 반환.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/agent/tools/os/bash/bashTool.ts#L185-L287"
+    },
+    {
+      "id": "K14",
+      "path": "packages/agent-core-v2/src/os/backends/node-local/hostProcessService.ts",
+      "startLine": 112,
+      "endLine": 168,
+      "claim": "POSIX process group signal, Windows taskkill /T /F 및 5초 대기, EPERM fallback; crash 후 효과 소멸 인증은 별도 미확인.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/os/backends/node-local/hostProcessService.ts#L112-L168"
+    },
+    {
+      "id": "K15",
+      "path": "packages/agent-core-v2/src/session/subagent/subagentService.ts",
+      "startLine": 148,
+      "endLine": 206,
+      "claim": "profile/model binding으로 subagent 생성, caller runtime 사용, permission mode와 user tools 상속; experimental fork와 일반 생성 분기.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/session/subagent/subagentService.ts#L148-L206"
+    },
+    {
+      "id": "K16",
+      "path": "packages/agent-core-v2/src/features/externalHooks/agent/agentExternalHooksService.ts",
+      "startLine": 160,
+      "endLine": 272,
+      "claim": "PreToolUse veto/PostToolUse, PermissionRequest/Result, prompt block, turn notifications, Stop continuation 및 compaction hooks.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/features/externalHooks/agent/agentExternalHooksService.ts#L160-L272"
+    },
+    {
+      "id": "K17",
+      "path": "packages/agent-core-v2/src/app/plugin/pluginService.ts",
+      "startLine": 216,
+      "endLine": 251,
+      "claim": "plugin agent roots/session-start/system prompts/MCP servers/hooks를 engine 소비 경계로 제공.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/app/plugin/pluginService.ts#L216-L251"
+    },
+    {
+      "id": "K18",
+      "path": "packages/agent-core-v2/src/mcpCore/connection-manager.ts",
+      "startLine": 430,
+      "endLine": 505,
+      "claim": "MCP stdio runtime binding과 HTTP/SSE/OAuth/timeout 경계, connect→listTools→schema 검증.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/mcpCore/connection-manager.ts#L430-L505"
+    },
+    {
+      "id": "K19",
+      "path": "packages/agent-core-v2/src/agent/media/mediaResolverService.ts",
+      "startLine": 398,
+      "endLine": 498,
+      "claim": "video capability gate, provider/protocol/endpoint/account 별 cache key, persisted uploaded file ID, MIME sniff와 upload/inline/path fallback.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/agent-core-v2/src/agent/media/mediaResolverService.ts#L398-L498"
+    },
+    {
+      "id": "K20",
+      "path": "packages/acp-server/src/start.ts",
+      "startLine": 135,
+      "endLine": 183,
+      "claim": "ACP client connection 및 runtime provider 등록, session 별 runtime binding/해제, session media originals 경로.",
+      "permalink": "https://github.com/MoonshotAI/kimi-code/blob/21406fb4c805cc8c715e6d1f16ad3fb5f25f4fe3/packages/acp-server/src/start.ts#L135-L183"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "kimi-code-C1",
+      "title": "승인 binding을 보존하는 lifecycle hook 계약",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "plugin prepared/settled metadata hooks와 host factory는 이미 구현됨; prompt/turn/compaction lifecycle 관측과 제한된 veto 계약의 추가 제안.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/context/summary-stream.ts"
+      ],
+      "referenceIds": [
+        "K12",
+        "K16",
+        "K17"
+      ],
+      "contract": "host가 등록한 hook만 bounded metadata로 실행한다. prompt/turn/summary 상태와 관측 receipt를 제공하고, pre-effect veto는 허용하되 prepared input/fingerprint/approval binding을 변경할 수 없다. hook deadline/cancel/재진입 제한과 실패 정책을 이벤트별로 고정하고, post-effect 실패는 이미 끝난 효과를 재실행시키지 않는다. shell hook은 별도 승인된 supervisor 경계가 필요하며 model이 임의 command를 등록할 수 없다.",
+      "validation": [
+        "veto 이후 native effect가 시작되지 않는지 확인한다.",
+        "prepared fingerprint와 기존 approval의 일치가 hook 전후 유지되는지 확인한다.",
+        "cancel/timeout/reentrant hook이 terminal 중복 또는 반복 turn을 만들지 않는지 확인한다.",
+        "post-effect observer 실패와 재시작에서 tool result가 보존되고 효과가 재실행되지 않는지 확인한다."
+      ]
+    },
+    {
+      "id": "kimi-code-C2",
+      "title": "승인된 명령의 foreground→background 전환",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "command supervisor·PTY·durable tasks·queue/steer와 effect recovery marker는 이미 있음; 실행 중 명령 detach와 task completion inbox 계약의 추가 제안.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/tools/command/supervisor.ts",
+        "packages/engine/src/tools/command/execution-lock.ts",
+        "packages/engine/src/terminals/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/session-state/index.ts"
+      ],
+      "referenceIds": [
+        "K03",
+        "K13",
+        "K14"
+      ],
+      "contract": "기존 exact 승인으로 시작한 동일 command/PID ownership을 새 효과 없이 task로 전환한다. 기본 timeout은 현행 kill 의미를 유지하고 opt-in/user detach만 추가한다. supervisor는 root 종료/취소/예산을 계속 소유하며 output artifact와 completion delivery ID를 기록한다. workspace effect가 끝나지 않았으면 새 쓰기 작업과 archive/resume을 허용하지 않는다. 재시작에서 orphan 상태는 불확실하게 기록하고 명령을 자동 재실행하지 않는다.",
+      "validation": [
+        "foreground timeout의 기존 kill·cleanup 계약이 보존되는지 확인한다.",
+        "detach 시 spawn이 한 번이고 승인 fingerprint/ownership이 유지되는지 확인한다.",
+        "완료·cancel·engine SIGKILL에서 output과 completion inbox 중복 제거 및 uncertain 차단을 검증한다.",
+        "살아 있는 shell effect 동안 workspace mutation/restore가 충돌하지 않는지 확인한다."
+      ]
+    },
+    {
+      "id": "kimi-code-C3",
+      "title": "역할별 child task 재개와 최종 handoff 계약",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "agent profiles·read-only delegate_task·실제 worktree child·budget/deny/cancel 상속·terminal root delivery는 이미 구현됨; 같은 child의 승인된 후속 turn과 역할 handoff 계약의 추가 제안.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/child-tasks/engine-host.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/storage-binding.ts"
+      ],
+      "referenceIds": [
+        "K10",
+        "K15"
+      ],
+      "contract": "Moodcode profile identity/model/tools를 고정한 explore/plan/coder 역할을 host가 명시적으로 선택한다. plan/explore는 read-only 경계가 실제 도구 정책으로 강제된다. child 재개는 기존 storage/worktree owner binding과 명시적인 새 parent Run 승인 및 새 budget reservation을 요구한다. child ID와 task delivery ID를 구분하고, 완료 handoff는 bounded 결과·변경 경로·검증 출처·미완료 항목으로 구조화한다. lost tool effect를 자동 redo하지 않으며 unknown 효과는 격리한다.",
+      "validation": [
+        "profile 변경 또는 다른 workspace/storage binding으로 재개가 거부되는지 확인한다.",
+        "읽기 전용 child에서 command 및 write 효과가 실제로 거절되는지 확인한다.",
+        "parent/child 재시작 후 같은 child 기록을 재사용하면서 budget과 승인 binding이 새 Run에 정확히 연결되는지 확인한다.",
+        "빈 최종 결과·실패·취소 handoff와 중복 delivery를 구분하는지 확인한다."
+      ]
+    },
+    {
+      "id": "kimi-code-C4",
+      "title": "기존 image/PDF 경계 위의 bounded video 입력",
+      "priority": "P3",
+      "cost": "L",
+      "moodcodeStatus": "session-owned bounded image/PDF 입력·history anchors·provider token 정책·archive 검증은 이미 있음; video의 ingest/upload/capability/cache 경계는 후속 제안.",
+      "moodcodePaths": [
+        "packages/engine/src/media/store.ts",
+        "packages/engine/src/media/validation.ts",
+        "packages/engine/src/media/provider.ts",
+        "packages/engine/src/documents/provider.ts",
+        "packages/engine/src/context/media-history.ts",
+        "packages/engine/src/ports.ts"
+      ],
+      "referenceIds": [
+        "K06",
+        "K07",
+        "K19"
+      ],
+      "contract": "별도 video attachment 타입에 파일 bytes/MIME/hash/session owner와 byte/time/frame 예산을 정의한다. provider capability와 unknown-token opt-in은 image/PDF처럼 명시적 host 정책으로 결정한다. 원격 upload는 별도 effect receipt와 cancellation/expiry를 기록하며 cache를 provider/endpoint/account/media hash로 분리한다. upload 또는 capability 실패는 모델 인식 성공으로 표시하지 않고 제한된 omission metadata를 남긴다. archive에는 credential·원격 권한을 이식하지 않는다.",
+      "validation": [
+        "oversize·MIME 위장·타 세션 attachment가 provider dispatch 전에 거절되는지 확인한다.",
+        "계정/endpoint 변경에서 기존 upload ID를 재사용하지 않는지 확인한다.",
+        "upload cancel/timeout/remote expiry와 crash uncertainty를 보존하는지 확인한다.",
+        "history compaction/archive/import 후 video 누락과 재전송 정책 및 기존 image/PDF 회귀를 검증한다."
+      ]
+    }
+  ],
+  "limitations": [
+    "원본 checkout을 수정하지 않았고 package 설치·build·test·엔진 실행·모델/계정·GUI·benchmark를 수행하지 않았다. 증거 파일 검사는 정적 재현성 검사다.",
+    "대상은 MoonshotAI/kimi-code의 TypeScript agent-core-v2이며 별도 legacy Python kimi-cli 엔진을 분석 결과에 합치지 않았다. migration-legacy 및 SDK의 v1 명칭은 호환 흔적으로 분리했다.",
+    "대표 근거 20개 외에 pi-tui imports/manifests, profile 등록, edit/write, task lost/replay와 media budget 경로를 읽었으나 전체 파일/테스트/OS 호환성을 인증하지 않았다.",
+    "README의 단일 binary·startup 성능·풍부한 marketplace·IDE/provider 호환 주장은 소스 경로 존재와 구분했다. experimental fork/Swarm/Tower/goal/cron은 기본 product readiness를 의미하지 않는다.",
+    "root MIT, pi-tui MIT(Mario Zechner), vscode Apache-2.0 파일은 확인했지만 전이 의존성/native binary/미디어 전체 license audit 또는 법률 검토는 수행하지 않았다.",
+    "provider API/OAuth/catalog/Kimi media upload, MCP remote endpoints, plugin marketplaces/GitHub와 telemetry는 외부 서비스 경계다. 각 서비스 이용 조건/계정 접근성/원격 video 인식은 확인하지 않았다.",
+    "conversation undo는 파일/명령 효과 checkpoint와 다르다. 선택된 Bash/HostProcess 경로에서 Moodcode의 crash ownership proof·dual-journal recovery 동등성을 확인하지 못했다.",
+    "문맥 저장·요약·지침 재사용을 확인했으며 cross-project 학습 기억·semantic repository index 또는 PDF/audio/video 출력 기능의 제품 전체 유무는 이 정적 조사로 단정하지 않았다."
+  ]
+}

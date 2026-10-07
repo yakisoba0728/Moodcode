@@ -1,0 +1,387 @@
+{
+  "slug": "open-swe",
+  "head": "48a8445fc51246e739976c8bf5bdca3c43f27653",
+  "repository": "https://github.com/langchain-ai/open-swe",
+  "analysisMode": "static-source-review",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/open-swe",
+  "moodcodeBaseline": {
+    "documentationHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineSource": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "licenseInventory": [
+    {
+      "path": "LICENSE",
+      "license": "MIT",
+      "sha256": "61e5e8faf0b76db76793ecd8aa0edca36a82bd8dba279d2a31972f026c132423"
+    },
+    {
+      "path": "ui/native/libghostty-vt/LICENSE",
+      "license": "MIT",
+      "sha256": "386211873e5b7a02f663ae4d7adf96285999f91608f8f9f31fecfd0f4095e6f1"
+    },
+    {
+      "path": "ui/src/features/agents/terminal/ghostty/T3-LICENSE",
+      "license": "MIT",
+      "sha256": "935d8f2af0c703f9c39517ee57cc4930b19d02d533be930b63f0e82f93614b43"
+    },
+    {
+      "path": "ui/src/features/agents/terminal/ghostty/fonts/LICENSE",
+      "license": "MIT",
+      "sha256": "84a7a98c82140fb12c37fe42b93805baa16024cb3e5acc599b7ffe612c55d847"
+    }
+  ],
+  "references": [
+    {
+      "id": "OSWE-R01",
+      "path": "README.md",
+      "startLine": 25,
+      "endLine": 69,
+      "symbol": "README",
+      "claim": "README는 investigate→implement→validate→PR 및 review/CI feedback, active development, experimental desktop, 외부 Deep Agents/LangGraph와 production Agent Server license key 경계를 설명한다. 제품 성능 검증 결과가 아니다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/README.md#L25-L69",
+      "fileSha256": "d4dbd9b80d17cee3459ba9881a3a05ff017fd00dd1e17be34ab48c0ea20c2578",
+      "rangeSha256": "6325b524833160670dd446390bc7aa66741ba399e29109083f26b44bbe82567f"
+    },
+    {
+      "id": "OSWE-R02",
+      "path": "LICENSE",
+      "startLine": 1,
+      "endLine": 21,
+      "symbol": "root MIT license",
+      "claim": "root 실제 LICENSE는 LangChain copyright의 MIT이며 고지 포함 조건과 보증 부인을 명시한다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/LICENSE#L1-L21",
+      "fileSha256": "61e5e8faf0b76db76793ecd8aa0edca36a82bd8dba279d2a31972f026c132423",
+      "rangeSha256": "61e5e8faf0b76db76793ecd8aa0edca36a82bd8dba279d2a31972f026c132423"
+    },
+    {
+      "id": "OSWE-R03",
+      "path": "pyproject.toml",
+      "startLine": 1,
+      "endLine": 81,
+      "symbol": "Python package/dependency boundary",
+      "claim": "Python>=3.14의 open-swe-agent는 deepagents==0.7.21와 LangGraph/LangChain/provider/MCP/DB 의존성을 선언한다. 선택 sandbox provider와 LangGraph API/runtime 버전 제약은 별도 외부 경계다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/pyproject.toml#L1-L81",
+      "fileSha256": "212e532fa23ded4bcacd40c78914422d7686e930bbbc5a4bdda8452ff9e244d2",
+      "rangeSha256": "fa69c265b403cd92bb8f47902701ffd4f882b578df86eebeea3d914fae8357ca"
+    },
+    {
+      "id": "OSWE-R04",
+      "path": "langgraph.json",
+      "startLine": 1,
+      "endLine": 26,
+      "symbol": "graph/http/checkpointer configuration",
+      "claim": "agent/reviewer/analyzer/review-scout/chat/scheduler entrypoint와 FastAPI app, checkpointer TTL을 선언한다. 실제 checkpoint 실행기는 이 저장소 구현으로 입증되지 않는다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/langgraph.json#L1-L26",
+      "fileSha256": "3253ae745c4a4a7f09f0ba318fc529820b4bad63d9c63a59c83d11b18b2e3e0b",
+      "rangeSha256": "2b2e63a037a6eb515a6b4bd55911a5a9abfc473938ff52b19fdee9425b9c6aea"
+    },
+    {
+      "id": "OSWE-R05",
+      "path": "agent/github/webhook.py",
+      "startLine": 1475,
+      "endLine": 1571,
+      "symbol": "process_github_issue",
+      "claim": "기존 thread workspace를 유지하고 token repository scope의 metadata 기록에 실패하면 dispatch하지 않는다. structured issue/follow-up 입력을 공통 durable dispatcher로 보낸다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/github/webhook.py#L1475-L1571",
+      "fileSha256": "c74c3688d760649cafa3296c74b82b66e9ef23901905743d414c7bd83363a1be",
+      "rangeSha256": "681bd95dc64dccbaa3fee61f1047f5394a9017d9cd5d825aa5ec3a16fba138eb"
+    },
+    {
+      "id": "OSWE-R06",
+      "path": "agent/dispatch.py",
+      "startLine": 290,
+      "endLine": 418,
+      "symbol": "create_durable_run/dispatch_agent_run",
+      "claim": "durability=sync, interrupt 기본값, resumable stream/subgraphs, completion webhook 및 delayed start를 LangGraph SDK runs.create에 전달한다. ingress별 공통 dispatcher와 enqueue override 경계를 제공한다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/dispatch.py#L290-L418",
+      "fileSha256": "e4bea0635792894d78a79c5432a1e6c15309ae97204ce92c424ba0a811feeeee",
+      "rangeSha256": "914af9ea1ef72d602d737e288cc56ee21e0001e860c1c6e64163cda5414b8175"
+    },
+    {
+      "id": "OSWE-R07",
+      "path": "agent/server.py",
+      "startLine": 2002,
+      "endLine": 2135,
+      "symbol": "build_agent graph assembly",
+      "claim": "create_deep_agent에 model/tools/subagent/backend/skills와 준비·transcript·offloading·queue·workflow push·task retry·model timeout/fallback·limit·종료 reply 미들웨어를 조립한다. task retry는 최대2회다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/server.py#L2002-L2135",
+      "fileSha256": "3a1915b72020c170bb9e167ad0960c0225a99450d8370d95cf84f931929f1376",
+      "rangeSha256": "08539fae96f5bd6b1b5c03f042038f8e3b12e63a4efc060b4bd6b37e5ab4cbbd"
+    },
+    {
+      "id": "OSWE-R08",
+      "path": "agent/server.py",
+      "startLine": 1862,
+      "endLine": 1906,
+      "symbol": "DynamicToolMiddleware/CompositeBackend routes",
+      "claim": "MCP/Notion tool group을 동적 미들웨어에 연결하고 bundled/organization/private-user skills를 ReadOnlyBackend로 분리한다. cloud blob은 thread namespace StoreBackend, desktop scratch는 artifact route를 사용한다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/server.py#L1862-L1906",
+      "fileSha256": "3a1915b72020c170bb9e167ad0960c0225a99450d8370d95cf84f931929f1376",
+      "rangeSha256": "e8d3b770b8c2bbe9818a4660c899e18554504887d96c6bbc46921f2d80445025"
+    },
+    {
+      "id": "OSWE-R09",
+      "path": "agent/middleware/conversation_offloading.py",
+      "startLine": 35,
+      "endLine": 130,
+      "symbol": "ConversationOffloadingMiddleware",
+      "claim": "외부 SummarizationMiddleware를 상속해 summary model의 streaming을 숨기고 자동/수동 상태·cutoff/file_path를 관측한다. 수동 compaction은 도구 없이 수행하고 graph end로 이동한다. 요약 핵심 알고리즘은 외부다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/middleware/conversation_offloading.py#L35-L130",
+      "fileSha256": "a1cc49b3840e2f6596b56bf8b36341ba1d210a523de91a89fac5daaa78e75862",
+      "rangeSha256": "51f07830b485e88cd72f2ec9a739c5fbfd264d040e3f3976dafbc5e3263aba5d"
+    },
+    {
+      "id": "OSWE-R10",
+      "path": "agent/sandboxes/lifecycle.py",
+      "startLine": 349,
+      "endLine": 494,
+      "symbol": "ensure_sandbox_for_thread",
+      "claim": "thread metadata sandbox ID를 재연결하고 새 sandbox는 초기화 이후 binding/publish한다. unreachable coding sandbox는 기본 교체하지 않으며 삭제됐거나 allow_replacement일 때 교체한다. tracked background task 조정도 연결한다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/sandboxes/lifecycle.py#L349-L494",
+      "fileSha256": "e168ee2aab2673457ed4f861a832be58b47fdf32bc73f010040f161c16f120eb",
+      "rangeSha256": "ca7f743778718e947d849848a57eb873ac68547c8708d3fe9873fbc398acb592"
+    },
+    {
+      "id": "OSWE-R11",
+      "path": "agent/middleware/check_message_queue.py",
+      "startLine": 204,
+      "endLine": 362,
+      "symbol": "check_message_queue_before_model",
+      "claim": "모델 호출 전 queue snapshot의 follow-up을 structured messages로 변환하고 reply surface·sender/image/model 정보를 반영한다. 모든 변환 성공 뒤 소비하며 실패는 다음 호출에 남긴다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/middleware/check_message_queue.py#L204-L362",
+      "fileSha256": "197cf5abdeba4b5227b6a4fd96e3d2d1c99e5b18725bd3e2bc7208b2b7f1fd4d",
+      "rangeSha256": "d83adda2cb1bb502c3cb49a5b1014db1e05cbe116d88955da56a88fec7d677c5"
+    },
+    {
+      "id": "OSWE-R12",
+      "path": "agent/tools/background_execute.py",
+      "startLine": 347,
+      "endLine": 497,
+      "symbol": "background_execute/_launch_with_callback/_launch_with_cron",
+      "claim": "sandbox backend 명령을 background task로 시작하고 thread에 추적한다. opt-in experimental callback 또는 기본 cron monitor를 선택하며 cron 경로는 active task limit과 monitor 경합·부분 시작 실패를 보고한다. 별도 status/list/stop 경로가 있다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/tools/background_execute.py#L347-L497",
+      "fileSha256": "d92b5ef5859b0c3cfa10d252d73b2313866cb7fecbd0f1a446bbdbbbda24a3bd",
+      "rangeSha256": "c58f13c5cb490a467746504a58256327aabef17046863bd8950943e7276dabde"
+    },
+    {
+      "id": "OSWE-R13",
+      "path": "agent/scheduler.py",
+      "startLine": 61,
+      "endLine": 120,
+      "symbol": "_launch/get_scheduler",
+      "claim": "model-free 단일 launch node가 stale run reconcile, baby_sit, background command monitor, workspace refresh, human deadline 또는 recurring schedule launch를 dispatch한다. transient sandbox retry 이후 unavailable 결과를 반환한다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/scheduler.py#L61-L120",
+      "fileSha256": "cdaf3c812fe3c261bcea13ea6c419f75fb746695f9f35c6efa8d9c4741705375",
+      "rangeSha256": "4a6bbe7a77c93553de462a10bbf5421f8a48c6f1624a665b4c8db87989d87a99"
+    },
+    {
+      "id": "OSWE-R14",
+      "path": "agent/middleware/workflow_push_guard.py",
+      "startLine": 541,
+      "endLine": 617,
+      "symbol": "_approval_state/WorkflowPushGuardMiddleware",
+      "claim": "감지한 workflow-changing push의 fingerprint와 repository/branch/base/head/diff를 pending record로 저장한다. 승인 시 고정 command로 실행하고 미승인은 blocked observation을 반환한다. 범용 모든 shell/API 효과의 approval gate는 아니다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/middleware/workflow_push_guard.py#L541-L617",
+      "fileSha256": "c93a444afc27653ec6773bf9f04428ebe70a247509257afd6a31886a9b4acd1c",
+      "rangeSha256": "580a9abcdea1e15d7035233cf2499489549bd18b19dd86c28402d43753c50f3b"
+    },
+    {
+      "id": "OSWE-R15",
+      "path": "agent/tools/open_pull_request.py",
+      "startLine": 1023,
+      "endLine": 1169,
+      "symbol": "_open_pull_request",
+      "claim": "참여자 author/token·workspace/consent·권한 preflight를 거쳐 GitHub PR API를 호출하고 PR telemetry/thread 연결을 기록한다. 422의 기존 head PR을 반환해 중복 생성 대신 후속 갱신으로 이어질 수 있다. 이 분석에서는 호출하지 않았다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/tools/open_pull_request.py#L1023-L1169",
+      "fileSha256": "8beca2eec5a636b4a4da0123acc8c4bc585ef8f8c322246ba5f0448b7f14e1f7",
+      "rangeSha256": "73420743c7a5cadb7e2d60385964fe5441a25f280d010277f47d87b91276c7cd"
+    },
+    {
+      "id": "OSWE-R16",
+      "path": "agent/reviewer.py",
+      "startLine": 976,
+      "endLine": 1031,
+      "symbol": "get_reviewer_agent assembly",
+      "claim": "별도 reviewer Deep Agent에 diff/finding/publication/reply·web 도구, reviewer subagent, sandbox backend, queue·timeout retry·orphan repair·check settlement를 연결한다. read-only 명칭은 전체 도구의 효과 없음 보증이 아니다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/reviewer.py#L976-L1031",
+      "fileSha256": "9377525853d806be908205265e0375173a632c4c9e22d4890326848382c23fb7",
+      "rangeSha256": "121308ea43887a124659238bdd55b527d402a189a5790ae35dd43c8917d9ae76"
+    },
+    {
+      "id": "OSWE-R17",
+      "path": "agent/analyzer.py",
+      "startLine": 77,
+      "endLine": 174,
+      "symbol": "PrepareAnalyzerRunMiddleware/get_analyzer",
+      "claim": "repository review samples와 bootstrap/continual mode로 analyzer context를 준비하고 별도 sandbox/skills route, model call limit, save_review_style_prompt/read_finding_outcomes 도구를 가진 analyzer graph를 구성한다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/analyzer.py#L77-L174",
+      "fileSha256": "b6e82e8300827c019265ea1b6a70f01be82591cc30c96457cc1168d93bba808e",
+      "rangeSha256": "bac8acbc8ba5020f66021e4b0525cbaaafea35895f0682d18d9cbdaa3c69167a"
+    },
+    {
+      "id": "OSWE-R18",
+      "path": "agent/baby_sit.py",
+      "startLine": 442,
+      "endLine": 595,
+      "symbol": "_evaluate_watch/handle_ci_webhook",
+      "claim": "opt-in watch가 현재 PR head/check runs/commit statuses/required checks를 확인한다. head 변경 때 retry/dedupe를 초기화하고 per-head failure key와 webhook delivery ID를 기록해 enqueue feedback dispatch 중복을 억제한다. 미확인 CI는 error/pending으로 다룬다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/baby_sit.py#L442-L595",
+      "fileSha256": "4dd0d31ceedc9be48409415d2298398a9b4ebe518acee1ee1f369d1f415cf37a",
+      "rangeSha256": "e0b37ab6aa7be74419c9a28155733538072284dcf156fc80e6354533e816f828"
+    },
+    {
+      "id": "OSWE-R19",
+      "path": "agent/threads/handlers.py",
+      "startLine": 289,
+      "endLine": 390,
+      "symbol": "_cancel_active_thread_runs/cancel_dashboard_thread",
+      "claim": "pending/running runs를 paging해 interrupt를 요청하고 실제 취소 대상의 transcript를 닫는다. owner 검증과 다른 사람이 queue한 follow-up 보존, metadata 갱신 및 남은 follow-up 재접수를 연결한다. 외부 process tree 정리의 증명은 아니다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/threads/handlers.py#L289-L390",
+      "fileSha256": "cd5a21485ee8e2bc29fb40c6d4b709a167af0122355e7d53193ff0002cb60995",
+      "rangeSha256": "f2a807d21bfb6a7ca6bcc1fca34ae3bdedfac95dfd26fd6cb3167c94f150f876"
+    },
+    {
+      "id": "OSWE-R20",
+      "path": "agent/background_tasks.py",
+      "startLine": 194,
+      "endLine": 288,
+      "symbol": "_reconcile background task completion",
+      "claim": "thread sandbox의 running/terminal job을 조정하고 terminal task claim→동일 thread enqueue→delivered marker를 기록한다. 실패 시 unclaim해 다시 전달할 수 있다. dispatch와 sandbox marker 사이 crash의 exactly-once 증명은 아니다.",
+      "permalink": "https://github.com/langchain-ai/open-swe/blob/48a8445fc51246e739976c8bf5bdca3c43f27653/agent/background_tasks.py#L194-L288",
+      "fileSha256": "bcfad2f34220b2354dc7c883d2d3d6e3ce38bebf1138acc6801f98e3f65636d8",
+      "rangeSha256": "ff09d4ca90e2dd9989f7c456ade369d796df21443fd27b97775f16170ba31922"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "OSWE-C1",
+      "title": "PR revision에 binding한 CI·검토 feedback watch",
+      "priority": "P1",
+      "cost": "M–L",
+      "moodcodeStatus": "durable queue/steer·Run/Turn/Attempt·제한 retry·artifact·host plugin/MCP·승인과 recovery는 기구현. GitHub PR head/check/review 상태를 지속 관측하여 다음 실행에 전달하는 공개 host 계약은 확인한 기준 소스에서 별도 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/artifacts/store.ts"
+      ],
+      "referenceIds": [
+        "OSWE-R05",
+        "OSWE-R06",
+        "OSWE-R13",
+        "OSWE-R15",
+        "OSWE-R18"
+      ],
+      "contract": "명시적 opt-in host watch는 repository identity·PR number·현재 head SHA·policy revision·credential reference를 고정한다. 외부 event는 untrusted evidence로 bounded artifact에 저장하고 event ID와 revision별 feedback generation으로 durable inbox에 중복 제거해 접수한다. required check 조회 실패는 unknown으로 남기고 성공으로 승격하지 않는다. head 변경은 이전 관측을 stale로 표시하며 제한된 후속 진단 Run을 만들 수 있으나 git push·PR/review write·CI rerun·merge는 각각 기존 exact prepare/approval/effect 경로를 거친다. 관측과 쓰기 권한은 분리하고 retry budget·expiry·pause/cancel 상태를 상속한다. 외부 dispatch/receipt의 uncertainty를 자동 재전송하지 않는다.",
+      "validation": [
+        "같은 webhook과 poll 결과가 경합해도 동일 revision feedback은 한 번만 inbox에 접수됨",
+        "PR head 변경·required check 미보고·API 권한 실패는 이전 성공/승인을 재사용하지 않음",
+        "cancel/pause/expired watch는 새 진단 Run을 만들지 않고 중복·늦은 응답을 폐기함",
+        "실패 진단은 read-only로 실행 가능하며 rerun·push·merge가 관측만으로 승인되지 않음"
+      ]
+    },
+    {
+      "id": "OSWE-C2",
+      "title": "역할별 소프트웨어 작업 단계와 검증 증거 연결",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "agent profiles·session tasks CAS·coding 도구·summary·artifact·격리 child worktree·승인한 변경 통합·root inbox delivery가 이미 있다. todo 완료와 구분된 조사/구현/검증/검토 단계의 durable transition 및 evidence gate는 추가 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/tools/session/index.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/worktrees/index.ts",
+        "packages/engine/src/artifacts/result.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/review/index.ts"
+      ],
+      "referenceIds": [
+        "OSWE-R01",
+        "OSWE-R07",
+        "OSWE-R15",
+        "OSWE-R16"
+      ],
+      "contract": "host가 workflow identity와 versioned stage policy를 고정하고 조사→구현→검증→검토→전달의 각 transition을 expectedRevision CAS로 기록한다. 이는 Open SWE에 강제 stage graph가 있다는 주장이 아니라 관측된 별도 coding/reviewer/PR 연결을 Moodcode의 명시적 계약으로 확장하는 제안이다. 단계마다 source commit/workspace revision·선택 profile·입력 artifact hash·실제 Run/child outcome을 binding하고 todo status나 모델 완료 문장만으로 검증 성공을 인정하지 않는다. verifier/reviewer에는 기존 read-only isolated child 권한을 적용하며 write child/통합은 host 승인 경로를 보존한다. 검증 command·expected outcome은 준비 시 고정하고 출력·exit code·확인하지 못한 범위를 artifact로 기록한다. 실패 feedback의 추가 turn·child 예산과 상한을 정하고 terminal Run 뒤 이벤트 추가 없이 다음 단계 Run을 만든다.",
+      "validation": [
+        "completed todo와 모델의 성공 주장만으로 verify/review stage가 완료되지 않음",
+        "검증 뒤 파일/head 변경은 evidence를 stale로 만들고 전달 전에 재검증을 요구함",
+        "독립 reviewer child가 write 권한을 받지 않고 parent budget/cancel·worktree ownership을 상속함",
+        "transition 중 crash와 반복 요청에서 단계·artifact·Run lineage가 중복되지 않으며 기존 승인·복원 계약이 유지됨"
+      ]
+    },
+    {
+      "id": "OSWE-C3",
+      "title": "host가 소유하는 지속 background command job",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "승인된 command supervisor·PTY·process cancel/cleanup·child 실행·terminal outcome의 root inbox delivery·artifact paging·uncertainty ledger는 기구현. 부모 Run 종료 후에도 host가 소유하며 결과를 접수하는 장기 command job의 durable public lifecycle은 별도 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/tools/command/supervisor.ts",
+        "packages/engine/src/terminals/service.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/storage/tool-recovery-frontier.ts",
+        "packages/engine/src/storage/execution-uncertainty.ts",
+        "packages/engine/src/artifacts/store.ts"
+      ],
+      "referenceIds": [
+        "OSWE-R10",
+        "OSWE-R12",
+        "OSWE-R13",
+        "OSWE-R19",
+        "OSWE-R20"
+      ],
+      "contract": "background 시작은 command/cwd/timeout/workspace/owner/output budget을 exact 승인으로 binding한 host job 생성이다. job은 starting/running/stopping/completed/failed/cancelled/uncertain 상태와 native owner receipt·lease generation을 별도 durable journal에 기록한다. 부모 Run이 terminal이 된 뒤에도 유지하려면 명시적 host opt-in·만료·전체 예산 및 parent cancel 정책을 준비 시 고정한다. stdout/stderr는 bounded artifact paging으로 읽고 completion은 terminal receipt를 근거로 stable request ID의 inbox 입력을 한 번 접수한다. callback/polling은 상태 관측 transport이며 process 재실행 권한이 아니다. 재시작에서 PID 재사용·receipt 없는 효과·sandbox 유실은 uncertain으로 격리하고 자동 새 job으로 대체하지 않는다. parent Run terminal 이후에는 해당 Run의 이벤트를 변경하지 않는다.",
+      "validation": [
+        "빠른 종료·callback/poll 경합·completion 접수 후 crash에서도 job result 입력이 중복되지 않음",
+        "부모 Run terminal과 명시적 stop/expiry/parent cancel의 정책이 구분되고 cleanup receipt까지 확인됨",
+        "native owner 유실·PID 재사용·부분 시작·출력 overflow는 uncertain 또는 bounded failure로 기록됨",
+        "job 승인 이후 command/cwd/limit 변경은 stale로 차단되고 archive/recovery가 살아 있는 job의 소유권을 보존함"
+      ]
+    },
+    {
+      "id": "OSWE-C4",
+      "title": "저장소 검토 선호의 evidence 기반 초안과 승인 publication",
+      "priority": "P2",
+      "cost": "M–L",
+      "moodcodeStatus": "bounded context·semantic memory·agent profile 지침·로컬 skill/reference 읽기·session documents·exact patch/approval가 이미 있다. 역사 review outcome에서 repository별 선호를 학습하고 승인된 revision을 reviewer에 공급하는 lifecycle은 추가 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/tools/session/skills.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/artifacts/store.ts"
+      ],
+      "referenceIds": [
+        "OSWE-R08",
+        "OSWE-R16",
+        "OSWE-R17"
+      ],
+      "contract": "host가 허용한 repository·review sample ID/revision·수집 기간·participant scope 아래 read-only analyzer를 실행한다. 결과는 근거 ref·sample coverage·confidence·반례·expiry가 있는 bounded derived draft artifact로 저장한다. 외부 review text는 untrusted data이며 승인·tool grants·사용자 지시로 승격하지 않는다. publication은 명시적 exact 승인과 expectedRevision CAS 이후만 활성화하고 prior revision rollback·삭제를 제공한다. reviewer는 시작 시 활성 revision/hash를 고정하며 변경이 있으면 다음 Run부터 적용한다. 문서 쓰기나 skill 변경은 기존 승인 도구를 사용하고 analyzer가 자신을 실행한 instruction을 직접 갱신하지 않는다. 자동 학습의 효과·품질은 별도 실험으로 검증한다.",
+      "validation": [
+        "개인/다른 repository의 sample이 scope를 넘어 초안 또는 reviewer context에 유입되지 않음",
+        "review text의 도구·승인 지시가 profile 권한을 바꾸지 않고 근거와 초안에 data로 보존됨",
+        "미승인/expired/stale draft는 활성 reviewer에 주입되지 않으며 publication race와 rollback이 CAS로 일관됨",
+        "sample coverage·반례·출처 누락 및 낮은 confidence를 표시하고 현재 reviewer Run의 pin이 변하지 않음"
+      ]
+    }
+  ],
+  "limitations": [
+    "고정 checkout을 읽는 static-source-review만 수행했다. upstream install/setup/test/build/benchmark/model/API/credential/GUI를 실행하지 않았다. candidate validation은 후속 독립 구현의 수용 조건이지 이번 실행 결과가 아니다.",
+    "Deep Agents 0.7.21, LangGraph/LangChain/provider SDK, standalone Agent Server 및 sandbox provider dependency source는 이번 19개 clone의 별도 분석 대상이 아니다. imported core의 planning/filesystem/shell/task scheduling/compaction/checkpoint crash semantics를 전체 검증했다고 주장하지 않는다.",
+    "LangGraph durability=sync/interrupt/enqueue와 stream_resumable은 로컬 SDK 요청 설정의 확인이다. Agent Server workers/Postgres/Redis의 복구·exactly-once 실행 보증을 이 checkout만으로 입증하지 않는다. production standalone deployment license key는 README와 설치 문서에 명시되어 있다.",
+    "GitHub/Slack/Linear/MCP/CI/PR 서비스 연결은 소스 읽기만 수행했다. 실제 webhook 서명·delivery·권한·메시지·PR 생성/갱신/merge·job rerun 또는 credential 범위를 서비스에서 시험하지 않았다.",
+    "coding per-thread sandbox와 Deep Agents subagent의 fork-mode 구성은 서로 다르다. 이 wrapper만으로 모든 subagent의 별도 worktree/process isolation·parallel scheduling·budget/cancel propagation을 보증하지 않는다.",
+    "workflow push 승인과 PR consent는 특정 wrapper 작업의 guard다. README가 경고하듯 모든 shell/API/file write의 effect gate는 아니다. reviewer read-only 역할 역시 shell/HTTP 및 review publication이 있어 효과 없는 보안 sandbox라는 뜻이 아니다.",
+    "background completion claim→dispatch→delivered, CI key save→dispatch의 경계는 소스로 확인했으나 crash fault injection을 하지 않았다. 분산 exactly-once publication을 검증했다고 표현하지 않는다.",
+    "root와 확인한 UI 하위 고지 3개는 MIT다. dependency·native binary·container image·model/cloud/Agent Server 서비스 조건 전체 license audit이나 법률 검토는 수행하지 않았다. README의 active development·experimental 표시는 실측 안정성 평가와 구분했다.",
+    "Moodcode의 이전 headless/live/GUI 검증 기록은 baseline 문서의 과거 결과다. 이번 Open SWE 실행 결과 또는 양쪽 제품 성능 동등성으로 사용하지 않았다.",
+    "원본 HEAD·파일을 수정하지 않고 동작 분석과 독립 계약만 작성했다. source/prompt/tool description/fixture/media를 Moodcode에 복사하거나 runtime 의존성을 추가하지 않았다. 원본을 읽었으므로 clean-room 분석이라고 주장하지 않는다."
+  ]
+}

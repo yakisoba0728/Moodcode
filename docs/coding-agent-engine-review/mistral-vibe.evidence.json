@@ -1,0 +1,317 @@
+{
+  "slug": "mistral-vibe",
+  "head": "7cb91894c40bb25173abcfa36e5ea2b4b81eb28c",
+  "repository": "https://github.com/mistralai/mistral-vibe",
+  "analysisMode": "static-source-review",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/mistral-vibe",
+  "moodcodeBaseline": {
+    "documentationHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineSource": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "references": [
+    {
+      "id": "MV-R01",
+      "path": "vibe/_experimental_harness.py",
+      "startLine": 123,
+      "endLine": 157,
+      "claim": "Unified Harness가 deterministic 기본값이며 --legacy-harness만 legacy를 선택한다. 기본 runtime import/init 실패는 자동 fallback 없이 오류가 된다.",
+      "fileSha256": "eace7ceb43ea8913fe94d37a30b88eb183e18b5901f013e12461f72c8fb7cebf",
+      "rangeSha256": "c03260a705b27ee4c43d9383ef44f0848c3598255ec912231d84cd719b3ed7b7"
+    },
+    {
+      "id": "MV-R02",
+      "path": "vibe/app_server/_runtime.py",
+      "startLine": 1184,
+      "endLine": 1288,
+      "claim": "HarnessProcess가 기본 Host를 만들고 builtin AGENTS.md handler를 등록한 후 SessionBackendHost adapter로 연결하며 legacy는 별도 composition이다.",
+      "fileSha256": "24ee9e336c1268526cf74dbd1bf86f4034356119246cde21c9bb4875f60ee884",
+      "rangeSha256": "97d66457f3a0ebd6706ee08f6819fad0206719cfac1b730ac915097aca169baa"
+    },
+    {
+      "id": "MV-R03",
+      "path": "harness/runtimes/python/python/mistralai_vibe_local_harness/vibe/_runtime.py",
+      "startLine": 1844,
+      "endLine": 1904,
+      "claim": "Runtime._drive가 pending action을 실행하고 결과 event를 Core에 적용해 다음 transition으로 진행하며 abandoned action과 실패를 정리한다.",
+      "fileSha256": "3284faf472790aabfe992b22898e8aecfc068dd947c72ce6740c52a20c157f61",
+      "rangeSha256": "58ff9f94cbcbe8e42db03f3b1eee48c8562a3023257f404b8d0f633c80e2eb48"
+    },
+    {
+      "id": "MV-R04",
+      "path": "harness/runtimes/python/python/mistralai_vibe_local_harness/vibe/_completion.py",
+      "startLine": 199,
+      "endLine": 285,
+      "claim": "LLM action의 agent/compaction 모델·credential을 해석하고 native Mistral 또는 generic provider adapter를 호출하며 retry/delta observer를 연결한다.",
+      "fileSha256": "d9237e4d106a2e1c2cbca8cca7323873ebaa2b79b4a7cb88933dbb34e9377f01",
+      "rangeSha256": "648ec7271bf23e1bdc16d70ceb0e18faa52ac065ae1aa793d87409dade384682"
+    },
+    {
+      "id": "MV-R05",
+      "path": "vibe/core/agent_loop/_loop.py",
+      "startLine": 2051,
+      "endLine": 2144,
+      "claim": "Legacy conversation loop는 middleware→model/tool turn→step/save→injection→post-turn hook 순서이며 tool 응답 뒤 계속하고 overflow에서는 compaction 후 한정 복구한다.",
+      "fileSha256": "02a2f790ff2b1f8c3bef07a3eb1bda9ed9f7b4ba7721cfb132649b963e3b1f7a",
+      "rangeSha256": "06a2267f5e5f296c0b599e486260a092059fca2c243e163bc726030aa1243977"
+    },
+    {
+      "id": "MV-R06",
+      "path": "vibe/core/agent_loop/_loop.py",
+      "startLine": 2685,
+      "endLine": 2781,
+      "claim": "Legacy tool은 input serialize→pre-tool hook→permission decision→invoke 순서로 실행하며 cancellation을 tool result와 finalization에 기록한다.",
+      "fileSha256": "02a2f790ff2b1f8c3bef07a3eb1bda9ed9f7b4ba7721cfb132649b963e3b1f7a",
+      "rangeSha256": "362153e1de3c33a269300fc3bc3f7b2be567da7431d08fe95fd913d2246b1004"
+    },
+    {
+      "id": "MV-R07",
+      "path": "harness/core/src/core/features/compaction/execution.rs",
+      "startLine": 163,
+      "endLine": 238,
+      "claim": "Unified compaction은 summary와 replacement budget을 확인한 뒤 context를 교체하고 실패·잘못된 summary를 별도 retry/failure로 처리한다.",
+      "fileSha256": "2f4d554dd534c10b224b478ea28e2cd6d6161388e8f0b76c01490c350bf9b6f1",
+      "rangeSha256": "965c14becab39faabca86d2e416cc11cb1ffa945845b5cb742dcc9dfcce060ae"
+    },
+    {
+      "id": "MV-R08",
+      "path": "harness/runtimes/python/python/mistralai_vibe_local_harness/vibe/_storage.py",
+      "startLine": 1868,
+      "endLine": 1980,
+      "claim": "Unified 세션은 content chunk·checkpoint·runtime/projection·manifest를 staging에 기록하고 fsync/replace 후 digest가 있는 CURRENT를 publication한다.",
+      "fileSha256": "4520c42f6564cf700540c1e510ae54256226e1f59d0aaab225e9ab24fa0da093",
+      "rangeSha256": "f3c7d1bd860856b94504646c5e98406208849d166924c844569da23782288ab1"
+    },
+    {
+      "id": "MV-R09",
+      "path": "vibe/core/config/harness_files/_harness_manager.py",
+      "startLine": 92,
+      "endLine": 210,
+      "claim": "Trusted cwd와 명시적 additional roots만 프로젝트 config/hooks/tools/skills/plugins/agents/prompt discovery에 참여한다.",
+      "fileSha256": "43fc21e2d1a7359ac896ab41e902d927d363ba4ef8f989909af8bcca4b82cbac",
+      "rangeSha256": "53c48da37e2e9bf267b8c0a719167b592a632e90820354ac7a4b85e8d405e494"
+    },
+    {
+      "id": "MV-R10",
+      "path": "vibe/app_server/_agents_md_hooks.py",
+      "startLine": 61,
+      "endLine": 153,
+      "claim": "Builtin post-read hook은 cwd를 additional roots에서 제외해 trust gate를 지키고 성공한 파일 읽기에 하위 AGENTS.md를 session별 한 번만 추가한다.",
+      "fileSha256": "5721bb814fa3d0fdbe1e6ed2b062d00214da3d42cfc5bf31cae926bd88537d04",
+      "rangeSha256": "c47b0b9cb6064f803e0e9ab905bad15a3402f4241beeabdda881180b0a776624"
+    },
+    {
+      "id": "MV-R11",
+      "path": "vibe/core/agents/models.py",
+      "startLine": 27,
+      "endLine": 129,
+      "claim": "AgentProfile은 TOML 지침/override/source를 갖고 ask/plan/accept-edits/auto-approve/smart-approve/explore에 서로 다른 permission/tool ceiling을 준다.",
+      "fileSha256": "28015a29ad37b759c67b89d75e1cd38985ef50b3351f546dc801184debd65b68",
+      "rangeSha256": "bde94b6e9f6b8f3084d8f9b46bd1440d77cf52b2338e0034babb31411010d9c4"
+    },
+    {
+      "id": "MV-R12",
+      "path": "harness/runtimes/python/python/mistralai_vibe_local_harness/vibe/_subagents/_controller.py",
+      "startLine": 936,
+      "endLine": 1031,
+      "claim": "Unified send_message는 graph/name/admission lock과 영구 receipt를 사용해 child의 세대를 확인하고 start/steer admission 및 acknowledge를 중복 복구한다.",
+      "fileSha256": "5c8b3ed43d31370d39fb2c8f568ddf12c6d6826578a3762f6c85b47383ac8a21",
+      "rangeSha256": "a0da2fe51fd17929e9be664c129f1d7eb22dd79cc0418a0a17e1cb58b9676124"
+    },
+    {
+      "id": "MV-R13",
+      "path": "vibe/core/agent_loop_hooks.py",
+      "startLine": 258,
+      "endLine": 328,
+      "claim": "Legacy pre-tool hook의 rewrite를 매번 args model로 재검증하며 최초 denial/invalid rewrite에서 중단하고 실행될 인자를 대화 기록에 반영한다.",
+      "fileSha256": "8c4764da96cacee88fbb5e59ae6824473e546019d86f2fc277be5b1492c285ce",
+      "rangeSha256": "f18f21534b3bf76e6612c1064e6b7c7da1f2d5606b4b632487b0f4f27f6f5492"
+    },
+    {
+      "id": "MV-R14",
+      "path": "harness/runtimes/python/python/mistralai_vibe_local_harness/vibe/_processes/_manager.py",
+      "startLine": 708,
+      "endLine": 819,
+      "claim": "Managed process는 graceful/force termination과 대기 후 실패하면 orphaned로 기록하고 output availability 및 terminal handle 수명을 정리한다.",
+      "fileSha256": "72f1d966f4f0066d3a2dc54516fd1dc2a2121131fccd43180aba49b0ac92e5cc",
+      "rangeSha256": "a74403edcbac254a50635bad73ddb09edce0f977e1803e0f73ceabaae9411048"
+    },
+    {
+      "id": "MV-R15",
+      "path": "vibe/acp/agent.py",
+      "startLine": 770,
+      "endLine": 847,
+      "claim": "ACP prompt는 content를 준비한 후 AppServerSession.act event를 전달하고 cancellation 및 model/turn limit을 ACP stop reason으로 투영한다.",
+      "fileSha256": "64c392c2e9e46f4496344f0cd33934a12f5924e60c204c7a1f999f3506e2a8b0",
+      "rangeSha256": "dc6a1d9271427f719db90ce49c2126fb0b6dc082b338ef3ec6008dd7387d6f6c"
+    },
+    {
+      "id": "MV-R16",
+      "path": "vibe/cli-rust/src/server/process.rs",
+      "startLine": 77,
+      "endLine": 160,
+      "claim": "Rust TUI는 stdio JSON-RPC app-server client이며 backend를 별도 process group으로 시작하고 pipe/stderr와 lifetime을 소유한다.",
+      "fileSha256": "9afdf24095da6df3aff7897feaca068199ab211068ca742f0942c89eaedb1df6",
+      "rangeSha256": "30ade495c60e98a5b1f393f6e716f1ad92a8c8a83073f8077319d1a3f7929391"
+    },
+    {
+      "id": "MV-R17",
+      "path": "vibe/core/tools/manager.py",
+      "startLine": 299,
+      "endLine": 390,
+      "claim": "Legacy catalogue는 source·allow/deny·runtime availability로 도구를 선택하고 managed shell은 managed_shell_tools_enabled flag로 gate한다.",
+      "fileSha256": "893f1f02d7141b8972af6fbe82cca9e858bee05026e5638227a531b3ffdf1b67",
+      "rangeSha256": "519ac1331c9e17edc615c5b04c7faf19307cb3f549837a8c7ace39e655ad88bd"
+    },
+    {
+      "id": "MV-R18",
+      "path": "LICENSE",
+      "startLine": 189,
+      "endLine": 201,
+      "claim": "Root LICENSE는 Mistral AI 저작권과 Apache License 2.0 적용 고지를 담고 있다.",
+      "fileSha256": "3375b98d59c50073c1ea6667fda7df54d122f4e8c67d1ae2fb7afdfe311abf27",
+      "rangeSha256": "41bbe8d67b6d22ba6ce2de366e877d15d7f0848cdb269ab61d6aece17946ac69"
+    },
+    {
+      "id": "MV-R19",
+      "path": "vibe/cli-rust/Cargo.toml",
+      "startLine": 1,
+      "endLine": 18,
+      "claim": "Rust CLI 하위 package metadata는 publish=false, license=Proprietary를 선언하여 root Apache 고지와 별도 확인이 필요하다.",
+      "fileSha256": "f33376931b1fec79cbe5c50f5dd9973e5feef2167e27cb58614a3021075a0868",
+      "rangeSha256": "9c36cfe5947f4d705d5dd712ae1c227e482744ae71bb20cdb400c072b907df90"
+    },
+    {
+      "id": "MV-R20",
+      "path": "README.md",
+      "startLine": 94,
+      "endLine": 179,
+      "claim": "README는 tools/project context/profiles/task delegation 및 Unified subagent UI를 주장한다. 이 문서는 실제 기본 엔진·rollout 판정과 구분한다.",
+      "fileSha256": "6bbaddb4053965135ffa06fa354ded8dec384b61ede999ba9afd632b0bb3f20c",
+      "rangeSha256": "e38cafe751db0682e8aa493bf7d284ec3924c74ec0c93a9c01c09db35412998e"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "MV-C01",
+      "title": "프로젝트 지침·설정의 신뢰 활성화와 철회",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "nested AGENTS.md와 지속 baseline, 명시적 host plugin은 이미 있다. 저장소 단위 신뢰 상태로 지침/config/hooks의 활성화를 함께 gate하는 추가 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/sources.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/permission/index.ts"
+      ],
+      "referenceIds": [
+        "MV-R09",
+        "MV-R10"
+      ],
+      "contract": [
+        "Host가 canonical workspace identity와 instruction/config digest에 trust-for-session 또는 durable-trust를 명시적으로 부여한다. 파일 보기와 behavior activation은 별도다.",
+        "trust scope는 workspace/repository 경계, 추가 root, 명시적 deny를 포함한다. session trust는 close 후 만료되고 철회/변경은 다음 모델 경계에서 기존 instruction baseline과 pending hook 활성화를 무효화한다.",
+        "Untrusted 저장소의 실행 모듈·hook·MCP credential 설정은 자동으로 activate하지 않는다. 승인 grant와 Plan/Build ceiling은 trust 이후에도 독립적으로 적용한다."
+      ],
+      "validation": [
+        "중첩 AGENTS.md, symlink/realpath 경계, additional-root에 cwd 재포함, 명시적 하위 deny가 trust를 우회하지 못한다.",
+        "resume/fork/child의 trust 범위·digest가 일치하고 session trust가 재시작에 남지 않는다.",
+        "revocation과 context capture 경합에서 stale instruction/hook의 새 실행을 거절하고 기존 baseline provenance를 보존한다."
+      ]
+    },
+    {
+      "id": "MV-C02",
+      "title": "승인 이전 lifecycle hook과 제한된 검증 재진입",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "Plugin prepared/settled metadata 관측이 이미 있다. 인자 검증·deny·turn 종료 후 검증 피드백을 위한 새 lifecycle 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/permission/index.ts"
+      ],
+      "referenceIds": [
+        "MV-R06",
+        "MV-R13",
+        "MV-R05"
+      ],
+      "contract": [
+        "Host 등록 hook은 propose-stage에서만 bounded input 수정 또는 denial을 반환한다. 수정된 입력을 schema 검증하고 새 prepare/capture/fingerprint를 만든 뒤 기존 exact approval을 요구한다. prepared/settled hook은 관측 전용으로 유지한다.",
+        "Hook identity/revision/order/input-output digest를 Run/Turn provenance에 기록한다. credentials는 전달하지 않고 실행형 hook은 host ownership·output/timeout/cancel 예산과 명시적 grant를 따른다.",
+        "post-turn 검증 피드백은 별도 bounded continuation request로 기록한다. 실패/취소/deny 이후 재진입과 반복 피드백은 제한하며 terminal Run 뒤 이벤트를 추가하지 않는다."
+      ],
+      "validation": [
+        "잘못된 rewrite·hook timeout·취소는 effect를 실행하지 않으며 원래 승인 fingerprint를 재사용하지 않는다.",
+        "valid rewrite도 재prepare/재승인으로 연결되고 실행 기록·모델에 보이는 입력·effect 입력이 같다.",
+        "검증 피드백의 중복/무한 retry/close 경합에서 continuation 상한 및 terminal 불변성을 확인한다."
+      ]
+    },
+    {
+      "id": "MV-C03",
+      "title": "살아 있는 child의 후속 입력과 mailbox receipt",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "격리 worktree child, cancel/deny/budget 상속, 승인된 read-only delegate_task와 terminal 결과 inbox delivery는 이미 있다. ready child 재사용과 running child steer를 위한 추가 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/engine-host.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/agents/index.ts"
+      ],
+      "referenceIds": [
+        "MV-R12",
+        "MV-R11",
+        "MV-R20"
+      ],
+      "contract": [
+        "Root가 child id·worktree identity·generation·operation id·prompt digest를 고정하여 message를 admit한다. running이면 기존 input scheduler steer, ready이면 새 bounded Turn을 접수한다.",
+        "영구 parent intent→child admission→parent acknowledge receipt로 중복 전송/재시작을 수렴시키고 child-result delivery id와 live-message delivery id를 분리한다.",
+        "초기 read-only/tool/profile/deny ceiling과 전체 descendant 예산을 모든 후속 Turn에 보존한다. stopped/uncertain/archived child는 명시적 오류를 반환한다."
+      ],
+      "validation": [
+        "admission 각 경계의 중단·재전송에서 동일 지시가 두 번 실행되지 않고 미확정 child는 재접수되지 않는다.",
+        "running/ready 전환과 stop/cancel의 경합, 잘못된 generation/worktree/storage binding을 거절한다.",
+        "후속 Turn을 이용해 승인 범위·read-only ceiling·상속 budget을 늘릴 수 없다."
+      ]
+    },
+    {
+      "id": "MV-C04",
+      "title": "기존 engine host 위의 ACP 세션 adapter",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "Engine/host 분리와 versioned command/event, durable input·승인·cancel·paging은 이미 있다. ACP 외부 protocol adapter와 capability negotiation이 추가 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/contracts/src/index.ts",
+        "packages/contracts/src/v2.ts",
+        "packages/engine/src/permission/index.ts"
+      ],
+      "referenceIds": [
+        "MV-R02",
+        "MV-R15",
+        "MV-R16"
+      ],
+      "contract": [
+        "ACP adapter는 session/input identity를 기존 host command에 매핑하고 update 이벤트를 bounded 순서로 투영한다. provider/tool loop를 두 번째로 만들지 않는다.",
+        "Client capability에 따라 image/resource/permission request를 허용하고 미지원 content 또는 mode를 명시적 protocol error로 반환한다. client 제공 tool I/O는 명시적 host factory 및 effect/approval ownership에 연결한다.",
+        "prompt cancel→run cancel→cleanup terminal을 구분하고 transport disconnect를 실행 취소와 별도로 처리한다. replay/resume에서는 tool-call/result pairing과 receipt identity를 유지한다."
+      ],
+      "validation": [
+        "합성 ACP client에서 prompt→tool approval→result→terminal update와 pagination/replay 순서를 검증한다.",
+        "cancel/close/disconnect/late callback 경합이 stale 승인·중복 Run·불완전 tool exchange를 만들지 않는다.",
+        "미지원 media·capability downgrade·잘못된 session scope에 bounded typed error를 반환한다."
+      ]
+    }
+  ],
+  "limitations": [
+    "고정 HEAD의 정적 소스 검토다. upstream 설치·build·테스트·모델/API·계정·GUI·벤치마크·telemetry 전송을 실행하지 않았다.",
+    "Python legacy AgentLoop와 현재 기본 Unified Harness를 분리했다. wheel의 생성 native module·packaged binary 실제 import/실행, TUI rollout 배정, 서버 feature assignment는 확인하지 않았다.",
+    "root Apache-2.0, distribution/zed/LICENSE Apache-2.0, Rust CLI Proprietary metadata를 구분한다. 하위 marker의 적용 범위·상충을 법률적으로 해결하거나 배포 의존성 전체 license audit를 수행하지 않았다.",
+    "Mistral API/browser auth·telemetry/Sentry·GrowthBook·remote skill registry·MCP/connector/server의 이용 조건과 account capability는 외부 서비스 경계다. checkout의 license로 이를 대체할 수 없다.",
+    "source에서 확인한 session history/compaction/skills/scratchpad를 cross-project semantic memory 또는 자동 학습·publication으로 간주하지 않는다. sampled code에서 찾지 못한 기능을 제품 전체의 부재로 단정하지 않는다.",
+    "실제 OS별 process-tree 정리, crash recovery, provider별 retry/vision, ACP editor interoperability, 설치 산출물의 지원성·성능은 검증하지 않았다.",
+    "upstream source/prompt/fixture를 복사하지 않았고 Moodcode runtime을 변경하지 않았다. 원본을 읽은 분석이며 clean-room 구현 절차를 수행했다고 주장하지 않는다."
+  ]
+}

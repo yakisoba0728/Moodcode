@@ -1,0 +1,309 @@
+{
+  "schemaVersion": 1,
+  "slug": "kilocode",
+  "head": "b1e7f34a4ce9fac0519714116f06fb553e185c56",
+  "repository": "https://github.com/Kilo-Org/kilocode",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/kilocode",
+  "analysisDate": "2026-10-07",
+  "analysisMode": "static-source-review",
+  "comparisonBaseline": {
+    "documentHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineHead": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "references": [
+    {
+      "id": "K01",
+      "path": "README.md",
+      "startLine": 118,
+      "endLine": 163,
+      "claim": "README의 기능·자동 승인·MIT·OpenCode fork 주장",
+      "fileSha256": "b0f214bc5c1a01324edd41e2424a91ab028c7d98e880173bb4475d74df8aab21",
+      "rangeSha256": "822f0a4164a49187a9915837a375de59e003370e8d95fc9a41050cd429995abd"
+    },
+    {
+      "id": "K02",
+      "path": "LICENSE",
+      "startLine": 1,
+      "endLine": 22,
+      "claim": "root MIT, Kilo Code와 opencode의 저작권 고지",
+      "fileSha256": "8a088af74e19c37e62906321b1072f593113058ed9eae507d899d41e6e5e5bb4",
+      "rangeSha256": "8a088af74e19c37e62906321b1072f593113058ed9eae507d899d41e6e5e5bb4"
+    },
+    {
+      "id": "K03",
+      "path": "packages/kilo-vscode/src/services/cli-backend/server-manager.ts",
+      "startLine": 81,
+      "endLine": 174,
+      "claim": "VS Code host의 CLI serve 시작과 인증·제품·부모 PID 전달",
+      "fileSha256": "948afce5cb00db9b32a806c8744c73a0d9fad919f76cac6d3aa7d3e89ba88b9c",
+      "rangeSha256": "ad0a28074c37d030f64cd08e55c6e474134e0f2ceb1d1fb6cea20b4aed182716"
+    },
+    {
+      "id": "K04",
+      "path": "packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts",
+      "startLine": 313,
+      "endLine": 346,
+      "claim": "기본 instance prompt가 SessionPrompt.Service로 진입",
+      "fileSha256": "492642d15828b4c34028899faa95e8f8fbaba7313877720c38654ad5fb35b1ad",
+      "rangeSha256": "9d5961106196b951e589c5024b282af1745a1199ab47a30d418f9dd74c33b54d"
+    },
+    {
+      "id": "K05",
+      "path": "packages/opencode/src/session/prompt.ts",
+      "startLine": 1548,
+      "endLine": 1640,
+      "claim": "이력 재조회·queue scope·chronology와 tool-call을 고려한 종료",
+      "fileSha256": "9521f2e17ddb95f02cad9dc28adb744437abdb31426f2eae78c3c9d710b67441",
+      "rangeSha256": "ff11d5fe451c8ea3b053300226e2f98ad832453f8009c085dc86a1d153b37b75"
+    },
+    {
+      "id": "K06",
+      "path": "packages/opencode/src/session/prompt.ts",
+      "startLine": 1743,
+      "endLine": 1875,
+      "claim": "도구 해석·plugin transform·editor/memory/instruction/MCP 문맥·payload prune·processor 호출",
+      "fileSha256": "9521f2e17ddb95f02cad9dc28adb744437abdb31426f2eae78c3c9d710b67441",
+      "rangeSha256": "77d71444b038f483735327f092cc56489d1ddba3c3afaece190fb6eaa347a747"
+    },
+    {
+      "id": "K07",
+      "path": "packages/opencode/src/session/llm.ts",
+      "startLine": 309,
+      "endLine": 437,
+      "claim": "native opt-in/fallback과 기본 AI SDK streamText의 model/tools/abort/출력 한도",
+      "fileSha256": "cf065ee7e42b6f9c2ce067a616d1721c94481252209b053015492738c397d1bb",
+      "rangeSha256": "37ed6e609b63a6d078f2579ef3b92bcc3c27726fb6274cd906f5ea02785bf0a5"
+    },
+    {
+      "id": "K08",
+      "path": "packages/opencode/src/session/processor.ts",
+      "startLine": 938,
+      "endLine": 1087,
+      "claim": "event drain·network guard·interrupt·provider retry·불완전 시도 처리·continuation 결과",
+      "fileSha256": "49b275b7edaafbfcbe74c49c8110a18d299a641fbc79635dfc8643c4298adec0",
+      "rangeSha256": "cd786a8f34a16f1acf764809b13acebaf174489d0efc065df766f6f4a64567f1"
+    },
+    {
+      "id": "K09",
+      "path": "packages/opencode/src/session/tools.ts",
+      "startLine": 101,
+      "endLine": 223,
+      "claim": "call별 문맥·승인 provenance·plugin 전후 hook·sandbox 실행",
+      "fileSha256": "fa040c59c3ef1a5be3863cdf056f41628f7f394067928cd1c4c7f75e08233a9b",
+      "rangeSha256": "a6dab18ef782ee1e2b762225ee2f48b9047fe78c51f4c5189431efe2d3d2907b"
+    },
+    {
+      "id": "K10",
+      "path": "packages/opencode/src/kilocode/permission/provenance.ts",
+      "startLine": 11,
+      "endLine": 149,
+      "claim": "규칙 출처·외부 workspace 표시·metadata 교체 때 승인 출처 보존",
+      "fileSha256": "1d6490cb91f9f72e6b3ab9fa49bdfa6d9cb203895a77d3b508127cd82340b953",
+      "rangeSha256": "4298d178403fedbf8ae05596ba6f46769c865959e276afe95883de22fb8eac8a"
+    },
+    {
+      "id": "K11",
+      "path": "packages/opencode/src/tool/task.ts",
+      "startLine": 197,
+      "endLine": 335,
+      "claim": "부모 권한/sandbox 상속·자식 생성/재개·background 결과의 부모 prompt 전달",
+      "fileSha256": "b7a3d981e7e237d3946087a977467b6e2d34086c25a720959d3f38c8c6bbb013",
+      "rangeSha256": "c71fac752371f4c90d1f4880031aecb3bafec1a6105e0108157effb9750856af"
+    },
+    {
+      "id": "K12",
+      "path": "packages/opencode/src/kilocode/board/store.ts",
+      "startLine": 235,
+      "endLine": 339,
+      "claim": "root board의 tool-call identity·수신자/reply·상한·transaction",
+      "fileSha256": "06044786ce152e65dcee510ac4c3981ab60986bf057d18e1448d822ea08a6fb7",
+      "rangeSha256": "a572cc0cb77c27391d4a2c49faf60149ad748aa43d04777c37d946c5a70279e1"
+    },
+    {
+      "id": "K13",
+      "path": "packages/kilo-memory/src/memory.ts",
+      "startLine": 129,
+      "endLine": 230,
+      "claim": "enabled 기억 색인·bounded 문맥·명시적 apply와 source/file 결과",
+      "fileSha256": "2cd0d89c2d8020a59b7652884457c603ee35a4185730e334f38f0e23dd7e0464",
+      "rangeSha256": "2a759d75a855e4f0da6cfc5e33da12a5bdd5567992eb2824672569247133010f"
+    },
+    {
+      "id": "K14",
+      "path": "packages/core/src/event.ts",
+      "startLine": 245,
+      "endLine": 364,
+      "claim": "durable event·projection·aggregate 순번의 immediate transaction 저장",
+      "fileSha256": "bd3549ef13582adcb3a1e95e93a7f7a7b3c92e3eade8e6b8a9f73aecf26be838",
+      "rangeSha256": "fb741df883998b01270b289675b8fe62a5555dbf7104fbc07447ca316ecef1d8"
+    },
+    {
+      "id": "K15",
+      "path": "packages/opencode/src/kilocode/session/prompt.ts",
+      "startLine": 161,
+      "endLine": 282,
+      "claim": "session/tree 취소·drain·빈/실패 assistant tail의 제한된 복구",
+      "fileSha256": "f260fc3f5690130a7266edbc501e37237b84766ca323f05dd65741309dffce56",
+      "rangeSha256": "066e0772aa685bc23349feedaf11c27dae8cad8045925f016cf0e869e4a0c484"
+    },
+    {
+      "id": "K16",
+      "path": "packages/opencode/src/session/processor.ts",
+      "startLine": 588,
+      "endLine": 735,
+      "claim": "step 전후 snapshot·finish·usage·cost·patch 기록",
+      "fileSha256": "49b275b7edaafbfcbe74c49c8110a18d299a641fbc79635dfc8643c4298adec0",
+      "rangeSha256": "b7f8ba7b9c6eed033cb6e13a5e04cf70b5b3e405fc6a17172b644e7e0d87f537"
+    },
+    {
+      "id": "K17",
+      "path": "packages/opencode/src/session/compaction.ts",
+      "startLine": 468,
+      "endLine": 578,
+      "claim": "summary assistant·payload/chunk fallback·빈 요약 거절·성공 때만 tail anchor",
+      "fileSha256": "6cc3bf5041813b1a937adc2e777b6d3fa83fc6fab16545e3ec6bc6b55dd3266c",
+      "rangeSha256": "925a1eea7b34e856f617ce41766f06410cd30f1f8caf24d840a9c1701e62dadb"
+    },
+    {
+      "id": "K18",
+      "path": "packages/opencode/src/session/tools.ts",
+      "startLine": 471,
+      "endLine": 570,
+      "claim": "MCP 변환·승인·sandbox·hooks·attachment/큰 결과 투영",
+      "fileSha256": "fa040c59c3ef1a5be3863cdf056f41628f7f394067928cd1c4c7f75e08233a9b",
+      "rangeSha256": "6ab5fe2ef88077ab2638c62dbb7ca3e1577712cc41578212637655c7eea29490"
+    },
+    {
+      "id": "K19",
+      "path": "packages/core/src/session/runner/llm.ts",
+      "startLine": 173,
+      "endLine": 328,
+      "claim": "V2 location/epoch/input 승격·LLM request·durable tool-call 뒤 settlement",
+      "fileSha256": "a9a77b9d1ee28e2d0c92fd1d2bcafe6a0ce84a048699c0b5f20852103d237115",
+      "rangeSha256": "696c8372eb2bf63d2d2b495a43c75cc752ba9ab54bf8b73b9bcc049a4ea0e856"
+    },
+    {
+      "id": "K20",
+      "path": "packages/opencode/src/control-plane/workspace.ts",
+      "startLine": 559,
+      "endLine": 640,
+      "claim": "session warp의 source sync/cancel·event owner claim·변경 적용·binding",
+      "fileSha256": "e024ff6685ac967a14db5d89eb9a615358d0b37448b4aabcd8b0f142c803ba10",
+      "rangeSha256": "c117d4d6dd6ce937351218117555573b0903333836178d4fd0a3c8b43d749856"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "K-C01",
+      "title": "살아 있는 child 간 root 단위 공유 board",
+      "priority": "P2",
+      "cost": "M–L",
+      "moodcodeStatus": "durable input inbox·task CAS·child worktree·terminal 결과 중복 제거 전달은 이미 있음. 살아 있는 sibling의 수신자 지정 board·읽기 cursor는 추가 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/contracts/src/v2.ts"
+      ],
+      "referenceIds": [
+        "K11",
+        "K12",
+        "K15"
+      ],
+      "contract": "Host가 승인한 root task scope에만 state 도구를 노출하고 sender는 살아 있는 child owner에서 결정한다. root/sender/run/toolCall identity로 중복 제거하며 같은 identity의 다른 본문은 conflict로 거절한다. recipient와 reply는 같은 root 소속만 허용한다. 순번 cursor·clear revision·메시지/저장/문맥 byte 한도를 두고 unread는 다음 모델 경계에서 data로 전달한다. 지침·permission ceiling을 변경하지 않으며 terminal child 결과는 기존 delivery 계약을 유지한다.",
+      "validation": [
+        "sibling 동시 게시에서 순번 충돌/중복 없음; 동일 retry는 동일 receipt, 변경 retry는 conflict",
+        "다른 root·완료/취소 sender·없는 recipient/reply 거절; read-only child state 쓰기는 별도 host grant 필요",
+        "stale cursor·clear revision conflict·overflow·재시작·cancel 경계 검사",
+        "모델 경계의 예산/source identity 보존과 기존 terminal 결과 delivery 중복 제거 회귀"
+      ]
+    },
+    {
+      "id": "K-C02",
+      "title": "출처와 승인 revision을 가진 프로젝트 기억 publication",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "세션 semantic summary·active-prefix checkpoint·bounded context·로컬 skill/reference 읽기는 이미 있음. 세션 밖 사실 승격과 다른 세션에서 승인된 project memory 재사용을 제안.",
+      "moodcodePaths": [
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/context/active-prefix.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/tools/session/skills.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/storage/index.ts"
+      ],
+      "referenceIds": [
+        "K06",
+        "K13",
+        "K17"
+      ],
+      "contract": "기존 세션 summary와 별개로 host가 project memory revision을 소유한다. 생성은 source session/message/hash·모델·시각을 가진 bounded proposal이고 추가/수정/삭제 publication은 exact preview·승인 fingerprint·CAS revision에 binding한다. 이력/추론은 현재 파일 관측과 구별한다. secret/credential 거절·redaction, raw output 자동 복제 금지, 승인 revision과 문맥 byte budget의 세션별 pin을 적용한다. 새 revision은 명시적 다음 모델 경계에서 수용하며 기억으로 permission/tool budget을 확대하지 않는다.",
+      "validation": [
+        "두 세션의 stale approval/revision은 publication 불가; source/본문 변경은 fingerprint 불일치",
+        "실패·빈 결과·cancel·crash에서 미승인 proposal은 active revision이 되지 않음",
+        "secret·긴 본문·없는 source·다른 workspace 거절과 기존 summary/active-prefix 복구 회귀",
+        "publication 감사·폐기·세션별 pinned revision·bounded projection 재현"
+      ]
+    },
+    {
+      "id": "K-C03",
+      "title": "정책과 grant별 승인 판단 출처 기록",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "deny 우선 Plan/Build 정책·reason·policy version·exact approval·durable scoped grant 발급/소비/철회는 이미 있음. 규칙/grant/manual별 관측 metadata를 확장.",
+      "moodcodePaths": [
+        "packages/engine/src/permission/policy.ts",
+        "packages/engine/src/permission/grants.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/plugins/index.ts",
+        "packages/contracts/src/index.ts"
+      ],
+      "referenceIds": [
+        "K09",
+        "K10",
+        "K18"
+      ],
+      "contract": "prepared call에 결정·policy revision·규칙 identity·host/config/profile/manual/grant/default 출처를 기록한다. grant는 revision·소비 receipt만 기록하고 명령 원문/credential을 제외한다. denial도 같은 schema로 기록하고 복수 권한 검사는 bounded decision list에 effect/resource identity별로 보존한다. 관측 metadata는 권한이나 fingerprint를 변경하지 못한다. execution 직전 exact prepare·현재 policy/grant revalidation은 유지한다.",
+      "validation": [
+        "동일 tool/서로 다른 resource의 출처 분류와 deny 우선 보존",
+        "grant 철회·policy 변경·승인 뒤 prepare 변경 시 효과 차단/정확한 원인",
+        "result/plugin metadata 교체·retry·cancel·archive/reopen에서 출처 보존·재승인 불가",
+        "unknown 표시·byte/count 상한·명령 redaction·기존 approval/MCP native recovery 회귀"
+      ]
+    }
+  ],
+  "licenses": [
+    {
+      "path": "LICENSE",
+      "license": "MIT",
+      "fileSha256": "8a088af74e19c37e62906321b1072f593113058ed9eae507d899d41e6e5e5bb4"
+    },
+    {
+      "path": "packages/kilo-vscode/LICENSE",
+      "license": "MIT",
+      "fileSha256": "8a088af74e19c37e62906321b1072f593113058ed9eae507d899d41e6e5e5bb4"
+    },
+    {
+      "path": "packages/ui/LICENSE",
+      "license": "MIT",
+      "fileSha256": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b"
+    },
+    {
+      "path": "packages/http-recorder/LICENSE",
+      "license": "MIT",
+      "fileSha256": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b"
+    }
+  ],
+  "limitations": [
+    "원본 설치/test/runtime/실제 모델/계정/GUI/외부 서비스/공유 build를 실행하지 않았다. 파일·줄·고정 SHA·hash 정적 검사만 수행했다.",
+    "기본 instance SessionPrompt와 V2 core runner는 별도 경로다. 한 경로에서 확인한 기능을 모든 API/client로 일반화하지 않는다.",
+    "500+ 모델·가격·Cloud Agent·Marketplace·자동완성·브라우저 제품 경험은 README/외부 서비스 범위이며 모델별·OS별 검증이 없다.",
+    "native LLM AGENTS 설명과 현재 runtime-flags/native-runtime gate의 차이는 실제 boolean/provider/credential/fetch 코드 기준으로 기록했다.",
+    "secret 탐지·sandbox·snapshot 복원·원격 MCP 효과 exactly-once·crash frontier의 안전성을 입증하지 않았다.",
+    "하위 LICENSE는 확인한 4개 파일을 기록했다. 전이 의존성/미디어/vendor/IDE 플랫폼 전체 license audit 또는 법률 검토가 아니다.",
+    "선정 20개 근거 외 client/provider/plugin/indexing 파일도 제한적으로 읽었다. 전체 정독/OpenCode 전면 parity/향후 유지보수를 주장하지 않는다.",
+    "원본 source/prompt/tool description/fixture를 복사하거나 runtime dependency를 추가하지 않았다. 원본/HEAD와 담당 외 파일을 변경하지 않았으며 clean-room이라고 주장하지 않는다."
+  ]
+}

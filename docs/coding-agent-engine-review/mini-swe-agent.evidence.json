@@ -1,0 +1,315 @@
+{
+  "slug": "mini-swe-agent",
+  "head": "04d809ceab9df28f9adaed044884180159172930",
+  "repository": "https://github.com/SWE-agent/mini-swe-agent",
+  "analysisMode": "static-source-review",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/mini-swe-agent",
+  "reviewedAt": "2026-10-07",
+  "upstreamExecution": false,
+  "moodcodeBaseline": {
+    "documentationHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineSource": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "references": [
+    {
+      "id": "MSA-R01",
+      "path": "LICENSE.md",
+      "startLine": 1,
+      "endLine": 21,
+      "claim": "root 실제 LICENSE.md는 MIT이며 저작권·고지 유지 조건을 명시한다.",
+      "fileSha256": "0f796e58f91d1c07bb2c1b1d0f8bf3a83017c3a5dec1bdc6fae733b2cd2e875b",
+      "rangeSha256": "0f796e58f91d1c07bb2c1b1d0f8bf3a83017c3a5dec1bdc6fae733b2cd2e875b"
+    },
+    {
+      "id": "MSA-R02",
+      "path": "README.md",
+      "startLine": 5,
+      "endLine": 54,
+      "claim": "README의 v2, 약 100줄, 성능 수치, bash-only·선형 이력 주장은 실행 결과와 구분한다.",
+      "fileSha256": "9982d90b7566f2f3fa5e9811b475d5e8e2a84e2df80cf3f1e4be6e820b129835",
+      "rangeSha256": "796f39c0eda5bb96fac31a05e18970c3d1f2b6351e6db4235b50e3e20697020e"
+    },
+    {
+      "id": "MSA-R03",
+      "path": "pyproject.toml",
+      "startLine": 6,
+      "endLine": 106,
+      "claim": "Python >=3.10 단일 package, Alpha metadata, runtime/optional 의존성과 mini entry point를 정의한다.",
+      "fileSha256": "c176ff37a89ee88a2ea2ce746b9b7e723ea3175e53be5336ab99f5aba0d59ddf",
+      "rangeSha256": "ada7d5e603942570c83921d5f91f98f14efc335c891ef980e58d72412afba269"
+    },
+    {
+      "id": "MSA-R04",
+      "path": "src/minisweagent/__init__.py",
+      "startLine": 11,
+      "endLine": 82,
+      "claim": "2.4.6 version, 전역 설정 초기화, Model/Environment/Agent protocol을 정의한다.",
+      "fileSha256": "0a708308b1b62cc020b60799c3d54f665845f795b3f0c4fdac787c96a38d12c7",
+      "rangeSha256": "84081aec86291160614380747ae278608cf9566230915789d39f6029027a1daf"
+    },
+    {
+      "id": "MSA-R05",
+      "path": "src/minisweagent/run/mini.py",
+      "startLine": 55,
+      "endLine": 105,
+      "claim": "CLI config merge 후 model/environment/interactive agent factory를 구성하고 agent.run으로 진입한다.",
+      "fileSha256": "ae9c82013afbc8e0320dc1e55600eed9d9ee6dec5acbc59763ff984a0594f9a9",
+      "rangeSha256": "3cfb8e6bcd581e7d5713fe36ac2a9a420157e616388d258ae9ed0bd2a3683234"
+    },
+    {
+      "id": "MSA-R06",
+      "path": "src/minisweagent/agents/default.py",
+      "startLine": 19,
+      "endLine": 157,
+      "claim": "기본 loop는 query 후 순차 action 실행이며 step/cost/wall time과 연속 format error를 제한하고 step마다 finally save한다.",
+      "fileSha256": "e8ef8aa365942d739c2ec5cb0879f60f377d2dc2de8ec670aaedf3bafb45a4c2",
+      "rangeSha256": "4ceffde5b1139f1e5d8e59d2085d61b42152018a85c4f2348b055ec9d2661a3a"
+    },
+    {
+      "id": "MSA-R07",
+      "path": "src/minisweagent/agents/default.py",
+      "startLine": 159,
+      "endLine": 190,
+      "claim": "trajectory는 config·version·cost·messages·exit/submission을 결합하여 JSON으로 전체 덮어쓴다.",
+      "fileSha256": "e8ef8aa365942d739c2ec5cb0879f60f377d2dc2de8ec670aaedf3bafb45a4c2",
+      "rangeSha256": "31718dde84586cecd5d117dcce6993624502bd4737fae33c06ab6f9a646fb630"
+    },
+    {
+      "id": "MSA-R08",
+      "path": "src/minisweagent/models/litellm_model.py",
+      "startLine": 27,
+      "endLine": 151,
+      "claim": "LiteLLM completion에 bash tool을 전달하고 metadata를 제외한 history를 사용하며 parsing 실패에도 billed response/cost를 보존한다.",
+      "fileSha256": "6df4483bcdc9620b2f9d7f8bb1027a7fb9729b739976cbcf1a9d18fb58c48227",
+      "rangeSha256": "47fed4541d9cb4efb0a48c36e60a21d413506a65c196573231c805acaf202a62"
+    },
+    {
+      "id": "MSA-R09",
+      "path": "src/minisweagent/models/utils/actions_toolcall.py",
+      "startLine": 11,
+      "endLine": 113,
+      "claim": "bash-only JSON/name/key 검증 후 call ID를 유지한 action과 observation을 구성하며 미실행 output을 padding한다.",
+      "fileSha256": "47b666412e4f838508b50009cf34c7f63fe15e9e40affc257a17c0829896526f",
+      "rangeSha256": "017c15e1181e4b5ac4e8ad5220def61e676457c4de7bc1b0bf67f02e51ee8142"
+    },
+    {
+      "id": "MSA-R10",
+      "path": "src/minisweagent/models/utils/actions_text.py",
+      "startLine": 1,
+      "endLine": 70,
+      "claim": "toolcall 대신 regex로 정확히 한 command를 파싱하는 대안과 user observation formatter가 있다.",
+      "fileSha256": "e5997bba3ae3d541ff418317cc8dd9e9e17657de806679ef38ab1ad74e294047",
+      "rangeSha256": "e5997bba3ae3d541ff418317cc8dd9e9e17657de806679ef38ab1ad74e294047"
+    },
+    {
+      "id": "MSA-R11",
+      "path": "src/minisweagent/models/utils/retry.py",
+      "startLine": 9,
+      "endLine": 25,
+      "claim": "provider 전송 재시도는 환경 변수 기본 10회, 지수 대기 4~60초와 abort exception 제외를 사용한다.",
+      "fileSha256": "fb9dd9d9ca0253a2b2ac86907fea4c34fe75c55af6d443781e1ab02229a1ac18",
+      "rangeSha256": "0d4d16bbdb6a34004b3c0a2f877c192c99d5a741ae6a28d06f4f8c5321a970fa"
+    },
+    {
+      "id": "MSA-R12",
+      "path": "src/minisweagent/environments/local.py",
+      "startLine": 13,
+      "endLine": 92,
+      "claim": "host cwd/env의 새 shell process를 실행하고 stdout·returncode를 관측하며 성공 marker로 제출, POSIX timeout에서 process group을 kill한다.",
+      "fileSha256": "01dd33ae6be897458611911cc0eee1389092ea9fc6788c7eb24773e7c6342b1c",
+      "rangeSha256": "01a4f6ef69924b62617c1df96abf11afeb08c9dce7148f7475630fa7907b0c47"
+    },
+    {
+      "id": "MSA-R13",
+      "path": "src/minisweagent/environments/docker.py",
+      "startLine": 15,
+      "endLine": 161,
+      "claim": "container 시작 후 action별 exec/interpreter/cwd/env로 실행하고 제출 marker를 확인하며 destructor cleanup은 background command를 launch한다.",
+      "fileSha256": "21d389122b008e7b743d1e640207fda0b08d9010cf6323ddd02f0742b33b96a6",
+      "rangeSha256": "9a029a584d1535e6a9c9b391d211a0abc04e76f18827a8a94e1127e1dc5fe5cd"
+    },
+    {
+      "id": "MSA-R14",
+      "path": "src/minisweagent/agents/interactive.py",
+      "startLine": 24,
+      "endLine": 183,
+      "claim": "confirm/human/yolo 및 regex whitelist, 사용자 interruption, 제한 상향, 부분 output finally 보존과 제출 확인을 구현한다.",
+      "fileSha256": "d68236832ce2a8c65340fdfd4cdb6df2a24818691112f83bc229197203521cce",
+      "rangeSha256": "cd542c52b32f063d5c3b03f5138bc9bd7f1a47e73e760d8cd49cd222e1ec29a8"
+    },
+    {
+      "id": "MSA-R15",
+      "path": "src/minisweagent/config/mini.yaml",
+      "startLine": 101,
+      "endLine": 151,
+      "claim": "기본 step/cost/confirm 설정과 10000자 observation의 head/tail projection 및 output length format 진단을 정의한다.",
+      "fileSha256": "b539a8965f5bf41dd0f32daafa5d2db22581923d13812fa378fd09569b9d6b0c",
+      "rangeSha256": "59b16613822830f0bd2e63e7a7e90a2cab856d7242902a0e91ef3d90015ffa8f"
+    },
+    {
+      "id": "MSA-R16",
+      "path": "src/minisweagent/run/benchmarks/swebench.py",
+      "startLine": 79,
+      "endLine": 177,
+      "claim": "instance별 환경과 agent를 만들고 trajectory·prediction·exit status를 저장하며 prediction 파일 갱신은 process-local lock을 사용한다.",
+      "fileSha256": "4bc6cfc0a388ba14b8c9cd7278f15efaef654f7f79b3b252208f8fdb11a0fc99",
+      "rangeSha256": "a54a0aaedd5c70b023ccb9e5d843c7978576d36394b8efa90f036317ce7bae23"
+    },
+    {
+      "id": "MSA-R17",
+      "path": "src/minisweagent/run/benchmarks/swebench.py",
+      "startLine": 200,
+      "endLine": 275,
+      "claim": "dataset/filter/slice·preds key 기반 skip·thread workers를 구성하고 첫 KeyboardInterrupt는 pending future만 cancel한다.",
+      "fileSha256": "4bc6cfc0a388ba14b8c9cd7278f15efaef654f7f79b3b252208f8fdb11a0fc99",
+      "rangeSha256": "dddae68dbd900e452154cddf290043846cb655c07d2683fce8c3a03b48c2e954"
+    },
+    {
+      "id": "MSA-R18",
+      "path": "src/minisweagent/models/__init__.py",
+      "startLine": 13,
+      "endLine": 113,
+      "claim": "process 전역 model cost/call 집계와 선택적 한도, provider별 class·full import path factory를 제공한다.",
+      "fileSha256": "eb141eae346d51af407b4faf868ad7e869fa4fff275415381fa8ef845616f351",
+      "rangeSha256": "5fc66adb38e101cc7825b3c550b808c8017494648b26b3058e9bfaf578973f41"
+    },
+    {
+      "id": "MSA-R19",
+      "path": "src/minisweagent/models/utils/openai_multimodal.py",
+      "startLine": 7,
+      "endLine": 50,
+      "claim": "optional regex로 text와 image_url content를 펼치며 비활성 pattern이면 입력을 그대로 사용한다.",
+      "fileSha256": "c498ec2e97c0bf45c212a10de9f5d1b2d24d4de46a05fd0eaea975c1abe3f81f",
+      "rangeSha256": "9eec94dc88dacfacbbe90d9a479d19d0d2f09c1f95ea2b76ec0802924932a596"
+    },
+    {
+      "id": "MSA-R20",
+      "path": "src/minisweagent/models/litellm_response_model.py",
+      "startLine": 25,
+      "endLine": 98,
+      "claim": "Responses output item을 stateless input으로 펼치고 response query·action parsing·format error response/cost 보존을 구현한다.",
+      "fileSha256": "968de298d508b0de58f52548472e47135efff3891ddda157a9740e7571a6e8c8",
+      "rangeSha256": "e5e850d926f394cf062559a116033e2d9673d9d3ede7657764913cce7a5ab0b0"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "MSA-C01",
+      "title": "provider 오류 분류·관측 보존 합성 검증 행렬",
+      "priority": "P1",
+      "cost": "S",
+      "moodcodeStatus": "Attempt/Part·usage·부분 tool proposal·제한된 재시도·cleanup uncertainty를 이미 구현했다. 추가 후보는 같은 코딩 loop 오류 경계의 명시적 검증 행렬이다.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/provider/openai-compatible.ts",
+        "packages/engine/src/provider/responses.ts",
+        "packages/engine/src/config/budgets.ts"
+      ],
+      "referenceIds": [
+        "MSA-R06",
+        "MSA-R08",
+        "MSA-R09",
+        "MSA-R11",
+        "MSA-R15",
+        "MSA-R20"
+      ],
+      "contract": "malformed JSON, unknown tool, output-limit, transport 오류를 독립 합성 시나리오로 분류한다. 이미 관측한 usage·부분 제안의 원래 identity를 보존하고 유효한 finish 전에는 effect를 시작하지 않는다. protocol 오류에 일반 재시도를 새로 허용하지 않고 기존 cleanup·예산 계약을 그대로 적용한다. upstream response나 fixture를 복사하지 않는다.",
+      "validation": [
+        "completion/Responses별 독자 합성 시나리오에서 오류 분류와 관측 보존을 확인한다.",
+        "usage absent/0 및 미관측 응답을 구분하고 provider Attempt 계수의 중복 증가를 검사한다.",
+        "관측 후 전송 실패·protocol 오류의 자동 재실행이 없고 tool effect가 0임을 확인한다.",
+        "부분 제안/텍스트·실패 Attempt를 재조회하고 terminal 이후 기록 금지 및 cleanup uncertainty 실행 차단을 확인한다."
+      ]
+    },
+    {
+      "id": "MSA-C02",
+      "title": "고정 journal sequence의 읽기 전용 trajectory 투영",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "durable Run/Turn/Attempt/Part, bounded paging, archive export/import를 이미 구현했다. 작은 코딩 trajectory inspection/export 표현 계약을 추가하는 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/storage/native-records.ts",
+        "packages/engine/src/storage/native-history.ts",
+        "packages/engine/src/storage/archive.ts"
+      ],
+      "referenceIds": [
+        "MSA-R07",
+        "MSA-R08",
+        "MSA-R09",
+        "MSA-R14",
+        "MSA-R20"
+      ],
+      "contract": "동일 journal sequence에 고정된 읽기 전용 투영에서 원래 Run/Turn/Attempt/Part/call ID를 유지한다. model-input projection과 실행 observation, retry·summary·부분 결과를 구분한다. credential과 native opaque payload는 자동 공개하지 않는다. 이 투영은 저장/복구/실행 authority를 대체하지 않으며 읽기와 export로 도구를 실행하지 않는다.",
+      "validation": [
+        "여러 page의 순서·중복·누락과 export 전후 원본 journal 불변을 확인한다.",
+        "실패한 Attempt·부분 observation·미실행 tool과 원래 ID의 대응을 검사한다.",
+        "UTF-8/byte 상한, redaction·opaque payload 제외, snapshot 도중 저장소 변동의 binding 오류를 확인한다.",
+        "투영 import 또는 inspector reload가 Run/도구 실행을 시작하지 않음을 확인한다."
+      ]
+    },
+    {
+      "id": "MSA-C03",
+      "title": "완료 증거와 source identity를 묶는 headless batch 재개",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "기존 headless coding fixture 3개와 영구 입력·실행·budget 상속은 이미 있다. batch result key 존재보다 강한 완료 조건과 재실행 기록 계약을 추가하는 후보다.",
+      "moodcodePaths": [
+        "scripts/evaluate-engine.mjs",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/config/budgets.ts"
+      ],
+      "referenceIds": [
+        "MSA-R06",
+        "MSA-R16",
+        "MSA-R17",
+        "MSA-R18"
+      ],
+      "contract": "case identity는 engine source, 독자 fixture digest, credential을 제외한 provider config hash와 예산에 묶는다. 성공 terminal·파일 결과·검증 명령·cleanup이 일치한 case만 완료로 건너뛴다. failed/cancelled/uncertain은 상태별로 보존하고 재실행마다 새 attempt identity를 사용해 과거 report를 덮어쓰지 않는다. benchmark 성능을 주장할 경우 scripted 계약 검증과 별도 실제 모델 평가를 명확히 구분한다.",
+      "validation": [
+        "report 쓰기 중단과 동일 case 동시 제출에서 완료/미완료가 혼동되지 않음을 확인한다.",
+        "기존 실패 key, config/source/fixture 변경과 다른 예산의 결과 재사용 거절을 확인한다.",
+        "pending/running 취소와 cleanup uncertainty를 분리하고 미확정 case가 자동 skip되지 않음을 확인한다.",
+        "승인 binding·최종 파일·검증 명령 결과를 다시 검사하고 scripted 통과율을 실제 모델 성공률로 표시하지 않는다."
+      ]
+    },
+    {
+      "id": "MSA-C04",
+      "title": "비상주 명령과 worktree 실행의 상태 수명 검증",
+      "priority": "P2",
+      "cost": "S",
+      "moodcodeStatus": "run_command, exact preparation/approval, supervisor/process cleanup, worktree·child budget/deny 상속을 이미 구현했다. 상태 수명과 경계의 추가 검증 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/tools/command/process-control.ts",
+        "packages/engine/src/tools/command/backends.ts",
+        "packages/engine/src/worktrees/index.ts",
+        "packages/engine/src/child-tasks/index.ts"
+      ],
+      "referenceIds": [
+        "MSA-R06",
+        "MSA-R12",
+        "MSA-R13",
+        "MSA-R14"
+      ],
+      "contract": "host와 격리 worktree 명령에서 action마다 cwd/env 상태가 초기화되고 파일 효과는 유지되는 계약을 같은 행렬로 표현한다. command/workspace/timeout exact approval과 host credential 필터를 유지한다. timeout/cancel은 cleanup 증거와 결합하고 미확정 종료를 성공으로 취급하지 않는다. container 지원은 이 후보의 완료 조건에 포함하지 않는다.",
+      "validation": [
+        "두 연속 command의 cwd/env 비승계와 파일 승계를 확인한다.",
+        "nonzero exit·UTF-8 출력·bounded capture/artifact와 timeout/cancel/descendant cleanup을 확인한다.",
+        "동일 명령을 host/worktree에서 평가하며 child budget/deny가 기존대로 상속되는지 검사한다.",
+        "정리 미확정이면 다음 실행 차단과 exact approval fingerprint 유지, 실제 확인한 OS 범위 표시를 검증한다."
+      ]
+    }
+  ],
+  "limitations": [
+    "정적 소스 검토와 파일/줄 범위/SHA-256 검사만 수행했다. upstream 설치·test·model·계정·benchmark·container·GUI·공유 build·commit을 실행하지 않았다.",
+    "README의 약 100줄·SWE-bench Verified >74%·DeepSWE 및 시작 속도 주장을 확인했으나 수치·성능·모델 호환성을 재현하지 않았다. 현재 기본 agent 파일은 190줄이다.",
+    "원본 HEAD/checkout을 바꾸지 않았으며 upstream source·prompt·tool description·fixture·media·runtime 의존성을 Moodcode에 복사하지 않았다. 원본을 읽었으므로 clean-room 절차를 주장하지 않는다.",
+    "세부 실행 환경 생명주기 검토는 local/Docker에 한정한다. optional remote adapters·Singularity/Bubblewrap/Contree·Windows cleanup의 동작과 격리 보장은 실행 검증하지 않았다.",
+    "살펴본 기본 core에는 전체 context hard cap/semantic memory/child workflow/동적 MCP registry 또는 저장 trajectory로 실행을 복구하는 경로를 확인하지 않았다. 이것을 제품 전체 부재로 단정하지 않는다.",
+    "JSON save와 preds key skip은 원자적 영구 journal·성공 proof·실행 resume와 구분한다. batch runner 확인은 SWE-bench grading 또는 실제 성능 재현이 아니다.",
+    "root MIT LICENSE.md와 tracked license/notice filename 검색을 확인했다. 전이 의존성·container image·dataset·외부 서비스의 전체 고지/약관 audit 및 법률 검토를 수행하지 않았다.",
+    "Moodcode 1차 완료, OS/provider·실제 계정 검증 기록은 기존 비교 기준이며 이번 upstream 검증 결과가 아니다. 신규 후보는 구현하지 않았다."
+  ]
+}

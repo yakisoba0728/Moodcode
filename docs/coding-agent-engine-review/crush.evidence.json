@@ -1,0 +1,451 @@
+{
+  "schemaVersion": 1,
+  "slug": "crush",
+  "head": "140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5",
+  "repository": "https://github.com/charmbracelet/crush",
+  "sourcePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/crush",
+  "analysisMode": "static-source-review",
+  "reviewDate": "2026-10-07",
+  "moodcodeBaseline": {
+    "documentHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineHead": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "license": {
+    "root": "FSL-1.1-MIT",
+    "classification": "source-available; current competing-use restriction; version-specific MIT grant after two years",
+    "separateNotice": "Kujtim Hoxha 2025-03-21–2025-05-30 MIT notice",
+    "referenceIds": [
+      "R25"
+    ]
+  },
+  "references": [
+    {
+      "id": "R01",
+      "path": "main.go",
+      "startLine": 15,
+      "endLine": 26,
+      "claim": "CLI 실제 진입점은 cmd.Execute로 이어진다.",
+      "kind": "source",
+      "fileSha256": "bc039e60a6dc5acb719052dd673efad50a0dd1cf24de0a489d7207485c6f4e26",
+      "rangeSha256": "2649b560f420e35c5df6262a45d91f271829e4b03df0b30acc084dd21c46d3af",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/main.go#L15-L26"
+    },
+    {
+      "id": "R02",
+      "path": "internal/cmd/root.go",
+      "startLine": 270,
+      "endLine": 340,
+      "claim": "로컬 workspace가 config·yolo override·SQLite·skill discovery·app·cleanup을 연결한다.",
+      "kind": "source",
+      "fileSha256": "c8028e932c2839c286f47f33888af1aa0f7180349bbfbe5eed9a977d57667a30",
+      "rangeSha256": "2343ba23e2054162691ca1e85783870d95ab3cb50eab17c0b1294ca9c9db03eb",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/cmd/root.go#L270-L340"
+    },
+    {
+      "id": "R03",
+      "path": "internal/agent/coordinator.go",
+      "startLine": 968,
+      "endLine": 1062,
+      "claim": "large/small provider와 catalog metadata를 선택해 외부 LanguageModel을 만들고 request timeout wrapper를 붙인다.",
+      "kind": "source",
+      "fileSha256": "beea8215e6223eedc9a27dfa331a84e63eed20031cab81e9798a22c6587d4cfe",
+      "rangeSha256": "31f662caadbea269de748ab6e6fdef66e10526e8ec3c11484fe685748f70bb63",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/coordinator.go#L968-L1062"
+    },
+    {
+      "id": "R04",
+      "path": "internal/agent/coordinator.go",
+      "startLine": 841,
+      "endLine": 964,
+      "claim": "도구 palette·LSP 조건·MCP allowlist·interactive question·top-level hook wrapper를 구성한다.",
+      "kind": "source",
+      "fileSha256": "beea8215e6223eedc9a27dfa331a84e63eed20031cab81e9798a22c6587d4cfe",
+      "rangeSha256": "6bd8227a093a2924977d43dab69e57cf99a1fdf188624389730cc8ced7cd5d02",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/coordinator.go#L841-L964"
+    },
+    {
+      "id": "R05",
+      "path": "internal/agent/agent.go",
+      "startLine": 605,
+      "endLine": 757,
+      "claim": "세션 mutex에서 accepted/queued/active를 결정하고 tool/model snapshot으로 fantasy.NewAgent를 만든다.",
+      "kind": "source",
+      "fileSha256": "6c4f439e6ebf4184e3a95cf170072d8d69e42b5cbeebce8117604e1a93a5b91c",
+      "rangeSha256": "8a9d320a3fd70d5c8e0d2a7c9af361c465ee7c7b261cc3ca1327efee331b71a7",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/agent.go#L605-L757"
+    },
+    {
+      "id": "R06",
+      "path": "internal/agent/agent.go",
+      "startLine": 778,
+      "endLine": 932,
+      "claim": "종료 시 flush 후 RunComplete를 발행하며 Stream의 PrepareStep에서 최신 도구·큐·media projection·assistant row를 준비한다.",
+      "kind": "source",
+      "fileSha256": "6c4f439e6ebf4184e3a95cf170072d8d69e42b5cbeebce8117604e1a93a5b91c",
+      "rangeSha256": "deb242905bcde6d6b050fae59d1bfa7306d05e3cf22e69835875133b1832bd75",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/agent.go#L778-L932"
+    },
+    {
+      "id": "R07",
+      "path": "internal/agent/agent.go",
+      "startLine": 973,
+      "endLine": 1120,
+      "claim": "tool callback·finish reason·usage를 저장하고 context 부족·반복 tool interaction stop 조건을 연결한다.",
+      "kind": "source",
+      "fileSha256": "6c4f439e6ebf4184e3a95cf170072d8d69e42b5cbeebce8117604e1a93a5b91c",
+      "rangeSha256": "ffe3a483484b85a40933740ed6efd93a9375318e981a40de1244c46d96854fd4",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/agent.go#L973-L1120"
+    },
+    {
+      "id": "R08",
+      "path": "internal/agent/agent.go",
+      "startLine": 1411,
+      "endLine": 1558,
+      "claim": "tools 없는 summary agent가 summary message와 session SummaryMessageID를 저장하고 큐를 이어 실행한다.",
+      "kind": "source",
+      "fileSha256": "6c4f439e6ebf4184e3a95cf170072d8d69e42b5cbeebce8117604e1a93a5b91c",
+      "rangeSha256": "8479c1d6df03f25661e6c83653ea91fe7403db23a31c647d282690022bd34dd3",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/agent.go#L1411-L1558"
+    },
+    {
+      "id": "R09",
+      "path": "internal/agent/prompt/prompt.go",
+      "startLine": 100,
+      "endLine": 234,
+      "claim": "프로젝트/전역 context file·directory 읽기와 skill metadata discovery·dedup·disabled filter를 수행한다.",
+      "kind": "source",
+      "fileSha256": "b918d531b8cce50541e71b88348d799edc157e5db77b5a67db27e575d7eb1606",
+      "rangeSha256": "df627f6472f71207865fe1c2daa9b06ff614af30f3b23cb27b07b6b2c9ebce9f",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/prompt/prompt.go#L100-L234"
+    },
+    {
+      "id": "R10",
+      "path": "internal/permission/permission.go",
+      "startLine": 158,
+      "endLine": 278,
+      "claim": "승인은 session/tool/action/path grant·allowlist·hook allow·session auto-approval과 pending channel로 결정한다.",
+      "kind": "source",
+      "fileSha256": "e7a34f650f81d9d5fbedb834170c20f688f3ee6f54f8b54aa2cbbc526c7ec6b0",
+      "rangeSha256": "a9328ba4270c62fd33af834ee5356ee8ec87d3f0adf0e4e93640c6450b0cf491",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/permission/permission.go#L158-L278"
+    },
+    {
+      "id": "R11",
+      "path": "internal/agent/tools/bash.go",
+      "startLine": 198,
+      "endLine": 343,
+      "claim": "명령은 permission 후 detached shell로 시작하며 foreground 대기 중 취소하면 kill, timeout 시 background 결과로 전환한다.",
+      "kind": "source",
+      "fileSha256": "8087275623b1fff86d94e0f40e999312d7c5cb66a489d5244767b6b66369ccf8",
+      "rangeSha256": "eeb1ade3a7df298b9be0dcafcb8ad87be459d3a4bd3042d643c9f3153c65773a",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/tools/bash.go#L198-L343"
+    },
+    {
+      "id": "R12",
+      "path": "internal/shell/exec_unix.go",
+      "startLine": 16,
+      "endLine": 108,
+      "claim": "Unix 외부 프로세스는 Setsid와 negative PID signal·Wait로 취소하며 Windows 보장은 이 코드 범위 밖이다.",
+      "kind": "source",
+      "fileSha256": "a5ce79e16db55b78b15c3966dc903fffd664f661df856e724356103c56c12ddf",
+      "rangeSha256": "3320ba334f10857ff5e20e0dd65a0af2f7d8c0f9c8a9cb6b895c2e5085cebfa7",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/shell/exec_unix.go#L16-L108"
+    },
+    {
+      "id": "R13",
+      "path": "internal/config/config.go",
+      "startLine": 1067,
+      "endLine": 1138,
+      "claim": "Task/Plan은 읽기 중심 palette이며 MCP 기본 허용은 비어 있다. 실제 palette에 읽기 LSP navigation이 들어간다.",
+      "kind": "source",
+      "fileSha256": "5f100662e56bb584fc42a00895e334b46ea8a083e2af84fdcb5f6634f357edb8",
+      "rangeSha256": "ddb3f2263491ca690fb5276f8accf896f1b3e76136a1524c84f0ba703a032992",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/config/config.go#L1067-L1138"
+    },
+    {
+      "id": "R14",
+      "path": "internal/agent/coordinator.go",
+      "startLine": 1654,
+      "endLine": 1731,
+      "claim": "도구 call에 대응하는 child session을 생성하고 같은 context로 child Run, 부모 비용 합산과 text 결과 반환을 한다.",
+      "kind": "source",
+      "fileSha256": "beea8215e6223eedc9a27dfa331a84e63eed20031cab81e9798a22c6587d4cfe",
+      "rangeSha256": "43b618b1e52a589e2cb558a0cd010a748e2372b502a1034b4094f5e7a0e50958",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/coordinator.go#L1654-L1731"
+    },
+    {
+      "id": "R15",
+      "path": "internal/agent/tools/edit.go",
+      "startLine": 290,
+      "endLine": 447,
+      "claim": "read timestamp로 stale 편집을 막고 변경 전후 diff permission 뒤 파일 변경을 수행한다.",
+      "kind": "source",
+      "fileSha256": "d1e01bb01d1e70e9414964d9ccc1ad123f36a11c54e12e6f0b14b33eb2eb87e9",
+      "rangeSha256": "588f29f75df073fab994e49c6b42c45c839ea67693c357e0b8a6ef2be700d6e2",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/tools/edit.go#L290-L447"
+    },
+    {
+      "id": "R16",
+      "path": "internal/agent/hooked_tool.go",
+      "startLine": 27,
+      "endLine": 100,
+      "claim": "top-level PreToolUse hook은 deny/halt·input rewrite·pre-approval·결과 context 추가를 지원하고 child 내부에는 적용하지 않는다.",
+      "kind": "source",
+      "fileSha256": "c45e4fab2ea95c83dc61354104f27a03db980024e2db51c032c5843e0ecef881",
+      "rangeSha256": "8e9d7e1ae5ef77d47cf494340d66b78aca055c46781d1e5e2c5a31e0d0c2a72b",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/hooked_tool.go#L27-L100"
+    },
+    {
+      "id": "R17",
+      "path": "internal/agent/tools/mcp/init.go",
+      "startLine": 1175,
+      "endLine": 1334,
+      "claim": "외부 Go MCP SDK의 stdio/streamable HTTP/SSE transport·OAuth·stdio process 설정을 조립한다.",
+      "kind": "source",
+      "fileSha256": "ead11feb3e41d6eacc47a49167a8a86a0189400b10e04cf3aa3669ae97477436",
+      "rangeSha256": "d3a0265733fd46bea632f69d6bac324b62e4949e38b599cb9bda8fd457163bfb",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/tools/mcp/init.go#L1175-L1334"
+    },
+    {
+      "id": "R18",
+      "path": "internal/agent/tools/mcp-tools.go",
+      "startLine": 99,
+      "endLine": 158,
+      "claim": "MCP tool은 channel scope·Docker whitelist·일반 permission gate 후 RPC 결과를 text/image/media로 변환한다.",
+      "kind": "source",
+      "fileSha256": "f6c1f4249c001ff5734cbbc48425d6c9356f80a74c387a308ce4054be7f0040f",
+      "rangeSha256": "a2f374aa40481ebc34d3f07a8f77057b4816dc33c67cc8ea3e1528ad11656c43",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/tools/mcp-tools.go#L99-L158"
+    },
+    {
+      "id": "R19",
+      "path": "internal/db/connect.go",
+      "startLine": 17,
+      "endLine": 171,
+      "claim": "SQLite WAL·NORMAL synchronous·single connection·migration·reference pool·opt-in data-directory lock을 구성한다.",
+      "kind": "source",
+      "fileSha256": "c63dc46fc279f94a714b0bfea2bea1f95bc31cc048873c6918adbbdca2f81af7",
+      "rangeSha256": "7cc86dcb23f159d41085a3f8bd042f731be9fb6bb797ae1ce0c06756ba28a8ee",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/db/connect.go#L17-L171"
+    },
+    {
+      "id": "R20",
+      "path": "internal/agent/loop_detection.go",
+      "startLine": 11,
+      "endLine": 92,
+      "claim": "최근 10 step에서 동일 tool 이름/입력/결과 signature가 5회를 초과하면 loop로 판정한다.",
+      "kind": "source",
+      "fileSha256": "ec9ac90c34bde440b47978ec0b116b3e41054d8e3245d2e0ced53a929d8cafcf",
+      "rangeSha256": "4c131db21f8fc77d1e4c5f475ad1462bb1e42405280d44c32118962ed122510b",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/loop_detection.go#L11-L92"
+    },
+    {
+      "id": "R21",
+      "path": "internal/agent/coordinator.go",
+      "startLine": 1312,
+      "endLine": 1386,
+      "claim": "provider type별 builder와 ChatGPT OAuth Codex endpoint 및 알려진 OpenAI-compatible custom provider를 선택한다.",
+      "kind": "source",
+      "fileSha256": "beea8215e6223eedc9a27dfa331a84e63eed20031cab81e9798a22c6587d4cfe",
+      "rangeSha256": "76b030e58e49302ecce80e24fa3d8749288e4a7c6d786ff09fcdacdfd8b5b947",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/coordinator.go#L1312-L1386"
+    },
+    {
+      "id": "R22",
+      "path": "internal/agent/agent.go",
+      "startLine": 1608,
+      "endLine": 1709,
+      "claim": "tool 결과를 대응 assistant 바로 뒤로 재배치하고 unknown tool 결과·unsupported image file part를 걸러낸다.",
+      "kind": "source",
+      "fileSha256": "6c4f439e6ebf4184e3a95cf170072d8d69e42b5cbeebce8117604e1a93a5b91c",
+      "rangeSha256": "33b0c901e9297e49817a3d8963ef9b15870619adafda7255ed1d9eb817283aeb",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/agent.go#L1608-L1709"
+    },
+    {
+      "id": "R23",
+      "path": "internal/app/app.go",
+      "startLine": 892,
+      "endLine": 947,
+      "claim": "shutdown은 agent 취소·message flush 후 background shell·LSP·MCP/DB cleanup을 호출한다.",
+      "kind": "source",
+      "fileSha256": "4f3a02f00d3595c4fd7e643c846b8a9b543b3a5e246fefe72c509f9549ec7b75",
+      "rangeSha256": "a869765d0b155e7155961e2195acf93a61dfa59f323ab31a97f48282329facd5",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/app/app.go#L892-L947"
+    },
+    {
+      "id": "R24",
+      "path": "README.md",
+      "startLine": 14,
+      "endLine": 22,
+      "claim": "README는 multi-model·session·LSP·MCP·다수 OS/terminal 지원을 주장한다.",
+      "kind": "readme-claim",
+      "fileSha256": "4a72550d9d6d9b8274f1639ef4fbef3ee14c917b9dec0fad71ca7c3bb5d2cfc6",
+      "rangeSha256": "2ecf4db05b9cbfa6a79d810b968a4b1b727c591d33b50e8853b6c94f52f09264",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/README.md#L14-L22"
+    },
+    {
+      "id": "R25",
+      "path": "LICENSE.md",
+      "startLine": 1,
+      "endLine": 134,
+      "claim": "root FSL-1.1-MIT의 경쟁용도 제한·각 버전 공개 2년 후 MIT grant·별도 초기 Kujtim MIT 고지를 구분한다.",
+      "kind": "license",
+      "fileSha256": "3faa5d4f3a51f07e4963b993f27af4b9344d7c509fa20aa856dd878788ba5f18",
+      "rangeSha256": "3faa5d4f3a51f07e4963b993f27af4b9344d7c509fa20aa856dd878788ba5f18",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/LICENSE.md#L1-L134"
+    },
+    {
+      "id": "R26",
+      "path": "internal/agent/agent.go",
+      "startLine": 210,
+      "endLine": 299,
+      "claim": "messageQueue·activeRequests·acceptedRuns·cancelMark는 sessionAgent의 process-local csync map이다.",
+      "kind": "source",
+      "fileSha256": "6c4f439e6ebf4184e3a95cf170072d8d69e42b5cbeebce8117604e1a93a5b91c",
+      "rangeSha256": "456ef16dfbd12caa9ec9f79f526940d4341189321524c9086b75d3850c7f1958",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/agent.go#L210-L299"
+    },
+    {
+      "id": "R27",
+      "path": "internal/agent/tools/lsp_symbols.go",
+      "startLine": 23,
+      "endLine": 77,
+      "claim": "문서별 LSP를 시작해 DocumentSymbols를 요청하고 계층별 symbol 이름/종류/줄 정보를 반환한다.",
+      "kind": "source",
+      "fileSha256": "fcee0a1d545171e58a10d23c16af79ba9a4178a3dbe0be6c7966bc4a7d157a37",
+      "rangeSha256": "88a38f657669ccad1c90df4d101bd5ba14e15e23f94d11cbe5202e76e07836e2",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/agent/tools/lsp_symbols.go#L23-L77"
+    },
+    {
+      "id": "R28",
+      "path": "internal/app/app.go",
+      "startLine": 342,
+      "endLine": 408,
+      "claim": "비대화형 실행은 MCP 초기화 예산을 기다리고 세션을 이어받은 뒤 해당 세션 permission을 자동 승인한다.",
+      "kind": "source",
+      "fileSha256": "4f3a02f00d3595c4fd7e643c846b8a9b543b3a5e246fefe72c509f9549ec7b75",
+      "rangeSha256": "30306eb6ec5dfa08c1fda443db50119948ce1db7925be148d7735fe9ca935f95",
+      "permalink": "https://github.com/charmbracelet/crush/blob/140e8cb9707faa6a68d87d0ecc3a85b9c65e25d5/internal/app/app.go#L342-L408"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "CR-C01",
+      "title": "문서 버전에 묶인 LSP symbol navigation",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "기존 LSP manager·diagnostics·formatter·문서 hash/version 동기화가 있다. 확인한 baseline LspManager 공개 API의 symbol/definition/call hierarchy 조회를 추가하는 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/lsp/index.ts",
+        "packages/engine/src/lsp/stdio.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/engine.ts"
+      ],
+      "referenceIds": [
+        "R04",
+        "R13",
+        "R27"
+      ],
+      "contract": "명시적 host LSP factory에만 documentSymbol/definition/references/callHierarchy 조회를 추가한다. 응답을 workspace 경계·문서 hash/version·서버 capability에 묶고 count/bytes/depth 및 deadline을 제한한다. 새 읽기 도구는 active profile/tool capture와 child read-only 정책을 따른다. rename/replace는 후속 별도 prepare/approval 계약으로 남긴다.",
+      "validation": [
+        "capability 미제공·지원 안 함을 구분한다.",
+        "요청 중 외부 편집·문서 버전 변경·닫힌 server 응답은 stale로 처리한다.",
+        "workspace 밖 URI·과대 hierarchy·depth overflow·timeout·cancel 결과를 제한한다.",
+        "동일 문서의 symbol→definition→정확한 범위 읽기가 root/read-only child에서 기존 context와 approval 계약을 보존한다."
+      ]
+    },
+    {
+      "id": "CR-C02",
+      "title": "결과와 효과 epoch를 포함한 반복 상호작용 중단",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "기존 runner는 반복 읽기 identity를 차단하고 효과 뒤에 읽기 집합을 초기화한다. Run/Turn/tool/output 예산도 있다. 읽기 외의 동일 실패·무진전 cycle 관측을 추가하는 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/storage/native-records.ts"
+      ],
+      "referenceIds": [
+        "R07",
+        "R20"
+      ],
+      "contract": "도구 이름·정규화된 prepared identity·결과 digest·workspace/checkpoint epoch를 bounded rolling window에 기록한다. 같은 결과가 반복되고 실질적인 상태 진전이 없을 때 typed stalled 이유와 근거를 저장한다. 정책은 host 설정으로 고정하며 기존 duplicate read·출력 예산·취소·terminal 규칙을 유지한다. 원본 출력/prompt는 signature 계산 명세로 복사하지 않는다.",
+      "validation": [
+        "동일 요청/실패 결과의 반복이 설정된 창과 임계값에서 중단된다.",
+        "같은 요청의 달라진 결과·paging cursor 진전·새 checkpoint·명시적 재검증은 잘못 중단하지 않는다.",
+        "순서가 다른 병렬 결과·artifact paging·truncated output에도 bounded deterministic projection을 사용한다.",
+        "stalled 기록과 terminal이 한 번만 남고 기존 반복 읽기 거절·effect 뒤 reset 회귀가 유지된다."
+      ]
+    },
+    {
+      "id": "CR-C03",
+      "title": "승인과 소유권을 유지하는 session command job",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "기존 run_command supervisor·process ownership·cleanup 불확실성 격리와 host PTY·terminal journal이 있다. 모델 command가 명시적으로 job handle을 반환하고 후속 turn에서 조회하는 계약을 확장한다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/tools/command/supervisor.ts",
+        "packages/engine/src/terminals/service.ts",
+        "packages/engine/src/terminals/journal.ts",
+        "packages/engine/src/storage/execution-uncertainty.ts"
+      ],
+      "referenceIds": [
+        "R11",
+        "R12",
+        "R23"
+      ],
+      "contract": "background 실행은 사전 prepared preview에 포함한 명시적 옵션일 때만 허용한다. job은 workspace/session/approval/원래 native owner·예산에 묶이며 bounded output cursor와 cancel/finished 상태를 저장한다. 살아 있는 effect job의 workspace lease와 새 쓰기/restore 충돌을 정의하고, turn 종료·세션 취소·host 종료·재시작에서 종료 확인 또는 unknown 격리를 유지한다. 단순 context 분리로 cleanupConfirmed를 인정하지 않는다.",
+      "validation": [
+        "승인된 binding에 없는 foreground→background 변경은 거절한다.",
+        "다른 session/workspace는 job 조회·취소 권한을 얻지 못한다.",
+        "job 생존 중 변경·restore 경합은 lease 정책대로 제한한다.",
+        "job 완료·취소·timeout·host 강제 종료 및 재시작에서 owner/PID 재사용·late output·unknown cleanup이 기존 격리 규칙을 만족한다.",
+        "출력/동시 job 수/수명/조회 페이지에 공유 예산이 적용된다."
+      ]
+    },
+    {
+      "id": "CR-C04",
+      "title": "명시적 host 등록의 도구 정책 hook",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "기존 EnginePluginManager와 prepared/settled metadata observation hook이 있다. 실행을 차단하는 정책 결정과 외부 hook의 소유권을 추가하는 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/tools/command/supervisor.ts",
+        "packages/engine/src/storage/tool-recovery-frontier.ts"
+      ],
+      "referenceIds": [
+        "R10",
+        "R16",
+        "R23"
+      ],
+      "contract": "host가 등록한 versioned hook만 bounded metadata로 호출하고 초기 계약은 observe/deny/halt로 한정한다. allow는 기존 exact 승인 요구를 없애지 않는다. 이후 input rewrite가 필요하면 prepare 이전 새 입력으로 새 fingerprint와 승인 preview를 만들며 prepared handle을 변경하지 않는다. 외부 command hook은 명시적 owner·deadline·stdout 한도·cleanup receipt가 있어야 하며 child 적용/상속 정책을 고정한다.",
+      "validation": [
+        "hook deny/halt는 effect 전 기록되고 중복 실행·다중 terminal을 만들지 않는다.",
+        "allow나 malformed 응답이 exact approval을 우회하지 않는다.",
+        "timeout/cancel·late 응답·cleanup 미확정이 새 효과를 차단하고 원래 owner의 복구 증거를 보존한다.",
+        "prepared/settled observation과 새 정책 gate의 순서·child 상속·비밀정보 비노출을 검증한다."
+      ]
+    }
+  ],
+  "limitations": [
+    "정적 소스 검토만 수행했다. upstream 설치·빌드·테스트·모델/API·계정·GUI·OS/process 동작을 실행하지 않았다.",
+    "fantasy v0.45.1·catwalk v0.52.49·MCP Go SDK 등 외부 라이브러리의 내부 stream loop, tool 실행 병렬성, retry 횟수와 wire protocol 구현은 이 checkout 분석 범위 밖이다.",
+    "README의 OS/terminal 호환·provider/model 지원 주장과 실제 계정별 capability·서비스 상태를 실측하지 않았다.",
+    "SQLite 저장/대화 재개·client reconnect와 진행 중 외부 효과의 exactly-once 복구는 다른 계약이다. 검사한 경로에서 process-local 큐/승인 상태의 durable replay나 Moodcode 수준의 effect recovery frontier를 확인하지 못했다.",
+    "Unix process-group signal/Wait는 확인했다. 부모 강제 종료·group 이탈 daemon·PID 재사용·Windows tree cleanup·background job 종료 증명은 이번 정적 검토로 인증하지 않는다.",
+    "root LICENSE.md의 source-available FSL 제한과 버전별 미래 MIT 전환을 구분했다. 버전 최초 공개일의 법률적 확정·전체 배포 의존성 라이선스 audit·법률 검토는 수행하지 않았다.",
+    "원본 source·prompt·tool description·fixture·media를 복사하지 않았고 runtime 의존성으로 추가하지 않았다. 원본을 읽은 분석이며 clean-room 개발을 주장하지 않는다."
+  ],
+  "verification": {
+    "headMatches": true,
+    "allWorkingFilesMatchGitShow": true,
+    "rangeHashMethod": "SHA-256 of exact file bytes splitlines(keepends=True), startLine..endLine inclusive",
+    "referenceCount": 28,
+    "maxReferenceLines": 160,
+    "upstreamRuntimeExecuted": false
+  }
+}

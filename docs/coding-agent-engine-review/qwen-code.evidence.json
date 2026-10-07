@@ -1,0 +1,322 @@
+{
+  "slug": "qwen-code",
+  "head": "d0ddd020c8a64279e290538f84b152fe843ed9d4",
+  "repository": "https://github.com/QwenLM/qwen-code",
+  "analysisMode": "static-source-review",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/qwen-code",
+  "moodcodeBaseline": {
+    "documentationHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineSource": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "references": [
+    {
+      "id": "QWEN-R01",
+      "path": "README.md",
+      "startLine": 212,
+      "endLine": 214,
+      "claim": "README는 Gemini CLI v0.8.2 기원을 밝히고 v0.1부터 upstream sync를 중단한 독립 개발이라고 주장한다."
+    },
+    {
+      "id": "QWEN-R02",
+      "path": "LICENSE",
+      "startLine": 1,
+      "endLine": 23,
+      "claim": "실제 root LICENSE는 Apache License 2.0이다. 하위 Zed의 별도 MIT와 서비스 약관은 보고서에서 구분한다."
+    },
+    {
+      "id": "QWEN-R03",
+      "path": "packages/cli/src/nonInteractiveCli.ts",
+      "startLine": 2534,
+      "endLine": 2693,
+      "claim": "headless caller가 LlmClient.sendMessageStream의 도구 요청을 수집하고 processToolCallBatch를 호출한다. structured_output 성공은 별도 종료 경로다."
+    },
+    {
+      "id": "QWEN-R04",
+      "path": "packages/core/src/core/client.ts",
+      "startLine": 4833,
+      "endLine": 4905,
+      "claim": "LlmClient가 MessageDisplay dispatcher를 구성하고 Turn.run을 소비한다. 모델 입력 수락 뒤 기억의 resident body와 steer 수락 상태를 갱신한다."
+    },
+    {
+      "id": "QWEN-R05",
+      "path": "packages/core/src/core/turn.ts",
+      "startLine": 714,
+      "endLine": 859,
+      "claim": "Turn.run은 LlmChat.sendMessageStream에 abortSignal을 넘기고 retry/fallback 상태 초기화, 압축 이벤트, text/thought/function-call 요청을 변환한다."
+    },
+    {
+      "id": "QWEN-R06",
+      "path": "packages/core/src/core/llm-chat.ts",
+      "startLine": 3127,
+      "endLine": 3280,
+      "claim": "전체 window와 추정/직전 API usage를 기반으로 사전 압축·hard rescue를 수행한다. 압축 뒤에도 상한을 넘으면 이전 history/count를 복구하며 JSONL checkpoint 기록을 미룬다."
+    },
+    {
+      "id": "QWEN-R07",
+      "path": "packages/core/src/core/contentGenerator.ts",
+      "startLine": 530,
+      "endLine": 630,
+      "claim": "검증한 authType에 따라 OpenAI Chat/Responses, Qwen OAuth, Anthropic, Gemini/Vertex 구현을 lazy loading하고 LoggingContentGenerator로 감싼다."
+    },
+    {
+      "id": "QWEN-R08",
+      "path": "packages/core/src/core/coreToolScheduler.ts",
+      "startLine": 5813,
+      "endLine": 5931,
+      "claim": "도구 invocation 실행 직전 executing 상태와 span을 시작한다. exec/tool_search에 parentCallId·허용 도구 목록과 nested scheduler dispatch를 제공한다."
+    },
+    {
+      "id": "QWEN-R09",
+      "path": "packages/core/src/core/client.ts",
+      "startLine": 3052,
+      "endLine": 3206,
+      "claim": "종료 중에는 background 기억을 시작하지 않으며 autoSkill 임계치·변경 여부·확인 설정을 scheduleSkillReview에 전달한다. managed memory가 켜진 UserQuery 경로는 extraction/dream을 예약한다."
+    },
+    {
+      "id": "QWEN-R10",
+      "path": "packages/core/src/memory/search-memory.ts",
+      "startLine": 908,
+      "endLine": 1067,
+      "claim": "search_memory는 scope/category/keyword 검색과 ref fetch를 분리하고 snapshot·버전/coverage·turn별 ref 소진·aggregate body budget·취소를 확인한다. 검색은 keyword scoring과 rarity bonus다."
+    },
+    {
+      "id": "QWEN-R11",
+      "path": "packages/core/src/memory/manager.ts",
+      "startLine": 1363,
+      "endLine": 1474,
+      "claim": "skill review는 enabled/변경/임계치/중복 실행/메모리 압력 gate를 거친다. confirmBeforePersist일 때 사전 skill directory 집합과 변경 파일을 사용해 pending skill을 stage한다."
+    },
+    {
+      "id": "QWEN-R12",
+      "path": "packages/core/src/agents/background-agent-resume.ts",
+      "startLine": 690,
+      "endLine": 832,
+      "claim": "완료된 background agent의 cold revive는 registry/기록/metadata·capacity를 확인한다. container/executionBackend 기록은 차단하고 completed snapshot을 보존해 resume 실패 시 되돌린다."
+    },
+    {
+      "id": "QWEN-R13",
+      "path": "packages/core/src/agents/background-agent-resume.ts",
+      "startLine": 1494,
+      "endLine": 1575,
+      "claim": "resident continuation은 runtime 수명·auto permission lease·capacity를 확인하고 새 AbortController로 직전 turn 뒤에 새 turn을 직렬 연결한다. 조건에 따라 fallback/capacity_wait/continued를 반환한다."
+    },
+    {
+      "id": "QWEN-R14",
+      "path": "packages/core/src/agents/team/TeamManager.ts",
+      "startLine": 784,
+      "endLine": 897,
+      "claim": "team sendMessage는 leader inbox와 teammate queue를 구분하며 shutdown 응답·recipient·종료·pending cap을 처리한다. 살아 있는 idle teammate는 메시지를 즉시 flush한다."
+    },
+    {
+      "id": "QWEN-R15",
+      "path": "packages/core/src/agents/team/board-tasks.ts",
+      "startLine": 178,
+      "endLine": 237,
+      "claim": "독립 board task의 mutate는 item lock 안에서 상태를 읽고 mode0600 atomic write한다. claim은 다른 owner의 선점을 막고 complete는 본인 소유 in_progress를 요구한다."
+    },
+    {
+      "id": "QWEN-R16",
+      "path": "packages/core/src/code-mode/host-client.ts",
+      "startLine": 116,
+      "endLine": 273,
+      "claim": "code-mode는 source/time/output cap과 별도 host process를 사용한다. JS 이름을 고정 도구 이름에 매핑하고 runtime dispatch로 요청하며 abort/완료 시 미완료 nested 호출을 취소한다."
+    },
+    {
+      "id": "QWEN-R17",
+      "path": "packages/core/src/hooks/hookRunner.ts",
+      "startLine": 675,
+      "endLine": 788,
+      "claim": "HookRunner는 command/HTTP/function/prompt 및 async command 실행으로 분기한다. 사전 abort는 cancelled, 실행 오류는 non_blocking_error 결과로 반환한다."
+    },
+    {
+      "id": "QWEN-R18",
+      "path": "packages/core/src/tools/mcp-tool.ts",
+      "startLine": 617,
+      "endLine": 752,
+      "claim": "MCP invocation은 direct SDK client 또는 callable wrapper를 사용한다. direct call은 progress, 전체/idle timeout, parent abort race, invocation metadata와 MCP App 결과 경계를 처리한다."
+    },
+    {
+      "id": "QWEN-R19",
+      "path": "packages/core/src/services/chatRecordingService.ts",
+      "startLine": 1594,
+      "endLine": 1730,
+      "claim": "기록은 operationTail로 순서화하고 Managed sink/lease append/legacy JSONL 중 하나에 쓴다. 첫 write failure는 recorder를 중지하며 strict append와 fire-and-forget의 실패 계약이 다르다."
+    },
+    {
+      "id": "QWEN-R20",
+      "path": "packages/core/src/core/session-recovery.ts",
+      "startLine": 137,
+      "endLine": 247,
+      "claim": "세션 복구는 원 history와 clone을 분리하고 orphan 도구 결과·중복 결과를 수리한다. missing-parent history는 자동 계속을 차단하고 interrupted tool turn은 사용자 확인을 요구한다."
+    }
+  ],
+  "candidates": [
+    {
+      "id": "QWEN-C01",
+      "title": "같은 child 세션에 후속 입력을 보내는 상주 실행 계약",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "격리 child/worktree·예산/deny/cancel 상속·terminal 결과 root inbox delivery·queue/steer·pause/resume는 이미 있다. 후보는 child terminal 결과 통지를 대체하지 않고 같은 agent identity의 여러 Run과 살아 있는 입력 mailbox를 연결한다.",
+      "moodcodePaths": [
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/engine-host.ts",
+        "packages/engine/src/child-tasks/storage-binding.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/agents/index.ts"
+      ],
+      "referenceIds": [
+        "QWEN-R12",
+        "QWEN-R13",
+        "QWEN-R14",
+        "QWEN-R20"
+      ],
+      "contract": [
+        "host opt-in으로 residentAgentId·workspace/child storage binding·profile revision·policy revision·수명·총 예산과 Run 목록을 저장한다. 이미 terminal인 Run을 다시 running으로 바꾸지 않고 후속 입력마다 새 Run을 만든다.",
+        "후속 입력은 sender/recipient·messageId·payload hash·sequence·bounded bytes와 durable accepted/delivered/consumed receipt를 가진다. 실행 중에는 안전한 다음 모델 경계에 전달하고 idle에서는 새 Run을 시작한다. 동일 요청 재전송은 같은 receipt를 돌려준다.",
+        "hot reuse는 runtime/catalogue/profile/credential reference/owner lease 일치 시만 허용한다. 재시작 뒤에는 durable transcript와 현재 host 등록을 검사한 cold continuation을 사용하고 이전 prepared 승인/함수 객체를 재사용하지 않는다.",
+        "finishing의 final drain 이후에는 신규 입력을 다음 Run으로 결속하거나 명시적으로 거절한다. archive·parent cancel·revoked grant·storage uncertainty·capacity 부족은 별도 상태로 기록하고 추가 실행을 막는다.",
+        "상주 시간과 실행 시간을 구분하고 명시적 idle expiry·dispose receipt를 둔다. root의 기존 terminal child-result dedup는 Run별로 유지한다."
+      ],
+      "validation": [
+        "running→queued input→safe consumption, completed→new Run, idle expiry→cold continuation에서 입력/결과가 정확히 한 owner에 귀속됨.",
+        "final drain과 동시 입력, 이중 follow-up, cancel/archiving, 재시작·DB 실패·lease 변경·profile/registry 변경에서 유실/이중 실행/terminal Run 변경이 없음.",
+        "parent와 nested child의 budget/deny 상한, capacity와 idle cleanup deadline을 유지하고 미확정 cleanup은 다음 실행을 차단함."
+      ]
+    },
+    {
+      "id": "QWEN-C02",
+      "title": "여러 agent의 팀 mailbox와 task owner·의존 관계",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "agent profiles, session task CAS, 실제 child와 root 결과 delivery는 구현되어 있다. 후보는 팀 membership·recipient mailbox·task owner/의존성·leader 활동 대기를 추가하는 계층이다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts"
+      ],
+      "referenceIds": [
+        "QWEN-R14",
+        "QWEN-R15",
+        "QWEN-R13"
+      ],
+      "contract": [
+        "teamId/membership revision에 leader·agent identity·profile·정책 상한을 host가 등록한다. team 메시지 내용 자체로 agent 생성·모델 교체·권한 승인을 수행하지 않는다.",
+        "bounded per-recipient inbox에 우선순위·sender·messageId·delivery receipt를 기록한다. 없는/terminal recipient, backlog full, team 삭제는 구분된 오류이며 broadcast는 recipient별 성공/실패 receipt를 반환한다.",
+        "기존 session tasks를 expected revision/owner/status 비교를 갖는 claim/complete 계약으로 확장한다. task dependency edge는 유효한 동일 team ID만 받으며 cycle과 완료 전 unblock을 막는다.",
+        "task claim은 권한·파일 소유권 승인이 아니다. write child는 현재 host의 격리 worktree와 기존 변경 통합 승인에 의존한다.",
+        "leader wait는 message/terminal/timeout/cancel을 분리하고 idle member만 남아 있는 경우를 명시한다. shutdown 요청과 실제 process/runtime 종료 receipt를 별도로 저장한다."
+      ],
+      "validation": [
+        "동시 두 agent claim에서 한 owner만 승리하고 stale complete/다른 owner 변경을 거절함.",
+        "sender 위조·recipient 종료·broadcast partial failure·backpressure·동시 team 삭제·재시작에서 receipt와 membership 귀속이 유지됨.",
+        "의존성 cycle·missing task·owner cancellation·idle 대기·shutdown 거절/timeout이 false completion 또는 무한 대기를 만들지 않음."
+      ]
+    },
+    {
+      "id": "QWEN-C03",
+      "title": "이력에서 제안한 프로젝트 기억·skill의 승인된 발행",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "bounded context·completed-history semantic summary·active-prefix checkpoint·skill_list/skill_read/reference_read는 이미 있다. 후보는 session 요약과 별개인 프로젝트/사용자 지속 기억 및 신규·기존 skill 변경의 publication 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/tools/session/skills.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/agents/index.ts"
+      ],
+      "referenceIds": [
+        "QWEN-R09",
+        "QWEN-R10",
+        "QWEN-R11",
+        "QWEN-R19"
+      ],
+      "contract": [
+        "host opt-in과 독립 budget으로 settled history에서 tools 없는 bounded 제안을 만든다. 기억/skill 후보에 source message IDs·source hash·scope·내용 hash·생성 provider/profile·보존 기간을 저장한다. live instruction이나 승인 규칙으로 자동 승격하지 않는다.",
+        "신규와 기존 skill 수정 모두 staging에 보관하며 preview와 matching approval 이후 expected old hash/revision을 다시 검사해 발행한다. 이전 skill 직접 수정 후 나중에 stage하는 순서를 가져오지 않는다.",
+        "기억 tree/search/fetch는 허용 scope와 provenance·버전·aggregate bytes·per-ref coverage를 반환한다. recall의 selected/injected/accepted provenance를 구분하고 ContextPlan의 다른 예약과 함께 실제 상한을 지킨다.",
+        "통합·forget은 원본 기록을 보존하는 파생 revision이다. secret/민감정보 분류와 사용자가 고른 저장 범위·삭제 정책을 적용하며 프로젝트 간 전이는 명시적 선택을 요구한다.",
+        "shutdown·취소·stage 충돌·publication crash는 published 성공으로 표시하지 않는다. skill body 발행은 allowed tools/hooks를 자동 활성화하지 않으며 기존 host 승인 경계를 유지한다."
+      ],
+      "validation": [
+        "동일 이력 재처리와 동시 curator에서 후보 중복을 막고 신규/기존 skill 모두 승인 전 runtime listing에 노출되지 않음.",
+        "approve 뒤 stale preimage·취소·write failure·crash·중복 요청에서 atomic publication receipt와 이전 버전이 보존됨.",
+        "secret fixture·scope 혼선·malicious history·큰 memory tree·반복 fetch·기억 파일 교체·summary eviction에서 예산/provenance와 trust 경계가 유지됨."
+      ]
+    },
+    {
+      "id": "QWEN-C04",
+      "title": "제한된 JavaScript로 기존 도구를 조합하는 선택적 code-mode",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "scoped tool runtime·same capture와 ContextPlan·discover_tools·exact prepare/approval/effect·출력 artifact·MCP/PTY/cancel은 이미 있다. 후보는 그 계약 위에서 실행되는 제한된 orchestration 언어다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/tools/runtime/discovery.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/artifacts/result.ts",
+        "packages/engine/src/ports.ts"
+      ],
+      "referenceIds": [
+        "QWEN-R08",
+        "QWEN-R16",
+        "QWEN-R18"
+      ],
+      "contract": [
+        "host opt-in의 별도 격리 worker에서 새 실행마다 JS context를 만들고 source/CPU/stack/memory/wall/output cap을 둔다. Node·filesystem·network 접근은 제공하지 않고 고정 도구 binding ID와 schema revision만 노출한다.",
+        "nested call은 같은 host tool runtime에 parentCallId·nestedCallId·snapshot revision으로 접수한다. 각 호출이 기존 prepare/approval/revalidation/effect journal을 통과하며 outer exec 승인으로 내부 모든 도구가 승인되지 않는다.",
+        "read-only independent 호출만 정책이 정한 concurrency에서 병렬화한다. mutation·approval·dependent call은 순서화하며 settlement와 일부 실패는 호출별 artifact/receipt를 유지한다.",
+        "취소·worker exit·script 완료 후 미완료 promise는 abort하고 실제 cleanup을 확인한다. nested mutation 효과가 미확정이면 outer 성공을 기록하지 않으며 recovery frontier를 유지한다.",
+        "프로그램 결과가 출력되지 않아 모델에 도달하지 않은 skill/memory payload를 이미 context에 들어갔다고 표시하지 않는다. 출력 budget과 context reservation을 실제 전송 값에 적용한다."
+      ],
+      "validation": [
+        "read 병렬 조합·mutation 직렬 조합과 일부 promise rejection에서 독자 tool fixture의 승인/효과/receipt 순서가 보존됨.",
+        "무한 루프·과다 memory/output·unknown binding·registry 변경·Plan·revoked approval·recursive exec·미await 호출이 상한 또는 policy 우회를 만들지 않음.",
+        "worker crash·cancel·MCP timeout·성공 효과 이후 출력 실패에서 미확정 상태를 보존하고 동일 nested request의 재실행을 막음."
+      ]
+    },
+    {
+      "id": "QWEN-C05",
+      "title": "승인 binding을 유지하는 lifecycle hook 추가 계약",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "host plugin activation/disposal과 prepared/settled metadata 관측 hooks가 이미 있다. 후보는 prompt/session/context/terminal lifecycle 관측과 제한된 다음-turn 제안이다.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/tools/runtime/index.ts"
+      ],
+      "referenceIds": [
+        "QWEN-R04",
+        "QWEN-R17",
+        "QWEN-R08",
+        "QWEN-R19"
+      ],
+      "contract": [
+        "host가 event type/version·plugin identity/revision·allowed metadata·budget·cancel/dispose를 사전 등록한다. 기본 동작은 관측이며 local skill 경로를 executable hook으로 자동 실행하지 않는다.",
+        "prompt/context/terminal event의 immutable identity와 delivered receipt를 저장한다. async observer failure는 이미 완료된 producer 효과를 뒤집지 않고 diagnostics로 남긴다.",
+        "추가 문맥이나 계속 실행 제안은 bounded untrusted payload로 다음 입력/ContextPlan 경계에 접수한다. hook은 prepared arguments·fingerprint·policy·승인된 효과를 바꾸거나 approve 결정을 덮어쓰지 못한다.",
+        "terminal 이후 계속 실행 요청은 새 Run이므로 기존 Run terminal 불변을 유지한다. 연속 제안 횟수·중복 이유·총 예산 cap과 사용자 cancel 우선순위를 둔다.",
+        "command/HTTP/prompt hook이 꼭 필요하면 별도 host executor와 credential reference, process ownership/timeout/network allowlist 계약을 준비한다. upstream의 non-blocking_error 또는 allow-on-hook-failure는 Moodcode 권한 허가로 해석하지 않는다."
+      ],
+      "validation": [
+        "metadata observer가 prepared fingerprint를 변경할 수 없고 observer throw 뒤 producer 결과/효과가 유지됨.",
+        "동일 event 재전송·async callback 지연·terminal 경합·cancel/close·registry revoke에서 receipt 소유권과 cleanup이 유지됨.",
+        "반복 continuation·과다 context·hook failure/timeout·prompt injection이 승인 우회나 무한 Run 생성으로 이어지지 않음."
+      ]
+    }
+  ],
+  "limitations": [
+    "upstream 설치·setup·테스트·벤치마크·GUI·계정/credential 연결·실제 모델/서비스 호출은 수행하지 않았다. 소스 경로 확인은 실행 성공·성능·모델 품질의 증명이 아니다.",
+    "로컬 full HEAD와 마지막 commit 날짜만 유지보수 단서로 확인했다. 원격 최신 release·issue 대응·외부 서비스 availability를 실측하지 않았다.",
+    "README의 zero setup, any provider/local model, desktop/IDE/chat 통합과 Qwen 모델 open-source 주장은 전체 구현/모델 license audit 또는 호환성 검증을 뜻하지 않는다.",
+    "core client/chat/scheduler, resident background agent/team/board, auto memory/skills, code-mode/hook/MCP 및 기록/복구를 중심으로 읽었다. daemon/Managed session authority·workflow/arena·Omni media·채널·CUA·SDK의 전체 경로와 전이 의존성은 감사하지 않았다.",
+    "shell sandbox는 선택적 policy 경로와 bwrap/Landlock dispatcher 호출부를 확인했다. 정책이 없으면 일반 ShellExecutionService로 가며 실제 OS 격리 보장·remote/container cleanup을 실행 검증하지 않았다.",
+    "세션 recovery의 synthetic failed tool result는 history pairing 보정이다. 실제 파일·외부 서비스 효과가 없었다는 증명이나 재실행 안전성 증명으로 취급하지 않았다.",
+    "root Apache-2.0과 별도 하위 LICENSE 파일을 읽었다. 서비스 이용 약관/모델 가중치/전체 의존성 license audit·법률 검토는 수행하지 않았다.",
+    "Moodcode production code·원본 checkout을 수정하지 않았다. 담당 두 문서만 만들고 upstream source/prompt/tool description/fixture/미디어를 복사하거나 runtime 의존성으로 추가하지 않았다. 원본을 읽었으므로 clean-room 분석이라고 주장하지 않는다."
+  ]
+}

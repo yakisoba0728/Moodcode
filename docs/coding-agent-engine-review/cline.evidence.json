@@ -1,0 +1,272 @@
+{
+  "slug": "cline",
+  "head": "55a133b751b66d42b8a3ffad76c731ad4f51577d",
+  "repository": "https://github.com/cline/cline",
+  "analysisMode": "static-source-review",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/cline",
+  "moodcodeBaseline": {
+    "documentationHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineSource": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "references": [
+    {
+      "id": "CLINE-R01",
+      "path": "README.md",
+      "startLine": 125,
+      "endLine": 144,
+      "claim": "제품 경계 표는 SDK·CLI·Desktop·VS Code 이행 상태를 표시하고 JetBrains plugin 소스는 비공개라고 명시한다. Plan/Act·승인·checkpoint 설명은 README 주장이다."
+    },
+    {
+      "id": "CLINE-R02",
+      "path": "LICENSE",
+      "startLine": 1,
+      "endLine": 23,
+      "claim": "root LICENSE는 Apache License 2.0이다. 하위 고지와 비공개 plugin·외부 서비스의 권리까지 자동 확장하지 않는다."
+    },
+    {
+      "id": "CLINE-R03",
+      "path": "sdk/packages/core/src/runtime/host/host.ts",
+      "startLine": 137,
+      "endLine": 266,
+      "claim": "createRuntimeHost는 local/hub/remote/auto를 분기하고 auto의 hub 연결 실패 때 local로 fallback한다."
+    },
+    {
+      "id": "CLINE-R04",
+      "path": "sdk/packages/core/src/runtime/orchestration/session-runtime-orchestrator.ts",
+      "startLine": 948,
+      "endLine": 1064,
+      "claim": "SessionRuntime은 모델·extension tool·config tool·기존 transcript·hooks·prepareTurn을 구성하고 새 AgentRuntime을 매 run 생성하며 startup 중 요청한 abort를 run-started 경계에 전달한다."
+    },
+    {
+      "id": "CLINE-R05",
+      "path": "sdk/packages/agents/src/agent-runtime.ts",
+      "startLine": 898,
+      "endLine": 1019,
+      "claim": "assistant message를 기록하고 tool-call을 실행·결과 메시지로 추가하며, 도구 없는 완료 또는 completing tool 성공으로 run을 종료한다. unknown/max-tokens/error finish는 별도 처리한다."
+    },
+    {
+      "id": "CLINE-R06",
+      "path": "sdk/packages/agents/src/agent-runtime.ts",
+      "startLine": 1755,
+      "endLine": 1820,
+      "claim": "준비된 model request의 generation signal에 steer와 run abort를 결합하며 stream delta를 assistant 이벤트로 조립한다."
+    },
+    {
+      "id": "CLINE-R07",
+      "path": "sdk/packages/agents/src/agent-runtime.ts",
+      "startLine": 2333,
+      "endLine": 2490,
+      "claim": "모든 tool-call의 beforeTool·입력 정규화·정책·승인 준비를 먼저 수행한 뒤 인접 parallel 그룹만 겹쳐 실행하고 sequential 도구를 순서 장벽으로 둔다."
+    },
+    {
+      "id": "CLINE-R08",
+      "path": "sdk/packages/agents/src/agent-runtime.ts",
+      "startLine": 2533,
+      "endLine": 2635,
+      "claim": "prepared tool execute에 lineage·run/tool-call ID·abort signal을 넘기고 output/error를 afterTool로 처리한 뒤 tool-result 및 finished 이벤트를 만든다."
+    },
+    {
+      "id": "CLINE-R09",
+      "path": "sdk/packages/core/src/extensions/context/compaction.ts",
+      "startLine": 478,
+      "endLine": 580,
+      "claim": "overflow 복구는 비어 있지 않고 더 작으며 목표 토큰 안에 있는 custom transcript만 허용하고 그렇지 않으면 basic 전략을 사용한다. 일반 agentic 실패도 취소가 아니면 basic으로 fallback한다."
+    },
+    {
+      "id": "CLINE-R10",
+      "path": "sdk/packages/core/src/session/services/persistence-service.ts",
+      "startLine": 222,
+      "endLine": 343,
+      "claim": "세션 metadata 갱신은 expectedStatusLock을 쓰는 bounded OCC 재시도이고 transcript와 compaction state는 manifestStore 경계에 각각 저장한다."
+    },
+    {
+      "id": "CLINE-R11",
+      "path": "sdk/packages/core/src/session/checkpoint-restore.ts",
+      "startLine": 50,
+      "endLine": 151,
+      "claim": "checkpoint restore 전 HEAD와 untracked 포함 stash를 private ref로 보관하며 commit/rollback을 제공한다. rollback은 reset/clean/stash apply로 worktree를 복구한다."
+    },
+    {
+      "id": "CLINE-R12",
+      "path": "sdk/packages/core/src/extensions/tools/team/multi-agent.ts",
+      "startLine": 705,
+      "endLine": 829,
+      "claim": "팀 mailbox는 수신자별 unread/markRead/limit를 지원하고 readAt을 dirty state로 기록한다. tasks·mailbox·runs 등을 export/hydrate하며 queued run 큐를 복원한다."
+    },
+    {
+      "id": "CLINE-R13",
+      "path": "sdk/packages/core/src/extensions/tools/team/multi-agent.ts",
+      "startLine": 1560,
+      "endLine": 1624,
+      "claim": "팀 메시지는 sender/recipient membership을 검사하고 subject/body/taskId를 mailbox에 보관한다. 실행 중 teammate에는 본문 대신 읽기 알림을 pending steer로 넣고 broadcast는 다른 teammate에 전달한다."
+    },
+    {
+      "id": "CLINE-R14",
+      "path": "sdk/packages/core/src/runtime/orchestration/team-persistence-writer.ts",
+      "startLine": 78,
+      "endLine": 151,
+      "claim": "durable team 이벤트·읽음 상태·teammate 정보를 batching하고 terminal/membership 변화는 즉시 flush한다. 실패 시 state delta를 requeue하고 bounded event batch로 재시도한다."
+    },
+    {
+      "id": "CLINE-R15",
+      "path": "sdk/packages/core/src/extensions/tools/team/spawn-agent-tool.ts",
+      "startLine": 115,
+      "endLine": 203,
+      "claim": "spawn_agent는 parallel 도구이며 focused delegated SessionRuntime 종료를 기다린다. parent ID·abort signal·tool policy·approval callback을 전달하고 시작/종료 observer는 best effort다."
+    },
+    {
+      "id": "CLINE-R16",
+      "path": "sdk/packages/core/src/cron/runner/cron-runner.ts",
+      "startLine": 254,
+      "endLine": 392,
+      "claim": "CronRunner tick은 활성 lease를 먼저 갱신하고 claimDueRuns에 전역 동시성 상한을 전달한다. lease 손실은 abort, disabled/removed spec은 취소, 실행별 timeout과 heartbeat를 관리한다."
+    },
+    {
+      "id": "CLINE-R17",
+      "path": "sdk/packages/core/src/hooks/hook-file-hooks.ts",
+      "startLine": 985,
+      "endLine": 1078,
+      "claim": "파일 hook 설정은 agent start/resume·tool call/result·end/abort를 runtime hooks에 연결한다. beforeTool은 입력 override/stop/context를 받을 수 있으나 이 경로의 prompt_submit은 반환 제어 채널이 없다."
+    },
+    {
+      "id": "CLINE-R18",
+      "path": "sdk/packages/core/src/extensions/plugin/plugin-loader.ts",
+      "startLine": 105,
+      "endLine": 146,
+      "claim": "plugin path의 module export를 로드하고 manifest를 검증·정규화하며 setup에 session/client/user/workspace/automation/logger/telemetry context를 주입한다."
+    },
+    {
+      "id": "CLINE-R19",
+      "path": "sdk/packages/core/src/extensions/mcp/tools.ts",
+      "startLine": 16,
+      "endLine": 48,
+      "claim": "MCP listTools 결과를 AgentTool로 eager 변환하고 schema·timeout/retry 설정·cache-oversized 결과 정책 및 호출 context를 MCP callTool에 전달한다."
+    },
+    {
+      "id": "CLINE-R20",
+      "path": "sdk/packages/core/src/extensions/tools/executors/bash.ts",
+      "startLine": 850,
+      "endLine": 961,
+      "claim": "shell detach는 PID 및 processStartToken을 요구하고 로그 metadata를 만들며 tool promise를 완료시킨 뒤 프로세스 출력은 별도 로그로 계속 보낸다. controller 등록은 session/tool-call에 묶인다."
+    }
+  ],
+  "candidates": [
+    {
+      "id": "CLINE-C01",
+      "title": "살아 있는 팀 구성원 간 영구 mailbox와 읽음 영수증",
+      "priority": "P1",
+      "cost": "높음",
+      "moodcodeStatus": "agent profiles·CAS tasks·queue/steer inbox·terminal child result 중복 제거는 기구현. 팀 membership과 비종료 child 간 mailbox/읽음 영수증은 별도 추가 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/contracts/src/v2.ts"
+      ],
+      "referenceIds": [
+        "CLINE-R12",
+        "CLINE-R13",
+        "CLINE-R14",
+        "CLINE-R15"
+      ],
+      "contract": "host가 허가한 team/member lineage로만 메시지를 전달한다. sender/requestId 중복 제거, 수신자별 monotonic cursor/read receipt, bounded mailbox, task revision·dependency·owner CAS를 저장한다. 본문은 다음 모델 경계에서 받고 실행 중 알림은 기존 steer 계약을 따른다. terminal 결과 전달을 유지하며 저장 receipt 전에는 durable 송신 성공을 반환하지 않는다. write child의 worktree·승인·deny·예산·취소 상속을 완화하지 않는다.",
+      "validation": [
+        "재시작 전후 송신 재시도·읽음 재시도·경계 소비가 같은 메시지 ID를 반환한다.",
+        "다른 team/lineage 송신과 종료·미확정 child로의 wake를 거절한다.",
+        "mailbox overflow·task owner 충돌·approval 대기 중 메시지·child 취소에서 전달 누락과 이중 실행이 없다."
+      ]
+    },
+    {
+      "id": "CLINE-C02",
+      "title": "예약 실행을 기존 영구 inbox에 연결하는 lease scheduler",
+      "priority": "P1",
+      "cost": "높음",
+      "moodcodeStatus": "영구 inbox·workspace 공정성·pause/resume·profile revision·durable tasks는 기구현. 날짜/cron/event trigger와 occurrence claim은 별도 추가 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/engine/src/engine.ts",
+        "packages/contracts/src/v2.ts"
+      ],
+      "referenceIds": [
+        "CLINE-R03",
+        "CLINE-R16"
+      ],
+      "contract": "schedule revision·timezone·workspace/profile pin·occurrence ID를 저장하고 occurrence→input.accept requestId를 고정한다. scheduler claim token·lease·전역/일정별 상한·missed-run 정책을 명시한다. lease 손실은 추가 제출을 중지하고 기존 실행의 소유권/cleanup 확인 없이 재실행하지 않는다. 스케줄 등록만으로 모든 도구를 자동 승인하지 않으며 미리 허용한 효과 범위 밖은 blocked/사용자 확인 상태로 남긴다.",
+      "validation": [
+        "동시 scheduler 두 개가 같은 occurrence를 하나의 durable input으로 만든다.",
+        "sleep/wake·시계 후퇴·timezone/DST·등록 revision 변경·disabled 직후 dispatch를 재현한다.",
+        "claim 직후/accept 직후 crash, lease 손실, workspace quarantine에서 같은 효과를 재실행하지 않는다."
+      ]
+    },
+    {
+      "id": "CLINE-C03",
+      "title": "승인 binding을 보존하는 typed lifecycle hook",
+      "priority": "P2",
+      "cost": "중간~높음",
+      "moodcodeStatus": "explicit host plugin 등록·prepared/settled metadata hook은 기구현. run/turn 경계의 context contribution·deny/stop 제어 및 prepare 이전 입력 변환은 추가 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/tools/runtime/index.ts"
+      ],
+      "referenceIds": [
+        "CLINE-R04",
+        "CLINE-R07",
+        "CLINE-R08",
+        "CLINE-R17",
+        "CLINE-R18"
+      ],
+      "contract": "host가 고정한 hook ID/revision/순서와 byte/time 한도·실패 정책으로 run/turn context 및 deny/stop 결과를 받는다. 입력 변환을 허용한다면 tool.prepare 이전에만 수행하고 최종 input으로 새 fingerprint·preview를 만든다. approval 뒤에는 input·policy·prepared request 변경을 거절한다. post-effect hook 실패를 tool 미실행이나 retry 가능으로 바꾸지 않고 기존 metadata observer를 유지한다. repo hook 파일 발견만으로 실행을 허가하지 않는다.",
+      "validation": [
+        "hook 순서·중복·timeout·abort·잘못된 구조·context overflow에서 결정적 결과를 낸다.",
+        "승인 대기 중 plugin revision/input 변경은 stale 처리하며 효과 0회다.",
+        "post-effect hook 실패 후 transcript·effect receipt를 보존하고 tool을 반복 실행하지 않는다."
+      ]
+    },
+    {
+      "id": "CLINE-C04",
+      "title": "공유 daemon·원격 host의 capability RPC와 재연결 계약",
+      "priority": "P2",
+      "cost": "높음",
+      "moodcodeStatus": "engine/host 분리·Electron utility ownership·event replay·reload detach·sender 검증은 기구현. 여러 클라이언트의 공유 daemon 및 원격 capability RPC는 추가 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/contracts/src/index.ts",
+        "packages/contracts/src/v2.ts",
+        "apps/desktop/src/main/index.ts",
+        "apps/desktop/src/worker/index.ts",
+        "apps/desktop/src/preload/api.ts"
+      ],
+      "referenceIds": [
+        "CLINE-R01",
+        "CLINE-R03",
+        "CLINE-R04"
+      ],
+      "contract": "원격 engine은 session/run의 유일 소유자이고 client는 bounded versioned commands/events를 사용한다. capability owner·연결 epoch·요청 deadline·requestId·replay cursor를 묶는다. approval 요청은 기존 exact run/tool/fingerprint와 결정 주체에 binding한다. client disconnect는 자동 effect 재시도나 engine cancel로 해석하지 않고 capability 재등록 및 run ownership handoff를 구분한다. 인증·credential 전달은 host reference로 한정한다.",
+      "validation": [
+        "client 종료/재연결·event gap·중복 request·late approval·capability owner 교체를 검증한다.",
+        "daemon 하나만 session/workspace lease를 소유하고 fallback/handoff에서 동일 input을 두 번 실행하지 않는다.",
+        "원격 연결 단절 중 accepted 효과의 receipt/uncertainty를 유지하고 다른 client의 승인을 거절한다."
+      ]
+    }
+  ],
+  "limitations": [
+    "원본 설치·빌드·테스트·실제 모델/서비스/계정·GUI·벤치마크를 실행하지 않았다. 정적 검사는 HEAD·JSON·근거 줄 범위·고정 소스 해시·Moodcode 관련 경로 검사다.",
+    "SDK와 공개 adapter 소스가 범위다. README가 비공개로 표시한 JetBrains plugin UI와 배포물의 기능·보안·실행 품질은 검증하지 않았다.",
+    "기존 apps/vscode/src/core 하위 모듈은 adapter/이행 코드로 구분했다. 현재 controller re-export와 SDK factory를 확인했고 과거 task loop를 현재 엔진으로 보고하지 않았다.",
+    "MCP는 확인한 SDK 경로에서 eager listTools→AgentTool 변환이다. 전체 제품에 bounded semantic tool discovery가 없다는 결론은 내리지 않는다.",
+    "team persistence는 batching·best effort 재시도 및 pending 이벤트 상한이 있어 각 메시지 송신이 즉시 disk durable ack를 보장한다고 주장하지 않는다.",
+    "shell detach는 별도 background process 수명이다. 정상 run abort와 detach 후 process cleanup의 완전 동등성·OS별 성공은 실측하지 않았다.",
+    "Claude Code provider 등 외부 실행기, cloud/connectors/auth/telemetry 서비스와 모델 제공자의 내부 loop·실행 정책은 공개 Cline loop와 구분한다. 해당 서비스/의존성 전체 license audit는 하지 않았다.",
+    "Git LFS·submodule·외부 배포·비공개 코드는 초기화하거나 확보하지 않았다. 공개 소스를 읽었으므로 clean-room 검증을 수행했다고 주장하지 않는다.",
+    "추가 후보는 독립 동작 계약이다. 원본 source·prompt·tool description·fixture를 Moodcode로 복사하거나 runtime 의존성을 추가하지 않았다."
+  ]
+}

@@ -1,0 +1,281 @@
+{
+  "slug": "plandex",
+  "head": "e2d772072efadbe41d2946d97d79be55532dbab5",
+  "repository": "https://github.com/plandex-ai/plandex",
+  "analysisMode": "static-source-review",
+  "references": [
+    {
+      "id": "R01",
+      "path": "app/cli/plan_exec/tell.go",
+      "startLine": 134,
+      "endLine": 151,
+      "claim": "TellPlan이 프로젝트 경로·autonomy·build·context 플래그를 서버 요청으로 전달한다."
+    },
+    {
+      "id": "R02",
+      "path": "app/server/model/plan/tell_exec.go",
+      "startLine": 177,
+      "endLine": 193,
+      "claim": "execTellPlan이 현재 단계에 따라 architect/planner/coder 역할과 토큰 한도를 선택한다."
+    },
+    {
+      "id": "R03",
+      "path": "app/server/model/plan/tell_exec.go",
+      "startLine": 530,
+      "endLine": 581,
+      "claim": "doTellRequest가 텍스트 스트리밍 요청을 만들고 CreateChatCompletionStream 후 listenStream을 시작한다."
+    },
+    {
+      "id": "R04",
+      "path": "app/server/model/plan/tell_stream_processor.go",
+      "startLine": 536,
+      "endLine": 590,
+      "claim": "handleNewOperations가 파싱된 파일·move·remove·reset operation을 자동 build 큐로 보낸다."
+    },
+    {
+      "id": "R05",
+      "path": "app/server/model/plan/tell_stream_finish.go",
+      "startLine": 160,
+      "endLine": 223,
+      "claim": "handleStreamFinished가 CLI context-load 응답을 기다린 뒤 willContinuePlan에 따라 다음 iteration을 실행한다."
+    },
+    {
+      "id": "R06",
+      "path": "app/server/model/plan/tell_context.go",
+      "startLine": 66,
+      "endLine": 117,
+      "claim": "smart context는 현재 subtask UsesFiles 밖의 일반 파일 context를 제외한다."
+    },
+    {
+      "id": "R07",
+      "path": "app/server/model/plan/tell_context.go",
+      "startLine": 235,
+      "endLine": 260,
+      "claim": "formatModelContext는 미적용 pending 파일 내용을 원래 context 본문보다 우선한다."
+    },
+    {
+      "id": "R08",
+      "path": "app/server/syntax/file_map/map.go",
+      "startLine": 17,
+      "endLine": 29,
+      "claim": "FileMap 정의는 signature·comment·line·children을 가진 구조이며 전체 구현 본문과 구분된다."
+    },
+    {
+      "id": "R09",
+      "path": "app/server/db/context_helpers_update.go",
+      "startLine": 264,
+      "endLine": 288,
+      "claim": "UpdateContexts가 path별 map 본문·입력 SHA·토큰·크기를 저장한다."
+    },
+    {
+      "id": "R10",
+      "path": "app/server/db/result_helpers.go",
+      "startLine": 462,
+      "endLine": 496,
+      "claim": "GetPlanResult가 pending 파일 결과와 replacements를 경로별 누적 projection으로 구성한다."
+    },
+    {
+      "id": "R11",
+      "path": "app/cli/lib/apply.go",
+      "startLine": 171,
+      "endLine": 205,
+      "claim": "MustApplyPlanAttempt가 사용자 확인 뒤 ApplyFiles로 로컬 프로젝트에 잠정 적용한다."
+    },
+    {
+      "id": "R12",
+      "path": "app/cli/lib/apply.go",
+      "startLine": 399,
+      "endLine": 422,
+      "claim": "execApplyScript는 프로젝트 root·현재 환경의 로컬 shell 프로세스를 실행하고 process/cgroup 정리 설정을 한다."
+    },
+    {
+      "id": "R13",
+      "path": "app/server/model/plan/build_validate_and_fix.go",
+      "startLine": 97,
+      "endLine": 143,
+      "claim": "buildValidateLoop는 Builder를 사용하고 3번째 시도부터 StrongModel을 선택하며 모델 valid와 문법 오류를 함께 확인한다."
+    },
+    {
+      "id": "R14",
+      "path": "app/server/model/plan/build_race.go",
+      "startLine": 272,
+      "endLine": 299,
+      "claim": "buildRace는 취소·실패·성공 채널을 선택하며 fallback 시작과 첫 성공 결과 반환을 조정한다."
+    },
+    {
+      "id": "R15",
+      "path": "app/cli/plan_exec/apply_exec.go",
+      "startLine": 142,
+      "endLine": 164,
+      "claim": "실패 디버깅 callback은 TellPlan 후 MustApplyPlanAttempt를 attempt+1로 재호출한다."
+    },
+    {
+      "id": "R16",
+      "path": "app/server/model/plan/stop.go",
+      "startLine": 10,
+      "endLine": 44,
+      "claim": "Stop은 summary·plan context를 취소하며 StorePartialReply는 Stopped assistant 메시지를 별도 저장한다."
+    },
+    {
+      "id": "R17",
+      "path": "app/server/db/branch_helpers.go",
+      "startLine": 82,
+      "endLine": 96,
+      "claim": "CreateBranch가 plan 저장소에 Git branch를 만들고 활성 branch 수를 기록한다."
+    },
+    {
+      "id": "R18",
+      "path": "app/server/db/locks.go",
+      "startLine": 257,
+      "endLine": 273,
+      "claim": "repo read lock은 다른 branch read 및 모든 write와 충돌하며 write는 모든 기존 lock과 충돌한다."
+    },
+    {
+      "id": "R19",
+      "path": "app/server/model/plan/build_exec.go",
+      "startLine": 104,
+      "endLine": 128,
+      "claim": "queueBuild는 경로별 큐를 추가하고 같은 파일의 active build가 없으면 goroutine을 시작한다."
+    },
+    {
+      "id": "R20",
+      "path": "app/server/model/client.go",
+      "startLine": 57,
+      "endLine": 77,
+      "claim": "newClient가 공급자별 auth variable과 BaseURL로 OpenAI 호환 client를 구성한다."
+    }
+  ],
+  "candidates": [
+    {
+      "id": "plandex-task-context-map",
+      "title": "버전 고정 프로젝트 map과 작업별 파일 문맥 선택",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "부분 구현: bounded ContextPlan·지침 baseline·문서 버전·CAS task는 존재한다. task별 파일 의존성과 syntax map projection 계약은 확인한 경로에 없다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/plan.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/sources.ts",
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/workspace/changes.ts"
+      ],
+      "referenceIds": [
+        "R06",
+        "R08",
+        "R09",
+        "R05"
+      ],
+      "contract": [
+        "호스트가 workspace/path/content SHA/parser revision을 고정한 읽기 전용 symbol-map artifact를 만든다. 크기·시간·파일수 한도를 적용하고 unsupported/timeout/omitted를 명시한다.",
+        "기존 task CAS 문서와 별도 버전의 bounded referencedPaths를 연결하고 선택 이유·source hash·context bytes를 ContextPlan에 기록한다. 경로 선택은 파일 읽기·쓰기 권한을 부여하지 않는다.",
+        "변경 관측 후 stale map을 재생성하며 task별 필요한 파일과 필수 최근 exchange를 보존한다. 순서와 omission 정책을 결정적으로 유지한다."
+      ],
+      "validation": [
+        "언어 지원 밖·손상 문법·취소·초대형 파일에서 bounded partial/unknown 결과를 유지한다.",
+        "동일 입력 map과 context digest가 동일하고 외부 편집·rename·delete 후 이전 SHA를 재사용하지 않는다.",
+        "일반 task title만 가진 기존 기록을 계속 읽고, task의 referencedPaths가 Plan/Build·deny 정책을 확장하지 않는다."
+      ]
+    },
+    {
+      "id": "plandex-review-proposal-overlay",
+      "title": "미적용 변경 집합과 모델 문맥의 proposal overlay",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "부분 구현: fingerprint approval·checkpoint 누적 diff·restore·격리 worktree/child merge는 이미 존재한다. 여러 turn의 미적용 제안에 대한 독립 overlay/revision 계약은 별도 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/patch/index.ts",
+        "packages/engine/src/review/index.ts",
+        "packages/engine/src/review/audit.ts",
+        "packages/engine/src/worktrees/index.ts",
+        "packages/engine/src/permission/index.ts",
+        "packages/engine/src/context/service.ts"
+      ],
+      "referenceIds": [
+        "R07",
+        "R10",
+        "R11",
+        "R17",
+        "R19"
+      ],
+      "contract": [
+        "ProposalSet을 session/workspace/base hash 집합/revision에 묶고 create/update/delete/rename 제안을 실제 사용자 파일에 쓰기 전에 축적한다.",
+        "다음 모델 경계에서 승인 전 overlay를 명시적으로 project하고 source hash·proposal revision·원본과 제안의 구분을 기록한다. 동일 파일 제안은 revision 순서로 합성한다.",
+        "review accept/reject는 정확한 선택 revision과 현재 base hash를 재검사한다. 변경된 제안은 기존 승인을 재사용하지 않으며 부분 적용·취소·불확실 효과는 기존 journal 계약으로 남긴다. 명령은 별도 승인과 실행 공간을 요구한다."
+      ],
+      "validation": [
+        "두 파일·여러 turn 제안 후 accept 전 사용자 파일의 bytes가 바뀌지 않는다.",
+        "중간 제안 reject·rename/delete·외부 편집·중복 요청·재시작 후 동일 projection 또는 명시적 conflict가 나온다.",
+        "선택한 제안만 적용되고 변경된 preview·base SHA에서 stale approval이 거절된다."
+      ]
+    },
+    {
+      "id": "plandex-edit-validation-ladder",
+      "title": "관측 결과를 남기는 제한된 편집 검증·복구 단계",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "부분 구현: 정확한 hash 편집·formatter/LSP·명령 도구·provider retry는 있다. 제안의 문법/명령 검증을 다음 repair 시도와 묶는 bounded 상태 기계는 별도 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/patch/index.ts",
+        "packages/engine/src/formatters/index.ts",
+        "packages/engine/src/lsp/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/permission/policy.ts"
+      ],
+      "referenceIds": [
+        "R13",
+        "R14",
+        "R15",
+        "R12"
+      ],
+      "contract": [
+        "호스트가 validator identity/revision을 등록하고 ProposalSet revision에 대해 syntax 또는 승인된 check 명령을 수행한다. supported/passed/failed/timeout/skipped/unknown을 구분한다.",
+        "repair는 실패 artifact와 정확한 제안 revision을 입력으로 사용한다. 시도 수·누적 시간·출력·모델 예산을 제한하고 변화가 없는 제안을 반복하지 않는다.",
+        "검증 전 취소·validator 미지원·모델 판단만 있는 상태는 성공 증명으로 승격하지 않는다. 재작성 결과는 새 SHA·preview·승인이 필요하다."
+      ],
+      "validation": [
+        "원래 문법 오류와 새 오류를 구분하며 unsupported/timeout이 passed로 기록되지 않는다.",
+        "실패→repair→새 검증의 owner/revision 연결을 확인하고 최대 시도·취소·같은 실패 반복에서 종료한다.",
+        "check 명령·새 편집이 기존 승인·deny·child 예산을 지키며 실패 후 사용자 파일 복원은 현재 hash 충돌 검사를 유지한다."
+      ]
+    },
+    {
+      "id": "plandex-model-role-routing",
+      "title": "단계별 모델 역할과 증거 기반 escalation 기록",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "부분 구현: AgentProfiles의 immutable revision·model/tool/config binding 및 durable Turn/Attempt가 있다. 한 작업 안의 계획/편집 검증별 route 선택·escalation 계약은 추가 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/context/model-spec.ts",
+        "packages/engine/src/context/plan.ts",
+        "packages/engine/src/ports.ts"
+      ],
+      "referenceIds": [
+        "R02",
+        "R13",
+        "R20"
+      ],
+      "contract": [
+        "호스트가 role→provider/model/config revision을 명시하고 단계 선택 이유·이전 검증 outcome·route revision을 Turn/Attempt에 기록한다.",
+        "model 전환마다 capability/tool schema/context/output reserve를 다시 계산하고 공유 run 예산에서 비용을 차감한다. provider credentials와 tool scope는 호스트 등록 경계를 따른다.",
+        "stronger-model 전환은 호스트의 명시적 정책에 따른 제한된 단계이며 권한 상향을 의미하지 않는다. retry의 원 요청과 다른 model route를 혼동하지 않도록 별도 attempt binding을 둔다."
+      ],
+      "validation": [
+        "계획→작성→검증 route가 각 model metadata와 context digest로 일치한다.",
+        "fallback/escalation 중 cancel·budget exhaustion·unknown context window·도구 capability 차이를 정확히 기록한다.",
+        "role 변경이 Plan/Build·deny·승인 요구를 바꾸지 않으며 profile revision 변경 후 오래된 실행 설정을 재사용하지 않는다."
+      ]
+    }
+  ],
+  "limitations": [
+    "고정 HEAD 소스만 정적 분석했다. upstream 설치·빌드·테스트·모델 호출·명령 실행·계정 연결·GUI 실행은 하지 않았다.",
+    "README의 2M/20M context, 성능·편집 신뢰성·full autonomy는 실행으로 검증하지 않았다. 유지보수 상태는 해당 HEAD의 commit metadata와 README 고지 범위다.",
+    "Git LFS·submodule 재귀 자료와 외부 cloud/private hook 구현, provider·LiteLLM 실제 호환성·약관·전체 dependency license audit는 확인 범위 밖이다.",
+    "누적 diff sandbox를 process/filesystem/network 보안 격리로 해석하지 않는다. CLI shell 실행은 사용자 환경에서 이루어진다.",
+    "확인한 주요 엔진에서 일반 MCP catalog/독립 하위 agent lifecycle을 찾지 못했다는 관측은 제품 전체의 부재 증명이 아니다.",
+    "Moodcode의 기존 테스트 통과 기록은 implementation-status 문서의 이전 기록이며 이번 upstream 실행 결과가 아니다.",
+    "원본 source·prompt·fixture를 산출물에 복사하지 않았고 runtime dependency를 추가하지 않았다. 원본을 읽은 분석이며 clean-room 절차라고 주장하지 않는다."
+  ]
+}

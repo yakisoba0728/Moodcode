@@ -1,0 +1,363 @@
+{
+  "slug": "swe-agent",
+  "head": "3ea751c087f32b16e039a2233dd6eefecef325d5",
+  "repository": "https://github.com/SWE-agent/SWE-agent",
+  "analysisMode": "static-source-review",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/swe-agent",
+  "reviewedAt": "2026-10-07",
+  "upstreamExecution": false,
+  "moodcodeBaseline": {
+    "documentationHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineSource": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "maintenance": {
+    "readmeStatus": "Most current effort moved to mini-swe-agent; mini superseded SWE-agent. Original is analyzed as historical/reference architecture.",
+    "githubArchived": false,
+    "metadataObservedAt": "2026-10-07T09:28:34.177612+00:00",
+    "metadataSource": "source-manifest.json",
+    "pinnedCommitDate": "2026-07-16T11:21:18-04:00",
+    "activeDevelopmentNotInferredFromArchivedFlag": true
+  },
+  "license": {
+    "rootFile": "LICENSE",
+    "rootLicense": "MIT",
+    "separateTrackedLicenseNoticeFilesFound": [],
+    "additionalSourceNotice": "tools/edit_anthropic/bin/str_replace_editor:3-6 declares adaptation of Anthropic quickstarts editor. This is provenance, not a completed license review.",
+    "externalBoundaries": [
+      "SWE-ReX runtime/deployments",
+      "LiteLLM/provider APIs",
+      "container images",
+      "datasets/SWE-bench",
+      "sb-cli evaluation service"
+    ],
+    "dependencyAuditPerformed": false
+  },
+  "references": [
+    {
+      "id": "SWA-R01",
+      "path": "LICENSE",
+      "startLine": 1,
+      "endLine": 21,
+      "claim": "root 실제 MIT license와 저작권·고지 조건.",
+      "fileSha256": "7610ed3916f6674e34b78417894abd57ff538b3cfdda3085e3643d82acbaf31f",
+      "rangeSha256": "7610ed3916f6674e34b78417894abd57ff538b3cfdda3085e3643d82acbaf31f"
+    },
+    {
+      "id": "SWA-R02",
+      "path": "README.md",
+      "startLine": 19,
+      "endLine": 24,
+      "claim": "upstream은 current effort가 mini로 이동했고 mini가 SWE-agent를 superseded했다고 안내한다; archive flag와 별개다.",
+      "fileSha256": "dcd880557720efbab0f5c0e68f2bc742309efecfce83244c9e670ec1f1adf76f",
+      "rangeSha256": "e8587725b78280048e3983b3c32eb783592c652dbaf661b498bfe03bf1c2be5d"
+    },
+    {
+      "id": "SWA-R03",
+      "path": "pyproject.toml",
+      "startLine": 13,
+      "endLine": 67,
+      "claim": "Python >=3.11 package, LiteLLM/SWE-ReX 등 외부 의존성, CLI entry point.",
+      "fileSha256": "c15229fac40a10716b53fda2cf6ba756d62cb59d682e7d10d7d62b640dfccef9",
+      "rangeSha256": "69e105f39c3b68bd6bc4bf78c04a048cf94b479248831a756062c776b7d6030b"
+    },
+    {
+      "id": "SWA-R04",
+      "path": "sweagent/run/run_single.py",
+      "startLine": 165,
+      "endLine": 207,
+      "claim": "config에서 agent/env/hooks를 만들고 env.start→agent.run→prediction 저장→정상 env.close를 호출한다.",
+      "fileSha256": "4c373cdea6a7d3c67a7c8ad2c183ae1bb0d3e74fe820957ca6469b8a9e1eae80",
+      "rangeSha256": "79f6d01014d13175843d06b1e3112e9217fc691deb0f150e88e8291ee360d1e8"
+    },
+    {
+      "id": "SWA-R05",
+      "path": "sweagent/environment/swe_env.py",
+      "startLine": 109,
+      "endLine": 232,
+      "claim": "SWE-ReX deployment/session start, reset/hard reset, stop, interrupt 및 persistent shell 출력 경계.",
+      "fileSha256": "cc2631890aaba56a648a2bdeef6019b7c2f29a171daba6e704adbfb57ff99c7a",
+      "rangeSha256": "9cbc6f146a374c97e9fd50a6864c0423f20f68083294b64359a2c16c7e6e65c4"
+    },
+    {
+      "id": "SWA-R06",
+      "path": "sweagent/agent/models.py",
+      "startLine": 632,
+      "endLine": 781,
+      "claim": "LiteLLM query, 추정 token, tool schema, 응답 후 cost/call stats와 strict 초과 한도 검사.",
+      "fileSha256": "91a8cb62703d7db656b0e615811ff0b9eedd51cd3ea89a6eeb2393f1d35c6cce",
+      "rangeSha256": "5b50f3a8c30b0a1e920fa5a19f83f58f4b4499797d32dab38f2748e616c37a6a"
+    },
+    {
+      "id": "SWA-R07",
+      "path": "sweagent/agent/models.py",
+      "startLine": 794,
+      "endLine": 903,
+      "claim": "provider retry 제외 예외, history→message/call ID 투영, human/replay/test/LiteLLM factory.",
+      "fileSha256": "91a8cb62703d7db656b0e615811ff0b9eedd51cd3ea89a6eeb2393f1d35c6cce",
+      "rangeSha256": "613b35832f01f7ea4feae96e216326ef73cc8686b1f6a43da398bd51d90ac7db"
+    },
+    {
+      "id": "SWA-R08",
+      "path": "sweagent/tools/parsing.py",
+      "startLine": 397,
+      "endLine": 454,
+      "claim": "정확히 하나의 tool call, command name·required/extra key 검사와 shell invocation 렌더링.",
+      "fileSha256": "20fb9e08a808ba33aab122b487d67637b133a4e1fd698f28386a36f92f44b5d2",
+      "rangeSha256": "afdd0fb95ceda528a119592304d2d3c623d716d98d9c3c093a327db616218743"
+    },
+    {
+      "id": "SWA-R09",
+      "path": "sweagent/tools/tools.py",
+      "startLine": 75,
+      "endLine": 224,
+      "claim": "bundle/builtin command 합성·중복 이름 거절·schema·environment propagation·timeout configuration.",
+      "fileSha256": "6a5b9ca0b4b7bbc60364fb832a478fad7c7c41a0d91cb0718c9ad523120e9a70",
+      "rangeSha256": "bd2b05345310151c4c49b2d5df38bc6c8df71561f14f82772fbea25f976be12e"
+    },
+    {
+      "id": "SWA-R10",
+      "path": "sweagent/tools/tools.py",
+      "startLine": 252,
+      "endLine": 380,
+      "claim": "bundle upload/install.sh, PATH/command 존재 확인, state retrieval와 문자열 command filter.",
+      "fileSha256": "6a5b9ca0b4b7bbc60364fb832a478fad7c7c41a0d91cb0718c9ad523120e9a70",
+      "rangeSha256": "687b762b3f15a85c73a0cc87b3dae6e7abc93b90bcdb5e79dbaa66f43fdf09b1"
+    },
+    {
+      "id": "SWA-R11",
+      "path": "sweagent/agent/agents.py",
+      "startLine": 936,
+      "endLine": 1060,
+      "claim": "모델 query→parser→action→environment observation 및 timeout interrupt/control signal 처리.",
+      "fileSha256": "d6cdf7ac66a6509ceba08e3541b856f0734acf79f9a485ed8a6e2c72f0d211a8",
+      "rangeSha256": "45cdf5699ee111d8941015b55c0e2319321fa348aceec8b23110c302b40090a4"
+    },
+    {
+      "id": "SWA-R12",
+      "path": "sweagent/agent/agents.py",
+      "startLine": 1062,
+      "endLine": 1218,
+      "claim": "format/blocklist/syntax requery·별도 오류 종료·KeyboardInterrupt 전파·autosubmission 연결.",
+      "fileSha256": "d6cdf7ac66a6509ceba08e3541b856f0734acf79f9a485ed8a6e2c72f0d211a8",
+      "rangeSha256": "72fa75715eb00fe65eb07fbebb0c0ce22220595759985c854ffb78e946b67c99"
+    },
+    {
+      "id": "SWA-R13",
+      "path": "sweagent/agent/agents.py",
+      "startLine": 714,
+      "endLine": 821,
+      "claim": "action/observation history, trajectory/config JSON overwrite와 정상 history에 남지 않는 임시 requery.",
+      "fileSha256": "d6cdf7ac66a6509ceba08e3541b856f0734acf79f9a485ed8a6e2c72f0d211a8",
+      "rangeSha256": "956258dfeeb90495f740bd4a7dbac9894794a188a9b617c1fa52dbaa58dad8ff"
+    },
+    {
+      "id": "SWA-R14",
+      "path": "sweagent/agent/agents.py",
+      "startLine": 823,
+      "endLine": 904,
+      "claim": "오류 뒤 살아 있는 환경에서 patch를 수집하거나 이전 diff를 사용하고 submission·exit status를 합성한다.",
+      "fileSha256": "d6cdf7ac66a6509ceba08e3541b856f0734acf79f9a485ed8a6e2c72f0d211a8",
+      "rangeSha256": "ab0a6cd5abbc2752825edd2ccdbfee7b140b5394f3cb819dc3b2a2acd19480d2"
+    },
+    {
+      "id": "SWA-R15",
+      "path": "sweagent/agent/agents.py",
+      "startLine": 1220,
+      "endLine": 1294,
+      "claim": "query/action/observation/state trajectory·stats, 정상 step 후 save, done 기반 run loop.",
+      "fileSha256": "d6cdf7ac66a6509ceba08e3541b856f0734acf79f9a485ed8a6e2c72f0d211a8",
+      "rangeSha256": "626b826ae404cc39a8d48e75933f4e54829ea06a047758008217e187b2d28387"
+    },
+    {
+      "id": "SWA-R16",
+      "path": "sweagent/agent/history_processors.py",
+      "startLine": 141,
+      "endLine": 258,
+      "claim": "old observation 내용 투영, call tag 처리, user-role의 오래된 file window 생략.",
+      "fileSha256": "8e3621a9b7d94761d184c57dc2ab1028f7eb04b01fdfcbe8ba122977d19e477a",
+      "rangeSha256": "fc81fa3070fd95e778c26025d1d3a35dd3f853ec04d230cef3e700fb4fa4ff57"
+    },
+    {
+      "id": "SWA-R17",
+      "path": "sweagent/agent/agents.py",
+      "startLine": 303,
+      "endLine": 440,
+      "claim": "task 전체 attempt마다 새 agent, 남은 cost 적용, hard reset, reviewer 및 best-attempt 선택.",
+      "fileSha256": "d6cdf7ac66a6509ceba08e3541b856f0734acf79f9a485ed8a6e2c72f0d211a8",
+      "rangeSha256": "cd2d9c349ad3fa8e09d5a04b071d1311d75361e7e9dd339398384ac43ebc5686"
+    },
+    {
+      "id": "SWA-R18",
+      "path": "sweagent/run/run_replay.py",
+      "startLine": 96,
+      "endLine": 202,
+      "claim": "trajectory config와 assistant action을 추출하여 ReplayModel·새 환경에서 action 재실행.",
+      "fileSha256": "4a3ece83bc2382f5790da76218f99af1a193f12f2386f36025108671fe7a01f8",
+      "rangeSha256": "79478b5d285df6406bd3c1bbca171e5abaaf54934e83f0a976488eebc2ce6f95"
+    },
+    {
+      "id": "SWA-R19",
+      "path": "sweagent/run/run_batch.py",
+      "startLine": 268,
+      "endLine": 409,
+      "claim": "thread workers/pending cancellation, instance finally close, exit status 존재에 따른 skip.",
+      "fileSha256": "8c60a08a4a249e7108a82bdf6815fec2aaac0a3d6345a164267ec493a776d0ee",
+      "rangeSha256": "2dec5c709bcff658767f42635471d27569158234773f344d92450fedb1a7eaf2"
+    },
+    {
+      "id": "SWA-R20",
+      "path": "tools/edit_anthropic/bin/str_replace_editor",
+      "startLine": 516,
+      "endLine": 594,
+      "claim": "default replacement editor는 tabs를 확장하고 unique old text 검사 후 쓰며 optional lint 오류를 warning으로 보고한다.",
+      "fileSha256": "bb36c0d244c820b31d92ed46ced6ba2588a52b482058a71321175dfaba1b0ff3",
+      "rangeSha256": "aa7f5863177d01e595a9b55978a7bf51f25117cfd6f4845f6d60397f0a2a42b9"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "SWA-C01",
+      "title": "history 투영의 source identity와 생략 사유 진단",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "이미 bounded ContextPlan·semantic memory·historical tool projection·active complete exchange가 있다. policy별 source/생략 사유 관측의 추가 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/plan.ts",
+        "packages/engine/src/context/tool-history.ts",
+        "packages/engine/src/storage/native-history.ts"
+      ],
+      "referenceIds": [
+        "SWA-R07",
+        "SWA-R13",
+        "SWA-R16"
+      ],
+      "contract": [
+        "각 투영 결과를 원래 message/Run/Turn/Attempt와 context revision·policy revision에 연결한다.",
+        "omitted observation의 이유·UTF-8 byte 수·historical file 여부를 기록하고 active exchange와 tool call ID pair를 보존한다.",
+        "원래 durable journal을 변경하지 않으며 summary publication·context activation의 기존 owner 계약을 보존한다."
+      ],
+      "validation": [
+        "같은 source/policy의 결정적 투영과 raw journal 불변.",
+        "user/tool-role 형식, processor 순서, 이미지·UTF-8 및 byte 상한.",
+        "stale file observation이 current evidence로 승격되지 않으며 call/observation pair가 완전함.",
+        "policy/config 변경 시 context revision 변경·원래 source identity 보존."
+      ]
+    },
+    {
+      "id": "SWA-C02",
+      "title": "실패·중단 코딩 결과의 읽기 전용 증거 manifest",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "이미 artifact·checkpoint/restore·archive export/import·native tool recovery frontier·uncertainty 차단이 있다. 산출물과 성공 판정의 별도 manifest를 제안한다.",
+      "moodcodePaths": [
+        "packages/engine/src/storage/tool-recovery-frontier.ts",
+        "packages/engine/src/storage/archive.ts",
+        "packages/engine/src/review/index.ts",
+        "packages/engine/src/artifacts/index.ts"
+      ],
+      "referenceIds": [
+        "SWA-R12",
+        "SWA-R13",
+        "SWA-R14",
+        "SWA-R18"
+      ],
+      "contract": [
+        "source journal sequence에 고정된 patch/file hash·실행된 검증 명령/outcome·cleanup disposition을 별도로 기록한다.",
+        "산출물 존재만으로 실패·중단·uncertainty terminal을 completed로 바꾸지 않는다.",
+        "manifest 수집·import는 Git stage·action replay·모델 호출·새 effect를 시작하지 않는다. unknown cleanup의 기존 차단을 보존한다.",
+        "historical diff와 current file evidence를 구분하며 변경된 filesystem은 stale로 표시한다."
+      ],
+      "validation": [
+        "patch만 존재/검증 실패/검증 미실행/실제 검증 성공을 구분.",
+        "이전 diff freshness, partial restore·다른 source sequence 거절.",
+        "cleanup uncertainty에서 실행 차단·effect 0 유지.",
+        "bounded UTF-8 artifact·수집 중 crash·export/import 후 원본 불변."
+      ]
+    },
+    {
+      "id": "SWA-C03",
+      "title": "검증 증거에 묶인 opt-in 코딩 작업 attempt group",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "이미 provider Attempt·agent profile·격리 child/worktree·budget/deny/cancel 상속·terminal root inbox 전달이 있다. task 전체 재시도와 read-only reviewer 선택은 별도 workflow 후보다.",
+      "moodcodePaths": [
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/worktrees/index.ts",
+        "packages/engine/src/config/budgets.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "scripts/evaluate-engine.mjs"
+      ],
+      "referenceIds": [
+        "SWA-R06",
+        "SWA-R17",
+        "SWA-R19"
+      ],
+      "contract": [
+        "issue attempt group의 engine source/config/base commit/검증 계획 digest를 고정하고 각 시도를 별도 worktree·owner로 수행한다.",
+        "parent 잔여 예산을 실행 전 예약하고 reviewer의 read-only advisory 호출을 별도 identity·usage로 제한한다.",
+        "최종 선택 patch는 exact approval과 revalidation을 거쳐 적용한다. reviewer 평가는 test pass의 대체가 아니다.",
+        "batch skip은 같은 source/config의 성공 terminal·파일/검증/cleanup 증거가 모두 일치할 때만 허용하고 실패·취소·uncertainty 이력은 보존한다."
+      ],
+      "validation": [
+        "provider transport retry와 task attempt를 구분하고 과거 시도 report를 덮어쓰지 않음.",
+        "parent budget·deny/cancel 상속, reviewer failure·과예산, terminal 결과 inbox 중복 제거.",
+        "동시 case 제출·stale base·config 변경·실패 exit status 존재시 skip 거절.",
+        "선택 승인 뒤 patch 변경 거절·unknown cleanup 실행 차단.",
+        "scripted 계약 검증과 실제 모델 성공률을 별도 표시."
+      ]
+    },
+    {
+      "id": "SWA-C04",
+      "title": "호스트 도구 등록 manifest의 변경 진단",
+      "priority": "P1",
+      "cost": "S",
+      "moodcodeStatus": "이미 scoped versioned runtime·descriptor digest·bounded discovery·다음 model 경계 capture·exact prepared approval/effect가 있다. 등록 간 독립 관측/회귀 행렬의 추가 제안이다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/tools/runtime/discovery.ts",
+        "packages/engine/src/runner/tool-discovery.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/tools/edit/index.ts"
+      ],
+      "referenceIds": [
+        "SWA-R08",
+        "SWA-R09",
+        "SWA-R10",
+        "SWA-R20"
+      ],
+      "contract": [
+        "schema digest·scope/revision·effect/approval policy·descriptor/handler identity에 묶인 host 등록 manifest를 읽기 전용으로 비교한다.",
+        "upstream shell bundle/install을 도입하지 않으며 기존 host-only registration을 보존한다.",
+        "등록 변경은 다음 model boundary에서 선택된 schema에만 반영하고 prepared 승인과 현재 batch handler를 재사용하지 않는다.",
+        "lint warning·실제 file effect·검증 성공을 distinct outcome으로 관측한다."
+      ],
+      "validation": [
+        "중복 이름·scope 충돌·stale capture·hidden descriptor 상태.",
+        "type/enum/input 오류의 effect 0 및 handler/descriptor 불일치.",
+        "등록 변경 중 approval binding·same-Turn capture·discovery/schema byte 한도 보존.",
+        "editor lint warning이 검증 성공으로 표시되지 않음."
+      ]
+    }
+  ],
+  "limitations": [
+    "일반 소프트웨어 issue 수정 lifecycle만 분석했다; offensive/cyber workflow·대상·PoC는 제외했다.",
+    "원본 source/prompt/tool description/fixture/media를 복사하지 않았고 runtime dependency를 추가하지 않았다. 원본을 읽은 분석이므로 clean-room을 주장하지 않는다.",
+    "원본 HEAD·checkout을 변경하지 않았으며 설치·tests·runtime·model/계정·container·benchmark·GUI·공유 build·commit을 실행하지 않았다.",
+    "SHA/줄 범위/파일 소속/후보 경로 정적 검사는 runtime 성공·cleanup·성능·benchmark 재현 증거가 아니다.",
+    "외부 SWE-ReX 구현의 sandbox privilege/mount/network/process ownership·descendant cleanup과 실제 OS/provider 호환성은 미확인이다.",
+    "optional browser·모든 대안 parser·action sampler·제출/PR hook의 완전한 수명, 이미지·PDF/audio/video의 실제 인식은 미확인이다.",
+    "README performance 주장·유지보수 안내·API archive flag·소스 확인을 구분했다. archive=false는 active development 보장이 아니다.",
+    "별도 하위 license 파일을 발견하지 못한 사실은 모든 전이 의존성·adapted source·dataset/service 약관의 허가 검토를 뜻하지 않는다.",
+    "Moodcode 기존 완료 결과·열린 OS/provider/CI 검증 항목은 보존한다. 신규 후보는 이번 구현 범위에 포함되지 않는다."
+  ],
+  "staticValidation": {
+    "referenceCount": 20,
+    "maxRangeLines": 157,
+    "referenceFilesMatchPinnedCommit": true,
+    "referenceRangesAndSha256Verified": true,
+    "candidateMoodcodePathsExist": true,
+    "runtimeTestsRun": false
+  }
+}

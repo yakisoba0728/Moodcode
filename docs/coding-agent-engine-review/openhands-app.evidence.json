@@ -1,0 +1,385 @@
+{
+  "slug": "openhands-app",
+  "head": "7ea83bab4fe71149b88b5a8a6b9efe9042cb362d",
+  "repository": "https://github.com/OpenHands/OpenHands",
+  "analysisMode": "static-source-review",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/openhands-app",
+  "moodcodeBaseline": {
+    "documentationHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineHead": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "references": [
+    {
+      "id": "A01",
+      "path": "LICENSE",
+      "startLine": 1,
+      "endLine": 21,
+      "symbol": "MIT License",
+      "claim": "2025 contributors의 root MIT 고지와 보존 조건.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/LICENSE#L1-L21",
+      "fileSha256": "e1d1fa9f3a8d7bef24449d488fcd8f00f8f272cac297bb9bed161eb6175b876a",
+      "rangeSha256": "e1d1fa9f3a8d7bef24449d488fcd8f00f8f272cac297bb9bed161eb6175b876a",
+      "gitBlob": "f6f60f52368bcc96f82fbe59ec65049c2c3af9db",
+      "belongsToHead": true
+    },
+    {
+      "id": "A02",
+      "path": "README.md",
+      "startLine": 145,
+      "endLine": 172,
+      "symbol": "Architecture / Repository boundaries",
+      "claim": "앱·SDK Agent Server·TypeScript client·automation의 소유 경계를 설명한다.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/README.md#L145-L172",
+      "fileSha256": "e34ea61a6b6b1d1c2651c12a20a0ef83008c42190c400d6e93e54196d94f89b7",
+      "rangeSha256": "5487260f5aac73275f168d8a2c2cb8d9b9f6178b2daa749a3c226cb7ff7cfc1d",
+      "gitBlob": "9748057acf5110b0c4c5641ac990f17f2c923f13",
+      "belongsToHead": true
+    },
+    {
+      "id": "A03",
+      "path": "config/defaults.json",
+      "startLine": 1,
+      "endLine": 36,
+      "symbol": "shared defaults",
+      "claim": "Agent Server 1.53.0·automation 1.19.0 및 package·port·persistence 경로 기본값.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/config/defaults.json#L1-L36",
+      "fileSha256": "10611a5222ad2642e61922843889b8b5b4d7f1cf7171d19962083de5ac63cf82",
+      "rangeSha256": "38fb01659ea978f32e40dbba83cab7d27a64c96e881feee6f60f0ac80fb9724c",
+      "gitBlob": "ea12dc18c5672fe87095b563293e6edf674a8b33",
+      "belongsToHead": true
+    },
+    {
+      "id": "A04",
+      "path": "scripts/dev-with-automation.mjs",
+      "startLine": 1597,
+      "endLine": 1663,
+      "symbol": "main service startup",
+      "claim": "서버 readiness→secret seeding→automation→frontend→ingress의 시작 순서.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/scripts/dev-with-automation.mjs#L1597-L1663",
+      "fileSha256": "27edae33abd6fedea0c1f5bbc13f9e77eaa0423e1ce921e2c9a8f56fcbbf1163",
+      "rangeSha256": "08a2c7706fd9d496776f2a4bd2e7aad2fc97c33186eb0786ef9fc1ed19c2ee08",
+      "gitBlob": "01133e7220b23f02f4f918626e2835f8ec09edbc",
+      "belongsToHead": true
+    },
+    {
+      "id": "A05",
+      "path": "scripts/dev-safe.mjs",
+      "startLine": 429,
+      "endLine": 528,
+      "symbol": "buildAgentServerCommand",
+      "claim": "local source/Git ref/PyPI 선택 및 SDK companion packages 버전 정렬.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/scripts/dev-safe.mjs#L429-L528",
+      "fileSha256": "6c9d794297f558499c5ccd951ef2086108369fd6e1e8c620e3054836f8abadfa",
+      "rangeSha256": "04be20720c16faca8e1a4f7d1b4f1cefdbc3f803a144d1fcc83592cca7161fc4",
+      "gitBlob": "29fe278c89b2a5fa3805670a6bb5580102aa7167",
+      "belongsToHead": true
+    },
+    {
+      "id": "A06",
+      "path": "scripts/dev-with-automation.mjs",
+      "startLine": 993,
+      "endLine": 1091,
+      "symbol": "startAutomationBackend",
+      "claim": "외부 automation 서비스와 Agent Server URL·API key·DB·workspace 연결.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/scripts/dev-with-automation.mjs#L993-L1091",
+      "fileSha256": "27edae33abd6fedea0c1f5bbc13f9e77eaa0423e1ce921e2c9a8f56fcbbf1163",
+      "rangeSha256": "18861c8a6e776a0258a4e799b6ff1e23c8437508a3139a08b0933c8c86ca2029",
+      "gitBlob": "01133e7220b23f02f4f918626e2835f8ec09edbc",
+      "belongsToHead": true
+    },
+    {
+      "id": "A07",
+      "path": "scripts/bind-host.mjs",
+      "startLine": 50,
+      "endLine": 78,
+      "symbol": "applySessionKeyPolicy",
+      "claim": "off-loopback HTML session key 주입 제거와 명시적 LAN opt-in 예외.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/scripts/bind-host.mjs#L50-L78",
+      "fileSha256": "24d624d66fc0823f7391951ca0b3d62d0ed38e22617b1b10ce2b4222d88521cf",
+      "rangeSha256": "8dc70fdb02d998eb46d9ac02242c8e66e8b3d93a8ccd835c0e8c94a50543680b",
+      "gitBlob": "0b1915265f0cc67b599e572d7aa82a29d4d20b07",
+      "belongsToHead": true
+    },
+    {
+      "id": "A08",
+      "path": "src/api/conversation-service/agent-server-conversation-service.api.ts",
+      "startLine": 441,
+      "endLine": 585,
+      "symbol": "sendMessage / createConversation",
+      "claim": "runtime sendEvent(run:true), Cloud App API 분기, local workspace·encrypted payload 생성.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/src/api/conversation-service/agent-server-conversation-service.api.ts#L441-L585",
+      "fileSha256": "961525bd9d1d8b5c0c49fd865ad867ccfb742bd10c99f69352bfe9e996752871",
+      "rangeSha256": "bd82526c9d4fd28fdc7a3195ace9210f3d39a8f75f98a27c0c8fb77bc10128f4",
+      "gitBlob": "4d4e89171b7bdc520a35444b137e2c395b887239",
+      "belongsToHead": true
+    },
+    {
+      "id": "A09",
+      "path": "src/api/agent-server-adapter.ts",
+      "startLine": 936,
+      "endLine": 1032,
+      "symbol": "buildConfiguredAcpAgentSettings",
+      "claim": "ACP kind·command/model 기본값, MCP forwarding과 deprecated credential env 제외.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/src/api/agent-server-adapter.ts#L936-L1032",
+      "fileSha256": "af608efd981a3e8a3a47cb54cc249b9f521a59fac95fe7d009af177180824ebd",
+      "rangeSha256": "a4362164a05aef9349eea51a690eb72cfb2dc49b67b3eaa696bf9cff77b77195",
+      "gitBlob": "d393fb5da29956ab3407f9d207873a39ce1870b4",
+      "belongsToHead": true
+    },
+    {
+      "id": "A10",
+      "path": "src/api/agent-server-adapter.ts",
+      "startLine": 1314,
+      "endLine": 1448,
+      "symbol": "start conversation payload",
+      "claim": "profile/inline agent 배타 선택, client tools·confirmation·worktree·hooks/plugins·secrets 구성.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/src/api/agent-server-adapter.ts#L1314-L1448",
+      "fileSha256": "af608efd981a3e8a3a47cb54cc249b9f521a59fac95fe7d009af177180824ebd",
+      "rangeSha256": "17c9b7ca851cf213184f537d4ad42c05f13b69782a12b668d7f3775d91148cbe",
+      "gitBlob": "d393fb5da29956ab3407f9d207873a39ce1870b4",
+      "belongsToHead": true
+    },
+    {
+      "id": "A11",
+      "path": "src/hooks/mutation/conversation-mutation-utils.ts",
+      "startLine": 36,
+      "endLine": 123,
+      "symbol": "pause / goal / resume mutations",
+      "claim": "local interrupt·Cloud sandbox pause 및 goal loop와 conversation Run 제어 구분.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/src/hooks/mutation/conversation-mutation-utils.ts#L36-L123",
+      "fileSha256": "85adb41a4563a9901d6d1b91d3e78a6910e2587c7348d031672b6e9f7738ff33",
+      "rangeSha256": "3301b3a568db29d89b768be8588d90e6b29ec478f38bce54877bf56e64ee7c2c",
+      "gitBlob": "32d929650b0a50969ef100983d50d41fc5e7d191",
+      "belongsToHead": true
+    },
+    {
+      "id": "A12",
+      "path": "src/api/event-service/event-service.api.ts",
+      "startLine": 39,
+      "endLine": 153,
+      "symbol": "EventService",
+      "claim": "confirmation 응답·count·paged history와 Cloud history/live runtime 분리.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/src/api/event-service/event-service.api.ts#L39-L153",
+      "fileSha256": "da24bed1d904f130ec81351f2ddba28e90aa0e0499d374bba5ce0079721de572",
+      "rangeSha256": "a2f1a683bccb6ea0f461491b0b2e2315c0bd8068d3bf26c7a287adfaacb171aa",
+      "gitBlob": "0e56a7d6d7c2940752ac557f64f865c1b8aee624",
+      "belongsToHead": true
+    },
+    {
+      "id": "A13",
+      "path": "src/contexts/conversation-websocket-context.tsx",
+      "startLine": 1100,
+      "endLine": 1151,
+      "symbol": "main WebSocket options",
+      "claim": "관측 seq 기반 reconnect와 transient progress slot 폐기·durable replay.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/src/contexts/conversation-websocket-context.tsx#L1100-L1151",
+      "fileSha256": "2342a9dc692f2be64dca9305d43954ca35d98935715705960947d7fdced72043",
+      "rangeSha256": "fa64c14b86e65a8a593ca59c2ddaf88569108aab526eb272895f7d0fb36ae48e",
+      "gitBlob": "32f2ca50e8083a505b96342cfae983efd43027b4",
+      "belongsToHead": true
+    },
+    {
+      "id": "A14",
+      "path": "src/api/conversation-workspace.ts",
+      "startLine": 18,
+      "endLine": 108,
+      "symbol": "resolveNewConversationWorkspace",
+      "claim": "successful server-info Docker runtime만 isolated workspace로 선택하고 host hooks를 분리.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/src/api/conversation-workspace.ts#L18-L108",
+      "fileSha256": "d67d5c3d5a922a4bce1dd9ee6327392840d9e556793954579143ef7ead7e0c2c",
+      "rangeSha256": "be23a1f1848f1f2c678f0d63634823f825d6be18ce1d16938f5031282965cd80",
+      "gitBlob": "e3f957cde6805f224e1c7173cd4ddacd1b263fb2",
+      "belongsToHead": true
+    },
+    {
+      "id": "A15",
+      "path": "src/api/agent-server-adapter.ts",
+      "startLine": 1234,
+      "endLine": 1262,
+      "symbol": "buildCustomSecrets",
+      "claim": "secret 이름/설명과 backend auth를 LookupSecret 참조로 보내 server 해석에 맡긴다.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/src/api/agent-server-adapter.ts#L1234-L1262",
+      "fileSha256": "af608efd981a3e8a3a47cb54cc249b9f521a59fac95fe7d009af177180824ebd",
+      "rangeSha256": "24a027865ef21b9e6c4fd71e357514816d2b41dcd09e7a92d60e44d09190acba",
+      "gitBlob": "d393fb5da29956ab3407f9d207873a39ce1870b4",
+      "belongsToHead": true
+    },
+    {
+      "id": "A16",
+      "path": "src/services/child-conversation-launch.ts",
+      "startLine": 211,
+      "endLine": 352,
+      "symbol": "claimToolCall / launchLocalChild",
+      "claim": "browser replay ledger와 worktree child 실패·scratch directory의 shared fallback.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/src/services/child-conversation-launch.ts#L211-L352",
+      "fileSha256": "a25a21d35334654500a06db9b674b4c0ca35dee76f0abbe6642751741a499125",
+      "rangeSha256": "e9c0b2442500d31df20e7efe42b2bba12ce11ec68191044d7ab9fe03c9853447",
+      "gitBlob": "bd8e5ad548604d0dd52b3bc495314a954ae06dcf",
+      "belongsToHead": true
+    },
+    {
+      "id": "A17",
+      "path": "src/services/child-conversation-launch.ts",
+      "startLine": 480,
+      "endLine": 562,
+      "symbol": "reportLaunchResult / handleLaunchChildConversationAction",
+      "claim": "server client-tool ack와 browser 실제 launch를 구분하며 결과를 parent message로 전달.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/src/services/child-conversation-launch.ts#L480-L562",
+      "fileSha256": "a25a21d35334654500a06db9b674b4c0ca35dee76f0abbe6642751741a499125",
+      "rangeSha256": "6982bbe55c98389cd8e08c6c99950ab88188d7972163b909d1ace879fc4be33e",
+      "gitBlob": "bd8e5ad548604d0dd52b3bc495314a954ae06dcf",
+      "belongsToHead": true
+    },
+    {
+      "id": "A18",
+      "path": "src/api/automation-service/automation-service.api.ts",
+      "startLine": 352,
+      "endLine": 496,
+      "symbol": "create / dispatch / cancel automation",
+      "claim": "import backend pin·disabled patch/cleanup과 dispatch·run cancel API.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/src/api/automation-service/automation-service.api.ts#L352-L496",
+      "fileSha256": "d437270b2f8a1b65bc95d875c3472edbe9b4c5450ffb7ef20a98ffe6a24a5be6",
+      "rangeSha256": "48fbe1d4b27c0e0ae14ccb4dc78e46c9fa2450bab397db2408e838171e292f0c",
+      "gitBlob": "01ee4229c8001f491b91ea387c0cf7f26b3e365a",
+      "belongsToHead": true
+    },
+    {
+      "id": "A19",
+      "path": "scripts/dev-safe.mjs",
+      "startLine": 1170,
+      "endLine": 1217,
+      "symbol": "releaseStaleConversationLeases",
+      "claim": "caller port 비사용 확인 후 conversation lease 파일을 제거하는 개발 helper.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/scripts/dev-safe.mjs#L1170-L1217",
+      "fileSha256": "6c9d794297f558499c5ccd951ef2086108369fd6e1e8c620e3054836f8abadfa",
+      "rangeSha256": "a4a560ded21b8b3e1b12f2ed0782be22624b1846f14ca3581a01f8770489e91c",
+      "gitBlob": "29fe278c89b2a5fa3805670a6bb5580102aa7167",
+      "belongsToHead": true
+    },
+    {
+      "id": "A20",
+      "path": "scripts/dev-process-utils.mjs",
+      "startLine": 85,
+      "endLine": 129,
+      "symbol": "signalProcessTree / killWindowsProcessTree",
+      "claim": "POSIX process group signal과 Windows taskkill tree cleanup의 구현.",
+      "permalink": "https://github.com/OpenHands/OpenHands/blob/7ea83bab4fe71149b88b5a8a6b9efe9042cb362d/scripts/dev-process-utils.mjs#L85-L129",
+      "fileSha256": "dbbee9f4990ea05ed87e63e4a0782c3b3493bd53177cacca95f9c5b91a7803e4",
+      "rangeSha256": "f8885306a063ddb8f7da365720889dc472fee0357c791d12e4728d2829ac84c4",
+      "gitBlob": "d38796949d1a3e901fc6aa5f6cf1fba0045863ec",
+      "belongsToHead": true
+    }
+  ],
+  "candidates": [
+    {
+      "id": "OHAPP-C1",
+      "title": "backend capability와 시작 요청의 고정 binding",
+      "priority": "P1",
+      "cost": "M–L",
+      "moodcodeStatus": "engine/host 분리, getCapabilities, host provider 등록, exact profile revision, credential audience와 local utility RPC는 기구현이다. 여러 local/remote backend를 선택한 상태에서 장시간 시작·승인·후속 요청 전체를 같은 실행 identity에 묶는 control-plane registry는 추가 범위다.",
+      "moodcodePaths": [
+        "apps/desktop/src/main/host.ts",
+        "apps/desktop/src/main/settings.ts",
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/credentials/index.ts"
+      ],
+      "referenceIds": [
+        "A07",
+        "A08",
+        "A09",
+        "A10",
+        "A14",
+        "A15"
+      ],
+      "contract": "host가 backend ID·connection revision·정규화 endpoint audience·capability revision을 관리한다. conversation/session 시작에서 이 tuple, workspace/runtime 종류, immutable profile revision과 credential reference를 고정하여 저장한다. backend 선택을 바꿔도 이미 시작한 request·승인·cancel·cleanup은 원 tuple을 사용한다. remote capability unknown은 격리·도구·승인 지원을 추정하지 않고 필요한 기능의 시작을 보류한다. inline config/profile 선택은 배타이며 immutable config digest를 같은 binding에 넣는다. credential 값은 renderer·event·settings metadata에 저장하지 않는다. 구체적인 원격 transport 구현은 OHSDK-C4와 공유할 수 있으나 이 후보는 선택/launch semantics를 정의한다.",
+      "validation": [
+        "start 중 backend/key/profile 변경에도 후속 mutation이 원 target을 유지함",
+        "이전 connection revision 응답과 승인 재사용은 거절됨",
+        "capability unknown·metadata 축 혼동·workspace 변환은 fail closed",
+        "동시 backend의 같은 session ID가 충돌하지 않고 renderer/event에 credential 값이 없음"
+      ]
+    },
+    {
+      "id": "OHAPP-C2",
+      "title": "recurring trigger를 기존 durable inbox에 연결하는 host 계약",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "queue/steer·pause/resume·FIFO·workspace 공정성·request dedupe·owner recovery는 기구현이다. 시간대가 있는 반복 예약·webhook trigger·job occurrence 이력·scheduler leadership는 추가 host 계층이다. 앱 source에서 외부 scheduler 본체를 검증한 후보가 아니다.",
+      "moodcodePaths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/recovery/index.ts",
+        "packages/engine/src/credentials/index.ts"
+      ],
+      "referenceIds": [
+        "A02",
+        "A06",
+        "A11",
+        "A18"
+      ],
+      "contract": "host가 고정 automation revision과 trigger occurrence identity를 저장하고 occurrence를 stable request ID로 기존 input.accept에 연결한다. schedule definition과 enabled 상태를 원자 갱신하며 import draft는 기본 비활성으로 만든다. webhook body는 bounded untrusted input이고 secret reference/target capability/profile/workspace 상한을 고정한다. queue admission 전 scheduler owner generation·timezone/misfire policy·concurrency limit을 확인한다. occurrence의 accepted/promoted/terminal을 Run과 분리해 관측하며 재시작은 receipt를 reconcile하고 uncertain effect를 재실행하지 않는다. job disable/cancel과 running Run cancel을 명시적으로 구분하고 external notification은 별도 승인된 host integration으로 제한한다.",
+      "validation": [
+        "duplicate webhook·clock rollback·DST 중복·missed trigger가 policy 아래 하나의 occurrence/receipt로 정산됨",
+        "두 scheduler owner의 경합에서 중복 promotion이 없음",
+        "disabled/import draft는 입장하지 않음",
+        "pause backlog와 workspace fairness를 보존함",
+        "pending job cancel과 running tool cleanup unknown을 구별하고 restart에서 원 효과를 자동 재전송하지 않음"
+      ]
+    },
+    {
+      "id": "OHAPP-C3",
+      "title": "client 효과의 durable 요청·완료 확인",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "host plugin prepared/settled metadata, 승인된 read-only child delegation, host write child·worktree owner·budget/cancel 상속, terminal 결과 inbox는 기구현이다. renderer 또는 원격 extension이 처리하는 effect를 단순 publication/ack와 실제 완료로 나누는 공개 계약은 추가 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/engine/src/storage/execution-uncertainty.ts",
+        "apps/desktop/src/main/host.ts"
+      ],
+      "referenceIds": [
+        "A10",
+        "A13",
+        "A16",
+        "A17",
+        "A20"
+      ],
+      "contract": "engine/host가 client 요청을 immutable action ID·fingerprint·capability revision과 원 session/Run/owner에 결합해 저장한다. received/dispatched/completed/failed/uncertain을 분리하고 renderer 연결 ack는 completed가 아니다. child 생성은 기존 engine-owned child admission·approval·worktree·예산 경로로만 위임한다. replay는 동일 request receipt를 반환하며 browser storage만으로 effect dedupe를 맡기지 않는다. 필요한 isolated workspace 실패는 typed failure로 종료하고 shared fallback은 새 명시적 선택·승인으로만 가능하다. 결과 feedback은 typed host/tool observation으로 넣고 user 지시로 승격하지 않는다. 모델 Turn terminal과 늦은 client 완료를 별도 event 소유 범위로 기록한다.",
+      "validation": [
+        "publication replay·renderer reload·동시 client에서 child/effect는 한 번만 admission됨",
+        "ack 뒤 browser crash는 성공으로 표시되지 않고 uncertain receipt로 복원됨",
+        "stale revision/잘못된 owner completion을 거절함",
+        "worktree failure가 shared write child로 자동 강등되지 않음",
+        "취소·parent terminal·예산 소진 이후 늦은 완료가 원 권한을 재활성화하거나 user instruction이 되지 않음"
+      ]
+    }
+  ],
+  "staticChecks": {
+    "referenceCount": 20,
+    "maxReferenceLines": 145,
+    "headConfirmed": true,
+    "headBlobEqualityConfirmed": true,
+    "wholeAndRangeSha256Confirmed": true,
+    "candidatePathsExistAtMoodcodeBaseline": true,
+    "upstreamExecuted": false
+  },
+  "limitations": [
+    "upstream install/setup/test/build/runtime/model/API/account/service/GUI/benchmark를 실행하지 않은 고정 checkout 정적 분석이다. candidates.validation은 후속 독립 구현의 수용 조건이며 실행 결과가 아니다.",
+    "이 HEAD는 Agent Canvas TypeScript/Node control plane이다. 모델·도구·condenser·conversation persistence·lease enforcement 본체는 별도 SDK/Agent Server가 소유하며 openhands-sdk.md와 역할을 분리했다.",
+    "별도 automation repository의 cron evaluator·webhook workers·job queue·CAS·scheduler leadership/lease·DB transaction·retry 본체는 확인하지 않았다. 앱의 API payload/launcher 연결을 그 구현의 증거로 쓰지 않는다.",
+    "Cloud/private App API·sandbox provisioner, 외부 ACP CLI agents의 실제 코어, TypeScript-client 배포물 내부, installed plugin/extension catalog 및 LFS/submodule 외부 내용은 이번 담당 범위에서 검증하지 않았다.",
+    "after_seq reconnect·client event dedupe와 browser localStorage launch ledger는 server-side exactly-once effect·cleanup 확정이 아니다. local interrupt·Cloud pause·goal stop·conversation stop의 요청 수명은 서로 다르다.",
+    "dev-static의 lease unlink helper는 기본 npm/Electron launcher 경로가 아니다. backend port 비사용을 owner termination 증명이나 Moodcode uncertainty 해제 근거로 채택하지 않는다. OS process cleanup·container isolation은 미실측이다.",
+    "root LICENSE는 MIT이며 tracked 파일명에서 별도 하위 LICENSE/NOTICE/COPYING은 발견하지 않았다. npm/PyPI dependency·Docker image·extensions·Cloud/모델/ACP 서비스의 전체 license audit나 법률 검토가 아니다.",
+    "Moodcode 기존 headless gate·GUI/live/provider 결과와 열린 OS/provider/CI 항목은 implementation-status 기록을 보존한다. 이번 upstream 성능·제품 동등성·테스트 통과 결과로 표시하지 않는다.",
+    "담당 보고서와 evidence JSON만 작성했으며 원본 source/prompt/tool description/fixture 복사·runtime 의존성 추가·원본 수정·추가 agent·commit을 수행하지 않았다. 공개 소스를 읽었으므로 clean-room 분석이라고 부르지 않는다."
+  ]
+}

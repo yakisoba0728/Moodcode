@@ -1,0 +1,325 @@
+{
+  "slug": "roo-code",
+  "head": "b867ec9145750d0ae1ff7f02d35406e9bf2a0b16",
+  "repository": "https://github.com/RooCodeInc/Roo-Code",
+  "analysisMode": "static-source-review",
+  "analysisDate": "2026-10-07",
+  "sourcePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/roo-code",
+  "repositoryArchived": true,
+  "moodcodeEngineSource": "464812f7d1af24466f57070663131f5979aeca51",
+  "references": [
+    {
+      "id": "R01",
+      "path": "README.md",
+      "startLine": 35,
+      "endLine": 77,
+      "claim": "README의 modes/MCP 주장과 May 15 extension 종료·Zoo/Cline 대안 안내",
+      "fileSha256": "bcabc1221142dc7d7161d089dcd945bb50ff8d7498d7c6b8774b10a8cd5c164f",
+      "rangeSha256": "3c3791320b7b2b74ddb549a481b7201e1227bc4b58de62409822f3901a1c44bc"
+    },
+    {
+      "id": "R02",
+      "path": "LICENSE",
+      "startLine": 1,
+      "endLine": 12,
+      "claim": "root 실제 Apache License 2.0",
+      "fileSha256": "d907e7f3f1396695c474d1376c40909921ffb1fc608d2504992809a6da1742f9",
+      "rangeSha256": "febd7cdf43e574c9bac2dd640d8f87dc74b14c08d59576c42ed921e11ea96a4c"
+    },
+    {
+      "id": "R03",
+      "path": "src/core/webview/ClineProvider.ts",
+      "startLine": 2536,
+      "endLine": 2627,
+      "claim": "top-level 단일 active task 교체·Task 구성·stack 등록 뒤 직접 start",
+      "fileSha256": "70e494011c24b253583f4a2f6645a35920dbabdba1b871918af398c3b0c8880e",
+      "rangeSha256": "64c20b131c83c56b7f38e362193b3d5799c24782ef446063903466afffca4dd5"
+    },
+    {
+      "id": "R04",
+      "path": "src/core/task/Task.ts",
+      "startLine": 2427,
+      "endLine": 2501,
+      "claim": "abort 조건의 Task loop와 후속 요청·retry를 관리하는 명시적 stack",
+      "fileSha256": "d0deb99b4972f84be0d8494223d82504315ea305d9cdecba2b16e5176fe23baa",
+      "rangeSha256": "ccb5cf984b4dd8d3a563e31da703ef47816b55e2d146a7ae208f950747ec0c54"
+    },
+    {
+      "id": "R05",
+      "path": "src/core/task/Task.ts",
+      "startLine": 4103,
+      "endLine": 4197,
+      "claim": "native/MCP tools·Gemini allowedFunctionNames 구성·provider createMessage·첫 chunk 취소 race",
+      "fileSha256": "d0deb99b4972f84be0d8494223d82504315ea305d9cdecba2b16e5176fe23baa",
+      "rangeSha256": "00184507aba99c97e306f2f6a7c66793917471f4cfb1f6109d6db53c8576ae38"
+    },
+    {
+      "id": "R06",
+      "path": "src/core/task/Task.ts",
+      "startLine": 2802,
+      "endLine": 2890,
+      "claim": "scope 인자 없는 native streamed tool parser와 같은 Task의 call ID 중복 억제",
+      "fileSha256": "d0deb99b4972f84be0d8494223d82504315ea305d9cdecba2b16e5176fe23baa",
+      "rangeSha256": "b19a9195341279b4148c2dcd19a0de04929508ef967ba1300f34c3c7e057327c"
+    },
+    {
+      "id": "R07",
+      "path": "src/core/assistant-message/presentAssistantMessage.ts",
+      "startLine": 491,
+      "endLine": 609,
+      "claim": "UI/auto-approved ask 응답을 도구 승인으로 처리하고 완성된 tool block의 mode/model을 실행 전 검증",
+      "fileSha256": "c5c0fc2fc9c0b8c82017a6e9a36c4ff93437391e5e7deeba4dd36d09dec6c966",
+      "rangeSha256": "6fbdd8bd47db7582ca6d5c954c11ba012994f294bb9cf41b08d2ff7898f8b8c4"
+    },
+    {
+      "id": "R08",
+      "path": "src/core/task/Task.ts",
+      "startLine": 2212,
+      "endLine": 2330,
+      "claim": "abort flag·동기 dispose·terminal release·비동기 artifact cleanup/diff reversion·메시지 저장",
+      "fileSha256": "d0deb99b4972f84be0d8494223d82504315ea305d9cdecba2b16e5176fe23baa",
+      "rangeSha256": "806be9e139600ff10db04054280f48633e47669d1c741470538c2acd9b22ef55"
+    },
+    {
+      "id": "R09",
+      "path": "src/core/task/Task.ts",
+      "startLine": 1956,
+      "endLine": 2115,
+      "claim": "이력 재개 질문·summary 보존·미완료 native tool exchange에 interrupted 결과 보충",
+      "fileSha256": "d0deb99b4972f84be0d8494223d82504315ea305d9cdecba2b16e5176fe23baa",
+      "rangeSha256": "18c5b1fe95f13747a8f84cc2e6f1b3622787cff967d9ea72f1dbcb25cc792729"
+    },
+    {
+      "id": "R10",
+      "path": "src/core/context-management/index.ts",
+      "startLine": 285,
+      "endLine": 371,
+      "claim": "profile threshold 기반 요약과 sliding-window truncation fallback",
+      "fileSha256": "5085fc13398c84c97a5fc6b98ec7e02d4622850f051230adaee47f6dc08888bb",
+      "rangeSha256": "75f2f51ed1567533c6ba07a6768e00347b9406ec8acc6ba79e7bcbde637674f8"
+    },
+    {
+      "id": "R11",
+      "path": "src/core/webview/ClineProvider.ts",
+      "startLine": 2775,
+      "endLine": 2913,
+      "claim": "부모 tool-result 저장 시도·부모 종료·child mode 설정·위임 metadata 저장 시도 후 child 직접 시작",
+      "fileSha256": "70e494011c24b253583f4a2f6645a35920dbabdba1b871918af398c3b0c8880e",
+      "rangeSha256": "9338f11707ccd20477a2ab1d54e872522452c7e142d445041343fa8fbb624526"
+    },
+    {
+      "id": "R12",
+      "path": "src/core/webview/ClineProvider.ts",
+      "startLine": 2950,
+      "endLine": 3104,
+      "claim": "child 결과를 parent UI/API 이력에 주입하고 child/parent 상태를 순차 저장한 뒤 parent 자동 재개",
+      "fileSha256": "70e494011c24b253583f4a2f6645a35920dbabdba1b871918af398c3b0c8880e",
+      "rangeSha256": "3e27409555d25b2ea7089507ce6012da8178eaf8c2c8c7a98a9cef83bd7514c5"
+    },
+    {
+      "id": "R13",
+      "path": "src/core/tools/AttemptCompletionTool.ts",
+      "startLine": 38,
+      "endLine": 135,
+      "claim": "같은 turn 도구 실패·설정된 미완료 todo 완료 gate와 child 상태 확인·사용자 완료 수락",
+      "fileSha256": "5175dc17546236836137d8945eddaf9ccad43979015567a0f92d5f9289d2292d",
+      "rangeSha256": "ea69582ed30295f086fcfe88a66432a7885c9bfa67299d266ecaf4434d23d804"
+    },
+    {
+      "id": "R14",
+      "path": "src/services/checkpoints/ShadowCheckpointService.ts",
+      "startLine": 295,
+      "endLine": 371,
+      "claim": "shadow Git checkpoint stage/commit과 clean/hard-reset 복원",
+      "fileSha256": "bb9f22c24e73dd17d61a1a4a2a4ba469997ae823c7b2e228386684ebb21595f0",
+      "rangeSha256": "7dcf9fc91280f454e2d079550514b8a3f6f88f41cfe19badc61083d4bbbcc456"
+    },
+    {
+      "id": "R15",
+      "path": "src/core/tools/validateToolUse.ts",
+      "startLine": 120,
+      "endLine": 238,
+      "claim": "mode tool group·disabled 우선·edit fileRegex/patch 파일 검사·custom tool와 dynamic MCP 예외",
+      "fileSha256": "0ecebb6ba7abc7b8a0bc066725bf7efdcd98b2c58762ef738e9b4945b769051e",
+      "rangeSha256": "6595fd8dc1a76e1f7be38f6986f33022762d171fbe6aa57b956c2874790cb39e"
+    },
+    {
+      "id": "R16",
+      "path": "src/core/tools/UseMcpToolTool.ts",
+      "startLine": 29,
+      "endLine": 80,
+      "claim": "MCP 매개변수·tool 존재 확인·승인 후 실행 경로",
+      "fileSha256": "388f3324ae81b94e133a3b88299a774f8069e3391f97e5a1bdb00baf2d7205a9",
+      "rangeSha256": "49a16c3188b2dea79e1ceb49299fdcf142ae49d69ad163aa95c43fbb77c058f4"
+    },
+    {
+      "id": "R17",
+      "path": "src/core/tools/CodebaseSearchTool.ts",
+      "startLine": 21,
+      "endLine": 128,
+      "claim": "cwd 산출 뒤 cwd 없이 manager 선택·설정 검사·승인된 path/line/score/chunk 검색 결과 반환",
+      "fileSha256": "2f555e983f2a500f21cee48995b257d14488057e25d34b98ed261506b50d1cf0",
+      "rangeSha256": "b019ae2eb8f9ef5619670cda34f5ca2049034ea4628018deeea62fc5fef412e7"
+    },
+    {
+      "id": "R18",
+      "path": "src/services/code-index/search-service.ts",
+      "startLine": 27,
+      "endLine": 63,
+      "claim": "Indexed/Indexing readiness·query embedding·prefix/score/top-k vector 검색·오류 재발행",
+      "fileSha256": "a5a9e375e5cec1562d214811afc04d1ee97cbf9a3c54c527f7437159a0d8820e",
+      "rangeSha256": "fb6902337ce485076d0474c65453d8185cd3d8527beb42ddac12e1ef712b649c"
+    },
+    {
+      "id": "R19",
+      "path": "src/core/task-persistence/TaskHistoryStore.ts",
+      "startLine": 155,
+      "endLine": 289,
+      "claim": "per-task source-of-truth 저장·memory lock·debounced index·disk/cache 누락 reconcile",
+      "fileSha256": "cf97720396b443f47aea9546fd4a498ff562dda24c9d1287a510f786ef2ca732",
+      "rangeSha256": "79bdb4de1d0d0f1afacc7717ab98ee24794638374faba42db2648bfe876a9a9b"
+    },
+    {
+      "id": "R20",
+      "path": "apps/cli/src/agent/extension-host.ts",
+      "startLine": 368,
+      "endLine": 436,
+      "claim": "CLI의 VS Code shim·module resolver 설치·동일 extension.js load와 activate",
+      "fileSha256": "c027c017ff4f9667a9d1060351c93cdf0c35c10f94b2a9f46d937e586ae16bea",
+      "rangeSha256": "2cd5cc581335c2072444de64cf75c88d5abc86e24b39daabadcd112ed0435605"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "roo-code-C1",
+      "title": "workspace identity와 source freshness를 고정한 의미 코드 검색",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "bounded context·semantic history memory·glob/regex·LSP·bounded tool discovery는 이미 있다. 추가 범위는 파일 chunk 색인과 query/result의 workspace·source·index identity 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/tools/runtime/discovery.ts",
+        "packages/engine/src/runner/tool-discovery.ts",
+        "packages/engine/src/ports.ts"
+      ],
+      "referenceIds": [
+        "R05",
+        "R17",
+        "R18"
+      ],
+      "contract": [
+        "host search factory가 canonical workspace/worktree identity, index revision, embedder/model/dimension과 코드 전송 정책을 고정한다. 모델이 credential·검색 backend·실행 파일을 임의로 선택하지 못한다. tool 노출과 실제 검색은 같은 identity snapshot을 쓴다.",
+        "검색 결과에 workspace-relative canonical path, source hash, chunk 범위, score와 index/source revision을 포함한다. 현재 파일과 다른 결과는 stale 관측으로 표시하며 읽기·편집 권한을 추가하지 않는다. unavailable/error/정상 empty를 분리한다.",
+        "query/result/index bytes, top-k, 시간·동시성 상한과 cancel을 적용한다. readiness와 catalogue/schema 예산은 기존 Run capture·discovery·context 예약을 따르며 MCP로 연결한 검색 backend에도 같은 결과 계약을 적용한다."
+      ],
+      "validation": [
+        "workspace A/B·active editor 변경·격리 worktree에서 노출한 검색 tool과 실제 backend가 다른 namespace로 이동하지 않는 fixture를 만든다.",
+        "변경·삭제·rename된 chunk의 stale 판정과 traversal/symlink 경계, index 미준비/오류/정상 empty 구분을 검증한다.",
+        "cancel·timeout·top-k·byte 상한 및 Plan/read-only child의 권한 범위를 검증하고 검색 관측이 write 승인을 생성하지 않는지 확인한다."
+      ]
+    },
+    {
+      "id": "roo-code-C2",
+      "title": "역할 workflow의 durable child 대기·parent continuation",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "versioned profiles, 실제 격리 child/worktree, budget·deny·cancel 상속, root inbox의 terminal 결과 중복 제거와 queue/steer·pause/resume는 이미 있다. 추가 범위는 역할 단계와 기다리는 child 결과에 binding된 자동 parent continuation이다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/child-tasks/engine-host.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/session-state/index.ts"
+      ],
+      "referenceIds": [
+        "R03",
+        "R11",
+        "R12",
+        "R19"
+      ],
+      "contract": [
+        "workflow stage revision, parent Run/Attempt, awaited child IDs, profile revision과 terminal delivery IDs를 하나의 durable transition에 묶는다. 완전한 parent tool exchange 저장에 실패하면 child admission을 진행하지 않는다.",
+        "child 결과 publication과 stage 완료를 기록한 뒤 parent continuation을 exact CAS로 한 번만 접수한다. parent 취소·supersession·archive·stage/profile 교체 또는 stale child 결과이면 자동 재개를 거절하며 이미 실행한 효과를 재실행해 상태를 맞추지 않는다.",
+        "역할별 모델·도구·지침은 기존 profile revision과 child 권한 상속을 따른다. 병렬 all/any stage가 필요하면 bounded child 집합 admission과 예산 예약을 별도로 명세한다. Roo의 single-open 흐름은 병렬 workflow 검증 근거로 쓰지 않는다."
+      ],
+      "validation": [
+        "parent 저장/child admission, child terminal/delivery, stage commit/continuation admission 사이의 crash·reopen fixture에서 중복 실행·중복 전달이 없는지 검증한다.",
+        "cancel·profile 변경·stage 교체·늦게 온 child 완료가 stale continuation을 차단하는지 확인한다.",
+        "child 부분 실패·고아 정리·grandchild budget/deny/cancel 상속과 기존 root inbox의 중복 제거를 보존하는지 검증한다."
+      ]
+    },
+    {
+      "id": "roo-code-C3",
+      "title": "profile revision에 묶인 역할별 파일 effect 범위",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "profiles의 tool allowlist, Plan/Build, path/command resource policy·deny 우선·scope grants와 exact 편집 승인은 이미 있다. 추가 범위는 profile의 역할별 파일 범위를 기존 resource policy와 교차 적용하는 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/permission/policy.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/tools/edit/index.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/runner/index.ts"
+      ],
+      "referenceIds": [
+        "R07",
+        "R15"
+      ],
+      "contract": [
+        "host가 profile revision에 bounded path scope를 고정한다. docs 역할의 허용 파일 범위처럼 effect를 좁히는 규칙만 추가하며 기존 deny·Plan·부모/child 제한·exact approval을 완화하지 않는다. 모델의 mode switch는 범위를 확대하지 못한다.",
+        "patch·rename/delete·여러 파일 effect의 모든 canonical 대상과 rename source/destination을 prepare 시 수집하고 승인 직전/execute 시 같은 scope snapshot으로 다시 검사한다. raw model path의 regex 매치만으로 권한을 판정하지 않는다.",
+        "prompt-visible 설명과 실제 effect 판정을 일치시키며 profile/path identity 변경은 prepared 요청과 승인을 무효화한다. command·MCP·custom tool처럼 효과가 다른 경로는 파일 scope로 승인된 것으로 추정하지 않는다."
+      ],
+      "validation": [
+        "문서 scope의 multi-file patch에 범위 밖 파일·rename destination·delete가 섞인 경우 전체 effect를 거절하는 fixture를 만든다.",
+        "traversal·symlink·case/Unicode path·worktree root·profile 변경 중 pending approval에서 canonical scope와 stale binding을 검증한다.",
+        "기존 deny·Plan/read-only child·scope grant·exact edit hash 검사를 유지하고 custom/MCP/command 도구가 역할 파일 제한으로 권한을 얻지 않는지 확인한다."
+      ]
+    },
+    {
+      "id": "roo-code-C4",
+      "title": "task revision과 검증 receipt에 묶인 완료 조건",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "durable tasks CAS, structured tool result·artifact, Run terminal과 provider/tool lifecycle는 이미 있다. 추가 범위는 host가 지정한 필수 task·검증 receipt에 연결된 완료 admission이다.",
+      "moodcodePaths": [
+        "packages/engine/src/session-state/index.ts",
+        "packages/engine/src/tools/session/index.ts",
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/artifacts/index.ts"
+      ],
+      "referenceIds": [
+        "R04",
+        "R13"
+      ],
+      "contract": [
+        "host가 completion policy revision과 required task IDs·허용된 검증 receipt 종류를 Run에 고정한다. pending/in_progress task가 있거나 현재 source/workspace hash에 해당하는 필수 검증 evidence가 없으면 성공 완료를 접수하지 않고 bounded 부족 항목을 반환한다.",
+        "모델의 todo 상태와 주장만으로 검증 통과를 판정하지 않는다. command exit/structured validation receipt는 exact execution/source binding과 outcome을 보존하고 cancelled·unknown·stale 결과를 success 증거로 사용하지 않는다.",
+        "task revision·policy revision·workspace가 바뀌면 완료 검사 결과를 다시 평가한다. 실패·cancel terminal은 성공 gate로 막지 않으며 gate 실패가 임의 도구 실행·test 재시도·budget 확대를 자동 승인하지 않는다."
+      ],
+      "validation": [
+        "미완료 task·same-turn tool 실패·검증 evidence 누락·stale source hash가 서로 구분된 gate 결과를 남기는지 검증한다.",
+        "receipt 수신/완료 검사/terminal commit 사이 crash·task CAS 경합에서 성공을 중복 접수하거나 stale 증거를 승인하지 않는지 확인한다.",
+        "cancel·unknown command cleanup·child 부분 실패에서도 terminal과 예산 상한이 보존되고 gate 충족을 위한 명령 실행은 기존 승인을 요구하는지 검증한다."
+      ]
+    }
+  ],
+  "limitations": [
+    "static-source-review only: upstream 설치·build·test·runtime·실제 모델·계정·VS Code GUI·CLI/TUI·embedding/Qdrant·MCP 서비스를 실행하지 않았다.",
+    "Roo archived 상태는 source-manifest.json의 2026-10-07 GitHub API 관측 archived=true와 고정 README 종료 안내다. README May 15 문장에는 연도가 없으며 유지보수 중인 Zoo fork와 별도 저장소로 다룬다.",
+    "Zoo 분석의 기능을 Roo로 역적용하지 않았다. 이 HEAD의 읽은 Task/persistence/filter/index 경로 및 tracked 파일명에서 Zoo TaskScheduler·parser scope 인자·delegation repair/pair update·mode MCP server restriction·Semble/DCG에 해당하는 구현을 확인하지 못했다. 제품의 모든 과거 버전에 없었다는 단정은 아니다.",
+    "provider createMessage 계약에 Task AbortSignal을 전달하는 경로를 확인하지 못했다. Task chunk 대기의 abort race와 동기 dispose는 원격 HTTP 종료·OS process-tree cleanup·외부 effect rollback의 실측 증거가 아니다.",
+    "delegation flush와 metadata 저장 실패를 log하고 child.start로 진행하는 경로가 있다. parent/child UI/API/history 파일은 순차 저장이며 crash-atomic continuation이나 정확히 한 번 실행을 인증하지 않았다.",
+    "TaskHistoryStore.reconcile는 disk/cache 누락을 맞추는 구현이다. Zoo의 delegated child 상태 reconciliation/repair intent와 동일한 보장으로 부르지 않았다.",
+    "CodebaseSearchTool은 task.cwd를 산출하나 getInstance(context)에 전달하지 않는다. manager 기본 선택은 active editor workspace 또는 첫 workspace다. multi-root 검색 일치·index freshness·ignore 완전성과 원격 전송 정책을 실행 검증하지 않았다.",
+    "root LICENSE와 apps/docs/LICENSE는 Apache-2.0이며 tracked license/notice 파일명도 확인했다. node dependencies·WASM/parser·model/embedding/MCP/Qdrant/cloud/telemetry 서비스 전체 license·약관 audit이나 법률 검토를 수행하지 않았다.",
+    "Git checkpoint clean/reset은 workspace 파일 복원이다. arbitrary command·MCP·외부 서비스의 효과 복원을 보장하지 않는다.",
+    "Git LFS smudge·submodule 초기화·release assets·모델별 reasoning/usage/tool/retry capability 동등성·OS별 동작·성능 및 완전한 Roo/Zoo commit-history diff는 범위 밖이다.",
+    "Moodcode 비교는 engine source 464812f7d1af24466f57070663131f5979aeca51와 기존 구현 상태 문서다. 기존 Moodcode 테스트 통과 기록은 이번 Roo Code 실행 결과가 아니다."
+  ]
+}

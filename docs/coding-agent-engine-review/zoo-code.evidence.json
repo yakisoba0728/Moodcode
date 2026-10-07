@@ -1,0 +1,328 @@
+{
+  "schemaVersion": 1,
+  "slug": "zoo-code",
+  "head": "842b37e76d296a6381c182f2dad7822da08b9cbb",
+  "repository": "https://github.com/Zoo-Code-Org/Zoo-Code",
+  "sourcePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/zoo-code",
+  "reviewDate": "2026-10-07",
+  "analysisMode": "static-source-review",
+  "upstreamExecution": false,
+  "moodcodeEngineSource": "464812f7d1af24466f57070663131f5979aeca51",
+  "references": [
+    {
+      "id": "Z01",
+      "path": "README.md",
+      "startLine": 18,
+      "endLine": 64,
+      "claim": "Roo 이후 유지보수와 Zoo 추가 기능·v3.86.0의 README 주장",
+      "fileSha256": "85b10a39377e9cc8fb6f2b072a6f612768fe3652c10ded8a69628932fb81c7af",
+      "rangeSha256": "ea3b4e393cb3befc8529361c692cffc3eebf5618291fe0a739dec660739da396"
+    },
+    {
+      "id": "Z02",
+      "path": "LICENSE",
+      "startLine": 1,
+      "endLine": 12,
+      "claim": "root 실제 라이선스는 Apache License 2.0",
+      "fileSha256": "694dbf5b4cf4497b8f4c1fc81022f9f806dac728ce40f069fbee4f14c036aaca",
+      "rangeSha256": "febd7cdf43e574c9bac2dd640d8f87dc74b14c08d59576c42ed921e11ea96a4c"
+    },
+    {
+      "id": "Z03",
+      "path": "src/core/task/Task.ts",
+      "startLine": 3516,
+      "endLine": 3573,
+      "claim": "abort 조건의 Task loop와 명시적 요청 stack",
+      "fileSha256": "b4295194ba6c988f7368d524e65ad31171758c8dcfa21e04428a5398981e88d8",
+      "rangeSha256": "f70a65c7a2a74ea2f81b5240015bb330a9cb667155ac6fd1419dafbe402efb9e"
+    },
+    {
+      "id": "Z04",
+      "path": "src/core/task/Task.ts",
+      "startLine": 5434,
+      "endLine": 5505,
+      "claim": "같은 request model-info로 native/MCP 도구 구성 후 AbortSignal과 함께 provider createMessage 호출",
+      "fileSha256": "b4295194ba6c988f7368d524e65ad31171758c8dcfa21e04428a5398981e88d8",
+      "rangeSha256": "12f86dfe45eaca84791236bebce505f215e25ae16ab4c2a8fbf8d88a5b605878"
+    },
+    {
+      "id": "Z05",
+      "path": "src/core/task/Task.ts",
+      "startLine": 3923,
+      "endLine": 4009,
+      "claim": "scope를 전달하는 native streamed tool parser와 call ID 중복 억제",
+      "fileSha256": "b4295194ba6c988f7368d524e65ad31171758c8dcfa21e04428a5398981e88d8",
+      "rangeSha256": "8bb2c837d232faf79f3986eabb079cccdb6232789df4dd88178333b0c3b8c58f"
+    },
+    {
+      "id": "Z06",
+      "path": "src/core/tools/ExecuteCommandTool.ts",
+      "startLine": 114,
+      "endLine": 191,
+      "claim": "명령 구문 검사·외부 DCG verdict·명령 승인 흐름",
+      "fileSha256": "062e33ea36a4deaf9b51f0e061fe5925095d07470834a6e419402b5184534bce",
+      "rangeSha256": "1385b282949d29e4ac9b78b4d2cb54557f221815da74f143fb3356a4fa1429a7"
+    },
+    {
+      "id": "Z07",
+      "path": "src/core/task/Task.ts",
+      "startLine": 3261,
+      "endLine": 3418,
+      "claim": "abort/dispose promise 재사용·HTTP 취소·terminal 해제·diff reversion·최종 저장",
+      "fileSha256": "b4295194ba6c988f7368d524e65ad31171758c8dcfa21e04428a5398981e88d8",
+      "rangeSha256": "b4e96976c26c0677dc25b1d68f1e4bff118233ad1944f5fdf8a47902d146bf38"
+    },
+    {
+      "id": "Z08",
+      "path": "src/core/task-persistence/TaskHistoryStore.ts",
+      "startLine": 434,
+      "endLine": 514,
+      "claim": "시작 시 orphan delegated/active/completed child 상태 재조정",
+      "fileSha256": "5a7244848a06a2d09fed1c08529b74e8809890b1907d3a1f32c0c29a396d8042",
+      "rangeSha256": "198a0f84db1d33a0b3388e67f366ba45d4712700291d551046ff75f598652cf3"
+    },
+    {
+      "id": "Z09",
+      "path": "src/core/context-management/index.ts",
+      "startLine": 314,
+      "endLine": 425,
+      "claim": "profile threshold 기반 요약과 sliding-window truncation fallback",
+      "fileSha256": "2a70a5f39591fa8a080324f5e4cccb05cd8bea22abb6035f75818b9f8b9e2212",
+      "rangeSha256": "2b6872eb24b9e1ba97e88140757e2757c453826a1f345ed8d614c67a6842c9e5"
+    },
+    {
+      "id": "Z10",
+      "path": "src/services/checkpoints/ShadowCheckpointService.ts",
+      "startLine": 331,
+      "endLine": 407,
+      "claim": "shadow Git checkpoint 저장과 clean/reset 기반 복원",
+      "fileSha256": "417d0c1bfb4eeb4030616c1796b35e0e1544bb18aec058c595853d3d729eee2a",
+      "rangeSha256": "7dcf9fc91280f454e2d079550514b8a3f6f88f41cfe19badc61083d4bbbcc456"
+    },
+    {
+      "id": "Z11",
+      "path": "src/core/webview/ClineProvider.ts",
+      "startLine": 3829,
+      "endLine": 3961,
+      "claim": "위임 시 mode/profile 선택·부모 tool-result flush·부모 종료·child 실행 전 metadata 저장",
+      "fileSha256": "012ae088dd5b936ef6dc1fcdf467679652512b79db5c66c1968c0500cdfeb4f9",
+      "rangeSha256": "89b2d26290a912e2a3876750b945e4740cf8fba4a7e98ddc42f4438a49275bc8"
+    },
+    {
+      "id": "Z12",
+      "path": "src/core/webview/ClineProvider.ts",
+      "startLine": 4234,
+      "endLine": 4377,
+      "claim": "child 완료·parent 활성화 쌍 업데이트 후 stale continuation 검사와 scheduler 재개",
+      "fileSha256": "012ae088dd5b936ef6dc1fcdf467679652512b79db5c66c1968c0500cdfeb4f9",
+      "rangeSha256": "0d8e8718214e2b984305a07145fea1eaaacce9cb2732ebec3e7641052ae74b11"
+    },
+    {
+      "id": "Z13",
+      "path": "src/core/task/TaskScheduler.ts",
+      "startLine": 1,
+      "endLine": 52,
+      "claim": "기본 동시성 1인 semaphore Task gate와 대기 취소",
+      "fileSha256": "09cabbd8637f2f1cac62b0c13999ae59e2211ae9bf9f5627f81efaa0b162e933",
+      "rangeSha256": "09cabbd8637f2f1cac62b0c13999ae59e2211ae9bf9f5627f81efaa0b162e933"
+    },
+    {
+      "id": "Z14",
+      "path": "src/core/prompts/tools/effective-tool-policy.ts",
+      "startLine": 236,
+      "endLine": 338,
+      "claim": "모델 제외·준비된 code index·도구 비활성화·mode MCP 서버 조건으로 도구 노출 결정",
+      "fileSha256": "c4e3c3c9393e30a355a87c3d796cef76d7ac0866b424ea9dd14c51b30824ac9f",
+      "rangeSha256": "3c513e32009b028427a819929ea97da7d44d7b7036a682e218b20d75991f2580"
+    },
+    {
+      "id": "Z15",
+      "path": "src/core/tools/UseMcpToolTool.ts",
+      "startLine": 45,
+      "endLine": 108,
+      "claim": "MCP tool 존재·mode server 허용 확인 후 승인과 호출",
+      "fileSha256": "ed7e88697b091db366ef6d5167bcca91acb7283b2dd19c2c99916ac636e03a91",
+      "rangeSha256": "40ba6fca534ca10347711d9ee351d2ed9bfe59955865bae721f54703650a080f"
+    },
+    {
+      "id": "Z16",
+      "path": "src/core/tools/CodebaseSearchTool.ts",
+      "startLine": 25,
+      "endLine": 134,
+      "claim": "task cwd의 index manager readiness 검사와 승인된 검색 결과의 path/line/score 반환",
+      "fileSha256": "80feef09f849cd87810e20cb6cab353a3c7f9bdf4fd9d60898eae7eb71f7af5e",
+      "rangeSha256": "6aa361cc8b8cb28351765d8346537bd3a34312bdfabf4a9ac26a70d7a8706908"
+    },
+    {
+      "id": "Z17",
+      "path": "src/services/code-index/manager.ts",
+      "startLine": 340,
+      "endLine": 437,
+      "claim": "Semble와 외부 embedder/vector store/scanner/watcher 파이프라인 분기",
+      "fileSha256": "9f34fc8876a54e97ab3e84c2283e149849679054025bca0e37e39c03490f8111",
+      "rangeSha256": "407d316394163de6a524f0896f40e9f098ddd3017f6803ae4d9bf33d603871c3"
+    },
+    {
+      "id": "Z18",
+      "path": "src/services/code-index/vector-store/qdrant-client.ts",
+      "startLine": 399,
+      "endLine": 467,
+      "claim": "Qdrant path segment 필터·metadata 제외·score/top-k 제한의 query 호출",
+      "fileSha256": "e4538d271191b5a87caf121e0b692fe338753375cc36eb12be59c50de39847ab",
+      "rangeSha256": "c3b8b401358c02f02a098c8fc33d81439e6aebaefaedba6d3134f2677a6cbe6c"
+    },
+    {
+      "id": "Z19",
+      "path": "src/services/code-index/semble/provider.ts",
+      "startLine": 167,
+      "endLine": 286,
+      "claim": "Semble 전체 workspace 검색·directory prefix 후처리·외부 경로 거절과 결과 변환",
+      "fileSha256": "72922780d59a2e812be916c6c1cd333106a56c0360649b16a8560e8245038c4e",
+      "rangeSha256": "db992781203962c8c189eb9a1a9b5ef35247a9f8dea702b60849845836139a9d"
+    },
+    {
+      "id": "Z20",
+      "path": "apps/cli/src/agent/extension-host.ts",
+      "startLine": 368,
+      "endLine": 451,
+      "claim": "CLI의 VS Code shim 설치·extension.js require·동일 extension activate 호출",
+      "fileSha256": "3d9c6b4eb24f50005e73e66db1d019835a11c5c5b680dc07d4f692e60f13f1b7",
+      "rangeSha256": "31eb6efa60832990b2b47344f6aaf08e2b7bbd6c9c807acdc216494caf4aded7"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "zoo-code-C1",
+      "title": "workspace 소스 증거를 가진 의미 코드 검색",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "bounded context·semantic history memory·glob/regex·LSP는 이미 구현. 파일 chunk embedding/index 조회는 별도 계약 후보.",
+      "moodcodePaths": [
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/tools/runtime/discovery.ts",
+        "packages/engine/src/runner/tool-discovery.ts",
+        "packages/engine/src/ports.ts"
+      ],
+      "referenceIds": [
+        "Z14",
+        "Z16",
+        "Z17",
+        "Z18",
+        "Z19"
+      ],
+      "contract": [
+        "명시적 host search factory가 workspace identity, index revision, embedder/model/dimension identity와 전송 허용 정책을 고정한다. 외부 binary나 credential을 모델이 선택·설치하지 않는다.",
+        "검색 결과에 canonical workspace-relative path, 파일 hash, chunk 범위, score, source/index revision을 넣고 현재 파일과 달라진 결과를 stale 관측으로 표시한다. 검색 관측은 편집 승인을 부여하지 않는다.",
+        "query/result/index byte·top-k·시간·동시성 한도를 둔다. readiness·오류·정상 empty를 구분하며 현재 Run tool capture/discovery와 context 예약에 동일 결과 예산을 적용한다. 기존 MCP를 통한 host search 연결도 허용하되 같은 계약을 적용한다."
+      ],
+      "validation": [
+        "workspace A/B 및 worktree의 index namespace 혼선, 변경·삭제 이후 stale chunk, traversal/symlink 경계가 차단되는 fixture를 만든다.",
+        "index 미준비/정상 empty/provider 오류가 다른 결과로 남고 cancel·timeout·top-k·byte 한도가 유지되는지 검증한다.",
+        "Plan/read-only child에서 검색은 정책 범위 안에서만 노출되고 검색 결과로 write/execute 권한이 생기지 않는지 검증한다."
+      ]
+    },
+    {
+      "id": "zoo-code-C2",
+      "title": "역할 workflow의 durable child 대기·재개 barrier",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "versioned profiles, 실제 격리 child/worktree, budget·deny·cancel 상속과 terminal 결과 중복 제거 delivery가 이미 있다. 추가 범위는 역할 단계 및 기다리는 child 집합에 binding된 자동 continuation.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/child-tasks/index.ts",
+        "packages/engine/src/child-tasks/delegation.ts",
+        "packages/engine/src/child-tasks/engine-host.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/session-state/index.ts"
+      ],
+      "referenceIds": [
+        "Z08",
+        "Z11",
+        "Z12",
+        "Z13"
+      ],
+      "contract": [
+        "workflow stage revision, parent Run/Attempt, awaited child IDs, profile revision, delivery IDs를 하나의 durable transition에 묶는다. stage 완료 판정과 parent continuation admission은 이미 받은 terminal 결과와 일치해야 한다.",
+        "완전한 parent tool exchange의 저장과 child admission을 선행 관계로 묶고, child 결과 publication 뒤 부모가 취소·교체·archived되었거나 stage가 바뀌면 자동 continuation을 거절한다. 중단된 효과를 재실행해 단계를 맞추지 않는다.",
+        "병렬 workflow가 필요하면 기존 worktree child에 bounded child 집합 admission과 all/any 대기 정책을 명시적으로 더한다. Zoo의 기본 serial scheduler를 병렬 실행 검증 근거로 사용하지 않는다."
+      ],
+      "validation": [
+        "child 종료와 결과 전달 사이, 전달과 stage commit 사이, commit과 parent scheduler admission 사이의 crash/reopen fixture에서 중복 실행·중복 결과가 없는지 검증한다.",
+        "cancel·profile 교체·parent supersession·동시 완료 시 exact stage CAS가 stale 재개를 막는지 확인한다.",
+        "다중 child의 budget 예약·all/any 정책·부분 실패·고아 child 정리가 기존 owner lease와 cancel 규칙을 보존하는지 검증한다."
+      ]
+    },
+    {
+      "id": "zoo-code-C3",
+      "title": "profile별 MCP 서버·resource identity 정책",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "MCP stdio/HTTP, server scope 등록·revision, profile tools allowlist, bounded discovery, exact 승인 및 uncertainty recovery는 이미 구현. 추가는 tool 이름과 별도로 관리하는 role별 서버/resource allowlist와 공통 노출 판정.",
+      "moodcodePaths": [
+        "packages/engine/src/agents/index.ts",
+        "packages/engine/src/mcp/registration.ts",
+        "packages/engine/src/mcp/client.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/runner/tool-discovery.ts",
+        "packages/engine/src/permission/policy.ts"
+      ],
+      "referenceIds": [
+        "Z04",
+        "Z14",
+        "Z15"
+      ],
+      "contract": [
+        "host가 stable MCP client/server identity와 허용 resource URI 범위를 profile revision에 고정한다. 미설정과 빈 allowlist의 의미를 명세하며 resolve 실패는 권한 확대로 해석하지 않는다.",
+        "system/context capability, eager catalogue, discovery 후보, resource 목록·읽기 및 execute 재검증이 같은 policy snapshot을 사용한다. alias나 이력에 있는 tool 이름이 금지된 server를 다시 노출시키지 않는다.",
+        "서버 재연결·schema/resource 변경·profile 변경 때 기존 capture/prepared 승인을 무효화하며 Plan/Build·deny·exact MCP fingerprint·불확실 outcome 격리를 보존한다."
+      ],
+      "validation": [
+        "profile A에서 허용한 서버가 B의 prompt/discovery/resource/execute로 새지 않는지, 빈 목록과 resolve 실패가 동일하게 명세된 상태를 유지하는지 검증한다.",
+        "대기 중 승인 후 reconnect·profile 교체·resource catalog 변경이 stale 요청을 거절하는지 확인한다.",
+        "긴 tool catalog의 bounded discovery에서 허용 범위를 벗어난 schema가 materialize되지 않고 기존 MCP accepted/dispatched/outcome recovery 계약이 유지되는지 검증한다."
+      ]
+    },
+    {
+      "id": "zoo-code-C4",
+      "title": "exact command에 binding된 host preflight verdict",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "명령 exact prepare/approval/effect, deny 우선 정책, scope grants, process ownership·cleanup recovery와 metadata plugin hooks는 이미 있다. 추가는 명령 구문/위험 판정의 typed preflight 입력·출력 계약.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/command/index.ts",
+        "packages/engine/src/permission/policy.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/index.ts"
+      ],
+      "referenceIds": [
+        "Z06",
+        "Z07"
+      ],
+      "contract": [
+        "host가 등록한 분석기만 command bytes, canonical cwd, execution binding, policy/analyzer revision의 digest에 대해 allow/deny/unavailable verdict를 낸다. 모델은 분석기·실행 파일·규칙을 설치하거나 바꾸지 않는다.",
+        "verdict를 bounded 이유/rule ID와 함께 저장한다. allow는 기존 deny/Plan/exact approval을 우회하지 않으며, deny와 분석기 실행 실패를 분리한다. 승인 대기 중 정책·cwd·command 변경은 verdict와 준비된 승인을 함께 무효화한다.",
+        "정책상 실행하지 않은 도구 결과와 사용자의 명시적 cancel/reject를 구분해 기록한다. 후속 도구를 계속할지는 기존 batch 계약으로 결정하며 이미 발생한 명령 효과를 retry하지 않는다."
+      ],
+      "validation": [
+        "분석기 timeout/malformed output/종료 실패를 unavailable로 기록하고 명령이 시작되지 않는지 검증한다.",
+        "command/cwd/policy revision 교체·scope grant가 preflight binding을 바꾸거나 deny를 상쇄하지 못하는지 확인한다.",
+        "정책 거절과 user cancel이 다른 lifecycle 결과를 남기며 기존 process ownership·unknown cleanup 격리가 보존되는지 검증한다."
+      ]
+    }
+  ],
+  "limitations": [
+    "static-source-review only: upstream 설치·build·test·모델·계정·CLI/VS Code GUI·Semble/DCG/Qdrant 실행을 수행하지 않았다.",
+    "HEAD의 구현 존재를 검토했으며 Roo 대비 개별 기능의 도입 시점·독창성·역사적 변화 전체는 별도 Roo 분석 범위다. README의 successor 및 추가 기능 주장을 그 자체로 구현·실측 결과로 간주하지 않았다.",
+    "TaskScheduler 기본 동시성은 1이고 위임 시 single-open-task 경로다. native parallel tool calls와 테스트 파일 존재가 여러 child의 실제 병렬 실행을 증명하지 않는다.",
+    "TaskHistoryStore.atomicUpdatePair는 한 메모리 lock 안에서 두 파일을 순차 저장한다. crash-atomic DB transaction으로 인증하지 않았으며 startup repair와 repair-intent 경로를 따로 확인했다.",
+    "Semble는 별도 Zoo-Code-Org/sembleexec release binary를 다운로드한다. 이 checkout에는 그 검색/embedding 구현과 배포 binary의 license를 확인할 자료가 없다. DCG도 별도 외부 release binary다.",
+    "tracked root/subdirectory license/notice filename 목록에서는 LICENSE 한 개를 확인했다. node dependencies, WASM/다운로드 binary, 외부 model/embedding/MCP/Qdrant/cloud/telemetry 서비스 전체의 license·약관·전송 데이터 audit은 수행하지 않았다.",
+    "tool policy의 요청 구성과 실행 시 mode 조회가 모든 race에서 같은 immutable snapshot이라는 증명은 하지 않았다. MCP mode resolver의 unavailable→undefined unrestricted fallback은 보조 소스에서 확인했다.",
+    "checkpoint Git clean/reset은 arbitrary command·MCP·외부 서비스 효과 rollback을 뜻하지 않는다. 취소 시 terminal release가 모든 OS의 프로세스 트리 종료·daemon cleanup을 보장한다고 인증하지 않았다.",
+    "Git LFS smudge·submodule 초기화·출시 자산 검증·provider별 실제 capability/usage/retry 동등성 및 성능 측정은 범위 밖이다.",
+    "Moodcode 비교는 engine source 464812f7d1af24466f57070663131f5979aeca51과 기존 구현 상태 문서다. 기존 Moodcode 테스트 기록은 이번 Zoo Code 실행 결과가 아니다."
+  ]
+}

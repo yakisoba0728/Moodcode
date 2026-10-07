@@ -281,3 +281,12 @@ OpenCode보다 보강할 기준은 영구 Run/attempt 추적, cancel 후 자동 
 G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 명세](docs/moodcode/engine-phase-one-exit-criteria.md)의 최종 문서·커밋·clean tree 확인 뒤 goal을 완료하고 추가 구현을 끝낸다. 담당 작업은 종료했다. 원래 외부 환경의 열린 TODO4개는 2차로 유지하며 실제 프로젝트 unresolved 기록을 대신 승인하지 않는다.
 
 도구 discovery의 실제 baseline과 독립 구현 범위는 [조사](docs/moodcode/research/2026-10-07-tool-catalogue-discovery.md)를 따른다.
+
+## 추가 공개 엔진 분석 — 2026-10-07 사용자 요청
+
+1차 종료 이후의 별도 분석 요청이다. 기존 G1 종료와 열린 OS/provider/CI 항목을 보존하고, 이번에는 source clone·프로젝트별 서브에이전트 분석·독립 구현 후보 정리까지 진행한다. 새 기능의 완료 표시는 구현과 검증 뒤에만 추가한다. [분석 기준과 보고서](docs/coding-agent-engine-review/README.md)를 따른다.
+
+- [x] **A2-R01 — 19개 source clone·HEAD 고정**: 목록18개와 OpenHands 앱1개, 전체 Git 이력·60,418개 tracked 경로, LFS 포인터·비재귀 submodule 범위를 manifest에 기록.
+- [x] **A2-R02 — root license·유지보수 상태 확인**: Apache-2.0 10개·MIT 8개·FSL-1.1-MIT 1개를 실제 root 파일과 대조하고 별도 고지 파일의 SHA를 기록. archived/API와 README 유지보수 고지를 구분.
+- [x] **A2-R03 — 프로젝트별 서브에이전트 분석**: 각각 메인 엔진·문맥·도구·실행/복구·확장 기능과 Moodcode 비교를 보고서·증거 JSON으로 저장.
+- [x] **A2-R04 — 통합 비교·후속 구현 후보와 증거 검사**: 기존 기능과 새 계약을 구분하고 후보마다 출처·우선순위·비용·검증 조건을 정리. HEAD·소스 줄·파일 SHA·변경 범위를 확인.

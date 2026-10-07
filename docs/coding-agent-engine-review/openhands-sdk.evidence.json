@@ -1,0 +1,348 @@
+{
+  "slug": "openhands-sdk",
+  "head": "608a102c637d8d8a999f49d7b04846524bd8bd1c",
+  "repository": "https://github.com/OpenHands/software-agent-sdk",
+  "analysisMode": "static-source-review",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/openhands-sdk",
+  "moodcodeBaseline": {
+    "documentationHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineHead": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "references": [
+    {
+      "id": "S01",
+      "path": "LICENSE",
+      "startLine": 1,
+      "endLine": 21,
+      "symbol": "MIT License",
+      "claim": "root MIT 고지의 보존 조건과 무보증 범위.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/LICENSE#L1-L21",
+      "fileSha256": "14a9b631c658eee682c6c2973525fbdf808c3457176bc47513052c559cc5ce86",
+      "rangeSha256": "14a9b631c658eee682c6c2973525fbdf808c3457176bc47513052c559cc5ce86"
+    },
+    {
+      "id": "S02",
+      "path": "README.md",
+      "startLine": 83,
+      "endLine": 87,
+      "symbol": "Repository boundaries",
+      "claim": "SDK/Agent Server/TypeScript client가 실행과 API를 소유하고 OpenHands 앱은 Agent Canvas UI를 소비한다는 저장소의 명시적 경계.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/README.md#L83-L87",
+      "fileSha256": "95094c9745c7cc58136d4eaa1688fb6038aafefec2be05344293f6df7e55dbf8",
+      "rangeSha256": "89788619d983aeccf49df574a607c7326570405c09632f33c22b07145f38b563"
+    },
+    {
+      "id": "S03",
+      "path": "openhands-sdk/openhands/sdk/conversation/conversation.py",
+      "startLine": 153,
+      "endLine": 234,
+      "symbol": "Conversation.__new__",
+      "claim": "RemoteWorkspace이면 RemoteConversation을 구성하며 나머지는 LocalConversation으로 분기한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/conversation/conversation.py#L153-L234",
+      "fileSha256": "77b5b9b457022e0d0107db285e265f0cc7d54d3e055b2fd8a305dd58fd8d3e35",
+      "rangeSha256": "d3da445447a0dda22a896dec1182a7d20010dbe44eea5168d05bf2fd523f8dc2"
+    },
+    {
+      "id": "S04",
+      "path": "openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py",
+      "startLine": 1932,
+      "endLine": 2046,
+      "symbol": "LocalConversation._run",
+      "claim": "state lock 아래 step을 반복하고 stop hook feedback, 승인 대기, 예산·반복 한도에 따라 종료한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py#L1932-L2046",
+      "fileSha256": "bc793cbd72e7b21fe75ee13d756ad7574d55855f8b383cff0aadfd0e0f4aa3bf",
+      "rangeSha256": "5e46f9652b89694c6b80fa39309507296a05dce9f50d19df3775f06314d75b45"
+    },
+    {
+      "id": "S05",
+      "path": "openhands-sdk/openhands/sdk/agent/agent.py",
+      "startLine": 740,
+      "endLine": 896,
+      "symbol": "Agent._step",
+      "claim": "route-aware metadata와 condenser로 model context를 만들고 generate 호출·context 오류 회복·응답 분류를 수행한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/agent/agent.py#L740-L896",
+      "fileSha256": "6a24d0cf275b25b8777ef97f3958df79bd1425c0df0d79a3eab4c68577bd170c",
+      "rangeSha256": "42a5c00c1b654cbdce3311fe94759eeac970248fa3e060b13f9da2f195738a12"
+    },
+    {
+      "id": "S06",
+      "path": "openhands-sdk/openhands/sdk/agent/response_dispatch.py",
+      "startLine": 145,
+      "endLine": 192,
+      "symbol": "ResponseDispatchMixin._handle_tool_calls",
+      "claim": "모델 tool call을 ActionEvent로 만들고 confirmation 판정 뒤 실행 batch로 보낸다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/agent/response_dispatch.py#L145-L192",
+      "fileSha256": "1431f91b891e460de10716bb6ecfcdf3958fd5ffc45d3ae15ae7231dd0433dfe",
+      "rangeSha256": "dc1e9811177c2f012a6056cc949ac7bb00bd118bf1d24320941eb52b016ccd9b"
+    },
+    {
+      "id": "S07",
+      "path": "openhands-sdk/openhands/sdk/agent/agent.py",
+      "startLine": 1468,
+      "endLine": 1530,
+      "symbol": "Agent._execute_action_event",
+      "claim": "등록된 ToolDefinition을 실행하며 observation을 원 action과 tool call ID에 연결해 반환한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/agent/agent.py#L1468-L1530",
+      "fileSha256": "6a24d0cf275b25b8777ef97f3958df79bd1425c0df0d79a3eab4c68577bd170c",
+      "rangeSha256": "5d75e6a6545aee9201e1d3e81f6b3984693668385a6adb97e344e132c38e239e"
+    },
+    {
+      "id": "S08",
+      "path": "openhands-sdk/openhands/sdk/conversation/state.py",
+      "startLine": 430,
+      "endLine": 568,
+      "symbol": "ConversationState._save_base_state/create",
+      "claim": "base-state 직렬화, cipher 없는 secret redaction, FileStore 선택과 동일 ID의 EventLog 복원·view 재구축을 수행한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/conversation/state.py#L430-L568",
+      "fileSha256": "7e488ee6cb483f35b852bcb0900f5f49e0490a2b5bf28d6387d869d207727360",
+      "rangeSha256": "600672f641689d2719dcfc77d0a3c791bd08b2c63f6d9d7273ebed6ee1c16955"
+    },
+    {
+      "id": "S09",
+      "path": "openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py",
+      "startLine": 846,
+      "endLine": 958,
+      "symbol": "LocalConversation.fork/navigate_to",
+      "claim": "source lock 아래 전체 또는 특정 event의 조상 경로를 복사하고 별도 state를 만들며 workspace는 공유한다. navigate는 이력을 지우지 않고 HEAD와 view를 바꾼다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py#L846-L958",
+      "fileSha256": "bc793cbd72e7b21fe75ee13d756ad7574d55855f8b383cff0aadfd0e0f4aa3bf",
+      "rangeSha256": "30d1f81571af0bf79a2808bf60c6a8a34c1607ff8151bb01c3434602ca8c1fa7"
+    },
+    {
+      "id": "S10",
+      "path": "openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py",
+      "startLine": 2649,
+      "endLine": 2777,
+      "symbol": "LocalConversation.reject_pending_actions/pause/interrupt",
+      "claim": "거절 observation과 orphan error를 기록하며 pause는 step 경계, interrupt는 cancellation token과 async task 취소를 사용한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py#L2649-L2777",
+      "fileSha256": "bc793cbd72e7b21fe75ee13d756ad7574d55855f8b383cff0aadfd0e0f4aa3bf",
+      "rangeSha256": "5d9e18ade4ec2386d209ef3ebad3980317713a621012a795326ac95106465e21"
+    },
+    {
+      "id": "S11",
+      "path": "openhands-sdk/openhands/sdk/agent/parallel_executor.py",
+      "startLine": 275,
+      "endLine": 357,
+      "symbol": "ParallelToolExecutor._run_safe/_resolve_lock_keys",
+      "claim": "도구별 resource key로 실행을 잠그고 미선언 도구는 tool name mutex를 사용하며 미시작 취소는 합성 error로 돌려준다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/agent/parallel_executor.py#L275-L357",
+      "fileSha256": "a2ce8ebc42009a660c0eda2330958d0df1eb452b7b9f24da02f7c23f5f3038bb",
+      "rangeSha256": "dcf7b82db69da53c1fa66e41c8bdcafc5f8acf4f5f1a0821edddc16705c9e8bb"
+    },
+    {
+      "id": "S12",
+      "path": "openhands-sdk/openhands/sdk/context/condenser/llm_summarizing_condenser.py",
+      "startLine": 278,
+      "endLine": 352,
+      "symbol": "LLMSummarizingCondenser._get_forgotten_events",
+      "claim": "request/event/token 압력에서 보존 suffix를 계산하고 system prefix 및 atomic exchange 경계를 보호한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/context/condenser/llm_summarizing_condenser.py#L278-L352",
+      "fileSha256": "8e3ddb4a770ba80d7aaa0b96247d95d8985cd860133b0efa6d0315de50727e6e",
+      "rangeSha256": "8357b0981704854a17568360e2248db89d389ec3fcf97f1fe7b8d1a8b90612b9"
+    },
+    {
+      "id": "S13",
+      "path": "openhands-tools/openhands/tools/task/manager.py",
+      "startLine": 249,
+      "endLine": 336,
+      "symbol": "TaskManager._create_task/_get_conversation",
+      "claim": "agent factory에서 worker를 만들고 iteration·budget 설정을 선택하여 부모 작업 디렉터리의 별도 LocalConversation을 구성한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-tools/openhands/tools/task/manager.py#L249-L336",
+      "fileSha256": "9e2c27097d91fe2b3de75323832527b93049ddd2c3d5219800c5e8924ae635f9",
+      "rangeSha256": "83b7bfec8834605eeaf00254b822e413c25b0d7d43b10cac5a9df8c2b074d655"
+    },
+    {
+      "id": "S14",
+      "path": "openhands-tools/openhands/tools/task/manager.py",
+      "startLine": 402,
+      "endLine": 500,
+      "symbol": "TaskManager._run_task/_run_until_finished",
+      "claim": "동기 delegated conversation의 완료/partial 오류를 구분하고 승인 handler·부모 policy·누적 child metrics를 처리한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-tools/openhands/tools/task/manager.py#L402-L500",
+      "fileSha256": "9e2c27097d91fe2b3de75323832527b93049ddd2c3d5219800c5e8924ae635f9",
+      "rangeSha256": "7d77453621f07ebd2132d4f8f366377f50f5e5fb6fbed6c0848a769ce30d7b0f"
+    },
+    {
+      "id": "S15",
+      "path": "openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py",
+      "startLine": 1080,
+      "endLine": 1209,
+      "symbol": "LocalConversation._ensure_plugins_loaded",
+      "claim": "명시적/ambient plugin에서 skills·MCP·hooks·agent definitions를 모으고 프로젝트 skills와 persistent memory를 로드한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py#L1080-L1209",
+      "fileSha256": "bc793cbd72e7b21fe75ee13d756ad7574d55855f8b383cff0aadfd0e0f4aa3bf",
+      "rangeSha256": "5611d2732835804107e2a7736da0e3294320ba1e94a12461e3ad802628ca17d5"
+    },
+    {
+      "id": "S16",
+      "path": "openhands-sdk/openhands/sdk/mcp/tool.py",
+      "startLine": 118,
+      "endLine": 209,
+      "symbol": "MCPToolExecutor.call_tool/__call__",
+      "claim": "연결이 끊긴 MCP client의 재연결, typed call 결과, per-conversation secret 참조 확장·출력 masking·timeout 처리를 연결한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/mcp/tool.py#L118-L209",
+      "fileSha256": "44a93746b9bb2f56c5559cb317b8196cd3e0c37bb417a16cb0f991beed2446a0",
+      "rangeSha256": "1b1f3b64b488acfea5b566ad0131c1a5f7259bd2bce896d99c211f5f2bd14c39"
+    },
+    {
+      "id": "S17",
+      "path": "openhands-sdk/openhands/sdk/llm/llm.py",
+      "startLine": 1684,
+      "endLine": 1746,
+      "symbol": "LLM.generate/agenerate",
+      "claim": "동기/비동기 generate가 configured API mode에 따라 Responses 또는 Chat Completion 경로를 선택한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/llm/llm.py#L1684-L1746",
+      "fileSha256": "2e977d0f0f0a7d650173da7b3efc16efde11bf4e470b72324b6283abe363343e",
+      "rangeSha256": "18f7b8e0aa90276dc0bb148c5e68a156327cb7cdb403cc6441fc2e74b364b9e4"
+    },
+    {
+      "id": "S18",
+      "path": "openhands-sdk/openhands/sdk/conversation/impl/remote_conversation.py",
+      "startLine": 339,
+      "endLine": 422,
+      "symbol": "RemoteEventsList._do_full_sync/reconcile",
+      "claim": "REST의 100개 단위 페이지를 모으고 event ID로 합쳐 WebSocket/REST 사이 누락·중복을 조정한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/conversation/impl/remote_conversation.py#L339-L422",
+      "fileSha256": "923bda551895eaf43495342166765ea7d7422abd1276b79c0e2909b0d9dc4d63",
+      "rangeSha256": "74a97c0779b266b3c0ac1ad7011a25bc32c00c43821447f41889c44263e9fb79"
+    },
+    {
+      "id": "S19",
+      "path": "openhands-agent-server/openhands/agent_server/event_service.py",
+      "startLine": 1259,
+      "endLine": 1319,
+      "symbol": "EventService.start",
+      "claim": "원격 서버가 persistent LocalConversation을 만들고 policy·analyzer·lease write guard·state publication을 연결한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-agent-server/openhands/agent_server/event_service.py#L1259-L1319",
+      "fileSha256": "3c71998e1f6ab1e1cccc621986cc1662810df65417c2da0cbfbb90537241d92f",
+      "rangeSha256": "3a389dd72e0694e30b6b58fb1a0f14666bda3f83be8189ec0547215a3abf5d3d"
+    },
+    {
+      "id": "S20",
+      "path": "openhands-workspace/openhands/workspace/docker/workspace.py",
+      "startLine": 231,
+      "endLine": 287,
+      "symbol": "DockerWorkspace._start_container",
+      "claim": "pre-built Agent Server container를 시작하고 host endpoint·session key를 정한 뒤 health와 RemoteWorkspace를 초기화한다.",
+      "permalink": "https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-workspace/openhands/workspace/docker/workspace.py#L231-L287",
+      "fileSha256": "8cacdc46b43f846f4f4acafdf3950f02feb764000e96a9cd380ee40c3524da4a",
+      "rangeSha256": "16c3c718955fa9ca9631d39c0d80a904565c9ab54725a49d9a78718e4b6b51ec"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "OHSDK-C1",
+      "title": "실행 효과와 분리된 대화 분기·fork",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "checkpoint restore·archive·새 session 생성·격리 child는 기구현. 특정 대화 지점에서 별도 문맥 계보를 만드는 공개 계약은 확인한 기준 소스에서 찾지 못했다.",
+      "moodcodePaths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/review/index.ts",
+        "packages/engine/src/child-tasks/index.ts"
+      ],
+      "referenceIds": [
+        "S08",
+        "S09"
+      ],
+      "contract": "host가 sourceSessionId와 고정 source cursor를 지정해 새 session의 parent lineage와 완전한 exchange를 원자적으로 기록한다. 원본은 불변이며 fork는 기본 idle이다. branch 기준은 terminal 또는 완전한 tool exchange 경계로 제한하고 summary/image/document/artifact의 역사 출처를 검증해 재binding한다. 승인은 복사하지 않고 pending action·실행 효과를 재생하지 않는다. 대화 분기 자체는 파일 복원이나 worktree 복제가 아니며 현재 파일을 다시 읽어야 한다. 별도 worktree가 필요하면 기존 child/worktree 계약을 명시적으로 연결한다.",
+      "validation": [
+        "source cursor 이후 이벤트가 fork 문맥에 유입되지 않고 원본 이력이 동일함",
+        "tool-call/result 중간 및 불확실한 source 분기는 거절됨",
+        "crash 재요청은 하나의 fork ID와 lineage만 반환함",
+        "문서·이미지·summary 출처와 credential 비복사, 원 승인 비재사용을 확인함"
+      ]
+    },
+    {
+      "id": "OHSDK-C2",
+      "title": "prepared 자원 집합을 사용하는 도구 병렬 실행",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "runner.executeCalls는 effectClass=read인 연속 도구를 maxReadConcurrency 아래 이미 병렬 실행하고 그 밖의 호출은 순차 실행한다. 범용 파일·terminal·외부 자원 충돌 scheduler는 추가 범위다.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/tools/runtime/index.ts",
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/storage/tool-recovery-frontier.ts"
+      ],
+      "referenceIds": [
+        "S07",
+        "S11"
+      ],
+      "contract": "host가 등록한 도구만 prepare 단계에서 canonical resource set과 read/write mode를 선언한다. 그 집합과 tool revision은 exact fingerprint의 일부로 고정한다. 미선언 또는 외부 효과가 불명확한 호출은 workspace 단위 직렬 경로로 유지한다. 자원 잠금은 정렬해 deadlock을 피하고 effect 직전에 원 owner·승인·현재 hash를 다시 검사한다. 불충돌 도구만 제한 동시성 아래 실행하며 모델용 observation 순서는 원 call 순서로 보존한다. workspace lease·checkpoint·도구 cleanup journal은 병렬 완료와 취소를 독립적으로 추적한다.",
+      "validation": [
+        "같은 파일 read/write 및 rename의 양쪽 경로는 충돌하고 별도 파일은 허용된 동시성으로 실행됨",
+        "미선언 shell/MCP는 직렬이며 확장 자원 선언으로 자동 권한 상승하지 않음",
+        "잠금 대기 취소·부분 실패·강제 종료에서 미확정 effect가 재실행되지 않음",
+        "prepared resource 변경·외부 파일 변경은 effect 전에 stale로 차단됨"
+      ]
+    },
+    {
+      "id": "OHSDK-C3",
+      "title": "terminal 기록 전 완료 검증 gate",
+      "priority": "P1",
+      "cost": "M–L",
+      "moodcodeStatus": "plugin prepared/settled metadata hook, session steer boundary, 일반 retry·coding 검증 도구는 기구현. 완료 판정에서 bounded feedback으로 추가 turn을 요청하는 host gate는 별도 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/runner/index.ts",
+        "packages/engine/src/runner/input-scheduler.ts",
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/turn-executor.ts"
+      ],
+      "referenceIds": [
+        "S04",
+        "S15"
+      ],
+      "contract": "모델의 완료 응답 후 Run terminal을 쓰기 전에 host가 고정 revision의 completion policy를 실행한다. 결과는 allow, continue와 bounded untrusted feedback, 또는 fail로 제한한다. 검증 비용·추가 turn 한도·취소 신호를 기존 Run 예산에 포함하고 동일 완료 시도 ID에 대한 gate 결과를 durable하게 기록한다. 검증 명령이나 파일 효과는 기존 approved tool 경로로만 실행한다. feedback은 user 지시로 승격하지 않으며 기존 exact approval·prepared request를 수정하지 않는다. terminal 이후 추가 이벤트를 쓰지 않는다.",
+      "validation": [
+        "실패한 검증 feedback은 terminal 전 다음 turn에서 한 번만 관측됨",
+        "재시작·중복 completion 제안에서 gate side effect와 terminal이 중복되지 않음",
+        "gate timeout·취소·반복 거절은 예산 아래 종료됨",
+        "기존 prepared/settled 관측 hook과 steer·pending approval 회귀를 확인함"
+      ]
+    },
+    {
+      "id": "OHSDK-C4",
+      "title": "원격 engine host의 재접속·상태 조정",
+      "priority": "P2",
+      "cost": "L",
+      "moodcodeStatus": "engine/host 분리, local utility RPC, snapshot/replay·bounded history, durable owner·uncertainty·취소는 기구현. 인증된 REST/WebSocket 또는 동등한 원격 transport와 container workspace 운용은 확인한 host에서 별도 범위다.",
+      "moodcodePaths": [
+        "apps/desktop/src/main/host.ts",
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/ports.ts",
+        "packages/engine/src/storage/native.ts",
+        "packages/engine/src/storage/execution-uncertainty.ts",
+        "packages/engine/src/recovery/index.ts"
+      ],
+      "referenceIds": [
+        "S03",
+        "S18",
+        "S19",
+        "S20"
+      ],
+      "contract": "원격 host는 동일 engine command와 sequence cursor를 인증된 transport로 노출하고 engine·process owner는 서버에 남긴다. client 연결 종료와 Run cancel을 별개 요청으로 기록한다. 재접속은 snapshot cursor 이후 bounded page와 event ID/seq로 조정하며 client 메모리에 전체 history를 적재하지 않는다. admission·approval·cancel은 원 request identity로 중복 제거하고 lease generation이 다른 응답을 거절한다. container 생성·종료·credential 전달은 host만 수행한다. transport timeout 뒤 재연결은 관측을 복구하며 uncertain tool effect의 자동 재전송을 허용하지 않는다.",
+      "validation": [
+        "REST sync/stream 경합·재접속에서 누락·중복·순서 역전이 projection에 반영되지 않음",
+        "연결 종료 중 서버 Run은 계속되고 명시 cancel은 동일 owner에서 terminal까지 추적됨",
+        "늦은 이전 lease 응답·중복 run request·승인 binding 변경이 차단됨",
+        "container crash 및 서버 restart는 기존 uncertainty ledger를 보존하고 credential이 client/event/log로 전달되지 않음"
+      ]
+    }
+  ],
+  "limitations": [
+    "upstream install/setup/test/build/benchmark/model/API/credential/GUI를 실행하지 않은 고정 checkout 정적 분석이다. 아래 validation은 후속 독립 구현의 수용 조건이지 실행 결과가 아니다.",
+    "SDK native Agent 경로와 일부 companion packages를 추적했다. ACPAgent는 별도 외부 ACP process agent 경계의 존재만 확인했으며 모든 provider·ACP implementation·OS 조합을 검증하지 않았다.",
+    "OpenHands/OpenHands의 Agent Canvas UI·Cloud 상품·별도 automation 저장소의 운영 동작과 라이선스는 이 SDK 저장소로 입증하지 않는다.",
+    "DockerWorkspace의 관리 코드만 읽었고 container 이미지 내용·격리 강도·Kubernetes/Apptainer/cloud 서비스·submodule/LFS 외부 자료·실제 도구 cleanup을 실행 검증하지 않았다.",
+    "root LICENSE와 clients/typescript/LICENSE는 MIT, fixture plugin의 별도 LICENSE도 존재한다. dependency·container image·extension marketplace·모델/클라우드 서비스 약관 전체 audit이나 법률 검토가 아니다.",
+    "SDK의 conversation resume·fork·navigate는 파일 상태 복원, 외부 tool effect의 exactly-once 실행 또는 branch별 workspace 격리를 보장한다는 근거가 아니다.",
+    "Moodcode 기존 gate·실제 모델·GUI 결과는 implementation-status의 과거 기록이다. 이번 upstream 성능·동등성·제품 검증으로 표시하지 않았다.",
+    "동작 계약과 출처만 작성했으며 upstream source/prompt/tool description/fixture를 Moodcode에 복사하거나 runtime 의존성을 추가하지 않았다. 원본을 읽었으므로 clean-room 분석으로 부르지 않는다."
+  ]
+}

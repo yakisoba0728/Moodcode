@@ -1,0 +1,345 @@
+{
+  "slug": "gemini-cli",
+  "head": "ef59c532f07fbb3a58dd68bac024ae217e9c73ce",
+  "repository": "https://github.com/google-gemini/gemini-cli",
+  "analysisMode": "static-source-review",
+  "localPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode-agent-references-20261007/gemini-cli",
+  "moodcodeBaseline": {
+    "documentationHead": "3065fdd03649df393f4170b38a2f049a1e52d2f3",
+    "engineHead": "464812f7d1af24466f57070663131f5979aeca51"
+  },
+  "references": [
+    {
+      "id": "G01",
+      "path": "packages/cli/src/gemini.tsx",
+      "startLine": 979,
+      "endLine": 1002,
+      "symbol": "main",
+      "claim": "비대화형 인증 refresh 뒤 runNonInteractive를 호출하고 종료 cleanup을 수행한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/cli/src/gemini.tsx#L979-L1002",
+      "sha256": "72410f158bcd7a75c9654a8bfffba34daba3cc79f1e4bcf15cb09c98e848aa0c"
+    },
+    {
+      "id": "G02",
+      "path": "packages/cli/src/nonInteractiveCli.ts",
+      "startLine": 482,
+      "endLine": 488,
+      "symbol": "runNonInteractive",
+      "claim": "수집한 모델 tool request를 Scheduler.schedule로 넘긴다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/cli/src/nonInteractiveCli.ts#L482-L488",
+      "sha256": "fe569c4ac3436a851c991e0e916554b63bd9b9eb0bf5dee644f9258fad5ba298"
+    },
+    {
+      "id": "G03",
+      "path": "packages/core/src/core/client.ts",
+      "startLine": 657,
+      "endLine": 705,
+      "symbol": "GeminiClient.processTurn",
+      "claim": "context management renderHistory 또는 legacy compression을 설정으로 선택한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/core/client.ts#L657-L705",
+      "sha256": "16fd5149220cc0c7aa2215b38253b331d0e98d863a13b0d01927a47b734a7dad"
+    },
+    {
+      "id": "G04",
+      "path": "packages/core/src/core/turn.ts",
+      "startLine": 375,
+      "endLine": 414,
+      "symbol": "Turn.run",
+      "claim": "text/functionCall/citation/finishReason와 usage를 typed 이벤트로 변환한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/core/turn.ts#L375-L414",
+      "sha256": "d4f95a7d330b6065fc0c194b82375c7ed9db9ce9b1a126dae4250b668e5801aa"
+    },
+    {
+      "id": "G05",
+      "path": "packages/core/src/core/geminiChat.ts",
+      "startLine": 990,
+      "endLine": 1090,
+      "symbol": "GeminiChat.makeApiCallAndProcessStream",
+      "claim": "BeforeModel/BeforeToolSelection hook 뒤 최종 contents·model·tools를 ContentGenerator.generateContentStream에 전달한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/core/geminiChat.ts#L990-L1090",
+      "sha256": "446b5cd55e91b4b79273d0c4a20bdac923ba6a6bf2cebc5016c74a49519e6717"
+    },
+    {
+      "id": "G06",
+      "path": "packages/core/src/scheduler/scheduler.ts",
+      "startLine": 628,
+      "endLine": 684,
+      "symbol": "Scheduler._processToolCall",
+      "claim": "BeforeTool 수정 입력을 재구성한 뒤 policy 및 tainted/build-file 위험을 검사한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/scheduler/scheduler.ts#L628-L684",
+      "sha256": "79d3ceaceac098d96bae070c97fbd48e566d5c425cfadec5e1c9bc294ee3c629"
+    },
+    {
+      "id": "G07",
+      "path": "packages/core/src/scheduler/scheduler.ts",
+      "startLine": 715,
+      "endLine": 754,
+      "symbol": "Scheduler._processToolCall",
+      "claim": "승인 결과와 정책 갱신을 처리하고 거절이면 대기 batch까지 취소한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/scheduler/scheduler.ts#L715-L754",
+      "sha256": "79d3ceaceac098d96bae070c97fbd48e566d5c425cfadec5e1c9bc294ee3c629"
+    },
+    {
+      "id": "G08",
+      "path": "packages/core/src/context/toolDistillationService.ts",
+      "startLine": 116,
+      "endLine": 177,
+      "symbol": "ToolOutputDistillationService.performDistillation",
+      "claim": "큰 원본을 파일에 보존하고 설정된 임계값에서 선택적 모델 요약 및 구조적 축약을 수행한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/context/toolDistillationService.ts#L116-L177",
+      "sha256": "c0736895172c43031d1f4064f62fb4e46cffd61b02ab28dff58991b24200c593"
+    },
+    {
+      "id": "G09",
+      "path": "packages/core/src/context/chatCompressionService.ts",
+      "startLine": 665,
+      "endLine": 716,
+      "symbol": "ChatCompressionService.compress",
+      "claim": "요약과 보존 suffix의 token count를 다시 계산하며 오히려 커지면 새 이력을 활성화하지 않는다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/context/chatCompressionService.ts#L665-L716",
+      "sha256": "a278dae3a680fdb0d6072dbf821b496933a6f18d7899d43d6c5794690ca1c361"
+    },
+    {
+      "id": "G10",
+      "path": "packages/core/src/context/memoryContextManager.ts",
+      "startLine": 141,
+      "endLine": 171,
+      "symbol": "MemoryContextManager.discoverContext",
+      "claim": "trusted folder/roots 아래의 접근 경로 지침을 JIT 로드하고 파일 identity 중복을 추적한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/context/memoryContextManager.ts#L141-L171",
+      "sha256": "3c35df1ce05149179abc7f25e38449666cf37365544ffdd137da64103d4dd2c7"
+    },
+    {
+      "id": "G11",
+      "path": "packages/core/src/services/memoryService.ts",
+      "startLine": 1369,
+      "endLine": 1406,
+      "symbol": "startMemoryService",
+      "claim": "memory inbox 패치를 검증하며 자동 적용하지 않는 후보와 실제 처리한 세션 version을 기록한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/services/memoryService.ts#L1369-L1406",
+      "sha256": "410d814cc15be223a99a3eafbc2d8a1305d754407df57015f2e57cbb5dcfb510"
+    },
+    {
+      "id": "G12",
+      "path": "packages/core/src/services/chatRecordingService.ts",
+      "startLine": 942,
+      "endLine": 957,
+      "symbol": "ChatRecordingService.appendRecord",
+      "claim": "JSONL 대화 record를 append하고 ENOSPC면 기록 경로를 해제하며 경고한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/services/chatRecordingService.ts#L942-L957",
+      "sha256": "0286c8c0a915ba4d193ed1e6ff41575fe699344032db76c2a5fe982641c1d3ee"
+    },
+    {
+      "id": "G13",
+      "path": "packages/core/src/utils/checkpointUtils.ts",
+      "startLine": 98,
+      "endLine": 142,
+      "symbol": "processRestorableToolCalls",
+      "claim": "Git snapshot commit·UI/model history·원래 도구 요청을 checkpoint JSON으로 묶는다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/utils/checkpointUtils.ts#L98-L142",
+      "sha256": "21be7ae136d48cf7bde23c44ea17d3be1330292f4cfda05e0301697f931dd381"
+    },
+    {
+      "id": "G14",
+      "path": "packages/core/src/tools/mcp-tool.ts",
+      "startLine": 415,
+      "endLine": 453,
+      "symbol": "DiscoveredMCPToolInvocation.execute",
+      "claim": "MCP 호출 Promise와 AbortSignal을 경합시켜 로컬 대기를 취소하고 listener를 정리한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/tools/mcp-tool.ts#L415-L453",
+      "sha256": "e272bbe11fd1bc952076b1e5bd196554f22199ad247c7cff13b62a1e3b698f20"
+    },
+    {
+      "id": "G15",
+      "path": "packages/core/src/agents/local-executor.ts",
+      "startLine": 373,
+      "endLine": 411,
+      "symbol": "LocalAgentExecutor.executeTurn",
+      "claim": "complete_task 없이 도구 호출이 끝나면 protocol error, completion tool 결과면 GOAL로 종료한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/agents/local-executor.ts#L373-L411",
+      "sha256": "59f739ac6416ff41b408560eaf4387f907a3b3f752a848045b758a8f1e33023d"
+    },
+    {
+      "id": "G16",
+      "path": "packages/core/src/skills/skillManager.ts",
+      "startLine": 54,
+      "endLine": 99,
+      "symbol": "SkillManager.discoverSkills",
+      "claim": "builtin/extension/user/workspace skill을 우선순위로 구성하고 workspace skill은 trust 확인 뒤 로드한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/skills/skillManager.ts#L54-L99",
+      "sha256": "0e13ed68e7d76725d95342428c12e4a823c06e75a89654cbb4ee079b4297d613"
+    },
+    {
+      "id": "G17",
+      "path": "packages/core/src/hooks/hookRunner.ts",
+      "startLine": 358,
+      "endLine": 399,
+      "symbol": "HookRunner.executeCommandHook",
+      "claim": "command hook은 subprocess로 실행되고 timeout 후 종료 요청과 추가 강제 종료 시도를 수행한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/hooks/hookRunner.ts#L358-L399",
+      "sha256": "fce6d7a6e160d308c92fec3eab4a69b82d38eb621cec6875476ef982d34ae652"
+    },
+    {
+      "id": "G18",
+      "path": "packages/core/src/core/contentGenerator.ts",
+      "startLine": 375,
+      "endLine": 419,
+      "symbol": "createContentGenerator",
+      "claim": "GoogleGenAI를 생성하고 logging/model mapping 경계로 감싼다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/core/contentGenerator.ts#L375-L419",
+      "sha256": "dabe49427724e2aeca5de10a886ce52fccfc7073ed729048e5250122d0ae4a6e"
+    },
+    {
+      "id": "G19",
+      "path": "packages/core/src/services/sandboxManagerFactory.ts",
+      "startLine": 22,
+      "endLine": 43,
+      "symbol": "createSandboxManager",
+      "claim": "sandbox enabled면 OS별 manager, disabled면 NoopSandboxManager를 반환한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/services/sandboxManagerFactory.ts#L22-L43",
+      "sha256": "d944828f609bd2b4dce50443f689d9bd733533a39d169358a5724a35d7807e8b"
+    },
+    {
+      "id": "G20",
+      "path": "packages/core/src/scheduler/scheduler.ts",
+      "startLine": 880,
+      "endLine": 932,
+      "symbol": "Scheduler._execute",
+      "claim": "sandbox denial을 추가 권한 승인으로 변환하고 변경된 invocation/args를 상태에 반영한다.",
+      "permalink": "https://github.com/google-gemini/gemini-cli/blob/ef59c532f07fbb3a58dd68bac024ae217e9c73ce/packages/core/src/scheduler/scheduler.ts#L880-L932",
+      "sha256": "79d3ceaceac098d96bae070c97fbd48e566d5c425cfadec5e1c9bc294ee3c629"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "gemini-memory-inbox",
+      "title": "세션을 넘는 기억 후보 검토 inbox",
+      "priority": "P1",
+      "cost": "L",
+      "moodcodeStatus": "세션별 semantic summary, durable session documents, bounded skill/reference 읽기는 구현되어 있다. 검토한 경계에서 여러 세션의 관찰을 후보로 추출하고 사용자가 workspace 지침/skill로 승격하는 inbox 계약은 확인하지 못했다.",
+      "moodcodePaths": [
+        "packages/engine/src/context/semantic-memory.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/tools/session/skills.ts",
+        "packages/engine/src/storage/index.ts"
+      ],
+      "referenceIds": [
+        "G11",
+        "G12",
+        "G15",
+        "G16"
+      ],
+      "contract": [
+        "기본 비활성 host 작업으로 승인된 workspace의 완료 세션만 개수/bytes/time 제한 안에서 읽는다. 다른 workspace와 credential/opaque replay를 제외한다.",
+        "후보에 원본 session/message ID/hash, source scope, 생성 모델/usage, 기대 대상 revision을 저장한다. 과거 관찰은 현재 파일 상태의 증거가 아니다.",
+        "tools 없는 추출을 우선 사용하고 후보 생성과 instruction/skill 활성화를 분리한다. 수락은 exact hash/revision을 검사하는 별도 승인 작업이다.",
+        "수락/거절/중복/expiry를 journal에 저장하고 재시작 후 pending을 보존한다. 같은 session revision의 재추출/수락은 idempotent하다."
+      ],
+      "validation": [
+        "workspace 경계 및 삭제/archived 세션 제외를 확인한다.",
+        "후보 생성만으로 active instruction/skill catalogue가 바뀌지 않고 stale hash 수락이 거절되는지 확인한다.",
+        "동시 추출/재전송/생성 취소/강제 종료/accept 직전 crash에서 중복 활성화가 없는지 검증한다."
+      ]
+    },
+    {
+      "id": "gemini-artifact-distillation",
+      "title": "원본 artifact에 결합된 큰 도구 결과 요약",
+      "priority": "P1",
+      "cost": "M",
+      "moodcodeStatus": "bounded ToolResultEnvelope의 display/model/data 분리, ArtifactStore/read_artifact 및 대화 semantic summary는 구현되어 있다. 추가 범위는 개별 큰 도구 결과의 선택적 모델 요약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/artifacts/result.ts",
+        "packages/engine/src/artifacts/store.ts",
+        "packages/engine/src/context/tool-history.ts",
+        "packages/engine/src/context/summary-stream.ts",
+        "packages/engine/src/runner/turn-executor.ts"
+      ],
+      "referenceIds": [
+        "G08",
+        "G09",
+        "G03"
+      ],
+      "contract": [
+        "옵트인한 결과만 immutable artifact ID/hash/length 및 toolCallId/attemptId에 묶어 tools 없는 별도 summary lifecycle을 연다. 원본 producer result와 exit/outcome을 보존한다.",
+        "원본은 기존 artifact 권한/보존 한도를 따른다. 전체 출력을 무조건 원격에 보내지 않고 source/result/usage/time budget을 host가 정한다.",
+        "derived observation 표시와 원본 paging 경로를 유지하며 complete된 요약만 원자적으로 model projection에 적용한다.",
+        "실패/timeout/cancel/overflow는 기존 bounded projection으로 돌아가고 도구를 재실행하지 않는다. cleanup uncertainty는 기존 summary recovery 계약에 결합한다."
+      ],
+      "validation": [
+        "큰 테스트 로그의 exitCode/failure/원본 hash가 축약 경로에서도 유지되는지 확인한다.",
+        "출력 내 명령이 실행되지 않고 summary request의 tools가 비어 있는지 확인한다.",
+        "artifact 만료, 빈/부분 요약, overflow/cancel/crash에서 producer result 오염과 중복 provider call이 없는지 확인한다."
+      ]
+    },
+    {
+      "id": "gemini-model-lifecycle-hooks",
+      "title": "host 등록 모델·세션 lifecycle hook",
+      "priority": "P2",
+      "cost": "M",
+      "moodcodeStatus": "EnginePluginManager와 metadata-only PluginToolHooks.prepared/settled는 이미 구현되어 있다. 추가 범위는 session/model/summary 경계의 제한된 observation 및 명시적 veto다.",
+      "moodcodePaths": [
+        "packages/engine/src/plugins/index.ts",
+        "packages/engine/src/runner/turn-executor.ts",
+        "packages/engine/src/context/service.ts",
+        "packages/engine/src/provider/index.ts"
+      ],
+      "referenceIds": [
+        "G05",
+        "G06",
+        "G07",
+        "G17"
+      ],
+      "contract": [
+        "host 등록 callback만 실행한다. model/repository의 shell hook 자동 선택을 허용하지 않으며 기본은 bounded metadata observation이다. credential/opaque replay를 전달하지 않는다.",
+        "beforeModel/afterModel/beforeSummary/sessionStart/sessionEnd를 durable attempt와 hook revision에 결합한다. request digest는 hook 처리 후 확정하고 retry는 같은 snapshot을 사용한다.",
+        "veto는 typed 이유를 기록한다. schema/input 변경 모드를 추가한다면 runtime revision/context reservation/prepared fingerprint/승인을 모두 재계산한다.",
+        "callback timeout/throw/cancel 및 terminal 이후 호출 금지를 정의한다. producer 반환 뒤 observation hook 실패로 producer를 재실행하지 않는다."
+      ],
+      "validation": [
+        "기존 tool hook fingerprint 불변 및 eager/discovery request snapshot을 회귀 검증한다.",
+        "해제/변경 중 dispatch, veto/timeout, retry/abort, session close에서 중복/늦은 callback을 확인한다.",
+        "민감정보 제한, metadata bytes 상한 및 원본 request mutation 격리를 검증한다."
+      ]
+    },
+    {
+      "id": "gemini-os-sandbox",
+      "title": "실제 OS 격리 capability와 제한된 권한 확장",
+      "priority": "P2",
+      "cost": "XL",
+      "moodcodeStatus": "Plan/Build deny·durable scope grant·POSIX process-group cleanup·injected Windows Job Object port는 있다. CommandBackendCapability는 fileIsolation=false/networkIsolation=false이므로 OS 파일/네트워크 격리는 별도 추가 계약이다.",
+      "moodcodePaths": [
+        "packages/engine/src/tools/command/backends.ts",
+        "packages/engine/src/tools/command/process-control.ts",
+        "packages/engine/src/permission/policy.ts",
+        "packages/engine/src/permission/grants.ts",
+        "packages/engine/src/storage/tool-recovery-frontier.ts"
+      ],
+      "referenceIds": [
+        "G19",
+        "G20",
+        "G07"
+      ],
+      "contract": [
+        "지원 OS 한 개의 explicit host factory부터 시작하고 실제 파일/네트워크/프로세스 격리 capability를 각각 보고한다. backend 부재/준비 실패를 성공한 격리로 표현하지 않는다.",
+        "roots/network destinations/executable/env 정책을 canonical binding과 revision으로 저장한다. approval permission과 OS enforcement를 구분하고 child/MCP/native process에 같은 상한을 상속한다.",
+        "추가 권한은 새 intent/fingerprint/preview 및 승인에 묶으며 원래 deny를 우회하지 않는다. 일부 효과 뒤 denial은 자동 재실행하지 않고 tool-effect uncertainty/recovery에 연결한다.",
+        "grant expiry/revoke와 cancel 이후 process-tree 정리를 증명한다. unsupported OS·저장소 밖 효과는 capability/진단에 남긴다."
+      ],
+      "validation": [
+        "실제 지원 OS에서 허용 접근과 금지 경로/symlink/network를 검증한다.",
+        "권한 확장 전후 fingerprint, stale approval/revoke 및 parent/child 상한을 확인한다.",
+        "일부 효과 뒤 denial/cancel/crash에서 자동 재실행 차단과 회복 증거를 확인한다."
+      ]
+    }
+  ],
+  "limitations": [
+    "고정 HEAD 정적 소스 분석이며 upstream install/setup/build/test/model/account/GUI/benchmark 실행은 수행하지 않았다.",
+    "주요 CLI legacy loop와 설정된 context-management 경로를 조사했다. 모든 ACP/A2A server/browser/voice/IDE/extension/policy mode의 동등성은 확인하지 않았다.",
+    "Core context-management 및 experimentalAutoMemory 기본값은 false이며 설정/원격 feature flag에 따라 실제 경로가 달라질 수 있다.",
+    "MCP abort 경합은 로컬 대기 중단의 근거다. 원격 효과 취소·receipt·remote cleanup 증명이 아니다.",
+    "JSONL append/atomic rewrite 및 Git checkpoint 코드는 crash durability나 파일 외부 효과 rollback의 실증 결과가 아니다.",
+    "LFS smudge 및 재귀 submodule 초기화 없이 clone했다. native helper/binary, Google backend, MCP/A2A/Chrome 및 OS enforcement를 실행·검증하지 않았다.",
+    "root 및 tracked 하위 LICENSE를 확인했으나 전이 의존성/배포 artifact 전체 license audit나 법률 검토는 수행하지 않았다.",
+    "Moodcode 비교는 문서3065fdd03649df393f4170b38a2f049a1e52d2f3와 엔진464812f7d1af24466f57070663131f5979aeca51 기준이다. scoped 미발견을 제품 전체 부재로 단정하지 않는다."
+  ]
+}
