@@ -39,3 +39,5 @@ Moodcode는 로컬 Git 저장소에서 코드를 읽고 수정하며 명령을 �
 현재 소스는 `contracts`, 독립 `engine`, 개발용 harness와 Electron desktop 앱을 포함한다. harness는 GUI 없이 엔진을 검증하는 진입점이며 TUI 제품을 먼저 만드는 범위는 아니다. 새 입력·turn·컨텍스트·도구 계약은 엔진과 harness에서 먼저 검증하고 이후 앱에 연결한다.
 
 초기 제품·아키텍처·단계 문서는 최초 설계를 보존하고 있어 일부 완료 표시가 과거 상태다. 실제 구현·검증 여부는 최신 구현 상태 문서를 우선하며, 2026-10-07 엔진 검토의 제안은 아직 구현된 기능으로 표시하지 않는다.
+
+- [PDF 원본 입력](engine-input-documents.md): 별도 refs·explicit capability/token 정책·bounded history·primary archive 및 root 진단 범위.

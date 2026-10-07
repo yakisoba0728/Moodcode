@@ -22,7 +22,7 @@ const report = await inspectEngineStorage({
 
 `uniqueObservedInodeBytes`는 이 검사에서 관찰한 `(dev, ino)`가 처음 등장했을 때의 크기만 합산한다. 같은 inode를 가리키는 다른 경로는 `duplicateInodePaths`에 집계한다. `nlink > 1`인 파일은 `hardlinkedFiles`에도 집계하지만, 범위 밖의 다른 hardlink 경로는 찾지 않는다. 이 값도 물리 디스크 점유량이 아니다. 같은 inode의 서로 다른 크기를 관찰하면 불완전한 검사로 표시한다.
 
-그룹은 `artifactDir`의 첫 경로 요소 기준 `managed`, `input-media`, `children`, `terminals`, `other`다. `terminals.sqlite`, `terminals.sqlite-wal`, `terminals.sqlite-shm`도 `terminals`에 속한다. 명시적으로 지정한 DB 본체와 `-wal`, `-shm`은 `database` 그룹에 속하고 DB가 artifact 디렉터리 내부에 있으면 같은 경로를 두 번 합산하지 않는다. SQLite를 열거나 쿼리하지 않는다. DB 본체가 없으면 불완전한 검사이고, 선택적 WAL/SHM 부재는 오류가 아니다. artifact 디렉터리 밖의 effect/review DB, 별도로 설정한 worktree 디렉터리 및 기타 저장소는 자동으로 찾지 않는다.
+그룹은 `artifactDir`의 첫 경로 요소 기준 `managed`, `input-media`, `input-documents`, `children`, `terminals`, `other`다. `terminals.sqlite`, `terminals.sqlite-wal`, `terminals.sqlite-shm`도 `terminals`에 속한다. 명시적으로 지정한 DB 본체와 `-wal`, `-shm`은 `database` 그룹에 속하고 DB가 artifact 디렉터리 내부에 있으면 같은 경로를 두 번 합산하지 않는다. SQLite를 열거나 쿼리하지 않는다. DB 본체가 없으면 불완전한 검사이고, 선택적 WAL/SHM 부재는 오류가 아니다. artifact 디렉터리 밖의 effect/review DB, 별도로 설정한 worktree 디렉터리 및 기타 저장소는 자동으로 찾지 않는다.
 
 `regularFiles`/`observedRegularFiles`는 최초 regular-file 관찰 수다. `stableFiles` 및 크기 합계는 inode·크기·mtime·ctime·link count 재검증과 조상 경로 검증을 통과한 파일에만 적용한다. `directories`, `symlinks`, `specialFiles`, `changedEntries`, `errors`는 그룹별 관찰 수다. 내용은 읽지 않으므로 파일 형식·hash·DB 일관성·credential 존재를 검증하지 않는다.
 
@@ -39,6 +39,7 @@ const report = await inspectEngineStorage({
 | `maxSamplePathBytes` | 256 | 32–2,048 |
 | `maxReportBytes` | 32,768 | 4,096–131,072 |
 | `maxImageIds` | 2,048 | 1–65,536 |
+| `maxDocumentIds` | 2,048 | 1–65,536 |
 
 루트 깊이는 0이며 루트 자체도 entry와 directory 상한에 포함한다. 깊이 상한에 도달한 디렉터리는 내용을 열거하지 않으며, 비어 있는지를 추정하지 않고 `depth_limit`로 표시한다. `opendir({bufferSize: 1})`에서 한 항목씩 읽어 디렉터리 전체 목록을 메모리에 올리지 않는다. operation 상한은 검사기가 직접 호출한 메타데이터·열거 API 횟수이며 kernel syscall 수를 뜻하지 않는다. 제한과 취소를 맞았을 때 열린 디렉터리와 읽기 전용 directory handle을 모두 닫은 후 결과를 반환한다.
 
@@ -61,3 +62,7 @@ const report = await inspectEngineStorage({
 ## 검증 증거
 
 실제 macOS 임시 디렉터리 fixture로 그룹별 논리 크기, DB sidecar/내부 경로 중복, hardlink 중복, symlink와 FIFO skip, root/조상 symlink 거부, 완전/불완전 이미지 index와 후보 제한, entry/directory/operation/depth/time/cancel 상한, 파일 크기·inode 교체, 디렉터리 symlink 교체·열거 후 파일 추가, UTF-8 sample/JSON 상한 및 invalid/missing scope를 검증한다. 시간과 교체 fixture는 실제 파일시스템 작업에 내부 scheduling hook을 사용해 변경 지점을 고정한다. 이 hook은 production entrypoint 옵션이나 package barrel로 노출하지 않는다. 실제 filesystem allocated bytes, 파일 내용 검사, live credential, Linux/Windows, 강한 race isolation은 검증 범위에 없다.
+
+## PDF index 관측
+
+`getStorageUsage()`는 `input_documents`의 주 DB CAS index를 별도 bounded 조회하고 scanner의 `documentIndex`로 전달한다. report의 `documents`는 `images`와 병렬이며 `root-input-documents-only` coverage·관측 시각·완전성·candidate 목록을 갖는다. `input-documents/doc_<32hex>.blob`의 primary snapshot 미참조 regular single-link 파일만 후보가 된다. 동일 JSON/report cap을 공유하며 staging·symlink·임의 이름·child 내부 index는 검사된 orphan으로 간주하지 않는다. 자동 삭제하지 않고 publish→CAS race를 같은 제한으로 표시한다. [문서 입력 계약](engine-input-documents.md)을 따른다.

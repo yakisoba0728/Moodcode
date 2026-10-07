@@ -1,6 +1,6 @@
 # Moodcode 구현 상태
 
-갱신일: 2026-10-07, Asia/Seoul. 현재 작업은 **자체 엔진 우선**이며 [TODO](../../TODO.md)의 원래 75개 중 71개와 지속 개선 G1의 여덟 묶음(`64435d7`, `59d1f42`, `04031cb`, `ede1519`, `29b59a1`, `11da986`, `5d70a22`, `42218a8`)을 구현·검증했다. 최신 headless gate는 동시성 2에서 2,087 pass·실패 0·조건부 2 skip이다. 최신 결과는 [goal 검증 보고서](engine-goal-verification.md), 이전 확장 결과는 [headless 검증 보고서](engine-native-final-verification.md), 공개 연결은 [host API](engine-host-api.md)를 따른다. 아래 기존 GUI·bundle 결과는 2026-10-04 기록이며 이번 엔진 작업에서 앱을 다시 실행하거나 새 기능의 GUI E2E를 수행하지 않았다.
+갱신일: 2026-10-07, Asia/Seoul. 현재 작업은 **자체 엔진 우선**이며 [TODO](../../TODO.md)의 원래 75개 중 71개와 지속 개선 G1의 아홉 묶음(`64435d7`, `59d1f42`, `04031cb`, `ede1519`, `29b59a1`, `11da986`, `5d70a22`, `42218a8`, `cc1c42b`)을 구현·검증했다. 최신 headless gate는 동시성 2에서 2,206 pass·실패 0·조건부 2 skip이다. 최신 결과는 [goal 검증 보고서](engine-goal-verification.md), 이전 확장 결과는 [headless 검증 보고서](engine-native-final-verification.md), 공개 연결은 [host API](engine-host-api.md)를 따른다. 아래 기존 GUI·bundle 결과는 2026-10-04 기록이며 이번 엔진 작업에서 앱을 다시 실행하거나 새 기능의 GUI E2E를 수행하지 않았다.
 
 ## 현재 자체 엔진 범위
 
@@ -8,7 +8,7 @@
 |---|---|
 | 영구 입력·실행 | queue/steer inbox, exact retry·충돌·backlog, pause/resume, FIFO·workspace 공정성, 기존 즉시 run.submit 호환 |
 | 모델·기록 | durable Turn/Attempt/Part, 내부/provider call ID 분리, 제한된 provider retry, delta flush·bounded paging·read concurrency |
-| 추가 개선 | ordinary/summary latest usage·별도 summary lifecycle·DB5/DB7 summary 복구 proof V2·DB6 ordinary cleanup·DB7 일반 provider host 결정과 strict source/pin/overflow/crash origin·부분 도구 제안 보존·공유 8MiB 복구 증거 예산·transaction raw cache·SQL 본문 크기 제한과 숫자 순번/V1 digest 호환·SQL hotpath 최적화, session-wide image anchor·active Run complete-exchange 선택, bounded image import/전송·명시적 이력 정책, 승인된 read-only delegate_task |
+| 추가 개선 | ordinary/summary latest usage·별도 summary lifecycle·DB5/DB7 summary 복구 proof V2·DB6 ordinary cleanup·DB7 일반 provider host 결정과 strict source/pin/overflow/crash origin·부분 도구 제안 보존·공유 8MiB 복구 증거 예산·transaction raw cache·SQL 본문 크기 제한과 숫자 순번/V1 digest 호환·SQL hotpath 최적화, session-wide image anchor·active Run complete-exchange 선택, bounded image import/전송·명시적 이력 정책, 승인된 read-only delegate_task·별도 bounded PDF import/Responses·host/provider token 정책·document history·DB8 최신 문서 anchor·archive/진단 |
 | context·기억 | model metadata의 unknown/null, bounded SQL history, nested 지침과 지속 baseline·idle cache 수명, tools 없는 completed-history summary와 opt-in active-prefix semantic checkpoint, 실제 ContextPlan·두 문서와 typed summary 완료의 원자 활성화, crash/close·publication 대기, done=true cleanup proof의 한 번 overflow 복구 |
 | 도구·권한 | scoped versioned runtime, structured result/artifact, exact edit·rename/delete·bounded glob/regex, deny·Plan/Build 정책, scope grant 저장·철회 |
 | 세션 상호작용 | durable tasks CAS, question·답변·거절·expiry, agent profile의 model/tool/config identity, skill/reference의 제한된 읽기 |
@@ -20,7 +20,7 @@
 
 핵심 실행과 확장 연결은 GUI 없이 engine host에서 사용할 수 있다. host `startChildTask`는 살아 있는 부모 Run과 미리 준비한 worktree를 요구한다. 추가된 모델 도구 `delegate_task`는 matching approval 뒤 직접 읽기 전용 worktree/child를 준비한다. LSP/formatter/provider 등록은 명시적 host API다. 모델이나 renderer가 실행 파일·credential을 임의로 설정하는 경로는 제공하지 않는다. 지속 개선 목표의 최신 범위는 [G1 TODO](../../TODO.md)와 [목표 문서](engine-improvement-goal.md)를 따른다.
 
-Anthropic 추가 adapter는 text/tool·공개 reasoning summary·opaque replay·usage·retry/cancel과 image 입력을 synthetic fixture로 검증했다. Responses/Codex/ChatCompletions image 입력도 연결했다. 실제 모델별 이미지 capability·token 예산, Anthropic 계정, audio/video/file 입력과 media 출력은 별도 범위다. Windows native process ownership binding과 새 CI의 Linux/Windows/Node24 hosted 실행도 아직 없다. 원래 열린 4개 TODO와 지속 개선 G1 항목은 별도로 관리한다.
+Anthropic 추가 adapter는 text/tool·공개 reasoning summary·opaque replay·usage·retry/cancel과 image 입력을 synthetic fixture로 검증했다. Responses/Codex/ChatCompletions image 입력도 연결했다. 실제 모델별 이미지 capability·token 예산과 Anthropic 계정은 별도 검증이 남아 있다. PDF는 표준 Responses의 explicit 모델/MIME 및 host/provider unknown-token opt-in으로 로컬 계약을 구현했다. 실제 원격 PDF 인식·Codex PDF·완전 parser/token 계산과 audio/video 입력·media 출력은 별도 범위다. [PDF 명세](engine-input-documents.md)를 따른다. Windows native process ownership binding과 새 CI의 Linux/Windows/Node24 hosted 실행도 아직 없다. 원래 열린 4개 TODO와 지속 개선 G1 항목은 별도로 관리한다.
 
 ## 기존 데스크톱 연결 기록
 

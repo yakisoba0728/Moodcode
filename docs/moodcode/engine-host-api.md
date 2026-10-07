@@ -6,7 +6,7 @@
 
 `createEngine(options)`는 DB owner, Run coordinator, scheduler, context, 도구 runtime, 승인·질문·세션 tasks, MCP/plugin, PTY, child, LSP, formatter, workspace 관찰을 소유한다. 기본 fixture 공급자는 scripted/local이며 실제 provider는 host가 주입하고 defaults에서 선택한다. `CodexProvider`는 기존 로컬 Codex 인증 port를 사용하고, `AnthropicProvider`는 host가 지정한 API key와 model을 사용한다. API key나 credential을 command/config/session document에 넣지 않는다.
 
-주요 `EngineOptions`는 `dbPath`, `artifactDir`, `providers`, `tools`, `defaults`, `toolPolicy`, `modelSpecs`, `agentProfiles`, `allowedToolNames`, `worktreeDirectory`, `configureChild`, `mediaHistoryPolicy`다. `allowedToolNames`는 초기 catalog뿐 아니라 이후 등록한 handler의 광고·실행에도 유지되는 host 상한이다. profile·Plan 정책·resource deny가 이 상한을 더 좁힐 수 있다. 기본 도구를 `tools`로 교체하면 실제 제공한 handler만 사용할 수 있다.
+주요 `EngineOptions`는 `dbPath`, `artifactDir`, `providers`, `tools`, `defaults`, `toolPolicy`, `modelSpecs`, `agentProfiles`, `allowedToolNames`, `worktreeDirectory`, `configureChild`, `mediaHistoryPolicy`, `documentHistoryPolicy`, `allowUnknownDocumentTokenCost`다. `allowedToolNames`는 초기 catalog뿐 아니라 이후 등록한 handler의 광고·실행에도 유지되는 host 상한이다. profile·Plan 정책·resource deny가 이 상한을 더 좁힐 수 있다. 기본 도구를 `tools`로 교체하면 실제 제공한 handler만 사용할 수 있다.
 
 | 경로 | 용도 |
 |---|---|
@@ -17,7 +17,8 @@
 | `waitForRun(runId)` | 지정한 실제 Run의 terminal 정산 대기 |
 | `getCapabilities()` | 연결된 provider/tool/command 및 기본값; 실행에 적용한 host 상한 반영 |
 | `importImage(sessionId, bytes, mimeType, signal?)` | 세션 소유의 제한된 이미지 blob을 저장하고 immutable 참조 반환 |
-| `getStorageUsage({signal?, limits?})` | 주 DB 이미지 index와 engine-owned artifact/DB 경로의 bounded 읽기 전용 진단; 모델 턴에서 자동 실행하지 않음 |
+| `importDocument(sessionId, bytes, signal?)` | 세션 소유 bounded PDF blob을 저장하고 이미지와 별도 immutable 문서 참조 반환 |
+| `getStorageUsage({signal?, limits?})` | 주 DB 이미지·문서 index와 engine-owned artifact/DB 경로의 bounded 읽기 전용 진단; 모델 턴에서 자동 실행하지 않음 |
 | `close()` | admission 중지와 owned Run·child·MCP/plugin·PTY·watcher·LSP·DB 종료 정산 |
 
 v2 command envelope에는 `schemaVersion`, `commandId`, `type`, `payload`만 둔다. `stream:'session-v2'`는 event/cursor에 있는 구분자이며 command 필드가 아니다. 두 journal의 seq는 교환하지 않는다. 추가 command는 [v2 명세](engine-contracts-v2.md)를 따른다.
@@ -109,3 +110,7 @@ child는 root의 살아 있는 LSP/MCP 연결을 묵시적으로 빌리지 않�
 ## 검증과 남은 조건
 
 기본 도구 21종 및 host가 실제 등록한 도구를 제공한다. child 실행/merge, LSP formatting/restore, MCP 승인, 큰 결과의 artifact 재조회는 실제 headless 엔진과 임시 Git/process fixture로 연결을 확인했다. 현재 Codex `gpt-6.1-sol` 계정의 read→approved patch→approved command도 별도로 통과했다. 실제 Anthropic 계정·추가 media 형식·Windows native backend·전체 GUI 노출·공개 배포는 별도 검증 대상이다. [지속 개선 목표](engine-improvement-goal.md)와 [열린 TODO](../../TODO.md)가 정확한 범위다.
+
+## 문서 입력
+
+`importDocument`의 참조는 v1/v2 입력의 별도 `documents` 배열에 넣는다. 표준 Responses의 `pdfModelIds`와 exact modelSpecs의 `inputFileTypes`를 모두 명시해야 한다. 알 수 없는 PDF token 비용은 기본 거절이며 엔진과 provider에 각각 `allowUnknownDocumentTokenCost: true`를 지정한 host만 이 제한을 수락한다. 실제 model window fit은 검증했다고 표시하지 않는다. `documentHistoryPolicy`는 오래된 원본 전송을 줄이되 user text와 exact refs의 별도 provenance를 보호하는 opt-in이다. Codex PDF와 GUI 입력은 노출하지 않았다. 저장·전송·요약·archive의 상한과 coverage는 [PDF 입력 명세](engine-input-documents.md)를 따른다.

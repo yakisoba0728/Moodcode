@@ -56,3 +56,7 @@ validator는 객체를 독립 복사하고 정확한 enum·bounded integer·cano
 ## 검증
 
 `packages/contracts/src/engine-v2-contracts.test.ts`의 20개 자체 fixture와 기존 계약 테스트를 모두 보존했다. 최신 집중 검증 `node --import tsx --test packages/contracts/src/*.test.ts`는 총 46/46 통과했다. pending 무소유·promotion binding, exact normalized config, 독립 journal projection, future version, disabled commands, terminal·uncertainty, 내부/provider ID, parts, JSON 구조, artifact 회계와 provenance, native paging·task/question/context/history payload 및 profile identity를 확인한다. 계약 fixture는 아직 연결되지 않은 실행 기능의 완료 증거로 사용하지 않는다.
+
+## 별도 문서 참조
+
+`input.accept`/`InputRecord`와 promotion 결과 Run/user Message는 optional `documents: InputDocumentAttachment[]`를 보존한다. 이미지 `attachments`와 분리하며 absent와 explicit empty는 다른 exact request identity다. PDF 1개/512KiB·합산 decoded media 1MiB 계약, explicit MIME/model 및 unknown-token policy, host-only import는 [문서 입력 명세](engine-input-documents.md)에 정의한다. DB8은 latest-document user partial index만 추가하며 기존 v1/v2 payload와 provider/summary 복구 ledger를 재작성하지 않는다.

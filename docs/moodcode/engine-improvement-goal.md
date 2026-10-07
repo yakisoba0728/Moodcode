@@ -75,3 +75,11 @@ Windows native Job backend, 다른 OS 호스트, 최초 hosted CI, 실제 Anthro
 이전 `5d70a22` 전체 engine/contracts의 독립 bundle과 같은 실제 private mixed fixture를 비교했다. raw 본문 211,983→83,173B, SQL 값 249,210→121,980B로 줄었고 mutation/owner 검사 때문에 query는 296→368로 늘었다. 각 domain 1.69MB/7.21MB는 통과하지만 distinct union 8.90MB는 공통 예산에서 차단하고 초과 Part 본문은 읽지 않았다. 물리 I/O·SQLite 내부 작업·production latency/throughput의 보장으로 표시하지 않는다.
 
 전체 gate는 2,087 pass·실패 0·조건부 2 skip, coding fixture 3/3이다. 같은 source commit의 실제 Codex 일반 복구 뒤 새 Run과 overflow summary 복구 뒤 새 Run 각각 1회가 통과했다. natural cleanup proof·logical request SHA·head 변경·재시작 결정 보존과 원래 outcome/usage/control을 확인했다. 실제 unresolved 프로젝트 기록에는 결정하지 않았고 GUI를 실행하지 않았다. 다음은 이미지 외 native 입력 계약의 로컬 엔진 범위를 조사·구체화하면서 원래 외부 OS/provider/CI 조건을 유지한다. [최신 근거](engine-goal-verification.json)에 모든 실패와 한계를 남기고 goal을 계속 진행한다.
+
+## 아홉 번째 검토 지점
+
+`cc1c42b`에서 G1-21 PDF 원본 입력을 이미지와 별도 계약으로 연결했다. input/Run/message/inbox exact refs, owner/hash/CAS/blob, DB8 partial latest document index, 표준 Responses input_file 및 provider/model의 명시적 PDF capability를 검증한다. 알 수 없는 PDF page/text 토큰 비용은 기본 거절하고 엔진과 provider의 explicit opt-in을 동시에 요구한다. full token fit을 주장하지 않는다. default 원본 유지와 별도 document-history opt-in, user text·latest PDF·image dual anchors, summary coverage/source pin·archive/root 진단은 [PDF 명세](engine-input-documents.md)를 따른다.
+
+실제 임시 엔진→mock HTTP 17개로 admission/dispatch/재시작/24개 read exchange/archive/unknown-token/tamper/local cleanup을 검증했다. 독립 검토에서 adapter policy preflight 누락, active image 이중 reservation, PDF context 초과의 prefix 재계획 누락, dual 외부 Run 순서·cursor 역전을 재현해 수정했다. 전체 2,206 pass·실패 0·Windows 조건 2 skip, fixture 3/3이며 같은 커밋 actual Codex text 회귀 1회가 통과했다. 실제 원격 PDF 요청은 0회다.
+
+[여덟 번째 JSON](engine-goal-eighth-verification.json)은 `7a5a844`의 bytes 그대로 보존했다. 현재 [검증 보고서](engine-goal-verification.md)는 원격 PDF/parser/token 및 child index 재귀 감사의 한계를 구분한다. 다음 G1-22는 managed child 저장소의 문서 owner·archive/진단 coverage를 읽고 bounded audit을 구현한다. 외부 OS/provider/CI 4개와 GUI 제외를 유지하며 goal은 활성 상태다.
