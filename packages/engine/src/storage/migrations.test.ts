@@ -300,11 +300,25 @@ test('DB12 to DB13 owns physical publication and recovery without fabricating co
   const before = databaseContents(db);
   const failure = [...DATABASE_MIGRATIONS.slice(0, 12), { version: 13, name: 'intentional-v13-failure', apply(database: DatabaseSync) { DATABASE_MIGRATIONS[12]!.apply(database); throw new Error('DB13 rollback'); } }];
   assert.throws(() => migrateDatabase(db, failure), /DB13 rollback/u); assert.equal(databaseVersion(db), 12); assert.deepEqual(databaseContents(db), before);
-  migrateDatabase(db); assert.equal(databaseVersion(db), 13);
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 13)); assert.equal(databaseVersion(db), 13);
   for (const table of ['knowledge_file_observations','knowledge_file_heads','knowledge_file_publications','knowledge_file_checkpoints','knowledge_file_publication_receipts','knowledge_file_recovery_acknowledgments','knowledge_file_workspace_barriers','knowledge_file_execution_guards']) {
     assert.equal(db.prepare(`SELECT count(*) AS count FROM ${table}`).get()!.count, 0);
     assert.ok(db.prepare(`PRAGMA foreign_key_list(${table})`).all().every(row => !['sessions','runs','tools','checkpoints','provider_attempts'].includes(String(row.table))));
   }
+});
+
+test('DB13 to DB14 preserves every historical record, installs empty original execution ownership, and rolls back atomically', t => {
+  const { db } = fixture(t); db.exec('PRAGMA foreign_keys=ON'); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 13));
+  const before = databaseContents(db);
+  const failure = [...DATABASE_MIGRATIONS.slice(0, 13), { version: 14, name: 'intentional-v14-failure', apply(database: DatabaseSync) { DATABASE_MIGRATIONS[13]!.apply(database); throw new Error('DB14 rollback'); } }];
+  assert.throws(() => migrateDatabase(db, failure), /DB14 rollback/u); assert.deepEqual(databaseContents(db), before);
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 14)); assert.equal(databaseVersion(db), 14);
+  for (const entry of before.tables) assert.deepEqual(db.prepare(`SELECT * FROM "${String(entry.name)}" ORDER BY rowid`).all(), entry.rows);
+  for (const table of ['diagnostic_effect_epochs', 'diagnostic_execution_observations']) assert.equal(db.prepare(`SELECT count(*) AS count FROM ${table}`).get()!.count, 0);
+  const references = db.prepare('PRAGMA foreign_key_list(diagnostic_execution_observations)').all().map(row => row.table);
+  for (const table of ['workspaces', 'sessions', 'runs', 'tools', 'session_turns', 'provider_attempts']) assert.ok(references.includes(table));
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
+  const after = databaseContents(db); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 14)); assert.deepEqual(databaseContents(db), after);
 });
 
 test('DB11 to DB12 adds workspace document CAS without fabricating legacy approval or publication and rolls back atomically', t => {

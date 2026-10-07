@@ -9,9 +9,9 @@ function fixture(t: test.TestContext) {
   const tables = db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*' ORDER BY name").all().map(row => String(row.name));
   return { db, tables };
 }
-test('current DB13 is within the bounded recovery schema inspection and includes native generation and SQL/file publication records', t => {
+test('current primary schema is within the bounded recovery schema inspection and includes native generation and SQL/file publication records', t => {
   const { db, tables } = fixture(t), count = Number(db.prepare("SELECT count(*) AS count FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'").get()!.count);
-  assert.ok(count > 64); assert.ok(count <= RECOVERY_LIMITS.maxSchemaEntries); assert.equal(DB_VERSION, 13);
+  assert.ok(count > 64); assert.ok(count <= RECOVERY_LIMITS.maxSchemaEntries); assert.ok(DB_VERSION >= 14); assert.ok(tables.includes('diagnostic_effect_epochs')); assert.ok(tables.includes('diagnostic_execution_observations'));
   assert.ok(tables.includes('knowledge_file_publications')); assert.ok(tables.includes('knowledge_file_execution_guards')); assert.ok(tables.includes('knowledge_file_observations')); assert.ok(tables.includes('knowledge_file_publication_receipts'));
   assert.ok(tables.includes('knowledge_candidates')); assert.ok(tables.includes('knowledge_generations')); assert.ok(tables.includes('knowledge_generation_attempts')); assert.ok(tables.includes('workspace_document_revisions')); assert.ok(tables.includes('knowledge_publications')); assert.match(checkDatabase(db, DB_VERSION, tables, () => {}), /^[a-f0-9]{64}$/);
 });

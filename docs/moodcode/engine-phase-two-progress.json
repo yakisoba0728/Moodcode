@@ -5,8 +5,8 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 4,
-  "completedWorkItems": 21,
+  "completedFamilies": 5,
+  "completedWorkItems": 23,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -458,7 +458,7 @@
       "title": "projection·manifest·무진전·오류 진단",
       "priority": "P1",
       "wave": "W1",
-      "status": "in_progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-12a",
@@ -481,23 +481,27 @@
         {
           "id": "MC2-12c",
           "completion": "stall/advisory signal·attempt manifest·선택적 tools-free summary. 생성 비용과 남은 budget을 반영",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
             "engine-phase-two-w1.md",
-            "engine-phase-two-w1-verification.json"
+            "engine-phase-two-w1-verification.json",
+            "engine-phase-two-native-diagnostics.md",
+            "engine-phase-two-native-diagnostics-verification.json"
           ]
         },
         {
           "id": "MC2-12d",
           "completion": "failed Attempt·truncated/partial output·일관된 seq snapshot·unknown usage·동일 read 후 source 변화·오류 분류 검사. inspector가 producer를 재실행하지 않음",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
             "engine-phase-two-w1.md",
-            "engine-phase-two-w1-verification.json"
+            "engine-phase-two-w1-verification.json",
+            "engine-phase-two-native-diagnostics.md",
+            "engine-phase-two-native-diagnostics-verification.json"
           ]
         }
       ],
-      "notes": "Bounded trajectory/typed errors/manifest host APIs integrated; actual source/effect epoch writer and optional distillation remain."
+      "notes": "Actual native source/effect execution writer, source-aware repeated reads, readonly registration inspection and bounded coherent coding evidence consumed by host APIs. Failed/partial output and unknown usage retained. Optional summary is deterministic extractive metadata (provider/tools/tokens=0), with remaining live budget unknown; semantic LLM distillation is not implemented. Diagnostics grant no retry, cleanup, task-success or imported source rebinding authority."
     },
     {
       "id": "MC2-13",

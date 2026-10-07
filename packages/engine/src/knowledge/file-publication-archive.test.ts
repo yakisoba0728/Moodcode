@@ -90,7 +90,7 @@ test("DB13 actual completed file archive retains historical evidence without pro
     (item) => item.role === "primary",
   )!;
   assert.equal(primary.schemaVersion, DB_VERSION);
-  assert.equal(primary.schemaVersion, 13);
+  assert.ok(primary.schemaVersion >= 13);
   validateEngineArchive({ directory: archive.directory });
   const archived = new DatabaseSync(
     join(archive.directory, "data", primary.file),

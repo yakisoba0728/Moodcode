@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createEngine } from '../../engine.js';
 import type { ProviderAdapter, ProviderEvent } from '../../ports.js';
@@ -48,7 +48,9 @@ function stop(generationId: string): void {
   const attempt = generation.attemptId ? native.getAttempt(config.workspaceId, generation.attemptId) : null;
   const candidate = engine.workspaceKnowledge.getCandidateByGeneration(config.workspaceId, generationId) ?? null;
   // Synchronous readiness publication prevents IPC buffering from changing the exact stop boundary.
-  writeFileSync(join(directory, 'crash-ready.json'), JSON.stringify({ phase, generation, attempt, candidate }), { mode: 0o600 });
+  const readyPath = join(directory, 'crash-ready.json');
+  writeFileSync(`${readyPath}.temporary`, JSON.stringify({ phase, generation, attempt, candidate }), { mode: 0o600 });
+  renameSync(`${readyPath}.temporary`, readyPath);
   process.kill(process.pid, 'SIGSTOP');
   throw new Error('Parent must SIGKILL this stopped fixture rather than resume it');
 }

@@ -6,6 +6,10 @@ export type { KnowledgeFilePublicationPreview, WorkspaceKnowledgeFilePublication
 export * from './diagnostics/trajectory.js';
 export * from './diagnostics/attempt-manifest.js';
 export * from './diagnostics/stall.js';
+export type { DiagnosticExecutionIdentity, DiagnosticExecutionObservation, DiagnosticExecutionPage, DiagnosticExecutionPageOptions, ExecutionSourceSnapshot } from './diagnostics/execution-observation-types.js';
+export type { WorkspaceExecutionSourceLimits } from './diagnostics/execution-source.js';
+export type { NativeCodingEvidenceOptions, NativeCodingEvidenceManifest, ExtractiveDiagnosticSummary } from './diagnostics/native-attempt-manifest.js';
+export type { ToolRegistrationManifest } from './diagnostics/tool-registration-manifest.js';
 export * from './permission/role-resources.js';
 export * from './permission/role-policy-registry.js';
 export * from './verification/index.js';

@@ -21,6 +21,7 @@ import { KNOWLEDGE_PUBLICATION_TABLES } from '../knowledge/publication-store.js'
 import { validateKnowledgePublicationDatabase } from '../knowledge/publication-archive-relations.js';
 import { KNOWLEDGE_FILE_PUBLICATION_TABLES, validateKnowledgeFilePublicationDatabase } from '../knowledge/file-publication-store.js';
 import { KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
+import { DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validateDiagnosticExecutionObservationDatabase } from '../diagnostics/execution-observation-store.js';
 import { SqliteStore } from './index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
 import { attachments as documentAttachments, sameAttachment as sameDocumentAttachment, validateDocumentBytes } from '../documents/validation.js';
@@ -189,7 +190,12 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
       catch { fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived physical file publication relationships are invalid'); }
     }
     const publicationTables = schemaVersion >= 12 ? [...generationTables, ...KNOWLEDGE_PUBLICATION_TABLES] : generationTables;
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 13 ? [...publicationTables, ...KNOWLEDGE_FILE_PUBLICATION_TABLES, KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE] : publicationTables, check) };
+    const fileTables = schemaVersion >= 13 ? [...publicationTables, ...KNOWLEDGE_FILE_PUBLICATION_TABLES, KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE] : publicationTables;
+    if (schemaVersion >= 14) {
+      try { validateDiagnosticExecutionObservationDatabase(db, check); }
+      catch { fail('ARCHIVE_EXECUTION_OBSERVATION_INVALID', 'Archived original execution observations or effect epochs are invalid'); }
+    }
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 14 ? [...fileTables, ...DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES] : fileTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

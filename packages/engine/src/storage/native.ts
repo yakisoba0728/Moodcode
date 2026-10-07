@@ -308,7 +308,7 @@ export class NativeSessionStorage {
   }
   readSessionEvents(sessionId: string, afterSeq: number, limit = 100): SessionEventV2[] {
     nonnegative(afterSeq); pageSize(limit); this.hooks.session(sessionId);
-    return this.hooks.transaction(() => {
+    const read = () => {
       const rows = this.database.prepare('SELECT seq,length(CAST(data AS BLOB)) AS bytes FROM session_events WHERE session_id=? AND seq>? ORDER BY seq LIMIT ?').all(sessionId, afterSeq, limit);
       const seqs: number[] = []; let bytes = 0;
       for (const row of rows) {
@@ -318,6 +318,7 @@ export class NativeSessionStorage {
         seqs.push(Number(row.seq)); bytes += length;
       }
       return seqs.length ? this.database.prepare('SELECT data FROM session_events WHERE session_id=? AND seq>? AND seq<=? ORDER BY seq').all(sessionId, afterSeq, seqs.at(-1)!).map(row => validateSessionEvent(JSON.parse(String(row.data)))) : [];
-    });
+    };
+    return this.database.isTransaction ? read() : this.hooks.transaction(read);
   }
 }

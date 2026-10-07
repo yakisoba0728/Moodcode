@@ -13,6 +13,7 @@ import { KNOWLEDGE_GENERATION_SCHEMA_SQL } from '../knowledge/generation-store.j
 import { KNOWLEDGE_PUBLICATION_SCHEMA_SQL } from '../knowledge/publication-store.js';
 import { KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL } from '../knowledge/file-publication-store.js';
 import { KNOWLEDGE_FILE_EXECUTION_GUARD_SCHEMA_SQL } from '../knowledge/file-execution-guards.js';
+import { DIAGNOSTIC_EXECUTION_OBSERVATION_SCHEMA_SQL } from '../diagnostics/execution-observation-store.js';
 
 export interface DatabaseMigration {
   /** Append-only, consecutive primary database version, starting at 1. */
@@ -74,6 +75,7 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
     database.exec('CREATE UNIQUE INDEX knowledge_candidate_workspace_identity ON knowledge_candidates(workspace_id,id)');
     database.exec(KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL); database.exec(KNOWLEDGE_FILE_EXECUTION_GUARD_SCHEMA_SQL);
   } }),
+  Object.freeze({ version: 14, name: 'native-execution-source-observations', apply: (database: DatabaseSync) => { database.exec(DIAGNOSTIC_EXECUTION_OBSERVATION_SCHEMA_SQL); } }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;
 

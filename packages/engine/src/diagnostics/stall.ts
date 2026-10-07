@@ -1,6 +1,7 @@
 import { types } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
 import type { JournalProjection } from './trajectory.js';
+import type { DiagnosticExecutionObservation } from './execution-observation-types.js';
 
 export const STALL_LIMITS = Object.freeze({ defaultWindow: 8, maxWindow: 64, defaultThreshold: 3, maxSamples: 100 });
 export interface StallSample {
@@ -88,14 +89,16 @@ export function getStallObservation(samples: readonly StallSample[], options: St
 }
 
 /** Journal digests alone cannot establish the workspace version at a past read. */
-export function getTrajectoryStallObservation(trajectory: JournalProjection, options: StallOptions = {}): StallObservation {
+export function getTrajectoryStallObservation(trajectory: JournalProjection, options: StallOptions = {}, observations: readonly DiagnosticExecutionObservation[] = []): StallObservation {
   const samples: StallSample[] = [];
   for (const event of trajectory.events) {
     if (event.runId === null || event.tool?.toolCallId === null || !event.tool) continue;
     if (trajectory.runId !== null && event.runId !== trajectory.runId) continue;
     if (samples.length && samples[0]!.runId !== event.runId) continue;
     const state = event.tool.state;
-    samples.push({ runId: event.runId, toolCallId: event.tool.toolCallId!, seq: event.seq, inputSha256: event.tool.inputSha256, resultSha256: event.tool.resultSha256, sourceSha256: null, effectEpoch: null, effectClass: 'unknown', outcome: state === 'completed' || state === 'failed' || state === 'interrupted' ? state : 'unknown', resultComplete: event.tool.resultObserved && state === 'completed' });
+    const observation = observations.find(row => row.runId === event.runId && row.toolCallId === event.tool!.toolCallId && row.state === 'settled' && row.outcome === state && event.tool!.resultObserved);
+    const unchanged = observation?.sourceBefore.completeness === 'full' && observation.sourceAfter?.completeness === 'full' && observation.sourceBefore.sha256 === observation.sourceAfter.sha256 && observation.effectEpochBefore === observation.effectEpochDispatch && observation.effectEpochDispatch === observation.effectEpochAfter;
+    samples.push({ runId: event.runId, toolCallId: event.tool.toolCallId!, seq: event.seq, inputSha256: observation?.effectiveInputSha256 ?? event.tool.inputSha256, resultSha256: observation?.resultSha256 ?? event.tool.resultSha256, sourceSha256: unchanged ? observation!.sourceBefore.sha256 : null, effectEpoch: unchanged ? observation!.effectEpochDispatch : null, effectClass: observation?.effectClass ?? 'unknown', outcome: state === 'completed' || state === 'failed' || state === 'interrupted' ? state : 'unknown', resultComplete: observation?.resultComplete === true && event.tool.resultObserved && state === 'completed' });
   }
   return getStallObservation(samples, options);
 }

@@ -48,6 +48,8 @@ import type { KnowledgeStoragePorts } from '../knowledge/types.js';
 import { validateKnowledgeArchiveRow } from '../knowledge/validation.js';
 import { KnowledgeHostAdapter } from '../knowledge/host.js';
 import { KnowledgeContextSource } from '../knowledge/context-source.js';
+import { DiagnosticExecutionObservationStorage } from '../diagnostics/execution-observation-store.js';
+import type { DiagnosticExecutionObservationPorts } from '../diagnostics/execution-observation-types.js';
 import type { KnowledgeContextSourcePorts } from '../knowledge/context-types.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
@@ -128,6 +130,7 @@ export class SqliteStore implements SessionEngineStore {
   private readonly summaryRecords: SummaryAttemptStorage;
   private readonly attemptCleanupRecords: AttemptCleanupStorage;
   private readonly mcpExecutionRecords: McpExecutionStorage;
+  private executionObservationRecords?: DiagnosticExecutionObservationStorage;
   private readonly summaryRecoveryHighWater: string;
   private summaryRecovery?: SummaryRecoveryStorage;
   private readonly providerRecoveryHighWater: string;
@@ -232,6 +235,8 @@ export class SqliteStore implements SessionEngineStore {
       throw error;
     }
   }
+  /** One coherent primary snapshot for native trajectory and execution provenance. */
+  readExecutionObservationEvidence<T>(operation: () => T): T { return this.evidenceRead(operation); }
   private notify(sessionId: string): void {
     for (const waiter of [...this.waiters]) if (waiter.sessionId === sessionId) waiter.wake();
   }
@@ -538,6 +543,11 @@ export class SqliteStore implements SessionEngineStore {
   createKnowledgeContextSource(ports: Omit<KnowledgeContextSourcePorts, 'readTx' | 'getWorkspace'>): KnowledgeContextSource {
     this.assertOpen();
     return new KnowledgeContextSource(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), readTx: operation => this.evidenceRead(operation) });
+  }
+  createDiagnosticExecutionObservationStorage(ports: Omit<DiagnosticExecutionObservationPorts, 'writeTx'>): DiagnosticExecutionObservationStorage {
+    this.assertOpen();
+    if (this.executionObservationRecords) throw new EngineError('EXECUTION_OBSERVATION_ALREADY_CONFIGURED', 'Native execution observations already have an original host owner');
+    return this.executionObservationRecords = new DiagnosticExecutionObservationStorage(this.db, { ...ports, writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
   pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string): void {

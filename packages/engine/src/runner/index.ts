@@ -1080,6 +1080,7 @@ export class RunCoordinator implements CoordinatorPort {
     this.options.store.commit(owner.run.id, 'tool.requested', { toolCallId: record.id, providerToolCallId: call.id, name: call.name, input: call.input }, { tool: record });
     let preparedFingerprint: string | undefined;
     let terminalFailure: EngineError | undefined;
+    let observedPrepared: PreparedTool | undefined;
     try {
       if (owner.allowedTools && !owner.allowedTools.has(call.name)) return this.toolResult(owner, record, call, this.toolError(owner, 'TOOL_NOT_ALLOWED', 'The active agent profile does not permit this tool'), 'denied');
       const tool = this.options.toolRuntime && owner.catalogue ? this.options.toolRuntime.resolve(owner.catalogue, call.name) : this.tools.get(call.name);
@@ -1120,10 +1121,18 @@ export class RunCoordinator implements CoordinatorPort {
         ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}), ...(tool.effectClass ? { effectClass: tool.effectClass } : {}), inputSha256: createHash('sha256').update(JSON.stringify(prepared.input)).digest('hex'), previewSha256: createHash('sha256').update(JSON.stringify(prepared.preview)).digest('hex') });
       if (JSON.stringify(prepared) !== binding) throw new EngineError('PREPARED_TOOL_CHANGED', 'Prepared request changed during the lifecycle boundary');
       if (before?.action === 'deny') return this.toolResult(owner, record, call, this.toolError(owner, 'LIFECYCLE_DENIED', 'A host lifecycle hook denied this prepared tool'), 'denied');
+      let sourceReadKey: string | null | undefined;
+      if (this.options.executionObserver) {
+        observedPrepared = prepared;
+        sourceReadKey = await this.toolOperation(owner, record, workspace, false, context => this.options.executionObserver!.prepare(prepared, context));
+        this.assertLive(owner);
+      }
       if ((tool.effectClass === 'read' || (tool.effectClass === undefined && READ_TOOLS.has(call.name))) && !prepared.requiresApproval) {
-        const key = `${call.name}:${this.options.toolRuntime ? this.options.toolRuntime.repeatIdentity(prepared) : prepared.fingerprint}`;
-        if (owner.readonlyCalls.has(key)) throw new EngineError('REPEATED_READ_TOOL_CALL', 'This identical read was already attempted without an intervening workspace effect. Use its previous result, a continuation, a different line range, or a narrower query.');
-        owner.readonlyCalls.add(key);
+        const key = this.options.executionObserver ? sourceReadKey : `${call.name}:${this.options.toolRuntime ? this.options.toolRuntime.repeatIdentity(prepared) : prepared.fingerprint}`;
+        if (key) {
+          if (owner.readonlyCalls.has(key)) throw new EngineError('REPEATED_READ_TOOL_CALL', 'This identical read was already attempted with the same observed source and effect epoch. Use its previous result, a continuation, a different line range, or a narrower query.');
+          owner.readonlyCalls.add(key);
+        }
       }
       const effectful = tool.effectClass !== undefined && !['read', 'state'].includes(tool.effectClass) || EFFECT_TOOLS.has(call.name);
       let approval: ApprovedMcpToolOwner['approval'];
@@ -1155,6 +1164,7 @@ export class RunCoordinator implements CoordinatorPort {
       this.assertLive(owner);
       if (uncertain(result)) throw new EngineError('CLEANUP_UNCERTAIN', `Tool ${record.name} did not confirm cleanup`);
       if (!result || typeof result.content !== 'string') throw new EngineError('INVALID_TOOL_RESULT', 'Tool result content must be a string');
+      if (observedPrepared) this.options.executionObserver!.result(observedPrepared, !result.isError && !(result.data && typeof result.data === 'object' && !Array.isArray(result.data) && result.data.truncated === true) && !result.artifacts?.some(item => item.truncated) && (!result.structuredResult || result.structuredResult.modelContent === result.content && result.structuredResult.artifactRefs.every(ref => ref.complete)));
       if (result.data && typeof result.data === 'object' && !Array.isArray(result.data) && result.data.timedOut === true) {
         this.toolResult(owner, record, call, { ...result, isError: true });
         throw new EngineError('TOOL_TIMEOUT', `Tool ${record.name} reported an execution timeout`);
@@ -1186,6 +1196,7 @@ export class RunCoordinator implements CoordinatorPort {
       // Input errors, denied permissions, and ordinary tool failures let the model adapt.
       return this.toolResult(owner, record, call, this.toolError(owner, failure.code, failure.message), deniedReceipt ? 'denied' : undefined);
     } finally {
+      if (observedPrepared) await this.options.executionObserver!.settle(observedPrepared);
       owner.discovery?.discard(record.id);
       if (this.options.onToolCheckpoint) {
         const checkpoints = [...owner.checkpoints.values()].filter(checkpoint => checkpoint.toolCallId === record.id);

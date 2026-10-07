@@ -21,6 +21,10 @@ G1-29의 기본 eager도 같은 capture의 예약·ContextPlan·실제 request·
 | `importImage(sessionId, bytes, mimeType, signal?)` | 세션 소유의 제한된 이미지 blob을 저장하고 immutable 참조 반환 |
 | `importDocument(sessionId, bytes, signal?)` | 세션 소유 bounded PDF blob을 저장하고 이미지와 별도 immutable 문서 참조 반환 |
 | `getStorageUsage({signal?, limits?})` | 주 DB 이미지·문서 index와 engine-owned artifact/DB 경로의 bounded 읽기 전용 진단; 모델 턴에서 자동 실행하지 않음 |
+| `getExecutionObservations({workspaceId, runId, afterOrdinal?, throughOrdinal?, limit?, maxBytes?})` | 실제 원본 실행 경계의 source·effect epoch·outcome을 최대 100행·1MiB로 조회 |
+| `getCodingEvidence(runId, options?)` | 같은 primary read snapshot의 Run·journal·native 실행 증거, 최대 64KiB; 선택 요약은 추가 모델 호출 없는 metadata 추출 |
+| `getStallObservation(trajectoryOptions, limits?)` | 원래 실행 당시의 source·result·effect epoch를 사용하는 advisory 조회; 자동 재시도·취소·작업 성공 권한 없음 |
+| `inspectToolRegistration(toolName, scopeId?)` | 현재 정확한 등록의 revision·schema/description hash만 조회; producer callback 호출 없음 |
 | `getChildDocumentStorageUsage({sessionId, sourceRunId, taskIds, signal?, limits?})` | 정확한 root owner·storage binding·확인된 close에 연결된 selected child document index 관측; 별도 공유 예산·partial/null·비삭제 계약 |
 | `close()` | admission 중지와 owned Run·child·MCP/plugin·PTY·watcher·LSP·DB 종료 정산 |
 
@@ -150,3 +154,5 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 ## 승인한 실제 파일·skill 게시
 
 `knowledgeFilePublication:true`에서 `previewWorkspaceKnowledgeFilePublication` / `previewWorkspaceKnowledgeFileRevocation`의 원본 preview를 `publishWorkspaceKnowledgeFile` / `revokeWorkspaceKnowledgeFile`에 `approved:true`와 함께 전달한다. 일반 파일과 정확한 skill 경로의 실제 처리, native revision/CAS, 영수증 중복 제거, 불확실 상태·원본 작업 종료 대기와 별도 ACK/resume를 제공한다. 각 API와 16 KiB 지원 범위, 공통 잠금·외부 writer의 한계는 [파일 게시 계약](engine-phase-two-file-publication.md)을 따른다. Import의 역사적 조회는 파일 적용 권한을 복원하지 않는다.
+
+`diagnosticObservations: true`는 실제 원본 도구 실행의 물리 source 관측과 DB14 실행 이력을 활성화한다. 기본값은 off이며 `diagnosticSourceLimits`는 한도를 낮추기만 한다. 조회는 과거의 bounded 증거를 반환하며 현재 파일·남은 live budget·복구·작업 성공의 권한을 발급하지 않는다. `getCodingEvidence(..., {includeSummary:true})`의 요약은 결정적인 metadata 추출로 provider/tool/token 비용이 0이며 LLM distillation은 구현하지 않았다. 기존 `getAttemptManifest`의 host-declared source 계약은 유지한다. [실제 진단 경계와 API](engine-phase-two-native-diagnostics.md)를 따른다.

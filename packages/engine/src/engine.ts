@@ -1,6 +1,7 @@
 import { lstatSync, mkdirSync, mkdtempSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { types } from 'node:util';
 import { createHash, randomUUID } from 'node:crypto';
 import { EngineError, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, SESSION_COMMAND_TYPES, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type JsonValue, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
 import { assertInputMediaBudget, normalizeAcceptInput, normalizeEngineBudgets, normalizeSubmitInput, validateCommand, validateSessionCommand } from '@moodcode/contracts/validation';
@@ -32,6 +33,10 @@ import { LifecycleHookRegistry, type LifecycleHookRegistration } from './lifecyc
 import { exportTrajectory, validateTrajectoryOptions, type JournalProjection, type TrajectoryOptions } from './diagnostics/trajectory.js';
 import { createCodingEvidenceManifest, validateCodingEvidenceOptions, type CodingEvidenceManifest, type CodingSourceIdentity } from './diagnostics/attempt-manifest.js';
 import { getTrajectoryStallObservation, type StallObservation, type StallOptions } from './diagnostics/stall.js';
+import { EngineExecutionObserver } from './diagnostics/execution-observer.js';
+import { WorkspaceExecutionSource, type WorkspaceExecutionSourceLimits } from './diagnostics/execution-source.js';
+import type { DiagnosticExecutionPageOptions } from './diagnostics/execution-observation-types.js';
+import { readNativeCodingEvidence, type NativeCodingEvidenceOptions } from './diagnostics/native-attempt-manifest.js';
 import { InputScheduler } from './runner/input-scheduler.js';
 import { ScriptedProvider } from './provider/index.js';
 import { validateHostGenerationRequest } from './provider/generation.js';
@@ -122,6 +127,9 @@ function metadataFailure(): { code: string; message: string } {
 const NATIVE_COMMANDS_ENABLED = ['input.accept', 'input.list', 'input.cancel', 'session.pause', 'session.resume', 'session.events', 'engine.getCapabilities', 'run.getTurns', 'turn.getParts', 'artifact.get', 'session.getTasks', 'session.setTasks', 'question.list', 'question.answer', 'question.reject', 'session.getContext', 'session.searchHistory', 'session.getDiagnostics'] as const;
 
 export interface EngineOptions {
+  /** Original producer observations; bounded physical reads are disabled by default. */
+  diagnosticObservations?: boolean;
+  diagnosticSourceLimits?: Partial<WorkspaceExecutionSourceLimits>;
   dbPath: string;
   artifactDir?: string;
   providers?: ProviderAdapter[];
@@ -278,6 +286,7 @@ export class MoodcodeEngine {
   private readonly storagePaths: { artifactDir: string; dbPath?: string };
   private readonly childStorageIdentity: ChildStorageHostIdentity;
   private readonly verifyChildStorageIdentity: () => void;
+  private readonly executionObserver: EngineExecutionObserver;
   private readonly validateImageInput: (sessionId: string, config: RunConfig, refs: InputImageAttachment[]) => Promise<void>;
   private readonly validateDocumentInput: (sessionId: string, config: RunConfig, refs: InputDocumentAttachment[]) => Promise<void>;
   private readonly managedArtifacts: () => Promise<ArtifactStore>;
@@ -357,6 +366,7 @@ export class MoodcodeEngine {
     this.knowledgePublicationEnabled = options.knowledgePublication === true;
     if (options.knowledgeFilePublication !== undefined && typeof options.knowledgeFilePublication !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Knowledge file publication requires an explicit host boolean');
     this.knowledgeFilePublicationEnabled = options.knowledgeFilePublication === true;
+    if (options.diagnosticObservations !== undefined && typeof options.diagnosticObservations !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Execution observations require an explicit host boolean');
     if (this.verificationEnabled && options.tools !== undefined) throw new EngineError('INVALID_VERIFICATION_CONFIG', 'Verification requires the engine-owned command producer and core registrations');
     if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Document token cost policy must be a boolean');
     if (options.repositoryContextTools !== undefined && typeof options.repositoryContextTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Repository tool exposure must be an explicit boolean');
@@ -589,11 +599,19 @@ export class MoodcodeEngine {
         ...(options.lifecycleContextSlotBytes === undefined ? {} : { lifecycleContextSlotBytes: options.lifecycleContextSlotBytes }),
         ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}), ...(knowledgeContext ? { knowledgeContext } : {}) });
       if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
-      this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts,
-        ...(options.roleResourcePolicy ? { roleResources: options.roleResourcePolicy } : {}), ...(options.roleResourcePolicyRegistry ? { roleResourcePolicyRegistry: options.roleResourcePolicyRegistry } : {}), ...(options.resolveRoleResources ? { resolveRoleResources: options.resolveRoleResources } : {}), ...(options.commandPreflight ? { commandPreflight: options.commandPreflight } : {}) });
       const coreCommand = createCommandTool();
-      let commandRegistration: ToolRegistrationCapture | undefined;
       const coreTools = options.tools ?? [...createReadTools(), createPatchTool(), coreCommand, createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
+      const nativeFiles = [canonicalDbPath, canonicalDbPath ? `${canonicalDbPath}.owner.sqlite` : undefined, this.executionLockPath, canonicalDbPath ? `${canonicalDbPath}.review.sqlite` : undefined].filter((path): path is string => path !== undefined);
+      const source = new WorkspaceExecutionSource({ checkWorkspaceBinding: workspace => {
+        this.verifyChildStorageIdentity();
+        if (JSON.stringify(this.store.getWorkspace(workspace.id)) !== JSON.stringify(workspace)) throw new EngineError('EXECUTION_OBSERVATION_STALE', 'Observed workspace binding changed');
+      }, ...(options.diagnosticSourceLimits ? { limits: options.diagnosticSourceLimits } : {}), excludedPaths: [{ path: this.storagePaths.artifactDir, kind: 'directory' }, ...nativeFiles.flatMap(path => [path, `${path}-wal`, `${path}-shm`, `${path}-journal`].map(path => ({ path, kind: 'file' as const })))] });
+      this.executionObserver = new EngineExecutionObserver(this.store, source, () => this.toolRuntime);
+      const workspaceSourceTools = options.tools ? [] : coreTools.filter(tool => ['read_file', 'list_files', 'search_files', 'glob_files', 'regex_search', 'apply_patch', 'edit_file', 'rename_file', 'delete_file', 'run_command'].includes(tool.name));
+      this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts,
+        workspaceSourceTools: Object.freeze(workspaceSourceTools), ...(options.diagnosticObservations === true ? { beforeProducer: (prepared, context) => this.executionObserver.beforeProducer(prepared, context) } : {}),
+        ...(options.roleResourcePolicy ? { roleResources: options.roleResourcePolicy } : {}), ...(options.roleResourcePolicyRegistry ? { roleResourcePolicyRegistry: options.roleResourcePolicyRegistry } : {}), ...(options.resolveRoleResources ? { resolveRoleResources: options.resolveRoleResources } : {}), ...(options.commandPreflight ? { commandPreflight: options.commandPreflight } : {}) });
+      let commandRegistration: ToolRegistrationCapture | undefined;
       const repositoryTools = options.repositoryContextTools ? [createRepositoryContextTool(this.repository)] : [];
       const verificationTool = this.verificationEnabled ? createVerificationTool({ plans: this.verificationPlans, receipts: this.verificationReceipts, getRun: id => this.store.getRun(id), sourceObservation: (context, signal) => this.verificationHost.observe(context, AbortSignal.any([signal, this.hostResources.signal])), commandRuntime: this.toolRuntime, captureCatalogue: context => this.coordinator.captureToolCatalogue(context),
         consumedSettlementWriter: (context, kind, revision, data) => this.coordinator.commitConsumedVerificationSettlement(context, kind, revision, data),
@@ -626,6 +644,7 @@ export class MoodcodeEngine {
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
       this.coordinator = new RunCoordinator({
+        ...(options.diagnosticObservations === true ? { executionObserver: this.executionObserver } : {}),
         ...(options.lifecycleContinuation === true ? { lifecycleContinuation: createLifecycleContinuationPort({ store: this.store, controller: this.verificationController, plans: this.verificationPlans,
           observeSource: (run, signal) => this.verificationHost.observe({ sessionId: run.sessionId, runId: run.id, workspace: this.store.getWorkspace(run.workspaceId) }, signal),
           readCurrentProfile: run => { const profile = this.profiles.forRun(run.sessionId, run.config); return profile ? { id: profile.id, revision: profile.revision } : null; },
@@ -1035,8 +1054,39 @@ export class MoodcodeEngine {
     return createCodingEvidenceManifest(run, this.getTrajectory({ ...page, sessionId: run.sessionId, runId }), source);
   }
 
+  getCodingEvidence(runId: string, options: NativeCodingEvidenceOptions = {}) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return readNativeCodingEvidence({ getRun: id => this.store.getRun(id), getSession: id => this.store.getSession(id),
+      readSessionEvents: (sessionId, afterSeq, limit) => this.store.readSessionEvents(sessionId, afterSeq, limit),
+      listExecutionObservations: (workspaceId, id, page) => this.executionObserver.storage.listRun(workspaceId, id, page),
+      readCoherentSnapshot: operation => this.store.readExecutionObservationEvidence(operation),
+    }, runId, options);
+  }
+
+  inspectToolRegistration(toolName: string, scopeId = 'engine') {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.toolRuntime.inspectToolRegistration(scopeId, toolName);
+  }
+
   getStallObservation(options: TrajectoryOptions, limits?: StallOptions): StallObservation {
-    return getTrajectoryStallObservation(this.getTrajectory(options), limits);
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.readExecutionObservationEvidence(() => {
+      const trajectory = this.getTrajectory(options), run = trajectory.runId ? this.store.getRun(trajectory.runId) : undefined;
+      const observations = run ? this.executionObserver.storage.listRun(run.workspaceId, run.id).items : [];
+      return getTrajectoryStallObservation(trajectory, limits, observations);
+    });
+  }
+
+  getExecutionObservations(input: { workspaceId: string; runId: string } & DiagnosticExecutionPageOptions) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    if (!input || typeof input !== 'object' || types.isProxy(input) || Array.isArray(input) || ![Object.prototype, null].includes(Object.getPrototypeOf(input))) throw new EngineError('INVALID_EXECUTION_OBSERVATION', 'Observation queries require plain bounded data');
+    const descriptors = Object.getOwnPropertyDescriptors(input);
+    if (!['workspaceId', 'runId'].every(key => Object.hasOwn(descriptors[key] ?? {}, 'value')) || Reflect.ownKeys(input).some(key => typeof key !== 'string' || !['workspaceId', 'runId', 'afterOrdinal', 'throughOrdinal', 'limit', 'maxBytes'].includes(key) || !Object.hasOwn(descriptors[key]!, 'value'))) throw new EngineError('INVALID_EXECUTION_OBSERVATION', 'Observation queries require exact plain bounded data');
+    const { workspaceId, runId, ...page } = input;
+    return this.store.readExecutionObservationEvidence(() => {
+      if (this.store.getRun(runId).workspaceId !== workspaceId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Observation Run belongs to another workspace');
+      return this.executionObserver.storage.listRun(workspaceId, runId, page);
+    });
   }
 
   getPolicyDecisionReceipts(options: TrajectoryOptions): PolicyDecisionReceiptPage {
@@ -1561,6 +1611,7 @@ export class MoodcodeEngine {
         if (failed?.status === 'rejected') throw failed.reason;
       }
       finally {
+        await this.executionObserver.close();
         try { this.terminalJournal.close(); }
         finally { try { this.reviewJournal.close(); }
         finally { await this.store.closeAsync(); }
