@@ -28,7 +28,7 @@ ordinary Attempt prepared → cleanup identity → cleanup dispatch intent → o
 
 startup은 존재하는 prepared/dispatched cleanup을 최대 100행씩 정산한다. strict no-dispatch 조건을 만족하는 prepared만 `not-dispatched`이며 나머지는 `uncertain/recovery`다. 오래된 ordinary Attempt에 새 proof를 만들어 backfill하지 않는다. 기존 outcome과 usage는 그대로다. DB5→6 migration은 빈 cleanup 테이블과 partial index만 추가하며 원래 기록을 보존한다. DB6 archive와 hash는 새 테이블을 포함하고 이전 archive 버전도 유지한다.
 
-ordinary uncertain Attempt, uncertain cleanup, terminal Run에 남은 dispatched cleanup과 검증할 수 없는 uncertain Turn은 workspace의 새 접수·resume·maintenance를 재시작 뒤에도 차단한다. 기존 request의 exact retry 조회는 같은 receipt를 반환한다. ordinary outcome uncertainty를 해제하는 host 결정은 후속 TODO다.
+ordinary uncertain Attempt, uncertain cleanup, terminal Run에 남은 dispatched cleanup과 검증할 수 없는 uncertain Turn은 workspace의 새 접수·resume·maintenance를 재시작 뒤에도 차단한다. 기존 request의 exact retry 조회는 같은 receipt를 반환한다. DB7의 [일반 provider host 결정](engine-provider-recovery.md)은 independently confirmed cleanup과 exact uncertain dispatch에만 적용하며 원래 outcome을 보존한다. missing/unknown cleanup은 여전히 차단한다.
 
 [summary host 결정](engine-summary-recovery.md)은 한 가지 좁은 origin을 처리한다. 최신 ordinary Attempt가 `failed`, 현재 Turn의 Parts가 0개이며 cleanup이 `iterator-return-done/error/PROVIDER_CONTEXT_OVERFLOW`로 confirmed인 경우에만, 그 실패 때문에 시작한 unknown summary의 owner·provider/model/context·시간 순서와 cleanup record SHA를 결합한다. ordinary uncertain Attempt나 별도 unknown cleanup에는 적용하지 않는다.
 
@@ -36,7 +36,7 @@ ordinary uncertain Attempt, uncertain cleanup, terminal Run에 남은 dispatched
 
 ## 조회·지표·한도
 
-host의 `getAttemptCleanup(sessionId, attemptId)`는 지정 session owner를 확인하고 typed 행을 반환한다. source/SQL identity·owner·요청 hash/context가 어긋나거나 oversized이면 실패한다. native metrics schema 5의 `attemptCleanup`은 상태별 수와 `attemptsWithoutObservation`을 반환한다. `recordValidity`와 `providerOutcomeConfirmed`는 null이며 이 SQL 집계만으로 증거 유효성이나 원격 결과를 확정하지 않는다. cleanup-only uncertainty도 `recovery.workspacesWithDurableEvidence`에 포함하지만 현재 admission 허용 여부는 별도 predicate가 판단한다.
+host의 `getAttemptCleanup(sessionId, attemptId)`는 지정 session owner를 확인하고 typed 행을 반환한다. source/SQL identity·owner·요청 hash/context가 어긋나거나 oversized이면 실패한다. native metrics schema 6의 `attemptCleanup`은 상태별 수와 `attemptsWithoutObservation`을 반환한다. `recordValidity`와 `providerOutcomeConfirmed`는 null이며 이 SQL 집계만으로 증거 유효성이나 원격 결과를 확정하지 않는다. cleanup-only uncertainty도 `recovery.workspacesWithDurableEvidence`에 포함하지만 현재 admission 허용 여부는 별도 predicate가 판단한다.
 
 cleanup JSON은 16KiB, owner JSON은 각각 1MiB, logical request bytes는 64MiB로 제한한다. execution predicate는 uncertain Turns 최대 64개, 선택 Turn payload 합계 8MiB를 제한하며 크기를 먼저 조회한다. 각 summary ACK/source에는 별도 증거 한도가 있다. 모든 owner 조회와 여러 ACK/source를 합친 단일 8MiB 한도나 물리 디스크 I/O 상한을 보장하지 않는다. 이러한 합산 예산과 반복 조회 비용은 후속 최적화 항목이다.
 

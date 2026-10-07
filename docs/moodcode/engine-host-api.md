@@ -80,7 +80,11 @@ host의 `getSummaryAttempt(sessionId, summaryAttemptId)`와 `getSummaryUsage(ses
 
 DB5의 `getSummaryRecoveryPreview(sessionId, summaryAttemptId)`와 비동기 `acknowledgeSummaryRecovery({sessionId, summaryAttemptId, requestId, fingerprint, acknowledged: true})`는 부팅 전 불확실 요약에만 별도의 host 결정을 연결한다. 이 결정은 원본 uncertainty/usage/context/pause/inbox를 보존하며 다른 명령·복원·일반 실행 격리를 해제하지 않는다. 정확한 decision retry는 기존 receipt를 반환한다. 자동 provider 재시도·후보 activation·session resume 없이 명시적 새 작업만 이어갈 수 있다. [fingerprint·물리 저장소·적용 범위](engine-summary-recovery.md)를 따른다.
 
-DB6의 `getAttemptCleanup(sessionId, attemptId)`는 지정 session의 일반 provider 종료 증거를 조회한다. `confirmed`와 ordinary outcome은 별개이며 native metrics schema 5의 `attemptCleanup`도 raw 상태 수만 반환한다. 정확한 failed ordinary overflow와 그 unknown summary가 결합된 경우에는 cleanup proof/source SHA를 host 결정에 포함한다. 원래 실패/불확실 상태를 보존하고 독립적인 ordinary uncertainty는 계속 차단한다. [상태·요청 projection·crash origin·한도](engine-attempt-cleanup.md)를 따른다. host 조회이며 모델 도구·GUI에 노출하지 않았다.
+DB6의 `getAttemptCleanup(sessionId, attemptId)`는 지정 session의 일반 provider 종료 증거를 조회한다. `confirmed`와 ordinary outcome은 별개이며 native metrics schema 6의 `attemptCleanup`도 raw 상태 수만 반환한다. 정확한 failed ordinary overflow와 그 unknown summary가 결합된 경우에는 cleanup proof/source SHA를 host 결정에 포함한다. 원래 실패/불확실 상태를 보존하고 독립적인 ordinary uncertainty는 계속 차단한다. [상태·요청 projection·crash origin·한도](engine-attempt-cleanup.md)를 따른다. host 조회이며 모델 도구·GUI에 노출하지 않았다.
+
+DB7의 `getProviderRecoveryPreview(sessionId, attemptId)`와 비동기 `acknowledgeProviderRecovery({sessionId, attemptId, requestId, fingerprint, acknowledged: true})`는 실제 cleanup이 확인된 일반 uncertain dispatch에만 별도 결정을 저장한다. 정상 취소의 확정 interrupted 호출은 대상이 아니다. 부분 출력·완성된 미실행 도구 제안·usage·원래 상태·control/inbox를 보존하며, 원래 호출 retry/activation/resume 없이 명시적 새 작업만 이어갈 수 있다. unknown cleanup·독립 효과·다른 후보는 계속 차단한다. [source·pins·물리 저장소·한도](engine-provider-recovery.md)를 따른다.
+
+DB7의 summary proof V2는 불변 pin 목록의 SHA와 원래 boot frontier까지 fingerprint에 결합한다. 기존 DB5/V1 결정은 원래 body/scope와 정확한 역사 retry를 보존하지만 새 admission 근거로 사용하지 않는다. 필요한 새 V2 결정은 host가 새 preview/requestId로 명시적으로 내려야 한다. 엔진은 프로젝트의 기존 결정을 자동 재승인하지 않는다.
 
 ## LSP·formatter·변경 관찰
 

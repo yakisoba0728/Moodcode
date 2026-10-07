@@ -1,6 +1,41 @@
 # 지속 개선 최신 검증
 
-2026-10-07, macOS arm64 / Node 26.9.0. 여섯 번째 구현 commit은 `11da9861f436b1c70daf34a7815c48ef7a8681fa`다. [기계 판독 결과](engine-goal-verification.json), [일반 Attempt 종료 계약](engine-attempt-cleanup.md), [summary 복구](engine-summary-recovery.md), [TODO](../../TODO.md)를 따른다. GUI·Electron을 실행하지 않았고 프로젝트의 실제 unresolved 기록을 대신 승인하지 않았다.
+2026-10-07, macOS arm64 / Node 26.9.0. 일곱 번째 구현 commit은 `5d70a228d166d767b9e788b843c97c7f4b3e1569`다. [기계 판독 결과](engine-goal-verification.json), [일반 provider 복구](engine-provider-recovery.md), [summary proof V2·호환](engine-summary-recovery.md), [TODO](../../TODO.md)를 따른다. GUI·Electron은 실행하지 않았고 실제 프로젝트의 unresolved 기록에 대신 결정하지 않았다.
+
+| 검증 | 결과 |
+| --- | --- |
+| `npm run typecheck` | 통과 |
+| 동일 전체 목록, `MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine` | 2,057 tests · 2,055 pass · 실패 0 · 조건부 2 skip · 66,882.709792ms |
+| 컴파일 집중 검사 | 174/174 통과; 전체 gate와 겹치므로 합산하지 않음 |
+| 코딩 fixture 평가 | 3/3 통과 |
+| 커밋 후 실제 Codex | 일반 provider 복구 뒤 새 Run 1회, overflow summary 복구 뒤 새 Run 1회, active-prefix 요약·최종 답변 2회 통과 |
+
+## 일곱 번째 구현과 독립 검토
+
+- **일반 결과의 별도 host 결정**: DB7 `provider_recovery_acknowledgments`에 confirmed cleanup, exact terminal Run/최신 Turn·uncertain Attempt, logical request/context·원래 입력·usage·부분 출력·도구 관측·immutable refs의 fingerprint를 저장한다. same-boot 신규 uncertainty는 재시작을 요구한다. 정상 취소의 확정 interrupted 호출은 NOT_NEEDED이며 missing/unknown cleanup은 차단한다. 원래 outcome/usage/control/inbox를 바꾸거나 원래 호출 retry/activation/resume를 수행하지 않는다.
+- **부분 도구 제안**: 완성된 `tool.call`을 provider 완료 전에 Part로 보존한다. 실제 도구는 유효한 finish 이후에만 실행하므로 transport/timeout 때는 interrupted 제안/input만 남는다. 실제 부분 text/reasoning/media/proposal와 prior completed read, promoted steer를 확인했다. 원래 user/steer message가 정확한 admission/promoted input과 다른 경우를 차단했다.
+- **참조와 도구 증거**: 일반 ToolResultEnvelope.metadata의 도메인 상태를 cleanup 증거로 오인하던 검사를 수정했다. bare source IDs의 missing/foreign/ambiguous owner와 이전 semantic summary의 누락을 차단하고, earlier revision의 원본까지 bounded closure로 pin한다. ACK 이후 baseline-only 원문/중간 요약/Run·Turn owner drift도 검증한다. 임의 파일·pixels·HTTP 재조회는 복구 source로 사용하지 않는다.
+- **summary proof V2**: 기존 pin 목록이 fingerprint에 결합되지 않아 목록 제거가 coverage를 무력화하던 문제를 수정했다. DB7 SQL pin SHA·original startup frontier와 V2 domain scope를 fingerprint에 결합하고 validation에서 다시 계산한다. baseline-only drift 뒤 pin 제거·coordinated pin digest 변경·closure 누락을 거부한다. 기존 DB5/V1 body/scope/fingerprint와 정확한 역사 receipt는 그대로 보존하되 V1 admission은 inactive다. 새 V2 결정은 host의 명시적 새 요청을 요구하며 자동 재승인하지 않는다.
+- **원자 저장·crash·운영**: provider uncertain Attempt 저장 뒤 Turn fail 전, ACK COMMIT 직전/직후의 세 프로세스를 실제 SIGKILL했다. native/v1 audit 실패 rollback, DB6→7 migration 전체 rollback과 기존 opaque 기록/V1 decision 보존, DB7 archive/import의 새 physical binding을 확인했다. 여러 ordinary candidate·독립 summary/effect·live owner/maintenance·queue/control blocker를 보존한다. metrics schema 6은 원래 uncertainty와 historical/raw 결정 수를 분리하며 validity/outcome은 null이다.
+- **검증 fixture 보존**: host close 성공만으로 live cleanup을 확정하던 검증 경계를 수정했다. 실제 natural-done proof와 host close를 따로 확인하며 실패하거나 종료 proof가 확인되지 않으면 임시 DB를 보존한다. 새 복구 검증과 기존 overflow 검증은 startup부터 whole snapshot을 금지한다.
+
+## 실제 모델 범위와 조회 비용
+
+`verify-provider-recovery.mjs --live`는 private DB에서 authored transport 오류와 text/reasoning/미실행 tool proposal를 만든 뒤 한 번의 명시적 host 결정을 사용했다. 기존 인증의 실제 Codex 새 요청은 정확히 1회이고 input/output 448/5를 관측했다. 원래 unknown state·부분 관측·usage·control/context는 그대로이며 실제 logical request 2,617 bytes의 SHA가 natural-done proof와 일치한다. 새 Run의 head revision 1→2와 재시작 뒤 receipt/pins가 유지됐다. 실제 unknown Codex 서버 종료를 재현한 검증은 아니다.
+
+기존 overflow-summary fixture의 V2 결정 뒤 실제 새 요청 1회도 통과했다. input/output 1,586/5, logical request 12,003 bytes, head revision 2→3과 원래 failed ordinary/uncertain summary·usage input 9/output null 보존을 확인했다. active-prefix는 fixture-directed read 20회 뒤 실제 summary input/output 1,986/184와 final 2,686/23을 관측했다. raw tool source가 요청에서 빠진 임의 값을 memory에서 정확히 회수했고 context는 14,754/16,384 bytes였다. 세 live script 모두 통과·종료 확인·임시 파일 정리, snapshot 0회다. 모델의 자율 20턴 코딩 전략·원격 서버 uncertainty·과금 결과로 확대하지 않는다.
+
+현재 full gate의 synthetic 1k/10k ordinary predicate는 clear 199 bytes·5 queries, 첫 unknown 204 bytes·2 queries로 같았다. configured summary의 첫 미승인 후보는 211 bytes·3 queries, 10k synthetic ledger 후보의 cap은 2,987 bytes·4 queries이며 retained text/body validation 이전에 차단했다. writes·full snapshot은 0이다. 이는 JavaScript에 반환된 SQL 값과 단일 elapsed 표본이며 물리 I/O·전체 proof aggregate·production 처리량 상한이 아니다. provider 후보 자체는 64개/선택 증거 8MiB를 제한하지만 provider/summary/Turn 및 owner 조회를 합친 예산과 중복 읽기는 후속이다.
+
+초기 source provider 통합의 3개 실패는 새로 보존한 interrupted tool Part를 옛 기대값이 빠뜨린 경우였다. proposal의 input/state/no execution을 확인하도록 수정했다. 첫 compiled 집중 검사의 1개 실패는 기존 archive fixture의 DB6 고정값이며 현재 DB_VERSION을 확인하도록 수정했다. 이후 집중 174/174와 첫 전체 2,057개 gate가 통과했다. 이전 각 묶음의 실패·exit 137은 해당 역사 보고서에 보존한다.
+
+G1-18과 G1-20을 완료했다. 다음은 **G1-19 공유 조회 예산·중복 source 읽기**다. 원래 75개 중 71개 완료, 외부 OS/provider/hosted CI 항목 E5-08/E5-13/E6-07/E6-08과 image token 비용·GUI 노출은 그대로 남는다. Git remote는 없으며 goal은 활성 상태다. [여섯 번째 JSON](engine-goal-sixth-verification.json)은 이전 내용을 정확히 보존했다.
+
+---
+
+# 여섯 번째 묶음의 이전 검증
+
+2026-10-07, macOS arm64 / Node 26.9.0. 여섯 번째 구현 commit은 `11da9861f436b1c70daf34a7815c48ef7a8681fa`다. [여섯 번째 기계 판독 결과](engine-goal-sixth-verification.json), [일반 Attempt 종료 계약](engine-attempt-cleanup.md), [summary 복구](engine-summary-recovery.md), [TODO](../../TODO.md)를 따른다. GUI·Electron을 실행하지 않았고 프로젝트의 실제 unresolved 기록을 대신 승인하지 않았다.
 
 | 검증 | 결과 |
 | --- | --- |

@@ -52,4 +52,15 @@ Windows native Job backend, 다른 OS 호스트, 최초 hosted CI, 실제 Anthro
 
 전체 같은 목록의 동시성 2 gate는 1,966 pass·실패 0·조건부 2 skip, fixture 3/3이다. 실제 Codex 새 Run 1회에서 logical SHA·종료 proof·head 변화/재시작 보존을 확인했고 active-prefix 요약/답변 2회도 통과했다. unknown 원격 서버 상태나 과금은 검증하지 않았다. synthetic 1k/10k ordinary 행의 execution predicate는 clear 199 bytes·5 queries, 첫 unknown 204 bytes·2 queries로 같았다. Turn payload와 각 ACK/source 한도는 별도이며 전체 합산·물리 I/O·처리량 상한으로 표시하지 않는다.
 
-다음 G1-18은 confirmed cleanup이 있어도 남는 ordinary outcome uncertainty에 대한 exact host 결정이다. G1-19는 여러 결정/source의 공유 조회 예산과 비용을 다룬다. 프로젝트의 실제 unresolved 기록을 대신 승인하거나 원래 실행을 자동 재시도하지 않는다. [최신 검증](engine-goal-verification.json)을 남기고 goal을 계속 진행한다.
+이 시점의 G1-18은 아래 일곱 번째 검토 지점에서 구현했다. [여섯 번째 근거](engine-goal-sixth-verification.json)를 보존한다. 프로젝트의 실제 unresolved 기록을 대신 승인하거나 원래 실행을 자동 재시도하지 않는다.
+
+
+## 일곱 번째 검토 지점
+
+`5d70a22`에서 DB7 일반 provider 결과 복구 결정과 summary pin proof V2를 연결했다. confirmed cleanup과 정확한 uncertain dispatch·logical request·원래 입력·부분 출력·도구 관측·context source/pins를 별도 ledger에 결합한다. 완성된 도구 제안은 provider 완료 전에도 저장하며 효과는 finish 검증 뒤에만 실행한다. 정상 취소의 확정 interrupted 호출은 결정 대상이 아니다. 실제 SIGKILL 세 경계·원자 audit rollback·물리 archive/import·다른 후보·queue/control 보존을 검증했다.
+
+독립 리뷰에서 generic tool metadata의 오인, missing native source 및 이전 summary 참조 누락, summary pin 제거와 baseline-only owner drift를 수정했다. 기존 V1 summary 결정은 원래 body/scope와 exact 역사 retry를 보존하되 새 실행 허용 근거로 사용하지 않는다. 새 V2 결정은 명시적인 host 요청이 필요하며 실제 프로젝트 기록에 대신 결정하지 않는다. [provider 계약](engine-provider-recovery.md), [summary 호환·참조](engine-summary-recovery.md)를 따른다.
+
+전체 동시성 2 gate는 2,055 pass·실패 0·조건부 2 skip, 집중 174/174, 코딩 fixture 3/3이다. 같은 source commit에서 실제 Codex ordinary 복구 뒤 새 Run 1회, overflow summary 복구 뒤 새 Run 1회, active-prefix 요약/답변 2회가 통과했다. 원래 unknown outcome/usage·부분 제안·control/context 보존과 head 변화/재시작·logical request SHA를 확인했다. 실제 원격 uncertainty·서버 중지·과금은 확인하지 않았다. 실패하거나 live cleanup proof가 없으면 검증용 임시 DB를 보존한다.
+
+다음 G1-19는 provider/summary/Turn proof 도메인의 공유 조회 예산과 중복 원문 읽기를 줄이는 작업이다. 현재 각 domain의 후보/선택 증거 한도를 전체 SQLite I/O 상한으로 확대하지 않는다. 원래 열린 외부 OS/provider/CI 4개와 GUI 제외를 유지하며 [최신 근거](engine-goal-verification.json)를 남기고 goal을 계속 진행한다.
