@@ -1,0 +1,443 @@
+{
+  "schemaVersion": 9,
+  "implementationCommit": "cc1c42b36ffd0e0e3a9dcf05246454a8dbee12b5",
+  "timestamp": "2026-10-07T01:47:05.044868+00:00",
+  "runtime": {
+    "node": "26.9.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "scope": "headless-engine-goal-checkpoint-9",
+  "checks": {
+    "typecheck": {
+      "passed": true,
+      "command": "npx tsc -b --pretty false",
+      "log": "/tmp/moodcode-wave9-typecheck-sixth.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "engine": {
+      "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
+      "testConcurrency": 2,
+      "testManifestReduced": false,
+      "tests": 2208,
+      "passed": 2206,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "durationMs": 69091.535208,
+      "log": "/tmp/moodcode-wave9-engine-first.log",
+      "logSha256": "81091fa67ae37f08ce8b0d4a24df75de1f0945ee4b4951925160665dc7f487fd"
+    },
+    "rootFocusedSource": {
+      "tests": 78,
+      "passed": 78,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 725.582083,
+      "log": "/tmp/moodcode-wave9-root-focused-final.log",
+      "logSha256": "f5660afffa9b52c7f6a89902b92f7f328190554a5cbbb62eb69f7be0a5c392d6"
+    },
+    "evaluation": [
+      {
+        "taskId": "addition-bug",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "math.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13146,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 249
+      },
+      {
+        "taskId": "empty-list-boundary",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "average.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13228,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 234
+      },
+      {
+        "taskId": "two-module-change",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "greet.mjs",
+          "strings.mjs"
+        ],
+        "toolCalls": 4,
+        "providerAttempts": 5,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 14044,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 4
+          }
+        },
+        "durationMs": 253
+      }
+    ],
+    "evaluationLogSha256": "e9ff0446ce1dfd10544e04e6d836f9ab6a2f78dc32b20ecf2765ed7803c49c9c",
+    "independentScoped": {
+      "storageSource": {
+        "tests": 74,
+        "passed": 74,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 1834.523209,
+        "log": "/tmp/moodcode-g21-owned-source.log",
+        "logSha256": "c038718fae7721cd709279209ba6a2512afeccd625ff0639f55499ff48587540"
+      },
+      "storageBundle": {
+        "tests": 74,
+        "passed": 74,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 1651.750917,
+        "log": "/tmp/moodcode-g21-owned-bundle.log",
+        "logSha256": "37153836a6babe8d89d45ea95599b518829e88408135dd2c37e2bcbb6b497a18"
+      },
+      "providerSource": {
+        "tests": 372,
+        "passed": 372,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 1553.537375,
+        "log": "/tmp/moodcode-g121-provider-final-source.log",
+        "logSha256": "2de7653fcbb77fcd843a5bff901ae880a3575f23848f65ff5bb0537d343c7dc8"
+      },
+      "providerBundle": {
+        "tests": 372,
+        "passed": 372,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 1412.446208,
+        "log": "/tmp/moodcode-g121-provider-compiled.log",
+        "logSha256": "cadb91be47ce3424959fafd6c4d413bd6f2303fbfa9f9cd99e9543548491f93a"
+      },
+      "actualTemporaryDocumentEngine": {
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 1457.595458,
+        "log": "/tmp/moodcode-g121-document-final-source.log",
+        "logSha256": "db1768adade5e5ede02a5a35453c624117fe6a9e49b7da26a87aa2ed8bdd6318"
+      },
+      "wiringSource": {
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 149.674833,
+        "log": "/tmp/moodcode-g121-wiring-review-final.log",
+        "logSha256": "d8c0e88d516cb6e151c156f3619107cce681ee1ddd47e36d4024624e26a8fa0b"
+      },
+      "wiringBundle": {
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 108.536542,
+        "log": "/tmp/moodcode-g121-wiring-review-bundle-final.log",
+        "logSha256": "5bc85f15a7d5a5b72155283520a3aa241e3a324e2fe543f040b31d68e01d390f"
+      }
+    },
+    "scopedCountsOverlapFullGate": true,
+    "live": [
+      {
+        "kind": "confirmed-cleanup-unknown-provider-outcome-hybrid-live",
+        "implementationCommit": "cc1c42b36ffd0e0e3a9dcf05246454a8dbee12b5",
+        "timestamp": "2026-10-07T01:45:37.729Z",
+        "runtime": {
+          "node": "26.9.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "providerId": "codex",
+        "modelId": "gpt-6.1-sol",
+        "scope": {
+          "syntheticUncertainProviderOutcome": true,
+          "realUncertainTransportVerified": false,
+          "requestedRealNewRuns": 1,
+          "existingProjectRecoveryAcknowledged": false,
+          "originalProviderAutomaticallyRetried": false,
+          "requestProjection": "engine-turn-request-v1",
+          "rawHttpBodyOrResolvedPixelsHashed": false
+        },
+        "actualRequests": [
+          {
+            "attemptId": "0a74e441-7cf6-4816-a415-56c40f3f09ed",
+            "turnId": "39cdeecf-7abc-4db4-8950-fc1992a61974",
+            "logicalRequestSha256": "a53e4452534a4fe300f17228d6fae23ade9ea23cabcf0b634d56e81f48b3a0e0",
+            "logicalRequestBytes": 2617,
+            "usage": {
+              "type": "usage",
+              "inputTokens": 448,
+              "outputTokens": 5,
+              "cachedInputTokens": 0,
+              "reasoningOutputTokens": 0
+            }
+          }
+        ],
+        "passed": true,
+        "cleanupConfirmed": true,
+        "result": {
+          "sameBootBlocked": true,
+          "durableWorkspaceBlockedBeforeDecision": true,
+          "cleanupIndependentlyConfirmed": true,
+          "originalUnknownOutcomeAndPartialObservationsUnchanged": true,
+          "retainedPartialKinds": [
+            "text",
+            "reasoning",
+            "tool"
+          ],
+          "unexecutedToolProposal": true,
+          "actualNewCodexRunCompleted": true,
+          "acknowledgmentSurvivedHeadChangeAndRestart": true,
+          "exactDecisionRetry": true,
+          "providerOutcomeConfirmedByDecision": false,
+          "checkpointActivatedByDecision": false,
+          "sourceProviderRetried": false,
+          "pauseUnchangedByDecision": true,
+          "contextHeadRevisionBeforeDecision": 1,
+          "contextHeadRevisionAfterNewRun": 2,
+          "fullSnapshotReads": 0,
+          "liveCleanup": {
+            "state": "confirmed",
+            "method": "iterator-next-done",
+            "reason": "natural-done",
+            "requestSha256MatchesLogicalRequest": true,
+            "requestBytes": 2617,
+            "persistedAcrossRestart": true
+          },
+          "providerAcknowledgmentRecords": 1,
+          "attemptCleanupMetrics": {
+            "total": 2,
+            "serializedJsonBytes": 1582,
+            "states": {
+              "prepared": 0,
+              "dispatched": 0,
+              "confirmed": 2,
+              "uncertain": 0,
+              "not-dispatched": 0
+            },
+            "attemptsWithoutObservation": 0,
+            "recordValidity": null,
+            "providerOutcomeConfirmed": null,
+            "source": "all-typed-attempt-cleanup-records-in-scope"
+          },
+          "billedTokens": null
+        },
+        "hostCloseConfirmed": true,
+        "liveCleanupObservedConfirmed": true,
+        "log": "/tmp/moodcode-wave9-provider-live-first.log",
+        "logSha256": "3f3daebdc9fad1a938f3f0bd4a6c2a0c715b7da19f148738cb2a2a343d3e6df2"
+      }
+    ],
+    "actualAccountRequests": 1,
+    "actualRemotePdfRequests": 0
+  },
+  "implementation": {
+    "databaseVersion": 8,
+    "metricsSchemaVersion": 6,
+    "documentMimeTypes": [
+      "application/pdf"
+    ],
+    "maxDocumentOccurrences": 1,
+    "maxDocumentBytes": 524288,
+    "maxCombinedDecodedMediaBytes": 1048576,
+    "maxSessionDocuments": 32,
+    "maxSessionDocumentBytes": 16777216,
+    "documentIndexKind": "input_documents",
+    "blobDirectory": "input-documents",
+    "knownProviderAndModelMimeSupportRequired": true,
+    "hostAndProviderUnknownTokenOptInRequired": true,
+    "unknownTokenCostDefaultRejected": true,
+    "tokenEstimateComplete": false,
+    "pdfValidation": "header-signature-only",
+    "defaultHistory": "retain-original-references-and-fail-closed-on-limits",
+    "optInHistory": "latest-pdf-with-exact-older-reference-provenance-and-required-user-text",
+    "historyMetadataBytes": 16384,
+    "boundedSessionImageAndDocumentAnchors": true,
+    "numericRunAndMessageChronology": true,
+    "inputReceiptAbsentAndEmptyShapesDistinct": true,
+    "sourceAndSummaryPinAnnotations": [
+      "document-policy",
+      "document-source",
+      "document-message"
+    ],
+    "archiveCoverage": "primary-document-index-and-references",
+    "storageDiagnosticCoverage": "root-input-documents-only",
+    "codexPdfSupported": false,
+    "sourceFilesSha256": {
+      "packages/contracts/src/index.ts": "4d2c576f15ffcc04dc3c312ea76d79296c7771c486c2050fd70c4019a0a88511",
+      "packages/contracts/src/input-documents.test.ts": "ff9f2afb4677dbd38c0a8192d2568168644c7477feb39d7efe9274e9711dba4d",
+      "packages/contracts/src/v2.ts": "1386cba1773127ff7f95171ab53cdc5986ab33f2afe74b8736240578d9dc2e33",
+      "packages/contracts/src/validation.ts": "7c787eb42ea2a39d3f64c03d97ff4e889ef9003f00b3b0a8e9e0ab359c8a9dbf",
+      "packages/engine/src/context/active-prefix.ts": "25fe0e84de5a7bffadcb1270ac1bac4772a8dcb6a76500e54240bcee96549f24",
+      "packages/engine/src/context/document-history.test.ts": "7e88e0fec28544956fde75e3caa7ef0f022fe4fe0895452c9df60ea0b0fe9869",
+      "packages/engine/src/context/document-history.ts": "7ac1282e2962d1002380e16bc5298e29e3375322f745c78e349f1ce99a43a8b4",
+      "packages/engine/src/context/document-wiring-review.test.ts": "4954c7679671f2517ec158b88654c39ab7d4d3af7d62cd629f58d63b89d0c861",
+      "packages/engine/src/context/index.ts": "25e0bf6a9f2a121754c82ad6273d6f43debd4bcdbbcdfa53ed63a9a8b143a734",
+      "packages/engine/src/context/model-spec.test.ts": "899e1bacbcd6cd4bdf0460e010b886786cfe0e00bf2613085c4a6693c2e9348c",
+      "packages/engine/src/context/model-spec.ts": "5f1d6c61eee7394e36b1192b3e5917f2effb82af0cc3b571c21335437f4d138a",
+      "packages/engine/src/context/plan.ts": "314859dbd2528a156099ee25422087d3c343060e8fc605b2dcaefa04eab4010c",
+      "packages/engine/src/context/semantic-memory.ts": "c3c28b5af958307e90295cc19d01e83f8c2cedc5fde3baa86ac547c907a2a314",
+      "packages/engine/src/context/service.ts": "af4d645a057b15c0212650f3ad07dd75ac87d7259cd335feb6e1aea7dde9f4b0",
+      "packages/engine/src/diagnostics/storage-usage.test.ts": "c1f61bb29206dc8ad1f8bf8d70599255f07b5f1fe55a6347ef39a29e83041a4d",
+      "packages/engine/src/diagnostics/storage-usage.ts": "c68342ebff49720e73a5b9fa65b2fea2025509f79ed36b673bf5018a9296c079",
+      "packages/engine/src/documents/provider.test.ts": "301bd1a75d90cae410cacb28c4079f53c389de8d5c6250ced8088e425d618158",
+      "packages/engine/src/documents/provider.ts": "74532e0678ee51403a4eb33ce8b38fb95f92c999b11084861a2c1f7cb40c5d4f",
+      "packages/engine/src/documents/store.test.ts": "885c4ae03aa2d14b59be08f0b1d6bd5f8523a33df77166c4308eb14876a2f638",
+      "packages/engine/src/documents/store.ts": "4cb2fe14689c1154a73118bd2b2a15301c0472513d5c3d1b8c999154d809ed6f",
+      "packages/engine/src/documents/validation.test.ts": "6749322aa80378e4d1fd72802b9a6f34a1bcb50a36faae08303448cd0917dfdb",
+      "packages/engine/src/documents/validation.ts": "440d146a614926b006ce39137f77925623defdc0805aeaab704f3f6b8a200c7b",
+      "packages/engine/src/engine.ts": "9236f0a5ee4f48cc6c521123d19d3bd46dc20b2045d9be88fcc671a3a6d9f1b5",
+      "packages/engine/src/index.ts": "9f22125c34e958305f1f8e442954762113851846b59018dc8ba9787363359c33",
+      "packages/engine/src/integration/document-input.integration.test.ts": "5f1cd78db16347a212831792f76111268c7e2eeb1f8749f9392cc16d6fc3d5fd",
+      "packages/engine/src/ports.ts": "ac4af3e96e05fc942e8c5b52a11a5a658aecf1dc67c2719ea2d8cc8f5f4a4a3c",
+      "packages/engine/src/provider/anthropic.ts": "966e42278e2a949d0d2192df21f0bcf42c2a0c4c90457fbe73119238dc858d13",
+      "packages/engine/src/provider/codex.ts": "8b386cd234a7acb2ffc6ef07caf20c5027d6cfc35f3cac0f2d62f20ec6514f34",
+      "packages/engine/src/provider/helpers.ts": "0f3961a770f011e718db2ab24272cd2f9ac7ce208d7f1ed1b437b620993d451a",
+      "packages/engine/src/provider/openai-compatible.ts": "9fa3afbe7fc0dc42d8a4e5ed9a5f02224dc08b0959cb2e47ba219c09659d774d",
+      "packages/engine/src/provider/responses.test.ts": "872ded37a6243afe65c4af7b794287378c251de748bb047ec041241b39aec50e",
+      "packages/engine/src/provider/responses.ts": "d1a477f7bfb864da9f22fcd598c4bcb06c0aa144f168079d09ee02a8ed5e71c3",
+      "packages/engine/src/provider/scripted.ts": "123a33712c0f0ba6c15064031a5f9cd5770db247be3ccf53eb080fd9dbfe9be1",
+      "packages/engine/src/recovery/provider-evidence.test.ts": "21971206ffb26a0cb06688fd3f3ee53614348d43b3c887f3f1786b8d84d9f487",
+      "packages/engine/src/recovery/provider-evidence.ts": "9ade301a1f2700ba8dd5073fb38a1739e53f3c9036ca0e31a3c1508bd743eaac",
+      "packages/engine/src/recovery/summary.test.ts": "d69d73c2ffc1aff977a3de524a20e9bb1fd651f1bdb351f0f93613f1cb653a69",
+      "packages/engine/src/recovery/summary.ts": "df913361f3c25e64089914ec2d5e85af56fc4ee8fdabbcdd4f83fc7e649bd01e",
+      "packages/engine/src/storage/active-prefix.ts": "f1f67d158d3142be55a371fcfe84919f5cc0fd5bd2be37dbd764f041d4d87842",
+      "packages/engine/src/storage/archive.test.ts": "e9d3eb947d21677e079c4ec0bf9a5bbef2e9749281c370f21fe1eea8a29559e9",
+      "packages/engine/src/storage/archive.ts": "c7aa46c9de21d4e255dd7fc659280ef014d90a1fe269edee4998e027a4ca206d",
+      "packages/engine/src/storage/document-index.test.ts": "cc347fac056803f4736053d80d9efbdb90d6f14d15143698b1f6eaa022770894",
+      "packages/engine/src/storage/index.ts": "765aeb0b0abcc189e6b7c36849bbffae56e9f9c84f69514f005dcc494cfab65b",
+      "packages/engine/src/storage/input-document-index.ts": "74709b6d58701aa5e0df986bd512ef5865f83e325d15e6c5e9a6e87c993cd20c",
+      "packages/engine/src/storage/migrations.test.ts": "17322bae3ee85b8ccbafae8ea76b637c3d0239428f703cf79fc8664216b59c27",
+      "packages/engine/src/storage/migrations.ts": "193078d026a932b9e4607772e74262cd14dab4fe60264caffc2d42a5b978222d",
+      "packages/engine/src/storage/native-history.ts": "ef86654f04a1bee66c29048ef9ed29d6ecb837f09b6cb5d489eba2dfaa7b3afc",
+      "packages/engine/src/storage/native.ts": "b29738879d4dc110f539ddb139cd573bd8c6ff7abb0c62ea88fd309000d9c10c",
+      "packages/engine/src/storage/session-document-anchor.test.ts": "1f46810f9e8eee02ad1734b22a3109884bcd9a195e1c52d45348c4b32c753edf"
+    }
+  },
+  "measurements": {
+    "actualTemporaryDocumentTests": 17,
+    "longActiveReadExchanges": 24,
+    "reviewRegressionsFixed": [
+      "active-media-anchor-double-reservation",
+      "document-context-limit-prefix-replanning",
+      "dual-foreign-run-chronology-and-pagination-cursor"
+    ],
+    "typedLocalDenialHasConfirmedCleanupAndNoWorkspaceUncertainty": true,
+    "wholeSessionSnapshotRequiredForDocumentContext": false
+  },
+  "earlierAttempts": [
+    {
+      "log": "/tmp/moodcode-wave9-noemit-first.log",
+      "reason": "Composite project rejects disabling incremental; corrected command uses composite:false for scoped check."
+    },
+    {
+      "log": "/tmp/moodcode-wave9-typecheck-third.log",
+      "reason": "Authored recovery fixture referenced sourceOwnerSha256 instead of sourceSha256; corrected fixture type."
+    },
+    {
+      "log": "/tmp/moodcode-g121-document-first.log",
+      "reason": "Actual fixture exposed adapter token-cost permission missing from engine admission preflight, alongside fixture API assumptions; both fixed."
+    },
+    {
+      "log": "/tmp/moodcode-g121-wiring-review.log",
+      "reason": "Independent fixtures reproduced active image anchor double reservation and missing document-context prefix replan."
+    },
+    {
+      "log": "/tmp/moodcode-g121-wiring-review-after1.log",
+      "reason": "Independent dual external media fixture reproduced Run chronology and beforeRunId inversion."
+    }
+  ],
+  "preservation": {
+    "eighthReport": "engine-goal-eighth-verification.json",
+    "sha256": "ecd52023891c8ba527fc5437ecc04d1c23f12c0afcd80d304c95bdd349ebce4f",
+    "matchesCommit": "7a5a844",
+    "previousReports": [
+      "engine-goal-first-verification.json",
+      "engine-goal-second-verification.json",
+      "engine-goal-third-verification.json",
+      "engine-goal-fourth-verification.json",
+      "engine-goal-fifth-verification.json",
+      "engine-goal-sixth-verification.json",
+      "engine-goal-seventh-verification.json",
+      "engine-goal-seventh-verification.json"
+    ]
+  },
+  "limits": [
+    "Remote PDF recognition, page interpretation, account allowance and complete token-window fit were not verified.",
+    "PDF is signature-only; full parsing, encryption, objects, active content, decompression and page limits are outside this scope.",
+    "Nested child document indexes are outside primary archive auditing and root diagnostics coverage.",
+    "Current Codex, Anthropic, Chat Compatible and Scripted adapters refuse PDF before credentials/fetch.",
+    "All full gates ran on macOS arm64 / Node 26.9.0. Two Windows-only cases skipped; Linux, Windows, Node24 and hosted CI remain unverified.",
+    "The single live Codex request verified ordinary text execution after private synthetic recovery and DB8 restart. It did not validate real unknown remote outcome or billing."
+  ],
+  "goal": {
+    "status": "active",
+    "completed": false,
+    "externalOpen": [
+      "E5-08",
+      "E5-13",
+      "E6-07",
+      "E6-08"
+    ],
+    "nextLocal": "G1-22: investigate bounded child document archive and diagnostic ownership coverage, then implement a concrete read-only audit without inferring unvalidated child authority."
+  }
+}

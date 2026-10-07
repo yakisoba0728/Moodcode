@@ -66,3 +66,5 @@ const report = await inspectEngineStorage({
 ## PDF index 관측
 
 `getStorageUsage()`는 `input_documents`의 주 DB CAS index를 별도 bounded 조회하고 scanner의 `documentIndex`로 전달한다. report의 `documents`는 `images`와 병렬이며 `root-input-documents-only` coverage·관측 시각·완전성·candidate 목록을 갖는다. `input-documents/doc_<32hex>.blob`의 primary snapshot 미참조 regular single-link 파일만 후보가 된다. 동일 JSON/report cap을 공유하며 staging·symlink·임의 이름·child 내부 index는 검사된 orphan으로 간주하지 않는다. 자동 삭제하지 않고 publish→CAS race를 같은 제한으로 표시한다. [문서 입력 계약](engine-input-documents.md)을 따른다.
+
+별도 `getChildDocumentStorageUsage({sessionId,sourceRunId,taskIds,...})`는 exact managed child binding·종료·물리 identity를 확인한 index만 관측한다. 이 별도 report는 파일 scanner의 parent tree bytes에 child bytes를 더하지 않으며 blob/orphan/삭제를 검사하지 않는다. incomplete index 또는 미검사 child의 총량은 null이다. primary+child 선택 metadata 예산과 original SQLite sidecar 쓰기를 피하는 held owner/private mirror, close/cancel 정산은 [child 문서 저장 계약](engine-child-document-storage.md)을 따른다.

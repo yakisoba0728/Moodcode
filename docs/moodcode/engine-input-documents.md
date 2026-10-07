@@ -52,7 +52,7 @@ DB8은 최신 PDF user 조회용 partial index만 추가한다. 이전 Run, ledg
 
 ## 보관·진단과 검증 범위
 
-아카이브는 primary document index와 blob hash/signature, input/Run/Message/inbox의 정확한 참조 및 SQL/payload owner를 함께 검사한다. 실패하면 archive를 publish하지 않는다. import는 원본 참조를 복원하고 새 물리 저장소 binding을 사용한다. child 저장소 내부 PDF index의 재귀 검사는 현재 범위 밖이다.
+아카이브는 primary와 정확히 종료한 내부 managed child의 document index·blob hash/signature, input/Run/Message/inbox의 참조와 SQL/payload owner를 함께 검사한다. child는 root journal의 영속 storage binding과 manifest allowlist를 요구하며 별도 owner lease 아래 standalone snapshot을 만든다. 실패하면 publish하지 않는다. import는 원본 참조·mirror·물리 출처를 보존하고 child session도 pause하며 새 실행 권한을 재발급하지 않는다. legacy/external child와 임의 nested DB의 재귀 발견은 완료 coverage에 포함하지 않는다. [child 저장 계약](engine-child-document-storage.md)을 따른다.
 
 `getStorageUsage()`는 root document index의 관측 시점과 `root-input-documents-only` coverage를 제공한다. 파일 후보를 읽기 전용으로 기록하며 자동 삭제하지 않는다. index 이후 publication/CAS가 진행될 수 있어 후보가 삭제 가능한 orphan이라는 보장은 없다. 물리 I/O 또는 전체 tree 탐색량의 절대 상한으로 확대하지 않는다.
 

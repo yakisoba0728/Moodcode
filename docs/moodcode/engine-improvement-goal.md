@@ -82,4 +82,12 @@ Windows native Job backend, 다른 OS 호스트, 최초 hosted CI, 실제 Anthro
 
 실제 임시 엔진→mock HTTP 17개로 admission/dispatch/재시작/24개 read exchange/archive/unknown-token/tamper/local cleanup을 검증했다. 독립 검토에서 adapter policy preflight 누락, active image 이중 reservation, PDF context 초과의 prefix 재계획 누락, dual 외부 Run 순서·cursor 역전을 재현해 수정했다. 전체 2,206 pass·실패 0·Windows 조건 2 skip, fixture 3/3이며 같은 커밋 actual Codex text 회귀 1회가 통과했다. 실제 원격 PDF 요청은 0회다.
 
-[여덟 번째 JSON](engine-goal-eighth-verification.json)은 `7a5a844`의 bytes 그대로 보존했다. 현재 [검증 보고서](engine-goal-verification.md)는 원격 PDF/parser/token 및 child index 재귀 감사의 한계를 구분한다. 다음 G1-22는 managed child 저장소의 문서 owner·archive/진단 coverage를 읽고 bounded audit을 구현한다. 외부 OS/provider/CI 4개와 GUI 제외를 유지하며 goal은 활성 상태다.
+[여덟 번째 JSON](engine-goal-eighth-verification.json)은 `7a5a844`의 bytes 그대로 보존했다. 이 시점의 원격 PDF/parser/token 및 child index 재귀 감사 한계는 [아홉 번째 JSON](engine-goal-ninth-verification.json)에 보존했다. G1-22 managed child 문서 owner·archive/진단 coverage는 아래 열 번째 검토 지점에서 구현했다. 외부 OS/provider/CI 4개와 GUI 제외를 유지하며 goal은 활성 상태다.
+
+## 열 번째 검토 지점
+
+`9bf0e7f`에서 G1-22 root/child 저장 binding·physical owner lease·private immutable mirror·선택 문서 진단·아카이브 감사와 inactive child import를 연결했다. prepared/admitted는 두 DB의 독립 commit이며 실제 child close 뒤 root만 종료 증거를 기록한다. selected proof는 공통 8MiB/ref/record 예산을 사용하고 unknown 총량은 null이다. 원래 child main을 SQLite로 열지 않으며 source owner·native quiescence·blob/captured manifest를 검사한다. 외부/nondefault 내부/restored physical mapping과 extra runtime artifact의 한계를 명시했다.
+
+독립 실제 host 검토는 incomplete 총량의 0 표시, native 활성 기록의 누락, 같은 크기 PDF가 최초 검증과 final capture 사이 바뀌어 invalid archive가 publication되는 경합을 재현했다. 수정 전 로그와 source/bundle 검증을 보존했다. 전체 gate는 2,274 pass·실패 0·조건부 2 skip, 코딩 fixture 3/3이다. 같은 source commit에서 실제 Codex 자식 text 요청 1회, natural cleanup·selected index·archive/validate·child pause import·restored source reexport 거절·임시 경로 제거를 확인했다. Root와 PDF 원격 요청은 0회다.
+
+[아홉 번째 JSON](engine-goal-ninth-verification.json)은 `53241e7`의 bytes 그대로 보존했다. [최신 검증](engine-goal-verification.md)과 [저장 계약](engine-child-document-storage.md)을 따른다. 다음 G1-23은 실제 SIGKILL·재시작에서 두 DB phase·원래 outcome/usage/ACK·worktree owner를 확인한다. 자동 재호출·보충·재인증은 하지 않는다. 외부 OS/provider/CI 4개와 GUI 제외를 유지하며 goal은 활성 상태다.

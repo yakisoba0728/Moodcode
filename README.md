@@ -6,7 +6,7 @@ Electron 기반 로컬 코딩 에이전트다. 자체 TypeScript/Node 엔진, �
 
 현재 후속 작업은 내부 엔진 우선이다. [엔진 구현 TODO](TODO.md)의 75개 항목 중 71개를 구현·검증했다. durable queue/steer·Turn/Part·의미 요약·scoped tools·MCP·PTY·worktree child 실행·승인한 변경 통합·LSP/formatter·archive·진단을 자체 엔진에 연결했다. [최신 headless 검증](docs/moodcode/engine-native-final-verification.md)과 [host API](docs/moodcode/engine-host-api.md)가 현재 지원 범위의 기준이다. 새 엔진 기능의 GUI 노출은 후속이다.
 
-지속 개선 goal에서는 OpenCode/pi/Amp/Claude Code/Codex의 공개 근거를 비교하며 자체 엔진을 확장한다. ordinary/summary usage·별도 요약 수명·DB6 일반 Attempt 종료 증거·DB7 일반 provider host 결정과 summary pin proof V2·긴 active Run 기억·세션 최신 이미지 입력·승인된 읽기 전용 `delegate_task`를 연결했다. 복구 증거는 한 transaction의 8MiB 예산과 원문 cache를 공유하고 source/CAS·변경·본문 반환 크기를 다시 검사한다. 최신 headless gate는 2,087 pass·실패 0·조건부 2 skip이며 같은 커밋의 실제 Codex 요청 2회를 확인했다. [최신 검증](docs/moodcode/engine-goal-verification.md), [목표·진행 범위](docs/moodcode/engine-improvement-goal.md), [G1 TODO](TODO.md)를 따른다.
+지속 개선 goal에서는 OpenCode/pi/Amp/Claude Code/Codex의 공개 근거를 비교하며 자체 엔진을 확장한다. 일반·요약 실행의 usage/cleanup·명시적 복구 결정, 긴 active Run 기억·이미지/PDF 입력과 별도 정책·공유 증거 예산, 승인된 읽기 전용 delegate_task를 연결했다. Managed child의 영속 저장 binding·선택 문서 진단·아카이브 감사와 pause import도 검증했다. 최신 headless gate는 2,274 pass·실패 0·조건부 2 skip이며 구현 `9bf0e7f`의 실제 Codex 자식 text 요청 1회가 통과했다. [최신 검증](docs/moodcode/engine-goal-verification.md), [목표·진행 범위](docs/moodcode/engine-improvement-goal.md), [G1 TODO](TODO.md)를 따른다.
 
 ## 개발 실행
 
@@ -49,9 +49,12 @@ node scripts/verify-codex.mjs --live
 node scripts/verify-engine-extensions.mjs --live
 node scripts/verify-active-prefix.mjs --live
 node scripts/verify-summary-recovery.mjs --live
+node scripts/verify-child-document-storage.mjs --live
 ```
 
 전체 엔진 gate는 기본 동시성 4다. 메모리가 부족한 호스트에서는 `MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine`처럼 1~32 사이의 동시성을 지정할 수 있다. 테스트 목록은 같다. 요약 복구 live 검증의 불확실 요청은 임시 fixture이며 실제 Codex 호출은 host 결정 뒤 명시적인 새 Run 한 번이다.
+
+Child 문서 저장 live 검증은 실제 Codex 자식 text 요청 1회와 보관·검증·pause import를 확인한다. Host가 저장한 opaque PDF는 원격 요청에 포함하지 않는다. 성공한 경우 소유한 임시 경로를 제거하고 실패하면 검토용으로 보존한다.
 
 ## JSONL harness
 

@@ -17,3 +17,9 @@ DB3 attempt usage와 `artifactDir/input-media`의 session index/blob도 함께 �
 제한은 artifact 4096개, 모든 멤버 합계 512MiB, 파일 하나 256MiB, manifest 4MiB, artifact depth 64다. recovery stable snapshot은 별도 기존 512MiB/12 DB-sidecar 제한을 따른다. 정상적인 abort나 오류는 private partial data를 정리하고 모든 lease를 해제한다. 프로세스 강제 종료 시 private staging 또는 비어 있는 publication container가 남을 수 있으므로 archive validation을 통과하지 않은 경로를 실행 데이터로 사용하지 않는다. 일단 publication된 payload는 원자적으로 완성본이다.
 
 Focused fixture는 실제 v1 recovery acknowledgement의 보존과 복사된 authority 0, v1→v2 import, native pending/dispatch/Part prefix 및 explicit uncertain recovery, stopped effect marker, owner 경합, partial cleanup, cancellation, 기존 destination 보존, 미래 schema/hash/path tamper를 검증한다. Unix child를 export staging 및 import publish 직전에 SIGSTOP→SIGKILL한 뒤 lease 해제·원본 event 보존·미완성 payload 미노출·새 bundle 재시도 성공도 확인한다. 해당 2개 signal fixture는 Windows에서 skip한다. 라이브 provider·OS 간 restore·대형 파일 전체 archive throughput은 별도 검증이 필요하다.
+
+## Managed child 문서
+
+새 `documentAudit`는 root journal과 정확히 종료한 내부 child의 영속 binding·mirror·native owner, document refs/blob·exact manifest member를 검증한다. child owner read lease는 publication까지 유지하고 child main은 standalone DELETE snapshot으로 보관한다. raw owner/WAL/SHM으로 이를 대체하지 않는다. typed binding이 있는 bundle의 audit field 제거도 거절한다. Legacy/external child는 explicit partial/unchecked이고 임의 DB를 child로 발견하지 않는다.
+
+Import의 추가 결과는 `childSessionsPaused`와 `documentAuditCoverage`다. 원래 child session·mirror·outcome/usage/ACK·physical 출처는 유지하고 실행을 재개하지 않는다. 복원된 typed child를 fresh source로 재-export하는 현재 경로는 scope 변경으로 거절한다. 선택 proof의 8MiB/refs 예산과 별도 전체 DB logical hashing·파일/mirror 한도는 [child 저장 계약](engine-child-document-storage.md)에 구분한다.

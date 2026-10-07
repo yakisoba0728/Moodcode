@@ -1,6 +1,6 @@
 # Moodcode 엔진 계약 v2
 
-구현 범위: E0-01·E0-02 계약과 validator, 이후 실제 inbox·scheduler·native 실행·조회 연결. 최신 실행 검증은 [headless 통합 보고서](engine-native-final-verification.md)를 따른다. OpenCode 구현·프롬프트·테스트를 복사하지 않고 Moodcode의 기존 durable Run 계약에 추가했다.
+구현 범위: E0-01·E0-02 계약과 validator, 이후 실제 inbox·scheduler·native 실행·조회 연결. 기본 통합은 [headless 통합 보고서](engine-native-final-verification.md), 지속 개선의 최신 실행은 [goal 검증](engine-goal-verification.md)을 따른다. OpenCode 구현·프롬프트·테스트를 복사하지 않고 Moodcode의 기존 durable Run 계약에 추가했다.
 
 ## 기존 API와 새 journal
 

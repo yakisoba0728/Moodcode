@@ -19,6 +19,7 @@
 | `importImage(sessionId, bytes, mimeType, signal?)` | 세션 소유의 제한된 이미지 blob을 저장하고 immutable 참조 반환 |
 | `importDocument(sessionId, bytes, signal?)` | 세션 소유 bounded PDF blob을 저장하고 이미지와 별도 immutable 문서 참조 반환 |
 | `getStorageUsage({signal?, limits?})` | 주 DB 이미지·문서 index와 engine-owned artifact/DB 경로의 bounded 읽기 전용 진단; 모델 턴에서 자동 실행하지 않음 |
+| `getChildDocumentStorageUsage({sessionId, sourceRunId, taskIds, signal?, limits?})` | 정확한 root owner·storage binding·확인된 close에 연결된 selected child document index 관측; 별도 공유 예산·partial/null·비삭제 계약 |
 | `close()` | admission 중지와 owned Run·child·MCP/plugin·PTY·watcher·LSP·DB 종료 정산 |
 
 v2 command envelope에는 `schemaVersion`, `commandId`, `type`, `payload`만 둔다. `stream:'session-v2'`는 event/cursor에 있는 구분자이며 command 필드가 아니다. 두 journal의 seq는 교환하지 않는다. 추가 command는 [v2 명세](engine-contracts-v2.md)를 따른다.
@@ -106,6 +107,8 @@ child는 root의 살아 있는 LSP/MCP 연결을 묵시적으로 빌리지 않�
 `session.getDiagnostics`는 session owner의 SQL metrics·context 상태·workspace 관찰을 반환한다. [metric 의미](engine-native-metrics.md)에 따라 전체 primary count와 최근 matching 이벤트 창·unknown/null을 구별한다. 토큰 합계는 관측 값이며 청구 API의 확정 금액이 아니다. `read_artifact`는 현재 session에 속한 과거 Run/internal-tool/선택적 Turn·Attempt identity와 hash를 검증한 page를 반환한다. 원본 tool 결과와 provider replay는 보존한다.
 
 `exportEngineArchive/validateEngineArchive/importEngineArchive`는 primary/review/recovery ledger/artifact manifest를 보존한다. import는 살아 있는 engine의 DB를 교체하지 않으며, 복원 뒤 중단한 효과를 자동 실행하지 않는다. [archive](engine-archive.md)·[저장 성능](engine-storage-performance.md)·[process/PTY](engine-process-terminals.md)의 지원 한계를 따른다.
+
+`getChildDocumentStorageUsage`는 기본 8개·최대 32개 exact managed child만 선택한다. source index 관측은 blob hash 검증이나 orphan 판정이 아니며 incomplete 총량은 null이다. 내부 verified child의 archive는 별도 owner read lease와 standalone snapshot·document refs/hash·manifest allowlist를 검사하고 import에서도 session을 pause한다. 원래 mirror·ACK·물리 binding을 새 실행 권한으로 다시 발급하지 않는다. Legacy/external/복원된 typed child의 coverage와 재보관 제한은 [child 문서 저장 계약](engine-child-document-storage.md)을 따른다.
 
 ## 검증과 남은 조건
 
