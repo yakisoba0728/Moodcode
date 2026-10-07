@@ -30,6 +30,7 @@ const report = {
   scope: { actualChildRequests: 1, actualRootRequests: 0, remotePdfRequests: 0, syntheticParent: true, hostImportedOpaquePdf: true,
     projectRecoveryAcknowledged: false, executionAutomaticallyResumed: false, rawHttpBodyHashed: false },
   actualRequests: [], passed: false, cleanupConfirmed: false,
+  toolCatalogueMode: toolDiscovery ? 'discovery' : 'eager',
   toolDiscovery: { hostOptIn: toolDiscovery, childAdvertisedTools: 0, reservationVerified: false },
 };
 const provider = {
@@ -122,7 +123,7 @@ try {
     assert.equal(cleanup.requestSha256, report.actualRequests[0].logicalRequestSha256);
     assert.equal(cleanup.requestBytes, report.actualRequests[0].logicalRequestBytes);
     report.cleanupProof = { state: cleanup.state, method: cleanup.method, reason: cleanup.reason };
-    if (toolDiscovery) {
+    {
       const rows = reader.prepare("SELECT data FROM events WHERE run_id=? AND type='context.prepared'").all(task.childRunId);
       assert.equal(rows.length, 1);
       const prepared = JSON.parse(rows[0].data).payload;

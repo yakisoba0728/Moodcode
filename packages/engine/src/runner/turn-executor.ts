@@ -42,7 +42,9 @@ export class TurnExecutor {
       this.attempt = { schemaVersion: SESSION_SCHEMA_VERSION, id: randomUUID(), sessionId: this.turn.sessionId, runId: this.turn.runId, turnId: this.id, index,
         providerId: provider.id, modelId: request.modelId, state: 'prepared', createdAt: timestamp(), ...(contextRevisionId ? { contextRevisionId } : {}) };
       this.records?.putAttempt(this.attempt);
-      const dispatchedRequest: TurnRequest = { ...request, turnId: this.id, attemptId: this.attempt.id, ...(this.records ? { includeMetadata: true } : {}) };
+      // Each attempt owns detached data; adapter mutation must not change the
+      // original tools/messages used by a retry or its durable request digest.
+      const dispatchedRequest: TurnRequest = structuredClone({ ...request, turnId: this.id, attemptId: this.attempt.id, ...(this.records ? { includeMetadata: true } : {}) });
       const cleanupStore = this.records?.createAttemptCleanup && this.records.dispatchAttemptCleanup && this.records.settleAttemptCleanup ? this.records : undefined;
       if (this.records && [this.records.createAttemptCleanup, this.records.dispatchAttemptCleanup, this.records.settleAttemptCleanup].some(Boolean) && !cleanupStore) {
         throw new EngineError('CLEANUP_UNCERTAIN', 'Provider cleanup storage is only partially configured');

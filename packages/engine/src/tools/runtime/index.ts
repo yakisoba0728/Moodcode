@@ -145,6 +145,11 @@ export class ScopedToolRuntime {
   resolve(catalogue: ToolCatalogue, toolName: string): ToolDefinition {
     const entry = this.entry(catalogue, toolName); return this.delegateCaptured(catalogue, entry);
   }
+  /** Validates an exact captured catalogue even when it contains no tools. */
+  assertCatalogueCurrent(catalogue: ToolCatalogue): void {
+    const captured = this.captures.get(catalogue);
+    if (!captured || captured.signature !== JSON.stringify(catalogue) || catalogue.revision !== this.current || catalogue.policyVersion !== this.policy.version) fail('TOOL_CATALOGUE_STALE', 'Tool registry, policy or captured catalogue changed; request a fresh catalogue');
+  }
   /** For old runner registration: every prepare takes a fresh catalogue snapshot. */
   delegate(scopeId: string, toolName: string, mode: 'plan' | 'build' = 'build'): ToolDefinition {
     const initial = [scopeId, ...this.included.get(scopeId) ?? []].map(scope => this.scopes.get(scope)?.get(toolName)).find(Boolean); if (!initial) fail('TOOL_NOT_FOUND', 'Tool is not registered in the scope');
@@ -152,8 +157,8 @@ export class ScopedToolRuntime {
       prepare: (input, context) => this.resolve(this.catalogue(scopeId, mode), toolName).prepare(input, context), execute: (prepared, context) => this.execute(prepared, context) };
   }
   private entry(catalogue: ToolCatalogue, toolName: string): Entry {
-    const captured = this.captures.get(catalogue);
-    if (!captured || captured.signature !== JSON.stringify(catalogue) || catalogue.revision !== this.current || catalogue.policyVersion !== this.policy.version) fail('TOOL_CATALOGUE_STALE', 'Tool registry, policy or captured catalogue changed; request a fresh catalogue');
+    this.assertCatalogueCurrent(catalogue);
+    const captured = this.captures.get(catalogue)!;
     const entry = captured.entries.get(toolName); if (!entry || this.scopes.get(entry.scopeId)?.get(toolName)?.token !== entry.token) fail('TOOL_NOT_FOUND', 'Tool is not available in the captured catalogue'); return entry;
   }
   private delegateCaptured(catalogue: ToolCatalogue, entry: Entry): ToolDefinition {

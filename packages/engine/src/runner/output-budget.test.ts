@@ -104,10 +104,17 @@ test('actual remaining tool budget bounds a large read as valid JSON while prese
     assert.deepEqual(prepared[index]!.payload, {
       turnIndex: request.turnIndex, bytes: Buffer.byteLength(JSON.stringify({ messages: request.messages, tools: request.tools })),
       limit: run.config.limits.maxContextBytes,
+      reservedToolBytes: Buffer.byteLength(JSON.stringify({ messages: [], tools: request.tools })) - 2,
+      toolCatalogueSha256: createHash('sha256').update(JSON.stringify(request.tools)).digest('hex'),
+      advertisedToolNames: request.tools.map(tool => tool.name),
+      registryRevision: f.engine.toolRuntime.revision, policyVersion: f.engine.toolRuntime.policy.version,
       summaryIncluded: request.messages.some(message => message.role === 'assistant' && message.content.startsWith(EXTRACTIVE_MEMORY_PREFIX)),
     });
   }
-  assert.deepEqual(f.engine.store.getMetrics(f.session.id).context, prepared.at(-1)!.payload);
+  const latest = prepared.at(-1)!.payload;
+  assert.deepEqual(f.engine.store.getMetrics(f.session.id).context, {
+    turnIndex: latest.turnIndex, bytes: latest.bytes, limit: latest.limit, summaryIncluded: latest.summaryIncluded,
+  });
 });
 
 test('a normalized identical readonly call returns a clear error without actual re-execution, and a narrower request still works', async t => {

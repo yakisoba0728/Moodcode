@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { types } from 'node:util';
 import {
   EngineError, isTerminal,
@@ -18,7 +18,7 @@ import { validateToolResultEnvelope } from '@moodcode/contracts/validation';
 import { executionRecords, TurnExecutor } from './turn-executor.js';
 import { createMcpExecutionObserver, type ApprovedMcpToolOwner } from './mcp-execution-observer.js';
 import type { ToolCatalogue } from '../tools/runtime/index.js';
-import { DISCOVERY_TOOL_NAME, RunToolDiscovery, type ToolDiscoveryDispatch, type ToolDiscoveryAction } from './tool-discovery.js';
+import { DISCOVERY_TOOL_NAME, RunToolDiscovery, type ToolDiscoveryAction } from './tool-discovery.js';
 import { bindCheckpointArtifacts } from '../artifacts/result.js';
 import type { ChildBudget } from '../child-tasks/index.js';
 export { InputScheduler, type InputSchedulerOptions } from './input-scheduler.js';
@@ -540,14 +540,25 @@ export class RunCoordinator implements CoordinatorPort {
         if (!this.options.toolRuntime) throw new EngineError('INVALID_TOOL_DISCOVERY_POLICY', 'Discovery requires the scoped tool runtime');
         owner.discovery = new RunToolDiscovery(this.options.toolRuntime, this.options.toolDiscoveryPolicy, this.options.coreToolNames ?? this.options.tools.map(tool => tool.name), run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
       }
-      let reservedBytes = 0, plannedCatalogue: ToolCatalogue | undefined, discoveryDispatch: ToolDiscoveryDispatch | undefined;
+      let reservedBytes = 0, toolCatalogueSha256 = '', plannedCatalogue: ToolCatalogue | undefined;
+      const assertCatalogueCurrent = () => {
+        owner.discovery?.assertCurrent();
+        if (owner.catalogue) this.options.toolRuntime!.assertCatalogueCurrent(owner.catalogue);
+      };
       const captureCatalogue = () => {
         if (owner.discovery) {
-          const dispatch = owner.discovery.capture(); discoveryDispatch = dispatch; owner.catalogue = dispatch.catalogue; reservedBytes = dispatch.reservedBytes;
+          const dispatch = owner.discovery.capture(); owner.catalogue = dispatch.catalogue; reservedBytes = dispatch.reservedBytes; toolCatalogueSha256 = dispatch.toolCatalogueSha256;
         } else {
+          // catalogue() creates a new opaque handle. Reuse a current capture so
+          // identity comparison at the dispatch boundary does not cause churn.
+          if (owner.catalogue) {
+            try { assertCatalogueCurrent(); return; }
+            catch (error) { if (!(error instanceof EngineError) || error.code !== 'TOOL_CATALOGUE_STALE') throw error; }
+          }
           owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
           const schemas = owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
           reservedBytes = Buffer.byteLength(JSON.stringify({ messages: [], tools: schemas }), 'utf8') - 2;
+          toolCatalogueSha256 = createHash('sha256').update(JSON.stringify(schemas)).digest('hex');
         }
       };
       captureCatalogue();
@@ -561,21 +572,17 @@ export class RunCoordinator implements CoordinatorPort {
       });
       const context = async (fixedCatalogue = false) => {
         for (let changes = 0; changes < 16; changes++) {
-          if (owner.discovery) {
-            if (fixedCatalogue) owner.discovery.assertCurrent();
-            else captureCatalogue();
-          }
+          if (fixedCatalogue) assertCatalogueCurrent();
+          else captureCatalogue();
           const messages = await abortable(() => this.options.buildContext(contextRequest()), owner.abort.signal, 'Context builder');
-          if (owner.discovery) {
-            try { owner.discovery.assertCurrent(); }
-            catch (error) {
-              if (!fixedCatalogue && error instanceof EngineError && error.code === 'TOOL_DISCOVERY_STALE') continue;
-              throw error;
-            }
+          try { assertCatalogueCurrent(); }
+          catch (error) {
+            if (!fixedCatalogue && error instanceof EngineError && ['TOOL_DISCOVERY_STALE', 'TOOL_CATALOGUE_STALE'].includes(error.code)) continue;
+            throw error;
           }
           plannedCatalogue = owner.catalogue; return messages;
         }
-        throw new EngineError('TOOL_DISCOVERY_STALE', 'Repeated catalogue changes exceeded the bounded context rebuild allowance');
+        throw new EngineError(owner.discovery ? 'TOOL_DISCOVERY_STALE' : 'TOOL_CATALOGUE_STALE', 'Repeated catalogue changes exceeded the bounded context rebuild allowance');
       };
       let messages = await context();
       this.assertLive(owner);
@@ -591,24 +598,22 @@ export class RunCoordinator implements CoordinatorPort {
             owner.budget.inputPromoted(); messages = structuredClone(await context());
             this.assertLive(owner); continue;
           }
-          if (owner.discovery) {
-            captureCatalogue();
-            if (owner.catalogue !== plannedCatalogue) {
-              if (++catalogueRebuilds > 16) throw new EngineError('TOOL_DISCOVERY_STALE', 'Repeated catalogue changes exceeded the bounded dispatch rebuild allowance');
-              messages = structuredClone(await context()); this.assertLive(owner); continue;
-            }
+          captureCatalogue();
+          if (owner.catalogue !== plannedCatalogue) {
+            if (++catalogueRebuilds > 16) throw new EngineError(owner.discovery ? 'TOOL_DISCOVERY_STALE' : 'TOOL_CATALOGUE_STALE', 'Repeated catalogue changes exceeded the bounded dispatch rebuild allowance');
+            messages = structuredClone(await context()); this.assertLive(owner); continue;
           }
           break;
         }
         if (owner.budget.snapshot().logicalTurns + owner.childReserved.turns >= run.config.limits.maxTurns) throw new EngineError('TURN_LIMIT', 'Parent and reserved child turns reached the Run turn limit');
-        if (!owner.discovery) owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
         owner.budget.startTurn();
         owner.invocations.clear();
         const bytes = this.checkContext(owner, messages);
         this.options.store.commit(run.id, 'context.prepared', {
           turnIndex, bytes, limit: run.config.limits.maxContextBytes,
-          ...(owner.discovery ? { reservedToolBytes: reservedBytes, toolCatalogueSha256: discoveryDispatch!.toolCatalogueSha256,
-            advertisedToolNames: owner.catalogue!.tools.map(tool => tool.name), registryRevision: owner.catalogue!.revision, policyVersion: owner.catalogue!.policyVersion } : {}),
+          reservedToolBytes: reservedBytes, toolCatalogueSha256,
+          advertisedToolNames: (owner.catalogue?.tools ?? this.availableTools(owner)).map(tool => tool.name),
+          ...(owner.catalogue ? { registryRevision: owner.catalogue.revision, policyVersion: owner.catalogue.policyVersion } : {}),
           summaryIncluded: messages.some((message) => message.role === 'assistant' && [EXTRACTIVE_MEMORY_PREFIX, SEMANTIC_MEMORY_PREFIX, ACTIVE_PREFIX_MEMORY_PREFIX].some(prefix => message.content.startsWith(prefix))),
         });
         const records = executionRecords(this.options.store);
@@ -616,7 +621,7 @@ export class RunCoordinator implements CoordinatorPort {
         owner.turn = new TurnExecutor({ run, index: turnIndex, inputIds: records?.listRunInputIds?.(run.id) ?? [run.inputId], budget: owner.budget,
           store: this.options.store, wait: abortable, ...(revisionId ? { contextRevisionId: revisionId } : {}), currentContextRevisionId: () => this.options.getContextRevisionId?.(run.sessionId),
           ...(this.options.recoverContextOverflow ? { recoverContextOverflow: async () => {
-            owner.discovery?.assertCurrent();
+            assertCatalogueCurrent();
             const failedAttemptId = owner.turn?.attemptId;
             await abortable(() => this.options.recoverContextOverflow!({ ...contextRequest(), ...(owner.turn && failedAttemptId ? {
               activePrefixStage: { stage: 'overflow-recovery' as const, currentTurnId: owner.turn.id, failedAttemptId, cleanupConfirmed: true as const },
@@ -712,7 +717,7 @@ export class RunCoordinator implements CoordinatorPort {
       try { flush(); } catch { owner.abort.abort(new EngineError('STORAGE_COMMIT_FAILED', 'Streamed output could not be persisted')); }
     }, 16);
     const advertised = [...(owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema })))];
-    const tools = owner.discovery ? structuredClone(advertised) : advertised;
+    const tools = structuredClone(advertised);
     let iterator: AsyncIterator<ProviderEvent> | undefined;
     try {
       iterator = owner.turn!.stream(provider, { runId: owner.run.id, sessionId: owner.run.sessionId, turnIndex, modelId: owner.run.config.modelId, messages: structuredClone(messages), tools,
