@@ -6,7 +6,7 @@ Electron 기반 로컬 코딩 에이전트다. 자체 TypeScript/Node 엔진, �
 
 현재 후속 작업은 내부 엔진 우선이다. [엔진 구현 TODO](TODO.md)의 75개 항목 중 71개를 구현·검증했다. durable queue/steer·Turn/Part·의미 요약·scoped tools·MCP·PTY·worktree child 실행·승인한 변경 통합·LSP/formatter·archive·진단을 자체 엔진에 연결했다. [최신 headless 검증](docs/moodcode/engine-native-final-verification.md)과 [host API](docs/moodcode/engine-host-api.md)가 현재 지원 범위의 기준이다. 새 엔진 기능의 GUI 노출은 후속이다.
 
-지속 개선 goal에서 OpenCode/pi/Amp/Claude Code/Codex의 공개 근거를 비교하며 자체 엔진을 확장했다. 실행·저장·context·도구·권한·MCP·child·복구에 이어 opt-in 도구 검색과 명시적 작업 집합 교체를 구현했다. 최신 source `93bfeaa`의 headless gate는2,553 pass·실패0·조건부2 skip·fixture3/3이며 같은 source Codex child text1회와 archive/import 회귀가 통과했다. [최신 검증](docs/moodcode/engine-goal-verification.md), [도구 검색](docs/moodcode/engine-tool-discovery.md), [목표·진행 범위](docs/moodcode/engine-improvement-goal.md), [TODO](TODO.md)를 따른다. [1차 종료 조건](docs/moodcode/engine-phase-one-exit-criteria.md)에 따라 G1-29 문맥 예약 수정과 최종 검증·문서·커밋을 마치면 goal을 완료한다. GUI와 외부 OS/provider/CI 검증은2차로 이월한다.
+OpenCode/pi/Amp/Claude Code/Codex의 공개 근거를 비교하며 자체 엔진 1차를 구현했다. 실행·저장·context·도구·권한·MCP·child·복구, opt-in 도구 검색·작업 집합 교체와 기본 eager의 문맥 예약 일치를 포함한다. 최종 source `464812f`의 headless gate는2,594 pass·실패0·취소0·기존 조건부2 skip, 타입 검사·fixture3/3이며 같은 source Codex child text1회와 archive/import 회귀가 통과했다. [최신 검증](docs/moodcode/engine-goal-verification.md), [기본 도구 문맥 계약](docs/moodcode/engine-eager-catalogue-context.md), [목표·진행 범위](docs/moodcode/engine-improvement-goal.md), [TODO](TODO.md)를 따른다. [1차 종료 조건](docs/moodcode/engine-phase-one-exit-criteria.md)의 문서·커밋·clean tree 최종 확인 뒤 goal을 완료 처리한다. GUI와 외부 OS/provider/CI 검증은2차로 이월하며 별도 요청으로 시작한다.
 
 ## 개발 실행
 

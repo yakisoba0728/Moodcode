@@ -51,7 +51,7 @@ Async context build에서 등록·정책이 바뀌면 제한된 재계획을 수
 
 Overflow retry는 같은 logical Turn의 schemas/handler capture를 유지한다. Context recovery 중 registry가 바뀌면 `TOOL_DISCOVERY_STALE`로 재시도 전에 중단한다. 이전 schema로 전송한 요청을 새 handler에 연결하지 않는다. 기존 provider cleanup/summary ownership은 그대로 유지한다.
 
-Opt-in `context.prepared`에는 `reservedToolBytes`, `toolCatalogueSha256`, `advertisedToolNames`, registryRevision/policyVersion을 추가한다. 예약은 `JSON.stringify({ messages: [], tools })`의 UTF-8 bytes에서2를 뺀 값이다. Catalogue SHA는 **실제 광고한 tools array JSON**의 SHA이며 registration의 canonical definition SHA 또는 raw HTTP SHA와 구별한다. 전체 schema를 기억용 대화문에 저장하지 않는다. DB9/metrics6과 기존 event schema를 유지한다.
+Eager/discovery 양쪽의 `context.prepared`에는 `reservedToolBytes`, `toolCatalogueSha256`, `advertisedToolNames`를 기록하고 runtime capture가 있으면 registryRevision/policyVersion도 기록한다. 예약은 `JSON.stringify({ messages: [], tools })`의 UTF-8 bytes에서2를 뺀 값이다. Catalogue SHA는 **실제 광고한 tools array JSON**의 SHA이며 registration의 canonical definition SHA 또는 raw HTTP SHA와 구별한다. 전체 schema를 기억용 대화문에 저장하지 않는다. DB9/metrics6과 기존 metrics context의 네 필드는 유지한다. G1-29는 [기본 eager의 같은 capture·재계획과 각 Attempt 요청 사본](engine-eager-catalogue-context.md)에도 이 계약을 적용한다.
 
 ## 한도와 실제 검증
 

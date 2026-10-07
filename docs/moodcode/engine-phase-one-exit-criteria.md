@@ -10,14 +10,14 @@ Moodcode 자체 메인 엔진의 로컬 headless 1차 구현을 완료한다. �
 
 아래 조건을 모두 충족해야 1차를 완료한다.
 
-| 조건 | 필요한 증거 | 현재 상태 |
+| 조건 | 필요한 증거 | 최종 검증 근거 |
 |---|---|---|
-| 기존 엔진 구현 고정 | G1-01~28의 구현·검증·로컬 커밋과 기존 host 계약 보존 | 완료; 최신 source `93bfeaa` |
-| 마지막 필수 수정 | G1-29의 byte cap 실패 및 known model window 계획 불일치 수정, 실제 최신 예약 대조군 회귀 | 미완료; source/private bundle 6조건으로 원인 확인 |
-| 실행 경계 유지 | catalogue/예약/문맥/provider/handler 일치, 제한된 재계획·steer·취소·동일 Turn retry, 권한·cleanup·저장 회귀 통과 | G1-29 최종 소스 검증 필요 |
-| 최종 전체 검사 | 동일 final source에서 `npm run typecheck`, 전체 `npm run test:engine`, `node scripts/evaluate-engine.mjs` 3/3 | G1-29 완료 후 다시 실행 |
-| 제한된 실제 모델 검사 | 동일 final source에서 기존 Codex child text 1회, confirmed cleanup·저장/archive/import 검사와 임시 fixture 제거 | G1-29 완료 후 다시 실행 |
-| 검토 가능한 인계 | 최신 검증 JSON/MD·TODO·상태/host 명세 일치, source/docs 로컬 커밋, `git status --short` 비어 있음, 담당 작업 종료 | 최종 단계에서 확인 |
+| 기존 엔진 구현 고정 | G1-01~28의 구현·검증·로컬 커밋과 기존 host 계약 보존 | source `464812f`의 원래 whole manifest·권한·저장·cleanup 회귀 통과; DB9/metrics6 유지 |
+| 마지막 필수 수정 | G1-29의 byte cap 실패 및 known model window 계획 불일치 수정, 실제 최신 예약 대조군 회귀 | 같은 capture/current guard·예약·계획·provider/handler 연결 완료; 예산8/경계10/독립23 source+bundle/noEmit 통과 |
+| 실행 경계 유지 | catalogue/예약/문맥/provider/handler 일치, 제한된 재계획·steer·취소·동일 Turn retry, 권한·cleanup·저장 회귀 통과 | 새41개 및 기존 Attempt177·discovery 경계29·output budget4 회귀 통과; 각 Attempt 사본·원래 request SHA·empty/static 호환 확인 |
+| 최종 전체 검사 | 동일 final source에서 `npm run typecheck`, 전체 `npm run test:engine`, `node scripts/evaluate-engine.mjs` 3/3 | `464812f`: 타입 검사 통과, 전체2,594 pass·실패0·취소0·기존2 skip, 코딩 fixture3/3 |
+| 제한된 실제 모델 검사 | 동일 final source에서 기존 Codex child text 1회, confirmed cleanup·저장/archive/import 검사와 임시 fixture 제거 | `464812f`: default eager 도구0·예약24B·actual child text1회, natural confirmed cleanup·historical/archive/import pause·fixture 제거 통과 |
+| 검토 가능한 인계 | 최신 검증 JSON/MD·TODO·상태/host 명세 일치, source/docs 로컬 커밋, `git status --short` 비어 있음, 담당 작업 종료 | source175 pin·이전 JSON 원본 보존·G1-01~29 완료·원래71/75와 열린4개 유지·담당 종료; 최종 문서 커밋/clean tree audit 후 goal 전환 |
 
 전체 엔진 검사는 실패0·취소0이어야 한다. 기존 OS 조건부 skip2개는 원인을 그대로 기록하며 목록을 축소하거나 skip을 늘려 완료를 만들지 않는다. 1차 지원 범위에서 알려진 실행·권한·저장·복구 결함 또는 실패한 필수 검사가 남으면 완료할 수 없다. 실제 모델 검사의 범위는 도구0개인 child text 회귀이며 실제 자율 코딩·원격 PDF/MCP 동작으로 확대하지 않는다.
 
@@ -33,6 +33,6 @@ G1-29는 마지막 필수 구현이다. 새 G1-30 항목·상위 엔진 기능 �
 
 ## goal 처리
 
-현재 goal은 `active`다. 종료 조건이 모두 충족될 때에만 `update_goal({ status: 'complete' })`를 호출하고 완료 결과를 보고한다. 이후 새 구현은 사용자의 별도 요청으로 시작한다.
+최종 검증 JSON을 작성한 시점의 goal 상태는 `active`다. 위 검증 증거를 문서와 함께 로컬 커밋하고 source pin·링크·TODO·clean tree·담당 종료를 마지막으로 확인한 뒤에만 `update_goal({ status: 'complete' })`를 호출하고 완료 결과를 보고한다. 이후 새 구현은 사용자의 별도 요청으로 시작한다. JSON의 active 값은 이 마지막 상태 전환 이전 관측 시점이며 실시간 goal 상태를 대신하지 않는다.
 
 현재 제공된 goal 도구는 생성·조회·상태 변경을 지원하고 활성 goal의 objective 문구 수정은 지원하지 않는다. 따라서 앱에 저장된 기존 objective 문구는 그대로이며, 이번 사용자 지시에 따라 실제 작업 범위와 종료 판단은 위 수정 목표를 따른다. 미완료 goal을 완료 처리해 문구만 바꾸는 방식은 사용하지 않는다.

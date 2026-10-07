@@ -45,4 +45,5 @@ Moodcode는 로컬 Git 저장소에서 코드를 읽고 수정하며 명령을 �
 - [일반 도구 재시작 frontier](engine-tool-recovery-frontier.md): 원래 running intent·exact owner/SHA·dual journal·tool_effect 격리와 v1 unchecked/과거 이력 한계.
 
 - [필요한 도구의 검색](engine-tool-discovery.md): host opt-in·bounded metadata/selected schema·명시적 add/replace·다음 경계 활성화·정확한 문맥 예약과 기존 승인/child/retry 경계.
+- [기본 도구와 문맥 예산](engine-eager-catalogue-context.md): 같은 eager capture·예약·계획·provider/handler, bounded 재계획·빈 catalogue·Attempt 요청 사본과 static Coordinator 호환.
 - [1차 엔진 종료 조건](engine-phase-one-exit-criteria.md): G1-29를 마지막 필수 수정으로 고정하고 최종 검사·문서·커밋 뒤 goal 완료.

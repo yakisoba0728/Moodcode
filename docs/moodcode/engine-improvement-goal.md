@@ -1,4 +1,4 @@
-# 메인 엔진 지속 개선 목표
+# 메인 엔진 1차 목표와 진행 기록
 
 2026-10-07 사용자가 잠든 동안에도 goal을 활성화해 자체 엔진의 구현·수정·최적화·검증을 계속하도록 요청했다. 실제 진행 상태는 루트 `TODO.md`의 G1 항목과 검증 보고서를 기준으로 한다. GUI는 실행하지 않는다. 기존 로컬 Codex 인증을 사용하는 검증은 임시 저장소와 제한된 fixture 작업만 대상으로 한다.
 
@@ -7,6 +7,8 @@
 같은 날 사용자의 후속 요청으로 무기한 개선 범위를 **G1-29 수정 → 최종 검증 → 문서·로컬 커밋 → goal 완료**로 좁혔다. 기존 G1-01~28을 유지하고 eager catalogue/문맥 예약의 실제 불일치만 마지막 필수 구현으로 마무리한다. 이후 새 기능이나 G1-30 비교 작업을 시작하지 않는다. 최종 검사에서 발견한 1차 회귀는 수정한다.
 
 [1차 종료 명세](engine-phase-one-exit-criteria.md)의 여섯 조건을 모두 충족하면 goal을 complete로 바꾸고 자동 구현을 끝낸다. 원래 열린 OS/provider/CI4개와 GUI는 2차로 이월하며 완료로 표시하지 않는다. 아래 반복 작업과 검토 지점은 이전 진행 기록이다. 활성 goal 도구는 objective 문구 수정을 지원하지 않아 앱의 문구는 그대로지만 실제 수행과 완료 판단은 이 후속 지시를 따른다.
+
+최종 source `464812f`에서 G1-29 수정과 타입 검사·whole2,594 pass/실패0/기존2 skip·코딩 평가3/3·default eager Codex child text1회를 마쳤다. 현재 남은 로컬 구현은 없으며 문서 커밋·clean tree 최종 확인 뒤 goal을 완료 처리한다. [열일곱 번째 최종 검증](engine-goal-verification.md)을 인계 기준으로 사용한다.
 
 ## 비교 근거와 구현 방향
 
@@ -155,3 +157,11 @@ Runtime38/독립18/helper14/actual15 source/private bundle·scoped noEmit, 새61
 이전 JSON은 [열다섯 번째 원본](engine-goal-fifteenth-verification.json)으로 `4dbff6d`의 bytes 그대로 보존했다. 임시 helper/actual 로그 경로 충돌은 source 변경 없이 unique prefix 재검증으로 정리했고 prior manifest와 오류 구분을 남겼다.
 
 사용자가 1차 종료 기준을 요청해 무기한 확장을 중단했다. G1-29 actual source/private bundle6조건은 eager 도구 성장 후 옛 예약으로 계획하는 byte cap의 불필요 실패와 known conservative window의 불일치를 확인했다. 같은 최신 예약 대조군은 완료된다. 이것을 마지막 필수 수정으로 마무리한 뒤 [1차 종료 조건](engine-phase-one-exit-criteria.md)의 최종 검증·문서·로컬 커밋·clean 상태를 충족하면 goal을 complete로 바꾼다. GUI·원래 외부4개·추가 기능은2차로 이월한다.
+
+## 열일곱 번째 검토 지점 — 1차 최종
+
+`464812f`에서 G1-29 default eager의 같은 catalogue·예약·ContextPlan·provider/handler를 고정했다. Async registry/policy·normal turn/steer의 변경은 bounded replan, 동일 Turn overflow는 source 변경 시 stale로 다음 Attempt 전에 중단한다. 각 Attempt 요청 deep clone으로 실제 재현한 adapter mutation→HTTP retry 오염도 수정했다. Empty current capture와 runtime 없는 static Coordinator의 original prepared/allowlist 호환을 보존했다. DB9/metrics6과 MCP/native frontier·승인/ACK·원본 이력은 유지한다.
+
+새41개를 포함한 전체2,594 pass·실패0·취소0·기존 조건부2 skip·타입 검사·fixture3/3이 통과했다. 예산8/경계10/독립23 source와 private bundle·scoped noEmit, 기존 Attempt177/discovery29/output budget4의 회귀를 확인했다. 같은 final source default eager Codex child text1회·도구0/예약24B·natural confirmed cleanup·host-only PDF54B·historical/archive/import pause·임시 fixture 제거가 통과했다. 첫 whole compile의 fixture typing, 다음 whole의 기존 감사 assertion, bare source-loader의 임시 cwd resolve 조건을 최종 pass 및 실제 retry RED와 구별해 기록했다.
+
+[열여섯 번째 JSON](engine-goal-sixteenth-verification.json)은 `019a2ea`의 원본 bytes 그대로 보존했다. 최종175 source pin과 모든 gate/log/manifest는 [최종 검증](engine-goal-verification.md)에 연결했다. 세 담당 작업은 파일을 동결하고 종료했다. [1차 종료 조건](engine-phase-one-exit-criteria.md)의 문서·로컬 커밋·clean tree audit 뒤 goal을 complete로 바꾸고 추가 구현을 종료한다. 원래75개 중 열린 OS/provider/CI4개와 GUI/추가 기능은2차로 이월하며 별도 요청 없이 시작하지 않는다.

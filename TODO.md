@@ -1,8 +1,8 @@
 # Moodcode 엔진 구현 TODO
 
-갱신일: 2026-10-07, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 최신 엔진 구현: `bd14b32`. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
+갱신일: 2026-10-07, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 최신 엔진 구현: `464812f`. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
 
-상태: 자체 엔진의 inbox·실행·provider·context·도구·MCP·PTY·저장과 실제 child 실행·변경 통합·LSP 연결을 구현했다. headless 통합 및 현재 Codex 계정의 실제 코딩 과업을 검증했다. 이 파일을 구현 진행 상태의 기준으로 사용한다.
+상태: 자체 엔진의 inbox·실행·provider·context·도구·MCP·PTY·저장과 실제 child 실행·변경 통합·LSP 연결을 구현했다. G1-29까지 1차 구현·최종 headless 검증을 마쳤다. 문서 커밋과 clean tree 확인 뒤 goal을 완료 처리하며 새 구현은 별도 요청으로 시작한다. 이 파일을 구현 진행 상태의 기준으로 사용한다.
 
 ## 작업 규칙
 
@@ -14,7 +14,7 @@
 
 **구현·검증 완료 71/75**. 열린 항목은 **E5-08, E5-13, E6-07, E6-08**이며 각각 아래에 남은 조건을 기록한다. E0-01~04는 [첫 통합 기록](docs/moodcode/engine-foundation-verification.md), 기본 native 엔진은 [첫 native 통합](docs/moodcode/engine-native-verification.md), 확장 연결과 최신 gate는 [최종 headless 검증](docs/moodcode/engine-native-final-verification.md)을 따른다. 담당 범위는 [병렬 엔진 구현](docs/moodcode/engine-implementation-waves.md)에 기록한다.
 
-기반 구현 커밋은 `c2309e7`(계약·migration), `94d2a65`(native 엔진·확장), `682b1d8`(실제 child/LSP/artifact)이다. 최신 지속 개선 구현은 `93bfeaa`이며 전체 gate는 동시성4의 같은 목록에서2,555개 중2,553 pass·실패0·조건부2 skip, 코딩 fixture3/3이다. 같은 source의 실제 Codex child text1회와 저장/archive/import 회귀가 통과했다. [최신 근거](docs/moodcode/engine-goal-verification.md), [1차 종료 조건](docs/moodcode/engine-phase-one-exit-criteria.md)을 따른다.
+기반 구현 커밋은 `c2309e7`(계약·migration), `94d2a65`(native 엔진·확장), `682b1d8`(실제 child/LSP/artifact)이다. 1차 최종 구현은 `464812f`이며 전체 gate는 동시성4의 같은 목록에서2,596개 중2,594 pass·실패0·취소0·기존 조건부2 skip, 타입 검사·코딩 fixture3/3이다. 같은 source의 실제 Codex default eager child text1회와 저장/archive/import 회귀가 통과했다. [최신 근거](docs/moodcode/engine-goal-verification.md), [1차 종료 조건](docs/moodcode/engine-phase-one-exit-criteria.md)을 따른다.
 
 ## 유지하고 회귀 검증할 기반
 
@@ -266,18 +266,18 @@ E5는 코딩 loop 기반을 만든 뒤 순서대로 확장한다. 초기 검증�
 - [x] **G1-26 — 일반 native tool의 시작 경계와 crash 격리 보존**: `217f77f`에서 실제 running-intent/execute-entered SIGKILL2red를 수정했다. 같은 recovery transaction에서 기존 MCP pending을 먼저 정산하고 원래 tool/Run/session/workspace·native proposal/Turn/latest Attempt의 bounded owner·SHA를 dual journal에 capture해 tool_effect uncertainty를 보존한다. 미시작3개·exact MCP terminal/not-dispatched+confirmed cleanup2개를 구분하고 callback/effect는 unverified/unknown으로 유지한다. Original provider completed/cleanup/usage·부분 출력/입력/승인, startup2/archive·exact retry·pending queue 및 newRun/resume/maintenance 차단을 검증했다. 신규38개를 포함한 전체2,440 pass·실패0·조건부2 skip, storage98/독립14/actual7 source+bundle·fixture3/3·같은 source 실제 Codex child text1회가 통과했다. Genuine v1은 unchecked이고 과거 interrupted의 소급 인증·전용 ACK·전체 startup I/O 상한은 완료 범위 밖이다. [계약](docs/moodcode/engine-tool-recovery-frontier.md), [조사](docs/moodcode/research/2026-10-07-tool-recovery-frontier.md).
 - [x] **G1-27 — bounded tool catalogue/discovery와 정확한 문맥 예약**: `ad787d6`에서 eager 호환을 유지하는 host opt-in과 일반 discover_tools를 연결했다. 현재 scope/profile/allowlist/policy metadata, immutable schema SHA/bytes, clone 전 count/UTF-8 cap, 저장 완료 뒤 다음 모델 경계 선택과 같은 catalogue의 reservation/context/request를 고정한다. Registry 변경 재계획·steer 재확인·overflow 동일 Turn stale 차단·same-batch hidden 거절·기존 MCP exact approval/receipt/uncertainty·child 비상속·Run-local/restart를 검증했다. 실제 MCP40 schema에서 core21 보존, 광고22→23→23/예약10,584→18,968→18,968B/provider3·승인된 peer1로 완료했다. 새61개 포함 전체2,501 pass·실패0·조건부2 skip, runtime38/독립18/helper14/actual15 source+bundle·fixture3/3·같은 source opt-in Codex child text1회가 통과했다. Token/시간/I/O·provider-native tool_search·자동 교체는 완료 범위 밖이다. [계약](docs/moodcode/engine-tool-discovery.md), [조사](docs/moodcode/research/2026-10-07-tool-catalogue-discovery.md).
 - [x] **G1-28 — 제한된 도구 작업 집합의 명시적 교체**: `93bfeaa`에서 discover_tools의 optional add/replace를 구현했다. 생략 add 호환, core/always/discover 보존, no-match selected clear, current owner/action fingerprint, clone 전 새 집합 count/UTF-8 cap과 conservative pending 예약을 연결했다. 결과/native Part 저장 뒤 다음 경계에만 교체하고 same-batch 기존 A/신규 B·저장 실패·policy/cancel·accepted MCP timeout·exact retry/restart·HTTP503 retry·child 상한을 보존했다. Helper16/독립22/actual14 source+bundle/noEmit, 새52개 포함 whole2,553 pass·실패0·조건부2 skip·fixture3/3·동일 source Codex child text1회가 통과했다. [계약](docs/moodcode/engine-tool-discovery.md), [조사](docs/moodcode/research/2026-10-07-tool-selection-capacity.md).
-- [ ] **G1-29 — 기본 eager catalogue와 문맥 예약 동기화, 1차 마지막 필수 수정**: 실제 source/private bundle6조건에서 async schema growth 뒤 옛 예약으로 계획하여 byte cap32KiB에서 불필요 CONTEXT_LIMIT/provider0, 알려진 보수 window32,768/outputreserve1,024·config65,536에서 actual estimate37,536/provider1인 계획 불일치를 확인했다. 최신 예약 보정과 사전등록 대조군은21,629B/estimate22,653으로 완료했다. 같은 captured schemas/handler/reservation을 context·provider에 고정하고 normal boundary/steer는 bounded replan, 동일 Turn retry/overflow는 fixed capture/stale 차단을 유지한다. 수정 뒤 전체 gate/typecheck/eval3/live1·문서/커밋·clean tree를 확인하면 goal을 complete로 처리한다. [실제 근거](docs/moodcode/research/2026-10-07-eager-catalogue-reservation.md), [종료 조건](docs/moodcode/engine-phase-one-exit-criteria.md).
+- [x] **G1-29 — 기본 eager catalogue와 문맥 예약 동기화, 1차 마지막 필수 수정**: `464812f`에서 같은 opaque capture/예약/ContextPlan/provider schemas/handler와 async·normal boundary·steer의 bounded replan을 연결했다. Empty current guard·고정 overflow stale·same-Turn HTTP retry의 Attempt별 deep clone·원래 cleanup SHA·runtime 없는 Coordinator 호환을 검증했다. Core21·원문 이력·현재 권한·DB9/metrics6을 유지한다. 새41개를 포함한 전체2,594 pass·실패0·취소0·기존2 skip, 예산8/경계10/독립23 source+bundle/noEmit·타입 검사·fixture3/3·동일 source default eager Codex child text1회가 통과했다. 문서·커밋·clean tree 최종 확인 뒤 1차 goal을 완료 처리한다. [계약](docs/moodcode/engine-eager-catalogue-context.md), [구현 전후 근거](docs/moodcode/research/2026-10-07-eager-catalogue-reservation.md), [종료 조건](docs/moodcode/engine-phase-one-exit-criteria.md).
 
-G1-01~28의 구현 커밋과 검토 지점은 [목표·진행 기록](docs/moodcode/engine-improvement-goal.md)에 보존한다. 최신 G1-28은 `93bfeaa`이며 whole2,553 pass·실패0·조건부2 skip·fixture3/3·같은 source Codex child text1회가 통과했다. 1차는 G1-29 수정 뒤 동일 final source 검증·인계로 종료한다. 새 G1-30 기능·추가 비교는 시작하지 않는다. 원래 열린 OS/provider/CI4개와 GUI는 2차로 이월한다.
+G1-01~29의 구현 커밋과 검토 지점은 [목표·진행 기록](docs/moodcode/engine-improvement-goal.md)에 보존한다. 최신 G1-29 `464812f`는 whole2,594 pass·실패0·조건부2 skip·fixture3/3·같은 source Codex child text1회가 통과했다. 1차는 이 최종 source 검증·인계로 종료한다. 새 G1-30 기능·추가 비교는 시작하지 않는다. 원래 열린 OS/provider/CI4개와 GUI는 2차로 이월한다.
 
-다음은 **E5-13 media 입력/출력 계약·fixture → E5-08 native Windows 구현 및 OS 호스트 검증 → E6-07 첫 CI 실행 → E6-08 지원 명세 확정**이다. GUI를 다시 작업하기 전 [host API](docs/moodcode/engine-host-api.md)를 기준으로 새 엔진 기능을 노출할 범위를 정한다. host API가 있는 기능이 현재 GUI에도 노출됐다고 간주하지 않는다.
+2차의 이월 목록은 **E5-13 media 입력/출력 계약·fixture → E5-08 native Windows 구현 및 OS 호스트 검증 → E6-07 첫 CI 실행 → E6-08 지원 명세 확정**이다. 별도 요청 없이 시작하지 않는다. GUI를 다시 작업하기 전 [host API](docs/moodcode/engine-host-api.md)를 기준으로 새 엔진 기능을 노출할 범위를 정한다. host API가 있는 기능이 현재 GUI에도 노출됐다고 간주하지 않는다.
 
 OpenCode보다 보강할 기준은 영구 Run/attempt 추적, cancel 후 자동 새 작업 방지, summary/retry까지 포함한 budget, file 효과 승인 binding, 큰 session의 DB 읽기량 제한, 확장 자원의 종료 확인이다. 기존 구현을 전부 폐기하지 않고 이 기준에 맞춰 내부 경계를 하나씩 정리한다.
 
 참고: [엔진 분석](docs/opencode-engine-review/README.md), [독립 구현안](docs/opencode-engine-review/04-independent-engine-plan.md), [라이선스·출처](docs/opencode-engine-review/05-license-and-provenance.md), [현재 구현 상태](docs/moodcode/implementation-status.md).
 
-## 진행 중
+## 1차 종료 상태
 
-G1-28까지 구현·검증했다. 현재 1차의 마지막 필수 작업은 G1-29의 실제 eager catalogue/예약 불일치 수정이다. [종료 명세](docs/moodcode/engine-phase-one-exit-criteria.md)의 여섯 조건을 충족하면 goal을 완료하고 추가 구현을 끝낸다. 실제 프로젝트 unresolved 기록을 대신 승인하지 않는다.
+G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 명세](docs/moodcode/engine-phase-one-exit-criteria.md)의 최종 문서·커밋·clean tree 확인 뒤 goal을 완료하고 추가 구현을 끝낸다. 담당 작업은 종료했다. 원래 외부 환경의 열린 TODO4개는 2차로 유지하며 실제 프로젝트 unresolved 기록을 대신 승인하지 않는다.
 
 도구 discovery의 실제 baseline과 독립 구현 범위는 [조사](docs/moodcode/research/2026-10-07-tool-catalogue-discovery.md)를 따른다.

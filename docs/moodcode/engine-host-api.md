@@ -8,6 +8,8 @@
 
 주요 `EngineOptions`는 `dbPath`, `artifactDir`, `providers`, `tools`, `defaults`, `toolPolicy`, `toolDiscoveryPolicy`, `modelSpecs`, `agentProfiles`, `allowedToolNames`, `worktreeDirectory`, `configureChild`, `mediaHistoryPolicy`, `documentHistoryPolicy`, `allowUnknownDocumentTokenCost`다. `allowedToolNames`는 초기 catalog뿐 아니라 이후 등록한 handler의 광고·실행에도 유지되는 host 상한이다. profile·Plan 정책·resource deny가 이 상한을 더 좁힐 수 있다. 기본 도구를 `tools`로 교체하면 실제 제공한 handler만 사용할 수 있다. `toolDiscoveryPolicy: DEFAULT_TOOL_DISCOVERY_POLICY`는 필요한 도구를 일반 discover_tools로 찾아 다음 모델 경계에서 선택한 schema만 광고하는 host opt-in이다. `action: 'replace'`로 selected noncore 집합을 명시적으로 교체하고 no-match로 비울 수 있다. 생략하면 기존 add를 유지한다. 현재 profile/policy/allowlist·승인·child 상한을 유지하며 [query/action/count/bytes·retry·정확한 예약 계약](engine-tool-discovery.md)을 따른다. 기본 eager/getCapabilities 동작은 유지한다.
 
+G1-29의 기본 eager도 같은 capture의 예약·ContextPlan·실제 request·handler를 사용한다. Async registry/policy·normal turn·steer 변경은 bounded replan이며 동일 Turn overflow는 고정 capture를 유지한다. `context.prepared`의 예약·실제 tools SHA·이름 감사는 eager/discovery 양쪽에 기록하고, 각 Attempt에 detached 요청을 전달한다. DB9/metrics6과 기존 metrics context shape는 유지한다. Empty catalogue/current API와 static Coordinator 호환은 [기본 도구 문맥 계약](engine-eager-catalogue-context.md)을 따른다.
+
 | 경로 | 용도 |
 |---|---|
 | `dispatch(command)` | 기존 schemaVersion 1 command, workspace/session·즉시 Run·승인·review |
