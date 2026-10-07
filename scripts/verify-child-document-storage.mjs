@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { CodexProvider, createEngine, exportEngineArchive, getCodexAuthStatus, importEngineArchive, SqliteStore, validateEngineArchive } from '@moodcode/engine';
+import { CodexProvider, createEngine, exportEngineArchive, getCodexAuthStatus, importEngineArchive, inspectArchivedChildDocumentStorage, SqliteStore, validateEngineArchive } from '@moodcode/engine';
 
 // One real child text request in an authored temporary Git repository. The PDF
 // is a host storage fixture, never a provider attachment or a model PDF test.
@@ -98,6 +98,19 @@ try {
   const archive = await exportEngineArchive({ dbPath: database, artifactDir: artifacts, destination: join(root, 'archive') });
   assert.equal(archive.manifest.documentAudit.coverage, 'complete'); assert.equal(archive.manifest.documentAudit.children.length, 1);
   validateEngineArchive({ directory: archive.directory });
+  phase = 'historical-child-document-inspection';
+  const inspection = await inspectArchivedChildDocumentStorage({ directory: archive.directory, expectedManifestSha256: archive.manifestSha256,
+    sessionId: 'parent-session', sourceRunId: parentRunId, taskIds: [task.id] });
+  assert.equal(inspection.scope, 'verified-archive-historical'); assert.equal(inspection.manifestSha256, archive.manifestSha256);
+  assert.equal(inspection.complete, true); assert.equal(inspection.archiveCoverage, 'complete'); assert.equal(inspection.observedChildren, 1);
+  assert.equal(inspection.declaredReferenceBytes.children, pdf.length); assert.deepEqual(inspection.children[0].documents, [childDocument]);
+  assert.equal(inspection.physicalRebinding, false); assert.equal(inspection.executionResumed, false); assert.equal(inspection.recoveryAcknowledgmentsRebound, false);
+  assert.equal(inspection.statsScope, 'whole-archive-proof-frame'); assert.equal(snapshots, 0); assert.equal(realCalls, 1);
+  report.historicalInspection = { complete: inspection.complete, archiveCoverage: inspection.archiveCoverage, observedChildren: inspection.observedChildren,
+    declaredChildBytes: inspection.declaredReferenceBytes.children, documents: inspection.children[0].documents, stats: inspection.stats, statsScope: inspection.statsScope,
+    manifestSha256: inspection.manifestSha256, physicalRebinding: inspection.physicalRebinding, executionResumed: inspection.executionResumed,
+    recoveryAcknowledgmentsRebound: inspection.recoveryAcknowledgmentsRebound };
+  phase = 'archive-and-import';
   const child = archive.manifest.documentAudit.children[0];
   const reader = new DatabaseSync(join(archive.directory, 'data', child.database.file), { readOnly: true });
   try {

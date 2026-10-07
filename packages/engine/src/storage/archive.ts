@@ -19,6 +19,8 @@ import { attachments as documentAttachments, sameAttachment as sameDocumentAttac
 import type { ManagedWorktree } from '../worktrees/index.js';
 import { childStoragePhysicalIdentity, readChildStorageSelection, validateChildStorageRecord, type ChildStorageHostIdentity, type ChildStorageRecord } from '../child-tasks/storage-binding.js';
 import { createChildDocumentReadFrame, openChildDocumentReader } from './child-document-reader.js';
+import { buildArchivedChildDocumentStorageReport, validateArchivedChildDocumentStorageRequest,
+  type ArchivedChildDocumentStorageRequest, type ArchivedChildDocumentStorageReport } from '../diagnostics/archive-child-documents.js';
 type DocumentFrame = ReturnType<typeof createChildDocumentReadFrame>;
 
 export const ENGINE_ARCHIVE_VERSION = 1;
@@ -318,7 +320,8 @@ function assertAuditManifest(manifest: EngineArchiveManifest): void {
 function historicalHost(manifest: EngineArchiveManifest): ChildStorageHostIdentity {
   return {database:{path:manifest.source.dbPath,dev:String(manifest.source.binding.db.dev),ino:String(manifest.source.binding.db.ino)},artifacts:{path:manifest.source.artifactDir,dev:String(manifest.source.binding.artifacts.dev),ino:String(manifest.source.binding.artifacts.ino)}};
 }
-function validateChildDocumentArchive(root:string,manifest:EngineArchiveManifest,frame:DocumentFrame,check:()=>void):void {
+type ChildIndexCollector = (record: ChildStorageRecord, index: InputDocumentIndexReport) => void;
+function validateChildDocumentArchive(root:string,manifest:EngineArchiveManifest,frame:DocumentFrame,check:()=>void,collect?:ChildIndexCollector):void {
   const primary=sqlite(join(root,databaseFiles.primary)), readers:ReturnType<typeof openChildDocumentReader>[]=[];
   try {
     primary.exec('BEGIN');
@@ -335,7 +338,9 @@ function validateChildDocumentArchive(root:string,manifest:EngineArchiveManifest
       const childDb=sqlite(join(root,item.database.file));
       try { const actual=logicalDatabase(childDb,'primary',check); if (actual.schemaVersion!==item.database.schemaVersion || actual.logicalHash!==item.database.logicalHash) fail('ARCHIVE_CHILD_INVALID','Child logical database differs from its audited snapshot'); } finally { childDb.close(); }
       const reader=openChildDocumentReader({mode:'archive-historical',record,archive:{database:{path:join(root,item.database.file),bytes:item.database.bytes,sha256:item.database.sha256},artifacts:{path:join(root,item.artifactPrefix)},allowedMembers:manifest.artifacts.filter(member=>member.file.startsWith(`artifacts/children/${item.taskId}/`)),artifactPrefix:item.artifactPrefix}},frame);readers.push(reader);
-      validateDocumentFiles(reader.db,join(root,item.artifactPrefix),()=>{check();reader.check();},frame,reader.readIndex(),manifest.artifacts,item.artifactPrefix); reader.check();
+      const index=reader.readIndex();
+      validateDocumentFiles(reader.db,join(root,item.artifactPrefix),()=>{check();reader.check();},frame,index,manifest.artifacts,item.artifactPrefix); reader.check();
+      collect?.(record,index);
     }
   } finally { for (const reader of readers.reverse()) reader.close(); primary.close(); }
 }
@@ -364,9 +369,7 @@ function parseManifest(file: string): { manifest: EngineArchiveManifest; manifes
   assertAuditManifest(value);
   return { manifest: value, manifestSha256: digest(raw) };
 }
-export function validateEngineArchive(options: { directory: string; signal?: AbortSignal }): EngineArchiveResult {
-  const root = manifestRoot(options.directory), check = () => abort(options.signal);
-  check(); const parsed = parseManifest(join(root, 'manifest.json'));
+function validateParsedArchive(root:string,parsed:ReturnType<typeof parseManifest>,check:()=>void,frame:DocumentFrame|(()=>DocumentFrame),collect?:ChildIndexCollector):void {
   const initialManifestHash = parsed.manifestSha256;
   for (const item of [...parsed.manifest.databases, ...parsed.manifest.artifacts]) {
     const file = join(root, item.file); checkedDirectory(dirname(file));
@@ -379,11 +382,92 @@ export function validateEngineArchive(options: { directory: string; signal?: Abo
     finally { db.close(); }
   }
   validateReviewFiles(root, check);
-  const frame=createChildDocumentReadFrame({signal:options.signal});
-  validateDocumentArchive(root,parsed.manifest,check,frame);
-  validateChildDocumentArchive(root,parsed.manifest,frame,check);
+  // Preserve the existing validator's proof-only deadline. An explicit
+  // inspection supplies its already-started operation-wide frame instead.
+  const proofFrame=typeof frame==='function'?frame():frame;
+  validateDocumentArchive(root,parsed.manifest,check,proofFrame);
+  validateChildDocumentArchive(root,parsed.manifest,proofFrame,check,collect);
   if (parseManifest(join(root, 'manifest.json')).manifestSha256 !== initialManifestHash) fail('ARCHIVE_SOURCE_CHANGED', 'Archive manifest changed during validation');
+  check();
+}
+export function validateEngineArchive(options: { directory: string; signal?: AbortSignal }): EngineArchiveResult {
+  const root = manifestRoot(options.directory), check = () => abort(options.signal);
+  check(); const parsed = parseManifest(join(root, 'manifest.json'));
+  validateParsedArchive(root,parsed,check,()=>createChildDocumentReadFrame({signal:options.signal}));
   return { directory: checkedDirectory(options.directory), ...parsed };
+}
+/** Scalar owner/task preflight precedes selected index bodies; no current-host authority is accepted. */
+function preflightArchivedChildSelection(root:string,request:ReturnType<typeof validateArchivedChildDocumentStorageRequest>,frame:DocumentFrame,check:()=>void):void {
+  const primary=sqlite(join(root,databaseFiles.primary));
+  try {
+    primary.exec('BEGIN');check();frame.chargeRows(1);
+    const owner=primary.prepare(`SELECT 1 AS matched FROM runs r JOIN sessions s ON s.id=r.session_id JOIN workspaces w ON w.id=r.workspace_id
+      WHERE r.id=? AND r.session_id=? AND s.workspace_id=r.workspace_id
+      AND length(CAST(r.id AS BLOB)) BETWEEN 1 AND 256 AND length(CAST(r.session_id AS BLOB)) BETWEEN 1 AND 256 AND length(CAST(r.workspace_id AS BLOB)) BETWEEN 1 AND 256
+      AND json_extract(r.data,'$.id')=r.id AND json_extract(r.data,'$.sessionId')=s.id AND json_extract(r.data,'$.workspaceId')=w.id
+      AND json_extract(s.data,'$.id')=s.id AND json_extract(s.data,'$.workspaceId')=w.id AND json_extract(w.data,'$.id')=w.id LIMIT 1`).get(request.sourceRunId,request.sessionId);
+    if(!owner)fail('ARCHIVE_CHILD_OWNER_MISMATCH','Archived Run/session/workspace owner differs from the requested selection');
+    frame.charge(Buffer.byteLength(JSON.stringify(owner)));
+    if(request.taskIds.length===0)return;
+    if(databaseVersion(primary)<2)fail('ARCHIVE_CHILD_TASK_NOT_FOUND','Archived task is absent from the native root journal');
+    check();frame.chargeRows(1);
+    const header=primary.prepare("SELECT length(CAST(data AS BLOB)) AS bytes FROM session_documents WHERE session_id=? AND kind='engine.child_tasks' LIMIT 1").get(request.sessionId);
+    if(!header)fail('ARCHIVE_CHILD_TASK_NOT_FOUND','Archived child task journal is absent');
+    const bytes=Number(header.bytes);
+    if(!Number.isSafeInteger(bytes)||bytes<2||bytes>245760)fail('ARCHIVE_CHILD_JOURNAL_INVALID','Archived child task journal exceeds its bounded format');
+    // JSON is inspected by SQLite; only bounded booleans escape this query. The
+    // authoritative journal body is read/charged once by the whole audit below.
+    for(const taskId of request.taskIds){
+      check();frame.chargeRows(1);
+      const rows=primary.prepare(`SELECT json_extract(d.data,'$.schemaVersion')=1 AND json_type(d.data,'$.tasks')='array' AND json_array_length(d.data,'$.tasks')<=32
+        AND t.type='object' AND json_extract(t.value,'$.sessionId')=? AND json_extract(t.value,'$.rootRunId')=? AS matched
+        FROM session_documents d,json_each(d.data,'$.tasks') t WHERE d.session_id=? AND d.kind='engine.child_tasks'
+        AND length(CAST(d.data AS BLOB))=? AND json_extract(t.value,'$.id')=? LIMIT 2`).all(request.sessionId,request.sourceRunId,request.sessionId,bytes,taskId);
+      if(rows.length===0)fail('ARCHIVE_CHILD_TASK_NOT_FOUND','Selected task does not exist in the archived root session');
+      if(rows.length!==1||rows[0]!.matched!==1)fail('ARCHIVE_CHILD_OWNER_MISMATCH','Selected task belongs to different archived source lineage');
+      frame.charge(Buffer.byteLength(JSON.stringify(rows)));
+    }
+  }finally{primary.close();}
+}
+/** Detached historical inspection. Whole archive validation and selected-proof budgets have distinct scopes. */
+export async function inspectArchivedChildDocumentStorage(value:ArchivedChildDocumentStorageRequest):Promise<ArchivedChildDocumentStorageReport>{
+  const request=validateArchivedChildDocumentStorageRequest(value);
+  try{
+    const {maxReportBytes:_maxReportBytes,maxDocumentSamples:_maxDocumentSamples,maxChildren:_requestedTaskCap,...readLimits}=request.limits;
+    // The requested subset has its own cap. All verified archive children still
+    // undergo the existing audit (manifest hard limit 32) in the same proof frame.
+    const frame=createChildDocumentReadFrame({...(request.signal?{signal:request.signal}:{}),limits:{...readLimits,maxChildren:32}});
+    const check=()=>{abort(request.signal);frame.check();};
+    await new Promise<void>(resolve=>setImmediate(resolve));check();
+    const root=manifestRoot(request.directory),parsed=parseManifest(join(root,'manifest.json'));
+    if(parsed.manifestSha256!==request.expectedManifestSha256)fail('ARCHIVE_MANIFEST_SHA_MISMATCH','Archive manifest differs from the explicitly selected historical digest');
+    preflightArchivedChildSelection(root,request,frame,check);
+    const selectedIds=new Set(request.taskIds),indexes=new Map<string,{record:ChildStorageRecord;index:InputDocumentIndexReport}>();
+    validateParsedArchive(root,parsed,check,frame,(record,index)=>{
+      const taskId=record.binding.lineage.taskId;
+      if(selectedIds.has(taskId)){
+        if(indexes.has(taskId)||indexes.size>=request.limits.maxChildren)fail('ARCHIVE_CHILD_REPORT_INVALID','Archive index collector differs from its bounded requested subset');
+        indexes.set(taskId,{record,index});
+      }
+    });
+    const audit=parsed.manifest.documentAudit;
+    const observations=request.taskIds.map(taskId=>{
+      const observed=indexes.get(taskId);
+      if(observed){const binding=observed.record.binding,lineage=binding.lineage;return{taskId,status:'observed' as const,index:observed.index,childSessionId:binding.child.sessionId,childRunId:binding.child.runId!,
+        lineage:{rootRunId:lineage.sourceRunId,parentRunId:lineage.parentRunId,...(lineage.parentTaskId?{parentTaskId:lineage.parentTaskId}:{}),taskRequestId:lineage.taskRequestId,depth:lineage.depth}};}
+      const unchecked=audit?.unchecked.find(item=>item.taskId===taskId);
+      if(audit&&!unchecked)fail('ARCHIVE_CHILD_INVALID','Requested task has no matching validated archive audit entry');
+      return{taskId,status:'unchecked' as const,reason:unchecked?.reason??'legacy-unbound'};
+    });
+    check();
+    const report=buildArchivedChildDocumentStorageReport({archiveId:parsed.manifest.archiveId,manifestSha256:parsed.manifestSha256,expectedManifestSha256:request.expectedManifestSha256,
+      sessionId:request.sessionId,sourceRunId:request.sourceRunId,archiveDocumentAuditCoverage:audit?.coverage??'unchecked',requestedTaskIds:request.taskIds,observations,stats:frame.stats(),limits:request.limits});
+    // No I/O occurs in the pure builder; retain cancellation and the final exact
+    // manifest check immediately before publishing its detached bounded result.
+    if(parseManifest(join(root,'manifest.json')).manifestSha256!==request.expectedManifestSha256)fail('ARCHIVE_SOURCE_CHANGED','Archive manifest changed before historical inspection completed');
+    check();return report;
+  }catch(error){if(error instanceof EngineError)throw error;fail('ARCHIVE_DATABASE_INVALID','Historical archive inspection could not validate its bounded read-only selection');}
+  finally{request.releaseSignal();}
 }
 /** Offline export: leases block engine/review/recovery writes across the entire capture. */
 export async function exportEngineArchive(options: ExportEngineArchiveOptions): Promise<EngineArchiveResult> {
