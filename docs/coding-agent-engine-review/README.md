@@ -2,12 +2,17 @@
 
 2026-10-07. 요청한 목록 18개와 OpenHands 앱 1개, **19개 저장소를 full-history clone하고 저장소마다 별도 서브에이전트로 분석했다.** 메인 실행 루프·문맥·도구/편집·승인·취소·저장/복구·하위 agent·확장·provider 경계를 확인했다. 보고서의 고정 소스 근거는 **395개**, 독립 구현 후보는 **75개**다. 각 저장소의 주요 기능과 확인 한계를 다뤘으며 모든 tracked 파일을 개별 설명하거나 외부 dependency 내부를 분석했다는 뜻은 아니다.
 
-Moodcode의 새 엔진 기능을 이번 작업에서 구현한 것은 아니다. 기존 engine source `464812f7d1af24466f57070663131f5979aeca51`와 비교해 기능 중복을 구분했고, 후보를 12개 작업 묶음으로 정리했다. 첫 순서는 **저장소 구조 문맥 → 검증 계획·제한 수리·완료 gate → 승인형 프로젝트 기억**을 제안한다.
+Moodcode의 새 엔진 기능을 이번 작업에서 구현한 것은 아니다. 기존 engine source `464812f7d1af24466f57070663131f5979aeca51`를 유지하고, 후속 요청에 따라 **19개 × 14개 기능 = 266개 1:1 대조**와 **75개 후보 전수 매핑**을 작성했다. 초기12개 큰 묶음을20개 구현 범위·80개 작은 작업으로 구체화했다. 먼저 저장소 문맥·관측 hook·권한 설명·진단을 보강하고, **검증 가능한 완료 → 승인형 프로젝트 기억 → 협업/host 확장**으로 진행하는 안이다.
 
 | 읽을 문서 | 내용 |
 |---|---|
+| [19개와 Moodcode의 1:1 비교](one-to-one-comparison.md) | 기구현/부분/추가/검증대기/범위제한, 266개 대조·후보75개 |
+| [20개 구현 상세](implementation-blueprint.md) | 제안 API·영구 상태·선행 작업·완료 기준·병렬 편집 경계 |
+| [구현 작업 목록](implementation-work-items.json) | 전부 proposed인20개 범위·80개 작은 작업 |
+| [현재 소스 비교 근거](comparison-evidence.md) | 현 HEAD와 engine source가 일치하는35개 파일/구간 hash |
+| [1:1 비교 검증](comparison-verification.json) | 19/14/266/75/20/80 범위와 source·문서 연결 검사 |
 | [통합 비교](comparison.md) | 저장소별 실제 engine 경계·참고 가치와 기존 Moodcode 대비 추가 계약 |
-| [후속 구현 후보](implementation-candidates.md) | 우선 세 묶음의 작은 작업·API/record 설계안·수용 조건 및 전체 순서 |
+| [초기 후속 구현 후보](implementation-candidates.md) | 최초12개 큰 묶음과 우선 세 묶음; 상세 범위는20개 구현안 참조 |
 | [후보 catalogue](candidate-catalogue.json) | 75개 후보의 원본 SHA·관련 Moodcode 경로·우선순위·비용·검증 조건 |
 | [공통 구현 계약](independent-contracts.md) | 승인·source freshness·cancel/recovery·budget·effect 소유권 기준 |
 | [Moodcode 비교 기준](moodcode-baseline.md) | 이미 있는 기능과 13개 고정 source 근거 |
@@ -49,6 +54,8 @@ Moodcode의 새 엔진 기능을 이번 작업에서 구현한 것은 아니다.
 최종 정적 검사에서 19개 원본 HEAD·clean·full history, 근거 395개·고정 source 링크 544개·후보 75개·Moodcode baseline 근거 13개가 통과했다. 담당/후보 registry와 문서 링크도 일치하며 production 변경·새 runtime 파일·검사 오류는 0이다. staged diff의 공백 검사도 통과했다.
 
 검사는 `python3 docs/coding-agent-engine-review/verify-evidence.py --output docs/coding-agent-engine-review/verification.json`로 재현한다. original checkout 19개와 Moodcode baseline commit이 필요하다. 근거 파일의 고정 commit 소속·전체 및 구간 SHA·permalink·후보 실제 경로·문서 링크를 검사한다. upstream install/build/test·실제 모델/계정·서비스·GUI·benchmark를 실행한 결과는 아니다. 기존 Moodcode의 1차 테스트 기록은 [현재 구현 상태](../moodcode/implementation-status.md)에 보존한다.
+
+후속1:1 비교는 `python3 docs/coding-agent-engine-review/verify-comparison.py --output docs/coding-agent-engine-review/comparison-verification.json`로 별도 검사한다. 현재 Moodcode 근거35개·후보 관련 경로86개를 고정 커밋과 비교하고, 후보와20개 구현 범위·80개 제안 작업·문서 링크를 대조한다. 기존 source review의 완료 기록과 실제 환경 미검증 범위를 보존한다. 구조/출처 검사가 제품 동등성이나 실행 성공을 증명하지 않는다.
 
 ## license·유지보수·외부 엔진 경계
 

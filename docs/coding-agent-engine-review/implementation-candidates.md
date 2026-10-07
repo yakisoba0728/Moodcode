@@ -1,5 +1,7 @@
 # Moodcode 후속 엔진 구현 후보
 
+이 문서는 최초12개 큰 묶음의 기록이다. 후속 요청의 현재 기준은 [19개 1:1 비교](one-to-one-comparison.md)와 [20개 구현 상세](implementation-blueprint.md)다. 01~07·09~10의 주제는 유지하고, 초기08은08(예약)/19(PR·CI)/20(batch)으로, 초기11은11(정책)/17(OS enforcement)로, 초기12의 선택 실험은12~16/18과01의 retrieval 보강으로 나눴다. API·작업 번호는 구현된 public contract가 아닌 제안이며 새 작업의 상태는 [작업 목록](implementation-work-items.json)을 따른다.
+
 이 문서는 19개 source review에서 얻은 제안을 Moodcode 자체 계약으로 묶은 구현 순서다. **제안 단계이며 이번 분석으로 새 엔진 기능을 구현하지 않았다.** 후보 원문·원본 SHA·Moodcode 관련 경로는 [catalogue](candidate-catalogue.json)와 각 보고서, 기존 기능은 [baseline](moodcode-baseline.md)을 따른다. 아래 API·레코드 이름은 설계안이다. 기존 엔진에 추가된 export라고 해석하지 않는다.
 
 ## 우선 진행할 세 묶음

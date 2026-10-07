@@ -290,3 +290,4 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 - [x] **A2-R02 — root license·유지보수 상태 확인**: Apache-2.0 10개·MIT 8개·FSL-1.1-MIT 1개를 실제 root 파일과 대조하고 별도 고지 파일의 SHA를 기록. archived/API와 README 유지보수 고지를 구분.
 - [x] **A2-R03 — 프로젝트별 서브에이전트 분석**: 각각 메인 엔진·문맥·도구·실행/복구·확장 기능과 Moodcode 비교를 보고서·증거 JSON으로 저장.
 - [x] **A2-R04 — 통합 비교·후속 구현 후보와 증거 검사**: 기존 기능과 새 계약을 구분하고 후보마다 출처·우선순위·비용·검증 조건을 정리. HEAD·소스 줄·파일 SHA·변경 범위를 확인.
+- [x] **A2-R05 — 현재 Moodcode와19개 전체의1:1 비교·구현 구체화**: 14개 기능×19개=266개 대조, 후보75개 전수 매핑, 현재 소스 근거35개·후보 경로86개를 확인했다. 초기12개 큰 묶음을20개 구현 범위·80개 proposed 작업으로 나누고 API/record·의존성·저장/import·완료 기준·병렬 편집 경계를 작성했다. [비교](docs/coding-agent-engine-review/one-to-one-comparison.md), [구현 상세](docs/coding-agent-engine-review/implementation-blueprint.md), [작업 목록](docs/coding-agent-engine-review/implementation-work-items.json)을 따른다. 문서/출처 검사만 완료했으며 새 엔진 구현·실제 환경 검증·새 goal 활성화는 포함하지 않는다. 기존 이월4개는 유지한다.

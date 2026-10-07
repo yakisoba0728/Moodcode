@@ -16,7 +16,7 @@ Moodcode는 로컬 Git 저장소에서 코드를 읽고 수정하며 명령을 �
 | [구현 상태와 검증](./implementation-status.md) | 현재 구현 범위, 전체 테스트와 Electron 실행 증거, 남은 작업 |
 | [엔진 구현 TODO](../../TODO.md) | 새 엔진 구현 75개 항목, 선행 작업·완료 조건·진행 상태. 후속 구현의 진행 기준 |
 | [최신 OpenCode 엔진 검토](../opencode-engine-review/README.md) | 고정 원본 분석, 라이선스·출처, Moodcode 내부 엔진 확장 계약 |
-| [추가 공개 에이전트 엔진 비교](../coding-agent-engine-review/README.md) | 19개 저장소별 clone·고정 소스 분석과 자체 엔진의 후속 계약 후보 |
+| [추가 공개 에이전트 엔진 비교](../coding-agent-engine-review/README.md) | 19개 저장소별 고정 소스 분석·266개1:1 대조·75개 후보·20개 구현 범위/80개 제안 작업 |
 | [OpenCode GUI 분석](../opencode-analysis/07-clients.md) | 웹 앱, Electron, 세션 UI, diff·파일·터미널 구현의 근거 |
 
 ## 결정 상태
