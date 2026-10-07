@@ -1,6 +1,6 @@
 # 필요한 도구의 검색과 문맥 예약
 
-G1-27의 host opt-in 계약이다. 기본 eager 도구 노출은 유지한다. 구현 커밋·전체 gate·실제 계정 회귀는 [최신 검증](engine-goal-verification.md), 최초 문맥 초과와 공개 소스 비교는 [조사](research/2026-10-07-tool-catalogue-discovery.md)를 따른다.
+G1-27/28의 host opt-in 계약이다. 기본 eager 도구 노출은 유지한다. 구현 커밋·전체 gate·실제 계정 회귀는 [최신 검증](engine-goal-verification.md), 최초 문맥 초과와 공개 소스 비교는 [조사](research/2026-10-07-tool-catalogue-discovery.md)를 따른다.
 
 ```ts
 import { createEngine, DEFAULT_TOOL_DISCOVERY_POLICY } from '@moodcode/engine';
@@ -19,13 +19,25 @@ const engine = createEngine({
 
 등록 때 bounded schema를 소유하고 canonical schema/definition SHA와 실제 JSON UTF-8 bytes를 캐시한다. 캐시는 불변 데이터이며 승인·prepared handle·effect authority를 담지 않는다. 후보 metadata에는 이름·설명·schema/definition SHA와 bytes만 있다. Metadata 검색은 full schema를 복제하지 않는다.
 
-`discover_tools` 입력은 query와 optional limit이다. Query는 UTF-8 256B 이하·nonempty·control-free 문자열이고 trim/lowercase로 정규화한다. Limit은 기본4, 최대8이다. 이름 exact/prefix/contains, 설명 contains 순으로 검색하고 동률은 이름으로 정렬한다. 결과 설명은 UTF-8 prefix512B로 자르고 truncation을 표시한다. 전체 결과 JSON은32KiB 이하이며 schema·handler·grant를 반환하지 않는다.
+`discover_tools` 입력은 query와 optional limit/action이다. Query는 UTF-8 256B 이하·nonempty·control-free 문자열이고 trim/lowercase로 정규화한다. Limit은 기본4, 최대8이다. Action은 `add` 또는 `replace`이며 생략하면 기존 add 동작과 normalized input/result 형태를 유지한다. 입력은 plain 또는 null-prototype data object만 받으며 Proxy·accessor·숨겨진 필드·symbol·알 수 없는 필드·명시적인 null/undefined limit/action을 거절한다. Caller getter나 coercion을 실행하지 않는다.
+
+이름 exact/prefix/contains, 설명 contains 순으로 검색하고 동률은 이름으로 정렬한다. 결과 설명은 UTF-8 prefix512B로 자르고 truncation을 표시한다. 전체 결과 JSON은32KiB 이하이며 schema·handler·grant를 반환하지 않는다. 명시적인 replace 결과에만 `selectionMode: 'replace'`를 추가한다.
+
+```json
+{ "query": "repository_search", "limit": 1, "action": "replace" }
+```
+
+`add`는 기존 selected noncore 집합에 matches를 추가한다. `replace`는 현재 허용 query matches로 selected noncore 집합 전체를 교체한다. Core/always-visible/검색 도구는 현재 권한 범위 안에서 유지한다. Replace가 no-match이면 selected noncore만 비운다. 자동 eviction이나 별도 권한 부여는 없다.
 
 ## 실행과 선택의 경계
 
 검색은 일반 `state` 도구다. 일반 tool-call·output·duration 예산, scoped prepare/execute, host 정책의 승인을 따른다. Active Run/session/workspace/Turn/Attempt/tool owner를 확인하며 prepared handle은 original identity와 한 번의 실행에 결합한다.
 
-검색 결과는 pending selection이다. 일반 ToolRecord의 completed 결과와 native Part가 저장된 뒤에만 선택을 반영하고, schema는 다음 모델 경계에서 광고한다. 같은 provider 응답에 검색과 숨겨진 호출이 함께 있어도 현재 catalogue의 hidden 호출은 prepare·승인·원격 dispatch 전에 거절한다. 검색은 새로운 handler를 등록하거나 권한을 넓히지 않는다.
+검색 결과는 pending selection이다. Action도 original prepared input·preview·fingerprint에 결합한다. 새 집합의 count와 UTF-8 schema-array bytes를 clone 전에 검사하고, 일반 ToolRecord의 completed 결과와 native Part가 저장된 뒤에만 선택을 반영한다. 두 저장을 하나의 transaction으로 묶었다는 주장은 아니다. 저장 실패·취소·stale/discard는 교체를 활성화하지 않는다. Schema는 다음 모델 경계에서 광고한다.
+
+같은 provider 응답에 replace B와 기존 A·숨겨진 B 호출이 함께 있으면 그 batch는 이전 catalogue를 사용한다. 기존 A는 기존 승인 경로로 실행할 수 있고 신규 B는 prepare·승인·원격 dispatch 전에 거절한다. 다음 경계부터 B를 광고하고 A를 숨긴다. 검색은 새로운 handler를 등록하거나 권한을 넓히지 않는다.
+
+Regular coordinator의 state 도구는 순차 실행한다. Trusted helper에 여러 작업을 직접 stage하는 경우에도 미저장 clear/replace가 다른 add에 여유 공간을 빌려주지 않는다. 현재 selected 집합과 각 pending replace 집합에 모든 pending add를 합쳐 count/bytes를 보수적으로 검사하므로 commit/discard 순서가 달라도 한도를 지킨다. 이것은 model state-tool 병렬 실행 기능이 아니다.
 
 선택 집합은 Run-local이다. 다른 Run·exact request retry·restart로 선택이나 실행 권한을 복원하지 않는다. Registry/policy/token 변경은 기존 selection을 버리고 새 검색을 요구한다. 도구 연결이 바뀐 뒤 이전 승인·prepared request로 호출할 수 없다. 선택된 unknown MCP 도구도 기존 exact outer approval과 [dispatch/outcome receipt](engine-mcp-execution.md)를 요구한다.
 
@@ -53,10 +65,12 @@ Opt-in `context.prepared`에는 `reservedToolBytes`, `toolCatalogueSha256`, `adv
 | Query / 결과 수 | 최대256B / 기본4 | 결과 최대8 |
 | 결과 설명 / 전체 결과 | 최대512B | 합계32KiB |
 
-Metadata bytes가 candidate count보다 먼저 한도에 도달할 수 있다. Schema cap을 통과해도 전체 provider context cap은 별도로 적용한다. 현재 선택은 union으로 누적하므로 선택 count를 소진한 Run에서 다른 도구로 작업 집합을 바꾸려면 별도 기능이 필요하다. 자동 eviction·release/replace는 G1-27 완료 범위 밖이다.
+Metadata bytes가 candidate count보다 먼저 한도에 도달할 수 있다. Schema cap을 통과해도 전체 provider context cap은 별도로 적용한다. Add는 union 한도를 적용하고 explicit replace는 새 집합을 검사하므로 선택 count를 소진한 Run에서도 작업 집합을 바꿀 수 있다. 자동 eviction·선택의 영구 복원은 추가하지 않았다.
 
 실제 임시 엔진·HTTP MCP·합성 provider15개에서40개 큰 schema를 등록한 뒤 core21개를 보존하며 광고22→23→23, 예약10,584→18,968→18,968B, provider3회와 정확히 승인된 peer tools/call1회로 완료했다. Hidden same-batch 호출·profile/policy·일반 예산·approval 전 취소·timeout uncertainty·queue 차단·exact retry·registry 재계획·overflow stale·제한 child를 확인했다. Whole snapshot은0이다.
 
 Runtime14개·독립18개·Run helper14개를 source/private bundle로 검증했다. Existing runtime24개도 집중38개 검사에 포함하며 전체 gate에 다시 더하지 않는다. Helper의 commit 콜백 검사는 상태 경계 검사이고 durable 저장은 실제 통합에서 확인한다. Overflow 시험은 실제 첫 Attempt/cleanup과 controlled host recovery callback을 사용하며 semantic summary 호출을 했다는 주장이 아니다.
+
+G1-28은 helper16개·독립22개·actual engine14개를 source/private bundle/scoped noEmit으로 검증했다. Actual 한도1 A→B 전환은 default core21을 유지하며 provider5회·정확히 승인한 terminal MCP peer2회로 완료했다. Default add/clear·same batch·UTF-8 cap·결과 저장 실패·policy/cancel·accepted timeout 격리·exact retry/restart·HTTP503 retry·제한 child를 확인했다. [이전 기능 한계와 구현 후 증거](research/2026-10-07-tool-selection-capacity.md)를 따른다.
 
 Provider-native tool_search/namespace protocol, 외부 MCP 계정, token/시간/물리 I/O 절감은 검증하지 않았다. 기본 eager와 host capabilities의 full-schema 진단은 호환을 유지한다. 원본 엔진 코드는 복사하지 않았으며 GUI는 이번 범위에서 실행하지 않는다.

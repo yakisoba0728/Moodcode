@@ -2,6 +2,12 @@
 
 2026-10-07 사용자가 잠든 동안에도 goal을 활성화해 자체 엔진의 구현·수정·최적화·검증을 계속하도록 요청했다. 실제 진행 상태는 루트 `TODO.md`의 G1 항목과 검증 보고서를 기준으로 한다. GUI는 실행하지 않는다. 기존 로컬 Codex 인증을 사용하는 검증은 임시 저장소와 제한된 fixture 작업만 대상으로 한다.
 
+## 현재 목표와 1차 종료 범위
+
+같은 날 사용자의 후속 요청으로 무기한 개선 범위를 **G1-29 수정 → 최종 검증 → 문서·로컬 커밋 → goal 완료**로 좁혔다. 기존 G1-01~28을 유지하고 eager catalogue/문맥 예약의 실제 불일치만 마지막 필수 구현으로 마무리한다. 이후 새 기능이나 G1-30 비교 작업을 시작하지 않는다. 최종 검사에서 발견한 1차 회귀는 수정한다.
+
+[1차 종료 명세](engine-phase-one-exit-criteria.md)의 여섯 조건을 모두 충족하면 goal을 complete로 바꾸고 자동 구현을 끝낸다. 원래 열린 OS/provider/CI4개와 GUI는 2차로 이월하며 완료로 표시하지 않는다. 아래 반복 작업과 검토 지점은 이전 진행 기록이다. 활성 goal 도구는 objective 문구 수정을 지원하지 않아 앱의 문구는 그대로지만 실제 수행과 완료 판단은 이 후속 지시를 따른다.
+
 ## 비교 근거와 구현 방향
 
 | 대상 | 확인 범위 | Moodcode에 반영할 문제 |
@@ -141,3 +147,11 @@ Runtime38/독립18/helper14/actual15 source/private bundle·scoped noEmit, 새61
 첫 whole gate observer fixture의 unhandled rejection1실패를 test-only early catch로 수정하고 원래 code/failure-once/cleanup 검증을 유지한 뒤 전체를 다시 실행했다. Partial wiring·MCP _meta fixture 오류와 source-only overflow 가설도 실제 결함과 구별했다. DB9/metrics6·기존 격리/ACK를 유지하며 [열네 번째 JSON](engine-goal-fourteenth-verification.json)은 `8faf0e9`의 원본 bytes 그대로 보존했다. [계약](engine-tool-discovery.md), [최신 검증](engine-goal-verification.md)을 따른다.
 
 다음 G1-28은 선택 집합의 명시적 교체다. Actual source/private bundle2조건에서 한도1을 채운 A→B 검색이 반복 TOOL_DISCOVERY_LIMIT/B실행0이고 한도2 대조군은 B실행1이다. 일반 bounded 기능 한계이며 보안 결함이나 원격 효과 증거로 표시하지 않는다. Default add 호환과 core/현재권한/승인/저장·다음boundary/overflow/cleanup을 보존하는 교체 계약을 독립 설계한다. [조사](research/2026-10-07-tool-selection-capacity.md)를 따른다. 원래 외부 OS/provider/CI4개·GUI 제외를 유지하며 goal은 활성 상태다.
+
+## 열여섯 번째 검토 지점
+
+`93bfeaa`에서 G1-28 명시적 add/replace 선택을 구현했다. Default add·core/always-visible·no-match clear·action fingerprint·새 집합 count/UTF-8 preflight와 저장 뒤 다음 경계 활성화를 연결했다. Helper16/독립22/actual14 source/private bundle/scoped noEmit, 새52개 포함 whole2,553 pass·실패0·조건부2 skip·fixture3/3·같은 source Codex child text1회가 통과했다. Actual 한도1 A→B는 core21 유지·provider5회·정확히 승인된 terminal peer2회로 완료했다. [계약](engine-tool-discovery.md), [최신 검증](engine-goal-verification.md)을 따른다.
+
+이전 JSON은 [열다섯 번째 원본](engine-goal-fifteenth-verification.json)으로 `4dbff6d`의 bytes 그대로 보존했다. 임시 helper/actual 로그 경로 충돌은 source 변경 없이 unique prefix 재검증으로 정리했고 prior manifest와 오류 구분을 남겼다.
+
+사용자가 1차 종료 기준을 요청해 무기한 확장을 중단했다. G1-29 actual source/private bundle6조건은 eager 도구 성장 후 옛 예약으로 계획하는 byte cap의 불필요 실패와 known conservative window의 불일치를 확인했다. 같은 최신 예약 대조군은 완료된다. 이것을 마지막 필수 수정으로 마무리한 뒤 [1차 종료 조건](engine-phase-one-exit-criteria.md)의 최종 검증·문서·로컬 커밋·clean 상태를 충족하면 goal을 complete로 바꾼다. GUI·원래 외부4개·추가 기능은2차로 이월한다.

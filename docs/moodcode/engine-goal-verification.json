@@ -1,32 +1,32 @@
 {
-  "schemaVersion": 15,
-  "implementationCommit": "ad787d6be7cfdedee973ac223aa5908783572f6c",
-  "timestamp": "2026-10-07T05:50:13.893Z",
+  "schemaVersion": 16,
+  "implementationCommit": "93bfeaa0f292c2251c6623a6130ab52b5746d59f",
+  "timestamp": "2026-10-07T06:29:58.190Z",
   "runtime": {
     "node": "26.9.0",
     "platform": "darwin",
     "arch": "arm64"
   },
-  "scope": "headless-engine-goal-checkpoint-15",
+  "scope": "headless-engine-goal-checkpoint-16",
   "checks": {
     "typecheck": {
       "command": "npm run typecheck",
       "passed": true,
-      "log": "/tmp/moodcode-wave15-typecheck-final.log",
+      "log": "/tmp/moodcode-wave16-typecheck-final.log",
       "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
     },
     "engine": {
       "command": "npm run test:engine",
       "testConcurrency": 4,
       "testManifestReduced": false,
-      "log": "/tmp/moodcode-wave15-engine-final.log",
-      "logSha256": "5f41912f91b3bdeb81db06665c7c4d0bd91c8d2ef5bdc1b69a430c459071cef3",
-      "tests": 2503,
-      "passed": 2501,
+      "log": "/tmp/moodcode-wave16-engine-frozen.log",
+      "logSha256": "eb2ae36b12e3c18e970e2cf9c9f25163b55704a4ac72da6a4bcb13208af4d516",
+      "tests": 2555,
+      "passed": 2553,
       "failed": 0,
       "cancelled": 0,
       "skipped": 2,
-      "durationMs": 60077.308667
+      "durationMs": 60720.587584
     },
     "evaluation": [
       {
@@ -48,13 +48,13 @@
           "outputTokens": null,
           "usageWindowTruncated": false,
           "context": {
-            "bytes": 13143,
+            "bytes": 13144,
             "limit": 262144,
             "summaryIncluded": false,
             "turnIndex": 3
           }
         },
-        "durationMs": 258
+        "durationMs": 256
       },
       {
         "taskId": "empty-list-boundary",
@@ -75,13 +75,13 @@
           "outputTokens": null,
           "usageWindowTruncated": false,
           "context": {
-            "bytes": 13228,
+            "bytes": 13226,
             "limit": 262144,
             "summaryIncluded": false,
             "turnIndex": 3
           }
         },
-        "durationMs": 247
+        "durationMs": 238
       },
       {
         "taskId": "two-module-change",
@@ -109,132 +109,116 @@
             "turnIndex": 4
           }
         },
-        "durationMs": 259
+        "durationMs": 264
       }
     ],
     "evaluationEvidence": {
       "command": "node scripts/evaluate-engine.mjs",
-      "log": "/tmp/moodcode-wave15-evaluation-final.log",
-      "logSha256": "eff292131702334f0071ed1eeeb097f77574067bcb34ab699264e67498486c4c"
+      "log": "/tmp/moodcode-wave16-evaluation-final.log",
+      "logSha256": "abc5d5cc9d07e401690901c6325024f3970e8015d5930feb833b1757ce9959e6"
     },
     "independentScoped": {
-      "runtimeSource": {
-        "log": "/tmp/moodcode-g127-discovery-final-source.log",
-        "logSha256": "3da1d4359f69e5a22ca0e614149dfba72ae20e16b9abb12947e160fa95fc57ee",
-        "tests": 38,
-        "passed": 38,
-        "failed": 0,
-        "cancelled": 0,
-        "skipped": 0,
-        "durationMs": 138.313
-      },
-      "runtimeBundle": {
-        "log": "/tmp/moodcode-g127-discovery-final-bundle.log",
-        "logSha256": "f77ee4715b32b306482f1bb3fd2ec0547167f738643f35887abfc1c964c7a3d2",
-        "tests": 38,
-        "passed": 38,
-        "failed": 0,
-        "cancelled": 0,
-        "skipped": 0,
-        "durationMs": 135.624958
-      },
-      "runtimeNoEmit": {
-        "passed": true,
-        "log": "/tmp/moodcode-g127-discovery-final-noemit.log",
-        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-      },
-      "independentSource": {
-        "log": "/tmp/moodcode-g127-independent-final-source.log",
-        "logSha256": "5987196c7070215bcac09a7d7200f9c2021c3732aefb269ac095a1cce41f7449",
-        "tests": 18,
-        "passed": 18,
-        "failed": 0,
-        "cancelled": 0,
-        "skipped": 0,
-        "durationMs": 148.423917
-      },
-      "independentBundle": {
-        "log": "/tmp/moodcode-g127-independent-final-bundle.log",
-        "logSha256": "ebabe7f3e1cde1b5a215e95d8fe3b60c4c126e129d540bbf70514fe70fc401af",
-        "tests": 18,
-        "passed": 18,
-        "failed": 0,
-        "cancelled": 0,
-        "skipped": 0,
-        "durationMs": 42.615708
-      },
-      "independentNoEmit": {
-        "passed": true,
-        "log": "/tmp/moodcode-g127-independent-wired-noemit.log",
-        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-      },
       "helperSource": {
-        "log": "/tmp/moodcode-g127-run-tool-discovery-final-source.log",
-        "logSha256": "16c5c198701a466edd1be3461b41f5bd803fb2d56a8fbc6576c6420472aa70d7",
-        "tests": 14,
-        "passed": 14,
+        "log": "/tmp/moodcode-g128-run-selection-final-source.log",
+        "logSha256": "1cb418bf3dbca90e897dd6ee6d7927f809a05b9a94a6bac02b930eef77f3aa68",
+        "tests": 16,
+        "passed": 16,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "durationMs": 127.919917
+        "durationMs": 95.16575
       },
       "helperBundle": {
-        "log": "/tmp/moodcode-g127-run-tool-discovery-final-bundle.log",
-        "logSha256": "b43a794474ff813aa4103df1791fc562959ce8a37d4403f4bce8867420ced750",
-        "tests": 14,
-        "passed": 14,
+        "log": "/tmp/moodcode-g128-run-selection-final-bundle.log",
+        "logSha256": "b587a168990163e150953785ac616a9a8ea3687bb35a50fb3005be3d9b31d3cf",
+        "tests": 16,
+        "passed": 16,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "durationMs": 61.401417
+        "durationMs": 71.316875
       },
       "helperNoEmit": {
         "passed": true,
-        "log": "/tmp/moodcode-g127-run-tool-discovery-final-noemit.log",
+        "log": "/tmp/moodcode-g128-run-selection-final-noemit.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "independentSource": {
+        "log": "/tmp/moodcode-g128-independent-selection-final-source.log",
+        "logSha256": "4de2fd827564fb52715fc4940f80c194ac0ed0e293157b111f9cb7d19a9cca09",
+        "tests": 22,
+        "passed": 22,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 139.185375
+      },
+      "independentBundle": {
+        "log": "/tmp/moodcode-g128-independent-selection-final-bundle.log",
+        "logSha256": "28027d517854b969893b3323597c70fa5463310a42b8efd9f5482a7789967b80",
+        "tests": 22,
+        "passed": 22,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 48.437625
+      },
+      "independentNoEmit": {
+        "passed": true,
+        "log": "/tmp/moodcode-g128-independent-selection-final-noemit.log",
         "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "actualSource": {
-        "log": "/tmp/moodcode-g127-tool-discovery-fifteen-first-source.log",
-        "logSha256": "0d1f19ebd70e00c9ba98f8a31f1c658bb5c5c2f49f0dd4a3bac26549cc50f182",
-        "tests": 15,
-        "passed": 15,
+        "log": "/tmp/moodcode-g128-selection-integration-final-source.log",
+        "logSha256": "17eca484d4a6d43643a74fcbd01a4bccb4a934b46c9265af5405940540b3c2ea",
+        "tests": 14,
+        "passed": 14,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "durationMs": 1365.492292
+        "durationMs": 2005.174167
       },
       "actualBundle": {
-        "log": "/tmp/moodcode-g127-tool-discovery-final-bundle.log",
-        "logSha256": "446b6442c042c4ea1457ae308f4212e0e1ea2d0cb2cda4fae0a710c354fdcd8d",
-        "tests": 15,
-        "passed": 15,
+        "log": "/tmp/moodcode-g128-selection-integration-final-bundle.log",
+        "logSha256": "c3c3a961b6342b626353f6c9726b7c371f40c70c87f1fc60b07ba424e69de332",
+        "tests": 14,
+        "passed": 14,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "durationMs": 1170.048042
+        "durationMs": 1946.289708
       },
       "actualNoEmit": {
         "passed": true,
-        "log": "/tmp/moodcode-g127-tool-discovery-fifteen-first-scoped-noemit.log",
+        "log": "/tmp/moodcode-g128-selection-integration-final-noemit.log",
         "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "previousDiscoverySource": {
+        "log": "/tmp/moodcode-wave16-g127-regression-source.log",
+        "logSha256": "29808488a52b5e4cf76347fa3f4cb4c038177be2897edc9e2b6f1ae738cff089",
+        "tests": 85,
+        "passed": 85,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 1326.258833
       }
     },
     "scopedCountsOverlapFullGate": true,
     "newSourceTests": {
-      "runtime": 14,
-      "independent": 18,
-      "helper": 14,
-      "actual": 15,
-      "total": 61
+      "helper": 16,
+      "independent": 22,
+      "actual": 14,
+      "total": 52
     },
     "live": {
       "command": "node scripts/verify-child-document-storage.mjs --live --tool-discovery",
-      "log": "/tmp/moodcode-wave15-child-live-first.log",
-      "logSha256": "6af0460a1db6ec44339d7658bd71cbab5ba7fb2d2b67c75c41c753d20e9920d0",
+      "log": "/tmp/moodcode-wave16-child-live-first.log",
+      "logSha256": "6ef61ae5bc0aba1426b6aca8f2cb3cd4cf8a6af4f63dbc2b01a271f1ac27f49a",
       "result": {
         "kind": "managed-child-document-storage-live-text-regression",
-        "implementationCommit": "ad787d6be7cfdedee973ac223aa5908783572f6c",
-        "timestamp": "2026-10-07T05:47:14.143Z",
+        "implementationCommit": "93bfeaa0f292c2251c6623a6130ab52b5746d59f",
+        "timestamp": "2026-10-07T06:16:22.282Z",
         "runtime": {
           "node": "26.9.0",
           "platform": "darwin",
@@ -254,8 +238,8 @@
         },
         "actualRequests": [
           {
-            "attemptId": "c8de2239-4cc9-4563-aaa4-8a13bec37e53",
-            "logicalRequestSha256": "8fb319df17d9ed4fa66dc598a1ffc0112425c882188a8d58997a790d1091c1a5",
+            "attemptId": "33186a26-98a8-414a-b629-8dbe18091eb3",
+            "logicalRequestSha256": "bd42ff714dc17bc47bc03e2b3775164695734caf3f41edc2dbb12180946b7b9e",
             "logicalRequestBytes": 1746,
             "usage": {
               "type": "usage",
@@ -282,7 +266,7 @@
           "declaredChildBytes": 54,
           "documents": [
             {
-              "id": "doc_69fd87f3691a481ea4b12d7200347932",
+              "id": "doc_0fd43e209f3f424ca14d40610d622ffc",
               "kind": "document",
               "mimeType": "application/pdf",
               "bytes": 54,
@@ -295,11 +279,11 @@
             "selectedRows": 28,
             "openedChildren": 1,
             "rawMirrorBytes": 491520,
-            "elapsedMs": 9.722167000000354,
+            "elapsedMs": 9.16254200000003,
             "exhaustedReason": null
           },
           "statsScope": "whole-archive-proof-frame",
-          "manifestSha256": "b3a42af909f15c8edb47091dc086dac80df203a71e29365528497aa71de76449",
+          "manifestSha256": "1ab91178e0b7f0ded2ab9a8c6548b48721c3ea62c9dfd2b857386980efa0b4e6",
           "physicalRebinding": false,
           "executionResumed": false,
           "recoveryAcknowledgmentsRebound": false
@@ -319,7 +303,7 @@
             "selectedRows": 23,
             "openedChildren": 1,
             "rawMirrorBytes": 491520,
-            "elapsedMs": 8.024082999999791,
+            "elapsedMs": 8.059291999999914,
             "exhaustedReason": null
           },
           "blobHashesVerifiedByDiagnostic": false
@@ -340,43 +324,30 @@
     "actualRemotePdfRequests": 0,
     "actualExternalMcpAccountRequests": 0,
     "independentReadOnlyRootReview": {
-      "reviewedSources": [
+      "openConcreteFindings": [],
+      "sources": [
         {
           "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/runner/tool-discovery.ts",
-          "sha256": "d78c1181465c734f204e310b0bc77ff29149cf192e49c644ffe42f625e29f57b"
+          "sha256": "f2a342d93a0c0c29adedfeb3a6f887930e06b19023c2df2c4c944bdf39e3acf3"
         },
         {
           "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/runner/index.ts",
-          "sha256": "86566a8ada0bfa122e268eef9a2d1de2957e093d7f0f494374e6957c30390f88"
+          "sha256": "fff5e337179aadde5446f0938d0d34d3538bcdf2f531e5e84835c4548614e212"
         },
         {
           "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/engine.ts",
-          "sha256": "8db06e979412070130cb4613fe6e0e6a8b054d9e2af66fbfe01f75d763a39478"
-        },
-        {
-          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/ports.ts",
-          "sha256": "8f19e77d6aaccdd9abc9b875c40f61d22fead83dcc79fef281ba6e9ff5eaa59b"
-        },
-        {
-          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/child-tasks/engine-host.ts",
-          "sha256": "221559e627e456229690e893c8295514d69de26ca69c59d887109c9455968882"
-        },
-        {
-          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/index.ts",
-          "sha256": "913df2ab43ff15f7d65cc23cd4c585f423827b7a8c0426555057035fce016846"
+          "sha256": "2fe794bfb30922ae9a56de4a732d4ced34ab1c3ef0696e339239c1c9c41b5b5b"
         }
       ],
-      "concreteOpenFindings": [],
-      "notes": [
-        "same logical Turn overflow retries retain source capture; source revision mutation fails TOOL_DISCOVERY_STALE before retry",
-        "same batch unselected proposals resolve against prior advertised catalogue",
-        "selection activates only after ToolRecord/Part result settlement",
-        "context rebuild after catalogue changes drains newly arrived steers again",
-        "deep-cloned provider tool descriptors detach run-local cached catalogue from adapter mutation",
-        "strict EngineOptions policy is normalized; direct CoordinatorOptions is trusted resolved policy port",
-        "eager provider exposure and getCapabilities full-schema reporting are preserved"
-      ],
-      "hypothesis": "Original overflow re-capture mismatch was source-only; ROOT guarded fixedCatalogue before an actual red reproduction. Do not claim reproduced production failure."
+      "observations": [
+        "action forwarded through engine/coordinator owner-bound callbacks",
+        "ToolRecord plus native Part settlement precedes pending selection commit",
+        "provider current batch catalogue unchanged; next context boundary materializes replacement",
+        "read/state scheduler and readonly identity behavior unchanged",
+        "MCP unknown effect approvals and durable uncertainty use unchanged execution path",
+        "strict action parser replaces earlier generic JSON validator; omitted fields default, explicit null/undefined are rejected",
+        "trusted direct staging checks original selected base and each replacement base with all outstanding adds so future capacity is not lent before commit"
+      ]
     }
   },
   "implementation": {
@@ -464,7 +435,7 @@
       "packages/engine/src/documents/provider.ts": "74532e0678ee51403a4eb33ce8b38fb95f92c999b11084861a2c1f7cb40c5d4f",
       "packages/engine/src/documents/store.ts": "4cb2fe14689c1154a73118bd2b2a15301c0472513d5c3d1b8c999154d809ed6f",
       "packages/engine/src/documents/validation.ts": "440d146a614926b006ce39137f77925623defdc0805aeaab704f3f6b8a200c7b",
-      "packages/engine/src/engine.ts": "8db06e979412070130cb4613fe6e0e6a8b054d9e2af66fbfe01f75d763a39478",
+      "packages/engine/src/engine.ts": "2fe794bfb30922ae9a56de4a732d4ced34ab1c3ef0696e339239c1c9c41b5b5b",
       "packages/engine/src/formatters/edits.ts": "a1098a4a3147f07cb4175928678cde0a3a5b432a83e303e8fd692e9c47a17a00",
       "packages/engine/src/formatters/index.ts": "61aa4c5e093a5edb60192d8f0fd2e970be9c1f994ce35f6a5f1a246c77b892b6",
       "packages/engine/src/index.ts": "913df2ab43ff15f7d65cc23cd4c585f423827b7a8c0426555057035fce016846",
@@ -479,6 +450,7 @@
       "packages/engine/src/integration/fixtures/mcp-effect-outcome-child.ts": "ea3c8d3eb2acb1b5195b08987e4648c77fc9562b832d5e2674dcba1a610fc173",
       "packages/engine/src/integration/fixtures/tool-recovery-frontier-child.ts": "b98331c198aeefb21ac483b730b58da5ed587bb2daa4b02af003bbdc93e7ab34",
       "packages/engine/src/integration/mcp-effect-outcome-review.integration.test.ts": "672804fbffeb69e075ebf85b91f56480d80f153bc603760908db724a557ea3e8",
+      "packages/engine/src/integration/tool-discovery-selection.integration.test.ts": "b57205aae7bb3747ed3b2daac5882c8a627dd2cbf01b33a900db621ab2554a50",
       "packages/engine/src/integration/tool-discovery.integration.test.ts": "6d061eb7495331c44b8677acde7f25ceefba1efdf9589873fc2ae8eaef4d8628",
       "packages/engine/src/integration/tool-recovery-frontier-review.integration.test.ts": "ef23b9429bc9f55365756b4df1a6f4cd822f0bc99cf2139cd224b127cf613001",
       "packages/engine/src/lsp/index.ts": "b367cf827c89ce6bbd731a4ee7918e29513825375dc4ad85cfef24c32a40e349",
@@ -519,11 +491,13 @@
       "packages/engine/src/recovery/summary.ts": "df913361f3c25e64089914ec2d5e85af56fc4ee8fdabbcdd4f83fc7e649bd01e",
       "packages/engine/src/review/audit.ts": "89a91a1a10dee69707c9f529f146b29ba2c58a4c52a6e3bb2cd4aa8aaac275b7",
       "packages/engine/src/review/index.ts": "1e97a8e28043e561b410d6a801d5293a4547872b1db2a6a5783ac906749e14c6",
-      "packages/engine/src/runner/index.ts": "86566a8ada0bfa122e268eef9a2d1de2957e093d7f0f494374e6957c30390f88",
+      "packages/engine/src/runner/index.ts": "fff5e337179aadde5446f0938d0d34d3538bcdf2f531e5e84835c4548614e212",
       "packages/engine/src/runner/input-scheduler.ts": "299fb0179938df114616ce21976e747d6c0911e1f5a674054175654687709277",
       "packages/engine/src/runner/mcp-execution-observer.ts": "8ad822767db72b2b574ac74c9077262eeb762ccf9b5723ce1765b45612eb17ae",
+      "packages/engine/src/runner/tool-discovery-selection-review.test.ts": "d0f4074fa770b5a10210175b9c2b684b069c68c7538aef8ba5f164e96574db96",
+      "packages/engine/src/runner/tool-discovery-selection.test.ts": "faf6b44324054ab19f4f41229de7566b63291cd58b433f6e801312a0e39a5180",
       "packages/engine/src/runner/tool-discovery.test.ts": "3efb017cbe8bcc13551ac5703da7817a213fe19ca7531427535a6a5a3865c7bb",
-      "packages/engine/src/runner/tool-discovery.ts": "d78c1181465c734f204e310b0bc77ff29149cf192e49c644ffe42f625e29f57b",
+      "packages/engine/src/runner/tool-discovery.ts": "f2a342d93a0c0c29adedfeb3a6f887930e06b19023c2df2c4c944bdf39e3acf3",
       "packages/engine/src/runner/turn-executor.ts": "9596e8874cf61ec85d7508039f9c1d35aed24eb74d524010c56df229175aaf38",
       "packages/engine/src/session-state/index.ts": "617af93a0e35ccb0b0b7aa4e0b52c0573e1322c39d771110815b687451b29943",
       "packages/engine/src/storage/active-prefix.ts": "f1f67d158d3142be55a371fcfe84919f5cc0fd5bd2be37dbd764f041d4d87842",
@@ -818,305 +792,28 @@
       "schemaStoredAsConversationMemory": false,
       "newMigration": false,
       "providerNativeToolSearchCapabilityClaimed": false,
-      "selectedWorkingSetReplacement": false
+      "selectedWorkingSetReplacement": true,
+      "inputAction": [
+        "add",
+        "replace"
+      ],
+      "omittedAction": "add",
+      "defaultInputAndResultShapePreservedWhenActionOmitted": true,
+      "replacementScope": "exact permitted query matches excluding always/core names",
+      "noMatchReplace": "clear noncore selected set; retain currently permitted core/always/discovery",
+      "replacementPreflight": "new exact set plus conservative pending add/replace commit-order count and UTF8 schema-array bounds before clone",
+      "uncommittedReplacementCannotReleaseCapacity": true,
+      "actionBoundToPreparedInputPreviewFingerprint": true,
+      "parser": "plain object or null prototype, no Proxy/accessor/hidden/symbol/unknown fields, typed query/limit/action without coercion",
+      "explicitNullOrUndefinedOptionalFields": "rejected; omitted limit default4/action defaultadd",
+      "resultSelectionModeForReplaceOnly": "replace",
+      "automaticEviction": false,
+      "trustedPendingOrderRobustnessIsProviderStateToolParallelism": false
     }
   },
   "measurements": {
-    "newSourceTestsSincePreviousGate": 61,
-    "historicalPreImplementationBaseline": {
-      "source": {
-        "log": "/tmp/moodcode-tool-catalogue-context-cost-review-source.log",
-        "logSha256": "e1c12d0213143cade74ba40e96415cdefc29460a0f10049e91fa4b10e6029d93"
-      },
-      "privateBundle": {
-        "log": "/tmp/moodcode-tool-catalogue-context-cost-review-bundle.log",
-        "logSha256": "4559455fb0bdf6799a32a3062a0c31e6dcf81dee506eeedc426c6f2e681e0d7b"
-      },
-      "results": {
-        "log": "/tmp/moodcode-tool-catalogue-context-cost-review-results.json",
-        "logSha256": "78fd570dcdb6c57b1c26dc22b7b41ce6b327c04ebcb16c742553917ac3491bca"
-      },
-      "bundleResults": {
-        "log": "/tmp/moodcode-tool-catalogue-context-cost-review-bundle-results.json",
-        "logSha256": "2741db8bbba865aab35a637c7dd9cf53faf1aa1e8fdbe0ba09e603c284877f03"
-      },
-      "actualSourceAndBundleConditions": 4,
-      "perRemoteSchemaBytes": 8269,
-      "contextByteLimit": 262144,
-      "conditions": [
-        {
-          "name": "default-core-control",
-          "tools": 21,
-          "reservationBytes": 10158,
-          "logicalProviderRequestBytes": 11861,
-          "runState": "completed",
-          "error": null,
-          "providerCalls": 1,
-          "remoteToolCalls": 0
-        },
-        {
-          "name": "default-core-plus-40-mcp",
-          "tools": null,
-          "reservationBytes": 344678,
-          "logicalProviderRequestBytes": null,
-          "runState": "failed",
-          "error": {
-            "code": "CONTEXT_LIMIT",
-            "message": "Context reservation leaves insufficient space for a serialized message array."
-          },
-          "providerCalls": 0,
-          "remoteToolCalls": 0
-        },
-        {
-          "name": "existing-explicit-profile-subset",
-          "tools": 2,
-          "reservationBytes": 9051,
-          "logicalProviderRequestBytes": 10827,
-          "runState": "completed",
-          "error": null,
-          "providerCalls": 1,
-          "remoteToolCalls": 0
-        },
-        {
-          "name": "existing-explicit-profile-all-core-plus-one",
-          "tools": 22,
-          "reservationBytes": 18521,
-          "logicalProviderRequestBytes": 20297,
-          "runState": "completed",
-          "error": null,
-          "providerCalls": 1,
-          "remoteToolCalls": 0
-        }
-      ],
-      "allCorePreservedByExistingStaticProfile": true,
-      "accountCalls": 0,
-      "externalNetwork": 0,
-      "tokenSavingsMeasured": false,
-      "timingMeasured": false,
-      "physicalIoMeasured": false,
-      "sourcePins": [
-        {
-          "path": "/tmp/moodcode-tool-catalogue-context-cost-review.mts",
-          "sha256": "10f68d3e3ed70854d25cb76c7899c2a5a77d4d31d7902b743f07bf91e457ffc8"
-        },
-        {
-          "path": "packages/engine/src/tools/runtime/index.ts",
-          "sha256": "96449ab14a8410d0feea5b2b8bb97246b519dea9218b922112c51eadd97cad39"
-        },
-        {
-          "path": "packages/engine/src/runner/index.ts",
-          "sha256": "6183fa88c7249c1a77b4e88e2287ea588e0f193ee4859501019e865bfa33af56"
-        },
-        {
-          "path": "packages/engine/src/context/index.ts",
-          "sha256": "25e0bf6a9f2a121754c82ad6273d6f43debd4bcdbbcdfa53ed63a9a8b143a734"
-        },
-        {
-          "path": "packages/engine/src/context/plan.ts",
-          "sha256": "314859dbd2528a156099ee25422087d3c343060e8fc605b2dcaefa04eab4010c"
-        },
-        {
-          "path": "packages/engine/src/engine.ts",
-          "sha256": "a91b9d7c21937f96c230461573a0372d48a6e5b0ce954c0cdd1f885ea478d6bf"
-        },
-        {
-          "path": "packages/engine/src/agents/index.ts",
-          "sha256": "f6f84359f05e589d4c5a33c12c746e5683ffff12cc92de7884e94ce9560886a3"
-        },
-        {
-          "path": "packages/engine/src/mcp/client.ts",
-          "sha256": "d07b846a0125ecf7066589415faff06b9e5f3eb80cd2380e98fad4c1ae9f41d1"
-        },
-        {
-          "path": "packages/engine/src/mcp/registration.ts",
-          "sha256": "a41a5aa2f9f27eac75b7f7e547fe5004d12b00523a425b2ca1b6c6047f59929f"
-        }
-      ]
-    },
-    "actualToolDiscovery": {
-      "registeredMCP": 40,
-      "coreToolsPreserved": 21,
-      "visibleTools": [
-        22,
-        23,
-        23
-      ],
-      "reservedToolBytes": [
-        10584,
-        18968,
-        18968
-      ],
-      "logicalRequestBytes": [
-        12287,
-        21368,
-        21601
-      ],
-      "providerCalls": 3,
-      "actualPeerToolCalls": 1,
-      "wholeSnapshots": 0,
-      "tokenSavingsMeasured": false,
-      "physicalIO": null
-    },
-    "actualBoundaries": {
-      "sameProviderBatchExposure": false,
-      "selectedToolExactOuterApproval": true,
-      "profilePolicyExclusions": true,
-      "normalToolBudget": true,
-      "registryChangeBoundaryReplan": true,
-      "overflowRegistryChange": "TOOL_DISCOVERY_STALE before second attempt; actual first cleanup confirmed; controlled host recovery hook; no semantic summary claim",
-      "child": "explicit read_file/discover_tools; parent MCP not inherited; CHILD_TOOL_UNAVAILABLE on explicit connection inheritance",
-      "restart": "no automatic provider/tool retry or persisted discovery selection",
-      "unknownMcp": "durable uncertain receipt, model continuation/new Run/queue blocked"
-    },
-    "runtimeOnlySchemaCloneProbe": {
-      "log": "/tmp/moodcode-g127-runtime-discovery-measure-results.json",
-      "logSha256": "24afaee20e13fd168ac3c1cfacc7086b1a9a497478d9c39e0d180de8a49d3ede",
-      "result": {
-        "observedAt": "2026-10-07T05:24:21.028Z",
-        "scope": "owned-runtime-only-byte-and-schema-clone-measurement",
-        "registeredTools": 40,
-        "registeredSchemaBytes": [
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269,
-          8269
-        ],
-        "metadataCatalogueBytes": 10930,
-        "metadataSearchBytes": 272,
-        "catalogueSchemaClones": 0,
-        "searchSchemaClones": 0,
-        "selectedTools": 1,
-        "selectedSchemaClones": 1,
-        "selectedToolArrayBytes": 8346,
-        "eagerTools": 40,
-        "eagerSchemaClones": 40,
-        "eagerToolArrayBytes": 333801,
-        "limitations": {
-          "engineProviderContextMeasured": false,
-          "tokenSavingsMeasured": false,
-          "timingMeasured": false,
-          "physicalIO": null,
-          "accountCalls": 0,
-          "modelCalls": 0,
-          "mcpCalls": 0,
-          "effects": 0,
-          "acknowledgments": 0
-        },
-        "sourcePins": [
-          {
-            "path": "packages/engine/src/tools/runtime/index.ts",
-            "sha256": "aa8a8efeb87ad2e51871644b6b3c13631c80ab5ab2c438209d226d27ee2cf545"
-          },
-          {
-            "path": "packages/engine/src/tools/runtime/discovery.ts",
-            "sha256": "5fa2dc2eef5afbf929d0e774dcfd4abf60a295c3b83982637232c9ed03f101b6"
-          },
-          {
-            "path": "packages/engine/src/tools/runtime/discovery.test.ts",
-            "sha256": "91b1953e4ec9f63c077d9b942a5c757ad62ef341f0aae6adffc9c88469d64d28"
-          }
-        ]
-      }
-    },
-    "sourcePinManifests": [
-      {
-        "log": "/tmp/moodcode-g127-discovery-verification.json",
-        "logSha256": "58c7f55511eac70a681662fb8153fe20fe7a2db48ece1ebb54fe6a97b03846fa"
-      },
-      {
-        "log": "/tmp/moodcode-g127-independent-verification.json",
-        "logSha256": "e705862de5ccf33e2004102481f9193a15029b281ec29e02b13a60fff90c81c3"
-      },
-      {
-        "log": "/tmp/moodcode-g127-run-tool-discovery-verification.json",
-        "logSha256": "1117a796e4aa5a3fdfda100eca0956913fd23628dd7d0bac5a476636c4a09b84"
-      },
-      {
-        "log": "/tmp/moodcode-g127-tool-discovery-final-source-pins.json",
-        "logSha256": "3839453fff879fe5db009c5426a926fa06e7a61005ac69242286b9162c85d8a9"
-      },
-      {
-        "log": "/tmp/moodcode-g128-selection-capacity-source-pins.json",
-        "logSha256": "e8e326909d0493e6c54f05d5954cde02fd3157b5c98077a1fe2513ef78ef63c5"
-      }
-    ],
-    "liveHistoricalInspection": {
-      "complete": true,
-      "archiveCoverage": "complete",
-      "observedChildren": 1,
-      "declaredChildBytes": 54,
-      "documents": [
-        {
-          "id": "doc_69fd87f3691a481ea4b12d7200347932",
-          "kind": "document",
-          "mimeType": "application/pdf",
-          "bytes": 54,
-          "sha256": "ff5c7259c7cf32bbec5435150226442339f13c4fccf6fe9c735dccf85742d259"
-        }
-      ],
-      "stats": {
-        "selectedMetadataBytes": 10456,
-        "selectedRefs": 1,
-        "selectedRows": 28,
-        "openedChildren": 1,
-        "rawMirrorBytes": 491520,
-        "elapsedMs": 9.722167000000354,
-        "exhaustedReason": null
-      },
-      "statsScope": "whole-archive-proof-frame",
-      "manifestSha256": "b3a42af909f15c8edb47091dc086dac80df203a71e29365528497aa71de76449",
-      "physicalRebinding": false,
-      "executionResumed": false,
-      "recoveryAcknowledgmentsRebound": false
-    },
-    "liveAccountUsage": {
-      "type": "usage",
-      "inputTokens": 266,
-      "outputTokens": 5,
-      "cachedInputTokens": 0,
-      "reasoningOutputTokens": 0
-    },
-    "billedTokens": null,
-    "fullSnapshotReads": 0,
-    "tokenSavingsMeasured": false,
-    "performanceLatencyOrPhysicalIoSavingsMeasured": false,
-    "nextLocalCandidate": {
+    "newSourceTestsSincePreviousGate": 52,
+    "historicalCapacityBaseline": {
       "id": "G1-28",
       "implementedAtThisCheckpoint": false,
       "classification": "bounded-working-set-functional-limit",
@@ -1205,103 +902,1035 @@
       "effects": 0,
       "recoveryAcknowledgments": 0,
       "nextImplementation": "Explicit bounded selected-set replace/release with default add compatibility; preflight and saved-result/next-boundary activation; no permission/approval/MCP uncertainty expansion.",
-      "upstreamReplacementSupportAssumed": false
+      "upstreamReplacementSupportAssumed": false,
+      "sourceCommit": "ad787d6be7cfdedee973ac223aa5908783572f6c",
+      "preservedIn": "docs/moodcode/engine-goal-fifteenth-verification.json"
+    },
+    "actualSelectionReplacement": {
+      "defaultCoreToolsPreserved": 21,
+      "selectedCap": 1,
+      "advertisedMcpNames": [
+        [],
+        [
+          "mcp_selection_alpha"
+        ],
+        [
+          "mcp_selection_alpha"
+        ],
+        [
+          "mcp_selection_beta"
+        ],
+        [
+          "mcp_selection_beta"
+        ]
+      ],
+      "providerCalls": 5,
+      "exactApprovedTerminalPeerCalls": 2,
+      "oldAlphaAfterReplace": "TOOL_NOT_FOUND before approval/dispatch",
+      "advertisedSchemaReservationHashNamesMatchEveryRequest": true,
+      "wholeSnapshotReads": 0
+    },
+    "actualBoundaries": {
+      "defaultAddCapacityFailureRetainsSelection": true,
+      "noMatchClearsSelectedOnly": true,
+      "sameBatch": "old A exact approved terminal RPC1; new B hidden/approval0; next boundary only B selected",
+      "utf8SchemaQueryAndActionFailureRollback": true,
+      "nativePartResultFailureNoActivation": true,
+      "toolAndPartResultAtomicTransactionClaimed": false,
+      "policyChangeAfterStorageClearsSelections": true,
+      "cancelWhileResultStorageNoNextProvider": true,
+      "acceptedBTimeout": "original uncertain receipt retained; model continuation/fresh Run/queue blocked after restart",
+      "exactRetryAndRestart": "original eight tables byte-exact; no discovery/selection/provider/tool replay or inheritance",
+      "provider503Retry": "same B tool schema array/digest, distinct attempts, first cleanup confirmed iterator-return-done, exact approved RPC1",
+      "confinedChild": "assigned read_file/discover_tools only; parent-only A/B metadata and dispatch0; explicit MCP inheritance rejected"
+    },
+    "sourcePinManifests": [
+      {
+        "log": "/tmp/moodcode-g128-run-selection-verification.json",
+        "logSha256": "d81e0592add9c555693ac3af0095272164bf29199283f4b7ba88295f6c7689f3",
+        "manifest": {
+          "observedAt": "2026-10-07T06:10:36.049225+00:00",
+          "scope": "G1-28 independent explicit Run discovery add/replace regression",
+          "ownedNewFile": "packages/engine/src/runner/tool-discovery-selection.test.ts",
+          "productionEdits": 0,
+          "sourcePins": [
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/runner/tool-discovery-selection.test.ts",
+              "sha256": "faf6b44324054ab19f4f41229de7566b63291cd58b433f6e801312a0e39a5180",
+              "bytes": 16533
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/runner/tool-discovery.ts",
+              "sha256": "f2a342d93a0c0c29adedfeb3a6f887930e06b19023c2df2c4c944bdf39e3acf3",
+              "bytes": 11102
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/tools/runtime/index.ts",
+              "sha256": "aa8a8efeb87ad2e51871644b6b3c13631c80ab5ab2c438209d226d27ee2cf545",
+              "bytes": 25999
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/tools/runtime/discovery.ts",
+              "sha256": "5fa2dc2eef5afbf929d0e774dcfd4abf60a295c3b83982637232c9ed03f101b6",
+              "bytes": 7517
+            }
+          ],
+          "artifacts": [
+            {
+              "path": "/tmp/moodcode-g128-run-selection-prior-manifest.json",
+              "sha256": "5163a74ee9ed7e3de37b74c3acdd92da80412efee2a1e286de36139bfeba39fc",
+              "bytes": 5309
+            },
+            {
+              "path": "/tmp/moodcode-g128-run-selection-artifact-collision.json",
+              "sha256": "77bfc950c20fa345f8cbc4ee285732d1e33040a8c67ccd613b490d607059b5d9",
+              "bytes": 1456
+            },
+            {
+              "path": "/tmp/moodcode-g128-run-selection-final-source.log",
+              "sha256": "1cb418bf3dbca90e897dd6ee6d7927f809a05b9a94a6bac02b930eef77f3aa68",
+              "bytes": 1875
+            },
+            {
+              "path": "/tmp/moodcode-g128-run-selection-final-bundle.log",
+              "sha256": "b587a168990163e150953785ac616a9a8ea3687bb35a50fb3005be3d9b31d3cf",
+              "bytes": 1868
+            },
+            {
+              "path": "/tmp/moodcode-g128-run-selection-final-noemit.log",
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "bytes": 0
+            },
+            {
+              "path": "/tmp/moodcode-g128-run-selection-bundle.mjs",
+              "sha256": "24524c609ab8fd04b331e96baf854837af897dfa37bafdfed3206bd1553ac9b2",
+              "bytes": 827
+            },
+            {
+              "path": "/tmp/moodcode-g128-run-selection-tsconfig.json",
+              "sha256": "b5330c6540ca66f202a0e6f8b811ddf9cebb85b60a572d9ae7ef87414bd801d3",
+              "bytes": 453
+            },
+            {
+              "path": "/tmp/moodcode-g128-selection-preimplementation-results.json",
+              "sha256": "bd7262cae01d280cde24a5b15842935e81319b79e43c185648fc9734ccda9cad",
+              "bytes": 470
+            }
+          ],
+          "checks": {
+            "source": {
+              "tests": 16,
+              "pass": 16,
+              "fail": 0,
+              "skip": 0
+            },
+            "privateBundle": {
+              "tests": 16,
+              "pass": 16,
+              "fail": 0,
+              "skip": 0
+            },
+            "scopedNoEmit": "passed"
+          },
+          "commands": {
+            "source": "node --import tsx --test packages/engine/src/runner/tool-discovery-selection.test.ts",
+            "bundleBuild": "node /tmp/moodcode-g128-run-selection-bundle.mjs",
+            "bundle": "node --test /tmp/moodcode-g128-run-selection-private-bundle/tool-discovery-selection.test.js",
+            "noEmit": "node node_modules/typescript/bin/tsc -p /tmp/moodcode-g128-run-selection-tsconfig.json --noEmit"
+          },
+          "preimplementation": {
+            "classification": "expected missing API, not production defect",
+            "sourceSha256": "d78c1181465c734f204e310b0bc77ff29149cf192e49c644ffe42f625e29f57b",
+            "explicitReplacePrepare": "INVALID_TOOL_DISCOVERY_QUERY",
+            "cap1ReplaceAsOldAdd": "TOOL_DISCOVERY_LIMIT",
+            "baselineModelCalls": 0
+          },
+          "evidence": [
+            "Cap1 A to B replacement keeps current batch A, hides B until commit and next capture; then A hidden and local B handler called once.",
+            "Default omitted action remains add and add capacity failures preserve prior choice.",
+            "No-match replacement clears noncore choice while configured core/always-visible/discovery remain.",
+            "Replacement new-set count and exact UTF8 schema preflight reject before clone and preserve prior selection.",
+            "Discard/cancel/wrong prepared identity do not activate pending replacement; G27 source mutation reset remains.",
+            "Exact profile/policy narrowing, action fingerprint binding, prepared one-use and tamper validation remain.",
+            "Uncommitted clear cannot release current capacity for another pending add.",
+            "Strict parser refuses Proxy/accessor/hidden action without caller traps."
+          ],
+          "limitations": [
+            "Uses real ScopedToolRuntime and Root-authored helper with explicit commit/discard calls; durable/native saved-result callback belongs to separate actual-engine integration.",
+            "B execution is an authored local read handler; no MCP transport/model/account/file effects are claimed.",
+            "Single state tool serial model batch is the normal contract; extra pending-cap check is conservative helper robustness."
+          ],
+          "prohibitedActions": {
+            "sharedBuild": 0,
+            "sharedDistWrites": 0,
+            "accountCalls": 0,
+            "projectDatabase": 0,
+            "acknowledgments": 0,
+            "gui": 0,
+            "commits": 0
+          },
+          "frozen": true,
+          "artifactRefresh": "Unique run-selection prefix after shared temp path collision; production/owned source unchanged"
+        }
+      },
+      {
+        "log": "/tmp/moodcode-g128-selection-integration-final-source-pins.json",
+        "logSha256": "97f48c81106079062dec5f78ecac7fc1924e267d787b42a8259758d6dd8d50e5",
+        "manifest": {
+          "scope": "G1-28 independent actual tool-discovery selection integration",
+          "createdAt": "2026-10-07T06:11:50.550209+00:00",
+          "head": "4dbff6d93da534a68ad7d4d242e7fb524c22e001",
+          "ownedTest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/integration/tool-discovery-selection.integration.test.ts",
+          "verification": {
+            "source": {
+              "tests": 14,
+              "pass": 14,
+              "fail": 0,
+              "exitCode": 0
+            },
+            "privateBundle": {
+              "tests": 14,
+              "pass": 14,
+              "fail": 0,
+              "exitCode": 0
+            },
+            "scopedNoEmit": {
+              "exitCode": 0
+            }
+          },
+          "artifactCollision": {
+            "classification": "temporary artifact naming collision, no source defect",
+            "resolution": "fresh source, private bundle and scoped noEmit reruns with selection-integration-only prefix",
+            "priorSharedArtifactsModifiedDuringResolution": false,
+            "ownedSourceEditedDuringResolution": false
+          },
+          "boundaries": {
+            "actualEngine": true,
+            "loopbackHttpMcp": true,
+            "syntheticProviderOnly": true,
+            "tempWorkspaceOnly": true,
+            "accountCalls": 0,
+            "externalNetworkCalls": 0,
+            "recoveryAcknowledgments": 0,
+            "projectDatabaseAccess": 0,
+            "sharedBuildOrDistWrites": 0,
+            "guiLaunches": 0,
+            "commits": 0,
+            "physicalIoMeasured": false,
+            "speedOrTokenSavingsClaimed": false
+          },
+          "frozenG27FixtureUnchangedFromHead": true,
+          "sources": [
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/integration/tool-discovery-selection.integration.test.ts",
+              "bytes": 25476,
+              "sha256": "b57205aae7bb3747ed3b2daac5882c8a627dd2cbf01b33a900db621ab2554a50"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/integration/tool-discovery.integration.test.ts",
+              "bytes": 34324,
+              "sha256": "6d061eb7495331c44b8677acde7f25ceefba1efdf9589873fc2ae8eaef4d8628"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/tools/runtime/index.ts",
+              "bytes": 25999,
+              "sha256": "aa8a8efeb87ad2e51871644b6b3c13631c80ab5ab2c438209d226d27ee2cf545"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/tools/runtime/discovery.ts",
+              "bytes": 7517,
+              "sha256": "5fa2dc2eef5afbf929d0e774dcfd4abf60a295c3b83982637232c9ed03f101b6"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/runner/tool-discovery.ts",
+              "bytes": 11102,
+              "sha256": "f2a342d93a0c0c29adedfeb3a6f887930e06b19023c2df2c4c944bdf39e3acf3"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/runner/index.ts",
+              "bytes": 68329,
+              "sha256": "fff5e337179aadde5446f0938d0d34d3538bcdf2f531e5e84835c4548614e212"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/runner/turn-executor.ts",
+              "bytes": 16953,
+              "sha256": "9596e8874cf61ec85d7508039f9c1d35aed24eb74d524010c56df229175aaf38"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/engine.ts",
+              "bytes": 66520,
+              "sha256": "2fe794bfb30922ae9a56de4a732d4ced34ab1c3ef0696e339239c1c9c41b5b5b"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/ports.ts",
+              "bytes": 11134,
+              "sha256": "8f19e77d6aaccdd9abc9b875c40f61d22fead83dcc79fef281ba6e9ff5eaa59b"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/context/index.ts",
+              "bytes": 25409,
+              "sha256": "25e0bf6a9f2a121754c82ad6273d6f43debd4bcdbbcdfa53ed63a9a8b143a734"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/context/plan.ts",
+              "bytes": 5555,
+              "sha256": "314859dbd2528a156099ee25422087d3c343060e8fc605b2dcaefa04eab4010c"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/context/service.ts",
+              "bytes": 20418,
+              "sha256": "af4d645a057b15c0212650f3ad07dd75ac87d7259cd335feb6e1aea7dde9f4b0"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/mcp/client.ts",
+              "bytes": 20141,
+              "sha256": "d07b846a0125ecf7066589415faff06b9e5f3eb80cd2380e98fad4c1ae9f41d1"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/mcp/registration.ts",
+              "bytes": 5493,
+              "sha256": "a41a5aa2f9f27eac75b7f7e547fe5004d12b00523a425b2ca1b6c6047f59929f"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/child-tasks/engine-host.ts",
+              "bytes": 18937,
+              "sha256": "221559e627e456229690e893c8295514d69de26ca69c59d887109c9455968882"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/child-tasks/index.ts",
+              "bytes": 26269,
+              "sha256": "e89ea476486d4d48dbf4de06d216c449f4c75eb4327c3dec3f20198836be0bd9"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/storage/index.ts",
+              "bytes": 71817,
+              "sha256": "8672102664c566ebf97831b25852ac70eafe0d73db880f8809f8bd9f8cc56513"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/storage/native-records.ts",
+              "bytes": 31830,
+              "sha256": "8269c8e8cad6d7ab0e7388ca4aa7dc8fa83d5481fbd9bca4f6c128d502fd367b"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/contracts/src/index.ts",
+              "bytes": 6757,
+              "sha256": "4d2c576f15ffcc04dc3c312ea76d79296c7771c486c2050fd70c4019a0a88511"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/contracts/src/v2.ts",
+              "bytes": 7640,
+              "sha256": "1386cba1773127ff7f95171ab53cdc5986ab33f2afe74b8736240578d9dc2e33"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/contracts/src/validation.ts",
+              "bytes": 53209,
+              "sha256": "7c787eb42ea2a39d3f64c03d97ff4e889ef9003f00b3b0a8e9e0ab359c8a9dbf"
+            }
+          ],
+          "artifacts": [
+            {
+              "path": "/tmp/moodcode-g128-selection-integration-final-source.log",
+              "bytes": 1646,
+              "sha256": "17eca484d4a6d43643a74fcbd01a4bccb4a934b46c9265af5405940540b3c2ea"
+            },
+            {
+              "path": "/tmp/moodcode-g128-selection-integration-final-bundle.log",
+              "bytes": 1640,
+              "sha256": "c3c3a961b6342b626353f6c9726b7c371f40c70c87f1fc60b07ba424e69de332"
+            },
+            {
+              "path": "/tmp/moodcode-g128-selection-integration-final-noemit.log",
+              "bytes": 0,
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            {
+              "path": "/tmp/moodcode-g128-selection-integration-final.bundle.mjs",
+              "bytes": 1495772,
+              "sha256": "09f5999a64a0ed0d86d1e23c0dd25aded74e7a429f05b284146c40247f96c6b8"
+            },
+            {
+              "path": "/tmp/moodcode-g128-selection-integration-tsconfig.json",
+              "bytes": 485,
+              "sha256": "003dbb67112881f592bba6b1cc328f43df839024e6610901dbaa95bda7ee8f70"
+            }
+          ]
+        }
+      },
+      {
+        "log": "/tmp/moodcode-g128-independent-selection-verification.json",
+        "logSha256": "83a2f34649ed714faddde7d563185c1efacad254382b0874396c985cbc7252bd",
+        "manifest": {
+          "kind": "G1-28 independent selection semantics review",
+          "gitBase": "4dbff6d93da534a68ad7d4d242e7fb524c22e001",
+          "runtime": {
+            "node": "v26.9.0",
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "checks": {
+            "source": {
+              "total": 22,
+              "pass": 22,
+              "log": "/tmp/moodcode-g128-independent-selection-final-source.log",
+              "logSha256": "4de2fd827564fb52715fc4940f80c194ac0ed0e293157b111f9cb7d19a9cca09"
+            },
+            "noEmit": {
+              "passed": true,
+              "log": "/tmp/moodcode-g128-independent-selection-final-noemit.log",
+              "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            "privateBundle": {
+              "path": "/tmp/moodcode-g128-independent-selection/tool-discovery-selection-review.test.mjs",
+              "sha256": "11fa8f939eb603b0414fceb7437a9a90bd649f6938f98d372b232b33a3061b68",
+              "passed": true,
+              "log": "/tmp/moodcode-g128-independent-selection-final-bundle.log",
+              "total": 22,
+              "pass": 22,
+              "logSha256": "28027d517854b969893b3323597c70fa5463310a42b8efd9f5482a7789967b80"
+            }
+          },
+          "dependencies": [
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/contracts/src/index.ts",
+              "sha256": "4d2c576f15ffcc04dc3c312ea76d79296c7771c486c2050fd70c4019a0a88511"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/contracts/src/v2.ts",
+              "sha256": "1386cba1773127ff7f95171ab53cdc5986ab33f2afe74b8736240578d9dc2e33"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/artifacts/limits.ts",
+              "sha256": "005f57ee3e50ddbfde222a959ab65aec39f47d81a0ceef335dbdbd2628fff367"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/artifacts/result.ts",
+              "sha256": "0ddd115c3451c11d093f90bc147bc72e2181e4c4c2dc9706307388cbc2ab7221"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/artifacts/validation.ts",
+              "sha256": "61c9f7204e8704ac991e789127d4644f5e8d17f0eb0fb4a50f07ff63fc8d287b"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/permission/grants.ts",
+              "sha256": "32d7f18e584678d8c86fa440bc6536a723cae434402f342c2a0f75a0c2260d6e"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/permission/policy.ts",
+              "sha256": "4384ff0985dfe879f27758717aced0af7404520993de0910692fc0947645b854"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/runner/tool-discovery-selection-review.test.ts",
+              "sha256": "d0f4074fa770b5a10210175b9c2b684b069c68c7538aef8ba5f164e96574db96"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/runner/tool-discovery.ts",
+              "sha256": "f2a342d93a0c0c29adedfeb3a6f887930e06b19023c2df2c4c944bdf39e3acf3"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/tools/runtime/discovery.ts",
+              "sha256": "5fa2dc2eef5afbf929d0e774dcfd4abf60a295c3b83982637232c9ed03f101b6"
+            },
+            {
+              "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/tools/runtime/index.ts",
+              "sha256": "aa8a8efeb87ad2e51871644b6b3c13631c80ab5ab2c438209d226d27ee2cf545"
+            }
+          ],
+          "scope": "actual in-memory ScopedToolRuntime + RunToolDiscovery + ordinary discovery tool; no coordinator/DB/MCP dispatch fixture in this scope",
+          "coverage": [
+            "replacement exact noncore set after saved-result commit and next capture",
+            "default add and always/core preservation",
+            "no-match clear",
+            "count/UTF8 budget failures before schema clones",
+            "discard/cancel/tamper/one-use",
+            "trusted helper pending clear/add and both replacement/add commit orders",
+            "source/policy reset/profile metadata narrowing",
+            "strict action input proxy/getter/coercion trap0 and invalid optional data rejection",
+            "prepared action fingerprint/input/preview binding",
+            "unknown effect approval required and repeat read identity unchanged",
+            "pending replacement/add aggregate UTF8 reservation, each operation individually within bytes/count limit"
+          ],
+          "limits": [
+            "trusted concurrent staging is not provider parallel state-tool execution",
+            "intermediate preview omission observed during ROOT source write was fixed before actual test: no reproduced RED claim",
+            "existing G27 proofs and temp pre-G28 capacity baseline preserved"
+          ],
+          "repositoryProductionEdits": 0,
+          "externalAccountCalls": 0,
+          "gui": 0,
+          "recoveryACKs": 0,
+          "commits": 0,
+          "rootReadOnlyReview": {
+            "openConcreteFindings": [],
+            "sources": [
+              {
+                "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/runner/tool-discovery.ts",
+                "sha256": "f2a342d93a0c0c29adedfeb3a6f887930e06b19023c2df2c4c944bdf39e3acf3"
+              },
+              {
+                "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/runner/index.ts",
+                "sha256": "fff5e337179aadde5446f0938d0d34d3538bcdf2f531e5e84835c4548614e212"
+              },
+              {
+                "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/engine.ts",
+                "sha256": "2fe794bfb30922ae9a56de4a732d4ced34ab1c3ef0696e339239c1c9c41b5b5b"
+              }
+            ],
+            "observations": [
+              "action forwarded through engine/coordinator owner-bound callbacks",
+              "ToolRecord plus native Part settlement precedes pending selection commit",
+              "provider current batch catalogue unchanged; next context boundary materializes replacement",
+              "read/state scheduler and readonly identity behavior unchanged",
+              "MCP unknown effect approvals and durable uncertainty use unchanged execution path",
+              "strict action parser replaces earlier generic JSON validator; omitted fields default, explicit null/undefined are rejected",
+              "trusted direct staging checks original selected base and each replacement base with all outstanding adds so future capacity is not lent before commit"
+            ]
+          },
+          "sourceDriftAfterBundle": []
+        }
+      }
+    ],
+    "liveHistoricalInspection": {
+      "complete": true,
+      "archiveCoverage": "complete",
+      "observedChildren": 1,
+      "declaredChildBytes": 54,
+      "documents": [
+        {
+          "id": "doc_0fd43e209f3f424ca14d40610d622ffc",
+          "kind": "document",
+          "mimeType": "application/pdf",
+          "bytes": 54,
+          "sha256": "ff5c7259c7cf32bbec5435150226442339f13c4fccf6fe9c735dccf85742d259"
+        }
+      ],
+      "stats": {
+        "selectedMetadataBytes": 10456,
+        "selectedRefs": 1,
+        "selectedRows": 28,
+        "openedChildren": 1,
+        "rawMirrorBytes": 491520,
+        "elapsedMs": 9.16254200000003,
+        "exhaustedReason": null
+      },
+      "statsScope": "whole-archive-proof-frame",
+      "manifestSha256": "1ab91178e0b7f0ded2ab9a8c6548b48721c3ea62c9dfd2b857386980efa0b4e6",
+      "physicalRebinding": false,
+      "executionResumed": false,
+      "recoveryAcknowledgmentsRebound": false
+    },
+    "liveAccountUsage": {
+      "type": "usage",
+      "inputTokens": 266,
+      "outputTokens": 5,
+      "cachedInputTokens": 0,
+      "reasoningOutputTokens": 0
+    },
+    "billedTokens": null,
+    "fullSnapshotReads": 0,
+    "tokenSavingsMeasured": false,
+    "performanceLatencyOrPhysicalIoSavingsMeasured": false,
+    "nextLocalCandidate": {
+      "id": "G1-29",
+      "implementedAtThisCheckpoint": false,
+      "classification": "actual stale eager context planning with two independent three-condition controls",
+      "sourceCommit": "93bfeaa0f292c2251c6623a6130ab52b5746d59f",
+      "sourceAndPrivateBundleConditions": 6,
+      "manifests": [
+        {
+          "log": "/tmp/moodcode-g129-eager-proof-verification.json",
+          "logSha256": "e19b456639ad1e010a5da7fee4971fe718dfc414e44286f7eaa8e7d356eabcb1",
+          "manifest": {
+            "observedAt": "2026-10-07T06:24:33.109249+00:00",
+            "scope": "G1-29 actual eager 3-condition proof frozen before separate known-model window experiment",
+            "sourcePins": [
+              {
+                "path": "packages/engine/src/engine.ts",
+                "sha256": "2fe794bfb30922ae9a56de4a732d4ced34ab1c3ef0696e339239c1c9c41b5b5b",
+                "bytes": 66520
+              },
+              {
+                "path": "packages/engine/src/runner/index.ts",
+                "sha256": "fff5e337179aadde5446f0938d0d34d3538bcdf2f531e5e84835c4548614e212",
+                "bytes": 68329
+              },
+              {
+                "path": "packages/engine/src/runner/tool-discovery.ts",
+                "sha256": "f2a342d93a0c0c29adedfeb3a6f887930e06b19023c2df2c4c944bdf39e3acf3",
+                "bytes": 11102
+              },
+              {
+                "path": "packages/engine/src/tools/runtime/index.ts",
+                "sha256": "aa8a8efeb87ad2e51871644b6b3c13631c80ab5ab2c438209d226d27ee2cf545",
+                "bytes": 25999
+              },
+              {
+                "path": "packages/engine/src/tools/runtime/discovery.ts",
+                "sha256": "5fa2dc2eef5afbf929d0e774dcfd4abf60a295c3b83982637232c9ed03f101b6",
+                "bytes": 7517
+              },
+              {
+                "path": "packages/engine/src/context/index.ts",
+                "sha256": "25e0bf6a9f2a121754c82ad6273d6f43debd4bcdbbcdfa53ed63a9a8b143a734",
+                "bytes": 25409
+              },
+              {
+                "path": "packages/engine/src/context/plan.ts",
+                "sha256": "314859dbd2528a156099ee25422087d3c343060e8fc605b2dcaefa04eab4010c",
+                "bytes": 5555
+              },
+              {
+                "path": "packages/engine/src/context/service.ts",
+                "sha256": "af4d645a057b15c0212650f3ad07dd75ac87d7259cd335feb6e1aea7dde9f4b0",
+                "bytes": 20418
+              },
+              {
+                "path": "packages/engine/src/context/semantic-memory.ts",
+                "sha256": "c3c28b5af958307e90295cc19d01e83f8c2cedc5fde3baa86ac547c907a2a314",
+                "bytes": 9003
+              },
+              {
+                "path": "packages/engine/src/storage/index.ts",
+                "sha256": "8672102664c566ebf97831b25852ac70eafe0d73db880f8809f8bd9f8cc56513",
+                "bytes": 71817
+              },
+              {
+                "path": "packages/contracts/src/validation.ts",
+                "sha256": "7c787eb42ea2a39d3f64c03d97ff4e889ef9003f00b3b0a8e9e0ab359c8a9dbf",
+                "bytes": 53209
+              }
+            ],
+            "artifacts": [
+              {
+                "path": "/tmp/moodcode-g129-eager-reservation-proof.mts",
+                "sha256": "292d573ac060896c9429b370981431b7a212c1054eda4005303131e2c650d242",
+                "bytes": 15145
+              },
+              {
+                "path": "/tmp/moodcode-g129-eager-proof-first-source.log",
+                "sha256": "41ed827a73d66f095bb71451b48b1665e29f7bcd6dd70fcc28dd5df4fc3a0d8f",
+                "bytes": 1321
+              },
+              {
+                "path": "/tmp/moodcode-g129-eager-proof-first-source-results.json",
+                "sha256": "4987e3864066d3a3b11a4d9b3940a4d863554e7076bd0f6f59b4065f94cbd940",
+                "bytes": 31970
+              },
+              {
+                "path": "/tmp/moodcode-g129-eager-proof-final-source.log",
+                "sha256": "41ed827a73d66f095bb71451b48b1665e29f7bcd6dd70fcc28dd5df4fc3a0d8f",
+                "bytes": 1321
+              },
+              {
+                "path": "/tmp/moodcode-g129-eager-proof-final-source-results.json",
+                "sha256": "0408fe732f3da7391345dc52a5812c6dc107bb0d26559968bb1a0dff9579c0d9",
+                "bytes": 31970
+              },
+              {
+                "path": "/tmp/moodcode-g129-eager-proof-final-bundle.log",
+                "sha256": "41ed827a73d66f095bb71451b48b1665e29f7bcd6dd70fcc28dd5df4fc3a0d8f",
+                "bytes": 1321
+              },
+              {
+                "path": "/tmp/moodcode-g129-eager-proof-final-bundle-results.json",
+                "sha256": "3d3ff20b68fa77784d2dda2a0901fccab434351965989557a396bc1699a81953",
+                "bytes": 31970
+              },
+              {
+                "path": "/tmp/moodcode-g129-eager-proof-final-noemit.log",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "bytes": 0
+              },
+              {
+                "path": "/tmp/moodcode-g129-eager-proof-bundle.mjs",
+                "sha256": "a0ec6d7b244616b1b59019cf744d14ee9277e0f014c2a12f8003074d74325d38",
+                "bytes": 798
+              },
+              {
+                "path": "/tmp/moodcode-g129-eager-proof-tsconfig.json",
+                "sha256": "d2d596331ceac6c8e762f9092cf7730891ccef5183cc8498e58d0d9f80540f14",
+                "bytes": 346
+              }
+            ],
+            "checks": {
+              "sourceConditions": 3,
+              "sourcePassed": 3,
+              "privateBundleConditions": 3,
+              "privateBundlePassed": 3,
+              "scopedNoEmit": "passed"
+            },
+            "classification": "Safe final byte gate; avoidable functional failure with stale tool reservation. Both fresh controls complete within the same hard cap.",
+            "measurements": [
+              {
+                "variant": "stale-context-growth",
+                "targetState": "failed",
+                "targetError": {
+                  "code": "CONTEXT_LIMIT",
+                  "message": "Model context byte budget was exceeded"
+                },
+                "targetProviderCalls": 0,
+                "summaryProviderCalls": 0,
+                "wholeSnapshotReads": 0,
+                "targetAttempts": 0,
+                "projectedActualEnvelopeBytes": 36512
+              },
+              {
+                "variant": "fresh-request-reservation-control",
+                "targetState": "completed",
+                "targetError": null,
+                "targetProviderCalls": 1,
+                "summaryProviderCalls": 0,
+                "wholeSnapshotReads": 0,
+                "targetAttempts": 1,
+                "projectedActualEnvelopeBytes": 21629
+              },
+              {
+                "variant": "registered-before-context-control",
+                "targetState": "completed",
+                "targetError": null,
+                "targetProviderCalls": 1,
+                "summaryProviderCalls": 0,
+                "wholeSnapshotReads": 0,
+                "targetAttempts": 1,
+                "projectedActualEnvelopeBytes": 21629
+              }
+            ],
+            "prohibitedActions": {
+              "repositoryEdits": 0,
+              "sharedBuild": 0,
+              "sharedDistWrites": 0,
+              "gui": 0,
+              "accountCalls": 0,
+              "projectDatabase": 0,
+              "recoveryAcknowledgments": 0,
+              "commits": 0
+            },
+            "frozen": true
+          }
+        },
+        {
+          "log": "/tmp/moodcode-g129-known-window-verification.json",
+          "logSha256": "27498d8c1282cf07950395be3d76b64b3c56bbc2d3d5ce644d23313fa5cdb5ce",
+          "manifest": {
+            "observedAt": "2026-10-07T06:26:26.729726+00:00",
+            "scope": "G1-29 separate known conservative model-window actual comparison",
+            "sourcePins": [
+              {
+                "path": "packages/engine/src/engine.ts",
+                "sha256": "2fe794bfb30922ae9a56de4a732d4ced34ab1c3ef0696e339239c1c9c41b5b5b",
+                "bytes": 66520
+              },
+              {
+                "path": "packages/engine/src/runner/index.ts",
+                "sha256": "fff5e337179aadde5446f0938d0d34d3538bcdf2f531e5e84835c4548614e212",
+                "bytes": 68329
+              },
+              {
+                "path": "packages/engine/src/runner/tool-discovery.ts",
+                "sha256": "f2a342d93a0c0c29adedfeb3a6f887930e06b19023c2df2c4c944bdf39e3acf3",
+                "bytes": 11102
+              },
+              {
+                "path": "packages/engine/src/tools/runtime/index.ts",
+                "sha256": "aa8a8efeb87ad2e51871644b6b3c13631c80ab5ab2c438209d226d27ee2cf545",
+                "bytes": 25999
+              },
+              {
+                "path": "packages/engine/src/tools/runtime/discovery.ts",
+                "sha256": "5fa2dc2eef5afbf929d0e774dcfd4abf60a295c3b83982637232c9ed03f101b6",
+                "bytes": 7517
+              },
+              {
+                "path": "packages/engine/src/context/index.ts",
+                "sha256": "25e0bf6a9f2a121754c82ad6273d6f43debd4bcdbbcdfa53ed63a9a8b143a734",
+                "bytes": 25409
+              },
+              {
+                "path": "packages/engine/src/context/plan.ts",
+                "sha256": "314859dbd2528a156099ee25422087d3c343060e8fc605b2dcaefa04eab4010c",
+                "bytes": 5555
+              },
+              {
+                "path": "packages/engine/src/context/service.ts",
+                "sha256": "af4d645a057b15c0212650f3ad07dd75ac87d7259cd335feb6e1aea7dde9f4b0",
+                "bytes": 20418
+              },
+              {
+                "path": "packages/engine/src/context/semantic-memory.ts",
+                "sha256": "c3c28b5af958307e90295cc19d01e83f8c2cedc5fde3baa86ac547c907a2a314",
+                "bytes": 9003
+              },
+              {
+                "path": "packages/engine/src/storage/index.ts",
+                "sha256": "8672102664c566ebf97831b25852ac70eafe0d73db880f8809f8bd9f8cc56513",
+                "bytes": 71817
+              },
+              {
+                "path": "packages/contracts/src/validation.ts",
+                "sha256": "7c787eb42ea2a39d3f64c03d97ff4e889ef9003f00b3b0a8e9e0ab359c8a9dbf",
+                "bytes": 53209
+              }
+            ],
+            "artifacts": [
+              {
+                "path": "/tmp/moodcode-g129-known-window-proof.mts",
+                "sha256": "7b5aecc7b63bd9b2bdbefb46b2f8979fc51cb92747cdddc8a4f2d6de3f9f622b",
+                "bytes": 16039
+              },
+              {
+                "path": "/tmp/moodcode-g129-known-window-first-source.log",
+                "sha256": "3c9f3ab46d6025debd2d0f8ff1d8a1e39a628924cac5195bde2c0904c1224905",
+                "bytes": 1614
+              },
+              {
+                "path": "/tmp/moodcode-g129-known-window-first-source-results.json",
+                "sha256": "e5b18a1a50569fa3365ff0921f977acc380ea0838d0a71ddaeabcc6aa545b0e8",
+                "bytes": 33718
+              },
+              {
+                "path": "/tmp/moodcode-g129-known-window-final-source.log",
+                "sha256": "3c9f3ab46d6025debd2d0f8ff1d8a1e39a628924cac5195bde2c0904c1224905",
+                "bytes": 1614
+              },
+              {
+                "path": "/tmp/moodcode-g129-known-window-final-source-results.json",
+                "sha256": "e411f916b692356abe1e6ee81759d606b17b15b9cdc652b5395949a236ddfd92",
+                "bytes": 33718
+              },
+              {
+                "path": "/tmp/moodcode-g129-known-window-final-bundle.log",
+                "sha256": "3c9f3ab46d6025debd2d0f8ff1d8a1e39a628924cac5195bde2c0904c1224905",
+                "bytes": 1614
+              },
+              {
+                "path": "/tmp/moodcode-g129-known-window-final-bundle-results.json",
+                "sha256": "92a1c07bc8f41e170100502385c10f6ca44f1f45be2ec0b14515b55526a42d5b",
+                "bytes": 33718
+              },
+              {
+                "path": "/tmp/moodcode-g129-known-window-final-noemit.log",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "bytes": 0
+              },
+              {
+                "path": "/tmp/moodcode-g129-known-window-bundle.mjs",
+                "sha256": "5d23c70fcbce291dff227611a82afa3642000c80e3a07f0424435530765bbe15",
+                "bytes": 789
+              },
+              {
+                "path": "/tmp/moodcode-g129-known-window-tsconfig.json",
+                "sha256": "e4c1cb713f9e5ed1a666ae5cef317d2970d2255d035fbeafa79217f9e17d930f",
+                "bytes": 341
+              }
+            ],
+            "checks": {
+              "sourceConditions": 3,
+              "sourcePassed": 3,
+              "privateBundleConditions": 3,
+              "privateBundlePassed": 3,
+              "scopedNoEmit": "passed"
+            },
+            "classification": "Run byte hard cap remains enforced; stale reservation bypasses the known conservative model-window planning bound. Both fresh controls dispatch within that bound.",
+            "measurements": [
+              {
+                "variant": "stale-context-growth",
+                "targetState": "completed",
+                "providerCalls": 1,
+                "attempts": 1,
+                "oldReservation": 10158,
+                "latestReservation": 18524,
+                "plannedBytes": 28146,
+                "actualEnvelopeBytes": 36512,
+                "outputReserve": 1024,
+                "knownWindow": 32768,
+                "actualConservativeEstimateIncludingOutput": 37536,
+                "byteCap": 65536,
+                "omittedMessageCount": 0,
+                "wholeSnapshotReads": 0
+              },
+              {
+                "variant": "fresh-request-reservation-control",
+                "targetState": "completed",
+                "providerCalls": 1,
+                "attempts": 1,
+                "oldReservation": 10158,
+                "latestReservation": 18524,
+                "plannedBytes": 21629,
+                "actualEnvelopeBytes": 21629,
+                "outputReserve": 1024,
+                "knownWindow": 32768,
+                "actualConservativeEstimateIncludingOutput": 22653,
+                "byteCap": 65536,
+                "omittedMessageCount": 1,
+                "wholeSnapshotReads": 0
+              },
+              {
+                "variant": "registered-before-context-control",
+                "targetState": "completed",
+                "providerCalls": 1,
+                "attempts": 1,
+                "oldReservation": 10158,
+                "latestReservation": 18524,
+                "plannedBytes": 21629,
+                "actualEnvelopeBytes": 21629,
+                "outputReserve": 1024,
+                "knownWindow": 32768,
+                "actualConservativeEstimateIncludingOutput": 22653,
+                "byteCap": 65536,
+                "omittedMessageCount": 1,
+                "wholeSnapshotReads": 0
+              }
+            ],
+            "limitations": [
+              "Observed conservative UTF-8 estimate is JSON messages/tools bytes plus the declared output reserve; it is not measured model tokenization or an actual remote model rejection.",
+              "Fresh request control changes only the authored build-hook reservation; the independently successful pre-registered control uses unchanged eager production planning.",
+              "Completed-history semantic summary source is intentionally capped at 1024 bytes; source-limit rejection precedes any summary provider invocation, retaining production extractive fallback."
+            ],
+            "prohibitedActions": {
+              "repositoryEdits": 0,
+              "sharedBuild": 0,
+              "sharedDistWrites": 0,
+              "gui": 0,
+              "accountCalls": 0,
+              "projectDatabase": 0,
+              "recoveryAcknowledgments": 0,
+              "commits": 0
+            },
+            "frozen": true
+          }
+        }
+      ],
+      "byteCap": {
+        "limit": 32768,
+        "initialReservedBytes": 10158,
+        "freshReservedBytes": 18524,
+        "stalePlannedBytes": 28146,
+        "staleActualEnvelopeBytes": 36512,
+        "staleState": "failed",
+        "staleError": "CONTEXT_LIMIT",
+        "staleProviderCalls": 0,
+        "eachFreshControlEnvelopeBytes": 21629,
+        "eachFreshControlState": "completed",
+        "eachFreshControlProviderCalls": 1
+      },
+      "knownConservativeWindow": {
+        "configByteCap": 65536,
+        "contextWindow": 32768,
+        "outputReserve": 1024,
+        "stalePlannedEstimatePlusOutput": 29170,
+        "actualEnvelopeEstimatePlusOutput": 37536,
+        "staleProviderCalls": 1,
+        "eachFreshControlEstimatePlusOutput": 22653,
+        "eachFreshControlProviderCalls": 1
+      },
+      "preservedCoreTools": 21,
+      "summaryProviderCalls": 0,
+      "wholeSnapshotReads": 0,
+      "handlerCalls": 0,
+      "accountCalls": 0,
+      "finalConfiguredByteCapEnforced": true,
+      "actualTokenizerOrRemoteModelRejectionMeasured": false,
+      "finalMandatoryPhaseOneFix": true
     }
   },
   "earlierAttempts": [
     {
-      "kind": "whole-gate-test-fixture-rejection-race",
-      "log": "/tmp/moodcode-wave15-engine-frozen.log",
-      "logSha256": "df512ba40304c97183ab35cc7da6a77ff45ba9c405bca904bc08f0bdf56d0aa8",
-      "tests": 2503,
-      "passed": 2500,
-      "failed": 1,
-      "cancelled": 0,
-      "skipped": 2,
-      "durationMs": 59415.670666,
-      "explanation": "Observer root identity rejection happened during async authored Git setup before assert.rejects attached. Test-only early catch preserves original pending promise and exact code/failure-once/cleanup assertions; production observer unchanged."
+      "kind": "expected-preimplementation-api-absence",
+      "log": "/tmp/moodcode-g128-selection-preimplementation-results.json",
+      "logSha256": "bd7262cae01d280cde24a5b15842935e81319b79e43c185648fc9734ccda9cad",
+      "result": {
+        "observedAt": "2026-10-07T05:56:42.428Z",
+        "scope": "expected-preimplementation-missing-add-replace-api-not-a-production-finding",
+        "sourceSha256": "d78c1181465c734f204e310b0bc77ff29149cf192e49c644ffe42f625e29f57b",
+        "explicitInputError": "INVALID_TOOL_DISCOVERY_QUERY",
+        "capacityReplacementError": "TOOL_DISCOVERY_LIMIT",
+        "advertised": [
+          "private_a",
+          "discover_tools"
+        ],
+        "modelCalls": 0,
+        "effects": 0,
+        "accounts": 0,
+        "acknowledgments": 0
+      },
+      "explanation": "G27 has no replace API; expected INVALID_TOOL_DISCOVERY_QUERY / old add cap, not a reproduced defect in final implementation"
     },
     {
-      "kind": "observer-focused-source-after-fixture-fix",
-      "log": "/tmp/moodcode-wave15-observer-fixture-source.log",
-      "logSha256": "9abbd601df6912bdd96af7c55ba75a8d1635b3d26e666032faa77742f65bb98a",
-      "tests": 13,
-      "passed": 13,
-      "failed": 0,
-      "cancelled": 0,
-      "skipped": 0,
-      "durationMs": 3288.775333
+      "kind": "intermediate-source-preview-observation",
+      "explanation": "Reviewer saw a preview without action while ROOT implementation was being written; corrected before actual final tests. No reproduced RED claim."
     },
     {
-      "kind": "actual-optin-prewiring",
-      "log": "/tmp/moodcode-g127-optin-prewiring-source.log",
-      "logSha256": "957a617374435d42acc1fbc486d5e60d86ae0ccef8d1af5df1e3277e681aded6",
-      "explanation": "existing eager CONTEXT_LIMIT caused by missing API, not a discovery implementation finding"
-    },
-    {
-      "kind": "actual-partial-wiring",
-      "log": "/tmp/moodcode-g127-tool-discovery-first-source.log",
-      "logSha256": "6f0919e92c0bfe928a176cc5437fdf4d63c67fb09469c21b9fe3140bdff4811c",
-      "tests": 13,
-      "passed": 5,
-      "failed": 8,
-      "cancelled": 0,
-      "skipped": 0,
-      "durationMs": 839.827625,
-      "explanation": "missing coordinator callbacks, not a complete implementation finding"
-    },
-    {
-      "kind": "actual-rpc-assertion-fixture-correction",
-      "log": "/tmp/moodcode-g127-tool-discovery-wired-source.log",
-      "logSha256": "585027384ee4476f04fa38fe18731327eefef4d378a289f284eccc58cfe390de",
-      "tests": 13,
-      "passed": 12,
-      "failed": 1,
-      "cancelled": 0,
-      "skipped": 0,
-      "durationMs": 1137.581208,
-      "explanation": "negotiated MCP _meta was omitted from initial params assertion; exact name/arguments/_meta and full actual RPC digest retained"
-    },
-    {
-      "kind": "overflow-review-hypothesis",
-      "explanation": "Original overflow re-capture mismatch was source-only; ROOT guarded fixedCatalogue before an actual red reproduction. Do not claim reproduced production failure."
-    },
-    {
-      "kind": "independent-noemit-fixture-correction",
-      "explanation": "Authored Workspace gitRoot:null corrected to optional gitRoot shape; no production defect."
+      "kind": "temporary-artifact-path-collision",
+      "log": "/tmp/moodcode-g128-run-selection-artifact-collision.json",
+      "logSha256": "77bfc950c20fa345f8cbc4ee285732d1e33040a8c67ccd613b490d607059b5d9",
+      "result": {
+        "observedAt": "2026-10-07T06:10:19.675643+00:00",
+        "classification": "shared-temp-log-prefix-artifact-collision-not-code-defect",
+        "priorManifestSha256": "5163a74ee9ed7e3de37b74c3acdd92da80412efee2a1e286de36139bfeba39fc",
+        "currentMismatches": [
+          {
+            "path": "/tmp/moodcode-g128-selection-first-source.log",
+            "manifestExpectedSha256": "577ab486c59881881817af0f0c75f33c8d47890fc8088c483e4f457ccbf1aec4",
+            "currentSha256": "ca795ef2bfe6e6d0c0bc3167188e6e0c503593a1cfa69dced15f276dac0939c9"
+          },
+          {
+            "path": "/tmp/moodcode-g128-selection-final-source.log",
+            "manifestExpectedSha256": "0b7f040c6386abbb0c1e79176d218cc5118b205f328c8cf4c4da06fc17f2fd8a",
+            "currentSha256": "1660d94a8e80a56f43637e0bde8a2cc88fde21da052ec7a2e6a7dbc5eceb0a67"
+          },
+          {
+            "path": "/tmp/moodcode-g128-selection-final-bundle.log",
+            "manifestExpectedSha256": "e95ad0fa617a6bb1baba44dfa7aed15a195cb0a645c374cfa6d4af4c14635fee",
+            "currentSha256": "36c501ce8481f971580bec5527c63550b9532e9826e2c5962c8ec6fcffdc51e5"
+          },
+          {
+            "path": "/tmp/moodcode-g128-selection-tsconfig.json",
+            "manifestExpectedSha256": "b5330c6540ca66f202a0e6f8b811ddf9cebb85b60a572d9ae7ef87414bd801d3",
+            "currentSha256": "003dbb67112881f592bba6b1cc328f43df839024e6610901dbaa95bda7ee8f70"
+          }
+        ],
+        "originalLogBodiesReconstructed": false,
+        "remedy": "rerun frozen helper source16/bundle16/noEmit under unique run-selection prefix"
+      },
+      "preservedPriorManifest": {
+        "log": "/tmp/moodcode-g128-run-selection-prior-manifest.json",
+        "logSha256": "5163a74ee9ed7e3de37b74c3acdd92da80412efee2a1e286de36139bfeba39fc",
+        "bytesExact": true
+      },
+      "explanation": "Helper/actual evidence shared four temporary paths. Prior manifest bytes retained, unavailable original overwritten logs not reconstructed. Source unchanged; all scoped gates rerun under unique run-selection and selection-integration prefixes; authoritative final logs above."
     }
   ],
   "previousVerification": {
-    "checkpoint": 14,
-    "sourceCommit": "217f77f1f88ad1624bc938adec4763a3996fd46f",
-    "documentationCommit": "8faf0e9ceb4e9268b6b9ee36e86dae074a92b501",
-    "path": "docs/moodcode/engine-goal-fourteenth-verification.json",
-    "sha256": "647bc661a228c5773a6cedddf2ddf5f6e5b309809c4dd74fc6945e0c1792401f",
+    "checkpoint": 15,
+    "sourceCommit": "ad787d6be7cfdedee973ac223aa5908783572f6c",
+    "documentationCommit": "4dbff6d93da534a68ad7d4d242e7fb524c22e001",
+    "path": "docs/moodcode/engine-goal-fifteenth-verification.json",
+    "sha256": "1024aace754fdef8761fa6294e02637bffab3b10e173e79633810288ab105a72",
     "exactBytesPreserved": true,
     "previousGate": {
       "command": "npm run test:engine",
       "testConcurrency": 4,
       "testManifestReduced": false,
-      "log": "/tmp/moodcode-wave14-engine-frozen.log",
-      "logSha256": "294a1e3cae6c5d411a68938b7565f41e5c4626ecf5801611ed43759c04386ad4",
-      "tests": 2442,
-      "passed": 2440,
+      "log": "/tmp/moodcode-wave15-engine-final.log",
+      "logSha256": "5f41912f91b3bdeb81db06665c7c4d0bd91c8d2ef5bdc1b69a430c459071cef3",
+      "tests": 2503,
+      "passed": 2501,
       "failed": 0,
       "cancelled": 0,
       "skipped": 2,
-      "durationMs": 57594.865458
+      "durationMs": 60077.308667
     }
   },
   "remaining": {
     "originalTodo": "71/75 complete; E5-08/E5-13/E6-07/E6-08 external conditions remain open",
-    "nextLocal": "G1-28 explicit selected working-set replace/release under unchanged exact catalogue, profile/policy, result-save, retry and cleanup boundaries",
+    "nextLocal": "Finish G1-29 eager catalogue/context reservation consistency, then final gates/docs/local commits and complete phase one; no new feature scope",
+    "phaseOneExitCriteria": "docs/moodcode/engine-phase-one-exit-criteria.md",
     "limitations": [
       "metadata cap may precede candidate cap",
       "schema array cap separate from whole provider context",
-      "selection is union-only and Run-local",
+      "selection is Run-local; no automatic eviction or selection replay",
       "eager getCapabilities full schema remains compatible",
-      "actual overflow test used a controlled host recovery callback, no semantic-summary call claim",
-      "actual account regression is child text with explicitly zero tools, not real model tool discovery/MCP/PDF recognition",
+      "pending helper robustness does not introduce parallel model state tools",
+      "actual account regression is child text with explicitly zero tools, not real model tool replacement/MCP/PDF recognition",
       "provider-native tool_search, token/latency/physical-I/O savings and GUI are outside verified scope"
     ],
     "goalStatus": "active"
