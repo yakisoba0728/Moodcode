@@ -17,6 +17,8 @@ const PUBLIC_ERRORS: Readonly<Record<string, string>> = {
   PROVIDER_CONTENT_FILTERED: 'Provider filtered the completion.',
   PROVIDER_UNSUPPORTED_FINISH_REASON: 'Provider returned an unsupported finish reason or function call.',
   PROVIDER_UNSUPPORTED_OUTPUT: 'Provider returned unsupported output.',
+  PROVIDER_UNSUPPORTED_INPUT: 'Selected provider or model does not support this input.',
+  DOCUMENT_TOKEN_COST_UNKNOWN: 'PDF token cost is unknown; explicit host permission is required.',
   PROVIDER_UNSUPPORTED_EVENT: 'Provider returned an unsupported event.',
 };
 

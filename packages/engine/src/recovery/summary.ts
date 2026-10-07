@@ -60,15 +60,15 @@ function proofFingerprint(attempt: SummaryAttemptRecord, evidence: Evidence, bin
     bindingScope, contextBaselineSha256, pinsSha256, startupHighWater });
 }
 function sourceAnnotation(value: string): { nativeId?: string } | undefined {
-  if (/^(active-prefix-(policy|facts|manifest|checkpoint)|image-(policy|source)):[a-f0-9]{64}$/u.test(value)) return {};
+  if (/^(active-prefix-(policy|facts|manifest|checkpoint)|(image|document)-(policy|source)):[a-f0-9]{64}$/u.test(value)) return {};
   const separator = value.lastIndexOf(':');
   if (separator < 0 || !validSha(value.slice(separator + 1))) return undefined;
   if (value.startsWith('instruction:')) {
     const path = value.slice('instruction:'.length, separator), components = path.split('/');
     if (!path.includes('\\') && components.at(-1) === 'AGENTS.md' && components.every(part => part !== '' && part !== '.' && part !== '..')) return {};
   }
-  if (value.startsWith('image-message:')) {
-    const nativeId = value.slice('image-message:'.length, separator); if (identifier(nativeId)) return { nativeId };
+  if (value.startsWith('image-message:') || value.startsWith('document-message:')) {
+    const nativeId = value.slice(value.indexOf(':') + 1, separator); if (identifier(nativeId)) return { nativeId };
   }
   return undefined;
 }
@@ -165,7 +165,7 @@ export class SummaryRecoveryStorage {
     });
     for (const item of messages) {
       owned(item.data, recordValue.sessionId); if (!allowed.has(String(item.data.runId)) || typeof item.data.content !== 'string' || !['user','assistant','tool'].includes(String(item.data.role))
-        || Array.isArray(item.data.attachments) && item.data.attachments.length) fail('SOURCE_CHANGED', 'Summary source is not exact text-only owned history'); pins.push(item.sha256);
+        || Array.isArray(item.data.attachments) && item.data.attachments.length || Array.isArray(item.data.documents) && item.data.documents.length) fail('SOURCE_CHANGED', 'Summary source is not exact text-only owned history'); pins.push(item.sha256);
     }
     if (messages.some((item, index) => index > 0 && Number(item.row.ordinal) <= Number(messages[index - 1]!.row.ordinal))) fail('SOURCE_CHANGED', 'Summary source chronology changed');
     let source: string;

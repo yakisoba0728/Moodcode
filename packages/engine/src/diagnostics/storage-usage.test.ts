@@ -192,3 +192,28 @@ test('missing roots and invalid options produce bounded explicit outcomes withou
     await assert.rejects(inspectEngineStorage(options as Parameters<typeof inspectEngineStorage>[0]), error => error instanceof Error && 'code' in error && error.code === 'INVALID_STORAGE_USAGE_OPTIONS' && !error.message.includes('secret'));
   }
 });
+
+test('document groups and root-only orphan candidates use a complete independent primary index',async t=>{
+  const root=await temporary(t),docs=join(root,'input-documents'),childDocs=join(root,'children','child','input-documents');await mkdir(docs);await mkdir(childDocs,{recursive:true});const documentId=(n:number)=>'doc_'+n.toString(16).padStart(32,'0');
+  await writeFile(join(docs,documentId(1)+'.blob'),'indexed');await writeFile(join(docs,documentId(2)+'.blob'),'candidate');await writeFile(join(docs,'host-named.pdf'),'other');await writeFile(join(childDocs,documentId(3)+'.blob'),'child');
+  const documentIndex={scope:'primary-database-only' as const,observedAt:new Date().toISOString(),complete:true,documentIds:[documentId(1)]};
+  const report=await inspectEngineStorage({artifactDir:root,documentIndex});assert.equal(report.complete,true);assert.equal(report.documents.complete,true);assert.equal(report.documents.coverage,'root-input-documents-only');assert.equal(report.documents.candidateFiles,1);assert.deepEqual(report.documents.candidates.map(item=>item.id),[documentId(2)]);assert.equal(report.documents.candidateBytes,9);assert.equal(report.groups['input-documents'].logicalPathBytes,21);assert.equal(report.coverage.childDocumentIndexes,'not-read');assert.equal(report.documents.deletionPerformed,false);
+  assert.deepEqual(await readFile(join(docs,documentId(2)+'.blob')),Buffer.from('candidate'));assert.equal(report.images.indexStatus,'absent');
+});
+test('absent/partial/malformed/duplicate/overbudget document indexes cannot infer unreferenced files',async t=>{
+  const root=await temporary(t),docs=join(root,'input-documents'),id='doc_'+'a'.repeat(32);await mkdir(docs);await writeFile(join(docs,id+'.blob'),'bytes');
+  for(const documentIndex of [undefined,{scope:'primary-database-only',observedAt:new Date().toISOString(),complete:false,documentIds:[]},{scope:'primary-database-only',observedAt:new Date().toISOString(),complete:true,documentIds:['../private']},{scope:'primary-database-only',observedAt:new Date().toISOString(),complete:true,documentIds:[id,id]}]){
+    const report=await inspectEngineStorage({artifactDir:root,documentIndex:documentIndex as Parameters<typeof inspectEngineStorage>[0]['documentIndex']});assert.equal(report.documents.complete,false);assert.equal(report.documents.candidateFiles,0);
+  }
+  const report=await inspectEngineStorage({artifactDir:root,documentIndex:{scope:'primary-database-only',observedAt:new Date().toISOString(),complete:true,documentIds:[id,'doc_'+'b'.repeat(32)]},limits:{maxDocumentIds:1}});assert.equal(report.documents.indexStatus,'invalid');assert.equal(report.documents.candidateFiles,0);
+});
+test('hardlinked PDF blobs and interrupted scans never certify document orphan completeness',async t=>{
+  const root=await temporary(t),docs=join(root,'input-documents'),id='doc_'+'a'.repeat(32);await mkdir(docs);await writeFile(join(docs,id+'.blob'),'bytes');await link(join(docs,id+'.blob'),join(root,'another-link'));
+  const documentIndex={scope:'primary-database-only' as const,observedAt:new Date().toISOString(),complete:true,documentIds:[]};const report=await inspectEngineStorage({artifactDir:root,documentIndex});assert.equal(report.documents.candidateFiles,0);assert.equal(report.groups['input-documents'].hardlinkedFiles,1);
+  const partial=await inspectEngineStorage({artifactDir:root,documentIndex,limits:{maxEntries:1}});assert.equal(partial.documents.complete,false);assert.equal(partial.stopReason,'entry_limit');
+});
+test('combined image/document candidate samples respect the same compact JSON report budget',async t=>{
+  const root=await temporary(t);await mkdir(join(root,'input-documents'));await mkdir(join(root,'input-media'));for(let i=0;i<16;i++){await writeFile(join(root,'input-documents','doc_'+i.toString(16).padStart(32,'0')+'.blob'),'doc');await writeFile(join(root,'input-media',id(i)+'.blob'),'image');}
+  const report=await inspectEngineStorage({artifactDir:root,imageIndex:completeIndex(),documentIndex:{scope:'primary-database-only',observedAt:new Date().toISOString(),complete:true,documentIds:[]},limits:{maxReportBytes:4096,maxSamples:64}});
+  assert.ok(Buffer.byteLength(JSON.stringify(report))<=4096);assert.equal(report.documents.candidateFiles,16);assert.equal(report.images.candidateFiles,16);assert.equal(report.documents.candidates.length+report.documents.candidatesOmitted,16);assert.equal(report.images.candidates.length+report.images.candidatesOmitted,16);assert.equal(report.reportTruncated,true);
+});

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { getEventListeners } from 'node:events';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { setImmediate as nextTick } from 'node:timers/promises';
@@ -6,6 +7,7 @@ import test, { type TestContext } from 'node:test';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { ProviderEvent, TurnRequest } from '../ports.js';
 import { ResponsesProvider, type ResponsesProviderOptions } from './responses.js';
+import { imageFixture } from '../media/fixtures.js';
 
 const SECRET = 'sk-responses-fixture-private-1234567890';
 const RESPONSE_ID = 'resp-local-fixture';
@@ -664,4 +666,65 @@ test('explicit reasoning effort reaches Responses JSON and defaults omit it with
   assert.equal(Object.hasOwn(bodies[1]!, 'reasoning'), false);
   await assert.rejects(collect(provider, { ...request(), reasoningEffort: 'unknown' as never }), (error: unknown) => error instanceof EngineError && error.code === 'PROVIDER_INVALID_REQUEST');
   assert.equal(bodies.length, 2);
+});
+
+function pdfRequest(): TurnRequest {
+  const bytes = Buffer.from('%PDF-1.7\n% Authored Moodcode transport observation\n%%EOF\n');
+  const attachment = { id: 'doc_' + 'e'.repeat(32), kind: 'document' as const, mimeType: 'application/pdf' as const,
+    bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+  return { ...request(), sessionId: 'pdf-session',
+    messages: [{ role: 'user', content: 'Inspect this PDF', documents: [attachment] }], resolvedDocuments: [{ attachment: { ...attachment }, data: bytes.toString('base64') }] };
+}
+
+test('explicit PDF model and unknown-token opt-in encode inline input_file alongside images and exact text', async () => {
+  const bodies: Event[] = [], models = ['explicit-fixture-model'];
+  const provider = new ResponsesProvider({ pdfModelIds: models, allowUnknownDocumentTokenCost: true, apiKey: SECRET,
+    fetch: async (_url, init) => { bodies.push(JSON.parse(String(init?.body))); return new Response(wire(textStream()), { headers: { 'content-type': 'text/event-stream' } }); } });
+  models[0] = 'mutated-model';
+  assert.deepEqual(provider.inputFileTypes, ['application/pdf']); assert.equal(provider.supportsInputFile('explicit-fixture-model', 'application/pdf'), true);
+  assert.equal(provider.supportsInputFile('mutated-model', 'application/pdf'), false);
+  const input = pdfRequest(), image = imageFixture(); input.messages[0]!.attachments = [image.attachment]; input.resolvedImages = [image];
+  const before = structuredClone(input); const events = await collect(provider, input);
+  assert.deepEqual((bodies[0]!.input as Event[])[0], { role: 'user', content: [
+    { type: 'input_file', filename: input.resolvedDocuments![0]!.attachment.id + '.pdf', file_data: 'data:application/pdf;base64,' + input.resolvedDocuments![0]!.data },
+    { type: 'input_image', image_url: 'data:image/png;base64,' + image.data, detail: 'auto' },
+    { type: 'input_text', text: 'Inspect this PDF' },
+  ] });
+  assert.deepEqual(input, before); assert.ok(!JSON.stringify(events).includes(input.resolvedDocuments![0]!.data));
+  assert.ok(!JSON.stringify(bodies[0]).includes(SECRET));
+  const plain = request(); await collect(provider, plain); assert.deepEqual((bodies[1]!.input as Event[])[0], { role: 'user', content: 'fixture prompt' });
+});
+
+test('Responses PDF token uncertainty and model support are independent explicit preflight choices', async () => {
+  let calls = 0; const fetch: typeof globalThis.fetch = async () => { calls++; throw new Error('No unsupported PDF dispatch'); };
+  await assert.rejects(collect(new ResponsesProvider({ pdfModelIds: ['explicit-fixture-model'], fetch }), pdfRequest()), error => error instanceof EngineError && error.code === 'DOCUMENT_TOKEN_COST_UNKNOWN');
+  await assert.rejects(collect(new ResponsesProvider({ allowUnknownDocumentTokenCost: true, fetch }), pdfRequest()), error => error instanceof EngineError && error.code === 'PROVIDER_UNSUPPORTED_INPUT');
+  const unknown = pdfRequest(); unknown.modelId = 'unknown-model';
+  await assert.rejects(collect(new ResponsesProvider({ pdfModelIds: ['explicit-fixture-model'], allowUnknownDocumentTokenCost: true, fetch }), unknown), error => error instanceof EngineError && error.code === 'PROVIDER_UNSUPPORTED_INPUT');
+  assert.equal(calls, 0);
+});
+
+test('PDF model declarations reject malformed or nonunique config without reading accessors', () => {
+  const values: unknown[] = [null, 'model', ['model', 'model'], [''], ['bad\nmodel'], Array(257).fill('model'), new Array(1)];
+  for (const pdfModelIds of values) assert.throws(() => new ResponsesProvider({ pdfModelIds: pdfModelIds as never }), error => error instanceof EngineError && error.code === 'PROVIDER_INVALID_CONFIG');
+  let reads = 0; const models = ['model']; Object.defineProperty(models, '0', { enumerable: true, get() { reads++; return 'model'; } });
+  assert.throws(() => new ResponsesProvider({ pdfModelIds: models }), error => error instanceof EngineError && error.code === 'PROVIDER_INVALID_CONFIG'); assert.equal(reads, 0);
+  const proxy = new Proxy(['model'], { get() { reads++; throw new Error('No PDF model getter'); }, getPrototypeOf() { reads++; throw new Error('No PDF model prototype trap'); } });
+  assert.throws(() => new ResponsesProvider({ pdfModelIds: proxy }), error => error instanceof EngineError && error.code === 'PROVIDER_INVALID_CONFIG'); assert.equal(reads, 0);
+  assert.throws(() => new ResponsesProvider({ allowUnknownDocumentTokenCost: 'yes' as never }), error => error instanceof EngineError && error.code === 'PROVIDER_INVALID_CONFIG');
+});
+
+test('Codex Responses profile never acquires PDF support from standard Responses', async () => {
+  const config = { id: 'codex', baseURL: 'https://chatgpt.com/backend-api/codex', streamProfile: 'codex' as const };
+  assert.throws(() => new ResponsesProvider({ ...config, pdfModelIds: ['explicit-fixture-model'] }), error => error instanceof EngineError && error.code === 'PROVIDER_INVALID_CONFIG');
+  let calls = 0; const provider = new ResponsesProvider({ ...config, allowUnknownDocumentTokenCost: true, fetch: async () => { calls++; throw new Error('No PDF Codex dispatch'); } });
+  assert.deepEqual(provider.inputFileTypes, []); assert.equal(provider.supportsInputFile('explicit-fixture-model', 'application/pdf'), false);
+  await assert.rejects(collect(provider, pdfRequest()), error => error instanceof EngineError && error.code === 'PROVIDER_UNSUPPORTED_INPUT'); assert.equal(calls, 0);
+});
+
+test('PDF byte encoding still honors the full request ceiling before HTTP', async () => {
+  let calls = 0;
+  await assert.rejects(collect(new ResponsesProvider({ pdfModelIds: ['explicit-fixture-model'], allowUnknownDocumentTokenCost: true, maxRequestBytes: 64,
+    fetch: async () => { calls++; throw new Error('No oversized PDF dispatch'); } }), pdfRequest()), error => error instanceof EngineError && error.code === 'PROVIDER_LIMIT_EXCEEDED');
+  assert.equal(calls, 0);
 });

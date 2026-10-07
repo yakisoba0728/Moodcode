@@ -14,6 +14,8 @@ import { SUMMARY_RECOVERY_TABLES } from '../recovery/summary.js';
 import { ATTEMPT_CLEANUP_TABLES } from './attempt-cleanup.js';
 import { PROVIDER_RECOVERY_TABLES } from '../recovery/provider.js';
 import { SqliteStore } from './index.js';
+import { inspectInputDocumentIndex } from './input-document-index.js';
+import { attachments as documentAttachments, sameAttachment as sameDocumentAttachment, validateDocumentBytes } from '../documents/validation.js';
 import type { ManagedWorktree } from '../worktrees/index.js';
 
 export const ENGINE_ARCHIVE_VERSION = 1;
@@ -155,6 +157,60 @@ function validateReviewFiles(root: string, check: () => void): void {
   try { const review = sqlite(join(root, databaseFiles.review)); try { validateReviewBindings(primary, review, check); } finally { review.close(); } }
   finally { primary.close(); }
 }
+/** Audit primary PDF refs and their root blobs; child databases remain opaque archive files. */
+function validateDocumentFiles(primary: DatabaseSync, artifactRoot: string, check: () => void): void {
+  if (databaseVersion(primary) < 2) return;
+  check(); const index = inspectInputDocumentIndex(primary);
+  if (!index.complete) fail('ARCHIVE_DOCUMENT_INDEX_INVALID', 'Document indexes cannot be completely audited within archive limits');
+  if(index.declaredBytes===null || index.declaredBytes>ENGINE_ARCHIVE_LIMITS.maxTotalBytes || index.refs.length>ENGINE_ARCHIVE_LIMITS.maxFiles) fail('ARCHIVE_FILE_LIMIT','Indexed document bytes exceed the archive budget');
+  const refs = new Map(index.refs.map(ref => [`${ref.sessionId}:${ref.id}`,ref]));
+  for (const ref of index.refs) {
+    check(); const file = join(artifactRoot,'input-documents',ref.id+'.blob'); checkedDirectory(dirname(file));
+    const info = fileInfo(file); if (info.size !== ref.bytes) fail('ARCHIVE_DOCUMENT_INTEGRITY_FAILED', 'Document blob does not match its index');
+    const actual = stableFile(file, check);
+    if (actual.bytes !== ref.bytes || actual.sha256 !== ref.sha256) fail('ARCHIVE_DOCUMENT_INTEGRITY_FAILED', 'Document blob does not match its index');
+    const fd = openSync(file,constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    try {
+      if (!sameIdentity(info,fstatSync(fd))) fail('ARCHIVE_SOURCE_CHANGED','Document blob identity changed');
+      const header=Buffer.alloc(9); const count=readSync(fd,header,0,9,0); validateDocumentBytes(header.subarray(0,count),'application/pdf');
+      if (!sameIdentity(info,fstatSync(fd)) || !sameIdentity(info,fileInfo(file))) fail('ARCHIVE_SOURCE_CHANGED','Document blob identity changed');
+    } finally { closeSync(fd); }
+  }
+  let returnedBytes=0;
+  for (const table of ['inputs','runs','messages','session_inputs']) {
+    check();
+    const runBinding=table==='runs' ? 'r.id=d.id' : table==='inputs' ? '0' : 'r.id=d.run_id';
+    const pendingBinding=table==='session_inputs' ? 'd.run_id IS NULL' : '0';
+    const recordIdentity=table==='inputs' ? '1' : "json_extract(d.data,'$.id')=d.id";
+    const recordRun=table==='messages' ? "json_extract(d.data,'$.runId')=d.run_id" : table==='session_inputs' ? "json_extract(d.data,'$.runId') IS d.run_id" : '1';
+    const recordWorkspace=table==='runs'||table==='session_inputs' ? "d.workspace_id=s.workspace_id AND json_extract(d.data,'$.workspaceId')=d.workspace_id" : '1';
+    const rows=primary.prepare(`SELECT CAST(d.rowid AS TEXT) AS row_id,
+      CASE WHEN length(CAST(d.session_id AS BLOB)) BETWEEN 1 AND 256 THEN d.session_id ELSE NULL END AS session_id,
+      s.id IS NOT NULL AS has_session,w.id IS NOT NULL AS has_workspace,
+      CASE WHEN ?='inputs' THEN 1 WHEN ?='session_inputs' AND ${pendingBinding} THEN 1 ELSE r.session_id=d.session_id AND r.workspace_id=s.workspace_id END AS run_owner_valid,
+      json_extract(d.data,'$.sessionId')=d.session_id AS payload_session_valid,
+      ${recordIdentity} AS payload_id_valid,${recordRun} AS payload_run_valid,${recordWorkspace} AS payload_workspace_valid,
+      json_type(d.data,'$.documents') AS document_type,length(CAST(json_extract(d.data,'$.documents') AS BLOB)) AS document_bytes,
+      CASE WHEN ?='messages' AND length(CAST(json_extract(d.data,'$.role') AS BLOB))<=16 THEN json_extract(d.data,'$.role') ELSE NULL END AS role
+      FROM ${table} d LEFT JOIN sessions s ON s.id=d.session_id LEFT JOIN workspaces w ON w.id=s.workspace_id LEFT JOIN runs r ON ${runBinding}
+      WHERE json_type(d.data,'$.documents') IS NOT NULL AND json_type(d.data,'$.documents')!='null' LIMIT 4097`).all(table,table,table);
+    if(rows.length>4096) fail('ARCHIVE_DOCUMENT_REFERENCE_LIMIT','Document references exceed the archive inspection budget');
+    for(const row of rows) {
+      check(); const bytes=Number(row.document_bytes);
+      if(row.session_id===null || row.has_session!==1 || row.has_workspace!==1 || row.run_owner_valid!==1 || row.payload_session_valid!==1 || row.payload_id_valid!==1 || row.payload_run_valid!==1 || row.payload_workspace_valid!==1 || row.document_type!=='array' || !Number.isSafeInteger(bytes) || bytes<2 || bytes>4096 || returnedBytes+bytes>1_048_576 || table==='messages' && row.role!=='user') fail('ARCHIVE_DOCUMENT_REFERENCE_INVALID','Document reference owner or size is invalid');
+      const value=primary.prepare(`SELECT json_extract(data,'$.documents') AS refs FROM ${table} WHERE rowid=? AND length(CAST(json_extract(data,'$.documents') AS BLOB))=?`).get(String(row.row_id),bytes);
+      if(!value) fail('ARCHIVE_SOURCE_CHANGED','Document reference changed during inspection'); returnedBytes+=bytes;
+      for(const ref of documentAttachments(JSON.parse(String(value.refs)))) {
+        const owner=refs.get(`${String(row.session_id)}:${ref.id}`);
+        if(!owner || !sameDocumentAttachment(owner,ref)) fail('ARCHIVE_DOCUMENT_REFERENCE_INVALID','Document reference does not belong to its indexed session');
+      }
+    }
+  }
+}
+function validateDocumentArchive(root: string, check: () => void): void {
+  const primary=sqlite(join(root,databaseFiles.primary));
+  try { validateDocumentFiles(primary,join(root,'artifacts'),check); } finally { primary.close(); }
+}
 function parseManifest(file: string): { manifest: EngineArchiveManifest; manifestSha256: string } {
   if (fileInfo(file).size > ENGINE_ARCHIVE_LIMITS.maxManifestBytes) fail('ARCHIVE_MANIFEST_INVALID', 'Archive manifest exceeded its byte limit');
   const raw = readFileSync(file), value = JSON.parse(raw.toString('utf8')) as EngineArchiveManifest;
@@ -194,6 +250,7 @@ export function validateEngineArchive(options: { directory: string; signal?: Abo
     finally { db.close(); }
   }
   validateReviewFiles(root, check);
+  validateDocumentArchive(root, check);
   if (parseManifest(join(root, 'manifest.json')).manifestSha256 !== initialManifestHash) fail('ARCHIVE_SOURCE_CHANGED', 'Archive manifest changed during validation');
   return { directory: checkedDirectory(options.directory), ...parsed };
 }
@@ -232,6 +289,8 @@ export async function exportEngineArchive(options: ExportEngineArchiveOptions): 
     const primary = snapshot.open('db')!;
     try { const review = snapshot.open('review')!; try { validateReviewBindings(primary, review, check); } finally { review.close(); } }
     finally { primary.close(); }
+    const documentPrimary=sqlite(join(staging,databaseFiles.primary));
+    try { validateDocumentFiles(documentPrimary,paths.artifacts,check); } finally { documentPrimary.close(); }
     const sourceFiles = artifactFiles(paths.artifacts), artifacts: ArchiveFile[] = [];
     for (const source of sourceFiles) {
       check(); const name = `artifacts/${relative(paths.artifacts, source).split(sep).join('/')}`, output = join(staging, name);

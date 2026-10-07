@@ -7,6 +7,7 @@ import { credentialSecrets, CredentialTextRedactor, malformed, positiveLimit, pr
 import { replayCompatible } from './replay.js';
 import { readSseData } from './sse.js';
 import { messageImages, providerImages } from '../media/provider.js';
+import { providerDocuments } from '../documents/provider.js';
 
 export interface AnthropicProviderOptions {
   /** Host-only API prefix; no environment lookup or account discovery. */
@@ -158,6 +159,7 @@ export class AnthropicProvider implements ProviderAdapter {
   readonly replayProtocol: string;
   readonly retryableHttpStatuses = Object.freeze([429, 500, 503, 504, 529]);
   readonly inputModalities = ANTHROPIC_PROVIDER_CAPABILITIES.inputModalities;
+  readonly inputFileTypes = Object.freeze([] as const);
   #endpoint: string;
   #apiKey: string | undefined;
   #secrets: string[];
@@ -300,6 +302,7 @@ export class AnthropicProvider implements ProviderAdapter {
 
   async *streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
     if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
+    providerDocuments(request, false, signal);
     let serialized: string;
     try {
       if (typeof request.modelId !== 'string' || !request.modelId.trim() || Buffer.byteLength(request.modelId) > 256 || /[\u0000-\u001f\u007f]/u.test(request.modelId)) invalidRequest();

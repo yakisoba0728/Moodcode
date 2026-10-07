@@ -1,4 +1,5 @@
 import { EngineError, REASONING_EFFORTS, type ProviderToolCall } from '@moodcode/contracts';
+import { types } from 'node:util';
 import type { ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
 import type { OpenAICompatibleProviderOptions } from './openai-compatible.js';
 import { credentialSecrets, CredentialTextRedactor, malformed, optionalString, positiveLimit, providerHttpFailure, providerRemoteError, publicError, record, redactCredentialJson, redactCredentialText } from './helpers.js';
@@ -6,6 +7,8 @@ import { replayCompatible, validateReplayBinding, validateReplayItems } from './
 import { readSseData } from './sse.js';
 import { messageImages, providerImages } from '../media/provider.js';
 import type { ResolvedInputImage } from '../ports.js';
+import { hasDocumentInputs, messageDocuments, providerDocuments } from '../documents/provider.js';
+import type { ResolvedInputDocument } from '../ports.js';
 
 export interface ResponsesProviderOptions extends OpenAICompatibleProviderOptions {
   /** Includes message and opaque reasoning items as well as function calls. */
@@ -14,6 +17,10 @@ export interface ResponsesProviderOptions extends OpenAICompatibleProviderOption
   redactionSecrets?: readonly string[];
   /** Native Codex HTTP quirks; restricted to the fixed Codex identity and route. */
   streamProfile?: 'responses' | 'codex';
+  /** Exact host-declared PDF-capable models; no model-name inference or discovery. */
+  pdfModelIds?: readonly string[];
+  /** PDF page/text token cost is unknown; host opt-in is required independently of model support. */
+  allowUnknownDocumentTokenCost?: boolean;
 }
 interface TextPart { type: 'output_text' | 'refusal'; text: string; done: boolean; sawDelta: boolean }
 interface OutputItem {
@@ -40,14 +47,30 @@ function phase(value: unknown): OutputItem['phase'] {
   if (value === undefined || value === null || value === 'commentary' || value === 'final_answer') return value;
   malformed();
 }
-function inputItems(message: ProviderMessage, images: ReadonlyMap<string, ResolvedInputImage>): Record<string, unknown>[] {
+function declaredPdfModels(value: unknown, secrets: readonly string[]): ReadonlySet<string> {
+  if (value === undefined) return new Set();
+  if (types.isProxy(value) || !Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length > 256
+    || Reflect.ownKeys(value).length !== value.length + 1) throw new EngineError('PROVIDER_INVALID_CONFIG', 'PDF model declarations must be bounded unique host identifiers.');
+  const result = new Set<string>();
+  for (let index = 0; index < value.length; index++) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    const model = descriptor && 'value' in descriptor && descriptor.enumerable ? descriptor.value : undefined;
+    if (typeof model !== 'string' || !model.trim() || Buffer.byteLength(model) > 256 || /[\u0000-\u001f\u007f]/u.test(model)
+      || secrets.some(secret => model.includes(secret)) || result.has(model)) throw new EngineError('PROVIDER_INVALID_CONFIG', 'PDF model declarations must be bounded unique host identifiers.');
+    result.add(model);
+  }
+  return result;
+}
+function inputItems(message: ProviderMessage, images: ReadonlyMap<string, ResolvedInputImage>, documents: ReadonlyMap<string, ResolvedInputDocument>): Record<string, unknown>[] {
   if (message.role === 'tool') {
     if (!message.toolCallId) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Tool messages require a call identifier.');
     return [{ type: 'function_call_output', call_id: message.toolCallId, output: message.content }];
   }
   const items: Record<string, unknown>[] = [];
   const media = messageImages(message, images);
-  if (media.length) items.push({ role: 'user', content: [
+  const files = messageDocuments(message, documents);
+  if (media.length || files.length) items.push({ role: 'user', content: [
+    ...files.map(file => ({ type: 'input_file', filename: `${file.attachment.id}.pdf`, file_data: `data:application/pdf;base64,${file.data}` })),
     ...media.map(image => ({ type: 'input_image', image_url: `data:${image.attachment.mimeType};base64,${image.data}`, detail: 'auto' })),
     ...(message.content ? [{ type: 'input_text', text: message.content }] : []),
   ] });
@@ -83,10 +106,13 @@ export class ResponsesProvider implements ProviderAdapter {
   readonly id: string;
   readonly replayProtocol: string;
   readonly inputModalities = Object.freeze(['text', 'image'] as const);
+  readonly inputFileTypes: readonly 'application/pdf'[];
+  readonly allowUnknownDocumentTokenCost: boolean;
   #endpoint: string;
   #apiKey: string | undefined;
   #secrets: string[];
   #codexProfile: boolean;
+  #pdfModelIds: ReadonlySet<string>;
   #fetch: typeof globalThis.fetch;
   #limits: { timeoutMs: number; maxFrameBytes: number; maxResponseBytes: number; maxRequestBytes: number; maxToolArgumentBytes: number; maxToolCalls: number; maxOutputItems: number };
 
@@ -105,6 +131,15 @@ export class ResponsesProvider implements ProviderAdapter {
     this.#endpoint = base.href;
     if (options.streamProfile !== undefined && options.streamProfile !== 'responses' && options.streamProfile !== 'codex') throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider stream profile is invalid.');
     this.#codexProfile = options.streamProfile === 'codex';
+    this.#pdfModelIds = declaredPdfModels(options.pdfModelIds, this.#secrets);
+    if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') {
+      throw new EngineError('PROVIDER_INVALID_CONFIG', 'Document token-cost policy must be an explicit boolean.');
+    }
+    this.allowUnknownDocumentTokenCost = options.allowUnknownDocumentTokenCost === true;
+    if (this.#codexProfile && this.#pdfModelIds.size) {
+      throw new EngineError('PROVIDER_INVALID_CONFIG', 'PDF model declarations must be bounded unique host identifiers outside the Codex profile.');
+    }
+    this.inputFileTypes = Object.freeze(this.#codexProfile ? [] : ['application/pdf'] as const);
     this.replayProtocol = this.#codexProfile ? 'codex-responses' : 'openai-responses';
     if (this.#codexProfile && (this.id !== 'codex' || this.#endpoint !== 'https://chatgpt.com/backend-api/codex/responses')) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Codex stream profile requires its fixed provider identity and route.');
     this.#fetch = options.fetch ?? globalThis.fetch;
@@ -120,13 +155,19 @@ export class ResponsesProvider implements ProviderAdapter {
     };
   }
 
+  supportsInputFile(modelId: string, mimeType: 'application/pdf'): boolean {
+    return !this.#codexProfile && mimeType === 'application/pdf' && this.#pdfModelIds.has(modelId);
+  }
+
   async *streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
     if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
     let serialized: string;
     try {
       if (typeof request.modelId !== 'string' || !request.modelId.trim()) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider requires an explicit model identifier.');
       if (request.reasoningEffort !== undefined && !REASONING_EFFORTS.includes(request.reasoningEffort)) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider reasoning effort is invalid.');
+      if (hasDocumentInputs(request) && !this.allowUnknownDocumentTokenCost) throw new EngineError('DOCUMENT_TOKEN_COST_UNKNOWN', 'PDF input token cost is unknown and requires explicit host opt-in.');
       const images = providerImages(request, true, signal);
+      const documents = providerDocuments(request, this.supportsInputFile(request.modelId, 'application/pdf'), signal, images);
       const input: Record<string, unknown>[] = [];
       let inputBytes = 2;
       for (const message of request.messages) {
@@ -139,7 +180,7 @@ export class ResponsesProvider implements ProviderAdapter {
           });
           validateReplayBinding(message, replayItems);
           messageItems = replayItems;
-        } else messageItems = inputItems(message, images);
+        } else messageItems = inputItems(message, images, documents);
         for (const item of messageItems) {
           inputBytes += Buffer.byteLength(JSON.stringify(item), 'utf8') + (input.length ? 1 : 0);
           if (inputBytes > this.#limits.maxRequestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');
@@ -152,7 +193,9 @@ export class ResponsesProvider implements ProviderAdapter {
         ...(request.tools.length ? { tools: request.tools.map(tool => ({ type: 'function', name: tool.name, description: tool.description, parameters: tool.inputSchema, strict: false })) } : {}),
       });
     } catch (error) {
-      if (error instanceof EngineError && ['PROVIDER_INVALID_REPLAY', 'PROVIDER_LIMIT_EXCEEDED'].includes(error.code)) throw publicError(error);
+      if (error instanceof EngineError && error.code === 'PROVIDER_UNSUPPORTED_INPUT') throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Provider/model does not support PDF document input.');
+      if (error instanceof EngineError && error.code === 'DOCUMENT_TOKEN_COST_UNKNOWN') throw new EngineError('DOCUMENT_TOKEN_COST_UNKNOWN', 'PDF input token cost is unknown and requires explicit host opt-in.');
+      if (error instanceof EngineError && ['PROVIDER_INVALID_REPLAY', 'PROVIDER_LIMIT_EXCEEDED', 'PROVIDER_UNSUPPORTED_INPUT', 'PROVIDER_CANCELLED'].includes(error.code)) throw publicError(error);
       throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider request could not be encoded.');
     }
     if (Buffer.byteLength(serialized, 'utf8') > this.#limits.maxRequestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');

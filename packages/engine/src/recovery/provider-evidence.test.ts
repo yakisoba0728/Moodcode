@@ -15,13 +15,14 @@ import { providerRecoveryPinsValid, readProviderRecoveryBaseline, readProviderRe
 const digest = (text: string) => createHash('sha256').update(text).digest('hex');
 const code = (expected: string) => (error: unknown) => error instanceof EngineError && error.code === expected;
 const budget = (): ProviderRecoveryBudget => ({ bytes: 0, max: PROVIDER_RECOVERY_LIMITS.maxEvidenceBytes });
-function fixture(t: TestContext, priorTool = false) {
+function fixture(t: TestContext, priorTool = false, withDocument = false) {
   const directory = mkdtempSync(join(tmpdir(), 'moodcode-provider-evidence-')), store = new SqliteStore(join(directory, 'engine.sqlite'));
   const db = (store as unknown as { db: DatabaseSync }).db, timestamp = new Date().toISOString();
   store.putWorkspace({ id: 'workspace', root: directory, gitRoot: directory, branch: null, createdAt: timestamp });
   store.createSession({ id: 'session', workspaceId: 'workspace', title: 'Independent provider evidence', createdAt: timestamp });
   const config = { providerId: 'local', modelId: 'fixture', mode: 'build' as const, limits: { ...DEFAULT_LIMITS } };
-  const receipt = store.acceptInput({ sessionId: 'session', requestId: 'goal', prompt: 'Original nonce goal', config, delivery: 'queue' });
+  const document = { id: 'doc_' + 'a'.repeat(32), kind: 'document' as const, mimeType: 'application/pdf' as const, bytes: 128, sha256: 'a'.repeat(64) };
+  const receipt = store.acceptInput({ sessionId: 'session', requestId: 'goal', prompt: 'Original nonce goal', config, delivery: 'queue', ...(withDocument ? { documents: [document] } : {}) });
   const run = store.promoteInput(receipt.inputId).run; store.commit(run.id, 'run.started', {}, { run: { state: 'running' } });
   const goalId = String(db.prepare('SELECT id FROM messages WHERE run_id=? ORDER BY ordinal LIMIT 1').get(run.id)!.id);
   const turn = (index: number): TurnRecord => ({ schemaVersion: 2, id: `turn-${index}`, sessionId: 'session', runId: run.id, index, inputIds: [receipt.inputId], state: 'created', createdAt: timestamp });
@@ -180,7 +181,8 @@ test('immutable prior summaries and their original sources remain pinned after m
   const f = fixture(t), now = new Date().toISOString(), text = 'Derived historical facts';
   f.store.putContextRevision({ schemaVersion: 2, id: 'prior-summary', sessionId: 'session', revision: 2, kind: 'summary', sourceIds: [f.goalId], text, sha256: digest(text), createdAt: now, supersedesId: 'original-context' });
   const sourceIds = ['prior-summary', `instruction:AGENTS.md:${'a'.repeat(64)}`, `active-prefix-policy:${'b'.repeat(64)}`, `active-prefix-facts:${'c'.repeat(64)}`,
-    `active-prefix-manifest:${'d'.repeat(64)}`, `active-prefix-checkpoint:${'e'.repeat(64)}`, `image-policy:${'f'.repeat(64)}`, `image-source:${'a'.repeat(64)}`, `image-message:${f.goalId}:${'b'.repeat(64)}`];
+    `active-prefix-manifest:${'d'.repeat(64)}`, `active-prefix-checkpoint:${'e'.repeat(64)}`, `image-policy:${'f'.repeat(64)}`, `image-source:${'a'.repeat(64)}`, `image-message:${f.goalId}:${'b'.repeat(64)}`,
+    `document-policy:${'c'.repeat(64)}`, `document-source:${'d'.repeat(64)}`, `document-message:${f.goalId}:${'e'.repeat(64)}`];
   f.store.putContextRevision({ schemaVersion: 2, id: 'derived-context', sessionId: 'session', revision: 3, kind: 'update', sourceIds, text, sha256: digest(text), createdAt: now, supersedesId: 'prior-summary' });
   f.store.putSessionDocument('session', 'context.head', 1, { revisionId: 'derived-context' });
   const baseline = readProviderRecoveryBaseline(f.db, 'session', budget()); assert.deepEqual(baseline.pins.map(pin => pin.id), ['derived-context','prior-summary',f.goalId]);
@@ -255,4 +257,13 @@ test('numeric validators preserve V1 valid ACK source digest encoding across eve
   } finally { f.db.prepare = prepare; }
   assert.equal(f.read().sourceSha256,oldDigest); assert.equal(host.hasValidAcknowledgment('session',f.prepared.id),true);
   assert.equal(host.findReceipt(request)?.duplicate,true); assert.equal(host.preview('session',f.prepared.id).status,'acknowledged');
+});
+
+for (const target of ['original-message', 'original-input', 'promoted-input'] as const) test(`document references remain exact selected evidence and reject changed ${target}`, t => {
+  const f = fixture(t, false, true);
+  const original = f.read(); assert.ok(original.sourceSha256);
+  if (target === 'original-message') f.db.prepare("UPDATE messages SET data=json_set(data,'$.documents[0].sha256',?) WHERE id=?").run('b'.repeat(64), f.goalId);
+  if (target === 'original-input') f.db.prepare("UPDATE inputs SET data=json_set(data,'$.documents[0].sha256',?) WHERE id=?").run('b'.repeat(64), f.run.inputId);
+  if (target === 'promoted-input') f.db.prepare("UPDATE session_inputs SET data=json_set(data,'$.documents[0].sha256',?) WHERE id=?").run('b'.repeat(64), f.run.inputId);
+  assert.throws(() => f.read(), code('PROVIDER_RECOVERY_SOURCE_CHANGED'));
 });

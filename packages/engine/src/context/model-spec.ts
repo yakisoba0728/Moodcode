@@ -1,4 +1,5 @@
 import { EngineError } from '@moodcode/contracts';
+import { types } from 'node:util';
 
 export interface ModelSpec {
   providerId: string;
@@ -6,6 +7,8 @@ export interface ModelSpec {
   contextWindow: number | null;
   maxOutputTokens: number | null;
   modalities: readonly ('text' | 'image' | 'audio' | 'video')[] | null;
+  /** null/omitted means unknown; an empty list explicitly declares no native file inputs. */
+  inputFileTypes?: readonly 'application/pdf'[] | null;
   tools: boolean | null;
   reasoning: boolean | null;
   nativeReplay: boolean | null;
@@ -24,8 +27,25 @@ function count(value: number | null): void {
 }
 export function unknownModelSpec(providerId: string, modelId: string): ModelSpec {
   identifier(providerId); identifier(modelId);
-  return { providerId, modelId, contextWindow: null, maxOutputTokens: null, modalities: null, tools: null, reasoning: null, nativeReplay: null,
+  return { providerId, modelId, contextWindow: null, maxOutputTokens: null, modalities: null, inputFileTypes: null, tools: null, reasoning: null, nativeReplay: null,
     source: { kind: 'host', observedAt: new Date().toISOString() } };
+}
+
+function fileTypes(spec: ModelSpec): readonly 'application/pdf'[] | null {
+  if (types.isProxy(spec)) throw new EngineError('INVALID_MODEL_SPEC', 'Model metadata must be a plain value');
+  const property = Object.getOwnPropertyDescriptor(spec, 'inputFileTypes');
+  if (!property) return null;
+  if (!property.enumerable || !('value' in property)) throw new EngineError('INVALID_MODEL_SPEC', 'File capabilities must be enumerable data');
+  const value: unknown = property.value;
+  if (value === undefined || value === null) return null;
+  if (types.isProxy(value) || !Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) throw new EngineError('INVALID_MODEL_SPEC', 'File capabilities must be a plain array or null');
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const length: unknown = Object.getOwnPropertyDescriptor(value, 'length')?.value;
+  if (typeof length !== 'number' || !Number.isSafeInteger(length) || length < 0 || length > 1 || Reflect.ownKeys(value).length !== length + 1) throw new EngineError('INVALID_MODEL_SPEC', 'Unsupported file capability metadata');
+  if (length === 0) return [];
+  const entry = descriptors['0'];
+  if (!entry?.enumerable || !('value' in entry) || entry.value !== 'application/pdf') throw new EngineError('INVALID_MODEL_SPEC', 'Unsupported file capability metadata');
+  return ['application/pdf'];
 }
 
 /** Metadata is supplied by a catalog/host; missing limits stay unknown. */
@@ -33,6 +53,7 @@ export class ModelRegistry {
   private readonly specs = new Map<string, ModelSpec>();
   private key(providerId: string, modelId: string): string { return JSON.stringify([providerId, modelId]); }
   put(spec: ModelSpec): ModelSpec {
+    const inputFileTypes = fileTypes(spec);
     identifier(spec.providerId); identifier(spec.modelId);
     count(spec.contextWindow); count(spec.maxOutputTokens);
     for (const value of [spec.tools, spec.reasoning, spec.nativeReplay]) if (value !== null && typeof value !== 'boolean') {
@@ -46,7 +67,7 @@ export class ModelRegistry {
     }
     const key = this.key(spec.providerId, spec.modelId);
     if (!this.specs.has(key) && this.specs.size >= 256) throw new EngineError('MODEL_CATALOG_LIMIT', 'Model metadata catalog is full');
-    const copy = structuredClone(spec);
+    const copy = { ...structuredClone(spec), inputFileTypes };
     this.specs.set(key, copy);
     return structuredClone(copy);
   }

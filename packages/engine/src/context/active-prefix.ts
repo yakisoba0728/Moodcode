@@ -120,8 +120,8 @@ export class ActivePrefixMemoryService {
     const protectedIds = new Set(source.protectedMessageIds);
     const first = request.snapshot.messages.find(message => message.runId === source.runId && message.role === 'user');
     const last = request.snapshot.messages.findLast(message => message.runId === source.runId && message.role === 'user');
-    if (first && !protectedIds.has(first.id) || last && !protectedIds.has(last.id) || request.snapshot.messages.some(message => message.runId === source.runId && message.attachments?.length && !protectedIds.has(message.id))) {
-      throw new EngineError('ACTIVE_PREFIX_BINDING_MISMATCH', 'Goal, current steer and image inputs must remain outside summary coverage');
+    if (first && !protectedIds.has(first.id) || last && !protectedIds.has(last.id) || request.snapshot.messages.some(message => message.runId === source.runId && (message.attachments?.length || message.documents?.length) && !protectedIds.has(message.id))) {
+      throw new EngineError('ACTIVE_PREFIX_BINDING_MISMATCH', 'Goal, current steer and media inputs must remain outside summary coverage');
     }
   }
   private prepared(candidate: PreparedActivePrefix): void {
@@ -137,7 +137,7 @@ export class ActivePrefixMemoryService {
     const firstUser = request.snapshot.messages.find(message => message.runId === request.run!.id && message.role === 'user');
     const latestUser = request.snapshot.messages.findLast(message => message.runId === request.run!.id && message.role === 'user');
     if (latestUser) protectedIds.add(latestUser.id);
-    for (const message of request.snapshot.messages) if (message.attachments?.length || message.id === firstUser?.id) protectedIds.add(message.id);
+    for (const message of request.snapshot.messages) if (message.attachments?.length || message.documents?.length || message.id === firstUser?.id) protectedIds.add(message.id);
     const present = new Set(request.snapshot.messages.map(message => message.id));
     return { ...request, activePrefixMemory: active.message, snapshot: { ...request.snapshot,
       messages: request.snapshot.messages.filter(message => message.runId !== request.run!.id || !omit.has(message.id) || protectedIds.has(message.id)) },
@@ -209,7 +209,7 @@ export class ActivePrefixMemoryService {
         || context.contextRevision.sha256 !== hash(context.contextRevision.text)) throw new EngineError('ACTIVE_PREFIX_BINDING_MISMATCH', 'Provider context must follow and bind the prepared summary revision');
       let messages: ProviderMessage[];
       try { messages = JSON.parse(context.contextRevision.text) as ProviderMessage[]; } catch { throw new EngineError('ACTIVE_PREFIX_BINDING_MISMATCH', 'Provider context revision is not a message projection'); }
-      if (!Array.isArray(messages) || !messages.some(message => message?.role === 'assistant' && message.content === this.message(candidate.summaryRevision.text).content && !message.toolCalls && !message.toolCallId && !message.providerReplay && !message.attachments)
+      if (!Array.isArray(messages) || !messages.some(message => message?.role === 'assistant' && message.content === this.message(candidate.summaryRevision.text).content && !message.toolCalls && !message.toolCallId && !message.providerReplay && !message.attachments && !message.documents)
         || Buffer.byteLength(context.contextRevision.text) + (request.reservedBytes ?? 0) > request.config.limits.maxContextBytes) throw new EngineError('ACTIVE_PREFIX_BINDING_MISMATCH', 'Published context must include the exact candidate memory inside its byte budget');
       this.store.commitActivePrefixCheckpoint(candidate.checkpoint.runId, { summaryAttemptId: candidate.checkpoint.id, scope: 'active-run-prefix', revisionId: candidate.summaryRevision.id,
         contextRevisionId: context.contextRevision.id, usage: json(candidate.checkpoint.usage) }, { ...candidate, ...context });

@@ -1,4 +1,4 @@
-import type { InputImageAttachment, JsonObject, JsonValue, Run, RunConfig, RunReceipt } from './index.js';
+import type { InputDocumentAttachment, InputImageAttachment, JsonObject, JsonValue, Run, RunConfig, RunReceipt } from './index.js';
 
 /** Independent session journal; existing v1 commands, event sequence and Run stay valid. */
 export const SESSION_SCHEMA_VERSION = 2 as const;
@@ -26,7 +26,7 @@ export const DEFAULT_ENGINE_BUDGETS: Readonly<EngineBudgets> = Object.freeze({
 });
 export type InputDelivery = 'queue' | 'steer';
 export type InputState = 'pending' | 'promoted' | 'cancelled';
-export interface AcceptInput { sessionId: string; requestId: string; prompt: string; config: RunConfig; delivery: InputDelivery; attachments?: InputImageAttachment[] }
+export interface AcceptInput { sessionId: string; requestId: string; prompt: string; config: RunConfig; delivery: InputDelivery; attachments?: InputImageAttachment[]; documents?: InputDocumentAttachment[] }
 export interface InputRecord extends AcceptInput {
   schemaVersion: typeof SESSION_SCHEMA_VERSION;
   id: string;

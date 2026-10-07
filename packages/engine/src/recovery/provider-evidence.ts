@@ -138,13 +138,13 @@ function toolEvidence(db: DatabaseSync, run: Run, parts: MessagePart[], messages
 }
 
 function annotation(reference: string): { nativeId?: string } | null {
-  if (/^(?:active-prefix-(?:policy|facts|manifest|checkpoint)|image-(?:policy|source)):[a-f0-9]{64}$/u.test(reference)) return {};
+  if (/^(?:active-prefix-(?:policy|facts|manifest|checkpoint)|(?:image|document)-(?:policy|source)):[a-f0-9]{64}$/u.test(reference)) return {};
   if (reference.startsWith('instruction:')) {
     const tail = reference.lastIndexOf(':'), path = reference.slice('instruction:'.length, tail);
     if (sha(reference.slice(tail + 1)) && path.split('/').every(component => component !== '' && !['.','..'].includes(component)) && path.split('/').at(-1) === 'AGENTS.md') return {};
   }
-  if (reference.startsWith('image-message:')) {
-    const tail = reference.lastIndexOf(':'), nativeId = reference.slice('image-message:'.length, tail);
+  if (reference.startsWith('image-message:') || reference.startsWith('document-message:')) {
+    const tail = reference.lastIndexOf(':'), nativeId = reference.slice(reference.indexOf(':') + 1, tail);
     if (id(nativeId) && sha(reference.slice(tail + 1))) return { nativeId };
   }
   return null;
@@ -213,7 +213,7 @@ export function readProviderRecoveryEvidence(db: DatabaseSync, store: Pick<Sqlit
     if (!['failed','cancelled','interrupted'].includes(run.state)) fail('BLOCKED', 'Provider recovery requires its own terminal failed or interrupted Run');
     const session = one(db, 'sessions', sessionId, budget, { workspaceId: run.workspaceId }), workspace = one(db, 'workspaces', run.workspaceId, budget);
     if (session.data.workspaceId !== run.workspaceId || workspace.data.id !== run.workspaceId) fail('OWNER_MISMATCH', 'Run workspace and session owner disagree');
-    const normalized = decoded(() => normalizeSubmitInput({ sessionId, requestId: run.requestId, prompt: run.prompt, config: run.config, ...(run.attachments ? { attachments: run.attachments } : {}) }));
+    const normalized = decoded(() => normalizeSubmitInput({ sessionId, requestId: run.requestId, prompt: run.prompt, config: run.config, ...(run.attachments ? { attachments: run.attachments } : {}), ...(run.documents === undefined ? {} : { documents: run.documents }) }));
     if (hash(normalized.config) !== hash(run.config) || run.config.providerId !== attempt.providerId || run.config.modelId !== attempt.modelId) fail('OWNER_MISMATCH', 'Provider or model differs from the original Run');
     const turnSource = one(db, 'session_turns', attempt.turnId, budget, { sessionId, runId: run.id });
     const turn: TurnRecord = decoded(() => validateTurnRecord(turnSource.data));
@@ -244,21 +244,21 @@ export function readProviderRecoveryEvidence(db: DatabaseSync, store: Pick<Sqlit
       if (promoted.state !== 'promoted' || promoted.admittedSeq !== number(item.row.admitted_seq, 1) || promoted.promotedSeq !== number(item.row.promoted_seq, 1)
         || promoted.requestId !== item.row.request_id || promoted.delivery !== item.row.delivery
         || item.row.fingerprint !== canonical({ sessionId, requestId: promoted.requestId, prompt: promoted.prompt, config: promoted.config, delivery: promoted.delivery,
-          ...(promoted.attachments === undefined ? {} : { attachments: promoted.attachments }) })) fail('SOURCE_CHANGED', 'Promoted input metadata is inconsistent');
+          ...(promoted.attachments === undefined ? {} : { attachments: promoted.attachments }), ...(promoted.documents === undefined ? {} : { documents: promoted.documents }) })) fail('SOURCE_CHANGED', 'Promoted input metadata is inconsistent');
     }
     if (!turn.inputIds.every(inputId => inputs.some(value => value.row.id === inputId)) || !inputs.some(value => value.row.id === run.inputId)) fail('SOURCE_CHANGED', 'Turn input provenance lacks its original promoted goal'); source.push(...digestOrder(inputs, 'admitted_seq'));
     const messages = rows(db, 'messages', 'run_id=?', [run.id], limits.maxMessages, budget, { sessionId, runId: run.id }, 'ordinal');
     for (const message of messages) if (!['user','assistant','tool'].includes(String(message.data.role)) || typeof message.data.content !== 'string' || number(message.row.ordinal, 1) < 1) fail('SOURCE_CHANGED', 'Run transcript message is malformed');
     const inputEvents = rows(db, 'events', "run_id=? AND type IN ('input.admitted','input.steered')", [run.id], limits.maxMessages, budget, { sessionId, runId: run.id }, 'seq');
     const admissions = inputEvents.filter(value => value.data.type === 'input.admitted'), initial = messages[0];
-    if (admissions.length !== 1 || !initial || initial.data.role !== 'user' || initial.data.content !== run.prompt || hash(initial.data.attachments ?? null) !== hash(run.attachments ?? null)
+    if (admissions.length !== 1 || !initial || initial.data.role !== 'user' || initial.data.content !== run.prompt || hash(initial.data.attachments ?? null) !== hash(run.attachments ?? null) || hash(initial.data.documents ?? null) !== hash(run.documents ?? null)
       || initial.data.createdAt !== run.createdAt || number(admissions[0]!.row.seq, 1) !== number(input.row.admitted_seq, 1)) fail('SOURCE_CHANGED', 'Original user message does not match the admitted goal');
     object(admissions[0]!.data.payload); const admission = admissions[0]!.data.payload;
     if (admission.runId !== run.id || admission.inputId !== run.inputId || admission.requestId !== run.requestId) fail('SOURCE_CHANGED', 'Original admission event does not match the Run');
     const expectedUsers = new Set([initial.row.id]);
     for (const item of inputs) {
       if (item.row.id === run.inputId) {
-        if (item.data.prompt !== run.prompt || item.data.requestId !== run.requestId || hash(item.data.config) !== hash(run.config) || hash(item.data.attachments ?? null) !== hash(run.attachments ?? null)
+        if (item.data.prompt !== run.prompt || item.data.requestId !== run.requestId || hash(item.data.config) !== hash(run.config) || hash(item.data.attachments ?? null) !== hash(run.attachments ?? null) || hash(item.data.documents ?? null) !== hash(run.documents ?? null)
           || number(item.row.legacy_seq, 1) !== number(input.row.admitted_seq, 1)) fail('SOURCE_CHANGED', 'Original promoted goal differs from the Run admission');
         continue;
       }
@@ -266,7 +266,7 @@ export function readProviderRecoveryEvidence(db: DatabaseSync, store: Pick<Sqlit
       if (item.data.delivery !== 'steer' || steering.length !== 1) fail('SOURCE_CHANGED', 'Additional promoted input lacks its exact steering journal');
       object(steering[0]!.data.payload); const event = steering[0]!.data.payload, user = messages.find(value => value.row.id === event.messageId);
       if (event.requestId !== item.data.requestId || event.messageId !== item.row.id || number(steering[0]!.row.seq, 1) !== number(item.row.legacy_seq, 1)
-        || !user || user.data.role !== 'user' || user.data.content !== item.data.prompt || hash(user.data.attachments ?? null) !== hash(item.data.attachments ?? null)) fail('SOURCE_CHANGED', 'Steered user message differs from its promoted input');
+        || !user || user.data.role !== 'user' || user.data.content !== item.data.prompt || hash(user.data.attachments ?? null) !== hash(item.data.attachments ?? null) || hash(user.data.documents ?? null) !== hash(item.data.documents ?? null)) fail('SOURCE_CHANGED', 'Steered user message differs from its promoted input');
       expectedUsers.add(user.row.id);
     }
     if (messages.some(value => value.data.role === 'user' && !expectedUsers.has(value.row.id)) || inputEvents.length !== inputs.length) fail('SOURCE_CHANGED', 'Run user history contains unmatched input provenance');

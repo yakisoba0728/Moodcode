@@ -9,7 +9,7 @@ import {
   type Message, type Run, type RunReceipt, type RunState, type Session,
   type SessionSnapshot, type SessionControl, type SessionEventV2, type SessionHistoryPage, type SessionMetrics, type SubmitInput, type ToolCallRecord, type TurnRecord, type Workspace,
 } from '@moodcode/contracts';
-import { normalizeImageAttachments } from '@moodcode/contracts/validation';
+import { normalizeDocumentAttachments, normalizeImageAttachments } from '@moodcode/contracts/validation';
 import type { CommitChange, SessionEngineStore } from '../ports.js';
 import { backupDatabase, inspectIntegrity, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './maintenance.js';
 import { databaseVersion, DB_VERSION, migrateDatabase } from './migrations.js';
@@ -17,9 +17,10 @@ import { NativeSessionStorage, type ExistingInputReceipt, type StoredInputPromot
 import { NativeExecutionStorage, type PartPage, type SessionDocument, type TurnPage } from './native-records.js';
 import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPage } from './history-search.js';
 import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js';
-import { readActiveHistoryWindow, withSessionImageAnchor, type ActiveHistoryWindow, type SessionImageAnchor } from './native-history.js';
+import { readActiveHistoryWindow, withSessionDocumentAnchor, withSessionImageAnchor, type ActiveHistoryWindow, type SessionDocumentAnchor, type SessionImageAnchor } from './native-history.js';
 import { putAttemptUsage, type AttemptUsageRecord, type AttemptUsageSnapshot } from './native-usage.js';
 import { inspectInputImageIndex, type InputImageIndexOptions, type InputImageIndexReport } from './input-image-index.js';
+import { inspectInputDocumentIndex, type InputDocumentIndexOptions, type InputDocumentIndexReport } from './input-document-index.js';
 import { readActivePrefixSourceDatabase, validateActivePrefixPublication } from './active-prefix.js';
 import { SummaryAttemptStorage, type SummaryAttemptIdentity, type SummaryAttemptRecord, type SummaryAttemptListOptions, type SummaryAttemptPage, type SummaryObservation, type SummarySettlement, type SummaryUsageRecord } from './summary-attempts.js';
 import { SummaryRecoveryStorage, captureSummaryRecoveryHighWater, type SummaryRecoveryRequest } from '../recovery/summary.js';
@@ -31,6 +32,7 @@ import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefi
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
+export type { InputDocumentIndexOptions, InputDocumentIndexReport } from './input-document-index.js';
 
 const PAGE_SIZE = 128;
 const MAX_PAGE_SIZE = 1_024;
@@ -44,6 +46,7 @@ export interface ModelHistoryPage {
   beforeRunId: string | null;
   activeWindow?: ActiveHistoryWindow;
   sessionImageAnchor?: SessionImageAnchor;
+  sessionDocumentAnchor?: SessionDocumentAnchor;
 }
 const TRANSITIONS: Record<RunState, readonly RunState[]> = {
   created: ['running', 'cancelling', 'cancelled', 'failed', 'interrupted'],
@@ -275,11 +278,13 @@ export class SqliteStore implements SessionEngineStore {
         requestId: input.requestId, prompt: input.prompt, config: input.config,
         state: 'created', createdAt: timestamp, updatedAt: timestamp,
         ...(input.attachments === undefined ? {} : { attachments: normalizeImageAttachments(input.attachments) }),
+        ...(input.documents === undefined ? {} : { documents: normalizeDocumentAttachments(input.documents) }),
       };
       this.db.prepare('INSERT INTO inputs(id,session_id,request_id,fingerprint,admitted_seq,data) VALUES(?,?,?,?,0,?)').run(inputId, session.id, input.requestId, fingerprint, encode(input));
       this.db.prepare('INSERT INTO runs(id,input_id,session_id,workspace_id,state,data) VALUES(?,?,?,?,?,?)').run(run.id, inputId, session.id, session.workspaceId, run.state, encode(run));
       const message: Message = { id: randomUUID(), sessionId: session.id, runId: run.id, role: 'user', content: input.prompt, createdAt: timestamp,
-        ...(run.attachments === undefined ? {} : { attachments: structuredClone(run.attachments) }) };
+        ...(run.attachments === undefined ? {} : { attachments: structuredClone(run.attachments) }),
+        ...(run.documents === undefined ? {} : { documents: structuredClone(run.documents) }) };
       this.writeMessage(run, message);
       const admitted = this.append(run, 'input.admitted', { runId: run.id, inputId, requestId: input.requestId });
       this.db.prepare('UPDATE inputs SET admitted_seq=? WHERE id=?').run(admitted.seq, inputId);
@@ -287,7 +292,8 @@ export class SqliteStore implements SessionEngineStore {
   }
   private steerInTransaction(input: InputRecord, run: Run): number {
     const message: Message = { id: input.id, sessionId: input.sessionId, runId: run.id, role: 'user', content: input.prompt, createdAt: new Date().toISOString(),
-      ...(input.attachments === undefined ? {} : { attachments: normalizeImageAttachments(input.attachments) }) };
+      ...(input.attachments === undefined ? {} : { attachments: normalizeImageAttachments(input.attachments) }),
+      ...(input.documents === undefined ? {} : { documents: normalizeDocumentAttachments(input.documents) }) };
     this.writeMessage(run, message);
     return this.append(run, 'input.steered', { inputId: input.id, requestId: input.requestId, messageId: message.id }).seq;
   }
@@ -667,8 +673,8 @@ export class SqliteStore implements SessionEngineStore {
         const active = readActiveHistoryWindow(this.db, session, run, lastSeq, maxMessages, maxBytes);
         const totalRuns = Number(this.db.prepare('SELECT count(*) AS count FROM runs WHERE session_id=?').get(sessionId)?.count);
         const totalMessages = Number(this.db.prepare('SELECT count(*) AS count FROM messages WHERE session_id=?').get(sessionId)?.count);
-        return withSessionImageAnchor(this.db, { snapshot: active.snapshot, omittedRuns: totalRuns-1, omittedMessages: totalMessages-active.snapshot.messages.length,
-          beforeRunId: totalRuns > 1 ? run.id : null, activeWindow: active.window }, maxMessages, maxBytes);
+        return withSessionDocumentAnchor(this.db, withSessionImageAnchor(this.db, { snapshot: active.snapshot, omittedRuns: totalRuns-1, omittedMessages: totalMessages-active.snapshot.messages.length,
+          beforeRunId: totalRuns > 1 ? run.id : null, activeWindow: active.window }, maxMessages, maxBytes), maxMessages, maxBytes);
       };
       const newest = this.db.prepare('SELECT id,state FROM runs WHERE session_id=? ORDER BY ordinal DESC LIMIT 1').get(sessionId);
       if (newest && !isTerminal(String(newest.state) as RunState)) {
@@ -717,8 +723,8 @@ export class SqliteStore implements SessionEngineStore {
       }
       const totalRuns = Number(this.db.prepare('SELECT count(*) AS count FROM runs WHERE session_id=?').get(sessionId)?.count);
       const totalMessages = Number(this.db.prepare('SELECT count(*) AS count FROM messages WHERE session_id=?').get(sessionId)?.count);
-      return withSessionImageAnchor(this.db, { snapshot, omittedRuns: totalRuns - snapshot.runs.length, omittedMessages: totalMessages - snapshot.messages.length,
-        beforeRunId: totalRuns > snapshot.runs.length ? snapshot.runs[0]?.id ?? null : null }, maxMessages, maxBytes);
+      return withSessionDocumentAnchor(this.db, withSessionImageAnchor(this.db, { snapshot, omittedRuns: totalRuns - snapshot.runs.length, omittedMessages: totalMessages - snapshot.messages.length,
+        beforeRunId: totalRuns > snapshot.runs.length ? snapshot.runs[0]?.id ?? null : null }, maxMessages, maxBytes), maxMessages, maxBytes);
     }, false);
   }
   /** GUI pages never expose native replay; the original journal remains intact. */
@@ -794,6 +800,9 @@ export class SqliteStore implements SessionEngineStore {
 
   inspectInputImageIndex(options?: InputImageIndexOptions): InputImageIndexReport {
     return this.transaction(() => inspectInputImageIndex(this.db, options), false);
+  }
+  inspectInputDocumentIndex(options?: InputDocumentIndexOptions): InputDocumentIndexReport {
+    return this.transaction(() => inspectInputDocumentIndex(this.db, options), false);
   }
   readEvents(sessionId: string, afterSeq: number, limit = PAGE_SIZE): EngineEvent[] {
     cursor(afterSeq);

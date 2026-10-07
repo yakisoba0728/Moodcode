@@ -4,6 +4,7 @@ import { malformed, optionalString, positiveLimit, providerHttpFailure, provider
 import { readSseData } from './sse.js';
 import { messageImages, providerImages } from '../media/provider.js';
 import type { ResolvedInputImage } from '../ports.js';
+import { providerDocuments } from '../documents/provider.js';
 
 export interface OpenAICompatibleProviderOptions {
   /** API prefix, such as https://api.openai.com/v1 or a local fixture URL. */
@@ -73,6 +74,7 @@ function messageBody(message: ProviderMessage, images: ReadonlyMap<string, Resol
 export class OpenAICompatibleProvider implements ProviderAdapter {
   readonly id: string;
   readonly inputModalities = Object.freeze(['text', 'image'] as const);
+  readonly inputFileTypes = Object.freeze([] as const);
   #endpoint: string;
   #apiKey: string | undefined;
   #fetch: typeof globalThis.fetch;
@@ -104,6 +106,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
 
   async *streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
     if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
+    providerDocuments(request, false, signal);
     let serialized: string;
     try {
       if (typeof request.modelId !== 'string' || !request.modelId.trim()) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider requires an explicit model identifier.');

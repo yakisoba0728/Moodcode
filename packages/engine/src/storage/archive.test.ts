@@ -215,3 +215,45 @@ test('SIGKILL before import publication leaves an invalid empty container and re
   assert.equal(store.integrityCheck().ok, true);
   assert.equal(store.getSessionControl(V1_DATABASE_FIXTURE.ids.sessionId).paused, true);
 });
+
+test('PDF indexes and blobs survive archive with stable owner refs and new physical recovery binding',async t=>{
+  const f=fixture(t),store=new SqliteStore(f.dbPath);f.stores.push(store);const run=store.getRun(V1_DATABASE_FIXTURE.ids.activeRunId);
+  const {DocumentAttachmentStore}=await import('../documents/store.js'),bytes=Buffer.from('%PDF-2.0\nArchived opaque bytes\n');
+  const documents=new DocumentAttachmentStore({directory:join(f.artifactDir,'input-documents'),documents:store}),ref=await documents.import(run.sessionId,bytes);
+  const before=store.getSessionDocument(run.sessionId,'input_documents');store.createSession({id:'foreign-document-session',workspaceId:run.workspaceId,title:'Foreign',createdAt:new Date().toISOString()});store.close();
+  const writer=new DatabaseSync(f.dbPath);try {
+    const original=writer.prepare('SELECT data FROM runs WHERE id=?').get(run.id)!;
+    writer.prepare('UPDATE runs SET data=? WHERE id=?').run(JSON.stringify({...JSON.parse(String(original.data)),documents:[ref]}),run.id);
+    const originalInput=writer.prepare('SELECT data FROM inputs WHERE id=?').get(run.inputId)!;
+    writer.prepare('UPDATE inputs SET data=? WHERE id=?').run(JSON.stringify({...JSON.parse(String(originalInput.data)),documents:[ref]}),run.inputId);
+    writer.prepare('INSERT INTO messages(id,session_id,run_id,data) VALUES(?,?,?,?)').run('archived-document-message',run.sessionId,run.id,JSON.stringify({id:'archived-document-message',sessionId:run.sessionId,runId:run.id,role:'user',content:'Read PDF',createdAt:new Date().toISOString(),documents:[ref]}));
+  } finally {writer.close();}
+  const archived=await exportEngineArchive(f.source);assert.ok(archived.manifest.artifacts.some(item=>item.file===`artifacts/input-documents/${ref.id}.blob`));assert.equal(archived.manifest.recoveryAcknowledgmentsRebound,false);
+  validateEngineArchive({directory:f.destination});const imported=await importEngineArchive({directory:f.destination,destination:join(f.directory,'imported-documents')});const restored=new SqliteStore(imported.dbPath);f.stores.push(restored);
+  assert.deepEqual(restored.getSessionDocument(run.sessionId,'input_documents'),before);const resolver=new DocumentAttachmentStore({directory:join(imported.artifactDir,'input-documents'),documents:restored});assert.deepEqual(Buffer.from((await resolver.resolve(run.sessionId,[ref]))[0]!.data,'base64'),bytes);await assert.rejects(resolver.resolve('foreign-document-session',[ref]),code('RECORD_SCOPE_MISMATCH'));
+  assert.equal(imported.executionResumed,false);assert.equal(restored.getSessionControl(run.sessionId).paused,true);assert.deepEqual(readRecoveryAcknowledgments(imported),[]);
+});
+test('archive refuses corrupted indexed PDF bytes before publishing a destination',async t=>{
+  const f=fixture(t),store=new SqliteStore(f.dbPath);f.stores.push(store);const run=store.getRun(V1_DATABASE_FIXTURE.ids.activeRunId),{DocumentAttachmentStore}=await import('../documents/store.js');const bytes=Buffer.from('%PDF-1.7\nprivate bytes\n'),ref=await new DocumentAttachmentStore({directory:join(f.artifactDir,'input-documents'),documents:store}).import(run.sessionId,bytes);store.close();
+  const corrupt=Buffer.from(bytes);corrupt[12]=42;writeFileSync(join(f.artifactDir,'input-documents',ref.id+'.blob'),corrupt);await assert.rejects(exportEngineArchive(f.source),code('ARCHIVE_DOCUMENT_INTEGRITY_FAILED'));assert.equal(existsSync(f.destination),false);
+});
+test('archive rejects input document refs owned by a different session even when files and manifest hashes match',async t=>{
+  const f=fixture(t),store=new SqliteStore(f.dbPath);f.stores.push(store);const run=store.getRun(V1_DATABASE_FIXTURE.ids.activeRunId),{DocumentAttachmentStore}=await import('../documents/store.js');const ref=await new DocumentAttachmentStore({directory:join(f.artifactDir,'input-documents'),documents:store}).import(run.sessionId,Buffer.from('%PDF-1.7\nopaque\n'));
+  const other=store.createSession({id:'other-document-session',workspaceId:run.workspaceId,title:'Other',createdAt:new Date().toISOString()});store.close();const writer=new DatabaseSync(f.dbPath);
+  try {writer.prepare('INSERT INTO messages(id,session_id,run_id,data) VALUES(?,?,?,?)').run('forged-document-message',other.id,run.id,JSON.stringify({id:'forged-document-message',sessionId:other.id,runId:run.id,role:'user',content:'text',createdAt:new Date().toISOString(),documents:[ref]}));} finally {writer.close();}
+  await assert.rejects(exportEngineArchive(f.source),code('ARCHIVE_DOCUMENT_REFERENCE_INVALID'));assert.equal(existsSync(f.destination),false);
+});
+test('archive rejects cross-owner PDF index payload without rewriting archived engine history',async t=>{
+  const f=fixture(t),store=new SqliteStore(f.dbPath);f.stores.push(store);const run=store.getRun(V1_DATABASE_FIXTURE.ids.activeRunId),{DocumentAttachmentStore}=await import('../documents/store.js');await new DocumentAttachmentStore({directory:join(f.artifactDir,'input-documents'),documents:store}).import(run.sessionId,Buffer.from('%PDF-1.7\nopaque\n'));
+  const doc=store.getSessionDocument(run.sessionId,'input_documents')!;store.putSessionDocument(run.sessionId,'input_documents',doc.revision,{...doc.data,owner:{sessionId:'different-owner',workspaceId:run.workspaceId,workspaceRoot:f.directory}});store.close();const originalEvents=rows(f.dbPath,'events');await assert.rejects(exportEngineArchive(f.source),code('ARCHIVE_DOCUMENT_INDEX_INVALID'));assert.deepEqual(rows(f.dbPath,'events'),originalEvents);assert.equal(existsSync(f.destination),false);
+});
+
+ test('archive rejects total indexed PDF bytes above its budget before opening any blob',async t=>{
+  const f=fixture(t),store=new SqliteStore(f.dbPath);f.stores.push(store);const run=store.getRun(V1_DATABASE_FIXTURE.ids.activeRunId),workspace=store.getWorkspace(run.workspaceId);
+  for(let s=0;s<33;s++){
+    const session=store.createSession({id:'archive-document-cap-'+s,workspaceId:run.workspaceId,title:'bounded',createdAt:new Date().toISOString()});
+    const documents=Array.from({length:32},(_,i)=>({id:'doc_'+(s*32+i).toString(16).padStart(32,'0'),kind:'document',mimeType:'application/pdf',bytes:524288,sha256:'a'.repeat(64)}));
+    store.putSessionDocument(session.id,'input_documents',0,{version:1,owner:{sessionId:session.id,workspaceId:workspace.id,workspaceRoot:workspace.root},documents});
+  }
+  store.close();await assert.rejects(exportEngineArchive(f.source),code('ARCHIVE_FILE_LIMIT'));assert.equal(existsSync(f.destination),false);assert.equal(existsSync(join(f.artifactDir,'input-documents')),false);
+});

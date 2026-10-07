@@ -400,7 +400,8 @@ test('known provenance labels remain hash-bound while image-message labels pin t
   const f = fixture(t), labelHash = hash('retained provenance');
   semanticChain(f,[`instruction:AGENTS.md:${labelHash}`,`instruction:src/AGENTS.md:${labelHash}`,
     ...['policy','facts','manifest','checkpoint'].map(kind => `active-prefix-${kind}:${labelHash}`),
-    `image-policy:${labelHash}`,`image-source:${labelHash}`,`image-message:baseline-native-message:${labelHash}`]);
+    `image-policy:${labelHash}`,`image-source:${labelHash}`,`image-message:baseline-native-message:${labelHash}`,
+    `document-policy:${labelHash}`,`document-source:${labelHash}`,`document-message:baseline-native-message:${labelHash}`]);
   const request = f.request(); f.store.acknowledgeSummaryRecovery(request);
   const audit = JSON.parse(String(f.db.prepare('SELECT data FROM summary_recovery_acknowledgments').get()!.data));
   assert.equal(audit.pins.filter((pin: { id: string }) => pin.id === 'baseline-native-message').length,1);

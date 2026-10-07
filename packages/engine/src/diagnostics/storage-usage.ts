@@ -4,23 +4,26 @@ import { isAbsolute, join, parse, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { EngineError } from '@moodcode/contracts';
 
-export type StorageUsageGroup = 'managed' | 'input-media' | 'children' | 'terminals' | 'other' | 'database';
+export type StorageUsageGroup = 'managed' | 'input-media' | 'input-documents' | 'children' | 'terminals' | 'other' | 'database';
 export type StorageStopReason = 'aborted' | 'time_limit' | 'entry_limit' | 'directory_limit' | 'depth_limit' | 'operation_limit'
   | 'root_missing' | 'unsafe_path' | 'io_error' | 'changed_entry' | 'symlink_skipped' | 'special_file_skipped' | 'unsafe_byte_count';
 export interface StorageUsageLimits {
   maxEntries: number; maxDirectories: number; maxDepth: number; maxDurationMs: number; maxOperations: number;
-  maxSamples: number; maxSamplePathBytes: number; maxReportBytes: number; maxImageIds: number;
+  maxSamples: number; maxSamplePathBytes: number; maxReportBytes: number; maxImageIds: number; maxDocumentIds: number;
 }
 export const DEFAULT_STORAGE_USAGE_LIMITS: Readonly<StorageUsageLimits> = Object.freeze({
   maxEntries: 10_000, maxDirectories: 1_024, maxDepth: 12, maxDurationMs: 2_000, maxOperations: 100_000,
-  maxSamples: 64, maxSamplePathBytes: 256, maxReportBytes: 32_768, maxImageIds: 2_048,
+  maxSamples: 64, maxSamplePathBytes: 256, maxReportBytes: 32_768, maxImageIds: 2_048, maxDocumentIds: 2_048,
 });
 /** Structural slice of the bounded primary database index; a partial index cannot identify orphan candidates. */
 export interface StorageImageIndex {
   scope: 'primary-database-only'; complete: boolean; observedAt: string; imageIds: readonly string[];
 }
+export interface StorageDocumentIndex {
+  scope: 'primary-database-only'; complete: boolean; observedAt: string; documentIds: readonly string[];
+}
 export interface StorageUsageOptions {
-  artifactDir: string; dbPath?: string; signal?: AbortSignal; limits?: Partial<StorageUsageLimits>; imageIndex?: StorageImageIndex;
+  artifactDir: string; dbPath?: string; signal?: AbortSignal; limits?: Partial<StorageUsageLimits>; imageIndex?: StorageImageIndex; documentIndex?: StorageDocumentIndex;
 }
 export interface StorageGroupUsage {
   entries: number; directories: number; regularFiles: number; stableFiles: number; logicalPathBytes: number;
@@ -43,13 +46,18 @@ export interface StorageUsageReport {
     coverage: 'root-input-media-only'; complete: boolean; candidateFiles: number; candidateBytes: number;
     candidates: { path: string; pathTruncated: boolean; id: string; bytes: number }[]; candidatesOmitted: number;
     assessment: 'unreferenced-in-primary-index-snapshot-only'; deletionPerformed: false;
+  };  documents: {
+    indexStatus: 'absent' | 'incomplete' | 'invalid' | 'complete'; indexObservedAt: string | null; indexedIds: number;
+    coverage: 'root-input-documents-only'; complete: boolean; candidateFiles: number; candidateBytes: number;
+    candidates: { path: string; pathTruncated: boolean; id: string; bytes: number }[]; candidatesOmitted: number;
+    assessment: 'unreferenced-in-primary-index-snapshot-only'; deletionPerformed: false;
   };
   coverage: {
     accounting: 'regular-file-logical-size'; physicalAllocatedBytes: null; contentsRead: false; databaseOpened: false;
     symlinkTargets: 'not-scanned'; specialFileContents: 'not-read'; hardlinks: 'path-bytes-and-observed-inode-dedup';
     snapshot: 'non-atomic-with-identity-and-size-rechecks'; pathRaceIsolation: 'not-a-filesystem-sandbox';
     deadline: 'cooperative-between-filesystem-operations'; databaseScope: 'explicit-main-wal-shm-only';
-    externalStorage: 'not-discovered'; childImageIndexes: 'not-read'; cleanup: 'not-performed';
+    externalStorage: 'not-discovered'; childImageIndexes: 'not-read'; childDocumentIndexes: 'not-read'; cleanup: 'not-performed';
   };
 }
 
@@ -61,15 +69,15 @@ export function createStorageInspectorForTesting(hooks: StorageUsageTestHooks): 
   return options => inspect(options, hooks);
 }
 
-const groups: StorageUsageGroup[] = ['managed', 'input-media', 'children', 'terminals', 'other', 'database'];
+const groups: StorageUsageGroup[] = ['managed', 'input-media', 'input-documents', 'children', 'terminals', 'other', 'database'];
 const MAX_PATH_BYTES = 4_096;
 const ranges: Record<keyof StorageUsageLimits, readonly [number, number]> = {
   maxEntries: [1, 100_000], maxDirectories: [1, 10_000], maxDepth: [0, 32], maxDurationMs: [1, 30_000], maxOperations: [1, 1_000_000],
-  maxSamples: [0, 256], maxSamplePathBytes: [32, 2_048], maxReportBytes: [4_096, 131_072], maxImageIds: [1, 65_536],
+  maxSamples: [0, 256], maxSamplePathBytes: [32, 2_048], maxReportBytes: [4_096, 131_072], maxImageIds: [1, 65_536], maxDocumentIds: [1, 65_536],
 };
 function invalid(): never { throw new EngineError('INVALID_STORAGE_USAGE_OPTIONS', 'Storage inspection options are invalid.'); }
 function validate(input: StorageUsageOptions): StorageUsageOptions & { limits: StorageUsageLimits } {
-  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !['artifactDir', 'dbPath', 'signal', 'limits', 'imageIndex'].includes(key))) invalid();
+  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !['artifactDir', 'dbPath', 'signal', 'limits', 'imageIndex', 'documentIndex'].includes(key))) invalid();
   for (const path of [input.artifactDir, input.dbPath]) if (path !== undefined && (typeof path !== 'string' || !isAbsolute(path) || path !== resolve(path) || path.includes('\0') || Buffer.byteLength(path) > MAX_PATH_BYTES)) invalid();
   if (typeof input.artifactDir !== 'string') invalid();
   if (input.signal !== undefined && !(input.signal instanceof AbortSignal)) invalid();
@@ -106,8 +114,8 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
     logicalPathBytes: 0, uniqueObservedInodeBytes: 0, duplicateInodePaths: 0, observedEntries: 0, observedDirectories: 0, observedRegularFiles: 0, stableFiles: 0, operations: 0,
     skippedDepthDirectories: 0, unvisitedEntries: 0, roots: { artifacts: 'not_visited', database: selected.dbPath === undefined ? 'not_requested' : 'not_visited' },
     groups: Object.fromEntries(groups.map(group => [group, blankGroup()])) as Record<StorageUsageGroup, StorageGroupUsage>, samples: [], samplesOmitted: 0, reportTruncated: false,
-    images: { indexStatus: 'absent', indexObservedAt: null, indexedIds: 0, coverage: 'root-input-media-only', complete: false, candidateFiles: 0, candidateBytes: 0, candidates: [], candidatesOmitted: 0, assessment: 'unreferenced-in-primary-index-snapshot-only', deletionPerformed: false },
-    coverage: { accounting: 'regular-file-logical-size', physicalAllocatedBytes: null, contentsRead: false, databaseOpened: false, symlinkTargets: 'not-scanned', specialFileContents: 'not-read', hardlinks: 'path-bytes-and-observed-inode-dedup', snapshot: 'non-atomic-with-identity-and-size-rechecks', pathRaceIsolation: 'not-a-filesystem-sandbox', deadline: 'cooperative-between-filesystem-operations', databaseScope: 'explicit-main-wal-shm-only', externalStorage: 'not-discovered', childImageIndexes: 'not-read', cleanup: 'not-performed' },
+    images: { indexStatus: 'absent', indexObservedAt: null, indexedIds: 0, coverage: 'root-input-media-only', complete: false, candidateFiles: 0, candidateBytes: 0, candidates: [], candidatesOmitted: 0, assessment: 'unreferenced-in-primary-index-snapshot-only', deletionPerformed: false },    documents: { indexStatus: 'absent', indexObservedAt: null, indexedIds: 0, coverage: 'root-input-documents-only', complete: false, candidateFiles: 0, candidateBytes: 0, candidates: [], candidatesOmitted: 0, assessment: 'unreferenced-in-primary-index-snapshot-only', deletionPerformed: false },
+    coverage: { accounting: 'regular-file-logical-size', physicalAllocatedBytes: null, contentsRead: false, databaseOpened: false, symlinkTargets: 'not-scanned', specialFileContents: 'not-read', hardlinks: 'path-bytes-and-observed-inode-dedup', snapshot: 'non-atomic-with-identity-and-size-rechecks', pathRaceIsolation: 'not-a-filesystem-sandbox', deadline: 'cooperative-between-filesystem-operations', databaseScope: 'explicit-main-wal-shm-only', externalStorage: 'not-discovered', childImageIndexes: 'not-read', childDocumentIndexes: 'not-read', cleanup: 'not-performed' },
   };
   const fail = (reason: StorageStopReason): void => {
     report.complete = false; report.unvisitedEntries = null;
@@ -138,6 +146,16 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
       if (index.complete) for (const id of index.imageIds) imageIds.add(id);
     }
   }
+  const documentIds = new Set<string>(), docIndex = selected.documentIndex;
+  if (docIndex !== undefined) {
+    if (!docIndex || typeof docIndex !== 'object' || docIndex.scope !== 'primary-database-only' || typeof docIndex.complete !== 'boolean' || !Array.isArray(docIndex.documentIds)
+      || docIndex.documentIds.length > limits.maxDocumentIds || typeof docIndex.observedAt !== 'string' || docIndex.observedAt.length > 32 || !Number.isFinite(Date.parse(docIndex.observedAt))
+      || docIndex.documentIds.some(id => typeof id !== 'string' || !/^doc_[0-9a-f]{32}$/u.test(id)) || new Set(docIndex.documentIds).size !== docIndex.documentIds.length) report.documents.indexStatus = 'invalid';
+    else {
+      report.documents.indexStatus = docIndex.complete ? 'complete' : 'incomplete'; report.documents.indexObservedAt = docIndex.observedAt; report.documents.indexedIds = docIndex.documentIds.length;
+      if (docIndex.complete) for (const id of docIndex.documentIds) documentIds.add(id);
+    }
+  }
   const dbPaths = selected.dbPath === undefined ? [] : [selected.dbPath, selected.dbPath + '-wal', selected.dbPath + '-shm'];
   const dbLabels = new Map(dbPaths.map((path, index) => [path, ['main', 'wal', 'shm'][index]!]));
   const databaseStatus = (status: 'observed' | 'missing' | 'unsafe'): void => {
@@ -148,7 +166,7 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
   const classify = (path: string, relativePath: string): StorageUsageGroup => {
     if (dbLabels.has(path)) return 'database';
     const top = relativePath.split('/')[0];
-    if (top === 'managed' || top === 'input-media' || top === 'children') return top;
+    if (top === 'managed' || top === 'input-media' || top === 'input-documents' || top === 'children') return top;
     if (top === 'terminals' || top === 'terminals.sqlite' || top === 'terminals.sqlite-wal' || top === 'terminals.sqlite-shm') return 'terminals';
     return 'other';
   };
@@ -190,6 +208,11 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
       report.images.candidateFiles++; report.images.candidateBytes += bytes;
       if (report.images.candidates.length < limits.maxSamples) report.images.candidates.push({ ...safeSample(relativePath, limits.maxSamplePathBytes), id: generated[1]!, bytes });
       else { report.images.candidatesOmitted++; report.reportTruncated = true; }
+    }    const generatedDocument = root === 'artifacts' ? /^input-documents\/(doc_[0-9a-f]{32})\.blob$/u.exec(relativePath) : null;
+    if (generatedDocument && info.nlink === 1n && report.documents.indexStatus === 'complete' && !documentIds.has(generatedDocument[1]!)) {
+      report.documents.candidateFiles++; report.documents.candidateBytes += bytes;
+      if (report.documents.candidates.length < limits.maxSamples) report.documents.candidates.push({ ...safeSample(relativePath, limits.maxSamplePathBytes), id: generatedDocument[1]!, bytes });
+      else { report.documents.candidatesOmitted++; report.reportTruncated = true; }
     }
   };
   const visit = async (path: string, relativePath: string, root: StorageUsageSample['root'], depth: number, chain: readonly PinnedDirectory[], known?: BigIntStats): Promise<void> => {
@@ -269,10 +292,12 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
   } catch (error) { if (!(error instanceof StopScan)) throw error; }
   try { check(); } catch (error) { if (!(error instanceof StopScan)) throw error; }
   report.images.complete = report.complete && report.images.indexStatus === 'complete';
+  report.documents.complete = report.complete && report.documents.indexStatus === 'complete';
   report.observedAt = new Date().toISOString(); report.elapsedMs = Math.max(0, Math.ceil(now() - start));
   const fits = (): boolean => Buffer.byteLength(JSON.stringify(report)) <= limits.maxReportBytes;
   while (!fits() && report.samples.length) { report.samples.pop(); report.samplesOmitted++; report.reportTruncated = true; }
   while (!fits() && report.images.candidates.length) { report.images.candidates.pop(); report.images.candidatesOmitted++; report.reportTruncated = true; }
+  while (!fits() && report.documents.candidates.length) { report.documents.candidates.pop(); report.documents.candidatesOmitted++; report.reportTruncated = true; }
   if (!fits()) throw new EngineError('STORAGE_USAGE_REPORT_LIMIT', 'Storage metadata exceeds the report byte budget.');
   return report;
 }

@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { normalizeImageAttachments } from "@moodcode/contracts/validation";
+import { normalizeDocumentAttachments, normalizeImageAttachments } from "@moodcode/contracts/validation";
 import {
   EngineError,
   type Message,
@@ -14,6 +14,7 @@ export interface ActiveHistoryWindow {
   requiredAnchorIds: string[];
   /** Latest image-bearing user in this active Run; historical Runs are outside this window. */
   requiredImageAnchorIds?: string[];
+  requiredDocumentAnchorIds?: string[];
   firstRecentMessageId: string | null;
   selectedMessages: number;
   omittedMessages: number;
@@ -48,6 +49,7 @@ export interface SessionImageAnchor {
   runMetadataUtf8Bytes: number;
   physicalReadBytes: null;
 }
+export interface SessionDocumentAnchor extends Omit<SessionImageAnchor, 'source'> { source: 'latest-document-user-in-session' }
 type HistoryPage = {
   snapshot: SessionSnapshot;
   omittedRuns: number;
@@ -55,19 +57,28 @@ type HistoryPage = {
   beforeRunId: string | null;
   activeWindow?: ActiveHistoryWindow;
   sessionImageAnchor?: SessionImageAnchor;
+  sessionDocumentAnchor?: SessionDocumentAnchor;
 };
 
 /** Preserve one exact image user across Run pagination; never reconstruct pixels from memory. */
 export function withSessionImageAnchor<T extends HistoryPage>(
   database: DatabaseSync, page: T, maxMessages: number, maxBytes: number,
 ): T {
+  return withSessionInputAnchor(database, page, maxMessages, maxBytes, 'image');
+}
+export function withSessionDocumentAnchor<T extends HistoryPage>(database: DatabaseSync, page: T, maxMessages: number, maxBytes: number): T {
+  return withSessionInputAnchor(database, page, maxMessages, maxBytes, 'document');
+}
+function withSessionInputAnchor<T extends HistoryPage>(database: DatabaseSync, page: T, maxMessages: number, maxBytes: number, kind: 'image' | 'document'): T {
+  const field = kind === 'image' ? 'attachments' : 'documents';
+  const limitCode = kind === 'image' ? 'IMAGE_CONTEXT_LIMIT' : 'DOCUMENT_CONTEXT_LIMIT';
   const session = page.snapshot.session;
   const metadata = database.prepare(`SELECT m.id,m.run_id,m.session_id,CAST(m.ordinal AS TEXT) AS ordinal,
     length(CAST(m.data AS BLOB)) AS message_bytes,r.session_id AS run_session_id,r.workspace_id,
     length(CAST(r.data AS BLOB)) AS run_bytes,r.state AS run_state
     FROM messages m LEFT JOIN runs r ON r.id=m.run_id WHERE m.session_id=?
-    AND json_extract(m.data,'$.role')='user' AND json_type(m.data,'$.attachments')='array'
-    AND json_array_length(m.data,'$.attachments')>0 ORDER BY m.ordinal DESC LIMIT 1`).get(session.id);
+    AND json_extract(m.data,'$.role')='user' AND json_type(m.data,'$.${field}')='array'
+    AND json_array_length(m.data,'$.${field}')>0 ORDER BY m.ordinal DESC LIMIT 1`).get(session.id);
   if (!metadata) return page;
   const ordinal = Number(metadata.ordinal), messageBytes = Number(metadata.message_bytes), runBytes = Number(metadata.run_bytes);
   if (!Number.isSafeInteger(ordinal) || ordinal < 1 || metadata.session_id !== session.id
@@ -75,7 +86,7 @@ export function withSessionImageAnchor<T extends HistoryPage>(
     throw new EngineError("MODEL_HISTORY_BINDING_MISMATCH", "Latest image anchor has an inconsistent session owner");
   }
   if (!Number.isSafeInteger(messageBytes) || !Number.isSafeInteger(runBytes) || messageBytes < 1 || runBytes < 1
-    || messageBytes + runBytes > maxBytes) throw new EngineError("IMAGE_CONTEXT_LIMIT", "Latest image anchor exceeds the model history byte budget");
+    || messageBytes + runBytes > maxBytes) throw new EngineError(limitCode, "Latest input anchor exceeds the model history byte budget");
   const row = database.prepare("SELECT data FROM messages WHERE id=? AND session_id=? AND run_id=?").get(String(metadata.id), session.id, String(metadata.run_id));
   const runRow = database.prepare("SELECT data FROM runs WHERE id=? AND session_id=?").get(String(metadata.run_id), session.id);
   if (!row || !runRow) throw new EngineError("MODEL_HISTORY_BINDING_MISMATCH", "Latest image anchor owner is unavailable");
@@ -84,21 +95,27 @@ export function withSessionImageAnchor<T extends HistoryPage>(
     || origin.id !== metadata.run_id || origin.sessionId !== session.id || origin.workspaceId !== session.workspaceId || origin.state !== metadata.run_state) {
     throw new EngineError("MODEL_HISTORY_BINDING_MISMATCH", "Latest image anchor payload has an inconsistent owner");
   }
-  try { if (!normalizeImageAttachments(message.attachments).length) throw new Error("empty"); }
+  try { if (!(kind === 'image' ? normalizeImageAttachments(message.attachments) : normalizeDocumentAttachments(message.documents)).length) throw new Error("empty"); }
   catch { throw new EngineError("MODEL_HISTORY_BINDING_MISMATCH", "Latest image anchor references are invalid"); }
-  const anchor: SessionImageAnchor = { messageId: message.id, runId: origin.id, source: "latest-image-user-in-session",
+  const anchor: SessionImageAnchor | SessionDocumentAnchor = { messageId: message.id, runId: origin.id, source: kind === 'image' ? "latest-image-user-in-session" : 'latest-document-user-in-session',
     messageUtf8Bytes: messageBytes, runMetadataUtf8Bytes: runBytes, physicalReadBytes: null };
   let snapshot = page.snapshot, window = page.activeWindow;
   if (!snapshot.messages.some(item => item.id === message.id)) {
     if (window) {
       const active = snapshot.runs.find(item => item.id === window!.runId);
-      const reservedBytes = messageBytes + (active?.id === origin.id ? 0 : runBytes) + 128;
-      if (!active || maxMessages < 2 || maxBytes - reservedBytes < 1024) throw new EngineError("IMAGE_CONTEXT_LIMIT", "Required image and current Run anchors cannot fit model history");
+      const priorIds = new Set([page.sessionImageAnchor?.messageId, page.sessionDocumentAnchor?.messageId].filter((id): id is string => Boolean(id) && id !== message.id));
+      // Active anchors are already mandatory in readActiveHistoryWindow. Reserve
+      // only foreign Run inputs here, otherwise the same message is charged twice.
+      const priorMessages = snapshot.messages.filter(item => priorIds.has(item.id) && item.runId !== active?.id);
+      const priorRuns = snapshot.runs.filter(item => priorMessages.some(prior => prior.runId === item.id) && item.id !== active?.id && item.id !== origin.id);
+      const reservedBytes = messageBytes + (active?.id === origin.id ? 0 : runBytes) + (priorMessages.length ? Buffer.byteLength(JSON.stringify({ messages: priorMessages, runs: priorRuns })) : 0) + 128;
+      if (!active || maxMessages < 2 + priorMessages.length || maxBytes - reservedBytes < 1024) throw new EngineError(limitCode, "Required input and current Run anchors cannot fit model history");
       try {
-        const reduced = readActiveHistoryWindow(database, session, active, snapshot.lastSeq, maxMessages - 1, maxBytes - reservedBytes);
-        snapshot = reduced.snapshot; window = reduced.window;
+        const reduced = readActiveHistoryWindow(database, session, active, snapshot.lastSeq, maxMessages - 1 - priorMessages.length, maxBytes - reservedBytes);
+        snapshot = { ...reduced.snapshot, messages: [...priorMessages.filter(item => !reduced.snapshot.messages.some(existing => existing.id === item.id)), ...reduced.snapshot.messages],
+          runs: [...priorRuns.filter(item => !reduced.snapshot.runs.some(existing => existing.id === item.id)), ...reduced.snapshot.runs] }; window = reduced.window;
       } catch (error) {
-        if (error instanceof EngineError && error.code === "MODEL_HISTORY_LIMIT") throw new EngineError("IMAGE_CONTEXT_LIMIT", "Required image and current Run exchange cannot fit model history");
+        if (error instanceof EngineError && error.code === "MODEL_HISTORY_LIMIT") throw new EngineError(limitCode, "Required input and current Run exchange cannot fit model history");
         throw error;
       }
     }
@@ -108,20 +125,31 @@ export function withSessionImageAnchor<T extends HistoryPage>(
     // Completed history keeps complete Run groups. Only optional older groups may
     // be dropped to make space for this required, independently bound image user.
     while (!window && (snapshot.messages.length > maxMessages || Buffer.byteLength(JSON.stringify(snapshot)) > maxBytes)) {
-      const removable = snapshot.runs.find(item => item.id !== origin.id && item.id !== page.snapshot.runs.at(-1)?.id);
+      const removable = snapshot.runs.find(item => item.id !== origin.id && item.id !== page.snapshot.runs.at(-1)?.id
+        && item.id !== page.sessionImageAnchor?.runId && item.id !== page.sessionDocumentAnchor?.runId);
       if (!removable) break;
       snapshot = { ...snapshot, runs: snapshot.runs.filter(item => item.id !== removable.id),
         messages: snapshot.messages.filter(item => item.runId !== removable.id), tools: snapshot.tools.filter(item => item.runId !== removable.id),
         approvals: snapshot.approvals.filter(item => item.runId !== removable.id) };
     }
   }
+  if (kind === 'document' && snapshot.messages.length > 1) {
+    const ids = snapshot.messages.map(item => item.id);
+    const ordered = database.prepare(`SELECT id FROM messages WHERE session_id=? AND id IN (${ids.map(() => '?').join(',')}) ORDER BY ordinal`).all(session.id, ...ids);
+    const positions = new Map(ordered.map((item, position) => [String(item.id), position]));
+    const runIds = snapshot.runs.map(item => item.id);
+    const orderedRuns = database.prepare(`SELECT id FROM runs WHERE session_id=? AND id IN (${runIds.map(() => '?').join(',')}) ORDER BY ordinal`).all(session.id, ...runIds);
+    const runPositions = new Map(orderedRuns.map((item, position) => [String(item.id), position]));
+    snapshot = { ...snapshot, messages: [...snapshot.messages].sort((left, right) => positions.get(left.id)! - positions.get(right.id)!),
+      runs: [...snapshot.runs].sort((left, right) => runPositions.get(left.id)! - runPositions.get(right.id)!) };
+  }
   const bytes = Buffer.byteLength(JSON.stringify(snapshot));
-  if (snapshot.messages.length > maxMessages || bytes > maxBytes) throw new EngineError("IMAGE_CONTEXT_LIMIT", "Latest image and required current history exceed model history limits");
+  if (snapshot.messages.length > maxMessages || bytes > maxBytes) throw new EngineError(limitCode, "Latest inputs and required current history exceed model history limits");
   const totalRuns = Number(database.prepare("SELECT count(*) AS count FROM runs WHERE session_id=?").get(session.id)?.count);
   const totalMessages = Number(database.prepare("SELECT count(*) AS count FROM messages WHERE session_id=?").get(session.id)?.count);
   return { ...page, snapshot, omittedRuns: totalRuns - snapshot.runs.length, omittedMessages: totalMessages - snapshot.messages.length,
     beforeRunId: totalRuns > snapshot.runs.length ? snapshot.runs[0]?.id ?? null : null,
-    ...(window ? { activeWindow: window } : {}), sessionImageAnchor: anchor };
+    ...(window ? { activeWindow: window } : {}), ...(kind === 'image' ? { sessionImageAnchor: anchor as SessionImageAnchor } : { sessionDocumentAnchor: anchor as SessionDocumentAnchor }) };
 }
 
 // SQL never returns the original large content to JavaScript. All remaining fields,
@@ -164,17 +192,20 @@ export function readActiveHistoryWindow(
     .prepare(
       `WITH latest_image AS (SELECT max(ordinal) AS ordinal FROM messages WHERE run_id=?
        AND json_extract(data,'$.role')='user' AND json_type(data,'$.attachments')='array'
-       AND json_array_length(data,'$.attachments')>0)
+       AND json_array_length(data,'$.attachments')>0),
+     latest_document AS (SELECT max(ordinal) AS ordinal FROM messages WHERE run_id=?
+       AND json_extract(data,'$.role')='user' AND json_type(data,'$.documents')='array' AND json_array_length(data,'$.documents')>0)
     SELECT id,ordinal,json_extract(data,'$.role') AS role,length(CAST(data AS BLOB)) AS bytes,
-     ordinal=(SELECT ordinal FROM latest_image) AS required_image
+     ordinal=(SELECT ordinal FROM latest_image) AS required_image,ordinal=(SELECT ordinal FROM latest_document) AS required_document
     FROM messages WHERE run_id=? AND ordinal IN
     ((SELECT min(ordinal) FROM messages WHERE run_id=? AND json_extract(data,'$.role')='user'),
      (SELECT max(ordinal) FROM messages WHERE run_id=? AND json_extract(data,'$.role')='user'),
-     (SELECT ordinal FROM latest_image)) ORDER BY ordinal`,
+     (SELECT ordinal FROM latest_image),(SELECT ordinal FROM latest_document)) ORDER BY ordinal`,
     )
-    .all(run.id, run.id, run.id, run.id);
+    .all(run.id, run.id, run.id, run.id, run.id);
   const anchors = anchorMetadata.map(mapCandidate);
   const requiredImageAnchorIds = anchorMetadata.filter(row => Number(row.required_image) === 1).map(row => String(row.id));
+  const requiredDocumentAnchorIds = anchorMetadata.filter(row => Number(row.required_document) === 1).map(row => String(row.id));
   if (!anchors.length)
     throw new EngineError(
       "MODEL_HISTORY_LIMIT",
@@ -309,6 +340,7 @@ export function readActiveHistoryWindow(
       strategy: "initial-user-and-latest-user-with-complete-recent-exchanges",
       requiredAnchorIds: [...anchorIds],
       ...(requiredImageAnchorIds.length ? { requiredImageAnchorIds } : {}),
+      ...(requiredDocumentAnchorIds.length ? { requiredDocumentAnchorIds } : {}),
       firstRecentMessageId:
         messages.find((message) => !anchorIds.has(message.id))?.id ?? null,
       selectedMessages: messages.length,

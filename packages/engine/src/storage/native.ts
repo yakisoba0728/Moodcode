@@ -280,7 +280,8 @@ export class NativeSessionStorage {
       const first = this.database.prepare("SELECT id FROM session_inputs WHERE session_id=? AND state='pending' ORDER BY admitted_seq LIMIT 1").get(input.sessionId);
       if (first?.id !== inputId) throw new EngineError('INPUT_ORDER_CONFLICT', 'Promote the oldest pending input first');
       receipt = this.hooks.admit({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt, config: input.config,
-        ...(input.attachments === undefined ? {} : { attachments: structuredClone(input.attachments) }) }, input.id);
+        ...(input.attachments === undefined ? {} : { attachments: structuredClone(input.attachments) }),
+        ...(input.documents === undefined ? {} : { documents: structuredClone(input.documents) }) }, input.id);
       run = this.hooks.run(receipt.runId);
     }
     const promoted = validateInputRecord({ ...input, state: 'promoted', runId: run.id, promotedSeq: this.nextSeq(input.sessionId), updatedAt: new Date().toISOString() });

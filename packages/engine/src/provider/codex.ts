@@ -4,6 +4,7 @@ import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 import { positiveLimit } from './helpers.js';
 import { ResponsesProvider, type ResponsesProviderOptions } from './responses.js';
 import { providerImages } from '../media/provider.js';
+import { providerDocuments } from '../documents/provider.js';
 
 // Existing Codex ChatGPT credentials are scoped to this native Codex route.
 // They are not the new Sign in with ChatGPT direct-API grant.
@@ -29,6 +30,7 @@ export class CodexProvider implements ProviderAdapter {
   readonly id = 'codex';
   readonly replayProtocol = 'codex-responses';
   readonly inputModalities = Object.freeze(['text', 'image'] as const);
+  readonly inputFileTypes = Object.freeze([] as const);
   #reader: ReturnType<typeof createCodexCredentialReader>;
   #fetch: typeof globalThis.fetch;
   #options: Pick<CodexProviderOptions, 'timeoutMs' | 'maxFrameBytes' | 'maxResponseBytes' | 'maxRequestBytes' | 'maxToolArgumentBytes' | 'maxToolCalls' | 'maxOutputItems'>;
@@ -36,7 +38,7 @@ export class CodexProvider implements ProviderAdapter {
 
   constructor(options: CodexProviderOptions = {}) {
     // No configurable destination, header injection or alternate credential.
-    for (const forbidden of ['baseURL', 'endpoint', 'apiKey', 'id', 'headers', 'redactionSecrets', 'streamProfile']) {
+    for (const forbidden of ['baseURL', 'endpoint', 'apiKey', 'id', 'headers', 'redactionSecrets', 'streamProfile', 'pdfModelIds', 'inputFileTypes']) {
       if (Object.hasOwn(options, forbidden)) invalidConfiguration();
     }
     this.#fetch = options.fetch ?? globalThis.fetch;
@@ -55,6 +57,7 @@ export class CodexProvider implements ProviderAdapter {
   async *streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
     if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
     // Invalid media must fail before any host credential source is consulted.
+    providerDocuments(request, false, signal);
     providerImages(request, true, signal);
     const provider = await this.#reader.use(signal, credential => {
       const transport: typeof fetch = async (url, init) => {

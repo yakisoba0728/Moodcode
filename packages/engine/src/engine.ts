@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
 import { EngineError, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, SESSION_COMMAND_TYPES, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type JsonValue, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
-import { normalizeAcceptInput, normalizeEngineBudgets, normalizeSubmitInput, validateCommand, validateSessionCommand } from '@moodcode/contracts/validation';
+import { assertInputMediaBudget, normalizeAcceptInput, normalizeEngineBudgets, normalizeSubmitInput, validateCommand, validateSessionCommand } from '@moodcode/contracts/validation';
 import type { ProviderAdapter, ProviderEvent, ToolDefinition } from './ports.js';
 import { SqliteStore, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './storage/index.js';
 import type { SummaryAttemptListOptions } from './storage/summary-attempts.js';
@@ -51,10 +51,13 @@ import { validateProviderRecoveryRequest, type ProviderRecoveryRequest, type Pro
 import { ReviewJournal, type RestoreOperation, type RestoreOperationInput } from './review/audit.js';
 import { ImageAttachmentStore } from './media/index.js';
 import { providerImages } from './media/provider.js';
-import type { InputImageAttachment } from '@moodcode/contracts';
+import { DocumentAttachmentStore } from './documents/store.js';
+import { providerDocuments } from './documents/provider.js';
+import type { InputDocumentAttachment, InputImageAttachment } from '@moodcode/contracts';
 import { createDelegateTaskTool } from './child-tasks/delegation.js';
 import { validateMediaHistoryPolicy, type MediaHistoryPolicy } from './context/media-history.js';
 import { validateActivePrefixPolicy, type ActivePrefixPolicy } from './context/active-prefix.js';
+import { validateDocumentHistoryPolicy, type DocumentHistoryPolicy } from './context/document-history.js';
 import { inspectEngineStorage, type StorageUsageReport, type StorageUsageLimits } from './diagnostics/storage-usage.js';
 
 export interface EngineStorageUsageOptions { signal?: AbortSignal; limits?: Partial<StorageUsageLimits> }
@@ -92,6 +95,9 @@ export interface EngineOptions {
   mediaHistoryPolicy?: MediaHistoryPolicy;
   /** Bounded derived observations from completed exchanges of a still-active Run. */
   activePrefixPolicy?: ActivePrefixPolicy;
+  /** PDF page/text token cost is opaque. The default refuses this unknown cost. */
+  allowUnknownDocumentTokenCost?: boolean;
+  documentHistoryPolicy?: DocumentHistoryPolicy;
   agentProfiles?: readonly AgentProfileSpec[];
   allowedToolNames?: readonly string[];
   ptyBackend?: PtyBackend;
@@ -117,30 +123,51 @@ function verifyExecutionIdle(lockPath: string): void {
   }
 }
 
-function withImageInputs(provider: ProviderAdapter, images: ImageAttachmentStore, store: SqliteStore, models: ModelRegistry): ProviderAdapter {
+function assertDocumentSupport(provider: ProviderAdapter | undefined, models: ModelRegistry, config: Pick<RunConfig, 'providerId' | 'modelId'>, allowUnknownTokenCost: boolean): void {
+  if (!provider?.inputFileTypes?.includes('application/pdf') || !models.get(config.providerId, config.modelId).inputFileTypes?.includes('application/pdf')
+    || provider.supportsInputFile?.(config.modelId, 'application/pdf') === false) throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Selected provider and model require explicit PDF support');
+  if (!allowUnknownTokenCost || provider.allowUnknownDocumentTokenCost !== true) throw new EngineError('DOCUMENT_TOKEN_COST_UNKNOWN', 'PDF token cost is unknown; host and provider must explicitly permit this cost');
+}
+
+function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore, documents: DocumentAttachmentStore, store: SqliteStore, models: ModelRegistry, allowUnknownTokenCost: boolean): ProviderAdapter {
   return { id: provider.id, ...(provider.replayProtocol ? { replayProtocol: provider.replayProtocol } : {}),
     ...(provider.retryableHttpStatuses ? { retryableHttpStatuses: provider.retryableHttpStatuses } : {}),
     ...(provider.inputModalities ? { inputModalities: provider.inputModalities } : {}),
+    ...(provider.inputFileTypes ? { inputFileTypes: provider.inputFileTypes } : {}),
+    ...(provider.allowUnknownDocumentTokenCost === undefined ? {} : { allowUnknownDocumentTokenCost: provider.allowUnknownDocumentTokenCost }),
+    ...(provider.supportsInputFile ? { supportsInputFile: (modelId: string, mimeType: 'application/pdf') => provider.supportsInputFile!(modelId, mimeType) } : {}),
     streamTurn(request, signal) {
       let iterator: AsyncIterator<ProviderEvent> | undefined, initialization: Promise<void> | undefined;
       let providerEntered = false, confirmedDone = false;
       const initialize = () => initialization ??= (async () => {
-        if (request.resolvedImages !== undefined) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Image bytes must be resolved by the engine');
+        if (request.resolvedImages !== undefined || request.resolvedDocuments !== undefined) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Input bytes must be resolved by the engine');
         const refs = new Map<string, InputImageAttachment>();
+        const documentRefs = new Map<string, InputDocumentAttachment>();
         for (const message of request.messages) for (const ref of message.attachments ?? []) {
           if (message.role !== 'user') throw new EngineError('PROVIDER_INVALID_REQUEST', 'Image references belong to user messages');
           const previous = refs.get(ref.id);
           if (previous && JSON.stringify(previous) !== JSON.stringify(ref)) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Conflicting image references');
           refs.set(ref.id, ref);
         }
+        for (const message of request.messages) for (const ref of message.documents ?? []) {
+          if (message.role !== 'user') throw new EngineError('PROVIDER_INVALID_REQUEST', 'Document references belong to user messages');
+          const previous = documentRefs.get(ref.id);
+          if (previous && JSON.stringify(previous) !== JSON.stringify(ref)) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Conflicting document references');
+          documentRefs.set(ref.id, ref);
+        }
         let resolved = request;
-        if (refs.size) {
+        if (refs.size || documentRefs.size) {
           const run = store.getRun(request.runId);
-          if (request.sessionId !== run.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Image request belongs to another session');
-          const modalities = models.get(provider.id, request.modelId).modalities;
-          if (!provider.inputModalities?.includes('image') || modalities !== null && !modalities.includes('image')) throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Selected provider or model does not support image input');
-          resolved = { ...request, resolvedImages: await images.resolve(run.sessionId, [...refs.values()], signal) };
+          if (request.sessionId !== run.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Input request belongs to another session');
+          if (documentRefs.size) assertDocumentSupport(provider, models, { providerId: provider.id, modelId: request.modelId }, allowUnknownTokenCost);
+          if (refs.size) {
+            const modalities = models.get(provider.id, request.modelId).modalities;
+            if (!provider.inputModalities?.includes('image') || modalities !== null && !modalities.includes('image')) throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Selected provider or model does not support image input');
+            resolved = { ...resolved, resolvedImages: await images.resolve(run.sessionId, [...refs.values()], signal) };
+          }
+          if (documentRefs.size) resolved = { ...resolved, resolvedDocuments: await documents.resolve(run.sessionId, [...documentRefs.values()], signal) };
           providerImages(resolved, true, signal);
+          if (documentRefs.size) providerDocuments(resolved, true, signal);
         }
         if (signal.aborted) throw signal.reason ?? new EngineError('CANCELLED', 'Provider request was cancelled');
         providerEntered = true;
@@ -173,10 +200,12 @@ export class MoodcodeEngine {
   readonly tasks: SessionTaskService;
   readonly context: ContextService;
   private readonly images: ImageAttachmentStore;
+  private readonly documents: DocumentAttachmentStore;
   private readonly pendingImages = new Set<Promise<unknown>>();
   private readonly pendingStorage = new Set<Promise<unknown>>();
   private readonly storagePaths: { artifactDir: string; dbPath?: string };
   private readonly validateImageInput: (sessionId: string, config: RunConfig, refs: InputImageAttachment[]) => Promise<void>;
+  private readonly validateDocumentInput: (sessionId: string, config: RunConfig, refs: InputDocumentAttachment[]) => Promise<void>;
   private readonly managedArtifacts: () => Promise<ArtifactStore>;
   readonly plugins: EnginePluginManager;
   readonly profiles: AgentProfiles;
@@ -207,9 +236,11 @@ export class MoodcodeEngine {
     if (!options || typeof options.dbPath !== 'string' || options.dbPath.length === 0) {
       throw new EngineError('INVALID_CONFIG', 'dbPath must be a non-empty string');
     }
+    if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Document token cost policy must be a boolean');
     this.defaults = normalizeSubmitInput({ sessionId: 'defaults', requestId: 'defaults', prompt: 'defaults', config: options.defaults ?? {} }).config;
     const mediaHistoryPolicy = options.mediaHistoryPolicy === undefined ? undefined : validateMediaHistoryPolicy(options.mediaHistoryPolicy);
     const activePrefixPolicy = options.activePrefixPolicy === undefined ? undefined : validateActivePrefixPolicy(options.activePrefixPolicy);
+    const documentHistoryPolicy = options.documentHistoryPolicy === undefined ? undefined : validateDocumentHistoryPolicy(options.documentHistoryPolicy);
     const dbPath = options.dbPath === ':memory:' ? options.dbPath : resolve(options.dbPath);
     const artifactDir = options.artifactDir !== undefined ? resolve(options.artifactDir)
       : dbPath === ':memory:' ? mkdtempSync(join(tmpdir(), 'moodcode-memory-artifacts-')) : resolve(`${options.dbPath}.artifacts`);
@@ -264,6 +295,7 @@ export class MoodcodeEngine {
       const models = new ModelRegistry();
       for (const spec of options.modelSpecs ?? []) models.put(spec);
       this.images = new ImageAttachmentStore({ directory: join(realpathSync(artifactDir), 'input-media'), documents: this.store });
+      this.documents = new DocumentAttachmentStore({ directory: join(realpathSync(artifactDir), 'input-documents'), documents: this.store });
       let artifacts: Promise<ArtifactStore> | undefined;
       const artifactBudgets = normalizeEngineBudgets(this.defaults.budgets);
       this.managedArtifacts = () => artifacts ??= ArtifactStore.open({ directory: join(realpathSync(artifactDir), 'managed'), limits: {
@@ -277,8 +309,13 @@ export class MoodcodeEngine {
         await this.images.resolve(sessionId, refs, this.hostResources.signal);
         if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
       };
-      for (const [id, provider] of providers) providers.set(id, withImageInputs(provider, this.images, this.store, models));
-      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}) });
+      this.validateDocumentInput = async (sessionId, config, refs) => {
+        assertDocumentSupport(providers.get(config.providerId), models, config, options.allowUnknownDocumentTokenCost === true);
+        await this.documents.resolve(sessionId, refs, this.hostResources.signal);
+        if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+      };
+      for (const [id, provider] of providers) providers.set(id, withInputMedia(provider, this.images, this.documents, this.store, models, options.allowUnknownDocumentTokenCost === true));
+      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}) });
       const availableTools = options.tools ?? [...createReadTools(), createPatchTool(), createCommandTool(), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
@@ -354,7 +391,11 @@ export class MoodcodeEngine {
         case 'input.accept': {
           const input = normalizeAcceptInput(payload, this.defaults);
           input.config = this.profiles.apply(input.sessionId, input.config);
-          if (input.attachments?.length && !this.store.lookupInputReceipt(input)) await this.validateImageInput(input.sessionId, input.config, input.attachments);
+          if ((input.attachments?.length || input.documents?.length) && !this.store.lookupInputReceipt(input)) {
+            assertInputMediaBudget(input.attachments, input.documents);
+            if (input.documents?.length) await this.validateDocumentInput(input.sessionId, input.config, input.documents);
+            if (input.attachments?.length) await this.validateImageInput(input.sessionId, input.config, input.attachments);
+          }
           result = this.scheduler.accept(input); break;
         }
         case 'input.list': result = this.store.listInputs(payload.sessionId as string, payload.cursor as unknown as InputCursor | undefined, payload.limit as number); break;
@@ -457,7 +498,11 @@ export class MoodcodeEngine {
           {
             const input = normalizeSubmitInput(payload);
             input.config = this.profiles.apply(input.sessionId, input.config);
-            if (input.attachments?.length && !this.store.lookupRunReceipt(input)) await this.validateImageInput(input.sessionId, input.config, input.attachments);
+            if ((input.attachments?.length || input.documents?.length) && !this.store.lookupRunReceipt(input)) {
+              assertInputMediaBudget(input.attachments, input.documents);
+              if (input.documents?.length) await this.validateDocumentInput(input.sessionId, input.config, input.documents);
+              if (input.attachments?.length) await this.validateImageInput(input.sessionId, input.config, input.attachments);
+            }
             result = this.scheduler.submitLegacy(input);
           }
           break;
@@ -811,7 +856,8 @@ export class MoodcodeEngine {
     if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new EngineError('INVALID_STORAGE_USAGE_OPTIONS', 'Storage inspection requires an AbortSignal');
     const signal = options.signal === undefined ? this.hostResources.signal : AbortSignal.any([options.signal, this.hostResources.signal]);
     const imageIndex = this.store.inspectInputImageIndex({ signal });
-    const operation = inspectEngineStorage({ ...this.storagePaths, signal, ...(options.limits === undefined ? {} : { limits: options.limits }), imageIndex });
+    const documentIndex = this.store.inspectInputDocumentIndex({ signal });
+    const operation = inspectEngineStorage({ ...this.storagePaths, signal, ...(options.limits === undefined ? {} : { limits: options.limits }), imageIndex, documentIndex });
     this.pendingStorage.add(operation);
     try { return await operation; } finally { this.pendingStorage.delete(operation); }
   }
@@ -819,6 +865,15 @@ export class MoodcodeEngine {
   importImage(sessionId: string, data: Uint8Array, mimeType: InputImageAttachment['mimeType'], signal?: AbortSignal): Promise<InputImageAttachment> {
     if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
     const operation = this.images.import(sessionId, data, mimeType, signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal);
+    this.pendingImages.add(operation);
+    void operation.then(() => this.pendingImages.delete(operation), () => this.pendingImages.delete(operation));
+    return operation;
+  }
+
+  /** Host-only bounded import. References carry no path, filename or raw bytes. */
+  importDocument(sessionId: string, data: Uint8Array, signal?: AbortSignal): Promise<InputDocumentAttachment> {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    const operation = this.documents.import(sessionId, data, signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal);
     this.pendingImages.add(operation);
     void operation.then(() => this.pendingImages.delete(operation), () => this.pendingImages.delete(operation));
     return operation;

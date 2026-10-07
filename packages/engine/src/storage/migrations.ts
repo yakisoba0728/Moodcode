@@ -57,6 +57,9 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
     database.exec(PROVIDER_RECOVERY_SCHEMA);
     database.exec(SUMMARY_RECOVERY_PROOF_SCHEMA);
   } }),
+  Object.freeze({ version: 8, name: 'bounded-session-document-anchor', apply: (database: DatabaseSync) => {
+    database.exec("CREATE INDEX model_session_latest_document ON messages(session_id,ordinal DESC) WHERE json_extract(data,'$.role')='user' AND json_type(data,'$.documents')='array' AND json_array_length(data,'$.documents')>0");
+  } }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;
 

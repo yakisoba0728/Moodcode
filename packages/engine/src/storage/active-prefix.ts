@@ -109,7 +109,7 @@ export function readActivePrefixSourceDatabase(database: DatabaseSync, run: Run,
   const messageRows = database.prepare(`SELECT substr(id,1,257) AS id,substr(session_id,1,257) AS session_id,substr(run_id,1,257) AS run_id,ordinal,
     substr(json_extract(data,'$.id'),1,257) AS payload_id,substr(json_extract(data,'$.sessionId'),1,257) AS payload_session,substr(json_extract(data,'$.runId'),1,257) AS payload_run,
     json_extract(data,'$.role') AS role,json_type(data,'$.content') AS content_type,
-    coalesce(json_array_length(data,'$.attachments'),0) AS images,coalesce(json_array_length(data,'$.toolCalls'),0) AS calls,
+    (coalesce(json_array_length(data,'$.attachments'),0)+coalesce(json_array_length(data,'$.documents'),0)) AS images,coalesce(json_array_length(data,'$.toolCalls'),0) AS calls,
     length(CAST(${MESSAGE_FACTS} AS BLOB)) AS bytes
     FROM messages WHERE run_id=? ORDER BY ordinal LIMIT ?`).all(run.id, METADATA_LIMIT + 1);
   if (messageRows.length > METADATA_LIMIT || Buffer.byteLength(JSON.stringify(messageRows)) > METADATA_BYTES) limit('Run message metadata exceeds the fixed source read bound');

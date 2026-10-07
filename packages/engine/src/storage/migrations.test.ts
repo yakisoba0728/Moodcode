@@ -144,7 +144,7 @@ test('DB6 to DB7 preserves old uncertainty/proof/usage and adds no implicit prov
     DATABASE_MIGRATIONS[6]!.apply(database); throw new Error('DB7 rollback');
   } }];
   assert.throws(() => migrateDatabase(db, failed), /DB7 rollback/u); assert.equal(databaseVersion(db), 6); assert.deepEqual(databaseContents(db), before);
-  migrateDatabase(db); assert.equal(databaseVersion(db), 7); assert.deepEqual(rows(), beforeRows);
+  migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,7)); assert.equal(databaseVersion(db), 7); assert.deepEqual(rows(), beforeRows);
   const migrated=db.prepare('SELECT data,proof_version,pins_sha256,startup_high_water FROM summary_recovery_acknowledgments WHERE id=?').get('old-decision')!;
   assert.equal(migrated.data,legacyBody);assert.equal(migrated.proof_version,1);assert.equal(migrated.pins_sha256,null);assert.equal(migrated.startup_high_water,null);
   assert.equal(db.prepare('SELECT count(*) AS count FROM provider_recovery_acknowledgments').get()?.count, 0);
@@ -246,4 +246,14 @@ test('failed initial schema creation rolls back partial tables and permits a lat
   const store = new SqliteStore(path);
   try { assert.deepEqual(store.listWorkspaces(), []); }
   finally { store.close(); }
+});
+
+ test('DB7 to DB8 adds a bounded latest-document index and preserves all original rows; failed migration rolls back', t => {
+  const {db}=fixture(t);db.exec('PRAGMA foreign_keys=ON');migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,7));
+  const before=databaseContents(db),messages=db.prepare('SELECT * FROM messages ORDER BY ordinal').all();
+  const failed=[...DATABASE_MIGRATIONS.slice(0,7),{version:8,name:'intentional-v8-failure',apply(database:DatabaseSync){DATABASE_MIGRATIONS[7]!.apply(database);throw new Error('DB8 rollback');}}];
+  assert.throws(()=>migrateDatabase(db,failed),/DB8 rollback/u);assert.equal(databaseVersion(db),7);assert.deepEqual(databaseContents(db),before);
+  migrateDatabase(db);assert.equal(databaseVersion(db),8);assert.deepEqual(db.prepare('SELECT * FROM messages ORDER BY ordinal').all(),messages);
+  const plan=db.prepare("EXPLAIN QUERY PLAN SELECT ordinal FROM messages WHERE session_id=? AND json_extract(data,'$.role')='user' AND json_type(data,'$.documents')='array' AND json_array_length(data,'$.documents')>0 ORDER BY ordinal DESC LIMIT 1").all('session');
+  assert.ok(plan.some(row=>String(row.detail).includes('model_session_latest_document')));assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
 });
