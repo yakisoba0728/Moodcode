@@ -1,0 +1,678 @@
+{
+  "schemaVersion": 1,
+  "goal": "Moodcode main engine phase two",
+  "baselineCommit": "8f6cd180bf5a1036cd8eeb8e428452285dccc21d",
+  "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
+  "plan": "../coding-agent-engine-review/implementation-work-items.json",
+  "status": "active",
+  "completedFamilies": 0,
+  "completedWorkItems": 0,
+  "environmentDebts": [
+    "E5-13",
+    "E5-08",
+    "E6-07",
+    "E6-08"
+  ],
+  "families": [
+    {
+      "id": "MC2-01",
+      "title": "저장소 문맥·LSP navigation",
+      "priority": "P1",
+      "wave": "W1",
+      "status": "in_progress",
+      "workItems": [
+        {
+          "id": "MC2-01a",
+          "completion": "snapshot/port·source hash/parser/ignore generation CAS",
+          "status": "in_progress",
+          "evidence": []
+        },
+        {
+          "id": "MC2-01b",
+          "completion": "LSP navigation/map·bounded locations·stale/unsupported 구분",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-01c",
+          "completion": "frozen projection·tool/output/history budget 합산",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-01d",
+          "completion": "동명 심볼·branch/worktree·외부편집·partial build·cancel·실제 corpus 측정",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-02",
+      "title": "검증 계획·제한 repair·완료 gate",
+      "priority": "P1",
+      "wave": "W2",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-02a",
+          "completion": "계획/저장·check/profile/command/source revision",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-02b",
+          "completion": "pass/fail/skipped/unsupported/timeout/cancelled/uncertain receipt",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-02c",
+          "completion": "bounded repair·stalled decision·원래 budget",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-02d",
+          "completion": "gate/복구·stale source·late receipt·crash·재실행 방지",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-03",
+      "title": "지침 신뢰·승인형 프로젝트 기억",
+      "priority": "P1",
+      "wave": "W3",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-03a",
+          "completion": "trust/candidate·source/target hash·generation usage",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-03b",
+          "completion": "완료 세션 bounded tools-free 추출 inbox",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-03c",
+          "completion": "exact publish/revoke·dedupe·동시 수락 CAS",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-03d",
+          "completion": "projection/recovery·expiry·source 삭제·철회·import pause",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-04",
+      "title": "typed lifecycle·policy hook",
+      "priority": "P1",
+      "wave": "W1",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-04a",
+          "completion": "registry/types·stage/revision/deadline/failure policy",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-04b",
+          "completion": "bounded observation/deny·late result·typed outcome",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-04c",
+          "completion": "prepare 전 rewrite만 허용·최종 request digest 고정",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-04d",
+          "completion": "stop/cleanup·최대1회 opt-in continuation·post-effect 재실행 금지",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-05",
+      "title": "적용 전 ProposalSet overlay",
+      "priority": "P2",
+      "wave": "W4",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-05a",
+          "completion": "proposal/source CAS·bounded paging",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-05b",
+          "completion": "read-only diff·pending overlay context",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-05c",
+          "completion": "preview→approval→revalidation→apply receipt",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-05d",
+          "completion": "외부편집·partial apply·cancel/crash·중복 요청 검사",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-06",
+      "title": "상주 child·팀 mailbox·board",
+      "priority": "P2",
+      "wave": "W4",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-06a",
+          "completion": "membership/owner 상태와 permission/expiry 규칙",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-06b",
+          "completion": "send/read/claim port와 bounded queue. 제안 초기 mailbox page64KiB·message4KiB",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-06c",
+          "completion": "child continuation/input scheduler 연결. 승인 대기 중 메시지가 이미 준비된 효과를 바꾸지 않음",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-06d",
+          "completion": "send/read/owner 충돌·overflow·terminal member·parent cancel·crash/reopen 검사. 미확정 효과가 있는 child의 wake/owner 재사용 금지",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-07",
+      "title": "역할 workflow·recipe·child join",
+      "priority": "P2",
+      "wave": "W4",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-07a",
+          "completion": "workflow/recipe parameter·result schema·순서/순환/depth 검사",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-07b",
+          "completion": "stage/join reducer·CAS와 read-only planner/advisory reviewer",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-07c",
+          "completion": "기존 engine-owned child와 승인 merge로 전이. 제안 초기 stage8·depth4 및 parent budget 제한",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-07d",
+          "completion": "child 완료→delivery→stage commit→parent admission crash 구간, 중복 join/submit·stale 설계·deny/cancel/budget 검사. 실패 후 발생한 효과를 자동 재실행하지 않음",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-08",
+      "title": "예약·webhook occurrence admission",
+      "priority": "P2",
+      "wave": "W5",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-08a",
+          "completion": "schedule/trigger/disabled import 및 capability/profile/workspace pin",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-08b",
+          "completion": "due occurrence 계산·claim/lease·dedupe·global/per-schedule cap",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-08c",
+          "completion": "occurrence를 input.accept에 연결하고 accepted/promoted/terminal receipt 보존. disable과 실행 중 Run cancel 구분",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-08d",
+          "completion": "두 scheduler 동시 claim·accept 전후 crash·lease 상실·시간대/수정·workspace quarantine 검사. owner/cleanup 증거 없이 효과 재실행 금지",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-09",
+      "title": "ACP·remote host·client effect 완료",
+      "priority": "P2",
+      "wave": "W5",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-09a",
+          "completion": "capability negotiation·backend launch tuple·secret reference·scope 고정",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-09b",
+          "completion": "synthetic ACP/remote peer·엄격한 command/event schema·bounded replay",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-09c",
+          "completion": "exact permission bridge와 기존 child/host port를 통한 client effect 실행. unknown capability는 시작 보류",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-09d",
+          "completion": "disconnect·late approval·event gap·중복 prompt·owner 교체·ack 후 효과 실패 검사. reconnect를 remote rollback/safe retry 증거로 쓰지 않음",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-10",
+      "title": "session command job·완료 전달",
+      "priority": "P2",
+      "wave": "W5",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-10a",
+          "completion": "job 상태/owner/lease와 prepared command binding",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-10b",
+          "completion": "기존 supervisor/PTY 재사용·bounded output artifact·attach/cancel·lifetime 제한",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-10c",
+          "completion": "terminal/cleanup settled 이후 inbox에 한 번 전달. 이미 terminal인 Run에는 이벤트 추가 금지",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-10d",
+          "completion": "detach/reload·parent 종료·crash/host close/EPERM·output backpressure·중복 delivery 검사. 물리 종료 미확정 시 unknown을 유지하고 재spawn하지 않음",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-11",
+      "title": "role 권한·판단 출처·preflight",
+      "priority": "P1",
+      "wave": "W1",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-11a",
+          "completion": "role file/MCP resource 규칙·우선순위·default unknown 계약",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-11b",
+          "completion": "exact policy decision receipt·사용자 설명·scope/provenance projection",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-11c",
+          "completion": "bounded command preflight port와 source revision pin. 검사 결과를 실제 OS sandbox 증거로 표시하지 않음",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-11d",
+          "completion": "symlink/root 이동·MCP server 교체·stale rule/approval·deny 충돌·analyzer 실패 검사. 승인 뒤 input 변경 또는 silent allow 금지",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-12",
+      "title": "projection·manifest·무진전·오류 진단",
+      "priority": "P1",
+      "wave": "W1",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-12a",
+          "completion": "bounded trajectory export/replay inspection·schema/source/journal provenance",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-12b",
+          "completion": "typed provider error fixture와 request/usage/null projection 보강",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-12c",
+          "completion": "stall/advisory signal·attempt manifest·선택적 tools-free summary. 생성 비용과 남은 budget을 반영",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-12d",
+          "completion": "failed Attempt·truncated/partial output·일관된 seq snapshot·unknown usage·동일 read 후 source 변화·오류 분류 검사. inspector가 producer를 재실행하지 않음",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-13",
+      "title": "승인형 Git commit 영수증",
+      "priority": "P3",
+      "wave": "WX",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-13a",
+          "completion": "selection/HEAD/index/message/verification preview와 conflict 표시",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-13b",
+          "completion": "prepare→approval→revalidation→commit producer 연결",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-13c",
+          "completion": "commit SHA/outcome receipt·receipt 미기록 시 Git 상태 reconcile",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-13d",
+          "completion": "사용자 staged 변경·HEAD 이동·hook failure·cancel·commit 직후 crash 검사. 재전송으로 같은 변경을 두 번 commit하지 않음",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-14",
+      "title": "효과 보존 대화 fork",
+      "priority": "P3",
+      "wave": "WX",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-14a",
+          "completion": "bounded source history snapshot·fork preview·provider replay compatibility",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-14b",
+          "completion": "lineage/materialization와 child context 전달; 원 source ID/hash 보존",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-14c",
+          "completion": "read-only fork 후 새 write approval/worktree 옵션 연결",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-14d",
+          "completion": "fork 이후 이미 발생한 효과·stale source·opaque replay mismatch·import relocated workspace·중복 fork/crash 검사",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-15",
+      "title": "제한 code-mode",
+      "priority": "P3",
+      "wave": "WX",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-15a",
+          "completion": "제한 언어/runtime factory·capability negotiation·source preview",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-15b",
+          "completion": "typed broker request/result·nested call budget·exact approval 전달",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-15c",
+          "completion": "timeout/cancel/owner cleanup·bounded result artifact와 uncertain receipt",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-15d",
+          "completion": "하나의 실제 지원 환경에서 sandbox 탈출 차단·stale grant·중복 nested call·cancel 직후 dispatch·crash 검사. 검증되지 않은 runtime은 비활성",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-16",
+      "title": "media 확대·실제 공급자 검증",
+      "priority": "P2/P3",
+      "wave": "ENV/WX",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-16a",
+          "completion": "기존 image/PDF 실제 계정·모델 검증 계획과 증거 기록. 이 문서 작업에서는 계정 호출하지 않음",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-16b",
+          "completion": "video/audio segment·anchor·MIME/model gating·bounded paging",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-16c",
+          "completion": "생성 media output artifact·usage/null·archive/import schema 연결",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-16d",
+          "completion": "실제 지원 모델별 invalid MIME·oversize·unknown capability·부분 생성·중복 delivery·source 삭제 검사. E5-13 닫힘과 신규 video/audio 완료를 따로 판정",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-17",
+      "title": "실제 OS 파일/네트워크 sandbox",
+      "priority": "P3",
+      "wave": "ENV/WX",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-17a",
+          "completion": "capability port/version·지원 OS/backend matrix·제한 source manifest",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-17b",
+          "completion": "한 OS에서 실제 filesystem/network enforcement와 native ownership 연결",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-17c",
+          "completion": "denial projection·추가 승인 preview·child/MCP 제약 상속",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-17d",
+          "completion": "실제 OS에서 symlink·subprocess·network·cancel·denial 후 부분 효과 검사. Windows native ownership E5-08과 kernel sandbox 지원을 혼동하지 않음",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-18",
+      "title": "prepared resource 기반 효과 병렬",
+      "priority": "P3",
+      "wave": "WX",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-18a",
+          "completion": "prepared resource claim·physical path/MCP identity·conflict matrix",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-18b",
+          "completion": "lock/lease epoch·parent budget reservation·직렬 fallback coordinator",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-18c",
+          "completion": "effect receipt와 per-member cancel/cleanup·partial batch 결과",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-18d",
+          "completion": "교차 파일 rename/symlink·동일 resource 다른 tool·한 member crash/cancel·lock loss·receipt 미기록 검사. 성능 향상은 별도 benchmark 이후에만 주장",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-19",
+      "title": "PR SHA 기반 CI/review feedback",
+      "priority": "P2",
+      "wave": "W5",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-19a",
+          "completion": "SHA-bound PR/check snapshot·필수 check policy·read-only watcher port",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-19b",
+          "completion": "polling/webhook dedupe·cursor/gap 처리·bounded input enqueue",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-19c",
+          "completion": "CI failure를 원 source manifest·repair budget·검증 receipt로 연결",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-19d",
+          "completion": "head 변경·reordered delivery·check 재실행·API outage/rate limit·crash 검사. stale green check로 merge 가능 판정 금지",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "MC2-20",
+      "title": "coding attempt group·headless batch",
+      "priority": "P2",
+      "wave": "W5",
+      "status": "pending",
+      "workItems": [
+        {
+          "id": "MC2-20a",
+          "completion": "case/group manifest·attempt/result schema·strict success 기준",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-20b",
+          "completion": "bounded headless batch host·격리 worktree/DB·fair budget reservation",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-20c",
+          "completion": "reviewer/verification receipt 기반 selection preview와 승인 merge",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "MC2-20d",
+          "completion": "partial case failure·skip/resume·cancel pending/running 구분·child cleanup unknown·중복 selection/crash 검사. output export 후 source/runtime를 다시 검증",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    }
+  ]
+}

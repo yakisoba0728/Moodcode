@@ -291,3 +291,28 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 - [x] **A2-R03 — 프로젝트별 서브에이전트 분석**: 각각 메인 엔진·문맥·도구·실행/복구·확장 기능과 Moodcode 비교를 보고서·증거 JSON으로 저장.
 - [x] **A2-R04 — 통합 비교·후속 구현 후보와 증거 검사**: 기존 기능과 새 계약을 구분하고 후보마다 출처·우선순위·비용·검증 조건을 정리. HEAD·소스 줄·파일 SHA·변경 범위를 확인.
 - [x] **A2-R05 — 현재 Moodcode와19개 전체의1:1 비교·구현 구체화**: 14개 기능×19개=266개 대조, 후보75개 전수 매핑, 현재 소스 근거35개·후보 경로86개를 확인했다. 초기12개 큰 묶음을20개 구현 범위·80개 proposed 작업으로 나누고 API/record·의존성·저장/import·완료 기준·병렬 편집 경계를 작성했다. [비교](docs/coding-agent-engine-review/one-to-one-comparison.md), [구현 상세](docs/coding-agent-engine-review/implementation-blueprint.md), [작업 목록](docs/coding-agent-engine-review/implementation-work-items.json)을 따른다. 문서/출처 검사만 완료했으며 새 엔진 구현·실제 환경 검증·새 goal 활성화는 포함하지 않는다. 기존 이월4개는 유지한다.
+
+## 메인 엔진 2차 구현 — goal 활성화
+
+2026-10-07 사용자 요청으로 새 goal을 활성화했다. [실행·종료 조건](docs/moodcode/engine-phase-two-goal.md), [80개 작업 상태](docs/moodcode/engine-phase-two-progress.json)를 따른다. 기존1차 종료와 환경 이월4개는 유지한다. 아래 항목은 실제 구현·엔진 연결·검증 뒤에만 완료 표시한다.
+
+- [ ] **MC2-01 — 저장소 문맥·LSP navigation**: P1 · W1. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-02 — 검증 계획·제한 repair·완료 gate**: P1 · W2. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-03 — 지침 신뢰·승인형 프로젝트 기억**: P1 · W3. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-04 — typed lifecycle·policy hook**: P1 · W1. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-05 — 적용 전 ProposalSet overlay**: P2 · W4. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-06 — 상주 child·팀 mailbox·board**: P2 · W4. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-07 — 역할 workflow·recipe·child join**: P2 · W4. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-08 — 예약·webhook occurrence admission**: P2 · W5. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-09 — ACP·remote host·client effect 완료**: P2 · W5. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-10 — session command job·완료 전달**: P2 · W5. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-11 — role 권한·판단 출처·preflight**: P1 · W1. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-12 — projection·manifest·무진전·오류 진단**: P1 · W1. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-13 — 승인형 Git commit 영수증**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-14 — 효과 보존 대화 fork**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-15 — 제한 code-mode**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-16 — media 확대·실제 공급자 검증**: P2/P3 · ENV/WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-17 — 실제 OS 파일/네트워크 sandbox**: P3 · ENV/WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-18 — prepared resource 기반 효과 병렬**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-19 — PR SHA 기반 CI/review feedback**: P2 · W5. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-20 — coding attempt group·headless batch**: P2 · W5. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
