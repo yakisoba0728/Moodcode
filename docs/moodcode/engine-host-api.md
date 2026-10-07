@@ -104,6 +104,8 @@ child는 root의 살아 있는 LSP/MCP 연결을 묵시적으로 빌리지 않�
 
 `activatePlugin/deactivatePlugin`, `connectMcp/disconnectMcp`는 scope 등록·해제와 owned 연결 수명을 다룬다. stdio 및 지원 HTTP transport를 제공하고 unknown remote 효과는 runtime 승인 경로를 거친다. credential은 [host reference port](../../packages/engine/src/credentials/index.ts)를 사용한다. `terminals`는 user authority의 PTY API이며 모델 `run_command`의 승인과 구별한다. 실제 shell은 사용자 OS 권한이고 파일·네트워크 격리 sandbox를 제공한다고 광고하지 않는다.
 
+DB9의 `getMcpExecution(sessionId, toolCallId)`는 정확한 승인/native owner·논리 RPC/연결/catalogue·dispatch/outcome/로컬 cleanup을 가진 bounded receipt를 조회한다. 최종 응답 없이 timeout/disconnect/cancel로 결과가 불확실해진 호출과 미확인 로컬 정리는 모델 continuation·새 실행·재시작 뒤에도 차단한다. 원래 provider cleanup/usage와 proposal/승인은 보존하고 기존 provider/summary ACK를 MCP 해제로 재사용하지 않는다. 조회는 retry/recovery authority를 부여하지 않으며 MCP 전용 ACK API는 아직 없다. [MCP 호출 계약](engine-mcp-execution.md)을 따른다.
+
 `session.getDiagnostics`는 session owner의 SQL metrics·context 상태·workspace 관찰을 반환한다. [metric 의미](engine-native-metrics.md)에 따라 전체 primary count와 최근 matching 이벤트 창·unknown/null을 구별한다. 토큰 합계는 관측 값이며 청구 API의 확정 금액이 아니다. `read_artifact`는 현재 session에 속한 과거 Run/internal-tool/선택적 Turn·Attempt identity와 hash를 검증한 page를 반환한다. 원본 tool 결과와 provider replay는 보존한다.
 
 `exportEngineArchive/validateEngineArchive/importEngineArchive`는 primary/review/recovery ledger/artifact manifest를 보존한다. import는 살아 있는 engine의 DB를 교체하지 않으며, 복원 뒤 중단한 효과를 자동 실행하지 않는다. [archive](engine-archive.md)·[저장 성능](engine-storage-performance.md)·[process/PTY](engine-process-terminals.md)의 지원 한계를 따른다.

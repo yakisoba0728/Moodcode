@@ -109,3 +109,13 @@ Windows native Job backend, 다른 OS 호스트, 최초 hosted CI, 실제 Anthro
 전체2,331 pass·0 fail·조건부2 skip, fixture3/3, 같은 source 실제 Codex child text1회→host PDF metadata historical 조회→pause import·임시경로 제거가 통과했다. Remote PDF 요청0이다. [열한 번째 JSON](engine-goal-eleventh-verification.json)은 `d341644`의 bytes 그대로 보존했다. [최신 검증](engine-goal-verification.md)을 따른다.
 
 다음 G1-25는 actual local HTTP peer의 승인된 효과가 진행 중인 timeout/disconnect/cancel 뒤 새 Run이 허용된3red와 native restart의 불확실성 누락을 수정한다. MCP tools/call의 exact dispatch/outcome 증거를 provider cleanup과 별도 영속 기록으로 결합한다. 전송 intent가 remote acceptance 증명이라고 주장하지 않으며 기존 ACK를 새로운 효과 권한으로 확장하지 않는다. 외부 OS/provider/CI4개·GUI 제외를 유지하며 goal은 활성 상태다.
+
+## 열세 번째 검토 지점
+
+`4a15286`에서 G1-25 DB9 typed MCP 호출 기록과 불확실성 차단을 구현했다. 실제 outer 승인/native owner·최종 논리 RPC/연결/catalogue를 고정하고 builtin HTTP fetch/stdio write 직전 intent, 서버 terminal 응답, request-local cleanup을 분리한다. unknown이면 모델 continuation/새 Run/queue promotion을 차단하며 원래 provider cleanup/usage·부분 출력·proposal/승인·입력과 startup/archive 격리를 보존한다.
+
+추가 실제 committed-intent callback throw 회귀와 stdio 미전송 취소 통지, 구체 body/reader disposal·비동기 observer·custom hook 위조를 검증했다. 집중45/76/20 source·bundle와 독립 ROOT 통합 검토, 전체2,402 pass·실패0·조건부2 skip·fixture3/3이 통과했다. 같은 source 실제 Codex child text1회·host PDF54B metadata·archive/validate/import pause 회귀도 통과했으며 원격 PDF/MCP 계정 요청은0이었다. DB9/metrics6이며 [열두 번째 JSON](engine-goal-twelfth-verification.json)은 `5609755`의 bytes 그대로 보존했다.
+
+[MCP 계약](engine-mcp-execution.md), [공개 비교·실제 증거](research/2026-10-07-mcp-effect-outcomes.md), [최신 검증](engine-goal-verification.md)을 따른다. 원격 acceptance/abort/rollback·모든 외부 background activity 종료나 receipt 없는 legacy 기록의 소급 인증을 주장하지 않는다. MCP 전용 ACK API는 아직 없다.
+
+다음 G1-26은 MCP receipt 없는 generic native tool의 actual tool.running/execute-entered SIGKILL 뒤 workspace 차단이 유실되는2red를 수정한다. requested control은 정상이며 같은 transaction에서 시작 의도를 원래 owner로 검증해 capture하는 bounded forward 계약을 검토한다. 기존 stronger MCP 미전송/terminal proof·command/patch effect marker와 구별한다. 이미 이전 recovery가 interrupted로 다시 쓴 과거 기록에는 별도의 retrospective 정책이 필요하다. 외부 OS/provider/CI4개·GUI 제외를 유지하며 goal은 활성 상태다.

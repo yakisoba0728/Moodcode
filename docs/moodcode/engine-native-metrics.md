@@ -49,3 +49,5 @@ DB3의 `attemptUsage`는 전체 scope의 attempt_usage record에서 attempt별 �
 ## 일반 Attempt 종료 관측
 
 native report schema 6의 `attemptCleanup`은 DB6 typed 행 전체의 prepared/dispatched/confirmed/uncertain/not-dispatched 상태, serialized JSON bytes와 `attemptsWithoutObservation`을 표시한다. raw SQL counts이며 `recordValidity: null`, `providerOutcomeConfirmed: null`이다. 원격 결과·과금·현재 admission 허용 여부를 이 집계로 추정하지 않는다. ordinary Attempt outcome과 usage, summary lifecycle/decision은 별도 지표다. 관측이 없는 legacy Attempt에 종료 성공을 backfill하지 않는다. [실제 증거와 조회 한도](engine-attempt-cleanup.md)를 따른다.
+
+현재 primary DB9의 MCP receipt에는 별도의 host `getMcpExecution(sessionId,toolCallId)`를 제공한다. metrics schema6에 MCP 전용 집계 필드는 아직 추가하지 않았으므로 ordinary provider cleanup 집계를 MCP 결과/정리 증거로 해석하지 않는다. [MCP 관측의 의미](engine-mcp-execution.md)를 따른다.

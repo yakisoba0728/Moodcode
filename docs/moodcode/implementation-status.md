@@ -1,6 +1,6 @@
 # Moodcode 구현 상태
 
-갱신일: 2026-10-07, Asia/Seoul. 현재 작업은 **자체 엔진 우선**이며 [TODO](../../TODO.md)의 원래 75개 중 71개와 지속 개선 G1의 열두 묶음(`64435d7`, `59d1f42`, `04031cb`, `ede1519`, `29b59a1`, `11da986`, `5d70a22`, `42218a8`, `cc1c42b`, `9bf0e7f`, `bd14b32`, `8c07e28`)을 구현·검증했다. 최신 headless gate는 동시성 2에서 2,331 pass·실패 0·조건부 2 skip이다. 최신 결과는 [goal 검증 보고서](engine-goal-verification.md), 이전 확장 결과는 [headless 검증 보고서](engine-native-final-verification.md), 공개 연결은 [host API](engine-host-api.md)를 따른다. 아래 기존 GUI·bundle 결과는 2026-10-04 기록이며 이번 엔진 작업에서 앱을 다시 실행하거나 새 기능의 GUI E2E를 수행하지 않았다.
+갱신일: 2026-10-07, Asia/Seoul. 현재 작업은 **자체 엔진 우선**이며 [TODO](../../TODO.md)의 원래75개 중71개와 지속 개선 G1의 열세 묶음(`64435d7`, `59d1f42`, `04031cb`, `ede1519`, `29b59a1`, `11da986`, `5d70a22`, `42218a8`, `cc1c42b`, `9bf0e7f`, `bd14b32`, `8c07e28`, `4a15286`)을 구현·검증했다. 최신 headless gate는 동시성4에서2,402 pass·실패0·조건부2 skip이다. 최신 결과는 [goal 검증 보고서](engine-goal-verification.md), 이전 확장 결과는 [headless 검증 보고서](engine-native-final-verification.md), 공개 연결은 [host API](engine-host-api.md)를 따른다. 아래 기존 GUI·bundle 결과는2026-10-04 기록이며 이번 엔진 작업에서 앱을 다시 실행하거나 새 기능의 GUI E2E를 수행하지 않았다.
 
 ## 현재 자체 엔진 범위
 
@@ -12,7 +12,7 @@
 | context·기억 | model metadata의 unknown/null, bounded SQL history, nested 지침과 지속 baseline·idle cache 수명, tools 없는 completed-history summary와 opt-in active-prefix semantic checkpoint, 실제 ContextPlan·두 문서와 typed summary 완료의 원자 활성화, crash/close·publication 대기, done=true cleanup proof의 한 번 overflow 복구 |
 | 도구·권한 | scoped versioned runtime, structured result/artifact, exact edit·rename/delete·bounded glob/regex, deny·Plan/Build 정책, scope grant 저장·철회 |
 | 세션 상호작용 | durable tasks CAS, question·답변·거절·expiry, agent profile의 model/tool/config identity, skill/reference의 제한된 읽기 |
-| 확장 자원 | host plugin·MCP stdio/HTTP와 catalog/resource, credential reference, 실제 macOS PTY 입출력·resize·취소·강제 종료 정리 |
+| 확장 자원 | host plugin·MCP stdio/HTTP와 catalog/resource, DB9 exact 승인/native owner·논리 RPC·dispatch/outcome·request-local cleanup·uncertainty와 재시작/archive 차단·host receipt 조회, credential reference, 실제 macOS PTY 입출력·resize·취소·강제 종료 정리 |
 | 실제 child | 격리 Git worktree·별도 MoodcodeEngine/DB, parent/child/grandchild의 실제 예산·deny·cancel 상속, 결과의 root inbox 중복 제거, 승인한 direct/nested 변경 통합 |
 | LSP·formatter | 명시적 host factory/formatter, 도구 checkpoint·외부 변경·review.restore의 hash/문서 버전 재동기화, 다음 모델 turn 경계·실제 process cleanup |
 | 큰 결과·관측 | 원본 tool result 투영·read_artifact paging, retry/승인/child 결과 bounded owner 조회, SQL 집계 및 host disk 진단의 범위·누락·unknown 표시 |
@@ -22,7 +22,7 @@
 
 Anthropic 추가 adapter는 text/tool·공개 reasoning summary·opaque replay·usage·retry/cancel과 image 입력을 synthetic fixture로 검증했다. Responses/Codex/ChatCompletions image 입력도 연결했다. 실제 모델별 이미지 capability·token 예산과 Anthropic 계정은 별도 검증이 남아 있다. PDF는 표준 Responses의 explicit 모델/MIME 및 host/provider unknown-token opt-in으로 로컬 계약을 구현했다. 실제 원격 PDF 인식·Codex PDF·완전 parser/token 계산과 audio/video 입력·media 출력은 별도 범위다. [PDF 명세](engine-input-documents.md)를 따른다. Windows native process ownership binding과 새 CI의 Linux/Windows/Node24 hosted 실행도 아직 없다. 원래 열린 4개 TODO와 지속 개선 G1 항목은 별도로 관리한다.
 
-다음 G1-25는 실제 local MCP 도구 효과가 진행 중인데 timeout/disconnect/cancel·재시작 뒤 새 실행이 허용되는 불확실성 결함을 수정한다. 기존 전체 gate와 별도의 actual3red/native chronology를 보존했으며 호출별 영속 dispatch/outcome 증거를 구현할 예정이다. 기존 provider/summary ACK를 MCP 효과 완료로 재사용하지 않는다.
+G1-25는 typed MCP 호출의 실제 accepted timeout/disconnect/cancel3red와 committed-intent callback 실패 회귀를 수정했다. 집중45/76/20 source·독립 bundle와 전체 gate가 통과했고 기존 provider/summary ACK는 MCP 차단을 해제하지 않는다. [계약](engine-mcp-execution.md)을 따른다. 다음 G1-26은 MCP receipt 없는 generic native tool.running/콜백 진입의 SIGKILL 뒤 시작 경계가 유실된2red를 수정한다. 미시작 requested control과 외부 효과/acceptance를 구분하며 이미 과거에 interrupted로 바뀐 기록의 소급 coverage를 주장하지 않는다.
 
 ## 기존 데스크톱 연결 기록
 

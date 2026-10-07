@@ -41,3 +41,4 @@ Moodcode는 로컬 Git 저장소에서 코드를 읽고 수정하며 명령을 �
 초기 제품·아키텍처·단계 문서는 최초 설계를 보존하고 있어 일부 완료 표시가 과거 상태다. 실제 구현·검증 여부는 최신 구현 상태 문서를 우선하며, 2026-10-07 엔진 검토의 제안은 아직 구현된 기능으로 표시하지 않는다.
 
 - [PDF 원본 입력](engine-input-documents.md): 별도 refs·explicit capability/token 정책·bounded history·primary archive 및 root 진단 범위.
+- [MCP 도구 실행 기록](engine-mcp-execution.md): DB9 exact 승인/native owner·전송/응답/로컬 정리와 uncertainty·재시작·archive 차단.

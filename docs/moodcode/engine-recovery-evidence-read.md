@@ -1,6 +1,6 @@
 # 복구 증거의 공유 조회 범위
 
-Moodcode는 일반 provider 결과 결정, summary 결정, overflow-linked Turn 및 cleanup을 확인할 때 한 SQLite transaction에 속하는 선택 증거 읽기 범위를 사용한다. 구현은 `packages/engine/src/storage/evidence-read.ts`이며, 실제 측정은 [최신 검증](engine-goal-verification.md)을 따른다. DB7과 metrics schema 6은 그대로다.
+Moodcode는 일반 provider 결과 결정, summary 결정, overflow-linked Turn 및 cleanup을 확인할 때 한 SQLite transaction에 속하는 선택 증거 읽기 범위를 사용한다. 구현은 `packages/engine/src/storage/evidence-read.ts`이며, 실제 측정은 [최신 검증](engine-goal-verification.md)을 따른다. 현재 primary는 DB9이고 metrics schema는6이다. DB9 MCP receipt와 result-free proposal projection도 같은 선택 본문 예산/cache를 사용하며 [MCP 계약](engine-mcp-execution.md)의 owner/header 한도를 추가로 검사한다.
 
 ## 실행 접수와 호환
 

@@ -25,3 +25,5 @@ Focused fixture는 실제 v1 recovery acknowledgement의 보존과 복사된 aut
 Import의 추가 결과는 `childSessionsPaused`와 `documentAuditCoverage`다. 원래 child session·mirror·outcome/usage/ACK·physical 출처는 유지하고 실행을 재개하지 않는다. 복원된 typed child를 fresh source로 재-export하는 현재 경로는 scope 변경으로 거절한다. 선택 proof의 8MiB/refs 예산과 별도 전체 DB logical hashing·파일/mirror 한도는 [child 저장 계약](engine-child-document-storage.md)에 구분한다.
 
 `inspectArchivedChildDocumentStorage`는 exact manifest digest·root owner·task IDs를 지정해 원래 archive의 historical child 문서 metadata를 조회한다. 전체 validation과 같은 frame에서 이미 읽은 index를 재사용하며 실행/복구/ACK 권한을 만들지 않는다. Bounded samples·null unknown·전체 audit coverage와 선택 표시 완료의 차이는 [조회 명세](engine-archive-child-document-inspection.md)를 따른다.
+
+DB9의 `mcp_executions`는 primary logical hash와 backup/archive/import에 포함한다. 원래 dispatch intent/uncertain receipt·outer 승인·native proposal·provider cleanup/usage를 보존하고 import는 session을 pause한다. 실제 연결·도구 재전송·새 ACK를 자동 만들지 않는다. DB9 이전 archive의 logical table 목록은 기존 버전대로 유지한다. [원격 응답과 로컬 정리의 차이](engine-mcp-execution.md)를 따른다.
