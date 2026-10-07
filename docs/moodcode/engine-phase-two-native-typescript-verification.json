@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "stage": "phase-two actual native TypeScript semantics, bounded project source freshness, cancellation read drain and confirmed LSP lifecycle",
+  "status": "passed",
+  "recordedAt": "2026-10-07T19:20:13.364785+00:00",
+  "parentCommit": "33a77ad4c80432dfee51479ac262a705537f65de",
+  "implementationIdentity": "Frozen implementation/test hashes after original RPC rejection and actual FileHandle drain corrections; final gates ran before this local commit. Benchmark records the workspace at command time before its measurement/verification artifacts were added, not a self-referential final-tree digest.",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0",
+    "nativeTypeScriptVersion": "7.0.2",
+    "nativeExecutable": "node_modules/@typescript/typescript-darwin-arm64/lib/tsc",
+    "nativeExecutableSha256": "a82f731365ad69d5c4c15f5e18fba4584bf3b7b839960172a76c3462b5114bf2"
+  },
+  "checks": [
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "engine",
+      "command": "npm run test:engine",
+      "exitCode": 0,
+      "logSha256": "dc06990799945bd7a5ac3ebd5dbf5aa2361aa24db92e6922a44d33e87b1e266a",
+      "tests": 3464,
+      "pass": 3462,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0,
+      "durationMs": 84753.234625
+    },
+    {
+      "kind": "source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=4 packages/engine/src/context/*.test.ts packages/engine/src/lsp/*.test.ts packages/engine/src/repository/*.test.ts",
+      "exitCode": 0,
+      "logSha256": "1ce6784f162ef46a9f8c03f497d42b12c025148fa5c762d5f8c4b9a5815d93e9",
+      "tests": 294,
+      "pass": 294,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 18279.283042
+    },
+    {
+      "kind": "eval",
+      "command": "node scripts/evaluate-engine.mjs",
+      "exitCode": 0,
+      "logSha256": "50e69b8e935ed84a6fedf9a31c51ba097d01fec5e988563e5cf0255930dda991",
+      "tasks": [
+        {
+          "taskId": "addition-bug",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local",
+          "runState": "completed",
+          "providerAttempts": 4,
+          "toolCalls": 3
+        },
+        {
+          "taskId": "empty-list-boundary",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local",
+          "runState": "completed",
+          "providerAttempts": 4,
+          "toolCalls": 3
+        },
+        {
+          "taskId": "two-module-change",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local",
+          "runState": "completed",
+          "providerAttempts": 5,
+          "toolCalls": 4
+        }
+      ]
+    },
+    {
+      "kind": "benchmark",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs scripts/benchmark-repository-semantic.mjs /tmp/moodcode-native-typescript-semantic-benchmark-final.json",
+      "exitCode": 0,
+      "logSha256": "4da013e2b75374432c22fda803bc4d65578beeac4eb1bf3c574f0be006f2b75d",
+      "artifact": "engine-phase-two-native-typescript-benchmark.json",
+      "artifactSha256": "4da013e2b75374432c22fda803bc4d65578beeac4eb1bf3c574f0be006f2b75d",
+      "concurrentWorkload": "Benchmark ran alongside final engine regression and source suites; no standalone speedup claim."
+    }
+  ],
+  "sourceTestPaths": [
+    "packages/engine/src/context/active-prefix.test.ts",
+    "packages/engine/src/context/agent-context.test.ts",
+    "packages/engine/src/context/cache-lifecycle-review.test.ts",
+    "packages/engine/src/context/cache-lifecycle.test.ts",
+    "packages/engine/src/context/context.test.ts",
+    "packages/engine/src/context/document-history.test.ts",
+    "packages/engine/src/context/document-wiring-review.test.ts",
+    "packages/engine/src/context/engine-knowledge-context.test.ts",
+    "packages/engine/src/context/engine-repository-context.test.ts",
+    "packages/engine/src/context/engine-typescript-semantic.test.ts",
+    "packages/engine/src/context/knowledge-capture.test.ts",
+    "packages/engine/src/context/knowledge-planning.test.ts",
+    "packages/engine/src/context/media-history-review.test.ts",
+    "packages/engine/src/context/media-history.test.ts",
+    "packages/engine/src/context/model-spec.test.ts",
+    "packages/engine/src/context/plan.test.ts",
+    "packages/engine/src/context/repository-context-integration.test.ts",
+    "packages/engine/src/context/repository-contributions.test.ts",
+    "packages/engine/src/context/required-memory.test.ts",
+    "packages/engine/src/context/semantic-memory.test.ts",
+    "packages/engine/src/context/sources.test.ts",
+    "packages/engine/src/context/summary-stream.test.ts",
+    "packages/engine/src/context/tool-history.test.ts",
+    "packages/engine/src/context/verification-continuation.test.ts",
+    "packages/engine/src/lsp/lsp.test.ts",
+    "packages/engine/src/lsp/project-sources.test.ts",
+    "packages/engine/src/lsp/stdio-native-lifecycle.test.ts",
+    "packages/engine/src/lsp/typescript-native.test.ts",
+    "packages/engine/src/repository/native-typescript-corpus.test.ts",
+    "packages/engine/src/repository/repository.test.ts"
+  ],
+  "fileSha256": {
+    "packages/engine/src/context/engine-typescript-semantic.test.ts": "10e2fd7173f1d29d8db0a3da8153db99d4296c850d32ab0178072516639c6b7f",
+    "packages/engine/src/context/repository-contributions.ts": "f3205ab331e82739cc2514972fd5ed23f2ace9e5565c8b99acaa15abc4036fa2",
+    "packages/engine/src/context/service.ts": "4de52879db41c3383f1d640833cf5a32a241213b6177ba6ca36835563706ce49",
+    "packages/engine/src/lsp/index.ts": "7e0265278f3a64c3023d970a29339c743f03341e9a3a12ac571da98ea5848bd1",
+    "packages/engine/src/lsp/project-sources.test.ts": "d2efd05ff6b6b5e0d86720d7d4ec0322956b2a9566925808dacada0189bd2c11",
+    "packages/engine/src/lsp/project-sources.ts": "23ef75c21a1e20d8de0c259f9b8246ff8eb06595c11d884c4ab4fefef7cfedbc",
+    "packages/engine/src/lsp/stdio-native-lifecycle.test.ts": "f382a29590b8e8fb756de6c32c0743257652c0176034aa89540263bdf0647657",
+    "packages/engine/src/lsp/stdio.ts": "17a39151e2e8c472b07df2028f41cf947429543098ebef85cdb2c5143e8e1621",
+    "packages/engine/src/lsp/typescript-native.test.ts": "9a0c0f35c7beb2f88418ed899a660272d93d67acda7b9171f4f4839b5b5dfe4c",
+    "packages/engine/src/lsp/typescript-native.ts": "a5d0eb6722c2d8d51356ee985d710b20e21b5e62cc9b56d52eb90b0d0d7cda03",
+    "packages/engine/src/repository/fixtures/native-semantic-benchmark.ts": "a66c9b191fb16898e328c5fdce21ef223913a20351eba96ca7cef1609397f9a6",
+    "packages/engine/src/repository/fixtures/semantic-corpus.ts": "329861634094bf34eaf0fd19480df7cc73815d239f5876730e805a336bd8a198",
+    "packages/engine/src/repository/index.ts": "b2c4a416a8111b68a56b0c8174c31ebea695bd6eae90bee6999d3672d5809dfc",
+    "packages/engine/src/repository/native-typescript-corpus.test.ts": "e081925dec2d7336d325ca6c13d14e8efdd17371e76b06eba21867f2fcd224ff",
+    "scripts/benchmark-repository-semantic.mjs": "494753a4bf39843ac26f2eb7859405b734b0919145f90a2837f0a7c94bd8613d"
+  },
+  "newRegressionCoverage": {
+    "actualEngine": 20,
+    "projectSources": 5,
+    "nativeFactory": 5,
+    "actualStdioLifecycle": 3,
+    "actualSemanticCorpus": 2,
+    "totalNewTests": 35
+  },
+  "reviewCorrections": [
+    "Actual native Engine before-model mutation of an unopened barrel comment preserved query/target locations and previously dispatched once. Project source digest now invalidates the original capture with provider zero and unchanged ContextRevision.",
+    "Actual original Stdio request followed by synchronous caller abort left the original rejected RPC promise unobserved in abortable pre-aborted branch. The promise is now observed without converting its outcome or dispatching again.",
+    "Actual original FileHandle read completed but its return was held: caller cancellation returned early and host close previously resolved before actual handle close. Manager now owns original source promises, aborts/drains them concurrently with entry shutdown, and successful close waits for actual handle close; the real regression verifies 100ms close pending then original cleanup.",
+    "Native shutdown request and exit notification require params field absent on the actual wire, while all ordinary legacy RPC params remain unchanged.",
+    "Original StdIO close used bounded waits but did not require actual exit. Unconfirmed termination now preserves the same LSP_CLEANUP_UNCERTAIN close promise, verified against an actual owned process with denied group kill and explicit final physical cleanup.",
+    "The source cancellation fixture accepts actual known ABORTED from existing workspace/Git ignore checks as well as CANCELLED, with zero native startup; production cancellation classification was not weakened."
+  ],
+  "measuredQualityScope": {
+    "authoredModules": 512,
+    "authoredPositiveProbes": 8,
+    "moodcodePositiveProbes": 2,
+    "positiveProbePrecision": 1,
+    "positiveProbeRecall": 1,
+    "boundedReferenceExpected": 81,
+    "boundedReferenceReturned": 64,
+    "boundedReferenceOmitted": 17,
+    "boundedReferenceRecall": 0.7901234567901234,
+    "outsideIgnoredAndMissingDependencies": "Observed separately as omissions/unsupported/actual failing partial compile, not counted as perfect semantic coverage."
+  },
+  "completion": {
+    "goalStatus": "active",
+    "completedWorkItems": 18,
+    "totalWorkItems": 80,
+    "completedFamilies": 3,
+    "totalFamilies": 20,
+    "newlyCompleted": [
+      "MC2-01d"
+    ],
+    "newlyCompletedFamilies": [
+      "MC2-01"
+    ],
+    "supportedLane": "Explicit host-registered native TS7 bounded workspace query/navigation/context integration on local macOS; no automatic map/ranking or all compiler input claim."
+  },
+  "limits": [
+    "Native factory is opt-in, version pinned to7.0.2 and checks canonical executable/original physical identity before and after awaits. It fixes --lsp --stdio and performs no automatic install/download/credential/provider use.",
+    "Project sources include bounded ordinary workspace TS/JS/JSON/ignore files with actual hashes and nanosecond identity checks. Excluded generated/dependency trees and outside-root/ambient native compiler inputs are outside this source scope.",
+    "Initial default core catalogue remains21. Repository context/tools registration are separate explicit host choices; registered language routing does not grant coding effect or file modification authority.",
+    "Existing query/target/hash/ignore/Git head/branch/worktree checks and actual serialized repository/knowledge/output budgets remain; retry retains original messages/revision, changed capture blocks additional dispatch.",
+    "Eight authored labels and two fixed Moodcode callsites measure those probes only, not full-corpus precision/recall or live coding-model quality. Host RSS samples exclude native server RSS and are not peak measurements.",
+    "Measured time and disk run under concurrent final regression workload. No faster-than-baseline, automatic relevant path/ranking, FTS/vector or all-source index claim.",
+    "Actual child exit and OS PID disappearance establish the observed local process cleanup; native TS7 protocol exit may be nonzero, and no Windows descendant/OS sandbox proof is claimed.",
+    "Three engine evaluations use local scripted providers; no GUI/live account/network deployment/push was performed. Two existing Windows JobObject tests are conditional skips, not passes."
+  ],
+  "environmentDebts": [
+    "E5-13",
+    "E5-08",
+    "E6-07",
+    "E6-08"
+  ]
+}

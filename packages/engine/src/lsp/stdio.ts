@@ -114,11 +114,13 @@ export class StdioLspConnection implements LspConnection {
     child.stdin.on("error", () =>
       this.fail(new EngineError("LSP_DISCONNECTED", "LSP server input closed")),
     );
-    child.once("error", () =>
+    child.once("error", () => {
+      // A failed spawn has no owned PID to await; an error after spawn does.
+      if (child.pid === undefined) this.exited = true;
       this.fail(
         new EngineError("LSP_START_FAILED", "LSP process could not start"),
-      ),
-    );
+      );
+    });
     child.once("exit", () => {
       this.exited = true;
       this.fail(new EngineError("LSP_DISCONNECTED", "LSP process exited"));
@@ -320,7 +322,12 @@ export class StdioLspConnection implements LspConnection {
         return;
       }
       try {
-        void this.send({ jsonrpc: "2.0", id, method, params }).catch(() =>
+        void this.send({
+          jsonrpc: "2.0",
+          id,
+          method,
+          ...(method === "shutdown" ? {} : { params }),
+        }).catch(() =>
           cancel(new EngineError("LSP_DISCONNECTED", "LSP dispatch failed")),
         );
       } catch (error) {
@@ -336,7 +343,11 @@ export class StdioLspConnection implements LspConnection {
     });
   }
   notify(method: string, params: JsonValue): Promise<void> {
-    return this.send({ jsonrpc: "2.0", method, params });
+    return this.send({
+      jsonrpc: "2.0",
+      method,
+      ...(method === "exit" ? {} : { params }),
+    });
   }
   onNotification(
     listener: (method: string, params: JsonValue) => void,
@@ -358,7 +369,9 @@ export class StdioLspConnection implements LspConnection {
     }
     this.pending.clear();
     this.listeners.clear();
-    void this.shutdown();
+    // Observe the background rejection while preserving the original close
+    // promise so an explicit host close still receives cleanup uncertainty.
+    void this.shutdown().catch(() => {});
   }
   close(): Promise<void> {
     this.fail(new EngineError("LSP_DISCONNECTED", "LSP connection closed"));
@@ -396,6 +409,11 @@ export class StdioLspConnection implements LspConnection {
       this.child.stderr.destroy();
       this.child.stdin.destroy();
       await wait(100);
+      if (!this.exited)
+        throw new EngineError(
+          "LSP_CLEANUP_UNCERTAIN",
+          "Owned LSP process did not confirm exit before its teardown deadline",
+        );
     })());
   }
 }

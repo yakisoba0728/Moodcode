@@ -288,6 +288,7 @@ export class ContextService {
       ...(media ? [`image-policy:${media.diagnostics.policySha256}`, `image-source:${media.diagnostics.sourceSha256}`, ...media.provenance.map(item => `image-message:${item.messageId}:${digest(item)}`)] : []),
       ...(documents ? [`document-policy:${documents.diagnostics.policySha256}`, `document-source:${documents.diagnostics.sourceSha256}`, ...documents.provenance.map(item => `document-message:${item.messageId}:${digest(item)}`)] : []),
       ...(contribution ? [`repository-contribution:${contribution.id}`, `repository-generation:${contribution.generation}`,
+        ...(contribution.sourceManifest.projectSources ?? []).map(source => `repository-project:${source.serverId}:${source.sha256}`),
         ...contribution.observedSources.map(source => `repository-source:${source.path}:${source.hash}`)] : []),
       ...(knowledge ? [`knowledge-policy:${knowledge.policySha256}`, `knowledge-contribution:${knowledge.id}`, `knowledge-binding:${knowledge.bindingSha256}`,
         ...knowledge.documents.flatMap(document => [`knowledge-document:${document.documentRevisionId}:${document.documentSha256}`,

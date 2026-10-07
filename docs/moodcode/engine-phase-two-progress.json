@@ -5,8 +5,8 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 2,
-  "completedWorkItems": 17,
+  "completedFamilies": 3,
+  "completedWorkItems": 18,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -19,7 +19,7 @@
       "title": "저장소 문맥·LSP navigation",
       "priority": "P1",
       "wave": "W1",
-      "status": "in_progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-01a",
@@ -51,14 +51,17 @@
         {
           "id": "MC2-01d",
           "completion": "동명 심볼·branch/worktree·외부편집·partial build·cancel·실제 corpus 측정",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
             "engine-phase-two-w1.md",
-            "engine-phase-two-w1-verification.json"
+            "engine-phase-two-w1-verification.json",
+            "engine-phase-two-native-typescript.md",
+            "engine-phase-two-native-typescript-verification.json",
+            "engine-phase-two-native-typescript-benchmark.json"
           ]
         }
       ],
-      "notes": "Frozen ContextSource/snippet projection, shared serialized budget and native per-Attempt freshness integrated. Real semantic corpus/selection-quality lane remains."
+      "notes": "Explicit host-selected bounded repository snapshots, language routing, LSP navigation, complete snippet/context reservations and original per-Attempt freshness are integrated. Native TypeScript 7.0.2 factory and actual source/project/physical executable binding now cover unopened dependency/config changes, conservative project restart, actual RPC cancellation/source-read drain/confirmed child close, branch/worktree/reopen and default core catalogue. Independent eight labelled semantic probes in a 512-module corpus plus two fixed Moodcode callsites, actual partial compile/ignored/outside/cap observations and time/disk measurements satisfy MC2-01d in the local supported lane. Measurements do not establish all-source semantic quality, automatic related-path/ranking, excluded/external compiler input freshness, Windows native descendant cleanup or OS sandbox support."
     },
     {
       "id": "MC2-02",
@@ -759,5 +762,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-07T18:42:00.593539+00:00"
+  "updatedAt": "2026-10-07T19:19:04.446523+00:00"
 }

@@ -22,7 +22,14 @@ import {
   type LspNavigationSnapshot,
 } from "./navigation.js";
 import type { TextPosition } from "../formatters/edits.js";
+import type { LspProjectSourceSnapshot } from "./project-sources.js";
 export * from "./navigation.js";
+export * from "./typescript-native.js";
+export {
+  captureTypeScriptProjectSources,
+  TYPESCRIPT_PROJECT_SOURCE_LIMITS,
+} from "./project-sources.js";
+export type { LspProjectSourceSnapshot } from "./project-sources.js";
 export { StdioLspConnection } from "./stdio.js";
 export type { LspConnection, StdioLspOptions } from "./stdio.js";
 export interface LspDiagnostic {
@@ -48,10 +55,15 @@ export interface FormatProposal {
   serverId: string;
   documentVersion: number;
 }
-export type LspFactory = (
+export type LspFactory = ((
   workspace: Workspace,
   signal: AbortSignal,
-) => Promise<LspConnection>;
+) => Promise<LspConnection>) & {
+  readonly projectSources?: (
+    workspace: Workspace,
+    signal: AbortSignal,
+  ) => Promise<LspProjectSourceSnapshot>;
+};
 interface Document {
   path: string;
   uri: string;
@@ -73,12 +85,16 @@ interface Entry {
   unsubscribe?: () => void;
   queue: Promise<void>;
   closed: boolean;
+  projectSourceSha256?: string;
 }
 function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted)
+  if (signal.aborted) {
+    // The producer may already have observed the same abort and rejected.
+    promise.catch(() => {});
     return Promise.reject(
       new EngineError("CANCELLED", "LSP operation cancelled"),
     );
+  }
   return new Promise((resolve, reject) => {
     const abort = () =>
       reject(new EngineError("CANCELLED", "LSP operation cancelled"));
@@ -121,6 +137,9 @@ export class LspManager {
   private entries = new Map<string, Entry>();
   private closing = false;
   private navigationQueries = 0;
+  private projectQueues = new Map<string, Promise<void>>();
+  private pendingProjectSources = new Set<Promise<unknown>>();
+  private projectSourceController = new AbortController();
   private requestTimeout: number;
   private startupTimeout: number;
   private cleanupTimeout: number;
@@ -177,6 +196,103 @@ export class LspManager {
         "LSP registration needs a unique bounded host server id",
       );
     this.factories.set(serverId, factory);
+  }
+  /** Pure source freshness read; this method never initializes an LSP server. */
+  async projectSources(
+    workspace: Workspace,
+    serverId: string,
+    signal: AbortSignal,
+  ): Promise<LspProjectSourceSnapshot | null> {
+    if (this.closing || signal.aborted)
+      throw new EngineError("CANCELLED", "LSP source observation cancelled");
+    const factory = this.factories.get(serverId);
+    if (!factory)
+      throw new EngineError(
+        "LSP_SERVER_UNAVAILABLE",
+        "LSP server is not explicitly registered",
+      );
+    if (!factory.projectSources) return null;
+    const sourceSignal = AbortSignal.any([
+      signal,
+      this.projectSourceController.signal,
+    ]);
+    const capture = factory.projectSources;
+    const pending = Promise.resolve().then(() =>
+      capture(structuredClone(workspace), sourceSignal),
+    );
+    this.pendingProjectSources.add(pending);
+    pending
+      .finally(() => this.pendingProjectSources.delete(pending))
+      .catch(() => {});
+    const data = boundedJson(
+      await abortable(pending, sourceSignal),
+      1024,
+    ) as unknown as LspProjectSourceSnapshot;
+    if (
+      !data ||
+      Array.isArray(data) ||
+      Object.keys(data).sort().join(",") !==
+        "bytes,fileCount,schemaVersion,scope,sha256" ||
+      data.schemaVersion !== 1 ||
+      data.scope !== "workspace-typescript-files" ||
+      !/^[a-f0-9]{64}$/.test(data.sha256) ||
+      !Number.isSafeInteger(data.fileCount) ||
+      data.fileCount < 0 ||
+      data.fileCount > 4096 ||
+      !Number.isSafeInteger(data.bytes) ||
+      data.bytes < 0 ||
+      data.bytes > 64 * 1024 * 1024
+    )
+      throw new EngineError(
+        "INVALID_LSP_PROJECT_SOURCE",
+        "Host project source metadata is invalid or exceeds its cap",
+      );
+    return Object.freeze(data);
+  }
+  private async synchronizeProject(
+    workspace: Workspace,
+    serverId: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    if (!this.factories.get(serverId)?.projectSources) return;
+    const key = JSON.stringify([workspace.id, workspace.root, serverId]);
+    const prior = this.projectQueues.get(key) ?? Promise.resolve();
+    const operation = prior
+      .catch(() => {})
+      .then(async () => {
+        const source = await this.projectSources(workspace, serverId, signal);
+        if (!source || signal.aborted || this.closing)
+          throw new EngineError(
+            "CANCELLED",
+            "LSP project synchronization cancelled",
+          );
+        const previous = this.entries.get(key);
+        if (previous && previous.projectSourceSha256 !== source.sha256) {
+          previous.closed = true;
+          previous.controller.abort();
+          previous.unsubscribe?.();
+          await bounded(
+            previous.ready.catch(() => {}),
+            this.cleanupTimeout,
+          );
+          if (previous.factorySettled)
+            await bounded(previous.factorySettled, this.cleanupTimeout);
+          if (previous.connection)
+            await bounded(previous.connection.close(), this.cleanupTimeout);
+          previous.documents.clear();
+          if (this.entries.get(key) === previous) this.entries.delete(key);
+        }
+        const current = await this.entry(workspace, serverId, signal);
+        current.projectSourceSha256 = source.sha256;
+      });
+    this.projectQueues.set(key, operation);
+    operation
+      .finally(() => {
+        if (this.projectQueues.get(key) === operation)
+          this.projectQueues.delete(key);
+      })
+      .catch(() => {});
+    await abortable(operation, signal);
   }
   private async entry(
     workspace: Workspace,
@@ -525,6 +641,7 @@ export class LspManager {
         "INVALID_FORMAT_OPTIONS",
         "Formatting options must be bounded",
       );
+    await this.synchronizeProject(workspace, serverId, signal);
     await this.updateFile(workspace, serverId, path, languageId, signal);
     const entry = await this.entry(workspace, serverId, signal);
     if (!entry.capabilities?.documentFormattingProvider)
@@ -608,6 +725,7 @@ export class LspManager {
     );
     const operationSignal = AbortSignal.any([signal, controller.signal]);
     try {
+      await this.synchronizeProject(workspace, serverId, operationSignal);
       await this.updateFile(
         workspace,
         serverId,
@@ -805,12 +923,22 @@ export class LspManager {
   }
   async close(): Promise<void> {
     this.closing = true;
+    this.projectSourceController.abort();
     const entries = [...this.entries.values()];
     for (const entry of entries) {
       entry.closed = true;
       entry.controller.abort();
       entry.unsubscribe?.();
     }
+    const sourceDrain = Promise.allSettled(
+      [...this.pendingProjectSources, ...this.projectQueues.values()].map(
+        (pending) =>
+          bounded(
+            pending.catch(() => {}),
+            this.cleanupTimeout,
+          ),
+      ),
+    );
     const results = await Promise.allSettled(
       entries.map(async (entry) => {
         await bounded(
@@ -838,8 +966,12 @@ export class LspManager {
         entry.documents.clear();
       }),
     );
+    const sourceResults = await sourceDrain;
     this.entries.clear();
-    if (results.some((r) => r.status === "rejected"))
+    if (
+      results.some((r) => r.status === "rejected") ||
+      sourceResults.some((r) => r.status === "rejected")
+    )
       throw new EngineError(
         "LSP_CLEANUP_UNCERTAIN",
         "One or more owned LSP factories or connections did not confirm teardown",

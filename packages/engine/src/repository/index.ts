@@ -11,6 +11,7 @@ import type {
   LspManager,
   LspNavigationKind,
   LspNavigationSnapshot,
+  LspProjectSourceSnapshot,
 } from "../lsp/index.js";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
 import {
@@ -50,6 +51,8 @@ export interface RepositorySourceManifest {
     languageId: string;
     revision: string;
   }[];
+  /** Native semantic dependencies, observed without dispatching a language-server query. */
+  projectSources?: ({ serverId: string } & LspProjectSourceSnapshot)[];
 }
 export interface RepositorySnapshot {
   schemaVersion: 1;
@@ -231,6 +234,13 @@ export class RepositoryContextService implements RepositoryIndexPort {
           );
         manifest.bindings.push({ path, ...binding });
       }
+    }
+    for (const serverId of [
+      ...new Set(manifest.bindings.map((item) => item.serverId)),
+    ].sort()) {
+      const source = await this.lsp.projectSources(workspace, serverId, signal);
+      if (source)
+        (manifest.projectSources ??= []).push({ serverId, ...source });
     }
     return { fingerprint: hash({ manifest, query }), manifest, query };
   }

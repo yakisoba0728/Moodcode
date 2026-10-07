@@ -1,0 +1,3110 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-07T19:16:14.068Z",
+  "authored": {
+    "schemaVersion": 1,
+    "measurement": "actual-native-typescript-semantic-corpus-v1",
+    "version": "7.0.2",
+    "platform": "darwin",
+    "arch": "arm64",
+    "modules": 512,
+    "disk": {
+      "files": 525,
+      "sourceTextBytes": 62388,
+      "logicalFileBytes": 62388,
+      "allocatedFileBytes": 2150400,
+      "allocationUnitBytes": 512
+    },
+    "totalElapsedMs": 9009.245,
+    "probes": [
+      {
+        "id": "duplicate-import-first",
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "aliases.ts"
+          ],
+          "position": {
+            "line": 2,
+            "character": 24
+          }
+        },
+        "elapsedMs": 592.5845830000001,
+        "hostRssBytesBefore": 80674816,
+        "hostRssBytesAfter": 89636864,
+        "inputBytes": 81,
+        "resultBytes": 1804,
+        "score": {
+          "expected": 1,
+          "returned": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "cbf19daf72c0f023f695f70ecbd2ba55b5fca85fc0ab00ab869720231c20c7ef",
+          "manifest": {
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+            "gitHead": null,
+            "branch": "master",
+            "effectiveIgnoreDigest": "25f386c15bb82ad8085a4a56d8e47a595ddee86f79e3ea3a28a605f3e2aada03",
+            "files": [
+              {
+                "path": "aliases.ts",
+                "hash": "52d45e6a1e381883e447379c887e813b3c5e8a8c9cbb672e445a68aeb9aee295"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "aliases.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+                "fileCount": 523,
+                "bytes": 62285
+              }
+            ]
+          },
+          "query": {
+            "kind": "definition",
+            "paths": [
+              "aliases.ts"
+            ],
+            "position": {
+              "line": 2,
+              "character": 24
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+              "path": "aliases.ts",
+              "documentVersion": 1,
+              "documentHash": "52d45e6a1e381883e447379c887e813b3c5e8a8c9cbb672e445a68aeb9aee295",
+              "kind": "definition",
+              "items": [
+                {
+                  "path": "modules/m000.ts",
+                  "hash": "6e5b6834df1ebeade139199db1abc64ed94ebd0e54fb2bf3c35c65baa6b40c42",
+                  "range": {
+                    "start": {
+                      "line": 0,
+                      "character": 16
+                    },
+                    "end": {
+                      "line": 0,
+                      "character": 25
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "aliases.ts",
+                  "hash": "52d45e6a1e381883e447379c887e813b3c5e8a8c9cbb672e445a68aeb9aee295"
+                },
+                {
+                  "path": "modules/m000.ts",
+                  "hash": "6e5b6834df1ebeade139199db1abc64ed94ebd0e54fb2bf3c35c65baa6b40c42"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      },
+      {
+        "id": "duplicate-import-last",
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "aliases.ts"
+          ],
+          "position": {
+            "line": 2,
+            "character": 35
+          }
+        },
+        "elapsedMs": 683.877666,
+        "hostRssBytesBefore": 89636864,
+        "hostRssBytesAfter": 91439104,
+        "inputBytes": 81,
+        "resultBytes": 1804,
+        "score": {
+          "expected": 1,
+          "returned": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "6b5046b2c6994fb8b7697f4016c30ddec91abaa952b9c74be9d2a61b09eb90ff",
+          "manifest": {
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+            "gitHead": null,
+            "branch": "master",
+            "effectiveIgnoreDigest": "25f386c15bb82ad8085a4a56d8e47a595ddee86f79e3ea3a28a605f3e2aada03",
+            "files": [
+              {
+                "path": "aliases.ts",
+                "hash": "52d45e6a1e381883e447379c887e813b3c5e8a8c9cbb672e445a68aeb9aee295"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "aliases.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+                "fileCount": 523,
+                "bytes": 62285
+              }
+            ]
+          },
+          "query": {
+            "kind": "definition",
+            "paths": [
+              "aliases.ts"
+            ],
+            "position": {
+              "line": 2,
+              "character": 35
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+              "path": "aliases.ts",
+              "documentVersion": 1,
+              "documentHash": "52d45e6a1e381883e447379c887e813b3c5e8a8c9cbb672e445a68aeb9aee295",
+              "kind": "definition",
+              "items": [
+                {
+                  "path": "modules/m511.ts",
+                  "hash": "9e86cc10df22962f20d6128baf9c1586df32d5631a271258973f65aab91292bf",
+                  "range": {
+                    "start": {
+                      "line": 0,
+                      "character": 16
+                    },
+                    "end": {
+                      "line": 0,
+                      "character": 25
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "aliases.ts",
+                  "hash": "52d45e6a1e381883e447379c887e813b3c5e8a8c9cbb672e445a68aeb9aee295"
+                },
+                {
+                  "path": "modules/m511.ts",
+                  "hash": "9e86cc10df22962f20d6128baf9c1586df32d5631a271258973f65aab91292bf"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      },
+      {
+        "id": "barrel-reexport-alias",
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "reexport-use.ts"
+          ],
+          "position": {
+            "line": 1,
+            "character": 29
+          }
+        },
+        "elapsedMs": 519.2380410000001,
+        "hostRssBytesBefore": 91439104,
+        "hostRssBytesAfter": 92520448,
+        "inputBytes": 86,
+        "resultBytes": 1829,
+        "score": {
+          "expected": 1,
+          "returned": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "8302342de2cdd3016651a9fd84354c6344198ce2a9023aaa0a7d3ed8b4105d9a",
+          "manifest": {
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+            "gitHead": null,
+            "branch": "master",
+            "effectiveIgnoreDigest": "5c0a6785778ee155b0c83be7a5cbf4eff6d8e67e515e385f13eee6617e237dbf",
+            "files": [
+              {
+                "path": "reexport-use.ts",
+                "hash": "11bc4b311af35a2b647fa9044b2c4ea3d50e01d2e4efba88baf0b562d3821333"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "reexport-use.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+                "fileCount": 523,
+                "bytes": 62285
+              }
+            ]
+          },
+          "query": {
+            "kind": "definition",
+            "paths": [
+              "reexport-use.ts"
+            ],
+            "position": {
+              "line": 1,
+              "character": 29
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+              "path": "reexport-use.ts",
+              "documentVersion": 1,
+              "documentHash": "11bc4b311af35a2b647fa9044b2c4ea3d50e01d2e4efba88baf0b562d3821333",
+              "kind": "definition",
+              "items": [
+                {
+                  "path": "modules/m003.ts",
+                  "hash": "4d9a156562918b060d602d2d19c68e47a1e970ce75109cbfe34e84faaaf5682c",
+                  "range": {
+                    "start": {
+                      "line": 0,
+                      "character": 16
+                    },
+                    "end": {
+                      "line": 0,
+                      "character": 25
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "reexport-use.ts",
+                  "hash": "11bc4b311af35a2b647fa9044b2c4ea3d50e01d2e4efba88baf0b562d3821333"
+                },
+                {
+                  "path": "modules/m003.ts",
+                  "hash": "4d9a156562918b060d602d2d19c68e47a1e970ce75109cbfe34e84faaaf5682c"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      },
+      {
+        "id": "local-shadow",
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "shadow.ts"
+          ],
+          "position": {
+            "line": 2,
+            "character": 29
+          }
+        },
+        "elapsedMs": 485.5613329999999,
+        "hostRssBytesBefore": 92520448,
+        "hostRssBytesAfter": 93585408,
+        "inputBytes": 80,
+        "resultBytes": 1692,
+        "score": {
+          "expected": 1,
+          "returned": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "357b687c33913b4a4a1785437d577d5653edf38913d583376093e82880dd79f1",
+          "manifest": {
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+            "gitHead": null,
+            "branch": "master",
+            "effectiveIgnoreDigest": "3077c14d7f9080d9f36e38581264d5f80c3cd23f996fcb24394c4c856db845b5",
+            "files": [
+              {
+                "path": "shadow.ts",
+                "hash": "0e19b5521aaf2f886b2892197e1fd2bf46b5e405e217e24d5dd407805090ff32"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "shadow.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+                "fileCount": 523,
+                "bytes": 62285
+              }
+            ]
+          },
+          "query": {
+            "kind": "definition",
+            "paths": [
+              "shadow.ts"
+            ],
+            "position": {
+              "line": 2,
+              "character": 29
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+              "path": "shadow.ts",
+              "documentVersion": 1,
+              "documentHash": "0e19b5521aaf2f886b2892197e1fd2bf46b5e405e217e24d5dd407805090ff32",
+              "kind": "definition",
+              "items": [
+                {
+                  "path": "shadow.ts",
+                  "hash": "0e19b5521aaf2f886b2892197e1fd2bf46b5e405e217e24d5dd407805090ff32",
+                  "range": {
+                    "start": {
+                      "line": 1,
+                      "character": 23
+                    },
+                    "end": {
+                      "line": 1,
+                      "character": 32
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "shadow.ts",
+                  "hash": "0e19b5521aaf2f886b2892197e1fd2bf46b5e405e217e24d5dd407805090ff32"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      },
+      {
+        "id": "shadow-import-alias",
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "shadow.ts"
+          ],
+          "position": {
+            "line": 2,
+            "character": 41
+          }
+        },
+        "elapsedMs": 546.819125,
+        "hostRssBytesBefore": 93585408,
+        "hostRssBytesAfter": 94437376,
+        "inputBytes": 80,
+        "resultBytes": 1799,
+        "score": {
+          "expected": 1,
+          "returned": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "96c0c5f03706cd469b201a411367b7b2252f8e1645c9a00135f60e34162e4d88",
+          "manifest": {
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+            "gitHead": null,
+            "branch": "master",
+            "effectiveIgnoreDigest": "3077c14d7f9080d9f36e38581264d5f80c3cd23f996fcb24394c4c856db845b5",
+            "files": [
+              {
+                "path": "shadow.ts",
+                "hash": "0e19b5521aaf2f886b2892197e1fd2bf46b5e405e217e24d5dd407805090ff32"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "shadow.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+                "fileCount": 523,
+                "bytes": 62285
+              }
+            ]
+          },
+          "query": {
+            "kind": "definition",
+            "paths": [
+              "shadow.ts"
+            ],
+            "position": {
+              "line": 2,
+              "character": 41
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+              "path": "shadow.ts",
+              "documentVersion": 1,
+              "documentHash": "0e19b5521aaf2f886b2892197e1fd2bf46b5e405e217e24d5dd407805090ff32",
+              "kind": "definition",
+              "items": [
+                {
+                  "path": "modules/m002.ts",
+                  "hash": "5db4338d533bfcda14233967f3f474c7518ef7ee1b12d6e205dfdaca6b913838",
+                  "range": {
+                    "start": {
+                      "line": 0,
+                      "character": 16
+                    },
+                    "end": {
+                      "line": 0,
+                      "character": 25
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "shadow.ts",
+                  "hash": "0e19b5521aaf2f886b2892197e1fd2bf46b5e405e217e24d5dd407805090ff32"
+                },
+                {
+                  "path": "modules/m002.ts",
+                  "hash": "5db4338d533bfcda14233967f3f474c7518ef7ee1b12d6e205dfdaca6b913838"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      },
+      {
+        "id": "bom-crlf-astral-definition",
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "unicode.ts"
+          ],
+          "position": {
+            "line": 1,
+            "character": 29
+          }
+        },
+        "elapsedMs": 547.3783330000001,
+        "hostRssBytesBefore": 94437376,
+        "hostRssBytesAfter": 106184704,
+        "inputBytes": 81,
+        "resultBytes": 1698,
+        "score": {
+          "expected": 1,
+          "returned": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "791ad767a7c236196aca64c39042eef9f1b0f94348b2622506a29e4521562d74",
+          "manifest": {
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+            "gitHead": null,
+            "branch": "master",
+            "effectiveIgnoreDigest": "edb597d88c069b4a4a41204c4895e3beb64dd0c025040ec4b4914750d6bafcca",
+            "files": [
+              {
+                "path": "unicode.ts",
+                "hash": "535fecb3a50e22542a9763149b008c70bc4ed1aaa06fcc3937f13c84efa3783c"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "unicode.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+                "fileCount": 523,
+                "bytes": 62285
+              }
+            ]
+          },
+          "query": {
+            "kind": "definition",
+            "paths": [
+              "unicode.ts"
+            ],
+            "position": {
+              "line": 1,
+              "character": 29
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+              "path": "unicode.ts",
+              "documentVersion": 1,
+              "documentHash": "535fecb3a50e22542a9763149b008c70bc4ed1aaa06fcc3937f13c84efa3783c",
+              "kind": "definition",
+              "items": [
+                {
+                  "path": "unicode.ts",
+                  "hash": "535fecb3a50e22542a9763149b008c70bc4ed1aaa06fcc3937f13c84efa3783c",
+                  "range": {
+                    "start": {
+                      "line": 0,
+                      "character": 38
+                    },
+                    "end": {
+                      "line": 0,
+                      "character": 43
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "unicode.ts",
+                  "hash": "535fecb3a50e22542a9763149b008c70bc4ed1aaa06fcc3937f13c84efa3783c"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      },
+      {
+        "id": "isolated-homonym-references",
+        "query": {
+          "kind": "references",
+          "paths": [
+            "modules/m010.ts"
+          ],
+          "position": {
+            "line": 1,
+            "character": 24
+          }
+        },
+        "elapsedMs": 459.054584,
+        "hostRssBytesBefore": 106184704,
+        "hostRssBytesAfter": 106872832,
+        "inputBytes": 86,
+        "resultBytes": 1905,
+        "score": {
+          "expected": 2,
+          "returned": 2,
+          "truePositive": 2,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "fa695c7dd5d95180890b4d2c4ddf6d14e152f1a42b96c86edc55eac459753452",
+          "manifest": {
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+            "gitHead": null,
+            "branch": "master",
+            "effectiveIgnoreDigest": "f01f6da425c352bbee03990220ffe4b7c922b8a0d51e61cc1f17e1a8fa574361",
+            "files": [
+              {
+                "path": "modules/m010.ts",
+                "hash": "45b71cacd89ec30fc62fc480ef6bcf31abd8ac7c9ce06e500a49a7e896f83002"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "modules/m010.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+                "fileCount": 523,
+                "bytes": 62285
+              }
+            ]
+          },
+          "query": {
+            "kind": "references",
+            "paths": [
+              "modules/m010.ts"
+            ],
+            "position": {
+              "line": 1,
+              "character": 24
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+              "path": "modules/m010.ts",
+              "documentVersion": 1,
+              "documentHash": "45b71cacd89ec30fc62fc480ef6bcf31abd8ac7c9ce06e500a49a7e896f83002",
+              "kind": "references",
+              "items": [
+                {
+                  "path": "modules/m010.ts",
+                  "hash": "45b71cacd89ec30fc62fc480ef6bcf31abd8ac7c9ce06e500a49a7e896f83002",
+                  "range": {
+                    "start": {
+                      "line": 0,
+                      "character": 16
+                    },
+                    "end": {
+                      "line": 0,
+                      "character": 25
+                    }
+                  }
+                },
+                {
+                  "path": "modules/m010.ts",
+                  "hash": "45b71cacd89ec30fc62fc480ef6bcf31abd8ac7c9ce06e500a49a7e896f83002",
+                  "range": {
+                    "start": {
+                      "line": 1,
+                      "character": 24
+                    },
+                    "end": {
+                      "line": 1,
+                      "character": 33
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "modules/m010.ts",
+                  "hash": "45b71cacd89ec30fc62fc480ef6bcf31abd8ac7c9ce06e500a49a7e896f83002"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      },
+      {
+        "id": "bom-crlf-astral-references",
+        "query": {
+          "kind": "references",
+          "paths": [
+            "unicode.ts"
+          ],
+          "position": {
+            "line": 1,
+            "character": 29
+          }
+        },
+        "elapsedMs": 454.9025840000004,
+        "hostRssBytesBefore": 106872832,
+        "hostRssBytesAfter": 107839488,
+        "inputBytes": 81,
+        "resultBytes": 1870,
+        "score": {
+          "expected": 2,
+          "returned": 2,
+          "truePositive": 2,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "f6bd32eff1a7c22012fea7f4c5781157b4b8e528b2f9602f2a12ed96dae70e03",
+          "manifest": {
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+            "gitHead": null,
+            "branch": "master",
+            "effectiveIgnoreDigest": "edb597d88c069b4a4a41204c4895e3beb64dd0c025040ec4b4914750d6bafcca",
+            "files": [
+              {
+                "path": "unicode.ts",
+                "hash": "535fecb3a50e22542a9763149b008c70bc4ed1aaa06fcc3937f13c84efa3783c"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "unicode.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+                "fileCount": 523,
+                "bytes": 62285
+              }
+            ]
+          },
+          "query": {
+            "kind": "references",
+            "paths": [
+              "unicode.ts"
+            ],
+            "position": {
+              "line": 1,
+              "character": 29
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+              "path": "unicode.ts",
+              "documentVersion": 1,
+              "documentHash": "535fecb3a50e22542a9763149b008c70bc4ed1aaa06fcc3937f13c84efa3783c",
+              "kind": "references",
+              "items": [
+                {
+                  "path": "unicode.ts",
+                  "hash": "535fecb3a50e22542a9763149b008c70bc4ed1aaa06fcc3937f13c84efa3783c",
+                  "range": {
+                    "start": {
+                      "line": 0,
+                      "character": 38
+                    },
+                    "end": {
+                      "line": 0,
+                      "character": 43
+                    }
+                  }
+                },
+                {
+                  "path": "unicode.ts",
+                  "hash": "535fecb3a50e22542a9763149b008c70bc4ed1aaa06fcc3937f13c84efa3783c",
+                  "range": {
+                    "start": {
+                      "line": 1,
+                      "character": 29
+                    },
+                    "end": {
+                      "line": 1,
+                      "character": 34
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "unicode.ts",
+                  "hash": "535fecb3a50e22542a9763149b008c70bc4ed1aaa06fcc3937f13c84efa3783c"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      }
+    ],
+    "boundedReferences": {
+      "id": "bounded-references",
+      "query": {
+        "kind": "references",
+        "paths": [
+          "references.ts"
+        ],
+        "position": {
+          "line": 0,
+          "character": 13
+        }
+      },
+      "elapsedMs": 537.1340829999999,
+      "hostRssBytesBefore": 107839488,
+      "hostRssBytesAfter": 108642304,
+      "inputBytes": 84,
+      "resultBytes": 12852,
+      "score": {
+        "expected": 81,
+        "returned": 64,
+        "truePositive": 64,
+        "falsePositive": 0,
+        "falseNegative": 17,
+        "precision": 1,
+        "recall": 0.7901234567901234
+      },
+      "snapshot": {
+        "schemaVersion": 1,
+        "generation": "77ff5aaf469937326eb0bf43c74284ef3e21e9f6ec958830f5a68fa54de3de29",
+        "manifest": {
+          "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+          "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+          "gitHead": null,
+          "branch": "master",
+          "effectiveIgnoreDigest": "72432b18564207373aee8944831e33c01a18886f4ae8f9e3d3df7e101ce78b66",
+          "files": [
+            {
+              "path": "references.ts",
+              "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad"
+            }
+          ],
+          "bindings": [
+            {
+              "path": "references.ts",
+              "serverId": "native-ts7",
+              "languageId": "typescript",
+              "revision": "7.0.2"
+            }
+          ],
+          "projectSources": [
+            {
+              "serverId": "native-ts7",
+              "schemaVersion": 1,
+              "scope": "workspace-typescript-files",
+              "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+              "fileCount": 523,
+              "bytes": 62285
+            }
+          ]
+        },
+        "query": {
+          "kind": "references",
+          "paths": [
+            "references.ts"
+          ],
+          "position": {
+            "line": 0,
+            "character": 13
+          }
+        },
+        "observations": [
+          {
+            "serverId": "native-ts7",
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "path": "references.ts",
+            "documentVersion": 1,
+            "documentHash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+            "kind": "references",
+            "items": [
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 13
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 19
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 1,
+                    "character": 26
+                  },
+                  "end": {
+                    "line": 1,
+                    "character": 32
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 2,
+                    "character": 26
+                  },
+                  "end": {
+                    "line": 2,
+                    "character": 32
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 3,
+                    "character": 26
+                  },
+                  "end": {
+                    "line": 3,
+                    "character": 32
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 4,
+                    "character": 26
+                  },
+                  "end": {
+                    "line": 4,
+                    "character": 32
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 5,
+                    "character": 26
+                  },
+                  "end": {
+                    "line": 5,
+                    "character": 32
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 6,
+                    "character": 26
+                  },
+                  "end": {
+                    "line": 6,
+                    "character": 32
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 7,
+                    "character": 26
+                  },
+                  "end": {
+                    "line": 7,
+                    "character": 32
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 8,
+                    "character": 26
+                  },
+                  "end": {
+                    "line": 8,
+                    "character": 32
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 9,
+                    "character": 26
+                  },
+                  "end": {
+                    "line": 9,
+                    "character": 32
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 10,
+                    "character": 26
+                  },
+                  "end": {
+                    "line": 10,
+                    "character": 32
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 11,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 11,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 12,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 12,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 13,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 13,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 14,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 14,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 15,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 15,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 16,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 16,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 17,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 17,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 18,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 18,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 19,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 19,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 20,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 20,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 21,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 21,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 22,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 22,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 23,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 23,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 24,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 24,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 25,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 25,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 26,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 26,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 27,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 27,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 28,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 28,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 29,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 29,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 30,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 30,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 31,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 31,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 32,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 32,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 33,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 33,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 34,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 34,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 35,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 35,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 36,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 36,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 37,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 37,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 38,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 38,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 39,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 39,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 40,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 40,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 41,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 41,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 42,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 42,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 43,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 43,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 44,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 44,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 45,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 45,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 46,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 46,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 47,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 47,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 48,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 48,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 49,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 49,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 50,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 50,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 51,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 51,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 52,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 52,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 53,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 53,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 54,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 54,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 55,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 55,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 56,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 56,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 57,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 57,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 58,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 58,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 59,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 59,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 60,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 60,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 61,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 61,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 62,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 62,
+                    "character": 33
+                  }
+                }
+              },
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad",
+                "range": {
+                  "start": {
+                    "line": 63,
+                    "character": 27
+                  },
+                  "end": {
+                    "line": 63,
+                    "character": 33
+                  }
+                }
+              }
+            ],
+            "sources": [
+              {
+                "path": "references.ts",
+                "hash": "145af6d9421fc89b0a06944eb549754562009599c244974c6a214754f00563ad"
+              }
+            ],
+            "complete": false,
+            "omitted": {
+              "outsideWorkspace": 0,
+              "unavailable": 0,
+              "ignored": 0,
+              "limits": 17
+            }
+          }
+        ],
+        "unsupportedPaths": [],
+        "omittedObservations": 0,
+        "complete": false,
+        "authority": "read-only",
+        "evidence": "observed-file-snapshot",
+        "selectionReason": "explicit-query-paths-and-lsp-relations"
+      }
+    },
+    "outside": {
+      "id": "outside-root",
+      "query": {
+        "kind": "definition",
+        "paths": [
+          "outside-use.ts"
+        ],
+        "position": {
+          "line": 1,
+          "character": 29
+        }
+      },
+      "elapsedMs": 475.249417,
+      "hostRssBytesBefore": 108642304,
+      "hostRssBytesAfter": 113197056,
+      "inputBytes": 85,
+      "resultBytes": 1549,
+      "score": {
+        "expected": 0,
+        "returned": 0,
+        "truePositive": 0,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "precision": 1,
+        "recall": 1
+      },
+      "snapshot": {
+        "schemaVersion": 1,
+        "generation": "aa821ee33a1e0401f568d3079ae4190cbdf6e92cf617e38e0070429cbdad03a2",
+        "manifest": {
+          "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+          "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+          "gitHead": null,
+          "branch": "master",
+          "effectiveIgnoreDigest": "bd69afa26fc1859a75184c2c7f0c506d67165c3f169aa1fd4a9e7ac46a53f53c",
+          "files": [
+            {
+              "path": "outside-use.ts",
+              "hash": "8b45084deb8333cf7dd64f7e5e73ee0711220930a5acb475f5dc279c91890a99"
+            }
+          ],
+          "bindings": [
+            {
+              "path": "outside-use.ts",
+              "serverId": "native-ts7",
+              "languageId": "typescript",
+              "revision": "7.0.2"
+            }
+          ],
+          "projectSources": [
+            {
+              "serverId": "native-ts7",
+              "schemaVersion": 1,
+              "scope": "workspace-typescript-files",
+              "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+              "fileCount": 523,
+              "bytes": 62285
+            }
+          ]
+        },
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "outside-use.ts"
+          ],
+          "position": {
+            "line": 1,
+            "character": 29
+          }
+        },
+        "observations": [
+          {
+            "serverId": "native-ts7",
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "path": "outside-use.ts",
+            "documentVersion": 1,
+            "documentHash": "8b45084deb8333cf7dd64f7e5e73ee0711220930a5acb475f5dc279c91890a99",
+            "kind": "definition",
+            "items": [],
+            "sources": [
+              {
+                "path": "outside-use.ts",
+                "hash": "8b45084deb8333cf7dd64f7e5e73ee0711220930a5acb475f5dc279c91890a99"
+              }
+            ],
+            "complete": false,
+            "omitted": {
+              "outsideWorkspace": 1,
+              "unavailable": 0,
+              "ignored": 0,
+              "limits": 0
+            }
+          }
+        ],
+        "unsupportedPaths": [],
+        "omittedObservations": 0,
+        "complete": false,
+        "authority": "read-only",
+        "evidence": "observed-file-snapshot",
+        "selectionReason": "explicit-query-paths-and-lsp-relations"
+      }
+    },
+    "ignored": {
+      "id": "ignored-target",
+      "query": {
+        "kind": "definition",
+        "paths": [
+          "ignored-use.ts"
+        ],
+        "position": {
+          "line": 0,
+          "character": 27
+        }
+      },
+      "elapsedMs": 427.1510420000004,
+      "hostRssBytesBefore": 113197056,
+      "hostRssBytesAfter": 113541120,
+      "inputBytes": 85,
+      "resultBytes": 1549,
+      "score": {
+        "expected": 0,
+        "returned": 0,
+        "truePositive": 0,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "precision": 1,
+        "recall": 1
+      },
+      "snapshot": {
+        "schemaVersion": 1,
+        "generation": "cf5b8be1c19a06782856192bb4cc294647f357a675ade3db0f76723b1ae1794e",
+        "manifest": {
+          "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+          "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+          "gitHead": null,
+          "branch": "master",
+          "effectiveIgnoreDigest": "0dc9ed9f18c651f68a82b7d5b81344f6b111fd4971e15c0ee6264f5d0b0b0133",
+          "files": [
+            {
+              "path": "ignored-use.ts",
+              "hash": "bec52a8b6554eeeae0f95677dad1ab684276139b0e3c723e5d9369af8fa5cedd"
+            }
+          ],
+          "bindings": [
+            {
+              "path": "ignored-use.ts",
+              "serverId": "native-ts7",
+              "languageId": "typescript",
+              "revision": "7.0.2"
+            }
+          ],
+          "projectSources": [
+            {
+              "serverId": "native-ts7",
+              "schemaVersion": 1,
+              "scope": "workspace-typescript-files",
+              "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+              "fileCount": 523,
+              "bytes": 62285
+            }
+          ]
+        },
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "ignored-use.ts"
+          ],
+          "position": {
+            "line": 0,
+            "character": 27
+          }
+        },
+        "observations": [
+          {
+            "serverId": "native-ts7",
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "path": "ignored-use.ts",
+            "documentVersion": 1,
+            "documentHash": "bec52a8b6554eeeae0f95677dad1ab684276139b0e3c723e5d9369af8fa5cedd",
+            "kind": "definition",
+            "items": [],
+            "sources": [
+              {
+                "path": "ignored-use.ts",
+                "hash": "bec52a8b6554eeeae0f95677dad1ab684276139b0e3c723e5d9369af8fa5cedd"
+              }
+            ],
+            "complete": false,
+            "omitted": {
+              "outsideWorkspace": 0,
+              "unavailable": 0,
+              "ignored": 1,
+              "limits": 0
+            }
+          }
+        ],
+        "unsupportedPaths": [],
+        "omittedObservations": 0,
+        "complete": false,
+        "authority": "read-only",
+        "evidence": "observed-file-snapshot",
+        "selectionReason": "explicit-query-paths-and-lsp-relations"
+      }
+    },
+    "ignoredSourceCode": "REPOSITORY_PATH_IGNORED",
+    "partial": {
+      "query": {
+        "kind": "symbols",
+        "paths": [
+          "partial.ts"
+        ]
+      },
+      "elapsedMs": 405.58908299999985,
+      "hostRssBytesBefore": 113541120,
+      "hostRssBytesAfter": 114655232,
+      "inputBytes": 41,
+      "resultBytes": 2141,
+      "score": {
+        "expected": 0,
+        "returned": 3,
+        "truePositive": 0,
+        "falsePositive": 3,
+        "falseNegative": 0,
+        "precision": 0,
+        "recall": 0
+      },
+      "snapshot": {
+        "schemaVersion": 1,
+        "generation": "8f4542058b72fda5d9c095929b4aea924212c78abdcfb3ee57c91b86eaa3dae3",
+        "manifest": {
+          "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+          "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+          "gitHead": null,
+          "branch": "master",
+          "effectiveIgnoreDigest": "0d7525e853df9bc458ab21b640fdea6c665df9bc57329e8b391cbeeca7d54132",
+          "files": [
+            {
+              "path": "partial.ts",
+              "hash": "a00fd96fcc75ee09758467c761c4804d87cb46e31b3f8b4183ca36458a640513"
+            }
+          ],
+          "bindings": [
+            {
+              "path": "partial.ts",
+              "serverId": "native-ts7",
+              "languageId": "typescript",
+              "revision": "7.0.2"
+            }
+          ],
+          "projectSources": [
+            {
+              "serverId": "native-ts7",
+              "schemaVersion": 1,
+              "scope": "workspace-typescript-files",
+              "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+              "fileCount": 523,
+              "bytes": 62285
+            }
+          ]
+        },
+        "query": {
+          "kind": "symbols",
+          "paths": [
+            "partial.ts"
+          ]
+        },
+        "observations": [
+          {
+            "serverId": "native-ts7",
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "path": "partial.ts",
+            "documentVersion": 1,
+            "documentHash": "a00fd96fcc75ee09758467c761c4804d87cb46e31b3f8b4183ca36458a640513",
+            "kind": "symbols",
+            "items": [
+              {
+                "path": "partial.ts",
+                "hash": "a00fd96fcc75ee09758467c761c4804d87cb46e31b3f8b4183ca36458a640513",
+                "range": {
+                  "start": {
+                    "line": 0,
+                    "character": 9
+                  },
+                  "end": {
+                    "line": 0,
+                    "character": 19
+                  }
+                },
+                "name": "unresolved",
+                "symbolKind": 13,
+                "depth": 0
+              },
+              {
+                "path": "partial.ts",
+                "hash": "a00fd96fcc75ee09758467c761c4804d87cb46e31b3f8b4183ca36458a640513",
+                "range": {
+                  "start": {
+                    "line": 1,
+                    "character": 13
+                  },
+                  "end": {
+                    "line": 1,
+                    "character": 21
+                  }
+                },
+                "name": "survives",
+                "symbolKind": 13,
+                "depth": 0
+              },
+              {
+                "path": "partial.ts",
+                "hash": "a00fd96fcc75ee09758467c761c4804d87cb46e31b3f8b4183ca36458a640513",
+                "range": {
+                  "start": {
+                    "line": 2,
+                    "character": 13
+                  },
+                  "end": {
+                    "line": 2,
+                    "character": 30
+                  }
+                },
+                "name": "missingDependency",
+                "symbolKind": 13,
+                "depth": 0
+              }
+            ],
+            "sources": [
+              {
+                "path": "partial.ts",
+                "hash": "a00fd96fcc75ee09758467c761c4804d87cb46e31b3f8b4183ca36458a640513"
+              }
+            ],
+            "complete": true,
+            "omitted": {
+              "outsideWorkspace": 0,
+              "unavailable": 0,
+              "ignored": 0,
+              "limits": 0
+            }
+          }
+        ],
+        "unsupportedPaths": [],
+        "omittedObservations": 0,
+        "complete": true,
+        "authority": "read-only",
+        "evidence": "observed-file-snapshot",
+        "selectionReason": "explicit-query-paths-and-lsp-relations"
+      }
+    },
+    "unsupported": {
+      "query": {
+        "kind": "symbols",
+        "paths": [
+          "unsupported.txt"
+        ]
+      },
+      "elapsedMs": 50.223916999999346,
+      "hostRssBytesBefore": 114671616,
+      "hostRssBytesAfter": 114737152,
+      "inputBytes": 46,
+      "resultBytes": 792,
+      "score": {
+        "expected": 0,
+        "returned": 0,
+        "truePositive": 0,
+        "falsePositive": 0,
+        "falseNegative": 0,
+        "precision": 1,
+        "recall": 1
+      },
+      "snapshot": {
+        "schemaVersion": 1,
+        "generation": "903f32f77942ce9fcb54f5e9b5231a0a6585d928601dc3c25dbb17687a5c50da",
+        "manifest": {
+          "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+          "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+          "gitHead": null,
+          "branch": "master",
+          "effectiveIgnoreDigest": "a952e11349936a53f8829d4a86200fffcf47cd3ff93a8f030811887ee5409daa",
+          "files": [
+            {
+              "path": "unsupported.txt",
+              "hash": "3b077f9b789162ca94fa7d77106a267b0bfc03a7a5a73a0948ff974417e100d9"
+            }
+          ],
+          "bindings": []
+        },
+        "query": {
+          "kind": "symbols",
+          "paths": [
+            "unsupported.txt"
+          ]
+        },
+        "observations": [],
+        "unsupportedPaths": [
+          "unsupported.txt"
+        ],
+        "omittedObservations": 0,
+        "complete": false,
+        "authority": "read-only",
+        "evidence": "observed-file-snapshot",
+        "selectionReason": "explicit-query-paths-and-lsp-relations"
+      }
+    },
+    "partialBuild": {
+      "elapsedMs": 54.267249999999876,
+      "exitCode": 1,
+      "stdoutBytes": 111,
+      "stderrBytes": 0,
+      "stdoutSha256": "8b084d9983727e90cee6531da0623461a2aafe49b35d5b0455474e8aec5d058a",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "missingAuthoredDependency": true,
+      "excerpt": "partial.ts(1,28): error TS2307: Cannot find module './not-authored.js' or its corresponding type declarations.\n"
+    },
+    "edit": {
+      "staleCode": "REPOSITORY_SOURCE_STALE",
+      "inputHashUnchanged": true,
+      "generationChanged": true,
+      "projectBefore": [
+        {
+          "serverId": "native-ts7",
+          "schemaVersion": 1,
+          "scope": "workspace-typescript-files",
+          "sha256": "2b697dcf6963b81933628d5605f2c3d4e9b42dfeeb1f00e40ddc2887a9146139",
+          "fileCount": 523,
+          "bytes": 62285
+        }
+      ],
+      "projectAfter": [
+        {
+          "serverId": "native-ts7",
+          "schemaVersion": 1,
+          "scope": "workspace-typescript-files",
+          "sha256": "8f113be2b68d83591db5755c49d0192c181e4e94b07c2b07718bc461989cf638",
+          "fileCount": 523,
+          "bytes": 62335
+        }
+      ],
+      "updated": {
+        "id": "barrel-reexport-alias",
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "reexport-use.ts"
+          ],
+          "position": {
+            "line": 1,
+            "character": 29
+          }
+        },
+        "elapsedMs": 433.1835000000001,
+        "hostRssBytesBefore": 115359744,
+        "hostRssBytesAfter": 116113408,
+        "inputBytes": 86,
+        "resultBytes": 1829,
+        "score": {
+          "expected": 1,
+          "returned": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "09329e3c307efd29ae85b1f3c47ae4180c9efafe80e3b969f818999f160860d2",
+          "manifest": {
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+            "gitHead": null,
+            "branch": "master",
+            "effectiveIgnoreDigest": "5c0a6785778ee155b0c83be7a5cbf4eff6d8e67e515e385f13eee6617e237dbf",
+            "files": [
+              {
+                "path": "reexport-use.ts",
+                "hash": "11bc4b311af35a2b647fa9044b2c4ea3d50e01d2e4efba88baf0b562d3821333"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "reexport-use.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "8f113be2b68d83591db5755c49d0192c181e4e94b07c2b07718bc461989cf638",
+                "fileCount": 523,
+                "bytes": 62335
+              }
+            ]
+          },
+          "query": {
+            "kind": "definition",
+            "paths": [
+              "reexport-use.ts"
+            ],
+            "position": {
+              "line": 1,
+              "character": 29
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+              "path": "reexport-use.ts",
+              "documentVersion": 1,
+              "documentHash": "11bc4b311af35a2b647fa9044b2c4ea3d50e01d2e4efba88baf0b562d3821333",
+              "kind": "definition",
+              "items": [
+                {
+                  "path": "modules/m003.ts",
+                  "hash": "e0f2da62918af4a70be3afa91029435119ef42a15dd659e9b739d2779c5e1d26",
+                  "range": {
+                    "start": {
+                      "line": 1,
+                      "character": 16
+                    },
+                    "end": {
+                      "line": 1,
+                      "character": 25
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "reexport-use.ts",
+                  "hash": "11bc4b311af35a2b647fa9044b2c4ea3d50e01d2e4efba88baf0b562d3821333"
+                },
+                {
+                  "path": "modules/m003.ts",
+                  "hash": "e0f2da62918af4a70be3afa91029435119ef42a15dd659e9b739d2779c5e1d26"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      }
+    },
+    "separation": {
+      "original": {
+        "id": "duplicate-import-first",
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "aliases.ts"
+          ],
+          "position": {
+            "line": 2,
+            "character": 24
+          }
+        },
+        "elapsedMs": 493.87120799999957,
+        "hostRssBytesBefore": 111443968,
+        "hostRssBytesAfter": 122699776,
+        "inputBytes": 81,
+        "resultBytes": 1842,
+        "score": {
+          "expected": 1,
+          "returned": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "dfde87f9f86b554ddd13f34031edc539182d3a2744119f9823267330fac52507",
+          "manifest": {
+            "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+            "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/project",
+            "gitHead": "da31a645f5baa63965a4d07e6b58a9d78329f7c7",
+            "branch": "master",
+            "effectiveIgnoreDigest": "25f386c15bb82ad8085a4a56d8e47a595ddee86f79e3ea3a28a605f3e2aada03",
+            "files": [
+              {
+                "path": "aliases.ts",
+                "hash": "52d45e6a1e381883e447379c887e813b3c5e8a8c9cbb672e445a68aeb9aee295"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "aliases.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "8f113be2b68d83591db5755c49d0192c181e4e94b07c2b07718bc461989cf638",
+                "fileCount": 523,
+                "bytes": 62335
+              }
+            ]
+          },
+          "query": {
+            "kind": "definition",
+            "paths": [
+              "aliases.ts"
+            ],
+            "position": {
+              "line": 2,
+              "character": 24
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "72274624-40bf-4b4d-9e35-c6ca564501b4",
+              "path": "aliases.ts",
+              "documentVersion": 1,
+              "documentHash": "52d45e6a1e381883e447379c887e813b3c5e8a8c9cbb672e445a68aeb9aee295",
+              "kind": "definition",
+              "items": [
+                {
+                  "path": "modules/m000.ts",
+                  "hash": "6e5b6834df1ebeade139199db1abc64ed94ebd0e54fb2bf3c35c65baa6b40c42",
+                  "range": {
+                    "start": {
+                      "line": 0,
+                      "character": 16
+                    },
+                    "end": {
+                      "line": 0,
+                      "character": 25
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "aliases.ts",
+                  "hash": "52d45e6a1e381883e447379c887e813b3c5e8a8c9cbb672e445a68aeb9aee295"
+                },
+                {
+                  "path": "modules/m000.ts",
+                  "hash": "6e5b6834df1ebeade139199db1abc64ed94ebd0e54fb2bf3c35c65baa6b40c42"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      },
+      "branch": {
+        "id": "duplicate-import-first",
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "aliases.ts"
+          ],
+          "position": {
+            "line": 2,
+            "character": 24
+          }
+        },
+        "elapsedMs": 864.5657919999994,
+        "hostRssBytesBefore": 122699776,
+        "hostRssBytesAfter": 136282112,
+        "inputBytes": 81,
+        "resultBytes": 1858,
+        "score": {
+          "expected": 1,
+          "returned": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "491508109eaaae5332073d7b6b6629baf089a1d5ce885fc6b3102f69a0ba808e",
+          "manifest": {
+            "workspaceId": "013e75e2-c93a-44bd-a4cf-4751f6de47d6",
+            "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-native-semantic-pWc8KJ/alternate",
+            "gitHead": "da31a645f5baa63965a4d07e6b58a9d78329f7c7",
+            "branch": "semantic-alternative",
+            "effectiveIgnoreDigest": "25f386c15bb82ad8085a4a56d8e47a595ddee86f79e3ea3a28a605f3e2aada03",
+            "files": [
+              {
+                "path": "aliases.ts",
+                "hash": "52d45e6a1e381883e447379c887e813b3c5e8a8c9cbb672e445a68aeb9aee295"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "aliases.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "549dd93bcd0b279677cdba540e6dbadf0a0cd4d34b2382d9f0af600b06e1a39f",
+                "fileCount": 523,
+                "bytes": 62368
+              }
+            ]
+          },
+          "query": {
+            "kind": "definition",
+            "paths": [
+              "aliases.ts"
+            ],
+            "position": {
+              "line": 2,
+              "character": 24
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "013e75e2-c93a-44bd-a4cf-4751f6de47d6",
+              "path": "aliases.ts",
+              "documentVersion": 1,
+              "documentHash": "52d45e6a1e381883e447379c887e813b3c5e8a8c9cbb672e445a68aeb9aee295",
+              "kind": "definition",
+              "items": [
+                {
+                  "path": "modules/m000.ts",
+                  "hash": "f4b634ebe4f4819bfd117647fb9f99c22deb1a52cc81d4b08a1161a0a5d235f1",
+                  "range": {
+                    "start": {
+                      "line": 1,
+                      "character": 16
+                    },
+                    "end": {
+                      "line": 1,
+                      "character": 25
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "aliases.ts",
+                  "hash": "52d45e6a1e381883e447379c887e813b3c5e8a8c9cbb672e445a68aeb9aee295"
+                },
+                {
+                  "path": "modules/m000.ts",
+                  "hash": "f4b634ebe4f4819bfd117647fb9f99c22deb1a52cc81d4b08a1161a0a5d235f1"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      },
+      "rootDifferent": true,
+      "workspaceDifferent": true,
+      "branchDifferent": true
+    },
+    "cancellation": {
+      "phase": "pre-query-aborted",
+      "code": "ABORTED",
+      "nativeStartDelta": 0,
+      "interruptedNativeRequestClaim": false
+    },
+    "cleanup": {
+      "method": "actual-manager-close-and-os-pid-probe",
+      "elapsedMs": 5.601083999999901,
+      "children": [
+        {
+          "pid": 45807,
+          "exitCode": 0,
+          "signal": null,
+          "gone": true
+        },
+        {
+          "pid": 62517,
+          "exitCode": 1,
+          "signal": null,
+          "gone": true
+        },
+        {
+          "pid": 70784,
+          "exitCode": 0,
+          "signal": null,
+          "gone": true
+        }
+      ]
+    },
+    "limitations": [
+      "Only explicitly labelled probes establish precision/recall.",
+      "Host RSS samples exclude the native server process.",
+      "Outside-root/native-library dependency freshness is not claimed.",
+      "No provider or coding effect is executed."
+    ]
+  },
+  "moodcode": {
+    "schemaVersion": 1,
+    "measurement": "actual-moodcode-native-semantic-probes-v1",
+    "version": "7.0.2",
+    "probes": [
+      {
+        "id": "moodcode-planContext",
+        "sourceSha256": "4de52879db41c3383f1d640833cf5a32a241213b6177ba6ca36835563706ce49",
+        "declarationSha256": "b8ad1c29404e89e08d6739aa09cdd1f7c6e58bd325ccfe81fc2ac5f3aa04d588",
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "packages/engine/src/context/service.ts"
+          ],
+          "position": {
+            "line": 205,
+            "character": 31
+          }
+        },
+        "elapsedMs": 1912.6675419999992,
+        "hostRssBytesBefore": 136806400,
+        "hostRssBytesAfter": 160481280,
+        "inputBytes": 111,
+        "resultBytes": 1976,
+        "score": {
+          "expected": 1,
+          "returned": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "f4b20ba0c72a886eb89e4f678f19401e9aaf2067028b59e47405d37370d61653",
+          "manifest": {
+            "workspaceId": "fe1ce40f-aa3a-4fd1-a28b-3bf49576833c",
+            "root": "/Users/yakisoba0728/Documents/GitHub/Moodcode",
+            "gitHead": "33a77ad4c80432dfee51479ac262a705537f65de",
+            "branch": "main",
+            "effectiveIgnoreDigest": "aaaa607306ec39b82bb3a49c7d086b61bea5ba71d15dd4cf9195b7184f4f42bf",
+            "files": [
+              {
+                "path": "packages/engine/src/context/service.ts",
+                "hash": "4de52879db41c3383f1d640833cf5a32a241213b6177ba6ca36835563706ce49"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "packages/engine/src/context/service.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "c5456003376cb95da93628d3f128af48cbf1a78c1a0d950fec52fafee6ab2a02",
+                "fileCount": 646,
+                "bytes": 11714455
+              }
+            ]
+          },
+          "query": {
+            "kind": "definition",
+            "paths": [
+              "packages/engine/src/context/service.ts"
+            ],
+            "position": {
+              "line": 205,
+              "character": 31
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "fe1ce40f-aa3a-4fd1-a28b-3bf49576833c",
+              "path": "packages/engine/src/context/service.ts",
+              "documentVersion": 1,
+              "documentHash": "4de52879db41c3383f1d640833cf5a32a241213b6177ba6ca36835563706ce49",
+              "kind": "definition",
+              "items": [
+                {
+                  "path": "packages/engine/src/context/plan.ts",
+                  "hash": "b8ad1c29404e89e08d6739aa09cdd1f7c6e58bd325ccfe81fc2ac5f3aa04d588",
+                  "range": {
+                    "start": {
+                      "line": 54,
+                      "character": 22
+                    },
+                    "end": {
+                      "line": 54,
+                      "character": 33
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "packages/engine/src/context/service.ts",
+                  "hash": "4de52879db41c3383f1d640833cf5a32a241213b6177ba6ca36835563706ce49"
+                },
+                {
+                  "path": "packages/engine/src/context/plan.ts",
+                  "hash": "b8ad1c29404e89e08d6739aa09cdd1f7c6e58bd325ccfe81fc2ac5f3aa04d588"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      },
+      {
+        "id": "moodcode-projectToolHistory",
+        "sourceSha256": "4de52879db41c3383f1d640833cf5a32a241213b6177ba6ca36835563706ce49",
+        "declarationSha256": "bb16baafd0a506ef9f1c0ec46c0db1594ef00d78b10823de14486c8dfb83a61f",
+        "query": {
+          "kind": "definition",
+          "paths": [
+            "packages/engine/src/context/service.ts"
+          ],
+          "position": {
+            "line": 189,
+            "character": 47
+          }
+        },
+        "elapsedMs": 1493.2733749999989,
+        "hostRssBytesBefore": 160481280,
+        "hostRssBytesAfter": 161333248,
+        "inputBytes": 111,
+        "resultBytes": 1990,
+        "score": {
+          "expected": 1,
+          "returned": 1,
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "precision": 1,
+          "recall": 1
+        },
+        "snapshot": {
+          "schemaVersion": 1,
+          "generation": "1211e50963e9a2db83866b9a32111320b352188fbaafc20b10c23458a2ae25bc",
+          "manifest": {
+            "workspaceId": "fe1ce40f-aa3a-4fd1-a28b-3bf49576833c",
+            "root": "/Users/yakisoba0728/Documents/GitHub/Moodcode",
+            "gitHead": "33a77ad4c80432dfee51479ac262a705537f65de",
+            "branch": "main",
+            "effectiveIgnoreDigest": "aaaa607306ec39b82bb3a49c7d086b61bea5ba71d15dd4cf9195b7184f4f42bf",
+            "files": [
+              {
+                "path": "packages/engine/src/context/service.ts",
+                "hash": "4de52879db41c3383f1d640833cf5a32a241213b6177ba6ca36835563706ce49"
+              }
+            ],
+            "bindings": [
+              {
+                "path": "packages/engine/src/context/service.ts",
+                "serverId": "native-ts7",
+                "languageId": "typescript",
+                "revision": "7.0.2"
+              }
+            ],
+            "projectSources": [
+              {
+                "serverId": "native-ts7",
+                "schemaVersion": 1,
+                "scope": "workspace-typescript-files",
+                "sha256": "c5456003376cb95da93628d3f128af48cbf1a78c1a0d950fec52fafee6ab2a02",
+                "fileCount": 646,
+                "bytes": 11714455
+              }
+            ]
+          },
+          "query": {
+            "kind": "definition",
+            "paths": [
+              "packages/engine/src/context/service.ts"
+            ],
+            "position": {
+              "line": 189,
+              "character": 47
+            }
+          },
+          "observations": [
+            {
+              "serverId": "native-ts7",
+              "workspaceId": "fe1ce40f-aa3a-4fd1-a28b-3bf49576833c",
+              "path": "packages/engine/src/context/service.ts",
+              "documentVersion": 1,
+              "documentHash": "4de52879db41c3383f1d640833cf5a32a241213b6177ba6ca36835563706ce49",
+              "kind": "definition",
+              "items": [
+                {
+                  "path": "packages/engine/src/context/tool-history.ts",
+                  "hash": "bb16baafd0a506ef9f1c0ec46c0db1594ef00d78b10823de14486c8dfb83a61f",
+                  "range": {
+                    "start": {
+                      "line": 6,
+                      "character": 16
+                    },
+                    "end": {
+                      "line": 6,
+                      "character": 34
+                    }
+                  }
+                }
+              ],
+              "sources": [
+                {
+                  "path": "packages/engine/src/context/service.ts",
+                  "hash": "4de52879db41c3383f1d640833cf5a32a241213b6177ba6ca36835563706ce49"
+                },
+                {
+                  "path": "packages/engine/src/context/tool-history.ts",
+                  "hash": "bb16baafd0a506ef9f1c0ec46c0db1594ef00d78b10823de14486c8dfb83a61f"
+                }
+              ],
+              "complete": true,
+              "omitted": {
+                "outsideWorkspace": 0,
+                "unavailable": 0,
+                "ignored": 0,
+                "limits": 0
+              }
+            }
+          ],
+          "unsupportedPaths": [],
+          "omittedObservations": 0,
+          "complete": true,
+          "authority": "read-only",
+          "evidence": "observed-file-snapshot",
+          "selectionReason": "explicit-query-paths-and-lsp-relations"
+        }
+      }
+    ],
+    "cleanup": {
+      "method": "actual-manager-close-and-os-pid-probe",
+      "elapsedMs": 8.858749999999418,
+      "children": [
+        {
+          "pid": 78233,
+          "exitCode": 1,
+          "signal": null,
+          "gone": true
+        }
+      ]
+    }
+  }
+}

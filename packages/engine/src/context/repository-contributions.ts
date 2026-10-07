@@ -196,6 +196,16 @@ function snapshot(value: RepositorySnapshot, workspace: Workspace, query: Reposi
   for (const binding of result.manifest.bindings)
     if (!binding || !query.paths.includes(binding.path) || !/^[A-Za-z0-9_.-]{1,64}$/.test(binding.serverId)
       || !/^[A-Za-z0-9+_.-]{1,64}$/.test(binding.languageId) || !/^[A-Za-z0-9_.-]{1,64}$/.test(binding.revision)) return invalid();
+  if (result.manifest.projectSources !== undefined) {
+    if (!Array.isArray(result.manifest.projectSources) || result.manifest.projectSources.length > query.paths.length) return invalid();
+    const servers = new Set<string>();
+    for (const source of result.manifest.projectSources) {
+      if (!source || Object.keys(source).sort().join(',') !== 'bytes,fileCount,schemaVersion,scope,serverId,sha256'
+        || source.schemaVersion !== 1 || source.scope !== 'workspace-typescript-files' || !HASH.test(source.sha256)
+        || !result.manifest.bindings.some(binding => binding.serverId === source.serverId) || servers.has(source.serverId)) return invalid();
+      count(source.fileCount, 4096); count(source.bytes, 64 * 1024 * 1024); servers.add(source.serverId);
+    }
+  }
   const observed = new Set<string>();
   for (const observation of result.observations) {
     if (!observation || typeof observation !== 'object' || Array.isArray(observation)) return invalid();
