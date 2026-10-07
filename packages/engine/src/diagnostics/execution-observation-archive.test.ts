@@ -124,14 +124,14 @@ const invalid = (error: unknown) =>
   error instanceof EngineError &&
   error.code === "ARCHIVE_EXECUTION_OBSERVATION_INVALID";
 
-test("DB14 actual native observations survive archive/import exactly and imported paused history invokes no producer", async (t) => {
+test("actual native observations survive current-schema archive/import exactly and imported paused history invokes no producer", async (t) => {
   const f = await produced(t),
     original = rows(f.dbPath),
     primary = f.archive.manifest.databases.find(
       (member) => member.role === "primary",
     )!;
-  assert.equal(primary.schemaVersion, 14);
-  assert.equal(DB_VERSION, 14);
+  assert.equal(primary.schemaVersion, DB_VERSION);
+  assert.ok(DB_VERSION >= 14);
   const validation = await validateEngineArchive({
     directory: f.archive.directory,
   });

@@ -8,3 +8,6 @@ export type { WorkspaceKnowledgeGenerationInput, WorkspaceKnowledgeGenerationRes
 export type * from './publication-types.js';
 export { KnowledgePublicationStorage, KNOWLEDGE_PUBLICATION_SCHEMA_SQL, KNOWLEDGE_PUBLICATION_TABLES } from './publication-store.js';
 export type { KnowledgePublicationPreview, WorkspaceKnowledgePublicationInput, WorkspaceKnowledgePublicationResult } from './publication-service.js';
+export type * from './import-recovery-types.js';
+export type { KnowledgeImportDocumentProof } from './import-document-proof.js';
+export type { WorkspaceKnowledgeImportRecoveryPreview, WorkspaceKnowledgeImportRecoveryInput, WorkspaceKnowledgeImportRecoveryResult } from './import-recovery-service.js';

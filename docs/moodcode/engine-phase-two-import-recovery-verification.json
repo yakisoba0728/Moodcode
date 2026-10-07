@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "stage": "MC2-03d explicit imported knowledge recovery, physical rebinding and actual coding context activation",
+  "status": "passed",
+  "recordedAt": "2026-10-07T22:51:09.541399+00:00",
+  "parentCommit": "46d962adb65e4fef61071a89e9a2dff785e6f67f",
+  "implementationIdentity": "24 implementation/test source hashes frozen before final gates and verified unchanged after typecheck, full engine, source and authored fixture checks; evidence files excluded from their own identity.",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "newTests": 46,
+  "primaryDatabaseVersion": 15,
+  "checks": [
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-import-recovery-typecheck-final.log",
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "engine",
+      "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-import-recovery-engine-final.log",
+      "logSha256": "26fa9efdfa40b6e9e75d11b092fd549e489cf9143774833369be73715831efde",
+      "tests": 3789,
+      "pass": 3787,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0,
+      "durationMs": 144624.938625
+    },
+    {
+      "kind": "source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=4 packages/engine/src/diagnostics/*.test.ts packages/engine/src/knowledge/*.test.ts packages/engine/src/recovery/*.test.ts packages/engine/src/tools/command/*lock*.test.ts packages/engine/src/storage/migrations.test.ts packages/engine/src/storage/archive.test.ts packages/engine/src/storage/v1-compatibility.test.ts packages/engine/src/runner/host-generation-lease.test.ts packages/engine/src/runner/summary-recovery-lease.test.ts packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-import-recovery-source-final.log",
+      "logSha256": "eb3e21ccb3e6fc26e544956f7179532c90c36094f1fa94864e7f07245ce5ed65",
+      "tests": 856,
+      "pass": 856,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 22754.72775
+    },
+    {
+      "kind": "fixtures",
+      "command": "node scripts/evaluate-engine.mjs",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-import-recovery-eval-final.log",
+      "logSha256": "768f347ced782443a378b63435921ffbb3a5ac96f12eab1a8ad455f57a757f83",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "liveProviderCalls": 0
+    }
+  ],
+  "sourceHashes": {
+    "packages/engine/src/context/service.ts": "6919635ee61765279646a523afa09e86a9309de9b2f86a312421bc55fecec458",
+    "packages/engine/src/diagnostics/execution-observation-archive.test.ts": "54ad725d8133e002773f19a978ef7d63e9e7fb662fa5a21bf3efd49cde6fff98",
+    "packages/engine/src/engine.ts": "c409e620119ca2df082ce7843f5bacb696502b9d5a0222ed699d0ad536d29752",
+    "packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts": "fbe94e9b893d87873356f7c144f2f37f910d65c5ea65fe728640795060a3ca56",
+    "packages/engine/src/knowledge/context-source.ts": "2d2aef831b2a9130a841a8ecb6d611a787301c7ce00b2def418e9fbfc6b8dec7",
+    "packages/engine/src/knowledge/context-types.ts": "f755d1c52b30e78cffa24a083711aa2ea7675c1c2fdbeb1c2d17689ef24b7d20",
+    "packages/engine/src/knowledge/file-publication-store.ts": "dc188182c771c2d765409574dd4af88e0b8c8740ef70a0557c9047064f9eecf7",
+    "packages/engine/src/knowledge/fixtures/import-interrupted-child.ts": "20e740daa5b505e4bd2721cb4c84ee67e93e6b1ed96ef878469bcd3af9cba1c9",
+    "packages/engine/src/knowledge/generation-store.ts": "3b4a68eedac49ef02c120064802bdd258b872f80628006d1b0d1ad6f4d5588aa",
+    "packages/engine/src/knowledge/import-document-proof.ts": "bef82c599f45ccbef69f260971f4d40fb2af9250acf1c45448a0c07b83306b18",
+    "packages/engine/src/knowledge/import-interrupted.integration.test.ts": "05fb15d8b907682448bb1a82fefea9a52c4525597a19a4c4378ee7c0155742b5",
+    "packages/engine/src/knowledge/import-recovery-service.test.ts": "f55e913e62c986e6c52384818a438ccd7cc8cd6c855ad4554031a98e2abb8513",
+    "packages/engine/src/knowledge/import-recovery-service.ts": "d721f6db46421d3a6d6fb406f3871c0ee25ef1bf19c2c3441f79c8191b24907c",
+    "packages/engine/src/knowledge/import-recovery-store.test.ts": "ee05a140e84f73536a537ca2ae310ed5cc3bb413b6435ed3ac9f7b8f11934cf2",
+    "packages/engine/src/knowledge/import-recovery-store.ts": "56e2bfb809a07bc83789ebe3a9ac93e1d58b3b4d1f6e7c78defe9acc940347fb",
+    "packages/engine/src/knowledge/import-recovery-types.ts": "0cadda9b8d387856afc0909b62abe81f0559e0171535ab1d78bb53ab4643cc1c",
+    "packages/engine/src/knowledge/import-recovery.integration.test.ts": "7f4b09f0e9e75a097ce1217e35cd85acfe42e3c961c1fb0419e2e762eebdb632",
+    "packages/engine/src/knowledge/index.ts": "4814038ab5eda6f5f140524bc354f34eaac08df803ac63e7d86d26aa5c4d770c",
+    "packages/engine/src/knowledge/store.ts": "47e9e3dc3b0e666a566b6da6d358de89b3bdedbe3adbf0a4e20ac6df3b326321",
+    "packages/engine/src/recovery/index.ts": "de7392ff31a40b358803833725deabc1b593aadf34524d9cf6f504cde0f013c5",
+    "packages/engine/src/storage/archive.ts": "5e4c6eb9675f0f5486abcbf92ecc7848fe774681521ef119cdf2de0f513c9e14",
+    "packages/engine/src/storage/index.ts": "74a92fc8fe67d5ccfd77783f5988af7ca12888bdcbaabce6e36f25f7eb0733f8",
+    "packages/engine/src/storage/migrations.test.ts": "25608a8feaa05f1e923cedb9373fbfb0535095d07fcc113c098960a035ea992a",
+    "packages/engine/src/storage/migrations.ts": "d252af982adb7b22d86c816dff54bcb7b1b66f0a7641b4e8b5ab5827d7b81735"
+  },
+  "coverage": [
+    "Actual native archive origin, source storage and logical identity; imported interrupted-owner quarantine before frontier seeding without effect replay.",
+    "Original bounded preview capability, exact primary head CAS, atomic acknowledgment/resume/activation decisions and immutable monotonic document activations.",
+    "Preserved original false cleanup/unknown generation and guard history; actual new native uncertain producer requires its own acknowledgment and separate resume.",
+    "Fresh trust, unchanged canonical physical root device/inode and actual original source bytes before explicit SQL document activation; deactivation after source deletion or trust denial.",
+    "Actual ProviderAttempt, ContextRevision and request digest consume quoted imported document data with explicit immutable activation lineage and whole shared context/output budget.",
+    "Copied/getter/proxy/released/expired/cancelled/stale approvals, foreign actual lock, restart without ephemeral capabilities, default-off mutations and opt-in-independent durable consumption.",
+    "Genuine SIGKILL at prepared and actual provider-dispatched import boundaries, direct dead-source export and zero provider/tool/effect replay.",
+    "DB14 to DB15 atomic migration rollback/preservation and semantic archive/recovery validation; original DB14 and older logical hash chains preserved."
+  ],
+  "limitations": [
+    "Supported relocation is new DB/artifact storage at the same unchanged canonical physical workspace root. Arbitrary workspace-root/source mapping is unsupported.",
+    "Imported filesystem/skill publication stays historical; activation selects SQL workspace documents explicitly, with no automatic skill enablement.",
+    "Node path observations do not establish atomic OS filesystem hash CAS against external writers.",
+    "Live account/provider verification, GUI, native Windows execution and E5-13/E5-08/E6-07/E6-08 debts remain outside this increment."
+  ],
+  "integrationRepairs": [
+    "Actual ContextRevision sourceIds now include imported activation/frontier/resume/original binding lineage; shared sourceIds deduplicate repeated native pins.",
+    "Deactivation preserves original proof and remains available after current trust denial or source deletion.",
+    "Accepted old uncertainty remains resolved when a legitimate successor changes its mutable workspace barrier; new owner recovery remains independent.",
+    "Two legacy archive fixtures now use actual current DB_VERSION and the DB15 import recovery logical table chain without weakening malformed-owner rejection.",
+    "A full rerun exited 137 without a final test report; the final isolated whole-engine gate ran at concurrency 2 and passed all supported tests."
+  ],
+  "goalStatus": "active",
+  "completedWorkItems": 24,
+  "completedFamilies": 6,
+  "totalWorkItems": 80,
+  "totalFamilies": 20
+}

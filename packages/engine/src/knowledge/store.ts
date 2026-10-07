@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isKnowledgeImportPaused } from './import-recovery-store.js';
 import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
 import type {
   KnowledgeArchiveData, KnowledgeArchiveRow, KnowledgeCandidate, KnowledgeCandidateSummary,
@@ -109,8 +110,10 @@ export class KnowledgeStorage {
     if (knowledgeHash(binding) !== knowledgeHash(this.readHostBinding(binding.workspaceId))) knowledgeError('KNOWLEDGE_BINDING_MISMATCH', 'Knowledge was captured under another root or storage binding');
   }
   assertUnpaused(workspaceId: string): void {
-    if (this.getImportPause(workspaceId)) knowledgeError('KNOWLEDGE_IMPORT_PAUSED', 'Imported knowledge requires explicit host recovery before generation or publication');
+    if (isKnowledgeImportPaused(this.#db, workspaceId)) knowledgeError('KNOWLEDGE_IMPORT_PAUSED', 'Imported knowledge requires explicit host recovery before generation or publication');
   }
+  /** Current pause authority is separate from the immutable raw import history. */
+  isImportPaused(workspaceId: string): boolean { return isKnowledgeImportPaused(this.#db, workspaceId); }
   private unexpired(expiresAt: string | null, current: string): void {
     if (expiresAt !== null && Date.parse(expiresAt) <= Date.parse(current)) knowledgeError('KNOWLEDGE_EXPIRED', 'Knowledge trust or source plan has expired');
   }

@@ -340,7 +340,7 @@ export class ContextService {
     if (request.signal.aborted) throw new EngineError('CANCELLED', 'Context construction was cancelled before persistence');
     const previous = this.store.getSessionDocument(sessionId, 'context.head');
     const prefixCheckpoint = candidate?.checkpoint ?? (request.run ? this.activePrefix?.active(sessionId, request.run.id)?.checkpoint : undefined);
-    const sourceIds = [...plan.selectedMessageIds, ...observation.sources.filter(source => source.sha256 !== null).map(source => `${source.id}:${source.sha256}`),
+    const observedSourceIds = [...plan.selectedMessageIds, ...observation.sources.filter(source => source.sha256 !== null).map(source => `${source.id}:${source.sha256}`),
       ...(lifecycleDiagnostics ? [`lifecycle-registry:${lifecycleDiagnostics.registryRevision}`, `lifecycle-base:${lifecycleDiagnostics.baseContextSha256}`,
         ...(lifecycleDiagnostics.dataSha256 ? [`lifecycle-data:${lifecycleDiagnostics.dataSha256}`] : [])] : []),
       ...(prefixCheckpoint ? [prefixCheckpoint.revisionId, `active-prefix-policy:${prefixCheckpoint.policySha256}`, `active-prefix-facts:${prefixCheckpoint.factsSha256}`, `active-prefix-manifest:${prefixCheckpoint.manifestSha256}`] : []),
@@ -354,7 +354,11 @@ export class ContextService {
           `knowledge-publication:${document.publicationId}:${document.publicationSha256}`, `knowledge-receipt:${document.receiptId}:${document.receiptSha256}`,
           `knowledge-candidate:${document.candidateId}:${document.candidateSha256}`, `knowledge-generation:${document.generationId}:${document.generationSha256}`,
           `knowledge-attempt:${document.attemptId}:${document.attemptSha256}`, `knowledge-plan:${document.planId}:${document.planSha256}`,
-          `knowledge-trust:${document.trustRevisionId}:${document.trustRevisionSha256}`, `knowledge-source:${document.sourceManifestSha256}`])] : [])];
+          `knowledge-trust:${document.trustRevisionId}:${document.trustRevisionSha256}`, `knowledge-source:${document.sourceManifestSha256}`,
+          ...(document.importActivation ? [`knowledge-import-activation:${document.importActivation.activationId}:${document.importActivation.activationSha256}`,
+            `knowledge-import-frontier:${document.importActivation.frontierId}:${document.importActivation.frontierSha256}`, `knowledge-import-resume:${document.importActivation.resumeDecisionSha256}`,
+            `knowledge-import-original-binding:${document.importActivation.originalBindingSha256}`] : [])])] : [])];
+    const sourceIds = [...new Set(observedSourceIds)];
     const bindingHash = digest({ plan: plan.sha256, sources: sourceIds, config: request.config, model: { ...model, source: { kind: model.source.kind, reference: model.source.reference } } });
     const old = previous?.data;
     const oldRevisionId = typeof old?.revisionId === 'string' ? old.revisionId : undefined;

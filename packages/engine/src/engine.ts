@@ -26,6 +26,8 @@ import type { KnowledgeFilePublicationStorage } from './knowledge/file-publicati
 import type { KnowledgeFileRecoveryPreview } from './knowledge/file-publication-types.js';
 import { FileKnowledgePublicationHost } from './knowledge/file-publication-fs.js';
 import type { KnowledgeFileExecutionGuards } from './knowledge/file-execution-guards.js';
+import type { KnowledgeImportRecoveryStorage } from './knowledge/import-recovery-store.js';
+import { KnowledgeImportRecoveryService } from './knowledge/import-recovery-service.js';
 import { knowledgeContextPolicy } from './knowledge/context-source.js';
 import type { KnowledgeContextPolicy } from './knowledge/context-types.js';
 import { WorkspaceTrustService, assertWorkspaceTrustSourcesCurrent } from './workspace/trust.js';
@@ -149,6 +151,8 @@ export interface EngineOptions {
   knowledgePublication?: boolean;
   /** Explicit exact-approved physical workspace-file and skill publication. */
   knowledgeFilePublication?: boolean;
+  /** Explicit host recovery and per-document activation after an archive import. */
+  knowledgeImportRecovery?: boolean;
   /** Host-selected current approved documents, consumed as bounded read-only data. */
   knowledgeContextPolicy?: KnowledgeContextPolicy;
   /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
@@ -318,6 +322,9 @@ export class MoodcodeEngine {
   private readonly knowledgeFilePublicationService: KnowledgeFilePublicationService;
   private readonly knowledgeFileExecutionGuards: KnowledgeFileExecutionGuards;
   private readonly knowledgeFileRecoveryPreviews = new WeakMap<KnowledgeFileRecoveryPreview, string>();
+  private readonly knowledgeImportRecoveryEnabled: boolean;
+  private readonly knowledgeImports: KnowledgeImportRecoveryStorage;
+  private readonly knowledgeImportService: KnowledgeImportRecoveryService;
   private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
   private readonly verificationHost: VerificationHostService;
   private readonly verificationEnabled: boolean;
@@ -366,6 +373,8 @@ export class MoodcodeEngine {
     this.knowledgePublicationEnabled = options.knowledgePublication === true;
     if (options.knowledgeFilePublication !== undefined && typeof options.knowledgeFilePublication !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Knowledge file publication requires an explicit host boolean');
     this.knowledgeFilePublicationEnabled = options.knowledgeFilePublication === true;
+    if (options.knowledgeImportRecovery !== undefined && typeof options.knowledgeImportRecovery !== 'boolean') throw new EngineError('INVALID_CONFIG', 'knowledgeImportRecovery must be an explicit boolean');
+    this.knowledgeImportRecoveryEnabled = options.knowledgeImportRecovery === true;
     if (options.diagnosticObservations !== undefined && typeof options.diagnosticObservations !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Execution observations require an explicit host boolean');
     if (this.verificationEnabled && options.tools !== undefined) throw new EngineError('INVALID_VERIFICATION_CONFIG', 'Verification requires the engine-owned command producer and core registrations');
     if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Document token cost policy must be a boolean');
@@ -443,6 +452,8 @@ export class MoodcodeEngine {
       this.knowledgePublications = this.store.createKnowledgePublicationStorage({ checkBinding: knowledgeBinding,
         getCandidate: (workspaceId, candidateId) => this.workspaceKnowledge.getCandidate(workspaceId, candidateId),
         assertCommitCurrent: record => this.knowledgePublicationService.assertCommitCurrent(record) });
+      this.knowledgeImports = this.store.createKnowledgeImportRecoveryStorage({ checkBinding: knowledgeBinding,
+        assertCommitCurrent: preview => this.knowledgeImportService.assertCommitCurrent(preview) });
       this.workspaceTrust = new WorkspaceTrustService(this.workspaceKnowledge);
       const recoveryBinding = (workspaceId: string) => {
         const database = canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database;
@@ -561,6 +572,24 @@ export class MoodcodeEngine {
         assertTrustSourcesCurrent: assertWorkspaceTrustSourcesCurrent,
         assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source),
         signal: this.hostResources.signal, withLease: (workspaceId, operation) => this.coordinator.withHostFilePublicationLease(workspaceId, operation) });
+      this.knowledgeImportService = new KnowledgeImportRecoveryService({ native: this.knowledgeImports,
+        readTx: operation => this.store.readExecutionObservationEvidence(operation), checkBinding: knowledgeBinding,
+        readActivationProof: (workspaceId, key) => this.store.readKnowledgeImportDocumentProof(workspaceId, key),
+        assertTrustSourcesCurrent: assertWorkspaceTrustSourcesCurrent,
+        assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source),
+        assertNoExecutionUncertainty: workspaceId => {
+          verifyExecutionIdle(this.executionLockPath);
+          if (this.store.hasUncertainSummaries(workspaceId) || this.store.hasUncertainExecution(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Independent coding or summary producers require their own recovery approval');
+          const imported = this.knowledgeImports.getFrontier(workspaceId);
+          if (imported?.head.state === 'resumed' && (this.store.hasUncertainKnowledgeGeneration(workspaceId) || this.store.hasUncertainKnowledgeFilePublication(workspaceId)))
+            throw new EngineError('CLEANUP_PENDING', 'Successor knowledge producers require independent recovery before activation');
+        },
+        withWorkspaceLease: (workspaceId, operation) => this.coordinator.withRecoveryDecisionLease(workspaceId, signal => {
+          if (this.hostResources.signal.aborted || signal.aborted) throw new EngineError('ENGINE_CLOSED', 'Engine closed during import recovery');
+          verifyExecutionIdle(this.executionLockPath);
+          return operation(signal);
+        }),
+      });
       const knowledgeContext = knowledgePolicy ? {
         policy: knowledgePolicy,
         getProfile: (run: Run) => { const profile = this.profiles.forRun(run.sessionId, run.config); return profile ? { id: profile.id, revision: profile.revision } : undefined; },
@@ -580,7 +609,7 @@ export class MoodcodeEngine {
             if (knowledgeHash(owner.profile) !== knowledgeHash(profile ? { id: profile.id, revision: profile.revision } : null))
               throw new EngineError('KNOWLEDGE_CONTEXT_STALE', 'Knowledge context profile differs from its admitted host configuration');
           },
-          isPaused: workspaceId => this.workspaceKnowledge.getImportPause(workspaceId) !== undefined,
+          isPaused: workspaceId => this.workspaceKnowledge.isImportPaused(workspaceId),
           getDocumentHead: (workspaceId, key) => this.knowledgePublications.getDocumentHead(workspaceId, key),
           getDocumentRevision: (workspaceId, id) => this.knowledgePublications.getDocumentRevision(workspaceId, id),
           getPublication: (workspaceId, id) => this.knowledgePublications.getPublication(workspaceId, id),
@@ -1196,6 +1225,44 @@ export class MoodcodeEngine {
     return this.workspaceTrust.preview(workspaceId, paths);
   }
 
+  private assertKnowledgeImportRecoveryEnabled(): void {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    if (!this.knowledgeImportRecoveryEnabled) throw new EngineError('KNOWLEDGE_IMPORT_RECOVERY_DISABLED', 'Imported knowledge recovery requires explicit host opt-in');
+  }
+  previewWorkspaceKnowledgeImportAcknowledgment(input: Parameters<KnowledgeImportRecoveryService['previewAcknowledgment']>[0]) {
+    this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.previewAcknowledgment(input);
+  }
+  previewWorkspaceKnowledgeImportRecovery(input: Parameters<KnowledgeImportRecoveryService['previewResume']>[0]) {
+    this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.previewResume(input);
+  }
+  previewWorkspaceKnowledgeImportActivation(input: Parameters<KnowledgeImportRecoveryService['previewActivation']>[0]) {
+    this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.previewActivation(input);
+  }
+  previewWorkspaceKnowledgeImportDeactivation(input: Parameters<KnowledgeImportRecoveryService['previewDeactivation']>[0]) {
+    this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.previewDeactivation(input);
+  }
+  acknowledgeWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['acknowledge']>[0]) {
+    try { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.acknowledge(input); } catch (error) { return Promise.reject(error); }
+  }
+  resumeWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['resume']>[0]) {
+    try { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.resume(input); } catch (error) { return Promise.reject(error); }
+  }
+  activateWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['activate']>[0]) {
+    try { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.activate(input); } catch (error) { return Promise.reject(error); }
+  }
+  deactivateWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['deactivate']>[0]) {
+    try { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.deactivate(input); } catch (error) { return Promise.reject(error); }
+  }
+  releaseWorkspaceKnowledgeImportPreview(preview: Parameters<KnowledgeImportRecoveryService['releasePreview']>[0]): void { this.knowledgeImportService.releasePreview(preview); }
+  getWorkspaceKnowledgeImportFrontier(workspaceId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.readExecutionObservationEvidence(() => this.knowledgeImports.getFrontier(workspaceId));
+  }
+  getWorkspaceKnowledgeImportActivation(workspaceId: string, documentKey: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.readExecutionObservationEvidence(() => this.knowledgeImports.getActivation(workspaceId, documentKey));
+  }
+
   setWorkspaceTrust(input: Parameters<WorkspaceTrustService['set']>[0]) {
     if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
     this.store.getWorkspace(input.workspaceId);
@@ -1606,7 +1673,7 @@ export class MoodcodeEngine {
         this.hostResources.abort();
         this.questions.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }

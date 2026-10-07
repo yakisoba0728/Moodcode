@@ -19,6 +19,7 @@ import { validateKnowledgePublicationDatabase } from '../knowledge/publication-a
 import { KNOWLEDGE_FILE_PUBLICATION_TABLES, validateKnowledgeFilePublicationDatabase } from '../knowledge/file-publication-store.js';
 import { KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
 import { DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validateDiagnosticExecutionObservationDatabase } from '../diagnostics/execution-observation-store.js';
+import { KNOWLEDGE_IMPORT_RECOVERY_TABLES, validateKnowledgeImportRecoveryDatabase } from '../knowledge/import-recovery-store.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
 import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
@@ -121,7 +122,9 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     const fileTables = primaryVersion >= 13 ? [...publicationTables, ...KNOWLEDGE_FILE_PUBLICATION_TABLES, KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE] : publicationTables;
     if (primary && primaryVersion >= 14) validateDiagnosticExecutionObservationDatabase(primary, snapshot.check);
     const observationTables = primaryVersion >= 14 ? [...fileTables, ...DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES] : fileTables;
-    const primaryHash = primary ? checkDatabase(primary, primaryVersion, observationTables, snapshot.check) : null;
+    if (primary && primaryVersion >= 15) validateKnowledgeImportRecoveryDatabase(primary, snapshot.check);
+    const importTables = primaryVersion >= 15 ? [...observationTables, ...KNOWLEDGE_IMPORT_RECOVERY_TABLES] : observationTables;
+    const primaryHash = primary ? checkDatabase(primary, primaryVersion, importTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);
     let marker: Marker | null = null;

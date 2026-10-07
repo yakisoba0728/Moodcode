@@ -5,8 +5,8 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 5,
-  "completedWorkItems": 23,
+  "completedFamilies": 6,
+  "completedWorkItems": 24,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -116,7 +116,7 @@
       "title": "지침 신뢰·승인형 프로젝트 기억",
       "priority": "P1",
       "wave": "W3",
-      "status": "in_progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-03a",
@@ -152,16 +152,18 @@
         {
           "id": "MC2-03d",
           "completion": "projection/recovery·expiry·source 삭제·철회·import pause",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
             "engine-phase-two-knowledge-generation.md",
             "engine-phase-two-knowledge-generation-verification.json",
             "engine-phase-two-knowledge-context.md",
-            "engine-phase-two-knowledge-context-verification.json"
+            "engine-phase-two-knowledge-context-verification.json",
+            "engine-phase-two-import-recovery.md",
+            "engine-phase-two-import-recovery-verification.json"
           ]
         }
       ],
-      "notes": "Native tools-free generation, immutable candidates and exact host workspace-document publication remain integrated. DB13 adds separately opted-in real file/skill publication/update/revoke, monotonic physical heads including absent tombstones, original approval and current source/trust/preimage checks, atomic checkpoint/receipt/head CAS, actual common lock intent before effects, duplicate receipts, five SIGKILL boundaries, close joins, native uncertainty and separate exact host ACK/resume. File and guard tables participate archive/recovery logical hashes; DB12 hashes and limits remain unchanged. Imported history is paused and cannot activate or replay effects/providers. MC2-03c is complete; explicit imported-knowledge rebinding/context activation remains MC2-03d. No automatic publication, producer replay or queued input wake."
+      "notes": "Native tool-free generation, exact SQL and physical file/skill publication, whole-budget ContextPlan consumption and explicit imported SQL-document recovery are integrated. DB15 preserves original import provenance, historical uncertainty and false cleanup while adding native exact acknowledgment, separate resume and per-document activation/deactivation bound to current trust, physical identity and sources. Actual native successor uncertainty requires independent recovery; accepted imported owners and immutable history remain separate. Archive/reimport, migration rollback, actual Engine ContextRevision/Attempt consumption and SIGKILL import boundaries were verified. Relocation supports new DB/artifact storage at the unchanged canonical physical workspace root; arbitrary workspace/source mapping and automatic imported skill activation remain unsupported. No replay, queued wake or invented producer/cleanup authority."
     },
     {
       "id": "MC2-04",

@@ -63,7 +63,9 @@ Instruction source cache는 최대 128개이며 idle entry를 교체한다. 진�
 | `captureWorkspaceKnowledgeTarget(workspaceId, path)` | 실제 absent 파일 preimage; `knowledgeFilePublication:true`에서는 기존 파일·철회된 파일의 native revision과 SHA/identity를 함께 캡처 |
 | `prepareWorkspaceKnowledgeGeneration(input)` | 원본 projection·현재 trust/source/target을 다시 검사해 pending plan 저장 |
 
-위 계획 저장은 모델 호출이 아니다. `knowledgeGeneration:true`에서 원본 projection의 실제 tools-free 생성·usage·cleanup·immutable candidate를 기록한다. 문서 게시와 문맥은 [generation](engine-phase-two-knowledge-generation.md)·[publication](engine-phase-two-knowledge-publication.md)·[context](engine-phase-two-knowledge-context.md) 계약을, 물리 파일 게시와 recovery는 [파일 게시](engine-phase-two-file-publication.md) 계약을 따른다. Imported knowledge의 명시적 재결속·activation은 MC2-03d 미완료다.
+위 계획 저장은 모델 호출이 아니다. `knowledgeGeneration:true`에서 원본 projection의 실제 tools-free 생성·usage·cleanup·immutable candidate를 기록한다. 문서 게시와 문맥은 [generation](engine-phase-two-knowledge-generation.md)·[publication](engine-phase-two-knowledge-publication.md)·[context](engine-phase-two-knowledge-context.md) 계약을, 물리 파일 게시와 recovery는 [파일 게시](engine-phase-two-file-publication.md) 계약을 따른다. 아카이브로 가져온 SQL 문서의 명시적 복구·현재 결속·문맥 활성화는 [import recovery](engine-phase-two-import-recovery.md) 계약을 따른다.
+
+`knowledgeImportRecovery:true`에서 `previewWorkspaceKnowledgeImportAcknowledgment`와 `acknowledgeWorkspaceKnowledgeImport`, `previewWorkspaceKnowledgeImportRecovery`와 `resumeWorkspaceKnowledgeImport`를 별도로 호출한다. 현재 결속에 대한 새 workspace trust를 설정한 뒤 `previewWorkspaceKnowledgeImportActivation({workspaceId,documentKey})`와 `activateWorkspaceKnowledgeImport`로 정확한 SQL 문서 하나를 활성화한다. 해제는 `previewWorkspaceKnowledgeImportDeactivation`과 `deactivateWorkspaceKnowledgeImport`다. 모든 mutation은 `{workspaceId,requestId,approved:true,preview,reason?,signal?}`를 받으며 원래 preview 객체가 필요하다. 사용하지 않는 preview는 `releaseWorkspaceKnowledgeImportPreview`로 해제한다. `getWorkspaceKnowledgeImportFrontier`와 `getWorkspaceKnowledgeImportActivation`은 읽기 전용이다. Resume는 문서 활성화나 기존 session/inbox 재개를 수행하지 않는다. 원래 workspace의 canonical root와 device/inode가 같은 새 DB/artifact 결속만 지원한다.
 
 ## child 작업과 Git workspace
 

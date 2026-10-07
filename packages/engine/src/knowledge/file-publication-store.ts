@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isImportedKnowledgeUncertaintyResolved } from "./import-recovery-store.js";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
@@ -2039,7 +2040,7 @@ function fileFrontier(
     ) as KnowledgeFilePublicationRecord;
     if (
       owner.state === "uncertain" &&
-      acknowledged.get(owner.id)?.has(owner.sha256)
+      (acknowledged.get(owner.id)?.has(owner.sha256) || isImportedKnowledgeUncertaintyResolved(db, workspaceId, "file", owner.id, owner.sha256))
     )
       continue;
     owners.push(owner);
@@ -2062,16 +2063,10 @@ export function hasKnowledgeFilePublicationBlocker(
     "workspace_id=?",
     [workspaceId],
   );
-  if (
-    barrier &&
-    (
-      decode(
-        barrier,
-        "knowledge_file_workspace_barriers",
-      ) as KnowledgeFileWorkspaceBarrier
-    ).state !== "clear"
-  )
-    return true;
+  if (barrier) {
+    const value = decode(barrier, "knowledge_file_workspace_barriers") as KnowledgeFileWorkspaceBarrier;
+    if (value.state !== "clear" && !isImportedKnowledgeUncertaintyResolved(db, workspaceId, "file-barrier", value.id, value.sha256)) return true;
+  }
   return fileFrontier(db, workspaceId).owners.length > 0;
 }
 

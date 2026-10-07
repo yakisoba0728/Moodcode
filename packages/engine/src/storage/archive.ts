@@ -22,6 +22,8 @@ import { validateKnowledgePublicationDatabase } from '../knowledge/publication-a
 import { KNOWLEDGE_FILE_PUBLICATION_TABLES, validateKnowledgeFilePublicationDatabase } from '../knowledge/file-publication-store.js';
 import { KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
 import { DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validateDiagnosticExecutionObservationDatabase } from '../diagnostics/execution-observation-store.js';
+import { KNOWLEDGE_IMPORT_RECOVERY_TABLES, validateKnowledgeImportRecoveryDatabase } from '../knowledge/import-recovery-store.js';
+import { knowledgeHash } from '../knowledge/validation.js';
 import { SqliteStore } from './index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
 import { attachments as documentAttachments, sameAttachment as sameDocumentAttachment, validateDocumentBytes } from '../documents/validation.js';
@@ -195,7 +197,12 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
       try { validateDiagnosticExecutionObservationDatabase(db, check); }
       catch { fail('ARCHIVE_EXECUTION_OBSERVATION_INVALID', 'Archived original execution observations or effect epochs are invalid'); }
     }
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 14 ? [...fileTables, ...DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES] : fileTables, check) };
+    const observationTables = schemaVersion >= 14 ? [...fileTables, ...DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES] : fileTables;
+    if (schemaVersion >= 15) {
+      try { validateKnowledgeImportRecoveryDatabase(db, check); }
+      catch { fail('ARCHIVE_KNOWLEDGE_IMPORT_INVALID', 'Archived imported knowledge recovery decisions or activation lineage are invalid'); }
+    }
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 15 ? [...observationTables, ...KNOWLEDGE_IMPORT_RECOVERY_TABLES] : observationTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };
@@ -631,7 +638,7 @@ export async function importEngineArchive(options: ImportEngineArchiveOptions): 
     const primary = archive.manifest.databases.find(item => item.role === 'primary')!;
     const artifactDir = join(destination, 'data', 'artifacts');
     const store = new SqliteStore(join(staging, databaseFiles.primary)); let sessionsPaused = 0, worktreesRelocated = 0,childSessionsPaused=0;
-    try { for (const workspace of store.listWorkspaces()) { store.pauseImportedWorkspaceKnowledge(workspace.id, archive.manifestSha256); for (const session of store.listSessions(workspace.id)) {
+    try { for (const workspace of store.listWorkspaces()) { store.pauseImportedWorkspaceKnowledge(workspace.id, archive.manifestSha256, { importId: randomUUID(), sourcePrimaryLogicalSha256: primary.logicalHash, sourceStorageBindingSha256: knowledgeHash(historicalHost(archive.manifest)) }); for (const session of store.listSessions(workspace.id)) {
       const document = store.getSessionDocument(session.id, 'engine.worktrees');
       if (document) {
         const records = document.data.records;
@@ -654,7 +661,7 @@ export async function importEngineArchive(options: ImportEngineArchiveOptions): 
     finally { await store.closeAsync(); }
     for(const member of archive.manifest.documentAudit?.children??[]) {
       check();const child=new SqliteStore(join(staging,member.database.file));
-      try {for(const workspace of child.listWorkspaces()){child.pauseImportedWorkspaceKnowledge(workspace.id,archive.manifestSha256);for(const session of child.listSessions(workspace.id)){child.setSessionPaused(session.id,true,'recovery_required');childSessionsPaused++;}}}
+      try {for(const workspace of child.listWorkspaces()){child.pauseImportedWorkspaceKnowledge(workspace.id,archive.manifestSha256,{importId:randomUUID(),sourcePrimaryLogicalSha256:member.database.logicalHash,sourceStorageBindingSha256:knowledgeHash({database:member.record.binding.physical.database,artifacts:member.record.binding.physical.artifacts})});for(const session of child.listSessions(workspace.id)){child.setSessionPaused(session.id,true,'recovery_required');childSessionsPaused++;}}}
       finally {await child.closeAsync();}
     }
     const documentAuditCoverage=archive.manifest.documentAudit?.coverage??'unchecked';

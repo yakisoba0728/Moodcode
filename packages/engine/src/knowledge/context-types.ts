@@ -88,6 +88,17 @@ export interface KnowledgeContextDocumentManifest {
   readonly candidateExpiresAt: string;
   readonly planExpiresAt: string;
   readonly trustExpiresAt: string | null;
+  /** Separate current authority; original producer and publication fields above stay historical. */
+  readonly importActivation?: {
+    readonly activationId: string;
+    readonly activationSha256: string;
+    readonly frontierId: string;
+    readonly frontierSha256: string;
+    readonly resumeDecisionSha256: string;
+    readonly originalBindingSha256: string;
+    readonly currentBindingSha256: string;
+    readonly expiresAt: string;
+  };
 }
 /** Only these actual returned supplemental messages may be consumed by ContextPlan. */
 export interface PreparedKnowledgeContribution {

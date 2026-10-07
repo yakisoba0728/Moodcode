@@ -321,6 +321,21 @@ test('DB13 to DB14 preserves every historical record, installs empty original ex
   const after = databaseContents(db); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 14)); assert.deepEqual(databaseContents(db), after);
 });
 
+test('DB14 to DB15 retains historical pause and ownership, installs empty import authority, and rolls back atomically', t => {
+  const { db } = fixture(t); db.exec('PRAGMA foreign_keys=ON'); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 14));
+  const before = databaseContents(db);
+  const failure = [...DATABASE_MIGRATIONS.slice(0, 14), { version: 15, name: 'intentional-v15-failure', apply(database: DatabaseSync) { DATABASE_MIGRATIONS[14]!.apply(database); throw new Error('DB15 rollback'); } }];
+  assert.throws(() => migrateDatabase(db, failure), /DB15 rollback/u); assert.deepEqual(databaseContents(db), before);
+  migrateDatabase(db); assert.equal(databaseVersion(db), 15);
+  for (const entry of before.tables) assert.deepEqual(db.prepare(`SELECT * FROM "${String(entry.name)}" ORDER BY rowid`).all(), entry.rows);
+  for (const table of ['knowledge_import_frontiers','knowledge_import_frontier_heads','knowledge_import_recovery_decisions','knowledge_import_document_activations','knowledge_import_document_activation_heads']) {
+    assert.equal(db.prepare(`SELECT count(*) AS count FROM ${table}`).get()!.count, 0);
+    assert.ok(db.prepare(`PRAGMA foreign_key_list(${table})`).all().every(row => !['sessions','runs','tools','checkpoints','provider_attempts'].includes(String(row.table))));
+  }
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
+  const after = databaseContents(db); migrateDatabase(db); assert.deepEqual(databaseContents(db), after);
+});
+
 test('DB11 to DB12 adds workspace document CAS without fabricating legacy approval or publication and rolls back atomically', t => {
   const { db } = fixture(t); db.exec('PRAGMA foreign_keys=ON'); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 11));
   const before = databaseContents(db), legacy = ['workspaces', 'sessions', 'runs', 'messages', 'events', 'knowledge_generation_plans', 'knowledge_candidates', 'knowledge_generations', 'knowledge_generation_attempts'];

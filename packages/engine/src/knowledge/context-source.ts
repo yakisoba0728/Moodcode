@@ -18,6 +18,7 @@ import type {
   KnowledgeGenerationRecord,
 } from "./generation-types.js";
 import { validateKnowledgeGenerationArchiveRow } from "./generation-store.js";
+import { readActiveKnowledgeImportActivation } from "./import-recovery-store.js";
 import {
   validateKnowledgePublicationArchiveRow,
   workspaceDocumentHeadId,
@@ -549,7 +550,32 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
           omission(key, "revoked");
           continue;
         }
-        if (!same(document.binding, binding)) {
+        const imported = same(document.binding, binding)
+          ? undefined
+          : readActiveKnowledgeImportActivation(
+              this.#db,
+              workspaceId,
+              key,
+              (table, id) => {
+                preflight(table, id);
+              },
+            );
+        if (
+          !same(document.binding, binding) &&
+          (!imported || !same(imported.binding, binding))
+        ) {
+          omission(key, "stale");
+          continue;
+        }
+        if (
+          imported &&
+          (imported.proof.documentRevisionId !== document.id ||
+            imported.proof.documentSha256 !== document.sha256 ||
+            imported.proof.headRevision !== head.revision ||
+            imported.proof.headSha256 !== head.sha256 ||
+            imported.proof.documentKey !== key ||
+            !same(imported.proof.originalBinding, document.binding))
+        ) {
           omission(key, "stale");
           continue;
         }
@@ -633,7 +659,7 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
           publication.updatedAt !== document.createdAt ||
           Date.parse(publication.updatedAt) >=
             Date.parse(publication.expiresAt) ||
-          !same(publication.binding, binding) ||
+          !same(publication.binding, document.binding) ||
           !same(publication.provenance, document.provenance) ||
           receipt.publicationId !== publication.id ||
           receipt.documentRevisionId !== document.id ||
@@ -704,13 +730,21 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
             plan.binding,
             generation.binding,
             originalTrust.binding,
-          ].every((v) => same(v, binding))
+          ].every((v) => same(v, document.binding))
         )
           fail(
             "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
             "Selected data does not describe its exact approved postimage and historical completed producer",
           );
         const now = this.now();
+        if (
+          imported &&
+          (imported.proof.expiresAt === null ||
+            Date.parse(imported.proof.expiresAt) <= now)
+        ) {
+          omission(key, "expired");
+          continue;
+        }
         if (
           Date.parse(candidate.expiresAt) <= now ||
           Date.parse(plan.expiresAt) <= now ||
@@ -793,7 +827,12 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
           );
         if (
           currentTrust.decision !== "allow" ||
-          currentTrust.sha256 !== originalTrust.sha256
+          !same(currentTrust.binding, binding) ||
+          (imported
+            ? currentTrust.id !== imported.proof.currentTrustId ||
+              currentTrust.revision !== imported.proof.currentTrustRevision ||
+              currentTrust.sha256 !== imported.proof.currentTrustSha256
+            : currentTrust.sha256 !== originalTrust.sha256)
         ) {
           omission(key, "untrusted");
           continue;
@@ -870,7 +909,35 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
           candidateExpiresAt: candidate.expiresAt,
           planExpiresAt: plan.expiresAt,
           trustExpiresAt: currentTrust.expiresAt,
+          ...(imported
+            ? {
+                importActivation: {
+                  activationId: imported.id,
+                  activationSha256: imported.sha256,
+                  frontierId: imported.frontierId,
+                  frontierSha256: imported.frontierSha256,
+                  resumeDecisionSha256: imported.resumeDecisionSha256,
+                  originalBindingSha256: knowledgeHash(document.binding),
+                  currentBindingSha256: knowledgeHash(binding),
+                  expiresAt: imported.proof.expiresAt!,
+                },
+              }
+            : {}),
         };
+        if (
+          imported &&
+          (imported.proof.publicationId !== publication.id ||
+            imported.proof.publicationSha256 !== publication.sha256 ||
+            imported.proof.receiptId !== receipt.id ||
+            imported.proof.receiptSha256 !== receipt.sha256 ||
+            imported.proof.provenanceSha256 !==
+              knowledgeHash(publication.provenance) ||
+            imported.proof.sourceManifestSha256 !==
+              knowledgeHash(candidate.source))
+        ) {
+          omission(key, "stale");
+          continue;
+        }
         const next = { manifest, body: document.body };
         if (
           !only &&
@@ -903,7 +970,9 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
           Date.parse(manifest.candidateExpiresAt) <= finalNow ||
           Date.parse(manifest.planExpiresAt) <= finalNow ||
           (manifest.trustExpiresAt !== null &&
-            Date.parse(manifest.trustExpiresAt) <= finalNow)
+            Date.parse(manifest.trustExpiresAt) <= finalNow) ||
+          (manifest.importActivation !== undefined &&
+            Date.parse(manifest.importActivation.expiresAt) <= finalNow)
         ) {
           omission(manifest.documentKey, "expired");
           selected.splice(index, 1);

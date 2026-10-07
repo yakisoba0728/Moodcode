@@ -51,6 +51,10 @@ import { KnowledgeContextSource } from '../knowledge/context-source.js';
 import { DiagnosticExecutionObservationStorage } from '../diagnostics/execution-observation-store.js';
 import type { DiagnosticExecutionObservationPorts } from '../diagnostics/execution-observation-types.js';
 import type { KnowledgeContextSourcePorts } from '../knowledge/context-types.js';
+import { readKnowledgeImportDocumentProof } from '../knowledge/import-document-proof.js';
+import { KnowledgeImportRecoveryStorage } from '../knowledge/import-recovery-store.js';
+import type { KnowledgeImportRecoveryStoragePorts } from '../knowledge/import-recovery-types.js';
+import { knowledgeHash, validateBinding } from '../knowledge/validation.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
@@ -138,6 +142,7 @@ export class SqliteStore implements SessionEngineStore {
   private knowledgeGenerationRecords?: KnowledgeGenerationStorage;
   private knowledgePublicationRecords?: KnowledgePublicationStorage;
   private knowledgeFilePublicationRecords?: KnowledgeFilePublicationStorage;
+  private knowledgeImportRecoveryRecords?: KnowledgeImportRecoveryStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -237,6 +242,11 @@ export class SqliteStore implements SessionEngineStore {
   }
   /** One coherent primary snapshot for native trajectory and execution provenance. */
   readExecutionObservationEvidence<T>(operation: () => T): T { return this.evidenceRead(operation); }
+  /** Original immutable publication and current trust, selected from bounded native primary rows. */
+  readKnowledgeImportDocumentProof(workspaceId: string, documentKey: string) {
+    this.assertOpen();
+    return this.evidenceRead(() => readKnowledgeImportDocumentProof(this.db, workspaceId, documentKey));
+  }
   private notify(sessionId: string): void {
     for (const waiter of [...this.waiters]) if (waiter.sessionId === sessionId) waiter.wake();
   }
@@ -544,17 +554,48 @@ export class SqliteStore implements SessionEngineStore {
     this.assertOpen();
     return new KnowledgeContextSource(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), readTx: operation => this.evidenceRead(operation) });
   }
+  createKnowledgeImportRecoveryStorage(ports: Omit<KnowledgeImportRecoveryStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgeImportRecoveryStorage {
+    this.assertOpen();
+    if (this.knowledgeImportRecoveryRecords) throw new EngineError('KNOWLEDGE_IMPORT_ALREADY_CONFIGURED', 'Native imported knowledge already has an original host recovery owner');
+    return this.knowledgeImportRecoveryRecords = new KnowledgeImportRecoveryStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+  }
   createDiagnosticExecutionObservationStorage(ports: Omit<DiagnosticExecutionObservationPorts, 'writeTx'>): DiagnosticExecutionObservationStorage {
     this.assertOpen();
     if (this.executionObservationRecords) throw new EngineError('EXECUTION_OBSERVATION_ALREADY_CONFIGURED', 'Native execution observations already have an original host owner');
     return this.executionObservationRecords = new DiagnosticExecutionObservationStorage(this.db, { ...ports, writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
-  pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string): void {
+  pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string, origin?: { readonly importId: string; readonly sourcePrimaryLogicalSha256: string; readonly sourceStorageBindingSha256: string }): void {
     this.transaction(() => {
-      this.getWorkspace(workspaceId);
+      const workspace = this.getWorkspace(workspaceId);
+      if (origin) {
+        // Imported runtime capabilities are absent. Persist the ordinary native
+        // interrupted-owner transition before pinning recovery; this performs
+        // no provider dispatch, target write, marker removal or source rebinding.
+        const denied = (): never => { throw new EngineError('KNOWLEDGE_IMPORT_PAUSED', 'Archive quarantine cannot dispatch or approve an effect'); };
+        const base = { writeTx: <T>(operation: () => T): T => operation(), getWorkspace: (id: string) => this.getWorkspace(id), checkBinding: denied };
+        new KnowledgeGenerationStorage(this.db, { ...base, getPlan: denied, assertPlanCurrent: denied }).recoverInterruptedOwners();
+        new KnowledgePublicationStorage(this.db, { ...base, getCandidate: denied, assertCommitCurrent: denied }).recoverInterruptedOwners();
+        const guardHeaders = this.db.prepare("SELECT g.publication_id FROM knowledge_file_execution_guards g JOIN knowledge_file_publications p ON p.workspace_id=g.workspace_id AND p.id=g.publication_id WHERE p.state='prepared' ORDER BY g.id LIMIT 129").all();
+        if (guardHeaders.length > 128) throw new EngineError('KNOWLEDGE_IMPORT_LIMIT', 'Imported physical effect guards exceed the native quarantine cap');
+        new KnowledgeFilePublicationStorage(this.db, { ...base, getCandidate: denied, assertCommitCurrent: denied }).recoverInterruptedOwners(guardHeaders.map(row => String(row.publication_id)));
+      }
       const record = validateKnowledgeArchiveRow({ table: 'knowledge_import_pauses', key: workspaceId, workspaceId, data: { workspaceId, archiveSha256, createdAt: new Date().toISOString(), state: 'paused' } });
       this.db.prepare('INSERT INTO knowledge_import_pauses(id,workspace_id,data) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(workspaceId, workspaceId, JSON.stringify(record.data));
+      if (origin) {
+        // The physical workspace can be absent at import. Preserve an actual
+        // historical root pin when available instead of inventing old inode proof.
+        const trustHead = this.db.prepare('SELECT revision_id FROM workspace_trust_heads WHERE workspace_id=?').get(workspaceId);
+        const trust = trustHead ? this.db.prepare('SELECT id,workspace_id,length(CAST(data AS BLOB)) AS bytes,substr(data,1,65537) AS data FROM workspace_trust_revisions WHERE id=? AND workspace_id=?').get(String(trustHead.revision_id), workspaceId) : undefined;
+        if (trust && (Number(trust.bytes) < 1 || Number(trust.bytes) > 65_536)) throw new EngineError('KNOWLEDGE_IMPORT_LIMIT', 'Historical workspace binding exceeds the import read cap');
+        const raw = trust ? validateKnowledgeArchiveRow({ table: 'workspace_trust_revisions', key: trust.id, workspaceId, data: JSON.parse(String(trust.data)) }).data as import('../knowledge/types.js').TrustRevision : undefined;
+        const originalBinding = raw ? validateBinding(raw.binding) : null;
+        if (originalBinding && originalBinding.root !== workspace.root) throw new EngineError('KNOWLEDGE_IMPORT_BINDING_MISMATCH', 'Historical workspace root differs from the imported workspace');
+        const native = new KnowledgeImportRecoveryStorage(this.db, { writeTx: operation => operation(), getWorkspace: id => this.getWorkspace(id),
+          checkBinding: () => { throw new EngineError('KNOWLEDGE_IMPORT_PAUSED', 'Archive seeding grants no physical binding authority'); },
+          assertCommitCurrent: () => { throw new EngineError('KNOWLEDGE_IMPORT_PAUSED', 'Archive seeding grants no recovery approval'); } });
+        native.seedImport({ workspaceId, archiveSha256, ...origin, originalBinding, pauseSha256: knowledgeHash(record.data) });
+      }
     });
   }
   putSessionDocument(sessionId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument { return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data); }

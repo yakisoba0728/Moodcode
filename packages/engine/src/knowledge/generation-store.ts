@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isImportedKnowledgeUncertaintyResolved } from "./import-recovery-store.js";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import type {
   KnowledgeGenerationPlan,
@@ -690,16 +691,10 @@ export function hasKnowledgeGenerationBlocker(
       "SELECT * FROM knowledge_generation_workspace_barriers WHERE workspace_id=?",
     )
     .get(workspaceId) as Row | undefined;
-  if (
-    barrier &&
-    (
-      decode(
-        barrier,
-        "knowledge_generation_workspace_barriers",
-      ) as KnowledgeGenerationWorkspaceBarrier
-    ).state !== "clear"
-  )
-    return true;
+  if (barrier) {
+    const value = decode(barrier, "knowledge_generation_workspace_barriers") as KnowledgeGenerationWorkspaceBarrier;
+    if (value.state !== "clear" && !isImportedKnowledgeUncertaintyResolved(db, workspaceId, "generation-barrier", value.workspaceId, value.sha256)) return true;
+  }
   const rows = boundedRows(
     db,
     "SELECT * FROM knowledge_generations WHERE workspace_id=? AND state IN ('prepared','dispatched','streaming','output-finished','uncertain') ORDER BY id LIMIT 129",
@@ -710,7 +705,7 @@ export function hasKnowledgeGenerationBlocker(
       row,
       "knowledge_generations",
     ) as KnowledgeGenerationRecord;
-    return ACTIVE.has(generation.state) || !acknowledged(db, generation);
+    return ACTIVE.has(generation.state) || (!acknowledged(db, generation) && !isImportedKnowledgeUncertaintyResolved(db, workspaceId, "generation", generation.id, generation.sha256));
   });
 }
 
@@ -1917,7 +1912,7 @@ export class KnowledgeGenerationStorage {
         (row) =>
           decode(row, "knowledge_generations") as KnowledgeGenerationRecord,
       )
-      .filter((g) => ACTIVE.has(g.state) || !acknowledged(this.#db, g));
+      .filter((g) => ACTIVE.has(g.state) || (!acknowledged(this.#db, g) && !isImportedKnowledgeUncertaintyResolved(this.#db, workspaceId, "generation", g.id, g.sha256)));
     let readBytes = rows.reduce((n, row) => n + Buffer.byteLength(row.data), 0);
     const attempts: KnowledgeGenerationAttempt[] = [];
     for (const generation of generations)
