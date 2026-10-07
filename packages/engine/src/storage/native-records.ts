@@ -338,8 +338,10 @@ export class NativeExecutionStorage {
     const turns = this.database.prepare("SELECT data FROM session_turns WHERE state IN ('created','streaming','awaiting_tools') ORDER BY rowid").all();
     for (const row of turns) {
       const previous = validateTurnRecord(JSON.parse(String(row.data)));
-      const turn = validateTurnRecord({ ...previous, state: ambiguous.has(previous.id) ? 'uncertain' : 'interrupted', completedAt: now,
-        ...(ambiguous.has(previous.id) ? { uncertainty: { kind: 'provider_dispatch', message: 'Turn contains a provider dispatch with an unknown outcome', requiresRecovery: true } } : {}) });
+      const mcp = this.database.prepare("SELECT 1 FROM mcp_executions WHERE turn_id=? AND session_id=? AND run_id=? AND (state IN ('dispatch-intent','uncertain') OR transport_cleanup_confirmed=0) LIMIT 1").get(previous.id,previous.sessionId,previous.runId);
+      const unknown = !!mcp || ambiguous.has(previous.id);
+      const turn = validateTurnRecord({ ...previous, state: unknown ? 'uncertain' : 'interrupted', completedAt: now,
+        ...(unknown ? { uncertainty: { kind: mcp ? 'tool_effect' : 'provider_dispatch', message: mcp ? 'Turn owns a MCP call without a settled request outcome or local cleanup; no automatic retry is safe' : 'Turn contains a provider dispatch with an unknown outcome', requiresRecovery: true } } : {}) });
       this.database.prepare('UPDATE session_turns SET state=?,data=? WHERE id=?').run(turn.state, JSON.stringify(turn), turn.id);
       this.native.appendEvent(turn.sessionId, `turn.${turn.state}`, { turn: storedJson(turn) }, { runId: turn.runId, turnId: turn.id });
       affectedSessions.add(turn.sessionId);

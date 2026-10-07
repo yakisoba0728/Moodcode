@@ -7,6 +7,7 @@ import { SUMMARY_ATTEMPT_SCHEMA } from './summary-attempts.js';
 import { SUMMARY_RECOVERY_SCHEMA, SUMMARY_RECOVERY_PROOF_SCHEMA } from '../recovery/summary.js';
 import { ATTEMPT_CLEANUP_SCHEMA } from './attempt-cleanup.js';
 import { PROVIDER_RECOVERY_SCHEMA } from '../recovery/provider.js';
+import { MCP_EXECUTION_SCHEMA } from './mcp-executions.js';
 
 export interface DatabaseMigration {
   /** Append-only, consecutive primary database version, starting at 1. */
@@ -60,6 +61,7 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
   Object.freeze({ version: 8, name: 'bounded-session-document-anchor', apply: (database: DatabaseSync) => {
     database.exec("CREATE INDEX model_session_latest_document ON messages(session_id,ordinal DESC) WHERE json_extract(data,'$.role')='user' AND json_type(data,'$.documents')='array' AND json_array_length(data,'$.documents')>0");
   } }),
+  Object.freeze({ version: 9, name: 'durable-mcp-tools-call-execution', apply: (database: DatabaseSync) => { database.exec(MCP_EXECUTION_SCHEMA); } }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;
 

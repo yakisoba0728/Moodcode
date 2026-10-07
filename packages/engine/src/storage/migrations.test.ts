@@ -253,7 +253,19 @@ test('failed initial schema creation rolls back partial tables and permits a lat
   const before=databaseContents(db),messages=db.prepare('SELECT * FROM messages ORDER BY ordinal').all();
   const failed=[...DATABASE_MIGRATIONS.slice(0,7),{version:8,name:'intentional-v8-failure',apply(database:DatabaseSync){DATABASE_MIGRATIONS[7]!.apply(database);throw new Error('DB8 rollback');}}];
   assert.throws(()=>migrateDatabase(db,failed),/DB8 rollback/u);assert.equal(databaseVersion(db),7);assert.deepEqual(databaseContents(db),before);
-  migrateDatabase(db);assert.equal(databaseVersion(db),8);assert.deepEqual(db.prepare('SELECT * FROM messages ORDER BY ordinal').all(),messages);
+  migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,8));assert.equal(databaseVersion(db),8);assert.deepEqual(db.prepare('SELECT * FROM messages ORDER BY ordinal').all(),messages);
   const plan=db.prepare("EXPLAIN QUERY PLAN SELECT ordinal FROM messages WHERE session_id=? AND json_extract(data,'$.role')='user' AND json_type(data,'$.documents')='array' AND json_array_length(data,'$.documents')>0 ORDER BY ordinal DESC LIMIT 1").all('session');
   assert.ok(plan.some(row=>String(row.detail).includes('model_session_latest_document')));assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+});
+
+test('DB8 to DB9 installs empty MCP dispatch receipts without inferring legacy remote observations',t=>{
+  const {db}=fixture(t);db.exec('PRAGMA foreign_keys=ON');migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,8));
+  const before=databaseContents(db),events=db.prepare('SELECT * FROM events ORDER BY session_id,seq').all(),native=db.prepare('SELECT * FROM session_events ORDER BY session_id,seq').all();
+  const failure=[...DATABASE_MIGRATIONS.slice(0,8),{version:9,name:'intentional-v9-failure',apply(database:DatabaseSync){DATABASE_MIGRATIONS[8]!.apply(database);throw new Error('DB9 rollback');}}];
+  assert.throws(()=>migrateDatabase(db,failure),/DB9 rollback/u);assert.equal(databaseVersion(db),8);assert.deepEqual(databaseContents(db),before);
+  migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,9));assert.equal(databaseVersion(db),9);assert.equal(db.prepare('SELECT count(*) AS count FROM mcp_executions').get()!.count,0);
+  assert.deepEqual(db.prepare('SELECT * FROM events ORDER BY session_id,seq').all(),events);assert.deepEqual(db.prepare('SELECT * FROM session_events ORDER BY session_id,seq').all(),native);
+  const plan=db.prepare("EXPLAIN QUERY PLAN SELECT 1 FROM mcp_executions WHERE workspace_id=? AND (state IN ('dispatch-intent','uncertain') OR transport_cleanup_confirmed=0) LIMIT 1").all('workspace');
+  assert.ok(plan.some(row=>String(row.detail).includes('mcp_executions_workspace_blocked')));assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+  const after=databaseContents(db);migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,9));assert.deepEqual(databaseContents(db),after);
 });

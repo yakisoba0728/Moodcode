@@ -3,7 +3,12 @@ import { boundedJson, JsonBudgetError } from '../artifacts/validation.js';
 export type McpProtocolVersion = '2026-07-28' | '2025-11-25';
 export interface JsonRpcRequest { jsonrpc: '2.0'; id?: number | string; method: string; params?: JsonObject }
 export type JsonRpcMessage = JsonRpcRequest | { jsonrpc: '2.0'; id: number | string; result: JsonValue } | { jsonrpc: '2.0'; id: number | string; error: { code: number; message: string; data?: JsonValue } };
-export interface McpTransport { readonly kind: 'stdio' | 'http'; start(onMessage: (message: JsonRpcMessage) => void, onClose: (error?: EngineError) => void): Promise<void>; send(message: JsonRpcMessage, signal?: AbortSignal, headers?: Readonly<Record<string, string>>): Promise<void>; cancel(requestId: number): Promise<void>; close(): Promise<void>; }
+export interface McpTransportSendObservation { beforeSend(): void }
+export interface McpTransport { readonly kind: 'stdio' | 'http'; readonly dispatchBoundary?: 'before-send-v1'; start(onMessage: (message: JsonRpcMessage) => void, onClose: (error?: EngineError) => void): Promise<void>; send(message: JsonRpcMessage, signal?: AbortSignal, headers?: Readonly<Record<string, string>>, observation?: McpTransportSendObservation): Promise<void>; cancel(requestId: number): Promise<void>; close(): Promise<void>; }
+const dispatchTransports = new WeakMap<McpTransport, McpTransport['send']>();
+/** Internal builtin brand: a custom flag or overridden method cannot assert no-send proof. */
+export function markMcpDispatchTransport(transport: McpTransport, implementation: McpTransport['send']): void { dispatchTransports.set(transport, implementation); }
+export function hasMcpDispatchObservation(transport: McpTransport): boolean { return dispatchTransports.get(transport) === transport.send; }
 export const MCP_LIMITS = Object.freeze({ maxMessageBytes: 1024 * 1024, maxPending: 32, requestTimeoutMs: 10_000, maxTools: 128, maxResources: 256, maxPages: 8 });
 export function object(value: unknown): value is JsonObject { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 export function cappedJson(value: unknown, limit = MCP_LIMITS.maxMessageBytes): JsonValue { try { return boundedJson(value, limit); } catch (error) { if (error instanceof JsonBudgetError) throw new EngineError('MCP_MESSAGE_LIMIT', 'MCP JSON message exceeds its byte budget'); throw new EngineError('MCP_INVALID_MESSAGE', 'MCP JSON message is invalid'); } }

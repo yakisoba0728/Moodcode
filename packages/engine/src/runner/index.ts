@@ -16,6 +16,7 @@ import { ACTIVE_PREFIX_MEMORY_PREFIX } from '../context/active-prefix.js';
 import { BudgetAccount } from '../config/budgets.js';
 import { validateToolResultEnvelope } from '@moodcode/contracts/validation';
 import { executionRecords, TurnExecutor } from './turn-executor.js';
+import { createMcpExecutionObserver, type ApprovedMcpToolOwner } from './mcp-execution-observer.js';
 import type { ToolCatalogue } from '../tools/runtime/index.js';
 import { bindCheckpointArtifacts } from '../artifacts/result.js';
 import type { ChildBudget } from '../child-tasks/index.js';
@@ -804,12 +805,17 @@ export class RunCoordinator implements CoordinatorPort {
     };
   }
 
-  private async toolOperation<T>(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], execute: boolean, operation: (context: ToolContext) => Promise<T>): Promise<T> {
+  private async toolOperation<T>(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], execute: boolean, operation: (context: ToolContext) => Promise<T>, approval?: ApprovedMcpToolOwner['approval']): Promise<T> {
     const timeout = new AbortController();
     const signal = AbortSignal.any([owner.abort.signal, timeout.signal]);
     const timer = setTimeout(() => timeout.abort(new EngineError('TOOL_TIMEOUT', `Tool ${record.name} exceeded its execution timeout`)), owner.run.config.limits.toolTimeoutMs);
     let active = execute;
     const context = this.context(owner, record, workspace, signal, () => active);
+    if (execute) context.mcpExecutionObserver = createMcpExecutionObserver(this.options.store, executionRecords(this.options.store), {
+      sessionId: owner.run.sessionId, workspaceId: workspace.id, runId: owner.run.id, toolCallId: record.id, toolName: record.name,
+      ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}),
+      ...(approval ? { approval } : {}),
+    });
     // Command cleanup includes process-group termination and an after-image capture.
     const cleanupGraceMs = execute && record.name === 'run_command' ? 5_000 : CLEANUP_GRACE_MS;
     try { return await abortable(() => operation(context), signal, `Tool ${record.name}`, cleanupGraceMs); }
@@ -839,6 +845,7 @@ export class RunCoordinator implements CoordinatorPort {
         owner.readonlyCalls.add(key);
       }
       const effectful = tool.effectClass !== undefined && !['read', 'state'].includes(tool.effectClass) || EFFECT_TOOLS.has(call.name);
+      let approval: ApprovedMcpToolOwner['approval'];
       if (owner.run.config.mode === 'plan' && (prepared.requiresApproval || effectful)) {
         return this.toolResult(owner, record, call, this.toolError(owner, 'PLAN_MODE_WRITE_BLOCKED', 'Plan mode does not allow this tool effect'), 'denied');
       }
@@ -856,12 +863,13 @@ export class RunCoordinator implements CoordinatorPort {
         if (!matches(current) || !matches(decision)) {
           return this.toolResult(owner, record, call, this.toolError(owner, 'APPROVAL_DENIED', 'Tool approval was denied, expired, or did not match the prepared request'), 'denied');
         }
+        approval = Object.freeze({ id: current.id, fingerprint: current.fingerprint });
       }
       this.assertLive(owner);
       if (JSON.stringify(prepared) !== binding) throw new EngineError('PREPARED_TOOL_CHANGED', 'Prepared request changed while waiting for approval');
       this.setTool(owner, record, 'running');
       if (prepared.requiresApproval || effectful) owner.readonlyCalls.clear();
-      const result = await this.toolOperation(owner, record, workspace, true, (context) => tool.execute(prepared as PreparedTool, context));
+      const result = await this.toolOperation(owner, record, workspace, true, (context) => tool.execute(prepared as PreparedTool, context), approval);
       this.assertLive(owner);
       if (uncertain(result)) throw new EngineError('CLEANUP_UNCERTAIN', `Tool ${record.name} did not confirm cleanup`);
       if (!result || typeof result.content !== 'string') throw new EngineError('INVALID_TOOL_RESULT', 'Tool result content must be a string');

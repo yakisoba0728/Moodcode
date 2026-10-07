@@ -1,15 +1,19 @@
+import { randomUUID } from 'node:crypto';
 import { EngineError, type JsonObject, type JsonValue } from '@moodcode/contracts';
-import { cappedJson, MCP_LIMITS, object, type JsonRpcMessage, type JsonRpcRequest, type McpProtocolVersion, type McpTransport } from './protocol.js';
+import { cappedJson, hasMcpDispatchObservation, MCP_LIMITS, object, type JsonRpcMessage, type JsonRpcRequest, type McpProtocolVersion, type McpTransport } from './protocol.js';
 import { schemaHeaders, projectHeaders, type HeaderProjection } from './schema-headers.js';
+import { McpCallObservation, joinMcpOperations, mcpExecutionFailure, mcpFailureReason, mcpResponseObservation, validateMcpToolResult, MCP_EXECUTION_LIMITS, type McpResponseObservation, type McpToolCallObserver } from './execution-observation.js';
 export interface McpClientOptions { id: string; transport: McpTransport; protocolVersion?: McpProtocolVersion; requestTimeoutMs?: number }
 export interface McpTool { name: string; description: string; inputSchema: JsonObject; annotations?: JsonObject }
 export interface McpResource { uri: string; name: string; description?: string; mimeType?: string }
-interface Pending { resolve(value: JsonObject): void; reject(error: EngineError): void; detach(): void }
+interface Pending { resolve(value: JsonObject): void; reject(error: EngineError): void; detach(): void; response?(message: JsonRpcMessage): void }
 /** No provider, sampling or filesystem authority is given to the remote server. */
 export class McpClient {
   readonly id: string; readonly protocolVersion: McpProtocolVersion;
+  readonly connectionId = randomUUID();
   private state: 'new' | 'connecting' | 'connected' | 'closed' = 'new'; private current = 0; private nextId = 1;
   private pending = new Map<number, Pending>(); private closedListeners = new Set<() => void>(); private changedListeners = new Set<() => void>();
+  private toolOperations = new Set<Promise<unknown>>();
   private capabilities: JsonObject = {}; private tools = new Map<string, McpTool>(); private headers = new Map<string, HeaderProjection[]>(); private resources = new Map<string, McpResource>();
   constructor(private readonly options: McpClientOptions) {
     if (!/^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(options.id)) throw new EngineError('INVALID_MCP_ID', 'MCP connection id must be a bounded stable identifier');
@@ -43,7 +47,9 @@ export class McpClient {
       if (message.method === 'notifications/tools/list_changed' || message.method === 'notifications/resources/list_changed') { this.current++; this.tools.clear(); this.headers.clear(); this.resources.clear(); for (const listener of this.changedListeners) { try { listener(); } catch {} } }
       return;
     }
-    if (typeof message.id !== 'number') return; const pending = this.pending.get(message.id); if (!pending) return; this.pending.delete(message.id); pending.detach();
+    if (typeof message.id !== 'number') return; const pending = this.pending.get(message.id); if (!pending) return;
+    if (pending.response) { pending.response(message); return; }
+    this.pending.delete(message.id); pending.detach();
     if ('error' in message) { pending.reject(new EngineError('MCP_REMOTE_ERROR', 'MCP server reported an operation error', { rpcCode: message.error.code })); return; }
     if (!object(message.result)) { pending.reject(new EngineError('MCP_INVALID_MESSAGE', 'MCP operation result must be an object')); return; }
     if (this.protocolVersion === '2026-07-28' && message.result.resultType === 'input_required') { pending.reject(new EngineError('MCP_INPUT_REQUIRED_UNSUPPORTED', 'MCP server requires a host interaction that this adapter has not enabled')); return; }
@@ -85,9 +91,70 @@ export class McpClient {
     }
     throw new EngineError('MCP_CATALOGUE_LIMIT', 'MCP tool pagination exceeds its page limit');
   }
-  async callTool(name: string, input: JsonObject, expectedRevision: number, signal: AbortSignal): Promise<JsonObject> {
+  async callTool(name: string, input: JsonObject, expectedRevision: number, signal: AbortSignal, observer?: McpToolCallObserver): Promise<JsonObject> {
     if (!this.connected || expectedRevision !== this.current || !this.tools.has(name)) throw new EngineError('MCP_CATALOGUE_STALE', 'MCP tool catalogue changed or disconnected; rediscover and approve again');
-    return this.request('tools/call', { name, arguments: cappedJson(input, 256 * 1024) }, signal, false, projectHeaders(this.headers.get(name) ?? [], input));
+    if (signal.aborted) throw new EngineError('MCP_CANCELLED', 'MCP request cancelled before dispatch');
+    const params: JsonObject = { name, arguments: cappedJson(input, 256 * 1024) };
+    const headers = projectHeaders(this.headers.get(name) ?? [], input);
+    if (this.pending.size >= MCP_LIMITS.maxPending || this.toolOperations.size >= MCP_LIMITS.maxPending) throw new EngineError('MCP_PENDING_LIMIT', 'MCP pending request limit exceeded');
+    const message: JsonRpcRequest = { jsonrpc: '2.0', id: this.nextId++, method: 'tools/call', params: this.meta(params) };
+    const observation = new McpCallObservation({ serverId: this.id, connectionId: this.connectionId, catalogueRevision: expectedRevision, remoteTool: name, protocolVersion: this.protocolVersion, transportKind: this.options.transport.kind }, message, observer);
+    const operation = this.executeToolRequest(message, headers, signal, observation);
+    this.toolOperations.add(operation);
+    try { return await operation; } finally { this.toolOperations.delete(operation); }
+  }
+
+  private async executeToolRequest(message: JsonRpcRequest, headers: Readonly<Record<string, string>>, signal: AbortSignal, observation: McpCallObservation): Promise<JsonObject> {
+    const id = observation.identity.logicalRpcId;
+    type Result = { kind: 'response'; value?: JsonObject; error?: EngineError; proof: McpResponseObservation } | { kind: 'failure'; error: EngineError };
+    let resolveResult!: (result: Result) => void;
+    const result = new Promise<Result>(resolve => { resolveResult = resolve; });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const detach = () => { if (timer) clearTimeout(timer); signal.removeEventListener('abort', abort); };
+    const finish = (value: Result) => { if (!this.pending.has(id)) return; this.pending.delete(id); detach(); resolveResult(value); };
+    const failure = (error: unknown) => finish({ kind: 'failure', error: error instanceof EngineError ? error : new EngineError('MCP_TRANSPORT_FAILED', 'MCP request transport failed') });
+    const abort = () => failure(new EngineError('MCP_CANCELLED', 'MCP request cancelled'));
+    const response = (reply: JsonRpcMessage) => {
+      try {
+        if ('method' in reply) throw new EngineError('MCP_INVALID_MESSAGE', 'MCP tools/call requires its correlated response');
+        if ('error' in reply) {
+          const proof = mcpResponseObservation(reply, 'jsonrpc-error');
+          finish({ kind: 'response', proof, error: new EngineError('MCP_REMOTE_ERROR', 'MCP server reported an operation error', { rpcCode: reply.error.code }) });
+          return;
+        }
+        if (!object(reply.result)) throw new EngineError('MCP_INVALID_MESSAGE', 'MCP operation result must be an object');
+        validateMcpToolResult(reply.result);
+        const proof = mcpResponseObservation(reply, 'tool-result', reply.result.isError === true);
+        finish({ kind: 'response', proof, value: reply.result });
+      } catch (error) { failure(error); }
+    };
+    this.pending.set(id, { resolve: () => finish({ kind: 'failure', error: new EngineError('MCP_INVALID_MESSAGE', 'MCP response lost its exact correlation') }), reject: failure, detach, response });
+    timer = setTimeout(() => failure(new EngineError('MCP_REQUEST_TIMEOUT', 'MCP request exceeded its time limit')), this.options.requestTimeoutMs ?? MCP_LIMITS.requestTimeoutMs);
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
+    const physicalHook = hasMcpDispatchObservation(this.options.transport);
+    const beforeSend = () => {
+      if (!this.pending.has(id) || signal.aborted || !this.connected) throw new EngineError('MCP_CANCELLED', 'MCP call was interrupted before dispatch');
+      observation.beforeSend(physicalHook ? this.options.transport.kind === 'http' ? 'http-fetch' : 'stdio-write' : 'legacy-api-entry');
+    };
+    let send: Promise<void>;
+    try {
+      // Legacy transports have no physical hook; API entry is conservative intent.
+      if (!physicalHook) beforeSend();
+      send = this.pending.has(id) ? Promise.resolve(this.options.transport.send(message, signal, headers, physicalHook ? { beforeSend } : undefined)) : Promise.resolve();
+    } catch (error) { send = Promise.reject(error); }
+    void send.catch(failure);
+    const first = await result;
+    const cancellation = first.kind === 'failure' && observation.dispatched ? Promise.resolve().then(() => this.options.transport.cancel(id)).catch(() => { throw new EngineError('MCP_TRANSPORT_CLEANUP_UNCERTAIN', 'MCP request cancellation did not confirm local cleanup', { cleanupUncertain: true, transportCleanupConfirmed: false }); }) : Promise.resolve();
+    const cleanupConfirmed = await joinMcpOperations([send, cancellation]);
+    if (first.kind === 'response' && cleanupConfirmed) {
+      observation.settle({ outcome: 'response-terminal', reason: 'response', ...first.proof, ...(first.error ? { errorCode: first.error.code } : {}), transportCleanupConfirmed: true });
+      if (first.error) throw first.error;
+      return first.value!;
+    }
+    const error = first.kind === 'response' ? new EngineError('MCP_TRANSPORT_CLEANUP_UNCERTAIN', 'MCP response arrived but its local transport cleanup is unconfirmed') : first.error;
+    observation.settle({ outcome: observation.dispatched ? 'uncertain' : 'not-dispatched', reason: first.kind === 'response' ? 'cleanup-error' : observation.dispatched || error.code === 'MCP_EXECUTION_RECORD_FAILED' ? mcpFailureReason(error) : error.code === 'MCP_CANCELLED' ? 'cancel' : 'preflight-error', errorCode: error.code, ...(first.kind === 'response' ? first.proof : {}), transportCleanupConfirmed: cleanupConfirmed });
+    throw mcpExecutionFailure(error, { effectsUncertain: error.details?.effectsUncertain === true || observation.dispatched && first.kind !== 'response', cleanupConfirmed });
   }
   async listResources(signal: AbortSignal): Promise<McpResource[]> {
     if (!Object.hasOwn(this.capabilities, 'resources')) return []; const resources = new Map<string, McpResource>(); let cursor: string | undefined;
@@ -97,5 +164,9 @@ export class McpClient {
     } throw new EngineError('MCP_CATALOGUE_LIMIT', 'MCP resource pagination exceeds page limit');
   }
   async readResource(uri: string, signal: AbortSignal): Promise<JsonObject> { if (!this.resources.has(uri)) throw new EngineError('MCP_RESOURCE_UNAVAILABLE', 'Resource URI must come from this connected server catalogue'); const result = await this.request('resources/read', { uri }, signal); if (!Array.isArray(result.contents) || result.contents.length > 64 || result.contents.some(content => !object(content) || typeof content.uri !== 'string' || typeof content.text !== 'string' && typeof content.blob !== 'string')) throw new EngineError('MCP_INVALID_RESOURCE', 'MCP resource contents are invalid'); return result; }
-  async close(): Promise<void> { this.disconnected(); await this.options.transport.close(); }
+  async close(): Promise<void> {
+    this.disconnected();
+    const operations = [...this.toolOperations, Promise.resolve().then(() => this.options.transport.close()).catch(() => { throw new EngineError('MCP_TRANSPORT_CLEANUP_UNCERTAIN', 'MCP transport close did not confirm local cleanup', { cleanupUncertain: true, transportCleanupConfirmed: false }); })];
+    if (!await joinMcpOperations(operations, MCP_EXECUTION_LIMITS.closeGraceMs)) throw new EngineError('MCP_TRANSPORT_CLEANUP_UNCERTAIN', 'MCP connection did not confirm local cleanup', { cleanupUncertain: true, transportCleanupConfirmed: false });
+  }
 }

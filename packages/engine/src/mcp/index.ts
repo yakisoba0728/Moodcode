@@ -7,4 +7,5 @@ export type { HttpMcpOptions } from './http.js';
 export { registerMcp } from './registration.js';
 export type { McpRegistration } from './registration.js';
 export { MCP_LIMITS } from './protocol.js';
-export type { McpTransport, McpProtocolVersion, JsonRpcMessage } from './protocol.js';
+export type { McpTransport, McpProtocolVersion, JsonRpcMessage, McpTransportSendObservation } from './protocol.js';
+export type { McpCallIdentity, McpCallSettlement, McpDispatchBoundary, McpExecutionReason, McpResponseObservation, McpToolCallObserver, McpToolCallObservation } from './execution-observation.js';

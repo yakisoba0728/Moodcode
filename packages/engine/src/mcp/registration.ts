@@ -16,7 +16,7 @@ function definition(client: McpClient, remote: McpTool, revision: number): ToolD
     },
     async execute(prepared, context) { const request = requests.get(prepared); if (!request || request.used) throw new EngineError('INVALID_PREPARED_MCP_TOOL', 'MCP call must be prepared by this connection and used once'); request.used = true;
       if (request.binding !== binding(context) || request.snapshot !== JSON.stringify(prepared)) throw new EngineError('MCP_APPROVAL_STALE', 'MCP call or authorization context changed');
-      const result = await client.callTool(remote.name, prepared.input as JsonObject, revision, context.signal);
+      const result = await client.callTool(remote.name, prepared.input as JsonObject, revision, context.signal, context.mcpExecutionObserver);
       if (!Array.isArray(result.content) || result.content.length > 64 || result.isError !== undefined && typeof result.isError !== 'boolean') throw new EngineError('MCP_INVALID_TOOL_RESULT', 'MCP tool result content is invalid');
       const texts: string[] = []; let omitted = 0;
       for (const block of result.content) { if (!object(block) || typeof block.type !== 'string') throw new EngineError('MCP_INVALID_TOOL_RESULT', 'MCP content block is invalid'); if (block.type === 'text') { if (typeof block.text !== 'string') throw new EngineError('MCP_INVALID_TOOL_RESULT', 'MCP text content is invalid'); texts.push(block.text); } else if (block.type === 'resource' && object(block.resource) && typeof block.resource.text === 'string') texts.push(block.resource.text); else omitted++; }

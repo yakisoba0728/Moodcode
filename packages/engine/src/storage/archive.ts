@@ -13,6 +13,7 @@ import { SUMMARY_STORAGE_TABLES } from './summary-attempts.js';
 import { SUMMARY_RECOVERY_TABLES } from '../recovery/summary.js';
 import { ATTEMPT_CLEANUP_TABLES } from './attempt-cleanup.js';
 import { PROVIDER_RECOVERY_TABLES } from '../recovery/provider.js';
+import { MCP_EXECUTION_TABLES } from './mcp-executions.js';
 import { SqliteStore } from './index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
 import { attachments as documentAttachments, sameAttachment as sameDocumentAttachment, validateDocumentBytes } from '../documents/validation.js';
@@ -144,7 +145,8 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
     const summaryTables = schemaVersion >= 4 ? [...usageTables, ...SUMMARY_STORAGE_TABLES] : usageTables;
     const recoveryTables = schemaVersion >= 5 ? [...summaryTables, ...SUMMARY_RECOVERY_TABLES] : summaryTables;
     const cleanupTables = schemaVersion >= 6 ? [...recoveryTables, ...ATTEMPT_CLEANUP_TABLES] : recoveryTables;
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 7 ? [...cleanupTables, ...PROVIDER_RECOVERY_TABLES] : cleanupTables, check) };
+    const providerTables = schemaVersion >= 7 ? [...cleanupTables, ...PROVIDER_RECOVERY_TABLES] : cleanupTables;
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 9 ? [...providerTables, ...MCP_EXECUTION_TABLES] : providerTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

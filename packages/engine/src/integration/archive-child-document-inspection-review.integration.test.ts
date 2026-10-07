@@ -22,6 +22,7 @@ import { SUMMARY_STORAGE_TABLES } from '../storage/summary-attempts.js';
 import { SUMMARY_RECOVERY_TABLES } from '../recovery/summary.js';
 import { ATTEMPT_CLEANUP_TABLES } from '../storage/attempt-cleanup.js';
 import { PROVIDER_RECOVERY_TABLES } from '../recovery/provider.js';
+import { MCP_EXECUTION_TABLES } from '../storage/mcp-executions.js';
 
 function gate() { let resolve!: () => void; const promise = new Promise<void>(yes => { resolve = yes; }); return { promise, resolve }; }
 async function hold(promise: Promise<void>, signal: AbortSignal) { let abort!: () => void; try { await Promise.race([promise, new Promise<void>(yes => { abort = yes; signal.addEventListener('abort', abort, { once: true }); if (signal.aborted) abort(); })]); } finally { signal.removeEventListener('abort', abort); } }
@@ -175,7 +176,7 @@ function resignChildFixture(f: Awaited<ReturnType<typeof fixture>>, mutate: (db:
   const member = f.archive.manifest.documentAudit!.children[0]!, path = join(f.archive.directory, 'data', member.database.file), db = new DatabaseSync(path);
   // Authored fixture construction deliberately runs the full logical-hash
   // reader. Its raw JSON reads are separate from production index-proof caps.
-  try { mutate(db); member.database.logicalHash = checkDatabase(db, Number(db.prepare('PRAGMA user_version').get()!.user_version), ['workspaces', 'sessions', 'inputs', 'runs', 'messages', 'tools', 'approvals', 'checkpoints', 'events', ...NATIVE_SESSION_TABLES, 'attempt_usage', ...SUMMARY_STORAGE_TABLES, ...SUMMARY_RECOVERY_TABLES, ...ATTEMPT_CLEANUP_TABLES, ...PROVIDER_RECOVERY_TABLES], () => {}); }
+  try { mutate(db); member.database.logicalHash = checkDatabase(db, Number(db.prepare('PRAGMA user_version').get()!.user_version), ['workspaces', 'sessions', 'inputs', 'runs', 'messages', 'tools', 'approvals', 'checkpoints', 'events', ...NATIVE_SESSION_TABLES, 'attempt_usage', ...SUMMARY_STORAGE_TABLES, ...SUMMARY_RECOVERY_TABLES, ...ATTEMPT_CLEANUP_TABLES, ...PROVIDER_RECOVERY_TABLES, ...MCP_EXECUTION_TABLES], () => {}); }
   finally { db.close(); }
   const bytes = readFileSync(path); member.database.bytes = bytes.length; member.database.sha256 = sha(bytes); Object.assign(f.archive.manifest.artifacts.find(item => item.file === member.database.file)!, { bytes: bytes.length, sha256: sha(bytes) });
   const manifest = Buffer.from(JSON.stringify(f.archive.manifest)); writeFileSync(join(f.archive.directory, 'data', 'manifest.json'), manifest); return { ...f.request, expectedManifestSha256: sha(manifest) };

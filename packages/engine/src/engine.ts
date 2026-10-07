@@ -798,6 +798,13 @@ export class MoodcodeEngine {
     return this.store.getAttemptCleanup(attemptId, sessionId);
   }
 
+  /** Exact session-bound MCP receipt observation; it grants no retry or recovery authority. */
+  getMcpExecution(sessionId: string, toolCallId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.store.getSession(sessionId);
+    return this.store.getMcpExecution(toolCallId, sessionId);
+  }
+
   getSummaryAttempt(sessionId: string, summaryAttemptId: string) {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     this.store.getSession(sessionId);

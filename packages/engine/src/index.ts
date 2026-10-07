@@ -100,3 +100,5 @@ export type { SummaryRecoveryRequest, SummaryRecoveryPreview, SummaryRecoveryRec
 export { SUMMARY_RECOVERY_LIMITS } from './recovery/summary.js';
 export type { AttemptCleanupIdentity, AttemptCleanupRecord, AttemptCleanupSettlement, AttemptCleanupState, AttemptCleanupMethod, AttemptCleanupReason } from './storage/attempt-cleanup.js';
 export { ATTEMPT_CLEANUP_LIMITS } from './storage/attempt-cleanup.js';
+export type { McpExecutionIdentity, McpExecutionRecord, McpExecutionSettlement, McpExecutionState } from './storage/mcp-executions.js';
+export { MCP_EXECUTION_LIMITS as MCP_EXECUTION_STORAGE_LIMITS } from './storage/mcp-executions.js';

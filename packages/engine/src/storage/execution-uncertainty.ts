@@ -5,6 +5,7 @@ import { validateTurnRecord } from '@moodcode/contracts/validation';
 import type { SqliteStore } from './index.js';
 import { canonical } from '../recovery/snapshot.js';
 import { readEvidenceBody } from './evidence-read.js';
+import { hasMcpExecutionUncertainty } from './mcp-executions.js';
 
 export const EXECUTION_UNCERTAINTY_LIMITS = Object.freeze({ maxTurns: 64, maxOwnerBytes: 1_048_576, maxSelectedTurnPayloadBytes: 8_388_608 });
 type Dependency = NonNullable<ExecutionUncertainty['summaryDependency']>;
@@ -47,6 +48,7 @@ export function hasExecutionUncertainty(db: DatabaseSync, store: Store, workspac
   hasUnacknowledgedProviders?: (workspaceId: string) => boolean;
 } = {}): boolean {
   try {
+    if (hasMcpExecutionUncertainty(db,workspaceId)) return true;
     const validatedProviderIds = new Set<string>();
     if (db.prepare("SELECT 1 FROM provider_attempts a JOIN runs r ON r.id=a.run_id WHERE r.workspace_id=? AND a.state='uncertain' LIMIT 1").get(workspaceId)) {
       if (options.hasUnacknowledgedProviders?.(workspaceId) ?? !options.hasValidProviderAcknowledgment) return true;

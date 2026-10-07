@@ -50,6 +50,10 @@ export interface ExecutionRecordStore {
   listTurns(runId: string): TurnRecord[];
   putAttempt(attempt: ProviderAttempt): ProviderAttempt;
   getAttempt(id: string): ProviderAttempt;
+  createMcpExecution?(identity: import('./storage/mcp-executions.js').McpExecutionIdentity): import('./storage/mcp-executions.js').McpExecutionRecord;
+  dispatchMcpExecution?(toolCallId: string, boundary?: import('./mcp/execution-observation.js').McpDispatchBoundary): import('./storage/mcp-executions.js').McpExecutionRecord;
+  settleMcpExecution?(toolCallId: string, settlement: import('./mcp/execution-observation.js').McpCallSettlement): import('./storage/mcp-executions.js').McpExecutionRecord;
+  getMcpExecution?(toolCallId: string, expectedSessionId?: string): import('./storage/mcp-executions.js').McpExecutionRecord;
   createAttemptCleanup?(identity: import('./storage/attempt-cleanup.js').AttemptCleanupIdentity): import('./storage/attempt-cleanup.js').AttemptCleanupRecord;
   dispatchAttemptCleanup?(attemptId: string): import('./storage/attempt-cleanup.js').AttemptCleanupRecord;
   settleAttemptCleanup?(attemptId: string, outcome: import('./storage/attempt-cleanup.js').AttemptCleanupSettlement): import('./storage/attempt-cleanup.js').AttemptCleanupRecord;
@@ -70,7 +74,7 @@ export interface ProviderTool { name: string; description: string; inputSchema: 
 export interface TurnRequest { runId: string; turnIndex: number; modelId: string; messages: ProviderMessage[]; tools: ProviderTool[]; reasoningEffort?: import('@moodcode/contracts').ReasoningEffort; turnId?: string; attemptId?: string; includeMetadata?: boolean; sessionId?: string; resolvedImages?: ResolvedInputImage[]; resolvedDocuments?: ResolvedInputDocument[] }
 export type ProviderEvent = { type: 'text.delta'; delta: string } | { type: 'progress'; providerRequestId?: string } | { type: 'reasoning.delta'; delta: string } | { type: 'media'; mime: string; name?: string; artifact: import('@moodcode/contracts').ArtifactReference } | { type: 'tool.call'; call: ProviderToolCall } | { type: 'usage'; inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; reasoningOutputTokens?: number } | { type: 'finish'; reason: 'stop' | 'tool_calls' | 'length'; replayItems?: JsonObject[] };
 export interface ProviderAdapter { readonly id: string; readonly replayProtocol?: string; readonly retryableHttpStatuses?: readonly number[]; readonly inputModalities?: readonly ('text' | 'image')[]; readonly inputFileTypes?: readonly 'application/pdf'[]; supportsInputFile?(modelId: string, mimeType: 'application/pdf'): boolean; readonly allowUnknownDocumentTokenCost?: boolean; streamTurn(request: TurnRequest, signal: AbortSignal): AsyncIterable<ProviderEvent> }
-export interface ToolContext { workspace: Workspace; sessionId: string; runId: string; toolCallId: string; signal: AbortSignal; limits: RunLimits; artifactDir: string; executionLockPath?: string; recordCheckpoint(checkpoint: Checkpoint): void; budgets?: EngineBudgets; turnId?: string; attemptId?: string }
+export interface ToolContext { workspace: Workspace; sessionId: string; runId: string; toolCallId: string; signal: AbortSignal; limits: RunLimits; artifactDir: string; executionLockPath?: string; recordCheckpoint(checkpoint: Checkpoint): void; budgets?: EngineBudgets; turnId?: string; attemptId?: string; mcpExecutionObserver?: import('./mcp/execution-observation.js').McpToolCallObserver }
 export interface PreparedTool { name: string; input: JsonValue; fingerprint: string; requiresApproval: boolean; preview: JsonObject; data?: JsonValue }
 export interface ToolResult { content: string; isError?: boolean; data?: JsonValue; artifacts?: { path: string; bytes: number; truncated: boolean }[]; structuredResult?: ToolResultEnvelope }
 export type ToolEffectClass = 'read' | 'state' | 'write' | 'execute' | 'network' | 'unknown';

@@ -2,14 +2,16 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { once } from 'node:events';
 import { isAbsolute } from 'node:path';
 import { EngineError } from '@moodcode/contracts';
-import { encodeMessage, MCP_LIMITS, parseMessage, type JsonRpcMessage, type McpTransport } from './protocol.js';
+import { encodeMessage, markMcpDispatchTransport, MCP_LIMITS, parseMessage, type JsonRpcMessage, type McpTransport, type McpTransportSendObservation } from './protocol.js';
 export interface StdioMcpOptions { command: string; args?: readonly string[]; cwd: string; env?: Readonly<Record<string, string>> }
 /** Starts only an explicit executable/argv and never inherits account credentials by default. */
 export class StdioMcpTransport implements McpTransport {
+  readonly dispatchBoundary = 'before-send-v1' as const;
   readonly kind = 'stdio' as const; private child?: ChildProcessWithoutNullStreams; private closed = false; private finished = false; private closePromise?: Promise<void>;
   private onClose?: (error?: EngineError) => void;
   constructor(private readonly options: StdioMcpOptions) {
     if (typeof options.command !== 'string' || !isAbsolute(options.command) || options.command.includes('\0') || !isAbsolute(options.cwd) || options.args && (!Array.isArray(options.args) || options.args.length > 64 || options.args.some(arg => typeof arg !== 'string' || Buffer.byteLength(arg) > 8192 || arg.includes('\0')))) throw new EngineError('INVALID_MCP_STDIO', 'MCP stdio requires explicit absolute executable/cwd and bounded argv');
+    markMcpDispatchTransport(this, StdioMcpTransport.prototype.send);
   }
   async start(onMessage: (message: JsonRpcMessage) => void, onClose: (error?: EngineError) => void): Promise<void> {
     if (this.child || this.closed) throw new EngineError('MCP_TRANSPORT_STATE', 'MCP stdio transport can start only once'); this.onClose = onClose;
@@ -33,9 +35,11 @@ export class StdioMcpTransport implements McpTransport {
     try { await once(child, 'spawn'); } catch { throw new EngineError('MCP_START_FAILED', 'MCP server process could not be started'); }
   }
   private fail(error: EngineError): void { if (this.closed) return; this.closed = true; this.onClose?.(error); void this.shutdown(); }
-  async send(message: JsonRpcMessage, signal?: AbortSignal): Promise<void> {
+  async send(message: JsonRpcMessage, signal?: AbortSignal, _headers?: Readonly<Record<string, string>>, observation?: McpTransportSendObservation): Promise<void> {
     if (this.closed || !this.child) throw new EngineError('MCP_DISCONNECTED', 'MCP stdio transport is disconnected'); if (signal?.aborted) throw new EngineError('MCP_CANCELLED', 'MCP write cancelled');
     const encoded = `${encodeMessage(message)}\n`; const child = this.child;
+    if (signal?.aborted || this.closed || child.stdin.destroyed || child.stdin.writableEnded) throw new EngineError('MCP_CANCELLED', 'MCP write cancelled before dispatch');
+    observation?.beforeSend();
     await new Promise<void>((resolve, reject) => child.stdin.write(encoded, error => error ? reject(new EngineError('MCP_DISCONNECTED', 'MCP write failed')) : resolve()));
   }
   async cancel(requestId: number): Promise<void> { if (!this.closed) await this.send({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId } }).catch(() => {}); }

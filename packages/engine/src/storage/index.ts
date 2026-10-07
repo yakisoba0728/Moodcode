@@ -27,6 +27,7 @@ import { readActivePrefixSourceDatabase, validateActivePrefixPublication } from 
 import { SummaryAttemptStorage, type SummaryAttemptIdentity, type SummaryAttemptRecord, type SummaryAttemptListOptions, type SummaryAttemptPage, type SummaryObservation, type SummarySettlement, type SummaryUsageRecord } from './summary-attempts.js';
 import { SummaryRecoveryStorage, captureSummaryRecoveryHighWater, type SummaryRecoveryRequest } from '../recovery/summary.js';
 import { AttemptCleanupStorage, type AttemptCleanupIdentity, type AttemptCleanupRecord, type AttemptCleanupSettlement } from './attempt-cleanup.js';
+import { McpExecutionStorage, hasMcpExecutionUncertainty, type McpExecutionIdentity, type McpExecutionRecord, type McpExecutionSettlement, type McpDispatchBoundary } from './mcp-executions.js';
 import { hasExecutionUncertainty, summaryOverflowDependency } from './execution-uncertainty.js';
 import { ProviderRecoveryStorage, captureProviderRecoveryHighWater, type ProviderRecoveryRequest } from '../recovery/provider.js';
 import { hasEvidenceRead, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
@@ -109,6 +110,7 @@ export class SqliteStore implements SessionEngineStore {
   private readonly executionRecords: NativeExecutionStorage;
   private readonly summaryRecords: SummaryAttemptStorage;
   private readonly attemptCleanupRecords: AttemptCleanupStorage;
+  private readonly mcpExecutionRecords: McpExecutionStorage;
   private readonly summaryRecoveryHighWater: string;
   private summaryRecovery?: SummaryRecoveryStorage;
   private readonly providerRecoveryHighWater: string;
@@ -170,6 +172,7 @@ export class SqliteStore implements SessionEngineStore {
       });
       this.summaryRecords = new SummaryAttemptStorage(this.native, (run, type, payload) => this.append(run, type, payload));
       this.attemptCleanupRecords = new AttemptCleanupStorage(this.native, (run, type, payload) => this.append(run, type, payload));
+      this.mcpExecutionRecords = new McpExecutionStorage(this.native, (run, type, payload) => this.append(run, type, payload));
       this.summaryRecoveryHighWater = captureSummaryRecoveryHighWater(db);
       this.providerRecoveryHighWater = captureProviderRecoveryHighWater(db);
     } catch (error) {
@@ -372,6 +375,12 @@ export class SqliteStore implements SessionEngineStore {
   dispatchAttemptCleanup(id: string): AttemptCleanupRecord { return this.attemptCleanupRecords.dispatch(id); }
   settleAttemptCleanup(id: string, outcome: AttemptCleanupSettlement): AttemptCleanupRecord { return this.attemptCleanupRecords.settle(id, outcome); }
   getAttemptCleanup(id: string, expectedSessionId?: string): AttemptCleanupRecord { return this.attemptCleanupRecords.get(id, expectedSessionId); }
+
+  createMcpExecution(identity: McpExecutionIdentity): McpExecutionRecord { return this.mcpExecutionRecords.create(identity); }
+  dispatchMcpExecution(id: string, boundary?: McpDispatchBoundary): McpExecutionRecord { return this.mcpExecutionRecords.dispatch(id, boundary); }
+  settleMcpExecution(id: string, outcome: McpExecutionSettlement): McpExecutionRecord { return this.mcpExecutionRecords.settle(id, outcome); }
+  getMcpExecution(id: string, expectedSessionId?: string): McpExecutionRecord { return this.mcpExecutionRecords.get(id, expectedSessionId); }
+  hasUncertainMcpExecutions(workspaceId: string): boolean { this.assertOpen(); return hasMcpExecutionUncertainty(this.db,workspaceId); }
   getSummaryOverflowDependency(summaryAttemptId: string, turnId: string, failedAttemptId: string) { return this.evidenceRead(() => summaryOverflowDependency(this.db, this, summaryAttemptId, turnId, failedAttemptId)); }
   hasUncertainExecution(workspaceId: string): boolean {
     return this.recoveryBlocked(() => {
@@ -900,6 +909,7 @@ export class SqliteStore implements SessionEngineStore {
       }
       this.summaryRecords.recoverInTransaction(sessions);
       this.attemptCleanupRecords.recoverInTransaction(sessions);
+      this.mcpExecutionRecords.recoverInTransaction(sessions);
       this.executionRecords.recoverInTransaction(sessions);
       return active.map(run => this.getRun(run.id));
     });
