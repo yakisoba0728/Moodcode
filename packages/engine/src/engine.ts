@@ -27,7 +27,8 @@ import { createExactEditTool } from './tools/edit/index.js';
 import { createFileActionTools } from './tools/file-actions/index.js';
 import { createPatternSearchTools } from './tools/search/index.js';
 import { ScopedToolRuntime, type ScopedToolRuntimeOptions, type RuntimeCommandPreflightOptions } from './tools/runtime/index.js';
-import type { RoleResourcePolicy } from './permission/role-resources.js';
+import type { RoleResourcePolicy, RoleResourcePolicySnapshot } from './permission/role-resources.js';
+import { RoleResourcePolicyRegistry } from './permission/role-policy-registry.js';
 import { readPolicyDecisionReceipts, type PolicyDecisionReceiptPage } from './permission/decision-receipts.js';
 import { validateToolDiscoveryPolicy, type ToolDiscoveryPolicy } from './tools/runtime/discovery.js';
 import { createToolDiscoveryTool } from './runner/tool-discovery.js';
@@ -72,6 +73,10 @@ import { validateChildDocumentStorageRequest, inspectChildDocumentStorage, type 
 import { createChildDocumentReadFrame } from './storage/child-document-reader.js';
 import { RepositoryContextService, type RepositoryQuery, type RepositorySnapshot } from './repository/index.js';
 import { createRepositoryContextTool } from './repository/tool.js';
+import { VerificationCheckRegistry, VerificationPlanService, VerificationReceiptService, type VerificationCheckRegistration } from './verification/index.js';
+import { VerificationHostService, type VerificationSessionPolicy } from './verification/host.js';
+import { createVerificationTool } from './verification/tool.js';
+import { RepositoryContextSource, repositoryContextPolicy, type RepositoryContextPolicy } from './context/repository-contributions.js';
 
 export interface EngineStorageUsageOptions { signal?: AbortSignal; limits?: Partial<StorageUsageLimits> }
 export type EngineStorageUsageReport = StorageUsageReport;
@@ -106,12 +111,16 @@ export interface EngineOptions {
   toolDiscoveryPolicy?: ToolDiscoveryPolicy;
   /** Explicit read-only repository navigation; the default core catalogue is unchanged. */
   repositoryContextTools?: boolean;
+  repositoryContextPolicy?: RepositoryContextPolicy;
+  /** Host-registered checks only; command/profile approval remains mandatory. */
+  verificationTools?: boolean;
   /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
   lifecycleHooks?: readonly LifecycleHookRegistration[];
   /** Shared host policy registry for owned child engines. Captures remain Run-bound. */
   lifecycleHookRegistry?: LifecycleHookRegistry;
   /** Optional host policy narrowing for persisted agent profiles and exact resources. */
   roleResourcePolicy?: RoleResourcePolicy;
+  roleResourcePolicyRegistry?: RoleResourcePolicyRegistry;
   resolveRoleResources?: ScopedToolRuntimeOptions['resolveRoleResources'];
   commandPreflight?: RuntimeCommandPreflightOptions;
   /** Trusted host policy shared by an owned child; grants remain local to each engine. */
@@ -243,6 +252,12 @@ export class MoodcodeEngine {
   readonly lsp: LspManager;
   readonly repository: RepositoryContextService;
   readonly lifecycleHooks: LifecycleHookRegistry;
+  readonly roleResourcePolicyRegistry?: RoleResourcePolicyRegistry;
+  readonly verificationChecks: VerificationCheckRegistry;
+  readonly verificationPlans: VerificationPlanService;
+  readonly verificationReceipts: VerificationReceiptService;
+  private readonly verificationHost: VerificationHostService;
+  private readonly verificationEnabled: boolean;
   readonly formatters: FormatterRegistry;
   readonly changes: WorkspaceChangeHub;
   private readonly watchConsumers = new Map<string, Promise<void>>();
@@ -269,9 +284,16 @@ export class MoodcodeEngine {
     if (!options || typeof options.dbPath !== 'string' || options.dbPath.length === 0) {
       throw new EngineError('INVALID_CONFIG', 'dbPath must be a non-empty string');
     }
+    const repositoryPolicy = options.repositoryContextPolicy !== undefined ? repositoryContextPolicy(options.repositoryContextPolicy) : undefined;
     if (options.lifecycleHookRegistry !== undefined && !(options.lifecycleHookRegistry instanceof LifecycleHookRegistry)) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Shared hook registry requires an explicit trusted host registry');
     if (options.lifecycleHookRegistry && options.lifecycleHooks !== undefined) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Specify one host registry or initial hook registrations');
     this.lifecycleHooks = options.lifecycleHookRegistry ?? new LifecycleHookRegistry();
+    if (options.roleResourcePolicyRegistry !== undefined && !(options.roleResourcePolicyRegistry instanceof RoleResourcePolicyRegistry)) throw new EngineError('INVALID_ROLE_POLICY_CONFIGURATION', 'Shared role policy requires a trusted host registry');
+    if (options.roleResourcePolicyRegistry && options.roleResourcePolicy) throw new EngineError('INVALID_ROLE_POLICY_CONFIGURATION', 'Specify one role policy registry or immutable role policy');
+    this.roleResourcePolicyRegistry = options.roleResourcePolicyRegistry;
+    if (options.verificationTools !== undefined && typeof options.verificationTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Verification tool exposure must be an explicit boolean');
+    this.verificationEnabled = options.verificationTools === true;
+    if (this.verificationEnabled && options.tools !== undefined) throw new EngineError('INVALID_VERIFICATION_CONFIG', 'Verification requires the engine-owned command producer and core registrations');
     if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Document token cost policy must be a boolean');
     if (options.repositoryContextTools !== undefined && typeof options.repositoryContextTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Repository tool exposure must be an explicit boolean');
     if (options.lifecycleHooks !== undefined) {
@@ -337,9 +359,13 @@ export class MoodcodeEngine {
         if (matches.length > 1) throw new EngineError('REPOSITORY_SERVER_AMBIGUOUS', 'More than one host server supports this path; narrow the host language routing');
         return matches[0] as { serverId: string; languageId: string; revision: string } | undefined ?? null;
       });
+      this.verificationChecks = new VerificationCheckRegistry();
+      this.verificationPlans = new VerificationPlanService(this.store, this.verificationChecks);
+      this.verificationReceipts = new VerificationReceiptService(this.verificationPlans);
+      this.verificationHost = new VerificationHostService(this.store, this.verificationPlans, this.repository);
       this.formatters = new FormatterRegistry();
       this.changes = new WorkspaceChangeHub({ signal: this.hostResources.signal });
-      this.children = new EngineChildren(this, { ...options, ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value), storageBinding);
+      this.children = new EngineChildren(this, { ...options, ...(repositoryPolicy ? { repositoryContextPolicy: repositoryPolicy } : {}), ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value), storageBinding);
       terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
@@ -370,20 +396,22 @@ export class MoodcodeEngine {
         if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
       };
       for (const [id, provider] of providers) providers.set(id, withInputMedia(provider, this.images, this.documents, this.store, models, options.allowUnknownDocumentTokenCost === true));
-      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}) });
+      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}) });
+      if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
+      this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts,
+        ...(options.roleResourcePolicy ? { roleResources: options.roleResourcePolicy } : {}), ...(options.roleResourcePolicyRegistry ? { roleResourcePolicyRegistry: options.roleResourcePolicyRegistry } : {}), ...(options.resolveRoleResources ? { resolveRoleResources: options.resolveRoleResources } : {}), ...(options.commandPreflight ? { commandPreflight: options.commandPreflight } : {}) });
       const coreTools = options.tools ?? [...createReadTools(), createPatchTool(), createCommandTool(), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
       const repositoryTools = options.repositoryContextTools ? [createRepositoryContextTool(this.repository)] : [];
+      const verificationTool = this.verificationEnabled ? createVerificationTool({ plans: this.verificationPlans, receipts: this.verificationReceipts, getRun: id => this.store.getRun(id), sourceObservation: (context, signal) => this.verificationHost.observe(context, AbortSignal.any([signal, this.hostResources.signal])), commandRuntime: this.toolRuntime, captureCatalogue: context => this.coordinator.captureToolCatalogue(context), artifacts: this.managedArtifacts }) : undefined;
+      const verificationTools: ToolDefinition[] = verificationTool ? [{ ...verificationTool, prepare: async (input, context) => { await this.verificationHost.ensurePlan(context, context.signal); return verificationTool.prepare(input, context); } }] : [];
       const availableTools = toolDiscoveryPolicy ? [...coreTools, ...repositoryTools, createToolDiscoveryTool({
         identity: context => this.coordinator.toolDiscoveryIdentity(context),
         stage: (context, query, limit, expected, action) => this.coordinator.stageToolDiscovery(context, query, limit, expected, action),
-      })] : [...coreTools, ...repositoryTools];
+      }), ...verificationTools] : [...coreTools, ...repositoryTools, ...verificationTools];
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
       const tools = options.allowedToolNames ? availableTools.filter(tool => options.allowedToolNames!.includes(tool.name)) : availableTools;
-      if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
-      this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts,
-        ...(options.roleResourcePolicy ? { roleResources: options.roleResourcePolicy } : {}), ...(options.resolveRoleResources ? { resolveRoleResources: options.resolveRoleResources } : {}), ...(options.commandPreflight ? { commandPreflight: options.commandPreflight } : {}) });
-      for (const tool of tools) this.toolRuntime.register('engine', tool, options.tools ? {} : tool.name === 'delegate_task' ? { exactApproval: true } : { revalidate: async (prepared, context) => {
+      for (const tool of tools) this.toolRuntime.register('engine', tool, options.tools ? {} : ['delegate_task', 'verify_changes'].includes(tool.name) ? { exactApproval: true } : { revalidate: async (prepared, context) => {
         const current = await tool.prepare(prepared.input, context);
         if (current.fingerprint !== prepared.fingerprint || JSON.stringify(current.preview) !== JSON.stringify(prepared.preview)) throw new EngineError('TOOL_APPROVAL_STALE', 'Tool resources changed since scoped authorization');
       } });
@@ -398,6 +426,7 @@ export class MoodcodeEngine {
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
       this.coordinator = new RunCoordinator({
+        ...(this.verificationEnabled ? { onRunStarted: (run, signal) => this.verificationHost.start(run, signal) } : {}),
         lifecycleHooks: this.lifecycleHooks,
         store: this.store,
         providers,
@@ -408,6 +437,8 @@ export class MoodcodeEngine {
         buildContext: request => this.context.build({ ...request, agentInstructions: this.profiles.forRun(request.snapshot.session.id, request.config)?.instructions }),
         contextSnapshot: (sessionId, config) => this.context.snapshot(sessionId, config),
         getContextRevisionId: sessionId => this.context.revisionId(sessionId),
+        assertContextFresh: (request, signal) => this.context.assertFresh(request.sessionId, request.messages, signal, request.runId),
+        releaseContext: (sessionId, runId) => this.context.releaseRepositoryContext(sessionId, runId),
         getToolProfile: run => {
           const profile = this.profiles.forRun(run.sessionId, run.config);
           return profile ? { id: profile.id, revision: profile.revision } : undefined;
@@ -843,6 +874,36 @@ export class MoodcodeEngine {
 
   getCapabilities(): EngineCapabilities {
     return { ...structuredClone(this.capabilities), tools: [...this.toolRuntime.catalogue('engine', 'build', this.hostAllowedTools).tools] };
+  }
+
+  replaceRoleResourcePolicy(expectedRegistryRevision: number, policy: RoleResourcePolicySnapshot) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    if (!this.roleResourcePolicyRegistry) throw new EngineError('ROLE_POLICY_UNSUPPORTED', 'Dynamic role policy requires an explicit host registry');
+    return this.roleResourcePolicyRegistry.replace(expectedRegistryRevision, policy);
+  }
+
+  registerVerificationCheck(check: VerificationCheckRegistration): () => void {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    if (!this.verificationEnabled) throw new EngineError('VERIFICATION_UNSUPPORTED', 'Verification tools require explicit host opt-in');
+    this.store.getWorkspace(check.workspaceId);
+    return this.verificationChecks.register(check);
+  }
+
+  configureVerificationSession(sessionId: string, expectedRevision: number, policy: VerificationSessionPolicy) {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    if (!this.verificationEnabled) return Promise.reject(new EngineError('VERIFICATION_UNSUPPORTED', 'Verification tools require explicit host opt-in'));
+    const session = this.store.getSession(sessionId);
+    return this.coordinator.withWorkspaceLease(session.workspaceId, signal => this.verificationHost.configure(sessionId, expectedRevision, policy, signal));
+  }
+
+  getVerificationConfiguration(sessionId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.verificationHost.configuration(sessionId);
+  }
+
+  getVerificationState(sessionId: string, runId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.verificationPlans.get(sessionId, runId);
   }
 
   private refreshToolScopes(): void {

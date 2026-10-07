@@ -61,3 +61,36 @@ analyzer는 효과 없는 trusted host 검사로 구현해야 한다. AbortSigna
 독립 모듈과 runtime/실제 Engine 테스트는 파일·symlink·root 교체, role/resource/scope/revision 변동, exact approval/grant, MCP identity 변경, source 변경, analyzer 등록 변경·실패·시간 초과·취소·capacity·동시 dispatch, immutable/proxy/accessor 입력을 확인한다. 실제 Engine은 eager/discovery의 allow/deny와 승인 없는 판단의 durable page 조회를 확인하고, 실제 승인된 로컬 명령 및 승인 후 미커밋 source 변경 시 효과 0을 검증한다.
 
 전체 원격 MCP host 등록/재연결 운영 흐름, GUI 표현, Windows 실제 OS 동작, analyzer의 물리 실행 격리는 이 테스트의 완료 주장에 포함하지 않는다. MC2-11d의 실제 원격 host 경계와 기존 플랫폼 검증 항목은 별도로 추적한다.
+
+## 로컬 HTTP MCP host 통합 검증 추가
+
+`permission/mcp-role-resources-integration.test.ts`의 8개 테스트는 실제 loopback HTTP 서버, `McpClient`/`HttpMcpTransport`, `engine.connectMcp()`, model tool loop와 approval 명령을 사용한다. eager 호출과 `discover_tools`의 저장된 검색 결과가 다음 모델 경계에서 실제 MCP 도구를 활성화하는 호출을 검증한다. 등록된 도구의 `readOnlyHint`, 설명문, 모델 인자에 담긴 다른 server/connection/revision 주장은 권한으로 사용하지 않는다. 두 호출 모두 unknown 효과와 producer의 exact approval을 유지한다.
+
+host resolver는 자신이 보관한 `connectMcp()` 결과의 scope·tool names·resource catalogue를 확인하고, 해당 `McpClient.id`, `connectionId`, `revision`과 실제 등록된 URI를 선언한다. 등록되지 않은 URI는 명시적인 host `all` allowance가 있어도 unknown/ask로 남는다. 이 fixture의 resource contract는 해당 서버의 `read_resource` 인자 URI 하나이며, 일반 MCP 도구의 효과 범위를 자동으로 알아내는 계약은 아니다.
+
+정상 승인 호출은 실제 HTTP 요청의 SHA, 연결·catalogue revision, approval ID/fingerprint, native `mcp.execution.prepared`/`dispatch_intent`/`response_terminal`와 `engine.getMcpExecution()` 관측값을 확인한다. 역할 판단은 `engine.getPolicyDecisionReceipts()`의 observation-only 기록에 남으며, 설명문이나 모델 인자의 원문 marker를 포함하지 않는다. response 관측과 transport cleanup은 이 로컬 fixture 호출의 증거이며 외부 서버의 부작용 전체를 증명하지 않는다.
+
+승인 대기 중 실제 client close, 같은 server ID의 새 연결, 실제 SSE `notifications/resources/list_changed`를 각각 발생시킨다. 이전 capture를 승인해도 대상 resource RPC는 0회이고 native MCP execution row도 발급되지 않는다. catalogue 변경을 발생시키는 fixture control RPC는 대상 resource 호출과 별도로 센다. 재연결 후 새 run은 새로운 fingerprint/승인을 요구하고 새 connection에만 전송된다.
+
+기존 immutable policy fixture는 특정 도구에 한정한 명시적 `all` selector와 host의 정확한 resource tuple 선언을 결합한다. 추가 dynamic fixture는 실제 등록이 완료된 뒤 host port로 exact connection/catalogue/URI selector를 설치한다. 승인 대기 중 deny 정책을 설치하면 이전 승인 capture의 resource RPC는 0회이며, 새 run은 실제 role deny와 해당 generation을 기록한다. allow를 다시 설치한 run은 새 fingerprint/승인을 거쳐 실제 MCP 응답을 받는다. receipt 조회는 여러 bounded journal page를 순서대로 읽어 후속 run의 generation까지 검증한다. 외부 cloud MCP, stdio 전체 운영 조합, Windows 실제 OS와 MC2-11d 전체 완료를 주장하지 않는다.
+
+## Host 역할 정책 교체
+
+`RoleResourcePolicyRegistry(initialSnapshot?)`는 host가 공유하는 CAS holder다. 초기 snapshot을 생략하면 empty rules로 ask하며, 정책 없는 기본 엔진의 동작으로 바뀌지 않는다. `EngineOptions.roleResourcePolicyRegistry`는 기존 immutable `roleResourcePolicy`와 동시에 지정할 수 없다. parent/child 엔진은 같은 registry 객체를 사용한다. 모델에게 정책 교체 도구나 registry capability를 노출하지 않는다.
+
+| API | 계약 |
+|---|---|
+| `registry.capture()` | 현재 generation과 실제 immutable policy instance를 담은 host-only opaque capture |
+| `registry.replace(expectedRegistryRevision, snapshot)` | 현재 registry revision과 같은 경우에만 내부에서 새 policy instance를 생성하고 generation 증가 |
+| `registry.assertCurrent(capture)` | 해당 registry가 발급한 동일한 현재 capture만 허용. shallow/JSON copy·다른 registry·이전 generation 거절 |
+| `engine.replaceRoleResourcePolicy(expectedRegistryRevision, snapshot)` | 명시적으로 registry를 설정한 열린 엔진의 host port. registry가 없으면 `ROLE_POLICY_UNSUPPORTED` |
+
+registry generation은 tool catalogue revision, 기존 `ToolPolicy.version`, policy snapshot의 revision과 별개다. 같은 snapshot revision/hash를 재설치해도 새 generation이며, stale CAS나 잘못된 snapshot은 현재 정책을 바꾸지 않는다. holder는 현재 capture 하나만 강하게 보관하고 과거 capture의 ownership은 WeakSet으로 확인한다. 별도 change listener 목록이나 전역 revision 계산을 만들지 않는다.
+
+eager/discovery catalogue와 prepared 요청은 private capture에 결속한다. 교체 이후 기존 catalogue는 `TOOL_CATALOGUE_STALE`/`TOOL_DISCOVERY_STALE`가 되어 모델 경계에서 다시 capture하며, 이전 승인 결과로 도구를 실행하지 못한다. 비동기 producer prepare·preflight·물리 resource revalidation 이후에도 generation을 다시 확인한다. runtime outer fingerprint와 observation-only provenance에는 registry identity/generation을 포함하고 원래 producer 입력/capability는 보존한다. 기존 grant에는 role generation이 없으므로 dynamic registry runtime은 이를 승인 대체로 채택하지 않는다.
+
+정책 교체는 앞으로의 dispatch 권한을 바꾼다. 이미 producer에 넘겨 실행을 시작한 작업의 효과를 취소하거나 원격 서버의 효과를 되돌리지 않는다. 일반 MCP tool arguments와 resource 접근의 의미 관계는 여전히 host가 선언해야 한다. 기존 instance-owned physical receipt 검사와 MCP producer의 정확한 prepared/revision 검사를 대체하지 않는다.
+
+`permission/engine-role-registry-child.test.ts`는 실제 `EngineChildren` admission, Git worktree, 독립 child DB와 기본 `run_command` producer를 사용한다. live parent와 세 child가 같은 registry instance를 공유하는지 확인한다. 첫 child의 승인 대기 중 parent가 deny를 설치하면 old approval은 allowed로 저장되더라도 command는 실패하고 파일 효과는 0이다. 새 child는 새 generation의 role deny를 기록하며 승인이나 파일 효과를 만들지 않는다. allow 재설치 후 세 번째 child는 새 fingerprint/승인을 통해 실제 명령을 실행하고 자신의 worktree에만 파일을 쓴다. child 엔진이 닫힌 뒤 독립 DB에서 이전 allow 관측·새 deny·tool 결과를 다시 읽는다. 이 실제 명령 검증은 macOS source/dist에서 통과했으며 Windows는 실행하지 않았다.
+
+`ScopedToolRuntime.assertPreparedCurrent(prepared, context)`는 실행을 시작하기 전 보관한 opaque 요청을 검사하는 비소비 host port다. runtime ownership·미사용 상태·inner/outer snapshot·정확한 context·catalogue/profile/policy와 현재 role/preflight를 확인하고, 비동기 host 관측 후 다시 확인한다. grant가 있으면 현재 ID/revision만 읽는다. producer prepare/execute/revalidate, 승인 요청, grant 소비나 replay를 호출하지 않으며 `request.used`를 설정하지 않는다. 통과한 요청은 이후 기존 `execute()`에서 같은 원본 capability로 다시 검증·실행해야 한다. 이 검사 자체는 승인을 제공하지 않는다. 독립 테스트는 반복 검사 후 실제 동일 handle 실행, clone/used/owner/mutation 및 policy/analyzer/source/grant 변경 시 producer invocation 0을 확인한다.

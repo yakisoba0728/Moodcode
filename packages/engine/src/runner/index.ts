@@ -257,6 +257,15 @@ export class RunCoordinator implements CoordinatorPort {
     return undefined;
   }
 
+  /** Nested host verification keeps the original advertised profile/discovery capture. */
+  captureToolCatalogue(context: ToolContext): ToolCatalogue {
+    const owner = this.owners.get(context.runId);
+    if (!owner || owner.terminal || owner.abort.signal.aborted || context.signal.aborted || owner.run.sessionId !== context.sessionId || owner.run.workspaceId !== context.workspace.id || context.workspace.root !== this.options.store.getWorkspace(owner.run.workspaceId).root || !owner.activeTools.has(context.toolCallId) || context.turnId !== owner.turn?.id || context.attemptId !== owner.turn?.attemptId || !owner.catalogue || !this.options.toolRuntime) throw new EngineError('TOOL_CATALOGUE_STALE', 'Nested verification requires the current native tool owner and catalogue');
+    owner.discovery?.assertCurrent();
+    this.options.toolRuntime.assertCatalogueCurrent(owner.catalogue);
+    return owner.catalogue;
+  }
+
   assertWorkspaceAvailable(workspaceId: string, excludedRunId?: string): void {
     // A queued drain during an audit decision must wait without changing the
     // session's durable pause. The decision owns this temporary reservation.
@@ -532,6 +541,8 @@ export class RunCoordinator implements CoordinatorPort {
       this.assertLive(owner);
       this.options.store.commit(run.id, 'run.started', {}, { run: { state: 'running' } });
       owner.lifecycle = this.options.lifecycleHooks?.capture({ workspaceId: run.workspaceId, sessionId: run.sessionId, runId: run.id });
+      if (this.options.onRunStarted) await abortable(() => this.options.onRunStarted!(run, owner.abort.signal), owner.abort.signal, 'Host Run initialization');
+      this.assertLive(owner);
       const provider = this.options.providers.get(run.config.providerId);
       if (!provider) throw new EngineError('PROVIDER_NOT_FOUND', `Unknown provider: ${run.config.providerId}`);
       const workspace = this.options.store.getWorkspace(run.workspaceId);
@@ -625,6 +636,7 @@ export class RunCoordinator implements CoordinatorPort {
         const revisionId = this.options.getContextRevisionId?.(run.sessionId);
         owner.turn = new TurnExecutor({ run, index: turnIndex, inputIds: records?.listRunInputIds?.(run.id) ?? [run.inputId], budget: owner.budget,
           store: this.options.store, wait: abortable, ...(revisionId ? { contextRevisionId: revisionId } : {}), currentContextRevisionId: () => this.options.getContextRevisionId?.(run.sessionId),
+          assertContextFresh: async (request, signal) => { await this.options.assertContextFresh?.(request, signal); assertCatalogueCurrent(); },
           ...(this.options.recoverContextOverflow ? { recoverContextOverflow: async () => {
             assertCatalogueCurrent();
             const failedAttemptId = owner.turn?.attemptId;
@@ -666,7 +678,7 @@ export class RunCoordinator implements CoordinatorPort {
         try { await this.lifecycle(owner, 'before-stop', `${run.id}:stop`, { outcome: terminalError.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed', errorCode: terminalError.code, turnCount: owner.budget.snapshot().logicalTurns, toolCallCount: owner.toolCount, outputBytes: owner.outputBytes }, false); } catch { /* Preserve the authoritative execution failure. */ }
       }
       return this.finish(owner, terminalError.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed', terminalError.code === 'RUN_CANCELLED' ? undefined : terminalError);
-    } finally { clearTimeout(timer); if (owner.lifecycle) this.options.lifecycleHooks!.release(owner.lifecycle); }
+    } finally { clearTimeout(timer); if (owner.lifecycle) this.options.lifecycleHooks!.release(owner.lifecycle); this.options.releaseContext?.(run.sessionId, run.id); }
   }
 
   private async lifecycle(owner: Owner, stage: LifecycleInvocation['stage'], invocationId: string, metadata: LifecycleInvocation['metadata'], control = true): Promise<LifecycleDispatchOutcome | undefined> {
@@ -765,6 +777,14 @@ export class RunCoordinator implements CoordinatorPort {
       this.assertLive(owner);
       if (owner.catalogue) this.options.toolRuntime!.assertCatalogueCurrent(owner.catalogue);
       if (this.options.getContextRevisionId?.(owner.run.sessionId) !== contextRevisionId) throw new EngineError('CONTEXT_REVISION_STALE', 'Context changed during the model lifecycle boundary');
+      if (this.options.assertContextFresh) {
+        const observedRequest = structuredClone(request), requestHash = createHash('sha256').update(JSON.stringify(observedRequest)).digest('hex');
+        await abortable(() => this.options.assertContextFresh!(observedRequest, owner.abort.signal), owner.abort.signal, 'Context dispatch freshness');
+        if (createHash('sha256').update(JSON.stringify(observedRequest)).digest('hex') !== requestHash) throw new EngineError('CONTEXT_REQUEST_MUTATED', 'Context freshness observer altered the frozen logical request');
+      }
+      this.assertLive(owner);
+      if (owner.catalogue) this.options.toolRuntime!.assertCatalogueCurrent(owner.catalogue);
+      if (this.options.getContextRevisionId?.(owner.run.sessionId) !== contextRevisionId) throw new EngineError('CONTEXT_REVISION_STALE', 'Context changed during source freshness validation');
       iterator = owner.turn!.stream(provider, request, owner.abort.signal)[Symbol.asyncIterator]();
       while (true) {
         const item = await abortable(() => iterator!.next(), owner.abort.signal, 'Provider stream');
@@ -939,7 +959,7 @@ export class RunCoordinator implements CoordinatorPort {
       ...(approval ? { approval } : {}),
     });
     // Command cleanup includes process-group termination and an after-image capture.
-    const cleanupGraceMs = execute && record.name === 'run_command' ? 5_000 : CLEANUP_GRACE_MS;
+    const cleanupGraceMs = execute && ['run_command', 'verify_changes'].includes(record.name) ? 5_000 : CLEANUP_GRACE_MS;
     try { return await abortable(() => operation(context), signal, `Tool ${record.name}`, cleanupGraceMs); }
     finally { active = false; clearTimeout(timer); }
   }

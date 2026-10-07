@@ -320,6 +320,8 @@ export class EngineChildren {
       toolPolicyInstance: parent.engine.toolRuntime.policy,
       lifecycleHooks: undefined,
       lifecycleHookRegistry: parent.engine.lifecycleHooks,
+      roleResourcePolicy: parent.engine.roleResourcePolicyRegistry ? undefined : this.options.roleResourcePolicy,
+      roleResourcePolicyRegistry: parent.engine.roleResourcePolicyRegistry,
       childTaskScope: {
         tasks: this.tasks,
         worktrees: this.worktrees,

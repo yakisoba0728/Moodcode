@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "stage": "phase-two repository projection / verification execution / dynamic policy integrated slice",
+  "status": "passed",
+  "recordedAt": "2026-10-07T14:16:56.238328+00:00",
+  "parentCommit": "448e9e0a825f0de472e361fa8ec9e398c1a7aa96",
+  "implementationIdentity": "working-tree source/test hashes before local commit; no self-referential commit hash",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "checks": [
+    {
+      "kind": "engine",
+      "command": "npm run test:engine",
+      "exitCode": 0,
+      "logSha256": "b5a273d5e2fc1702132633a29f22a6c128b80cdcd359ea3f1270b3c909cf1d5d",
+      "tests": 2879,
+      "pass": 2877,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0
+    },
+    {
+      "kind": "source",
+      "command": "node --import <absolute project node_modules/tsx/dist/loader.mjs> --test --test-concurrency=4 <13 W2 test paths>",
+      "exitCode": 0,
+      "logSha256": "a4866cbe762a4247c36133dadf50a28daefa7c68bb521ed18feef923be44d5a4",
+      "tests": 137,
+      "pass": 137,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "eval",
+      "command": "node scripts/evaluate-engine.mjs",
+      "exitCode": 0,
+      "logSha256": "39b31549a9e1975fff05626c28f23e329c625f7c390d82d05e615c8693816f42",
+      "tasks": [
+        {
+          "taskId": "addition-bug",
+          "passed": true
+        },
+        {
+          "taskId": "empty-list-boundary",
+          "passed": true
+        },
+        {
+          "taskId": "two-module-change",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "kind": "supplementary-source",
+      "command": "node --import <absolute project tsx loader> --test packages/engine/src/verification/execution.test.ts",
+      "exitCode": 0,
+      "logSha256": "aca477c77eca83cf7e70a4d0c7bf856f55df677cb39a0b7be5dd4b2e4d7b8ec5",
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    {
+      "kind": "supplementary-dist",
+      "command": "node --test packages/engine/dist/verification/execution.test.js",
+      "exitCode": 0,
+      "logSha256": "3a59a66118ea6e48bf39b7983030c7bfaf6592ca6dd6fc0a7444a36c6e7545b2",
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    }
+  ],
+  "fileSha256": {
+    "packages/engine/src/child-tasks/engine-host.ts": "2f53a716e62cd494fed1115133bf64f8a506f1e3c99a51ee73fb5b88e62e38ec",
+    "packages/engine/src/context/engine-repository-context.test.ts": "dca5a48b131eeccb829ec549d631c0901e29c23494fdf6dfc789c4747e84b8f0",
+    "packages/engine/src/context/plan.ts": "7a1f2fc88635f29a6e3714fc85bd7852486952481e9a2e0924e9d0ac1b2165d6",
+    "packages/engine/src/context/repository-context-integration.test.ts": "d06bb60b7fca0540e786dd6289adbc21412808b4f90374c8e1e8f27851fd5b1e",
+    "packages/engine/src/context/repository-contributions.test.ts": "02a238d69d0085e8c5f62debc42723842d816f2b137ae4dceebf4fdef378c3ca",
+    "packages/engine/src/context/repository-contributions.ts": "e3ec9c6d085eaa4ca346a30d9ef7bad729b534ad1d39664073caaa7cb736cd12",
+    "packages/engine/src/context/service.ts": "5b63c26d1b7bcc781bcb69f2e3e91ffa270ab6d6153bdc9635ba933296064b9d",
+    "packages/engine/src/engine.ts": "30434ed2e1eaf1b2671bf6d51912dfd0d06ade6ef1760aa4ad2228149c83d704",
+    "packages/engine/src/index.ts": "7f3c4fdb97c27b09e4bc4526effe21d07735f42e9d45c81df79a08f8491b2180",
+    "packages/engine/src/permission/engine-role-registry-child.test.ts": "b6df2c69856296401014671918d71a7fa0f6f61329c05963256e4b1b548acf34",
+    "packages/engine/src/permission/mcp-role-resources-integration.test.ts": "9974fa62065e7d2a1c087bbcb27027ca465b614647a796849f4165373f2b7a8e",
+    "packages/engine/src/permission/role-policy-registry.test.ts": "0119111dff8ca5b7347ab66c9e3c1ee1225a6c7c2e5ba3e13f9281027d27c71d",
+    "packages/engine/src/permission/role-policy-registry.ts": "b256e8147cdd755f0fb9959130262ce7deee9da63d0fb4bc23f5b7ffeb5b2609",
+    "packages/engine/src/ports.ts": "e44742d2a2976c5ef386fa06c51a3cba1183cb845a5109274e9e0b53034990f7",
+    "packages/engine/src/runner/index.ts": "af46850913562abddb244e05c296e5e077e20299bd4262a956561b013dbf2135",
+    "packages/engine/src/runner/turn-executor.ts": "850861b2efe02ce466c0ac4f612a95cb4e02a30183745af968d30ad2060170eb",
+    "packages/engine/src/tools/runtime/assert-prepared-current.test.ts": "c934258f618534790a3224d0f2bc743a114c629846b2886be43c85006b7f639b",
+    "packages/engine/src/tools/runtime/index.ts": "55aa4d4c6edc4a42088e5d260c85481b292e736be44845325bba63f2ca71a07d",
+    "packages/engine/src/tools/runtime/role-policy-registry-runtime.test.ts": "1f71c7769af8e451dfb79501c694b49bc92d6d4fc16c9a79417cbe1adb861f61",
+    "packages/engine/src/verification/engine-verification.test.ts": "854b18005e5f7b2fd6856edefe90b2e9680a1726354ce45b1f83a3a15d9ad47f",
+    "packages/engine/src/verification/execution.test.ts": "775349d98959081f634904fc8e0d00cde6223f1326d69429fff50347ba8688e6",
+    "packages/engine/src/verification/execution.ts": "cf5ebf585f3cd96e03bc28d00a25942fa0df9d6ac8fc2fc3d40913892403049f",
+    "packages/engine/src/verification/host.ts": "bbba236d0110de991f85f619999489e9b500326edeb243b539a101c174a50b75",
+    "packages/engine/src/verification/index.ts": "ea3b29939067e4411d1f0238b3a5ad508fa935bb8c9b1380e8a6336f95ae473b",
+    "packages/engine/src/verification/plans.test.ts": "d4ab944f080ee040ad99bdc62f385e0fbe0f9e05ee38ae1c67046364c91d1494",
+    "packages/engine/src/verification/plans.ts": "daf7043ada6fd6859c43485f869926619c323dfe6a5066661ca905b235f7bd3c",
+    "packages/engine/src/verification/receipts.test.ts": "6bfd5ef3aba0303a2105755eb98b56b20cbafd4eb0c03882cb056c947830b061",
+    "packages/engine/src/verification/receipts.ts": "5fd716b3c77f843518fd7b363d0261adc845cfa5f932560f855ca62d1ec894b1",
+    "packages/engine/src/verification/tool.test.ts": "eeb16e3f1476b96eb314070b317285b14959145e26f91d85aad31e2e8be308f3",
+    "packages/engine/src/verification/tool.ts": "5f727f2609dde908fc57d3251392a4dc8b88ce0d0a69bdbc5907ce38044d8272",
+    "packages/engine/src/verification/types.ts": "9b496b3c1ba4eaaf5c9c7df4fe9630af532806c9283659de5659ab0ebcfc8ae1"
+  },
+  "completion": {
+    "goalStatus": "active",
+    "completedWorkItems": 12,
+    "totalWorkItems": 80,
+    "completedFamilies": 1,
+    "totalFamilies": 20,
+    "newlyCompleted": [
+      "MC2-01c",
+      "MC2-02a",
+      "MC2-11d"
+    ]
+  },
+  "limits": [
+    "Source coverage is explicit bounded selected files, not all-repository verification.",
+    "No real semantic language-server large-corpus quality result.",
+    "Physical commands tested on local macOS/posix; no Windows or external MCP deployment claim.",
+    "Native user cancellation retains pending consumed intent and CLEANUP_UNCERTAIN; administrative recovery records unknown outcome without replay.",
+    "Unsupported receipt integration, bounded repair and task completion gate remain pending.",
+    "Evaluation is local scripted fixtures, not live model success.",
+    "Additional execution.test.ts was added after the first gate and is included in the final repeated full engine gate and 137-case source gate; its standalone source/dist observations are also retained."
+  ],
+  "environmentDebts": [
+    "E5-13",
+    "E5-08",
+    "E6-07",
+    "E6-08"
+  ]
+}

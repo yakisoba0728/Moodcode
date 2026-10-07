@@ -14,6 +14,7 @@ export interface TurnExecutorOptions {
   run: Run; index: number; inputIds: string[]; budget: BudgetAccount; store: EngineStore; wait: Wait;
   contextRevisionId?: string;
   currentContextRevisionId?: () => string | undefined;
+  assertContextFresh?: (request: TurnRequest, signal: AbortSignal) => Promise<void>;
   recoverContextOverflow?: () => Promise<import('../ports.js').ProviderMessage[]>;
 }
 
@@ -67,6 +68,18 @@ export class TurnExecutor {
       let failure: unknown;
       try {
         if (combined.aborted) throw combined.reason;
+        // Validate the fixed logical request on every attempt, including after retry backoff.
+        // A stale source ends this Turn; it must not silently replace a retry's messages.
+        if (this.options.assertContextFresh) {
+          const expected = createHash('sha256').update(JSON.stringify(dispatchedRequest)).digest('hex');
+          const checking = structuredClone(dispatchedRequest);
+          await this.options.wait(() => this.options.assertContextFresh!(checking, combined), combined, 'Context freshness');
+          if (combined.aborted) throw combined.reason;
+          if (createHash('sha256').update(JSON.stringify(checking)).digest('hex') !== expected)
+            throw new EngineError('CONTEXT_REVISION_STALE', 'Context freshness validation attempted to rewrite a frozen request');
+          if (this.options.currentContextRevisionId && this.options.currentContextRevisionId() !== contextRevisionId)
+            throw new EngineError('CONTEXT_REVISION_STALE', 'Context revision changed during attempt freshness validation');
+        }
         // Record dispatch intent first. If its transaction fails, the ordinary
         // attempt still has no dispatch timestamp and can prove no-dispatch.
         cleanupStore?.dispatchAttemptCleanup!(this.attempt.id); cleanupDispatched = true;

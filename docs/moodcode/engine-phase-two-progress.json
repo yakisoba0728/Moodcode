@@ -5,8 +5,8 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 0,
-  "completedWorkItems": 9,
+  "completedFamilies": 1,
+  "completedWorkItems": 12,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -42,10 +42,10 @@
         {
           "id": "MC2-01c",
           "completion": "frozen projection·tool/output/history budget 합산",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
-            "engine-phase-two-w1.md",
-            "engine-phase-two-w1-verification.json"
+            "engine-phase-two-w2.md",
+            "engine-phase-two-w2-verification.json"
           ]
         },
         {
@@ -58,7 +58,7 @@
           ]
         }
       ],
-      "notes": "Explicit selected source snapshot/LSP navigation done; automatic ContextSource/snippets and semantic large-corpus lane remain."
+      "notes": "Frozen ContextSource/snippet projection, shared serialized budget and native per-Attempt freshness integrated. Real semantic corpus/selection-quality lane remains."
     },
     {
       "id": "MC2-02",
@@ -70,14 +70,20 @@
         {
           "id": "MC2-02a",
           "completion": "계획/저장·check/profile/command/source revision",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-w2.md",
+            "engine-phase-two-w2-verification.json"
+          ]
         },
         {
           "id": "MC2-02b",
           "completion": "pass/fail/skipped/unsupported/timeout/cancelled/uncertain receipt",
           "status": "in_progress",
-          "evidence": []
+          "evidence": [
+            "engine-phase-two-w2.md",
+            "engine-phase-two-w2-verification.json"
+          ]
         },
         {
           "id": "MC2-02c",
@@ -92,7 +98,7 @@
           "evidence": []
         }
       ],
-      "notes": "Parallel plan/receipt base modules are being implemented; command execution/repair/completion wiring remains."
+      "notes": "Host idle CAS + frozen Run scope + current source plan and exact command receipts integrated. Native cancellation/unsupported settlement, bounded repair and completion/recovery gate remain."
     },
     {
       "id": "MC2-03",
@@ -376,7 +382,7 @@
       "title": "role 권한·판단 출처·preflight",
       "priority": "P1",
       "wave": "W1",
-      "status": "in_progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-11a",
@@ -408,14 +414,14 @@
         {
           "id": "MC2-11d",
           "completion": "symlink/root 이동·MCP server 교체·stale rule/approval·deny 충돌·analyzer 실패 검사. 승인 뒤 input 변경 또는 silent allow 금지",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
-            "engine-phase-two-w1.md",
-            "engine-phase-two-w1-verification.json"
+            "engine-phase-two-w2.md",
+            "engine-phase-two-w2-verification.json"
           ]
         }
       ],
-      "notes": "Role policy/provenance and bound command preflight integrated; actual MCP registration/reconnect lane is ongoing."
+      "notes": "Role/preflight/physical paths and dynamic parent-child host registry completed; actual loopback HTTP MCP replacement, exact approval stale effect 0 and child worktree/DB verified. External deployment/Windows observations remain separate environment scope."
     },
     {
       "id": "MC2-12",

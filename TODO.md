@@ -296,8 +296,8 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 
 2026-10-07 사용자 요청으로 새 goal을 활성화했다. [실행·종료 조건](docs/moodcode/engine-phase-two-goal.md), [80개 작업 상태](docs/moodcode/engine-phase-two-progress.json)를 따른다. 기존1차 종료와 환경 이월4개는 유지한다. 아래 항목은 실제 구현·엔진 연결·검증 뒤에만 완료 표시한다.
 
-- [ ] **MC2-01 — 저장소 문맥·LSP navigation**: P1 · W1. LSP snapshot/navigation·read tool/host API 연결. 자동 문맥 공급·semantic 큰 corpus 검증 잔여. [첫 통합](docs/moodcode/engine-phase-two-w1.md).
-- [ ] **MC2-02 — 검증 계획·제한 repair·완료 gate**: P1 · W2. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [ ] **MC2-01 — 저장소 문맥·LSP navigation**: P1 · W1. frozen ContextSource/snippets·공유 byte 예약·native Attempt freshness까지 연결. 자동 관련 path·real semantic 큰 corpus 품질 검증 잔여. [통합](docs/moodcode/engine-phase-two-w2.md).
+- [ ] **MC2-02 — 검증 계획·제한 repair·완료 gate**: P1 · W2. host check/source 정책·idle CAS·actual command exact approval/결과 영수증 연결. native 취소·unsupported 관측 보강, bounded repair·completion/recovery gate 잔여.
 - [ ] **MC2-03 — 지침 신뢰·승인형 프로젝트 기억**: P1 · W3. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-04 — typed lifecycle·policy hook**: P1 · W1. host registry·observe/deny/stop·native 경계·child 공유 연결. context/input rewrite·검증 기반 continuation 잔여.
 - [ ] **MC2-05 — 적용 전 ProposalSet overlay**: P2 · W4. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
@@ -306,7 +306,7 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 - [ ] **MC2-08 — 예약·webhook occurrence admission**: P2 · W5. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-09 — ACP·remote host·client effect 완료**: P2 · W5. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-10 — session command job·완료 전달**: P2 · W5. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
-- [ ] **MC2-11 — role 권한·판단 출처·preflight**: P1 · W1. captured profile·file/MCP resource 규칙·allow/deny 영수증·실제 command preflight 연결. 실제 외부 MCP 교체 운용 검증 잔여.
+- [x] **MC2-11 — role 권한·판단 출처·preflight**: P1 · W1. host CAS 정책 교체·catalogue/prepared 무효화·actual HTTP MCP 및 독립 child worktree/DB의 stale approval effect 0 검증. 외부 운용/Windows 증거는 환경 범위로 유지. [통합](docs/moodcode/engine-phase-two-w2.md).
 - [ ] **MC2-12 — projection·manifest·무진전·오류 진단**: P1 · W1. bounded native trajectory·Run/Attempt manifest·typed 오류·advisory 조회 연결. 실제 source/effect epoch writer·등록 inspector·선택 요약 잔여.
 - [ ] **MC2-13 — 승인형 Git commit 영수증**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-14 — 효과 보존 대화 fork**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
@@ -323,10 +323,13 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 
 - [x] **MC2-01a** — selected source snapshot·hash/host parser routing/ignore revision·generation CAS.
 - [x] **MC2-01b** — bounded LSP symbols/definitions/references·stale/unsupported·실제 read tool/host API.
+- [x] **MC2-01c** — host-selected evidence 문맥·필수 exchange/도구/출력의 실제 공유 예약·per-Attempt frozen source/context 검사.
+- [x] **MC2-02a** — host check/profile/command·idle session CAS·Run source scope·actual selected source plan/영구 저장.
 - [x] **MC2-04a** — Run별 typed host hook registry·stage/revision/order/failure policy.
 - [x] **MC2-04b** — 실제 모델·도구 경계의 bounded observe/deny/stop·취소/late outcome 영구 기록.
 - [x] **MC2-11a** — captured profile·canonical file/MCP resource 역할 규칙·deny 우선/unknown ask.
 - [x] **MC2-11b** — trusted allow/deny provenance·dual-journal 영수증·bounded 관측 조회.
 - [x] **MC2-11c** — exact command/cwd/source/analyzer revision 사전 검사·승인 유지/실행 직전 재검사.
+- [x] **MC2-11d** — physical alias/root·MCP 연결/정책 교체·stale 승인·deny/analyzer 실패·parent/child generation 및 승인 뒤 변경 effect 0.
 - [x] **MC2-12a** — bounded native trajectory·digest/partial/usage/source provenance·무실행 관측.
 - [x] **MC2-12b** — typed provider 오류 분류·request/cleanup·zero/unknown usage projection.

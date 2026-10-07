@@ -10,6 +10,8 @@ OpenCode/pi/Amp/Claude Code/Codex의 공개 근거를 비교하며 자체 엔진
 
 ## 개발 실행
 
+19개 공개 코딩 에이전트 분석을 바탕으로 엔진 2차 goal이 진행 중이다. 현재 80개 작업 중 12개를 완료했고, 저장소 증거의 frozen 문맥 공급·등록한 검증 명령의 exact approval/영수증·동적 역할 정책과 실제 MCP/child 연결까지 통합했다. [최신 통합](docs/moodcode/engine-phase-two-w2.md), [검증 증거](docs/moodcode/engine-phase-two-w2-verification.json), [진행표](docs/moodcode/engine-phase-two-progress.json)를 따른다. 제한 repair·검증 완료 gate와 나머지 범위는 계속 구현한다.
+
 현재 개발 runtime은 `.nvmrc`의 Node 26.9.0이며, 최소 Node 24의 `node:sqlite` API를 사용한다. Git이 필요하다. macOS arm64 개발용 앱 bundle과 ASAR 내부 supervisor를 검증했다. 서명·공증·공개 지원 OS 검증은 후속 단계다.
 
 ```sh

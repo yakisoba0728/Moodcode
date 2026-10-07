@@ -10,8 +10,10 @@ import { projectToolHistory } from './tool-history.js';
 import { projectMediaHistory, validateMediaHistoryPolicy, type MediaHistoryPolicy, type ImageHistoryProvenance, type MediaHistoryDiagnostics } from './media-history.js';
 import { ActivePrefixMemoryService, type ActivePrefixPolicy, type ActivePrefixCheckpoint, type PreparedActivePrefix } from './active-prefix.js';
 import { projectDocumentHistory, validateDocumentHistoryPolicy, type DocumentHistoryPolicy, type DocumentHistoryDiagnostics, type DocumentHistoryProvenance } from './document-history.js';
+import { repositoryContextPolicy, type ContextSourcePort, type PreparedRepositoryContribution, type RepositoryContextPolicy } from './repository-contributions.js';
 
-export interface ContextServiceOptions { mediaHistoryPolicy?: MediaHistoryPolicy; activePrefixPolicy?: ActivePrefixPolicy; documentHistoryPolicy?: DocumentHistoryPolicy }
+export interface ContextServiceOptions { mediaHistoryPolicy?: MediaHistoryPolicy; activePrefixPolicy?: ActivePrefixPolicy; documentHistoryPolicy?: DocumentHistoryPolicy;
+  repositoryContext?: { source: ContextSourcePort; policy: RepositoryContextPolicy } }
 
 export interface ContextDiagnostics {
   revisionId: string; revision: number; plan: Omit<ContextPlan, 'messages'>;
@@ -21,6 +23,7 @@ export interface ContextDiagnostics {
   sessionDocumentAnchor?: ModelHistoryPage['sessionDocumentAnchor'];
   documentHistory?: DocumentHistoryDiagnostics & { provenance: DocumentHistoryProvenance[] };
   mediaHistory?: MediaHistoryDiagnostics & { provenance: ImageHistoryProvenance[] };
+  repositoryContext?: Omit<PreparedRepositoryContribution, 'messages' | 'snippets'> & { snippets: Omit<PreparedRepositoryContribution['snippets'][number], 'text'>[] };
   activePrefix?: { checkpointId: string; summaryRevisionId: string; scope: 'active-run-prefix'; projection: ActivePrefixCheckpoint['projection'];
     factsSha256: string; manifestSha256: string; policySha256: string; coveredMessageIds: string[]; protectedMessageIds: string[];
     summaryUsage: ActivePrefixCheckpoint['usage']; historicalFileEvidence: true; currentFileEvidence: false };
@@ -36,12 +39,35 @@ export class ContextService {
   private readonly revisions = new Map<string, string>();
   private readonly mediaHistoryPolicy?: Required<MediaHistoryPolicy>;
   private readonly documentHistoryPolicy?: DocumentHistoryPolicy;
+  private readonly repositoryContext?: { source: ContextSourcePort; policy: RepositoryContextPolicy };
+  private readonly repositoryCaptures = new Map<string, { contribution: PreparedRepositoryContribution; revisionId: string; messagesSha256: string; runId?: string }>();
   constructor(private readonly store: SqliteStore, readonly models = new ModelRegistry(), private readonly outputTokenReserve = 0, private readonly provider?: (id: string) => ProviderAdapter | undefined, options: ContextServiceOptions = {}) {
     if (!Number.isSafeInteger(outputTokenReserve) || outputTokenReserve < 0 || outputTokenReserve > 100_000_000) throw new EngineError('INVALID_OUTPUT_RESERVE', 'Output token reserve must be a bounded nonnegative integer');
     this.memory = new SemanticMemoryService(store);
     if (options.activePrefixPolicy !== undefined) this.activePrefix = new ActivePrefixMemoryService(store, options.activePrefixPolicy);
     if (options.mediaHistoryPolicy !== undefined) this.mediaHistoryPolicy = validateMediaHistoryPolicy(options.mediaHistoryPolicy);
     if (options.documentHistoryPolicy !== undefined) this.documentHistoryPolicy = validateDocumentHistoryPolicy(options.documentHistoryPolicy);
+    if (options.repositoryContext !== undefined) {
+      if (!options.repositoryContext.source || typeof options.repositoryContext.source.prepare !== 'function' || typeof options.repositoryContext.source.assertFresh !== 'function')
+        throw new EngineError('INVALID_REPOSITORY_CONTEXT', 'Repository context requires a host-owned prepare/freshness source');
+      this.repositoryContext = { source: options.repositoryContext.source, policy: repositoryContextPolicy(options.repositoryContext.policy) };
+    }
+  }
+  async assertFresh(sessionId: string | undefined, messages: readonly ProviderMessage[], signal: AbortSignal, runId?: string): Promise<void> {
+    if (!this.repositoryContext) return;
+    if (typeof sessionId !== 'string' || !sessionId) throw new EngineError('REPOSITORY_CONTEXT_STALE', 'Repository evidence requires its prepared session owner');
+    if (signal.aborted) throw new EngineError('REPOSITORY_CONTEXT_CANCELLED', 'Repository context dispatch was cancelled');
+    const captured = this.repositoryCaptures.get(sessionId);
+    const valid = () => captured && this.repositoryCaptures.get(sessionId) === captured && this.revisionId(sessionId) === captured.revisionId
+      && digest(messages) === captured.messagesSha256 && (runId === undefined || captured.runId === runId);
+    if (!valid()) throw new EngineError('REPOSITORY_CONTEXT_STALE', 'Dispatch does not match the prepared context, revision and Run owner');
+    await this.repositoryContext.source.assertFresh(captured!.contribution, signal);
+    if (signal.aborted) throw new EngineError('REPOSITORY_CONTEXT_CANCELLED', 'Repository context dispatch was cancelled');
+    if (!valid()) throw new EngineError('REPOSITORY_CONTEXT_STALE', 'Prepared context ownership changed during freshness validation');
+  }
+  releaseRepositoryContext(sessionId: string, runId?: string): void {
+    const captured = this.repositoryCaptures.get(sessionId);
+    if (captured && (runId === undefined || captured.runId === runId)) this.repositoryCaptures.delete(sessionId);
   }
   snapshot(sessionId: string, config: RunConfig): SessionSnapshot {
     const page = this.store.readModelHistory(sessionId, 512, Math.max(1024, Math.min(33_554_432, config.limits.maxContextBytes * 4)));
@@ -125,8 +151,27 @@ export class ContextService {
       const projected = { ...prefix, snapshot: projectToolHistory(documents?.snapshot ?? media?.snapshot ?? restored, request.run?.id),
         requiredHistoryMessageIds: [...new Set([...(prefix.requiredHistoryMessageIds ?? []), ...(image ? [image.id] : []), ...(document ? [document.id] : []), ...(media ? [...media.requiredTextMessageIds, ...media.requiredExchangeMessageIds] : []), ...(documents?.requiredTextMessageIds ?? [])])],
         ...(media?.requiredNotice ? { mediaHistoryNotice: media.requiredNotice } : {}), ...(documents?.requiredNotice ? { documentHistoryNotice: documents.requiredNotice } : {}) };
-      const plan = await planContext({ ...projected, instructionSources: observation.sources }, { model, outputTokens: this.outputTokenReserve });
-      return { projected, media, documents, plan };
+      const planRequest = { ...projected, instructionSources: observation.sources };
+      let contribution: PreparedRepositoryContribution | undefined;
+      const prepareRepository = (requiredMessagesBytes: number) => {
+        const configured = this.repositoryContext!;
+        return configured.source.prepare({ workspace: request.workspace, query: configured.policy.query,
+          ...(configured.policy.exactRanges === undefined ? {} : { exactRanges: configured.policy.exactRanges }), signal: request.signal,
+          budget: { slotBytes: configured.policy.slotBytes, maxContextBytes: request.config.limits.maxContextBytes,
+            reservedBytes: request.reservedBytes ?? 0, requiredMessagesBytes, contextWindow: model.contextWindow, outputTokens: this.outputTokenReserve } });
+      };
+      if (this.repositoryContext) contribution = await prepareRepository(2);
+      let plan: ContextPlan;
+      try { plan = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve, ...(contribution ? { repositoryMessages: contribution.messages } : {}) }); }
+      catch (error) {
+        if (!contribution || !(error instanceof EngineError) || !['CONTEXT_LIMIT', 'CONTEXT_TOKEN_LIMIT', 'ACTIVE_PREFIX_CONTEXT_LIMIT', 'IMAGE_CONTEXT_LIMIT', 'DOCUMENT_CONTEXT_LIMIT', 'IMAGE_HISTORY_METADATA_LIMIT', 'DOCUMENT_HISTORY_METADATA_LIMIT'].includes(error.code)) throw error;
+        // Optional evidence must never displace required current exchanges or media anchors.
+        // Reprepare with the fitting base transcript's complete reservation, without silently truncating it.
+        const base = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve });
+        contribution = await prepareRepository(base.bytes - (request.reservedBytes ?? 0));
+        plan = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve, repositoryMessages: contribution.messages });
+      }
+      return { projected, media, documents, plan, contribution };
     };
     const provider = this.provider?.(request.config.providerId);
     let candidate: PreparedActivePrefix | undefined;
@@ -149,7 +194,7 @@ export class ContextService {
         throw initialError;
       }
     }
-    let { projected, media, documents, plan } = outcome;
+    let { projected, media, documents, plan, contribution } = outcome;
     const selectedIds = new Set(plan.selectedMessageIds);
     const omittedDiscussion = projected.snapshot.messages.some(message => message.runId !== request.run?.id && message.role !== 'tool' && message.content.trim() && !selectedIds.has(message.id));
     if (!candidate && !summaryAttempted && omittedDiscussion && request.run && request.budget && provider) {
@@ -164,7 +209,7 @@ export class ContextService {
     if (!candidate && !prefixTried && this.activePrefix && request.run && request.budget && provider && (forcePrefix || omittedActive)) {
       try {
         candidate = await this.activePrefix.prepare(request, provider, { model, ...(request.activePrefixStage ? { stage: request.activePrefixStage } : {}) });
-        ({ projected, media, documents, plan } = await makePlan(candidate));
+        ({ projected, media, documents, plan, contribution } = await makePlan(candidate));
       } catch (error) {
         if (candidate) this.activePrefix.discard(candidate, error);
         candidate = undefined;
@@ -177,12 +222,15 @@ export class ContextService {
       if (candidate) this.activePrefix!.discard(candidate, error);
       throw error;
     }
+    if (contribution) await this.repositoryContext!.source.assertFresh(contribution, request.signal);
     const previous = this.store.getSessionDocument(sessionId, 'context.head');
     const prefixCheckpoint = candidate?.checkpoint ?? (request.run ? this.activePrefix?.active(sessionId, request.run.id)?.checkpoint : undefined);
     const sourceIds = [...plan.selectedMessageIds, ...observation.sources.filter(source => source.sha256 !== null).map(source => `${source.id}:${source.sha256}`),
       ...(prefixCheckpoint ? [prefixCheckpoint.revisionId, `active-prefix-policy:${prefixCheckpoint.policySha256}`, `active-prefix-facts:${prefixCheckpoint.factsSha256}`, `active-prefix-manifest:${prefixCheckpoint.manifestSha256}`] : []),
       ...(media ? [`image-policy:${media.diagnostics.policySha256}`, `image-source:${media.diagnostics.sourceSha256}`, ...media.provenance.map(item => `image-message:${item.messageId}:${digest(item)}`)] : []),
-      ...(documents ? [`document-policy:${documents.diagnostics.policySha256}`, `document-source:${documents.diagnostics.sourceSha256}`, ...documents.provenance.map(item => `document-message:${item.messageId}:${digest(item)}`)] : [])];
+      ...(documents ? [`document-policy:${documents.diagnostics.policySha256}`, `document-source:${documents.diagnostics.sourceSha256}`, ...documents.provenance.map(item => `document-message:${item.messageId}:${digest(item)}`)] : []),
+      ...(contribution ? [`repository-contribution:${contribution.id}`, `repository-generation:${contribution.generation}`,
+        ...contribution.observedSources.map(source => `repository-source:${source.path}:${source.hash}`)] : [])];
     const bindingHash = digest({ plan: plan.sha256, sources: sourceIds, config: request.config, model: { ...model, source: { kind: model.source.kind, reference: model.source.reference } } });
     const old = previous?.data;
     const oldRevisionId = typeof old?.revisionId === 'string' ? old.revisionId : undefined;
@@ -197,6 +245,10 @@ export class ContextService {
         sourceIds, text, sha256: createHash('sha256').update(text).digest('hex'), createdAt: new Date().toISOString(), ...(request.run ? { runId: request.run.id } : {}), ...(latest ? { supersedesId: latest.id } : {}) };
     }
     const { messages, ...publicPlan } = plan;
+    const repositoryDiagnostics = contribution ? (() => {
+      const { messages: ignoredMessages, snippets, ...metadata } = contribution;
+      return { ...metadata, snippets: snippets.map(({ text: ignoredText, ...snippet }) => snippet) };
+    })() : undefined;
     // Text is retained in ContextRevision; diagnostics carry source hashes and observations only.
     const diagnostics: ContextDiagnostics = { revisionId, revision, plan: publicPlan,
       instructions: { ...observation, sources: observation.sources.map(source => ({ ...source, text: null })) },
@@ -205,6 +257,7 @@ export class ContextService {
       ...(this.history.get(sessionId)?.sessionDocumentAnchor ? { sessionDocumentAnchor: this.history.get(sessionId)!.sessionDocumentAnchor } : {}),
       ...(media ? { mediaHistory: { ...media.diagnostics, provenance: media.provenance } } : {}),
       ...(documents ? { documentHistory: { ...documents.diagnostics, provenance: documents.provenance } } : {}),
+      ...(repositoryDiagnostics ? { repositoryContext: repositoryDiagnostics } : {}),
       ...(prefixCheckpoint ? { activePrefix: { checkpointId: prefixCheckpoint.id, summaryRevisionId: prefixCheckpoint.revisionId, scope: prefixCheckpoint.scope, projection: prefixCheckpoint.projection,
         factsSha256: prefixCheckpoint.factsSha256, manifestSha256: prefixCheckpoint.manifestSha256, policySha256: prefixCheckpoint.policySha256,
         coveredMessageIds: prefixCheckpoint.coveredMessageIds, protectedMessageIds: prefixCheckpoint.protectedMessageIds, summaryUsage: prefixCheckpoint.usage,
@@ -227,6 +280,11 @@ export class ContextService {
     else if (pendingRevision && request.run) this.store.commitContextDocument(request.run.id, 'context.revision.activated', { contextRevisionId: revisionId, revision, sha256: pendingRevision.sha256 }, { revision: pendingRevision, kind: 'context.head', expectedRevision: previous?.revision ?? 0, data });
     else { if (pendingRevision) this.store.putContextRevision(pendingRevision); this.store.putSessionDocument(sessionId, 'context.head', previous?.revision ?? 0, data); }
     this.revisions.set(sessionId, revisionId);
+    if (contribution) {
+      this.repositoryCaptures.delete(sessionId);
+      this.repositoryCaptures.set(sessionId, { contribution, revisionId, messagesSha256: digest(messages), ...(request.run ? { runId: request.run.id } : {}) });
+      if (this.repositoryCaptures.size > 128) this.repositoryCaptures.delete(this.repositoryCaptures.keys().next().value!);
+    }
     return messages;
   }
 }
