@@ -252,6 +252,7 @@ export class EngineChildren {
       "lsp_format_file",
       "merge_child_changes",
     ];
+    if (this.options.toolDiscoveryPolicy) available.push("discover_tools");
     if (request.tools.some((name) => !available.includes(name)))
       throw new EngineError(
         "CHILD_TOOL_UNAVAILABLE",

@@ -23,6 +23,8 @@ import { createExactEditTool } from './tools/edit/index.js';
 import { createFileActionTools } from './tools/file-actions/index.js';
 import { createPatternSearchTools } from './tools/search/index.js';
 import { ScopedToolRuntime } from './tools/runtime/index.js';
+import { validateToolDiscoveryPolicy, type ToolDiscoveryPolicy } from './tools/runtime/discovery.js';
+import { createToolDiscoveryTool } from './runner/tool-discovery.js';
 import { ToolPolicy, type ToolPolicyRule } from './permission/policy.js';
 import { ScopedToolGrants } from './permission/grants.js';
 import { QuestionManager, type QuestionAnswer } from './questions/index.js';
@@ -92,6 +94,8 @@ export interface EngineOptions {
   tools?: ToolDefinition[];
   defaults?: RunConfigInput;
   toolPolicy?: readonly ToolPolicyRule[];
+  /** Explicit Run-local schema discovery; default provider exposure remains eager. */
+  toolDiscoveryPolicy?: ToolDiscoveryPolicy;
   /** Trusted host policy shared by an owned child; grants remain local to each engine. */
   toolPolicyInstance?: ToolPolicy;
   modelSpecs?: readonly ModelSpec[];
@@ -248,6 +252,7 @@ export class MoodcodeEngine {
     const mediaHistoryPolicy = options.mediaHistoryPolicy === undefined ? undefined : validateMediaHistoryPolicy(options.mediaHistoryPolicy);
     const activePrefixPolicy = options.activePrefixPolicy === undefined ? undefined : validateActivePrefixPolicy(options.activePrefixPolicy);
     const documentHistoryPolicy = options.documentHistoryPolicy === undefined ? undefined : validateDocumentHistoryPolicy(options.documentHistoryPolicy);
+    const toolDiscoveryPolicy = options.toolDiscoveryPolicy === undefined ? undefined : validateToolDiscoveryPolicy(options.toolDiscoveryPolicy);
     const dbPath = options.dbPath === ':memory:' ? options.dbPath : resolve(options.dbPath);
     const artifactDir = options.artifactDir !== undefined ? resolve(options.artifactDir)
       : dbPath === ':memory:' ? mkdtempSync(join(tmpdir(), 'moodcode-memory-artifacts-')) : resolve(`${options.dbPath}.artifacts`);
@@ -299,7 +304,7 @@ export class MoodcodeEngine {
       this.lsp = new LspManager();
       this.formatters = new FormatterRegistry();
       this.changes = new WorkspaceChangeHub({ signal: this.hostResources.signal });
-      this.children = new EngineChildren(this, { ...options, ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value), storageBinding);
+      this.children = new EngineChildren(this, { ...options, ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value), storageBinding);
       terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
@@ -331,7 +336,11 @@ export class MoodcodeEngine {
       };
       for (const [id, provider] of providers) providers.set(id, withInputMedia(provider, this.images, this.documents, this.store, models, options.allowUnknownDocumentTokenCost === true));
       this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}) });
-      const availableTools = options.tools ?? [...createReadTools(), createPatchTool(), createCommandTool(), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
+      const coreTools = options.tools ?? [...createReadTools(), createPatchTool(), createCommandTool(), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
+      const availableTools = toolDiscoveryPolicy ? [...coreTools, createToolDiscoveryTool({
+        identity: context => this.coordinator.toolDiscoveryIdentity(context),
+        stage: (context, query, limit, expected) => this.coordinator.stageToolDiscovery(context, query, limit, expected),
+      })] : coreTools;
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
       const tools = options.allowedToolNames ? availableTools.filter(tool => options.allowedToolNames!.includes(tool.name)) : availableTools;
@@ -367,6 +376,7 @@ export class MoodcodeEngine {
         },
         recoverContextOverflow: (request, provider) => this.context.recoverOverflow(request, provider),
         toolRuntime: this.toolRuntime,
+        ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy, coreToolNames: coreTools.map(tool => tool.name) } : {}),
         onToolCheckpoint: async observation => {
           await this.watchWorkspace(observation.workspace.id);
           const changes = await this.changes.recordCheckpoint({ ...observation, sessionId: observation.run.sessionId, runId: observation.run.id });

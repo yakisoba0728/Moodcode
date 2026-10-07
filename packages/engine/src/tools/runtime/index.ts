@@ -6,16 +6,24 @@ import { createToolResultEnvelope, enrichLegacyToolResult } from '../../artifact
 import { boundedJson } from '../../artifacts/validation.js';
 import { inferToolEffect, ToolPolicy, type ToolEffectClass } from '../../permission/policy.js';
 import { ScopedToolGrants, type GrantScope, type ScopedToolGrant } from '../../permission/grants.js';
+import { TOOL_DISCOVERY_LIMITS, discoveryCatalogueSignature, validateDiscoveryMaterializeLimits, validateDiscoveryNames, validateDiscoveryQuery,
+  type ToolDiscoveryCatalogue, type ToolDiscoveryMaterializeLimits, type ToolDiscoveryMetadata } from './discovery.js';
 export interface RuntimeToolRegistration { effect?: ToolEffectClass; exactApproval?: boolean; revalidate?: (prepared: PreparedTool, context: ToolContext) => Promise<void> }
 export interface ToolCatalogue { scopeId: string; revision: number; policyVersion: number; mode: 'plan' | 'build'; tools: readonly ProviderTool[] }
 export interface ScopedToolRuntimeOptions { policy?: ToolPolicy; grants?: ScopedToolGrants; artifacts?: ArtifactStore | Promise<ArtifactStore> | (() => ArtifactStore | Promise<ArtifactStore>) }
-interface Entry { scopeId: string; token: symbol; definition: ToolDefinition; effect: ToolEffectClass; exactApproval: boolean; revalidate?: RuntimeToolRegistration['revalidate'] }
+interface Entry { scopeId: string; token: symbol; definition: ToolDefinition; descriptor: Readonly<ProviderTool>; metadata: Readonly<ToolDiscoveryMetadata>; effect: ToolEffectClass; exactApproval: boolean; revalidate?: RuntimeToolRegistration['revalidate'] }
 interface Captured { entries: Map<string, Entry>; signature: string }
 interface Request { entry: Entry; catalogue: ToolCatalogue; inner: PreparedTool; outerSnapshot: string; innerSnapshot: string; binding: string; grant?: ScopedToolGrant; grantScope: GrantScope; used: boolean }
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
 function active(context: ToolContext): void { if (context.signal.aborted) fail('CANCELLED', 'Tool runtime operation cancelled'); }
 function binding(context: ToolContext): string { return JSON.stringify([context.workspace.id, context.workspace.root, context.sessionId, context.runId, context.toolCallId, context.turnId, context.attemptId, context.executionLockPath]); }
 function name(value: string): void { if (typeof value !== 'string' || !/^[A-Za-z][A-Za-z0-9_.-]{0,127}$/.test(value)) fail('INVALID_TOOL_REGISTRATION', 'Tool and scope names must be bounded identifiers'); }
+function freezeJson(value: unknown): void { if (value && typeof value === 'object') { for (const child of Object.values(value)) freezeJson(child); Object.freeze(value); } }
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']';
+  if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonicalJson((value as Record<string, unknown>)[key])).join(',') + '}';
+  return JSON.stringify(value)!;
+}
 function resources(prepared: PreparedTool): string[] {
   const input = prepared.input;
   if (!input || typeof input !== 'object' || Array.isArray(input)) return [];
@@ -31,6 +39,7 @@ export class ScopedToolRuntime {
   private scopes = new Map<string, Map<string, Entry>>(); private current = 0;
   private included = new Map<string, readonly string[]>(); private artifactPromise?: Promise<ArtifactStore>;
   private captures = new WeakMap<ToolCatalogue, Captured>(); private requests = new WeakMap<PreparedTool, Request>();
+  private discoveryCaptures = new WeakMap<ToolDiscoveryCatalogue, Captured>();
   constructor(private readonly options: ScopedToolRuntimeOptions = {}) { this.policy = options.policy ?? new ToolPolicy(); this.grants = options.grants ?? new ScopedToolGrants(); }
   get revision(): number { return this.current; }
   setIncludedScopes(scopeId: string, scopes: readonly string[]): void {
@@ -53,9 +62,14 @@ export class ScopedToolRuntime {
     const entries = this.scopes.get(scopeId) ?? new Map<string, Entry>(); if (entries.has(source.name)) fail('TOOL_REGISTRATION_CONFLICT', 'Tool name already exists in this scope'); if (entries.size >= 256) fail('TOOL_REGISTRY_LIMIT', 'Tool registration limit exceeded');
     for (const [base, included] of this.included) { const group = [base, ...included]; if (group.includes(scopeId) && group.some(scope => scope !== scopeId && this.scopes.get(scope)?.has(source.name))) fail('TOOL_SCOPE_CONFLICT', 'Tool name conflicts with an explicitly included scope'); }
     const schema = boundedJson(source.inputSchema, 64 * 1024) as JsonObject; if (!schema || typeof schema !== 'object' || Array.isArray(schema)) fail('INVALID_TOOL_REGISTRATION', 'Tool schema must be a JSON object');
+    freezeJson(schema);
+    const descriptor = Object.freeze({ name: source.name, description: source.description, inputSchema: schema });
+    const metadata = Object.freeze({ name: descriptor.name, description: descriptor.description,
+      schemaSha256: createHash('sha256').update(canonicalJson(schema)).digest('hex'), definitionSha256: createHash('sha256').update(canonicalJson(descriptor)).digest('hex'),
+      schemaBytes: Buffer.byteLength(JSON.stringify(schema)), definitionBytes: Buffer.byteLength(JSON.stringify(descriptor)) });
     const effect = inferToolEffect(source.name, options.effect ?? (source as ToolDefinition & { effectClass?: ToolEffectClass }).effectClass);
     const definition: ToolDefinition = { name: source.name, description: source.description, inputSchema: schema, effectClass: effect, prepare: source.prepare.bind(source), execute: source.execute.bind(source) };
-    const entry: Entry = { scopeId, token: Symbol(source.name), definition, effect, exactApproval: options.exactApproval === true, ...(options.revalidate ? { revalidate: options.revalidate } : {}) }; entries.set(source.name, entry); this.scopes.set(scopeId, entries); this.current++;
+    const entry: Entry = { scopeId, token: Symbol(source.name), definition, descriptor, metadata, effect, exactApproval: options.exactApproval === true, ...(options.revalidate ? { revalidate: options.revalidate } : {}) }; entries.set(source.name, entry); this.scopes.set(scopeId, entries); this.current++;
     return () => { const existing = this.scopes.get(scopeId); if (existing?.get(definition.name)?.token !== entry.token) return; existing.delete(definition.name); if (!existing.size) this.scopes.delete(scopeId); this.current++; };
   }
   clearScope(scopeId: string): void { if (this.scopes.delete(scopeId)) this.current++; }
@@ -72,6 +86,61 @@ export class ScopedToolRuntime {
     }
     const catalogue: ToolCatalogue = { scopeId, revision: this.current, policyVersion: this.policy.version, mode, tools };
     this.captures.set(catalogue, { entries, signature: JSON.stringify(catalogue) }); return catalogue;
+  }
+  /** Candidate metadata carries no schema or execution authority. Host profile and policy narrowing apply before exposure. */
+  discoveryCatalogue(scopeId: string, mode: 'plan' | 'build' = 'build', allowedNames?: readonly string[]): ToolDiscoveryCatalogue {
+    name(scopeId);
+    if (mode !== 'plan' && mode !== 'build') fail('INVALID_TOOL_MODE', 'Tool discovery mode must be plan or build');
+    const allowed = allowedNames === undefined ? undefined : new Set(validateDiscoveryNames(allowedNames, 'INVALID_TOOL_ALLOWLIST'));
+    const entries = new Map<string, Entry>(), tools: ToolDiscoveryMetadata[] = [];
+    let bytes = Buffer.byteLength(JSON.stringify({ scopeId, revision: this.current, policyVersion: this.policy.version, mode, tools: [] }));
+    for (const selected of [scopeId, ...this.included.get(scopeId) ?? []]) for (const [toolName, entry] of this.scopes.get(selected) ?? []) {
+      if (entries.has(toolName)) fail('TOOL_SCOPE_CONFLICT', 'Composed discovery catalogue contains duplicate tool names');
+      if (allowed && !allowed.has(toolName)) continue;
+      if (this.policy.evaluate({ toolName, effect: entry.effect, mode, requiresApproval: false }).decision === 'deny') continue;
+      if (tools.length >= TOOL_DISCOVERY_LIMITS.maxCandidates) fail('TOOL_DISCOVERY_LIMIT', 'Tool discovery candidate limit exceeded');
+      bytes += Buffer.byteLength(JSON.stringify(entry.metadata)) + (tools.length ? 1 : 0);
+      if (bytes > TOOL_DISCOVERY_LIMITS.maxMetadataBytes) fail('TOOL_DISCOVERY_LIMIT', 'Tool discovery metadata byte limit exceeded');
+      entries.set(toolName, entry); tools.push({ ...entry.metadata });
+    }
+    const catalogue: ToolDiscoveryCatalogue = { scopeId, revision: this.current, policyVersion: this.policy.version, mode, tools };
+    this.discoveryCaptures.set(catalogue, { entries, signature: discoveryCatalogueSignature(catalogue) }); return catalogue;
+  }
+  assertDiscoveryCurrent(catalogue: ToolDiscoveryCatalogue): void {
+    const captured = this.discoveryCaptures.get(catalogue);
+    if (!captured || captured.signature !== discoveryCatalogueSignature(catalogue) || catalogue.revision !== this.current || catalogue.policyVersion !== this.policy.version) fail('TOOL_DISCOVERY_STALE', 'Tool discovery registry, policy or captured metadata changed');
+    for (const entry of captured.entries.values()) if (this.scopes.get(entry.scopeId)?.get(entry.definition.name)?.token !== entry.token) fail('TOOL_DISCOVERY_STALE', 'Tool discovery registration changed');
+  }
+  searchDiscovery(catalogue: ToolDiscoveryCatalogue, query: string, limit = 4): ToolDiscoveryMetadata[] {
+    const search = validateDiscoveryQuery(query, limit); this.assertDiscoveryCurrent(catalogue);
+    const matches: { metadata: ToolDiscoveryMetadata; rank: number }[] = [];
+    for (const entry of this.discoveryCaptures.get(catalogue)!.entries.values()) {
+      const toolName = entry.metadata.name.toLowerCase(), description = entry.metadata.description.toLowerCase();
+      const rank = toolName === search.query ? 0 : toolName.startsWith(search.query) ? 1 : toolName.includes(search.query) ? 2 : description.includes(search.query) ? 3 : -1;
+      if (rank >= 0) matches.push({ metadata: entry.metadata, rank });
+    }
+    matches.sort((left, right) => left.rank - right.rank || (left.metadata.name < right.metadata.name ? -1 : left.metadata.name > right.metadata.name ? 1 : 0));
+    return matches.slice(0, search.limit).map(match => ({ ...match.metadata }));
+  }
+  /** Limits the exact JSON tool-array bytes before any selected schema is cloned. */
+  materializeDiscovery(catalogue: ToolDiscoveryCatalogue, selectedNames: readonly string[], supplied: ToolDiscoveryMaterializeLimits): ToolCatalogue {
+    this.assertDiscoveryCurrent(catalogue);
+    const names = validateDiscoveryNames(selectedNames, 'TOOL_DISCOVERY_LIMIT'), limits = validateDiscoveryMaterializeLimits(supplied);
+    if (names.length > limits.maxTools) fail('TOOL_DISCOVERY_LIMIT', 'Visible tool count limit exceeded');
+    const captured = this.discoveryCaptures.get(catalogue)!;
+    const entries = new Map<string, Entry>(); let bytes = 2;
+    for (const toolName of names) {
+      const entry = captured.entries.get(toolName);
+      if (!entry) fail('TOOL_NOT_FOUND', 'Tool is not available in the captured discovery catalogue');
+      bytes += entry.metadata.definitionBytes + (entries.size ? 1 : 0);
+      if (bytes > limits.maxBytes) fail('TOOL_DISCOVERY_LIMIT', 'Visible tool schema byte limit exceeded');
+      entries.set(toolName, entry);
+    }
+    if (bytes > limits.maxBytes) fail('TOOL_DISCOVERY_LIMIT', 'Visible tool schema byte limit exceeded');
+    const tools: ProviderTool[] = [...entries.values()].map(entry => ({ name: entry.descriptor.name, description: entry.descriptor.description, inputSchema: structuredClone(entry.descriptor.inputSchema) }));
+    this.assertDiscoveryCurrent(catalogue);
+    const result: ToolCatalogue = { scopeId: catalogue.scopeId, revision: catalogue.revision, policyVersion: catalogue.policyVersion, mode: catalogue.mode, tools };
+    this.captures.set(result, { entries, signature: JSON.stringify(result) }); return result;
   }
   resolve(catalogue: ToolCatalogue, toolName: string): ToolDefinition {
     const entry = this.entry(catalogue, toolName); return this.delegateCaptured(catalogue, entry);
@@ -147,3 +216,5 @@ export class ScopedToolRuntime {
 export { ToolPolicy, ScopedToolGrants, inferToolEffect };
 export type { ToolEffectClass, ToolPolicyRule, ToolPolicyResult } from '../../permission/policy.js';
 export type { GrantScope, ScopedToolGrant } from '../../permission/grants.js';
+export { DEFAULT_TOOL_DISCOVERY_POLICY, TOOL_DISCOVERY_LIMITS, validateToolDiscoveryPolicy } from './discovery.js';
+export type { ToolDiscoveryPolicy, ResolvedToolDiscoveryPolicy, ToolDiscoveryCatalogue, ToolDiscoveryMetadata, ToolDiscoveryMaterializeLimits } from './discovery.js';

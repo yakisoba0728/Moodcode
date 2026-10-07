@@ -18,6 +18,7 @@ import { validateToolResultEnvelope } from '@moodcode/contracts/validation';
 import { executionRecords, TurnExecutor } from './turn-executor.js';
 import { createMcpExecutionObserver, type ApprovedMcpToolOwner } from './mcp-execution-observer.js';
 import type { ToolCatalogue } from '../tools/runtime/index.js';
+import { DISCOVERY_TOOL_NAME, RunToolDiscovery, type ToolDiscoveryDispatch } from './tool-discovery.js';
 import { bindCheckpointArtifacts } from '../artifacts/result.js';
 import type { ChildBudget } from '../child-tasks/index.js';
 export { InputScheduler, type InputSchedulerOptions } from './input-scheduler.js';
@@ -47,6 +48,7 @@ interface Owner {
   terminal: boolean;
   turn?: TurnExecutor;
   catalogue?: ToolCatalogue;
+  discovery?: RunToolDiscovery;
   allowedTools?: ReadonlySet<string>;
   invocations: Map<string, string>;
   activeTools: Map<string, ToolCallRecord>;
@@ -465,6 +467,31 @@ export class RunCoordinator implements CoordinatorPort {
     return Object.freeze({ ...usage });
   }
 
+  private discoveryOwner(context: ToolContext): Owner & { discovery: RunToolDiscovery } {
+    checkAbort(context.signal);
+    const owner = this.owners.get(context.runId);
+    if (!owner || !owner.discovery || owner.run.sessionId !== context.sessionId || owner.run.workspaceId !== context.workspace.id
+      || owner.turn?.id !== context.turnId || owner.turn?.attemptId !== context.attemptId) {
+      throw new EngineError('TOOL_DISCOVERY_STALE', 'Discovery requires its active Run and Turn owner');
+    }
+    this.assertLive(owner);
+    const record = owner.activeTools.get(context.toolCallId);
+    if (!record || record.name !== DISCOVERY_TOOL_NAME || !['requested', 'awaiting_approval', 'running'].includes(record.state)) {
+      throw new EngineError('TOOL_DISCOVERY_STALE', 'Discovery requires its active tool invocation');
+    }
+    return owner as Owner & { discovery: RunToolDiscovery };
+  }
+
+  toolDiscoveryIdentity(context: ToolContext): { registryRevision: number; policyVersion: number } {
+    return this.discoveryOwner(context).discovery.identity();
+  }
+
+  stageToolDiscovery(context: ToolContext, query: string, limit: number, expected: { registryRevision: number; policyVersion: number }): ToolResult {
+    const owner = this.discoveryOwner(context);
+    if (owner.activeTools.get(context.toolCallId)!.state !== 'running') throw new EngineError('TOOL_DISCOVERY_STALE', 'Discovery selection requires the executing tool owner');
+    return owner.discovery.stage(context.toolCallId, query, limit, expected);
+  }
+
   private remainingChildBudget(owner: Owner): ChildBudget {
     const usage = owner.budget.snapshot(), limits = owner.run.config.limits;
     return { turns: Math.max(0, limits.maxTurns - usage.logicalTurns - owner.childReserved.turns),
@@ -509,9 +536,21 @@ export class RunCoordinator implements CoordinatorPort {
         if (!Array.isArray(allowed) || allowed.length > 1024 || allowed.some(name => typeof name !== 'string' || name.length === 0 || Buffer.byteLength(name) > 256)) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'The host tool allowlist is invalid');
         owner.allowedTools = new Set(allowed);
       }
-      owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
-      const schemas = owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
-      const reservedBytes = Buffer.byteLength(JSON.stringify({ messages: [], tools: schemas }), 'utf8') - 2;
+      if (this.options.toolDiscoveryPolicy) {
+        if (!this.options.toolRuntime) throw new EngineError('INVALID_TOOL_DISCOVERY_POLICY', 'Discovery requires the scoped tool runtime');
+        owner.discovery = new RunToolDiscovery(this.options.toolRuntime, this.options.toolDiscoveryPolicy, this.options.coreToolNames ?? this.options.tools.map(tool => tool.name), run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
+      }
+      let reservedBytes = 0, plannedCatalogue: ToolCatalogue | undefined, discoveryDispatch: ToolDiscoveryDispatch | undefined;
+      const captureCatalogue = () => {
+        if (owner.discovery) {
+          const dispatch = owner.discovery.capture(); discoveryDispatch = dispatch; owner.catalogue = dispatch.catalogue; reservedBytes = dispatch.reservedBytes;
+        } else {
+          owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
+          const schemas = owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+          reservedBytes = Buffer.byteLength(JSON.stringify({ messages: [], tools: schemas }), 'utf8') - 2;
+        }
+      };
+      captureCatalogue();
       const contextRequest = () => ({
         workspace, snapshot: this.options.contextSnapshot?.(run.sessionId, run.config) ?? this.options.store.getSnapshot(run.sessionId), config: run.config, signal: owner.abort.signal, reservedBytes, run, budget: owner.budget,
         consumeSummaryOutput: (bytes: number) => {
@@ -520,7 +559,24 @@ export class RunCoordinator implements CoordinatorPort {
           owner.outputBytes += bytes;
         },
       });
-      const context = () => abortable(() => this.options.buildContext(contextRequest()), owner.abort.signal, 'Context builder');
+      const context = async (fixedCatalogue = false) => {
+        for (let changes = 0; changes < 16; changes++) {
+          if (owner.discovery) {
+            if (fixedCatalogue) owner.discovery.assertCurrent();
+            else captureCatalogue();
+          }
+          const messages = await abortable(() => this.options.buildContext(contextRequest()), owner.abort.signal, 'Context builder');
+          if (owner.discovery) {
+            try { owner.discovery.assertCurrent(); }
+            catch (error) {
+              if (!fixedCatalogue && error instanceof EngineError && error.code === 'TOOL_DISCOVERY_STALE') continue;
+              throw error;
+            }
+          }
+          plannedCatalogue = owner.catalogue; return messages;
+        }
+        throw new EngineError('TOOL_DISCOVERY_STALE', 'Repeated catalogue changes exceeded the bounded context rebuild allowance');
+      };
       let messages = await context();
       this.assertLive(owner);
       messages = structuredClone(messages);
@@ -528,19 +584,31 @@ export class RunCoordinator implements CoordinatorPort {
         this.assertLive(owner);
         // Context construction may await a provider summary. Drain any steer that
         // arrived during that await before fixing the next dispatch cutoff.
-        let steerRebuilds = 0;
-        while (this.sessionHooks?.boundary(run)) {
-          if (++steerRebuilds > 16) throw new EngineError('STEER_CONTEXT_LIMIT', 'Continuous steer arrivals exceeded the bounded context rebuild allowance');
-          owner.budget.inputPromoted(); messages = structuredClone(await context());
-          this.assertLive(owner);
+        let steerRebuilds = 0, catalogueRebuilds = 0;
+        while (true) {
+          if (this.sessionHooks?.boundary(run)) {
+            if (++steerRebuilds > 16) throw new EngineError('STEER_CONTEXT_LIMIT', 'Continuous steer arrivals exceeded the bounded context rebuild allowance');
+            owner.budget.inputPromoted(); messages = structuredClone(await context());
+            this.assertLive(owner); continue;
+          }
+          if (owner.discovery) {
+            captureCatalogue();
+            if (owner.catalogue !== plannedCatalogue) {
+              if (++catalogueRebuilds > 16) throw new EngineError('TOOL_DISCOVERY_STALE', 'Repeated catalogue changes exceeded the bounded dispatch rebuild allowance');
+              messages = structuredClone(await context()); this.assertLive(owner); continue;
+            }
+          }
+          break;
         }
         if (owner.budget.snapshot().logicalTurns + owner.childReserved.turns >= run.config.limits.maxTurns) throw new EngineError('TURN_LIMIT', 'Parent and reserved child turns reached the Run turn limit');
+        if (!owner.discovery) owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
         owner.budget.startTurn();
-        owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
         owner.invocations.clear();
         const bytes = this.checkContext(owner, messages);
         this.options.store.commit(run.id, 'context.prepared', {
           turnIndex, bytes, limit: run.config.limits.maxContextBytes,
+          ...(owner.discovery ? { reservedToolBytes: reservedBytes, toolCatalogueSha256: discoveryDispatch!.toolCatalogueSha256,
+            advertisedToolNames: owner.catalogue!.tools.map(tool => tool.name), registryRevision: owner.catalogue!.revision, policyVersion: owner.catalogue!.policyVersion } : {}),
           summaryIncluded: messages.some((message) => message.role === 'assistant' && [EXTRACTIVE_MEMORY_PREFIX, SEMANTIC_MEMORY_PREFIX, ACTIVE_PREFIX_MEMORY_PREFIX].some(prefix => message.content.startsWith(prefix))),
         });
         const records = executionRecords(this.options.store);
@@ -548,11 +616,14 @@ export class RunCoordinator implements CoordinatorPort {
         owner.turn = new TurnExecutor({ run, index: turnIndex, inputIds: records?.listRunInputIds?.(run.id) ?? [run.inputId], budget: owner.budget,
           store: this.options.store, wait: abortable, ...(revisionId ? { contextRevisionId: revisionId } : {}), currentContextRevisionId: () => this.options.getContextRevisionId?.(run.sessionId),
           ...(this.options.recoverContextOverflow ? { recoverContextOverflow: async () => {
+            owner.discovery?.assertCurrent();
             const failedAttemptId = owner.turn?.attemptId;
             await abortable(() => this.options.recoverContextOverflow!({ ...contextRequest(), ...(owner.turn && failedAttemptId ? {
               activePrefixStage: { stage: 'overflow-recovery' as const, currentTurnId: owner.turn.id, failedAttemptId, cleanupConfirmed: true as const },
             } : {}) }, provider), owner.abort.signal, 'Context overflow recovery');
-            messages = structuredClone(await context()); this.checkContext(owner, messages); return messages;
+            // TurnExecutor replaces only messages on overflow retry. Retain the
+            // same advertised schemas and handler capture or stop before retry.
+            messages = structuredClone(await context(true)); this.checkContext(owner, messages); return messages;
           } } : {}) });
         const turn = await this.providerTurn(owner, provider, messages, turnIndex);
         this.assertLive(owner);
@@ -640,7 +711,8 @@ export class RunCoordinator implements CoordinatorPort {
       if (!pendingDelta || owner.terminal || owner.abort.signal.aborted) return;
       try { flush(); } catch { owner.abort.abort(new EngineError('STORAGE_COMMIT_FAILED', 'Streamed output could not be persisted')); }
     }, 16);
-    const tools = [...(owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema })))];
+    const advertised = [...(owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema })))];
+    const tools = owner.discovery ? structuredClone(advertised) : advertised;
     let iterator: AsyncIterator<ProviderEvent> | undefined;
     try {
       iterator = owner.turn!.stream(provider, { runId: owner.run.id, sessionId: owner.run.sessionId, turnIndex, modelId: owner.run.config.modelId, messages: structuredClone(messages), tools,
@@ -877,7 +949,9 @@ export class RunCoordinator implements CoordinatorPort {
         this.toolResult(owner, record, call, { ...result, isError: true });
         throw new EngineError('TOOL_TIMEOUT', `Tool ${record.name} reported an execution timeout`);
       }
-      return this.toolResult(owner, record, call, result);
+      const content = this.toolResult(owner, record, call, result);
+      if (call.name === DISCOVERY_TOOL_NAME && record.state === 'completed') owner.discovery?.commit(record.id);
+      return content;
     } catch (error) {
       const original = errorOf(error, 'TOOL_ERROR', 'Tool operation failed');
       // An effect may have happened without a durable checkpoint or released lease.
@@ -892,6 +966,7 @@ export class RunCoordinator implements CoordinatorPort {
       // Input errors, denied permissions, and ordinary tool failures let the model adapt.
       return this.toolResult(owner, record, call, this.toolError(owner, failure.code, failure.message));
     } finally {
+      owner.discovery?.discard(record.id);
       if (this.options.onToolCheckpoint) {
         const checkpoints = [...owner.checkpoints.values()].filter(checkpoint => checkpoint.toolCallId === record.id);
         if (checkpoints.length) {

@@ -310,6 +310,9 @@ test('same-path directory replacement fails once and cleans the worker', async (
   const observer = observe();
   await next(observer);
   const pending = observer.next();
+  // Root replacement can reject while asynchronous fixture Git setup is still
+  // pending. Observe it now, then assert the unchanged rejection below.
+  void pending.catch(() => {});
   await rename(root, path.join(temporary, 'original'));
   await mkdir(root);
   await git('init', '--initial-branch=replaced');

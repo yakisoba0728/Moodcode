@@ -5,11 +5,12 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { CodexProvider, createEngine, exportEngineArchive, getCodexAuthStatus, importEngineArchive, inspectArchivedChildDocumentStorage, SqliteStore, validateEngineArchive } from '@moodcode/engine';
+import { CodexProvider, createEngine, DEFAULT_TOOL_DISCOVERY_POLICY, exportEngineArchive, getCodexAuthStatus, importEngineArchive, inspectArchivedChildDocumentStorage, SqliteStore, validateEngineArchive } from '@moodcode/engine';
 
 // One real child text request in an authored temporary Git repository. The PDF
 // is a host storage fixture, never a provider attachment or a model PDF test.
 if (!process.argv.includes('--live')) throw new Error('Use --live for existing Codex account verification.');
+const toolDiscovery = process.argv.includes('--tool-discovery');
 const auth = await getCodexAuthStatus(); assert.equal(auth.state, 'ready'); assert.ok(auth.modelId);
 const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-child-document-live-')));
 const repository = join(root, 'repo'), artifacts = join(root, 'artifacts'), database = join(root, 'engine.sqlite');
@@ -29,6 +30,7 @@ const report = {
   scope: { actualChildRequests: 1, actualRootRequests: 0, remotePdfRequests: 0, syntheticParent: true, hostImportedOpaquePdf: true,
     projectRecoveryAcknowledged: false, executionAutomaticallyResumed: false, rawHttpBodyHashed: false },
   actualRequests: [], passed: false, cleanupConfirmed: false,
+  toolDiscovery: { hostOptIn: toolDiscovery, childAdvertisedTools: 0, reservationVerified: false },
 };
 const provider = {
   id: transport.id, replayProtocol: transport.replayProtocol, inputModalities: transport.inputModalities,
@@ -69,6 +71,7 @@ try {
   execFileSync('git', ['-C', repository, '-c', 'core.attributesFile=' + attributes, 'add', 'fixture.txt']);
   execFileSync('git', ['-C', repository, '-c', 'core.hooksPath=' + hooks, '-c', 'commit.gpgsign=false', '-c', 'user.name=fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture']);
   engine = createEngine({ dbPath: database, artifactDir: artifacts, providers: [provider], allowedToolNames: ['read_file'],
+    ...(toolDiscovery ? { toolDiscoveryPolicy: DEFAULT_TOOL_DISCOVERY_POLICY } : {}),
     defaults: { providerId: provider.id, modelId: auth.modelId, mode: 'build',
       limits: { maxContextBytes: 262_144, maxOutputBytes: 49_152, maxDurationMs: 120_000, maxTurns: 2, maxToolCalls: 2 },
       budgets: { providerRequestTimeoutMs: 90_000, providerInactivityTimeoutMs: 90_000, maxProviderAttempts: 1, turnAllowance: 1 } },
@@ -119,6 +122,17 @@ try {
     assert.equal(cleanup.requestSha256, report.actualRequests[0].logicalRequestSha256);
     assert.equal(cleanup.requestBytes, report.actualRequests[0].logicalRequestBytes);
     report.cleanupProof = { state: cleanup.state, method: cleanup.method, reason: cleanup.reason };
+    if (toolDiscovery) {
+      const rows = reader.prepare("SELECT data FROM events WHERE run_id=? AND type='context.prepared'").all(task.childRunId);
+      assert.equal(rows.length, 1);
+      const prepared = JSON.parse(rows[0].data).payload;
+      assert.deepEqual(prepared.advertisedToolNames, []);
+      assert.equal(prepared.toolCatalogueSha256, sha(JSON.stringify(childRequest.tools)));
+      assert.equal(prepared.reservedToolBytes, Buffer.byteLength(JSON.stringify({ messages: [], tools: childRequest.tools })) - 2);
+      report.toolDiscovery.reservationVerified = true;
+      report.toolDiscovery.reservedToolBytes = prepared.reservedToolBytes;
+      report.toolDiscovery.toolCatalogueSha256 = prepared.toolCatalogueSha256;
+    }
   } finally { reader.close(); }
   const imported = await importEngineArchive({ directory: archive.directory, destination: join(root, 'imported') });
   assert.equal(imported.childSessionsPaused, 1); assert.equal(imported.documentAuditCoverage, 'complete'); assert.equal(imported.executionResumed, false);

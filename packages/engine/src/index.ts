@@ -20,6 +20,8 @@ export { createFileActionTools } from './tools/file-actions/index.js';
 export { createPatternSearchTools } from './tools/search/index.js';
 export { ScopedToolRuntime } from './tools/runtime/index.js';
 export type { ToolCatalogue, ScopedToolRuntimeOptions, RuntimeToolRegistration } from './tools/runtime/index.js';
+export { TOOL_DISCOVERY_LIMITS, DEFAULT_TOOL_DISCOVERY_POLICY, validateToolDiscoveryPolicy } from './tools/runtime/discovery.js';
+export type { ToolDiscoveryPolicy, ResolvedToolDiscoveryPolicy, ToolDiscoveryMetadata, ToolDiscoveryCatalogue, ToolDiscoveryMaterializeLimits } from './tools/runtime/discovery.js';
 export { ToolPolicy, inferToolEffect } from './permission/policy.js';
 export type { ToolPolicyRule, ToolEffectClass } from './permission/policy.js';
 export { ScopedToolGrants } from './permission/grants.js';
