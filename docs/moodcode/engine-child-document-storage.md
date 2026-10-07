@@ -30,6 +30,8 @@ Source reader는 기존 DELETE owner 파일의 read lease를 유지한다. 원�
 
 Child Run/session/workspace와 immutable mirror의 소유·phase를 확인한 뒤에만 문서 본문을 읽는다. 미완료 Turn/Attempt/Part의 metadata boolean도 먼저 확인한다. 원래 Run의 terminal 상태와 close proof만 남은 채 native 기록이 활성 상태로 바뀌었다면 검사하지 않는다. 다른 session의 index가 있으면 그 본문을 읽기 전에 거절한다. configured external child base도 정확한 source binding과 physical identity가 있는 선택 대상만 조회할 수 있다. 임의 경로를 검색하거나 unselected child를 발견하지 않는다. 취소·close는 모든 reader와 private mirror 정리를 기다린다.
 
+darwin/linux에서는 owner/native/mirror 검증을 마치고 immutable SQLite handle을 연 뒤 자신이 만든 private copy의 pathname을 제거한다. 조회·backup handle과 owner lease는 close까지 유지한다. 실제 macOS reader 반환 뒤 SIGKILL에서 큰 복사본 경로가 남지 않았으나 복사 중/ATTACH 이전에는 partial copy가 남을 수 있다. Windows는 열린 파일 경로를 유지하며 close에서 정리한다. 열린 anonymous file은 마지막 handle 종료까지 저장 공간을 유지한다. 일반 stale directory 검색·자동 삭제 기능은 없다.
+
 ## 보고서의 의미
 
 `complete`는 명시적으로 선택한 index 관측의 완료를 뜻한다. PDF blob contents/hash, child 이미지, worktree 파일, 디스크 할당량과 orphan 여부는 이 API의 검사 대상이 아니다. refs가 선언한 bytes를 physical store별로 계산하며 기존 parent artifact tree의 파일 bytes에 다시 더하지 않는다. 동일 document ID도 서로 다른 child store의 소유권을 합치지 않는다.
@@ -47,3 +49,7 @@ Incomplete root/child index 또는 미검사 child의 총량은 `null`이다. �
 최초 blob 검증 이후 backup의 await 사이에 파일이 바뀔 수도 있다. 최종 captured manifest member의 bytes/SHA/path를 이미 선택한 primary/child 문서 참조와 publication 전에 다시 비교한다. 이 검사는 같은 proof 예산의 참조를 재사용하며 본문을 다시 읽거나 예산을 초기화하지 않는다.
 
 검증은 historical manifest allowlist·root journal·child mirror/Run/session/workspace와 document refs를 다시 결합한다. Import는 verified child session도 pause하고 원래 outcome/usage/ACK/mirror와 physical binding을 보존한다. child 실행·자동 resume·ACK·새 소유권 증거를 만들지 않는다. 복원된 typed child를 fresh source로 재보관하는 것은 현재 scope 변경으로 거절하며, 새 physical mapping을 승인하는 별도 host 계약은 후속 범위다. 역사 자료를 읽을 수 있다는 사실이 worktree/child의 실행 권한을 재인증하지 않는다.
+
+## 실제 crash와 task 소유권
+
+prepared/admitted, child terminal/close, root task outcome과 worktree release는 독립된 기록 경계다. 재시작은 원래 unfinished child를 자동 실행하거나 DB를 보충하지 않는다. Root interrupted 복구와 명시적인 child task recover를 구분하며, close proof만 있는 uncertain task는 읽기/보관의 완료로 승격하지 않는다. Outcome이 저장됐더라도 retained worktree owner는 별도 상태이며 document audit의 complete는 cleanup/실행 권한을 부여하지 않는다. Binding 생성 전 중단은 typed proof 없이 explicit legacy-unbound 부분 coverage만 제공한다. [실제 7개 SIGKILL 경계와 한계](engine-goal-verification.md)를 따른다.

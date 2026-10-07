@@ -6,7 +6,7 @@ Electron 기반 로컬 코딩 에이전트다. 자체 TypeScript/Node 엔진, �
 
 현재 후속 작업은 내부 엔진 우선이다. [엔진 구현 TODO](TODO.md)의 75개 항목 중 71개를 구현·검증했다. durable queue/steer·Turn/Part·의미 요약·scoped tools·MCP·PTY·worktree child 실행·승인한 변경 통합·LSP/formatter·archive·진단을 자체 엔진에 연결했다. [최신 headless 검증](docs/moodcode/engine-native-final-verification.md)과 [host API](docs/moodcode/engine-host-api.md)가 현재 지원 범위의 기준이다. 새 엔진 기능의 GUI 노출은 후속이다.
 
-지속 개선 goal에서는 OpenCode/pi/Amp/Claude Code/Codex의 공개 근거를 비교하며 자체 엔진을 확장한다. 일반·요약 실행의 usage/cleanup·명시적 복구 결정, 긴 active Run 기억·이미지/PDF 입력과 별도 정책·공유 증거 예산, 승인된 읽기 전용 delegate_task를 연결했다. Managed child의 영속 저장 binding·선택 문서 진단·아카이브 감사와 pause import도 검증했다. 최신 headless gate는 2,274 pass·실패 0·조건부 2 skip이며 구현 `9bf0e7f`의 실제 Codex 자식 text 요청 1회가 통과했다. [최신 검증](docs/moodcode/engine-goal-verification.md), [목표·진행 범위](docs/moodcode/engine-improvement-goal.md), [G1 TODO](TODO.md)를 따른다.
+지속 개선 goal에서는 OpenCode/pi/Amp/Claude Code/Codex의 공개 근거를 비교하며 자체 엔진을 확장한다. 일반·요약 실행의 usage/cleanup·명시적 복구 결정, 긴 active Run 기억·이미지/PDF 입력과 별도 정책·공유 증거 예산, 승인된 읽기 전용 delegate_task를 연결했다. Managed child의 영속 저장 binding·선택 문서 진단·아카이브 감사와 pause import도 검증했다. 최신 headless gate는 2,294 pass·실패 0·조건부 2 skip이며 구현 `bd14b32`의 실제 Codex 자식 text 요청 1회가 통과했다. [최신 검증](docs/moodcode/engine-goal-verification.md), [목표·진행 범위](docs/moodcode/engine-improvement-goal.md), [G1 TODO](TODO.md)를 따른다. 실제 child crash 7경계와 reader owner lease·강제 종료·private mirror 정리 경계도 검증했다.
 
 ## 개발 실행
 

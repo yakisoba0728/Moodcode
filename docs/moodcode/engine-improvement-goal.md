@@ -91,3 +91,11 @@ Windows native Job backend, 다른 OS 호스트, 최초 hosted CI, 실제 Anthro
 독립 실제 host 검토는 incomplete 총량의 0 표시, native 활성 기록의 누락, 같은 크기 PDF가 최초 검증과 final capture 사이 바뀌어 invalid archive가 publication되는 경합을 재현했다. 수정 전 로그와 source/bundle 검증을 보존했다. 전체 gate는 2,274 pass·실패 0·조건부 2 skip, 코딩 fixture 3/3이다. 같은 source commit에서 실제 Codex 자식 text 요청 1회, natural cleanup·selected index·archive/validate·child pause import·restored source reexport 거절·임시 경로 제거를 확인했다. Root와 PDF 원격 요청은 0회다.
 
 [아홉 번째 JSON](engine-goal-ninth-verification.json)은 `53241e7`의 bytes 그대로 보존했다. [최신 검증](engine-goal-verification.md)과 [저장 계약](engine-child-document-storage.md)을 따른다. 다음 G1-23은 실제 SIGKILL·재시작에서 두 DB phase·원래 outcome/usage/ACK·worktree owner를 확인한다. 자동 재호출·보충·재인증은 하지 않는다. 외부 OS/provider/CI 4개와 GUI 제외를 유지하며 goal은 활성 상태다.
+
+## 열한 번째 검토 지점
+
+`bd14b32`에서 G1-23 actual root/child SQLite의 준비·admission·partial native·terminal/close·task outcome/worktree release 7경계를 SIGSTOP/SIGKILL하고 재시작·exact retry했다. 기존 결과/usage/ACK/context/child 파일을 보존하며 자동 provider 호출·child engine·mirror 보충·close 추정·owner release는 0이었다. 독립 복구 6개와 owner process 7개를 포함해 새 검증 20개가 source/private bundle에서 통과했다.
+
+실제 reader 강제 종료 뒤 446,464B private DB pathname 잔존을 개선해 darwin/linux에서 검증한 immutable handle을 유지하면서 private pathname을 제거한다. 반환 뒤 kill 잔존 0, copy 도중 262,144B 잔존, hot writer WAL 24,752B/JSON 본문 0, 여러 lease·readIndex/backup·explicit successor writer를 구분했다. Linux/Windows나 전원 차단·원격 cleanup 보장으로 확대하지 않는다.
+
+전체 gate 2,294 pass·0 fail·조건부2 skip, coding fixture 3/3, 같은 source commit 실제 Codex child text 1회·natural cleanup·archive/validate·child pause import·임시 경로 제거가 통과했다. [열 번째 JSON](engine-goal-tenth-verification.json)은 `15abacd`의 bytes 그대로 보존했다. 다음 G1-24는 exact manifest를 pin한 historical selected child document host 조회이며 검증 중 얻은 index를 같은 frame으로 재사용한다. 기존 외부 OS/provider/CI 4개·GUI 제외를 유지하며 goal은 활성 상태다. [최신 검증](engine-goal-verification.md)을 따른다.

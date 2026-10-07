@@ -1,32 +1,32 @@
 {
-  "schemaVersion": 10,
-  "implementationCommit": "9bf0e7f7339eaac754725d6e1f22e968a958f0b2",
-  "timestamp": "2026-10-07T02:47:50.955252+00:00",
+  "schemaVersion": 11,
+  "implementationCommit": "bd14b324f128029b33aaf71e61ce6c3f038ed622",
+  "timestamp": "2026-10-07T03:08:07.188246+00:00",
   "runtime": {
     "node": "26.9.0",
     "platform": "darwin",
     "arch": "arm64"
   },
-  "scope": "headless-engine-goal-checkpoint-10",
+  "scope": "headless-engine-goal-checkpoint-11",
   "checks": {
     "typecheck": {
       "passed": true,
       "command": "npx tsc -b --pretty false",
-      "log": "/tmp/moodcode-wave10-typecheck-first.log",
+      "log": "/tmp/moodcode-wave11-typecheck-first.log",
       "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     "engine": {
       "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
       "testConcurrency": 2,
       "testManifestReduced": false,
-      "log": "/tmp/moodcode-wave10-engine-first.log",
-      "logSha256": "b061063014e94130bd83ca1a1355f915bf2c53cec3be55eb2937ce12ad022e17",
-      "tests": 2276,
-      "passed": 2274,
+      "log": "/tmp/moodcode-wave11-engine-first.log",
+      "logSha256": "e73c57c6a6130980943f73bb86a0721e8a9a3738deea5bc2d82b633199afa894",
+      "tests": 2296,
+      "passed": 2294,
       "failed": 0,
       "cancelled": 0,
       "skipped": 2,
-      "durationMs": 73983.081292
+      "durationMs": 76620.864292
     },
     "evaluation": [
       {
@@ -48,13 +48,13 @@
           "outputTokens": null,
           "usageWindowTruncated": false,
           "context": {
-            "bytes": 13143,
+            "bytes": 13146,
             "limit": 262144,
             "summaryIncluded": false,
             "turnIndex": 3
           }
         },
-        "durationMs": 255
+        "durationMs": 352
       },
       {
         "taskId": "empty-list-boundary",
@@ -75,13 +75,13 @@
           "outputTokens": null,
           "usageWindowTruncated": false,
           "context": {
-            "bytes": 13227,
+            "bytes": 13226,
             "limit": 262144,
             "summaryIncluded": false,
             "turnIndex": 3
           }
         },
-        "durationMs": 245
+        "durationMs": 283
       },
       {
         "taskId": "two-module-change",
@@ -109,135 +109,110 @@
             "turnIndex": 4
           }
         },
-        "durationMs": 252
+        "durationMs": 401
       }
     ],
     "evaluationEvidence": {
       "command": "node scripts/evaluate-engine.mjs",
-      "log": "/tmp/moodcode-wave10-evaluation-first.log",
-      "logSha256": "a8124cc6485aa3c922f0e8df1fa0303af061563ffbe9dc6a20ffb745769d237d"
+      "log": "/tmp/moodcode-wave11-evaluation-first.log",
+      "logSha256": "1a47026043890bde3082cb63c45672ab21afe78e0cfdcfe21f74a3ba397bb0a6"
     },
     "independentScoped": {
-      "rootHostSource": {
-        "log": "/tmp/moodcode-wave10-root-host-third.log",
-        "logSha256": "4de8b7cbabc83270f0b6bf6ff971a75c4ed2c27c95fcca26ca5fb8121a4e9001",
-        "tests": 5,
-        "passed": 5,
+      "rootReaderArchiveHost": {
+        "log": "/tmp/moodcode-g123-reader-unlink-first.log",
+        "logSha256": "90656ca04582b34d7765617c8a4ebb98c3ffaa51f41d75b720c9cff095de7171",
+        "tests": 31,
+        "passed": 31,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "durationMs": 495.23575
+        "durationMs": 3558.3505
       },
-      "readerAndDiagnosticSource": {
-        "log": "/tmp/moodcode-g122-owned-source-final.log",
-        "logSha256": "5758a2a47d8355484f78e4ace82b14f1a3677a1db9337c8bc9efee0ed51284ba",
-        "tests": 30,
-        "passed": 30,
+      "actualCrashSource": {
+        "log": "/tmp/moodcode-g123-crash-final-source.log",
+        "logSha256": "135577234e6b2ea0f82a3b62d7c75de1fb25d84bdefdd0e29ea74fb6ae0e0883",
+        "tests": 7,
+        "passed": 7,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "durationMs": 1942.441125
+        "durationMs": 2953.578916
       },
-      "readerAndDiagnosticBundle": {
-        "log": "/tmp/moodcode-g122-owned-bundle-final.log",
-        "logSha256": "12287620e591938769a40565665580402178037bc8b5641262701b90e8c214c8",
-        "tests": 30,
-        "passed": 30,
+      "actualCrashBundle": {
+        "log": "/tmp/moodcode-g123-crash-final-bundle.log",
+        "logSha256": "fe556e184bc7ee5f359f938d739b1fda0e28064b49214d20b7a4b0f43996df53",
+        "tests": 7,
+        "passed": 7,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "durationMs": 1849.15025
+        "durationMs": 1959.484833
       },
-      "archiveSource": {
-        "log": "/tmp/moodcode-g22-archive-source.log",
-        "logSha256": "1fbbb5d0dfd7620e76ef759773540ce7b8681b3339b08a295a082d3671c9bee2",
-        "tests": 32,
-        "passed": 32,
+      "recoveryReviewSource": {
+        "log": "/tmp/moodcode-g123-recovery-review-reader-unlink-source.log",
+        "logSha256": "5527ddf3ede0e4682d2908fc618a7d630e629ae95813dc8aff4e12bd8615a75b",
+        "tests": 6,
+        "passed": 6,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "durationMs": 5110.50575
+        "durationMs": 1651.892292
       },
-      "archiveBundle": {
-        "log": "/tmp/moodcode-g22-archive-bundle.log",
-        "logSha256": "9288d5fd72e84e12a27d4ff2eeb4c61a69486231ee89305717fa80bdf9b2c985",
-        "tests": 32,
-        "passed": 32,
+      "recoveryReviewBundle": {
+        "log": "/tmp/moodcode-g123-recovery-review-reader-unlink-bundle.log",
+        "logSha256": "d19fc03a2cb748f4064c060ed5dfc29c7ce767bbf7c0e46814fa53421d3bfc98",
+        "tests": 6,
+        "passed": 6,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "durationMs": 4740.234125
+        "durationMs": 1132.568
       },
-      "bindingSource": {
-        "log": "/tmp/moodcode-g122-binding-source-final.log",
-        "logSha256": "81da00825b934ea427583c7f20a1f94f684498da365b038084cb9e2fa0766949",
-        "tests": 13,
-        "passed": 13,
+      "ownerReaderSource": {
+        "log": "/tmp/moodcode-g123-owner-crash-source-second.log",
+        "logSha256": "0b97996a971acafe0c540e0e47dffe9a00c0ff87686b201759cbbb2dd84c05d1",
+        "tests": 7,
+        "passed": 7,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "durationMs": 702.403833
+        "durationMs": 1000.104666
       },
-      "bindingBundle": {
-        "log": "/tmp/moodcode-g122-binding-bundle-final.log",
-        "logSha256": "de9d537f014b5933cdb65699b209b5d3e3dc6eab29e91a7f3d1c96dd707b2cf9",
-        "tests": 13,
-        "passed": 13,
+      "ownerReaderBundle": {
+        "log": "/tmp/moodcode-g123-owner-crash-bundle-final.log",
+        "logSha256": "12f8ad3cfc8e20eb1e6a273459350cc82a699acf2dda63dc4a1e0078bde8c41b",
+        "tests": 7,
+        "passed": 7,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "durationMs": 647.755583
+        "durationMs": 578.828875
       },
-      "wiringSource": {
-        "log": "/tmp/moodcode-g122-wiring-review-after-fix.log",
-        "logSha256": "fb26a587f7ee011773f5dcb1124d67890d122dee8b7e840676191bae47cfa1df",
-        "tests": 4,
-        "passed": 4,
-        "failed": 0,
-        "cancelled": 0,
-        "skipped": 0,
-        "durationMs": 1426.938041
-      },
-      "wiringBundle": {
-        "log": "/tmp/moodcode-g122-wiring-review-bundle-final.log",
-        "logSha256": "a856712dc4f53fb77d45e599db1bfaa6f3e34b623cc3e990ce4094094fe7f5fd",
-        "tests": 4,
-        "passed": 4,
-        "failed": 0,
-        "cancelled": 0,
-        "skipped": 0,
-        "durationMs": 1412.867708
-      },
-      "readerAndDiagnosticNoEmit": {
+      "crashNoEmit": {
         "passed": true,
-        "log": "/tmp/moodcode-g122-owned-noemit-final.log",
+        "log": "/tmp/moodcode-g123-crash-final-noemit.log",
         "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
-      "archiveNoEmit": {
+      "reviewNoEmit": {
         "passed": true,
-        "command": "./node_modules/.bin/tsc -p /tmp/moodcode-g22-archive-tsconfig.json --pretty false",
-        "log": "/tmp/moodcode-g22-archive-scoped-noemit.log",
+        "log": "/tmp/moodcode-g123-recovery-review-reader-unlink-noemit.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "ownerNoEmit": {
+        "passed": true,
+        "log": "/tmp/moodcode-g123-owner-crash-noemit-strict.log",
         "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       }
     },
     "scopedCountsOverlapFullGate": true,
-    "scriptPrivateOfflineReview": {
-      "actualAccountRequests": 0,
-      "localMockTransport": true,
-      "hostEngineArchiveImportUsed": true,
-      "passed": true,
-      "setupHooksAndSigningFixedAfterReview": true,
-      "log": "/tmp/moodcode-g122-script-offline.log",
-      "logSha256": "b6c1e6820a39545ef5881025cc56f671e17ea07763201349e850e0dfb75c1b1e"
-    },
     "live": {
       "command": "node scripts/verify-child-document-storage.mjs --live",
-      "log": "/tmp/moodcode-wave10-child-live-first.log",
-      "logSha256": "7eba5f3f09969731e55c5039d4a8fa6dce49b1872dc5fc040c60fba5343ab714",
+      "log": "/tmp/moodcode-wave11-child-live-first.log",
+      "logSha256": "05c55a24edd7aa2a5062684d5e21eefe57c8561d631361101f5f39a1a1cd453e",
       "result": {
         "kind": "managed-child-document-storage-live-text-regression",
-        "implementationCommit": "9bf0e7f7339eaac754725d6e1f22e968a958f0b2",
-        "timestamp": "2026-10-07T02:46:27.720Z",
+        "implementationCommit": "bd14b324f128029b33aaf71e61ce6c3f038ed622",
+        "timestamp": "2026-10-07T03:06:33.563Z",
         "runtime": {
           "node": "26.9.0",
           "platform": "darwin",
@@ -257,8 +232,8 @@
         },
         "actualRequests": [
           {
-            "attemptId": "8603bb78-cf58-4bdc-92d9-3461606d8638",
-            "logicalRequestSha256": "d80d372a4fa5c167938f1b91a030fbb9e825c74541fbf36979a5f45b4ef58dae",
+            "attemptId": "76256cd8-da3c-4997-add4-40facb1713f6",
+            "logicalRequestSha256": "bc464cd944bbd6ce34d29157560c883c31d152df60b292a835e42e2c24291084",
             "logicalRequestBytes": 1746,
             "usage": {
               "type": "usage",
@@ -286,7 +261,7 @@
             "selectedRows": 23,
             "openedChildren": 1,
             "rawMirrorBytes": 454656,
-            "elapsedMs": 7.943040999999994,
+            "elapsedMs": 8.079957999999806,
             "exhaustedReason": null
           },
           "blobHashesVerifiedByDiagnostic": false
@@ -368,23 +343,152 @@
       "packages/engine/src/storage/archive.ts": "2f33dec49179a0c452807848d806c59e875d34e06c97e999811088ad5440d845",
       "packages/engine/src/storage/child-document-archive-review.test.ts": "45d18020b1a9c71455676ea5cea0fbebfa2c2231796bb96a72d1d062637978e2",
       "packages/engine/src/storage/child-document-reader.test.ts": "8d37f3c6a56367e806f1df228bf8580ded3cfc97d239477262ea7e9d27e49934",
-      "packages/engine/src/storage/child-document-reader.ts": "04cdb612be5c851f55b2bf19b3b407b77108e6394d31c7407167df875de856c0",
+      "packages/engine/src/storage/child-document-reader.ts": "2ec5fb84c73d0db4e179377207a934455526768afa127220955ee96d4b2bf0a4",
       "packages/engine/src/storage/index.ts": "3f3a9b79d4b42a395963204f2fa54b2406f796efa9bfa5e0b15fbc49a8ebf922",
-      "scripts/verify-child-document-storage.mjs": "99686ca4d3db03be92b8bb35efd37fd8153e1f17458c6eef4e5a8c9111a6d9b1"
-    }
+      "scripts/verify-child-document-storage.mjs": "99686ca4d3db03be92b8bb35efd37fd8153e1f17458c6eef4e5a8c9111a6d9b1",
+      "packages/engine/src/integration/child-storage-crash-worker.ts": "17b8ef9678cbb5a33f1cb36daeef15669d8e147ba187b85942fb2aeaa2300cb1",
+      "packages/engine/src/integration/child-storage-crash.fixture.ts": "57cd5cca548a1784c4988c3bc5b0cd20583b7c09cf7c53dc090a8724f6e6b50f",
+      "packages/engine/src/integration/child-storage-crash.integration.test.ts": "76b11e5a97ff08c431fa67e9317c599d88d1383ec9f544c428afb7749e76dd8c",
+      "packages/engine/src/integration/child-storage-recovery-review.integration.test.ts": "ae1e570115291074eabda2a586a5cdcba857167f08d37610f02378be9725f6c1",
+      "packages/engine/src/storage/child-storage-owner-crash-review.fixture.ts": "d7d4b2e08236d4f347b3c382df252722615a2de848fa2738f7e80fae2b53c21e",
+      "packages/engine/src/storage/child-storage-owner-crash-review.test.ts": "86473b09c1855c1b0b56126e6a48c600fe4d0bd876e4785c058ceaddd0719351"
+    },
+    "validatedPrivateMirrorPathUnlinkedOn": [
+      "darwin",
+      "linux"
+    ],
+    "linuxAndWindowsHardKillExecuted": false,
+    "validatedOpenReadAndBackupHandlesPreserved": true,
+    "privateMirrorRemovedDuringCopyBeforeAttach": false,
+    "automaticStaleMirrorDiscoveryOrDeletion": false,
+    "childTaskRunOutcomeRecoveryPolicyChanged": false
   },
   "measurements": {
-    "liveSelectedIndexMetadata": {
-      "selectedMetadataBytes": 9347,
-      "selectedRefs": 1,
-      "selectedRows": 23,
-      "openedChildren": 1,
-      "rawMirrorBytes": 454656,
-      "elapsedMs": 7.943040999999994,
-      "exhaustedReason": null
+    "actualKilledEnginePhaseObservations": [
+      {
+        "phase": "root-prepared",
+        "taskStateBeforeKill": "starting",
+        "childClosedBeforeKill": false,
+        "childRunBoundBeforeKill": false,
+        "stateAfterExactRetry": "uncertain",
+        "sourceAuthorityAfterRetry": "unconfirmed",
+        "providerCallsBeforeAndAfterReopen": 2,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-root-prepared.json",
+        "logSha256": "88613d9131245af78cc57628838b629df8dd5b9ffec4a353a2a0188339226f37"
+      },
+      {
+        "phase": "child-run-admitted",
+        "taskStateBeforeKill": "starting",
+        "childClosedBeforeKill": false,
+        "childRunBoundBeforeKill": true,
+        "stateAfterExactRetry": "uncertain",
+        "sourceAuthorityAfterRetry": "unconfirmed",
+        "providerCallsBeforeAndAfterReopen": 2,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-child-run-admitted.json",
+        "logSha256": "56cf4f7c5d32e4dc9e45ff7a57fbc8324744b99673b1e8e285280e7f1c29605c"
+      },
+      {
+        "phase": "root-admitted",
+        "taskStateBeforeKill": "starting",
+        "childClosedBeforeKill": false,
+        "childRunBoundBeforeKill": true,
+        "stateAfterExactRetry": "uncertain",
+        "sourceAuthorityAfterRetry": "unconfirmed",
+        "providerCallsBeforeAndAfterReopen": 2,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-root-admitted.json",
+        "logSha256": "4314fa492b46bf7f75e3e855e706d46859bf5086cb80603d0a062c5ff527abae"
+      },
+      {
+        "phase": "partial-observed",
+        "taskStateBeforeKill": "running",
+        "childClosedBeforeKill": false,
+        "childRunBoundBeforeKill": true,
+        "stateAfterExactRetry": "uncertain",
+        "sourceAuthorityAfterRetry": "unconfirmed",
+        "providerCallsBeforeAndAfterReopen": 3,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-partial-observed.json",
+        "logSha256": "08432edf62458e43b2f1ef19c06f39f82b31a88a09d2c03cfa02908fed8ec843"
+      },
+      {
+        "phase": "child-terminal",
+        "taskStateBeforeKill": "running",
+        "childClosedBeforeKill": false,
+        "childRunBoundBeforeKill": true,
+        "stateAfterExactRetry": "uncertain",
+        "sourceAuthorityAfterRetry": "unconfirmed",
+        "providerCallsBeforeAndAfterReopen": 3,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-child-terminal.json",
+        "logSha256": "e536da84dfbcba2b052e2633d05808dae5b561e2ceecd4e98c313ee1a1afc19c"
+      },
+      {
+        "phase": "root-close-proof",
+        "taskStateBeforeKill": "running",
+        "childClosedBeforeKill": true,
+        "childRunBoundBeforeKill": true,
+        "stateAfterExactRetry": "uncertain",
+        "sourceAuthorityAfterRetry": "unconfirmed",
+        "providerCallsBeforeAndAfterReopen": 3,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-root-close-proof.json",
+        "logSha256": "db9f54928adb71f257a373b9ee4c5eedbc772cb8b1d0224b8e45d0d2b67a7808"
+      },
+      {
+        "phase": "task-outcome",
+        "taskStateBeforeKill": "completed",
+        "childClosedBeforeKill": true,
+        "childRunBoundBeforeKill": true,
+        "stateAfterExactRetry": "completed",
+        "sourceAuthorityAfterRetry": "eligible",
+        "providerCallsBeforeAndAfterReopen": 3,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-task-outcome.json",
+        "logSha256": "4723bde8e3e501132191118ad788721ddb1c9445b43b8f9752e354f233c8174c"
+      }
+    ],
+    "phaseBaselinesWerePristinePreviousCommit": false,
+    "phaseBaselinesIncludedRootReaderUnlinkChange": true,
+    "bindingAndAdmissionSourceUnchangedFrom": "9bf0e7f7339eaac754725d6e1f22e968a958f0b2",
+    "automaticPostRestartProviderCalls": 0,
+    "automaticChildEngineRecreations": 0,
+    "automaticAcknowledgments": 0,
+    "originalProjectAcknowledgments": 0,
+    "automaticMirrorBackfillOrCloseProof": 0,
+    "automaticWorktreeOwnerRelease": 0,
+    "ownerReaderBaseline": {
+      "validatedHeldReaderKilledResidualBytes": 446464,
+      "originalFilesUnchanged": true,
+      "log": "/tmp/moodcode-g123-owner-crash-baseline.log",
+      "logSha256": "a11edf471da3a3607a6cce9482b502b35c3edfc6de6e767c99edb925eddccdb7"
     },
-    "liveDeclaredChildDocumentBytes": 54,
-    "liveDeclaredBytesArePhysicalDiskMeasurement": false,
+    "ownerReaderAfterFix": {
+      "validatedHeldReaderKilledResidualBytes": 0,
+      "copyInterruptedBeforeAttachResidualBytes": 262144,
+      "killedWriterHotWalBytes": 24752,
+      "readerHotWalJsonBodies": 0,
+      "twoHeldReadersReleaseIndependently": true,
+      "originalFilesUnchangedByReader": true,
+      "successorWriterReacquisitionIsExplicit": true,
+      "residualFixtureCleanupIsExplicitKnownInodeOnly": true
+    },
+    "genericUnlinkedImmutableReadAndBackup": {
+      "passed": true,
+      "payloadBytes": 1048597,
+      "sourceHashUnchanged": true,
+      "log": "/tmp/moodcode-g123-anonymous-mirror-experiment.log",
+      "logSha256": "c3ee552d53b59687ca0ffb068174107c6839c338c66610031cc7c8e0ee450d19"
+    },
     "liveAccountUsage": {
       "type": "usage",
       "inputTokens": 266,
@@ -393,99 +497,58 @@
       "reasoningOutputTokens": 0
     },
     "billedTokens": null,
-    "liveLogicalRequestBytes": 1746,
-    "liveLogicalRequestSha256": "d80d372a4fa5c167938f1b91a030fbb9e825c74541fbf36979a5f45b4ef58dae",
-    "liveRawHttpBodyHashed": false,
     "fullSnapshotReads": 0,
-    "upstreamCodePromptsTestsCopied": false
+    "sourcePinManifests": [
+      {
+        "log": "/tmp/moodcode-g123-crash-source.sha256",
+        "logSha256": "a508afb07811af0e46ee9c15ee3c7482e7a42d81d492107501f2e4e47bbcde65"
+      },
+      {
+        "log": "/tmp/moodcode-g123-recovery-review-reader-unlink-source-pins.json",
+        "logSha256": "248a214d97baae7aef1fdea08adf085edb09b7a1224d5213f4eaf8606b1b04b1"
+      },
+      {
+        "log": "/tmp/moodcode-g123-owner-crash-verification.json",
+        "logSha256": "02961321c294a0fd1344e6f797f2e54bbcd8b928ea2d21c1f1b051b5d8d67be1"
+      }
+    ]
   },
   "earlierAttempts": [
     {
-      "finding": "Baseline uncovered unbound child physical authority and opaque child archive coverage; authored gaps exposed, not remote damage.",
-      "logs": [
-        {
-          "log": "/tmp/moodcode-g22-child-document-archive-review-baseline.log",
-          "logSha256": "0c77774fea4ea4a877d00ab485f3c74da4b60e0da427e05e844730f701063582"
-        },
-        {
-          "log": "/tmp/moodcode-g122-child-authority-review.log",
-          "logSha256": "eddb88f7264788d5a327cb97566d8d4be3ad59c8a3acada7c6b4f55f29c972f6"
-        },
-        {
-          "log": "/tmp/moodcode-g122-child-authority-review-bundle.log",
-          "logSha256": "8a60fa0269d42db41fc102869ebb25f2e5b42607f0fe6d2cec3d0a8e3f425d13"
-        },
-        {
-          "log": "/tmp/moodcode-g122-child-document-review-source-final.log",
-          "logSha256": "e15ff7a3049a65194819a24bc8d60016ebe5e12f248ac358a833bfa44056746b"
-        },
-        {
-          "log": "/tmp/moodcode-g122-child-document-review-bundle-final.log",
-          "logSha256": "2b3784bd3a252f4f02856fe99b84e5627c213896e76e6b972135dd6c1044d1e5"
-        }
-      ]
+      "kind": "candidate-source-baseline",
+      "description": "Seven actual kill phases passed before final assertion strengthening; reader unlink was already present, so this is not pristine previous source. All provider calls and pre-existing ACK setup were authored local fixtures.",
+      "log": "/tmp/moodcode-g123-crash-baseline.log",
+      "logSha256": "2f38cdd9445d3bbdbed3f1d216087e0a206902e0331f96e0cac6fcbe86e349d1",
+      "tests": 7,
+      "passed": 7,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 2457.889709
     },
     {
-      "finding": "Incomplete primary or child index reported zero instead of unknown/null; corrected totals and preserved observed subtotal.",
-      "logs": [
-        {
-          "log": "/tmp/moodcode-wave10-root-host-second.log",
-          "logSha256": "d065ea479a3b4164c5e3497eea37dedc06fc2f1d2cad553ffe042882778e35fd"
-        },
-        {
-          "log": "/tmp/moodcode-g122-wiring-review-corrected.log",
-          "logSha256": "58d460cae8d634db479a98be1d021977f4efbd021ce85d644fccef372b28859c"
-        }
-      ]
+      "kind": "fixture-errors",
+      "description": "SQLite null-prototype rows differed from IPC plain objects; comparison normalized without changing raw data or production recovery.",
+      "log": "/tmp/moodcode-g123-crash-first.log",
+      "logSha256": "89365b2c8c6a5aa30f9dbf23cc1f1a860af201f72f2b94e669ed1c9a40954fc8"
     },
     {
-      "finding": "Actual same-size source PDF mutation after first validation and before captured manifest could publish an invalid archive; final manifest members now match the already-selected reference bytes/hash/path.",
-      "logs": [
-        {
-          "log": "/tmp/moodcode-g122-blob-race-first.log",
-          "logSha256": "564c5e3e1ed277730aed527b4ee9f3e8e43f013275c72011d3f168d7b938d540"
-        },
-        {
-          "log": "/tmp/moodcode-g122-blob-race-confirmed.log",
-          "logSha256": "52a56465803a27d95889d3c0dda7958a7083fa3957110e9b65ea241ba203019c"
-        }
-      ]
+      "kind": "fixture-errors",
+      "description": "Failure before first root binding write remains explicitly legacy-unbound partial rather than typed archive rejection; no verified child proof was claimed.",
+      "log": "/tmp/moodcode-g123-recovery-review-first.log",
+      "logSha256": "441e135eed0d29db7a3b1316cccf7301f4f6f8127a98a522887723854c255bbc"
     },
     {
-      "finding": "Original terminal Run and close proof could coexist with newly unfinished native Turn/Attempt records; native metadata is now checked before index body reads.",
-      "logs": [
-        {
-          "log": "/tmp/moodcode-g22-child-native-beforefix.log",
-          "logSha256": "8aa76e76bfa714b3ccfe2709932db93dd9818f2e6ccfaedaf8fd1251b3f2448d"
-        }
-      ]
-    },
-    {
-      "finding": "Parallel fixture scaffolding and type setup failures, distinct from engine correctness regressions; corrected before the final build and full gate.",
-      "logs": [
-        {
-          "log": "/tmp/moodcode-g122-binding-first.log",
-          "logSha256": "d3e15480c3499f8f40c46752640e91ec0a53304ca8baf5354ec633d57152438b"
-        },
-        {
-          "log": "/tmp/moodcode-wave10-root-noemit-first.log",
-          "logSha256": "5f76b8bd2a6319db51ee41cba3c89e3288a3f01707396e8859d791caeb0db487"
-        },
-        {
-          "log": "/tmp/moodcode-wave10-root-noemit-third.log",
-          "logSha256": "39562b04c32b65c19d010683202a35cd24f0b74083a44ff1aac35898dff512b4"
-        },
-        {
-          "log": "/tmp/moodcode-wave10-root-noemit-fourth.log",
-          "logSha256": "39562b04c32b65c19d010683202a35cd24f0b74083a44ff1aac35898dff512b4"
-        }
-      ]
+      "kind": "fixture-errors",
+      "description": "BEGIN EXCLUSIVE on the empty owner produced a hot rollback journal before OWNER_BUSY; initialized DELETE owner fixture separates both conservative reader outcomes.",
+      "log": "/tmp/moodcode-g123-owner-crash-source-first.log",
+      "logSha256": "7e30a5e6ce5a4868f0c9dedfdab413931585a55b4158d4c65b6ab14713a64bcc"
     }
   ],
   "preservation": {
-    "ninthReport": "docs/moodcode/engine-goal-ninth-verification.json",
-    "sha256": "c218f60815f981c4263515ea15d5cfb029dbfee47634860431340af53aaf5250",
-    "matchesCommit": "53241e712b0cd175621bc658340679eed7b23e47",
+    "tenthReport": "docs/moodcode/engine-goal-tenth-verification.json",
+    "sha256": "aa83349c28e7405dde9b71713d59068b11e5a9c72dde30e82cb971a3544bd370",
+    "matchesCommit": "15abacd0b2a423e819fe45cc7300c8ff6b543d7e",
     "previousReports": [
       "docs/moodcode/engine-goal-first-verification.json",
       "docs/moodcode/engine-goal-second-verification.json",
@@ -494,7 +557,8 @@
       "docs/moodcode/engine-goal-fifth-verification.json",
       "docs/moodcode/engine-goal-sixth-verification.json",
       "docs/moodcode/engine-goal-seventh-verification.json",
-      "docs/moodcode/engine-goal-eighth-verification.json"
+      "docs/moodcode/engine-goal-eighth-verification.json",
+      "docs/moodcode/engine-goal-ninth-verification.json"
     ]
   },
   "limits": [
@@ -504,7 +568,11 @@
     "Archive document audit verifies default internal child document stores; externally configured children are explicitly unchecked, nondefault internal bases and restored typed-child fresh reexport need a separate mapping contract.",
     "Extra effect/PTY/review SQLite artifacts are preserved and hashed without claiming typed current runtime ownership audit; no cleanup, execution resume, ACK or fresh worktree authority is granted.",
     "One actual text-only Codex child request is not a remote PDF recognition, parser/token-cost, server-side cleanup or billing verification; the stored opaque PDF never entered the real request.",
-    "Temporary logs/independent bundle paths are local evidence with SHA recorded here, not hosted CI or permanently published artifacts."
+    "Temporary logs/independent bundle paths are local evidence with SHA recorded here, not hosted CI or permanently published artifacts.",
+    "SIGSTOP/SIGKILL tests prove these local committed process-death boundaries, not abrupt power-loss durability or remote server execution/billing/cancellation.",
+    "Validated private mirror pathname is removed only after a successful immutable attachment and owner/native/mirror validation on darwin/linux. A kill during copy/before unlink and other platforms can leave temporary files; no automatic stale cleanup was added.",
+    "An open anonymous immutable file retains its storage until all handles close; zero residual pathname after process death is not a zero-allocation measurement during the read.",
+    "Historical archive selected-index inspection API is a next local task; this checkpoint preserves the current fresh-source reexport and physical rebinding limitations."
   ],
   "goal": {
     "status": "active",
@@ -515,6 +583,6 @@
       "E6-07",
       "E6-08"
     ],
-    "nextLocal": "G1-23: actual process kill/restart at child prepared/admitted/root close publication boundaries, preserving phase/original records and proving zero provider redispatch or inferred storage authority."
+    "nextLocal": "G1-24: explicit read-only historical child document index inspection from exact verified archive manifest, reusing already validated selected indexes and the same proof budget without execution/recovery authority."
   }
 }
