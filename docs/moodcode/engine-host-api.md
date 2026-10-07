@@ -86,6 +86,8 @@ DB7의 `getProviderRecoveryPreview(sessionId, attemptId)`와 비동기 `acknowle
 
 DB7의 summary proof V2는 불변 pin 목록의 SHA와 원래 boot frontier까지 fingerprint에 결합한다. 기존 DB5/V1 결정은 원래 body/scope와 정확한 역사 retry를 보존하지만 새 admission 근거로 사용하지 않는다. 필요한 새 V2 결정은 host가 새 preview/requestId로 명시적으로 내려야 한다. 엔진은 프로젝트의 기존 결정을 자동 재승인하지 않는다.
 
+SQLite store의 `hasUncertainWorkspace(workspaceId)`는 summary와 ordinary 실행의 증거를 같은 read transaction에서 검사한다. runner는 이 통합 port로 admission/resume/maintenance를 확인하며 custom store에 port가 없으면 기존 두 predicates를 사용한다. 공통 선택 본문 8MiB 초과는 CLEANUP_PENDING을 유지한다. [cache 수명·변경 감지·원본 크기·호환](engine-recovery-evidence-read.md)을 따른다.
+
 ## LSP·formatter·변경 관찰
 
 `registerLanguageServer(serverId, factory, languageForPath)`는 host가 선택한 factory와 경로→language selector를 등록한다. `StdioLspConnection`의 executable/args는 신뢰하는 host가 지정한다. 모델이 경로에서 LSP 서버를 자동 설치하거나 실행하지 않는다. `formatters.register(id, formatter)`는 현재 content를 받아 제한된 UTF-8 결과를 반환하는 host callback을 등록하고 해제 함수를 제공한다.

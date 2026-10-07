@@ -11,7 +11,7 @@ G1-18은 DB6의 독립적인 종료 증거를 사용해 결과가 불명확한 �
 - admission: 유효한 개별 provider 결정만 해당 ordinary uncertain Attempt와 그 정확한 Turn의 blocker에 적용한다. 여러 candidate와 summary·도구/effect blocker가 남으면 계속 차단한다. physical import의 역사 결정은 새 저장소에서 적용하지 않는다.
 - 검증: 취소/절대·무응답 timeout/transport·부분 출력/도구 제안, source/context/hash drift·owner·large evidence·rollback·restart·archive·실제 SIGKILL·queue 보존·다른 uncertainty를 독립 fixture로 확인한다. 실제 계정 검증은 임시 결정 뒤 명시적 새 요청 1회만 허용한다.
 
-선택 증거 합산 8MiB, messages 512, current Parts 128, tools 256, immutable source refs/pins 1,024, owner JSON 각각 1MiB, ledger 64KiB를 기본으로 한다. ledger JSON 한도가 pin 개수보다 먼저 적용될 수도 있다. workspace의 provider 결정 검사도 최대 64개 후보와 선택 증거 8MiB를 제한한다. 여러 proof 도메인/source의 공유 예산 최적화는 G1-19이며 모든 SQLite I/O를 이 수치로 보장하지 않는다. provider 결과·서버 중지·과금 확정은 미검증 상태다.
+선택 증거 합산 8MiB, messages 512, current Parts 128, tools 256, immutable source refs/pins 1,024, owner JSON 각각 1MiB, ledger 64KiB를 기본으로 한다. ledger JSON 한도가 pin 개수보다 먼저 적용될 수도 있다. workspace의 provider 결정 검사도 최대 64개 후보와 선택 증거 8MiB를 제한한다. 추가로 provider/summary/Turn·native owner의 선택 본문은 [한 transaction의 공통 8MiB 예산](engine-recovery-evidence-read.md)을 공유한다. 도메인별 논리 제한도 유지하며 모든 SQLite I/O를 이 수치로 보장하지 않는다. provider 결과·서버 중지·과금 확정은 미검증 상태다.
 
 완성된 `tool.call` 제안은 provider 완료를 기다리는 동안 Part로 저장한다. 도구 실행은 유효한 finish 뒤에 시작하므로 통신 오류로 끝난 제안은 interrupted Part와 원래 input으로 남고 ToolRecord나 효과를 만들지 않는다. text·reasoning·media와 prior completed tool도 결정 source에 포함한다. 도구의 일반 metadata 안에 있는 도메인 상태는 엔진 cleanup 증거로 해석하지 않는다.
 

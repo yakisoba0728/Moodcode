@@ -23,6 +23,8 @@ fingerprint는 정확한 attempt revision, 제한된 usage와 source, owner, 결
 
 DB7 migration은 기존 DB5/V1 결정의 body·scope·fingerprint를 수정하지 않고 proof_version=1 및 비어 있는 신규 proof 열만 추가한다. 원래 pin 목록의 완전성을 증명할 수 없는 V1 기록은 역사적 결정이며 새 admission을 허용하지 않는다. exact 역사 retry는 원래 receipt를 읽기 전용으로 반환한다. 새 실행 허용이 필요하면 host가 새 V2 preview/fingerprint와 새로운 requestId로 별도 결정을 내려야 한다. 엔진이 과거 결정을 자동 재승인하지 않는다.
 
+복구 preview/ACK와 workspace 검사에는 [공유 선택 증거 범위](engine-recovery-evidence-read.md)를 사용한다. summary/provider/Turn·native owner의 raw 본문과 명시적 projection이 transaction마다 공통 8MiB 예산을 공유하며 기존 summary 도메인의 제한도 유지한다. owner/source/CAS 검증은 재사용 때도 수행하고 retained text가 없는 usage metadata projection은 full summary와 별도로 계산한다.
+
 요청을 검증한 뒤 사본을 고정하므로 lease를 기다리는 동안 호출자가 원본 객체를 바꿔도 owner가 달라지지 않는다. 기존 exact receipt 조회는 읽기 전용이며 이후 workspace가 사용 중이거나 별도 격리 상태여도 원래 결과와 request conflict를 우선 확인한다. 이 조회가 현재 실행을 허용하거나 새로운 결정을 저장하는 것은 아니다.
 
 ## 보존과 후속 작업

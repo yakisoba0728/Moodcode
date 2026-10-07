@@ -63,4 +63,15 @@ Windows native Job backend, 다른 OS 호스트, 최초 hosted CI, 실제 Anthro
 
 전체 동시성 2 gate는 2,055 pass·실패 0·조건부 2 skip, 집중 174/174, 코딩 fixture 3/3이다. 같은 source commit에서 실제 Codex ordinary 복구 뒤 새 Run 1회, overflow summary 복구 뒤 새 Run 1회, active-prefix 요약/답변 2회가 통과했다. 원래 unknown outcome/usage·부분 제안·control/context 보존과 head 변화/재시작·logical request SHA를 확인했다. 실제 원격 uncertainty·서버 중지·과금은 확인하지 않았다. 실패하거나 live cleanup proof가 없으면 검증용 임시 DB를 보존한다.
 
-다음 G1-19는 provider/summary/Turn proof 도메인의 공유 조회 예산과 중복 원문 읽기를 줄이는 작업이다. 현재 각 domain의 후보/선택 증거 한도를 전체 SQLite I/O 상한으로 확대하지 않는다. 원래 열린 외부 OS/provider/CI 4개와 GUI 제외를 유지하며 [최신 근거](engine-goal-verification.json)를 남기고 goal을 계속 진행한다.
+이 시점의 G1-19 공유 조회 예산은 아래 여덟 번째 검토 지점에서 구현했다. [일곱 번째 근거](engine-goal-seventh-verification.json)를 그대로 보존하고 원래 열린 외부 OS/provider/CI 4개와 GUI 제외를 유지한다.
+
+
+## 여덟 번째 검토 지점
+
+`42218a8`에서 G1-19의 workspace 통합 검사와 한 transaction의 8MiB 선택 본문 예산·4,096개 raw cache를 연결했다. summary/provider/Turn·cleanup/native owner와 ACK의 두 CAS가 범위를 공유한다. 원문 문자열만 재사용하고 owner/source/pin/fingerprint를 다시 검증한다. write/rollback/외부 변화 때 cache를 폐기하며 이미 선택한 bytes는 환급하지 않는다. 일반 getter와 custom store fallback을 유지한다. [공유 조회 계약](engine-recovery-evidence-read.md)을 따른다.
+
+독립 검토에서 header 이후 callback이 owner를 키워 큰 본문이 반환되던 경계를 발견해 SQL body length 조건으로 차단했다. 실제 9MiB owner 변경의 원문·양 journal rollback과 반환 0B를 확인했다. 숫자 9→10을 문자열 CAST 별칭으로 정렬하던 결함도 수정했다. 기존 V1 digest encoding을 별도로 유지해 valid ACK·정확한 역사 receipt를 보존한다.
+
+이전 `5d70a22` 전체 engine/contracts의 독립 bundle과 같은 실제 private mixed fixture를 비교했다. raw 본문 211,983→83,173B, SQL 값 249,210→121,980B로 줄었고 mutation/owner 검사 때문에 query는 296→368로 늘었다. 각 domain 1.69MB/7.21MB는 통과하지만 distinct union 8.90MB는 공통 예산에서 차단하고 초과 Part 본문은 읽지 않았다. 물리 I/O·SQLite 내부 작업·production latency/throughput의 보장으로 표시하지 않는다.
+
+전체 gate는 2,087 pass·실패 0·조건부 2 skip, coding fixture 3/3이다. 같은 source commit의 실제 Codex 일반 복구 뒤 새 Run과 overflow summary 복구 뒤 새 Run 각각 1회가 통과했다. natural cleanup proof·logical request SHA·head 변경·재시작 결정 보존과 원래 outcome/usage/control을 확인했다. 실제 unresolved 프로젝트 기록에는 결정하지 않았고 GUI를 실행하지 않았다. 다음은 이미지 외 native 입력 계약의 로컬 엔진 범위를 조사·구체화하면서 원래 외부 OS/provider/CI 조건을 유지한다. [최신 근거](engine-goal-verification.json)에 모든 실패와 한계를 남기고 goal을 계속 진행한다.
