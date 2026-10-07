@@ -1,6 +1,7 @@
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 import { providerImages } from '../media/provider.js';
 import { providerDocuments } from '../documents/provider.js';
+import { hostGenerationTransportRequest, type HostGenerationRequest, type ProviderTransportRequest } from './generation.js';
 
 export interface ScriptedTurn {
   events: ProviderEvent[];
@@ -9,6 +10,8 @@ export interface ScriptedTurn {
   /** Failure raised after the configured events have been emitted. */
   error?: string;
 }
+/** Separate fixture sequence; never selected by a fabricated coding turnIndex. */
+export type ScriptedGeneration = ScriptedTurn;
 
 const MAX_TIMER_MS = 2_147_483_647;
 const MAX_ECHO_CHARACTERS = 160;
@@ -58,10 +61,12 @@ export class ScriptedProvider implements ProviderAdapter {
   readonly inputModalities = Object.freeze(['text'] as const);
   readonly inputFileTypes = Object.freeze([] as const);
   readonly #turns: ScriptedTurn[];
+  readonly #generations: ScriptedGeneration[];
   #callCount = 0;
+  #generationCallCount = 0;
 
-  constructor(turns: ScriptedTurn[] = []) {
-    for (const turn of turns) {
+  constructor(turns: ScriptedTurn[] = [], generations: ScriptedGeneration[] = []) {
+    for (const turn of [...turns, ...generations]) {
       if (turn.delayMs !== undefined && (
         !Number.isFinite(turn.delayMs) || turn.delayMs < 0 || turn.delayMs > MAX_TIMER_MS
       )) {
@@ -70,6 +75,7 @@ export class ScriptedProvider implements ProviderAdapter {
     }
     // Both the caller's fixture and previously yielded events may be mutated.
     this.#turns = structuredClone(turns);
+    this.#generations = structuredClone(generations);
   }
 
   /** Number of streamTurn invocations, including cancelled and failed attempts. */
@@ -77,9 +83,19 @@ export class ScriptedProvider implements ProviderAdapter {
     return this.#callCount;
   }
 
+  get generationCallCount(): number {
+    return this.#generationCallCount;
+  }
+
   streamTurn(request: TurnRequest, signal: AbortSignal): AsyncIterable<ProviderEvent> {
     this.#callCount += 1;
     return this.#stream(request, signal);
+  }
+
+  streamGeneration(request: HostGenerationRequest, signal: AbortSignal): AsyncIterable<ProviderEvent> {
+    const transport = hostGenerationTransportRequest(request);
+    const fixture = this.#generations[this.#generationCallCount++];
+    return this.#emit(transport, fixture, signal);
   }
 
   async *#stream(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
@@ -90,6 +106,11 @@ export class ScriptedProvider implements ProviderAdapter {
       throw new RangeError('Scripted provider turnIndex must be a non-negative safe integer.');
     }
     const scripted = this.#turns[request.turnIndex];
+    yield* this.#emit(request, scripted, signal);
+  }
+
+  async *#emit(request: ProviderTransportRequest, scripted: ScriptedTurn | undefined, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+    checkCancellation(signal);
     const events: ProviderEvent[] = scripted?.events ?? [
       { type: 'text.delta', delta: echo(request.messages.findLast(message => message.role === 'user')?.content) },
       { type: 'finish', reason: 'stop' },

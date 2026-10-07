@@ -8,6 +8,7 @@ import { replayCompatible } from './replay.js';
 import { readSseData } from './sse.js';
 import { messageImages, providerImages } from '../media/provider.js';
 import { providerDocuments } from '../documents/provider.js';
+import { hostGenerationTransportRequest, type HostGenerationRequest, type ProviderTransportRequest } from './generation.js';
 
 export interface AnthropicProviderOptions {
   /** Host-only API prefix; no environment lookup or account discovery. */
@@ -244,7 +245,7 @@ export class AnthropicProvider implements ProviderAdapter {
     } catch { invalidReplay(); }
   }
 
-  #messages(request: TurnRequest, signal: AbortSignal): { messages: JsonObject[]; system: JsonObject[] } {
+  #messages(request: ProviderTransportRequest, signal: AbortSignal): { messages: JsonObject[]; system: JsonObject[] } {
     const messages: JsonObject[] = [], system: JsonObject[] = [];
     const images = providerImages(request, true, signal);
     let conversational = false;
@@ -300,7 +301,15 @@ export class AnthropicProvider implements ProviderAdapter {
     return { messages, system };
   }
 
-  async *streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+  streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+    return this.#stream(request, signal, false);
+  }
+
+  streamGeneration(request: HostGenerationRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+    return this.#stream(hostGenerationTransportRequest(request), signal, true);
+  }
+
+  async *#stream(request: ProviderTransportRequest, signal: AbortSignal, generation: boolean): AsyncGenerator<ProviderEvent> {
     if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
     providerDocuments(request, false, signal);
     let serialized: string;
@@ -316,7 +325,7 @@ export class AnthropicProvider implements ProviderAdapter {
       if (request.reasoningEffort !== undefined && !['low', 'medium', 'high', 'xhigh', 'max'].includes(request.reasoningEffort)) invalidRequest();
       const payload = { model: request.modelId, max_tokens: this.#maxTokens, stream: true, messages: input.messages,
         ...(input.system.length ? { system: input.system } : {}), ...(tools.length ? { tools } : {}),
-        thinking: this.#thinking === 'disabled' ? { type: 'disabled' } : { type: 'adaptive', display: this.#summary ? 'summarized' : 'omitted' },
+        thinking: this.#thinking === 'disabled' ? { type: 'disabled' } : { type: 'adaptive', display: !generation && this.#summary ? 'summarized' : 'omitted' },
         ...(request.reasoningEffort === undefined ? {} : { output_config: { effort: request.reasoningEffort } }) };
       serialized = JSON.stringify(safeJson(payload, this.#limits.maxRequestBytes, 'PROVIDER_INVALID_REQUEST'));
     } catch (error) { throw publicError(error instanceof EngineError ? error : new EngineError('PROVIDER_INVALID_REQUEST', 'Provider request is invalid.')); }
@@ -330,19 +339,22 @@ export class AnthropicProvider implements ProviderAdapter {
     const cancelled = () => { if (controller.signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.'); };
     try {
       if (signal.aborted) controller.abort();
-      response = await abortable<Response>(Promise.resolve().then(() => this.#fetch(this.#endpoint, {
+      const fetching = Promise.resolve().then(() => this.#fetch(this.#endpoint, {
         method: 'POST', redirect: 'error', signal: controller.signal,
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', 'anthropic-version': '2023-06-01', ...(this.#apiKey ? { 'x-api-key': this.#apiKey } : {}) }, body: serialized,
-      })), controller.signal, late => { if (late.body && !late.body.locked) void settles(late.body.cancel(), this.#limits.cleanupTimeoutMs); });
+      }));
+      // A host owner cannot declare iterator cleanup while its actual fetch is still pending.
+      response = generation ? await fetching : await abortable<Response>(fetching, controller.signal, late => { if (late.body && !late.body.locked) void settles(late.body.cancel(), this.#limits.cleanupTimeoutMs); });
+      if (generation && response.body) body = boundedBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs);
       cancelled();
       if (!response.ok) {
         // Shared bounded parser recognizes structured overflow codes, never remote prose.
-        body = response.body ? boundedBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs) : undefined;
+        body ??= response.body ? boundedBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs) : undefined;
         const rejection = body ? new Response(body.stream, { status: response.status, headers: response.headers }) : response;
         throw await providerHttpFailure(rejection, controller.signal);
       }
       if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/event-stream' || !response.body) malformed();
-      body = boundedBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs);
+      body ??= boundedBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs);
       const blocks = new Map<number, Block>();
       const text = new CredentialTextRedactor(this.#secrets), reasoning = new CredentialTextRedactor(this.#secrets);
       let started = false, stopped = false, finish: Finish | undefined, argumentBytes = 0, toolCount = 0;
@@ -385,12 +397,12 @@ export class AnthropicProvider implements ProviderAdapter {
             if (this.#thinking === 'disabled') throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Provider returned unsupported thinking output.');
             if (kind === 'thinking') {
               if (typeof source.thinking !== 'string' || typeof source.signature !== 'string') malformed();
-              if (!this.#summary && source.thinking !== '') throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Provider returned thinking text without a summary contract.');
+              if ((generation || !this.#summary) && source.thinking !== '') throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Provider returned thinking text without a summary contract.');
               block.text = source.thinking; block.signature = source.signature;
             } else { if (typeof source.data !== 'string' || !source.data) malformed(); block.data = source.data; }
           }
           blocks.set(index, block);
-          if (block.text) { const delta = (kind === 'text' ? text : reasoning).push(block.text); if (delta) yield { type: kind === 'text' ? 'text.delta' : 'reasoning.delta', delta }; }
+          if (block.text) { const delta = (kind === 'text' ? text : reasoning).push(block.text); if (delta && (!generation || kind === 'text')) yield { type: kind === 'text' ? 'text.delta' : 'reasoning.delta', delta }; }
           continue;
         }
         if (event.type === 'content_block_delta') {
@@ -407,9 +419,9 @@ export class AnthropicProvider implements ProviderAdapter {
             block.argumentDelta = true; block.arguments += delta.partial_json;
           } else if (block.type === 'thinking' && delta.type === 'thinking_delta') {
             if (block.signatureSeen || typeof delta.thinking !== 'string') malformed();
-            if (!this.#summary && delta.thinking !== '') throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Provider returned thinking text without a summary contract.');
+            if ((generation || !this.#summary) && delta.thinking !== '') throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Provider returned thinking text without a summary contract.');
             block.text += delta.thinking;
-            const safe = reasoning.push(delta.thinking); if (safe) yield { type: 'reasoning.delta', delta: safe };
+            const safe = reasoning.push(delta.thinking); if (!generation && safe) yield { type: 'reasoning.delta', delta: safe };
           } else if (block.type === 'thinking' && delta.type === 'signature_delta') {
             if (block.signatureSeen || typeof delta.signature !== 'string' || !delta.signature) malformed();
             block.signatureSeen = true; block.signature += delta.signature;
@@ -460,11 +472,12 @@ export class AnthropicProvider implements ProviderAdapter {
       const replayItems = finish === 'length' ? undefined : this.#replay(native);
       const completedUsage = usageEvent(usage, request.includeMetadata === true);
       const textTail = text.push('', true), reasoningTail = reasoning.push('', true);
+      if (generation && calls.length) throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Host generation cannot propose executable tools.');
       if (textTail) { cancelled(); yield { type: 'text.delta', delta: textTail }; }
-      if (reasoningTail) { cancelled(); yield { type: 'reasoning.delta', delta: reasoningTail }; }
+      if (!generation && reasoningTail) { cancelled(); yield { type: 'reasoning.delta', delta: reasoningTail }; }
       for (const call of calls) { cancelled(); yield { type: 'tool.call', call }; }
       cancelled(); yield completedUsage;
-      cancelled(); yield { type: 'finish', reason: finish, ...(replayItems === undefined ? {} : { replayItems }) };
+      cancelled(); yield { type: 'finish', reason: finish, ...(generation || replayItems === undefined ? {} : { replayItems }) };
     } catch (error) {
       if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
       if (timedOut) throw new EngineError('PROVIDER_TIMEOUT', 'Provider turn timed out.');

@@ -9,6 +9,8 @@ import { messageImages, providerImages } from '../media/provider.js';
 import type { ResolvedInputImage } from '../ports.js';
 import { hasDocumentInputs, messageDocuments, providerDocuments } from '../documents/provider.js';
 import type { ResolvedInputDocument } from '../ports.js';
+import { hostGenerationTransportRequest, type HostGenerationRequest, type ProviderTransportRequest } from './generation.js';
+import { boundedGenerationBody } from './generation-body.js';
 
 export interface ResponsesProviderOptions extends OpenAICompatibleProviderOptions {
   /** Includes message and opaque reasoning items as well as function calls. */
@@ -113,6 +115,7 @@ export class ResponsesProvider implements ProviderAdapter {
   #secrets: string[];
   #codexProfile: boolean;
   #pdfModelIds: ReadonlySet<string>;
+  #generationCleanupTimeoutMs: number;
   #fetch: typeof globalThis.fetch;
   #limits: { timeoutMs: number; maxFrameBytes: number; maxResponseBytes: number; maxRequestBytes: number; maxToolArgumentBytes: number; maxToolCalls: number; maxOutputItems: number };
 
@@ -153,13 +156,22 @@ export class ResponsesProvider implements ProviderAdapter {
       maxToolCalls: positiveLimit(options.maxToolCalls, 128),
       maxOutputItems: positiveLimit(options.maxOutputItems, 256),
     };
+    this.#generationCleanupTimeoutMs = positiveLimit(options.cleanupTimeoutMs, 1_000);
   }
 
   supportsInputFile(modelId: string, mimeType: 'application/pdf'): boolean {
     return !this.#codexProfile && mimeType === 'application/pdf' && this.#pdfModelIds.has(modelId);
   }
 
-  async *streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+  streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+    return this.#stream(request, signal, false);
+  }
+
+  streamGeneration(request: HostGenerationRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+    return this.#stream(hostGenerationTransportRequest(request), signal, true);
+  }
+
+  async *#stream(request: ProviderTransportRequest, signal: AbortSignal, generation: boolean): AsyncGenerator<ProviderEvent> {
     if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
     let serialized: string;
     try {
@@ -188,7 +200,7 @@ export class ResponsesProvider implements ProviderAdapter {
         }
       }
       serialized = JSON.stringify({
-        model: request.modelId, input, stream: true, store: false, include: ['reasoning.encrypted_content'],
+        model: request.modelId, input, stream: true, store: false, ...(generation ? {} : { include: ['reasoning.encrypted_content'] }),
         ...(request.reasoningEffort === undefined ? {} : { reasoning: { effort: request.reasoningEffort } }),
         ...(request.tools.length ? { tools: request.tools.map(tool => ({ type: 'function', name: tool.name, description: tool.description, parameters: tool.inputSchema, strict: false })) } : {}),
       });
@@ -206,6 +218,7 @@ export class ResponsesProvider implements ProviderAdapter {
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; controller.abort(); }, this.#limits.timeoutMs);
     let response: Response | undefined;
+    let generationBody: ReturnType<typeof boundedGenerationBody> | undefined;
     try {
       if (signal.aborted) controller.abort();
       response = await this.#fetch(this.#endpoint, {
@@ -213,8 +226,9 @@ export class ResponsesProvider implements ProviderAdapter {
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...(this.#apiKey ? { Authorization: `Bearer ${this.#apiKey}` } : {}) },
         body: serialized,
       });
+      if (generation && response.body) generationBody = boundedGenerationBody(response.body, controller.signal, this.#generationCleanupTimeoutMs);
       checkCancellation();
-      if (!response.ok) throw await providerHttpFailure(response, controller.signal);
+      if (!response.ok) throw await providerHttpFailure(generationBody ? new Response(generationBody.stream, { status: response.status, headers: response.headers }) : response, controller.signal);
       const contentType = response.headers.get('content-type');
       const acceptsStream = contentType?.split(';')[0]?.trim().toLowerCase() === 'text/event-stream' || this.#codexProfile && contentType === null;
       if (!acceptsStream || !response.body) throw new EngineError('PROVIDER_MALFORMED_STREAM', 'Provider response must be an SSE stream.');
@@ -287,7 +301,7 @@ export class ResponsesProvider implements ProviderAdapter {
         // Reasoning is kept in validated finish replay data, outside public text.
       };
 
-      for await (const frame of readSseData(response.body, controller.signal, this.#limits)) {
+      for await (const frame of readSseData(generationBody?.stream ?? response.body, controller.signal, this.#limits)) {
         if (frame.trim() === '[DONE]') throw new EngineError('PROVIDER_INCOMPLETE_STREAM', 'Provider stream ended without a Responses lifecycle terminal.');
         let parsed: unknown;
         try { parsed = JSON.parse(frame); } catch { malformed(); }
@@ -306,7 +320,7 @@ export class ResponsesProvider implements ProviderAdapter {
           responseId = nonempty(created.id);
           if (event.response_id !== undefined && event.response_id !== responseId) malformed();
           if (created.status !== 'in_progress') malformed();
-          if (request.includeMetadata) { checkCancellation(); yield { type: 'progress', providerRequestId: responseId }; }
+          if (request.includeMetadata) { checkCancellation(); yield { type: 'progress', providerRequestId: generation ? redactCredentialText(responseId, this.#secrets) : responseId }; }
           continue;
         }
         if (responseId === undefined) malformed();
@@ -457,8 +471,8 @@ export class ResponsesProvider implements ProviderAdapter {
             const part = record(event.part);
             if (part.type !== 'summary_text' || optionalString(part.text) === undefined) malformed();
           } else if (optionalString(type.endsWith('.delta') ? event.delta : event.text) === undefined) malformed();
-          if (request.includeMetadata && type === 'response.reasoning_summary_text.delta') { const summary = summaryRedactor.push(event.delta as string); if (summary) { checkCancellation(); yield { type: 'reasoning.delta', delta: summary }; } }
-          if (request.includeMetadata && type === 'response.reasoning_summary_text.done') { const summary = summaryRedactor.push('', true); if (summary) { checkCancellation(); yield { type: 'reasoning.delta', delta: summary }; } }
+          if (!generation && request.includeMetadata && type === 'response.reasoning_summary_text.delta') { const summary = summaryRedactor.push(event.delta as string); if (summary) { checkCancellation(); yield { type: 'reasoning.delta', delta: summary }; } }
+          if (!generation && request.includeMetadata && type === 'response.reasoning_summary_text.done') { const summary = summaryRedactor.push('', true); if (summary) { checkCancellation(); yield { type: 'reasoning.delta', delta: summary }; } }
           continue;
         }
         throw new EngineError('PROVIDER_UNSUPPORTED_EVENT', 'Provider returned an unsupported stream event.');
@@ -485,11 +499,13 @@ export class ResponsesProvider implements ProviderAdapter {
         maxToolArgumentBytes: this.#limits.maxToolArgumentBytes, maxToolCalls: this.#limits.maxToolCalls,
       });
       if (replayItems) validateReplayBinding({ role: 'assistant', content: publicText + tail, toolCalls: completed }, replayItems);
+      if (generation && completed.length) throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Host generation cannot propose executable tools.');
+      if (generationBody && !await generationBody.close()) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');
       if (tail) { checkCancellation(); yield { type: 'text.delta', delta: tail }; }
       for (const call of completed) { checkCancellation(); yield { type: 'tool.call', call }; }
       if (usage) { checkCancellation(); yield usage; }
       checkCancellation();
-      yield { type: 'finish', reason: finish, ...(replayItems ? { replayItems } : {}) };
+      yield { type: 'finish', reason: finish, ...(!generation && replayItems ? { replayItems } : {}) };
     } catch (error) {
       if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
       if (timedOut) throw new EngineError('PROVIDER_TIMEOUT', 'Provider turn timed out.');
@@ -498,7 +514,9 @@ export class ResponsesProvider implements ProviderAdapter {
       clearTimeout(timer);
       signal.removeEventListener('abort', abort);
       controller.abort();
-      if (response?.body && !response.body.locked) await response.body.cancel().catch(() => {});
+      if (generationBody) {
+        if (!await generationBody.close()) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');
+      } else if (response?.body && !response.body.locked) await response.body.cancel().catch(() => {});
     }
   }
 }

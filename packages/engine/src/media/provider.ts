@@ -1,9 +1,10 @@
 import { EngineError, type InputImageAttachment } from '@moodcode/contracts';
-import type { ProviderMessage, ResolvedInputImage, TurnRequest } from '../ports.js';
+import type { ProviderMessage, ResolvedInputImage } from '../ports.js';
+import type { ProviderTransportRequest } from '../provider/generation.js';
 import { attachment, attachments, DEFAULT_IMAGE_LIMITS, digest, sameAttachment, validateImageBytes } from './validation.js';
 
 /** Transport-only projection. The engine must verify session ownership before supplying bytes. */
-export function providerImages(request: TurnRequest, supported: boolean, signal?: AbortSignal): ReadonlyMap<string, ResolvedInputImage> {
+export function providerImages(request: ProviderTransportRequest, supported: boolean, signal?: AbortSignal): ReadonlyMap<string, ResolvedInputImage> {
   const cancelled = () => { if (signal?.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.'); };
   cancelled();
   const invalid = () => { throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider image input is invalid.'); };

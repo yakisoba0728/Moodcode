@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { EngineError, type InputDocumentAttachment } from '@moodcode/contracts';
-import type { ProviderMessage, ResolvedInputDocument, ResolvedInputImage, TurnRequest } from '../ports.js';
+import type { ProviderMessage, ResolvedInputDocument, ResolvedInputImage } from '../ports.js';
+import type { ProviderTransportRequest } from '../provider/generation.js';
 import { providerImages } from '../media/provider.js';
 import { attachments as imageAttachments, DEFAULT_IMAGE_LIMITS } from '../media/validation.js';
 import { attachments as documentAttachments, DEFAULT_DOCUMENT_LIMITS, validateDocumentBytes } from './validation.js';
@@ -20,7 +21,7 @@ function ownValue(value: object, key: string): unknown {
   return descriptor.value;
 }
 /** Ref presence only; never reads resolved bytes or invokes attachment getters. */
-export function hasDocumentInputs(request: TurnRequest): boolean {
+export function hasDocumentInputs(request: ProviderTransportRequest): boolean {
   const messages = ownValue(request, 'messages');
   if (!Array.isArray(messages) || types.isProxy(messages)) invalid();
   for (const message of messages) {
@@ -39,7 +40,7 @@ function same(left: InputDocumentAttachment, right: InputDocumentAttachment): bo
 }
 
 /** Transport projection only. Session/workspace ownership must be checked by the host resolver. */
-export function providerDocuments(request: TurnRequest, supported: boolean, signal?: AbortSignal,
+export function providerDocuments(request: ProviderTransportRequest, supported: boolean, signal?: AbortSignal,
   validatedImages?: ReadonlyMap<string, ResolvedInputImage>): ReadonlyMap<string, ResolvedInputDocument> {
   cancelled(signal);
   try {

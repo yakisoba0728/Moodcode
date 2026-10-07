@@ -5,6 +5,7 @@ import { positiveLimit } from './helpers.js';
 import { ResponsesProvider, type ResponsesProviderOptions } from './responses.js';
 import { providerImages } from '../media/provider.js';
 import { providerDocuments } from '../documents/provider.js';
+import { hostGenerationTransportRequest, validateHostGenerationRequest, type HostGenerationRequest, type ProviderTransportRequest } from './generation.js';
 
 // Existing Codex ChatGPT credentials are scoped to this native Codex route.
 // They are not the new Sign in with ChatGPT direct-API grant.
@@ -13,7 +14,7 @@ const ENDPOINT = BASE_URL + '/responses';
 const USER_AGENT = 'Moodcode/0.1.0';
 
 export interface CodexProviderOptions extends Pick<ResponsesProviderOptions,
-  'fetch' | 'timeoutMs' | 'maxFrameBytes' | 'maxResponseBytes' | 'maxRequestBytes' |
+  'fetch' | 'timeoutMs' | 'cleanupTimeoutMs' | 'maxFrameBytes' | 'maxResponseBytes' | 'maxRequestBytes' |
   'maxToolArgumentBytes' | 'maxToolCalls' | 'maxOutputItems'> {
   /** Main-process file source; never exposed in auth status or engine events. */
   codexHome?: CodexAuthOptions['codexHome'];
@@ -33,7 +34,7 @@ export class CodexProvider implements ProviderAdapter {
   readonly inputFileTypes = Object.freeze([] as const);
   #reader: ReturnType<typeof createCodexCredentialReader>;
   #fetch: typeof globalThis.fetch;
-  #options: Pick<CodexProviderOptions, 'timeoutMs' | 'maxFrameBytes' | 'maxResponseBytes' | 'maxRequestBytes' | 'maxToolArgumentBytes' | 'maxToolCalls' | 'maxOutputItems'>;
+  #options: Pick<CodexProviderOptions, 'timeoutMs' | 'cleanupTimeoutMs' | 'maxFrameBytes' | 'maxResponseBytes' | 'maxRequestBytes' | 'maxToolArgumentBytes' | 'maxToolCalls' | 'maxOutputItems'>;
   #requestBytes: number;
 
   constructor(options: CodexProviderOptions = {}) {
@@ -45,7 +46,7 @@ export class CodexProvider implements ProviderAdapter {
     if (typeof this.#fetch !== 'function') invalidConfiguration();
     this.#requestBytes = positiveLimit(options.maxRequestBytes, 2_097_152);
     this.#options = {
-      timeoutMs: options.timeoutMs, maxFrameBytes: options.maxFrameBytes, maxResponseBytes: options.maxResponseBytes,
+      timeoutMs: options.timeoutMs, cleanupTimeoutMs: options.cleanupTimeoutMs, maxFrameBytes: options.maxFrameBytes, maxResponseBytes: options.maxResponseBytes,
       maxRequestBytes: options.maxRequestBytes, maxToolArgumentBytes: options.maxToolArgumentBytes,
       maxToolCalls: options.maxToolCalls, maxOutputItems: options.maxOutputItems,
     };
@@ -54,7 +55,16 @@ export class CodexProvider implements ProviderAdapter {
     this.#reader = createCodexCredentialReader({ codexHome: options.codexHome, now: options.now });
   }
 
-  async *streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+  streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+    return this.#stream(request, signal, provider => provider.streamTurn(request, signal));
+  }
+
+  streamGeneration(request: HostGenerationRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+    const snapshot = validateHostGenerationRequest(request);
+    return this.#stream(hostGenerationTransportRequest(snapshot), signal, provider => provider.streamGeneration(snapshot, signal));
+  }
+
+  async *#stream(request: ProviderTransportRequest, signal: AbortSignal, delegate: (provider: ResponsesProvider) => AsyncIterable<ProviderEvent>): AsyncGenerator<ProviderEvent> {
     if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
     // Invalid media must fail before any host credential source is consulted.
     providerDocuments(request, false, signal);
@@ -90,7 +100,7 @@ export class CodexProvider implements ProviderAdapter {
         redactionSecrets: credential.secrets, streamProfile: 'codex',
       });
     });
-    yield* provider.streamTurn(request, signal);
+    yield* delegate(provider);
   }
 }
 

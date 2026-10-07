@@ -1,5 +1,7 @@
 import { EngineError, type ProviderToolCall } from '@moodcode/contracts';
 import type { ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
+import { hostGenerationTransportRequest, type HostGenerationRequest, type ProviderTransportRequest } from './generation.js';
+import { boundedGenerationBody } from './generation-body.js';
 import { malformed, optionalString, positiveLimit, providerHttpFailure, providerRemoteError, publicError, record, redactJson, redactText, TextRedactor } from './helpers.js';
 import { readSseData } from './sse.js';
 import { messageImages, providerImages } from '../media/provider.js';
@@ -14,6 +16,8 @@ export interface OpenAICompatibleProviderOptions {
   id?: string;
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
+  /** Host generation must confirm underlying body cancellation within this bound. */
+  cleanupTimeoutMs?: number;
   maxFrameBytes?: number;
   maxResponseBytes?: number;
   maxRequestBytes?: number;
@@ -79,6 +83,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
   #apiKey: string | undefined;
   #fetch: typeof globalThis.fetch;
   #limits: Limits;
+  #generationCleanupTimeoutMs: number;
 
   constructor(options: OpenAICompatibleProviderOptions = {}) {
     this.#apiKey = options.apiKey;
@@ -102,9 +107,18 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
       maxToolArgumentBytes: positiveLimit(options.maxToolArgumentBytes, 1_048_576),
       maxToolCalls: positiveLimit(options.maxToolCalls, 128),
     };
+    this.#generationCleanupTimeoutMs = positiveLimit(options.cleanupTimeoutMs, 1_000);
   }
 
-  async *streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+  streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+    return this.#stream(request, signal, false);
+  }
+
+  streamGeneration(request: HostGenerationRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+    return this.#stream(hostGenerationTransportRequest(request), signal, true);
+  }
+
+  async *#stream(request: ProviderTransportRequest, signal: AbortSignal, generation: boolean): AsyncGenerator<ProviderEvent> {
     if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
     providerDocuments(request, false, signal);
     let serialized: string;
@@ -114,6 +128,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
       serialized = JSON.stringify({
         model: request.modelId,
         messages: request.messages.map(message => messageBody(message, images)),
+        ...(generation && request.reasoningEffort !== undefined ? { reasoning_effort: request.reasoningEffort } : {}),
         ...(request.tools.length === 0 ? {} : { tools: request.tools.map(tool => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.inputSchema } })) }),
         n: 1, stream: true, stream_options: { include_usage: true },
       });
@@ -132,6 +147,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; controller.abort(); }, this.#limits.timeoutMs);
     let response: Response | undefined;
+    let generationBody: ReturnType<typeof boundedGenerationBody> | undefined;
     try {
       if (signal.aborted) controller.abort();
       response = await this.#fetch(this.#endpoint, {
@@ -139,8 +155,9 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...(this.#apiKey ? { Authorization: `Bearer ${this.#apiKey}` } : {}) },
         body: serialized,
       });
+      if (generation && response.body) generationBody = boundedGenerationBody(response.body, controller.signal, this.#generationCleanupTimeoutMs);
       checkCancellation();
-      if (!response.ok) throw await providerHttpFailure(response, controller.signal);
+      if (!response.ok) throw await providerHttpFailure(generationBody ? new Response(generationBody.stream, { status: response.status, headers: response.headers }) : response, controller.signal);
       if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/event-stream' || !response.body) throw new EngineError('PROVIDER_MALFORMED_STREAM', 'Provider response must be an SSE stream.');
       const calls = new Map<number, PendingCall>();
       const redactor = new TextRedactor(this.#apiKey);
@@ -148,7 +165,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
       let finish: FinishReason | undefined;
       let usage: Usage | undefined;
       let done = false;
-      for await (const frame of readSseData(response.body, controller.signal, this.#limits)) {
+      for await (const frame of readSseData(generationBody?.stream ?? response.body, controller.signal, this.#limits)) {
         if (frame.trim() === '[DONE]') { done = true; break; }
         let parsed: unknown;
         try { parsed = JSON.parse(frame); } catch { malformed(); }
@@ -222,6 +239,8 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
         });
       }
       const tail = redactor.push('', true);
+      if (generation && completed.length) throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Host generation cannot propose executable tools.');
+      if (generationBody && !await generationBody.close()) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');
       if (tail) { checkCancellation(); yield { type: 'text.delta', delta: tail }; }
       for (const call of completed) { checkCancellation(); yield { type: 'tool.call', call }; }
       if (usage) { checkCancellation(); yield usage; }
@@ -236,7 +255,9 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
       clearTimeout(timer);
       signal.removeEventListener('abort', abort);
       controller.abort();
-      if (response?.body && !response.body.locked) await response.body.cancel().catch(() => {});
+      if (generationBody) {
+        if (!await generationBody.close()) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');
+      } else if (response?.body && !response.body.locked) await response.body.cancel().catch(() => {});
     }
   }
 }
