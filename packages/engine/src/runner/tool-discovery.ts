@@ -1,11 +1,32 @@
 import { createHash } from 'node:crypto';
+import { types } from 'node:util';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
-import { boundedJson } from '../artifacts/validation.js';
 import type { PreparedTool, ToolContext, ToolDefinition, ToolResult } from '../ports.js';
 import type { ScopedToolRuntime, ToolCatalogue } from '../tools/runtime/index.js';
 import { TOOL_DISCOVERY_LIMITS, validateDiscoveryQuery, type ResolvedToolDiscoveryPolicy, type ToolDiscoveryCatalogue } from '../tools/runtime/discovery.js';
 
 export const DISCOVERY_TOOL_NAME = 'discover_tools';
+export type ToolDiscoveryAction = 'add' | 'replace';
+interface Selection { action: ToolDiscoveryAction; names: readonly string[] }
+function action(value: unknown): ToolDiscoveryAction {
+  if (value !== 'add' && value !== 'replace') throw new EngineError('INVALID_TOOL_DISCOVERY_QUERY', 'Discovery action must be add or replace');
+  return value;
+}
+function discoveryInput(value: unknown): { query: string; limit: number; action?: ToolDiscoveryAction } {
+  const invalid = (): never => { throw new EngineError('INVALID_TOOL_DISCOVERY_QUERY', 'Discovery requires plain query, optional limit and optional action data'); };
+  if (!value || typeof value !== 'object' || types.isProxy(value) || Array.isArray(value)) return invalid();
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) return invalid();
+  const input: Record<string, unknown> = Object.create(null);
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string' || !['query', 'limit', 'action'].includes(key)) return invalid();
+    const field = Object.getOwnPropertyDescriptor(value, key)!;
+    if (!field.enumerable || !('value' in field)) return invalid();
+    input[key] = field.value;
+  }
+  const args = validateDiscoveryQuery(input.query, Object.hasOwn(input, 'limit') ? input.limit : 4);
+  return { ...args, ...(Object.hasOwn(input, 'action') ? { action: action(input.action) } : {}) };
+}
 const sha = (value: string) => createHash('sha256').update(value).digest('hex');
 function prefix(text: string, maximum: number): string {
   const bytes = Buffer.from(text);
@@ -24,7 +45,7 @@ export class RunToolDiscovery {
   private source?: ToolDiscoveryCatalogue;
   private advertised?: ToolDiscoveryDispatch;
   private selected = new Set<string>();
-  private pending = new Map<string, readonly string[]>();
+  private pending = new Map<string, Selection>();
   private dirty = true;
   constructor(private readonly runtime: ScopedToolRuntime, private readonly policy: ResolvedToolDiscoveryPolicy,
     private readonly coreNames: readonly string[], private readonly mode: 'plan' | 'build', private readonly allowedNames?: readonly string[]) {}
@@ -73,18 +94,27 @@ export class RunToolDiscovery {
   identity(): { registryRevision: number; policyVersion: number } {
     const source = this.current(); return { registryRevision: source.revision, policyVersion: source.policyVersion };
   }
-  stage(toolCallId: string, query: string, limit: number, expected: { registryRevision: number; policyVersion: number }): ToolResult {
+  stage(toolCallId: string, query: string, limit: number, expected: { registryRevision: number; policyVersion: number }, selectionAction: ToolDiscoveryAction = 'add'): ToolResult {
+    action(selectionAction);
     const source = this.current();
     if (source.revision !== expected.registryRevision || source.policyVersion !== expected.policyVersion) throw new EngineError('TOOL_DISCOVERY_STALE', 'Prepared discovery belongs to another catalogue');
     const matches = this.runtime.searchDiscovery(source, query, limit), always = this.always(source);
     const additions = matches.filter(tool => !always.has(tool.name)).map(tool => tool.name);
-    const reserved = new Set(this.selected);
-    for (const names of this.pending.values()) for (const name of names) reserved.add(name);
-    for (const name of additions) reserved.add(name);
-    this.names(source, reserved);
+    const selection: Selection = { action: selectionAction, names: additions };
+    const prospective = new Map(this.pending); prospective.set(toolCallId, selection);
+    const added = new Set<string>(), bases: ReadonlySet<string>[] = [this.selected];
+    for (const pending of prospective.values()) {
+      if (pending.action === 'replace') bases.push(new Set(pending.names));
+      else for (const name of pending.names) added.add(name);
+    }
+    // Uncommitted replacement cannot release capacity for another operation.
+    // Check every replacement base with all outstanding adds, regardless of
+    // commit/discard order. Regular coordinator state tools execute serially.
+    for (const base of bases) this.names(source, new Set([...base, ...added]));
     const payload = {
       query, registryRevision: source.revision, policyVersion: source.policyVersion,
       activation: 'next-model-boundary',
+      ...(selectionAction === 'replace' ? { selectionMode: 'replace' } : {}),
       matches: matches.map(tool => ({ name: tool.name, description: prefix(tool.description, 512),
         descriptionTruncated: Buffer.byteLength(tool.description) > 512, schemaSha256: tool.schemaSha256,
         definitionSha256: tool.definitionSha256, schemaBytes: tool.schemaBytes, definitionBytes: tool.definitionBytes,
@@ -93,13 +123,13 @@ export class RunToolDiscovery {
     const content = JSON.stringify(payload);
     if (Buffer.byteLength(content) > 32 * 1024) throw new EngineError('TOOL_DISCOVERY_LIMIT', 'Discovery result exceeds its model projection bound');
     this.runtime.assertDiscoveryCurrent(source);
-    this.pending.set(toolCallId, additions);
+    this.pending.set(toolCallId, selection);
     return { content };
   }
   /** Only call after both the ordinary tool result and native Part were committed. */
   commit(toolCallId: string): void {
-    const names = this.pending.get(toolCallId);
-    if (!names) return;
+    const selection = this.pending.get(toolCallId);
+    if (!selection) return;
     this.pending.delete(toolCallId);
     let source: ToolDiscoveryCatalogue;
     try { source = this.current(); }
@@ -107,8 +137,8 @@ export class RunToolDiscovery {
       if (!(error instanceof EngineError) || error.code !== 'TOOL_DISCOVERY_STALE') throw error;
       this.reset(); return;
     }
-    const selected = new Set(this.selected);
-    for (const name of names) selected.add(name);
+    const selected = selection.action === 'replace' ? new Set<string>() : new Set(this.selected);
+    for (const name of selection.names) selected.add(name);
     this.names(source, selected);
     this.selected = selected; this.dirty = true;
   }
@@ -117,20 +147,18 @@ export class RunToolDiscovery {
 
 interface DiscoveryHost {
   identity(context: ToolContext): { registryRevision: number; policyVersion: number };
-  stage(context: ToolContext, query: string, limit: number, expected: { registryRevision: number; policyVersion: number }): ToolResult;
+  stage(context: ToolContext, query: string, limit: number, expected: { registryRevision: number; policyVersion: number }, action?: ToolDiscoveryAction): ToolResult;
 }
 /** Regular internal-state tool; the scoped runtime remains prepare/approval/execute owner. */
 export function createToolDiscoveryTool(host: DiscoveryHost): ToolDefinition {
-  const prepared = new WeakMap<PreparedTool, { query: string; limit: number; expected: { registryRevision: number; policyVersion: number } }>();
+  const prepared = new WeakMap<PreparedTool, { query: string; limit: number; action?: ToolDiscoveryAction; expected: { registryRevision: number; policyVersion: number } }>();
   return {
     name: DISCOVERY_TOOL_NAME, effectClass: 'state',
-    description: 'Find permitted registered tools by name or description. Matching tools become callable from the next model turn after this result is saved. Catalogue changes discard prior selections; search again when needed.',
-    inputSchema: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 8 } }, required: ['query'], additionalProperties: false },
+    description: 'Find permitted registered tools by name or description. Matches become callable next model turn after this result is saved. Default action add retains previous selections. Action replace exchanges selected tools for these matches; no matches clears selections. Core tools stay visible. Catalogue changes require a new search.',
+    inputSchema: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 8 }, action: { type: 'string', enum: ['add', 'replace'] } }, required: ['query'], additionalProperties: false },
     async prepare(value, context) {
-      const input = boundedJson(value, 4096);
-      if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !['query', 'limit'].includes(key))) throw new EngineError('INVALID_TOOL_DISCOVERY_QUERY', 'Discovery requires query and optional result limit');
-      const args = validateDiscoveryQuery(input.query, input.limit ?? 4), expected = host.identity(context);
-      const preview: JsonObject = { query: args.query, limit: args.limit, ...expected };
+      const args = discoveryInput(value), expected = host.identity(context);
+      const preview: JsonObject = { ...args, ...expected };
       const result: PreparedTool = { name: DISCOVERY_TOOL_NAME, input: { ...args }, fingerprint: sha(JSON.stringify({ preview, sessionId: context.sessionId, runId: context.runId, toolCallId: context.toolCallId })), requiresApproval: false, preview };
       prepared.set(result, { ...args, expected }); return result;
     },
@@ -138,7 +166,7 @@ export function createToolDiscoveryTool(host: DiscoveryHost): ToolDefinition {
       const request = prepared.get(value);
       if (!request) throw new EngineError('INVALID_PREPARED_TOOL', 'Discovery requires its original prepared handle');
       prepared.delete(value);
-      return host.stage(context, request.query, request.limit, request.expected);
+      return host.stage(context, request.query, request.limit, request.expected, request.action);
     },
   };
 }

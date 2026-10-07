@@ -18,7 +18,7 @@ import { validateToolResultEnvelope } from '@moodcode/contracts/validation';
 import { executionRecords, TurnExecutor } from './turn-executor.js';
 import { createMcpExecutionObserver, type ApprovedMcpToolOwner } from './mcp-execution-observer.js';
 import type { ToolCatalogue } from '../tools/runtime/index.js';
-import { DISCOVERY_TOOL_NAME, RunToolDiscovery, type ToolDiscoveryDispatch } from './tool-discovery.js';
+import { DISCOVERY_TOOL_NAME, RunToolDiscovery, type ToolDiscoveryDispatch, type ToolDiscoveryAction } from './tool-discovery.js';
 import { bindCheckpointArtifacts } from '../artifacts/result.js';
 import type { ChildBudget } from '../child-tasks/index.js';
 export { InputScheduler, type InputSchedulerOptions } from './input-scheduler.js';
@@ -486,10 +486,10 @@ export class RunCoordinator implements CoordinatorPort {
     return this.discoveryOwner(context).discovery.identity();
   }
 
-  stageToolDiscovery(context: ToolContext, query: string, limit: number, expected: { registryRevision: number; policyVersion: number }): ToolResult {
+  stageToolDiscovery(context: ToolContext, query: string, limit: number, expected: { registryRevision: number; policyVersion: number }, action?: ToolDiscoveryAction): ToolResult {
     const owner = this.discoveryOwner(context);
     if (owner.activeTools.get(context.toolCallId)!.state !== 'running') throw new EngineError('TOOL_DISCOVERY_STALE', 'Discovery selection requires the executing tool owner');
-    return owner.discovery.stage(context.toolCallId, query, limit, expected);
+    return owner.discovery.stage(context.toolCallId, query, limit, expected, action);
   }
 
   private remainingChildBudget(owner: Owner): ChildBudget {
