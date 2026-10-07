@@ -1,52 +1,57 @@
-# 엔진 지속 개선 검증 — 열네 번째 검토 지점
+# 엔진 지속 개선 검증 — 열다섯 번째 검토 지점
 
-구현 커밋은 `217f77f1f88ad1624bc938adec4763a3996fd46f`다. macOS arm64 / Node26.9.0에서 G1-26 일반 native 도구의 원래 시작 의도를 복구 전에 보존하고 workspace 격리를 유지하도록 구현·검증했다. Goal은 활성 상태이며 GUI를 실행하지 않았다.
+구현 커밋은 `ad787d6be7cfdedee973ac223aa5908783572f6c`다. macOS arm64 / Node26.9.0에서 G1-27의 필요한 도구 검색·선택과 정확한 문맥 예약을 구현·검증했다. 기본 eager 동작을 유지하는 host opt-in이며 goal은 활성 상태다. GUI를 실행하지 않았다.
 
 ## 결과
 
 | 검증 | 결과 |
 |---|---|
 | 전체 TypeScript build/typecheck | 통과 |
-| 전체 headless engine, concurrency4 | 2,442개 중2,440 pass, 실패0, 취소0, 조건부2 skip; 57,594.9ms |
+| 전체 headless engine, concurrency4 | 2,503개 중2,501 pass, 실패0·취소0·조건부2 skip; 60,077.3ms |
 | fixture 코딩 평가 | 3/3 |
-| storage 집중 source / 독립 bundle | 각각98/98; 신규 unit17개 포함 |
-| 독립 storage 검토 source / bundle | 각각14/14 |
-| actual engine/SQLite/approval/HTTP/SIGKILL source / bundle | 각각7/7 |
-| 세 담당 범위 scoped noEmit | 모두 통과 |
-| 같은 source 실제 Codex child text | 1회 통과; root/PDF/외부 MCP 계정 요청0 |
+| runtime source / 독립 bundle | 각각38/38; 기존24개·새14개 |
+| 독립 runtime 검토 source / bundle | 각각18/18 |
+| Run 선택 helper source / bundle | 각각14/14 |
+| actual engine/SQLite/approval/HTTP/child source / bundle | 각각15/15 |
+| 네 담당 범위 scoped noEmit | 모두 통과 |
+| 같은 source 실제 Codex child text | opt-in 상태1회 통과; root/PDF/외부 MCP 계정 요청0 |
 
-새 source tests는38개다. 집중 검사를 전체 수에 더하지 않는다. 정확한 command/log/SHA와 source55개 pin·초기 실패·실제 관측은 [기계 판독 결과](engine-goal-verification.json)에 기록한다. 첫 whole gate도2,440 pass였으며, 최종 cache 주석 수정까지 source를 동결한 뒤 전체 gate를 한 번 더 실행했다.
+새 테스트는61개다. 집중 검사를 전체 수에 더하지 않는다. 정확한 command/log/SHA·source167개 pin과 초기 오류는 [기계 판독 결과](engine-goal-verification.json)에 기록한다. 전체 manifest를 줄이거나 skip을 추가하지 않았다.
 
-## 수정한 실제 결함
+## 문맥 초과와 실제 개선
 
-MCP receipt 없는 일반 도구의 durable running-intent 또는 local callback 진입 뒤 SIGSTOP/SIGKILL하면 복구가 ToolRecord를 먼저 interrupted로 다시 쓰고 native Turn을 interrupted/no uncertainty로 정산했다. 원래 요청 retry는 재실행0이었지만 다른 session의 명시적 새 Run은 허용되는2red를 source/private bundle에서 재현했다. Requested 대조군은 정상이다. 이는 local 시작 intent/콜백 marker의 증거이며 원격 acceptance·외부 효과 발생을 주장하지 않는다.
+이전 `217f77f`의 authored source/private bundle4조건에서 core21개+정상 MCP schema40개(각8,269B)의 reservation344,678B가 default context262,144B를 넘겨 provider0/CONTEXT_LIMIT이었다. 기존 정적 profile로 core21+MCP1개를 노출한 대조군은 reservation18,521B/provider1/completed다. 이것은 안전한 문맥 제한과 기존 profile의 증거이며 새로운 보안 결함으로 표시하지 않는다.
 
-수정은 같은 transaction에서 기존 MCP pending을 먼저 정산하고 원래 running 후보의 exact owner/proposal을 bounded 검증해 포착한다. 원래 ToolRecord·Turn·Attempt·immutable proposal SHA와 원래 ordinal을 native/v1 `tool.recovery_frontier`에 기록한 뒤 legacy interruption을 처리한다. Callback entry는 unverified, effect outcome은 unknown이다. 열린 Turn의 tool_effect uncertainty와 pause를 유지하며 provider 완료/cleanup·checkpoint/read hint로 일반 도구 완료를 추정하지 않는다. [계약](engine-tool-recovery-frontier.md), [공개 비교와 최초 실패](research/2026-10-07-tool-recovery-frontier.md)를 따른다.
+G1-27 실제 임시 엔진15개 검증의 positive loop에서는 MCP40개를 등록해도 core21개를 유지하며 도구22→23→23, 예약10,584→18,968→18,968B, 논리 request12,287→21,368→21,601B였다. 합성 provider3회와 정확히 승인한 peer tools/call1회로 완료했다. 검색 결과에는 bounded metadata만 있고 schema·handler·승인을 포함하지 않는다. 두 fixture의 이름/설명도 다르므로 정적 대조군 대비 시간·토큰 절감률을 계산하지 않는다.
 
-## 실제 대조군과 보존
+별도 runtime-only 계측에서 metadata catalogue/search의 schema clone은0, 선택1개의 materialize는1회/array8,346B, eager40개는40회/array333,801B였다. 이는 그 직접 runtime 연산의 관측이며 전체 엔진 allocation·token·latency·물리 I/O 개선으로 확대하지 않는다.
 
-실제7phase는 proposal-only/requested/awaiting-approval, running-intent/execute-entered, MCP response-terminal/not-dispatched다. 미시작3개와 정확한 terminal/미전송+confirmed cleanup2개는 일반 frontier를 만들지 않는다. MCP response 대조군의 parent-owned 임시 peer tools/call은1, auth 사전 거절은0이다. 이미 확인한 receipt를 safe-looking flags나 current hint로 대신하지 않는다.
+## 저장·권한·retry 경계
 
-두 started phase는 startup2·archive/import 뒤에도 새 Run·resume·maintenance·queue promotion을 차단하고 pending 입력을 보존한다. 원래 Attempt completed·provider cleanup confirmed·usage11/4/cached2/reasoning1, text/reasoning·proposal·입력·허용된 승인과 pre-rewrite SHA가 유지된다. 자동 provider/tool replay·ACK·wholeSnapshot은0이다.
+현재 composed scope·host allowlist·profile·mode·policy를 metadata 노출 전에 적용하고 registry/policy/token이 바뀌면 selection을 버린다. Count/UTF-8 schema 예산을 clone 전에 확인한다. 검색은 일반 state 도구이며 정상 tool 예산과 prepare/execute·configured approval을 거친다. ToolRecord completed와 native Part result가 저장된 뒤 다음 모델 경계에서만 schema를 추가한다.
 
-Foreign/missing/duplicate proposal, 원래 input/owner/승인 drift, terminal 불변성, 숫자 ordinal precision, 후보 cap1,024/page64/record1MiB/shared selected JSON8MiB와 DB9 expression index를 확인했다. 두 저널 insertion 실패는 사전 MCP 정산·원래 tools/Turn/Run/control/sequences까지 rollback한다. 9MiB proposal/context owner의 SQL returned bytes0은 metadata 보강 뒤 실행한 GREEN 검증이며 최초 RED로 표시하지 않는다.
+동일 provider 응답의 hidden proposal은 이전 catalogue로 resolve하여 승인/dispatch0이다. Selected unknown MCP 도구는 실제 outer approval과 원래 exact owner/RPC/cleanup receipt를 유지한다. Timeout 후 durable uncertainty가 continuation·새 Run·queue를 막고 restart에서도 원래 증거를 보존한다. Search는 grant·등록되지 않은 handler·child 권한을 만들지 않는다.
 
-초기 unit7개 실패는 session_controls/index 이름/FK fixture 작성 오류였다. Actual fixture가 native event limit100 대신256을 요청한 실패도 따로 보존했다. 기존 MCP fixture의 receiptless native running clear 기대 한 곳은 block으로 강화하고 MCP row0·native/v1 frontier 각각1을 요구했다.
+동일 private catalogue로 reservation→context build→provider request를 고정하고 adapter에는 detached schema clone을 전달한다. Async context build 중 변경은 제한된 재계획 뒤 steer를 다시 확인한다. 동일 logical Turn의 overflow retry는 catalogue를 바꾸지 않으며 변경 시 TOOL_DISCOVERY_STALE로 재시도 전에 중단한다. 실제 첫 Attempt의 cleanup은 확인됐고 controlled host recovery hook에서 변경했다. Semantic summary를 호출했다는 주장은 아니다.
 
-## 실제 계정 회귀와 이전 기록
+실제 child는 read_file/discover_tools 두 이름만 할당받아 parent MCP를 찾거나 호출하지 못했고 명시적 연결 상속 요청은 CHILD_TOOL_UNAVAILABLE이었다. Policy opt-in 상속과 tool authority 상속은 별개다. Exact retry/restart는 이전 검색·provider·tool을 replay하지 않는다. Whole snapshot은0이다. [전체 계약·한도](engine-tool-discovery.md), [공개 비교](research/2026-10-07-tool-catalogue-discovery.md)를 따른다.
 
-동일 source의 Codex `gpt-6.1-sol` child text1회가 READY·natural confirmed cleanup으로 완료했다. Input266/output5, cached/reasoning0, billed=null이다. 논리 request1746bytes·SHA `d780d2343589441fa607de3ec59d98824c701b94f2054cd95388b8475eeb2800`이며 raw HTTP digest가 아니다.
+## 최초 검사와 수정
 
-Host-only PDF54bytes는 모델에 전송하지 않았다. Child storage→archive/validate→historical metadata→pause import를 확인했다. 단일 historical proof의 metadata10456bytes/refs1/charged rows28/child1/raw mirror491520bytes/elapsed8.5ms는 물리 I/O나 latency 상한이 아니다. 실제 요청1·snapshot0·child pause1·physical authority0·restored typed child reexport 거절·임시경로 제거가 통과했다.
+첫 whole gate는2,500 pass/1fail/2skip이었다. 기존 WorkspaceObserver directory replacement 시험의 pending rejection에 Git setup await 뒤에 assertion이 붙어 unhandled rejection이 됐다. Test-only early catch로 original Promise를 보존하고 같은 error code·한 번 실패·worker cleanup assertion을 계속 요구한다. 생산 observer는 변경하지 않았다. 집중13개가 통과한 뒤 source를 동결해 최종 whole gate를 다시 실행했다.
 
-[열세 번째 JSON](engine-goal-thirteenth-verification.json)은 `53b4e9f25976e0b48b7a4d9265411f4ca35e33dd`의 원본 bytes 그대로 보존했다. SHA는 `f6852c957635a0d7e579159782a5c6c0b37eae5ab1d977abbc0d7b1456cf3100`이다. DB9/metrics6은 유지하며 새 migration/projection·일반 tool/MCP 전용 ACK는 없다.
+Partial wiring의 callback 미정의8실패, 구현 전 opt-in fixture의 기존 eager CONTEXT_LIMIT, negotiated MCP _meta를 빼먹은 exact RPC assertion1실패와 gitRoot:null scoped TS fixture 오류를 구별해 보존했다. Overflow mismatch는 source 검토 가설로 발견해 actual RED 전에 고정했으며 재현한 결함으로 표시하지 않는다.
 
-진짜 v1-only native owner 없는 기록은 unchecked audit와 이전 의미를 유지한다. Native Turn이 있는데 proposal이 빠진 경우는 실패한다. 이미 과거 recovery가 interrupted로 쓴 이력은 소급 인증하지 않는다. 공통 selected JSON/cache 한도는 기존 전체 startup `.all()`·SQLite 내부 JSON 계산·전체 물리 I/O/시간을 제한하지 않는다. Journal write 뒤 owner 재조회도 남은 예산을 소비한다.
+## 실제 모델 회귀와 보존
 
-## 다음 실제 최적화 후보
+동일 source의 기존 로컬 Codex 인증으로 gpt-6.1-sol child text1회가 READY/natural confirmed cleanup으로 완료됐다. Child에 명시적으로 할당한 도구는0이며 opt-in reservation24B와 tools-array SHA를 실제 archive child event에서 확인했다. 실제 모델이 discovery나 MCP를 호출했다는 증거는 아니다.
 
-추가 authored source/private bundle의 실제4조건에서 기본 core21개의 reservation은10,158B다. 정상 등록된 MCP schema40개(각8,269B)를 더하면61개 reservation344,678B로 기본 context262,144B를 넘겨 모델 호출0/CONTEXT_LIMIT이 된다. 기존 profile로 core21개+MCP1개를 선택하면22개 reservation18,521B·logical provider request20,297B·모델1/completed다. 이는 기존 정적 profile 대조군이며 동적 deferral의 완료 증거가 아니다.
+Input266/output5·cached/reasoning0·billed=null이다. 논리 request1,746B/SHA `8fb319df17d9ed4fa66dc598a1ffc0112425c882188a8d58997a790d1091c1a5`이며 raw HTTP SHA가 아니다. Host-only PDF54B는 모델에 전송하지 않았다. Child storage→archive/validate→historical metadata→pause import·restored typed reexport 거절·임시경로 제거가 통과했다. Historical metadata10,456B/refs1/charged rows28/child1/raw mirror491,520B/9.7ms는 그 표본이고 I/O/latency 상한이 아니다.
 
-G1-27은 필요한 도구를 bounded discovery로 찾아 다음 안전한 모델 경계에 노출하는 host opt-in을 구현한다. 같은 catalogue로 schema reservation/context plan/provider request를 고정하고 profile/policy/revision/승인 경계를 유지한다. 기본 eager 동작을 보존하며 provider-native tool_search capability를 추측하지 않는다. 측정은 serialized bytes와 실제 local 경계이며 token/시간/physical I/O 절감은 측정하지 않았다. [TODO](../../TODO.md), [지속 개선 목표](engine-improvement-goal.md)를 따른다. 외부 OS/provider/CI4개·GUI 제외를 유지하며 goal은 활성 상태다.
+[열네 번째 JSON](engine-goal-fourteenth-verification.json)은 `8faf0e9` 원본 bytes 그대로 보존했다. SHA는 `647bc661a228c5773a6cedddf2ddf5f6e5b309809c4dd74fc6945e0c1792401f`다. DB9/metrics6·기존 G1-25/26 receipt/frontier·ACK·원본 기록을 유지하며 migration은 없다.
 
-도구 discovery의 실제 baseline과 독립 구현 범위는 [조사](research/2026-10-07-tool-catalogue-discovery.md)를 따른다.
+## 다음 구현
+
+현재 선택 집합은 union으로 누적한다. 별도 actual source/private bundle2조건에서 maxSelectedTools1이면 A 검색/실행 후 B 검색2회가 TOOL_DISCOVERY_LIMIT이고 강제 B는 TOOL_NOT_FOUND/실행0이다. 한도2 대조군은 A+B 노출과 B 실행1회다. 무효과 read counter를 사용한 기능 한계이며 보안 결함이나 원격 실행 불확실성으로 표시하지 않는다.
+
+G1-28은 기본 추가 동작을 보존하면서 명시적인 selected working-set 교체/해제를 구현한다. 새 집합을 먼저 검증하고 결과 저장 뒤 다음 경계에만 반영하며 core/profile/policy/승인/현재 batch/overflow/cleanup을 보존한다. [조사](research/2026-10-07-tool-selection-capacity.md), [TODO](../../TODO.md), [목표](engine-improvement-goal.md)를 따른다. 원래 외부 OS/provider/CI4개와 GUI 제외는 유지한다.

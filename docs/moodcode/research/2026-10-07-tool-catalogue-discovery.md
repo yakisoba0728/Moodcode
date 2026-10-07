@@ -1,6 +1,6 @@
-# 많은 도구의 스키마 비용과 discovery 구현 계획
+# 많은 도구의 스키마 비용과 discovery 구현
 
-2026-10-07. G1-27은 아직 구현되지 않았다. `217f77f`의 기존 eager catalogue와 정적 profile을 authored 임시 HTTP MCP·합성 provider로 비교하고, 독립 구현 범위를 정했다. 실제 계정·외부 network·MCP tools/call·ACK·wholeSnapshot은0이다.
+2026-10-07. G1-27은 `ad787d6`에서 구현·검증했다. 아래 최초 baseline은 구현 전 관측이다. `217f77f`의 기존 eager catalogue와 정적 profile을 authored 임시 HTTP MCP·합성 provider로 비교하고, 독립 구현 범위를 정했다. 실제 계정·외부 network·MCP tools/call·ACK·wholeSnapshot은0이다.
 
 ## 실제 엔진 관측
 
@@ -13,7 +13,7 @@
 
 MCP40개의 inputSchema는 각8,269B로 정상 등록됐다. 전체 runtime 도구는61개이며 schema/name/description JSON344,656B, messages/tools envelope 예약344,678B다. 기본 maxContextBytes262,144B를 넘겨 admission 뒤 `Context reservation leaves insufficient space for a serialized message array.`로 실패한다. 문맥 한도를 안전하게 적용한 결과이며 새로운 보안 결함으로 분류하지 않는다.
 
-Source와 독립 bundle에서 네 조건이 동일했다. 마지막 대조군은 기본 도구21개를 모두 보존한다. 작은2개 profile은 core20개를 숨기는 별도 대조군이다. 성공한1turn도 초기 예약과 dispatch 전에 catalogue를 두 번 만들었다. Host capabilities 호출은 이 계측에서 제외했다. Serialized bytes의 관측이며 token·시간·물리 I/O/처리량 절감은 측정하지 않았다. 로그·fixture SHA·소스8개 pin은 [최신 JSON의 nextLocalCandidate](../engine-goal-verification.json)에 기록한다.
+Source와 독립 bundle에서 네 조건이 동일했다. 마지막 대조군은 기본 도구21개를 모두 보존한다. 작은2개 profile은 core20개를 숨기는 별도 대조군이다. 성공한1turn도 초기 예약과 dispatch 전에 catalogue를 두 번 만들었다. Host capabilities 호출은 이 계측에서 제외했다. Serialized bytes의 관측이며 token·시간·물리 I/O/처리량 절감은 측정하지 않았다. 로그·fixture SHA·소스8개 pin은 [최신 JSON의 historicalPreImplementationBaseline](../engine-goal-verification.json)에 기록한다.
 
 ## 공개 소스 비교
 
@@ -21,7 +21,7 @@ Codex `0b863c69f50335acd92164aab971cb58d298c2fe`의 [tool search cache](https://
 
 OpenCode `4ac0d9c3d169bbe81d9570013effdda3fe24d36e`의 선택한 registry 경로는 허용된 canonical 도구 정의를 전개한다. 이 좁은 관찰을 전체 저장소에 tool discovery가 없다는 주장으로 확대하지 않는다. 기존 pi/Amp/Claude Code 비교의 profile·child 문맥 경계는 [위임 조사](2026-10-07-delegation.md)를 따른다.
 
-## Moodcode에서 구현할 계약
+## 설계 당시의 계약
 
 기본 eager 동작은 유지하고 host가 명시적으로 bounded discovery를 켠다. 현재 scope·profile·host allowlist·policy를 통과한 이름/설명/schema SHA/bytes metadata만 검색한다. 검색 결과가 등록되지 않은 handler나 승인·child 권한을 만들지 않는다. 기본 core 도구의 보존과 configurable schema/count 한도는 별도다.
 
@@ -30,3 +30,9 @@ OpenCode `4ac0d9c3d169bbe81d9570013effdda3fe24d36e`의 선택한 registry 경로
 같은 catalogue snapshot으로 reservation→context plan→provider request를 고정한다. Summary await/steer/registry 변화로 snapshot이 바뀌면 bounded 재계획하고 retry 중에는 노출을 바꾸지 않는다. 현재 capture token·policy version·MCP connection/catalogue 재검증과 outer approval fingerprint·receipt를 유지한다. Hidden forced call은 prepare/effect 전에 거절한다. 캐시는 불변 metadata/schema 데이터에 한정하고 prepared request나 실행 권한을 재사용하지 않는다.
 
 필수 회귀는 eager 호환/core21 보존, many schemas에서 선택된 호출만 materialize, denied/profile names 비노출, metadata/결과/schema 한도, UTF-8 accounting, 외부 schema 변경·정책/MCP epoch 변화·hidden call, child 권한 축소, steer/overflow 중 fresh reservation, exact retry·cancel/cleanup uncertainty와 실제 코딩 loop다. 전체 gate·로컬 커밋으로 완료하기 전 실제 deferral이나 provider-native tool_search 지원을 표시하지 않는다.
+
+## 구현 후 관측
+
+실제 임시 엔진·합성 provider·HTTP MCP15개 source/private bundle이 통과했다. MCP40개를 등록한 positive loop에서 core21개 유지·advertised22→23→23·reservation10,584→18,968→18,968B/provider3/승인된 peer1로 완료했다. 결과 저장 뒤 다음 경계 노출과 hidden same-batch 실행0·profile/policy·child 비상속·registry 재계획·overflow retry 전 stale·불확실 MCP 격리를 확인했다. 별도 runtime probe는 metadata/search clone0·선택1 clone1/eager40 clone40이었다. Token/시간/physical I/O 절감은 측정하지 않았다.
+
+새61개를 포함한 전체2,501 pass·실패0·조건부2 skip, fixture3/3과 같은 source opt-in Codex child text1회가 통과했다. 실제 모델에는 명시적 child tools0만 전달했으며 search/MCP를 실제 계정에서 검증했다고 표시하지 않는다. [정확한 한도·노출·저장 계약](../engine-tool-discovery.md)과 [최신 검증](../engine-goal-verification.md)을 따른다. Union 선택을 소진한 Run의 교체는 다음 G1-28이며 [실제 기능 한계](2026-10-07-tool-selection-capacity.md)에 근거한다.

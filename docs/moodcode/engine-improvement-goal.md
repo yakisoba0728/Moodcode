@@ -131,3 +131,13 @@ Storage98/독립14/actual SIGKILL7 source와 private bundle·scoped noEmit, 신�
 다음 G1-27은 많은 도구의 전량 schema clone/전송과 문맥 예약을 줄이는 host opt-in catalogue/discovery다. Actual source/private bundle4조건에서 core21+MCP40개 schema(각8,269B)가344,678B예약으로 default262,144B를 넘겨 provider0/CONTEXT_LIMIT을 보였다. 기존 정적 profile로 core21+MCP1개를 노출하면18,521B/provider1/completed다. Dynamic selection은 profile/policy/revision/승인 범위를 유지하고 같은 catalogue→예약→context plan→provider request를 고정해야 한다. 기존 eager 호환을 보존하고 provider-native tool_search 지원이나 token/시간/physical I/O 절감을 추측하지 않는다. 원래 열린 외부 OS/provider/CI4개와 GUI 제외를 유지하며 goal은 활성 상태다.
 
 도구 discovery의 실제 baseline과 독립 구현 범위는 [조사](research/2026-10-07-tool-catalogue-discovery.md)를 따른다.
+
+## 열다섯 번째 검토 지점
+
+`ad787d6`에서 G1-27 bounded discovery를 구현했다. Immutable registration metadata·schema SHA/bytes, 현재 scope/profile/policy 검색, clone 전 count/UTF-8 cap과 saved result 뒤 다음 safe boundary 선택을 연결했다. 같은 catalogue를 reservation/context/provider에 사용하고 registry 변경 재계획·steer·동일 Turn overflow stale·hidden same-batch·child 비상속을 검증했다.
+
+Runtime38/독립18/helper14/actual15 source/private bundle·scoped noEmit, 새61개 포함 whole2,501 pass·실패0·조건부2 skip·fixture3/3이 통과했다. 실제 MCP40개 상태에서 core21 보존·광고22→23→23·예약10,584→18,968→18,968B/provider3·정확히 승인된 peer1로 완료했다. 같은 source opt-in Codex child text1회·archive/historical/import 회귀를 확인했다. 실제 모델의 search/MCP/PDF 호출은 검증 범위 밖이다.
+
+첫 whole gate observer fixture의 unhandled rejection1실패를 test-only early catch로 수정하고 원래 code/failure-once/cleanup 검증을 유지한 뒤 전체를 다시 실행했다. Partial wiring·MCP _meta fixture 오류와 source-only overflow 가설도 실제 결함과 구별했다. DB9/metrics6·기존 격리/ACK를 유지하며 [열네 번째 JSON](engine-goal-fourteenth-verification.json)은 `8faf0e9`의 원본 bytes 그대로 보존했다. [계약](engine-tool-discovery.md), [최신 검증](engine-goal-verification.md)을 따른다.
+
+다음 G1-28은 선택 집합의 명시적 교체다. Actual source/private bundle2조건에서 한도1을 채운 A→B 검색이 반복 TOOL_DISCOVERY_LIMIT/B실행0이고 한도2 대조군은 B실행1이다. 일반 bounded 기능 한계이며 보안 결함이나 원격 효과 증거로 표시하지 않는다. Default add 호환과 core/현재권한/승인/저장·다음boundary/overflow/cleanup을 보존하는 교체 계약을 독립 설계한다. [조사](research/2026-10-07-tool-selection-capacity.md)를 따른다. 원래 외부 OS/provider/CI4개·GUI 제외를 유지하며 goal은 활성 상태다.

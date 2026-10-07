@@ -4,7 +4,7 @@
 
 검증 대상 구현 커밋: `682b1d868f10d666f39c663b1b1fba27c2266266`. 기반 정리 `c2309e7`, 첫 native 통합 `94d2a65`, 확장 연결 `682b1d8` 순서로 로컬 커밋했다. 이 보고서의 이후 수정은 검증 기록 binding이며 구현 코드를 바꾸지 않는다.
 
-지속 개선의 최신 source는 `217f77f`이며 전체2,440 pass·실패0·조건부2 skip, 코딩 fixture3/3과 같은 source 실제 Codex child text1회·archive/import 회귀를 확인했다. DB9 MCP 호출 기록과 일반 native tool의 원래 running frontier·crash 격리, 다음 bounded catalogue/discovery 작업은 [goal 검증](engine-goal-verification.md)을 따른다. 아래는 기본 확장 `682b1d8`의 당시 결과를 보존한 기록이다.
+지속 개선의 최신 source는 `ad787d6`이며 전체2,501 pass·실패0·조건부2 skip, 코딩 fixture3/3과 같은 source opt-in 실제 Codex child text1회·archive/import 회귀를 확인했다. DB9 MCP·일반 tool crash 격리와 bounded discovery·정확한 schema 예약, 다음 selected working-set 교체는 [goal 검증](engine-goal-verification.md)을 따른다. 아래는 기본 확장 `682b1d8`의 당시 결과를 보존한 기록이다.
 
 ## 최종 gate
 

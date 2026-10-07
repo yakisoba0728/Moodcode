@@ -1,0 +1,966 @@
+{
+  "schemaVersion": 14,
+  "implementationCommit": "217f77f1f88ad1624bc938adec4763a3996fd46f",
+  "timestamp": "2026-10-07T05:04:02.314Z",
+  "runtime": {
+    "node": "26.9.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "scope": "headless-engine-goal-checkpoint-14",
+  "checks": {
+    "typecheck": {
+      "command": "npm run typecheck",
+      "passed": true,
+      "log": "/tmp/moodcode-wave14-typecheck-frozen.log",
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    "engine": {
+      "command": "npm run test:engine",
+      "testConcurrency": 4,
+      "testManifestReduced": false,
+      "log": "/tmp/moodcode-wave14-engine-frozen.log",
+      "logSha256": "294a1e3cae6c5d411a68938b7565f41e5c4626ecf5801611ed43759c04386ad4",
+      "tests": 2442,
+      "passed": 2440,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "durationMs": 57594.865458
+    },
+    "evaluation": [
+      {
+        "taskId": "addition-bug",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "math.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13146,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 350
+      },
+      {
+        "taskId": "empty-list-boundary",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "average.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13228,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 327
+      },
+      {
+        "taskId": "two-module-change",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "greet.mjs",
+          "strings.mjs"
+        ],
+        "toolCalls": 4,
+        "providerAttempts": 5,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 14044,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 4
+          }
+        },
+        "durationMs": 362
+      }
+    ],
+    "evaluationEvidence": {
+      "command": "node scripts/evaluate-engine.mjs",
+      "log": "/tmp/moodcode-wave14-evaluation-frozen.log",
+      "logSha256": "015e2701a51de1133b2152e404ade9054304e81dd64eb5b0a8e25d195931d982"
+    },
+    "independentScoped": {
+      "storageSource": {
+        "log": "/tmp/moodcode-g126-frontier-final-source.log",
+        "logSha256": "005e733f760222729ce2b7dbd186d138a1166ad7b52f0d161f006384e28c976d",
+        "tests": 98,
+        "passed": 98,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 835.113333
+      },
+      "storageBundle": {
+        "log": "/tmp/moodcode-g126-frontier-final-bundle.log",
+        "logSha256": "9d4d74fa6358687aec1dbc93a8f9f978c382a7d5fb7c0d44d9231d1ab9972ca6",
+        "tests": 98,
+        "passed": 98,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 783.267083
+      },
+      "storageNoEmit": {
+        "passed": true,
+        "log": "/tmp/moodcode-g126-frontier-final-noemit.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "independentSource": {
+        "log": "/tmp/moodcode-g126-frontier-independent-final-source.log",
+        "logSha256": "eb7fb290bbe6f135f27cafc9f2a888eb90a1dbae0fa238de35e26da6f493aaef",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 414.566959
+      },
+      "independentBundle": {
+        "log": "/tmp/moodcode-g126-frontier-independent-final-bundle.log",
+        "logSha256": "9a4583d72f11b4bda4018f87c2fae374f6f70d20ce7305a97bbc4266d573f17e",
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 346.922458
+      },
+      "independentNoEmit": {
+        "passed": true,
+        "log": "/tmp/moodcode-g126-frontier-independent-final-noemit.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "actualSource": {
+        "log": "/tmp/moodcode-g126-tool-frontier-final-source.log",
+        "logSha256": "9bd209589ca055d8d37e2c692080cfd2a04eb296c8ced543c4a974ad1ab0e773",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 2345.675333
+      },
+      "actualBundle": {
+        "log": "/tmp/moodcode-g126-tool-frontier-final-bundle.log",
+        "logSha256": "fb5c81364027c9a00e7c8df3fbe7d49e14a2846e16148d97a17b96ab9fcfd35e",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 1768.93175
+      },
+      "actualNoEmit": {
+        "passed": true,
+        "log": "/tmp/moodcode-g126-tool-frontier-final-scoped-noemit.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "scopedCountsOverlapFullGate": true,
+    "storageOwnNewTests": 17,
+    "independentOwnNewTests": 14,
+    "actualOwnNewTests": 7,
+    "live": {
+      "command": "node scripts/verify-child-document-storage.mjs --live",
+      "log": "/tmp/moodcode-wave14-child-live-first.log",
+      "logSha256": "cfba3829a2fe0152256e41ae69d06cd2b02bb7279df40ff7ce6e0ae0c05076a4",
+      "result": {
+        "kind": "managed-child-document-storage-live-text-regression",
+        "implementationCommit": "217f77f1f88ad1624bc938adec4763a3996fd46f",
+        "timestamp": "2026-10-07T04:54:37.391Z",
+        "runtime": {
+          "node": "26.9.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "providerId": "codex",
+        "modelId": "gpt-6.1-sol",
+        "scope": {
+          "actualChildRequests": 1,
+          "actualRootRequests": 0,
+          "remotePdfRequests": 0,
+          "syntheticParent": true,
+          "hostImportedOpaquePdf": true,
+          "projectRecoveryAcknowledged": false,
+          "executionAutomaticallyResumed": false,
+          "rawHttpBodyHashed": false
+        },
+        "actualRequests": [
+          {
+            "attemptId": "30909a71-bc44-4f12-bceb-dac9c6863ba5",
+            "logicalRequestSha256": "d780d2343589441fa607de3ec59d98824c701b94f2054cd95388b8475eeb2800",
+            "logicalRequestBytes": 1746,
+            "usage": {
+              "type": "usage",
+              "inputTokens": 266,
+              "outputTokens": 5,
+              "cachedInputTokens": 0,
+              "reasoningOutputTokens": 0
+            }
+          }
+        ],
+        "passed": true,
+        "cleanupConfirmed": true,
+        "historicalInspection": {
+          "complete": true,
+          "archiveCoverage": "complete",
+          "observedChildren": 1,
+          "declaredChildBytes": 54,
+          "documents": [
+            {
+              "id": "doc_1f0da58daf314bd0b4803f40899591a8",
+              "kind": "document",
+              "mimeType": "application/pdf",
+              "bytes": 54,
+              "sha256": "ff5c7259c7cf32bbec5435150226442339f13c4fccf6fe9c735dccf85742d259"
+            }
+          ],
+          "stats": {
+            "selectedMetadataBytes": 10456,
+            "selectedRefs": 1,
+            "selectedRows": 28,
+            "openedChildren": 1,
+            "rawMirrorBytes": 491520,
+            "elapsedMs": 8.501584000000094,
+            "exhaustedReason": null
+          },
+          "statsScope": "whole-archive-proof-frame",
+          "manifestSha256": "f64bc3b6098e36309833d42700fb3e973b2c99400e0cb974295c844b764f06fd",
+          "physicalRebinding": false,
+          "executionResumed": false,
+          "recoveryAcknowledgmentsRebound": false
+        },
+        "cleanupProof": {
+          "state": "confirmed",
+          "method": "iterator-next-done",
+          "reason": "natural-done"
+        },
+        "storage": {
+          "complete": true,
+          "observedChildren": 1,
+          "declaredChildBytes": 54,
+          "stats": {
+            "selectedMetadataBytes": 9347,
+            "selectedRefs": 1,
+            "selectedRows": 23,
+            "openedChildren": 1,
+            "rawMirrorBytes": 491520,
+            "elapsedMs": 9.071540999999797,
+            "exhaustedReason": null
+          },
+          "blobHashesVerifiedByDiagnostic": false
+        },
+        "archive": {
+          "documentAuditCoverage": "complete",
+          "verifiedChildDatabases": 1,
+          "childSessionsPaused": 1,
+          "restoredPhysicalAuthorityGranted": false,
+          "restoredTypedChildReexportRejected": true
+        },
+        "fullSnapshotReads": 0,
+        "actualRequestCount": 1,
+        "fixtureRemoved": true
+      }
+    },
+    "actualAccountRequests": 1,
+    "actualRemotePdfRequests": 0,
+    "actualExternalMcpAccountRequests": 0,
+    "independentRootReview": {
+      "productionFilesChanged": 0,
+      "additionalConcreteProductionDefects": 0,
+      "strengthenedPriorMcpFixture": true
+    }
+  },
+  "implementation": {
+    "databaseVersion": 9,
+    "metricsSchemaVersion": 6,
+    "bindingSchemaVersion": 1,
+    "archiveVersion": 1,
+    "documentAuditVersion": 1,
+    "rootBindingKind": "child.storage.<taskId>",
+    "childMirrorKind": "engine.child_owner",
+    "rootOnlyCloseProofMethod": "engine-close-resolved",
+    "twoDatabaseCommitAtomic": false,
+    "immutableAdmittedMirrorPreserved": true,
+    "legacyFourArgumentConstructorPreserved": true,
+    "diagnosticScope": "host-selected-child-document-indexes",
+    "selectedChildDefault": 8,
+    "selectedChildHardCap": 32,
+    "metadataBytesHardCap": 8388608,
+    "selectedRefsHardCap": 2048,
+    "chargedRowsHardCap": 8192,
+    "reportBytesDefault": 32768,
+    "reportBytesMinimum": 4096,
+    "cooperativeDeadlineMs": 2000,
+    "rawMirrorFileBytesHardCap": 33554432,
+    "rawMirrorOperationBytesHardCap": 268435456,
+    "rawMirrorBudgetDistinctFromMetadata": true,
+    "originalChildMainOpenedBySQLite": false,
+    "existingOwnerReadLeaseHeldThroughCapturePublication": true,
+    "temporaryImmutableChildMirror": true,
+    "nativeQuiescenceCheckedBeforeBodies": true,
+    "diagnosticBlobHashesRead": false,
+    "diagnosticUnknownTotals": null,
+    "diagnosticDeclaredBytesAddedToParentFilesystemBytes": false,
+    "sourceConfiguredExternalBindingReadable": true,
+    "archiveVerifiedInternalBase": "artifactDir/children",
+    "externalArchiveChildCoverage": "explicit-unchecked-partial",
+    "nondefaultInternalArchiveMapping": "unsupported",
+    "wholeDatabaseLogicalHashingAndIntegrityWithinSelectedMetadataBudget": false,
+    "wholeDatabaseHashRowsUseIterator": true,
+    "wholeRowAllocationBoundedBySelectedMetadataCap": false,
+    "indexedBlobExactManifestMembershipRequired": true,
+    "postCaptureIndexedBlobHashesRecheckedBeforePublication": true,
+    "typedBindingCannotDowngradeByRemovingOptionalAudit": true,
+    "importVerifiedChildSessionsPaused": true,
+    "importExecutionResumed": false,
+    "importOriginalPhysicalBindingPreserved": true,
+    "importOriginalOutcomeUsageAckPreserved": true,
+    "restoredTypedChildFreshSourceReexport": "rejected-without-explicit-new-mapping",
+    "sourceFilesSha256": {
+      "packages/engine/src/child-tasks/engine-host.ts": "c289a2d397202d4961068e51020a1021a0e8a4c47ff8e902e8285a0353e24ab9",
+      "packages/engine/src/child-tasks/storage-authority-review.test.ts": "005a3912b7538d244d4646901a0858c450257f825f84a5b1a76d84e8b6db36d2",
+      "packages/engine/src/child-tasks/storage-binding.test.ts": "993d187de97c73e529fe09ca15465f92423f6edc470cf5c18a896bb8757d2486",
+      "packages/engine/src/child-tasks/storage-binding.ts": "ce9711e4db3885972020733725a536e6af843909a43ee281f5885ffe4ec3d3b9",
+      "packages/engine/src/diagnostics/child-document-storage.test.ts": "d393ee67b33c02feb846b0ef639dcf32ca47b08f37a16d35873f9ef75aeaf91f",
+      "packages/engine/src/diagnostics/child-document-storage.ts": "fe0caca76bc71f2f74e65a100c26080a9441697440fd1f550e57d915a0f42b88",
+      "packages/engine/src/engine.ts": "a91b9d7c21937f96c230461573a0372d48a6e5b0ce954c0cdd1f885ea478d6bf",
+      "packages/engine/src/index.ts": "f94908c33a39a3f4a93d4b63912b53f816704f8a015e116cab1e1b55bbda3667",
+      "packages/engine/src/integration/child-document-host-review.integration.test.ts": "622c5e8942ab3d8bd1799c70902693322b66d79b1ad7843ee91d48fb31b9e401",
+      "packages/engine/src/integration/child-document-storage-review.integration.test.ts": "a75b487aa3d1590d035ca2321e572b888a085ca20a7cddf522ec3b2eb593c98e",
+      "packages/engine/src/integration/child-document-wiring-review.integration.test.ts": "638eb076faf08a4524fdbca424e46db6adbfd070cee5482e37e85150ab4c5377",
+      "packages/engine/src/storage/archive.test.ts": "a12d2578d8adce7ff2f9abe7a27defa211942d3723637146acc25de0c73ce668",
+      "packages/engine/src/storage/archive.ts": "8129f861585dc6eb5bd4736fb420905f14b69e28b87f37e81667d83b0dfcde13",
+      "packages/engine/src/storage/child-document-archive-review.test.ts": "45d18020b1a9c71455676ea5cea0fbebfa2c2231796bb96a72d1d062637978e2",
+      "packages/engine/src/storage/child-document-reader.test.ts": "8d37f3c6a56367e806f1df228bf8580ded3cfc97d239477262ea7e9d27e49934",
+      "packages/engine/src/storage/child-document-reader.ts": "2ec5fb84c73d0db4e179377207a934455526768afa127220955ee96d4b2bf0a4",
+      "packages/engine/src/storage/index.ts": "8672102664c566ebf97831b25852ac70eafe0d73db880f8809f8bd9f8cc56513",
+      "scripts/verify-child-document-storage.mjs": "9c30847427ee769f783cb3aac502181803975863e5eb0f248a153658a468e777",
+      "packages/engine/src/integration/child-storage-crash-worker.ts": "17b8ef9678cbb5a33f1cb36daeef15669d8e147ba187b85942fb2aeaa2300cb1",
+      "packages/engine/src/integration/child-storage-crash.fixture.ts": "57cd5cca548a1784c4988c3bc5b0cd20583b7c09cf7c53dc090a8724f6e6b50f",
+      "packages/engine/src/integration/child-storage-crash.integration.test.ts": "76b11e5a97ff08c431fa67e9317c599d88d1383ec9f544c428afb7749e76dd8c",
+      "packages/engine/src/integration/child-storage-recovery-review.integration.test.ts": "ae1e570115291074eabda2a586a5cdcba857167f08d37610f02378be9725f6c1",
+      "packages/engine/src/storage/child-storage-owner-crash-review.fixture.ts": "d7d4b2e08236d4f347b3c382df252722615a2de848fa2738f7e80fae2b53c21e",
+      "packages/engine/src/storage/child-storage-owner-crash-review.test.ts": "86473b09c1855c1b0b56126e6a48c600fe4d0bd876e4785c058ceaddd0719351",
+      "packages/engine/src/diagnostics/archive-child-documents.ts": "abd4048d480763f36f039b7e620fb52afd1ae9a4d68de5823e9d229eb24d1ab3",
+      "packages/engine/src/diagnostics/archive-child-documents.test.ts": "06ecf61f5e49f94dfcbd2e5c17b91c69f8d5b03d96cefc19f1785a61f861955d",
+      "packages/engine/src/storage/archive-historical-child-review.test.ts": "9d7af9891dfb1678a5b7cc47515061c87bad1ed38b8ab79c0657422c3a39875b",
+      "packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts": "73756719ec90e6094cf94f8d497106f8519da9ce447329af05471aafe25c68e2",
+      "packages/engine/src/integration/fixtures/mcp-effect-outcome-child.ts": "ea3c8d3eb2acb1b5195b08987e4648c77fc9562b832d5e2674dcba1a610fc173",
+      "packages/engine/src/integration/mcp-effect-outcome-review.integration.test.ts": "672804fbffeb69e075ebf85b91f56480d80f153bc603760908db724a557ea3e8",
+      "packages/engine/src/mcp/client.ts": "d07b846a0125ecf7066589415faff06b9e5f3eb80cd2380e98fad4c1ae9f41d1",
+      "packages/engine/src/mcp/execution-observation.test.ts": "71ee00d14d12a1c3c2794713933998ce5b9913c16baca4f1e0018bc78b28423a",
+      "packages/engine/src/mcp/execution-observation.ts": "7b1f1a3862d1a05435902700578be295c4843516ddf0f69c7ee623f47c8859ea",
+      "packages/engine/src/mcp/http.ts": "2565a1761e97895d70be60d8d05ec86e5b2fa9897cd2f4123bfcc6f53e8f78d0",
+      "packages/engine/src/mcp/index.ts": "73907c5969f9eab3c9d30002fbdfb1adf43c48ea9a0e3555bb7da9a1d25b6ae4",
+      "packages/engine/src/mcp/protocol.ts": "193decd4613d24e925a47d913ac9b152433878d433cb3aeb0ecbde6a47512ba9",
+      "packages/engine/src/mcp/registration.ts": "a41a5aa2f9f27eac75b7f7e547fe5004d12b00523a425b2ca1b6c6047f59929f",
+      "packages/engine/src/mcp/stdio.ts": "25aa502f523107dce2b3ab1543397bbe8887b0d9afc2e97576b428bb2113655a",
+      "packages/engine/src/ports.ts": "c1099474a5255ae7a184ee2c4caf20adb9f58d315a4e0729bf0814012cd1b2b9",
+      "packages/engine/src/recovery/index.ts": "6b6f99c85a1f50ef58b999d2394d708ed29db372d160d21e336c46a38d866ca4",
+      "packages/engine/src/runner/index.ts": "6183fa88c7249c1a77b4e88e2287ea588e0f193ee4859501019e865bfa33af56",
+      "packages/engine/src/runner/mcp-execution-observer.ts": "8ad822767db72b2b574ac74c9077262eeb762ccf9b5723ce1765b45612eb17ae",
+      "packages/engine/src/storage/evidence-read.ts": "9a90f14c19f527cf43c2569a9abe2a835e0170fa7eb527c50a9e5e11930a7e6d",
+      "packages/engine/src/storage/execution-uncertainty.test.ts": "384f688c871f627ee01532b00c357735464a83ba4702ab7ee4aecfb31eda62c7",
+      "packages/engine/src/storage/execution-uncertainty.ts": "2d6dbf66fec0ec70f3a08b6a566278ce9f4d2dee4ceb6f5a2fa94cf3bcd2b0f0",
+      "packages/engine/src/storage/mcp-executions.test.ts": "1775fe5f7eb3d611f3e60cab97588dcad797053b6af6247d10d878d50e2fa919",
+      "packages/engine/src/storage/mcp-executions.ts": "9d7555d64b7205ad4993fed08d7af84a7a3ea511f54d7eb96e4c9582bc5d859b",
+      "packages/engine/src/storage/migrations.test.ts": "5caa5b98cc7e052ce3628ff7e57d5be9d0fe9cdff8b57e3bb7fd4ce609d0ef09",
+      "packages/engine/src/storage/migrations.ts": "fc7a59e8fe29af0cae4329d40c6a6a3f51424772ab38f40674e88315c000faf2",
+      "packages/engine/src/storage/native-records.ts": "8269c8e8cad6d7ab0e7388ca4aa7dc8fa83d5481fbd9bca4f6c128d502fd367b",
+      "packages/engine/src/integration/fixtures/tool-recovery-frontier-child.ts": "b98331c198aeefb21ac483b730b58da5ed587bb2daa4b02af003bbdc93e7ab34",
+      "packages/engine/src/integration/tool-recovery-frontier-review.integration.test.ts": "ef23b9429bc9f55365756b4df1a6f4cd822f0bc99cf2139cd224b127cf613001",
+      "packages/engine/src/storage/tool-recovery-frontier-review.test.ts": "281bf85a25ddcde381e6496a5dba1615fd9058ce75ab3c0cab2364b51f8329ce",
+      "packages/engine/src/storage/tool-recovery-frontier.test.ts": "77f636ba3c0316df9880711c00d45cee334115fddddafd65bf4b5a6844947062",
+      "packages/engine/src/storage/tool-recovery-frontier.ts": "7f7c37e9d9e901cd0f2dda8372df5148f629932292ee5175b6c2cc5cd1c613d8"
+    },
+    "validatedPrivateMirrorPathUnlinkedOn": [
+      "darwin",
+      "linux"
+    ],
+    "linuxAndWindowsHardKillExecuted": false,
+    "validatedOpenReadAndBackupHandlesPreserved": true,
+    "privateMirrorRemovedDuringCopyBeforeAttach": false,
+    "automaticStaleMirrorDiscoveryOrDeletion": false,
+    "childTaskRunOutcomeRecoveryPolicyChanged": false,
+    "historicalInspection": {
+      "api": "inspectArchivedChildDocumentStorage",
+      "scope": "verified-archive-historical",
+      "expectedManifestSha256Required": true,
+      "rootNativePayloadOwnerPreflightBeforeIndexBodies": true,
+      "missingOrForeignTasksRejectedBeforeIndexBodies": true,
+      "alreadyValidatedChildIndexReused": true,
+      "proofFrameCount": 1,
+      "separateInspectorIndexReaderCreated": false,
+      "requestedTasksDefault": 8,
+      "requestedTasksHardCap": 32,
+      "wholeArchiveChildProofHardCap": 32,
+      "metadataSampleDefault": 16,
+      "metadataSampleHardCap": 128,
+      "explicitZeroSamplesAllowed": true,
+      "returnedDocumentFields": [
+        "id",
+        "kind",
+        "mimeType",
+        "bytes",
+        "sha256"
+      ],
+      "contentsReturned": false,
+      "rawPhysicalBindingsReturned": false,
+      "wholeArchiveProofStatsSeparateFromSelectedDisplay": true,
+      "selectedCompleteSeparateFromArchiveCoverage": true,
+      "proofBudgetExhaustionPublishesPartialVerifiedReport": false,
+      "displayCapPreservesKnownCountsAndSubtotals": true,
+      "unknownTotals": null,
+      "providerOrEngineInstantiated": false,
+      "physicalRebinding": false,
+      "recoveryAcknowledgmentsRebound": false,
+      "executionResumed": false,
+      "activeNativeSignalObserver": true,
+      "observerReleasedInFinally": true,
+      "existingPublicValidationDeadline": "proof-frame starts after whole hashes and review validation, preserving the previous boundary",
+      "explicitInspectionDeadline": "one operation entry frame, cooperative checks include whole archive validation"
+    },
+    "mcpExecution": {
+      "table": "mcp_executions",
+      "recordSchemaVersion": 2,
+      "states": [
+        "prepared",
+        "dispatch-intent",
+        "response-terminal",
+        "uncertain",
+        "not-dispatched"
+      ],
+      "identity": [
+        "native-tool/session/workspace/run/turn/attempt",
+        "actual-allowed-outer-approval/fingerprint",
+        "immutable-proposal/approval-SHA",
+        "provider/model/context",
+        "server/connection-UUID/catalogue/protocol/transport",
+        "final-logical-JSONRPC-ID/SHA/bytes"
+      ],
+      "requestProjection": "mcp-jsonrpc-tools-call-v1",
+      "requestIncludesFinalMeta": true,
+      "rawHeadersCredentialsRequestOrResponseStoredInReceipt": false,
+      "builtinPhysicalBoundaries": [
+        "http-fetch",
+        "stdio-write"
+      ],
+      "customBoundary": "legacy-api-entry",
+      "brandBindsExactBuiltinSendMethod": true,
+      "intentSynchronousBeforePhysicalSend": true,
+      "intentDoesNotProveRemoteAcceptance": true,
+      "stickyJournalUncertaintyAfterCommitThenCallbackThrow": true,
+      "firstTerminalImmutable": true,
+      "correlatedTerminalResponseKinds": [
+        "tool-result",
+        "jsonrpc-error"
+      ],
+      "supportsAbsentResultTypeForCompatibility": true,
+      "unsupportedInputRequiredIsNotTerminalProof": true,
+      "remoteResponseAndLocalCleanupSeparate": true,
+      "normalTerminalResponseDoesNotProveRollbackOrAbsenceOfBackgroundEffects": true,
+      "legacyCancellationNotificationBestEffort": true,
+      "asyncPreparedAndIntentObserverPreventsSend": true,
+      "asyncSettledObserverIsPostSendJournalUncertainty": true,
+      "nativePromiseRejectionObserved": true,
+      "arbitraryThenableWorkJoinedOrCancelled": false,
+      "postIntentUnknownBlocksModelContinuationNewRunQueuePromotionAndWorkspaceMaintenance": true,
+      "queuedInputsPreservedPending": true,
+      "providerCleanupAndSummaryOrProviderAcknowledgmentCannotClearMcp": true,
+      "terminalRunOrTurnDoesNotWaiveIndependentReceipt": true,
+      "startupPreparedNotDispatchedAndIntentUncertain": true,
+      "startupAlreadyUncertainReceiptRetained": true,
+      "legacyReceiptBackfill": false,
+      "nativeAndV1AtomicAudit": true,
+      "resultFreeProposalProjection": "mcp-proposal-v1",
+      "workspaceMetadataPredicate": "single-SQL UNION; receipt workspace index and exact Run workspace/receipt-run index; body-free",
+      "archiveRecoveryLogicalHashVersionGate": 9,
+      "hostGetter": "getMcpExecution(sessionId, toolCallId)",
+      "mcpRecoveryAcknowledgmentImplemented": false,
+      "limits": {
+        "recordBytes": 16384,
+        "ownerOrProposalBytes": 1048576,
+        "logicalRequestOrResponseBytes": 1048576,
+        "cleanupJoinAdditionalMs": 250,
+        "closeJoinAdditionalMs": 1000,
+        "rpcTimeoutDefaultMs": 10000,
+        "rpcTimeoutRangeMs": [
+          1,
+          60000
+        ],
+        "startupPageRows": 100
+      }
+    },
+    "toolRecoveryFrontier": {
+      "internalRecordSchemaVersion": 1,
+      "databaseVersion": 9,
+      "newMigration": false,
+      "scope": "native-running-tool-intent",
+      "events": [
+        "tool.recovery_frontier",
+        "tool.recovery_frontier.unchecked"
+      ],
+      "originalToolState": "running",
+      "callbackEntry": "unverified",
+      "effectOutcome": "unknown",
+      "identity": [
+        "exact-SQL/payload-session/Run/workspace",
+        "one-native-tool-proposal/Turn/latest-Attempt",
+        "tool-name/input/index/revision/state",
+        "provider/model/Attempt-context-owner",
+        "original-tool-ordinal-string"
+      ],
+      "hashes": [
+        "original-ToolRecord",
+        "original-Turn",
+        "original-ProviderAttempt",
+        "result-free-immutable-proposal"
+      ],
+      "sameRecoveryTransaction": true,
+      "mcpPendingSettledBeforeGenericCapture": true,
+      "mcpSafeProof": "exact validated not-dispatched or response-terminal plus confirmed request-local cleanup",
+      "candidateRows": 1024,
+      "pageRows": 64,
+      "recordBytes": 1048576,
+      "sharedSelectedJsonBytes": 8388608,
+      "sharedCacheAddresses": 4096,
+      "existingDb9Index": "mcp_native_tool_proposals",
+      "projection": "mcp-proposal-v1",
+      "terminalUncertain": "preserved; no redundant capture",
+      "otherTerminalUnresolved": "fail closed; no rewrite",
+      "legacyWithoutNativeOwner": "unchecked-no-native-execution audit; prior semantics; no fabricated native owner",
+      "oldInterruptedHistoryBackfilled": false,
+      "genericAckAdded": false
+    }
+  },
+  "measurements": {
+    "newSourceTestsSincePreviousGate": 38,
+    "originalRedBaseline": {
+      "id": "G1-26",
+      "implementedAtThisCheckpoint": true,
+      "baselineSourceCommit": "4a15286ebdc59f0316b5c73eedb210376d31cbc9",
+      "actualAuthoredGenericToolStartup": {
+        "source": {
+          "log": "/tmp/moodcode-receiptless-tool-frontier-review-source-red.log",
+          "logSha256": "3fd01ed5a7328a1b55ecef10497c6c2322a53e94d75a6ca17bbb740937232b5a",
+          "tests": 3,
+          "passed": 1,
+          "failed": 2,
+          "cancelled": 0,
+          "skipped": 0,
+          "durationMs": 593.618625
+        },
+        "privateBundle": {
+          "log": "/tmp/moodcode-receiptless-tool-frontier-review-bundle-red.log",
+          "logSha256": "fef7e281f1f9b525ef923e4b74d0a6a291ffc558b4252672bb799693ca21e2ae",
+          "tests": 3,
+          "passed": 1,
+          "failed": 2,
+          "cancelled": 0,
+          "skipped": 0,
+          "durationMs": 304.250833
+        },
+        "sourcePins": {
+          "log": "/tmp/moodcode-receiptless-tool-frontier-review-source-pins.json",
+          "logSha256": "f7081191c70f4308f93915424f764e28266a6d8de24fcecc19c52273331b5ea9"
+        },
+        "cases": [
+          {
+            "phase": "requested",
+            "callbackEntered": false,
+            "safetyAssertion": "pass"
+          },
+          {
+            "phase": "running-intent",
+            "callbackEntered": false,
+            "safetyAssertion": "red"
+          },
+          {
+            "phase": "execute-entered",
+            "callbackEntered": true,
+            "safetyAssertion": "red"
+          }
+        ],
+        "providerAccountCalls": 0,
+        "externalEffectOrPeerAcceptanceClaimed": false,
+        "mcpReceipts": 0,
+        "fullSnapshotReads": 0,
+        "actualProjectAcknowledgments": 0
+      },
+      "problem": "Receiptless generic native tool.running intent is rewritten before native Turn startup settlement, so uncertain started operations fail to quarantine the workspace.",
+      "proposedBoundary": "bounded exact owner/proposal frontier captured in the shared recovery transaction before ToolRecord interruption; respect strong typed MCP not-dispatched/terminal cleanup evidence; do not invent dispatch receipt or remote acceptance.",
+      "fixedByActualSevenPhaseRegression": true
+    },
+    "actualToolFrontier": {
+      "cases": 7,
+      "neverStartedControls": [
+        "proposal-only",
+        "requested",
+        "awaiting-approval"
+      ],
+      "originalRunningControls": [
+        "running-intent",
+        "execute-entered"
+      ],
+      "strongerMcpSafeControls": [
+        "response-terminal",
+        "not-dispatched"
+      ],
+      "mcpPeerToolsCallRequests": {
+        "responseTerminal": 1,
+        "notDispatched": 0
+      },
+      "callbackEntryForRunningIntent": 0,
+      "executeEnteredObservedByAuthoredLocalMarker": true,
+      "externalEffectOrRemoteAcceptanceProvenForGenericCalls": false,
+      "originalAttemptCompleted": true,
+      "originalProviderCleanupConfirmed": true,
+      "originalUsage": {
+        "inputTokens": 11,
+        "outputTokens": 4,
+        "cachedInputTokens": 2,
+        "reasoningOutputTokens": 1
+      },
+      "originalMessagesInputApprovalUsageCleanupPreserved": true,
+      "originalPreRewriteHashesChecked": true,
+      "startupCount": 2,
+      "archiveImportRetainsBlockAndPendingInput": true,
+      "unknownBlocks": [
+        "new-Run-from-another-session",
+        "resume",
+        "workspace-maintenance",
+        "queue-promotion"
+      ],
+      "queueStaysPending": true,
+      "exactOriginalRequestReplayed": false,
+      "automaticProviderCalls": 0,
+      "automaticToolCalls": 0,
+      "automaticAcknowledgments": 0,
+      "fullSnapshotReads": 0
+    },
+    "independentOversizedOwner": {
+      "bytes": 9437184,
+      "returnedBytes": 0,
+      "actualRedReproduction": false,
+      "firstRunAfterMetadataGuard": true
+    },
+    "journalRollback": [
+      "native-audit",
+      "legacy-audit",
+      "prior-MCP-startup-settlement",
+      "original-Run/Tool/Turn/control/sequences"
+    ],
+    "sourcePinManifests": [
+      {
+        "path": "/tmp/moodcode-g126-frontier-storage-verification.json",
+        "sha256": "17c50b483641ba92a321528b0de35cb201a9e9be91b30a33c29eae2673aa5009"
+      },
+      {
+        "path": "/tmp/moodcode-g126-frontier-independent-verification.json",
+        "sha256": "8b805494abb92b53342fa5af97a9a056a56e9b6ebe87828fecf810ef1f22859b"
+      },
+      {
+        "path": "/tmp/moodcode-g126-tool-frontier-final-source-pins.json",
+        "sha256": "19e4fe52ab017f21da001a50066bd4590dcbf7396f3c2fbe55da7ded880a6727"
+      }
+    ],
+    "liveHistoricalInspection": {
+      "complete": true,
+      "archiveCoverage": "complete",
+      "observedChildren": 1,
+      "declaredChildBytes": 54,
+      "documents": [
+        {
+          "id": "doc_1f0da58daf314bd0b4803f40899591a8",
+          "kind": "document",
+          "mimeType": "application/pdf",
+          "bytes": 54,
+          "sha256": "ff5c7259c7cf32bbec5435150226442339f13c4fccf6fe9c735dccf85742d259"
+        }
+      ],
+      "stats": {
+        "selectedMetadataBytes": 10456,
+        "selectedRefs": 1,
+        "selectedRows": 28,
+        "openedChildren": 1,
+        "rawMirrorBytes": 491520,
+        "elapsedMs": 8.501584000000094,
+        "exhaustedReason": null
+      },
+      "statsScope": "whole-archive-proof-frame",
+      "manifestSha256": "f64bc3b6098e36309833d42700fb3e973b2c99400e0cb974295c844b764f06fd",
+      "physicalRebinding": false,
+      "executionResumed": false,
+      "recoveryAcknowledgmentsRebound": false
+    },
+    "liveAccountUsage": {
+      "type": "usage",
+      "inputTokens": 266,
+      "outputTokens": 5,
+      "cachedInputTokens": 0,
+      "reasoningOutputTokens": 0
+    },
+    "billedTokens": null,
+    "fullSnapshotReads": 0,
+    "nextLocalCandidate": {
+      "id": "G1-27",
+      "implementedAtThisCheckpoint": false,
+      "scope": "bounded tool catalogue/discovery opt-in; same dispatch catalogue and context reservation; preserve profile/policy/approval/revision boundaries",
+      "actualManyToolsBaseline": {
+        "source": {
+          "log": "/tmp/moodcode-tool-catalogue-context-cost-review-source.log",
+          "logSha256": "e1c12d0213143cade74ba40e96415cdefc29460a0f10049e91fa4b10e6029d93"
+        },
+        "privateBundle": {
+          "log": "/tmp/moodcode-tool-catalogue-context-cost-review-bundle.log",
+          "logSha256": "4559455fb0bdf6799a32a3062a0c31e6dcf81dee506eeedc426c6f2e681e0d7b"
+        },
+        "results": {
+          "log": "/tmp/moodcode-tool-catalogue-context-cost-review-results.json",
+          "logSha256": "78fd570dcdb6c57b1c26dc22b7b41ce6b327c04ebcb16c742553917ac3491bca"
+        },
+        "bundleResults": {
+          "log": "/tmp/moodcode-tool-catalogue-context-cost-review-bundle-results.json",
+          "logSha256": "2741db8bbba865aab35a637c7dd9cf53faf1aa1e8fdbe0ba09e603c284877f03"
+        },
+        "actualSourceAndBundleConditions": 4,
+        "perRemoteSchemaBytes": 8269,
+        "contextByteLimit": 262144,
+        "conditions": [
+          {
+            "name": "default-core-control",
+            "tools": 21,
+            "reservationBytes": 10158,
+            "logicalProviderRequestBytes": 11861,
+            "runState": "completed",
+            "error": null,
+            "providerCalls": 1,
+            "remoteToolCalls": 0
+          },
+          {
+            "name": "default-core-plus-40-mcp",
+            "tools": null,
+            "reservationBytes": 344678,
+            "logicalProviderRequestBytes": null,
+            "runState": "failed",
+            "error": {
+              "code": "CONTEXT_LIMIT",
+              "message": "Context reservation leaves insufficient space for a serialized message array."
+            },
+            "providerCalls": 0,
+            "remoteToolCalls": 0
+          },
+          {
+            "name": "existing-explicit-profile-subset",
+            "tools": 2,
+            "reservationBytes": 9051,
+            "logicalProviderRequestBytes": 10827,
+            "runState": "completed",
+            "error": null,
+            "providerCalls": 1,
+            "remoteToolCalls": 0
+          },
+          {
+            "name": "existing-explicit-profile-all-core-plus-one",
+            "tools": 22,
+            "reservationBytes": 18521,
+            "logicalProviderRequestBytes": 20297,
+            "runState": "completed",
+            "error": null,
+            "providerCalls": 1,
+            "remoteToolCalls": 0
+          }
+        ],
+        "allCorePreservedByExistingStaticProfile": true,
+        "accountCalls": 0,
+        "externalNetwork": 0,
+        "tokenSavingsMeasured": false,
+        "timingMeasured": false,
+        "physicalIoMeasured": false,
+        "sourcePins": [
+          {
+            "path": "/tmp/moodcode-tool-catalogue-context-cost-review.mts",
+            "sha256": "10f68d3e3ed70854d25cb76c7899c2a5a77d4d31d7902b743f07bf91e457ffc8"
+          },
+          {
+            "path": "packages/engine/src/tools/runtime/index.ts",
+            "sha256": "96449ab14a8410d0feea5b2b8bb97246b519dea9218b922112c51eadd97cad39"
+          },
+          {
+            "path": "packages/engine/src/runner/index.ts",
+            "sha256": "6183fa88c7249c1a77b4e88e2287ea588e0f193ee4859501019e865bfa33af56"
+          },
+          {
+            "path": "packages/engine/src/context/index.ts",
+            "sha256": "25e0bf6a9f2a121754c82ad6273d6f43debd4bcdbbcdfa53ed63a9a8b143a734"
+          },
+          {
+            "path": "packages/engine/src/context/plan.ts",
+            "sha256": "314859dbd2528a156099ee25422087d3c343060e8fc605b2dcaefa04eab4010c"
+          },
+          {
+            "path": "packages/engine/src/engine.ts",
+            "sha256": "a91b9d7c21937f96c230461573a0372d48a6e5b0ce954c0cdd1f885ea478d6bf"
+          },
+          {
+            "path": "packages/engine/src/agents/index.ts",
+            "sha256": "f6f84359f05e589d4c5a33c12c746e5683ffff12cc92de7884e94ce9560886a3"
+          },
+          {
+            "path": "packages/engine/src/mcp/client.ts",
+            "sha256": "d07b846a0125ecf7066589415faff06b9e5f3eb80cd2380e98fad4c1ae9f41d1"
+          },
+          {
+            "path": "packages/engine/src/mcp/registration.ts",
+            "sha256": "a41a5aa2f9f27eac75b7f7e547fe5004d12b00523a425b2ca1b6c6047f59929f"
+          }
+        ]
+      },
+      "remoteToolSearchProviderCapabilityClaimed": false
+    }
+  },
+  "earlierAttempts": [
+    {
+      "log": "/tmp/moodcode-g126-frontier-unit-first-source.log",
+      "logSha256": "cc69c8be03e42d21764c0c18ef3696f76670e03126163b82605979aef4a55669",
+      "tests": 17,
+      "passed": 10,
+      "failed": 7,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 251.964792,
+      "classification": "authored-unit-fixture-errors",
+      "explanation": "session_controls name, actual DB9 index name and FK cleanup fixture corrected; not separate production failures"
+    },
+    {
+      "log": "/tmp/moodcode-g126-frontier-regression-source.log",
+      "logSha256": "ad1857b1c2afc05bb5a3f793931b701e9670f90e6219d05812d9f17b75073106",
+      "tests": 98,
+      "passed": 97,
+      "failed": 1,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 560.683583,
+      "classification": "old-native-running-clear-expectation",
+      "explanation": "Receiptless native running now blocks; expectation strengthened with MCP row0 and both generic frontier audits1."
+    },
+    {
+      "log": "/tmp/moodcode-g126-tool-frontier-first-source.log",
+      "logSha256": "72e1e7919f6cd4428d43279d0373f1f73a560be2287b8757ae50f722bf1440d9",
+      "tests": 7,
+      "passed": 5,
+      "failed": 2,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 1355.993541,
+      "classification": "actual-started-intent-baseline",
+      "explanation": "Seven actual phases: five safe controls pass, two started-intent phases fail before implementation."
+    },
+    {
+      "log": "/tmp/moodcode-g126-tool-frontier-aftercapture-source.log",
+      "logSha256": "568f15f372b156a162e3e9a2e7b426b2e54eca5e6e3ee047a42b846376124c9a",
+      "tests": 7,
+      "passed": 5,
+      "failed": 2,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 1342.879792,
+      "classification": "actual-fixture-event-page-cap",
+      "explanation": "Fixture asked native session event API for256 while supported cap100; corrected fixture, not production bound."
+    },
+    {
+      "log": "/tmp/moodcode-wave14-engine-first.log",
+      "logSha256": "1418418353883a9e664ac6be5c18592ad169be055d1525d45b38bd7239e034db",
+      "tests": 2442,
+      "passed": 2440,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "durationMs": 59552.359834,
+      "classification": "first-whole-green-before-final-comment",
+      "explanation": "2440pass; only final owner-cache caveat comment changed while this build ran. Final source frozen and whole gate repeated once."
+    }
+  ],
+  "preservation": {
+    "thirteenthReport": "docs/moodcode/engine-goal-thirteenth-verification.json",
+    "sha256": "f6852c957635a0d7e579159782a5c6c0b37eae5ab1d977abbc0d7b1456cf3100",
+    "matchesCommit": "53b4e9f25976e0b48b7a4d9265411f4ca35e33dd",
+    "previousReports": [
+      "docs/moodcode/engine-goal-first-verification.json",
+      "docs/moodcode/engine-goal-second-verification.json",
+      "docs/moodcode/engine-goal-third-verification.json",
+      "docs/moodcode/engine-goal-fourth-verification.json",
+      "docs/moodcode/engine-goal-fifth-verification.json",
+      "docs/moodcode/engine-goal-sixth-verification.json",
+      "docs/moodcode/engine-goal-seventh-verification.json",
+      "docs/moodcode/engine-goal-eighth-verification.json",
+      "docs/moodcode/engine-goal-ninth-verification.json",
+      "docs/moodcode/engine-goal-tenth-verification.json",
+      "docs/moodcode/engine-goal-eleventh-verification.json",
+      "docs/moodcode/engine-goal-twelfth-verification.json"
+    ]
+  },
+  "limits": [
+    "macOS arm64/Node26.9 headless only; native Windows, other OS/Node24 hosted CI and additional external provider/media remain unverified. GUI was not run.",
+    "Original tool running is durable may-have-started intent; callback entry and generic external effects remain unverified. Authored local entry marker is a test observation only.",
+    "Forward native capture does not retroactively authenticate already-interrupted history, nor fabricate native authority for v1-only records.",
+    "Existing legacy/native startup all() remains outside new bounded candidate/header/selected-JSON guarantees; SQLite internal JSON computation and physical I/O/time are not globally bounded.",
+    "Audit owner reads after writes may invalidate raw cache and consume the same remaining JSON budget; one-read-per-body across all startup is not promised.",
+    "Exact MCP terminal/no-dispatch with confirmed local cleanup exempts generic capture; terminal response still does not prove rollback or external background activity termination.",
+    "No generic tool effect or MCP host acknowledgment/unblock API was added; provider/summary ACK cannot waive these blockers. Actual project unresolved records were not acknowledged.",
+    "DB9/metrics6 unchanged; no dedicated MCP/frontier metrics aggregate was added.",
+    "Actual Codex child text1/host-only PDF54bytes are regression checks; external MCP account and remote PDF requests0, cross-platform verification absent.",
+    "Earlier historical child mapping/reexport, mirror/crash staging, native AbortSignal composite and MCP notification/custom transport limits remain in the exact thirteenth report.",
+    "/tmp authored fixtures/logs/bundles are local SHA-pinned evidence, not permanent hosted CI artifacts."
+  ],
+  "goal": {
+    "status": "active",
+    "completed": false,
+    "externalOpen": [
+      "E5-08",
+      "E5-13",
+      "E6-07",
+      "E6-08"
+    ],
+    "nextLocal": "G1-27: independently design and implement opt-in bounded tool catalogue/discovery with exact policy/allowlist/revision and fresh context reservation, while default behavior remains compatible."
+  }
+}

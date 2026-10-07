@@ -43,3 +43,5 @@ Moodcode는 로컬 Git 저장소에서 코드를 읽고 수정하며 명령을 �
 - [PDF 원본 입력](engine-input-documents.md): 별도 refs·explicit capability/token 정책·bounded history·primary archive 및 root 진단 범위.
 - [MCP 도구 실행 기록](engine-mcp-execution.md): DB9 exact 승인/native owner·전송/응답/로컬 정리와 uncertainty·재시작·archive 차단.
 - [일반 도구 재시작 frontier](engine-tool-recovery-frontier.md): 원래 running intent·exact owner/SHA·dual journal·tool_effect 격리와 v1 unchecked/과거 이력 한계.
+
+- [필요한 도구의 검색](engine-tool-discovery.md): host opt-in·bounded metadata/selected schema·다음 경계 활성화·정확한 문맥 예약과 기존 승인/child/retry 경계.

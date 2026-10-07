@@ -6,7 +6,7 @@
 
 `createEngine(options)`는 DB owner, Run coordinator, scheduler, context, 도구 runtime, 승인·질문·세션 tasks, MCP/plugin, PTY, child, LSP, formatter, workspace 관찰을 소유한다. 기본 fixture 공급자는 scripted/local이며 실제 provider는 host가 주입하고 defaults에서 선택한다. `CodexProvider`는 기존 로컬 Codex 인증 port를 사용하고, `AnthropicProvider`는 host가 지정한 API key와 model을 사용한다. API key나 credential을 command/config/session document에 넣지 않는다.
 
-주요 `EngineOptions`는 `dbPath`, `artifactDir`, `providers`, `tools`, `defaults`, `toolPolicy`, `modelSpecs`, `agentProfiles`, `allowedToolNames`, `worktreeDirectory`, `configureChild`, `mediaHistoryPolicy`, `documentHistoryPolicy`, `allowUnknownDocumentTokenCost`다. `allowedToolNames`는 초기 catalog뿐 아니라 이후 등록한 handler의 광고·실행에도 유지되는 host 상한이다. profile·Plan 정책·resource deny가 이 상한을 더 좁힐 수 있다. 기본 도구를 `tools`로 교체하면 실제 제공한 handler만 사용할 수 있다.
+주요 `EngineOptions`는 `dbPath`, `artifactDir`, `providers`, `tools`, `defaults`, `toolPolicy`, `toolDiscoveryPolicy`, `modelSpecs`, `agentProfiles`, `allowedToolNames`, `worktreeDirectory`, `configureChild`, `mediaHistoryPolicy`, `documentHistoryPolicy`, `allowUnknownDocumentTokenCost`다. `allowedToolNames`는 초기 catalog뿐 아니라 이후 등록한 handler의 광고·실행에도 유지되는 host 상한이다. profile·Plan 정책·resource deny가 이 상한을 더 좁힐 수 있다. 기본 도구를 `tools`로 교체하면 실제 제공한 handler만 사용할 수 있다. `toolDiscoveryPolicy: DEFAULT_TOOL_DISCOVERY_POLICY`는 필요한 도구를 일반 discover_tools로 찾아 다음 모델 경계에서 선택한 schema만 광고하는 host opt-in이다. 현재 profile/policy/allowlist·승인·child 상한을 유지하며 [query/count/bytes·retry·정확한 예약 계약](engine-tool-discovery.md)을 따른다. 기본 eager/getCapabilities 동작은 유지한다.
 
 | 경로 | 용도 |
 |---|---|

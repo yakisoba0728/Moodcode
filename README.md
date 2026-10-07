@@ -6,7 +6,7 @@ Electron 기반 로컬 코딩 에이전트다. 자체 TypeScript/Node 엔진, �
 
 현재 후속 작업은 내부 엔진 우선이다. [엔진 구현 TODO](TODO.md)의 75개 항목 중 71개를 구현·검증했다. durable queue/steer·Turn/Part·의미 요약·scoped tools·MCP·PTY·worktree child 실행·승인한 변경 통합·LSP/formatter·archive·진단을 자체 엔진에 연결했다. [최신 headless 검증](docs/moodcode/engine-native-final-verification.md)과 [host API](docs/moodcode/engine-host-api.md)가 현재 지원 범위의 기준이다. 새 엔진 기능의 GUI 노출은 후속이다.
 
-지속 개선 goal에서는 OpenCode/pi/Amp/Claude Code/Codex의 공개 근거를 비교하며 자체 엔진을 확장한다. 일반·요약 실행의 usage/cleanup·명시적 복구 결정, 긴 active Run 기억·이미지/PDF 입력과 별도 정책·공유 증거 예산, 승인된 읽기 전용 delegate_task를 연결했다. Managed child 저장/archive·crash·historical 조회, DB9 MCP의 exact dispatch/outcome에 이어 일반 native 도구의 원래 running intent를 재시작 전에 포착해 격리를 유지한다. 최신 headless gate는 2,440 pass·실패0·조건부2 skip이며 `217f77f`의 실제 Codex 자식 text 요청1회와 archive/import 회귀가 통과했다. [최신 검증](docs/moodcode/engine-goal-verification.md), [목표·진행 범위](docs/moodcode/engine-improvement-goal.md), [G1 TODO](TODO.md)를 따른다. 다음은 많은 도구의 전체 schema가 문맥 예약을 소진하는 실제 local 관측을 바탕으로 bounded catalogue/discovery opt-in을 구현한다.
+지속 개선 goal에서는 OpenCode/pi/Amp/Claude Code/Codex의 공개 근거를 비교하며 자체 엔진을 확장한다. 일반·요약 실행의 usage/cleanup·명시적 복구 결정, 긴 active Run 기억·이미지/PDF·공유 증거 예산·승인된 delegate_task와 managed child storage/archive·crash·historical 조회를 연결했다. DB9 MCP exact dispatch/outcome·일반 native running frontier에 이어 opt-in 도구 검색과 같은 schema의 문맥 예약·다음 모델 경계 선택을 구현했다. 최신 headless gate는2,501 pass·실패0·조건부2 skip이며 `ad787d6`의 opt-in 실제 Codex 자식 text1회와 archive/import 회귀가 통과했다. [최신 검증](docs/moodcode/engine-goal-verification.md), [도구 검색](docs/moodcode/engine-tool-discovery.md), [목표·진행 범위](docs/moodcode/engine-improvement-goal.md), [TODO](TODO.md)를 따른다. 다음은 선택 count를 소진한 긴 Run의 명시적 도구 집합 교체다.
 
 ## 개발 실행
 
