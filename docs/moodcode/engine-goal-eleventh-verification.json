@@ -1,0 +1,588 @@
+{
+  "schemaVersion": 11,
+  "implementationCommit": "bd14b324f128029b33aaf71e61ce6c3f038ed622",
+  "timestamp": "2026-10-07T03:08:07.188246+00:00",
+  "runtime": {
+    "node": "26.9.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "scope": "headless-engine-goal-checkpoint-11",
+  "checks": {
+    "typecheck": {
+      "passed": true,
+      "command": "npx tsc -b --pretty false",
+      "log": "/tmp/moodcode-wave11-typecheck-first.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "engine": {
+      "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
+      "testConcurrency": 2,
+      "testManifestReduced": false,
+      "log": "/tmp/moodcode-wave11-engine-first.log",
+      "logSha256": "e73c57c6a6130980943f73bb86a0721e8a9a3738deea5bc2d82b633199afa894",
+      "tests": 2296,
+      "passed": 2294,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "durationMs": 76620.864292
+    },
+    "evaluation": [
+      {
+        "taskId": "addition-bug",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "math.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13146,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 352
+      },
+      {
+        "taskId": "empty-list-boundary",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "average.mjs"
+        ],
+        "toolCalls": 3,
+        "providerAttempts": 4,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 13226,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "durationMs": 283
+      },
+      {
+        "taskId": "two-module-change",
+        "kind": "engine-fixture",
+        "providerId": "scripted",
+        "modelId": "local",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "changedFiles": [
+          "greet.mjs",
+          "strings.mjs"
+        ],
+        "toolCalls": 4,
+        "providerAttempts": 5,
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 14041,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 4
+          }
+        },
+        "durationMs": 401
+      }
+    ],
+    "evaluationEvidence": {
+      "command": "node scripts/evaluate-engine.mjs",
+      "log": "/tmp/moodcode-wave11-evaluation-first.log",
+      "logSha256": "1a47026043890bde3082cb63c45672ab21afe78e0cfdcfe21f74a3ba397bb0a6"
+    },
+    "independentScoped": {
+      "rootReaderArchiveHost": {
+        "log": "/tmp/moodcode-g123-reader-unlink-first.log",
+        "logSha256": "90656ca04582b34d7765617c8a4ebb98c3ffaa51f41d75b720c9cff095de7171",
+        "tests": 31,
+        "passed": 31,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 3558.3505
+      },
+      "actualCrashSource": {
+        "log": "/tmp/moodcode-g123-crash-final-source.log",
+        "logSha256": "135577234e6b2ea0f82a3b62d7c75de1fb25d84bdefdd0e29ea74fb6ae0e0883",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 2953.578916
+      },
+      "actualCrashBundle": {
+        "log": "/tmp/moodcode-g123-crash-final-bundle.log",
+        "logSha256": "fe556e184bc7ee5f359f938d739b1fda0e28064b49214d20b7a4b0f43996df53",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 1959.484833
+      },
+      "recoveryReviewSource": {
+        "log": "/tmp/moodcode-g123-recovery-review-reader-unlink-source.log",
+        "logSha256": "5527ddf3ede0e4682d2908fc618a7d630e629ae95813dc8aff4e12bd8615a75b",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 1651.892292
+      },
+      "recoveryReviewBundle": {
+        "log": "/tmp/moodcode-g123-recovery-review-reader-unlink-bundle.log",
+        "logSha256": "d19fc03a2cb748f4064c060ed5dfc29c7ce767bbf7c0e46814fa53421d3bfc98",
+        "tests": 6,
+        "passed": 6,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 1132.568
+      },
+      "ownerReaderSource": {
+        "log": "/tmp/moodcode-g123-owner-crash-source-second.log",
+        "logSha256": "0b97996a971acafe0c540e0e47dffe9a00c0ff87686b201759cbbb2dd84c05d1",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 1000.104666
+      },
+      "ownerReaderBundle": {
+        "log": "/tmp/moodcode-g123-owner-crash-bundle-final.log",
+        "logSha256": "12f8ad3cfc8e20eb1e6a273459350cc82a699acf2dda63dc4a1e0078bde8c41b",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 578.828875
+      },
+      "crashNoEmit": {
+        "passed": true,
+        "log": "/tmp/moodcode-g123-crash-final-noemit.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "reviewNoEmit": {
+        "passed": true,
+        "log": "/tmp/moodcode-g123-recovery-review-reader-unlink-noemit.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "ownerNoEmit": {
+        "passed": true,
+        "log": "/tmp/moodcode-g123-owner-crash-noemit-strict.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "scopedCountsOverlapFullGate": true,
+    "live": {
+      "command": "node scripts/verify-child-document-storage.mjs --live",
+      "log": "/tmp/moodcode-wave11-child-live-first.log",
+      "logSha256": "05c55a24edd7aa2a5062684d5e21eefe57c8561d631361101f5f39a1a1cd453e",
+      "result": {
+        "kind": "managed-child-document-storage-live-text-regression",
+        "implementationCommit": "bd14b324f128029b33aaf71e61ce6c3f038ed622",
+        "timestamp": "2026-10-07T03:06:33.563Z",
+        "runtime": {
+          "node": "26.9.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "providerId": "codex",
+        "modelId": "gpt-6.1-sol",
+        "scope": {
+          "actualChildRequests": 1,
+          "actualRootRequests": 0,
+          "remotePdfRequests": 0,
+          "syntheticParent": true,
+          "hostImportedOpaquePdf": true,
+          "projectRecoveryAcknowledged": false,
+          "executionAutomaticallyResumed": false,
+          "rawHttpBodyHashed": false
+        },
+        "actualRequests": [
+          {
+            "attemptId": "76256cd8-da3c-4997-add4-40facb1713f6",
+            "logicalRequestSha256": "bc464cd944bbd6ce34d29157560c883c31d152df60b292a835e42e2c24291084",
+            "logicalRequestBytes": 1746,
+            "usage": {
+              "type": "usage",
+              "inputTokens": 266,
+              "outputTokens": 5,
+              "cachedInputTokens": 0,
+              "reasoningOutputTokens": 0
+            }
+          }
+        ],
+        "passed": true,
+        "cleanupConfirmed": true,
+        "cleanupProof": {
+          "state": "confirmed",
+          "method": "iterator-next-done",
+          "reason": "natural-done"
+        },
+        "storage": {
+          "complete": true,
+          "observedChildren": 1,
+          "declaredChildBytes": 54,
+          "stats": {
+            "selectedMetadataBytes": 9347,
+            "selectedRefs": 1,
+            "selectedRows": 23,
+            "openedChildren": 1,
+            "rawMirrorBytes": 454656,
+            "elapsedMs": 8.079957999999806,
+            "exhaustedReason": null
+          },
+          "blobHashesVerifiedByDiagnostic": false
+        },
+        "archive": {
+          "documentAuditCoverage": "complete",
+          "verifiedChildDatabases": 1,
+          "childSessionsPaused": 1,
+          "restoredPhysicalAuthorityGranted": false,
+          "restoredTypedChildReexportRejected": true
+        },
+        "fullSnapshotReads": 0,
+        "actualRequestCount": 1,
+        "fixtureRemoved": true
+      }
+    },
+    "actualAccountRequests": 1,
+    "actualRemotePdfRequests": 0
+  },
+  "implementation": {
+    "databaseVersion": 8,
+    "metricsSchemaVersion": 6,
+    "bindingSchemaVersion": 1,
+    "archiveVersion": 1,
+    "documentAuditVersion": 1,
+    "rootBindingKind": "child.storage.<taskId>",
+    "childMirrorKind": "engine.child_owner",
+    "rootOnlyCloseProofMethod": "engine-close-resolved",
+    "twoDatabaseCommitAtomic": false,
+    "immutableAdmittedMirrorPreserved": true,
+    "legacyFourArgumentConstructorPreserved": true,
+    "diagnosticScope": "host-selected-child-document-indexes",
+    "selectedChildDefault": 8,
+    "selectedChildHardCap": 32,
+    "metadataBytesHardCap": 8388608,
+    "selectedRefsHardCap": 2048,
+    "chargedRowsHardCap": 8192,
+    "reportBytesDefault": 32768,
+    "reportBytesMinimum": 4096,
+    "cooperativeDeadlineMs": 2000,
+    "rawMirrorFileBytesHardCap": 33554432,
+    "rawMirrorOperationBytesHardCap": 268435456,
+    "rawMirrorBudgetDistinctFromMetadata": true,
+    "originalChildMainOpenedBySQLite": false,
+    "existingOwnerReadLeaseHeldThroughCapturePublication": true,
+    "temporaryImmutableChildMirror": true,
+    "nativeQuiescenceCheckedBeforeBodies": true,
+    "diagnosticBlobHashesRead": false,
+    "diagnosticUnknownTotals": null,
+    "diagnosticDeclaredBytesAddedToParentFilesystemBytes": false,
+    "sourceConfiguredExternalBindingReadable": true,
+    "archiveVerifiedInternalBase": "artifactDir/children",
+    "externalArchiveChildCoverage": "explicit-unchecked-partial",
+    "nondefaultInternalArchiveMapping": "unsupported",
+    "wholeDatabaseLogicalHashingAndIntegrityWithinSelectedMetadataBudget": false,
+    "wholeDatabaseHashRowsUseIterator": true,
+    "wholeRowAllocationBoundedBySelectedMetadataCap": false,
+    "indexedBlobExactManifestMembershipRequired": true,
+    "postCaptureIndexedBlobHashesRecheckedBeforePublication": true,
+    "typedBindingCannotDowngradeByRemovingOptionalAudit": true,
+    "importVerifiedChildSessionsPaused": true,
+    "importExecutionResumed": false,
+    "importOriginalPhysicalBindingPreserved": true,
+    "importOriginalOutcomeUsageAckPreserved": true,
+    "restoredTypedChildFreshSourceReexport": "rejected-without-explicit-new-mapping",
+    "sourceFilesSha256": {
+      "packages/engine/src/child-tasks/engine-host.ts": "c289a2d397202d4961068e51020a1021a0e8a4c47ff8e902e8285a0353e24ab9",
+      "packages/engine/src/child-tasks/storage-authority-review.test.ts": "005a3912b7538d244d4646901a0858c450257f825f84a5b1a76d84e8b6db36d2",
+      "packages/engine/src/child-tasks/storage-binding.test.ts": "993d187de97c73e529fe09ca15465f92423f6edc470cf5c18a896bb8757d2486",
+      "packages/engine/src/child-tasks/storage-binding.ts": "ce9711e4db3885972020733725a536e6af843909a43ee281f5885ffe4ec3d3b9",
+      "packages/engine/src/diagnostics/child-document-storage.test.ts": "d393ee67b33c02feb846b0ef639dcf32ca47b08f37a16d35873f9ef75aeaf91f",
+      "packages/engine/src/diagnostics/child-document-storage.ts": "fe0caca76bc71f2f74e65a100c26080a9441697440fd1f550e57d915a0f42b88",
+      "packages/engine/src/engine.ts": "3d94b115812c7db833d2eef2620f19ac699cf7acc0e04cf4e2409ac70a822979",
+      "packages/engine/src/index.ts": "be2bfa1b33d24fb3bb5b48f732f4e8e057f2844832f62f10805050368f672b7d",
+      "packages/engine/src/integration/child-document-host-review.integration.test.ts": "622c5e8942ab3d8bd1799c70902693322b66d79b1ad7843ee91d48fb31b9e401",
+      "packages/engine/src/integration/child-document-storage-review.integration.test.ts": "a75b487aa3d1590d035ca2321e572b888a085ca20a7cddf522ec3b2eb593c98e",
+      "packages/engine/src/integration/child-document-wiring-review.integration.test.ts": "638eb076faf08a4524fdbca424e46db6adbfd070cee5482e37e85150ab4c5377",
+      "packages/engine/src/storage/archive.test.ts": "a12d2578d8adce7ff2f9abe7a27defa211942d3723637146acc25de0c73ce668",
+      "packages/engine/src/storage/archive.ts": "2f33dec49179a0c452807848d806c59e875d34e06c97e999811088ad5440d845",
+      "packages/engine/src/storage/child-document-archive-review.test.ts": "45d18020b1a9c71455676ea5cea0fbebfa2c2231796bb96a72d1d062637978e2",
+      "packages/engine/src/storage/child-document-reader.test.ts": "8d37f3c6a56367e806f1df228bf8580ded3cfc97d239477262ea7e9d27e49934",
+      "packages/engine/src/storage/child-document-reader.ts": "2ec5fb84c73d0db4e179377207a934455526768afa127220955ee96d4b2bf0a4",
+      "packages/engine/src/storage/index.ts": "3f3a9b79d4b42a395963204f2fa54b2406f796efa9bfa5e0b15fbc49a8ebf922",
+      "scripts/verify-child-document-storage.mjs": "99686ca4d3db03be92b8bb35efd37fd8153e1f17458c6eef4e5a8c9111a6d9b1",
+      "packages/engine/src/integration/child-storage-crash-worker.ts": "17b8ef9678cbb5a33f1cb36daeef15669d8e147ba187b85942fb2aeaa2300cb1",
+      "packages/engine/src/integration/child-storage-crash.fixture.ts": "57cd5cca548a1784c4988c3bc5b0cd20583b7c09cf7c53dc090a8724f6e6b50f",
+      "packages/engine/src/integration/child-storage-crash.integration.test.ts": "76b11e5a97ff08c431fa67e9317c599d88d1383ec9f544c428afb7749e76dd8c",
+      "packages/engine/src/integration/child-storage-recovery-review.integration.test.ts": "ae1e570115291074eabda2a586a5cdcba857167f08d37610f02378be9725f6c1",
+      "packages/engine/src/storage/child-storage-owner-crash-review.fixture.ts": "d7d4b2e08236d4f347b3c382df252722615a2de848fa2738f7e80fae2b53c21e",
+      "packages/engine/src/storage/child-storage-owner-crash-review.test.ts": "86473b09c1855c1b0b56126e6a48c600fe4d0bd876e4785c058ceaddd0719351"
+    },
+    "validatedPrivateMirrorPathUnlinkedOn": [
+      "darwin",
+      "linux"
+    ],
+    "linuxAndWindowsHardKillExecuted": false,
+    "validatedOpenReadAndBackupHandlesPreserved": true,
+    "privateMirrorRemovedDuringCopyBeforeAttach": false,
+    "automaticStaleMirrorDiscoveryOrDeletion": false,
+    "childTaskRunOutcomeRecoveryPolicyChanged": false
+  },
+  "measurements": {
+    "actualKilledEnginePhaseObservations": [
+      {
+        "phase": "root-prepared",
+        "taskStateBeforeKill": "starting",
+        "childClosedBeforeKill": false,
+        "childRunBoundBeforeKill": false,
+        "stateAfterExactRetry": "uncertain",
+        "sourceAuthorityAfterRetry": "unconfirmed",
+        "providerCallsBeforeAndAfterReopen": 2,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-root-prepared.json",
+        "logSha256": "88613d9131245af78cc57628838b629df8dd5b9ffec4a353a2a0188339226f37"
+      },
+      {
+        "phase": "child-run-admitted",
+        "taskStateBeforeKill": "starting",
+        "childClosedBeforeKill": false,
+        "childRunBoundBeforeKill": true,
+        "stateAfterExactRetry": "uncertain",
+        "sourceAuthorityAfterRetry": "unconfirmed",
+        "providerCallsBeforeAndAfterReopen": 2,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-child-run-admitted.json",
+        "logSha256": "56cf4f7c5d32e4dc9e45ff7a57fbc8324744b99673b1e8e285280e7f1c29605c"
+      },
+      {
+        "phase": "root-admitted",
+        "taskStateBeforeKill": "starting",
+        "childClosedBeforeKill": false,
+        "childRunBoundBeforeKill": true,
+        "stateAfterExactRetry": "uncertain",
+        "sourceAuthorityAfterRetry": "unconfirmed",
+        "providerCallsBeforeAndAfterReopen": 2,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-root-admitted.json",
+        "logSha256": "4314fa492b46bf7f75e3e855e706d46859bf5086cb80603d0a062c5ff527abae"
+      },
+      {
+        "phase": "partial-observed",
+        "taskStateBeforeKill": "running",
+        "childClosedBeforeKill": false,
+        "childRunBoundBeforeKill": true,
+        "stateAfterExactRetry": "uncertain",
+        "sourceAuthorityAfterRetry": "unconfirmed",
+        "providerCallsBeforeAndAfterReopen": 3,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-partial-observed.json",
+        "logSha256": "08432edf62458e43b2f1ef19c06f39f82b31a88a09d2c03cfa02908fed8ec843"
+      },
+      {
+        "phase": "child-terminal",
+        "taskStateBeforeKill": "running",
+        "childClosedBeforeKill": false,
+        "childRunBoundBeforeKill": true,
+        "stateAfterExactRetry": "uncertain",
+        "sourceAuthorityAfterRetry": "unconfirmed",
+        "providerCallsBeforeAndAfterReopen": 3,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-child-terminal.json",
+        "logSha256": "e536da84dfbcba2b052e2633d05808dae5b561e2ceecd4e98c313ee1a1afc19c"
+      },
+      {
+        "phase": "root-close-proof",
+        "taskStateBeforeKill": "running",
+        "childClosedBeforeKill": true,
+        "childRunBoundBeforeKill": true,
+        "stateAfterExactRetry": "uncertain",
+        "sourceAuthorityAfterRetry": "unconfirmed",
+        "providerCallsBeforeAndAfterReopen": 3,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-root-close-proof.json",
+        "logSha256": "db9f54928adb71f257a373b9ee4c5eedbc772cb8b1d0224b8e45d0d2b67a7808"
+      },
+      {
+        "phase": "task-outcome",
+        "taskStateBeforeKill": "completed",
+        "childClosedBeforeKill": true,
+        "childRunBoundBeforeKill": true,
+        "stateAfterExactRetry": "completed",
+        "sourceAuthorityAfterRetry": "eligible",
+        "providerCallsBeforeAndAfterReopen": 3,
+        "providerCallsAreOnlyLocalAuthoredFixtures": true,
+        "historicalAuthoredRootAcknowledgmentsPreserved": 1,
+        "log": "/tmp/moodcode-g123-baseline-task-outcome.json",
+        "logSha256": "4723bde8e3e501132191118ad788721ddb1c9445b43b8f9752e354f233c8174c"
+      }
+    ],
+    "phaseBaselinesWerePristinePreviousCommit": false,
+    "phaseBaselinesIncludedRootReaderUnlinkChange": true,
+    "bindingAndAdmissionSourceUnchangedFrom": "9bf0e7f7339eaac754725d6e1f22e968a958f0b2",
+    "automaticPostRestartProviderCalls": 0,
+    "automaticChildEngineRecreations": 0,
+    "automaticAcknowledgments": 0,
+    "originalProjectAcknowledgments": 0,
+    "automaticMirrorBackfillOrCloseProof": 0,
+    "automaticWorktreeOwnerRelease": 0,
+    "ownerReaderBaseline": {
+      "validatedHeldReaderKilledResidualBytes": 446464,
+      "originalFilesUnchanged": true,
+      "log": "/tmp/moodcode-g123-owner-crash-baseline.log",
+      "logSha256": "a11edf471da3a3607a6cce9482b502b35c3edfc6de6e767c99edb925eddccdb7"
+    },
+    "ownerReaderAfterFix": {
+      "validatedHeldReaderKilledResidualBytes": 0,
+      "copyInterruptedBeforeAttachResidualBytes": 262144,
+      "killedWriterHotWalBytes": 24752,
+      "readerHotWalJsonBodies": 0,
+      "twoHeldReadersReleaseIndependently": true,
+      "originalFilesUnchangedByReader": true,
+      "successorWriterReacquisitionIsExplicit": true,
+      "residualFixtureCleanupIsExplicitKnownInodeOnly": true
+    },
+    "genericUnlinkedImmutableReadAndBackup": {
+      "passed": true,
+      "payloadBytes": 1048597,
+      "sourceHashUnchanged": true,
+      "log": "/tmp/moodcode-g123-anonymous-mirror-experiment.log",
+      "logSha256": "c3ee552d53b59687ca0ffb068174107c6839c338c66610031cc7c8e0ee450d19"
+    },
+    "liveAccountUsage": {
+      "type": "usage",
+      "inputTokens": 266,
+      "outputTokens": 5,
+      "cachedInputTokens": 0,
+      "reasoningOutputTokens": 0
+    },
+    "billedTokens": null,
+    "fullSnapshotReads": 0,
+    "sourcePinManifests": [
+      {
+        "log": "/tmp/moodcode-g123-crash-source.sha256",
+        "logSha256": "a508afb07811af0e46ee9c15ee3c7482e7a42d81d492107501f2e4e47bbcde65"
+      },
+      {
+        "log": "/tmp/moodcode-g123-recovery-review-reader-unlink-source-pins.json",
+        "logSha256": "248a214d97baae7aef1fdea08adf085edb09b7a1224d5213f4eaf8606b1b04b1"
+      },
+      {
+        "log": "/tmp/moodcode-g123-owner-crash-verification.json",
+        "logSha256": "02961321c294a0fd1344e6f797f2e54bbcd8b928ea2d21c1f1b051b5d8d67be1"
+      }
+    ]
+  },
+  "earlierAttempts": [
+    {
+      "kind": "candidate-source-baseline",
+      "description": "Seven actual kill phases passed before final assertion strengthening; reader unlink was already present, so this is not pristine previous source. All provider calls and pre-existing ACK setup were authored local fixtures.",
+      "log": "/tmp/moodcode-g123-crash-baseline.log",
+      "logSha256": "2f38cdd9445d3bbdbed3f1d216087e0a206902e0331f96e0cac6fcbe86e349d1",
+      "tests": 7,
+      "passed": 7,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 2457.889709
+    },
+    {
+      "kind": "fixture-errors",
+      "description": "SQLite null-prototype rows differed from IPC plain objects; comparison normalized without changing raw data or production recovery.",
+      "log": "/tmp/moodcode-g123-crash-first.log",
+      "logSha256": "89365b2c8c6a5aa30f9dbf23cc1f1a860af201f72f2b94e669ed1c9a40954fc8"
+    },
+    {
+      "kind": "fixture-errors",
+      "description": "Failure before first root binding write remains explicitly legacy-unbound partial rather than typed archive rejection; no verified child proof was claimed.",
+      "log": "/tmp/moodcode-g123-recovery-review-first.log",
+      "logSha256": "441e135eed0d29db7a3b1316cccf7301f4f6f8127a98a522887723854c255bbc"
+    },
+    {
+      "kind": "fixture-errors",
+      "description": "BEGIN EXCLUSIVE on the empty owner produced a hot rollback journal before OWNER_BUSY; initialized DELETE owner fixture separates both conservative reader outcomes.",
+      "log": "/tmp/moodcode-g123-owner-crash-source-first.log",
+      "logSha256": "7e30a5e6ce5a4868f0c9dedfdab413931585a55b4158d4c65b6ab14713a64bcc"
+    }
+  ],
+  "preservation": {
+    "tenthReport": "docs/moodcode/engine-goal-tenth-verification.json",
+    "sha256": "aa83349c28e7405dde9b71713d59068b11e5a9c72dde30e82cb971a3544bd370",
+    "matchesCommit": "15abacd0b2a423e819fe45cc7300c8ff6b543d7e",
+    "previousReports": [
+      "docs/moodcode/engine-goal-first-verification.json",
+      "docs/moodcode/engine-goal-second-verification.json",
+      "docs/moodcode/engine-goal-third-verification.json",
+      "docs/moodcode/engine-goal-fourth-verification.json",
+      "docs/moodcode/engine-goal-fifth-verification.json",
+      "docs/moodcode/engine-goal-sixth-verification.json",
+      "docs/moodcode/engine-goal-seventh-verification.json",
+      "docs/moodcode/engine-goal-eighth-verification.json",
+      "docs/moodcode/engine-goal-ninth-verification.json"
+    ]
+  },
+  "limits": [
+    "This headless gate is macOS arm64/Node26 only; Windows native backend, other OS/ABI/Node24 and hosted CI remain unverified.",
+    "Source diagnostics inspect only exact selected document indexes; they do not read PDF contents/hash, orphan data, unselected child trees, images, worktrees or physical allocated disk bytes.",
+    "Selected metadata/ref/header budgets are not total SQL scalar/SQLite internal I/O/allocation or raw main-mirror/whole DB integrity/hash budgets. Deadline is cooperative at operation boundaries.",
+    "Archive document audit verifies default internal child document stores; externally configured children are explicitly unchecked, nondefault internal bases and restored typed-child fresh reexport need a separate mapping contract.",
+    "Extra effect/PTY/review SQLite artifacts are preserved and hashed without claiming typed current runtime ownership audit; no cleanup, execution resume, ACK or fresh worktree authority is granted.",
+    "One actual text-only Codex child request is not a remote PDF recognition, parser/token-cost, server-side cleanup or billing verification; the stored opaque PDF never entered the real request.",
+    "Temporary logs/independent bundle paths are local evidence with SHA recorded here, not hosted CI or permanently published artifacts.",
+    "SIGSTOP/SIGKILL tests prove these local committed process-death boundaries, not abrupt power-loss durability or remote server execution/billing/cancellation.",
+    "Validated private mirror pathname is removed only after a successful immutable attachment and owner/native/mirror validation on darwin/linux. A kill during copy/before unlink and other platforms can leave temporary files; no automatic stale cleanup was added.",
+    "An open anonymous immutable file retains its storage until all handles close; zero residual pathname after process death is not a zero-allocation measurement during the read.",
+    "Historical archive selected-index inspection API is a next local task; this checkpoint preserves the current fresh-source reexport and physical rebinding limitations."
+  ],
+  "goal": {
+    "status": "active",
+    "completed": false,
+    "externalOpen": [
+      "E5-08",
+      "E5-13",
+      "E6-07",
+      "E6-08"
+    ],
+    "nextLocal": "G1-24: explicit read-only historical child document index inspection from exact verified archive manifest, reusing already validated selected indexes and the same proof budget without execution/recovery authority."
+  }
+}

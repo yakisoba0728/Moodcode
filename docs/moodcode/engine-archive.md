@@ -23,3 +23,5 @@ Focused fixture는 실제 v1 recovery acknowledgement의 보존과 복사된 aut
 새 `documentAudit`는 root journal과 정확히 종료한 내부 child의 영속 binding·mirror·native owner, document refs/blob·exact manifest member를 검증한다. child owner read lease는 publication까지 유지하고 child main은 standalone DELETE snapshot으로 보관한다. raw owner/WAL/SHM으로 이를 대체하지 않는다. typed binding이 있는 bundle의 audit field 제거도 거절한다. Legacy/external child는 explicit partial/unchecked이고 임의 DB를 child로 발견하지 않는다.
 
 Import의 추가 결과는 `childSessionsPaused`와 `documentAuditCoverage`다. 원래 child session·mirror·outcome/usage/ACK·physical 출처는 유지하고 실행을 재개하지 않는다. 복원된 typed child를 fresh source로 재-export하는 현재 경로는 scope 변경으로 거절한다. 선택 proof의 8MiB/refs 예산과 별도 전체 DB logical hashing·파일/mirror 한도는 [child 저장 계약](engine-child-document-storage.md)에 구분한다.
+
+`inspectArchivedChildDocumentStorage`는 exact manifest digest·root owner·task IDs를 지정해 원래 archive의 historical child 문서 metadata를 조회한다. 전체 validation과 같은 frame에서 이미 읽은 index를 재사용하며 실행/복구/ACK 권한을 만들지 않는다. Bounded samples·null unknown·전체 audit coverage와 선택 표시 완료의 차이는 [조회 명세](engine-archive-child-document-inspection.md)를 따른다.

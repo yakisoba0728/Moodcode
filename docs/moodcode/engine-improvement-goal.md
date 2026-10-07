@@ -99,3 +99,13 @@ Windows native Job backend, 다른 OS 호스트, 최초 hosted CI, 실제 Anthro
 실제 reader 강제 종료 뒤 446,464B private DB pathname 잔존을 개선해 darwin/linux에서 검증한 immutable handle을 유지하면서 private pathname을 제거한다. 반환 뒤 kill 잔존 0, copy 도중 262,144B 잔존, hot writer WAL 24,752B/JSON 본문 0, 여러 lease·readIndex/backup·explicit successor writer를 구분했다. Linux/Windows나 전원 차단·원격 cleanup 보장으로 확대하지 않는다.
 
 전체 gate 2,294 pass·0 fail·조건부2 skip, coding fixture 3/3, 같은 source commit 실제 Codex child text 1회·natural cleanup·archive/validate·child pause import·임시 경로 제거가 통과했다. [열 번째 JSON](engine-goal-tenth-verification.json)은 `15abacd`의 bytes 그대로 보존했다. 다음 G1-24는 exact manifest를 pin한 historical selected child document host 조회이며 검증 중 얻은 index를 같은 frame으로 재사용한다. 기존 외부 OS/provider/CI 4개·GUI 제외를 유지하며 goal은 활성 상태다. [최신 검증](engine-goal-verification.md)을 따른다.
+
+## 열두 번째 검토 지점
+
+`8c07e28`에서 G1-24 standalone historical child 문서 조회를 public export했다. Exact manifest/root native owner/task preflight 후 전체 archive proof의 같은 frame·이미 검증한 index를 재사용하고 document metadata samples와 counts/unknown/partial을 반환한다. 실제 nested/11child subset·legacy/external·tamper/oversized owner·report/sample/proof cap·원본/archive stat/SHA 보존을 확인했다.
+
+독립 actual 검토의 사전/진입후 signal shadow와 observerless 부분 수정 실패를 재현하고 operation-scoped active native observer/finally release로 수정했다. 기존 public archive validation의 proof-only deadline도 controlled-clock 회귀 뒤 복원했다. Scope와 native composite 제한은 [조회 계약](engine-archive-child-document-inspection.md), [조사](research/2026-10-07-archive-child-inspection.md)를 따른다.
+
+전체2,331 pass·0 fail·조건부2 skip, fixture3/3, 같은 source 실제 Codex child text1회→host PDF metadata historical 조회→pause import·임시경로 제거가 통과했다. Remote PDF 요청0이다. [열한 번째 JSON](engine-goal-eleventh-verification.json)은 `d341644`의 bytes 그대로 보존했다. [최신 검증](engine-goal-verification.md)을 따른다.
+
+다음 G1-25는 actual local HTTP peer의 승인된 효과가 진행 중인 timeout/disconnect/cancel 뒤 새 Run이 허용된3red와 native restart의 불확실성 누락을 수정한다. MCP tools/call의 exact dispatch/outcome 증거를 provider cleanup과 별도 영속 기록으로 결합한다. 전송 intent가 remote acceptance 증명이라고 주장하지 않으며 기존 ACK를 새로운 효과 권한으로 확장하지 않는다. 외부 OS/provider/CI4개·GUI 제외를 유지하며 goal은 활성 상태다.

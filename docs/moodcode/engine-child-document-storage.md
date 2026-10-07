@@ -50,6 +50,8 @@ Incomplete root/child index 또는 미검사 child의 총량은 `null`이다. �
 
 검증은 historical manifest allowlist·root journal·child mirror/Run/session/workspace와 document refs를 다시 결합한다. Import는 verified child session도 pause하고 원래 outcome/usage/ACK/mirror와 physical binding을 보존한다. child 실행·자동 resume·ACK·새 소유권 증거를 만들지 않는다. 복원된 typed child를 fresh source로 재보관하는 것은 현재 scope 변경으로 거절하며, 새 physical mapping을 승인하는 별도 host 계약은 후속 범위다. 역사 자료를 읽을 수 있다는 사실이 worktree/child의 실행 권한을 재인증하지 않는다.
 
+닫힌 원래 archive의 selected child를 읽으려면 standalone `inspectArchivedChildDocumentStorage`에 exact manifest SHA와 root session/Run/task IDs를 지정한다. 전체 audit 중 검증한 index를 재사용하여 bounded metadata samples와 명시적 unknown/omission을 반환한다. 요청 cap과 전체 archive proof cap·stats scope·표시 예산은 [historical 조회 명세](engine-archive-child-document-inspection.md)를 따른다.
+
 ## 실제 crash와 task 소유권
 
 prepared/admitted, child terminal/close, root task outcome과 worktree release는 독립된 기록 경계다. 재시작은 원래 unfinished child를 자동 실행하거나 DB를 보충하지 않는다. Root interrupted 복구와 명시적인 child task recover를 구분하며, close proof만 있는 uncertain task는 읽기/보관의 완료로 승격하지 않는다. Outcome이 저장됐더라도 retained worktree owner는 별도 상태이며 document audit의 complete는 cleanup/실행 권한을 부여하지 않는다. Binding 생성 전 중단은 typed proof 없이 explicit legacy-unbound 부분 coverage만 제공한다. [실제 7개 SIGKILL 경계와 한계](engine-goal-verification.md)를 따른다.

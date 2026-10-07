@@ -108,6 +108,8 @@ child는 root의 살아 있는 LSP/MCP 연결을 묵시적으로 빌리지 않�
 
 `exportEngineArchive/validateEngineArchive/importEngineArchive`는 primary/review/recovery ledger/artifact manifest를 보존한다. import는 살아 있는 engine의 DB를 교체하지 않으며, 복원 뒤 중단한 효과를 자동 실행하지 않는다. [archive](engine-archive.md)·[저장 성능](engine-storage-performance.md)·[process/PTY](engine-process-terminals.md)의 지원 한계를 따른다.
 
+`inspectArchivedChildDocumentStorage({directory,expectedManifestSha256,sessionId,sourceRunId,taskIds,signal?,limits?})`는 standalone historical host 조회다. Exact manifest와 root lineage를 확인하고 전체 archive proof 중 이미 검증한 selected index를 같은 frame에서 재사용한다. 반환값은 bounded document metadata samples·counts·partial/unknown이며 현재 엔진·원본 파일·provider·ACK·새 physical authority를 활성화하지 않는다. 선택 cap과 전체 proof·표시 예산의 차이는 [historical 문서 조회](engine-archive-child-document-inspection.md)를 따른다.
+
 `getChildDocumentStorageUsage`는 기본 8개·최대 32개 exact managed child만 선택한다. source index 관측은 blob hash 검증이나 orphan 판정이 아니며 incomplete 총량은 null이다. 내부 verified child의 archive는 별도 owner read lease와 standalone snapshot·document refs/hash·manifest allowlist를 검사하고 import에서도 session을 pause한다. 원래 mirror·ACK·물리 binding을 새 실행 권한으로 다시 발급하지 않는다. Legacy/external/복원된 typed child의 coverage와 재보관 제한은 [child 문서 저장 계약](engine-child-document-storage.md)을 따른다.
 
 ## 검증과 남은 조건
