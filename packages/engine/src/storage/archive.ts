@@ -17,6 +17,8 @@ import { MCP_EXECUTION_TABLES } from './mcp-executions.js';
 import { KNOWLEDGE_LIMITS, KNOWLEDGE_STORAGE_TABLES, validateKnowledgeArchiveRow } from '../knowledge/validation.js';
 import { KNOWLEDGE_GENERATION_TABLES, validateKnowledgeGenerationArchiveRow } from '../knowledge/generation-store.js';
 import { validateKnowledgeGenerationDatabase } from '../knowledge/generation-archive-relations.js';
+import { KNOWLEDGE_PUBLICATION_TABLES } from '../knowledge/publication-store.js';
+import { validateKnowledgePublicationDatabase } from '../knowledge/publication-archive-relations.js';
 import { SqliteStore } from './index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
 import { attachments as documentAttachments, sameAttachment as sameDocumentAttachment, validateDocumentBytes } from '../documents/validation.js';
@@ -172,7 +174,15 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
       }
     }
     const knowledgeTables = schemaVersion >= 10 ? [...mcpTables, ...KNOWLEDGE_STORAGE_TABLES] : mcpTables;
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 11 ? [...knowledgeTables, ...KNOWLEDGE_GENERATION_TABLES] : knowledgeTables, check) };
+    const generationTables = schemaVersion >= 11 ? [...knowledgeTables, ...KNOWLEDGE_GENERATION_TABLES] : knowledgeTables;
+    if (schemaVersion >= 12) {
+      try { validateKnowledgePublicationDatabase(db, check); }
+      catch (error) {
+        if (error instanceof EngineError && !error.code.startsWith('KNOWLEDGE_') && !error.code.startsWith('INVALID_KNOWLEDGE')) throw error;
+        fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived workspace publication relationships are invalid');
+      }
+    }
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 12 ? [...generationTables, ...KNOWLEDGE_PUBLICATION_TABLES] : generationTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

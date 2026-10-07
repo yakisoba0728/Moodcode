@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "stage": "phase-two exact host-approved native workspace document publication / update / revoke / DB12 / historical archive",
+  "status": "passed",
+  "recordedAt": "2026-10-07T17:43:37.112300+00:00",
+  "parentCommit": "a6eca6bd1ca3109b3700facb0923f484dba2cbc7",
+  "nativeStorageCommit": "212b3ed2c901b6967c22b1d88f9704eab845a0fd",
+  "implementationIdentity": "Frozen source/test hashes spanning native storage commit and working-tree integration before final local commit; no self-referential final commit hash.",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "checks": [
+    {
+      "kind": "engine",
+      "command": "npm run test:engine",
+      "exitCode": 0,
+      "logSha256": "38c707dd23d944d3465576e8fe3bd691b0d9c5fe459dac4d71fd21beb01b2e20",
+      "tests": 3360,
+      "pass": 3358,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0,
+      "durationMs": 76677.766416
+    },
+    {
+      "kind": "source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=4 packages/engine/src/knowledge/*.test.ts packages/engine/src/runner/host-generation-lease.test.ts packages/engine/src/storage/migrations.test.ts packages/engine/src/recovery/schema-bounds.test.ts",
+      "exitCode": 0,
+      "logSha256": "a7704e3b37488c764aee31211924fea05b3e31992bf043f73ef4645c6cd0e99f",
+      "tests": 316,
+      "pass": 316,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 7559.658542
+    },
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "eval",
+      "command": "node scripts/evaluate-engine.mjs",
+      "exitCode": 0,
+      "logSha256": "717e440bb63f16647ea7a51990eb3d50383b74e6f7be1d52569fcaaee5d2fc7a",
+      "tasks": [
+        {
+          "taskId": "addition-bug",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local"
+        },
+        {
+          "taskId": "empty-list-boundary",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local"
+        },
+        {
+          "taskId": "two-module-change",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local"
+        }
+      ]
+    },
+    {
+      "kind": "supplementary-dist",
+      "command": "node --test packages/engine/dist/knowledge/generation-stream.test.js packages/engine/dist/knowledge/*publication*.test.js",
+      "exitCode": 0,
+      "logSha256": "4176085ec4c9b75d69b25d876322b88a8af97a0ad77a639bd238a9866f42f5c0",
+      "tests": 130,
+      "pass": 130,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 3268.092792
+    }
+  ],
+  "sourceTestPaths": [
+    "packages/engine/src/knowledge/engine-generation.test.ts",
+    "packages/engine/src/knowledge/engine-knowledge.test.ts",
+    "packages/engine/src/knowledge/engine-publication.test.ts",
+    "packages/engine/src/knowledge/generation-archive-relations.test.ts",
+    "packages/engine/src/knowledge/generation-archive.test.ts",
+    "packages/engine/src/knowledge/generation-crash.test.ts",
+    "packages/engine/src/knowledge/generation-request.test.ts",
+    "packages/engine/src/knowledge/generation-service-review.test.ts",
+    "packages/engine/src/knowledge/generation-store.test.ts",
+    "packages/engine/src/knowledge/generation-stream.test.ts",
+    "packages/engine/src/knowledge/host.test.ts",
+    "packages/engine/src/knowledge/publication-archive.test.ts",
+    "packages/engine/src/knowledge/publication-crash.test.ts",
+    "packages/engine/src/knowledge/publication-service.test.ts",
+    "packages/engine/src/knowledge/publication-store.test.ts",
+    "packages/engine/src/knowledge/store.test.ts",
+    "packages/engine/src/runner/host-generation-lease.test.ts",
+    "packages/engine/src/storage/migrations.test.ts",
+    "packages/engine/src/recovery/schema-bounds.test.ts"
+  ],
+  "fileSha256": {
+    "packages/engine/src/engine.ts": "abb5ee1cecbc1d01b40b510ad02e54c3f2dc4178ecbfc10ae7b397eb85e14ae7",
+    "packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts": "780e976b8d2b10ed2aaf5391b7f011a8d4ccb4f7c91236d79f5a586bcddf9a85",
+    "packages/engine/src/knowledge/engine-knowledge.test.ts": "e7a8542513c30675460290f03d2b2d4efc80bb0a8ae5856d8eddbd8de15280ec",
+    "packages/engine/src/knowledge/engine-publication.test.ts": "ba3bacae683a9a8f302c1a5d25ef24d43e22f702a8b64023e6dbc08e40b33ccc",
+    "packages/engine/src/knowledge/fixtures/publication-crash-child.ts": "33cc5d97ffc0fb2a056421ff2ebe1fd7c4826c52609aa2abeac6fe7228cac0a5",
+    "packages/engine/src/knowledge/generation-archive.test.ts": "5978d18375bc2a05474a268b40e428031fff5e8a95f06ce0a2e99516d4e2dd62",
+    "packages/engine/src/knowledge/generation-stream.test.ts": "a4854adb9da248532e14c19177221a32248a9b1978ff223cf2d70aeeab2f489c",
+    "packages/engine/src/knowledge/generation-stream.ts": "35c693f4edcefd0f01181a00089ce4fb5d724dc7ee16270e6b805f36b983a42e",
+    "packages/engine/src/knowledge/host.ts": "1653f2e039b4e66b98c949e7d6a9e37e87982da83795c7c93d5c4bda1aafdc82",
+    "packages/engine/src/knowledge/index.ts": "b8c2258f922b5e8ac62e1407cd58d45484448621866a6e9e52be4a9256a62e78",
+    "packages/engine/src/knowledge/publication-archive-relations.ts": "0e35b307b25d145bce446a926dc86886a741074b7005f7623de567450978b9f3",
+    "packages/engine/src/knowledge/publication-archive.test.ts": "85912201a4db0c9850d2378d448cab5484784769c0a5c4dd697139d1639e5906",
+    "packages/engine/src/knowledge/publication-crash.test.ts": "135327c8e7ecc2c8e6f5f6466e30969d56be43f416a3c32a09a7628213038c6a",
+    "packages/engine/src/knowledge/publication-service.test.ts": "dbf1a273e6d859dec85c2f13df6520ab57569661d9d8f6de04358b3c0cac430f",
+    "packages/engine/src/knowledge/publication-service.ts": "8ba44564ace958fb4e257c3bd6d8480fcf2ff33883b446660df8282c5e5004ec",
+    "packages/engine/src/knowledge/publication-store.test.ts": "208353790aea3afbd7484b3695fda75493f29fd5be32a9e3f5b0acd0e6f3e790",
+    "packages/engine/src/knowledge/publication-store.ts": "4b92823182807bc518174b112461103c4c05fab550abf7203b56cff123fd178f",
+    "packages/engine/src/knowledge/publication-types.ts": "94a9209685ee5ba719a0e4ac6c92944c6c4e3daa833f6ecc1ae9fd74d56f4d60",
+    "packages/engine/src/knowledge/store.ts": "b049c7e997b7ec9a26e8b2263bbf37cb33756e36acdfeea4da259c21bde888ff",
+    "packages/engine/src/recovery/index.ts": "8b76b9a034102daeb8cc17c25e4e054f0ab3765fdd6c6d3ba9c5a720c19a5d29",
+    "packages/engine/src/recovery/schema-bounds.test.ts": "87feee0d3318bb9864eb48d08203b17b73a6a6605e0d012d13951e3e92404be7",
+    "packages/engine/src/storage/archive.ts": "e2350f5a92108475acda032f9005da7bc5fff9a027dd9f0bc8b1846944fe043d",
+    "packages/engine/src/storage/index.ts": "ea791a1c97215f5da9403f8ab861558f052dee2856a729bc5fd7ad07646f64f7",
+    "packages/engine/src/storage/migrations.test.ts": "f89e69d9c87ff562e276a5febd6dce087424a47e2ee790ba96990e103ebf7460",
+    "packages/engine/src/storage/migrations.ts": "d9eaf2fff043d7fa37f414ad9fdd87c02fa83cf4bc12698cff1098c5757f22ce"
+  },
+  "completion": {
+    "goalStatus": "active",
+    "completedWorkItems": 17,
+    "totalWorkItems": 80,
+    "completedFamilies": 2,
+    "totalFamilies": 20,
+    "newlyCompleted": [],
+    "inProgress": [
+      "MC2-03c",
+      "MC2-03d"
+    ],
+    "implementedSupportedLane": "MC2-03c native SQL workspace-document exact publish/update/revoke",
+    "remainingFor03c": "Actual filesystem/skill-file publication backend remains typed unsupported; do not count the complete blueprint item yet."
+  },
+  "actualCrashBoundaries": {
+    "publish": [
+      "prepared",
+      "before SQL COMMIT",
+      "after successful SQL COMMIT"
+    ],
+    "revoke": [
+      "prepared",
+      "before SQL COMMIT",
+      "after successful SQL COMMIT"
+    ],
+    "generationCandidate": [
+      "actual candidate append before native recorded marker"
+    ]
+  },
+  "resolvedGateFailures": [
+    {
+      "kind": "actual-producer-marker-gap",
+      "resolution": "Actual SIGKILL reproduced candidate append-before-marker publication followed by explicit finish changing generation SHA and invalidating revoke/archive. Service and historical publication graph now require recorded plus exact candidate ID before admission. Permanent actual Engine/SIGKILL regression proves no publication effects before finishing, provider replay zero, stable generation SHA after publication and valid revoke/archive."
+    },
+    {
+      "kind": "test-type-inference",
+      "resolution": "A randomUUID default parameter narrowed test requestId to a UUID template literal. Explicit string type restored arbitrary bounded request IDs; final strict typecheck and full compiled tests pass."
+    },
+    {
+      "kind": "source-timeout-boundary",
+      "resolution": "Parallel load legitimately expired the fixture inactivity window before its request deadline. The request-boundary fixture now uses equal valid inactivity/request windows. An intermediate larger inactivity fixture violated the existing budget contract and was corrected. Clipped inactivity timers classify the original request deadline correctly and late timers cannot overwrite an observed cancellation. Four deterministic original provider/timer callback regressions preserve the actual shorter inactivity outcome and original deadline/budget."
+    }
+  ],
+  "limits": [
+    "Publication uses a distinct knowledgePublication:true host opt-in. It does not follow automatically from generation opt-in or candidate creation.",
+    "Only SQL-owned workspace documents are supported. Actual filesystem/skill-file create/overwrite/physical revoke remain unsupported and MC2-03c remains in progress.",
+    "Published documents are not yet consumed by the active ContextPlan. Context projection and explicit imported knowledge recovery remain MC2-03d work.",
+    "Exact historical duplicate/read/receipt does not grant new approval, native owner, provider/tool execution or current-head overwrite. A historical head describes its original commit.",
+    "Revocation appends a positive empty-body revision and preserves history; it does not reset the target to revision zero or physically remove a file.",
+    "Startup cancels uncommitted prepared owners without replay. Completed publication/document/receipt hashes survive reopen/import; imported workspaces stay paused.",
+    "SIGKILL and SQL transaction verification run on local macOS with actual Engine/SQLite/Git/filesystem fixtures, not native Windows proof.",
+    "Evaluation uses three local scripted coding fixtures, not live model quality or actual account access.",
+    "The two existing Windows conditional skips are counted separately, not as passes.",
+    "No GUI/OS sandbox/semantic corpus quality/external deployment/push evidence."
+  ],
+  "environmentDebts": [
+    "E5-13",
+    "E5-08",
+    "E6-07",
+    "E6-08"
+  ]
+}

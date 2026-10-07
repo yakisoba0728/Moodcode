@@ -343,9 +343,13 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 - [x] **MC2-02d** — 실제 native 종료·현재 source·required pass·확정 cleanup에 근거한 task completion, retry/steer/등록 교체·late 결과·restart/import 관측과 자동 재실행 차단.
 - [x] **MC2-03a** — 실제 trust/source/target/plan에 DB11 native generation owner/output/nullable usage/확정 cleanup을 연결하고 immutable pending 후보를 저장했다.
 - [x] **MC2-03b** — 완료 Run 메시지·명시적 파일의 원본 capture, opt-in tools-free 추출, 독립 예산·상한·취소, bounded pending inbox와 reasoning/replay 제외를 검증했다.
-- [ ] **MC2-03c** — exact approval publish/revoke, 기존 target revision·동시 수락 CAS는 다음 구현 범위다.
+- [ ] **MC2-03c** — DB12 native workspace-document에 exact approval publish/update/revoke·head CAS·중복 영수증·취소·실제 COMMIT/SIGKILL·archive를 연결했다. 파일/skill 파일 publication의 실제 OS 어댑터가 남아 진행 중이다. [통합](docs/moodcode/engine-phase-two-knowledge-publication.md).
 - [ ] **MC2-03d** — generation의 실제 SIGKILL/partial/uncertainty·명시적 ACK+별도 resume·paused archive import는 연결했다. 활성 ContextPlan projection·출판 이후 현재성·철회·imported knowledge의 명시적 복구가 남았다.
 
 ### W3 지식 생성 통합
 
 세부17개/80개, 범위2개/20개 완료다. [구현 설명](docs/moodcode/engine-phase-two-knowledge-generation.md)과 [검증 기록](docs/moodcode/engine-phase-two-knowledge-generation-verification.json)을 따른다. 기본 비활성 host API로 실제 generation/attempt/candidate를 저장하며 임의 Run/Session·자동 모델 재실행·자동 출판을 만들지 않는다. 실제 source·target·trust 변경, output/observation/event·시간 상한, 반환 실패와 close, 프로세스 SIGKILL, 후보 append/marker 중간 상태, archive 관계·이전 migration 원자성을 검증했다. GUI·라이브 모델·Windows 증거와 기존 외부 환경 이월4개는 포함하지 않는다.
+
+### W3 승인형 게시 통합
+
+별도 opt-in에서 실제 SQL workspace 문서의 게시·기존 revision 수정·논리적 철회와 원래 영수증을 제공한다. 원본 승인 미리보기, 완료 후보 marker, native producer 역사 tuple, 정확한 현재 head, source/trust/binding 재검사와 한 SQL 트랜잭션의 CAS를 사용한다. actual SIGKILL 및 paused archive import를 포함한다. [구현 설명](docs/moodcode/engine-phase-two-knowledge-publication.md)·[검증 기록](docs/moodcode/engine-phase-two-knowledge-publication-verification.json). 파일/skill publication과 활성 ContextPlan 소비가 남아 완료 수17/80·goal active를 유지한다.

@@ -134,8 +134,12 @@ export async function streamKnowledgeGeneration(options: KnowledgeGenerationStre
   let requestTimer: ReturnType<typeof setTimeout> | undefined, inactivityTimer: ReturnType<typeof setTimeout> | undefined;
   const abort = () => { controller.abort(new EngineError('KNOWLEDGE_GENERATION_CANCELLED', 'Host generation was cancelled.')); };
   options.signal.addEventListener('abort', abort, { once: true }); if (options.signal.aborted) abort();
-  const stopForTimeout = (kind: 'request' | 'inactivity') => { timeout = kind; controller.abort(new EngineError(kind === 'request' ? 'KNOWLEDGE_REQUEST_TIMEOUT' : 'KNOWLEDGE_INACTIVITY_TIMEOUT', 'Host generation deadline expired.')); };
-  function refreshInactivity(): void { if (inactivityTimer !== undefined) clearTimeout(inactivityTimer); inactivityTimer = setTimeout(() => stopForTimeout('inactivity'), Math.max(0, Math.min(requestDeadline - Date.now(), budget.inactivityTimeoutMs))); }
+  const stopForTimeout = (kind: 'request' | 'inactivity') => { if (controller.signal.aborted) return; timeout = kind; controller.abort(new EngineError(kind === 'request' ? 'KNOWLEDGE_REQUEST_TIMEOUT' : 'KNOWLEDGE_INACTIVITY_TIMEOUT', 'Host generation deadline expired.')); };
+  function refreshInactivity(): void {
+    if (inactivityTimer !== undefined) clearTimeout(inactivityTimer);
+    const remaining = requestDeadline - Date.now(), kind = remaining <= budget.inactivityTimeoutMs ? 'request' : 'inactivity';
+    inactivityTimer = setTimeout(() => stopForTimeout(kind), Math.max(0, Math.min(remaining, budget.inactivityTimeoutMs)));
+  }
   function observe(value: Omit<KnowledgeGenerationObservation, 'eventCount'>): void {
     if (callbackFailed) fail('KNOWLEDGE_OBSERVATION_FAILED');
     try { synchronous(options.onObservation(Object.freeze({ ...value, eventCount: events }))); }

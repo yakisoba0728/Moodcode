@@ -38,6 +38,8 @@ import { verificationControllerDocumentKind } from '../verification/controller.j
 import { KnowledgeStorage } from '../knowledge/store.js';
 import { KnowledgeGenerationStorage, hasKnowledgeGenerationBlocker } from '../knowledge/generation-store.js';
 import type { KnowledgeGenerationStoragePorts } from '../knowledge/generation-types.js';
+import { KnowledgePublicationStorage } from '../knowledge/publication-store.js';
+import type { KnowledgePublicationStoragePorts } from '../knowledge/publication-types.js';
 import type { KnowledgeStoragePorts } from '../knowledge/types.js';
 import { validateKnowledgeArchiveRow } from '../knowledge/validation.js';
 import { KnowledgeHostAdapter } from '../knowledge/host.js';
@@ -125,6 +127,7 @@ export class SqliteStore implements SessionEngineStore {
   private readonly providerRecoveryHighWater: string;
   private providerRecovery?: ProviderRecoveryStorage;
   private knowledgeGenerationRecords?: KnowledgeGenerationStorage;
+  private knowledgePublicationRecords?: KnowledgePublicationStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -507,6 +510,11 @@ export class SqliteStore implements SessionEngineStore {
   createKnowledgeHostAdapter(ports: Omit<ConstructorParameters<typeof KnowledgeHostAdapter>[1], 'readTx' | 'getWorkspace'>): KnowledgeHostAdapter {
     this.assertOpen();
     return new KnowledgeHostAdapter(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), readTx: operation => this.transaction(operation, false) });
+  }
+  createKnowledgePublicationStorage(ports: Omit<KnowledgePublicationStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgePublicationStorage {
+    this.assertOpen();
+    if (this.knowledgePublicationRecords) throw new EngineError('KNOWLEDGE_PUBLICATION_ALREADY_CONFIGURED', 'Native publication storage already has a host owner');
+    return this.knowledgePublicationRecords = new KnowledgePublicationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.transaction(operation) });
   }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
   pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string): void {

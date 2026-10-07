@@ -138,8 +138,11 @@
         {
           "id": "MC2-03c",
           "completion": "exact publish/revoke·dedupe·동시 수락 CAS",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-knowledge-publication.md",
+            "engine-phase-two-knowledge-publication-verification.json"
+          ]
         },
         {
           "id": "MC2-03d",
@@ -151,7 +154,7 @@
           ]
         }
       ],
-      "notes": "Actual opt-in tools-free host generation is connected to native DB11 owners, independently bounded request/stream/usage/cleanup, completed-source capture and immutable pending candidates/inbox. SIGKILL recovery preserves cancelled/uncertain/completed outcomes without producer replay; exact host acknowledgment plus separate workspace resume does not wake pending inputs. Archive graph validation and paused historical import preserve native output/usage/candidates. Existing target revisions, exact publish/revoke and active ContextPlan projection remain unfinished MC2-03c/d; no file publication or automatic imported-knowledge recovery."
+      "notes": "Opt-in native tools-free generation and immutable candidates are integrated. DB12 adds a separately opted-in exact host approval lane for real workspace-document publish/update/revoke, atomic head CAS/document/publication/receipt, original deadline/cancel handling, historical producer proof, actual SIGKILL commit boundaries and paused archive import. Actual filesystem/skill-file publication remains typed unsupported, so MC2-03c remains in progress. Active ContextPlan projection and explicit imported-knowledge recovery remain MC2-03d. No automatic producer replay, publication or queued input wake."
     },
     {
       "id": "MC2-04",
@@ -754,5 +757,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-07T16:51:30.876201+00:00"
+  "updatedAt": "2026-10-07T17:35:01.491828+00:00"
 }

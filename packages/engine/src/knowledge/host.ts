@@ -24,6 +24,8 @@ export interface KnowledgeHostAdapterPorts {
   readonly checkHostBinding: (workspaceId: string) => KnowledgeHostBinding;
   /** Existing file targets need an actual host version owner; none is invented from existence. */
   readonly readFileTargetRevision?: (binding: KnowledgeHostBinding, path: string) => number;
+  /** Actual workspace-owned document head; Session documents cannot supply this port. */
+  readonly readWorkspaceDocumentTarget?: (binding: KnowledgeHostBinding, key: string) => Extract<KnowledgeTarget, { kind: 'workspace-document' }>;
 }
 type ProjectionEntry = { readonly kind: 'message'; readonly id: string; readonly sessionId: string; readonly runId: string; readonly role: 'user' | 'assistant' | 'tool'; readonly content: string }
   | { readonly kind: 'file'; readonly path: string; readonly content: string };
@@ -39,7 +41,7 @@ export class KnowledgeHostAdapter {
   readonly #captures = new WeakMap<object, Capture>();
   readonly #active = new Set<object>();
   constructor(db: DatabaseSync, ports: KnowledgeHostAdapterPorts) {
-    if (!ports || typeof ports.readTx !== 'function' || typeof ports.getWorkspace !== 'function' || typeof ports.checkHostBinding !== 'function' || ports.readFileTargetRevision !== undefined && typeof ports.readFileTargetRevision !== 'function') knowledgeError('INVALID_KNOWLEDGE_PORTS', 'Knowledge host adapter requires synchronous read/binding ports');
+    if (!ports || typeof ports.readTx !== 'function' || typeof ports.getWorkspace !== 'function' || typeof ports.checkHostBinding !== 'function' || ports.readFileTargetRevision !== undefined && typeof ports.readFileTargetRevision !== 'function' || ports.readWorkspaceDocumentTarget !== undefined && typeof ports.readWorkspaceDocumentTarget !== 'function') knowledgeError('INVALID_KNOWLEDGE_PORTS', 'Knowledge host adapter requires synchronous read/binding ports');
     this.#db = db; this.#ports = Object.freeze({ ...ports }); Object.freeze(this);
   }
   private read<T>(operation: () => T): T {
@@ -189,9 +191,21 @@ export class KnowledgeHostAdapter {
   captureFileTarget(workspaceId: string, relative: string): Extract<KnowledgeTarget, { kind: 'workspace-file' }> {
     exactKnowledgePath(relative); return this.read(() => this.target(this.binding(workspaceId), relative));
   }
+  private documentTarget(binding: KnowledgeHostBinding, key: string): Extract<KnowledgeTarget, { kind: 'workspace-document' }> {
+    identifier(key); this.currentBinding(binding);
+    if (!this.#ports.readWorkspaceDocumentTarget) knowledgeError('KNOWLEDGE_WORKSPACE_DOCUMENT_UNSUPPORTED', 'Workspace document storage requires its actual workspace-owned revision port');
+    const target = validateTarget(this.#ports.readWorkspaceDocumentTarget(binding, key));
+    if (target.kind !== 'workspace-document' || target.key !== key) knowledgeError('KNOWLEDGE_TARGET_CHANGED', 'Native document target does not match its requested workspace key');
+    this.currentBinding(binding); return target;
+  }
+  captureDocumentTarget(workspaceId: string, key: string): Extract<KnowledgeTarget, { kind: 'workspace-document' }> {
+    identifier(key); return this.read(() => this.documentTarget(this.binding(workspaceId), key));
+  }
   assertTargetCurrent(inputBinding: KnowledgeHostBinding, inputTarget: KnowledgeTarget): void {
     const binding = validateBinding(inputBinding), target = validateTarget(inputTarget);
-    if (target.kind === 'workspace-document') knowledgeError('KNOWLEDGE_WORKSPACE_DOCUMENT_UNSUPPORTED', 'Workspace document storage is not implemented; session documents cannot substitute for it');
+    if (target.kind === 'workspace-document') {
+      this.read(() => equal(this.documentTarget(binding, target.key), target, 'KNOWLEDGE_TARGET_CHANGED')); return;
+    }
     this.read(() => {
       if (target.revision === 0) {
         if (!this.absent(binding, target.path)) knowledgeError('KNOWLEDGE_TARGET_CHANGED', 'Captured absent target was created after its host preview');

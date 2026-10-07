@@ -30,7 +30,7 @@ async function fixture(t: test.TestContext) {
 
 test('actual engine stores trusted pending knowledge without manufacturing execution or publishing a candidate', async t => {
   const f = await fixture(t), prepared = f.prepare(), plan = await prepared.promise;
-  assert.equal(DB_VERSION, 11); assert.equal(plan.state, 'pending'); assert.equal(plan.toolCount, 0); assert.equal(plan.source.sha256, prepared.projection.manifest.sha256);
+  assert.equal(DB_VERSION, 12); assert.equal(plan.state, 'pending'); assert.equal(plan.toolCount, 0); assert.equal(plan.source.sha256, prepared.projection.manifest.sha256);
   assert.equal(plan.target.kind, 'workspace-file'); assert.equal(f.engine.workspaceKnowledge.getGenerationPlan(f.workspace.id, plan.id)!.id, plan.id);
   assert.equal(f.engine.store.getSnapshot(f.session.id).runs.length, 0); assert.equal(f.engine.store.listInputs(f.session.id).inputs.length, 0);
   assert.throws(() => f.engine.workspaceKnowledge.attachGenerationOwner(f.workspace.id, plan.id, 'invented-owner'));

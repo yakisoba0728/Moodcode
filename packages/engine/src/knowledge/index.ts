@@ -5,3 +5,6 @@ export type * from './generation-types.js';
 export { KnowledgeGenerationStorage, KNOWLEDGE_GENERATION_SCHEMA_SQL, KNOWLEDGE_GENERATION_TABLES } from './generation-store.js';
 export { DEFAULT_KNOWLEDGE_GENERATION_BUDGET, normalizeKnowledgeGenerationBudget } from './generation-budget.js';
 export type { WorkspaceKnowledgeGenerationInput, WorkspaceKnowledgeGenerationResult } from './generation-service.js';
+export type * from './publication-types.js';
+export { KnowledgePublicationStorage, KNOWLEDGE_PUBLICATION_SCHEMA_SQL, KNOWLEDGE_PUBLICATION_TABLES } from './publication-store.js';
+export type { KnowledgePublicationPreview, WorkspaceKnowledgePublicationInput, WorkspaceKnowledgePublicationResult } from './publication-service.js';

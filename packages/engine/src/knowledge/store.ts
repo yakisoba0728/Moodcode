@@ -108,7 +108,7 @@ export class KnowledgeStorage {
   private assertBinding(binding: KnowledgeHostBinding): void {
     if (knowledgeHash(binding) !== knowledgeHash(this.readHostBinding(binding.workspaceId))) knowledgeError('KNOWLEDGE_BINDING_MISMATCH', 'Knowledge was captured under another root or storage binding');
   }
-  private assertUnpaused(workspaceId: string): void {
+  assertUnpaused(workspaceId: string): void {
     if (this.getImportPause(workspaceId)) knowledgeError('KNOWLEDGE_IMPORT_PAUSED', 'Imported knowledge requires explicit host recovery before generation or publication');
   }
   private unexpired(expiresAt: string | null, current: string): void {

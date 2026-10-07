@@ -106,8 +106,46 @@ test('late unresolved next completion after timeout has no callback or candidate
 test('original request deadline and cleanup ceiling cannot be reset by progress observations', async () => {
   const f = fixture([], { neverDone: true, close: 'hang' });
   f.iterator.next = async () => { await new Promise(resolve => setTimeout(resolve, 7)); return { done: false, value: { type: 'progress', providerRequestId: 'fixed' } }; };
-  const started = Date.now(); const result = await streamKnowledgeGeneration({ ...f.options, deadline: started + 35, budget: budgets({ providerRequestTimeoutMs: 25, inactivityTimeoutMs: 20, cleanupTimeoutMs: 25 }) });
+  // Isolate the original request boundary: a shorter inactivity window can legitimately
+  // expire first when the event loop delays the fixture's progress events under load.
+  const started = Date.now(); const result = await streamKnowledgeGeneration({ ...f.options, deadline: started + 35, budget: budgets({ providerRequestTimeoutMs: 25, inactivityTimeoutMs: 25, cleanupTimeoutMs: 25 }) });
   assert.equal(result.state, 'uncertain'); assert.equal(result.errorCode, 'KNOWLEDGE_REQUEST_TIMEOUT'); assert.ok(Date.now() - started < 120); assert.equal(f.counters.entered, 1);
+});
+
+for (const scenario of [
+  { name: 'equal request/inactivity deadline', requestMs: 25, inactivityMs: 25, dispatchElapsed: 0, expected: 'KNOWLEDGE_REQUEST_TIMEOUT' },
+  { name: 'inactivity clipped by remaining original request', requestMs: 100, inactivityMs: 25, dispatchElapsed: 80, expected: 'KNOWLEDGE_REQUEST_TIMEOUT' },
+  { name: 'genuinely shorter inactivity deadline', requestMs: 100, inactivityMs: 25, dispatchElapsed: 0, expected: 'KNOWLEDGE_INACTIVITY_TIMEOUT' },
+]) test(`actual pending producer ${scenario.name} preserves its correct timeout classification`, async t => {
+  const start = Date.now(); t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: start });
+  const timers = t.mock.method(globalThis, 'setTimeout'), f = fixture([], { neverDone: true });
+  const operation = streamKnowledgeGeneration({ ...f.options, budget: budgets({ providerRequestTimeoutMs: scenario.requestMs, inactivityTimeoutMs: scenario.inactivityMs }),
+    onDispatch() { f.options.onDispatch(); t.mock.timers.setTime(start + scenario.dispatchElapsed); } });
+  await f.entered;
+  const remaining = scenario.requestMs - scenario.dispatchElapsed, inactivity = timers.mock.calls[1]!.arguments;
+  assert.equal(inactivity[1], Math.min(remaining, scenario.inactivityMs));
+  t.mock.timers.setTime(start + scenario.dispatchElapsed + Math.min(remaining, scenario.inactivityMs));
+  // Execute the real scheduled callback first to cover either timer callback winning a tie.
+  (inactivity[0] as () => void)();
+  const result = await operation;
+  assert.equal(result.errorCode, scenario.expected); assert.equal(result.state, 'failed'); assert.equal(result.cleanup.confirmed, true);
+  assert.equal((f.signal!.reason as EngineError).code, scenario.expected); assert.equal(f.counters.next, 1); assert.equal(f.counters.returned, 1);
+  assert.equal(f.counters.settlements, 1); assert.equal(result.candidate?.state, 'withheld'); assert.equal(result.events, 0);
+});
+
+test('late request/inactivity timer callbacks cannot reclassify an already observed caller cancellation', async t => {
+  const start = Date.now(); t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: start });
+  const timers = t.mock.method(globalThis, 'setTimeout'), f = fixture([], { neverDone: true });
+  const operation = streamKnowledgeGeneration({ ...f.options, budget: budgets({ providerRequestTimeoutMs: 25, inactivityTimeoutMs: 25 }) });
+  await f.entered; f.controller.abort();
+  t.mock.timers.setTime(start + 25);
+  // Until's abort rejection has not resumed the async owner yet; both queued callbacks
+  // can still run before its finally clears timers. The first owned reason must survive.
+  for (const timer of timers.mock.calls.slice(0, 2)) (timer.arguments[0] as () => void)();
+  const result = await operation;
+  assert.equal(result.state, 'cancelled'); assert.equal(result.errorCode, 'KNOWLEDGE_GENERATION_CANCELLED');
+  assert.equal((f.signal!.reason as EngineError).code, 'KNOWLEDGE_GENERATION_CANCELLED');
+  assert.equal(result.cleanup.confirmed, true); assert.equal(f.counters.returned, 1); assert.equal(f.counters.settlements, 1); assert.equal(result.events, 0);
 });
 
 test('adapter-owned transport cleanup uncertainty survives a later closed iterator return', async () => {

@@ -16,6 +16,7 @@ import test, { type TestContext } from 'node:test';
 import type { JsonObject, Workspace } from '@moodcode/contracts';
 import { createEngine } from '../engine.js';
 import type { ProviderAdapter, ProviderEvent } from '../ports.js';
+import { DB_VERSION } from '../storage/migrations.js';
 import {
   exportEngineArchive,
   importEngineArchive,
@@ -165,7 +166,7 @@ test('DB11 archive preserves actual native generation output/usage/candidate and
   assert.equal(
     archived.manifest.databases.find((item) => item.role === 'primary')!
       .schemaVersion,
-    11,
+    DB_VERSION,
   );
   validateEngineArchive({ directory: archived.directory });
   const imported = await importEngineArchive({
