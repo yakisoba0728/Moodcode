@@ -37,6 +37,7 @@ import { McpClient, registerMcp, type McpRegistration } from './mcp/index.js';
 import { AgentProfiles, type AgentProfileSpec } from './agents/index.js';
 import { TerminalService, SqliteTerminalJournal, type PtyBackend } from './terminals/index.js';
 import { EngineChildren, type EngineChildRequest } from './child-tasks/engine-host.js';
+import type { ChildStorageHostIdentity } from './child-tasks/storage-binding.js';
 import type { ChildTaskManager, ChildTaskRecord } from './child-tasks/index.js';
 import type { WorktreeManager } from './worktrees/index.js';
 import { createChildMergeTool } from './child-tasks/merge.js';
@@ -59,9 +60,13 @@ import { validateMediaHistoryPolicy, type MediaHistoryPolicy } from './context/m
 import { validateActivePrefixPolicy, type ActivePrefixPolicy } from './context/active-prefix.js';
 import { validateDocumentHistoryPolicy, type DocumentHistoryPolicy } from './context/document-history.js';
 import { inspectEngineStorage, type StorageUsageReport, type StorageUsageLimits } from './diagnostics/storage-usage.js';
+import { validateChildDocumentStorageRequest, inspectChildDocumentStorage, type ChildDocumentStorageRequest, type ChildDocumentStorageReport } from './diagnostics/child-document-storage.js';
+import { createChildDocumentReadFrame } from './storage/child-document-reader.js';
 
 export interface EngineStorageUsageOptions { signal?: AbortSignal; limits?: Partial<StorageUsageLimits> }
 export type EngineStorageUsageReport = StorageUsageReport;
+export type EngineChildDocumentStorageOptions = ChildDocumentStorageRequest;
+export type EngineChildDocumentStorageReport = ChildDocumentStorageReport;
 
 export type RestoreCommandResult = RestoreResult & {
   operationId: string;
@@ -204,6 +209,8 @@ export class MoodcodeEngine {
   private readonly pendingImages = new Set<Promise<unknown>>();
   private readonly pendingStorage = new Set<Promise<unknown>>();
   private readonly storagePaths: { artifactDir: string; dbPath?: string };
+  private readonly childStorageIdentity: ChildStorageHostIdentity;
+  private readonly verifyChildStorageIdentity: () => void;
   private readonly validateImageInput: (sessionId: string, config: RunConfig, refs: InputImageAttachment[]) => Promise<void>;
   private readonly validateDocumentInput: (sessionId: string, config: RunConfig, refs: InputDocumentAttachment[]) => Promise<void>;
   private readonly managedArtifacts: () => Promise<ArtifactStore>;
@@ -260,6 +267,14 @@ export class MoodcodeEngine {
         database: canonicalDbPath ? physicalIdentity(canonicalDbPath) : { memory: randomUUID() },
         artifacts: physicalIdentity(this.storagePaths.artifactDir),
       };
+      this.childStorageIdentity = storageBinding;
+      this.verifyChildStorageIdentity = () => {
+        try {
+          const database = canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database;
+          const artifacts = physicalIdentity(this.storagePaths.artifactDir);
+          if (JSON.stringify({ database, artifacts }) !== JSON.stringify(storageBinding)) throw new Error('changed');
+        } catch { throw new EngineError('CHILD_STORAGE_HOST_CHANGED', 'Child storage inspection requires the unchanged host storage identity'); }
+      };
       const recoveryBinding = (workspaceId: string) => {
         const database = canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database;
         const artifacts = physicalIdentity(this.storagePaths.artifactDir);
@@ -284,7 +299,7 @@ export class MoodcodeEngine {
       this.lsp = new LspManager();
       this.formatters = new FormatterRegistry();
       this.changes = new WorkspaceChangeHub({ signal: this.hostResources.signal });
-      this.children = new EngineChildren(this, { ...options, ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value));
+      this.children = new EngineChildren(this, { ...options, ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value), storageBinding);
       terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
@@ -860,6 +875,33 @@ export class MoodcodeEngine {
     const operation = inspectEngineStorage({ ...this.storagePaths, signal, ...(options.limits === undefined ? {} : { limits: options.limits }), imageIndex, documentIndex });
     this.pendingStorage.add(operation);
     try { return await operation; } finally { this.pendingStorage.delete(operation); }
+  }
+
+  /** Explicit bounded index observation of selected, durably bound managed children. */
+  async getChildDocumentStorageUsage(value: EngineChildDocumentStorageOptions): Promise<EngineChildDocumentStorageReport> {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    const options = validateChildDocumentStorageRequest(value);
+    const signal = options.signal === undefined ? this.hostResources.signal : AbortSignal.any([options.signal, this.hostResources.signal]);
+    const operation = (async () => {
+      const { maxReportBytes: _maxReportBytes, ...readLimits } = options.limits;
+      const frame = createChildDocumentReadFrame({ signal, limits: readLimits });
+      frame.check();
+      this.verifyChildStorageIdentity();
+      const sources = this.store.inspectChildDocumentStorageSources({
+        sessionId: options.sessionId, sourceRunId: options.sourceRunId, taskIds: options.taskIds,
+        hostIdentity: this.childStorageIdentity, childrenDirectory: this.children.getStorageDirectory(), signal,
+      }, frame);
+      const report = await inspectChildDocumentStorage({ ...sources, frame, limits: options.limits });
+      if (signal.aborted) throw new EngineError('CANCELLED', 'Child storage inspection was cancelled');
+      this.verifyChildStorageIdentity();
+      return report;
+    })();
+    this.pendingStorage.add(operation);
+    try { return await operation; }
+    catch (error) {
+      if (signal.aborted) throw new EngineError('CANCELLED', 'Child storage inspection was cancelled');
+      throw error;
+    } finally { this.pendingStorage.delete(operation); }
   }
 
   importImage(sessionId: string, data: Uint8Array, mimeType: InputImageAttachment['mimeType'], signal?: AbortSignal): Promise<InputImageAttachment> {

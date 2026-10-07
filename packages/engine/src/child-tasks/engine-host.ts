@@ -6,6 +6,13 @@ import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
 import type { MoodcodeEngine, EngineOptions } from "../engine.js";
 import { createApprovedDelegationHost } from "./delegation-host.js";
 import type { DelegationHost } from "./delegation.js";
+import {
+  admitChildStorageBinding,
+  confirmChildStorageClosed,
+  prepareChildStorageBinding,
+  validateChildStorageHostIdentity,
+  type ChildStorageHostIdentity,
+} from './storage-binding.js';
 import { WorktreeManager } from "../worktrees/index.js";
 import {
   ChildTaskManager,
@@ -49,12 +56,15 @@ export class EngineChildren {
   private readonly admissions = new Map<string, Admission>();
   private readonly executions = new Map<string, Execution>();
   private readonly recoveredSessions = new Set<string>();
+  private readonly storageIdentity?: ChildStorageHostIdentity;
   constructor(
     private readonly root: MoodcodeEngine,
     private readonly options: EngineOptions,
     directory: string,
     private readonly create: (options: EngineOptions) => MoodcodeEngine,
+    hostIdentity?: ChildStorageHostIdentity,
   ) {
+    this.storageIdentity = hostIdentity === undefined ? undefined : validateChildStorageHostIdentity(hostIdentity);
     mkdirSync(directory, { recursive: true, mode: 0o700 });
     this.directory = realpathSync(directory);
     this.worktrees = new WorktreeManager({
@@ -111,6 +121,7 @@ export class EngineChildren {
       },
     });
   }
+  getStorageDirectory(): string { return this.directory; }
   private parent(
     sessionId: string,
     runId: string,
@@ -360,12 +371,25 @@ export class EngineChildren {
         session.id,
         engine.getCapabilities().defaults,
       );
+      const admission = this.admissions.get(JSON.stringify([request.task.sessionId, request.task.requestId]));
+      if (!admission) throw new EngineError('CHILD_ADMISSION_MISSING', 'Child storage binding requires its original host admission');
+      const preparedStorage = this.storageIdentity === undefined ? undefined : prepareChildStorageBinding(this.root.store, engine.store, {
+        task: request.task,
+        requestFingerprint: admission.fingerprint,
+        hostIdentity: this.storageIdentity,
+        childrenDirectory: this.directory,
+        worktree: this.worktrees.get(request.task.sessionId, request.task.worktreeId),
+        workspace: request.workspace,
+        childSessionId: session.id,
+      });
       const receipt = engine.scheduler.submitLegacy({
         sessionId: session.id,
         requestId: request.task.id,
         prompt: request.prompt,
         config,
       });
+      // Both durable admissions finish synchronously before the scheduler's provider microtask.
+      const admittedStorage = preparedStorage ? admitChildStorageBinding(this.root.store, engine.store, preparedStorage, receipt.runId) : undefined;
       const cancel = () => {
         void engine.coordinator.cancel(receipt.runId);
       };
@@ -407,6 +431,8 @@ export class EngineChildren {
           unlink?.();
           await engine.close();
           execution.closed = true;
+          // The admitted child mirror remains immutable. Only the root records host-observed close.
+          if (admittedStorage) confirmChildStorageClosed(this.root.store, admittedStorage);
         });
       void finished.catch(() => {});
       execution.wait = () => finished;

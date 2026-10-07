@@ -21,6 +21,8 @@ import { readActiveHistoryWindow, withSessionDocumentAnchor, withSessionImageAnc
 import { putAttemptUsage, type AttemptUsageRecord, type AttemptUsageSnapshot } from './native-usage.js';
 import { inspectInputImageIndex, type InputImageIndexOptions, type InputImageIndexReport } from './input-image-index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexOptions, type InputDocumentIndexReport } from './input-document-index.js';
+import { readChildStorageSelection, type ChildStorageSelectionOptions, type ChildStorageSelectionReport, type ChildStorageSelectionBudget } from '../child-tasks/storage-binding.js';
+import type { ChildDocumentReadFrame } from './child-document-reader.js';
 import { readActivePrefixSourceDatabase, validateActivePrefixPublication } from './active-prefix.js';
 import { SummaryAttemptStorage, type SummaryAttemptIdentity, type SummaryAttemptRecord, type SummaryAttemptListOptions, type SummaryAttemptPage, type SummaryObservation, type SummarySettlement, type SummaryUsageRecord } from './summary-attempts.js';
 import { SummaryRecoveryStorage, captureSummaryRecoveryHighWater, type SummaryRecoveryRequest } from '../recovery/summary.js';
@@ -803,6 +805,27 @@ export class SqliteStore implements SessionEngineStore {
   }
   inspectInputDocumentIndex(options?: InputDocumentIndexOptions): InputDocumentIndexReport {
     return this.transaction(() => inspectInputDocumentIndex(this.db, options), false);
+  }
+  inspectChildStorageSelection(options: ChildStorageSelectionOptions, budget?: ChildStorageSelectionBudget): ChildStorageSelectionReport {
+    return this.transaction(() => readChildStorageSelection(this.db, options, budget), false);
+  }
+  /** Root owner selection and index share one primary read snapshot and one cumulative budget. */
+  inspectChildDocumentStorageSources(options: ChildStorageSelectionOptions, frame: ChildDocumentReadFrame): { selection: ChildStorageSelectionReport; rootIndex?: InputDocumentIndexReport } {
+    return this.transaction(() => {
+      frame.check();
+      const selection = readChildStorageSelection(this.db, options, frame);
+      if (frame.remainingMetadataBytes < 1 || frame.remainingRefs < 1 || frame.remainingRows < 3) return { selection };
+      frame.check();
+      const rootIndex = inspectInputDocumentIndex(this.db, {
+        maxDocuments: Math.min(64, Math.floor(frame.remainingRows / 3)),
+        maxJsonBytes: Math.min(frame.remainingMetadataBytes, 4_194_304),
+        maxRefs: Math.min(frame.remainingRefs, 2048),
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      });
+      frame.chargeIndex(rootIndex);
+      frame.check();
+      return { selection, rootIndex };
+    }, false);
   }
   readEvents(sessionId: string, afterSeq: number, limit = PAGE_SIZE): EngineEvent[] {
     cursor(afterSeq);

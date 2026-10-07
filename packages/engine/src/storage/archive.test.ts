@@ -257,3 +257,9 @@ test('archive rejects cross-owner PDF index payload without rewriting archived e
   }
   store.close();await assert.rejects(exportEngineArchive(f.source),code('ARCHIVE_FILE_LIMIT'));assert.equal(existsSync(f.destination),false);assert.equal(existsSync(join(f.artifactDir,'input-documents')),false);
 });
+test('archive import rejects an indexed primary PDF omitted from the manifest member allowlist',async t=>{
+  const f=fixture(t),store=new SqliteStore(f.dbPath);f.stores.push(store);const run=store.getRun(V1_DATABASE_FIXTURE.ids.activeRunId),{DocumentAttachmentStore}=await import('../documents/store.js');
+  const ref=await new DocumentAttachmentStore({directory:join(f.artifactDir,'input-documents'),documents:store}).import(run.sessionId,Buffer.from('%PDF-1.7\nListed member required\n'));store.close();
+  await exportEngineArchive(f.source);const path=join(f.destination,'data','manifest.json'),manifest=JSON.parse(readFileSync(path,'utf8'));manifest.artifacts=manifest.artifacts.filter((item:{file:string})=>item.file!==`artifacts/input-documents/${ref.id}.blob`);writeFileSync(path,JSON.stringify(manifest,null,2)+'\n');
+  assert.throws(()=>validateEngineArchive({directory:f.destination}),code('ARCHIVE_DOCUMENT_REFERENCE_INVALID'));const target=join(f.directory,'omitted-document-import');await assert.rejects(importEngineArchive({directory:f.destination,destination:target}),code('ARCHIVE_DOCUMENT_REFERENCE_INVALID'));assert.equal(existsSync(target),false);
+});

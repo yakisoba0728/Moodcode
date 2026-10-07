@@ -1,4 +1,4 @@
-export { createEngine, MoodcodeEngine, type EngineOptions, type RestoreCommandResult, type ReviewHistoryResult, type EngineStorageUsageOptions, type EngineStorageUsageReport } from './engine.js';
+export { createEngine, MoodcodeEngine, type EngineOptions, type RestoreCommandResult, type ReviewHistoryResult, type EngineStorageUsageOptions, type EngineStorageUsageReport, type EngineChildDocumentStorageOptions, type EngineChildDocumentStorageReport } from './engine.js';
 export type * from './ports.js';
 export { ScriptedProvider, OpenAICompatibleProvider, ResponsesProvider } from './provider/index.js';
 export type { ScriptedTurn, OpenAICompatibleProviderOptions, ResponsesProviderOptions } from './provider/index.js';
@@ -35,6 +35,8 @@ export type { MediaHistoryPolicy, MediaHistoryOptions, ImageHistoryProvenance, M
 export { inspectEngineStorage, DEFAULT_STORAGE_USAGE_LIMITS } from './diagnostics/storage-usage.js';
 export type { StorageUsageOptions, StorageUsageReport, StorageUsageLimits, StorageUsageGroup, StorageImageIndex, StorageUsageSample } from './diagnostics/storage-usage.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './storage/input-image-index.js';
+export type { InputDocumentIndexOptions, InputDocumentIndexReport } from './storage/input-document-index.js';
+export type { ChildDocumentStorageRequest, ChildDocumentStorageReport, ChildDocumentStorageLimits } from './diagnostics/child-document-storage.js';
 export { SemanticMemoryService, SEMANTIC_MEMORY_PREFIX } from './context/semantic-memory.js';
 export type { SemanticCheckpoint } from './context/semantic-memory.js';
 export type { ProviderRecoveryRequest, ProviderRecoveryReceipt, ProviderRecoveryPreview } from './recovery/provider-contract.js';
@@ -64,6 +66,7 @@ export { LocalReferenceService, createLocalReferenceTools } from './tools/sessio
 export { AgentProfiles } from './agents/index.js';
 export type { AgentProfile, AgentProfileSpec } from './agents/index.js';
 export { exportEngineArchive, validateEngineArchive, importEngineArchive } from './storage/archive.js';
+export type { EngineArchiveManifest, EngineArchiveResult, ImportedEngineArchive, ArchiveDocumentAudit, ExportEngineArchiveOptions, ImportEngineArchiveOptions } from './storage/archive.js';
 export * from './terminals/index.js';
 export * from './worktrees/index.js';
 export * from './child-tasks/index.js';
