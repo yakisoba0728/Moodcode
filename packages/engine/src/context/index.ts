@@ -407,6 +407,13 @@ export async function buildContext(request: ContextRequest, options: { requiredO
     cost += entryCost(verificationContinuation); count++;
   }
   const semantic = request.semanticMemory, prefixMemory = request.activePrefixMemory;
+  const lifecycleContinuation = request.lifecycleContinuation;
+  if (lifecycleContinuation) {
+    if (lifecycleContinuation.role !== 'user' || typeof lifecycleContinuation.content !== 'string' || !lifecycleContinuation.content.startsWith('[Moodcode lifecycle continuation v1]\n')
+      || Buffer.byteLength(lifecycleContinuation.content) > 8192 || Object.keys(lifecycleContinuation).some(key => !['role', 'content'].includes(key)) || arrayBytes(cost + entryCost(lifecycleContinuation), count + 1) > limit)
+      throw new EngineError('LIFECYCLE_CONTEXT_LIMIT', 'Required lifecycle continuation must fit the original context budget as complete host control data');
+    cost += entryCost(lifecycleContinuation); count++;
+  }
   for (const memory of [semantic, prefixMemory]) {
     if (!memory) continue;
     if (memory.role !== 'assistant' || typeof memory.content !== 'string' || arrayBytes(cost + entryCost(memory), count + 1) > limit) {
@@ -463,5 +470,5 @@ export async function buildContext(request: ContextRequest, options: { requiredO
   }
   checkAbort(request.signal);
   const messages = blocks.filter(item => selected.has(item)).flatMap((item) => item.messages);
-  return [...(system ? [system] : []), ...(profile ? [profile] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...(prefixMemory ? [prefixMemory] : []), ...(mediaNotice ? [mediaNotice] : []), ...(documentNotice ? [documentNotice] : []), ...messages, ...(verificationContinuation ? [verificationContinuation] : [])];
+  return [...(system ? [system] : []), ...(profile ? [profile] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...(prefixMemory ? [prefixMemory] : []), ...(mediaNotice ? [mediaNotice] : []), ...(documentNotice ? [documentNotice] : []), ...messages, ...(verificationContinuation ? [verificationContinuation] : []), ...(lifecycleContinuation ? [lifecycleContinuation] : [])];
 }

@@ -299,7 +299,7 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 - [x] **MC2-01 — 저장소 문맥·LSP navigation**: P1 · W1. frozen ContextSource/snippets·공유 byte 예약·native Attempt freshness와 실제 TS7 서버를 연결했다. 512개 모듈 코퍼스·독립 정답·실제 Moodcode 위치·미개방 source/config/branch/worktree 변경·cap/partial/cancel·시간/디스크·실제 종료를 검증했다. 자동 관련 path/ranking과 외부 compiler input의 완전성은 이 지원 범위에 포함하지 않는다. [통합](docs/moodcode/engine-phase-two-native-typescript.md).
 - [x] **MC2-02 — 검증 계획·제한 repair·완료 gate**: P1 · W2/W3. 원본 명령 capability·실제 취소 결과/unsupported·같은 Run의 제한 repair와 원래 budget·stalled/blocked·현재 source 및 cleanup에 근거한 task completion을 연결했다. restart/import/late 결과는 자동 재실행하지 않는다. [통합](docs/moodcode/engine-phase-two-w3.md).
 - [ ] **MC2-03 — 지침 신뢰·승인형 프로젝트 기억**: P1 · W3. 실제 Engine의 workspace trust/CAS·source/target capture·pending plan·DB10 및 archive import pause 기반 연결. DB11 native tools-free generation/output/usage·pending candidate/inbox·실제 강제 종료 복구까지 연결. DB12 exact publish/update/revoke와 승인 문서의 실제 ContextPlan 소비까지 연결했다. 파일/skill publication과 imported knowledge의 명시적 복구 잔여. [생성](docs/moodcode/engine-phase-two-knowledge-generation.md)·[문맥 소비](docs/moodcode/engine-phase-two-knowledge-context.md).
-- [ ] **MC2-04 — typed lifecycle·policy hook**: P1 · W1. host registry·observe/deny/stop·native 경계·child 공유 연결. 검증 전용 continuation은 고정 ContextPlan과 같은 Run에 연결했고, 일반 typed hook의 context/input rewrite·continuation 계약은 잔여.
+- [x] **MC2-04 — typed lifecycle·policy hook**: P1 · W1/W2. ordered pre-prepare input rewrite·최종 exact approval·원본 base 문맥 보존·전체 ContextRevision/Attempt digest와 opt-in same-Run continuation을 연결했다. 실제 verified receipt/Turn/Attempt/cleanup/command checkpoint·native CAS·원래 예산·stale/retry/post-effect/restart를 검증했다. [구현·검증](docs/moodcode/engine-phase-two-lifecycle-transforms.md).
 - [ ] **MC2-05 — 적용 전 ProposalSet overlay**: P2 · W4. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-06 — 상주 child·팀 mailbox·board**: P2 · W4. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-07 — 역할 workflow·recipe·child join**: P2 · W4. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
@@ -319,7 +319,7 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 
 ### W1/W2에서 완료한 세부 작업
 
-W1/W2에서 완료한12개, native TypeScript 검증 포함 현재 누적18개/전체80개. 범위별 남은 조건은 위 항목과 진행 JSON에 유지한다.
+W1/W2에서 완료한12개, native TypeScript·typed lifecycle 연결 포함 현재 누적20개/전체80개. 범위별 남은 조건은 위 항목과 진행 JSON에 유지한다.
 
 - [x] **MC2-01a** — selected source snapshot·hash/host parser routing/ignore revision·generation CAS.
 - [x] **MC2-01b** — bounded LSP symbols/definitions/references·stale/unsupported·실제 read tool/host API.
@@ -360,4 +360,7 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 
 ### 실제 TypeScript 의미 분석 통합
 
-- [x] **MC2-01d** — host 명시적 native TS7 executable/version과 bounded project source digest를 연결하고 실제 512개 모듈의 독립 정답8개·Moodcode 정답2개를 대조했다. 미개방 dependency/config 변경, UTF-16/BOM/CRLF, partial compile·ignored/outside·참조 상한, branch/worktree/reopen, original RPC 취소·actual FileHandle drain·native PID 종료와 frozen coding Attempt를 검증했다. [구현 설명](docs/moodcode/engine-phase-two-native-typescript.md)·[검증 기록](docs/moodcode/engine-phase-two-native-typescript-verification.json)·[실제 측정](docs/moodcode/engine-phase-two-native-typescript-benchmark.json). 현재18/80·3/20 완료이며 전체 goal은 active다. 측정된 정답 사례의 정확도를 전체 저장소 품질/자동 ranking/외부 dependency/Windows/OS sandbox 완료로 확대하지 않는다.
+- [x] **MC2-01d** — host 명시적 native TS7 executable/version과 bounded project source digest를 연결하고 실제 512개 모듈의 독립 정답8개·Moodcode 정답2개를 대조했다. 미개방 dependency/config 변경, UTF-16/BOM/CRLF, partial compile·ignored/outside·참조 상한, branch/worktree/reopen, original RPC 취소·actual FileHandle drain·native PID 종료와 frozen coding Attempt를 검증했다. [구현 설명](docs/moodcode/engine-phase-two-native-typescript.md)·[검증 기록](docs/moodcode/engine-phase-two-native-typescript-verification.json)·[실제 측정](docs/moodcode/engine-phase-two-native-typescript-benchmark.json). 해당 검증 시점18/80·3/20 완료였으며 전체 goal은 active다. 측정된 정답 사례의 정확도를 전체 저장소 품질/자동 ranking/외부 dependency/Windows/OS sandbox 완료로 확대하지 않는다.
+
+- [x] **MC2-04c** — hash-bound 도구 입력 변환은 sole prepare 전에만 적용하며 원본 proposal·final opaque handle·fingerprint exact approval과 eager/discovery capture를 보존했다. model-context는 확인한 base 메시지를 보존하고 whole assistant DATA를 공유 slot에 넣은 뒤 실제 ContextRevision/Attempt를 고정한다.
+- [x] **MC2-04d** — actual native verification graph와 primary SQLite CAS에 결속한 opt-in same-Run continuation 최대1회, 원래 turn/tool/output/deadline/child 예산과 per-Attempt source/profile/ledger freshness를 검증했다. post-effect 실패 producer1회, 정상 same-DB restart 후 추가 dispatch0이다. 신규99개·whole3,563중3,561pass/실패0/기존Windows skip2·source403pass·coding fixture3pass. [설명](docs/moodcode/engine-phase-two-lifecycle-transforms.md)·[기록](docs/moodcode/engine-phase-two-lifecycle-transforms-verification.json). 현재20/80·4/20 완료이며 전체 goal은 active다.

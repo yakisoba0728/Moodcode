@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 1,
+  "stage": "phase-two actual typed lifecycle pre-prepare input transforms, immutable base model-context data and native verified same-Run continuation",
+  "status": "passed",
+  "recordedAt": "2026-10-07T20:15:08.358542+00:00",
+  "parentCommit": "272cfc4a4bee8739ba1454f5fcfba0bcba7ed6c1",
+  "implementationIdentity": "Frozen implementation/test file hashes verified unchanged before and after all final gates, prior to this local commit. Verification artifact is excluded from its own source identity.",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "checks": [
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-lifecycle-typecheck-final.log",
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "engine",
+      "command": "npm run test:engine",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-lifecycle-engine-final.log",
+      "logSha256": "43e5e8f8564d6c244305d4ba83f128d8ad0ff7e09d67a6d4b9623cc0643ea8c9",
+      "tests": 3563,
+      "pass": 3561,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0,
+      "durationMs": 88089.369
+    },
+    {
+      "kind": "source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=4 packages/engine/src/context/*.test.ts packages/engine/src/lifecycle/*.test.ts packages/engine/src/runner/lifecycle-*.test.ts packages/engine/src/storage/lifecycle-continuation-cas.test.ts",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-lifecycle-source-final.log",
+      "logSha256": "1fd9256b28eb74b728ebaf31d73891965885911583df761fab8092d1526ec8b5",
+      "tests": 403,
+      "pass": 403,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 15925.029041
+    },
+    {
+      "kind": "eval",
+      "command": "node scripts/evaluate-engine.mjs",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-lifecycle-eval-final.log",
+      "logSha256": "9ec9deefbfd3ca47f498031a02cb0f8021fd7ec3557899b99bcd60684cbfe855",
+      "tasks": [
+        {
+          "taskId": "addition-bug",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local",
+          "runState": "completed",
+          "providerAttempts": 4,
+          "toolCalls": 3
+        },
+        {
+          "taskId": "empty-list-boundary",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local",
+          "runState": "completed",
+          "providerAttempts": 4,
+          "toolCalls": 3
+        },
+        {
+          "taskId": "two-module-change",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local",
+          "runState": "completed",
+          "providerAttempts": 5,
+          "toolCalls": 4
+        }
+      ]
+    }
+  ],
+  "newRegressionTests": 99,
+  "newTestsByBoundary": {
+    "typedTransforms": 14,
+    "nativeContinuation": 11,
+    "actualEngine": 34,
+    "runner": 17,
+    "immutableBaseSnapshot": 1,
+    "nativeSqliteScopeCas": 19,
+    "contextPlan": 3
+  },
+  "sourceFiles": [
+    {
+      "path": "packages/engine/src/context/index.ts",
+      "sha256": "d8dfe2dfffbe0d941fcc44241d91bb4e99b1324048004f67abb85401b6ae81cb"
+    },
+    {
+      "path": "packages/engine/src/context/lifecycle-plan.test.ts",
+      "sha256": "af25a8b6269b181b0d7419ca15f41ba87512ade8ff12824bb6dd8e27fe2cb7e3"
+    },
+    {
+      "path": "packages/engine/src/context/plan.ts",
+      "sha256": "81c201a16a2caa046e985252b0caa42bc2b7168151406e3d69a467efdbd5e7ea"
+    },
+    {
+      "path": "packages/engine/src/context/service.ts",
+      "sha256": "d077dffc092bf94a73960e8f44e36f9184eb5e84f9069b215e8ea297b0272000"
+    },
+    {
+      "path": "packages/engine/src/engine.ts",
+      "sha256": "872733d5e44da55588fd3c782b0f4dcfa675039f86e24bd47208b341eaab84ab"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/continuation.test.ts",
+      "sha256": "c73d67e8d272166b0670a6e01db05a992236f509c54faea2e2591972899a23e7"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/continuation.ts",
+      "sha256": "7485ac3158b5d5eaaf0f04efa7ca4ab5f4fa033e7f111d2e73c9dd7f52528ecc"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/dispatch.ts",
+      "sha256": "7a7c2999ad3ab1b5e50e4f83fba4bdc2958b48135f5a4d0406f8afc4575854a3"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/engine-transforms.test.ts",
+      "sha256": "5c9ba8e0c4d0cac2d0e6bc7521cd7ded3b337d835ca1fdc60a2f91fa8da71155"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/index.ts",
+      "sha256": "52408a47a88de8afbd00f65d228696e52420334821d9f78fd42302af1d87a860"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/registry.ts",
+      "sha256": "6304874e458a5eda61fa40256f4ebd83ba8f53fcf7799cd5908a227c66ad7d0d"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/transforms.test.ts",
+      "sha256": "5f514e5e8836515c40645ce2575e62d3b9dae11cd0cb01870af6fb43ffcf36cc"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/types.ts",
+      "sha256": "f8359df47e4bb9cdc8532387224514d002e8c9c0467fa92114da4b80bab8217d"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/validation.ts",
+      "sha256": "5bb60f0d5d03940bb93f706261da62656d9f35a4d8d6725f834e67b2fa5433fa"
+    },
+    {
+      "path": "packages/engine/src/ports.ts",
+      "sha256": "481fd3dae30b872688c5b8708119c64d773777691d6393ea8098d793246580ca"
+    },
+    {
+      "path": "packages/engine/src/runner/index.ts",
+      "sha256": "98ca75c8add938f3b97fe5ec87caf9d55140099317f61bf3d5acc1943786eea6"
+    },
+    {
+      "path": "packages/engine/src/runner/lifecycle-review.test.ts",
+      "sha256": "a7feed22a7656a8a5e8417b10186b5b16f629c8ce1a156e66fe42ca961e5cdf6"
+    },
+    {
+      "path": "packages/engine/src/runner/lifecycle-transforms.test.ts",
+      "sha256": "e466d811d4363b65d4a3830e1e8ce68338b3e92a3567cbc66f422b245571b05f"
+    },
+    {
+      "path": "packages/engine/src/storage/index.ts",
+      "sha256": "8a3d717bb13373a0ca36c84bedd3dd6a98dbd4712cc5954bc22581a0beab8d2e"
+    },
+    {
+      "path": "packages/engine/src/storage/lifecycle-continuation-cas.test.ts",
+      "sha256": "0e91771ff7ef93c906029b0cde1ed7a9de30eac6821669ae2f8ccf00724bca36"
+    },
+    {
+      "path": "packages/engine/src/storage/native-records.ts",
+      "sha256": "3b9f433038a82d7166991eaa328e784688f882d3e4e561dee80526d6a9d1e030"
+    }
+  ],
+  "completion": {
+    "workItems": [
+      "MC2-04c",
+      "MC2-04d"
+    ],
+    "completedWorkItems": 20,
+    "totalWorkItems": 80,
+    "completedFamilies": 4,
+    "totalFamilies": 20,
+    "goalStatus": "active"
+  },
+  "coverage": [
+    "actual eager and schema-discovery tool input chains; original native proposal; sole opaque prepare handle, final exact approval, policy/registry/prepared mutation zeroeffect",
+    "full native ContextRevision and actual request/cleanup digests, same-Turn retry transform once and exact frozen messages",
+    "required media/current exchanges plus current repository and approved native knowledge share the slot/envelope/output reservation; physical knowledge source/profile/head/registry changes no dispatch",
+    "actual approved verify_changes command, native completion/receipts/Turn/latest Attempt/confirmed cleanup/checkpoint graph and source/profile/current check binding",
+    "strong native CAS pins actual controller and verification revisions, allows original Run consumption once; original turn/input/tool/output/time/child reservations cannot reset",
+    "actual final allowed Turn and zero remaining tool allowance permit provider-only continuation without increasing budgets",
+    "hostile getters/proxies/copy/stale/hash/stage/byte/deadline/cancel/late results carry no transformed execution authority; native rollback and bounded metadata-first attempt reads",
+    "normal Engine close and identical-DB reopen retain ledger owner/hash/revision; old/copy capture and historical completed Run cannot redispatch or restore host callbacks"
+  ],
+  "limitations": [
+    "Only current local macOS arm64/Node fixture environment; existing Windows JobObject skips2 unchanged.",
+    "Actual local approved commands and scripted provider adapters; no live provider account or external credential calls.",
+    "Recovery test is normal close/reopen, not SIGKILL or a new archive/import assertion. Existing generic paused-import behavior is unchanged.",
+    "Pure host callback deadline does not prove external-effect cleanup; no implicit shell/remote callback execution.",
+    "Parent/child host registry sharing retains the existing independently captured original Run policy; continuation never becomes a shared child execution grant."
+  ],
+  "environmentDebts": [
+    "E5-13",
+    "E5-08",
+    "E6-07",
+    "E6-08"
+  ]
+}

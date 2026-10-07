@@ -8,7 +8,7 @@ import {
 import type {
   CoordinatorOptions, CoordinatorPort, PreparedTool, ProviderAdapter, ProviderEvent,
   ProviderMessage, ToolContext, ToolDefinition, ToolResult,
-  ChildRunReservation, RunUsage,
+  ChildRunReservation, RunUsage, LifecycleContinuationCapture,
 } from '../ports.js';
 import { EXTRACTIVE_MEMORY_PREFIX } from '../context/index.js';
 import { SEMANTIC_MEMORY_PREFIX } from '../context/semantic-memory.js';
@@ -60,6 +60,8 @@ interface Owner {
   cleanupError?: EngineError;
   lifecycle?: LifecycleCapture;
   lifecycleStopChecked?: boolean;
+  lifecycleContinuation?: LifecycleContinuationCapture;
+  lifecycleContinuationsUsed: number;
   verificationContinuation?: { stageId: string; message: ProviderMessage };
   verificationBoundary?: VerificationBoundary;
 }
@@ -335,7 +337,7 @@ export class RunCoordinator implements CoordinatorPort {
     const owner: Owner = {
       run, abort: new AbortController(), done, outputBytes: 0, toolCount: 0, budget: new BudgetAccount(run.config),
       callIds: new Set(), readonlyCalls: new Set(), checkpointIds: new Set(), checkpoints: new Map(), terminal: false, invocations: new Map(), activeTools: new Map(), readBatchWidth: 1,
-      deadline: Date.now() + run.config.limits.maxDurationMs, childReserved: { turns: 0, toolCalls: 0, outputBytes: 0 },
+      deadline: Date.now() + run.config.limits.maxDurationMs, childReserved: { turns: 0, toolCalls: 0, outputBytes: 0 }, lifecycleContinuationsUsed: 0,
     };
     this.owners.set(run.id, owner);
     // Attach a rejection observer even if the caller never waits for this run.
@@ -621,9 +623,13 @@ export class RunCoordinator implements CoordinatorPort {
         }
       };
       captureCatalogue();
+      let contextTurnIndex = 0;
       const contextRequest = () => ({
         workspace, snapshot: this.options.contextSnapshot?.(run.sessionId, run.config) ?? this.options.store.getSnapshot(run.sessionId), config: run.config, signal: owner.abort.signal, reservedBytes, run, budget: owner.budget,
+        ...(owner.lifecycle ? { lifecycleCapture: owner.lifecycle } : {}),
+        turnIndex: contextTurnIndex,
         ...(owner.verificationContinuation ? { verificationContinuation: structuredClone(owner.verificationContinuation.message) } : {}),
+        ...(owner.lifecycleContinuation ? { lifecycleContinuation: structuredClone(owner.lifecycleContinuation.message) } : {}),
         consumeSummaryOutput: (bytes: number) => {
           if (!Number.isSafeInteger(bytes) || bytes < 0) throw new EngineError('INVALID_BUDGET_USAGE', 'Summary output bytes must be a nonnegative safe integer');
           if (bytes > run.config.limits.maxOutputBytes - owner.outputBytes - owner.childReserved.outputBytes) throw new EngineError('OUTPUT_LIMIT', 'Summary output exceeds the remaining Run output budget');
@@ -648,6 +654,7 @@ export class RunCoordinator implements CoordinatorPort {
       this.assertLive(owner);
       messages = structuredClone(messages);
       for (let turnIndex = 0; turnIndex < run.config.limits.maxTurns; turnIndex++) {
+        contextTurnIndex = turnIndex;
         this.assertLive(owner);
         // Context construction may await a provider summary. Drain any steer that
         // arrived during that await before fixing the next dispatch cutoff.
@@ -687,7 +694,11 @@ export class RunCoordinator implements CoordinatorPort {
           store: this.options.store, wait: abortable, ...(revisionId ? { contextRevisionId: revisionId } : {}), currentContextRevisionId: () => this.options.getContextRevisionId?.(run.sessionId),
           assertContextFresh: async (request, signal) => {
             await this.options.assertContextFresh?.(request, signal); assertCatalogueCurrent();
+            if (owner.lifecycleContinuation) await this.options.lifecycleContinuation!.assertFresh(run, owner.lifecycleContinuation, signal);
             if (owner.verificationContinuation && owner.verificationBoundary && this.options.verificationBeforeProvider) await this.options.verificationBeforeProvider(run, owner.verificationBoundary, signal);
+            this.assertLive(owner);
+            if (owner.lifecycle) this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
+            assertCatalogueCurrent();
           },
           ...(this.options.recoverContextOverflow ? { recoverContextOverflow: async () => {
             assertCatalogueCurrent();
@@ -700,7 +711,7 @@ export class RunCoordinator implements CoordinatorPort {
             messages = structuredClone(await context(true)); this.checkContext(owner, messages); return messages;
           } } : {}) });
         const turn = await this.providerTurn(owner, provider, messages, turnIndex);
-        owner.verificationContinuation = undefined; owner.verificationBoundary = undefined;
+        owner.verificationContinuation = undefined; owner.verificationBoundary = undefined; owner.lifecycleContinuation = undefined;
         this.assertLive(owner);
         if (turn.calls.length > this.remainingChildBudget(owner).toolCalls) throw new EngineError('TOOL_CALL_LIMIT', 'Parent and reserved child tools reached the Run tool limit');
         owner.budget.reserveToolCalls(turn.calls.length);
@@ -711,20 +722,50 @@ export class RunCoordinator implements CoordinatorPort {
             owner.verificationBoundary = { id: owner.turn.id, phase: 'stop', turnId: owner.turn.id, providerTerminal: true, nativeTurnCompleted: true };
             const continuation = await abortable(() => this.options.verificationStop!(run, owner.verificationBoundary!, owner.abort.signal), owner.abort.signal, 'Verification completion boundary');
             owner.verificationBoundary = undefined; this.assertLive(owner);
-            if (continuation) { owner.verificationContinuation = continuation; messages = structuredClone(await context()); continue; }
+            if (continuation) { owner.verificationContinuation = continuation; contextTurnIndex = turnIndex + 1; messages = structuredClone(await context()); continue; }
           }
+          const boundary: VerificationBoundary = { id: owner.turn!.id, phase: 'stop', turnId: owner.turn!.id, providerTerminal: true, nativeTurnCompleted: true };
+          owner.verificationBoundary = boundary;
+          const receipt = this.options.lifecycleContinuation
+            ? await abortable(() => this.options.lifecycleContinuation!.capture(run, boundary, owner.abort.signal), owner.abort.signal, 'Lifecycle verification receipt') : null;
+          this.assertLive(owner);
           owner.lifecycleStopChecked = true;
-          await this.lifecycle(owner, 'before-stop', `${run.id}:stop`, { outcome: 'completed', turnCount: owner.budget.snapshot().logicalTurns, toolCallCount: owner.toolCount, outputBytes: owner.outputBytes });
+          const stopping = await this.lifecycle(owner, 'before-stop', owner.lifecycleContinuationsUsed ? `${owner.turn!.id}:stop` : `${run.id}:stop`, { outcome: 'completed', turnCount: owner.budget.snapshot().logicalTurns, toolCallCount: owner.toolCount, outputBytes: owner.outputBytes,
+            continuationsUsed: owner.lifecycleContinuationsUsed, ...(receipt ? { verificationSha256: receipt.verificationSha256 } : {}) });
+          if (stopping?.continuation) {
+            if (!this.options.lifecycleContinuation) throw new EngineError('LIFECYCLE_CONTINUATION_UNSUPPORTED', 'Lifecycle continuation requires an explicit host execution port');
+            if (!receipt || receipt.verificationSha256 !== stopping.continuation.verificationSha256) throw new EngineError('LIFECYCLE_CONTINUATION_STALE', 'Lifecycle continuation requires the original completed verification receipt');
+            if (owner.lifecycleContinuationsUsed >= 1) throw new EngineError('LIFECYCLE_CONTINUATION_LIMIT', 'Only one lifecycle continuation is admitted per original Run');
+            if (this.remainingChildBudget(owner).turns < 1) throw new EngineError('TURN_LIMIT', 'Lifecycle continuation cannot exceed the original Run turn budget');
+            if (owner.budget.snapshot().allowanceUsed >= owner.budget.budgets.turnAllowance) throw new EngineError('TURN_ALLOWANCE', 'Lifecycle continuation cannot reset the original input turn allowance');
+            if (this.remainingChildBudget(owner).outputBytes < 1) throw new EngineError('OUTPUT_LIMIT', 'Lifecycle continuation requires remaining original Run output budget');
+            if (Date.now() >= owner.deadline) throw new EngineError('RUN_TIME_LIMIT', 'Lifecycle continuation cannot extend the original Run deadline');
+            const admitted = await abortable(() => this.options.lifecycleContinuation!.admit(run, boundary, stopping.continuation!, owner.abort.signal), owner.abort.signal, 'Lifecycle continuation admission');
+            this.assertLive(owner);
+            if (owner.lifecycle) this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
+            assertCatalogueCurrent();
+            await abortable(() => this.options.lifecycleContinuation!.assertFresh(run, admitted, owner.abort.signal), owner.abort.signal, 'Lifecycle continuation freshness');
+            this.assertLive(owner);
+            owner.lifecycleContinuation = admitted; owner.lifecycleContinuationsUsed++; owner.lifecycleStopChecked = false; owner.verificationBoundary = undefined;
+            contextTurnIndex = turnIndex + 1; messages = structuredClone(await context()); continue;
+          }
           return this.finish(owner, 'completed');
         }
         await this.executeCalls(owner, turn.calls, workspace, messages);
         owner.turn.complete();
         // Rebuild from committed exchanges so older context can be trimmed again.
-        if (turnIndex + 1 < run.config.limits.maxTurns) messages = structuredClone(await context());
+        if (turnIndex + 1 < run.config.limits.maxTurns) { contextTurnIndex = turnIndex + 1; messages = structuredClone(await context()); }
       }
       throw new EngineError('TURN_LIMIT', 'Model turn budget was exceeded');
     } catch (error) {
       const failure = owner.cleanupError ?? errorOf(error);
+      // Context construction can report cancellation before any Turn exists.
+      // Use the same durable cancelling transition and session pause as an
+      // external cancellation before settling the authoritative result.
+      if (failure.code === 'RUN_CANCELLED' && this.options.store.getRun(run.id).state !== 'cancelling') {
+        try { this.cancel(run.id); }
+        catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Run cancellation could not be durably recorded'); }
+      }
       try { owner.turn?.fail(failure); }
       catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Execution records could not be durably settled'); }
       for (const tool of owner.activeTools.values()) if (!['completed', 'denied', 'failed', 'interrupted'].includes(tool.state)) this.setTool(owner, tool, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
@@ -734,7 +775,7 @@ export class RunCoordinator implements CoordinatorPort {
       if (!owner.lifecycleStopChecked && !owner.abort.signal.aborted) {
         owner.lifecycleStopChecked = true;
         // Terminal observation cannot replace producer failure or cleanup uncertainty.
-        try { await this.lifecycle(owner, 'before-stop', `${run.id}:stop`, { outcome: terminalError.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed', errorCode: terminalError.code, turnCount: owner.budget.snapshot().logicalTurns, toolCallCount: owner.toolCount, outputBytes: owner.outputBytes }, false); } catch { /* Preserve the authoritative execution failure. */ }
+        try { await this.lifecycle(owner, 'before-stop', owner.lifecycleContinuationsUsed ? `${owner.turn?.id ?? run.id}:failure-stop` : `${run.id}:stop`, { outcome: terminalError.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed', errorCode: terminalError.code, turnCount: owner.budget.snapshot().logicalTurns, toolCallCount: owner.toolCount, outputBytes: owner.outputBytes, continuationsUsed: owner.lifecycleContinuationsUsed }, false); } catch { /* Preserve the authoritative execution failure. */ }
       }
       return this.finish(owner, terminalError.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed', terminalError.code === 'RUN_CANCELLED' ? undefined : terminalError);
     } finally { clearTimeout(timer); if (owner.lifecycle) this.options.lifecycleHooks!.release(owner.lifecycle); this.options.releaseContext?.(run.sessionId, run.id); }
@@ -749,7 +790,8 @@ export class RunCoordinator implements CoordinatorPort {
     // Store bounded identity/status only. Host-returned metadata and reason text
     // do not become durable request data or replay/cleanup authority.
     const payload: JsonObject = { invocationId, stage, registryRevision: outcome.registryRevision, status: outcome.status, action: outcome.action,
-      outcomes: outcome.outcomes.map(item => ({ hookId: item.hookId, hookRevision: item.hookRevision, status: item.status, action: item.action, elapsedMs: item.elapsedMs, ...(item.code ? { code: item.code } : {}) })) };
+      ...(outcome.inputRewrite ? { originalInputSha256: outcome.inputRewrite.originalSha256, effectiveInputSha256: outcome.inputRewrite.effectiveSha256 } : {}),
+      outcomes: outcome.outcomes.map(item => ({ hookId: item.hookId, hookRevision: item.hookRevision, status: item.status, action: item.action, elapsedMs: item.elapsedMs, ...(item.code ? { code: item.code } : {}), ...(item.transform ? { transform: { ...item.transform } } : {}) })) };
     const refs = owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {};
     if (this.options.store.commitRunObservation) this.options.store.commitRunObservation(owner.run.id, 'lifecycle.outcome', payload, refs);
     else this.options.store.commit(owner.run.id, 'lifecycle.outcome', payload);
@@ -1037,8 +1079,25 @@ export class RunCoordinator implements CoordinatorPort {
       if (owner.allowedTools && !owner.allowedTools.has(call.name)) return this.toolResult(owner, record, call, this.toolError(owner, 'TOOL_NOT_ALLOWED', 'The active agent profile does not permit this tool'), 'denied');
       const tool = this.options.toolRuntime && owner.catalogue ? this.options.toolRuntime.resolve(owner.catalogue, call.name) : this.tools.get(call.name);
       if (!tool) return this.toolResult(owner, record, call, this.toolError(owner, 'UNKNOWN_TOOL', `Unknown tool: ${call.name}`));
+      const originalInput = JSON.stringify(call.input), originalInputSha256 = createHash('sha256').update(originalInput).digest('hex');
+      const transform = await this.lifecycle(owner, 'tool-prepare', `${record.id}:prepare`, { toolCallId: record.id, toolName: call.name,
+        inputSha256: originalInputSha256, inputBytes: Buffer.byteLength(originalInput),
+        ...(owner.catalogue ? { registryRevision: owner.catalogue.revision, policyVersion: owner.catalogue.policyVersion } : {}),
+        ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}) });
+      if (transform?.action === 'deny') return this.toolResult(owner, record, call, this.toolError(owner, 'LIFECYCLE_DENIED', 'A host lifecycle hook denied tool preparation'), 'denied');
+      const effectiveInput = transform?.inputRewrite ? structuredClone(transform.inputRewrite.input) : call.input;
+      const effectiveEncoded = JSON.stringify(effectiveInput), effectiveSha256 = createHash('sha256').update(effectiveEncoded).digest('hex');
+      if (transform?.inputRewrite && (transform.inputRewrite.originalSha256 !== originalInputSha256 || transform.inputRewrite.effectiveSha256 !== effectiveSha256))
+        throw new EngineError('LIFECYCLE_INPUT_STALE', 'Lifecycle tool transformation does not match the exact original/effective input');
+      if (Buffer.byteLength(effectiveEncoded) > owner.run.config.limits.maxContextBytes) throw new EngineError('CONTEXT_LIMIT', 'Transformed tool input exceeds the original Run context limit');
       // PreparedTool is an opaque handle: tools may bind preimages to its identity.
-      const prepared = await this.toolOperation(owner, record, workspace, false, (context) => tool.prepare(call.input, context));
+      const prepared = await this.toolOperation(owner, record, workspace, false, (context) => {
+        this.assertLive(owner);
+        if (owner.lifecycle) this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
+        owner.discovery?.assertCurrent();
+        if (owner.catalogue) this.options.toolRuntime!.assertCatalogueCurrent(owner.catalogue);
+        return tool.prepare(effectiveInput, context);
+      });
       this.assertLive(owner);
       if (prepared.name !== call.name || typeof prepared.fingerprint !== 'string' || !prepared.fingerprint || typeof prepared.requiresApproval !== 'boolean' || !prepared.preview || typeof prepared.preview !== 'object' || Array.isArray(prepared.preview)) {
         throw new EngineError('INVALID_PREPARED_TOOL', 'Prepared tool identity or approval metadata is invalid');

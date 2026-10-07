@@ -42,6 +42,8 @@ Instruction source cache는 최대 128개이며 idle entry를 교체한다. 진�
 
 ## 검증 제어와 저장소 지식
 
+`lifecycleHooks` 또는 `lifecycleHookRegistry`는 host가 명시적으로 등록한 callback 정책이다. `tool-prepare`의 hash-bound 입력 변환은 sole prepare 전에 적용하고 최종 입력의 exact approval을 유지한다. `model-context`의 bounded JSON DATA는 `lifecycleContextSlotBytes`(기본8192, 128~16384)를 필수 문맥과 공유 예약한 뒤 최종 ContextRevision에 포함한다. `lifecycleContinuation: true`는 실제 native verification pass receipt에 결속한 same-Run 추가 Turn 최대1회만 허용한다. retry/current source/profile/ledger 검증과 오류 정책은 [lifecycle 연결 명세](engine-phase-two-lifecycle-transforms.md)를 따른다.
+
 `verificationTools: true`는 host가 등록한 `verify_changes`를 노출한다. 기본 core 도구를 사용하는 설정에서만 지원하며, custom `tools`와 함께 지정하면 초기화 전에 거절한다. `registerVerificationCheck(check)`로 실제 command/cwd/profile/source revision을 등록하고 `configureVerificationSession(sessionId, expectedRevision, policy)`로 idle workspace lease 아래 검사 목록·예산·최대2단계 repair를 고정한다. `getVerificationConfiguration`과 `getVerificationState`는 저장된 설정과 정확한 Run의 계획/receipt를 조회한다.
 
 `getVerificationCompletion(sessionId, runId)`는 별도 controller snapshot을 반환한다. `completion.decision.taskVerified`는 당시 native stop boundary에서 current source·required pass·확정 cleanup을 검사한 결과다. `Run.completed`는 loop 종료 상태다. controller는 부족/실패/stale 검사를 같은 Run의 남은 예산 안에서 한 번씩 소비하고, denied/cancelled/unsupported/unknown 결과는 차단한다. 조회·restart·import는 명령을 자동 실행하지 않는다. [검증 제어](engine-verification-controller.md)와 [통합 범위](engine-phase-two-w3.md)를 따른다.

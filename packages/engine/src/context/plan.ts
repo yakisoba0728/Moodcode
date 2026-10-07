@@ -13,7 +13,7 @@ export interface ContextPlan {
   sha256: string;
   selectedMessageIds: string[];
   omittedMessageCount: number;
-  reservations: { envelopeBytes: number; outputTokens: number; repositoryBytes?: number; knowledgeBytes?: number };
+  reservations: { envelopeBytes: number; outputTokens: number; repositoryBytes?: number; knowledgeBytes?: number; lifecycleBytes?: number };
   bytes: number;
   byteLimit: number;
   inputEstimate: TokenEstimate;
@@ -52,8 +52,18 @@ function assertKnowledgeData(value: unknown): void {
   visit(value, 0);
 }
 
-export async function planContext(request: ContextRequest, options: { model?: ModelSpec; outputTokens?: number; repositoryMessages?: readonly ProviderMessage[]; knowledgeMessages?: readonly ProviderMessage[]; requiredOnly?: boolean } = {}): Promise<ContextPlan> {
+export async function planContext(request: ContextRequest, options: { model?: ModelSpec; outputTokens?: number; repositoryMessages?: readonly ProviderMessage[]; knowledgeMessages?: readonly ProviderMessage[]; lifecycleMessages?: readonly ProviderMessage[]; requiredOnly?: boolean } = {}): Promise<ContextPlan> {
   const envelopeBytes = request.reservedBytes ?? 0;
+  let lifecycleMessages: ProviderMessage[] = [];
+  if (options.lifecycleMessages !== undefined) {
+    try { assertKnowledgeData(options.lifecycleMessages); lifecycleMessages = boundedJson(options.lifecycleMessages, 16_385) as unknown as ProviderMessage[]; }
+    catch { throw new EngineError('INVALID_LIFECYCLE_CONTEXT', 'Lifecycle context requires bounded detached JSON data'); }
+    if (!Array.isArray(lifecycleMessages) || lifecycleMessages.length > 1 || lifecycleMessages.some(message => !message || message.role !== 'assistant'
+      || typeof message.content !== 'string' || !message.content.startsWith('[Moodcode lifecycle context data v1]\n') || Object.keys(message).sort().join(',') !== 'content,role'))
+      throw new EngineError('INVALID_LIFECYCLE_CONTEXT', 'Lifecycle context accepts one plain assistant data entry');
+  }
+  const lifecycleBytes = lifecycleMessages.reduce((sum, message) => sum + Buffer.byteLength(JSON.stringify(message)) + 1, 0);
+  if (lifecycleBytes > 16_384) throw new EngineError('LIFECYCLE_CONTEXT_LIMIT', 'Lifecycle context exceeds the complete entry cap');
   let repositoryMessages: ProviderMessage[] = [];
   if (options.repositoryMessages !== undefined) {
     try { repositoryMessages = boundedJson(options.repositoryMessages, REPOSITORY_CONTRIBUTION_LIMITS.messageBytes + 1) as unknown as ProviderMessage[]; }
@@ -81,13 +91,13 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
   if (model?.maxOutputTokens !== null && model?.maxOutputTokens !== undefined && outputTokens > model.maxOutputTokens) throw new EngineError('MODEL_OUTPUT_LIMIT', 'Output reserve exceeds the known model limit');
   const effectiveByteLimit = model?.contextWindow == null ? request.config.limits.maxContextBytes : Math.min(request.config.limits.maxContextBytes, model.contextWindow - outputTokens);
   let messages: ProviderMessage[];
-  try { messages = await buildContext({ ...request, reservedBytes: envelopeBytes + repositoryBytes + knowledgeBytes, config: { ...request.config, limits: { ...request.config.limits, maxContextBytes: effectiveByteLimit } } }, { requiredOnly: options.requiredOnly }); }
+  try { messages = await buildContext({ ...request, reservedBytes: envelopeBytes + repositoryBytes + knowledgeBytes + lifecycleBytes, config: { ...request.config, limits: { ...request.config.limits, maxContextBytes: effectiveByteLimit } } }, { requiredOnly: options.requiredOnly }); }
   catch (error) { if (error instanceof EngineError && error.code === 'CONTEXT_LIMIT' && effectiveByteLimit < request.config.limits.maxContextBytes) throw new EngineError('CONTEXT_TOKEN_LIMIT', 'The required current exchange exceeds the conservative model window and output reserve', { tokenLimit: model!.contextWindow, outputTokens, estimateSource: 'utf8-byte-upper-bound' }); throw error; }
   // Synthetic evidence precedes the first transcript message and never splits a tool exchange.
-  if (repositoryMessages.length || knowledgeMessages.length) {
+  if (repositoryMessages.length || knowledgeMessages.length || lifecycleMessages.length) {
     const firstTranscript = messages.findIndex(message => message.role !== 'system');
     const index = firstTranscript < 0 ? messages.length : firstTranscript;
-    messages = [...messages.slice(0, index), ...repositoryMessages, ...knowledgeMessages, ...messages.slice(index)];
+    messages = [...messages.slice(0, index), ...repositoryMessages, ...knowledgeMessages, ...lifecycleMessages, ...messages.slice(index)];
   }
   const serialized = JSON.stringify(messages);
   const bytes = Buffer.byteLength(serialized) + envelopeBytes;
@@ -97,10 +107,11 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
     estimatedInputTokens: inputEstimate.tokens, outputTokens, tokenLimit, estimateSource: inputEstimate.source,
   });
   const selectedMessageIds: string[] = [];
+  const supplemental = new Set([...repositoryMessages, ...knowledgeMessages, ...lifecycleMessages]);
   // Duplicate text is matched in chronological order, rather than selecting every equal message.
   let previous = request.snapshot.messages.length - 1;
   for (const selected of [...messages].reverse()) {
-    if (selected.role === 'system') continue;
+    if (selected.role === 'system' || supplemental.has(selected)) continue;
     const index = request.snapshot.messages.findLastIndex((message, position) => position <= previous && message.role === selected.role
       && message.content === selected.content && message.toolCallId === selected.toolCallId
       && JSON.stringify(message.attachments) === JSON.stringify(selected.attachments)
@@ -110,7 +121,7 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
   return {
     messages, sha256: createHash('sha256').update(serialized).digest('hex'), selectedMessageIds,
     omittedMessageCount: Math.max(0, request.snapshot.messages.length - selectedMessageIds.length),
-    reservations: { envelopeBytes, outputTokens, ...(repositoryBytes ? { repositoryBytes } : {}), ...(knowledgeBytes ? { knowledgeBytes } : {}) }, bytes, byteLimit: effectiveByteLimit,
+    reservations: { envelopeBytes, outputTokens, ...(repositoryBytes ? { repositoryBytes } : {}), ...(knowledgeBytes ? { knowledgeBytes } : {}), ...(lifecycleBytes ? { lifecycleBytes } : {}) }, bytes, byteLimit: effectiveByteLimit,
     inputEstimate, tokenLimit, model: { providerId: request.config.providerId, modelId: request.config.modelId, source: model?.source ?? null },
     warnings: [...(tokenLimit === null ? ['Model context window is unknown; only the byte hard cap is enforced.'] : ['Token count is a conservative UTF-8 estimate, not measured usage.']),
       ...(inputEstimate.imageTokens === null ? ['Image token cost is unknown; the UTF-8 estimate covers text and reference metadata only. Image byte caps are enforced separately; the complete model token window is not verified.'] : []),

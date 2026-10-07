@@ -35,6 +35,7 @@ import { captureToolRecoveryFrontiers } from './tool-recovery-frontier.js';
 import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefix, ActivePrefixContextPublication } from '../context/active-prefix.js';
 import { verificationDocumentKind, validateConsumedVerificationSettlement } from '../verification/plans.js';
 import { verificationControllerDocumentKind } from '../verification/controller.js';
+import { lifecycleContinuationDocumentKind } from '../lifecycle/continuation.js';
 import { KnowledgeStorage } from '../knowledge/store.js';
 import { KnowledgeGenerationStorage, hasKnowledgeGenerationBlocker } from '../knowledge/generation-store.js';
 import type { KnowledgeGenerationStoragePorts } from '../knowledge/generation-types.js';
@@ -393,6 +394,7 @@ export class SqliteStore implements SessionEngineStore {
     });
   }
   getAttempt(id: string): ProviderAttempt { return this.executionRecords.getAttempt(id); }
+  getLatestAttemptForTurn(turnId: string): ProviderAttempt | null { return this.evidenceRead(() => this.executionRecords.getLatestAttemptForTurn(turnId)); }
   createAttemptCleanup(identity: AttemptCleanupIdentity): AttemptCleanupRecord { return this.attemptCleanupRecords.create(identity); }
   dispatchAttemptCleanup(id: string): AttemptCleanupRecord { return this.attemptCleanupRecords.dispatch(id); }
   settleAttemptCleanup(id: string, outcome: AttemptCleanupSettlement): AttemptCleanupRecord { return this.attemptCleanupRecords.settle(id, outcome); }
@@ -717,6 +719,25 @@ export class SqliteStore implements SessionEngineStore {
       if (kind !== verificationControllerDocumentKind(runId) || data.runId !== run.id || data.sessionId !== sessionId || data.workspaceId !== run.workspaceId) throw new EngineError('VERIFICATION_SCOPE_MISMATCH', 'Controller publication must match its exact Run document');
       const observed = this.getSessionDocument(sessionId, verificationDocumentKind(runId));
       if ((observed?.revision ?? 0) !== expectedVerificationRevision) throw new EngineError('VERIFICATION_CONTROLLER_SOURCE_STALE', 'Verification receipt revision changed before controller CAS');
+      return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data);
+    });
+    this.notify(sessionId); return saved;
+  }
+  /** Native continuation admission pins both actual verification ledgers in one CAS. */
+  putActiveLifecycleContinuationDocument(runId: string, kind: string, expectedRevision: number, data: JsonObject,
+    expected: { controllerRevision: number; verificationRevision: number; controllerSha256: string }): SessionDocument {
+    let sessionId!: string;
+    const saved = this.transaction(() => {
+      const run = this.getRun(runId); sessionId = run.sessionId;
+      if (isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', 'Stopped Runs cannot admit lifecycle continuation');
+      if (this.getSessionControl(sessionId).paused) throw new EngineError('LIFECYCLE_CONTINUATION_STALE', 'Paused sessions cannot admit lifecycle continuation');
+      if (expectedRevision !== 0 || this.getSessionDocument(sessionId, kind)) throw new EngineError('LIFECYCLE_CONTINUATION_LIMIT', 'The original Run may consume only one continuation document');
+      if (kind !== lifecycleContinuationDocumentKind(runId) || data.runId !== runId || data.sessionId !== sessionId || data.workspaceId !== run.workspaceId)
+        throw new EngineError('LIFECYCLE_CONTINUATION_STALE', 'Continuation document must match its exact native Run');
+      const controller = this.getSessionDocument(sessionId, verificationControllerDocumentKind(runId)), verification = this.getSessionDocument(sessionId, verificationDocumentKind(runId));
+      if (!controller || !verification || controller.revision !== expected.controllerRevision || verification.revision !== expected.verificationRevision
+        || controller.data.stateSha256 !== expected.controllerSha256)
+        throw new EngineError('LIFECYCLE_CONTINUATION_STALE', 'Actual verification ledgers changed before continuation admission');
       return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data);
     });
     this.notify(sessionId); return saved;

@@ -5,8 +5,8 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 3,
-  "completedWorkItems": 18,
+  "completedFamilies": 4,
+  "completedWorkItems": 20,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -166,7 +166,7 @@
       "title": "typed lifecycle·policy hook",
       "priority": "P1",
       "wave": "W1",
-      "status": "in_progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-04a",
@@ -189,23 +189,23 @@
         {
           "id": "MC2-04c",
           "completion": "prepare 전 rewrite만 허용·최종 request digest 고정",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
-            "engine-phase-two-w1.md",
-            "engine-phase-two-w1-verification.json"
+            "engine-phase-two-lifecycle-transforms.md",
+            "engine-phase-two-lifecycle-transforms-verification.json"
           ]
         },
         {
           "id": "MC2-04d",
           "completion": "stop/cleanup·최대1회 opt-in continuation·post-effect 재실행 금지",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
-            "engine-phase-two-w1.md",
-            "engine-phase-two-w1-verification.json"
+            "engine-phase-two-lifecycle-transforms.md",
+            "engine-phase-two-lifecycle-transforms-verification.json"
           ]
         }
       ],
-      "notes": "Registry and actual observation/deny/stop integrated. Verification-only continuation now uses the frozen ContextPlan and original same-Run budget; generic typed hook rewrite and continuation contract remain incomplete."
+      "notes": "Actual eager/discovery pre-prepare input rewrites, exact effective approval and immutable base model-context transforms consumed by final native ContextRevision/Attempt. One opt-in same-Run continuation consumes actual verified native receipt/Turn/Attempt/cleanup/checkpoint graph and primary SQLite ledger CAS, retains original shared budgets, rejects stale/repeated/late/copy authority; normal same-DB restart cannot redispatch. Final gates: typecheck, engine3563/3561pass/0fail/2existingWindows skips, related source403pass and three scripted coding tasks. Generic paused archive-import and separate OS/provider debts remain unchanged."
     },
     {
       "id": "MC2-05",
@@ -762,5 +762,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-07T19:19:04.446523+00:00"
+  "updatedAt": "2026-10-07T20:15:43.208909+00:00"
 }

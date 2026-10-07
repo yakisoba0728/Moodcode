@@ -91,8 +91,15 @@ export interface ToolCheckpointObservation { workspace: Workspace; run: Run; too
 export interface ChildRunReservation { signal: AbortSignal; remainingBudget: import('./child-tasks/index.js').ChildBudget; allocation: import('./child-tasks/index.js').ChildBudget }
 export interface RunUsage { turns: number; toolCalls: number; outputBytes: number }
 export type ContextBuilder = (request: ContextRequest) => Promise<ProviderMessage[]>;
-export interface ContextRequest { verificationContinuation?: ProviderMessage }
+export interface ContextRequest { verificationContinuation?: ProviderMessage; lifecycleCapture?: import('./lifecycle/index.js').LifecycleCapture; turnIndex?: number; lifecycleContinuation?: ProviderMessage }
+export interface LifecycleContinuationRequest { verificationSha256: string; data: JsonObject; sha256: string }
+export interface LifecycleContinuationCapture { id: string; message: ProviderMessage; verificationSha256: string }
 export interface CoordinatorOptions {
+  lifecycleContinuation?: {
+    capture(run: Run, boundary: import('./verification/completion.js').VerificationBoundary, signal: AbortSignal): Promise<{ verificationSha256: string } | null>;
+    admit(run: Run, boundary: import('./verification/completion.js').VerificationBoundary, request: LifecycleContinuationRequest, signal: AbortSignal): Promise<LifecycleContinuationCapture>;
+    assertFresh(run: Run, capture: LifecycleContinuationCapture, signal: AbortSignal): Promise<void>;
+  };
   verificationStop?(run: Run, boundary: import('./verification/completion.js').VerificationBoundary, signal: AbortSignal): Promise<{ stageId: string; message: ProviderMessage } | null>;
   verificationBeforeProvider?(run: Run, boundary: import('./verification/completion.js').VerificationBoundary, signal: AbortSignal): Promise<void>;
 }

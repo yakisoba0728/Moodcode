@@ -3,7 +3,7 @@ import { EngineError, isTerminal, SESSION_SCHEMA_VERSION, type ContextRevision, 
 import type { ContextRequest, ProviderAdapter, ProviderMessage } from '../ports.js';
 import type { ModelHistoryPage, SqliteStore } from '../storage/index.js';
 import { ModelRegistry } from './model-spec.js';
-import { planContext, type ContextPlan } from './plan.js';
+import { estimateTokens, planContext, type ContextPlan } from './plan.js';
 import { InstructionSources, type InstructionObservation, type InstructionSource } from './sources.js';
 import { SemanticMemoryService } from './semantic-memory.js';
 import { projectToolHistory } from './tool-history.js';
@@ -13,8 +13,10 @@ import { projectDocumentHistory, validateDocumentHistoryPolicy, type DocumentHis
 import { repositoryContextPolicy, type ContextSourcePort, type PreparedRepositoryContribution, type RepositoryContextPolicy } from './repository-contributions.js';
 import { knowledgeContextPolicy } from '../knowledge/context-source.js';
 import type { KnowledgeContextPolicy, KnowledgeContextProfile, KnowledgeContextSourcePort, PreparedKnowledgeContribution } from '../knowledge/context-types.js';
+import type { LifecycleCapture, LifecycleHookRegistry } from '../lifecycle/index.js';
 
 export interface ContextServiceOptions { mediaHistoryPolicy?: MediaHistoryPolicy; activePrefixPolicy?: ActivePrefixPolicy; documentHistoryPolicy?: DocumentHistoryPolicy;
+  lifecycleHooks?: LifecycleHookRegistry; lifecycleContextSlotBytes?: number;
   repositoryContext?: { source: ContextSourcePort; policy: RepositoryContextPolicy };
   knowledgeContext?: { source: KnowledgeContextSourcePort; policy: KnowledgeContextPolicy; getProfile?: (run: Run) => KnowledgeContextProfile | undefined } }
 
@@ -28,6 +30,7 @@ export interface ContextDiagnostics {
   mediaHistory?: MediaHistoryDiagnostics & { provenance: ImageHistoryProvenance[] };
   repositoryContext?: Omit<PreparedRepositoryContribution, 'messages' | 'snippets'> & { snippets: Omit<PreparedRepositoryContribution['snippets'][number], 'text'>[] };
   knowledgeContext?: Omit<PreparedKnowledgeContribution, 'messages'>;
+  lifecycleContext?: { registryRevision: number; baseContextSha256: string; dataSha256: string | null; messageBytes: number; hookIds: string[] };
   activePrefix?: { checkpointId: string; summaryRevisionId: string; scope: 'active-run-prefix'; projection: ActivePrefixCheckpoint['projection'];
     factsSha256: string; manifestSha256: string; policySha256: string; coveredMessageIds: string[]; protectedMessageIds: string[];
     summaryUsage: ActivePrefixCheckpoint['usage']; historicalFileEvidence: true; currentFileEvidence: false };
@@ -45,10 +48,16 @@ export class ContextService {
   private readonly documentHistoryPolicy?: DocumentHistoryPolicy;
   private readonly repositoryContext?: { source: ContextSourcePort; policy: RepositoryContextPolicy };
   private readonly knowledgeContext?: NonNullable<ContextServiceOptions['knowledgeContext']>;
-  private readonly contextCaptures = new Map<string, { repository?: PreparedRepositoryContribution; knowledge?: PreparedKnowledgeContribution; revisionId: string; messagesSha256: string; runId?: string }>();
+  private readonly lifecycleHooks?: LifecycleHookRegistry;
+  private readonly lifecycleContextSlotBytes: number;
+  private readonly contextCaptures = new Map<string, { repository?: PreparedRepositoryContribution; knowledge?: PreparedKnowledgeContribution; lifecycle?: LifecycleCapture; revisionId: string; messagesSha256: string; runId?: string }>();
   private readonly contextReservations = new Map<string, symbol>();
   constructor(private readonly store: SqliteStore, readonly models = new ModelRegistry(), private readonly outputTokenReserve = 0, private readonly provider?: (id: string) => ProviderAdapter | undefined, options: ContextServiceOptions = {}) {
     if (!Number.isSafeInteger(outputTokenReserve) || outputTokenReserve < 0 || outputTokenReserve > 100_000_000) throw new EngineError('INVALID_OUTPUT_RESERVE', 'Output token reserve must be a bounded nonnegative integer');
+    this.lifecycleHooks = options.lifecycleHooks;
+    this.lifecycleContextSlotBytes = options.lifecycleContextSlotBytes ?? 8192;
+    if (!Number.isSafeInteger(this.lifecycleContextSlotBytes) || this.lifecycleContextSlotBytes < 128 || this.lifecycleContextSlotBytes > 16_384)
+      throw new EngineError('INVALID_LIFECYCLE_CONTEXT', 'Lifecycle context reservation must be between 128 and 16384 bytes');
     this.memory = new SemanticMemoryService(store);
     if (options.activePrefixPolicy !== undefined) this.activePrefix = new ActivePrefixMemoryService(store, options.activePrefixPolicy);
     if (options.mediaHistoryPolicy !== undefined) this.mediaHistoryPolicy = validateMediaHistoryPolicy(options.mediaHistoryPolicy);
@@ -67,8 +76,9 @@ export class ContextService {
     }
   }
   async assertFresh(sessionId: string | undefined, messages: readonly ProviderMessage[], signal: AbortSignal, runId?: string): Promise<void> {
-    if (!this.repositoryContext && !this.knowledgeContext) return;
-    const stale = this.repositoryContext ? 'REPOSITORY_CONTEXT_STALE' : 'KNOWLEDGE_CONTEXT_STALE', cancelled = this.repositoryContext ? 'REPOSITORY_CONTEXT_CANCELLED' : 'KNOWLEDGE_CONTEXT_CANCELLED';
+    const hasLifecycle = sessionId !== undefined && this.contextCaptures.get(sessionId)?.lifecycle !== undefined;
+    if (!this.repositoryContext && !this.knowledgeContext && !hasLifecycle) return;
+    const stale = this.repositoryContext ? 'REPOSITORY_CONTEXT_STALE' : this.knowledgeContext ? 'KNOWLEDGE_CONTEXT_STALE' : 'LIFECYCLE_CONTEXT_STALE', cancelled = this.repositoryContext ? 'REPOSITORY_CONTEXT_CANCELLED' : this.knowledgeContext ? 'KNOWLEDGE_CONTEXT_CANCELLED' : 'LIFECYCLE_CONTEXT_CANCELLED';
     if (typeof sessionId !== 'string' || !sessionId) throw new EngineError(stale, 'Supplemental context requires its prepared session owner');
     if (signal.aborted) throw new EngineError(cancelled, 'Supplemental context dispatch was cancelled');
     const captured = this.contextCaptures.get(sessionId);
@@ -76,12 +86,15 @@ export class ContextService {
       && this.store.getSessionDocument(sessionId, 'context.head')?.data.revisionId === captured.revisionId
       && digest(messages) === captured.messagesSha256 && (runId === undefined || captured.runId === runId);
     if (!valid()) throw new EngineError(stale, 'Dispatch does not match the prepared context, revision and Run owner');
+    if (captured!.lifecycle) this.lifecycleHooks!.assertCurrent(captured!.lifecycle);
     if (captured!.repository) await this.repositoryContext!.source.assertFresh(captured!.repository, signal);
     if (signal.aborted) throw new EngineError(cancelled, 'Supplemental context dispatch was cancelled');
     if (!valid()) throw new EngineError(stale, 'Prepared context ownership changed during freshness validation');
+    if (captured!.lifecycle) this.lifecycleHooks!.assertCurrent(captured!.lifecycle);
     if (captured!.knowledge) await this.knowledgeContext!.source.assertFresh(captured!.knowledge, signal);
     if (signal.aborted) throw new EngineError(cancelled, 'Supplemental context dispatch was cancelled');
     if (!valid()) throw new EngineError(stale, 'Prepared context ownership changed during freshness validation');
+    if (captured!.lifecycle) this.lifecycleHooks!.assertCurrent(captured!.lifecycle);
   }
   releaseContext(sessionId: string, runId?: string): void {
     const captured = this.contextCaptures.get(sessionId);
@@ -135,7 +148,14 @@ export class ContextService {
   }
   async build(request: ContextRequest, summaryAttempted = false, prefixAttempted = false, forcePrefix = false): Promise<ProviderMessage[]> {
     const sessionId = request.snapshot.session.id;
-    const reservation = this.repositoryContext || this.knowledgeContext ? this.reserveContextCapture(sessionId) : undefined;
+    const lifecycle = request.lifecycleCapture?.hooks.some(hook => hook.stages.includes('model-context')) ? request.lifecycleCapture : undefined;
+    if (lifecycle && (!this.lifecycleHooks || !request.run || lifecycle.identity.runId !== request.run.id || lifecycle.identity.sessionId !== sessionId || lifecycle.identity.workspaceId !== request.workspace.id))
+      throw new EngineError('LIFECYCLE_CONTEXT_STALE', 'Lifecycle context requires its original captured Run owner');
+    if (lifecycle) this.lifecycleHooks!.assertCurrent(lifecycle);
+    const lifecycleSlot = lifecycle ? this.lifecycleContextSlotBytes : 0;
+    const originalReservedBytes = request.reservedBytes ?? 0;
+    const reservedBytes = originalReservedBytes + lifecycleSlot;
+    const reservation = this.repositoryContext || this.knowledgeContext || lifecycle ? this.reserveContextCapture(sessionId) : undefined;
     const releaseReservation = () => { if (reservation && this.contextReservations.get(sessionId) === reservation) this.contextReservations.delete(sessionId); };
     const preparedKnowledge = new Set<PreparedKnowledgeContribution>();
     const releaseDiscarded = (keep?: PreparedKnowledgeContribution) => {
@@ -190,7 +210,7 @@ export class ContextService {
       const projected = { ...prefix, snapshot: projectToolHistory(documents?.snapshot ?? media?.snapshot ?? restored, request.run?.id),
         requiredHistoryMessageIds: [...new Set([...(prefix.requiredHistoryMessageIds ?? []), ...(image ? [image.id] : []), ...(document ? [document.id] : []), ...(media ? [...media.requiredTextMessageIds, ...media.requiredExchangeMessageIds] : []), ...(documents?.requiredTextMessageIds ?? [])])],
         ...(media?.requiredNotice ? { mediaHistoryNotice: media.requiredNotice } : {}), ...(documents?.requiredNotice ? { documentHistoryNotice: documents.requiredNotice } : {}) };
-      const planRequest = { ...projected, instructionSources: observation.sources };
+      const planRequest = { ...projected, reservedBytes, instructionSources: observation.sources };
       let contribution: PreparedRepositoryContribution | undefined;
       let knowledge: PreparedKnowledgeContribution | undefined;
       try {
@@ -199,12 +219,12 @@ export class ContextService {
         return configured.source.prepare({ workspace: request.workspace, query: configured.policy.query,
           ...(configured.policy.exactRanges === undefined ? {} : { exactRanges: configured.policy.exactRanges }), signal: request.signal,
           budget: { slotBytes: configured.policy.slotBytes, maxContextBytes: request.config.limits.maxContextBytes,
-            reservedBytes: request.reservedBytes ?? 0, requiredMessagesBytes, contextWindow: model.contextWindow, outputTokens: this.outputTokenReserve } });
+            reservedBytes, requiredMessagesBytes, contextWindow: model.contextWindow, outputTokens: this.outputTokenReserve } });
       };
       let plan: ContextPlan;
       if (this.repositoryContext || this.knowledgeContext) {
         const required = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve, requiredOnly: true });
-        const requiredMessagesBytes = required.bytes - (request.reservedBytes ?? 0);
+        const requiredMessagesBytes = required.bytes - reservedBytes;
         if (this.repositoryContext) contribution = await prepareRepository(requiredMessagesBytes);
         const repositoryBytes = contribution?.messages.reduce((sum, message) => sum + Buffer.byteLength(JSON.stringify(message)) + 1, 0) ?? 0;
         if (this.knowledgeContext) {
@@ -212,7 +232,7 @@ export class ContextService {
           knowledge = await configured.source.prepare({ workspace: request.workspace, policy: configured.policy,
             owner: { sessionId, runId: request.run?.id ?? null, profile: request.run ? configured.getProfile?.(request.run) ?? null : null }, signal: request.signal,
             budget: { slotBytes: configured.policy.slotBytes, maxContextBytes: request.config.limits.maxContextBytes,
-              reservedBytes: request.reservedBytes ?? 0, requiredMessagesBytes: requiredMessagesBytes + repositoryBytes,
+              reservedBytes, requiredMessagesBytes: requiredMessagesBytes + repositoryBytes,
               contextWindow: model.contextWindow, outputTokens: this.outputTokenReserve } });
           preparedKnowledge.add(knowledge);
         }
@@ -278,12 +298,51 @@ export class ContextService {
       if (candidate) this.activePrefix!.discard(candidate, error);
       throw error;
     }
+    let lifecycleDiagnostics: ContextDiagnostics['lifecycleContext'];
+    if (lifecycle) {
+      const baseContextSha256 = plan.sha256;
+      const invocationId = `${request.run!.id}:context:${request.turnIndex ?? 0}:${baseContextSha256}`;
+      const dispatched = await this.lifecycleHooks!.dispatch(lifecycle, { invocationId, identity: lifecycle.identity, stage: 'model-context', metadata: {
+        providerId: request.config.providerId, modelId: request.config.modelId, turnIndex: request.turnIndex ?? 0,
+        contextSha256: baseContextSha256, contextBytes: Buffer.byteLength(JSON.stringify(plan.messages)), slotBytes: lifecycleSlot,
+      } }, request.signal);
+      const payload = { invocationId, stage: 'model-context', registryRevision: dispatched.registryRevision, status: dispatched.status, action: dispatched.action,
+        outcomes: dispatched.outcomes.map(item => ({ hookId: item.hookId, revision: item.hookRevision, status: item.status, action: item.action, elapsedMs: item.elapsedMs,
+          ...(item.code ? { code: item.code } : {}), ...(item.transform ? { transform: item.transform } : {}) })) } as JsonObject;
+      this.store.commitRunObservation(request.run!.id, 'lifecycle.outcome', payload);
+      this.lifecycleHooks!.assertCurrent(lifecycle);
+      if (dispatched.status === 'cancelled' || dispatched.action === 'stop') throw new EngineError('RUN_CANCELLED', 'Lifecycle context callback stopped request construction');
+      if (dispatched.status === 'stale') throw new EngineError('LIFECYCLE_REGISTRY_STALE', 'Lifecycle registry changed during context construction');
+      if (dispatched.action === 'deny') throw new EngineError('LIFECYCLE_DENIED', 'Lifecycle context callback denied request construction');
+      let lifecycleMessages: ProviderMessage[] = [];
+      if (dispatched.contextData) {
+        lifecycleMessages = [{ role: 'assistant', content: '[Moodcode lifecycle context data v1]\n' + JSON.stringify({ schemaVersion: 1, authority: 'data-only', items: dispatched.contextData.items }) }];
+        const messageBytes = Buffer.byteLength(JSON.stringify(lifecycleMessages[0])) + 1;
+        if (messageBytes > lifecycleSlot) throw new EngineError('LIFECYCLE_CONTEXT_LIMIT', 'The complete lifecycle data entry exceeds its reserved slot');
+      }
+      lifecycleDiagnostics = { registryRevision: lifecycle.registryRevision, baseContextSha256, dataSha256: dispatched.contextData?.sha256 ?? null,
+        messageBytes: lifecycleMessages.reduce((bytes, message) => bytes + Buffer.byteLength(JSON.stringify(message)) + 1, 0), hookIds: dispatched.contextData?.items.map(item => item.hookId) ?? [] };
+      // Preserve the exact base snapshot accepted by the callbacks. Releasing
+      // unused reservation never selects additional unobserved history.
+      const index = plan.messages.findIndex(message => message.role !== 'system');
+      const insertion = index < 0 ? plan.messages.length : index;
+      const messages = [...plan.messages.slice(0, insertion), ...lifecycleMessages, ...plan.messages.slice(insertion)];
+      const text = JSON.stringify(messages), inputEstimate = estimateTokens(messages, originalReservedBytes);
+      const bytes = Buffer.byteLength(text) + originalReservedBytes;
+      if (bytes > plan.byteLimit || plan.tokenLimit !== null && inputEstimate.tokens + plan.reservations.outputTokens > plan.tokenLimit)
+        throw new EngineError('LIFECYCLE_CONTEXT_LIMIT', 'Whole lifecycle data exceeds the original byte or model window reservation');
+      plan = { ...plan, messages, sha256: createHash('sha256').update(text).digest('hex'), bytes, inputEstimate,
+        reservations: { ...plan.reservations, envelopeBytes: originalReservedBytes, ...(lifecycleDiagnostics.messageBytes ? { lifecycleBytes: lifecycleDiagnostics.messageBytes } : {}) } };
+      this.lifecycleHooks!.assertCurrent(lifecycle);
+    }
     if (contribution) await this.repositoryContext!.source.assertFresh(contribution, request.signal);
     if (knowledge) await this.knowledgeContext!.source.assertFresh(knowledge, request.signal);
     if (request.signal.aborted) throw new EngineError('CANCELLED', 'Context construction was cancelled before persistence');
     const previous = this.store.getSessionDocument(sessionId, 'context.head');
     const prefixCheckpoint = candidate?.checkpoint ?? (request.run ? this.activePrefix?.active(sessionId, request.run.id)?.checkpoint : undefined);
     const sourceIds = [...plan.selectedMessageIds, ...observation.sources.filter(source => source.sha256 !== null).map(source => `${source.id}:${source.sha256}`),
+      ...(lifecycleDiagnostics ? [`lifecycle-registry:${lifecycleDiagnostics.registryRevision}`, `lifecycle-base:${lifecycleDiagnostics.baseContextSha256}`,
+        ...(lifecycleDiagnostics.dataSha256 ? [`lifecycle-data:${lifecycleDiagnostics.dataSha256}`] : [])] : []),
       ...(prefixCheckpoint ? [prefixCheckpoint.revisionId, `active-prefix-policy:${prefixCheckpoint.policySha256}`, `active-prefix-facts:${prefixCheckpoint.factsSha256}`, `active-prefix-manifest:${prefixCheckpoint.manifestSha256}`] : []),
       ...(media ? [`image-policy:${media.diagnostics.policySha256}`, `image-source:${media.diagnostics.sourceSha256}`, ...media.provenance.map(item => `image-message:${item.messageId}:${digest(item)}`)] : []),
       ...(documents ? [`document-policy:${documents.diagnostics.policySha256}`, `document-source:${documents.diagnostics.sourceSha256}`, ...documents.provenance.map(item => `document-message:${item.messageId}:${digest(item)}`)] : []),
@@ -325,6 +384,7 @@ export class ContextService {
       ...(documents ? { documentHistory: { ...documents.diagnostics, provenance: documents.provenance } } : {}),
       ...(repositoryDiagnostics ? { repositoryContext: repositoryDiagnostics } : {}),
       ...(knowledgeDiagnostics ? { knowledgeContext: knowledgeDiagnostics } : {}),
+      ...(lifecycleDiagnostics ? { lifecycleContext: lifecycleDiagnostics } : {}),
       ...(prefixCheckpoint ? { activePrefix: { checkpointId: prefixCheckpoint.id, summaryRevisionId: prefixCheckpoint.revisionId, scope: prefixCheckpoint.scope, projection: prefixCheckpoint.projection,
         factsSha256: prefixCheckpoint.factsSha256, manifestSha256: prefixCheckpoint.manifestSha256, policySha256: prefixCheckpoint.policySha256,
         coveredMessageIds: prefixCheckpoint.coveredMessageIds, protectedMessageIds: prefixCheckpoint.protectedMessageIds, summaryUsage: prefixCheckpoint.usage,
@@ -347,9 +407,9 @@ export class ContextService {
     else if (pendingRevision && request.run) this.store.commitContextDocument(request.run.id, 'context.revision.activated', { contextRevisionId: revisionId, revision, sha256: pendingRevision.sha256 }, { revision: pendingRevision, kind: 'context.head', expectedRevision: previous?.revision ?? 0, data });
     else { if (pendingRevision) this.store.putContextRevision(pendingRevision); this.store.putSessionDocument(sessionId, 'context.head', previous?.revision ?? 0, data); }
     this.revisions.set(sessionId, revisionId);
-    if (contribution || knowledge) {
+    if (contribution || knowledge || lifecycle) {
       this.releaseContext(sessionId);
-      this.contextCaptures.set(sessionId, { ...(contribution ? { repository: contribution } : {}), ...(knowledge ? { knowledge } : {}), revisionId, messagesSha256: digest(messages), ...(request.run ? { runId: request.run.id } : {}) });
+      this.contextCaptures.set(sessionId, { ...(contribution ? { repository: contribution } : {}), ...(knowledge ? { knowledge } : {}), ...(lifecycle ? { lifecycle } : {}), revisionId, messagesSha256: digest(messages), ...(request.run ? { runId: request.run.id } : {}) });
       if (knowledge) preparedKnowledge.delete(knowledge);
     }
     return messages;

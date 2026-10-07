@@ -140,6 +140,14 @@ export class NativeExecutionStorage {
     if (attempt.id !== row.id || attempt.sessionId !== row.session_id || attempt.runId !== row.run_id || attempt.turnId !== row.turn_id || attempt.index !== row.attempt_index || attempt.state !== row.state) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Attempt payload disagrees with its SQL owner');
     return attempt;
   }
+  getLatestAttemptForTurn(turnId: string): ProviderAttempt | null {
+    const turn = this.getTurn(turnId);
+    const row = this.database.prepare('SELECT id,session_id,run_id,turn_id,length(CAST(data AS BLOB)) AS bytes FROM provider_attempts WHERE turn_id=? ORDER BY attempt_index DESC LIMIT 1').get(turnId);
+    if (!row) return null;
+    if (row.session_id !== turn.sessionId || row.run_id !== turn.runId || row.turn_id !== turn.id) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Latest Attempt metadata does not belong to its native Turn');
+    if (Number(row.bytes) > 8_388_608) throw new EngineError('EVIDENCE_READ_LIMIT', 'Latest Attempt exceeds its bounded evidence read');
+    return this.getAttempt(String(row.id));
+  }
   putAttempt(value: ProviderAttempt): ProviderAttempt {
     const attempt = validateProviderAttempt(value);
     return this.native.write(attempt.sessionId, () => {

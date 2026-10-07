@@ -9,6 +9,7 @@ import { SqliteStore, type DatabaseBackup, type IntegrityCheckResult, type Store
 import type { SummaryAttemptListOptions } from './storage/summary-attempts.js';
 import { RunCoordinator } from './runner/index.js';
 import { VerificationController, verificationContinuationMessage } from './verification/controller.js';
+import { createLifecycleContinuationPort } from './lifecycle/continuation.js';
 import type { KnowledgeStorage } from './knowledge/store.js';
 import type { KnowledgeHostAdapter, KnowledgeSourceProjection, KnowledgeSourceSelection } from './knowledge/host.js';
 import type { PrepareKnowledgeGeneration } from './knowledge/types.js';
@@ -139,6 +140,10 @@ export interface EngineOptions {
   lifecycleHooks?: readonly LifecycleHookRegistration[];
   /** Shared host policy registry for owned child engines. Captures remain Run-bound. */
   lifecycleHookRegistry?: LifecycleHookRegistry;
+  /** Whole bounded host data reserved before optional history and source context. */
+  lifecycleContextSlotBytes?: number;
+  /** At most one extra turn, bound to actual current passed native verification. */
+  lifecycleContinuation?: boolean;
   /** Optional host policy narrowing for persisted agent profiles and exact resources. */
   roleResourcePolicy?: RoleResourcePolicy;
   roleResourcePolicyRegistry?: RoleResourcePolicyRegistry;
@@ -325,6 +330,9 @@ export class MoodcodeEngine {
     if (options.lifecycleHookRegistry !== undefined && !(options.lifecycleHookRegistry instanceof LifecycleHookRegistry)) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Shared hook registry requires an explicit trusted host registry');
     if (options.lifecycleHookRegistry && options.lifecycleHooks !== undefined) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Specify one host registry or initial hook registrations');
     this.lifecycleHooks = options.lifecycleHookRegistry ?? new LifecycleHookRegistry();
+    if (options.lifecycleContextSlotBytes !== undefined && (!Number.isSafeInteger(options.lifecycleContextSlotBytes) || options.lifecycleContextSlotBytes < 128 || options.lifecycleContextSlotBytes > 16_384))
+      throw new EngineError('INVALID_LIFECYCLE_CONTEXT', 'Lifecycle context slot must be between 128 and 16384 bytes');
+    if (options.lifecycleContinuation !== undefined && typeof options.lifecycleContinuation !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Lifecycle continuation requires an explicit host boolean');
     if (options.roleResourcePolicyRegistry !== undefined && !(options.roleResourcePolicyRegistry instanceof RoleResourcePolicyRegistry)) throw new EngineError('INVALID_ROLE_POLICY_CONFIGURATION', 'Shared role policy requires a trusted host registry');
     if (options.roleResourcePolicyRegistry && options.roleResourcePolicy) throw new EngineError('INVALID_ROLE_POLICY_CONFIGURATION', 'Specify one role policy registry or immutable role policy');
     this.roleResourcePolicyRegistry = options.roleResourcePolicyRegistry;
@@ -529,7 +537,9 @@ export class MoodcodeEngine {
           assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source),
         }),
       } : undefined;
-      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}), ...(knowledgeContext ? { knowledgeContext } : {}) });
+      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { lifecycleHooks: this.lifecycleHooks,
+        ...(options.lifecycleContextSlotBytes === undefined ? {} : { lifecycleContextSlotBytes: options.lifecycleContextSlotBytes }),
+        ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}), ...(knowledgeContext ? { knowledgeContext } : {}) });
       if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
       this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts,
         ...(options.roleResourcePolicy ? { roleResources: options.roleResourcePolicy } : {}), ...(options.roleResourcePolicyRegistry ? { roleResourcePolicyRegistry: options.roleResourcePolicyRegistry } : {}), ...(options.resolveRoleResources ? { resolveRoleResources: options.resolveRoleResources } : {}), ...(options.commandPreflight ? { commandPreflight: options.commandPreflight } : {}) });
@@ -568,6 +578,12 @@ export class MoodcodeEngine {
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
       this.coordinator = new RunCoordinator({
+        ...(options.lifecycleContinuation === true ? { lifecycleContinuation: createLifecycleContinuationPort({ store: this.store, controller: this.verificationController, plans: this.verificationPlans,
+          observeSource: (run, signal) => this.verificationHost.observe({ sessionId: run.sessionId, runId: run.id, workspace: this.store.getWorkspace(run.workspaceId) }, signal),
+          readCurrentProfile: run => { const profile = this.profiles.forRun(run.sessionId, run.config); return profile ? { id: profile.id, revision: profile.revision } : null; },
+          assertBoundaryCurrent: (run, boundary) => this.coordinator.assertVerificationBoundaryCurrent(run, boundary),
+          readRemainingBudget: run => this.coordinator.verificationRemainingBudget(run),
+        }) } : {}),
         ...(this.verificationEnabled ? {
           onRunStarted: (run, signal) => this.verificationHost.start(run, signal),
           verificationStop: async (run, boundary, signal) => {
@@ -598,7 +614,12 @@ export class MoodcodeEngine {
         buildContext: request => this.context.build({ ...request, agentInstructions: this.profiles.forRun(request.snapshot.session.id, request.config)?.instructions }),
         contextSnapshot: (sessionId, config) => this.context.snapshot(sessionId, config),
         getContextRevisionId: sessionId => this.context.revisionId(sessionId),
-        assertContextFresh: (request, signal) => this.context.assertFresh(request.sessionId, request.messages, signal, request.runId),
+        assertContextFresh: async (request, signal) => {
+          const run = this.store.getRun(request.runId);
+          this.profiles.forRun(run.sessionId, run.config);
+          await this.context.assertFresh(request.sessionId, request.messages, signal, request.runId);
+          this.profiles.forRun(run.sessionId, run.config);
+        },
         releaseContext: (sessionId, runId) => this.context.releaseContext(sessionId, runId),
         getToolProfile: run => {
           const profile = this.profiles.forRun(run.sessionId, run.config);
