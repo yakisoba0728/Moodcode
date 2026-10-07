@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "stage": "phase-two opt-in tools-free native knowledge generation / candidate inbox / explicit recovery",
+  "status": "passed",
+  "recordedAt": "2026-10-07T17:00:50.846035+00:00",
+  "parentCommit": "2924d3416ebcc45691475c2c0b72ac5354f10b0c",
+  "implementationIdentity": "Frozen generation source/test hashes before local feature commits; no self-referential commit hash. Subsequent publication files are outside this record.",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "checks": [
+    {
+      "kind": "source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test packages/engine/src/knowledge/*.test.ts packages/engine/src/provider/generation.test.ts packages/engine/src/runner/host-generation-lease.test.ts packages/engine/src/storage/migrations.test.ts packages/engine/src/recovery/schema-bounds.test.ts",
+      "exitCode": 0,
+      "logSha256": "10cec4cc24e69c3ab71e1e87f9a9b6b7215dce1bc17bb842f096053fae57ba2c",
+      "tests": 307,
+      "pass": 307,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 3692.337375
+    },
+    {
+      "kind": "engine",
+      "command": "npm run test:engine",
+      "exitCode": 0,
+      "logSha256": "268c536df511c76c0387c894fb946ca02fd6913b819fdbde216b663948a7967a",
+      "tests": 3274,
+      "pass": 3272,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0,
+      "durationMs": 72843.112791
+    },
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "eval",
+      "command": "npm run eval:engine",
+      "exitCode": 0,
+      "logSha256": "b934b748414b154b210cf1b700f0783dc398e7e8e81cc5255043d90cec60e94e",
+      "tasks": [
+        {
+          "taskId": "addition-bug",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local"
+        },
+        {
+          "taskId": "empty-list-boundary",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local"
+        },
+        {
+          "taskId": "two-module-change",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local"
+        }
+      ]
+    }
+  ],
+  "sourceTestPaths": [
+    "packages/engine/src/knowledge/engine-generation.test.ts",
+    "packages/engine/src/knowledge/engine-knowledge.test.ts",
+    "packages/engine/src/knowledge/generation-archive-relations.test.ts",
+    "packages/engine/src/knowledge/generation-archive.test.ts",
+    "packages/engine/src/knowledge/generation-crash.test.ts",
+    "packages/engine/src/knowledge/generation-request.test.ts",
+    "packages/engine/src/knowledge/generation-service-review.test.ts",
+    "packages/engine/src/knowledge/generation-store.test.ts",
+    "packages/engine/src/knowledge/generation-stream.test.ts",
+    "packages/engine/src/knowledge/host.test.ts",
+    "packages/engine/src/knowledge/store.test.ts",
+    "packages/engine/src/provider/generation.test.ts",
+    "packages/engine/src/runner/host-generation-lease.test.ts",
+    "packages/engine/src/storage/migrations.test.ts",
+    "packages/engine/src/recovery/schema-bounds.test.ts"
+  ],
+  "fileSha256": {
+    "packages/engine/src/documents/provider.ts": "15102094b8ae821a3c3a6b91282d47a396757bebcaa7b899cff4c99bd2edb359",
+    "packages/engine/src/engine.ts": "4c68e8ac3352af4d6b838ef6fb5050cbea9eca518a2b3665426f1ce12ab8f0e4",
+    "packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts": "7fb5de085274ae6e03462586d1a8f296c8a622bbcd185a7df699d6a2799a8252",
+    "packages/engine/src/knowledge/engine-generation.test.ts": "596fce5527a6abadb4c6df7ea2a8bba4f88ad407752b59cd2177e4b9c3217812",
+    "packages/engine/src/knowledge/engine-knowledge.test.ts": "3b8f9e7c66f97a744469255cf392fff544b1d3bfceb36d333edb7dab3ef731ac",
+    "packages/engine/src/knowledge/fixtures/generation-crash-child.ts": "188ce989e8880531b78159b96c4ba5b7856965557b129c23dd42052d89879d3d",
+    "packages/engine/src/knowledge/generation-archive-relations.test.ts": "d9c475b20c235ec7acc3a71c6fb4806c33d8bda37553ac4a0914a68b4fa8189b",
+    "packages/engine/src/knowledge/generation-archive-relations.ts": "cf56ce80a04d5b5e900e46fe9bcd814019a56010a1cb14cf5edd76107d0dfcdc",
+    "packages/engine/src/knowledge/generation-archive.test.ts": "0fb3e3dcdfc24bd510a7e2da8686885469594a4329ab92172535effc21224b5e",
+    "packages/engine/src/knowledge/generation-budget.ts": "e76479fdc989a7a9f6ca6162e320e04a8723618040f9ccb342ad3b9997287af8",
+    "packages/engine/src/knowledge/generation-crash.test.ts": "53bc43af2817d947a15b3a15fc6bc5c2e8258aa2a80b618d8e3e79a7760636dc",
+    "packages/engine/src/knowledge/generation-request.test.ts": "395fcc1e070954911e14a7ed2ec6bbdf492e0aad3d1e6d537138181b8e153cf5",
+    "packages/engine/src/knowledge/generation-request.ts": "937a9ac0b899ca3d4d690ef041cf15e2e67b1ca28047c354a906815e47d37153",
+    "packages/engine/src/knowledge/generation-service-review.test.ts": "507cd12d09ffc5a6be60b6a3ef5954585a9b3f918527a9c14530c4d08e805d39",
+    "packages/engine/src/knowledge/generation-service.ts": "d387a26cc06858f28e8b1605f432cd1e586c2d86f75a6764a7c212d6992815ae",
+    "packages/engine/src/knowledge/generation-store.test.ts": "12d136f42649e94ae64768566af8bfd9076aca5745dd0c9f2dcbe94c8ce98507",
+    "packages/engine/src/knowledge/generation-store.ts": "822181f186b6bc7bc82352a0fc858b771e1210ccac1feeaa03be933a9b6cfb55",
+    "packages/engine/src/knowledge/generation-stream.test.ts": "4851c35685063098669c9c17573ed3a61180a4631fb1a4a680bf2a40c70dd13b",
+    "packages/engine/src/knowledge/generation-stream.ts": "76764ca7a7295cbf0dcc7fdc1545a29800803b4e9e148566b3e8f0f4f68f7c6c",
+    "packages/engine/src/knowledge/generation-types.ts": "179bc3466e687af7730b03bbb010ee9e9c8fdea0c485f8f276319f2419e2d498",
+    "packages/engine/src/knowledge/index.ts": "34c4ceff609a20fb22315feae8e607db47b5ae5817e69807ba9eaa101a959b84",
+    "packages/engine/src/knowledge/store.ts": "7ed14bbf5bfb1fe83537e543b2704dc35e137acef5b9465b655b89b087dd34c7",
+    "packages/engine/src/media/provider.ts": "034ef714e43436947e4c6fe323a73913c909005b456f680afa677ec191880166",
+    "packages/engine/src/ports.ts": "2c7a47e0357c0f77f2a202750e869fb44d938ca183d642457c495fef70c2af51",
+    "packages/engine/src/provider/anthropic.ts": "38cb8a65bd3ce394015e8927a39609609a85d545929dc350df8b21e92cdbf13f",
+    "packages/engine/src/provider/codex.ts": "a3e1dc58423449b3a00576c7e005130185ae6773cb2c788bdae90cba8ae71e99",
+    "packages/engine/src/provider/generation-body.ts": "56a3d4286251ca02c9dbd16273be50e2414ad1f60fcf9cdccfece16c9c8b17a6",
+    "packages/engine/src/provider/generation.test.ts": "e31e480a7365542a7fe1ac2667ff3b100a1d2523e3e9cca135b3331ec0ca2fe6",
+    "packages/engine/src/provider/generation.ts": "70843a754b7171a8ce94b66acdc8262a901e0055a8b201b56f29fbd08a9ec45f",
+    "packages/engine/src/provider/index.ts": "0cef8b31d25424eab2262715f6612d0e048fa08974cf4ac742cb1c8b8d20ad16",
+    "packages/engine/src/provider/openai-compatible.ts": "4c11ca5cc8280016f17fed7e1f69bef18f5f3a1564484042b1714bea402c2fe9",
+    "packages/engine/src/provider/responses.ts": "062bb8ac5aa5af97e0eb70e070b4b6c7d63c3d5ea9ec68c97d23067c5c13c06d",
+    "packages/engine/src/provider/scripted.ts": "3bbdd8bbfe5364adc9309311b1189c68f08161a9f9e1879d0621178175c6895f",
+    "packages/engine/src/recovery/index.ts": "74485b1e27247d04a73e267aaa4676f1f94102690af6b9c4012ed2c294ad2d0a",
+    "packages/engine/src/recovery/schema-bounds.test.ts": "2138cf7d6d509bda7842f5fee8e0f5cf7cce492d40ae27bb36c02efd6a6bb55f",
+    "packages/engine/src/runner/host-generation-lease.test.ts": "a91f4d525842d1d68378409b05a5ffc052bf5be421bf73517a014fc992ce5111",
+    "packages/engine/src/runner/index.ts": "de2698cd06ab3ca95eda52e08770f8aff2679e80a30dc9d9fb000802eec1a438",
+    "packages/engine/src/storage/archive.ts": "0fe9b95f8d0eb32a7e76e9a1c18b18c469bbc5a502f9cb3c87f9c82e4e071137",
+    "packages/engine/src/storage/index.ts": "704179d4314babd8b2f892f8d5ae8f13bf11be40fbca74ade0b703c57802c155",
+    "packages/engine/src/storage/migrations.test.ts": "c12388e6637102e40fb8c12dde9372cc7724c026026072743e5a91b2cd938913",
+    "packages/engine/src/storage/migrations.ts": "a23cdd683a1f2d3e60ce1034dc1b949d2fc94c2782032e67c3732386bfb4876b"
+  },
+  "completion": {
+    "goalStatus": "active",
+    "completedWorkItems": 17,
+    "totalWorkItems": 80,
+    "completedFamilies": 2,
+    "totalFamilies": 20,
+    "newlyCompleted": [
+      "MC2-03a",
+      "MC2-03b"
+    ],
+    "inProgress": [
+      "MC2-03d"
+    ],
+    "pending": [
+      "MC2-03c"
+    ]
+  },
+  "actualCrashBoundaries": [
+    "create",
+    "prepare",
+    "dispatch",
+    "finish",
+    "settle",
+    "candidate"
+  ],
+  "resolvedGateFailures": [
+    {
+      "kind": "fixture-compilation",
+      "resolution": "Initial archive relation test types used an unsupported nullable ProviderEvent token, wrong progress request key and an unguarded optional SQLite row ID. Corrected test types; final source and full compiled gates pass."
+    },
+    {
+      "kind": "legacy-port-fixture",
+      "resolution": "A test of an absent optional native generation port incorrectly retained a composite predicate bound to the removed method. Restored the real legacy ordinary/summary predicate; absent native proof remains fail-closed."
+    }
+  ],
+  "limits": [
+    "Host knowledge generation is explicitly opt-in and independently capped; legacy adapters without streamGeneration cannot dispatch it.",
+    "Generation completion requires original provider stop, actual iterator completion and confirmed original cleanup. A returned object alone confers no cleanup authority.",
+    "Candidates remain immutable pending inbox records. Exact approval publish/revoke, existing file/native-document target revisions and active ContextPlan consumption remain MC2-03c/d work.",
+    "Actual crash tests use local macOS subprocess SIGKILL and real Engine/SQLite/Git/filesystem fixtures. They do not establish native Windows behavior.",
+    "Paused archive import preserves historical generation/attempt/usage/candidate evidence without reissuing native owner authority or automatically starting work.",
+    "Explicit recovery acknowledgment and separate workspace barrier resume preserve uncertainty and do not wake queued inputs. Independent ordinary/summary blockers remain.",
+    "Evaluation uses three local scripted provider coding fixtures, not a live model success result. No credential or live provider call occurred.",
+    "Two existing Windows conditional skips are retained and counted separately from passes.",
+    "No GUI change, OS sandbox support claim, semantic large-corpus quality proof, external deployment or push evidence."
+  ],
+  "environmentDebts": [
+    "E5-13",
+    "E5-08",
+    "E6-07",
+    "E6-08"
+  ]
+}

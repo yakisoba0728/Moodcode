@@ -6,7 +6,7 @@
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
   "completedFamilies": 2,
-  "completedWorkItems": 15,
+  "completedWorkItems": 17,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -118,17 +118,22 @@
         {
           "id": "MC2-03a",
           "completion": "trust/candidate·source/target hash·generation usage",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
             "engine-phase-two-w3.md",
-            "engine-phase-two-w3-verification.json"
+            "engine-phase-two-w3-verification.json",
+            "engine-phase-two-knowledge-generation.md",
+            "engine-phase-two-knowledge-generation-verification.json"
           ]
         },
         {
           "id": "MC2-03b",
           "completion": "완료 세션 bounded tools-free 추출 inbox",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-knowledge-generation.md",
+            "engine-phase-two-knowledge-generation-verification.json"
+          ]
         },
         {
           "id": "MC2-03c",
@@ -139,11 +144,14 @@
         {
           "id": "MC2-03d",
           "completion": "projection/recovery·expiry·source 삭제·철회·import pause",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-knowledge-generation.md",
+            "engine-phase-two-knowledge-generation-verification.json"
+          ]
         }
       ],
-      "notes": "DB10 workspace trust/CAS, exact source/target projection, pending generation plans, bounded storage and archive import pause installed in actual Engine. Production tools-free generation owner/output/usage, candidate extraction/inbox, publish/revoke and active projection remain pending; no fake Session/Run or generation dispatch."
+      "notes": "Actual opt-in tools-free host generation is connected to native DB11 owners, independently bounded request/stream/usage/cleanup, completed-source capture and immutable pending candidates/inbox. SIGKILL recovery preserves cancelled/uncertain/completed outcomes without producer replay; exact host acknowledgment plus separate workspace resume does not wake pending inputs. Archive graph validation and paused historical import preserve native output/usage/candidates. Existing target revisions, exact publish/revoke and active ContextPlan projection remain unfinished MC2-03c/d; no file publication or automatic imported-knowledge recovery."
     },
     {
       "id": "MC2-04",
@@ -746,5 +754,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-07T15:16:02.671572+00:00"
+  "updatedAt": "2026-10-07T16:51:30.876201+00:00"
 }

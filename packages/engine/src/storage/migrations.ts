@@ -9,6 +9,7 @@ import { ATTEMPT_CLEANUP_SCHEMA } from './attempt-cleanup.js';
 import { PROVIDER_RECOVERY_SCHEMA } from '../recovery/provider.js';
 import { MCP_EXECUTION_SCHEMA } from './mcp-executions.js';
 import { KNOWLEDGE_SCHEMA_SQL } from '../knowledge/store.js';
+import { KNOWLEDGE_GENERATION_SCHEMA_SQL } from '../knowledge/generation-store.js';
 
 export interface DatabaseMigration {
   /** Append-only, consecutive primary database version, starting at 1. */
@@ -64,6 +65,7 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
   } }),
   Object.freeze({ version: 9, name: 'durable-mcp-tools-call-execution', apply: (database: DatabaseSync) => { database.exec(MCP_EXECUTION_SCHEMA); } }),
   Object.freeze({ version: 10, name: 'workspace-trust-and-pending-knowledge', apply: (database: DatabaseSync) => { database.exec(KNOWLEDGE_SCHEMA_SQL); } }),
+  Object.freeze({ version: 11, name: 'native-host-knowledge-generation', apply: (database: DatabaseSync) => { database.exec(KNOWLEDGE_GENERATION_SCHEMA_SQL); } }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;
 

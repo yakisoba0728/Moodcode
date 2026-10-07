@@ -12,7 +12,11 @@ import { VerificationController, verificationContinuationMessage } from './verif
 import type { KnowledgeStorage } from './knowledge/store.js';
 import type { KnowledgeHostAdapter, KnowledgeSourceProjection, KnowledgeSourceSelection } from './knowledge/host.js';
 import type { PrepareKnowledgeGeneration } from './knowledge/types.js';
-import { knowledgeHash } from './knowledge/validation.js';
+import { knowledgeHash, validateGenerationInput } from './knowledge/validation.js';
+import { buildKnowledgeGenerationRequest } from './knowledge/generation-request.js';
+import { assertKnowledgeGenerationHostInput, KnowledgeGenerationService, type WorkspaceKnowledgeGenerationInput } from './knowledge/generation-service.js';
+import type { KnowledgeGenerationStorage } from './knowledge/generation-store.js';
+import type { KnowledgeGenerationRecoveryPreview } from './knowledge/generation-types.js';
 import { WorkspaceTrustService, assertWorkspaceTrustSourcesCurrent } from './workspace/trust.js';
 import { LifecycleHookRegistry, type LifecycleHookRegistration } from './lifecycle/index.js';
 import { exportTrajectory, validateTrajectoryOptions, type JournalProjection, type TrajectoryOptions } from './diagnostics/trajectory.js';
@@ -20,6 +24,7 @@ import { createCodingEvidenceManifest, validateCodingEvidenceOptions, type Codin
 import { getTrajectoryStallObservation, type StallObservation, type StallOptions } from './diagnostics/stall.js';
 import { InputScheduler } from './runner/input-scheduler.js';
 import { ScriptedProvider } from './provider/index.js';
+import { validateHostGenerationRequest } from './provider/generation.js';
 import { ApprovalManager } from './permission/index.js';
 import { openWorkspace } from './workspace/index.js';
 import { getWorkspaceStatus, listWorkspaceFiles, readWorkspaceFile } from './workspace/presentation.js';
@@ -120,6 +125,8 @@ export interface EngineOptions {
   repositoryContextPolicy?: RepositoryContextPolicy;
   /** Host-registered checks only; command/profile approval remains mandatory. */
   verificationTools?: boolean;
+  /** Explicit tools-free host extraction into pending workspace knowledge candidates. */
+  knowledgeGeneration?: boolean;
   /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
   lifecycleHooks?: readonly LifecycleHookRegistration[];
   /** Shared host policy registry for owned child engines. Captures remain Run-bound. */
@@ -178,6 +185,9 @@ function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore,
     ...(provider.inputFileTypes ? { inputFileTypes: provider.inputFileTypes } : {}),
     ...(provider.allowUnknownDocumentTokenCost === undefined ? {} : { allowUnknownDocumentTokenCost: provider.allowUnknownDocumentTokenCost }),
     ...(provider.supportsInputFile ? { supportsInputFile: (modelId: string, mimeType: 'application/pdf') => provider.supportsInputFile!(modelId, mimeType) } : {}),
+    ...(provider.streamGeneration ? { streamGeneration(request: import('./provider/generation.js').HostGenerationRequest, signal: AbortSignal) {
+      return provider.streamGeneration!(validateHostGenerationRequest(request), signal);
+    } } : {}),
     streamTurn(request, signal) {
       let iterator: AsyncIterator<ProviderEvent> | undefined, initialization: Promise<void> | undefined;
       let providerEntered = false, confirmedDone = false;
@@ -266,6 +276,11 @@ export class MoodcodeEngine {
   readonly workspaceKnowledge: KnowledgeStorage;
   readonly workspaceTrust: WorkspaceTrustService;
   private readonly knowledgeHost: KnowledgeHostAdapter;
+  private readonly knowledgeGenerationEnabled: boolean;
+  private readonly hostGenerationProviders: ReadonlyMap<string, ProviderAdapter>;
+  private readonly knowledgeGenerations: KnowledgeGenerationStorage;
+  private readonly knowledgeGenerationService: KnowledgeGenerationService;
+  private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
   private readonly verificationHost: VerificationHostService;
   private readonly verificationEnabled: boolean;
   readonly formatters: FormatterRegistry;
@@ -303,6 +318,8 @@ export class MoodcodeEngine {
     this.roleResourcePolicyRegistry = options.roleResourcePolicyRegistry;
     if (options.verificationTools !== undefined && typeof options.verificationTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Verification tool exposure must be an explicit boolean');
     this.verificationEnabled = options.verificationTools === true;
+    if (options.knowledgeGeneration !== undefined && typeof options.knowledgeGeneration !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Knowledge generation requires an explicit host boolean');
+    this.knowledgeGenerationEnabled = options.knowledgeGeneration === true;
     if (this.verificationEnabled && options.tools !== undefined) throw new EngineError('INVALID_VERIFICATION_CONFIG', 'Verification requires the engine-owned command producer and core registrations');
     if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Document token cost policy must be a boolean');
     if (options.repositoryContextTools !== undefined && typeof options.repositoryContextTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Repository tool exposure must be an explicit boolean');
@@ -351,7 +368,11 @@ export class MoodcodeEngine {
       };
       this.knowledgeHost = this.store.createKnowledgeHostAdapter({ checkHostBinding: knowledgeBinding });
       this.workspaceKnowledge = this.store.createKnowledgeStorage({ checkHostBinding: knowledgeBinding, assertTrustSourcesCurrent: assertWorkspaceTrustSourcesCurrent,
-        assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source), assertTargetCurrent: (binding, target) => this.knowledgeHost.assertTargetCurrent(binding, target) });
+        assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source), assertTargetCurrent: (binding, target) => this.knowledgeHost.assertTargetCurrent(binding, target),
+        readGenerationEvidence: (plan, ownerId) => this.knowledgeGenerations.readEvidence(plan, ownerId) });
+      this.knowledgeGenerations = this.store.createKnowledgeGenerationStorage({ checkBinding: knowledgeBinding,
+        getPlan: (workspaceId, planId) => this.workspaceKnowledge.getGenerationPlan(workspaceId, planId),
+        assertPlanCurrent: plan => this.workspaceKnowledge.assertGenerationPlanCurrent(plan) });
       this.workspaceTrust = new WorkspaceTrustService(this.workspaceKnowledge);
       const recoveryBinding = (workspaceId: string) => {
         const database = canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database;
@@ -370,6 +391,7 @@ export class MoodcodeEngine {
       reviewJournal = new ReviewJournal(canonicalDbPath === undefined ? resolve(artifactDir, 'review.sqlite') : `${canonicalDbPath}.review.sqlite`);
       this.reviewJournal = reviewJournal;
       this.store.recoverInterrupted();
+      this.knowledgeGenerations.recoverInterruptedOwners();
       this.approvals = new ApprovalManager(this.store);
       this.questions = new QuestionManager(this.store);
       this.tasks = new SessionTaskService(this.store);
@@ -439,6 +461,10 @@ export class MoodcodeEngine {
         if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
       };
       for (const [id, provider] of providers) providers.set(id, withInputMedia(provider, this.images, this.documents, this.store, models, options.allowUnknownDocumentTokenCost === true));
+      this.hostGenerationProviders = providers;
+      this.knowledgeGenerationService = new KnowledgeGenerationService({ native: this.knowledgeGenerations, knowledge: this.workspaceKnowledge, host: this.knowledgeHost,
+        provider: id => this.knowledgeGenerationProvider(id), assertPlanCurrent: plan => this.workspaceKnowledge.assertGenerationPlanCurrent(plan),
+        withLease: (workspaceId, operation) => this.coordinator.withHostGenerationLease(workspaceId, operation) });
       this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}) });
       if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
       this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts,
@@ -998,24 +1024,110 @@ export class MoodcodeEngine {
     return this.knowledgeHost.captureSources({ workspaceId, selection });
   }
 
+  previewWorkspaceKnowledgeGeneration(input: { providerId: string; modelId: string; projection: KnowledgeSourceProjection; reasoningEffort?: import('@moodcode/contracts').ReasoningEffort }) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    assertKnowledgeGenerationHostInput(input, ['providerId', 'modelId', 'projection'], ['reasoningEffort']);
+    this.knowledgeGenerationProvider(input.providerId);
+    this.knowledgeHost.assertProjectionFresh(input.projection);
+    const request = buildKnowledgeGenerationRequest({ providerId: input.providerId, modelId: input.modelId, source: input.projection,
+      ...(input.reasoningEffort === undefined ? {} : { reasoningEffort: input.reasoningEffort }) });
+    // Store-issued generation and attempt UUIDs have this exact width; check the full envelope before native admission.
+    validateHostGenerationRequest({ ...request.payload, owner: { kind: 'host-generation', workspaceId: input.projection.workspaceId,
+      generationId: '00000000-0000-0000-0000-000000000000', attemptId: '00000000-0000-0000-0000-000000000000' } });
+    return request;
+  }
+
+  private knowledgeGenerationProvider(providerId: string): ProviderAdapter & import('./provider/generation.js').HostGenerationProviderPort {
+    if (!this.knowledgeGenerationEnabled) throw new EngineError('KNOWLEDGE_GENERATION_DISABLED', 'Host knowledge extraction requires explicit opt-in');
+    const provider = this.hostGenerationProviders.get(providerId);
+    if (!provider || typeof provider.streamGeneration !== 'function') throw new EngineError('KNOWLEDGE_PROVIDER_UNSUPPORTED', 'Provider does not support an independently owned tools-free generation');
+    return provider as ProviderAdapter & import('./provider/generation.js').HostGenerationProviderPort;
+  }
+
   releaseWorkspaceKnowledgeSources(projection: KnowledgeSourceProjection): void {
     this.knowledgeHost.releaseProjection(projection);
   }
 
   prepareWorkspaceKnowledgeGeneration(input: Omit<PrepareKnowledgeGeneration, 'binding' | 'source'> & { projection: KnowledgeSourceProjection }) {
     if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    const { projection, ...plan } = input;
-    if (plan.workspaceId !== projection.workspaceId) return Promise.reject(new EngineError('KNOWLEDGE_BINDING_MISMATCH', 'Pending generation and original source projection must share the workspace'));
-    return this.coordinator.withWorkspaceLease(plan.workspaceId, async signal => {
-      if (signal.aborted) throw signal.reason;
+    try {
+      assertKnowledgeGenerationHostInput(input, ['workspaceId', 'requestId', 'expectedTrustRevision', 'target', 'providerId', 'modelId', 'requestSha256', 'requestBytes', 'maxOutputBytes', 'expiresAt', 'projection']);
+      const { projection, ...description } = input;
       this.knowledgeHost.assertProjectionFresh(projection);
-      return this.workspaceKnowledge.prepareGeneration({ ...plan, binding: projection.binding, source: projection.manifest });
-    });
+      const plan = validateGenerationInput({ ...description, binding: projection.binding, source: projection.manifest });
+      if (plan.workspaceId !== projection.workspaceId) throw new EngineError('KNOWLEDGE_BINDING_MISMATCH', 'Pending generation and original source projection must share the workspace');
+      return this.coordinator.withWorkspaceLease(plan.workspaceId, async signal => {
+        if (signal.aborted) throw signal.reason;
+        this.knowledgeHost.assertProjectionFresh(projection);
+        return this.workspaceKnowledge.prepareGeneration(plan);
+      });
+    } catch (error) { return Promise.reject(error); }
   }
 
   captureWorkspaceKnowledgeTarget(workspaceId: string, path: string) {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     return this.knowledgeHost.captureFileTarget(workspaceId, path);
+  }
+
+  generateWorkspaceKnowledge(input: WorkspaceKnowledgeGenerationInput) {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    return this.knowledgeGenerationService.generate(input);
+  }
+
+  getWorkspaceKnowledgeGeneration(workspaceId: string, generationId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.knowledgeGenerationService.get(workspaceId, generationId);
+  }
+
+  finishWorkspaceKnowledgeCandidate(input: { workspaceId: string; generationId: string; requestId: string }) {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    if (!this.knowledgeGenerationEnabled) return Promise.reject(new EngineError('KNOWLEDGE_GENERATION_DISABLED', 'Host knowledge extraction requires explicit opt-in'));
+    return this.knowledgeGenerationService.finish(input);
+  }
+
+  cancelWorkspaceKnowledgeGeneration(workspaceId: string, generationId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.knowledgeGenerationService.cancel(workspaceId, generationId);
+  }
+
+  getWorkspaceKnowledgeRecoveryPreview(workspaceId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    const preview = this.knowledgeGenerations.getRecoveryPreview(workspaceId);
+    this.knowledgeRecoveryPreviews.set(preview, workspaceId);
+    return preview;
+  }
+
+  acknowledgeWorkspaceKnowledgeRecovery(input: { preview: KnowledgeGenerationRecoveryPreview; requestId: string; reason: string; acknowledged: true }) {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    try {
+      assertKnowledgeGenerationHostInput(input, ['preview', 'requestId', 'reason', 'acknowledged']);
+      const { preview, requestId, reason, acknowledged } = input;
+      const workspaceId = this.knowledgeRecoveryPreviews.get(preview);
+      if (!workspaceId || acknowledged !== true) throw new EngineError('KNOWLEDGE_RECOVERY_PREVIEW_INVALID', 'Recovery requires the original host preview and explicit acknowledgment');
+      return this.coordinator.withRecoveryDecisionLease(workspaceId, async signal => {
+        if (signal.aborted) throw signal.reason;
+        verifyExecutionIdle(this.executionLockPath);
+        const receipt = this.knowledgeGenerations.acknowledgeRecovery(preview, { requestId, reason });
+        this.scheduler.holdRecoveryWorkspace(workspaceId);
+        return receipt;
+      });
+    } catch (error) { return Promise.reject(error); }
+  }
+
+  resumeWorkspaceKnowledge(input: { workspaceId: string; requestId: string; expectedRevision: number; expectedFrontierSha256: string }) {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    try {
+      assertKnowledgeGenerationHostInput(input, ['workspaceId', 'requestId', 'expectedRevision', 'expectedFrontierSha256']);
+      const prepared = Object.freeze({ ...input });
+      return this.coordinator.withRecoveryDecisionLease(prepared.workspaceId, async signal => {
+        if (signal.aborted) throw signal.reason;
+        verifyExecutionIdle(this.executionLockPath);
+        if (this.store.hasUncertainSummaries(prepared.workspaceId) || this.store.hasUncertainExecution(prepared.workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Other workspace producers still require independent recovery');
+        const receipt = this.knowledgeGenerations.resumeWorkspace(prepared);
+        this.scheduler.holdRecoveryWorkspace(prepared.workspaceId);
+        return receipt;
+      });
+    } catch (error) { return Promise.reject(error); }
   }
 
   private refreshToolScopes(): void {

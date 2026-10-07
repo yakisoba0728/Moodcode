@@ -15,6 +15,8 @@ import { ATTEMPT_CLEANUP_TABLES } from './attempt-cleanup.js';
 import { PROVIDER_RECOVERY_TABLES } from '../recovery/provider.js';
 import { MCP_EXECUTION_TABLES } from './mcp-executions.js';
 import { KNOWLEDGE_LIMITS, KNOWLEDGE_STORAGE_TABLES, validateKnowledgeArchiveRow } from '../knowledge/validation.js';
+import { KNOWLEDGE_GENERATION_TABLES, validateKnowledgeGenerationArchiveRow } from '../knowledge/generation-store.js';
+import { validateKnowledgeGenerationDatabase } from '../knowledge/generation-archive-relations.js';
 import { SqliteStore } from './index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
 import { attachments as documentAttachments, sameAttachment as sameDocumentAttachment, validateDocumentBytes } from '../documents/validation.js';
@@ -155,7 +157,22 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
         catch { fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived workspace trust or pending knowledge record is invalid'); }
       }
     }
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 10 ? [...mcpTables, ...KNOWLEDGE_STORAGE_TABLES] : mcpTables, check) };
+    if (schemaVersion >= 11) for (const table of KNOWLEDGE_GENERATION_TABLES) {
+      for (const row of db.prepare(`SELECT id,workspace_id,length(CAST(data AS BLOB)) AS bytes,substr(data,1,65537) AS data FROM ${table} ORDER BY id`).iterate()) {
+        check(); if (Number(row.bytes) > KNOWLEDGE_LIMITS.rowBytes) fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived generation row exceeds its bound');
+        try { validateKnowledgeGenerationArchiveRow({ table, key: row.id, workspaceId: row.workspace_id, data: JSON.parse(String(row.data)) }); }
+        catch { fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived native generation record is invalid'); }
+      }
+    }
+    if (schemaVersion >= 11) {
+      try { validateKnowledgeGenerationDatabase(db, check); }
+      catch (error) {
+        if (error instanceof EngineError && !error.code.startsWith('KNOWLEDGE_') && !error.code.startsWith('INVALID_KNOWLEDGE')) throw error;
+        fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived native generation relationships are invalid');
+      }
+    }
+    const knowledgeTables = schemaVersion >= 10 ? [...mcpTables, ...KNOWLEDGE_STORAGE_TABLES] : mcpTables;
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 11 ? [...knowledgeTables, ...KNOWLEDGE_GENERATION_TABLES] : knowledgeTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

@@ -9,10 +9,10 @@ function fixture(t: test.TestContext) {
   const tables = db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*' ORDER BY name").all().map(row => String(row.name));
   return { db, tables };
 }
-test('current DB10 is within the bounded recovery schema inspection and includes its knowledge records', t => {
+test('current DB11 is within the bounded recovery schema inspection and includes native generation records', t => {
   const { db, tables } = fixture(t), count = Number(db.prepare("SELECT count(*) AS count FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'").get()!.count);
-  assert.ok(count > 64); assert.ok(count <= RECOVERY_LIMITS.maxSchemaEntries); assert.equal(DB_VERSION, 10);
-  assert.ok(tables.includes('knowledge_candidates')); assert.match(checkDatabase(db, DB_VERSION, tables, () => {}), /^[a-f0-9]{64}$/);
+  assert.ok(count > 64); assert.ok(count <= RECOVERY_LIMITS.maxSchemaEntries); assert.equal(DB_VERSION, 11);
+  assert.ok(tables.includes('knowledge_candidates')); assert.ok(tables.includes('knowledge_generations')); assert.ok(tables.includes('knowledge_generation_attempts')); assert.match(checkDatabase(db, DB_VERSION, tables, () => {}), /^[a-f0-9]{64}$/);
 });
 test('excessive schema metadata remains bounded even with empty data and an otherwise accepted table list', t => {
   const { db, tables } = fixture(t);

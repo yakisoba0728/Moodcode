@@ -194,6 +194,14 @@ export class KnowledgeStorage {
     identifier(workspaceId); identifier(planId); const row = this.row('knowledge_generation_plans', planId, workspaceId);
     return row ? this.decode(row, 'knowledge_generation_plans') as KnowledgeGenerationPlan : undefined;
   }
+  /** Descriptive plans must still match the exact stored plan and current host scope. */
+  assertGenerationPlanCurrent(input: KnowledgeGenerationPlan): void {
+    const plan = validateGenerationPlan(input);
+    this.assertUnpaused(plan.workspaceId);
+    const stored = this.getGenerationPlan(plan.workspaceId, plan.id);
+    if (!stored || stored.sha256 !== plan.sha256) knowledgeError('KNOWLEDGE_RECORD_CONFLICT', 'Generation plan differs from its durable record');
+    this.currentPlan(stored);
+  }
   private currentPlan(plan: KnowledgeGenerationPlan): void {
     this.unexpired(plan.expiresAt, this.now()); this.assertBinding(plan.binding);
     const trust = this.assertTrusted(plan.workspaceId, plan.expectedTrustRevision);
@@ -247,6 +255,15 @@ export class KnowledgeStorage {
   getCandidate(workspaceId: string, candidateId: string): KnowledgeCandidate | undefined {
     identifier(workspaceId); identifier(candidateId); const row = this.row('knowledge_candidates', candidateId, workspaceId);
     return row ? this.decode(row, 'knowledge_candidates') as KnowledgeCandidate : undefined;
+  }
+  /** Indexed historical lookup supports finishing a completed owner without replaying its provider. */
+  getCandidateByGeneration(workspaceId: string, ownerId: string): KnowledgeCandidate | undefined {
+    identifier(workspaceId); identifier(ownerId);
+    const row = this.#db.prepare('SELECT id,workspace_id,data FROM knowledge_candidates WHERE workspace_id=? AND generation_owner_id=? LIMIT 1').get(workspaceId, ownerId) as DataRow | undefined;
+    if (!row) return undefined;
+    const candidate = this.decode(row, 'knowledge_candidates') as KnowledgeCandidate;
+    if (candidate.workspaceId !== workspaceId || candidate.generationOwnerId !== ownerId) knowledgeError('KNOWLEDGE_RECORD_CONFLICT', 'Candidate columns do not match the exact native owner');
+    return candidate;
   }
   /** Freshness does not approve a candidate: every result remains pending host review. */
   assertCandidateCurrent(workspaceId: string, candidateId: string): KnowledgeCandidate {

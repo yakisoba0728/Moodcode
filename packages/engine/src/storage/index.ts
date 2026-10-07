@@ -36,6 +36,8 @@ import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefi
 import { verificationDocumentKind, validateConsumedVerificationSettlement } from '../verification/plans.js';
 import { verificationControllerDocumentKind } from '../verification/controller.js';
 import { KnowledgeStorage } from '../knowledge/store.js';
+import { KnowledgeGenerationStorage, hasKnowledgeGenerationBlocker } from '../knowledge/generation-store.js';
+import type { KnowledgeGenerationStoragePorts } from '../knowledge/generation-types.js';
 import type { KnowledgeStoragePorts } from '../knowledge/types.js';
 import { validateKnowledgeArchiveRow } from '../knowledge/validation.js';
 import { KnowledgeHostAdapter } from '../knowledge/host.js';
@@ -122,6 +124,7 @@ export class SqliteStore implements SessionEngineStore {
   private summaryRecovery?: SummaryRecoveryStorage;
   private readonly providerRecoveryHighWater: string;
   private providerRecovery?: ProviderRecoveryStorage;
+  private knowledgeGenerationRecords?: KnowledgeGenerationStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -282,6 +285,7 @@ export class SqliteStore implements SessionEngineStore {
         if (existing.fingerprint !== fingerprint) throw new EngineError('REQUEST_ID_CONFLICT', 'Request ID was already used for different input');
         return { runId: String(existing.run_id), inputId: String(existing.id), admittedSeq: Number(existing.admitted_seq), duplicate: true };
       }
+      if (this.hasUncertainKnowledgeGeneration(session.workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace host generation requires explicit recovery');
       const busy = this.db.prepare(`SELECT id FROM runs WHERE workspace_id=? AND state IN (${ACTIVE_STATES})`).get(session.workspaceId);
       if (busy) throw new EngineError('WORKSPACE_BUSY', 'Workspace already has an active run', { runId: String(busy.id), workspaceId: session.workspaceId });
       const timestamp = new Date().toISOString();
@@ -375,7 +379,13 @@ export class SqliteStore implements SessionEngineStore {
     });
   }
   hasUncertainWorkspace(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId));
+    return this.recoveryBlocked(() => this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId));
+  }
+  hasUncertainKnowledgeGeneration(workspaceId: string): boolean {
+    return this.recoveryBlocked(() => {
+      this.getWorkspace(workspaceId);
+      return this.knowledgeGenerationRecords?.hasBlocker(workspaceId) ?? hasKnowledgeGenerationBlocker(this.db, workspaceId);
+    });
   }
   getAttempt(id: string): ProviderAttempt { return this.executionRecords.getAttempt(id); }
   createAttemptCleanup(identity: AttemptCleanupIdentity): AttemptCleanupRecord { return this.attemptCleanupRecords.create(identity); }
@@ -488,6 +498,11 @@ export class SqliteStore implements SessionEngineStore {
   createKnowledgeStorage(ports: Omit<KnowledgeStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgeStorage {
     this.assertOpen();
     return new KnowledgeStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.transaction(operation) });
+  }
+  createKnowledgeGenerationStorage(ports: Omit<KnowledgeGenerationStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgeGenerationStorage {
+    this.assertOpen();
+    if (this.knowledgeGenerationRecords) throw new EngineError('KNOWLEDGE_GENERATION_ALREADY_CONFIGURED', 'Native generation storage already has a host owner');
+    return this.knowledgeGenerationRecords = new KnowledgeGenerationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.transaction(operation) });
   }
   createKnowledgeHostAdapter(ports: Omit<ConstructorParameters<typeof KnowledgeHostAdapter>[1], 'readTx' | 'getWorkspace'>): KnowledgeHostAdapter {
     this.assertOpen();

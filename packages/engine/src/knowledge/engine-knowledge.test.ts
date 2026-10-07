@@ -30,7 +30,7 @@ async function fixture(t: test.TestContext) {
 
 test('actual engine stores trusted pending knowledge without manufacturing execution or publishing a candidate', async t => {
   const f = await fixture(t), prepared = f.prepare(), plan = await prepared.promise;
-  assert.equal(DB_VERSION, 10); assert.equal(plan.state, 'pending'); assert.equal(plan.toolCount, 0); assert.equal(plan.source.sha256, prepared.projection.manifest.sha256);
+  assert.equal(DB_VERSION, 11); assert.equal(plan.state, 'pending'); assert.equal(plan.toolCount, 0); assert.equal(plan.source.sha256, prepared.projection.manifest.sha256);
   assert.equal(plan.target.kind, 'workspace-file'); assert.equal(f.engine.workspaceKnowledge.getGenerationPlan(f.workspace.id, plan.id)!.id, plan.id);
   assert.equal(f.engine.store.getSnapshot(f.session.id).runs.length, 0); assert.equal(f.engine.store.listInputs(f.session.id).inputs.length, 0);
   assert.throws(() => f.engine.workspaceKnowledge.attachGenerationOwner(f.workspace.id, plan.id, 'invented-owner'));
@@ -53,11 +53,11 @@ test('actual host rejects stale trust sources, forged projection, revoked trust 
   assert.equal(f.engine.workspaceKnowledge.getTrust(f.workspace.id)!.decision, 'deny');
 });
 
-test('DB10 archive preserves trust/plans and pauses workspace knowledge after physical relocation', async t => {
+test('current archive preserves trust/plans and pauses workspace knowledge after physical relocation', async t => {
   const f = await fixture(t), prepared = f.prepare(), plan = await prepared.promise, targetBefore = readFileSync(join(f.root, 'a.ts'), 'utf8');
   await f.engine.close();
   const archived = await exportEngineArchive({ dbPath: f.dbPath, artifactDir: f.artifactDir, destination: join(f.base, 'archive') });
-  assert.equal(archived.manifest.databases.find(database => database.role === 'primary')!.schemaVersion, 10);
+  assert.equal(archived.manifest.databases.find(database => database.role === 'primary')!.schemaVersion, DB_VERSION);
   validateEngineArchive({ directory: archived.directory });
   const imported = await importEngineArchive({ directory: archived.directory, destination: join(f.base, 'imported') }), restored = createEngine({ dbPath: imported.dbPath, artifactDir: imported.artifactDir });
   try {
