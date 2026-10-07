@@ -48,7 +48,7 @@ Instruction source cache는 최대 128개이며 idle entry를 교체한다. 진�
 
 `getVerificationCompletion(sessionId, runId)`는 별도 controller snapshot을 반환한다. `completion.decision.taskVerified`는 당시 native stop boundary에서 current source·required pass·확정 cleanup을 검사한 결과다. `Run.completed`는 loop 종료 상태다. controller는 부족/실패/stale 검사를 같은 Run의 남은 예산 안에서 한 번씩 소비하고, denied/cancelled/unsupported/unknown 결과는 차단한다. 조회·restart·import는 명령을 자동 실행하지 않는다. [검증 제어](engine-verification-controller.md)와 [통합 범위](engine-phase-two-w3.md)를 따른다.
 
-DB10의 저장소 지식 API는 host 전용이며 현재 pending 기반까지 제공한다.
+저장소 지식 API는 host 전용이다. DB10의 pending plan·trust 위에 실제 tools-free generation과 승인된 문서·파일 게시 경로를 연결한다.
 
 | API | 현재 동작 |
 |---|---|
@@ -56,10 +56,10 @@ DB10의 저장소 지식 API는 host 전용이며 현재 pending 기반까지 �
 | `setWorkspaceTrust(input)` | 원본 preview·revision CAS·dedupe·철회·expiry를 idle workspace lease에서 저장 |
 | `captureWorkspaceKnowledgeSources(workspaceId, selection)` | 명시적으로 선택한 파일/완료 대화의 bounded text와 원본 opaque projection |
 | `releaseWorkspaceKnowledgeSources(projection)` | capture 수명 해제 |
-| `captureWorkspaceKnowledgeTarget(workspaceId, path)` | 실제 absent 파일 preimage의 revision 0; 기존 파일 revision port는 아직 unavailable |
+| `captureWorkspaceKnowledgeTarget(workspaceId, path)` | 실제 absent 파일 preimage; `knowledgeFilePublication:true`에서는 기존 파일·철회된 파일의 native revision과 SHA/identity를 함께 캡처 |
 | `prepareWorkspaceKnowledgeGeneration(input)` | 원본 projection·현재 trust/source/target을 다시 검사해 pending plan 저장 |
 
-위 계획 저장은 모델 호출이 아니다. production generation owner와 tools-free extraction은 아직 없어 candidate 생성·승인 publish·활성 문맥 projection을 제공하지 않는다. archive는 기존 trust/계획을 보존하고 import는 지식을 pause하며 새로운 물리 저장소의 권한으로 다시 결속하지 않는다. [저장소 지식 계약](engine-workspace-knowledge.md)을 따른다.
+위 계획 저장은 모델 호출이 아니다. `knowledgeGeneration:true`에서 원본 projection의 실제 tools-free 생성·usage·cleanup·immutable candidate를 기록한다. 문서 게시와 문맥은 [generation](engine-phase-two-knowledge-generation.md)·[publication](engine-phase-two-knowledge-publication.md)·[context](engine-phase-two-knowledge-context.md) 계약을, 물리 파일 게시와 recovery는 [파일 게시](engine-phase-two-file-publication.md) 계약을 따른다. Imported knowledge의 명시적 재결속·activation은 MC2-03d 미완료다.
 
 ## child 작업과 Git workspace
 
@@ -146,3 +146,7 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 ## 문서 입력
 
 `importDocument`의 참조는 v1/v2 입력의 별도 `documents` 배열에 넣는다. 표준 Responses의 `pdfModelIds`와 exact modelSpecs의 `inputFileTypes`를 모두 명시해야 한다. 알 수 없는 PDF token 비용은 기본 거절이며 엔진과 provider에 각각 `allowUnknownDocumentTokenCost: true`를 지정한 host만 이 제한을 수락한다. 실제 model window fit은 검증했다고 표시하지 않는다. `documentHistoryPolicy`는 오래된 원본 전송을 줄이되 user text와 exact refs의 별도 provenance를 보호하는 opt-in이다. Codex PDF와 GUI 입력은 노출하지 않았다. 저장·전송·요약·archive의 상한과 coverage는 [PDF 입력 명세](engine-input-documents.md)를 따른다.
+
+## 승인한 실제 파일·skill 게시
+
+`knowledgeFilePublication:true`에서 `previewWorkspaceKnowledgeFilePublication` / `previewWorkspaceKnowledgeFileRevocation`의 원본 preview를 `publishWorkspaceKnowledgeFile` / `revokeWorkspaceKnowledgeFile`에 `approved:true`와 함께 전달한다. 일반 파일과 정확한 skill 경로의 실제 처리, native revision/CAS, 영수증 중복 제거, 불확실 상태·원본 작업 종료 대기와 별도 ACK/resume를 제공한다. 각 API와 16 KiB 지원 범위, 공통 잠금·외부 writer의 한계는 [파일 게시 계약](engine-phase-two-file-publication.md)을 따른다. Import의 역사적 조회는 파일 적용 권한을 복원하지 않는다.

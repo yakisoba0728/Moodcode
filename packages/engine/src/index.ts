@@ -1,6 +1,8 @@
 export { createEngine, MoodcodeEngine, type EngineOptions, type RestoreCommandResult, type ReviewHistoryResult, type EngineStorageUsageOptions, type EngineStorageUsageReport, type EngineChildDocumentStorageOptions, type EngineChildDocumentStorageReport } from './engine.js';
 export type * from './ports.js';
 export * from './lifecycle/index.js';
+export type * from './knowledge/file-publication-types.js';
+export type { KnowledgeFilePublicationPreview, WorkspaceKnowledgeFilePublicationPreviewInput, WorkspaceKnowledgeFileRevocationPreviewInput, WorkspaceKnowledgeFilePublicationInput, WorkspaceKnowledgeFilePublicationResult } from './knowledge/file-publication-service.js';
 export * from './diagnostics/trajectory.js';
 export * from './diagnostics/attempt-manifest.js';
 export * from './diagnostics/stall.js';

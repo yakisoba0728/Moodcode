@@ -9,11 +9,19 @@ import { SqliteStore } from '../storage/index.js';
 import { assertWorkspaceTrustSourcesCurrent, captureWorkspaceTrustSources } from '../workspace/trust.js';
 import { KnowledgeHostAdapter, KNOWLEDGE_HOST_LIMITS, type KnowledgeHostAdapterPorts } from './host.js';
 import { KnowledgeStorage, KNOWLEDGE_SCHEMA_SQL } from './store.js';
-import { knowledgeHash, sha256 } from './validation.js';
+import { knowledgeHash, sha256, validateTarget } from './validation.js';
 import type { KnowledgeHostBinding } from './types.js';
 
 const stamp = '2026-10-07T03:00:00.000Z';
 const hasCode = (code: string) => (error: unknown) => error instanceof EngineError && error.code === code;
+test('absent physical target preserves its positive native deletion revision and still rejects a changed head', t => {
+  const f = fixture(t, { revision: 3 });
+  const target = f.adapter.captureFileTarget('workspace', 'REVOKED.md');
+  assert.deepEqual(target, { kind: 'workspace-file', path: 'REVOKED.md', revision: 3, sha256: null, device: null, inode: null });
+  assert.deepEqual(validateTarget(target), target); f.adapter.assertTargetCurrent(f.binding(), target);
+  f.counters.targetRevision = 4; assert.throws(() => f.adapter.assertTargetCurrent(f.binding(), target), hasCode('KNOWLEDGE_TARGET_CHANGED'));
+  assert.throws(() => validateTarget({ kind: 'workspace-document', key: 'revoked', revision: 3, sha256: null }), hasCode('INVALID_KNOWLEDGE'));
+});
 function fixture(t: TestContext, options: { state?: RunState; content?: string; message?: Partial<Message>; revision?: number } = {}) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'moodcode-knowledge-host-'))), file = join(root, 'engine.sqlite'), store = new SqliteStore(file), otherRoot = join(root, 'other'); mkdirSync(otherRoot);
   store.putWorkspace({ id: 'workspace', root, gitRoot: root, branch: null, createdAt: stamp }); store.putWorkspace({ id: 'other', root: otherRoot, gitRoot: otherRoot, branch: null, createdAt: stamp });

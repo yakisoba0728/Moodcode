@@ -367,6 +367,11 @@ export class RunCoordinator implements CoordinatorPort {
     return this.workspaceLease(workspaceId, operation, false, true);
   }
 
+  /** Physical knowledge publication has its own durable recovery barrier. */
+  withHostFilePublicationLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    return this.workspaceLease(workspaceId, operation, false, true, true);
+  }
+
   /** Host ledger decisions only. Keeps other quarantines and never wakes queued work. */
   withSummaryRecoveryLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
     return this.withRecoveryDecisionLease(workspaceId, operation);
@@ -376,7 +381,7 @@ export class RunCoordinator implements CoordinatorPort {
     return this.workspaceLease(workspaceId, operation, true);
   }
 
-  private workspaceLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>, summaryRecovery: boolean, hostGeneration = false): Promise<T> {
+  private workspaceLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>, summaryRecovery: boolean, hostGeneration = false, hostFile = false): Promise<T> {
     try {
       if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
       this.options.store.getWorkspace(workspaceId);
@@ -401,14 +406,14 @@ export class RunCoordinator implements CoordinatorPort {
         checkAbort(lease.abort.signal);
         const result = await operation(lease.abort.signal);
         if (!summaryRecovery && uncertain(result)) {
-          if (!hostGeneration || this.options.store.hasUncertainKnowledgeGeneration?.(workspaceId) !== true) throw new EngineError('CLEANUP_UNCERTAIN', 'Workspace maintenance did not confirm its effects and cleanup');
+          if (!hostGeneration || (hostFile ? this.options.store.hasUncertainKnowledgeFilePublication?.(workspaceId) : this.options.store.hasUncertainKnowledgeGeneration?.(workspaceId)) !== true) throw new EngineError('CLEANUP_UNCERTAIN', 'Workspace maintenance did not confirm its effects and cleanup');
           lease.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Host generation cleanup remains recorded in its native quarantine');
         }
         // Preserve observed partial/cancelled restore results after abort. The
         // callback's settlement, rather than the signal, confirms cleanup.
         return result;
       } catch (error) {
-        if (!summaryRecovery && hostGeneration && this.options.store.hasUncertainKnowledgeGeneration?.(workspaceId) === true) {
+        if (!summaryRecovery && hostGeneration && (hostFile ? this.options.store.hasUncertainKnowledgeFilePublication?.(workspaceId) : this.options.store.hasUncertainKnowledgeGeneration?.(workspaceId)) === true) {
           lease.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Host generation cleanup remains recorded in its native quarantine');
           throw error;
         }

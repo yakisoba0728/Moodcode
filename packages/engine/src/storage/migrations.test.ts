@@ -295,18 +295,30 @@ test('DB10 to DB11 adds independent empty generation owners and rolls back faile
 });
 
 
+test('DB12 to DB13 owns physical publication and recovery without fabricating coding owners, with atomic migration rollback', t => {
+  const { db } = fixture(t); db.exec('PRAGMA foreign_keys=ON'); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 12));
+  const before = databaseContents(db);
+  const failure = [...DATABASE_MIGRATIONS.slice(0, 12), { version: 13, name: 'intentional-v13-failure', apply(database: DatabaseSync) { DATABASE_MIGRATIONS[12]!.apply(database); throw new Error('DB13 rollback'); } }];
+  assert.throws(() => migrateDatabase(db, failure), /DB13 rollback/u); assert.equal(databaseVersion(db), 12); assert.deepEqual(databaseContents(db), before);
+  migrateDatabase(db); assert.equal(databaseVersion(db), 13);
+  for (const table of ['knowledge_file_observations','knowledge_file_heads','knowledge_file_publications','knowledge_file_checkpoints','knowledge_file_publication_receipts','knowledge_file_recovery_acknowledgments','knowledge_file_workspace_barriers','knowledge_file_execution_guards']) {
+    assert.equal(db.prepare(`SELECT count(*) AS count FROM ${table}`).get()!.count, 0);
+    assert.ok(db.prepare(`PRAGMA foreign_key_list(${table})`).all().every(row => !['sessions','runs','tools','checkpoints','provider_attempts'].includes(String(row.table))));
+  }
+});
+
 test('DB11 to DB12 adds workspace document CAS without fabricating legacy approval or publication and rolls back atomically', t => {
   const { db } = fixture(t); db.exec('PRAGMA foreign_keys=ON'); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 11));
   const before = databaseContents(db), legacy = ['workspaces', 'sessions', 'runs', 'messages', 'events', 'knowledge_generation_plans', 'knowledge_candidates', 'knowledge_generations', 'knowledge_generation_attempts'];
   const records = legacy.map(table => [table, db.prepare(`SELECT * FROM ${table}`).all()] as const);
   const failure = [...DATABASE_MIGRATIONS.slice(0, 11), { version: 12, name: 'intentional-v12-failure', apply(database: DatabaseSync) { DATABASE_MIGRATIONS[11]!.apply(database); throw new Error('DB12 rollback'); } }];
   assert.throws(() => migrateDatabase(db, failure), /DB12 rollback/u); assert.equal(databaseVersion(db), 11); assert.deepEqual(databaseContents(db), before);
-  migrateDatabase(db); assert.equal(databaseVersion(db), 12);
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 12)); assert.equal(databaseVersion(db), 12);
   for (const table of ['workspace_document_revisions', 'workspace_document_heads', 'knowledge_publications', 'knowledge_publication_receipts']) {
     assert.equal(db.prepare(`SELECT count(*) AS count FROM ${table}`).get()!.count, 0);
     assert.ok(db.prepare(`PRAGMA foreign_key_list(${table})`).all().every(row => !['sessions', 'runs', 'turns', 'provider_attempts'].includes(String(row.table))));
   }
   for (const [table, rows] of records) assert.deepEqual(db.prepare(`SELECT * FROM ${table}`).all(), rows);
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
-  const after = databaseContents(db); migrateDatabase(db); assert.deepEqual(databaseContents(db), after);
+  const after = databaseContents(db); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 12)); assert.deepEqual(databaseContents(db), after);
 });

@@ -152,7 +152,8 @@ export function validateTarget(value: unknown): KnowledgeTarget {
     fields(result, ['kind', 'path', 'revision', 'sha256', 'device', 'inode']); exactKnowledgePath(result.path); nullable(result.device, physical); nullable(result.inode, physical);
     if ((result.sha256 === null) !== (result.device === null) || (result.device === null) !== (result.inode === null)) knowledgeError('INVALID_KNOWLEDGE', 'File target preimage and physical identity must agree');
   } else return knowledgeError('INVALID_KNOWLEDGE', 'Unknown knowledge target');
-  if ((result.revision === 0) !== (result.sha256 === null)) knowledgeError('INVALID_KNOWLEDGE', 'Target revision zero requires an absent preimage');
+  if (result.revision === 0 && result.sha256 !== null || result.kind === 'workspace-document' && (result.revision === 0) !== (result.sha256 === null))
+    knowledgeError('INVALID_KNOWLEDGE', 'Revision zero requires an absent preimage; document absence has no native file tombstone');
   return result as unknown as KnowledgeTarget;
 }
 const planInputFields = ['workspaceId', 'requestId', 'binding', 'expectedTrustRevision', 'source', 'target', 'providerId', 'modelId', 'requestSha256', 'requestBytes', 'maxOutputBytes', 'expiresAt'] as const;

@@ -2,6 +2,8 @@ import { closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readSy
 import { dirname, isAbsolute } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
+import { randomInt } from 'node:crypto';
+import { types as nodeTypes } from 'node:util';
 
 export interface ExecutionLock {
   recordGroup(pid: number): void;
@@ -25,6 +27,22 @@ export interface ExecutionLockMarker {
 }
 
 type Marker = ExecutionLockMarker;
+
+export interface ExecutionLockReservation { readonly id: string }
+const reservations = new WeakMap<object, { path: string; marker: ExecutionLockMarker; used: boolean }>();
+/** Reserve the exact durable marker before a host records its physical effect intent. */
+export function reserveExecutionLock(path: string): ExecutionLockReservation {
+  if (typeof path !== 'string' || !isAbsolute(path) || path.includes('\0')) throw new EngineError('INVALID_COMMAND_LOCK_PATH', 'Execution lock reservation requires an absolute path');
+  const updatedAt = new Date().toISOString().replace('Z', `${String(randomInt(1_000_000)).padStart(6, '0')}Z`);
+  const reservation = Object.freeze({ id: updatedAt });
+  reservations.set(reservation, { path, marker: { ownerPid: process.pid, groupPid: null, active: true, updatedAt }, used: false });
+  return reservation;
+}
+export function readExecutionLockReservation(reservation: ExecutionLockReservation): Readonly<ExecutionLockMarker> {
+  const owned = reservations.get(reservation);
+  if (!owned || owned.used) throw new EngineError('COMMAND_EXECUTION_RESERVATION_INVALID', 'Execution reservation is foreign or consumed');
+  return Object.freeze({ ...owned.marker });
+}
 
 /** Version 0 is the existing, unmigrated command_execution schema. */
 export const EXECUTION_LOCK_SCHEMA_VERSION = 0;
@@ -273,7 +291,32 @@ export function assertExecutionLockAvailable(path: string): void {
  * recordGroup updates remain uncommitted while held; a crash may leave group_pid
  * null, but the durable active marker still prevents another command from starting.
  */
-export function acquireExecutionLock(path: string): ExecutionLock {
+/** Explicit host recovery only; a live or unverifiable PID never authorizes clearing a marker. */
+export function reconcileStoppedExecutionLock(path: string, input: Readonly<ExecutionLockMarker>): void {
+  if (!input || typeof input !== 'object' || nodeTypes.isProxy(input) || Object.getPrototypeOf(input) !== Object.prototype) throw new EngineError('COMMAND_EFFECTS_RECOVERY_INVALID', 'Execution recovery requires plain marker metadata');
+  const descriptors = Object.getOwnPropertyDescriptors(input);
+  if (Reflect.ownKeys(input).length !== 4 || Object.keys(descriptors).sort().join(',') !== 'active,groupPid,ownerPid,updatedAt' || Object.values(descriptors).some(value => !('value' in value) || !value.enumerable)) throw new EngineError('COMMAND_EFFECTS_RECOVERY_INVALID', 'Execution recovery cannot execute marker accessors');
+  const expected = Object.freeze({ ownerPid: descriptors.ownerPid!.value as number, groupPid: descriptors.groupPid!.value as number | null, active: descriptors.active!.value as boolean, updatedAt: descriptors.updatedAt!.value as string });
+  if (!Number.isSafeInteger(expected.ownerPid) || expected.ownerPid < 1 || expected.ownerPid > 2_147_483_647 || expected.groupPid !== null || expected.active !== true || typeof expected.updatedAt !== 'string' || expected.updatedAt.length > 128 || !Number.isFinite(Date.parse(expected.updatedAt))) throw new EngineError('COMMAND_EFFECTS_RECOVERY_INVALID', 'Execution recovery requires the exact bounded file marker');
+  const inspected = inspectExecutionLock(path);
+  if (inspected.status !== 'uncertain' || expected.groupPid !== null || JSON.stringify(inspected.marker) !== JSON.stringify(expected)) throw new EngineError('COMMAND_EFFECTS_RECOVERY_STALE', 'Execution recovery requires the exact original file marker');
+  try { process.kill(expected.ownerPid, 0); throw new EngineError('COMMAND_EFFECTS_OWNER_ALIVE', 'The original file effect process is still alive'); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; }
+  const db = openDatabase(path); let transaction = false;
+  try {
+    db.exec('BEGIN EXCLUSIVE'); transaction = true;
+    const marker = readMarker(db);
+    if (JSON.stringify(marker) !== JSON.stringify(expected)) throw new EngineError('COMMAND_EFFECTS_RECOVERY_STALE', 'Execution marker changed before recovery');
+    const changed = db.prepare('UPDATE command_execution SET active=0,updated_at=? WHERE id=1 AND owner_pid=? AND group_pid IS NULL AND active=1 AND updated_at=?').run(new Date().toISOString(), expected.ownerPid, expected.updatedAt);
+    if (Number(changed.changes) !== 1) throw new EngineError('COMMAND_EFFECTS_RECOVERY_STALE', 'Execution recovery lost its marker comparison');
+    db.exec('COMMIT'); transaction = false;
+  } finally { if (transaction) db.exec('ROLLBACK'); db.close(); }
+}
+
+export function acquireExecutionLock(path: string, reservation?: ExecutionLockReservation): ExecutionLock {
+  const owned = reservation === undefined ? undefined : reservations.get(reservation);
+  if (reservation !== undefined && (!owned || owned.used || owned.path !== path)) throw new EngineError('COMMAND_EXECUTION_RESERVATION_INVALID', 'Execution reservation is foreign, consumed or bound to another lock');
+  if (owned) owned.used = true;
   let database: DatabaseSync | undefined;
   let transaction = false;
   try {
@@ -285,7 +328,7 @@ export function acquireExecutionLock(path: string): ExecutionLock {
     if (previous?.active) throw uncertain(previous);
     database.prepare(`INSERT INTO command_execution (id, owner_pid, group_pid, active, updated_at)
       VALUES (1, ?, NULL, 1, ?)
-      ON CONFLICT(id) DO UPDATE SET owner_pid=excluded.owner_pid, group_pid=NULL, active=1, updated_at=excluded.updated_at`).run(process.pid, new Date().toISOString());
+      ON CONFLICT(id) DO UPDATE SET owner_pid=excluded.owner_pid, group_pid=NULL, active=1, updated_at=excluded.updated_at`).run(process.pid, owned?.marker.updatedAt ?? new Date().toISOString());
     database.exec('COMMIT');
     transaction = false;
     // A contender may briefly observe active=1 in this gap and fail closed.
@@ -293,7 +336,7 @@ export function acquireExecutionLock(path: string): ExecutionLock {
     database.exec('BEGIN EXCLUSIVE');
     transaction = true;
     const claimed = readMarker(database);
-    if (!claimed?.active || claimed.ownerPid !== process.pid) {
+    if (!claimed?.active || claimed.ownerPid !== process.pid || owned && claimed.updatedAt !== owned.marker.updatedAt) {
       throw new EngineError('COMMAND_CLEANUP_UNCERTAIN', 'The committed execution marker changed before its exclusive lock was acquired.');
     }
     const db = database;

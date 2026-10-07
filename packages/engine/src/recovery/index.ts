@@ -16,6 +16,8 @@ import { KNOWLEDGE_GENERATION_TABLES } from '../knowledge/generation-store.js';
 import { validateKnowledgeGenerationDatabase } from '../knowledge/generation-archive-relations.js';
 import { KNOWLEDGE_PUBLICATION_TABLES } from '../knowledge/publication-store.js';
 import { validateKnowledgePublicationDatabase } from '../knowledge/publication-archive-relations.js';
+import { KNOWLEDGE_FILE_PUBLICATION_TABLES, validateKnowledgeFilePublicationDatabase } from '../knowledge/file-publication-store.js';
+import { KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
 import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
@@ -109,8 +111,14 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     const knowledgeTables = primaryVersion >= 10 ? [...mcpTables, ...KNOWLEDGE_STORAGE_TABLES] : mcpTables;
     if (primary && primaryVersion >= 11) validateKnowledgeGenerationDatabase(primary, snapshot.check);
     if (primary && primaryVersion >= 12) validateKnowledgePublicationDatabase(primary, snapshot.check);
+    if (primary && primaryVersion >= 13) {
+      validateKnowledgeFilePublicationDatabase(primary, snapshot.check);
+      validateKnowledgeFileExecutionGuards(primary, snapshot.check);
+    }
     const generationTables = primaryVersion >= 11 ? [...knowledgeTables, ...KNOWLEDGE_GENERATION_TABLES] : knowledgeTables;
-    const primaryHash = primary ? checkDatabase(primary, primaryVersion, primaryVersion >= 12 ? [...generationTables, ...KNOWLEDGE_PUBLICATION_TABLES] : generationTables, snapshot.check) : null;
+    const publicationTables = primaryVersion >= 12 ? [...generationTables, ...KNOWLEDGE_PUBLICATION_TABLES] : generationTables;
+    const fileTables = primaryVersion >= 13 ? [...publicationTables, ...KNOWLEDGE_FILE_PUBLICATION_TABLES, KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE] : publicationTables;
+    const primaryHash = primary ? checkDatabase(primary, primaryVersion, fileTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);
     let marker: Marker | null = null;

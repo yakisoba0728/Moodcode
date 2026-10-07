@@ -11,6 +11,8 @@ import { MCP_EXECUTION_SCHEMA } from './mcp-executions.js';
 import { KNOWLEDGE_SCHEMA_SQL } from '../knowledge/store.js';
 import { KNOWLEDGE_GENERATION_SCHEMA_SQL } from '../knowledge/generation-store.js';
 import { KNOWLEDGE_PUBLICATION_SCHEMA_SQL } from '../knowledge/publication-store.js';
+import { KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL } from '../knowledge/file-publication-store.js';
+import { KNOWLEDGE_FILE_EXECUTION_GUARD_SCHEMA_SQL } from '../knowledge/file-execution-guards.js';
 
 export interface DatabaseMigration {
   /** Append-only, consecutive primary database version, starting at 1. */
@@ -68,6 +70,10 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
   Object.freeze({ version: 10, name: 'workspace-trust-and-pending-knowledge', apply: (database: DatabaseSync) => { database.exec(KNOWLEDGE_SCHEMA_SQL); } }),
   Object.freeze({ version: 11, name: 'native-host-knowledge-generation', apply: (database: DatabaseSync) => { database.exec(KNOWLEDGE_GENERATION_SCHEMA_SQL); } }),
   Object.freeze({ version: 12, name: 'workspace-knowledge-publication-cas', apply: (database: DatabaseSync) => { database.exec(KNOWLEDGE_PUBLICATION_SCHEMA_SQL); } }),
+  Object.freeze({ version: 13, name: 'native-physical-knowledge-publication', apply: (database: DatabaseSync) => {
+    database.exec('CREATE UNIQUE INDEX knowledge_candidate_workspace_identity ON knowledge_candidates(workspace_id,id)');
+    database.exec(KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL); database.exec(KNOWLEDGE_FILE_EXECUTION_GUARD_SCHEMA_SQL);
+  } }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;
 

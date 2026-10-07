@@ -1,8 +1,8 @@
 # Moodcode 엔진 구현 TODO
 
-갱신일: 2026-10-07, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 최신 엔진 구현: `464812f`. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
+갱신일: 2026-10-08, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 직전 검증된 엔진 커밋: `5fd8e82`. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
 
-상태: 자체 엔진의 inbox·실행·provider·context·도구·MCP·PTY·저장과 실제 child 실행·변경 통합·LSP 연결을 구현했다. G1-29까지 1차 구현·최종 headless 검증을 마쳤다. 문서 커밋과 clean tree 확인 뒤 goal을 완료 처리하며 새 구현은 별도 요청으로 시작한다. 이 파일을 구현 진행 상태의 기준으로 사용한다.
+상태: G1-29까지 1차 구현·최종 headless 검증을 마쳤고, 현재는 자체 메인 엔진 2차 MC2-01~20의 80개 항목을 구현하는 goal이 active다. 부분 기능이나 예산·턴 종료만으로 goal을 완료 처리하지 않는다. 최신 세부 상태는 아래 MC2 항목과 docs/moodcode/engine-phase-two-progress.json을 기준으로 사용한다.
 
 ## 작업 규칙
 
@@ -343,7 +343,7 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 - [x] **MC2-02d** — 실제 native 종료·현재 source·required pass·확정 cleanup에 근거한 task completion, retry/steer/등록 교체·late 결과·restart/import 관측과 자동 재실행 차단.
 - [x] **MC2-03a** — 실제 trust/source/target/plan에 DB11 native generation owner/output/nullable usage/확정 cleanup을 연결하고 immutable pending 후보를 저장했다.
 - [x] **MC2-03b** — 완료 Run 메시지·명시적 파일의 원본 capture, opt-in tools-free 추출, 독립 예산·상한·취소, bounded pending inbox와 reasoning/replay 제외를 검증했다.
-- [ ] **MC2-03c** — DB12 native workspace-document에 exact approval publish/update/revoke·head CAS·중복 영수증·취소·실제 COMMIT/SIGKILL·archive를 연결했다. 파일/skill 파일 publication의 실제 OS 어댑터가 남아 진행 중이다. [통합](docs/moodcode/engine-phase-two-knowledge-publication.md).
+- [x] **MC2-03c** — native workspace-document와 실제 파일/skill의 원본 승인 publish/update/revoke·head CAS·dedupe·동시 승인 차단·native checkpoint/receipt·취소/종료 대기·실제 SIGKILL·별도 ACK/resume·archive/import pause를 연결했다. [물리 파일 통합](docs/moodcode/engine-phase-two-file-publication.md)·[검증](docs/moodcode/engine-phase-two-file-publication-verification.json).
 - [ ] **MC2-03d** — generation의 실제 SIGKILL/partial/uncertainty·명시적 ACK+별도 resume·paused archive import와 실제 active ContextPlan을 연결했다. 승인 문서의 postimage·출처/신뢰·만료/철회·공유 budget·Attempt별 freshness·child 격리를 검증했다. imported knowledge의 명시적 복구가 남아 진행 중이다. [문맥 소비](docs/moodcode/engine-phase-two-knowledge-context.md).
 
 ### W3 지식 생성 통합
@@ -363,4 +363,6 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 - [x] **MC2-01d** — host 명시적 native TS7 executable/version과 bounded project source digest를 연결하고 실제 512개 모듈의 독립 정답8개·Moodcode 정답2개를 대조했다. 미개방 dependency/config 변경, UTF-16/BOM/CRLF, partial compile·ignored/outside·참조 상한, branch/worktree/reopen, original RPC 취소·actual FileHandle drain·native PID 종료와 frozen coding Attempt를 검증했다. [구현 설명](docs/moodcode/engine-phase-two-native-typescript.md)·[검증 기록](docs/moodcode/engine-phase-two-native-typescript-verification.json)·[실제 측정](docs/moodcode/engine-phase-two-native-typescript-benchmark.json). 해당 검증 시점18/80·3/20 완료였으며 전체 goal은 active다. 측정된 정답 사례의 정확도를 전체 저장소 품질/자동 ranking/외부 dependency/Windows/OS sandbox 완료로 확대하지 않는다.
 
 - [x] **MC2-04c** — hash-bound 도구 입력 변환은 sole prepare 전에만 적용하며 원본 proposal·final opaque handle·fingerprint exact approval과 eager/discovery capture를 보존했다. model-context는 확인한 base 메시지를 보존하고 whole assistant DATA를 공유 slot에 넣은 뒤 실제 ContextRevision/Attempt를 고정한다.
-- [x] **MC2-04d** — actual native verification graph와 primary SQLite CAS에 결속한 opt-in same-Run continuation 최대1회, 원래 turn/tool/output/deadline/child 예산과 per-Attempt source/profile/ledger freshness를 검증했다. post-effect 실패 producer1회, 정상 same-DB restart 후 추가 dispatch0이다. 신규99개·whole3,563중3,561pass/실패0/기존Windows skip2·source403pass·coding fixture3pass. [설명](docs/moodcode/engine-phase-two-lifecycle-transforms.md)·[기록](docs/moodcode/engine-phase-two-lifecycle-transforms-verification.json). 현재20/80·4/20 완료이며 전체 goal은 active다.
+- [x] **MC2-04d** — actual native verification graph와 primary SQLite CAS에 결속한 opt-in same-Run continuation 최대1회, 원래 turn/tool/output/deadline/child 예산과 per-Attempt source/profile/ledger freshness를 검증했다. post-effect 실패 producer1회, 정상 same-DB restart 후 추가 dispatch0이다. 신규99개·whole3,563중3,561pass/실패0/기존Windows skip2·source403pass·coding fixture3pass. [설명](docs/moodcode/engine-phase-two-lifecycle-transforms.md)·[기록](docs/moodcode/engine-phase-two-lifecycle-transforms-verification.json). 해당 검증 시점20/80·4/20 완료였으며 전체 goal은 active다.
+
+- [x] **MC2-03c 물리 소비 경로** — DB13 파일/skill 게시·철회와 8개 native 테이블, original 실행 marker 예약, current proof와 실제 파일 처리, 불확실 상태 보존 및 명시적 ACK/resume를 연결했다. 신규90개, 전체3,653개 중3,651pass·실패0·기존 Windows skip2, source605pass, scripted coding fixture3pass, 전체 typecheck0. [설명](docs/moodcode/engine-phase-two-file-publication.md)·[기록](docs/moodcode/engine-phase-two-file-publication-verification.json). 현재21/80·4/20 완료이며 전체 goal은 active다. MC2-03d imported knowledge의 명시적 재결속·activation과 MC2-12c/d 진단 관찰·추출은 남아 있다.

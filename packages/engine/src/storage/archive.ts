@@ -19,6 +19,8 @@ import { KNOWLEDGE_GENERATION_TABLES, validateKnowledgeGenerationArchiveRow } fr
 import { validateKnowledgeGenerationDatabase } from '../knowledge/generation-archive-relations.js';
 import { KNOWLEDGE_PUBLICATION_TABLES } from '../knowledge/publication-store.js';
 import { validateKnowledgePublicationDatabase } from '../knowledge/publication-archive-relations.js';
+import { KNOWLEDGE_FILE_PUBLICATION_TABLES, validateKnowledgeFilePublicationDatabase } from '../knowledge/file-publication-store.js';
+import { KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
 import { SqliteStore } from './index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
 import { attachments as documentAttachments, sameAttachment as sameDocumentAttachment, validateDocumentBytes } from '../documents/validation.js';
@@ -182,7 +184,12 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
         fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived workspace publication relationships are invalid');
       }
     }
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 12 ? [...generationTables, ...KNOWLEDGE_PUBLICATION_TABLES] : generationTables, check) };
+    if (schemaVersion >= 13) {
+      try { validateKnowledgeFilePublicationDatabase(db, check); validateKnowledgeFileExecutionGuards(db, check); }
+      catch { fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived physical file publication relationships are invalid'); }
+    }
+    const publicationTables = schemaVersion >= 12 ? [...generationTables, ...KNOWLEDGE_PUBLICATION_TABLES] : generationTables;
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 13 ? [...publicationTables, ...KNOWLEDGE_FILE_PUBLICATION_TABLES, KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE] : publicationTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

@@ -180,7 +180,11 @@ export class KnowledgeHostAdapter {
     } catch (error) { if (error instanceof EngineError) throw error; return knowledgeError('KNOWLEDGE_TARGET_CHANGED', 'Target path is unavailable'); }
   }
   private target(binding: KnowledgeHostBinding, relative: string): Extract<KnowledgeTarget, { kind: 'workspace-file' }> {
-    if (this.absent(binding, relative)) return Object.freeze({ kind: 'workspace-file', path: relative, revision: 0, sha256: null, device: null, inode: null });
+    if (this.absent(binding, relative)) {
+      const revision = this.#ports.readFileTargetRevision ? integer(this.#ports.readFileTargetRevision(binding, relative)) : 0;
+      if (!this.absent(binding, relative)) knowledgeError('KNOWLEDGE_TARGET_CHANGED', 'Absent file target appeared while its original native revision was observed');
+      return Object.freeze({ kind: 'workspace-file', path: relative, revision, sha256: null, device: null, inode: null });
+    }
     if (!this.#ports.readFileTargetRevision) knowledgeError('KNOWLEDGE_TARGET_REVISION_UNAVAILABLE', 'Existing file targets require an actual host publication/document revision owner');
     const observed = this.file(binding, relative, KNOWLEDGE_HOST_LIMITS.fileBytes), revision = integer(this.#ports.readFileTargetRevision(binding, relative));
     if (!revision) knowledgeError('KNOWLEDGE_TARGET_REVISION_UNAVAILABLE', 'Existing target host revision must be positive');

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { createEngine } from '../../engine.js';
@@ -38,7 +38,9 @@ function stop(record: KnowledgePublicationRecord): never {
   const committedDb = new DatabaseSync(dbPath, { readOnly: true });
   let committed: ReturnType<typeof snapshot>;
   try { committed = snapshot(committedDb); } finally { committedDb.close(); }
-  writeFileSync(join(directory, 'publication-crash-ready.json'), JSON.stringify({ phase, operation, record, insideTransaction: db.isTransaction, frame: snapshot(db), committed }), { mode: 0o600 });
+  const readyPath = join(directory, 'publication-crash-ready.json');
+  writeFileSync(`${readyPath}.tmp`, JSON.stringify({ phase, operation, record, insideTransaction: db.isTransaction, frame: snapshot(db), committed }), { mode: 0o600 });
+  renameSync(`${readyPath}.tmp`, readyPath);
   process.kill(process.pid, 'SIGSTOP');
   throw new Error('Parent must SIGKILL the stopped worker');
 }

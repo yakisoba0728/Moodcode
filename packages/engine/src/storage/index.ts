@@ -41,6 +41,9 @@ import { KnowledgeGenerationStorage, hasKnowledgeGenerationBlocker } from '../kn
 import type { KnowledgeGenerationStoragePorts } from '../knowledge/generation-types.js';
 import { KnowledgePublicationStorage } from '../knowledge/publication-store.js';
 import type { KnowledgePublicationStoragePorts } from '../knowledge/publication-types.js';
+import { KnowledgeFilePublicationStorage, hasKnowledgeFilePublicationBlocker } from '../knowledge/file-publication-store.js';
+import type { KnowledgeFilePublicationStoragePorts } from '../knowledge/file-publication-types.js';
+import { KnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
 import type { KnowledgeStoragePorts } from '../knowledge/types.js';
 import { validateKnowledgeArchiveRow } from '../knowledge/validation.js';
 import { KnowledgeHostAdapter } from '../knowledge/host.js';
@@ -131,6 +134,7 @@ export class SqliteStore implements SessionEngineStore {
   private providerRecovery?: ProviderRecoveryStorage;
   private knowledgeGenerationRecords?: KnowledgeGenerationStorage;
   private knowledgePublicationRecords?: KnowledgePublicationStorage;
+  private knowledgeFilePublicationRecords?: KnowledgeFilePublicationStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -385,7 +389,10 @@ export class SqliteStore implements SessionEngineStore {
     });
   }
   hasUncertainWorkspace(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId));
+    return this.recoveryBlocked(() => this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId));
+  }
+  hasUncertainKnowledgeFilePublication(workspaceId: string): boolean {
+    return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasKnowledgeFilePublicationBlocker(this.db, workspaceId); });
   }
   hasUncertainKnowledgeGeneration(workspaceId: string): boolean {
     return this.recoveryBlocked(() => {
@@ -519,6 +526,14 @@ export class SqliteStore implements SessionEngineStore {
     this.assertOpen();
     if (this.knowledgePublicationRecords) throw new EngineError('KNOWLEDGE_PUBLICATION_ALREADY_CONFIGURED', 'Native publication storage already has a host owner');
     return this.knowledgePublicationRecords = new KnowledgePublicationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.transaction(operation) });
+  }
+  createKnowledgeFilePublicationStorage(ports: Omit<KnowledgeFilePublicationStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgeFilePublicationStorage {
+    this.assertOpen();
+    if (this.knowledgeFilePublicationRecords) throw new EngineError('KNOWLEDGE_FILE_ALREADY_CONFIGURED', 'Native physical publication storage already has a host owner');
+    return this.knowledgeFilePublicationRecords = new KnowledgeFilePublicationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+  }
+  createKnowledgeFileExecutionGuards(ports: Omit<ConstructorParameters<typeof KnowledgeFileExecutionGuards>[1], 'writeTx'>): KnowledgeFileExecutionGuards {
+    return new KnowledgeFileExecutionGuards(this.db, { ...ports, writeTx: operation => this.transaction(operation) });
   }
   createKnowledgeContextSource(ports: Omit<KnowledgeContextSourcePorts, 'readTx' | 'getWorkspace'>): KnowledgeContextSource {
     this.assertOpen();
