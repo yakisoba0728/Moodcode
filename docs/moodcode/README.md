@@ -18,6 +18,7 @@ Moodcode는 로컬 Git 저장소에서 코드를 읽고 수정하며 명령을 �
 | [최신 OpenCode 엔진 검토](../opencode-engine-review/README.md) | 고정 원본 분석, 라이선스·출처, Moodcode 내부 엔진 확장 계약 |
 | [추가 공개 에이전트 엔진 비교](../coding-agent-engine-review/README.md) | 19개 저장소별 고정 소스 분석·266개1:1 대조·75개 후보·20개 구현 범위/80개 제안 작업 |
 | [메인 엔진 2차 goal](engine-phase-two-goal.md) | 활성 goal·구현 순서·80개 작업 상태·완료 조건 |
+| [2차 W1 구현](engine-phase-two-w1.md) | LSP 저장소 문맥·lifecycle·역할 권한/사전 검사·관측 진단과 잔여 범위 |
 | [OpenCode GUI 분석](../opencode-analysis/07-clients.md) | 웹 앱, Electron, 세션 UI, diff·파일·터미널 구현의 근거 |
 
 ## 결정 상태

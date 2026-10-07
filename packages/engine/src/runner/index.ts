@@ -21,6 +21,7 @@ import type { ToolCatalogue } from '../tools/runtime/index.js';
 import { DISCOVERY_TOOL_NAME, RunToolDiscovery, type ToolDiscoveryAction } from './tool-discovery.js';
 import { bindCheckpointArtifacts } from '../artifacts/result.js';
 import type { ChildBudget } from '../child-tasks/index.js';
+import type { LifecycleCapture, LifecycleDispatchOutcome, LifecycleInvocation } from '../lifecycle/index.js';
 export { InputScheduler, type InputSchedulerOptions } from './input-scheduler.js';
 
 const CLEANUP_GRACE_MS = 1_000;
@@ -56,6 +57,8 @@ interface Owner {
   deadline: number;
   childReserved: Omit<ChildBudget, 'durationMs'>;
   cleanupError?: EngineError;
+  lifecycle?: LifecycleCapture;
+  lifecycleStopChecked?: boolean;
 }
 
 interface WorkspaceLease {
@@ -528,10 +531,12 @@ export class RunCoordinator implements CoordinatorPort {
     try {
       this.assertLive(owner);
       this.options.store.commit(run.id, 'run.started', {}, { run: { state: 'running' } });
+      owner.lifecycle = this.options.lifecycleHooks?.capture({ workspaceId: run.workspaceId, sessionId: run.sessionId, runId: run.id });
       const provider = this.options.providers.get(run.config.providerId);
       if (!provider) throw new EngineError('PROVIDER_NOT_FOUND', `Unknown provider: ${run.config.providerId}`);
       const workspace = this.options.store.getWorkspace(run.workspaceId);
       const allowed = this.options.getAllowedTools?.(run);
+      const profile = this.options.getToolProfile?.(run);
       if (allowed !== undefined) {
         if (!Array.isArray(allowed) || allowed.length > 1024 || allowed.some(name => typeof name !== 'string' || name.length === 0 || Buffer.byteLength(name) > 256)) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'The host tool allowlist is invalid');
         owner.allowedTools = new Set(allowed);
@@ -547,7 +552,7 @@ export class RunCoordinator implements CoordinatorPort {
       };
       const captureCatalogue = () => {
         if (owner.discovery) {
-          const dispatch = owner.discovery.capture(); owner.catalogue = dispatch.catalogue; reservedBytes = dispatch.reservedBytes; toolCatalogueSha256 = dispatch.toolCatalogueSha256;
+          const dispatch = owner.discovery.capture(); owner.catalogue = profile ? this.options.toolRuntime!.bindProfile(dispatch.catalogue, profile) : dispatch.catalogue; reservedBytes = dispatch.reservedBytes; toolCatalogueSha256 = dispatch.toolCatalogueSha256;
         } else {
           // catalogue() creates a new opaque handle. Reuse a current capture so
           // identity comparison at the dispatch boundary does not cause churn.
@@ -555,7 +560,7 @@ export class RunCoordinator implements CoordinatorPort {
             try { assertCatalogueCurrent(); return; }
             catch (error) { if (!(error instanceof EngineError) || error.code !== 'TOOL_CATALOGUE_STALE') throw error; }
           }
-          owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined);
+          owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined, profile);
           const schemas = owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
           reservedBytes = Buffer.byteLength(JSON.stringify({ messages: [], tools: schemas }), 'utf8') - 2;
           toolCatalogueSha256 = createHash('sha256').update(JSON.stringify(schemas)).digest('hex');
@@ -637,6 +642,8 @@ export class RunCoordinator implements CoordinatorPort {
         messages.push({ role: 'assistant', content: turn.message.content, ...(turn.calls.length ? { toolCalls: turn.calls } : {}) });
         if (turn.calls.length === 0) {
           if (this.sessionHooks?.boundary(run)) { owner.budget.inputPromoted(); messages = structuredClone(await context()); continue; }
+          owner.lifecycleStopChecked = true;
+          await this.lifecycle(owner, 'before-stop', `${run.id}:stop`, { outcome: 'completed', turnCount: owner.budget.snapshot().logicalTurns, toolCallCount: owner.toolCount, outputBytes: owner.outputBytes });
           return this.finish(owner, 'completed');
         }
         await this.executeCalls(owner, turn.calls, workspace, messages);
@@ -653,8 +660,36 @@ export class RunCoordinator implements CoordinatorPort {
       try { this.options.approvals.cancelRun(run.id); }
       catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Pending approval cleanup could not be confirmed'); }
       const terminalError = owner.cleanupError ?? failure;
+      if (!owner.lifecycleStopChecked && !owner.abort.signal.aborted) {
+        owner.lifecycleStopChecked = true;
+        // Terminal observation cannot replace producer failure or cleanup uncertainty.
+        try { await this.lifecycle(owner, 'before-stop', `${run.id}:stop`, { outcome: terminalError.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed', errorCode: terminalError.code, turnCount: owner.budget.snapshot().logicalTurns, toolCallCount: owner.toolCount, outputBytes: owner.outputBytes }, false); } catch { /* Preserve the authoritative execution failure. */ }
+      }
       return this.finish(owner, terminalError.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed', terminalError.code === 'RUN_CANCELLED' ? undefined : terminalError);
-    } finally { clearTimeout(timer); }
+    } finally { clearTimeout(timer); if (owner.lifecycle) this.options.lifecycleHooks!.release(owner.lifecycle); }
+  }
+
+  private async lifecycle(owner: Owner, stage: LifecycleInvocation['stage'], invocationId: string, metadata: LifecycleInvocation['metadata'], control = true): Promise<LifecycleDispatchOutcome | undefined> {
+    const registry = this.options.lifecycleHooks, capture = owner.lifecycle;
+    if (!registry || !capture) return undefined;
+    registry.assertCurrent(capture);
+    if (!capture.hooks.some(hook => hook.stages.includes(stage))) return undefined;
+    const outcome = await registry.dispatch(capture, { invocationId, identity: capture.identity, stage, metadata } as LifecycleInvocation, owner.abort.signal);
+    // Store bounded identity/status only. Host-returned metadata and reason text
+    // do not become durable request data or replay/cleanup authority.
+    const payload: JsonObject = { invocationId, stage, registryRevision: outcome.registryRevision, status: outcome.status, action: outcome.action,
+      outcomes: outcome.outcomes.map(item => ({ hookId: item.hookId, hookRevision: item.hookRevision, status: item.status, action: item.action, elapsedMs: item.elapsedMs, ...(item.code ? { code: item.code } : {}) })) };
+    const refs = owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {};
+    if (this.options.store.commitRunObservation) this.options.store.commitRunObservation(owner.run.id, 'lifecycle.outcome', payload, refs);
+    else this.options.store.commit(owner.run.id, 'lifecycle.outcome', payload);
+    if (!control) return outcome;
+    this.assertLive(owner);
+    if (outcome.status === 'stale') throw new EngineError('LIFECYCLE_REGISTRY_STALE', 'Lifecycle configuration changed during this Run');
+    if (outcome.action === 'stop' || outcome.status === 'cancelled') {
+      this.cancel(owner.run.id);
+      throw new EngineError('RUN_CANCELLED', 'A host lifecycle hook stopped the Run');
+    }
+    return outcome;
   }
 
   private availableTools(owner: Owner): readonly ToolDefinition[] {
@@ -720,9 +755,17 @@ export class RunCoordinator implements CoordinatorPort {
     const tools = structuredClone(advertised);
     let iterator: AsyncIterator<ProviderEvent> | undefined;
     try {
-      iterator = owner.turn!.stream(provider, { runId: owner.run.id, sessionId: owner.run.sessionId, turnIndex, modelId: owner.run.config.modelId, messages: structuredClone(messages), tools,
+      const request = { runId: owner.run.id, sessionId: owner.run.sessionId, turnIndex, modelId: owner.run.config.modelId, messages: structuredClone(messages), tools,
         ...(owner.run.config.reasoningEffort !== undefined ? { reasoningEffort: owner.run.config.reasoningEffort } : {}),
-      }, owner.abort.signal)[Symbol.asyncIterator]();
+      };
+      const contextRevisionId = this.options.getContextRevisionId?.(owner.run.sessionId);
+      const before = await this.lifecycle(owner, 'before-model', `${owner.turn!.id}:before-model`, { providerId: provider.id, modelId: request.modelId, turnIndex, turnId: owner.turn!.id,
+        ...(contextRevisionId ? { contextRevisionId } : {}), contextBytes: Buffer.byteLength(JSON.stringify({ messages: request.messages, tools: request.tools })), toolCount: tools.length, requestSha256: createHash('sha256').update(JSON.stringify(request)).digest('hex') });
+      if (before?.action === 'deny') throw new EngineError('LIFECYCLE_DENIED', 'A host lifecycle hook denied model dispatch');
+      this.assertLive(owner);
+      if (owner.catalogue) this.options.toolRuntime!.assertCatalogueCurrent(owner.catalogue);
+      if (this.options.getContextRevisionId?.(owner.run.sessionId) !== contextRevisionId) throw new EngineError('CONTEXT_REVISION_STALE', 'Context changed during the model lifecycle boundary');
+      iterator = owner.turn!.stream(provider, request, owner.abort.signal)[Symbol.asyncIterator]();
       while (true) {
         const item = await abortable(() => iterator!.next(), owner.abort.signal, 'Provider stream');
         this.assertLive(owner);
@@ -808,6 +851,8 @@ export class RunCoordinator implements CoordinatorPort {
       if (replay) message.providerReplay = replay;
       this.options.store.commit(owner.run.id, 'message.completed', { messageId: message.id, turnIndex, finishReason: finish }, { message });
       owner.turn!.outputFinished(finish, calls.length > 0);
+      await this.lifecycle(owner, 'after-model', `${owner.turn!.id}:after-model`, { providerId: provider.id, modelId: owner.run.config.modelId, turnIndex, turnId: owner.turn!.id,
+        ...(owner.turn!.attemptId ? { attemptId: owner.turn!.attemptId } : {}), finishReason: finish, toolCallCount: calls.length, outputBytes: Buffer.byteLength(message.content) });
       return { message, calls };
     } catch (error) {
       let failure = error;
@@ -905,6 +950,8 @@ export class RunCoordinator implements CoordinatorPort {
     const record: ToolCallRecord = { id: owner.invocations.get(call.id) ?? randomUUID(), runId: owner.run.id, sessionId: owner.run.sessionId, name: call.name, input: call.input, state: 'requested' };
     owner.activeTools.set(record.id, record);
     this.options.store.commit(owner.run.id, 'tool.requested', { toolCallId: record.id, providerToolCallId: call.id, name: call.name, input: call.input }, { tool: record });
+    let preparedFingerprint: string | undefined;
+    let terminalFailure: EngineError | undefined;
     try {
       if (owner.allowedTools && !owner.allowedTools.has(call.name)) return this.toolResult(owner, record, call, this.toolError(owner, 'TOOL_NOT_ALLOWED', 'The active agent profile does not permit this tool'), 'denied');
       const tool = this.options.toolRuntime && owner.catalogue ? this.options.toolRuntime.resolve(owner.catalogue, call.name) : this.tools.get(call.name);
@@ -916,6 +963,18 @@ export class RunCoordinator implements CoordinatorPort {
         throw new EngineError('INVALID_PREPARED_TOOL', 'Prepared tool identity or approval metadata is invalid');
       }
       const binding = JSON.stringify(prepared);
+      const policyReceipt = this.options.toolRuntime?.getPolicyDecisionReceipt(prepared);
+      if (policyReceipt) {
+        const payload: JsonObject = { toolCallId: record.id, toolName: call.name, preparedFingerprint: prepared.fingerprint, receipt: JSON.parse(JSON.stringify(policyReceipt)) as JsonObject, authority: 'observation-only' };
+        const refs = owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {};
+        if (this.options.store.commitRunObservation) this.options.store.commitRunObservation(owner.run.id, 'tool.policy_decision', payload, refs);
+        else this.options.store.commit(owner.run.id, 'tool.policy_decision', payload);
+      }
+      preparedFingerprint = prepared.fingerprint;
+      const before = await this.lifecycle(owner, 'tool-prepared', `${record.id}:prepared`, { toolCallId: record.id, toolName: call.name, fingerprint: prepared.fingerprint, requiresApproval: prepared.requiresApproval,
+        ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}), ...(tool.effectClass ? { effectClass: tool.effectClass } : {}), inputSha256: createHash('sha256').update(JSON.stringify(prepared.input)).digest('hex'), previewSha256: createHash('sha256').update(JSON.stringify(prepared.preview)).digest('hex') });
+      if (JSON.stringify(prepared) !== binding) throw new EngineError('PREPARED_TOOL_CHANGED', 'Prepared request changed during the lifecycle boundary');
+      if (before?.action === 'deny') return this.toolResult(owner, record, call, this.toolError(owner, 'LIFECYCLE_DENIED', 'A host lifecycle hook denied this prepared tool'), 'denied');
       if ((tool.effectClass === 'read' || (tool.effectClass === undefined && READ_TOOLS.has(call.name))) && !prepared.requiresApproval) {
         const key = `${call.name}:${this.options.toolRuntime ? this.options.toolRuntime.repeatIdentity(prepared) : prepared.fingerprint}`;
         if (owner.readonlyCalls.has(key)) throw new EngineError('REPEATED_READ_TOOL_CALL', 'This identical read was already attempted without an intervening workspace effect. Use its previous result, a continuation, a different line range, or a narrower query.');
@@ -944,6 +1003,7 @@ export class RunCoordinator implements CoordinatorPort {
       }
       this.assertLive(owner);
       if (JSON.stringify(prepared) !== binding) throw new EngineError('PREPARED_TOOL_CHANGED', 'Prepared request changed while waiting for approval');
+      if (owner.lifecycle) this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
       this.setTool(owner, record, 'running');
       if (prepared.requiresApproval || effectful) owner.readonlyCalls.clear();
       const result = await this.toolOperation(owner, record, workspace, true, (context) => tool.execute(prepared as PreparedTool, context), approval);
@@ -958,18 +1018,28 @@ export class RunCoordinator implements CoordinatorPort {
       if (call.name === DISCOVERY_TOOL_NAME && record.state === 'completed') owner.discovery?.commit(record.id);
       return content;
     } catch (error) {
+      const deniedReceipt = this.options.toolRuntime?.getPolicyDecisionFailure(error);
+      if (deniedReceipt && !owner.abort.signal.aborted) {
+        const fingerprint = deniedReceipt.roleResource?.preparedFingerprint ?? deniedReceipt.commandPreflight?.preparedFingerprint;
+        if (!fingerprint) throw new EngineError('INVALID_POLICY_RECEIPT', 'Owned policy failure has no producer fingerprint');
+        const payload: JsonObject = { toolCallId: record.id, toolName: call.name, preparedFingerprint: fingerprint, fingerprintScope: 'producer-prepared-denied', receipt: JSON.parse(JSON.stringify(deniedReceipt)) as JsonObject, authority: 'observation-only' };
+        const refs = owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {};
+        if (this.options.store.commitRunObservation) this.options.store.commitRunObservation(owner.run.id, 'tool.policy_decision', payload, refs);
+        else this.options.store.commit(owner.run.id, 'tool.policy_decision', payload);
+      }
       const original = errorOf(error, 'TOOL_ERROR', 'Tool operation failed');
       // An effect may have happened without a durable checkpoint or released lease.
       // These gaps must stop the loop even when abort arrived at the same boundary.
       const failure = uncertain(error) && original.code !== 'CLEANUP_UNCERTAIN'
         ? new EngineError('CLEANUP_UNCERTAIN', `Tool ${record.name} effects or cleanup are unconfirmed (${original.code})`)
         : original;
-      if (owner.abort.signal.aborted || ['CLEANUP_UNCERTAIN', 'TOOL_TIMEOUT', 'CONTEXT_LIMIT', 'OUTPUT_LIMIT'].includes(failure.code)) {
+      if (owner.abort.signal.aborted || failure.code.startsWith('LIFECYCLE_') || ['CLEANUP_UNCERTAIN', 'TOOL_TIMEOUT', 'CONTEXT_LIMIT', 'OUTPUT_LIMIT'].includes(failure.code)) {
+        terminalFailure = failure;
         if (!['completed', 'failed', 'denied', 'interrupted'].includes(record.state)) this.setTool(owner, record, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
         throw failure;
       }
       // Input errors, denied permissions, and ordinary tool failures let the model adapt.
-      return this.toolResult(owner, record, call, this.toolError(owner, failure.code, failure.message));
+      return this.toolResult(owner, record, call, this.toolError(owner, failure.code, failure.message), deniedReceipt ? 'denied' : undefined);
     } finally {
       owner.discovery?.discard(record.id);
       if (this.options.onToolCheckpoint) {
@@ -985,7 +1055,13 @@ export class RunCoordinator implements CoordinatorPort {
           }
         }
       }
-      owner.activeTools.delete(record.id);
+      try {
+        if (!owner.abort.signal.aborted && ['completed', 'failed', 'denied', 'interrupted'].includes(record.state)) {
+          try { await this.lifecycle(owner, 'tool-settled', `${record.id}:settled`, { toolCallId: record.id, toolName: record.name, outcome: record.state as 'completed' | 'failed' | 'denied' | 'interrupted', outputBytes: Buffer.byteLength(record.output ?? ''),
+            ...(preparedFingerprint ? { fingerprint: preparedFingerprint } : {}), ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}) }, !terminalFailure); }
+          catch (error) { if (!terminalFailure) throw error; }
+        }
+      } finally { owner.activeTools.delete(record.id); }
     }
   }
 

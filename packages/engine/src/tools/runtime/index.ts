@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { types } from 'node:util';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { ApprovalPort, PreparedTool, ProviderTool, ToolContext, ToolDefinition, ToolResult } from '../../ports.js';
 import { ArtifactStore } from '../../artifacts/store.js';
@@ -6,14 +7,36 @@ import { createToolResultEnvelope, enrichLegacyToolResult } from '../../artifact
 import { boundedJson } from '../../artifacts/validation.js';
 import { inferToolEffect, ToolPolicy, type ToolEffectClass } from '../../permission/policy.js';
 import { ScopedToolGrants, type GrantScope, type ScopedToolGrant } from '../../permission/grants.js';
+import { RoleResourcePolicy, type RoleResource, type RoleResourceInput, type RoleResourceReceipt } from '../../permission/role-resources.js';
+import { CommandPreflightRegistry, type CommandPreflightBinding, type CommandPreflightReceipt } from '../../permission/preflight.js';
 import { TOOL_DISCOVERY_LIMITS, discoveryCatalogueSignature, validateDiscoveryMaterializeLimits, validateDiscoveryNames, validateDiscoveryQuery,
   type ToolDiscoveryCatalogue, type ToolDiscoveryMaterializeLimits, type ToolDiscoveryMetadata } from './discovery.js';
 export interface RuntimeToolRegistration { effect?: ToolEffectClass; exactApproval?: boolean; revalidate?: (prepared: PreparedTool, context: ToolContext) => Promise<void> }
-export interface ToolCatalogue { scopeId: string; revision: number; policyVersion: number; mode: 'plan' | 'build'; tools: readonly ProviderTool[] }
-export interface ScopedToolRuntimeOptions { policy?: ToolPolicy; grants?: ScopedToolGrants; artifacts?: ArtifactStore | Promise<ArtifactStore> | (() => ArtifactStore | Promise<ArtifactStore>) }
+export interface RuntimeToolProfile { id: string; revision: string }
+export interface ToolCatalogue { scopeId: string; revision: number; policyVersion: number; mode: 'plan' | 'build'; tools: readonly ProviderTool[]; profile?: Readonly<RuntimeToolProfile> }
+export interface RuntimePreparedToolObservation {
+  readonly scopeId: string; readonly producerScopeId: string; readonly registryRevision: number; readonly mode: 'plan' | 'build';
+  readonly effect: ToolEffectClass; readonly profile?: Readonly<RuntimeToolProfile>; readonly prepared: Readonly<PreparedTool>;
+  readonly identity: Readonly<{ workspaceId: string; workspaceRoot: string; sessionId: string; runId: string; toolCallId: string; turnId?: string; attemptId?: string }>;
+}
+export interface RuntimeCommandPreflightOptions {
+  registry: CommandPreflightRegistry;
+  /** Trusted host selector. undefined explicitly disables this analyzer for the observed tool. */
+  selectAnalyzer(observation: RuntimePreparedToolObservation): string | undefined;
+  /** Actual host source hash/generation for the command's observed inputs, including uncommitted changes. Catalogue revision is not a source revision. */
+  resolveSourceRevision?(observation: RuntimePreparedToolObservation): string | undefined;
+  deadlineMs?: number;
+}
+export interface ScopedToolRuntimeOptions {
+  policy?: ToolPolicy; grants?: ScopedToolGrants; artifacts?: ArtifactStore | Promise<ArtifactStore> | (() => ArtifactStore | Promise<ArtifactStore>);
+  roleResources?: RoleResourcePolicy;
+  /** Host-owned resource declarations; MCP identities must come from the connected host catalogue. Receives no executable inner capability. */
+  resolveRoleResources?(observation: RuntimePreparedToolObservation): readonly RoleResource[];
+  commandPreflight?: RuntimeCommandPreflightOptions;
+}
 interface Entry { scopeId: string; token: symbol; definition: ToolDefinition; descriptor: Readonly<ProviderTool>; metadata: Readonly<ToolDiscoveryMetadata>; effect: ToolEffectClass; exactApproval: boolean; revalidate?: RuntimeToolRegistration['revalidate'] }
 interface Captured { entries: Map<string, Entry>; signature: string }
-interface Request { entry: Entry; catalogue: ToolCatalogue; inner: PreparedTool; outerSnapshot: string; innerSnapshot: string; binding: string; grant?: ScopedToolGrant; grantScope: GrantScope; used: boolean }
+interface Request { entry: Entry; catalogue: ToolCatalogue; inner: PreparedTool; outerSnapshot: string; innerSnapshot: string; binding: string; grant?: ScopedToolGrant; grantScope: GrantScope; used: boolean; roleReceipt?: RoleResourceReceipt; preflightReceipt?: CommandPreflightReceipt }
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
 function active(context: ToolContext): void { if (context.signal.aborted) fail('CANCELLED', 'Tool runtime operation cancelled'); }
 function binding(context: ToolContext): string { return JSON.stringify([context.workspace.id, context.workspace.root, context.sessionId, context.runId, context.toolCallId, context.turnId, context.attemptId, context.executionLockPath]); }
@@ -40,7 +63,16 @@ export class ScopedToolRuntime {
   private included = new Map<string, readonly string[]>(); private artifactPromise?: Promise<ArtifactStore>;
   private captures = new WeakMap<ToolCatalogue, Captured>(); private requests = new WeakMap<PreparedTool, Request>();
   private discoveryCaptures = new WeakMap<ToolDiscoveryCatalogue, Captured>();
-  constructor(private readonly options: ScopedToolRuntimeOptions = {}) { this.policy = options.policy ?? new ToolPolicy(); this.grants = options.grants ?? new ScopedToolGrants(); }
+  private profileCaptures = new WeakMap<ToolCatalogue, Map<string, ToolCatalogue>>();
+  private policyFailures = new WeakMap<object, Readonly<{ roleResource?: RoleResourceReceipt; commandPreflight?: CommandPreflightReceipt }>>();
+  private readonly roleResources?: RoleResourcePolicy;
+  private readonly resolveRoleResources?: ScopedToolRuntimeOptions['resolveRoleResources'];
+  private readonly commandPreflight?: Readonly<RuntimeCommandPreflightOptions>;
+  constructor(private readonly options: ScopedToolRuntimeOptions = {}) {
+    this.policy = options.policy ?? new ToolPolicy(); this.grants = options.grants ?? new ScopedToolGrants();
+    this.roleResources = options.roleResources; this.resolveRoleResources = options.resolveRoleResources;
+    this.commandPreflight = options.commandPreflight ? Object.freeze({ registry: options.commandPreflight.registry, selectAnalyzer: options.commandPreflight.selectAnalyzer.bind(options.commandPreflight), resolveSourceRevision: options.commandPreflight.resolveSourceRevision?.bind(options.commandPreflight), deadlineMs: options.commandPreflight.deadlineMs }) : undefined;
+  }
   get revision(): number { return this.current; }
   setIncludedScopes(scopeId: string, scopes: readonly string[]): void {
     name(scopeId); if (!Array.isArray(scopes) || scopes.length > 128 || new Set(scopes).size !== scopes.length || scopes.includes(scopeId)) fail('INVALID_TOOL_SCOPE_COMPOSITION', 'Included scopes must be unique bounded scopes distinct from the base');
@@ -53,7 +85,24 @@ export class ScopedToolRuntime {
     const request = this.requests.get(prepared);
     if (!request || JSON.stringify(prepared) !== request.outerSnapshot || JSON.stringify(request.inner) !== request.innerSnapshot) fail('INVALID_PREPARED_TOOL', 'Logical read identity requires an unchanged runtime-prepared request');
     this.entry(request.catalogue, prepared.name);
-    return createHash('sha256').update(JSON.stringify({ scope: request.catalogue.scopeId, revision: request.catalogue.revision, policyVersion: request.catalogue.policyVersion, name: request.inner.name, fingerprint: request.inner.fingerprint })).digest('hex');
+    return createHash('sha256').update(JSON.stringify({ scope: request.catalogue.scopeId, revision: request.catalogue.revision, policyVersion: request.catalogue.policyVersion, name: request.inner.name, fingerprint: request.inner.fingerprint, ...(request.catalogue.profile ? { profile: request.catalogue.profile } : {}) })).digest('hex');
+  }
+  /** Detached immutable observation for journaling. Validates ownership and snapshots only; revalidates no current authority and grants no execution/approval capability. */
+  getPolicyDecisionReceipt(prepared: PreparedTool): Readonly<{ roleResource?: RoleResourceReceipt; commandPreflight?: CommandPreflightReceipt }> | undefined {
+    const request = this.requests.get(prepared);
+    if (!request || JSON.stringify(prepared) !== request.outerSnapshot || JSON.stringify(request.inner) !== request.innerSnapshot) fail('INVALID_PREPARED_TOOL', 'Policy observations require the unchanged runtime-owned prepared request');
+    if (!request.roleReceipt && !request.preflightReceipt) return undefined;
+    const observation = { ...(request.roleReceipt ? { roleResource: structuredClone(request.roleReceipt) } : {}), ...(request.preflightReceipt ? { commandPreflight: structuredClone(request.preflightReceipt) } : {}) };
+    freezeJson(observation); return observation;
+  }
+  /** Only runtime-owned denial errors carry trusted observations. Arbitrary producer error fields are never read. */
+  getPolicyDecisionFailure(error: unknown): Readonly<{ roleResource?: RoleResourceReceipt; commandPreflight?: CommandPreflightReceipt }> | undefined {
+    if (!error || typeof error !== 'object') return undefined;
+    const observation = this.policyFailures.get(error); if (!observation) return undefined;
+    const copy = structuredClone(observation); freezeJson(copy); return copy;
+  }
+  private denyNarrowing(code: string, message: string, observation: { roleResource?: RoleResourceReceipt; commandPreflight?: CommandPreflightReceipt }): never {
+    const error = new EngineError(code, message); const copy = structuredClone(observation); freezeJson(copy); this.policyFailures.set(error, copy); throw error;
   }
   register(scopeId: string, source: ToolDefinition, options: RuntimeToolRegistration = {}): () => void {
     if (options.exactApproval !== undefined && typeof options.exactApproval !== 'boolean') fail('INVALID_TOOL_REGISTRATION', 'Exact approval must be a boolean');
@@ -73,7 +122,7 @@ export class ScopedToolRuntime {
     return () => { const existing = this.scopes.get(scopeId); if (existing?.get(definition.name)?.token !== entry.token) return; existing.delete(definition.name); if (!existing.size) this.scopes.delete(scopeId); this.current++; };
   }
   clearScope(scopeId: string): void { if (this.scopes.delete(scopeId)) this.current++; }
-  catalogue(scopeId: string, mode: 'plan' | 'build' = 'build', allowedNames?: readonly string[]): ToolCatalogue {
+  catalogue(scopeId: string, mode: 'plan' | 'build' = 'build', allowedNames?: readonly string[], profile?: RuntimeToolProfile): ToolCatalogue {
     if (mode !== 'plan' && mode !== 'build') fail('INVALID_TOOL_MODE', 'Tool catalogue mode must be plan or build');
     if (allowedNames !== undefined && (!Array.isArray(allowedNames) || allowedNames.length > 256 || allowedNames.some(name => typeof name !== 'string' || !/^[A-Za-z0-9_.-]{1,128}$/.test(name)))) fail('INVALID_TOOL_ALLOWLIST', 'Tool allowlist must contain bounded exact names');
     const allowed = allowedNames === undefined ? undefined : new Set(allowedNames);
@@ -85,7 +134,20 @@ export class ScopedToolRuntime {
       entries.set(toolName, entry); tools.push({ name: toolName, description: entry.definition.description, inputSchema: structuredClone(entry.definition.inputSchema) });
     }
     const catalogue: ToolCatalogue = { scopeId, revision: this.current, policyVersion: this.policy.version, mode, tools };
-    this.captures.set(catalogue, { entries, signature: JSON.stringify(catalogue) }); return catalogue;
+    this.captures.set(catalogue, { entries, signature: JSON.stringify(catalogue) }); return profile ? this.bindProfile(catalogue, profile) : catalogue;
+  }
+  /** Host-only narrowing of a current eager or materialized discovery capture. Never accepts a model-selected role. */
+  bindProfile(catalogue: ToolCatalogue, profile: RuntimeToolProfile): ToolCatalogue {
+    this.assertCatalogueCurrent(catalogue);
+    if (!profile || typeof profile !== 'object' || types.isProxy(profile) || Array.isArray(profile) || ![Object.prototype, null].includes(Object.getPrototypeOf(profile))) fail('INVALID_TOOL_PROFILE', 'Captured profile must be a plain host record');
+    if (Reflect.ownKeys(profile).some(key => typeof key !== 'string' || !['id', 'revision'].includes(key)) || Object.values(Object.getOwnPropertyDescriptors(profile)).some(field => !Object.hasOwn(field, 'value') || !field.enumerable) || [profile.id, profile.revision].some(value => typeof value !== 'string' || !value || Buffer.byteLength(value) > 512 || /[\u0000-\u001f\u007f]/.test(value))) fail('INVALID_TOOL_PROFILE', 'Captured tool profile requires bounded data identity and revision');
+    const frozen = Object.freeze({ id: profile.id, revision: profile.revision }), key = JSON.stringify(frozen);
+    if (catalogue.profile) { if (JSON.stringify(catalogue.profile) !== key) fail('TOOL_PROFILE_STALE', 'A captured role profile cannot be rebound'); return catalogue; }
+    const profiles = this.profileCaptures.get(catalogue) ?? new Map<string, ToolCatalogue>();
+    const previous = profiles.get(key); if (previous) { this.assertCatalogueCurrent(previous); return previous; }
+    if (profiles.size >= 128) fail('TOOL_PROFILE_LIMIT', 'Too many role profiles bound to one captured catalogue');
+    const result = { ...catalogue, profile: frozen };
+    this.captures.set(result, { entries: this.captures.get(catalogue)!.entries, signature: JSON.stringify(result) }); profiles.set(key, result); this.profileCaptures.set(catalogue, profiles); return result;
   }
   /** Candidate metadata carries no schema or execution authority. Host profile and policy narrowing apply before exposure. */
   discoveryCatalogue(scopeId: string, mode: 'plan' | 'build' = 'build', allowedNames?: readonly string[]): ToolDiscoveryCatalogue {
@@ -161,6 +223,48 @@ export class ScopedToolRuntime {
     const captured = this.captures.get(catalogue)!;
     const entry = captured.entries.get(toolName); if (!entry || this.scopes.get(entry.scopeId)?.get(toolName)?.token !== entry.token) fail('TOOL_NOT_FOUND', 'Tool is not available in the captured catalogue'); return entry;
   }
+  private observation(catalogue: ToolCatalogue, entry: Entry, inner: PreparedTool, context: ToolContext): RuntimePreparedToolObservation {
+    const prepared = structuredClone(inner); freezeJson(prepared);
+    return Object.freeze({ scopeId: catalogue.scopeId, producerScopeId: entry.scopeId, registryRevision: catalogue.revision, mode: catalogue.mode, effect: entry.effect,
+      ...(catalogue.profile ? { profile: catalogue.profile } : {}), prepared,
+      identity: Object.freeze({ workspaceId: context.workspace.id, workspaceRoot: context.workspace.root, sessionId: context.sessionId, runId: context.runId, toolCallId: context.toolCallId, ...(context.turnId ? { turnId: context.turnId } : {}), ...(context.attemptId ? { attemptId: context.attemptId } : {}) }) });
+  }
+  private roleInput(catalogue: ToolCatalogue, entry: Entry, inner: PreparedTool, context: ToolContext, policy: import('../../permission/policy.js').ToolPolicyResult): RoleResourceInput {
+    const observation = this.observation(catalogue, entry, inner, context);
+    let declared: readonly RoleResource[];
+    try { declared = this.resolveRoleResources?.(observation) ?? [{ kind: 'unknown', label: 'Host resource identity unavailable' }]; }
+    catch { fail('ROLE_RESOURCE_RESOLUTION_FAILED', 'Host resource declaration failed before tool dispatch'); }
+    return { workspaceId: context.workspace.id, workspaceRoot: context.workspace.root, sessionId: context.sessionId,
+      roleId: catalogue.profile?.id ?? 'unprofiled', roleRevision: catalogue.profile?.revision ?? 'unknown',
+      toolName: inner.name, effect: entry.effect, mode: catalogue.mode, preparedFingerprint: inner.fingerprint,
+      requiresApproval: inner.requiresApproval || entry.exactApproval,
+      baseDecision: catalogue.profile ? policy : { ...policy, decision: policy.decision === 'deny' ? 'deny' : 'ask', reason: 'Captured host role profile unavailable' }, resources: declared };
+  }
+  private preflightBinding(catalogue: ToolCatalogue, entry: Entry, inner: PreparedTool, context: ToolContext, policyVersion: number): CommandPreflightBinding {
+    const input = inner.input;
+    if (!input || typeof input !== 'object' || Array.isArray(input) || typeof input.command !== 'string' || typeof input.cwd !== 'string') fail('COMMAND_PREFLIGHT_COMMAND_REQUIRED', 'Host-selected command analyzer requires an exact producer-prepared command and canonical cwd');
+    let sourceRevision: string | undefined;
+    try { sourceRevision = this.commandPreflight?.resolveSourceRevision?.(this.observation(catalogue, entry, inner, context)); }
+    catch { fail('COMMAND_PREFLIGHT_SOURCE_FAILED', 'Host source revision lookup failed before tool dispatch'); }
+    if (sourceRevision === undefined) fail('COMMAND_PREFLIGHT_SOURCE_REQUIRED', 'Host-selected preflight requires an actual host source hash/generation');
+    return { workspaceId: context.workspace.id, workspaceRoot: context.workspace.root, sessionId: context.sessionId, runId: context.runId,
+      command: input.command, cwd: input.cwd, preparedFingerprint: inner.fingerprint, policyRevision: policyVersion, sourceRevision };
+  }
+  private selectPreflight(catalogue: ToolCatalogue, entry: Entry, inner: PreparedTool, context: ToolContext): string | undefined {
+    try { return this.commandPreflight?.selectAnalyzer(this.observation(catalogue, entry, inner, context)); }
+    catch { fail('COMMAND_PREFLIGHT_SELECTION_FAILED', 'Host analyzer selection failed before tool dispatch'); }
+  }
+  private assertPrepared(catalogue: ToolCatalogue, inner: PreparedTool, snapshot: string, context: ToolContext): void {
+    active(context); this.entry(catalogue, inner.name); if (JSON.stringify(inner) !== snapshot) fail('TOOL_APPROVAL_STALE', 'Host policy checks altered the opaque producer-prepared request');
+  }
+  private async assertNarrowingCurrent(request: Request, context: ToolContext, policy: import('../../permission/policy.js').ToolPolicyResult): Promise<void> {
+    if (request.roleReceipt) await this.roleResources!.assertCurrent(request.roleReceipt, this.roleInput(request.catalogue, request.entry, request.inner, context, policy), context.signal);
+    if (this.commandPreflight) {
+      if (this.selectPreflight(request.catalogue, request.entry, request.inner, context) !== request.preflightReceipt?.analyzerId) fail('COMMAND_PREFLIGHT_STALE', 'Host analyzer selection changed before dispatch');
+      if (request.preflightReceipt) await this.commandPreflight.registry.assertCurrent(request.preflightReceipt, this.preflightBinding(request.catalogue, request.entry, request.inner, context, policy.version), context.signal);
+    }
+    this.assertPrepared(request.catalogue, request.inner, request.innerSnapshot, context);
+  }
   private delegateCaptured(catalogue: ToolCatalogue, entry: Entry): ToolDefinition {
     return { name: entry.definition.name, description: entry.definition.description, inputSchema: structuredClone(entry.definition.inputSchema), effectClass: entry.effect,
       prepare: async (input, context) => {
@@ -168,14 +272,30 @@ export class ScopedToolRuntime {
         const inner = await entry.definition.prepare(input, context); active(context); this.entry(catalogue, entry.definition.name);
         if (inner.name !== entry.definition.name || typeof inner.fingerprint !== 'string' || !inner.fingerprint || Buffer.byteLength(inner.fingerprint) > 512 || typeof inner.requiresApproval !== 'boolean') fail('INVALID_PREPARED_TOOL', 'Tool returned an invalid prepared request');
         boundedJson(inner, 5 * 1024 * 1024);
+        const innerSnapshot = JSON.stringify(inner);
         const targets = resources(inner);
         const policy = this.policy.evaluate({ toolName: inner.name, effect: entry.effect, mode: catalogue.mode, requiresApproval: inner.requiresApproval, resources: targets }); if (policy.decision === 'deny') fail('TOOL_POLICY_DENIED', 'Tool is denied by configured policy or execution mode');
         const grantScope: GrantScope = { workspaceId: context.workspace.id, sessionId: context.sessionId, toolName: inner.name, effect: entry.effect, ...(targets.length ? { resources: targets } : {}) };
-        const grant = !entry.exactApproval && entry.revalidate && entry.effect !== 'unknown' && policy.reason !== 'configured approval requirement' ? this.grants.find(grantScope, policy.version) : undefined;
-        const fingerprint = createHash('sha256').update(JSON.stringify({ scope: catalogue.scopeId, revision: catalogue.revision, policyVersion: policy.version, binding: binding(context), inner: inner.fingerprint, preview: inner.preview, grantId: grant?.id, grantRevision: grant?.revision })).digest('hex');
-        const prepared: PreparedTool = { name: inner.name, input: structuredClone(inner.input), fingerprint, requiresApproval: entry.exactApproval || policy.decision === 'ask' && !grant,
-          preview: { ...structuredClone(inner.preview), toolEffect: entry.effect, policyVersion: policy.version, registryRevision: catalogue.revision, ...(grant ? { scopedGrantId: grant.id } : {}) } };
-        this.requests.set(prepared, { entry, catalogue, inner, outerSnapshot: JSON.stringify(prepared), innerSnapshot: JSON.stringify(inner), binding: binding(context), grantScope, ...(grant ? { grant } : {}), used: false }); return prepared;
+        const roleReceipt = this.roleResources ? await this.roleResources.evaluate(this.roleInput(catalogue, entry, inner, context, policy), context.signal) : undefined;
+        if (roleReceipt?.decision === 'deny') this.denyNarrowing('ROLE_RESOURCE_DENIED', 'Role resource policy denied the prepared tool', { roleResource: roleReceipt });
+        let preflightReceipt: CommandPreflightReceipt | undefined;
+        if (this.commandPreflight) {
+          const selected = this.selectPreflight(catalogue, entry, inner, context);
+          if (selected !== undefined) {
+            const request = await this.commandPreflight.registry.capture(this.preflightBinding(catalogue, entry, inner, context, policy.version), selected, context.signal);
+            preflightReceipt = await this.commandPreflight.registry.run(request, { signal: context.signal, deadlineMs: this.commandPreflight.deadlineMs });
+            if (preflightReceipt.decision === 'deny') this.denyNarrowing('COMMAND_PREFLIGHT_DENIED', 'Trusted command preflight denied the prepared command', { ...(roleReceipt ? { roleResource: roleReceipt } : {}), commandPreflight: preflightReceipt });
+          }
+        }
+        this.assertPrepared(catalogue, inner, innerSnapshot, context);
+        const narrowingAsk = roleReceipt?.decision === 'ask' || preflightReceipt !== undefined && this.commandPreflight!.registry.decision(preflightReceipt, policy.decision, inner.requiresApproval || entry.exactApproval) === 'ask';
+        const grant = !narrowingAsk && !entry.exactApproval && entry.revalidate && entry.effect !== 'unknown' && policy.reason !== 'configured approval requirement' ? this.grants.find(grantScope, policy.version) : undefined;
+        const fingerprint = createHash('sha256').update(JSON.stringify({ scope: catalogue.scopeId, revision: catalogue.revision, policyVersion: policy.version, binding: binding(context), inner: inner.fingerprint, preview: inner.preview, grantId: grant?.id, grantRevision: grant?.revision,
+          ...(catalogue.profile ? { profile: catalogue.profile } : {}), ...(roleReceipt ? { roleReceiptSha256: roleReceipt.receiptSha256 } : {}), ...(preflightReceipt ? { preflightReceiptSha256: preflightReceipt.receiptSha256 } : {}) })).digest('hex');
+        const prepared: PreparedTool = { name: inner.name, input: structuredClone(inner.input), fingerprint, requiresApproval: entry.exactApproval || narrowingAsk || policy.decision === 'ask' && !grant,
+          preview: { ...structuredClone(inner.preview), toolEffect: entry.effect, policyVersion: policy.version, registryRevision: catalogue.revision, ...(grant ? { scopedGrantId: grant.id } : {}),
+            ...(catalogue.profile ? { roleProfile: { ...catalogue.profile } } : {}), ...(roleReceipt ? { roleResourceDecision: structuredClone(roleReceipt) as unknown as JsonObject } : {}), ...(preflightReceipt ? { commandPreflight: structuredClone(preflightReceipt) as unknown as JsonObject } : {}) } };
+        this.requests.set(prepared, { entry, catalogue, inner, outerSnapshot: JSON.stringify(prepared), innerSnapshot, binding: binding(context), grantScope, ...(grant ? { grant } : {}), ...(roleReceipt ? { roleReceipt } : {}), ...(preflightReceipt ? { preflightReceipt } : {}), used: false }); return prepared;
       }, execute: (prepared, context) => this.execute(prepared, context) };
   }
   async execute(prepared: PreparedTool, context: ToolContext): Promise<ToolResult> {
@@ -186,8 +306,11 @@ export class ScopedToolRuntime {
     if (request.grant) {
       await request.entry.revalidate!(request.inner, context); active(context); this.entry(request.catalogue, prepared.name);
       if (JSON.stringify(request.inner) !== request.innerSnapshot) fail('TOOL_APPROVAL_STALE', 'Grant revalidation altered the prepared request');
-      this.grants.consume(request.grant.id, request.grantScope, this.policy.version, request.grant.revision);
     }
+    await this.assertNarrowingCurrent(request, context, policy);
+    this.assertPrepared(request.catalogue, request.inner, request.innerSnapshot, context);
+    if (JSON.stringify(prepared) !== request.outerSnapshot || binding(context) !== request.binding) fail('TOOL_APPROVAL_STALE', 'Prepared request or execution identity changed during host policy checks');
+    if (request.grant) this.grants.consume(request.grant.id, request.grantScope, this.policy.version, request.grant.revision);
     const result = await request.entry.definition.execute(request.inner, context);
     if (!result || typeof result.content !== 'string' || result.isError !== undefined && typeof result.isError !== 'boolean') fail('INVALID_TOOL_RESULT', 'Tool returned invalid content or outcome');
     const limits = { maxModelBytes: Math.min(context.limits.maxOutputBytes, 32 * 1024), maxDisplayBytes: Math.min(context.limits.maxOutputBytes, 64 * 1024) };

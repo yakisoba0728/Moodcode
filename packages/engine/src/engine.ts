@@ -8,6 +8,10 @@ import type { ProviderAdapter, ProviderEvent, ToolDefinition } from './ports.js'
 import { SqliteStore, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './storage/index.js';
 import type { SummaryAttemptListOptions } from './storage/summary-attempts.js';
 import { RunCoordinator } from './runner/index.js';
+import { LifecycleHookRegistry, type LifecycleHookRegistration } from './lifecycle/index.js';
+import { exportTrajectory, validateTrajectoryOptions, type JournalProjection, type TrajectoryOptions } from './diagnostics/trajectory.js';
+import { createCodingEvidenceManifest, validateCodingEvidenceOptions, type CodingEvidenceManifest, type CodingSourceIdentity } from './diagnostics/attempt-manifest.js';
+import { getTrajectoryStallObservation, type StallObservation, type StallOptions } from './diagnostics/stall.js';
 import { InputScheduler } from './runner/input-scheduler.js';
 import { ScriptedProvider } from './provider/index.js';
 import { ApprovalManager } from './permission/index.js';
@@ -22,7 +26,9 @@ import { createCommandTool } from './tools/command/index.js';
 import { createExactEditTool } from './tools/edit/index.js';
 import { createFileActionTools } from './tools/file-actions/index.js';
 import { createPatternSearchTools } from './tools/search/index.js';
-import { ScopedToolRuntime } from './tools/runtime/index.js';
+import { ScopedToolRuntime, type ScopedToolRuntimeOptions, type RuntimeCommandPreflightOptions } from './tools/runtime/index.js';
+import type { RoleResourcePolicy } from './permission/role-resources.js';
+import { readPolicyDecisionReceipts, type PolicyDecisionReceiptPage } from './permission/decision-receipts.js';
 import { validateToolDiscoveryPolicy, type ToolDiscoveryPolicy } from './tools/runtime/discovery.js';
 import { createToolDiscoveryTool } from './runner/tool-discovery.js';
 import { ToolPolicy, type ToolPolicyRule } from './permission/policy.js';
@@ -64,6 +70,8 @@ import { validateDocumentHistoryPolicy, type DocumentHistoryPolicy } from './con
 import { inspectEngineStorage, type StorageUsageReport, type StorageUsageLimits } from './diagnostics/storage-usage.js';
 import { validateChildDocumentStorageRequest, inspectChildDocumentStorage, type ChildDocumentStorageRequest, type ChildDocumentStorageReport } from './diagnostics/child-document-storage.js';
 import { createChildDocumentReadFrame } from './storage/child-document-reader.js';
+import { RepositoryContextService, type RepositoryQuery, type RepositorySnapshot } from './repository/index.js';
+import { createRepositoryContextTool } from './repository/tool.js';
 
 export interface EngineStorageUsageOptions { signal?: AbortSignal; limits?: Partial<StorageUsageLimits> }
 export type EngineStorageUsageReport = StorageUsageReport;
@@ -96,6 +104,16 @@ export interface EngineOptions {
   toolPolicy?: readonly ToolPolicyRule[];
   /** Explicit Run-local schema discovery; default provider exposure remains eager. */
   toolDiscoveryPolicy?: ToolDiscoveryPolicy;
+  /** Explicit read-only repository navigation; the default core catalogue is unchanged. */
+  repositoryContextTools?: boolean;
+  /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
+  lifecycleHooks?: readonly LifecycleHookRegistration[];
+  /** Shared host policy registry for owned child engines. Captures remain Run-bound. */
+  lifecycleHookRegistry?: LifecycleHookRegistry;
+  /** Optional host policy narrowing for persisted agent profiles and exact resources. */
+  roleResourcePolicy?: RoleResourcePolicy;
+  resolveRoleResources?: ScopedToolRuntimeOptions['resolveRoleResources'];
+  commandPreflight?: RuntimeCommandPreflightOptions;
   /** Trusted host policy shared by an owned child; grants remain local to each engine. */
   toolPolicyInstance?: ToolPolicy;
   modelSpecs?: readonly ModelSpec[];
@@ -223,10 +241,14 @@ export class MoodcodeEngine {
   readonly terminals: TerminalService;
   readonly children: EngineChildren;
   readonly lsp: LspManager;
+  readonly repository: RepositoryContextService;
+  readonly lifecycleHooks: LifecycleHookRegistry;
   readonly formatters: FormatterRegistry;
   readonly changes: WorkspaceChangeHub;
   private readonly watchConsumers = new Map<string, Promise<void>>();
   private readonly languageServers = new Map<string, (path: string) => string | null>();
+  private readonly languageServerRevisions = new Map<string, string>();
+  private readonly pendingRepository = new Set<Promise<RepositorySnapshot>>();
   private readonly lspChanges = new Map<string, { version: number; done: Promise<void> }>();
   private readonly observationFailures = new Map<string, string>();
   private readonly terminalJournal: SqliteTerminalJournal;
@@ -247,7 +269,15 @@ export class MoodcodeEngine {
     if (!options || typeof options.dbPath !== 'string' || options.dbPath.length === 0) {
       throw new EngineError('INVALID_CONFIG', 'dbPath must be a non-empty string');
     }
+    if (options.lifecycleHookRegistry !== undefined && !(options.lifecycleHookRegistry instanceof LifecycleHookRegistry)) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Shared hook registry requires an explicit trusted host registry');
+    if (options.lifecycleHookRegistry && options.lifecycleHooks !== undefined) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Specify one host registry or initial hook registrations');
+    this.lifecycleHooks = options.lifecycleHookRegistry ?? new LifecycleHookRegistry();
     if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Document token cost policy must be a boolean');
+    if (options.repositoryContextTools !== undefined && typeof options.repositoryContextTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Repository tool exposure must be an explicit boolean');
+    if (options.lifecycleHooks !== undefined) {
+      if (!Array.isArray(options.lifecycleHooks) || options.lifecycleHooks.length > this.lifecycleHooks.limits.maxHooks) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Initial lifecycle hooks must be a bounded explicit host list');
+      for (const hook of options.lifecycleHooks) this.lifecycleHooks.register(hook);
+    }
     this.defaults = normalizeSubmitInput({ sessionId: 'defaults', requestId: 'defaults', prompt: 'defaults', config: options.defaults ?? {} }).config;
     const mediaHistoryPolicy = options.mediaHistoryPolicy === undefined ? undefined : validateMediaHistoryPolicy(options.mediaHistoryPolicy);
     const activePrefixPolicy = options.activePrefixPolicy === undefined ? undefined : validateActivePrefixPolicy(options.activePrefixPolicy);
@@ -302,6 +332,11 @@ export class MoodcodeEngine {
       this.tasks = new SessionTaskService(this.store);
       this.profiles = new AgentProfiles(this.store, options.agentProfiles);
       this.lsp = new LspManager();
+      this.repository = new RepositoryContextService(this.lsp, path => {
+        const matches = [...this.languageServers].map(([serverId, select]) => ({ serverId, languageId: select(path), revision: this.languageServerRevisions.get(serverId)! })).filter(item => item.languageId !== null);
+        if (matches.length > 1) throw new EngineError('REPOSITORY_SERVER_AMBIGUOUS', 'More than one host server supports this path; narrow the host language routing');
+        return matches[0] as { serverId: string; languageId: string; revision: string } | undefined ?? null;
+      });
       this.formatters = new FormatterRegistry();
       this.changes = new WorkspaceChangeHub({ signal: this.hostResources.signal });
       this.children = new EngineChildren(this, { ...options, ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value), storageBinding);
@@ -337,15 +372,17 @@ export class MoodcodeEngine {
       for (const [id, provider] of providers) providers.set(id, withInputMedia(provider, this.images, this.documents, this.store, models, options.allowUnknownDocumentTokenCost === true));
       this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}) });
       const coreTools = options.tools ?? [...createReadTools(), createPatchTool(), createCommandTool(), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
-      const availableTools = toolDiscoveryPolicy ? [...coreTools, createToolDiscoveryTool({
+      const repositoryTools = options.repositoryContextTools ? [createRepositoryContextTool(this.repository)] : [];
+      const availableTools = toolDiscoveryPolicy ? [...coreTools, ...repositoryTools, createToolDiscoveryTool({
         identity: context => this.coordinator.toolDiscoveryIdentity(context),
         stage: (context, query, limit, expected, action) => this.coordinator.stageToolDiscovery(context, query, limit, expected, action),
-      })] : coreTools;
+      })] : [...coreTools, ...repositoryTools];
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
       const tools = options.allowedToolNames ? availableTools.filter(tool => options.allowedToolNames!.includes(tool.name)) : availableTools;
       if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
-      this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts });
+      this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts,
+        ...(options.roleResourcePolicy ? { roleResources: options.roleResourcePolicy } : {}), ...(options.resolveRoleResources ? { resolveRoleResources: options.resolveRoleResources } : {}), ...(options.commandPreflight ? { commandPreflight: options.commandPreflight } : {}) });
       for (const tool of tools) this.toolRuntime.register('engine', tool, options.tools ? {} : tool.name === 'delegate_task' ? { exactApproval: true } : { revalidate: async (prepared, context) => {
         const current = await tool.prepare(prepared.input, context);
         if (current.fingerprint !== prepared.fingerprint || JSON.stringify(current.preview) !== JSON.stringify(prepared.preview)) throw new EngineError('TOOL_APPROVAL_STALE', 'Tool resources changed since scoped authorization');
@@ -361,6 +398,7 @@ export class MoodcodeEngine {
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
       this.coordinator = new RunCoordinator({
+        lifecycleHooks: this.lifecycleHooks,
         store: this.store,
         providers,
         tools,
@@ -370,6 +408,10 @@ export class MoodcodeEngine {
         buildContext: request => this.context.build({ ...request, agentInstructions: this.profiles.forRun(request.snapshot.session.id, request.config)?.instructions }),
         contextSnapshot: (sessionId, config) => this.context.snapshot(sessionId, config),
         getContextRevisionId: sessionId => this.context.revisionId(sessionId),
+        getToolProfile: run => {
+          const profile = this.profiles.forRun(run.sessionId, run.config);
+          return profile ? { id: profile.id, revision: profile.revision } : undefined;
+        },
         getAllowedTools: run => {
           const profile = this.profiles.forRun(run.sessionId, run.config)?.tools;
           return this.hostAllowedTools ? (profile ? profile.filter(name => this.hostAllowedTools!.includes(name)) : this.hostAllowedTools) : profile;
@@ -695,10 +737,52 @@ export class MoodcodeEngine {
     return this.children.start(request);
   }
 
-  registerLanguageServer(serverId: string, factory: LspFactory, languageForPath: (path: string) => string | null): void {
+  registerLanguageServer(serverId: string, factory: LspFactory, languageForPath: (path: string) => string | null, revision = '1'): void {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     if (typeof languageForPath !== 'function') throw new EngineError('INVALID_LSP_CONFIG', 'Host must explicitly select supported language paths');
-    this.lsp.register(serverId, factory); this.languageServers.set(serverId, languageForPath);
+    if (!/^[A-Za-z0-9_.-]{1,64}$/.test(revision)) throw new EngineError('INVALID_LSP_CONFIG', 'Host language server revision must be bounded');
+    this.lsp.register(serverId, factory); this.languageServers.set(serverId, languageForPath); this.languageServerRevisions.set(serverId, revision);
+  }
+
+  getRepositoryContext(workspaceId: string, query: RepositoryQuery, signal?: AbortSignal): Promise<RepositorySnapshot> {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    const pending = this.repository.query(this.store.getWorkspace(workspaceId), query, signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal);
+    this.pendingRepository.add(pending);
+    pending.finally(() => this.pendingRepository.delete(pending)).catch(() => {});
+    return pending;
+  }
+
+  registerLifecycleHook(hook: LifecycleHookRegistration): () => void {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.lifecycleHooks.register(hook);
+  }
+
+  getTrajectory(options: TrajectoryOptions): JournalProjection {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    validateTrajectoryOptions(options);
+    if (options.runId !== undefined) {
+      const run = this.store.getRun(options.runId);
+      if (run.sessionId !== options.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Trajectory Run belongs to another session');
+    }
+    return exportTrajectory(this.store, options);
+  }
+
+  getAttemptManifest(runId: string, options: Omit<TrajectoryOptions, 'sessionId' | 'runId'> & { source?: CodingSourceIdentity } = {}): CodingEvidenceManifest {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    validateCodingEvidenceOptions(options);
+    const run = this.store.getRun(runId), { source, ...page } = options;
+    return createCodingEvidenceManifest(run, this.getTrajectory({ ...page, sessionId: run.sessionId, runId }), source);
+  }
+
+  getStallObservation(options: TrajectoryOptions, limits?: StallOptions): StallObservation {
+    return getTrajectoryStallObservation(this.getTrajectory(options), limits);
+  }
+
+  getPolicyDecisionReceipts(options: TrajectoryOptions): PolicyDecisionReceiptPage {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    validateTrajectoryOptions(options);
+    if (options.runId !== undefined && this.store.getRun(options.runId).sessionId !== options.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Decision Run belongs to another session');
+    return readPolicyDecisionReceipts(this.store, options);
   }
 
   async watchWorkspace(workspaceId: string): Promise<WorkspaceChangeWatch> {
@@ -949,7 +1033,7 @@ export class MoodcodeEngine {
         this.hostResources.abort();
         this.questions.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }

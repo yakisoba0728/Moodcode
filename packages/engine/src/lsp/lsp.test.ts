@@ -13,6 +13,7 @@ import {
 import type { ToolContext } from "../ports.js";
 import { LspManager, StdioLspConnection, type LspConnection } from "./index.js";
 import { createLspFormatTool } from "../formatters/index.js";
+import { runGit } from "../workspace/git.js";
 const compiled = fileURLToPath(
   new URL("./fixtures/server.js", import.meta.url),
 );
@@ -130,6 +131,38 @@ test("LSP format proposal applies only through approved checkpoint patch and pre
     prepared.preview.files &&
       (prepared.preview.files as { beforeHash: string }[])[0]?.beforeHash,
   );
+});
+test("real stdio navigation synchronizes UTF16 documents and returns bounded source-checked symbols and locations", async (t) => {
+  const { workspace, lsp } = await fixture(t);
+  await runGit(workspace.root, ["init", "-q"]);
+  const symbols = await lsp.querySymbols(
+    workspace,
+    "fixture",
+    "a.ts",
+    "typescript",
+    signal(),
+  );
+  assert.equal(symbols.items[0]?.name, "fixtureDocument");
+  assert.equal(symbols.items[0]?.hash, symbols.documentHash);
+  const definition = await lsp.queryDefinitions(
+    workspace,
+    "fixture",
+    "a.ts",
+    "typescript",
+    { line: 1, character: 2 },
+    signal(),
+  );
+  assert.equal(definition.items[0]?.path, "a.ts");
+  const references = await lsp.queryReferences(
+    workspace,
+    "fixture",
+    "a.ts",
+    "typescript",
+    { line: 0, character: 1 },
+    signal(),
+  );
+  assert.equal(references.complete, true);
+  assert.equal(references.documentVersion, 1);
 });
 test("LSP timeout/cancel remains usable and malformed or oversized frames disconnect", async (t) => {
   const { workspace, lsp, connections } = await fixture(t);

@@ -6,7 +6,7 @@
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
   "completedFamilies": 0,
-  "completedWorkItems": 0,
+  "completedWorkItems": 9,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -24,46 +24,59 @@
         {
           "id": "MC2-01a",
           "completion": "snapshot/port·source hash/parser/ignore generation CAS",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         },
         {
           "id": "MC2-01b",
           "completion": "LSP navigation/map·bounded locations·stale/unsupported 구분",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         },
         {
           "id": "MC2-01c",
           "completion": "frozen projection·tool/output/history budget 합산",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         },
         {
           "id": "MC2-01d",
           "completion": "동명 심볼·branch/worktree·외부편집·partial build·cancel·실제 corpus 측정",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         }
-      ]
+      ],
+      "notes": "Explicit selected source snapshot/LSP navigation done; automatic ContextSource/snippets and semantic large-corpus lane remain."
     },
     {
       "id": "MC2-02",
       "title": "검증 계획·제한 repair·완료 gate",
       "priority": "P1",
       "wave": "W2",
-      "status": "pending",
+      "status": "in_progress",
       "workItems": [
         {
           "id": "MC2-02a",
           "completion": "계획/저장·check/profile/command/source revision",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         },
         {
           "id": "MC2-02b",
           "completion": "pass/fail/skipped/unsupported/timeout/cancelled/uncertain receipt",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         },
         {
@@ -78,7 +91,8 @@
           "status": "pending",
           "evidence": []
         }
-      ]
+      ],
+      "notes": "Parallel plan/receipt base modules are being implemented; command execution/repair/completion wiring remains."
     },
     {
       "id": "MC2-03",
@@ -118,33 +132,46 @@
       "title": "typed lifecycle·policy hook",
       "priority": "P1",
       "wave": "W1",
-      "status": "pending",
+      "status": "in_progress",
       "workItems": [
         {
           "id": "MC2-04a",
           "completion": "registry/types·stage/revision/deadline/failure policy",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         },
         {
           "id": "MC2-04b",
           "completion": "bounded observation/deny·late result·typed outcome",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         },
         {
           "id": "MC2-04c",
           "completion": "prepare 전 rewrite만 허용·최종 request digest 고정",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         },
         {
           "id": "MC2-04d",
           "completion": "stop/cleanup·최대1회 opt-in continuation·post-effect 재실행 금지",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         }
-      ]
+      ],
+      "notes": "Registry and actual observation/deny/stop integrated; context/input rewrite and verified continuation remain."
     },
     {
       "id": "MC2-05",
@@ -349,66 +376,92 @@
       "title": "role 권한·판단 출처·preflight",
       "priority": "P1",
       "wave": "W1",
-      "status": "pending",
+      "status": "in_progress",
       "workItems": [
         {
           "id": "MC2-11a",
           "completion": "role file/MCP resource 규칙·우선순위·default unknown 계약",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         },
         {
           "id": "MC2-11b",
           "completion": "exact policy decision receipt·사용자 설명·scope/provenance projection",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         },
         {
           "id": "MC2-11c",
           "completion": "bounded command preflight port와 source revision pin. 검사 결과를 실제 OS sandbox 증거로 표시하지 않음",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         },
         {
           "id": "MC2-11d",
           "completion": "symlink/root 이동·MCP server 교체·stale rule/approval·deny 충돌·analyzer 실패 검사. 승인 뒤 input 변경 또는 silent allow 금지",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         }
-      ]
+      ],
+      "notes": "Role policy/provenance and bound command preflight integrated; actual MCP registration/reconnect lane is ongoing."
     },
     {
       "id": "MC2-12",
       "title": "projection·manifest·무진전·오류 진단",
       "priority": "P1",
       "wave": "W1",
-      "status": "pending",
+      "status": "in_progress",
       "workItems": [
         {
           "id": "MC2-12a",
           "completion": "bounded trajectory export/replay inspection·schema/source/journal provenance",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         },
         {
           "id": "MC2-12b",
           "completion": "typed provider error fixture와 request/usage/null projection 보강",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         },
         {
           "id": "MC2-12c",
           "completion": "stall/advisory signal·attempt manifest·선택적 tools-free summary. 생성 비용과 남은 budget을 반영",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         },
         {
           "id": "MC2-12d",
           "completion": "failed Attempt·truncated/partial output·일관된 seq snapshot·unknown usage·동일 read 후 source 변화·오류 분류 검사. inspector가 producer를 재실행하지 않음",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-w1.md",
+            "engine-phase-two-w1-verification.json"
+          ]
         }
-      ]
+      ],
+      "notes": "Bounded trajectory/typed errors/manifest host APIs integrated; actual source/effect epoch writer and optional distillation remain."
     },
     {
       "id": "MC2-13",
@@ -674,5 +727,6 @@
         }
       ]
     }
-  ]
+  ],
+  "updatedAt": "2026-10-07T13:22:00Z"
 }

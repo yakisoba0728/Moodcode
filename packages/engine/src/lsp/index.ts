@@ -15,6 +15,14 @@ import {
   type TextRange,
 } from "../formatters/edits.js";
 import type { LspConnection } from "./stdio.js";
+import {
+  navigationCandidates,
+  projectNavigation,
+  type LspNavigationKind,
+  type LspNavigationSnapshot,
+} from "./navigation.js";
+import type { TextPosition } from "../formatters/edits.js";
+export * from "./navigation.js";
 export { StdioLspConnection } from "./stdio.js";
 export type { LspConnection, StdioLspOptions } from "./stdio.js";
 export interface LspDiagnostic {
@@ -112,6 +120,7 @@ export class LspManager {
   private factories = new Map<string, LspFactory>();
   private entries = new Map<string, Entry>();
   private closing = false;
+  private navigationQueries = 0;
   private requestTimeout: number;
   private startupTimeout: number;
   private cleanupTimeout: number;
@@ -265,6 +274,12 @@ export class LspManager {
                 synchronization: { dynamicRegistration: false },
                 publishDiagnostics: { versionSupport: true },
                 formatting: { dynamicRegistration: false },
+                documentSymbol: {
+                  dynamicRegistration: false,
+                  hierarchicalDocumentSymbolSupport: true,
+                },
+                definition: { dynamicRegistration: false, linkSupport: true },
+                references: { dynamicRegistration: false },
               },
               workspace: { applyEdit: false },
             },
@@ -556,6 +571,197 @@ export class LspManager {
       serverId,
       documentVersion: version,
     };
+  }
+  async queryNavigation(
+    workspace: Workspace,
+    serverId: string,
+    path: string,
+    languageId: string,
+    kind: LspNavigationKind,
+    signal: AbortSignal,
+    position?: TextPosition,
+  ): Promise<LspNavigationSnapshot> {
+    path = exactPath(path);
+    if (
+      !["symbols", "definition", "references"].includes(kind) ||
+      (kind === "symbols" && position !== undefined) ||
+      (kind !== "symbols" && !position)
+    )
+      throw new EngineError(
+        "INVALID_LSP_NAVIGATION",
+        "Navigation requires a known query and an exact UTF-16 position when applicable",
+      );
+    if (this.navigationQueries >= 16)
+      throw new EngineError(
+        "LSP_NAVIGATION_LIMIT",
+        "Too many concurrent navigation queries",
+      );
+    this.navigationQueries++;
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(
+      () => {
+        timedOut = true;
+        controller.abort();
+      },
+      Math.min(60_000, this.startupTimeout + this.requestTimeout),
+    );
+    const operationSignal = AbortSignal.any([signal, controller.signal]);
+    try {
+      await this.updateFile(
+        workspace,
+        serverId,
+        path,
+        languageId,
+        operationSignal,
+      );
+      const entry = await this.entry(workspace, serverId, operationSignal);
+      const capability =
+        entry.capabilities?.[
+          kind === "symbols"
+            ? "documentSymbolProvider"
+            : kind === "definition"
+              ? "definitionProvider"
+              : "referencesProvider"
+        ];
+      if (
+        capability !== true &&
+        !(
+          capability &&
+          typeof capability === "object" &&
+          !Array.isArray(capability)
+        )
+      )
+        throw new EngineError(
+          "LSP_NAVIGATION_UNSUPPORTED",
+          "The host server did not advertise this navigation capability",
+        );
+      const doc = entry.documents.get(path)!;
+      const version = doc.version,
+        hash = doc.hash;
+      const source = { content: doc.content, hash };
+      if (position) positionOffset(source.content, position);
+      const activeSignal = AbortSignal.any([
+        operationSignal,
+        entry.controller.signal,
+      ]);
+      const raw = await bounded(
+        abortable(
+          entry.connection!.request(
+            kind === "symbols"
+              ? "textDocument/documentSymbol"
+              : kind === "definition"
+                ? "textDocument/definition"
+                : "textDocument/references",
+            {
+              textDocument: { uri: doc.uri },
+              ...(position
+                ? {
+                    position: {
+                      line: position.line,
+                      character: position.character,
+                    },
+                  }
+                : {}),
+              ...(kind === "references"
+                ? { context: { includeDeclaration: true } }
+                : {}),
+            },
+            activeSignal,
+            this.requestTimeout,
+          ),
+          activeSignal,
+        ),
+        this.requestTimeout,
+        "LSP_TIMEOUT",
+      );
+      const result = await projectNavigation(
+        {
+          serverId,
+          workspaceId: workspace.id,
+          path,
+          documentVersion: version,
+          documentHash: hash,
+          kind,
+        },
+        entry.workspace,
+        navigationCandidates(raw, kind, doc.uri),
+        source,
+        activeSignal,
+      );
+      if (
+        entry.closed ||
+        entry.documents.get(path)?.version !== version ||
+        entry.documents.get(path)?.hash !== hash
+      )
+        throw new EngineError(
+          "LSP_NAVIGATION_STALE",
+          "The synchronized document changed during navigation",
+        );
+      return result;
+    } catch (error) {
+      if (timedOut && !signal.aborted)
+        throw new EngineError(
+          "LSP_TIMEOUT",
+          "Navigation exceeded its complete observation deadline",
+        );
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      this.navigationQueries--;
+    }
+  }
+  querySymbols(
+    workspace: Workspace,
+    serverId: string,
+    path: string,
+    languageId: string,
+    signal: AbortSignal,
+  ): Promise<LspNavigationSnapshot> {
+    return this.queryNavigation(
+      workspace,
+      serverId,
+      path,
+      languageId,
+      "symbols",
+      signal,
+    );
+  }
+  queryDefinitions(
+    workspace: Workspace,
+    serverId: string,
+    path: string,
+    languageId: string,
+    position: TextPosition,
+    signal: AbortSignal,
+  ): Promise<LspNavigationSnapshot> {
+    return this.queryNavigation(
+      workspace,
+      serverId,
+      path,
+      languageId,
+      "definition",
+      signal,
+      position,
+    );
+  }
+  queryReferences(
+    workspace: Workspace,
+    serverId: string,
+    path: string,
+    languageId: string,
+    position: TextPosition,
+    signal: AbortSignal,
+  ): Promise<LspNavigationSnapshot> {
+    return this.queryNavigation(
+      workspace,
+      serverId,
+      path,
+      languageId,
+      "references",
+      signal,
+      position,
+    );
   }
   async fileChanged(
     workspace: Workspace,

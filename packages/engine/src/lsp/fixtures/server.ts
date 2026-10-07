@@ -48,6 +48,9 @@ function receive(request: ObjectValue): void {
           textDocumentSync: 2,
           positionEncoding: "utf-16",
           documentFormattingProvider: true,
+          documentSymbolProvider: true,
+          definitionProvider: true,
+          referencesProvider: true,
         },
       });
       break;
@@ -90,6 +93,30 @@ function receive(request: ObjectValue): void {
       ]);
       break;
     }
+    case "textDocument/documentSymbol": {
+      const doc = documents.get(params.textDocument.uri)!;
+      const end = (doc.text as string).split(/\r\n|\n|\r/)[0]!.length;
+      const range = {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: end },
+      };
+      reply(request.id, [
+        { name: "fixtureDocument", kind: 1, range, selectionRange: range },
+      ]);
+      break;
+    }
+    case "textDocument/definition":
+    case "textDocument/references":
+      reply(request.id, [
+        {
+          uri: params.textDocument.uri,
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 1 },
+          },
+        },
+      ]);
+      break;
     case "fixture/state":
       reply(request.id, {
         initialized,

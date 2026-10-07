@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "stage": "phase-two W1 integrated slice",
+  "status": "passed",
+  "recordedAt": "2026-10-07T13:24:19Z",
+  "baselineCommit": "8f6cd180bf5a1036cd8eeb8e428452285dccc21d",
+  "parentCommit": "28408cb821eb2427210d18495ea1ea1a8aebb3db",
+  "implementationIdentity": "working-tree file hashes before local commit; no self-referential commit hash",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "checks": [
+    {
+      "kind": "engine",
+      "command": "npm run test:engine",
+      "exitCode": 0,
+      "logSha256": "1811b83ee436c70ee7de4813f182620a025cf79b257c58530ad13cd9e8676472",
+      "tests": 2742,
+      "pass": 2740,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0
+    },
+    {
+      "kind": "source",
+      "command": "node --import <absolute project node_modules/tsx/dist/loader.mjs> --test --test-concurrency=4 <14 W1 test paths>",
+      "exitCode": 0,
+      "logSha256": "693411b1eaec976edc10936dd4990960e7a84cd4a9f361cee4abda7a9ae4752f",
+      "tests": 155,
+      "pass": 155,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    {
+      "kind": "eval",
+      "command": "npm run eval:engine",
+      "exitCode": 0,
+      "logSha256": "1260609a4d08686fdf46ffc6baa2033202a35f878996a21a2ea03a1ccd3109c1",
+      "tasks": [
+        {
+          "taskId": "addition-bug",
+          "passed": true
+        },
+        {
+          "taskId": "empty-list-boundary",
+          "passed": true
+        },
+        {
+          "taskId": "two-module-change",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "role-final-compiled",
+      "command": "node --test packages/engine/dist/permission/engine-role-resources.test.js",
+      "exitCode": 0,
+      "logSha256": "69990dc5f4a8642bd20b8bc5260cd8ab0a288214cee3c83459cc3f9218bcc72b",
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    }
+  ],
+  "sourceFocusedTestPaths": [
+    "packages/engine/src/tools/runtime/role-resources-runtime.test.ts",
+    "packages/engine/src/storage/phase-two-observations.test.ts",
+    "packages/engine/src/lsp/lsp.test.ts",
+    "packages/engine/src/repository/repository.test.ts",
+    "packages/engine/src/lifecycle/lifecycle.test.ts",
+    "packages/engine/src/lifecycle/engine-lifecycle.test.ts",
+    "packages/engine/src/diagnostics/trajectory.test.ts",
+    "packages/engine/src/diagnostics/attempt-manifest.test.ts",
+    "packages/engine/src/diagnostics/stall.test.ts",
+    "packages/engine/src/diagnostics/engine-diagnostics.test.ts",
+    "packages/engine/src/permission/role-resources.test.ts",
+    "packages/engine/src/permission/preflight.test.ts",
+    "packages/engine/src/permission/decision-receipts.test.ts",
+    "packages/engine/src/permission/engine-role-resources.test.ts"
+  ],
+  "files": [
+    {
+      "path": "packages/engine/src/child-tasks/engine-host.ts",
+      "sha256": "0196556159369e564cdf45c8f8aaa1a5dc816d4f39011f398e591cf25206d4b3"
+    },
+    {
+      "path": "packages/engine/src/diagnostics/attempt-manifest.test.ts",
+      "sha256": "1da7e46e4ee43d4398e67c9b0d56d6244e230184c592445f6aa30511114a3c56"
+    },
+    {
+      "path": "packages/engine/src/diagnostics/attempt-manifest.ts",
+      "sha256": "c562845e44c4a637b72d8216784e1c3e7f9a048e1de8c65f8c8d7cac8ff73d34"
+    },
+    {
+      "path": "packages/engine/src/diagnostics/engine-diagnostics.test.ts",
+      "sha256": "4337495a2547eb9465fd7f0fba3b0f21efd191971bedcb4ba4a0af18dfe34b7d"
+    },
+    {
+      "path": "packages/engine/src/diagnostics/stall.test.ts",
+      "sha256": "188e03911d1de5275ac208b3108a4640264c45080af65d4e04f78b2cfe14b3ab"
+    },
+    {
+      "path": "packages/engine/src/diagnostics/stall.ts",
+      "sha256": "685d36d78bd6960ca7cc0130f3cccaf2a9930d9d5d5be10540b07e7af0508878"
+    },
+    {
+      "path": "packages/engine/src/diagnostics/trajectory.test.ts",
+      "sha256": "c8e92c071b92b3afa4e29b7b1b8831fc8339278ef29cccf6719d3ac623d2bb27"
+    },
+    {
+      "path": "packages/engine/src/diagnostics/trajectory.ts",
+      "sha256": "8111cca1419025b2d020cf0dd95f812131a991fc6ab815914d9c5ede2d28dcf9"
+    },
+    {
+      "path": "packages/engine/src/engine.ts",
+      "sha256": "dec6c02d1aecf9205cd2b50abac1f3f38796e2614578b7c48536f9a10095cfc3"
+    },
+    {
+      "path": "packages/engine/src/index.ts",
+      "sha256": "c9ed670df487b56d2991fd39b053f52d95d967b88f167655ce94112a53923dbf"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/dispatch.ts",
+      "sha256": "6c8d9fbbd54fead2263214513484af9b74a17b9de0462cdf5c575ce6f0b39f92"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/engine-lifecycle.test.ts",
+      "sha256": "fc3dfdf77874edb15ad221c11a3a03e69cec877077a628bf22414a278a0f8391"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/index.ts",
+      "sha256": "0bfbb7362c9b031bd8d3bd990996f74715b97b9635cbb22728da58d2d36122b2"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/lifecycle.test.ts",
+      "sha256": "cc9485a0abddc4f346a51c9b8a2217277c6b411b5dcd497216931c12f946de36"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/registry.ts",
+      "sha256": "1d7a5108064425b666a3071dede5838424575d228890cc07c425615cc886d23a"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/types.ts",
+      "sha256": "ab632504427a54a8cc0cb4c840038ddf4e7b2f423409460bc7f6d754a1cf8777"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/validation.ts",
+      "sha256": "7262944c0a6ce9486cd19b074a3986586e37db6ca89926922aec183b66807090"
+    },
+    {
+      "path": "packages/engine/src/lsp/fixtures/server.ts",
+      "sha256": "90890b338cf6d637d029de9e2e7f4724ffbe7973bed881ac4cd4cdfece6af080"
+    },
+    {
+      "path": "packages/engine/src/lsp/index.ts",
+      "sha256": "e45e6296fa079089d97d713d2e4ca1c4ed324596733f42c9bf7855643a98b86d"
+    },
+    {
+      "path": "packages/engine/src/lsp/lsp.test.ts",
+      "sha256": "d51a4a31c039890d8b786891e0dd55a75da50ee6f8c2377d9eced6855b3d3aae"
+    },
+    {
+      "path": "packages/engine/src/lsp/navigation.ts",
+      "sha256": "56476b2e9cfc0d84650e240a518d5660f48d1462be3569120de9bc9c5bd6c890"
+    },
+    {
+      "path": "packages/engine/src/permission/decision-receipts.test.ts",
+      "sha256": "16a44757d8d007c602b4dffc416f1acc42265a0451ba4f4088ecac9739dfea4a"
+    },
+    {
+      "path": "packages/engine/src/permission/decision-receipts.ts",
+      "sha256": "039337baada962c5c1b71c26e44d5bbf28ffe340d6211a42eab27f8d28480869"
+    },
+    {
+      "path": "packages/engine/src/permission/engine-role-resources.test.ts",
+      "sha256": "984b1ce614b0d39f5f74267c32fe906366040d02d095385e50f5b5423d21bec8"
+    },
+    {
+      "path": "packages/engine/src/permission/preflight.test.ts",
+      "sha256": "7ecae33b75e630e3ad2861aa33d376cb0c99f583a538c586141c5fa21c38d633"
+    },
+    {
+      "path": "packages/engine/src/permission/preflight.ts",
+      "sha256": "922f99b80b24df271da85631a16793460f611f668f25841d17c0c1fa50bfb3c8"
+    },
+    {
+      "path": "packages/engine/src/permission/role-resources.test.ts",
+      "sha256": "b03aba16ae58d5228ef5e295216d9d5989aca1649c633c5ae1357261bb19e7f8"
+    },
+    {
+      "path": "packages/engine/src/permission/role-resources.ts",
+      "sha256": "a1138505aa016ca29340f096e5e6c5bddcb88668c720337c581728dcccbc3106"
+    },
+    {
+      "path": "packages/engine/src/ports.ts",
+      "sha256": "4c3d187c90a2c3fc3a12b09ac8fd41c6db9c30d5fb6cdbb4e94f474e91c4864f"
+    },
+    {
+      "path": "packages/engine/src/repository/index.ts",
+      "sha256": "ad038d2aed7056ab251ae484c8aae4f11b6375897e030e0baf35ed30e0694a55"
+    },
+    {
+      "path": "packages/engine/src/repository/repository.test.ts",
+      "sha256": "351331c395735bed8bea12646868453c637d2135f1730ff7ca245faf747d8f1f"
+    },
+    {
+      "path": "packages/engine/src/repository/tool.ts",
+      "sha256": "2c57797c760e08ee9df6c7241306cd8e2c6f196b5898a0485c8fa01275963e65"
+    },
+    {
+      "path": "packages/engine/src/runner/index.ts",
+      "sha256": "430c277b5261a3601cd0d7b67e657e261913fac1cc7d667f2f762179b95d8e2b"
+    },
+    {
+      "path": "packages/engine/src/storage/index.ts",
+      "sha256": "fcc16352b0e1ea7bdd281fbce486b4dd5db252ce22a507f60f2241d332262666"
+    },
+    {
+      "path": "packages/engine/src/storage/phase-two-observations.test.ts",
+      "sha256": "d348be7b897af1d469e77f6c0eff42b731662730642acefe7c304c03f00e66cd"
+    },
+    {
+      "path": "packages/engine/src/tools/runtime/index.ts",
+      "sha256": "71c85a1b2553ef559195280049fad1731d16b97f9504030d6d621f31781186cd"
+    },
+    {
+      "path": "packages/engine/src/tools/runtime/role-resources-runtime.test.ts",
+      "sha256": "871b4982e923f9eb173f050d039492fec8393670c455270a7bde57851792e83f"
+    },
+    {
+      "path": "scripts/benchmark-repository-context.mjs",
+      "sha256": "46ce6927af0cebd99eb4ecc475bd44015460e29243c822899bd65ee64e7cf0e3"
+    }
+  ],
+  "semanticLspLargeCorpus": "not-verified; independent stdio fixture only",
+  "benchmark": "engine-repository-benchmark.json",
+  "sourceLauncherIssue": {
+    "initialPackageSpecifier": "--import tsx",
+    "initialResult": "154 pass / 1 fail; command child launched from a workspace without tsx package resolution",
+    "resolvedSpecifier": "absolute project tsx loader file URL/path, as existing supervisor tests use",
+    "productionChangeRequired": false
+  },
+  "separatePendingScope": "packages/engine/src/verification and actual MCP reconnect lane; not counted as completed W1 family",
+  "environmentDebts": [
+    "E5-13",
+    "E5-08",
+    "E6-07",
+    "E6-08"
+  ],
+  "familiesCompleted": 0,
+  "workItemsCompleted": 9,
+  "goal": "active"
+}

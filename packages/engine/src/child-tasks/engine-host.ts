@@ -318,6 +318,8 @@ export class EngineChildren {
       allowedToolNames: request.task.toolNames,
       toolPolicy: undefined,
       toolPolicyInstance: parent.engine.toolRuntime.policy,
+      lifecycleHooks: undefined,
+      lifecycleHookRegistry: parent.engine.lifecycleHooks,
       childTaskScope: {
         tasks: this.tasks,
         worktrees: this.worktrees,

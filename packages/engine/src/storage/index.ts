@@ -612,6 +612,31 @@ export class SqliteStore implements SessionEngineStore {
     return event;
   }
 
+  /** Observation only: same active-Run transaction and scope checks in both journals. */
+  commitRunObservation(runId: string, type: 'lifecycle.outcome' | 'tool.policy_decision', payload: JsonObject, refs: { turnId?: string; attemptId?: string } = {}): EngineEvent {
+    if (!['lifecycle.outcome', 'tool.policy_decision'].includes(type)) throw new EngineError('INVALID_RUN_OBSERVATION', 'Unsupported host observation type');
+    const event = this.transaction(() => {
+      const run = this.getRun(runId);
+      if (isTerminal(run.state)) throw new EngineError('RUN_TERMINAL', 'Terminal Runs cannot accept late observations');
+      const native = this.native.appendEvent(run.sessionId, type, payload, { runId, ...refs });
+      return this.append(run, type, native.payload);
+    });
+    this.notify(event.sessionId);
+    return event;
+  }
+
+  /** CAS plus the owning Run state are checked inside one primary write transaction. */
+  putActiveRunDocument(runId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument {
+    let sessionId!: string;
+    const document = this.transaction(() => {
+      const run = this.getRun(runId); sessionId = run.sessionId;
+      if (isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', 'Stopped Runs cannot accept verification publication');
+      return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data);
+    });
+    this.notify(sessionId);
+    return document;
+  }
+
   getSnapshot(sessionId: string): SessionSnapshot {
     return this.transaction(() => {
       const session = this.getSession(sessionId);
