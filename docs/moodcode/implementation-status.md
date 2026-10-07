@@ -1,6 +1,6 @@
 # Moodcode 구현 상태
 
-갱신일: 2026-10-07, Asia/Seoul. 현재 작업은 **자체 엔진 우선**이며 [TODO](../../TODO.md)의 원래75개 중71개와 지속 개선 G1의 열세 묶음(`64435d7`, `59d1f42`, `04031cb`, `ede1519`, `29b59a1`, `11da986`, `5d70a22`, `42218a8`, `cc1c42b`, `9bf0e7f`, `bd14b32`, `8c07e28`, `4a15286`)을 구현·검증했다. 최신 headless gate는 동시성4에서2,402 pass·실패0·조건부2 skip이다. 최신 결과는 [goal 검증 보고서](engine-goal-verification.md), 이전 확장 결과는 [headless 검증 보고서](engine-native-final-verification.md), 공개 연결은 [host API](engine-host-api.md)를 따른다. 아래 기존 GUI·bundle 결과는2026-10-04 기록이며 이번 엔진 작업에서 앱을 다시 실행하거나 새 기능의 GUI E2E를 수행하지 않았다.
+갱신일: 2026-10-07, Asia/Seoul. 현재 작업은 **자체 엔진 우선**이며 [TODO](../../TODO.md)의 원래75개 중71개와 지속 개선 G1의 열네 묶음(`64435d7`, `59d1f42`, `04031cb`, `ede1519`, `29b59a1`, `11da986`, `5d70a22`, `42218a8`, `cc1c42b`, `9bf0e7f`, `bd14b32`, `8c07e28`, `4a15286`, `217f77f`)을 구현·검증했다. 최신 headless gate는 동시성4에서2,440 pass·실패0·조건부2 skip이다. 최신 결과는 [goal 검증 보고서](engine-goal-verification.md), 이전 확장 결과는 [headless 검증 보고서](engine-native-final-verification.md), 공개 연결은 [host API](engine-host-api.md)를 따른다. 아래 기존 GUI·bundle 결과는2026-10-04 기록이며 이번 엔진 작업에서 앱을 다시 실행하거나 새 기능의 GUI E2E를 수행하지 않았다.
 
 ## 현재 자체 엔진 범위
 
@@ -22,7 +22,7 @@
 
 Anthropic 추가 adapter는 text/tool·공개 reasoning summary·opaque replay·usage·retry/cancel과 image 입력을 synthetic fixture로 검증했다. Responses/Codex/ChatCompletions image 입력도 연결했다. 실제 모델별 이미지 capability·token 예산과 Anthropic 계정은 별도 검증이 남아 있다. PDF는 표준 Responses의 explicit 모델/MIME 및 host/provider unknown-token opt-in으로 로컬 계약을 구현했다. 실제 원격 PDF 인식·Codex PDF·완전 parser/token 계산과 audio/video 입력·media 출력은 별도 범위다. [PDF 명세](engine-input-documents.md)를 따른다. Windows native process ownership binding과 새 CI의 Linux/Windows/Node24 hosted 실행도 아직 없다. 원래 열린 4개 TODO와 지속 개선 G1 항목은 별도로 관리한다.
 
-G1-25는 typed MCP 호출의 실제 accepted timeout/disconnect/cancel3red와 committed-intent callback 실패 회귀를 수정했다. 집중45/76/20 source·독립 bundle와 전체 gate가 통과했고 기존 provider/summary ACK는 MCP 차단을 해제하지 않는다. [계약](engine-mcp-execution.md)을 따른다. 다음 G1-26은 MCP receipt 없는 generic native tool.running/콜백 진입의 SIGKILL 뒤 시작 경계가 유실된2red를 수정한다. 미시작 requested control과 외부 효과/acceptance를 구분하며 이미 과거에 interrupted로 바뀐 기록의 소급 coverage를 주장하지 않는다.
+G1-25는 typed MCP 호출의 actual accepted timeout/disconnect/cancel3red와 committed-intent callback 회귀를 수정했다. G1-26은 receiptless native running/콜백 진입의 SIGKILL2red를 원래 owner/SHA의 dual-journal frontier와 tool_effect 격리로 수정했다. 미시작3개와 stronger MCP safe2개, startup2/archive·pending queue·newRun/resume/maintenance 및 provider completed/cleanup/usage 보존을 source/bundle로 확인했다. [MCP 계약](engine-mcp-execution.md), [일반 frontier 계약](engine-tool-recovery-frontier.md)을 따른다. 이미 interrupted 역사/v1-only의 native coverage는 소급 인증하지 않는다. 다음 G1-27은 core21+MCP40 schema의 actual 문맥 초과와 core를 보존하는 정적 profile 대조군을 바탕으로 bounded catalogue/discovery opt-in을 구현한다.
 
 ## 기존 데스크톱 연결 기록
 

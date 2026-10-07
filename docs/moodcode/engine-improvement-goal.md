@@ -119,3 +119,15 @@ Windows native Job backend, 다른 OS 호스트, 최초 hosted CI, 실제 Anthro
 [MCP 계약](engine-mcp-execution.md), [공개 비교·실제 증거](research/2026-10-07-mcp-effect-outcomes.md), [최신 검증](engine-goal-verification.md)을 따른다. 원격 acceptance/abort/rollback·모든 외부 background activity 종료나 receipt 없는 legacy 기록의 소급 인증을 주장하지 않는다. MCP 전용 ACK API는 아직 없다.
 
 다음 G1-26은 MCP receipt 없는 generic native tool의 actual tool.running/execute-entered SIGKILL 뒤 workspace 차단이 유실되는2red를 수정한다. requested control은 정상이며 같은 transaction에서 시작 의도를 원래 owner로 검증해 capture하는 bounded forward 계약을 검토한다. 기존 stronger MCP 미전송/terminal proof·command/patch effect marker와 구별한다. 이미 이전 recovery가 interrupted로 다시 쓴 과거 기록에는 별도의 retrospective 정책이 필요하다. 외부 OS/provider/CI4개·GUI 제외를 유지하며 goal은 활성 상태다.
+
+## 열네 번째 검토 지점
+
+`217f77f`에서 G1-26 일반 native tool의 원래 running frontier를 legacy interruption 전에 capture했다. 같은 recovery transaction에서 stronger MCP pending/safe proof를 먼저 정산하고 exact owner/proposal/Turn/latest Attempt·original SHA를 dual journal에 남긴다. Callback/effect는 unverified/unknown으로 유지하며 열린 Turn의 tool_effect uncertainty가 새 Run/resume/maintenance/queue promotion을 막는다.
+
+Storage98/독립14/actual SIGKILL7 source와 private bundle·scoped noEmit, 신규38개를 포함한 전체2,440 pass·실패0·조건부2 skip·fixture3/3이 통과했다. 같은 source 실제 Codex child text1회·host-only PDF54B historical metadata·archive/import pause·임시경로 제거도 통과했다. DB9/metrics6은 유지하고 [열세 번째 JSON](engine-goal-thirteenth-verification.json)은 `53b4e9f`의 bytes 그대로 보존했다. [frontier 계약](engine-tool-recovery-frontier.md), [공개 비교](research/2026-10-07-tool-recovery-frontier.md), [최신 검증](engine-goal-verification.md)을 따른다.
+
+진짜 v1-only는 unchecked audit와 기존 의미를 유지하며 이미 interrupted로 쓴 과거 이력을 소급 인증하지 않는다. 전용 일반 tool/MCP ACK와 전체 startup `.all()`의 물리 I/O/시간 상한은 추가하지 않았다. 실제 프로젝트 unresolved 기록을 대신 승인하지 않는다.
+
+다음 G1-27은 많은 도구의 전량 schema clone/전송과 문맥 예약을 줄이는 host opt-in catalogue/discovery다. Actual source/private bundle4조건에서 core21+MCP40개 schema(각8,269B)가344,678B예약으로 default262,144B를 넘겨 provider0/CONTEXT_LIMIT을 보였다. 기존 정적 profile로 core21+MCP1개를 노출하면18,521B/provider1/completed다. Dynamic selection은 profile/policy/revision/승인 범위를 유지하고 같은 catalogue→예약→context plan→provider request를 고정해야 한다. 기존 eager 호환을 보존하고 provider-native tool_search 지원이나 token/시간/physical I/O 절감을 추측하지 않는다. 원래 열린 외부 OS/provider/CI4개와 GUI 제외를 유지하며 goal은 활성 상태다.
+
+도구 discovery의 실제 baseline과 독립 구현 범위는 [조사](research/2026-10-07-tool-catalogue-discovery.md)를 따른다.
