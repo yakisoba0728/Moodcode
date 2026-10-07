@@ -1,6 +1,40 @@
 # 지속 개선 최신 검증
 
-2026-10-07, macOS arm64 / Node 26.9.0. 다섯 번째 구현 commit은 `29b59a115bacac79e4a55a4429618ea455b8553d`다. [기계 판독 결과](engine-goal-verification.json), [명시적 host 복구 계약](engine-summary-recovery.md), [요약 수명·사용량](engine-summary-attempts.md), [TODO](../../TODO.md)를 함께 확인한다. GUI·Electron 앱을 실행하지 않았다.
+2026-10-07, macOS arm64 / Node 26.9.0. 여섯 번째 구현 commit은 `11da9861f436b1c70daf34a7815c48ef7a8681fa`다. [기계 판독 결과](engine-goal-verification.json), [일반 Attempt 종료 계약](engine-attempt-cleanup.md), [summary 복구](engine-summary-recovery.md), [TODO](../../TODO.md)를 따른다. GUI·Electron을 실행하지 않았고 프로젝트의 실제 unresolved 기록을 대신 승인하지 않았다.
+
+| 검증 | 결과 |
+| --- | --- |
+| `npm run typecheck` | 통과 |
+| 동일 전체 목록, `MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine` | 1,968 tests · 1,966 pass · 실패 0 · 조건부 2 skip · 64,472.414791ms |
+| 코딩 fixture 평가 | 3/3 통과 |
+| 컴파일 집중 검사 | 132/132, 이후 실제 crash/integration 24/24; 전체 gate와 겹치므로 합산하지 않음 |
+| 커밋 후 실제 Codex | 새 ordinary Run 1회, active-prefix 요약 1회·최종 답변 1회 통과 |
+
+## 여섯 번째 구현과 독립 검토
+
+- **별도 종료 증거**: DB6 `attempt_cleanup`에 owner·provider/model·context·logical request SHA와 bytes를 고정한다. prepared/dispatched intent, confirmed/uncertain/not-dispatched를 구분하며 terminal과 native/v1 audit를 원자 저장한다. 실제 `next/return().done === true`만 confirmed다. finish 이벤트·외부 generator 종료·promise resolve는 근거로 사용하지 않는다. outcome uncertainty와 usage를 바꾸거나 legacy proof를 backfill하지 않는다.
+- **소비자 종료와 타이머**: 출력/protocol/저장 실패·취소 때 실제 adapter return을 시도하고 정산을 저장한 뒤 Run을 종료한다. 독립 실제 엔진 검사에서 1초 inner/outer 타이머 경합을 재현해, adapter return 한도 1초와 Turn generator 정산 합류 grace 3초를 구별했다. 저장 flush 오류가 return 시도를 건너뛰던 경계와 이미지 wrapper의 truthy done도 수정했다.
+- **격리와 좁은 origin**: ordinary uncertain Attempt·unknown cleanup은 재시작 뒤 새 작업·resume·maintenance를 계속 차단한다. summary host 결정은 최신 failed ordinary Attempt, 0 Parts, 확인된 overflow return, 동일 owner/provider/model/context·시간 순서·cleanup SHA를 만족하는 정확한 origin만 처리한다. wrong source/hash/cleanup payload와 다른 ordinary uncertainty는 차단한다. 원래 Turn/Attempt/summary·usage·queue/control은 유지한다.
+- **실제 crash**: summary usage 저장 직후와 uncertain 정산 직후, Turn dependency 저장 전의 두 프로세스를 실제 SIGKILL했다. startup의 interrupted Turn을 strict origin으로 읽어 host 결정을 만들고 새 명시적 작업만 실행했다. 종료 proof와 failed ordinary Attempt는 불변이며 원래 요약 retry/activation/resume는 0이다.
+- **migration·archive·진단**: DB5→6의 기존 opaque 기록·partial usage·events 보존과 주입 실패 rollback, foreign owner·large record·journal 실패를 확인했다. DB6 archive/hash가 typed cleanup을 보존한다. native metrics schema 5의 상태·missing observation은 raw SQL counts이며 record validity/원격 outcome은 null이다. cleanup-only unknown도 durable workspace evidence에 포함한다.
+
+## 조회 비용과 실제 모델 범위
+
+1천/1만 개 synthetic 완료 ordinary 행에서 configured execution predicate는 모두 clear 199 bytes·5 queries, 첫 unknown 204 bytes·2 queries였다. writes·summary text·full snapshot은 0이다. synthetic uncertain Turns 65개는 payload를 읽기 전 7,858 bytes·5 queries로 차단했다. 이는 JavaScript로 반환된 SQL 값과 단일 elapsed 표본이며 물리 I/O나 처리량 보장이 아니다. Turn payload 합계 8MiB와 각각의 ACK/source 예산은 별도이며 전체 합산 8MiB를 보장하지 않는다.
+
+`verify-attempt-cleanup.mjs --live`는 private fixture의 ordinary overflow/unknown summary 뒤 기존 인증으로 새 Codex 요청 1회만 허용한다. 실제 요청의 logical SHA·12,003 bytes·context identity가 cleanup 행과 일치했고 natural done proof가 재시작 뒤 보존됐다. actual input/output은 1,586/5, 원래 synthetic summary usage는 input 9/output null이다. host 결정은 context head revision 2를 보존했고 새 Run이 3으로 변경한 뒤에도 exact decision retry가 유지됐다. unknown Codex 서버 종료나 실제 과금 확정 검증으로 표시하지 않는다.
+
+같은 commit의 active-prefix 검증은 fixture-directed 읽기 20회 뒤 실제 요약 input/output 1,987/186을 관측했고, 원문 도구 결과가 요청에서 빠진 임의 값을 기억에서 정확히 회수했다. context는 14,755/16,384 bytes, full snapshot 조회는 0이다. 모델의 자율 코딩 전략을 검증한 것은 아니다. 두 live script 모두 engine close와 임시 파일 정리를 확인했다.
+
+첫 집중 검사의 유일한 실패는 archive fixture가 DB 버전 5를 고정한 기대값이었다. DB_VERSION 사용으로 수정한 뒤 132개가 통과했다. 이후 첫 전체 1,965개 통과 상태에서 독립 리뷰가 crash origin과 truthy done을 찾아 3개 검사를 추가했고 최종 전체 1,968개가 통과했다. 새 crash fixture의 contextual iterator 타입 오류도 수정했다. 성공·중간 결과·실패 범위를 JSON에 구별했다.
+
+G1-17을 완료했다. 다음 G1-18은 cleanup이 확인되어도 남는 ordinary outcome uncertainty의 명시적 host 결정, G1-19는 여러 source 검증의 공유 조회 예산이다. 원래 열린 외부 OS/provider/hosted CI 항목과 media token 비용·GUI 노출을 유지한다. Git remote는 없고 goal은 활성 상태다.
+
+---
+
+# 다섯 번째 묶음의 이전 검증
+
+2026-10-07, macOS arm64 / Node 26.9.0. 다섯 번째 구현 commit은 `29b59a115bacac79e4a55a4429618ea455b8553d`다. [다섯 번째 기계 판독 결과](engine-goal-fifth-verification.json), [명시적 host 복구 계약](engine-summary-recovery.md), [요약 수명·사용량](engine-summary-attempts.md), [TODO](../../TODO.md)를 함께 확인한다. GUI·Electron 앱을 실행하지 않았다.
 
 | 검증 | 결과 |
 | --- | --- |

@@ -1,13 +1,13 @@
 {
-  "schemaVersion": 5,
-  "implementationCommit": "29b59a115bacac79e4a55a4429618ea455b8553d",
-  "timestamp": "2026-10-06T23:20:59.392Z",
+  "schemaVersion": 6,
+  "implementationCommit": "11da9861f436b1c70daf34a7815c48ef7a8681fa",
+  "timestamp": "2026-10-06T23:58:34.241288+00:00",
   "runtime": {
     "node": "26.9.0",
     "platform": "darwin",
     "arch": "arm64"
   },
-  "scope": "headless-engine-goal-checkpoint-5",
+  "scope": "headless-engine-goal-checkpoint-6",
   "checks": {
     "typecheck": {
       "passed": true,
@@ -18,13 +18,13 @@
       "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
       "testConcurrency": 2,
       "testManifestReduced": false,
-      "tests": 1896,
-      "passed": 1894,
+      "tests": 1968,
+      "passed": 1966,
       "failed": 0,
       "cancelled": 0,
       "skipped": 2,
-      "durationMs": 61446.350167,
-      "logSha256": "2dbf67a4c00d56ce3c5dcd470cd61bdae2e5d74bfb8ed50bc6d7f40043ef6a58"
+      "durationMs": 64472.414791,
+      "logSha256": "f5fd4b0bd8701de6bd6ea1ed496867999e3c56c0ac9bdebb5b3c9fd22425fb8f"
     },
     "evaluation": [
       {
@@ -52,7 +52,7 @@
             "turnIndex": 3
           }
         },
-        "durationMs": 532
+        "durationMs": 299
       },
       {
         "taskId": "empty-list-boundary",
@@ -79,7 +79,7 @@
             "turnIndex": 3
           }
         },
-        "durationMs": 533
+        "durationMs": 280
       },
       {
         "taskId": "two-module-change",
@@ -101,19 +101,147 @@
           "outputTokens": null,
           "usageWindowTruncated": false,
           "context": {
-            "bytes": 14041,
+            "bytes": 14044,
             "limit": 262144,
             "summaryIncluded": false,
             "turnIndex": 4
           }
         },
-        "durationMs": 739
+        "durationMs": 387
       }
     ],
-    "activePrefixLive": {
+    "focused": [
+      {
+        "scope": "compiled contracts/storage/context/runner/integration cleanup and recovery; overlaps full gate",
+        "tests": 132,
+        "passed": 132,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 2548.781042,
+        "logSha256": "82de806e4a0ff8ea0a5c4011aaed54a1958a9edaf88618cdc34b5d58b5132f68"
+      },
+      {
+        "scope": "compiled actual integration including two SIGKILL origin frontiers and malformed done; overlaps full gate",
+        "tests": 24,
+        "passed": 24,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 2304.742166,
+        "logSha256": "f54e629c5d4ee51acd4f5c0fe117bd27ef90269c3f653ef5f580e621c3cd65ff"
+      }
+    ]
+  },
+  "attemptCleanup": {
+    "databaseVersion": 6,
+    "nativeMetricsSchemaVersion": 5,
+    "requestProjection": "engine-turn-request-v1",
+    "rawHttpBodyOrResolvedPixelsHashed": false,
+    "requestBodyStoredInCleanupRow": false,
+    "states": [
+      "prepared",
+      "dispatched",
+      "confirmed",
+      "uncertain",
+      "not-dispatched"
+    ],
+    "confirmedRequiresActualBooleanDone": true,
+    "cleanupDoesNotConfirmProviderOutcome": true,
+    "terminalImmutable": true,
+    "nativeAndLegacyAuditsAtomic": true,
+    "legacyCleanupBackfilled": false,
+    "durableOrdinaryQuarantineAcrossRestart": true,
+    "ordinaryUncertainAttemptWaivedBySummaryDecision": false,
+    "summaryOverflowDependency": {
+      "latestOrdinaryAttemptState": "failed",
+      "currentTurnParts": 0,
+      "method": "iterator-return-done",
+      "reason": "error",
+      "errorCode": "PROVIDER_CONTEXT_OVERFLOW",
+      "exactOwnerProviderModelContextHashAndTimeOrder": true,
+      "interruptedOriginWithoutOtherUncertaintySupported": true
+    },
+    "actualCrashFrontiers": [
+      "summary usage commit before Turn dependency publication",
+      "summary uncertain settlement before Turn dependency publication"
+    ],
+    "adapterReturnDeadlineMs": 1000,
+    "outerTurnGeneratorCleanupGraceMs": 3000,
+    "limits": {
+      "cleanupJsonBytes": 16384,
+      "ownerJsonBytesPerRecord": 1048576,
+      "logicalRequestBytes": 67108864,
+      "startupPageSize": 100,
+      "uncertainTurns": 64,
+      "selectedTurnPayloadBytes": 8388608,
+      "summaryAcknowledgmentEvidenceHasSeparateLimits": true,
+      "wholePredicateAggregateByteLimitGuaranteed": false
+    }
+  },
+  "measurements": {
+    "scope": "synthetic SQLite values returned to JavaScript; no physical I/O or repeated throughput guarantee",
+    "diagnostics": [
+      {
+        "scope": "ordinary-execution-SQL-values-returned-to-JavaScript;not-physical-I/O",
+        "results": [
+          {
+            "count": 1000,
+            "clear": {
+              "returnedSqlBytes": 199,
+              "queries": 5,
+              "summaryFullPayloadReads": 0,
+              "summaryTextBytesReturned": 0,
+              "writeStatements": 0,
+              "elapsedMs": 0.23595900000000114
+            },
+            "blocked": {
+              "returnedSqlBytes": 204,
+              "queries": 2,
+              "summaryFullPayloadReads": 0,
+              "summaryTextBytesReturned": 0,
+              "writeStatements": 0,
+              "elapsedMs": 0.03725000000000023
+            }
+          },
+          {
+            "count": 10000,
+            "clear": {
+              "returnedSqlBytes": 199,
+              "queries": 5,
+              "summaryFullPayloadReads": 0,
+              "summaryTextBytesReturned": 0,
+              "writeStatements": 0,
+              "elapsedMs": 0.13437499999999147
+            },
+            "blocked": {
+              "returnedSqlBytes": 204,
+              "queries": 2,
+              "summaryFullPayloadReads": 0,
+              "summaryTextBytesReturned": 0,
+              "writeStatements": 0,
+              "elapsedMs": 0.026750000000006935
+            }
+          }
+        ]
+      },
+      {
+        "scope": "synthetic-ordinary-turn-metadata-cap;not-physical-I/O",
+        "returnedSqlBytes": 7858,
+        "queries": 5,
+        "summaryFullPayloadReads": 0,
+        "summaryTextBytesReturned": 0,
+        "writeStatements": 0,
+        "elapsedMs": 0.10658399999999801
+      }
+    ]
+  },
+  "live": {
+    "actualAccountCalls": 3,
+    "activePrefix": {
       "kind": "active-prefix-hybrid-live",
-      "implementationCommit": "29b59a115bacac79e4a55a4429618ea455b8553d",
-      "timestamp": "2026-10-06T23:18:37.111Z",
+      "implementationCommit": "11da9861f436b1c70daf34a7815c48ef7a8681fa",
+      "timestamp": "2026-10-06T23:57:06.733Z",
       "providerId": "codex",
       "modelId": "gpt-6.1-sol",
       "runtime": {
@@ -131,13 +259,13 @@
         {
           "purpose": "active-prefix-summary",
           "sourceMessageCount": 4,
-          "factsSha256": "03a7b094aa080ab78d56746607724fb0de3a8a500bdd17dc1f1fd0220b2e1754",
+          "factsSha256": "1791b3da3fe33977642a137b526edd601f1b6a6f6dd952ad5e85f2da0b6fb3b9",
           "observedIdentifierInQuotedToolFacts": true,
           "requestBytes": 7642,
           "finalUsage": {
             "type": "usage",
-            "inputTokens": 1964,
-            "outputTokens": 202
+            "inputTokens": 1987,
+            "outputTokens": 186
           }
         },
         {
@@ -146,8 +274,8 @@
           "rawIdentifierSourceInMessages": false,
           "finalUsage": {
             "type": "usage",
-            "inputTokens": 2567,
-            "outputTokens": 19,
+            "inputTokens": 2689,
+            "outputTokens": 21,
             "cachedInputTokens": 0,
             "reasoningOutputTokens": 0
           }
@@ -161,15 +289,15 @@
       },
       "memory": {
         "nonceMatch": true,
-        "nonceSha256": "1fe538ff401009d23ea7ee3fba063effbbb8b8990176b1fb43f11a2db7da834e",
+        "nonceSha256": "6f1be76faf27d276f8d211dd931496f3c99b6aa9cc880273dd8324aa57dd8942",
         "originalToolResultStillStored": true,
         "rawSourceSelected": false,
         "coveredMessageCount": 4,
-        "factsSha256": "03a7b094aa080ab78d56746607724fb0de3a8a500bdd17dc1f1fd0220b2e1754",
-        "manifestSha256": "4b3ffce82cb1e0f782dddad575a3e67fbcce593d33b86a9d780ff0a035f7ef92",
+        "factsSha256": "1791b3da3fe33977642a137b526edd601f1b6a6f6dd952ad5e85f2da0b6fb3b9",
+        "manifestSha256": "75ea83e96430656278e9868244fe0f9287aefb1e4fdc0f2895ca07f2a330dfd2",
         "fullSnapshotReads": 0,
         "currentFileEvidence": false,
-        "contextBytes": 14772,
+        "contextBytes": 14755,
         "contextByteLimit": 16384
       },
       "runUsage": {
@@ -180,14 +308,14 @@
       "regularAttemptUsage": {
         "samples": 1,
         "inputTokens": {
-          "tokens": 2567,
+          "tokens": 2689,
           "observed": 1,
           "missing": 0,
           "invalid": 0,
           "sumOverflow": false
         },
         "outputTokens": {
-          "tokens": 19,
+          "tokens": 21,
           "observed": 1,
           "missing": 0,
           "invalid": 0,
@@ -215,8 +343,8 @@
         "billedTokens": null
       },
       "summaryUsage": {
-        "inputTokens": 1964,
-        "outputTokens": 202,
+        "inputTokens": 1987,
+        "outputTokens": 186,
         "cachedInputTokens": null,
         "reasoningOutputTokens": null
       },
@@ -225,18 +353,18 @@
         "publication": "activated",
         "scope": "active-run-prefix",
         "sourceProjection": "text-and-complete-tool-observations-v1",
-        "requestSha256": "40907ee4f82d54b1ef8922728120e5d6c1691eee5d0ef7657ab062c5bfd60e31",
+        "requestSha256": "29e2bf052dc9e757f05d07eb245bd8fea02222e4b05b13f5ad610115f235fcf5",
         "requestBytes": 7642,
         "summaryRevisionMatchesCheckpoint": true,
         "providerCompletionRecorded": true,
         "cleanupConfirmed": true,
-        "observedOutputBytes": 907,
-        "retainedTextBytes": 907,
+        "observedOutputBytes": 786,
+        "retainedTextBytes": 786,
         "partialTextTruncated": false,
-        "partialTextSha256": "48fcda683ddd79fbf225cc495cd64c90ba6a58f2085282217365a16f4473bdd4",
+        "partialTextSha256": "5ace6a4d62dff7465020ad4edde20d9024ff51548166d9a7253b6775bacd4056",
         "usage": {
-          "inputTokens": 1964,
-          "outputTokens": 202,
+          "inputTokens": 1987,
+          "outputTokens": 186,
           "cachedInputTokens": null,
           "reasoningOutputTokens": null
         }
@@ -244,14 +372,14 @@
       "durableSummaryUsageMetrics": {
         "samples": 1,
         "inputTokens": {
-          "tokens": 1964,
+          "tokens": 1987,
           "observed": 1,
           "missing": 0,
           "invalid": 0,
           "sumOverflow": false
         },
         "outputTokens": {
-          "tokens": 202,
+          "tokens": 186,
           "observed": 1,
           "missing": 0,
           "invalid": 0,
@@ -280,10 +408,10 @@
       },
       "summaryUsageIncludedInRegularAttemptTotals": false
     },
-    "summaryRecoveryLive": {
-      "kind": "explicit-summary-recovery-hybrid-live",
-      "implementationCommit": "29b59a115bacac79e4a55a4429618ea455b8553d",
-      "timestamp": "2026-10-06T23:18:53.379Z",
+    "ordinaryCleanupAndOverflowRecovery": {
+      "kind": "ordinary-cleanup-and-overflow-summary-recovery-hybrid-live",
+      "implementationCommit": "11da9861f436b1c70daf34a7815c48ef7a8681fa",
+      "timestamp": "2026-10-06T23:56:11.145Z",
       "runtime": {
         "node": "26.9.0",
         "platform": "darwin",
@@ -291,38 +419,65 @@
       },
       "providerId": "codex",
       "modelId": "gpt-6.1-sol",
+      "scope": {
+        "syntheticOrdinaryOverflow": true,
+        "syntheticUncertainSummary": true,
+        "realUncertainTransportVerified": false,
+        "requestedRealNewRuns": 1,
+        "existingProjectRecoveryAcknowledged": false,
+        "originalSummaryAutomaticallyRetried": false,
+        "requestProjection": "engine-turn-request-v1",
+        "rawHttpBodyOrResolvedPixelsHashed": false
+      },
       "actualRequests": [
         {
-          "attemptId": "721a66d2-2a04-403d-8933-050116299308",
-          "turnId": "e7dc694a-77f2-4705-961b-cb9178ceffa9",
+          "attemptId": "ae5e377b-388b-4b9a-8f30-f7c9316f7e39",
+          "turnId": "2bf944a6-05ab-45d3-a810-b3b6ebc38c9a",
+          "logicalRequestSha256": "fbe384013e9c26c38a30b00155a71e8f9a93a9414f8ad5e4f30af6c7a6406b75",
+          "logicalRequestBytes": 12003,
           "usage": {
             "type": "usage",
-            "inputTokens": 2739,
+            "inputTokens": 1586,
             "outputTokens": 5,
             "cachedInputTokens": 0,
             "reasoningOutputTokens": 0
           }
         }
       ],
-      "scope": {
-        "syntheticUncertainSummary": true,
-        "realUncertainTransportVerified": false,
-        "requestedRealNewRuns": 1,
-        "originalSummaryAutomaticallyRetried": false
-      },
       "passed": true,
       "cleanupConfirmed": true,
       "result": {
         "sameBootBlocked": true,
-        "originalUncertaintyRetained": true,
-        "originalUsageUnchanged": true,
-        "explicitNewRunCompleted": true,
+        "durableWorkspaceBlockedBeforeDecision": true,
+        "exactOverflowOriginValidated": true,
+        "failedOrdinaryAttemptUnchanged": true,
+        "uncertainTurnAndSummaryUnchanged": true,
+        "originalSummaryUsageUnchanged": true,
+        "explicitNewCodexRunCompleted": true,
+        "acknowledgmentSurvivedHeadChangeAndRestart": true,
+        "exactDecisionRetry": true,
+        "contextHeadRevisionBeforeDecision": 2,
+        "contextHeadRevisionAfterNewRun": 3,
         "sourceSummaryRetried": false,
         "checkpointActivatedByDecision": false,
         "pauseUnchangedByDecision": true,
-        "acknowledgmentSurvivedHeadChangeAndRestart": true,
-        "exactDecisionRetry": true,
         "fullSnapshotReads": 0,
+        "fixtureProviderCalls": 3,
+        "liveCleanup": {
+          "state": "confirmed",
+          "method": "iterator-next-done",
+          "reason": "natural-done",
+          "requestSha256MatchesLogicalRequest": true,
+          "requestBytes": 12003,
+          "contextRevisionMatches": true,
+          "persistedAcrossRestart": true
+        },
+        "overflowCleanup": {
+          "state": "confirmed",
+          "method": "iterator-return-done",
+          "errorCode": "PROVIDER_CONTEXT_OVERFLOW",
+          "originalAttemptState": "failed"
+        },
         "storedUncertainSummaries": 1,
         "acknowledgmentRecords": 1,
         "originalSummaryUsage": {
@@ -331,637 +486,77 @@
           "cachedInputTokens": null,
           "reasoningOutputTokens": null
         },
-        "ordinaryAttemptUsage": {
-          "samples": 1,
-          "inputTokens": {
-            "tokens": 2739,
-            "observed": 1,
-            "missing": 0,
-            "invalid": 0,
-            "sumOverflow": false
+        "attemptCleanupMetrics": {
+          "total": 3,
+          "serializedJsonBytes": 2320,
+          "states": {
+            "prepared": 0,
+            "dispatched": 0,
+            "confirmed": 3,
+            "uncertain": 0,
+            "not-dispatched": 0
           },
-          "outputTokens": {
-            "tokens": 5,
-            "observed": 1,
-            "missing": 0,
-            "invalid": 0,
-            "sumOverflow": false
-          },
-          "cachedInputTokens": {
-            "tokens": 0,
-            "observed": 1,
-            "missing": 0,
-            "invalid": 0,
-            "sumOverflow": false
-          },
-          "reasoningOutputTokens": {
-            "tokens": 0,
-            "observed": 1,
-            "missing": 0,
-            "invalid": 0,
-            "sumOverflow": false
-          },
-          "aggregation": "latest-snapshot-per-durable-attempt",
-          "inclusiveTotals": true,
-          "attemptsWithUsage": 1,
-          "attemptsWithoutUsage": 1,
-          "source": "all-attempt_usage-records-in-scope",
-          "billedTokens": null
+          "attemptsWithoutObservation": 0,
+          "recordValidity": null,
+          "providerOutcomeConfirmed": null,
+          "source": "all-typed-attempt-cleanup-records-in-scope"
         },
         "billedTokens": null
       }
     }
   },
-  "performance": {
-    "summaryHotpath": {
-      "baselineCommit": "ede15196edc16f63ee8c4183f628c50d6745df2d",
-      "baselineSourceSha256": "1edaec5d64c6be8e7d3090f552d45927e59e7a2ba703724ca0d9e736eb7ab98c",
-      "method": "Same synthetic primary fixture and real 65536-byte provider observation; baseline storage class pinned to committed source; optimized class from current full TypeScript build",
-      "results": [
-        {
-          "records": 1000,
-          "implementation": "ede1519-baseline",
-          "scope": "SQL-values-returned-to-JavaScript;not-physical-I/O",
-          "getUsage": {
-            "returnedSqlBytes": 67849,
-            "queries": 7,
-            "summaryFullPayloadReads": 1,
-            "summaryTextBytesReturned": 65536,
-            "writeStatements": 0,
-            "elapsedMs": 0.9301249999999968
-          },
-          "duplicateUsage": {
-            "returnedSqlBytes": 202775,
-            "queries": 17,
-            "summaryFullPayloadReads": 3,
-            "summaryTextBytesReturned": 196608,
-            "writeStatements": 1,
-            "elapsedMs": 1.3843749999999986
-          },
-          "duplicateProgress": {
-            "returnedSqlBytes": 202775,
-            "queries": 17,
-            "summaryFullPayloadReads": 3,
-            "summaryTextBytesReturned": 196608,
-            "writeStatements": 1,
-            "elapsedMs": 0.9267079999999979
-          },
-          "textObservation": {
-            "returnedSqlBytes": 202775,
-            "queries": 17,
-            "summaryFullPayloadReads": 3,
-            "summaryTextBytesReturned": 196608,
-            "writeStatements": 1,
-            "elapsedMs": 1.389415999999997
-          },
-          "settlement": {
-            "returnedSqlBytes": 136206,
-            "queries": 15,
-            "summaryFullPayloadReads": 2,
-            "summaryTextBytesReturned": 131072,
-            "writeStatements": 4,
-            "elapsedMs": 1.5996669999999966
-          }
-        },
-        {
-          "records": 1000,
-          "implementation": "working-tree-optimized",
-          "scope": "SQL-values-returned-to-JavaScript;not-physical-I/O",
-          "getUsage": {
-            "returnedSqlBytes": 2378,
-            "queries": 7,
-            "summaryFullPayloadReads": 0,
-            "summaryTextBytesReturned": 0,
-            "writeStatements": 0,
-            "elapsedMs": 0.25816700000000026
-          },
-          "duplicateUsage": {
-            "returnedSqlBytes": 67849,
-            "queries": 7,
-            "summaryFullPayloadReads": 1,
-            "summaryTextBytesReturned": 65536,
-            "writeStatements": 0,
-            "elapsedMs": 0.15354199999999452
-          },
-          "duplicateProgress": {
-            "returnedSqlBytes": 67849,
-            "queries": 7,
-            "summaryFullPayloadReads": 1,
-            "summaryTextBytesReturned": 65536,
-            "writeStatements": 0,
-            "elapsedMs": 0.228749999999998
-          },
-          "textObservation": {
-            "returnedSqlBytes": 67849,
-            "queries": 7,
-            "summaryFullPayloadReads": 1,
-            "summaryTextBytesReturned": 65536,
-            "writeStatements": 1,
-            "elapsedMs": 0.247166
-          },
-          "settlement": {
-            "returnedSqlBytes": 68744,
-            "queries": 10,
-            "summaryFullPayloadReads": 1,
-            "summaryTextBytesReturned": 65536,
-            "writeStatements": 4,
-            "elapsedMs": 0.9255420000000001
-          }
-        },
-        {
-          "records": 10000,
-          "implementation": "ede1519-baseline",
-          "scope": "SQL-values-returned-to-JavaScript;not-physical-I/O",
-          "getUsage": {
-            "returnedSqlBytes": 67849,
-            "queries": 7,
-            "summaryFullPayloadReads": 1,
-            "summaryTextBytesReturned": 65536,
-            "writeStatements": 0,
-            "elapsedMs": 0.2192500000000024
-          },
-          "duplicateUsage": {
-            "returnedSqlBytes": 202775,
-            "queries": 17,
-            "summaryFullPayloadReads": 3,
-            "summaryTextBytesReturned": 196608,
-            "writeStatements": 1,
-            "elapsedMs": 1.0149590000000046
-          },
-          "duplicateProgress": {
-            "returnedSqlBytes": 202775,
-            "queries": 17,
-            "summaryFullPayloadReads": 3,
-            "summaryTextBytesReturned": 196608,
-            "writeStatements": 1,
-            "elapsedMs": 0.6301670000000001
-          },
-          "textObservation": {
-            "returnedSqlBytes": 202775,
-            "queries": 17,
-            "summaryFullPayloadReads": 3,
-            "summaryTextBytesReturned": 196608,
-            "writeStatements": 1,
-            "elapsedMs": 0.8902080000000012
-          },
-          "settlement": {
-            "returnedSqlBytes": 136206,
-            "queries": 15,
-            "summaryFullPayloadReads": 2,
-            "summaryTextBytesReturned": 131072,
-            "writeStatements": 4,
-            "elapsedMs": 0.6262080000000054
-          }
-        },
-        {
-          "records": 10000,
-          "implementation": "working-tree-optimized",
-          "scope": "SQL-values-returned-to-JavaScript;not-physical-I/O",
-          "getUsage": {
-            "returnedSqlBytes": 2378,
-            "queries": 7,
-            "summaryFullPayloadReads": 0,
-            "summaryTextBytesReturned": 0,
-            "writeStatements": 0,
-            "elapsedMs": 0.19074999999998
-          },
-          "duplicateUsage": {
-            "returnedSqlBytes": 67849,
-            "queries": 7,
-            "summaryFullPayloadReads": 1,
-            "summaryTextBytesReturned": 65536,
-            "writeStatements": 0,
-            "elapsedMs": 0.14420800000002032
-          },
-          "duplicateProgress": {
-            "returnedSqlBytes": 67849,
-            "queries": 7,
-            "summaryFullPayloadReads": 1,
-            "summaryTextBytesReturned": 65536,
-            "writeStatements": 0,
-            "elapsedMs": 0.12424999999998931
-          },
-          "textObservation": {
-            "returnedSqlBytes": 67849,
-            "queries": 7,
-            "summaryFullPayloadReads": 1,
-            "summaryTextBytesReturned": 65536,
-            "writeStatements": 1,
-            "elapsedMs": 0.22354099999998311
-          },
-          "settlement": {
-            "returnedSqlBytes": 68744,
-            "queries": 10,
-            "summaryFullPayloadReads": 1,
-            "summaryTextBytesReturned": 65536,
-            "writeStatements": 4,
-            "elapsedMs": 0.28033300000001304
-          }
-        }
-      ],
-      "optimizedImplementationCommit": "29b59a115bacac79e4a55a4429618ea455b8553d",
-      "timingInterpretation": "Single-operation observation; not a throughput distribution or production latency guarantee",
-      "measuredBeforeCommit": true,
-      "summaryStorageSourceUnchangedForCommit": true
-    },
-    "quarantinePredicate": [
-      {
-        "scope": "SQL-values-returned-to-JavaScript;not-physical-I/O",
-        "results": [
-          {
-            "count": 1000,
-            "scopes": [
-              {
-                "workspace": "workspace",
-                "blocked": true,
-                "returnedSqlBytes": 204,
-                "queries": 2,
-                "summaryFullPayloadReads": 0,
-                "summaryTextBytesReturned": 0,
-                "writeStatements": 0,
-                "elapsedMs": 0.07220900000000086
-              },
-              {
-                "workspace": "unrelated",
-                "blocked": true,
-                "returnedSqlBytes": 182,
-                "queries": 2,
-                "summaryFullPayloadReads": 0,
-                "summaryTextBytesReturned": 0,
-                "writeStatements": 0,
-                "elapsedMs": 0.01462500000000233
-              },
-              {
-                "workspace": "clear",
-                "blocked": false,
-                "returnedSqlBytes": 163,
-                "queries": 2,
-                "summaryFullPayloadReads": 0,
-                "summaryTextBytesReturned": 0,
-                "writeStatements": 0,
-                "elapsedMs": 0.01812500000000483
-              }
-            ]
-          },
-          {
-            "count": 10000,
-            "scopes": [
-              {
-                "workspace": "workspace",
-                "blocked": true,
-                "returnedSqlBytes": 204,
-                "queries": 2,
-                "summaryFullPayloadReads": 0,
-                "summaryTextBytesReturned": 0,
-                "writeStatements": 0,
-                "elapsedMs": 0.02549999999999386
-              },
-              {
-                "workspace": "unrelated",
-                "blocked": true,
-                "returnedSqlBytes": 182,
-                "queries": 2,
-                "summaryFullPayloadReads": 0,
-                "summaryTextBytesReturned": 0,
-                "writeStatements": 0,
-                "elapsedMs": 0.02258400000000904
-              },
-              {
-                "workspace": "clear",
-                "blocked": false,
-                "returnedSqlBytes": 163,
-                "queries": 2,
-                "summaryFullPayloadReads": 0,
-                "summaryTextBytesReturned": 0,
-                "writeStatements": 0,
-                "elapsedMs": 0.011499999999998067
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "scope": "SQL-values-returned-to-JavaScript;not-physical-I/O",
-        "configured": true,
-        "results": [
-          {
-            "count": 1000,
-            "scopes": [
-              {
-                "workspace": "workspace",
-                "blocked": true,
-                "returnedSqlBytes": 211,
-                "queries": 3,
-                "summaryFullPayloadReads": 0,
-                "summaryTextBytesReturned": 0,
-                "writeStatements": 0,
-                "elapsedMs": 0.0979159999999979
-              },
-              {
-                "workspace": "unrelated",
-                "blocked": true,
-                "returnedSqlBytes": 189,
-                "queries": 3,
-                "summaryFullPayloadReads": 0,
-                "summaryTextBytesReturned": 0,
-                "writeStatements": 0,
-                "elapsedMs": 0.02333299999999383
-              },
-              {
-                "workspace": "clear",
-                "blocked": false,
-                "returnedSqlBytes": 163,
-                "queries": 2,
-                "summaryFullPayloadReads": 0,
-                "summaryTextBytesReturned": 0,
-                "writeStatements": 0,
-                "elapsedMs": 0.010625000000004547
-              }
-            ]
-          },
-          {
-            "count": 10000,
-            "scopes": [
-              {
-                "workspace": "workspace",
-                "blocked": true,
-                "returnedSqlBytes": 211,
-                "queries": 3,
-                "summaryFullPayloadReads": 0,
-                "summaryTextBytesReturned": 0,
-                "writeStatements": 0,
-                "elapsedMs": 0.04620900000000461
-              },
-              {
-                "workspace": "unrelated",
-                "blocked": true,
-                "returnedSqlBytes": 189,
-                "queries": 3,
-                "summaryFullPayloadReads": 0,
-                "summaryTextBytesReturned": 0,
-                "writeStatements": 0,
-                "elapsedMs": 0.026416999999995028
-              },
-              {
-                "workspace": "clear",
-                "blocked": false,
-                "returnedSqlBytes": 163,
-                "queries": 2,
-                "summaryFullPayloadReads": 0,
-                "summaryTextBytesReturned": 0,
-                "writeStatements": 0,
-                "elapsedMs": 0.010417000000003895
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "scope": "first-unacknowledged-SQL-evidence;not-physical-I/O",
-        "count": 10000,
-        "returnedSqlBytes": 211,
-        "queries": 3,
-        "summaryFullPayloadReads": 0,
-        "summaryTextBytesReturned": 0,
-        "writeStatements": 0,
-        "elapsedMs": 0.16404099999999744
-      },
-      {
-        "scope": "synthetic-acknowledgment-candidate-cap;not-physical-I/O",
-        "count": 10000,
-        "returnedSqlBytes": 2987,
-        "queries": 4,
-        "summaryFullPayloadReads": 0,
-        "summaryTextBytesReturned": 0,
-        "writeStatements": 0,
-        "elapsedMs": 3.814582999999999
+  "verificationHistory": [
+    {
+      "kind": "initial-focused-failure",
+      "details": "DB6 archive integration expected old literal schema version 5; updated to DB_VERSION",
+      "evidence": {
+        "tests": 127,
+        "passed": 126,
+        "failed": 1,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 2533.350458,
+        "logSha256": "51db54473d3b071e9d2cba45ef0990979174ac50f32cff198d459a51561644fd"
       }
-    ]
-  },
-  "independentReview": {
-    "summaryRecoveryUnitTests": 16,
-    "actualSummaryRecoveryIntegrationTests": 12,
-    "summaryRecoveryLeaseTests": 7,
-    "summaryHotpathTests": 7,
-    "quarantineHotpathTests": 3,
-    "focusedRuns": [
-      {
-        "scope": "root migrations/hotpath/metrics/archive compiled",
-        "tests": 31,
-        "passed": 31
-      },
-      {
-        "scope": "root summary recovery unit compiled",
-        "tests": 16,
-        "passed": 16
-      },
-      {
-        "scope": "root earlier integration 11 + lease 7 compiled",
-        "tests": 18,
-        "passed": 18
-      },
-      {
-        "scope": "agent latest summary recovery source and independent bundle",
-        "testsPerRun": 12,
-        "passedPerRun": 12
-      },
-      {
-        "scope": "root final diagnostic + quarantine fixes",
-        "tests": 37,
-        "passed": 37
+    },
+    {
+      "kind": "intermediate-full-pass-before-three-new-review-tests",
+      "evidence": {
+        "tests": 1965,
+        "passed": 1963,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 2,
+        "durationMs": 63981.606208,
+        "logSha256": "8493f7f8e0821f561c7ec36c8a1bb779c29a2595379861a30e3550f89f1e70f6"
       }
-    ],
-    "countsAdditive": false,
-    "focus": [
-      "owner/source/projection/replay/revision and physical storage binding",
-      "before-boot eligibility, nullable usage, active-prefix exact source SHA",
-      "immutable pins versus mutable context-head decision CAS",
-      "exact decision retry during maintenance or independent runtime quarantine",
-      "quiescent lease, unpaused other-session backlog, no pause/inbox mutation or automatic wake",
-      "native/v1 rollback and actual owned SIGKILL before and after acknowledgment COMMIT",
-      "archive/import retains audit but requires a new physical-store decision",
-      "SQL metadata-only usage and no-write identical streaming observations",
-      "partial index and conservative 64-candidate evidence cap"
-    ]
+    },
+    {
+      "kind": "crash-fixture-typecheck-repair",
+      "details": "New fixture contextual this inferred AsyncIterable instead of AsyncIterator; TS2322 corrected with explicitly typed iterator variables. Diagnostic captured in tool output; reused final typecheck file has only successful run.",
+      "failedLogSha256": null
+    },
+    {
+      "kind": "independent-review-fixed",
+      "details": "Reproduced confirmed-overflow ordinary failure with interrupted Turn; exact origin now validated through two actual SIGKILL frontiers. Image wrapper truthy done corrected to done === true and malformed completion test passes."
+    }
+  ],
+  "scopeLimits": [
+    "Actual unknown Codex transport, remote server stop and billing finality were not verified.",
+    "Recovery ACKs apply only to temporary authored fixtures; no existing project uncertainty was acknowledged.",
+    "Ordinary provider outcome uncertainty remains blocked even with confirmed cleanup; general host recovery decision is next work.",
+    "Turn payload and each ACK source have separate byte budgets, not one aggregate predicate cap.",
+    "Twenty local reads are fixture directed; actual prefix summary and final answer do not demonstrate an autonomous coding strategy.",
+    "No GUI/Electron, external publishing, new credentials or Git remote setup.",
+    "Other provider accounts, Windows native backend and first hosted OS/Node24 CI remain unverified."
+  ],
+  "nextWork": [
+    "G1-18 explicit host decisions for ordinary provider outcome uncertainty with independent cleanup proof",
+    "G1-19 shared bounded workspace proof reads and repeated source-validation cost"
+  ],
+  "priorCheckpoints": {
+    "fifth": "engine-goal-fifth-verification.json",
+    "fourth": "engine-goal-fourth-verification.json"
   },
-  "gateAttempts": [
-    {
-      "attempt": 1,
-      "command": "npm run test:engine",
-      "exitCode": 1,
-      "tests": 1896,
-      "passed": 1893,
-      "failed": 1,
-      "cancelled": 0,
-      "skipped": 2,
-      "durationMs": 42755.002958,
-      "logSha256": "e5bd727e47235a83178afcbe9a2d465b5fdbd836d78e76c873f042a81563747d",
-      "cause": "Fixture expected three SQL queries; indexed empty-workspace preflight correctly added a fourth. Updated expected query count and purpose."
-    },
-    {
-      "attempt": 2,
-      "command": "npm run test:engine",
-      "exitCode": 1,
-      "tests": 1896,
-      "passed": 1893,
-      "failed": 1,
-      "cancelled": 0,
-      "skipped": 2,
-      "durationMs": 42332.8265,
-      "logSha256": "2f0612ed5dc8de6d0053e0c94019b51e63b133978140c9f6443416b479bf5af9",
-      "cause": "Existing 500ms actual-Git timeout fixture killed a cold Node interpreter before the readiness PID marker. POSIX shell publishes owned PID then execs sleep; actual OS termination assertion retained."
-    },
-    {
-      "attempt": 3,
-      "command": "npm run test:engine",
-      "exitCode": 137,
-      "completeAggregate": false,
-      "confirmedCause": null,
-      "logSha256": "057cae3295710e3d4d3b66446af907c87a59e7ac8c97bf249dbde45d945f83cc",
-      "note": "No completed aggregate. Not counted as a pass and not attributed to OOM without evidence."
-    },
-    {
-      "attempt": 4,
-      "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
-      "exitCode": 0,
-      "tests": 1896,
-      "passed": 1894,
-      "failed": 0,
-      "cancelled": 0,
-      "skipped": 2,
-      "durationMs": 61446.350167,
-      "logSha256": "2dbf67a4c00d56ce3c5dcd470cd61bdae2e5d74bfb8ed50bc6d7f40043ef6a58",
-      "cause": null
-    }
-  ],
-  "correctedProductionIssues": [
-    "Recovery lease checked summary admission before workspace ownership; other queued session could be paused during ACK. Dedicated lease now returns WORKSPACE_BUSY first and preserves durable backlog/control.",
-    "Persisted summary uncertainty previously polluted generic runtime quarantine; persisted decision predicate and genuine unsafe effects now remain distinct."
-  ],
-  "previousCheckpoints": [
-    {
-      "implementationCommit": "ede15196edc16f63ee8c4183f628c50d6745df2d",
-      "report": "engine-goal-fourth-verification.json"
-    },
-    {
-      "implementationCommit": "04031cb38fb6d98d292ee93ade1240a04c63b10e",
-      "report": "engine-goal-third-verification.json"
-    },
-    {
-      "implementationCommit": "59d1f42716452e104ec526e031263b528b36078b",
-      "report": "engine-goal-second-verification.json"
-    },
-    {
-      "implementationCommit": "64435d705ea6e68d7e3502d64d4fd1f2976004ae",
-      "report": "engine-goal-first-verification.json"
-    }
-  ],
-  "evidenceFiles": [
-    {
-      "kind": "typecheck",
-      "path": "/tmp/moodcode-engine-wave5-typecheck.log",
-      "sha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670",
-      "durable": false
-    },
-    {
-      "kind": "engine",
-      "path": "/tmp/moodcode-engine-wave5-tests.log",
-      "sha256": "2dbf67a4c00d56ce3c5dcd470cd61bdae2e5d74bfb8ed50bc6d7f40043ef6a58",
-      "durable": false
-    },
-    {
-      "kind": "evaluation",
-      "path": "/tmp/moodcode-engine-wave5-evaluation.json",
-      "sha256": "30949bc03ea122c65eea4dbe221c36e57d3f51c0809ce3b14ea6b6b1887ea7db",
-      "durable": false
-    },
-    {
-      "kind": "evaluationStderr",
-      "path": "/tmp/moodcode-engine-wave5-evaluation.stderr",
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "durable": false
-    },
-    {
-      "kind": "hotpath",
-      "path": "/tmp/moodcode-engine-wave5-hotpath.json",
-      "sha256": "2e253e442a46b43b48a538d9afda1ce373cbf05498c0059e8f213e6ef93ce3f5",
-      "durable": false
-    },
-    {
-      "kind": "activePrefixLive",
-      "path": "/tmp/moodcode-engine-wave5-prefix-live.json",
-      "sha256": "01954e810e49ec3d0e200fcc95bcc9736dfd0c3ccc25dd47d4b5ba6778cc3bad",
-      "durable": false
-    },
-    {
-      "kind": "activePrefixStderr",
-      "path": "/tmp/moodcode-engine-wave5-prefix-live.stderr",
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "durable": false
-    },
-    {
-      "kind": "summaryRecoveryLive",
-      "path": "/tmp/moodcode-engine-wave5-recovery-live.json",
-      "sha256": "ca089e65d88ab801955fe3bab261c09f69799f022fdd6c95fc324335d3a36efe",
-      "durable": false
-    },
-    {
-      "kind": "summaryRecoveryStderr",
-      "path": "/tmp/moodcode-engine-wave5-recovery-live.stderr",
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "durable": false
-    }
-  ],
-  "limits": {
-    "guiLaunched": false,
-    "published": false,
-    "newCredentialsCreated": false,
-    "activePrefixHostOptIn": true,
-    "factsProjection": "text-and-complete-tool-observations-v1",
-    "opaqueReplayAndPixelsInSummarySource": false,
-    "currentFileEvidence": false,
-    "summaryUsageIncludedInRegularAttemptTotals": false,
-    "summaryCrashTypedLifecycle": "implemented; unpublished provider-completed candidates interrupted, cleanup-unknown candidates uncertain; no automatic retry/activation",
-    "imageTokenCost": null,
-    "billedTokens": null,
-    "sourceMetadataMaxMessages": 1024,
-    "sourceMetadataMaxTurns": 1024,
-    "pendingSteerManifestMaxIds": 64,
-    "sqlPreflightScope": "bounded JavaScript returned metadata/payload, not physical SQLite I/O",
-    "historicalLatestImageOutsideActiveRunProtected": true,
-    "windowsNativeBackendVerified": false,
-    "realAnthropicVerified": false,
-    "otherMediaFormatsAndOutputVerified": false,
-    "hostedCIExecuted": false,
-    "gitRemoteConfigured": false,
-    "node24HostVerified": false,
-    "primaryDatabaseVersion": 5,
-    "nativeMetricsSchemaVersion": 4,
-    "summaryUsageAggregation": "separate latest-snapshot-per-durable-summary-attempt; no billing total",
-    "summaryRetainedTextMaxUtf8Bytes": 65536,
-    "summaryRecordMaxJsonBytes": 524288,
-    "summaryListMaxRecords": 100,
-    "summaryListMaxJsonBytes": 1048576,
-    "sessionImageAnchorSource": "one indexed latest image header, exact message and origin Run preflighted under model history budgets",
-    "physicalSqliteReadBytes": null,
-    "uncertainSummaryRecoveryAcknowledgment": "Explicit previous-boot host decision on exact physical store/owner/source/revision; preserves uncertain state and never retries/activates/resumes; generic execution uncertainty remains blocked",
-    "summaryHotpathMetadataOnlyOptimization": "Implemented; metadata-only usage, single full record per mutation, duplicate observation no durable write, workspace partial index",
-    "summaryRecovery": {
-      "maxCandidates": 64,
-      "maxSourceMessages": 512,
-      "maxSourceTurnsAndRuns": 128,
-      "maxSelectedSourceEvidenceBytes": 2097152,
-      "maxSelectedInspectionEvidenceBytes": 8388608,
-      "maxLedgerJsonBytes": 65536,
-      "budgetScope": "Selected attempt/usage/source/ledger/pinned-record evidence; not all SQL returned owner/header metadata or physical I/O",
-      "modelToolOrGuiExposure": false,
-      "actualProjectUnknownSummariesAcknowledged": false,
-      "realUncertainCodexTransportVerified": false,
-      "ordinaryAttemptDurableCleanupProof": "remaining G1-17; no backfill from terminal state",
-      "acknowledgmentValidityInMetrics": null
-    },
-    "engineTestDefaultConcurrency": 4,
-    "engineTestVerifiedConcurrency": 2,
-    "goalActive": true
-  }
+  "goalStatus": "active"
 }

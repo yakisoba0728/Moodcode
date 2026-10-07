@@ -80,6 +80,8 @@ host의 `getSummaryAttempt(sessionId, summaryAttemptId)`와 `getSummaryUsage(ses
 
 DB5의 `getSummaryRecoveryPreview(sessionId, summaryAttemptId)`와 비동기 `acknowledgeSummaryRecovery({sessionId, summaryAttemptId, requestId, fingerprint, acknowledged: true})`는 부팅 전 불확실 요약에만 별도의 host 결정을 연결한다. 이 결정은 원본 uncertainty/usage/context/pause/inbox를 보존하며 다른 명령·복원·일반 실행 격리를 해제하지 않는다. 정확한 decision retry는 기존 receipt를 반환한다. 자동 provider 재시도·후보 activation·session resume 없이 명시적 새 작업만 이어갈 수 있다. [fingerprint·물리 저장소·적용 범위](engine-summary-recovery.md)를 따른다.
 
+DB6의 `getAttemptCleanup(sessionId, attemptId)`는 지정 session의 일반 provider 종료 증거를 조회한다. `confirmed`와 ordinary outcome은 별개이며 native metrics schema 5의 `attemptCleanup`도 raw 상태 수만 반환한다. 정확한 failed ordinary overflow와 그 unknown summary가 결합된 경우에는 cleanup proof/source SHA를 host 결정에 포함한다. 원래 실패/불확실 상태를 보존하고 독립적인 ordinary uncertainty는 계속 차단한다. [상태·요청 projection·crash origin·한도](engine-attempt-cleanup.md)를 따른다. host 조회이며 모델 도구·GUI에 노출하지 않았다.
+
 ## LSP·formatter·변경 관찰
 
 `registerLanguageServer(serverId, factory, languageForPath)`는 host가 선택한 factory와 경로→language selector를 등록한다. `StdioLspConnection`의 executable/args는 신뢰하는 host가 지정한다. 모델이 경로에서 LSP 서버를 자동 설치하거나 실행하지 않는다. `formatters.register(id, formatter)`는 현재 content를 받아 제한된 UTF-8 결과를 반환하는 host callback을 등록하고 해제 함수를 제공한다.

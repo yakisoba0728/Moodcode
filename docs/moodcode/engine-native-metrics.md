@@ -36,7 +36,7 @@ artifact references는 모든 current media/tool Part의 참조와 tools 이벤�
 
 checkpoint는 원본 primary checkpoint record 전체의 total/incomplete/files/serializedJsonBytes다. JSON bytes에는 before/after file image와 metadata가 포함되며 현재 workspace 파일이나 artifact 저장소의 allocation을 뜻하지 않는다.
 
-recovery는 recovery_required로 paused된 session, uncertain Turn/attempt, CLEANUP_UNCERTAIN Run과 선택된 tools 창의 cleanupConfirmed=false/cleanupUncertain=true 관측을 구분한다. workspacesWithDurableEvidence는 primary에 이런 recovery-required/uncertain/cleanup-error 상태가 남은 workspace의 distinct 수다. 실제 실행 coordinator의 메모리 quarantine 수, review journal, recovery acknowledgement ledger, terminal journal, artifact 파일 수·실제 bytes는 읽지 않는다. 관련 값은 null과 unavailable의 설명을 반환한다. recovery evidence와 runtime quarantine을 같은 값으로 간주하지 않는다.
+recovery는 recovery_required로 paused된 session, uncertain Turn/attempt/summary/ordinary cleanup, CLEANUP_UNCERTAIN Run과 선택된 tools 창의 cleanupConfirmed=false/cleanupUncertain=true 관측을 구분한다. workspacesWithDurableEvidence는 primary에 이런 recovery-required/uncertain/cleanup-error 상태가 남은 workspace의 distinct 수다. summaryRecoveryAcknowledgments는 DB5 결정 수이며 결정의 현재 유효성은 null이다. 실제 실행 coordinator의 메모리 quarantine 수, review journal, 외부 recovery ledger, terminal journal, artifact 파일 수·실제 bytes는 읽지 않는다. 관련 값은 null과 unavailable의 설명을 반환한다. recovery evidence와 runtime quarantine을 같은 값으로 간주하지 않는다.
 
 ## 검증
 
@@ -45,3 +45,7 @@ recovery는 recovery_required로 paused된 session, uncertain Turn/attempt, CLEA
 ## Durable attempt usage
 
 DB3의 `attemptUsage`는 전체 scope의 attempt_usage record에서 attempt별 최신 snapshot 한 개만 합산한다. 기존 providerUsage의2,000-event 창과 별개이고 둘을 더하지 않는다. attemptsWithUsage/attemptsWithoutUsage를 제공하며 관측없는 필드는 null/missing, cached/reasoning은 inclusive subset이다. 실패 전 usage도 보존하고 중복 snapshot은 멱등이다. source=all-attempt_usage-records-in-scope, aggregation=latest-snapshot-per-durable-attempt이며 billedTokens=null이다. 데이터 migration은 legacy event에서 새로운 usage record를 추정하지 않는다.
+
+## 일반 Attempt 종료 관측
+
+native report schema 5의 `attemptCleanup`은 DB6 typed 행 전체의 prepared/dispatched/confirmed/uncertain/not-dispatched 상태, serialized JSON bytes와 `attemptsWithoutObservation`을 표시한다. raw SQL counts이며 `recordValidity: null`, `providerOutcomeConfirmed: null`이다. 원격 결과·과금·현재 admission 허용 여부를 이 집계로 추정하지 않는다. ordinary Attempt outcome과 usage, summary lifecycle/decision은 별도 지표다. 관측이 없는 legacy Attempt에 종료 성공을 backfill하지 않는다. [실제 증거와 조회 한도](engine-attempt-cleanup.md)를 따른다.

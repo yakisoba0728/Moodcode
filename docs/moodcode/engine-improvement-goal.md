@@ -42,6 +42,14 @@ Windows native Job backend, 다른 OS 호스트, 최초 hosted CI, 실제 Anthro
 
 `29b59a1`에서 DB5의 명시적 host 복구 결정·정확한 owner/source/revision/fingerprint·physical store binding과 전용 lease를 연결했다. 실제 COMMIT 전후 SIGKILL·journal rollback·archive/import·다른 실행 격리·context head 변화·exact decision retry를 검증했다. 결정은 원래 uncertainty와 durable queue/control을 보존하며 명시적 새 실행만 이어갈 수 있다. 사용자가 잠든 동안 프로젝트의 실제 unresolved 기록을 대신 승인하지 않는다.
 
-동일한 1k/10k typed fixture와 64KiB 부분 출력에서 이전 class의 usage 조회 67,849 bytes를 2,378 bytes로 줄였고 중복 usage/progress write는 1→0이다. 실제 partial index 조회와 선택 증거 한도를 확인했다. 물리 I/O나 반복 처리량 보장으로 표시하지 않는다. 전체 gate는 동시성 2의 같은 목록에서 1,894 pass·실패 0·Windows 조건 2 skip, fixture 3/3이다. 커밋 후 실제 Codex summary+answer 2회와 임시 uncertainty 결정 뒤 새 Run 1회가 성공했다. 이전 두 fixture 실패와 원인 미확정 exit 137도 [최신 근거](engine-goal-verification.json)에 기록했다.
+동일한 1k/10k typed fixture와 64KiB 부분 출력에서 이전 class의 usage 조회 67,849 bytes를 2,378 bytes로 줄였고 중복 usage/progress write는 1→0이다. 실제 partial index 조회와 선택 증거 한도를 확인했다. 물리 I/O나 반복 처리량 보장으로 표시하지 않는다. 전체 gate는 동시성 2의 같은 목록에서 1,894 pass·실패 0·Windows 조건 2 skip, fixture 3/3이다. 커밋 후 실제 Codex summary+answer 2회와 임시 uncertainty 결정 뒤 새 Run 1회가 성공했다. 이전 두 fixture 실패와 원인 미확정 exit 137도 [다섯 번째 근거](engine-goal-fifth-verification.json)에 기록했다.
 
-다음 G1-17은 일반 provider Attempt의 durable cleanup 증거다. overflow 요약과 다른 일반 실행 uncertainty가 함께 있으면 현재 결정도 차단한다. 기존 상태에서 cleanup을 추정해 backfill하지 않는다. 외부 OS/provider/CI 한계와 GUI 제외를 유지하면서 goal을 계속 진행한다.
+이 시점의 G1-17은 아래 여섯 번째 검토 지점에서 구현했다. 기존 상태에서 cleanup을 추정해 backfill하지 않는다. 외부 OS/provider/CI 한계와 GUI 제외를 유지하면서 goal을 계속 진행한다.
+
+## 여섯 번째 검토 지점
+
+`11da986`에서 DB6 ordinary Attempt 종료 관측·logical request SHA/context·별도 outcome·native/v1 원자 journal을 연결했다. consumer close·출력/protocol/저장 실패·타이머 경합·재시작 격리·archive/migration/no-backfill을 검증했다. exact failed overflow와 unknown summary만 결합하고 독립 ordinary uncertainty는 차단한다. summary 사용량/uncertain 저장 뒤 Turn 연결 전의 실제 SIGKILL 두 경계와 strict boolean done도 독립 리뷰 뒤 수정했다. [종료 수명 비교](research/2026-10-07-cleanup.md)와 [자체 계약](engine-attempt-cleanup.md)을 따른다.
+
+전체 같은 목록의 동시성 2 gate는 1,966 pass·실패 0·조건부 2 skip, fixture 3/3이다. 실제 Codex 새 Run 1회에서 logical SHA·종료 proof·head 변화/재시작 보존을 확인했고 active-prefix 요약/답변 2회도 통과했다. unknown 원격 서버 상태나 과금은 검증하지 않았다. synthetic 1k/10k ordinary 행의 execution predicate는 clear 199 bytes·5 queries, 첫 unknown 204 bytes·2 queries로 같았다. Turn payload와 각 ACK/source 한도는 별도이며 전체 합산·물리 I/O·처리량 상한으로 표시하지 않는다.
+
+다음 G1-18은 confirmed cleanup이 있어도 남는 ordinary outcome uncertainty에 대한 exact host 결정이다. G1-19는 여러 결정/source의 공유 조회 예산과 비용을 다룬다. 프로젝트의 실제 unresolved 기록을 대신 승인하거나 원래 실행을 자동 재시도하지 않는다. [최신 검증](engine-goal-verification.json)을 남기고 goal을 계속 진행한다.
