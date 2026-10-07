@@ -26,6 +26,7 @@ import { SummaryRecoveryStorage, captureSummaryRecoveryHighWater, type SummaryRe
 import { AttemptCleanupStorage, type AttemptCleanupIdentity, type AttemptCleanupRecord, type AttemptCleanupSettlement } from './attempt-cleanup.js';
 import { hasExecutionUncertainty, summaryOverflowDependency } from './execution-uncertainty.js';
 import { ProviderRecoveryStorage, captureProviderRecoveryHighWater, type ProviderRecoveryRequest } from '../recovery/provider.js';
+import { hasEvidenceRead, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
 import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefix, ActivePrefixContextPublication } from '../context/active-prefix.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
@@ -181,11 +182,27 @@ export class SqliteStore implements SessionEngineStore {
   private rows<T>(sql: string, ...values: SQLInputValue[]): T[] {
     return (this.db.prepare(sql).all(...values) as DataRow[]).map(decode<T>);
   }
+  private ownerRow(table: 'workspaces' | 'sessions' | 'runs', id: string): DataRow | undefined {
+    if (!hasEvidenceRead(this.db)) return this.row(`SELECT data FROM ${table} WHERE id=?`, id);
+    const data = readEvidenceBody(this.db, { table, key: id }, { maxBytes: 1_048_576 });
+    return data === undefined ? undefined : { data };
+  }
   private transaction<T>(operation: () => T, write = true): T {
     this.assertOpen();
     this.db.exec(write ? 'BEGIN IMMEDIATE' : 'BEGIN');
     try { const result = operation(); this.db.exec('COMMIT'); return result; }
     catch (error) { try { this.db.exec('ROLLBACK'); } catch { /* Keep the transaction failure. */ } throw error; }
+  }
+  private evidenceRead<T>(operation: () => T): T {
+    if (this.db.isTransaction) return withEvidenceRead(this.db, operation);
+    return this.transaction(() => withEvidenceRead(this.db, operation), false);
+  }
+  private recoveryBlocked(operation: () => boolean): boolean {
+    try { return this.evidenceRead(operation); }
+    catch (error) {
+      if (error instanceof EngineError && error.code.startsWith('RECOVERY_EVIDENCE_')) return true;
+      throw error;
+    }
   }
   private notify(sessionId: string): void {
     for (const waiter of [...this.waiters]) if (waiter.sessionId === sessionId) waiter.wake();
@@ -203,7 +220,7 @@ export class SqliteStore implements SessionEngineStore {
   }
   getWorkspace(id: string): Workspace {
     this.assertOpen();
-    const row = this.row('SELECT data FROM workspaces WHERE id=?', id);
+    const row = this.ownerRow('workspaces', id);
     if (!row) throw new EngineError('WORKSPACE_NOT_FOUND', `Workspace ${id} was not found`);
     return decode(row);
   }
@@ -222,7 +239,7 @@ export class SqliteStore implements SessionEngineStore {
   }
   getSession(id: string): Session {
     this.assertOpen();
-    const row = this.row('SELECT data FROM sessions WHERE id=?', id);
+    const row = this.ownerRow('sessions', id);
     if (!row) throw new EngineError('SESSION_NOT_FOUND', `Session ${id} was not found`);
     return decode(row);
   }
@@ -333,23 +350,30 @@ export class SqliteStore implements SessionEngineStore {
     return this.summaryRecovery.findReceipt(request);
   }
   hasUncertainSummaries(workspaceId: string): boolean {
-    this.getWorkspace(workspaceId);
-    return this.summaryRecovery?.hasUnacknowledged(workspaceId)
-      ?? !!this.db.prepare("SELECT 1 FROM summary_attempts WHERE workspace_id=? AND state='uncertain' LIMIT 1").get(workspaceId);
+    return this.recoveryBlocked(() => {
+      this.getWorkspace(workspaceId);
+      return this.summaryRecovery?.hasUnacknowledged(workspaceId)
+        ?? !!this.db.prepare("SELECT 1 FROM summary_attempts WHERE workspace_id=? AND state='uncertain' LIMIT 1").get(workspaceId);
+    });
+  }
+  hasUncertainWorkspace(workspaceId: string): boolean {
+    return this.recoveryBlocked(() => this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId));
   }
   getAttempt(id: string): ProviderAttempt { return this.executionRecords.getAttempt(id); }
   createAttemptCleanup(identity: AttemptCleanupIdentity): AttemptCleanupRecord { return this.attemptCleanupRecords.create(identity); }
   dispatchAttemptCleanup(id: string): AttemptCleanupRecord { return this.attemptCleanupRecords.dispatch(id); }
   settleAttemptCleanup(id: string, outcome: AttemptCleanupSettlement): AttemptCleanupRecord { return this.attemptCleanupRecords.settle(id, outcome); }
   getAttemptCleanup(id: string, expectedSessionId?: string): AttemptCleanupRecord { return this.attemptCleanupRecords.get(id, expectedSessionId); }
-  getSummaryOverflowDependency(summaryAttemptId: string, turnId: string, failedAttemptId: string) { return summaryOverflowDependency(this.db, this, summaryAttemptId, turnId, failedAttemptId); }
+  getSummaryOverflowDependency(summaryAttemptId: string, turnId: string, failedAttemptId: string) { return this.evidenceRead(() => summaryOverflowDependency(this.db, this, summaryAttemptId, turnId, failedAttemptId)); }
   hasUncertainExecution(workspaceId: string): boolean {
-    this.getWorkspace(workspaceId);
-    return this.transaction(() => hasExecutionUncertainty(this.db, this, workspaceId, {
-      hasValidSummaryAcknowledgment: (sessionId, id) => this.summaryRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
-      hasValidProviderAcknowledgment: (sessionId, id) => this.providerRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
-      hasUnacknowledgedProviders: workspaceId => this.providerRecovery?.hasUnacknowledged(workspaceId) ?? true,
-    }), false);
+    return this.recoveryBlocked(() => {
+      this.getWorkspace(workspaceId);
+      return hasExecutionUncertainty(this.db, this, workspaceId, {
+        hasValidSummaryAcknowledgment: (sessionId, id) => this.summaryRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
+        hasValidProviderAcknowledgment: (sessionId, id) => this.providerRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
+        hasUnacknowledgedProviders: workspaceId => this.providerRecovery?.hasUnacknowledged(workspaceId) ?? true,
+      });
+    });
   }
   configureProviderRecovery(bindingScope: (workspaceId: string) => string): void {
     this.assertOpen();
@@ -440,7 +464,7 @@ export class SqliteStore implements SessionEngineStore {
   putSessionDocument(sessionId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument { return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data); }
   getRun(id: string): Run {
     this.assertOpen();
-    const row = this.row('SELECT data FROM runs WHERE id=?', id);
+    const row = this.ownerRow('runs', id);
     if (!row) throw new EngineError('RUN_NOT_FOUND', `Run ${id} was not found`);
     return decode(row);
   }

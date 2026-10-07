@@ -5,6 +5,7 @@ import {
 } from '@moodcode/contracts';
 import { validateContextRevision, validateMessagePart, validateProviderAttempt, validateSessionEvent, validateTurnRecord } from '@moodcode/contracts/validation';
 import { NativeSessionStorage, sameRecord, storedJson } from './native.js';
+import { hasEvidenceRead, invalidateEvidenceRead, readEvidenceBody } from './evidence-read.js';
 
 const FINAL = new Set(['completed', 'failed', 'interrupted', 'uncertain']);
 const TURN_TRANSITIONS: Record<TurnRecord['state'], readonly TurnRecord['state'][]> = {
@@ -31,9 +32,17 @@ export class NativeExecutionStorage {
   }
   getTurn(id: string): TurnRecord {
     this.native.hooks.assertOpen();
-    const row = this.database.prepare('SELECT data FROM session_turns WHERE id=?').get(id);
+    if (!hasEvidenceRead(this.database)) {
+      const row = this.database.prepare('SELECT data FROM session_turns WHERE id=?').get(id);
+      if (!row) throw new EngineError('TURN_NOT_FOUND', 'Turn was not found');
+      return validateTurnRecord(JSON.parse(String(row.data)));
+    }
+    const row = this.database.prepare('SELECT id,session_id,run_id,turn_index,state,length(CAST(data AS BLOB)) AS bytes FROM session_turns WHERE id=?').get(id);
     if (!row) throw new EngineError('TURN_NOT_FOUND', 'Turn was not found');
-    return validateTurnRecord(JSON.parse(String(row.data)));
+    const raw = readEvidenceBody(this.database, { table: 'session_turns', key: id }, { expectedBytes: Number(row.bytes), maxBytes: 8388608 });
+    const turn = validateTurnRecord(JSON.parse(String(raw)));
+    if (turn.id !== row.id || turn.sessionId !== row.session_id || turn.runId !== row.run_id || turn.index !== row.turn_index || turn.state !== row.state) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Turn payload disagrees with its SQL owner');
+    return turn;
   }
   listTurns(runId: string): TurnRecord[] {
     this.native.hooks.run(runId);
@@ -108,6 +117,7 @@ export class NativeExecutionStorage {
         if (!this.validateSummaryDependency) throw new EngineError('SUMMARY_OVERFLOW_BINDING_MISMATCH', 'Turn summary dependencies require durable cleanup validation');
         this.validateSummaryDependency(turn);
       }
+      invalidateEvidenceRead(this.database);
       this.database.prepare('INSERT INTO session_turns(id,session_id,run_id,turn_index,state,data) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,data=excluded.data')
         .run(turn.id, turn.sessionId, turn.runId, turn.index, turn.state, JSON.stringify(turn));
       this.native.appendEvent(turn.sessionId, `turn.${turn.state}`, { turn: storedJson(turn) }, { runId: turn.runId, turnId: turn.id });
@@ -117,9 +127,17 @@ export class NativeExecutionStorage {
   }
   getAttempt(id: string): ProviderAttempt {
     this.native.hooks.assertOpen();
-    const row = this.database.prepare('SELECT data FROM provider_attempts WHERE id=?').get(id);
+    if (!hasEvidenceRead(this.database)) {
+      const row = this.database.prepare('SELECT data FROM provider_attempts WHERE id=?').get(id);
+      if (!row) throw new EngineError('ATTEMPT_NOT_FOUND', 'Provider attempt was not found');
+      return validateProviderAttempt(JSON.parse(String(row.data)));
+    }
+    const row = this.database.prepare('SELECT id,session_id,run_id,turn_id,attempt_index,state,length(CAST(data AS BLOB)) AS bytes FROM provider_attempts WHERE id=?').get(id);
     if (!row) throw new EngineError('ATTEMPT_NOT_FOUND', 'Provider attempt was not found');
-    return validateProviderAttempt(JSON.parse(String(row.data)));
+    const raw = readEvidenceBody(this.database, { table: 'provider_attempts', key: id }, { expectedBytes: Number(row.bytes), maxBytes: 8388608 });
+    const attempt = validateProviderAttempt(JSON.parse(String(raw)));
+    if (attempt.id !== row.id || attempt.sessionId !== row.session_id || attempt.runId !== row.run_id || attempt.turnId !== row.turn_id || attempt.index !== row.attempt_index || attempt.state !== row.state) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Attempt payload disagrees with its SQL owner');
+    return attempt;
   }
   putAttempt(value: ProviderAttempt): ProviderAttempt {
     const attempt = validateProviderAttempt(value);
@@ -150,6 +168,7 @@ export class NativeExecutionStorage {
         if (previous && previous.state !== 'failed') throw new EngineError('ATTEMPT_RETRY_UNSAFE', 'Only a failed attempt can be followed by another attempt');
         if (attempt.index >= this.native.budgets.maxProviderAttempts) throw new EngineError('ATTEMPT_LIMIT', 'Provider attempt allowance was exhausted');
       }
+      invalidateEvidenceRead(this.database);
       this.database.prepare('INSERT INTO provider_attempts(id,session_id,run_id,turn_id,attempt_index,state,data) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,data=excluded.data')
         .run(attempt.id, attempt.sessionId, attempt.runId, attempt.turnId, attempt.index, attempt.state, JSON.stringify(attempt));
       this.native.appendEvent(attempt.sessionId, `provider.attempt.${attempt.state}`, { attempt: storedJson(attempt) }, { runId: attempt.runId, turnId: attempt.turnId, attemptId: attempt.id });
@@ -188,6 +207,7 @@ export class NativeExecutionStorage {
       const sizes = this.database.prepare('SELECT count(*) AS count,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM message_parts WHERE turn_id=?').get(part.turnId)!;
       const bytes = Number(sizes.bytes) - (row ? Buffer.byteLength(String(row.data)) : 0) + Buffer.byteLength(encoded);
       if (!previous && Number(sizes.count) >= PARTS_LIMIT || bytes > this.native.budgets.maxProducerBytes) throw new EngineError('PART_STORAGE_LIMIT', 'Turn part count or byte budget is full');
+      invalidateEvidenceRead(this.database);
       this.database.prepare('INSERT INTO message_parts(id,session_id,run_id,turn_id,message_id,part_index,revision,state,data) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,state=excluded.state,data=excluded.data')
         .run(part.id, part.sessionId, part.runId, part.turnId, part.messageId, part.index, part.revision, part.state, encoded);
       this.native.appendEvent(part.sessionId, previous ? 'message.part.updated' : 'message.part.created', { part: storedJson(part) }, { runId: part.runId, turnId: part.turnId });
@@ -220,9 +240,17 @@ export class NativeExecutionStorage {
   }
   getContextRevision(id: string): ContextRevision {
     this.native.hooks.assertOpen();
-    const row = this.database.prepare('SELECT data FROM context_revisions WHERE id=?').get(id);
+    if (!hasEvidenceRead(this.database)) {
+      const row = this.database.prepare('SELECT data FROM context_revisions WHERE id=?').get(id);
+      if (!row) throw new EngineError('CONTEXT_REVISION_NOT_FOUND', 'Context revision was not found');
+      return validateContextRevision(JSON.parse(String(row.data)));
+    }
+    const row = this.database.prepare('SELECT id,session_id,run_id,turn_id,revision,supersedes_id,length(CAST(data AS BLOB)) AS bytes FROM context_revisions WHERE id=?').get(id);
     if (!row) throw new EngineError('CONTEXT_REVISION_NOT_FOUND', 'Context revision was not found');
-    return validateContextRevision(JSON.parse(String(row.data)));
+    const raw = readEvidenceBody(this.database, { table: 'context_revisions', key: id }, { expectedBytes: Number(row.bytes), maxBytes: 8388608 });
+    const context = validateContextRevision(JSON.parse(String(raw)));
+    if (context.id !== row.id || context.sessionId !== row.session_id || (context.runId ?? null) !== row.run_id || (context.turnId ?? null) !== row.turn_id || context.revision !== row.revision || (context.supersedesId ?? null) !== row.supersedes_id) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Context payload disagrees with its SQL owner');
+    return context;
   }
   putContextRevision(value: ContextRevision): ContextRevision {
     const context = validateContextRevision(value);
@@ -239,6 +267,7 @@ export class NativeExecutionStorage {
       const last = this.database.prepare('SELECT id,revision FROM context_revisions WHERE session_id=? ORDER BY revision DESC LIMIT 1').get(context.sessionId);
       if (context.revision !== (last ? Number(last.revision) + 1 : 1)) throw new EngineError('REVISION_CONFLICT', 'Context revision must advance its session exactly once');
       if (context.supersedesId && context.supersedesId !== last?.id) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Context supersedes reference is not the previous session revision');
+      invalidateEvidenceRead(this.database);
       this.database.prepare('INSERT INTO context_revisions(id,session_id,revision,run_id,turn_id,supersedes_id,data) VALUES(?,?,?,?,?,?,?)')
         .run(context.id, context.sessionId, context.revision, context.runId ?? null, context.turnId ?? null, context.supersedesId ?? null, JSON.stringify(context));
       this.native.appendEvent(context.sessionId, 'context.revision.recorded', { context: storedJson(context) }, { ...(context.runId ? { runId: context.runId } : {}), ...(context.turnId ? { turnId: context.turnId } : {}) });
@@ -247,8 +276,14 @@ export class NativeExecutionStorage {
   }
   getSessionDocument(sessionId: string, kind: string): SessionDocument | null {
     this.native.hooks.session(sessionId); this.documentKind(kind);
-    const row = this.database.prepare('SELECT revision,data FROM session_documents WHERE session_id=? AND kind=?').get(sessionId, kind);
-    return row ? { revision: Number(row.revision), data: JSON.parse(String(row.data)) as JsonObject } : null;
+    if (!hasEvidenceRead(this.database)) {
+      const row = this.database.prepare('SELECT revision,data FROM session_documents WHERE session_id=? AND kind=?').get(sessionId,kind);
+      return row ? { revision: Number(row.revision), data: JSON.parse(String(row.data)) as JsonObject } : null;
+    }
+    const row = this.database.prepare('SELECT revision,length(CAST(data AS BLOB)) AS bytes FROM session_documents WHERE session_id=? AND kind=?').get(sessionId, kind);
+    if (!row) return null;
+    const raw = readEvidenceBody(this.database, { table: 'session_documents', key: [sessionId,kind] }, { expectedBytes: Number(row.bytes), maxBytes: 262144 });
+    return { revision: Number(row.revision), data: JSON.parse(String(raw)) as JsonObject };
   }
   private documentKind(kind: string): void {
     if (typeof kind !== 'string' || !/^[a-z][a-z0-9_.-]{0,63}$/.test(kind)) throw new EngineError('INVALID_DOCUMENT_KIND', 'Session document kind must be a bounded namespace');
@@ -264,6 +299,7 @@ export class NativeExecutionStorage {
       const current = this.getSessionDocument(sessionId, kind);
       if ((current?.revision ?? 0) !== expectedRevision) throw new EngineError('REVISION_CONFLICT', 'Session document was updated by another operation');
       const revision = expectedRevision + 1;
+      invalidateEvidenceRead(this.database);
       this.database.prepare('INSERT INTO session_documents(session_id,kind,revision,data) VALUES(?,?,?,?) ON CONFLICT(session_id,kind) DO UPDATE SET revision=excluded.revision,data=excluded.data')
         .run(sessionId, kind, revision, encoded);
       this.native.appendEvent(sessionId, 'session.document.updated', { kind, revision, sha256: createHash('sha256').update(encoded).digest('hex') });

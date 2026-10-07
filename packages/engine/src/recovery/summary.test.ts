@@ -11,6 +11,7 @@ import type { NativeSessionStorage } from '../storage/native.js';
 import type { SummaryAttemptStorage } from '../storage/summary-attempts.js';
 import { captureSummaryRecoveryHighWater, SUMMARY_RECOVERY_PROOF_SCHEMA, SUMMARY_RECOVERY_SCHEMA, SummaryRecoveryStorage, validateSummaryRecoveryRequest, type SummaryRecoveryRequest } from './summary.js';
 import { canonical } from './snapshot.js';
+import { readEvidenceBody, withEvidenceRead } from '../storage/evidence-read.js';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const code = (expected: string) => (error: unknown) => error instanceof EngineError && error.code === expected;
@@ -82,6 +83,102 @@ test('same-boot summary and another session owner cannot receive a new acknowled
   assert.throws(() => f.store.acknowledgeSummaryRecovery({ sessionId: 'session', summaryAttemptId: 'summary', requestId: 'unsafe', fingerprint: 'a'.repeat(64), acknowledged: true }), code('SUMMARY_RECOVERY_RESTART_REQUIRED'));
   assert.throws(() => f.store.getSummaryRecoveryPreview('other', 'summary'), code('SUMMARY_RECOVERY_OWNER_MISMATCH'));
   assert.equal(f.db.prepare('SELECT count(*) AS n FROM summary_recovery_acknowledgments').get()!.n, 0);
+});
+
+for (const target of ['source-run', 'source-message', 'source-run-sql-owner'] as const) test(`foreign ${target} metadata is rejected before its raw recovery body is returned`, t => {
+  const f = fixture(t), foreign = f.store.admit({ sessionId: 'other', requestId: 'foreign', prompt: 'Foreign source body sentinel', config });
+  f.store.commit(foreign.runId, 'run.started', {}, { run: { state: 'running' } });
+  f.store.commit(foreign.runId, 'run.completed', {}, { run: { state: 'completed' } });
+  const ownDb = (f.store as unknown as { db: DatabaseSync }).db;
+  const original = ownDb.prepare.bind(ownDb);
+  const foreignMessageId = String(f.db.prepare('SELECT id FROM messages WHERE run_id=? LIMIT 1').get(foreign.runId)!.id);
+  let table = 'runs', identity = foreign.runId, bodyReads = 0;
+  if (target === 'source-run') f.db.prepare("UPDATE summary_attempts SET data=json_set(data,'$.sourceRunIds',json(?)) WHERE id='summary'").run(JSON.stringify([foreign.runId]));
+  if (target === 'source-message') {
+    table = 'messages'; identity = foreignMessageId;
+    f.db.prepare("UPDATE summary_attempts SET data=json_set(data,'$.sourceMessageIds',json(?)) WHERE id='summary'").run(JSON.stringify([identity]));
+  }
+  if (target === 'source-run-sql-owner') {
+    identity = String(f.db.prepare("SELECT run_id FROM messages WHERE id='old-answer'").get()!.run_id);
+    f.db.prepare('UPDATE runs SET session_id=? WHERE id=?').run('other', identity);
+  }
+  ownDb.prepare = ((sql: string) => {
+    const statement = original(sql), get = statement.get.bind(statement);
+    statement.get = ((...parameters: SQLInputValue[]) => {
+      const row = get(...parameters);
+      if (sql.includes(`FROM ${table} WHERE id=?`) && parameters[0] === identity && typeof row?.data === 'string') bodyReads++;
+      return row;
+    }) as typeof statement.get;
+    return statement;
+  }) as typeof ownDb.prepare;
+  try {
+    const preview = f.store.getSummaryRecoveryPreview('session', 'summary');
+    assert.equal(preview.status, 'blocked'); assert.ok(preview.blockers.includes('SUMMARY_RECOVERY_OWNER_MISMATCH'));
+    assert.equal(bodyReads, 0); assert.equal(f.db.prepare('SELECT count(*) AS n FROM summary_recovery_acknowledgments').get()!.n, 0);
+  } finally { ownDb.prepare = original; }
+});
+
+test('a consumed root evidence budget stays blocked for summary predicates while a new historical receipt read is independent', t => {
+  const f = fixture(t), request = f.request(), receipt = f.store.acknowledgeSummaryRecovery(request);
+  const ownDb = (f.store as unknown as { db: DatabaseSync }).db;
+  f.db.prepare("UPDATE messages SET data=json_set(data,'$.content',?) WHERE id='old-answer'").run('x'.repeat(8388608));
+  ownDb.exec('BEGIN');
+  try {
+    assert.throws(() => withEvidenceRead(ownDb, () => {
+      assert.throws(() => readEvidenceBody(ownDb, { table: 'messages', key: 'old-answer' }, { maxBytes: 8388608 }), code('RECOVERY_EVIDENCE_LIMIT'));
+      const recovery = (f.store as unknown as { summaryRecovery: SummaryRecoveryStorage }).summaryRecovery;
+      assert.equal(recovery.hasValidAcknowledgment('session', 'summary'), false);
+      assert.equal(recovery.hasUnacknowledged('workspace'), true);
+    }), code('RECOVERY_EVIDENCE_LIMIT'));
+  } finally { ownDb.exec('ROLLBACK'); }
+  assert.deepEqual(f.store.acknowledgeSummaryRecovery(request), { ...receipt, duplicate: true });
+});
+
+test('same-write-transaction callback source mutation invalidates cached raw evidence before ACK and rolls back both journals', t => {
+  const f = fixture(t), request = f.request();
+  const internal = f.store as unknown as { db: DatabaseSync; native: NativeSessionStorage };
+  const originalPrepare = internal.db.prepare.bind(internal.db), originalRun = internal.native.hooks.run;
+  const originalBody = String(f.db.prepare("SELECT data FROM messages WHERE id='old-answer'").get()!.data);
+  const originalContent = (JSON.parse(originalBody) as { content: string }).content;
+  let firstBaselineRead = false, mutated = false;
+  internal.db.prepare = ((sql: string) => {
+    const statement = originalPrepare(sql), get = statement.get.bind(statement);
+    statement.get = ((...parameters: SQLInputValue[]) => {
+      const row = get(...parameters);
+      if (sql.includes('FROM context_revisions WHERE id=?') && parameters[0] === 'context' && typeof row?.data === 'string') firstBaselineRead = true;
+      return row;
+    }) as typeof statement.get;
+    return statement;
+  }) as typeof internal.db.prepare;
+  internal.native.hooks.run = runId => {
+    if (firstBaselineRead && !mutated) {
+      mutated = true;
+      originalPrepare("UPDATE messages SET data=json_set(data,'$.content',?) WHERE id='old-answer'").run('X'.repeat(originalContent.length));
+    }
+    return originalRun(runId);
+  };
+  try {
+    assert.throws(() => f.store.acknowledgeSummaryRecovery(request), code('SUMMARY_RECOVERY_SOURCE_CHANGED'));
+    assert.equal(mutated, true);
+    assert.equal(String(f.db.prepare("SELECT data FROM messages WHERE id='old-answer'").get()!.data), originalBody);
+    for (const table of ['summary_recovery_acknowledgments','events','session_events']) {
+      const query = table === 'summary_recovery_acknowledgments' ? `SELECT count(*) AS n FROM ${table}` : `SELECT count(*) AS n FROM ${table} WHERE type='summary.recovery.acknowledged'`;
+      assert.equal(f.db.prepare(query).get()!.n, 0);
+    }
+  } finally { internal.native.hooks.run = originalRun; internal.db.prepare = originalPrepare; }
+  assert.equal(f.store.acknowledgeSummaryRecovery(request).duplicate, false);
+});
+
+test('cached raw summary bodies still produce independently validated detached records', t => {
+  const f = fixture(t), ownDb = (f.store as unknown as { db: DatabaseSync }).db;
+  const original = f.store.getSummaryAttempt('summary');
+  ownDb.exec('BEGIN');
+  try { withEvidenceRead(ownDb, () => {
+    const first = f.store.getSummaryAttempt('summary'); first.partialText = 'Caller mutation'; first.sourceMessageIds!.splice(0);
+    assert.deepEqual(f.store.getSummaryAttempt('summary'), original);
+    const usage = f.store.getSummaryUsage('summary')!; usage.usage.inputTokens = 999;
+    assert.equal(f.store.getSummaryUsage('summary')!.usage.inputTokens, 9);
+  }); } finally { ownDb.exec('ROLLBACK'); }
 });
 
 test('mutable head changes reject stale preview but do not invalidate a completed immutable ACK', t => {

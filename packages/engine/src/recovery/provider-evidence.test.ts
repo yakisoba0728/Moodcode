@@ -5,8 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
-import { DEFAULT_LIMITS, EngineError, type MessagePart, type ProviderAttempt, type TurnRecord } from '@moodcode/contracts';
+import { DEFAULT_LIMITS, EngineError, type EngineEvent, type JsonObject, type MessagePart, type ProviderAttempt, type Run, type TurnRecord } from '@moodcode/contracts';
 import { SqliteStore } from '../storage/index.js';
+import type { NativeSessionStorage } from '../storage/native.js';
+import { captureProviderRecoveryHighWater, ProviderRecoveryStorage } from './provider.js';
 import { PROVIDER_RECOVERY_LIMITS, type ProviderRecoveryBudget } from './provider-contract.js';
 import { providerRecoveryPinsValid, readProviderRecoveryBaseline, readProviderRecoveryEvidence } from './provider-evidence.js';
 
@@ -212,4 +214,45 @@ test('baseline-only pins revalidate native Run owners after the decision without
   assert.equal(providerRecoveryPinsValid(f.db, baseline.pins, budget()), false); assert.equal(sourceBodies, 0); f.db.prepare = prepare;
   // The candidate's own source remains intact; its decision baseline alone lost ownership.
   assert.equal(f.read().attempt.state, 'uncertain');
+});
+
+function recovery(f: ReturnType<typeof fixture>) {
+  const owner = f.store as unknown as { native: NativeSessionStorage; append(run: Run, type: string, payload: JsonObject): EngineEvent };
+  return new ProviderRecoveryStorage(owner.native, f.store, { bindingScope: () => digest('Independent immutable binding'), startupHighWater: captureProviderRecoveryHighWater(f.db),
+    appendLegacy: (run, type, payload) => owner.append(run, type, payload) });
+}
+
+test('numeric message chronology remains eligible across global ordinal 9 to 10', t => {
+  const f = fixture(t, true);
+  f.db.prepare('UPDATE messages SET ordinal=ordinal+100 WHERE run_id=?').run(f.run.id);
+  f.db.prepare('UPDATE messages SET ordinal=ordinal-92 WHERE run_id=?').run(f.run.id);
+  assert.equal(f.db.prepare('SELECT ordinal FROM messages WHERE id=?').get(f.goalId)!.ordinal, 9);
+  assert.equal(f.db.prepare("SELECT ordinal FROM messages WHERE id='prior-assistant'").get()!.ordinal, 10);
+  const host = recovery(f), preview = host.preview('session', f.prepared.id);
+  assert.equal(preview.status, 'eligible', JSON.stringify(preview.blockers)); assert.ok(preview.fingerprint);
+  const request = { sessionId:'session',attemptId:f.prepared.id,requestId:'numeric-chronology',fingerprint:preview.fingerprint,acknowledged:true as const };
+  host.acknowledge(request); assert.equal(host.hasValidAcknowledgment('session', f.prepared.id), true); assert.equal(host.findReceipt(request)?.duplicate, true);
+});
+
+test('numeric validators preserve V1 valid ACK source digest encoding across event sequence 9 to 10', t => {
+  const f = fixture(t, true), host = recovery(f);
+  f.db.prepare("UPDATE events SET seq=seq+100,data=json_set(data,'$.seq',seq+100) WHERE run_id=?").run(f.run.id);
+  f.db.prepare("UPDATE events SET seq=seq-95,data=json_set(data,'$.seq',seq-95) WHERE run_id=?").run(f.run.id);
+  f.db.prepare("UPDATE inputs SET admitted_seq=admitted_seq+5 WHERE session_id='session'").run();
+  f.db.prepare('UPDATE session_inputs SET legacy_seq=legacy_seq+5 WHERE run_id=?').run(f.run.id);
+  f.db.prepare("UPDATE sessions SET last_seq=last_seq+5 WHERE id='session'").run();
+  const toolSeqs = f.db.prepare("SELECT seq FROM events WHERE run_id=? AND type IN ('tool.requested','tool.running','tool.completed') ORDER BY events.seq").all(f.run.id).map(row => row.seq);
+  assert.deepEqual(toolSeqs,[9,10,11]);
+  const prepare = f.db.prepare.bind(f.db);
+  // Restore only the former SELECT alias ordering to create an actual V1 receipt.
+  f.db.prepare = ((sql: string) => prepare(sql.replace(/ORDER BY (?:messages|events|session_inputs)\.(ordinal|seq|admitted_seq)/gu,'ORDER BY $1'))) as typeof f.db.prepare;
+  let request: {sessionId:string;attemptId:string;requestId:string;fingerprint:string;acknowledged:true}, oldDigest: string;
+  try {
+    oldDigest = f.read().sourceSha256;
+    const preview = host.preview('session', f.prepared.id); assert.equal(preview.status,'eligible',JSON.stringify(preview.blockers)); assert.ok(preview.fingerprint);
+    request = {sessionId:'session',attemptId:f.prepared.id,requestId:'legacy-event-order',fingerprint:preview.fingerprint,acknowledged:true};
+    host.acknowledge(request);
+  } finally { f.db.prepare = prepare; }
+  assert.equal(f.read().sourceSha256,oldDigest); assert.equal(host.hasValidAcknowledgment('session',f.prepared.id),true);
+  assert.equal(host.findReceipt(request)?.duplicate,true); assert.equal(host.preview('session',f.prepared.id).status,'acknowledged');
 });

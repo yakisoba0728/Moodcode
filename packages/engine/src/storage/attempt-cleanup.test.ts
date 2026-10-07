@@ -6,6 +6,7 @@ import { DEFAULT_LIMITS, EngineError, type EngineEvent, type JsonObject, type Pr
 import { SqliteStore } from './index.js';
 import { NativeSessionStorage } from './native.js';
 import { ATTEMPT_CLEANUP_LIMITS, ATTEMPT_CLEANUP_SCHEMA, AttemptCleanupStorage, canonicalAttemptCleanupSha256, type AttemptCleanupIdentity, type AttemptCleanupSettlement } from './attempt-cleanup.js';
+import { withEvidenceRead } from './evidence-read.js';
 
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 const hasCode=(code:string)=>(error:unknown)=>error instanceof EngineError&&error.code===code;
@@ -130,6 +131,37 @@ test('foreign owner and excessive record sizes reject before cleanup JSON is fet
     f.db.exec('PRAGMA ignore_check_constraints=ON');f.db.prepare('UPDATE attempt_cleanup SET data=? WHERE attempt_id=?').run('x'.repeat(16385),'attempt');f.db.exec('PRAGMA ignore_check_constraints=OFF');
     payloadReads=0;assert.throws(()=>f.cleanup.get('attempt'),hasCode('ATTEMPT_CLEANUP_LIMIT'));assert.equal(payloadReads,0);
   } finally {f.db.prepare=original;}
+});
+
+test('a callback that enlarges an owner after its header cannot return oversized raw evidence or dispatch cleanup', t => {
+  const f = fixture(t), prepared = f.cleanup.create(f.identity);
+  const internal = f.store as unknown as { native: NativeSessionStorage };
+  const originalRun = internal.native.hooks.run, originalPrepare = f.db.prepare.bind(f.db);
+  const sessionBefore = String(f.db.prepare("SELECT data FROM sessions WHERE id='session'").get()!.data);
+  const oversized = JSON.stringify({ ...JSON.parse(sessionBefore), title: 'x'.repeat(9 * 1048576) });
+  const eventsBefore = f.store.readEvents('session', 0), nativeBefore = f.store.readSessionEvents('session', 0);
+  let mutated = false, returnedOwnerBytes = 0;
+  internal.native.hooks.run = runId => {
+    if (!mutated) { mutated = true; originalPrepare("UPDATE sessions SET data=? WHERE id='session'").run(oversized); }
+    return originalRun(runId);
+  };
+  f.db.prepare = ((sql: string) => {
+    const statement = originalPrepare(sql), get = statement.get.bind(statement);
+    statement.get = ((...parameters: Parameters<typeof statement.get>) => {
+      const row = get(...parameters);
+      if (/^SELECT data(?: AS data)? FROM sessions/u.test(sql) && typeof row?.data === 'string') returnedOwnerBytes += Buffer.byteLength(row.data);
+      return row;
+    }) as typeof statement.get;
+    return statement;
+  }) as typeof f.db.prepare;
+  try {
+    assert.throws(() => f.transaction(() => withEvidenceRead(f.db, () => f.cleanup.dispatch('attempt'))));
+    assert.equal(mutated, true); assert.equal(returnedOwnerBytes, 0);
+    assert.equal(String(originalPrepare("SELECT data FROM sessions WHERE id='session'").get()!.data), sessionBefore);
+    assert.deepEqual(f.store.readEvents('session', 0), eventsBefore); assert.deepEqual(f.store.readSessionEvents('session', 0), nativeBefore);
+  } finally { internal.native.hooks.run = originalRun; f.db.prepare = originalPrepare; }
+  assert.deepEqual(f.cleanup.get('attempt'), prepared); assert.equal(f.cleanup.get('attempt').cleanupConfirmed, null);
+  assert.equal(f.cleanup.dispatch('attempt').state, 'dispatched');
 });
 
 test('Run owner byte preflight occurs before Run hook or cleanup payload fetch',t=>{

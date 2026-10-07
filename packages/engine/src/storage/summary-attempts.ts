@@ -1,6 +1,7 @@
 import { types } from 'node:util';
 import { EngineError, type EngineEvent, type JsonObject, type Run } from '@moodcode/contracts';
 import { NativeSessionStorage } from './native.js';
+import { invalidateEvidenceRead, readEvidenceBody } from './evidence-read.js';
 
 export const SUMMARY_STORAGE_TABLES = ['summary_attempts', 'summary_usage'] as const;
 export const SUMMARY_ATTEMPT_SCHEMA = `CREATE TABLE summary_attempts (
@@ -108,6 +109,8 @@ export class SummaryAttemptStorage {
     const event = this.native.appendEvent(record.sessionId, type, payload, { runId: record.runId }); this.append(this.native.scopeRun(record.sessionId, record.runId), type, event.payload);
   }
   private owner(record: SummaryAttemptMetadata): Run {
+    const header = this.db.prepare('SELECT r.session_id,r.workspace_id,s.workspace_id AS session_workspace_id FROM runs r JOIN sessions s ON s.id=r.session_id WHERE r.id=?').get(record.runId);
+    if (header?.session_id !== record.sessionId || header.workspace_id !== record.workspaceId || header.session_workspace_id !== record.workspaceId) fail('SUMMARY_BINDING_MISMATCH', 'Summary owner metadata does not match its Run and session');
     const run = this.native.scopeRun(record.sessionId, record.runId), session = this.native.hooks.session(record.sessionId);
     const columns = this.db.prepare('SELECT session_id,workspace_id FROM runs WHERE id=?').get(record.runId);
     if (columns?.session_id !== record.sessionId || columns.workspace_id !== record.workspaceId || record.workspaceId !== run.workspaceId || session.workspaceId !== run.workspaceId || record.providerId !== run.config.providerId || record.modelId !== run.config.modelId) fail('SUMMARY_BINDING_MISMATCH', 'Summary owner does not match its Run provider and workspace');
@@ -116,6 +119,7 @@ export class SummaryAttemptStorage {
   private save(record: SummaryAttemptRecord): void {
     validateRecord(record);
     const encoded = JSON.stringify(record); if (Buffer.byteLength(encoded) > 524288) fail('SUMMARY_RECORD_LIMIT', 'Summary record exceeds its serialized byte budget');
+    invalidateEvidenceRead(this.db);
     this.db.prepare('INSERT INTO summary_attempts(id,session_id,workspace_id,run_id,scope,state,revision,data) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,revision=excluded.revision,data=excluded.data')
       .run(record.id, record.sessionId, record.workspaceId, record.runId, record.scope, record.state, record.revision, encoded);
   }
@@ -128,7 +132,7 @@ export class SummaryAttemptStorage {
     if (!row) fail('SUMMARY_ATTEMPT_NOT_FOUND', 'Summary attempt was not found');
     if (expectedSessionId !== undefined && row.session_id !== expectedSessionId) fail('SUMMARY_BINDING_MISMATCH', 'Summary attempt belongs to another session');
     if (Number(row.bytes) > 524288) fail('SUMMARY_RECORD_LIMIT', 'Stored summary exceeds its read bound');
-    const record = JSON.parse(String(this.db.prepare('SELECT data FROM summary_attempts WHERE id=?').get(idValue)!.data)) as SummaryAttemptRecord;
+    const record = JSON.parse(String(readEvidenceBody(this.db, { table: 'summary_attempts', key: idValue }, { expectedBytes: Number(row.bytes), maxBytes: 524288 }))) as SummaryAttemptRecord;
     if (record.id !== idValue || record.sessionId !== row.session_id || record.workspaceId !== row.workspace_id || record.runId !== row.run_id || record.scope !== row.scope || record.state !== row.state || record.revision !== row.revision || record.schemaVersion !== 2) fail('SUMMARY_BINDING_MISMATCH', 'Summary payload and SQL owner differ');
     validateRecord(record); return { record, run: this.owner(record) };
   }
@@ -145,14 +149,12 @@ export class SummaryAttemptStorage {
     const projected = this.db.prepare(`SELECT json_type(data,'$.partialText') AS text_type,
       length(CAST(json_extract(data,'$.partialText') AS BLOB)) AS text_bytes,
       json_type(json_remove(data,'$.partialText'),'$.partialText') AS remaining_text_type,
-      length(CAST(json_remove(data,'$.partialText') AS BLOB)) AS metadata_bytes,
-      CASE WHEN length(CAST(json_remove(data,'$.partialText') AS BLOB))<=81920
-        AND json_type(json_remove(data,'$.partialText'),'$.partialText') IS NULL
-        THEN json_remove(data,'$.partialText') ELSE NULL END AS data FROM summary_attempts WHERE id=?`).get(idValue);
+      length(CAST(json_remove(data,'$.partialText') AS BLOB)) AS metadata_bytes FROM summary_attempts WHERE id=?`).get(idValue);
     if (Number(projected?.metadata_bytes) > 81920) fail('SUMMARY_RECORD_LIMIT', 'Stored summary metadata exceeds its read bound');
     if (projected?.text_type !== 'text' || !Number.isSafeInteger(projected.text_bytes) || Number(projected.text_bytes) > 65536 || projected.remaining_text_type !== null) fail('INVALID_SUMMARY_RECORD', 'Stored summary retained text is invalid');
-    if (typeof projected?.data !== 'string') fail('SUMMARY_RECORD_LIMIT', 'Stored summary metadata exceeds its read bound');
-    const record = JSON.parse(projected.data) as SummaryAttemptMetadata;
+    const raw = readEvidenceBody(this.db, { table: 'summary_attempts', key: idValue, projection: 'summary-metadata-v1' }, { expectedBytes: Number(projected?.metadata_bytes), maxBytes: 81920 });
+    if (typeof raw !== 'string') fail('SUMMARY_RECORD_LIMIT', 'Stored summary metadata exceeds its read bound');
+    const record = JSON.parse(raw) as SummaryAttemptMetadata;
     if (Object.hasOwn(record, 'partialText')) fail('INVALID_SUMMARY_RECORD', 'Summary metadata must not contain retained text');
     if (record.id !== idValue || record.sessionId !== row.session_id || record.workspaceId !== row.workspace_id || record.runId !== row.run_id || record.scope !== row.scope || record.state !== row.state || record.revision !== row.revision || record.schemaVersion !== 2) fail('SUMMARY_BINDING_MISMATCH', 'Summary payload and SQL owner differ');
     validateMetadata(record, String(projected.text_type), Number(projected.text_bytes)); this.owner(record); return record;
@@ -173,7 +175,7 @@ export class SummaryAttemptStorage {
     const idValue = attempt.id, row = this.db.prepare('SELECT session_id,run_id,CASE WHEN revision BETWEEN 1 AND 9007199254740991 THEN revision ELSE 0 END AS revision,length(CAST(data AS BLOB)) AS bytes FROM summary_usage WHERE summary_attempt_id=?').get(idValue);
     if (!row) return null;
     if (row.session_id !== attempt.sessionId || row.run_id !== attempt.runId || Number(row.bytes) > 4096) fail('SUMMARY_BINDING_MISMATCH', 'Summary usage owner or size is invalid');
-    const record = JSON.parse(String(this.db.prepare('SELECT data FROM summary_usage WHERE summary_attempt_id=?').get(idValue)!.data)) as SummaryUsageRecord;
+    const record = JSON.parse(String(readEvidenceBody(this.db, { table: 'summary_usage', key: idValue }, { expectedBytes: Number(row.bytes), maxBytes: 4096 }))) as SummaryUsageRecord;
     if (record.summaryAttemptId !== idValue || record.sessionId !== row.session_id || record.runId !== row.run_id || record.revision !== row.revision) fail('SUMMARY_BINDING_MISMATCH', 'Summary usage payload and SQL owner differ');
     plain(record, ['summaryAttemptId','sessionId','runId','revision','usage','observedAt']);
     if (!Number.isSafeInteger(record.revision) || record.revision < 1 || typeof record.observedAt !== 'string' || !Number.isFinite(Date.parse(record.observedAt)) || keys.some(key => !Object.hasOwn(record.usage, key))) fail('INVALID_SUMMARY_USAGE','Stored usage record is invalid');
@@ -224,6 +226,7 @@ export class SummaryAttemptStorage {
       if (usageChanged) {
         if ((priorUsage?.revision ?? 0) >= Number.MAX_SAFE_INTEGER) fail('SUMMARY_USAGE_REVISION_EXHAUSTED', 'Summary usage revision exceeded its safe integer range');
         const observation: SummaryUsageRecord = { summaryAttemptId: idValue, sessionId: record.sessionId, runId: record.runId, revision: (priorUsage?.revision ?? 0) + 1, usage, observedAt: now };
+        invalidateEvidenceRead(this.db);
         this.db.prepare('INSERT INTO summary_usage(summary_attempt_id,session_id,run_id,revision,data) VALUES(?,?,?,?,?) ON CONFLICT(summary_attempt_id) DO UPDATE SET revision=excluded.revision,data=excluded.data')
           .run(idValue, record.sessionId, record.runId, observation.revision, JSON.stringify(observation));
         this.emit(next, 'provider.usage', { purpose: 'summary', summaryAttemptId: idValue, scope: record.scope, ...json(usage) });

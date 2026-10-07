@@ -5,6 +5,7 @@ import { EngineError, isTerminal, type EngineEvent, type JsonObject, type Run } 
 import { validateContextRevision } from '@moodcode/contracts/validation';
 import type { NativeSessionStorage } from '../storage/native.js';
 import type { SummaryAttemptRecord, SummaryAttemptStorage } from '../storage/summary-attempts.js';
+import { invalidateEvidenceRead, readEvidenceBody, withEvidenceRead } from '../storage/evidence-read.js';
 import { canonical } from './snapshot.js';
 
 export const SUMMARY_RECOVERY_TABLES = ['summary_recovery_acknowledgments'] as const;
@@ -90,17 +91,19 @@ export function captureSummaryRecoveryHighWater(db: DatabaseSync): string {
 }
 function charge(budget: Budget, bytes: number): void { if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > budget.max - budget.bytes) fail('LIMIT', 'Summary recovery exceeds its bounded evidence budget'); budget.bytes += bytes; }
 function parse(text: string): JsonObject { try { return JSON.parse(text) as JsonObject; } catch { return fail('SOURCE_CHANGED', 'Pinned recovery evidence is not valid JSON'); } }
-const columns: Record<string, string> = {
+const columns = {
   messages: 'id,session_id,run_id,CAST(ordinal AS TEXT) AS ordinal', runs: 'id,session_id,workspace_id,state',
   session_turns: 'id,session_id,run_id,turn_index,state', provider_attempts: 'id,session_id,run_id,turn_id,attempt_index,state',
   message_parts: 'id,session_id,run_id,turn_id,message_id,part_index,revision,state', tools: 'id,session_id,run_id,state',
   context_revisions: 'id,session_id,run_id,turn_id,CAST(revision AS TEXT) AS revision,supersedes_id',
-};
-function record(db: DatabaseSync, table: string, id: string, budget: Budget): { row: Row; data: JsonObject; sha256: string } {
+} as const;
+function record(db: DatabaseSync, table: keyof typeof columns, id: string, budget: Budget, expected?: { sessionId: string; runId?: string; workspaceId?: string }): { row: Row; data: JsonObject; sha256: string } {
   const row = db.prepare(`SELECT ${columns[table]},length(CAST(data AS BLOB)) AS bytes FROM ${table} WHERE id=?`).get(id);
   if (!row) fail('SOURCE_CHANGED', 'Pinned evidence no longer exists');
+  if (expected && (row.session_id !== expected.sessionId || expected.runId !== undefined && row.run_id !== expected.runId
+    || expected.workspaceId !== undefined && row.workspace_id !== expected.workspaceId)) fail('OWNER_MISMATCH', 'Pinned evidence belongs to another owner');
   charge(budget, Number(row.bytes));
-  const data = parse(String(db.prepare(`SELECT data FROM ${table} WHERE id=?`).get(id)!.data));
+  const data = parse(String(readEvidenceBody(db, { table, key: id }, { expectedBytes: Number(row.bytes), maxBytes: budget.max })));
   if (!data || typeof data !== 'object' || Array.isArray(data) || data.id !== id || data.sessionId !== row.session_id
     || table !== 'runs' && table !== 'context_revisions' && data.runId !== row.run_id
     || table === 'runs' && (data.workspaceId !== row.workspace_id || data.state !== row.state)
@@ -137,8 +140,8 @@ export class SummaryRecoveryStorage {
   }
   private get db() { return this.native.database; }
   private read<T>(operation: () => T): T {
-    this.native.hooks.assertOpen(); if (this.db.isTransaction) return operation();
-    this.db.exec('BEGIN'); try { const result = operation(); this.db.exec('COMMIT'); return result; } catch (error) { this.db.exec('ROLLBACK'); throw error; }
+    this.native.hooks.assertOpen(); if (this.db.isTransaction) return withEvidenceRead(this.db, operation);
+    this.db.exec('BEGIN'); try { const result = withEvidenceRead(this.db, operation); this.db.exec('COMMIT'); return result; } catch (error) { this.db.exec('ROLLBACK'); throw error; }
   }
   private storageBinding(workspaceId: string): string { const scope = this.options.bindingScope(workspaceId); if (!validSha(scope)) fail('BINDING_CHANGED', 'Recovery requires an unchanged physical host binding'); return scope; }
   private scope(workspaceId: string): string { return proofScope(this.storageBinding(workspaceId)); }
@@ -149,12 +152,17 @@ export class SummaryRecoveryStorage {
   }
   private source(recordValue: SummaryAttemptRecord, budget: Budget): string {
     const owner = this.native.scopeRun(recordValue.sessionId, recordValue.runId);
-    const pins: unknown[] = [record(this.db, 'runs', owner.id, budget).sha256];
-    const messages = ids(recordValue.sourceMessageIds, SUMMARY_RECOVERY_LIMITS.maxMessages).map(id => record(this.db, 'messages', id, budget));
+    const pins: unknown[] = [record(this.db, 'runs', owner.id, budget, { sessionId: recordValue.sessionId, workspaceId: recordValue.workspaceId }).sha256];
     const runIds = recordValue.scope === 'active-run-prefix' ? [owner.id] : ids(recordValue.sourceRunIds, SUMMARY_RECOVERY_LIMITS.maxTurns);
     const allowed = new Set(runIds);
-    for (const id of runIds) { const sourceRun = record(this.db, 'runs', id, budget); if (sourceRun.data.sessionId !== recordValue.sessionId || sourceRun.data.workspaceId !== recordValue.workspaceId
+    for (const id of runIds) { const sourceRun = record(this.db, 'runs', id, budget, { sessionId: recordValue.sessionId, workspaceId: recordValue.workspaceId }); if (sourceRun.data.sessionId !== recordValue.sessionId || sourceRun.data.workspaceId !== recordValue.workspaceId
       || !isTerminal(sourceRun.data.state as Run['state'])) fail('OWNER_MISMATCH', 'Summary source Run is not a settled matching owner'); pins.push(sourceRun.sha256); }
+    const messages = ids(recordValue.sourceMessageIds, SUMMARY_RECOVERY_LIMITS.maxMessages).map(id => {
+      const header = this.db.prepare('SELECT m.session_id,m.run_id,r.session_id AS run_session_id,r.workspace_id FROM messages m LEFT JOIN runs r ON r.id=m.run_id WHERE m.id=?').get(id);
+      if (!header) fail('SOURCE_CHANGED', 'Summary source message is missing');
+      if (header.session_id !== recordValue.sessionId || header.run_session_id !== recordValue.sessionId || header.workspace_id !== recordValue.workspaceId || !allowed.has(String(header.run_id))) fail('OWNER_MISMATCH', 'Summary source message belongs to another owner');
+      return record(this.db, 'messages', id, budget, { sessionId: recordValue.sessionId, runId: String(header.run_id) });
+    });
     for (const item of messages) {
       owned(item.data, recordValue.sessionId); if (!allowed.has(String(item.data.runId)) || typeof item.data.content !== 'string' || !['user','assistant','tool'].includes(String(item.data.role))
         || Array.isArray(item.data.attachments) && item.data.attachments.length) fail('SOURCE_CHANGED', 'Summary source is not exact text-only owned history'); pins.push(item.sha256);
@@ -168,15 +176,15 @@ export class SummaryRecoveryStorage {
       if (recordValue.sourceProjection !== 'text-and-complete-tool-observations-v1') fail('SOURCE_CHANGED', 'Summary source projection is unsupported');
       const turnIds = ids(recordValue.sourceTurnIds, SUMMARY_RECOVERY_LIMITS.maxTurns), facts = messages.map(item => projection(item.data, item.row));
       for (const turnId of turnIds) {
-        const turn = record(this.db, 'session_turns', turnId, budget); owned(turn.data, owner.sessionId, owner.id);
+        const turn = record(this.db, 'session_turns', turnId, budget, { sessionId: owner.sessionId, runId: owner.id }); owned(turn.data, owner.sessionId, owner.id);
         const attemptId = this.db.prepare('SELECT id FROM provider_attempts WHERE turn_id=? ORDER BY attempt_index DESC LIMIT 1').get(turnId)?.id;
         if (!attemptId || turn.data.state !== 'completed') fail('SOURCE_CHANGED', 'Summary source Turn is not complete');
-        const attempt = record(this.db, 'provider_attempts', String(attemptId), budget); owned(attempt.data, owner.sessionId, owner.id);
+        const attempt = record(this.db, 'provider_attempts', String(attemptId), budget, { sessionId: owner.sessionId, runId: owner.id }); owned(attempt.data, owner.sessionId, owner.id);
         if (attempt.data.state !== 'completed' || attempt.data.turnId !== turnId || attempt.data.providerId !== recordValue.providerId || attempt.data.modelId !== recordValue.modelId) fail('SOURCE_CHANGED', 'Summary source attempt owner changed');
         pins.push(turn.sha256, attempt.sha256);
         const headers = this.db.prepare('SELECT id FROM message_parts WHERE turn_id=? ORDER BY part_index LIMIT 129').all(turnId);
         if (headers.length > 128) fail('LIMIT', 'Summary source Parts exceed their read bound');
-        const parts = headers.map(row => record(this.db, 'message_parts', String(row.id), budget));
+        const parts = headers.map(row => record(this.db, 'message_parts', String(row.id), budget, { sessionId: owner.sessionId, runId: owner.id }));
         if (parts.some(part => !['completed','failed'].includes(String(part.data.state)) || part.data.type === 'media')) fail('SOURCE_CHANGED', 'Summary source includes unsettled Parts or media');
         for (const part of parts) { owned(part.data, owner.sessionId, owner.id); pins.push(part.sha256); }
         const assistantIds = new Set(parts.map(part => String(part.data.messageId)));
@@ -192,7 +200,7 @@ export class SummaryRecoveryStorage {
           const assistantPosition = facts.indexOf(assistant), nextAssistant = facts.findIndex((fact, position) => position > assistantPosition && fact.role === 'assistant');
           const results = matching.filter(fact => facts.indexOf(fact) > assistantPosition && (nextAssistant < 0 || facts.indexOf(fact) < nextAssistant));
           if (call.length !== 1 || results.length !== 1 || call[0]!.name !== part.data.name || canonical(call[0]!.input) !== canonical(part.data.input)) fail('SOURCE_CHANGED', 'Tool call and result pairing changed');
-          const fact = results[0]!, tool = record(this.db, 'tools', part.data.toolCallId, budget); owned(tool.data, owner.sessionId, owner.id); pins.push(tool.sha256);
+          const fact = results[0]!, tool = record(this.db, 'tools', part.data.toolCallId, budget, { sessionId: owner.sessionId, runId: owner.id }); owned(tool.data, owner.sessionId, owner.id); pins.push(tool.sha256);
           const result = part.data.result as JsonObject | undefined;
           if (!['completed','failed','denied'].includes(String(tool.data.state)) || tool.data.name !== part.data.name || canonical(tool.data.input) !== canonical(part.data.input)
             || tool.data.output !== fact.content || !result || result.output !== fact.content || (part.data.state === 'completed') !== (tool.data.state === 'completed')) fail('SOURCE_CHANGED', 'Tool observation changed from its settled owner');
@@ -201,8 +209,8 @@ export class SummaryRecoveryStorage {
       }
       if (facts.some(fact => fact.role !== 'user' && !fact.turnId)) fail('SOURCE_CHANGED', 'Pinned source splits an assistant/tool exchange');
       if (recordValue.boundaryTurnId) {
-        const boundary = record(this.db, 'session_turns', recordValue.boundaryTurnId, budget); owned(boundary.data, owner.sessionId, owner.id);
-        const attempt = record(this.db, 'provider_attempts', recordValue.boundaryAttemptId!, budget); owned(attempt.data, owner.sessionId, owner.id);
+        const boundary = record(this.db, 'session_turns', recordValue.boundaryTurnId, budget, { sessionId: owner.sessionId, runId: owner.id }); owned(boundary.data, owner.sessionId, owner.id);
+        const attempt = record(this.db, 'provider_attempts', recordValue.boundaryAttemptId!, budget, { sessionId: owner.sessionId, runId: owner.id }); owned(attempt.data, owner.sessionId, owner.id);
         if (boundary.data.state !== 'completed' || attempt.data.state !== 'completed' || attempt.data.turnId !== boundary.data.id) fail('SOURCE_CHANGED', 'The source completed boundary changed'); pins.push(boundary.sha256, attempt.sha256);
       }
       source = JSON.stringify({ version: 1, scope: 'active-run-prefix', projection: 'text-and-complete-tool-observations-v1', messages: facts });
@@ -211,7 +219,7 @@ export class SummaryRecoveryStorage {
     if (recordValue.currentTurnId || recordValue.failedAttemptId) {
       if (!recordValue.currentTurnId || !recordValue.failedAttemptId || !this.options.getSummaryOverflowDependency) fail('SOURCE_CHANGED', 'Overflow source requires its observed ordinary cleanup dependency');
       const dependency = this.options.getSummaryOverflowDependency(recordValue.id, recordValue.currentTurnId, recordValue.failedAttemptId);
-      const current = record(this.db, 'session_turns', recordValue.currentTurnId, budget), failed = record(this.db, 'provider_attempts', recordValue.failedAttemptId, budget);
+      const current = record(this.db, 'session_turns', recordValue.currentTurnId, budget, { sessionId: owner.sessionId, runId: owner.id }), failed = record(this.db, 'provider_attempts', recordValue.failedAttemptId, budget, { sessionId: owner.sessionId, runId: owner.id });
       pins.push(dependency, current.sha256, failed.sha256);
     }
     return digest(pins);
@@ -269,7 +277,7 @@ export class SummaryRecoveryStorage {
       const row = this.db.prepare('SELECT CAST(revision AS TEXT) AS revision,length(CAST(data AS BLOB)) AS bytes FROM session_documents WHERE session_id=? AND kind=?').get(sessionId, kind);
       if (!row) { documents.push({ kind, absent: true }); continue; }
       if (!Number.isSafeInteger(Number(row.revision)) || Number(row.revision) < 1 || Number(row.bytes) > 262144) fail('LIMIT', 'Context baseline metadata exceeds its bound');
-      charge(budget, Number(row.bytes)); const data = parse(String(this.db.prepare('SELECT data FROM session_documents WHERE session_id=? AND kind=?').get(sessionId, kind)!.data));
+      charge(budget, Number(row.bytes)); const data = parse(String(readEvidenceBody(this.db, { table: 'session_documents', key: [sessionId, kind] }, { expectedBytes: Number(row.bytes), maxBytes: 262144 })));
       if (!data || typeof data !== 'object' || Array.isArray(data)) fail('SOURCE_CHANGED', 'Context baseline must contain JSON data');
       documents.push({ kind, revision: Number(row.revision), data });
       const active = data.active as JsonObject | undefined, id = kind === 'context.head' ? data.revisionId : active?.revisionId;
@@ -285,7 +293,7 @@ export class SummaryRecoveryStorage {
   private audit(row: Row, budget: Budget): Audit {
     if (!Number.isSafeInteger(row.bytes) || Number(row.bytes) < 1 || Number(row.bytes) > SUMMARY_RECOVERY_LIMITS.maxLedgerBytes) fail('LIMIT', 'Summary acknowledgment exceeds its read bound');
     charge(budget, Number(row.bytes));
-    const data = parse(String(this.db.prepare('SELECT data FROM summary_recovery_acknowledgments WHERE id=?').get(String(row.id))!.data)) as unknown as Audit;
+    const data = parse(String(readEvidenceBody(this.db, { table: 'summary_recovery_acknowledgments', key: String(row.id) }, { expectedBytes: Number(row.bytes), maxBytes: SUMMARY_RECOVERY_LIMITS.maxLedgerBytes }))) as unknown as Audit;
     if (!data || typeof data !== 'object' || Array.isArray(data)) fail('SOURCE_CHANGED', 'Summary acknowledgment must contain a bounded JSON object');
     const receipt = data.receipt;
     if (!receipt || receipt.version !== 1 || receipt.id !== row.id || receipt.summaryAttemptId !== row.summary_attempt_id || receipt.sessionId !== row.session_id || receipt.workspaceId !== row.workspace_id || receipt.runId !== row.run_id
@@ -355,10 +363,17 @@ export class SummaryRecoveryStorage {
       return { ...base, blockers: [error.code] };
     }
   }
-  preview(sessionId: string, id: string): SummaryRecoveryPreview { return this.read(() => this.previewInTransaction(sessionId, id)); }
+  preview(sessionId: string, id: string): SummaryRecoveryPreview {
+    let result: SummaryRecoveryPreview | undefined;
+    try { return this.read(() => (result = this.previewInTransaction(sessionId, id))); }
+    catch (error) {
+      if (result && error instanceof EngineError && error.code === 'RECOVERY_EVIDENCE_LIMIT') return { ...result, status: 'blocked', fingerprint: null, acknowledgment: undefined, blockers: [error.code] };
+      throw error;
+    }
+  }
   /** Admission checks immutable ACK evidence without recursively checking other execution blockers. */
   hasValidAcknowledgment(sessionId: string, id: string): boolean {
-    return this.read(() => {
+    try { return this.read(() => {
       try {
         const attempt = this.attempt(sessionId, id);
         if (attempt.state !== 'uncertain' || attempt.cleanupConfirmed || attempt.publication !== 'discarded') return false;
@@ -367,7 +382,7 @@ export class SummaryRecoveryStorage {
         const budget = { bytes: 0, max: SUMMARY_RECOVERY_LIMITS.maxInspectionBytes }, audit = this.audit(row, budget), evidence = this.evidence(attempt, budget);
         return this.valid(audit, attempt, evidence, scope, budget);
       } catch { return false; }
-    });
+    }); } catch { return false; }
   }
   /** Original decisions are receipts, never a claim about current execution safety. */
   findReceipt(value: SummaryRecoveryRequest): SummaryRecoveryReceipt | null {
@@ -396,7 +411,7 @@ export class SummaryRecoveryStorage {
   acknowledge(value: SummaryRecoveryRequest): SummaryRecoveryReceipt {
     const request = validateSummaryRecoveryRequest(value);
     const prior = this.findReceipt(request); if (prior) return prior;
-    return this.native.write(request.sessionId, () => {
+    return this.native.write(request.sessionId, () => withEvidenceRead(this.db, () => {
       const duplicate = this.findReceiptInTransaction(request); if (duplicate) return duplicate;
       const attempt = this.attempt(request.sessionId, request.summaryAttemptId), scope = this.scope(attempt.workspaceId);
       const preview = this.previewInTransaction(request.sessionId, request.summaryAttemptId);
@@ -412,16 +427,17 @@ export class SummaryRecoveryStorage {
       const audit: ProofAudit = { receipt, attemptRevision: attempt.revision, ...evidence, pins: context.pins, contextBaselineSha256: context.hash,
         proofVersion: 2, pinsSha256: digest(context.pins), startupHighWater: this.options.startupHighWater }, encoded = JSON.stringify(audit);
       if (Buffer.byteLength(encoded) > SUMMARY_RECOVERY_LIMITS.maxLedgerBytes) fail('LIMIT', 'Summary acknowledgment exceeds its durable byte bound');
+      invalidateEvidenceRead(this.db);
       this.db.prepare('INSERT INTO summary_recovery_acknowledgments(id,summary_attempt_id,session_id,workspace_id,run_id,request_id,binding_scope,attempt_revision,fingerprint,record_sha256,usage_sha256,source_owner_sha256,proof_version,pins_sha256,startup_high_water,data) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
         .run(receipt.id, attempt.id, attempt.sessionId, attempt.workspaceId, attempt.runId, request.requestId, scope, attempt.revision, request.fingerprint, evidence.recordSha256, evidence.usageSha256, evidence.sourceOwnerSha256, audit.proofVersion, audit.pinsSha256, audit.startupHighWater, encoded);
       const payload = JSON.parse(JSON.stringify(receipt)) as JsonObject; delete payload.duplicate;
       const nativeEvent = this.native.appendEvent(attempt.sessionId, 'summary.recovery.acknowledged', payload, { runId: attempt.runId });
       this.options.appendLegacy(this.native.scopeRun(attempt.sessionId, attempt.runId), nativeEvent.type, nativeEvent.payload);
       return structuredClone(receipt);
-    });
+    }));
   }
   hasUnacknowledged(workspaceId: string): boolean {
-    return this.read(() => {
+    try { return this.read(() => {
       // The overwhelmingly common first unresolved candidate needs neither text
       // nor current context. No forged or incomplete coverage ever becomes clear.
       try {
@@ -439,6 +455,6 @@ export class SummaryRecoveryStorage {
         }
         return false;
       } catch { return true; }
-    });
+    }); } catch { return true; }
   }
 }

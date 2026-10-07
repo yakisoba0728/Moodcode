@@ -11,6 +11,8 @@ export interface EngineStore {
   getRun(id: string): Run;
   hasRunRequest?(sessionId: string, requestId: string): boolean;
   hasActiveRuns?(workspaceId: string, excludedRunId?: string): boolean;
+  /** All persisted recovery blockers in one bounded workspace evidence snapshot. */
+  hasUncertainWorkspace?(workspaceId: string): boolean;
   /** Admission blocker: uncertain summaries without a valid explicit host decision. */
   hasUncertainSummaries?(workspaceId: string): boolean;
   /** Persisted ordinary execution uncertainty, including unknown cleanup after restart. */

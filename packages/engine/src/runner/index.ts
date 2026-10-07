@@ -220,16 +220,16 @@ export class RunCoordinator implements CoordinatorPort {
 
   submit(input: SubmitInput): RunReceipt {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
-    const summarySession = this.options.store.hasUncertainSummaries || this.options.store.hasUncertainExecution ? this.options.store.getSession(input.sessionId) : undefined;
-    const summaryBlocked = summarySession ? Boolean(this.options.store.hasUncertainSummaries?.(summarySession.workspaceId) || this.options.store.hasUncertainExecution?.(summarySession.workspaceId)) : false;
-    if (summaryBlocked || this.unsafeWorkspaces.size || this.workspaceLeases.size) {
-      const session = summarySession ?? this.options.store.getSession(input.sessionId);
-      if (summaryBlocked || this.unsafeWorkspaces.has(session.workspaceId) || this.workspaceLeases.has(session.workspaceId)) {
+    const recoverySession = this.options.store.hasUncertainWorkspace || this.options.store.hasUncertainSummaries || this.options.store.hasUncertainExecution ? this.options.store.getSession(input.sessionId) : undefined;
+    const recoveryBlocked = recoverySession ? this.hasWorkspaceRecoveryBlocker(recoverySession.workspaceId) : false;
+    if (recoveryBlocked || this.unsafeWorkspaces.size || this.workspaceLeases.size) {
+      const session = recoverySession ?? this.options.store.getSession(input.sessionId);
+      if (recoveryBlocked || this.unsafeWorkspaces.has(session.workspaceId) || this.workspaceLeases.has(session.workspaceId)) {
         // Preserve durable request identity before refusing new workspace work.
         const known = this.options.store.hasRunRequest?.(input.sessionId, input.requestId)
           ?? this.options.store.getSnapshot(input.sessionId).runs.some((run) => run.requestId === input.requestId);
         if (known) return this.options.store.admit(input);
-        if (summaryBlocked || this.unsafeWorkspaces.has(session.workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace cleanup is unconfirmed; new runs are blocked');
+        if (recoveryBlocked || this.unsafeWorkspaces.has(session.workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace cleanup is unconfirmed; new runs are blocked');
         throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
       }
     }
@@ -264,7 +264,11 @@ export class RunCoordinator implements CoordinatorPort {
   /** Resume may coexist with a live Run, but must never clear uncertain cleanup. */
   assertWorkspaceCleanupConfirmed(workspaceId: string): void {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
-    if (this.unsafeWorkspaces.has(workspaceId) || this.options.store.hasUncertainSummaries?.(workspaceId) || this.options.store.hasUncertainExecution?.(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace execution is quarantined');
+    if (this.unsafeWorkspaces.has(workspaceId) || this.hasWorkspaceRecoveryBlocker(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Workspace execution is quarantined');
+  }
+  private hasWorkspaceRecoveryBlocker(workspaceId: string): boolean {
+    return this.options.store.hasUncertainWorkspace?.(workspaceId)
+      ?? Boolean(this.options.store.hasUncertainSummaries?.(workspaceId) || this.options.store.hasUncertainExecution?.(workspaceId));
   }
 
   /** The input promotion transaction already admitted this real durable Run. */

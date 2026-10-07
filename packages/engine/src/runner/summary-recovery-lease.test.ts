@@ -66,6 +66,38 @@ test('summary predicate is a live durable observation and does not permanently e
   } finally { await f.runner.close(); }
 });
 
+test('combined workspace proof owns admission and resume while durable duplicate requests stay replayable', async () => {
+  const f = fixture(); let blocked = false, combinedCalls = 0, legacyCalls = 0;
+  f.store.hasUncertainWorkspace = workspaceId => { combinedCalls++; assert.equal(workspaceId, 'a'); return blocked; };
+  f.store.hasUncertainSummaries = () => { legacyCalls++; return true; };
+  f.store.hasUncertainExecution = () => { legacyCalls++; return true; };
+  try {
+    const saved = f.runner.submit(f.input()); await f.runner.waitForRun(saved.runId); await tick();
+    blocked = true;
+    assert.throws(() => f.runner.assertWorkspaceCleanupConfirmed('a'), hasCode('CLEANUP_PENDING'));
+    assert.throws(() => f.runner.submit(f.input('combined-blocked')), hasCode('CLEANUP_PENDING'));
+    assert.deepEqual(f.runner.submit(f.input()), { ...saved, duplicate: true });
+    assert.throws(() => f.runner.submit({ ...f.input(), prompt: 'Conflicting combined goal' }), hasCode('REQUEST_ID_CONFLICT'));
+    blocked = false; assert.doesNotThrow(() => f.runner.assertWorkspaceCleanupConfirmed('a'));
+    const next = f.runner.submit(f.input('combined-clear')); await f.runner.waitForRun(next.runId);
+    assert.ok(combinedCalls >= 6); assert.equal(legacyCalls, 0); assert.equal(f.providerCalls, 2);
+  } finally { await f.runner.close(); }
+});
+
+test('custom stores without a combined predicate retain both legacy workspace blockers', async () => {
+  const f = fixture(); let ordinaryBlocked = true, ordinaryCalls = 0;
+  f.store.hasUncertainExecution = () => { ordinaryCalls++; return ordinaryBlocked; };
+  try {
+    assert.throws(() => f.runner.submit(f.input()), hasCode('CLEANUP_PENDING'));
+    assert.throws(() => f.runner.assertWorkspaceCleanupConfirmed('a'), hasCode('CLEANUP_PENDING'));
+    assert.equal(ordinaryCalls, 2); assert.equal(f.providerCalls, 0);
+    ordinaryBlocked = false;
+    const admitted = f.runner.submit(f.input()); await f.runner.waitForRun(admitted.runId);
+    f.summaryBlocked.add('a'); assert.throws(() => f.runner.assertWorkspaceCleanupConfirmed('a'), hasCode('CLEANUP_PENDING'));
+    assert.equal(f.providerCalls, 1);
+  } finally { await f.runner.close(); }
+});
+
 test('audit-only uncertain receipts remain observations while exact identities and workspace lease exclusions stay intact', async () => {
   const f=fixture(), release=deferred(); let entered=false, idle=0;
   f.runner.setSessionHooks({boundary:()=>false,cancelled:()=>{},settled:()=>{},workspaceIdle:()=>{idle++;}});

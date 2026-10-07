@@ -8,6 +8,7 @@ import { canonical } from './snapshot.js';
 import { PROVIDER_RECOVERY_LIMITS, type ProviderRecoveryBudget, type ProviderRecoveryEvidence, type ProviderRecoveryPin,
   type ProviderRecoveryPreview, type ProviderRecoveryReceipt, type ProviderRecoveryRequest } from './provider-contract.js';
 import { readProviderRecoveryBaseline, readProviderRecoveryEvidence, providerRecoveryPinsValid } from './provider-evidence.js';
+import { invalidateEvidenceRead, readEvidenceBody, withEvidenceRead } from '../storage/evidence-read.js';
 
 export * from './provider-contract.js';
 export const PROVIDER_RECOVERY_TABLES = ['provider_recovery_acknowledgments'] as const;
@@ -82,9 +83,9 @@ export class ProviderRecoveryStorage {
   private get db() { return this.native.database; }
   private read<T>(operation: () => T): T {
     this.native.hooks.assertOpen();
-    if (this.db.isTransaction) return operation();
+    if (this.db.isTransaction) return withEvidenceRead(this.db, operation);
     this.db.exec('BEGIN');
-    try { const result = operation(); this.db.exec('COMMIT'); return result; }
+    try { const result = withEvidenceRead(this.db, operation); this.db.exec('COMMIT'); return result; }
     catch (error) { this.db.exec('ROLLBACK'); throw error; }
   }
   private scope(workspaceId: string): string {
@@ -111,7 +112,9 @@ export class ProviderRecoveryStorage {
   private audit(row: Row, allowance: ProviderRecoveryBudget): Audit {
     if (!Number.isSafeInteger(row.bytes) || Number(row.bytes) < 1 || Number(row.bytes) > PROVIDER_RECOVERY_LIMITS.maxLedgerBytes) fail('LIMIT', 'Provider acknowledgment exceeds its durable read bound');
     charge(allowance, row.bytes);
-    const value = parsed(String(this.db.prepare('SELECT data FROM provider_recovery_acknowledgments WHERE id=?').get(String(row.id))!.data));
+    const raw = readEvidenceBody(this.db, { table: 'provider_recovery_acknowledgments', key: String(row.id) }, { expectedBytes: Number(row.bytes), maxBytes: PROVIDER_RECOVERY_LIMITS.maxLedgerBytes });
+    if (raw === undefined) fail('SOURCE_CHANGED', 'Provider recovery acknowledgment disappeared');
+    const value = parsed(raw);
     if (!exactKeys(value, ['receipt','recordSha256','cleanupRecordSha256','usageSha256','sourceSha256','contextBaselineSha256','pinsSha256','startupHighWater','pins'])) fail('SOURCE_CHANGED', 'Provider acknowledgment must contain bounded audit data');
     const receipt = value.receipt;
     if (!exactKeys(receipt, ['version','id','requestId','sessionId','workspaceId','runId','turnId','attemptId','fingerprint','bindingScope','acknowledgedAt','state','cleanupConfirmed','providerOutcomeConfirmed','providerRetried','executionResumed','checkpointActivated','duplicate'])
@@ -168,7 +171,14 @@ export class ProviderRecoveryStorage {
       return { ...base, blockers: [error.code] };
     }
   }
-  preview(sessionId: string, id: string): ProviderRecoveryPreview { return this.read(() => this.previewInTransaction(sessionId, id)); }
+  preview(sessionId: string, id: string): ProviderRecoveryPreview {
+    let preview: ProviderRecoveryPreview | undefined;
+    try { return this.read(() => (preview = this.previewInTransaction(sessionId, id))); }
+    catch (error) {
+      if (preview && error instanceof EngineError && error.code === 'RECOVERY_EVIDENCE_LIMIT') return { ...preview, status: 'blocked', fingerprint: null, blockers: [...new Set([...preview.blockers, error.code])] };
+      throw error;
+    }
+  }
   /** Exact retries are historical receipts; current context and blockers cannot turn them into execution authorization. */
   findReceipt(value: ProviderRecoveryRequest): ProviderRecoveryReceipt | null {
     const request = validateProviderRecoveryRequest(value);
@@ -185,7 +195,7 @@ export class ProviderRecoveryStorage {
   acknowledge(value: ProviderRecoveryRequest): ProviderRecoveryReceipt {
     const request = validateProviderRecoveryRequest(value), previous = this.findReceipt(request);
     if (previous) return previous;
-    return this.native.write(request.sessionId, () => {
+    return this.native.write(request.sessionId, () => withEvidenceRead(this.db, () => {
       const duplicate = this.findReceiptInTransaction(request);
       if (duplicate) return duplicate;
       const preview = this.previewInTransaction(request.sessionId, request.attemptId);
@@ -205,6 +215,7 @@ export class ProviderRecoveryStorage {
       const audit: Audit = { receipt, recordSha256: evidence.recordSha256, cleanupRecordSha256: evidence.cleanupRecordSha256, usageSha256: evidence.usageSha256,
         sourceSha256: evidence.sourceSha256, contextBaselineSha256: baseline.hash, pinsSha256: sha(baseline.pins), startupHighWater: this.options.startupHighWater, pins: baseline.pins }, encoded = JSON.stringify(audit);
       if (Buffer.byteLength(encoded) > PROVIDER_RECOVERY_LIMITS.maxLedgerBytes) fail('LIMIT', 'Provider acknowledgment exceeds its durable byte bound');
+      invalidateEvidenceRead(this.db);
       this.db.prepare(`INSERT INTO provider_recovery_acknowledgments(id,attempt_id,session_id,workspace_id,run_id,turn_id,request_id,binding_scope,fingerprint,
         record_sha256,cleanup_record_sha256,usage_sha256,source_sha256,context_baseline_sha256,pins_sha256,startup_high_water,data) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
         .run(receipt.id, receipt.attemptId, receipt.sessionId, receipt.workspaceId, receipt.runId, receipt.turnId, receipt.requestId, receipt.bindingScope, receipt.fingerprint,
@@ -213,11 +224,11 @@ export class ProviderRecoveryStorage {
       const event = this.native.appendEvent(receipt.sessionId, 'provider.recovery.acknowledged', payload, { runId: receipt.runId, turnId: receipt.turnId, attemptId: receipt.attemptId });
       this.options.appendLegacy(evidence.run, event.type, event.payload);
       return structuredClone(receipt);
-    });
+    }));
   }
   /** Admission examines immutable decisions only; other execution/effect blockers are handled independently. */
   hasValidAcknowledgment(sessionId: string, id: string): boolean {
-    return this.read(() => {
+    try { return this.read(() => {
       try {
         const header = this.target(sessionId, id), scope = this.scope(String(header.workspace_id));
         if (header.state !== 'uncertain') return false;
@@ -226,10 +237,10 @@ export class ProviderRecoveryStorage {
         const allowance = budget(), audit = this.audit(row, allowance), evidence = readProviderRecoveryEvidence(this.db, this.store, sessionId, id, allowance);
         return this.valid(audit, evidence, scope, allowance);
       } catch { return false; }
-    });
+    }); } catch { return false; }
   }
   hasUnacknowledged(workspaceId: string): boolean {
-    return this.read(() => {
+    try { return this.read(() => {
       try {
         if (!identifier(workspaceId)) return true;
         if (!this.db.prepare("SELECT 1 FROM provider_attempts a JOIN runs r ON r.id=a.run_id WHERE r.workspace_id=? AND a.state='uncertain' LIMIT 1").get(workspaceId)) return false;
@@ -248,6 +259,6 @@ export class ProviderRecoveryStorage {
         }
         return false;
       } catch { return true; }
-    });
+    }); } catch { return true; }
   }
 }

@@ -4,6 +4,7 @@ import { EngineError, type ExecutionUncertainty, type TurnRecord } from '@moodco
 import { validateTurnRecord } from '@moodcode/contracts/validation';
 import type { SqliteStore } from './index.js';
 import { canonical } from '../recovery/snapshot.js';
+import { readEvidenceBody } from './evidence-read.js';
 
 export const EXECUTION_UNCERTAINTY_LIMITS = Object.freeze({ maxTurns: 64, maxOwnerBytes: 1_048_576, maxSelectedTurnPayloadBytes: 8_388_608 });
 type Dependency = NonNullable<ExecutionUncertainty['summaryDependency']>;
@@ -64,7 +65,9 @@ export function hasExecutionUncertainty(db: DatabaseSync, store: Store, workspac
     for (const row of rows) {
       if (!Number.isSafeInteger(row.bytes) || Number(row.bytes) < 1 || Number(row.bytes) > EXECUTION_UNCERTAINTY_LIMITS.maxOwnerBytes
         || (bytes += Number(row.bytes)) > EXECUTION_UNCERTAINTY_LIMITS.maxSelectedTurnPayloadBytes) return true;
-      const turn: TurnRecord = validateTurnRecord(JSON.parse(String(db.prepare('SELECT data FROM session_turns WHERE id=?').get(String(row.id))!.data)));
+      const data = readEvidenceBody(db, { table: 'session_turns', key: String(row.id) }, { expectedBytes: Number(row.bytes), maxBytes: EXECUTION_UNCERTAINTY_LIMITS.maxOwnerBytes });
+      if (data === undefined) return true;
+      const turn: TurnRecord = validateTurnRecord(JSON.parse(data));
       const dependency = turn.uncertainty?.summaryDependency;
       if (turn.id !== row.id || turn.sessionId !== row.session_id || turn.runId !== row.run_id || turn.state !== 'uncertain') return true;
       if (turn.uncertainty?.kind === 'provider_dispatch' && !dependency) {
