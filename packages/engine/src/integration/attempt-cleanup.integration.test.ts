@@ -11,6 +11,7 @@ import test, { type TestContext } from 'node:test';
 import { EngineError, type Run, type RunConfig } from '@moodcode/contracts';
 import { createEngine, type EngineOptions, type MoodcodeEngine } from '../engine.js';
 import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
+import { DB_VERSION } from '../storage/migrations.js';
 import type { AttemptCleanupRecord } from '../storage/attempt-cleanup.js';
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 
@@ -202,7 +203,7 @@ test('actual archive preserves uncertain ordinary cleanup and import blocks fres
   const f = await fixture(t, (item, signal) => raw(item, signal, [{ type: 'usage', inputTokens: -1 }], 'missing')); f.start(); await f.done;
   const proof = evidence(f), attempt = f.engine.store.getAttempt(proof.attemptId); await f.engine.close();
   const archive = await exportEngineArchive({ dbPath: f.dbPath, artifactDir: f.artifactDir, destination: join(f.root, 'archive') });
-  assert.equal(archive.manifest.databases.find(database => database.role === 'primary')!.schemaVersion, 6);
+  assert.equal(archive.manifest.databases.find(database => database.role === 'primary')!.schemaVersion, DB_VERSION);
   const imported = await importEngineArchive({ directory: archive.directory, destination: join(f.root, 'restored') }); assert.equal(imported.executionResumed, false);
   const restored = createEngine({ ...f.options, dbPath: imported.dbPath, artifactDir: imported.artifactDir }); t.after(() => restored.close());
   restored.store.getSnapshot = () => { throw new Error('Imported cleanup fixture forbids whole snapshots'); };

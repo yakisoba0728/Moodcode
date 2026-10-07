@@ -312,6 +312,10 @@ export class RunCoordinator implements CoordinatorPort {
 
   /** Host ledger decisions only. Keeps other quarantines and never wakes queued work. */
   withSummaryRecoveryLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    return this.withRecoveryDecisionLease(workspaceId, operation);
+  }
+
+  withRecoveryDecisionLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
     return this.workspaceLease(workspaceId, operation, true);
   }
 
@@ -320,8 +324,8 @@ export class RunCoordinator implements CoordinatorPort {
       if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Run coordinator is closing');
       this.options.store.getWorkspace(workspaceId);
       if (summaryRecovery) {
-        if (this.unsafeWorkspaces.has(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Independent workspace execution quarantine prevents summary recovery');
-        if ([...this.owners.values()].some(owner => owner.run.workspaceId === workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'A live workspace execution owner prevents summary recovery');
+        if (this.unsafeWorkspaces.has(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Independent workspace execution quarantine prevents a recovery decision');
+        if ([...this.owners.values()].some(owner => owner.run.workspaceId === workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'A live workspace execution owner prevents a recovery decision');
       } else this.assertWorkspaceCleanupConfirmed(workspaceId);
       if (this.workspaceLeases.has(workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
       // Persisted runs can be active without a local owner. SQL stores check
@@ -667,6 +671,11 @@ export class RunCoordinator implements CoordinatorPort {
             if (Buffer.byteLength(JSON.stringify(call), 'utf8') > owner.run.config.limits.maxContextBytes) throw new EngineError('CONTEXT_LIMIT', 'Tool call input exceeds the context byte budget');
             owner.callIds.add(call.id);
             calls.push(structuredClone(call));
+            // Preserve complete proposals before provider completion. They are
+            // observations only; execution still requires a validated finish.
+            flush();
+            const internalId = randomUUID(); owner.invocations.set(call.id, internalId);
+            owner.turn!.toolProposal(message.id, internalId, call);
             break;
           }
           case 'usage': {
@@ -716,10 +725,6 @@ export class RunCoordinator implements CoordinatorPort {
       if (calls.length) message.toolCalls = calls;
       if (replay) message.providerReplay = replay;
       this.options.store.commit(owner.run.id, 'message.completed', { messageId: message.id, turnIndex, finishReason: finish }, { message });
-      for (const call of calls) {
-        const internalId = randomUUID(); owner.invocations.set(call.id, internalId);
-        owner.turn!.toolProposal(message.id, internalId, call);
-      }
       owner.turn!.outputFinished(finish, calls.length > 0);
       return { message, calls };
     } catch (error) {

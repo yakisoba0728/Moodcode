@@ -4,8 +4,9 @@ import { inspectIntegrity } from './maintenance.js';
 import { migrateNativeSessions } from './native-schema.js';
 import { ATTEMPT_USAGE_SCHEMA } from './native-usage.js';
 import { SUMMARY_ATTEMPT_SCHEMA } from './summary-attempts.js';
-import { SUMMARY_RECOVERY_SCHEMA } from '../recovery/summary.js';
+import { SUMMARY_RECOVERY_SCHEMA, SUMMARY_RECOVERY_PROOF_SCHEMA } from '../recovery/summary.js';
 import { ATTEMPT_CLEANUP_SCHEMA } from './attempt-cleanup.js';
+import { PROVIDER_RECOVERY_SCHEMA } from '../recovery/provider.js';
 
 export interface DatabaseMigration {
   /** Append-only, consecutive primary database version, starting at 1. */
@@ -51,6 +52,10 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
   Object.freeze({ version: 6, name: 'durable-provider-cleanup-observations', apply: (database: DatabaseSync) => {
     database.exec(ATTEMPT_CLEANUP_SCHEMA);
     database.exec("CREATE INDEX ordinary_workspace_uncertain ON runs(workspace_id,id); CREATE INDEX ordinary_uncertain_turns ON session_turns(run_id) WHERE state='uncertain'; CREATE INDEX ordinary_uncertain_attempts ON provider_attempts(run_id) WHERE state='uncertain'");
+  } }),
+  Object.freeze({ version: 7, name: 'explicit-provider-outcome-recovery', apply: (database: DatabaseSync) => {
+    database.exec(PROVIDER_RECOVERY_SCHEMA);
+    database.exec(SUMMARY_RECOVERY_PROOF_SCHEMA);
   } }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;

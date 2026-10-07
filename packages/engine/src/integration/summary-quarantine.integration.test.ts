@@ -107,7 +107,7 @@ test('actual orphan terminal-Run summary uncertainty survives restart and quaran
     assert.deepEqual(engine.listSummaryAttempts('other-session', { limit: 1 }).attempts, []);
     assert.equal(engine.listSummaryAttempts('session', { limit: 1, runId: run.id }).attempts[0]!.id, summaryId);
     assert.throws(() => engine.listSummaryAttempts('other-session', { runId: run.id }), code('RECORD_SCOPE_MISMATCH'));
-    const metrics = engine.store.getNativeMetrics('session'); assert.equal(metrics.schemaVersion, 5); assert.equal(metrics.recovery.uncertainSummaries, 1);
+    const metrics = engine.store.getNativeMetrics('session'); assert.equal(metrics.schemaVersion, 6); assert.equal(metrics.recovery.uncertainSummaries, 1);
     assert.equal(metrics.summaryAttempts.states.uncertain, 1); assert.equal(metrics.summaryAttemptUsage.inputTokens.tokens, 9); assert.equal(metrics.summaryAttemptUsage.outputTokens.tokens, null);
     assert.equal(metrics.summaryAttemptUsage.billedTokens, null); assert.equal(metrics.attempts.total, 1); assert.equal(metrics.attemptUsage.inputTokens.tokens, 7);
   });

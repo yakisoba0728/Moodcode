@@ -72,6 +72,9 @@ export class InputScheduler {
   waitForSession(sessionId: string): Promise<void> { return this.flights.get(sessionId)?.done ?? Promise.resolve(); }
   /** Retire waiting tickets before an audit decision; durable inputs and pauses stay intact. */
   holdSummaryRecoveryWorkspace(workspaceId: string): void {
+    this.holdRecoveryWorkspace(workspaceId);
+  }
+  holdRecoveryWorkspace(workspaceId: string): void {
     this.assertOpen();
     for (const flight of [...this.flights.values()]) if (flight.workspaceId === workspaceId && !flight.running) this.finish(flight);
   }

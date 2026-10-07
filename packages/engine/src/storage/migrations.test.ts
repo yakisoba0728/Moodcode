@@ -116,9 +116,38 @@ test('DB5 to DB6 preserves ordinary uncertainty and nullable observations withou
   } }];
   assert.throws(() => migrateDatabase(db, failed), /DB6 rollback/u);
   assert.equal(databaseVersion(db), 5); assert.deepEqual(databaseContents(db), before);
-  migrateDatabase(db); assert.equal(databaseVersion(db), 6); assert.deepEqual(rows(), beforeRows);
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 6)); assert.equal(databaseVersion(db), 6); assert.deepEqual(rows(), beforeRows);
   assert.equal(db.prepare('SELECT count(*) AS count FROM attempt_cleanup').get()?.count, 0);
   assert.ok(db.prepare("EXPLAIN QUERY PLAN SELECT 1 FROM provider_attempts a JOIN runs r ON r.id=a.run_id WHERE r.workspace_id=? AND a.state='uncertain' LIMIT 1").all(run.workspace_id!).some(row => String(row.detail).includes('ordinary_uncertain_attempts')));
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
+});
+
+test('DB6 to DB7 preserves old uncertainty/proof/usage and adds no implicit provider decision', t => {
+  const { db } = fixture(t); db.exec('PRAGMA foreign_keys=ON');
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 6));
+  const owner = db.prepare('SELECT id,session_id,workspace_id FROM runs ORDER BY ordinal LIMIT 1').get()!;
+  db.prepare('INSERT INTO session_turns(id,session_id,run_id,turn_index,state,data) VALUES(?,?,?,?,?,?)').run('old-turn', owner.session_id!, owner.id!, 0, 'uncertain', JSON.stringify({ opaque: 'Original unknown Turn' }));
+  db.prepare('INSERT INTO provider_attempts(id,session_id,run_id,turn_id,attempt_index,state,data) VALUES(?,?,?,?,?,?,?)').run('old-attempt', owner.session_id!, owner.id!, 'old-turn', 0, 'uncertain', JSON.stringify({ opaque: 'Original unknown provider outcome' }));
+  db.prepare('INSERT INTO attempt_usage(attempt_id,session_id,run_id,turn_id,revision,data) VALUES(?,?,?,?,?,?)').run('old-attempt', owner.session_id!, owner.id!, 'old-turn', 1, JSON.stringify({ usage: { inputTokens: 9, outputTokens: null } }));
+  db.prepare('INSERT INTO attempt_cleanup(attempt_id,session_id,workspace_id,run_id,turn_id,provider_id,model_id,request_sha256,request_bytes,state,revision,data) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run('old-attempt', owner.session_id!, owner.workspace_id!, owner.id!, 'old-turn', 'fixture', 'local', '1'.repeat(64), 128, 'confirmed', 3, JSON.stringify({ opaque: 'Old observed proof; not a new ACK' }));
+  db.prepare('INSERT INTO summary_attempts(id,session_id,workspace_id,run_id,scope,state,revision,data) VALUES(?,?,?,?,?,?,?,?)')
+    .run('old-summary',owner.session_id!,owner.workspace_id!,owner.id!,'completed-history','uncertain',3,'{"opaque":"Old summary"}');
+  const legacyBody='{"opaque":"Original DB5 decision remains historical"}';
+  db.prepare('INSERT INTO summary_recovery_acknowledgments(id,summary_attempt_id,session_id,workspace_id,run_id,request_id,binding_scope,attempt_revision,fingerprint,record_sha256,usage_sha256,source_owner_sha256,data) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run('old-decision','old-summary',owner.session_id!,owner.workspace_id!,owner.id!,'old-request','2'.repeat(64),3,'3'.repeat(64),'4'.repeat(64),null,'5'.repeat(64),legacyBody);
+  const tables = ['events','session_events','messages','session_turns','provider_attempts','attempt_usage','attempt_cleanup','summary_recovery_acknowledgments'];
+  const columns=Object.fromEntries(tables.map(table=>[table,db.prepare(`PRAGMA table_info(${table})`).all().map(row=>String(row.name)).join(',')]));
+  const rows = () => Object.fromEntries(tables.map(table => [table, db.prepare(`SELECT ${columns[table]} FROM ${table} ORDER BY rowid`).all()]));
+  const beforeRows = rows(), before = databaseContents(db);
+  const failed = [...DATABASE_MIGRATIONS.slice(0, 6), { version: 7, name: 'intentional-v7-failure', apply(database: DatabaseSync) {
+    DATABASE_MIGRATIONS[6]!.apply(database); throw new Error('DB7 rollback');
+  } }];
+  assert.throws(() => migrateDatabase(db, failed), /DB7 rollback/u); assert.equal(databaseVersion(db), 6); assert.deepEqual(databaseContents(db), before);
+  migrateDatabase(db); assert.equal(databaseVersion(db), 7); assert.deepEqual(rows(), beforeRows);
+  const migrated=db.prepare('SELECT data,proof_version,pins_sha256,startup_high_water FROM summary_recovery_acknowledgments WHERE id=?').get('old-decision')!;
+  assert.equal(migrated.data,legacyBody);assert.equal(migrated.proof_version,1);assert.equal(migrated.pins_sha256,null);assert.equal(migrated.startup_high_water,null);
+  assert.equal(db.prepare('SELECT count(*) AS count FROM provider_recovery_acknowledgments').get()?.count, 0);
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
 });
 

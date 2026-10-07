@@ -9,6 +9,7 @@ import { NATIVE_SESSION_TABLES } from '../storage/native-schema.js';
 import { SUMMARY_STORAGE_TABLES } from '../storage/summary-attempts.js';
 import { SUMMARY_RECOVERY_TABLES } from './summary.js';
 import { ATTEMPT_CLEANUP_TABLES } from '../storage/attempt-cleanup.js';
+import { PROVIDER_RECOVERY_TABLES } from './provider.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
 import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
@@ -96,7 +97,8 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     const usageTables = primaryVersion >= 3 ? [...primaryTables, 'attempt_usage'] : primaryTables;
     const summaryTables = primaryVersion >= 4 ? [...usageTables, ...SUMMARY_STORAGE_TABLES] : usageTables;
     const recoveryTables = primaryVersion >= 5 ? [...summaryTables, ...SUMMARY_RECOVERY_TABLES] : summaryTables;
-    const primaryHash = primary ? checkDatabase(primary, primaryVersion, primaryVersion >= 6 ? [...recoveryTables, ...ATTEMPT_CLEANUP_TABLES] : recoveryTables, snapshot.check) : null;
+    const cleanupTables = primaryVersion >= 6 ? [...recoveryTables, ...ATTEMPT_CLEANUP_TABLES] : recoveryTables;
+    const primaryHash = primary ? checkDatabase(primary, primaryVersion, primaryVersion >= 7 ? [...cleanupTables, ...PROVIDER_RECOVERY_TABLES] : cleanupTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);
     let marker: Marker | null = null;

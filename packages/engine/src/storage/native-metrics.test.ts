@@ -212,13 +212,33 @@ for (const state of ['prepared','dispatched','confirmed','uncertain','not-dispat
   if (state === 'uncertain') f.store.settleAttemptCleanup(r.attempt.id, { outcome: state, method: 'return-missing', reason: 'error' });
   if (state === 'not-dispatched') f.store.settleAttemptCleanup(r.attempt.id, { outcome: state, method: 'no-dispatch', reason: 'cancel' });
   const report = f.store.getNativeMetrics('session');
-  assert.equal(report.schemaVersion, 5); assert.equal(report.attemptCleanup.total, 1); assert.equal(report.attemptCleanup.states[state], 1);
+  assert.equal(report.schemaVersion, 6); assert.equal(report.attemptCleanup.total, 1); assert.equal(report.attemptCleanup.states[state], 1);
   assert.equal(report.attemptCleanup.attemptsWithoutObservation, 0); assert.equal(report.attemptCleanup.recordValidity, null); assert.equal(report.attemptCleanup.providerOutcomeConfirmed, null);
   assert.equal(report.attemptUsage.inputTokens.tokens, null); assert.equal(report.attemptUsage.billedTokens, null);
   assert.equal(f.store.getNativeMetrics('other').attemptCleanup.total, 0);
   assert.equal(report.recovery.workspacesWithDurableEvidence, state === 'uncertain' ? 1 : 0);
   assert.equal(f.store.getNativeMetrics('other').recovery.workspacesWithDurableEvidence, 0);
   assert.equal(f.store.getAttempt(r.attempt.id).state, state === 'prepared' || state === 'not-dispatched' ? 'prepared' : 'dispatched');
+});
+
+test('raw provider decision metrics count scoped records without trusting forged proof or clearing original uncertainty', t => {
+  const f = fixture(t), run = f.start(), r = records(f.store, run);
+  f.store.putAttempt(r.attempt); f.store.putAttempt({ ...r.attempt, state: 'dispatched', dispatchedAt: stamp });
+  const uncertainty = { kind: 'provider_dispatch' as const, requiresRecovery: true as const, message: 'Unknown observed response' };
+  f.store.putAttempt({ ...r.attempt, state: 'uncertain', dispatchedAt: stamp, completedAt: stamp, uncertainty });
+  f.store.putTurn({ ...r.turn, state: 'uncertain', completedAt: stamp, uncertainty });
+  f.store.commit(run.id, 'run.failed', {}, { run: { state: 'failed' } });
+  f.store.configureProviderRecovery(() => '2'.repeat(64));
+  const database = (f.store as unknown as { db: DatabaseSync }).db;
+  database.prepare('INSERT INTO provider_recovery_acknowledgments(id,attempt_id,session_id,workspace_id,run_id,turn_id,request_id,binding_scope,fingerprint,record_sha256,cleanup_record_sha256,usage_sha256,source_sha256,context_baseline_sha256,pins_sha256,startup_high_water,data) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run('synthetic-invalid-decision', r.attempt.id, 'session', 'workspace', run.id, r.turn.id, 'fixture-decision', '2'.repeat(64), '3'.repeat(64), '4'.repeat(64), '5'.repeat(64), null, '6'.repeat(64), '7'.repeat(64), '8'.repeat(64), '0', '{}');
+  const report = f.store.getNativeMetrics('session');
+  assert.equal(report.recovery.providerRecoveryAcknowledgments, 1); assert.equal(report.recovery.providerAcknowledgmentValidity, null);
+  assert.equal(report.recovery.uncertainAttempts, 1); assert.equal(report.recovery.uncertainTurns, 1);
+  assert.equal(f.store.getNativeMetrics('other').recovery.providerRecoveryAcknowledgments, 0);
+  assert.equal(f.store.getNativeMetrics().recovery.providerRecoveryAcknowledgments, 1);
+  assert.equal(f.store.hasUncertainExecution('workspace'), true);
+  assert.equal(f.store.getAttempt(r.attempt.id).state, 'uncertain');
 });
 
 test('missing, malformed and backwards legacy timestamp intervals are excluded with explicit coverage', t => {

@@ -102,7 +102,7 @@ test('actual explicit host decision preserves original uncertainty and pause/bac
   assert.deepEqual(f.original(), original); assert.deepEqual(f.context(), context); assert.deepEqual(f.engine.store.getSessionControl('session'), control); assert.deepEqual(f.engine.store.getSessionControl('other-session'), otherControl);
   assert.equal(f.engine.store.getInput(queued.inputId).state, 'pending'); assert.equal(f.main.length, 1); assert.equal(f.summaries.length, 1); assert.equal(f.rows(), 1);
   assert.equal(auditCount(f, 'events'), 1); assert.equal(auditCount(f, 'session_events'), 1); assert.equal(f.engine.store.hasUncertainSummaries('workspace'), false);
-  const metrics = f.engine.store.getNativeMetrics('session'); assert.equal(metrics.schemaVersion, 5); assert.equal(metrics.recovery.uncertainSummaries, 1);
+  const metrics = f.engine.store.getNativeMetrics('session'); assert.equal(metrics.schemaVersion, 6); assert.equal(metrics.recovery.uncertainSummaries, 1);
   assert.equal(metrics.recovery.summaryRecoveryAcknowledgments, 1); assert.equal(metrics.recovery.summaryAcknowledgmentValidity, null); assert.equal(metrics.summaryAttemptUsage.billedTokens, null);
   assert.equal(f.engine.getSummaryRecoveryPreview('session', f.summaryId).status, 'acknowledged');
   const duplicate = await f.engine.acknowledgeSummaryRecovery(decision); assert.deepEqual(duplicate, { ...receipt, duplicate: true }); assert.equal(f.rows(), 1);

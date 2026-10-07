@@ -86,10 +86,11 @@ test('10k uncertain candidates block immediately when unacknowledged and conserv
     // Synthetic ledger cardinality does not establish a valid acknowledgment.
     // It exercises the metadata cap before any ledger/source/text validation;
     // even a matching row for every candidate cannot make excessive coverage clear.
+    const scope=f.store.getSummaryRecoveryPreview('session','target').bindingScope;
     f.db.prepare(`INSERT INTO summary_recovery_acknowledgments
-      (id,summary_attempt_id,session_id,workspace_id,run_id,request_id,binding_scope,attempt_revision,fingerprint,record_sha256,usage_sha256,source_owner_sha256,data)
-      SELECT 'ledger-'||id,id,session_id,workspace_id,run_id,'request-'||id,?,json_extract(data,'$.revision'),?,?,NULL,?,'{}'
-      FROM summary_attempts WHERE workspace_id='workspace' AND state='uncertain'`).run('5'.repeat(64),'6'.repeat(64),'7'.repeat(64),'8'.repeat(64));
+      (id,summary_attempt_id,session_id,workspace_id,run_id,request_id,binding_scope,attempt_revision,fingerprint,record_sha256,usage_sha256,source_owner_sha256,proof_version,data)
+      SELECT 'ledger-'||id,id,session_id,workspace_id,run_id,'request-'||id,?,json_extract(data,'$.revision'),?,?,NULL,?,2,'{}'
+      FROM summary_attempts WHERE workspace_id='workspace' AND state='uncertain'`).run(scope,'6'.repeat(64),'7'.repeat(64),'8'.repeat(64));
     const capped=measureSummarySql(f.db,()=>f.store.hasUncertainSummaries('workspace'));
     assert.equal(capped.result,true);assert.equal(capped.measurement.summaryFullPayloadReads,0);
     assert.equal(capped.measurement.summaryTextBytesReturned,0);assert.equal(capped.measurement.writeStatements,0);

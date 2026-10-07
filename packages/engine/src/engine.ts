@@ -47,6 +47,7 @@ import { assertExecutionLockAvailable } from './tools/command/execution-lock.js'
 import { getReviewDiff, previewRestoreCheckpoint, restoreCheckpoint, type RestoreResult } from './review/index.js';
 import { readRecoveryAcknowledgments, isRestoreAcknowledged } from './recovery/index.js';
 import { validateSummaryRecoveryRequest, type SummaryRecoveryRequest, type SummaryRecoveryReceipt } from './recovery/summary.js';
+import { validateProviderRecoveryRequest, type ProviderRecoveryRequest, type ProviderRecoveryReceipt } from './recovery/provider.js';
 import { ReviewJournal, type RestoreOperation, type RestoreOperationInput } from './review/audit.js';
 import { ImageAttachmentStore } from './media/index.js';
 import { providerImages } from './media/provider.js';
@@ -228,12 +229,17 @@ export class MoodcodeEngine {
         database: canonicalDbPath ? physicalIdentity(canonicalDbPath) : { memory: randomUUID() },
         artifacts: physicalIdentity(this.storagePaths.artifactDir),
       };
-      this.store.configureSummaryRecovery(workspaceId => {
+      const recoveryBinding = (workspaceId: string) => {
         const database = canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database;
         const artifacts = physicalIdentity(this.storagePaths.artifactDir);
         if (JSON.stringify({ database, artifacts }) !== JSON.stringify(storageBinding)) throw new EngineError('SUMMARY_RECOVERY_STORAGE_CHANGED', 'Summary recovery storage identity changed during this engine lifetime');
         const workspace = this.store.getWorkspace(workspaceId);
         return createHash('sha256').update(JSON.stringify({ ...storageBinding, workspace: { id: workspace.id, root: workspace.root, gitRoot: workspace.gitRoot } })).digest('hex');
+      };
+      this.store.configureSummaryRecovery(recoveryBinding);
+      this.store.configureProviderRecovery(workspaceId => {
+        try { return recoveryBinding(workspaceId); }
+        catch { throw new EngineError('PROVIDER_RECOVERY_STORAGE_CHANGED', 'Provider recovery storage identity changed during this engine lifetime'); }
       });
       this.executionLockPath = canonicalDbPath === undefined ? resolve(artifactDir, 'effects.sqlite') : `${canonicalDbPath}.effects.sqlite`;
       verifyExecutionIdle(this.executionLockPath);
@@ -767,6 +773,27 @@ export class MoodcodeEngine {
         verifyExecutionIdle(this.executionLockPath);
         const receipt = this.store.acknowledgeSummaryRecovery(prepared);
         this.scheduler.holdSummaryRecoveryWorkspace(session.workspaceId);
+        return receipt;
+      });
+    } catch (error) { return Promise.reject(error); }
+  }
+
+  getProviderRecoveryPreview(sessionId: string, attemptId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.getProviderRecoveryPreview(sessionId, attemptId);
+  }
+
+  acknowledgeProviderRecovery(request: ProviderRecoveryRequest): Promise<ProviderRecoveryReceipt> {
+    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    try {
+      const prepared = validateProviderRecoveryRequest(request), existing = this.store.findProviderRecoveryReceipt(prepared);
+      if (existing) return Promise.resolve(existing);
+      const session = this.store.getSession(prepared.sessionId);
+      return this.coordinator.withRecoveryDecisionLease(session.workspaceId, async signal => {
+        if (signal.aborted) throw signal.reason ?? new EngineError('ENGINE_CLOSED', 'Provider recovery decision was cancelled');
+        verifyExecutionIdle(this.executionLockPath);
+        const receipt = this.store.acknowledgeProviderRecovery(prepared);
+        this.scheduler.holdRecoveryWorkspace(session.workspaceId);
         return receipt;
       });
     } catch (error) { return Promise.reject(error); }

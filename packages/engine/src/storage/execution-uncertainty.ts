@@ -42,9 +42,20 @@ export function summaryOverflowDependency(db: DatabaseSync, store: Store, summar
 export function hasExecutionUncertainty(db: DatabaseSync, store: Store, workspaceId: string, options: {
   excludedSummaryAttemptId?: string;
   hasValidSummaryAcknowledgment?: (sessionId: string, summaryAttemptId: string) => boolean;
+  hasValidProviderAcknowledgment?: (sessionId: string, attemptId: string) => boolean;
+  hasUnacknowledgedProviders?: (workspaceId: string) => boolean;
 } = {}): boolean {
   try {
-    if (db.prepare("SELECT 1 FROM provider_attempts a JOIN runs r ON r.id=a.run_id WHERE r.workspace_id=? AND a.state='uncertain' LIMIT 1").get(workspaceId)) return true;
+    const validatedProviderIds = new Set<string>();
+    if (db.prepare("SELECT 1 FROM provider_attempts a JOIN runs r ON r.id=a.run_id WHERE r.workspace_id=? AND a.state='uncertain' LIMIT 1").get(workspaceId)) {
+      if (options.hasUnacknowledgedProviders?.(workspaceId) ?? !options.hasValidProviderAcknowledgment) return true;
+      const attempts = db.prepare("SELECT a.id,a.session_id FROM provider_attempts a JOIN runs r ON r.id=a.run_id WHERE r.workspace_id=? AND a.state='uncertain' ORDER BY a.rowid LIMIT ?").all(workspaceId, EXECUTION_UNCERTAINTY_LIMITS.maxTurns + 1);
+      if (attempts.length > EXECUTION_UNCERTAINTY_LIMITS.maxTurns) return true;
+      for (const attempt of attempts) {
+        if (!options.hasUnacknowledgedProviders && !options.hasValidProviderAcknowledgment?.(String(attempt.session_id), String(attempt.id))) return true;
+        validatedProviderIds.add(String(attempt.id));
+      }
+    }
     if (db.prepare("SELECT 1 FROM attempt_cleanup WHERE workspace_id=? AND state='uncertain' LIMIT 1").get(workspaceId)) return true;
     if (db.prepare("SELECT 1 FROM attempt_cleanup c JOIN runs r ON r.id=c.run_id WHERE c.workspace_id=? AND c.state='dispatched' AND r.state IN ('completed','cancelled','failed','interrupted') LIMIT 1").get(workspaceId)) return true;
     const rows = db.prepare("SELECT t.id,t.session_id,t.run_id,t.state,length(CAST(t.data AS BLOB)) AS bytes FROM session_turns t JOIN runs r ON r.id=t.run_id WHERE r.workspace_id=? AND t.state='uncertain' ORDER BY t.rowid LIMIT ?").all(workspaceId, EXECUTION_UNCERTAINTY_LIMITS.maxTurns + 1);
@@ -55,7 +66,14 @@ export function hasExecutionUncertainty(db: DatabaseSync, store: Store, workspac
         || (bytes += Number(row.bytes)) > EXECUTION_UNCERTAINTY_LIMITS.maxSelectedTurnPayloadBytes) return true;
       const turn: TurnRecord = validateTurnRecord(JSON.parse(String(db.prepare('SELECT data FROM session_turns WHERE id=?').get(String(row.id))!.data)));
       const dependency = turn.uncertainty?.summaryDependency;
-      if (turn.id !== row.id || turn.sessionId !== row.session_id || turn.runId !== row.run_id || turn.state !== 'uncertain' || turn.uncertainty?.kind !== 'cleanup' || !dependency) return true;
+      if (turn.id !== row.id || turn.sessionId !== row.session_id || turn.runId !== row.run_id || turn.state !== 'uncertain') return true;
+      if (turn.uncertainty?.kind === 'provider_dispatch' && !dependency) {
+        const attempt = db.prepare('SELECT id,session_id,run_id,state FROM provider_attempts WHERE turn_id=? ORDER BY attempt_index DESC LIMIT 1').get(turn.id);
+        if (!attempt || attempt.state !== 'uncertain' || attempt.session_id !== turn.sessionId || attempt.run_id !== turn.runId
+          || !validatedProviderIds.has(String(attempt.id))) return true;
+        continue;
+      }
+      if (turn.uncertainty?.kind !== 'cleanup' || !dependency) return true;
       const expected = summaryOverflowDependency(db, store, dependency.summaryAttemptId, turn.id, dependency.failedAttemptId);
       if (expected.cleanupRecordSha256 !== dependency.cleanupRecordSha256) return true;
       if (dependency.summaryAttemptId !== options.excludedSummaryAttemptId && !options.hasValidSummaryAcknowledgment?.(turn.sessionId, dependency.summaryAttemptId)) return true;

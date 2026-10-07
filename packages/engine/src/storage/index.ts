@@ -25,6 +25,7 @@ import { SummaryAttemptStorage, type SummaryAttemptIdentity, type SummaryAttempt
 import { SummaryRecoveryStorage, captureSummaryRecoveryHighWater, type SummaryRecoveryRequest } from '../recovery/summary.js';
 import { AttemptCleanupStorage, type AttemptCleanupIdentity, type AttemptCleanupRecord, type AttemptCleanupSettlement } from './attempt-cleanup.js';
 import { hasExecutionUncertainty, summaryOverflowDependency } from './execution-uncertainty.js';
+import { ProviderRecoveryStorage, captureProviderRecoveryHighWater, type ProviderRecoveryRequest } from '../recovery/provider.js';
 import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefix, ActivePrefixContextPublication } from '../context/active-prefix.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
@@ -104,6 +105,8 @@ export class SqliteStore implements SessionEngineStore {
   private readonly attemptCleanupRecords: AttemptCleanupStorage;
   private readonly summaryRecoveryHighWater: string;
   private summaryRecovery?: SummaryRecoveryStorage;
+  private readonly providerRecoveryHighWater: string;
+  private providerRecovery?: ProviderRecoveryStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -162,6 +165,7 @@ export class SqliteStore implements SessionEngineStore {
       this.summaryRecords = new SummaryAttemptStorage(this.native, (run, type, payload) => this.append(run, type, payload));
       this.attemptCleanupRecords = new AttemptCleanupStorage(this.native, (run, type, payload) => this.append(run, type, payload));
       this.summaryRecoveryHighWater = captureSummaryRecoveryHighWater(db);
+      this.providerRecoveryHighWater = captureProviderRecoveryHighWater(db);
     } catch (error) {
       try { db?.close(); } finally { ownership?.close(); }
       throw error;
@@ -308,6 +312,8 @@ export class SqliteStore implements SessionEngineStore {
       getSummaryOverflowDependency: (id, turnId, failedAttemptId) => this.getSummaryOverflowDependency(id, turnId, failedAttemptId),
       hasOtherExecutionUncertainty: (workspaceId, excludedSummaryAttemptId) => hasExecutionUncertainty(this.db, this, workspaceId, {
         excludedSummaryAttemptId, hasValidSummaryAcknowledgment: (sessionId, id) => this.summaryRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
+        hasValidProviderAcknowledgment: (sessionId, id) => this.providerRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
+        hasUnacknowledgedProviders: workspaceId => this.providerRecovery?.hasUnacknowledged(workspaceId) ?? true,
       }),
     });
   }
@@ -339,7 +345,32 @@ export class SqliteStore implements SessionEngineStore {
   getSummaryOverflowDependency(summaryAttemptId: string, turnId: string, failedAttemptId: string) { return summaryOverflowDependency(this.db, this, summaryAttemptId, turnId, failedAttemptId); }
   hasUncertainExecution(workspaceId: string): boolean {
     this.getWorkspace(workspaceId);
-    return this.transaction(() => hasExecutionUncertainty(this.db, this, workspaceId, { hasValidSummaryAcknowledgment: (sessionId, id) => this.summaryRecovery?.hasValidAcknowledgment(sessionId, id) ?? false }), false);
+    return this.transaction(() => hasExecutionUncertainty(this.db, this, workspaceId, {
+      hasValidSummaryAcknowledgment: (sessionId, id) => this.summaryRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
+      hasValidProviderAcknowledgment: (sessionId, id) => this.providerRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
+      hasUnacknowledgedProviders: workspaceId => this.providerRecovery?.hasUnacknowledged(workspaceId) ?? true,
+    }), false);
+  }
+  configureProviderRecovery(bindingScope: (workspaceId: string) => string): void {
+    this.assertOpen();
+    if (this.providerRecovery) throw new EngineError('PROVIDER_RECOVERY_ALREADY_CONFIGURED', 'Provider recovery has already been bound');
+    this.providerRecovery = new ProviderRecoveryStorage(this.native, this, { bindingScope, startupHighWater: this.providerRecoveryHighWater,
+      appendLegacy: (run, type, payload) => this.append(run, type, payload) });
+  }
+  getProviderRecoveryPreview(sessionId: string, attemptId: string) {
+    this.assertOpen();
+    if (!this.providerRecovery) throw new EngineError('PROVIDER_RECOVERY_NOT_CONFIGURED', 'Provider recovery requires a host storage binding');
+    return this.providerRecovery.preview(sessionId, attemptId);
+  }
+  acknowledgeProviderRecovery(request: ProviderRecoveryRequest) {
+    this.assertOpen();
+    if (!this.providerRecovery) throw new EngineError('PROVIDER_RECOVERY_NOT_CONFIGURED', 'Provider recovery requires a host storage binding');
+    return this.providerRecovery.acknowledge(request);
+  }
+  findProviderRecoveryReceipt(request: ProviderRecoveryRequest) {
+    this.assertOpen();
+    if (!this.providerRecovery) throw new EngineError('PROVIDER_RECOVERY_NOT_CONFIGURED', 'Provider recovery requires a host storage binding');
+    return this.providerRecovery.findReceipt(request);
   }
   putPart(part: MessagePart): MessagePart { return this.executionRecords.putPart(part); }
   listParts(turnId: string): MessagePart[] { return this.executionRecords.listParts(turnId); }

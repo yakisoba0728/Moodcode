@@ -37,6 +37,8 @@ export type { StorageUsageOptions, StorageUsageReport, StorageUsageLimits, Stora
 export type { InputImageIndexOptions, InputImageIndexReport } from './storage/input-image-index.js';
 export { SemanticMemoryService, SEMANTIC_MEMORY_PREFIX } from './context/semantic-memory.js';
 export type { SemanticCheckpoint } from './context/semantic-memory.js';
+export type { ProviderRecoveryRequest, ProviderRecoveryReceipt, ProviderRecoveryPreview } from './recovery/provider-contract.js';
+export { PROVIDER_RECOVERY_LIMITS } from './recovery/provider-contract.js';
 export { ActivePrefixMemoryService, validateActivePrefixPolicy, ACTIVE_PREFIX_MEMORY_PREFIX, ACTIVE_PREFIX_DOCUMENT, ACTIVE_PREFIX_PROJECTION } from './context/active-prefix.js';
 export type { ActivePrefixPolicy, ActivePrefixCheckpoint, ActivePrefixStage, PreparedActivePrefix } from './context/active-prefix.js';
 export { InputScheduler } from './runner/input-scheduler.js';

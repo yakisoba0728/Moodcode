@@ -5,7 +5,7 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EngineError } from '@moodcode/contracts';
-import { createEngine, CodexProvider, getCodexAuthStatus } from '@moodcode/engine';
+import { createEngine, CodexProvider, getCodexAuthStatus, SqliteStore } from '@moodcode/engine';
 
 // Private synthetic overflow/unknown-summary fixture, then one actual Codex
 // request. This never acknowledges recovery records in an existing project DB.
@@ -14,7 +14,7 @@ const auth = await getCodexAuthStatus(); assert.equal(auth.state, 'ready'); asse
 const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-attempt-cleanup-live-')));
 const transport = new CodexProvider({ timeoutMs: 90_000 }), actualRequests = [], fixtureRequests = [];
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-let engine, phase = 'fixture', fullSnapshotReads = 0;
+let engine, phase = 'fixture', fullSnapshotReads = 0, liveCleanupObservedConfirmed = false;
 const provider = { id: transport.id, replayProtocol: transport.replayProtocol, inputModalities: transport.inputModalities,
   retryableHttpStatuses: transport.retryableHttpStatuses, streamTurn(request, signal) {
     if (phase === 'live') {
@@ -58,9 +58,13 @@ try {
   const options = { dbPath: join(root, 'engine.sqlite'), artifactDir: join(root, 'artifacts'), providers: [provider], allowedToolNames: ['read_file'],
     defaults: { providerId: provider.id, modelId: auth.modelId, mode: 'plan', limits: { maxContextBytes: 16_384, maxOutputBytes: 32_768, maxDurationMs: 90_000 },
       budgets: { providerRequestTimeoutMs: 90_000, providerInactivityTimeoutMs: 90_000 } } };
-  const open = () => { engine = createEngine(options); engine.store.getSnapshot = () => {
-    fullSnapshotReads++; throw new Error('Ordinary cleanup verification forbids whole session snapshot reads');
-  }; };
+  const open = () => {
+    const original = SqliteStore.prototype.getSnapshot;
+    const trap = () => { fullSnapshotReads++; throw new Error('Ordinary cleanup verification forbids whole session snapshot reads, including startup'); };
+    SqliteStore.prototype.getSnapshot = trap;
+    try { engine = createEngine(options); engine.store.getSnapshot = trap; }
+    finally { SqliteStore.prototype.getSnapshot = original; }
+  };
   open(); const createdAt = new Date().toISOString();
   engine.store.putWorkspace({ id: 'workspace', root, gitRoot: root, branch: null, createdAt });
   for (const id of ['session', 'other-session']) engine.store.createSession({ id, workspaceId: 'workspace', title: 'Private cleanup fixture', createdAt });
@@ -106,12 +110,13 @@ try {
   assert.equal(liveProof.state, 'confirmed'); assert.equal(liveProof.method, 'iterator-next-done'); assert.equal(liveProof.reason, 'natural-done');
   assert.equal(liveProof.requestSha256, observed.logicalRequestSha256); assert.equal(liveProof.requestBytes, observed.logicalRequestBytes);
   assert.equal(liveProof.contextRevisionId, liveAttempt.contextRevisionId); assert.equal(liveAttempt.state, 'completed');
+  liveCleanupObservedConfirmed = true;
   const readOriginal = () => hash({ proof: engine.getAttemptCleanup('session', ordinary.attemptId), attempt: engine.store.getAttempt(ordinary.attemptId),
     turn: engine.store.getTurn(ordinary.turnId), summary: engine.getSummaryAttempt('session', summaryId), usage: engine.getSummaryUsage('session', summaryId) });
   assert.equal(readOriginal(), original);
   const headAfterNewRun = engine.store.getSessionDocument('session', 'context.head');
   assert.ok(headAfterNewRun); assert.notDeepEqual(headAfterNewRun, headBeforeDecision);
-  const metrics = engine.store.getNativeMetrics('session'); assert.equal(metrics.schemaVersion, 5);
+  const metrics = engine.store.getNativeMetrics('session'); assert.equal(metrics.schemaVersion, 6);
   assert.equal(metrics.recovery.uncertainSummaries, 1); assert.equal(metrics.recovery.summaryRecoveryAcknowledgments, 1);
   assert.equal(metrics.attemptCleanup.total, 3); assert.equal(metrics.attemptCleanup.states.confirmed, 3);
   assert.equal(metrics.attemptCleanup.providerOutcomeConfirmed, null); assert.equal(metrics.attemptCleanup.recordValidity, null);
@@ -136,8 +141,10 @@ try {
   report.failure = error?.code ?? 'LIVE_VERIFICATION_FAILED'; report.failureMessage = error?.message?.slice(0, 1024); process.exitCode = 1;
 } finally {
   try { if (engine) await engine.close(); } catch (error) { report.cleanupFailure = error?.code ?? 'CLEANUP_UNCERTAIN'; process.exitCode = 1; }
-  report.cleanupConfirmed = report.cleanupFailure === undefined;
-  if (report.cleanupConfirmed) await rm(root, { recursive: true, force: true });
+  report.hostCloseConfirmed = report.cleanupFailure === undefined;
+  report.liveCleanupObservedConfirmed = actualRequests.length === 0 ? null : liveCleanupObservedConfirmed;
+  report.cleanupConfirmed = report.hostCloseConfirmed && (actualRequests.length === 0 || liveCleanupObservedConfirmed);
+  if (report.passed && report.cleanupConfirmed) await rm(root, { recursive: true, force: true });
   else report.preservedTemporaryState = root;
 }
 console.log(JSON.stringify(report, null, 2));

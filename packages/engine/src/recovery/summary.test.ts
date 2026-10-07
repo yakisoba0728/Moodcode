@@ -3,11 +3,14 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
-import { DEFAULT_LIMITS, EngineError, type MessagePart, type ProviderAttempt, type TurnRecord } from '@moodcode/contracts';
+import { DEFAULT_LIMITS, EngineError, type EngineEvent, type JsonObject, type MessagePart, type ProviderAttempt, type Run, type TurnRecord } from '@moodcode/contracts';
 import { SqliteStore } from '../storage/index.js';
-import { validateSummaryRecoveryRequest, type SummaryRecoveryRequest } from './summary.js';
+import type { NativeSessionStorage } from '../storage/native.js';
+import type { SummaryAttemptStorage } from '../storage/summary-attempts.js';
+import { captureSummaryRecoveryHighWater, SUMMARY_RECOVERY_PROOF_SCHEMA, SUMMARY_RECOVERY_SCHEMA, SummaryRecoveryStorage, validateSummaryRecoveryRequest, type SummaryRecoveryRequest } from './summary.js';
+import { canonical } from './snapshot.js';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const code = (expected: string) => (error: unknown) => error instanceof EngineError && error.code === expected;
@@ -27,13 +30,15 @@ function fixture(t: TestContext, restart = true) {
   const source = JSON.stringify(messages.map(({ id, runId, role, content }) => ({ id, runId, role, content })));
   const current = store.admit({ sessionId: 'session', requestId: 'current', prompt: 'Original current constraint', config });
   store.commit(current.runId, 'run.started', {}, { run: { state: 'running' } });
+  const currentOwner = store as unknown as { db: DatabaseSync };
+  const baselineMessageId = String(currentOwner.db.prepare("SELECT id FROM messages WHERE run_id=? AND json_extract(data,'$.role')='user' LIMIT 1").get(current.runId)!.id);
   store.createSummaryAttempt({ id: 'summary', scope: 'completed-history', sessionId: 'session', workspaceId: 'workspace', runId: current.runId,
     providerId: config.providerId, modelId: config.modelId, sourceProjection: 'conversation-text-v1', sourceSha256: hash(source), requestSha256: hash('exact host request'), requestBytes: 100,
     expectedMemoryRevision: 0, sourceMessageIds: messages.map(message => message.id), sourceRunIds: [older.runId] });
   store.dispatchSummaryAttempt('summary'); store.observeSummaryAttempt('summary', { textDelta: 'Observed partial summary.', usage: { inputTokens: 9 } });
   store.settleSummaryAttempt('summary', { state: 'uncertain', cleanupConfirmed: false, errorCode: 'CLEANUP_UNCERTAIN' });
   const text = JSON.stringify([{ role: 'user', content: 'Original current constraint' }]);
-  store.putContextRevision({ schemaVersion: 2, id: 'context', sessionId: 'session', runId: current.runId, revision: 1, kind: 'baseline', text, sha256: hash(text), sourceIds: messages.map(message => message.id), createdAt: timestamp });
+  store.putContextRevision({ schemaVersion: 2, id: 'context', sessionId: 'session', runId: current.runId, revision: 1, kind: 'baseline', text, sha256: hash(text), sourceIds: [...messages.map(message => message.id),baselineMessageId], createdAt: timestamp });
   store.putSessionDocument('session', 'context.head', 0, { revisionId: 'context', observation: 'initial' });
   store.commit(current.runId, 'run.failed', { error: { code: 'CLEANUP_UNCERTAIN' } }, { run: { state: 'failed', error: { code: 'CLEANUP_UNCERTAIN', message: 'Unknown summary cleanup' } } });
   if (restart) { store.close(); store = new SqliteStore(path); }
@@ -45,7 +50,7 @@ function fixture(t: TestContext, restart = true) {
     const preview = store.getSummaryRecoveryPreview('session', 'summary'); assert.equal(preview.status, 'eligible', JSON.stringify(preview.blockers)); assert.ok(preview.fingerprint);
     return { sessionId: 'session', summaryAttemptId: 'summary', requestId: 'host-decision', fingerprint: preview.fingerprint, acknowledged: true };
   };
-  return { store, db, request, current, setBinding(value: string) { binding = value; } };
+  return { store, db, request, current, baselineMessageId, rawBinding: () => binding, setBinding(value: string) { binding = value; } };
 }
 
 test('summary recovery request validation rejects proxy/getter traps without reading them and returns a detached snapshot', () => {
@@ -161,4 +166,181 @@ for (const data of ['null', '{', '[]']) test(`malformed ledger ${data} is a type
   f.db.prepare('UPDATE summary_recovery_acknowledgments SET data=?').run(data);
   assert.equal(f.store.hasUncertainSummaries('workspace'), true); const preview = f.store.getSummaryRecoveryPreview('session', 'summary');
   assert.equal(preview.status, 'blocked'); assert.ok(preview.blockers.includes('SUMMARY_RECOVERY_SOURCE_CHANGED'));
+});
+
+test('V2 decision pins genuinely baseline-only source refs and rejects pin removal after source drift', t => {
+  const f = fixture(t), request = f.request(), preview = f.store.getSummaryRecoveryPreview('session', 'summary');
+  const receipt = f.store.acknowledgeSummaryRecovery(request);
+  const row = f.db.prepare('SELECT data,proof_version,pins_sha256,startup_high_water FROM summary_recovery_acknowledgments').get()!;
+  const audit = JSON.parse(String(row.data));
+  assert.equal(row.proof_version, 2); assert.equal(audit.proofVersion, 2); assert.equal(row.pins_sha256, hash(canonical(audit.pins)));
+  assert.equal(receipt.bindingScope, hash(canonical({ kind: 'summary-recovery', proofVersion: 2, storageBinding: f.rawBinding() })));
+  assert.ok(audit.pins.some((pin: { id: string }) => pin.id === f.baselineMessageId));
+  assert.ok(!f.store.getSummaryAttempt('summary').sourceMessageIds!.includes(f.baselineMessageId), 'The changed message is outside summarized history');
+  f.db.prepare("UPDATE messages SET data=json_set(data,'$.content','Changed decision-time baseline-only constraint') WHERE id=?").run(f.baselineMessageId);
+  assert.equal(f.store.hasUncertainSummaries('workspace'), true);
+  assert.equal(f.store.getSummaryRecoveryPreview('session', 'summary').sourceOwnerSha256, preview.sourceOwnerSha256, 'Original summary source remains unchanged');
+  f.db.exec("UPDATE summary_recovery_acknowledgments SET data=json_set(data,'$.pins',json('[]'))");
+  assert.equal(f.store.hasUncertainSummaries('workspace'), true);
+  const rejected = f.store.getSummaryRecoveryPreview('session', 'summary'); assert.equal(rejected.status, 'blocked'); assert.ok(rejected.blockers.includes('SUMMARY_RECOVERY_SOURCE_CHANGED'));
+});
+
+test('coordinated V2 pins and SQL pin-digest mutation cannot match the original decision fingerprint', t => {
+  const f = fixture(t), request = f.request(), receipt = f.store.acknowledgeSummaryRecovery(request);
+  const audit = JSON.parse(String(f.db.prepare('SELECT data FROM summary_recovery_acknowledgments').get()!.data));
+  audit.pins = []; audit.pinsSha256 = hash(canonical([]));
+  f.db.prepare('UPDATE summary_recovery_acknowledgments SET pins_sha256=?,data=?').run(audit.pinsSha256, JSON.stringify(audit));
+  assert.equal(f.store.hasUncertainSummaries('workspace'), true);
+  assert.equal(f.store.getSummaryRecoveryPreview('session', 'summary').status, 'blocked');
+  assert.deepEqual(f.store.findSummaryRecoveryReceipt(request), { ...receipt, duplicate: true }, 'Historical receipt lookup does not reactivate invalid proof');
+});
+
+function legacyDecision(f: ReturnType<typeof fixture>) {
+  const preview = f.store.getSummaryRecoveryPreview('session', 'summary'), request = f.request();
+  f.store.acknowledgeSummaryRecovery(request);
+  const row = f.db.prepare('SELECT * FROM summary_recovery_acknowledgments').get()!, audit = JSON.parse(String(row.data));
+  // Materialize the historical DB5 format from this fixture's exact observations.
+  // Its old fingerprint did not include the immutable pin digest.
+  const legacyFingerprint = hash(canonical({ ...preview, status: 'blocked', fingerprint: null, bindingScope: f.rawBinding(),
+    startupHighWater: captureSummaryRecoveryHighWater(f.db) }));
+  audit.receipt.requestId = 'legacy-host-decision'; audit.receipt.bindingScope = f.rawBinding(); audit.receipt.fingerprint = legacyFingerprint;
+  delete audit.proofVersion; delete audit.pinsSha256; delete audit.startupHighWater;
+  const body = JSON.stringify(audit), receipt = audit.receipt;
+  f.db.prepare('UPDATE summary_recovery_acknowledgments SET request_id=?,binding_scope=?,fingerprint=?,proof_version=1,pins_sha256=NULL,startup_high_water=NULL,data=? WHERE id=?')
+    .run(receipt.requestId, receipt.bindingScope, receipt.fingerprint, body, receipt.id);
+  for (const table of ['events','session_events']) {
+    const event = f.db.prepare(`SELECT data FROM ${table} WHERE type='summary.recovery.acknowledged' LIMIT 1`).get()!;
+    const value = JSON.parse(String(event.data)); value.payload = { ...receipt }; delete value.payload.duplicate;
+    f.db.prepare(`UPDATE ${table} SET data=? WHERE type='summary.recovery.acknowledged'`).run(JSON.stringify(value));
+  }
+  return { body, receipt, request: { sessionId: 'session', summaryAttemptId: 'summary', requestId: receipt.requestId, fingerprint: receipt.fingerprint, acknowledged: true } as SummaryRecoveryRequest };
+}
+
+test('V1 decision remains inactive historical evidence with exact old retry and a fresh independent V2 decision', t => {
+  const f = fixture(t), legacy = legacyDecision(f);
+  assert.equal(f.store.hasUncertainSummaries('workspace'), true);
+  const preview = f.store.getSummaryRecoveryPreview('session', 'summary'); assert.equal(preview.status, 'eligible'); assert.ok(preview.fingerprint);
+  assert.notEqual(preview.bindingScope, legacy.receipt.bindingScope);
+  const original = { attempt: f.store.getSummaryAttempt('summary'), usage: f.store.getSummaryUsage('summary'), head: f.store.getSessionDocument('session', 'context.head'), pause: f.store.getSessionControl('session') };
+  const count = () => f.db.prepare('SELECT count(*) AS n FROM session_events').get()!.n;
+  const before = count();
+  assert.deepEqual(f.store.findSummaryRecoveryReceipt(legacy.request), { ...legacy.receipt, duplicate: true });
+  assert.deepEqual(f.store.acknowledgeSummaryRecovery(legacy.request), { ...legacy.receipt, duplicate: true });
+  assert.equal(count(), before); assert.equal(f.store.hasUncertainSummaries('workspace'), true);
+  assert.throws(() => f.store.findSummaryRecoveryReceipt({ ...legacy.request, fingerprint: hash('different old request') }), code('SUMMARY_RECOVERY_REQUEST_CONFLICT'));
+  const newReceipt = f.store.acknowledgeSummaryRecovery({ ...legacy.request, requestId: 'fresh-proof-v2', fingerprint: preview.fingerprint });
+  assert.notEqual(newReceipt.id, legacy.receipt.id); assert.equal(f.store.hasUncertainSummaries('workspace'), false);
+  assert.deepEqual(f.store.acknowledgeSummaryRecovery(legacy.request), { ...legacy.receipt, duplicate: true });
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM summary_recovery_acknowledgments').get()!.n, 2);
+  assert.equal(f.db.prepare('SELECT data FROM summary_recovery_acknowledgments WHERE id=?').get(legacy.receipt.id)!.data, legacy.body);
+  assert.deepEqual({ attempt: f.store.getSummaryAttempt('summary'), usage: f.store.getSummaryUsage('summary'), head: f.store.getSessionDocument('session', 'context.head'), pause: f.store.getSessionControl('session') }, original);
+});
+
+test('DB7 proof ALTER preserves raw DB5 body and leaves old missing pin proof unavailable', t => {
+  const f = fixture(t), legacy = legacyDecision(f), row = f.db.prepare('SELECT * FROM summary_recovery_acknowledgments').get()!;
+  const db = new DatabaseSync(':memory:'); t.after(() => db.close());
+  for (const [table, identity] of [['workspaces',row.workspace_id],['sessions',row.session_id],['runs',row.run_id],['summary_attempts',row.summary_attempt_id]] as const) {
+    db.exec(`CREATE TABLE ${table}(id TEXT PRIMARY KEY)`); db.prepare(`INSERT INTO ${table}(id) VALUES(?)`).run(String(identity));
+  }
+  db.exec(SUMMARY_RECOVERY_SCHEMA);
+  db.prepare('INSERT INTO summary_recovery_acknowledgments(id,summary_attempt_id,session_id,workspace_id,run_id,request_id,binding_scope,attempt_revision,fingerprint,record_sha256,usage_sha256,source_owner_sha256,data) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(String(row.id),String(row.summary_attempt_id),String(row.session_id),String(row.workspace_id),String(row.run_id),String(row.request_id),String(row.binding_scope),Number(row.attempt_revision),String(row.fingerprint),String(row.record_sha256),row.usage_sha256 === null ? null : String(row.usage_sha256),String(row.source_owner_sha256),legacy.body);
+  db.exec(SUMMARY_RECOVERY_PROOF_SCHEMA);
+  const migrated = db.prepare('SELECT data,binding_scope,fingerprint,proof_version,pins_sha256,startup_high_water FROM summary_recovery_acknowledgments').get()!;
+  assert.equal(migrated.data, legacy.body); assert.equal(migrated.binding_scope, legacy.receipt.bindingScope); assert.equal(migrated.fingerprint, legacy.receipt.fingerprint);
+  assert.equal(migrated.proof_version, 1); assert.equal(migrated.pins_sha256, null); assert.equal(migrated.startup_high_water, null);
+});
+
+test('summary boot frontier is frozen after construction and historical owner checks precede ledger bodies', t => {
+  const f = fixture(t), owner = f.store as unknown as { native: NativeSessionStorage; summaryRecords: SummaryAttemptStorage; append(run: Run, type: string, payload: JsonObject): EngineEvent };
+  const options = { bindingScope: () => f.rawBinding(), startupHighWater: '0', appendLegacy: (run: Run, type: string, payload: JsonObject) => owner.append(run,type,payload) };
+  const recovery = new SummaryRecoveryStorage(owner.native, owner.summaryRecords, options); options.startupHighWater = captureSummaryRecoveryHighWater(f.db);
+  assert.ok(recovery.preview('session','summary').blockers.includes('SUMMARY_RECOVERY_RESTART_REQUIRED'));
+  const legacy = legacyDecision(f); let payloadReads = 0; const db = owner.native.database, prepare = db.prepare.bind(db);
+  db.prepare = ((sql: string) => { if (/SELECT data FROM summary_recovery_acknowledgments/u.test(sql)) payloadReads++; return prepare(sql); }) as typeof db.prepare;
+  try { assert.throws(() => recovery.findReceipt({ ...legacy.request, sessionId: 'other' }), code('SUMMARY_RECOVERY_OWNER_MISMATCH')); assert.equal(payloadReads,0); }
+  finally { db.prepare = prepare; }
+});
+
+function semanticChain(f: ReturnType<typeof fixture>, extraReferences: string[] = []) {
+  const stamp = new Date().toISOString(), side = f.store.admit({ sessionId: 'session', requestId: 'baseline-source-run', prompt: 'Separate baseline source', config });
+  f.store.commit(side.runId,'run.started',{}, { run: { state: 'running' } });
+  f.store.commit(side.runId,'message.completed',{}, { message: { id: 'baseline-native-message', sessionId: 'session', runId: side.runId, role: 'assistant', content: 'Exact baseline-only observation M1', createdAt: stamp } });
+  const firstText = 'First derived semantic memory S1';
+  f.store.putContextRevision({ schemaVersion: 2, id: 'semantic-S1', sessionId: 'session', runId: side.runId, revision: 2, kind: 'summary',
+    sourceIds: ['baseline-native-message'], text: firstText, sha256: hash(firstText), supersedesId: 'context', createdAt: stamp });
+  f.store.commit(side.runId,'run.completed',{}, { run: { state: 'completed' } });
+  const secondText = 'Later semantic memory S2 preserves S1';
+  f.store.putContextRevision({ schemaVersion: 2, id: 'semantic-S2', sessionId: 'session', revision: 3, kind: 'summary',
+    sourceIds: ['old-answer','semantic-S1',...extraReferences], text: secondText, sha256: hash(secondText), supersedesId: 'semantic-S1', createdAt: stamp });
+  f.store.putSessionDocument('session','context.head',1,{ revisionId: 'semantic-S2' });
+  return { sideRunId: side.runId };
+}
+
+test('missing nested semantic source before ACK is fail-closed instead of skipped', t => {
+  const f = fixture(t); semanticChain(f);
+  f.db.exec("DELETE FROM messages WHERE id='baseline-native-message'");
+  const preview = f.store.getSummaryRecoveryPreview('session','summary');
+  assert.equal(preview.status,'blocked'); assert.ok(preview.blockers.includes('SUMMARY_RECOVERY_SOURCE_CHANGED'));
+  assert.equal(f.db.prepare('SELECT count(*) AS n FROM summary_recovery_acknowledgments').get()!.n,0);
+});
+
+for (const target of ['message','earlier-summary','source-owner'] as const) test(`transitive baseline ${target} drift after ACK remains blocked even when the mutable head advances`, t => {
+  const f = fixture(t), chain = semanticChain(f), request = f.request(), receipt = f.store.acknowledgeSummaryRecovery(request);
+  const audit = JSON.parse(String(f.db.prepare('SELECT data FROM summary_recovery_acknowledgments').get()!.data));
+  assert.ok(audit.pins.some((pin: { id: string }) => pin.id === 'semantic-S1'));
+  assert.ok(audit.pins.some((pin: { id: string }) => pin.id === 'baseline-native-message'));
+  f.store.putSessionDocument('session','context.head',2,{ revisionId: 'context', observation: 'Later explicit context' });
+  assert.equal(f.store.hasUncertainSummaries('workspace'),false);
+  if (target === 'message') f.db.exec("UPDATE messages SET data=json_set(data,'$.content','Changed M1') WHERE id='baseline-native-message'");
+  if (target === 'earlier-summary') f.db.exec("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json('[]')) WHERE id='semantic-S1'");
+  if (target === 'source-owner') f.db.prepare("UPDATE runs SET session_id='other' WHERE id=?").run(chain.sideRunId);
+  assert.equal(f.store.hasUncertainSummaries('workspace'),true);
+  assert.deepEqual(f.store.findSummaryRecoveryReceipt(request),{ ...receipt, duplicate: true });
+});
+
+test('known provenance labels remain hash-bound while image-message labels pin their native source', t => {
+  const f = fixture(t), labelHash = hash('retained provenance');
+  semanticChain(f,[`instruction:AGENTS.md:${labelHash}`,`instruction:src/AGENTS.md:${labelHash}`,
+    ...['policy','facts','manifest','checkpoint'].map(kind => `active-prefix-${kind}:${labelHash}`),
+    `image-policy:${labelHash}`,`image-source:${labelHash}`,`image-message:baseline-native-message:${labelHash}`]);
+  const request = f.request(); f.store.acknowledgeSummaryRecovery(request);
+  const audit = JSON.parse(String(f.db.prepare('SELECT data FROM summary_recovery_acknowledgments').get()!.data));
+  assert.equal(audit.pins.filter((pin: { id: string }) => pin.id === 'baseline-native-message').length,1);
+  assert.equal(f.store.hasUncertainSummaries('workspace'),false);
+  f.db.exec("UPDATE messages SET data=json_set(data,'$.content','Changed image source metadata') WHERE id='baseline-native-message'");
+  assert.equal(f.store.hasUncertainSummaries('workspace'),true);
+});
+
+for (const invalid of ['unknown-label','malformed-instruction','self','forward','ambiguous','foreign'] as const) test(`immutable semantic closure rejects ${invalid} sources before acknowledgment`, t => {
+  const f = fixture(t); semanticChain(f);
+  if (invalid === 'unknown-label') f.db.prepare("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json(?)) WHERE id='semantic-S2'").run(JSON.stringify([`unrecognized-provenance:${hash('label')}`]));
+  if (invalid === 'malformed-instruction') f.db.prepare("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json(?)) WHERE id='semantic-S2'").run(JSON.stringify([`instruction:../AGENTS.md:${hash('label')}`]));
+  if (invalid === 'self') f.db.exec("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json('[\"semantic-S2\"]')) WHERE id='semantic-S2'");
+  if (invalid === 'forward') f.db.exec("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json('[\"semantic-S2\"]')) WHERE id='semantic-S1'");
+  if (invalid === 'ambiguous') f.db.exec("INSERT INTO messages(id,session_id,run_id,data) SELECT 'semantic-S1',session_id,run_id,json_set(data,'$.id','semantic-S1') FROM messages WHERE id='baseline-native-message'");
+  if (invalid === 'foreign') f.db.exec("UPDATE context_revisions SET session_id='other',data=json_set(data,'$.sessionId','other') WHERE id='semantic-S1'");
+  const preview = f.store.getSummaryRecoveryPreview('session','summary'); assert.equal(preview.status,'blocked');
+  assert.ok(preview.blockers.includes(invalid === 'foreign' ? 'SUMMARY_RECOVERY_OWNER_MISMATCH' : 'SUMMARY_RECOVERY_SOURCE_CHANGED'),JSON.stringify(preview.blockers));
+});
+
+test('semantic closure reference and row-byte limits fail closed before an oversized nested body is returned', t => {
+  const references = fixture(t); semanticChain(references);
+  const labels = Array.from({ length: 1024 },(_,index) => `image-policy:${index.toString(16).padStart(64,'0')}`);
+  references.db.prepare("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json(?)) WHERE id='semantic-S1'").run(JSON.stringify(labels));
+  assert.ok(references.store.getSummaryRecoveryPreview('session','summary').blockers.includes('SUMMARY_RECOVERY_LIMIT'));
+  const f = fixture(t); semanticChain(f);
+  const text = 'x'.repeat(1_048_576);
+  f.db.prepare("UPDATE context_revisions SET data=json_set(data,'$.text',?,'$.sha256',?) WHERE id='semantic-S1'").run(text,hash(text));
+  const owner = f.store as unknown as { db: DatabaseSync }, db = owner.db, prepare = db.prepare.bind(db); let nestedBodyReads = 0;
+  db.prepare = ((sql: string) => {
+    const statement = prepare(sql);
+    if (/^SELECT data FROM context_revisions WHERE id=\?/u.test(sql)) {
+      const get = statement.get.bind(statement);
+      statement.get = ((...parameters: SQLInputValue[]) => { if (parameters[0] === 'semantic-S1') nestedBodyReads++; return get(...parameters); }) as typeof statement.get;
+    }
+    return statement;
+  }) as typeof db.prepare;
+  try { assert.ok(f.store.getSummaryRecoveryPreview('session','summary').blockers.includes('SUMMARY_RECOVERY_LIMIT')); assert.equal(nestedBodyReads,0); }
+  finally { db.prepare = prepare; }
 });
