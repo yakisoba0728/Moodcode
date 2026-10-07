@@ -150,11 +150,13 @@
           "status": "in_progress",
           "evidence": [
             "engine-phase-two-knowledge-generation.md",
-            "engine-phase-two-knowledge-generation-verification.json"
+            "engine-phase-two-knowledge-generation-verification.json",
+            "engine-phase-two-knowledge-context.md",
+            "engine-phase-two-knowledge-context-verification.json"
           ]
         }
       ],
-      "notes": "Opt-in native tools-free generation and immutable candidates are integrated. DB12 adds a separately opted-in exact host approval lane for real workspace-document publish/update/revoke, atomic head CAS/document/publication/receipt, original deadline/cancel handling, historical producer proof, actual SIGKILL commit boundaries and paused archive import. Actual filesystem/skill-file publication remains typed unsupported, so MC2-03c remains in progress. Active ContextPlan projection and explicit imported-knowledge recovery remain MC2-03d. No automatic producer replay, publication or queued input wake."
+      "notes": "Opt-in native tools-free generation and immutable candidates are integrated. DB12 adds a separately opted-in exact host approval lane for real workspace-document publish/update/revoke, atomic head CAS/document/publication/receipt, original deadline/cancel handling, historical producer proof, actual SIGKILL commit boundaries and paused archive import. Actual filesystem/skill-file publication remains typed unsupported, so MC2-03c remains in progress. Host-selected current approved native documents now feed actual coding ContextPlan/Attempt with original producer provenance, current physical binding/postimage/source/trust/profile/expiry, whole-document serialized shared budgets, original capture freshness and default-off child isolation. Explicit imported-knowledge recovery remains MC2-03d work. No automatic producer replay, publication or queued input wake."
     },
     {
       "id": "MC2-04",
@@ -757,5 +759,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-07T17:35:01.491828+00:00"
+  "updatedAt": "2026-10-07T18:42:00.593539+00:00"
 }

@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "stage": "phase-two native approved workspace-document active ContextPlan consumption and per-Attempt freshness",
+  "status": "passed",
+  "recordedAt": "2026-10-07T18:43:42.246067+00:00",
+  "parentCommit": "ba95e326d8308a6434522401c7d5aa08037bc1d0",
+  "implementationIdentity": "Frozen source/test hashes after final typed malformed-input corrections and final gates, before local commit; no self-referential final commit hash.",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "checks": [
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "engine",
+      "command": "npm run test:engine",
+      "exitCode": 0,
+      "logSha256": "0b739528f84e04ee724e0e814c5044ced267d9286c6193f8f8412d5f1b8f1da3",
+      "tests": 3429,
+      "pass": 3427,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0,
+      "durationMs": 80798.243416
+    },
+    {
+      "kind": "source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=4 packages/engine/src/context/*.test.ts packages/engine/src/knowledge/*.test.ts packages/engine/src/runner/host-generation-lease.test.ts packages/engine/src/storage/migrations.test.ts packages/engine/src/recovery/schema-bounds.test.ts",
+      "exitCode": 0,
+      "logSha256": "3caf8c1ec3c7d65039435e5549788faea709608b0b01419eb5f271546fbaf458",
+      "tests": 571,
+      "pass": 571,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 15375.837
+    },
+    {
+      "kind": "eval",
+      "command": "node scripts/evaluate-engine.mjs",
+      "exitCode": 0,
+      "logSha256": "7b3d35cd340e908148573bb3b6028d7afb1701de7aee4e0dd9145ee06f388be0",
+      "tasks": [
+        {
+          "taskId": "addition-bug",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local",
+          "runState": "completed",
+          "providerAttempts": 4,
+          "toolCalls": 3
+        },
+        {
+          "taskId": "empty-list-boundary",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local",
+          "runState": "completed",
+          "providerAttempts": 4,
+          "toolCalls": 3
+        },
+        {
+          "taskId": "two-module-change",
+          "passed": true,
+          "providerId": "scripted",
+          "modelId": "local",
+          "runState": "completed",
+          "providerAttempts": 5,
+          "toolCalls": 4
+        }
+      ]
+    }
+  ],
+  "sourceTestPaths": [
+    "packages/engine/src/context/active-prefix.test.ts",
+    "packages/engine/src/context/agent-context.test.ts",
+    "packages/engine/src/context/cache-lifecycle-review.test.ts",
+    "packages/engine/src/context/cache-lifecycle.test.ts",
+    "packages/engine/src/context/context.test.ts",
+    "packages/engine/src/context/document-history.test.ts",
+    "packages/engine/src/context/document-wiring-review.test.ts",
+    "packages/engine/src/context/engine-knowledge-context.test.ts",
+    "packages/engine/src/context/engine-repository-context.test.ts",
+    "packages/engine/src/context/knowledge-capture.test.ts",
+    "packages/engine/src/context/knowledge-planning.test.ts",
+    "packages/engine/src/context/media-history-review.test.ts",
+    "packages/engine/src/context/media-history.test.ts",
+    "packages/engine/src/context/model-spec.test.ts",
+    "packages/engine/src/context/plan.test.ts",
+    "packages/engine/src/context/repository-context-integration.test.ts",
+    "packages/engine/src/context/repository-contributions.test.ts",
+    "packages/engine/src/context/required-memory.test.ts",
+    "packages/engine/src/context/semantic-memory.test.ts",
+    "packages/engine/src/context/sources.test.ts",
+    "packages/engine/src/context/summary-stream.test.ts",
+    "packages/engine/src/context/tool-history.test.ts",
+    "packages/engine/src/context/verification-continuation.test.ts",
+    "packages/engine/src/knowledge/context-source.test.ts",
+    "packages/engine/src/knowledge/engine-generation.test.ts",
+    "packages/engine/src/knowledge/engine-knowledge.test.ts",
+    "packages/engine/src/knowledge/engine-publication.test.ts",
+    "packages/engine/src/knowledge/generation-archive-relations.test.ts",
+    "packages/engine/src/knowledge/generation-archive.test.ts",
+    "packages/engine/src/knowledge/generation-crash.test.ts",
+    "packages/engine/src/knowledge/generation-request.test.ts",
+    "packages/engine/src/knowledge/generation-service-review.test.ts",
+    "packages/engine/src/knowledge/generation-store.test.ts",
+    "packages/engine/src/knowledge/generation-stream.test.ts",
+    "packages/engine/src/knowledge/host.test.ts",
+    "packages/engine/src/knowledge/publication-archive.test.ts",
+    "packages/engine/src/knowledge/publication-crash.test.ts",
+    "packages/engine/src/knowledge/publication-service.test.ts",
+    "packages/engine/src/knowledge/publication-store.test.ts",
+    "packages/engine/src/knowledge/store.test.ts",
+    "packages/engine/src/recovery/schema-bounds.test.ts",
+    "packages/engine/src/runner/host-generation-lease.test.ts",
+    "packages/engine/src/storage/migrations.test.ts"
+  ],
+  "fileSha256": {
+    "packages/engine/src/child-tasks/engine-host.ts": "7d5832a5a4ecd29907bd0d7e52db3030ebea05cad52cbac4aeaf160a266cb992",
+    "packages/engine/src/context/engine-knowledge-context.test.ts": "1375c261901af4a11d47e10b11214ecbb1f80aac8e444691264abd573753b9b2",
+    "packages/engine/src/context/index.ts": "69774a4e84118e678ec46e9e7aac31371bb50982ba2fd8d6a1bbd5cda91c38ca",
+    "packages/engine/src/context/knowledge-capture.test.ts": "4944f978a52dfad296ceaf6602586636996753cebc6b06d1b2a95d3fc53441b8",
+    "packages/engine/src/context/knowledge-planning.test.ts": "99634bb2262ffa232769ee2d64c0b64ae3e38ac88ea3272649761cdfedfa19a3",
+    "packages/engine/src/context/plan.ts": "b8ad1c29404e89e08d6739aa09cdd1f7c6e58bd325ccfe81fc2ac5f3aa04d588",
+    "packages/engine/src/context/repository-context-integration.test.ts": "4464e94e1fee108f8adc38392a92a3a9d35bad41278e217fff4b1443c6eeb952",
+    "packages/engine/src/context/service.ts": "eba3f12371410a744042fe0c953503f3ffc01caf1cd593a6f9b77369603cef4d",
+    "packages/engine/src/context/verification-continuation.test.ts": "8d09eda6083fa00ff0e11d89fbbc410982ddeb0191fea2ebc123e75f6423c434",
+    "packages/engine/src/engine.ts": "c7207d4cd0b52e705cee84984f6cdddc3997d86c377373daf38a59a722fa3407",
+    "packages/engine/src/index.ts": "dd3d9a58e6c06253b1dbb089cb7cee5e9d9c782d20291a4957b28f9256f3653d",
+    "packages/engine/src/knowledge/context-source.test.ts": "32e36eec7652f456cd5adc388953ec8f5e9562efaef980d37c97e22dfb6a1c41",
+    "packages/engine/src/knowledge/context-source.ts": "c99230aa16c9dfe4d943e7589f662cdf70d2dd38e6b07a2e3f1514c4ad3c57d5",
+    "packages/engine/src/knowledge/context-types.ts": "2687565eee05154b08d13073aa7a074042359e8eddbfc3f15f5c8a3a00396bf7",
+    "packages/engine/src/storage/index.ts": "64837f3d04e9e2e89f25b1d7845ecc249ff5cbfec7fbccd7c812bd317e5bdf12"
+  },
+  "newRegressionCoverage": {
+    "nativePrimaryKnowledgeSource": 24,
+    "actualEngineCodingContext": 34,
+    "requiredPlanningAndOriginalCapture": 11,
+    "totalNewTests": 69
+  },
+  "reviewCorrections": [
+    "Whole selected-document expiry is rechecked after every synchronous trust/source/binding assertion across the complete snapshot. An earlier document expiring during later document I/O is omitted or invalidates its original included capture.",
+    "Bounded trust-head JSON must agree with indexed SQL workspace/revision pointers before following the legacy getter; malformed JSON raises KNOWLEDGE_CONTEXT_EVIDENCE_INVALID with getter zero.",
+    "Malformed null workspace raises INVALID_KNOWLEDGE_CONTEXT before port access, rather than raw TypeError.",
+    "Current trust-source edits are untrusted omissions; original candidate-source edits are stale omissions.",
+    "Context reservation uses one actually serialized required transcript, preserving full current tool exchanges/verification control before repository and knowledge contribution; no second prepare or double envelope/output reserve.",
+    "Actual pre-dispatch stale lifecycle checks occur before native Attempt allocation; tests distinguish Attempt zero from retry Attempt not-dispatched with the original ContextRevision."
+  ],
+  "nativeEvidence": [
+    "Actual completed source Run/message and files -> opt-in native tools-free generation/Attempt/confirmed cleanup -> recorded pending candidate -> exact approved SQL publication/receipt/current postimage -> close/reopen -> coding ProviderAttempt/ContextRevision/request digest/cleanup.",
+    "Exact owner/session/profile revision, physical DB/artifact/root binding, historical producer tuple and current active postimage are independent checks; publication preimage is not incorrectly demanded as the active current target.",
+    "Complete quoted assistant data carries actual document/publication/receipt/candidate/generation/Attempt/plan/trust and source manifest hashes. It grants no instruction/tool/publication authority.",
+    "Default off, deeply immutable host selector, maximum four document keys/sixteen profile selectors, complete-document 16KiB message cap, shared context/output/repository reservations, whole omissions.",
+    "Original capture identity/messages digest/session/Run/context head, active+pending capture cap128, source cap256, cancellation and terminal release; same-Turn retry never changes to a new document.",
+    "Revoke/source deletion/trust denial/pause/profile exclusion/expiry omit before build; captured head/source/trust/steer/pause changes prevent additional provider dispatch.",
+    "Relocated archived history remains readable while imported active knowledge remains paused; parent selection is not automatically inherited by child engines."
+  ],
+  "completion": {
+    "goalStatus": "active",
+    "completedWorkItems": 17,
+    "totalWorkItems": 80,
+    "completedFamilies": 2,
+    "totalFamilies": 20,
+    "newlyCompleted": [],
+    "inProgress": [
+      "MC2-03c",
+      "MC2-03d"
+    ],
+    "implementedSupportedLane": "MC2-03d active native SQL workspace-document coding ContextPlan consumption",
+    "remainingFor03c": "Actual filesystem/skill-file publication backend remains unsupported.",
+    "remainingFor03d": "Explicit imported-knowledge recovery with original archive provenance and separate host acknowledge/resume remains."
+  },
+  "limits": [
+    "This slice adds no new durable schema or provider/queue replay. Policy is an explicit host opt-in and grants no generation/publication approval.",
+    "Metadata body preflight is 65536 bytes per native row and 1048576 bytes per actual primary read snapshot. Executable/async ports and copied/released source captures do not gain authority.",
+    "No automatic related-path/ranking, real semantic corpus quality, GUI, actual account calls, OS sandbox, external CI/deployment or push proof.",
+    "Three authored evaluation tasks use a local scripted provider; they do not measure live model quality.",
+    "Two existing Windows native JobObject tests are conditionally skipped and are not counted as passes or native Windows evidence.",
+    "Earlier generation/publication verification JSONs remain historical to their recorded commit/source identities."
+  ],
+  "environmentDebts": [
+    "E5-13",
+    "E5-08",
+    "E6-07",
+    "E6-08"
+  ]
+}

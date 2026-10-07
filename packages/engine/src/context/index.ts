@@ -334,7 +334,7 @@ function fitInstructions(instructions: { text: string; truncated: boolean }, cos
 }
 
 /** Build a bounded provider transcript without exposing incomplete tool exchanges. */
-export async function buildContext(request: ContextRequest): Promise<ProviderMessage[]> {
+export async function buildContext(request: ContextRequest, options: { requiredOnly?: boolean } = {}): Promise<ProviderMessage[]> {
   checkAbort(request.signal);
   const maxContextBytes = request.config.limits.maxContextBytes;
   if (!Number.isSafeInteger(maxContextBytes) || maxContextBytes < 2) {
@@ -429,9 +429,9 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
   const available = limit - arrayBytes(cost, count);
   // Reserve part of optional history space only when the full older transcript
   // cannot fit. Required current exchanges and project guidance are already kept.
-  const reserve = !semantic && olderCost > available ? Math.min(MAX_MEMORY_BYTES, Math.floor(available / 4)) : 0;
+  const reserve = !options.requiredOnly && !semantic && olderCost > available ? Math.min(MAX_MEMORY_BYTES, Math.floor(available / 4)) : 0;
   const memoryReserve = reserve >= MIN_MEMORY_BYTES ? reserve : 0;
-  let nextOptional = blocks.length - 1;
+  let nextOptional = options.requiredOnly ? -1 : blocks.length - 1;
   // The required anchors can precede the retained recent suffix. Groups remain indivisible.
   for (; nextOptional >= 0; nextOptional -= 1) {
     checkAbort(request.signal);
@@ -444,7 +444,7 @@ export async function buildContext(request: ContextRequest): Promise<ProviderMes
   }
   checkAbort(request.signal);
   const omitted = blocks.filter(item => !selected.has(item));
-  const memory = semantic ?? (omitted.length ? extractiveMemory(
+  const memory = semantic ?? (!options.requiredOnly && omitted.length ? extractiveMemory(
     omitted.flatMap((item) => item.sources),
     limit - arrayBytes(cost, count),
   ) : undefined);

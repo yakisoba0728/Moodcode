@@ -43,6 +43,8 @@ import type { KnowledgePublicationStoragePorts } from '../knowledge/publication-
 import type { KnowledgeStoragePorts } from '../knowledge/types.js';
 import { validateKnowledgeArchiveRow } from '../knowledge/validation.js';
 import { KnowledgeHostAdapter } from '../knowledge/host.js';
+import { KnowledgeContextSource } from '../knowledge/context-source.js';
+import type { KnowledgeContextSourcePorts } from '../knowledge/context-types.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
@@ -515,6 +517,10 @@ export class SqliteStore implements SessionEngineStore {
     this.assertOpen();
     if (this.knowledgePublicationRecords) throw new EngineError('KNOWLEDGE_PUBLICATION_ALREADY_CONFIGURED', 'Native publication storage already has a host owner');
     return this.knowledgePublicationRecords = new KnowledgePublicationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.transaction(operation) });
+  }
+  createKnowledgeContextSource(ports: Omit<KnowledgeContextSourcePorts, 'readTx' | 'getWorkspace'>): KnowledgeContextSource {
+    this.assertOpen();
+    return new KnowledgeContextSource(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), readTx: operation => this.evidenceRead(operation) });
   }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
   pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string): void {

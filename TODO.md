@@ -298,7 +298,7 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 
 - [ ] **MC2-01 — 저장소 문맥·LSP navigation**: P1 · W1. frozen ContextSource/snippets·공유 byte 예약·native Attempt freshness까지 연결. 자동 관련 path·real semantic 큰 corpus 품질 검증 잔여. [통합](docs/moodcode/engine-phase-two-w2.md).
 - [x] **MC2-02 — 검증 계획·제한 repair·완료 gate**: P1 · W2/W3. 원본 명령 capability·실제 취소 결과/unsupported·같은 Run의 제한 repair와 원래 budget·stalled/blocked·현재 source 및 cleanup에 근거한 task completion을 연결했다. restart/import/late 결과는 자동 재실행하지 않는다. [통합](docs/moodcode/engine-phase-two-w3.md).
-- [ ] **MC2-03 — 지침 신뢰·승인형 프로젝트 기억**: P1 · W3. 실제 Engine의 workspace trust/CAS·source/target capture·pending plan·DB10 및 archive import pause 기반 연결. DB11 native tools-free generation/output/usage·pending candidate/inbox·실제 강제 종료 복구까지 연결. 승인 publish/revoke·기존 target revision·활성 문맥 projection 잔여. [통합](docs/moodcode/engine-phase-two-knowledge-generation.md).
+- [ ] **MC2-03 — 지침 신뢰·승인형 프로젝트 기억**: P1 · W3. 실제 Engine의 workspace trust/CAS·source/target capture·pending plan·DB10 및 archive import pause 기반 연결. DB11 native tools-free generation/output/usage·pending candidate/inbox·실제 강제 종료 복구까지 연결. DB12 exact publish/update/revoke와 승인 문서의 실제 ContextPlan 소비까지 연결했다. 파일/skill publication과 imported knowledge의 명시적 복구 잔여. [생성](docs/moodcode/engine-phase-two-knowledge-generation.md)·[문맥 소비](docs/moodcode/engine-phase-two-knowledge-context.md).
 - [ ] **MC2-04 — typed lifecycle·policy hook**: P1 · W1. host registry·observe/deny/stop·native 경계·child 공유 연결. 검증 전용 continuation은 고정 ContextPlan과 같은 Run에 연결했고, 일반 typed hook의 context/input rewrite·continuation 계약은 잔여.
 - [ ] **MC2-05 — 적용 전 ProposalSet overlay**: P2 · W4. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-06 — 상주 child·팀 mailbox·board**: P2 · W4. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
@@ -344,7 +344,7 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 - [x] **MC2-03a** — 실제 trust/source/target/plan에 DB11 native generation owner/output/nullable usage/확정 cleanup을 연결하고 immutable pending 후보를 저장했다.
 - [x] **MC2-03b** — 완료 Run 메시지·명시적 파일의 원본 capture, opt-in tools-free 추출, 독립 예산·상한·취소, bounded pending inbox와 reasoning/replay 제외를 검증했다.
 - [ ] **MC2-03c** — DB12 native workspace-document에 exact approval publish/update/revoke·head CAS·중복 영수증·취소·실제 COMMIT/SIGKILL·archive를 연결했다. 파일/skill 파일 publication의 실제 OS 어댑터가 남아 진행 중이다. [통합](docs/moodcode/engine-phase-two-knowledge-publication.md).
-- [ ] **MC2-03d** — generation의 실제 SIGKILL/partial/uncertainty·명시적 ACK+별도 resume·paused archive import는 연결했다. 활성 ContextPlan projection·출판 이후 현재성·철회·imported knowledge의 명시적 복구가 남았다.
+- [ ] **MC2-03d** — generation의 실제 SIGKILL/partial/uncertainty·명시적 ACK+별도 resume·paused archive import와 실제 active ContextPlan을 연결했다. 승인 문서의 postimage·출처/신뢰·만료/철회·공유 budget·Attempt별 freshness·child 격리를 검증했다. imported knowledge의 명시적 복구가 남아 진행 중이다. [문맥 소비](docs/moodcode/engine-phase-two-knowledge-context.md).
 
 ### W3 지식 생성 통합
 
@@ -352,4 +352,8 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 
 ### W3 승인형 게시 통합
 
-별도 opt-in에서 실제 SQL workspace 문서의 게시·기존 revision 수정·논리적 철회와 원래 영수증을 제공한다. 원본 승인 미리보기, 완료 후보 marker, native producer 역사 tuple, 정확한 현재 head, source/trust/binding 재검사와 한 SQL 트랜잭션의 CAS를 사용한다. actual SIGKILL 및 paused archive import를 포함한다. [구현 설명](docs/moodcode/engine-phase-two-knowledge-publication.md)·[검증 기록](docs/moodcode/engine-phase-two-knowledge-publication-verification.json). 파일/skill publication과 활성 ContextPlan 소비가 남아 완료 수17/80·goal active를 유지한다.
+별도 opt-in에서 실제 SQL workspace 문서의 게시·기존 revision 수정·논리적 철회와 원래 영수증을 제공한다. 원본 승인 미리보기, 완료 후보 marker, native producer 역사 tuple, 정확한 현재 head, source/trust/binding 재검사와 한 SQL 트랜잭션의 CAS를 사용한다. actual SIGKILL 및 paused archive import를 포함한다. [구현 설명](docs/moodcode/engine-phase-two-knowledge-publication.md)·[검증 기록](docs/moodcode/engine-phase-two-knowledge-publication-verification.json). 파일/skill publication이 남아 MC2-03c는 진행 중이다. 활성 ContextPlan 소비의 후속 검증은 아래에 기록한다. 완료 수17/80·goal active를 유지한다.
+
+### W3 승인 문서 문맥 소비 통합
+
+호스트가 명시적으로 선택한 native SQL 문서를 실제 코딩 ContextPlan·ProviderAttempt와 연결했다. 기본값은 비활성이며 원본 완료 producer/publication/receipt, 현재 postimage, source/trust/profile/만료, paused import를 검증한다. 필수 exchange·repository·지식·output은 같은 실제 serialized 예산을 쓰며 동일 Turn의 retry는 원래 메시지와 ContextRevision을 유지한다. source/head/신뢰 변경·취소는 추가 dispatch를 막는다. 부모 정책은 child에 자동 전달되지 않는다. [구현 설명](docs/moodcode/engine-phase-two-knowledge-context.md)·[검증 기록](docs/moodcode/engine-phase-two-knowledge-context-verification.json). imported knowledge의 명시적 복구가 남아 MC2-03d와 전체 goal은 진행 중이며 완료 수17/80은 유지한다.

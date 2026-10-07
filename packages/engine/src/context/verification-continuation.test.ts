@@ -33,8 +33,9 @@ async function fixture(t: TestContext, limit = 4096) {
   const receipt = store.admit({ sessionId: 'session', requestId: 'request', prompt: 'Preserve the exact current user goal', config }); store.commit(receipt.runId, 'run.started', {}, { run: { state: 'running' } });
   const run = store.getRun(receipt.runId), source = new RepositoryContextSource(new RepositoryContextService(lsp, () => null));
   let preparations = 0, freshnessHook: (() => Promise<void>) | undefined;
+  const reservations: number[] = [];
   const service = new ContextService(store, undefined, 32, undefined, { repositoryContext: { source: {
-    prepare: request => { preparations++; return source.prepare(request); },
+    prepare: request => { preparations++; reservations.push(request.budget.requiredMessagesBytes); return source.prepare(request); },
     assertFresh: async (...args) => { await freshnessHook?.(); await source.assertFresh(...args); },
   }, policy: { query: { kind: 'symbols', paths: ['source.ts'] }, slotBytes: 4096, exactRanges: [{ path: 'source.ts', range: { start: { line: 0, character: 0 }, end: { line: 0, character: 39 } } }] } } });
   const request = (continuation = control()): ContextRequest => ({ workspace, snapshot: service.snapshot('session', config), config, run, signal: signal(), reservedBytes: 64, verificationContinuation: continuation });
@@ -48,7 +49,7 @@ async function fixture(t: TestContext, limit = 4096) {
     catch (error) { executor.fail(error); throw error; }
     return executor;
   };
-  return { root, store, config, run, service, request, execute, requests, get lastExecutor() { return lastExecutor; }, get preparations() { return preparations; }, get invocations() { return invocations; }, set freshnessHook(value: typeof freshnessHook) { freshnessHook = value; } };
+  return { root, store, config, run, service, request, execute, requests, get reservations() { return [...reservations]; }, get lastExecutor() { return lastExecutor; }, get preparations() { return preparations; }, get invocations() { return invocations; }, set freshnessHook(value: typeof freshnessHook) { freshnessHook = value; } };
 }
 
 test('required verification control reaches the actual provider as one bounded user message and binds native context serialization', async t => {
@@ -61,10 +62,12 @@ test('required verification control reaches the actual provider as one bounded u
   assert.equal(f.store.listTurns(f.run.id)[0]!.state, 'completed'); assert.equal(f.config.limits.maxContextBytes, 4096);
 });
 
-test('tight actual ContextService reprepares optional repository evidence so mandatory control and transcript fit unchanged', async t => {
-  const f = await fixture(t, 1536), continuation = control('tight-stage', 'x'.repeat(300)), request = f.request(continuation), base = await planContext(request);
+test('tight actual ContextService reserves mandatory control and transcript before preparing optional evidence once', async t => {
+  const f = await fixture(t, 1536), continuation = control('tight-stage', 'x'.repeat(300)), request = f.request(continuation), base = await planContext(request, { outputTokens: 32, requiredOnly: true });
   assert.ok(base.bytes < 1536); const messages = await f.service.build(request);
-  assert.equal(f.preparations, 2); assert.deepEqual(messages.at(-1), continuation); assert.ok(messages.some(message => message.content === f.run.prompt));
+  assert.equal(f.preparations, 1); assert.deepEqual(f.reservations, [base.bytes - 64]);
+  assert.ok(f.reservations[0]! > Buffer.byteLength(continuation.content) + Buffer.byteLength(f.run.prompt));
+  assert.deepEqual(messages.at(-1), continuation); assert.ok(messages.some(message => message.content === f.run.prompt));
   assert.ok(Buffer.byteLength(JSON.stringify(messages)) + 64 <= 1536); assert.equal(f.service.diagnostics('session')!.repositoryContext!.omissions.message, true);
   assert.equal(f.service.diagnostics('session')!.repositoryContext!.omissions.contextBudget, 1); await f.execute(messages); assert.equal(f.invocations, 1);
 });

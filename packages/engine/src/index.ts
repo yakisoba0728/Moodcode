@@ -10,6 +10,8 @@ export * from './verification/index.js';
 export * from './verification/host.js';
 export * from './knowledge/index.js';
 export * from './knowledge/host.js';
+export * from './knowledge/context-types.js';
+export { KnowledgeContextSource, knowledgeContextPolicy, KNOWLEDGE_CONTEXT_LIMITS } from './knowledge/context-source.js';
 export * from './workspace/trust.js';
 export * from './context/repository-contributions.js';
 export * from './permission/preflight.js';

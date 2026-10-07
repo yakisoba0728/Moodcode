@@ -19,6 +19,8 @@ import type { KnowledgeGenerationStorage } from './knowledge/generation-store.js
 import type { KnowledgeGenerationRecoveryPreview } from './knowledge/generation-types.js';
 import type { KnowledgePublicationStorage } from './knowledge/publication-store.js';
 import { KnowledgePublicationService } from './knowledge/publication-service.js';
+import { knowledgeContextPolicy } from './knowledge/context-source.js';
+import type { KnowledgeContextPolicy } from './knowledge/context-types.js';
 import { WorkspaceTrustService, assertWorkspaceTrustSourcesCurrent } from './workspace/trust.js';
 import { LifecycleHookRegistry, type LifecycleHookRegistration } from './lifecycle/index.js';
 import { exportTrajectory, validateTrajectoryOptions, type JournalProjection, type TrajectoryOptions } from './diagnostics/trajectory.js';
@@ -131,6 +133,8 @@ export interface EngineOptions {
   knowledgeGeneration?: boolean;
   /** Explicit host-approved publication to native workspace document revisions. */
   knowledgePublication?: boolean;
+  /** Host-selected current approved documents, consumed as bounded read-only data. */
+  knowledgeContextPolicy?: KnowledgeContextPolicy;
   /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
   lifecycleHooks?: readonly LifecycleHookRegistration[];
   /** Shared host policy registry for owned child engines. Captures remain Run-bound. */
@@ -317,6 +321,7 @@ export class MoodcodeEngine {
       throw new EngineError('INVALID_CONFIG', 'dbPath must be a non-empty string');
     }
     const repositoryPolicy = options.repositoryContextPolicy !== undefined ? repositoryContextPolicy(options.repositoryContextPolicy) : undefined;
+    const knowledgePolicy = options.knowledgeContextPolicy === undefined ? undefined : knowledgeContextPolicy(options.knowledgeContextPolicy);
     if (options.lifecycleHookRegistry !== undefined && !(options.lifecycleHookRegistry instanceof LifecycleHookRegistry)) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Shared hook registry requires an explicit trusted host registry');
     if (options.lifecycleHookRegistry && options.lifecycleHooks !== undefined) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Specify one host registry or initial hook registrations');
     this.lifecycleHooks = options.lifecycleHookRegistry ?? new LifecycleHookRegistry();
@@ -490,7 +495,41 @@ export class MoodcodeEngine {
         assertTrustSourcesCurrent: assertWorkspaceTrustSourcesCurrent,
         assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source),
         withLease: (workspaceId, operation) => this.coordinator.withWorkspaceLease(workspaceId, operation) });
-      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}) });
+      const knowledgeContext = knowledgePolicy ? {
+        policy: knowledgePolicy,
+        getProfile: (run: Run) => { const profile = this.profiles.forRun(run.sessionId, run.config); return profile ? { id: profile.id, revision: profile.revision } : undefined; },
+        source: this.store.createKnowledgeContextSource({
+          checkBinding: knowledgeBinding,
+          assertOwnerCurrent: (workspaceId, owner) => {
+            const session = this.store.getSession(owner.sessionId);
+            if (session.workspaceId !== workspaceId) throw new EngineError('KNOWLEDGE_CONTEXT_STALE', 'Knowledge context session belongs to another workspace');
+            if (owner.runId === null) {
+              if (owner.profile !== null) throw new EngineError('KNOWLEDGE_CONTEXT_STALE', 'Profile selection requires its admitted Run owner');
+              return;
+            }
+            const run = this.store.getRun(owner.runId);
+            if (run.sessionId !== session.id || run.workspaceId !== workspaceId || isTerminal(run.state) || run.state === 'cancelling')
+              throw new EngineError('KNOWLEDGE_CONTEXT_STALE', 'Knowledge context requires its original active Run and session');
+            const profile = this.profiles.forRun(run.sessionId, run.config);
+            if (knowledgeHash(owner.profile) !== knowledgeHash(profile ? { id: profile.id, revision: profile.revision } : null))
+              throw new EngineError('KNOWLEDGE_CONTEXT_STALE', 'Knowledge context profile differs from its admitted host configuration');
+          },
+          isPaused: workspaceId => this.workspaceKnowledge.getImportPause(workspaceId) !== undefined,
+          getDocumentHead: (workspaceId, key) => this.knowledgePublications.getDocumentHead(workspaceId, key),
+          getDocumentRevision: (workspaceId, id) => this.knowledgePublications.getDocumentRevision(workspaceId, id),
+          getPublication: (workspaceId, id) => this.knowledgePublications.getPublication(workspaceId, id),
+          getReceipt: (workspaceId, requestId) => this.knowledgePublications.getReceipt(workspaceId, requestId),
+          getCandidate: (workspaceId, id) => this.workspaceKnowledge.getCandidate(workspaceId, id),
+          getGeneration: (workspaceId, id) => this.knowledgeGenerations.getGeneration(workspaceId, id),
+          getAttempt: (workspaceId, id) => this.knowledgeGenerations.getAttempt(workspaceId, id),
+          getPlan: (workspaceId, id) => this.workspaceKnowledge.getGenerationPlan(workspaceId, id),
+          getTrust: workspaceId => this.workspaceKnowledge.getTrust(workspaceId),
+          getTrustRevision: (workspaceId, id) => this.workspaceKnowledge.getTrustRevision(workspaceId, id),
+          assertTrustSourcesCurrent: assertWorkspaceTrustSourcesCurrent,
+          assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source),
+        }),
+      } : undefined;
+      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}), ...(knowledgeContext ? { knowledgeContext } : {}) });
       if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
       this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts,
         ...(options.roleResourcePolicy ? { roleResources: options.roleResourcePolicy } : {}), ...(options.roleResourcePolicyRegistry ? { roleResourcePolicyRegistry: options.roleResourcePolicyRegistry } : {}), ...(options.resolveRoleResources ? { resolveRoleResources: options.resolveRoleResources } : {}), ...(options.commandPreflight ? { commandPreflight: options.commandPreflight } : {}) });
@@ -560,7 +599,7 @@ export class MoodcodeEngine {
         contextSnapshot: (sessionId, config) => this.context.snapshot(sessionId, config),
         getContextRevisionId: sessionId => this.context.revisionId(sessionId),
         assertContextFresh: (request, signal) => this.context.assertFresh(request.sessionId, request.messages, signal, request.runId),
-        releaseContext: (sessionId, runId) => this.context.releaseRepositoryContext(sessionId, runId),
+        releaseContext: (sessionId, runId) => this.context.releaseContext(sessionId, runId),
         getToolProfile: run => {
           const profile = this.profiles.forRun(run.sessionId, run.config);
           return profile ? { id: profile.id, revision: profile.revision } : undefined;

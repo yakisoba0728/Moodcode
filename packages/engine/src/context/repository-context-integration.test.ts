@@ -89,13 +89,15 @@ test('a tight actual ContextService preserves the mandatory current exchange and
   assert.equal('messages' in diagnostics.repositoryContext!, false);
   await f.service.assertFresh('session', messages, signal(), f.run.id);
 });
-test('a large required input triggers one bounded evidence reprepare instead of losing or truncating the user anchor', async t => {
-  let preparations = 0;
+test('a large required input reserves its actual complete transcript before one optional evidence prepare', async t => {
+  const reservations: number[] = [];
   const f = await fixture(t, { limit: 6600, prompt: 'required anchor '.repeat(380), source: source => ({
-    prepare: request => { preparations++; return source.prepare(request); }, assertFresh: (...args) => source.assertFresh(...args),
+    prepare: request => { reservations.push(request.budget.requiredMessagesBytes); return source.prepare(request); }, assertFresh: (...args) => source.assertFresh(...args),
   }) });
+  const required = await planContext(f.request(), { outputTokens: 32, requiredOnly: true });
   const messages = await f.service.build(f.request());
-  assert.equal(preparations, 2);
+  assert.deepEqual(reservations, [required.bytes - 64]);
+  assert.ok(reservations[0]! > Buffer.byteLength(f.run.prompt));
   assert.equal(messages.at(-1)?.content, f.run.prompt);
   assert.ok(Buffer.byteLength(JSON.stringify(messages)) + 64 <= 6600);
   assert.equal(f.service.diagnostics('session')?.repositoryContext?.omissions.message, true);
