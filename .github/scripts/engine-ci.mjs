@@ -4,6 +4,7 @@ import { createWriteStream } from "node:fs";
 import {
   appendFile,
   mkdir,
+  mkdtemp,
   readFile,
   readdir,
   realpath,
@@ -19,6 +20,11 @@ import {
   validatePtyRepeatabilityReport,
 } from "./followup-reports.mjs";
 import { preserveFollowupEvidence } from "./followup-evidence.mjs";
+import { preserveHardeningCliReports } from "./hardening-evidence.mjs";
+export {
+  queueHardeningCliEvidence,
+  preserveHardeningCliReports,
+} from "./hardening-evidence.mjs";
 
 export const PROJECTS = [
   "packages/contracts",
@@ -503,7 +509,13 @@ async function run(mode, argv) {
   const environmentOverrides =
     mode === "test-media-local"
       ? { MOODCODE_MEDIA_VERIFY_TEST_ENGINE: "compiled" }
-      : {};
+      : mode === "test-hardening-cli"
+        ? {
+            MOODCODE_CI_HARDENING_EVIDENCE_DIR: await mkdtemp(
+              join(await realpath(resultsDir), "test-hardening-cli-evidence-"),
+            ),
+          }
+        : {};
   try {
     status = await new Promise((resolveStatus, reject) => {
       const child = spawn(argv[0], argv.slice(1), {
@@ -549,7 +561,9 @@ async function run(mode, argv) {
     exitCode: status?.code ?? null,
     signal: status?.signal ?? null,
     state: !failure && status?.code === 0 ? "passed" : "failed",
-    ...(mode === "test-media-local" ? { environmentOverrides } : {}),
+    ...(["test-media-local", "test-hardening-cli"].includes(mode)
+      ? { environmentOverrides }
+      : {}),
     ...(failure ? { failure } : {}),
   });
   return failure ? 1 : (status?.code ?? 1);
@@ -635,6 +649,32 @@ export async function main(mode) {
       ...(await windowsTestFiles()),
     ];
   const exitCode = await run(mode, argv);
+  if (mode === "test-hardening-cli") {
+    try {
+      const steps = JSON.parse(await readFile(recordPath, "utf8")).steps;
+      const directory =
+        steps.at(-1)?.environmentOverrides?.MOODCODE_CI_HARDENING_EVIDENCE_DIR;
+      const evidence = await preserveHardeningCliReports(directory);
+      await writeFile(
+        join(resultsDir, "test-hardening-cli-evidence.json"),
+        JSON.stringify(evidence, null, 2) + "\n",
+      );
+      await record({
+        operation: "test-hardening-cli-evidence",
+        state: evidence.passed ? "passed" : "failed",
+        exitCode: evidence.passed ? 0 : 1,
+      });
+      return exitCode || (evidence.passed ? 0 : 1);
+    } catch (error) {
+      await record({
+        operation: "test-hardening-cli-evidence",
+        state: "failed",
+        exitCode: 1,
+        failure: error.message,
+      });
+      return exitCode || 1;
+    }
+  }
   if (LOCAL_REPORT_MODES.has(mode)) {
     try {
       const result = JSON.parse(

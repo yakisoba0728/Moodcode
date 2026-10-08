@@ -1,0 +1,796 @@
+{
+  "schemaVersion": 1,
+  "run": {
+    "id": 37853473036,
+    "head_sha": "3fc2d1450f5a14557e132afb9e6422e528fa58a5",
+    "run_attempt": 1,
+    "status": "completed",
+    "conclusion": "failure",
+    "html_url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37853473036"
+  },
+  "rawLogs": [
+    {
+      "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/raw-macos-node24.log",
+      "bytes": 952547,
+      "sha256": "d025381f8a7e2016a9822b878c8a154f99e61a178528c678066dad523ac5c9b8"
+    },
+    {
+      "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/raw-macos-node26.log",
+      "bytes": 379509,
+      "sha256": "63a0ed5b8645477757afd3698471730a596db32df930349a04f48c8198c11b38"
+    }
+  ],
+  "artifacts": [
+    {
+      "node": "24",
+      "artifactId": 11582529616,
+      "name": "engine-macos-15-node-24.x-attempt-1",
+      "archive": {
+        "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/artifact-node24.zip",
+        "bytes": 382761,
+        "sha256": "ce9db23d1f88075f865f740f789ed0ce1834b7ddab35720f251d5b653ead934f"
+      },
+      "apiDigest": "sha256:ce9db23d1f88075f865f740f789ed0ce1834b7ddab35720f251d5b653ead934f",
+      "unpackedFiles": 27,
+      "exactUnpackedBytes": true,
+      "files": [
+        {
+          "path": "build.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "build.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "db-contract.json",
+          "bytes": 90682,
+          "sha256": "cb0143d0f0dd8f767a68141c55f7b5b7fd5d0d0131916adb9df2b922df115d91"
+        },
+        {
+          "path": "build.stdout",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "db-contract.log",
+          "bytes": 90682,
+          "sha256": "cb0143d0f0dd8f767a68141c55f7b5b7fd5d0d0131916adb9df2b922df115d91"
+        },
+        {
+          "path": "db-contract.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "db-contract.stdout",
+          "bytes": 90682,
+          "sha256": "cb0143d0f0dd8f767a68141c55f7b5b7fd5d0d0131916adb9df2b922df115d91"
+        },
+        {
+          "path": "environment.json",
+          "bytes": 5530,
+          "sha256": "c0319cd87cfa3ca08d0368e6f72fb3a5e286297d8b3035bc490989312c962d5c"
+        },
+        {
+          "path": "install.log",
+          "bytes": 1619,
+          "sha256": "e8878c7c7a7babafae5a09b111733312b90aff029ce9cbe7d0c5e567f211a2d7"
+        },
+        {
+          "path": "prepare-pty.log",
+          "bytes": 43,
+          "sha256": "660f558159c89fd6cf8d5265ca67e3389dfff6a48740f84fc542296b3fdef25c"
+        },
+        {
+          "path": "prepare-pty.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "prepare-pty.stdout",
+          "bytes": 43,
+          "sha256": "660f558159c89fd6cf8d5265ca67e3389dfff6a48740f84fc542296b3fdef25c"
+        },
+        {
+          "path": "pty-capability.json",
+          "bytes": 107,
+          "sha256": "97325b4134caa4636cbfa151e4ea51e068c293e8c452f7065cf182e15cd1aab5"
+        },
+        {
+          "path": "results.json",
+          "bytes": 5114,
+          "sha256": "8ad73d3de61b506e3902171ef2c46f3391f64db2f5ef3f5b11af6f7b059bcdf0"
+        },
+        {
+          "path": "steps.json",
+          "bytes": 4461,
+          "sha256": "702d3dc9659181e5afe6079807116f366fc4e24c69ffcead270e4db6663fa030"
+        },
+        {
+          "path": "test-hardening-cli.log",
+          "bytes": 9851,
+          "sha256": "48a965d0105226825d8b059d15d22b295c9bbbfa5485ab112a3a4bae0da401f0"
+        },
+        {
+          "path": "test-hardening-cli.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "test-hardening-cli.stdout",
+          "bytes": 9851,
+          "sha256": "48a965d0105226825d8b059d15d22b295c9bbbfa5485ab112a3a4bae0da401f0"
+        },
+        {
+          "path": "test-media-local.log",
+          "bytes": 3184,
+          "sha256": "4e66e98ae013dfb7447954fb00cf902f3c8153b4bc205c85b6ba96878c4febfe"
+        },
+        {
+          "path": "test-media-local.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "test-media-local.stdout",
+          "bytes": 3184,
+          "sha256": "4e66e98ae013dfb7447954fb00cf902f3c8153b4bc205c85b6ba96878c4febfe"
+        },
+        {
+          "path": "test.log",
+          "bytes": 611588,
+          "sha256": "95c2048d996fa2e0222495b27fa8b8c8e8c3a4c53b1bc50f6d27515b70f3ef63"
+        },
+        {
+          "path": "test.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "test.stdout",
+          "bytes": 611588,
+          "sha256": "95c2048d996fa2e0222495b27fa8b8c8e8c3a4c53b1bc50f6d27515b70f3ef63"
+        },
+        {
+          "path": "typecheck.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "typecheck.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "typecheck.stdout",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    {
+      "node": "26",
+      "artifactId": 11583610007,
+      "name": "engine-macos-15-node-26.x-attempt-1",
+      "archive": {
+        "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/artifact-node26.zip",
+        "bytes": 89399,
+        "sha256": "33da385e23abcc82ed990c591fb4fedd36a1a25bd76e6a479c906e2ef984b4c0"
+      },
+      "apiDigest": "sha256:33da385e23abcc82ed990c591fb4fedd36a1a25bd76e6a479c906e2ef984b4c0",
+      "unpackedFiles": 24,
+      "exactUnpackedBytes": true,
+      "files": [
+        {
+          "path": "build.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "build.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "build.stdout",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "db-contract.json",
+          "bytes": 90682,
+          "sha256": "f7caedf8b38e631f11a96f898aea3d2661ef6eae434f6f9cd34ed9eb77c949e4"
+        },
+        {
+          "path": "db-contract.log",
+          "bytes": 90682,
+          "sha256": "f7caedf8b38e631f11a96f898aea3d2661ef6eae434f6f9cd34ed9eb77c949e4"
+        },
+        {
+          "path": "db-contract.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "db-contract.stdout",
+          "bytes": 90682,
+          "sha256": "f7caedf8b38e631f11a96f898aea3d2661ef6eae434f6f9cd34ed9eb77c949e4"
+        },
+        {
+          "path": "environment.json",
+          "bytes": 5530,
+          "sha256": "41970ad049c89ea144684c0408407ec2127cb28e7adb00b3bcb84baa8b8f7957"
+        },
+        {
+          "path": "install.log",
+          "bytes": 1619,
+          "sha256": "e8878c7c7a7babafae5a09b111733312b90aff029ce9cbe7d0c5e567f211a2d7"
+        },
+        {
+          "path": "prepare-pty.log",
+          "bytes": 43,
+          "sha256": "660f558159c89fd6cf8d5265ca67e3389dfff6a48740f84fc542296b3fdef25c"
+        },
+        {
+          "path": "prepare-pty.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "prepare-pty.stdout",
+          "bytes": 43,
+          "sha256": "660f558159c89fd6cf8d5265ca67e3389dfff6a48740f84fc542296b3fdef25c"
+        },
+        {
+          "path": "pty-capability.json",
+          "bytes": 107,
+          "sha256": "97325b4134caa4636cbfa151e4ea51e068c293e8c452f7065cf182e15cd1aab5"
+        },
+        {
+          "path": "results.json",
+          "bytes": 4764,
+          "sha256": "4fdf13ed9632e8333287b6f6f8c1d990af2fd704cd45c38b4374a51ee061c778"
+        },
+        {
+          "path": "steps.json",
+          "bytes": 4111,
+          "sha256": "29557db3deab78dd9184fadc3367661a7754eaaa3cfa9ae4e0702ca73eabdc47"
+        },
+        {
+          "path": "test-hardening-cli.log",
+          "bytes": 110733,
+          "sha256": "87d920b6143f594801736e93e4655cbede5c1b8b24a41272d69d09f7461510e3"
+        },
+        {
+          "path": "test-hardening-cli.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "test-hardening-cli.stdout",
+          "bytes": 110733,
+          "sha256": "87d920b6143f594801736e93e4655cbede5c1b8b24a41272d69d09f7461510e3"
+        },
+        {
+          "path": "test-media-local.log",
+          "bytes": 3189,
+          "sha256": "1cb78be4471c838319dff864c5159f89a065a16ff2b18c2288ee87996390c0a4"
+        },
+        {
+          "path": "test-media-local.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "test-media-local.stdout",
+          "bytes": 3189,
+          "sha256": "1cb78be4471c838319dff864c5159f89a065a16ff2b18c2288ee87996390c0a4"
+        },
+        {
+          "path": "typecheck.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "typecheck.stderr",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "typecheck.stdout",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    }
+  ],
+  "originalFailures": {
+    "node24": {
+      "runtime": "v24.20.0",
+      "platform": "darwin arm64",
+      "total": 4738,
+      "pass": 4735,
+      "fail": 1,
+      "skip": 2,
+      "name": "an input ceiling stops effects while the actual same Engine observation still lasts the requested duration",
+      "compiledAssertion": "packages/engine/dist/resilience/persistent.integration.test.js:124",
+      "condition": "report.samples.filter(sample.phase === timed).length >= 1",
+      "actual": false,
+      "owner": "persistent_soak",
+      "perTestReportAndDbUploaded": false
+    },
+    "node26": {
+      "runtime": "v26.11.1",
+      "osRelease": "24.6.0",
+      "platform": "darwin arm64",
+      "hardeningCliTests": 99,
+      "pass": 98,
+      "fail": 1,
+      "failure": "actual source Engine repeatability retains normal, resized, cancelled and uncertain fault SQLite evidence",
+      "condition": "child.status === 0",
+      "actual": 1,
+      "parsedOriginalReport": {
+        "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/node26-repeatability-failed-report.json",
+        "bytes": 94377,
+        "sha256": "19ab60431fa9f77549dc5cf5dd709fb81448353c16ffec3a570c2a11ce0e20ba"
+      },
+      "casesCompleted": 2,
+      "cases": [
+        {
+          "scenario": "normal-exit",
+          "status": "passed",
+          "nativeExit": {
+            "observed": true,
+            "exitCode": 0,
+            "signal": 0
+          },
+          "cleanup": {
+            "path": "none",
+            "groupSnapshot": "not-requested",
+            "groupCount": 0,
+            "sampledGroups": [],
+            "groupsTruncated": false
+          },
+          "errors": []
+        },
+        {
+          "scenario": "input-resize",
+          "status": "failed",
+          "nativeExit": {
+            "observed": true,
+            "exitCode": 0,
+            "signal": 0
+          },
+          "cleanup": {
+            "path": "group-cleanup",
+            "groupSnapshot": "unavailable",
+            "groupCount": 0,
+            "sampledGroups": [],
+            "groupsTruncated": false
+          },
+          "errors": [
+            {
+              "phase": "outcome-check",
+              "code": "ERR_ASSERTION",
+              "message": "Expected values to be strictly equal:\n\nfalse !== true\n"
+            }
+          ]
+        }
+      ],
+      "originalFailureDiagnostics": {
+        "version": 1,
+        "authority": "observation-only",
+        "source": {
+          "platform": "darwin",
+          "supervisorPid": 3453,
+          "terminalPid": 3457,
+          "originalGroupPid": null
+        },
+        "nativeExit": {
+          "observed": true,
+          "exitCode": 0,
+          "signal": 0
+        },
+        "supervisorExit": {
+          "observed": true,
+          "closeObserved": true,
+          "exitCode": 1,
+          "signal": null
+        },
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": false,
+          "reason": "descendants"
+        },
+        "cleanup": {
+          "path": "group-cleanup",
+          "groupSnapshot": "unavailable",
+          "groupCount": 0,
+          "sampledGroups": [],
+          "groupsTruncated": false
+        },
+        "events": [
+          {
+            "seq": 1,
+            "kind": "started",
+            "pid": 3457
+          },
+          {
+            "seq": 2,
+            "kind": "native-exit",
+            "exitCode": 0,
+            "exitSignal": 0
+          },
+          {
+            "seq": 3,
+            "kind": "group-probe",
+            "groupPid": 3457,
+            "presence": "unknown",
+            "errorCode": "EPERM"
+          },
+          {
+            "seq": 4,
+            "kind": "group-snapshot",
+            "groupCount": 0,
+            "confirmed": false
+          },
+          {
+            "seq": 5,
+            "kind": "error",
+            "errorCode": "PROCESS_SNAPSHOT_UNCONFIRMED"
+          },
+          {
+            "seq": 6,
+            "kind": "signal",
+            "pid": 3457,
+            "signal": "SIGHUP"
+          },
+          {
+            "seq": 7,
+            "kind": "group-cleanup",
+            "groupPid": 3457,
+            "confirmed": true
+          },
+          {
+            "seq": 8,
+            "kind": "supervisor-close",
+            "exitCode": 1
+          }
+        ],
+        "eventsDropped": 0
+      },
+      "independentLaterPresence": {
+        "pids": [
+          {
+            "pid": 3457,
+            "presence": "absent",
+            "errorCode": "ESRCH"
+          }
+        ],
+        "groups": [
+          {
+            "pid": -3457,
+            "presence": "absent",
+            "errorCode": "ESRCH"
+          }
+        ]
+      },
+      "persistedOutcome": {
+        "id": "32c221df-815f-4421-864e-d7a7d9a38200",
+        "state": "uncertain",
+        "cleanupConfirmed": false,
+        "exitCode": 0,
+        "reason": "descendants",
+        "diagnostics": {
+          "version": 1,
+          "authority": "observation-only",
+          "source": {
+            "platform": "darwin",
+            "supervisorPid": 3453,
+            "terminalPid": 3457,
+            "originalGroupPid": null
+          },
+          "nativeExit": {
+            "observed": true,
+            "exitCode": 0,
+            "signal": 0
+          },
+          "supervisorExit": {
+            "observed": true,
+            "closeObserved": true,
+            "exitCode": 1,
+            "signal": null
+          },
+          "outcome": {
+            "exitCode": 0,
+            "cancelled": false,
+            "timedOut": false,
+            "cleanupConfirmed": false,
+            "reason": "descendants"
+          },
+          "cleanup": {
+            "path": "group-cleanup",
+            "groupSnapshot": "unavailable",
+            "groupCount": 0,
+            "sampledGroups": [],
+            "groupsTruncated": false
+          },
+          "events": [
+            {
+              "seq": 1,
+              "kind": "started",
+              "pid": 3457
+            },
+            {
+              "seq": 2,
+              "kind": "native-exit",
+              "exitCode": 0,
+              "exitSignal": 0
+            },
+            {
+              "seq": 3,
+              "kind": "group-probe",
+              "groupPid": 3457,
+              "presence": "unknown",
+              "errorCode": "EPERM"
+            },
+            {
+              "seq": 4,
+              "kind": "group-snapshot",
+              "groupCount": 0,
+              "confirmed": false
+            },
+            {
+              "seq": 5,
+              "kind": "error",
+              "errorCode": "PROCESS_SNAPSHOT_UNCONFIRMED"
+            },
+            {
+              "seq": 6,
+              "kind": "signal",
+              "pid": 3457,
+              "signal": "SIGHUP"
+            },
+            {
+              "seq": 7,
+              "kind": "group-cleanup",
+              "groupPid": 3457,
+              "confirmed": true
+            },
+            {
+              "seq": 8,
+              "kind": "supervisor-close",
+              "exitCode": 1
+            }
+          ],
+          "eventsDropped": 0
+        }
+      },
+      "restartComparison": {
+        "sqliteMatches": true,
+        "restartMatches": true,
+        "historyOnly": true,
+        "terminalSqliteSha256": "9ff5b3a374d8155bdf3541ff0f3bf92b00d133f3a4cb6cce7f77a353941bcf81"
+      },
+      "qualification": "Original EPERM and unavailable ancestry snapshot are observed; syscall/runtime root cause remains unresolved. Later absent PID/group and cleanupGroup true do not prove the original snapshot or permit upgrading uncertainty. Only embedded report/logs uploaded; actual fixture SQLite and case bytes are absent. No signal was sent using these historical PIDs."
+    }
+  },
+  "repair": {
+    "ownedFiles": [
+      ".github/scripts/engine-ci.mjs",
+      ".github/scripts/engine-ci.test.mjs",
+      "scripts/verify-pty-repeatability.test.mjs",
+      ".github/scripts/hardening-evidence.mjs"
+    ],
+    "scope": "Hardening CLI evidence retention only; native expected success/failure, production cleanup and fixture timeouts unchanged. Actual raw child report is exclusively queued mode0600 before assertions with byte/hash/runtime/source pins in a fresh canonical owner-checked directory; parent launcher joins test child, then uses existing bounded FD-qualified followup-evidence helper to preserve source fixture bytes. Two reports maximum, raw2MiB each, manifest3MiB, directory8entries; source tree existing64MiB/2048files/32depth each. Full original report bytes/hash must match the copied report.json. Loss or non-copy cannot make a passing job green; original failed exit remains failed.",
+    "productionChanges": false,
+    "tests": [
+      {
+        "log": {
+          "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/retention-launcher-tests.log",
+          "bytes": 1185,
+          "sha256": "2ef59b8add06816a992d9f78693527b50fd391de8451110e6560c4b361504739"
+        },
+        "pass": 7,
+        "fail": 0,
+        "proof": "Independent native SQLite failed/uncertain rows copied byte-faithfully; no PTY execution claim. Destination symlink/outside source scope/report hash tamper are refused."
+      },
+      {
+        "log": {
+          "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/local-pty-queued-tests.log",
+          "bytes": 2163,
+          "sha256": "9cc52a98e44b276198e0185071756eaaa51ef9f316428752bc7bae0b97fd7540"
+        },
+        "qualification": "Manual noncanonical /tmp environment rejected; preserved diagnostic failure, not a native runtime failure."
+      },
+      {
+        "log": {
+          "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/local-pty-queued-canonical-tests.log",
+          "bytes": 546,
+          "sha256": "40dcc211325022b834329c9be5e16d87af86c06feaf909a0a7f87d87e7b95027"
+        },
+        "pass": 4,
+        "fail": 0,
+        "runtime": "v26.9.0",
+        "qualification": "Local canonical launcher-env native PTY and batch-deadline controls. Does not resolve the hosted EPERM cause."
+      },
+      {
+        "log": {
+          "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/retention-extracted-launcher-tests.log",
+          "bytes": 1186,
+          "sha256": "7c15a19c1bbe4c585d9d2f9e792693ec1472936ae097979d900a29fdb83eefea"
+        },
+        "pass": 7,
+        "fail": 0,
+        "qualification": "Same independent SQLite/path regressions rerun after responsibility extraction."
+      },
+      {
+        "log": {
+          "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/launcher-integration.log",
+          "bytes": 9848,
+          "sha256": "251af84fcc5a1fc4c8d32ad9b30a2d24823e1ed56ee0ad98de7afa0042034f73"
+        },
+        "pass": 99,
+        "fail": 0,
+        "qualification": "Actual complete local hardening CLI launcher and post-child-join native artifact preservation, exit0. Original hosted EPERM cause remains unresolved.",
+        "steps": [
+          {
+            "operation": "test-hardening-cli",
+            "command": [
+              "/usr/local/bin/node",
+              "--import",
+              "/Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs",
+              "--test",
+              "--test-concurrency=1",
+              "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-engine-resilience.test.mjs",
+              "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/inspect-engine-db-contract.test.mjs",
+              "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-engine-persistent-soak.test.mjs",
+              "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-pty-repeatability.test.mjs",
+              "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-provider-coverage.test.mjs",
+              "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-provider-coverage-anthropic.test.mjs",
+              "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-provider-coverage-pdf.test.mjs",
+              "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-provider-coverage-media.test.mjs",
+              "/Users/yakisoba0728/Documents/GitHub/Moodcode/.github/scripts/followup-reports.test.mjs",
+              "/Users/yakisoba0728/Documents/GitHub/Moodcode/.github/scripts/followup-evidence.test.mjs"
+            ],
+            "startedAt": "2026-10-08T22:54:32.779Z",
+            "durationMs": 33449,
+            "exitCode": 0,
+            "signal": null,
+            "state": "passed",
+            "environmentOverrides": {
+              "MOODCODE_CI_HARDENING_EVIDENCE_DIR": "/private/tmp/moodcode-hosted-3fc-refactor-inventory/launcher-integration/test-hardening-cli-evidence-92uKTB"
+            }
+          },
+          {
+            "operation": "test-hardening-cli-evidence",
+            "state": "passed",
+            "exitCode": 0
+          }
+        ],
+        "copies": [
+          {
+            "caseName": "batch-deadline",
+            "reportOutcome": "failed",
+            "status": "preserved",
+            "exactSourceCopy": true,
+            "files": 202,
+            "bytes": 28141650
+          },
+          {
+            "caseName": "native-lifecycle",
+            "reportOutcome": "passed",
+            "status": "preserved",
+            "exactSourceCopy": true,
+            "files": 52,
+            "bytes": 6576185
+          }
+        ]
+      },
+      {
+        "log": {
+          "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/extracted-cli-preflight-tests.log",
+          "bytes": 308,
+          "sha256": "164722884613088da5e3d3079f3903b006c59d58bce2364d37b093b1797d1697"
+        },
+        "qualification": "CLI no-runtime preflight through unchanged re-export caller after helper extraction."
+      },
+      {
+        "log": {
+          "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/retention-final-launcher-tests.log",
+          "bytes": 1180,
+          "sha256": "1e60376cb1b36328f2fa2151a1181aedfa01b0fb217a7c7de7f5415ac2a751e9"
+        },
+        "pass": 7,
+        "fail": 0,
+        "qualification": "Final extracted module; includes FIFO refusal before open, O_NONBLOCK against path replacement and opened-file inode matching. No source fixture mutation or deletion."
+      }
+    ],
+    "module": "Four approved owned files; hardening-evidence.mjs is the focused queue/report-copy module, imported by engine-ci and re-exported under existing helper names."
+  },
+  "sourcePins": [
+    {
+      "path": "packages/engine/src/terminals/supervisor.ts",
+      "bytes": 9861,
+      "sha256": "b979e040a976c61b6ee05d82f4151757fefdd9e11302693d775137f9a3ee82df"
+    },
+    {
+      "path": "packages/engine/src/terminals/diagnostics.ts",
+      "bytes": 15837,
+      "sha256": "f6cf9c22449e353d68e69ead491af99f9f8584caa5f95668bfe92b8b72bf96ae"
+    },
+    {
+      "path": "packages/engine/src/terminals/job-groups.ts",
+      "bytes": 1847,
+      "sha256": "fb1063798421b7e4098b17f5c2541d6af69f2c44504d2c4fd0f2f88da12cd789"
+    },
+    {
+      "path": "packages/engine/src/terminals/backend.ts",
+      "bytes": 14422,
+      "sha256": "6577743bde681dbe553780d6d044574888cc4b162961833b3bc41a54aa43fda8"
+    },
+    {
+      "path": "packages/engine/src/terminals/repeatability.ts",
+      "bytes": 20842,
+      "sha256": "f187544b607040618050a9fc069e925e92f8f66140b8acf7b3fcc05aac48a7d0"
+    },
+    {
+      "path": ".github/scripts/engine-ci.mjs",
+      "bytes": 25758,
+      "sha256": "747d8090ee1b3703e93c2618150d8595cf3779d24c5a9400e9faf1c32939ed08"
+    },
+    {
+      "path": ".github/scripts/engine-ci.test.mjs",
+      "bytes": 19505,
+      "sha256": "0313d59dbf7e2de1b5c8c2230ddf046cbfa6211aeba3952dddc89c14db46dc0e"
+    },
+    {
+      "path": "scripts/verify-pty-repeatability.test.mjs",
+      "bytes": 10110,
+      "sha256": "3a5e46b81eb93a30c51a782c28e6f4e8d9021ee149babf1a6c1a9a9720429b5f"
+    },
+    {
+      "path": ".github/scripts/hardening-evidence.mjs",
+      "bytes": 7568,
+      "sha256": "061075b5e2b171434162f1ff2438150735ad68f40bcb211d4c260c1ac1d5cb3f"
+    }
+  ],
+  "pending": [
+    "Hosted rerun on integrated source required; no claim that historical R-PTY-01 or mac26 original EPERM/snapshot cause is resolved."
+  ],
+  "noLiveProviderRequests": true,
+  "noGuiLaunch": true,
+  "noGoalsOrCommits": true,
+  "runtimeSourceInvestigation": {
+    "project": {
+      "groupProbe": "packages/engine/src/terminals/diagnostics.ts observePtyGroupExists catches EPERM as unknown and treats unknown as potential presence.",
+      "afterExit": "packages/engine/src/terminals/supervisor.ts onExit calls the probe and starts descendants cleanup after unknown/present.",
+      "snapshot": "packages/engine/src/terminals/job-groups.ts requires the original leader to be present with matching supervisor parent and PGID; original diagnostics show PROCESS_SNAPSHOT_UNCONFIRMED but omit raw /bin/ps output. Thus cannot distinguish absent leader, malformed snapshot or another rejected proof condition retrospectively."
+    },
+    "vendor": {
+      "url": "https://github.com/nodejs/node/blob/v26.11.1/deps/uv/src/unix/process.c#L1027",
+      "pin": {
+        "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/node26.11.1-vendored-uv-process.c",
+        "bytes": 31377,
+        "sha256": "e79f9bd90787011d59d9395f46658caca2ca01d1daad84c36e3b86eba50a4a52"
+      },
+      "observation": "uv_kill delegates to kill and returns the syscall errno on Unix; the explicit EPERM zombie workaround in this source is MVS-only, not Darwin."
+    },
+    "kernel": {
+      "url": "https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_sig.c",
+      "pin": {
+        "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/apple-kern-sig-main.c",
+        "bytes": 94169,
+        "sha256": "343742eb42c5b584c529d348f9772ce03ffedd3be9d986badd60692459b6acdf"
+      },
+      "observation": "This current primary source filters zombie group members and returns EPERM in POSIX mode if a found group yields no permitted counted process.",
+      "qualification": "Current upstream source, not a verified build/tag match to the hosted Darwin24.6.0 kernel. A transient group containing only zombies is a plausible inference, not proof of the original case. No original process state, raw ancestry snapshot or exact kernel build was retained."
+    },
+    "conclusion": "Observed failure remains uncertain and unresolved. No production process/probe change is established. Current report retention repair obtains the original future DB/case/runtime evidence without upgrading failed cleanup."
+  }
+}

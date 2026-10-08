@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile, readFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  rm,
+  writeFile,
+  readFile,
+  realpath,
+  readdir,
+  symlink,
+} from "node:fs/promises";
+import { DatabaseSync } from "node:sqlite";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -9,7 +20,171 @@ import {
   WINDOWS_STORAGE_TESTS,
   windowsTestFiles,
   validateLocalReport,
+  queueHardeningCliEvidence,
+  preserveHardeningCliReports,
 } from "./engine-ci.mjs";
+
+test("nested CLI queue preserves failed SQLite bytes and uncertainty after the test process ends", async (t) => {
+  const source = await realpath(
+      await mkdtemp(join(tmpdir(), "moodcode-pty-repeatability-")),
+    ),
+    results = await realpath(
+      await mkdtemp(join(tmpdir(), "moodcode-hardening-copy-")),
+    ),
+    nativeRow = {
+      state: "uncertain",
+      cleanupConfirmed: false,
+      exitCode: 0,
+      reason: "descendants",
+    };
+  const databasePath = join(source, "terminals.sqlite"),
+    database = new DatabaseSync(databasePath);
+  database.exec(
+    "CREATE TABLE terminals(id TEXT PRIMARY KEY,payload TEXT NOT NULL) STRICT",
+  );
+  database
+    .prepare("INSERT INTO terminals VALUES(?,?)")
+    .run("original", JSON.stringify(nativeRow));
+  database.close();
+  const bytes = await readFile(databasePath),
+    report = {
+      schemaVersion: 1,
+      kind: "native-pty-repeatability",
+      noLive: true,
+      status: "failed",
+      nativeQualified: false,
+      evidenceDirectory: source,
+      reportPath: join(source, "report.json"),
+      runtime: "source",
+      runtimePins: { node: process.version },
+      sourceIdentity: { sourceSha256: "a".repeat(64) },
+      finalSourceSha256: "a".repeat(64),
+      identityStable: true,
+    },
+    reportText = JSON.stringify(report, null, 2) + "\n";
+  await writeFile(report.reportPath, reportText);
+  if (typeof process.getuid !== "function") {
+    await assert.rejects(
+      queueHardeningCliEvidence(reportText, "native-lifecycle", results),
+    );
+    return;
+  }
+  const queued = await Promise.all(
+    ["native-lifecycle", "batch-deadline"].map((name) =>
+      queueHardeningCliEvidence(reportText, name, results),
+    ),
+  );
+  assert.equal(new Set(queued).size, 2);
+  assert.equal(
+    (await readdir(results)).some((name) => name.endsWith(".tmp")),
+    false,
+  );
+  const retained = await preserveHardeningCliReports(results);
+  assert.equal(retained.passed, true);
+  for (const item of retained.results) {
+    assert.equal(item.evidence.reportOutcome, "failed");
+    assert.equal(item.evidence.exactSourceCopy, true);
+    const copy = join(item.evidence.fixtureDirectory, "terminals.sqlite");
+    assert.deepEqual(await readFile(copy), bytes);
+    assert.equal(
+      await readFile(
+        join(item.evidence.fixtureDirectory, "report.json"),
+        "utf8",
+      ),
+      reportText,
+    );
+    const reopened = new DatabaseSync(copy, { readOnly: true });
+    try {
+      assert.deepEqual(
+        JSON.parse(
+          reopened
+            .prepare("SELECT payload FROM terminals WHERE id='original'")
+            .get().payload,
+        ),
+        nativeRow,
+      );
+    } finally {
+      reopened.close();
+    }
+    assert.equal(
+      JSON.parse(
+        await readFile(
+          join(item.evidence.fixtureDirectory, "report.json"),
+          "utf8",
+        ),
+      ).nativeQualified,
+      false,
+    );
+  }
+  assert.deepEqual(await readFile(databasePath), bytes);
+  assert.equal(await readFile(report.reportPath, "utf8"), reportText);
+  t.diagnostic(
+    `Retained synthetic SQLite copy proof: ${results}; original: ${source}. No native PTY execution claim.`,
+  );
+});
+
+test("nested CLI retention refuses destination escapes and changed report pins without reading outside fixture bytes", async () => {
+  const root = await realpath(
+      await mkdtemp(join(tmpdir(), "moodcode-hardening-boundary-")),
+    ),
+    outside = await realpath(
+      await mkdtemp(join(tmpdir(), "moodcode-hardening-outside-")),
+    ),
+    link = join(root, "redirect");
+  await symlink(
+    outside,
+    link,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const report = {
+      schemaVersion: 1,
+      kind: "native-pty-repeatability",
+      noLive: true,
+      status: "failed",
+      evidenceDirectory: outside,
+      reportPath: join(outside, "report.json"),
+    },
+    text = JSON.stringify(report) + "\n";
+  await assert.rejects(
+    queueHardeningCliEvidence(text, "native-lifecycle", link),
+  );
+  assert.deepEqual(await readdir(outside), []);
+  await assert.rejects(queueHardeningCliEvidence(text, "../escape", root));
+  assert.equal(
+    await queueHardeningCliEvidence("invalid", "native-lifecycle", null),
+    null,
+  );
+  if (typeof process.getuid !== "function") return;
+  const queue = await realpath(
+    await mkdtemp(join(tmpdir(), "moodcode-hardening-queue-")),
+  );
+  const path = await queueHardeningCliEvidence(text, "native-lifecycle", queue),
+    original = JSON.parse(await readFile(path, "utf8"));
+  await writeFile(
+    path,
+    JSON.stringify({ ...original, reportSha256: "0".repeat(64) }),
+  );
+  await assert.rejects(
+    preserveHardeningCliReports(queue),
+    /report pin changed/,
+  );
+  assert.deepEqual(await readdir(outside), []);
+  await writeFile(path, JSON.stringify(original));
+  const retained = await preserveHardeningCliReports(queue);
+  assert.equal(retained.passed, false);
+  assert.match(retained.results[0].failure, /EVIDENCE_SOURCE_SCOPE/);
+  assert.deepEqual(await readdir(outside), []);
+  const special = await realpath(
+    await mkdtemp(join(tmpdir(), "moodcode-hardening-fifo-")),
+  );
+  execFileSync("mkfifo", [
+    join(special, "native-lifecycle-00000000-0000-4000-8000-000000000000.json"),
+  ]);
+  await assert.rejects(
+    preserveHardeningCliReports(special),
+    /Invalid hardening CLI evidence manifest/,
+  );
+});
 
 test("headless compiler scope contains no desktop project and no GUI launcher", () => {
   assert.deepEqual(PROJECTS, [
@@ -359,7 +534,10 @@ test("standalone verification scripts trigger both path filters and POSIX checks
     const posix = workflow
       .split("  posix:\n")[1]
       .split("  windows-portable:\n")[0];
-    assert.match(posix, /path: artifacts\/engine-ci\/\n\s+include-hidden-files: true/);
+    assert.match(
+      posix,
+      /path: artifacts\/engine-ci\/\n\s+include-hidden-files: true/,
+    );
     assert.match(
       posix,
       /run: node \.github\/scripts\/engine-ci\.mjs test-media-local/,

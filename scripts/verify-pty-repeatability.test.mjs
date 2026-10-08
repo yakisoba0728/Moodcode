@@ -5,6 +5,7 @@ import { join, resolve, dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { queueHardeningCliEvidence } from "../.github/scripts/engine-ci.mjs";
 import {
   PTY_SCENARIOS,
   parsePtyRepeatabilityArgs,
@@ -78,7 +79,7 @@ test(
     skip: !["darwin", "linux", "freebsd"].includes(process.platform),
     timeout: 60000,
   },
-  () => {
+  async () => {
     const child = spawnSync(
       process.execPath,
       [
@@ -100,9 +101,24 @@ test(
         maxBuffer: 131072,
       },
     );
+    let report;
+    try {
+      report = JSON.parse(child.stdout);
+    } catch {
+      assert.fail(
+        `Invalid actual PTY report:\n${child.stdout}\n${child.stderr}`,
+      );
+    }
+    const preservationError = await queueHardeningCliEvidence(
+      child.stdout,
+      "native-lifecycle",
+    ).then(
+      () => null,
+      (error) => error,
+    );
     assert.equal(child.status, 0, `${child.stdout}\n${child.stderr}`);
+    if (preservationError) throw preservationError;
     assert.match(child.stderr, /retained report:/);
-    const report = JSON.parse(child.stdout);
     assert.deepEqual(
       report,
       JSON.parse(readFileSync(report.reportPath, "utf8")),
@@ -217,7 +233,7 @@ test(
     skip: !["darwin", "linux", "freebsd"].includes(process.platform),
     timeout: 18000,
   },
-  () => {
+  async () => {
     const child = spawnSync(
       process.execPath,
       [
@@ -240,10 +256,18 @@ test(
         maxBuffer: 131072,
       },
     );
-    assert.equal(child.status, 1, `${child.stdout}\n${child.stderr}`);
     const match = /retained report: (.+)\n/.exec(child.stdout);
-    assert.ok(match);
+    assert.ok(match, `${child.stdout}\n${child.stderr}`);
     const report = JSON.parse(readFileSync(match[1], "utf8"));
+    const preservationError = await queueHardeningCliEvidence(
+      readFileSync(match[1], "utf8"),
+      "batch-deadline",
+    ).then(
+      () => null,
+      (error) => error,
+    );
+    assert.equal(child.status, 1, `${child.stdout}\n${child.stderr}`);
+    if (preservationError) throw preservationError;
     assert.equal(report.status, "failed");
     assert.equal(report.nativeQualified, false);
     assert.equal(report.retainedEvidence, true);
