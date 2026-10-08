@@ -2,6 +2,12 @@
 export const DESKTOP_CHANNELS = Object.freeze({
   bootstrap: 'moodcode:bootstrap',
   command: 'moodcode:command',
+  advanced: 'moodcode:advanced',
+  advancedSnapshot: 'moodcode:advanced-snapshot',
+  accounts: 'moodcode:accounts',
+  accountAction: 'moodcode:account-action',
+  appUpdate: 'moodcode:app-update',
+  appUpdateAction: 'moodcode:app-update-action',
   chooseWorkspace: 'moodcode:choose-workspace',
   subscribe: 'moodcode:subscribe',
   unsubscribe: 'moodcode:unsubscribe',

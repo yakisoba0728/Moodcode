@@ -5,6 +5,10 @@ import type {
   Workspace,
   ReasoningEffort,
 } from "@moodcode/contracts";
+import type { JsonValue } from '@moodcode/contracts';
+import type { DesktopAdvancedAction, DesktopAdvancedSnapshot } from './advanced.js';
+import type { DesktopAccountAction, DesktopAccountView } from './account-protocol.js';
+import type { DesktopAppUpdate, DesktopAppUpdateAction } from './update-protocol.js';
 
 export type DesktopProviderId =
   "scripted" | "openai-compatible" | "openai-responses" | "codex";
@@ -15,11 +19,13 @@ export interface HostStatus {
 }
 /** Credentials are held by the main/utility processes; this view never returns a key. */
 export interface DesktopSettings {
+  credentialMode?: 'api-key' | 'chatgpt';
+  accountId?: string;
   providerId: DesktopProviderId;
   modelId: string;
   baseURL: string;
   keyConfigured: boolean;
-  keySource: "environment" | "stored" | "codex" | "none";
+  keySource: "environment" | "stored" | "codex" | "chatgpt" | "none";
   credentialStorage: "available" | "unavailable";
   codexAuthState?: "available" | "missing" | "expired" | "unreadable";
   codexModelId?: string;
@@ -27,6 +33,8 @@ export interface DesktopSettings {
   reasoningEffort?: ReasoningEffort;
 }
 export interface SaveDesktopSettings {
+  credentialMode?: 'api-key' | 'chatgpt';
+  accountId?: string;
   providerId: DesktopProviderId;
   modelId: string;
   baseURL: string;
@@ -56,6 +64,12 @@ export interface DesktopRecoveryStatus {
 }
 export interface DesktopRecoveryResult { recoveryId: string; restoredAcknowledgments: number; effectMarkerCleared: boolean; backupVerified: true }
 export interface DesktopApi {
+  getAdvancedSnapshot?(sessionId: string): Promise<DesktopAdvancedSnapshot>;
+  advanced?(input: DesktopAdvancedAction): Promise<JsonValue>;
+  getAccounts?(): Promise<DesktopAccountView>;
+  accountAction?(input: DesktopAccountAction): Promise<DesktopAccountView>;
+  getAppUpdate?(): Promise<DesktopAppUpdate>;
+  appUpdateAction?(input: DesktopAppUpdateAction): Promise<DesktopAppUpdate>;
   getBootstrap(): Promise<DesktopBootstrap>;
   command(command: CommandEnvelope): Promise<CommandResult>;
   chooseWorkspace(): Promise<Workspace | null>;

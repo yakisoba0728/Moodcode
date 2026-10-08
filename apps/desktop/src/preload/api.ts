@@ -5,6 +5,9 @@ import { validateExternalURL } from '../main/security.js';
 import { validateRecoveryInput } from '../shared/recovery.js';
 import { validateClipboardText } from '../shared/clipboard.js';
 import { REASONING_EFFORTS } from '@moodcode/contracts';
+import { validateAdvancedAction, type DesktopAdvancedAction } from '../shared/advanced.js';
+import type { DesktopAccountAction } from '../shared/account-protocol.js';
+import type { DesktopAppUpdateAction } from '../shared/update-protocol.js';
 import type { DesktopApi, DesktopUpdate, HostStatus, SaveDesktopSettings } from '../shared/protocol.js';
 
 type TransportListener = (event: unknown, payload: unknown) => void;
@@ -67,7 +70,7 @@ export function validateDesktopCommand(value: unknown): CommandEnvelope {
 }
 
 export function validateDesktopSettings(value: unknown): SaveDesktopSettings {
-  const input = record(value, ['providerId', 'modelId', 'baseURL', 'apiKey', 'clearKey', 'reasoningEffort']);
+  const input = record(value, ['providerId', 'modelId', 'baseURL', 'apiKey', 'clearKey', 'reasoningEffort', 'credentialMode', 'accountId']);
   if (input.providerId !== 'scripted' && input.providerId !== 'openai-compatible' && input.providerId !== 'openai-responses' && input.providerId !== 'codex') invalid();
   const result: SaveDesktopSettings = {
     providerId: input.providerId,
@@ -75,6 +78,13 @@ export function validateDesktopSettings(value: unknown): SaveDesktopSettings {
     baseURL: boundedString(input.baseURL, 2048, input.providerId === 'scripted' || input.providerId === 'codex'),
   };
   if (result.modelId.trim() !== result.modelId) invalid();
+  if (input.credentialMode !== undefined) {
+    if (!['api-key','chatgpt'].includes(input.credentialMode as string)) invalid();
+    result.credentialMode = input.credentialMode as 'api-key' | 'chatgpt';
+  }
+  if (input.accountId !== undefined) result.accountId = boundedString(input.accountId, 36);
+  if (result.credentialMode === 'chatgpt' && (result.providerId !== 'openai-responses' || !result.accountId || input.apiKey !== undefined)
+    || result.accountId && result.credentialMode !== 'chatgpt') invalid();
   if (Object.hasOwn(input, 'reasoningEffort')) {
     if (!REASONING_EFFORTS.includes(input.reasoningEffort as never) || !['codex', 'openai-responses'].includes(result.providerId)) invalid();
     result.reasoningEffort = input.reasoningEffort as import('@moodcode/contracts').ReasoningEffort;
@@ -164,6 +174,23 @@ export function createDesktopApi(transport: DesktopTransport): DesktopApi {
   return Object.freeze({
     getBootstrap: () => invoke(transport, DESKTOP_CHANNELS.bootstrap),
     command: async (command: CommandEnvelope) => invoke(transport, DESKTOP_CHANNELS.command, validateDesktopCommand(command)),
+    getAdvancedSnapshot: async (sessionId: string) => invoke(transport, DESKTOP_CHANNELS.advancedSnapshot, boundedString(sessionId, 128)),
+    advanced: async (input: DesktopAdvancedAction) => invoke(transport, DESKTOP_CHANNELS.advanced, validateAdvancedAction(input)),
+    getAccounts: () => invoke(transport, DESKTOP_CHANNELS.accounts),
+    accountAction: async (input: DesktopAccountAction) => {
+      const value = record(input, ['action','accountId']);
+      if (!['sign-in','select','refresh','sign-out','forget','cancel'].includes(value.action as string)) invalid();
+      if (value.accountId !== undefined) boundedString(value.accountId, 36);
+      return invoke(transport, DESKTOP_CHANNELS.accountAction, value);
+    },
+    getAppUpdate: () => invoke(transport, DESKTOP_CHANNELS.appUpdate),
+    appUpdateAction: async (input: DesktopAppUpdateAction) => {
+      const value = record(input, ['action','version','acknowledged']);
+      if (!['check','download','cancel','install'].includes(value.action as string)) invalid();
+      if (value.version !== undefined) boundedString(value.version, 64);
+      if (value.acknowledged !== undefined && value.acknowledged !== true) invalid();
+      return invoke(transport, DESKTOP_CHANNELS.appUpdateAction, value);
+    },
     chooseWorkspace: () => invoke(transport, DESKTOP_CHANNELS.chooseWorkspace),
     subscribe: async (sessionId: string, afterSeq: number) => invoke(transport, DESKTOP_CHANNELS.subscribe, boundedString(sessionId, 256), sequence(afterSeq)),
     unsubscribe: async (subscriptionId: string) => invoke(transport, DESKTOP_CHANNELS.unsubscribe, boundedString(subscriptionId, 256)),

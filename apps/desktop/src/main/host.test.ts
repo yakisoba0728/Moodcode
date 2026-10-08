@@ -162,7 +162,7 @@ test('a fixture override does not hide corrupted settings files', async t => {
 function setup(t: TestContext, input: {
   settingsInput?: SaveDesktopSettings;
   configureWorker?: (worker: FakeUtility) => void;
-  testScenario?: 'coding' | 'slow';
+  testScenario?: 'coding' | 'slow' | 'account';
   rpcTimeoutMs?: number;
   closeTimeoutMs?: number;
   spawnFailure?: Error;
@@ -193,6 +193,45 @@ function setup(t: TestContext, input: {
   });
   return { host, settings, workers, trace, statuses, updates };
 }
+
+test('account rotation closes the old bearer before authenticating and gates all admissions until fresh startup', async t => {
+  const f = setup(t, { settingsInput: remote });
+  await f.host.initialize();
+  const auth = gate<void>(); let entered = false;
+  const rotating = f.host.accountTransition(async () => {
+    entered = true; assert.equal(f.workers[0]!.requests('close').length, 1);
+    await auth.promise;
+    f.settings.current = resolved({ ...remote, apiKey: 'fixture-rotated-key' });
+    return 'rotated';
+  });
+  await until(() => entered);
+  assert.throws(() => f.host.command(command()), errorCode('ENGINE_BUSY'));
+  assert.throws(() => f.host.advanced('window', { sessionId: 'session', type: 'session.pause' }), errorCode('ENGINE_BUSY'));
+  auth.resolve(); assert.equal(await rotating, 'rotated');
+  assert.equal(f.workers.length, 2);
+  const started = f.workers[1]!.requests('start')[0]!.payload as WorkerStartPayload;
+  assert.equal(started.config.apiKey, 'fixture-rotated-key');
+  assert.ok(!JSON.stringify(await f.host.getBootstrap()).includes('fixture-rotated-key'));
+});
+
+test('account GUI fixtures preserve an explicit credential failure instead of hiding it with scripted settings', async t => {
+  const f = setup(t, { testScenario: 'account', settingsInput: remote });
+  f.settings.loadHook = async () => { throw new HostError('SETTINGS_KEY_REQUIRED', 'The selected account is signed out.'); };
+  assert.equal((await f.host.initialize()).state, 'failed');
+  assert.equal(f.host.getSettings().providerId, 'openai-compatible');
+  assert.equal(f.workers.length, 0);
+});
+
+test('a reload while account idle validation waits cannot start a stale authentication operation', async t => {
+  const f = setup(t); await f.host.initialize();
+  f.workers[0]!.held.add('assertIdle'); let current = true, entered = false;
+  const pending = f.host.accountTransition(async () => { entered = true; }, () => { if (!current) throw new HostError('WINDOW_RELOADED', 'Window changed.'); });
+  const rejected = assert.rejects(pending, errorCode('WINDOW_RELOADED'));
+  await until(() => f.workers[0]!.requests('assertIdle').length === 1);
+  current = false; f.workers[0]!.settleAll(); await rejected;
+  assert.equal(entered, false); assert.equal(f.workers[0]!.requests('close').length, 0);
+  assert.equal(f.host.getStatus().state, 'ready');
+});
 
 test('initialization sends private config to utility but bootstrap/settings return metadata only', async (t) => {
   const { host, workers } = setup(t, { settingsInput: remote });
