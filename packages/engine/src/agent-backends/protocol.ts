@@ -1,4 +1,4 @@
-import type { JsonObject } from "@moodcode/contracts";
+
 import { knowledgeHash } from "../knowledge/validation.js";
 import type {
   AcpV1Id,

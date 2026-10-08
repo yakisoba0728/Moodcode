@@ -9,7 +9,6 @@ import {
   forkError,
   signedFork,
   FORK_LIMITS,
-  type ConversationFork,
   type ForkContextContribution,
 } from "./fork-types.js";
 const KIND = "conversation.fork.child-data";

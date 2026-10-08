@@ -6,7 +6,6 @@ import type {
   KnowledgeContextBudget,
   KnowledgeContextDocumentManifest,
   KnowledgeContextOmission,
-  KnowledgeContextOwner,
   KnowledgeContextPolicy,
   KnowledgeContextRequest,
   KnowledgeContextSourcePort,

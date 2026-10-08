@@ -4,7 +4,7 @@ import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash, validateBinding } from "../knowledge/validation.js";
 import { validateProposalRevision, validateProposalSet } from "./store.js";
-import type { ProposalSet } from "./types.js";
+
 import type {
   PrepareProposalApply,
   PrepareProposalApplyResult,

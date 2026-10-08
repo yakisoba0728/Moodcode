@@ -22,7 +22,6 @@ import type {
   CodingStartInput,
   CodingSelectionPreview,
   CodingEvidenceExport,
-  BatchCaseReceipt,
   CodingDeliveryInput,
   CodingConfig,
 } from "./types.js";

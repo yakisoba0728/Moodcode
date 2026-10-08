@@ -4,7 +4,7 @@ import { readFileSync, realpathSync, lstatSync } from "node:fs";
 import { join, relative } from "node:path";
 import { types } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
-import type { InputRecord, Run, AcceptInput } from "@moodcode/contracts";
+import type { InputRecord, Run} from "@moodcode/contracts";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
 import type { MoodcodeEngine } from "../engine.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";

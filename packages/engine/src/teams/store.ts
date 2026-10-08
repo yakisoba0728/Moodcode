@@ -16,7 +16,6 @@ import type {
   TeamMemberOwnerProof,
   TeamOperationReceipt,
   TeamRecord,
-  TeamRequestResult,
   TeamStateRevision,
   TeamStoragePorts,
   TeamTaskRevision,

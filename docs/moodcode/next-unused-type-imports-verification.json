@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "status": "emitted-js-and-declarations-byte-identical",
+  "compilerReview": "/tmp/moodcode-next-unused-imports-review.log",
+  "removed": [
+    {
+      "path": "packages/engine/src/agent-backends/protocol.ts",
+      "names": [
+        "JsonObject"
+      ],
+      "beforeSha256": "ef255c59cd734f1204d0588a16d498710ad318c87a2b315936524996f2c0937c",
+      "afterSha256": "f73044cc4ca74b61eefdec73d8b87420e6dee8fd09b7933e3dcc033662584506",
+      "beforeLines": 786,
+      "afterLines": 786
+    },
+    {
+      "path": "packages/engine/src/child-tasks/index.ts",
+      "names": [
+        "ManagedWorktree"
+      ],
+      "beforeSha256": "67a6733c6b4cf0a02aa270d7076ed30461886ebf9b9530db14fad439ae577b94",
+      "afterSha256": "a5f4dd429eef9a298ff317ec8e89472d1717a14c8e4094301b925b0ba4e5a276",
+      "beforeLines": 828,
+      "afterLines": 828
+    },
+    {
+      "path": "packages/engine/src/code-mode/host.ts",
+      "names": [
+        "NestedCallReceipt"
+      ],
+      "beforeSha256": "174250293e915337cc08e134e237cb06d61b2c0cec8866ed467cb0980f21a12a",
+      "afterSha256": "993791f5865b1a8ca4eafa104d584b7d15754f0180614a3fa8ac7558b394cd26",
+      "beforeLines": 689,
+      "afterLines": 688
+    },
+    {
+      "path": "packages/engine/src/code-mode/types.ts",
+      "names": [
+        "JsonObject"
+      ],
+      "beforeSha256": "8a6f270967e1f0d94c55fa5c74dec1787c1dfac65b284095e99327469d3017f2",
+      "afterSha256": "8c6aa5e1f51368545c921f118a173f4d244f39a2e20a030e4d0c31749830e8db",
+      "beforeLines": 260,
+      "afterLines": 259
+    },
+    {
+      "path": "packages/engine/src/coding-runs/batch-host.ts",
+      "names": [
+        "BatchCaseReceipt"
+      ],
+      "beforeSha256": "358f655f91d5148cfe20f067d7fd18b276a3f456cb8c52c9e5908c256af00c39",
+      "afterSha256": "57bd868546fdf8d39f143d1eb167d13ac677b0210b325acf7ca2bb60c074b61a",
+      "beforeLines": 1040,
+      "afterLines": 1039
+    },
+    {
+      "path": "packages/engine/src/jobs/command-lifetime-records.ts",
+      "names": [
+        "JsonObject"
+      ],
+      "beforeSha256": "2d82d9b6e7b37173b14732a59dcff94e02a56183fa7226e8291603a7526a68f0",
+      "afterSha256": "17eb63a34a69180af628525c9f3c50709de55e3a26c8b2d95cb6bcf6da04c7b1",
+      "beforeLines": 508,
+      "afterLines": 508
+    },
+    {
+      "path": "packages/engine/src/knowledge/context-source.ts",
+      "names": [
+        "KnowledgeContextOwner"
+      ],
+      "beforeSha256": "2d2aef831b2a9130a841a8ecb6d611a787301c7ce00b2def418e9fbfc6b8dec7",
+      "afterSha256": "463fbcbaf05c19be18674eff18dcfa5e78d159b0d30bbd530b80e7798fa7f770",
+      "beforeLines": 1113,
+      "afterLines": 1112
+    },
+    {
+      "path": "packages/engine/src/mcp/client.ts",
+      "names": [
+        "JsonValue"
+      ],
+      "beforeSha256": "d07b846a0125ecf7066589415faff06b9e5f3eb80cd2380e98fad4c1ae9f41d1",
+      "afterSha256": "1f359ba38dac726973a017ea52a6025e6f74c5a742854999281cfa0ba46e3b35",
+      "beforeLines": 172,
+      "afterLines": 172
+    },
+    {
+      "path": "packages/engine/src/pr-feedback/host.ts",
+      "names": [
+        "AcceptInput"
+      ],
+      "beforeSha256": "eb68894c79b63ab606d7f93a9e56b73214437c276f5f6db0c2f8f473ea3e8fdd",
+      "afterSha256": "08aa1dc19c81c7d9d4b3c9bd4d075a9602bf1528ea7833a3fff653a0da54f54b",
+      "beforeLines": 774,
+      "afterLines": 774
+    },
+    {
+      "path": "packages/engine/src/proposals/apply-store.ts",
+      "names": [
+        "ProposalSet"
+      ],
+      "beforeSha256": "ef6794a72468c5aca1f27ec01500a2be7c90d70df5c6db29d57a9258dd1610fc",
+      "afterSha256": "bf96d1186d401ba7dc61d194d39cdc9d8bb224af56de631a8f69d9ad0fb23f32",
+      "beforeLines": 1957,
+      "afterLines": 1957
+    },
+    {
+      "path": "packages/engine/src/repository/index.ts",
+      "names": [
+        "JsonValue"
+      ],
+      "beforeSha256": "b2c4a416a8111b68a56b0c8174c31ebea695bd6eae90bee6999d3672d5809dfc",
+      "afterSha256": "c6ea50afa83ac5333c05a69b2430d66d861fece0f97c53ec2bb471094aa31797",
+      "beforeLines": 425,
+      "afterLines": 424
+    },
+    {
+      "path": "packages/engine/src/sessions/fork-child.ts",
+      "names": [
+        "ConversationFork"
+      ],
+      "beforeSha256": "a2cc3b44dcf039476f1ab21ac1630bbf3de8c97911df05367494f2a5d4fd9a3c",
+      "afterSha256": "7db99eececdf570a6315e5ec1086bc255962efec035134c104b2e13fbf1fed7d",
+      "beforeLines": 174,
+      "afterLines": 173
+    },
+    {
+      "path": "packages/engine/src/sessions/fork-native.ts",
+      "names": [
+        "InputRecord"
+      ],
+      "beforeSha256": "cadf6eea4f56b14a26d07321209a4aaf0a409942894baa39424217e80f18d018",
+      "afterSha256": "dc6d1d13f1a4b4a652e4d3ca8fc6cdf1d63820df185a3d206b1cc253f30e80b1",
+      "beforeLines": 782,
+      "afterLines": 781
+    },
+    {
+      "path": "packages/engine/src/storage/mcp-executions.ts",
+      "names": [
+        "MessagePart",
+        "ProviderAttempt",
+        "TurnRecord"
+      ],
+      "beforeSha256": "9d7555d64b7205ad4993fed08d7af84a7a3ea511f54d7eb96e4c9582bc5d859b",
+      "afterSha256": "6c3a1937aeac4c76f1cb57922bdcad5a06b729813802a15e46f150258bec0959",
+      "beforeLines": 304,
+      "afterLines": 304
+    },
+    {
+      "path": "packages/engine/src/teams/store.ts",
+      "names": [
+        "TeamRequestResult"
+      ],
+      "beforeSha256": "d12d63b31976f09501b55ef14b18b9a68b0d8e9cd47e55f1fcd56c4633bbb352",
+      "afterSha256": "2fb86954e61803bbd4bc99035af2f05f8e1cdaa7e2ee93eac6e0a86b38bb17fb",
+      "beforeLines": 805,
+      "afterLines": 804
+    },
+    {
+      "path": "packages/engine/src/workflows/spec.ts",
+      "names": [
+        "WorkflowModelPin",
+        "WorkflowProfilePin",
+        "ChildBudget"
+      ],
+      "beforeSha256": "3b7768ac98cc2c0bb24a4b61044541687603204c8f472619089d74f3286cf3e1",
+      "afterSha256": "aa1ffe39984bbd64dd3d828e3ea9fbaf7a024c179f04aade2bad5ffb631f822a",
+      "beforeLines": 656,
+      "afterLines": 654
+    }
+  ],
+  "retained": "All value imports, local unused declarations, public exports, registry entries, dependencies and ownership helpers remain. Only compiler-confirmed import type/inline type specifiers removed from16disjoint files.",
+  "emittedBefore": {
+    "packages/engine/dist/agent-backends/protocol.js": "0ea6b1afdee7bfca67f60bbf0a30d25abcf6def581dab3a7d2734600476e47ba",
+    "packages/engine/dist/agent-backends/protocol.d.ts": "5f6e47ab2b718f731db301a447dcf97b2c84e76f4a41cd23fc395bc8c16b5078",
+    "packages/engine/dist/child-tasks/index.js": "7bc4f70bca0944ca7d597539ecb57954820a3ffd80fbd8bbb0654eb22ea67c60",
+    "packages/engine/dist/child-tasks/index.d.ts": "05068f890aeb91bb9d77ee4ba332689adec203471e0ccde230700ab53417d223",
+    "packages/engine/dist/code-mode/host.js": "3ee5cc4871f96c3f34369c50f3763b22bd852c5bd52b52ced56fd4774e3d3198",
+    "packages/engine/dist/code-mode/host.d.ts": "f83082254b488c451d3cf3cca179df0ae4aca9d21fc1970bdc76bced92975c1d",
+    "packages/engine/dist/code-mode/types.js": "aebd2eb3457d286210b2fd14313cee797eea1e8f0b676b931e861f072c90a61f",
+    "packages/engine/dist/code-mode/types.d.ts": "f079196c81b0ecbf094e0c3867990c3f52f8800e258422f3c4bbaea3ed6240d3",
+    "packages/engine/dist/coding-runs/batch-host.js": "6e27c058596a20c2471ebe8dc0ce31e8251fd0a7fc6a9bd372b231f9d9361383",
+    "packages/engine/dist/coding-runs/batch-host.d.ts": "62d44bb8ced637dc85dec9b8c0813c0813bbb792015d4a38d648a016b4cc4875",
+    "packages/engine/dist/jobs/command-lifetime-records.js": "c58e7bc76c569aa063a31722f3837aafe3a3807cc11e41b12c7afaa634308b93",
+    "packages/engine/dist/jobs/command-lifetime-records.d.ts": "775792340563c130d18799c5bfe3551fa022ee4a66ce95b761f7510ffd6efca0",
+    "packages/engine/dist/knowledge/context-source.js": "3772e5e1cdce83a748231488c62df472d4f1421dc371a5924ccdadc834a8b1e8",
+    "packages/engine/dist/knowledge/context-source.d.ts": "3543b50e7859dab9340dc1de2b431e96d1b9aaa657546bc47d9ff60bf5bb8af4",
+    "packages/engine/dist/mcp/client.js": "0e1e8fd574f11a43d4121690a2407052accbe463713b23bab22b4787407da073",
+    "packages/engine/dist/mcp/client.d.ts": "35314118de9dcbc446e71381f7acd7be6baf59570e99fa48f7549ccdc50581ae",
+    "packages/engine/dist/pr-feedback/host.js": "224daa6cae0f1281a9c5aa17e724bb00097dcfa1f2db52001f0a08e7ec63d377",
+    "packages/engine/dist/pr-feedback/host.d.ts": "1864e5a59af23076a0fdb4ccc2f102132f3947be00e61b5fb7aee6ae5cbeb795",
+    "packages/engine/dist/proposals/apply-store.js": "b696048e6cea3985c0fcf803f930a751f02b062c472474ef9bcf8abaedac7192",
+    "packages/engine/dist/proposals/apply-store.d.ts": "e417f521ee012b112140be679d4a966c49e4cc86e3f73567451e727fe892b997",
+    "packages/engine/dist/repository/index.js": "2acf4d91121c974b5b155b9db684f6675e940f0c8f03136e57a0ee8ac2ff9e2e",
+    "packages/engine/dist/repository/index.d.ts": "5017002c5312f14de52f15cddf123e331223e5dab36b30cef7a57bdc4fb3222a",
+    "packages/engine/dist/sessions/fork-child.js": "f24f6977f2a9b3792fa900a47c695bfd7e2a55c28b7fbecf9f0c7fa910ecb639",
+    "packages/engine/dist/sessions/fork-child.d.ts": "7ae194198a1618b2fe7d685afb1af923bfbf05b21bf223c184dfb8fbb9f15571",
+    "packages/engine/dist/sessions/fork-native.js": "60b74b3522ec436feebafd1e64b51ce0b843a5cc6742c041663c0ab26295e48d",
+    "packages/engine/dist/sessions/fork-native.d.ts": "c8e6b66aa94ce3e4647daa47c63bae64394e15caf13501e606284d0b6603ef88",
+    "packages/engine/dist/storage/mcp-executions.js": "978b9b5f1f09a4d3face26a049566dd293f4ebfb1f172a3381e16ef4712cf971",
+    "packages/engine/dist/storage/mcp-executions.d.ts": "12f88c1545aac75ecf2e1c8078d604aa41f8398b3c472f7394769db75bc124fd",
+    "packages/engine/dist/teams/store.js": "dbef535164ac124b01eb0d2cda60ff39bbaec80a358cb77b0658039066519490",
+    "packages/engine/dist/teams/store.d.ts": "de10f4291295902bf48ebca83ebeb692a57be6062e08e8d9b9c0eca18a3c08f9",
+    "packages/engine/dist/workflows/spec.js": "1025e7b67ae369bc4fd01f7664b735a3f7a4c8eecff29aac0636c2c7a0db3a44",
+    "packages/engine/dist/workflows/spec.d.ts": "c6b318367e9cd239f5a101a58d8d3da67bba96aa31f1d62f6ca968815807209e"
+  },
+  "emittedAfter": {
+    "packages/engine/dist/agent-backends/protocol.js": "0ea6b1afdee7bfca67f60bbf0a30d25abcf6def581dab3a7d2734600476e47ba",
+    "packages/engine/dist/agent-backends/protocol.d.ts": "5f6e47ab2b718f731db301a447dcf97b2c84e76f4a41cd23fc395bc8c16b5078",
+    "packages/engine/dist/child-tasks/index.js": "7bc4f70bca0944ca7d597539ecb57954820a3ffd80fbd8bbb0654eb22ea67c60",
+    "packages/engine/dist/child-tasks/index.d.ts": "05068f890aeb91bb9d77ee4ba332689adec203471e0ccde230700ab53417d223",
+    "packages/engine/dist/code-mode/host.js": "3ee5cc4871f96c3f34369c50f3763b22bd852c5bd52b52ced56fd4774e3d3198",
+    "packages/engine/dist/code-mode/host.d.ts": "f83082254b488c451d3cf3cca179df0ae4aca9d21fc1970bdc76bced92975c1d",
+    "packages/engine/dist/code-mode/types.js": "aebd2eb3457d286210b2fd14313cee797eea1e8f0b676b931e861f072c90a61f",
+    "packages/engine/dist/code-mode/types.d.ts": "f079196c81b0ecbf094e0c3867990c3f52f8800e258422f3c4bbaea3ed6240d3",
+    "packages/engine/dist/coding-runs/batch-host.js": "6e27c058596a20c2471ebe8dc0ce31e8251fd0a7fc6a9bd372b231f9d9361383",
+    "packages/engine/dist/coding-runs/batch-host.d.ts": "62d44bb8ced637dc85dec9b8c0813c0813bbb792015d4a38d648a016b4cc4875",
+    "packages/engine/dist/jobs/command-lifetime-records.js": "c58e7bc76c569aa063a31722f3837aafe3a3807cc11e41b12c7afaa634308b93",
+    "packages/engine/dist/jobs/command-lifetime-records.d.ts": "775792340563c130d18799c5bfe3551fa022ee4a66ce95b761f7510ffd6efca0",
+    "packages/engine/dist/knowledge/context-source.js": "3772e5e1cdce83a748231488c62df472d4f1421dc371a5924ccdadc834a8b1e8",
+    "packages/engine/dist/knowledge/context-source.d.ts": "3543b50e7859dab9340dc1de2b431e96d1b9aaa657546bc47d9ff60bf5bb8af4",
+    "packages/engine/dist/mcp/client.js": "0e1e8fd574f11a43d4121690a2407052accbe463713b23bab22b4787407da073",
+    "packages/engine/dist/mcp/client.d.ts": "35314118de9dcbc446e71381f7acd7be6baf59570e99fa48f7549ccdc50581ae",
+    "packages/engine/dist/pr-feedback/host.js": "224daa6cae0f1281a9c5aa17e724bb00097dcfa1f2db52001f0a08e7ec63d377",
+    "packages/engine/dist/pr-feedback/host.d.ts": "1864e5a59af23076a0fdb4ccc2f102132f3947be00e61b5fb7aee6ae5cbeb795",
+    "packages/engine/dist/proposals/apply-store.js": "b696048e6cea3985c0fcf803f930a751f02b062c472474ef9bcf8abaedac7192",
+    "packages/engine/dist/proposals/apply-store.d.ts": "e417f521ee012b112140be679d4a966c49e4cc86e3f73567451e727fe892b997",
+    "packages/engine/dist/repository/index.js": "2acf4d91121c974b5b155b9db684f6675e940f0c8f03136e57a0ee8ac2ff9e2e",
+    "packages/engine/dist/repository/index.d.ts": "5017002c5312f14de52f15cddf123e331223e5dab36b30cef7a57bdc4fb3222a",
+    "packages/engine/dist/sessions/fork-child.js": "f24f6977f2a9b3792fa900a47c695bfd7e2a55c28b7fbecf9f0c7fa910ecb639",
+    "packages/engine/dist/sessions/fork-child.d.ts": "7ae194198a1618b2fe7d685afb1af923bfbf05b21bf223c184dfb8fbb9f15571",
+    "packages/engine/dist/sessions/fork-native.js": "60b74b3522ec436feebafd1e64b51ce0b843a5cc6742c041663c0ab26295e48d",
+    "packages/engine/dist/sessions/fork-native.d.ts": "c8e6b66aa94ce3e4647daa47c63bae64394e15caf13501e606284d0b6603ef88",
+    "packages/engine/dist/storage/mcp-executions.js": "978b9b5f1f09a4d3face26a049566dd293f4ebfb1f172a3381e16ef4712cf971",
+    "packages/engine/dist/storage/mcp-executions.d.ts": "12f88c1545aac75ecf2e1c8078d604aa41f8398b3c472f7394769db75bc124fd",
+    "packages/engine/dist/teams/store.js": "dbef535164ac124b01eb0d2cda60ff39bbaec80a358cb77b0658039066519490",
+    "packages/engine/dist/teams/store.d.ts": "de10f4291295902bf48ebca83ebeb692a57be6062e08e8d9b9c0eca18a3c08f9",
+    "packages/engine/dist/workflows/spec.js": "1025e7b67ae369bc4fd01f7664b735a3f7a4c8eecff29aac0636c2c7a0db3a44",
+    "packages/engine/dist/workflows/spec.d.ts": "c6b318367e9cd239f5a101a58d8d3da67bba96aa31f1d62f6ca968815807209e"
+  },
+  "emittedChanged": [],
+  "build": {
+    "exitCode": 0,
+    "log": "/tmp/moodcode-next-unused-type-imports-build.log",
+    "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+  },
+  "commentPolicy": "No comments added or removed; existing non-obvious ownership rationale and license notices preserved."
+}

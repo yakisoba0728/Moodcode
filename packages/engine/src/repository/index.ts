@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import {
   EngineError,
   type JsonObject,
-  type JsonValue,
   type Workspace,
 } from "@moodcode/contracts";
 import { boundedJson } from "../artifacts/validation.js";

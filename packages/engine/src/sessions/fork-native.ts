@@ -11,7 +11,6 @@ import {
   type SessionSnapshot,
   type Session,
   type JsonObject,
-  type InputRecord,
   type AcceptInput,
   type InputReceipt,
 } from "@moodcode/contracts";

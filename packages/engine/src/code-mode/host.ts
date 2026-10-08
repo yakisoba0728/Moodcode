@@ -28,7 +28,6 @@ import {
   CodeModeStorage,
   type CodeModeSource,
   type CodeModeRecord,
-  type NestedCallReceipt,
 } from "./records.js";
 import {
   codeJson,

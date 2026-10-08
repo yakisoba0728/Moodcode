@@ -2,7 +2,6 @@ import { rejectDuplicateCodeKeys } from "./source-json.js";
 import {
   EngineError,
   type JsonValue,
-  type JsonObject,
 } from "@moodcode/contracts";
 import { sandboxJson, sandboxSign } from "../sandbox/types.js";
 export const CODE_MODE_LIMITS = Object.freeze({

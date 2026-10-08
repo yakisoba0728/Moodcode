@@ -5,7 +5,7 @@ import {
   type Workspace,
 } from "@moodcode/contracts";
 import type { GrantDocumentPort } from "../permission/grants.js";
-import type { ManagedWorktree, WorktreeManager } from "../worktrees/index.js";
+import type { WorktreeManager } from "../worktrees/index.js";
 
 export interface ChildBudget {
   turns: number;

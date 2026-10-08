@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { EngineError, type JsonObject } from "@moodcode/contracts";
+import { EngineError} from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
 import {
   jobJson,

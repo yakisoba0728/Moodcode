@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { EngineError, type JsonObject, type JsonValue } from '@moodcode/contracts';
+import { EngineError, type JsonObject} from '@moodcode/contracts';
 import { cappedJson, hasMcpDispatchObservation, MCP_LIMITS, object, type JsonRpcMessage, type JsonRpcRequest, type McpProtocolVersion, type McpTransport } from './protocol.js';
 import { schemaHeaders, projectHeaders, type HeaderProjection } from './schema-headers.js';
 import { McpCallObservation, joinMcpOperations, mcpExecutionFailure, mcpFailureReason, mcpResponseObservation, validateMcpToolResult, MCP_EXECUTION_LIMITS, type McpResponseObservation, type McpToolCallObserver } from './execution-observation.js';
