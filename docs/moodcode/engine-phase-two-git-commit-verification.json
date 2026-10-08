@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "feature": "MC2-13 approved Git commit receipts",
+  "status": "implemented-in-isolated-worktree",
+  "workspace": "/Users/yakisoba0728/.codex/worktrees/engine-approved-commits/Moodcode",
+  "baselineHead": "3584d6d732267635ec0d74642fcc403bb6559e21",
+  "matchingSourceBaseline": "c2c9814dd66e9aa78ab6865a22895fb46aff7a67",
+  "workItems": {
+    "MC2-13a": "implemented",
+    "MC2-13b": "implemented",
+    "MC2-13c": "implemented",
+    "MC2-13d": "implemented"
+  },
+  "checks": {
+    "actualGitFeature": {
+      "tests": 26,
+      "pass": 26,
+      "fail": 0
+    },
+    "focusedWithAdjacentRegressions": {
+      "tests": 53,
+      "pass": 53,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 15858.9325,
+      "log": "/tmp/moodcode-git-commit-final-source.log"
+    },
+    "scopedStrict": {
+      "exitCode": 0,
+      "log": "/tmp/moodcode-git-commit-type-final.log"
+    },
+    "format": {
+      "exitCode": 0,
+      "log": "/tmp/moodcode-git-commit-format-final.log"
+    }
+  },
+  "actualEvidence": [
+    "Original preview and real Engine verification/approval/native Tool/ToolPart/checkpoint",
+    "real temporary Git commits preserving unrelated staged entries",
+    "configured core.hooksPath content and permissions stale guards",
+    "real hook rejection and commit message mutation",
+    "native supervisor readiness/dispatch/process/closed SQL faults",
+    "real cancellation/timeout and absent process groups",
+    "actual SIGKILL before and after commit; readonly reconciliation without second commit",
+    "default-off reopen and paused archive import",
+    "independent self-rehashed source/PID/outcome/native verification tampering"
+  ],
+  "storage": {
+    "databaseVersion": 22,
+    "newTables": 0,
+    "catalogueChanges": 0,
+    "ledger": "SessionDocuments plus immutable native session events",
+    "recordCap": 64,
+    "recordBytes": 131072,
+    "currentBytes": 8388608,
+    "eventRows": 8192,
+    "eventBytes": 33554432
+  },
+  "supportedScope": [
+    "host-approved regular-file selections",
+    "existing non-bare repository with HEAD",
+    "supported POSIX process group supervision",
+    "staged selection or verified working-tree selection"
+  ],
+  "unsupported": [
+    "bare or unborn repository",
+    "selected symlink/submodule/unmerged entry",
+    "overlapping staged selection in working-tree mode",
+    "active merge/cherry-pick/revert/bisect",
+    "remote/account/push",
+    "signing",
+    "Windows process-group execution",
+    "automatic commit replay"
+  ],
+  "aggregateValidation": "integration parent must run combined whole-repository gates after applying feature-only patch",
+  "featureFiles": [
+    "packages/engine/src/engine.ts",
+    "packages/engine/src/index.ts",
+    "packages/engine/src/recovery/index.ts",
+    "packages/engine/src/storage/archive.ts",
+    "packages/engine/src/storage/index.ts",
+    "packages/engine/src/git/commit-boundaries.integration.test.ts",
+    "packages/engine/src/git/commit-crash.integration.test.ts",
+    "packages/engine/src/git/commit-host.ts",
+    "packages/engine/src/git/commit-native.integration.test.ts",
+    "packages/engine/src/git/commit-preview.ts",
+    "packages/engine/src/git/commit-process.ts",
+    "packages/engine/src/git/commit-receipts.ts",
+    "packages/engine/src/git/commit-worker.ts",
+    "packages/engine/src/git/commit.integration.test.ts",
+    "packages/engine/src/git/fixtures/commit.ts",
+    "packages/engine/src/git/fixtures/crash-commit.ts",
+    "packages/engine/src/git/types.ts",
+    "docs/moodcode/engine-phase-two-git-commit.md",
+    "docs/moodcode/engine-phase-two-git-commit-verification.json"
+  ]
+}

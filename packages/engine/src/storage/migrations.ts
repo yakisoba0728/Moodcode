@@ -1,3 +1,4 @@
+import { HOST_COMMAND_SCHEMA_SQL } from '../jobs/host-command-records.js';
 import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
 import { inspectIntegrity } from './maintenance.js';
@@ -93,6 +94,7 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
   Object.freeze({ version: 20, name: 'native-schedules-and-occurrence-admission', apply: (database: DatabaseSync) => { database.exec(SCHEDULE_SCHEMA_SQL); } }),
   Object.freeze({ version: 21, name: 'native-agent-backends-and-client-effect-receipts', apply: (database: DatabaseSync) => { database.exec(BACKEND_SCHEMA_SQL); } }),
   Object.freeze({ version: 22, name: 'native-terminal-watch-jobs-and-completion-delivery', apply: (database: DatabaseSync) => { database.exec(JOB_SCHEMA_SQL); } }),
+  Object.freeze({ version: 23, name: 'independent-approved-host-commands', apply: (database: DatabaseSync) => { database.exec(HOST_COMMAND_SCHEMA_SQL); } }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;
 

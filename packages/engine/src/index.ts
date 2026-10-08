@@ -164,3 +164,9 @@ export type { TeamRecord, TeamPermissions, TeamRole, TeamMemberRevision, TeamMem
 export type { TeamMemberPreview, PreviewTeamMemberInput, JoinTeamMemberInput, RetireTeamMemberInput } from './teams/host.js';
 export type { ReadAgentMailboxInput, ResumeChildTurnInput, ResumeChildTurnResult, TeamTaskMutationInput } from './teams/service.js';
 export type { BindTeamModelToolsInput, TeamModelToolsBinding } from './teams/model-tool-host.js';
+
+export type { PreviewHostCommandInput, StartHostCommandInput, HostCommandOutputCursor, HostCommandOutputPage } from './jobs/host-command-service.js';
+export type { HostCommandRecord, HostCommandPreview, HostCommandState } from './jobs/host-command-records.js';
+export * from './git/types.js';
+export { validateGitCommitDatabase, validateGitCommitReceipt } from './git/commit-receipts.js';
+export type { CaptureForkPreviewInput, ForkPreview, ForkCommitInput, ForkResult, ConversationFork, FrozenHistoryManifest } from './sessions/fork-types.js';

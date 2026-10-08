@@ -17,6 +17,7 @@ import {
   EngineError,
   type Checkpoint,
   type JsonObject,
+  type Workspace,
 } from "@moodcode/contracts";
 import type {
   PreparedTool,
@@ -55,7 +56,7 @@ export const COMMAND_LIMITS = Object.freeze({
   supervisorStartupMs: 5_000,
 });
 
-interface CommandInput {
+export interface CommandInput {
   command: string;
   cwd: string;
   timeoutMs: number;
@@ -74,7 +75,10 @@ interface Capture {
   sealFailed?: boolean;
 }
 interface Observation {
-  readonly observer: CommandExecutionObserver;
+  readonly observer: Pick<
+    CommandExecutionObserver,
+    "started" | "output" | "failed"
+  >;
   readonly original: object;
   failure?: string;
 }
@@ -123,7 +127,7 @@ function ensurePosix(): void {
 
 async function normalizeInput(
   value: unknown,
-  context: ToolContext,
+  context: PhysicalCommandScope,
 ): Promise<CommandInput> {
   ensurePosix();
   if (
@@ -437,7 +441,7 @@ function sealedArtifact(capture: Capture): CommandArtifactDescriptor {
 }
 async function runProcess(
   input: CommandInput,
-  context: ToolContext,
+  context: PhysicalCommandScope,
   captures: { stdout: Capture; stderr: Capture },
   warnings: string[],
   observation?: Observation,
@@ -1025,7 +1029,7 @@ export function createCommandTool(
       }
       if (observation) {
         try {
-          observation.observer.closed(observation.original, {
+          observer!.closed(observation.original, {
             outcome: Object.freeze({ ...outcome }),
             stdout: sealedArtifact(captures.stdout),
             stderr: sealedArtifact(captures.stderr),
@@ -1120,5 +1124,100 @@ export function createCommandTool(
         })),
       };
     },
+  };
+}
+
+/** Neutral physical scope: no Run, Turn, Attempt, Tool or PTY identity is synthesized. */
+export interface PhysicalCommandScope {
+  readonly workspace: Workspace;
+  readonly signal: AbortSignal;
+  readonly limits: {
+    readonly toolTimeoutMs: number;
+    readonly maxOutputBytes: number;
+  };
+  readonly artifactDir: string;
+  readonly executionLockPath?: string;
+}
+export interface PhysicalCommandResult {
+  readonly outcome: ProcessOutcome;
+  readonly stdout: CommandArtifactDescriptor;
+  readonly stderr: CommandArtifactDescriptor;
+  readonly files: Checkpoint["files"];
+  readonly warnings: readonly string[];
+  readonly incomplete: boolean;
+  readonly observationFailure?: string;
+}
+export const preparePhysicalCommand = normalizeInput;
+/** Reuses the exact native command supervisor, bounded artifacts and process-group cleanup. */
+export async function executePhysicalCommand(
+  input: CommandInput,
+  scope: PhysicalCommandScope,
+  before: WorkspaceCapture,
+  observer: Pick<CommandExecutionObserver, "started" | "output" | "failed">,
+  beforeSpawn: () => object,
+): Promise<PhysicalCommandResult> {
+  const warnings = [
+    ATTRIBUTION_WARNING,
+    SCOPE_WARNING,
+    PROCESS_SCOPE_WARNING,
+    ...before.warnings,
+  ];
+  const captures = await createCaptures(scope.artifactDir);
+  let observation: Observation | undefined;
+  let outcome: ProcessOutcome;
+  try {
+    const ready = await normalizeInput(input, scope);
+    if (JSON.stringify(ready) !== JSON.stringify(input))
+      throw new EngineError(
+        "COMMAND_APPROVAL_MISMATCH",
+        "Physical command preparation changed before execution",
+      );
+    const original = beforeSpawn();
+    if (!original || typeof original !== "object" || types.isProxy(original))
+      throw new EngineError(
+        "COMMAND_OBSERVATION_ORIGINAL_REQUIRED",
+        "Physical command requires its original owner",
+      );
+    observation = { observer, original };
+    outcome = await runProcess(input, scope, captures, warnings, observation);
+  } catch (error) {
+    if (observation) observationFailure(observation, error);
+    throw error;
+  } finally {
+    closeCaptures(captures, warnings, true);
+  }
+  let after: WorkspaceCapture | undefined;
+  try {
+    after = await captureWorkspace(scope.workspace, {
+      signal: AbortSignal.timeout(COMMAND_LIMITS.checkpointTimeoutMs),
+      maxFiles: 128,
+      maxFileBytes: 8192,
+      maxTotalBytes: 32768,
+    });
+    warnings.push(...after.warnings);
+  } catch (error) {
+    warnings.push(
+      `After-command capture failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  const excluded = new Set(
+    [captures.stdout, captures.stderr].map((capture) =>
+      relative(scope.workspace.root, capture.path).split(sep).join("/"),
+    ),
+  );
+  return {
+    outcome: Object.freeze({ ...outcome }),
+    stdout: sealedArtifact(captures.stdout),
+    stderr: sealedArtifact(captures.stderr),
+    files: after ? changedFiles(before, after, warnings, excluded) : [],
+    warnings: [...new Set(warnings)],
+    incomplete:
+      !after ||
+      !outcome.cleanupConfirmed ||
+      before.warnings.length > 0 ||
+      Boolean(after?.warnings.length),
+    ...(observation?.failure
+      ? { observationFailure: observation.failure }
+      : {}),
   };
 }

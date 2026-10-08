@@ -1,3 +1,6 @@
+import { HOST_COMMAND_TABLES, validateHostCommandDatabase } from '../jobs/host-command-records.js';
+import { validateGitCommitDatabase } from '../git/commit-receipts.js';
+import { validateConversationForkDatabase } from '../sessions/fork-native.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { closeSync, constants, fstatSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, writeFileSync, writeSync, type Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path';
@@ -249,10 +252,12 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
     }
     const backendTables = schemaVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
     if (schemaVersion >= 22) {
-      try { validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check }); }
+      try { validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check }); validateGitCommitDatabase(db, {check}); validateConversationForkDatabase(db); }
       catch { fail('ARCHIVE_JOB_INVALID', 'Archived terminal job sources, immutable output pages or completion delivery receipts are invalid'); }
     }
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables, check) };
+    const jobTables = schemaVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables;
+    if (schemaVersion >= 23) { try { validateHostCommandDatabase(db,{check}); } catch { fail('ARCHIVE_HOST_COMMAND_INVALID','Independent host command approval, process, checkpoint or cleanup evidence is invalid'); } }
+    return { schemaVersion, logicalHash: checkDatabase(db,schemaVersion,schemaVersion >= 23 ? [...jobTables,...HOST_COMMAND_TABLES] : jobTables,check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

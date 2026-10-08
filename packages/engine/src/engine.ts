@@ -1,3 +1,7 @@
+import { HostCommandService } from './jobs/host-command-service.js';
+import { GitCommitHost } from './git/commit-host.js';
+import { ConversationForkHost } from './sessions/fork-host.js';
+import type { CaptureForkPreviewInput, ForkCommitInput } from './sessions/fork-types.js';
 import { lstatSync, mkdirSync, mkdtempSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -120,7 +124,7 @@ import { createChildMergeTool } from './child-tasks/merge.js';
 import { LspManager, type LspFactory } from './lsp/index.js';
 import { FormatterRegistry, createFormatTool, createLspFormatTool } from './formatters/index.js';
 import { WorkspaceChangeHub, type WorkspaceChangeWatch, type WorkspaceFileChange } from './workspace/changes.js';
-import { assertExecutionLockAvailable, acquireExecutionLock, reserveExecutionLock, readExecutionLockReservation } from './tools/command/execution-lock.js';
+import { assertExecutionLockAvailable, inspectExecutionLock, acquireExecutionLock, reserveExecutionLock, readExecutionLockReservation } from './tools/command/execution-lock.js';
 import { getReviewDiff, previewRestoreCheckpoint, restoreCheckpoint, type RestoreResult } from './review/index.js';
 import { readRecoveryAcknowledgments, isRestoreAcknowledged } from './recovery/index.js';
 import { validateSummaryRecoveryRequest, type SummaryRecoveryRequest, type SummaryRecoveryReceipt } from './recovery/summary.js';
@@ -184,6 +188,8 @@ export interface EngineOptions {
   repositoryContextPolicy?: RepositoryContextPolicy;
   /** Host-registered checks only; command/profile approval remains mandatory. */
   verificationTools?: boolean;
+  /** Idle host Git commits require an exact Original preview and actual verification. */
+  gitCommits?: boolean;
   /** Explicit tools-free host extraction into pending workspace knowledge candidates. */
   knowledgeGeneration?: boolean;
   /** Explicit host-approved publication to native workspace document revisions. */
@@ -210,6 +216,10 @@ export interface EngineOptions {
   agentBackends?: boolean;
   /** Explicit read-only observation of existing user-owned terminals as native jobs. */
   jobs?: boolean;
+  /** Explicit independent idle-workspace command owner; disabled by default. */
+  hostCommands?: boolean;
+  /** Exact host-approved bounded conversation forks; execution approvals are never inherited. */
+  conversationForks?: boolean;
   /** Explicit audience-bound runtime secrets; bodies never enter native backend journals. */
   agentBackendSecrets?: AgentBackendSecretResolver;
   /** Exact host-selected pending proposals projected as read-only model data. */
@@ -416,11 +426,14 @@ export class MoodcodeEngine {
   private readonly backendProcesses: OwnedBackendProcesses;
   private readonly backendHost: AgentBackendHost;
   private readonly jobsEnabled: boolean;
+  private readonly conversationForkHost: ConversationForkHost;
+  private readonly conversationForksEnabled: boolean;
   private readonly jobProducer: EngineJobProducer;
   private readonly jobRecords: JobStorage;
   private readonly jobHost: JobHost;
   private readonly jobDelivery: JobDelivery;
   private readonly ownedCommandHost: OwnedCommandJobHost;
+  private readonly hostCommands: HostCommandService;
   private readonly ownedCommandProducer: EngineOwnedCommandDeliveryProducer;
   private readonly ownedCommandDelivery: OwnedCommandDelivery;
   private readonly runtimeProviders: Map<string, ProviderAdapter>;
@@ -447,6 +460,7 @@ export class MoodcodeEngine {
   private readonly defaults: RunConfig;
   private readonly hostAllowedTools?: readonly string[];
   private readonly capabilities: EngineCapabilities;
+  private readonly gitCommitHost: GitCommitHost;
   private readonly executionLockPath: string;
   private readonly restoreRequests = new Map<string, { binding: RestoreOperationInput; promise: Promise<RestoreCommandResult> }>();
 
@@ -490,12 +504,15 @@ export class MoodcodeEngine {
     this.agentBackendsEnabled = options.agentBackends === true;
     if (options.jobs !== undefined && typeof options.jobs !== 'boolean') throw new EngineError('INVALID_CONFIG', 'jobs requires an explicit root host boolean');
     this.jobsEnabled = options.jobs === true;
+    if (options.conversationForks !== undefined && typeof options.conversationForks !== 'boolean') throw new EngineError('INVALID_CONFIG','conversationForks must be an explicit boolean');
+    this.conversationForksEnabled = options.conversationForks === true;
     if (this.teamModelToolsEnabled && !this.teamsEnabled) throw new EngineError('INVALID_CONFIG', 'Model team tools require explicit host teams');
     this.proposalsEnabled = options.proposals === true;
     if (options.proposalApply !== undefined && typeof options.proposalApply !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposalApply must be an explicit boolean');
     this.proposalApplyEnabled = options.proposalApply === true;
     if (options.diagnosticObservations !== undefined && typeof options.diagnosticObservations !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Execution observations require an explicit host boolean');
     if (this.verificationEnabled && options.tools !== undefined) throw new EngineError('INVALID_VERIFICATION_CONFIG', 'Verification requires the engine-owned command producer and core registrations');
+    if (options.hostCommands !== undefined && typeof options.hostCommands !== 'boolean') throw new EngineError('INVALID_CONFIG','hostCommands must be an explicit boolean');
     if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Document token cost policy must be a boolean');
     if (options.repositoryContextTools !== undefined && typeof options.repositoryContextTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Repository tool exposure must be an explicit boolean');
     if (options.lifecycleHooks !== undefined) {
@@ -648,10 +665,12 @@ export class MoodcodeEngine {
       const interruptedFileOwners: string[] = [];
       try { verifyExecutionIdle(this.executionLockPath); }
       catch (error) { const known = this.knowledgeFileExecutionGuards.matching(this.executionLockPath);
-        if (known) interruptedFileOwners.push(known.publicationId); else if (!this.proposalApplyGuards.matching(this.executionLockPath)) throw error; }
+        if (known) interruptedFileOwners.push(known.publicationId); else if (!this.proposalApplyGuards.matching(this.executionLockPath)) { const marker=inspectExecutionLock(this.executionLockPath); if (marker.status!=='uncertain' || !this.store.hasKnownGitCommitSupervisor(marker.marker.ownerPid)) throw error; } }
       reviewJournal = new ReviewJournal(canonicalDbPath === undefined ? resolve(artifactDir, 'review.sqlite') : `${canonicalDbPath}.review.sqlite`);
       this.reviewJournal = reviewJournal;
       this.store.recoverInterrupted();
+      this.store.validateGitCommits();
+      this.store.createGitCommitStorage().recover();
       this.knowledgeGenerations.recoverInterruptedOwners();
       this.knowledgePublications.recoverInterruptedOwners();
       this.knowledgeFilePublications.recoverInterruptedOwners(interruptedFileOwners);
@@ -697,7 +716,7 @@ export class MoodcodeEngine {
       this.children = new EngineChildren(this, { ...options, ...(repositoryPolicy ? { repositoryContextPolicy: repositoryPolicy } : {}), ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => {
         bindChildTeamModelCatalogue(value, this.teamModelDefinitions);
         return new MoodcodeEngine(value);
-      }, storageBinding);
+      }, storageBinding, (child,sessionId,parent,parentRunId,allocation)=>this.conversationForkHost.inheritChild(parent,child,sessionId,parentRunId,allocation));
       const teamOwners = new EngineTeamOwners(this);
       this.teamRecords = this.store.createTeamStorage({ checkBinding: knowledgeBinding,
         readMemberOwner: original => this.teamHost.readMemberOwner(original),
@@ -899,6 +918,7 @@ export class MoodcodeEngine {
       const proposalContext = proposalPolicy ? { source: this.proposalOverlay, policy: proposalPolicy,
         getProfile: (run: Run) => { const profile = this.profiles.forRun(run.sessionId, run.config); return profile ? { id: profile.id, revision: profile.revision } : undefined; } } : undefined;
       this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { lifecycleHooks: this.lifecycleHooks,
+        conversationFork: { prepare:(sessionId,config)=>this.conversationForkHost.context(sessionId,config), assertFresh:(sessionId,sha,config)=>this.conversationForkHost.assertContext(sessionId,sha,config) },
         ...(options.lifecycleContextSlotBytes === undefined ? {} : { lifecycleContextSlotBytes: options.lifecycleContextSlotBytes }),
         ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}), ...(knowledgeContext ? { knowledgeContext } : {}), ...(proposalContext ? { proposalContext } : {}) });
       if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
@@ -953,7 +973,7 @@ export class MoodcodeEngine {
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
       this.coordinator = new RunCoordinator({
-        beforeProviderDispatch: run => { this.scheduleProducer.beforeProviderDispatch(run); this.jobProducer?.beforeProviderDispatch(run); this.ownedCommandProducer?.beforeProviderDispatch(run); },
+        beforeProviderDispatch: run => { this.scheduleProducer.beforeProviderDispatch(run); this.jobProducer?.beforeProviderDispatch(run); this.ownedCommandProducer?.beforeProviderDispatch(run); this.conversationForkHost.context(run.sessionId,run.config); },
         onOwnedCommandToolSettled: record => this.ownedCommandHost?.toolSettled(record),
         onRunStarted: async (run,signal) => {
           const admission = waitChildProviderAdmission(this,signal);
@@ -1035,7 +1055,8 @@ export class MoodcodeEngine {
         assertDueBatchCurrent: (original, expected, spec) => this.scheduleProducer.assertDueBatchCurrent(original, expected, spec),
       });
       this.scheduleRecords.recoverInterrupted();
-      this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, beforePromotion: input => { this.scheduleProducer.beforePromotion(input); this.jobProducer?.beforePromotion(input); this.ownedCommandProducer?.beforePromotion(input); } });
+      this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, beforePromotion: input => { this.scheduleProducer.beforePromotion(input); this.jobProducer?.beforePromotion(input); this.ownedCommandProducer?.beforePromotion(input); this.conversationForkHost.context(input.sessionId,input.config); } });
+      this.conversationForkHost = new ConversationForkHost(this,knowledgeBinding,id=>providers.get(id),this.conversationForksEnabled);
       const scheduleHost = new ScheduleHost({ native: this.scheduleRecords, input: this.scheduleProducer.inputPort() });
       this.scheduleDispatcher = new ScheduleDispatcher({ native: this.scheduleRecords, host: scheduleHost });
       this.backendProducer = new EngineAgentBackendProducer(this, knowledgeBinding, () => this.backendRecords, () => this.closing,
@@ -1073,6 +1094,7 @@ export class MoodcodeEngine {
       this.jobHost = new JobHost({ native: this.jobRecords, source: this.jobProducer.sourcePort(), lifetime: this.hostResources.signal });
       this.jobDelivery = new JobDelivery({ native: this.jobRecords, input: this.jobProducer.inputPort(), lifetime: this.hostResources.signal });
       this.store.recoverOwnedCommandJobs();
+      this.hostCommands = new HostCommandService(this, this.store.createHostCommandStorage(), knowledgeBinding, { enabled: () => options.hostCommands === true && !this.closing, unsupportedPolicy: Boolean(options.commandPreflight || options.roleResourcePolicy || options.roleResourcePolicyRegistry || options.resolveRoleResources), artifactDir:this.storagePaths.artifactDir, executionLockPath:this.executionLockPath, lifetime:this.hostResources.signal });
       this.ownedCommandHost = new OwnedCommandJobHost(this, knowledgeBinding, () => this.jobsEnabled && !this.closing);
       this.store.validateOwnedCommandDeliveries();
       this.ownedCommandProducer = new EngineOwnedCommandDeliveryProducer(this, knowledgeBinding, () => this.jobsEnabled && !this.closing, this.ownedCommandHost);
@@ -1083,6 +1105,11 @@ export class MoodcodeEngine {
         readAccepted: original => this.ownedCommandProducer.readAccepted(original),
         releaseAccepted: original => this.ownedCommandProducer.release(original),
       })}, lifetime:this.hostResources.signal});
+      this.gitCommitHost = new GitCommitHost({ store:this.store,records:this.store.createGitCommitStorage(),plans:this.verificationPlans,verification:this.verificationHost,
+        binding:knowledgeBinding,enabled:()=>options.gitCommits===true && this.verificationEnabled && !this.closing,
+        lease:(workspaceId,operation)=>this.coordinator.withWorkspaceLease(workspaceId,operation),
+        recoveryLease:(workspaceId,operation)=>this.coordinator.withRecoveryDecisionLease(workspaceId,operation),
+        executionLockPath:this.executionLockPath,artifactDir:this.storagePaths.artifactDir,lifetime:this.hostResources.signal });
       const recoveredRestores = this.reviewJournal.recoverPending();
       const recoveryAcknowledgments = canonicalDbPath ? readRecoveryAcknowledgments({ dbPath: canonicalDbPath, artifactDir: realpathSync(artifactDir) }) : [];
       for (const operation of recoveredRestores) {
@@ -1529,6 +1556,15 @@ export class MoodcodeEngine {
     });
   }
 
+  captureForkPreview(input: CaptureForkPreviewInput): Promise<object> { return this.conversationForkHost.capture(input); }
+  readForkPreview(original: object) { return this.conversationForkHost.read(original); }
+  forkConversationView(input: ForkCommitInput) { return this.conversationForkHost.commit(input); }
+  inspectConversationLineage(sessionId: string) { return this.store.getConversationFork(sessionId); }
+  exportConversationForkHistory(sessionId: string) { return this.conversationForkHost.exportHistory(sessionId); }
+  captureForkImportPreview(input: Parameters<ConversationForkHost['captureImport']>[0]) { return this.conversationForkHost.captureImport(input); }
+  readForkImportPreview(original: object) { return this.conversationForkHost.readImport(original); }
+  importConversationForkHistory(input: ForkCommitInput) { return this.conversationForkHost.importHistory(input); }
+  releaseForkPreview(original: object): void { this.conversationForkHost.release(original); }
   getCapabilities(): EngineCapabilities {
     return { ...structuredClone(this.capabilities), providerIds: [...this.runtimeProviders.keys()].sort(), tools: [...this.toolRuntime.catalogue('engine', 'build', this.hostAllowedTools).tools] };
   }
@@ -1578,6 +1614,17 @@ export class MoodcodeEngine {
   readCommandJobDeliveryTarget(...args: Parameters<JobDelivery['readTarget']>) { return this.jobDelivery.readTarget(...args); }
   deliverCommandJobResult(...args: Parameters<JobDelivery['deliver']>) { return this.jobDelivery.deliver(...args); }
   releaseCommandJobHandle(original: object): void { this.jobHost.release(original); this.jobDelivery.release(original); }
+  previewHostCommand(...args: Parameters<HostCommandService['preview']>) { return this.hostCommands.preview(...args); }
+  readHostCommandPreview(...args: Parameters<HostCommandService['readPreview']>) { return this.hostCommands.readPreview(...args); }
+  startHostCommand(...args: Parameters<HostCommandService['start']>) { return this.hostCommands.start(...args); }
+  waitForHostCommand(...args: Parameters<HostCommandService['wait']>) { return this.hostCommands.wait(...args); }
+  cancelHostCommand(...args: Parameters<HostCommandService['cancel']>) { return this.hostCommands.cancel(...args); }
+  inspectHostCommands(...args: Parameters<HostCommandService['inspect']>) { return this.hostCommands.inspect(...args); }
+  getHostCommand(...args: Parameters<HostCommandService['get']>) { return this.hostCommands.get(...args); }
+  captureHostCommandOutput(...args: Parameters<HostCommandService['captureOutput']>) { return this.hostCommands.captureOutput(...args); }
+  readHostCommandOutput(...args: Parameters<HostCommandService['readOutput']>) { return this.hostCommands.readOutput(...args); }
+  readHostCommandArtifacts(...args: Parameters<HostCommandService['artifacts']>) { return this.hostCommands.artifacts(...args); }
+  releaseHostCommandHandle(original:object):void { this.hostCommands.release(original); }
   inspectOwnedCommandJobs(...args: Parameters<OwnedCommandJobHost['inspect']>) { return this.ownedCommandHost.inspect(...args); }
   getOwnedCommandJob(...args: Parameters<OwnedCommandJobHost['get']>) { return this.ownedCommandHost.get(...args); }
   captureOwnedCommandJobOutput(...args: Parameters<OwnedCommandJobHost['captureOutput']>) { return this.ownedCommandHost.captureOutput(...args); }
@@ -1596,6 +1643,14 @@ export class MoodcodeEngine {
     if (!this.roleResourcePolicyRegistry) throw new EngineError('ROLE_POLICY_UNSUPPORTED', 'Dynamic role policy requires an explicit host registry');
     return this.roleResourcePolicyRegistry.replace(expectedRegistryRevision, policy);
   }
+
+  previewGitCommit(...args:Parameters<GitCommitHost['preview']>) { return this.gitCommitHost.preview(...args); }
+  readGitCommitPreview(...args:Parameters<GitCommitHost['read']>) { return this.gitCommitHost.read(...args); }
+  releaseGitCommitPreview(...args:Parameters<GitCommitHost['release']>) { return this.gitCommitHost.release(...args); }
+  commitReviewedChanges(...args:Parameters<GitCommitHost['commit']>) { return this.gitCommitHost.commit(...args); }
+  reconcileGitCommit(...args:Parameters<GitCommitHost['reconcile']>) { return this.gitCommitHost.reconcile(...args); }
+  getGitCommitReceipt(...args:Parameters<SqliteStore['getGitCommitReceipt']>) { return this.store.getGitCommitReceipt(...args); }
+  inspectGitCommitReceipts(...args:Parameters<SqliteStore['inspectGitCommitReceipts']>) { return this.store.inspectGitCommitReceipts(...args); }
 
   registerVerificationCheck(check: VerificationCheckRegistration): () => void {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
@@ -2244,11 +2299,12 @@ export class MoodcodeEngine {
         this.teamService.close();
         this.teamModelHost.close();
         this.teamHost.close();
+        this.conversationForkHost.close();
         this.jobHost.close();
         this.jobDelivery.close();
         this.ownedCommandDelivery.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.backendHost.close(), this.scheduleDispatcher.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.hostCommands.close(), this.gitCommitHost.close(), this.backendHost.close(), this.scheduleDispatcher.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }

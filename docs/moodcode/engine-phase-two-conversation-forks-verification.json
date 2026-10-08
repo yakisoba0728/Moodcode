@@ -1,0 +1,68 @@
+{
+  "feature": "MC2-14 effect-preserving conversation forks",
+  "scope": "actual local Engine host/native/context/child/worktree/archive/recovery lane",
+  "implementation": "complete within documented supported lane",
+  "aggregateIntegration": "parent task pending; not claimed by this feature report",
+  "databaseVersion": 22,
+  "migrationsAdded": 0,
+  "actualProviders": "deterministic local fixture only",
+  "externalAccountsUsed": false,
+  "sourceCommandReplay": false,
+  "sourceTerminalExecutionEventsAdded": false,
+  "generatedAt": "2026-10-08T07:55:18.467962+00:00",
+  "baseline": {
+    "head": "3584d6d732267635ec0d74642fcc403bb6559e21",
+    "initialSnapshot": "/tmp/moodcode-conversation-fork-feature-baseline.json",
+    "inheritedOwnedCommandInboxPatchIncludedInFeaturePatch": false
+  },
+  "checks": {
+    "finalStrictCompile": {
+      "exitCode": 0,
+      "loader": "compiled TypeScript, NodeNext, no tsx"
+    },
+    "finalActualFeature": {
+      "tests": 21,
+      "pass": 21,
+      "fail": 0,
+      "skip": 0
+    },
+    "finalFormat": {
+      "exitCode": 0,
+      "scope": "new feature files and feature docs"
+    },
+    "adjacentFocusedRegression": {
+      "tests": 69,
+      "pass": 69,
+      "fail": 0,
+      "skip": 0,
+      "note": "Passed before final branch-provenance notice and tighter preview workspace-availability guards; final 21 feature cases rerun after those guards."
+    },
+    "liveFixtureProcessesAtFreeze": 0
+  },
+  "supported": [
+    "Original exact host approval bound to physical source/target/config/catalogue/profile/worktree/lineage",
+    "Atomic native Session/profile/input/receipt birth with post-COMMIT wake",
+    "Actual readonly first Run and provider-context consumption",
+    "Compatible opaque replay or explicit semantic quoted DATA",
+    "Later effects retained and subsequent new effect/new approval",
+    "Bounded lineage with original parent and actual child allocation",
+    "Explicit existing managed worktree selection",
+    "Paused target-only relocated archive history; no fabricated source execution",
+    "Native corruption/cleanup/staleness/late dispatch fences",
+    "Actual SIGKILL before and after COMMIT; no replay"
+  ],
+  "unsupported": [
+    "Media/file execution grant transfer",
+    "Repository rewind or old command retry",
+    "Automatic worktree creation or source rollback",
+    "Imported target-only activation without actual source rows",
+    "Reconstruction of Original handles or child parent authority after restart",
+    "Cross-provider opaque replay"
+  ],
+  "logs": {
+    "/tmp/moodcode-fork-final-type.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/moodcode-fork-final-actual.log": "d5e65840e5e47c5606ccf3acd1ac82f4559104ca51d7485c48a7f337105c4b42",
+    "/tmp/moodcode-fork-final-format.log": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+    "/tmp/moodcode-fork-feature-and-regression.log": "f8bfbe8b5957860a9652cb433ffc94d85a6f3ba5901a8cc4a8c5dc0d122c5a24"
+  }
+}

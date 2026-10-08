@@ -1,3 +1,9 @@
+import { HostCommandStorage, hasHostCommandUncertainty, validateHostCommandDatabase } from '../jobs/host-command-records.js';
+import { GitCommitStorage, hasUncertainGitCommit, hasKnownGitCommitSupervisor, readGitCommitProcessEvidence, validateGitCommitDatabase } from '../git/commit-receipts.js';
+import { readForkChildData } from '../sessions/fork-child.js';
+import { importPausedFork, type ForkImportPreview } from '../sessions/fork-archive.js';
+import { captureForkSource, assertForkSourceCurrent, readConversationFork, materializeConversationFork, validateConversationForkDatabase, type ForkNativePorts } from '../sessions/fork-native.js';
+import type { FrozenHistoryManifest } from '../sessions/fork-types.js';
 import { randomUUID } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -312,14 +318,29 @@ export class SqliteStore implements SessionEngineStore {
     this.assertOpen();
     return this.rows('SELECT data FROM workspaces ORDER BY rowid');
   }
+  installConversationForkChildEvidence(sessionId: string, evidence: JsonObject): void { this.transaction(()=>{this.executionRecords.putSessionDocument(sessionId,'conversation.fork.child-data',0,evidence);this.native.appendEvent(sessionId,'conversation.fork.child_context',{evidence});}); }
+  getConversationForkChildEvidence(sessionId: string) { return this.evidenceRead(()=>readForkChildData(this.db,sessionId)); }
+  captureConversationForkSource(sessionId: string, throughRunId?: string): FrozenHistoryManifest { return this.evidenceRead(() => captureForkSource(this.db,sessionId,throughRunId)); }
+  assertConversationForkSource(source: FrozenHistoryManifest, fresh: boolean): void { this.evidenceRead(() => assertForkSourceCurrent(this.db,source,fresh)); }
+  getConversationFork(sessionId: string) { return this.evidenceRead(() => readConversationFork(this.db,sessionId)); }
+  importPausedConversationFork(preview: ForkImportPreview, requestId: string) { return this.transaction(()=>importPausedFork(this.db,preview,requestId,{
+    createSession:s=>this.createSession(s),putDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),
+    appendEvent:(s,t,d)=>this.native.appendEvent(s,t,d),pause:s=>this.setSessionPaused(s,true,'recovery_required')})); }
+  validateConversationForks(): void { this.evidenceRead(() => validateConversationForkDatabase(this.db)); }
+  materializeConversationFork(original: object, requestId: string, fingerprint: string, ports: Omit<ForkNativePorts,'putDocument'|'appendEvent'>) {
+    return this.transaction(() => materializeConversationFork(this.db,original,requestId,fingerprint,{...ports,
+      putDocument:(sessionId,kind,revision,data)=>this.executionRecords.putSessionDocument(sessionId,kind,revision,data),
+      appendEvent:(sessionId,type,payload,refs)=>this.native.appendEvent(sessionId,type,payload,refs)}));
+  }
   createSession(session: Session): Session {
-    return this.transaction(() => {
+    const create = (): Session => {
       this.getWorkspace(session.workspaceId);
       const existing = this.row('SELECT data FROM sessions WHERE id=?', session.id);
       if (existing) { requireMatch(decode(existing), session, 'Session ID already exists'); return decode(existing); }
       this.db.prepare('INSERT INTO sessions(id,workspace_id,data) VALUES(?,?,?)').run(session.id, session.workspaceId, encode(session));
       return JSON.parse(encode(session)) as Session;
-    });
+    };
+    return this.db.isTransaction ? create() : this.transaction(create);
   }
   getSession(id: string): Session {
     this.assertOpen();
@@ -449,7 +470,7 @@ export class SqliteStore implements SessionEngineStore {
     });
   }
   hasUncertainWorkspace(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId) || this.hasUncertainAgentBackend(workspaceId) || readOwnedCommandJobs(this.db, workspaceId).some(job => job.state === 'uncertain' || job.state === 'paused-import' && job.errorCode === 'COMMAND_JOB_CLEANUP_UNCERTAIN'));
+    return this.recoveryBlocked(() => this.hasUncertainGitCommit(workspaceId) || this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId) || this.hasUncertainAgentBackend(workspaceId) || readOwnedCommandJobs(this.db, workspaceId).some(job => job.state === 'uncertain' || job.state === 'paused-import' && job.errorCode === 'COMMAND_JOB_CLEANUP_UNCERTAIN'));
   }
   hasUncertainAgentBackend(workspaceId: string): boolean {
     return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasAgentBackendBlocker(this.db, workspaceId); });
@@ -479,10 +500,14 @@ export class SqliteStore implements SessionEngineStore {
   getMcpExecution(id: string, expectedSessionId?: string): McpExecutionRecord { return this.mcpExecutionRecords.get(id, expectedSessionId); }
   hasUncertainMcpExecutions(workspaceId: string): boolean { this.assertOpen(); return hasMcpExecutionUncertainty(this.db,workspaceId); }
   getSummaryOverflowDependency(summaryAttemptId: string, turnId: string, failedAttemptId: string) { return this.evidenceRead(() => summaryOverflowDependency(this.db, this, summaryAttemptId, turnId, failedAttemptId)); }
+  createHostCommandStorage(): HostCommandStorage {
+    return new HostCommandStorage(this.db, { transaction: operation => this.db.isTransaction ? operation() : this.transaction(operation), appendEvent: (sessionId,type,payload) => { this.native.appendEvent(sessionId,type,payload); this.publishAfterCommit(() => this.notify(sessionId)); } });
+  }
+  validateHostCommands(): void { this.evidenceRead(() => validateHostCommandDatabase(this.db)); }
   hasUncertainExecution(workspaceId: string): boolean {
     return this.recoveryBlocked(() => {
       this.getWorkspace(workspaceId);
-      return hasExecutionUncertainty(this.db, this, workspaceId, {
+      return hasHostCommandUncertainty(this.db,workspaceId) || hasExecutionUncertainty(this.db, this, workspaceId, {
         hasValidSummaryAcknowledgment: (sessionId, id) => this.summaryRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
         hasValidProviderAcknowledgment: (sessionId, id) => this.providerRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
         hasUnacknowledgedProviders: workspaceId => this.providerRecovery?.hasUnacknowledged(workspaceId) ?? true,
@@ -661,6 +686,23 @@ export class SqliteStore implements SessionEngineStore {
     return this.jobRecords = new JobStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
       writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
+  createGitCommitStorage(): GitCommitStorage {
+    return new GitCommitStorage(this.db, {
+      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation),
+      writeDocument: (sessionId,kind,revision,data) => this.executionRecords.putSessionDocument(sessionId,kind,revision,data),
+      appendEvent: (sessionId,type,payload) => this.native.appendEvent(sessionId,type,payload),
+    });
+  }
+  commitGitCommitObservation(sessionId:string, type:'git.commit.supervisor_admitted'|'git.commit.process_admitted'|'git.commit.closed'|'git.commit.reconciled', payload:JsonObject): SessionEventV2 {
+    const write=()=>this.native.appendEvent(sessionId,type,payload);
+    const event=this.db.isTransaction?write():this.transaction(write);this.notify(sessionId);return event;
+  }
+  hasKnownGitCommitSupervisor(pid:number):boolean {return this.evidenceRead(()=>hasKnownGitCommitSupervisor(this.db,pid));}
+  readGitCommitProcessEvidence(sessionId:string,id:string) {return this.evidenceRead(()=>readGitCommitProcessEvidence(this.db,sessionId,id));}
+  validateGitCommits():void { this.evidenceRead(()=>validateGitCommitDatabase(this.db)); }
+  getGitCommitReceipt(workspaceId:string,sessionId:string,requestId:string) { return this.evidenceRead(()=>this.createGitCommitStorage().get(workspaceId,sessionId,requestId)); }
+  inspectGitCommitReceipts(workspaceId:string) { return this.evidenceRead(()=>this.createGitCommitStorage().list(workspaceId)); }
+  hasUncertainGitCommit(workspaceId:string):boolean { return this.recoveryBlocked(()=>hasUncertainGitCommit(this.db,workspaceId)); }
   putOwnedCommandJob(source: OwnedCommandJobSource, jobId: string, expectedRevision: number, data: JsonObject): SessionDocument {
     const write = () => {
       const record = validateOwnedCommandJob(data), run = this.getRun(source.runId), tool = this.getToolCall(source.toolCallId);
@@ -699,6 +741,8 @@ export class SqliteStore implements SessionEngineStore {
   pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string, origin?: { readonly importId: string; readonly sourcePrimaryLogicalSha256: string; readonly sourceStorageBindingSha256: string }): void {
     this.transaction(() => {
       const workspace = this.getWorkspace(workspaceId);
+      this.createGitCommitStorage().pause(workspaceId, archiveSha256);
+      for (const session of this.listSessions(workspaceId)) if (this.getConversationFork(session.id)) { const old=this.getSessionDocument(session.id,'conversation.fork.import'); if (old?.data.kind !== 'target-only-history') this.executionRecords.putSessionDocument(session.id,'conversation.fork.import',old?.revision??0,{paused:true,archiveSha256}); }
       pauseImportedProposals(this.db, workspaceId, archiveSha256);
       pauseImportedProposalApplies(this.db, workspaceId, archiveSha256);
       pauseImportedTeams(this.db, workspaceId, archiveSha256);
@@ -707,6 +751,7 @@ export class SqliteStore implements SessionEngineStore {
       markImportedAgentBackendsPaused(this.db, archiveSha256, workspaceId);
       markImportedJobsPaused(this.db, archiveSha256, workspaceId);
       pauseImportedOwnedCommandJobs(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
+      this.createHostCommandStorage().pauseImport(workspaceId,archiveSha256);
       pauseImportedOwnedCommandDeliveries(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
       if (origin) {
         // Imported runtime capabilities are absent. Persist the ordinary native

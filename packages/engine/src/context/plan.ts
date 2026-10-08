@@ -13,7 +13,7 @@ export interface ContextPlan {
   sha256: string;
   selectedMessageIds: string[];
   omittedMessageCount: number;
-  reservations: { envelopeBytes: number; outputTokens: number; repositoryBytes?: number; knowledgeBytes?: number; proposalBytes?: number; lifecycleBytes?: number };
+  reservations: { envelopeBytes: number; outputTokens: number; repositoryBytes?: number; knowledgeBytes?: number; proposalBytes?: number; lifecycleBytes?: number; forkBytes?: number };
   bytes: number;
   byteLimit: number;
   inputEstimate: TokenEstimate;
@@ -52,8 +52,11 @@ function assertKnowledgeData(value: unknown): void {
   visit(value, 0);
 }
 
-export async function planContext(request: ContextRequest, options: { model?: ModelSpec; outputTokens?: number; repositoryMessages?: readonly ProviderMessage[]; knowledgeMessages?: readonly ProviderMessage[]; proposalMessages?: readonly ProviderMessage[]; lifecycleMessages?: readonly ProviderMessage[]; requiredOnly?: boolean } = {}): Promise<ContextPlan> {
+export async function planContext(request: ContextRequest, options: { model?: ModelSpec; outputTokens?: number; repositoryMessages?: readonly ProviderMessage[]; knowledgeMessages?: readonly ProviderMessage[]; proposalMessages?: readonly ProviderMessage[]; lifecycleMessages?: readonly ProviderMessage[]; forkMessages?: readonly ProviderMessage[]; requiredOnly?: boolean } = {}): Promise<ContextPlan> {
   const envelopeBytes = request.reservedBytes ?? 0;
+  const forkMessages = options.forkMessages ? boundedJson(options.forkMessages,65537) as unknown as ProviderMessage[] : [];
+  const forkBytes = forkMessages.reduce((sum,message)=>sum+Buffer.byteLength(JSON.stringify(message))+1,0);
+  if (forkBytes>65536) throw new EngineError('FORK_CONTEXT_LIMIT','Whole frozen transcript exceeds its reservation');
   let lifecycleMessages: ProviderMessage[] = [];
   if (options.lifecycleMessages !== undefined) {
     try { assertKnowledgeData(options.lifecycleMessages); lifecycleMessages = boundedJson(options.lifecycleMessages, 16_385) as unknown as ProviderMessage[]; }
@@ -101,23 +104,24 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
   if (model?.maxOutputTokens !== null && model?.maxOutputTokens !== undefined && outputTokens > model.maxOutputTokens) throw new EngineError('MODEL_OUTPUT_LIMIT', 'Output reserve exceeds the known model limit');
   const effectiveByteLimit = model?.contextWindow == null ? request.config.limits.maxContextBytes : Math.min(request.config.limits.maxContextBytes, model.contextWindow - outputTokens);
   let messages: ProviderMessage[];
-  try { messages = await buildContext({ ...request, reservedBytes: envelopeBytes + repositoryBytes + knowledgeBytes + proposalBytes + lifecycleBytes, config: { ...request.config, limits: { ...request.config.limits, maxContextBytes: effectiveByteLimit } } }, { requiredOnly: options.requiredOnly }); }
+  try { messages = await buildContext({ ...request, reservedBytes: envelopeBytes + repositoryBytes + knowledgeBytes + proposalBytes + lifecycleBytes + forkBytes, config: { ...request.config, limits: { ...request.config.limits, maxContextBytes: effectiveByteLimit } } }, { requiredOnly: options.requiredOnly }); }
   catch (error) { if (error instanceof EngineError && error.code === 'CONTEXT_LIMIT' && effectiveByteLimit < request.config.limits.maxContextBytes) throw new EngineError('CONTEXT_TOKEN_LIMIT', 'The required current exchange exceeds the conservative model window and output reserve', { tokenLimit: model!.contextWindow, outputTokens, estimateSource: 'utf8-byte-upper-bound' }); throw error; }
   // Synthetic evidence precedes the first transcript message and never splits a tool exchange.
-  if (repositoryMessages.length || knowledgeMessages.length || proposalMessages.length || lifecycleMessages.length) {
+  if (repositoryMessages.length || knowledgeMessages.length || proposalMessages.length || lifecycleMessages.length || forkMessages.length) {
     const firstTranscript = messages.findIndex(message => message.role !== 'system');
     const index = firstTranscript < 0 ? messages.length : firstTranscript;
-    messages = [...messages.slice(0, index), ...repositoryMessages, ...knowledgeMessages, ...proposalMessages, ...lifecycleMessages, ...messages.slice(index)];
+    messages = [...messages.slice(0, index), ...repositoryMessages, ...knowledgeMessages, ...proposalMessages, ...lifecycleMessages, ...forkMessages, ...messages.slice(index)];
   }
   const serialized = JSON.stringify(messages);
   const bytes = Buffer.byteLength(serialized) + envelopeBytes;
+  if(forkBytes && bytes>effectiveByteLimit)throw new EngineError('CONTEXT_LIMIT','Whole context including frozen fork history exceeds the exact byte cap');
   const inputEstimate = estimateTokens(messages, envelopeBytes);
   const tokenLimit = model?.contextWindow ?? null;
   if (tokenLimit !== null && inputEstimate.tokens + outputTokens > tokenLimit) throw new EngineError('CONTEXT_TOKEN_LIMIT', 'Conservative input estimate and output reserve exceed the model context window', {
     estimatedInputTokens: inputEstimate.tokens, outputTokens, tokenLimit, estimateSource: inputEstimate.source,
   });
   const selectedMessageIds: string[] = [];
-  const supplemental = new Set([...repositoryMessages, ...knowledgeMessages, ...proposalMessages, ...lifecycleMessages]);
+  const supplemental = new Set([...repositoryMessages, ...knowledgeMessages, ...proposalMessages, ...lifecycleMessages, ...forkMessages]);
   // Duplicate text is matched in chronological order, rather than selecting every equal message.
   let previous = request.snapshot.messages.length - 1;
   for (const selected of [...messages].reverse()) {
@@ -131,7 +135,7 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
   return {
     messages, sha256: createHash('sha256').update(serialized).digest('hex'), selectedMessageIds,
     omittedMessageCount: Math.max(0, request.snapshot.messages.length - selectedMessageIds.length),
-    reservations: { envelopeBytes, outputTokens, ...(repositoryBytes ? { repositoryBytes } : {}), ...(knowledgeBytes ? { knowledgeBytes } : {}), ...(proposalBytes ? { proposalBytes } : {}), ...(lifecycleBytes ? { lifecycleBytes } : {}) }, bytes, byteLimit: effectiveByteLimit,
+    reservations: { envelopeBytes, outputTokens, ...(repositoryBytes ? { repositoryBytes } : {}), ...(knowledgeBytes ? { knowledgeBytes } : {}), ...(proposalBytes ? { proposalBytes } : {}), ...(lifecycleBytes ? { lifecycleBytes } : {}), ...(forkBytes ? { forkBytes } : {}) }, bytes, byteLimit: effectiveByteLimit,
     inputEstimate, tokenLimit, model: { providerId: request.config.providerId, modelId: request.config.modelId, source: model?.source ?? null },
     warnings: [...(tokenLimit === null ? ['Model context window is unknown; only the byte hard cap is enforced.'] : ['Token count is a conservative UTF-8 estimate, not measured usage.']),
       ...(inputEstimate.imageTokens === null ? ['Image token cost is unknown; the UTF-8 estimate covers text and reference metadata only. Image byte caps are enforced separately; the complete model token window is not verified.'] : []),

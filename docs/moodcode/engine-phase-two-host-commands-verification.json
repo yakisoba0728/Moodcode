@@ -1,0 +1,66 @@
+{
+  "baselineTree": "630c1f6bed312878a84c844fb24d2769328d86a3",
+  "patch": "/tmp/moodcode-host-commands-feature.patch",
+  "patchSha256": "5deffc43c8e63ce0b0696206457b5757ed67f42a6a7a1476292c890e6916eb32",
+  "patchBytes": 140278,
+  "files": {
+    "docs/moodcode/engine-phase-two-host-commands.md": "23fb7f1b661a8c7cd2b8ec335e252aa7bb7ae7c1bcc7a9632e10a247302a887c",
+    "packages/engine/src/engine.ts": "5ffedc4c0f89eb4f8ccc392ae63928bba26847df48ac1bb6204b7e14092c695a",
+    "packages/engine/src/index.ts": "cb73f208341e33e6561806b73776eef594704fc2095e577a3f78e567871655b7",
+    "packages/engine/src/jobs/fixtures/crash-host-command.ts": "f1374ea24871726df3a88d3724d3411db292308fb18083693fc348a2e9dd4fa3",
+    "packages/engine/src/jobs/host-command-capacity.integration.test.ts": "072146d2a12b94fd0ffeb0e01a68d36a244886c5066559623ef742e17d4d6fc2",
+    "packages/engine/src/jobs/host-command-crash.integration.test.ts": "a46705e7c640952df5f65484683ec38f994d386045d8a1e545698b028a0fd5a4",
+    "packages/engine/src/jobs/host-command-migration.test.ts": "4226b53252ceb599625aa06cbc5720cde86e7d82fda35a9e2d142de294779ed2",
+    "packages/engine/src/jobs/host-command-native.integration.test.ts": "7c69191ae20033b5a86d1db83c93400570b791013c869c7e8ad0220e4194eae3",
+    "packages/engine/src/jobs/host-command-records.ts": "339ddaf89a480032fe655f7ddefc174507c2e95ddbb62f54c65efe24f42fab8e",
+    "packages/engine/src/jobs/host-command-service.ts": "9f845ad69334f252da9265d976c92778f3961fee568ba28dee43b7d13b477cfc",
+    "packages/engine/src/jobs/host-command.integration.test.ts": "f1798564d3b00cf1c332ee666c7d0b92f19a02bbb8e5ed2a3600791d898db36d",
+    "packages/engine/src/jobs/migration.test.ts": "c135ffca18eca1632d8803948fa6bb39f0988281251e7eb4b5d3733a69258d28",
+    "packages/engine/src/recovery/index.ts": "711fb507b2a4f9b7b281a682512fc2cb4b15e5c38a0cc94a7cb4ebaa3c61e45f",
+    "packages/engine/src/storage/archive.ts": "c04899b379c1e91c75e5d4d4ecdfce68eedbcefd777d0f86bcd4149d6bd3ec75",
+    "packages/engine/src/storage/index.ts": "87edf2c8f5e65686054007697377592ca36c1517540246adc28b2b00ab285d77",
+    "packages/engine/src/storage/migrations.ts": "63cfe2ec5e538b7cd20ba2136d1363677d1dc40a0771890f4220da61984d33b7",
+    "packages/engine/src/tools/command/index.ts": "5ad9d8a01a99c469ee488406de7557dd5c257d8be1a60de80f9e3f1dfa0cacd1"
+  },
+  "tests": {
+    "feature": {
+      "total": 21,
+      "pass": 21,
+      "fail": 0
+    },
+    "migrationArchiveRecovery": {
+      "total": 65,
+      "pass": 65,
+      "fail": 0
+    },
+    "existingCommand": {
+      "total": 21,
+      "pass": 20,
+      "fail": 0,
+      "skip": 1
+    }
+  },
+  "scopedStrict": 0,
+  "ownedProcesses": 0,
+  "dbVersion": 23,
+  "catalogueEntries": 139,
+  "catalogueCap": 160,
+  "logs": [
+    "/tmp/moodcode-host-commands-final-source.log",
+    "/tmp/moodcode-host-commands-final-regression.log",
+    "/tmp/moodcode-host-commands-final-command-regression.log",
+    "/tmp/moodcode-host-commands-final-strict.log",
+    "/tmp/moodcode-host-commands-final-format.log"
+  ],
+  "schemaVersion": 1,
+  "feature": "Independent host commands",
+  "status": "focused-passed",
+  "workspace": "/Users/yakisoba0728/.codex/worktrees/engine-host-commands/Moodcode",
+  "aggregateValidation": "See engine-phase-two-parallel-features-verification.json for the final integrated source; shared files and compiled crash-fixture compatibility are resolved by Root.",
+  "workItemsRemainOpen": [
+    "MC2-10a",
+    "MC2-10b",
+    "MC2-10c",
+    "MC2-10d"
+  ]
+}

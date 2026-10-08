@@ -5,8 +5,8 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 8,
-  "completedWorkItems": 38,
+  "completedFamilies": 10,
+  "completedWorkItems": 46,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -466,7 +466,10 @@
             "engine-phase-two-atomic-command-jobs.md",
             "engine-phase-two-atomic-command-jobs-verification.json",
             "engine-phase-two-owned-command-inbox.md",
-            "engine-phase-two-owned-command-inbox-verification.json"
+            "engine-phase-two-owned-command-inbox-verification.json",
+            "engine-phase-two-host-commands.md",
+            "engine-phase-two-host-commands-verification.json",
+            "engine-phase-two-parallel-features-verification.json"
           ]
         },
         {
@@ -479,7 +482,10 @@
             "engine-phase-two-atomic-command-jobs.md",
             "engine-phase-two-atomic-command-jobs-verification.json",
             "engine-phase-two-owned-command-inbox.md",
-            "engine-phase-two-owned-command-inbox-verification.json"
+            "engine-phase-two-owned-command-inbox-verification.json",
+            "engine-phase-two-host-commands.md",
+            "engine-phase-two-host-commands-verification.json",
+            "engine-phase-two-parallel-features-verification.json"
           ]
         },
         {
@@ -492,7 +498,10 @@
             "engine-phase-two-atomic-command-jobs.md",
             "engine-phase-two-atomic-command-jobs-verification.json",
             "engine-phase-two-owned-command-inbox.md",
-            "engine-phase-two-owned-command-inbox-verification.json"
+            "engine-phase-two-owned-command-inbox-verification.json",
+            "engine-phase-two-host-commands.md",
+            "engine-phase-two-host-commands-verification.json",
+            "engine-phase-two-parallel-features-verification.json"
           ]
         },
         {
@@ -505,11 +514,14 @@
             "engine-phase-two-atomic-command-jobs.md",
             "engine-phase-two-atomic-command-jobs-verification.json",
             "engine-phase-two-owned-command-inbox.md",
-            "engine-phase-two-owned-command-inbox-verification.json"
+            "engine-phase-two-owned-command-inbox-verification.json",
+            "engine-phase-two-host-commands.md",
+            "engine-phase-two-host-commands-verification.json",
+            "engine-phase-two-parallel-features-verification.json"
           ]
         }
       ],
-      "notes": "Genuine terminal Run-owned completed/failed/cancelled result targets now deliver a bounded quoted advisory into one actual primary transaction: native input/input.accepted/full signed receipt/immutable input link/full independent birth anchor. Consuming config/profile/catalogue/budget/physical binding and new tool approval are independent. Every promotion/provider dispatch validates exact input/Run/media/source evidence; SQL rollback, actual before/after-COMMIT SIGKILL, restart explicit resume, paused import, source header/body and rehashed receipt drift are verified without source Run events/replay. Long valid command source bounds are corrected and ordinary absent-link input avoids aggregate scans. Final frozen62 source gate: typecheck0, engine4276/4274pass/0fail/2existing skips, source1052/1050pass/0fail/2existing skips, fixtures3pass/live0, DB22/catalogue136/cap160 unchanged. MC2-10a/b/c/d remain in progress for independently owned host commands, foreground/background transfer, parent-terminal-independent lifetime, model output tools and remaining platform/EPERM/backpressure coverage. Completed38/80 and8/20; goal active and four environment debts unchanged. New full-feature lanes independently implement host commands, approved Git commit receipts and conversation forks; see engine-phase-two-parallel-features.md."
+      "notes": "Independent idle-workspace host Original preview/approval, physical supervisor/lease, fixed limits, genuine output/checkpoint/artifacts and native DB23 owner/terminal/unknown journals are integrated. Actual SIGKILL, close/cancel, SQL faults, restart/default-off/import pause, native source mutation, capacity/import reserve and cross-feature physical lease/Git/fork tests pass. Existing PTY and Run-owned result inbox paths remain. Foreground/background transfer, model output tools and independent host inbox, host checkpoint restore/Run-only adapter/unknown resolution and remaining platform coverage keep all MC2-10 items in progress. The command-consumers agent now owns complete actual model output plus host inbox integration. Aggregate engine4345/4343pass/0fail/2existing skips, DB23/catalogue139/cap160; overall46/80 and10/20, active goal."
     },
     {
       "id": "MC2-11",
@@ -612,66 +624,100 @@
       "title": "승인형 Git commit 영수증",
       "priority": "P3",
       "wave": "WX",
-      "status": "pending",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-13a",
           "completion": "selection/HEAD/index/message/verification preview와 conflict 표시",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-git-commit.md",
+            "engine-phase-two-git-commit-verification.json",
+            "engine-phase-two-parallel-features-verification.json"
+          ]
         },
         {
           "id": "MC2-13b",
           "completion": "prepare→approval→revalidation→commit producer 연결",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-git-commit.md",
+            "engine-phase-two-git-commit-verification.json",
+            "engine-phase-two-parallel-features-verification.json"
+          ]
         },
         {
           "id": "MC2-13c",
           "completion": "commit SHA/outcome receipt·receipt 미기록 시 Git 상태 reconcile",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-git-commit.md",
+            "engine-phase-two-git-commit-verification.json",
+            "engine-phase-two-parallel-features-verification.json"
+          ]
         },
         {
           "id": "MC2-13d",
           "completion": "사용자 staged 변경·HEAD 이동·hook failure·cancel·commit 직후 crash 검사. 재전송으로 같은 변경을 두 번 commit하지 않음",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-git-commit.md",
+            "engine-phase-two-git-commit-verification.json",
+            "engine-phase-two-parallel-features-verification.json"
+          ]
         }
-      ]
+      ],
+      "notes": "Exact genuine verification/selection/HEAD/index/message/hooks approval, actual alternate-index commit preserving staging, supervisor cleanup and readonly lost-receipt reconcile; actual crash/native/import/cancel faults verified. Supported POSIX regular-file existing Git scope, no push/account/signing. Aggregate type0, engine4345/4343pass/0fail/2existing skips and broad source/coding fixtures pass on frozen source snapshots; source-only crash harness correction separately passed both compiled/source tests and97 other sources stayed unchanged. Integrated DB23/catalogue139/cap160."
     },
     {
       "id": "MC2-14",
       "title": "효과 보존 대화 fork",
       "priority": "P3",
       "wave": "WX",
-      "status": "pending",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-14a",
           "completion": "bounded source history snapshot·fork preview·provider replay compatibility",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-conversation-forks.md",
+            "engine-phase-two-conversation-forks-verification.json",
+            "engine-phase-two-parallel-features-verification.json"
+          ]
         },
         {
           "id": "MC2-14b",
           "completion": "lineage/materialization와 child context 전달; 원 source ID/hash 보존",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-conversation-forks.md",
+            "engine-phase-two-conversation-forks-verification.json",
+            "engine-phase-two-parallel-features-verification.json"
+          ]
         },
         {
           "id": "MC2-14c",
           "completion": "read-only fork 후 새 write approval/worktree 옵션 연결",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-conversation-forks.md",
+            "engine-phase-two-conversation-forks-verification.json",
+            "engine-phase-two-parallel-features-verification.json"
+          ]
         },
         {
           "id": "MC2-14d",
           "completion": "fork 이후 이미 발생한 효과·stale source·opaque replay mismatch·import relocated workspace·중복 fork/crash 검사",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-conversation-forks.md",
+            "engine-phase-two-conversation-forks-verification.json",
+            "engine-phase-two-parallel-features-verification.json"
+          ]
         }
-      ]
+      ],
+      "notes": "Original bounded source history/lineage/provider compatibility materializes one actual Session/input with atomic native birth and after-COMMIT wake; actual readonly first Run/provider/child context, fresh later effect approval, existing managed worktree, relocated paused history and crash/native/import faults verified; prior filesystem effects remain. Aggregate type0, engine4345/4343pass/0fail/2existing skips and broad source/coding fixtures pass on frozen source snapshots; source-only crash harness correction separately passed both compiled/source tests and97 other sources stayed unchanged. Integrated DB23/catalogue139/cap160."
     },
     {
       "id": "MC2-15",
@@ -810,33 +856,34 @@
       "title": "PR SHA 기반 CI/review feedback",
       "priority": "P2",
       "wave": "W5",
-      "status": "pending",
+      "status": "in_progress",
       "workItems": [
         {
           "id": "MC2-19a",
           "completion": "SHA-bound PR/check snapshot·필수 check policy·read-only watcher port",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         },
         {
           "id": "MC2-19b",
           "completion": "polling/webhook dedupe·cursor/gap 처리·bounded input enqueue",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         },
         {
           "id": "MC2-19c",
           "completion": "CI failure를 원 source manifest·repair budget·검증 receipt로 연결",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         },
         {
           "id": "MC2-19d",
           "completion": "head 변경·reordered delivery·check 재실행·API outage/rate limit·crash 검사. stale green check로 merge 가능 판정 금지",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         }
-      ]
+      ],
+      "notes": "A single isolated agent owns the full actual HTTP GitHub GET/SHA snapshot/check policy/dedupe/queue/provider/repair-budget/crash/import feature. Implementation and actual fixtures in progress; no completion credit until integrated final gates."
     },
     {
       "id": "MC2-20",
@@ -872,5 +919,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-08T07:05:15.116771+00:00"
+  "updatedAt": "2026-10-08T08:29:18.630972+00:00"
 }

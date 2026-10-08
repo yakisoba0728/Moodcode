@@ -87,6 +87,7 @@ export class EngineChildren {
     directory: string,
     private readonly create: (options: EngineOptions) => MoodcodeEngine,
     hostIdentity?: ChildStorageHostIdentity,
+    private readonly inheritForkContext?: (child: MoodcodeEngine, sessionId: string, parent: MoodcodeEngine, parentRunId: string, allocation: ChildBudget) => void,
   ) {
     this.storageIdentity =
       hostIdentity === undefined
@@ -444,6 +445,7 @@ export class EngineChildren {
       schedules: false,
       agentBackends: false,
       jobs: false,
+      conversationForks: false,
       agentBackendSecrets: undefined,
       proposalContextPolicy: undefined,
       dbPath: join(this.directory, request.task.id, "engine.sqlite"),
@@ -516,6 +518,7 @@ export class EngineChildren {
         createdAt: new Date().toISOString(),
       };
       engine.store.createSession(session);
+      this.inheritForkContext?.(engine,session.id,parent.engine,parent.run.id,allocation);
       if (request.signal.aborted)
         throw new EngineError(
           "CANCELLED",

@@ -224,3 +224,18 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 현재는 engine-owned context의 ACP v1 stdio initialize/new/prompt와 텍스트·`fs/read_text_file`을 지원한다. 엔진 취소는 소유한 프로세스를 정리하고 원격 완료가 없으면 uncertainty를 남긴다. `session/cancel` schema 검증은 있지만 현재 실행 경로에서 wire 취소 메시지를 보내지는 않는다. 파일 읽기는 같은 실제 Turn/Attempt에서 기존 native 도구 예산·정책·정확한 승인·Tool/Part 기록을 사용한다. 요청의 파일·줄 범위를 바꾸는 lifecycle 변환은 실행 전에 거부한다. 완전한24KiB 이하 내용만 ACP 성공으로 반환하며 부분 출력·deny·실패는 원 native 결과와 오류로 남긴다. v2·HTTP host·agent-owned context·load/reconnect·원격 permission grant·쓰기·terminal은 미지원이다.
 
 `getAgentBackend`, `inspectAgentBackends`, `inspectAgentBackendConnections`, `inspectAgentBackendRequests`, `inspectAgentBackendEffects`는 비활성 상태에서도 이력을 읽는다. `releaseAgentBackendTarget`로 원본을 해제한다. 프로세스 정리와 원격 완료는 별도 기록이며, 종료 응답이나 native 영수증이 없으면 workspace uncertainty를 유지한다. Import는 disabled/paused-import·runtime provider 없음·prompt 재실행 없음이다. [지원 범위와 복구 계약](engine-phase-two-agent-backends.md)을 따른다.
+
+
+## 독립 명령·Git commit·대화 fork
+
+세 기능은 각각 `hostCommands: true`, `gitCommits: true`, `conversationForks: true`로 활성화하며 기본값은 off다. 승인형 Git commit은 실제 원본 검증 receipt를 생성하는 `verificationTools: true`도 요구한다. 공개 DTO나 역사 조회로 살아 있는 Original preview/owner를 재발급하지 않는다. 최신 통합 저장소는 DB23이며 실제 schema catalogue는 139행, recovery cap은 160행이다.
+
+| 기능 | 실제 host 연결 | 실행·복구 계약 |
+| --- | --- | --- |
+| 독립 명령 | `previewHostCommand` → `readHostCommandPreview` → `startHostCommand`; `waitForHostCommand`, `cancelHostCommand`, `inspectHostCommands`, `getHostCommand`; `captureHostCommandOutput`, `readHostCommandOutput`, `readHostCommandArtifacts`, `releaseHostCommandHandle` | exact host 승인, 실제 supervisor와 workspace lease, 고정 실행/output budget, cleanup 후 종료 receipt. 재시작/import는 replay 없이 uncertainty/paused history를 보존한다. |
+| 승인형 commit | `previewGitCommit`, `readGitCommitPreview`, `commitReviewedChanges`, `releaseGitCommitPreview`; `getGitCommitReceipt`, `inspectGitCommitReceipts`, `reconcileGitCommit` | 선택 파일/HEAD/index/message/실제 검증 receipt에 승인 결속. 별도 index로 실제 commit하고 관계없는 staging을 보존한다. receipt 공백은 readonly Git reconcile을 사용한다. |
+| 대화 fork | `captureForkPreview`, `readForkPreview`, `forkConversationView`, `releaseForkPreview`, `inspectConversationLineage`; `exportConversationForkHistory`, `captureForkImportPreview`, `importConversationForkHistory` | frozen source history·provider replay 호환성을 승인한 뒤 session/input/lineage를 한 transaction에 생성한다. 첫 Run은 실제 readonly profile이며 새 쓰기는 새 승인으로 실행한다. import history는 paused이며 원본 효과는 그대로 남는다. |
+
+독립 명령의 물리 lease가 살아 있는 동안 동일 workspace의 Run·commit·fork admission은 차단된다. 실제 명령 취소 및 cleanup 뒤에는 새 Original 검사를 통과한 작업을 진행할 수 있다. 공동 사용 fixture는 실제 검증→host command PID→lease 차단→cancel/cleanup→선택 commit→fork provider context를 확인한다.
+
+[독립 명령 상세](engine-phase-two-host-commands.md), [승인형 commit 상세](engine-phase-two-git-commit.md), [대화 fork 상세](engine-phase-two-conversation-forks.md), [통합 검증](engine-phase-two-parallel-features-verification.json)을 따른다. foreground/background 소유권 이전, 독립 명령의 모델 output 소비와 inbox 전달, host checkpoint restore, Run-only 정책 adapter 및 명시적 unknown 해제는 아직 완료로 세지 않는다. 다른 OS/실제 계정/GUI 노출의 검증 범위는 기존 환경 이월 항목을 유지한다.

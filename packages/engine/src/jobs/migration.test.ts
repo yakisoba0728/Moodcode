@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
   DATABASE_MIGRATIONS,
+  DB_VERSION,
   databaseVersion,
   migrateDatabase,
 } from "../storage/migrations.js";
@@ -105,7 +106,7 @@ test("DB21 to DB22 creates exactly two STRICT job journals, preserves legacy/nat
     assert.ok(fks.some((row) => row.from === from && row.table === table));
   assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
   validateJobDatabase(db);
-  migrateDatabase(db);
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 22));
   assert.deepEqual(databaseContents(db), after);
 });
 
@@ -140,7 +141,7 @@ test(
     assert.equal(
       archive.manifest.databases.find((row) => row.role === "primary")!
         .schemaVersion,
-      22,
+      DB_VERSION,
     );
     const verified = validateEngineArchive({ directory: archive.directory });
     assert.equal(verified.manifestSha256, archive.manifestSha256);
@@ -149,7 +150,7 @@ test(
       destination: join(f.base, "job-native-import"),
     });
     assert.equal(imported.executionResumed, false);
-    assert.equal(imported.schemaVersion, 22);
+    assert.equal(imported.schemaVersion, DB_VERSION);
     const db = new DatabaseSync(imported.dbPath, { readOnly: true });
     try {
       validateJobDatabase(db);

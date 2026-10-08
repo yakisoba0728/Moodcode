@@ -1,17 +1,27 @@
 # Parallel engine feature ownership
 
-The user requested larger, finishable feature units on 2026-10-08. Each agent now owns a complete feature, including public Engine APIs, actual execution or consumption, native persistence and recovery, independent fixtures, focused type checks and regression tests. Root owns integration, aggregate verification, progress accounting and local commits.
+The user requested larger, finishable feature units on 2026-10-08. Each agent owns one feature from Engine API through actual execution/consumption, native persistence/recovery, and meaningful integration tests. Root integrates feature-only patches, verifies one frozen aggregate, accounts for completion and makes local commits. Separate managed worktrees prevent build/source interference.
 
-The three managed worktrees start from `3584d6d` plus the frozen Run-owned command inbox implementation. They share dependencies but write separate source and build directories. No lane edits the primary checkout. A feature patch excludes that shared starting implementation; an isolated Git tree/index records the initial contents without changing the main index.
+## Integrated feature batch
 
-| Feature | Owner | Scope and completion evidence | Worktree |
+| Feature | Owner | Completed implementation | Evidence |
 | --- | --- | --- | --- |
-| Independent host commands | `next_team_continuation` | Exact approval, physical command owner and workspace lease, real supervisor/output/checkpoint, cancellation and close, durable uncertainty, restart/import and crash tests. Owns DB23 migration integration. | `/Users/yakisoba0728/.codex/worktrees/engine-host-commands/Moodcode` |
-| Approved Git commit receipts | `next_workflow_design` | MC2-13a–d: exact selection/HEAD/index/message/verification preview, actual commit, outcome and crash reconciliation, staged-change preservation, deny/stale/duplicate tests. | `/Users/yakisoba0728/.codex/worktrees/engine-approved-commits/Moodcode` |
-| Effect-preserving conversation forks | `next_workflow_consumers` | MC2-14a–d: bounded original history and lineage, provider replay compatibility, actual new session/input consumption, new-effect approval, duplicate/crash/import tests. | `/Users/yakisoba0728/.codex/worktrees/engine-conversation-forks/Moodcode` |
+| Independent host commands | `next_team_continuation` | Exact host approval, actual supervisor/physical workspace lease, output/artifacts/checkpoint, cancellation/close, durable uncertainty, DB23 migration and crash/import tests. MC2-10 remains partial for foreground transfer and model consumption. | `engine-phase-two-host-commands.md`, `engine-phase-two-host-commands-verification.json` |
+| Approved Git commit receipts | `next_workflow_design` | MC2-13a–d: exact selection/HEAD/index/message/genuine verification preview, actual commit preserving staging, cleanup, readonly reconcile, stale/cancel/crash/import tests. | `engine-phase-two-git-commit.md`, `engine-phase-two-git-commit-verification.json` |
+| Effect-preserving conversation forks | `next_workflow_consumers` | MC2-14a–d: bounded original history/lineage and replay compatibility, actual new session/input/provider and child context, readonly first Run/new effect approval/worktree, crash/duplicate/import tests. | `engine-phase-two-conversation-forks.md`, `engine-phase-two-conversation-forks-verification.json` |
 
-Git and fork lanes use existing native storage contracts without allocating competing migration versions. Any limitation that prevents an actual consuming path is reported as unfinished. A schema or runtime interface alone does not satisfy a work item.
+Root's joint fixture runs all three together with genuine verification and native approval, physical PID/cleanup, Git/index assertions and actual scripted provider consumption. Aggregate evidence is recorded in `engine-phase-two-parallel-features-verification.json`. The first aggregate exposed a compiled crash-fixture extension error and outdated DB23/SQL-query test expectations; those were corrected and independently rerun. The whole compiled gate passed; a later direct-source fork crash-fixture extension error was separately corrected and passed both compiled/source crash tests before the final broader source/fixture gates. All runtime sources remained unchanged. Per-lane checks alone do not close work items.
 
-Each lane runs focused meaningful checks while implementing. Root reviews feature-only patches, resolves shared Engine/storage integration and runs one aggregate regression gate for the integrated source snapshot. Additional full runs require a new change, a failure or an unresolved concern. Future implementation continues in the isolated worktrees while Root verifies the current snapshot.
+## Current larger feature units
 
-The overall goal remains active. This ownership change does not close work items, alter the original 80-item completion criteria or resolve environment debts. GUI, live account calls, external source copying, push and deployment remain outside this engine implementation goal.
+The next worktrees start from `c2c9814` plus the integrated three-feature source snapshot. Each lane records its baseline tree/SHA and emits only its own feature delta. Root's later test compatibility corrections do not change the runtime source baseline.
+
+| Feature | Owner | End-to-end scope | Worktree |
+| --- | --- | --- | --- |
+| Command model consumption and host inbox | `next_team_continuation` | Original-approved PTY/Run-owned/host aliases → actual readonly Tool/Part output → settled independent host result → exact consuming approval → atomic input/receipt/link/birth → promotion/provider/restart/import tests. | `/Users/yakisoba0728/.codex/worktrees/engine-command-consumers/Moodcode` |
+| PR SHA-bound feedback | `next_workflow_design` | Actual GitHub GET adapter and independent HTTP fixtures → SHA-bound native snapshots/check/review policy → stable dedupe/cursor/gap → exact-approved atomic queue/provider consumption → original source/verification/repair-budget and crash/import tests. | `/Users/yakisoba0728/.codex/worktrees/engine-pr-feedback/Moodcode` |
+| Effectful editor/validator workflow | `next_workflow_consumers` | Actual budgeted editor/validator child and worktree → native Tool/Part/checkpoint/verification → genuine approved merge → stage/join CAS → parent inbox → failure/cancel/source/cleanup/crash/import tests. | `/Users/yakisoba0728/.codex/worktrees/engine-workflow-effects/Moodcode` |
+
+No lane edits the primary checkout or another lane's worktree. Shared API/storage changes are resolved by Root at integration. Each agent completes focused meaningful tests; Root performs final typecheck, whole compiled regression, broader direct source regression and coding fixtures against recorded source hashes. Source-only harness corrections receive focused checks in both execution forms and a fresh broader source gate; evidence records the differing fixture hash and unchanged runtime sources. A subsequent aggregate run requires a change, failure or unresolved concern.
+
+The original 80-item goal and four environment debts remain active. Schemas, tool interfaces or type checks without actual consumers never satisfy completion. GUI, live account calls, copied external source, push and deployment remain outside this engine goal.

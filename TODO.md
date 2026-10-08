@@ -308,8 +308,8 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 - [ ] **MC2-10 — session command job·완료 전달**: P2 · W5. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [x] **MC2-11 — role 권한·판단 출처·preflight**: P1 · W1. host CAS 정책 교체·catalogue/prepared 무효화·actual HTTP MCP 및 독립 child worktree/DB의 stale approval effect 0 검증. 외부 운용/Windows 증거는 환경 범위로 유지. [통합](docs/moodcode/engine-phase-two-w2.md).
 - [x] **MC2-12 — projection·manifest·무진전·오류 진단**: P1 · W1. 실제 native source/effect writer·bounded coherent evidence·readonly 등록 inspector·advisory·선택 metadata 요약을 연결했다. 추가 모델 호출 없는 요약이며 남은 live budget은 unknown이다. [통합](docs/moodcode/engine-phase-two-native-diagnostics.md).
-- [ ] **MC2-13 — 승인형 Git commit 영수증**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
-- [ ] **MC2-14 — 효과 보존 대화 fork**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [x] **MC2-13 — 승인형 Git commit 영수증**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
+- [x] **MC2-14 — 효과 보존 대화 fork**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-15 — 제한 code-mode**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-16 — media 확대·실제 공급자 검증**: P2/P3 · ENV/WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [ ] **MC2-17 — 실제 OS 파일/네트워크 sandbox**: P3 · ENV/WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
@@ -391,4 +391,9 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 
 - [x] **MC2-10 실제 Run 명령 결과 inbox 연결** — 실제 completed/failed/cancelled·cleanup 확인 source를 독립 consuming config/profile/budget에 전달하고 input/input.accepted/full receipt/immutable link/birth anchor를 한 native transaction에 저장한다. promotion/모든 provider dispatch에서 exact input·Run·media·source 증거를 검사한다. 실제 COMMIT 전후 SIGKILL·SQL rollback·restart 명시적 resume·paused import·source/receipt 변조·긴 명령 경계를 검증했다. 신규36개·전체4,276개 중4,274pass/실패0/기존 플랫폼 skip2, 직접source1,052개 중1,050pass/실패0/기존 플랫폼 skip2, fixture3pass/live0, typecheck0, source62개 SHA 불변. DB22 catalogue136/cap160 유지. [설명](docs/moodcode/engine-phase-two-owned-command-inbox.md)·[검증](docs/moodcode/engine-phase-two-owned-command-inbox-verification.json). MC2-10a/b/c/d의 독립 host 소유권·background 이전·parent 종료 후 lifetime·모델 output 도구·잔여 플랫폼 검사는 진행 중이며 완료38/80·8/20·환경 이월4개 변동 없음.
 
-- [ ] **완결 기능별 병렬 구현 진행** — 독립 host 명령 전체, 승인형 Git commit(MC2-13a–d) 전체, 효과 보존 대화 fork(MC2-14a–d) 전체를 각 에이전트가 API/저장/실행/복구/통합 테스트까지 별도 worktree에서 담당한다. Root는 feature-only 패치 통합과 aggregate 검증·진척 집계·커밋을 담당한다. [분담 및 종료 조건](docs/moodcode/engine-phase-two-parallel-features.md).
+- [x] **첫 완결 기능별 병렬 구현·통합 완료** — 독립 host 명령 전체, 승인형 Git commit(MC2-13a–d) 전체, 효과 보존 대화 fork(MC2-14a–d) 전체를 각 에이전트가 API/저장/실행/복구/통합 테스트까지 별도 worktree에서 담당한다. Root는 feature-only 패치 통합과 aggregate 검증·진척 집계·커밋을 담당한다. [분담 및 종료 조건](docs/moodcode/engine-phase-two-parallel-features.md).
+
+
+- [x] **독립 host 명령·승인 Git commit·효과 보존 대화 fork 통합 완료** — 각 에이전트가 API/실제 소비/저장/복구/통합 fixture까지 맡았다. 실제 공동 fixture로 물리 host lease의 commit/fork 차단, cancel/PID cleanup 뒤 선택 commit·사용자 staging 보존·fork provider context를 확인했다. 신규69개·전체4345개 중4343pass/실패0/기존 skip2, 직접source1378개 중1376pass/실패0/기존 skip2, coding fixture3pass/live0, typecheck0, 최종 source98개 SHA 불변(전체 compiled 이후 source crash harness1개 보정은 양쪽 targeted2/2 별도 확인). DB23 catalogue139/cap160 및 DB22 역사136 유지. MC2-13a–d·14a–d 완료로 **46/80·10/20**, MC2-10과 goal은 진행 상태다. [통합 검증](docs/moodcode/engine-phase-two-parallel-features-verification.json)·[기능 분담](docs/moodcode/engine-phase-two-parallel-features.md). 환경 이월4개 유지.
+
+- [ ] **다음 완결 기능별 병렬 구현** — 세 에이전트가 별도 worktree에서 명령 model output/독립 host inbox, PR SHA feedback 전체(MC2-19a–d), effectful editor/validator→승인 merge→parent inbox(MC2-07c/d)를 담당한다. Root 통합 검증과 다음 로컬 커밋은 실제 기능 소비 및 failure/crash/import 경계 증거 후 진행한다.

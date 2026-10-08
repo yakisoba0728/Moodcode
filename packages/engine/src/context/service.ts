@@ -1,3 +1,4 @@
+import type { ForkContextContribution } from '../sessions/fork-types.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { EngineError, isTerminal, SESSION_SCHEMA_VERSION, type ContextRevision, type JsonObject, type Run, type RunConfig, type SessionSnapshot } from '@moodcode/contracts';
 import type { ContextRequest, ProviderAdapter, ProviderMessage } from '../ports.js';
@@ -17,7 +18,7 @@ import type { LifecycleCapture, LifecycleHookRegistry } from '../lifecycle/index
 import { proposalContextPolicy, proposalContributionSourceIds } from '../proposals/overlay.js';
 import type { ProposalContextPolicy, ProposalContextProfile, ProposalContextSourcePort, PreparedProposalContribution } from '../proposals/overlay.js';
 
-export interface ContextServiceOptions { mediaHistoryPolicy?: MediaHistoryPolicy; activePrefixPolicy?: ActivePrefixPolicy; documentHistoryPolicy?: DocumentHistoryPolicy;
+export interface ContextServiceOptions { conversationFork?: { prepare(sessionId:string,config:RunConfig):ForkContextContribution|null; assertFresh(sessionId:string,sha256:string,config:RunConfig):void }; mediaHistoryPolicy?: MediaHistoryPolicy; activePrefixPolicy?: ActivePrefixPolicy; documentHistoryPolicy?: DocumentHistoryPolicy;
   lifecycleHooks?: LifecycleHookRegistry; lifecycleContextSlotBytes?: number;
   repositoryContext?: { source: ContextSourcePort; policy: RepositoryContextPolicy };
   knowledgeContext?: { source: KnowledgeContextSourcePort; policy: KnowledgeContextPolicy; getProfile?: (run: Run) => KnowledgeContextProfile | undefined };
@@ -55,10 +56,12 @@ export class ContextService {
   private readonly proposalContext?: NonNullable<ContextServiceOptions['proposalContext']>;
   private readonly lifecycleHooks?: LifecycleHookRegistry;
   private readonly lifecycleContextSlotBytes: number;
-  private readonly contextCaptures = new Map<string, { repository?: PreparedRepositoryContribution; knowledge?: PreparedKnowledgeContribution; proposal?: PreparedProposalContribution; lifecycle?: LifecycleCapture; revisionId: string; messagesSha256: string; runId?: string }>();
+  private readonly contextCaptures = new Map<string, { repository?: PreparedRepositoryContribution; knowledge?: PreparedKnowledgeContribution; proposal?: PreparedProposalContribution; lifecycle?: LifecycleCapture; fork?: {sha256:string; config:RunConfig}; revisionId: string; messagesSha256: string; runId?: string }>();
+  private readonly conversationFork?: ContextServiceOptions['conversationFork'];
   private readonly contextReservations = new Map<string, symbol>();
   constructor(private readonly store: SqliteStore, readonly models = new ModelRegistry(), private readonly outputTokenReserve = 0, private readonly provider?: (id: string) => ProviderAdapter | undefined, options: ContextServiceOptions = {}) {
     if (!Number.isSafeInteger(outputTokenReserve) || outputTokenReserve < 0 || outputTokenReserve > 100_000_000) throw new EngineError('INVALID_OUTPUT_RESERVE', 'Output token reserve must be a bounded nonnegative integer');
+    this.conversationFork = options.conversationFork;
     this.lifecycleHooks = options.lifecycleHooks;
     this.lifecycleContextSlotBytes = options.lifecycleContextSlotBytes ?? 8192;
     if (!Number.isSafeInteger(this.lifecycleContextSlotBytes) || this.lifecycleContextSlotBytes < 128 || this.lifecycleContextSlotBytes > 16_384)
@@ -88,7 +91,7 @@ export class ContextService {
   }
   async assertFresh(sessionId: string | undefined, messages: readonly ProviderMessage[], signal: AbortSignal, runId?: string): Promise<void> {
     const hasLifecycle = sessionId !== undefined && this.contextCaptures.get(sessionId)?.lifecycle !== undefined;
-    if (!this.repositoryContext && !this.knowledgeContext && !this.proposalContext && !hasLifecycle) return;
+    if (!this.repositoryContext && !this.knowledgeContext && !this.proposalContext && !hasLifecycle && !this.contextCaptures.get(sessionId??'')?.fork) return;
     const stale = this.repositoryContext ? 'REPOSITORY_CONTEXT_STALE' : this.knowledgeContext ? 'KNOWLEDGE_CONTEXT_STALE' : this.proposalContext ? 'PROPOSAL_CONTEXT_STALE' : 'LIFECYCLE_CONTEXT_STALE', cancelled = this.repositoryContext ? 'REPOSITORY_CONTEXT_CANCELLED' : this.knowledgeContext ? 'KNOWLEDGE_CONTEXT_CANCELLED' : this.proposalContext ? 'PROPOSAL_CONTEXT_CANCELLED' : 'LIFECYCLE_CONTEXT_CANCELLED';
     if (typeof sessionId !== 'string' || !sessionId) throw new EngineError(stale, 'Supplemental context requires its prepared session owner');
     if (signal.aborted) throw new EngineError(cancelled, 'Supplemental context dispatch was cancelled');
@@ -96,6 +99,7 @@ export class ContextService {
     const valid = () => captured && this.contextCaptures.get(sessionId) === captured && this.revisionId(sessionId) === captured.revisionId
       && this.store.getSessionDocument(sessionId, 'context.head')?.data.revisionId === captured.revisionId
       && digest(messages) === captured.messagesSha256 && (runId === undefined || captured.runId === runId);
+    if (captured?.fork) this.conversationFork!.assertFresh(sessionId,captured.fork.sha256,captured.fork.config);
     if (!valid()) throw new EngineError(stale, 'Dispatch does not match the prepared context, revision and Run owner');
     if (captured!.lifecycle) this.lifecycleHooks!.assertCurrent(captured!.lifecycle);
     if (captured!.repository) await this.repositoryContext!.source.assertFresh(captured!.repository, signal);
@@ -226,6 +230,8 @@ export class ContextService {
         requiredHistoryMessageIds: [...new Set([...(prefix.requiredHistoryMessageIds ?? []), ...(image ? [image.id] : []), ...(document ? [document.id] : []), ...(media ? [...media.requiredTextMessageIds, ...media.requiredExchangeMessageIds] : []), ...(documents?.requiredTextMessageIds ?? [])])],
         ...(media?.requiredNotice ? { mediaHistoryNotice: media.requiredNotice } : {}), ...(documents?.requiredNotice ? { documentHistoryNotice: documents.requiredNotice } : {}) };
       const planRequest = { ...projected, reservedBytes, instructionSources: observation.sources };
+      const fork = this.conversationFork?.prepare(sessionId,request.config);
+      const forkOptions = fork ? {forkMessages:fork.messages} : {};
       let contribution: PreparedRepositoryContribution | undefined;
       let knowledge: PreparedKnowledgeContribution | undefined;
       let proposal: PreparedProposalContribution | undefined;
@@ -239,7 +245,7 @@ export class ContextService {
       };
       let plan: ContextPlan;
       if (this.repositoryContext || this.knowledgeContext || this.proposalContext) {
-        const required = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve, requiredOnly: true });
+        const required = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve, ...forkOptions, requiredOnly: true });
         const requiredMessagesBytes = required.bytes - reservedBytes;
         if (this.repositoryContext) contribution = await prepareRepository(requiredMessagesBytes);
         const repositoryBytes = contribution?.messages.reduce((sum, message) => sum + Buffer.byteLength(JSON.stringify(message)) + 1, 0) ?? 0;
@@ -262,12 +268,12 @@ export class ContextService {
               contextWindow: model.contextWindow, outputTokens: this.outputTokenReserve } });
           preparedProposals.add(proposal);
         }
-        plan = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve,
+        plan = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve, ...forkOptions,
           ...(contribution ? { repositoryMessages: contribution.messages } : {}), ...(knowledge ? { knowledgeMessages: knowledge.messages } : {}), ...(proposal ? { proposalMessages: proposal.messages } : {}) });
       } else {
-        plan = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve });
+        plan = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve, ...forkOptions });
       }
-      return { projected, media, documents, plan, contribution, knowledge, proposal };
+      return { projected, media, documents, plan, contribution, knowledge, proposal, fork };
       } catch (error) {
         if (knowledge && preparedKnowledge.delete(knowledge)) this.knowledgeContext!.source.release(knowledge);
         if (proposal && preparedProposals.delete(proposal)) this.proposalContext!.source.release(proposal);
@@ -295,7 +301,7 @@ export class ContextService {
         throw initialError;
       }
     }
-    let { projected, media, documents, plan, contribution, knowledge, proposal } = outcome;
+    let { projected, media, documents, plan, contribution, knowledge, proposal, fork } = outcome;
     releaseDiscarded(knowledge, proposal);
     const selectedIds = new Set(plan.selectedMessageIds);
     const omittedDiscussion = projected.snapshot.messages.some(message => message.runId !== request.run?.id && message.role !== 'tool' && message.content.trim() && !selectedIds.has(message.id));
@@ -387,6 +393,7 @@ export class ContextService {
             `knowledge-import-frontier:${document.importActivation.frontierId}:${document.importActivation.frontierSha256}`, `knowledge-import-resume:${document.importActivation.resumeDecisionSha256}`,
             `knowledge-import-original-binding:${document.importActivation.originalBindingSha256}`] : [])])] : []),
       ...(proposal ? [`proposal-policy:${proposal.policySha256}`, ...proposalContributionSourceIds(proposal)] : [])];
+    if (fork) observedSourceIds.push(...fork.sourceIds);
     const sourceIds = [...new Set(observedSourceIds)];
     const bindingHash = digest({ plan: plan.sha256, sources: sourceIds, config: request.config, model: { ...model, source: { kind: model.source.kind, reference: model.source.reference } } });
     const old = previous?.data;
@@ -442,9 +449,9 @@ export class ContextService {
     else if (pendingRevision && request.run) this.store.commitContextDocument(request.run.id, 'context.revision.activated', { contextRevisionId: revisionId, revision, sha256: pendingRevision.sha256 }, { revision: pendingRevision, kind: 'context.head', expectedRevision: previous?.revision ?? 0, data });
     else { if (pendingRevision) this.store.putContextRevision(pendingRevision); this.store.putSessionDocument(sessionId, 'context.head', previous?.revision ?? 0, data); }
     this.revisions.set(sessionId, revisionId);
-    if (contribution || knowledge || proposal || lifecycle) {
+    if (contribution || knowledge || proposal || lifecycle || fork) {
       this.releaseContext(sessionId);
-      this.contextCaptures.set(sessionId, { ...(contribution ? { repository: contribution } : {}), ...(knowledge ? { knowledge } : {}), ...(proposal ? { proposal } : {}), ...(lifecycle ? { lifecycle } : {}), revisionId, messagesSha256: digest(messages), ...(request.run ? { runId: request.run.id } : {}) });
+      this.contextCaptures.set(sessionId, { ...(fork ? {fork:{sha256:fork.sha256,config:structuredClone(request.config)}} : {}), ...(contribution ? { repository: contribution } : {}), ...(knowledge ? { knowledge } : {}), ...(proposal ? { proposal } : {}), ...(lifecycle ? { lifecycle } : {}), revisionId, messagesSha256: digest(messages), ...(request.run ? { runId: request.run.id } : {}) });
       if (knowledge) preparedKnowledge.delete(knowledge);
       if (proposal) preparedProposals.delete(proposal);
     }
