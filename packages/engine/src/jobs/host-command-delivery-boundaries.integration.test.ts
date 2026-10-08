@@ -10,7 +10,35 @@ const posix = {
   timeout: 25000,
   skip: !["darwin", "linux", "freebsd"].includes(process.platform),
 };
-for (const field of ["config", "prompt", "id"])
+const changes: { field: string; candidate(run: Run): Run }[] = [
+  {
+    field: "config",
+    candidate: (run) => ({ ...run, config: { ...run.config, mode: "build" } }),
+  },
+  { field: "prompt", candidate: (run) => ({ ...run, prompt: "Changed result DATA" }) },
+  { field: "id", candidate: (run) => ({ ...run, id: "foreign-run" }) },
+  {
+    field: "workspaceId",
+    candidate: (run) => ({ ...run, workspaceId: randomUUID() }),
+  },
+  {
+    field: "sessionId",
+    candidate: (run) => ({ ...run, sessionId: randomUUID() }),
+  },
+  {
+    field: "requestId",
+    candidate: (run) => ({ ...run, requestId: randomUUID() }),
+  },
+  {
+    field: "own undefined attachments",
+    candidate: (run) => ({ ...run, attachments: undefined }),
+  },
+  {
+    field: "own undefined documents",
+    candidate: (run) => ({ ...run, documents: undefined }),
+  },
+];
+for (const { field, candidate } of changes)
   test(
     `actual independent inbox rejects trusted provider-boundary ${field} drift with zero provider entry`,
     posix,
@@ -28,13 +56,7 @@ for (const field of ["config", "prompt", "id"])
         if (run.inputId !== delivery.accepted.inputId) return original(run);
         checks++;
         runId = run.id;
-        original(
-          field === "config"
-            ? { ...run, config: { ...run.config, mode: "build" } }
-            : field === "prompt"
-              ? { ...run, prompt: "Changed result DATA" }
-              : { ...run, id: "foreign-run" },
-        );
+        original(candidate(run));
       };
       t.after(() => {
         options.beforeProviderDispatch = original;

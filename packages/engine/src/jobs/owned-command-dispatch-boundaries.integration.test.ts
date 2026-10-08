@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import type { Run } from "@moodcode/contracts";
@@ -47,6 +48,29 @@ const changes: {
   {
     name: "source Run identity",
     candidate: (run, f) => ({ ...run, id: f.receipt.runId }),
+  },
+  {
+    name: "workspace identity",
+    candidate: (run) => ({ ...run, workspaceId: randomUUID() }),
+  },
+  {
+    name: "session identity",
+    candidate: (run) => ({ ...run, sessionId: randomUUID() }),
+  },
+  {
+    name: "request identity",
+    candidate: (run, f) => ({
+      ...run,
+      requestId: f.engine.store.getRun(f.receipt.runId).requestId,
+    }),
+  },
+  {
+    name: "own undefined attachments",
+    candidate: (run) => ({ ...run, attachments: undefined }),
+  },
+  {
+    name: "own undefined documents",
+    candidate: (run) => ({ ...run, documents: undefined }),
   },
 ];
 

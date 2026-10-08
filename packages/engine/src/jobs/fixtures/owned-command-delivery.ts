@@ -69,9 +69,13 @@ export async function ownedDeliveryFixture(
     exitCode?: number;
     holdSourceFinish?: boolean;
     timeoutMs?: number;
+    hostCommands?: boolean;
   } = {},
 ) {
-  const f = await jobFixture(t, { createTerminal: false }),
+  const f = await jobFixture(t, {
+      createTerminal: false,
+      engine: { hostCommands: options.hostCommands },
+    }),
     marker = join(f.root, "owned-delivery.pid"),
     release = join(f.root, "owned-delivery.release"),
     script = join(f.root, "owned-delivery.mjs");
@@ -213,6 +217,7 @@ const timer=setInterval(()=>{if(existsSync(${JSON.stringify(release)})){clearInt
   return {
     ...f,
     providerEntries: () => entries,
+    script,
     receipt,
     pid,
     jobId,
