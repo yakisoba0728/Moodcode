@@ -611,7 +611,17 @@ try {
     const bytes = await readFile(file);
     assert.equal(bytes.length, audit.backups[label].bytes);
     assert.equal(digest(bytes), audit.backups[label].sha256);
-    assert.equal(audit.backups[label].schemaVersion, 1);
+    const expectedSchemaVersion = label === "primary" ? 23 : 1;
+    assert.equal(audit.backups[label].schemaVersion, expectedSchemaVersion);
+    const backup = new DatabaseSync(file, { readOnly: true, timeout: 0 });
+    try {
+      assert.equal(
+        backup.prepare("PRAGMA user_version").get().user_version,
+        expectedSchemaVersion,
+      );
+    } finally {
+      backup.close();
+    }
     assert.deepEqual(
       databaseRows(
         file,
