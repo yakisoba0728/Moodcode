@@ -12,7 +12,12 @@
     "react-dom": "19.3.0",
     "react-markdown": "10.1.0",
     "rehype-highlight": "7.0.2",
-    "remark-gfm": "4.0.1"
+    "remark-gfm": "4.0.1",
+    "electron-updater": "6.8.9",
+    "jose": "6.2.12"
   },
-  "description": "Moodcode local coding agent desktop"
+  "description": "Moodcode local coding agent desktop",
+  "optionalDependencies": {
+    "node-pty": "1.1.0"
+  }
 }

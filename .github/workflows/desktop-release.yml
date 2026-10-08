@@ -1,0 +1,68 @@
+name: Prepare desktop release artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable review version (publication is disabled)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Signed release preparation / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    environment: desktop-release
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04, windows-2025]
+    env:
+      MOODCODE_DESKTOP_RELEASE: '1'
+      CSC_LINK: ${{ secrets.DESKTOP_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.DESKTOP_CSC_KEY_PASSWORD }}
+      WIN_CSC_LINK: ${{ secrets.DESKTOP_WIN_CSC_LINK }}
+      WIN_CSC_KEY_PASSWORD: ${{ secrets.DESKTOP_WIN_CSC_KEY_PASSWORD }}
+      MOODCODE_WINDOWS_PUBLISHER_NAME: ${{ vars.DESKTOP_WINDOWS_PUBLISHER_NAME }}
+      APPLE_ID: ${{ secrets.DESKTOP_APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.DESKTOP_APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.DESKTOP_APPLE_TEAM_ID }}
+      MOODCODE_RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '26.x'
+          cache: npm
+      - run: npm ci --include=optional
+      - run: node scripts/prepare-pty.mjs
+      - name: Build and sign without publication
+        shell: bash
+        run: node scripts/package-desktop.mjs --release --version "$MOODCODE_RELEASE_VERSION"
+      - name: Verify signed macOS bundle and notarization
+        if: runner.os == 'macOS'
+        run: node scripts/verify-desktop-release.mjs
+      - name: Verify Windows Authenticode publisher
+        if: runner.os == 'Windows'
+        run: node scripts/verify-desktop-release.mjs
+      - name: Verify Linux update artifact and metadata digests
+        if: runner.os == 'Linux'
+        run: node scripts/verify-desktop-release.mjs
+      - name: Verify Linux release bundle without installing an update
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/test-desktop-package.mjs --release
+      - name: Verify macOS/Windows release bundle without installing an update
+        if: runner.os != 'Linux'
+        run: node scripts/test-desktop-package.mjs --release
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: desktop-release-review-${{ matrix.os }}-${{ inputs.version }}
+          path: release/
+          retention-days: 7
+          if-no-files-found: error

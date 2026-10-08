@@ -4,6 +4,7 @@ import { chmod, lstat, mkdir, open, rename, unlink } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import type { DesktopProviderId, DesktopSettings, SaveDesktopSettings } from '../shared/protocol.js';
+import type { PrivateAccountCredential } from './accounts.js';
 
 const MAX_FILE_BYTES = 32_768;
 const MAX_KEY_BYTES = 4_096;
@@ -30,6 +31,8 @@ export interface SettingsStoreOptions {
   environment?: Readonly<Record<string, string | undefined>>;
   /** Sanitized metadata only. This store never reads Codex tokens. */
   codexAuth?: () => DesktopCodexAuth;
+  /** Selected OAuth bearer, resolved in main before engine configuration. */
+  accountCredential?: () => PrivateAccountCredential | undefined;
 }
 
 export interface DesktopEngineConfig {
@@ -69,6 +72,8 @@ interface StoredSettings {
   baseURL: string;
   credential?: StoredCredential;
   reasoningEffort?: ReasoningEffort;
+  credentialMode?: 'api-key' | 'chatgpt';
+  accountId?: string;
 }
 interface Candidate {
   revision: number;
@@ -107,7 +112,7 @@ function provider(value: unknown): DesktopProviderId {
   return value as DesktopProviderId;
 }
 
-function configFields(input: Record<string, unknown>): Pick<StoredSettings, 'providerId' | 'modelId' | 'baseURL' | 'reasoningEffort'> {
+function configFields(input: Record<string, unknown>): Pick<StoredSettings, 'providerId' | 'modelId' | 'baseURL' | 'reasoningEffort' | 'credentialMode' | 'accountId'> {
   const providerId = provider(input.providerId);
   if (typeof input.modelId !== 'string' || input.modelId.length === 0 || input.modelId.trim() !== input.modelId
     || Buffer.byteLength(input.modelId) > 512 || /[\u0000-\u001f\u007f]/u.test(input.modelId)) invalid('modelId');
@@ -123,7 +128,14 @@ function configFields(input: Record<string, unknown>): Pick<StoredSettings, 'pro
   }
   const effort = input.reasoningEffort;
   if (Object.hasOwn(input, 'reasoningEffort') && (effort === undefined || !REASONING_EFFORTS.includes(effort as ReasoningEffort) || !['codex', 'openai-responses'].includes(providerId))) invalid('reasoningEffort');
-  return { providerId, modelId: input.modelId, baseURL: input.baseURL, ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffort }) };
+  const mode = input.credentialMode;
+  if (mode !== undefined && mode !== 'api-key' && mode !== 'chatgpt') invalid('credentialMode');
+  if (mode === 'chatgpt') {
+    if (providerId !== 'openai-responses' || input.baseURL.replace(/\/$/u, '') !== 'https://api.openai.com/v1'
+      || typeof input.accountId !== 'string' || !/^[a-f0-9-]{36}$/u.test(input.accountId)) invalid('accountId');
+  } else if (input.accountId !== undefined) invalid('accountId');
+  return { providerId, modelId: input.modelId, baseURL: input.baseURL, ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffort }),
+    ...(mode === undefined ? {} : { credentialMode: mode }), ...(mode === 'chatgpt' ? { accountId: input.accountId as string } : {}) };
 }
 
 function key(value: unknown): string {
@@ -133,7 +145,7 @@ function key(value: unknown): string {
 }
 
 function parseDocument(value: unknown): StoredSettings {
-  const input = dataObject(value, ['schemaVersion', 'providerId', 'modelId', 'baseURL', 'credential', 'reasoningEffort']);
+  const input = dataObject(value, ['schemaVersion', 'providerId', 'modelId', 'baseURL', 'credential', 'reasoningEffort', 'credentialMode', 'accountId']);
   if (input.schemaVersion !== 1) invalid('schemaVersion');
   const result: StoredSettings = { schemaVersion: 1, ...configFields(input) };
   if (Object.hasOwn(input, 'credential')) {
@@ -166,6 +178,7 @@ export class SettingsStore {
   readonly #storage: CredentialStorage;
   readonly #environment: Readonly<Record<string, string | undefined>>;
   readonly #codexAuth: (() => DesktopCodexAuth) | undefined;
+  readonly #accountCredential: (() => PrivateAccountCredential | undefined) | undefined;
   readonly #candidates = new WeakMap<PreparedSettings, Candidate>();
   #document: StoredSettings = { schemaVersion: 1, providerId: 'scripted', modelId: 'local', baseURL: '' };
   #view: DesktopSettings;
@@ -182,6 +195,7 @@ export class SettingsStore {
     this.#storage = options.safeStorage;
     this.#environment = options.environment ?? process.env;
     this.#codexAuth = options.codexAuth;
+    this.#accountCredential = options.accountCredential;
     this.#view = this.#makeView(this.#document, 'none');
   }
 
@@ -195,7 +209,7 @@ export class SettingsStore {
   prepare(input: SaveDesktopSettings): Promise<PreparedSettings> {
     return this.#exclusive(async () => {
       if (!this.#loaded) await this.#load();
-      const fields = dataObject(input, ['providerId', 'modelId', 'baseURL', 'apiKey', 'clearKey', 'reasoningEffort']);
+      const fields = dataObject(input, ['providerId', 'modelId', 'baseURL', 'apiKey', 'clearKey', 'reasoningEffort', 'credentialMode', 'accountId']);
       if (fields.providerId === 'codex' && (fields.modelId === '' || fields.modelId === undefined)) {
         fields.modelId = this.#auth().modelId;
         if (!fields.modelId) fail('SETTINGS_CODEX_MODEL_REQUIRED', 'The Codex provider requires an explicit model identifier.');
@@ -208,7 +222,7 @@ export class SettingsStore {
       const document: StoredSettings = { schemaVersion: 1, ...config };
       if (fields.clearKey !== true && this.#document.credential) document.credential = { ...this.#document.credential };
       if (fields.apiKey !== undefined) {
-        if (config.providerId === 'scripted' || config.providerId === 'codex') invalid('credential');
+        if (config.providerId === 'scripted' || config.providerId === 'codex' || config.credentialMode === 'chatgpt') invalid('credential');
         const plainKey = key(fields.apiKey);
         if (!this.#storageAvailable()) fail('SETTINGS_CREDENTIAL_STORAGE_UNAVAILABLE', 'Secure credential storage is unavailable. Use a credential environment variable.');
         let encrypted: Buffer;
@@ -319,6 +333,8 @@ export class SettingsStore {
       keyConfigured: keySource !== 'none', keySource,
       credentialStorage: this.#storageAvailable() ? 'available' : 'unavailable',
       ...(document.reasoningEffort ? { reasoningEffort: document.reasoningEffort } : {}),
+      ...(document.credentialMode ? { credentialMode: document.credentialMode } : {}),
+      ...(document.accountId ? { accountId: document.accountId } : {}),
     };
     if (this.#codexAuth || document.providerId === 'codex') {
       const auth = this.#auth();
@@ -351,6 +367,14 @@ export class SettingsStore {
       if (!this.#auth().available) fail('SETTINGS_CODEX_AUTH_REQUIRED', 'Codex authentication is unavailable. Sign in to Codex and retry, or explicitly select another provider.');
       source = 'codex';
     } else if (document.providerId !== 'scripted') {
+      const account = this.#accountCredential?.();
+      if (document.credentialMode === 'chatgpt') {
+        if (!account || account.accountId !== document.accountId) fail('SETTINGS_ACCOUNT_AUTH_REQUIRED', 'The selected ChatGPT account is unavailable. Sign in again or explicitly select API key authentication.');
+        if (!account.models.some(model => model.id === document.modelId)) fail('SETTINGS_ACCOUNT_MODEL_REQUIRED', 'Choose a model available to the selected ChatGPT account.');
+        engineConfig.apiKey = account.apiKey;
+        source = 'chatgpt';
+        return freezeResolved(this.#makeView(document, source), engineConfig);
+      }
       const environmentKey = this.#environment.MOODCODE_API_KEY || this.#environment.OPENAI_API_KEY;
       if (environmentKey) {
         try { engineConfig.apiKey = key(environmentKey); }
