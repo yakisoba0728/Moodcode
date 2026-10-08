@@ -12,7 +12,6 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { DatabaseSync } from "node:sqlite";
 import type { TestContext } from "node:test";
 import {
   DEFAULT_LIMITS,
@@ -24,6 +23,7 @@ import {
 import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
 import { createEngine, type EngineOptions } from "../../engine.js";
 import type { ProviderAdapter, TurnRequest } from "../../ports.js";
+import { nativeFixtureData } from "../../test-fixtures/native-data.js";
 const evidenceTables = [
   "runs",
   "session_turns",
@@ -36,39 +36,6 @@ const evidenceTables = [
   "session_documents",
   "session_events",
 ] as const;
-function nativeEvidence(
-  dbPath: string,
-): Record<string, Record<string, unknown>[]> {
-  const db = new DatabaseSync(dbPath, { readOnly: true });
-  let bytes = 0;
-  try {
-    return Object.fromEntries(
-      evidenceTables.map((table) => {
-        const rows = db
-          .prepare(`SELECT data FROM ${table} ORDER BY rowid LIMIT 1025`)
-          .all();
-        assert.ok(
-          rows.length <= 1024,
-          "Fixture native evidence row ceiling exceeded",
-        );
-        return [
-          table,
-          rows.map((row) => {
-            const raw = String(row.data);
-            bytes += Buffer.byteLength(raw);
-            assert.ok(
-              bytes <= 8_388_608,
-              "Fixture native evidence byte ceiling exceeded",
-            );
-            return JSON.parse(raw) as Record<string, unknown>;
-          }),
-        ];
-      }),
-    );
-  } finally {
-    db.close();
-  }
-}
 const digest = (bytes: Uint8Array | string) =>
   createHash("sha256").update(bytes).digest("hex");
 export async function until(
@@ -180,7 +147,7 @@ export async function fixture(
     let retained = false,
       closeError: unknown;
     const save = (phase: string) => {
-      const native = nativeEvidence(dbPath);
+      const native = nativeFixtureData(dbPath, evidenceTables);
       writeFileSync(
         join(base, `${phase}.json`),
         JSON.stringify(
@@ -211,7 +178,7 @@ export async function fixture(
       );
     };
     try {
-      retained = Object.entries(nativeEvidence(dbPath)).some(
+      retained = Object.entries(nativeFixtureData(dbPath, evidenceTables)).some(
         ([table, records]) =>
           table !== "session_events" &&
           records.some(

@@ -1,0 +1,809 @@
+{
+  "schemaVersion": 1,
+  "id": "RF-TF-02",
+  "baseCommit": "d0e5b98217aaa8a36e4c95bf22c9ba986f46cb6b",
+  "branch": "codex/test-evidence-refactors",
+  "scope": "Fixture-only synchronous native DATA extraction with original dbPath and caller-owned manifests. Caller retention policy and actual Engine close remain in their original closures.",
+  "sourcePinsBefore": [
+    {
+      "path": "packages/engine/src/code-mode/fixtures/engine.ts",
+      "bytes": 9468,
+      "physicalLines": 341,
+      "sha256": "1c9652353be17321d67594b18b953c8f547fc815bdcf162ddfcf4152faa8efdd"
+    },
+    {
+      "path": "packages/engine/src/git/fixtures/commit.ts",
+      "bytes": 9624,
+      "physicalLines": 322,
+      "sha256": "353378ab0f850212a33beba48371b3ed12cc03753e5d7d6629f253cfac6b61ca"
+    }
+  ],
+  "proposalPinsMatchedBeforeEdits": true,
+  "priorCorrectiveEvidence": {
+    "path": "docs/moodcode/next-local-fixtures-review.json",
+    "bytes": 17135,
+    "physicalLines": 386,
+    "sha256": "3c40b7aeb86e190a1889d40231121b0059b234464d54f68617b305d75bc8dfbe"
+  },
+  "preservedContracts": [
+    "Exact caller table order: code-mode includes message_parts; Git omits message_parts.",
+    "Read-only original SQLite handle; SELECT data ORDER BY rowid LIMIT 1025; row ceiling 1024 per table; total raw String(data) UTF-8 charge <= 8388608 bytes; unchanged bound errors; native close in finally.",
+    "Code-mode failed/uncertain/interrupted and cleanupConfirmed=false predicate; original Set of Engines closes independently; before-close then close attempts then after-close; first close error rethrown.",
+    "Git preparation failure / uncertain / cleanupConfirmed=false / CLEANUP_UNCERTAIN predicate; current actual Engine close; preparation failure captured before unchanged assertion rethrow; before-close then close then after-close.",
+    "Filenames, report fields, source/request diagnostics, 0600 report writes and retention of original directory/database/surviving sidecars/repository/artifacts are unchanged.",
+    "No production/public API, event, database schema, serialized payload, original test scenario/assertion/skip/clock/timeout change; expected values are independently authored or Original native rows."
+  ],
+  "nativeBaselineRetention": {
+    "codeMode": {
+      "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-JbOi4H",
+      "reports": [
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-JbOi4H/before-close.json",
+          "bytes": 89389,
+          "physicalLines": 1923,
+          "sha256": "3d4ffef2eeb25432d5c5be767fea699fc2dac7fd8d51ef4ed42baafd2d73b6b3",
+          "phase": "before-close",
+          "tableManifest": [
+            "runs",
+            "session_turns",
+            "provider_attempts",
+            "attempt_cleanup",
+            "tools",
+            "approvals",
+            "checkpoints",
+            "message_parts",
+            "session_documents",
+            "session_events"
+          ],
+          "runStates": [
+            "failed"
+          ],
+          "runErrorCodes": [
+            "CLEANUP_UNCERTAIN"
+          ],
+          "messagePartCount": 2,
+          "toolCount": 2,
+          "nativeRecordsSha256": "e7a5ba98b0fd937c3539bb1b6a622bc9c8beea5c18653d0e40b90bd384ca2cd3",
+          "dbExists": true,
+          "artifactDirExists": true
+        },
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-JbOi4H/after-close.json",
+          "bytes": 89388,
+          "physicalLines": 1923,
+          "sha256": "861d97d49a14823abe468b25822c33f40acd4c283e705da57cec768e2654aeaa",
+          "phase": "after-close",
+          "tableManifest": [
+            "runs",
+            "session_turns",
+            "provider_attempts",
+            "attempt_cleanup",
+            "tools",
+            "approvals",
+            "checkpoints",
+            "message_parts",
+            "session_documents",
+            "session_events"
+          ],
+          "runStates": [
+            "failed"
+          ],
+          "runErrorCodes": [
+            "CLEANUP_UNCERTAIN"
+          ],
+          "messagePartCount": 2,
+          "toolCount": 2,
+          "nativeRecordsSha256": "e7a5ba98b0fd937c3539bb1b6a622bc9c8beea5c18653d0e40b90bd384ca2cd3",
+          "dbExists": true,
+          "artifactDirExists": true
+        }
+      ]
+    },
+    "gitCheckpointRejection": {
+      "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-6RYOi8",
+      "reports": [
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-6RYOi8/preparation-failure.json",
+          "bytes": 42032,
+          "physicalLines": 1016,
+          "sha256": "7d53850538fec250d24c53d5f31210a15e33f659419c3c37d5571414209e1d38",
+          "phase": "preparation-failure",
+          "tableManifest": [
+            "runs",
+            "session_turns",
+            "provider_attempts",
+            "attempt_cleanup",
+            "tools",
+            "approvals",
+            "checkpoints",
+            "session_documents",
+            "session_events"
+          ],
+          "runStates": [
+            "failed"
+          ],
+          "runErrorCodes": [
+            "CLEANUP_UNCERTAIN"
+          ],
+          "messagePartCount": null,
+          "toolCount": 1,
+          "nativeRecordsSha256": "4bbb55b6db4f04b8e1e3f64239e2988c2e1e8a1a882fcbf3fd8d420c8783e285",
+          "dbExists": true,
+          "artifactDirExists": true,
+          "originalFailure": {
+            "name": "AssertionError",
+            "message": "{\"code\":\"CLEANUP_UNCERTAIN\",\"message\":\"Verification command returned no owned terminal outcome; its consumed capability must never be replayed\"}\n+ actual - expected\n\n+ 'failed'\n- 'completed'\n"
+          }
+        },
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-6RYOi8/before-close.json",
+          "bytes": 41753,
+          "physicalLines": 1012,
+          "sha256": "b92dd7fec88561df5fb575dda0089fec957d323f177ba1426a284e7edbe50122",
+          "phase": "before-close",
+          "tableManifest": [
+            "runs",
+            "session_turns",
+            "provider_attempts",
+            "attempt_cleanup",
+            "tools",
+            "approvals",
+            "checkpoints",
+            "session_documents",
+            "session_events"
+          ],
+          "runStates": [
+            "failed"
+          ],
+          "runErrorCodes": [
+            "CLEANUP_UNCERTAIN"
+          ],
+          "messagePartCount": null,
+          "toolCount": 1,
+          "nativeRecordsSha256": "4bbb55b6db4f04b8e1e3f64239e2988c2e1e8a1a882fcbf3fd8d420c8783e285",
+          "dbExists": true,
+          "artifactDirExists": true
+        },
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-6RYOi8/after-close.json",
+          "bytes": 41752,
+          "physicalLines": 1012,
+          "sha256": "6dbc6c2a16036b8e215c3af405fdd95910099ef9984174db01ea1e2cac7fbcbe",
+          "phase": "after-close",
+          "tableManifest": [
+            "runs",
+            "session_turns",
+            "provider_attempts",
+            "attempt_cleanup",
+            "tools",
+            "approvals",
+            "checkpoints",
+            "session_documents",
+            "session_events"
+          ],
+          "runStates": [
+            "failed"
+          ],
+          "runErrorCodes": [
+            "CLEANUP_UNCERTAIN"
+          ],
+          "messagePartCount": null,
+          "toolCount": 1,
+          "nativeRecordsSha256": "4bbb55b6db4f04b8e1e3f64239e2988c2e1e8a1a882fcbf3fd8d420c8783e285",
+          "dbExists": true,
+          "artifactDirExists": true
+        }
+      ]
+    },
+    "uncertaintyDebt": "The helper extraction does not resolve or promote any native failed/uncertain outcome. Original retention remains."
+  },
+  "validation": {
+    "originalSourceBaseline": {
+      "pass": 56,
+      "fail": 0,
+      "skipped": 0,
+      "originalFileCount": 11,
+      "durationMs": 127979.715417,
+      "absoluteTsxLoader": true,
+      "output": {
+        "path": "artifacts/rf-tf-refactor/baseline-02-source.log",
+        "bytes": 8817,
+        "physicalLines": 85,
+        "sha256": "4609e91b6031c18648146ae4a3018b05b853a052b8ee468660ac508d8822ca32"
+      }
+    },
+    "invalidHarnessInvocation": {
+      "output": {
+        "path": "artifacts/rf-tf-refactor/invalid-relative-loader-source.log",
+        "bytes": 13179,
+        "physicalLines": 159,
+        "sha256": "d24c1efd9c187781ca1b85598e537f42c668f9879908c987b04816727be7e471"
+      },
+      "classification": "Invalid relative-loader invocation: Original command child uses a different cwd, so inherited relative tsx loader caused ERR_MODULE_NOT_FOUND. Preserved by parent; no source defect claimed."
+    },
+    "addedNativeProof": {
+      "file": "packages/engine/src/test-fixtures/native-data.test.ts",
+      "cases": [
+        "Explicit selected/omitted message_parts, literal DATA and ordered manifest with unchanged file hash.",
+        "1024 rows pass in Original rowid order; row 1025 fails with the unchanged row-ceiling error.",
+        "Two actual native tables total exactly 8 MiB raw UTF-8 JSON; one additional byte fails globally.",
+        "Original JSON and native missing-table errors are preserved; actual read-only handles close on both faults.",
+        "Missing original database fails and creates no replacement database."
+      ],
+      "expectedSource": "Literal authored DATA/sequence/byte values; no expected value is computed by nativeFixtureData.",
+      "status": "passed",
+      "result": {
+        "command": "node --import /Users/yakisoba0728/.codex/worktrees/test-evidence-refactors/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 packages/engine/src/test-fixtures/native-data.test.ts",
+        "exitCode": 0,
+        "pass": 5,
+        "fail": 0,
+        "skipped": 0,
+        "durationMs": 5101.503667,
+        "output": {
+          "path": "artifacts/rf-tf-refactor/proof-02-source.log",
+          "bytes": 623,
+          "physicalLines": 13,
+          "sha256": "e408af065aa3e301dd6e7c32a6c5dade98a3e8737f47a050280594642fde2b44"
+        }
+      }
+    },
+    "formattingAndOwnedDiffCheck": {
+      "exitCode": 0
+    },
+    "finalSourceCompiledTypecheckAndMetrics": "Final affected source61/61 and compiled61/61 passed. Parent links global full typecheck and AST evidence after all units.",
+    "finalQualification": {
+      "testPlan": {
+        "path": "artifacts/rf-tf-refactor/test-plan.json",
+        "bytes": 9154,
+        "sha256": "61841b4577a0937a8d9ebdb645f15fc0a01a5f6590e27a4e63d309d176806790"
+      },
+      "originalFileCount": 11,
+      "addedProofFileCount": 1,
+      "testConcurrency": 1,
+      "absoluteSourceLoader": "/Users/yakisoba0728/.codex/worktrees/test-evidence-refactors/Moodcode/node_modules/tsx/dist/loader.mjs",
+      "source": {
+        "pass": 61,
+        "fail": 0,
+        "skipped": 0,
+        "durationMs": 93127.37475,
+        "output": {
+          "path": "artifacts/rf-tf-refactor/final-02-source.log",
+          "bytes": 9304,
+          "sha256": "c39850d2e1d0aa3ca3f17f5691dc8a62801fc452aaa92420ddfd5e8e2ee4e17e"
+        }
+      },
+      "compiled": {
+        "pass": 61,
+        "fail": 0,
+        "skipped": 0,
+        "durationMs": 96655.998459,
+        "output": {
+          "path": "artifacts/rf-tf-refactor/final-02-compiled.log",
+          "bytes": 9293,
+          "sha256": "46b18ef682ee4569e2b4e8a611556dd25c1dc609434e9c37fc2a692f8a0668aa"
+        }
+      },
+      "unchangedOriginalTestPins": [
+        {
+          "path": "packages/engine/src/code-mode/archive.integration.test.ts",
+          "sha256": "94fdbd31230337b7f5bd19c166da16396a58eddf03eb0a1c56b1f599a768f21f",
+          "unchanged": true
+        },
+        {
+          "path": "packages/engine/src/code-mode/process-drain.integration.test.ts",
+          "sha256": "284a1ee4b14891d894c8f928aa1f93077ec020686f762cb045d8a7895788dba1",
+          "unchanged": true
+        },
+        {
+          "path": "packages/engine/src/code-mode/engine-code-mode.integration.test.ts",
+          "sha256": "f94010fe1df170853e3beb6677f6700a9465c960074ae16c66249435591e36be",
+          "unchanged": true
+        },
+        {
+          "path": "packages/engine/src/code-mode/crash.integration.test.ts",
+          "sha256": "22c0b634d7ddec0feb7c4ddfb9b10739483e52fd416972763eafe0f8ff25e0c1",
+          "unchanged": true
+        },
+        {
+          "path": "packages/engine/src/code-mode/native-integrity.integration.test.ts",
+          "sha256": "89a72b7cb460b5330be1d50fbbc17ad8590d9a0ce135c0880fc02ebfa60a6233",
+          "unchanged": true
+        },
+        {
+          "path": "packages/engine/src/git/commit.integration.test.ts",
+          "sha256": "245e8886a48a0bc2c100ebd2de3e91a2b8b7333b1ab63edeeae6592bef521fd3",
+          "unchanged": true
+        },
+        {
+          "path": "packages/engine/src/git/commit-boundaries.integration.test.ts",
+          "sha256": "b49dab2aed3345fb2e779398dfc4f9657feca8612e53aceb59cffcc538b14d52",
+          "unchanged": true
+        },
+        {
+          "path": "packages/engine/src/git/commit-native.integration.test.ts",
+          "sha256": "ad4ee6bb231e8354a1356df698870cde65c7a11360d4ae7c1e7386f2ef8f38a3",
+          "unchanged": true
+        },
+        {
+          "path": "packages/engine/src/git/commit-crash.integration.test.ts",
+          "sha256": "1888bdef55e59d745d57183e0806d245bcf5587352f0fbc243c5ed4008ba2510",
+          "unchanged": true
+        },
+        {
+          "path": "packages/engine/src/git/commit-fixture-retention.integration.test.ts",
+          "sha256": "f8843ac8fbeed1df287dec5aebfff0f72af4abadfd176676a82d37a6a898e237",
+          "unchanged": true
+        },
+        {
+          "path": "packages/engine/src/integration/host-git-fork.integration.test.ts",
+          "sha256": "6788c5cf5242da6675cf710d1b06433465f29143581b496f44165b15aa50fc9c",
+          "unchanged": true
+        }
+      ]
+    }
+  },
+  "sourcePinsAfter": [
+    {
+      "path": "packages/engine/src/code-mode/fixtures/engine.ts",
+      "bytes": 8629,
+      "physicalLines": 308,
+      "sha256": "0d9aac15cdf71830d2f7e7d894fd6297ccf448cd92c8defc535c891e44637f08"
+    },
+    {
+      "path": "packages/engine/src/git/fixtures/commit.ts",
+      "bytes": 8784,
+      "physicalLines": 292,
+      "sha256": "3b6de4015972667a77f7d1bd659199bd1dc44abc958b1d54b27934d6b436c190"
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/native-data.ts",
+      "bytes": 1333,
+      "physicalLines": 50,
+      "sha256": "8548195531ce867aed7cfee0ef6264116c858286778ba5a335addb38b094787a"
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/native-data.test.ts",
+      "bytes": 5441,
+      "physicalLines": 166,
+      "sha256": "279bc80b92610405419b7e69e5eff20587e7256ec0b8749897341bf96a65337e"
+    }
+  ],
+  "retainedDecisions": {
+    "RF-TF-07": "KEEP",
+    "RF-TF-08": "KEEP",
+    "RF-TF-10": "KEEP"
+  },
+  "noNewLiveAccountOrProviderRequests": true,
+  "noCommitsBySubagent": true,
+  "nativeFinalSourceRetention": {
+    "output": {
+      "path": "artifacts/rf-tf-refactor/retention-02-final-source.json",
+      "bytes": 8085,
+      "sha256": "223901dedbcf94ebfcd9d889746f160ff312c3ddb34335b9080ca4b1e1d9f4d6"
+    },
+    "finalSourceOutput": {
+      "path": "artifacts/rf-tf-refactor/final-02-source.log",
+      "bytes": 9304,
+      "sha256": "c39850d2e1d0aa3ca3f17f5691dc8a62801fc452aaa92420ddfd5e8e2ee4e17e"
+    },
+    "pass": 61,
+    "fail": 0,
+    "skipped": 0,
+    "durationMs": 93127.37475,
+    "snapshots": [
+      {
+        "caller": "codeMode",
+        "scenario": "outer parent cancellation joins running command group and restricted runtime with no replay",
+        "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-ivXCx7",
+        "tableManifest": [
+          "runs",
+          "session_turns",
+          "provider_attempts",
+          "attempt_cleanup",
+          "tools",
+          "approvals",
+          "checkpoints",
+          "message_parts",
+          "session_documents",
+          "session_events"
+        ],
+        "nativeRecordsSha256": "0a775347b372dc826bac918d7e396e4e217242f47bb74b22b00c6f38d2a2eb1b",
+        "beforeAfterNativeDataEqual": true,
+        "allCapturedPhasesEqualIndependentRawSqlData": true,
+        "independentOracle": "Direct read-only SELECT data FROM authored literal table manifest ORDER BY rowid; JSON.parse only; no nativeFixtureData helper or generated expected.",
+        "reports": [
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-ivXCx7/before-close.json",
+            "bytes": 89389,
+            "sha256": "6e0dd9fd57db8d095414800dfd635c41138019957c7911772561043c909a7bf9",
+            "phase": "before-close",
+            "nativeRecordsSha256": "0a775347b372dc826bac918d7e396e4e217242f47bb74b22b00c6f38d2a2eb1b"
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-ivXCx7/after-close.json",
+            "bytes": 89388,
+            "sha256": "e4fd301980093007c1830b0cd1282e93e2d192d55d7dfd045e02fd4faa20f4fd",
+            "phase": "after-close",
+            "nativeRecordsSha256": "0a775347b372dc826bac918d7e396e4e217242f47bb74b22b00c6f38d2a2eb1b"
+          }
+        ],
+        "database": {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-ivXCx7/db.sqlite",
+          "bytes": 1343488,
+          "sha256": "797f0141a1217bc5a59f6f71c1ec85106164499482c1afc5469fadbe5b299a6f"
+        },
+        "sidecarPresenceBeforeSqlRead": [
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-ivXCx7/db.sqlite-wal",
+            "present": true
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-ivXCx7/db.sqlite-shm",
+            "present": true
+          }
+        ],
+        "repositoryRetained": true,
+        "artifactDirRetained": true,
+        "commandDirectories": [
+          "command-j5neoP"
+        ],
+        "commandArtifactFiles": [
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-ivXCx7/artifacts/command-j5neoP/stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-ivXCx7/artifacts/command-j5neoP/stdout.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ],
+        "nativeMessagePartCount": 2,
+        "capturedMessagePartCount": 2,
+        "runStates": [
+          "failed"
+        ],
+        "runErrorCodes": [
+          "CLEANUP_UNCERTAIN"
+        ],
+        "toolStates": [
+          "interrupted",
+          "interrupted"
+        ],
+        "codeState": "uncertain",
+        "codeOutcomeCleanupConfirmed": true,
+        "jobState": "uncertain",
+        "requestsBeforeAfterEqual": true
+      },
+      {
+        "caller": "gitCheckpointRejection",
+        "scenario": "actual verification checkpoint rejection retains native uncertainty and performs one command",
+        "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-1xZyO8",
+        "tableManifest": [
+          "runs",
+          "session_turns",
+          "provider_attempts",
+          "attempt_cleanup",
+          "tools",
+          "approvals",
+          "checkpoints",
+          "session_documents",
+          "session_events"
+        ],
+        "nativeRecordsSha256": "543ca1ff6b3a23ecf5a6c39738d703d2b2c5fa81085668aacad9e0e0be20848c",
+        "beforeAfterNativeDataEqual": true,
+        "allCapturedPhasesEqualIndependentRawSqlData": true,
+        "independentOracle": "Direct read-only SELECT data FROM authored literal table manifest ORDER BY rowid; JSON.parse only; no nativeFixtureData helper or generated expected.",
+        "reports": [
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-1xZyO8/preparation-failure.json",
+            "bytes": 42032,
+            "sha256": "55a689423230179a3912dd806d83fbae5e9791c19c7ac1150ba8ab144ca9a085",
+            "phase": "preparation-failure",
+            "nativeRecordsSha256": "543ca1ff6b3a23ecf5a6c39738d703d2b2c5fa81085668aacad9e0e0be20848c",
+            "originalFailure": {
+              "name": "AssertionError",
+              "message": "{\"code\":\"CLEANUP_UNCERTAIN\",\"message\":\"Verification command returned no owned terminal outcome; its consumed capability must never be replayed\"}\n+ actual - expected\n\n+ 'failed'\n- 'completed'\n"
+            }
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-1xZyO8/before-close.json",
+            "bytes": 41753,
+            "sha256": "c193432360cd2cdd66c132883bcc2b7c473b0b61bc9a21f717d5062dfdbf870d",
+            "phase": "before-close",
+            "nativeRecordsSha256": "543ca1ff6b3a23ecf5a6c39738d703d2b2c5fa81085668aacad9e0e0be20848c"
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-1xZyO8/after-close.json",
+            "bytes": 41752,
+            "sha256": "cb26ebadc9b7ed5903a69fe49b2b9bced0ae07a4d258540786206d8ebd29d1c6",
+            "phase": "after-close",
+            "nativeRecordsSha256": "543ca1ff6b3a23ecf5a6c39738d703d2b2c5fa81085668aacad9e0e0be20848c"
+          }
+        ],
+        "database": {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-1xZyO8/engine.sqlite",
+          "bytes": 1282048,
+          "sha256": "5cf3a8dc7381cbc49a08cf6db0ee566bb10726572ff2b892c90b414af64843d4"
+        },
+        "sidecarPresenceBeforeSqlRead": [
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-1xZyO8/engine.sqlite-wal",
+            "present": true
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-1xZyO8/engine.sqlite-shm",
+            "present": true
+          }
+        ],
+        "repositoryRetained": true,
+        "artifactDirRetained": true,
+        "commandDirectories": [
+          "command-6yy0rf"
+        ],
+        "commandArtifactFiles": [
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-1xZyO8/artifacts/command-6yy0rf/stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-1xZyO8/artifacts/command-6yy0rf/stdout.log",
+            "bytes": 19,
+            "sha256": "da1295502b83bd5dfce7b68255585752bef9f254d52774304f75b383535bfb79"
+          }
+        ],
+        "nativeMessagePartCount": 1,
+        "capturedMessagePartCount": null,
+        "runStates": [
+          "failed"
+        ],
+        "runErrorCodes": [
+          "CLEANUP_UNCERTAIN"
+        ],
+        "toolStates": [
+          "interrupted"
+        ],
+        "receiptStatus": "uncertain",
+        "receiptObservation": null,
+        "checkpointCount": 0,
+        "commandStdout": {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-1xZyO8/artifacts/command-6yy0rf/stdout.log",
+          "bytes": 19,
+          "sha256": "da1295502b83bd5dfce7b68255585752bef9f254d52774304f75b383535bfb79",
+          "text": "actual-verification"
+        }
+      }
+    ]
+  },
+  "nativeFinalCompiledRetention": {
+    "output": {
+      "path": "artifacts/rf-tf-refactor/retention-02-final-compiled.json",
+      "bytes": 8382,
+      "sha256": "356c874fbaa5f20a790638803a88af439e2e10bdac915a75e9ac1d5da8a1f662"
+    },
+    "finalCompiledOutput": {
+      "path": "artifacts/rf-tf-refactor/final-02-compiled.log",
+      "bytes": 9293,
+      "sha256": "46b18ef682ee4569e2b4e8a611556dd25c1dc609434e9c37fc2a692f8a0668aa"
+    },
+    "pass": 61,
+    "fail": 0,
+    "skipped": 0,
+    "durationMs": 96655.998459,
+    "snapshots": [
+      {
+        "caller": "codeMode",
+        "scenario": "outer parent cancellation joins running command group and restricted runtime with no replay",
+        "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-SwzuNG",
+        "tableManifest": [
+          "runs",
+          "session_turns",
+          "provider_attempts",
+          "attempt_cleanup",
+          "tools",
+          "approvals",
+          "checkpoints",
+          "message_parts",
+          "session_documents",
+          "session_events"
+        ],
+        "nativeRecordsSha256": "fc9fd06de8ecdcea7eb72f362faf2418436e1876f2c31248631c724a6aa0230e",
+        "beforeAfterNativeDataEqual": true,
+        "allCapturedPhasesEqualIndependentRawSqlData": true,
+        "independentOracle": "Direct read-only SELECT data FROM authored literal table manifest ORDER BY rowid; JSON.parse only; no nativeFixtureData helper or generated expected.",
+        "reports": [
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-SwzuNG/before-close.json",
+            "bytes": 89390,
+            "sha256": "0fe2fd405596c6467091e2855d241748afe39aab372ec22d13d91057cfbe282f",
+            "phase": "before-close",
+            "nativeRecordsSha256": "fc9fd06de8ecdcea7eb72f362faf2418436e1876f2c31248631c724a6aa0230e"
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-SwzuNG/after-close.json",
+            "bytes": 89389,
+            "sha256": "cae381818e686d767ed80b2983cab301207f8d4f88d5b42c457ba96f45e04901",
+            "phase": "after-close",
+            "nativeRecordsSha256": "fc9fd06de8ecdcea7eb72f362faf2418436e1876f2c31248631c724a6aa0230e"
+          }
+        ],
+        "database": {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-SwzuNG/db.sqlite",
+          "bytes": 1343488,
+          "sha256": "c9b0cf122ec3e1b32c6deb3749d7081e4f26be316c2d7a18395b07387a1569fb"
+        },
+        "sidecarPresenceBeforeSqlRead": [
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-SwzuNG/db.sqlite-wal",
+            "present": true
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-SwzuNG/db.sqlite-shm",
+            "present": true
+          }
+        ],
+        "repositoryRetained": true,
+        "artifactDirRetained": true,
+        "commandDirectories": [
+          "command-w44aqa"
+        ],
+        "commandArtifactFiles": [
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-SwzuNG/artifacts/command-w44aqa/stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-SwzuNG/artifacts/command-w44aqa/stdout.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        ],
+        "nativeMessagePartCount": 2,
+        "capturedMessagePartCount": 2,
+        "runStates": [
+          "failed"
+        ],
+        "runErrorCodes": [
+          "CLEANUP_UNCERTAIN"
+        ],
+        "toolStates": [
+          "interrupted",
+          "interrupted"
+        ],
+        "codeState": "uncertain",
+        "codeOutcomeCleanupConfirmed": true,
+        "jobState": "uncertain",
+        "requestsBeforeAfterEqual": true,
+        "actualCompiledFixtureSource": {
+          "path": "/Users/yakisoba0728/.codex/worktrees/test-evidence-refactors/Moodcode/packages/engine/dist/code-mode/fixtures/engine.js",
+          "bytes": 9030,
+          "sha256": "de2ba0cfd3376b1e21b643381cdb32644896d6fd475478eca9f0624dc837c398"
+        }
+      },
+      {
+        "caller": "gitCheckpointRejection",
+        "scenario": "actual verification checkpoint rejection retains native uncertainty and performs one command",
+        "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-eb0pUf",
+        "tableManifest": [
+          "runs",
+          "session_turns",
+          "provider_attempts",
+          "attempt_cleanup",
+          "tools",
+          "approvals",
+          "checkpoints",
+          "session_documents",
+          "session_events"
+        ],
+        "nativeRecordsSha256": "dab94e335cc89211d8f0a10538bead204f0a26d3b38f8cf8cf53c8ee9aa99c1c",
+        "beforeAfterNativeDataEqual": true,
+        "allCapturedPhasesEqualIndependentRawSqlData": true,
+        "independentOracle": "Direct read-only SELECT data FROM authored literal table manifest ORDER BY rowid; JSON.parse only; no nativeFixtureData helper or generated expected.",
+        "reports": [
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-eb0pUf/preparation-failure.json",
+            "bytes": 42032,
+            "sha256": "9c289f7560cfc7e6a9af92d68709a11b01ed839ea24143210c931d6bc0c4b585",
+            "phase": "preparation-failure",
+            "nativeRecordsSha256": "dab94e335cc89211d8f0a10538bead204f0a26d3b38f8cf8cf53c8ee9aa99c1c",
+            "originalFailure": {
+              "name": "AssertionError",
+              "message": "{\"code\":\"CLEANUP_UNCERTAIN\",\"message\":\"Verification command returned no owned terminal outcome; its consumed capability must never be replayed\"}\n+ actual - expected\n\n+ 'failed'\n- 'completed'\n"
+            }
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-eb0pUf/before-close.json",
+            "bytes": 41753,
+            "sha256": "c8a9b39377c67360fc2414566b110612cddf9d20db3c585915c24066d0f1ba14",
+            "phase": "before-close",
+            "nativeRecordsSha256": "dab94e335cc89211d8f0a10538bead204f0a26d3b38f8cf8cf53c8ee9aa99c1c"
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-eb0pUf/after-close.json",
+            "bytes": 41752,
+            "sha256": "f5cde08c18a3252301d86f9c92203653ad3d5dfa5cdd6a44f54c8507f9bac4b2",
+            "phase": "after-close",
+            "nativeRecordsSha256": "dab94e335cc89211d8f0a10538bead204f0a26d3b38f8cf8cf53c8ee9aa99c1c"
+          }
+        ],
+        "database": {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-eb0pUf/engine.sqlite",
+          "bytes": 1282048,
+          "sha256": "9bce46918f4bd28fde003e2b46b84bde9a0cd96a94ec44e705e51ce4d7559606"
+        },
+        "sidecarPresenceBeforeSqlRead": [
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-eb0pUf/engine.sqlite-wal",
+            "present": true
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-eb0pUf/engine.sqlite-shm",
+            "present": true
+          }
+        ],
+        "repositoryRetained": true,
+        "artifactDirRetained": true,
+        "commandDirectories": [
+          "command-FeZxmN"
+        ],
+        "commandArtifactFiles": [
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-eb0pUf/artifacts/command-FeZxmN/stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-eb0pUf/artifacts/command-FeZxmN/stdout.log",
+            "bytes": 19,
+            "sha256": "da1295502b83bd5dfce7b68255585752bef9f254d52774304f75b383535bfb79"
+          }
+        ],
+        "nativeMessagePartCount": 1,
+        "capturedMessagePartCount": null,
+        "runStates": [
+          "failed"
+        ],
+        "runErrorCodes": [
+          "CLEANUP_UNCERTAIN"
+        ],
+        "toolStates": [
+          "interrupted"
+        ],
+        "receiptStatus": "uncertain",
+        "receiptObservation": null,
+        "checkpointCount": 0,
+        "commandStdout": {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-eb0pUf/artifacts/command-FeZxmN/stdout.log",
+          "bytes": 19,
+          "sha256": "da1295502b83bd5dfce7b68255585752bef9f254d52774304f75b383535bfb79",
+          "text": "actual-verification"
+        }
+      }
+    ]
+  },
+  "compiledSourcePins": [
+    {
+      "path": "packages/engine/dist/code-mode/fixtures/engine.js",
+      "bytes": 9030,
+      "sha256": "de2ba0cfd3376b1e21b643381cdb32644896d6fd475478eca9f0624dc837c398"
+    },
+    {
+      "path": "packages/engine/dist/git/fixtures/commit.js",
+      "bytes": 8879,
+      "sha256": "b7eb4c4a5272742c29f83d0c5a52b399304451592e07e48859de58a44c8b528a"
+    },
+    {
+      "path": "packages/engine/dist/test-fixtures/native-data.js",
+      "bytes": 1053,
+      "sha256": "9a911bfc982dee6775b31fb95dacdc5a6ae3f715697b6aa9019cb969cf8483ac"
+    },
+    {
+      "path": "packages/engine/dist/test-fixtures/native-data.test.js",
+      "bytes": 5363,
+      "sha256": "51cb69c090bd842e780e05d0288307347a4b3013b798b561877d33f1ed56eff0"
+    }
+  ]
+}

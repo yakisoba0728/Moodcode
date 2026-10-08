@@ -5,7 +5,6 @@ import { mkdir, mkdtemp, realpath, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setImmediate as tick } from "node:timers/promises";
-import { DatabaseSync } from "node:sqlite";
 import type { TestContext } from "node:test";
 import type {
   JsonObject,
@@ -16,6 +15,7 @@ import type {
 } from "@moodcode/contracts";
 import { createEngine } from "../../engine.js";
 import type { ProviderAdapter, ProviderEvent } from "../../ports.js";
+import { nativeFixtureData } from "../../test-fixtures/native-data.js";
 const evidenceTables = [
   "runs",
   "session_turns",
@@ -27,40 +27,7 @@ const evidenceTables = [
   "session_documents",
   "session_events",
 ] as const;
-function nativeFixtureEvidence(
-  dbPath: string,
-): Record<string, Record<string, unknown>[]> {
-  const db = new DatabaseSync(dbPath, { readOnly: true });
-  let bytes = 0;
-  try {
-    return Object.fromEntries(
-      evidenceTables.map((table) => {
-        const rows = db
-          .prepare(`SELECT data FROM ${table} ORDER BY rowid LIMIT 1025`)
-          .all();
-        assert.ok(
-          rows.length <= 1024,
-          "Fixture native evidence row ceiling exceeded",
-        );
-        return [
-          table,
-          rows.map((row) => {
-            const raw = String(row.data);
-            bytes += Buffer.byteLength(raw);
-            assert.ok(
-              bytes <= 8_388_608,
-              "Fixture native evidence byte ceiling exceeded",
-            );
-            return JSON.parse(raw) as Record<string, unknown>;
-          }),
-        ];
-      }),
-    );
-  } finally {
-    db.close();
-  }
-}
-function nativeUncertainty(evidence: ReturnType<typeof nativeFixtureEvidence>) {
+function nativeUncertainty(evidence: ReturnType<typeof nativeFixtureData>) {
   return Object.entries(evidence).some(
     ([table, records]) =>
       table !== "session_events" &&
@@ -150,7 +117,7 @@ export async function commitFixture(
     retained = false;
   const saveEvidence = async (phase: string, error?: unknown) => {
     retained = true;
-    const evidence = nativeFixtureEvidence(dbPath);
+    const evidence = nativeFixtureData(dbPath, evidenceTables);
     await writeFile(
       join(base, `${phase}.json`),
       `${JSON.stringify(
@@ -184,7 +151,10 @@ export async function commitFixture(
   };
   t.after(async () => {
     try {
-      if (preparationFailed || nativeUncertainty(nativeFixtureEvidence(dbPath)))
+      if (
+        preparationFailed ||
+        nativeUncertainty(nativeFixtureData(dbPath, evidenceTables))
+      )
         await saveEvidence("before-close");
     } catch (error) {
       retained = true;
