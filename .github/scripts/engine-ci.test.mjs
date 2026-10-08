@@ -102,6 +102,12 @@ test("Windows selection includes contracts and selected SQLite/port fixtures wit
   const selected = await windowsTestFiles(root);
   assert.equal(selected.length, WINDOWS_STORAGE_TESTS.length + 2);
   assert.ok(
+    selected.some((path) =>
+      /storage[\\/]fixture-lifetime\.test\.js$/.test(path),
+    ),
+    "Actual SQLite connection lifetime regression is included in the portable gate",
+  );
+  assert.ok(
     selected.every(
       (path) => !/(?:native-crash|ownership|terminals)\.test\.js$/.test(path),
     ),

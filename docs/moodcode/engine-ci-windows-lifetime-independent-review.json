@@ -1,0 +1,339 @@
+{
+  "schemaVersion": 1,
+  "kind": "bounded-independent-frozen-windows-fixture-lifetime-review",
+  "reviewedAt": "2026-10-08T17:07:12.998054+00:00",
+  "sourceFreeze": {
+    "path": "/tmp/moodcode-windows-fixture-lifetime-source-freeze.json",
+    "sha256": "59f8bdcc9c307689aa9b02ec28fc03afe0cf11f00aea49bb44b0bf4a581e39aa",
+    "allEightExactSourcesMatch": true,
+    "files": {
+      "packages/engine/src/storage/storage.test.ts": {
+        "sha256": "d10c95a117a797aa2a1d53c0290067fe0ab23083c3d11b3ad479a9a6032906eb",
+        "bytes": 22823,
+        "match": true
+      },
+      "packages/engine/src/storage/native-inbox.test.ts": {
+        "sha256": "11536fde56de8c656b57d96ccd9254d00945d4b30e14bcdda43f61949b15de1f",
+        "bytes": 13059,
+        "match": true
+      },
+      "packages/engine/src/storage/native-records.test.ts": {
+        "sha256": "c417a7c4149804c5b15e1de6bbb9b5c94ff61cc881d204d76f5e42552e5f567d",
+        "bytes": 13088,
+        "match": true
+      },
+      "packages/engine/src/storage/native-documents-history.test.ts": {
+        "sha256": "c278bf711754a6ce8eff7d2a870cb7820894e6c2e8440d3dfd4ea5a95d38752c",
+        "bytes": 9852,
+        "match": true
+      },
+      "packages/engine/src/storage/fixtures/sqlite-directory.ts": {
+        "sha256": "14bbd2219e34bdde669e8e7d70d84cb443d128a678b1f9fea65b6a24fdb2bc13",
+        "bytes": 1864,
+        "match": true
+      },
+      "packages/engine/src/storage/fixture-lifetime.test.ts": {
+        "sha256": "e8d964a217e7e2bea32c86a626d11939763d9808dcd7045b245f3c1b2ce9b5c2",
+        "bytes": 3435,
+        "match": true
+      },
+      ".github/scripts/engine-ci.mjs": {
+        "sha256": "fbfd788dbf686ae8a6aefdf0f0bbaee04e72722a9f0d82174eb7c0387f8642b2",
+        "bytes": 11769,
+        "match": true
+      },
+      ".github/scripts/engine-ci.test.mjs": {
+        "sha256": "a16599066e60452e83cd14c4b8088edb7273340e98af4c471ef1d3a9fb7d0ef4",
+        "bytes": 3881,
+        "match": true
+      }
+    }
+  },
+  "actualOriginalFailureEvidence": [
+    {
+      "node": "v24.21.0",
+      "sourceCommit": "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21",
+      "platform": "win32",
+      "counts": {
+        "tests": 150,
+        "pass": 140,
+        "fail": 9,
+        "cancelled": 0,
+        "skipped": 1,
+        "todo": 0,
+        "duration_ms": 48209.7491
+      },
+      "failedCases": [
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\native-documents-history.test.js:51:1",
+          "test": "session document journal failure rolls back a successful CAS update",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\native-documents-history.test.js:61:1",
+          "test": "context revision activation, document CAS and both journal streams commit or roll back together",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\native-inbox.test.js:86:1",
+          "test": "promotion journal failure rolls back pending state, legacy admission, message and both cursors",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\native-inbox.test.js:126:1",
+          "test": "second steering publication failure rolls back the whole batch and rejects other session ownership",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\native-records.test.js:112:1",
+          "test": "provider dispatch journal failure leaves the prepared attempt and cursor unchanged",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\storage.test.js:86:1",
+          "test": "journal insertion failure rolls back projection, messages and sequence on a real connection",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\storage.test.js:104:1",
+          "test": "snapshot remains at one database revision when another connection commits during its reads",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\storage.test.js:268:1",
+          "test": "recovery persists interrupted tools, expired approvals and run terminal in journal and preserves checkpoints",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\storage.test.js:315:1",
+          "test": "future database schema is rejected before mutation and failed open releases ownership",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        }
+      ],
+      "originalStdoutPath": "/tmp/moodcode-actions-37811495182-windows24-artifacts/test-windows.stdout",
+      "originalStdoutSha256": "7bb4b2e02ec0318420e5b074cf30199184f87284567ed21686aaf77905dadc0a",
+      "artifactEnvironmentSha256": "294e23bb922748ed47b39ec3a0e3bdd11b7f20e16119d852c4c7519f63ec1947"
+    },
+    {
+      "node": "v26.11.1",
+      "sourceCommit": "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21",
+      "platform": "win32",
+      "counts": {
+        "tests": 150,
+        "pass": 140,
+        "fail": 9,
+        "cancelled": 0,
+        "skipped": 1,
+        "todo": 0,
+        "duration_ms": 36725.1598
+      },
+      "failedCases": [
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\native-documents-history.test.js:51:1",
+          "test": "session document journal failure rolls back a successful CAS update",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\native-documents-history.test.js:61:1",
+          "test": "context revision activation, document CAS and both journal streams commit or roll back together",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\native-inbox.test.js:86:1",
+          "test": "promotion journal failure rolls back pending state, legacy admission, message and both cursors",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\native-inbox.test.js:126:1",
+          "test": "second steering publication failure rolls back the whole batch and rejects other session ownership",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\native-records.test.js:112:1",
+          "test": "provider dispatch journal failure leaves the prepared attempt and cursor unchanged",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\storage.test.js:86:1",
+          "test": "journal insertion failure rolls back projection, messages and sequence on a real connection",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\storage.test.js:104:1",
+          "test": "snapshot remains at one database revision when another connection commits during its reads",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\storage.test.js:268:1",
+          "test": "recovery persists interrupted tools, expired approvals and run terminal in journal and preserves checkpoints",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        },
+        {
+          "compiledLocation": "packages\\engine\\dist\\storage\\storage.test.js:315:1",
+          "test": "future database schema is rejected before mutation and failed open releases ownership",
+          "errorCode": "EPERM",
+          "phase": "after-hook rmSync fixture directory"
+        }
+      ],
+      "originalStdoutPath": "/tmp/moodcode-actions-37811495182-windows26-artifacts/test-windows.stdout",
+      "originalStdoutSha256": "a786e6b8f6c7dcd20a9f0e9b8fece4824a4fb7831a10d39ce09e781eb25285a8",
+      "artifactEnvironmentSha256": "9e27ff0ca9d78c9899a19b5e5aac4730e3039c0cca05f724b446a0621f438628"
+    }
+  ],
+  "review": {
+    "verdict": "No actionable defect in the exact frozen eight-file patch. Original Windows failures are consistent with real SQLite observer or reopened store handles remaining open when the earlier registered fixture rm hook runs. Windows re-run is still required; local fixture evidence is not native Windows proof.",
+    "lifetime": "One owner tracks every successfully opened DatabaseSync and SqliteStore; closes raw observers and all original/reopened stores before any rm. Failed store constructors continue to use unchanged production ownership rollback.",
+    "closeFailure": "Cleanup attempts all owned closes, records original failure objects in AggregateError.errors, rejects before rm on any failure, and preserves the directory. It does not record a failed native close as physical release or overwrite the original failure.",
+    "manualCloseAndIdempotence": "Raw manual close is recognized through isOpen; SqliteStore.closeAsync awaits unchanged closeCompletion after manual close. A previously failed store close remains rejected. removed is set only after successful rm; successful explicit cleanup then t.after is idempotent. A genuine raw close may checkpoint WAL, so preservation assertion uses logical schema rather than false byte-for-byte WAL immutability.",
+    "existingIntegrityAssertions": "Original four files retain all 41 test identities, all 311 assertions and timeout/skip values. Only two future-schema assert.throws callbacks now call the tracked openStore wrapper around the same genuine SqliteStore constructor; DB_VERSION_UNSUPPORTED assertions and byte-equality assertions remain unchanged. All nine originally failing test bodies retain their integrity assertions.",
+    "newRegressionCoverage": "Actual observer and reopened store lifetimes, manual close, repeated cleanup, open-after-removal rejection; actual DatabaseSync close method fault retains the exact original error and directory while closing other handles, then succeeds only after real close is restored.",
+    "portableCISelection": "fixture-lifetime compiled test is explicitly in WINDOWS_STORAGE_TESTS; launcher test verifies inclusion and existing non-POSIX selection exclusions. Native Job Object test remains its existing skipped unsupported lane.",
+    "production": "No production storage close or command backend source changes in this patch; no new Windows native Job Object capability claim, timeout relaxation, skip widening, or filesystem removal retry/error swallowing.",
+    "concurrencyScope": "Helper is used as one fixture-owned teardown and awaited explicit cleanup; no new promise scheduling or inter-test global connection ownership."
+  },
+  "productionSources": [
+    {
+      "file": "packages/engine/src/storage/index.ts",
+      "unchangedSinceFailingCICommit": true,
+      "sha256": "1984bc06713d2658d5e2187a70ad87f6497e9df61b8b328414ebd95f73394beb"
+    },
+    {
+      "file": "packages/engine/src/tools/command/backends.ts",
+      "unchangedSinceFailingCICommit": true,
+      "sha256": "713ade44d6fd42d6b5e59519838fb305769c19709aaa76d8f952ea16bcc0cdbb"
+    }
+  ],
+  "assertionComparison": {
+    "path": "/tmp/moodcode-windows-fixture-lifetime-assertion-comparison.json",
+    "sha256": "e5a34abced7d9ac37444f0b0a0d57178dc5f3acb6e199389b689f281087e9d79",
+    "files": [
+      {
+        "file": "packages/engine/src/storage/storage.test.ts",
+        "testCount": 14,
+        "assertionCount": 119,
+        "testIdentityUnchanged": true,
+        "timeoutSkipUnchanged": true,
+        "assertionChanges": [
+          {
+            "before": "assert.throws(() => new SqliteStore(dbPath), code('DB_VERSION_UNSUPPORTED'))",
+            "after": "assert.throws(() => resources.openStore(), code('DB_VERSION_UNSUPPORTED'))"
+          },
+          {
+            "before": "assert.throws(() => new SqliteStore(dbPath), code('DB_VERSION_UNSUPPORTED'))",
+            "after": "assert.throws(() => resources.openStore(), code('DB_VERSION_UNSUPPORTED'))"
+          }
+        ]
+      },
+      {
+        "file": "packages/engine/src/storage/native-inbox.test.ts",
+        "testCount": 11,
+        "assertionCount": 82,
+        "testIdentityUnchanged": true,
+        "timeoutSkipUnchanged": true,
+        "assertionChanges": []
+      },
+      {
+        "file": "packages/engine/src/storage/native-records.test.ts",
+        "testCount": 9,
+        "assertionCount": 66,
+        "testIdentityUnchanged": true,
+        "timeoutSkipUnchanged": true,
+        "assertionChanges": []
+      },
+      {
+        "file": "packages/engine/src/storage/native-documents-history.test.ts",
+        "testCount": 7,
+        "assertionCount": 44,
+        "testIdentityUnchanged": true,
+        "timeoutSkipUnchanged": true,
+        "assertionChanges": []
+      }
+    ]
+  },
+  "workerEvidence": [
+    {
+      "path": "/tmp/moodcode-windows-fixture-lifetime-final-source.log",
+      "sha256": "09f418e80eaaf725f0dbf0a0cce1d6dde6bea9a34432c5b0e121126e394adad1",
+      "counts": {
+        "tests": 43,
+        "pass": 43,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 1308.972542
+      },
+      "attribution": "existing worker evidence only; no reviewer execution"
+    },
+    {
+      "path": "/tmp/moodcode-windows-fixture-lifetime-second-independent-source.log",
+      "sha256": "f2a4fe6bfd528c478a9b3b37e8af41eeabadca10755fae50250bd63a906b39f6",
+      "counts": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 337.801209
+      },
+      "attribution": "existing worker evidence only; no reviewer execution"
+    },
+    {
+      "path": "/tmp/moodcode-windows-fixture-lifetime-final-launcher.log",
+      "sha256": "8d2ca93b27ef7b417f38079efa355d9ca7ebd052b18820025de1634184b653b4",
+      "counts": {
+        "tests": 3,
+        "pass": 3,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 51.917042
+      },
+      "attribution": "existing worker evidence only; no reviewer execution"
+    },
+    {
+      "path": "/tmp/moodcode-windows-fixture-lifetime-final-strict.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "counts": {},
+      "attribution": "existing worker evidence only; no reviewer execution"
+    },
+    {
+      "path": "/tmp/moodcode-windows-fixture-lifetime-final-format.log",
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "counts": {},
+      "attribution": "existing worker evidence only; no reviewer execution"
+    }
+  ],
+  "scope": {
+    "mainSourceEdits": 0,
+    "workerSourceEdits": 0,
+    "builds": 0,
+    "testExecutions": 0,
+    "accountCalls": 0,
+    "credentialReads": 0,
+    "remoteMutations": 0,
+    "ownValidationIsStaticReadOnly": true,
+    "windowsFixVerifiedByNewRemoteRun": false,
+    "originalFailureSourceDistinctFromFrozenFix": true
+  },
+  "actionableFindings": []
+}

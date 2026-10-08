@@ -1,0 +1,437 @@
+{
+  "schemaVersion": 1,
+  "frozen": true,
+  "scope": "Windows portable SQLite fixture ownership and cleanup ordering",
+  "sourceManifest": {
+    "path": "/tmp/moodcode-windows-fixture-lifetime-source-freeze.json",
+    "sha256": "59f8bdcc9c307689aa9b02ec28fc03afe0cf11f00aea49bb44b0bf4a581e39aa"
+  },
+  "featurePatch": {
+    "path": "/tmp/moodcode-windows-fixture-lifetime-feature.patch",
+    "sha256": "09a336f9b5755573fb6f1f6979fbb9056b42f1753c97e7fd6642d0ef0dc076c2",
+    "bytes": 24444
+  },
+  "files": {
+    "packages/engine/src/storage/storage.test.ts": {
+      "sha256": "d10c95a117a797aa2a1d53c0290067fe0ab23083c3d11b3ad479a9a6032906eb",
+      "bytes": 22823
+    },
+    "packages/engine/src/storage/native-inbox.test.ts": {
+      "sha256": "11536fde56de8c656b57d96ccd9254d00945d4b30e14bcdda43f61949b15de1f",
+      "bytes": 13059
+    },
+    "packages/engine/src/storage/native-records.test.ts": {
+      "sha256": "c417a7c4149804c5b15e1de6bbb9b5c94ff61cc881d204d76f5e42552e5f567d",
+      "bytes": 13088
+    },
+    "packages/engine/src/storage/native-documents-history.test.ts": {
+      "sha256": "c278bf711754a6ce8eff7d2a870cb7820894e6c2e8440d3dfd4ea5a95d38752c",
+      "bytes": 9852
+    },
+    "packages/engine/src/storage/fixtures/sqlite-directory.ts": {
+      "sha256": "14bbd2219e34bdde669e8e7d70d84cb443d128a678b1f9fea65b6a24fdb2bc13",
+      "bytes": 1864
+    },
+    "packages/engine/src/storage/fixture-lifetime.test.ts": {
+      "sha256": "e8d964a217e7e2bea32c86a626d11939763d9808dcd7045b245f3c1b2ce9b5c2",
+      "bytes": 3435
+    },
+    ".github/scripts/engine-ci.mjs": {
+      "sha256": "fbfd788dbf686ae8a6aefdf0f0bbaee04e72722a9f0d82174eb7c0387f8642b2",
+      "bytes": 11769
+    },
+    ".github/scripts/engine-ci.test.mjs": {
+      "sha256": "a16599066e60452e83cd14c4b8088edb7273340e98af4c471ef1d3a9fb7d0ef4",
+      "bytes": 3881
+    }
+  },
+  "actualFailingRun": {
+    "id": 37811495182,
+    "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37811495182",
+    "windowsJobs": [
+      {
+        "node": "v24.21.0",
+        "platform": "win32",
+        "architecture": "x64",
+        "jobId": 113429205157,
+        "commit": "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21",
+        "scope": "Windows portable only",
+        "total": 150,
+        "passed": 140,
+        "failed": 9,
+        "skipped": 1,
+        "rawJobLog": {
+          "path": "/tmp/moodcode-actions-37811495182-windows24.log",
+          "sha256": "17f4a2b740e231e07f96267f468942b0ff9f0dc6b9210fef900e162f05e4be96"
+        },
+        "downloadedZip": {
+          "path": "/tmp/moodcode-actions-37811495182-windows24.zip",
+          "sha256": "8b2a917efc974ea2600ae3091fc8c3506cbb796131d2dfadd80a55e31a064350",
+          "matchesGitHubDigest": true
+        },
+        "portableLog": {
+          "path": "/tmp/moodcode-actions-37811495182-windows24-artifacts/test-windows.stdout",
+          "sha256": "7bb4b2e02ec0318420e5b074cf30199184f87284567ed21686aaf77905dadc0a"
+        },
+        "failures": [
+          {
+            "location": "packages\\engine\\dist\\storage\\native-documents-history.test.js:51:1",
+            "title": "session document journal failure rolls back a successful CAS update (496.2879ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\native-documents-history.test.js:51:1",
+              "\u2716 session document journal failure rolls back a successful CAS update (496.2879ms)",
+              "  Error: EPERM, Permission denied: \\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-documents-TQ22ds '\\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-documents-TQ22ds'",
+              "      at rmSync (node:fs:1282:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/native-documents-history.test.js:21:24)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:227:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\native-documents-history.test.js:61:1",
+            "title": "context revision activation, document CAS and both journal streams commit or roll back together (979.9233ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\native-documents-history.test.js:61:1",
+              "\u2716 context revision activation, document CAS and both journal streams commit or roll back together (979.9233ms)",
+              "  Error: EPERM, Permission denied: \\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-documents-5bUngG '\\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-documents-5bUngG'",
+              "      at rmSync (node:fs:1282:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/native-documents-history.test.js:21:24)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:227:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\native-inbox.test.js:86:1",
+            "title": "promotion journal failure rolls back pending state, legacy admission, message and both cursors (1030.8784ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\native-inbox.test.js:86:1",
+              "\u2716 promotion journal failure rolls back pending state, legacy admission, message and both cursors (1030.8784ms)",
+              "  Error: EPERM, Permission denied: \\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-inbox-4usgoE '\\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-inbox-4usgoE'",
+              "      at rmSync (node:fs:1282:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/native-inbox.test.js:21:24)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:227:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\native-inbox.test.js:126:1",
+            "title": "second steering publication failure rolls back the whole batch and rejects other session ownership (773.3769ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\native-inbox.test.js:126:1",
+              "\u2716 second steering publication failure rolls back the whole batch and rejects other session ownership (773.3769ms)",
+              "  Error: EPERM, Permission denied: \\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-inbox-nSoWDl '\\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-inbox-nSoWDl'",
+              "      at rmSync (node:fs:1282:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/native-inbox.test.js:21:24)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:227:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\native-records.test.js:112:1",
+            "title": "provider dispatch journal failure leaves the prepared attempt and cursor unchanged (776.3645ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\native-records.test.js:112:1",
+              "\u2716 provider dispatch journal failure leaves the prepared attempt and cursor unchanged (776.3645ms)",
+              "  Error: EPERM, Permission denied: \\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-records-3Gaiyl '\\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-records-3Gaiyl'",
+              "      at rmSync (node:fs:1282:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/native-records.test.js:29:24)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:227:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\storage.test.js:86:1",
+            "title": "journal insertion failure rolls back projection, messages and sequence on a real connection (1054.4248ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\storage.test.js:86:1",
+              "\u2716 journal insertion failure rolls back projection, messages and sequence on a real connection (1054.4248ms)",
+              "  Error: EPERM, Permission denied: \\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-storage-M1jEgj '\\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-storage-M1jEgj'",
+              "      at rmSync (node:fs:1282:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/storage.test.js:17:36)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:227:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\storage.test.js:104:1",
+            "title": "snapshot remains at one database revision when another connection commits during its reads (662.2637ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\storage.test.js:104:1",
+              "\u2716 snapshot remains at one database revision when another connection commits during its reads (662.2637ms)",
+              "  Error: EPERM, Permission denied: \\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-storage-94wjRI '\\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-storage-94wjRI'",
+              "      at rmSync (node:fs:1282:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/storage.test.js:17:36)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:227:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\storage.test.js:268:1",
+            "title": "recovery persists interrupted tools, expired approvals and run terminal in journal and preserves checkpoints (1019.6364ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\storage.test.js:268:1",
+              "\u2716 recovery persists interrupted tools, expired approvals and run terminal in journal and preserves checkpoints (1019.6364ms)",
+              "  Error: EPERM, Permission denied: \\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-storage-7qXstx '\\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-storage-7qXstx'",
+              "      at rmSync (node:fs:1282:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/storage.test.js:17:36)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:227:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\storage.test.js:315:1",
+            "title": "future database schema is rejected before mutation and failed open releases ownership (1062.0053ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\storage.test.js:315:1",
+              "\u2716 future database schema is rejected before mutation and failed open releases ownership (1062.0053ms)",
+              "  Error: EPERM, Permission denied: \\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-future-hmvm2W '\\\\?\\C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-future-hmvm2W'",
+              "      at rmSync (node:fs:1282:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/storage.test.js:317:19)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:227:14)"
+            ]
+          }
+        ],
+        "windowsJobObject": {
+          "available": false,
+          "actualVerification": false,
+          "reason": "No native Job Object binding is supplied; portable port fixtures are not OS proof."
+        },
+        "windowsFullEngineVerified": false
+      },
+      {
+        "node": "v26.11.1",
+        "platform": "win32",
+        "architecture": "x64",
+        "jobId": 113429204947,
+        "commit": "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21",
+        "scope": "Windows portable only",
+        "total": 150,
+        "passed": 140,
+        "failed": 9,
+        "skipped": 1,
+        "rawJobLog": {
+          "path": "/tmp/moodcode-actions-37811495182-windows26.log",
+          "sha256": "bb7f27c95c48a4cd1b6b1c02b9429cb54b72eaaada13dbd009ff11444617cbda"
+        },
+        "downloadedZip": {
+          "path": "/tmp/moodcode-actions-37811495182-windows26.zip",
+          "sha256": "abd4658cd8b4a0d3ec2575fbdf22139775a3fb384dcf67019ca0586c5f36819d",
+          "matchesGitHubDigest": true
+        },
+        "portableLog": {
+          "path": "/tmp/moodcode-actions-37811495182-windows26-artifacts/test-windows.stdout",
+          "sha256": "a786e6b8f6c7dcd20a9f0e9b8fece4824a4fb7831a10d39ce09e781eb25285a8"
+        },
+        "failures": [
+          {
+            "location": "packages\\engine\\dist\\storage\\native-documents-history.test.js:51:1",
+            "title": "session document journal failure rolls back a successful CAS update (611.6606ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\native-documents-history.test.js:51:1",
+              "\u2716 session document journal failure rolls back a successful CAS update (611.6606ms)",
+              "  Error: EPERM, Permission denied: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-documents-4lNm2C'",
+              "      at rmSync (node:fs:1593:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/native-documents-history.test.js:21:24)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:226:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\native-documents-history.test.js:61:1",
+            "title": "context revision activation, document CAS and both journal streams commit or roll back together (708.1794ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\native-documents-history.test.js:61:1",
+              "\u2716 context revision activation, document CAS and both journal streams commit or roll back together (708.1794ms)",
+              "  Error: EPERM, Permission denied: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-documents-yPdhIM'",
+              "      at rmSync (node:fs:1593:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/native-documents-history.test.js:21:24)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:226:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\native-inbox.test.js:86:1",
+            "title": "promotion journal failure rolls back pending state, legacy admission, message and both cursors (689.729ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\native-inbox.test.js:86:1",
+              "\u2716 promotion journal failure rolls back pending state, legacy admission, message and both cursors (689.729ms)",
+              "  Error: EPERM, Permission denied: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-inbox-CqovPK'",
+              "      at rmSync (node:fs:1593:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/native-inbox.test.js:21:24)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:226:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\native-inbox.test.js:126:1",
+            "title": "second steering publication failure rolls back the whole batch and rejects other session ownership (867.9826ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\native-inbox.test.js:126:1",
+              "\u2716 second steering publication failure rolls back the whole batch and rejects other session ownership (867.9826ms)",
+              "  Error: EPERM, Permission denied: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-inbox-Zwi5NX'",
+              "      at rmSync (node:fs:1593:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/native-inbox.test.js:21:24)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:226:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\native-records.test.js:112:1",
+            "title": "provider dispatch journal failure leaves the prepared attempt and cursor unchanged (815.2387ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\native-records.test.js:112:1",
+              "\u2716 provider dispatch journal failure leaves the prepared attempt and cursor unchanged (815.2387ms)",
+              "  Error: EPERM, Permission denied: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-native-records-B8D7vs'",
+              "      at rmSync (node:fs:1593:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/native-records.test.js:29:24)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:226:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\storage.test.js:86:1",
+            "title": "journal insertion failure rolls back projection, messages and sequence on a real connection (693.2852ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\storage.test.js:86:1",
+              "\u2716 journal insertion failure rolls back projection, messages and sequence on a real connection (693.2852ms)",
+              "  Error: EPERM, Permission denied: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-storage-CyRM08'",
+              "      at rmSync (node:fs:1593:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/storage.test.js:17:36)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:226:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\storage.test.js:104:1",
+            "title": "snapshot remains at one database revision when another connection commits during its reads (664.7863ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\storage.test.js:104:1",
+              "\u2716 snapshot remains at one database revision when another connection commits during its reads (664.7863ms)",
+              "  Error: EPERM, Permission denied: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-storage-SE3X6V'",
+              "      at rmSync (node:fs:1593:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/storage.test.js:17:36)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:226:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\storage.test.js:268:1",
+            "title": "recovery persists interrupted tools, expired approvals and run terminal in journal and preserves checkpoints (637.4885ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\storage.test.js:268:1",
+              "\u2716 recovery persists interrupted tools, expired approvals and run terminal in journal and preserves checkpoints (637.4885ms)",
+              "  Error: EPERM, Permission denied: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-storage-RX2Igu'",
+              "      at rmSync (node:fs:1593:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/storage.test.js:17:36)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:226:14)"
+            ]
+          },
+          {
+            "location": "packages\\engine\\dist\\storage\\storage.test.js:315:1",
+            "title": "future database schema is rejected before mutation and failed open releases ownership (732.4041ms)",
+            "code": "EPERM",
+            "boundedSnippet": [
+              "packages\\engine\\dist\\storage\\storage.test.js:315:1",
+              "\u2716 future database schema is rejected before mutation and failed open releases ownership (732.4041ms)",
+              "  Error: EPERM, Permission denied: 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\moodcode-future-EtEjUP'",
+              "      at rmSync (node:fs:1593:18)",
+              "      at TestContext.<anonymous> (file:///D:/a/Moodcode/Moodcode/packages/engine/dist/storage/storage.test.js:317:19)",
+              "      at TestHook.runInAsyncScope (node:async_hooks:226:14)"
+            ]
+          }
+        ],
+        "windowsJobObject": {
+          "available": false,
+          "actualVerification": false,
+          "reason": "No native Job Object binding is supplied; portable port fixtures are not OS proof."
+        },
+        "windowsFullEngineVerified": false
+      }
+    ]
+  },
+  "rootCause": "Fixture first after-hook removes the directory before later after-hooks close raw observer DatabaseSync or reopened SqliteStore handles. Windows rejects removing the open database files with EPERM; all nine failing stacks are teardown rather than original integrity assertions.",
+  "change": "A test-only owner registers every actual SQLite connection/store in one fixture lifetime. Cleanup attempts every raw native close and awaits every real SqliteStore.closeAsync. Directory removal happens only after all successful closures; AggregateError retains original close errors and the directory when any close fails.",
+  "originalContractAssertions": "unchanged: journal rollback, snapshot revision, recovery/checkpoints, unsupported schema ownership release and exact native identities",
+  "verification": [
+    {
+      "name": "actual-source-selected-five-storage-files",
+      "path": "/tmp/moodcode-windows-fixture-lifetime-final-source.log",
+      "sha256": "09f418e80eaaf725f0dbf0a0cce1d6dde6bea9a34432c5b0e121126e394adad1",
+      "exitCode": 0,
+      "tests": 43,
+      "passed": 43
+    },
+    {
+      "name": "strict-repository-options",
+      "path": "/tmp/moodcode-windows-fixture-lifetime-final-strict.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 0,
+      "tests": null,
+      "passed": null
+    },
+    {
+      "name": "launcher-unit",
+      "path": "/tmp/moodcode-windows-fixture-lifetime-final-launcher.log",
+      "sha256": "8d2ca93b27ef7b417f38079efa355d9ca7ebd052b18820025de1634184b653b4",
+      "exitCode": 0,
+      "tests": 3,
+      "passed": 3
+    },
+    {
+      "name": "new-helper-tests-and-launcher-format",
+      "path": "/tmp/moodcode-windows-fixture-lifetime-final-format.log",
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "exitCode": 0,
+      "tests": null,
+      "passed": null
+    }
+  ],
+  "strictFlags": [
+    "target ES2024",
+    "module NodeNext",
+    "moduleResolution NodeNext",
+    "strict",
+    "noUncheckedIndexedAccess",
+    "skipLibCheck",
+    "types node",
+    "noEmit"
+  ],
+  "newIndependentCases": [
+    "Actual primary store, two raw observers and reopened store: real native isOpen states false, closed stores reject access, directory removed only after successful close, repeated cleanup safe.",
+    "Injected failure of a genuine owned observer native close: original Error identity retained, failed handle remains actually open, other raw/store handles closed, directory and exact native schema hash preserved; restored real native close permits later cleanup."
+  ],
+  "runtime": {
+    "node": "v26.9.0",
+    "platform": "darwin",
+    "architecture": "arm64"
+  },
+  "preservedEvidence": [
+    {
+      "path": "/tmp/moodcode-windows-fixture-lifetime-first-source.log",
+      "sha256": "e6e881263ee9ceff0d1b058afb6d1fce4e48aa1eaa84b9caf565f3d7ca75ad00",
+      "scope": "41 original storage cases pass; first new fixture-level failure kept, before final native schema hash assertion replaced an invalid physical-byte comparison across ordinary WAL checkpoint."
+    }
+  ],
+  "limitations": [
+    "Local source tests ran on Darwin, not actual Windows. A new GitHub Windows Node24/26 portable run remains required.",
+    "Windows native Job Object execution/descendant cleanup remains unavailable/unverified; its prior explicit single skip is preserved and not credited as support.",
+    "Only selected fixture sources and portable launcher changed. Production engine/storage/provider contracts, timeouts, integrity assertions, cleanup authority, credential access and GUI were not changed.",
+    "No package/shared build or whole engine suite was executed by this worker; Root owns compiled portable integration and hosted CI."
+  ],
+  "forbiddenActionsPerformed": {
+    "productionEngineEdit": false,
+    "wholeSuite": false,
+    "sharedBuild": false,
+    "accountCalls": false,
+    "secretOrEnvironmentValueReads": false,
+    "GitHubMutation": false,
+    "commit": false,
+    "push": false,
+    "skipsAdded": false,
+    "timeoutIncrease": false,
+    "rmRetriesAdded": false,
+    "closeFailureSuppression": false
+  }
+}

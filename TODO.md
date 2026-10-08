@@ -227,7 +227,7 @@ E5는 코딩 loop 기반을 만든 뒤 순서대로 확장한다. 초기 검증�
   선행: E6-03, E6-04. 완료: queue·turn·retry·summary·cleanup·quarantine·artifact의 관찰 지표와 사용자용 오류를 정리하고 누락 값·표본 범위를 표시한다.
 - [ ] **E6-07 — 엔진 CI·OS별 지원 검증 연결** `[신규·검증]`
   선행: E6-05, E6-06. 완료: 엔진 검증을 기본 CI에 연결하고 macOS/Linux/Windows의 실제 pass/skip·미지원 경계를 기록한다. 확장 backend는 해당 E5 항목 완료 후 추가한다.
-  현재(2026-10-09): [Public 저장소](https://github.com/yakisoba0728/Moodcode)에 push하고 [첫 실제 Actions](https://github.com/yakisoba0728/Moodcode/actions/runs/37801446778)를 확인했다. macOS/Linux Node24·26 전체 gate는 실패했고 Windows 두 lane은 launcher CRLF 검사에서 실패해 portable 엔진 검사가 실행되지 않았다. 확인한 프로세스 drain·PGID·fixture 경합 수정과 archive 시간 예산 보강 후 실제 CI 재검증이 필요하다. [OS별 정확한 범위](docs/moodcode/engine-ci.md)를 따른다.
+  현재(2026-10-09): [Public 저장소](https://github.com/yakisoba0728/Moodcode)의 [실제 Actions b10de7b](https://github.com/yakisoba0728/Moodcode/actions/runs/37811495182)에서 macOS/Linux Node24·26 네 lane은 전체 엔진·media20/20·eval3/3 통과했다. Windows portable 두 lane은 각각 열린 SQLite 연결보다 먼저 실행된 정리 hook9건의 EPERM으로 실패했다. 연결 close→directory 삭제를 보장하는 fixture helper와 독립2회귀를 추가했고 source43/43·Darwin 로컬 portable151pass/실패0/native skip1을 확인했다. 수정 후 실제 Windows 재검증은 남아 있다. [OS별 정확한 범위](docs/moodcode/engine-ci.md)를 따른다.
 - [ ] **E6-08 — 확장 통합과 구현 명세 갱신** `[검증·문서]`
   선행: E6-02, E6-07 및 구현한 E5 항목. 완료: 실제 지원 목록·command/schema·복구/성능/OS 한계를 갱신하고 핵심 엔진 배포·host 연결 가능 상태를 정리한다. 미완료 E5는 열린 TODO로 남긴다.
   현재: 지원 목록·host API·schema·복구/성능 한계와 검증 보고서를 갱신했다. macOS headless host 연결은 검증했다. 선행 E6-07의 실제 CI 결과와 OS 지원 명세 확정이 남아 있어 항목을 열어 둔다.

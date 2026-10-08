@@ -1,6 +1,6 @@
 # Headless engine CI와 OS 검증 범위
 
-2026-10-09 현재 [Moodcode 저장소](https://github.com/yakisoba0728/Moodcode)는 사용자 요청으로 Public이다. [첫 실제 Actions run](https://github.com/yakisoba0728/Moodcode/actions/runs/37801446778)은 `7ab91d5`에서 실행했으며 여섯 lane 모두 실패했다. macOS/Linux는 전체 엔진 검사에 도달했고 Windows는 launcher CRLF 검사에서 실패해 portable 엔진 검사를 실행하지 않았다. 수정 이후 실제 hosted 통과 확인이 필요하다. 기존 macOS 로컬 통과 이력과 실제 CI 결과를 구분한다.
+2026-10-09 현재 [Moodcode 저장소](https://github.com/yakisoba0728/Moodcode)는 사용자 요청으로 Public이다. `b10de7b`의 [두 번째 실제 Actions run](https://github.com/yakisoba0728/Moodcode/actions/runs/37811495182)은 macOS·Linux Node24/26 네 lane 모두 통과했다. Windows portable 두 lane은 각각 SQLite fixture 정리 hook 9건의 EPERM으로 실패했다. 열린 SQLite observer/reopened store를 디렉터리 삭제 전에 닫도록 수정했으며, 수정된 소스의 실제 Windows 재검증은 남아 있다. [독립 POSIX 검토](engine-ci-public-posix-verification.json)와 [Windows 실패·수정 근거](engine-ci-windows-lifetime-verification.json)는 서로 다른 범위를 기록한다. [첫 run](https://github.com/yakisoba0728/Moodcode/actions/runs/37801446778)의 여섯 실패 이력도 보존한다.
 
 표준 GitHub-hosted runner의 Public 저장소 사용은 [공식 무료 사용 범위](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)에 해당한다. [job별 실행 시간·동시 실행 제한](https://docs.github.com/en/actions/reference/limits)과 이 workflow의 20~25분 timeout은 유지된다. Larger runner는 별도 과금 범위다.
 
@@ -8,9 +8,9 @@
 
 | Lane | Runner / Node | 실행 범위 | 현재 확인한 상태 |
 | --- | --- | --- | --- |
-| POSIX full | `macos-15` arm64 × `24.x`, `26.x` | locked install, PTY 준비·native module 확인, headless typecheck/build/test, local scripted eval | 첫 실제 run: 전체 엔진 실패, eval 미실행; 수정 재검증 필요 |
-| POSIX full | `ubuntu-24.04` x64 × `24.x`, `26.x` | 위와 동일, 실제 POSIX child/group/PTY fixture 포함 | 첫 실제 run: 전체 엔진 실패, eval 미실행; 수정 재검증 필요 |
-| Windows portable | `windows-2025` x64 × `24.x`, `26.x` | headless source typecheck/build, contracts 전체, 명시한 SQLite fixture, fake native ownership port fixture | 첫 실제 run: launcher 실패로 portable gate 미실행; 전체 엔진 지원을 뜻하지 않음 |
+| POSIX full | `macos-15` arm64 × `24.x`, `26.x` | locked install, PTY 준비·native module 확인, headless typecheck/build/test, local scripted eval | 실제 b10de7b 통과: 각 4,674개 중 4,672pass·실패0·Windows native skip2, media20/20·eval3/3 |
+| POSIX full | `ubuntu-24.04` x64 × `24.x`, `26.x` | 위와 동일, 실제 POSIX child/group/PTY fixture 포함 | 실제 b10de7b 통과: 각 4,674개 중 4,612pass·실패0·skip62, media20/20·eval3/3 |
+| Windows portable | `windows-2025` x64 × `24.x`, `26.x` | headless source typecheck/build, contracts 전체, 명시한 SQLite fixture, fake native ownership port fixture | 실제 b10de7b: 각150개 중140pass·정리 hook 실패9·native skip1. fixture 수정 재검증 필요; 전체 엔진 지원을 뜻하지 않음 |
 
 runner 이름과 architecture는 [GitHub-hosted runner 공식 표](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)를 확인했다. `latest` runner 대신 OS label을 고정했다. OS 이미지 내부 도구와 Node patch는 계속 갱신될 수 있으므로 artifact에 실제 platform/arch/Node/commit을 기록한다. 이 matrix는 Node 24 이상을 다루며 Node22 이하·Bun·Electron ABI 검증은 포함하지 않는다. macOS Intel/Linux arm64/Windows arm64 역시 후속이다.
 
@@ -42,11 +42,11 @@ push/pull_request의 경로 필터에는 `scripts/verify-media-account*.mjs`와 
 
 ## Windows partial gate
 
-`.github/scripts/engine-ci.mjs`의 명시 목록은 `storage`, `migrations`, `native-inbox`, `native-records`, `native-documents-history`, `history-search`, `next-stage-history-metrics`, `terminal-approval`이다. contracts의 compiled 테스트 전체와 `tools/command/backends.test.js`도 실행한다. 이 목록은 SQLite journal/CAS/history/migration/terminal approval 및 portable ownership callback 계약을 다룬다. 빠진 compiled fixture나 비어 있는 contracts 발견은 실패한다. 신규 storage 테스트가 자동으로 포함되지는 않으며 portability 확인 뒤 목록을 갱신한다.
+`.github/scripts/engine-ci.mjs`의 명시 목록은 `storage`, `migrations`, `native-inbox`, `native-records`, `native-documents-history`, `history-search`, `next-stage-history-metrics`, `terminal-approval`, `fixture-lifetime`이다. contracts의 compiled 테스트 전체와 `tools/command/backends.test.js`도 실행한다. 이 목록은 SQLite journal/CAS/history/migration/terminal approval 및 portable ownership callback 계약을 다룬다. 빠진 compiled fixture나 비어 있는 contracts 발견은 실패한다. 신규 storage 테스트가 자동으로 포함되지는 않으며 portability 확인 뒤 목록을 갱신한다.
 
 POSIX signal crash, symlink/permission ownership/backup, 실제 shell/process group/PTY, worktree·LSP process lifetime와 local coding eval는 Windows lane에서 실행하지 않는다. `v1-compatibility` 파일에는 POSIX recovery/backup 경계도 함께 있어 partial 목록에서 제외했다. 이는 해당 기능의 Windows 정상 동작을 확인했다는 의미가 아니다.
 
-실제 native Windows Job Object binding이 없으므로 `WindowsJobCommandBackend`는 capability unavailable을 유지한다. backends fixture의 fake host callback이 통과해도 Job Object assignment/child tree/timeout/parent crash를 Windows OS에서 검증한 것으로 기록하지 않는다. actual Windows fixture는 명시적으로 skip되고 result metadata의 `windowsFullEngineVerified`는 false이다. E5-08의 native 구현과 실제 Windows process-tree 검증은 남아 있다. Windows partial lane은 첫 실제 Actions에서 launcher 실패 후 미실행이며 통과 증거가 없다.
+실제 native Windows Job Object binding이 없으므로 `WindowsJobCommandBackend`는 capability unavailable을 유지한다. backends fixture의 fake host callback이 통과해도 Job Object assignment/child tree/timeout/parent crash를 Windows OS에서 검증한 것으로 기록하지 않는다. actual Windows fixture는 명시적으로 skip되고 result metadata의 `windowsFullEngineVerified`는 false이다. E5-08의 native 구현과 실제 Windows process-tree 검증은 남아 있다. Windows partial lane은 두 번째 실제 Actions에서 SQLite 정리 hook 실패9건을 확인했다. fixture 전용 lifetime helper가 실제 DatabaseSync 및 reopened SqliteStore를 모두 소유하고 close 성공 후 삭제한다. close 실패는 원 오류를 전파하고 디렉터리를 보존하며, retry·GC·skip·timeout 확대 없이 독립 두 회귀를 추가했다. 원311개 assertion은 유지한다. [8파일 동결](engine-ci-windows-lifetime-source-freeze.json)·[독립 검토](engine-ci-windows-lifetime-independent-review.json), 직접 source43/43·launcher3/3·strict/format0을 확인했다. Root가 같은 portable 선택을 Darwin에서 실행한 결과는152개 중151pass·실패0·native skip1이며 실제 Windows 통과 증거를 대신하지 않는다.
 
 ## 결과와 실패 로그
 
@@ -63,3 +63,9 @@ job summary와 upload-artifact step은 `if: always()`이며 job/matrix별 artifa
 Archive 문서 증명의 기존 단일 2초 deadline을 초과한 대형 fixture에는 [호스트 선택 시간 예산](engine-archive-document-budget.md)을 연결했다. 기본 2초와 일반 inspector 상한, bytes/rows·원본·취소·무결성 검사와 기존 assertion은 유지한다. 최종 로컬 통합에서 동결 input906개 불변, build0, 전체4,674개 중4,672pass/실패0/기존 Windows skip2, compiled media20/20·실제 local CI launcher media20/20·scripted 평가3/3을 확인했다. [정확한 검증 범위](engine-native-ci-media-integration-verification.json)는 새 hosted 결과와 실제 미디어 계정 완료를 구분한다.
 
 수정된 Actions run에서 Node24/26 두 ABI의 PTY load/TTY fixture, Linux group/descendant 정리, Windows SQLite close/locking, artifact 결과·실패 retention을 다시 확인한다. 실패를 skip으로 숨기기보다 해당 OS의 구현 문제 또는 명시적 지원 공백으로 분리해 수정한다. editor UI·GUI smoke·packaging·서명/배포는 별도 승인된 pipeline 범위이다.
+
+## 두 번째 실제 run의 정확한 지원 범위
+
+macOS arm64의 실제 Node24.20.0/26.11.1과 Linux x64의 Node24.21.0/26.11.1에서 locked install·PTY load·typecheck/build·전체 gate·로컬 media·scripted eval·artifact upload가 통과했다. Linux skip62는 Darwin code-mode29·sandbox/resident28·interactive PTY3·Windows native2로 소스 조건과 대조했다. 이 skip을 Linux 기능 지원으로 세지 않는다. [다운로드한 artifact 파일 SHA](engine-ci-public-artifact-sha256.json)와 원본 job log를 보존한다.
+
+현재 fixture lifetime 두 회귀와 영상 CLI 여섯 회귀는 b10de7b 이후 변경이다. 이전 hosted 전체4,674/media20개 결과에 이 신규 사례를 포함하지 않는다. 새 push에서 POSIX full과 Windows portable을 다시 실행하고 실제 OS 결과에 따라 E6-07·E6-08을 판정한다. E5-08 native Windows와 더 넓은 E5-13 계정 검증은 별도 열린 범위다.

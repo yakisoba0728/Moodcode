@@ -1,25 +1,20 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type ContextRevision, type JsonObject, type Message, type ToolCallRecord } from '@moodcode/contracts';
-import { SqliteStore } from './index.js';
+import type { SqliteStore } from './index.js';
+import { sqliteFixtureDirectory } from './fixtures/sqlite-directory.js';
 
 const config = { providerId: 'scripted', modelId: 'local', mode: 'build' as const, limits: { ...DEFAULT_LIMITS } };
 const stamp = () => new Date().toISOString();
 const hasCode = (code: string) => (error: unknown) => error instanceof EngineError && error.code === code;
 function fixture(t: TestContext) {
-  const directory = mkdtempSync(join(tmpdir(), 'moodcode-native-documents-')), path = join(directory, 'engine.sqlite');
-  const stores: SqliteStore[] = [];
-  const open = () => { const store = new SqliteStore(path); stores.push(store); return store; };
+  const resources = sqliteFixtureDirectory(t, 'moodcode-native-documents-'), directory = resources.directory, path = resources.dbPath;
+  const open = () => resources.openStore();
   const store = open();
   store.putWorkspace({ id: 'workspace', root: directory, gitRoot: directory, branch: null, createdAt: stamp() });
   store.createSession({ id: 'session', workspaceId: 'workspace', title: 'Documents', createdAt: stamp() });
-  t.after(() => { for (const store of stores) store.close(); rmSync(directory, { recursive: true, force: true }); });
-  return { store, path, open };
+  return { store, path, open, observe: resources.openDatabase };
 }
 
 test('session document CAS preserves detached JSON and revision conflicts across reopen', t => {
@@ -52,7 +47,7 @@ test('document namespaces, byte bounds and non-data properties fail without side
 
 test('session document journal failure rolls back a successful CAS update', t => {
   const f = fixture(t), first = f.store.putSessionDocument('session', 'todos', 0, { items: ['first'] });
-  const observer = new DatabaseSync(f.path); t.after(() => observer.close());
+  const observer = f.observe();
   observer.exec("CREATE TRIGGER fail_document BEFORE INSERT ON session_events WHEN NEW.type='session.document.updated' BEGIN SELECT RAISE(ABORT,'document event failed'); END");
   const events = f.store.readSessionEvents('session', 0);
   assert.throws(() => f.store.putSessionDocument('session', 'todos', first.revision, { items: ['second'] }), /document event failed/);
@@ -66,7 +61,7 @@ test('context revision activation, document CAS and both journal streams commit 
   const text = 'summary fixture';
   const revision: ContextRevision = { schemaVersion: 2, id: 'summary', sessionId: 'session', runId: receipt.runId, revision: f.store.nextContextRevisionIndex('session'), kind: 'summary', sourceIds: [receipt.inputId], text, sha256: createHash('sha256').update(text).digest('hex'), createdAt: stamp() };
   const native = f.store.readSessionEvents('session', 0), legacy = f.store.readEvents('session', 0);
-  const observer = new DatabaseSync(f.path); t.after(() => observer.close());
+  const observer = f.observe();
   observer.exec("CREATE TRIGGER fail_summary BEFORE INSERT ON events WHEN NEW.type='summary.completed' BEGIN SELECT RAISE(ABORT,'summary settlement failed'); END");
   const change = { revision, kind: 'context.memory', expectedRevision: 0, data: { activeSummaryId: revision.id } };
   assert.throws(() => f.store.commitContextDocument(receipt.runId, 'summary.completed', { summaryId: revision.id }, change), /summary settlement failed/);

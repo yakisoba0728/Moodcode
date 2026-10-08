@@ -1,21 +1,16 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type ContextRevision, type MessagePart, type ProviderAttempt, type TurnRecord } from '@moodcode/contracts';
-import { SqliteStore } from './index.js';
+import { sqliteFixtureDirectory } from './fixtures/sqlite-directory.js';
 
 const config = { providerId: 'scripted', modelId: 'local', mode: 'build' as const, limits: { ...DEFAULT_LIMITS } };
 const hasCode = (code: string) => (error: unknown) => error instanceof EngineError && error.code === code;
 const stamp = () => new Date().toISOString();
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 function fixture(t: TestContext) {
-  const directory = mkdtempSync(join(tmpdir(), 'moodcode-native-records-')), path = join(directory, 'engine.sqlite');
-  const stores: SqliteStore[] = [];
-  const open = () => { const store = new SqliteStore(path); stores.push(store); return store; };
+  const resources = sqliteFixtureDirectory(t, 'moodcode-native-records-'), directory = resources.directory, path = resources.dbPath;
+  const open = () => resources.openStore();
   const store = open();
   store.putWorkspace({ id: 'workspace', root: directory, gitRoot: directory, branch: null, createdAt: stamp() });
   store.createSession({ id: 'session', workspaceId: 'workspace', title: 'Records', createdAt: stamp() });
@@ -26,8 +21,7 @@ function fixture(t: TestContext) {
   store.putTurn(turn);
   const attempt: ProviderAttempt = { schemaVersion: 2, id: 'attempt', sessionId: 'session', runId: run.id, turnId: turn.id, index: 0, providerId: 'scripted', modelId: 'local', state: 'prepared', createdAt: stamp() };
   const part: MessagePart = { schemaVersion: 2, id: 'part', sessionId: 'session', runId: run.id, turnId: turn.id, messageId: 'typed-message', index: 0, revision: 0, type: 'text', text: '', state: 'open', createdAt: stamp() };
-  t.after(() => { for (const store of stores) store.close(); rmSync(directory, { recursive: true, force: true }); });
-  return { store, path, open, run, accepted, turn, attempt, part };
+  return { store, path, open, run, accepted, turn, attempt, part, observe: resources.openDatabase };
 }
 
 test('Turn, attempt and streaming Parts persist ordered identities and terminal immutable results', t => {
@@ -117,8 +111,7 @@ test('Turn and Part page cursors stay bound to their owner and preserve independ
 test('provider dispatch journal failure leaves the prepared attempt and cursor unchanged', t => {
   const f = fixture(t);
   f.store.putAttempt(f.attempt);
-  const events = f.store.readSessionEvents('session', 0), observer = new DatabaseSync(f.path);
-  t.after(() => observer.close());
+  const events = f.store.readSessionEvents('session', 0), observer = f.observe();
   observer.exec("CREATE TRIGGER fail_dispatch BEFORE INSERT ON session_events WHEN NEW.type='provider.attempt.dispatched' BEGIN SELECT RAISE(ABORT,'dispatch journal failed'); END");
   assert.throws(() => f.store.putAttempt({ ...f.attempt, state: 'dispatched', dispatchedAt: stamp() }), /dispatch journal failed/);
   assert.deepEqual(f.store.getAttempt(f.attempt.id), f.attempt);

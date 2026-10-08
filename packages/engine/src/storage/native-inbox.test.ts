@@ -1,26 +1,20 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_ENGINE_BUDGETS, DEFAULT_LIMITS, EngineError, type AcceptInput, type EngineBudgets } from '@moodcode/contracts';
-import { SqliteStore } from './index.js';
+import { sqliteFixtureDirectory } from './fixtures/sqlite-directory.js';
 
 const now = '2026-10-07T00:00:00.000Z';
 const config = { providerId: 'scripted', modelId: 'local', mode: 'build' as const, limits: { ...DEFAULT_LIMITS } };
 const hasCode = (code: string) => (error: unknown) => error instanceof EngineError && error.code === code;
 function fixture(t: TestContext, budgets?: EngineBudgets) {
-  const directory = mkdtempSync(join(tmpdir(), 'moodcode-native-inbox-')), path = join(directory, 'engine.sqlite');
-  const stores: SqliteStore[] = [];
-  const open = () => { const store = new SqliteStore(path, budgets); stores.push(store); return store; };
+  const resources = sqliteFixtureDirectory(t, 'moodcode-native-inbox-'), directory = resources.directory, path = resources.dbPath;
+  const open = () => resources.openStore(budgets);
   const store = open();
   store.putWorkspace({ id: 'workspace', root: directory, gitRoot: directory, branch: null, createdAt: now });
   store.createSession({ id: 'session', workspaceId: 'workspace', title: 'Native inbox', createdAt: now });
-  t.after(() => { for (const store of stores) store.close(); rmSync(directory, { recursive: true, force: true }); });
   const input = (requestId: string, delivery: AcceptInput['delivery'] = 'queue'): AcceptInput => ({ sessionId: 'session', requestId, prompt: requestId, config: structuredClone(config), delivery });
-  return { store, path, open, input };
+  return { store, path, open, input, observe: resources.openDatabase };
 }
 
 test('pending acceptance is durable without a Run, user message, v1 event or synthetic Run ID', t => {
@@ -89,8 +83,7 @@ test('promotion atomically creates a real legacy Run and keeps both event sequen
 
 test('promotion journal failure rolls back pending state, legacy admission, message and both cursors', t => {
   const f = fixture(t), receipt = f.store.acceptInput(f.input('first'));
-  const observer = new DatabaseSync(f.path);
-  t.after(() => observer.close());
+  const observer = f.observe();
   observer.exec("CREATE TRIGGER fail_native_promotion BEFORE INSERT ON session_events WHEN NEW.type='input.promoted' BEGIN SELECT RAISE(ABORT,'native promotion failed'); END");
   assert.throws(() => f.store.promoteInput(receipt.inputId), /native promotion failed/);
   assert.equal(f.store.getInput(receipt.inputId).state, 'pending');
@@ -133,7 +126,7 @@ test('ordered steering batch binds each user input once to its real active Run',
 test('second steering publication failure rolls back the whole batch and rejects other session ownership', t => {
   const f = fixture(t), first = f.store.acceptInput(f.input('initial')), run = f.store.promoteInput(first.inputId).run;
   const a = f.store.acceptInput(f.input('steer-a', 'steer')), b = f.store.acceptInput(f.input('steer-b', 'steer'));
-  const observer = new DatabaseSync(f.path); t.after(() => observer.close());
+  const observer = f.observe();
   observer.exec(`CREATE TRIGGER fail_second_steer BEFORE INSERT ON session_events WHEN NEW.type='input.promoted' AND NEW.input_id='${b.inputId}' BEGIN SELECT RAISE(ABORT,'second steer failed'); END`);
   const before = f.store.getSnapshot('session'), events = f.store.readSessionEvents('session', 0);
   assert.throws(() => f.store.promoteSteers([a.inputId, b.inputId], run.id), /second steer failed/);

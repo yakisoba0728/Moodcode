@@ -21,6 +21,7 @@ export const PROJECTS = [
 // This is a deliberate partial Windows gate. Adding a fixture requires portability review.
 export const WINDOWS_STORAGE_TESTS = [
   "storage",
+  "fixture-lifetime",
   "migrations",
   "native-inbox",
   "native-records",

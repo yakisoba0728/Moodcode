@@ -1,8 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { readFileSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import test, { type TestContext } from 'node:test';
 import {
@@ -10,21 +7,20 @@ import {
   type RunConfig, type SubmitInput, type ToolCallRecord, type Workspace,
 } from '@moodcode/contracts';
 import { SqliteStore } from './index.js';
+import { sqliteFixtureDirectory } from './fixtures/sqlite-directory.js';
 
 const now = '2026-10-04T00:00:00.000Z';
 const config: RunConfig = { providerId: 'scripted', modelId: 'local', mode: 'build', limits: { ...DEFAULT_LIMITS } };
 const code = (expected: string) => (error: unknown) => error instanceof EngineError && error.code === expected;
 
 function fixture(t: TestContext) {
-  const directory = mkdtempSync(join(tmpdir(), 'moodcode-storage-'));
-  const dbPath = join(directory, 'engine.sqlite');
-  const store = new SqliteStore(dbPath);
-  t.after(() => { store.close(); rmSync(directory, { recursive: true, force: true }); });
+  const resources = sqliteFixtureDirectory(t, 'moodcode-storage-'), directory = resources.directory, dbPath = resources.dbPath;
+  const store = resources.openStore();
   const workspace: Workspace = { id: 'workspace', root: directory, gitRoot: directory, branch: null, createdAt: now };
   store.putWorkspace(workspace);
   const session = store.createSession({ id: 'session', workspaceId: workspace.id, title: 'Session', createdAt: now });
   const input: SubmitInput = { sessionId: session.id, requestId: 'request', prompt: 'Do the work', config: structuredClone(config) };
-  return { directory, dbPath, store, workspace, session, input };
+  return { directory, dbPath, store, workspace, session, input, open: resources.openStore, observe: resources.openDatabase };
 }
 
 async function bounded<T>(promise: Promise<T>): Promise<T> {
@@ -91,10 +87,9 @@ test('admission durably creates input, run, user message and contiguous receipt;
 });
 
 test('journal insertion failure rolls back projection, messages and sequence on a real connection', (t) => {
-  const { store, dbPath, session, input } = fixture(t);
+  const { store, session, input, observe } = fixture(t);
   const receipt = store.admit(input);
-  const observer = new DatabaseSync(dbPath);
-  t.after(() => observer.close());
+  const observer = observe();
   observer.exec("CREATE TRIGGER inject_failure BEFORE INSERT ON events WHEN NEW.type='inject.failure' BEGIN SELECT RAISE(ABORT,'injected journal failure'); END");
   const before = store.getSnapshot(session.id);
   const message: Message = { id: 'response', sessionId: session.id, runId: receipt.runId, role: 'assistant', content: 'partial', createdAt: now };
@@ -110,10 +105,9 @@ test('journal insertion failure rolls back projection, messages and sequence on 
 });
 
 test('snapshot remains at one database revision when another connection commits during its reads', async (t) => {
-  const { store, dbPath, session, input } = fixture(t);
+  const { store, session, input, observe } = fixture(t);
   const { runId } = store.admit(input);
-  const observer = new DatabaseSync(dbPath);
-  t.after(() => observer.close());
+  const observer = observe();
   const updated = { ...store.getRun(runId), state: 'running', updatedAt: now };
   const originalGetSession = store.getSession.bind(store);
   let committed = false;
@@ -278,7 +272,7 @@ test('invalid cursors and page sizes fail explicitly; empty session replay is va
 });
 
 test('recovery persists interrupted tools, expired approvals and run terminal in journal and preserves checkpoints', (t) => {
-  const { store, dbPath, input, session } = fixture(t);
+  const { store, input, session, open } = fixture(t);
   const { runId } = store.admit(input);
   store.commit(runId, 'run.started', {}, { run: { state: 'running' } });
   const tool: ToolCallRecord = { id: 'tool', runId, sessionId: session.id, name: 'run_command', input: { command: 'never execute again' }, state: 'requested' };
@@ -287,8 +281,7 @@ test('recovery persists interrupted tools, expired approvals and run terminal in
   store.commit(runId, 'approval.requested', {}, { run: { state: 'awaiting_approval' }, tool: { ...tool, state: 'awaiting_approval' }, approval, checkpoint });
   const oldSeq = store.getSnapshot(session.id).lastSeq;
   store.close();
-  const reopened = new SqliteStore(dbPath);
-  t.after(() => reopened.close());
+  const reopened = open();
   assert.equal(reopened.getRun(runId).state, 'awaiting_approval');
   const recovered = reopened.recoverInterrupted();
   assert.equal(recovered[0]?.state, 'interrupted');
@@ -327,21 +320,18 @@ test('terminal commit expires pending approvals before terminal event and later 
 });
 
 test('future database schema is rejected before mutation and failed open releases ownership', (t) => {
-  const directory = mkdtempSync(join(tmpdir(), 'moodcode-future-'));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const dbPath = join(directory, 'engine.sqlite');
-  const database = new DatabaseSync(dbPath);
+  const resources = sqliteFixtureDirectory(t, 'moodcode-future-'), dbPath = resources.dbPath;
+  const database = resources.openDatabase();
   database.exec('CREATE TABLE future_schema(id INTEGER); PRAGMA user_version=99');
   database.close();
   const before = readFileSync(dbPath);
-  assert.throws(() => new SqliteStore(dbPath), code('DB_VERSION_UNSUPPORTED'));
+  assert.throws(() => resources.openStore(), code('DB_VERSION_UNSUPPORTED'));
   assert.deepEqual(readFileSync(dbPath), before);
-  assert.throws(() => new SqliteStore(dbPath), code('DB_VERSION_UNSUPPORTED'));
-  const repaired = new DatabaseSync(dbPath);
+  assert.throws(() => resources.openStore(), code('DB_VERSION_UNSUPPORTED'));
+  const repaired = resources.openDatabase();
   repaired.exec('DROP TABLE future_schema; PRAGMA user_version=0');
   repaired.close();
-  const store = new SqliteStore(dbPath);
-  t.after(() => store.close());
+  const store = resources.openStore();
   assert.deepEqual(store.listWorkspaces(), []);
 });
 

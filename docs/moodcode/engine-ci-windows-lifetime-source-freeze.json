@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "frozen": true,
+  "root": "/Users/yakisoba0728/Documents/GitHub/Moodcode",
+  "feature": "Portable SQLite fixture connection lifetime cleanup",
+  "files": {
+    "packages/engine/src/storage/storage.test.ts": {
+      "sha256": "d10c95a117a797aa2a1d53c0290067fe0ab23083c3d11b3ad479a9a6032906eb",
+      "bytes": 22823
+    },
+    "packages/engine/src/storage/native-inbox.test.ts": {
+      "sha256": "11536fde56de8c656b57d96ccd9254d00945d4b30e14bcdda43f61949b15de1f",
+      "bytes": 13059
+    },
+    "packages/engine/src/storage/native-records.test.ts": {
+      "sha256": "c417a7c4149804c5b15e1de6bbb9b5c94ff61cc881d204d76f5e42552e5f567d",
+      "bytes": 13088
+    },
+    "packages/engine/src/storage/native-documents-history.test.ts": {
+      "sha256": "c278bf711754a6ce8eff7d2a870cb7820894e6c2e8440d3dfd4ea5a95d38752c",
+      "bytes": 9852
+    },
+    "packages/engine/src/storage/fixtures/sqlite-directory.ts": {
+      "sha256": "14bbd2219e34bdde669e8e7d70d84cb443d128a678b1f9fea65b6a24fdb2bc13",
+      "bytes": 1864
+    },
+    "packages/engine/src/storage/fixture-lifetime.test.ts": {
+      "sha256": "e8d964a217e7e2bea32c86a626d11939763d9808dcd7045b245f3c1b2ce9b5c2",
+      "bytes": 3435
+    },
+    ".github/scripts/engine-ci.mjs": {
+      "sha256": "fbfd788dbf686ae8a6aefdf0f0bbaee04e72722a9f0d82174eb7c0387f8642b2",
+      "bytes": 11769
+    },
+    ".github/scripts/engine-ci.test.mjs": {
+      "sha256": "a16599066e60452e83cd14c4b8088edb7273340e98af4c471ef1d3a9fb7d0ef4",
+      "bytes": 3881
+    }
+  },
+  "productionEngineModified": false,
+  "nativeWindowsJobObjectVerified": false
+}
