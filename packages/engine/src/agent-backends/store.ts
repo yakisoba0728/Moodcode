@@ -280,6 +280,22 @@ export const AGENT_BACKEND_STORAGE_LIMITS = Object.freeze({
 });
 type Kind = BackendJournalKind | "transition";
 type Body = AgentBackendRecord | BackendTransitionReceipt;
+interface SignedBackendRevisionInput<T extends AgentBackendRecord> {
+  readonly kind: BackendJournalKind;
+  readonly entityId: string;
+  readonly workspaceId: string;
+  readonly before: T | undefined;
+  readonly body: Omit<T, keyof BackendRevisionBase>;
+  readonly requestInput: BackendMutationInput;
+  readonly revisionId: string;
+  readonly receiptId: string;
+  readonly operation: string;
+  readonly createdAt: string;
+}
+interface SignedBackendRevisionPair<T extends AgentBackendRecord> {
+  readonly record: T;
+  readonly receipt: BackendTransitionReceipt;
+}
 interface Row {
   id: string;
   workspace_id: string;
@@ -315,6 +331,57 @@ function signed<T extends object>(value: T): T & { sha256: string } {
   return json({ ...body, sha256: knowledgeHash(body) }) as T & {
     sha256: string;
   };
+}
+/** Callers select inputs and capture IDs/time; validation precedes receipt signing. */
+function prepareSignedBackendRevision<T extends AgentBackendRecord>(
+  input: SignedBackendRevisionInput<T>,
+): SignedBackendRevisionPair<T> {
+  const {
+    kind,
+    entityId,
+    workspaceId,
+    before,
+    body,
+    requestInput,
+    revisionId,
+    receiptId,
+    operation,
+    createdAt,
+  } = input;
+  const record = signed({
+    ...body,
+    id: revisionId,
+    kind,
+    entityId,
+    workspaceId,
+    revision: (before?.revision ?? 0) + 1,
+    previousId: before?.id ?? null,
+    lastReceiptId: receiptId,
+    createdAt,
+  }) as unknown as T;
+  validateBody(record);
+  assertBackendTransition(
+    kind,
+    before ? state(before) : null,
+    state(record),
+    operation,
+  );
+  validateTransition(before, record, operation);
+  const receipt = signed({
+    id: receiptId,
+    workspaceId,
+    kind,
+    entityId,
+    operation,
+    beforeRevisionId: before?.id ?? null,
+    afterRevisionId: revisionId,
+    afterSha256: record.sha256,
+    requestId: requestInput.requestId,
+    requestSha256: knowledgeHash(requestInput),
+    requestInput: requestInput as unknown as JsonObject,
+    createdAt,
+  });
+  return { record, receipt };
 }
 function digest<T extends { sha256: string }>(value: T): T {
   const copy = json(value),
@@ -613,37 +680,16 @@ export class AgentBackendStorage {
     const rid = randomUUID(),
       receiptId = randomUUID(),
       at = this.time();
-    const record = signed({
-      ...body,
-      id: rid,
+    const { record, receipt } = prepareSignedBackendRevision<T>({
       kind,
       entityId: eid,
       workspaceId: input.workspaceId,
-      revision: (before?.revision ?? 0) + 1,
-      previousId: before?.id ?? null,
-      lastReceiptId: receiptId,
-      createdAt: at,
-    }) as unknown as T;
-    validateBody(record);
-    assertBackendTransition(
-      kind,
-      before ? state(before) : null,
-      state(record),
-      op,
-    );
-    validateTransition(before, record, op);
-    const receipt = signed({
-      id: receiptId,
-      workspaceId: input.workspaceId,
-      kind,
-      entityId: eid,
+      before,
+      body,
+      requestInput: input,
+      revisionId: rid,
+      receiptId,
       operation: op,
-      beforeRevisionId: before?.id ?? null,
-      afterRevisionId: rid,
-      afterSha256: record.sha256,
-      requestId: input.requestId,
-      requestSha256: knowledgeHash(input),
-      requestInput: input as unknown as JsonObject,
       createdAt: at,
     });
     if (
@@ -3903,33 +3949,17 @@ function appendAdministrative(
       operation === "recover" ? "BACKEND_OWNER_LOST" : "BACKEND_IMPORTED";
   }
   const rid = randomUUID(),
-    tid = randomUUID(),
-    after = signed({
-      ...body,
-      id: rid,
-      kind: before.kind,
-      entityId: before.entityId,
-      workspaceId: before.workspaceId,
-      revision: before.revision + 1,
-      previousId: before.id,
-      lastReceiptId: tid,
-      createdAt: at,
-    }) as unknown as AgentBackendRecord;
-  validateBody(after);
-  assertBackendTransition(after.kind, state(before), state(after), operation);
-  validateTransition(before, after, operation);
-  const receipt = signed({
-    id: tid,
-    workspaceId: before.workspaceId,
+    tid = randomUUID();
+  const { record: after, receipt } = prepareSignedBackendRevision({
     kind: before.kind,
     entityId: before.entityId,
-    operation,
-    beforeRevisionId: before.id,
-    afterRevisionId: rid,
-    afterSha256: after.sha256,
-    requestId,
-    requestSha256: knowledgeHash(input),
+    workspaceId: before.workspaceId,
+    before,
+    body: body as Omit<AgentBackendRecord, keyof BackendRevisionBase>,
     requestInput: input,
+    revisionId: rid,
+    receiptId: tid,
+    operation,
     createdAt: at,
   });
   if (

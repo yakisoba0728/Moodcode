@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "unit": "STORE-01",
+  "status": "Implemented; own all-project typecheck and source20/20 plus compiled20/20 native gates passed; Root-owned combined full regression pending",
+  "source": {
+    "baseline": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+    "branch": "codex/store-runner-refactor",
+    "proposal": "docs/moodcode/next-store-runner-refactor-proposals.json",
+    "files": [
+      {
+        "path": "packages/engine/src/agent-backends/store.ts",
+        "beforeSha256": "771cfbe0993676657c82d4bfb89e3fcd2c3f06f9922763114c0c71333c0cfaa7",
+        "afterSha256": "1a47ea5d3caf772dc96ef9053d7e36b5929b79c0f2aa75ddce5ef4576d473ff9"
+      },
+      {
+        "path": "packages/engine/src/agent-backends/receipt-contract.integration.test.ts",
+        "afterSha256": "8d00a4e6889043e39445c76023435c9235cfadf902869ab4f9618caac0912e7b"
+      }
+    ]
+  },
+  "implementation": {
+    "helper": "prepareSignedBackendRevision",
+    "helperLine": 336,
+    "inputType": "SignedBackendRevisionInput<T>",
+    "outputType": "SignedBackendRevisionPair<T>",
+    "changedExistingNamedFunctions": ["append", "appendAdministrative"],
+    "responsibility": "One private typed record/receipt assembly sequence used by live and administrative append. Body/state/request selection and ID/time capture remain with callers.",
+    "pureBoundary": "Helper receives captured values and uses existing pure signing/hash/body/transition checks. It performs no database access, transaction creation, Original-port call, random UUID, current-time read or cache mutation.",
+    "sequence": [
+      "signed record using immutableKnowledgeJson and knowledgeHash",
+      "validateBody(record)",
+      "assertBackendTransition(kind, prior state or null, current state, operation)",
+      "validateTransition(before, record, operation)",
+      "signed receipt including request input hash and after-record hash"
+    ],
+    "retained": [
+      "Live normalization, expectedRevision and per-kind first-create checks precede row quota and existing randomUUID/randomUUID/time() captures. Byte quota remains after pair preparation.",
+      "Administrative request ID and archive SHA selection, body mutation, two UUID captures and supplied timestamp remain local. Recover stays uncertain/BACKEND_OWNER_LOST; import stays disabled or paused-import/BACKEND_IMPORTED.",
+      "Caller-owned synchronous writeTx/outer import transaction, both INSERTs, initial-head INSERT versus prior ID/revision/SHA UPDATE, changes === 1 check, and rollback remain unchanged.",
+      "Live connection SQL column uses eid; administrative connection SQL column uses after.connectionId. Projection differences were retained.",
+      "Historical dedupe before Original reads/current CAS, Original owner/target/connection/frame/tool authority, accessor/proxy rejection and observation/dispatch differences remain unchanged.",
+      "Independent database/owner/archive validators, backend header-before-body 65536-byte bound, primary native 262144-byte bound, JSON limits, public signatures, exports, schema version, migrations and event behavior remain unchanged."
+    ]
+  },
+  "independentSourceReview": {
+    "method": "Baseline/current named-function AST fingerprint comparison plus manual caller and contract inspection; exact string comparison of quoted SQL statements.",
+    "quotedSqlStatementCountBefore": 36,
+    "quotedSqlStatementCountAfter": 36,
+    "quotedSqlStatementsByteEqual": true,
+    "allOtherExistingNamedFunctionFingerprintsUnchanged": true,
+    "callers": [
+      {
+        "path": "packages/engine/src/storage/index.ts",
+        "line": 748,
+        "evidence": "One configured backendRecords instance; synchronous writeTx delegates to the existing outer transaction when present."
+      },
+      {
+        "path": "packages/engine/src/engine.ts",
+        "line": 1403,
+        "evidence": "Original producer ports are installed once; startup recovery uses the same records instance."
+      },
+      {
+        "path": "packages/engine/src/agent-backends/store.ts",
+        "line": 1957,
+        "evidence": "recoverInterrupted wraps recovery with existing writeTx and caller time capture."
+      },
+      {
+        "path": "packages/engine/src/storage/index.ts",
+        "line": 861,
+        "evidence": "Import invokes pause-import inside the existing imported-workspace transaction."
+      },
+      {
+        "path": "packages/engine/src/storage/archive.ts",
+        "line": 295,
+        "evidence": "Archive traversal separately invokes validateAgentBackendDatabase; no builder-derived expected graph."
+      },
+      {
+        "path": "packages/engine/src/index.ts",
+        "line": 13,
+        "evidence": "Existing backend record/input type exports retained; new helper/types remain private."
+      }
+    ],
+    "existingCoverageReused": [
+      "store.test.ts: real SQLite head-CAS fault rollback, immutable dedupe/history, stale revision, STRICT/FK/bounds, workspace import scoping, zero getter/proxy traps",
+      "native-graph.integration.test.ts: actual Run/Attempt ownership, premature terminal and remote-session mutation, native Tool/Part/fingerprint and cleanup tampering",
+      "archive.integration.test.ts: genuine completed and cancelled history, unchanged historical IDs, disabled/paused heads, unknown terminal outcome, quarantine and no process replay",
+      "crash.integration.test.ts: Original supervisor cleanup and reopen recovery preserve unknown native completion without PID replay",
+      "admission-rollback.integration.test.ts and producer-boundaries.integration.test.ts: real admission rollback and Original launch/Attempt boundaries"
+    ]
+  },
+  "testFirstGap": {
+    "path": "packages/engine/src/agent-backends/receipt-contract.integration.test.ts",
+    "reason": "Existing regression suites did not independently compare complete live/recover/pause-import SQL row and canonical record/receipt pairs under fixed UUID/time captures.",
+    "cases": [
+      "Genuine Original registration and live disable: fixed IDs/time, first-create null previous ID, prior link, exact native columns/serialized bytes, independent canonical SHA oracle, frozen nested request input, caller mutation isolation, historical dedupe with one total target read, independent archive validation.",
+      "Native SQLite backup of genuine dispatched held history, followed by actual Engine cleanup: copied-evidence recovery and pause-import under fixed IDs/time; owner columns, unknown states, request ID/archive hash binding, unchanged historical rows, exactly ten required added rows, zero further recovery, independent archive validation and exactly one Original start/prompt."
+    ],
+    "oracle": "A separate read-only DatabaseSync reads persisted rows. Test-local canonical JSON and node:crypto SHA construct expected values; no writer signing/preparation helper or store getters build the expected graph. Existing independent validateAgentBackendDatabase and validateEngineArchive remain separate gates.",
+    "harnessCorrection": "Initial authored baseline run used mock.restore instead of Node's mock.mock.restore. Corrected mock teardown and reran unchanged production; no contract assertion weakened."
+  },
+  "verification": {
+    "baselineAuthoredSource": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "durationMs": 1016.909375,
+      "log": "artifacts/store-runner-refactor/store-tests-before.log",
+      "logSha256": "d96b124e8bd17da63c47df329d9bb23640564d804b780df21646ba41a67a76b5"
+    },
+    "afterFocusedSourceNative": {
+      "tests": 20,
+      "pass": 20,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "durationMs": 9978.560542,
+      "log": "artifacts/store-runner-refactor/store-tests-after.log",
+      "logSha256": "a8b4a9defaf2ef53d313f2f455a1f506e59245d0d7f03e24297e1751db616d8f"
+    },
+    "sourceCommand": "node --import ./node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 packages/engine/src/agent-backends/{receipt-contract.integration,store,native-graph.integration,archive.integration,crash.integration,admission-rollback.integration,producer-boundaries.integration}.test.ts",
+    "formatting": "Prettier write/check and git diff --check; source/test formatting stable",
+    "compiledAndTypecheck": {
+      "allProjectTypecheck": {
+        "owner": "delegated parent",
+        "exitCode": 0,
+        "log": "artifacts/store-runner-refactor/after-typecheck.log"
+      },
+      "focusedCompiledNative": {
+        "exitCode": 0,
+        "tests": 20,
+        "pass": 20,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "durationMs": 11545.016292,
+        "log": "artifacts/store-runner-refactor/store-compiled.log",
+        "logSha256": "b184ae7f75ebcd71e23da59b1e64ea10d3585775eeb103f516c0c73e18ac5a71"
+      }
+    },
+    "fullRegression": "Root-owned combined validation on integrated main; pending",
+    "liveProviderOrKeyRequests": 0,
+    "dependencyOrBuildWritesByStoreAgent": 0
+  },
+  "measurement": {
+    "method": "Existing RF01 TypeScript 7 closed virtual filesystem AST worker, noResolve/noLib; nested decisions owned by nested functions; syntax proxy, not semantic/runtime complexity.",
+    "beforeArtifact": "artifacts/store-runner-refactor/before-ast.json",
+    "afterArtifact": "artifacts/store-runner-refactor/store-after-ast.json",
+    "afterArtifactSha256": "9aa1842d4554b3b2871e92d617c4ec97b9dca71dee54feefcbf5f26683436bf5",
+    "physicalLines": {
+      "before": 4088,
+      "after": 4118,
+      "delta": 30
+    },
+    "bytes": {
+      "before": 134116,
+      "after": 134863,
+      "delta": 747
+    },
+    "functions": {
+      "before": 144,
+      "after": 145
+    },
+    "totalFunctionComplexity": {
+      "before": 1375,
+      "after": 1376,
+      "delta": 1
+    },
+    "decisions": {
+      "before": 1231,
+      "after": 1231
+    },
+    "changedFunctions": [
+      {
+        "name": "append",
+        "beforeLines": 161,
+        "afterLines": 140,
+        "beforeComplexity": 32,
+        "afterComplexity": 28
+      },
+      {
+        "name": "appendAdministrative",
+        "beforeLines": 141,
+        "afterLines": 125,
+        "beforeComplexity": 25,
+        "afterComplexity": 25
+      },
+      {
+        "name": "prepareSignedBackendRevision",
+        "afterLines": 50,
+        "afterComplexity": 5
+      }
+    ],
+    "qualification": "Repeated signed record/receipt assembly responsibility is consolidated; typed named inputs add lines. Decisions moved from append into the shared helper, and its function base adds one total complexity point. No total line/complexity reduction is claimed. validateBody, validateTransition and validateAgentBackendDatabase fingerprints are unchanged."
+  },
+  "limits": [
+    "This is bounded STORE-01 implementation and manual source/caller review, not a separate security audit or semantic unused-code proof.",
+    "Focused source and compiled/native gates plus own all-project typecheck do not substitute for Root combined full regression on integrated main. No shared dist/build output was written.",
+    "A copied active native history supplies evidence to recovery testing only; the actual Original Engine owns and completes process cleanup before administrative operations. No provider/process handle is recreated from history."
+  ]
+}
