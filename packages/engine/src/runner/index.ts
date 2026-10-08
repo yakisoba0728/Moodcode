@@ -2187,7 +2187,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}),
       ...(approval ? { approval } : {}),
     });
-    // Command cleanup includes process-group termination and an after-image capture.
+    // Command cleanup joins its native owner and captures the after-image.
     const cleanupGraceMs = execute && ['run_command', 'verify_changes', 'execute_code'].includes(record.name) ? 5_000 : CLEANUP_GRACE_MS;
     try { return await abortable(() => operation(context), signal, `Tool ${record.name}`, cleanupGraceMs); }
     finally { inProgress = false; active = false; clearTimeout(timer); }

@@ -1,6 +1,6 @@
 # Moodcode 구현 계획
 
-갱신일: 2026-10-07, Asia/Seoul. 자체 엔진과 Electron 앱의 첫 구현·통합 검증을 완료했고, 이전 단계에서 실제 Codex 모델 연결과 macOS arm64 개발용 패키지도 검증했다. 현재는 GUI보다 내부 엔진 확장을 우선한다. 현재 구현은 [구현 상태](./implementation-status.md), 새 엔진 제안은 [OpenCode 엔진 검토와 독립 구현안](../opencode-engine-review/README.md)을 따른다.
+갱신일: 2026-10-09, Asia/Seoul. 자체 엔진과 Electron 앱의 첫 구현·통합 검증을 완료했고, 이전 단계에서 실제 Codex 모델 연결과 macOS arm64 개발용 패키지도 검증했다. 현재는 GUI보다 내부 엔진 확장을 우선한다. 현재 구현은 [구현 상태](./implementation-status.md), 새 엔진 제안은 [OpenCode 엔진 검토와 독립 구현안](../opencode-engine-review/README.md)을 따른다.
 
 Moodcode는 로컬 Git 저장소에서 코드를 읽고 수정하며 명령을 실행하는 데스크톱 코딩 에이전트다. 사용자가 확정한 방향은 **Electron 데스크톱 앱**, **Moodcode 자체 엔진 구현**, **GUI보다 내부 엔진을 먼저 개발**하는 것이다. OpenCode 분석은 구현 계약과 화면 설계의 참고 자료로 사용한다.
 
@@ -17,7 +17,7 @@ Moodcode는 로컬 Git 저장소에서 코드를 읽고 수정하며 명령을 �
 | [엔진 구현 TODO](../../TODO.md) | 새 엔진 구현 75개 항목, 선행 작업·완료 조건·진행 상태. 후속 구현의 진행 기준 |
 | [최신 OpenCode 엔진 검토](../opencode-engine-review/README.md) | 고정 원본 분석, 라이선스·출처, Moodcode 내부 엔진 확장 계약 |
 | [추가 공개 에이전트 엔진 비교](../coding-agent-engine-review/README.md) | 19개 저장소별 고정 소스 분석·266개1:1 대조·75개 후보·20개 구현 범위/80개 제안 작업 |
-| [메인 엔진 2차 goal](engine-phase-two-goal.md) | 활성 goal·구현 순서·80개 작업 상태·완료 조건 |
+| [메인 엔진 2차 goal](engine-phase-two-goal.md) | 2차 완료 기록·구현 순서·80개 작업 상태·완료 조건 |
 | [2차 W1 구현](engine-phase-two-w1.md) | LSP 저장소 문맥·lifecycle·역할 권한/사전 검사·관측 진단과 잔여 범위 |
 | [OpenCode GUI 분석](../opencode-analysis/07-clients.md) | 웹 앱, Electron, 세션 UI, diff·파일·터미널 구현의 근거 |
 
@@ -50,3 +50,5 @@ Moodcode는 로컬 Git 저장소에서 코드를 읽고 수정하며 명령을 �
 - [필요한 도구의 검색](engine-tool-discovery.md): host opt-in·bounded metadata/selected schema·명시적 add/replace·다음 경계 활성화·정확한 문맥 예약과 기존 승인/child/retry 경계.
 - [기본 도구와 문맥 예산](engine-eager-catalogue-context.md): 같은 eager capture·예약·계획·provider/handler, bounded 재계획·빈 catalogue·Attempt 요청 사본과 static Coordinator 호환.
 - [1차 엔진 종료 조건](engine-phase-one-exit-criteria.md): G1-29를 마지막 필수 수정으로 고정하고 최종 검사·문서·커밋 뒤 goal 완료.
+
+현재 후속 구현·리팩터링은 [TODO](../../TODO.md)와 [진행 기록](next-execution-progress.json)을 따른다. Windows native Job Object와 고급 GUI는 통합됐으며, 현재 통합 소스의 전체 회귀와 OS별 검증을 진행 중이다. 실제 SIWC 계정·Anthropic 계정·서명 배포는 별도 미검증 조건이다.

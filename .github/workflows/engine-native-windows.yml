@@ -10,6 +10,10 @@ on:
       - 'packages/contracts/**'
       - 'scripts/*windows*.mjs'
       - 'package*.json'
+      - '.github/scripts/**'
+      - 'scripts/inspect-engine-db-contract.mjs'
+      - 'apps/engine-harness/**'
+      - 'tsconfig*.json'
       - '.github/workflows/engine-native-windows.yml'
   pull_request:
     paths:
@@ -18,6 +22,10 @@ on:
       - 'packages/contracts/**'
       - 'scripts/*windows*.mjs'
       - 'package*.json'
+      - '.github/scripts/**'
+      - 'scripts/inspect-engine-db-contract.mjs'
+      - 'apps/engine-harness/**'
+      - 'tsconfig*.json'
       - '.github/workflows/engine-native-windows.yml'
 
 permissions:

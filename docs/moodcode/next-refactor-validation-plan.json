@@ -1,0 +1,368 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-refactor-validation-plan",
+  "status": "planned-root-final-acceptance-not-executed-by-this-review",
+  "recordedAt": "2026-10-08T23:07:46.580Z",
+  "owner": "Root",
+  "execution": {
+    "sourceBuilds": 0,
+    "testSuites": 0,
+    "benchmarkRuns": 0,
+    "liveProviderRequests": 0,
+    "credentialsRead": false,
+    "goalMutations": 0,
+    "scope": "Read-only saved/source evidence; documentation writes only."
+  },
+  "freeze": {
+    "observedHead": "b1d39de17df3dab4fd60f738df5817e369fa62c2",
+    "headAtPlanWrite": "b1d39de17df3dab4fd60f738df5817e369fa62c2",
+    "observedCompiledRuntimeSha256": "cac5b44b356cf4948a4f961feebad3b3954e2c989c65934c0e8031a5a8a2664c",
+    "runtimeFiles": 763,
+    "identitySnapshot": {
+      "path": "/tmp/moodcode-next-refactor-validation-observed-runtime.json",
+      "bytes": 137326,
+      "sha256": "ddcc9d1147e1ccf41179739b663929751fbb3af849a0bdcd9ac76c296ee64d4f"
+    },
+    "qualification": "Observed b1d39de runtime with known Root fixture working edits; not a final committed source freeze.",
+    "requirements": [
+      "Finish edits/build, then freeze committed HEAD and complete source/effective runtime digest. Separately pin changed tests, CLI, lockfile and native/Electron package artifacts.",
+      "Require sourceRuntimeIdentity/assertIdentityStable before/after every invocation: same HEAD, runtime and digest. Any drift invalidates that run.",
+      "Identity covers its declared engine/contracts/runtime/runner scope; it excludes tests/fixtures and does not attest all dependencies. Record Node/OS/architecture/GC and native artifact/capability evidence separately.",
+      "After npm ci, run established prepare:pty and require genuine native PTY. Import success or portable fixtures confer no native support."
+    ]
+  },
+  "benchmark": {
+    "before": {
+      "report": {
+        "path": "/tmp/moodcode-next-refactor-before-benchmark.json",
+        "bytes": 318051,
+        "sha256": "c64ef4b22eed3782fc101678b13ca53cd540959556a8e7ffda8f0163b0d52f43"
+      },
+      "passed": true,
+      "commit": "0b04d127e1d0201e1f198b7cf039ab4a641ce986",
+      "sourceSha256": "ed1b7142edc00a986dc54424482684134e65d1aad69aea3dc97ecbbcff732f07",
+      "stable": true,
+      "environment": {
+        "node": "v26.9.0",
+        "os": "darwin",
+        "release": "27.0.0",
+        "architecture": "arm64",
+        "gcExposed": false
+      },
+      "parameters": {
+        "runs": 24,
+        "messageBytes": 256,
+        "samples": 5,
+        "warmup": 1,
+        "runtime": "compiled",
+        "profile": "quick",
+        "seed": 20261009
+      },
+      "fixture": {
+        "inputRuns": 24,
+        "persistedMessages": 48,
+        "messageUtf8Bytes": 256,
+        "promptSha256": "66786f73cb473e4a74a3df5bfbcf3243bd773b7906d55617328a820a2b2fe065",
+        "actualRuns": 31,
+        "tools": 0,
+        "nativeEventsReplayedPerSample": 512,
+        "historyPaginationExact": true,
+        "reopenedWithoutProviderReplay": true
+      },
+      "summary": {
+        "measuredActivations": 1,
+        "state": "completed",
+        "publication": "activated",
+        "cleanupConfirmed": true,
+        "sourceMessages": 60,
+        "fixtureContextWindowTokens": 1536,
+        "readUsageSql": {
+          "returnedSqlBytes": 7569,
+          "queries": 9,
+          "summaryFullPayloadReads": 0,
+          "summaryTextBytesReturned": 0,
+          "writeStatements": 0,
+          "elapsedMs": 0.34537499999999
+        }
+      },
+      "observations": {
+        "history": [
+          0.214,
+          0.243,
+          0.243,
+          45644,
+          45644
+        ],
+        "modelHistory": [
+          0.242,
+          0.248,
+          0.248,
+          54654,
+          54654
+        ],
+        "contextRun": [
+          8.961,
+          20.64,
+          20.64,
+          2984,
+          3296
+        ],
+        "contextObservation": [
+          0.034,
+          0.054,
+          0.054,
+          3296,
+          3296
+        ],
+        "metrics": [
+          2.557,
+          2.629,
+          2.629,
+          12401,
+          12401
+        ],
+        "eventReplay": [
+          9.407,
+          9.94,
+          9.94,
+          104,
+          104
+        ],
+        "summaryUsage": [
+          0.1,
+          0.138,
+          0.138,
+          4,
+          4
+        ],
+        "summaryAttempt": [
+          0.068,
+          0.075,
+          0.075,
+          4756,
+          4756
+        ],
+        "summaryList": [
+          0.081,
+          0.088,
+          0.088,
+          4789,
+          4789
+        ],
+        "storageInspection": [
+          2.538,
+          2.902,
+          2.902,
+          3788,
+          3788
+        ]
+      },
+      "observationColumns": [
+        "p50Ms",
+        "p95Ms",
+        "p99Ms",
+        "resultMinBytes",
+        "resultMaxBytes"
+      ]
+    },
+    "protocolPins": [
+      {
+        "path": "packages/engine/dist/evaluation/benchmark.js",
+        "sha256": "de46506b0314e6bb4fec58b39a8357d250418f4b76f5274d414dea32cf339b66",
+        "unchangedFromBefore": true
+      },
+      {
+        "path": "packages/engine/dist/evaluation/runtime.js",
+        "sha256": "e124f0810234fcdc059b7dd32d4c726422bf2f7ef66b18b78df60e934591c8ba",
+        "unchangedFromBefore": true
+      },
+      {
+        "path": "packages/engine/dist/storage/fixtures/summary-hotpath-benchmark.js",
+        "sha256": "563889d0353bc54fe5fa0707f84d02ddfa3621eee007d22272c528dba3e7501d",
+        "unchangedFromBefore": true
+      },
+      {
+        "path": "packages/engine/src/evaluation/benchmark.ts",
+        "sha256": "b4d0d5a6811956b49d1aafd62164ab3279dfb46b4356d930b27d11954acce012",
+        "unchangedFromBefore": true
+      },
+      {
+        "path": "packages/engine/src/evaluation/runtime.ts",
+        "sha256": "7a86e967dd13c3ebaebabb3a69ac6ff5a1b3be0130c65065cbbfd4fae7b8b574",
+        "unchangedFromBefore": true
+      },
+      {
+        "path": "packages/engine/src/storage/fixtures/summary-hotpath-benchmark.ts",
+        "sha256": "7b311a6cb83117cce362c31950c2a6524545afb344bcc6aa771602c67a968160",
+        "unchangedFromBefore": true
+      },
+      {
+        "path": "scripts/benchmark-engine.mjs",
+        "sha256": "beb7c2333f7bd6a23bffeee839691c7f4263ccaa9f0cd6f3f96291ea48b3f64a",
+        "unchangedFromBefore": true
+      }
+    ],
+    "after": {
+      "status": "pending-actual-Root-run",
+      "command": "node scripts/benchmark-engine.mjs --runtime compiled --profile quick --runs 24 --message-bytes 256 --samples 5 --warmup 1 --seed 20261009 > /tmp/moodcode-next-refactor-after-benchmark.json",
+      "environment": "Match before Node26.9.0/darwin27.0.0/arm64/gc:false; retain differing CI environments separately.",
+      "workload": "Same before.parameters: fresh actual Engine/SQLite/Git,24 seeded native Runs +6 context warmup/measured Runs +1 forced-summary Run =31 ordinary requests and1 summary request; no bulk SQL or live providers.",
+      "semanticChecks": [
+        "History20-page selection/cursors cover all24 seed Runs exactly; model history cap128 messages/2MiB. Real ContextRevision/diagnostics retain native counts and unknown token nulls.",
+        "Same exact512-event fence, monotonic seq/no gaps and actual AbortSignal subscription close per sample.",
+        "One real owned summary: fixture window1536,60 source messages, completed/activated/cleanup-confirmed. Summary usage reads zero full payload/text and performs zero writes.",
+        "Keep all ten operations,256-byte prompt hash, warmup1/samples5 and serialized result shape/bytes. Changed workload/event semantics need separate qualification.",
+        "Integrity, zero tools/checkpoints, close/reopen31 native Runs and completed summary with zero provider replay. Remove benchmark fixture only after actual confirmed cleanup."
+      ],
+      "interpretation": [
+        "Latency/memory are informational; report percentiles/ranges/result bytes and source/workload/environment differences. No absolute timing gate or speedup/significance claim from one quick run.",
+        "Five nearest-rank samples make p95/p99 the observed max. Contention/JIT/cache/uncontrolled GC limit comparisons; sampled RSS/heap is neither allocator peak nor leak proof.",
+        "SQL accounting is values returned to JS, not physical I/O; DB/WAL/artifact bytes are separate. Tokens/cost remain null and quality/account false for scripted fixtures."
+      ]
+    }
+  },
+  "preservedContracts": [
+    {
+      "scope": "public API, events and DB",
+      "gate": "Retain exports, dispatch schemas/errors, event order/owner/payload and CAS/transaction behavior in Root whole regression. Catalogue equality alone does not attest API/record/event semantics.",
+      "database": {
+        "baseline": {
+          "path": "docs/moodcode/next-db-contract-baseline.json",
+          "bytes": 90833,
+          "sha256": "5115a137300a43e677e68022ffd21fbab8c3f44e07b8559534e79bcc2b0b485b"
+        },
+        "version": 23,
+        "migrations": 23,
+        "objects": 281,
+        "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b"
+      },
+      "command": "node scripts/inspect-engine-db-contract.mjs --runtime compiled --compare docs/moodcode/next-db-contract-baseline.json"
+    },
+    {
+      "scope": "archive and restore",
+      "gate": "Keep native export/import/historical-child cases: exact manifests/blobs/owners/history/recovery, paused import/no replay and independent expected values. Preparation allowances never change inspection deadlines/read/report budgets."
+    },
+    {
+      "scope": "Original approvals, effects, cancellation and restart",
+      "gate": "Retain exact workspace/session/Run/Turn/Attempt/Tool/job/approval/source/revision/CAS and budgets. Only Original handles grant effect authority; numeric PID/PGID/markers/reports do not. Physical absence never erases unknown cleanup or pending-input/resume blocks.",
+      "evidence": "Actual complete/cancel/barrier/SIGKILL/reopen/no replay with raw SQLite/artifact retention, including passing expected faults."
+    }
+  ],
+  "rootAcceptance": {
+    "reuseFocusedEvidence": [
+      "Reuse pinned source7 and compiled persistent5/observer15/PTY3 evidence in next-persistent-fixture-refactor-review.json; do not duplicate full suites.",
+      "Fixture DATA/gate/publisher refactors retain domain assertions/lifetime policies; inventory counts do not prove semantic preservation."
+    ],
+    "finalBoundary": [
+      "Root: one complete frozen headless regression with actual native prerequisites; retain failures/uncertainty and declared platform limitations. No new skips, assertion shrinkage or timeout weakening to hide failures.",
+      "Root: scripted3 coding tasks with Original approved verification/commit, duplicate-no-second-commit and actual process/Git cleanup.",
+      "Root: bounded resilience, current persistent quick and PTY15 cases as separate scopes; preserve unknown originals plus qualified evidence copies.",
+      "Root: final exact-SHA six-lane macOS/Linux Node24/26 and Windows portable Node24/26 CI. Portable results do not grant Job Object or Electron package credit.",
+      "Root: changed Desktop native GUI/package/worker/account-fixture/update-fixture acceptance for each claimed OS. Real account and signed installer conditions remain separate."
+    ],
+    "performance": "Run the matched after benchmark after freeze; report actual observations against the saved0b04 before protocol without claiming final acceptance from timings."
+  },
+  "persistentDuration": {
+    "currentQuick": {
+      "report": {
+        "path": "/tmp/moodcode-next-persistent-fixture-refactor-minimum.json",
+        "bytes": 98856,
+        "sha256": "5310a7dcfbf144c2905e88ab4d76186a4129565d199d22faab651634c9afcd31"
+      },
+      "sourceRuntimeSha256": "0daa23a9f52e89e5fa6a2d086ed756a2622bbc489549f76bc6a21c3caf19478b",
+      "requestedDurationMs": 1000,
+      "observation": {
+        "startedElapsedMs": 2246.127958,
+        "endedElapsedMs": 3247.439041,
+        "durationMs": 1001.311083
+      },
+      "resourceSamples": 8,
+      "cycles": 3,
+      "inputs": 16,
+      "physicalCleanupConfirmed": true,
+      "nativeCleanupConfirmed": false,
+      "retainedEvidencePath": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-hTLVOx",
+      "scope": "Current observation-window correctness and bounded quick native cases only."
+    },
+    "originalThirtyMinutes": {
+      "document": {
+        "path": "docs/moodcode/next-persistent-30min-verification.json",
+        "bytes": 10372,
+        "sha256": "ad8f4e4528f9278f2ec8dd07c5d1517edaeb5492c998fa1bfcd4c6e802815f2d"
+      },
+      "sourceCommit": "78e37b1d54952d173779865b6fb9d2d04fac828f",
+      "sourceRuntimeSha256": "106a2f782bd2a11ea2ee85e9b8061b4da663d39740346021ad9f4327f41d1b84",
+      "requestedDurationMs": 1800000,
+      "activeDurationMs": 1802370,
+      "cycles": 398,
+      "inputs": 1596,
+      "resourceSamples": {
+        "count": 128,
+        "seriesEvidence": "Original frozen document/report retain first/last and full actual resource series; do not recalculate against current source."
+      },
+      "scope": "Actual original requested30-minute same-engine history on frozen78e37b1 source. Independent feature and refactor changes need current-source checks; mandatory-cases-followed-by-full-observation-window revision is not qualified by this older report. Resource growth is measured, not a leak verdict. Uncertain retained originals remain untouched."
+    },
+    "completionRule": "Original78e thirty minutes and current quick are separate. Closing new-source N-01 requires current-source long observation/resource/lifetime proof. No multi-hour completion claimed."
+  },
+  "openExternal": [
+    {
+      "id": "N-03-SIWC-real-account",
+      "state": "external-unverified",
+      "condition": "Actual browser authorization, eligible ChatGPT model discovery and completed Responses inference unverified.",
+      "release": "Approved isolated Moodcode SIWC/account/model request plus secure lifecycle; no Codex auth changes. Fixture JWT/fetch is not external identity.",
+      "evidence": {
+        "path": "docs/moodcode/next-desktop-auth-progress.json",
+        "bytes": 4495,
+        "sha256": "9e91fb3c9184510fa8ae30839e88d26c1ff5ef320abfd7459ec3131345798c7a"
+      }
+    },
+    {
+      "id": "E5-13-Anthropic-account-key",
+      "state": "external-unverified",
+      "condition": "No approved API key; claude-sonnet-5-5 report VERIFY_CREDENTIAL_UNAVAILABLE,actualRequestCount0,accountVerified:false. No new credential read.",
+      "release": "Approved official key +exact model; finite actual native coverage with source/account/request/cleanup evidence.",
+      "evidence": [
+        {
+          "path": "docs/moodcode/next-provider-progress.json",
+          "bytes": 13871,
+          "sha256": "f54861cef625a4889687b17baa2bbcced7ca45f95d57a55a36381b824d570f08"
+        },
+        {
+          "path": "docs/moodcode/next-provider-anthropic-external.json",
+          "bytes": 1380,
+          "sha256": "a84b05ccec82aef93c2c071d4c459e8cb50ef192ee6bc5caf3d0503476c3f5dc"
+        }
+      ]
+    },
+    {
+      "id": "N-05-signed-distribution",
+      "state": "external-unverified",
+      "condition": "Missing macOS Developer ID/notarization and Windows certificate/password/publisher; approved published feed unexercised.",
+      "release": "Reviewed signed artifacts; actual codesign/spctl/stapler and signed Mac install/update; Windows Authenticode/NSIS/publisher/update in disposable native fixture; approved exact feed. Unsigned/AppImage fixtures retain their limited scope.",
+      "evidence": {
+        "path": "docs/moodcode/next-desktop-release-progress.json",
+        "bytes": 4133,
+        "sha256": "f3bd7d88fe0c393668a7611be1b323e3d2b0788d1dd19f5995842c8e58252d15"
+      }
+    },
+    {
+      "id": "R-PTY-01-historical-f992",
+      "state": "cause-unknown",
+      "condition": "Original macOS Node26 uncertain/completed mismatch lacks authoritative closed outcome/reason/raw PID/PGID.",
+      "release": "Original evidence or causally comparable recurrence. Current passes/helper fixes/separate IPC/deadline defects do not resolve old cause.",
+      "evidence": {
+        "path": "docs/moodcode/engine-pty-f992-diagnosis.json",
+        "bytes": 5963,
+        "sha256": "de9e3a14316be146c558e68c4967f1b48ec2bf8ad634b29e538a610ed8aad0cc"
+      }
+    }
+  ],
+  "documentationQualification": {
+    "currentEvidence": "Settled executionprogress/30min-verification supersede the support draft’s earlier running observation; Root must reconcile the draft.",
+    "writes": [
+      "docs/moodcode/next-refactor-validation-plan.json",
+      "docs/moodcode/next-persistent-fixture-refactor-review.json"
+    ],
+    "finalAcceptance": "Root owns whole/current hosted/native-GUI and external closure. No goal/TODO mutation."
+  }
+}
