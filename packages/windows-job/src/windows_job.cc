@@ -86,7 +86,7 @@ struct ChildState {
   DWORD exit_code = 0;
 
   void RequireOpen() const {
-    if (closed || !process.value) Invalid("The native process is closed.");
+    if (closed || (!process.value && !exited)) Invalid("The native process is closed.");
   }
   void ObserveExit() {
     if (exited) return;
@@ -95,6 +95,10 @@ struct ChildState {
     if (wait == WAIT_OBJECT_0) {
       Check(GetExitCodeProcess(process.value, &exit_code), "Reading native process exit failed.");
       exited = true;
+      // Job accounting retains exited processes until their references close.
+      // Pipe readers remain independent so status polling never discards output.
+      thread.Close();
+      process.Close();
     }
   }
   void Terminate() {
@@ -473,6 +477,7 @@ std::shared_ptr<ChildState> OwnedChild(napi_env env, const Arguments& arguments,
   if (!arguments.count) Invalid("A native owned process is required.");
   auto child = Unwrap<ChildState>(env, arguments.values[0], kChildTag);
   child->RequireOpen();
+  if (child->exited || !child->process.value) Invalid("The native process has already exited.");
   if (child->owner.get() != job.get()) Invalid("The native process belongs to a different job.");
   return child;
 }

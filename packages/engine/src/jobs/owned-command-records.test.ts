@@ -274,7 +274,8 @@ function fixture(t: test.TestContext, platform: string = process.platform, termi
     input: prepared.input,
   };
   store.putPart(part);
-  function closed() {
+  function closed(interrupted = false) {
+    if (interrupted) Object.assign(completion.outcome, { exitCode: null, cancelled: true });
     store.commit(
       runId,
       "workspace.changed",
@@ -293,32 +294,35 @@ function fixture(t: test.TestContext, platform: string = process.platform, termi
         { runId, turnId: "turn", attemptId: "attempt" },
       ),
     );
-    tool.state = "completed";
-    tool.output = "Command completed";
+    tool.state = interrupted ? "interrupted" : "completed";
+    if (interrupted) tool.error = "Run was cancelled";
+    else tool.output = "Command completed";
     store.commit(
       runId,
-      "tool.completed",
+      interrupted ? "tool.interrupted" : "tool.completed",
       {
         toolCallId: "tool",
         providerToolCallId: "provider-tool",
         name: "run_command",
-        output: tool.output,
-        cleanupConfirmed: true,
-        artifacts: [
-          { path: completion.stdout.path, bytes: 0, truncated: false },
-          { path: completion.stderr.path, bytes: 0, truncated: false },
-        ],
+        ...(interrupted ? { state: tool.state, error: tool.error! } : {
+          output: tool.output!,
+          cleanupConfirmed: true,
+          artifacts: [
+            { path: completion.stdout.path, bytes: 0, truncated: false },
+            { path: completion.stderr.path, bytes: 0, truncated: false },
+          ],
+        }),
       },
       { tool },
     );
   }
-  function terminalPart() {
+  function terminalPart(interrupted = false) {
     store.putPart({
       ...part,
       revision: 1,
-      state: "completed",
+      state: interrupted ? "interrupted" : "completed",
       completedAt: at,
-      result: { output: tool.output!, isError: false, truncated: false },
+      ...(interrupted ? {} : { result: { output: tool.output!, isError: false, truncated: false } }),
     });
   }
   const tx = <T>(fn: () => T): T => {
@@ -479,6 +483,47 @@ test("native owned command completion needs its actual checkpoint, terminal Tool
   } finally {
     f.db.exec("ROLLBACK TO owned_probe;RELEASE owned_probe");
   }
+});
+
+test("Windows interrupted cancellation requires its exact physical close receipt and terminal native Part", (t) => {
+  const f = fixture(t, "win32"), cancelled = () => validateOwnedCommandJob(signJobData({
+    ...f.record, revision: 2, state: "cancelled", groupPid: 1234, completion: f.completion,
+  }));
+  f.closed(true);
+  f.put(cancelled());
+  assert.throws(() => validateOwnedCommandJobDatabase(f.db), code("OWNED_COMMAND_COMPLETION_INVALID"));
+  f.terminalPart(true);
+  validateOwnedCommandJobDatabase(f.db);
+  for (const mutation of [
+    "UPDATE events SET data=json_set(data,'$.payload.cleanupConfirmed',false) WHERE type='tool.interrupted'",
+    "DELETE FROM session_events WHERE type='command.job.closed_observed'",
+    "UPDATE events SET data=json_set(data,'$.payload.toolCallId','foreign') WHERE type='tool.interrupted'",
+    "UPDATE message_parts SET state='open',data=json_set(data,'$.state','open') WHERE id='part'",
+  ]) {
+    f.db.exec("SAVEPOINT windows_cancel_probe");
+    try {
+      f.db.exec(mutation);
+      assert.throws(() => validateOwnedCommandJobDatabase(f.db), code("OWNED_COMMAND_COMPLETION_INVALID"));
+    } finally { f.db.exec("ROLLBACK TO windows_cancel_probe;RELEASE windows_cancel_probe"); }
+  }
+  f.db.exec("SAVEPOINT windows_cancel_probe");
+  try {
+    f.db.exec("UPDATE approvals SET data=json_set(data,'$.preview.platform','darwin','$.preview.termination','posix-process-group') WHERE id='approval'");
+    assert.throws(() => validateOwnedCommandJobDatabase(f.db), code("OWNED_COMMAND_SOURCE_INVALID"));
+  } finally { f.db.exec("ROLLBACK TO windows_cancel_probe;RELEASE windows_cancel_probe"); }
+  assert.throws(() => validateOwnedCommandJob(signJobData({ ...cancelled(), completion: null })), code("OWNED_COMMAND_JOB_INVALID"));
+  f.completion.outcome.cleanupConfirmed = false;
+  assert.throws(cancelled, code("OWNED_COMMAND_JOB_INVALID"));
+});
+
+test("a POSIX interrupted Tool without its matching cleanup event stays unconfirmed", (t) => {
+  const f = fixture(t, "darwin");
+  f.closed(true);
+  f.terminalPart(true);
+  f.put(validateOwnedCommandJob(signJobData({
+    ...f.record, revision: 2, state: "cancelled", groupPid: 1234, completion: f.completion,
+  })));
+  assert.throws(() => validateOwnedCommandJobDatabase(f.db), code("OWNED_COMMAND_COMPLETION_INVALID"));
 });
 
 test("restart and import use native CAS document callbacks, retain source pins and never reconstruct a runtime producer", (t) => {

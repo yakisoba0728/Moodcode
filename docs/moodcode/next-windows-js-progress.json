@@ -8,7 +8,9 @@
     "packages/engine/src/tools/command/backends.ts",
     "packages/engine/src/tools/command/index.ts",
     "packages/engine/src/jobs/host-command-service.ts",
-    "packages/engine/src/jobs/owned-command-records.ts"
+    "packages/engine/src/jobs/owned-command-records.ts",
+    "packages/engine/src/jobs/owned-command-host.ts",
+    "packages/engine/src/runner/index.ts"
   ],
   "implemented": [
     "Load only a validated real native addon before reporting Windows backend availability",
@@ -62,8 +64,34 @@
       "After confirming write-handle closure on Windows, reopen a readonly artifact handle and pin its actual last-write timestamp while preserving original device/inode/size; existing sealedArtifact still verifies the producer SHA and stable timestamp"
     ],
     "fileTimeContract": "https://learn.microsoft.com/en-us/windows/win32/sysinfo/file-times",
-    "focusedSourceVerification": { "tests": 44, "pass": 43, "fail": 0, "skip": 1 },
-    "actualWindowsRepairVerified": false
+    "focusedSourceVerification": {
+      "tests": 44,
+      "pass": 43,
+      "fail": 0,
+      "skip": 1
+    },
+    "actualWindowsRepairVerified": false,
+    "followup": {
+      "failingRunId": "37848097899",
+      "observed": "Post-close artifact sealing allows the normal Run to complete, but the job remains failed; cancelled native cleanup is confirmed while the Tool interruption leaves the owned job uncertain. Native process-reference accounting and interrupted Tool/Part ordering were identified as distinct causes.",
+      "repairs": [
+        "Preserve native ownership errors, but omit the generic fault for an expected ABORTED cancellation or approved timeout after the same native cleanup checks",
+        "Defer only Windows run_command interrupted observation until the original Turn has settled its native Part",
+        "Require the original settling observation, confirmed native cancellation/timeout, exact source/approval/closed receipt/checkpoint/interrupted Tool+Part and unchanged sealed artifacts before publishing cancelled",
+        "Accept absent cleanupConfirmed in only the bound Windows interrupted Tool event; explicit false cleanup and absent/foreign physical evidence reject"
+      ],
+      "nativeAccountingRepairOwner": "native_binding: close primary process/thread references after observed exit while retaining readable output handles and cached exit status",
+      "focusedSourceVerification": {
+        "tests": 40,
+        "pass": 40,
+        "fail": 0,
+        "cancelled": 0,
+        "skip": 0,
+        "durationMs": 6981.715334,
+        "log": "artifacts/native-windows/js-cancellation-source-tests.log"
+      },
+      "actualWindowsRepairVerified": false
+    }
   },
   "remaining": [
     "Root-coordinated TypeScript and whole-engine regression",

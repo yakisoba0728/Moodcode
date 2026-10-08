@@ -70,7 +70,7 @@ export function registerWindowsEngineCases(register: (name: string, execute: (t:
     const records = f.jobs();
     assert.equal(records.length, 1);
     const record = records[0]!;
-    assert.equal(record.state, 'completed');
+    assert.equal(record.state, 'completed', JSON.stringify({ job: record, tool: f.engine.store.getToolCall(f.approval.toolCallId), run }).slice(0, 24_576));
     assert.equal(record.source.runId, f.receipt.runId);
     assert.equal(record.source.toolCallId, f.approval.toolCallId);
     assert.equal(record.source.approvalId, f.approval.id);
