@@ -4,7 +4,7 @@
 
 표준 GitHub-hosted runner의 Public 저장소 사용은 [공식 무료 사용 범위](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)에 해당한다. [job별 실행 시간·동시 실행 제한](https://docs.github.com/en/actions/reference/limits)과 이 workflow의 20~25분 timeout은 유지된다. Larger runner는 별도 과금 범위다.
 
-현재 보강 후보는 별도 932개 입력 동결본으로 로컬 전체 회귀 4,723개 중4,721pass·실패0·기존skip2, compiled media26/26, CLI unit8/8, native 코딩 과업3/3·승인 commit, 복합 반복60/60, quick/standard 성능 검증을 통과했다. 이번 새 단계의 실제 hosted 결과는 아직 대기 중이며 [보강 통합 근거](engine-hardening-verification.json)에 별도로 기록한다.
+현재 보강 후보는 별도 932개 입력 동결본으로 로컬 전체 회귀 4,723개 중4,721pass·실패0·기존skip2, compiled media26/26, CLI unit8/8, native 코딩 과업3/3·승인 commit, 복합 반복60/60, quick/standard 성능 검증을 통과했다. source `9563e97`의 [실제 새 run](https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036)은 여섯 작업 모두 성공했다. macOS Node24/26은 각4,723/4,721pass/실패0/skip2, Linux는 각4,723/4,661pass/실패0/skip62, Windows portable은 각152/151pass/실패0/native skip1이다. 네 POSIX lane의 media26/26·CLI4/4·native coding3/3·quick resilience3/3·benchmark10개 측정군도 성공했다. 원본 ZIP6개와 추출174개 파일을 대조했고 평가/benchmark의 source/runtime inventory735개도 로컬과 일치했다. [보강 통합 근거](engine-hardening-verification.json)와 [실제 hosted 근거](engine-hardening-hosted-verification.json)에 별도로 기록한다.
 
 ## 구성한 matrix
 

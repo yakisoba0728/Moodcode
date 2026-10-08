@@ -2,7 +2,7 @@
 
 갱신일: 2026-10-09, Asia/Seoul. 자체 엔진 기반 **73/75**, 2차 원래 범위 **80/80 항목·20/20 기능군**을 명시 지원 범위에서 구현·검증했다. source `99bf6f0`의 전체 로컬 gate는 4,701개 중 4,699 pass·실패 0·기존 Windows 조건부 skip 2이며 실제 공개 CI 여섯 작업도 성공했다. [최종 수용 근거](engine-phase-two-final-acceptance-verification.json), [현재 진행표](engine-phase-two-progress.json), [host API](engine-host-api.md)를 따른다. native Windows `E5-08`, 추가 공급자·미디어 모델 `E5-13`, 과거 PTY 실패 원인 진단 `R-PTY-01`은 열려 있다. 아래 GUI·bundle 결과는 2026-10-04의 역사적 기록이며 최신 엔진의 GUI 검증을 의미하지 않는다.
 
-2차에는 저장소 frozen 문맥·등록 검증과 제한 repair·ProposalSet·지속 지침/기억·resident 팀·typed workflow·예약/webhook admission·local ACP new/load·독립 명령 jobs·PTY 관측·대화 fork·code-mode·Darwin sandbox·disjoint patch 병렬 효과·PR feedback/coding batch·제한된 미디어를 연결했다. 고급 기능의 명시적 host opt-in·Original 대상·승인과 OS/model 제한은 각 계약을 따른다. 후속 PTY 진단·복합 작업 반복 검증·native 코딩 평가·실제 이력 성능 baseline을 구현했다. 별도 932개 입력 동결본의 전체 회귀는 4,723개 중 4,721 pass·실패 0·기존 skip 2다. 60회 반복과 코딩 과업 3/3, quick/standard 성능 baseline도 통과했으며 공개 CI 통합 확인은 진행 중이다. [보강 검증 근거](engine-hardening-verification.json)를 따른다.
+2차에는 저장소 frozen 문맥·등록 검증과 제한 repair·ProposalSet·지속 지침/기억·resident 팀·typed workflow·예약/webhook admission·local ACP new/load·독립 명령 jobs·PTY 관측·대화 fork·code-mode·Darwin sandbox·disjoint patch 병렬 효과·PR feedback/coding batch·제한된 미디어를 연결했다. 고급 기능의 명시적 host opt-in·Original 대상·승인과 OS/model 제한은 각 계약을 따른다. 후속 PTY 진단·복합 작업 반복 검증·native 코딩 평가·실제 이력 성능 baseline을 구현했다. 별도 932개 입력 동결본의 전체 회귀는 4,723개 중 4,721 pass·실패 0·기존 skip 2다. 60회 반복과 코딩 과업 3/3, quick/standard 성능 baseline도 통과했으며 공개 CI 여섯 작업도 통과했다. [보강 검증 근거](engine-hardening-verification.json)를 따른다.
 
 ## 현재 자체 엔진 범위
 

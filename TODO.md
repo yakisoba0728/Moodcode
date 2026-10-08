@@ -4,15 +4,15 @@
 
 상태: G1-29까지 1차 구현과 자체 메인 엔진 2차 MC2-01~20의 **80/80 항목·20/20 기능군**을 명시 지원 범위에서 완료했다. 원래 조건을 유지한 독립 감사, 전체 회귀와 실제 공개 CI 여섯 작업으로 확인했다. [최종 수용 근거](docs/moodcode/engine-phase-two-final-acceptance-verification.json)와 docs/moodcode/engine-phase-two-progress.json을 기준으로 사용한다. E5-08·E5-13 및 과거 PTY 실패 진단 R-PTY-01은 열린 후속 범위로 남긴다.
 
-## 엔진 안정성·평가 보강 — 로컬 통합 완료, 공개 CI 확인 중
+## 완료: 엔진 안정성·평가 보강 H1–H5
 
-2026-10-09 사용자 승인으로 세 에이전트가 기능 단위로 병렬 구현·상호 검토했고 Root가 같은 932개 동결 입력의 전체 회귀 4,723/4,721/실패0/skip2, 60회 복합 반복, 코딩 과업3/3과 quick/standard 성능을 확인했다. [통합 근거](docs/moodcode/engine-hardening-verification.json)를 따른다. 기존 2차 완료 집계와 별도인 후속 범위이며 외부 모델 호출·GUI 실행은 포함하지 않는다.
+2026-10-09 사용자 승인으로 세 에이전트가 기능 단위로 병렬 구현·상호 검토했고 Root가 같은 932개 동결 입력의 전체 회귀 4,723/4,721/실패0/skip2, 60회 복합 반복, 코딩 과업3/3과 quick/standard 성능을 확인했다. 공개 CI run37840729036의 여섯 OS/Node 작업과 원본 ZIP SHA도 통과했다. 구현 커밋은 `9563e97`이며 [통합 근거](docs/moodcode/engine-hardening-verification.json)·[실제 hosted 근거](docs/moodcode/engine-hardening-hosted-verification.json)를 따른다. 기존 2차 완료 집계와 별도인 후속 범위이며 외부 모델 호출·GUI 실행은 포함하지 않는다.
 
 - [x] **H1 — PTY 종료 관측과 영구 진단**: 실제 supervisor/native exit/backend close를 구분하고 원래 PID/PGID·cleanup 사유·관측 결과를 bounded diagnostics로 저장·조회한다. unknown·EPERM·leader-loss 판정은 유지한다. 새 진단의 완료가 과거 R-PTY-01 원인 해결을 뜻하지 않는다.
 - [x] **H2 — 복합 실행 resilience/soak**: actual Engine·SQLite·임시 Git repo·실제 child process에서 승인 대기+inbox 중복/queue+명령 실행+취소/재시작을 결합하고 cleanup·budget·unknown·자동 replay 부재를 검증한다. quick와 extended 반복에 재현 seed·native 근거를 기록한다.
 - [x] **H3 — 코딩 작업 평가 확대**: 기존 scripted 과업을 native verify_changes·Original 승인 commit까지 확장하고 정확한 변경·검증 영수증·중복 commit 방지를 검사한다. scripted 성공률을 실제 모델 품질로 표기하지 않는다.
 - [x] **H4 — 실제 엔진 성능 baseline**: native API로 이력을 생성하고 history/context/events/metrics/summary의 입력 크기·percentile·메모리·cleanup을 측정한다. wall-clock 수치는 정보형으로 기록하고 절대 시간 gate는 만들지 않는다.
-- [ ] **H5 — 통합·CI·문서·커밋**: focused+전체 headless 회귀와 quick/extended 검증을 실행하고 POSIX CI에 CLI 검증·구조화된 보고서를 연결한다. 현재/역사적 문서 상태와 지원 한계를 정리한 뒤 검증된 변경을 커밋·푸시한다.
+- [x] **H5 — 통합·CI·문서·커밋**: focused+전체 headless 회귀와 quick/extended 검증을 실행하고 POSIX CI에 CLI 검증·구조화된 보고서를 연결한다. 현재/역사적 문서 상태와 지원 한계를 정리한 뒤 검증된 변경을 커밋·푸시한다.
 
 ## 작업 규칙
 

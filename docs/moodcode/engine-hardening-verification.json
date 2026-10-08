@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "kind": "engine-hardening-acceptance",
   "observedAt": "2026-10-08T20:35:27.413654+00:00",
-  "status": "local-gates-passed-hosted-ci-pending",
+  "status": "accepted-local-and-six-hosted-lanes",
   "baselineCommit": "c4af35ea827101855823c29c445bd25d15b85774",
   "sourceFreeze": {
     "path": "docs/moodcode/engine-hardening-source-freeze.json",
@@ -10,7 +10,8 @@
     "snapshotSha256": "dc935f6c01a8173b34ee52b2f43b5c9ad451b6114d5882775710a8a80b996976",
     "fileSha256": "6dd1afb4111654fb878968982361ffd6c8ad0e2bae4860e6367a0d9567ba738c",
     "allCurrentFilesMatch": true,
-    "postGatesMismatches": 0
+    "postGatesMismatches": 0,
+    "postCommitInputsMatch": true
   },
   "runtime": {
     "node": "v26.9.0",
@@ -1708,9 +1709,21 @@
     }
   ],
   "hostedCI": {
-    "state": "pending",
+    "state": "completed",
+    "conclusion": "success",
+    "runId": 37840729036,
+    "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036",
+    "testedSourceCommit": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
     "requiredJobs": 6,
-    "scope": "macOS15 and Ubuntu24.04 full headless Node24/26; Windows2025 Node24/26 portable contracts/storage only"
+    "successfulJobs": 6,
+    "report": "docs/moodcode/engine-hardening-hosted-verification.json",
+    "rootAcceptedNativeReports": 12,
+    "originalZipDigestMatches": 6,
+    "rootComparedExtractedFiles": 174,
+    "sourceRuntimeInventoryMatchesLocal": 8,
+    "scope": "macOS15 arm64 and Ubuntu24.04 x64 full headless Node24/26; Windows2025 x64 Node24/26 portable only",
+    "independentPeerReviews": "docs/moodcode/engine-hardening-hosted-reviews.json",
+    "independentReviewLanes": 3
   },
   "noLive": true,
   "liveRequests": 0,
@@ -1722,5 +1735,7 @@
     "GUI/signing/updater/current packaged-app E2E were not executed.",
     "Wall-clock/memory baselines are observations, not SLA, leak proof or physical I/O.",
     "Raw local logs/reports remain pinned under /tmp; selected witness bodies are embedded here, hosted artifacts have workflow retention."
-  ]
+  ],
+  "accountScope": "Model-provider credentials/requests only; GitHub API was used for authorized publication and CI result retrieval.",
+  "finalDocumentationQualification": "Only result records and ordinary documentation are updated after tested source 9563e97. All 932 frozen functional inputs remain byte-identical; fixture assertions/timeouts/skips were not relaxed."
 }

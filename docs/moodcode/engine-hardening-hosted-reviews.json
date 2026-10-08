@@ -1,0 +1,1012 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent-hosted-reviews",
+  "testedSourceCommit": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+  "attribution": "Read-only OS-specific independent peer reviews; original native executions are GitHub-hosted job runs. Root also separately verified all ZIP and report acceptance.",
+  "reviews": [
+    {
+      "lane": "macos",
+      "originalPath": "/tmp/moodcode-hardening-hosted-macos/final-macos-audit.json",
+      "originalSha256": "e69addaf413c5e545aba3da288b9bfb72964ef55073de1b5ad874d3833da183b",
+      "report": {
+        "schemaVersion": 1,
+        "kind": "hardening-hosted-macos-independent-audit",
+        "observedAt": "2026-10-08T20:53:15.595941+00:00",
+        "runId": 37840729036,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036",
+        "sourceCommit": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+        "verdict": "passed-macos-hosted-bounded-scope",
+        "rootFreeze": {
+          "count": 932,
+          "snapshotSha256": "dc935f6c01a8173b34ee52b2f43b5c9ad451b6114d5882775710a8a80b996976",
+          "manifestSha256": "6dd1afb4111654fb878968982361ffd6c8ad0e2bae4860e6367a0d9567ba738c",
+          "sourceMismatches": 0
+        },
+        "jobs": [
+          {
+            "node": "v24.20.0",
+            "platform": "darwin/arm64",
+            "release": "24.6.0",
+            "jobId": 113529117229,
+            "conclusion": "success",
+            "allJobStepsSuccess": true,
+            "allLauncherStepsExit0": true,
+            "artifactId": 11577483408,
+            "zip": {
+              "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact-original.zip",
+              "bytes": 818923,
+              "sha256": "d733f977e50b39957c6c8f031e2f90dfa251db04520c02068d9693050ca2df6a",
+              "advertisedDigestMatch": true
+            },
+            "extractedPins": {
+              "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact-pins.json",
+              "bytes": 5979,
+              "sha256": "ee94a2846c917ec5c2649db7cff8f6312af7467ddd4e45b4d8519fbda3f905af"
+            },
+            "jobLog": {
+              "path": "/tmp/moodcode-hardening-hosted-macos/node24-job-original.log",
+              "bytes": 1896838,
+              "sha256": "fee215ffeedac3d269f57cd99faef0a33fa0af6bdaca886560580253ab50048c"
+            },
+            "whole": {
+              "tests": 4723,
+              "pass": 4721,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 2,
+              "todo": 0
+            },
+            "diagnostics": {
+              "passed": 11,
+              "failed": 0,
+              "skipped": 0,
+              "proof": {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node24-diagnostics-proof.json",
+                "bytes": 1704,
+                "sha256": "f5c8ad8de93e13fcd32b4583bda16674ae235738626d4511fe66303283d12ff1"
+              }
+            },
+            "mediaLocal": {
+              "tests": 26,
+              "pass": 26,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0,
+              "todo": 0
+            },
+            "resilienceCli": {
+              "tests": 4,
+              "pass": 4,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0,
+              "todo": 0
+            },
+            "evaluation": {
+              "tasks": 3,
+              "passed": 3,
+              "nativeApprovedCommits": 3,
+              "duplicateNoReplay": true,
+              "userStagedPreserved": true,
+              "cleanupConfirmed": true,
+              "tokensCost": null,
+              "accountVerified": false
+            },
+            "resilience": {
+              "summary": {
+                "completed": 3,
+                "failed": 0,
+                "providerCalls": 5,
+                "processLaunches": 3,
+                "unknownOutcomes": 2,
+                "cleanupFailures": 0,
+                "durationMs": 1520
+              },
+              "scenarios": [
+                {
+                  "scenario": "complete",
+                  "nativeJobState": "completed",
+                  "sourceRunState": "completed",
+                  "noReplay": true,
+                  "physicalGroupAbsent": true,
+                  "cleanupDbRemoved": true
+                },
+                {
+                  "scenario": "cancel",
+                  "nativeJobState": "uncertain",
+                  "sourceRunState": "cancelled",
+                  "noReplay": true,
+                  "physicalGroupAbsent": true,
+                  "cleanupDbRemoved": true
+                },
+                {
+                  "scenario": "root-sigkill",
+                  "nativeJobState": "uncertain",
+                  "sourceRunState": "interrupted",
+                  "noReplay": true,
+                  "physicalGroupAbsent": true,
+                  "cleanupDbRemoved": true
+                }
+              ],
+              "engineEntrySha256": "291bad76348257672593c35d7961059774a621307b83f57443c9e828c9da4812",
+              "harnessEntrySha256": "4df8eacb420e5bcc9a02dd50163952c4cad560612e66438c63ce0f0a8c9dd4cf",
+              "entryIdentityScope": "packages/engine/dist/engine.js and packages/engine/dist/resilience/index.js only"
+            },
+            "benchmark": {
+              "profile": "quick",
+              "seedRuns": 24,
+              "actualRuns": 31,
+              "persistedMessages": 48,
+              "groups": [
+                "history",
+                "modelHistory",
+                "contextRun",
+                "contextObservation",
+                "metrics",
+                "eventReplay",
+                "summaryUsage",
+                "summaryAttempt",
+                "summaryList",
+                "storageInspection"
+              ],
+              "samplesPerGroup": 5,
+              "eventsReplayedPerSample": 512,
+              "summaryActivations": 1,
+              "summaryCleanupConfirmed": true,
+              "summaryFullPayloadReads": 0,
+              "writeStatements": 0,
+              "cleanupConfirmed": true,
+              "tokensCost": null,
+              "absoluteTimingGate": false
+            },
+            "sourceRuntime": [
+              {
+                "report": "evaluation",
+                "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+                "stable": true,
+                "pins": 735,
+                "rootFreezeSourceMatches": 368,
+                "frozenLocalCompiledMatches": 365,
+                "packageManifestMatches": 2,
+                "mismatches": 0
+              },
+              {
+                "report": "benchmark",
+                "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+                "stable": true,
+                "pins": 735,
+                "rootFreezeSourceMatches": 368,
+                "frozenLocalCompiledMatches": 365,
+                "packageManifestMatches": 2,
+                "mismatches": 0
+              }
+            ],
+            "skipNames": [
+              "﹣ actual Windows Job Object child-tree timeout and parent-crash verification (0.085083ms) # Requires Windows and an actual native Job Object binding.",
+              "﹣ Windows process-tree support is rejected explicitly (0.135875ms) # SKIP"
+            ],
+            "reportPins": [
+              {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact/environment.json",
+                "bytes": 3761,
+                "sha256": "8b65b9095753f59dedb999e2e1e53dbb207ea935b009336acecf360d241e88bd"
+              },
+              {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact/results.json",
+                "bytes": 5074,
+                "sha256": "ab14ded22244822db9612ccfa8357fc4ddbf3bf471a80e09e91cf8cb18b3e036"
+              },
+              {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact/steps.json",
+                "bytes": 4421,
+                "sha256": "3216606f13ea1f6f5d7c6d6b3ce27e81157861467ce786c1c8afe79715386203"
+              },
+              {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact/evaluation.json",
+                "bytes": 305009,
+                "sha256": "6941d9ad7a28341de5d7380b95f9334ae7445cb57410abb78b2b53040c2905d4"
+              },
+              {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact/resilience.json",
+                "bytes": 21562,
+                "sha256": "676b41ab3b9e058df447fe8b1f6a66ee7cc9b16cabc75d4793d30d6872774ff3"
+              },
+              {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact/benchmark.json",
+                "bytes": 306194,
+                "sha256": "491c8f9e40cd750d956a66dfd685f42a6d17b41dbeda01b20f1a8451f2fe408b"
+              }
+            ]
+          },
+          {
+            "node": "v26.11.1",
+            "platform": "darwin/arm64",
+            "release": "24.6.0",
+            "jobId": 113529117116,
+            "conclusion": "success",
+            "allJobStepsSuccess": true,
+            "allLauncherStepsExit0": true,
+            "artifactId": 11577523572,
+            "zip": {
+              "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact-original.zip",
+              "bytes": 819833,
+              "sha256": "706dc612481f4007f39ee1c3813a425281505121970dd84c44118ca4a2a2180a",
+              "advertisedDigestMatch": true
+            },
+            "extractedPins": {
+              "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact-pins.json",
+              "bytes": 5979,
+              "sha256": "09b7198a7500b2f86270a16ecf6a27723e1592713c68cd7c35c597b2ebe48852"
+            },
+            "jobLog": {
+              "path": "/tmp/moodcode-hardening-hosted-macos/node26-job-original.log",
+              "bytes": 1897797,
+              "sha256": "e8b2e46c82a55c00f5064f3c61cdc7c307574d0dfb93844663289b04f6428968"
+            },
+            "whole": {
+              "tests": 4723,
+              "pass": 4721,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 2,
+              "todo": 0
+            },
+            "diagnostics": {
+              "passed": 11,
+              "failed": 0,
+              "skipped": 0,
+              "proof": {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node26-diagnostics-proof.json",
+                "bytes": 1705,
+                "sha256": "5b547b0c80d3cbe909a0314bc26bcc9631f4a56e1c65ef7e32e18420a44ca524"
+              }
+            },
+            "mediaLocal": {
+              "tests": 26,
+              "pass": 26,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0,
+              "todo": 0
+            },
+            "resilienceCli": {
+              "tests": 4,
+              "pass": 4,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0,
+              "todo": 0
+            },
+            "evaluation": {
+              "tasks": 3,
+              "passed": 3,
+              "nativeApprovedCommits": 3,
+              "duplicateNoReplay": true,
+              "userStagedPreserved": true,
+              "cleanupConfirmed": true,
+              "tokensCost": null,
+              "accountVerified": false
+            },
+            "resilience": {
+              "summary": {
+                "completed": 3,
+                "failed": 0,
+                "providerCalls": 5,
+                "processLaunches": 3,
+                "unknownOutcomes": 2,
+                "cleanupFailures": 0,
+                "durationMs": 1634
+              },
+              "scenarios": [
+                {
+                  "scenario": "complete",
+                  "nativeJobState": "completed",
+                  "sourceRunState": "completed",
+                  "noReplay": true,
+                  "physicalGroupAbsent": true,
+                  "cleanupDbRemoved": true
+                },
+                {
+                  "scenario": "cancel",
+                  "nativeJobState": "uncertain",
+                  "sourceRunState": "cancelled",
+                  "noReplay": true,
+                  "physicalGroupAbsent": true,
+                  "cleanupDbRemoved": true
+                },
+                {
+                  "scenario": "root-sigkill",
+                  "nativeJobState": "uncertain",
+                  "sourceRunState": "interrupted",
+                  "noReplay": true,
+                  "physicalGroupAbsent": true,
+                  "cleanupDbRemoved": true
+                }
+              ],
+              "engineEntrySha256": "291bad76348257672593c35d7961059774a621307b83f57443c9e828c9da4812",
+              "harnessEntrySha256": "4df8eacb420e5bcc9a02dd50163952c4cad560612e66438c63ce0f0a8c9dd4cf",
+              "entryIdentityScope": "packages/engine/dist/engine.js and packages/engine/dist/resilience/index.js only"
+            },
+            "benchmark": {
+              "profile": "quick",
+              "seedRuns": 24,
+              "actualRuns": 31,
+              "persistedMessages": 48,
+              "groups": [
+                "history",
+                "modelHistory",
+                "contextRun",
+                "contextObservation",
+                "metrics",
+                "eventReplay",
+                "summaryUsage",
+                "summaryAttempt",
+                "summaryList",
+                "storageInspection"
+              ],
+              "samplesPerGroup": 5,
+              "eventsReplayedPerSample": 512,
+              "summaryActivations": 1,
+              "summaryCleanupConfirmed": true,
+              "summaryFullPayloadReads": 0,
+              "writeStatements": 0,
+              "cleanupConfirmed": true,
+              "tokensCost": null,
+              "absoluteTimingGate": false
+            },
+            "sourceRuntime": [
+              {
+                "report": "evaluation",
+                "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+                "stable": true,
+                "pins": 735,
+                "rootFreezeSourceMatches": 368,
+                "frozenLocalCompiledMatches": 365,
+                "packageManifestMatches": 2,
+                "mismatches": 0
+              },
+              {
+                "report": "benchmark",
+                "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+                "stable": true,
+                "pins": 735,
+                "rootFreezeSourceMatches": 368,
+                "frozenLocalCompiledMatches": 365,
+                "packageManifestMatches": 2,
+                "mismatches": 0
+              }
+            ],
+            "skipNames": [
+              "﹣ actual Windows Job Object child-tree timeout and parent-crash verification (0.099625ms) # Requires Windows and an actual native Job Object binding.",
+              "﹣ Windows process-tree support is rejected explicitly (0.255209ms) # SKIP"
+            ],
+            "reportPins": [
+              {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact/environment.json",
+                "bytes": 3761,
+                "sha256": "e75c5aee16c2b0ca22e34ac1f69af4dfce7ed9fdd294a905a287c0fe570d1352"
+              },
+              {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact/results.json",
+                "bytes": 5073,
+                "sha256": "3ce63d405458c89f38a2c0587e53ca00335a68f1b7e1ade0f08971bff5052745"
+              },
+              {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact/steps.json",
+                "bytes": 4420,
+                "sha256": "bdeca23bce700133b820e6dd51a4acc498559263105e340b634a05baa60381c8"
+              },
+              {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact/evaluation.json",
+                "bytes": 305011,
+                "sha256": "94fc3190b63d8890aea73c2930cb4f2778a6ac958dce99cfcbb553fda1fb0d0f"
+              },
+              {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact/resilience.json",
+                "bytes": 21562,
+                "sha256": "3a8a7dc7d5e263132d63187f6dca94d3f3bb2b419f3aded3d927db05b9afc3fd"
+              },
+              {
+                "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact/benchmark.json",
+                "bytes": 306191,
+                "sha256": "e775150ed5cb06426d91b24869c6d09cbd7ba9708855cd95f0757c7d4f24c424"
+              }
+            ]
+          }
+        ],
+        "crossNodeSourceRuntimeExactMatch": true,
+        "limitations": [
+          "Counts are authentic hosted macOS15 arm64 Node24/26 compiled results; local tests are not counted as hosted proof.",
+          "Two platform qualification skips remain: native Windows JobObject/tree/crash proof and platform-inapplicable Windows process-tree rejection. Windows full-engine support remains unverified.",
+          "Media/evaluation/benchmark use local scripted/HTTP fixtures; no live account/model-quality/billing or GUI credit. Usage/cost remains null where unobserved.",
+          "Resilience preserves2 uncertain native job outcomes despite physically absent process groups; no automatic native repair or replay credit.",
+          "Quick benchmark is an empirical correctness/performance sample, not SLA/leak/physical-I/O qualification.",
+          "Old R-PTY-01 cause remains unconfirmed; new hosted diagnostic passes do not relabel that historical failure.",
+          "Source/runtime inventory attests declared engine/contracts graph plus explicit helper/runner/package inputs, not all dependencies or Node binary."
+        ],
+        "actions": {
+          "sourceEdits": 0,
+          "docsEdits": 0,
+          "testsExecuted": 0,
+          "buildsExecuted": 0,
+          "modelCalls": 0,
+          "credentialValuesInspectedOrPrinted": 0,
+          "remoteMutations": 0,
+          "readOnlyDownloads": "2 original ZIPs +2 job logs; ZIP advertised SHA verified before bounded extraction"
+        }
+      }
+    },
+    {
+      "lane": "linux",
+      "originalPath": "/tmp/moodcode-hardening-hosted-linux-verification.json",
+      "originalSha256": "2b22a03d8e1f12a3d9fd66bb71fd622f120fcc87d18bba3d71210f56857161c0",
+      "report": {
+        "schemaVersion": 1,
+        "observedAt": "2026-10-08T20:51:19.126440+00:00",
+        "verdict": "PASS for actual Ubuntu24.04 x64 Node24/26 headless lanes",
+        "runId": 37840729036,
+        "runUrl": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036",
+        "headSha": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+        "runStatus": "completed",
+        "runConclusion": "success",
+        "reviewerScope": "Only the two Ubuntu jobs/artifacts; other jobs are not audited here. No local/worker result is credited as hosted execution.",
+        "sourceFreeze": {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-hardening-source-freeze.json",
+          "bytes": 119221,
+          "sha256": "6dd1afb4111654fb878968982361ffd6c8ad0e2bae4860e6367a0d9567ba738c",
+          "files": 932,
+          "snapshotSha256": "dc935f6c01a8173b34ee52b2f43b5c9ad451b6114d5882775710a8a80b996976",
+          "all932CurrentFileHashesMatch": true
+        },
+        "unresolvedFindings": [],
+        "limitations": [
+          "Supported scope: Linux x64 Ubuntu24.04, actual Node24.21.0 and26.11.1 only; no Windows/macOS/FreeBSD/ARM claim from these artifacts.",
+          "62 platform-specific skips in each job remain skips, not evidence for Darwin sandbox/restricted code-mode, macOS PTY job-group behavior, or native Windows Job Objects.",
+          "The capability preflight only proves native PTY availability; actual passed whole-suite PTY tests provide the separate OS behavior evidence.",
+          "Resilience is 3 isolated quick compound iterations, not extended60, multi-hour reliability or a single accumulated Engine, PTY/workflow/child stress proof.",
+          "Evaluation is authored deterministic ScriptedProvider/local tasks, not real-model quality or account evaluation. Tokens and billed costs are unobserved/null.",
+          "Benchmark is quick24 seed Runs, 10groups×5samples; no hosted standard200-run result, absolute timing SLA, allocator peak/leak proof, or physical I/O claim.",
+          "735-file consumed source/runtime inventory is not full dependency/Node-binary/whole-repository attestation; resilience independently reports entry-only pins."
+        ],
+        "reviewerActions": {
+          "repositoryWrites": 0,
+          "testsExecuted": 0,
+          "buildsExecuted": 0,
+          "providerOrAccountCalls": 0,
+          "credentialValuesReadOrPrinted": 0,
+          "GitHubMutations": 0,
+          "GitHubReadOnlyAPIAndArtifactDownloads": true,
+          "temporaryEvidenceFilesOnly": true
+        },
+        "kind": "hardening-hosted-linux-independent-verification-summary",
+        "detailedAudit": {
+          "path": "/tmp/moodcode-hardening-hosted-linux/verification.json",
+          "bytes": 37369,
+          "sha256": "68746eb239e5a718bff5301f87fd25c21908eddb339d7518c109c49fa2a34cac"
+        },
+        "lanes": [
+          {
+            "node": "v24.21.0",
+            "platform": "linux/x64",
+            "lane": "Ubuntu24.04 POSIX-full",
+            "job": {
+              "id": 113529117227,
+              "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036/job/113529117227",
+              "conclusion": "success"
+            },
+            "artifact": {
+              "id": 11578415611,
+              "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+              "rawZip": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-24.x-attempt-1.zip",
+              "zipBytes": 825440,
+              "zipSha256": "21e2544e21e3b9b071cb825b439fff0e3b3142417c08f36da62b3c8b891ae568",
+              "serverDigest": "sha256:21e2544e21e3b9b071cb825b439fff0e3b3142417c08f36da62b3c8b891ae568",
+              "digestMatch": true,
+              "directory": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-24.x-attempt-1"
+            },
+            "all13RecordedStepsPassed": true,
+            "whole": {
+              "tests": 4723,
+              "pass": 4661,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 62,
+              "todo": 0
+            },
+            "mediaLocal": {
+              "tests": 26,
+              "pass": 26,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0,
+              "todo": 0
+            },
+            "hardeningCLI": {
+              "tests": 4,
+              "pass": 4,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0,
+              "todo": 0
+            },
+            "skipGroups": {
+              "Darwin-only restricted code-mode: unsupported on this Linux lane": 29,
+              "Darwin-only OS sandbox and resident inheritance: unsupported on this Linux lane": 28,
+              "macOS-only PTY job-group behavior: unsupported on this Linux lane": 3,
+              "Windows-only native process-tree backend: not available/verified here": 2
+            },
+            "sourceRuntime": {
+              "runtime": "compiled",
+              "beforeAfterStable": true,
+              "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+              "inventoryFiles": 735,
+              "matchesLocalRuntimeSha256": true,
+              "root932IntersectionFiles": 368,
+              "root932Mismatch": 0,
+              "outside932PinnedByOwnInventory": {
+                "compiled-runtime": 365,
+                "package-manifest": 2
+              }
+            },
+            "evaluation": {
+              "tasksPassed": 3,
+              "nativeVerificationAndToolPartsPassed": true,
+              "actualGitCommits": [
+                "9edb688b1413b0acfe9a211033637956ddfcb4d5",
+                "b9ef25efcfcf3c591f9741473e75e2e15603d93d",
+                "fc37e278195828a391f67f4b95817d6e542e42d1"
+              ],
+              "duplicateNoSecondCommit": true,
+              "stagedChangesPreserved": true,
+              "noProviderReplayOnReopen": true,
+              "allNativeRuntimeActiveCleanupConfirmedBeforeTemporaryRemoval": true,
+              "scriptedNotModelQuality": true,
+              "accountVerified": false,
+              "tokens": null,
+              "billedCost": null
+            },
+            "resilience": {
+              "profile": "quick",
+              "iterationsPassed": 3,
+              "summary": {
+                "completed": 3,
+                "failed": 0,
+                "providerCalls": 5,
+                "processLaunches": 3,
+                "unknownOutcomes": 2,
+                "cleanupFailures": 0,
+                "durationMs": 1232
+              },
+              "scenarios": [
+                {
+                  "scenario": "complete",
+                  "sourceRunState": "completed",
+                  "nativeJobState": "completed",
+                  "completionPresent": true,
+                  "pendingInputState": "promoted",
+                  "resumeOutcome": "resumed",
+                  "reopenedProviderCalls": 0,
+                  "physicalGroupAbsent": true,
+                  "noCommandReplay": true
+                },
+                {
+                  "scenario": "cancel",
+                  "sourceRunState": "cancelled",
+                  "nativeJobState": "uncertain",
+                  "completionPresent": true,
+                  "pendingInputState": "pending",
+                  "resumeOutcome": "cleanup-pending",
+                  "reopenedProviderCalls": 0,
+                  "physicalGroupAbsent": true,
+                  "noCommandReplay": true
+                },
+                {
+                  "scenario": "root-sigkill",
+                  "sourceRunState": "interrupted",
+                  "nativeJobState": "uncertain",
+                  "completionPresent": false,
+                  "pendingInputState": "pending",
+                  "resumeOutcome": "cleanup-pending",
+                  "reopenedProviderCalls": 0,
+                  "physicalGroupAbsent": true,
+                  "noCommandReplay": true
+                }
+              ],
+              "uncertaintyNeverPromotedToKnownSuccess": true,
+              "entryPinsMatchActual735Inventory": true
+            },
+            "benchmark": {
+              "profile": "quick",
+              "inputRuns": 24,
+              "persistedMessages": 48,
+              "actualRuns": 31,
+              "messageUtf8Bytes": 256,
+              "measurementGroups": 10,
+              "samplesEach": 5,
+              "summaryCompletedActivatedCleanupConfirmed": true,
+              "summaryFullPayloadReads": 0,
+              "summarySQLWrites": 0,
+              "exactHistoryPagination": true,
+              "reopenedWithoutProviderReplay": true,
+              "cleanupAllConfirmed": true,
+              "absoluteTimingGate": false,
+              "latencyEvidence": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-24.x-attempt-1/benchmark.json",
+              "tokens": null,
+              "billedCost": null
+            },
+            "actualWholePositiveProof": [
+              "native uncertain cleanup retained despite close resolving",
+              "real PTY input/resize/normalexit",
+              "real PTY cancel+service-close groupabsence",
+              "actual supervisor IPC disconnect cleanup"
+            ],
+            "ptyPreflightIsAvailabilityOnly": true
+          },
+          {
+            "node": "v26.11.1",
+            "platform": "linux/x64",
+            "lane": "Ubuntu24.04 POSIX-full",
+            "job": {
+              "id": 113529117254,
+              "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036/job/113529117254",
+              "conclusion": "success"
+            },
+            "artifact": {
+              "id": 11577612885,
+              "name": "engine-ubuntu-24.04-node-26.x-attempt-1",
+              "rawZip": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-26.x-attempt-1.zip",
+              "zipBytes": 825734,
+              "zipSha256": "7ca4703f31a4bb56b92185212ab01234e03116263bb27d17cb21171c062a7ebf",
+              "serverDigest": "sha256:7ca4703f31a4bb56b92185212ab01234e03116263bb27d17cb21171c062a7ebf",
+              "digestMatch": true,
+              "directory": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-26.x-attempt-1"
+            },
+            "all13RecordedStepsPassed": true,
+            "whole": {
+              "tests": 4723,
+              "pass": 4661,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 62,
+              "todo": 0
+            },
+            "mediaLocal": {
+              "tests": 26,
+              "pass": 26,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0,
+              "todo": 0
+            },
+            "hardeningCLI": {
+              "tests": 4,
+              "pass": 4,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0,
+              "todo": 0
+            },
+            "skipGroups": {
+              "Darwin-only restricted code-mode: unsupported on this Linux lane": 29,
+              "Darwin-only OS sandbox and resident inheritance: unsupported on this Linux lane": 28,
+              "macOS-only PTY job-group behavior: unsupported on this Linux lane": 3,
+              "Windows-only native process-tree backend: not available/verified here": 2
+            },
+            "sourceRuntime": {
+              "runtime": "compiled",
+              "beforeAfterStable": true,
+              "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+              "inventoryFiles": 735,
+              "matchesLocalRuntimeSha256": true,
+              "root932IntersectionFiles": 368,
+              "root932Mismatch": 0,
+              "outside932PinnedByOwnInventory": {
+                "compiled-runtime": 365,
+                "package-manifest": 2
+              }
+            },
+            "evaluation": {
+              "tasksPassed": 3,
+              "nativeVerificationAndToolPartsPassed": true,
+              "actualGitCommits": [
+                "fb3758d4eebd2161e181557b4e431eda043b058e",
+                "b8aa0535f451437a2b05c149954518d82854ade3",
+                "0e0b812618cef89bc578d032e659c6820a4a2c64"
+              ],
+              "duplicateNoSecondCommit": true,
+              "stagedChangesPreserved": true,
+              "noProviderReplayOnReopen": true,
+              "allNativeRuntimeActiveCleanupConfirmedBeforeTemporaryRemoval": true,
+              "scriptedNotModelQuality": true,
+              "accountVerified": false,
+              "tokens": null,
+              "billedCost": null
+            },
+            "resilience": {
+              "profile": "quick",
+              "iterationsPassed": 3,
+              "summary": {
+                "completed": 3,
+                "failed": 0,
+                "providerCalls": 5,
+                "processLaunches": 3,
+                "unknownOutcomes": 2,
+                "cleanupFailures": 0,
+                "durationMs": 1382
+              },
+              "scenarios": [
+                {
+                  "scenario": "complete",
+                  "sourceRunState": "completed",
+                  "nativeJobState": "completed",
+                  "completionPresent": true,
+                  "pendingInputState": "promoted",
+                  "resumeOutcome": "resumed",
+                  "reopenedProviderCalls": 0,
+                  "physicalGroupAbsent": true,
+                  "noCommandReplay": true
+                },
+                {
+                  "scenario": "cancel",
+                  "sourceRunState": "cancelled",
+                  "nativeJobState": "uncertain",
+                  "completionPresent": true,
+                  "pendingInputState": "pending",
+                  "resumeOutcome": "cleanup-pending",
+                  "reopenedProviderCalls": 0,
+                  "physicalGroupAbsent": true,
+                  "noCommandReplay": true
+                },
+                {
+                  "scenario": "root-sigkill",
+                  "sourceRunState": "interrupted",
+                  "nativeJobState": "uncertain",
+                  "completionPresent": false,
+                  "pendingInputState": "pending",
+                  "resumeOutcome": "cleanup-pending",
+                  "reopenedProviderCalls": 0,
+                  "physicalGroupAbsent": true,
+                  "noCommandReplay": true
+                }
+              ],
+              "uncertaintyNeverPromotedToKnownSuccess": true,
+              "entryPinsMatchActual735Inventory": true
+            },
+            "benchmark": {
+              "profile": "quick",
+              "inputRuns": 24,
+              "persistedMessages": 48,
+              "actualRuns": 31,
+              "messageUtf8Bytes": 256,
+              "measurementGroups": 10,
+              "samplesEach": 5,
+              "summaryCompletedActivatedCleanupConfirmed": true,
+              "summaryFullPayloadReads": 0,
+              "summarySQLWrites": 0,
+              "exactHistoryPagination": true,
+              "reopenedWithoutProviderReplay": true,
+              "cleanupAllConfirmed": true,
+              "absoluteTimingGate": false,
+              "latencyEvidence": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-26.x-attempt-1/benchmark.json",
+              "tokens": null,
+              "billedCost": null
+            },
+            "actualWholePositiveProof": [
+              "native uncertain cleanup retained despite close resolving",
+              "real PTY input/resize/normalexit",
+              "real PTY cancel+service-close groupabsence",
+              "actual supervisor IPC disconnect cleanup"
+            ],
+            "ptyPreflightIsAvailabilityOnly": true
+          }
+        ]
+      }
+    },
+    {
+      "lane": "windows",
+      "originalPath": "/tmp/moodcode-hardening-hosted-windows/windows-portable-audit.json",
+      "originalSha256": "404e7b93855550ec8a0d547e30658aba061aefd5208879b9fb5b50f532dd981e",
+      "report": {
+        "schemaVersion": 1,
+        "kind": "engine-hardening-hosted-windows-portable-audit",
+        "auditedAtUTC": "2026-10-08T20:42:52.187524+00:00",
+        "passed": true,
+        "scope": "Only two actual Windows portable hosted jobs; no credit from local runs or unaudited POSIX jobs.",
+        "run": {
+          "conclusion": null,
+          "created_at": "2026-10-08T20:36:39Z",
+          "event": "push",
+          "head_branch": "main",
+          "head_sha": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+          "html_url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036",
+          "id": 37840729036,
+          "name": "Engine headless",
+          "run_attempt": 1,
+          "status": "in_progress",
+          "updated_at": "2026-10-08T20:36:52Z"
+        },
+        "headSha": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+        "runAttempt": 1,
+        "polling": "Initial completed Node24/in-progress Node26 observed; second job status read after at least 45 seconds confirmed both terminal success.",
+        "lanes": [
+          {
+            "jobId": 113529116930,
+            "jobName": "Portable contracts/storage only / Windows / Node 24.x",
+            "actualNode": "v24.21.0",
+            "platform": "win32",
+            "architecture": "x64",
+            "status": "completed",
+            "conclusion": "success",
+            "startedAtUTC": "2026-10-08T20:36:42Z",
+            "completedAtUTC": "2026-10-08T20:37:55Z",
+            "sourceCommit": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+            "install": "success",
+            "headlessProjects": [
+              "packages/contracts",
+              "packages/engine",
+              "apps/engine-harness"
+            ],
+            "typecheckExit": 0,
+            "buildExit": 0,
+            "portableCounts": {
+              "tests": 152,
+              "suites": 0,
+              "pass": 151,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 1,
+              "todo": 0
+            },
+            "skip": {
+              "name": "actual Windows Job Object child-tree timeout and parent-crash verification",
+              "reason": "No native Windows Job Object binding is installed; portable port tests are not OS verification."
+            },
+            "launcherUnitCounts": {
+              "tests": 4,
+              "suites": 0,
+              "pass": 4,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0,
+              "todo": 0
+            },
+            "launcherUnitNames": [
+              "headless compiler scope contains no desktop project and no GUI launcher",
+              "report acceptance rejects false success, source drift, live claims and incomplete scenario coverage",
+              "standalone verification scripts trigger both path filters and POSIX checks follow build with LF or CRLF checkout",
+              "Windows selection includes contracts and selected SQLite/port fixtures without POSIX process authority tests"
+            ],
+            "executedOperations": [
+              "prepare-pty",
+              "typecheck",
+              "build",
+              "test-windows"
+            ],
+            "jobObjectAvailable": false,
+            "jobObjectActualVerification": false,
+            "actualPtyVerified": false,
+            "windowsFullEngineVerified": false,
+            "liveProviderRequests": false,
+            "guiLaunch": false,
+            "artifact": {
+              "id": 11577731489,
+              "name": "engine-windows-portable-node-24.x-attempt-1",
+              "zip": {
+                "path": "/tmp/moodcode-hardening-hosted-windows/11577731489-node24-attempt1.zip",
+                "bytes": 17646,
+                "sha256": "5723e7788f764a1e857aac7d1b40a627f356952de5737ff87fe27aee5779cf7b"
+              },
+              "advertisedDigest": "sha256:5723e7788f764a1e857aac7d1b40a627f356952de5737ff87fe27aee5779cf7b",
+              "digestMatch": true,
+              "files": 17
+            },
+            "jobLog": {
+              "path": "/tmp/moodcode-hardening-hosted-windows/node24-job.log",
+              "bytes": 56099,
+              "sha256": "c3e8a7d7a915bbe63bb1c2a424fbc80814dc0af05642c56a9ec2d85a3387f136"
+            },
+            "sourceQualification": "Exact GitHub head/attempt and hosted artifact environment. No claim of byte-identical LF checkout, compiled/source whole freeze, Node binary or dependency attestation."
+          },
+          {
+            "jobId": 113529117090,
+            "jobName": "Portable contracts/storage only / Windows / Node 26.x",
+            "actualNode": "v26.11.1",
+            "platform": "win32",
+            "architecture": "x64",
+            "status": "completed",
+            "conclusion": "success",
+            "startedAtUTC": "2026-10-08T20:36:42Z",
+            "completedAtUTC": "2026-10-08T20:38:10Z",
+            "sourceCommit": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+            "install": "success",
+            "headlessProjects": [
+              "packages/contracts",
+              "packages/engine",
+              "apps/engine-harness"
+            ],
+            "typecheckExit": 0,
+            "buildExit": 0,
+            "portableCounts": {
+              "tests": 152,
+              "suites": 0,
+              "pass": 151,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 1,
+              "todo": 0
+            },
+            "skip": {
+              "name": "actual Windows Job Object child-tree timeout and parent-crash verification",
+              "reason": "No native Windows Job Object binding is installed; portable port tests are not OS verification."
+            },
+            "launcherUnitCounts": {
+              "tests": 4,
+              "suites": 0,
+              "pass": 4,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0,
+              "todo": 0
+            },
+            "launcherUnitNames": [
+              "headless compiler scope contains no desktop project and no GUI launcher",
+              "report acceptance rejects false success, source drift, live claims and incomplete scenario coverage",
+              "standalone verification scripts trigger both path filters and POSIX checks follow build with LF or CRLF checkout",
+              "Windows selection includes contracts and selected SQLite/port fixtures without POSIX process authority tests"
+            ],
+            "executedOperations": [
+              "prepare-pty",
+              "typecheck",
+              "build",
+              "test-windows"
+            ],
+            "jobObjectAvailable": false,
+            "jobObjectActualVerification": false,
+            "actualPtyVerified": false,
+            "windowsFullEngineVerified": false,
+            "liveProviderRequests": false,
+            "guiLaunch": false,
+            "artifact": {
+              "id": 11577776181,
+              "name": "engine-windows-portable-node-26.x-attempt-1",
+              "zip": {
+                "path": "/tmp/moodcode-hardening-hosted-windows/11577776181-node26-attempt1.zip",
+                "bytes": 17688,
+                "sha256": "22bf8925282f4825deeae42211deae075b8d55cf2b8b0c747a417d56bd8582df"
+              },
+              "advertisedDigest": "sha256:22bf8925282f4825deeae42211deae075b8d55cf2b8b0c747a417d56bd8582df",
+              "digestMatch": true,
+              "files": 17
+            },
+            "jobLog": {
+              "path": "/tmp/moodcode-hardening-hosted-windows/node26-job.log",
+              "bytes": 56265,
+              "sha256": "69af6ec1f68e4d57628bdf724362b2c81d0c1fd4aa38c8d566af713bfb42a0af"
+            },
+            "sourceQualification": "Exact GitHub head/attempt and hosted artifact environment. No claim of byte-identical LF checkout, compiled/source whole freeze, Node binary or dependency attestation."
+          }
+        ],
+        "artifactDigestMatches": 2,
+        "fileManifest": {
+          "path": "/tmp/moodcode-hardening-hosted-windows/artifact-files-sha256.json",
+          "bytes": 7851,
+          "sha256": "c2f6163200ce29a47bb50fc04e24cf37191418e811335f67d9c71a257a8dc19b"
+        },
+        "findings": [],
+        "notVerified": [
+          "Windows full Engine suite",
+          "native Windows Job Object assignment/child tree/parent crash",
+          "actual Windows PTY",
+          "resilience/soak on Windows",
+          "coding evaluation or benchmark on Windows",
+          "media/account/GUI/live model calls",
+          "POSIX lanes or overall run acceptance"
+        ],
+        "remoteMutations": 0,
+        "sourceDocumentEdits": 0,
+        "localTestBuildCalls": 0,
+        "accountCredentialAccess": 0
+      }
+    }
+  ]
+}

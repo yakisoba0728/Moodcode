@@ -1,0 +1,1238 @@
+{
+  "schemaVersion": 1,
+  "kind": "engine-hardening-root-hosted-acceptance",
+  "observedAt": "2026-10-08T20:52:38.586020+00:00",
+  "passed": true,
+  "run": {
+    "databaseId": 37840729036,
+    "headSha": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036",
+    "createdAt": "2026-10-08T20:36:39Z",
+    "updatedAt": "2026-10-08T20:46:54Z"
+  },
+  "jobs": [
+    {
+      "name": "Portable contracts/storage only / Windows / Node 24.x",
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036/job/113529116930"
+    },
+    {
+      "name": "Portable contracts/storage only / Windows / Node 26.x",
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036/job/113529117090"
+    },
+    {
+      "name": "Headless macos-15 / Node 26.x",
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036/job/113529117116"
+    },
+    {
+      "name": "Headless ubuntu-24.04 / Node 24.x",
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036/job/113529117227"
+    },
+    {
+      "name": "Headless macos-15 / Node 24.x",
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036/job/113529117229"
+    },
+    {
+      "name": "Headless ubuntu-24.04 / Node 26.x",
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036/job/113529117254"
+    }
+  ],
+  "sourceFreezeSnapshotSha256": "dc935f6c01a8173b34ee52b2f43b5c9ad451b6114d5882775710a8a80b996976",
+  "rootAcceptedReports": 12,
+  "sourceRuntimeInventoryMatchesLocal": 8,
+  "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+  "originalArtifactVerification": [
+    {
+      "id": 11577523572,
+      "name": "engine-macos-15-node-26.x-attempt-1",
+      "serverDigest": "sha256:706dc612481f4007f39ee1c3813a425281505121970dd84c44118ca4a2a2180a",
+      "actualZipSha256": "706dc612481f4007f39ee1c3813a425281505121970dd84c44118ca4a2a2180a",
+      "zipBytes": 819833,
+      "extractedFiles": 35,
+      "allExtractedBytesMatch": true
+    },
+    {
+      "id": 11577483408,
+      "name": "engine-macos-15-node-24.x-attempt-1",
+      "serverDigest": "sha256:d733f977e50b39957c6c8f031e2f90dfa251db04520c02068d9693050ca2df6a",
+      "actualZipSha256": "d733f977e50b39957c6c8f031e2f90dfa251db04520c02068d9693050ca2df6a",
+      "zipBytes": 818923,
+      "extractedFiles": 35,
+      "allExtractedBytesMatch": true
+    },
+    {
+      "id": 11578415611,
+      "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+      "serverDigest": "sha256:21e2544e21e3b9b071cb825b439fff0e3b3142417c08f36da62b3c8b891ae568",
+      "actualZipSha256": "21e2544e21e3b9b071cb825b439fff0e3b3142417c08f36da62b3c8b891ae568",
+      "zipBytes": 825440,
+      "extractedFiles": 35,
+      "allExtractedBytesMatch": true
+    },
+    {
+      "id": 11577612885,
+      "name": "engine-ubuntu-24.04-node-26.x-attempt-1",
+      "serverDigest": "sha256:7ca4703f31a4bb56b92185212ab01234e03116263bb27d17cb21171c062a7ebf",
+      "actualZipSha256": "7ca4703f31a4bb56b92185212ab01234e03116263bb27d17cb21171c062a7ebf",
+      "zipBytes": 825734,
+      "extractedFiles": 35,
+      "allExtractedBytesMatch": true
+    },
+    {
+      "id": 11577776181,
+      "name": "engine-windows-portable-node-26.x-attempt-1",
+      "serverDigest": "sha256:22bf8925282f4825deeae42211deae075b8d55cf2b8b0c747a417d56bd8582df",
+      "actualZipSha256": "22bf8925282f4825deeae42211deae075b8d55cf2b8b0c747a417d56bd8582df",
+      "zipBytes": 17688,
+      "extractedFiles": 17,
+      "allExtractedBytesMatch": true
+    },
+    {
+      "id": 11577731489,
+      "name": "engine-windows-portable-node-24.x-attempt-1",
+      "serverDigest": "sha256:5723e7788f764a1e857aac7d1b40a627f356952de5737ff87fe27aee5779cf7b",
+      "actualZipSha256": "5723e7788f764a1e857aac7d1b40a627f356952de5737ff87fe27aee5779cf7b",
+      "zipBytes": 17646,
+      "extractedFiles": 17,
+      "allExtractedBytesMatch": true
+    }
+  ],
+  "rootComparedExtractedFiles": 174,
+  "lanes": [
+    {
+      "platform": "darwin",
+      "architecture": "arm64",
+      "node": "v24.20.0",
+      "lane": "posix-full",
+      "commit": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+      "installOutcome": "success",
+      "jobStatus": "success",
+      "windowsFullEngineVerified": false,
+      "guiLaunch": false,
+      "liveProviderRequests": false,
+      "actualTests": {
+        "tests": 4723,
+        "pass": 4721,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 2,
+        "todo": 0,
+        "duration_ms": 407671.842167
+      },
+      "executedSteps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "pty-native-module",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-media-local",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-hardening-cli",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark-report",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "resultEvidence": {
+        "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact/results.json",
+        "bytes": 5074,
+        "sha256": "ab14ded22244822db9612ccfa8357fc4ddbf3bf471a80e09e91cf8cb18b3e036"
+      },
+      "testEvidence": {
+        "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact/test.log",
+        "bytes": 605624,
+        "sha256": "b88f98562719048c6a6faf3466074fdc697c6e0f925aeccb2f51856b442edd97"
+      },
+      "mediaLocal": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 10646.828625
+      },
+      "resilienceCli": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 91.801875
+      },
+      "codingEvaluation": {
+        "passed": true,
+        "summary": {
+          "attempted": 3,
+          "successful": 3,
+          "failed": 0,
+          "successRate": 1,
+          "denominator": "authored deterministic tasks; not model-quality samples"
+        },
+        "allNativeChecks": true,
+        "actualApprovedCommits": [
+          {
+            "requested": true,
+            "state": "committed",
+            "sha": "4935c1d2581f18b6d65e51d92672afc3267687b1",
+            "previewSha256": "46e43ea90deac68312689a5118f6bb73d035e0c8b12bb235e6d770da514e6349",
+            "duplicateNoSecondCommit": true
+          },
+          {
+            "requested": true,
+            "state": "committed",
+            "sha": "27d0762800382dcfe6aaa75b8f79cc9bbdcf6f2c",
+            "previewSha256": "4b0b55d10fd497559d6efe82b2d0f2d1a91daeb390881b3e2b3072a6ae879bb0",
+            "duplicateNoSecondCommit": true
+          },
+          {
+            "requested": true,
+            "state": "committed",
+            "sha": "83ec73e97626c894644af4a8262462b66079f007",
+            "previewSha256": "acef913230d79aaac58476d0fef3be1dfab250a34ba7f8cac497a8b26a481620",
+            "duplicateNoSecondCommit": true
+          }
+        ],
+        "sourceRuntimeStable": true,
+        "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+        "sourceRuntimeFiles": 735
+      },
+      "resilience": {
+        "passed": true,
+        "iterations": 3,
+        "summary": {
+          "completed": 3,
+          "failed": 0,
+          "providerCalls": 5,
+          "processLaunches": 3,
+          "unknownOutcomes": 2,
+          "cleanupFailures": 0,
+          "durationMs": 1520
+        },
+        "allNoReplay": true,
+        "scenarios": [
+          "complete",
+          "cancel",
+          "root-sigkill"
+        ]
+      },
+      "benchmark": {
+        "passed": true,
+        "parameters": {
+          "runs": 24,
+          "messageBytes": 256,
+          "samples": 5,
+          "warmup": 1,
+          "runtime": "compiled",
+          "profile": "quick",
+          "seed": 20261009
+        },
+        "actualRuns": 31,
+        "historyPaginationExact": true,
+        "reopenedWithoutProviderReplay": true,
+        "measurementGroups": [
+          "history",
+          "modelHistory",
+          "contextRun",
+          "contextObservation",
+          "metrics",
+          "eventReplay",
+          "summaryUsage",
+          "summaryAttempt",
+          "summaryList",
+          "storageInspection"
+        ],
+        "summary": {
+          "durationMs": 32.184,
+          "measuredActivations": 1,
+          "attemptId": "7d861fb2-e407-43a5-983c-4d0efb88e04d",
+          "state": "completed",
+          "publication": "activated",
+          "cleanupConfirmed": true,
+          "requestBytes": 24345,
+          "sourceMessages": 60,
+          "observedOutputBytes": 113,
+          "retainedTextBytes": 113,
+          "fixtureContextWindowTokens": 1536,
+          "readUsageSql": {
+            "returnedSqlBytes": 7569,
+            "queries": 9,
+            "summaryFullPayloadReads": 0,
+            "summaryTextBytesReturned": 0,
+            "writeStatements": 0,
+            "elapsedMs": 0.6636670000000322
+          },
+          "sqlAccounting": "SQL values returned to JavaScript; not physical I/O",
+          "usage": null
+        },
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 3485894,
+          "failure": null
+        },
+        "sourceRuntimeStable": true,
+        "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+        "absoluteTimingGate": false
+      },
+      "nativeReportEvidence": [
+        {
+          "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact/evaluation.json",
+          "bytes": 305009,
+          "sha256": "6941d9ad7a28341de5d7380b95f9334ae7445cb57410abb78b2b53040c2905d4"
+        },
+        {
+          "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact/resilience.json",
+          "bytes": 21562,
+          "sha256": "676b41ab3b9e058df447fe8b1f6a66ee7cc9b16cabc75d4793d30d6872774ff3"
+        },
+        {
+          "path": "/tmp/moodcode-hardening-hosted-macos/node24-artifact/benchmark.json",
+          "bytes": 306194,
+          "sha256": "491c8f9e40cd750d956a66dfd685f42a6d17b41dbeda01b20f1a8451f2fe408b"
+        }
+      ]
+    },
+    {
+      "platform": "darwin",
+      "architecture": "arm64",
+      "node": "v26.11.1",
+      "lane": "posix-full",
+      "commit": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+      "installOutcome": "success",
+      "jobStatus": "success",
+      "windowsFullEngineVerified": false,
+      "guiLaunch": false,
+      "liveProviderRequests": false,
+      "actualTests": {
+        "tests": 4723,
+        "pass": 4721,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 2,
+        "todo": 0,
+        "duration_ms": 527586.207791
+      },
+      "executedSteps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "pty-native-module",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-media-local",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-hardening-cli",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark-report",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "resultEvidence": {
+        "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact/results.json",
+        "bytes": 5073,
+        "sha256": "3ce63d405458c89f38a2c0587e53ca00335a68f1b7e1ade0f08971bff5052745"
+      },
+      "testEvidence": {
+        "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact/test.log",
+        "bytes": 606004,
+        "sha256": "f992e53a3afb52b6596a88f1b0b94d24f898165b79c565ad4347b63657784c11"
+      },
+      "mediaLocal": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 12511.131166
+      },
+      "resilienceCli": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 111.624
+      },
+      "codingEvaluation": {
+        "passed": true,
+        "summary": {
+          "attempted": 3,
+          "successful": 3,
+          "failed": 0,
+          "successRate": 1,
+          "denominator": "authored deterministic tasks; not model-quality samples"
+        },
+        "allNativeChecks": true,
+        "actualApprovedCommits": [
+          {
+            "requested": true,
+            "state": "committed",
+            "sha": "4046e799c9e91e06be0f6e63bf57d234faf5c872",
+            "previewSha256": "59c4bb50d6ed32de36cf642525941f81d368d3778491d7f992813b5a9b409843",
+            "duplicateNoSecondCommit": true
+          },
+          {
+            "requested": true,
+            "state": "committed",
+            "sha": "22d0447639bb7acf8b9061eebba6c44d0b1f6034",
+            "previewSha256": "07df957bae483b3e78a6b9ea9c2b8ee2de2408d92af0c9e01e32804bec1fa39d",
+            "duplicateNoSecondCommit": true
+          },
+          {
+            "requested": true,
+            "state": "committed",
+            "sha": "5a26662ca54e2434b96e0c59455afd3a04adb762",
+            "previewSha256": "36a1f8f3ecbfd786f47a0f0716ff856bada4803616dfb9c306d616ebe96ee22f",
+            "duplicateNoSecondCommit": true
+          }
+        ],
+        "sourceRuntimeStable": true,
+        "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+        "sourceRuntimeFiles": 735
+      },
+      "resilience": {
+        "passed": true,
+        "iterations": 3,
+        "summary": {
+          "completed": 3,
+          "failed": 0,
+          "providerCalls": 5,
+          "processLaunches": 3,
+          "unknownOutcomes": 2,
+          "cleanupFailures": 0,
+          "durationMs": 1634
+        },
+        "allNoReplay": true,
+        "scenarios": [
+          "complete",
+          "cancel",
+          "root-sigkill"
+        ]
+      },
+      "benchmark": {
+        "passed": true,
+        "parameters": {
+          "runs": 24,
+          "messageBytes": 256,
+          "samples": 5,
+          "warmup": 1,
+          "runtime": "compiled",
+          "profile": "quick",
+          "seed": 20261009
+        },
+        "actualRuns": 31,
+        "historyPaginationExact": true,
+        "reopenedWithoutProviderReplay": true,
+        "measurementGroups": [
+          "history",
+          "modelHistory",
+          "contextRun",
+          "contextObservation",
+          "metrics",
+          "eventReplay",
+          "summaryUsage",
+          "summaryAttempt",
+          "summaryList",
+          "storageInspection"
+        ],
+        "summary": {
+          "durationMs": 48.867,
+          "measuredActivations": 1,
+          "attemptId": "bc2f3385-d98f-48b5-8e10-3c45210dd745",
+          "state": "completed",
+          "publication": "activated",
+          "cleanupConfirmed": true,
+          "requestBytes": 24345,
+          "sourceMessages": 60,
+          "observedOutputBytes": 113,
+          "retainedTextBytes": 113,
+          "fixtureContextWindowTokens": 1536,
+          "readUsageSql": {
+            "returnedSqlBytes": 7569,
+            "queries": 9,
+            "summaryFullPayloadReads": 0,
+            "summaryTextBytesReturned": 0,
+            "writeStatements": 0,
+            "elapsedMs": 0.674083000000337
+          },
+          "sqlAccounting": "SQL values returned to JavaScript; not physical I/O",
+          "usage": null
+        },
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 3485894,
+          "failure": null
+        },
+        "sourceRuntimeStable": true,
+        "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+        "absoluteTimingGate": false
+      },
+      "nativeReportEvidence": [
+        {
+          "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact/evaluation.json",
+          "bytes": 305011,
+          "sha256": "94fc3190b63d8890aea73c2930cb4f2778a6ac958dce99cfcbb553fda1fb0d0f"
+        },
+        {
+          "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact/resilience.json",
+          "bytes": 21562,
+          "sha256": "3a8a7dc7d5e263132d63187f6dca94d3f3bb2b419f3aded3d927db05b9afc3fd"
+        },
+        {
+          "path": "/tmp/moodcode-hardening-hosted-macos/node26-artifact/benchmark.json",
+          "bytes": 306191,
+          "sha256": "e775150ed5cb06426d91b24869c6d09cbd7ba9708855cd95f0757c7d4f24c424"
+        }
+      ]
+    },
+    {
+      "platform": "linux",
+      "architecture": "x64",
+      "node": "v24.21.0",
+      "lane": "posix-full",
+      "commit": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+      "installOutcome": "success",
+      "jobStatus": "success",
+      "windowsFullEngineVerified": false,
+      "guiLaunch": false,
+      "liveProviderRequests": false,
+      "actualTests": {
+        "tests": 4723,
+        "pass": 4661,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 62,
+        "todo": 0,
+        "duration_ms": 354550.257155
+      },
+      "executedSteps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "pty-native-module",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-media-local",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-hardening-cli",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark-report",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "resultEvidence": {
+        "path": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-24.x-attempt-1/results.json",
+        "bytes": 4961,
+        "sha256": "ef093f87053f9a062528d7d9187ea87e4084cc7521b8442b71ae93d157f33393"
+      },
+      "testEvidence": {
+        "path": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-24.x-attempt-1/test.log",
+        "bytes": 605869,
+        "sha256": "7491aec2b89f41ea5edc6798083e2e713f9042908e7c531f4867e74f95ca9a19"
+      },
+      "mediaLocal": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 11933.331413
+      },
+      "resilienceCli": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 108.522948
+      },
+      "codingEvaluation": {
+        "passed": true,
+        "summary": {
+          "attempted": 3,
+          "successful": 3,
+          "failed": 0,
+          "successRate": 1,
+          "denominator": "authored deterministic tasks; not model-quality samples"
+        },
+        "allNativeChecks": true,
+        "actualApprovedCommits": [
+          {
+            "requested": true,
+            "state": "committed",
+            "sha": "9edb688b1413b0acfe9a211033637956ddfcb4d5",
+            "previewSha256": "578bb62ec77da20d57464c3ea50e2d9717405143978e8562218962e5d8ae4107",
+            "duplicateNoSecondCommit": true
+          },
+          {
+            "requested": true,
+            "state": "committed",
+            "sha": "b9ef25efcfcf3c591f9741473e75e2e15603d93d",
+            "previewSha256": "46872ee57c9f497b0e46d2b8f9592005cf71ab88406dc5d02c91f6b9606ba505",
+            "duplicateNoSecondCommit": true
+          },
+          {
+            "requested": true,
+            "state": "committed",
+            "sha": "fc37e278195828a391f67f4b95817d6e542e42d1",
+            "previewSha256": "ddb9b91d7a2ac921e37b4715c63c7cb3b3c64dce3e9f2df64faf4d6f22ddf889",
+            "duplicateNoSecondCommit": true
+          }
+        ],
+        "sourceRuntimeStable": true,
+        "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+        "sourceRuntimeFiles": 735
+      },
+      "resilience": {
+        "passed": true,
+        "iterations": 3,
+        "summary": {
+          "completed": 3,
+          "failed": 0,
+          "providerCalls": 5,
+          "processLaunches": 3,
+          "unknownOutcomes": 2,
+          "cleanupFailures": 0,
+          "durationMs": 1232
+        },
+        "allNoReplay": true,
+        "scenarios": [
+          "complete",
+          "cancel",
+          "root-sigkill"
+        ]
+      },
+      "benchmark": {
+        "passed": true,
+        "parameters": {
+          "runs": 24,
+          "messageBytes": 256,
+          "samples": 5,
+          "warmup": 1,
+          "runtime": "compiled",
+          "profile": "quick",
+          "seed": 20261009
+        },
+        "actualRuns": 31,
+        "historyPaginationExact": true,
+        "reopenedWithoutProviderReplay": true,
+        "measurementGroups": [
+          "history",
+          "modelHistory",
+          "contextRun",
+          "contextObservation",
+          "metrics",
+          "eventReplay",
+          "summaryUsage",
+          "summaryAttempt",
+          "summaryList",
+          "storageInspection"
+        ],
+        "summary": {
+          "durationMs": 40.833,
+          "measuredActivations": 1,
+          "attemptId": "43cbaa79-eefc-4e0d-99d3-b79920f4a46b",
+          "state": "completed",
+          "publication": "activated",
+          "cleanupConfirmed": true,
+          "requestBytes": 24345,
+          "sourceMessages": 60,
+          "observedOutputBytes": 113,
+          "retainedTextBytes": 113,
+          "fixtureContextWindowTokens": 1536,
+          "readUsageSql": {
+            "returnedSqlBytes": 7569,
+            "queries": 9,
+            "summaryFullPayloadReads": 0,
+            "summaryTextBytesReturned": 0,
+            "writeStatements": 0,
+            "elapsedMs": 1.106958000000077
+          },
+          "sqlAccounting": "SQL values returned to JavaScript; not physical I/O",
+          "usage": null
+        },
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 3485849,
+          "failure": null
+        },
+        "sourceRuntimeStable": true,
+        "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+        "absoluteTimingGate": false
+      },
+      "nativeReportEvidence": [
+        {
+          "path": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-24.x-attempt-1/evaluation.json",
+          "bytes": 305018,
+          "sha256": "004aa3b9e798d0debb8e68384d74dbc46f01fa1e2f3c8cc84b53893da17cfebb"
+        },
+        {
+          "path": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-24.x-attempt-1/resilience.json",
+          "bytes": 21559,
+          "sha256": "bf0e8d8efc2247e61b71a77681e4b2ba0b5dc7145978e911dbf1f4713f4451cd"
+        },
+        {
+          "path": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-24.x-attempt-1/benchmark.json",
+          "bytes": 306183,
+          "sha256": "0e21d392c85f029daf2e1248a1e5cd9a06c96302893fb4d27616aa4b40eda06f"
+        }
+      ]
+    },
+    {
+      "platform": "linux",
+      "architecture": "x64",
+      "node": "v26.11.1",
+      "lane": "posix-full",
+      "commit": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+      "installOutcome": "success",
+      "jobStatus": "success",
+      "windowsFullEngineVerified": false,
+      "guiLaunch": false,
+      "liveProviderRequests": false,
+      "actualTests": {
+        "tests": 4723,
+        "pass": 4661,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 62,
+        "todo": 0,
+        "duration_ms": 377505.99147
+      },
+      "executedSteps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "pty-native-module",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-media-local",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-hardening-cli",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark-report",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "resultEvidence": {
+        "path": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-26.x-attempt-1/results.json",
+        "bytes": 4960,
+        "sha256": "9814a93c2b359933d407f1111b806025e11cb9a1497b16be12b8efa24c0f2f39"
+      },
+      "testEvidence": {
+        "path": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-26.x-attempt-1/test.log",
+        "bytes": 606023,
+        "sha256": "ed8fff465e3ac96f846ed762d32280a1b7989663b49050ea3c847b44e4473e26"
+      },
+      "mediaLocal": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 7778.161346
+      },
+      "resilienceCli": {
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 87.92966
+      },
+      "codingEvaluation": {
+        "passed": true,
+        "summary": {
+          "attempted": 3,
+          "successful": 3,
+          "failed": 0,
+          "successRate": 1,
+          "denominator": "authored deterministic tasks; not model-quality samples"
+        },
+        "allNativeChecks": true,
+        "actualApprovedCommits": [
+          {
+            "requested": true,
+            "state": "committed",
+            "sha": "fb3758d4eebd2161e181557b4e431eda043b058e",
+            "previewSha256": "dd1f62249c006f39c9f8ff9bec44b4eec9b8bee170eb287cbd5f2e6062619c37",
+            "duplicateNoSecondCommit": true
+          },
+          {
+            "requested": true,
+            "state": "committed",
+            "sha": "b8aa0535f451437a2b05c149954518d82854ade3",
+            "previewSha256": "4571f10212632d9575b10af1d49bfd9fd4e44e3cc1640d8e857ae4f12ed589c1",
+            "duplicateNoSecondCommit": true
+          },
+          {
+            "requested": true,
+            "state": "committed",
+            "sha": "0e0b812618cef89bc578d032e659c6820a4a2c64",
+            "previewSha256": "68580c9baa11bcc18aa519858239a1f5869ab4c41d7e7adcc59e10b49ffe0187",
+            "duplicateNoSecondCommit": true
+          }
+        ],
+        "sourceRuntimeStable": true,
+        "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+        "sourceRuntimeFiles": 735
+      },
+      "resilience": {
+        "passed": true,
+        "iterations": 3,
+        "summary": {
+          "completed": 3,
+          "failed": 0,
+          "providerCalls": 5,
+          "processLaunches": 3,
+          "unknownOutcomes": 2,
+          "cleanupFailures": 0,
+          "durationMs": 1382
+        },
+        "allNoReplay": true,
+        "scenarios": [
+          "complete",
+          "cancel",
+          "root-sigkill"
+        ]
+      },
+      "benchmark": {
+        "passed": true,
+        "parameters": {
+          "runs": 24,
+          "messageBytes": 256,
+          "samples": 5,
+          "warmup": 1,
+          "runtime": "compiled",
+          "profile": "quick",
+          "seed": 20261009
+        },
+        "actualRuns": 31,
+        "historyPaginationExact": true,
+        "reopenedWithoutProviderReplay": true,
+        "measurementGroups": [
+          "history",
+          "modelHistory",
+          "contextRun",
+          "contextObservation",
+          "metrics",
+          "eventReplay",
+          "summaryUsage",
+          "summaryAttempt",
+          "summaryList",
+          "storageInspection"
+        ],
+        "summary": {
+          "durationMs": 35.66,
+          "measuredActivations": 1,
+          "attemptId": "09d6990f-296e-4606-989f-97d9df879aed",
+          "state": "completed",
+          "publication": "activated",
+          "cleanupConfirmed": true,
+          "requestBytes": 24345,
+          "sourceMessages": 60,
+          "observedOutputBytes": 113,
+          "retainedTextBytes": 113,
+          "fixtureContextWindowTokens": 1536,
+          "readUsageSql": {
+            "returnedSqlBytes": 7569,
+            "queries": 9,
+            "summaryFullPayloadReads": 0,
+            "summaryTextBytesReturned": 0,
+            "writeStatements": 0,
+            "elapsedMs": 0.8258479999999508
+          },
+          "sqlAccounting": "SQL values returned to JavaScript; not physical I/O",
+          "usage": null
+        },
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 3485849,
+          "failure": null
+        },
+        "sourceRuntimeStable": true,
+        "sourceRuntimeSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+        "absoluteTimingGate": false
+      },
+      "nativeReportEvidence": [
+        {
+          "path": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-26.x-attempt-1/evaluation.json",
+          "bytes": 305019,
+          "sha256": "c200186451b7dc29a0f30095aed717273ade0a01efd295a5a05dcf2029d04d10"
+        },
+        {
+          "path": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-26.x-attempt-1/resilience.json",
+          "bytes": 21559,
+          "sha256": "4f42ae97bbf6af9cda9e827ac0cf10a5931868897c5135bdb0f8c26b71c128d3"
+        },
+        {
+          "path": "/tmp/moodcode-hardening-hosted-linux/engine-ubuntu-24.04-node-26.x-attempt-1/benchmark.json",
+          "bytes": 306200,
+          "sha256": "81e3794ce78e8ef5e2d2f2292ee0c0167164d6230df7b37d3b01f90cefc7bdd5"
+        }
+      ]
+    },
+    {
+      "platform": "win32",
+      "architecture": "x64",
+      "node": "v24.21.0",
+      "lane": "windows-portable",
+      "commit": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+      "installOutcome": "success",
+      "jobStatus": "success",
+      "windowsFullEngineVerified": false,
+      "guiLaunch": false,
+      "liveProviderRequests": false,
+      "actualTests": {
+        "tests": 152,
+        "pass": 151,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 1,
+        "todo": 0,
+        "duration_ms": 25766.1142
+      },
+      "executedSteps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-windows",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "resultEvidence": {
+        "path": "/tmp/moodcode-hardening-hosted-windows/engine-windows-portable-node-24.x-attempt-1/results.json",
+        "bytes": 3872,
+        "sha256": "6d5d70cbb974b4bcb51b857816f2d4a4118ef3494a88fca3b51056983c541756"
+      },
+      "testEvidence": {
+        "path": "/tmp/moodcode-hardening-hosted-windows/engine-windows-portable-node-24.x-attempt-1/test-windows.log",
+        "bytes": 16343,
+        "sha256": "b5b6d4e1517e924d01bb184f8755cc140c56ffecdd638b23b6a16a1bab6b31c3"
+      },
+      "nativeJobObject": {
+        "available": false,
+        "actualVerification": false,
+        "reason": "No native Job Object binding is supplied; portable port fixtures are not OS proof."
+      },
+      "qualification": "portable contracts/storage only; no full Windows, native PTY, coding eval, media, resilience or performance execution credit"
+    },
+    {
+      "platform": "win32",
+      "architecture": "x64",
+      "node": "v26.11.1",
+      "lane": "windows-portable",
+      "commit": "9563e9779a5a63b402b0b17e66606e6abd6b936d",
+      "installOutcome": "success",
+      "jobStatus": "success",
+      "windowsFullEngineVerified": false,
+      "guiLaunch": false,
+      "liveProviderRequests": false,
+      "actualTests": {
+        "tests": 152,
+        "pass": 151,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 1,
+        "todo": 0,
+        "duration_ms": 31271.8854
+      },
+      "executedSteps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-windows",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "resultEvidence": {
+        "path": "/tmp/moodcode-hardening-hosted-windows/engine-windows-portable-node-26.x-attempt-1/results.json",
+        "bytes": 3872,
+        "sha256": "d2295367500cdb3120542e538303c663e8e21d172aebeab61f40a516f281ec47"
+      },
+      "testEvidence": {
+        "path": "/tmp/moodcode-hardening-hosted-windows/engine-windows-portable-node-26.x-attempt-1/test-windows.log",
+        "bytes": 16355,
+        "sha256": "d3d429229320e3a30cc8d74a8fbf2e1b822ff4b6f000cdd02ee640ade9f424cd"
+      },
+      "nativeJobObject": {
+        "available": false,
+        "actualVerification": false,
+        "reason": "No native Job Object binding is supplied; portable port fixtures are not OS proof."
+      },
+      "qualification": "portable contracts/storage only; no full Windows, native PTY, coding eval, media, resilience or performance execution credit"
+    }
+  ],
+  "supportLimits": [
+    "POSIX full engine on macOS15 arm64/Ubuntu24.04 x64 Node24/26; platform skips retain prior source conditions.",
+    "Windows2025 x64 Node24/26 portable selection only; native Job Object remains unavailable.",
+    "Quick authored local fixtures and informational performance; no remote model-quality or GUI verification.",
+    "Coding/runtime inventory pins engine production source/effective compiled modules, not Node binary/dependencies/whole test tree; GitHub head and Root932 provide separate attribution."
+  ]
+}
