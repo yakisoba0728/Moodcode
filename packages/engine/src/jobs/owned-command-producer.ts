@@ -1,7 +1,6 @@
 import { types } from "node:util";
 import {
   EngineError,
-  type AcceptInput,
   type InputRecord,
   type Run,
 } from "@moodcode/contracts";
@@ -23,6 +22,10 @@ import {
 import type { OwnedCommandJobHost } from "./owned-command-host.js";
 import type { OwnedCommandDeliveryRecord } from "./owned-command-delivery-records.js";
 import { describeEngineQueueTarget } from "./queue-target.js";
+import {
+  acceptedRequest,
+  isPromotedCommandRunInvalid,
+} from "./command-delivery-input.js";
 
 interface Target {
   readonly source: object;
@@ -34,17 +37,6 @@ function fail(code: string): never {
     code,
     "The original settled command delivery target or actual native input changed",
   );
-}
-function acceptedRequest(input: InputRecord): AcceptInput {
-  return {
-    sessionId: input.sessionId,
-    requestId: input.requestId,
-    prompt: input.prompt,
-    config: input.config,
-    delivery: input.delivery,
-    ...(input.attachments ? { attachments: input.attachments } : {}),
-    ...(input.documents ? { documents: input.documents } : {}),
-  };
 }
 /** Current command observations and actual queue acceptance share this Root-private producer. */
 export class EngineOwnedCommandDeliveryProducer {
@@ -274,17 +266,7 @@ export class EngineOwnedCommandDeliveryProducer {
     const input = this.engine.store.getInput(run.inputId),
       receipt = this.beforePromotion(input);
     if (!receipt) return;
-    if (
-      input.state !== "promoted" ||
-      input.runId !== run.id ||
-      run.workspaceId !== input.workspaceId ||
-      run.sessionId !== input.sessionId ||
-      run.requestId !== input.requestId ||
-      run.prompt !== input.prompt ||
-      knowledgeHash(run.config) !== knowledgeHash(receipt.target.config) ||
-      Object.hasOwn(run, "attachments") ||
-      Object.hasOwn(run, "documents")
-    )
+    if (isPromotedCommandRunInvalid(input, run, receipt))
       fail("COMMAND_JOB_INPUT_INVALID");
   }
   inputPort(): ActualOwnedCommandInputPort {
