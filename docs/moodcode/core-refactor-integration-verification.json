@@ -1,0 +1,496 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-09",
+  "status": "CORE-01/02/03/04 completed in isolated worktrees. Independent172-source/172-compiled and frozen4823-test whole headless run passed; later unused type import emits identical JS/declaration bytes. Ready for Root cherry-pick; Root integration/actual CI/Windows/native/GUI qualifications remain separate.",
+  "base": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+  "proposalSource": "72e31aeb35234555031a5c6ebf0a4b4d6646a40c",
+  "productionFreeze": {
+    "head": "bff7bdfae74d2e224ce38bf4ead603a4ed72bbeb",
+    "runtime": {
+      "node": "v26.9.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "sha256": {
+      "packages/engine/src/engine.ts": "19dd9bc931507bcc8c155ea0839dcc98576af81b309052052df666f4e4ef90d8",
+      "packages/engine/src/jobs/host-command-delivery-producer.ts": "55771539bc4a4e2740ff2290feb677089bb73a7713e4dab1a428748464011720",
+      "packages/engine/src/jobs/owned-command-producer.ts": "723242bafb9646d8a158f1a09c1104fc18eedf45ca44f6d274d616bbee03f574",
+      "packages/engine/src/jobs/command-delivery-input.ts": "b3edec20adf699f2a82afd09a9861313c54229e93dfc623444488f7de14cfd4b"
+    },
+    "stableBeforeAfter": true
+  },
+  "ownership": {
+    "branch": "codex/core-private-helper-refactor",
+    "worktree": "/Users/yakisoba0728/.codex/worktrees/core-private-helper-refactor/Moodcode",
+    "engineEditor": "engine_core",
+    "jobsEditor": "jobs_core",
+    "independentReviewer": "contract_review",
+    "mainModifiedByThisSession": false,
+    "pushed": false,
+    "goalToolsCalled": false
+  },
+  "handoff": {
+    "orderedProductionCommits": [
+      {
+        "unit": "semantic engine regressions",
+        "original": "4fc041970cd8de14866b8b3ae1cb659e7cbb797f",
+        "integrated": "017a84dc3a6d4da98d2c796ecfd99d082056391f"
+      },
+      {
+        "unit": "semantic jobs regressions",
+        "original": "a63d39c801d6fd8c99de19e76d79defbabc33f6f",
+        "integrated": "3bfcc7691a81b810cb577b7d3230f9b89335235f"
+      },
+      {
+        "unit": "CORE-01",
+        "original": "8fd36e4fbc2a2eb91c14385cb5c6a70525d4fa49",
+        "integrated": "e9b6126404ce57c914f53f3313155959c6f7c2bb"
+      },
+      {
+        "unit": "CORE-02",
+        "original": "1c93d0af75be17779c47fa72119f4ae5afa9d6d2",
+        "integrated": "da052864a9992b2da2a2b82890c3958a9bf799cf"
+      },
+      {
+        "unit": "CORE-04",
+        "original": "6b0fbb1bedfceacfbe53f8442011308b32bad344",
+        "integrated": "4e12cf662201cc6f93718f06bd2dc4ebe114803a"
+      },
+      {
+        "unit": "CORE-03",
+        "original": "e17e6eca2afd109b1d77b252cee796a5d8a90af3",
+        "integrated": "bff7bdfae74d2e224ce38bf4ead603a4ed72bbeb"
+      }
+    ],
+    "engineEvidenceOriginal": "844deebfd481fb09d4e0a0c0d1359f730fd1c9e3",
+    "jobsEvidenceOriginal": "fa45eb4617dedc618a34897101cef0be09b7b59e",
+    "evidenceIntegration": {
+      "orderedCommits": [
+        "9beadab423edd22b07fd734ab844e1ccc83898d1",
+        "1d4883193cb51257b8456a1ea1e4acc70e441c82"
+      ],
+      "finalIndependentAndIntegrationReport": "The following docs-only branch-tip commit adds this report and core-refactor-independent-review.json; its exact SHA is supplied in the handoff response."
+    },
+    "additionalAfterProduction": [
+      {
+        "unit": "engine focused evidence",
+        "original": "844deebfd481fb09d4e0a0c0d1359f730fd1c9e3",
+        "integrated": "9beadab423edd22b07fd734ab844e1ccc83898d1"
+      },
+      {
+        "unit": "jobs focused evidence",
+        "original": "fa45eb4617dedc618a34897101cef0be09b7b59e",
+        "integrated": "1d4883193cb51257b8456a1ea1e4acc70e441c82"
+      },
+      {
+        "unit": "erased type import cleanup and byte proof",
+        "original": "d1b7d79760e5a929b1877df1b8f4c8a3b7ef2e0b",
+        "integrated": "0053b1e415fd8b2ef14b162d26562e9c99c1090a"
+      }
+    ]
+  },
+  "setup": {
+    "commands": [
+      "npm ci",
+      "npm run prepare:pty"
+    ],
+    "exitCodes": [
+      0,
+      0
+    ]
+  },
+  "typecheck": {
+    "command": "npm run typecheck",
+    "exitCode": 0,
+    "sourceHead": "bff7bdfae74d2e224ce38bf4ead603a4ed72bbeb"
+  },
+  "independentValidation": [
+    {
+      "path": "/tmp/moodcode-core-refactor-integrated-source.log",
+      "sha256": "076892a376abda7d10f6fde17fbd1d7e969e70121293f49aabd90673303097eb",
+      "exitCode": 0,
+      "command": [
+        "node",
+        "--import",
+        "file:///Users/yakisoba0728/.codex/worktrees/core-private-helper-refactor/Moodcode/node_modules/tsx/dist/loader.mjs",
+        "--test",
+        "--test-concurrency=2",
+        "packages/engine/src/engine.test.ts",
+        "packages/engine/src/integration/input-media-review.integration.test.ts",
+        "packages/engine/src/integration/document-input.integration.test.ts",
+        "packages/engine/src/media/segment-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/host-command-delivery.integration.test.ts",
+        "packages/engine/src/jobs/host-command-delivery-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/owned-command-dispatch-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/owned-command-delivery-records.test.ts",
+        "packages/engine/src/jobs/owned-command-boundaries.integration.test.ts",
+        "packages/engine/src/storage/ownership.test.ts",
+        "packages/engine/src/jobs/command-delivery-owner-boundaries.integration.test.ts",
+        "packages/engine/src/teams/model-tools.integration.test.ts",
+        "packages/engine/src/teams/resident-boundaries.integration.test.ts",
+        "packages/engine/src/coding-runs/batch-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/command-lifetime-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/host-command-delivery-crash.integration.test.ts",
+        "packages/engine/src/jobs/owned-command-delivery-crash.integration.test.ts"
+      ],
+      "tests": 172,
+      "passed": 172,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 39717.584209
+    },
+    {
+      "path": "/tmp/moodcode-core-refactor-integrated-compiled.log",
+      "sha256": "ae379c9783015f985cf1dd5a1f1a9f89fbd13c2a009ed7eeda59b8c6649f4c64",
+      "exitCode": 0,
+      "command": [
+        "node",
+        "--test",
+        "--test-concurrency=2",
+        "packages/engine/dist/engine.test.js",
+        "packages/engine/dist/integration/input-media-review.integration.test.js",
+        "packages/engine/dist/integration/document-input.integration.test.js",
+        "packages/engine/dist/media/segment-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/host-command-delivery.integration.test.js",
+        "packages/engine/dist/jobs/host-command-delivery-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/owned-command-dispatch-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/owned-command-delivery-records.test.js",
+        "packages/engine/dist/jobs/owned-command-boundaries.integration.test.js",
+        "packages/engine/dist/storage/ownership.test.js",
+        "packages/engine/dist/jobs/command-delivery-owner-boundaries.integration.test.js",
+        "packages/engine/dist/teams/model-tools.integration.test.js",
+        "packages/engine/dist/teams/resident-boundaries.integration.test.js",
+        "packages/engine/dist/coding-runs/batch-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/command-lifetime-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/host-command-delivery-crash.integration.test.js",
+        "packages/engine/dist/jobs/owned-command-delivery-crash.integration.test.js"
+      ],
+      "tests": 172,
+      "passed": 172,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 41631.613125
+    }
+  ],
+  "wholeHeadless": {
+    "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
+    "sourceHead": "bff7bdfae74d2e224ce38bf4ead603a4ed72bbeb",
+    "status": "passed",
+    "log": {
+      "path": "/tmp/moodcode-core-session-final-engine.log",
+      "sha256": "5ca4cebf40ed0c61cba21025359956bca132c5324f73ab1bf33c3ca4bd0c76f7"
+    },
+    "exitCode": 0,
+    "tests": 4823,
+    "passed": 4821,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 2,
+    "todo": 0,
+    "durationMs": 522455.692292,
+    "sourceAndHeadStableDuringRun": true,
+    "platformSkips": "The two existing Windows-native platform tests were skipped on darwin; no skip condition was changed."
+  },
+  "metrics": {
+    "scope": "Frozen CORE extraction: same three production files plus one new internal jobs helper; test/document additions excluded. Later erased type import byte totals recorded separately.",
+    "method": "Existing TypeScript7 native inventory worker. Physical lines include blanks/comments; syntax decisions are a structural proxy and do not measure runtime paths or performance.",
+    "before": {
+      "lines": 3453,
+      "bytes": 249827,
+      "decisions": 952
+    },
+    "after": {
+      "lines": 3446,
+      "bytes": 247129,
+      "decisions": 881
+    },
+    "filesAfter": [
+      {
+        "path": "packages/engine/src/engine.ts",
+        "bytes": 225791,
+        "physicalLines": 2829,
+        "sha256": "19dd9bc931507bcc8c155ea0839dcc98576af81b309052052df666f4e4ef90d8"
+      },
+      {
+        "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+        "bytes": 10105,
+        "physicalLines": 292,
+        "sha256": "55771539bc4a4e2740ff2290feb677089bb73a7713e4dab1a428748464011720"
+      },
+      {
+        "path": "packages/engine/src/jobs/owned-command-producer.ts",
+        "bytes": 10177,
+        "physicalLines": 293,
+        "sha256": "723242bafb9646d8a158f1a09c1104fc18eedf45ca44f6d274d616bbee03f574"
+      },
+      {
+        "path": "packages/engine/src/jobs/command-delivery-input.ts",
+        "bytes": 1056,
+        "physicalLines": 32,
+        "sha256": "b3edec20adf699f2a82afd09a9861313c54229e93dfc623444488f7de14cfd4b"
+      }
+    ],
+    "selectedFunctionsAfter": [
+      {
+        "path": "packages/engine/src/engine.ts",
+        "name": "constructor",
+        "lines": 935,
+        "complexity": 170,
+        "sha": "03f300995e2a89be2eccbac9f044a9aefd9597ca65fe36b42be8d9ee6e4d2a44"
+      },
+      {
+        "path": "packages/engine/src/engine.ts",
+        "name": "assertOptionalBoolean",
+        "lines": 3,
+        "complexity": 3,
+        "sha": "74381a18b1db6016c9b00f553bf55f1f4e46087f7f3125bfdcbc6ce36f690bd1"
+      },
+      {
+        "path": "packages/engine/src/engine.ts",
+        "name": "validateFreshMediaInput",
+        "lines": 6,
+        "complexity": 4,
+        "sha": "227bc9ef5bb25ceaab42460c0535b4bf86d38d835f96edd5676a18d13db3b5b1"
+      },
+      {
+        "path": "packages/engine/src/engine.ts",
+        "name": "dispatchSession",
+        "lines": 67,
+        "complexity": 42,
+        "sha": "fb0a8158dcf305a0d337dc2d91ace9fa0e24b89679204855afaad2be94596f64"
+      },
+      {
+        "path": "packages/engine/src/engine.ts",
+        "name": "dispatch",
+        "lines": 106,
+        "complexity": 42,
+        "sha": "f1be4151be46c65f64e1b21ab88e0d126775936f8433d22697ccf8dc5b2a5724"
+      },
+      {
+        "path": "packages/engine/src/engine.ts",
+        "name": "trackMediaImport",
+        "lines": 7,
+        "complexity": 3,
+        "sha": "1d892f70cdd16eb79a85e7d2308bf632422918d56d80ec228ad690c430b9b875"
+      },
+      {
+        "path": "packages/engine/src/engine.ts",
+        "name": "importImage",
+        "lines": 3,
+        "complexity": 1,
+        "sha": "8af827cd5a806a5a0de5ff241742fe4c9b80a375ce205ea0d16fbfc0ada2ef4c"
+      },
+      {
+        "path": "packages/engine/src/engine.ts",
+        "name": "importDocument",
+        "lines": 3,
+        "complexity": 1,
+        "sha": "3b38d1fdfbfc00a8f5173d7108eadfd12ba5c6448465fe67421cbf8f5fd0d968"
+      },
+      {
+        "path": "packages/engine/src/engine.ts",
+        "name": "importMedia",
+        "lines": 3,
+        "complexity": 1,
+        "sha": "9d446edd733842a3f885a9e5b1277f7416e93cbf9ec53393218a129c9b3ebe26"
+      },
+      {
+        "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+        "name": "constructor",
+        "lines": 8,
+        "complexity": 1,
+        "sha": "18ad7ed55e6cc6b3b82f6bc675b8ad55ebf52da75024650dbbfe5e5bbdf9880b"
+      },
+      {
+        "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+        "name": "beforeProviderDispatch",
+        "lines": 7,
+        "complexity": 3,
+        "sha": "5f9bdd369f624fa3aeacae745a385d53c78dfac2b7f314a329c084c6ef5d9dc8"
+      },
+      {
+        "path": "packages/engine/src/jobs/owned-command-producer.ts",
+        "name": "constructor",
+        "lines": 8,
+        "complexity": 1,
+        "sha": "18ad7ed55e6cc6b3b82f6bc675b8ad55ebf52da75024650dbbfe5e5bbdf9880b"
+      },
+      {
+        "path": "packages/engine/src/jobs/owned-command-producer.ts",
+        "name": "beforeProviderDispatch",
+        "lines": 7,
+        "complexity": 3,
+        "sha": "5f9bdd369f624fa3aeacae745a385d53c78dfac2b7f314a329c084c6ef5d9dc8"
+      },
+      {
+        "path": "packages/engine/src/jobs/command-delivery-input.ts",
+        "name": "acceptedRequest",
+        "lines": 11,
+        "complexity": 3,
+        "sha": "8a054e2caf53219c1bab95f0e24847181352aa99a3cacc352fc546105765eb0a"
+      },
+      {
+        "path": "packages/engine/src/jobs/command-delivery-input.ts",
+        "name": "isPromotedCommandRunInvalid",
+        "lines": 17,
+        "complexity": 9,
+        "sha": "127011f292b268b3fba3f199d2053bb0a673cec98f4fba93668015e6ed216590"
+      }
+    ],
+    "captures": [
+      {
+        "path": "/tmp/moodcode-core-session-5ddf2bf-before.json",
+        "sha256": "3e58d4a729877a598949ce2c2fd1486a96b29957f18902d9c8bbbc0f466b782e"
+      },
+      {
+        "path": "/tmp/moodcode-core-session-after.json",
+        "sha256": "a31393e5dd4511ab09b2cb6d7e652234d5b5296fd67767cfa637cb7f7a6a2540"
+      }
+    ],
+    "afterTypeImportCleanup": {
+      "physicalLines": 3446,
+      "bytes": 247115
+    }
+  },
+  "unchangedProtectedPins": {
+    "packages/engine/src/index.ts": "a83d2a3e385e20862adf3882cc67660f0fce9a02d0714f2c8d0c61c9d4d9fa9a",
+    "packages/engine/src/runner/index.ts": "16895c5d89eabb216eb65fb1aa6dbd2ab5d5a807a92b77a586d87808e22cbdac",
+    "packages/engine/src/agent-backends/store.ts": "771cfbe0993676657c82d4bfb89e3fcd2c3f06f9922763114c0c71333c0cfaa7",
+    "packages/engine/src/storage/index.ts": "1984bc06713d2658d5e2187a70ad87f6497e9df61b8b328414ebd95f73394beb",
+    "packages/contracts/src/index.ts": "1232806565253ecd80d7c64756fbb80bf6543bd229f0df7c1d8148fa74831b8c",
+    "packages/contracts/src/validation.ts": "37a239e354575bd53ef9d0658a81139a3b3a656052d1165dff910f45cc4cc636",
+    "package.json": "2ddee2bcf17d79b6bedb2637b2cdbc4e7be5e8ac8dbab0881ee87a2c28e15e4d",
+    "package-lock.json": "d7944de18f9cfdf41ecf51afa1350186d93a59f23edd829d99cc88574dd39dfe"
+  },
+  "regressionFirst": {
+    "engineNewCases": 38,
+    "jobsNewCases": 11,
+    "originalConditionsPassedBeforeExtraction": true,
+    "originalAssertionsPreserved": true,
+    "addedSkips": 0,
+    "timeoutIncreases": 0
+  },
+  "reports": [
+    {
+      "path": "docs/moodcode/core-engine-refactor-verification.json",
+      "sha256": "20654bca4f09dca8bf651e376fe56ed60959871a009035c45e040687964684fd"
+    },
+    {
+      "path": "docs/moodcode/core-jobs-refactor-verification.json",
+      "sha256": "3996e2276412e2d56df7ff7814cbaccdc06022c35d48fdf74a3e8109c1749c0f"
+    },
+    {
+      "path": "docs/moodcode/core-refactor-independent-review.json",
+      "sha256": "4d60b5934dba9290b83efcc203febbe0ef79fed24fbbe5756854eb594352550f"
+    },
+    {
+      "path": "docs/moodcode/core-engine-type-import-verification.json",
+      "sha256": "7599835885dd48c269142c26199106ab793809785ee4d09ef9ef65d9c0130101"
+    }
+  ],
+  "preservedInvocationFailure": {
+    "path": "/tmp/moodcode-core-refactor-baseline-source.log",
+    "sha256": "ac66bdf86aff09d33ee78f6be89b4f65dc581d5ce9641ce67003ffa196a640a4",
+    "exitCode": 1,
+    "command": [
+      "node",
+      "--import",
+      "./node_modules/tsx/dist/loader.mjs",
+      "--test",
+      "--test-concurrency=2",
+      "packages/engine/src/engine.test.ts",
+      "packages/engine/src/integration/input-media-review.integration.test.ts",
+      "packages/engine/src/integration/document-input.integration.test.ts",
+      "packages/engine/src/media/segment-boundaries.integration.test.ts",
+      "packages/engine/src/jobs/host-command-delivery.integration.test.ts",
+      "packages/engine/src/jobs/host-command-delivery-boundaries.integration.test.ts",
+      "packages/engine/src/jobs/owned-command-dispatch-boundaries.integration.test.ts",
+      "packages/engine/src/jobs/owned-command-delivery-records.test.ts",
+      "packages/engine/src/jobs/owned-command-boundaries.integration.test.ts",
+      "packages/engine/src/storage/ownership.test.ts"
+    ],
+    "tests": 82,
+    "passed": 55,
+    "failed": 27,
+    "cancelled": 0,
+    "skipped": 0,
+    "durationMs": 94638.104208,
+    "classification": "Source test invocation failure resolved without a product or fixture change",
+    "diagnosis": "Native command supervisors inherit process execArgv while starting in a temporary repository; relative or bare tsx import resolves from that repository. An absolute file URL loader passes the same baseline suites.",
+    "isolatedSourceLog": {
+      "path": "/tmp/moodcode-core-refactor-baseline-host-failure.log",
+      "sha256": "ae62f9a8fd2a9c7707a7765071b89756780ac0b078dda31a5eeb34db97e20a36"
+    },
+    "isolatedCompiledLog": {
+      "path": "/tmp/moodcode-core-refactor-baseline-host-compiled.log",
+      "sha256": "628f0c3042d40b7804bb318b33cdf6e93c5cb336ba720fdf850d7808f7f1abd0"
+    }
+  },
+  "qualification": [
+    "Only local darwin arm64 Node26.9.0 native fixtures were executed.",
+    "Existing Root Windows/native/GUI qualification remains independent and unchanged; this branch cannot replace it.",
+    "The caller Root owns one final combined regression and actual CI after cherry-pick; no extra broad/repeated local regression is planned.",
+    "Public API/events, SQL/schema/serialization, approval/cancel/unknown/no-replay and byte/token budgets are preserved within these bounded extractions.",
+    "No account or paid-model requests, publication or main integration occurred in this session."
+  ],
+  "sourceQualification": "Base5ddf2bf was reconfirmed against the72e proposal before extraction; nominated CORE sites were unchanged apart from integrated Windows constructor wiring. Root changes after5dd are external to this worktree and require the caller Root final integration regression.",
+  "finalSource": {
+    "headBeforeFinalEvidenceCommit": "0053b1e415fd8b2ef14b162d26562e9c99c1090a",
+    "postFreezeChange": "Only unused type SandboxLaunch binding removed after the frozen whole regression; emitted engine.js and engine.d.ts are byte-identical.",
+    "files": [
+      {
+        "path": "packages/engine/src/engine.ts",
+        "bytes": 225777,
+        "physicalLines": 2829,
+        "sha256": "182bdd3a951f2e51bba35ace3c74121592cea6b04cadf0393f6157c8af36fbb1"
+      },
+      {
+        "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+        "bytes": 10105,
+        "physicalLines": 292,
+        "sha256": "55771539bc4a4e2740ff2290feb677089bb73a7713e4dab1a428748464011720"
+      },
+      {
+        "path": "packages/engine/src/jobs/owned-command-producer.ts",
+        "bytes": 10177,
+        "physicalLines": 293,
+        "sha256": "723242bafb9646d8a158f1a09c1104fc18eedf45ca44f6d274d616bbee03f574"
+      },
+      {
+        "path": "packages/engine/src/jobs/command-delivery-input.ts",
+        "bytes": 1056,
+        "physicalLines": 32,
+        "sha256": "b3edec20adf699f2a82afd09a9861313c54229e93dfc623444488f7de14cfd4b"
+      }
+    ]
+  },
+  "erasedTypeFollowup": {
+    "beforeSource": "19dd9bc931507bcc8c155ea0839dcc98576af81b309052052df666f4e4ef90d8",
+    "afterSource": "182bdd3a951f2e51bba35ace3c74121592cea6b04cadf0393f6157c8af36fbb1",
+    "emittedOutputs": [
+      {
+        "path": "packages/engine/dist/engine.js",
+        "bytes": 215751,
+        "sha256": "1dfc08912e703d98cfb8f380a7d3f5e5345e5682d6d35354a6e156f7ce5df209",
+        "byteForByteEqual": true
+      },
+      {
+        "path": "packages/engine/dist/engine.d.ts",
+        "bytes": 64213,
+        "sha256": "a1308b4082699beb094ead645b8def1de773a6670712558b8cc9b1aa296587ad",
+        "byteForByteEqual": true
+      }
+    ],
+    "parentRebuild": {
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/moodcode-core-session-type-import-typecheck.log",
+        "sha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+      }
+    },
+    "suitesRerun": 0
+  }
+}

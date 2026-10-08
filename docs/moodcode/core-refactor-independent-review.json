@@ -1,0 +1,401 @@
+{
+  "schemaVersion": 1,
+  "status": "Independent scoped contract review and native source/compiled verification passed",
+  "reviewer": "/root/contract_review",
+  "reviewedAt": "2026-10-08T22:58:27.712Z",
+  "worktree": "/Users/yakisoba0728/.codex/worktrees/core-private-helper-refactor/Moodcode",
+  "baselineHead": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+  "sourceFreeze": {
+    "head": "bff7bdfae74d2e224ce38bf4ead603a4ed72bbeb",
+    "runtime": {
+      "node": "v26.9.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "sha256": {
+      "packages/engine/src/engine.ts": "19dd9bc931507bcc8c155ea0839dcc98576af81b309052052df666f4e4ef90d8",
+      "packages/engine/src/jobs/host-command-delivery-producer.ts": "55771539bc4a4e2740ff2290feb677089bb73a7713e4dab1a428748464011720",
+      "packages/engine/src/jobs/owned-command-producer.ts": "723242bafb9646d8a158f1a09c1104fc18eedf45ca44f6d274d616bbee03f574",
+      "packages/engine/src/jobs/command-delivery-input.ts": "b3edec20adf699f2a82afd09a9861313c54229e93dfc623444488f7de14cfd4b"
+    },
+    "stableBeforeAfter": true
+  },
+  "proposal": {
+    "path": "docs/moodcode/next-core-refactor-proposals.json",
+    "head": "72e31aeb35234555031a5c6ebf0a4b4d6646a40c",
+    "baselineEngineSha256": "a9c169e08d53ac9aef15e7be10f309e549e12431ac87af39f5e3aee2351df46e",
+    "qualification": "Proposal predates the integrated Windows engine wiring; CORE admission/import/guard blocks and both producer bodies were inspected at the actual 5ddf2bf baseline."
+  },
+  "findings": [],
+  "productionScope": [
+    "packages/engine/src/engine.ts",
+    "packages/engine/src/jobs/command-delivery-input.ts",
+    "packages/engine/src/jobs/host-command-delivery-producer.ts",
+    "packages/engine/src/jobs/owned-command-producer.ts"
+  ],
+  "review": {
+    "CORE_01": {
+      "passed": true,
+      "evidence": "Both existing media-present receipt conditions remain before the typed private helper. The original normalized input reaches budget, segment, document and image checks in that order, then the existing scheduler. Both schemas retain their own normalizer, receipt lookup and result boundary.",
+      "regressions": "Mixed real image/PDF/audio source deletion and progressive restoration prove error priority and unchanged native input/Run/message/attempt/event rows. Deleted image, PDF and segment sources retain exact durable duplicates and one provider request."
+    },
+    "CORE_02": {
+      "passed": true,
+      "evidence": "The generic private helper is non-async, checks closing before invoking the factory synchronously, unions [caller, host] signals, immediately tracks the concrete Promise, removes it through both original settlement handlers and returns it. Individual stores and native close/CAS/index code are unchanged.",
+      "regressions": "Public wrapper assertions pin synchronous factory entry, exact Promise identity, both removals, unchanged synchronous thrown identity, signal reason precedence and host signal identity. Native image/PDF/segment imports retain pre-CAS cancellation and post-CAS exact bytes/index across close and reopen."
+    },
+    "CORE_03": {
+      "passed": true,
+      "guardCalls": [
+        {
+          "flag": "lifecycleContinuation",
+          "message": "Lifecycle continuation requires an explicit host boolean"
+        },
+        {
+          "flag": "verificationTools",
+          "message": "Verification tool exposure must be an explicit boolean"
+        },
+        {
+          "flag": "knowledgeGeneration",
+          "message": "Knowledge generation requires an explicit host boolean"
+        },
+        {
+          "flag": "knowledgePublication",
+          "message": "Knowledge publication requires an explicit host boolean"
+        },
+        {
+          "flag": "knowledgeFilePublication",
+          "message": "Knowledge file publication requires an explicit host boolean"
+        },
+        {
+          "flag": "knowledgeImportRecovery",
+          "message": "knowledgeImportRecovery must be an explicit boolean"
+        },
+        {
+          "flag": "proposals",
+          "message": "proposals must be an explicit boolean"
+        },
+        {
+          "flag": "teams",
+          "message": "teams must be an explicit boolean"
+        },
+        {
+          "flag": "teamModelTools",
+          "message": "teamModelTools must be an explicit boolean"
+        },
+        {
+          "flag": "commandJobModelTools",
+          "message": "commandJobModelTools must be an explicit boolean"
+        },
+        {
+          "flag": "residentTeams",
+          "message": "residentTeams requires explicit boolean"
+        },
+        {
+          "flag": "workflows",
+          "message": "workflows must be an explicit boolean"
+        },
+        {
+          "flag": "codingBatches",
+          "message": "codingBatches must be explicit boolean"
+        },
+        {
+          "flag": "schedules",
+          "message": "schedules must be an explicit boolean"
+        },
+        {
+          "flag": "agentBackends",
+          "message": "agentBackends requires an explicit root host boolean"
+        },
+        {
+          "flag": "agentBackendClientEffects",
+          "message": "ACP client effects require explicit host opt-in"
+        },
+        {
+          "flag": "jobs",
+          "message": "jobs requires an explicit root host boolean"
+        },
+        {
+          "flag": "codeMode",
+          "message": "codeMode requires an explicit boolean"
+        },
+        {
+          "flag": "effectBatches",
+          "message": "effectBatches requires an explicit boolean"
+        },
+        {
+          "flag": "conversationForks",
+          "message": "conversationForks must be an explicit boolean"
+        },
+        {
+          "flag": "proposalApply",
+          "message": "proposalApply must be an explicit boolean"
+        },
+        {
+          "flag": "diagnosticObservations",
+          "message": "Execution observations require an explicit host boolean"
+        },
+        {
+          "flag": "osSandbox",
+          "message": "osSandbox must be an explicit boolean"
+        },
+        {
+          "flag": "commandLifetimes",
+          "message": "commandLifetimes requires an explicit host boolean"
+        },
+        {
+          "flag": "hostCommands",
+          "message": "hostCommands must be an explicit boolean"
+        },
+        {
+          "flag": "allowUnknownMediaTokenCost",
+          "message": "Media token cost policy must be a boolean"
+        },
+        {
+          "flag": "allowUnknownDocumentTokenCost",
+          "message": "Document token cost policy must be a boolean"
+        },
+        {
+          "flag": "repositoryContextTools",
+          "message": "Repository tool exposure must be an explicit boolean"
+        }
+      ],
+      "evidence": "All 28 calls remain at their original constructor positions with exact error messages. The helper uses the original short circuit and two options[key] reads. Initial osSandbox read, PR flag loop, enabled assignments, dependency gates and explicit child option construction remain unchanged.",
+      "regressions": "All invalid getters preserve exact INVALID_CONFIG/message and two reads, including three total osSandbox reads. Undefined short circuit keeps one read. Six conflicting dependency pairs preserve first-error order. Actual child catalogue/default-off and explicit opt-in, resident ownership, native command lifetime and batch archive/restart tests pass."
+    },
+    "CORE_04": {
+      "passed": true,
+      "acceptedRequestBodySha256": "43b42a3eef2a63b4cb11a6e97f42173a3dcf8a74181712b5999af3e5cd629646",
+      "acceptedRequestBodiesByteIdentical": true,
+      "evidence": "The internal acceptedRequest projection body is byte-identical to both original owners and excludes media as before. The promoted Run helper retains the literal OR comparison order and lazy configuration hashes followed by own attachments/documents presence. Each owner retains getInput, lane beforePromotion, unrelated receipt miss, exact failure, WeakMaps, retained Originals, source capture/release and native transaction authority.",
+      "regressions": "Actual promoted Run drift covers configuration, prompt, Run/workspace/session/request identity and own undefined attachments/documents before provider entry. Genuine opposite-lane and copied Originals reject JOB_ORIGINAL_REQUIRED with identical SQL images and provider counts, followed by successful own-lane acceptance. Native rollback, duplicate, crash, restart and archive cases pass."
+    }
+  },
+  "baselineValidation": [
+    {
+      "path": "/tmp/moodcode-core-refactor-baseline-source-absolute.log",
+      "sha256": "ea8da043d77ce54116ad624f48924c28fcb48024526b977b1ff3ca3006f1140f",
+      "exitCode": 0,
+      "command": [
+        "node",
+        "--import",
+        "file:///Users/yakisoba0728/.codex/worktrees/core-private-helper-refactor/Moodcode/node_modules/tsx/dist/loader.mjs",
+        "--test",
+        "--test-concurrency=2",
+        "packages/engine/src/engine.test.ts",
+        "packages/engine/src/integration/input-media-review.integration.test.ts",
+        "packages/engine/src/integration/document-input.integration.test.ts",
+        "packages/engine/src/media/segment-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/host-command-delivery.integration.test.ts",
+        "packages/engine/src/jobs/host-command-delivery-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/owned-command-dispatch-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/owned-command-delivery-records.test.ts",
+        "packages/engine/src/jobs/owned-command-boundaries.integration.test.ts",
+        "packages/engine/src/storage/ownership.test.ts"
+      ],
+      "tests": 82,
+      "passed": 82,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 8484.552333
+    },
+    {
+      "path": "/tmp/moodcode-core-refactor-baseline-compiled.log",
+      "sha256": "6612e272976c05860dbccdf67e0725ae2630f0f62081d9f009a3ded7f64d6afe",
+      "exitCode": 0,
+      "command": [
+        "node",
+        "--test",
+        "--test-concurrency=2",
+        "packages/engine/dist/engine.test.js",
+        "packages/engine/dist/integration/input-media-review.integration.test.js",
+        "packages/engine/dist/integration/document-input.integration.test.js",
+        "packages/engine/dist/media/segment-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/host-command-delivery.integration.test.js",
+        "packages/engine/dist/jobs/host-command-delivery-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/owned-command-dispatch-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/owned-command-delivery-records.test.js",
+        "packages/engine/dist/jobs/owned-command-boundaries.integration.test.js",
+        "packages/engine/dist/storage/ownership.test.js"
+      ],
+      "tests": 82,
+      "passed": 82,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 7054.32325
+    }
+  ],
+  "validation": [
+    {
+      "path": "/tmp/moodcode-core-refactor-integrated-source.log",
+      "sha256": "076892a376abda7d10f6fde17fbd1d7e969e70121293f49aabd90673303097eb",
+      "exitCode": 0,
+      "command": [
+        "node",
+        "--import",
+        "file:///Users/yakisoba0728/.codex/worktrees/core-private-helper-refactor/Moodcode/node_modules/tsx/dist/loader.mjs",
+        "--test",
+        "--test-concurrency=2",
+        "packages/engine/src/engine.test.ts",
+        "packages/engine/src/integration/input-media-review.integration.test.ts",
+        "packages/engine/src/integration/document-input.integration.test.ts",
+        "packages/engine/src/media/segment-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/host-command-delivery.integration.test.ts",
+        "packages/engine/src/jobs/host-command-delivery-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/owned-command-dispatch-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/owned-command-delivery-records.test.ts",
+        "packages/engine/src/jobs/owned-command-boundaries.integration.test.ts",
+        "packages/engine/src/storage/ownership.test.ts",
+        "packages/engine/src/jobs/command-delivery-owner-boundaries.integration.test.ts",
+        "packages/engine/src/teams/model-tools.integration.test.ts",
+        "packages/engine/src/teams/resident-boundaries.integration.test.ts",
+        "packages/engine/src/coding-runs/batch-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/command-lifetime-boundaries.integration.test.ts",
+        "packages/engine/src/jobs/host-command-delivery-crash.integration.test.ts",
+        "packages/engine/src/jobs/owned-command-delivery-crash.integration.test.ts"
+      ],
+      "tests": 172,
+      "passed": 172,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 39717.584209
+    },
+    {
+      "path": "/tmp/moodcode-core-refactor-integrated-compiled.log",
+      "sha256": "ae379c9783015f985cf1dd5a1f1a9f89fbd13c2a009ed7eeda59b8c6649f4c64",
+      "exitCode": 0,
+      "command": [
+        "node",
+        "--test",
+        "--test-concurrency=2",
+        "packages/engine/dist/engine.test.js",
+        "packages/engine/dist/integration/input-media-review.integration.test.js",
+        "packages/engine/dist/integration/document-input.integration.test.js",
+        "packages/engine/dist/media/segment-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/host-command-delivery.integration.test.js",
+        "packages/engine/dist/jobs/host-command-delivery-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/owned-command-dispatch-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/owned-command-delivery-records.test.js",
+        "packages/engine/dist/jobs/owned-command-boundaries.integration.test.js",
+        "packages/engine/dist/storage/ownership.test.js",
+        "packages/engine/dist/jobs/command-delivery-owner-boundaries.integration.test.js",
+        "packages/engine/dist/teams/model-tools.integration.test.js",
+        "packages/engine/dist/teams/resident-boundaries.integration.test.js",
+        "packages/engine/dist/coding-runs/batch-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/command-lifetime-boundaries.integration.test.js",
+        "packages/engine/dist/jobs/host-command-delivery-crash.integration.test.js",
+        "packages/engine/dist/jobs/owned-command-delivery-crash.integration.test.js"
+      ],
+      "tests": 172,
+      "passed": 172,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 41631.613125
+    }
+  ],
+  "filesUnderTest": [
+    "engine.test",
+    "integration/input-media-review.integration.test",
+    "integration/document-input.integration.test",
+    "media/segment-boundaries.integration.test",
+    "jobs/host-command-delivery.integration.test",
+    "jobs/host-command-delivery-boundaries.integration.test",
+    "jobs/owned-command-dispatch-boundaries.integration.test",
+    "jobs/owned-command-delivery-records.test",
+    "jobs/owned-command-boundaries.integration.test",
+    "storage/ownership.test",
+    "jobs/command-delivery-owner-boundaries.integration.test",
+    "teams/model-tools.integration.test",
+    "teams/resident-boundaries.integration.test",
+    "coding-runs/batch-boundaries.integration.test",
+    "jobs/command-lifetime-boundaries.integration.test",
+    "jobs/host-command-delivery-crash.integration.test",
+    "jobs/owned-command-delivery-crash.integration.test"
+  ],
+  "unchangedProtectedFiles": {
+    "packages/engine/src/storage/index.ts": {
+      "current": "1984bc06713d2658d5e2187a70ad87f6497e9df61b8b328414ebd95f73394beb",
+      "baseline": "1984bc06713d2658d5e2187a70ad87f6497e9df61b8b328414ebd95f73394beb"
+    },
+    "packages/engine/src/jobs/store.ts": {
+      "current": "da1b5b2bf25f93b13035c25b7aeeeecc833e47a14d42bbbb3146d064a9f8d506",
+      "baseline": "da1b5b2bf25f93b13035c25b7aeeeecc833e47a14d42bbbb3146d064a9f8d506"
+    },
+    "packages/engine/src/runner/index.ts": {
+      "current": "16895c5d89eabb216eb65fb1aa6dbd2ab5d5a807a92b77a586d87808e22cbdac",
+      "baseline": "16895c5d89eabb216eb65fb1aa6dbd2ab5d5a807a92b77a586d87808e22cbdac"
+    },
+    "packages/engine/src/index.ts": {
+      "current": "a83d2a3e385e20862adf3882cc67660f0fce9a02d0714f2c8d0c61c9d4d9fa9a",
+      "baseline": "a83d2a3e385e20862adf3882cc67660f0fce9a02d0714f2c8d0c61c9d4d9fa9a"
+    },
+    "TODO.md": {
+      "current": "26c154d79460f19878cdf3e140dffce88c077ff46ff37331e92e47bbfad98817",
+      "baseline": "26c154d79460f19878cdf3e140dffce88c077ff46ff37331e92e47bbfad98817"
+    },
+    "README.md": {
+      "current": "c1b9c1e114bb779a30da78d63869d857d1003b2dbf4e23dfcb40be83bbb2dd63",
+      "baseline": "c1b9c1e114bb779a30da78d63869d857d1003b2dbf4e23dfcb40be83bbb2dd63"
+    },
+    "package.json": {
+      "current": "2ddee2bcf17d79b6bedb2637b2cdbc4e7be5e8ac8dbab0881ee87a2c28e15e4d",
+      "baseline": "2ddee2bcf17d79b6bedb2637b2cdbc4e7be5e8ac8dbab0881ee87a2c28e15e4d"
+    },
+    "package-lock.json": {
+      "current": "d7944de18f9cfdf41ecf51afa1350186d93a59f23edd829d99cc88574dd39dfe",
+      "baseline": "d7944de18f9cfdf41ecf51afa1350186d93a59f23edd829d99cc88574dd39dfe"
+    }
+  },
+  "repositoryDiffCheck": {
+    "command": [
+      "git",
+      "diff",
+      "--check",
+      "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8..HEAD"
+    ],
+    "exitCode": 0
+  },
+  "preservedInvocationFailure": {
+    "path": "/tmp/moodcode-core-refactor-baseline-source.log",
+    "sha256": "ac66bdf86aff09d33ee78f6be89b4f65dc581d5ce9641ce67003ffa196a640a4",
+    "exitCode": 1,
+    "command": [
+      "node",
+      "--import",
+      "./node_modules/tsx/dist/loader.mjs",
+      "--test",
+      "--test-concurrency=2",
+      "packages/engine/src/engine.test.ts",
+      "packages/engine/src/integration/input-media-review.integration.test.ts",
+      "packages/engine/src/integration/document-input.integration.test.ts",
+      "packages/engine/src/media/segment-boundaries.integration.test.ts",
+      "packages/engine/src/jobs/host-command-delivery.integration.test.ts",
+      "packages/engine/src/jobs/host-command-delivery-boundaries.integration.test.ts",
+      "packages/engine/src/jobs/owned-command-dispatch-boundaries.integration.test.ts",
+      "packages/engine/src/jobs/owned-command-delivery-records.test.ts",
+      "packages/engine/src/jobs/owned-command-boundaries.integration.test.ts",
+      "packages/engine/src/storage/ownership.test.ts"
+    ],
+    "tests": 82,
+    "passed": 55,
+    "failed": 27,
+    "cancelled": 0,
+    "skipped": 0,
+    "durationMs": 94638.104208,
+    "classification": "Source test invocation failure resolved without a product or fixture change",
+    "diagnosis": "Native command supervisors inherit process execArgv while starting in a temporary repository; relative or bare tsx import resolves from that repository. An absolute file URL loader passes the same baseline suites.",
+    "isolatedSourceLog": {
+      "path": "/tmp/moodcode-core-refactor-baseline-host-failure.log",
+      "sha256": "ae62f9a8fd2a9c7707a7765071b89756780ac0b078dda31a5eeb34db97e20a36"
+    },
+    "isolatedCompiledLog": {
+      "path": "/tmp/moodcode-core-refactor-baseline-host-compiled.log",
+      "sha256": "628f0c3042d40b7804bb318b33cdf6e93c5cb336ba720fdf850d7808f7f1abd0"
+    }
+  },
+  "qualification": "Evidence is from local darwin arm64 native fixtures. Final repository-wide compiled acceptance is owned by the parent task. Existing assertions, platform skips and timeouts were preserved; no account or paid-model workload was requested."
+}
