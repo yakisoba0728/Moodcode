@@ -16,6 +16,7 @@ module.exports = {
     ...(release ? { hardenedRuntime: true, notarize: true, entitlements: "apps/desktop/build/entitlements.mac.plist", entitlementsInherit: "apps/desktop/build/entitlements.mac.plist" } : { identity: null, notarize: false }),
   },
   linux: {
+    executableName: "moodcode",
     target: release ? ["AppImage"] : ["dir"],
     category: "Development",
   },
