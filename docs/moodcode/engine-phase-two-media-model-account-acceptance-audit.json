@@ -1,0 +1,609 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent-actual-model-specific-media-acceptance-matrix",
+  "reviewedAt": "2026-10-08T17:27:23.639150+00:00",
+  "originalCriterion": {
+    "workItemId": "MC2-16d",
+    "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/coding-agent-engine-review/implementation-work-items.json",
+    "sha256": "4bab8379a68c37e817f66aa5c2bda02c6b00a1951d20c3c0147b5885dbc49db4",
+    "text": "실제 지원 모델별 invalid MIME·oversize·unknown capability·부분 생성·중복 delivery·source 삭제 검사. E5-13 닫힘과 신규 video/audio 완료를 따로 판정",
+    "requiresSingleSuccessfulAllInvocation": false,
+    "criteriaUnchanged": true
+  },
+  "verdict": {
+    "canCompleteMC2_16dForExplicitSupportedLocalProfiles": true,
+    "answer": "yes",
+    "unmetOriginalMC2_16dConditions": [],
+    "basis": "All original model-specific checks are evidenced across source-qualified genuine account/native audio and video reports. Overall report pass/account fields are not rewritten. Original criterion does not require one successful all invocation.",
+    "latestAllInvocationPassed": false,
+    "latestAllInvocationAccountVerified": false,
+    "historicalAudioReportAccountVerified": false,
+    "currentVideoOnlyAccountVerified": true,
+    "thisReviewMutatesGoalOrProgress": false,
+    "progressAtReviewRemains": {
+      "workItems": 79,
+      "families": 19
+    }
+  },
+  "reports": {
+    "videoCurrent": {
+      "path": "/tmp/moodcode-media-live-video-128px-20261009.json",
+      "sha256": "ee7b4a3a3b3da5ee3a1fefc5aa17eaf3c0296b5e5acdeaa378f6699fd808158a",
+      "observedAt": "2026-10-08T17:14:11.910Z",
+      "implementationCommit": "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21",
+      "sourceFreeze": {
+        "sha256": "6cc8719c470d94b6113714850652b9b1649b32c624ad40b1870ea79c0c27258d",
+        "files": 355,
+        "executorSha256": "c370654f7533417917ece342304c0a2fb61d3eaf78bec453f92f0e0bbbdd6655",
+        "unchanged": true
+      },
+      "runtimeFreeze": {
+        "sha256": "0553480e354640e0f323abc9b775be8116939218e2cf1eaadd753b62ba7eb801",
+        "files": 712,
+        "bytes": 6467916,
+        "unchanged": true,
+        "engineEntrySha256": "3ec0f448657e95f8b9385eb31faef762b0d10d3354ab2732178b2dc6221550de"
+      },
+      "scenario": "video",
+      "actualRequests": 1,
+      "actualModels": {
+        "gpt-4.1-mini": 1
+      },
+      "state": "passed",
+      "passed": true,
+      "accountVerified": true,
+      "cleanupConfirmed": true
+    },
+    "allCurrentFailure": {
+      "path": "/tmp/moodcode-media-live-all-128px-20261009.json",
+      "sha256": "1dce77e2007cc1f1c52c2f4a50ca705caf4a629997836f101f6971687aef452a",
+      "observedAt": "2026-10-08T17:10:45.122Z",
+      "implementationCommit": "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21",
+      "sourceFreeze": {
+        "sha256": "6cc8719c470d94b6113714850652b9b1649b32c624ad40b1870ea79c0c27258d",
+        "files": 355,
+        "executorSha256": "c370654f7533417917ece342304c0a2fb61d3eaf78bec453f92f0e0bbbdd6655",
+        "unchanged": true
+      },
+      "runtimeFreeze": {
+        "sha256": "0553480e354640e0f323abc9b775be8116939218e2cf1eaadd753b62ba7eb801",
+        "files": 712,
+        "bytes": 6467916,
+        "unchanged": true,
+        "engineEntrySha256": "3ec0f448657e95f8b9385eb31faef762b0d10d3354ab2732178b2dc6221550de"
+      },
+      "scenario": "all",
+      "actualRequests": 2,
+      "actualModels": {
+        "gpt-audio-1.5": 2
+      },
+      "state": "failed",
+      "passed": false,
+      "accountVerified": false,
+      "cleanupConfirmed": true
+    },
+    "audioHistorical": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-media-account-expiry-profile-failure.json",
+      "sha256": "9aa481c0cbd04704998a33e72a02a0bcb447e3416c23b268f79ece975104b685",
+      "observedAt": "2026-10-08T16:14:05.160Z",
+      "implementationCommit": "7ab91d5c71ec8e40c9035a93ec61a190820daaa1",
+      "sourceFreeze": {
+        "sha256": "ced8024b1f887b2806565ff3450131cc5129b2a8c3f95ddb0a4580ff4ea822c0",
+        "files": 355,
+        "executorSha256": "2367b3f9461dd0a71404de98eca9bca084cfd089083d4381e2fb5087d8a9536a",
+        "unchanged": true
+      },
+      "runtimeFreeze": {
+        "sha256": "053590073941a92200a89e8fb71db4abeb48c1eb29430a039958c99e9066f5fa",
+        "files": 712,
+        "bytes": 6464732,
+        "unchanged": true,
+        "engineEntrySha256": "3ec0f448657e95f8b9385eb31faef762b0d10d3354ab2732178b2dc6221550de"
+      },
+      "scenario": "all",
+      "actualRequests": 4,
+      "actualModels": {
+        "gpt-audio-1.5": 3,
+        "gpt-4.1-mini": 1
+      },
+      "state": "failed",
+      "passed": false,
+      "accountVerified": false,
+      "cleanupConfirmed": true
+    }
+  },
+  "acceptanceMatrix": [
+    {
+      "originalCondition": "invalid-mime",
+      "selectedSupportedModel": "gpt-audio-1.5",
+      "modality": "audio",
+      "satisfied": true,
+      "sourceReport": "allCurrentFailure",
+      "resultCode": "MEDIA_INVALID_SOURCE",
+      "actualRequests": 0,
+      "nativeAttempts": 0,
+      "requestedModel": "gpt-audio-1.5"
+    },
+    {
+      "originalCondition": "oversize-source",
+      "selectedSupportedModel": "gpt-audio-1.5",
+      "modality": "audio",
+      "satisfied": true,
+      "sourceReport": "allCurrentFailure",
+      "resultCode": "MEDIA_LIMIT_EXCEEDED",
+      "actualRequests": 0,
+      "nativeAttempts": 0,
+      "requestedModel": "gpt-audio-1.5"
+    },
+    {
+      "originalCondition": "unknown-capability",
+      "selectedSupportedModel": "gpt-audio-1.5",
+      "modality": "audio",
+      "satisfied": true,
+      "sourceReport": "allCurrentFailure",
+      "resultCode": "PROVIDER_UNSUPPORTED_INPUT",
+      "actualRequests": 0,
+      "nativeAttempts": 0,
+      "requestedModel": "undeclared-verification-model"
+    },
+    {
+      "originalCondition": "source-loss",
+      "selectedSupportedModel": "gpt-audio-1.5",
+      "modality": "audio",
+      "satisfied": true,
+      "sourceReport": "allCurrentFailure",
+      "resultCode": "MEDIA_STORAGE_FAILED",
+      "actualRequests": 0,
+      "nativeAttempts": 0,
+      "requestedModel": "gpt-audio-1.5"
+    },
+    {
+      "originalCondition": "invalid-mime",
+      "selectedSupportedModel": "gpt-4.1-mini",
+      "modality": "video",
+      "satisfied": true,
+      "sourceReport": "videoCurrent",
+      "resultCode": "MEDIA_INVALID_SOURCE",
+      "actualRequests": 0,
+      "nativeAttempts": 0,
+      "requestedModel": "gpt-4.1-mini"
+    },
+    {
+      "originalCondition": "oversize-source",
+      "selectedSupportedModel": "gpt-4.1-mini",
+      "modality": "video",
+      "satisfied": true,
+      "sourceReport": "videoCurrent",
+      "resultCode": "MEDIA_LIMIT_EXCEEDED",
+      "actualRequests": 0,
+      "nativeAttempts": 0,
+      "requestedModel": "gpt-4.1-mini"
+    },
+    {
+      "originalCondition": "unknown-capability",
+      "selectedSupportedModel": "gpt-4.1-mini",
+      "modality": "video",
+      "satisfied": true,
+      "sourceReport": "videoCurrent",
+      "resultCode": "PROVIDER_UNSUPPORTED_INPUT",
+      "actualRequests": 0,
+      "nativeAttempts": 0,
+      "requestedModel": "undeclared-verification-model"
+    },
+    {
+      "originalCondition": "source-loss",
+      "selectedSupportedModel": "gpt-4.1-mini",
+      "modality": "video",
+      "satisfied": true,
+      "sourceReport": "videoCurrent",
+      "resultCode": "MEDIA_STORAGE_FAILED",
+      "actualRequests": 0,
+      "nativeAttempts": 0,
+      "requestedModel": "gpt-4.1-mini"
+    },
+    {
+      "originalCondition": "partial generated media",
+      "selectedSupportedModel": "gpt-audio-1.5",
+      "modality": "audio-output",
+      "satisfied": true,
+      "sourceReport": "audioHistorical",
+      "caseId": "audio-partial-cancel",
+      "nativeState": "cancelled",
+      "artifactBytes": 19244,
+      "artifactComplete": false,
+      "usage": null,
+      "cleanupConfirmed": true
+    },
+    {
+      "originalCondition": "duplicate delivery",
+      "selectedSupportedModel": "gpt-audio-1.5",
+      "modality": "audio",
+      "satisfied": true,
+      "sourceReport": "audioHistorical",
+      "caseId": "duplicate-input",
+      "actualRequests": 0,
+      "nativeIdentityUnchanged": true
+    },
+    {
+      "originalCondition": "duplicate delivery",
+      "selectedSupportedModel": "gpt-4.1-mini",
+      "modality": "video-frames",
+      "satisfied": true,
+      "sourceReport": "videoCurrent",
+      "caseId": "duplicate-input",
+      "actualRequests": 0,
+      "nativeIdentityUnchanged": true
+    }
+  ],
+  "partialGenerationApplicability": {
+    "audioOutput": "Declared generated media producer; genuine partial WAV after first actual media delta, cancellation and cleanup proved.",
+    "videoFrames": "Declared AVI-to-PNG read-only input/recognition. Generated video output is unsupported, not granted or claimed. Partial generated-media condition is exercised by the only supported media-output producer, audio.",
+    "scopeNotReducedFromFrozenDeclaredCapabilities": true
+  },
+  "videoActualProof": {
+    "model": "gpt-4.1-mini",
+    "protocol": "responses",
+    "actualRequests": 1,
+    "httpStatus": 200,
+    "bodyBytes": 4775,
+    "bodySha256": "1e3b4d1f914b56ebf40b7ee20ec71cd160fa6680e87cfa3dea0fa2235464558c",
+    "native": {
+      "sessionId": "69a93a44-ecf5-48a7-81ce-cbe6e72a9371",
+      "runId": "f4d8a359-5883-4580-8ea3-9485b0182969",
+      "inputId": "81ba7234-5874-46be-85c4-f6157bd0354e",
+      "state": "completed",
+      "errorCode": null,
+      "runSha256": "e66b5a4baa92b834ac282a61f63c908873bae36ff39c8a9a61a1e71efa991fa3",
+      "attempts": [
+        {
+          "runId": "f4d8a359-5883-4580-8ea3-9485b0182969",
+          "turnId": "e27b510e-4fc4-4eeb-9944-a14dd63b0b83",
+          "attemptId": "3000efab-79b0-40f5-87a0-738b408de61f",
+          "requestSha256": "1fa6049d5e8169cb95cf5f80d98e43472e3ab89ddd1a98d90192cf6175a1dbd0",
+          "nativeOwnerSha256": "ea52c280602d3e44052ed427c02bac37fc6524dedbfa31badc34bcd3c7067c25",
+          "cleanup": {
+            "state": "confirmed",
+            "confirmed": true,
+            "method": "iterator-next-done",
+            "reason": "natural-done"
+          },
+          "usage": {
+            "inputTokens": 828,
+            "outputTokens": 4,
+            "cachedInputTokens": 0,
+            "reasoningOutputTokens": 0
+          }
+        }
+      ],
+      "parts": [
+        {
+          "id": "fb6ad133-f11e-4561-90d5-df16b9b89b2a",
+          "type": "text",
+          "state": "completed",
+          "turnId": "e27b510e-4fc4-4eeb-9944-a14dd63b0b83",
+          "sha256": "e1fbbc7df1fb1d82d6bafa131ed8688a6c8546cfc3386740943fb3648231c3ed"
+        }
+      ]
+    },
+    "originalObservedAttempt": {
+      "workspaceId": "workspace_2717fada027b32556b38119f9a2236f5f6204376d59d1a1728e089d217fa11bf",
+      "sessionId": "69a93a44-ecf5-48a7-81ce-cbe6e72a9371",
+      "runId": "f4d8a359-5883-4580-8ea3-9485b0182969",
+      "turnId": "e27b510e-4fc4-4eeb-9944-a14dd63b0b83",
+      "attemptId": "3000efab-79b0-40f5-87a0-738b408de61f",
+      "providerId": "verify-video-frames",
+      "modelId": "gpt-4.1-mini",
+      "requestSha256": "1fa6049d5e8169cb95cf5f80d98e43472e3ab89ddd1a98d90192cf6175a1dbd0",
+      "ownerSha256": "ea52c280602d3e44052ed427c02bac37fc6524dedbfa31badc34bcd3c7067c25"
+    },
+    "cleanupProof": {
+      "attemptId": "3000efab-79b0-40f5-87a0-738b408de61f",
+      "state": "confirmed",
+      "confirmed": true,
+      "method": "iterator-next-done",
+      "reason": "natural-done"
+    },
+    "recognition": {
+      "matched": true,
+      "expectedSha256": "11fd2778709f70537e85d989744c7e9c0dad14d56dc6b3c2647561bf7ee7442d",
+      "observedSha256": "11fd2778709f70537e85d989744c7e9c0dad14d56dc6b3c2647561bf7ee7442d",
+      "expectedAbsentFromFullWire": true,
+      "tokenCount": 3,
+      "tokensTruncated": false
+    },
+    "inputProfile": {
+      "profile": "rgb24-128px-v1",
+      "width": 128,
+      "height": 128,
+      "stride": 384,
+      "frameBytes": 49152,
+      "frames": 3,
+      "sourceBytes": 147704,
+      "sourceSha256": "81f2229525db27007f3cc4a87a9c4d018c7bf5732883f765c138e686d85b855e",
+      "timestamps": [
+        0,
+        500,
+        1000
+      ],
+      "allPixelsVerified": true,
+      "nativeSourceId": "med_f3cc9359afb14a9b9ff9a1b701a8f1d5",
+      "nativeAttachmentSha256": "9c1c659ad24329b27d4c9aef15e16a99b7cc49b4507734ae8a5cf123d5827d27",
+      "nativeInputMediaSha256": "38bcb60e956a9383eef9e5e9a613b0830977038e2f7033d980be4616880f164f",
+      "nativeRunMediaSha256": "38bcb60e956a9383eef9e5e9a613b0830977038e2f7033d980be4616880f164f"
+    },
+    "wirePngProofs": [
+      {
+        "width": 128,
+        "height": 128,
+        "bytes": 402,
+        "sha256": "05a038de040c72b1d49f36941949b4b78bbd38608e37f79bf022c2e1ac9f645d",
+        "allPixelsVerified": true,
+        "crcVerified": true,
+        "startMs": 0,
+        "endMs": 500
+      },
+      {
+        "width": 128,
+        "height": 128,
+        "bytes": 403,
+        "sha256": "32cba78a00615c233d68cbde61d1cb07763e3c7524b1cea9ca0756b336843e86",
+        "allPixelsVerified": true,
+        "crcVerified": true,
+        "startMs": 500,
+        "endMs": 1000
+      },
+      {
+        "width": 128,
+        "height": 128,
+        "bytes": 403,
+        "sha256": "ee2270552b6d6916302b1120996afb61a2a13ff30dde68e66e5c8bb83b4b942c",
+        "allPixelsVerified": true,
+        "crcVerified": true,
+        "startMs": 1000,
+        "endMs": 1500
+      }
+    ],
+    "duplicate": {
+      "inputId": "81ba7234-5874-46be-85c4-f6157bd0354e",
+      "runId": "f4d8a359-5883-4580-8ea3-9485b0182969",
+      "inputSha256": "b2e5dfadfb7423cdcda6936b1903c633821ba99a2e87a5f8e2ec1df5de8a767d",
+      "nativeSha256": "3197a09e90e586029ceabab98b433d1980e23d1a25f49a1371b67a965a505fb9",
+      "sameNativeIdentity": true,
+      "requests": 0
+    },
+    "pausedArchiveImport": {
+      "caseId": "restart-paused-import",
+      "state": "passed",
+      "sessions": 2,
+      "requests": 0,
+      "accountVerified": false
+    },
+    "creditAssignedAfterFinalCleanup": true
+  },
+  "audioHistoricalPositiveObservations": {
+    "model": "gpt-audio-1.5",
+    "generationCompletedWavBytes": 153644,
+    "artifactSha256": "fbc06bf891ce05aa83294cad335dc9dcf464a74bf0513a6f0c05efdc4b709e79",
+    "afterActualReopenFreshSessionRecognitionMatched": true,
+    "exactExpectedObservedSha256": "3bc3346eb7509977d9c673d5c632926d37db407c252eca1ebd9b8de9d7cdae48",
+    "expectedAbsentFromFullWire": true,
+    "sourceOutputSha256Preserved": true,
+    "duplicateNativeIdentityUnchangedAndRequests0": true,
+    "partialCancelledArtifactCompleteFalse": true,
+    "cleanupConfirmed": true,
+    "reportedGlobalAndCaseCreditRemainFalse": true,
+    "laterAudioMismatchDoesNotEraseThisHistoricalObservationOrBecomeSuccess": true
+  },
+  "latestAllFailurePreserved": {
+    "path": "/tmp/moodcode-media-live-all-128px-20261009.json",
+    "sha256": "1dce77e2007cc1f1c52c2f4a50ca705caf4a629997836f101f6971687aef452a",
+    "actualRequests": 2,
+    "passed": false,
+    "accountVerified": false,
+    "failure": "VERIFY_RECOGNITION_MISMATCH",
+    "failureCaseId": "audio-fresh-recognition",
+    "nativeRunCompletedButSemanticallyMismatched": true,
+    "tokenCount": 4,
+    "expectedSha256": "3723ec6e47dc4f59fb0f778dde2e945183a857f727348d13a6dab4aa8068d4c8",
+    "observedSha256": "77588d26d9c740784901dd145d401a307c497fb737208e16f81b71d9fc402d82",
+    "cleanupConfirmed": true,
+    "notReached": [
+      "audio partial cancellation",
+      "video positive recognition",
+      "duplicate input",
+      "final archive/import"
+    ],
+    "reclassifiedAsGreen": false
+  },
+  "runtimeSourceQualification": {
+    "historicalRuntimeSha256": "053590073941a92200a89e8fb71db4abeb48c1eb29430a039958c99e9066f5fa",
+    "currentRuntimeSha256": "0553480e354640e0f323abc9b775be8116939218e2cf1eaadd753b62ba7eb801",
+    "samePaths712": true,
+    "identicalPins707": true,
+    "changedFivePathsAndHashes": [
+      {
+        "path": "engine/index.d.ts",
+        "historicalSha256": "ae63e5ebc69ecd35278b8c039e1e741363fea35992dfbc6de99271ce5ebdbe24",
+        "currentSha256": "5dc5015743ded92a4efbb245764ee159da0bd832e670ddc3f6002dc313fbb223",
+        "effect": "Type declarations only; no runtime behavior"
+      },
+      {
+        "path": "engine/storage/archive.d.ts",
+        "historicalSha256": "4b57763e7c2506100b5c2db01d503fc71f621baed26df6a827b9caa7f2f76a4e",
+        "currentSha256": "33f3c3c3d10ec163c0360da27f7f1c6c8f34fbe0c71c78d17c3bed88aa1a757c",
+        "effect": "Type declarations only; no runtime behavior"
+      },
+      {
+        "path": "engine/storage/archive.js",
+        "historicalSha256": "f164ac31a875180b5ac614da0a611a48c518839a0ade5ecfb264de661bbbbfe6",
+        "currentSha256": "c9771efebf49a1cd7e1719b09d0a2f748e657072da9a94c834d149706a86271c",
+        "effect": "Archive-only bounded document-proof deadline option; default2000ms/caller max30000ms. Ordinary inspector/source/row/byte ceilings and media/stream semantics unchanged."
+      },
+      {
+        "path": "engine/storage/child-document-reader.d.ts",
+        "historicalSha256": "9637d36a3872bb974c5be200df222e611c2f5bb1127e641c856d38583114e655",
+        "currentSha256": "8d5844d83df7a57351290fb3fe9a6d209f360edc3efb461c4825f56d11accbc3",
+        "effect": "Type declarations only; no runtime behavior"
+      },
+      {
+        "path": "engine/storage/child-document-reader.js",
+        "historicalSha256": "25e597d18e77efb9085dffc227c83eb3738bed33f1509cde5b18646d96dfc976",
+        "currentSha256": "60d863bc64109bbe861a3ec69ba412e1972ad811e293ad89725203995769b4b7",
+        "effect": "Archive-only bounded document-proof deadline option; default2000ms/caller max30000ms. Ordinary inspector/source/row/byte ceilings and media/stream semantics unchanged."
+      }
+    ],
+    "unchangedNativeAudioAndMediaCore": [
+      {
+        "path": "engine/provider/openai-compatible.js",
+        "historicalSha256": "7dffaf2ba3dd15519ef4c4e100facf189c6af8fd738b41d77daab494ec1f610f",
+        "currentSha256": "7dffaf2ba3dd15519ef4c4e100facf189c6af8fd738b41d77daab494ec1f610f",
+        "byteIdentical": true
+      },
+      {
+        "path": "engine/provider/responses.js",
+        "historicalSha256": "1559e3360f45ba21ec012150ef08182696d53fd212ea070e5448b13ec6c5bf9d",
+        "currentSha256": "1559e3360f45ba21ec012150ef08182696d53fd212ea070e5448b13ec6c5bf9d",
+        "byteIdentical": true
+      },
+      {
+        "path": "engine/media/segment-provider.js",
+        "historicalSha256": "189a81aa3dba0a2149e4a725764549d4eb421adfefa60953b2a509335fff3962",
+        "currentSha256": "189a81aa3dba0a2149e4a725764549d4eb421adfefa60953b2a509335fff3962",
+        "byteIdentical": true
+      },
+      {
+        "path": "engine/media/segments.js",
+        "historicalSha256": "889617443149033e1304d324b1c34df31bc9bd76837c0018ce653d3d43fba968",
+        "currentSha256": "889617443149033e1304d324b1c34df31bc9bd76837c0018ce653d3d43fba968",
+        "byteIdentical": true
+      },
+      {
+        "path": "engine/media/output.js",
+        "historicalSha256": "5fac129f19cd48547bba6dad1d5606d6dbaa2bb97b5d8b2b60e7c056dc069d95",
+        "currentSha256": "5fac129f19cd48547bba6dad1d5606d6dbaa2bb97b5d8b2b60e7c056dc069d95",
+        "byteIdentical": true
+      },
+      {
+        "path": "engine/runner/index.js",
+        "historicalSha256": "83f0fa9b9863d3e7dbcf093878bf13e79b2b8fcd9cb7d2e7c693c6c9d50acdcc",
+        "currentSha256": "83f0fa9b9863d3e7dbcf093878bf13e79b2b8fcd9cb7d2e7c693c6c9d50acdcc",
+        "byteIdentical": true
+      },
+      {
+        "path": "engine/storage/index.js",
+        "historicalSha256": "3135b357a4f3f4212e50db276a66d8112e0830e9e3030f6e2f89216deb1b4602",
+        "currentSha256": "3135b357a4f3f4212e50db276a66d8112e0830e9e3030f6e2f89216deb1b4602",
+        "byteIdentical": true
+      },
+      {
+        "path": "engine/context/index.js",
+        "historicalSha256": "11ed049893cf46c196f5b4c1bd37b40d587eac31a5e256c91fa02856cbc3caf9",
+        "currentSha256": "11ed049893cf46c196f5b4c1bd37b40d587eac31a5e256c91fa02856cbc3caf9",
+        "byteIdentical": true
+      }
+    ],
+    "audioGenerationRecognitionUsageCancellationSemanticsChanged": false,
+    "changedExecutableJSEffects": "Only archive.js and child-document-reader.js differ: explicit bounded archive-document proof allowance, same default2000ms and max30000ms only through archive-only frame; ordinary inspector ceilings and physical/source/ref/row/byte checks stay intact. Three .d.ts files change exported types only. These modules do not execute in audio provider request/stream, decoding, recognition, native completion, usage or cancellation.",
+    "archiveCurrentProofConnection": "Current actual video history is exported/imported paused, native model-history hashes are equal, and transport requests after close/export/import are0. This tests the changed archive runtime; it does not pretend that historical audio executed current whole runtime or that current failed all reached archive.",
+    "entireHistoricalRuntimeClaimedCurrent": false,
+    "executorQualification": "Historical2367b3f9 versus currentc370654f. Exact V2 bounded independent review verifies nativeEvidence, full-answer-leak detection, source/runtime pinning and final cleanup/credit blocks byte-identical to the intervening baseline; video finite profiles/English instruction/CRC and diagnostic changes do not alter audio phrases/model/stream options."
+  },
+  "currentArchiveProof": {
+    "sourceReport": "videoCurrent",
+    "sessions": 2,
+    "paused": true,
+    "nativeHistoryHashesEqual": true,
+    "requests0": true,
+    "runtimeProvidersAfterImport": [],
+    "liveOriginalOrAutomaticReplayRestored": false
+  },
+  "committedLedgerContinuity": {
+    "sourceHead": "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21",
+    "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-media-account-request-ledger.json",
+    "committedSha256": "12b9d00c37fcfff7c598a0d6b498e016ba2ed54a07508bfe58e84221cd9c7e30",
+    "committedRequests11": true,
+    "committedInventoryGET1": true,
+    "committedReportsUnchanged": [
+      {
+        "path": "engine-phase-two-media-account-first-live-failure.json",
+        "sha256": "e9734ee68a05f0d2afe94a8f6e4868945fd252da1edafde0de8358ac17e53176",
+        "unchanged": true
+      },
+      {
+        "path": "engine-phase-two-media-account-stream-diagnostic-failure.json",
+        "sha256": "9e0510c9025366b414ee23172eafe55ae8855e67ec984c853d7b4dfb94851c4c",
+        "unchanged": true
+      },
+      {
+        "path": "engine-phase-two-media-account-padding-diagnostic-failure.json",
+        "sha256": "bb687359c30b64e72f813a48a9188d8570889d87a65876ffecc5ed01871f9ca9",
+        "unchanged": true
+      },
+      {
+        "path": "engine-phase-two-media-account-padding-disabled-failure.json",
+        "sha256": "76fcdebe0ceb8bb30051cbfcf90f413e0a841bde01fb0d0b619fbab2df5ff1ec",
+        "unchanged": true
+      },
+      {
+        "path": "engine-phase-two-media-account-terminal-failure.json",
+        "sha256": "b72c3d59816ccb9760429d8f9cb6cf0ea8419cb29948cc56bfcf6967c6590d75",
+        "unchanged": true
+      },
+      {
+        "path": "engine-phase-two-media-account-terminal-diagnostic-failure.json",
+        "sha256": "9e923aa264472e614cd1b6d70ea819296e8626b91b4badaf6e94c556948bc743",
+        "unchanged": true
+      },
+      {
+        "path": "engine-phase-two-media-account-expiry-profile-failure.json",
+        "sha256": "9aa481c0cbd04704998a33e72a02a0bcb447e3416c23b268f79ece975104b685",
+        "unchanged": true
+      },
+      {
+        "path": "engine-phase-two-media-account-video-recognition-failure.json",
+        "sha256": "8018cf30e2eb56fe1943cc71365bf7f9e88fbd4deabba2823fca1d3b71ffbaed",
+        "unchanged": true
+      }
+    ],
+    "newAll128Requests": 2,
+    "newVideo128Requests": 1,
+    "observedTotalGenerationRequests14": true,
+    "observedPerModelTotals": {
+      "gpt-audio-1.5": 11,
+      "gpt-4.1-mini": 3
+    },
+    "inventoryGETSeparate": 1,
+    "automaticRetries": 0,
+    "currentUncommittedLedgerMayBeUpdatedByRoot": true,
+    "reviewerLedgerMutation": false
+  },
+  "separateOpenDebtsAndClaims": {
+    "environmentDebts": [
+      "E5-13",
+      "E5-08",
+      "E6-07",
+      "E6-08"
+    ],
+    "unverifiedOtherScopes": [
+      "PDF account verification",
+      "Anthropic/other models/accounts",
+      "Codex new audio/video/output",
+      "broader environments",
+      "exact media token/window/cost",
+      "native Windows full engine/descendant proof"
+    ],
+    "pcmLayout": "24000Hz mono PCM16/alloy is explicit host attestation. Actual recognition is empirical behavior, not an official numeric Chat layout guarantee.",
+    "unknownMediaCost": null,
+    "explicitUnknownCostAllowed": true,
+    "limitations": "128px is an explicit successful host probe, not a model minimum. Earlier8px video failures and current audio semantic mismatch remain failures. Model-specific functional test coverage does not establish a general recognition accuracy/reliability guarantee."
+  },
+  "reviewerActions": {
+    "sourceEdits": 0,
+    "builds": 0,
+    "apiCalls": 0,
+    "accountCalls": 0,
+    "credentialOrKeyReads": 0,
+    "remoteMutations": 0,
+    "failureRewrites": 0
+  }
+}

@@ -1823,7 +1823,7 @@
       },
       "observedAggregateFailure": {
         "log": {
-          "path": "/tmp/moodcode-code-media-integration-engine-final.log",
+          "path": "/tmp/moodcode-code-media-integration-parallel-engine-final.log",
           "sha256": "e13e0c3f83123876588fc6fbb0b5530f5b22e8ac2ac2e3067aa91f90cfaa6f37"
         },
         "test": "one selected child does not reduce the independent full-archive proof count and collector never rereads indexes",
@@ -3183,5 +3183,13 @@
       },
       "finalAggregateCoverage": "New genuine no-spawn, spawned and paused-import tests included in both final frozen compiled and direct-source gates."
     }
+  },
+  "evidenceReferenceErratum": {
+    "correctedAt": "2026-10-08T17:33:43.381Z",
+    "field": "parallelContentionEvidence.supplementalReview.observedAggregateFailure.log.path",
+    "previousPath": "/tmp/moodcode-code-media-integration-engine-final.log",
+    "correctedPath": "/tmp/moodcode-code-media-integration-parallel-engine-final.log",
+    "preservedSha256": "e13e0c3f83123876588fc6fbb0b5530f5b22e8ac2ac2e3067aa91f90cfaa6f37",
+    "scope": "reference path only; historical failure, final success, assertions, counts and source manifests unchanged"
   }
 }

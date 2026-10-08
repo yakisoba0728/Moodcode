@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "scope": "actual supported media profile verification; partial",
+  "scope": "selected model-specific acceptance complete; immutable individual run outcomes retained",
   "implementationBaseline": "7ab91d5c71ec8e40c9035a93ec61a190820daaa1",
   "sourceQualifiedWorkingTree": true,
   "completedWorkItems": 79,
@@ -9,9 +9,7 @@
   "automaticRetries": 0,
   "modelInventoryRequests": 1,
   "accountVerified": false,
-  "remaining": [
-    "independent original MC2-16d model-by-model acceptance audit with source/runtime continuity across historical audio and current video evidence"
-  ],
+  "remaining": [],
   "audioObservations": "Historical source-qualified completed output, restart/fresh session exact recognition, duplicate request zero, genuine partial cancel and confirmed cleanup; latest all128 run failed exact audio recognition (4 versus expected 3 tokens); no combined completion credit",
   "pcmLayout": "explicit host declaration: 24000 Hz mono PCM16; not official numeric Chat guarantee",
   "reports": [
@@ -188,5 +186,14 @@
   "videoAccountVerifiedForSelectedScope": true,
   "videoObservations": "First actual rgb24-128px-v1 video-only request passed exact 3-color recognition, source/PNG pixel+CRC+timestamp proof, native duplicate with zero transport, and restarted paused import; one actual provider request; selected video scope only",
   "latestCombinedAttemptPassed": false,
-  "originalCompletionRequiresSingleAllRun": false
+  "originalCompletionRequiresSingleAllRun": false,
+  "modelSpecificAcceptanceComplete": true,
+  "acceptanceAudit": "engine-phase-two-media-model-account-acceptance-audit.json",
+  "remainingBroaderScopes": [
+    "E5-13 broader image/PDF/account environments",
+    "Anthropic and other unselected models",
+    "Codex new audio/video/output",
+    "exact media token/window costing",
+    "official numeric PCM layout guarantee"
+  ]
 }

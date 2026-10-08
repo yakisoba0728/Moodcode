@@ -4,6 +4,8 @@
 
 2026-10-07 갱신: 아래 첫 구현의 v1 계약을 보존하며 [v2 계약](engine-contracts-v2.md)의 영구 inbox·Turn/Part·ContextRevision·tasks/questions·진단을 추가했다. 실제 host 확장과 소유권·종료·OS 제한은 [host API](engine-host-api.md), 검증 범위는 [최종 headless 보고서](engine-native-final-verification.md), 미완료 조건은 [TODO](../../TODO.md)를 따른다. v1 설계의 향후 계획 문장은 최신 구현 완료 여부의 근거로 사용하지 않는다.
 
+2026-10-09 실제 지원 갱신: [836db4b CI](engine-ci.md)의 macOS arm64/Linux x64 Node24·26 headless gate와 Windows x64 Node24·26 portable 계약·SQLite gate가 통과했다. Linux의 Darwin 전용62skip과 Windows nativeJobObject 미구현은 지원 공백으로 유지한다. 새로운 계약·실제 소비와 저장/archive 증거는 [2차 진행](engine-phase-two-progress.json), host 연결은 [host API](engine-host-api.md), archive의 명시적 문서 증명 시간 예산은 [API](engine-archive-document-budget.md)를 따른다. [모델별 media 감사](engine-phase-two-media-model-account-acceptance-audit.json)의 선택 profile만 검증됐다. ACP session/load 원조건 누락은 재개하며 [전체 범위 감사](engine-phase-two-final-scope-audit.json)를 완료로 재분류하지 않는다.
+
 ## 첫 목표와 실행 형태
 
 첫 목표는 **로컬 workspace에서 세션을 만들고 입력 하나를 접수해 응답을 기록하며, 중지·재시작 후에도 결과를 조회하는 엔진**이다. 테스트용 provider로 이 흐름을 완성하고, 실제 provider와 파일·명령 도구를 순서대로 추가한다. 최종 엔진 목표는 작은 코드 수정과 검증을 끝내는 것이다.

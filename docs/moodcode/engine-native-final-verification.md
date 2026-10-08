@@ -56,3 +56,7 @@ workspace 변경 ID/버전은 현재 프로세스의 bounded 관찰 baseline이�
 ## 완료와 후속
 
 **71/75 TODO 완료**다. Windows 실제 backend(E5-08), media adapter(E5-13), hosted CI와 OS 지원 검증(E6-07), 그 결과를 반영한 최종 지원 명세(E6-08)는 열어 둔다. E6-08의 현재 host API·schema·복구/성능 문서는 작성했으며 최종 OS 판정이 남았다. 핵심 엔진과 현재 지원한 확장은 macOS의 headless host에서 연결·검증한 상태다.
+
+## 2026-10-09 실제 CI·최신 지원 명세 갱신
+
+위2026-10-07 baseline의 수치·미실행 기록은 역사로 보존한다. 최신 실제 환경 판정은 [836db4b Actions](engine-ci.md)와 [POSIX artifact](engine-ci-public-836db4b-posix-verification.json)·[Windows artifact](engine-ci-windows-public-verification.json)를 따른다. macOS/Linux Node24·26 전체 gate와 Windows portable Node24·26가 모두 통과했다. Linux Darwin 전용 기능과 Windows native JobObject는 제외된 지원 범위다. E6-07·E6-08 완료로 초기TODO는73/75이며 E5-08·E5-13은 열린 상태다. 현재2차는79/80·19/20: 원 media16d는 모델별 source-qualified 실제 증거를 충족했고 ACP09b session/load 원조건은 다시 진행한다. [host API](engine-host-api.md)·[명세](engine-spec.md)·[진행](engine-phase-two-progress.json)·[전체 범위 감사](engine-phase-two-final-scope-audit.json)를 연결하며 GUI·packaging·서명/배포 증거로 확대하지 않는다.

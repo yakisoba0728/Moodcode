@@ -9,9 +9,7 @@
   "completedWorkItems": 79,
   "environmentDebts": [
     "E5-13",
-    "E5-08",
-    "E6-07",
-    "E6-08"
+    "E5-08"
   ],
   "families": [
     {
@@ -418,7 +416,7 @@
       "title": "ACP·remote host·client effect 완료",
       "priority": "P2",
       "wave": "W5",
-      "status": "complete",
+      "status": "in-progress",
       "workItems": [
         {
           "id": "MC2-09a",
@@ -432,10 +430,11 @@
         {
           "id": "MC2-09b",
           "completion": "synthetic ACP/remote peer·엄격한 command/event schema·bounded replay",
-          "status": "complete",
+          "status": "in-progress",
           "evidence": [
             "engine-phase-two-agent-backends.md",
-            "engine-phase-two-agent-backends-verification.json"
+            "engine-phase-two-agent-backends-verification.json",
+            "engine-phase-two-final-scope-audit.json"
           ]
         },
         {
@@ -459,7 +458,7 @@
           ]
         }
       ],
-      "notes": "Exact-approved local ACP v1 client write and supervised terminal effects now use the genuine same native Turn/Attempt, existing tools, native Tool/Part/checkpoints and independent source/delivery receipts. Forced exact approvals, cancellation, EOF/late/duplicate/native drift/SQL/SIGKILL/reopen/paused import were validated. HTTP/auth/reconnect/load/agent-owned context/permanent grants/PTY remain explicitly unsupported; no peer OS-isolation claim."
+      "notes": "Exact-approved local ACP v1 client write and supervised terminal effects now use the genuine same native Turn/Attempt, existing tools, native Tool/Part/checkpoints and independent source/delivery receipts. Forced exact approvals, cancellation, EOF/late/duplicate/native drift/SQL/SIGKILL/reopen/paused import were validated. HTTP/auth/reconnect/load/agent-owned context/permanent grants/PTY remain explicitly unsupported; no peer OS-isolation claim. Final original-family contract audit SCOPE-01 found session/load has no validator/actual consumer and negotiated loadSession is fixedfalse. Reopen09b for actual negotiated opt-in load, frozen remote identity/context ownership and associated regression; no user authorization to remove this original contract. Other implemented09 conditions remain evidenced. Goal remains active."
     },
     {
       "id": "MC2-10",
@@ -771,7 +770,7 @@
       "title": "media 확대·실제 공급자 검증",
       "priority": "P2/P3",
       "wave": "ENV/WX",
-      "status": "in-progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-16a",
@@ -806,7 +805,7 @@
         {
           "id": "MC2-16d",
           "completion": "실제 지원 모델별 invalid MIME·oversize·unknown capability·부분 생성·중복 delivery·source 삭제 검사. E5-13 닫힘과 신규 video/audio 완료를 따로 판정",
-          "status": "in-progress",
+          "status": "complete",
           "evidence": [
             "engine-phase-two-media-account-live-verification.json",
             "engine-phase-two-code-media-image-live-verification.json",
@@ -833,11 +832,12 @@
             "engine-phase-two-video-probe-source-freeze.json",
             "engine-phase-two-video-probe-verification.json",
             "engine-phase-two-video-probe-independent-review.json",
-            "engine-ci-windows-video-local-integration.json"
+            "engine-ci-windows-video-local-integration.json",
+            "engine-phase-two-media-model-account-acceptance-audit.json"
           ]
         }
       ],
-      "notes": "16a plan retained. 16b/c complete actual bounded WAV/AVI source decoder/capability/timestamp/native input/provider wire and genuine provider Artifact/Part/usage/partial/recovery/archive/read APIs. Exact local fixture model/wire evidence is implementation evidence, not production account proof. Two real Codex image/restart requests passed on the initial combined snapshot; all source hashes and honest usage retained. 16d actual new audio/video/generated-output account/model checks remain in progress; Codex new media unsupported before credentials. E5-13 and unknown media token/window costing remain open. Complete native media account executor now covers actual generated PCM/fresh-session recognition/first-delta cancellation, genuine AVI-to-PNG Responses frames, exact zero-transport negative admission, duplicate/restart/paused import, bounded request attempts and source/runtime/cleanup evidence retention. Local HTTP implementation checks and final review do not grant actual account credit; 2026-10-09 actual OpenAI profile tests made eleven generation requests plus one separate model-list GET. Exact gpt-audio-1.5 completed output/restart/fresh recognition/duplicate/partial cancel cleanup observations passed; gpt-4.1-mini video native completion did not pass exact semantic recognition, so video duplicate and later whole-success paused archive steps remain unexecuted. All account credit remains false and counts stay 79/80, 19/20. PCM numeric layout is an explicit host declaration, not an official Chat guarantee. Failure reports and bounded diagnostics are retained without raw credentials or upstream text. Subsequent 2026-10-09 requests total fourteen (audio11/video3), inventory GET1 separate, auto retries0. First actual128px video-only run passed exact recognition and genuine source/PNG pixel+CRC/timestamp binding, duplicate0requests and restarted paused import. Its account credit is selected-video only; historical failed reports remain accountfalse. Latest all128 audio fresh recognition failed (4 expected3 tokens) after2requests and before video. Original16d model-by-model acceptance is under independent source/runtime-qualified audit; no new requirement for one successful all run is introduced. Counts remain79/19 pending that audit."
+      "notes": "16a plan retained. 16b/c complete actual bounded WAV/AVI source decoder/capability/timestamp/native input/provider wire and genuine provider Artifact/Part/usage/partial/recovery/archive/read APIs. Exact local fixture model/wire evidence is implementation evidence, not production account proof. Two real Codex image/restart requests passed on the initial combined snapshot; all source hashes and honest usage retained. 16d actual new audio/video/generated-output account/model checks remain in progress; Codex new media unsupported before credentials. E5-13 and unknown media token/window costing remain open. Complete native media account executor now covers actual generated PCM/fresh-session recognition/first-delta cancellation, genuine AVI-to-PNG Responses frames, exact zero-transport negative admission, duplicate/restart/paused import, bounded request attempts and source/runtime/cleanup evidence retention. Local HTTP implementation checks and final review do not grant actual account credit; 2026-10-09 actual OpenAI profile tests made eleven generation requests plus one separate model-list GET. Exact gpt-audio-1.5 completed output/restart/fresh recognition/duplicate/partial cancel cleanup observations passed; gpt-4.1-mini video native completion did not pass exact semantic recognition, so video duplicate and later whole-success paused archive steps remain unexecuted. All account credit remains false and counts stay 79/80, 19/20. PCM numeric layout is an explicit host declaration, not an official Chat guarantee. Failure reports and bounded diagnostics are retained without raw credentials or upstream text. Subsequent 2026-10-09 requests total fourteen (audio11/video3), inventory GET1 separate, auto retries0. First actual128px video-only run passed exact recognition and genuine source/PNG pixel+CRC/timestamp binding, duplicate0requests and restarted paused import. Its account credit is selected-video only; historical failed reports remain accountfalse. Latest all128 audio fresh recognition failed (4 expected3 tokens) after2requests and before video. Original16d model-by-model acceptance is under independent source/runtime-qualified audit; no new requirement for one successful all run is introduced. Counts remain79/19 pending that audit. Final independent model-specific acceptance satisfies the original16d criterion across qualified immutable historical audio positive/partial/duplicate and current audio negatives/current128px video recognition/negatives/duplicate/paused import. 712 runtime pins:707 identical,3 declarations and2 archive-document-budget implementations changed;8 criticalaudio compiledfiles byte-identical. Historical all reports remain failed/accountfalse; current selectedvideo report true only. No single-all-success requirement was introduced. E5-13 broader scopes remain separate."
     },
     {
       "id": "MC2-17",
@@ -1048,5 +1048,5 @@
       "notes": "Complete original preview, fair up-front fixed reservations, actual isolated editor/validator/reviewer workflow children, strict native success, separate approved selection/merge, atomic result input and real subsequent consumer are integrated. Partial/cancel/unknown/skip-resume/SQL/SIGKILL/export/source/import checks pass. Native histories use existing DB23 bounded documents/events; host fixed per-request accounting is distinguished from external invoice and unknown usage remains unknown."
     }
   ],
-  "updatedAt": "2026-10-08T17:25:08.587Z"
+  "updatedAt": "2026-10-08T17:42:05.866Z"
 }

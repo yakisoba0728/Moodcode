@@ -12,7 +12,7 @@
 - OpenCode에서 확인한 동작을 Moodcode 계약과 자체 fixture로 구현한다. 원본 코드·프롬프트·도구 설명·테스트를 이름만 바꿔 가져오지 않는다. 실제 외부 코드 재사용이 필요하면 출처와 고지를 별도로 기록한다.
 - 각 단계는 headless engine/harness로 검증한다. 기본 회귀는 fixture를 사용하고, 실제 계정 요청은 명시적으로 분리한다. GUI·서명·앱 업데이트는 이 목록의 구현 범위에 넣지 않는다.
 
-**구현·검증 완료 71/75**. 열린 항목은 **E5-08, E5-13, E6-07, E6-08**이며 각각 아래에 남은 조건을 기록한다. E0-01~04는 [첫 통합 기록](docs/moodcode/engine-foundation-verification.md), 기본 native 엔진은 [첫 native 통합](docs/moodcode/engine-native-verification.md), 확장 연결과 최신 gate는 [최종 headless 검증](docs/moodcode/engine-native-final-verification.md)을 따른다. 담당 범위는 [병렬 엔진 구현](docs/moodcode/engine-implementation-waves.md)에 기록한다.
+**구현·검증 완료 73/75**. 열린 항목은 **E5-08, E5-13**이며 각각 아래에 남은 조건을 기록한다. E0-01~04는 [첫 통합 기록](docs/moodcode/engine-foundation-verification.md), 기본 native 엔진은 [첫 native 통합](docs/moodcode/engine-native-verification.md), 확장 연결과 최신 gate는 [최종 headless 검증](docs/moodcode/engine-native-final-verification.md)을 따른다. 담당 범위는 [병렬 엔진 구현](docs/moodcode/engine-implementation-waves.md)에 기록한다.
 
 기반 구현 커밋은 `c2309e7`(계약·migration), `94d2a65`(native 엔진·확장), `682b1d8`(실제 child/LSP/artifact)이다. 1차 최종 구현은 `464812f`이며 전체 gate는 동시성4의 같은 목록에서2,596개 중2,594 pass·실패0·취소0·기존 조건부2 skip, 타입 검사·코딩 fixture3/3이다. 같은 source의 실제 Codex default eager child text1회와 저장/archive/import 회귀가 통과했다. [최신 근거](docs/moodcode/engine-goal-verification.md), [1차 종료 조건](docs/moodcode/engine-phase-one-exit-criteria.md)을 따른다.
 
@@ -225,12 +225,12 @@ E5는 코딩 loop 기반을 만든 뒤 순서대로 확장한다. 초기 검증�
   선행: E6-03. 완료: primary/review/recovery ledger·artifact를 일관된 manifest/hash로 보존·복원하고 schema migration·부분 실패·복구 중단을 검증한다.
 - [x] **E6-06 — 진단·metrics·오류 원인 정리** `[개선]`
   선행: E6-03, E6-04. 완료: queue·turn·retry·summary·cleanup·quarantine·artifact의 관찰 지표와 사용자용 오류를 정리하고 누락 값·표본 범위를 표시한다.
-- [ ] **E6-07 — 엔진 CI·OS별 지원 검증 연결** `[신규·검증]`
+- [x] **E6-07 — 엔진 CI·OS별 지원 검증 연결** `[신규·검증]`
   선행: E6-05, E6-06. 완료: 엔진 검증을 기본 CI에 연결하고 macOS/Linux/Windows의 실제 pass/skip·미지원 경계를 기록한다. 확장 backend는 해당 E5 항목 완료 후 추가한다.
-  현재(2026-10-09): [Public 저장소](https://github.com/yakisoba0728/Moodcode)의 [실제 Actions b10de7b](https://github.com/yakisoba0728/Moodcode/actions/runs/37811495182)에서 macOS/Linux Node24·26 네 lane은 전체 엔진·media20/20·eval3/3 통과했다. Windows portable 두 lane은 각각 열린 SQLite 연결보다 먼저 실행된 정리 hook9건의 EPERM으로 실패했다. 연결 close→directory 삭제를 보장하는 fixture helper와 독립2회귀를 추가했고 source43/43·Darwin 로컬 portable151pass/실패0/native skip1을 확인했다. 수정 후 실제 Windows 재검증은 남아 있다. [OS별 정확한 범위](docs/moodcode/engine-ci.md)를 따른다.
-- [ ] **E6-08 — 확장 통합과 구현 명세 갱신** `[검증·문서]`
+  현재(2026-10-09): [Public 저장소](https://github.com/yakisoba0728/Moodcode)의 [실제 Actions b10de7b](https://github.com/yakisoba0728/Moodcode/actions/runs/37811495182)에서 macOS/Linux Node24·26 네 lane은 전체 엔진·media20/20·eval3/3 통과했다. Windows portable 두 lane은 각각 열린 SQLite 연결보다 먼저 실행된 정리 hook9건의 EPERM으로 실패했다. 연결 close→directory 삭제를 보장하는 fixture helper와 독립2회귀를 추가했고 source43/43·Darwin 로컬 portable151pass/실패0/native skip1을 확인했다. 후속 [836db4b 실제CI](https://github.com/yakisoba0728/Moodcode/actions/runs/37816462723)는 여섯 lane 모두 통과했고 Windows 각152/151pass/실패0/native skip1을 확인했다. E6-07 완료는 이 명시 지원 범위이다. [OS별 정확한 범위](docs/moodcode/engine-ci.md)를 따른다.
+- [x] **E6-08 — 확장 통합과 구현 명세 갱신** `[검증·문서]`
   선행: E6-02, E6-07 및 구현한 E5 항목. 완료: 실제 지원 목록·command/schema·복구/성능/OS 한계를 갱신하고 핵심 엔진 배포·host 연결 가능 상태를 정리한다. 미완료 E5는 열린 TODO로 남긴다.
-  현재: 지원 목록·host API·schema·복구/성능 한계와 검증 보고서를 갱신했다. macOS headless host 연결은 검증했다. 선행 E6-07의 실제 CI 결과와 OS 지원 명세 확정이 남아 있어 항목을 열어 둔다.
+  현재: 실제836db4b six-lane 지원 목록·host API·schema·복구/성능·OS 한계와 artifact 보고서를 갱신했다. macOS/Linux headless 및 Windows portable 범위만 완료하며 E5-08 native Windows·E5-13 broader media는 열린 TODO로 유지한다.
 
 ## 다음 작업과 개선 우선순위
 
@@ -304,14 +304,14 @@ G1-29까지 구현·검증했고 남은 로컬 필수 구현은 없다. [종료 
 - [x] **MC2-06 — 상주 child·팀 mailbox·board**: P2 · W4. 실제 동일 child Engine의 후속 native Run·Original mailbox/ACK·누적 lifetime 예산·모델 submit/독립 review·CAS/SQL/SIGKILL/paused import 검증 완료. 미확정 owner의 wake/재사용은 차단한다. Imported actor activation·detached parent·nested resident allocation은 지원 범위 밖이다.
 - [x] **MC2-07 — 역할 workflow·recipe·child join**: 실제 editor/validator child·개별 승인 merge·stage CAS·효과 종료 후 parent 후속 Run과 복구/검증 완료. [통합](docs/moodcode/engine-phase-two-parallel-consumers.md).
 - [x] **MC2-08 — 예약·webhook occurrence admission**: P2 · W5. 원본 root target/worker·시간대/DST·native cursor/claim/lease/CAS·dedupe와 실제 queue accept/promote/Run 결과를 연결했다. 각 provider 진입 직전 config/profile/catalogue/물리 binding 재검사, 실제 SIGKILL·uncertain no replay·disabled/paused import를 검증했다. 자동 clock polling·network listener·외부 webhook 인증/알림은 host 통합 범위다. [구현](docs/moodcode/engine-phase-two-schedules.md).
-- [x] **MC2-09 — ACP native permission/write/terminal**: 지원하는 local v1 lane의 실제 native 승인·효과·cleanup·복구를 통합했다. HTTP/auth/reconnect/load/agent-owned context는 명시적 미지원이다. [계약](docs/moodcode/engine-phase-two-acp-client-effects.md).
+- [ ] **MC2-09 — ACP native permission/write/terminal·session/load**: local v1 승인·효과·cleanup·복구는 구현했다. 최종 original family contract 감사에서 load 실제 소비 누락을 발견해09b를 재개한다. HTTP/auth/reconnect 및 현재load/agent-owned context는 미지원이며 구현·검증 후 supported scope만 닫는다. [계약](docs/moodcode/engine-phase-two-acp-client-effects.md).
 - [x] **MC2-10 — command job·완료 전달·수명**: 기존 atomic inbox/model read에 실제 같은 PID의 foreground/background owner 전환·bounded stdin/EOF·정리·복구를 연결했다. [계약](docs/moodcode/engine-phase-two-command-lifetimes.md).
 - [x] **MC2-11 — role 권한·판단 출처·preflight**: P1 · W1. host CAS 정책 교체·catalogue/prepared 무효화·actual HTTP MCP 및 독립 child worktree/DB의 stale approval effect 0 검증. 외부 운용/Windows 증거는 환경 범위로 유지. [통합](docs/moodcode/engine-phase-two-w2.md).
 - [x] **MC2-12 — projection·manifest·무진전·오류 진단**: P1 · W1. 실제 native source/effect writer·bounded coherent evidence·readonly 등록 inspector·advisory·선택 metadata 요약을 연결했다. 추가 모델 호출 없는 요약이며 남은 live budget은 unknown이다. [통합](docs/moodcode/engine-phase-two-native-diagnostics.md).
 - [x] **MC2-13 — 승인형 Git commit 영수증**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [x] **MC2-14 — 효과 보존 대화 fork**: P3 · WX. 계약(a)·독립 모듈(b)·엔진 연결(c)·검증/문서(d).
 - [x] **MC2-15 — 제한 code-mode**: 실제 Darwin 제한 worker·Original broker·개별 native 승인/예산·효과 정리·복구·통합 검증 완료. [계약](docs/moodcode/engine-phase-two-code-mode.md).
-- [ ] **MC2-16 — media 확대·실제 공급자 검증**: 계획16a·실제 WAV/AVI segment와 provider Artifact/Part16b/c 완료. **16d 실제 오디오/영상/생성 출력 모델 계정 검증 남음**. [계약](docs/moodcode/engine-phase-two-media-capabilities.md).
+- [x] **MC2-16 — media 확대·실제 공급자 검증**: 16a–d 완료. source-qualified historical audio 출력/인식/partial/duplicate와 current128pxvideo/모델별negative/duplicate/pausedimport 원조건을 [독립감사](docs/moodcode/engine-phase-two-media-model-account-acceptance-audit.json)로 확인했다. 실패보고서/unknowncost/PCM호스트선언·broaderE5-13은 유지한다. [계약](docs/moodcode/engine-phase-two-media-capabilities.md).
 - [x] **MC2-17 — 실제 OS 파일/네트워크 sandbox**: P3 · ENV/WX. Darwin opt-in experimental deprecated CLI에서 실제 파일/네트워크 거절·명령/host/child/readonly stdio MCP 상속·native PID/cleanup·crash/import 검증 완료. 다른 OS와 정식 Apple App Sandbox 지원은 주장하지 않는다.
 - [x] **MC2-18 — prepared resource 효과 병렬**: 실제 Original disjoint 기존 파일 쓰기·upfront 승인/예산·per-member native 결과·partial/uncertainty와 serial fallback을 연결했다. [계약](docs/moodcode/engine-phase-two-effect-batches.md).
 - [x] **MC2-19 — PR SHA 기반 CI/review feedback**: 정확한 public GitHub SHA/check/review·native repair 입력·실제 검증과 stale/cleanup/복구 확인 완료. [통합](docs/moodcode/engine-phase-two-parallel-consumers.md).
@@ -412,7 +412,7 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 - [x] **ACP·명령 수명·prepared 효과 병렬 완결 기능 통합** — frozen feature3개를 합쳐 기존 Original context/승인/예산/resident/sandbox/coding/workflow guard를 유지했다. 전체4583개 중4581pass/실패0/기존skip2, 직접source2679개 중2677pass/실패0/기존skip2, typecheck0·coding fixture3pass/live0·source/build input839개 SHA 불변. DB23 catalogue139/cap160·integrity ok/FK0. MC2-09c/d·10a/b/d·18a–d 완료로 **73/80·18/20**, goal active. [통합 검증](docs/moodcode/engine-phase-two-client-command-effects-verification.json). 실제 Codex 이미지2요청은 별도 source/account 증거이며 미디어 완료 credit/E5 종료와 구별한다. code-mode·media7항목과 환경 이월4개는 계속 진행한다.
 
 - [x] **제한 code-mode·미디어 완결 기능 통합** — 전체4642/4640pass/실패0/기존skip2, 직접source3344/3342pass/실패0/기존skip2, type0·coding3pass·source/build input870 SHA 불변. 독립 예산 결함 수정과 native51/52 경계4개, 기존 async 취소·입력 오류 계약, 일반 child의 Root codeMode 비상속을 확인했다. **79/80·19/20**, goal active. [통합 검증](docs/moodcode/engine-phase-two-code-media-integration-verification.json).
-- [ ] **MC2-16d 실제 새 미디어 모델 계정 검증** — 로컬 audio/video/output wire·native·fault fixture는 통과했다. 기존 Codex 토큰 경로는 새 audio/video/output을 지원하지 않으므로 실제 지원 공급자/모델과 해당 인증 설정에서 MIME/초과/unknown/partial/duplicate/source-delete를 확인해야 한다. 기존 실제 Codex 이미지2요청만으로 종료하지 않는다. E5-13·E5-08·E6-07·E6-08 이월 유지.
+- [x] **MC2-16d 실제 새 미디어 모델 계정 검증** — 로컬 audio/video/output wire·native·fault fixture는 통과했다. 기존 Codex 토큰 경로는 새 audio/video/output을 지원하지 않으므로 실제 지원 공급자/모델과 해당 인증 설정에서 MIME/초과/unknown/partial/duplicate/source-delete를 확인해야 한다. 선택한 실제audio/video/output 원모델별 조건의 완료는 [최종감사](docs/moodcode/engine-phase-two-media-model-account-acceptance-audit.json)를 따른다. Codex 이미지2요청만으로 닫지 않았으며 broaderE5-13·nativeWindowsE5-08은 별도열린 상태다.
 
 - [x] **MC2-16d 계정 검증 준비 — 현재 구현 기준 planner 갱신**: 실제 WAV/AVI/PCM native 경로와 exact 모델·host capability·layout 미확인·unknown cost를 구분하고23 source SHA·19 pending cases를 고정했다. Main CLI6/6, 인증/config/env/provider import/network0을 확인했다. 원래 계획·계정 증거를 보존하며 **79/80·19/20**, 실제16d·환경 이월4개는 미완료다. [현재 계획](docs/moodcode/engine-phase-two-media-verification-plan.md).
 
@@ -425,3 +425,7 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 - [x] **실제 CI 실패 수정·최종 로컬 통합 — 2026-10-09**: native code-mode IPC/output drain·Linux PGID 관측·Electron Node guard·CRLF/PID/output/inode fixture 경합을 수정하고 archive 전용 명시적1~30,000ms document budget을 연결했다. input906개 SHA 불변, build0·전체4,674/4,672pass/실패0/기존 Windows skip2·compiled media20/20·CI local media20/20·scripted 평가3/3 확인. Public 저장소에서 source push 후 실제 hosted 재검증이 남고 E6-07은 미완료다. [통합 근거](docs/moodcode/engine-native-ci-media-integration-verification.json)·[archive API](docs/moodcode/engine-archive-document-budget.md).
 
 - [x] **Windows SQLite fixture lifetime·128px 영상 검증 보강 — 2026-10-09**: observer/reopened store close 후 directory 삭제 및 close failure 원 오류/자료 보존을 검증했다. source43/43·launcher3/3·Darwin portable151pass/실패0/native skip1·build0, media planner/실행기 source26/26·compiled26/26 통과. 첫 실제128px video-only는1요청에서 exact 의미 검증·pixels/CRC/SHA/timestamp·duplicate0·paused import를 통과했다. 직전 all128 audio4token mismatch 실패2요청은 유지하며 누적14요청, 원16d 독립감사 전 **79/80·19/20** 유지. [검증](docs/moodcode/engine-ci-windows-video-local-integration.json)·[실제 계정 진행](docs/moodcode/engine-phase-two-media-account-status.md).
+
+- [x] **836db4b 실제 CI 여섯 lane 완료·모델별16d 감사 — 2026-10-09**: macOS 각4,674pass/실패0/skip2, Linux 각4,614pass/실패0/skip62(전체4,676), POSIXmedia26/26·평가3/3·type/build/PTY0, Windows 각151pass/실패0/native skip1(전체152). E6-07/08의 실제지원 명세를 닫았다. 원16d 모델별 조건은 immutable실패와 source/runtime-qualified 성공관측을 별도로 유지해 완료했다. [CI](docs/moodcode/engine-ci.md)·[media 감사](docs/moodcode/engine-phase-two-media-model-account-acceptance-audit.json).
+
+- [ ] **MC2-09b 원 가족계약 ACP session/load 보강**: [최종 원80항목/20가족 감사](docs/moodcode/engine-phase-two-final-scope-audit.json)의 SCOPE-01을 해결한다. actualload/strictschema/negotiatedcapability·nativeOriginal identity·contextownership/replay·permission/cancel/duplicate/late/disconnect 회귀를 함께 연결한다. 원조건을 삭제하지 않고 **79/80·19/20·goal active**를 유지한다. 과거 실패 로그 경로1건은 동일실패SHA의 실제보존경로로 정정했다.

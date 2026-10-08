@@ -1,0 +1,303 @@
+{
+  "schemaVersion": 1,
+  "scope": "Actual Windows portable contracts/storage only",
+  "checkedAt": "2026-10-08T17:31:04.428997+00:00",
+  "runId": 37816462723,
+  "runURL": "https://github.com/yakisoba0728/Moodcode/actions/runs/37816462723",
+  "sourceCommit": "836db4b271da1de4750a5717a79df485e6b75500",
+  "verdict": "Both actual Windows Node24/26 portable jobs pass; all nine previous teardown failures and both new lifetime regressions pass.",
+  "sourcePins": [
+    {
+      "path": "packages/engine/src/storage/storage.test.ts",
+      "sha256": "d10c95a117a797aa2a1d53c0290067fe0ab23083c3d11b3ad479a9a6032906eb",
+      "matchesWorkerFrozenSource": true
+    },
+    {
+      "path": "packages/engine/src/storage/native-inbox.test.ts",
+      "sha256": "11536fde56de8c656b57d96ccd9254d00945d4b30e14bcdda43f61949b15de1f",
+      "matchesWorkerFrozenSource": true
+    },
+    {
+      "path": "packages/engine/src/storage/native-records.test.ts",
+      "sha256": "c417a7c4149804c5b15e1de6bbb9b5c94ff61cc881d204d76f5e42552e5f567d",
+      "matchesWorkerFrozenSource": true
+    },
+    {
+      "path": "packages/engine/src/storage/native-documents-history.test.ts",
+      "sha256": "c278bf711754a6ce8eff7d2a870cb7820894e6c2e8440d3dfd4ea5a95d38752c",
+      "matchesWorkerFrozenSource": true
+    },
+    {
+      "path": "packages/engine/src/storage/fixtures/sqlite-directory.ts",
+      "sha256": "14bbd2219e34bdde669e8e7d70d84cb443d128a678b1f9fea65b6a24fdb2bc13",
+      "matchesWorkerFrozenSource": true
+    },
+    {
+      "path": "packages/engine/src/storage/fixture-lifetime.test.ts",
+      "sha256": "e8d964a217e7e2bea32c86a626d11939763d9808dcd7045b245f3c1b2ce9b5c2",
+      "matchesWorkerFrozenSource": true
+    },
+    {
+      "path": ".github/scripts/engine-ci.mjs",
+      "sha256": "fbfd788dbf686ae8a6aefdf0f0bbaee04e72722a9f0d82174eb7c0387f8642b2",
+      "matchesWorkerFrozenSource": true
+    },
+    {
+      "path": ".github/scripts/engine-ci.test.mjs",
+      "sha256": "a16599066e60452e83cd14c4b8088edb7273340e98af4c471ef1d3a9fb7d0ef4",
+      "matchesWorkerFrozenSource": true
+    }
+  ],
+  "workerFreeze": {
+    "path": "/tmp/moodcode-windows-fixture-lifetime-source-freeze.json",
+    "sha256": "59f8bdcc9c307689aa9b02ec28fc03afe0cf11f00aea49bb44b0bf4a581e39aa",
+    "allEightGitCommitSourcesMatch": true
+  },
+  "jobs": [
+    {
+      "jobId": 113446239926,
+      "jobURL": "https://github.com/yakisoba0728/Moodcode/actions/runs/37816462723/job/113446239926",
+      "name": "Portable contracts/storage only / Windows / Node 24.x",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T17:25:41Z",
+      "completedAt": "2026-10-08T17:26:46Z",
+      "environment": {
+        "platform": "win32",
+        "architecture": "x64",
+        "node": "v24.21.0",
+        "commit": "836db4b271da1de4750a5717a79df485e6b75500",
+        "ciRunConfirmed": true
+      },
+      "stages": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0,
+          "durationMs": 64
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0,
+          "durationMs": 4162
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0,
+          "durationMs": 3751
+        },
+        {
+          "operation": "test-windows",
+          "state": "passed",
+          "exitCode": 0,
+          "durationMs": 23735
+        }
+      ],
+      "counts": {
+        "tests": 152,
+        "pass": 151,
+        "fail": 0,
+        "skipped": 1
+      },
+      "regressions": {
+        "newLifetimeCases": [
+          "\u2714 fixture lifetime closes actual observer and reopened storage handles before removing the directory (475.5709ms)",
+          "\u2714 an actual connection close failure propagates its original error and preserves SQLite evidence until genuine closure (398.5328ms)"
+        ],
+        "priorNineEPERMCasesAllPass": [
+          "\u2714 session document journal failure rolls back a successful CAS update (490.0256ms)",
+          "\u2714 context revision activation, document CAS and both journal streams commit or roll back together (468.5263ms)",
+          "\u2714 promotion journal failure rolls back pending state, legacy admission, message and both cursors (482.184ms)",
+          "\u2714 second steering publication failure rolls back the whole batch and rejects other session ownership (559.2628ms)",
+          "\u2714 provider dispatch journal failure leaves the prepared attempt and cursor unchanged (631.8911ms)",
+          "\u2714 journal insertion failure rolls back projection, messages and sequence on a real connection (526.3221ms)",
+          "\u2714 snapshot remains at one database revision when another connection commits during its reads (464.6055ms)",
+          "\u2714 recovery persists interrupted tools, expired approvals and run terminal in journal and preserves checkpoints (343.9641ms)",
+          "\u2714 future database schema is rejected before mutation and failed open releases ownership (439.7631ms)"
+        ],
+        "exactCompiledLifetimeFileSelected": true
+      },
+      "nativeWindowsJobObject": {
+        "available": false,
+        "actualVerification": false,
+        "reason": "No native Job Object binding is supplied; portable port fixtures are not OS proof.",
+        "skipLine": "\ufe63 actual Windows Job Object child-tree timeout and parent-crash verification (0.1021ms) # No native Windows Job Object binding is installed; portable port tests are not OS verification."
+      },
+      "windowsFullEngineVerified": false,
+      "liveProviderRequests": false,
+      "guiLaunch": false,
+      "artifact": {
+        "id": 11567621378,
+        "name": "engine-windows-portable-node-24.x-attempt-1",
+        "serverDigest": "sha256:75924059f997b4a305ca5882cc27d6c71b9be8791020f2023b9a70b602136c3e",
+        "downloadedZip": "/tmp/moodcode-actions-37816462723-windows24.zip",
+        "zipSha256": "75924059f997b4a305ca5882cc27d6c71b9be8791020f2023b9a70b602136c3e",
+        "digestMatches": true
+      },
+      "evidenceFiles": [
+        {
+          "path": "/tmp/moodcode-actions-37816462723-windows24-artifacts/results.json",
+          "sha256": "ef11bd7020a89da82723b2a7910b319efbf287733da4e3ff579e23bd8e6edc59",
+          "bytes": 3872
+        },
+        {
+          "path": "/tmp/moodcode-actions-37816462723-windows24-artifacts/steps.json",
+          "sha256": "1c6d230804c4604e05d2ec30f90bffcc72a824b56c6213e336ff6dbd9eb91a24",
+          "bytes": 3216
+        },
+        {
+          "path": "/tmp/moodcode-actions-37816462723-windows24-artifacts/test-windows.stdout",
+          "sha256": "b4d175d8fa0fa1ebf240bd9ea5206b70aa5c38a8e99128c7c747c4af1f7881eb",
+          "bytes": 16337
+        },
+        {
+          "path": "/tmp/moodcode-actions-37816462723-windows24-artifacts/test-windows.log",
+          "sha256": "b4d175d8fa0fa1ebf240bd9ea5206b70aa5c38a8e99128c7c747c4af1f7881eb",
+          "bytes": 16337
+        },
+        {
+          "path": "/tmp/moodcode-actions-37816462723-windows24.log",
+          "sha256": "ddb671ff1a0b63ed9ffd1bd478788a8f1acca32a412a93e9737325801bef76b8",
+          "bytes": 54220
+        }
+      ]
+    },
+    {
+      "jobId": 113446240359,
+      "jobURL": "https://github.com/yakisoba0728/Moodcode/actions/runs/37816462723/job/113446240359",
+      "name": "Portable contracts/storage only / Windows / Node 26.x",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T17:25:42Z",
+      "completedAt": "2026-10-08T17:27:18Z",
+      "environment": {
+        "platform": "win32",
+        "architecture": "x64",
+        "node": "v26.11.1",
+        "commit": "836db4b271da1de4750a5717a79df485e6b75500",
+        "ciRunConfirmed": true
+      },
+      "stages": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0,
+          "durationMs": 68
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0,
+          "durationMs": 5796
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0,
+          "durationMs": 5522
+        },
+        {
+          "operation": "test-windows",
+          "state": "passed",
+          "exitCode": 0,
+          "durationMs": 33145
+        }
+      ],
+      "counts": {
+        "tests": 152,
+        "pass": 151,
+        "fail": 0,
+        "skipped": 1
+      },
+      "regressions": {
+        "newLifetimeCases": [
+          "\u2714 fixture lifetime closes actual observer and reopened storage handles before removing the directory (289.6629ms)",
+          "\u2714 an actual connection close failure propagates its original error and preserves SQLite evidence until genuine closure (476.9819ms)"
+        ],
+        "priorNineEPERMCasesAllPass": [
+          "\u2714 session document journal failure rolls back a successful CAS update (643.1895ms)",
+          "\u2714 context revision activation, document CAS and both journal streams commit or roll back together (791.0783ms)",
+          "\u2714 promotion journal failure rolls back pending state, legacy admission, message and both cursors (510.17ms)",
+          "\u2714 second steering publication failure rolls back the whole batch and rejects other session ownership (904.4314ms)",
+          "\u2714 provider dispatch journal failure leaves the prepared attempt and cursor unchanged (993.6016ms)",
+          "\u2714 journal insertion failure rolls back projection, messages and sequence on a real connection (716.6933ms)",
+          "\u2714 snapshot remains at one database revision when another connection commits during its reads (634.736ms)",
+          "\u2714 recovery persists interrupted tools, expired approvals and run terminal in journal and preserves checkpoints (498.4161ms)",
+          "\u2714 future database schema is rejected before mutation and failed open releases ownership (453.6303ms)"
+        ],
+        "exactCompiledLifetimeFileSelected": true
+      },
+      "nativeWindowsJobObject": {
+        "available": false,
+        "actualVerification": false,
+        "reason": "No native Job Object binding is supplied; portable port fixtures are not OS proof.",
+        "skipLine": "\ufe63 actual Windows Job Object child-tree timeout and parent-crash verification (0.154ms) # No native Windows Job Object binding is installed; portable port tests are not OS verification."
+      },
+      "windowsFullEngineVerified": false,
+      "liveProviderRequests": false,
+      "guiLaunch": false,
+      "artifact": {
+        "id": 11567770977,
+        "name": "engine-windows-portable-node-26.x-attempt-1",
+        "serverDigest": "sha256:dfb80cb1ec1d1962105897c881565653c54d625e67b5d0f69a8859ff7b390e66",
+        "downloadedZip": "/tmp/moodcode-actions-37816462723-windows26.zip",
+        "zipSha256": "dfb80cb1ec1d1962105897c881565653c54d625e67b5d0f69a8859ff7b390e66",
+        "digestMatches": true
+      },
+      "evidenceFiles": [
+        {
+          "path": "/tmp/moodcode-actions-37816462723-windows26-artifacts/results.json",
+          "sha256": "8cb23fe6122008e1927a58ee2ebd6467fc04cf723282e5f358e07af3047a3013",
+          "bytes": 3872
+        },
+        {
+          "path": "/tmp/moodcode-actions-37816462723-windows26-artifacts/steps.json",
+          "sha256": "48ec33aadbf87b5ba468e052f6caecd822569be487115d7869841394795e52fa",
+          "bytes": 3216
+        },
+        {
+          "path": "/tmp/moodcode-actions-37816462723-windows26-artifacts/test-windows.stdout",
+          "sha256": "c0a57b9e7f5c4c947650dae3df3abc8726ec4387f84379e916ef85d78ee20997",
+          "bytes": 16342
+        },
+        {
+          "path": "/tmp/moodcode-actions-37816462723-windows26-artifacts/test-windows.log",
+          "sha256": "c0a57b9e7f5c4c947650dae3df3abc8726ec4387f84379e916ef85d78ee20997",
+          "bytes": 16342
+        },
+        {
+          "path": "/tmp/moodcode-actions-37816462723-windows26.log",
+          "sha256": "0aa75d594e422d2cf1be012fa794cd24585d47338c0a36f31bd2d1506d5e03e5",
+          "bytes": 54363
+        }
+      ]
+    }
+  ],
+  "observation": {
+    "path": "/tmp/moodcode-actions-37816462723-windows-observations.json",
+    "sha256": "54d5865bf423f71fb47ec230ae1532d45e4df220b62f01b0b9ad7123565bdc18",
+    "stateReadCount": 2,
+    "gapsSeconds": [
+      75.872761
+    ],
+    "unchangedReports": 0
+  },
+  "claimLimits": [
+    "Windows portable gate verified on actual win32/x64 Node v24.21.0 and v26.11.1 only.",
+    "No actual native Windows Job Object binding, child-tree timeout or parent-crash OS proof; prior single explicit skip and windowsFullEngineVerified=false remain.",
+    "POSIX jobs/full Engine/whole workflow conclusion are outside this Windows observation and are not credited here."
+  ],
+  "actions": {
+    "readOnlyGitHubGET": true,
+    "sourceWrites": false,
+    "MainWrites": false,
+    "testsRunByObserver": false,
+    "buildsRunByObserver": false,
+    "accountOrAPIKeyAccess": false,
+    "environmentFileReads": false,
+    "GitHubMutation": false,
+    "commitOrPush": false
+  }
+}

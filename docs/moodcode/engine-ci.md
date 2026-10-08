@@ -1,6 +1,6 @@
 # Headless engine CI와 OS 검증 범위
 
-2026-10-09 현재 [Moodcode 저장소](https://github.com/yakisoba0728/Moodcode)는 사용자 요청으로 Public이다. `b10de7b`의 [두 번째 실제 Actions run](https://github.com/yakisoba0728/Moodcode/actions/runs/37811495182)은 macOS·Linux Node24/26 네 lane 모두 통과했다. Windows portable 두 lane은 각각 SQLite fixture 정리 hook 9건의 EPERM으로 실패했다. 열린 SQLite observer/reopened store를 디렉터리 삭제 전에 닫도록 수정했으며, 수정된 소스의 실제 Windows 재검증은 남아 있다. [독립 POSIX 검토](engine-ci-public-posix-verification.json)와 [Windows 실패·수정 근거](engine-ci-windows-lifetime-verification.json)는 서로 다른 범위를 기록한다. [첫 run](https://github.com/yakisoba0728/Moodcode/actions/runs/37801446778)의 여섯 실패 이력도 보존한다.
+2026-10-09 [Moodcode 저장소](https://github.com/yakisoba0728/Moodcode)는 Public이다. `836db4b`의 [실제 Actions run](https://github.com/yakisoba0728/Moodcode/actions/runs/37816462723)은 여섯 lane 모두 통과했다. [POSIX 원본 artifact 검토](engine-ci-public-836db4b-posix-verification.json)와 [Windows 검토](engine-ci-windows-public-verification.json)는 실제 source·Node·OS·검사 수를 기록한다. 첫 두 run의 실패와 수정 근거는 아래에 보존한다. 이후 ACP load 보강은 별도 미완료이며 이 CI를 그 신규 working tree의 검증으로 확대하지 않는다.
 
 표준 GitHub-hosted runner의 Public 저장소 사용은 [공식 무료 사용 범위](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)에 해당한다. [job별 실행 시간·동시 실행 제한](https://docs.github.com/en/actions/reference/limits)과 이 workflow의 20~25분 timeout은 유지된다. Larger runner는 별도 과금 범위다.
 
@@ -8,9 +8,9 @@
 
 | Lane | Runner / Node | 실행 범위 | 현재 확인한 상태 |
 | --- | --- | --- | --- |
-| POSIX full | `macos-15` arm64 × `24.x`, `26.x` | locked install, PTY 준비·native module 확인, headless typecheck/build/test, local scripted eval | 실제 b10de7b 통과: 각 4,674개 중 4,672pass·실패0·Windows native skip2, media20/20·eval3/3 |
-| POSIX full | `ubuntu-24.04` x64 × `24.x`, `26.x` | 위와 동일, 실제 POSIX child/group/PTY fixture 포함 | 실제 b10de7b 통과: 각 4,674개 중 4,612pass·실패0·skip62, media20/20·eval3/3 |
-| Windows portable | `windows-2025` x64 × `24.x`, `26.x` | headless source typecheck/build, contracts 전체, 명시한 SQLite fixture, fake native ownership port fixture | 실제 b10de7b: 각150개 중140pass·정리 hook 실패9·native skip1. fixture 수정 재검증 필요; 전체 엔진 지원을 뜻하지 않음 |
+| POSIX full | `macos-15` arm64 × `24.x`, `26.x` | locked install, PTY 준비·native module 확인, headless typecheck/build/test, local scripted eval | 실제836db4b 통과: 각4,676개 중4,674pass·실패0·Windows native skip2, media26/26·eval3/3 |
+| POSIX full | `ubuntu-24.04` x64 × `24.x`, `26.x` | 위와 동일, 실제 POSIX child/group/PTY fixture 포함 | 실제836db4b 통과: 각4,676개 중4,614pass·실패0·skip62, media26/26·eval3/3 |
+| Windows portable | `windows-2025` x64 × `24.x`, `26.x` | headless source typecheck/build, contracts 전체, 명시한 SQLite fixture, fake native ownership port fixture | 실제836db4b 통과: 각152개 중151pass·실패0·native skip1. portable 범위만 확인 |
 
 runner 이름과 architecture는 [GitHub-hosted runner 공식 표](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)를 확인했다. `latest` runner 대신 OS label을 고정했다. OS 이미지 내부 도구와 Node patch는 계속 갱신될 수 있으므로 artifact에 실제 platform/arch/Node/commit을 기록한다. 이 matrix는 Node 24 이상을 다루며 Node22 이하·Bun·Electron ABI 검증은 포함하지 않는다. macOS Intel/Linux arm64/Windows arm64 역시 후속이다.
 
@@ -69,3 +69,9 @@ Archive 문서 증명의 기존 단일 2초 deadline을 초과한 대형 fixture
 macOS arm64의 실제 Node24.20.0/26.11.1과 Linux x64의 Node24.21.0/26.11.1에서 locked install·PTY load·typecheck/build·전체 gate·로컬 media·scripted eval·artifact upload가 통과했다. Linux skip62는 Darwin code-mode29·sandbox/resident28·interactive PTY3·Windows native2로 소스 조건과 대조했다. 이 skip을 Linux 기능 지원으로 세지 않는다. [다운로드한 artifact 파일 SHA](engine-ci-public-artifact-sha256.json)와 원본 job log를 보존한다.
 
 현재 fixture lifetime 두 회귀와 영상 CLI 여섯 회귀는 b10de7b 이후 변경이다. 이전 hosted 전체4,674/media20개 결과에 이 신규 사례를 포함하지 않는다. 새 push에서 POSIX full과 Windows portable을 다시 실행하고 실제 OS 결과에 따라 E6-07·E6-08을 판정한다. E5-08 native Windows와 더 넓은 E5-13 계정 검증은 별도 열린 범위다.
+
+## 836db4b 실제 six-lane 완료 판정
+
+[세 번째 run](https://github.com/yakisoba0728/Moodcode/actions/runs/37816462723)은 전체success이다. macOS arm64 Node24.20.0/26.11.1, Linux x64 Node24.21.0/26.11.1의 실제 source/PTY/type/build·whole4,676·media26/26·scripted eval3/3을 확인했다. macOS는4,674pass/skip2, Linux는4,614pass/skip62이며 failure0이다. 새로운 genuineSQLite lifetime2회귀도 네 lane 모두 실행했다. [artifact 파일 SHA](engine-ci-public-836db4b-artifact-sha256.json)를 기록한다.
+
+Windows win32/x64 Node24.21.0/26.11.1은 각152개 중151pass·실패0·기존 nativeJobObject skip1이다. 이전EPERM9개와 새lifetime2개를 실제 로그에서 확인했으며 다운로드ZIP digest도 서버 값과 일치했다. windowsFullEngineVerified=false와 JobObject unavailable을 유지한다. 이 supported matrix의 실제 CI·OS 결과와 갱신된 host/schema/복구·성능/OS 명세를 근거로 E6-07·E6-08을 닫고 E5-08·E5-13은 별도 열린 범위로 유지한다. 원 MC2-09 load 미구현은 goal의 별도 진행 항목이며 새 구현 후 CI를 다시 검증한다.
