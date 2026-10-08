@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "candidate": "RUNNER-01",
+  "status": "Implemented and frozen; source and compiled focused159/159 and post-abort6/6 native gates plus own all-project typecheck passed; Root combined full regression pending",
+  "baselineCommit": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+  "source": {
+    "beforeSha256": "16895c5d89eabb216eb65fb1aa6dbd2ab5d5a807a92b77a586d87808e22cbdac",
+    "after": {
+      "path": "packages/engine/src/runner/index.ts",
+      "sha256": "ebb4d567f1215b81fc1d704e7371df8f9be5197ab42e5cccdc37cee33adf58e0"
+    },
+    "test": {
+      "path": "packages/engine/src/runner/live-tool-owner.integration.test.ts",
+      "sha256": "e43d662a0df7a83715cd4db0c88d3a3790478ba20d8f45262570c95bff975da1"
+    },
+    "baselineTestSha256": "a0774b95157127f86c8e815fd131942acc9cce8185b23995b3df5faf4382f595",
+    "baselineTestQualification": "Baseline test preceded production extraction. The final test differs only by a total string fallback for its positive-control assertion message, resolving TS2769."
+  },
+  "change": {
+    "privateHelper": "RunCoordinator.liveToolOwnerChanged",
+    "callers": ["assertTeamToolContext", "assertWorkflowToolContext"],
+    "conditions": 14,
+    "privateCaptureType": "TeamToolContextCapture",
+    "description": "One exact unchanged 14-condition live owner predicate replaces two repeated predicates. Each domain wrapper retains capture lookup, phase/active authentication, plain-data binding, left allowlist, native catalogue/discovery check and exact approval validation."
+  },
+  "nativeContractReview": {
+    "reviewed": [
+      "teams/model-tools-host-proof.test.ts",
+      "teams/model-tools.integration.test.ts",
+      "teams/fixtures/model-tools.ts",
+      "workflows/effects.integration.test.ts",
+      "workflows/producer-edge.integration.test.ts",
+      "workflows/fixtures/effects.ts",
+      "workflows/fixtures/workflow.ts",
+      "runner/coordinator.test.ts",
+      "jobs/command-model-tools.integration.test.ts",
+      "code-mode/engine-code-mode.integration.test.ts",
+      "jobs/owned-command-boundaries.integration.test.ts",
+      "jobs/owned-command-settlement.integration.test.ts",
+      "jobs/owned-command.integration.test.ts"
+    ],
+    "genuineGap": "Existing team tests already rejected actual copied and accessor contexts. Workflow effects:528 rejected a fabricated unowned context, so it did not cover mutations on the exact active captured original. Both lanes lacked active original owner-map, terminal, active-tool, Turn/Attempt, signal and native approval replacement checks at their real registered tool boundary.",
+    "newCases": "Only these gaps are added; existing team copied/accessor tests and existing cleanup tests remain unchanged."
+  },
+  "retained": [
+    "Original exact WeakMap key, capture phase, active lifetime and inProgress=false cleanup; matching serialized tuples grant no authority.",
+    "14 owner comparisons retain original short-circuit field order; unsupported allowlists remain left of helper invocation.",
+    "teamContextBinding retains TEAM_MODEL_OWNER_STALE for workflow metadata proxy/accessor rejection.",
+    "Team read_agent_mailbox/read_team_board and workflow observe_workflow_stage retain their distinct execute-approval exemptions.",
+    "Catalogue/discovery checks occur after owner validation and before native approval lookup; distinct approval errors/messages and session/Run/tool/name/fingerprint checks remain local.",
+    "Readonly job Run-ID-before-Session-ID comparison remains separate. Code-mode observe and owned-command settle retain their intentional post-abort cleanup authority.",
+    "No public signature/export, registry, producer, timeout, event, migration, DB_VERSION, unknown outcome, Original source proof or no-replay change."
+  ],
+  "independentEvidence": {
+    "sourceContractCheck": {
+      "path": "artifacts/store-runner-refactor/runner-source-contract-check.json",
+      "sha256": "3ec62fd3a331a2dd0e2febff246b9c2aa78c0d270ed7472777c693d0aad16f85"
+    },
+    "checkResult": {
+      "beforeSha256": "16895c5d89eabb216eb65fb1aa6dbd2ab5d5a807a92b77a586d87808e22cbdac",
+      "afterSha256": "ebb4d567f1215b81fc1d704e7371df8f9be5197ab42e5cccdc37cee33adf58e0",
+      "exactPredicateMatchesBothOriginalCallers": true,
+      "predicateConditions": 14,
+      "retainedMethodsByteIdentical": {
+        "teamContextBinding": true,
+        "readCommandJobToolContext": true,
+        "captureToolCatalogue": true,
+        "readCodeModeContext": true,
+        "readOwnedCommandContext": true,
+        "toolOperation": true,
+        "executeTool": true
+      },
+      "allowlistLeftOfHelper": true
+    },
+    "effectEvidence": "Each rejected actual registered mutation is checked with a separate readonly DatabaseSync connection: team_messages, team_mailbox_cursors, team_operation_receipts, team_deliveries, workflow_revisions, workflow_heads and checkpoints remain unchanged. Each negative also has zero child tasks and zero child-provider dispatches. No new helper generates expected effects.",
+    "nativeApprovalEvidence": "The actual allowed approvals SQL data row is independently replaced with a different fingerprint immediately before the wrapper checks it, then restored; exact lane APPROVAL_REQUIRED is emitted and the allowed row authorizes no domain effect.",
+    "trapEvidence": "Unsupported native tool name paired with a trapping owner.run Proxy proves the allowlist short-circuits all owner-field reads. Original workflow metadata Proxy/accessor and copied context Proxy reject with total trap count zero.",
+    "catalogueEvidence": "Every owner/phase/binding failure increments the catalogue count by zero; the native approval replacement failure increments it by exactly one, preserving catalogue-before-approval order."
+  },
+  "newNativeScenarioCounters": {
+    "team": {
+      "rejected": 8,
+      "positive": 1,
+      "traps": 0,
+      "negativeChildDispatches": 0,
+      "positiveChildDispatches": 0
+    },
+    "workflow": {
+      "rejected": 14,
+      "positive": 1,
+      "traps": 0,
+      "negativeChildDispatches": 0,
+      "positiveChildDispatches": 1
+    },
+    "shared": [
+      "unsupported-name",
+      "replaced-owner",
+      "terminal-owner",
+      "replaced-active-tool",
+      "native-turn-drift in prepare",
+      "native-attempt-drift",
+      "replaced-original-signal",
+      "replaced-native-approval"
+    ],
+    "workflowOnly": [
+      "copied-original",
+      "original-context-proxy",
+      "original-workspace-proxy",
+      "original-signal-accessor",
+      "wrong-phase",
+      "inactive-original-prepare"
+    ],
+    "qualification": "These are 22 failed real native tool operations inside two top-level integration tests, not 22 independent node:test rows. The positive team control persists exactly one message; workflow control admits and dispatches one real private child."
+  },
+  "measurement": {
+    "method": "Existing RF01 TypeScript7.0.2 closed synthetic AST worker; syntax proxy only. Stable named methods and whole-module totals; shifted anonymous line IDs are not new function evidence.",
+    "beforeReport": {
+      "path": "artifacts/store-runner-refactor/before-ast.json",
+      "sha256": "76b5814a9a9b988df9d3acc9d989027cc0768f56a6bd04718a044d4eca4d6bf2"
+    },
+    "afterReport": {
+      "path": "artifacts/store-runner-refactor/after-ast.json",
+      "sha256": "57c533f34d9b360fa4e058f5c802090ed0cad73cec8c4b98753052d23fb3a738"
+    },
+    "before": {
+      "functions": 229,
+      "ownedDecisions": 1154,
+      "sumSyntacticComplexity": 1383,
+      "physicalLines": 2423,
+      "bytes": 162554
+    },
+    "after": {
+      "functions": 230,
+      "ownedDecisions": 1140,
+      "sumSyntacticComplexity": 1370,
+      "physicalLines": 2435,
+      "bytes": 162454
+    },
+    "wrappers": [
+      {
+        "name": "assertTeamToolContext",
+        "before": {
+          "name": "assertTeamToolContext",
+          "start": 997,
+          "end": 1014,
+          "lines": 18,
+          "decisions": 28,
+          "complexity": 29,
+          "fingerprint": {
+            "sha256": "577b131a4b2dd7ee4104aee4dc6a01126454b7d3d2fd0de768bacda3f949dc5f",
+            "nodes": 349
+          }
+        },
+        "after": {
+          "name": "assertTeamToolContext",
+          "start": 1017,
+          "end": 1030,
+          "lines": 14,
+          "decisions": 14,
+          "complexity": 15,
+          "fingerprint": {
+            "sha256": "675b9b2c7afd63c5cc1fd35c56040ecf6508dbdbec5e98c531c31f4cdccda95c",
+            "nodes": 197
+          }
+        }
+      },
+      {
+        "name": "assertWorkflowToolContext",
+        "before": {
+          "name": "assertWorkflowToolContext",
+          "start": 1025,
+          "end": 1042,
+          "lines": 18,
+          "decisions": 28,
+          "complexity": 29,
+          "fingerprint": {
+            "sha256": "581e3c9f801a75586ffcec4c978be37a228d22e77f6ce052747a67708f1f0aa2",
+            "nodes": 342
+          }
+        },
+        "after": {
+          "name": "assertWorkflowToolContext",
+          "start": 1041,
+          "end": 1054,
+          "lines": 14,
+          "decisions": 14,
+          "complexity": 15,
+          "fingerprint": {
+            "sha256": "1d805de37214ae9eaa6381e0961e0204730e8e10cf5a4734dd0e8ad0fa168dea",
+            "nodes": 190
+          }
+        }
+      }
+    ],
+    "helper": {
+      "name": "liveToolOwnerChanged",
+      "start": 1007,
+      "end": 1014,
+      "lines": 8,
+      "decisions": 14,
+      "complexity": 15,
+      "fingerprint": {
+        "sha256": "d6a64c1ae84d7bd1003449e43705b45054446d79960d52bbfc6c136340eea3ef",
+        "nodes": 169
+      }
+    },
+    "responsibilityConclusion": "Two independent definitions of the same 14 owner checks become one definition with two domain-specific callers. Including the helper, scoped syntactic complexity is 58 -> 45 and decisions 56 -> 42; module complexity sum is 1383 -> 1370 and decisions 1154 -> 1140. The +12 physical lines and -100 bytes do not constitute a net line reduction. The larger provider/effect responsibilities are unchanged."
+  },
+  "verification": {
+    "baselineDedicatedSource": {
+      "path": "artifacts/store-runner-refactor/runner-tests-before.log",
+      "sha256": "53167aaad95b6617bbcce1bbfcc83419b5f2fb15895bfaeddfe706f4b29b5ff3",
+      "exitCode": 0,
+      "tests": 2,
+      "passCount": 2,
+      "failCount": 0,
+      "skipCount": 0,
+      "runnerSha256": "16895c5d89eabb216eb65fb1aa6dbd2ab5d5a807a92b77a586d87808e22cbdac"
+    },
+    "afterFocusedSource": {
+      "path": "artifacts/store-runner-refactor/runner-tests-after.log",
+      "sha256": "077c77f176a71792a86ecd74e28a56757943aba4f27a81e788436d39c2a89bf8",
+      "exitCode": 0,
+      "tests": 159,
+      "passCount": 159,
+      "failCount": 0,
+      "skipCount": 0
+    },
+    "finalDedicatedSource": {
+      "path": "artifacts/store-runner-refactor/runner-dedicated-final-source.log",
+      "sha256": "ca2b2b5dec8bb7ad5b0083c6910ea1078990229ef72ed9dd86c426b67bc31c62",
+      "exitCode": 0,
+      "tests": 2,
+      "passCount": 2,
+      "failCount": 0,
+      "skipCount": 0
+    },
+    "postAbortSource": {
+      "path": "artifacts/store-runner-refactor/runner-post-abort-source.log",
+      "sha256": "8d7ed5e936a3066a307aa3f35f721c934be2992ccfc38edefc70189162695e63",
+      "exitCode": 0,
+      "tests": 6,
+      "passCount": 6,
+      "failCount": 0,
+      "skipCount": 0,
+      "retainedNativeFixture": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-hF39ra"
+    },
+    "allProjectTypecheck": {
+      "status": "passed",
+      "exitCode": 0,
+      "owner": "parent",
+      "initialDiagnostic": "TS2769 on optional positive-control assert message; fixed with string fallback, initial log retained by parent.",
+      "log": "artifacts/store-runner-refactor/after-typecheck.log",
+      "initialDiagnosticLog": "artifacts/store-runner-refactor/after-typecheck-initial-failure.log",
+      "initialDiagnosticQualification": "Exact diagnostic restored from captured tool output after rerun replaced original file; initial exit2, final exit0."
+    },
+    "compiledFocused": {
+      "status": "passed",
+      "owner": "delegated parent",
+      "exitCode": 0,
+      "tests": 159,
+      "pass": 159,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "durationMs": 79725.557334,
+      "log": "artifacts/store-runner-refactor/runner-compiled.log",
+      "logSha256": "1a634e415ef9891d935701387db12837ee28900dd24bf55246ceb4d59ebb9a5e"
+    },
+    "compiledPostAbort": {
+      "status": "passed",
+      "owner": "delegated parent",
+      "exitCode": 0,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "durationMs": 7310.377291,
+      "log": "artifacts/store-runner-refactor/runner-post-abort-compiled.log",
+      "logSha256": "570fc478cffcf8095d8d5c4ee97d96319e4b8e2789411a303c42c1cf15e37d3f",
+      "retainedNativeFixture": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-i1BPGw"
+    },
+    "fullIntegration": {
+      "status": "pending",
+      "owner": "Root",
+      "scope": "Combined full regression on integrated main"
+    },
+    "focusedSourceFiles": [
+      "packages/engine/src/runner/live-tool-owner.integration.test.ts",
+      "packages/engine/src/teams/model-tools-host-proof.test.ts",
+      "packages/engine/src/teams/model-tools.integration.test.ts",
+      "packages/engine/src/workflows/effects.integration.test.ts",
+      "packages/engine/src/workflows/producer-edge.integration.test.ts",
+      "packages/engine/src/runner/coordinator.test.ts",
+      "packages/engine/src/jobs/command-model-tools.integration.test.ts"
+    ],
+    "postAbortSourceFiles": [
+      "packages/engine/src/code-mode/engine-code-mode.integration.test.ts",
+      "packages/engine/src/jobs/owned-command.integration.test.ts",
+      "packages/engine/src/jobs/owned-command-boundaries.integration.test.ts",
+      "packages/engine/src/jobs/owned-command-settlement.integration.test.ts"
+    ],
+    "postAbortNamePattern": "outer parent cancellation|owned command cancellation|closing the real Root|actual command producer|actual completed job transaction",
+    "sourceTestInvocation": "node --import /Users/yakisoba0728/.codex/worktrees/store-runner-refactor/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 <listed files>"
+  },
+  "limits": [
+    "Source/fixture review and bounded native regression do not prove all conceivable owner mutations or every semantic caller. Exact 14-condition source equality and unchanged retained-method bytes are separate evidence.",
+    "AST measurement is syntax-only, not a general authorization framework, semantic unused-code proof, repository security scan or proof of whole-coordinator simplification.",
+    "No live provider/account/credential/network calls, builds/shared dist writes, goal tools, commits or pushes were performed by this agent. Local fixture Git, SQLite, native PTY and Original command/runtime cleanup are intentional regression effects."
+  ]
+}

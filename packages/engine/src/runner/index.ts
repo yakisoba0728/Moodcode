@@ -80,6 +80,16 @@ interface Owner {
   verificationBoundary?: VerificationBoundary;
 }
 
+interface TeamToolContextCapture {
+  owner: Owner;
+  record: ToolCallRecord;
+  active: () => boolean;
+  phase: 'prepare' | 'execute';
+  binding: string;
+  signal: AbortSignal;
+  approval?: ApprovedMcpToolOwner['approval'];
+}
+
 interface OriginalProviderRequest {
   readonly owner: Owner;
   readonly proof: ProviderRequestOwner;
@@ -279,7 +289,7 @@ export class RunCoordinator implements CoordinatorPort {
   private readonly unsafeWorkspaces = new Set<string>();
   private readonly finalUsage = new Map<string, Readonly<RunUsage>>();
   private readonly verificationSettlementOwners = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; binding: string }>();
-  private readonly teamToolContexts = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; phase: 'prepare' | 'execute'; binding: string; signal: AbortSignal; approval?: ApprovedMcpToolOwner['approval'] }>();
+  private readonly teamToolContexts = new WeakMap<ToolContext, TeamToolContextCapture>();
   private readonly codeModeContexts = new WeakMap<ToolContext,{owner:Owner;record:ToolCallRecord;phase:'prepare'|'execute';active:()=>boolean;binding:string;signal:AbortSignal;approval?:ApprovedMcpToolOwner['approval']}>();
   private readonly codeModeNested = new Map<string,{outer:ToolContext;signal:AbortSignal;deadline:number;assertCurrent:()=>void}>();
   private readonly commandJobContexts = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; binding: string; signal: AbortSignal; approval?: ApprovedMcpToolOwner['approval'] }>();
@@ -993,18 +1003,24 @@ export class RunCoordinator implements CoordinatorPort {
     return JSON.stringify([...metadata, fields.sessionId!.value, fields.runId!.value, fields.toolCallId!.value, fields.turnId!.value, fields.attemptId!.value, fields.artifactDir!.value, fields.executionLockPath?.value ?? null]);
   }
 
+  /** Team/workflow live phases require the same unchanged, non-aborted owner. */
+  private liveToolOwnerChanged(captured: TeamToolContextCapture, context: ToolContext, phase: 'prepare' | 'execute', safeBinding: string): boolean {
+    const { owner, record } = captured;
+    return this.owners.get(owner.run.id) !== owner || owner.terminal || owner.abort.signal.aborted || context.signal !== captured.signal || context.signal.aborted
+      || safeBinding !== captured.binding || owner.activeTools.get(record.id) !== record
+      || owner.run.sessionId !== context.sessionId || owner.run.id !== context.runId || owner.run.workspaceId !== context.workspace.id
+      || owner.turn?.id !== context.turnId || owner.turn?.attemptId !== context.attemptId
+      || record.id !== context.toolCallId || record.state !== (phase === 'prepare' ? 'requested' : 'running');
+  }
+
   /** SQL-matching copies cannot become an original current tool producer. */
   assertTeamToolContext(context: ToolContext, phase: 'prepare' | 'execute'): void {
     const captured = this.teamToolContexts.get(context);
     if (!captured || captured.phase !== phase || !captured.active()) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team tools require their original current coordinator context');
-    const { owner, record } = captured;
+    const { record } = captured;
     const safeBinding = this.teamContextBinding(context);
     if (!['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task','read_team_board','submit_team_task','review_team_task'].includes(record.name)
-      || this.owners.get(owner.run.id) !== owner || owner.terminal || owner.abort.signal.aborted || context.signal !== captured.signal || context.signal.aborted
-      || safeBinding !== captured.binding || owner.activeTools.get(record.id) !== record
-      || owner.run.sessionId !== context.sessionId || owner.run.id !== context.runId || owner.run.workspaceId !== context.workspace.id
-      || owner.turn?.id !== context.turnId || owner.turn?.attemptId !== context.attemptId
-      || record.id !== context.toolCallId || record.state !== (phase === 'prepare' ? 'requested' : 'running')) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Original team tool execution changed');
+      || this.liveToolOwnerChanged(captured, context, phase, safeBinding)) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Original team tool execution changed');
     this.captureToolCatalogue(context);
     if (phase === 'execute' && !['read_agent_mailbox','read_team_board'].includes(record.name)) {
       if (!captured.approval) throw new EngineError('TEAM_MODEL_APPROVAL_REQUIRED', 'Team mutations require exact original native approval');
@@ -1025,14 +1041,10 @@ export class RunCoordinator implements CoordinatorPort {
   assertWorkflowToolContext(context: ToolContext, phase: 'prepare' | 'execute'): void {
     const captured = this.teamToolContexts.get(context);
     if (!captured || captured.phase !== phase || !captured.active()) throw new EngineError('WORKFLOW_MODEL_OWNER_STALE', 'Team tools require their original current coordinator context');
-    const { owner, record } = captured;
+    const { record } = captured;
     const safeBinding = this.teamContextBinding(context);
     if (!['request_workflow_stage', 'observe_workflow_stage', 'merge_workflow_stage', 'deliver_workflow_result'].includes(record.name)
-      || this.owners.get(owner.run.id) !== owner || owner.terminal || owner.abort.signal.aborted || context.signal !== captured.signal || context.signal.aborted
-      || safeBinding !== captured.binding || owner.activeTools.get(record.id) !== record
-      || owner.run.sessionId !== context.sessionId || owner.run.id !== context.runId || owner.run.workspaceId !== context.workspace.id
-      || owner.turn?.id !== context.turnId || owner.turn?.attemptId !== context.attemptId
-      || record.id !== context.toolCallId || record.state !== (phase === 'prepare' ? 'requested' : 'running')) throw new EngineError('WORKFLOW_MODEL_OWNER_STALE', 'Original team tool execution changed');
+      || this.liveToolOwnerChanged(captured, context, phase, safeBinding)) throw new EngineError('WORKFLOW_MODEL_OWNER_STALE', 'Original team tool execution changed');
     this.captureToolCatalogue(context);
     if (phase === 'execute' && record.name !== 'observe_workflow_stage') {
       if (!captured.approval) throw new EngineError('WORKFLOW_MODEL_APPROVAL_REQUIRED', 'Team mutations require exact original native approval');
