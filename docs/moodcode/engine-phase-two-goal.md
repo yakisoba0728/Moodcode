@@ -21,3 +21,10 @@ frozen request/context/tool capture, exact prepare→approval→effect·deny 우
 synthetic peer와 실제 OS/provider 결과를 구분한다. 선택 기능은 host opt-in/capability gate를 갖추고 실제 지원 환경의 증거를 요구한다. E5-13/E5-08/E6-07/E6-08은 별도 이월 상태로 유지하고 실제 계정/OS/CI 증거가 있는 범위만 닫는다. 미지원·미검증 환경을 지원한다고 표시하지 않는다.
 
 2026-10-07의 [정적 비교](../coding-agent-engine-review/one-to-one-comparison.md)와 SHA/hash 검사는 당시 고정 baseline의 분석 기록이다. 이후 구현으로 현재 파일이 바뀌었다는 사실을 과거 source 근거 위조로 해석하지 않으며, 2차 검증은 새 커밋의 실제 코드에 수행한다. 기존 고정 근거·원본 manifest·비교 후보를 진행 상태로 덮어쓰지 않는다.
+
+
+## 2026-10-09 완료 수용
+
+원래 80개 완료 문구와 20개 family 계약을 변경하지 않고 명시 지원 범위에서 모두 충족했다. [최종 수용 검증](engine-phase-two-final-acceptance-verification.json)과 [독립 요구 수준 판단](engine-phase-two-final-qualification.json)이 현재 source99bf6f0, 전체 회귀4,701개 및 실제 공개 CI 여섯 작업을 연결한다. GUI와 추가 모델/미지원 OS 기능은 완료 범위로 승격하지 않는다.
+
+E6-07/08은 실제 지원 CI 증거로 닫혔고 E5-08/13은 별도 미완료다. 과거 PTY 실패 R-PTY-01은 원인 미확정 진단 위험으로 보존하며, 현재 재통과를 과거 원인 해결로 표시하지 않는다. 새 인과 위반 증거가 나오면 관련 수용을 다시 연다. 이후 사용자의 명시적 GitHub push·Public 전환 요청에 따라 구현과 근거를 공개 저장소에 푸시한다.

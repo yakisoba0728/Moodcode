@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 1,
+  "kind": "phase-two-original80-20-final-acceptance",
+  "recordedAt": "2026-10-08T19:09:10.543104+00:00",
+  "status": "all-original-functional-items-and-required-current-gates-satisfied",
+  "sourceCommit": "99bf6f060b2db08a544f2d2259ad3115860dbe14",
+  "originalScope": {
+    "families": 20,
+    "workItems": 80,
+    "contractAndCompletionStringsPreserved": true,
+    "unfulfilledOriginalRequirements": [],
+    "finalIndependentQualification": {
+      "path": "docs/moodcode/engine-phase-two-final-qualification.json",
+      "sha256": "67626682fd887bed8cd62201e7e805fad627be9c1bf89452dcce2cb542a673c6",
+      "bytes": 32408
+    },
+    "scopeAudit": {
+      "path": "docs/moodcode/engine-phase-two-final-acceptance-audit.json",
+      "sha256": "1b7d06ce6a72db8b32d343e122477e9c766839b085a827d6472ba3d5b8304740",
+      "bytes": 257263
+    },
+    "postFixtureReview": {
+      "path": "docs/moodcode/engine-phase-two-final-closure-supplement.json",
+      "sha256": "a89647743d5181815c4d8e031de8ef12a6a9b21f27fc4c9f61272be59ab8c4e3",
+      "bytes": 13053
+    }
+  },
+  "source": {
+    "rootManifest": {
+      "path": "docs/moodcode/engine-phase-two-final-source-freeze.json",
+      "sha256": "d1f88c5e28d46e51975eb845d2c745c2ed18db17bcc96adf1f59401f270f8763",
+      "bytes": 115944
+    },
+    "inputFiles": 914,
+    "currentBytesAllExact": true,
+    "featureManifest": {
+      "path": "docs/moodcode/engine-phase-two-acp-session-load-source-freeze.json",
+      "sha256": "ada026d97218090da0c92301291016b16cc59f06e936ee6573a50c09896a3cba",
+      "bytes": 3832
+    },
+    "ACPFeatureFiles": 16,
+    "sourceChangeAfterPreviousAggregate": "one code-mode test fixture; runtime files unchanged; current complete suite independently passed"
+  },
+  "localGates": {
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/moodcode-phase-two-final-build.log",
+        "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9",
+        "bytes": 34
+      }
+    },
+    "wholeCompiled": {
+      "command": "npm run test:engine",
+      "exitCode": 0,
+      "results": {
+        "tests": 4701,
+        "pass": 4699,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 2,
+        "duration_ms": 231254.100667
+      },
+      "log": {
+        "path": "/tmp/moodcode-phase-two-final-whole-engine.log",
+        "sha256": "4a90ce6cbf420ae0354dc1b4029fe953da2521a5c6e479cc436220cae09d45f9",
+        "bytes": 602402
+      }
+    },
+    "drainCompiled": {
+      "exitCode": 0,
+      "results": {
+        "tests": 5,
+        "pass": 5,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 10207.242
+      },
+      "log": {
+        "path": "/tmp/moodcode-phase-two-final-drain-compiled.log",
+        "sha256": "bc1fdfb1344cbdbcacbbdc059ecc02ac01e78acfab11fdc92247ca2e4865d2d8",
+        "bytes": 615
+      }
+    },
+    "backendSource": {
+      "exitCode": 0,
+      "results": {
+        "tests": 107,
+        "pass": 107,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 14413.864458
+      },
+      "log": {
+        "path": "/tmp/moodcode-acp-load-root-backends-final-source.log",
+        "sha256": "7893d111002be3060fddfe9a576272e07fb94ae29885f61a75b4165ecab3b818",
+        "bytes": 12713
+      },
+      "qualification": "all backend sources exact across the later code-mode fixture-only edit"
+    },
+    "localMediaCompiled": {
+      "exitCode": 0,
+      "results": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 10759.719917
+      },
+      "log": {
+        "path": "/tmp/moodcode-acp-load-root-media-compiled.log",
+        "sha256": "c8aee7a4073e0d018435b8002e0d3ed7a7802f7b9917ce097e893db008ed7ea9",
+        "bytes": 3199
+      },
+      "qualification": "same runtime/media sources; also independently executed successfully in every current hosted POSIX lane"
+    },
+    "scriptedCoding": {
+      "passed": 3,
+      "failed": 0,
+      "accountCalls": 0,
+      "report": {
+        "path": "/tmp/moodcode-acp-load-root-coding-evaluation.json",
+        "sha256": "2a7268c71ff0e1af48d30fc8dc817b3a4df0b5b4c63c46cbbd2acabe203231f0",
+        "bytes": 2086
+      },
+      "qualification": "same runtime/fixture inputs; also 3/3 in every current hosted POSIX lane"
+    }
+  },
+  "hostedCI": {
+    "run": {
+      "conclusion": "success",
+      "headSha": "99bf6f060b2db08a544f2d2259ad3115860dbe14",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "name": "Headless ubuntu-24.04 / Node 24.x",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Headless macos-15 / Node 26.x",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Portable contracts/storage only / Windows / Node 24.x",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Portable contracts/storage only / Windows / Node 26.x",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Headless ubuntu-24.04 / Node 26.x",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Headless macos-15 / Node 24.x",
+          "status": "completed"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37827176532"
+    },
+    "authoritativeStatus": {
+      "path": "/tmp/moodcode-phase-two-final-ci-status.json",
+      "sha256": "2326a4b18da8ab28cb58fbfdc2c447ed65477f874a95aeddfbb322d514308c9f",
+      "bytes": 748
+    },
+    "posixIndependentReview": {
+      "path": "docs/moodcode/engine-ci-final-posix-verification.json",
+      "sha256": "9cf28e29e64092ee0f398fab3b6366db7c9e5a79595f2afc0cf33e79f1ecebc6",
+      "bytes": 45398
+    },
+    "posixArtifactManifest": {
+      "path": "docs/moodcode/engine-ci-final-artifact-sha256.json",
+      "sha256": "18c849cd8fd2f0446de72f07c0abbecbc641de1b4f8afd28ee7489dd343288e2",
+      "bytes": 9049
+    },
+    "windowsIndependentReview": {
+      "path": "docs/moodcode/engine-ci-final-windows-verification.json",
+      "sha256": "3ed5e36bf86621a76f49d9367825d4d4819b7d1ece70f48a0410661582dc063b",
+      "bytes": 13790
+    },
+    "macOS": {
+      "lanes": 2,
+      "testsEach": 4701,
+      "passedEach": 4699,
+      "failedEach": 0,
+      "skippedEach": 2
+    },
+    "linux": {
+      "lanes": 2,
+      "testsEach": 4701,
+      "passedEach": 4639,
+      "failedEach": 0,
+      "skippedEach": 62,
+      "skipScopes": [
+        "Darwin code-mode 29",
+        "Darwin sandbox/resident 28",
+        "interactive PTY 3",
+        "native Windows 2"
+      ]
+    },
+    "windowsPortable": {
+      "lanes": 2,
+      "testsEach": 152,
+      "passedEach": 151,
+      "failedEach": 0,
+      "skippedEach": 1,
+      "nativeWindowsVerified": false
+    },
+    "allPosixMediaEach": 26,
+    "allPosixScriptedTasksEach": 3,
+    "allArtifactDigestsIndependentlyChecked": true
+  },
+  "mediaAccountQualification": {
+    "modelSpecificOriginalMC2_16dAcceptance": true,
+    "sourceQualifiedIndependentAudit": {
+      "path": "docs/moodcode/engine-phase-two-media-model-account-acceptance-audit.json",
+      "sha256": "fa61af6e03e6b3bf126c0d4d0a79704c1239b0b169a823d05da4109a4de0f543",
+      "bytes": 25216
+    },
+    "callsDuringThisFinalization": 0,
+    "historicalAggregateAllReportsRemainFailedWhereOriginallyFailed": true,
+    "broaderModelAndMediaScopesRemainDeferred": true
+  },
+  "unresolvedDiagnosticRisk": {
+    "id": "R-PTY-01",
+    "status": "unresolved",
+    "historicalFailure": {
+      "path": "docs/moodcode/engine-ci-f992-posix-failure-verification.json",
+      "sha256": "d3c6865b9e0079cf29d61aa0ab2c29ba16ab7f9353eec882ccabc531b5b9d90b",
+      "bytes": 39880
+    },
+    "nativeDiagnosis": {
+      "path": "docs/moodcode/engine-pty-f992-diagnosis.json",
+      "sha256": "de9e3a14316be146c558e68c4967f1b48ec2bf8ad634b29e538a610ed8aad0cc",
+      "bytes": 5963
+    },
+    "facts": "Historical f992 macOS Node26 expected-normal PTY test observed uncertain instead of completed. Original artifact lacks authoritative outcome/reason/PID evidence. Current unchanged case passed both macOS CI lanes and 16 separate genuine local observations; these do not establish the historical cause or prove it corrected/harmless. Cleanup unknown/EPERM/leader-loss semantics were not relaxed.",
+    "mandatoryOriginalFunctionalRemediationDemonstrated": false,
+    "followup": "Keep diagnostic tracking open; capture native closed outcome, record reason and original PID/PGID on any recurrence and reopen acceptance if a causal violation is demonstrated."
+  },
+  "separateOpenScopes": [
+    "E5-08 native Windows OS behavior",
+    "E5-13 additional media/model profiles",
+    "R-PTY-01 historical PTY failure diagnostics"
+  ],
+  "finalization": "Persist this record and current progress/TODO, commit and push, then mark the existing goal complete. No new goal or GUI work is created."
+}

@@ -1,0 +1,307 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-08T18:52:37.087665+00:00",
+  "repository": "yakisoba0728/Moodcode",
+  "runId": 37827176532,
+  "runUrl": "https://github.com/yakisoba0728/Moodcode/actions/runs/37827176532",
+  "commit": "99bf6f060b2db08a544f2d2259ad3115860dbe14",
+  "mode": "read-only current authentic job metadata/logs and server-digest-matched artifacts; independent new run evidence",
+  "windowsJobs": [
+    {
+      "jobId": 113482912493,
+      "jobUrl": "https://github.com/yakisoba0728/Moodcode/actions/runs/37827176532/job/113482912493",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T18:48:58Z",
+      "completedAt": "2026-10-08T18:50:12Z",
+      "node": "v24.21.0",
+      "platform": "win32",
+      "architecture": "x64",
+      "summary": {
+        "tests": 152,
+        "pass": 151,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 1,
+        "todo": 0
+      },
+      "scope": "windows-portable",
+      "steps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 77
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 5640
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 5879
+        },
+        {
+          "operation": "test-windows",
+          "state": "passed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 23687
+        }
+      ],
+      "regressions": [
+        "fixture lifetime closes actual observer and reopened storage handles before removing the directory",
+        "an actual connection close failure propagates its original error and preserves SQLite evidence until genuine closure"
+      ],
+      "nativeUnsupportedSkip": "﹣ actual Windows Job Object child-tree timeout and parent-crash verification (0.155ms) # No native Windows Job Object binding is installed; portable port tests are not OS verification.",
+      "selectedCompiledCommand": [
+        "C:\\hostedtoolcache\\windows\\node\\24.21.0\\x64\\node.exe",
+        "--test",
+        "--test-concurrency=4",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\contracts\\dist\\engine-v2-contracts.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\contracts\\dist\\gui-validation.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\contracts\\dist\\input-documents.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\contracts\\dist\\input-images.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\contracts\\dist\\next-stage-validation.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\contracts\\dist\\validation.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\storage.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\fixture-lifetime.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\migrations.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\native-inbox.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\native-records.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\native-documents-history.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\history-search.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\next-stage-history-metrics.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\terminal-approval.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\tools\\command\\backends.test.js"
+      ],
+      "artifact": {
+        "id": 11571149383,
+        "name": "engine-windows-portable-node-24.x-attempt-1",
+        "zip": "/tmp/moodcode-actions-37827176532-windows24.zip",
+        "bytes": 17596,
+        "sha256": "bae275863253bfe6c973ec7030b94c4b76a0c3ceb9395128e555f7a1524fe183",
+        "serverDigest": "sha256:bae275863253bfe6c973ec7030b94c4b76a0c3ceb9395128e555f7a1524fe183",
+        "digestMatches": true,
+        "files": {
+          "results.json": {
+            "path": "/tmp/moodcode-actions-37827176532-windows24-artifacts/results.json",
+            "bytes": 3872,
+            "sha256": "f2bcc1392a63adb0d4d1f703e8cf4155d7bf9c60d3be4043ef0056fbeb9513e9"
+          },
+          "steps.json": {
+            "path": "/tmp/moodcode-actions-37827176532-windows24-artifacts/steps.json",
+            "bytes": 3216,
+            "sha256": "3985a6b4eb2110ba3d9a19196616b90a21412fd408be45f3b8634e5c1275863a"
+          },
+          "test-windows.stdout": {
+            "path": "/tmp/moodcode-actions-37827176532-windows24-artifacts/test-windows.stdout",
+            "bytes": 16333,
+            "sha256": "2df0a5c2a5a65158c990bb9092516deabead9ebe977b7ea5ea57933134018bdd"
+          },
+          "test-windows.stderr": {
+            "path": "/tmp/moodcode-actions-37827176532-windows24-artifacts/test-windows.stderr",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "test-windows.log": {
+            "path": "/tmp/moodcode-actions-37827176532-windows24-artifacts/test-windows.log",
+            "bytes": 16333,
+            "sha256": "2df0a5c2a5a65158c990bb9092516deabead9ebe977b7ea5ea57933134018bdd"
+          },
+          "build.log": {
+            "path": "/tmp/moodcode-actions-37827176532-windows24-artifacts/build.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "typecheck.log": {
+            "path": "/tmp/moodcode-actions-37827176532-windows24-artifacts/typecheck.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "pty-capability.json": {
+            "path": "/tmp/moodcode-actions-37827176532-windows24-artifacts/pty-capability.json",
+            "bytes": 126,
+            "sha256": "6e36db00905076e309095ef4bb43d272a442fccb5e3c6b172f1834f6811c434d"
+          }
+        }
+      },
+      "jobLog": {
+        "path": "/tmp/moodcode-actions-37827176532-windows24.log",
+        "bytes": 54520,
+        "sha256": "e4f9bb267d83d8ba555b957693cc20fa76fec8af372bf333ca21ead98d5acc4e"
+      },
+      "windowsFullEngineVerified": false,
+      "nativeWindowsJobObjectVerified": false,
+      "liveProviderRequests": false,
+      "guiLaunch": false
+    },
+    {
+      "jobId": 113482912608,
+      "jobUrl": "https://github.com/yakisoba0728/Moodcode/actions/runs/37827176532/job/113482912608",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T18:48:58Z",
+      "completedAt": "2026-10-08T18:50:28Z",
+      "node": "v26.11.1",
+      "platform": "win32",
+      "architecture": "x64",
+      "summary": {
+        "tests": 152,
+        "pass": 151,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 1,
+        "todo": 0
+      },
+      "scope": "windows-portable",
+      "steps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 84
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 6981
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 7822
+        },
+        {
+          "operation": "test-windows",
+          "state": "passed",
+          "exitCode": 0,
+          "signal": null,
+          "durationMs": 30470
+        }
+      ],
+      "regressions": [
+        "fixture lifetime closes actual observer and reopened storage handles before removing the directory",
+        "an actual connection close failure propagates its original error and preserves SQLite evidence until genuine closure"
+      ],
+      "nativeUnsupportedSkip": "﹣ actual Windows Job Object child-tree timeout and parent-crash verification (0.1374ms) # No native Windows Job Object binding is installed; portable port tests are not OS verification.",
+      "selectedCompiledCommand": [
+        "C:\\hostedtoolcache\\windows\\node\\26.11.1\\x64\\node.exe",
+        "--test",
+        "--test-concurrency=4",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\contracts\\dist\\engine-v2-contracts.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\contracts\\dist\\gui-validation.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\contracts\\dist\\input-documents.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\contracts\\dist\\input-images.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\contracts\\dist\\next-stage-validation.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\contracts\\dist\\validation.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\storage.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\fixture-lifetime.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\migrations.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\native-inbox.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\native-records.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\native-documents-history.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\history-search.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\next-stage-history-metrics.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\storage\\terminal-approval.test.js",
+        "D:\\a\\Moodcode\\Moodcode\\packages\\engine\\dist\\tools\\command\\backends.test.js"
+      ],
+      "artifact": {
+        "id": 11571717108,
+        "name": "engine-windows-portable-node-26.x-attempt-1",
+        "zip": "/tmp/moodcode-actions-37827176532-windows26.zip",
+        "bytes": 17646,
+        "sha256": "6710f3fc6d0125c8990cd7357e38e4b787b153ed04d91d36ab1549a25ef765f2",
+        "serverDigest": "sha256:6710f3fc6d0125c8990cd7357e38e4b787b153ed04d91d36ab1549a25ef765f2",
+        "digestMatches": true,
+        "files": {
+          "results.json": {
+            "path": "/tmp/moodcode-actions-37827176532-windows26-artifacts/results.json",
+            "bytes": 3872,
+            "sha256": "99a0a846f3db0c44f0bd57a2cd5a85c5b79428ef253b4920083cbac1ef3d7ddc"
+          },
+          "steps.json": {
+            "path": "/tmp/moodcode-actions-37827176532-windows26-artifacts/steps.json",
+            "bytes": 3216,
+            "sha256": "dc9da532359c3c8a2d00212c14fc5d75ef5d1ab5c66bee5c76100ee1a78db425"
+          },
+          "test-windows.stdout": {
+            "path": "/tmp/moodcode-actions-37827176532-windows26-artifacts/test-windows.stdout",
+            "bytes": 16345,
+            "sha256": "315ee566677b9efd5bc0ebd4527b2b9b8e2d348f5524bb203ec56a8857930277"
+          },
+          "test-windows.stderr": {
+            "path": "/tmp/moodcode-actions-37827176532-windows26-artifacts/test-windows.stderr",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "test-windows.log": {
+            "path": "/tmp/moodcode-actions-37827176532-windows26-artifacts/test-windows.log",
+            "bytes": 16345,
+            "sha256": "315ee566677b9efd5bc0ebd4527b2b9b8e2d348f5524bb203ec56a8857930277"
+          },
+          "build.log": {
+            "path": "/tmp/moodcode-actions-37827176532-windows26-artifacts/build.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "typecheck.log": {
+            "path": "/tmp/moodcode-actions-37827176532-windows26-artifacts/typecheck.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "pty-capability.json": {
+            "path": "/tmp/moodcode-actions-37827176532-windows26-artifacts/pty-capability.json",
+            "bytes": 126,
+            "sha256": "6e36db00905076e309095ef4bb43d272a442fccb5e3c6b172f1834f6811c434d"
+          }
+        }
+      },
+      "jobLog": {
+        "path": "/tmp/moodcode-actions-37827176532-windows26.log",
+        "bytes": 54754,
+        "sha256": "9a51b36a522faff3a95c2deb786eeb53b9d33b21520b40ef36fdca2a90a8d48c"
+      },
+      "windowsFullEngineVerified": false,
+      "nativeWindowsJobObjectVerified": false,
+      "liveProviderRequests": false,
+      "guiLaunch": false
+    }
+  ],
+  "sourceAudit": {
+    "path": "/tmp/moodcode-actions-37827176532-windows-source.json",
+    "sha256": "d6165b46c78fd7aaf24ef07a0d87a32d4188352f8ae982eb76947ecd1f32259c",
+    "selectedSources": 20,
+    "unchangedFromF992": true
+  },
+  "scopeConclusion": {
+    "portableWindowsBothVersionsPassed": true,
+    "windowsFullEngineVerified": false,
+    "nativeWindowsJobObjectVerified": false,
+    "allPlatformRunConclusionAsserted": false,
+    "freshACPTransportLifecycleExecutedOnWindows": false,
+    "note": "Selected contracts/SQLite/native-port fixture scope only. New artifact run/head was independently checked; historical f992 result was used solely for source SHA comparison."
+  },
+  "workerActions": {
+    "sourceEdits": 0,
+    "localTests": 0,
+    "builds": 0,
+    "remoteMutations": 0,
+    "accountOrCredentialAccess": 0,
+    "jobSnapshots": 1,
+    "relabelledHistoricalResults": false,
+    "artifactEnvironmentFileRead": false
+  }
+}

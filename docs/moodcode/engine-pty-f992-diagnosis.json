@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-08T18:59:24.321600+00:00",
+  "mode": "read-only Main source review plus local /tmp bounded genuine PTY observations; no production modifications",
+  "historicalFailure": {
+    "runId": 37825930807,
+    "commit": "f992c710564bcbbd9cf10bcb8bff9924151cd7ba",
+    "lane": "macOS Node26",
+    "case": "real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit",
+    "actual": "uncertain",
+    "expected": "completed",
+    "durationMs": 155.940208,
+    "originalClosedOutcomeRecorded": false,
+    "terminalReasonRecorded": false,
+    "physicalPIDOrGroupRecorded": false,
+    "causeConfirmed": false
+  },
+  "currentHostedObservation": {
+    "runId": 37827176532,
+    "commit": "99bf6f060b2db08a544f2d2259ad3115860dbe14",
+    "lane": "macOS Node26",
+    "actualPassedLine": "✔ real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit (130.672667ms)",
+    "wholeCount": {
+      "tests": 4701,
+      "pass": 4699,
+      "fail": 0,
+      "skip": 2
+    },
+    "resolvesHistoricalCause": false
+  },
+  "localObservations": {
+    "node": "v26.9.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "plainOriginalCase": {
+      "iterations": 8,
+      "completed": 8,
+      "actualCleanupConfirmed": 8,
+      "actualPGIDAbsent": 8
+    },
+    "instrumentedOriginalSupervisorCase": {
+      "iterations": 8,
+      "completed": 8,
+      "actualCleanupConfirmed": 8,
+      "probeEvents": 16,
+      "normalExitGroupProbe": "All eight actual native onExit probes returned ESRCH; no fabricated kernel results.",
+      "instrumentation": "Only /tmp fork preload appends a diagnostic preload to the original supervisor; process.kill/execFile/process.send all delegate to actual originals and retain real returned data. Original Main source unmodified."
+    },
+    "hostedNodeVersionDifferenceHonest": true,
+    "historicalFailureReproduced": false
+  },
+  "review": {
+    "possibleUnconfirmedBoundary": "onExit groupExists=true followed by a ps snapshot after leader loss cannot establish separate job-control group ownership; conservative false is intentional until an authentic source observation is available.",
+    "confirmedOtherBoundary": "After successful finish IPC result, disconnect invokes another cleanup observation; finish guard retains original published result. Instrumented late parent-loss snapshots had no leader and their false cleanup did not overwrite completed original result.",
+    "safeNextDiagnostic": "Preserve original real backend.closed outcome, terminal reason/record and bounded actual group probe in existing assertion failure text; do not relax state/cleanup assertions.",
+    "productionCorrectionProposed": false,
+    "reason": "Historical artifact omits the authoritative close reason; current hosted and 16 local actual cases pass. Causal evidence is insufficient for changing cleanup semantics."
+  },
+  "sourcePins": {
+    "packages/engine/src/terminals/backend.ts": {
+      "bytes": 9819,
+      "sha256": "3fa337a131c8a1a899a48f59e98709342ca04fb02582af1fad504fa23019b608"
+    },
+    "packages/engine/src/terminals/supervisor.ts": {
+      "bytes": 7697,
+      "sha256": "bdbb263dfb00f2c5603b9d1c36bec39070ddf9df3e3e522a8ae1af4c3497e3dc"
+    },
+    "packages/engine/src/terminals/job-groups.ts": {
+      "bytes": 1847,
+      "sha256": "fb1063798421b7e4098b17f5c2541d6af69f2c44504d2c4fd0f2f88da12cd789"
+    },
+    "packages/engine/src/terminals/service.ts": {
+      "bytes": 26050,
+      "sha256": "3747882a2ba3834bcf48f567cd8a617a2e114eb6a7051b0ff0080012717ed7e3"
+    },
+    "packages/engine/src/terminals/terminals.test.ts": {
+      "bytes": 16373,
+      "sha256": "693349221329a8c9a959be7025980398e9ed8a792625590d41dd4effd5c1892b"
+    }
+  },
+  "evidenceFiles": {
+    "/tmp/moodcode-actions-37825930807-f992/macos26-artifact/test.log": {
+      "bytes": 605563,
+      "sha256": "a88851b7c6c5b8dfb5f9ef20c0c59362f118cbefb9d5d221514eeb55be4b1f3e"
+    },
+    "/tmp/moodcode-actions-37825930807-f992/macos26-job.log": {
+      "bytes": 1014021,
+      "sha256": "ff731063f66a648612e43436380ec64fbe5c4f9729d5b759d20ac6f2eda955c0"
+    },
+    "/tmp/moodcode-pty-normal-exit-diagnosis.log": {
+      "bytes": 1402,
+      "sha256": "3f79f952b0befda52bf3280e021ef3ca66e91636f68133722ceeb5d7ca516673"
+    },
+    "/tmp/moodcode-pty-normal-exit-original-summary.json": {
+      "bytes": 2198,
+      "sha256": "880a3257db35c55236eadf8bdeebfd6e01de7d54439999ebeb0b9d250d5be0fd"
+    },
+    "/tmp/moodcode-pty-normal-exit-observed.log": {
+      "bytes": 1402,
+      "sha256": "c1a95a3e17be744dde27d8ae57f2b90b7782a604c35632f76e41e47572f46510"
+    },
+    "/tmp/moodcode-pty-normal-exit-observed-details.json": {
+      "bytes": 10362,
+      "sha256": "cd87a46d10391dd34ba3e7aa1b6cf6d07c64522dfdf881f35152c3207283ce24"
+    },
+    "/tmp/moodcode-pty-supervisor-observations.jsonl": {
+      "bytes": 5896,
+      "sha256": "2e8029170a40aee8cf599d9f179523c1b434e7a2fb3e5ced1aea8e11c40d93eb"
+    },
+    "/tmp/moodcode-pty-normal-exit-diagnosis.mts": {
+      "bytes": 3277,
+      "sha256": "fde8d7da3e908af913d1b1df8c8cdeb856cb3cd18f9ef22d41333183d1efb3a3"
+    },
+    "/tmp/moodcode-pty-supervisor-observe.mjs": {
+      "bytes": 1786,
+      "sha256": "6423fd22fe179de67f02d26cd53fef78cc58076c1c178bf0cae76be61749c362"
+    },
+    "/tmp/moodcode-pty-fork-observe.mjs": {
+      "bytes": 481,
+      "sha256": "283ae59146c8da616a4b3da26dbccf4da8316b0afb8d4ad880c8e27ec3d21f44"
+    },
+    "/tmp/moodcode-actions-37827176532-99bf/macos26-artifact/test.log": {
+      "bytes": 603030,
+      "sha256": "b09b4a94ce98a0892380a3b92af5f2b7faea96b35c8e39ed0829af1fbec612b2"
+    }
+  },
+  "workerActions": {
+    "MainSourceEdits": 0,
+    "sharedBuilds": 0,
+    "wholeSuites": 0,
+    "accountOrCredentialAccess": 0,
+    "GitHubMutations": 0,
+    "actualLocalPTYFixtures": 16,
+    "fabricatedProcessOutcome": false,
+    "temporaryDirectoriesRemovedOnlyAfterActualServiceClose": true
+  }
+}

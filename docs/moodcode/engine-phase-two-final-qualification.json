@@ -1,0 +1,894 @@
+{
+  "schemaVersion": 1,
+  "kind": "final-original80-20-requirement-level-completion-qualification-after-current-CI-with-unresolved-historical-PTY-observation",
+  "reviewedAt": "2026-10-08T19:05:48.426078+00:00",
+  "workspace": "/Users/yakisoba0728/Documents/GitHub/Moodcode",
+  "reviewMethod": "Read-only original clause and completion-string comparison, unchanged physical ownership/closure source review, existing authentic current hosted artifact and actual native diagnostic evidence. No reviewer test/build/remote execution. Historical unexplained failure is not relabeled fixed by later passes.",
+  "verdict": {
+    "canDeclareOriginal80WorkItemsAnd20FamiliesCompleteInExplicitSupportedScope": true,
+    "original80_20ImplementationAndRequiredCurrentValidationSatisfied": true,
+    "unfulfilledOriginalRequirements": [],
+    "mandatoryFunctionalRemediationDemonstratedByHistoricalPTYArtifact": false,
+    "historicalPTYFailureDisposition": "separately tracked unresolved diagnostic/reliability risk; not proven corrected, not dismissed as harmless, not an evidenced currently unfulfilled original clause",
+    "rootMayFinalizeGoalAfterPersistingEvidenceAndRisk": true,
+    "thisAuditMutatesGoalOrProgress": false,
+    "implementationSupportIsBounded": "Actual supported Darwin/POSIX engine lanes, local stdio ACP v1, selected model media profiles, and Windows portable contract/storage only. No native Windows Job Object/Linux Darwin-only kernel code-mode/other media/account success credit."
+  },
+  "originalRequirements": {
+    "plan": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/coding-agent-engine-review/implementation-work-items.json",
+      "sha256": "4bab8379a68c37e817f66aa5c2bda02c6b00a1951d20c3c0147b5885dbc49db4",
+      "bytes": 50422
+    },
+    "blueprint": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/coding-agent-engine-review/implementation-blueprint.md",
+      "sha256": "d4f8d381430871f23e9676e74efe78b409cfbeb9e1bf063c5207281ebf5359ac",
+      "bytes": 41068
+    },
+    "goal": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-goal.md",
+      "sha256": "5eae15908c6b28eada5746998765d1696cfc59634a318443f9bdf409d0680afe",
+      "bytes": 3194
+    },
+    "families": 20,
+    "workItems": 80,
+    "unchangedCompletionStrings": 80,
+    "allOriginalContractsAndPersistenceUnchanged": true,
+    "priorAcceptanceAudit": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-final-acceptance-audit.json",
+      "sha256": "1b7d06ce6a72db8b32d343e122477e9c766839b085a827d6472ba3d5b8304740",
+      "bytes": 257263
+    },
+    "initialScopeAuditPreserved": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-final-scope-audit.json",
+      "sha256": "8b0e3fd7943a3d7bcd1ab9cb40304a1da276cccdba11218301fbe50d76c02daa",
+      "bytes": 252029
+    },
+    "priorClosureSupplementPreserved": {
+      "path": "/tmp/moodcode-engine-phase-two-final-closure-supplement.json",
+      "sha256": "a89647743d5181815c4d8e031de8ef12a6a9b21f27fc4c9f61272be59ab8c4e3",
+      "bytes": 13053
+    },
+    "noClauseExcludedOrRedefined": true,
+    "noConditionAddedThatEveryPastFailureMustHaveAConfirmedCause": true,
+    "family10Original": {
+      "id": "MC2-10",
+      "title": "session command job·완료 전달",
+      "priority": "P2",
+      "cost": "L",
+      "wave": "W5",
+      "proposedApis": [
+        "startCommandJob",
+        "attachCommandJob",
+        "readCommandJob",
+        "cancelCommandJob"
+      ],
+      "proposedRecords": [
+        "CommandJob",
+        "JobOwner",
+        "OutputCursor",
+        "JobCompletionReceipt"
+      ],
+      "axisIds": [
+        "command"
+      ],
+      "candidateIds": [
+        "kimi-code-C2",
+        "OSWE-C3",
+        "CONTINUE-C03",
+        "CR-C03"
+      ],
+      "implemented": false,
+      "dependency": "04/11; 완료 전달은 기존 durable inbox 재사용",
+      "proposedModule": "jobs/{store,supervisor,output,delivery}.ts",
+      "persistence": "Turn과 별개인 CommandJob/JobOwner를 원 승인/native owner/workspace lease에 연결한다. output cursor, terminal/cleanup receipt와 dedupe delivery를 저장한다.",
+      "contract": "foreground→background 선택은 prepare preview에 포함한다. 명시적인 session/host lifetime·budget을 두고 parent Run 종료 후 ownership을 유지한다. 모델은 승인받은 handle만 조회한다. 새 쓰기/restore와 충돌 정책을 정한다. 기존 user-owned PTY의 read-only 상태 노출부터 구현한다.",
+      "tasks": [
+        "10a job 상태/owner/lease와 prepared command binding",
+        "10b 기존 supervisor/PTY 재사용·bounded output artifact·attach/cancel·lifetime 제한",
+        "10c terminal/cleanup settled 이후 inbox에 한 번 전달. 이미 terminal인 Run에는 이벤트 추가 금지",
+        "10d detach/reload·parent 종료·crash/host close/EPERM·output backpressure·중복 delivery 검사. 물리 종료 미확정 시 unknown을 유지하고 재spawn하지 않음"
+      ],
+      "status": "proposed",
+      "workItems": [
+        {
+          "id": "MC2-10a",
+          "status": "proposed",
+          "completion": "job 상태/owner/lease와 prepared command binding"
+        },
+        {
+          "id": "MC2-10b",
+          "status": "proposed",
+          "completion": "기존 supervisor/PTY 재사용·bounded output artifact·attach/cancel·lifetime 제한"
+        },
+        {
+          "id": "MC2-10c",
+          "status": "proposed",
+          "completion": "terminal/cleanup settled 이후 inbox에 한 번 전달. 이미 terminal인 Run에는 이벤트 추가 금지"
+        },
+        {
+          "id": "MC2-10d",
+          "status": "proposed",
+          "completion": "detach/reload·parent 종료·crash/host close/EPERM·output backpressure·중복 delivery 검사. 물리 종료 미확정 시 unknown을 유지하고 재spawn하지 않음"
+        }
+      ]
+    }
+  },
+  "requirementLevelPTYJudgment": {
+    "question": "Does one unexplained historical expected-normal PTY uncertain-vs-completed observation require original functional remediation despite same-source current gates and authoritative current native closure?",
+    "answer": "Not on the present causal evidence. Preserve and track the unexplained observation; do not change cleanup/uncertainty semantics without a demonstrated defect. Current original supported acceptance can close.",
+    "notBasedOnRepeatedPassCounts": "Current supporting proof includes authoritative original backend.closed exitCode0/cancelledfalse/timedOutfalse/cleanuptrue, terminal completed with correct interactive output, and actual kernel PGID absence/ESRCH. Hosted same unchanged normal-exit/cancel/group cleanup assertions also run on both selected Darwin and Linux Node versions. Previous full feature acceptance remains supported by its actual API/native effect/receipt/recovery chains, not number of tests.",
+    "historicalWhatIsKnown": {
+      "runId": 37825930807,
+      "commit": "f992c710564bcbbd9cf10bcb8bff9924151cd7ba",
+      "lane": "macOS Node26",
+      "case": "real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit",
+      "actual": "uncertain",
+      "expected": "completed",
+      "durationMs": 155.940208,
+      "originalClosedOutcomeRecorded": false,
+      "terminalReasonRecorded": false,
+      "physicalPIDOrGroupRecorded": false,
+      "causeConfirmed": false
+    },
+    "historicalWhatIsNotKnown": [
+      "Original backend.closed exit/signal/cancel/timeout/cleanup result",
+      "Terminal reason and durability/journal failure",
+      "Actual live/dead PTY PID and inherited process-group evidence",
+      "Which physical/source/authority condition caused conservative uncertainty"
+    ],
+    "whyNoProvenClauseViolation": "The historical artifact proves the expected-normal test failed, but does not prove a genuine native completed/cleanup-confirmed result was falsely mapped to uncertain, or that descendants were left alive, ownership was fabricated, replay/spawn occurred, or a required API had no real consumer. These would be original contract defects if evidenced. They are not inferred from missing artifacts.",
+    "originalContractStillRequired": "MC2-10d still requires preserving unknown when physical completion cannot be established and forbids re-spawn; MC2-10b still requires genuine supervisor/PTY reuse and bounded output/attach/cancel/lifetime. Current source neither accepts uncertain as completed nor reconstructs cleanup from historical data.",
+    "sourceJudgment": [
+      "TerminalService.finish stores the genuine closed outcome and maps !cleanupConfirmed to uncertain; journal persistence failure also retains uncertain/reason journal_failed. Cleanuptrue/noncancel/exit0 maps to completed only when saving has not failed.",
+      "Posix backend settle guard keeps the first genuine outcome; later supervisor disconnect observation does not overwrite a previously settled result.",
+      "Supervisor onExit confirms normal result only if group absence is established; remaining or unowned group observation can be conservative. No fabricated PID or inferred EOF cleanup is added."
+    ],
+    "goalFailureRulePreserved": "Original failure rule forbids reducing checks or hiding failures with skips. The same normal-exit, cleanup and actual process assertions remain unchanged and are executed on exact final source; prior failed run remains failed and separate. Current acceptance does not describe the previous cause as solved.",
+    "claimsExplicitlyRejected": [
+      "Historical PTY failure was fixed by code-mode stdout fixture correction",
+      "Previous failure was definitely a harmless fixture race",
+      "16 positive local iterations statistically prove zero PTY failures",
+      "Current passes reconstruct missing historical authoritative outcome",
+      "Uncertain may be accepted as completed to satisfy tests"
+    ]
+  },
+  "currentSourceQualification": {
+    "commit": "99bf6f060b2db08a544f2d2259ad3115860dbe14",
+    "rootFreeze": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-final-source-freeze.json",
+      "sha256": "d1f88c5e28d46e51975eb845d2c745c2ed18db17bcc96adf1f59401f270f8763",
+      "bytes": 115944
+    },
+    "all914CurrentInputsMatch": true,
+    "PTYSourcePins": [
+      {
+        "path": "packages/engine/src/terminals/backend.ts",
+        "expected": "3fa337a131c8a1a899a48f59e98709342ca04fb02582af1fad504fa23019b608",
+        "actual": "3fa337a131c8a1a899a48f59e98709342ca04fb02582af1fad504fa23019b608",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/terminals/supervisor.ts",
+        "expected": "bdbb263dfb00f2c5603b9d1c36bec39070ddf9df3e3e522a8ae1af4c3497e3dc",
+        "actual": "bdbb263dfb00f2c5603b9d1c36bec39070ddf9df3e3e522a8ae1af4c3497e3dc",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/terminals/job-groups.ts",
+        "expected": "fb1063798421b7e4098b17f5c2541d6af69f2c44504d2c4fd0f2f88da12cd789",
+        "actual": "fb1063798421b7e4098b17f5c2541d6af69f2c44504d2c4fd0f2f88da12cd789",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/terminals/service.ts",
+        "expected": "3747882a2ba3834bcf48f567cd8a617a2e114eb6a7051b0ff0080012717ed7e3",
+        "actual": "3747882a2ba3834bcf48f567cd8a617a2e114eb6a7051b0ff0080012717ed7e3",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/terminals/terminals.test.ts",
+        "expected": "693349221329a8c9a959be7025980398e9ed8a792625590d41dd4effd5c1892b",
+        "actual": "693349221329a8c9a959be7025980398e9ed8a792625590d41dd4effd5c1892b",
+        "matched": true
+      }
+    ],
+    "noPTYProductionOrNormalExitTestChangesMadeToResolveHistoricalObservation": true,
+    "onlyRuntimeInputChangeFromF992": "Unrelated code-mode stdout fixture barrier; all original PTY production and normal-exit assertions remain byte-identical.",
+    "supportedACP16ResolutionPreserved": true
+  },
+  "currentHostedCI": {
+    "runId": 37827176532,
+    "commit": "99bf6f060b2db08a544f2d2259ad3115860dbe14",
+    "allSixAuthenticJobsSuccess": true,
+    "POSIXIndependentReport": {
+      "path": "/tmp/moodcode-actions-37827176532-99bf-posix-independent-review.json",
+      "sha256": "9cf28e29e64092ee0f398fab3b6366db7c9e5a79595f2afc0cf33e79f1ecebc6",
+      "bytes": 45398
+    },
+    "WindowsIndependentReport": {
+      "path": "/tmp/moodcode-actions-37827176532-windows-verification.json",
+      "sha256": "3ed5e36bf86621a76f49d9367825d4d4819b7d1ece70f48a0410661582dc063b",
+      "bytes": 13790
+    },
+    "artifactFilesIndependentlyHashCheckedByThisReviewer": 112,
+    "artifactMismatches": [],
+    "posix": [
+      {
+        "lane": "macos24",
+        "node": "v24.20.0",
+        "whole": {
+          "tests": 4701,
+          "pass": 4699,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 2,
+          "todo": 0,
+          "duration_ms": 453136.629208
+        },
+        "media": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 13206.972541
+        },
+        "evaluation": {
+          "total": 3,
+          "passed": 3,
+          "tasks": [
+            {
+              "taskId": "addition-bug",
+              "passed": true,
+              "runState": "completed",
+              "providerId": "scripted",
+              "modelId": "local"
+            },
+            {
+              "taskId": "empty-list-boundary",
+              "passed": true,
+              "runState": "completed",
+              "providerId": "scripted",
+              "modelId": "local"
+            },
+            {
+              "taskId": "two-module-change",
+              "passed": true,
+              "runState": "completed",
+              "providerId": "scripted",
+              "modelId": "local"
+            }
+          ]
+        },
+        "operations": [
+          {
+            "operation": "prepare-pty",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "pty-native-module",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "typecheck",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "build",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "test-media-local",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "test",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "eval",
+            "state": "passed",
+            "exitCode": 0
+          }
+        ],
+        "actualPassedPtyCases": [
+          "copied sources, wrong owners and accessor selections cannot create a job or affect its real PTY",
+          "losing the actual PTY supervisor cannot reconstruct confirmed cleanup from its original group",
+          "real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit",
+          "real PTY cancel and service close remove the inherited process group after readiness",
+          "supervisor IPC disconnect cleans a real PTY even when the parent cannot finalize its journal"
+        ],
+        "skips": {
+          "unverifiedWindowsNativeProcessTree": 2
+        }
+      },
+      {
+        "lane": "macos26",
+        "node": "v26.11.1",
+        "whole": {
+          "tests": 4701,
+          "pass": 4699,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 2,
+          "todo": 0,
+          "duration_ms": 425270.245958
+        },
+        "media": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 8907.02025
+        },
+        "evaluation": {
+          "total": 3,
+          "passed": 3,
+          "tasks": [
+            {
+              "taskId": "addition-bug",
+              "passed": true,
+              "runState": "completed",
+              "providerId": "scripted",
+              "modelId": "local"
+            },
+            {
+              "taskId": "empty-list-boundary",
+              "passed": true,
+              "runState": "completed",
+              "providerId": "scripted",
+              "modelId": "local"
+            },
+            {
+              "taskId": "two-module-change",
+              "passed": true,
+              "runState": "completed",
+              "providerId": "scripted",
+              "modelId": "local"
+            }
+          ]
+        },
+        "operations": [
+          {
+            "operation": "prepare-pty",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "pty-native-module",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "typecheck",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "build",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "test-media-local",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "test",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "eval",
+            "state": "passed",
+            "exitCode": 0
+          }
+        ],
+        "actualPassedPtyCases": [
+          "copied sources, wrong owners and accessor selections cannot create a job or affect its real PTY",
+          "losing the actual PTY supervisor cannot reconstruct confirmed cleanup from its original group",
+          "real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit",
+          "real PTY cancel and service close remove the inherited process group after readiness",
+          "supervisor IPC disconnect cleans a real PTY even when the parent cannot finalize its journal"
+        ],
+        "skips": {
+          "unverifiedWindowsNativeProcessTree": 2
+        }
+      },
+      {
+        "lane": "linux24",
+        "node": "v24.21.0",
+        "whole": {
+          "tests": 4701,
+          "pass": 4639,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 62,
+          "todo": 0,
+          "duration_ms": 412711.055508
+        },
+        "media": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 14339.322078
+        },
+        "evaluation": {
+          "total": 3,
+          "passed": 3,
+          "tasks": [
+            {
+              "taskId": "addition-bug",
+              "passed": true,
+              "runState": "completed",
+              "providerId": "scripted",
+              "modelId": "local"
+            },
+            {
+              "taskId": "empty-list-boundary",
+              "passed": true,
+              "runState": "completed",
+              "providerId": "scripted",
+              "modelId": "local"
+            },
+            {
+              "taskId": "two-module-change",
+              "passed": true,
+              "runState": "completed",
+              "providerId": "scripted",
+              "modelId": "local"
+            }
+          ]
+        },
+        "operations": [
+          {
+            "operation": "prepare-pty",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "pty-native-module",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "typecheck",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "build",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "test-media-local",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "test",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "eval",
+            "state": "passed",
+            "exitCode": 0
+          }
+        ],
+        "actualPassedPtyCases": [
+          "copied sources, wrong owners and accessor selections cannot create a job or affect its real PTY",
+          "real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit",
+          "real PTY cancel and service close remove the inherited process group after readiness",
+          "supervisor IPC disconnect cleans a real PTY even when the parent cannot finalize its journal"
+        ],
+        "skips": {
+          "darwinOnlyCodeMode": 29,
+          "darwinOnlySandboxAndResidentSandbox": 28,
+          "darwinOnlyInteractivePtyGroup": 3,
+          "unverifiedWindowsNativeProcessTree": 2
+        }
+      },
+      {
+        "lane": "linux26",
+        "node": "v26.11.1",
+        "whole": {
+          "tests": 4701,
+          "pass": 4639,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 62,
+          "todo": 0,
+          "duration_ms": 257615.531089
+        },
+        "media": {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0,
+          "duration_ms": 6967.967081
+        },
+        "evaluation": {
+          "total": 3,
+          "passed": 3,
+          "tasks": [
+            {
+              "taskId": "addition-bug",
+              "passed": true,
+              "runState": "completed",
+              "providerId": "scripted",
+              "modelId": "local"
+            },
+            {
+              "taskId": "empty-list-boundary",
+              "passed": true,
+              "runState": "completed",
+              "providerId": "scripted",
+              "modelId": "local"
+            },
+            {
+              "taskId": "two-module-change",
+              "passed": true,
+              "runState": "completed",
+              "providerId": "scripted",
+              "modelId": "local"
+            }
+          ]
+        },
+        "operations": [
+          {
+            "operation": "prepare-pty",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "pty-native-module",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "typecheck",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "build",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "test-media-local",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "test",
+            "state": "passed",
+            "exitCode": 0
+          },
+          {
+            "operation": "eval",
+            "state": "passed",
+            "exitCode": 0
+          }
+        ],
+        "actualPassedPtyCases": [
+          "copied sources, wrong owners and accessor selections cannot create a job or affect its real PTY",
+          "real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit",
+          "real PTY cancel and service close remove the inherited process group after readiness",
+          "supervisor IPC disconnect cleans a real PTY even when the parent cannot finalize its journal"
+        ],
+        "skips": {
+          "darwinOnlyCodeMode": 29,
+          "darwinOnlySandboxAndResidentSandbox": 28,
+          "darwinOnlyInteractivePtyGroup": 3,
+          "unverifiedWindowsNativeProcessTree": 2
+        }
+      }
+    ],
+    "windows": [
+      {
+        "node": "v24.21.0",
+        "summary": {
+          "tests": 152,
+          "pass": 151,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 1,
+          "todo": 0
+        },
+        "scope": "windows-portable",
+        "nativeWindowsJobObjectVerified": false,
+        "windowsFullEngineVerified": false
+      },
+      {
+        "node": "v26.11.1",
+        "summary": {
+          "tests": 152,
+          "pass": 151,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 1,
+          "todo": 0
+        },
+        "scope": "windows-portable",
+        "nativeWindowsJobObjectVerified": false,
+        "windowsFullEngineVerified": false
+      }
+    ],
+    "unsupportedSkipsNotCredited": true,
+    "ptyBootstrapActualPtyVerifiedFalseNotChanged": true,
+    "currentActualNamedPTYTestsSeparateFromBootstrapAvailability": true
+  },
+  "currentAuthoritativePTYEvidence": {
+    "independentDiagnosis": {
+      "path": "/tmp/moodcode-pty-f992-native-diagnosis.json",
+      "sha256": "de9e3a14316be146c558e68c4967f1b48ec2bf8ad634b29e538a610ed8aad0cc",
+      "bytes": 5963
+    },
+    "sourcePinsAndAllReferencedEvidenceHashesChecked": true,
+    "plainOriginalSummary": {
+      "path": "/tmp/moodcode-pty-normal-exit-original-summary.json",
+      "sha256": "880a3257db35c55236eadf8bdeebfd6e01de7d54439999ebeb0b9d250d5be0fd",
+      "bytes": 2198
+    },
+    "observedOriginalDetails": {
+      "path": "/tmp/moodcode-pty-normal-exit-observed-details.json",
+      "sha256": "cd87a46d10391dd34ba3e7aa1b6cf6d07c64522dfdf881f35152c3207283ce24",
+      "bytes": 10362
+    },
+    "plainActualOutcomes": [
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "correctOutput": true
+      }
+    ],
+    "observedActualOutcomes": [
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "groupProbeCode": "ESRCH",
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "groupProbeCode": "ESRCH",
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "groupProbeCode": "ESRCH",
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "groupProbeCode": "ESRCH",
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "groupProbeCode": "ESRCH",
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "groupProbeCode": "ESRCH",
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "groupProbeCode": "ESRCH",
+        "correctOutput": true
+      },
+      {
+        "state": "completed",
+        "outcome": {
+          "exitCode": 0,
+          "cancelled": false,
+          "timedOut": false,
+          "cleanupConfirmed": true
+        },
+        "groupPresentAtClosed": false,
+        "groupProbeCode": "ESRCH",
+        "correctOutput": true
+      }
+    ],
+    "executionOwner": "next_team_continuation; reviewer reads/hashes existing results only",
+    "hostedVsLocalNodeDifference": {
+      "hostedMac26": "v26.11.1",
+      "local": "v26.9.0"
+    },
+    "historicalCauseResolved": false
+  },
+  "requiredWork": {
+    "mandatoryImplementationChangesForOriginalCompletion": [],
+    "completionBookkeeping": [
+      "Persist authentic current local/hosted evidence and this requirement-level judgment",
+      "Preserve the f992 failed report/artifacts as failed and retain a separate unresolved PTY diagnostic/reliability-risk entry",
+      "Record unchanged supported/unsupported environment and model boundaries before Root adjusts original79/19 accounting"
+    ],
+    "separateDiagnosticFollowUp": "Improve bounded assertion-failure diagnostics on a subsequent owned unit to retain original backend.closed outcome, terminal reason/durable record and genuine group probe if the event recurs. Do not alter state/cleanup assertions or kernel authority for diagnosis.",
+    "reopenOriginalAcceptanceIf": [
+      "Authentic current supported fixture reproduces misclassification with confirmed native close exit0/cleanuptrue but terminal uncertainty not explained by durability failure",
+      "Evidence shows descendants left live after claimed cleanuptrue, lost owner/source, unsafe re-spawn/replay or weakened native authority",
+      "Current required gate fails or source/receipt evidence contradicts claimed source identity"
+    ]
+  },
+  "historicalAndDeferredClaims": {
+    "oldCIStillFailed": true,
+    "failedAllMediaReportsStillFalse": true,
+    "historicalAudioCurrentVideoAcceptanceScopeInheritedUnchanged": true,
+    "separateOpenDebts": [
+      "E5-13",
+      "E5-08"
+    ],
+    "noBroaderOSBackendModelAccountOrGUIClaim": true,
+    "recordedProgressAtReview": {
+      "completedWorkItems": 79,
+      "completedFamilies": 19,
+      "status": "active"
+    }
+  },
+  "reviewerActions": {
+    "sourceEdits": 0,
+    "mainDocEdits": 0,
+    "builds": 0,
+    "tests": 0,
+    "apiCalls": 0,
+    "accountCalls": 0,
+    "credentialOrKeyReads": 0,
+    "GitHubMutations": 0,
+    "gitMutations": 0,
+    "commits": 0,
+    "temporaryQualificationArtifactWritesOnly": true
+  }
+}

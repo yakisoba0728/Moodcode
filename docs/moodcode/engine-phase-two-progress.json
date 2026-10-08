@@ -4,9 +4,9 @@
   "baselineCommit": "8f6cd180bf5a1036cd8eeb8e428452285dccc21d",
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
-  "status": "active",
-  "completedFamilies": 19,
-  "completedWorkItems": 79,
+  "status": "complete",
+  "completedFamilies": 20,
+  "completedWorkItems": 80,
   "environmentDebts": [
     "E5-13",
     "E5-08"
@@ -416,7 +416,7 @@
       "title": "ACP·remote host·client effect 완료",
       "priority": "P2",
       "wave": "W5",
-      "status": "in-progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-09a",
@@ -424,17 +424,25 @@
           "status": "complete",
           "evidence": [
             "engine-phase-two-agent-backends.md",
-            "engine-phase-two-agent-backends-verification.json"
+            "engine-phase-two-agent-backends-verification.json",
+            "engine-phase-two-acp-session-load.md",
+            "engine-phase-two-acp-session-load-integration-verification.json",
+            "engine-phase-two-final-qualification.json",
+            "engine-phase-two-final-acceptance-verification.json"
           ]
         },
         {
           "id": "MC2-09b",
           "completion": "synthetic ACP/remote peer·엄격한 command/event schema·bounded replay",
-          "status": "in-progress",
+          "status": "complete",
           "evidence": [
             "engine-phase-two-agent-backends.md",
             "engine-phase-two-agent-backends-verification.json",
-            "engine-phase-two-final-scope-audit.json"
+            "engine-phase-two-final-scope-audit.json",
+            "engine-phase-two-acp-session-load.md",
+            "engine-phase-two-acp-session-load-integration-verification.json",
+            "engine-phase-two-final-qualification.json",
+            "engine-phase-two-final-acceptance-verification.json"
           ]
         },
         {
@@ -444,7 +452,11 @@
           "evidence": [
             "engine-phase-two-acp-client-effects.md",
             "engine-phase-two-acp-client-effects-verification.json",
-            "engine-phase-two-client-command-effects-verification.json"
+            "engine-phase-two-client-command-effects-verification.json",
+            "engine-phase-two-acp-session-load.md",
+            "engine-phase-two-acp-session-load-integration-verification.json",
+            "engine-phase-two-final-qualification.json",
+            "engine-phase-two-final-acceptance-verification.json"
           ]
         },
         {
@@ -454,11 +466,15 @@
           "evidence": [
             "engine-phase-two-acp-client-effects.md",
             "engine-phase-two-acp-client-effects-verification.json",
-            "engine-phase-two-client-command-effects-verification.json"
+            "engine-phase-two-client-command-effects-verification.json",
+            "engine-phase-two-acp-session-load.md",
+            "engine-phase-two-acp-session-load-integration-verification.json",
+            "engine-phase-two-final-qualification.json",
+            "engine-phase-two-final-acceptance-verification.json"
           ]
         }
       ],
-      "notes": "Exact-approved local ACP v1 client write and supervised terminal effects now use the genuine same native Turn/Attempt, existing tools, native Tool/Part/checkpoints and independent source/delivery receipts. Forced exact approvals, cancellation, EOF/late/duplicate/native drift/SQL/SIGKILL/reopen/paused import were validated. HTTP/auth/reconnect/load/agent-owned context/permanent grants/PTY remain explicitly unsupported; no peer OS-isolation claim. Final original-family contract audit SCOPE-01 found session/load has no validator/actual consumer and negotiated loadSession is fixedfalse. Reopen09b for actual negotiated opt-in load, frozen remote identity/context ownership and associated regression; no user authorization to remove this original contract. Other implemented09 conditions remain evidenced. Goal remains active."
+      "notes": "Original initialize/new/load/prompt/permission/cancel contract is complete in the explicit local stdio ACP v1 lane. Fresh host-approved alias and exact nine-field native completed-source manifest bind the genuine Original root epoch/connection/profile/catalogue; bounded historical replay stays DATA, current native input is consumed without duplicate history, real permission/effects and cancellation retain actual write/response proof. Native SQL/crash/unknown/reopen/paused-import, false/unknown caps and duplicate identity regressions passed. HTTP/v2/automatic reconnect/recursive load/arbitrary source grants remain outside the declared supported subset. The independent original80/20 audit and actual99bf six CI lanes qualify completion; unsupported OS/model lanes and the separately tracked historical PTY diagnostic risk are not relabeled solved."
     },
     {
       "id": "MC2-10",
@@ -1048,5 +1064,9 @@
       "notes": "Complete original preview, fair up-front fixed reservations, actual isolated editor/validator/reviewer workflow children, strict native success, separate approved selection/merge, atomic result input and real subsequent consumer are integrated. Partial/cancel/unknown/skip-resume/SQL/SIGKILL/export/source/import checks pass. Native histories use existing DB23 bounded documents/events; host fixed per-request accounting is distinguished from external invoice and unknown usage remains unknown."
     }
   ],
-  "updatedAt": "2026-10-08T17:42:05.866Z"
+  "updatedAt": "2026-10-08T19:09:10.543104+00:00",
+  "finalAcceptance": "engine-phase-two-final-acceptance-verification.json",
+  "unresolvedDiagnosticRisks": [
+    "R-PTY-01"
+  ]
 }

@@ -1,0 +1,799 @@
+{
+  "schemaVersion": 1,
+  "kind": "completed public CI POSIX4 independent audit",
+  "reviewedAt": "2026-10-08T18:53:54.871965+00:00",
+  "run": {
+    "attempt": 1,
+    "conclusion": "failure",
+    "createdAt": "2026-10-08T18:39:10Z",
+    "databaseId": 37825930807,
+    "event": "push",
+    "headSha": "f992c710564bcbbd9cf10bcb8bff9924151cd7ba",
+    "status": "completed",
+    "updatedAt": "2026-10-08T18:48:24Z",
+    "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37825930807"
+  },
+  "lanes": [
+    {
+      "lane": "macos24",
+      "jobId": 113478672603,
+      "jobConclusion": "success",
+      "actualNode": "v24.20.0",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "commit": "f992c710564bcbbd9cf10bcb8bff9924151cd7ba",
+      "environmentAt": "2026-10-08T18:39:29.247Z",
+      "resultsAt": "2026-10-08T18:48:14.352Z",
+      "wholeEngine": {
+        "tests": 4701,
+        "pass": 4699,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 2,
+        "todo": 0,
+        "duration_ms": 487324.0295
+      },
+      "mediaLocal": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 15123.2875
+      },
+      "evaluation": {
+        "total": 3,
+        "passed": 3,
+        "tasks": [
+          {
+            "taskId": "addition-bug",
+            "passed": true,
+            "runState": "completed",
+            "providerId": "scripted",
+            "modelId": "local"
+          },
+          {
+            "taskId": "empty-list-boundary",
+            "passed": true,
+            "runState": "completed",
+            "providerId": "scripted",
+            "modelId": "local"
+          },
+          {
+            "taskId": "two-module-change",
+            "passed": true,
+            "runState": "completed",
+            "providerId": "scripted",
+            "modelId": "local"
+          }
+        ]
+      },
+      "operations": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "pty-native-module",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-media-local",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "failedCases": [],
+      "skippedCases": [
+        "actual Windows Job Object child-tree timeout and parent-crash verification",
+        "Windows process-tree support is rejected explicitly"
+      ],
+      "skipCategories": {
+        "unverifiedWindowsNativeProcessTree": 2
+      },
+      "skipNamesIdenticalToHistorical836": true,
+      "ptyBootstrap": {
+        "available": true,
+        "platform": "darwin",
+        "package": "node-pty",
+        "helperPrepared": true,
+        "actualPtyVerified": false
+      },
+      "actualPassedPtyCases": [
+        "copied sources, wrong owners and accessor selections cannot create a job or affect its real PTY",
+        "losing the actual PTY supervisor cannot reconstruct confirmed cleanup from its original group",
+        "real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit",
+        "real PTY cancel and service close remove the inherited process group after readiness",
+        "supervisor IPC disconnect cleans a real PTY even when the parent cannot finalize its journal"
+      ],
+      "actualPtyTestFailure": false,
+      "liveAccountCalls": 0,
+      "artifact": {
+        "id": 11571901512,
+        "name": "engine-macos-15-node-24.x-attempt-1",
+        "attempt": 1,
+        "path": "/tmp/moodcode-actions-37825930807-f992/macos24-artifact",
+        "advertisedDigest": "sha256:36c0deab605924b18316369f7a657f907515de7ad88f32b9a4b73dc22d23dd29",
+        "archive": {
+          "path": "/tmp/moodcode-actions-37825930807-f992/macos24.zip",
+          "sha256": "36c0deab605924b18316369f7a657f907515de7ad88f32b9a4b73dc22d23dd29",
+          "bytes": 346181
+        },
+        "digestVerified": true
+      },
+      "originalFileSHA": {
+        "test-media-local.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "build.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "pty-capability.json": "97325b4134caa4636cbfa151e4ea51e068c293e8c452f7065cf182e15cd1aab5",
+        "typecheck.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test.log": "5939da03c3320efe30ed56576272d55e1656a4206892e878e4ee804305bc4645",
+        "typecheck.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "results.json": "5061d26ef2dcea88b01c168c33e8ac6b50ccdf9622044017dd69300e6004bc48",
+        "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test-media-local.stdout": "936a9a223cfc66a1a17c702d488ad3144c07f34a55984f8bf0535a00260c4d46",
+        "build.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "eval.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test.stdout": "5939da03c3320efe30ed56576272d55e1656a4206892e878e4ee804305bc4645",
+        "steps.json": "813ea0ba07e595d700d153cdfe0efc0bc7fe500f51d566614af173cca52e2a04",
+        "prepare-pty.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test-media-local.log": "936a9a223cfc66a1a17c702d488ad3144c07f34a55984f8bf0535a00260c4d46",
+        "prepare-pty.log": "660f558159c89fd6cf8d5265ca67e3389dfff6a48740f84fc542296b3fdef25c",
+        "install.log": "d047a4d354049dfbbeac47b16179545f176a971e9886ff572e345de2b0468b6d",
+        "environment.json": "272c1b4dd3a8d86f7efe87b46c3f09e004294e6be1e63742ddfcdb1741969e68",
+        "evaluation.json": "4e912e0338a9690dd436fa53baa04aec5326a53368ba8dac0876d729215d0ff0",
+        "prepare-pty.stdout": "660f558159c89fd6cf8d5265ca67e3389dfff6a48740f84fc542296b3fdef25c",
+        "eval.log": "4e912e0338a9690dd436fa53baa04aec5326a53368ba8dac0876d729215d0ff0",
+        "test.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "eval.stdout": "4e912e0338a9690dd436fa53baa04aec5326a53368ba8dac0876d729215d0ff0",
+        "build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "lane": "macos26",
+      "jobId": 113478672528,
+      "jobConclusion": "failure",
+      "actualNode": "v26.11.1",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "commit": "f992c710564bcbbd9cf10bcb8bff9924151cd7ba",
+      "environmentAt": "2026-10-08T18:39:33.643Z",
+      "resultsAt": "2026-10-08T18:47:41.148Z",
+      "wholeEngine": {
+        "tests": 4701,
+        "pass": 4696,
+        "fail": 3,
+        "cancelled": 0,
+        "skipped": 2,
+        "todo": 0,
+        "duration_ms": 457812.154083
+      },
+      "mediaLocal": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 11674.691666
+      },
+      "evaluation": {
+        "executed": false,
+        "reason": "Job failed complete fixture step; no evaluation artifact"
+      },
+      "operations": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "pty-native-module",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-media-local",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test",
+          "state": "failed",
+          "exitCode": 1
+        }
+      ],
+      "failedCases": [
+        "actual cleanup IPC before stdout drain preserves successful result",
+        "actual cleanup IPC before stdout drain preserves CODE_MODE_RESULT_LIMIT",
+        "real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit"
+      ],
+      "skippedCases": [
+        "actual Windows Job Object child-tree timeout and parent-crash verification",
+        "Windows process-tree support is rejected explicitly"
+      ],
+      "skipCategories": {
+        "unverifiedWindowsNativeProcessTree": 2
+      },
+      "skipNamesIdenticalToHistorical836": true,
+      "ptyBootstrap": {
+        "available": true,
+        "platform": "darwin",
+        "package": "node-pty",
+        "helperPrepared": true,
+        "actualPtyVerified": false
+      },
+      "actualPassedPtyCases": [
+        "copied sources, wrong owners and accessor selections cannot create a job or affect its real PTY",
+        "losing the actual PTY supervisor cannot reconstruct confirmed cleanup from its original group",
+        "real PTY cancel and service close remove the inherited process group after readiness",
+        "supervisor IPC disconnect cleans a real PTY even when the parent cannot finalize its journal"
+      ],
+      "actualPtyTestFailure": true,
+      "liveAccountCalls": 0,
+      "artifact": {
+        "id": 11572251171,
+        "name": "engine-macos-15-node-26.x-attempt-1",
+        "attempt": 1,
+        "path": "/tmp/moodcode-actions-37825930807-f992/macos26-artifact",
+        "advertisedDigest": "sha256:0c1703291517e1aa34f6b2868bdf6b7e7f157989151141b223ee6aba55d01215",
+        "archive": {
+          "path": "/tmp/moodcode-actions-37825930807-f992/macos26.zip",
+          "sha256": "0c1703291517e1aa34f6b2868bdf6b7e7f157989151141b223ee6aba55d01215",
+          "bytes": 345210
+        },
+        "digestVerified": true
+      },
+      "originalFileSHA": {
+        "test-media-local.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "build.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "pty-capability.json": "97325b4134caa4636cbfa151e4ea51e068c293e8c452f7065cf182e15cd1aab5",
+        "typecheck.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test.log": "a88851b7c6c5b8dfb5f9ef20c0c59362f118cbefb9d5d221514eeb55be4b1f3e",
+        "typecheck.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "results.json": "d4a6d908ce34ca7d20dcef992a7f659459e3ad47f60c92a7012893dc85bd2193",
+        "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test-media-local.stdout": "6ae89fbe7ff0e9e4398cfdf253f7dc227ff3a53058bc943a3c7b594f220d0852",
+        "build.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test.stdout": "a88851b7c6c5b8dfb5f9ef20c0c59362f118cbefb9d5d221514eeb55be4b1f3e",
+        "steps.json": "0470eafe64badd3dd2ba83aea75b084b0d90a33da1e757ef51e3e2e88da6eb29",
+        "prepare-pty.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test-media-local.log": "6ae89fbe7ff0e9e4398cfdf253f7dc227ff3a53058bc943a3c7b594f220d0852",
+        "prepare-pty.log": "660f558159c89fd6cf8d5265ca67e3389dfff6a48740f84fc542296b3fdef25c",
+        "install.log": "e8878c7c7a7babafae5a09b111733312b90aff029ce9cbe7d0c5e567f211a2d7",
+        "environment.json": "ed5bc830b480d28800123797b8292637d041997034acbe936c1c8834ecc07e37",
+        "prepare-pty.stdout": "660f558159c89fd6cf8d5265ca67e3389dfff6a48740f84fc542296b3fdef25c",
+        "test.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "lane": "linux24",
+      "jobId": 113478672832,
+      "jobConclusion": "success",
+      "actualNode": "v24.21.0",
+      "platform": "linux",
+      "architecture": "x64",
+      "commit": "f992c710564bcbbd9cf10bcb8bff9924151cd7ba",
+      "environmentAt": "2026-10-08T18:39:19.388Z",
+      "resultsAt": "2026-10-08T18:44:51.924Z",
+      "wholeEngine": {
+        "tests": 4701,
+        "pass": 4639,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 62,
+        "todo": 0,
+        "duration_ms": 299803.089957
+      },
+      "mediaLocal": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 10694.652396
+      },
+      "evaluation": {
+        "total": 3,
+        "passed": 3,
+        "tasks": [
+          {
+            "taskId": "addition-bug",
+            "passed": true,
+            "runState": "completed",
+            "providerId": "scripted",
+            "modelId": "local"
+          },
+          {
+            "taskId": "empty-list-boundary",
+            "passed": true,
+            "runState": "completed",
+            "providerId": "scripted",
+            "modelId": "local"
+          },
+          {
+            "taskId": "two-module-change",
+            "passed": true,
+            "runState": "completed",
+            "providerId": "scripted",
+            "modelId": "local"
+          }
+        ]
+      },
+      "operations": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "pty-native-module",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-media-local",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "failedCases": [],
+      "skippedCases": [
+        "genuine complete code-mode archive pauses immutable history and grants no runtime or automatic provider replay",
+        "actual Root SIGKILL joins restricted runtime and native command group, restart is uncertain and never replays",
+        "actual OS runtime pure bounded result and original native Tool Part approval receipt",
+        "actual same native Turn read broker uses Run cumulative budget and result data",
+        "nested actual command requires separate approval and original checkpoint then completes",
+        "denied outer and nested approval produce no command effect or second runtime",
+        "same-policy new Original grant during nested wait rejects late approval before physical dispatch",
+        "outer parent cancellation joins running command group and restricted runtime with no replay",
+        "closed language and actual Run aggregate budget stop excess nested effect without widening",
+        "code allocation timeout cancels pending nested approval before command dispatch and joins runtime",
+        "cancel immediately before nested approval denies late dispatch and grants no copied Original context",
+        "actual patch broker retains native approval and checkpoint while language dynamically selects read result",
+        "default-off exposes no code tool or live runtime, history lookup remains descriptive",
+        "duplicate same Original broker request after actual command execution is fenced before second effect",
+        "nested verify_changes preserves genuine narrowed Original command scope and actual verification receipt",
+        "actual step/result caps and shared absolute native Tool budget cannot be reset by the program",
+        "original source/approval SQL admission failure starts zero isolated processes",
+        "actual nested call intent COMMIT fault prevents command dispatch and preserves known joined runtime",
+        "actual process admission journal fault joins actual isolated PID and preserves uncertain native history",
+        "generic CAS and fully rehashed PID/outcome/result cannot contradict independent native record/process/closed anchors",
+        "native outer Part is committed once before failed final receipt CAS; uncertainty never creates a duplicate result",
+        "actual physical workspace source replacement after approval preparation starts zero runtimes",
+        "copied Root Flight and accessor record cannot invoke data getters or acquire an execution grant",
+        "actual cleanup IPC before stdout drain preserves successful result",
+        "actual cleanup IPC before stdout drain preserves CODE_MODE_RESULT_LIMIT",
+        "actual drained stdout rejects malformed JSON without publishing a successful result",
+        "actual drained stdout rejects unterminated frame without publishing a successful result",
+        "actual drained stdout rejects incomplete UTF-8 tail without publishing a successful result",
+        "actual kernel probes deny protected file read/write, loopback and process fork",
+        "resident mailbox continuation keeps inherited kernel scope, native command owner and paused archive lineage",
+        "actual archive import preserves signed sandbox history paused and cannot restore execution grant",
+        "exact native command approval denied leaves no sandbox command receipt or process",
+        "file source replacement after actual approval preparation cannot spawn",
+        "actual effect cancellation settles native checkpoint and proves owned process group absence",
+        "timeout and Engine.close retain original sandbox ownership until actual group cleanup",
+        "closed receipt persistent SQL fault preserves actual partial effects and uncertain native ownership",
+        "independent host command uses the same real supervisor with approved sandbox restriction and exact native result",
+        "actual Root SIGKILL command kills constrained descendants and native recovery never replays",
+        "actual Root SIGKILL mcp kills constrained descendants and native recovery never replays",
+        "genuine Engine command uses exact approved kernel sandbox and native Tool/Part/checkpoint",
+        "outside file read/write, symlink target and descendants are kernel denied; partial local effect preserved",
+        "actual local network blocked for effect and child process without unsandboxed retry",
+        "grant Original, denial and exact fresh widened reapproval; old approval becomes stale",
+        "actual native receipt insertion fault prevents spawn, generic rehashed document tamper fails independent anchors",
+        "reopen does not reconstruct a live grant or replay any command",
+        "genuine sandbox stdio MCP denies file/descendant writes and close proves real group gone",
+        "HTTP/custom stdio MCP is denied before any startup and imported DTO cannot brand runtime transport",
+        "actual isolated child engine receives narrower OS scope and cannot read parent/outside paths",
+        "actual provider consumes approved stdio MCP Tool/Part under the original kernel restriction",
+        "MCP single Original catalogue binding denies unbound and replaced exact grants before actual RPC pipe write",
+        "genuine completed checkpoint drift is rejected before sandbox history can claim its outcome",
+        "fully rehashed sandbox completion cannot contradict independent actual owned command closure",
+        "native metadata caps reject oversized rows and fresh grant DTO/accessors cannot issue authority",
+        "widening requires idle physical ownership and fresh approval, and strips arbitrary host environment",
+        "broad workspace mount still kernel denies engine DB, WAL and artifact files inside that workspace",
+        "standalone opt-in remains enforced without jobs and duplicate archived grant history issues no new grant",
+        "late host lifecycle registration is denied without invoking callback or provider outside OS scope",
+        "stopped interactive PTY shell cannot turn a live separate job group into confirmed cleanup",
+        "losing the actual PTY supervisor cannot reconstruct confirmed cleanup from its original group",
+        "macOS interactive shell relays hangup to its separate background job process group",
+        "actual Windows Job Object child-tree timeout and parent-crash verification",
+        "Windows process-tree support is rejected explicitly"
+      ],
+      "skipCategories": {
+        "darwinOnlyCodeMode": 29,
+        "darwinOnlySandboxAndResidentSandbox": 28,
+        "darwinOnlyInteractivePtyGroup": 3,
+        "unverifiedWindowsNativeProcessTree": 2
+      },
+      "skipNamesIdenticalToHistorical836": true,
+      "ptyBootstrap": {
+        "available": true,
+        "platform": "linux",
+        "package": "node-pty",
+        "helperPrepared": true,
+        "actualPtyVerified": false
+      },
+      "actualPassedPtyCases": [
+        "copied sources, wrong owners and accessor selections cannot create a job or affect its real PTY",
+        "real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit",
+        "real PTY cancel and service close remove the inherited process group after readiness",
+        "supervisor IPC disconnect cleans a real PTY even when the parent cannot finalize its journal"
+      ],
+      "actualPtyTestFailure": false,
+      "liveAccountCalls": 0,
+      "artifact": {
+        "id": 11572121069,
+        "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+        "attempt": 1,
+        "path": "/tmp/moodcode-actions-37825930807-f992/linux24-artifact",
+        "advertisedDigest": "sha256:72145bd7c53c83cb3c46265c1b2d9d189ffd9836eba816c98cdbe295cfff6d84",
+        "archive": {
+          "path": "/tmp/moodcode-actions-37825930807-f992/linux24.zip",
+          "sha256": "72145bd7c53c83cb3c46265c1b2d9d189ffd9836eba816c98cdbe295cfff6d84",
+          "bytes": 351867
+        },
+        "digestVerified": true
+      },
+      "originalFileSHA": {
+        "test-media-local.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "build.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "pty-capability.json": "ef4e1bc8a1df28b270474f0d8e7d4b8380f0ade98ddaa9d8991af6ddba89eae2",
+        "typecheck.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test.log": "279348816fa42dc5e710815ef93a33631ad679d3986f3bcebbdfb43795bf5223",
+        "typecheck.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "results.json": "8a9b30915eefce192b8aa13ffaf38fed8e410ddad4fdcb8d1a07a93f6fbb174e",
+        "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test-media-local.stdout": "d20aecd5b98bfed338b758b34e6cd32f852a9c6819239c49ce153ed48d51c19a",
+        "build.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "eval.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test.stdout": "279348816fa42dc5e710815ef93a33631ad679d3986f3bcebbdfb43795bf5223",
+        "steps.json": "42ceee5f741e58a982b98072e1b44acd4765ecfae35e2f9b3d8354bdd6bd32c2",
+        "prepare-pty.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test-media-local.log": "d20aecd5b98bfed338b758b34e6cd32f852a9c6819239c49ce153ed48d51c19a",
+        "prepare-pty.log": "660f558159c89fd6cf8d5265ca67e3389dfff6a48740f84fc542296b3fdef25c",
+        "install.log": "9f2015e5a04f188ec0b0bddf5523ebb92c3f688aeaf0cc4568f3988ca1b2849a",
+        "environment.json": "ad5f7a23f81d1a06b09790e2666964e1849af3acaaf0f720ebe35ddc74ad713a",
+        "evaluation.json": "bdb938b8a86a12ed5a3840247fc4b5daf455e6d0e6340d0671dc6119ed49b066",
+        "prepare-pty.stdout": "660f558159c89fd6cf8d5265ca67e3389dfff6a48740f84fc542296b3fdef25c",
+        "eval.log": "bdb938b8a86a12ed5a3840247fc4b5daf455e6d0e6340d0671dc6119ed49b066",
+        "test.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "eval.stdout": "bdb938b8a86a12ed5a3840247fc4b5daf455e6d0e6340d0671dc6119ed49b066",
+        "build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "lane": "linux26",
+      "jobId": 113478672757,
+      "jobConclusion": "success",
+      "actualNode": "v26.11.1",
+      "platform": "linux",
+      "architecture": "x64",
+      "commit": "f992c710564bcbbd9cf10bcb8bff9924151cd7ba",
+      "environmentAt": "2026-10-08T18:39:24.981Z",
+      "resultsAt": "2026-10-08T18:45:00.133Z",
+      "wholeEngine": {
+        "tests": 4701,
+        "pass": 4639,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 62,
+        "todo": 0,
+        "duration_ms": 308302.875582
+      },
+      "mediaLocal": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 7677.954251
+      },
+      "evaluation": {
+        "total": 3,
+        "passed": 3,
+        "tasks": [
+          {
+            "taskId": "addition-bug",
+            "passed": true,
+            "runState": "completed",
+            "providerId": "scripted",
+            "modelId": "local"
+          },
+          {
+            "taskId": "empty-list-boundary",
+            "passed": true,
+            "runState": "completed",
+            "providerId": "scripted",
+            "modelId": "local"
+          },
+          {
+            "taskId": "two-module-change",
+            "passed": true,
+            "runState": "completed",
+            "providerId": "scripted",
+            "modelId": "local"
+          }
+        ]
+      },
+      "operations": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "pty-native-module",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-media-local",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "failedCases": [],
+      "skippedCases": [
+        "genuine complete code-mode archive pauses immutable history and grants no runtime or automatic provider replay",
+        "actual Root SIGKILL joins restricted runtime and native command group, restart is uncertain and never replays",
+        "actual OS runtime pure bounded result and original native Tool Part approval receipt",
+        "actual same native Turn read broker uses Run cumulative budget and result data",
+        "nested actual command requires separate approval and original checkpoint then completes",
+        "denied outer and nested approval produce no command effect or second runtime",
+        "same-policy new Original grant during nested wait rejects late approval before physical dispatch",
+        "outer parent cancellation joins running command group and restricted runtime with no replay",
+        "closed language and actual Run aggregate budget stop excess nested effect without widening",
+        "code allocation timeout cancels pending nested approval before command dispatch and joins runtime",
+        "cancel immediately before nested approval denies late dispatch and grants no copied Original context",
+        "actual patch broker retains native approval and checkpoint while language dynamically selects read result",
+        "default-off exposes no code tool or live runtime, history lookup remains descriptive",
+        "duplicate same Original broker request after actual command execution is fenced before second effect",
+        "nested verify_changes preserves genuine narrowed Original command scope and actual verification receipt",
+        "actual step/result caps and shared absolute native Tool budget cannot be reset by the program",
+        "original source/approval SQL admission failure starts zero isolated processes",
+        "actual nested call intent COMMIT fault prevents command dispatch and preserves known joined runtime",
+        "actual process admission journal fault joins actual isolated PID and preserves uncertain native history",
+        "generic CAS and fully rehashed PID/outcome/result cannot contradict independent native record/process/closed anchors",
+        "native outer Part is committed once before failed final receipt CAS; uncertainty never creates a duplicate result",
+        "actual physical workspace source replacement after approval preparation starts zero runtimes",
+        "copied Root Flight and accessor record cannot invoke data getters or acquire an execution grant",
+        "actual cleanup IPC before stdout drain preserves successful result",
+        "actual cleanup IPC before stdout drain preserves CODE_MODE_RESULT_LIMIT",
+        "actual drained stdout rejects malformed JSON without publishing a successful result",
+        "actual drained stdout rejects unterminated frame without publishing a successful result",
+        "actual drained stdout rejects incomplete UTF-8 tail without publishing a successful result",
+        "actual kernel probes deny protected file read/write, loopback and process fork",
+        "resident mailbox continuation keeps inherited kernel scope, native command owner and paused archive lineage",
+        "actual archive import preserves signed sandbox history paused and cannot restore execution grant",
+        "exact native command approval denied leaves no sandbox command receipt or process",
+        "file source replacement after actual approval preparation cannot spawn",
+        "actual effect cancellation settles native checkpoint and proves owned process group absence",
+        "timeout and Engine.close retain original sandbox ownership until actual group cleanup",
+        "closed receipt persistent SQL fault preserves actual partial effects and uncertain native ownership",
+        "independent host command uses the same real supervisor with approved sandbox restriction and exact native result",
+        "actual Root SIGKILL command kills constrained descendants and native recovery never replays",
+        "actual Root SIGKILL mcp kills constrained descendants and native recovery never replays",
+        "genuine Engine command uses exact approved kernel sandbox and native Tool/Part/checkpoint",
+        "outside file read/write, symlink target and descendants are kernel denied; partial local effect preserved",
+        "actual local network blocked for effect and child process without unsandboxed retry",
+        "grant Original, denial and exact fresh widened reapproval; old approval becomes stale",
+        "actual native receipt insertion fault prevents spawn, generic rehashed document tamper fails independent anchors",
+        "reopen does not reconstruct a live grant or replay any command",
+        "genuine sandbox stdio MCP denies file/descendant writes and close proves real group gone",
+        "HTTP/custom stdio MCP is denied before any startup and imported DTO cannot brand runtime transport",
+        "actual isolated child engine receives narrower OS scope and cannot read parent/outside paths",
+        "actual provider consumes approved stdio MCP Tool/Part under the original kernel restriction",
+        "MCP single Original catalogue binding denies unbound and replaced exact grants before actual RPC pipe write",
+        "genuine completed checkpoint drift is rejected before sandbox history can claim its outcome",
+        "fully rehashed sandbox completion cannot contradict independent actual owned command closure",
+        "native metadata caps reject oversized rows and fresh grant DTO/accessors cannot issue authority",
+        "widening requires idle physical ownership and fresh approval, and strips arbitrary host environment",
+        "broad workspace mount still kernel denies engine DB, WAL and artifact files inside that workspace",
+        "standalone opt-in remains enforced without jobs and duplicate archived grant history issues no new grant",
+        "late host lifecycle registration is denied without invoking callback or provider outside OS scope",
+        "stopped interactive PTY shell cannot turn a live separate job group into confirmed cleanup",
+        "losing the actual PTY supervisor cannot reconstruct confirmed cleanup from its original group",
+        "macOS interactive shell relays hangup to its separate background job process group",
+        "actual Windows Job Object child-tree timeout and parent-crash verification",
+        "Windows process-tree support is rejected explicitly"
+      ],
+      "skipCategories": {
+        "darwinOnlyCodeMode": 29,
+        "darwinOnlySandboxAndResidentSandbox": 28,
+        "darwinOnlyInteractivePtyGroup": 3,
+        "unverifiedWindowsNativeProcessTree": 2
+      },
+      "skipNamesIdenticalToHistorical836": true,
+      "ptyBootstrap": {
+        "available": true,
+        "platform": "linux",
+        "package": "node-pty",
+        "helperPrepared": true,
+        "actualPtyVerified": false
+      },
+      "actualPassedPtyCases": [
+        "copied sources, wrong owners and accessor selections cannot create a job or affect its real PTY",
+        "real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit",
+        "real PTY cancel and service close remove the inherited process group after readiness",
+        "supervisor IPC disconnect cleans a real PTY even when the parent cannot finalize its journal"
+      ],
+      "actualPtyTestFailure": false,
+      "liveAccountCalls": 0,
+      "artifact": {
+        "id": 11571019083,
+        "name": "engine-ubuntu-24.04-node-26.x-attempt-1",
+        "attempt": 1,
+        "path": "/tmp/moodcode-actions-37825930807-f992/linux26-artifact",
+        "advertisedDigest": "sha256:fdef1b2fe97130f2997ac838309f0cfba09f2295f54a36584c3fe2c0e8591764",
+        "archive": {
+          "path": "/tmp/moodcode-actions-37825930807-f992/linux26.zip",
+          "sha256": "fdef1b2fe97130f2997ac838309f0cfba09f2295f54a36584c3fe2c0e8591764",
+          "bytes": 351887
+        },
+        "digestVerified": true
+      },
+      "originalFileSHA": {
+        "test-media-local.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "build.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "pty-capability.json": "ef4e1bc8a1df28b270474f0d8e7d4b8380f0ade98ddaa9d8991af6ddba89eae2",
+        "typecheck.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test.log": "fa10ce421e492bd3eb67e251c7215f184b5c1643dd8e5bbbcf7f0f787ce00c7d",
+        "typecheck.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "results.json": "b263043f7436ef607bae60a0156120f408da6b91960ad1203a0aef03e989e4e7",
+        "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test-media-local.stdout": "391717f847ff1075a2a722e37917197541c1e991623e4e1a9c80a900877f381e",
+        "build.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "eval.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test.stdout": "fa10ce421e492bd3eb67e251c7215f184b5c1643dd8e5bbbcf7f0f787ce00c7d",
+        "steps.json": "51ad1f2d9b609af96a148bf340e0321d37295ab8019773d22ef07601bd6f59d2",
+        "prepare-pty.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "test-media-local.log": "391717f847ff1075a2a722e37917197541c1e991623e4e1a9c80a900877f381e",
+        "prepare-pty.log": "660f558159c89fd6cf8d5265ca67e3389dfff6a48740f84fc542296b3fdef25c",
+        "install.log": "2b35513a00b84089ddd10117ded66004e007c238273065b68306b3d1f9df465b",
+        "environment.json": "ef0ec7c4a426fb57acf5f4efa103a3d75f981a6e18a7c7b023121800c8baee96",
+        "evaluation.json": "ae8ab0bff741fd3f97c435fefee6f431bc837a9974be0561cbac3478912e3dc0",
+        "prepare-pty.stdout": "660f558159c89fd6cf8d5265ca67e3389dfff6a48740f84fc542296b3fdef25c",
+        "eval.log": "ae8ab0bff741fd3f97c435fefee6f431bc837a9974be0561cbac3478912e3dc0",
+        "test.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "eval.stdout": "ae8ab0bff741fd3f97c435fefee6f431bc837a9974be0561cbac3478912e3dc0",
+        "build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  ],
+  "artifactFiles": {
+    "path": "/tmp/moodcode-actions-37825930807-f992/artifact-file-sha256-manifest.json",
+    "sha256": "ee8dcf825e9bd0c3194cdcffa43ccc7f386cd8e67c8b178108061610e33a33fb",
+    "bytes": 8692
+  },
+  "metadata": {
+    "path": "/tmp/moodcode-actions-37825930807-f992-metadata-live.json",
+    "sha256": "aeed5cb5bd4ea49d4639eaa9b7fbfb81a1aba55c542b8d04d0a669da14f8dfcd",
+    "bytes": 29066
+  },
+  "artifactMetadata": {
+    "path": "/tmp/moodcode-actions-37825930807-f992-artifact-metadata.json",
+    "sha256": "f15122e6468d61d91feca4b7b8efec109406ff2b5332ca6c49333f05337444a7",
+    "bytes": 4290
+  },
+  "previousSourceQualification": {
+    "836": "Run37816462723/head836 whole4676/media26 passed historical source, not current head.",
+    "9eb": "Run37819518795/head9eb Mac24/26 fixture failures preserved separately.",
+    "f992": "Run37825930807 exactf992 whole4701/media26;Mac26 has3 failures, not corrected fixture CI.",
+    "99bf": "Run37827176532 exact99bf6f0 introduces only corrected drain fixture and documentary evidence; no fabricated old-run green credit."
+  },
+  "limits": [
+    "Linux62 capability-gated skips are not Darwin feature success.",
+    "PTY bootstrap actualPtyVerified:false remains false; native-module availability is recorded separately from passed genuine named process/interactive fixture proofs.",
+    "Windows2 status metadata is independent from this POSIX4 artifact audit; A owns portable artifact audit.",
+    "Local scripted/media fixtures are not actual account or GUI credit."
+  ],
+  "actions": {
+    "newAuditTests": 0,
+    "builds": 0,
+    "MainSourceWrites": 0,
+    "credentialReads": 0,
+    "accountCalls": 0,
+    "remoteWrites": 0
+  },
+  "verdict": "Terminal POSIX failure remains failure; partial success artifacts are preserved without complete credit.",
+  "prior9ebFailureAudit": {
+    "path": "/tmp/moodcode-actions-37819518795-9eb233b-posix-failure-audit.json",
+    "sha256": "7b7043e6bd2897dae964ddff8a001feaae58be220fb7c66827130e0d9d32ae26",
+    "bytes": 3350
+  },
+  "frozenFixtureCorrection": {
+    "path": "/tmp/moodcode-code-mode-drain-fixture-gate-source-freeze.json",
+    "sha256": "0b97e33ce2695961b3f221fe6b174e067216bc74335a513df70b59cda21f4182",
+    "bytes": 4818
+  },
+  "findings": [
+    {
+      "scope": "macOS26",
+      "cases": "Two original code-mode paused-stdout assertions",
+      "cause": "Original fixture pause overridden by native ChildProcess exit stdio flush; corrected source is separately frozen."
+    },
+    {
+      "scope": "macOS26",
+      "case": "real PTY normal exit",
+      "cause": "Actual terminal uncertain versus expected completed; diagnosis assigned to Root/A, not hidden or reclassified."
+    }
+  ]
+}

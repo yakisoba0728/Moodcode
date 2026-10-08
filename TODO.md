@@ -2,7 +2,7 @@
 
 갱신일: 2026-10-08, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 직전 검증된 엔진 커밋: `5fd8e82`. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
 
-상태: G1-29까지 1차 구현·최종 headless 검증을 마쳤고, 현재는 자체 메인 엔진 2차 MC2-01~20의 80개 항목을 구현하는 goal이 active다. 부분 기능이나 예산·턴 종료만으로 goal을 완료 처리하지 않는다. 최신 세부 상태는 아래 MC2 항목과 docs/moodcode/engine-phase-two-progress.json을 기준으로 사용한다.
+상태: G1-29까지 1차 구현과 자체 메인 엔진 2차 MC2-01~20의 **80/80 항목·20/20 기능군**을 명시 지원 범위에서 완료했다. 원래 조건을 유지한 독립 감사, 전체 회귀와 실제 공개 CI 여섯 작업으로 확인했다. [최종 수용 근거](docs/moodcode/engine-phase-two-final-acceptance-verification.json)와 docs/moodcode/engine-phase-two-progress.json을 기준으로 사용한다. E5-08·E5-13 및 과거 PTY 실패 진단 R-PTY-01은 열린 후속 범위로 남긴다.
 
 ## 작업 규칙
 
@@ -428,4 +428,9 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 
 - [x] **836db4b 실제 CI 여섯 lane 완료·모델별16d 감사 — 2026-10-09**: macOS 각4,674pass/실패0/skip2, Linux 각4,614pass/실패0/skip62(전체4,676), POSIXmedia26/26·평가3/3·type/build/PTY0, Windows 각151pass/실패0/native skip1(전체152). E6-07/08의 실제지원 명세를 닫았다. 원16d 모델별 조건은 immutable실패와 source/runtime-qualified 성공관측을 별도로 유지해 완료했다. [CI](docs/moodcode/engine-ci.md)·[media 감사](docs/moodcode/engine-phase-two-media-model-account-acceptance-audit.json).
 
-- [ ] **MC2-09b 원 가족계약 ACP session/load 보강**: [최종 원80항목/20가족 감사](docs/moodcode/engine-phase-two-final-scope-audit.json)의 SCOPE-01을 해결한다. actualload/strictschema/negotiatedcapability·nativeOriginal identity·contextownership/replay·permission/cancel/duplicate/late/disconnect 회귀를 함께 연결한다. 원조건을 삭제하지 않고 **79/80·19/20·goal active**를 유지한다. 과거 실패 로그 경로1건은 동일실패SHA의 실제보존경로로 정정했다.
+- [x] **MC2-09b 원 가족계약 ACP session/load 보강**: 최초 [원80항목/20기능군 감사](docs/moodcode/engine-phase-two-final-scope-audit.json)의 SCOPE-01을 실제 load/strict schema/negotiated capability·native Original identity·현재 입력/역사 replay 분리·permission/cancel/duplicate/late/disconnect/crash/import 소비와 검증으로 해결했다. 원 조건을 유지한 최종 수용은 **80/80·20/20**이며 [통합 검증](docs/moodcode/engine-phase-two-acp-session-load-integration-verification.json)과 [최종 검증](docs/moodcode/engine-phase-two-final-acceptance-verification.json)을 따른다. 과거 실패·초기 누락 감사 및 실패 로그 경로 정정 이력은 보존했다.
+
+
+- [x] **2차 원80항목·20기능군 최종 수용 — 2026-10-09**: 원 completion 문자열80개와 family 계약20개를 유지했다. 실제 ACP load 소비·native replay/현재 입력·permission/effect/cancel·crash/import를 추가했고 최종 Root914 source 불변·build0·전체4,701/4,699pass/실패0/기존 Windows skip2, backend source107/107·media26/26·scripted3/3을 확인했다. 실제 [99bf6f0 공개 CI](https://github.com/yakisoba0728/Moodcode/actions/runs/37827176532) 여섯 작업 모두 성공: macOS 각4,699pass/skip2, Linux 각4,639pass/skip62, Windows portable 각151pass/미지원 skip1. 독립 원80/20·artifact 감사와 실패 이력을 보존했다. [최종 검증](docs/moodcode/engine-phase-two-final-acceptance-verification.json)·[요구 수준 판단](docs/moodcode/engine-phase-two-final-qualification.json).
+
+- [ ] **R-PTY-01 과거 macOS PTY 정상종료 실패 진단**: f992 CI에서 actual uncertain/completed 불일치1건이 있었으며 당시 authoritative closed outcome/reason/PID·PGID가 없어 원인은 미확정이다. 새 CI 양Mac와 genuine 로컬16회 통과를 과거 원인 해결/무해함의 증거로 쓰지 않는다. unknown/EPERM/leader-loss 판정은 유지한다. 재발 시 실제 native outcome·record reason·원본 PID/PGID를 확보하고 인과 위반이 입증되면 관련 수용을 다시 연다. [보존된 실패](docs/moodcode/engine-ci-f992-posix-failure-verification.json)·[실제 진단](docs/moodcode/engine-pty-f992-diagnosis.json).

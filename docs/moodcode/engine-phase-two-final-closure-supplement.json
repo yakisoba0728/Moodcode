@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "kind": "read-only-final-closure-supplement-original80-20-and-actual-stdout-fixture-barrier",
+  "reviewedAt": "2026-10-08T18:53:27.946585+00:00",
+  "workspace": "/Users/yakisoba0728/Documents/GitHub/Moodcode",
+  "sourceCommit": "99bf6f060b2db08a544f2d2259ad3115860dbe14",
+  "priorAcceptanceAudit": {
+    "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-final-acceptance-audit.json",
+    "sha256": "1b7d06ce6a72db8b32d343e122477e9c766839b085a827d6472ba3d5b8304740",
+    "bytes": 257263,
+    "unchanged": true,
+    "notRewritten": true
+  },
+  "originalScope": {
+    "originalFamilies": 20,
+    "originalWorkItems": 80,
+    "all80CompletionStringsUnchanged": true,
+    "all20OriginalContractsAndPersistenceUnchanged": true,
+    "requirementDocumentPins": [
+      {
+        "prior": {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/coding-agent-engine-review/implementation-work-items.json",
+          "sha256": "4bab8379a68c37e817f66aa5c2bda02c6b00a1951d20c3c0147b5885dbc49db4",
+          "bytes": 50422
+        },
+        "current": {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/coding-agent-engine-review/implementation-work-items.json",
+          "sha256": "4bab8379a68c37e817f66aa5c2bda02c6b00a1951d20c3c0147b5885dbc49db4",
+          "bytes": 50422
+        },
+        "unchanged": true
+      },
+      {
+        "prior": {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/coding-agent-engine-review/implementation-blueprint.md",
+          "sha256": "d4f8d381430871f23e9676e74efe78b409cfbeb9e1bf063c5207281ebf5359ac",
+          "bytes": 41068
+        },
+        "current": {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/coding-agent-engine-review/implementation-blueprint.md",
+          "sha256": "d4f8d381430871f23e9676e74efe78b409cfbeb9e1bf063c5207281ebf5359ac",
+          "bytes": 41068
+        },
+        "unchanged": true
+      },
+      {
+        "prior": {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-goal.md",
+          "sha256": "5eae15908c6b28eada5746998765d1696cfc59634a318443f9bdf409d0680afe",
+          "bytes": 3194
+        },
+        "current": {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-goal.md",
+          "sha256": "5eae15908c6b28eada5746998765d1696cfc59634a318443f9bdf409d0680afe",
+          "bytes": 3194
+        },
+        "unchanged": true
+      }
+    ],
+    "scopeSCOPE01ResolutionPreserved": true,
+    "supportedLocalAcceptanceEligibilityMaintained": true,
+    "newlyOmittedOriginalRequirements": [],
+    "priorQualifiedModelAcceptancePreserved": true,
+    "failedAllReportsNotReclassified": true,
+    "E5_13AndE5_08RemainSeparate": [
+      "E5-13",
+      "E5-08"
+    ]
+  },
+  "sourceIdentity": {
+    "previousRootFreeze": {
+      "path": "/tmp/moodcode-acp-load-root-integration-source-freeze-v2.json",
+      "sha256": "a442085d689376fb272c072fd42b7209a1a77624c0bad51dde7fb46841b38f29",
+      "bytes": 115930
+    },
+    "currentRootFreeze": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-final-source-freeze.json",
+      "sha256": "d1f88c5e28d46e51975eb845d2c745c2ed18db17bcc96adf1f59401f270f8763",
+      "bytes": 115944
+    },
+    "rootFileCount": 914,
+    "identicalFilePins": 913,
+    "changes": [
+      {
+        "path": "packages/engine/src/code-mode/process-drain.integration.test.ts",
+        "before": "6f5fe90b9d663de4d8cb0d6a1bae071bbced36710faab4e7b57406d9f4da312b",
+        "after": "284a1ee4b14891d894c8f928aa1f93077ec020686f762cb045d8a7895788dba1"
+      }
+    ],
+    "filesAdded": [],
+    "filesRemoved": [],
+    "allCurrent914BytesMatch": true,
+    "featureFreeze": {
+      "path": "/tmp/moodcode-acp-session-load-source-freeze-v2.json",
+      "sha256": "ada026d97218090da0c92301291016b16cc59f06e936ee6573a50c09896a3cba",
+      "bytes": 3832
+    },
+    "all16LoadFeatureBytesMatch": true,
+    "productionSourceChangedFromReviewedRoot914": 0,
+    "fixtureSource": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/code-mode/process-drain.integration.test.ts",
+      "sha256": "284a1ee4b14891d894c8f928aa1f93077ec020686f762cb045d8a7895788dba1",
+      "bytes": 6561
+    },
+    "fixtureOwnerFreeze": {
+      "path": "/tmp/moodcode-code-mode-drain-fixture-gate-source-freeze.json",
+      "sha256": "0b97e33ce2695961b3f221fe6b174e067216bc74335a513df70b59cda21f4182",
+      "bytes": 4818
+    }
+  },
+  "fixtureIndependentReview": {
+    "reviewedActualSourceAndDiffOnly": true,
+    "cause": "A simple genuine stdout.pause did not keep final worker payload unread across actual child exit: Node flushStdio may implicitly call readable.resume. Earlier hosted CI saw settling before the fixture asserted running.",
+    "correction": "Fixture wraps only this genuine child stdout resume, counts blocked actual attempts, observes original cleanup IPC plus actual child exit and one setImmediate turn, verifies blockedResumeAttempts>0, then restores original resume and releases original bytes.",
+    "physicalEvidenceNotFabricated": "Original OwnedCodeModeProcess.start result, actual child process, IPC closed packet, supervisor exit and stdout bytes remain genuine. No manufactured frames, success receipts, PID, native Tool/Part or cleanup observations.",
+    "beforeReleaseRetainedChecks": [
+      "original cleanupConfirmed===true",
+      "native code record state exactly running, not settling/completed",
+      "original native stdout result has not ended",
+      "actual exit observed; attempted implicit stdout resume blocked"
+    ],
+    "afterReleaseRetainedChecks": [
+      "same source Run and approval ID",
+      "actual PID unavailable via process.kill(pid,0)",
+      "native Tool count1/name execute_code",
+      "successful native Tool/record/Run completed and exact result7",
+      "oversized result native Tool/record failed with exactly CODE_MODE_RESULT_LIMIT and resultnull",
+      "actual cleanupConfirmed true"
+    ],
+    "negativeCasesRetained": [
+      "malformed actual JSON bytes -> CODE_MODE_FAILED",
+      "unterminated actual frame -> CODE_MODE_PROTOCOL_INVALID",
+      "incomplete actual UTF-8 tail -> ERR_ENCODING_INVALID_ENCODED_DATA",
+      "no successful result; native Tool failed; actual group/PID absent and cleanuptrue"
+    ],
+    "boundsAndRestoration": "Existing45s test/15s genuine IPC-exit bound unchanged. Removes fixed50ms sleep in favor of actual exit+one event-loop turn. finally restores prototype and original stream resume and releases bytes on every branch. Existing5 cases/platformskip unchanged.",
+    "noWeakening": [
+      "production decoder or process/sandbox/native authority code",
+      "approvals/context/budget/source guards",
+      "running assertion",
+      "exact expected errors",
+      "cleanup/PID checks",
+      "byte corruption checks",
+      "test count/timeouts/skip scope"
+    ],
+    "actionableFindings": []
+  },
+  "actualFinalLocalEvidence": {
+    "wholeCompiled": {
+      "path": "/tmp/moodcode-phase-two-final-whole-engine.log",
+      "sha256": "4a90ce6cbf420ae0354dc1b4029fe953da2521a5c6e479cc436220cae09d45f9",
+      "bytes": 602402,
+      "summary": {
+        "tests": 4701,
+        "suites": 0,
+        "pass": 4699,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 2,
+        "todo": 0,
+        "duration_ms": 231254.100667
+      },
+      "exitCode": 0,
+      "exitCodeAttribution": "Root explicitly confirmed final session78907 exit0; reviewer separately read/hash-verified final summary. No reviewer execution."
+    },
+    "fixtureCompiled": {
+      "path": "/tmp/moodcode-phase-two-final-drain-compiled.log",
+      "sha256": "bc1fdfb1344cbdbcacbbdc059ecc02ac01e78acfab11fdc92247ca2e4865d2d8",
+      "bytes": 615,
+      "summary": {
+        "tests": 5,
+        "suites": 0,
+        "pass": 5,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 10207.242
+      },
+      "exitCode": 0,
+      "exitCodeAttribution": "Root reported actual compiled5/5 exit0; reviewer checked existing log."
+    },
+    "fixtureSource": {
+      "path": "/tmp/moodcode-code-mode-drain-gate-final-source.log",
+      "sha256": "6f7a7c1c8e832880588620b0eba0145f582f9f16b85fb057c849590d8709d42b",
+      "bytes": 616,
+      "summary": {
+        "tests": 5,
+        "suites": 0,
+        "pass": 5,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 7975.781833
+      },
+      "exitCode": 0,
+      "executionOwner": "next_workflow_consumers",
+      "reviewerReexecution": false
+    },
+    "build": {
+      "path": "/tmp/moodcode-phase-two-final-build.log",
+      "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9",
+      "bytes": 34,
+      "exitCode": 0,
+      "executionOwner": "Root",
+      "reviewerReexecution": false
+    },
+    "fixtureStrictAndFormat": {
+      "source": {
+        "tests": 5,
+        "pass": 5,
+        "fail": 0,
+        "skip": 0,
+        "node": "v26.9.0",
+        "platform": "darwin",
+        "log": {
+          "path": "/tmp/moodcode-code-mode-drain-gate-final-source.log",
+          "sha256": "6f7a7c1c8e832880588620b0eba0145f582f9f16b85fb057c849590d8709d42b",
+          "bytes": 616
+        }
+      },
+      "focusedStrict": {
+        "exit": 0,
+        "flags": [
+          "--ignoreConfig",
+          "--noEmit",
+          "--target ES2024",
+          "--module NodeNext",
+          "--moduleResolution NodeNext",
+          "--strict",
+          "--noUncheckedIndexedAccess",
+          "--skipLibCheck",
+          "--esModuleInterop",
+          "--types node"
+        ],
+        "log": {
+          "path": "/tmp/moodcode-code-mode-drain-gate-final-type.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      },
+      "format": {
+        "exit": 0,
+        "log": {
+          "path": "/tmp/moodcode-code-mode-drain-gate-final-format.log",
+          "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+          "bytes": 66
+        }
+      },
+      "firstTypeHarnessAttemptsPreserved": [
+        {
+          "path": "/tmp/moodcode-code-mode-drain-gate-initial-type.log",
+          "sha256": "5b766b55df5bc15c215149742c8fe88d72a584cb45f5422c7edca1594b6d0cb5",
+          "bytes": 142
+        },
+        {
+          "path": "/tmp/moodcode-code-mode-drain-gate-unconfigured-type.log",
+          "sha256": "56fa47ce75eb123d0e52f326a0f7d1e40e1809251bf662802a0845d93f703618",
+          "bytes": 404342
+        }
+      ],
+      "typeAttemptQualification": "First invocation omitted TS6 --ignoreConfig, next omitted explicit node types. Final invocation uses repository equivalent compiler flags; source was unchanged across all type invocations."
+    },
+    "twoSkips": "Same pre-existing native Windows-only cases; no new skips; Windows native process-tree support remains unverified."
+  },
+  "hostedCurrentCIQualification": {
+    "currentRunId": 37827176532,
+    "currentSourceCommit": "99bf6f060b2db08a544f2d2259ad3115860dbe14",
+    "state": "pending; not observed/queried by this reviewer",
+    "currentRunPassedClaim": false,
+    "priorRunsNotReclassified": [
+      {
+        "source": "9eb233b/f992",
+        "failure": "Actual code-mode stdout fixture asserted running after implicit exit resume; fixed current fixture, previous CI remains failed."
+      },
+      {
+        "source": "f992 macOS Node26",
+        "failure": "Separate actual PTY normal-exit terminal fixture observed uncertain versus completed at155.9ms; Root reported, under Root/A investigation. Cause is not established here; not labeled harmless or reclassified as success."
+      }
+    ],
+    "original836CIAttribution": "Existing836db4b six-job success stays historical and does not verify new load/current corrected fixture source. No additional OS/model/account support inferred."
+  },
+  "verdict": {
+    "supportedOriginal80_20ImplementationAcceptanceEligible": true,
+    "priorAcceptanceBasisPreserved": true,
+    "newOriginalScopeOmissionsFound": [],
+    "newFixtureActionableFinding": false,
+    "localFinalFrozenGatePassed": true,
+    "overallGoalCanBeDeclaredCompleteByThisSupplement": false,
+    "overallGoalDeferredUntil": "Root completes valid current hosted gate/remediation and required status/evidence finalization. Current CI and separate reported PTY failure are not hidden by local pass.",
+    "progressAtReview": {
+      "completedWorkItems": 79,
+      "completedFamilies": 19,
+      "status": "active"
+    },
+    "unsupportedEnvironmentsNotPromoted": true
+  },
+  "reviewerActions": {
+    "sourceEdits": 0,
+    "mainDocEdits": 0,
+    "builds": 0,
+    "tests": 0,
+    "apiCalls": 0,
+    "accountCalls": 0,
+    "credentialOrKeyReads": 0,
+    "GitHubMutations": 0,
+    "gitMutations": 0,
+    "commits": 0,
+    "temporarySupplementArtifactWritesOnly": true
+  }
+}
