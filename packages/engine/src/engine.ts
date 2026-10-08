@@ -22,7 +22,7 @@ import { HostCommandService } from './jobs/host-command-service.js';
 import { GitCommitHost } from './git/commit-host.js';
 import { ConversationForkHost } from './sessions/fork-host.js';
 import type { CaptureForkPreviewInput, ForkCommitInput } from './sessions/fork-types.js';
-import { lstatSync, mkdirSync, mkdtempSync, realpathSync, statSync } from 'node:fs';
+import { constants, lstatSync, mkdirSync, mkdtempSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { types } from 'node:util';
@@ -785,11 +785,9 @@ if (options.schedules !== undefined && typeof options.schedules !== 'boolean') t
           // handle has closed. Permit inspection of the exactly bound journal;
           // recovery retains uncertainty and every execution gate keeps the
           // active marker. This does not confirm cleanup or authorize replay.
-          const knownWindowsHost = process.platform === 'win32' && marker.status === 'uncertain' && marker.marker.groupPid !== null &&
-            this.store.createHostCommandStorage().inspect().filter(record =>
-              record.preview.platform === 'win32' && record.pid === marker.marker.groupPid && record.completion === null &&
-              (record.state === 'running' || record.state === 'uncertain') &&
-              record.owner.rootBindingSha256 === knowledgeHash(knowledgeBinding(record.workspaceId))).length === 1;
+          const knownWindowsHost = process.platform === 'win32' && marker.status === 'uncertain' &&
+            this.store.createHostCommandStorage().hasKnownWindowsExecutionMarker(marker.marker, this.executionLockPath,
+              workspaceId => knowledgeHash(knowledgeBinding(workspaceId)));
           if (marker.status !== 'uncertain' || !knownWindowsHost && !this.store.hasKnownGitCommitSupervisor(marker.marker.ownerPid) &&
             !this.store.hasKnownEffectBatchMarker(marker.marker, this.executionLockPath)) throw error;
         } }
@@ -1107,7 +1105,11 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       }, ...(options.diagnosticSourceLimits ? { limits: options.diagnosticSourceLimits } : {}), excludedPaths: [{ path: this.storagePaths.artifactDir, kind: 'directory' }, ...nativeFiles.flatMap(path => [path, `${path}-wal`, `${path}-shm`, `${path}-journal`].map(path => ({ path, kind: 'file' as const })))] });
       this.executionObserver = new EngineExecutionObserver(this.store, source, () => this.toolRuntime);
       const workspaceSourceTools = options.tools ? [] : coreTools.filter(tool => ['read_file', 'list_files', 'search_files', 'glob_files', 'regex_search', 'apply_patch', 'edit_file', 'rename_file', 'delete_file', 'run_command'].includes(tool.name));
-      this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts,
+      this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store),
+        ...(process.platform === 'win32' && !constants.O_NOFOLLOW ? { artifactsUnavailable: {
+          code: 'ARTIFACT_PLATFORM_UNSUPPORTED' as const,
+          reason: 'Managed result copies are unavailable on this platform; only output artifacts returned by the producer can be reviewed.',
+        } } : { artifacts: this.managedArtifacts }),
         workspaceSourceTools: Object.freeze(workspaceSourceTools), preparedResourceTools: options.tools ? [] : Object.freeze([...coreTools]), ...(options.diagnosticObservations === true ? { beforeProducer: (prepared, context) => this.executionObserver.beforeProducer(prepared, context) } : {}),
         ...(options.roleResourcePolicy ? { roleResources: options.roleResourcePolicy } : {}), ...(options.roleResourcePolicyRegistry ? { roleResourcePolicyRegistry: options.roleResourcePolicyRegistry } : {}), ...(options.resolveRoleResources ? { resolveRoleResources: options.resolveRoleResources } : {}), ...(options.commandPreflight ? { commandPreflight: options.commandPreflight } : {}) });
       let commandRegistration: ToolRegistrationCapture | undefined;

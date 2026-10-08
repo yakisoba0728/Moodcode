@@ -524,7 +524,7 @@ async function runProcess(
     let lock: ReturnType<typeof acquireExecutionLock> | undefined;
     let outcome: ProcessOutcome | undefined;
     try {
-      if (context.executionLockPath) lock = acquireExecutionLock(context.executionLockPath);
+      if (context.executionLockPath) lock = acquireExecutionLock(context.executionLockPath, context.executionLockReservation);
       outcome = await backend.execute(input, context.signal, (stream, bytes) => {
         consume(captures[stream], bytes);
         if (!observation || observation.failure) return;
@@ -1221,6 +1221,7 @@ export interface PhysicalCommandScope {
   };
   readonly artifactDir: string;
   readonly executionLockPath?: string;
+  readonly executionLockReservation?: import("./execution-lock.js").ExecutionLockReservation;
   readonly sandbox?: import("../../sandbox/types.js").SandboxLaunch;
 }
 export interface PhysicalCommandResult {

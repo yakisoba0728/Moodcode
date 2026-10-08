@@ -4,7 +4,7 @@
   "updatedAt": "2026-10-09",
   "timezone": "Asia/Seoul",
   "goal": "Implement and connect the actual native Windows Job Object backend; verify Windows2025 x64 Node24/26 process ownership, termination, output and restart uncertainty through hosted CI.",
-  "status": "native-reference-lifetime-and-exact-cancellation-repaired-actual-reverification-pending",
+  "status": "exact-native-crash-marker-and-optional-storage-capability-repaired-hosted-reverification-pending",
   "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
   "branch": "codex/e5-08-native-windows",
   "worktree": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode",
@@ -28,7 +28,8 @@
     "packages/engine/src/jobs/host-command-records* (exact Windows host approval journal platform)",
     "packages/engine/src/jobs/fixtures/owned-command-lifecycle.ts (atomic existing PID fixture publication)",
     "packages/engine/src/jobs/owned-command-host.ts (exact native Windows cancellation completion)",
-    "packages/engine/src/runner/index.ts (Windows interruption observation after original Part settlement)"
+    "packages/engine/src/runner/index.ts (Windows interruption observation after original Part settlement)",
+    "packages/engine/src/tools/runtime/{index.ts,runtime.test.ts,README.md} (known unsupported optional Windows managed result-copy, no storage guard weakening)"
   ],
   "preservedBaseline": {
     "local": {
@@ -114,6 +115,43 @@
           "Original workflow merge fixture exceeded unchanged 20000ms test deadline."
         ],
         "qualification": "Source boundary fixes landed while this previous compiled-source suite ran; diagnostic only. Final frozen complete run with supported concurrency2 pending; no timeout/assertion/skip changes."
+      },
+      {
+        "kind": "previous-frozen-complete-local-diagnostic",
+        "sourceCommit": "1c5fed15df56cb776b400814c519d7f648402064",
+        "counts": {
+          "tests": 4740,
+          "pass": 4737,
+          "fail": 1,
+          "cancelled": 0,
+          "skipped": 2
+        },
+        "sourceFreeze": "artifacts/native-windows/local-source-freeze-final.json",
+        "log": "artifacts/native-windows/local-whole-engine-final.log",
+        "sha256": "7dd2c08f28252a39d0ec59181b47ba99c10a1d21f500efc0d0e82a0ab568435d",
+        "qualification": "Original Git observer stop test immediately observed a PID before disappearance. Preserved error. Native follow-up sources changed during old compiled-source suite; no final acceptance credit."
+      },
+      {
+        "kind": "exact-reserved-marker-source-SQLite-DATA",
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "skipped": 0
+        },
+        "log": "artifacts/native-windows/local-marker-source-tests.log",
+        "qualification": "No native support credit; actual original approval witness, marker nonce/path/owner/root, import/denial/historical-platform negatives."
+      },
+      {
+        "kind": "native-boundary-focused-compiled-regression",
+        "log": "artifacts/native-windows/local-marker-runtime-focused.log",
+        "qualification": "Portable runtime/SQL/adapter/artifact guards and actual POSIX regression only; native Windows must pass hosted gate.",
+        "counts": {
+          "tests": 81,
+          "pass": 81,
+          "fail": 0,
+          "skipped": 0
+        }
       }
     ],
     "hosted": [
@@ -306,6 +344,16 @@
           "Original cooperative-child deadline fixture did not reach stream before its unchanged child allowance expired."
         ],
         "qualification": "Preserved all assertions and timeouts; final-source matrix revalidation pending."
+      },
+      {
+        "runId": 37849673239,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849673239",
+        "sourceCommit": "1c5fed15df56cb776b400814c519d7f648402064",
+        "conclusion": "success",
+        "kind": "existing-six-lane-headless-matrix",
+        "lanes": 6,
+        "evidence": "artifacts/native-windows/hosted-37849673239/download-verification.json",
+        "logsZipSha256": "1e986c370fb8ae12856970c6057903995b7fc5158a618226265964f29f110313"
       }
     ],
     "failuresPreserved": [
@@ -339,6 +387,18 @@
         "cause": "Native primary process handle remained referenced until output EOF, retaining exited primary in real ActiveProcesses and falsely classifying it as running descendant. Cache observed exit and close process/thread references immediately; independent output pipes continue byte-exact drain.",
         "reference": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_accounting_information",
         "qualification": "Actual unread-output/accounting regression added; native repaired build verification pending."
+      },
+      {
+        "runIds": [
+          37849546393,
+          37849745819
+        ],
+        "evidence": "docs/moodcode/next-windows-ci-verification.json",
+        "causes": [
+          "General managed ArtifactStore is deliberately unsupported on Windows (O_NOFOLLOW and directory sync). Known optional copy capability is now declared before execution; native sealed command logs persist independently. Actual storage failures still fail.",
+          "Crash rolls back uncommitted group PID update. Bind the exact privately reserved marker owner PID/null group/active/nonce/path to original approved journal snapshot and physical root before native job launch; read-only recovery retains unknown/no replay.",
+          "Node24 warmed echo observed transient real native accounting retention after primary handle release. Join real native counts briefly within unchanged approved/cleanup budgets before deciding remaining ownership; strict count-zero/error-free fixtures retained."
+        ]
       }
     ]
   },
@@ -373,7 +433,7 @@
     "distribution": "Desktop must preserve package-relative build/Release/windows_job.node and unpack the .node binary from ASAR. Rebuild for exact Electron/architecture using Electron headers and keep win_delay_load_hook=true. Verify loading in the actual engine host/utility process.",
     "hostOwnership": "Job handle and output/process handles live in the actual engine process, not a detached supervisor.",
     "nativeApi": "loadBinding, isAvailable, nativeInfo, createJob, currentProcessHandleCount; job spawnSuspended/assign/resume/terminate/activeProcessCount/close; child pid/readOutput/terminate/close",
-    "unsupported": "No Windows PTY/stdin command lifetime transport or OS file/network sandbox. No taskkill/direct-child fallback. Desktop package/signing/update validation belongs to N-04/N-05.",
+    "unsupported": "No Windows PTY/stdin command lifetime transport, OS file/network sandbox, or general managed ArtifactStore persistence/artifact.get. Native sealed stdout/stderr logs remain persisted with exact identity/SHA/budgets. Optional managed result-copy is explicitly unavailable in result metadata/warnings; actual store failures retain failure behavior. No taskkill/direct-child fallback. Desktop package/signing/update validation belongs to N-04/N-05.",
     "contract": "packages/windows-job/README.md",
     "desktopConsumerWorktree": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode"
   },

@@ -8,7 +8,7 @@
     "scripts/windows-job-ci.mjs",
     "packages/engine/src/tools/command/windows-native*"
   ],
-  "verificationState": "implementation-connected; three actual hosted failure runs preserved; strict native Engine completion/cancellation/restart bridge repair pending",
+  "verificationState": "implementation-connected; five actual hosted native failure runs preserved with all original artifact hashes; native reference/live-descendant classification, managed result persistence and exact persisted crash marker binding repair pending",
   "hostedRuns": [
     {
       "runId": 37846891144,
@@ -230,6 +230,169 @@
         "Restart rejects still-active native owner marker before opening; actual child tree cleanup and unknown marker are confirmed"
       ],
       "preservedAssertions": true
+    },
+    {
+      "runId": 37849546393,
+      "sourceSha": "1d41e939b2aa5e84dba3da351f723d880c992d1b",
+      "event": "push",
+      "conclusion": "failure",
+      "originalLogArchiveSha256": "0d74a5000317858f00f2a314915bf0b92944df68a47d78c0da2f972e17d51d7b",
+      "lanes": [
+        {
+          "node": "24.21.0",
+          "artifactId": 11581037932,
+          "artifactSha256": "1e3a467bd308c7414cca478aa348e98de00b96ea953db84275d0e79a2ed7212d",
+          "nativeAddon": {
+            "available": true,
+            "info": {
+              "bindingVersion": 1,
+              "napiVersion": 8,
+              "platform": "win32",
+              "arch": "x64",
+              "atomicJobAssignment": true
+            },
+            "relativePath": "packages/windows-job/build/Release/windows_job.node",
+            "bytes": 178176,
+            "sha256": "adff5f2c143be7d91881ac15c0e24c594871bf7831b98832ca23970e37fec34c"
+          },
+          "counts": {
+            "tests": 25,
+            "pass": 22,
+            "fail": 3,
+            "cancelled": 0,
+            "skipped": 0
+          },
+          "originalFilesVerified": 16,
+          "jobId": 113558757469,
+          "conclusion": "failure"
+        },
+        {
+          "node": "26.11.1",
+          "artifactId": 11581487291,
+          "artifactSha256": "6bfc70a916c295e2a424b4a60e9f022f0c9d09889ecbdcec8fccc2d9dbb8db25",
+          "nativeAddon": {
+            "available": true,
+            "info": {
+              "bindingVersion": 1,
+              "napiVersion": 8,
+              "platform": "win32",
+              "arch": "x64",
+              "atomicJobAssignment": true
+            },
+            "relativePath": "packages/windows-job/build/Release/windows_job.node",
+            "bytes": 1121792,
+            "sha256": "19356cb1069efe4d3a73a84b4a07201ec987d45ca70f493c8f7bd9866f69a691"
+          },
+          "counts": {
+            "tests": 25,
+            "pass": 22,
+            "fail": 3,
+            "cancelled": 0,
+            "skipped": 0
+          },
+          "originalFilesVerified": 16,
+          "jobId": 113558757757,
+          "conclusion": "failure"
+        }
+      ],
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849546393",
+      "runner": "windows-2025 x64 (win25-vs2026)",
+      "evidenceDirectory": "artifacts/native-windows/hosted-37849546393",
+      "confirmedFailures": [
+        "Normal native outcome and exact output accounting pass, but managed Tool result persistence marks Tool and owned Job failed while Run completes",
+        "Restart still rejects the committed groupPid=null active marker before opening"
+      ],
+      "confirmedRepairs": [
+        "Raw status-only native exit releases process references: actual ActiveProcesses zero with unread output, then exact multibyte bytes/SHA drain to EOF",
+        "Normal backend and warmed handle cycles require clean error-free completion",
+        "Actual Engine cancellation becomes confirmed cancelled and removes owned descendants"
+      ],
+      "preservedAssertions": true
+    },
+    {
+      "runId": 37849745819,
+      "sourceSha": "1c5fed15df56cb776b400814c519d7f648402064",
+      "event": "workflow_dispatch",
+      "conclusion": "failure",
+      "originalLogArchiveSha256": "a8646a069119a5276d906856aa8d6870ece19562cafcd4165001124b96d69a9a",
+      "lanes": [
+        {
+          "node": "24.21.0",
+          "artifactId": 11581792482,
+          "artifactSha256": "2aae31b3cc2e0b49b416dc7c8e6445ced4726f65dedea7e2469f0e42efdd3171",
+          "nativeAddon": {
+            "available": true,
+            "info": {
+              "bindingVersion": 1,
+              "napiVersion": 8,
+              "platform": "win32",
+              "arch": "x64",
+              "atomicJobAssignment": true
+            },
+            "relativePath": "packages/windows-job/build/Release/windows_job.node",
+            "bytes": 178176,
+            "sha256": "25252d1f4508acf1dc387f91331586726c0f9339fb25e6e3a48392d00708d252"
+          },
+          "counts": {
+            "tests": 25,
+            "pass": 21,
+            "fail": 4,
+            "cancelled": 0,
+            "skipped": 0
+          },
+          "originalFilesVerified": 16,
+          "failedCases": [
+            "not ok 9 - native handle counts return to the warmed baseline after repeated child/job/pipe disposal",
+            "not ok 14 - real Windows Engine approval binds Run/Turn/Attempt/Tool/Job and preserves bounded sealed output",
+            "not ok 16 - real Windows engine SIGKILL kills its native tree and restart retains unknown effects without replay",
+            "not ok 9 - actual Windows native Job Object lifecycle and Engine integration"
+          ],
+          "jobId": 113559798654,
+          "conclusion": "failure"
+        },
+        {
+          "node": "26.11.1",
+          "artifactId": 11580539146,
+          "artifactSha256": "27ac2a113c9609b7ec6ab7648cfcae9198f46c4f4a18fc0edc655ffce4a7869d",
+          "nativeAddon": {
+            "available": true,
+            "info": {
+              "bindingVersion": 1,
+              "napiVersion": 8,
+              "platform": "win32",
+              "arch": "x64",
+              "atomicJobAssignment": true
+            },
+            "relativePath": "packages/windows-job/build/Release/windows_job.node",
+            "bytes": 1121792,
+            "sha256": "cc18a01c681f0c755a242a3fd354fc413f7a00d3e3bddb94da977fa16afde611"
+          },
+          "counts": {
+            "tests": 25,
+            "pass": 22,
+            "fail": 3,
+            "cancelled": 0,
+            "skipped": 0
+          },
+          "originalFilesVerified": 16,
+          "failedCases": [
+            "not ok 14 - real Windows Engine approval binds Run/Turn/Attempt/Tool/Job and preserves bounded sealed output",
+            "not ok 16 - real Windows engine SIGKILL kills its native tree and restart retains unknown effects without replay",
+            "not ok 9 - actual Windows native Job Object lifecycle and Engine integration"
+          ],
+          "jobId": 113559799260,
+          "conclusion": "failure"
+        }
+      ],
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849745819",
+      "runner": "windows-2025 x64 (win25-vs2026)",
+      "evidenceDirectory": "artifacts/native-windows/hosted-37849745819",
+      "confirmedFailures": [
+        "Actual managed result persistence marks clean native Tool and owned Job failed while source Run completes",
+        "Restart still rejects committed groupPid=null active marker before opening",
+        "Node 24 normal echo cycle is misclassified as retained descendants by positive raw ActiveProcesses despite closing owned exited handles; expected error-free completion retained"
+      ],
+      "preservedAssertions": true
     }
   ],
   "externalConditions": [],
@@ -305,6 +468,176 @@
       ],
       "originalLogArchiveSha256": "1c00f520f6c910fbeda5587f5f3396f678a61212d121f96840e8aa88e6f97869",
       "evidenceDirectory": "artifacts/native-windows/hosted-37846890895"
+    },
+    {
+      "runId": 37849673239,
+      "sourceSha": "1c5fed15df56cb776b400814c519d7f648402064",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849673239",
+      "event": "push",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "id": 113559425401,
+          "name": "Headless ubuntu-24.04 / Node 26.x",
+          "conclusion": "success"
+        },
+        {
+          "id": 113559425417,
+          "name": "Headless macos-15 / Node 26.x",
+          "conclusion": "success"
+        },
+        {
+          "id": 113559425539,
+          "name": "Portable contracts/storage only / Windows / Node 24.x",
+          "conclusion": "success"
+        },
+        {
+          "id": 113559425584,
+          "name": "Headless macos-15 / Node 24.x",
+          "conclusion": "success"
+        },
+        {
+          "id": 113559425726,
+          "name": "Headless ubuntu-24.04 / Node 24.x",
+          "conclusion": "success"
+        },
+        {
+          "id": 113559425878,
+          "name": "Portable contracts/storage only / Windows / Node 26.x",
+          "conclusion": "success"
+        }
+      ],
+      "artifactApiDigests": [
+        {
+          "id": 11582035335,
+          "name": "engine-macos-15-node-24.x-attempt-1",
+          "digest": "sha256:1b572e75e631fbf08b50e6add619ae67ea8b28aeb0c5b19963360a79148d0989"
+        },
+        {
+          "id": 11581223615,
+          "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+          "digest": "sha256:1e7eb484b34d101c0b601a559867f64e68b808c3171fe088ba98e1defe6dbd64"
+        },
+        {
+          "id": 11580973570,
+          "name": "engine-ubuntu-24.04-node-26.x-attempt-1",
+          "digest": "sha256:75ded9bd74b0676fa31c99590d350d3d5cabe1ebec1357455b7355bb73ad221d"
+        },
+        {
+          "id": 11580684631,
+          "name": "engine-macos-15-node-26.x-attempt-1",
+          "digest": "sha256:c1dbc63e6b65205567ae789848028ef30f7028edf0a4cccd0ebd4d780e7d707a"
+        },
+        {
+          "id": 11580498910,
+          "name": "engine-windows-portable-node-26.x-attempt-1",
+          "digest": "sha256:8003b7cbb646edc12861de5d14d9d400b2a25cddd07b1cbe48f74443c5ebfa71"
+        },
+        {
+          "id": 11580459271,
+          "name": "engine-windows-portable-node-24.x-attempt-1",
+          "digest": "sha256:3d2517b8c7766046f3c8d00cc28cd36344ee182e30c452f84204aa0d6b48b433"
+        }
+      ],
+      "originalLogArchiveSha256": "1e986c370fb8ae12856970c6057903995b7fc5158a618226265964f29f110313",
+      "evidenceDirectory": "artifacts/native-windows/hosted-37849673239",
+      "independentlyDownloadedArtifacts": [
+        {
+          "id": 11582035335,
+          "name": "engine-macos-15-node-24.x-attempt-1",
+          "sha256": "1b572e75e631fbf08b50e6add619ae67ea8b28aeb0c5b19963360a79148d0989",
+          "files": 35,
+          "reports": [
+            "benchmark.json",
+            "environment.json",
+            "evaluation.json",
+            "pty-capability.json",
+            "resilience.json",
+            "results.json",
+            "steps.json"
+          ]
+        },
+        {
+          "id": 11581223615,
+          "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+          "sha256": "1e7eb484b34d101c0b601a559867f64e68b808c3171fe088ba98e1defe6dbd64",
+          "files": 35,
+          "reports": [
+            "benchmark.json",
+            "environment.json",
+            "evaluation.json",
+            "pty-capability.json",
+            "resilience.json",
+            "results.json",
+            "steps.json"
+          ]
+        },
+        {
+          "id": 11580973570,
+          "name": "engine-ubuntu-24.04-node-26.x-attempt-1",
+          "sha256": "75ded9bd74b0676fa31c99590d350d3d5cabe1ebec1357455b7355bb73ad221d",
+          "files": 35,
+          "reports": [
+            "benchmark.json",
+            "environment.json",
+            "evaluation.json",
+            "pty-capability.json",
+            "resilience.json",
+            "results.json",
+            "steps.json"
+          ]
+        },
+        {
+          "id": 11580684631,
+          "name": "engine-macos-15-node-26.x-attempt-1",
+          "sha256": "c1dbc63e6b65205567ae789848028ef30f7028edf0a4cccd0ebd4d780e7d707a",
+          "files": 35,
+          "reports": [
+            "benchmark.json",
+            "environment.json",
+            "evaluation.json",
+            "pty-capability.json",
+            "resilience.json",
+            "results.json",
+            "steps.json"
+          ]
+        },
+        {
+          "id": 11580498910,
+          "name": "engine-windows-portable-node-26.x-attempt-1",
+          "sha256": "8003b7cbb646edc12861de5d14d9d400b2a25cddd07b1cbe48f74443c5ebfa71",
+          "files": 17,
+          "reports": [
+            "environment.json",
+            "pty-capability.json",
+            "results.json",
+            "steps.json"
+          ]
+        },
+        {
+          "id": 11580459271,
+          "name": "engine-windows-portable-node-24.x-attempt-1",
+          "sha256": "3d2517b8c7766046f3c8d00cc28cd36344ee182e30c452f84204aa0d6b48b433",
+          "files": 17,
+          "reports": [
+            "environment.json",
+            "pty-capability.json",
+            "results.json",
+            "steps.json"
+          ]
+        }
+      ]
+    }
+  ],
+  "nonExecutingRuns": [
+    {
+      "runId": 37849673249,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849673249",
+      "event": "push",
+      "sourceSha": "1c5fed15df56cb776b400814c519d7f648402064",
+      "conclusion": "cancelled",
+      "jobs": [],
+      "qualification": "Pending branch push was cancelled when another same-group pending workflow_dispatch run replaced it; no Windows native cases executed"
     }
   ]
 }

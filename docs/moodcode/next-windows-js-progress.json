@@ -10,7 +10,9 @@
     "packages/engine/src/jobs/host-command-service.ts",
     "packages/engine/src/jobs/owned-command-records.ts",
     "packages/engine/src/jobs/owned-command-host.ts",
-    "packages/engine/src/runner/index.ts"
+    "packages/engine/src/runner/index.ts",
+    "packages/engine/src/tools/runtime/index.ts",
+    "packages/engine/src/tools/runtime/runtime.test.ts"
   ],
   "implemented": [
     "Load only a validated real native addon before reporting Windows backend availability",
@@ -101,6 +103,30 @@
   "limitations": [
     "Windows command lifetime and interactive stdin controls remain explicitly unavailable",
     "A crashed engine preserves unknown effects and an active durable marker; it cannot infer cleanup from PID absence or replay commands",
-    "Desktop Electron packaging is owned by the separate Desktop scope"
-  ]
+    "Desktop Electron packaging is owned by the separate Desktop scope",
+    "General managed ArtifactStore persistence and artifact.get remain explicitly unsupported on Windows; native command output retains its separately verified sealed log descriptors."
+  ],
+  "optionalManagedArtifactRepair": {
+    "failingRunId": "37849546393",
+    "observed": "Both Windows native outcomes were clean and cancellation settled; normal Tool/Job failed after the ScopedToolRuntime optional managed-result persistence stage. ArtifactStore.open explicitly requires unavailable Windows O_NOFOLLOW.",
+    "officialNodeFileOpenConstants": "https://nodejs.org/api/fs.html#file-open-constants",
+    "scope": "Host-known unsupported optional result copying only; the general ArtifactStore no-follow guard and artifact.get unsupported result remain unchanged.",
+    "behavior": [
+      "Only Windows without O_NOFOLLOW receives immutable ARTIFACT_PLATFORM_UNSUPPORTED before producer dispatch",
+      "Producer outcome/errors/data/legacy sealed output paths and model/display byte bounds remain intact",
+      "Artifact persistence unavailability is explicit metadata and a bounded warning; no new managed result references are fabricated",
+      "Existing validated producer-supplied artifact references remain intact",
+      "Supported-store actual persistence failure still records failed outcome and effectsMayBePresent without replay"
+    ],
+    "focusedSourceVerification": {
+      "tests": 54,
+      "pass": 54,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 0,
+      "durationMs": 1750.229542,
+      "log": "artifacts/native-windows/js-runtime-artifact-source-tests.log"
+    },
+    "actualWindowsRepairVerified": false
+  }
 }

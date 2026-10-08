@@ -12,7 +12,7 @@ function nativeFixture(options: { assignmentFailure?: boolean; retained?: boolea
     calls.push('create');
     return { async spawnSuspended(_input, env) { calls.push('spawn.suspended'); assert.equal(env.OPENAI_API_KEY, undefined); return options.hangingSpawn ? spawnGate.promise : child; }, async assign() { calls.push('assign'); if (options.assignmentFailure) throw new Error('private-native-error'); count = 1; }, async resume() { calls.push('resume'); }, async terminate() { calls.push('job.terminate'); count = 0; childClosed.resolve({ exitCode: null }); }, async activeProcessCount() { calls.push('observe'); return options.invalidObservation ? -1 : count; }, async close() { calls.push('close'); if (options.closeFailure) throw new Error('private-close-error'); } };
   } };
-  return { calls, host, child, spawnGate, complete() { count = options.retained || options.retainedPipes ? 2 : 0; childExited.resolve({ exitCode: 0 }); if (!options.retainedPipes) childClosed.resolve({ exitCode: 0 }); } };
+  return { calls, host, child, spawnGate, drain() { childClosed.resolve({ exitCode: 0 }); }, complete() { count = options.retained || options.retainedPipes ? 2 : 0; childExited.resolve({ exitCode: 0 }); if (!options.retainedPipes) childClosed.resolve({ exitCode: 0 }); } };
 }
 async function until(predicate: () => boolean): Promise<void> { for (let i = 0; i < 200; i++) { if (predicate()) return; await new Promise(resolve => setImmediate(resolve)); } assert.fail('native port fixture must progress'); }
 
@@ -47,6 +47,38 @@ test('primary exit does not leave retained job descendants alive', async () => {
   const running = executeOwnedWindowsJob(f.host, input, new AbortController().signal, () => {}, () => {}, warning => warnings.push(warning));
   await until(() => f.calls.includes('resume')); f.complete(); const outcome = await running;
   assert.equal(warnings.length, 1); assert.equal(outcome.cleanupConfirmed, true); assert.ok(f.calls.includes('job.terminate'));
+});
+test('primary exit joins real accounting samples before classifying descendants independently of output EOF', async () => {
+  const f = nativeFixture({ retainedPipes: true }), warnings: string[] = [], observedEmpty = gate<void>();
+  const counts = [1, 1, 0], observed: number[] = [];
+  const host: WindowsJobHostPort = { ...f.host, async createJob() {
+    const job = await f.host.createJob();
+    job.activeProcessCount = async () => {
+      const count = counts.shift() ?? 0; observed.push(count);
+      if (count === 0) observedEmpty.resolve();
+      return count;
+    };
+    return job;
+  } };
+  const running = executeOwnedWindowsJob(host, input, new AbortController().signal, () => {}, () => {}, warning => warnings.push(warning));
+  await until(() => f.calls.includes('resume')); f.complete();
+  await observedEmpty.promise;
+  assert.deepEqual(observed.slice(0, 3), [1, 1, 0]);
+  assert.equal(f.calls.includes('job.terminate'), false);
+  assert.deepEqual(warnings, []);
+  f.drain();
+  const outcome = await running;
+  assert.equal(outcome.exitCode, 0); assert.equal(outcome.cleanupConfirmed, true);
+  assert.equal(outcome.error, undefined); assert.equal(outcome.timedOut, false);
+});
+test('natural exit accounting join stays within the approved command duration', async () => {
+  const f = nativeFixture({ retainedPipes: true }), warnings: string[] = [];
+  const running = executeOwnedWindowsJob(f.host, { ...input, timeoutMs: 20 }, new AbortController().signal, () => {}, () => {}, warning => warnings.push(warning));
+  await until(() => f.calls.includes('resume')); f.complete();
+  const outcome = await running;
+  assert.equal(outcome.timedOut, true); assert.equal(outcome.cleanupConfirmed, true);
+  assert.equal(outcome.error, undefined); assert.equal(warnings.some(warning => warning.includes('retained descendants')), false);
+  assert.ok(f.calls.includes('job.terminate'));
 });
 test('invalid native ownership observations and close failure preserve cleanup uncertainty', async t => {
   for (const options of [{ invalidObservation: true }, { closeFailure: true }]) await t.test(JSON.stringify(options), async () => {

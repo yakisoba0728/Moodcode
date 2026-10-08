@@ -16,3 +16,5 @@
 setIncludedScopes(base,[...scopes])는 host가 선택한 등록 범위를 합성하며 이름 중복은 setter와 뒤이은 등록 모두에서 거부한다. 포함 범위 교체·scope 제거는 captured catalogue를 무효화한다. Policy 초기 version은 규칙 SHA-256의 48-bit 정수로 다른 재시작 설정과 구분하고, 프로세스 내 replace는 version을 증가시킨다. 동적으로 교체한 policy의 새 grants는 재시작 뒤 보수적으로 재승인을 요구할 수 있다.
 
 artifacts 옵션은 인스턴스/Promise/getter를 받으므로 synchronous engine constructor를 유지할 수 있다. 첫 실행의 settlement에서 지연 개방한다. 생산자 반환 후 projection/storage 실패는 기존 내용과 checkpoint를 보존하면서 failed outcome·effectsMayBePresent·warning을 돌려준다. producer를 다시 실행하지 않는다. repeatIdentity는 권한용 fingerprint와 별도로 opaque inner fingerprint/catalogue scope/revision/policy version을 사용해 정상화된 반복 읽기를 확인한다.
+
+호스트가 실행 전에 선택적 관리형 저장소의 플랫폼 지원 부재를 확인한 경우 artifacts 대신 artifactsUnavailable에 ARTIFACT_PLATFORM_UNSUPPORTED와 bounded reason을 지정할 수 있다. 두 옵션은 함께 지정할 수 없다. 이 경우 producer의 outcome·오류·data·기존 출력 경로와 model/display 상한을 유지하고 artifactPersistenceUnavailable metadata와 명시적인 warning을 남긴다. 관리형 결과 사본을 저장했다고 주장하지 않는다. 실제 Windows 엔진은 O_NOFOLLOW가 제공되지 않을 때 이 capability를 사용하며, 명령 producer가 별도로 봉인한 stdout/stderr 영수증은 계속 유지한다. 일반 ArtifactStore와 artifact.get의 Windows 지원을 추가하는 것은 아니다. 지원되는 저장소의 실제 저장 실패는 여전히 failed 결과이다.

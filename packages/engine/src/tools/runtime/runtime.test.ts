@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rename, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DEFAULT_LIMITS, type ApprovalRecord } from '@moodcode/contracts';
+import { DEFAULT_LIMITS, EngineError, type ApprovalRecord } from '@moodcode/contracts';
 import type { ApprovalPort, ToolContext, ToolDefinition } from '../../ports.js';
-import { ArtifactStore } from '../../artifacts/index.js';
+import { ArtifactStore, createToolResultEnvelope } from '../../artifacts/index.js';
 import { ScopedToolRuntime, ScopedToolGrants, ToolPolicy } from './index.js';
 const code = (expected: string) => (e: unknown) => { assert.equal((e as { code: string }).code, expected); return true; };
 function context(): ToolContext { return { workspace: { id: 'w', root: '/workspace', gitRoot: '/workspace', branch: null, createdAt: new Date().toISOString() }, sessionId: 's', runId: 'r', toolCallId: 'call', turnId: 'turn', attemptId: 'attempt', signal: new AbortController().signal, limits: { ...DEFAULT_LIMITS }, artifactDir: '/artifacts', recordCheckpoint() {} }; }
@@ -54,6 +54,76 @@ test('included host scopes are composed explicitly and stale captures cannot res
 test('included scopes never silently shadow duplicate tool names', () => { const runtime = new ScopedToolRuntime(); runtime.register('engine', tool('a')); runtime.register('plugin_demo', tool('a')); assert.throws(() => runtime.setIncludedScopes('engine', ['plugin_demo']), code('TOOL_SCOPE_CONFLICT')); runtime.clearScope('plugin_demo'); runtime.setIncludedScopes('engine', ['plugin_demo']); assert.throws(() => runtime.register('plugin_demo', tool('a')), code('TOOL_SCOPE_CONFLICT')); });
 test('lazy artifact failure and invalid result data preserve already returned producer effects', async () => { let opened = 0; const runtime = new ScopedToolRuntime({ artifacts: async () => { opened++; throw new Error('fixture-secret'); } }); const source = tool('edit_file', true); runtime.register('scope', source); assert.equal(opened, 0); const delegate = runtime.delegate('scope', source.name); const ctx = context(); const result = await runtime.executeApproved(await delegate.prepare({}, ctx), ctx, approval()); assert.equal(source.calls, 1); assert.equal(opened, 1); assert.equal(result.content, 'full result'); assert.equal(result.isError, true); assert.equal(result.structuredResult?.metadata?.artifactPersistenceFailed, true); assert.ok(!JSON.stringify(result).includes('fixture-secret'));
  const other = new ScopedToolRuntime(); const invalid = tool('edit_file', true); invalid.execute = async () => { invalid.calls++; const data: Record<string, unknown> = {}; data.self = data; return { content: 'effect completed', data: data as never }; }; other.register('scope', invalid); const result2 = await other.executeApproved(await other.delegate('scope', invalid.name).prepare({}, ctx), ctx, approval()); assert.equal(result2.content, 'effect completed'); assert.equal(result2.isError, true); assert.equal(result2.data, undefined); assert.equal(result2.structuredResult?.metadata?.resultProjectionFailed, true);
+});
+test('known unavailable managed persistence preserves bounded producer results and honest output artifacts', async () => {
+  const capability = { code: 'ARTIFACT_PLATFORM_UNSUPPORTED' as const, reason: 'Managed result copies are unavailable on this platform.' };
+  const runtime = new ScopedToolRuntime({ artifactsUnavailable: capability }), source = tool('run_command', true);
+  const content = '한글🙂'.repeat(1_000), paths = [{ path: '/trusted-fixture/stdout.log', bytes: 1_024, truncated: true }];
+  source.execute = async () => { source.calls++; return { content, data: { cleanupConfirmed: true, observedBytes: 10_000 }, artifacts: paths }; };
+  runtime.register('scope', source);
+  capability.reason = 'A later host object mutation cannot change this warning';
+  const ctx = context(); ctx.limits.maxOutputBytes = 128;
+  const result = await runtime.executeApproved(await runtime.delegate('scope', source.name).prepare({}, ctx), ctx, approval());
+  assert.equal(source.calls, 1); assert.equal(result.isError, undefined); assert.equal(result.content, content);
+  assert.deepEqual(result.data, { cleanupConfirmed: true, observedBytes: 10_000 }); assert.deepEqual(result.artifacts, paths);
+  assert.equal(result.structuredResult?.outcome, 'completed'); assert.deepEqual(result.structuredResult?.artifactRefs, []);
+  assert.equal(result.structuredResult?.metadata?.artifactPersistenceUnavailable, true);
+  assert.equal(result.structuredResult?.metadata?.artifactPersistenceCode, 'ARTIFACT_PLATFORM_UNSUPPORTED');
+  assert.equal(result.structuredResult?.metadata?.artifactPersistenceFailed, undefined);
+  assert.ok(result.structuredResult?.warnings.includes('Managed result copies are unavailable on this platform.'));
+  assert.ok(Buffer.byteLength(result.structuredResult!.modelContent) <= 128); assert.ok(Buffer.byteLength(result.structuredResult!.displayContent) <= 128);
+  assert.equal(result.structuredResult!.modelContent.includes('\uFFFD'), false);
+});
+test('known optional artifact unavailability cannot hide unavailable native command ownership or producer errors', async () => {
+  const runtime = new ScopedToolRuntime({ artifactsUnavailable: { code: 'ARTIFACT_PLATFORM_UNSUPPORTED', reason: 'Managed copies unavailable.' } });
+  const missing = tool('run_command', true);
+  missing.execute = async () => { missing.calls++; throw new EngineError('WINDOWS_JOB_BACKEND_UNAVAILABLE', 'Actual native command ownership unavailable'); };
+  runtime.register('scope', missing);
+  const ctx = context();
+  await assert.rejects(runtime.executeApproved(await runtime.delegate('scope', missing.name).prepare({}, ctx), ctx, approval()), code('WINDOWS_JOB_BACKEND_UNAVAILABLE'));
+  assert.equal(missing.calls, 1);
+  const failed = tool('failed_command', true);
+  failed.execute = async () => { failed.calls++; return { content: 'Producer failed', isError: true, data: { cleanupConfirmed: false } }; };
+  runtime.register('scope', failed);
+  const result = await runtime.executeApproved(await runtime.delegate('scope', failed.name).prepare({}, ctx), ctx, approval());
+  assert.equal(failed.calls, 1); assert.equal(result.isError, true); assert.equal(result.structuredResult?.outcome, 'failed');
+  assert.deepEqual(result.data, { cleanupConfirmed: false }); assert.deepEqual(result.structuredResult?.artifactRefs, []);
+});
+test('known unavailable artifact capability rejects ambiguous or unbounded host configuration', () => {
+  const unavailable = { code: 'ARTIFACT_PLATFORM_UNSUPPORTED' as const, reason: 'Unsupported platform.' };
+  assert.throws(() => new ScopedToolRuntime({ artifacts: async () => { throw new Error('must never open'); }, artifactsUnavailable: unavailable }), code('INVALID_ARTIFACT_CONFIGURATION'));
+  for (const reason of ['', 'x'.repeat(257)]) assert.throws(() => new ScopedToolRuntime({ artifactsUnavailable: { ...unavailable, reason } }), code('INVALID_ARTIFACT_CONFIGURATION'));
+  assert.throws(() => new ScopedToolRuntime({ artifactsUnavailable: { ...unavailable, code: 'ACTUAL_STORAGE_FAILURE' as never } }), code('INVALID_ARTIFACT_CONFIGURATION'));
+});
+test('known unavailable optional copying preserves an already persisted producer-owned artifact reference', async t => {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-runtime-owned-reference-')));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const store = await ArtifactStore.open({ directory }), ctx = context();
+  const persisted = await store.put({ identity: { sessionId: ctx.sessionId, runId: ctx.runId, toolCallId: ctx.toolCallId, turnId: ctx.turnId, attemptId: ctx.attemptId }, content: 'Original producer bytes' });
+  const source = tool('read_file');
+  source.execute = async () => { source.calls++; return { content: 'Original producer bytes', structuredResult: createToolResultEnvelope({
+    displayContent: 'Original producer bytes', artifactRefs: [persisted.reference], outcome: 'completed',
+  }) }; };
+  const runtime = new ScopedToolRuntime({ artifactsUnavailable: { code: 'ARTIFACT_PLATFORM_UNSUPPORTED', reason: 'Additional managed result copies unavailable.' } });
+  runtime.register('scope', source);
+  const result = await runtime.delegate('scope', source.name).execute(await runtime.delegate('scope', source.name).prepare({}, ctx), ctx);
+  assert.equal(source.calls, 1); assert.equal(result.isError, undefined);
+  assert.deepEqual(result.structuredResult?.artifactRefs, [persisted.reference]);
+  assert.equal(Buffer.from((await store.read(persisted.reference.id, { identity: persisted.reference.identity })).bytes).toString(), 'Original producer bytes');
+  assert.equal(result.structuredResult?.metadata?.artifactPersistenceUnavailable, true);
+});
+test('a real supported artifact store identity failure still fails settlement after the producer runs once', async t => {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-runtime-storage-fault-')));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const root = join(directory, 'managed'), store = await ArtifactStore.open({ directory: root });
+  await rename(root, join(directory, 'original')); await mkdir(root);
+  const runtime = new ScopedToolRuntime({ artifacts: store }), source = tool('edit_file', true);
+  runtime.register('scope', source); const ctx = context();
+  const result = await runtime.executeApproved(await runtime.delegate('scope', source.name).prepare({}, ctx), ctx, approval());
+  assert.equal(source.calls, 1); assert.equal(result.content, 'full result'); assert.equal(result.isError, true);
+  assert.equal(result.structuredResult?.metadata?.artifactPersistenceFailed, true);
+  assert.equal(result.structuredResult?.metadata?.artifactPersistenceUnavailable, undefined);
+  assert.equal(result.structuredResult?.metadata?.effectsMayBePresent, true); assert.deepEqual(result.structuredResult?.artifactRefs, []);
 });
 test('initial policy version identifies rule configuration across restart', () => { const first = new ToolPolicy([{ tool: 'edit_file', resource: 'path:src/**', decision: 'ask' }]); const same = new ToolPolicy([{ tool: 'edit_file', resource: 'path:src/**', decision: 'ask' }]); const different = new ToolPolicy([{ tool: 'edit_file', resource: 'path:private/**', decision: 'deny' }]); assert.equal(first.version, same.version); assert.notEqual(first.version, different.version); const old = first.version; first.replace([{ tool: '*', decision: 'deny' }]); assert.notEqual(first.version, old); });
 test('catalogue allowlist narrows both provider advertisement and captured resolution', () => { const runtime = new ScopedToolRuntime(); runtime.register('engine', tool('read_file')); runtime.register('engine', tool('run_command')); const allowed = ['read_file']; const catalogue = runtime.catalogue('engine', 'build', allowed); allowed.push('run_command'); assert.deepEqual(catalogue.tools.map(t => t.name), ['read_file']); assert.throws(() => runtime.resolve(catalogue, 'run_command'), code('TOOL_NOT_FOUND')); assert.equal(runtime.catalogue('engine', 'build', []).tools.length, 0); assert.throws(() => runtime.catalogue('engine', 'build', ['*']), code('INVALID_TOOL_ALLOWLIST')); });
