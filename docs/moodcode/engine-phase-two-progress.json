@@ -454,33 +454,46 @@
       "title": "session command job·완료 전달",
       "priority": "P2",
       "wave": "W5",
-      "status": "pending",
+      "status": "in-progress",
       "workItems": [
         {
           "id": "MC2-10a",
           "completion": "job 상태/owner/lease와 prepared command binding",
-          "status": "pending",
-          "evidence": []
+          "status": "in-progress",
+          "evidence": [
+            "engine-phase-two-jobs.md",
+            "engine-phase-two-jobs-verification.json"
+          ]
         },
         {
           "id": "MC2-10b",
           "completion": "기존 supervisor/PTY 재사용·bounded output artifact·attach/cancel·lifetime 제한",
-          "status": "pending",
-          "evidence": []
+          "status": "in-progress",
+          "evidence": [
+            "engine-phase-two-jobs.md",
+            "engine-phase-two-jobs-verification.json"
+          ]
         },
         {
           "id": "MC2-10c",
           "completion": "terminal/cleanup settled 이후 inbox에 한 번 전달. 이미 terminal인 Run에는 이벤트 추가 금지",
-          "status": "pending",
-          "evidence": []
+          "status": "in-progress",
+          "evidence": [
+            "engine-phase-two-jobs.md",
+            "engine-phase-two-jobs-verification.json"
+          ]
         },
         {
           "id": "MC2-10d",
           "completion": "detach/reload·parent 종료·crash/host close/EPERM·output backpressure·중복 delivery 검사. 물리 종료 미확정 시 unknown을 유지하고 재spawn하지 않음",
-          "status": "pending",
-          "evidence": []
+          "status": "in-progress",
+          "evidence": [
+            "engine-phase-two-jobs.md",
+            "engine-phase-two-jobs-verification.json"
+          ]
         }
-      ]
+      ],
+      "notes": "DB22 native user-terminal-watch revisions/head CAS connect original current Root/TerminalService sources, exact journal inode/physical owner, frozen bounded UTF-8 snapshots, native output continuity and genuine settled PTY outcomes. Explicit host-approved advisory completion uses durable intent, actual synchronous queue acceptance and a separate native receipt; gaps remain uncertain with no reaccept. Normal reopen can explicitly resume the existing accepted input; source/new target restoration and imported replay remain blocked. Watching does not grant command/write/cancel/workspace-lease authority and does not quarantine unrelated Runs. MC2-10a/b/c/d remain in progress for prepared approved owned command/preflight/lease, output artifacts/model consumers, atomic completion/inbox admission and full crash/detach/EPERM recovery. Verified completed work items stay38/80 and families8/20; original goal remains active and the four environment debts remain unchanged. Final gates: typecheck0, wholeengine4200/4198pass/0fail/2existingWindows skips, broadsource899pass and scriptedcoding3pass; 31 frozen sources unchanged and44new tests. DB22 catalogue136 within existingcap160; DB21history/rollback preserved."
     },
     {
       "id": "MC2-11",
@@ -843,5 +856,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-08T04:19:37.410Z"
+  "updatedAt": "2026-10-08T05:04:48.421Z"
 }

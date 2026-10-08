@@ -33,6 +33,8 @@ import { SCHEDULE_TABLES } from '../schedules/schema.js';
 import { validateScheduleDatabase } from '../schedules/store.js';
 import { BACKEND_TABLES } from '../agent-backends/schema.js';
 import { validateAgentBackendDatabase } from '../agent-backends/store.js';
+import { JOB_TABLES } from '../jobs/schema.js';
+import { validateJobDatabase } from '../jobs/store.js';
 import { validateTeamChildInputRelations } from '../teams/child-input-proof.js';
 import { knowledgeHash } from '../knowledge/validation.js';
 import { SqliteStore } from './index.js';
@@ -243,7 +245,12 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
       try { validateAgentBackendDatabase(db, { check }); }
       catch { fail('ARCHIVE_BACKEND_INVALID', 'Archived backend ownership, remote requests or client effect receipts are invalid'); }
     }
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables, check) };
+    const backendTables = schemaVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
+    if (schemaVersion >= 22) {
+      try { validateJobDatabase(db, { check }); }
+      catch { fail('ARCHIVE_JOB_INVALID', 'Archived terminal job sources, immutable output pages or completion delivery receipts are invalid'); }
+    }
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

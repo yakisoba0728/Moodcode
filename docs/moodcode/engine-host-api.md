@@ -203,6 +203,12 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 
 `getSchedule`, `inspectSchedules`, `inspectScheduleOccurrences`, `getSchedulerLease`는 기능이 꺼져 있어도 이력을 조회한다. `releaseScheduleHandle`로 원본 Root/native handle을 해제한다. 재시작의 receipt gap은 uncertain이며 명시적 관찰 없이 일반 session resume으로 우회하지 못한다. Import는 disabled/paused-import이고, queue promotion과 모든 실제 provider 호출 직전에 고정 대상의 현재 설정을 확인한다. [예약 엔진 계약](engine-phase-two-schedules.md)을 따른다.
 
+## 기존 사용자 터미널의 job 관찰
+
+`jobs:true`에서 `captureTerminalJob` → `readTerminalJobSource` → `attachTerminalJob`로 실제 사용자 PTY를 관찰한다. `captureJobOutput`의 `jobRevisionId`는 처음 job의 `sourceRevisionId`이며 `readJobOutputPage`는 DATA, `recordJobOutput`은 원본 page/CAS 기록이다. `settleTerminalJob`은 실제 종료·정리 관찰, `cancelCommandJobWatch`는 관찰만 종료한다. 새 명령 실행·모델의 터미널 쓰기·실행 lease는 후속 구현이다.
+
+`captureCommandJobDeliveryTarget` → `readCommandJobDeliveryTarget` → `deliverCommandJobResult({workspaceId,requestId,expectedRevision:0,target,approved:true})`로 원본 완료 관찰을 실제 queue에 한 번 입력한다. Intent/실제 accept/receipt gap은 uncertain이며 자동 재전달하지 않는다. Normal reopen의 기존 승인 input은 명시적으로 resume할 수 있지만 source/target은 복원하지 않는다. Import는 paused-import다. 기본 off에서도 `getCommandJob`, `inspectCommandJobs`, `readCommandJobOutputs`, `inspectCommandJobDeliveries`로 이력을 조회한다. `releaseCommandJobHandle`로 원본 source/page/target을 해제한다. [Job 엔진 계약](engine-phase-two-jobs.md)을 따른다.
+
 ## ACP v1 로컬 agent backend
 
 `agentBackends:true`에서 `captureAgentBackendTarget` → `readAgentBackendTarget` → 원본 target을 받는 `registerAgentBackend`로 `acp:<backendId>` 공급자를 등록한다. 실제 Root의 workspace/storage/launch source와 전체 config·budget·profile·catalogue·capability·audience·secret reference가 고정된다. `disableAgentBackend`는 새 호출을 막으며 이미 dispatched된 요청의 종료 관찰은 유지한다. 환경 값은 명시적 `agentBackendSecrets.resolve` 참조로만 주입하며 resolver/launch 값을 설정·native launch 기록에 저장하지 않는다. 피어가 출력으로 되돌린 값까지 가려지는 계약은 아니다. Child는 이 기능을 상속하지 않는다.

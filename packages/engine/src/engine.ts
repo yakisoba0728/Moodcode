@@ -101,6 +101,10 @@ import { EngineAgentBackendProducer, type CaptureAgentBackendTarget, type AgentB
 import { AgentBackendStorage, type RegisterAgentBackendInput, type DisableAgentBackendInput } from './agent-backends/store.js';
 import { OwnedBackendProcesses } from './agent-backends/process.js';
 import { AgentBackendHost } from './agent-backends/host.js';
+import { EngineJobProducer } from './jobs/engine-producer.js';
+import { JobHost } from './jobs/host.js';
+import { JobDelivery } from './jobs/delivery.js';
+import type { JobStorage } from './jobs/store.js';
 import { agentBackendObject, validateAgentBackendSpec } from './agent-backends/validation.js';
 import { TeamHostService } from './teams/host.js';
 import { TeamService } from './teams/service.js';
@@ -201,6 +205,8 @@ export interface EngineOptions {
   schedules?: boolean;
   /** Root-owned ACP v1 stdio providers; imported definitions do not restore runtime authority. */
   agentBackends?: boolean;
+  /** Explicit read-only observation of existing user-owned terminals as native jobs. */
+  jobs?: boolean;
   /** Explicit audience-bound runtime secrets; bodies never enter native backend journals. */
   agentBackendSecrets?: AgentBackendSecretResolver;
   /** Exact host-selected pending proposals projected as read-only model data. */
@@ -406,6 +412,11 @@ export class MoodcodeEngine {
   private readonly backendRecords: AgentBackendStorage;
   private readonly backendProcesses: OwnedBackendProcesses;
   private readonly backendHost: AgentBackendHost;
+  private readonly jobsEnabled: boolean;
+  private readonly jobProducer: EngineJobProducer;
+  private readonly jobRecords: JobStorage;
+  private readonly jobHost: JobHost;
+  private readonly jobDelivery: JobDelivery;
   private readonly runtimeProviders: Map<string, ProviderAdapter>;
   private readonly backendProviderIds = new Set<string>();
   private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
@@ -471,6 +482,8 @@ export class MoodcodeEngine {
     if (options.agentBackends !== undefined && typeof options.agentBackends !== 'boolean') throw new EngineError('INVALID_CONFIG', 'agentBackends requires an explicit root host boolean');
     if (options.agentBackendSecrets !== undefined && (!options.agentBackendSecrets || typeof options.agentBackendSecrets.resolve !== 'function')) throw new EngineError('INVALID_CONFIG', 'Backend secrets require an explicit trusted host resolver');
     this.agentBackendsEnabled = options.agentBackends === true;
+    if (options.jobs !== undefined && typeof options.jobs !== 'boolean') throw new EngineError('INVALID_CONFIG', 'jobs requires an explicit root host boolean');
+    this.jobsEnabled = options.jobs === true;
     if (this.teamModelToolsEnabled && !this.teamsEnabled) throw new EngineError('INVALID_CONFIG', 'Model team tools require explicit host teams');
     this.proposalsEnabled = options.proposals === true;
     if (options.proposalApply !== undefined && typeof options.proposalApply !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposalApply must be an explicit boolean');
@@ -928,7 +941,7 @@ export class MoodcodeEngine {
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
       this.coordinator = new RunCoordinator({
-        beforeProviderDispatch: run => this.scheduleProducer.beforeProviderDispatch(run),
+        beforeProviderDispatch: run => { this.scheduleProducer.beforeProviderDispatch(run); this.jobProducer?.beforeProviderDispatch(run); },
         onRunStarted: async (run,signal) => {
           const admission = waitChildProviderAdmission(this,signal);
           if (admission) await admission;
@@ -1009,7 +1022,7 @@ export class MoodcodeEngine {
         assertDueBatchCurrent: (original, expected, spec) => this.scheduleProducer.assertDueBatchCurrent(original, expected, spec),
       });
       this.scheduleRecords.recoverInterrupted();
-      this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, beforePromotion: input => this.scheduleProducer.beforePromotion(input) });
+      this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, beforePromotion: input => { this.scheduleProducer.beforePromotion(input); this.jobProducer?.beforePromotion(input); } });
       const scheduleHost = new ScheduleHost({ native: this.scheduleRecords, input: this.scheduleProducer.inputPort() });
       this.scheduleDispatcher = new ScheduleDispatcher({ native: this.scheduleRecords, host: scheduleHost });
       this.backendProducer = new EngineAgentBackendProducer(this, knowledgeBinding, () => this.backendRecords, () => this.closing,
@@ -1029,6 +1042,21 @@ export class MoodcodeEngine {
       });
       this.backendRecords.recoverInterrupted();
       this.backendHost = new AgentBackendHost({ store: this.backendRecords, processes: this.backendProcesses, clientReads: this.backendProducer.clientReadPort(), turns: this.backendProducer, lifetime: this.hostResources.signal });
+      this.jobProducer = new EngineJobProducer(this, knowledgeBinding, () => this.jobRecords, () => this.closing, () => this.jobsEnabled, this.storagePaths.artifactDir);
+      this.jobRecords = this.store.createJobStorage({
+        readOwner: original => this.jobProducer.readOwner(original),
+        assertOwnerCurrent: (original, expected) => this.jobProducer.assertOwnerCurrent(original, expected),
+        readSource: original => this.jobProducer.readSource(original),
+        assertSourceCurrent: (original, expected, phase) => this.jobProducer.assertSourceCurrent(original, expected, phase),
+        readOutput: original => this.jobProducer.readOutput(original),
+        readClosedOutcome: original => this.jobProducer.readClosedOutcome(original),
+        readDeliveryTarget: original => this.jobProducer.readTarget(original),
+        assertDeliveryTargetCurrent: (original, expected) => this.jobProducer.assertTargetCurrent(original, expected),
+        readAccepted: original => this.jobProducer.readAccepted(original),
+      });
+      this.jobRecords.recoverInterrupted();
+      this.jobHost = new JobHost({ native: this.jobRecords, source: this.jobProducer.sourcePort(), lifetime: this.hostResources.signal });
+      this.jobDelivery = new JobDelivery({ native: this.jobRecords, input: this.jobProducer.inputPort(), lifetime: this.hostResources.signal });
       const recoveredRestores = this.reviewJournal.recoverPending();
       const recoveryAcknowledgments = canonicalDbPath ? readRecoveryAcknowledgments({ dbPath: canonicalDbPath, artifactDir: realpathSync(artifactDir) }) : [];
       for (const operation of recoveredRestores) {
@@ -1507,6 +1535,23 @@ export class MoodcodeEngine {
   inspectAgentBackendRequests(workspaceId: string) { return this.backendRecords.inspectRequests(workspaceId); }
   inspectAgentBackendEffects(workspaceId: string) { return this.backendRecords.inspectClientEffects(workspaceId); }
   releaseAgentBackendTarget(original: object): void { this.backendProducer.releaseTarget(original); }
+
+  captureTerminalJob(...args: Parameters<JobHost['captureTerminalJob']>) { return this.jobHost.captureTerminalJob(...args); }
+  readTerminalJobSource(...args: Parameters<JobHost['readTerminalJobSource']>) { return this.jobHost.readTerminalJobSource(...args); }
+  attachTerminalJob(...args: Parameters<JobHost['attachTerminalJob']>) { return this.jobHost.attachTerminalJob(...args); }
+  captureJobOutput(...args: Parameters<JobHost['captureJobOutput']>) { return this.jobHost.captureJobOutput(...args); }
+  readJobOutputPage(...args: Parameters<JobHost['readOutput']>) { return this.jobHost.readOutput(...args); }
+  recordJobOutput(...args: Parameters<JobHost['recordJobOutput']>) { return this.jobHost.recordJobOutput(...args); }
+  settleTerminalJob(...args: Parameters<JobHost['settleTerminalJob']>) { return this.jobHost.settleTerminalJob(...args); }
+  cancelCommandJobWatch(...args: Parameters<JobHost['cancelCommandJobWatch']>) { if (!this.jobsEnabled) throw new EngineError('JOBS_DISABLED', 'Job mutations require explicit root host opt-in'); return this.jobHost.cancelCommandJobWatch(...args); }
+  getCommandJob(...args: Parameters<JobStorage['getJob']>) { return this.store.readExecutionObservationEvidence(() => this.jobRecords.getJob(...args)); }
+  inspectCommandJobs(...args: Parameters<JobStorage['inspectJobs']>) { return this.store.readExecutionObservationEvidence(() => this.jobRecords.inspectJobs(...args)); }
+  readCommandJobOutputs(...args: Parameters<JobStorage['readOutputs']>) { return this.store.readExecutionObservationEvidence(() => this.jobRecords.readOutputs(...args)); }
+  inspectCommandJobDeliveries(...args: Parameters<JobStorage['inspectDeliveries']>) { return this.store.readExecutionObservationEvidence(() => this.jobRecords.inspectDeliveries(...args)); }
+  captureCommandJobDeliveryTarget(...args: Parameters<JobDelivery['captureTarget']>) { return this.jobDelivery.captureTarget(...args); }
+  readCommandJobDeliveryTarget(...args: Parameters<JobDelivery['readTarget']>) { return this.jobDelivery.readTarget(...args); }
+  deliverCommandJobResult(...args: Parameters<JobDelivery['deliver']>) { return this.jobDelivery.deliver(...args); }
+  releaseCommandJobHandle(original: object): void { this.jobHost.release(original); this.jobDelivery.release(original); }
 
   replaceRoleResourcePolicy(expectedRegistryRevision: number, policy: RoleResourcePolicySnapshot) {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
@@ -2161,6 +2206,8 @@ export class MoodcodeEngine {
         this.teamService.close();
         this.teamModelHost.close();
         this.teamHost.close();
+        this.jobHost.close();
+        this.jobDelivery.close();
         // Both calls synchronously stop admissions before either awaits active work.
         const outcomes = await Promise.allSettled([this.backendHost.close(), this.scheduleDispatcher.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
@@ -2170,7 +2217,7 @@ export class MoodcodeEngine {
         await this.executionObserver.close();
         try { this.terminalJournal.close(); }
         finally { try { this.reviewJournal.close(); }
-        finally { this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
+        finally { this.jobProducer.close(); this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
         }
       }
     })().then(resolve, reject);

@@ -67,6 +67,7 @@ import type { TeamStoragePorts } from '../teams/types.js';
 import { WorkflowStorage, markImportedWorkflowsPaused, type WorkflowStoragePorts } from '../workflows/store.js';
 import { ScheduleStorage, markImportedSchedulesDisabled, type ScheduleStoragePorts } from '../schedules/store.js';
 import { AgentBackendStorage, markImportedAgentBackendsPaused, hasAgentBackendBlocker, type AgentBackendStoragePorts } from '../agent-backends/store.js';
+import { JobStorage, markImportedJobsPaused, type JobStoragePorts } from '../jobs/store.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
@@ -161,6 +162,7 @@ export class SqliteStore implements SessionEngineStore {
   private workflowRecords?: WorkflowStorage;
   private scheduleRecords?: ScheduleStorage;
   private backendRecords?: AgentBackendStorage;
+  private jobRecords?: JobStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -632,6 +634,19 @@ export class SqliteStore implements SessionEngineStore {
     return this.backendRecords = new AgentBackendStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
       writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
+  createJobStorage(ports: Omit<JobStoragePorts, 'writeTx' | 'getWorkspace'>): JobStorage {
+    this.assertOpen();
+    if (this.jobRecords) throw new EngineError('JOBS_ALREADY_CONFIGURED', 'Native jobs already have an original root owner');
+    return this.jobRecords = new JobStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
+      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+  }
+  /** Only genuine Root terminal readers publish these session-scoped observations. */
+  commitTerminalJobObservation(sessionId: string, type: 'terminal.source_admitted' | 'terminal.output_observed' | 'terminal.source_closed', payload: JsonObject): SessionEventV2 {
+    if (!['terminal.source_admitted', 'terminal.output_observed', 'terminal.source_closed'].includes(type)) throw new EngineError('INVALID_SESSION_OBSERVATION', 'Unknown terminal observation type');
+    const append = () => { this.getSession(sessionId); return this.native.appendEvent(sessionId, type, payload); };
+    if (this.db.isTransaction) { const event = append(); queueMicrotask(() => this.notify(sessionId)); return event; }
+    const event = this.transaction(append); this.notify(sessionId); return event;
+  }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
   pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string, origin?: { readonly importId: string; readonly sourcePrimaryLogicalSha256: string; readonly sourceStorageBindingSha256: string }): void {
     this.transaction(() => {
@@ -642,6 +657,7 @@ export class SqliteStore implements SessionEngineStore {
       markImportedWorkflowsPaused(this.db, archiveSha256, workspaceId);
       markImportedSchedulesDisabled(this.db, archiveSha256, workspaceId);
       markImportedAgentBackendsPaused(this.db, archiveSha256, workspaceId);
+      markImportedJobsPaused(this.db, archiveSha256, workspaceId);
       if (origin) {
         // Imported runtime capabilities are absent. Persist the ordinary native
         // interrupted-owner transition before pinning recovery; this performs

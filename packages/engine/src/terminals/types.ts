@@ -17,7 +17,7 @@ export interface PtyOutcome { exitCode: number | null; cancelled: boolean; timed
 export interface PtyProcess { readonly pid: number; readonly closed: Promise<PtyOutcome>; write(data: string): Promise<void>; resize(cols: number, rows: number): Promise<void>; cancel(): Promise<PtyOutcome> }
 export interface PtyCapability { available: boolean; platform: string; backend: 'posix-pty-supervisor' | 'unavailable'; processTree: 'posix-group' | 'unsupported'; isolation: 'host-user'; code?: string }
 export interface PtyBackend { capability(): Promise<PtyCapability>; spawn(input: PtySpawnInput, output: (data: string) => void): Promise<PtyProcess> }
-export interface TerminalJournal { load(): TerminalSnapshot[]; save(snapshot: TerminalSnapshot): void; remove(id: string): void }
+export interface TerminalJournal { load(): TerminalSnapshot[]; save(snapshot: TerminalSnapshot): void; remove(id: string): void; read?(id: string): TerminalSnapshot | undefined }
 
 export const TERMINAL_LIMITS = Object.freeze({
   maxTerminals: 16, maxTerminalsPerSession: 4, maxRecords: 128, maxAttachments: 4,

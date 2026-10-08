@@ -26,6 +26,7 @@ function validSnapshot(value: unknown): TerminalSnapshot {
 export class MemoryTerminalJournal implements TerminalJournal {
   private readonly records = new Map<string, TerminalSnapshot>();
   load(): TerminalSnapshot[] { return [...this.records.values()].map(value => structuredClone(value)); }
+  read(id: string): TerminalSnapshot | undefined { const value = this.records.get(id); return value ? structuredClone(value) : undefined; }
   save(snapshot: TerminalSnapshot): void {
     const validated = validSnapshot(snapshot);
     if (!this.records.has(validated.record.id) && this.records.size >= TERMINAL_LIMITS.maxRecords) throw new EngineError('TERMINAL_RECORD_LIMIT', 'Terminal history capacity was exceeded');
@@ -59,6 +60,15 @@ export class SqliteTerminalJournal implements TerminalJournal {
     const rows = this.db.prepare('SELECT payload FROM terminals ORDER BY id LIMIT ?').all(TERMINAL_LIMITS.maxRecords + 1);
     if (rows.length > TERMINAL_LIMITS.maxRecords) throw new EngineError('TERMINAL_RECORD_LIMIT', 'Terminal history capacity was exceeded');
     return rows.map(row => { try { return validSnapshot(JSON.parse(String(row.payload))); } catch { throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Stored terminal history is invalid'); } });
+  }
+  read(id: string): TerminalSnapshot | undefined {
+    const head = this.db.prepare('SELECT length(CAST(payload AS BLOB)) bytes FROM terminals WHERE id=?').get(id);
+    if (!head) return;
+    if (!Number.isSafeInteger(head.bytes) || Number(head.bytes) > 4_194_304) throw new EngineError('TERMINAL_JOURNAL_LIMIT', 'Terminal observation exceeds its stored byte bound');
+    const row = this.db.prepare('SELECT payload FROM terminals WHERE id=? AND length(CAST(payload AS BLOB))=?').get(id, Number(head.bytes));
+    if (!row) throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Terminal observation changed during its bounded read');
+    try { return validSnapshot(JSON.parse(String(row.payload))); }
+    catch { throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Stored terminal observation is invalid'); }
   }
   save(snapshot: TerminalSnapshot): void {
     const value = validSnapshot(snapshot), payload = JSON.stringify(value);

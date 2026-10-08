@@ -30,6 +30,8 @@ import { SCHEDULE_TABLES } from '../schedules/schema.js';
 import { validateScheduleDatabase } from '../schedules/store.js';
 import { BACKEND_TABLES } from '../agent-backends/schema.js';
 import { validateAgentBackendDatabase } from '../agent-backends/store.js';
+import { JOB_TABLES } from '../jobs/schema.js';
+import { validateJobDatabase } from '../jobs/store.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
 import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
@@ -146,7 +148,9 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     const scheduleTables = primaryVersion >= 20 ? [...workflowTables, ...SCHEDULE_TABLES] : workflowTables;
     if (primary && primaryVersion >= 21) validateAgentBackendDatabase(primary, { check: snapshot.check });
     const backendTables = primaryVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
-    const primaryHash = primary ? checkDatabase(primary, primaryVersion, backendTables, snapshot.check) : null;
+    if (primary && primaryVersion >= 22) validateJobDatabase(primary, { check: snapshot.check });
+    const jobTables = primaryVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables;
+    const primaryHash = primary ? checkDatabase(primary, primaryVersion, jobTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);
     let marker: Marker | null = null;

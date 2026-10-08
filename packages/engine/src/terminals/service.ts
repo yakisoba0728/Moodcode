@@ -4,9 +4,12 @@ import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { EngineError } from '@moodcode/contracts';
 import { PosixPtyBackend } from './backend.js';
 import { MemoryTerminalJournal } from './journal.js';
+import { knowledgeHash } from '../knowledge/validation.js';
+import type { JobOutputSnapshot, TerminalJobSourceProof, TerminalObservationProof, TerminalClosedOutcomeProof } from '../jobs/types.js';
+import { validateTerminalJobSourceProof, validateJobOutputSnapshot, validateTerminalObservationProof, validateTerminalClosedOutcomeProof } from '../jobs/validation.js';
 import { TERMINAL_LIMITS, type TerminalAttachment, type TerminalCreateRequest, type TerminalEvent, type TerminalJournal, type TerminalOwner, type TerminalOutput, type TerminalRecord, type TerminalReplay, type TerminalSnapshot, type PtyBackend, type PtyOutcome, type PtyProcess } from './types.js';
 
-interface TerminalEntry { snapshot: TerminalSnapshot; process?: PtyProcess; attachments: Map<string, AttachmentQueue>; pendingWrites: number; savingFailed?: boolean }
+interface TerminalEntry { snapshot: TerminalSnapshot; process?: PtyProcess; attachments: Map<string, AttachmentQueue>; pendingWrites: number; savingFailed?: boolean; birthNonce?: string; readerPins?: number; closedOutcome?: PtyOutcome }
 export interface TerminalServiceOptions {
   resolveOwner(owner: TerminalOwner): Promise<{ workspaceId: string; sessionId: string; root: string }> | { workspaceId: string; sessionId: string; root: string };
   backend?: PtyBackend; journal?: TerminalJournal; maxDurationMs?: number;
@@ -66,6 +69,14 @@ class AttachmentQueue implements AsyncIterable<TerminalEvent> {
 }
 
 export class TerminalService {
+  private readonly serviceEpoch = randomUUID();
+  private readonly readSources = new WeakMap<object, { entry: TerminalEntry; proof: TerminalJobSourceProof }>();
+  private readonly retainedReadSources = new Set<object>();
+  private readonly readSnapshots = new WeakMap<object, { source: object; snapshot: JobOutputSnapshot; observation: TerminalObservationProof; bytes: number }>();
+  private readonly retainedReadSnapshots = new Set<object>();
+  private readonly readOutcomes = new WeakMap<object, { source: object; proof: TerminalClosedOutcomeProof }>();
+  private readonly retainedReadOutcomes = new Set<object>();
+  private retainedSnapshotBytes = 0;
   private readonly terminals = new Map<string, TerminalEntry>();
   private readonly backend: PtyBackend;
   private readonly journal: TerminalJournal;
@@ -117,6 +128,7 @@ export class TerminalService {
     }
   }
   private finish(entry: TerminalEntry, outcome: PtyOutcome): void {
+    entry.closedOutcome = structuredClone(outcome);
     entry.process = undefined;
     const record = entry.snapshot.record;
     record.state = !outcome.cleanupConfirmed ? 'uncertain' : entry.savingFailed ? 'failed' : outcome.cancelled || outcome.timedOut ? 'cancelled' : outcome.exitCode === 0 ? 'completed' : 'failed';
@@ -151,7 +163,7 @@ export class TerminalService {
       if (this.closing || request.signal?.aborted) throw failure('ABORTED', 'Terminal creation was cancelled');
       if ([...this.terminals.values()].filter(entry => active(entry.snapshot.record.state) && entry.snapshot.record.owner.sessionId === boundOwner.sessionId).length >= TERMINAL_LIMITS.maxTerminalsPerSession) throw failure('TERMINAL_COUNT_LIMIT', 'The session terminal limit was reached');
       while (this.terminals.size >= TERMINAL_LIMITS.maxRecords) {
-        const oldest = [...this.terminals.values()].filter(entry => !active(entry.snapshot.record.state) && entry.attachments.size === 0).sort((a, b) => a.snapshot.record.updatedAt.localeCompare(b.snapshot.record.updatedAt))[0];
+        const oldest = [...this.terminals.values()].filter(entry => !active(entry.snapshot.record.state) && entry.attachments.size === 0 && !entry.readerPins).sort((a, b) => a.snapshot.record.updatedAt.localeCompare(b.snapshot.record.updatedAt))[0];
         if (!oldest) throw failure('TERMINAL_RECORD_LIMIT', 'Terminal history capacity was reached');
         this.journal.remove(oldest.snapshot.record.id); this.terminals.delete(oldest.snapshot.record.id);
       }
@@ -161,7 +173,7 @@ export class TerminalService {
       this.terminals.set(record.id, entry); this.persist(entry);
       try {
         const handle = await this.backend.spawn({ file, args, cwd, cols, rows, maxDurationMs: this.duration }, data => this.output(entry, data));
-        entry.process = handle; record.state = 'running'; record.updatedAt = new Date().toISOString(); this.persist(entry);
+        entry.process = handle; entry.birthNonce = randomUUID(); record.state = 'running'; record.updatedAt = new Date().toISOString(); this.persist(entry);
         const abort = () => { void handle.cancel().catch(() => {}); };
         request.signal?.addEventListener('abort', abort, { once: true });
         void handle.closed.then(outcome => { this.finish(entry, outcome); request.signal?.removeEventListener('abort', abort); }, () => { this.finish(entry, { exitCode: null, cancelled: false, timedOut: false, cleanupConfirmed: false, reason: 'backend_closed_failed' }); request.signal?.removeEventListener('abort', abort); });
@@ -175,6 +187,84 @@ export class TerminalService {
     } finally { this.reservations--; }
   }
   get(id: string, owner: TerminalOwner): TerminalRecord { return structuredClone(this.entry(id, owner).snapshot.record); }
+  /** A separate retained reader pin does not consume a UI attachment or command authority. */
+  captureReadSource(id: string, owner: TerminalOwner, journalBindingSha256: string): object {
+    if (this.closing) throw failure('ENGINE_CLOSED', 'Terminal reader admission is closed');
+    const entry = this.entry(id, owner), record = entry.snapshot.record;
+    if (!entry.birthNonce || (!entry.process && !entry.closedOutcome)) throw failure('JOB_SOURCE_HISTORY_ONLY', 'Restored terminal data cannot reconstruct a physical source');
+    if (!/^[a-f0-9]{64}$/.test(journalBindingSha256)) throw failure('JOB_SOURCE_INVALID', 'Terminal journal binding is invalid');
+    if (this.retainedReadSources.size >= 128) throw failure('JOB_HANDLE_LIMIT', 'Terminal reader source capacity was reached');
+    this.assertReadJournal(entry);
+    const body = { terminalId: record.id, workspaceId: record.owner.workspaceId, sessionId: record.owner.sessionId,
+      serviceEpoch: this.serviceEpoch, entryBirthNonce: entry.birthNonce, journalBindingSha256,
+      launchSha256: this.readLaunchSha(entry), createdAt: record.createdAt,
+      authority: entry.process ? 'current-physical' as const : 'retained-current' as const };
+    const proof = validateTerminalJobSourceProof({ ...body, sha256: knowledgeHash(body) }), original = Object.freeze({});
+    this.readSources.set(original, { entry, proof }); this.retainedReadSources.add(original); entry.readerPins = (entry.readerPins ?? 0) + 1;
+    return original;
+  }
+  private readLaunchSha(entry: TerminalEntry): string {
+    const record = entry.snapshot.record;
+    return knowledgeHash({ terminalId: record.id, owner: record.owner, file: record.file, args: record.args, cwd: record.cwd, createdAt: record.createdAt });
+  }
+  private assertReadJournal(entry: TerminalEntry): void {
+    if (!this.journal.read) throw failure('JOB_SOURCE_JOURNAL_UNSUPPORTED', 'Terminal observation requires bounded current journal reads');
+    const persisted = this.journal.read(entry.snapshot.record.id);
+    if (!persisted || knowledgeHash(persisted) !== knowledgeHash(entry.snapshot)) throw failure('JOB_SOURCE_JOURNAL_STALE', 'The actual terminal snapshot differs from its durable sidecar');
+  }
+  private readSourceEntry(original: object): { entry: TerminalEntry; proof: TerminalJobSourceProof } {
+    const source = this.readSources.get(original);
+    if (!source || this.terminals.get(source.proof.terminalId) !== source.entry || source.entry.birthNonce !== source.proof.entryBirthNonce
+      || this.readLaunchSha(source.entry) !== source.proof.launchSha256) throw failure('JOB_ORIGINAL_SOURCE_REQUIRED', 'Terminal observation requires its current retained original source');
+    return source;
+  }
+  readReadSource(original: object): TerminalJobSourceProof { return structuredClone(this.readSourceEntry(original).proof); }
+  assertReadSourceCurrent(original: object): void { this.readSourceEntry(original); }
+  captureReadSnapshot(originalSource: object): object {
+    const { entry, proof } = this.readSourceEntry(originalSource);
+    this.assertReadJournal(entry);
+    const record = entry.snapshot.record;
+    const body = { version: 1 as const, source: proof, throughSeq: record.outputSeq, oldestSeq: record.oldestSeq,
+      observedBytes: record.observedBytes, retainedBytes: record.retainedBytes, output: structuredClone(entry.snapshot.output) };
+    const snapshot = validateJobOutputSnapshot({ ...body, sha256: knowledgeHash(body) }), bytes = Buffer.byteLength(JSON.stringify(snapshot));
+    if (this.retainedReadSnapshots.size >= 64 || bytes > 16_777_216 - this.retainedSnapshotBytes) throw failure('JOB_SNAPSHOT_LIMIT', 'Terminal reader snapshots exceed their retained byte capacity');
+    const observationBody = { sourceSha256: proof.sha256, state: record.state, outputSeq: record.outputSeq, oldestSeq: record.oldestSeq,
+      observedBytes: record.observedBytes, retainedBytes: record.retainedBytes, cleanupConfirmed: record.cleanupConfirmed, exitCode: record.exitCode,
+      reason: record.reason ?? null, updatedAt: record.updatedAt };
+    const observation = validateTerminalObservationProof({ ...observationBody, sha256: knowledgeHash(observationBody) }), original = Object.freeze({});
+    this.readSnapshots.set(original, { source: originalSource, snapshot, observation, bytes }); this.retainedReadSnapshots.add(original); this.retainedSnapshotBytes += bytes;
+    return original;
+  }
+  readReadSnapshot(original: object): JobOutputSnapshot {
+    const captured = this.readSnapshots.get(original); if (!captured) throw failure('JOB_OUTPUT_SNAPSHOT_EXPIRED', 'Terminal output requires its retained original snapshot');
+    this.readSourceEntry(captured.source); return captured.snapshot;
+  }
+  readReadObservation(originalSnapshot: object): TerminalObservationProof {
+    const captured = this.readSnapshots.get(originalSnapshot); if (!captured) throw failure('JOB_OUTPUT_SNAPSHOT_EXPIRED', 'Terminal observation requires its original snapshot');
+    this.readSourceEntry(captured.source); return structuredClone(captured.observation);
+  }
+  captureClosedObservation(originalSource: object): object {
+    const { entry, proof } = this.readSourceEntry(originalSource), record = entry.snapshot.record, outcome = entry.closedOutcome;
+    if (!outcome || entry.process || active(record.state)) throw failure('JOB_SOURCE_NOT_CLOSED', 'The actual terminal has no settled physical outcome');
+    if (this.retainedReadOutcomes.size >= 128) throw failure('JOB_HANDLE_LIMIT', 'Terminal closed observation capacity was reached');
+    this.assertReadJournal(entry);
+    const body = { sourceSha256: proof.sha256, state: record.state as TerminalClosedOutcomeProof['state'], exitCode: outcome.exitCode,
+      cancelled: outcome.cancelled, timedOut: outcome.timedOut, cleanupConfirmed: outcome.cleanupConfirmed,
+      reason: record.reason ?? null, closedAt: record.updatedAt };
+    const value = validateTerminalClosedOutcomeProof({ ...body, sha256: knowledgeHash(body) }), original = Object.freeze({});
+    this.readOutcomes.set(original, { source: originalSource, proof: value }); this.retainedReadOutcomes.add(original); return original;
+  }
+  readClosedObservation(original: object): TerminalClosedOutcomeProof {
+    const captured = this.readOutcomes.get(original); if (!captured) throw failure('JOB_ORIGINAL_OUTCOME_REQUIRED', 'Terminal completion requires its retained original physical outcome');
+    this.readSourceEntry(captured.source); return structuredClone(captured.proof);
+  }
+  releaseReadHandle(original: object): void {
+    const source = this.readSources.get(original);
+    if (source) { source.entry.readerPins = Math.max(0, (source.entry.readerPins ?? 0) - 1); this.readSources.delete(original); this.retainedReadSources.delete(original); }
+    const snapshot = this.readSnapshots.get(original);
+    if (snapshot) { this.retainedSnapshotBytes -= snapshot.bytes; this.readSnapshots.delete(original); this.retainedReadSnapshots.delete(original); }
+    this.readOutcomes.delete(original); this.retainedReadOutcomes.delete(original);
+  }
   list(owner: TerminalOwner): TerminalRecord[] { ownerIdentity(owner); return [...this.terminals.values()].filter(entry => entry.snapshot.record.owner.sessionId === owner.sessionId && entry.snapshot.record.owner.workspaceId === owner.workspaceId).map(entry => structuredClone(entry.snapshot.record)); }
   replay(id: string, owner: TerminalOwner, afterSeq = 0, maxBytes = 65_536): TerminalReplay {
     const entry = this.entry(id, owner), record = entry.snapshot.record;
@@ -218,6 +308,7 @@ export class TerminalService {
       await Promise.allSettled(this.creations);
       await Promise.allSettled([...this.terminals.values()].map(entry => entry.process?.cancel()));
       for (const entry of this.terminals.values()) for (const attachment of entry.attachments.values()) attachment.close();
+      for (const original of [...this.retainedReadSnapshots, ...this.retainedReadOutcomes, ...this.retainedReadSources]) this.releaseReadHandle(original);
     })();
     return this.closePromise;
   }

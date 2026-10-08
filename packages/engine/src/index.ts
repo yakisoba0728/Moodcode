@@ -1,5 +1,8 @@
 export { createEngine, MoodcodeEngine, type EngineOptions, type RestoreCommandResult, type ReviewHistoryResult, type EngineStorageUsageOptions, type EngineStorageUsageReport, type EngineChildDocumentStorageOptions, type EngineChildDocumentStorageReport } from './engine.js';
 export type * from './ports.js';
+export type * from './jobs/types.js';
+export type { CommandJob, JobDelivery as NativeJobDelivery, JobOutputRevision, JobRequestResult, AttachTerminalJobInput, RecordJobOutputInput, SettleTerminalJobInput, CancelCommandJobWatchInput } from './jobs/store.js';
+export type { JobDeliveryTargetProof, JobAcceptedInputProof, DeliverCommandJobResultInput } from './jobs/delivery.js';
 export type * from './agent-backends/types.js';
 export type { CaptureAgentBackendTarget, AgentBackendSecretResolver } from './agent-backends/engine-producer.js';
 export type { AgentBackendRevision, BackendConnectionRevision, BackendRemoteRequest, BackendClientEffectRevision, RegisterAgentBackendInput, DisableAgentBackendInput } from './agent-backends/store.js';

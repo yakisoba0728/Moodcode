@@ -443,6 +443,7 @@ export class EngineChildren {
       workflows: false,
       schedules: false,
       agentBackends: false,
+      jobs: false,
       agentBackendSecrets: undefined,
       proposalContextPolicy: undefined,
       dbPath: join(this.directory, request.task.id, "engine.sqlite"),
