@@ -98,6 +98,9 @@ test('native MCP discovery, disconnect and explicit reconnect retain catalog con
   const connected = await f.action<JsonObject>('mcp.connect', { handleId: preview.handleId, approved: true });
   assert.deepEqual(connected.toolNames, ['mcp_fixture_echo']);
   assert.ok(f.engine.getCapabilities().tools.some(tool => tool.name === 'mcp_fixture_echo'));
+  const earlier = await f.command<RunReceipt>('run.submit', { sessionId: f.session.id, requestId: randomUUID(), prompt: 'desktop child fixture' });
+  assert.equal((await f.engine.waitForRun(earlier.runId)).state, 'completed');
+  assert.ok(f.engine.store.getLastRunAssistantContent(earlier.runId).includes('fixture child result'));
   const receipt = await f.command<RunReceipt>('run.submit', { sessionId: f.session.id, requestId: randomUUID(), prompt: 'desktop MCP fixture' });
   const approval = await until(() => f.engine.store.getSnapshot(f.session.id).approvals.find(value => value.toolName === 'mcp_fixture_echo' && value.status === 'pending'), value => !!value);
   assert.ok(approval);
@@ -108,6 +111,12 @@ test('native MCP discovery, disconnect and explicit reconnect retain catalog con
   assert.ok(f.engine.getMcpExecution(f.session.id, approval.toolCallId));
   await f.action('mcp.disconnect', { id: 'fixture' });
   assert.ok(f.engine.getCapabilities().tools.every(tool => tool.name !== 'mcp_fixture_echo'));
+  const followup = await f.command<RunReceipt>('run.submit', { sessionId: f.session.id, requestId: randomUUID(), prompt: 'Ask the current desktop question after MCP disconnect' });
+  const question = await until(() => f.engine.questions.list(f.session.id).find(value => value.runId === followup.runId && value.status === 'pending'), value => !!value);
+  assert.ok(question);
+  await f.action('question.answer', { questionId: question.id, version: question.version, answer: { optionIds: ['continue'] } });
+  assert.equal((await f.engine.waitForRun(followup.runId)).state, 'completed');
+  assert.equal(f.engine.store.getLastRunAssistantContent(followup.runId), 'The desktop fixture received the answer.');
   const reconnect = await f.action<DesktopAdvancedPreview>('mcp.preview', { id: 'fixture', transport: 'stdio', file: process.execPath, args: [server], protocolVersion: '2025-11-25' });
   await f.action('mcp.connect', { handleId: reconnect.handleId, approved: true });
   assert.equal(((await f.advanced.snapshot(f.session.id)).mcp as JsonValue[]).length, 1);
