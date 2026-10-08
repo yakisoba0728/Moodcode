@@ -20,12 +20,13 @@
     "accountBinding": "persisted credentialMode=chatgpt and exact accountId; official Responses URL and account model catalog; no stored/environment API key fallback",
     "refresh": "serialized rotating renewal; durable uncertainty marker before request; quarantine/no auto replay after failed request, crash or persistence failure",
     "logout": "revoke renewable session; erase local tokens and retain client/account mapping; report remote revocation unconfirmed on network failure",
-    "engineBoundary": "host admission hold closes prior worker before account mutation; private fresh bearer config only; renderer never receives credential fields"
+    "engineBoundary": "host admission hold closes prior worker before account mutation; private fresh bearer config only; renderer never receives credential fields",
+    "cancellation": "Owner reload/cancel aborts pending loopback, rejects after awaited JWKS/JWT verification and checks AbortSignal before atomic encrypted credential commit; late-save and held-JWKS regression fixtures verify no active account/tokens."
   },
   "verification": [
     {
       "command": "node --import ./node_modules/tsx/dist/loader.mjs --test apps/desktop/src/main/accounts.test.ts",
-      "passed": 13,
+      "passed": 15,
       "failed": 0,
       "skipped": 0,
       "boundary": "main service, signed test JWT, actual loopback, AES-GCM test storage; external OpenAI fetch fixture"

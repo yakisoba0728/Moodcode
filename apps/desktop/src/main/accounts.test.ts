@@ -17,10 +17,12 @@ class EncryptedFixture implements CredentialStorage {
   readonly key = randomBytes(32);
   available = true;
   failEncryption = false;
+  beforeEncrypt?: (value: string) => void;
   isEncryptionAvailable(): boolean { return this.available; }
   getSelectedStorageBackend(): string { return 'fixture-encrypted'; }
   encryptString(value: string): Buffer {
     if (this.failEncryption) throw new Error('private-refresh');
+    this.beforeEncrypt?.(value);
     return this.encrypt(value, randomBytes(12));
   }
   private encrypt(value: string, nonce: Buffer): Buffer {
@@ -43,13 +45,14 @@ async function fixture(t: TestContext) {
   let now = 1_800_000_000_000, authorize: URL | undefined, subject = 'fixture-subject', tokenClient = '', nonceOverride: string | undefined;
   let refreshFailure = false, revokeFailure = false, browserHeld = false, refreshCounter = 0;
   let signatureFailure = false;
+  let jwksHold: Promise<void> | undefined, releaseJwks: (() => void) | undefined, jwksRequested = false;
   const calls: { url: string; body?: URLSearchParams; authorization?: string | null }[] = [];
   const fetchFixture: typeof fetch = async (input, init) => {
     const url = String(input), body = init?.body instanceof URLSearchParams ? init.body : undefined;
     calls.push({ url, body, authorization: new Headers(init?.headers).get('Authorization') });
     if (url.endsWith('/openid-configuration')) return Response.json({ issuer: 'https://auth.openai.com', authorization_endpoint: 'https://auth.openai.com/api/accounts/authorize',
       token_endpoint: 'https://auth.openai.com/api/accounts/oauth/token', jwks_uri: 'https://auth.openai.com/.well-known/jwks.json', revocation_endpoint: 'https://auth.openai.com/api/accounts/oauth/revoke' });
-    if (url.endsWith('/jwks.json')) return Response.json({ keys: [jwk] });
+    if (url.endsWith('/jwks.json')) { jwksRequested = true; await jwksHold; return Response.json({ keys: [jwk] }); }
     if (url.endsWith('/oauth/token')) {
       if (body?.get('grant_type') === 'refresh_token') {
         refreshCounter += 1;
@@ -80,7 +83,8 @@ async function fixture(t: TestContext) {
   t.after(async () => { await accounts.close(); await rm(parent, { recursive: true, force: true }); });
   return { parent, directory, storage, accounts, options, calls, authorize: () => authorize!, advance: (ms: number) => { now += ms; },
     changeSubject: () => { subject = 'different-subject'; }, badNonce: () => { nonceOverride = 'wrong-nonce'; }, badSignature: () => { signatureFailure = true; },
-    refreshFailure: () => { refreshFailure = true; }, revokeFailure: () => { revokeFailure = true; }, holdBrowser: () => { browserHeld = true; }, refreshes: () => refreshCounter };
+    refreshFailure: () => { refreshFailure = true; }, revokeFailure: () => { revokeFailure = true; }, holdBrowser: () => { browserHeld = true; }, refreshes: () => refreshCounter,
+    holdJwks: () => { jwksHold = new Promise<void>(resolve => { releaseJwks = resolve; }); }, releaseJwks: () => releaseJwks?.(), jwksRequested: () => jwksRequested };
 }
 
 test('official loopback PKCE validates identity, stores encrypted sessions and binds Responses to account models', async t => {
@@ -191,6 +195,29 @@ test('owner reload cancels loopback auth, another owner cannot cancel it, and th
   assert.equal((await f.accounts.getView()).pending, false);
   await assert.rejects(fetch(f.authorize().searchParams.get('redirect_uri')!));
   assert.equal(f.accounts.getCredential(), undefined);
+});
+
+test('owner reload while JWKS verification is pending cannot activate or persist a late sign-in', async t => {
+  const f = await fixture(t); f.holdJwks();
+  const signIn = f.accounts.action({ action: 'sign-in' }, 'owner');
+  while (!f.jwksRequested()) await new Promise(resolve => setTimeout(resolve, 5));
+  f.accounts.cancelOwner('owner'); f.releaseJwks();
+  await assert.rejects(signIn, code('ACCOUNT_CANCELLED'));
+  assert.equal((await f.accounts.getView()).activeAccountId, undefined); assert.equal(f.accounts.getCredential(), undefined);
+  const persisted = JSON.parse(f.storage.decryptString(Buffer.from(JSON.parse(await readFile(join(f.directory, 'accounts.enc.json'), 'utf8')).encrypted, 'base64')));
+  assert.equal(persisted.accounts[0].tokens, undefined); assert.equal(persisted.accounts[0].state, 'signed-out');
+});
+
+test('cancel during encrypted credential persistence stops before the atomic file commit', async t => {
+  const f = await fixture(t); let interrupted = false;
+  f.storage.beforeEncrypt = value => {
+    if (!interrupted && value.includes('private-access-initial')) { interrupted = true; queueMicrotask(() => f.accounts.cancelOwner('owner')); }
+  };
+  await assert.rejects(f.accounts.action({ action: 'sign-in' }, 'owner'), code('ACCOUNT_CANCELLED'));
+  assert.equal(interrupted, true); assert.equal((await f.accounts.getView()).activeAccountId, undefined);
+  const persisted = JSON.parse(f.storage.decryptString(Buffer.from(JSON.parse(await readFile(join(f.directory, 'accounts.enc.json'), 'utf8')).encrypted, 'base64')));
+  assert.equal(persisted.accounts[0].tokens, undefined);
+  assert.deepEqual(await readdir(f.directory), ['accounts.enc.json']);
 });
 
 test('secure storage failure never launches a browser or writes plaintext credentials', async t => {

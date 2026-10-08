@@ -116,7 +116,7 @@ export class DesktopAccounts {
       const tokens = await this.#auth.refresh(account, account.tokens, signal);
       const next = structuredClone(this.#saved);
       Object.assign(next.accounts.find(item => item.id === account.id)!, { tokens, state: 'connected' });
-      try { await this.#vault.save(next); }
+      try { await this.#vault.save(next, signal); }
       catch (error) {
         // The rotating grant may already be consumed. Never retry the old token or enable an unpersisted replacement.
         this.#quarantined.add(account.id); delete account.tokens; account.state = 'failed'; this.#models.delete(account.id);
@@ -158,17 +158,18 @@ export class DesktopAccounts {
             if (!this.#vault.available()) accountFail('ACCOUNT_SECURE_STORAGE_REQUIRED', 'Unlock the operating system credential storage before signing in.');
             let account = input.accountId ? this.#account(input.accountId) : undefined;
             if (!account && this.#saved.accounts.length >= 16) accountFail('ACCOUNT_LIMIT', 'Remove a saved account before adding another.');
-            await this.#vault.save(this.#saved); // Persist the installation ID before opening a browser.
+            await this.#vault.save(this.#saved, pending.controller.signal); // Persist the installation ID before opening a browser.
             const authenticated = await this.#auth.signIn(this.#saved.hostId, account ? { ...account, ...(account.tokens ? { idToken: account.tokens.idToken } : {}) } : undefined,
               pending.controller.signal, async clientId => {
                 if (!account) { account = { id: randomUUID(), clientId, label: `ChatGPT account ${this.#saved.accounts.length + 1}`, state: 'signed-out' }; this.#saved.accounts.push(account); }
-                await this.#vault.save(this.#saved);
+                await this.#vault.save(this.#saved, pending.controller.signal);
               });
             await this.options.assertIdle?.();
+            if (pending.controller.signal.aborted) accountFail('ACCOUNT_CANCELLED', 'Sign-in was cancelled.');
             const next = structuredClone(this.#saved);
             Object.assign(next.accounts.find(item => item.id === account!.id)!, authenticated, { state: 'connected' });
             next.activeAccountId = account!.id;
-            await this.#vault.save(next); this.#saved = next; this.#quarantined.delete(account!.id);
+            await this.#vault.save(next, pending.controller.signal); this.#saved = next; this.#quarantined.delete(account!.id);
             await this.#vault.finishRefresh(account!.id);
             if (authenticated.tokens.scopes.includes('chatgpt.tokens.use.direct')) this.#models.set(account!.id, await this.#auth.models(authenticated.tokens, pending.controller.signal));
           } else {
@@ -177,7 +178,10 @@ export class DesktopAccounts {
               if (this.#quarantined.has(account.id) || !account.tokens || !['connected', 'expired'].includes(account.state)) accountFail('ACCOUNT_REAUTH_REQUIRED', 'Sign in again before selecting this account.');
               if (account.tokens.expiresAt <= this.#now() + 60_000) await this.#refresh(account, pending.controller.signal);
               const models = account.tokens!.scopes.includes('chatgpt.tokens.use.direct') ? await this.#auth.models(account.tokens!, pending.controller.signal) : [];
-              await this.options.assertIdle?.(); this.#saved.activeAccountId = account.id; this.#models.set(account.id, models); await this.#vault.save(this.#saved);
+              await this.options.assertIdle?.();
+              if (pending.controller.signal.aborted) accountFail('ACCOUNT_CANCELLED', 'Account selection was cancelled.');
+              const next = structuredClone(this.#saved); next.activeAccountId = account.id;
+              await this.#vault.save(next, pending.controller.signal); this.#saved = next; this.#models.set(account.id, models);
             } else if (input.action === 'refresh') {
               await this.#refresh(account, pending.controller.signal);
               if (account.tokens!.scopes.includes('chatgpt.tokens.use.direct')) this.#models.set(account.id, await this.#auth.models(account.tokens!, pending.controller.signal));

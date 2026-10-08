@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { chmod, lstat, mkdir, open, rename, unlink } from 'node:fs/promises';
+import { lstat, mkdir, open, rename, unlink } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import type { CredentialStorage } from './settings.js';
@@ -104,7 +104,9 @@ export class AccountVault {
       return await operation();
     } finally { await lock.close(); await unlink(path).catch(() => undefined); }
   }
-  async save(value: unknown): Promise<void> {
+  async save(value: unknown, signal?: AbortSignal): Promise<void> {
+    const checkCancelled = () => { if (signal?.aborted) accountFail('ACCOUNT_CANCELLED', 'The account operation was cancelled before credentials were saved.'); };
+    checkCancelled();
     if (!this.available()) accountFail('ACCOUNT_SECURE_STORAGE_REQUIRED', 'Unlock the operating system credential storage before saving accounts.');
     let temporary: string | undefined;
     try {
@@ -118,6 +120,7 @@ export class AccountVault {
       const handle = await open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
       try { await handle.chmod(0o600); await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
       if (!await this.#directoryExists() || digest(await this.#readBytes()) !== this.#digest) accountFail('ACCOUNT_FILE_CHANGED', 'Saved accounts changed before they could be saved.');
+      checkCancelled();
       await rename(temporary, this.#path); temporary = undefined; this.#digest = digest(bytes);
       let directory;
       try { directory = await open(this.#directory, constants.O_RDONLY | constants.O_NOFOLLOW); await directory.sync(); }
