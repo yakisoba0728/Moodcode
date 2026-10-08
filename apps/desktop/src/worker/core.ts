@@ -380,10 +380,13 @@ export class UtilityWorker {
     for (const subscription of subscriptions) { subscription.abort.abort(); this.#clearUpdate(subscription); }
     this.#subscriptions.clear();
     this.#closePromise = (async () => {
-      await this.#advanced?.close();
+      const failures: unknown[] = [];
+      try { await this.#advanced?.close(); } catch (error) { failures.push(error); }
       await Promise.allSettled([...this.#commands]);
-      try { await this.#engine?.close(); }
+      try { await this.#engine?.close(); } catch (error) { failures.push(error); }
       finally { await Promise.allSettled(subscriptions.map(subscription => subscription.task)); }
+      if (failures.length === 1) throw failures[0];
+      if (failures.length > 1) throw new AggregateError(failures, 'Desktop engine cleanup failed.');
     })();
     return this.#closePromise;
   }
