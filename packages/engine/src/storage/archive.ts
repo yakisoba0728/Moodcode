@@ -26,6 +26,8 @@ import { KNOWLEDGE_IMPORT_RECOVERY_TABLES, validateKnowledgeImportRecoveryDataba
 import { PROPOSAL_TABLES, validateProposalDatabase } from '../proposals/store.js';
 import { PROPOSAL_APPLY_TABLES, validateProposalApplyDatabase } from '../proposals/apply-store.js';
 import { PROPOSAL_APPLY_GUARD_TABLE, validateProposalApplyExecutionGuards } from '../proposals/execution-guards.js';
+import { TEAM_TABLES, validateTeamDatabase } from '../teams/store.js';
+import { validateTeamChildInputRelations } from '../teams/child-input-proof.js';
 import { knowledgeHash } from '../knowledge/validation.js';
 import { SqliteStore } from './index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
@@ -215,7 +217,12 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
       try { validateProposalApplyDatabase(db, check); validateProposalApplyExecutionGuards(db, check); }
       catch { fail('ARCHIVE_DATABASE_INVALID', 'Proposal apply ownership, checkpoints, artifacts or receipt proofs are invalid'); }
     }
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 17 ? [...proposalTables, ...PROPOSAL_APPLY_TABLES, PROPOSAL_APPLY_GUARD_TABLE] : proposalTables, check) };
+    const applyTables = schemaVersion >= 17 ? [...proposalTables, ...PROPOSAL_APPLY_TABLES, PROPOSAL_APPLY_GUARD_TABLE] : proposalTables;
+    if (schemaVersion >= 18) {
+      try { validateTeamDatabase(db, check); }
+      catch { fail('ARCHIVE_TEAM_INVALID', 'Team membership, mailbox, board or actual input delivery relationships are invalid'); }
+    }
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 18 ? [...applyTables, ...TEAM_TABLES] : applyTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };
@@ -392,22 +399,35 @@ function historicalHost(manifest: EngineArchiveManifest): ChildStorageHostIdenti
   return {database:{path:manifest.source.dbPath,dev:String(manifest.source.binding.db.dev),ino:String(manifest.source.binding.db.ino)},artifacts:{path:manifest.source.artifactDir,dev:String(manifest.source.binding.artifacts.dev),ino:String(manifest.source.binding.artifacts.ino)}};
 }
 type ChildIndexCollector = (record: ChildStorageRecord, index: InputDocumentIndexReport) => void;
+function requireTeamChildCoverage(primary: DatabaseSync, records: readonly ChildStorageRecord[], check: () => void): void {
+  if (databaseVersion(primary) < 18) return;
+  for (const row of primary.prepare("SELECT json_extract(data,'$.owner.childTaskId') AS task_id,json_extract(data,'$.owner.childStorageSha256') AS binding_sha FROM team_deliveries WHERE state='delivered' ORDER BY id").iterate()) {
+    check();
+    if (!records.some(record => record.binding.lineage.taskId === row.task_id && record.sha256 === row.binding_sha)) fail('ARCHIVE_TEAM_CHILD_UNCHECKED','Delivered team input requires its exact typed child audit; historical or unconfirmed child rebinding is unsupported');
+  }
+}
 function validateChildDocumentArchive(root:string,manifest:EngineArchiveManifest,frame:DocumentFrame,check:()=>void,collect?:ChildIndexCollector):void {
   const primary=sqlite(join(root,databaseFiles.primary)), readers:ReturnType<typeof openChildDocumentReader>[]=[];
   try {
     primary.exec('BEGIN');
     if (!manifest.documentAudit) {
+      requireTeamChildCoverage(primary,[],check);
       if(databaseVersion(primary)>=2 && primary.prepare("SELECT 1 FROM session_documents WHERE kind GLOB 'child.storage.*' LIMIT 1").get())fail('ARCHIVE_CHILD_AUDIT_REQUIRED','Typed child storage bindings require an explicit archive audit');
       return; // Genuine legacy bundles retain unchecked owned-child coverage.
     }
     const selected=selectArchiveChildren(primary,historicalHost(manifest),join(manifest.source.artifactDir,'children'),frame,'archive-historical',check);
     const audit=manifest.documentAudit;
+    requireTeamChildCoverage(primary,selected.records,check);
     if (canonical(selected.unchecked)!==canonical(audit.unchecked) || selected.records.length!==audit.children.length) fail('ARCHIVE_CHILD_INVALID','Child audit coverage differs from the archived root journal');
     for (const record of selected.records) {
       const item=audit.children.find(item=>item.taskId===record.binding.lineage.taskId);
       if (!item || canonical(item.record)!==canonical(record)) fail('ARCHIVE_CHILD_INVALID','Child audit record differs from its immutable root binding');
       const childDb=sqlite(join(root,item.database.file));
-      try { const actual=logicalDatabase(childDb,'primary',check); if (actual.schemaVersion!==item.database.schemaVersion || actual.logicalHash!==item.database.logicalHash) fail('ARCHIVE_CHILD_INVALID','Child logical database differs from its audited snapshot'); } finally { childDb.close(); }
+      try {
+        const actual=logicalDatabase(childDb,'primary',check); if (actual.schemaVersion!==item.database.schemaVersion || actual.logicalHash!==item.database.logicalHash) fail('ARCHIVE_CHILD_INVALID','Child logical database differs from its audited snapshot');
+        try { validateTeamChildInputRelations(primary,childDb,record,check); }
+        catch { fail('ARCHIVE_TEAM_INVALID','Team delivery receipt differs from the actual admitted child input'); }
+      } finally { childDb.close(); }
       const reader=openChildDocumentReader({mode:'archive-historical',record,archive:{database:{path:join(root,item.database.file),bytes:item.database.bytes,sha256:item.database.sha256},artifacts:{path:join(root,item.artifactPrefix)},allowedMembers:manifest.artifacts.filter(member=>member.file.startsWith(`artifacts/children/${item.taskId}/`)),artifactPrefix:item.artifactPrefix}},frame);readers.push(reader);
       const index=reader.readIndex();
       validateDocumentFiles(reader.db,join(root,item.artifactPrefix),()=>{check();reader.check();},frame,index,manifest.artifacts,item.artifactPrefix); reader.check();
@@ -583,6 +603,7 @@ export async function exportEngineArchive(options: ExportEngineArchiveOptions): 
       documentPrimary.exec('BEGIN');
       pinDocuments(validateDocumentFiles(documentPrimary,paths.artifacts,check,frame),'artifacts');
       childSelection=selectArchiveChildren(documentPrimary,{database:childStoragePhysicalIdentity(paths.db),artifacts:childStoragePhysicalIdentity(paths.artifacts,true)},join(paths.artifacts,'children'),frame,'source',check);
+      requireTeamChildCoverage(documentPrimary,childSelection.records,check);
     } finally { documentPrimary.close(); }
     const documentAudit:ArchiveDocumentAudit={version:1,coverage:childSelection.unchecked.length?'partial':'complete',primary:'verified',children:[],unchecked:childSelection.unchecked};
     const replaced=new Set<string>(),excluded=new Set<string>();
@@ -596,7 +617,14 @@ export async function exportEngineArchive(options: ExportEngineArchiveOptions): 
       await sqliteBackup(reader.db,output,{source:reader.sourceName,rate:32,progress:()=>check()});check();
       if(!sameIdentity(identity,fileInfo(output)))fail('ARCHIVE_SOURCE_CHANGED','Child backup staging identity changed');
       const captured=new DatabaseSync(output);let metadata:{schemaVersion:number;logicalHash:string};
-      try { captured.exec('PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON');metadata=logicalDatabase(captured,'primary',check); } finally {captured.close();}
+      try {
+        captured.exec('PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON');metadata=logicalDatabase(captured,'primary',check);
+        const capturedPrimary=sqlite(join(staging,databaseFiles.primary));
+        try {
+          try { validateTeamChildInputRelations(capturedPrimary,captured,record,check); }
+          catch { fail('ARCHIVE_TEAM_INVALID','Captured team receipt differs from the actual admitted child input'); }
+        } finally { capturedPrimary.close(); }
+      } finally {captured.close();}
       const durable=openSync(output,constants.O_RDONLY|(constants.O_NOFOLLOW??0));try{fsyncSync(durable);}finally{closeSync(durable);}
       const copy=stableFile(output,check),database={...copy,file:name,...metadata},artifactPrefix=`artifacts/children/${taskId}/artifacts`;
       artifacts.push({file:name,bytes:copy.bytes,sha256:copy.sha256});documentAudit.children.push({taskId,record,database,artifactPrefix});

@@ -117,7 +117,7 @@ function proposalRows(file: string) {
             table,
             db
               .prepare(
-                `SELECT * FROM ${table} ORDER BY ${db.prepare("SELECT wr FROM pragma_table_list WHERE name=?").get(table)!.wr === 1 ? "id" : "rowid"}`,
+                `SELECT * FROM ${table} ORDER BY ${db.prepare("SELECT wr FROM pragma_table_list WHERE name=?").get(table)!.wr === 1 ? db.prepare(`PRAGMA table_info(${table})`).all().filter(column => Number(column.pk) > 0).sort((a,b) => Number(a.pk)-Number(b.pk)).map(column => `"${String(column.name)}"`).join(",") : "rowid"}`,
               )
               .all(),
           ];

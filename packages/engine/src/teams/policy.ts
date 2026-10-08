@@ -1,0 +1,93 @@
+import { types } from "node:util";
+import { EngineError } from "@moodcode/contracts";
+import { immutableKnowledgeJson } from "../knowledge/validation.js";
+import type { TeamPermissions, TeamRole } from "./types.js";
+import { TEAM_LIMITS, teamDate, teamId } from "./validation.js";
+
+export function teamHostError(code = "INVALID_TEAM_HOST_INPUT"): never {
+  throw new EngineError(
+    code,
+    "Teams require original host ownership and explicit current membership",
+  );
+}
+export function teamHostObject(
+  value: unknown,
+  required: readonly string[],
+  optional: readonly string[] = [],
+): asserts value is Record<string, unknown> {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    types.isProxy(value) ||
+    Array.isArray(value) ||
+    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
+  )
+    teamHostError();
+  const fields = Object.getOwnPropertyDescriptors(value);
+  if (
+    required.some((key) => !Object.hasOwn(fields, key)) ||
+    Reflect.ownKeys(fields).some(
+      (key) =>
+        typeof key !== "string" ||
+        ![...required, ...optional].includes(key) ||
+        !fields[key]!.enumerable ||
+        !Object.hasOwn(fields[key]!, "value"),
+    )
+  )
+    teamHostError();
+}
+export function teamHostData<T>(value: T): T {
+  const result = immutableKnowledgeJson(value);
+  if (Buffer.byteLength(JSON.stringify(result)) > TEAM_LIMITS.rowBytes)
+    teamHostError("TEAM_LIMIT");
+  return result;
+}
+export function teamHostExpiry(
+  value: unknown,
+  now: number,
+  maximum = now + TEAM_LIMITS.ttlMs,
+): string {
+  const result = teamDate(value),
+    deadline = Date.parse(result);
+  if (
+    deadline <= now ||
+    deadline > maximum ||
+    deadline > now + TEAM_LIMITS.ttlMs
+  )
+    teamHostError("TEAM_EXPIRED");
+  return result;
+}
+export function teamHostPermissions(
+  role: unknown,
+  value: unknown,
+): { readonly role: TeamRole; readonly permissions: TeamPermissions } {
+  if (!["coordinator", "worker", "observer"].includes(role as string))
+    teamHostError("TEAM_PERMISSION");
+  teamHostObject(value, ["send", "receive", "claimTasks", "manageTasks"]);
+  if (
+    Object.values(value).some((item) => typeof item !== "boolean") ||
+    (role === "observer" &&
+      (value.send || value.claimTasks || value.manageTasks)) ||
+    (role !== "coordinator" && value.manageTasks)
+  )
+    teamHostError("TEAM_PERMISSION");
+  return teamHostData({
+    role: role as TeamRole,
+    permissions: value as unknown as TeamPermissions,
+  });
+}
+export function teamHostSignal(value: unknown): asserts value is AbortSignal {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    types.isProxy(value) ||
+    !(value instanceof AbortSignal)
+  )
+    teamHostError();
+}
+export function teamHostAbort(signal?: AbortSignal): void {
+  if (signal?.aborted) teamHostError("TEAM_CANCELLED");
+}
+export function teamHostIds(value: unknown, keys: readonly string[]): void {
+  for (const key of keys) teamId((value as Record<string, unknown>)[key]);
+}

@@ -7,12 +7,17 @@ import type { MoodcodeEngine, EngineOptions } from "../engine.js";
 import { createApprovedDelegationHost } from "./delegation-host.js";
 import type { DelegationHost } from "./delegation.js";
 import {
+  CHILD_STORAGE_MIRROR_KIND,
+  childStorageKind,
+  validateChildStorageRecord,
   admitChildStorageBinding,
   confirmChildStorageClosed,
   prepareChildStorageBinding,
   validateChildStorageHostIdentity,
   type ChildStorageHostIdentity,
+  type ChildStorageRecord,
 } from './storage-binding.js';
+import { ActualChildTeamBridge } from './team-bridge.js';
 import { WorktreeManager } from "../worktrees/index.js";
 import {
   ChildTaskManager,
@@ -44,6 +49,7 @@ interface Execution {
   runId: string;
   closed: boolean;
   wait: ChildRunHandle["wait"];
+  storageRecord?: ChildStorageRecord;
 }
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -52,6 +58,7 @@ const digest = (value: unknown) =>
 export class EngineChildren {
   readonly worktrees: WorktreeManager;
   readonly tasks: ChildTaskManager;
+  readonly teamBridge: ActualChildTeamBridge;
   private readonly directory: string;
   private readonly admissions = new Map<string, Admission>();
   private readonly executions = new Map<string, Execution>();
@@ -119,6 +126,22 @@ export class EngineChildren {
           return { inputId: receipt.inputId };
         },
       },
+    });
+    this.teamBridge = new ActualChildTeamBridge((rootSessionId, childTaskId) => {
+      const task = this.tasks.get(rootSessionId, childTaskId);
+      const execution = this.executions.get(childTaskId);
+      if (!execution || execution.closed || !execution.storageRecord || task.state !== 'running') throw new EngineError('TEAM_CHILD_STALE', 'Team member requires its original live admitted child engine');
+      const parent = this.parent(rootSessionId, task.parentRunId, task.parentTaskId);
+      if (this.root.store.getSessionControl(rootSessionId).paused || parent.engine.coordinator.getRunCancellationSignal(parent.run.id).aborted) throw new EngineError('TEAM_CHILD_STALE', 'Paused or cancelling parents cannot admit team input');
+      const rootRun = this.root.store.getRun(task.rootRunId);
+      this.root.coordinator.assertWorkspaceCleanupConfirmed(rootRun.workspaceId);
+      const document = this.root.store.getSessionDocument(rootSessionId, childStorageKind(childTaskId));
+      const mirror = execution.engine.store.getSessionDocument(execution.sessionId, CHILD_STORAGE_MIRROR_KIND);
+      if (!document || !mirror) throw new EngineError('TEAM_CHILD_STALE', 'Actual child storage proof is unavailable');
+      const storageRecord = validateChildStorageRecord(document.data);
+      const mirrorRecord = validateChildStorageRecord(mirror.data);
+      if (storageRecord.sha256 !== execution.storageRecord.sha256 || JSON.stringify(storageRecord.binding.hostIdentity) !== JSON.stringify(this.storageIdentity)) throw new EngineError('TEAM_CHILD_STALE', 'Child storage proof changed after actual host admission');
+      return { ...execution, task, parentRun: parent.run, rootRun, storageRecord, mirrorRecord };
     });
   }
   getStorageDirectory(): string { return this.directory; }
@@ -315,6 +338,7 @@ export class EngineChildren {
       knowledgeContextPolicy: undefined,
       proposals: false,
       proposalApply: false,
+      teams: false,
       proposalContextPolicy: undefined,
       dbPath: join(this.directory, request.task.id, "engine.sqlite"),
       artifactDir: join(this.directory, request.task.id, "artifacts"),
@@ -413,6 +437,7 @@ export class EngineChildren {
         runId: receipt.runId,
         closed: false,
         wait: undefined!,
+        ...(admittedStorage ? { storageRecord: structuredClone(admittedStorage) } : {}),
       };
       const finished = engine
         .waitForRun(receipt.runId)
@@ -467,6 +492,27 @@ export class EngineChildren {
     const execution = this.executions.get(childTaskId);
     if (!execution || execution.closed) return [];
     return execution.engine.store.listPendingRunApprovals(execution.runId);
+  }
+  /** Host-observed lifecycle metadata; a confirmed closed member has no input capability. */
+  describeTeamOwner(rootSessionId: string, childTaskId: string) {
+    const task = this.tasks.get(rootSessionId, childTaskId);
+    const execution = this.executions.get(childTaskId);
+    if (!execution?.storageRecord) throw new EngineError('TEAM_OWNER_UNAVAILABLE', 'Team ownership requires an actual admitted child in this host');
+    const document = this.root.store.getSessionDocument(rootSessionId, childStorageKind(childTaskId));
+    if (!document) throw new EngineError('TEAM_OWNER_UNAVAILABLE', 'Original child storage proof is missing');
+    const record = validateChildStorageRecord(document.data);
+    if (record.sha256 !== execution.storageRecord.sha256 || task.fingerprint !== record.binding.lineage.taskFingerprint || task.childRunId !== execution.runId || record.binding.child.runId !== execution.runId || record.binding.child.sessionId !== execution.sessionId) throw new EngineError('TEAM_OWNER_STALE', 'Child ownership changed after actual admission');
+    let cleanup: 'live' | 'confirmed' | 'unknown' = 'unknown';
+    if (execution.closed && record.confirmedClose && ['completed', 'failed', 'cancelled'].includes(task.state)) cleanup = 'confirmed';
+    else if (!execution.closed && task.state === 'running') {
+      const original = this.teamBridge.capture(rootSessionId, childTaskId);
+      this.teamBridge.release(original);
+      cleanup = 'live';
+    }
+    return { workspaceId: record.binding.child.workspaceId,
+      sessionId: execution.sessionId, runId: execution.runId, rootSessionId,
+      rootRunId: task.rootRunId, childTaskId, childTaskFingerprint: task.fingerprint,
+      childStorageSha256: record.sha256, worktreeId: task.worktreeId, cleanup };
   }
   /** The engine supplies its private effect-lock identity; callers cannot choose a workspace lease. */
   delegationHost(executionLockPath: string): DelegationHost {

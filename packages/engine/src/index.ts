@@ -136,3 +136,6 @@ export { MCP_EXECUTION_LIMITS as MCP_EXECUTION_STORAGE_LIMITS } from './storage/
 
 export type { ProposalApplyPreviewInput, ProposalApplyPreview, ApplyProposalInput, ApplyProposalResult } from './proposals/apply-service.js';
 export type { ProposalApplyOwner, ProposalApplyCheckpoint, ProposalApplyReceipt, ProposalApplyHistory, ProposalApplyRecoveryPreview, ProposalApplyRecoveryDecision } from './proposals/apply-types.js';
+export type { TeamRecord, TeamPermissions, TeamRole, TeamMemberRevision, TeamMemberOwnerProof, AgentMessage, TeamMailboxPage, TeamMailboxCursor, TeamClaimReceipt, TeamTaskRevision, TeamDeliveryRecord, TeamDeliveryReceipt, CreateTeamInput, SendAgentMessageInput, PutTeamTaskInput } from './teams/types.js';
+export type { TeamMemberPreview, PreviewTeamMemberInput, JoinTeamMemberInput, RetireTeamMemberInput } from './teams/host.js';
+export type { ReadAgentMailboxInput, ResumeChildTurnInput, ResumeChildTurnResult, TeamTaskMutationInput } from './teams/service.js';

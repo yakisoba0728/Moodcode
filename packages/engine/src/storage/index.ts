@@ -62,6 +62,8 @@ import type { ProposalBlobReference } from '../proposals/types.js';
 import { ProposalApplyStorage, hasProposalApplyBlocker, pauseImportedProposalApplies } from '../proposals/apply-store.js';
 import type { ProposalApplyStoragePorts } from '../proposals/apply-types.js';
 import { ProposalApplyExecutionGuards } from '../proposals/execution-guards.js';
+import { TeamStorage, pauseImportedTeams } from '../teams/store.js';
+import type { TeamStoragePorts } from '../teams/types.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
@@ -152,6 +154,7 @@ export class SqliteStore implements SessionEngineStore {
   private knowledgeImportRecoveryRecords?: KnowledgeImportRecoveryStorage;
   private proposalRecords?: ProposalStorage;
   private proposalApplyRecords?: ProposalApplyStorage;
+  private teamRecords?: TeamStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -596,12 +599,19 @@ export class SqliteStore implements SessionEngineStore {
     this.assertOpen(); return new ProposalApplyExecutionGuards(this.db, { ...ports,
       writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
+  createTeamStorage(ports: Omit<TeamStoragePorts, 'writeTx' | 'getWorkspace'>): TeamStorage {
+    this.assertOpen();
+    if (this.teamRecords) throw new EngineError('TEAMS_ALREADY_CONFIGURED', 'Native team storage already has an original host owner');
+    return this.teamRecords = new TeamStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
+      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+  }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
   pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string, origin?: { readonly importId: string; readonly sourcePrimaryLogicalSha256: string; readonly sourceStorageBindingSha256: string }): void {
     this.transaction(() => {
       const workspace = this.getWorkspace(workspaceId);
       pauseImportedProposals(this.db, workspaceId, archiveSha256);
       pauseImportedProposalApplies(this.db, workspaceId, archiveSha256);
+      pauseImportedTeams(this.db, workspaceId, archiveSha256);
       if (origin) {
         // Imported runtime capabilities are absent. Persist the ordinary native
         // interrupted-owner transition before pinning recovery; this performs

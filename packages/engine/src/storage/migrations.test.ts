@@ -9,6 +9,7 @@ import { SqliteStore } from './index.js';
 import { DATABASE_MIGRATIONS, databaseVersion, DB_VERSION, migrateDatabase, type DatabaseMigration } from './migrations.js';
 import { databaseContents, restoreFrozenDatabase } from './fixtures/v1-fixture.js';
 import { V1_DATABASE_FIXTURE } from './fixtures/v1-database.js';
+import { TEAM_TABLES } from '../teams/schema.js';
 
 const V1_MIGRATIONS = DATABASE_MIGRATIONS.slice(0, 1);
 const hasCode = (code: string) => (error: unknown) => error instanceof EngineError && error.code === code;
@@ -382,4 +383,29 @@ test('DB16 to DB17 installs exact host proposal effects without fabricated Run o
   assert.ok(Number(catalog)<=128,`Actual catalog ${String(catalog)} exceeds recovery bound`);
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
   const after=databaseContents(db);migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,17));assert.deepEqual(databaseContents(db),after);
+});
+
+test('DB17 to DB18 preserves all historical rows and atomically installs bounded native team ownership', t => {
+  const { db } = fixture(t);
+  db.exec('PRAGMA foreign_keys=ON');
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0,17));
+  const before = databaseContents(db);
+  const failure = [...DATABASE_MIGRATIONS.slice(0,17), { version:18, name:'intentional-v18-failure', apply(database:DatabaseSync) {
+    DATABASE_MIGRATIONS[17]!.apply(database); throw new Error('DB18 rollback');
+  } }];
+  assert.throws(() => migrateDatabase(db,failure), /DB18 rollback/u);
+  assert.deepEqual(databaseContents(db),before);
+  migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,18));
+  assert.equal(databaseVersion(db),18);
+  const after = databaseContents(db);
+  for (const entry of before.tables) assert.deepEqual(after.tables.find(row => row.name === entry.name),entry);
+  for (const table of TEAM_TABLES) {
+    assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table}`).get()!.n,0);
+    assert.equal(db.prepare("SELECT wr FROM pragma_table_list WHERE schema='main' AND name=?").get(table)!.wr,1);
+    assert.ok(db.prepare(`PRAGMA foreign_key_list(${table})`).all().every(row => !['sessions','runs','tools','checkpoints','provider_attempts'].includes(String(row.table))));
+  }
+  assert.equal(db.prepare("SELECT count(*) AS n FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'").get()!.n,128);
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+  migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,18));
+  assert.deepEqual(databaseContents(db),after);
 });

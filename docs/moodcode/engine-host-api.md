@@ -176,3 +176,11 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 `knowledgeFilePublication:true`에서 `previewWorkspaceKnowledgeFilePublication` / `previewWorkspaceKnowledgeFileRevocation`의 원본 preview를 `publishWorkspaceKnowledgeFile` / `revokeWorkspaceKnowledgeFile`에 `approved:true`와 함께 전달한다. 일반 파일과 정확한 skill 경로의 실제 처리, native revision/CAS, 영수증 중복 제거, 불확실 상태·원본 작업 종료 대기와 별도 ACK/resume를 제공한다. 각 API와 16 KiB 지원 범위, 공통 잠금·외부 writer의 한계는 [파일 게시 계약](engine-phase-two-file-publication.md)을 따른다. Import의 역사적 조회는 파일 적용 권한을 복원하지 않는다.
 
 `diagnosticObservations: true`는 실제 원본 도구 실행의 물리 source 관측과 DB14 실행 이력을 활성화한다. 기본값은 off이며 `diagnosticSourceLimits`는 한도를 낮추기만 한다. 조회는 과거의 bounded 증거를 반환하며 현재 파일·남은 live budget·복구·작업 성공의 권한을 발급하지 않는다. `getCodingEvidence(..., {includeSummary:true})`의 요약은 결정적인 metadata 추출로 provider/tool/token 비용이 0이며 LLM distillation은 구현하지 않았다. 기존 `getAttemptManifest`의 host-declared source 계약은 유지한다. [실제 진단 경계와 API](engine-phase-two-native-diagnostics.md)를 따른다.
+
+## 팀 membership·메일박스·작업 board
+
+`teams:true`에서 host는 `createTeam`, 원본 `previewTeamMember` → `joinTeamMember({approved:true})`, `retireTeamMember`를 사용한다. 실제 root/child owner·member revision/generation·선택 역할·권한·expiry를 native 저장과 대조한다. child 엔진에는 팀 생성 권한을 상속하지 않는다.
+
+`sendAgentMessage`는 메시지와 중복 제거 영수증을 먼저 저장한다. `readAgentMailbox`의 원본 페이지를 `claimAgentMailbox`에 전달하면 cursor CAS와 claim 영수증을 저장한다. `resumeChildTurn({approved:true,page,expectedCursorRevision,...})`은 원본 페이지를 실제 살아 있는 child의 현재 Run에 steer 입력으로 수락하고 root delivery 영수증을 남긴다. 승인 대기 효과·동일 Turn retry는 바뀌지 않으며 종료된 child의 새 Run 생성과 예산 갱신은 제공하지 않는다. DB 사이의 crash는 uncertain으로 보존하고 자동 재전송하지 않는다.
+
+`putTeamTask`, `claimTeamTask`, `completeTeamTask`는 정확한 역할·의존성·작업 owner와 head CAS를 사용한다. 효과 기능이 꺼져 있어도 `getTeam`, `getTeamMember`, `listTeamMembers`, `getTeamTask`, `listTeamTasks`, `getTeamDelivery`로 bounded 이력을 조회할 수 있다. Import는 paused-import 이력만 보존한다. 메시지4KiB·전체 페이지64KiB·팀당32멤버/128작업, 실제 child-input archive 증명과 미지원 범위는 [팀 엔진 계약](engine-phase-two-teams.md)을 따른다. 모델 도구와 terminal 상주 재개는 후속 구현이다.

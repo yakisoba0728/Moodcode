@@ -56,7 +56,7 @@ export function databaseContents(db: DatabaseSync) {
     applicationId: db.prepare('PRAGMA application_id').get()?.application_id,
     schema,
     tables: schema.filter(row => row.type === 'table').map(row => ({
-      name: row.name, rows: db.prepare(`SELECT * FROM "${String(row.name)}" ORDER BY ${/WITHOUT\s+ROWID/iu.test(String(row.sql)) ? 'id' : 'rowid'}`).all(),
+      name: row.name, rows: db.prepare(`SELECT * FROM "${String(row.name)}" ORDER BY ${/WITHOUT\s+ROWID/iu.test(String(row.sql)) ? db.prepare(`PRAGMA table_info("${String(row.name)}")`).all().filter(column => Number(column.pk) > 0).sort((a,b) => Number(a.pk)-Number(b.pk)).map(column => `"${String(column.name)}"`).join(',') : 'rowid'}`).all(),
     })),
   };
 }

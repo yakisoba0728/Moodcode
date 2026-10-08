@@ -84,6 +84,11 @@ import { McpClient, registerMcp, type McpRegistration } from './mcp/index.js';
 import { AgentProfiles, type AgentProfileSpec } from './agents/index.js';
 import { TerminalService, SqliteTerminalJournal, type PtyBackend } from './terminals/index.js';
 import { EngineChildren, type EngineChildRequest } from './child-tasks/engine-host.js';
+import { EngineTeamOwners } from './teams/engine-owners.js';
+import { TeamHostService } from './teams/host.js';
+import { TeamService } from './teams/service.js';
+import type { TeamStorage } from './teams/store.js';
+import type { ChildTeamTarget, ChildTeamInputEvidence } from './child-tasks/team-bridge.js';
 import type { ChildStorageHostIdentity } from './child-tasks/storage-binding.js';
 import type { ChildTaskManager, ChildTaskRecord } from './child-tasks/index.js';
 import type { WorktreeManager } from './worktrees/index.js';
@@ -169,6 +174,8 @@ export interface EngineOptions {
   proposals?: boolean;
   /** Separate exact-approved idle host file application. */
   proposalApply?: boolean;
+  /** Explicit host team membership, native mailbox/board and current child input delivery. */
+  teams?: boolean;
   /** Exact host-selected pending proposals projected as read-only model data. */
   proposalContextPolicy?: ProposalContextPolicy;
   /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
@@ -352,6 +359,10 @@ export class MoodcodeEngine {
   private readonly proposalApplyGuards: ProposalApplyExecutionGuards;
   private readonly proposalApplyCleanups = new WeakMap<object, { capture: ProposalApplyCapture; proof: ProposalApplyCleanup }>();
   private readonly proposalApplyRecoveryPreviews = new WeakMap<object, string>();
+  private readonly teamsEnabled: boolean;
+  private readonly teamRecords: TeamStorage;
+  private readonly teamHost: TeamHostService;
+  private readonly teamService: TeamService;
   private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
   private readonly verificationHost: VerificationHostService;
   private readonly verificationEnabled: boolean;
@@ -404,6 +415,8 @@ export class MoodcodeEngine {
     if (options.knowledgeImportRecovery !== undefined && typeof options.knowledgeImportRecovery !== 'boolean') throw new EngineError('INVALID_CONFIG', 'knowledgeImportRecovery must be an explicit boolean');
     this.knowledgeImportRecoveryEnabled = options.knowledgeImportRecovery === true;
     if (options.proposals !== undefined && typeof options.proposals !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposals must be an explicit boolean');
+    if (options.teams !== undefined && typeof options.teams !== 'boolean') throw new EngineError('INVALID_CONFIG', 'teams must be an explicit boolean');
+    this.teamsEnabled = options.teams === true;
     this.proposalsEnabled = options.proposals === true;
     if (options.proposalApply !== undefined && typeof options.proposalApply !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposalApply must be an explicit boolean');
     this.proposalApplyEnabled = options.proposalApply === true;
@@ -608,6 +621,47 @@ export class MoodcodeEngine {
       this.formatters = new FormatterRegistry();
       this.changes = new WorkspaceChangeHub({ signal: this.hostResources.signal });
       this.children = new EngineChildren(this, { ...options, ...(repositoryPolicy ? { repositoryContextPolicy: repositoryPolicy } : {}), ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value), storageBinding);
+      const teamOwners = new EngineTeamOwners(this);
+      this.teamRecords = this.store.createTeamStorage({ checkBinding: knowledgeBinding,
+        readMemberOwner: original => this.teamHost.readMemberOwner(original),
+        assertMemberOwnerCurrent: (original, member) => this.teamHost.assertMemberOwnerCurrent(original,member),
+        assertRecipientCurrent: member => this.teamHost.assertRecipientCurrent(member),
+        readAcceptedInput: (capture, original) => this.teamService.readAcceptedInput(capture,original) });
+      this.teamHost = new TeamHostService({ native: this.teamRecords, owner: teamOwners });
+      const nativeTeams = this.teamRecords;
+      this.teamService = new TeamService({ host: this.teamHost, native: {
+        findSendRequest: input => nativeTeams.findSendRequest(input),
+        findOperationRequest: (...args) => nativeTeams.findOperationRequest(...args),
+        getMember: (...args) => nativeTeams.getMember(...args),
+        send: (...args) => nativeTeams.send(...args),
+        readMailbox: (...args) => nativeTeams.readMailbox(...args),
+        claimMailbox: (...args) => nativeTeams.claimMailbox(...args),
+        releasePage: page => nativeTeams.releasePage(page),
+        putTask: (...args) => nativeTeams.putTask(...args),
+        claimTask: (...args) => nativeTeams.claimTask(...args),
+        completeTask: (...args) => nativeTeams.completeTask(...args),
+        prepareDelivery: (...args) => nativeTeams.prepareDelivery(...args),
+        dispatchDelivery: capture => nativeTeams.dispatchDelivery(capture),
+        completeDelivery: (...args) => nativeTeams.completeDelivery(...args),
+        cancelDelivery: capture => { nativeTeams.cancelDelivery(capture); },
+        releaseDelivery: capture => nativeTeams.releaseDelivery(capture),
+        getDeliveryHistory: (workspaceId,id) => this.store.readExecutionObservationEvidence(() => {
+          const record = nativeTeams.getDelivery(workspaceId,id);
+          return record ? { record, receipt: nativeTeams.getDeliveryReceipt(workspaceId,id) ?? null } : undefined;
+        }),
+      }, input: {
+        capture: (sessionId,taskId) => this.children.teamBridge.capture(sessionId,taskId),
+        readTarget: original => this.children.teamBridge.readTarget(original as ChildTeamTarget),
+        assertCurrent: original => this.children.teamBridge.assertCurrent(original as ChildTeamTarget),
+        accept: (original,input) => this.children.teamBridge.accept(original as ChildTeamTarget,input),
+        readAccepted: (original,accepted) => {
+          const proof = this.children.teamBridge.readAccepted(original as ChildTeamTarget,accepted as ChildTeamInputEvidence);
+          return { sessionId: proof.childSessionId, runId: proof.childRunId, inputId: proof.inputId,
+            requestId: proof.requestId, inputSha256: proof.inputSha256, admittedSeq: proof.admittedSeq, delivery: 'steer' };
+        },
+        release: original => this.children.teamBridge.release(original as ChildTeamTarget),
+      } });
+      this.teamRecords.recoverInterruptedDeliveries();
       terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
@@ -1375,6 +1429,32 @@ export class MoodcodeEngine {
     return this.store.readExecutionObservationEvidence(() => this.knowledgeImports.getActivation(workspaceId, documentKey));
   }
 
+  private assertTeamsEnabled(): void {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    if (!this.teamsEnabled) throw new EngineError('TEAMS_DISABLED', 'Teams require explicit host opt-in');
+  }
+  createTeam(input: Parameters<TeamHostService['createTeam']>[0]) { this.assertTeamsEnabled(); return this.teamHost.createTeam(input); }
+  previewTeamMember(input: Parameters<TeamHostService['previewMember']>[0]) { this.assertTeamsEnabled(); return this.teamHost.previewMember(input); }
+  joinTeamMember(input: Parameters<TeamHostService['joinMember']>[0]) { this.assertTeamsEnabled(); return this.teamHost.joinMember(input); }
+  retireTeamMember(input: Parameters<TeamHostService['retireMember']>[0]) { this.assertTeamsEnabled(); return this.teamHost.retireMember(input); }
+  releaseTeamMemberPreview(input: Parameters<TeamHostService['releasePreview']>[0]): void { this.teamHost.releasePreview(input); }
+  sendAgentMessage(input: Parameters<TeamService['sendAgentMessage']>[0]) { this.assertTeamsEnabled(); return this.teamService.sendAgentMessage(input); }
+  readAgentMailbox(input: Parameters<TeamService['readAgentMailbox']>[0]) { this.assertTeamsEnabled(); return this.teamService.readAgentMailbox(input); }
+  claimAgentMailbox(input: Parameters<TeamService['claimAgentMailbox']>[0]) { this.assertTeamsEnabled(); return this.teamService.claimAgentMailbox(input); }
+  releaseAgentMailboxPage(input: Parameters<TeamService['releasePage']>[0]): void { this.teamService.releasePage(input); }
+  putTeamTask(input: Parameters<TeamService['putTeamTask']>[0]) { this.assertTeamsEnabled(); return this.teamService.putTeamTask(input); }
+  claimTeamTask(input: Parameters<TeamService['claimTeamTask']>[0]) { this.assertTeamsEnabled(); return this.teamService.claimTeamTask(input); }
+  completeTeamTask(input: Parameters<TeamService['completeTeamTask']>[0]) { this.assertTeamsEnabled(); return this.teamService.completeTeamTask(input); }
+  resumeChildTurn(input: Parameters<TeamService['resumeChildTurn']>[0]) { this.assertTeamsEnabled(); return this.teamService.resumeChildTurn(input); }
+  getTeam(workspaceId: string,teamId: string) { if(this.closing) throw new EngineError('ENGINE_CLOSED','Engine is closing'); return this.store.readExecutionObservationEvidence(() => this.teamRecords.getTeam(workspaceId,teamId)); }
+  getTeamMember(workspaceId: string,teamId: string,memberId: string) { if(this.closing) throw new EngineError('ENGINE_CLOSED','Engine is closing'); return this.store.readExecutionObservationEvidence(() => this.teamRecords.getMember(workspaceId,teamId,memberId)); }
+  listTeamMembers(workspaceId: string,teamId: string,limit?: number) { if(this.closing) throw new EngineError('ENGINE_CLOSED','Engine is closing'); return this.store.readExecutionObservationEvidence(() => this.teamRecords.listMembers(workspaceId,teamId,limit)); }
+  getTeamTask(workspaceId: string,teamId: string,taskId: string) { if(this.closing) throw new EngineError('ENGINE_CLOSED','Engine is closing'); return this.store.readExecutionObservationEvidence(() => this.teamRecords.getTask(workspaceId,teamId,taskId)); }
+  listTeamTasks(workspaceId: string,teamId: string,limit?: number) { if(this.closing) throw new EngineError('ENGINE_CLOSED','Engine is closing'); return this.store.readExecutionObservationEvidence(() => this.teamRecords.listTasks(workspaceId,teamId,limit)); }
+  getTeamDelivery(workspaceId: string,id: string) { if(this.closing) throw new EngineError('ENGINE_CLOSED','Engine is closing'); return this.store.readExecutionObservationEvidence(() => {
+    const record=this.teamRecords.getDelivery(workspaceId,id); return record ? {record,receipt:this.teamRecords.getDeliveryReceipt(workspaceId,id) ?? null} : undefined;
+  }); }
+
   createProposalSet(input: CreateProposalSetInput) {
     try {
       if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
@@ -1855,6 +1935,8 @@ export class MoodcodeEngine {
       try {
         this.hostResources.abort();
         this.questions.close();
+        this.teamService.close();
+        this.teamHost.close();
         // Both calls synchronously stop admissions before either awaits active work.
         const outcomes = await Promise.allSettled([this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');

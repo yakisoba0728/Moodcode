@@ -4,8 +4,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { migrateDatabase, DATABASE_MIGRATIONS, DB_VERSION } from '../storage/migrations.js';
 import { checkDatabase, RECOVERY_LIMITS } from './snapshot.js';
 
-function fixture(t: test.TestContext) {
-  const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys=ON'); migrateDatabase(db); t.after(() => db.close());
+function fixture(t: test.TestContext, version = DB_VERSION) {
+  const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys=ON'); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, version)); t.after(() => db.close());
   const tables = db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*' ORDER BY name").all().map(row => String(row.name));
   return { db, tables };
 }
@@ -22,8 +22,11 @@ test('excessive schema metadata remains bounded even with empty data and an othe
   assert.throws(() => checkDatabase(db, DB_VERSION, tables, () => {}), { code: 'RECOVERY_LIMIT_EXCEEDED' });
 });
 test('an unexpected table below the schema count cap cannot become trusted archive/recovery metadata', t => {
-  const { db, tables } = fixture(t); db.exec('CREATE TABLE authored_foreign_metadata(value TEXT)');
-  assert.throws(() => checkDatabase(db, DB_VERSION, tables, () => {}), { code: 'RECOVERY_DATABASE_INVALID' });
+  const version = DB_VERSION - 1;
+  const { db, tables } = fixture(t, version); db.exec('CREATE TABLE authored_foreign_metadata(value TEXT)');
+  const count = Number(db.prepare("SELECT count(*) AS count FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'").get()!.count);
+  assert.ok(count <= RECOVERY_LIMITS.maxSchemaEntries);
+  assert.throws(() => checkDatabase(db, version, tables, () => {}), { code: 'RECOVERY_DATABASE_INVALID' });
 });
 test('frozen empty DB12 logical hash retains its exact historical schema and row digest', t => {
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys=ON'); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 12)); t.after(() => db.close());

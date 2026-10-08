@@ -6,7 +6,7 @@
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
   "completedFamilies": 7,
-  "completedWorkItems": 28,
+  "completedWorkItems": 30,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -262,33 +262,46 @@
       "title": "상주 child·팀 mailbox·board",
       "priority": "P2",
       "wave": "W4",
-      "status": "pending",
+      "status": "in_progress",
       "workItems": [
         {
           "id": "MC2-06a",
           "completion": "membership/owner 상태와 permission/expiry 규칙",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-teams.md",
+            "engine-phase-two-teams-verification.json"
+          ]
         },
         {
           "id": "MC2-06b",
           "completion": "send/read/claim port와 bounded queue. 제안 초기 mailbox page64KiB·message4KiB",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-teams.md",
+            "engine-phase-two-teams-verification.json"
+          ]
         },
         {
           "id": "MC2-06c",
           "completion": "child continuation/input scheduler 연결. 승인 대기 중 메시지가 이미 준비된 효과를 바꾸지 않음",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-teams.md",
+            "engine-phase-two-teams-verification.json"
+          ]
         },
         {
           "id": "MC2-06d",
           "completion": "send/read/owner 충돌·overflow·terminal member·parent cancel·crash/reopen 검사. 미확정 효과가 있는 child의 wake/owner 재사용 금지",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-teams.md",
+            "engine-phase-two-teams-verification.json"
+          ]
         }
-      ]
+      ],
+      "notes": "DB18 native immutable team/member/task revisions, CAS heads, exact selected alias permissions/generation/expiry, durable bounded mailbox/receipts/cursors, actual recipient-current checks and readonly history complete MC2-06a/b. Original host-approved current live child Run steer admission, safe InputScheduler promotion and four genuine SIGKILL boundaries provide c/d groundwork. Execution-wide alias uncertainty and actual audited child input/Run/request proof are validated; import pauses without rebind/wake. Final typecheck0, engine3973/3971pass/0fail/2existingWindows skips, broad source660pass and authored fixture3pass; 39 frozen sources unchanged. MC2-06c/d remain in progress for actor-bound model tools, terminal resident continuation, imported activation and explicit uncertain delivery ACK/resume. Primary-only metadata does not prove unavailable child inputs, and imported historical re-export can lack exact typed child coverage."
     },
     {
       "id": "MC2-07",
