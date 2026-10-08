@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "responses_pdf subagent",
+  "reviewedAt": "2026-10-09",
+  "workItem": "E5-13-independent-Anthropic-review",
+  "status": "findings-fixed-and-independently-verified",
+  "sourcePins": {
+    "packages/engine/src/provider/anthropic.ts": "91e54d5c3f5782659e188030ccb75841b6e5d6ec89e2c0eab4417d8bfafb8079",
+    "scripts/verify-provider-coverage-anthropic.mjs": "741c93d59b199b5e66b0b5e7e646937ebf81c294ec6e0f0303d0298232bfaf9f",
+    "scripts/verify-provider-coverage-anthropic.test.mjs": "3b1f23d5988c74bd592adc1e95653fa5821e5262da9184f084bae7e767b259d6"
+  },
+  "validation": {
+    "command": "node --import ./node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 packages/engine/src/provider/anthropic.test.ts scripts/verify-provider-coverage-anthropic.test.mjs",
+    "tests": 66,
+    "pass": 66,
+    "fail": 0,
+    "skip": 0,
+    "durationMs": 6507.049541,
+    "liveRequests": 0,
+    "builds": 0,
+    "qualification": "Actual source Engine/provider/SQLite, authored native tools, injected and loopback streams; no account credit"
+  },
+  "confirmed": [
+    "Provider cleanup reorder cancels the owned reader before controller abort and preserves HTTP rejection status",
+    "Native local HTTP401 returns PROVIDER_HTTP_ERROR, exact request count and confirmed iterator cleanup, without remote body leakage",
+    "Provider terminal validates all tool arguments/replay and closes reader before exposing executable proposals",
+    "Tool-use run has two actual attempts, one native read_file record, matching Part and exact protocol/model/provider-bound native replay on second wire",
+    "File nonce is absent from initial plaintext wire and returned answer must match exact nonce",
+    "Fresh image session transports exact native PNG SHA and matches actual color order",
+    "PNG fixture pixels and CRCs are independently checked; answer-bearing metadata is absent",
+    "Native usage is positive for every successful attempt; missing usage rejects completion credit",
+    "Truncated SSE preserves incomplete-stream error with no tool effects",
+    "Mismatched text/image responses remain failed native-verification cases",
+    "Exact duplicate Input preserves native identity and makes zero requests",
+    "Forced Engine.close failure revokes success and retains native evidence",
+    "Callable Anthropic lane always reports accountVerified false; central executor owns account attribution",
+    "Rejected response body cancellation resolves/rejects/times out through a bounded actual cancel; nonconfirmation preserves native CLEANUP_UNCERTAIN",
+    "Central host-capture CLEANUP_UNCERTAIN survives provider sanitization and retains native quarantine",
+    "Cleanup regression is registered once at top level rather than once per fixture invocation"
+  ],
+  "findings": [
+    {
+      "id": "E513-ANTHROPIC-VERIFY-CLEANUP-01",
+      "priority": "P2",
+      "status": "fixed-independently-verified",
+      "path": "scripts/verify-provider-coverage-anthropic.mjs",
+      "area": "captureFetch real-remote response qualification",
+      "trigger": "Actual transport returns an owned Response but redirected/url-origin qualification rejects it before captureFetch returns it to the adapter",
+      "impact": "Verifier throws VERIFY_ENDPOINT_INVALID without cancelling the response body; adapter never receives the Response and may report confirmed cleanup although the verifier lost the received body",
+      "requestedFix": "Bound cancellation of the rejected response body before throwing; retain cleanup uncertainty if cancellation cannot be confirmed",
+      "requestedValidation": "Use an injected response with a tracked body and invalid origin/redirect qualifier, plus a non-cooperative cancellation case; verify actual cancel and no account eligibility",
+      "introducedByCleanupReorder": false,
+      "resolution": "Anthropic writer added bounded cancelReceivedBody, native wrapper error preservation and confirmed/rejected/unjoinable actual body cancellation fixtures; independent final focused suite passes",
+      "originalSourceSha256": "ea7edb046bf0b1ae6e74dec372f5b4301499cba4b468137f11c86b5f50b5b4d7"
+    },
+    {
+      "id": "E513-ANTHROPIC-VERIFY-TEST-01",
+      "priority": "P3",
+      "status": "fixed-independently-verified",
+      "path": "scripts/verify-provider-coverage-anthropic.test.mjs",
+      "trigger": "Host-capture uncertainty test was initially registered inside fixture()",
+      "impact": "One scenario ran redundantly as seven nested tests, inflating counts and coupling fixture setup to test registration",
+      "resolution": "Writer moved the same scenario to top level; final independent provider/lane suite counts 66 with no removed assertions or skipped scenarios"
+    }
+  ],
+  "limits": [
+    "Actual Anthropic account is externally blocked by missing approved credential according to central progress",
+    "Review does not authorize wider media/model/account support",
+    "Only omitted adaptive thinking replay is in the finite native lane; public summarized reasoning and live cancel remain explicit remaining scopes",
+    "Central source/runtime pin and direct official transport qualifications require separate central evidence",
+    "No other writer files were edited"
+  ],
+  "pdfFirstFailurePreservation": {
+    "report": "docs/moodcode/next-provider-pdf-live.json",
+    "sha256": "0a86b1bcfdeb9e0bbe6cb8f91bff8381720e5a841af4380bb7d5845f41dc7309",
+    "verifiedUnchangedAfterCorrectiveSourceEdits": true,
+    "state": "failed",
+    "originalFailure": "VERIFY_PDF_RECOGNITION_MISMATCH",
+    "nativeErrorCode": null,
+    "nativeState": "completed",
+    "observedTextBytes": 16,
+    "accountVerified": false,
+    "interpretation": "Exact semantics failed despite HTTP200/nativecompletion/positiveusage/confirmedcleanup; prefix omission cannot be concluded from the retained hashes and16-byte length",
+    "correctiveSourcePins": {
+      "scripts/verify-provider-coverage-pdf.mjs": "7bc281d21c3409aae8f2a8641c0f5b3945a5a3a4d0250b61aadc027b32943c4e",
+      "scripts/verify-provider-coverage-pdf.test.mjs": "17f6e4cfc285735a158292eb401449919191d74128c63d996d6296b46cb69a5a"
+    },
+    "correctiveTest": {
+      "tests": 21,
+      "pass": 21,
+      "fail": 0,
+      "skip": 0,
+      "durationMs": 6795.711334
+    },
+    "reviewScope": "Independent read/hash confirmation of central first-probe artifact; PDF corrective implementation/test author is the same subagent, not an independent reviewer of its own change",
+    "liveRequestsByReviewer": 0
+  }
+}

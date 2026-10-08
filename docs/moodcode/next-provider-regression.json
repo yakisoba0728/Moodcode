@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-whole-regression-failure-record",
+  "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "whole": {
+    "total": 4728,
+    "pass": 4720,
+    "fail": 6,
+    "skip": 2,
+    "cancelled": 0,
+    "durationMs": 522577.816792,
+    "log": "artifacts/next-provider-whole.log",
+    "logSha256": "76855a71e7290bdd16017db677600106e407e07f3fd3a3b99aa809a8acab8b54"
+  },
+  "failures": [
+    {
+      "test": "effect-batches after-write SIGKILL",
+      "error": "Unexpected end of JSON input while reading ready.json",
+      "causeEvidence": "Fixture uses writeFileSync directly to published ready.json; parent waits for exists then JSON.parse before write completes. Original stack confirms empty/truncated JSON at consumer, before recovery assertions.",
+      "scope": "Unmodified original fixture source, no provider executes in child",
+      "proposedPatch": "docs/moodcode/next-provider-root-fixture-ready.patch",
+      "sourceWriter": "Root; detached only, not applied in this provider session",
+      "status": "atomic publication correction pending Root review"
+    },
+    {
+      "test": "Native TS7 lifecycle+corpus+actual Moodcode callsites (3)",
+      "error": "Native TypeScript executable must be a canonical ordinary file",
+      "causeEvidence": "Initial isolated dependency namespace symlink made supplied absolute executable path differ from realpath.",
+      "correction": "Copied exact installed @typescript/typescript-darwin-arm64 7.0.2 into ordinary isolated worktree files. No product/test/skip/assertion change.",
+      "validation": "artifacts/next-provider-ts7-corrected.log:5/5 pass0skip"
+    },
+    {
+      "test": "actual provider consumes approved stdio MCP under kernel restriction",
+      "error": "Run failed instead of completed",
+      "status": "Unmodified targeted module passed; first whole failure reason remains unqualified (no original native error captured in assertion)."
+    },
+    {
+      "test": "widening strips arbitrary host environment",
+      "error": "env-effect missing after native command",
+      "status": "Unmodified targeted module passed; first whole missing output remains preserved."
+    }
+  ],
+  "testConditionsWeakened": false,
+  "wholeAcceptanceClaimed": false,
+  "historicalBaselineAcceptanceChanged": false,
+  "targeted": {
+    "ts7": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skip": 0,
+      "log": "artifacts/next-provider-ts7-corrected.log"
+    },
+    "crashAndSandbox": {
+      "tests": 17,
+      "pass": 17,
+      "fail": 0,
+      "skip": 0,
+      "log": "artifacts/next-provider-whole-failure-targeted.log"
+    }
+  }
+}

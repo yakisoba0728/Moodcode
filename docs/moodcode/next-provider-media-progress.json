@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "scope": "E5-13 additional exact media model and detached public coverage",
+  "goal": "Implement one bounded gpt-4.1-2025-04-14 Responses AVI frame lane, retain source-qualified historical audio evidence, expose desktop capability/evidence without granting support, and independently review central account qualification.",
+  "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "implementationStatus": "complete-local-validation",
+  "commitOwner": "parent next-provider session",
+  "actualAccountStatus": "parent-executed-selected-media-account-verified-independent-native-review",
+  "selectedScope": {
+    "modelId": "gpt-4.1-2025-04-14",
+    "protocol": "openai-responses",
+    "wireProtocol": "responses",
+    "inputMime": "video/x-msvideo",
+    "decoder": "avi-rgb24-v1",
+    "probe": "rgb24-128px-v1",
+    "wireMime": "image/png",
+    "frames": 3,
+    "timestampsMs": [
+      0,
+      500,
+      1000
+    ],
+    "maxGenerationRequests": 1,
+    "maxAttemptsPerTurn": 1,
+    "nativeVideoTransport": false,
+    "tokenCost": null
+  },
+  "ownedPaths": [
+    "packages/engine/src/provider/coverage.ts",
+    "packages/engine/src/provider/coverage.test.ts",
+    "scripts/verify-provider-coverage-media.mjs",
+    "scripts/verify-provider-coverage-media.test.mjs",
+    "docs/moodcode/next-provider-media.md",
+    "docs/moodcode/next-provider-media-progress.json",
+    "docs/moodcode/next-provider-media-independent-review.json"
+  ],
+  "validation": {
+    "wrapper": {
+      "command": "node --test scripts/verify-provider-coverage-media.test.mjs",
+      "tests": 29,
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0
+    },
+    "coverage": {
+      "command": "node --import tsx --test packages/engine/src/provider/coverage.test.ts",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    },
+    "localHttpGenerationsInFinalWrapperRun": 1,
+    "credentialReadsInLocalHttpRun": 0,
+    "accountCallsBySubagent": 0,
+    "modelsGetBySubagent": 0,
+    "buildsBySubagent": 0,
+    "subprocessLimitsMs": {
+      "deadline": 90000,
+      "sigtermJoin": 1000,
+      "sigkillJoin": 1000
+    },
+    "realSigtermIgnoringChildKilledAndJoined": true,
+    "forcedExitNativeCleanupAndRequestTotalRemainUnknown": true,
+    "sourceFrozenChildProof": "verified by test assertions; wrapper validates returned source/runtime/native proof, without treating local transport as account evidence"
+  },
+  "officialSources": [
+    "https://developers.openai.com/api/docs/models/gpt-4.1",
+    "https://developers.openai.com/api/docs/guides/images-vision",
+    "https://developers.openai.com/api/docs/guides/audio-chat-completions",
+    "https://developers.openai.com/api/docs/models/gpt-audio-mini",
+    "https://developers.openai.com/api/docs/deprecations"
+  ],
+  "preservedBoundaries": [
+    "Historical gpt-audio-1.5 success and failures retain original source/runtime/account qualification",
+    "No extra audio target: official gpt-audio-mini documentation declares streaming unsupported",
+    "Unknown media/document token cost and unknown model limits remain null",
+    "No native video transport or generalized model minimum/recognition reliability claim",
+    "No TODO/README/engine/contracts/shared build changes by subagent",
+    "Root whole4723/4721pass/0fail/skip2 and hosted6lane acceptance retained as prior qualified evidence"
+  ],
+  "remainingParentWork": [
+    "Final compiled type/build and combined provider tests",
+    "Preserve original failures and source/runtime/account references in aggregate progress",
+    "Commit and remote CI validation"
+  ],
+  "actualMediaAccount": {
+    "path": "docs/moodcode/next-provider-media-live.json",
+    "reportSha256": "f411895945608f9e1576691f0a4d0baec3bb3f1f8c55811df5f48dd4fad9d6e6",
+    "modelId": "gpt-4.1-2025-04-14",
+    "actualGenerationRequests": 1,
+    "accountVerified": true,
+    "cleanupConfirmed": true,
+    "currentWholeSourceMatches": false,
+    "currentCompiledRuntimeMatches": true,
+    "verifiedCommit": "pending parent source-qualified commit",
+    "initialAuditWholeSourceMatch": true,
+    "currentMediaRelevantSourceMatches": true,
+    "currentWholeSourceMediaAccountExecuted": false,
+    "narrowContinuityReviewPath": "docs/moodcode/next-provider-media-independent-review.json"
+  },
+  "finalSourceQualificationReview": "docs/moodcode/next-provider-media-independent-review.json",
+  "currentWholeSourceSha256": "21b660123cafa3d067ae908503db697c356f138d84d9f33efc0005fe4f17d22a",
+  "independentlyReviewedPdfCorrectiveReport": "docs/moodcode/next-provider-pdf-corrective-live.json"
+}

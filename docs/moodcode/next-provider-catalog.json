@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "kind": "official-account-model-inventory",
+  "observedAt": "2026-10-08T21:17:01.687Z",
+  "credentialReference": "approved root .env.local:OPENAI_API_KEY",
+  "endpoint": "https://api.openai.com/v1/models",
+  "inventoryRequests": 1,
+  "generationRequests": 0,
+  "selectedModels": [
+    "gpt-4.1-mini-2025-04-14",
+    "gpt-4.1-2025-04-14",
+    "gpt-audio-1.5",
+    "gpt-audio-mini"
+  ],
+  "status": 200,
+  "models": [
+    {
+      "id": "gpt-4.1-mini-2025-04-14",
+      "present": true
+    },
+    {
+      "id": "gpt-4.1-2025-04-14",
+      "present": true
+    },
+    {
+      "id": "gpt-audio-1.5",
+      "present": true
+    },
+    {
+      "id": "gpt-audio-mini",
+      "present": true
+    }
+  ],
+  "accountIdentityClaimed": false,
+  "listedModelCount": 150
+}

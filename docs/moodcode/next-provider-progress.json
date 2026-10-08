@@ -1,0 +1,210 @@
+{
+  "schemaVersion": 1,
+  "workItem": "E5-13",
+  "goal": "Finite provider/multimodal implementation and source/account/runtime-qualified verification",
+  "status": "active",
+  "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "branch": "codex/next-provider-e513",
+  "worktree": "/Users/yakisoba0728/.codex/worktrees/next-provider-e513/Moodcode",
+  "scope": [
+    "Existing Anthropic text/tool/replay/usage/image native verification",
+    "Existing bounded standard Responses PDF native remote verification",
+    "One additional officially declared Responses image model consuming existing bounded AVI-to-PNG frames",
+    "Detached public support and qualified verification projection"
+  ],
+  "writers": {
+    "anthropic": "anthropic agent",
+    "responses/pdf": "responses_pdf agent",
+    "media/coverage": "media_review agent",
+    "central verifier/progress/exports/integration": "parent"
+  },
+  "credentialPresence": {
+    "OPENAI_API_KEY": {
+      "present": true,
+      "reference": "approved root .env.local:OPENAI_API_KEY"
+    },
+    "ANTHROPIC_API_KEY": {
+      "present": false,
+      "reference": "process + approved root .env.local"
+    }
+  },
+  "validation": {
+    "local": "Second full regression with unchanged concurrency4 and corrected canonical native TypeScript dependency in progress; first entire result retained. Final provider/script focused in progress.",
+    "liveGenerationRequests": 3,
+    "modelInventoryRequests": 1,
+    "sourceRuntimeQualification": "pending",
+    "hostedCI": "baseline six lanes preserved; new branch pending",
+    "modelCatalog": "docs/moodcode/next-provider-catalog.json",
+    "wholeOriginalLog": "artifacts/next-provider-whole.log",
+    "liveReports": [
+      "docs/moodcode/next-provider-pdf-live.json",
+      "docs/moodcode/next-provider-media-live.json"
+    ],
+    "liveSummary": {
+      "pdfFirst": {
+        "requests": 1,
+        "status": 200,
+        "nativeState": "completed",
+        "semanticMatch": false,
+        "accountVerified": false,
+        "failure": "VERIFY_PDF_RECOGNITION_MISMATCH",
+        "cleanupConfirmed": true,
+        "unchangedSourceRuntime": true,
+        "originalReport": "docs/moodcode/next-provider-pdf-live.json"
+      },
+      "pdfCorrective": {
+        "requests": 1,
+        "status": 200,
+        "nativeState": "completed",
+        "semanticMatch": true,
+        "accountVerified": true,
+        "cleanupConfirmed": true,
+        "duplicateRequests": 0,
+        "restartArchiveRequests": 0,
+        "unchangedSourceRuntime": true,
+        "report": "docs/moodcode/next-provider-pdf-corrective-live.json"
+      },
+      "media": {
+        "modelId": "gpt-4.1-2025-04-14",
+        "requests": 1,
+        "status": 200,
+        "nativeState": "completed",
+        "semanticMatch": true,
+        "accountVerified": true,
+        "cleanupConfirmed": true,
+        "duplicateRequests": 0,
+        "restartArchiveRequests": 0,
+        "unchangedSourceRuntime": true,
+        "report": "docs/moodcode/next-provider-media-live.json"
+      },
+      "anthropic": {
+        "requests": 0,
+        "accountVerified": false,
+        "condition": "No approved credential",
+        "report": "docs/moodcode/next-provider-anthropic-external.json"
+      }
+    },
+    "liveRequestLedger": "docs/moodcode/next-provider-request-ledger.json",
+    "focused": {
+      "tests": 525,
+      "pass": 525,
+      "fail": 0,
+      "skip": 0,
+      "log": "artifacts/next-provider-provider-focused.log"
+    },
+    "typecheck": {
+      "exitCode": 0,
+      "log": "artifacts/next-provider-typecheck.log"
+    },
+    "compiledCLI": {
+      "tests": 78,
+      "pass": 78,
+      "fail": 0,
+      "skip": 0,
+      "log": "artifacts/next-provider-cli-compiled.log"
+    },
+    "independentActualEvidence": "docs/moodcode/next-provider-media-independent-review.json",
+    "secondWholeObservedFailures": [
+      "Original code-mode parent cancellation fixture",
+      "Original commit source drift fixture"
+    ],
+    "secondWholeAcceptanceClaimed": false
+  },
+  "externalConditions": [
+    {
+      "scope": "Anthropic actual account",
+      "condition": "No approved Anthropic API key present",
+      "release": "Host supplies official Anthropic key and selects exact model; finite native lane passes",
+      "completed": false
+    }
+  ],
+  "preserved": [
+    "Baseline local whole4723/4721pass/0fail/skip2",
+    "Baseline actual hosted six lanes",
+    "Historical media failures and model-specific qualification",
+    "Native ownership/source/budget/approval/cancel/unknown/no-replay/cleanup contracts"
+  ],
+  "excluded": [
+    "Root TODO.md and README",
+    "Shared main checkout modifications",
+    "New arbitrary URL fetching",
+    "Unsupported audio stream model inference",
+    "GUI/auth/Windows/signing"
+  ],
+  "commits": [],
+  "firstSupport": [
+    {
+      "lane": "pdf",
+      "provider": "OpenAI standard Responses",
+      "modelId": "gpt-4.1-mini-2025-04-14",
+      "mime": "application/pdf",
+      "nativeWire": "input_file.file_data from immutable native bytes",
+      "maxGenerationRequests": 1,
+      "accountVerified": true,
+      "tokenCost": null,
+      "unknownTokenCostOptIn": "Engine and adapter both required",
+      "authentication": "host-injected official API key",
+      "source": "https://developers.openai.com/api/docs/guides/file-inputs",
+      "evidence": "docs/moodcode/next-provider-pdf-corrective-live.json",
+      "nativeRemoteWireVerified": true,
+      "exactRecognitionVerified": true,
+      "historicalFailure": "docs/moodcode/next-provider-pdf-live.json"
+    },
+    {
+      "lane": "media",
+      "provider": "OpenAI standard Responses",
+      "modelId": "gpt-4.1-2025-04-14",
+      "mime": "video/x-msvideo",
+      "nativeWire": "bounded RGB24 AVI decoded to timestamped PNG input_image frames",
+      "maxGenerationRequests": 1,
+      "accountVerified": true,
+      "tokenCost": null,
+      "unknownTokenCostOptIn": "explicit host acceptance required",
+      "authentication": "host-injected official API key",
+      "source": "https://developers.openai.com/api/docs/models/gpt-4.1",
+      "evidence": "docs/moodcode/next-provider-media-live.json"
+    },
+    {
+      "lane": "anthropic",
+      "provider": "Anthropic Messages",
+      "modelId": "claude-sonnet-5-5",
+      "mime": [
+        "text/plain",
+        "image/png"
+      ],
+      "nativeWire": "Messages text/image/tool-use + exact native replay",
+      "maxGenerationRequests": 3,
+      "accountVerified": false,
+      "authentication": "host-injected official API key; key absent",
+      "source": "https://platform.claude.com/docs/en/models/overview"
+    }
+  ],
+  "desktopConsumer": {
+    "publicExport": "@moodcode/engine.describeProviderCoverage",
+    "liveResults": [
+      "docs/moodcode/next-provider-pdf-corrective-live.json",
+      "docs/moodcode/next-provider-media-live.json",
+      "docs/moodcode/next-provider-anthropic-external.json"
+    ],
+    "supportDoesNotGrantRuntimeCapability": true,
+    "capabilityConjunction": "adapter + exact ModelSpec + explicit unknown token policy",
+    "accountQualification": "per-invocation opaque credential selection + exact source/runtime/protocol/model; no persistent identity or credential value exposed",
+    "credentialFieldsInRenderer": false,
+    "credentialRotation": "Do not reuse old verification on another credential; persistent account binding must be implemented by host account registry.",
+    "persistentAccountIdentityClaimed": false
+  },
+  "updatedAt": "2026-10-09 Asia/Seoul",
+  "pending": [
+    "Second whole regression completion and original failure evidence",
+    "Commit/push + actual hosted six-lane CI"
+  ],
+  "rootIntegrationNotice": {
+    "mainCommit": "ad8a02f",
+    "rootHostedRun": "37846389194",
+    "historicalRootHostedStatus": "DB contract6/6 and Linux/Windows4 lanes passed; macOS2 lanes failed existing fixture timing/publication races",
+    "rootCorrections": "Root owns deterministic clock for harness wall50ms + atomic READY publication; do not weaken original assertions/timeouts/unknown/no-replay",
+    "matchingOwnFailure": "First whole after-write ready.json exists-before-full-write JSON.parse failure matches Root source diagnosis",
+    "ownDetachedPatch": "docs/moodcode/next-provider-root-fixture-ready.patch (historical proposal; Root implements actual correction)",
+    "rootCorrectionCombinedRetest": "Pending exact Root correction commit; current provider source/API scopes frozen."
+  }
+}

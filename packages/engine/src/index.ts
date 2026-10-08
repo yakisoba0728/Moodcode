@@ -53,6 +53,8 @@ export * from './permission/preflight.js';
 export * from './permission/decision-receipts.js';
 export { ScriptedProvider, OpenAICompatibleProvider, ResponsesProvider } from './provider/index.js';
 export type { ScriptedTurn, OpenAICompatibleProviderOptions, ResponsesProviderOptions } from './provider/index.js';
+export { describeProviderCoverage, PROVIDER_COVERAGE_FEATURES } from './provider/coverage.js';
+export type { ProviderCoverageEvidence, ProviderCoverageQualification, ProviderCoverageOptions, ProviderCoverage, ProviderFeatureCoverage, ProviderCoverageVerification, ProviderCoverageFeature } from './provider/coverage.js';
 export { CodexProvider, createCodexProvider, type CodexProviderOptions } from './provider/codex.js';
 export { getCodexAuthStatus, getCodexModelCatalog, type CodexModelMetadata, type CodexAuthStatus, type CodexAuthOptions } from './auth/codex.js';
 export { loadConfig } from './config/index.js';

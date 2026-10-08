@@ -1,0 +1,26 @@
+--- a/packages/engine/src/effect-batches/fixtures/crash.ts
++++ b/packages/engine/src/effect-batches/fixtures/crash.ts
+@@ -1,5 +1,5 @@
+ import fs from "node:fs/promises";
+-import { writeFileSync } from "node:fs";
++import { renameSync, writeFileSync } from "node:fs";
+ import { join } from "node:path";
+ import { batchFixture, until } from "./batch.js";
+ import type { EffectBatchRecord } from "../types.js";
+@@ -21,7 +21,7 @@
+   if (stopped) return;
+   stopped = true;
+   writeFileSync(
+-    join(directory!, "ready.json"),
++    join(directory!, "ready.json.tmp"),
+     JSON.stringify({
+       pid: process.pid,
+       workspaceId: f.workspace.id,
+@@ -31,6 +31,7 @@
+       runId: receipt.runId,
+     }),
+   );
++  renameSync(join(directory!, "ready.json.tmp"), join(directory!, "ready.json"));
+   process.kill(process.pid, "SIGSTOP");
+ }
+ const save = f.engine.store.writeEffectBatch.bind(f.engine.store);
