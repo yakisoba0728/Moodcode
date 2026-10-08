@@ -948,6 +948,7 @@ export class RunCoordinator implements CoordinatorPort {
       this.assertLive(owner);
       if (owner.catalogue) this.options.toolRuntime!.assertCatalogueCurrent(owner.catalogue);
       if (this.options.getContextRevisionId?.(owner.run.sessionId) !== contextRevisionId) throw new EngineError('CONTEXT_REVISION_STALE', 'Context changed during source freshness validation');
+      this.options.beforeProviderDispatch?.(owner.run);
       iterator = owner.turn!.stream(provider, request, owner.abort.signal)[Symbol.asyncIterator]();
       while (true) {
         const item = await abortable(() => iterator!.next(), owner.abort.signal, 'Provider stream');

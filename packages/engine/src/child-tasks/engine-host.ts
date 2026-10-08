@@ -441,6 +441,7 @@ export class EngineChildren {
       teams: false,
       teamModelTools: false,
       workflows: false,
+      schedules: false,
       proposalContextPolicy: undefined,
       dbPath: join(this.directory, request.task.id, "engine.sqlite"),
       artifactDir: join(this.directory, request.task.id, "artifacts"),

@@ -194,3 +194,11 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 `workflows:true`에서 `registerWorkflow`, 원본 `previewWorkflowStart` → `startWorkflow({approved:true})`, 명시적 `startWorkflowStage({approved:true})`와 `observeWorkflowStage`를 사용한다. 실제 live parent·profile/model/catalogue·예산·관리 worktree를 고정하고, 기존 child admission을 통해 별도 readonly planner/advisory-reviewer를 실행한다. 관찰 취소는 child를 재실행하지 않으며 나중에 원본 결과를 다시 관찰할 수 있다.
 
 `getWorkflow`와 `inspectWorkflow`는 기능이 꺼져 있어도 bounded 이력을 조회한다. DB19 revision/head/receipt와 stage join은 native CAS를 사용한다. 재시작은 unfinished stage를 uncertain으로, import는 paused-import로 보존하며 자동 dispatch·parent delivery·승인 merge를 수행하지 않는다. Editor/validator 효과 실행과 role/model escalation은 후속 구현이다. [워크플로 계약과 검증 범위](engine-phase-two-workflows.md)를 따른다.
+
+## 예약·webhook 입력 admission
+
+`schedules:true`에서 `captureScheduleTarget` → `readScheduleTarget` → `registerSchedule`로 원본 실제 Root 대상과 고정 설정을 등록한다. `captureScheduleWorker`와 `acquireSchedulerLease`는 Root 수명과 native lease를 별도로 고정한다. `previewScheduleDue` → `advanceScheduleDue`는 실제 시계로 계산한 원본 batch의 cursor와 occurrence를 한 거래에 보존한다. 인증된 외부 webhook은 `previewScheduleWebhook` → `acceptScheduleTrigger`로 bounded 비신뢰 데이터를 입력한다.
+
+`claimScheduleOccurrence`의 원본 claim을 `dispatchScheduleOccurrence({approved:true})`에 전달하면 durable intent 뒤 기존 `InputScheduler.accept`를 한 번 호출한다. 원본 `captureScheduleOccurrenceObservation` → `observeScheduleOccurrence`는 accepted/promoted/terminal 상태와 실제 native 입력·Run·측정 usage를 관찰한다. `abandonScheduleOccurrence`는 실행 전 claim 취소 또는 이미 시작된 intent의 uncertainty를 보존하며 효과를 다시 실행하지 않는다. Disable/lease expiry는 이전 입력이나 Run을 취소하지 않는다.
+
+`getSchedule`, `inspectSchedules`, `inspectScheduleOccurrences`, `getSchedulerLease`는 기능이 꺼져 있어도 이력을 조회한다. `releaseScheduleHandle`로 원본 Root/native handle을 해제한다. 재시작의 receipt gap은 uncertain이며 명시적 관찰 없이 일반 session resume으로 우회하지 못한다. Import는 disabled/paused-import이고, queue promotion과 모든 실제 provider 호출 직전에 고정 대상의 현재 설정을 확인한다. [예약 엔진 계약](engine-phase-two-schedules.md)을 따른다.

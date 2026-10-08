@@ -65,6 +65,7 @@ import { ProposalApplyExecutionGuards } from '../proposals/execution-guards.js';
 import { TeamStorage, pauseImportedTeams } from '../teams/store.js';
 import type { TeamStoragePorts } from '../teams/types.js';
 import { WorkflowStorage, markImportedWorkflowsPaused, type WorkflowStoragePorts } from '../workflows/store.js';
+import { ScheduleStorage, markImportedSchedulesDisabled, type ScheduleStoragePorts } from '../schedules/store.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
@@ -157,6 +158,7 @@ export class SqliteStore implements SessionEngineStore {
   private proposalApplyRecords?: ProposalApplyStorage;
   private teamRecords?: TeamStorage;
   private workflowRecords?: WorkflowStorage;
+  private scheduleRecords?: ScheduleStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -613,6 +615,12 @@ export class SqliteStore implements SessionEngineStore {
     return this.workflowRecords = new WorkflowStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
       writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
+  createScheduleStorage(ports: Omit<ScheduleStoragePorts, 'writeTx' | 'getWorkspace'>): ScheduleStorage {
+    this.assertOpen();
+    if (this.scheduleRecords) throw new EngineError('SCHEDULES_ALREADY_CONFIGURED', 'Native schedules already have an original root owner');
+    return this.scheduleRecords = new ScheduleStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
+      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+  }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
   pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string, origin?: { readonly importId: string; readonly sourcePrimaryLogicalSha256: string; readonly sourceStorageBindingSha256: string }): void {
     this.transaction(() => {
@@ -621,6 +629,7 @@ export class SqliteStore implements SessionEngineStore {
       pauseImportedProposalApplies(this.db, workspaceId, archiveSha256);
       pauseImportedTeams(this.db, workspaceId, archiveSha256);
       markImportedWorkflowsPaused(this.db, archiveSha256, workspaceId);
+      markImportedSchedulesDisabled(this.db, archiveSha256, workspaceId);
       if (origin) {
         // Imported runtime capabilities are absent. Persist the ordinary native
         // interrupted-owner transition before pinning recovery; this performs

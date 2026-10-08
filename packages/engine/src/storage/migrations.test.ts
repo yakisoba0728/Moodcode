@@ -410,6 +410,31 @@ test('DB18 to DB19 installs native workflows with atomic rollback and preserves 
   assert.deepEqual(databaseContents(db),after);
 });
 
+test('DB19 to DB20 installs schedule revisions without changing historical workflow rows', t => {
+  const { db } = fixture(t);
+  db.exec('PRAGMA foreign_keys=ON');
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0,19));
+  const before = databaseContents(db);
+  const failure = [...DATABASE_MIGRATIONS.slice(0,19), { version:20, name:'intentional-v20-failure', apply(database:DatabaseSync) {
+    DATABASE_MIGRATIONS[19]!.apply(database); throw new Error('DB20 rollback');
+  } }];
+  assert.throws(() => migrateDatabase(db,failure), /DB20 rollback/u);
+  assert.deepEqual(databaseContents(db),before);
+  migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,20));
+  assert.equal(databaseVersion(db),20);
+  const after = databaseContents(db);
+  for (const entry of before.tables) assert.deepEqual(after.tables.find(row => row.name === entry.name),entry);
+  for (const table of ['schedule_revisions','schedule_heads']) {
+    assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table}`).get()!.n,0);
+    assert.equal(db.prepare("SELECT wr FROM pragma_table_list WHERE schema='main' AND name=?").get(table)!.wr,1);
+    assert.equal(db.prepare("SELECT strict FROM pragma_table_list WHERE schema='main' AND name=?").get(table)!.strict,1);
+  }
+  assert.equal(db.prepare("SELECT count(*) AS n FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'").get()!.n,132);
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+  migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,20));
+  assert.deepEqual(databaseContents(db),after);
+});
+
 test('DB17 to DB18 preserves all historical rows and atomically installs bounded native team ownership', t => {
   const { db } = fixture(t);
   db.exec('PRAGMA foreign_keys=ON');

@@ -29,6 +29,8 @@ import { PROPOSAL_APPLY_GUARD_TABLE, validateProposalApplyExecutionGuards } from
 import { TEAM_TABLES, validateTeamDatabase } from '../teams/store.js';
 import { WORKFLOW_TABLES } from '../workflows/schema.js';
 import { validateWorkflowDatabase } from '../workflows/store.js';
+import { SCHEDULE_TABLES } from '../schedules/schema.js';
+import { validateScheduleDatabase } from '../schedules/store.js';
 import { validateTeamChildInputRelations } from '../teams/child-input-proof.js';
 import { knowledgeHash } from '../knowledge/validation.js';
 import { SqliteStore } from './index.js';
@@ -229,7 +231,12 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
       try { validateWorkflowDatabase(db, { check }); }
       catch { fail('ARCHIVE_WORKFLOW_INVALID', 'Archived workflow revisions, native stage ownership or transition receipts are invalid'); }
     }
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 19 ? [...teamTables, ...WORKFLOW_TABLES] : teamTables, check) };
+    const workflowTables = schemaVersion >= 19 ? [...teamTables, ...WORKFLOW_TABLES] : teamTables;
+    if (schemaVersion >= 20) {
+      try { validateScheduleDatabase(db, { check }); }
+      catch { fail('ARCHIVE_SCHEDULE_INVALID', 'Archived schedule revisions, occurrence ownership or actual input relationships are invalid'); }
+    }
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 20 ? [...workflowTables, ...SCHEDULE_TABLES] : workflowTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

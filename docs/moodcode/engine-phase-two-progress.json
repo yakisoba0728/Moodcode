@@ -5,8 +5,8 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 7,
-  "completedWorkItems": 32,
+  "completedFamilies": 8,
+  "completedWorkItems": 36,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -362,33 +362,46 @@
       "title": "예약·webhook occurrence admission",
       "priority": "P2",
       "wave": "W5",
-      "status": "pending",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-08a",
           "completion": "schedule/trigger/disabled import 및 capability/profile/workspace pin",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-schedules.md",
+            "engine-phase-two-schedules-verification.json"
+          ]
         },
         {
           "id": "MC2-08b",
           "completion": "due occurrence 계산·claim/lease·dedupe·global/per-schedule cap",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-schedules.md",
+            "engine-phase-two-schedules-verification.json"
+          ]
         },
         {
           "id": "MC2-08c",
           "completion": "occurrence를 input.accept에 연결하고 accepted/promoted/terminal receipt 보존. disable과 실행 중 Run cancel 구분",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-schedules.md",
+            "engine-phase-two-schedules-verification.json"
+          ]
         },
         {
           "id": "MC2-08d",
           "completion": "두 scheduler 동시 claim·accept 전후 crash·lease 상실·시간대/수정·workspace quarantine 검사. owner/cleanup 증거 없이 효과 재실행 금지",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-schedules.md",
+            "engine-phase-two-schedules-verification.json"
+          ]
         }
-      ]
+      ],
+      "notes": "Explicit root-host scheduled/webhook input admission with native durable cursor/materialization, immutable revisions/CAS/dedupe, original worker/target/lease/claim producer authority and actual InputScheduler/Run/measurement receipts is integrated. Queue promotion and each actual provider entry recheck exact historical normalized config/profile/catalogue/physical pins. Native graph forgery, concurrent claims, lease loss, SIGKILL acceptance gaps, uncertainty without effect replay, archive disabled/paused import and DB19→20 are verified. Autonomous polling/webhook listener/authentication/notification remain host integrations; disable or lease expiry does not cancel accepted input or prove remote cleanup."
     },
     {
       "id": "MC2-09",

@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "stage": "MC2-08a/b/c/d native scheduled input admission",
+  "status": "passed",
+  "recordedAt": "2026-10-08T03:22:29.654Z",
+  "parentCommit": "6d0f708cbe63c06b9ba2f9e06ea4a7634163e385",
+  "implementationIdentity": "28 implementation/test sources frozen before final typecheck, compiled full engine, broad direct-source and coding fixtures; verified unchanged after all gates. MC09 remains design-only until this commit.",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "newTests": 45,
+  "primaryDatabaseVersion": 20,
+  "actualSqliteSchemaRows": 132,
+  "recoveryCatalogueRowCap": 160,
+  "checks": [
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-schedule-type-final.log",
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "engine",
+      "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-schedule-engine-final.log",
+      "logSha256": "8c52e7dd20eac0ae361b614358a4015ff215a727338626f50bf675eaa015bc87",
+      "tests": 4095,
+      "pass": 4093,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0,
+      "durationMs": 168810.666458
+    },
+    {
+      "kind": "source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=4 packages/engine/src/schedules/*.test.ts packages/engine/src/workflows/*.test.ts packages/engine/src/teams/*.test.ts packages/engine/src/child-tasks/*.test.ts packages/engine/src/proposals/*.test.ts packages/engine/src/lifecycle/*.test.ts packages/engine/src/permission/*role-resources*.test.ts packages/engine/src/recovery/*.test.ts packages/engine/src/storage/migrations.test.ts packages/engine/src/storage/archive.test.ts packages/engine/src/storage/v1-compatibility.test.ts packages/engine/src/storage/child-storage-owner-crash-review.test.ts packages/engine/src/integration/children.integration.test.ts packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts packages/engine/src/runner/coordinator.test.ts packages/engine/src/runner/native-execution.test.ts",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-schedule-source-final.log",
+      "logSha256": "9738e3af5a4338446ec6ca4696ef472d50c5e4e8ed3a67b64685268ad2aab0e5",
+      "tests": 782,
+      "pass": 782,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 26349.696208
+    },
+    {
+      "kind": "fixtures",
+      "command": "node scripts/evaluate-engine.mjs",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-schedule-eval-final.log",
+      "logSha256": "e827994021c23324dcec334d79b57f92bf6836b351be3b050aaeb02e4a0c2f76",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "liveProviderCalls": 0
+    }
+  ],
+  "sourceHashes": {
+    "packages/engine/src/child-tasks/engine-host.ts": "82041b3e6318860dc95bb81c089c0468e2e2b439cf8ecbdb8c8ddc9f894443da",
+    "packages/engine/src/engine.ts": "fd29c57137dde8867a91fdd1b0ecf69cd85aaafa59f050ae2a6354a8b3f6a7d8",
+    "packages/engine/src/index.ts": "f106e1ed343d1bd34e4532543b2624d6cc7db6be9f8e6755e17959a875ccf0ca",
+    "packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts": "13a5d4ed9b1d09296e0036648aeb7af9794a86c4a6f7c5e9098b6211372e8c97",
+    "packages/engine/src/ports.ts": "0d2d0c7fcc468c4caa02f3b472095fb4d7c34202c3d84bdd41b53b3cafe7dadc",
+    "packages/engine/src/recovery/index.ts": "e9594e9e45664bcb4d795e97f06f5b33e7cc9ad7cac8ff9b3a10991fc36c9f84",
+    "packages/engine/src/runner/index.ts": "d444307b107026ab1b0db3f6f268600e679fd949499d822611784ec9a3080f7c",
+    "packages/engine/src/runner/input-scheduler.ts": "5df073f59c5b96f2b167c2a68a1d90bde818ad21435caf6cebbe6144ee51ff78",
+    "packages/engine/src/schedules/dispatcher.ts": "ed0abae462055f1d414236fc375f70d81b86f290e345f39933bdf59cd743bb1a",
+    "packages/engine/src/schedules/engine-producer.ts": "90046987069b285bb0d5feeab6a4d42ba70adf3966de306270217d33c20bddbc",
+    "packages/engine/src/schedules/engine-schedules.integration.test.ts": "82adff5324feb3a12e1228fca063f15bbea816493ebe50d6fbce1952cd4c12b2",
+    "packages/engine/src/schedules/fixtures/boundary-schedule.ts": "18c064164d1181bcc3417b3af5fc81400dd6b6be7ed14c19f99ab9c8fe0a8665",
+    "packages/engine/src/schedules/fixtures/crash-schedule.ts": "9d71dfa67cf5841adfc89282bd3a55616734fc2a3e7ac81bfd6515f3248ebdd6",
+    "packages/engine/src/schedules/fixtures/schedule.ts": "d482d184c565155249020109b2c39dd3b73060b02dc7d0e5ca93a4f1483c1112",
+    "packages/engine/src/schedules/host.ts": "0fcc80be52925858074a0434c2be02c896cadd83425329374734b8267a33d308",
+    "packages/engine/src/schedules/native-graph.integration.test.ts": "731b07b8bb068dd2b1ef9af47ffae8af4691fc0504dc7384254d97e7e72c2c01",
+    "packages/engine/src/schedules/occurrences.ts": "8c723f9a16d29a9018094f28ea68cf4471f1acaff6139b0057e197887e8e04fa",
+    "packages/engine/src/schedules/producer-boundaries.integration.test.ts": "d2b6bb96f521f8240fb0eff6239082f362f5dc7fcbf4bce2a37d5575bdaa9963",
+    "packages/engine/src/schedules/schema.ts": "f17dba83498382812750ab6c5f68babe5d25f94742259c3e5c3e9ade63032728",
+    "packages/engine/src/schedules/spec.test.ts": "3373394b833c8f91a12f6ef60a49cd23535c4b092d1753f755595e753701be6d",
+    "packages/engine/src/schedules/spec.ts": "82ea75193d81a74aa6e417bffba2fe8c44f024e4700fadafa6b36c8590ce0f39",
+    "packages/engine/src/schedules/store.test.ts": "5836087751875764713a276c512503bd59f39449a8d92b96e41aa54d150b71fc",
+    "packages/engine/src/schedules/store.ts": "180b1be325f3d33890a84a99094e4b9acf05010d7d48135449b60f9abc87bc90",
+    "packages/engine/src/schedules/types.ts": "34db64426e1b232d782b19aafb5c21ae6a9b5a2e5db9325e0140eece9995f5e7",
+    "packages/engine/src/storage/archive.ts": "d52f706893662dafbd92420f1f52657654b5dab4dfe2658fe7e306cbbccb1d30",
+    "packages/engine/src/storage/index.ts": "d33332e043420089e5c7b309879336377b7f526ea9b6c6cc4c8dea11544dfa9f",
+    "packages/engine/src/storage/migrations.test.ts": "3f90ad8a94a1cd98f2611a8e19f58008434db372619d2b9e6f8601fdbaaccac0",
+    "packages/engine/src/storage/migrations.ts": "83bebadf2191dfb4f7cdfbd51fdea853675e66a98148b129440e2c5214869291"
+  },
+  "coverage": [
+    "Bounded absolute/daily/webhook schema, IANA timezone and DST fold/gap rules, bounded catch-up/latest/skip, original due producer with monotonic persisted cursor and one atomic materialization transaction.",
+    "Actual Engine root physical workspace/database/artifact binding, exact normalized profile/provider/config/budget/catalogue pins and original worker/target/trigger/lease/claim capabilities; serialized metadata restores no authority.",
+    "Native two-table immutable revisions, exact request dedupe before fresh producers, revision CAS, global32 definitions/512 occurrences and per-schedule concurrency1..8, metadata bounds and replay validation against actual Input/Run/worker graph.",
+    "Two scheduler contenders and stale leases/targets fail before dispatch. Native intent precedes one actual queue-only InputScheduler.accept call; original native acceptance and observation receipts retain accepted/promoted/terminal state.",
+    "Actual SIGKILL before/after acceptance, uncertain restart with no automatic replay, explicit original observation reconciliation, default-off quarantine/promotion checks and paused-import disabled schedules.",
+    "Current exact historical pins rechecked immediately before queue promotion and provider entry after all awaited context checks. Already accepted inputs remain pinned despite disable/expiry; profile/tool/physical drift cannot bypass them using normal session resume.",
+    "Actual measured coordinator usage or null after restart; cleanup confirmation is distinct from accepted/promoted/terminal state. False rehashed terminal results and authentic foreign-worker relinks fail native semantic replay.",
+    "DB19 to DB20 rollback, STRICT/WITHOUT ROWID and FK checks, historical workflow preservation and actual132-row catalogue within cap160."
+  ],
+  "integrationRepairs": [
+    "Hash only exact four-dimensional allocation and the same fully normalized Run configuration body.",
+    "Place synchronous schedule pin guard after every awaited per-Attempt context check, immediately before actual provider entry.",
+    "Preserve raw schedule prompt at acceptance and compare the actual formatted stored prompt at observation; prevent double formatting.",
+    "Use actual coordinator measured usage rather than a nonexistent Run.usage property.",
+    "Reject rehashed queued/completed state forgery, false pending terminal receipts and foreign-worker native relinks.",
+    "Use bounded metadata lookup for ordinary queue inputs and receipt-gap detection; avoid cloning full prompt bodies and materializing all occurrences.",
+    "Correct the stale MC2-03 TODO checkbox to its existing completed native file/skill/import evidence without increasing the completion count."
+  ],
+  "limitations": [
+    "Explicit root-host admission layer only: no autonomous polling daemon, network webhook listener, webhook authentication service or notification delivery. Host must authenticate external triggers before calling trusted capture.",
+    "Disable and lease expiry fence new dispatch and do not prove cancellation or termination of accepted input or Run. Imported history carries no restored runtime capabilities.",
+    "Live credentials/providers, GUI, push/deploy and additional Windows claims remain outside this verification.",
+    "MC2-06c/d, MC2-07c/d and MC2-09/10/13..20 continue under the original active80-item goal; four separate environment debts remain unchanged."
+  ],
+  "progress": {
+    "completedWorkItems": 36,
+    "totalWorkItems": 80,
+    "completedFamilies": 8,
+    "totalFamilies": 20,
+    "goalStatus": "active"
+  }
+}

@@ -93,6 +93,10 @@ import { EngineWorkflowOwners } from './workflows/engine-owner.js';
 import { WorkflowHost } from './workflows/host.js';
 import { WorkflowService } from './workflows/service.js';
 import type { WorkflowStorage } from './workflows/store.js';
+import { EngineScheduleProducer } from './schedules/engine-producer.js';
+import { ScheduleHost } from './schedules/host.js';
+import { ScheduleDispatcher } from './schedules/dispatcher.js';
+import type { ScheduleStorage } from './schedules/store.js';
 import { TeamHostService } from './teams/host.js';
 import { TeamService } from './teams/service.js';
 import type { TeamStorage } from './teams/store.js';
@@ -188,6 +192,8 @@ export interface EngineOptions {
   teamModelTools?: boolean;
   /** Explicit host workflow orchestration through isolated actual child executions. */
   workflows?: boolean;
+  /** Explicit root lifetime and durable queue-only scheduled input admission. */
+  schedules?: boolean;
   /** Exact host-selected pending proposals projected as read-only model data. */
   proposalContextPolicy?: ProposalContextPolicy;
   /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
@@ -382,6 +388,10 @@ export class MoodcodeEngine {
   private readonly workflowRecords: WorkflowStorage;
   private readonly workflowHost: WorkflowHost;
   private readonly workflowService: WorkflowService;
+  private readonly schedulesEnabled: boolean;
+  private readonly scheduleRecords: ScheduleStorage;
+  private readonly scheduleProducer: EngineScheduleProducer;
+  private readonly scheduleDispatcher: ScheduleDispatcher;
   private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
   private readonly verificationHost: VerificationHostService;
   private readonly verificationEnabled: boolean;
@@ -440,6 +450,8 @@ export class MoodcodeEngine {
     this.teamModelToolsEnabled = options.teamModelTools === true;
     if (options.workflows !== undefined && typeof options.workflows !== 'boolean') throw new EngineError('INVALID_CONFIG', 'workflows must be an explicit boolean');
     this.workflowsEnabled = options.workflows === true;
+    if (options.schedules !== undefined && typeof options.schedules !== 'boolean') throw new EngineError('INVALID_CONFIG', 'schedules must be an explicit boolean');
+    this.schedulesEnabled = options.schedules === true;
     if (this.teamModelToolsEnabled && !this.teamsEnabled) throw new EngineError('INVALID_CONFIG', 'Model team tools require explicit host teams');
     this.proposalsEnabled = options.proposals === true;
     if (options.proposalApply !== undefined && typeof options.proposalApply !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposalApply must be an explicit boolean');
@@ -896,6 +908,7 @@ export class MoodcodeEngine {
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
       this.coordinator = new RunCoordinator({
+        beforeProviderDispatch: run => this.scheduleProducer.beforeProviderDispatch(run),
         onRunStarted: async (run,signal) => {
           const admission = waitChildProviderAdmission(this,signal);
           if (admission) await admission;
@@ -962,7 +975,23 @@ export class MoodcodeEngine {
           await Promise.all(changes.map(change => this.syncLanguageServers(change)));
         },
       });
-      this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator });
+      this.scheduleProducer = new EngineScheduleProducer(this, knowledgeBinding, () => this.scheduleRecords, () => this.closing, () => this.schedulesEnabled);
+      this.scheduleRecords = this.store.createScheduleStorage({
+        readWorker: original => this.scheduleProducer.readWorker(original),
+        assertWorkerCurrent: (original, expected, phase) => this.scheduleProducer.assertWorkerCurrent(original, expected, phase),
+        readTarget: original => this.scheduleProducer.readTarget(original),
+        assertTargetCurrent: (original, expected, spec) => this.scheduleProducer.assertTargetCurrent(original, expected, spec),
+        readTrigger: original => this.scheduleProducer.readTrigger(original),
+        assertTriggerCurrent: (original, expected, spec) => this.scheduleProducer.assertTriggerCurrent(original, expected, spec),
+        readAcceptedInput: original => this.scheduleProducer.readAcceptedInput(original),
+        readInputObservation: original => this.scheduleProducer.readInputObservation(original),
+        readDueBatch: original => this.scheduleProducer.readDueBatch(original),
+        assertDueBatchCurrent: (original, expected, spec) => this.scheduleProducer.assertDueBatchCurrent(original, expected, spec),
+      });
+      this.scheduleRecords.recoverInterrupted();
+      this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, beforePromotion: input => this.scheduleProducer.beforePromotion(input) });
+      const scheduleHost = new ScheduleHost({ native: this.scheduleRecords, input: this.scheduleProducer.inputPort() });
+      this.scheduleDispatcher = new ScheduleDispatcher({ native: this.scheduleRecords, host: scheduleHost });
       const recoveredRestores = this.reviewJournal.recoverPending();
       const recoveryAcknowledgments = canonicalDbPath ? readRecoveryAcknowledgments({ dbPath: canonicalDbPath, artifactDir: realpathSync(artifactDir) }) : [];
       for (const operation of recoveredRestores) {
@@ -1495,6 +1524,43 @@ export class MoodcodeEngine {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     if (!this.teamsEnabled) throw new EngineError('TEAMS_DISABLED', 'Teams require explicit host opt-in');
   }
+  private assertSchedulesEnabled(): void {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    if (!this.schedulesEnabled) throw new EngineError('SCHEDULES_DISABLED', 'Schedules require explicit root host opt-in');
+  }
+  captureScheduleWorker(workspaceId: string): object { this.assertSchedulesEnabled(); return this.scheduleProducer.captureWorker(workspaceId); }
+  captureScheduleTarget(input: Parameters<EngineScheduleProducer['captureTarget']>[0]): object { this.assertSchedulesEnabled(); return this.scheduleProducer.captureTarget(input); }
+  readScheduleTarget(original: object) { this.assertSchedulesEnabled(); return this.scheduleProducer.targetPin(original); }
+  registerSchedule(...args: Parameters<ScheduleStorage['registerSchedule']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.registerSchedule(...args); }
+  disableSchedule(...args: Parameters<ScheduleStorage['disableSchedule']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.disableSchedule(...args); }
+  getSchedule(...args: Parameters<ScheduleStorage['getSchedule']>) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.readExecutionObservationEvidence(() => this.scheduleRecords.getSchedule(...args));
+  }
+  inspectSchedules(workspaceId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.readExecutionObservationEvidence(() => this.scheduleRecords.inspectSchedules(workspaceId));
+  }
+  inspectScheduleOccurrences(...args: Parameters<ScheduleStorage['inspectOccurrences']>) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.readExecutionObservationEvidence(() => this.scheduleRecords.inspectOccurrences(...args));
+  }
+  getSchedulerLease(workspaceId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.readExecutionObservationEvidence(() => this.scheduleRecords.getLease(workspaceId));
+  }
+  acquireSchedulerLease(...args: Parameters<ScheduleStorage['acquireLease']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.acquireLease(...args); }
+  renewSchedulerLease(...args: Parameters<ScheduleStorage['renewLease']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.renewLease(...args); }
+  previewScheduleDue(input: Parameters<EngineScheduleProducer['captureDue']>[0]) { this.assertSchedulesEnabled(); return this.scheduleProducer.captureDue(input); }
+  advanceScheduleDue(...args: Parameters<ScheduleStorage['advanceDueBatch']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.advanceDueBatch(...args); }
+  previewScheduleWebhook(input: Parameters<EngineScheduleProducer['captureWebhook']>[0]) { this.assertSchedulesEnabled(); return this.scheduleProducer.captureWebhook(input); }
+  acceptScheduleTrigger(...args: Parameters<ScheduleStorage['acceptTrigger']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.acceptTrigger(...args); }
+  claimScheduleOccurrence(...args: Parameters<ScheduleStorage['claimOccurrence']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.claimOccurrence(...args); }
+  captureScheduleOccurrenceObservation(...args: Parameters<ScheduleStorage['captureOccurrenceObservation']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.captureOccurrenceObservation(...args); }
+  dispatchScheduleOccurrence(input: Parameters<ScheduleDispatcher['dispatch']>[0]) { this.assertSchedulesEnabled(); return this.scheduleDispatcher.dispatch(input); }
+  observeScheduleOccurrence(input: Parameters<ScheduleDispatcher['observe']>[0]) { this.assertSchedulesEnabled(); return this.scheduleDispatcher.observe(input); }
+  abandonScheduleOccurrence(...args: Parameters<ScheduleStorage['abandonClaim']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.abandonClaim(...args); }
+  releaseScheduleHandle(original: object): void { this.scheduleProducer.release(original); this.scheduleRecords.releaseClaim(original); }
   bindTeamModelTools(input: BindTeamModelToolsInput): TeamModelToolsBinding { return this.teamModelHost.bind(input); }
   private assertWorkflowsEnabled(): void {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
@@ -2030,7 +2096,7 @@ export class MoodcodeEngine {
         this.teamModelHost.close();
         this.teamHost.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.scheduleDispatcher.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }
@@ -2038,7 +2104,7 @@ export class MoodcodeEngine {
         await this.executionObserver.close();
         try { this.terminalJournal.close(); }
         finally { try { this.reviewJournal.close(); }
-        finally { await this.store.closeAsync(); }
+        finally { this.scheduleProducer.close(); await this.store.closeAsync(); }
         }
       }
     })().then(resolve, reject);

@@ -26,6 +26,11 @@ export type { WorkflowStartPreview, PreviewWorkflowStartInput } from './workflow
 export type { StartWorkflowInput, StartWorkflowStageInput, ObserveWorkflowStageInput } from './workflows/service.js';
 export { validateWorkflowSpec, validateWorkflowValue, validateWorkflowStageResult, WORKFLOW_LIMITS, WORKFLOW_READ_TOOLS } from './workflows/spec.js';
 export { validateWorkflowRecipe, bindWorkflowRecipe } from './workflows/recipes.js';
+export type * from './schedules/types.js';
+export type { ScheduleRevision, SchedulerLease, TriggerOccurrence, ScheduleTransitionReceipt, RegisterScheduleInput, DisableScheduleInput, AcceptScheduleTriggerInput, AcquireSchedulerLeaseInput, ClaimScheduleOccurrenceInput } from './schedules/store.js';
+export type { DispatchScheduleOccurrenceInput, ObserveScheduleOccurrenceInput } from './schedules/dispatcher.js';
+export { validateScheduleSpec, validateScheduleTarget, SCHEDULE_LIMITS } from './schedules/spec.js';
+export { calculateScheduleDue, calculateWebhookOccurrence, initialScheduleCursor } from './schedules/occurrences.js';
 export type { CreateProposalSetInput, GetProposalDiffInput } from './proposals/host.js';
 export { PROPOSAL_LIMITS } from './proposals/store.js';
 export { proposalContextPolicy, PROPOSAL_CONTEXT_LIMITS } from './proposals/overlay.js';

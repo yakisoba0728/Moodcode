@@ -4,7 +4,12 @@ import type { SessionEngineStore } from '../ports.js';
 import { RunCoordinator } from './index.js';
 
 interface Flight { sessionId: string; workspaceId: string; done: Promise<void>; resolve(): void; reject(error: unknown): void; running: boolean; queued: boolean }
-export interface InputSchedulerOptions { store: SessionEngineStore; coordinator: RunCoordinator }
+export interface InputSchedulerOptions {
+  store: SessionEngineStore;
+  coordinator: RunCoordinator;
+  /** Synchronous host pin check immediately before a durable input becomes a Run. */
+  beforePromotion?(input: InputRecord): void;
+}
 
 /** One owner per session; workspace tickets wait in order and independent workspaces run concurrently. */
 export class InputScheduler {
@@ -111,6 +116,7 @@ export class InputScheduler {
         if (!this.options.store.pendingInputs(sessionId, undefined, 1).length) { this.finish(flight); continue; }
         this.options.coordinator.assertWorkspaceAvailable(flight.workspaceId);
         const input = this.options.store.pendingInputs(sessionId, undefined, 1)[0]!;
+        this.options.beforePromotion?.(input);
         const promoted = this.options.store.promoteInput(input.id);
         this.run(flight, this.options.coordinator.startPromoted(promoted.run.id));
       } catch (error) {
@@ -146,6 +152,7 @@ export class InputScheduler {
     const inputIds: string[] = [];
     for (const input of pending) {
       if (JSON.stringify(input.config) !== JSON.stringify(run.config)) break;
+      this.options.beforePromotion?.(input);
       inputIds.push(input.id);
     }
     if (!inputIds.length) return false;
