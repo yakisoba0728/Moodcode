@@ -554,40 +554,33 @@ private readonly workflowRecords: WorkflowStorage;
     this.lifecycleHooks = options.lifecycleHookRegistry ?? new LifecycleHookRegistry();
     if (options.lifecycleContextSlotBytes !== undefined && (!Number.isSafeInteger(options.lifecycleContextSlotBytes) || options.lifecycleContextSlotBytes < 128 || options.lifecycleContextSlotBytes > 16_384))
       throw new EngineError('INVALID_LIFECYCLE_CONTEXT', 'Lifecycle context slot must be between 128 and 16384 bytes');
-    if (options.lifecycleContinuation !== undefined && typeof options.lifecycleContinuation !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Lifecycle continuation requires an explicit host boolean');
+    this.assertOptionalBoolean(options, 'lifecycleContinuation', 'Lifecycle continuation requires an explicit host boolean');
     if (options.roleResourcePolicyRegistry !== undefined && !(options.roleResourcePolicyRegistry instanceof RoleResourcePolicyRegistry)) throw new EngineError('INVALID_ROLE_POLICY_CONFIGURATION', 'Shared role policy requires a trusted host registry');
     if (options.roleResourcePolicyRegistry && options.roleResourcePolicy) throw new EngineError('INVALID_ROLE_POLICY_CONFIGURATION', 'Specify one role policy registry or immutable role policy');
     this.roleResourcePolicyRegistry = options.roleResourcePolicyRegistry;
     for (const flag of [options.prFeedback,options.prFeedbackLoopback]) if (flag!==undefined&&typeof flag!=='boolean') throw new EngineError('INVALID_CONFIG','PR feedback requires explicit host boolean opt-in');
-    if (options.verificationTools !== undefined && typeof options.verificationTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Verification tool exposure must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'verificationTools', 'Verification tool exposure must be an explicit boolean');
     this.verificationEnabled = options.verificationTools === true;
-    if (options.knowledgeGeneration !== undefined && typeof options.knowledgeGeneration !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Knowledge generation requires an explicit host boolean');
+    this.assertOptionalBoolean(options, 'knowledgeGeneration', 'Knowledge generation requires an explicit host boolean');
     this.knowledgeGenerationEnabled = options.knowledgeGeneration === true;
-    if (options.knowledgePublication !== undefined && typeof options.knowledgePublication !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Knowledge publication requires an explicit host boolean');
+    this.assertOptionalBoolean(options, 'knowledgePublication', 'Knowledge publication requires an explicit host boolean');
     this.knowledgePublicationEnabled = options.knowledgePublication === true;
-    if (options.knowledgeFilePublication !== undefined && typeof options.knowledgeFilePublication !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Knowledge file publication requires an explicit host boolean');
+    this.assertOptionalBoolean(options, 'knowledgeFilePublication', 'Knowledge file publication requires an explicit host boolean');
     this.knowledgeFilePublicationEnabled = options.knowledgeFilePublication === true;
-    if (options.knowledgeImportRecovery !== undefined && typeof options.knowledgeImportRecovery !== 'boolean') throw new EngineError('INVALID_CONFIG', 'knowledgeImportRecovery must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'knowledgeImportRecovery', 'knowledgeImportRecovery must be an explicit boolean');
     this.knowledgeImportRecoveryEnabled = options.knowledgeImportRecovery === true;
-    if (options.proposals !== undefined && typeof options.proposals !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposals must be an explicit boolean');
-    if (options.teams !== undefined && typeof options.teams !== 'boolean') throw new EngineError('INVALID_CONFIG', 'teams must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'proposals', 'proposals must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'teams', 'teams must be an explicit boolean');
     this.teamsEnabled = options.teams === true;
-    if (options.teamModelTools !== undefined && typeof options.teamModelTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'teamModelTools must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'teamModelTools', 'teamModelTools must be an explicit boolean');
     this.teamModelToolsEnabled = options.teamModelTools === true;
-    if(options.commandJobModelTools!==undefined&&typeof options.commandJobModelTools!=='boolean')throw new EngineError('INVALID_CONFIG','commandJobModelTools must be an explicit boolean');
-    if(options.residentTeams!==undefined&&typeof options.residentTeams!=='boolean')throw new EngineError('INVALID_CONFIG','residentTeams requires explicit boolean');
+    this.assertOptionalBoolean(options, 'commandJobModelTools', 'commandJobModelTools must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'residentTeams', 'residentTeams requires explicit boolean');
     if(options.residentTeams===true&&(!this.teamModelToolsEnabled||options.teams!==true))throw new EngineError('INVALID_CONFIG','Resident teams require teams and team model tools');
-    if (options.workflows !== undefined && typeof options.workflows !== 'boolean') throw new EngineError('INVALID_CONFIG', 'workflows must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'workflows', 'workflows must be an explicit boolean');
     this.workflowsEnabled = options.workflows === true;
 
-if (
-      options.codingBatches !== undefined &&
-      typeof options.codingBatches !== "boolean"
-    )
-      throw new EngineError(
-        "INVALID_CONFIG",
-        "codingBatches must be explicit boolean",
-      );
+    this.assertOptionalBoolean(options, 'codingBatches', 'codingBatches must be explicit boolean');
     this.codingBatchesEnabled = options.codingBatches === true;
     if (
       this.codingBatchesEnabled &&
@@ -599,36 +592,36 @@ if (
         "CODING_BATCH_UNSUPPORTED",
         "Coding batches require core workflow and verification tools",
       );
-if (options.schedules !== undefined && typeof options.schedules !== 'boolean') throw new EngineError('INVALID_CONFIG', 'schedules must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'schedules', 'schedules must be an explicit boolean');
     this.schedulesEnabled = options.schedules === true;
-    if (options.agentBackends !== undefined && typeof options.agentBackends !== 'boolean') throw new EngineError('INVALID_CONFIG', 'agentBackends requires an explicit root host boolean');
+    this.assertOptionalBoolean(options, 'agentBackends', 'agentBackends requires an explicit root host boolean');
     if (options.agentBackendSecrets !== undefined && (!options.agentBackendSecrets || typeof options.agentBackendSecrets.resolve !== 'function')) throw new EngineError('INVALID_CONFIG', 'Backend secrets require an explicit trusted host resolver');
     this.agentBackendsEnabled = options.agentBackends === true;
-    if(options.agentBackendClientEffects!==undefined&&typeof options.agentBackendClientEffects!=="boolean")throw new EngineError("INVALID_CONFIG","ACP client effects require explicit host opt-in");
+    this.assertOptionalBoolean(options, 'agentBackendClientEffects', 'ACP client effects require explicit host opt-in');
     if(options.agentBackendClientEffects&&!this.agentBackendsEnabled)throw new EngineError("INVALID_CONFIG","ACP effects require agentBackends opt-in");
-    if (options.jobs !== undefined && typeof options.jobs !== 'boolean') throw new EngineError('INVALID_CONFIG', 'jobs requires an explicit root host boolean');
-    if(options.codeMode!==undefined&&typeof options.codeMode!=='boolean')throw new EngineError('INVALID_CONFIG','codeMode requires an explicit boolean');
+    this.assertOptionalBoolean(options, 'jobs', 'jobs requires an explicit root host boolean');
+    this.assertOptionalBoolean(options, 'codeMode', 'codeMode requires an explicit boolean');
     if(options.codeMode&&options.tools)throw new EngineError('CODE_MODE_CUSTOM_TOOLS_UNSUPPORTED','Restricted code mode requires the actual engine core tool producers');
     this.jobsEnabled = options.jobs === true;
-    if(options.effectBatches!==undefined&&typeof options.effectBatches!=='boolean')throw new EngineError('INVALID_CONFIG','effectBatches requires an explicit boolean');
-    if (options.conversationForks !== undefined && typeof options.conversationForks !== 'boolean') throw new EngineError('INVALID_CONFIG','conversationForks must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'effectBatches', 'effectBatches requires an explicit boolean');
+    this.assertOptionalBoolean(options, 'conversationForks', 'conversationForks must be an explicit boolean');
     this.conversationForksEnabled = options.conversationForks === true;
     if (this.teamModelToolsEnabled && !this.teamsEnabled) throw new EngineError('INVALID_CONFIG', 'Model team tools require explicit host teams');
     this.proposalsEnabled = options.proposals === true;
-    if (options.proposalApply !== undefined && typeof options.proposalApply !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposalApply must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'proposalApply', 'proposalApply must be an explicit boolean');
     this.proposalApplyEnabled = options.proposalApply === true;
-    if (options.diagnosticObservations !== undefined && typeof options.diagnosticObservations !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Execution observations require an explicit host boolean');
+    this.assertOptionalBoolean(options, 'diagnosticObservations', 'Execution observations require an explicit host boolean');
     if (this.verificationEnabled && options.tools !== undefined) throw new EngineError('INVALID_VERIFICATION_CONFIG', 'Verification requires the engine-owned command producer and core registrations');
-    if(options.osSandbox!==undefined && typeof options.osSandbox!=='boolean')throw new EngineError('INVALID_CONFIG','osSandbox must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'osSandbox', 'osSandbox must be an explicit boolean');
     if(options.osSandbox && (options.repositoryContextTools||options.verificationTools||options.lifecycleHooks?.length||options.lifecycleHookRegistry?.list().length))throw new EngineError('SANDBOX_EXTERNAL_EFFECT_UNSUPPORTED','Repository/verification or host lifecycle callbacks require a separately sandbox-bound producer');
     if(options.osSandbox && options.tools)throw new EngineError('SANDBOX_CUSTOM_TOOLS_UNSUPPORTED','Custom effects cannot assert OS sandbox enforcement');
-    if (options.commandLifetimes !== undefined && typeof options.commandLifetimes !== 'boolean') throw new EngineError('INVALID_CONFIG','commandLifetimes requires an explicit host boolean');
+    this.assertOptionalBoolean(options, 'commandLifetimes', 'commandLifetimes requires an explicit host boolean');
     if(options.osSandbox && options.commandLifetimes===true)throw new EngineError('SANDBOX_COMMAND_LIFETIME_UNSUPPORTED','Interactive ownership transfer requires a separately sandbox-bound command lifetime producer');
     if(options.commandLifetimes===true&&(!this.jobsEnabled||options.hostCommands!==true))throw new EngineError('INVALID_CONFIG','commandLifetimes requires jobs and hostCommands');
-    if (options.hostCommands !== undefined && typeof options.hostCommands !== 'boolean') throw new EngineError('INVALID_CONFIG','hostCommands must be an explicit boolean');
-    if(options.allowUnknownMediaTokenCost!==undefined&&typeof options.allowUnknownMediaTokenCost!=='boolean')throw new EngineError('INVALID_CONFIG','Media token cost policy must be a boolean');
-    if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Document token cost policy must be a boolean');
-    if (options.repositoryContextTools !== undefined && typeof options.repositoryContextTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Repository tool exposure must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'hostCommands', 'hostCommands must be an explicit boolean');
+    this.assertOptionalBoolean(options, 'allowUnknownMediaTokenCost', 'Media token cost policy must be a boolean');
+    this.assertOptionalBoolean(options, 'allowUnknownDocumentTokenCost', 'Document token cost policy must be a boolean');
+    this.assertOptionalBoolean(options, 'repositoryContextTools', 'Repository tool exposure must be an explicit boolean');
     if (options.lifecycleHooks !== undefined) {
       if (!Array.isArray(options.lifecycleHooks) || options.lifecycleHooks.length > this.lifecycleHooks.limits.maxHooks) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Initial lifecycle hooks must be a bounded explicit host list');
       for (const hook of options.lifecycleHooks) this.lifecycleHooks.register(hook);
@@ -1482,6 +1475,10 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       finally { this.store.close(); }
       throw error;
     }
+  }
+
+  private assertOptionalBoolean(options: EngineOptions, key: keyof EngineOptions, message: string): void {
+    if (options[key] !== undefined && typeof options[key] !== 'boolean') throw new EngineError('INVALID_CONFIG', message);
   }
 
   private async validateFreshMediaInput(input: Pick<ReturnType<typeof normalizeSubmitInput>, 'sessionId' | 'config' | 'attachments' | 'documents' | 'media'>): Promise<void> {
