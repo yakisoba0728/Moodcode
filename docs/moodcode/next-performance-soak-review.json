@@ -1,0 +1,3348 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-persistent-soak-performance-review",
+  "reviewedAtUtc": "2026-10-08T23:01:56.413330+00:00",
+  "status": "read-only-analysis-complete-proposals-only",
+  "summary": {
+    "originalSoakPassed": true,
+    "analysisIsAnotherSoakRun": false,
+    "conclusions": [
+      "The actual 30-minute fixture passed its fault/recovery and no-automatic-replay assertions on the frozen compiled source pin; this is not a performance SLA or memory-leak qualification.",
+      "The retained primary database is 314478592 bytes. context_revisions and session_events account for 89.5555 percent of allocated table/index bytes.",
+      "All 1251 contexts are distinct exact histories. Their bodies are also embedded byte-for-byte in 1251 context.revision.recorded events, copying 124729863 logical UTF-8 bytes. Legitimate history and duplicate physical representation coexist.",
+      "Positive baseline-to-crash RSS/heap and descriptor deltas mix warmup, history, collection and active crash handles. Repeated decreases and missing GC/retaining-path/CPU evidence prevent a leak or causal slowdown conclusion."
+    ],
+    "productChangesImplemented": false,
+    "benchmarkRunPerformed": false
+  },
+  "provenance": {
+    "report": {
+      "path": "/tmp/moodcode-next-persistent-30min.json",
+      "bytes": 357055,
+      "sha256": "9dc66f26e9337fc6e3c222942bf5e9f170951061c9bd09aa9b5b5386460ebb7d",
+      "device": 16777229,
+      "inode": 27564129,
+      "mtimeNs": 1791499337604798642
+    },
+    "reportTimestamp": "2026-10-08T22:11:57.978Z",
+    "frozenSourceRoot": "/Users/yakisoba0728/.codex/worktrees/next-persistent-frozen/Moodcode",
+    "source": {
+      "runtime": "compiled",
+      "gitHead": "78e37b1d54952d173779865b6fb9d2d04fac828f",
+      "sourceSha256": "106a2f782bd2a11ea2ee85e9b8061b4da663d39740346021ad9f4327f41d1b84",
+      "bytes": 11793200,
+      "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim",
+      "cliSha256": "97bed9b06c3e7bf03aac762c5872c1c3e28ed9c40822de06b55739b4bbfea0d0"
+    },
+    "runtime": {
+      "node": "v26.9.0",
+      "os": "darwin",
+      "release": "27.0.0",
+      "architecture": "arm64",
+      "gcExposed": false
+    },
+    "runtimeFileCountIndependentlyChecked": 749,
+    "runtimeByteSumIndependentlyChecked": 11793200,
+    "recomputedSourceSha256": "106a2f782bd2a11ea2ee85e9b8061b4da663d39740346021ad9f4327f41d1b84",
+    "aggregateProtocol": "SHA256(UTF8(JSON.stringify([{path,bytes,sha256},...]))), order and key order from exact report manifest; sourceRuntimeIdentity runtime.ts205",
+    "sourceMismatchCount": 0,
+    "cycleEvidenceSha256": "1acf64214b46b51d7a6cf12556b7b08e7eaf5cd26387e1739e5e74009cd89bf2",
+    "primaryNativeDatabase": {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-fAZvNH/engine.sqlite",
+      "bytes": 314478592,
+      "sha256": "91594d9988cdac2c5b7ffa3a7ce784ca996a982d2fccf5e6a9a85e6dc0c9f110",
+      "device": 16777229,
+      "inode": 26882347,
+      "mtimeNs": 1791499337079984427
+    },
+    "sidecars": [
+      {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-fAZvNH/engine.sqlite-wal",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "device": 16777229,
+        "inode": 27564127,
+        "mtimeNs": 1791499337083452859
+      },
+      {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-fAZvNH/engine.sqlite-shm",
+        "bytes": 32768,
+        "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+        "device": 16777229,
+        "inode": 27564128,
+        "mtimeNs": 1791499337596790730
+      }
+    ],
+    "primaryPathSelection": "Exact primary engine.sqlite in report.cleanup.retainedEvidencePath; report load root identity and native final counts/record digest verified. Alternate owner/review/effects/artifacts/terminal databases were not queried.",
+    "nativeRecordDigest": {
+      "nativeRecordDigestSha256": "e22b4b7784e6c4317958f1db037988c4fd2d4590bd8ff256edebd859f2e580cd",
+      "expectedReportDigestSha256": "e22b4b7784e6c4317958f1db037988c4fd2d4590bd8ff256edebd859f2e580cd",
+      "counts": {
+        "runs": 797,
+        "messages": 2445,
+        "tools": 59,
+        "approvals": 59,
+        "checkpoints": 58,
+        "session_inputs": 1596,
+        "session_turns": 1194,
+        "provider_attempts": 1194,
+        "message_parts": 1194,
+        "attempt_cleanup": 1194,
+        "session_documents": 67,
+        "session_events": 21751
+      },
+      "exactReportRecordMatch": true,
+      "method": "Same frozen persistent-native.ts TABLES order and SELECT data ORDER BY rowid with table and row newline UTF8 hashing; SQLite immutable readonly exact primaryfile",
+      "analysisElapsedMs": 920.608,
+      "mutationOccurred": false
+    },
+    "readMode": "SQLite URI mode=ro&immutable=1 after exact primary file/report identity and zero WAL confirmed; no nativeDb/sidecar writes permitted",
+    "verificationAfter": {
+      "observedAt": "2026-10-08T22:55:39.018826+00:00",
+      "reportAfter": {
+        "path": "/tmp/moodcode-next-persistent-30min.json",
+        "bytes": 357055,
+        "sha256": "9dc66f26e9337fc6e3c222942bf5e9f170951061c9bd09aa9b5b5386460ebb7d",
+        "device": 16777229,
+        "inode": 27564129,
+        "mtimeNs": 1791499337604798642
+      },
+      "reportUnchanged": true,
+      "sourceGitHead": "78e37b1d54952d173779865b6fb9d2d04fac828f",
+      "runtimeFileCount": 749,
+      "runtimeByteSum": 11793200,
+      "aggregateProtocol": "SHA256(UTF8(JSON.stringify([{path,bytes,sha256},...]))), order and key order from exact report manifest; sourceRuntimeIdentity runtime.ts205",
+      "recomputedSourceSha256": "106a2f782bd2a11ea2ee85e9b8061b4da663d39740346021ad9f4327f41d1b84",
+      "expectedSourceSha256": "106a2f782bd2a11ea2ee85e9b8061b4da663d39740346021ad9f4327f41d1b84",
+      "runtimeMismatches": [],
+      "sourceUnchanged": true,
+      "nativeFilesAfter": [
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-fAZvNH/engine.sqlite",
+          "bytes": 314478592,
+          "sha256": "91594d9988cdac2c5b7ffa3a7ce784ca996a982d2fccf5e6a9a85e6dc0c9f110",
+          "device": 16777229,
+          "inode": 26882347,
+          "mtimeNs": 1791499337079984427
+        },
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-fAZvNH/engine.sqlite-wal",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "device": 16777229,
+          "inode": 27564127,
+          "mtimeNs": 1791499337083452859
+        },
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-fAZvNH/engine.sqlite-shm",
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+          "device": 16777229,
+          "inode": 27564128,
+          "mtimeNs": 1791499337596790730
+        }
+      ],
+      "nativeFilesUnchanged": true,
+      "noSqliteWrites": true,
+      "noProcessSignals": true,
+      "noNetwork": true,
+      "note": "Final primary-native DB sidecars and runtime source manifest independently re-read; Python readonly analysis only."
+    },
+    "analysisEvidenceArtifacts": [
+      {
+        "path": "artifacts/performance-soak-review/provenance-before.json",
+        "bytes": 236446,
+        "sha256": "b73a18e0f406819b2e59344a2946860b06d001c139f3512aa788255a3b44e124",
+        "tracked": false
+      },
+      {
+        "path": "artifacts/performance-soak-review/provenance-after.json",
+        "bytes": 2115,
+        "sha256": "5aa1c58df4d7034ab4d8462fa021b6154c485de4eb05ea57a8dbe6a4d893b040",
+        "tracked": false
+      },
+      {
+        "path": "artifacts/performance-soak-review/native-record-digest.json",
+        "bytes": 791,
+        "sha256": "8d605997c7b0325d780989c0c2a3239816c72ab7f3ec9a61bf86d6a6e921570b",
+        "tracked": false
+      },
+      {
+        "path": "artifacts/performance-soak-review/sqlite-storage.json",
+        "bytes": 1150831,
+        "sha256": "2111a2de66afc9466c6c12e0ba1c92b7d60a7e5ca88707ac29595df89181f964",
+        "tracked": false
+      },
+      {
+        "path": "artifacts/performance-soak-review/sqlite-repetition-query.json",
+        "bytes": 139266,
+        "sha256": "3b9e7c65dd8a80718ee28d4c1be220a70a5207b55c97439ca2e7ea952e424161",
+        "tracked": false
+      },
+      {
+        "path": "artifacts/performance-soak-review/resource-profile.json",
+        "bytes": 101559,
+        "sha256": "7192ff0594a2edd631a8166cd65e7a2fb8709d272d29189933dd9bb0f453bdc0",
+        "tracked": false
+      }
+    ],
+    "portability": "Original /tmp/retained database and ignored detailed artifacts are local evidence. Required measured counts/bytes/digests/plans/proposals are embedded here; artifact hashes identify fuller local evidence but do not imply remote publication."
+  },
+  "originalMeasurement": {
+    "requested": {
+      "durationMs": 1800000,
+      "maxCycles": 600,
+      "maxInputs": 2404,
+      "maxInputBytes": 67108864,
+      "payloadBytes": 256,
+      "seed": 20261009,
+      "maxSamples": 128,
+      "boundaryTimeoutMs": 10000
+    },
+    "actualLoad": {
+      "workspaceId": "workspace_0589cf1c46d822dfffc79bff921ff859b3e9734a2ec6795057a906a60107e0ca",
+      "sessionId": "e02c21a2-618e-4681-8343-5038e521a4a7",
+      "cycles": 398,
+      "inputs": 1596,
+      "inputBytes": 408576,
+      "commands": 59,
+      "completedCommands": 57,
+      "cancelledCommands": 1,
+      "textCycles": 340,
+      "providerCalls": {
+        "command": 116,
+        "observer": 1078
+      },
+      "cycleEvidenceSha256": "1acf64214b46b51d7a6cf12556b7b08e7eaf5cd26387e1739e5e74009cd89bf2",
+      "cancellation": {
+        "workspaceId": "workspace_d0f716d463607ee0274c1b8d6c30193343946ad9e0b7ac83cbb83027295b48c6",
+        "sessionId": "3015d6d4-d023-4d40-86f8-876f2b668996",
+        "runId": "ea1ff099-dd84-4124-8d89-fdfc9cafa05e",
+        "jobId": "command-01871b06ec5e78c6b18c9f862251e4d5",
+        "jobSha256": "135ac937499772fc8ec042faf7075be954b885d6e66dc5511e9cceb773080d49",
+        "sourceSha256": "8d45ef27070a011b58838c81d79dd42240cc2e8548c3769e1635b0ad5370aafc",
+        "approvalId": "d2bfa338-b9cd-4b69-bcb8-96c5a398ca6a",
+        "approvalFingerprint": "fa998125e783291279b37273bb992337792e50c85f2bea011a9e15961f125620",
+        "queuedInputId": "c943a9f4-4958-45c0-bce2-e7a3b0e88496",
+        "steerInputId": "61e76b28-d018-4ad5-b4ab-dee05f74e562",
+        "cancelledInputId": "172f3709-8006-4575-a78a-7ab0c788ca02",
+        "pid": 50856,
+        "groupPid": 50856,
+        "physicalCleanupConfirmed": true,
+        "nativeCleanupConfirmed": false,
+        "resumeOutcome": "cleanup-pending"
+      }
+    },
+    "summary": {
+      "activeDurationMs": 1802370,
+      "lastCycleElapsedMs": 1802296,
+      "loadStoppedBy": "duration",
+      "durationMs": 1819785,
+      "engineInstances": 3,
+      "sourceStable": true,
+      "workerGrowth": {
+        "rssDeltaBytes": 42811392,
+        "heapUsedDeltaBytes": 47231464,
+        "descriptorDelta": 7,
+        "descriptorPeak": 35,
+        "liveDescendantPeak": 2,
+        "sqliteDeltaBytes": 317564808,
+        "artifactDeltaBytes": 275264,
+        "sampledWorkerDurationMs": 1814464
+      }
+    },
+    "pacing": {
+      "requestedDurationMs": 1800000,
+      "activeDurationMs": 1802370,
+      "sampledWorkerDurationMs": 1814464,
+      "overallDurationMs": 1819785,
+      "requestedMaxCycles": 600,
+      "actualCycles": 398,
+      "actualInputs": 1596,
+      "actualInputBytes": 408576,
+      "payloadBytes": 256,
+      "commands": 59,
+      "completedCommands": 57,
+      "cancelledCommands": 1,
+      "textCycles": 340,
+      "providerCalls": {
+        "command": 116,
+        "observer": 1078
+      },
+      "loadStoppedBy": "duration",
+      "seed": 20261009,
+      "pacedCycleDueIntervalMs": 3000.0,
+      "commandStride": 7,
+      "qualification": "600 is a finite ceiling and pacing target; 398 completed cycles were reported before duration stopped new work. Elapsed time contains pacing, fixture work and synchronous measurement overhead; this is not an unpaced throughput or CPU SLA."
+    },
+    "gracefulCheckpoint": {
+      "before": {
+        "counts": {
+          "runs": 553,
+          "messages": 1698,
+          "tools": 41,
+          "approvals": 41,
+          "checkpoints": 41,
+          "session_inputs": 1109,
+          "session_turns": 829,
+          "provider_attempts": 829,
+          "message_parts": 829,
+          "attempt_cleanup": 829,
+          "session_documents": 49,
+          "session_events": 15106
+        },
+        "recordsSha256": "6a9d1630bc61fe349cb0dcaedd1ac3b8aa40f55ec4a0de203c401af2dd9f04c0",
+        "integrity": "ok",
+        "foreignKeyViolations": 0
+      },
+      "after": {
+        "counts": {
+          "runs": 553,
+          "messages": 1698,
+          "tools": 41,
+          "approvals": 41,
+          "checkpoints": 41,
+          "session_inputs": 1109,
+          "session_turns": 829,
+          "provider_attempts": 829,
+          "message_parts": 829,
+          "attempt_cleanup": 829,
+          "session_documents": 49,
+          "session_events": 15106
+        },
+        "recordsSha256": "6a9d1630bc61fe349cb0dcaedd1ac3b8aa40f55ec4a0de203c401af2dd9f04c0",
+        "integrity": "ok",
+        "foreignKeyViolations": 0
+      },
+      "noAutomaticReplay": true,
+      "explicitQueueResume": true
+    },
+    "crashCheckpoint": {
+      "originalJobId": "command-97dcd49dcbdffc6d2e343f09176f7093",
+      "originalProposalPartId": "d5582ba8-a69e-476e-92d8-a8322709ebb0",
+      "originalSourceSha256": "11a9b2d6f11c26a4e81c0f9b0df9656b3091d4ab3e8379a841d9947b910c449f",
+      "originalApprovalId": "a94beee0-bd9a-47a4-8b38-3f53a8084ad9",
+      "originalApprovalFingerprint": "c0c566893293e17c26c35ff68d9dd077bf7383f8c4f122161e7e335ef0dd505e",
+      "before": {
+        "counts": {
+          "runs": 797,
+          "messages": 2445,
+          "tools": 59,
+          "approvals": 59,
+          "checkpoints": 58,
+          "session_inputs": 1596,
+          "session_turns": 1194,
+          "provider_attempts": 1194,
+          "message_parts": 1194,
+          "attempt_cleanup": 1194,
+          "session_documents": 67,
+          "session_events": 21746
+        },
+        "recordsSha256": "4ae49f1fd9fe44582812810511021f3b4042bc6ac97bcad3eb87b68a919650ed",
+        "integrity": "ok",
+        "foreignKeyViolations": 0
+      },
+      "after": {
+        "counts": {
+          "runs": 797,
+          "messages": 2445,
+          "tools": 59,
+          "approvals": 59,
+          "checkpoints": 58,
+          "session_inputs": 1596,
+          "session_turns": 1194,
+          "provider_attempts": 1194,
+          "message_parts": 1194,
+          "attempt_cleanup": 1194,
+          "session_documents": 67,
+          "session_events": 21751
+        },
+        "recordsSha256": "e22b4b7784e6c4317958f1db037988c4fd2d4590bd8ff256edebd859f2e580cd",
+        "integrity": "ok",
+        "foreignKeyViolations": 0
+      },
+      "retained": {
+        "counts": {
+          "runs": 797,
+          "messages": 2445,
+          "tools": 59,
+          "approvals": 59,
+          "checkpoints": 58,
+          "session_inputs": 1596,
+          "session_turns": 1194,
+          "provider_attempts": 1194,
+          "message_parts": 1194,
+          "attempt_cleanup": 1194,
+          "session_documents": 67,
+          "session_events": 21751
+        },
+        "recordsSha256": "e22b4b7784e6c4317958f1db037988c4fd2d4590bd8ff256edebd859f2e580cd",
+        "integrity": "ok",
+        "foreignKeyViolations": 0
+      },
+      "jobState": "uncertain",
+      "completion": null,
+      "sourceRunState": "interrupted",
+      "providerCleanupState": "confirmed",
+      "providerCleanupConfirmed": true,
+      "pendingInputState": "pending",
+      "cancelledInputState": "cancelled",
+      "noAutomaticReplay": true,
+      "recoveredProviderCalls": 0,
+      "processLaunches": 59,
+      "tokens": null,
+      "cost": null,
+      "unknownTokenAttempts": 1193
+    },
+    "cleanup": {
+      "workerExited": true,
+      "recoveryEngineClosed": true,
+      "commandPidAbsent": true,
+      "commandGroupAbsent": true,
+      "ownedLiveSurvivors": [],
+      "physicalCleanupConfirmed": true,
+      "nativeCleanupConfirmed": false,
+      "emergencyCleanupUsed": false,
+      "databaseRemoved": false,
+      "retainedEvidencePath": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-fAZvNH",
+      "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+    },
+    "limitations": [
+      "Same Engine and session accumulate native history until an explicit graceful checkpoint; the second instance continues that history before the final process crash.",
+      "POSIX owned run_command only; Windows JobObject, PTY, external providers and GUI have separate verification boundaries.",
+      "Samples describe measured resource growth; no leak-rate or absolute performance SLA is inferred.",
+      "Load is paced across the requested duration; reaching an input ceiling stops new input while timed observation continues.",
+      "Successful crash verification retains uncertain native SQLite/artifacts; physical process absence never grants recovery authority or automatic replay."
+    ]
+  },
+  "sqliteCapacity": {
+    "sqlite": {
+      "queryOnly": 1,
+      "pageSize": 4096,
+      "pageCount": 76777,
+      "freelistCount": 0,
+      "encoding": "UTF-8",
+      "autoVacuum": 0,
+      "userVersion": 23,
+      "schemaVersion": 142,
+      "sqliteVersion": "3.53.4",
+      "dbstatCompileOption": "ENABLE_DBSTAT_VTAB"
+    },
+    "schemaCounts": {
+      "index": 201,
+      "table": 80
+    },
+    "logicalTotals": {
+      "rows": 45398,
+      "utf8TextBytes": 294706763,
+      "blobBytes": 0,
+      "columns": 619,
+      "emptyTables": 61,
+      "nonemptyTables": 19
+    },
+    "tables": [
+      {
+        "name": "approvals",
+        "rows": 59,
+        "utf8TextBytesAllColumns": 74825,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 65916,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 98304
+      },
+      {
+        "name": "attempt_cleanup",
+        "rows": 1194,
+        "utf8TextBytesAllColumns": 1443364,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 1012412,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 1835008
+      },
+      {
+        "name": "attempt_usage",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "backend_heads",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 4096
+      },
+      {
+        "name": "backend_revisions",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "checkpoints",
+        "rows": 58,
+        "utf8TextBytesAllColumns": 100882,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 94618,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 147456
+      },
+      {
+        "name": "context_revisions",
+        "rows": 1251,
+        "utf8TextBytesAllColumns": 124909935,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 124729863,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 125874176
+      },
+      {
+        "name": "diagnostic_effect_epochs",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 8192
+      },
+      {
+        "name": "diagnostic_execution_observations",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 20480
+      },
+      {
+        "name": "events",
+        "rows": 11734,
+        "utf8TextBytesAllColumns": 9062333,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 7569992,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 11837440
+      },
+      {
+        "name": "host_command_heads",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "host_command_revisions",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 8192
+      },
+      {
+        "name": "inputs",
+        "rows": 797,
+        "utf8TextBytesAllColumns": 1742323,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 836395,
+        "fingerprintUtf8Bytes": 836395,
+        "allocatedTableAndIndexBytes": 3379200
+      },
+      {
+        "name": "job_heads",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 4096
+      },
+      {
+        "name": "job_revisions",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "knowledge_candidates",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 24576
+      },
+      {
+        "name": "knowledge_file_checkpoints",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 16384
+      },
+      {
+        "name": "knowledge_file_execution_guards",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 16384
+      },
+      {
+        "name": "knowledge_file_heads",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "knowledge_file_observations",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 20480
+      },
+      {
+        "name": "knowledge_file_publication_receipts",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 20480
+      },
+      {
+        "name": "knowledge_file_publications",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 24576
+      },
+      {
+        "name": "knowledge_file_recovery_acknowledgments",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 16384
+      },
+      {
+        "name": "knowledge_file_workspace_barriers",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "knowledge_generation_attempts",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 20480
+      },
+      {
+        "name": "knowledge_generation_plans",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 16384
+      },
+      {
+        "name": "knowledge_generation_recovery_acknowledgments",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 16384
+      },
+      {
+        "name": "knowledge_generation_workspace_barriers",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "knowledge_generations",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 28672
+      },
+      {
+        "name": "knowledge_import_document_activation_heads",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "knowledge_import_document_activations",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 20480
+      },
+      {
+        "name": "knowledge_import_frontier_heads",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "knowledge_import_frontiers",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 16384
+      },
+      {
+        "name": "knowledge_import_pauses",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "knowledge_import_recovery_decisions",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 20480
+      },
+      {
+        "name": "knowledge_publication_receipts",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 20480
+      },
+      {
+        "name": "knowledge_publications",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 20480
+      },
+      {
+        "name": "knowledge_request_receipts",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 16384
+      },
+      {
+        "name": "mcp_executions",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 28672
+      },
+      {
+        "name": "message_parts",
+        "rows": 1194,
+        "utf8TextBytesAllColumns": 879503,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 653833,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 1302528
+      },
+      {
+        "name": "messages",
+        "rows": 2445,
+        "utf8TextBytesAllColumns": 1289036,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 1024976,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 1970176
+      },
+      {
+        "name": "proposal_apply_checkpoints",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 4096
+      },
+      {
+        "name": "proposal_apply_execution_guards",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 8192
+      },
+      {
+        "name": "proposal_apply_owners",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "proposal_apply_receipts",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 4096
+      },
+      {
+        "name": "proposal_apply_recovery_decisions",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 8192
+      },
+      {
+        "name": "proposal_blobs",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 16384
+      },
+      {
+        "name": "proposal_effect_blobs",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 4096
+      },
+      {
+        "name": "proposal_heads",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 16384
+      },
+      {
+        "name": "proposal_revisions",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 24576
+      },
+      {
+        "name": "provider_attempts",
+        "rows": 1194,
+        "utf8TextBytesAllColumns": 759302,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 576620,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 1028096
+      },
+      {
+        "name": "provider_recovery_acknowledgments",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 20480
+      },
+      {
+        "name": "runs",
+        "rows": 797,
+        "utf8TextBytesAllColumns": 1213476,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 1061247,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 1892352
+      },
+      {
+        "name": "schedule_heads",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 4096
+      },
+      {
+        "name": "schedule_revisions",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "session_controls",
+        "rows": 2,
+        "utf8TextBytesAllColumns": 362,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 290,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 8192
+      },
+      {
+        "name": "session_documents",
+        "rows": 67,
+        "utf8TextBytesAllColumns": 183398,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 178118,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 286720
+      },
+      {
+        "name": "session_events",
+        "rows": 21751,
+        "utf8TextBytesAllColumns": 148004006,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 144370707,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 155758592
+      },
+      {
+        "name": "session_inputs",
+        "rows": 1596,
+        "utf8TextBytesAllColumns": 4258943,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 2229858,
+        "fingerprintUtf8Bytes": 1706419,
+        "allocatedTableAndIndexBytes": 6955008
+      },
+      {
+        "name": "session_sequences",
+        "rows": 2,
+        "utf8TextBytesAllColumns": 72,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 8192
+      },
+      {
+        "name": "session_turns",
+        "rows": 1194,
+        "utf8TextBytesAllColumns": 638111,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 498411,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 897024
+      },
+      {
+        "name": "sessions",
+        "rows": 2,
+        "utf8TextBytesAllColumns": 614,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 394,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 8192
+      },
+      {
+        "name": "summary_attempts",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 20480
+      },
+      {
+        "name": "summary_recovery_acknowledgments",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 20480
+      },
+      {
+        "name": "summary_usage",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "team_deliveries",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 8192
+      },
+      {
+        "name": "team_delivery_receipts",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 4096
+      },
+      {
+        "name": "team_mailbox_cursors",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 4096
+      },
+      {
+        "name": "team_messages",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 8192
+      },
+      {
+        "name": "team_operation_receipts",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 8192
+      },
+      {
+        "name": "team_state_heads",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 4096
+      },
+      {
+        "name": "team_state_revisions",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 8192
+      },
+      {
+        "name": "tools",
+        "rows": 59,
+        "utf8TextBytesAllColumns": 145201,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 138294,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 249856
+      },
+      {
+        "name": "workflow_heads",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 4096
+      },
+      {
+        "name": "workflow_revisions",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "workspace_document_heads",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "workspace_document_revisions",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 24576
+      },
+      {
+        "name": "workspace_trust_heads",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      },
+      {
+        "name": "workspace_trust_revisions",
+        "rows": 0,
+        "utf8TextBytesAllColumns": 0,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 0,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 20480
+      },
+      {
+        "name": "workspaces",
+        "rows": 2,
+        "utf8TextBytesAllColumns": 1077,
+        "blobBytes": 0,
+        "dataUtf8Bytes": 728,
+        "fingerprintUtf8Bytes": 0,
+        "allocatedTableAndIndexBytes": 12288
+      }
+    ],
+    "topPhysicalTables": [
+      {
+        "name": "session_events",
+        "rows": 21751,
+        "allocatedTableAndIndexBytes": 155758592,
+        "utf8TextBytes": 148004006,
+        "blobBytes": 0
+      },
+      {
+        "name": "context_revisions",
+        "rows": 1251,
+        "allocatedTableAndIndexBytes": 125874176,
+        "utf8TextBytes": 124909935,
+        "blobBytes": 0
+      },
+      {
+        "name": "events",
+        "rows": 11734,
+        "allocatedTableAndIndexBytes": 11837440,
+        "utf8TextBytes": 9062333,
+        "blobBytes": 0
+      },
+      {
+        "name": "session_inputs",
+        "rows": 1596,
+        "allocatedTableAndIndexBytes": 6955008,
+        "utf8TextBytes": 4258943,
+        "blobBytes": 0
+      },
+      {
+        "name": "inputs",
+        "rows": 797,
+        "allocatedTableAndIndexBytes": 3379200,
+        "utf8TextBytes": 1742323,
+        "blobBytes": 0
+      },
+      {
+        "name": "messages",
+        "rows": 2445,
+        "allocatedTableAndIndexBytes": 1970176,
+        "utf8TextBytes": 1289036,
+        "blobBytes": 0
+      },
+      {
+        "name": "runs",
+        "rows": 797,
+        "allocatedTableAndIndexBytes": 1892352,
+        "utf8TextBytes": 1213476,
+        "blobBytes": 0
+      },
+      {
+        "name": "attempt_cleanup",
+        "rows": 1194,
+        "allocatedTableAndIndexBytes": 1835008,
+        "utf8TextBytes": 1443364,
+        "blobBytes": 0
+      },
+      {
+        "name": "message_parts",
+        "rows": 1194,
+        "allocatedTableAndIndexBytes": 1302528,
+        "utf8TextBytes": 879503,
+        "blobBytes": 0
+      },
+      {
+        "name": "provider_attempts",
+        "rows": 1194,
+        "allocatedTableAndIndexBytes": 1028096,
+        "utf8TextBytes": 759302,
+        "blobBytes": 0
+      },
+      {
+        "name": "session_turns",
+        "rows": 1194,
+        "allocatedTableAndIndexBytes": 897024,
+        "utf8TextBytes": 638111,
+        "blobBytes": 0
+      },
+      {
+        "name": "session_documents",
+        "rows": 67,
+        "allocatedTableAndIndexBytes": 286720,
+        "utf8TextBytes": 183398,
+        "blobBytes": 0
+      },
+      {
+        "name": "tools",
+        "rows": 59,
+        "allocatedTableAndIndexBytes": 249856,
+        "utf8TextBytes": 145201,
+        "blobBytes": 0
+      },
+      {
+        "name": "checkpoints",
+        "rows": 58,
+        "allocatedTableAndIndexBytes": 147456,
+        "utf8TextBytes": 100882,
+        "blobBytes": 0
+      },
+      {
+        "name": "approvals",
+        "rows": 59,
+        "allocatedTableAndIndexBytes": 98304,
+        "utf8TextBytes": 74825,
+        "blobBytes": 0
+      }
+    ],
+    "topLogicalColumns": [
+      {
+        "table": "session_events",
+        "column": "data",
+        "utf8TextBytes": 144370707,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 110688
+      },
+      {
+        "table": "context_revisions",
+        "column": "data",
+        "utf8TextBytes": 124729863,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 110391
+      },
+      {
+        "table": "events",
+        "column": "data",
+        "utf8TextBytes": 7569992,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 11790
+      },
+      {
+        "table": "session_inputs",
+        "column": "data",
+        "utf8TextBytes": 2229858,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 1412
+      },
+      {
+        "table": "session_inputs",
+        "column": "fingerprint",
+        "utf8TextBytes": 1706419,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 1080
+      },
+      {
+        "table": "runs",
+        "column": "data",
+        "utf8TextBytes": 1061247,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 1427
+      },
+      {
+        "table": "messages",
+        "column": "data",
+        "utf8TextBytes": 1024976,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 2955
+      },
+      {
+        "table": "attempt_cleanup",
+        "column": "data",
+        "utf8TextBytes": 1012412,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 849
+      },
+      {
+        "table": "inputs",
+        "column": "fingerprint",
+        "utf8TextBytes": 836395,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 1056
+      },
+      {
+        "table": "inputs",
+        "column": "data",
+        "utf8TextBytes": 836395,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 1056
+      },
+      {
+        "table": "session_events",
+        "column": "session_id",
+        "utf8TextBytes": 783036,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 36
+      },
+      {
+        "table": "session_events",
+        "column": "event_id",
+        "utf8TextBytes": 783036,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 36
+      },
+      {
+        "table": "session_events",
+        "column": "run_id",
+        "utf8TextBytes": 657360,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 36
+      },
+      {
+        "table": "message_parts",
+        "column": "data",
+        "utf8TextBytes": 653833,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 2781
+      },
+      {
+        "table": "provider_attempts",
+        "column": "data",
+        "utf8TextBytes": 576620,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 484
+      },
+      {
+        "table": "session_events",
+        "column": "turn_id",
+        "utf8TextBytes": 524304,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 36
+      },
+      {
+        "table": "session_turns",
+        "column": "data",
+        "utf8TextBytes": 498411,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 606
+      },
+      {
+        "table": "session_events",
+        "column": "type",
+        "utf8TextBytes": 463499,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 28
+      },
+      {
+        "table": "events",
+        "column": "session_id",
+        "utf8TextBytes": 422424,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 36
+      },
+      {
+        "table": "events",
+        "column": "event_id",
+        "utf8TextBytes": 422424,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 36
+      },
+      {
+        "table": "events",
+        "column": "run_id",
+        "utf8TextBytes": 422424,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 36
+      },
+      {
+        "table": "session_events",
+        "column": "attempt_id",
+        "utf8TextBytes": 307260,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 36
+      },
+      {
+        "table": "events",
+        "column": "type",
+        "utf8TextBytes": 225069,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 28
+      },
+      {
+        "table": "session_documents",
+        "column": "data",
+        "utf8TextBytes": 178118,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 16389
+      },
+      {
+        "table": "tools",
+        "column": "data",
+        "utf8TextBytes": 138294,
+        "blobBytes": 0,
+        "maxTextOrBlobBytes": 2412
+      }
+    ],
+    "dominantTables": [
+      {
+        "name": "context_revisions",
+        "rows": 1251,
+        "utf8TextBytes": 124909935,
+        "physicalTable": {
+          "name": "context_revisions",
+          "pages": 30698,
+          "allocatedBytes": 125739008,
+          "recordPayloadBytes": 124924806,
+          "unusedBytes": 669958,
+          "cells": 1910,
+          "maxRecordPayloadBytes": 110547,
+          "pageTypes": {
+            "internal": {
+              "pages": 3,
+              "allocatedBytes": 12288,
+              "recordPayloadBytes": 0,
+              "unusedBytes": 7066,
+              "cells": 659
+            },
+            "leaf": {
+              "pages": 660,
+              "allocatedBytes": 2703360,
+              "recordPayloadBytes": 2065129,
+              "unusedBytes": 619349,
+              "cells": 1251
+            },
+            "overflow": {
+              "pages": 30035,
+              "allocatedBytes": 123023360,
+              "recordPayloadBytes": 122859677,
+              "unusedBytes": 43543,
+              "cells": 0
+            }
+          },
+          "objectType": "table",
+          "ownerTable": "context_revisions",
+          "structuralOverheadBytes": 144244
+        },
+        "physicalIndexes": [
+          "sqlite_autoindex_context_revisions_1",
+          "sqlite_autoindex_context_revisions_2"
+        ],
+        "tableAndIndexAllocatedBytes": 125874176
+      },
+      {
+        "name": "session_events",
+        "rows": 21751,
+        "utf8TextBytes": 148004006,
+        "physicalTable": {
+          "name": "session_events",
+          "pages": 37469,
+          "allocatedBytes": 153473024,
+          "recordPayloadBytes": 148331350,
+          "unusedBytes": 4759679,
+          "cells": 29105,
+          "maxRecordPayloadBytes": 110837,
+          "pageTypes": {
+            "internal": {
+              "pages": 18,
+              "allocatedBytes": 73728,
+              "recordPayloadBytes": 0,
+              "unusedBytes": 12927,
+              "cells": 7354
+            },
+            "leaf": {
+              "pages": 7355,
+              "allocatedBytes": 30126080,
+              "recordPayloadBytes": 25219429,
+              "unusedBytes": 4705841,
+              "cells": 21751
+            },
+            "overflow": {
+              "pages": 30096,
+              "allocatedBytes": 123273216,
+              "recordPayloadBytes": 123111921,
+              "unusedBytes": 40911,
+              "cells": 0
+            }
+          },
+          "objectType": "table",
+          "ownerTable": "session_events",
+          "structuralOverheadBytes": 381995
+        },
+        "physicalIndexes": [
+          "sqlite_autoindex_session_events_1",
+          "sqlite_autoindex_session_events_2"
+        ],
+        "tableAndIndexAllocatedBytes": 155758592
+      }
+    ],
+    "physicalTotals": {
+      "pages": 76777,
+      "allocatedBytes": 314478592,
+      "recordPayloadBytes": 300011564,
+      "unusedBytes": 13362200,
+      "structuralOverheadBytes": 1104828,
+      "pageTypes": {
+        "internal": {
+          "pages": 92,
+          "allocatedBytes": 376832,
+          "recordPayloadBytes": 61081,
+          "unusedBytes": 185631,
+          "cells": 16154
+        },
+        "leaf": {
+          "pages": 16436,
+          "allocatedBytes": 67321856,
+          "recordPayloadBytes": 53496440,
+          "unusedBytes": 13091704,
+          "cells": 149693
+        },
+        "overflow": {
+          "pages": 60249,
+          "allocatedBytes": 246779904,
+          "recordPayloadBytes": 246454043,
+          "unusedBytes": 84865,
+          "cells": 0
+        }
+      },
+      "byObjectType": {
+        "index": {
+          "pages": 1585,
+          "allocatedBytes": 6492160,
+          "recordPayloadBytes": 4650244,
+          "unusedBytes": 1507641,
+          "structuralOverheadBytes": 334275
+        },
+        "schema": {
+          "pages": 19,
+          "allocatedBytes": 77824,
+          "recordPayloadBytes": 62629,
+          "unusedBytes": 13412,
+          "structuralOverheadBytes": 1783
+        },
+        "table": {
+          "pages": 75173,
+          "allocatedBytes": 307908608,
+          "recordPayloadBytes": 295298691,
+          "unusedBytes": 11841147,
+          "structuralOverheadBytes": 768770
+        }
+      },
+      "freelistPages": 0,
+      "freelistBytes": 0,
+      "unaccountedPages": 0,
+      "unaccountedBytes": 0,
+      "duplicateDbstatPageRows": 0,
+      "primaryBytesEqualPageAllocation": true
+    },
+    "measuredShares": {
+      "percentDenominatorPhysicalBytes": 314478592,
+      "recordPayloadPercent": 95.39967795327702,
+      "unusedWithinAllocatedPagesPercent": 4.249001470980892,
+      "structuralOverheadPercent": 0.3513205757420842,
+      "overflowPageAllocatedPercent": 78.47271969470023,
+      "indexAllocatedPercent": 2.064420334214674,
+      "topTwoTableNames": [
+        "session_events",
+        "context_revisions"
+      ],
+      "topTwoTableAndIndexAllocatedBytes": 281632768,
+      "topTwoTableAndIndexAllocatedPercent": 89.55546582961043,
+      "topTwoDataColumnUtf8Bytes": 269100570,
+      "topTwoDataColumnShareOfAllUtf8TextPercent": 91.3112978001119
+    },
+    "sampleGrowthReconciliation": {
+      "formula": "(last worker primary+WAL+SHM+effects) - (first worker primary+WAL+SHM+effects); worker identity matched by report PID only, no process access",
+      "firstWorkerSample": {
+        "phase": "baseline",
+        "elapsedMs": 0,
+        "engineInstance": 1,
+        "cycles": 0,
+        "sqlite": {
+          "primaryBytes": 4096,
+          "walBytes": 1277232,
+          "shmBytes": 32768,
+          "effectsBytes": 0
+        },
+        "totalSqliteBytes": 1314096
+      },
+      "lastWorkerSample": {
+        "phase": "crash-ready",
+        "elapsedMs": 1814464,
+        "engineInstance": 2,
+        "cycles": 398,
+        "sqlite": {
+          "primaryBytes": 314417152,
+          "walBytes": 4420792,
+          "shmBytes": 32768,
+          "effectsBytes": 8192
+        },
+        "totalSqliteBytes": 318878904
+      },
+      "finalClosedSample": {
+        "phase": "recovery-host-after-close",
+        "elapsedMs": 1819739,
+        "engineInstance": 3,
+        "cycles": 398,
+        "sqlite": {
+          "primaryBytes": 314478592,
+          "walBytes": 0,
+          "shmBytes": 32768,
+          "effectsBytes": 8192
+        },
+        "totalSqliteBytes": 314519552
+      },
+      "componentDeltaBytes": {
+        "primaryBytes": 314413056,
+        "walBytes": 3143560,
+        "shmBytes": 0,
+        "effectsBytes": 8192
+      },
+      "calculatedWorkerSqliteDeltaBytes": 317564808,
+      "reportedWorkerSqliteDeltaBytes": 317564808,
+      "matchesReport": true,
+      "finalPrimaryBytes": 314478592,
+      "reportedGrowthMinusFinalPrimaryBytes": 3086216,
+      "lastWorkerToFinalClosedComponentDeltaBytes": {
+        "primaryBytes": 61440,
+        "walBytes": -4420792,
+        "shmBytes": 0,
+        "effectsBytes": 0
+      },
+      "auxiliaryEffectsFile": "Only report bytes were used; effects file not opened or hashed."
+    },
+    "method": {
+      "logicalTextBytes": "Sum length(CAST(column AS BLOB)) for typeof(column)=text per actual table column. Excludes integer/header/index bytes. All original payload text stays unprinted.",
+      "physicalBytes": "Read-only dbstat pages*4096 by sqlite_schema owner; table/index allocations and encoded record payload measured separately. Payload/unused/structural sum exactly to primary size. Overflow pages are stored records, not an additional category to add to allocation.",
+      "freeSpace": "freelist=0; 13362200 bytes of in-page slack remain allocated. No checkpoint/prune/vacuum was run or inferred to fix payload growth."
+    }
+  },
+  "historyAndRepetition": {
+    "canonicalContextCopiedToEvent": {
+      "eventRows": 1251,
+      "canonicalMatchedIds": 1251,
+      "exactSerializedMatches": 1251,
+      "byteEqualEmbeddedContextBytes": 124729863,
+      "mismatches": 0,
+      "missingCanonicalIds": 0
+    },
+    "contextTextRepetition": {
+      "occurrences": 1251,
+      "uniqueHashValues": 1251,
+      "valueBytesAcrossOccurrences": 102767668,
+      "uniqueValueBytes": 102767668,
+      "repeatedOccurrences": 0,
+      "repeatedValueBytes": 0,
+      "topRepeatedGroups": []
+    },
+    "contextSourceIdsRepetition": {
+      "occurrences": 1251,
+      "uniqueHashValues": 1251,
+      "valueBytesAcrossOccurrences": 17546298,
+      "uniqueValueBytes": 17546298,
+      "repeatedOccurrences": 0,
+      "repeatedValueBytes": 0,
+      "topRepeatedGroups": []
+    },
+    "projectedMessageTotals": {
+      "occurrences": 452375,
+      "uniqueHashValuesAcrossRoleGroups": 1203,
+      "compactJsonMessageBytesAcrossOccurrences": 102314042,
+      "compactJsonUniqueMessageBytesAcrossRoleGroups": 344587,
+      "repeatedCompactJsonMessageBytes": 101969455,
+      "qualification": "Parsed projected-message values, not original serialized outer strings or achievable physical page savings. Role groups are disjoint. Distinct contexts remain exact immutable histories."
+    },
+    "projectedMessageRoleTotals": {
+      "system": {
+        "occurrences": 2502,
+        "uniqueHashValues": 4,
+        "valueBytesAcrossOccurrences": 1822201,
+        "uniqueValueBytes": 2932,
+        "repeatedOccurrences": 2498,
+        "repeatedValueBytes": 1819269,
+        "topRepeatedGroups": [
+          {
+            "sha256": "73e49b39f8d59f0eddddc215a03614357288e1e228ea2b8d4f6804b0639de17b",
+            "occurrences": 1078,
+            "valueBytes": 1386,
+            "repeatedValueBytes": 1492722
+          },
+          {
+            "sha256": "75d90d4398bfbf20f18c77ea998f5daf5593f6b178424a5b5ef06e68f45900d2",
+            "occurrences": 173,
+            "valueBytes": 1390,
+            "repeatedValueBytes": 239080
+          },
+          {
+            "sha256": "ccb4391bcf79999a3cf6f653729765f608ee5efbb4262706c9f8369388ece749",
+            "occurrences": 1078,
+            "valueBytes": 67,
+            "repeatedValueBytes": 72159
+          },
+          {
+            "sha256": "1d8c9e53878eaef4d9da0d24391d281071c0cb249007344dad033eb22c9a302f",
+            "occurrences": 173,
+            "valueBytes": 89,
+            "repeatedValueBytes": 15308
+          }
+        ]
+      },
+      "user": {
+        "occurrences": 220228,
+        "uniqueHashValues": 1194,
+        "valueBytesAcrossOccurrences": 62544752,
+        "uniqueValueBytes": 339096,
+        "repeatedOccurrences": 219034,
+        "repeatedValueBytes": 62205656,
+        "topRepeatedGroups": [
+          {
+            "sha256": "93abbea3b567a5211eb43396982a170991395debaf62ef1e3be762152d3dbfcd",
+            "occurrences": 202,
+            "valueBytes": 284,
+            "repeatedValueBytes": 57084
+          },
+          {
+            "sha256": "9d9cd854511ee79d4dd40becb15bf7eac13df40fd185f75547f96865e83878b4",
+            "occurrences": 202,
+            "valueBytes": 284,
+            "repeatedValueBytes": 57084
+          },
+          {
+            "sha256": "9bdcdec125d2da569deac78d37a83bf47a85462046afed04ce4280a45f0941e1",
+            "occurrences": 202,
+            "valueBytes": 284,
+            "repeatedValueBytes": 57084
+          },
+          {
+            "sha256": "d72ad3c5b8f027740f9669738d5b2e6f4a12c425feb69c5e57e7bbe6003042f4",
+            "occurrences": 202,
+            "valueBytes": 284,
+            "repeatedValueBytes": 57084
+          },
+          {
+            "sha256": "010a5cad0b25a5bae38e10da02aaef01c698e78bdfda1bee8fa00efb1e84cbd2",
+            "occurrences": 202,
+            "valueBytes": 284,
+            "repeatedValueBytes": 57084
+          }
+        ]
+      },
+      "assistant": {
+        "occurrences": 219034,
+        "uniqueHashValues": 4,
+        "valueBytesAcrossOccurrences": 15589712,
+        "uniqueValueBytes": 452,
+        "repeatedOccurrences": 219030,
+        "repeatedValueBytes": 15589260,
+        "topRepeatedGroups": [
+          {
+            "sha256": "d221dc63d7b0fda61e8e8bb9b15de3bec808561deccbb89d80260d0b75bf7c71",
+            "occurrences": 135711,
+            "valueBytes": 62,
+            "repeatedValueBytes": 8414020
+          },
+          {
+            "sha256": "cc4d4b87c3c30583e792ac880dbf22a8910b0116e0ff6462e74efe87522c98a9",
+            "occurrences": 62215,
+            "valueBytes": 59,
+            "repeatedValueBytes": 3670626
+          },
+          {
+            "sha256": "a24c7fc34fbfd0555684478aaf87749ef33f953aa93ccd2a09c5a122acca36f6",
+            "occurrences": 10611,
+            "valueBytes": 267,
+            "repeatedValueBytes": 2832870
+          },
+          {
+            "sha256": "a0013ba653b9fd24f6e1938bf3d0592decb978c95001bbcd8cb7785644cd1e26",
+            "occurrences": 10497,
+            "valueBytes": 64,
+            "repeatedValueBytes": 671744
+          }
+        ]
+      },
+      "tool": {
+        "occurrences": 10611,
+        "uniqueHashValues": 1,
+        "valueBytesAcrossOccurrences": 22357377,
+        "uniqueValueBytes": 2107,
+        "repeatedOccurrences": 10610,
+        "repeatedValueBytes": 22355270,
+        "topRepeatedGroups": [
+          {
+            "sha256": "d25fa1779b803ae7029288e314b1cb09030da8e415303ff013c898ecdaac2b22",
+            "occurrences": 10611,
+            "valueBytes": 2107,
+            "repeatedValueBytes": 22355270
+          }
+        ]
+      }
+    },
+    "contextContentStrings": {
+      "occurrences": 452375,
+      "uniqueHashValues": 1203,
+      "valueBytesAcrossOccurrences": 85620586,
+      "uniqueValueBytes": 310586,
+      "repeatedOccurrences": 451172,
+      "repeatedValueBytes": 85310000,
+      "topRepeatedGroups": [
+        {
+          "sha256": "2ec4b60279e6e392f0e585aad439014be5612043cb5dc10e67b5de7d8dbc3b4b",
+          "occurrences": 10611,
+          "valueBytes": 2038,
+          "repeatedValueBytes": 21623180
+        },
+        {
+          "sha256": "3bd13c26001df3adc07014ad4aaca6085783bdde3620c0ef5cb4c3a79b1e5441",
+          "occurrences": 135711,
+          "valueBytes": 29,
+          "repeatedValueBytes": 3935590
+        },
+        {
+          "sha256": "234c25e7a4aec86e8f18ae8212281762cae57c21f4fe5fe6a1cad792852e5721",
+          "occurrences": 62215,
+          "valueBytes": 26,
+          "repeatedValueBytes": 1617564
+        },
+        {
+          "sha256": "d5de040055bc3ae3ca96681efd4ff6dbc88c59646db8b2596fa2003417356a72",
+          "occurrences": 1078,
+          "valueBytes": 1349,
+          "repeatedValueBytes": 1452873
+        },
+        {
+          "sha256": "b9a3c0dd55acee0da0d3648d6249dc336154b86500b6008b1ab4fa2e2e621285",
+          "occurrences": 10497,
+          "valueBytes": 31,
+          "repeatedValueBytes": 325376
+        }
+      ],
+      "exactContentOccurrencesMatchingCanonicalMessageContent": 449873,
+      "exactContentBytesMatchingCanonicalMessageContent": 83882202
+    },
+    "largestDominantContextFields": [
+      {
+        "group": "session_events:context.revision.recorded",
+        "path": "$.payload",
+        "occurrences": 1251,
+        "serializedValueBytes": 124744875,
+        "maxSerializedValueBytes": 110403,
+        "rawStringBytes": 0,
+        "uniqueHashValues": 1251,
+        "uniqueValueBytes": 124744875,
+        "repeatedOccurrences": 0,
+        "repeatedValueBytes": 0
+      },
+      {
+        "group": "session_events:context.revision.recorded",
+        "path": "$.payload.context",
+        "occurrences": 1251,
+        "serializedValueBytes": 124729863,
+        "maxSerializedValueBytes": 110391,
+        "rawStringBytes": 0,
+        "uniqueHashValues": 1251,
+        "uniqueValueBytes": 124729863,
+        "repeatedOccurrences": 0,
+        "repeatedValueBytes": 0
+      },
+      {
+        "group": "context_revisions",
+        "path": "$.text",
+        "occurrences": 1251,
+        "serializedValueBytes": 106705646,
+        "maxSerializedValueBytes": 94680,
+        "rawStringBytes": 102767668,
+        "uniqueHashValues": 1251,
+        "uniqueValueBytes": 106705646,
+        "repeatedOccurrences": 0,
+        "repeatedValueBytes": 0
+      },
+      {
+        "group": "session_events:context.revision.recorded",
+        "path": "$.payload.context.text",
+        "occurrences": 1251,
+        "serializedValueBytes": 106705646,
+        "maxSerializedValueBytes": 94680,
+        "rawStringBytes": 102767668,
+        "uniqueHashValues": 1251,
+        "uniqueValueBytes": 106705646,
+        "repeatedOccurrences": 0,
+        "repeatedValueBytes": 0
+      },
+      {
+        "group": "context_revisions",
+        "path": "$.sourceIds",
+        "occurrences": 1251,
+        "serializedValueBytes": 17546298,
+        "maxSerializedValueBytes": 15328,
+        "rawStringBytes": 0,
+        "uniqueHashValues": 1251,
+        "uniqueValueBytes": 17546298,
+        "repeatedOccurrences": 0,
+        "repeatedValueBytes": 0
+      },
+      {
+        "group": "session_events:context.revision.recorded",
+        "path": "$.payload.context.sourceIds",
+        "occurrences": 1251,
+        "serializedValueBytes": 17546298,
+        "maxSerializedValueBytes": 15328,
+        "rawStringBytes": 0,
+        "uniqueHashValues": 1251,
+        "uniqueValueBytes": 17546298,
+        "repeatedOccurrences": 0,
+        "repeatedValueBytes": 0
+      }
+    ],
+    "embeddedCanonicalRecordCopies": [
+      {
+        "table": "session_events",
+        "type": "context.revision.recorded",
+        "path": "$.payload.context",
+        "canonicalTable": "context_revisions",
+        "matches": 1251,
+        "copiedValueBytes": 124729863
+      },
+      {
+        "table": "session_events",
+        "type": "input.promoted",
+        "path": "$.payload.input",
+        "canonicalTable": "session_inputs",
+        "matches": 1194,
+        "copiedValueBytes": 1676345
+      },
+      {
+        "table": "session_events",
+        "type": "message.part.updated",
+        "path": "$.payload.part",
+        "canonicalTable": "message_parts",
+        "matches": 1193,
+        "copiedValueBytes": 653152
+      },
+      {
+        "table": "session_events",
+        "type": "provider.attempt.completed",
+        "path": "$.payload.attempt",
+        "canonicalTable": "provider_attempts",
+        "matches": 1194,
+        "copiedValueBytes": 576620
+      },
+      {
+        "table": "session_events",
+        "type": "input.cancelled",
+        "path": "$.payload.input",
+        "canonicalTable": "session_inputs",
+        "matches": 399,
+        "copiedValueBytes": 549513
+      },
+      {
+        "table": "session_events",
+        "type": "turn.completed",
+        "path": "$.payload.turn",
+        "canonicalTable": "session_turns",
+        "matches": 1192,
+        "copiedValueBytes": 497393
+      },
+      {
+        "table": "session_events",
+        "type": "input.accepted",
+        "path": "$.payload.input",
+        "canonicalTable": "session_inputs",
+        "matches": 3,
+        "copiedValueBytes": 4000
+      },
+      {
+        "table": "session_events",
+        "type": "message.part.interrupted",
+        "path": "$.payload.part",
+        "canonicalTable": "message_parts",
+        "matches": 1,
+        "copiedValueBytes": 681
+      },
+      {
+        "table": "session_events",
+        "type": "turn.uncertain",
+        "path": "$.payload.turn",
+        "canonicalTable": "session_turns",
+        "matches": 1,
+        "copiedValueBytes": 606
+      },
+      {
+        "table": "events",
+        "type": "tool.interrupted",
+        "path": "$.payload.tool",
+        "canonicalTable": "tools",
+        "matches": 1,
+        "copiedValueBytes": 425
+      },
+      {
+        "table": "session_events",
+        "type": "turn.interrupted",
+        "path": "$.payload.turn",
+        "canonicalTable": "session_turns",
+        "matches": 1,
+        "copiedValueBytes": 412
+      }
+    ],
+    "crossVersionEquivalentPayloadCounts": [
+      {
+        "type": "context.revision.activated",
+        "byteEquivalentParsedPayloadPairs": 1251,
+        "v1Rows": 1251,
+        "v2Rows": 1251,
+        "byteEquivalentParsedPayloadBytes": 189042
+      },
+      {
+        "type": "provider.cleanup.prepared",
+        "byteEquivalentParsedPayloadPairs": 1194,
+        "v1Rows": 1194,
+        "v2Rows": 1194,
+        "byteEquivalentParsedPayloadBytes": 864356
+      },
+      {
+        "type": "provider.cleanup.dispatched",
+        "byteEquivalentParsedPayloadPairs": 1194,
+        "v1Rows": 1194,
+        "v2Rows": 1194,
+        "byteEquivalentParsedPayloadBytes": 916892
+      },
+      {
+        "type": "provider.cleanup.confirmed",
+        "byteEquivalentParsedPayloadPairs": 1194,
+        "v1Rows": 1194,
+        "v2Rows": 1194,
+        "byteEquivalentParsedPayloadBytes": 1026740
+      },
+      {
+        "type": "tool.recovery_frontier",
+        "byteEquivalentParsedPayloadPairs": 1,
+        "v1Rows": 1,
+        "v2Rows": 1,
+        "byteEquivalentParsedPayloadBytes": 1099
+      }
+    ],
+    "contextEventTotal": {
+      "type": "context.revision.recorded",
+      "rows": 1251,
+      "dataUtf8Bytes": 125100765,
+      "payloadUtf8Bytes": 124744875
+    },
+    "interpretation": [
+      "putContextRevision writes an immutable exact context row and appends the full context in the same native write transaction. All 1251 canonical/event context bodies match; these are representation copies, not duplicate event IDs or duplicate context histories.",
+      "All full context text and sourceIds arrays are unique. Repeated message components reflect independently frozen context snapshots, and scripted repeated replies may make component compression more favorable here than with a live provider.",
+      "Nested field byte totals overlap parent totals; never sum hierarchical fields or both message/content repetition estimates. Parsed compact-message sizes differ from escaped outer text serialization.",
+      "Original schema intentionally keeps Run-owned v1 and independent session-v2 journals. Equal payload pairs do not establish disposable duplicate events; preserve identity/sequence/compatibility.",
+      "Raw native record digest and schema-bound recovery/archive hashes are different protocols. Their existing semantics forbid claiming a storage/schema rewrite preserves every hash."
+    ],
+    "noDeletionOrDeduplicationPerformed": true
+  },
+  "resourceProfile": {
+    "measurementSemantics": {
+      "sampleCount": 128,
+      "workerSampleCount": 126,
+      "workerPid": 50294,
+      "workerEngineInstances": [
+        1,
+        2
+      ],
+      "recoveryHostPid": 50088,
+      "recoveryHostEngineInstance": 3,
+      "recoveryHostSampleCount": 2,
+      "originalSamplesWereDecimated": false,
+      "nominalTimedIntervalMs": 15000.0,
+      "actualTimedGapMs": {
+        "min": 7107,
+        "median": 15040,
+        "max": 24732
+      },
+      "snapshotOrder": "persistent-native.ts248: memoryUsage first; ps descendant census; lsof numeric FD count; SQLite file size and read-only table counts; recursive artifact content hashing. ElapsedMs was evaluated before this synchronous sample function. The fields are sequential observations, not one atomic instant.",
+      "memory": "process.memoryUsage of the calling PID only. rss is process resident memory; heapUsed is V8 heap usage at that instant, including reachable values and allocations not yet collected. heapTotal is V8 heap capacity rather than retained application objects. external and arrayBuffers are separately reported counters; ArrayBuffer accounting overlaps external, so do not sum them as independent memory.",
+      "gc": "runtime.gcExposed=false records absence of exposed global gc; it does not disable automatic V8 garbage collection. No GC event, full-GC boundary, heap-space generation, retained object graph or allocation rate was recorded.",
+      "fd": "macOS lsof -nP -p PID -Ff counts only numeric f descriptors. It does not include every lsof mapping row. lsof/execFileSync uses measurement pipes while inspecting the worker; no file identities or descriptor categories are retained, so role or leak attribution from counts is unavailable.",
+      "process": "ps recursively derives descendants and excludes the direct ps child used for observation. It is a snapshot, not a continuous subprocess census or system-wide absence proof.",
+      "cpu": "No cpuUsage, resourceUsage, eventLoopUtilization, CPU profile or event-loop-delay samples exist in the report/helper. CPU utilization, CPU seconds and GC CPU fractions cannot be derived from paced elapsed time.",
+      "observerEffect": "ps/lsof are synchronous; artifactMeasure reads and hashes every current artifact file; table counts and phase digest checks visit native history. Their wall-time cost and temporary allocations are not measured separately and may influence later memory samples.",
+      "workerGrowth": "persistent.ts520-543 filters samples by the actual child PID and computes first baseline to last crash-ready differences. It excludes the separate recovery host. Physical SQLite delta sums primary+WAL+SHM+effects and is not the final primary-file delta.",
+      "passingMeaning": "Passed verifies stated bounded workload and fault/recovery/no-replay assertions, source stability and physical cleanup. It is not a memory leak test or absolute performance guarantee; nativeCleanupConfirmed remains false and evidence is retained."
+    },
+    "workerAllPhases": {
+      "count": 126,
+      "pid": 50294,
+      "engineInstances": [
+        1,
+        2
+      ],
+      "firstElapsedMs": 0,
+      "lastElapsedMs": 1814464,
+      "firstCycles": 0,
+      "lastCycles": 398,
+      "memory": {
+        "rss": {
+          "firstBytes": 106332160,
+          "lastBytes": 149143552,
+          "deltaBytes": 42811392,
+          "minBytes": 87801856,
+          "maxBytes": 181862400,
+          "medianBytes": 126533632.0,
+          "p10BytesNearestRank": 107053056,
+          "p90BytesNearestRank": 151863296,
+          "decreasingAdjacentPairs": 53,
+          "largestAdjacentDecreaseBytes": 49037312
+        },
+        "heapUsed": {
+          "firstBytes": 18403912,
+          "lastBytes": 65635376,
+          "deltaBytes": 47231464,
+          "minBytes": 18403912,
+          "maxBytes": 69094768,
+          "medianBytes": 47821604.0,
+          "p10BytesNearestRank": 33774160,
+          "p90BytesNearestRank": 62698680,
+          "decreasingAdjacentPairs": 53,
+          "largestAdjacentDecreaseBytes": 27800352
+        },
+        "heapTotal": {
+          "firstBytes": 35143680,
+          "lastBytes": 108281856,
+          "deltaBytes": 73138176,
+          "minBytes": 35143680,
+          "maxBytes": 112967680,
+          "medianBytes": 105644032.0,
+          "p10BytesNearestRank": 100188160,
+          "p90BytesNearestRank": 109297664,
+          "decreasingAdjacentPairs": 26,
+          "largestAdjacentDecreaseBytes": 6815744
+        },
+        "external": {
+          "firstBytes": 2987114,
+          "lastBytes": 3927300,
+          "deltaBytes": 940186,
+          "minBytes": 2987114,
+          "maxBytes": 8529238,
+          "medianBytes": 5743445.5,
+          "p10BytesNearestRank": 3992452,
+          "p90BytesNearestRank": 7069562,
+          "decreasingAdjacentPairs": 52,
+          "largestAdjacentDecreaseBytes": 4191584
+        },
+        "arrayBuffers": {
+          "firstBytes": 212381,
+          "lastBytes": 1132352,
+          "deltaBytes": 919971,
+          "minBytes": 212381,
+          "maxBytes": 5734290,
+          "medianBytes": 2948497.5,
+          "p10BytesNearestRank": 1197504,
+          "p90BytesNearestRank": 4264453,
+          "decreasingAdjacentPairs": 52,
+          "largestAdjacentDecreaseBytes": 4191584
+        }
+      },
+      "descriptors": {
+        "first": 28,
+        "last": 35,
+        "min": 28,
+        "max": 35,
+        "frequency": {
+          "28": 1,
+          "29": 50,
+          "30": 39,
+          "31": 31,
+          "32": 4,
+          "35": 1
+        },
+        "source": [
+          "lsof-numeric-file-descriptors"
+        ]
+      },
+      "processes": {
+        "sampledLiveDescendantMin": 0,
+        "sampledLiveDescendantMax": 2,
+        "truncatedSamples": 0
+      }
+    },
+    "workerTimedOnly": {
+      "count": 120,
+      "pid": 50294,
+      "engineInstances": [
+        1,
+        2
+      ],
+      "firstElapsedMs": 15045,
+      "lastElapsedMs": 1802296,
+      "firstCycles": 6,
+      "lastCycles": 398,
+      "memory": {
+        "rss": {
+          "firstBytes": 115965952,
+          "lastBytes": 107397120,
+          "deltaBytes": -8568832,
+          "minBytes": 87801856,
+          "maxBytes": 181862400,
+          "medianBytes": 126124032.0,
+          "p10BytesNearestRank": 107053056,
+          "p90BytesNearestRank": 151535616,
+          "decreasingAdjacentPairs": 51,
+          "largestAdjacentDecreaseBytes": 49037312
+        },
+        "heapUsed": {
+          "firstBytes": 38095304,
+          "lastBytes": 60314976,
+          "deltaBytes": 22219672,
+          "minBytes": 26823432,
+          "maxBytes": 69094768,
+          "medianBytes": 48030616.0,
+          "p10BytesNearestRank": 34006920,
+          "p90BytesNearestRank": 62695840,
+          "decreasingAdjacentPairs": 53,
+          "largestAdjacentDecreaseBytes": 27800352
+        },
+        "heapTotal": {
+          "firstBytes": 56639488,
+          "lastBytes": 109035520,
+          "deltaBytes": 52396032,
+          "minBytes": 56639488,
+          "maxBytes": 112967680,
+          "medianBytes": 105627648.0,
+          "p10BytesNearestRank": 102711296,
+          "p90BytesNearestRank": 109297664,
+          "decreasingAdjacentPairs": 25,
+          "largestAdjacentDecreaseBytes": 6815744
+        },
+        "external": {
+          "firstBytes": 4184896,
+          "lastBytes": 6450303,
+          "deltaBytes": 2265407,
+          "minBytes": 3240115,
+          "maxBytes": 8529238,
+          "medianBytes": 5786450.5,
+          "p10BytesNearestRank": 4100268,
+          "p90BytesNearestRank": 7048524,
+          "decreasingAdjacentPairs": 50,
+          "largestAdjacentDecreaseBytes": 4191584
+        },
+        "arrayBuffers": {
+          "firstBytes": 1379787,
+          "lastBytes": 3655355,
+          "deltaBytes": 2275568,
+          "minBytes": 445167,
+          "maxBytes": 5734290,
+          "medianBytes": 2991502.5,
+          "p10BytesNearestRank": 1305320,
+          "p90BytesNearestRank": 4253576,
+          "decreasingAdjacentPairs": 50,
+          "largestAdjacentDecreaseBytes": 4191584
+        }
+      },
+      "descriptors": {
+        "first": 29,
+        "last": 30,
+        "min": 29,
+        "max": 32,
+        "frequency": {
+          "29": 48,
+          "30": 38,
+          "31": 31,
+          "32": 3
+        },
+        "source": [
+          "lsof-numeric-file-descriptors"
+        ]
+      },
+      "processes": {
+        "sampledLiveDescendantMin": 0,
+        "sampledLiveDescendantMax": 0,
+        "truncatedSamples": 0
+      }
+    },
+    "timedPerEngineInstance": [
+      {
+        "engineInstance": 1,
+        "count": 60,
+        "pid": 50294,
+        "firstElapsedMs": 15045,
+        "lastElapsedMs": 900175,
+        "firstCycles": 6,
+        "lastCycles": 277,
+        "memory": {
+          "rss": {
+            "firstBytes": 115965952,
+            "lastBytes": 151863296,
+            "deltaBytes": 35897344,
+            "minBytes": 100827136,
+            "maxBytes": 181862400,
+            "medianBytes": 140967936.0,
+            "p10BytesNearestRank": 115965952,
+            "p90BytesNearestRank": 163004416,
+            "decreasingAdjacentPairs": 26,
+            "largestAdjacentDecreaseBytes": 49037312
+          },
+          "heapUsed": {
+            "firstBytes": 38095304,
+            "lastBytes": 35977696,
+            "deltaBytes": -2117608,
+            "minBytes": 26823432,
+            "maxBytes": 69094768,
+            "medianBytes": 51013288.0,
+            "p10BytesNearestRank": 32801208,
+            "p90BytesNearestRank": 63962424,
+            "decreasingAdjacentPairs": 31,
+            "largestAdjacentDecreaseBytes": 26128104
+          },
+          "heapTotal": {
+            "firstBytes": 56639488,
+            "lastBytes": 109592576,
+            "deltaBytes": 52953088,
+            "minBytes": 56639488,
+            "maxBytes": 112967680,
+            "medianBytes": 106414080.0,
+            "p10BytesNearestRank": 97796096,
+            "p90BytesNearestRank": 109592576,
+            "decreasingAdjacentPairs": 12,
+            "largestAdjacentDecreaseBytes": 3375104
+          },
+          "external": {
+            "firstBytes": 4184896,
+            "lastBytes": 3321769,
+            "deltaBytes": -863127,
+            "minBytes": 3240115,
+            "maxBytes": 8529238,
+            "medianBytes": 5832550.5,
+            "p10BytesNearestRank": 4184896,
+            "p90BytesNearestRank": 8126040,
+            "decreasingAdjacentPairs": 27,
+            "largestAdjacentDecreaseBytes": 4191584
+          },
+          "arrayBuffers": {
+            "firstBytes": 1379787,
+            "lastBytes": 526821,
+            "deltaBytes": -852966,
+            "minBytes": 445167,
+            "maxBytes": 5734290,
+            "medianBytes": 3037602.5,
+            "p10BytesNearestRank": 1379787,
+            "p90BytesNearestRank": 5331092,
+            "decreasingAdjacentPairs": 27,
+            "largestAdjacentDecreaseBytes": 4191584
+          }
+        },
+        "descriptors": {
+          "first": 29,
+          "last": 30,
+          "min": 29,
+          "max": 31,
+          "frequency": {
+            "29": 48,
+            "30": 4,
+            "31": 8
+          },
+          "source": [
+            "lsof-numeric-file-descriptors"
+          ]
+        },
+        "processes": {
+          "sampledLiveDescendantMin": 0,
+          "sampledLiveDescendantMax": 0,
+          "truncatedSamples": 0
+        },
+        "observedCompletedCyclesPerMinuteBetweenFirstAndLastTimedSample": 18.370182910984827,
+        "causalThroughputOrLeakClaim": false
+      },
+      {
+        "engineInstance": 2,
+        "count": 60,
+        "pid": 50294,
+        "firstElapsedMs": 917286,
+        "lastElapsedMs": 1802296,
+        "firstCycles": 280,
+        "lastCycles": 398,
+        "memory": {
+          "rss": {
+            "firstBytes": 135299072,
+            "lastBytes": 107397120,
+            "deltaBytes": -27901952,
+            "minBytes": 87801856,
+            "maxBytes": 149553152,
+            "medianBytes": 120078336.0,
+            "p10BytesNearestRank": 98910208,
+            "p90BytesNearestRank": 139788288,
+            "decreasingAdjacentPairs": 24,
+            "largestAdjacentDecreaseBytes": 47022080
+          },
+          "heapUsed": {
+            "firstBytes": 46170032,
+            "lastBytes": 60314976,
+            "deltaBytes": 14144944,
+            "minBytes": 30608504,
+            "maxBytes": 64243728,
+            "medianBytes": 45212388.0,
+            "p10BytesNearestRank": 34257976,
+            "p90BytesNearestRank": 58167400,
+            "decreasingAdjacentPairs": 22,
+            "largestAdjacentDecreaseBytes": 27800352
+          },
+          "heapTotal": {
+            "firstBytes": 111656960,
+            "lastBytes": 109035520,
+            "deltaBytes": -2621440,
+            "minBytes": 103825408,
+            "maxBytes": 111656960,
+            "medianBytes": 105512960.0,
+            "p10BytesNearestRank": 104087552,
+            "p90BytesNearestRank": 108249088,
+            "decreasingAdjacentPairs": 13,
+            "largestAdjacentDecreaseBytes": 6815744
+          },
+          "external": {
+            "firstBytes": 6054735,
+            "lastBytes": 6450303,
+            "deltaBytes": 395568,
+            "minBytes": 3628805,
+            "maxBytes": 6676912,
+            "medianBytes": 5726753.0,
+            "p10BytesNearestRank": 4042640,
+            "p90BytesNearestRank": 6494638,
+            "decreasingAdjacentPairs": 23,
+            "largestAdjacentDecreaseBytes": 2634272
+          },
+          "arrayBuffers": {
+            "firstBytes": 3259787,
+            "lastBytes": 3655355,
+            "deltaBytes": 395568,
+            "minBytes": 833857,
+            "maxBytes": 3881964,
+            "medianBytes": 2931805.0,
+            "p10BytesNearestRank": 1247692,
+            "p90BytesNearestRank": 3699690,
+            "decreasingAdjacentPairs": 23,
+            "largestAdjacentDecreaseBytes": 2634272
+          }
+        },
+        "descriptors": {
+          "first": 30,
+          "last": 30,
+          "min": 30,
+          "max": 32,
+          "frequency": {
+            "30": 34,
+            "31": 23,
+            "32": 3
+          },
+          "source": [
+            "lsof-numeric-file-descriptors"
+          ]
+        },
+        "processes": {
+          "sampledLiveDescendantMin": 0,
+          "sampledLiveDescendantMax": 0,
+          "truncatedSamples": 0
+        },
+        "observedCompletedCyclesPerMinuteBetweenFirstAndLastTimedSample": 7.9999096055411805,
+        "causalThroughputOrLeakClaim": false
+      }
+    ],
+    "phaseTransitions": {
+      "gracefulReopen": {
+        "samePid": true,
+        "beforeInstance": 1,
+        "afterInstance": 2,
+        "beforeCycles": 277,
+        "afterCycles": 277,
+        "elapsedDeltaMs": 4986,
+        "memoryDeltaBytes": {
+          "rss": -7241728,
+          "heapUsed": 4102800,
+          "heapTotal": 262144,
+          "external": -303013,
+          "arrayBuffers": -303013
+        },
+        "fdDelta": 1,
+        "recordCountsBeforeSample": {
+          "runs": 553,
+          "messages": 1698,
+          "tools": 41,
+          "approvals": 41,
+          "checkpoints": 41,
+          "session_inputs": 1108,
+          "session_turns": 829,
+          "provider_attempts": 829,
+          "message_parts": 829,
+          "attempt_cleanup": 829,
+          "session_documents": 49,
+          "session_events": 15104
+        },
+        "recordCountsAfterSample": {
+          "runs": 554,
+          "messages": 1700,
+          "tools": 41,
+          "approvals": 41,
+          "checkpoints": 41,
+          "session_inputs": 1109,
+          "session_turns": 830,
+          "provider_attempts": 830,
+          "message_parts": 830,
+          "attempt_cleanup": 830,
+          "session_documents": 49,
+          "session_events": 15123
+        },
+        "qualification": "Logical Engine close/reopen shares PID, V8 heap and provider fixture. It does not reset process memory. The after sample also includes explicitly resumed queued input, one additional Run and observer call; full digest/open work occurs between samples. This is not a pure close-only retention experiment."
+      },
+      "loadCompleteToCrashReady": {
+        "elapsedDeltaMs": 12094,
+        "memoryDeltaBytes": {
+          "rss": 36700160,
+          "heapUsed": 3393816,
+          "heapTotal": -753664,
+          "external": -3392916,
+          "arrayBuffers": -3392916
+        },
+        "fdBefore": 32,
+        "fdAfter": 35,
+        "liveDescendantsBefore": 1,
+        "liveDescendantsAfter": 2,
+        "qualification": "Preparing the intentionally running crash command changes handles, descendants and allocations. FD35 is this phase; attributing all baseline-to-crash +7 to leaked handles is unsupported."
+      },
+      "recoveryHostClose": {
+        "pid": 50088,
+        "fdBefore": 29,
+        "fdAfter": 18,
+        "memoryDeltaBytes": {
+          "rss": 15253504,
+          "heapUsed": -245048,
+          "heapTotal": 3407872,
+          "external": 1702446,
+          "arrayBuffers": -34086
+        },
+        "qualification": "A distinct PID with no matching pre-work baseline; keep separate from worker growth. Close plus retained database digest/checks changes allocations. RSS rises despite heapUsed declining slightly, illustrating that these counters do not measure the same thing."
+      }
+    },
+    "historyObservations": [
+      {
+        "phase": "baseline",
+        "elapsedMs": 0,
+        "cycles": 0,
+        "counts": {
+          "runs": 0,
+          "messages": 0,
+          "tools": 0,
+          "approvals": 0,
+          "checkpoints": 0,
+          "session_inputs": 0,
+          "session_turns": 0,
+          "provider_attempts": 0,
+          "message_parts": 0,
+          "attempt_cleanup": 0,
+          "session_documents": 0,
+          "session_events": 0
+        }
+      },
+      {
+        "phase": "mandatory-cases-settled",
+        "elapsedMs": 588,
+        "cycles": 3,
+        "counts": {
+          "runs": 5,
+          "messages": 15,
+          "tools": 2,
+          "approvals": 2,
+          "checkpoints": 2,
+          "session_inputs": 12,
+          "session_turns": 7,
+          "provider_attempts": 7,
+          "message_parts": 7,
+          "attempt_cleanup": 7,
+          "session_documents": 10,
+          "session_events": 153
+        }
+      },
+      {
+        "phase": "before-graceful-reopen",
+        "elapsedMs": 900237,
+        "cycles": 277,
+        "counts": {
+          "runs": 553,
+          "messages": 1698,
+          "tools": 41,
+          "approvals": 41,
+          "checkpoints": 41,
+          "session_inputs": 1108,
+          "session_turns": 829,
+          "provider_attempts": 829,
+          "message_parts": 829,
+          "attempt_cleanup": 829,
+          "session_documents": 49,
+          "session_events": 15104
+        }
+      },
+      {
+        "phase": "after-graceful-reopen",
+        "elapsedMs": 905223,
+        "cycles": 277,
+        "counts": {
+          "runs": 554,
+          "messages": 1700,
+          "tools": 41,
+          "approvals": 41,
+          "checkpoints": 41,
+          "session_inputs": 1109,
+          "session_turns": 830,
+          "provider_attempts": 830,
+          "message_parts": 830,
+          "attempt_cleanup": 830,
+          "session_documents": 49,
+          "session_events": 15123
+        }
+      },
+      {
+        "phase": "load-complete",
+        "elapsedMs": 1802370,
+        "cycles": 398,
+        "counts": {
+          "runs": 796,
+          "messages": 2443,
+          "tools": 58,
+          "approvals": 58,
+          "checkpoints": 58,
+          "session_inputs": 1593,
+          "session_turns": 1193,
+          "provider_attempts": 1193,
+          "message_parts": 1193,
+          "attempt_cleanup": 1193,
+          "session_documents": 66,
+          "session_events": 21723
+        }
+      },
+      {
+        "phase": "crash-ready",
+        "elapsedMs": 1814464,
+        "cycles": 398,
+        "counts": {
+          "runs": 797,
+          "messages": 2445,
+          "tools": 59,
+          "approvals": 59,
+          "checkpoints": 58,
+          "session_inputs": 1596,
+          "session_turns": 1194,
+          "provider_attempts": 1194,
+          "message_parts": 1194,
+          "attempt_cleanup": 1194,
+          "session_documents": 67,
+          "session_events": 21746
+        }
+      }
+    ],
+    "interpretation": [
+      "Reported RSS+42,811,392 bytes (40.83MiB) and heapUsed+47,231,464 bytes (45.04MiB) are baseline-to-crash-ready endpoint deltas on worker50294. Warmup, committed history, collection phase and active crash resources are mixed; no live-old-heap or leak-rate conclusion follows.",
+      "Observed worker RSS minimum83.73MiB occurs late and maximum173.44MiB occurs early. Timed RSS decreases repeatedly within both Engine instances; its descriptive OLS slope is negative in each interval even though baseline-to-crash RSS delta is positive. Neither direction can be extrapolated.",
+      "Timed heapUsed decreases31 times in Engine1 and22 times in Engine2, with adjacent sampled drops about24.92 and26.51MiB. This sawtooth-like allocated-heap sequence is consistent with transient allocation and collection, but no recorded GC event identifies each drop. Sample minima are not post-GC retained heap.",
+      "Engine1 five-minute heap minima rise across early windows while Engine2 minima fall after reopen and then vary. Therefore one monotonic lifetime retained-heap slope is not established. heapTotal settles around100MiB after warmup; that is observed capacity in this run, not a future bound.",
+      "Timed FD ranges29–31 in Engine1 and30–32 in Engine2. Baseline28, mandatory-settled29, after-reopen30 and crash-ready35 show role/phase-sensitive counts. Descriptor identities and repeated close-to-quiescent comparisons are absent; no descriptor leak attribution is defensible.",
+      "Session native history intentionally grows to797 Runs,2445 messages,1596 inputs and21746 events at crash-ready. Committed database history is not automatically all retained in JS heap: the store is SQLite-backed and context histories have finite budgets. Which objects survive or which history work allocates heavily requires GC/dominator and CPU/allocation profiles.",
+      "First-to-last timed observed cycle advancement drops from approximately18.37/min in Engine1 to8.00/min in Engine2. This is a work-progress observation on a paced, synchronously sampled workload, not CPU utilization, service latency, maximum throughput or proof that history alone caused slowdown.",
+      "Final worker exit, command PID/group absence and ownedLiveSurvivors[] are reported, and the recovery host observes0 live descendants. That supports this fixture physical cleanup scope; it does not settle unknown native command outcomes or authorize replay."
+    ],
+    "limits": [
+      "One macOS arm64 Node26.9.0 run with local scripted providers and POSIX owned commands; Windows/Electron/PTY/network provider performance is outside scope.",
+      "No per-cycle latency distribution, CPU measurements, full GC boundary, old/new space, retained heap graph, descriptor identity or observer-phase duration; these are not reconstructed from deltas.",
+      "Timed sampling approximately15s can miss transient peaks and collections; all reported extrema are observed sample extrema.",
+      "Timing and memory samples include history growth and allocation/collection effects; descriptive slopes are neither leak rates nor causal history-scaling laws.",
+      "No fresh process sampling or database queries were performed; record counts and physical file-size deltas are taken from the original report only."
+    ],
+    "leakDiagnosed": false,
+    "leakExcluded": false,
+    "cpuOrCausalSlowdownMeasured": false
+  },
+  "sourceAndQueries": {
+    "frozenSourceEvidence": [
+      {
+        "file": "packages/engine/src/context/service.ts",
+        "line": 399,
+        "anchor": "const bindingHash = digest",
+        "reason": "Binds exact plan, selected source IDs, config and model; revisions cannot be merged by message equivalence.",
+        "sha256": "a6ff7016e70d0e13f3eacfcc89c83b26308055f4b1230a58e858dd0df3d80773"
+      },
+      {
+        "file": "packages/engine/src/context/service.ts",
+        "line": 407,
+        "anchor": "const text = JSON.stringify(plan.messages)",
+        "reason": "Ordered provider messages become exact UTF-8 text with SHA; these snapshots are distinct.",
+        "sha256": "a6ff7016e70d0e13f3eacfcc89c83b26308055f4b1230a58e858dd0df3d80773"
+      },
+      {
+        "file": "packages/engine/src/context/service.ts",
+        "line": 135,
+        "anchor": "this.store.readModelHistory(sessionId, 512",
+        "reason": "Actual production context already reads a bounded whole-Run512message history.",
+        "sha256": "a6ff7016e70d0e13f3eacfcc89c83b26308055f4b1230a58e858dd0df3d80773"
+      },
+      {
+        "file": "packages/engine/src/context/service.ts",
+        "line": 450,
+        "anchor": "this.store.commitContextDocument(request.run.id, 'context.revision.activated'",
+        "reason": "Context/head/activation are committed together.",
+        "sha256": "a6ff7016e70d0e13f3eacfcc89c83b26308055f4b1230a58e858dd0df3d80773"
+      },
+      {
+        "file": "packages/engine/src/storage/native-records.ts",
+        "line": 281,
+        "anchor": "Context revision is immutable",
+        "reason": "Existing context identity cannot be rewritten; sequential revision/supersedes owner checks follow.",
+        "sha256": "37246595fd74168a5c2ca14113d6403387fd9d70c6f5360ae4ebb7edf5e864e3"
+      },
+      {
+        "file": "packages/engine/src/storage/native-records.ts",
+        "line": 291,
+        "anchor": "INSERT INTO context_revisions(id,session_id,revision",
+        "reason": "Canonical full context JSON write.",
+        "sha256": "37246595fd74168a5c2ca14113d6403387fd9d70c6f5360ae4ebb7edf5e864e3"
+      },
+      {
+        "file": "packages/engine/src/storage/native-records.ts",
+        "line": 293,
+        "anchor": "'context.revision.recorded', { context: storedJson(context) }",
+        "reason": "Same transaction writes full context into v2 event; exact1,251copies independently measured.",
+        "sha256": "37246595fd74168a5c2ca14113d6403387fd9d70c6f5360ae4ebb7edf5e864e3"
+      },
+      {
+        "file": "packages/engine/src/storage/native-records.ts",
+        "line": 110,
+        "anchor": "const context = this.getContextRevision(turn.contextRevisionId)",
+        "reason": "Turn owner updates read the full context to verify owner.",
+        "sha256": "37246595fd74168a5c2ca14113d6403387fd9d70c6f5360ae4ebb7edf5e864e3"
+      },
+      {
+        "file": "packages/engine/src/storage/native-records.ts",
+        "line": 158,
+        "anchor": "const context = this.getContextRevision(attempt.contextRevisionId)",
+        "reason": "Attempt owner updates also read the same original context.",
+        "sha256": "37246595fd74168a5c2ca14113d6403387fd9d70c6f5360ae4ebb7edf5e864e3"
+      },
+      {
+        "file": "packages/engine/src/storage/native.ts",
+        "line": 82,
+        "anchor": "INSERT INTO session_events(session_id,seq",
+        "reason": "Original v2 validated event stored with independent session sequence.",
+        "sha256": "ae27b615b75f2f5321e936d378efbf8b211e8db91c0d2c533b0e70c0afc046df"
+      },
+      {
+        "file": "packages/engine/src/storage/native.ts",
+        "line": 312,
+        "anchor": "readSessionEvents(sessionId: string",
+        "reason": "Existing replay is keyset and UTF-8 byte bounded; original event body stays intact.",
+        "sha256": "ae27b615b75f2f5321e936d378efbf8b211e8db91c0d2c533b0e70c0afc046df"
+      },
+      {
+        "file": "packages/contracts/src/v2.ts",
+        "line": 98,
+        "anchor": "export interface ContextRevision",
+        "reason": "Public exact text/hash/sourceIds and owner/supersedes schema.",
+        "sha256": "fb5575f0c40b67307325e5d4b24258f32d09d4890bba1d8df6312eb1c6ac28c3"
+      },
+      {
+        "file": "packages/contracts/src/v2.ts",
+        "line": 104,
+        "anchor": "export interface SessionEventV2",
+        "reason": "Original payload and independent v2 event identity/cursor contract.",
+        "sha256": "fb5575f0c40b67307325e5d4b24258f32d09d4890bba1d8df6312eb1c6ac28c3"
+      },
+      {
+        "file": "packages/engine/src/storage/index.ts",
+        "line": 1211,
+        "anchor": "getSnapshot(sessionId: string)",
+        "reason": "Public complete snapshot; preserve this contract, narrow only internal one-record consumers.",
+        "sha256": "1984bc06713d2658d5e2187a70ad87f6497e9df61b8b328414ebd95f73394beb"
+      },
+      {
+        "file": "packages/engine/src/questions/index.ts",
+        "line": 63,
+        "anchor": "this.store.getSnapshot(question.sessionId).tools.find",
+        "reason": "Internal single-tool lookup consumes whole snapshot; not established as hot in this soak.",
+        "sha256": "96c52180e6fea9f64e7f6ac4628344367c1b293eaaeb318d95faab7c216ddef9"
+      },
+      {
+        "file": "packages/engine/src/runner/index.ts",
+        "line": 1076,
+        "anchor": "await this.executeTool(owner,call,context.workspace)",
+        "reason": "Nested tool bridge takes two full snapshots for one Tool/allowed approvals; not established as hot in this soak.",
+        "sha256": "67de9adbdeec71994224429d0b4515bbb1934927a7ee021dd730b568cf1203e3"
+      },
+      {
+        "file": "packages/engine/src/storage/index.ts",
+        "line": 1242,
+        "anchor": "listToolApprovals(toolCallId: string)",
+        "reason": "Existing bounded exact per-tool approval scope includes original preview/fingerprint and owner validation.",
+        "sha256": "1984bc06713d2658d5e2187a70ad87f6497e9df61b8b328414ebd95f73394beb"
+      },
+      {
+        "file": "packages/engine/src/storage/history-search.ts",
+        "line": 26,
+        "anchor": "LIKE ? ESCAPE",
+        "reason": "Literal substring query and before cursor semantics preserved.",
+        "sha256": "7031a9f74a49a632b00971bd0d834fc6e18a47a0a5fb5e348df97fa184ed1380"
+      },
+      {
+        "file": "packages/engine/src/storage/evidence-read.ts",
+        "line": 50,
+        "anchor": "function observedEpoch",
+        "reason": "Existing transaction-local cache invalidates on total_changes/data_version and explicit writes; no cross-asynchronous cache proposed.",
+        "sha256": "9a90f14c19f527cf43c2569a9abe2a835e0170fa7eb527c50a9e5e11930a7e6d"
+      },
+      {
+        "file": "packages/engine/src/storage/archive.ts",
+        "line": 214,
+        "anchor": "[...primaryTables, ...NATIVE_SESSION_TABLES]",
+        "reason": "Original archive primary allowlist includes native context/event tables.",
+        "sha256": "6a5dc0d21f933635fb09e8ee2e891afc5e04abeeaf5cfc8e82f13909a197b822"
+      },
+      {
+        "file": "packages/engine/src/recovery/snapshot.ts",
+        "line": 175,
+        "anchor": "createHash('sha256').update(canonical(schema))",
+        "reason": "Schema SQL plus original ordered rows are included in archive/recovery logical digest; additive indexes change this digest.",
+        "sha256": "4e202f2fad2a3c02427fcad949f4dd29f73e98b3267d0e803b4fa14eb758adc3"
+      },
+      {
+        "file": "packages/engine/src/storage/attempt-cleanup.ts",
+        "line": 166,
+        "anchor": "this.appendLegacy(run,type,payload)",
+        "reason": "Provider cleanup publishes equal payload to both native and legacy event streams; independent cursors retained.",
+        "sha256": "d18c881a1b2e21e65915eb431cea630badb10e735ec9e6e6a732c803e84e5419"
+      },
+      {
+        "file": "packages/engine/src/storage/native.ts",
+        "line": 134,
+        "anchor": "existing.fingerprint !== fingerprint",
+        "reason": "Exact canonical native request/config/delivery equality underpins idempotency/noReplay.",
+        "sha256": "ae27b615b75f2f5321e936d378efbf8b211e8db91c0d2c533b0e70c0afc046df"
+      },
+      {
+        "file": "packages/engine/src/resilience/persistent-native.ts",
+        "line": 50,
+        "anchor": "digest.update(String(row.data)",
+        "reason": "Pinned soak record digest covers original12 canonical record tables.",
+        "sha256": "1f0abc8a5719bf2811207e1cca10b62af9b53df0ace53f9c055e03f1536ba79b"
+      }
+    ],
+    "readOnlyExplainQueryPlans": [
+      {
+        "name": "snapshot-runs",
+        "sourceFile": "packages/engine/src/storage/index.ts",
+        "sourceStartLine": 1217,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT data FROM runs WHERE session_id=? ORDER BY ordinal",
+        "sqlSha256": "8a8d312a70370bc2a45cb68305092127e242f49ff114fdaa0409cfdc904feffe",
+        "boundParameterCount": 1,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 4,
+            "parent": 0,
+            "detail": "SEARCH runs USING INDEX runs_session (session_id=?)"
+          }
+        ]
+      },
+      {
+        "name": "snapshot-messages",
+        "sourceFile": "packages/engine/src/storage/index.ts",
+        "sourceStartLine": 1218,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT data FROM messages WHERE session_id=? ORDER BY ordinal",
+        "sqlSha256": "1840eab65c9330a3026d34b7ae020819ce0b7bedca412e9948f5d7cefdf6bf5f",
+        "boundParameterCount": 1,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 4,
+            "parent": 0,
+            "detail": "SEARCH messages USING INDEX messages_session (session_id=?)"
+          }
+        ]
+      },
+      {
+        "name": "model-history-candidates",
+        "sourceFile": "packages/engine/src/storage/index.ts",
+        "sourceStartLine": 1303,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT runs.id,runs.ordinal,length(CAST(runs.data AS BLOB)) AS run_bytes,\n        (SELECT count(*) FROM messages WHERE run_id=runs.id) AS message_count,\n        coalesce((SELECT sum(length(CAST(data AS BLOB))) FROM messages WHERE run_id=runs.id),0) AS message_bytes,\n        coalesce((SELECT sum(length(CAST(data AS BLOB))) FROM tools WHERE run_id=runs.id),0) AS tool_bytes,\n        coalesce((SELECT sum(length(CAST(data AS BLOB))) FROM approvals WHERE run_id=runs.id),0) AS approval_bytes\n        FROM runs WHERE session_id=? ORDER BY ordinal DESC LIMIT 129",
+        "sqlSha256": "3db685b2aa1af534fd5a1490fddcd5b74c0cf20a3ea2a2335641d26f5aa6f184",
+        "boundParameterCount": 1,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 5,
+            "parent": 0,
+            "detail": "SEARCH runs USING INDEX runs_session (session_id=?)"
+          },
+          {
+            "id": 18,
+            "parent": 0,
+            "detail": "CORRELATED SCALAR SUBQUERY 1"
+          },
+          {
+            "id": 23,
+            "parent": 18,
+            "detail": "SEARCH messages USING COVERING INDEX model_messages_role (run_id=?)"
+          },
+          {
+            "id": 35,
+            "parent": 0,
+            "detail": "CORRELATED SCALAR SUBQUERY 2"
+          },
+          {
+            "id": 41,
+            "parent": 35,
+            "detail": "SEARCH messages USING INDEX model_messages_role (run_id=?)"
+          },
+          {
+            "id": 59,
+            "parent": 0,
+            "detail": "CORRELATED SCALAR SUBQUERY 3"
+          },
+          {
+            "id": 65,
+            "parent": 59,
+            "detail": "SEARCH tools USING INDEX model_tools_run (run_id=?)"
+          },
+          {
+            "id": 83,
+            "parent": 0,
+            "detail": "CORRELATED SCALAR SUBQUERY 4"
+          },
+          {
+            "id": 89,
+            "parent": 83,
+            "detail": "SEARCH approvals USING INDEX model_approvals_run (run_id=?)"
+          }
+        ]
+      },
+      {
+        "name": "model-history-selected-run-messages",
+        "sourceFile": "packages/engine/src/storage/index.ts",
+        "sourceStartLine": 1330,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT data FROM messages WHERE session_id=? AND run_id IN (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ORDER BY ordinal",
+        "sqlSha256": "72bac70354ff04a8b4662822c5c0ceecbdb01e08a2e1ebb7498a9e9ca1a2ff19",
+        "boundParameterCount": 129,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 4,
+            "parent": 0,
+            "detail": "SEARCH messages USING INDEX messages_session (session_id=?)"
+          }
+        ]
+      },
+      {
+        "name": "display-history-run-page",
+        "sourceFile": "packages/engine/src/storage/index.ts",
+        "sourceStartLine": 1358,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT ordinal, data FROM runs WHERE session_id=? AND ordinal<? ORDER BY ordinal DESC LIMIT ?",
+        "sqlSha256": "b44b0b98a80deac9121c4ddfe64f5be13406b0593e78173b261b76b3fd02d6d9",
+        "boundParameterCount": 3,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 5,
+            "parent": 0,
+            "detail": "SEARCH runs USING INDEX runs_session (session_id=? AND ordinal<?)"
+          }
+        ]
+      },
+      {
+        "name": "display-history-selected-run-messages",
+        "sourceFile": "packages/engine/src/storage/index.ts",
+        "sourceStartLine": 1366,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT json_remove(data,'$.providerReplay') AS data FROM messages WHERE session_id=? AND run_id IN (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ORDER BY ordinal",
+        "sqlSha256": "6f650123a6f7442ef05123260f2cb011860c394d7eb469694426474943a0340d",
+        "boundParameterCount": 129,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 4,
+            "parent": 0,
+            "detail": "SEARCH messages USING INDEX messages_session (session_id=?)"
+          }
+        ]
+      },
+      {
+        "name": "literal-history-search",
+        "sourceFile": "packages/engine/src/storage/history-search.ts",
+        "sourceStartLine": 21,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT id,run_id,json_extract(data,'$.role') AS role,json_extract(data,'$.createdAt') AS created_at,\n    substr(json_extract(data,'$.content'),max(1,instr(lower(json_extract(data,'$.content')),lower(?))-160),512) AS snippet,\n    length(CAST(json_extract(data,'$.content') AS BLOB)) AS content_bytes,\n    length(json_extract(data,'$.content')) AS content_characters,\n    max(1,instr(lower(json_extract(data,'$.content')),lower(?))-160) AS excerpt_start\n    FROM messages WHERE session_id=? AND ordinal<? AND json_extract(data,'$.content') LIKE ? ESCAPE '\\'\n    ORDER BY ordinal DESC LIMIT ?",
+        "sqlSha256": "0aaafe65e2fae20cc21f0a452bc4e97bd5ab764902ebed9d330a7020938f96e8",
+        "boundParameterCount": 6,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 5,
+            "parent": 0,
+            "detail": "SEARCH messages USING INDEX messages_session (session_id=? AND ordinal<?)"
+          }
+        ],
+        "runtimeJavaScriptEscapeDecodingApplied": true,
+        "sourceTemplateBackslashCharacters": 2,
+        "runtimeSqlBackslashCharacters": 1
+      },
+      {
+        "name": "active-window-message-metadata",
+        "sourceFile": "packages/engine/src/storage/native-history.ts",
+        "sourceStartLine": 187,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT id,ordinal,json_extract(data,'$.role') AS role,length(CAST(CASE WHEN json_extract(data,'$.role')='tool' AND length(CAST(json_extract(data,'$.content') AS BLOB))>4096 THEN\n  json_set(data,'$.content','[Moodcode bounded tool observation v1; original transcript retained] ' ||\n    json_object('messageId',id,'originalUtf8Bytes',length(CAST(json_extract(data,'$.content') AS BLOB)),\n      'excerpt',substr(json_extract(data,'$.content'),1,512),'excerptCharacters',min(length(json_extract(data,'$.content')),512),\n      'omittedCharacters',max(length(json_extract(data,'$.content'))-512,0),'completeContent',json('false'),\n      'artifactReferences',json((SELECT json_group_array(json_object('id',json_extract(value,'$.id'),'sha256',json_extract(value,'$.sha256'),\n        'storedBytes',json_extract(value,'$.storedBytes'),'complete',json_extract(value,'$.complete'),'outcome',json_extract(value,'$.outcome')))\n        FROM (SELECT value FROM json_each(messages.data,'$.toolResult.artifactRefs') LIMIT 4))),\n      'omittedArtifactReferences',max(coalesce(json_array_length(data,'$.toolResult.artifactRefs'),0)-4,0)))\n  ELSE data END AS BLOB)) AS bytes\n    FROM messages WHERE run_id=? ORDER BY ordinal DESC LIMIT ?",
+        "sqlSha256": "f234132f03cbcb749ebef72e14b531830bc9cf57db29a8c5b130ac7a0ef47c40",
+        "boundParameterCount": 2,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 5,
+            "parent": 0,
+            "detail": "SEARCH messages USING INDEX model_messages_run (run_id=?)"
+          },
+          {
+            "id": 48,
+            "parent": 0,
+            "detail": "CORRELATED SCALAR SUBQUERY 2"
+          },
+          {
+            "id": 51,
+            "parent": 48,
+            "detail": "CO-ROUTINE (subquery-1)"
+          },
+          {
+            "id": 54,
+            "parent": 51,
+            "detail": "SCAN json_each VIRTUAL TABLE INDEX 3:"
+          },
+          {
+            "id": 67,
+            "parent": 48,
+            "detail": "SCAN (subquery-1)"
+          }
+        ]
+      },
+      {
+        "name": "latest-context",
+        "sourceFile": "packages/engine/src/storage/native-records.ts",
+        "sourceStartLine": 258,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT data FROM context_revisions WHERE session_id=? ORDER BY revision DESC LIMIT 1",
+        "sqlSha256": "a27acb7d32e3b7de7d756ffdb93cee4db45c7a9caeeacee3b9695208c576c702",
+        "boundParameterCount": 1,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 5,
+            "parent": 0,
+            "detail": "SEARCH context_revisions USING INDEX sqlite_autoindex_context_revisions_2 (session_id=?)"
+          }
+        ]
+      },
+      {
+        "name": "context-by-immutable-id",
+        "sourceFile": "packages/engine/src/storage/native-records.ts",
+        "sourceStartLine": 264,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT data FROM context_revisions WHERE id=?",
+        "sqlSha256": "ae4da0aedfe4964e1c234bc107cfc00129e3e611bb6807d6c944a1e70ec1ce5a",
+        "boundParameterCount": 1,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 3,
+            "parent": 0,
+            "detail": "SEARCH context_revisions USING INDEX sqlite_autoindex_context_revisions_1 (id=?)"
+          }
+        ]
+      },
+      {
+        "name": "v2-event-page-metadata",
+        "sourceFile": "packages/engine/src/storage/native.ts",
+        "sourceStartLine": 315,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT seq,length(CAST(data AS BLOB)) AS bytes FROM session_events WHERE session_id=? AND seq>? ORDER BY seq LIMIT ?",
+        "sqlSha256": "895bb32f771df0012c6f2de4a62dfe60fe002d66409c84dde64ecfbbe1e7d196",
+        "boundParameterCount": 3,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 5,
+            "parent": 0,
+            "detail": "SEARCH session_events USING INDEX sqlite_autoindex_session_events_2 (session_id=? AND seq>?)"
+          }
+        ]
+      },
+      {
+        "name": "v2-event-page-bodies",
+        "sourceFile": "packages/engine/src/storage/native.ts",
+        "sourceStartLine": 323,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT data FROM session_events WHERE session_id=? AND seq>? AND seq<=? ORDER BY seq",
+        "sqlSha256": "e0a169ea3793de9e1c8daef9ef85cb19c2107f195c23b5eae0a79a32ea3eae54",
+        "boundParameterCount": 3,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 4,
+            "parent": 0,
+            "detail": "SEARCH session_events USING INDEX sqlite_autoindex_session_events_2 (session_id=? AND seq>? AND seq<?)"
+          }
+        ]
+      },
+      {
+        "name": "v1-session-metrics-window",
+        "sourceFile": "packages/engine/src/storage/index.ts",
+        "sourceStartLine": 1397,
+        "sourceSqlExactAfterTemplateExpansion": true,
+        "sql": "SELECT data FROM events WHERE session_id=? AND type IN ('run.usage','context.prepared') ORDER BY seq DESC LIMIT 2001",
+        "sqlSha256": "ff61dbbccc388b471be9b4166bc95d71121772d590033d461734060f6cff07ea",
+        "boundParameterCount": 1,
+        "bindingsOmitted": true,
+        "plan": [
+          {
+            "id": 5,
+            "parent": 0,
+            "detail": "SEARCH events USING INDEX sqlite_autoindex_events_2 (session_id=?)"
+          }
+        ]
+      }
+    ],
+    "probeLimits": [
+      "Review probes are Python read-only inspection, not measured production Node SQLite latency.",
+      "Only the exact retained native primary database was queried; no child or alternate database inspection.",
+      "No row deletion, checkpoint, vacuum, index changes, source edits, or build.",
+      "Parent/child JSONpaths overlap and must not be added.",
+      "Non-context embedded matches use normalized compact JSON; context copy also independently compared raw bytes.",
+      "Legitimate source-bound snapshots cannot be deleted or merged by repeated projected messages.",
+      "Query plans do not establish actual Node query hotness or latency.",
+      "Schema/index changes alter schema-inclusive recovery/archive digest.",
+      "Only the named ignored artifact written; no source/docs/build/commit."
+    ],
+    "existingEvidenceReadBudget": {
+      "maxSelectedBytes": 8388608,
+      "maxCachedBodies": 4096,
+      "lifetime": "one synchronous native primary transaction; cache cleared on scope exit or mutation",
+      "source": "packages/engine/src/storage/evidence-read.ts:5,65-82,100-116"
+    },
+    "queryPlanQualification": "Actual retained database plans inspect access/sort paths only. They are not production CPU/latency measurements or grounds for assuming new indexes are needed. Adding any index changes the schema-bound recovery digest."
+  },
+  "finiteOptimizationTodos": [
+    {
+      "id": "PERF-01",
+      "priority": 1,
+      "status": "proposed-not-implemented",
+      "scope": "Separate finite diagnostic harness and resource measurements",
+      "action": "Measure existing cycle/context/SQLite/ps/lsof/artifact-hash phases with CPU and monotonic phase timers. Add same-PID settled before-close, after-close, after-reopen-before-resume, and after-resume checkpoints. Run the bounded baseline screen before choosing an optimization.",
+      "evidence": "128 sequential resource snapshots lack CPU, GC, descriptor identity, per-phase cost, and an isolated post-close sample. Artifact hashing and census are synchronous.",
+      "compatibility": "Keep original report endpoints and mandatory integrity/source/fault/survivor checks; new diagnostics never grant replay or change unknown outcomes. Exposed-GC/profile cohorts are separate from production measurements.",
+      "completion": "Three matched fixed-work baseline repetitions with raw phase CPU/time, observer cost, heap-space/GC and quiescent descriptor evidence; incomplete runs recorded. Optional reduced expensive sampling comparison only after observer cost is measured."
+    },
+    {
+      "id": "PERF-02",
+      "priority": 2,
+      "status": "proposed-not-implemented",
+      "scope": "Scoped tool and approval reads at identified callers",
+      "action": "Compare existing validated single-record/run-scoped reads with whole-session getSnapshot calls in questions/index.ts:63 and runner/index.ts:1076, including the two consecutive nested-tool snapshots.",
+      "evidence": "Source callers materialize a session snapshot to find one tool and its approvals. This scripted soak does not establish those specific features as measured hotspots.",
+      "compatibility": "Stored row/event/schema bytes and archive/hash identity stay identical. Preserve owner/session/run checks, terminal/stale checks, missing-record error behavior, ordering and DTO validation. Do not introduce unrestricted read APIs.",
+      "completion": "Bounded question and nested-tool feature fixtures at fixed history sizes return identical public results/errors with lower copied/parsed bytes; targeted source/compiled tests preserve authority and stale-owner handling."
+    },
+    {
+      "id": "PERF-03",
+      "priority": 2,
+      "status": "proposed-not-implemented",
+      "scope": "Model history and bounded query projections",
+      "action": "Benchmark actual selected-run history SQL and metadata projections using the existing indexes; reduce unnecessary full-JSON fetches and temporary materialization only where the comparison shows a cost.",
+      "evidence": "Read-only EXPLAIN QUERY PLAN is included below. A plan or Python probe does not measure Node/V8 production latency.",
+      "compatibility": "Preserve exact run selection, ordinal/rowid ordering, byte budgets, source provenance, JSON validation, and transaction ownership. Use existing bounded evidence-read scopes; cache invalidation and alias isolation remain mandatory. No schema/index changes in this candidate.",
+      "completion": "Equal-history source/compiled comparison with identical context text/sourceIds/hash, emitted events and errors plus measured phase CPU, fetched bytes and allocation counts."
+    },
+    {
+      "id": "PERF-04",
+      "priority": 3,
+      "status": "profile-first-hypothesis",
+      "scope": "Temporary context/history serialization and cloning",
+      "action": "Profile bounded context assembly, JSON serialization and structuredClone at matched history checkpoints; compare a bounded same-transaction validated immutable projection reuse only if it is a measured allocating hotspot.",
+      "evidence": "Canonical contexts contain 452375 projected-message occurrences, many repeated values, but all 1251 full contexts are distinct. Repeated disk representation does not prove retained JS heap.",
+      "compatibility": "Preserve exact provider request bytes, context sha256/sourceIds, budgets, clone/alias isolation, owner/version checks and transaction-local invalidation. Do not create a process-lifetime cache of historical contexts.",
+      "completion": "Short capped CPU/allocation profile and paired fixed-work comparison prove lower allocation or phase CPU without retained-heap/authority regressions; otherwise close the candidate as unsupported."
+    },
+    {
+      "id": "PERF-05",
+      "priority": 3,
+      "status": "versioned-storage-research-only",
+      "scope": "One stored canonical immutable context body with lossless event reconstruction",
+      "action": "Prototype only in new disposable databases whether a canonical context body can back both context_revisions and the full context.revision.recorded public event without storing the body twice.",
+      "evidence": "1251 exact canonical/event pairs copy 124729863 UTF-8 bytes. Logical copy bytes are an opportunity bound, not measured physical savings.",
+      "compatibility": "Current session_events.data includes the full body and native raw-row/schema digests bind it. A reference-only event changes the API unless losslessly reconstructed; storage/schema changes require versioned migration and newly advertised physical/logical digest semantics. Existing retained database and historic archives remain untouched/readable. Preserve exact public event payload, sequence, context provenance, crash transaction atomicity and authority.",
+      "completion": "Finite migration/restore/crash prototype demonstrates exact public event/context bytes, backward reads and new explicit hash/version contracts, then measures physical primary+WAL bytes and CPU for identical history. No capacity improvement is claimed before this work."
+    },
+    {
+      "id": "PERF-06",
+      "priority": 4,
+      "status": "versioned-storage-research-only",
+      "scope": "Lossless repeated-content encoding",
+      "action": "Compare a small bounded set of exact lossless encodings for context bodies and projected-message/source-label blocks in disposable fixtures; reject schemes that reconstruct from mutable current messages rather than frozen values.",
+      "evidence": "Full-context text and sourceIds arrays each have 1251 unique values, so whole-text dedup alone removes zero canonical context occurrences. Repeated components and exact canonical/event copies are distinct measured opportunities.",
+      "compatibility": "Do not prune semantic histories or change provider context. Versioned encoding/schema/archives and bounded decompression/missing-body/hash validation are required; new formats must preserve original frozen context bytes and uncertainty/recovery authority. Even additive indexes alter the existing schema-bound recovery digest.",
+      "completion": "At most three encodings compared at two matched history sizes, reporting actual physical bytes, encode/decode CPU and maximum bounded read memory; documented migration/backward-read/crash/hash tests precede any implementation decision."
+    }
+  ],
+  "comparativeBenchmarkDesign": {
+    "status": "Design only; no benchmark/app/long test executed.",
+    "workloadControl": "Use a separate diagnostic harness pinned to exact baseline and candidate source identities. Compare the same deterministic accepted input sequence,256-byte payload,seed20261009,command stride7 and identical command/text/cancel/approval semantics. Distinguish fixed-completed-work comparisons from a paced30-minute endurance run. Existing driver reopens by elapsed midpoint, so explicit cycle-boundary control would be a new diagnostic capability and must not be claimed as already available.",
+    "finiteStagedMatrix": [
+      {
+        "stage": "screen",
+        "cohorts": [
+          "normal automatic GC",
+          "exposed-GC diagnostic at quiescent checkpoints"
+        ],
+        "repetitionsPerCohort": 3,
+        "fixedCycleCeiling": 100,
+        "hardDurationCeilingMs": 600000,
+        "checkpointCycles": [
+          0,
+          25,
+          50,
+          100
+        ],
+        "logicalReopenCycle": 50,
+        "sampleCeiling": 64,
+        "qualification": "Small controlled diagnostic workload; no 30-minute acceptance substitution. Match the exact input/command sequence across cohorts and record any incomplete run."
+      },
+      {
+        "stage": "matched-long-history only if screen leaves a retention question",
+        "cohorts": [
+          "baseline normal automatic GC",
+          "candidate normal automatic GC"
+        ],
+        "repetitionsPerCohort": 3,
+        "fixedCycleCeiling": 398,
+        "hardDurationCeilingMs": 2100000,
+        "checkpointCycles": [
+          0,
+          100,
+          200,
+          277,
+          398
+        ],
+        "logicalReopenCycle": 277,
+        "sampleCeiling": 128,
+        "qualification": "Matched completed work and checkpoint history, not identical pacing to this existing report. This optional stage is a plan, not a new run or scheduling request."
+      }
+    ],
+    "gcMethod": "Expose GC only for the diagnostic cohort. At settled checkpoints, record pre-GC memory and heap-space statistics, request supported explicit GC for the exact pinned Node version, record GC kind/duration if available, yield a bounded event-loop turn, and record post-GC data. Record actual method and compare live reachable heap at equal history sizes; do not equate forced-GC cohort CPU/latency with production behavior or automatic GC performance.",
+    "oldEngineQuestion": "Compare same-PID post-GC old-space/object retained sizes beforeclose and afterclose-before-reopen, then afterreopen-before-resume. Any retained graph must be attributed by dominators/retaining paths to Engine state, intentional fixture/history/control debt, or runtime code caches. Logical reopen alone and heapUsed alone cannot establish old-Engine retention.",
+    "cpuProfile": "Use a separate short capped profile cohort at matched history checkpoints. Collect Node/V8 CPU profile plus cheap CPU deltas and phase timers. Separate engine work, artifact/DB measurement, clone/serialization, SQLite/native work and GC frames where the profiler actually resolves them; unknown frames remain unknown. Compare CPU per fixed completed cycle rather than elapsed paced duration.",
+    "allocationProfile": "Use bounded sampling allocation profiles in a separate run to locate allocating callsites. Optional heap snapshots at a few settled post-GC checkpoints require a separate diagnostic memory/time budget because snapshot generation perturbs RSS and can block. Allocation sampling is not a retained-object proof; use retaining paths when retention is the question.",
+    "fdProfile": "Retain before/after descriptor identity/type digests at matched quiescent phases and livecommand phases. Compare same-PID Engine close/reopen; distinguish store/owner locks, IPC/observer pipes and command stdio only if identities establish the category. Do not use process signals or delete retained uncertain artifacts in this analysis.",
+    "acceptance": "Baseline/candidate must preserve exact approval/source/checkpoint identity, cancellation/unknown/no-replay, native digest/integrity, ownership and physical cleanup outcomes and resource ceilings. Report paired distributions and raw artifacts for all3 repetitions, including incomplete runs. Improvement requires lower measured phase CPU/allocation or equal-work resource cost without correctness regressions; no arbitrary leak threshold, extrapolated rate or fabricated zero.",
+    "retentionVsHistory": "Use equal source/data workload and history counts for cohort comparisons. Do not delete history to manufacture a lower memory result; report any diagnostic history isolation explicitly. No benchmark changes authorized source in this task.",
+    "implementedOrExecuted": false,
+    "storageAndQueryComparison": {
+      "fixtures": "New isolated databases at fixed 100-cycle and 398-cycle histories with 256-byte deterministic payload and seed20261009. Fix the command schedule/stride7 and graceful checkpoint by logical work in a diagnostic harness; the current driver controls reopen by elapsed time and does not provide this capability yet.",
+      "comparisons": "One candidate at a time against exact baseline78e37b1 source/compiled pin. Three paired repetitions per selected candidate/history size, order counterbalanced. A different Root/candidate revision needs its own source/dependency/runtime identity. No cross-platform inference.",
+      "measurements": [
+        "phase CPU and wall time per fixed completed cycle",
+        "selected/fetched/parsed context and snapshot bytes",
+        "allocation sampling and separate settled post-GC retention evidence",
+        "primary/WAL/SHM/effects bytes separately",
+        "per-table/index/page dbstat bytes after closed disposable fixture",
+        "event/context counts and exact public payload/sequence comparisons",
+        "same-PID quiescent descriptor identities/categories and close/reopen phases"
+      ],
+      "limits": {
+        "screenMaxCycles": 100,
+        "screenHardDurationMs": 600000,
+        "historyMaxCycles": 398,
+        "historyHardDurationMs": 2100000,
+        "maxSamples": 128,
+        "inputByteCeiling": 67108864,
+        "repetitions": 3,
+        "encodingsAtMost": 3
+      },
+      "resourceBudget": "Pre-register finite child-process/heap/snapshot/artifact/time ceilings in the new harness and record any exceeded/incomplete run. Profile cohorts use separate short caps; they are not acceptance endurance runs.",
+      "interpretation": "Compare equal completed work, same history and matched quiescent phases. Paced 30-minute endurance remains a separate qualification. Do not drop history/unknown records to manufacture lower bytes or compare report317564808 growth with final primary314478592 as the same quantity.",
+      "storageFormatGate": "Format/index changes require explicit versioned schema migration, backward original-archive reads, native owner/approval/source/unknown/no-replay tests and newly advertised digest contracts before capacity wins count as compatible. Read-only caller/query candidates require unchanged original row/schema bytes and equivalent public outcomes."
+    },
+    "originalEvidencePolicy": "Original report, primary/WAL/SHM and frozen runtime stay hash-identical. All proposed datasets/profile output use new isolated paths; original unknown outcome never grants recovery acknowledgment/replay. No run scheduled or started by this review."
+  },
+  "verification": {
+    "originalReportAndPrimarySidecarsUnchanged": true,
+    "all749FrozenRuntimeFilesUnchanged": true,
+    "final12TableRecordDigestAndCountsExact": true,
+    "dbstatAllocationExactlyReconciles": true,
+    "reportedWorkerSqliteDeltaExactlyReconciles": true,
+    "full80TableRowAndColumnInventoryMeasured": true,
+    "onlyTrackedChangeForThisReview": "docs/moodcode/next-performance-soak-review.json",
+    "sourceCoreStoreRunnerWindowsFilesChanged": false,
+    "productTestsRunForReadOnlyDocument": false,
+    "independentPtyDiagnostics": "Separately delegated R-PTY-01 diagnostics uses another worktree/commit and is outside this frozen soak review and its no-process-execution scope."
+  }
+}
