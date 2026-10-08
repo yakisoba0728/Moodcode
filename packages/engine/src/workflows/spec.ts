@@ -397,18 +397,22 @@ export function validateWorkflowValue(
   return value as JsonValue;
 }
 function stage(input: unknown): WorkflowStageSpec {
-  const value = workflowObject(input, [
-    "id",
-    "role",
-    "dependsOn",
-    "join",
-    "prompt",
-    "profile",
-    "model",
-    "tools",
-    "allocation",
-    "resultSchema",
-  ]);
+  const value = workflowObject(
+    input,
+    [
+      "id",
+      "role",
+      "dependsOn",
+      "join",
+      "prompt",
+      "profile",
+      "model",
+      "tools",
+      "allocation",
+      "resultSchema",
+    ],
+    ["verification"],
+  );
   if (
     !["planner", "editor", "validator", "advisory-reviewer"].includes(
       value.role as string,
@@ -447,6 +451,35 @@ function stage(input: unknown): WorkflowStageSpec {
       key === "durationMs" ? 3600000 : key === "outputBytes" ? 16777216 : 10000,
       1,
     );
+  const verification =
+    value.verification === undefined
+      ? undefined
+      : workflowObject(value.verification, [
+          "checkIds",
+          "sourcePaths",
+          "maxRepairs",
+        ]);
+  if (
+    verification &&
+    (value.role !== "validator" || verification.maxRepairs !== 0)
+  )
+    workflowError("WORKFLOW_ROLE_TOOL_MISMATCH");
+  const verificationPolicy = verification
+    ? {
+        checkIds: stringArray(verification.checkIds, 8),
+        sourcePaths: stringArray(verification.sourcePaths, 32),
+        maxRepairs: 0 as const,
+      }
+    : undefined;
+  if (
+    verificationPolicy &&
+    (!verificationPolicy.checkIds.length ||
+      !verificationPolicy.sourcePaths.length ||
+      verificationPolicy.sourcePaths.some(
+        (p) => p.startsWith("/") || p.split("/").includes(".."),
+      ))
+  )
+    workflowError("WORKFLOW_ROLE_TOOL_MISMATCH");
   const tools = stringArray(value.tools, WORKFLOW_LIMITS.tools);
   if (
     ["planner", "advisory-reviewer"].includes(value.role as string) &&
@@ -455,6 +488,7 @@ function stage(input: unknown): WorkflowStageSpec {
     workflowError("WORKFLOW_ROLE_TOOL_MISMATCH");
   return workflowJson({
     id: workflowIdentifier(value.id),
+    ...(verificationPolicy ? { verification: verificationPolicy } : {}),
     role: value.role,
     dependsOn: stringArray(value.dependsOn, WORKFLOW_LIMITS.stages),
     join: value.join,
@@ -603,4 +637,20 @@ export function readWorkflowResult(
     spec.resultSchema,
     data[spec.resultStageId],
   ) as JsonObject;
+}
+
+/** Only an editor and its explicit validator may reuse the released physical child worktree. */
+export function validateWorkflowWorktreeSharing(
+  spec: WorkflowSpec,
+  selected: Readonly<Record<string, string>>,
+): void {
+  for (const a of spec.stages)
+    for (const b of spec.stages) {
+      if (a.id === b.id || selected[a.id] !== selected[b.id]) continue;
+      const editor = a.role === "editor" ? a : b.role === "editor" ? b : null;
+      const validator =
+        a.role === "validator" ? a : b.role === "validator" ? b : null;
+      if (!editor || !validator || !validator.dependsOn.includes(editor.id))
+        workflowError("WORKFLOW_WORKTREE_SELECTION_INVALID");
+    }
 }

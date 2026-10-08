@@ -12,9 +12,9 @@ The user requested larger, finishable feature units on 2026-10-08. Each agent ow
 
 Root's joint fixture runs all three together with genuine verification and native approval, physical PID/cleanup, Git/index assertions and actual scripted provider consumption. Aggregate evidence is recorded in `engine-phase-two-parallel-features-verification.json`. The first aggregate exposed a compiled crash-fixture extension error and outdated DB23/SQL-query test expectations; those were corrected and independently rerun. The whole compiled gate passed; a later direct-source fork crash-fixture extension error was separately corrected and passed both compiled/source crash tests before the final broader source/fixture gates. All runtime sources remained unchanged. Per-lane checks alone do not close work items.
 
-## Current larger feature units
+## Integrated command/PR/workflow feature units
 
-The next worktrees start from `c2c9814` plus the integrated three-feature source snapshot. Each lane records its baseline tree/SHA and emits only its own feature delta. Root's later test compatibility corrections do not change the runtime source baseline.
+These feature worktrees started from `c2c9814` plus the integrated three-feature source snapshot. Each lane records its baseline tree/SHA and emits only its own feature delta. Root's later test compatibility corrections do not change the runtime source baseline.
 
 | Feature | Owner | End-to-end scope | Worktree |
 | --- | --- | --- | --- |
@@ -25,3 +25,14 @@ The next worktrees start from `c2c9814` plus the integrated three-feature source
 No lane edits the primary checkout or another lane's worktree. Shared API/storage changes are resolved by Root at integration. Each agent completes focused meaningful tests; Root performs final typecheck, whole compiled regression, broader direct source regression and coding fixtures against recorded source hashes. Source-only harness corrections receive focused checks in both execution forms and a fresh broader source gate; evidence records the differing fixture hash and unchanged runtime sources. A subsequent aggregate run requires a change, failure or unresolved concern.
 
 The original 80-item goal and four environment debts remain active. Schemas, tool interfaces or type checks without actual consumers never satisfy completion. GUI, live account calls, copied external source, push and deployment remain outside this engine goal.
+
+
+## Current complete feature owners
+
+| Feature | Owner | Actual completion boundary | Worktree |
+| --- | --- | --- | --- |
+| Resident team lifecycle (MC2-06c/d) | `next_team_continuation` | One engine-owned child survives its first terminal Run; actual mailbox inputs create later native Runs and ACKs; worker claim/work/submit and coordinator review use current native actors and exact approvals. Shared parent lifetime budgets, profile/catalogue pins, TTL/cancel/close, SQL/crash/import and no automatic actor revival are verified. | `/Users/yakisoba0728/.codex/worktrees/engine-resident-teams/Moodcode` |
+| OS sandbox (MC2-17a–d) | `next_workflow_design` | Actual supported OS enforcement for command effects, independent host commands, child commands and read-only stdio MCP. Canonical filesystem/network policy, Original grants, new approval for widening, genuine PID/group/cleanup and native crash/import receipts. Unsupported platforms and producers reject before execution; no unsandboxed fallback. | `/Users/yakisoba0728/.codex/worktrees/engine-os-sandbox/Moodcode` |
+| Coding attempt groups/headless batches (MC2-20a–d) | `next_workflow_consumers` | Two actual isolated editor/validator/reviewer candidates, fair parent budget reservation, bounded concurrency and strict native success evidence; Original selection plus genuinely approved merge; partial failures/cancel, exact source/runtime/export verification, SQL/crash/import and no candidate or merge replay. | `/Users/yakisoba0728/.codex/worktrees/engine-coding-batches/Moodcode` |
+
+The first two worktrees use `aebd896` as their recorded baseline. Coding batches also seed the frozen workflow-effects patch so the complete workflow consumer can be reused immediately; its feature delta excludes that seed. Root keeps the integrated branch stable during aggregate tests. Agents run focused tests in parallel and deliver frozen feature-only patches, supporting source hashes and actual lifecycle evidence. Root integrates complete functionality, fixes shared-path incompatibilities and performs one fresh aggregate gate justified by each integration change. No agent is assigned only interfaces, only types or an unconsumed service.

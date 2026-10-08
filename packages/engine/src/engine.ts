@@ -1,3 +1,10 @@
+import { PrFeedbackHost } from './pr-feedback/host.js';
+import {EngineHostCommandDeliveryProducer} from './jobs/host-command-delivery-producer.js';
+import {EngineHostCommandDeliverySource} from './jobs/host-command-delivery-source.js';
+import {HostCommandDelivery} from './jobs/host-command-delivery.js';
+import {CommandJobModelHost,createCommandJobModelTools,type BindCommandJobModelToolsInput} from './jobs/command-model-tools.js';
+import {captureCommandReadSource} from './jobs/command-read-sources.js';
+import { WorkflowEffects, WORKFLOW_MODEL_NAMES } from "./workflows/effects.js";
 import { HostCommandService } from './jobs/host-command-service.js';
 import { GitCommitHost } from './git/commit-host.js';
 import { ConversationForkHost } from './sessions/fork-host.js';
@@ -190,6 +197,8 @@ export interface EngineOptions {
   verificationTools?: boolean;
   /** Idle host Git commits require an exact Original preview and actual verification. */
   gitCommits?: boolean;
+  prFeedback?: boolean;
+  prFeedbackLoopback?: boolean;
   /** Explicit tools-free host extraction into pending workspace knowledge candidates. */
   knowledgeGeneration?: boolean;
   /** Explicit host-approved publication to native workspace document revisions. */
@@ -208,6 +217,8 @@ export interface EngineOptions {
   teams?: boolean;
   /** Fixed tool catalogue; host must separately bind an actual selected team member. */
   teamModelTools?: boolean;
+  /** Explicit readonly catalogue plus separately host-bound job aliases; children do not inherit. */
+  commandJobModelTools?: boolean;
   /** Explicit host workflow orchestration through isolated actual child executions. */
   workflows?: boolean;
   /** Explicit root lifetime and durable queue-only scheduled input admission. */
@@ -410,12 +421,15 @@ export class MoodcodeEngine {
   private readonly teamHost: TeamHostService;
   private readonly teamService: TeamService;
   private readonly teamModelToolsEnabled: boolean;
+  private readonly commandJobModelHost: CommandJobModelHost;
+  private readonly commandJobModelDefinitions: readonly ToolDefinition[];
   private readonly teamModelHost: EngineTeamModelToolHost;
   private readonly teamModelDefinitions: readonly ToolDefinition[];
   private readonly workflowsEnabled: boolean;
   private readonly workflowRecords: WorkflowStorage;
   private readonly workflowHost: WorkflowHost;
   private readonly workflowService: WorkflowService;
+  private readonly workflowEffects:WorkflowEffects;
   private readonly schedulesEnabled: boolean;
   private readonly scheduleRecords: ScheduleStorage;
   private readonly scheduleProducer: EngineScheduleProducer;
@@ -434,6 +448,9 @@ export class MoodcodeEngine {
   private readonly jobDelivery: JobDelivery;
   private readonly ownedCommandHost: OwnedCommandJobHost;
   private readonly hostCommands: HostCommandService;
+  private readonly hostCommandDeliverySource: EngineHostCommandDeliverySource;
+  private readonly hostCommandDeliveryProducer: EngineHostCommandDeliveryProducer;
+  private readonly hostCommandDelivery: HostCommandDelivery;
   private readonly ownedCommandProducer: EngineOwnedCommandDeliveryProducer;
   private readonly ownedCommandDelivery: OwnedCommandDelivery;
   private readonly runtimeProviders: Map<string, ProviderAdapter>;
@@ -461,6 +478,7 @@ export class MoodcodeEngine {
   private readonly hostAllowedTools?: readonly string[];
   private readonly capabilities: EngineCapabilities;
   private readonly gitCommitHost: GitCommitHost;
+  private readonly prFeedbackHost: PrFeedbackHost;
   private readonly executionLockPath: string;
   private readonly restoreRequests = new Map<string, { binding: RestoreOperationInput; promise: Promise<RestoreCommandResult> }>();
 
@@ -480,6 +498,7 @@ export class MoodcodeEngine {
     if (options.roleResourcePolicyRegistry !== undefined && !(options.roleResourcePolicyRegistry instanceof RoleResourcePolicyRegistry)) throw new EngineError('INVALID_ROLE_POLICY_CONFIGURATION', 'Shared role policy requires a trusted host registry');
     if (options.roleResourcePolicyRegistry && options.roleResourcePolicy) throw new EngineError('INVALID_ROLE_POLICY_CONFIGURATION', 'Specify one role policy registry or immutable role policy');
     this.roleResourcePolicyRegistry = options.roleResourcePolicyRegistry;
+    for (const flag of [options.prFeedback,options.prFeedbackLoopback]) if (flag!==undefined&&typeof flag!=='boolean') throw new EngineError('INVALID_CONFIG','PR feedback requires explicit host boolean opt-in');
     if (options.verificationTools !== undefined && typeof options.verificationTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Verification tool exposure must be an explicit boolean');
     this.verificationEnabled = options.verificationTools === true;
     if (options.knowledgeGeneration !== undefined && typeof options.knowledgeGeneration !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Knowledge generation requires an explicit host boolean');
@@ -495,6 +514,7 @@ export class MoodcodeEngine {
     this.teamsEnabled = options.teams === true;
     if (options.teamModelTools !== undefined && typeof options.teamModelTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'teamModelTools must be an explicit boolean');
     this.teamModelToolsEnabled = options.teamModelTools === true;
+    if(options.commandJobModelTools!==undefined&&typeof options.commandJobModelTools!=='boolean')throw new EngineError('INVALID_CONFIG','commandJobModelTools must be an explicit boolean');
     if (options.workflows !== undefined && typeof options.workflows !== 'boolean') throw new EngineError('INVALID_CONFIG', 'workflows must be an explicit boolean');
     this.workflowsEnabled = options.workflows === true;
     if (options.schedules !== undefined && typeof options.schedules !== 'boolean') throw new EngineError('INVALID_CONFIG', 'schedules must be an explicit boolean');
@@ -774,6 +794,8 @@ export class MoodcodeEngine {
         },
       });
       this.teamModelDefinitions = this.teamModelToolsEnabled ? createTeamModelTools(this.teamModelHost.port()) : consumeChildTeamModelCatalogue(options);
+      this.commandJobModelHost=new CommandJobModelHost(this,()=>options.commandJobModelTools===true&&this.jobsEnabled&&!this.closing,(selection,workspaceId)=>captureCommandReadSource(this,this.jobProducer,selection,workspaceId));
+      this.commandJobModelDefinitions=options.commandJobModelTools===true&&this.jobsEnabled?createCommandJobModelTools(this.commandJobModelHost):[];
       const workflowOwners = new EngineWorkflowOwners(this, knowledgeBinding);
       const workflowChildren = this.children.workflowObservationPort(workflowOwners);
       this.workflowRecords = this.store.createWorkflowStorage({
@@ -785,8 +807,11 @@ export class MoodcodeEngine {
         readChildAdmission: original => workflowChildren.readAdmission(original),
         readChildCompletion: original => workflowChildren.readCompletion(original),
       });
-      this.workflowHost = new WorkflowHost({ owner: workflowOwners, getWorkflow: (...args) => this.workflowRecords.getWorkflow(...args) });
-      this.workflowService = new WorkflowService({ native: this.workflowRecords, host: this.workflowHost, owner: workflowOwners, children: workflowChildren });
+      this.workflowEffects=new WorkflowEffects(this,knowledgeBinding,()=>this.workflowService,workflowOwners,workflowChildren,!options.tools&&this.verificationEnabled,this.workflowsEnabled);
+      const effectNative=this.store.createWorkflowEffectStorage({readEffect:o=>this.workflowEffects.readEffect(o),assertEffect:o=>this.workflowEffects.assertEffect(o),readTarget:o=>this.workflowEffects.readTarget(o),assertTarget:o=>this.workflowEffects.assertTarget(o),accept:(o,i)=>this.workflowEffects.accept(o,i)});
+      this.workflowEffects.install(effectNative);
+      this.workflowHost = new WorkflowHost({ owner: workflowOwners, getWorkflow: (...args) => this.workflowRecords.getWorkflow(...args),assertEffectsSupported:(o,spec)=>this.workflowEffects.assertSupported(o,spec) });
+      this.workflowService = new WorkflowService({ native: this.workflowRecords, host: this.workflowHost, owner: workflowOwners, children: workflowChildren,effects:{captureChild:(r,s,o)=>this.workflowEffects.captureChild(r,s,o),commitChild:(o,r)=>this.workflowEffects.commitChild(o,r),release:o=>this.workflowEffects.release(o),transaction:op=>this.store.withWorkflowEffectsTransaction(op)} });
       this.workflowRecords.recoverInterrupted();
       terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
@@ -943,6 +968,7 @@ export class MoodcodeEngine {
       let commandRegistration: ToolRegistrationCapture | undefined;
       const repositoryTools = options.repositoryContextTools ? [createRepositoryContextTool(this.repository)] : [];
       const verificationTool = this.verificationEnabled ? createVerificationTool({ plans: this.verificationPlans, receipts: this.verificationReceipts, getRun: id => this.store.getRun(id), sourceObservation: (context, signal) => this.verificationHost.observe(context, AbortSignal.any([signal, this.hostResources.signal])), commandRuntime: this.toolRuntime, captureCatalogue: context => this.coordinator.captureToolCatalogue(context),
+        executeCommand: (outer,nested,prepared) => this.coordinator.withVerificationCommandContext(outer,nested,()=>this.toolRuntime.execute(prepared,nested)),
         consumedSettlementWriter: (context, kind, revision, data) => this.coordinator.commitConsumedVerificationSettlement(context, kind, revision, data),
         commandCapability: (_context, catalogue) => {
           if (!commandRegistration) throw new EngineError('TOOL_PRODUCER_MISMATCH', 'The original engine command producer is unavailable');
@@ -950,14 +976,14 @@ export class MoodcodeEngine {
           return Object.freeze({ producer: 'engine-owned-run-command' as const, platform: process.platform, supported: process.platform !== 'win32', catalogueRevision: catalogue.revision });
         }, artifacts: this.managedArtifacts }) : undefined;
       const verificationTools: ToolDefinition[] = verificationTool ? [{ ...verificationTool, prepare: async (input, context) => { await this.verificationHost.ensurePlan(context, context.signal); return verificationTool.prepare(input, context); } }] : [];
-      const availableTools = toolDiscoveryPolicy ? [...coreTools, ...repositoryTools, ...this.teamModelDefinitions, createToolDiscoveryTool({
+      const availableTools = toolDiscoveryPolicy ? [...coreTools, ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled?this.workflowEffects.tools():[]), createToolDiscoveryTool({
         identity: context => this.coordinator.toolDiscoveryIdentity(context),
         stage: (context, query, limit, expected, action) => this.coordinator.stageToolDiscovery(context, query, limit, expected, action),
-      }), ...verificationTools] : [...coreTools, ...repositoryTools, ...this.teamModelDefinitions, ...verificationTools];
+      }), ...verificationTools] : [...coreTools, ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled?this.workflowEffects.tools():[]), ...verificationTools];
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
       const tools = options.allowedToolNames ? availableTools.filter(tool => options.allowedToolNames!.includes(tool.name)) : availableTools;
-      for (const tool of tools) this.toolRuntime.register('engine', tool, (TEAM_MODEL_TOOL_NAMES as readonly string[]).includes(tool.name) ? { exactApproval: (TEAM_MODEL_WRITE_TOOL_NAMES as readonly string[]).includes(tool.name) } : options.tools ? {} : ['delegate_task', 'verify_changes'].includes(tool.name) ? { exactApproval: true } : { revalidate: async (prepared, context) => {
+      for (const tool of tools) this.toolRuntime.register('engine', tool, (WORKFLOW_MODEL_NAMES as readonly string[]).includes(tool.name)?{exactApproval:tool.name!=='observe_workflow_stage'}:(TEAM_MODEL_TOOL_NAMES as readonly string[]).includes(tool.name) ? { exactApproval: (TEAM_MODEL_WRITE_TOOL_NAMES as readonly string[]).includes(tool.name) } : options.tools ? {} : ['delegate_task', 'verify_changes'].includes(tool.name) ? { exactApproval: true } : { revalidate: async (prepared, context) => {
         const current = await tool.prepare(prepared.input, context);
         if (current.fingerprint !== prepared.fingerprint || JSON.stringify(current.preview) !== JSON.stringify(prepared.preview)) throw new EngineError('TOOL_APPROVAL_STALE', 'Tool resources changed since scoped authorization');
       } });
@@ -973,7 +999,8 @@ export class MoodcodeEngine {
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
       this.coordinator = new RunCoordinator({
-        beforeProviderDispatch: run => { this.scheduleProducer.beforeProviderDispatch(run); this.jobProducer?.beforeProviderDispatch(run); this.ownedCommandProducer?.beforeProviderDispatch(run); this.conversationForkHost.context(run.sessionId,run.config); },
+        beforeProviderDispatch: run => { this.scheduleProducer.beforeProviderDispatch(run); this.jobProducer?.beforeProviderDispatch(run); this.ownedCommandProducer?.beforeProviderDispatch(run); this.prFeedbackHost?.beforeProviderDispatch(run); this.hostCommandDeliveryProducer?.beforeProviderDispatch(run); this.conversationForkHost.context(run.sessionId,run.config); for(const id of this.store.listRunInputIds(run.id))this.workflowEffects.beforeInput(id,this.store.getInput(id).requestId,run); },
+        onWorkflowToolSettled:record=>this.workflowEffects.toolSettled(record),
         onOwnedCommandToolSettled: record => this.ownedCommandHost?.toolSettled(record),
         onRunStarted: async (run,signal) => {
           const admission = waitChildProviderAdmission(this,signal);
@@ -1055,7 +1082,7 @@ export class MoodcodeEngine {
         assertDueBatchCurrent: (original, expected, spec) => this.scheduleProducer.assertDueBatchCurrent(original, expected, spec),
       });
       this.scheduleRecords.recoverInterrupted();
-      this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, beforePromotion: input => { this.scheduleProducer.beforePromotion(input); this.jobProducer?.beforePromotion(input); this.ownedCommandProducer?.beforePromotion(input); this.conversationForkHost.context(input.sessionId,input.config); } });
+      this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, beforePromotion: input => { this.scheduleProducer.beforePromotion(input); this.jobProducer?.beforePromotion(input); this.ownedCommandProducer?.beforePromotion(input); this.prFeedbackHost?.beforePromotion(input); this.hostCommandDeliveryProducer?.beforePromotion(input); this.conversationForkHost.context(input.sessionId,input.config); this.workflowEffects.beforeInput(input.id,input.requestId); } });
       this.conversationForkHost = new ConversationForkHost(this,knowledgeBinding,id=>providers.get(id),this.conversationForksEnabled);
       const scheduleHost = new ScheduleHost({ native: this.scheduleRecords, input: this.scheduleProducer.inputPort() });
       this.scheduleDispatcher = new ScheduleDispatcher({ native: this.scheduleRecords, host: scheduleHost });
@@ -1105,11 +1132,23 @@ export class MoodcodeEngine {
         readAccepted: original => this.ownedCommandProducer.readAccepted(original),
         releaseAccepted: original => this.ownedCommandProducer.release(original),
       })}, lifetime:this.hostResources.signal});
+      this.store.validateHostCommandDeliveries();
+      this.hostCommandDeliverySource=new EngineHostCommandDeliverySource(this);
+      this.hostCommandDeliveryProducer = new EngineHostCommandDeliveryProducer(this, knowledgeBinding, () => options.hostCommands===true && this.jobsEnabled && !this.closing, this.hostCommandDeliverySource);
+      this.hostCommandDelivery = new HostCommandDelivery({input:this.hostCommandDeliveryProducer.inputPort(),native:{deliver:(original,input) => this.store.deliverHostCommandResultAtomic(original,input,{
+        readTargetOriginal: original => this.hostCommandDeliveryProducer.readTarget(original),
+        assertTarget: (original,expected) => this.hostCommandDeliveryProducer.assertTargetCurrent(original,expected),
+        acceptAtomic: (original,request) => this.hostCommandDeliveryProducer.acceptAtomic(original,request),
+        readAccepted: original => this.hostCommandDeliveryProducer.readAccepted(original),
+        releaseAccepted: original => this.hostCommandDeliveryProducer.release(original),
+      })}, lifetime:this.hostResources.signal});
       this.gitCommitHost = new GitCommitHost({ store:this.store,records:this.store.createGitCommitStorage(),plans:this.verificationPlans,verification:this.verificationHost,
         binding:knowledgeBinding,enabled:()=>options.gitCommits===true && this.verificationEnabled && !this.closing,
         lease:(workspaceId,operation)=>this.coordinator.withWorkspaceLease(workspaceId,operation),
         recoveryLease:(workspaceId,operation)=>this.coordinator.withRecoveryDecisionLease(workspaceId,operation),
         executionLockPath:this.executionLockPath,artifactDir:this.storagePaths.artifactDir,lifetime:this.hostResources.signal });
+      this.store.validatePrFeedback();
+      this.prFeedbackHost = new PrFeedbackHost(this,this.store.createPrFeedbackStorage(),knowledgeBinding,this.verificationHost,()=>options.prFeedback===true&&this.verificationEnabled&&!this.closing,options.prFeedbackLoopback===true,this.hostResources.signal);
       const recoveredRestores = this.reviewJournal.recoverPending();
       const recoveryAcknowledgments = canonicalDbPath ? readRecoveryAcknowledgments({ dbPath: canonicalDbPath, artifactDir: realpathSync(artifactDir) }) : [];
       for (const operation of recoveredRestores) {
@@ -1636,6 +1675,12 @@ export class MoodcodeEngine {
   deliverOwnedCommandJobResult(...args: Parameters<OwnedCommandDelivery['deliver']>) { return this.ownedCommandDelivery.deliver(...args); }
   releaseOwnedCommandJobDeliveryHandle(original: object): void { this.ownedCommandDelivery.release(original); }
   getOwnedCommandJobDelivery(...args: Parameters<SqliteStore['getOwnedCommandJobDelivery']>) { return this.store.getOwnedCommandJobDelivery(...args); }
+  captureHostCommandJobDeliveryTarget(...args: Parameters<HostCommandDelivery['captureTarget']>) { return this.hostCommandDelivery.captureTarget(...args); }
+  readHostCommandJobDeliveryTarget(...args: Parameters<HostCommandDelivery['readTarget']>) { return this.hostCommandDelivery.readTarget(...args); }
+  deliverHostCommandJobResult(...args: Parameters<HostCommandDelivery['deliver']>) { return this.hostCommandDelivery.deliver(...args); }
+  releaseHostCommandJobDeliveryHandle(original: object): void { this.hostCommandDelivery.release(original); }
+  inspectHostCommandJobDeliveries(...args: Parameters<SqliteStore['inspectHostCommandJobDeliveries']>) {return this.store.inspectHostCommandJobDeliveries(...args);}
+  getHostCommandJobDelivery(...args: Parameters<SqliteStore['getHostCommandJobDelivery']>) { return this.store.getHostCommandJobDelivery(...args); }
   inspectOwnedCommandJobDeliveries(...args: Parameters<SqliteStore['inspectOwnedCommandJobDeliveries']>) { return this.store.inspectOwnedCommandJobDeliveries(...args); }
 
   replaceRoleResourcePolicy(expectedRegistryRevision: number, policy: RoleResourcePolicySnapshot) {
@@ -1644,6 +1689,20 @@ export class MoodcodeEngine {
     return this.roleResourcePolicyRegistry.replace(expectedRegistryRevision, policy);
   }
 
+  previewPrWatch(...args:Parameters<PrFeedbackHost['preview']>){return this.prFeedbackHost.preview(...args);}
+  readPrWatchPreview(...args:Parameters<PrFeedbackHost['readPreview']>){return this.prFeedbackHost.readPreview(...args);}
+  registerPrWatch(...args:Parameters<PrFeedbackHost['register']>){return this.prFeedbackHost.register(...args);}
+  pollPrWatch(...args:Parameters<PrFeedbackHost['poll']>){return this.prFeedbackHost.poll(...args);}
+  acceptCiFeedback(...args:Parameters<PrFeedbackHost['acceptWebhook']>){return this.prFeedbackHost.acceptWebhook(...args);}
+  reconcilePrHead(...args:Parameters<PrFeedbackHost['reconcileHead']>){return this.prFeedbackHost.reconcileHead(...args);}
+  startPrWatch(...args:Parameters<PrFeedbackHost['start']>){return this.prFeedbackHost.start(...args);}
+  stopPrWatch(...args:Parameters<PrFeedbackHost['stop']>){return this.prFeedbackHost.stop(...args);}
+  disablePrWatch(...args:Parameters<PrFeedbackHost['disable']>){return this.prFeedbackHost.disable(...args);}
+  releasePrWatchPreview(original:object){this.prFeedbackHost.release(original);}
+  getPrWatch(workspaceId:string,sessionId:string,id:string){return this.prFeedbackHost.records.get(workspaceId,sessionId,id);}
+  inspectPrWatches(workspaceId:string){return this.prFeedbackHost.records.list(workspaceId);}
+  getPrFeedbackOccurrence(workspaceId:string,sessionId:string,id:string){return this.prFeedbackHost.records.occurrence(workspaceId,sessionId,id);}
+  getPrRepairVerification(...args:Parameters<PrFeedbackHost['repairVerification']>){return this.prFeedbackHost.repairVerification(...args);}
   previewGitCommit(...args:Parameters<GitCommitHost['preview']>) { return this.gitCommitHost.preview(...args); }
   readGitCommitPreview(...args:Parameters<GitCommitHost['read']>) { return this.gitCommitHost.read(...args); }
   releaseGitCommitPreview(...args:Parameters<GitCommitHost['release']>) { return this.gitCommitHost.release(...args); }
@@ -1765,6 +1824,9 @@ export class MoodcodeEngine {
   observeScheduleOccurrence(input: Parameters<ScheduleDispatcher['observe']>[0]) { this.assertSchedulesEnabled(); return this.scheduleDispatcher.observe(input); }
   abandonScheduleOccurrence(...args: Parameters<ScheduleStorage['abandonClaim']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.abandonClaim(...args); }
   releaseScheduleHandle(original: object): void { this.scheduleProducer.release(original); this.scheduleRecords.releaseClaim(original); }
+  bindCommandJobModelTools(input: BindCommandJobModelToolsInput): object { return this.commandJobModelHost.bind(input); }
+  releaseCommandJobModelTools(original: object): void { this.commandJobModelHost.release(original); }
+
   bindTeamModelTools(input: BindTeamModelToolsInput): TeamModelToolsBinding { return this.teamModelHost.bind(input); }
   private assertWorkflowsEnabled(): void {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
@@ -1792,6 +1854,14 @@ export class MoodcodeEngine {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     return this.store.readExecutionObservationEvidence(() => this.workflowRecords.inspectWorkflow(workspaceId, instanceId));
   }
+  bindWorkflowModelTools(input:Parameters<WorkflowEffects['bind']>[0]){this.assertWorkflowsEnabled();return this.workflowEffects.bind(input);}
+  releaseWorkflowModelTools(original:object){this.workflowEffects.release(original);}
+  captureWorkflowDeliveryTarget(input:Parameters<WorkflowEffects['captureTarget']>[0]){this.assertWorkflowsEnabled();return this.workflowEffects.captureTarget(input);}
+  readWorkflowDeliveryTarget(original:object){this.assertWorkflowsEnabled();return this.workflowEffects.readTarget(original);}
+  deliverWorkflowResult(input:Parameters<WorkflowEffects['deliver']>[0]){this.assertWorkflowsEnabled();return this.workflowEffects.deliver(input);}
+  releaseWorkflowDeliveryTarget(original:object){this.workflowEffects.release(original);}
+  inspectWorkflowEffect(workspaceId:string,instanceId:string,stageId:string){const record=this.workflowRecords.inspectWorkflow(workspaceId,instanceId);return record?this.store.readWorkflowEffect(record.owner.sessionId,instanceId,stageId):null;}
+  inspectWorkflowDelivery(workspaceId:string,instanceId:string){const record=this.workflowRecords.inspectWorkflow(workspaceId,instanceId);return record?this.store.readWorkflowDelivery(record.owner.sessionId,instanceId):null;}
   releaseWorkflowStartPreview(input: Parameters<WorkflowHost['release']>[0]): void { this.workflowHost.release(input); }
   releaseTeamModelTools(original: TeamModelToolsBinding): void { this.teamModelHost.releaseBinding(original); }
   createTeam(input: Parameters<TeamHostService['createTeam']>[0]) { this.assertTeamsEnabled(); return this.teamHost.createTeam(input); }
@@ -2298,13 +2368,15 @@ export class MoodcodeEngine {
         this.questions.close();
         this.teamService.close();
         this.teamModelHost.close();
+        this.commandJobModelHost.close();
         this.teamHost.close();
         this.conversationForkHost.close();
         this.jobHost.close();
         this.jobDelivery.close();
         this.ownedCommandDelivery.close();
+        this.hostCommandDelivery.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.hostCommands.close(), this.gitCommitHost.close(), this.backendHost.close(), this.scheduleDispatcher.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.hostCommands.close(), this.gitCommitHost.close(), this.prFeedbackHost.close(), this.backendHost.close(), this.scheduleDispatcher.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }
@@ -2312,7 +2384,7 @@ export class MoodcodeEngine {
         await this.executionObserver.close();
         try { this.terminalJournal.close(); }
         finally { try { this.reviewJournal.close(); }
-        finally { this.ownedCommandProducer.close(); this.ownedCommandHost.close(); this.jobProducer.close(); this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
+        finally { this.workflowEffects.close(); this.hostCommandDeliveryProducer.close(); this.hostCommandDeliverySource.close(); this.ownedCommandProducer.close(); this.ownedCommandHost.close(); this.jobProducer.close(); this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
         }
       }
     })().then(resolve, reject);

@@ -89,6 +89,7 @@ export type WorkflowTransitionEvent =
   | { readonly operation: "settle"; readonly stageId: string; readonly completion: WorkflowChildCompletionProof }
   | { readonly operation: "cancel" }
   | { readonly operation: "uncertain" }
+  | { readonly operation: "fail" }
   | { readonly operation: "pause-import" };
 
 export function initialWorkflowStages(spec: WorkflowSpec): Omit<WorkflowStageState, "id" | "revision">[] {
@@ -98,7 +99,7 @@ export function initialWorkflowStages(spec: WorkflowSpec): Omit<WorkflowStageSta
 export function reduceWorkflow(spec: WorkflowSpec, before: WorkflowInstanceRevision, event: WorkflowTransitionEvent): { state: WorkflowState; stages: WorkflowStageState[]; result: JsonObject | null } {
   if (["completed", "failed", "cancelled", "uncertain", "paused-import"].includes(before.state)) workflowError("WORKFLOW_TERMINAL");
   const stages = structuredClone(before.stages) as WorkflowStageState[];
-  if (event.operation === "cancel" || event.operation === "uncertain" || event.operation === "pause-import") return { state: event.operation === "pause-import" ? "paused-import" : event.operation === "cancel" ? "cancelled" : "uncertain", stages, result: null };
+  if (event.operation === "cancel" || event.operation === "uncertain" || event.operation === "fail" || event.operation === "pause-import") return { state: event.operation === "pause-import" ? "paused-import" : event.operation === "cancel" ? "cancelled" : event.operation === "fail" ? "failed" : "uncertain", stages, result: null };
   const index = stages.findIndex(stage => stage.stageId === event.stageId), stage = stages[index], definition = spec.stages.find(stage => stage.id === event.stageId);
   if (!stage || !definition) workflowError("WORKFLOW_STAGE_MISSING");
   let next: WorkflowStageState;

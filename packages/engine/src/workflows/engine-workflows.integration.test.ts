@@ -295,12 +295,12 @@ test(
       [
         "editor",
         { role: "editor", tools: ["apply_patch"] },
-        "WORKFLOW_ROLE_UNSUPPORTED",
+        "WORKFLOW_EFFECT_UNSUPPORTED",
       ],
       [
         "validator",
         { role: "validator", tools: ["read_file"] },
-        "WORKFLOW_ROLE_UNSUPPORTED",
+        "WORKFLOW_EFFECT_UNSUPPORTED",
       ],
       [
         "other-model",

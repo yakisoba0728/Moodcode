@@ -254,6 +254,17 @@ export class EngineJobProducer {
     if (knowledgeHash(source.proof) !== knowledgeHash(expected))
       fail("JOB_SOURCE_STALE");
   }
+  /** No native source event or cursor mutation: an actual retained terminal snapshot for readonly model DATA. */
+  captureModelSnapshot(original: object, jobId: string): object {
+    this.enabled(); const source=this.original(this.sources,original);this.assertSource(source);
+    const job=this.native().getJob(source.proof.workspaceId,jobId);
+    if(!job||job.sourceSha256!==source.proof.sha256||job.owner.sha256!==source.owner.sha256||['uncertain','paused-import','detached'].includes(job.state))fail('JOB_OUTPUT_STALE');
+    const snapshot=this.engine.terminals.captureReadSnapshot(source.terminal);
+    const data=this.engine.terminals.readReadSnapshot(snapshot);source.snapshots.set('model:'+randomUUID(),snapshot);return snapshot;
+  }
+  readModelSnapshot(originalSource:object,originalSnapshot:object){this.enabled();const source=this.original(this.sources,originalSource);this.assertSource(source);const data=this.engine.terminals.readReadSnapshot(originalSnapshot);if(data.source.sha256!==source.proof.sha256||![...source.snapshots.values()].includes(originalSnapshot))fail('JOB_OUTPUT_STALE');return structuredClone(data);}
+  releaseModelSnapshot(originalSource:object,originalSnapshot:object){const source=this.sources.get(originalSource);if(!source)return;for(const[key,value]of source.snapshots)if(value===originalSnapshot){source.snapshots.delete(key);this.engine.terminals.releaseReadHandle(originalSnapshot);}}
+
   captureOutput(original: object, input: ReadJobOutputInput): object {
     this.enabled();
     const source = this.original(this.sources, original);

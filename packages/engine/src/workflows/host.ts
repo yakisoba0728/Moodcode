@@ -20,6 +20,7 @@ import {
   workflowInteger,
   workflowJson,
   WORKFLOW_READ_TOOLS,
+  validateWorkflowWorktreeSharing,
 } from "./spec.js";
 
 export function workflowHostRecord(
@@ -137,7 +138,7 @@ export interface WorkflowStartPreview {
   readonly owner: WorkflowOwnerProof;
   readonly parameters: JsonObject;
   readonly worktrees: Readonly<Record<string, WorkflowWorktreePin>>;
-  readonly readonlyStages: true;
+  readonly readonlyStages: boolean;
   readonly automaticParentDelivery: false;
   readonly sha256: string;
 }
@@ -151,6 +152,7 @@ export interface OwnedWorkflowPreview {
 }
 export interface WorkflowHostPorts {
   readonly owner: ActualWorkflowOwnerPort;
+  assertEffectsSupported?(original: object, spec: WorkflowSpec): void;
   getWorkflow(
     workspaceId: string,
     workflowId: string,
@@ -179,6 +181,7 @@ export class WorkflowHost {
     );
     if (knowledgeHash(configuration.profile) !== knowledgeHash(owner.profile))
       workflowError("WORKFLOW_OWNER_STALE");
+    this.ports.assertEffectsSupported?.(original, spec);
     const allocation: ChildBudget = {
       turns: 0,
       toolCalls: 0,
@@ -186,7 +189,13 @@ export class WorkflowHost {
       durationMs: 0,
     };
     for (const stage of stages) {
-      if (!["planner", "advisory-reviewer"].includes(stage.role))
+      const readonly = ["planner", "advisory-reviewer"].includes(stage.role);
+      const allowed = readonly
+        ? WORKFLOW_READ_TOOLS
+        : stage.role === "editor"
+          ? [...WORKFLOW_READ_TOOLS, "apply_patch"]
+          : [...WORKFLOW_READ_TOOLS, "run_command", "verify_changes"];
+      if (!readonly && !this.ports.assertEffectsSupported)
         workflowError("WORKFLOW_ROLE_UNSUPPORTED");
       if (
         knowledgeHash(stage.profile) !== knowledgeHash(configuration.profile) ||
@@ -197,8 +206,7 @@ export class WorkflowHost {
         stage.tools.length > 8 ||
         stage.tools.some(
           (name) =>
-            !WORKFLOW_READ_TOOLS.includes(name) ||
-            !configuration.tools.includes(name),
+            !allowed.includes(name) || !configuration.tools.includes(name),
         )
       )
         workflowError("WORKFLOW_STAGE_TOOL_ESCALATION");
@@ -264,10 +272,10 @@ export class WorkflowHost {
       spec.stages.some(
         (stage) => !Object.hasOwn(selection.stageWorktrees, stage.id),
       ) ||
-      new Set(Object.values(selection.stageWorktrees)).size !==
-        spec.stages.length
+      false /* Sequential dependency-linked stages may share one actual worktree. */
     )
       workflowError("WORKFLOW_WORKTREE_SELECTION_INVALID");
+    validateWorkflowWorktreeSharing(spec, selection.stageWorktrees);
     for (const id of Object.values(selection.stageWorktrees))
       workflowIdentifier(id);
     if (this.retained.size >= 32) workflowError("WORKFLOW_LIMIT");
@@ -324,7 +332,9 @@ export class WorkflowHost {
         owner,
         parameters,
         worktrees,
-        readonlyStages: true as const,
+        readonlyStages: spec.stages.every((stage) =>
+          ["planner", "advisory-reviewer"].includes(stage.role),
+        ),
         automaticParentDelivery: false as const,
       });
       const preview = workflowJson({

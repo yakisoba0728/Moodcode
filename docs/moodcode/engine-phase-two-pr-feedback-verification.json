@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "feature": "MC2-19 PR SHA-bound CI/review feedback",
+  "status": "supported-lane-implemented",
+  "workspace": "/Users/yakisoba0728/.codex/worktrees/engine-pr-feedback/Moodcode",
+  "baselineHead": "c2c9814dd66e9aa78ab6865a22895fb46aff7a67",
+  "integratedSeed": "/tmp/moodcode-three-features-integrated-base.patch",
+  "workItems": {
+    "MC2-19a": "implemented public-readonly host-approved lane",
+    "MC2-19b": "implemented explicit polling and trusted-host webhook hints",
+    "MC2-19c": "implemented genuine local source/repair allocation/native verification",
+    "MC2-19d": "implemented supported failure/crash/import boundaries"
+  },
+  "checks": {
+    "actualFeature": {
+      "tests": 32,
+      "pass": 32,
+      "fail": 0,
+      "log": "/tmp/moodcode-pr-feedback-source-ninth.log"
+    },
+    "withAdjacentRegressions": {
+      "tests": 86,
+      "pass": 86,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "durationMs": 20937.911542,
+      "log": "/tmp/moodcode-pr-feedback-source-final.log"
+    },
+    "scopedStrict": {
+      "exitCode": 0,
+      "log": "/tmp/moodcode-pr-feedback-type-final.log"
+    },
+    "declarationBuild": {
+      "exitCode": 0,
+      "log": "/tmp/moodcode-pr-feedback-declaration.log",
+      "output": "/tmp/moodcode-pr-feedback-declarations"
+    },
+    "format": {
+      "exitCode": 0,
+      "log": "/tmp/moodcode-pr-feedback-format-final.log"
+    }
+  },
+  "publicReadOnlyProbe": {
+    "startedAt": "2026-10-08T08:39:35.219Z",
+    "method": "GET",
+    "authentication": "none",
+    "writes": 0,
+    "source": "https://api.github.com",
+    "status": "observed",
+    "discoveryStatus": 200,
+    "number": 11471,
+    "base": "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+    "head": "ae2acad5c06dc59578955187a8972329a7f2ee22",
+    "repositoryId": 1296269,
+    "headRepositoryId": 1409926707,
+    "checks": 0,
+    "reviews": 0,
+    "requiredState": "missing",
+    "mergeAuthority": false,
+    "semanticSha256": "9e1dc1a76c0c3440744cb08552a20231921f1db6d175a9cddc2a6bb28789dcf5",
+    "finishedAt": "2026-10-08T08:39:37.489Z"
+  },
+  "actualEvidence": [
+    "real temporary Git/source verification/allowed Tool approval",
+    "loopback HTTP GET -> approved native atomic input -> real provider command repair -> genuine native verification",
+    "check/status required identity; head/base consistency; rerun/order watermark; pending/missing/failed/passed",
+    "same reviewer COMMENTED and unrelated DISMISSED cannot erase active changes request",
+    "full atomic receipt/input/link rollback on actual SQL trigger failure",
+    "zero new provider dispatch for changed source/profile/head/verification policy",
+    "403/429/500 actual streaming response cancellation and socket close",
+    "actual SIGKILL before COMMIT and after COMMIT-before-wake; no replay/duplicate input",
+    "defaultoff reopen and genuine archive paused import",
+    "independent source approval/cleanup, rehashed remote green/counter, input media/link/alias/caps corruption"
+  ],
+  "storage": {
+    "newTables": 0,
+    "newDatabaseVersion": false,
+    "uses": "existing SessionDocuments and immutable native session events",
+    "watchCap": 32,
+    "occurrenceCap": 128,
+    "documentCap": 512,
+    "rowBytes": 131072,
+    "documentBytes": 16777216,
+    "eventCap": 2048,
+    "eventBytes": 33554432,
+    "inputWake": "after COMMIT only"
+  },
+  "bounds": {
+    "httpResponseBytes": 1048576,
+    "maxPages": 4,
+    "checks": 256,
+    "reviews": 128,
+    "promptBytes": 32768,
+    "repairInputsPerWatch": 8,
+    "runBudget": "exact host-approved normalized Run config; ordinary measured ceilings"
+  },
+  "permissions": {
+    "httpMethods": [
+      "GET"
+    ],
+    "authentication": "none",
+    "realAccountUsed": false,
+    "realModelCalled": false,
+    "remoteWrite": false,
+    "comment": false,
+    "merge": false,
+    "push": false,
+    "modelToolAdded": false
+  },
+  "unsupported": [
+    "private GitHub repositories and credentials",
+    "public webhook ingress/signature verification",
+    "branch-protection/ruleset and permission-based merge eligibility",
+    "inline review comments or check annotations expansion",
+    "publication and automatic poll/input/provider replay"
+  ],
+  "aggregateGate": "engine-phase-two-parallel-consumers-verification.json",
+  "featureFiles": [
+    "packages/engine/src/engine.ts",
+    "packages/engine/src/index.ts",
+    "packages/engine/src/storage/index.ts",
+    "packages/engine/src/storage/archive.ts",
+    "packages/engine/src/recovery/index.ts",
+    "packages/engine/src/pr-feedback/fixtures/crash-pr.ts",
+    "packages/engine/src/pr-feedback/fixtures/pr.ts",
+    "packages/engine/src/pr-feedback/github.ts",
+    "packages/engine/src/pr-feedback/host.ts",
+    "packages/engine/src/pr-feedback/pr-boundaries.integration.test.ts",
+    "packages/engine/src/pr-feedback/pr-crash.integration.test.ts",
+    "packages/engine/src/pr-feedback/pr-feedback.integration.test.ts",
+    "packages/engine/src/pr-feedback/pr-native.integration.test.ts",
+    "packages/engine/src/pr-feedback/records.ts",
+    "packages/engine/src/pr-feedback/types.ts",
+    "docs/moodcode/engine-phase-two-pr-feedback.md",
+    "docs/moodcode/engine-phase-two-pr-feedback-verification.json"
+  ],
+  "parentIntegration": "engine-phase-two-parallel-consumers-verification.json",
+  "sourceIdentity": "Frozen independent agent feature evidence; the parent integration report records the integrated source snapshot and final aggregate checks."
+}

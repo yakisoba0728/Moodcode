@@ -551,6 +551,15 @@ test(
       );
       db.exec("DROP TRIGGER host_settle_fault");
       db.close();
+      // A rejected native settlement is uncertainty, not a physical exit acknowledgement.
+      await jobUntil(() => {
+        try {
+          process.kill(pid, 0);
+          return false;
+        } catch (error) {
+          return (error as NodeJS.ErrnoException).code === "ESRCH";
+        }
+      }, "The original command PID remained alive after settlement failure");
       assert.throws(
         () => process.kill(pid, 0),
         (e: unknown) => (e as NodeJS.ErrnoException).code === "ESRCH",

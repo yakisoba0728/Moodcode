@@ -1,3 +1,5 @@
+import type { WorkflowStageSpec } from "./types.js";
+import type { WorkflowChildEvidence } from "./effect-evidence.js";
 import { types } from "node:util";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { EngineChildRequest } from "../child-tasks/engine-host.js";
@@ -36,6 +38,7 @@ export interface ActualWorkflowChildObservationPort {
     originalOwner: object,
     request: EngineChildRequest,
     signal?: AbortSignal,
+    stage?: WorkflowStageSpec,
   ): Promise<object>;
   readAdmission(originalChild: object): WorkflowChildAdmissionProof;
   observe(
@@ -44,6 +47,7 @@ export interface ActualWorkflowChildObservationPort {
     signal?: AbortSignal,
   ): Promise<object>;
   readCompletion(originalCompletion: object): WorkflowChildCompletionProof;
+  readExecution?(originalCompletion: object): WorkflowChildEvidence;
   release(original: object): void;
 }
 export interface WorkflowServiceNativePort {
@@ -127,6 +131,16 @@ export class WorkflowService {
       host: WorkflowHost;
       owner: ActualWorkflowOwnerPort;
       children: ActualWorkflowChildObservationPort;
+      effects?: {
+        captureChild(
+          record: WorkflowInstanceRevision,
+          stageId: string,
+          originalCompletion: object,
+        ): Promise<object>;
+        commitChild(original: object, settled: WorkflowInstanceRevision): void;
+        release(original: object): void;
+        transaction<T>(op: () => T): T;
+      };
     },
   ) {}
   private open(): void {
@@ -381,6 +395,7 @@ export class WorkflowService {
           allocation: stage.allocation,
         },
         input.signal,
+        stage,
       );
       const admitted = this.ports.native.admitStage(
         owner.original,
@@ -466,16 +481,65 @@ export class WorkflowService {
     );
     try {
       workflowAbort(input.signal);
-      return this.ports.native.settleStage(owner.original, completion, {
-        workspaceId: input.workspaceId,
-        instanceId: input.instanceId,
-        stageId: input.stageId,
-        requestId: input.requestId,
-        expectedRevision: input.expectedRevision,
-      });
+      let originalEffect: object | undefined;
+      try {
+        originalEffect = await this.ports.effects?.captureChild(
+          record,
+          input.stageId,
+          completion,
+        );
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          "code" in error &&
+          [
+            "WORKFLOW_VERIFICATION_FAILED",
+            "WORKFLOW_CHILD_EFFECT_FAILED",
+            "WORKFLOW_EDITOR_NO_EFFECT",
+          ].includes(String(error.code))
+        )
+          this.ports.native.control(owner.original, {
+            workspaceId: input.workspaceId,
+            instanceId: input.instanceId,
+            requestId:
+              "effect-rejected:" + knowledgeHash([input.requestId, error.code]),
+            expectedRevision: input.expectedRevision,
+            operation: "fail",
+          });
+        throw error;
+      }
+      try {
+        const settle = () => {
+          const result = this.ports.native.settleStage(
+            owner.original,
+            completion,
+            {
+              workspaceId: input.workspaceId,
+              instanceId: input.instanceId,
+              stageId: input.stageId,
+              requestId: input.requestId,
+              expectedRevision: input.expectedRevision,
+            },
+          );
+          if (originalEffect && !result.duplicate)
+            this.ports.effects!.commitChild(originalEffect, result.record);
+          return result;
+        };
+        return this.ports.effects
+          ? this.ports.effects.transaction(settle)
+          : settle();
+      } finally {
+        if (originalEffect) this.ports.effects!.release(originalEffect);
+      }
     } finally {
       this.ports.children.release(completion);
     }
+  }
+  effectOwner(
+    workspaceId: string,
+    instanceId: string,
+  ): { record: WorkflowInstanceRevision; owner: InstanceOwner } {
+    return this.owned(workspaceId, instanceId);
   }
   async close(): Promise<void> {
     if (this.closed) return;

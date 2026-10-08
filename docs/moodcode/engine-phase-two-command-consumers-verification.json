@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "feature": "command-job-model-consumers-and-independent-host-inbox",
+  "baselineTree": "07559cf84960474010b51a901e810133feb505a2",
+  "supportedSources": [
+    "user-terminal",
+    "run-command",
+    "host-command"
+  ],
+  "limits": {
+    "selectedSources": 32,
+    "frozenSnapshots": 64,
+    "frozenSnapshotBytes": 16777216,
+    "pageRawBytes": 8192,
+    "pageFragments": 64,
+    "pageEncodedBytes": 65536
+  },
+  "checks": [
+    {
+      "kind": "focused-real-engine-source",
+      "tests": 25,
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/tmp/moodcode-command-consumers-freeze-source.log"
+    },
+    {
+      "kind": "existing-owned-inbox-atomic-command-regressions",
+      "tests": 34,
+      "passed": 33,
+      "failed": 0,
+      "skipped": 1,
+      "skip": "existing Windows-only case",
+      "log": "/tmp/moodcode-command-consumers-regression-source.log"
+    },
+    {
+      "kind": "35-actual-model-polls-one-physical-original",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "observations": "Native Tool/Part35; model freeze1 and TerminalService retained snapshot1; both0 after release",
+      "log": "/tmp/moodcode-command-model-poll-final-source.log"
+    },
+    {
+      "kind": "scoped-strict-types",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-command-consumers-freeze-strict.log"
+    },
+    {
+      "kind": "whole-project-declarations",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-command-consumers-freeze-declaration.log"
+    },
+    {
+      "kind": "format",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-command-consumers-freeze-format.log"
+    }
+  ],
+  "nativeDatabase": {
+    "version": 23,
+    "catalogueRows": 139,
+    "catalogueLimit": 160,
+    "newMigration": false,
+    "log": "/tmp/moodcode-command-consumers-schema.log"
+  },
+  "boundaries": [
+    "Original actual ToolContext/profile/role and host-selected alias",
+    "snapshot UTF-8 continuity/gap/raw SHA and zero-source-event model reads",
+    "physical first-reader failure releases Original",
+    "closed completed/failed/cancelled cleanup-confirmed host source",
+    "atomic actual input/receipt/link/birth and after-COMMIT wake",
+    "immutable target promotion and every provider dispatch",
+    "receipt rollback/backpressure/profile/artifact drift",
+    "SIGKILL before and after commit/restart/import paused/no source replay"
+  ],
+  "outsideScope": [
+    "foreground/background owner transfer",
+    "explicit host checkpoint restoration"
+  ],
+  "aggregateGate": "engine-phase-two-parallel-consumers-verification.json",
+  "parentIntegration": "engine-phase-two-parallel-consumers-verification.json",
+  "sourceIdentity": "Frozen independent agent feature evidence; the parent integration report records the integrated source snapshot and final aggregate checks."
+}

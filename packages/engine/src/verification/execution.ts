@@ -28,6 +28,8 @@ export interface VerificationToolHost {
   commandCapability?(context: ToolContext, catalogue: ToolCatalogue): VerificationCommandCapability;
   /** Only the original still-live actual outer context can publish one consumed observation while cancelling. */
   consumedSettlementWriter?(context: ToolContext, kind: string, expectedRevision: number, data: JsonObject): SessionDocument;
+  /** Only Root may authenticate a narrowed nested command using the original live verification context. */
+  executeCommand?(outer: ToolContext, nested: ToolContext, prepared: import('../ports.js').PreparedTool): Promise<ToolResult>;
   artifacts: ArtifactStore | Promise<ArtifactStore> | (() => ArtifactStore | Promise<ArtifactStore>);
 }
 

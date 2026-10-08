@@ -1,3 +1,7 @@
+import { PrFeedbackStorage, validatePrFeedbackDatabase } from '../pr-feedback/records.js';
+import { validateCommitVerification } from '../git/commit-receipts.js';
+import {deliverHostCommandResultAtomic,readHostCommandDeliveries,readHostCommandDelivery,findHostCommandDeliveryForInput,validateHostCommandDeliveryDatabase,pauseImportedHostCommandDeliveries,type HostCommandDeliveryInput,type HostCommandDeliveryPorts} from '../jobs/host-command-delivery-records.js';
+import {WorkflowEffectStorage, readWorkflowEffect, readWorkflowDelivery, hasWorkflowEffectUncertainty, pauseImportedWorkflowEffects, type WorkflowEffectNativePorts} from "../workflows/effects-records.js";
 import { HostCommandStorage, hasHostCommandUncertainty, validateHostCommandDatabase } from '../jobs/host-command-records.js';
 import { GitCommitStorage, hasUncertainGitCommit, hasKnownGitCommitSupervisor, readGitCommitProcessEvidence, validateGitCommitDatabase } from '../git/commit-receipts.js';
 import { readForkChildData } from '../sessions/fork-child.js';
@@ -169,6 +173,7 @@ export class SqliteStore implements SessionEngineStore {
   private proposalApplyRecords?: ProposalApplyStorage;
   private teamRecords?: TeamStorage;
   private workflowRecords?: WorkflowStorage;
+  private workflowEffectRecords?:WorkflowEffectStorage;
   private scheduleRecords?: ScheduleStorage;
   private backendRecords?: AgentBackendStorage;
   private jobRecords?: JobStorage;
@@ -470,7 +475,7 @@ export class SqliteStore implements SessionEngineStore {
     });
   }
   hasUncertainWorkspace(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => this.hasUncertainGitCommit(workspaceId) || this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId) || this.hasUncertainAgentBackend(workspaceId) || readOwnedCommandJobs(this.db, workspaceId).some(job => job.state === 'uncertain' || job.state === 'paused-import' && job.errorCode === 'COMMAND_JOB_CLEANUP_UNCERTAIN'));
+    return this.recoveryBlocked(() => hasWorkflowEffectUncertainty(this.db,workspaceId) || this.hasUncertainGitCommit(workspaceId) || this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId) || this.hasUncertainAgentBackend(workspaceId) || readOwnedCommandJobs(this.db, workspaceId).some(job => job.state === 'uncertain' || job.state === 'paused-import' && job.errorCode === 'COMMAND_JOB_CLEANUP_UNCERTAIN'));
   }
   hasUncertainAgentBackend(workspaceId: string): boolean {
     return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasAgentBackendBlocker(this.db, workspaceId); });
@@ -662,6 +667,13 @@ export class SqliteStore implements SessionEngineStore {
     return this.teamRecords = new TeamStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
       writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
+  readWorkflowEffect(sessionId:string,instanceId:string,stageId:string){return this.evidenceRead(()=>readWorkflowEffect(this.db,sessionId,instanceId,stageId));}
+  readWorkflowDelivery(sessionId:string,instanceId:string){return this.evidenceRead(()=>readWorkflowDelivery(this.db,sessionId,instanceId));}
+  withWorkflowEffectsTransaction<T>(operation:()=>T):T {return this.db.isTransaction?operation():this.transaction(operation);}
+  createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'putDocument'|'appendEvent'>):WorkflowEffectStorage {
+    this.assertOpen();if(this.workflowEffectRecords)throw new EngineError('WORKFLOW_EFFECTS_ALREADY_BOUND','Workflow effects have one actual Root producer');
+    return this.workflowEffectRecords=new WorkflowEffectStorage(this.db,{...ports,transaction:operation=>this.withWorkflowEffectsTransaction(operation),putDocument:(s,k,r,d)=>{this.executionRecords.putSessionDocument(s,k,r,d);},appendEvent:(s,t,d,inputId)=>{this.native.appendEvent(s,t,d,inputId?{inputId}:{});this.publishAfterCommit(()=>this.notify(s));}});
+  }
   createWorkflowStorage(ports: Omit<WorkflowStoragePorts, 'writeTx' | 'getWorkspace'>): WorkflowStorage {
     this.assertOpen();
     if (this.workflowRecords) throw new EngineError('WORKFLOWS_ALREADY_CONFIGURED', 'Native workflows already have an original host owner');
@@ -686,6 +698,13 @@ export class SqliteStore implements SessionEngineStore {
     return this.jobRecords = new JobStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
       writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
+  createPrFeedbackStorage(): PrFeedbackStorage { return new PrFeedbackStorage(this.db, {
+    writeTx:operation=>this.db.isTransaction?operation():this.transaction(operation),
+    writeDocument:(sessionId,kind,revision,data)=>this.executionRecords.putSessionDocument(sessionId,kind,revision,data),
+    appendEvent:(sessionId,type,payload,refs)=>this.native.appendEvent(sessionId,type,payload,refs),
+  }); }
+  validatePrFeedback():void {this.evidenceRead(()=>validatePrFeedbackDatabase(this.db));}
+  validatePrVerificationEvidence(evidence:unknown):void {this.evidenceRead(()=>validateCommitVerification(this.db,evidence as import('../git/types.js').GitCommitPreview));}
   createGitCommitStorage(): GitCommitStorage {
     return new GitCommitStorage(this.db, {
       writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation),
@@ -730,6 +749,16 @@ export class SqliteStore implements SessionEngineStore {
   inspectOwnedCommandJobDeliveries(workspaceId: string, sessionId?: string) { return this.evidenceRead(() => readOwnedCommandDeliveries(this.db,workspaceId,sessionId)); }
   findOwnedCommandDeliveryForInput(input: Parameters<typeof findOwnedCommandDeliveryForInput>[1]) { return this.evidenceRead(() => findOwnedCommandDeliveryForInput(this.db,input)); }
   validateOwnedCommandDeliveries(): void { this.evidenceRead(() => validateOwnedCommandDeliveryDatabase(this.db)); }
+  deliverHostCommandResultAtomic(originalTarget: object, input: HostCommandDeliveryInput, ports: Pick<HostCommandDeliveryPorts,'readTargetOriginal'|'assertTarget'|'acceptAtomic'|'readAccepted'|'releaseAccepted'>) {
+    const write = () => deliverHostCommandResultAtomic(this.db, originalTarget, input, {...ports,
+      writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data),
+      appendEvent: (sessionId,type,payload,refs) => this.native.appendEvent(sessionId,type,payload,refs) });
+    return this.db.isTransaction ? write() : this.transaction(write);
+  }
+  getHostCommandJobDelivery(workspaceId: string, deliveryId: string) { return this.evidenceRead(() => readHostCommandDelivery(this.db,workspaceId,deliveryId)); }
+  inspectHostCommandJobDeliveries(workspaceId: string, sessionId?: string) { return this.evidenceRead(() => readHostCommandDeliveries(this.db,workspaceId,sessionId)); }
+  findHostCommandDeliveryForInput(input: Parameters<typeof findHostCommandDeliveryForInput>[1]) { return this.evidenceRead(() => findHostCommandDeliveryForInput(this.db,input)); }
+  validateHostCommandDeliveries(): void { this.evidenceRead(() => validateHostCommandDeliveryDatabase(this.db)); }
   /** Only genuine Root terminal readers publish these session-scoped observations. */
   commitTerminalJobObservation(sessionId: string, type: 'terminal.source_admitted' | 'terminal.output_observed' | 'terminal.source_closed', payload: JsonObject): SessionEventV2 {
     if (!['terminal.source_admitted', 'terminal.output_observed', 'terminal.source_closed'].includes(type)) throw new EngineError('INVALID_SESSION_OBSERVATION', 'Unknown terminal observation type');
@@ -742,17 +771,20 @@ export class SqliteStore implements SessionEngineStore {
     this.transaction(() => {
       const workspace = this.getWorkspace(workspaceId);
       this.createGitCommitStorage().pause(workspaceId, archiveSha256);
+      this.createPrFeedbackStorage().pause(workspaceId,archiveSha256);
       for (const session of this.listSessions(workspaceId)) if (this.getConversationFork(session.id)) { const old=this.getSessionDocument(session.id,'conversation.fork.import'); if (old?.data.kind !== 'target-only-history') this.executionRecords.putSessionDocument(session.id,'conversation.fork.import',old?.revision??0,{paused:true,archiveSha256}); }
       pauseImportedProposals(this.db, workspaceId, archiveSha256);
       pauseImportedProposalApplies(this.db, workspaceId, archiveSha256);
       pauseImportedTeams(this.db, workspaceId, archiveSha256);
       markImportedWorkflowsPaused(this.db, archiveSha256, workspaceId);
+      pauseImportedWorkflowEffects(this.db,workspaceId,{putDocument:(s,k,r,d)=>{this.executionRecords.putSessionDocument(s,k,r,d);},appendEvent:(s,t,d,inputId)=>{this.native.appendEvent(s,t,d,inputId?{inputId}:{});}});
       markImportedSchedulesDisabled(this.db, archiveSha256, workspaceId);
       markImportedAgentBackendsPaused(this.db, archiveSha256, workspaceId);
       markImportedJobsPaused(this.db, archiveSha256, workspaceId);
       pauseImportedOwnedCommandJobs(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
       this.createHostCommandStorage().pauseImport(workspaceId,archiveSha256);
       pauseImportedOwnedCommandDeliveries(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
+      pauseImportedHostCommandDeliveries(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
       if (origin) {
         // Imported runtime capabilities are absent. Persist the ordinary native
         // interrupted-owner transition before pinning recovery; this performs

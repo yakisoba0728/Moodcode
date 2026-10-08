@@ -1,0 +1,67 @@
+{
+  "feature": "MC2-07c/d supported core workflow effects",
+  "baselineHead": "c2c9814dd66e9aa78ab6865a22895fb46aff7a67",
+  "baselineMap": "/tmp/moodcode-workflow-effects-feature-baseline.json",
+  "databaseVersion": 23,
+  "migrationAdded": false,
+  "supportedLane": "actual Root model stage request → approved isolated editor → native validator → separately approved parent merge → atomic native input → actual parent provider consumption",
+  "gates": {
+    "focusedCompiled": {
+      "tests": 63,
+      "pass": 63,
+      "fail": 0,
+      "newActual": 23,
+      "newSIGKILL": 5,
+      "log": "/tmp/moodcode-workflow-effects-verified-actual.log"
+    },
+    "focusedType": {
+      "exitCode": 0,
+      "log": "/tmp/moodcode-workflow-effects-verified-type.log"
+    },
+    "productionDeclarationType": {
+      "exitCode": 0,
+      "log": "/tmp/moodcode-workflow-effects-final-declaration-type.log"
+    },
+    "format": {
+      "exitCode": 0,
+      "log": "/tmp/moodcode-workflow-effects-final-format-check.log"
+    }
+  },
+  "sourceSHA256": {
+    "docs/moodcode/engine-phase-two-workflow-effects.md": "3260a2baa14f2c882261145085e60b2cb97fe8857269ab62a8fbf84e3a402a81",
+    "packages/engine/src/child-tasks/engine-host.ts": "3d9cc7ca5e534b60116cdd45499b8debb516ac12f4b382b002e9e68f64f4d0a5",
+    "packages/engine/src/engine.ts": "a31da578d1589f46ea628173376a3d658c72586128a294423cecd253e63311ab",
+    "packages/engine/src/ports.ts": "26c00cf34ba72378f98446961890f354f90b4ecc71a88936e1c276bc13110203",
+    "packages/engine/src/recovery/index.ts": "30a9b459630406f1de84cf9996e859c1f4ea320894fad4785398f3bd7b497cd1",
+    "packages/engine/src/runner/index.ts": "97a27827072c01fbc3a87a93b2f2b698d8e9d57199c0db5de7daa968bba0528e",
+    "packages/engine/src/storage/archive.ts": "0c31f764de7c3aa0740b81643260ebfbd14cf81e8c38926a61759b3e7d09fdcd",
+    "packages/engine/src/storage/index.ts": "de2caa966df8dae26f64ad259b35ebdd06c577b62ef0e543df3c2ecdc42638a6",
+    "packages/engine/src/workflows/effect-evidence.ts": "194fa58f84d5b903b67ad20dce33765654b71df84ab9b813cf9cc314ff49b1ad",
+    "packages/engine/src/workflows/effects-crash.integration.test.ts": "a4f6bc54c86325dd225e6ecf152ae66c2a4bb54fd3d248778bb879c03fb08783",
+    "packages/engine/src/workflows/effects-records.ts": "60f98b9a784a0f96ebb7c714c8934a291612dcbca8b77b233bee64e8e946c3b5",
+    "packages/engine/src/workflows/effects.integration.test.ts": "b64d3ad2620b55d6efba72756428467de9859dd60658561861dac114ac009e46",
+    "packages/engine/src/workflows/effects.ts": "71fb42c8e782265119dba855b066b3e3184c90bfe82781554d1e101cd2e95ac5",
+    "packages/engine/src/workflows/engine-owner.ts": "1f891136803480149a1cd38c9bd8b6582e4602032e13fb3487fc0bb2af381875",
+    "packages/engine/src/workflows/engine-workflows.integration.test.ts": "99399bffb59e76610de2c703d5e9f9f484d919d211fa1832ae102bf18acb995f",
+    "packages/engine/src/workflows/fixtures/effects-crash.ts": "31673784f80843c3bd70c4a82db15eff0faec7f95ace6d8c2558aeaa2f7e6f15",
+    "packages/engine/src/workflows/fixtures/effects.ts": "be6a96a560d7ebf551e70b163478d58d66fb1bc3fb0e6d4aff76c9849e747454",
+    "packages/engine/src/workflows/host.ts": "064555bff1f6fa44b3f1415ecd8c81a6980f48210d90fc88c04e8c663f504283",
+    "packages/engine/src/workflows/reducer.ts": "0ebe7eb09511fbaf42d842ac7663d490f3fb23c5987b5a766713d223eff19615",
+    "packages/engine/src/workflows/service.ts": "42f42c319e8d650b8ff916650e2e7fd4c0fe257d24910b86e3f4c4a931d09edf",
+    "packages/engine/src/workflows/spec.ts": "3b7768ac98cc2c0bb24a4b61044541687603204c8f472619089d74f3286cf3e1",
+    "packages/engine/src/workflows/store.ts": "df595c9f848c730ab047093239bc45c5cc9953e4406b9afe3d0e8f9e267ca431",
+    "packages/engine/src/workflows/types.ts": "e77426a1780830abd21877f6116ca9c9f9f51a724e551f157f62c524b80f2c5e"
+  },
+  "limits": [
+    "core bounded UTF-8 create/update patch only",
+    "explicit verificationTools and workflow opt-in",
+    "same actual inherited profile/model; escalation unsupported",
+    "genuine approved parent ToolContext required for merge",
+    "restart restores history, never actor or child execution authority",
+    "import pauses effects and accepted inputs",
+    "no automatic replay/reaccept/reset of reserved budgets"
+  ],
+  "aggregateGate": "engine-phase-two-parallel-consumers-verification.json",
+  "parentIntegration": "engine-phase-two-parallel-consumers-verification.json",
+  "sourceIdentity": "Frozen independent agent feature evidence; the parent integration report records the integrated source snapshot and final aggregate checks."
+}

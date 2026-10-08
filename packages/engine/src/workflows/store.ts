@@ -20,6 +20,7 @@ import {
   workflowInteger,
   workflowObject,
   workflowSha,
+  validateWorkflowWorktreeSharing,
 } from "./spec.js";
 import {
   initialWorkflowStages,
@@ -64,6 +65,7 @@ export interface WorkflowTransitionReceipt {
     | "admit"
     | "settle"
     | "cancel"
+    | "fail"
     | "uncertain"
     | "pause-import";
   readonly stageId: string | null;
@@ -113,7 +115,7 @@ export interface WorkflowControlInput {
   readonly instanceId: string;
   readonly requestId: string;
   readonly expectedRevision: number;
-  readonly operation: "cancel" | "uncertain";
+  readonly operation: "cancel" | "uncertain" | "fail";
 }
 export interface WorkflowStoragePorts {
   writeTx<T>(operation: () => T): T;
@@ -495,6 +497,7 @@ export class WorkflowStorage {
           "admit",
           "settle",
           "cancel",
+          "fail",
           "uncertain",
           "pause-import",
         ].includes(receipt.operation) ||
@@ -972,11 +975,7 @@ export class WorkflowStorage {
         syncVoid(this.ports.assertWorktreeCurrent(original, pin));
         worktrees[stage.id] = pin;
       }
-      if (
-        new Set(Object.values(worktrees).map((pin) => pin.id)).size !==
-        spec.spec.stages.length
-      )
-        workflowError("WORKFLOW_WORKTREE_STALE");
+      validateWorkflowWorktreeSharing(spec.spec,Object.fromEntries(Object.entries(worktrees).map(([id,pin])=>[id,pin.id])));
       if (
         Number(
           this.db
@@ -1125,10 +1124,11 @@ export class WorkflowStorage {
     const ids = new Set<string>();
     for (const pin of Object.values(instance.worktrees)) {
       worktreeProof(pin);
-      if (pin.workspaceId !== instance.workspaceId || ids.has(pin.id))
+      if (pin.workspaceId !== instance.workspaceId)
         workflowError("WORKFLOW_DATABASE_INVALID");
       ids.add(pin.id);
     }
+    validateWorkflowWorktreeSharing(spec,Object.fromEntries(Object.entries(instance.worktrees).map(([id,pin])=>[id,pin.id])));
     for (const stage of instance.stages) {
       const definition = spec.stages.find((def) => def.id === stage.stageId);
       if (!definition) workflowError("WORKFLOW_DATABASE_INVALID");
@@ -1885,6 +1885,7 @@ export class WorkflowStorage {
         };
       } else if (
         receipt.operation === "cancel" ||
+        receipt.operation === "fail" ||
         receipt.operation === "uncertain"
       ) {
         fields(request, [

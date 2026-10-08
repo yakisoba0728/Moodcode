@@ -265,10 +265,22 @@ for (const name of ["prepareStage", "admitStage", "settleStage"] as const) {
       args,
     );
     if (name === "prepareStage" && boundary === "dispatch-intent") freeze();
-    if (name === "settleStage" && boundary === "stage-settled") freeze();
+
     return result;
   });
 }
+if (boundary === "stage-settled") {
+  const transaction = engine.store.withWorkflowEffectsTransaction.bind(
+    engine.store,
+  );
+  engine.store.withWorkflowEffectsTransaction = (operation) => {
+    const result = transaction(operation);
+    // Freeze after the outer atomic stage/effect COMMIT, visible to independent readers.
+    freeze();
+    return result;
+  };
+}
+
 const admitted = await invoke<
   Promise<WorkflowRequestResult<WorkflowInstanceRevision>>
 >(engine, "startWorkflowStage", {

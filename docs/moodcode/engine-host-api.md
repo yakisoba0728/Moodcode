@@ -238,4 +238,20 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 
 독립 명령의 물리 lease가 살아 있는 동안 동일 workspace의 Run·commit·fork admission은 차단된다. 실제 명령 취소 및 cleanup 뒤에는 새 Original 검사를 통과한 작업을 진행할 수 있다. 공동 사용 fixture는 실제 검증→host command PID→lease 차단→cancel/cleanup→선택 commit→fork provider context를 확인한다.
 
-[독립 명령 상세](engine-phase-two-host-commands.md), [승인형 commit 상세](engine-phase-two-git-commit.md), [대화 fork 상세](engine-phase-two-conversation-forks.md), [통합 검증](engine-phase-two-parallel-features-verification.json)을 따른다. foreground/background 소유권 이전, 독립 명령의 모델 output 소비와 inbox 전달, host checkpoint restore, Run-only 정책 adapter 및 명시적 unknown 해제는 아직 완료로 세지 않는다. 다른 OS/실제 계정/GUI 노출의 검증 범위는 기존 환경 이월 항목을 유지한다.
+[독립 명령 상세](engine-phase-two-host-commands.md), [승인형 commit 상세](engine-phase-two-git-commit.md), [대화 fork 상세](engine-phase-two-conversation-forks.md), [통합 검증](engine-phase-two-parallel-features-verification.json)을 따른다. foreground/background 소유권 이전, host checkpoint restore, Run-only 정책 adapter 및 명시적 unknown 해제는 아직 완료로 세지 않는다. 모델 output 소비와 독립 host inbox는 아래 지원 범위를 따른다. 다른 OS/실제 계정/GUI 노출의 검증 범위는 기존 환경 이월 항목을 유지한다.
+
+
+## 명령 모델 소비·PR 피드백·실제 워크플로 효과
+
+| 기능과 opt-in | Host API와 실제 소비 | 주요 경계 |
+| --- | --- | --- |
+| 명령 출력 모델 도구: `jobs:true, commandJobModelTools:true` | `bindCommandJobModelTools`, `releaseCommandJobModelTools`; 실제 모델 도구 `read_command_job`, `read_command_job_output` | Host가 선택한 같은 session의 PTY/Run-owned/host alias만 조회한다. 원 native ToolContext/profile/catalogue, 고정 UTF8 snapshot/cursor, 최대8KiB page와 Root16MiB snapshot cap을 검사한다. |
+| 독립 host 결과: `jobs:true, hostCommands:true` | `captureHostCommandJobDeliveryTarget`, `readHostCommandJobDeliveryTarget`, `deliverHostCommandJobResult`, `releaseHostCommandJobDeliveryHandle`; `getHostCommandJobDelivery`, `inspectHostCommandJobDeliveries` | 확정 cleanup을 가진 settled source와 새 Original target 승인이 필요하다. input/receipt/link/immutable birth를 한 transaction에 저장하고 COMMIT 뒤 scheduler를 깨운다. 실제 promotion/provider에서 원 입력·config·profile·source를 다시 검사한다. |
+| PR feedback: `prFeedback:true, verificationTools:true` | `previewPrWatch`, `readPrWatchPreview`, `registerPrWatch`, `releasePrWatchPreview`; `pollPrWatch`, `acceptCiFeedback`, `reconcilePrHead`; `startPrWatch`, `stopPrWatch`, `disablePrWatch`; `getPrWatch`, `inspectPrWatches`, `getPrFeedbackOccurrence`, `getPrRepairVerification` | 정확한 repo/base/head/check/review에 묶인 public readonly GET이다. trusted-host webhook hint도 fresh HTTP를 읽는다. genuine source/검증 receipt와 repair allocation을 가진 입력만 repair로 접수한다. `mergeAuthority:false`이며 private auth/network ingress/발행은 미지원이다. |
+| 워크플로 효과: `workflows:true, verificationTools:true` | `bindWorkflowModelTools`, `releaseWorkflowModelTools`; 실제 도구 `request_workflow_stage`, `observe_workflow_stage`, `merge_workflow_stage`, `deliver_workflow_result`; `captureWorkflowDeliveryTarget`, `readWorkflowDeliveryTarget`, `deliverWorkflowResult`, `releaseWorkflowDeliveryTarget`, `inspectWorkflowEffect`, `inspectWorkflowDelivery` | 실제 editor/validator child의 Tool/Part/checkpoint/검증과 source/artifact pins를 저장한다. 부모 merge는 원 현재 native ToolContext와 별도 exact 승인을 요구한다. stage/effect CAS와 결과 inbox를 원자 저장하며 native merge receipt 공백은 uncertainty를 유지한다. |
+
+`verificationTools`와 `jobs`를 함께 사용하는 실제 nested command는 원 live `verify_changes` 승인/컨텍스트에서 더 좁은 timeout/output 범위를 인증한다. 그 인증은 실행 동안만 유지하고 반환·실패 뒤 해제한다. 복사본이나 예산 확대는 인증되지 않으며 nested 검증 명령을 별도 가짜 `run_command` Tool/Run으로 만들지 않는다.
+
+재시작은 이미 접수된 입력을 명시적으로 resume할 수 있는 역사만 보존한다. Import는 paused history이며 Original source/actor/target grant나 자동 명령·merge·HTTP replay를 복원하지 않는다. 워크플로 효과는 기존 core UTF8 create/update와 inherited model/profile을 지원하고, custom producer/삭제/mode/symlink/alternate model-profile은 효과 전에 거부한다. DB23 catalogue139/cap160을 유지한다.
+
+[명령 소비](engine-phase-two-command-consumers.md), [PR 피드백](engine-phase-two-pr-feedback.md), [워크플로 효과](engine-phase-two-workflow-effects.md), [통합 검증](engine-phase-two-parallel-consumers-verification.json)을 따른다.

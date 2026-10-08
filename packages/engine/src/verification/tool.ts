@@ -106,7 +106,7 @@ export function createVerificationTool(host: VerificationToolHost): ToolDefiniti
       }
       const dispatched = host.receipts.dispatch(context.sessionId, context.runId, begun.revision, begun.receipt.id, source);
       let result: import('../ports.js').ToolResult;
-      try { result = await host.commandRuntime.execute(capture.inner, nested); }
+      try { result = await (host.executeCommand ? host.executeCommand(context, nested, capture.inner) : host.commandRuntime.execute(capture.inner, nested)); }
       catch {
         // The retained capability may have consumed an effect before failing. Error details are not evidence.
         try { host.receipts.markUncertain(context.sessionId, context.runId, dispatched.revision, dispatched.receipt.id); } catch { /* Atomic terminal/CAS guard leaves the pending record for explicit host recovery. */ }

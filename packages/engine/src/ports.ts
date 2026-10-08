@@ -115,3 +115,5 @@ export interface CoordinatorOptions { beforeProviderDispatch?: (run: Run) => voi
 export interface CoordinatorOptions { executionObserver?: import('./diagnostics/execution-observer.js').EngineExecutionObserver }
 export interface CoordinatorOptions { onOwnedCommandToolSettled?: (record: ToolCallRecord) => void }
 export interface CoordinatorPort { submit(input: SubmitInput): RunReceipt; cancel(runId: string): { runId: string; state: RunState }; waitForRun(runId: string): Promise<Run>; close(): Promise<void> }
+
+export interface CoordinatorOptions { onWorkflowToolSettled?: (record:ToolCallRecord)=>void }

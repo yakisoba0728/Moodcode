@@ -233,11 +233,14 @@ export class EngineWorkflowOwners implements ActualWorkflowOwnerPort {
       exposed = new Set(
         this.engine.getCapabilities().tools.map((tool) => tool.name),
       );
-    const tools = WORKFLOW_READ_TOOLS.filter(
+    const tools = [
+      ...WORKFLOW_READ_TOOLS,
+      "apply_patch",
+      "run_command",
+      "verify_changes",
+    ].filter(
       (name) =>
-        exposed.has(name) &&
-        catalogue.tools.some((tool) => tool.name === name) &&
-        this.engine.toolRuntime.resolve(catalogue, name).effectClass === "read",
+        exposed.has(name) && catalogue.tools.some((tool) => tool.name === name),
     );
     const fields: Omit<WorkflowOwnerProof, "sha256"> = {
       workspaceId: run.workspaceId,
@@ -250,7 +253,7 @@ export class EngineWorkflowOwners implements ActualWorkflowOwnerPort {
     const proof = workflowJson({ ...fields, sha256: knowledgeHash(fields) }),
       worktrees = new Map<string, CapturedWorktree>();
     const ids = Object.values(data.worktrees);
-    if (!ids.length || ids.length > 8 || new Set(ids).size !== ids.length)
+    if (!ids.length || ids.length > 8)
       workflowError("WORKFLOW_WORKTREE_SELECTION_INVALID");
     const owner: CapturedOwner = {
       run: workflowJson(run),
@@ -267,7 +270,7 @@ export class EngineWorkflowOwners implements ActualWorkflowOwnerPort {
           this.engine.coordinator.getRunCancellationSignal(run.id),
         ])
       : this.engine.coordinator.getRunCancellationSignal(run.id);
-    for (const id of ids) {
+    for (const id of new Set(ids)) {
       workflowIdentifier(id);
       workflowAbort(operationSignal);
       const record = this.engine.children.worktrees.get(run.sessionId, id);

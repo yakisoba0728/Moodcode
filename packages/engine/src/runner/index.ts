@@ -456,6 +456,41 @@ export class RunCoordinator implements CoordinatorPort {
     }
   }
 
+  /** Original native context for the two readonly command job model consumers. */
+  readCommandJobToolContext(context: ToolContext, phase: 'prepare' | 'execute') {
+    const captured=this.teamToolContexts.get(context);
+    if(!captured||captured.phase!==phase||!captured.active())throw new EngineError('COMMAND_JOB_MODEL_OWNER_STALE','Command output needs the original current tool context');
+    const {owner,record}=captured;const binding=this.teamContextBinding(context);
+    if(!['read_command_job','read_command_job_output'].includes(record.name)||this.owners.get(owner.run.id)!==owner||owner.terminal||owner.abort.signal.aborted||context.signal!==captured.signal||context.signal.aborted||binding!==captured.binding||owner.activeTools.get(record.id)!==record||owner.run.id!==context.runId||owner.run.sessionId!==context.sessionId||owner.run.workspaceId!==context.workspace.id||owner.turn?.id!==context.turnId||owner.turn?.attemptId!==context.attemptId||record.id!==context.toolCallId||record.state!==(phase==='prepare'?'requested':'running'))throw new EngineError('COMMAND_JOB_MODEL_OWNER_STALE','The original readonly command job owner changed');
+    const catalogue=this.captureToolCatalogue(context);return {workspaceId:context.workspace.id,sessionId:context.sessionId,runId:context.runId,toolCallId:record.id,turnId:context.turnId!,attemptId:context.attemptId!,catalogueSha256:knowledgeHash(catalogue),profile:catalogue.profile?{id:catalogue.profile.id,revision:catalogue.profile.revision}:null};
+  }
+
+  assertWorkflowToolContext(context: ToolContext, phase: 'prepare' | 'execute'): void {
+    const captured = this.teamToolContexts.get(context);
+    if (!captured || captured.phase !== phase || !captured.active()) throw new EngineError('WORKFLOW_MODEL_OWNER_STALE', 'Team tools require their original current coordinator context');
+    const { owner, record } = captured;
+    const safeBinding = this.teamContextBinding(context);
+    if (!['request_workflow_stage', 'observe_workflow_stage', 'merge_workflow_stage', 'deliver_workflow_result'].includes(record.name)
+      || this.owners.get(owner.run.id) !== owner || owner.terminal || owner.abort.signal.aborted || context.signal !== captured.signal || context.signal.aborted
+      || safeBinding !== captured.binding || owner.activeTools.get(record.id) !== record
+      || owner.run.sessionId !== context.sessionId || owner.run.id !== context.runId || owner.run.workspaceId !== context.workspace.id
+      || owner.turn?.id !== context.turnId || owner.turn?.attemptId !== context.attemptId
+      || record.id !== context.toolCallId || record.state !== (phase === 'prepare' ? 'requested' : 'running')) throw new EngineError('WORKFLOW_MODEL_OWNER_STALE', 'Original team tool execution changed');
+    this.captureToolCatalogue(context);
+    if (phase === 'execute' && record.name !== 'observe_workflow_stage') {
+      if (!captured.approval) throw new EngineError('WORKFLOW_MODEL_APPROVAL_REQUIRED', 'Team mutations require exact original native approval');
+      const approval = this.options.store.getApproval(captured.approval.id);
+      if (approval.status !== 'allowed' || approval.fingerprint !== captured.approval.fingerprint || approval.sessionId !== context.sessionId || approval.runId !== context.runId || approval.toolCallId !== record.id || approval.toolName !== record.name) throw new EngineError('WORKFLOW_MODEL_APPROVAL_REQUIRED', 'Team mutation approval changed');
+    }
+  }
+
+  getWorkflowToolApproval(context: ToolContext): { id: string; fingerprint: string } {
+    this.assertWorkflowToolContext(context, 'execute');
+    const captured = this.teamToolContexts.get(context)!;
+    if (!captured.approval) throw new EngineError('WORKFLOW_MODEL_APPROVAL_REQUIRED', 'Workflow effects require their actual native approval');
+    return { ...captured.approval };
+  }
+
   /** Nested host verification keeps the original advertised profile/discovery capture. */
   captureToolCatalogue(context: ToolContext): ToolCatalogue {
     const owner = this.owners.get(context.runId);
@@ -481,6 +516,32 @@ export class RunCoordinator implements CoordinatorPort {
     return { name: record.name, workspaceId: context.workspace.id, sessionId: context.sessionId, runId: context.runId,
       toolCallId: record.id, turnId: context.turnId!, attemptId: context.attemptId!, approvalId: approval.id,
       approvalFingerprint: approval.fingerprint, catalogueSha256: knowledgeHash(catalogue) };
+  }
+
+  /** Authenticate only the real verification execution's narrowed nested command, then discard it. */
+  async withVerificationCommandContext<T>(outer: ToolContext, nested: ToolContext, execute: () => Promise<T>): Promise<T> {
+    const owner = this.readOwnedCommandContext(outer, 'start');
+    if (owner.name !== 'verify_changes' || outer === nested || this.commandJobContexts.has(nested))
+      throw new EngineError('COMMAND_JOB_OWNER_STALE', 'Nested commands require their original verification owner');
+    const binding = this.teamContextBinding(nested);
+    const outerFields = Object.getOwnPropertyDescriptors(outer), nestedFields = Object.getOwnPropertyDescriptors(nested);
+    const fieldsChanged = Reflect.ownKeys(outerFields).length !== Reflect.ownKeys(nestedFields).length
+      || Object.keys(outerFields).some(key => !Object.hasOwn(nestedFields, key)
+        || !['limits', 'recordCheckpoint'].includes(key) && outerFields[key]!.value !== nestedFields[key]!.value);
+    const nestedLimits = nested.limits as unknown as Record<string, unknown>;
+    const limitsChanged = Object.keys(outer.limits).length !== Object.keys(nestedLimits).length
+      || Object.entries(outer.limits).some(([key, value]) => {
+        if (!Object.hasOwn(nestedLimits, key)) return true;
+        const selected = nestedLimits[key];
+        if (!['toolTimeoutMs', 'maxOutputBytes'].includes(key)) return selected !== value;
+        return typeof selected !== 'number' || !Number.isSafeInteger(selected) || selected < 1 || selected > value;
+      });
+    if (fieldsChanged || limitsChanged || typeof nested.recordCheckpoint !== 'function')
+      throw new EngineError('COMMAND_JOB_OWNER_STALE', 'Verification nesting may only narrow timeout/output limits and wrap checkpoint publication');
+    const capture = this.commandJobContexts.get(outer)!;
+    this.commandJobContexts.set(nested, { ...capture, binding });
+    try { return await execute(); }
+    finally { this.commandJobContexts.delete(nested); }
   }
 
   /** Cancellation can settle the consumed command, without creating any new verification work. */
@@ -1272,6 +1333,7 @@ export class RunCoordinator implements CoordinatorPort {
     Object.assign(tool, { state }, fields);
     this.options.store.commit(owner.run.id, `tool.${state}`, { toolCallId: tool.id, name: tool.name, state, ...fields }, { tool: { ...tool } });
     if (tool.name === 'run_command' && state === 'interrupted') this.options.onOwnedCommandToolSettled?.(tool);
+    if(tool.name==='merge_workflow_stage' && state==='interrupted')this.options.onWorkflowToolSettled?.(tool);
   }
 
   private context(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], signal: AbortSignal, allowCheckpoint: () => boolean): ToolContext {
@@ -1302,7 +1364,7 @@ export class RunCoordinator implements CoordinatorPort {
     let inProgress = true;
     const context = this.context(owner, record, workspace, signal, () => active);
     if (execute && ['run_command','verify_changes'].includes(record.name)) this.commandJobContexts.set(context, { owner, record, active: () => inProgress, binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
-    if (['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task'].includes(record.name)) this.teamToolContexts.set(context, { owner, record, active: () => inProgress, phase: execute ? 'execute' : 'prepare', binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
+    if (['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task','read_command_job','read_command_job_output','request_workflow_stage','observe_workflow_stage','merge_workflow_stage','deliver_workflow_result'].includes(record.name)) this.teamToolContexts.set(context, { owner, record, active: () => inProgress, phase: execute ? 'execute' : 'prepare', binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
     if (execute) context.mcpExecutionObserver = createMcpExecutionObserver(this.options.store, executionRecords(this.options.store), {
       sessionId: owner.run.sessionId, workspaceId: workspace.id, runId: owner.run.id, toolCallId: record.id, toolName: record.name,
       ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}),
@@ -1523,6 +1585,7 @@ export class RunCoordinator implements CoordinatorPort {
     this.options.store.commit(owner.run.id, `tool.${finalState}`, payload, { tool: { ...record }, message });
     owner.turn?.toolResult(record.id, { output: output.content, isError: result.isError ?? false, truncated: output.truncated }, finalState !== 'completed');
     if (record.name === 'run_command') this.options.onOwnedCommandToolSettled?.(record);
+    if(record.name==='merge_workflow_stage')this.options.onWorkflowToolSettled?.(record);
     const clientRead = this.clientReadCaptures.get(record.id);
     if (clientRead) clientRead.result = structuredClone(result);
     if (output.truncated) throw new EngineError('OUTPUT_LIMIT', 'Run output byte budget was exceeded');

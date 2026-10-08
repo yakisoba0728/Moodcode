@@ -57,6 +57,12 @@ export interface WorkflowStageSpec {
   readonly tools: readonly string[];
   readonly allocation: ChildBudget;
   readonly resultSchema: WorkflowObjectSchema;
+  /** Host-registered checks only; the validator inherits the actual parent profile/model. */
+  readonly verification?: {
+    readonly checkIds: readonly string[];
+    readonly sourcePaths: readonly string[];
+    readonly maxRepairs: 0;
+  };
 }
 export interface WorkflowSpecInput {
   readonly schemaVersion: 1;

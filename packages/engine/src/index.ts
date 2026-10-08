@@ -170,3 +170,10 @@ export type { HostCommandRecord, HostCommandPreview, HostCommandState } from './
 export * from './git/types.js';
 export { validateGitCommitDatabase, validateGitCommitReceipt } from './git/commit-receipts.js';
 export type { CaptureForkPreviewInput, ForkPreview, ForkCommitInput, ForkResult, ConversationFork, FrozenHistoryManifest } from './sessions/fork-types.js';
+
+export * from './pr-feedback/types.js';
+export { GitHubPrReader } from './pr-feedback/github.js';
+export type {BindCommandJobModelToolsInput,CommandJobReadSelection,CommandJobSourceKind,CommandJobModelCursor} from './jobs/command-model-tools.js';
+
+export type {HostCommandSettlementPin,HostCommandDeliveryTargetProof} from './jobs/host-command-result.js';
+export type {HostCommandDeliveryRecord,HostCommandDeliveryResult} from './jobs/host-command-delivery-records.js';

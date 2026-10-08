@@ -1,3 +1,6 @@
+import { validatePrFeedbackDatabase } from '../pr-feedback/records.js';
+import {validateHostCommandDeliveryDatabase} from '../jobs/host-command-delivery-records.js';
+import {validateWorkflowEffectsDatabase} from "../workflows/effects-records.js";
 import { HOST_COMMAND_TABLES, validateHostCommandDatabase } from '../jobs/host-command-records.js';
 import { validateGitCommitDatabase } from '../git/commit-receipts.js';
 import { validateConversationForkDatabase } from '../sessions/fork-native.js';
@@ -237,7 +240,7 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
     }
     const teamTables = schemaVersion >= 18 ? [...applyTables, ...TEAM_TABLES] : applyTables;
     if (schemaVersion >= 19) {
-      try { validateWorkflowDatabase(db, { check }); }
+      try { validateWorkflowDatabase(db, { check }); validateWorkflowEffectsDatabase(db); }
       catch { fail('ARCHIVE_WORKFLOW_INVALID', 'Archived workflow revisions, native stage ownership or transition receipts are invalid'); }
     }
     const workflowTables = schemaVersion >= 19 ? [...teamTables, ...WORKFLOW_TABLES] : teamTables;
@@ -252,11 +255,11 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
     }
     const backendTables = schemaVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
     if (schemaVersion >= 22) {
-      try { validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check }); validateGitCommitDatabase(db, {check}); validateConversationForkDatabase(db); }
+      try { validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check }); validateGitCommitDatabase(db, {check}); validateConversationForkDatabase(db); validatePrFeedbackDatabase(db,{check}); }
       catch { fail('ARCHIVE_JOB_INVALID', 'Archived terminal job sources, immutable output pages or completion delivery receipts are invalid'); }
     }
     const jobTables = schemaVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables;
-    if (schemaVersion >= 23) { try { validateHostCommandDatabase(db,{check}); } catch { fail('ARCHIVE_HOST_COMMAND_INVALID','Independent host command approval, process, checkpoint or cleanup evidence is invalid'); } }
+    if (schemaVersion >= 23) { try { validateHostCommandDatabase(db,{check}); validateHostCommandDeliveryDatabase(db,{check}); } catch { fail('ARCHIVE_HOST_COMMAND_INVALID','Independent host command approval, process, checkpoint or cleanup evidence is invalid'); } }
     return { schemaVersion, logicalHash: checkDatabase(db,schemaVersion,schemaVersion >= 23 ? [...jobTables,...HOST_COMMAND_TABLES] : jobTables,check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };

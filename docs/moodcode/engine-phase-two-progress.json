@@ -5,8 +5,8 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 10,
-  "completedWorkItems": 46,
+  "completedFamilies": 12,
+  "completedWorkItems": 53,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -309,14 +309,14 @@
           ]
         }
       ],
-      "notes": "DB18 native immutable team/member/task revisions, CAS heads, exact selected alias permissions/generation/expiry, durable bounded mailbox/receipts/cursors, actual recipient-current checks and readonly history complete MC2-06a/b. Original host-approved current live child Run steer admission, safe InputScheduler promotion and four genuine SIGKILL boundaries provide c/d groundwork. Execution-wide alias uncertainty and actual audited child input/Run/request proof are validated; import pauses without rebind/wake. Final typecheck0, engine3973/3971pass/0fail/2existingWindows skips, broad source660pass and authored fixture3pass; 39 frozen sources unchanged. MC2-06c/d remain in progress for actor-bound model tools, terminal resident continuation, imported activation and explicit uncertain delivery ACK/resume. Primary-only metadata does not prove unavailable child inputs, and imported historical re-export can lack exact typed child coverage. A later separate model opt-in fixes the catalogue and binds one ORIGINAL exact actor per actual execution. Four root/child tools, exact native mutation approvals, original coordinator ToolContext/Turn/Attempt and selected alias/profile checks, bounded complete model pages and actual provider admission barrier are integrated. Another28 tests cover 11 scoped tools,12 actual consumers,3 independent native context/task proofs and2 real child admission/cancel observations. Final typecheck0, engine4001/3999pass/0fail/2existingWindows skips, broad source688pass and scripted fixture3pass;14 sources unchanged. Terminal resident continuation/import activation/uncertain ACK-resume still keep MC2-06c/d in progress."
+      "notes": "DB18 native immutable team/member/task revisions, CAS heads, exact selected alias permissions/generation/expiry, durable bounded mailbox/receipts/cursors, actual recipient-current checks and readonly history complete MC2-06a/b. Original host-approved current live child Run steer admission, safe InputScheduler promotion and four genuine SIGKILL boundaries provide c/d groundwork. Execution-wide alias uncertainty and actual audited child input/Run/request proof are validated; import pauses without rebind/wake. Final typecheck0, engine3973/3971pass/0fail/2existingWindows skips, broad source660pass and authored fixture3pass; 39 frozen sources unchanged. MC2-06c/d remain in progress for actor-bound model tools, terminal resident continuation, imported activation and explicit uncertain delivery ACK/resume. Primary-only metadata does not prove unavailable child inputs, and imported historical re-export can lack exact typed child coverage. A later separate model opt-in fixes the catalogue and binds one ORIGINAL exact actor per actual execution. Four root/child tools, exact native mutation approvals, original coordinator ToolContext/Turn/Attempt and selected alias/profile checks, bounded complete model pages and actual provider admission barrier are integrated. Another28 tests cover 11 scoped tools,12 actual consumers,3 independent native context/task proofs and2 real child admission/cancel observations. Final typecheck0, engine4001/3999pass/0fail/2existingWindows skips, broad source688pass and scripted fixture3pass;14 sources unchanged. Terminal resident continuation/import activation/uncertain ACK-resume still keep MC2-06c/d in progress. One isolated agent now owns the complete actual feature and failure/recovery tests, as recorded in engine-phase-two-parallel-features.md. No completion credit before Root integration and final aggregate gates."
     },
     {
       "id": "MC2-07",
       "title": "역할 workflow·recipe·child join",
       "priority": "P2",
       "wave": "W4",
-      "status": "in_progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-07a",
@@ -339,23 +339,25 @@
         {
           "id": "MC2-07c",
           "completion": "기존 engine-owned child와 승인 merge로 전이. 제안 초기 stage8·depth4 및 parent budget 제한",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
-            "engine-phase-two-workflows.md",
-            "engine-phase-two-workflows-verification.json"
+            "engine-phase-two-workflow-effects.md",
+            "engine-phase-two-workflow-effects-verification.json",
+            "engine-phase-two-parallel-consumers-verification.json"
           ]
         },
         {
           "id": "MC2-07d",
           "completion": "child 완료→delivery→stage commit→parent admission crash 구간, 중복 join/submit·stale 설계·deny/cancel/budget 검사. 실패 후 발생한 효과를 자동 재실행하지 않음",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
-            "engine-phase-two-workflows.md",
-            "engine-phase-two-workflows-verification.json"
+            "engine-phase-two-workflow-effects.md",
+            "engine-phase-two-workflow-effects-verification.json",
+            "engine-phase-two-parallel-consumers-verification.json"
           ]
         }
       ],
-      "notes": "MC2-07a/b implements bounded schema/recipe validation, native revisions/head CAS, persisted all/any dependency selection and original actual readonly planner/advisory-reviewer child consumption. Actual admission waits for the native running task commit and guards owner/worktree before provider release. Complete structured results, original measured outcome, cancellation/duplicate/stale/SQL graph and four SIGKILL boundaries are verified. MC2-07c/d remain open for editor/validator effects, approved merge, role/model requests, full file-source/artifact freshness and delivery/parent-admission crash paths. No automatic parent delivery or replay. MC2-06c/d and the remaining 48 work items continue under the unchanged active goal."
+      "notes": "Actual approved isolated editor and native verifier, exact genuine parent merge, atomic stage/effect CAS and native result inbox become a real subsequent parent Run. Full source/artifact/HEAD/preimage/profile guards, denied/cancelled/failed checks, original budgets, SQL/native mutations, five actual SIGKILL boundaries and paused archive/restart no replay pass. Supported core UTF8 create/update inherited-profile/model lane; custom producers, deletion/mode/symlink and alternate profile/model escalation reject before effects. DB23 has no new migration. Aggregate final gates recorded in engine-phase-two-parallel-consumers-verification.json."
     },
     {
       "id": "MC2-08",
@@ -469,7 +471,10 @@
             "engine-phase-two-owned-command-inbox-verification.json",
             "engine-phase-two-host-commands.md",
             "engine-phase-two-host-commands-verification.json",
-            "engine-phase-two-parallel-features-verification.json"
+            "engine-phase-two-parallel-features-verification.json",
+            "engine-phase-two-command-consumers.md",
+            "engine-phase-two-command-consumers-verification.json",
+            "engine-phase-two-parallel-consumers-verification.json"
           ]
         },
         {
@@ -485,13 +490,16 @@
             "engine-phase-two-owned-command-inbox-verification.json",
             "engine-phase-two-host-commands.md",
             "engine-phase-two-host-commands-verification.json",
-            "engine-phase-two-parallel-features-verification.json"
+            "engine-phase-two-parallel-features-verification.json",
+            "engine-phase-two-command-consumers.md",
+            "engine-phase-two-command-consumers-verification.json",
+            "engine-phase-two-parallel-consumers-verification.json"
           ]
         },
         {
           "id": "MC2-10c",
           "completion": "terminal/cleanup settled 이후 inbox에 한 번 전달. 이미 terminal인 Run에는 이벤트 추가 금지",
-          "status": "in-progress",
+          "status": "complete",
           "evidence": [
             "engine-phase-two-jobs.md",
             "engine-phase-two-jobs-verification.json",
@@ -501,7 +509,10 @@
             "engine-phase-two-owned-command-inbox-verification.json",
             "engine-phase-two-host-commands.md",
             "engine-phase-two-host-commands-verification.json",
-            "engine-phase-two-parallel-features-verification.json"
+            "engine-phase-two-parallel-features-verification.json",
+            "engine-phase-two-command-consumers.md",
+            "engine-phase-two-command-consumers-verification.json",
+            "engine-phase-two-parallel-consumers-verification.json"
           ]
         },
         {
@@ -517,11 +528,14 @@
             "engine-phase-two-owned-command-inbox-verification.json",
             "engine-phase-two-host-commands.md",
             "engine-phase-two-host-commands-verification.json",
-            "engine-phase-two-parallel-features-verification.json"
+            "engine-phase-two-parallel-features-verification.json",
+            "engine-phase-two-command-consumers.md",
+            "engine-phase-two-command-consumers-verification.json",
+            "engine-phase-two-parallel-consumers-verification.json"
           ]
         }
       ],
-      "notes": "Independent idle-workspace host Original preview/approval, physical supervisor/lease, fixed limits, genuine output/checkpoint/artifacts and native DB23 owner/terminal/unknown journals are integrated. Actual SIGKILL, close/cancel, SQL faults, restart/default-off/import pause, native source mutation, capacity/import reserve and cross-feature physical lease/Git/fork tests pass. Existing PTY and Run-owned result inbox paths remain. Foreground/background transfer, model output tools and independent host inbox, host checkpoint restore/Run-only adapter/unknown resolution and remaining platform coverage keep all MC2-10 items in progress. The command-consumers agent now owns complete actual model output plus host inbox integration. Aggregate engine4345/4343pass/0fail/2existing skips, DB23/catalogue139/cap160; overall46/80 and10/20, active goal."
+      "notes": "MC2-10c is complete across actual settled cleanup-confirmed user PTY, Run-owned and independent host results: one native inbox input with atomic receipts, no new terminal source Run events, independent target budgets/profile/catalogue and provider guards. New actual model readonly Tool/Part consumes host-selected same-session source aliases with bounded frozen UTF8 pages and explicit loss; repeated identical polls reuse one snapshot. SIGKILL/SQL/native drift/cancel/backpressure/restart/import keep uncertainty and no replay. Foreground/background ownership transfer, explicit lifetime transfer and remaining detach/platform/restore/unknown resolution keep 10a/b/d in progress. Aggregate DB23/catalogue139/cap160; completion53/80 and12/20, active goal."
     },
     {
       "id": "MC2-11",
@@ -790,33 +804,34 @@
       "title": "실제 OS 파일/네트워크 sandbox",
       "priority": "P3",
       "wave": "ENV/WX",
-      "status": "pending",
+      "status": "in_progress",
       "workItems": [
         {
           "id": "MC2-17a",
           "completion": "capability port/version·지원 OS/backend matrix·제한 source manifest",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         },
         {
           "id": "MC2-17b",
           "completion": "한 OS에서 실제 filesystem/network enforcement와 native ownership 연결",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         },
         {
           "id": "MC2-17c",
           "completion": "denial projection·추가 승인 preview·child/MCP 제약 상속",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         },
         {
           "id": "MC2-17d",
           "completion": "실제 OS에서 symlink·subprocess·network·cancel·denial 후 부분 효과 검사. Windows native ownership E5-08과 kernel sandbox 지원을 혼동하지 않음",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         }
-      ]
+      ],
+      "notes": " One isolated agent now owns the complete actual feature and failure/recovery tests, as recorded in engine-phase-two-parallel-features.md. No completion credit before Root integration and final aggregate gates."
     },
     {
       "id": "MC2-18",
@@ -856,68 +871,85 @@
       "title": "PR SHA 기반 CI/review feedback",
       "priority": "P2",
       "wave": "W5",
-      "status": "in_progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-19a",
           "completion": "SHA-bound PR/check snapshot·필수 check policy·read-only watcher port",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-pr-feedback.md",
+            "engine-phase-two-pr-feedback-verification.json",
+            "engine-phase-two-parallel-consumers-verification.json"
+          ]
         },
         {
           "id": "MC2-19b",
           "completion": "polling/webhook dedupe·cursor/gap 처리·bounded input enqueue",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-pr-feedback.md",
+            "engine-phase-two-pr-feedback-verification.json",
+            "engine-phase-two-parallel-consumers-verification.json"
+          ]
         },
         {
           "id": "MC2-19c",
           "completion": "CI failure를 원 source manifest·repair budget·검증 receipt로 연결",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-pr-feedback.md",
+            "engine-phase-two-pr-feedback-verification.json",
+            "engine-phase-two-parallel-consumers-verification.json"
+          ]
         },
         {
           "id": "MC2-19d",
           "completion": "head 변경·reordered delivery·check 재실행·API outage/rate limit·crash 검사. stale green check로 merge 가능 판정 금지",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-pr-feedback.md",
+            "engine-phase-two-pr-feedback-verification.json",
+            "engine-phase-two-parallel-consumers-verification.json"
+          ]
         }
       ],
-      "notes": "A single isolated agent owns the full actual HTTP GitHub GET/SHA snapshot/check policy/dedupe/queue/provider/repair-budget/crash/import feature. Implementation and actual fixtures in progress; no completion credit until integrated final gates."
+      "notes": "Host-approved actual readonly GitHub GET and public unauthenticated remote probe; exact head/base/check/review policy, stable dedupe/cursor/gaps, atomic native repair input, genuine source/verification/repair allocation and actual model command/verification consumption. Real outages/rate limits/stream cleanup, reordered/rerun/head/profile/source changes, SQL/native receipt alterations, SIGKILL, reopen and paused import verified. mergeAuthority:false; no private auth, network webhook ingress, publication or branch-protection merge authority. DB23 unchanged; aggregate final gates in engine-phase-two-parallel-consumers-verification.json."
     },
     {
       "id": "MC2-20",
       "title": "coding attempt group·headless batch",
       "priority": "P2",
       "wave": "W5",
-      "status": "pending",
+      "status": "in_progress",
       "workItems": [
         {
           "id": "MC2-20a",
           "completion": "case/group manifest·attempt/result schema·strict success 기준",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         },
         {
           "id": "MC2-20b",
           "completion": "bounded headless batch host·격리 worktree/DB·fair budget reservation",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         },
         {
           "id": "MC2-20c",
           "completion": "reviewer/verification receipt 기반 selection preview와 승인 merge",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         },
         {
           "id": "MC2-20d",
           "completion": "partial case failure·skip/resume·cancel pending/running 구분·child cleanup unknown·중복 selection/crash 검사. output export 후 source/runtime를 다시 검증",
-          "status": "pending",
+          "status": "in_progress",
           "evidence": []
         }
-      ]
+      ],
+      "notes": " One isolated agent now owns the complete actual feature and failure/recovery tests, as recorded in engine-phase-two-parallel-features.md. No completion credit before Root integration and final aggregate gates."
     }
   ],
-  "updatedAt": "2026-10-08T08:29:18.630972+00:00"
+  "updatedAt": "2026-10-08T09:45:23.336904+00:00"
 }

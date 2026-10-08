@@ -1,6 +1,8 @@
+import type { WorkflowChildEvidence } from "../workflows/effect-evidence.js";
+import type { WorkflowStageSpec } from "../workflows/types.js";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, realpathSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative, isAbsolute, sep } from "node:path";
 import { EngineError, type Run, type Session } from "@moodcode/contracts";
 import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
 import type { MoodcodeEngine, EngineOptions } from "../engine.js";
@@ -66,6 +68,7 @@ interface Execution {
   wait: ChildRunHandle["wait"];
   storageRecord?: ChildStorageRecord;
   admittedRun: Run;
+  workflowEvidence?:WorkflowChildEvidence;
 }
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -78,6 +81,7 @@ export class EngineChildren {
   private readonly directory: string;
   private readonly admissions = new Map<string, Admission>();
   private readonly executions = new Map<string, Execution>();
+  private readonly workflowStages=new Map<string,WorkflowStageSpec>();
   private readonly workflowAdmissionGuards = new Map<string, () => void>();
   private readonly recoveredSessions = new Set<string>();
   private readonly storageIdentity?: ChildStorageHostIdentity;
@@ -359,6 +363,7 @@ export class EngineChildren {
       "lsp_format_file",
       "merge_child_changes",
     ];
+    if (!this.options.tools && this.options.verificationTools === true) available.push("verify_changes");
     if (this.options.toolDiscoveryPolicy) available.push("discover_tools");
     if (this.options.teamModelTools === true)
       available.push(...TEAM_MODEL_TOOL_NAMES);
@@ -441,6 +446,7 @@ export class EngineChildren {
       proposalApply: false,
       teams: false,
       teamModelTools: false,
+      commandJobModelTools: false,
       workflows: false,
       schedules: false,
       agentBackends: false,
@@ -524,6 +530,11 @@ export class EngineChildren {
           "CANCELLED",
           "Child was cancelled before admission",
         );
+      const workflowStage=this.workflowStages.get(JSON.stringify([request.task.sessionId,request.task.requestId]));
+      if(workflowStage?.verification){
+        for(const id of workflowStage.verification.checkIds){const check=this.root.verificationChecks.capture(id);const rootWorkspace=this.root.store.getWorkspace(check.workspaceId),cwdRelative=relative(rootWorkspace.root,check.cwd);if(cwdRelative==='..'||cwdRelative.startsWith(`..${sep}`)||isAbsolute(cwdRelative))throw new EngineError('WORKFLOW_VERIFICATION_STALE','Verification working directory escapes the actual parent workspace');const {registrationSha256,...definition}=check;engine.registerVerificationCheck({...definition,workspaceId:request.workspace.id,cwd:join(request.workspace.root,cwdRelative)});}
+        await engine.configureVerificationSession(session.id,0,{checkIds:[...workflowStage.verification.checkIds],sourcePaths:[...workflowStage.verification.sourcePaths],maxRepairs:0});
+      }
       const config = engine.profiles.apply(
         session.id,
         engine.getCapabilities().defaults,
@@ -594,6 +605,11 @@ export class EngineChildren {
               "CHILD_EXECUTION_UNCERTAIN",
               "Child execution cleanup is unconfirmed",
             );
+          if(workflowStage){
+            const snapshot=engine.store.getSnapshot(session.id),turns=engine.store.listTurns(run.id),attempts=turns.map(turn=>engine.store.getLatestAttemptForTurn(turn.id)).filter((value):value is NonNullable<typeof value>=>!!value),parts=turns.flatMap(turn=>engine.store.listParts(turn.id)),cleanups=attempts.map(a=>engine.store.getAttemptCleanup(a.id,session.id)).filter((value):value is NonNullable<typeof value>=>!!value),verification=engine.getVerificationState(session.id,run.id);
+            const body={version:1 as const,run:structuredClone(run),snapshot,turns,attempts,parts,cleanups,verification,checkpoints:engine.store.listCheckpoints(run.id)};
+            execution.workflowEvidence=workflowJson({...body,sha256:knowledgeHash(body)});
+          }
           const usage = engine.coordinator.getRunUsage(run.id);
           const content = engine.store.getLastRunAssistantContent(run.id);
           return {
@@ -759,7 +775,7 @@ export class EngineChildren {
       return task;
     };
     return {
-      start: async (originalOwner, value, signal) => {
+      start: async (originalOwner, value, signal, stage) => {
         workflowAbort(signal);
         const owner = owners.read(originalOwner);
         owners.assertCurrent(originalOwner, owner);
@@ -784,6 +800,7 @@ export class EngineChildren {
             owners.worktree(originalOwner, request.worktreeId),
           );
         });
+        if(stage)this.workflowStages.set(key,structuredClone(stage));
         let task: ChildTaskRecord;
         try {
           const starting = await this.start(request, signal);
@@ -804,6 +821,7 @@ export class EngineChildren {
           task = this.tasks.get(request.sessionId, starting.id);
         } finally {
           this.workflowAdmissionGuards.delete(key);
+          this.workflowStages.delete(key);
         }
         const execution = this.executions.get(task.id);
         if (
@@ -945,6 +963,7 @@ export class EngineChildren {
         });
         return original;
       },
+      readExecution:(original)=>{const completion=completions.get(original);if(!completion)fail();verify(completion.child);const evidence=completion.child.execution.workflowEvidence;if(!evidence||evidence.run.id!==completion.proof.child.childRunId)fail();return structuredClone(evidence);},
       readCompletion: (original) => {
         const completion = completions.get(original);
         if (!completion) fail();

@@ -1,3 +1,6 @@
+import { validatePrFeedbackDatabase } from '../pr-feedback/records.js';
+import {validateHostCommandDeliveryDatabase} from '../jobs/host-command-delivery-records.js';
+import {validateWorkflowEffectsDatabase} from "../workflows/effects-records.js";
 import { validateGitCommitDatabase } from '../git/commit-receipts.js';
 import { validateConversationForkDatabase } from '../sessions/fork-native.js';
 import { randomUUID } from 'node:crypto';
@@ -147,15 +150,15 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     const proposalTables = primaryVersion >= 17 ? [...pendingProposalTables, ...PROPOSAL_APPLY_TABLES, PROPOSAL_APPLY_GUARD_TABLE] : pendingProposalTables;
     if (primary && primaryVersion >= 18) validateTeamDatabase(primary, snapshot.check);
     const teamTables = primaryVersion >= 18 ? [...proposalTables, ...TEAM_TABLES] : proposalTables;
-    if (primary && primaryVersion >= 19) validateWorkflowDatabase(primary, { check: snapshot.check });
+    if (primary && primaryVersion >= 19) {validateWorkflowDatabase(primary, { check: snapshot.check });validateWorkflowEffectsDatabase(primary);}
     const workflowTables = primaryVersion >= 19 ? [...teamTables, ...WORKFLOW_TABLES] : teamTables;
     if (primary && primaryVersion >= 20) validateScheduleDatabase(primary, { check: snapshot.check });
     const scheduleTables = primaryVersion >= 20 ? [...workflowTables, ...SCHEDULE_TABLES] : workflowTables;
     if (primary && primaryVersion >= 21) validateAgentBackendDatabase(primary, { check: snapshot.check });
     const backendTables = primaryVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
-    if (primary && primaryVersion >= 22) { validateJobDatabase(primary, { check: snapshot.check }); validateOwnedCommandJobDatabase(primary, { check: snapshot.check }); validateOwnedCommandDeliveryDatabase(primary, { check: snapshot.check }); validateGitCommitDatabase(primary, {check:snapshot.check}); validateConversationForkDatabase(primary); }
+    if (primary && primaryVersion >= 22) { validateJobDatabase(primary, { check: snapshot.check }); validateOwnedCommandJobDatabase(primary, { check: snapshot.check }); validateOwnedCommandDeliveryDatabase(primary, { check: snapshot.check }); validateGitCommitDatabase(primary, {check:snapshot.check}); validateConversationForkDatabase(primary); validatePrFeedbackDatabase(primary,{check:snapshot.check}); }
     const jobTables = primaryVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables;
-    if (primary && primaryVersion >= 23) validateHostCommandDatabase(primary, { check: snapshot.check });
+    if (primary && primaryVersion >= 23) {validateHostCommandDatabase(primary, { check: snapshot.check }); validateHostCommandDeliveryDatabase(primary,{check:snapshot.check});}
     const hostCommandTables = primaryVersion >= 23 ? [...jobTables, ...HOST_COMMAND_TABLES] : jobTables;
     const primaryHash = primary ? checkDatabase(primary, primaryVersion, hostCommandTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
