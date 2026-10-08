@@ -178,7 +178,8 @@ export function validateHostCommandRecord(value: unknown): HostCommandRecord {
   if(p.sandbox){const launch=sandboxDigest(p.sandbox);if(p.platform!=='darwin'||launch.backend!=='darwin-seatbelt-v1'||launch.executable!=='/usr/bin/sandbox-exec'||typeof launch.profile!=='string'||Buffer.byteLength(launch.profile)>32768)failure();}
   if (
     p.version !== 1 ||
-    !["darwin", "linux", "freebsd"].includes(String(p.platform)) ||
+    typeof p.platform !== "string" ||
+    !["darwin", "linux", "freebsd", "win32"].includes(p.platform) ||
     !Number.isSafeInteger(p.policyVersion) ||
     Number(p.policyVersion) < 0 ||
     knowledgeHash(previewBody) !== fingerprint ||

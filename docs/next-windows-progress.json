@@ -3,7 +3,7 @@
   "id": "E5-08",
   "canonicalProgress": "docs/moodcode/next-windows-progress.json",
   "nativePackaging": {
-    "status": "implemented-interface; actual Windows build evidence pending",
+    "status": "interface implemented; actual Windows x64 Node24/26 addon build/load passed; Engine acceptance pending fixes",
     "package": "@moodcode/windows-job@0.1.0",
     "workspace": "packages/windows-job",
     "moduleEntrypoint": "index.js (synchronous ESM import/require)",

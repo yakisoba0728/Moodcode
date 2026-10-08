@@ -1,0 +1,89 @@
+{
+  "scope": "E5-08 dedicated Windows CI and actual native Engine lifecycle verification",
+  "updatedAt": "2026-10-09 Asia/Seoul",
+  "sourceScope": [
+    ".github/workflows/engine-native-windows.yml",
+    "scripts/prepare-windows-job.mjs",
+    "scripts/verify-windows-job.mjs",
+    "scripts/windows-job-ci.mjs",
+    "packages/engine/src/tools/command/windows-native*"
+  ],
+  "verificationState": "implementation-connected; first actual hosted failure preserved; corrected hosted run pending",
+  "hostedRuns": [
+    {
+      "runId": 37846891144,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37846891144",
+      "sourceSha": "714197942e6b25b17b9ed3edbab088b1ecb19599",
+      "runner": "windows-2025 x64 (win25-vs2026)",
+      "conclusion": "failure",
+      "lanes": [
+        {
+          "node": "24.21.0",
+          "jobId": 113549869227,
+          "conclusion": "failure",
+          "counts": {
+            "tests": 21,
+            "pass": 17,
+            "fail": 4,
+            "cancelled": 0,
+            "skipped": 0
+          },
+          "artifactId": 11579748817,
+          "artifactSha256": "6434e16e15305cc89f66d7b55768e16e620a40c18e4d4c78ba29c6bb6e2f49da",
+          "nativeAddon": {
+            "available": true,
+            "info": {
+              "bindingVersion": 1,
+              "napiVersion": 8,
+              "platform": "win32",
+              "arch": "x64",
+              "atomicJobAssignment": true
+            },
+            "relativePath": "packages/windows-job/build/Release/windows_job.node",
+            "bytes": 178176,
+            "sha256": "7c06a0257b365d52aa0df91f4d93b022c2c79a54d2ed0271eb1ce1bea8565dd9"
+          },
+          "originalFilesVerified": 16
+        },
+        {
+          "node": "26.11.1",
+          "jobId": 113549869523,
+          "conclusion": "failure",
+          "counts": {
+            "tests": 21,
+            "pass": 17,
+            "fail": 4,
+            "cancelled": 0,
+            "skipped": 0
+          },
+          "artifactId": 11579274254,
+          "artifactSha256": "5cb2f193fade122e83c3f6b65b0f87be0d0f33080f93d22775894087983c0839",
+          "nativeAddon": {
+            "available": true,
+            "info": {
+              "bindingVersion": 1,
+              "napiVersion": 8,
+              "platform": "win32",
+              "arch": "x64",
+              "atomicJobAssignment": true
+            },
+            "relativePath": "packages/windows-job/build/Release/windows_job.node",
+            "bytes": 1121792,
+            "sha256": "cdc6c0be39ffe9ffc343abfcfc906a9ed75ad1b35512308df781a0a55ea0b703"
+          },
+          "originalFilesVerified": 16
+        }
+      ],
+      "originalLogArchiveSha256": "97d4bc22a692cbfc2e909075ef61705b50b8e8fd7c73f978326252f31c30d303",
+      "evidenceDirectory": "artifacts/native-windows/hosted-37846891144",
+      "confirmedFailures": [
+        "HostCommandStorage native record validation rejects win32 platform",
+        "Actual approved owned Run ends failed instead of completed",
+        "Actual owned cancellation remains uncertain instead of confirmed cancelled"
+      ],
+      "preservedAssertions": true
+    }
+  ],
+  "externalConditions": [],
+  "implementationOwnerCommits": "Root coordinates commits, push and source freeze; no independent source push from this subagent"
+}

@@ -65,7 +65,8 @@ export function registerWindowsEngineCases(register: (name: string, execute: (t:
     const f = await runFixture(t, 'overflow');
     assert.equal(f.engine.getCapabilities().runtime.commandExecution, 'windows-job-object');
     f.engine.approvals.decide(f.approval.id, 'allow', f.approval.fingerprint);
-    assert.equal((await f.engine.waitForRun(f.receipt.runId)).state, 'completed');
+    const run = await f.engine.waitForRun(f.receipt.runId);
+    assert.equal(run.state, 'completed', JSON.stringify({ run, tool: f.engine.store.getToolCall(f.approval.toolCallId), jobs: f.jobs() }).slice(0, 24_576));
     const records = f.jobs();
     assert.equal(records.length, 1);
     const record = records[0]!;
@@ -108,7 +109,8 @@ export function registerWindowsEngineCases(register: (name: string, execute: (t:
     });
     await f.engine.waitForRun(f.receipt.runId);
     const final = f.jobs()[0]!;
-    assert.equal(final.state, 'cancelled');
+    assert.equal(final.state, 'cancelled', JSON.stringify({ run: f.engine.store.getRun(f.receipt.runId), job: final,
+      tool: f.engine.store.getToolCall(f.approval.toolCallId) }).slice(0, 24_576));
     assert.equal(final.completion?.outcome.cleanupConfirmed, true);
     await assertGone(pids);
   });

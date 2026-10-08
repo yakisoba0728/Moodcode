@@ -374,6 +374,25 @@ function closeCaptures(
       );
     }
     capture.fd = -1;
+    if (seal && !capture.sealFailed && process.platform === "win32") {
+      // Windows commits last-write timestamps when the write handle closes.
+      // Pin that timestamp after close without replacing the original identity
+      // or producer hash; sealedArtifact still verifies every recorded byte.
+      let readFd: number | undefined;
+      try {
+        readFd = openSync(capture.path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+        const stat = fstatSync(readFd, { bigint: true });
+        if (!stat.isFile() || stat.dev.toString() !== capture.device || stat.ino.toString() !== capture.inode || stat.size !== BigInt(capture.artifactBytes))
+          throw new EngineError("COMMAND_ARTIFACT_CHANGED", "The output file changed while its write handle closed");
+        capture.closedStat = { size: Number(stat.size), mtimeNs: stat.mtimeNs.toString() };
+      } catch (error) {
+        capture.sealFailed = true;
+        warnings.push(`Could not seal closed output artifact: ${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+        if (readFd !== undefined) try { closeSync(readFd); }
+        catch (error) { capture.sealFailed = true; warnings.push(`Could not close output seal reader: ${error instanceof Error ? error.message : String(error)}`); }
+      }
+    }
   }
 }
 
