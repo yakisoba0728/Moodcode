@@ -1,0 +1,94 @@
+name: Engine native Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'codex/**']
+    paths:
+      - 'packages/windows-job/**'
+      - 'packages/engine/**'
+      - 'packages/contracts/**'
+      - 'scripts/*windows*.mjs'
+      - 'package*.json'
+      - '.github/workflows/engine-native-windows.yml'
+  pull_request:
+    paths:
+      - 'packages/windows-job/**'
+      - 'packages/engine/**'
+      - 'packages/contracts/**'
+      - 'scripts/*windows*.mjs'
+      - 'package*.json'
+      - '.github/workflows/engine-native-windows.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-native-windows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+env:
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+  CI: 'true'
+
+jobs:
+  native:
+    name: Native Windows Job Object / x64 / Node ${{ matrix.node }}
+    runs-on: windows-2025
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24.x', '26.x']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          architecture: x64
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Record actual runner and source
+        run: node scripts/windows-job-ci.mjs metadata
+      - name: Install locked dependencies
+        shell: pwsh
+        run: |
+          npm ci --include=optional *>&1 | Tee-Object -FilePath artifacts/engine-native-windows/install.log
+          exit $LASTEXITCODE
+      - name: Build and require the actual Windows native addon
+        run: node scripts/prepare-windows-job.mjs
+      - name: Typecheck contracts, engine and harness
+        env:
+          MOODCODE_CI_RESULTS_DIR: artifacts/engine-native-windows/portable
+        run: node .github/scripts/engine-ci.mjs typecheck
+      - name: Build headless engine and real Windows fixtures
+        env:
+          MOODCODE_CI_RESULTS_DIR: artifacts/engine-native-windows/portable
+        run: node .github/scripts/engine-ci.mjs build
+      - name: Verify native tree, output, cancellation, handle close and real parent crash/restart
+        run: node scripts/verify-windows-job.mjs
+      - name: Preserve existing portable contracts and storage regressions
+        env:
+          MOODCODE_CI_RESULTS_DIR: artifacts/engine-native-windows/portable
+        run: node .github/scripts/engine-ci.mjs test-windows
+      - name: Hash original native evidence
+        if: always()
+        env:
+          MOODCODE_WINDOWS_JOB_STATUS: ${{ job.status }}
+        run: node scripts/windows-job-ci.mjs summary
+      - name: Upload original success and failure evidence
+        if: always()
+        id: upload
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: engine-native-windows-node-${{ matrix.node }}-attempt-${{ github.run_attempt }}
+          path: artifacts/engine-native-windows/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Record uploaded artifact SHA
+        if: always() && steps.upload.outcome == 'success'
+        shell: pwsh
+        run: |
+          'Artifact SHA256: ${{ steps.upload.outputs.artifact-digest }}' | Add-Content -Path $env:GITHUB_STEP_SUMMARY

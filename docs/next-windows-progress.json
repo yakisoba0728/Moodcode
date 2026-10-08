@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "E5-08",
+  "canonicalProgress": "docs/moodcode/next-windows-progress.json",
+  "nativePackaging": {
+    "status": "implemented-interface; actual Windows build evidence pending",
+    "package": "@moodcode/windows-job@0.1.0",
+    "workspace": "packages/windows-job",
+    "moduleEntrypoint": "index.js (synchronous ESM import/require)",
+    "binary": "packages/windows-job/build/Release/windows_job.node",
+    "bindingVersion": 1,
+    "nodeApi": 8,
+    "winDelayLoadHook": true,
+    "externalBuffers": false,
+    "runtimeDependencies": "Only Win32 and Node-API; engine production dependency must include this workspace",
+    "buildNode": "node packages/windows-job/scripts/build.mjs --runtime=node --arch=x64",
+    "buildElectron": "node packages/windows-job/scripts/build.mjs --runtime=electron --target=44.5.1 --arch=x64",
+    "architectures": {
+      "x64": "Windows2025 Node24/26 actual verification pending",
+      "arm64": "implementation/build option only; unverified, no support credit"
+    },
+    "distribution": "Desktop must preserve package-relative build/Release/windows_job.node and unpack the .node binary from ASAR. Rebuild for exact Electron/architecture using Electron headers and keep win_delay_load_hook=true. Verify loading in the actual engine host/utility process.",
+    "hostOwnership": "Job handle and output/process handles live in the actual engine process, not a detached supervisor.",
+    "nativeApi": "loadBinding, isAvailable, nativeInfo, createJob, currentProcessHandleCount; job spawnSuspended/assign/resume/terminate/activeProcessCount/close; child pid/readOutput/terminate/close",
+    "unsupported": "No Windows PTY/stdin command lifetime transport or OS file/network sandbox. No taskkill/direct-child fallback. Desktop package/signing/update validation belongs to N-04/N-05.",
+    "contract": "packages/windows-job/README.md",
+    "desktopConsumerWorktree": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode"
+  }
+}

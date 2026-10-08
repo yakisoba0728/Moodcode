@@ -10,6 +10,7 @@ import { DEFAULT_LIMITS, type Checkpoint, type JsonObject } from '@moodcode/cont
 import type { PreparedTool, ToolContext, ToolResult } from '../../ports.js';
 import { COMMAND_LIMITS, createCommandTool } from './index.js';
 import { acquireExecutionLock, assertExecutionLockAvailable } from './execution-lock.js';
+import { commandBackendCapability } from './backends.js';
 
 const posix = process.platform !== 'win32';
 const execFileAsync = promisify(execFile);
@@ -589,7 +590,10 @@ test('the command tree is stopped and its effects lock released after its engine
   }, 6_000);
 });
 
-test('Windows process-tree support is rejected explicitly', { skip: posix }, async t => {
+test('Windows commands require the available real native process-tree backend', { skip: posix }, async t => {
   const { context } = await fixture(t);
-  await assert.rejects(createCommandTool().prepare({ command: 'echo hello' }, context), { code: 'COMMAND_PLATFORM_UNSUPPORTED' });
+  if (commandBackendCapability().available) {
+    const prepared = await createCommandTool().prepare({ command: 'echo hello' }, context);
+    assert.equal(prepared.preview.platform, 'win32'); assert.equal(prepared.preview.termination, 'windows-job-object');
+  } else await assert.rejects(createCommandTool().prepare({ command: 'echo hello' }, context), { code: 'WINDOWS_JOB_BACKEND_UNAVAILABLE' });
 });

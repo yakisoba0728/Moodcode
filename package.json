@@ -7,7 +7,8 @@
     "packages/contracts",
     "packages/engine",
     "apps/engine-harness",
-    "apps/desktop"
+    "apps/desktop",
+    "packages/windows-job"
   ],
   "engines": {
     "node": ">=24.0.0"
@@ -40,7 +41,9 @@
     "verify:codex": "npm run build && node scripts/verify-codex.mjs --live",
     "plan:media": "node scripts/plan-media-verification.mjs",
     "verify:media": "npm run build && node scripts/verify-media-account.mjs",
-    "test:media-verification": "npm run build && node --import ./node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 scripts/plan-media-verification.test.mjs scripts/verify-media-account.test.mjs"
+    "test:media-verification": "npm run build && node --import ./node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 scripts/plan-media-verification.test.mjs scripts/verify-media-account.test.mjs",
+    "prepare:windows-job": "node scripts/prepare-windows-job.mjs",
+    "verify:windows-job": "node scripts/verify-windows-job.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
@@ -50,6 +53,7 @@
     "electron": "44.5.1",
     "electron-builder": "26.15.3",
     "esbuild": "0.28.2",
+    "node-gyp": "12.4.0",
     "prettier": "3.9.9",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
