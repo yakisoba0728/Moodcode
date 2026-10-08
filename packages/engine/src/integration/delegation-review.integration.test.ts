@@ -15,7 +15,14 @@ import { exportEngineArchive, importEngineArchive } from '../storage/archive.js'
 
 // Independently authored behavior fixtures. No account traffic, external provider or automatic merge.
 const input = () => ({ requestId: 'review-observation', prompt: 'child-review', tools: ['read_file'], allocation: { turns: 2, toolCalls: 1, outputBytes: 4096, durationMs: 6000 } });
-async function until(check: () => boolean, timeout = 8000): Promise<void> { const deadline = Date.now() + timeout; while (!check()) { assert.ok(Date.now() < deadline, 'independent delegation readiness timeout'); await new Promise(resolve => setTimeout(resolve, 5)); } }
+const wallNow = Date.now, wallTimeout = setTimeout;
+async function until(check: () => boolean, timeout = 8000): Promise<void> { const deadline = wallNow() + timeout; while (!check()) { assert.ok(wallNow() < deadline, 'independent delegation readiness timeout'); await new Promise(resolve => wallTimeout(resolve, 5)); } }
+function childDeadlineClock(t: TestContext) {
+  const start = wallNow();
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: start });
+  t.after(() => t.mock.timers.reset());
+  return { start, tick: (milliseconds: number) => t.mock.timers.tick(milliseconds) };
+}
 const isParent = (messages: { content: string }[]) => messages.some(message => message.content === 'parent-review');
 async function fixture(t: TestContext, provider: ProviderAdapter, extra: Partial<EngineOptions> = {}) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-delegation-review-'))), repository = join(root, 'source'), dbPath = join(root, 'engine.sqlite'), artifactDir = join(root, 'artifacts');
@@ -91,16 +98,44 @@ test('child resource approvals inherit policy and parent cancellation cancels th
   assert.equal(f.engine.store.listInputs(f.sessionId).inputs.length, 1); assert.equal(await readFile(join(f.repository, 'observed.txt'), 'utf8'), 'pinned committed observation\n');
 });
 
-test('child deadline interrupts a cooperative real stream and releases ownership without delivery', async t => {
+test('child deadline interrupts a cooperative real stream and releases ownership without delivery', { timeout: 8000 }, async t => {
+  const clock = childDeadlineClock(t);
   let entered = false, aborted = false; const value = input(); value.allocation.durationMs = 150;
   const provider: ProviderAdapter = { id: 'independent-fixture', async *streamTurn(request, signal) {
     if (isParent(request.messages) && request.turnIndex === 0) { yield { type: 'tool.call', call: { id: 'delegate-timeout', name: 'delegate_task', input: value } }; yield { type: 'finish', reason: 'tool_calls' }; }
     else if (isParent(request.messages)) yield { type: 'finish', reason: 'stop' };
     else { entered = true; yield { type: 'progress' }; if (!signal.aborted) await new Promise<void>(resolve => signal.addEventListener('abort', () => { aborted = true; resolve(); }, { once: true })); else aborted = true; }
   } };
-  const f = await fixture(t, provider), runId = await f.submit(); await f.allow(await f.approval()); await f.engine.waitForRun(runId);
+  const f = await fixture(t, provider), runId = await f.submit(); await f.allow(await f.approval());
+  await until(() => entered);
+  assert.equal(Date.now(), clock.start);
+  clock.tick(149); assert.equal(aborted, false);
+  clock.tick(1); await f.engine.waitForRun(runId);
+  assert.equal(Date.now() - clock.start, 150);
   const task = f.engine.children.tasks.list(f.sessionId)[0]!; assert.equal(entered, true); assert.equal(aborted, true); assert.equal(task.state, 'cancelled'); assert.equal(task.deliveryState, 'none');
+  assert.equal(task.budget.durationMs, 150);
   assert.equal(f.engine.children.worktrees.get(f.sessionId, task.worktreeId).ownerId, undefined); assert.equal(inspectExecutionLock(f.lockPath).status, 'available');
+});
+
+test('the original child allocation can expire before stream entry and retains uncertain ownership without delivery or replay', { timeout: 8000 }, async t => {
+  const clock = childDeadlineClock(t), counts = { children: 0 }, value = input(); value.allocation.durationMs = 150;
+  const f = await fixture(t, normalProvider(counts, value));
+  const options = (f.engine.children.tasks as unknown as { options: ChildTaskOptions }).options, original = options.host.start.bind(options.host);
+  let release!: () => void, starts = 0;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  options.host.start = async request => { starts++; await pending; return original(request); };
+  t.after(() => { release(); options.host.start = original; });
+  const runId = await f.submit(); await f.allow(await f.approval());
+  await until(() => starts === 1);
+  const starting = f.engine.children.tasks.list(f.sessionId)[0]!;
+  assert.equal(starting.state, 'starting'); assert.equal(starting.budget.durationMs, 150);
+  clock.tick(150); release(); await f.engine.waitForRun(runId);
+  const task = f.engine.children.tasks.list(f.sessionId)[0]!;
+  assert.equal(counts.children, 0); assert.equal(starts, 1); assert.equal(task.state, 'uncertain'); assert.equal(task.deliveryState, 'none');
+  assert.equal(task.budget.durationMs, 150); assert.equal(Date.now() - clock.start, 150);
+  assert.equal(f.engine.children.worktrees.get(f.sessionId, task.worktreeId).ownerId, task.id);
+  await assert.rejects(f.engine.children.worktrees.cleanup(f.sessionId, task.worktreeId, new AbortController().signal), { code: 'WORKTREE_BUSY' });
+  f.engine.children.recover(f.sessionId); assert.equal(starts, 1); assert.equal(f.engine.store.listInputs(f.sessionId).inputs.length, 1);
 });
 
 test('asynchronous child-start rejection retains uncertain ownership and never auto-retries or delivers', async t => {

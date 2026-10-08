@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { getEventListeners } from 'node:events';
 import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { renameSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test, type TestContext } from 'node:test';
@@ -324,15 +325,19 @@ test('same-path directory replacement fails once and cleans the worker', async (
 
 test('root replaced by an escaping symlink and failed Git operations propagate once', async (t) => {
   const { root, temporary, observe } = await fixture(t);
+  const outside = path.join(temporary, 'outside'), stagedLink = path.join(temporary, 'replacement');
+  await mkdir(outside);
+  await symlink(outside, stagedLink, process.platform === 'win32' ? 'junction' : 'dir');
   const observer = observe();
   await next(observer);
-  await rename(root, path.join(temporary, 'original'));
-  const outside = path.join(temporary, 'outside');
-  await mkdir(outside);
-  await symlink(outside, root, process.platform === 'win32' ? 'junction' : 'dir');
+  // Publish the complete replacement before this in-process observer can poll again.
+  renameSync(root, path.join(temporary, 'original'));
+  renameSync(stagedLink, root);
   await assert.rejects(deadline(observer.next()), errorCode('WORKSPACE_ROOT_CHANGED'));
+  assert.equal(observer.state, 'failed');
   assert.equal((await observer.next()).done, true);
   await observer.stop();
+  assert.equal(observer.state, 'stopped');
 
   const second = await fixture(t);
   const failedGit = second.observe();
@@ -340,6 +345,20 @@ test('root replaced by an escaping symlink and failed Git operations propagate o
   await rm(path.join(second.root, '.git'), { recursive: true });
   await assert.rejects(deadline(failedGit.next()), errorCode('GIT_FAILED'));
   assert.equal((await failedGit.next()).done, true);
+});
+
+test('an observed root publication gap fails unavailable once before a later symlink is published', async (t) => {
+  const { root, temporary, observe } = await fixture(t), observer = observe();
+  await next(observer);
+  await rename(root, path.join(temporary, 'original'));
+  await assert.rejects(deadline(observer.next()), errorCode('WORKSPACE_UNAVAILABLE'));
+  const outside = path.join(temporary, 'outside');
+  await mkdir(outside);
+  await symlink(outside, root, process.platform === 'win32' ? 'junction' : 'dir');
+  assert.equal(observer.state, 'failed');
+  assert.equal((await observer.next()).done, true);
+  await observer.stop();
+  assert.equal(observer.state, 'stopped');
 });
 
 test('observer options enforce polling minimum and bounded positive limits', async (t) => {

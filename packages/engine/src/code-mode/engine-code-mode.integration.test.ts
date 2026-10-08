@@ -2,12 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import {
   fixture,
   program,
   literal,
   variable,
   call,
+  until,
 } from "./fixtures/engine.js";
 const actual = { skip: process.platform !== "darwin", timeout: 45000 };
 test(
@@ -154,26 +156,46 @@ test(
     const r = await f.submit(
       program([
         call("slow", "run_command", {
-          command: `printf '%s' $$ > pid; sleep 30`,
+          command: `printf '%s\\n' $$ > pid.tmp; mv pid.tmp pid; sleep 30`,
         }),
         { op: "return", value: literal(true) },
       ]),
     );
     await f.allow(r);
-    await f.allow(r);
-    await import("./fixtures/engine.js").then((m) =>
-      m.until(() => existsSync(join(f.root, "pid")), "actual child PID"),
+    const originalApproval = await f.allow(r);
+    const marker = join(f.root, "pid");
+    await until(
+      () =>
+        existsSync(marker) && /^[1-9]\d*\n$/.test(readFileSync(marker, "utf8")),
+      "complete original child PID publication",
     );
-    const pid = Number(readFileSync(join(f.root, "pid"), "utf8"));
+    const originalPid = Number(readFileSync(marker, "utf8"));
+    assert.ok(Number.isSafeInteger(originalPid) && originalPid > 1);
+    assert.doesNotThrow(() => process.kill(originalPid, 0));
+    const originalJob = f.engine.inspectOwnedCommandJobs(f.workspace.id)[0]!;
+    assert.equal(originalJob.state, "running");
+    assert.equal(originalJob.groupPid, originalPid);
+    assert.equal(originalJob.source.runId, r.runId);
+    assert.equal(originalJob.source.approvalId, originalApproval.id);
+    assert.equal(
+      originalJob.source.approvalFingerprint,
+      originalApproval.fingerprint,
+    );
     await f.dispatch("run.cancel", { runId: r.runId });
     const run = await f.wait(r);
     assert.equal(run.state, "failed");
     assert.equal(run.error?.code, "CLEANUP_UNCERTAIN");
-    assert.throws(() => process.kill(pid, 0));
+    assert.throws(() => process.kill(originalPid, 0), { code: "ESRCH" });
     const row = f.engine.inspectCodeMode(f.workspace.id)[0]!;
     assert.equal(row.state, "uncertain");
     assert.equal(row.outcome?.cleanupConfirmed, true);
-    assert.throws(() => process.kill(row.process!.processId, 0));
+    assert.ok(
+      Number.isSafeInteger(row.process!.processId) &&
+        row.process!.processId > 1,
+    );
+    assert.throws(() => process.kill(row.process!.processId, 0), {
+      code: "ESRCH",
+    });
     const requests = f.requests.length;
     await f.reopen();
     assert.equal(f.requests.length, requests);
@@ -181,6 +203,47 @@ test(
       f.engine.inspectCodeMode(f.workspace.id)[0]!.state,
       "uncertain",
     );
+    const retainedCode = JSON.parse(
+        JSON.stringify(f.engine.inspectCodeMode(f.workspace.id)[0]!),
+      ),
+      retainedJob = JSON.parse(
+        JSON.stringify(f.engine.inspectOwnedCommandJobs(f.workspace.id)[0]!),
+      );
+    t.after(() => {
+      assert.ok(
+        existsSync(f.dbPath),
+        "Passing uncertainty checks retain their native SQLite evidence",
+      );
+      const db = new DatabaseSync(f.dbPath, { readOnly: true });
+      try {
+        const documents = db
+          .prepare("SELECT data FROM session_documents ORDER BY rowid")
+          .all()
+          .map((record) => JSON.parse(String(record.data)));
+        assert.deepEqual(
+          documents.find((record) => record.id === retainedCode.id),
+          retainedCode,
+        );
+        assert.deepEqual(
+          documents.find((record) => record.jobId === retainedJob.jobId),
+          retainedJob,
+        );
+      } finally {
+        db.close();
+      }
+      for (const phase of ["before-close", "after-close"]) {
+        const captured = JSON.parse(
+          readFileSync(join(f.base, `${phase}.json`), "utf8"),
+        );
+        assert.deepEqual(
+          captured.native.session_documents.find(
+            (record: { id?: string }) => record.id === retainedCode.id,
+          ),
+          retainedCode,
+        );
+        assert.equal(captured.requests.length, requests);
+      }
+    });
   },
 );
 test(

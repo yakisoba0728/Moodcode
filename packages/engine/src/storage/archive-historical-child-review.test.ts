@@ -18,6 +18,7 @@ import { V1_DATABASE_FIXTURE } from './fixtures/v1-database.js';
 
 const errorCode = (...codes: string[]) => (error: unknown) => error instanceof EngineError && codes.includes(error.code);
 const sha = (value: Uint8Array) => createHash('sha256').update(value).digest('hex');
+const preparationArchiveBudgetMs = 30000;
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(yes => resolve = yes); return { promise, resolve }; }
 async function wait(promise: Promise<void>, signal: AbortSignal) {
   if (signal.aborted) throw new Error('Authored fixture cancelled');
@@ -48,9 +49,28 @@ async function authoredArchive(t: TestContext, documentCount = 3) {
   const root = engine.scheduler.submitLegacy({ sessionId: 'session', requestId: 'root', prompt: 'ROOT', config: engine.getCapabilities().defaults }); await entered.promise;
   const task = await engine.startChildTask({ sessionId: 'session', requestId: 'child', parentRunId: root.runId, worktreeId: worktree.id, prompt: 'CHILD', tools: [], allocation: { turns: 1, toolCalls: 1, outputBytes: 2048, durationMs: 5000 } });
   assert.equal((await engine.children.tasks.wait('session', task.id)).state, 'completed'); release.resolve(); assert.equal((await engine.waitForRun(root.runId)).state, 'completed'); await engine.close();
-  const archive = await exportEngineArchive({ dbPath, artifactDir, destination: join(directory, 'archive') });
+  const archive = await exportEngineArchive({ dbPath, artifactDir, destination: join(directory, 'archive'), archiveDocumentBudgetMs: preparationArchiveBudgetMs });
   return { directory, archive, refs, calls: () => calls, request: { directory: archive.directory, expectedManifestSha256: archive.manifestSha256, sessionId: 'session', sourceRunId: root.runId, taskIds: [task.id] } };
 }
+
+test('archive preparation may consume its explicit budget while the historical inspector retains its two-second frame', async t => {
+  const clock = performance.now.bind(performance), descriptor = Object.getOwnPropertyDescriptor(ChildDocumentReadFrame.prototype, 'remainingMetadataBytes')!, frames = new Map<ChildDocumentReadFrame, number>(); let offset = 0;
+  t.mock.method(performance, 'now', () => clock() + offset);
+  Object.defineProperty(ChildDocumentReadFrame.prototype, 'remainingMetadataBytes', { ...descriptor, get(this: ChildDocumentReadFrame) {
+    if (!frames.has(this)) {
+      frames.set(this, this.limits.maxDurationMs);
+      if (this.limits.maxDurationMs === preparationArchiveBudgetMs && offset === 0) offset = 2500;
+    }
+    return descriptor.get!.call(this);
+  } });
+  t.after(() => Object.defineProperty(ChildDocumentReadFrame.prototype, 'remainingMetadataBytes', descriptor));
+  const f = await authoredArchive(t);
+  assert.ok([...frames.values()].includes(preparationArchiveBudgetMs));
+  frames.clear();
+  assert.equal((await inspectArchivedChildDocumentStorage(f.request)).complete, true);
+  assert.equal(frames.size, 1);
+  assert.deepEqual([...frames.values()], [2000]);
+});
 
 test('historical PDF samples are detached bounded metadata and sample omissions preserve reference subtotals', async t => {
   const f = await authoredArchive(t), before = f.calls(), manifest = readFileSync(join(f.archive.directory, 'data', 'manifest.json'));
@@ -133,7 +153,7 @@ test('standalone archive request rejects live authority fields and proxies befor
 test('a genuine v1 archive retains unchecked overall coverage and empty historical selection without engine creation', async t => {
   const directory = realpathSync(mkdtempSync(join(tmpdir(), 'moodcode-historical-legacy-review-'))), dbPath = join(directory, 'engine.sqlite'), artifactDir = join(directory, 'artifacts');
   mkdirSync(artifactDir); restoreV1Fixture(dbPath, directory); t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const archive = await exportEngineArchive({ dbPath, artifactDir, destination: join(directory, 'archive') }), before = readFileSync(join(archive.directory, 'data', 'engine.sqlite'));
+  const archive = await exportEngineArchive({ dbPath, artifactDir, destination: join(directory, 'archive'), archiveDocumentBudgetMs: preparationArchiveBudgetMs }), before = readFileSync(join(archive.directory, 'data', 'engine.sqlite'));
   // A pre-audit archive legitimately omitted this optional metadata. Its native
   // v1 schema has no typed child binding that could be downgraded by omission.
   const manifestPath = join(archive.directory, 'data', 'manifest.json'), legacy = JSON.parse(readFileSync(manifestPath, 'utf8')); delete legacy.documentAudit; const legacyBytes = Buffer.from(JSON.stringify(legacy)); writeFileSync(manifestPath, legacyBytes);

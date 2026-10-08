@@ -6,10 +6,13 @@ import {
   realpathSync,
   writeFileSync,
   rmSync,
+  readFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { DatabaseSync } from "node:sqlite";
 import type { TestContext } from "node:test";
 import {
   DEFAULT_LIMITS,
@@ -21,6 +24,53 @@ import {
 import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
 import { createEngine, type EngineOptions } from "../../engine.js";
 import type { ProviderAdapter, TurnRequest } from "../../ports.js";
+const evidenceTables = [
+  "runs",
+  "session_turns",
+  "provider_attempts",
+  "attempt_cleanup",
+  "tools",
+  "approvals",
+  "checkpoints",
+  "message_parts",
+  "session_documents",
+  "session_events",
+] as const;
+function nativeEvidence(
+  dbPath: string,
+): Record<string, Record<string, unknown>[]> {
+  const db = new DatabaseSync(dbPath, { readOnly: true });
+  let bytes = 0;
+  try {
+    return Object.fromEntries(
+      evidenceTables.map((table) => {
+        const rows = db
+          .prepare(`SELECT data FROM ${table} ORDER BY rowid LIMIT 1025`)
+          .all();
+        assert.ok(
+          rows.length <= 1024,
+          "Fixture native evidence row ceiling exceeded",
+        );
+        return [
+          table,
+          rows.map((row) => {
+            const raw = String(row.data);
+            bytes += Buffer.byteLength(raw);
+            assert.ok(
+              bytes <= 8_388_608,
+              "Fixture native evidence byte ceiling exceeded",
+            );
+            return JSON.parse(raw) as Record<string, unknown>;
+          }),
+        ];
+      }),
+    );
+  } finally {
+    db.close();
+  }
+}
+const digest = (bytes: Uint8Array | string) =>
+  createHash("sha256").update(bytes).digest("hex");
 export async function until(
   p: () => boolean,
   message = "fixture wait",
@@ -127,8 +177,72 @@ export async function fixture(
   let engine = createEngine(options);
   const engines = new Set([engine]);
   t.after(async () => {
-    for (const e of engines) await e.close().catch(() => {});
-    rmSync(base, { force: true, recursive: true });
+    let retained = false,
+      closeError: unknown;
+    const save = (phase: string) => {
+      const native = nativeEvidence(dbPath);
+      writeFileSync(
+        join(base, `${phase}.json`),
+        JSON.stringify(
+          {
+            schemaVersion: 1,
+            kind: "code-mode-fixture-native-evidence",
+            phase,
+            noLive: true,
+            retainedEvidencePath: base,
+            dbPath,
+            artifactDir,
+            source: {
+              path: fileURLToPath(import.meta.url),
+              sha256: digest(readFileSync(fileURLToPath(import.meta.url))),
+            },
+            native,
+            nativeRecordsSha256: digest(JSON.stringify(native)),
+            requests: requests.map((request) => ({
+              runId: request.runId,
+              turnIndex: request.turnIndex,
+              attemptId: request.attemptId,
+            })),
+          },
+          null,
+          2,
+        ) + "\n",
+        { mode: 0o600 },
+      );
+    };
+    try {
+      retained = Object.entries(nativeEvidence(dbPath)).some(
+        ([table, records]) =>
+          table !== "session_events" &&
+          records.some(
+            (record) =>
+              ["failed", "uncertain", "interrupted"].includes(
+                String(record.state),
+              ) || record.cleanupConfirmed === false,
+          ),
+      );
+      if (retained) save("before-close");
+    } catch (error) {
+      retained = true;
+      t.diagnostic(`Native evidence capture failed: ${String(error)}`);
+    }
+    for (const e of engines) {
+      try {
+        await e.close();
+      } catch (error) {
+        retained = true;
+        closeError ??= error;
+      }
+    }
+    if (retained) {
+      try {
+        save("after-close");
+      } catch (error) {
+        t.diagnostic(`Native evidence capture failed: ${String(error)}`);
+      }
+      t.diagnostic(`Retained native code-mode fixture: ${base}`);
+    } else rmSync(base, { force: true, recursive: true });
+    if (closeError) throw closeError;
   });
   const dispatch = async <T>(type: string, payload: any) => {
     const r = await engine.dispatch({

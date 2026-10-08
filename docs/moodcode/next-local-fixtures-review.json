@@ -1,0 +1,386 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-08T22:24:02.827Z",
+  "scope": "Local code-mode cancellation publication, Git commit fixture native uncertainty retention, and historical archive preparation budget",
+  "status": "Source fixture corrections and native retention proof passed; aggregate compiled/hosted qualification belongs to Root",
+  "sourceHead": "72e31aeb35234555031a5c6ebf0a4b4d6646a40c",
+  "environment": {
+    "node": "v26.9.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "osRelease": "27.0.0"
+  },
+  "originalFailures": {
+    "log": {
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-provider-e513/Moodcode/artifacts/next-provider-whole-corrected-environment.log",
+      "bytes": 610201,
+      "sha256": "e9736c770575853e418478ba3b9673a08d0c7a427674623f6ab15c36a74eb533"
+    },
+    "failureSummaryLines": [
+      4825,
+      4874
+    ],
+    "codeMode": {
+      "failure": "Missing expected exception at compiled engine-code-mode.integration.test.js:126",
+      "observedOriginalPidValueAvailable": false,
+      "causalSourceMechanism": "The shell creates/truncates pid before printf publishes its digits. File existence alone permits Number(empty string) = 0; signal-zero for PID zero observes the caller process group.",
+      "exactHistoricalRaceProven": false
+    },
+    "git": {
+      "failure": "Fixture preparation verify_changes returned failed/CLEANUP_UNCERTAIN instead of completed",
+      "actualCauseStatus": "Unknown: historical fixture cleanup destroyed the original native SQLite/artifacts. The authored checkpoint rejection below is a distinct retention proof and does not establish this cause."
+    },
+    "archive": {
+      "failure": "CHILD_DOCUMENT_STORAGE_TIME_LIMIT in authoredArchive exportEngineArchive before the intended historical inspection oracle",
+      "originalPreparationBudgetMs": 2000
+    }
+  },
+  "corrections": {
+    "codeMode": {
+      "file": "packages/engine/src/code-mode/engine-code-mode.integration.test.ts",
+      "lines": [
+        159,
+        246
+      ],
+      "behavior": "Publish complete newline-terminated PID through an atomic rename, require a positive safe integer, prove the running Original job has that groupPid and exact nested approval before native run.cancel.",
+      "preserved": [
+        "failed/CLEANUP_UNCERTAIN Run",
+        "uncertain code-mode history",
+        "actual restricted runtime and original command PID absence with ESRCH",
+        "unchanged provider request count after reopen",
+        "same literal native code-mode/job documents after final close"
+      ],
+      "numericPidSignals": "Signal zero only at the original live test boundary; cancellation uses the Original native run API. No historical observed PID is signalled for cleanup."
+    },
+    "retention": {
+      "files": [
+        "packages/engine/src/code-mode/fixtures/engine.ts",
+        "packages/engine/src/git/fixtures/commit.ts"
+      ],
+      "behavior": "Capture bounded original native records before and after independently attempted actual Engine.close. Retain original SQLite, sidecars, repository and artifacts for known uncertain history even when the test passes. Git preparation failures also capture their actual error before rethrowing the unchanged strict assertion.",
+      "bounds": {
+        "rowsPerTable": 1024,
+        "decodedNativeJsonBytes": 8388608
+      },
+      "createdNativeRows": false,
+      "sourceQualification": "The code-mode manifest pins its actual helper source; this review pins all five edited sources. These pins do not claim a frozen complete Engine runtime."
+    },
+    "git": {
+      "productionChange": false,
+      "originalCauseResolved": false,
+      "preparationAssertionsRelaxed": false,
+      "retryAdded": false,
+      "originalCommandTimeoutMs": 2000,
+      "originalRunDurationMs": 20000,
+      "jobsOptInAdded": false,
+      "ownerSemantics": "Existing verification runner consumes a narrowed command from the Original tool context. Native uncertain outcomes retain their consumed capability and must not be replayed."
+    },
+    "archive": {
+      "file": "packages/engine/src/storage/archive-historical-child-review.test.ts",
+      "lines": [
+        21,
+        73
+      ],
+      "explicitFinitePreparationBudgetMs": 30000,
+      "existingAllowedMaximumMs": 30000,
+      "inspectionBudgetMs": 2000,
+      "deterministicCausalProof": "Advance the actual document frame clock by 2500 ms only on the first preparation frame. Export succeeds under its explicit 30000 ms budget; the subsequent inspector creates exactly one unchanged 2000 ms frame.",
+      "inspectionAssertionsRelaxed": false,
+      "productionBudgetChanged": false
+    }
+  },
+  "authoredGitRetentionProof": {
+    "file": "packages/engine/src/git/commit-fixture-retention.integration.test.ts",
+    "fault": "A trigger on the genuine fresh native SQLite rejects checkpoint insertion after one real approved verification command.",
+    "independentOracles": [
+      "Read raw original Run/Attempt/cleanup/Tool/session-document/event SQL before close and compare the exact strings after close",
+      "Exactly one provider attempt and one physical command capture remain before/after close",
+      "stdout is exactly actual-verification",
+      "Run failed/CLEANUP_UNCERTAIN; Tool interrupted; provider cleanup true; verification receipt uncertain with null observation; zero checkpoints",
+      "Passing expected-fault test leaves the original retained SQLite and artifacts untouched"
+    ],
+    "historicalCauseAttribution": false
+  },
+  "retainedEvidence": {
+    "codeModeCancellation": {
+      "retainedEvidencePath": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-dErPzM",
+      "retained": true,
+      "closeAttempted": true,
+      "database": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-dErPzM/db.sqlite",
+        "bytes": 1343488,
+        "sha256": "7063a64d5de685277b243b92b820b9070489ee5d2d121c47b505633e9f7af2fa"
+      },
+      "manifests": [
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-dErPzM/before-close.json",
+          "bytes": 89365,
+          "sha256": "ff1d070f9b0d9e1653d19af874510ce8886893d62dc8385b3760b2c98c7bae5f"
+        },
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-dErPzM/after-close.json",
+          "bytes": 89364,
+          "sha256": "5b5eeec583008f978ed4c9ffb8f59cda1c4e688ee0348a4bc7b176d04c8863ff"
+        }
+      ],
+      "beforeCloseNativeSha256": "2e7efd012b0ad1747cc51a088309fe2e44b8a94c1d3faf8b291c68808909df48",
+      "afterCloseNativeSha256": "2e7efd012b0ad1747cc51a088309fe2e44b8a94c1d3faf8b291c68808909df48",
+      "actualNativeRowsUnchangedAcrossClose": true,
+      "rowCounts": {
+        "runs": 1,
+        "session_turns": 1,
+        "provider_attempts": 1,
+        "attempt_cleanup": 1,
+        "tools": 2,
+        "approvals": 2,
+        "checkpoints": 1,
+        "message_parts": 2,
+        "session_documents": 4,
+        "session_events": 43
+      },
+      "run": [
+        {
+          "id": "e4f60c81-969e-4a39-a49d-62a9285640fd",
+          "state": "failed",
+          "error": {
+            "code": "CLEANUP_UNCERTAIN",
+            "message": "Tool execute_code did not confirm cleanup after abort (CLEANUP_UNCERTAIN)"
+          }
+        }
+      ],
+      "attempts": [
+        {
+          "id": "be02e2b6-2dc1-468f-9b3b-9c8b607cd7fb",
+          "state": "completed"
+        }
+      ],
+      "cleanup": [
+        {
+          "attemptId": "be02e2b6-2dc1-468f-9b3b-9c8b607cd7fb",
+          "cleanupConfirmed": true
+        }
+      ],
+      "tools": [
+        {
+          "id": "0e04f59d-f8c9-4fe6-be7e-50dfd09ba16f",
+          "state": "interrupted"
+        },
+        {
+          "id": "bac3bcca-562f-4251-9502-e08e058798ac",
+          "state": "interrupted"
+        }
+      ],
+      "documents": [
+        {
+          "id": "code-fa10afddcf6d218d9bc4c81dc756b66d",
+          "state": "uncertain",
+          "owner": {
+            "runId": "e4f60c81-969e-4a39-a49d-62a9285640fd",
+            "turnId": "8a1bbf85-0c63-483e-af69-1794656104d6",
+            "attemptId": "be02e2b6-2dc1-468f-9b3b-9c8b607cd7fb",
+            "toolCallId": "0e04f59d-f8c9-4fe6-be7e-50dfd09ba16f",
+            "approvalId": "66c6482b-ad7a-4338-9b56-74eb9e3532ab",
+            "approvalFingerprint": "936791f7b968b0ca29e0dffcff3dd1312b6d570e0b1648acd8318f417e1aa4b9",
+            "sha256": "24bc51edb947f313e259c96dc632058d36534272b90ceda63f40553dce6d903d"
+          },
+          "processEvidence": {
+            "processId": 52451,
+            "birthNonce": "3d94d74b-fcea-4198-844d-872a07a5aa1c",
+            "sha256": "c5d03568db385f2bd28f62bac8a7d35e2e590d73fecc671bd9639b2a51d2442b"
+          }
+        },
+        {
+          "jobId": "command-f7e0d85aedf35a3b2bf5d8483806716b",
+          "state": "uncertain",
+          "owner": {
+            "runId": "e4f60c81-969e-4a39-a49d-62a9285640fd",
+            "turnId": "8a1bbf85-0c63-483e-af69-1794656104d6",
+            "attemptId": "be02e2b6-2dc1-468f-9b3b-9c8b607cd7fb",
+            "toolCallId": "bac3bcca-562f-4251-9502-e08e058798ac",
+            "approvalId": "98522d07-aea2-48ee-bf66-3c7933b283eb",
+            "approvalFingerprint": "fc9df488247ae231ffef12b7f12f38a61d055acf9a73dd7609e4fa769003bb4f",
+            "sha256": "584b31fca2f0c5fa59dd45568c4ae05e279ae1ddb7f905d19c428dd4a6320e6d"
+          }
+        }
+      ],
+      "evidenceAuthority": "Descriptive original native records; no cleanup, resume or replay authority is restored.",
+      "providerRequestsBeforeAfterClose": 1,
+      "physicalAbsence": "Both validated original command and restricted runtime PIDs returned ESRCH in the test. Native uncertainty remained; process absence did not authorize erasing evidence."
+    },
+    "authoredGitCheckpointRejection": {
+      "retainedEvidencePath": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-wBSPj8",
+      "retained": true,
+      "closeAttempted": true,
+      "database": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-wBSPj8/engine.sqlite",
+        "bytes": 1282048,
+        "sha256": "f3faf90ee8064e3623a20c202aacb31afed8c26a2b84dc98200b49bdf338b7c6"
+      },
+      "manifests": [
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-wBSPj8/before-close.json",
+          "bytes": 41753,
+          "sha256": "cc9d303babca4a9184a4d5e15d416af69fe8865e68845400327819357c74afc3"
+        },
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-wBSPj8/after-close.json",
+          "bytes": 41752,
+          "sha256": "a6a89d0ab4f271639cd7a843000a0db1aed528595d6f42b82c1b5af77bf29b89"
+        },
+        {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-wBSPj8/preparation-failure.json",
+          "bytes": 42032,
+          "sha256": "28ac5fb84dcdc5cf7535c24a4b1c0992b6ee41863b5f142ff49d07393aaa7f42"
+        }
+      ],
+      "beforeCloseNativeSha256": "87846cffdf2e5c175105b9a7e8a420eb433bef99cd398567a3e4b45539bc7b77",
+      "afterCloseNativeSha256": "87846cffdf2e5c175105b9a7e8a420eb433bef99cd398567a3e4b45539bc7b77",
+      "actualNativeRowsUnchangedAcrossClose": true,
+      "rowCounts": {
+        "runs": 1,
+        "session_turns": 1,
+        "provider_attempts": 1,
+        "attempt_cleanup": 1,
+        "tools": 1,
+        "approvals": 1,
+        "checkpoints": 0,
+        "session_documents": 7,
+        "session_events": 28
+      },
+      "run": [
+        {
+          "id": "7b85f424-aa87-47d4-987e-a2a199e904e5",
+          "state": "failed",
+          "error": {
+            "code": "CLEANUP_UNCERTAIN",
+            "message": "Verification command returned no owned terminal outcome; its consumed capability must never be replayed"
+          }
+        }
+      ],
+      "attempts": [
+        {
+          "id": "585e2a62-b536-4dca-8c7e-08bd0630e4f2",
+          "state": "completed"
+        }
+      ],
+      "cleanup": [
+        {
+          "attemptId": "585e2a62-b536-4dca-8c7e-08bd0630e4f2",
+          "cleanupConfirmed": true
+        }
+      ],
+      "tools": [
+        {
+          "id": "0a28329f-4f79-4f45-878f-1ee898c2cea4",
+          "state": "interrupted"
+        }
+      ],
+      "documents": [
+        {
+          "receipts": [
+            {
+              "id": "verification_receipt_69b5f5b31cc14b079d53493942e86c34",
+              "runId": "7b85f424-aa87-47d4-987e-a2a199e904e5",
+              "toolCallId": "0a28329f-4f79-4f45-878f-1ee898c2cea4",
+              "status": "uncertain",
+              "observation": null,
+              "recovery": "producer-without-outcome",
+              "receiptSha256": "e19e1d4d912a71744a48a8a0a5c7b6cceb3f7c4a5d426dfd29da1ee4af850ab2"
+            }
+          ]
+        }
+      ],
+      "evidenceAuthority": "Descriptive original native records; no cleanup, resume or replay authority is restored.",
+      "actualJobsEnabled": false,
+      "commandCaptureCount": 1,
+      "commandStdout": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-approved-git-wBSPj8/artifacts/command-7v8xPI/stdout.log",
+        "bytes": 19,
+        "sha256": "da1295502b83bd5dfce7b68255585752bef9f254d52774304f75b383535bfb79"
+      },
+      "commandStdoutLiteral": "actual-verification"
+    }
+  },
+  "validation": {
+    "sourceTests": [
+      {
+        "command": "node --import \"$PWD/node_modules/tsx/dist/loader.mjs\" --test --test-concurrency=1 packages/engine/src/code-mode/engine-code-mode.integration.test.ts",
+        "pass": 14,
+        "fail": 0,
+        "skipped": 0,
+        "durationMs": 49187.602292,
+        "log": {
+          "path": "/tmp/moodcode-local-fixtures-code-mode-final.log",
+          "bytes": 2546,
+          "sha256": "f30bbe8284c045370b5bcc6c2d5c6d69aced763ebfd8b7716ea5f08426189e66"
+        }
+      },
+      {
+        "command": "node --import \"$PWD/node_modules/tsx/dist/loader.mjs\" --test --test-concurrency=1 packages/engine/src/git/commit-fixture-retention.integration.test.ts packages/engine/src/storage/archive-historical-child-review.test.ts",
+        "pass": 10,
+        "fail": 0,
+        "skipped": 0,
+        "durationMs": 5564.494292,
+        "log": {
+          "path": "/tmp/moodcode-local-fixtures-retention-archive-final.log",
+          "bytes": 1562,
+          "sha256": "a90c7a90d9e86fb34b3c85235d2d05730e77fe37765855529cfc54e90bd8d809"
+        }
+      },
+      {
+        "command": "node --import \"$PWD/node_modules/tsx/dist/loader.mjs\" --test --test-concurrency=1 packages/engine/src/git/commit.integration.test.ts",
+        "pass": 8,
+        "fail": 0,
+        "outputProvenance": "Completed source tool result earlier in this agent session; retained evidence helper in place, before formatting-only cleanup."
+      },
+      {
+        "command": "node --import \"$PWD/node_modules/tsx/dist/loader.mjs\" --test --test-concurrency=1 packages/engine/src/git/commit-boundaries.integration.test.ts packages/engine/src/git/commit-native.integration.test.ts",
+        "pass": 16,
+        "fail": 0,
+        "outputProvenance": "Completed source tool result earlier in this agent session; retained native expected-fault fixtures."
+      }
+    ],
+    "focusedUniqueSourceCasesPassed": 48,
+    "typecheck": {
+      "command": "node node_modules/typescript/bin/tsc -p packages/engine/tsconfig.json --noEmit --incremental false --composite false --pretty false",
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/moodcode-local-fixtures-typecheck-final.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "diffWhitespaceCheck": "git diff --check -- owned source files: exit 0",
+    "noFreshLiveProviderCalls": true,
+    "noSharedDistWrites": true,
+    "noCommits": true,
+    "limitation": "Source-only focused qualification; no new full regression, compiled aggregate or hosted run is claimed."
+  },
+  "sourcePins": [
+    {
+      "path": "packages/engine/src/code-mode/engine-code-mode.integration.test.ts",
+      "bytes": 18972,
+      "sha256": "f94010fe1df170853e3beb6677f6700a9465c960074ae16c66249435591e36be"
+    },
+    {
+      "path": "packages/engine/src/code-mode/fixtures/engine.ts",
+      "bytes": 9468,
+      "sha256": "1c9652353be17321d67594b18b953c8f547fc815bdcf162ddfcf4152faa8efdd"
+    },
+    {
+      "path": "packages/engine/src/git/fixtures/commit.ts",
+      "bytes": 9624,
+      "sha256": "353378ab0f850212a33beba48371b3ed12cc03753e5d7d6629f253cfac6b61ca"
+    },
+    {
+      "path": "packages/engine/src/git/commit-fixture-retention.integration.test.ts",
+      "bytes": 4575,
+      "sha256": "f8843ac8fbeed1df287dec5aebfff0f72af4abadfd176676a82d37a6a898e237"
+    },
+    {
+      "path": "packages/engine/src/storage/archive-historical-child-review.test.ts",
+      "bytes": 16932,
+      "sha256": "6b7ec5b386534a4a0dec0cd5cfd4c2462195abca5a35285f1a0f6822f1047769"
+    }
+  ]
+}

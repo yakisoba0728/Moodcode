@@ -1,7 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
 import { execFileSync } from "node:child_process";
 import {
   validateChildStorageRecord,
@@ -9,155 +18,266 @@ import {
 } from "../child-tasks/storage-binding.js";
 import { batchFixture, batchCommand, batchUntil } from "./fixtures/batch.js";
 
+function retainBatchFailure(
+  f: Awaited<ReturnType<typeof batchFixture>>,
+  error?: unknown,
+) {
+  let remainingBytes = 4_194_304;
+  const stores = [f.engine.store, ...f.children.map((child) => child.store)];
+  const databases = stores.slice(0, 9).map((store) => {
+    const path = (store as unknown as { databasePath: string }).databasePath;
+    const database = new DatabaseSync(path, { readOnly: true, timeout: 1000 });
+    try {
+      const tables = database
+        .prepare(
+          "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name LIMIT 129",
+        )
+        .all();
+      return {
+        path,
+        tablesOmitted: tables.length > 128,
+        tables: tables.slice(0, 128).map((table) => {
+          const name = String(table.name);
+          if (remainingBytes <= 0) return { name, rows: [], rowsOmitted: true };
+          const rows = database
+            .prepare(`SELECT * FROM "${name.replaceAll('"', '""')}" LIMIT 129`)
+            .all();
+          const retained = [];
+          for (const row of rows.slice(0, 128)) {
+            const bytes = Buffer.byteLength(JSON.stringify(row));
+            if (bytes > remainingBytes) break;
+            remainingBytes -= bytes;
+            retained.push(row);
+          }
+          return {
+            name,
+            rows: retained,
+            rowsOmitted: rows.length > retained.length,
+          };
+        }),
+      };
+    } catch (captureError) {
+      return { path, captureError: String(captureError) };
+    } finally {
+      database.close();
+    }
+  });
+  const group = f.engine.inspectBatchEvidence(f.workspace.id, f.input.groupId);
+  const workflows = group.cases.map((c) =>
+    f.engine.inspectWorkflow(f.workspace.id, c.instanceId),
+  );
+  const payload =
+    JSON.stringify({
+      schemaVersion: 1,
+      kind: "original-coding-batch-fixture-failure",
+      beforeOwnerCleanup: true,
+      noLive: true,
+      executionAuthorityRestored: false,
+      expectedCleanupFault: error === undefined,
+      originalError:
+        error instanceof Error
+          ? {
+              name: error.name,
+              message: error.message.slice(0, 8192),
+              code: "code" in error ? error.code : null,
+              stack: error.stack?.slice(0, 8192),
+            }
+          : error === undefined
+            ? null
+            : String(error),
+      group,
+      workflows,
+      databases,
+      storesOmitted: stores.length > 9,
+      rawDatabaseAndArtifactsRetained: true,
+    }) + "\n";
+  assert.ok(
+    Buffer.byteLength(payload) <= 8_388_608,
+    "Failure report exceeds its finite byte bound; raw databases remain retained",
+  );
+  const path = join(f.base, "original-native-failure.json");
+  writeFileSync(path, payload, { mode: 0o600, flag: "wx" });
+  return { path, sha256: createHash("sha256").update(payload).digest("hex") };
+}
+
 test("two genuine independent coding cases reserve fairly, verify/review and exact approved selection merges once and consumes inbox", async (t) => {
-  const f = await batchFixture(t);
-  f.approveChildren();
-  const before = f.engine.coordinator.getRemainingChildBudget(f.parent.runId),
-    preview = await f.engine.previewCodingAttemptGroup(f.input),
-    group = f.engine.startCodingAttemptGroup({
+  const base = realpathSync(
+    mkdtempSync(join(tmpdir(), "moodcode-coding-batch-proof-")),
+  );
+  const f = await batchFixture(t, { dbRoot: base });
+  let verified = false;
+  t.after(() => {
+    if (verified) rmSync(base, { recursive: true, force: true });
+    else
+      t.diagnostic(
+        `Retained original coding-batch native databases/artifacts: ${base}`,
+      );
+  });
+  try {
+    f.approveChildren();
+    const before = f.engine.coordinator.getRemainingChildBudget(f.parent.runId),
+      preview = await f.engine.previewCodingAttemptGroup(f.input),
+      group = f.engine.startCodingAttemptGroup({
+        workspaceId: f.workspace.id,
+        requestId: "group-start",
+        approved: true,
+        preview,
+      }),
+      after = f.engine.coordinator.getRemainingChildBudget(f.parent.runId);
+    assert.equal(before.turns - after.turns, 18);
+    assert.equal(before.toolCalls - after.toolCalls, 12);
+    assert.equal(before.outputBytes - after.outputBytes, 98304);
+    const completed = await f.engine.runCodingAttemptGroup({
       workspaceId: f.workspace.id,
-      requestId: "group-start",
+      groupId: group.groupId,
+      requestId: "run",
+      expectedRevision: group.revision,
       approved: true,
-      preview,
-    }),
-    after = f.engine.coordinator.getRemainingChildBudget(f.parent.runId);
-  assert.equal(before.turns - after.turns, 18);
-  assert.equal(before.toolCalls - after.toolCalls, 12);
-  assert.equal(before.outputBytes - after.outputBytes, 98304);
-  const completed = await f.engine.runCodingAttemptGroup({
-    workspaceId: f.workspace.id,
-    groupId: group.groupId,
-    requestId: "run",
-    expectedRevision: group.revision,
-    approved: true,
-  });
-  assert.equal(completed.state, "ready");
-  assert.deepEqual(
-    completed.cases.map((c) => c.state),
-    ["verified", "verified"],
-  );
-  assert.equal(f.children.length, 6);
-  const storage = f.engine.children.tasks
-    .list(f.session.id)
-    .map((t) =>
-      validateChildStorageRecord(
-        f.engine.store.getSessionDocument(f.session.id, childStorageKind(t.id))!
-          .data,
-      ),
+    });
+    assert.equal(completed.state, "ready");
+    assert.deepEqual(
+      completed.cases.map((c) => c.state),
+      ["verified", "verified"],
     );
-  assert.equal(
-    new Set(storage.map((s) => s.binding.physical.database.path)).size,
-    6,
-  );
-  assert.equal(
-    new Set(storage.map((s) => s.binding.physical.artifacts.path)).size,
-    6,
-  );
-  const actualTasks = f.engine.children.tasks.list(f.session.id);
-  assert.equal(actualTasks.filter((c) => c.state === "completed").length, 6);
-  assert.equal(
-    new Set(
-      actualTasks
-        .filter((c) => c.toolNames.includes("apply_patch"))
-        .map((c) => c.worktreeId),
-    ).size,
-    2,
-  );
-  writeFileSync(join(f.root, "unrelated.txt"), "staged unrelated\n");
-  execFileSync("git", ["-C", f.root, "add", "unrelated.txt"]);
-  const staged = execFileSync("git", [
-    "-C",
-    f.root,
-    "diff",
-    "--cached",
-  ]).toString();
-  const selection = await f.engine.previewCodingAttemptSelection({
-    workspaceId: f.workspace.id,
-    groupId: group.groupId,
-    caseId: "A",
-    expectedRevision: completed.revision,
-  });
-  assert.throws(() =>
-    f.engine.selectCodingAttempt({
+    assert.equal(f.children.length, 6);
+    const storage = f.engine.children.tasks
+      .list(f.session.id)
+      .map((t) =>
+        validateChildStorageRecord(
+          f.engine.store.getSessionDocument(
+            f.session.id,
+            childStorageKind(t.id),
+          )!.data,
+        ),
+      );
+    assert.equal(
+      new Set(storage.map((s) => s.binding.physical.database.path)).size,
+      6,
+    );
+    assert.equal(
+      new Set(storage.map((s) => s.binding.physical.artifacts.path)).size,
+      6,
+    );
+    const actualTasks = f.engine.children.tasks.list(f.session.id);
+    assert.equal(actualTasks.filter((c) => c.state === "completed").length, 6);
+    assert.equal(
+      new Set(
+        actualTasks
+          .filter((c) => c.toolNames.includes("apply_patch"))
+          .map((c) => c.worktreeId),
+      ).size,
+      2,
+    );
+    writeFileSync(join(f.root, "unrelated.txt"), "staged unrelated\n");
+    execFileSync("git", ["-C", f.root, "add", "unrelated.txt"]);
+    const staged = execFileSync("git", [
+      "-C",
+      f.root,
+      "diff",
+      "--cached",
+    ]).toString();
+    const selection = await f.engine.previewCodingAttemptSelection({
+      workspaceId: f.workspace.id,
+      groupId: group.groupId,
+      caseId: "A",
+      expectedRevision: completed.revision,
+    });
+    assert.throws(() =>
+      f.engine.selectCodingAttempt({
+        workspaceId: f.workspace.id,
+        requestId: "select",
+        approved: true,
+        preview: structuredClone(selection),
+      }),
+    );
+    const selected = f.engine.selectCodingAttempt({
       workspaceId: f.workspace.id,
       requestId: "select",
       approved: true,
-      preview: structuredClone(selection),
-    }),
-  );
-  const selected = f.engine.selectCodingAttempt({
-    workspaceId: f.workspace.id,
-    requestId: "select",
-    approved: true,
-    preview: selection,
-  });
-  assert.equal(selected.selection?.state, "selected");
-  f.releaseParent(selected.cases[0]!.instanceId);
-  await f.approveMerge();
-  assert.equal((await f.finish()).state, "completed");
-  const merged = f.engine.inspectBatchEvidence(f.workspace.id, group.groupId);
-  assert.equal(merged.state, "completed");
-  assert.equal(merged.selection?.state, "merged");
-  assert.equal(readFileSync(join(f.root, "seed.txt"), "utf8"), "candidate A\n");
-  assert.equal(
-    readFileSync(join(f.worktrees[2]!.root, "seed.txt"), "utf8"),
-    "candidate B\n",
-  );
-  assert.equal(
-    execFileSync("git", ["-C", f.root, "diff", "--cached"]).toString(),
-    staged,
-  );
-  const sourceEvents = f.engine.store
-    .readEvents(f.session.id, 0, 1024)
-    .filter((e) => e.runId === f.parent.runId).length;
-  await batchCommand(f.engine, "session.pause", { sessionId: f.session.id });
-  const target = f.engine.captureCodingBatchDeliveryTarget({
-    workspaceId: f.workspace.id,
-    groupId: group.groupId,
-    config: f.run.config,
-  });
-  const receipt = f.engine.deliverCodingBatchResult({
-    workspaceId: f.workspace.id,
-    groupId: group.groupId,
-    requestId: "delivery",
-    expectedRevision: 0,
-    approved: true,
-    target,
-  });
-  assert.equal(receipt.record.input.state, "pending");
-  assert.equal(
-    f.engine.deliverCodingBatchResult({
+      preview: selection,
+    });
+    assert.equal(selected.selection?.state, "selected");
+    f.releaseParent(selected.cases[0]!.instanceId);
+    await f.approveMerge();
+    assert.equal((await f.finish()).state, "completed");
+    const merged = f.engine.inspectBatchEvidence(f.workspace.id, group.groupId);
+    assert.equal(merged.state, "completed");
+    assert.equal(merged.selection?.state, "merged");
+    assert.equal(
+      readFileSync(join(f.root, "seed.txt"), "utf8"),
+      "candidate A\n",
+    );
+    assert.equal(
+      readFileSync(join(f.worktrees[2]!.root, "seed.txt"), "utf8"),
+      "candidate B\n",
+    );
+    assert.equal(
+      execFileSync("git", ["-C", f.root, "diff", "--cached"]).toString(),
+      staged,
+    );
+    const sourceEvents = f.engine.store
+      .readEvents(f.session.id, 0, 1024)
+      .filter((e) => e.runId === f.parent.runId).length;
+    await batchCommand(f.engine, "session.pause", { sessionId: f.session.id });
+    const target = f.engine.captureCodingBatchDeliveryTarget({
+      workspaceId: f.workspace.id,
+      groupId: group.groupId,
+      config: f.run.config,
+    });
+    const receipt = f.engine.deliverCodingBatchResult({
       workspaceId: f.workspace.id,
       groupId: group.groupId,
       requestId: "delivery",
       expectedRevision: 0,
       approved: true,
       target,
-    }).duplicate,
-    true,
-  );
-  assert.equal(
-    f.engine.store
-      .readEvents(f.session.id, 0, 1024)
-      .filter((e) => e.runId === f.parent.runId).length,
-    sourceEvents,
-  );
-  await batchCommand(f.engine, "session.resume", { sessionId: f.session.id });
-  await batchUntil(
-    () =>
-      f.requests.some((r) =>
-        r.messages.some((m) =>
-          m.content.startsWith("[Moodcode workflow result DATA v1]"),
+    });
+    assert.equal(receipt.record.input.state, "pending");
+    assert.equal(
+      f.engine.deliverCodingBatchResult({
+        workspaceId: f.workspace.id,
+        groupId: group.groupId,
+        requestId: "delivery",
+        expectedRevision: 0,
+        approved: true,
+        target,
+      }).duplicate,
+      true,
+    );
+    assert.equal(
+      f.engine.store
+        .readEvents(f.session.id, 0, 1024)
+        .filter((e) => e.runId === f.parent.runId).length,
+      sourceEvents,
+    );
+    await batchCommand(f.engine, "session.resume", { sessionId: f.session.id });
+    await batchUntil(
+      () =>
+        f.requests.some((r) =>
+          r.messages.some((m) =>
+            m.content.startsWith("[Moodcode workflow result DATA v1]"),
+          ),
         ),
-      ),
-    "actual result provider consumption",
-  );
-  assert.equal(
-    f.engine.store
-      .listInputs(f.session.id)
-      .inputs.filter((i) => i.requestId.startsWith("workflow-result:")).length,
-    1,
-  );
+      "actual result provider consumption",
+    );
+    assert.equal(
+      f.engine.store
+        .listInputs(f.session.id)
+        .inputs.filter((i) => i.requestId.startsWith("workflow-result:"))
+        .length,
+      1,
+    );
+    verified = true;
+  } catch (error) {
+    try {
+      t.diagnostic(JSON.stringify(retainBatchFailure(f, error)));
+    } catch (captureError) {
+      t.diagnostic(
+        `Native failure report unavailable; original databases retained: ${String(captureError)}`,
+      );
+    }
+    throw error;
+  }
 });
 
 test("a genuine failed verification remains partial failure while an independent candidate is verified; no ID-only success or failed replay", async (t) => {
@@ -613,7 +733,14 @@ test("actual parent owner loss and exported evidence freshness never restore dis
 });
 
 test("genuine provider return without cleanup confirmation leaves actual cancelled children and batch uncertain", async (t) => {
-  const f = await batchFixture(t, { holdChild: true, unknownCleanup: true }),
+  const base = realpathSync(
+    mkdtempSync(join(tmpdir(), "moodcode-coding-batch-unknown-proof-")),
+  );
+  const f = await batchFixture(t, {
+      holdChild: true,
+      unknownCleanup: true,
+      dbRoot: base,
+    }),
     p = await f.engine.previewCodingAttemptGroup(f.input),
     g = f.engine.startCodingAttemptGroup({
       workspaceId: f.workspace.id,
@@ -662,6 +789,21 @@ test("genuine provider return without cleanup confirmation leaves actual cancell
     }),
   );
   assert.equal(f.engine.store.listCheckpoints(f.parent.runId).length, 0);
+  const retained = retainBatchFailure(f);
+  const original = JSON.parse(readFileSync(retained.path, "utf8"));
+  assert.equal(original.expectedCleanupFault, true);
+  assert.equal(original.group.state, "uncertain");
+  assert.equal(
+    original.group.sha256,
+    f.engine.inspectBatchEvidence(f.workspace.id, g.groupId).sha256,
+  );
+  assert.equal(original.databases.length, 3);
+  assert.ok(
+    original.databases.every((database: { tables: { name: string }[] }) =>
+      database.tables.some((table) => table.name === "provider_attempts"),
+    ),
+  );
+  t.diagnostic(JSON.stringify(retained));
 });
 
 test("after export, actual changed candidate source prevents verified resume before pending case starts", async (t) => {

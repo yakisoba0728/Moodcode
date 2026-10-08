@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-08T22:19:11.509Z",
+  "scope": "Existing Ubuntu native coding-batch diagnostics, child deadline fixture clock and workspace observer replacement publication",
+  "status": "fixture corrections and native failure retention source-verified; hosted aggregate qualification pending; original coding-batch cause unresolved",
+  "originalHosted": {
+    "runId": 37849372005,
+    "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005",
+    "implementationCommit": "b7c44a3618d9863739bd568dc08d384c9987e66b",
+    "lane": "Ubuntu 24.04 x64 / Node v26.11.1",
+    "jobsPassed": 5,
+    "jobsTotal": 6,
+    "conclusion": "failure",
+    "testLog": "/Users/yakisoba0728/.codex/worktrees/next-provider-e513/Moodcode/artifacts/next-provider-hosted/engine-ubuntu-24.04-node-26.x-attempt-1/test.stdout",
+    "testLogSha256": "e1341da8203939ff2f7d3fb4e7251c7f60febf5e8417accafe9ae7931dd24c91",
+    "failureSummaryLines": [4825, 4880],
+    "sourcePins": {
+      "packages/engine/src/coding-runs/batch.integration.test.ts": "ab2cfac799635b5242ad68193fff7439ed9b025b8771b7427a8864a0b0a2d43c",
+      "packages/engine/src/coding-runs/fixtures/batch.ts": "3ecaeded5a893647e48f810cf65ee354b395a881b4c38bdfa1a00fda6c090833",
+      "packages/engine/src/integration/delegation-review.integration.test.ts": "ccbc9e0f7f2854ad35f073100579a0d236e51f40aa28cf704d44c013fbab456b",
+      "packages/engine/src/workspace/observer.test.ts": "20acae9cace61737771474806f597a85ae7546e16b4d54a812bfd5a6e4d31a92"
+    },
+    "allFourSourcesIndependentlyMatchedBaseline44d3a07": true
+  },
+  "codingBatch": {
+    "originalFailure": "Group uncertain instead of ready at compiled batch.integration.test.js:27",
+    "actualCauseStatus": "Unknown: original native group/case/stage/child/attempt/check/job/error rows were absent from the hosted assertion log",
+    "sourceMechanism": "batch-host execute() retains an uncertain case when a caught stage error leaves a nonterminal or uncertain child; the group propagates that uncertainty",
+    "correction": "Keep the original ready/verified/approval/merge/inbox/no-replay assertions. A failed first case now retains its caller-owned fixture directory and captures bounded original native SQL rows plus group/workflows and assertion error before fixture cleanup.",
+    "evidenceCoverage": [
+      "group and cases",
+      "workflow stages and exact child bindings",
+      "provider attempts and cleanup records",
+      "native tools, verification documents, checkpoints and job tables when present",
+      "original errors",
+      "primary and child databases with their WAL/artifacts"
+    ],
+    "bounds": {
+      "originalLiveStores": 9,
+      "tablesPerStore": 128,
+      "rowsPerTable": 128,
+      "chargedRowJsonBytes": 4194304,
+      "reportBytes": 8388608,
+      "sqliteBusyTimeoutMs": 1000,
+      "originalErrorTextCharacters": 8192
+    },
+    "readerAuthority": "Read-only SQLite paths taken from the original live fixture stores; diagnostic records restore no execution or cleanup authority",
+    "validationVariant": "The existing genuine unjoinable provider cancellation case now retains its expected uncertainty and checks the diagnostic against the native group. This is a distinct, deliberately authored fault case, not attribution of the original hosted failure.",
+    "validatedNativeOutcome": {
+      "group": "uncertain",
+      "cases": ["uncertain", "uncertain"],
+      "childProviderAttempts": ["uncertain", "uncertain"],
+      "childCleanupConfirmed": [false, false],
+      "resumeRejected": true,
+      "parentCheckpoints": 0
+    },
+    "runtimeReadyRelaxed": false,
+    "productionFixApplied": false
+  },
+  "childDeadline": {
+    "originalFailure": "entered=false instead of true at compiled delegation-review.integration.test.js:164",
+    "sourceMechanism": "The original 150 ms allocation timer starts before asynchronous host startup and can expire before the cooperative provider stream enters",
+    "hostedTimingRetained": false,
+    "correction": "Initialize one controlled Date/setTimeout clock before the real Engine/SQLite/Git fixture. Keep the original 150 ms allocation; after genuine stream entry, assert no abort at 149 ms and abort at 150 ms. Real fixture polling remains bounded at 8000 ms and these two clock tests have an explicit real 8000 ms test guard.",
+    "preserved": [
+      "entered and aborted are true in the cooperative case",
+      "child cancelled",
+      "no delivery",
+      "worktree owner released",
+      "execution lock available",
+      "original total allocation 150 ms with no restart"
+    ],
+    "startupExpiryCase": "Gate the original host.start before its native startup, expire the same 150 ms clock, then release that original call. No child provider entry occurs; the genuine task remains uncertain, retains its owner, rejects cleanup as busy, and recovery dispatches no replay or result input.",
+    "absoluteAllocationMs": 150,
+    "timeoutsIncreased": false,
+    "productionClockChanged": false
+  },
+  "observer": {
+    "originalFailure": "WORKSPACE_UNAVAILABLE instead of WORKSPACE_ROOT_CHANGED at compiled observer.test.js:325",
+    "sourceMechanism": "The active 50 ms observer can sample the missing-root gap between asynchronous rename, mkdir and symlink publication; validateRoot fails closed with WORKSPACE_UNAVAILABLE",
+    "hostedPollOrderingRetained": false,
+    "deterministicGapEvidence": "A separate actual-filesystem case removes the original root, awaits the genuine observer's WORKSPACE_UNAVAILABLE, then publishes the symlink and verifies a single terminal failure and worker stop",
+    "correction": "Prebuild the real escaping symlink privately. After the genuine initial sample, synchronously rename the original root aside and atomically publish the prepared link in the same directory before this in-process observer can run another poll.",
+    "atomicityScope": "Atomic final symlink publication and synchronization with this in-process observer; no general atomic two-rename filesystem transaction claimed",
+    "preserved": [
+      "exact WORKSPACE_ROOT_CHANGED for the published symlink",
+      "observer failed",
+      "next is terminal",
+      "worker stopped",
+      "failed Git operation propagates GIT_FAILED once"
+    ],
+    "productionPathAdmissionChanged": false
+  },
+  "retainedEvidence": {
+    "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-coding-batch-unknown-proof-gLcIjW",
+    "nativeReport": {
+      "file": "original-native-failure.json",
+      "sha256": "6a0d6bca1ebc32012973865ad2c428ad4e20ac5e2e67cce756e6320753dc673d"
+    },
+    "hostedFailureExcerpt": {
+      "file": "original-ubuntu26-failures.log",
+      "sha256": "e54319c11557a15d7b8fc3c2c32c0c9775d7fc55f9a25b5c380a29691b1e78b2"
+    },
+    "nativeDatabasesAndArtifactsKept": true,
+    "expectedUnknownEvidenceDeleted": false,
+    "reportsMode": "0600"
+  },
+  "validation": {
+    "runtime": "source through absolute local tsx loader / Node v26.9.0 / darwin arm64",
+    "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 packages/engine/src/coding-runs/batch.integration.test.ts packages/engine/src/integration/delegation-review.integration.test.ts packages/engine/src/workspace/observer.test.ts",
+    "exitCode": 0,
+    "tests": 37,
+    "pass": 37,
+    "fail": 0,
+    "skip": 0,
+    "durationMs": 38694.524584,
+    "log": "/tmp/moodcode-next-hosted-fixtures-final-source-tests.log",
+    "logSha256": "b449c1a9caa150a2d96c3d7bdee8a603a466d70a2fc4469457e573ccac6ed6a5",
+    "targetedStrictTypeScriptNoEmitExitCode": 0,
+    "sharedBuilds": 0,
+    "fullRegressionRuns": 0,
+    "compiledAndHostedQualification": "pending main-task build and corrective six-lane CI",
+    "afterSourcePins": {
+      "packages/engine/src/coding-runs/batch.integration.test.ts": "34f6367aee02993243a57c13450fe107249883082e400fcab25667f97a3a6b54",
+      "packages/engine/src/integration/delegation-review.integration.test.ts": "ec29f8419e2b4310c2fc2f311c77f02ff7601656ebe2ff64511eb87af0fef597",
+      "packages/engine/src/workspace/observer.test.ts": "2d848ce6cc2248ae112a2c39f617129fdede3f63470684ade7e343ade605a364"
+    },
+    "aggregateAcceptanceClaimed": false,
+    "allThreeOriginalHostedCausesResolved": false
+  },
+  "productionFilesChanged": 0,
+  "sharedFixtureHelpersChanged": 0,
+  "noLive": true,
+  "liveProviderRequests": 0
+}

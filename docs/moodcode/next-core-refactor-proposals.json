@@ -1,0 +1,734 @@
+{
+  "schemaVersion": 1,
+  "status": "Provisional semantic proposals; no production refactor or acceptance claimed.",
+  "source": {
+    "head": "72e31aeb35234555031a5c6ebf0a4b4d6646a40c",
+    "integrationPending": [
+      "Windows owned process implementation",
+      "Desktop isolated feature integration"
+    ],
+    "files": {
+      "engine/src/index.ts": {
+        "path": "packages/engine/src/index.ts",
+        "sha256": "a83d2a3e385e20862adf3882cc67660f0fce9a02d0714f2c8d0c61c9d4d9fa9a"
+      },
+      "engine-harness/src/index.ts": {
+        "path": "apps/engine-harness/src/index.ts",
+        "sha256": "f85cf5ed37977987ac8e96e4075be6cb47a7d9885c83049203b0adf600cb5941"
+      },
+      "core.ts": {
+        "path": "apps/desktop/src/worker/core.ts",
+        "sha256": "e960144ccba6818f8bd3945101f964b70430948f17c58101e97fde87da0a0a2e"
+      },
+      "engine.ts": {
+        "path": "packages/engine/src/engine.ts",
+        "sha256": "1a3b5964774a6be4dccc03b06f929ec519f9724587a9068556fb76d172dbefea"
+      },
+      "electron-engine-child.cjs": {
+        "path": "scripts/electron-engine-child.cjs",
+        "sha256": "87c65cc09a4e0eb4b976bc8890f797050bf212ca92d8830629c8c97c8ba31cb7"
+      },
+      "protocol.ts": {
+        "path": "apps/engine-harness/src/protocol.ts",
+        "sha256": "e510e4d4a1dfb26a952cccf53f44e9f5c217fb0ec5a502ab027d84a74aa85e1d"
+      },
+      "input-media-review.integration.test.ts": {
+        "path": "packages/engine/src/integration/input-media-review.integration.test.ts",
+        "sha256": "871d8a10e2b51cd128e5f06a7d25cad6627323fadede88029c2f6ac4c042ab9d"
+      },
+      "document-input.integration.test.ts": {
+        "path": "packages/engine/src/integration/document-input.integration.test.ts",
+        "sha256": "5f1cd78db16347a212831792f76111268c7e2eeb1f8749f9392cc16d6fc3d5fd"
+      },
+      "segment-boundaries.integration.test.ts": {
+        "path": "packages/engine/src/media/segment-boundaries.integration.test.ts",
+        "sha256": "a82a5cef011e30ea3e84c4d34f6f8b035fd3d5c86dc2675a958104e832559009"
+      },
+      "model-tools.integration.test.ts": {
+        "path": "packages/engine/src/teams/model-tools.integration.test.ts",
+        "sha256": "76791d479d8c9c5ec74e436b34d234d68f4403b40752e044542bc719f2905c59"
+      },
+      "resident-boundaries.integration.test.ts": {
+        "path": "packages/engine/src/teams/resident-boundaries.integration.test.ts",
+        "sha256": "2f5dfef74c68651ae049b69dc989df84f872381cd5c2f54dab1af37608f6b713"
+      },
+      "batch-boundaries.integration.test.ts": {
+        "path": "packages/engine/src/coding-runs/batch-boundaries.integration.test.ts",
+        "sha256": "39832e4379b542b3b1067f0e38bdaf040425b4c08cc3223ce9d8caf0570d3d5e"
+      },
+      "command-lifetime-boundaries.integration.test.ts": {
+        "path": "packages/engine/src/jobs/command-lifetime-boundaries.integration.test.ts",
+        "sha256": "45b29e06327fdb4a29209baa85faab14331b1631a0b42be52e945069bbedc780"
+      },
+      "host-command-delivery-producer.ts": {
+        "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+        "sha256": "6de0392feb24c2ac598b079bcb74ba5501bdb26ed936c17a2e440ba40b7feb2f"
+      },
+      "owned-command-producer.ts": {
+        "path": "packages/engine/src/jobs/owned-command-producer.ts",
+        "sha256": "0dc8bc7cbf6cb6a459dfb1f8fc77f3e52492e8e918a0d8a9a18bebdeb5fdd186"
+      },
+      "runner/index.ts": {
+        "path": "packages/engine/src/runner/index.ts",
+        "sha256": "67de9adbdeec71994224429d0b4515bbb1934927a7ee021dd730b568cf1203e3"
+      },
+      "input-scheduler.ts": {
+        "path": "packages/engine/src/runner/input-scheduler.ts",
+        "sha256": "5df073f59c5b96f2b167c2a68a1d90bde818ad21435caf6cebbe6144ee51ff78"
+      },
+      "host-command-delivery-boundaries.integration.test.ts": {
+        "path": "packages/engine/src/jobs/host-command-delivery-boundaries.integration.test.ts",
+        "sha256": "2d0b013b5816786e8254cecbd22615acf13a22b371137ee03d1a5d87c5a79dfc"
+      },
+      "owned-command-dispatch-boundaries.integration.test.ts": {
+        "path": "packages/engine/src/jobs/owned-command-dispatch-boundaries.integration.test.ts",
+        "sha256": "2431bea06dc83de50a8ede40437ea12f043858fda964e82b2cd9c20298beb74b"
+      },
+      "owned-command-delivery-records.test.ts": {
+        "path": "packages/engine/src/jobs/owned-command-delivery-records.test.ts",
+        "sha256": "f17a9ca8dfbe6d2f8b3d8d539cc1809241e59f22c06c1b4707e93a139138d273"
+      },
+      "src/validation.ts": {
+        "path": "packages/contracts/src/validation.ts",
+        "sha256": "37a239e354575bd53ef9d0658a81139a3b3a656052d1165dff910f45cc4cc636"
+      },
+      "coordinator.test.ts": {
+        "path": "packages/engine/src/runner/coordinator.test.ts",
+        "sha256": "b109ea5decf42ad1121a0ff949d0bc1dd1453e7067508b312cf89d0fdb7e0af6"
+      },
+      "host-command.integration.test.ts": {
+        "path": "packages/engine/src/jobs/host-command.integration.test.ts",
+        "sha256": "c33ee1b9049a334693b50e5fa04bbb11f5b877b50626b1d6e7612976562858c0"
+      },
+      "provider-cleanup-proof.integration.test.ts": {
+        "path": "packages/engine/src/integration/provider-cleanup-proof.integration.test.ts",
+        "sha256": "a83481dd2045b43fdf23260ba8599151b90f1ba599c737dac9c157bd9e39cda8"
+      },
+      "jobs/validation.ts": {
+        "path": "packages/engine/src/jobs/validation.ts",
+        "sha256": "f12569098198a15fdcdaa11ef19f5402ee8af18e69aa40473d2282f68fde9972"
+      },
+      "lifecycle/validation.ts": {
+        "path": "packages/engine/src/lifecycle/validation.ts",
+        "sha256": "5bb60f0d5d03940bb93f706261da62656d9f35a4d8d6725f834e67b2fa5433fa"
+      },
+      "agent-backends/validation.ts": {
+        "path": "packages/engine/src/agent-backends/validation.ts",
+        "sha256": "841f96331a1bd7380a595441e407e3e52b20257fff6723c273d3093e6b27f7fd"
+      },
+      "knowledge/validation.ts": {
+        "path": "packages/engine/src/knowledge/validation.ts",
+        "sha256": "4ebb8ebf2bdd7e844893fe911e9ad6be249cf58c970bfc0317b05e2080b403a8"
+      },
+      "output.test.ts": {
+        "path": "packages/engine/src/jobs/output.test.ts",
+        "sha256": "fabea4b02f3bbecbb237eb5da540663e13566820084d2e121fbdd611cc1df3ef"
+      },
+      "lifecycle.test.ts": {
+        "path": "packages/engine/src/lifecycle/lifecycle.test.ts",
+        "sha256": "cc9485a0abddc4f346a51c9b8a2217277c6b411b5dcd497216931c12f946de36"
+      },
+      "validation.test.ts": {
+        "path": "packages/engine/src/agent-backends/validation.test.ts",
+        "sha256": "214f6b26533b14ca2117834f971524d8a310ac097ca3bd5f29039877d473d609"
+      },
+      "host-command-result.ts": {
+        "path": "packages/engine/src/jobs/host-command-result.ts",
+        "sha256": "9861c86aa73460fe684ffec5e0e8a93aafbcd6b845320ecd85934d449c5b6370"
+      },
+      "owned-command-result.ts": {
+        "path": "packages/engine/src/jobs/owned-command-result.ts",
+        "sha256": "3ca098d5586de99d26b47413216c7b2ef4f86afeb8587bb114c68937e400765d"
+      },
+      "coding-runs/validation.ts": {
+        "path": "packages/engine/src/coding-runs/validation.ts",
+        "sha256": "af6ed50902d43c6ad2f1175849343ede99dd97fc86c7c0c35aba955a9903a34a"
+      }
+    },
+    "referenceFormat": "References use file-alias:one-based-line and a verified source anchor; aliases resolve through source.files."
+  },
+  "measurement": {
+    "method": "Fixed nine Git-tracked owned production files parsed with installed TypeScript7 native inventory worker in a closed virtual filesystem. No engine execution, type resolution, account/config/network reads or build. Physical lines include blanks/comments via scope.mjs. Function complexity is 1+owned syntax decisions excluding nested functions. Exact body AST fingerprints retain identifiers/operators/literals. Metrics prioritize manual review and do not prove unused behavior.",
+    "methodDocument": "docs/moodcode/refactor-inventory-method.md",
+    "typescript": "7.0.2",
+    "runtime": {
+      "node": "v26.9.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "sourceFiles": 9,
+    "measured": 9,
+    "failed": 0,
+    "unsupported": 0,
+    "changed": 0,
+    "physicalLines": 5438,
+    "bytes": 310747,
+    "bounds": {
+      "selectedFiles": 9,
+      "workerDeadlineMs": 30000,
+      "workerOutputBytes": 20971520
+    },
+    "files": [
+      {
+        "file": "engine.ts",
+        "physicalLines": 2815,
+        "bytes": 227056,
+        "status": "measured"
+      },
+      {
+        "file": "host-command-delivery-producer.ts",
+        "physicalLines": 310,
+        "bytes": 10738,
+        "status": "measured"
+      },
+      {
+        "file": "owned-command-producer.ts",
+        "physicalLines": 311,
+        "bytes": 10810,
+        "status": "measured"
+      },
+      {
+        "file": "host-command-result.ts",
+        "physicalLines": 274,
+        "bytes": 7833,
+        "status": "measured"
+      },
+      {
+        "file": "owned-command-result.ts",
+        "physicalLines": 160,
+        "bytes": 5357,
+        "status": "measured"
+      },
+      {
+        "file": "jobs/validation.ts",
+        "physicalLines": 538,
+        "bytes": 16429,
+        "status": "measured"
+      },
+      {
+        "file": "agent-backends/validation.ts",
+        "physicalLines": 376,
+        "bytes": 12430,
+        "status": "measured"
+      },
+      {
+        "file": "lifecycle/validation.ts",
+        "physicalLines": 457,
+        "bytes": 13916,
+        "status": "measured"
+      },
+      {
+        "file": "coding-runs/validation.ts",
+        "physicalLines": 197,
+        "bytes": 6178,
+        "status": "measured"
+      }
+    ],
+    "constructor": {
+      "file": "engine.ts",
+      "name": "constructor",
+      "start": 543,
+      "end": 1468,
+      "lines": 926,
+      "complexity": 220
+    },
+    "dispatch": [
+      {
+        "file": "engine.ts",
+        "name": "dispatch",
+        "start": 1542,
+        "end": 1650,
+        "lines": 109,
+        "complexity": 45
+      },
+      {
+        "file": "engine.ts",
+        "name": "dispatchSession",
+        "start": 1471,
+        "end": 1540,
+        "lines": 70,
+        "complexity": 45
+      }
+    ],
+    "compressedValidation": {
+      "file": "engine.ts",
+      "name": "readMediaOutput",
+      "start": 2767,
+      "end": 2771,
+      "lines": 5,
+      "complexity": 23
+    },
+    "optionalBooleanGuards": {
+      "count": 28,
+      "flags": [
+        "lifecycleContinuation",
+        "verificationTools",
+        "knowledgeGeneration",
+        "knowledgePublication",
+        "knowledgeFilePublication",
+        "knowledgeImportRecovery",
+        "proposals",
+        "teams",
+        "teamModelTools",
+        "commandJobModelTools",
+        "residentTeams",
+        "workflows",
+        "codingBatches",
+        "schedules",
+        "agentBackends",
+        "agentBackendClientEffects",
+        "jobs",
+        "codeMode",
+        "effectBatches",
+        "conversationForks",
+        "proposalApply",
+        "diagnosticObservations",
+        "osSandbox",
+        "commandLifetimes",
+        "hostCommands",
+        "allowUnknownMediaTokenCost",
+        "allowUnknownDocumentTokenCost",
+        "repositoryContextTools"
+      ]
+    },
+    "exactDuplicates": [
+      {
+        "sha256": "8a054e2caf53219c1bab95f0e24847181352aa99a3cacc352fc546105765eb0a",
+        "occurrences": [
+          {
+            "file": "host-command-delivery-producer.ts",
+            "name": "acceptedRequest",
+            "start": 37,
+            "end": 47,
+            "bodyLines": 11
+          },
+          {
+            "file": "owned-command-producer.ts",
+            "name": "acceptedRequest",
+            "start": 38,
+            "end": 48,
+            "bodyLines": 11
+          }
+        ]
+      },
+      {
+        "sha256": "422a87646666f417d029acc1a3710b0cd3428f4a42fe734d66dae704387b57a6",
+        "occurrences": [
+          {
+            "file": "host-command-delivery-producer.ts",
+            "name": "issue",
+            "start": 75,
+            "end": 82,
+            "bodyLines": 8
+          },
+          {
+            "file": "owned-command-producer.ts",
+            "name": "issue",
+            "start": 76,
+            "end": 83,
+            "bodyLines": 8
+          }
+        ]
+      },
+      {
+        "sha256": "cf61a9854b98fbe489ca74932fb416e1fb8a66371de23039500cb904cd19b263",
+        "occurrences": [
+          {
+            "file": "host-command-delivery-producer.ts",
+            "name": "original",
+            "start": 83,
+            "end": 95,
+            "bodyLines": 13
+          },
+          {
+            "file": "owned-command-producer.ts",
+            "name": "original",
+            "start": 84,
+            "end": 96,
+            "bodyLines": 13
+          }
+        ]
+      },
+      {
+        "sha256": "75bc90a76f785f7c5cc79b3fd16a52f534e4bdb3493a8deae6bb337bc401262f",
+        "occurrences": [
+          {
+            "file": "host-command-delivery-producer.ts",
+            "name": "readAccepted",
+            "start": 230,
+            "end": 243,
+            "bodyLines": 14
+          },
+          {
+            "file": "owned-command-producer.ts",
+            "name": "readAccepted",
+            "start": 231,
+            "end": 244,
+            "bodyLines": 14
+          }
+        ]
+      },
+      {
+        "sha256": "e13dc1f5e48f2793c65b0c4961bc0de17c9f1ab65255460adf40b492c13f747d",
+        "occurrences": [
+          {
+            "file": "host-command-delivery-producer.ts",
+            "name": "beforeProviderDispatch",
+            "start": 272,
+            "end": 288,
+            "bodyLines": 17
+          },
+          {
+            "file": "owned-command-producer.ts",
+            "name": "beforeProviderDispatch",
+            "start": 273,
+            "end": 289,
+            "bodyLines": 17
+          }
+        ]
+      },
+      {
+        "sha256": "7f6a57d6cfed2ebbc211300b663ba75a77244018c77f288b77c35c817ed9e005",
+        "occurrences": [
+          {
+            "file": "host-command-delivery-producer.ts",
+            "name": "inputPort",
+            "start": 289,
+            "end": 297,
+            "bodyLines": 9
+          },
+          {
+            "file": "owned-command-producer.ts",
+            "name": "inputPort",
+            "start": 290,
+            "end": 298,
+            "bodyLines": 9
+          }
+        ]
+      },
+      {
+        "sha256": "4f6898d636400a2a8e0ba3d7fc8d6844382a6655b8959dd2385e8f5d09e1e58e",
+        "occurrences": [
+          {
+            "file": "host-command-delivery-producer.ts",
+            "name": "release",
+            "start": 298,
+            "end": 304,
+            "bodyLines": 7
+          },
+          {
+            "file": "owned-command-producer.ts",
+            "name": "release",
+            "start": 299,
+            "end": 305,
+            "bodyLines": 7
+          }
+        ]
+      }
+    ],
+    "fullLocalAst": {
+      "path": "/tmp/moodcode-next-core-refactor-scoped-ast.json",
+      "sha256": "b635fe0c7b6ba7e43e734a37384956c90ab00d476addc92e6820f528d64e1900"
+    },
+    "qualification": "9/9 scoped files measured without read/parse/unsupported/change failures. This is not the final repository inventory: final RF-01 source capture and RF-02 ownership/caller review follow feature integration."
+  },
+  "preservation": [
+    "Keep public Engine/API/schema/event/type/export names and response behavior.",
+    "Keep DB schema/table/archive/CAS/transaction/receipt identity.",
+    "Keep approval/provenance ownership, unknown cleanup and no automatic source/provider/command replay.",
+    "Keep cancellation/byte budgets, explicit child capabilities, native process ownership and scenario distinctions."
+  ],
+  "candidates": [
+    {
+      "id": "CORE-01",
+      "priority": 1,
+      "unit": "One fresh-input media validation sequence for v1/v2",
+      "evidence": [
+        "engine.ts:1485 if ((input.attachments?.length",
+        "engine.ts:1594 if ((input.attachments?.length",
+        "engine.ts:957 this.validateImageInput = async",
+        "engine.ts:963 this.validateDocumentInput = async",
+        "engine.ts:969 this.validateSegmentInput=async"
+      ],
+      "actions": {
+        "fix": "Call one private typed validator inside each current fresh-receipt condition.",
+        "delete": "Duplicate budget -> segment -> document -> image conditional sequences.",
+        "add": "A normalized media input view with sessionId/config/attachments/documents/media; one validation sequence.",
+        "retain": "Distinct schema normalizers, profiles.apply, lookupInputReceipt/lookupRunReceipt, scheduler.accept/submitLegacy, and result/error boundaries."
+      },
+      "callers": [
+        "engine/src/index.ts:1 export { createEngine",
+        "protocol.ts:245 command.schemaVersion === 2 ? engine.dispatchSession",
+        "engine-harness/src/index.ts:148 command.type !== 'input.accept'",
+        "core.ts:195 case 'command':"
+      ],
+      "boundaries": [
+        "Leave receipt lookup inside the current media-present short circuit. A durable duplicate must bypass deleted source resolution.",
+        "Preserve validation order, hostResources cancellation and existing resolver closing checks. No Input/Run/event/provider effect before validation succeeds.",
+        "Keep unknown cost and existing media accounting; do not add new policy during extraction."
+      ],
+      "tests": [
+        "input-media-review.integration.test.ts:59 exact v1/v2 admission retry returns durable receipt after blob deletion",
+        "input-media-review.integration.test.ts:116 closing during asynchronous image admission rejects",
+        "document-input.integration.test.ts:179 actual combined image/document input keeps exact independent refs",
+        "document-input.integration.test.ts:172 cancelled and closed imports never admit an input",
+        "segment-boundaries.integration.test.ts:31 actual pending input source deletion at model lifecycle boundary",
+        "segment-boundaries.integration.test.ts:410 host model media capability evidence and raw command media proxy"
+      ],
+      "addTests": "Only for uncovered cases: one authored mixed asset input per schema proving validation order and a duplicate after source deletion with zero extra provider request. Retain cancellation/tamper scenario distinctions."
+    },
+    {
+      "id": "CORE-02",
+      "priority": 1,
+      "unit": "Track host import lifetime once",
+      "evidence": [
+        {
+          "file": "engine.ts",
+          "name": "importImage",
+          "start": 2749,
+          "end": 2755,
+          "lines": 7,
+          "complexity": 3
+        },
+        {
+          "file": "engine.ts",
+          "name": "importDocument",
+          "start": 2758,
+          "end": 2764,
+          "lines": 7,
+          "complexity": 3
+        },
+        {
+          "file": "engine.ts",
+          "name": "importMedia",
+          "start": 2774,
+          "end": 2777,
+          "lines": 4,
+          "complexity": 3
+        }
+      ],
+      "actions": {
+        "fix": "Use one private import-operation wrapper for closing admission, caller/lifetime signal union and pendingImages tracking.",
+        "delete": "Three repeated add/delete-on-success-and-failure branches and signal-union expressions.",
+        "add": "A typed factory-based tracker returning the concrete original Promise.",
+        "retain": "Individual image/PDF/segment stores, signatures, CAS/byte/index policy, error codes and close join."
+      },
+      "callers": [
+        "engine/src/index.ts:1 export { createEngine",
+        "input-media-review.integration.test.ts:103 pending = before.engine.importImage",
+        "document-input.integration.test.ts:80 importDocument('session', bytes)",
+        "segment-boundaries.integration.test.ts:47 ref = await f.engine.importMedia"
+      ],
+      "boundaries": [
+        "Do not defer the factory into a microtask or convert synchronous import exceptions. Register immediately and return the original operation Promise.",
+        "Keep immediate closed rejection, both settlement removal handlers and AbortSignal.any order.",
+        "Preserve durable reference after CAS if close is triggered by the write; join operations before store.closeAsync."
+      ],
+      "tests": [
+        "input-media-review.integration.test.ts:101 close joins an in-flight import before store shutdown",
+        "document-input.integration.test.ts:172 cancelled and closed imports never admit an input",
+        "document-input.integration.test.ts:152 document archive restores index and exact bytes",
+        "segment-boundaries.integration.test.ts:440 actual 128-session media index capacity rejects new import"
+      ],
+      "addTests": "Controlled actual imports held before/after native CAS for each asset type, proving close join and no late index write. Reuse native CAS fixtures instead of elapsed-time delays."
+    },
+    {
+      "id": "CORE-03",
+      "priority": 2,
+      "unit": "Constructor optional boolean assertions",
+      "evidence": [
+        "engine.ts:556 options.lifecycleContinuation !== undefined",
+        "engine.ts:561 options.verificationTools !== undefined",
+        "engine.ts:624 options.commandLifetimes !== undefined",
+        "engine.ts:627 options.hostCommands !== undefined"
+      ],
+      "actions": {
+        "fix": "Replace 28 single-property optional boolean guards with a private assertion receiving options/key and the current code/message at the same original position.",
+        "delete": "Repeated undefined/type test bodies.",
+        "add": "A small configuration assertion; no global copy or normalization of host option objects.",
+        "retain": "Enabled-field assignments, current property read behavior, opt-ins, trusted object identities and interleaved dependency gates."
+      },
+      "callers": [
+        "engine/src/index.ts:1 export { createEngine",
+        "engine-harness/src/index.ts:196 const created: HarnessEngine = createEngine",
+        "core.ts:163 this.#options.createEngine ?? createEngine",
+        "engine.ts:831 return new MoodcodeEngine(value);",
+        "electron-engine-child.cjs:225 step('engine.create'"
+      ],
+      "boundaries": [
+        "Keep guards before directory/SQLite effects and preserve first-error order for conflicting invalid options.",
+        "Keep resident-team, coding-batch, lifetime, code-mode, sandbox and custom-tool dependencies and rejection codes.",
+        "EngineChildren still supplies explicit inherited options. Do not propagate new feature capabilities to children."
+      ],
+      "tests": [
+        "model-tools.integration.test.ts:121 default-off team model tools stay outside",
+        "resident-boundaries.integration.test.ts:142 actual Root close joins a resident lifetime",
+        "batch-boundaries.integration.test.ts:152 accepted selected result survives default-off restart",
+        "command-lifetime-boundaries.integration.test.ts:189 genuine completed lifetime archive/import remains paused"
+      ],
+      "addTests": "Matrix undefined/false/true/invalid for existing option guards with exact code/message, selected conflicting dependencies and child default-off inheritance. Newly rejecting validations require separate review."
+    },
+    {
+      "id": "CORE-04",
+      "priority": 2,
+      "unit": "Pure settled-command delivery projection and Run binding guard",
+      "evidence": [
+        {
+          "file": "host-command-delivery-producer.ts",
+          "name": "acceptedRequest",
+          "start": 37,
+          "end": 47,
+          "lines": 11,
+          "complexity": 3
+        },
+        {
+          "file": "owned-command-producer.ts",
+          "name": "acceptedRequest",
+          "start": 38,
+          "end": 48,
+          "lines": 11,
+          "complexity": 3
+        },
+        {
+          "file": "host-command-delivery-producer.ts",
+          "name": "beforeProviderDispatch",
+          "start": 272,
+          "end": 288,
+          "lines": 17,
+          "complexity": 11
+        },
+        {
+          "file": "owned-command-producer.ts",
+          "name": "beforeProviderDispatch",
+          "start": 273,
+          "end": 289,
+          "lines": 17,
+          "complexity": 11
+        }
+      ],
+      "actions": {
+        "fix": "Share acceptedRequest projection and only the promoted-input/Run binding predicate.",
+        "delete": "Matching request projection bodies and promoted-Run field comparison sequences.",
+        "add": "An internal jobs helper using exact current fields/hash/error behavior.",
+        "retain": "Separate classes, WeakMap/retained Original owners, source capture/release, requestId prefixes, settled.jobSha256 versus settled.sha256, formatter/proof validation, DB tables and native accepted-history lookup."
+      },
+      "callers": [
+        "host-command-delivery-producer.ts:215 knowledgeHash(acceptedRequest(stored))",
+        "host-command-delivery-producer.ts:239 knowledgeHash(acceptedRequest(input))",
+        "owned-command-producer.ts:216 knowledgeHash(acceptedRequest(stored))",
+        "owned-command-producer.ts:240 knowledgeHash(acceptedRequest(input))",
+        "engine.ts:1147 this.hostCommandDeliveryProducer?.beforeProviderDispatch(run)",
+        "engine.ts:1151 this.ownedCommandProducer?.beforeProviderDispatch(run)",
+        "engine.ts:1379 new InputScheduler({",
+        "runner/index.ts:1678 this.options.beforeProviderDispatch?.(run)",
+        "runner/index.ts:1968 this.options.beforeProviderDispatch?.(owner.run)",
+        "input-scheduler.ts:119 this.options.beforePromotion?.(input)"
+      ],
+      "boundaries": [
+        "First fetch current input and lane-specific beforePromotion receipt; no receipt means an unrelated input returns without rejection. Preserve Engine callback order.",
+        "Keep exact optional attachments/documents projection and hash. Do not widen to new fields during this refactor.",
+        "Original ownership, binding/cleanup checks, acceptAtomic transaction and publishAfterCommit wake remain with existing owners.",
+        "Normal restart can use accepted native history without recreating a source Original; paused-import/default-off/uncertain sources cannot replay or acquire authority."
+      ],
+      "tests": [
+        "host-command-delivery-boundaries.integration.test.ts:101 explicit pending target profile drift and default-off producer",
+        "host-command-delivery-boundaries.integration.test.ts:155 real pending-input backpressure rolls back",
+        "host-command-delivery-boundaries.integration.test.ts:189 genuine native host settlement receipt failure retains uncertainty",
+        "owned-command-dispatch-boundaries.integration.test.ts:55 actual owned-result dispatch rejects changed",
+        "owned-command-delivery-records.test.ts:125 native owned result and its exact real input commit once",
+        "owned-command-delivery-records.test.ts:229 real SQL receipt, link and admission faults roll back"
+      ],
+      "addTests": "Retain native host/owned dispatch, rollback, restart/archive and crash tests. Add cross-lane copied Original coverage only if absent; use changed real identities and zero provider entry, not implementation-mirroring predicates."
+    }
+  ],
+  "retain": [
+    {
+      "unit": "Public dispatch/result boundaries",
+      "evidence": [
+        {
+          "file": "engine.ts",
+          "name": "dispatch",
+          "start": 1542,
+          "end": 1650,
+          "lines": 109,
+          "complexity": 45
+        },
+        {
+          "file": "engine.ts",
+          "name": "dispatchSession",
+          "start": 1471,
+          "end": 1540,
+          "lines": 70,
+          "complexity": 45
+        },
+        "src/validation.ts:599 export function validateSessionCommand"
+      ],
+      "reason": "v1/v2 command-ID recovery filters, schema versions and INTERNAL_ERROR messages differ. Keep switches and exported methods; string dispatch and unknown external package consumers prevent static unused deletion."
+    },
+    {
+      "unit": "Close phases and constructor rollback",
+      "evidence": [
+        {
+          "file": "engine.ts",
+          "name": "close",
+          "start": 2779,
+          "end": 2812,
+          "lines": 34,
+          "complexity": 2
+        },
+        "engine.ts:2787 this.hostResources.abort();",
+        "engine.ts:2798 Both calls synchronously stop admissions",
+        "engine.ts:2804 await this.executionObserver.close();",
+        "engine.ts:1465 finally { this.store.close(); }"
+      ],
+      "reason": "closePromise is installed before abort for reentrancy; synchronous admission stops precede parallel joins; the first allSettled rejection and nested release order are observable. A generic lifecycle registry needs a complete owner/phase table and failure tests; no proven leak is asserted. Preserve current observer/journal/producer/store finalization rather than merely moving the giant line.",
+      "tests": [
+        "input-media-review.integration.test.ts:101 close joins an in-flight import before store shutdown",
+        "coordinator.test.ts:1368 close aborts a started lease synchronously",
+        "host-command.integration.test.ts:296 explicit host cancel and Engine.close abort",
+        "resident-boundaries.integration.test.ts:142 actual Root close joins a resident lifetime"
+      ]
+    },
+    {
+      "unit": "Provider iterator/source ownership",
+      "evidence": [
+        "engine.ts:330 function withInputMedia",
+        "engine.ts:386 Forward the real cleanup result."
+      ],
+      "reason": "Repeated reference collection could later use a pure helper, but return/done must remain the real inner iterator outcome. Keep the cleanup rationale comment and distinct image/PDF/audio source, support, unknown-cost, tamper and cancellation scenarios.",
+      "tests": [
+        "provider-cleanup-proof.integration.test.ts:57 test(",
+        "segment-boundaries.integration.test.ts:145 underlying audio response cancellation that cannot join"
+      ]
+    },
+    {
+      "unit": "Bounded JSON domains",
+      "evidence": [
+        "jobs/validation.ts:23 export function jobJson",
+        "lifecycle/validation.ts:63 export function boundedLifecycleJson",
+        "agent-backends/validation.ts:38 export function agentBackendJson",
+        "knowledge/validation.ts:49 export function immutableKnowledgeJson"
+      ],
+      "reason": "jobJson uses configurable cumulative encoded bytes, up to 1,048,576 nodes and JOB_LIMITS depth; lifecycle caps 512 nodes/depth8; ACP maps immutableKnowledgeJson (4,096 nodes/depth12 and fixed knowledge caps) to backend errors. Similar descriptor-safe walks are not interchangeable. Retain Unicode/dense-array/prototype/freezing/error policies until an explicit policy-parametric proof.",
+      "tests": [
+        "output.test.ts:110 ordinary JSON validation rejects getters",
+        "lifecycle.test.ts:204 non-JSON, getters, excessive depth/member counts",
+        "validation.test.ts:306 getters, proxies, serializers, sparse arrays and cycles"
+      ]
+    },
+    {
+      "unit": "Dynamic tool registration and source approval",
+      "evidence": [
+        "engine.ts:1118 this.toolRuntime.register('engine', tool",
+        "engine.ts:1122 captureRegistration('engine', 'run_command'",
+        "engine.ts:1110 name:'execute_code'",
+        "engine.ts:893 new CommandJobModelHost"
+      ],
+      "reason": "Tool names, exactApproval, fingerprint/preview revalidation and captured producer objects are dynamic consumers. Public forwarding APIs and proof ports remain reachable with zero static calls. Retain approval/current-resource checks and short ownership rationale comments."
+    }
+  ],
+  "validation": {
+    "kind": "Read-only source/AST audit; no proposed implementation or tests/build executed.",
+    "next": "Root chooses units after features integrate, freezes pins, implements one unit and verifies listed native/boundary tests plus public contract typecheck. Recapture inventory from integrated source."
+  }
+}

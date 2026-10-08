@@ -71,7 +71,7 @@
         "N-01"
       ],
       "agent": "/root/persistent_soak",
-      "status": "compiled-quick-verified-long-pending",
+      "status": "actual-thirty-minute-run-in-progress",
       "requires": [
         "same-engine-accumulating-history",
         "actual-duration-and-resource-samples",
@@ -147,6 +147,31 @@
     {
       "sha": "ad8a02fa05efc3b9b084f4ad1c0d60676021d608",
       "kind": "primary-db-compatibility-guard",
+      "mainPushed": true
+    },
+    {
+      "sha": "78e37b1d54952d173779865b6fb9d2d04fac828f",
+      "kind": "native-followup-tooling",
+      "mainPushed": true
+    },
+    {
+      "sha": "e6cd1b6",
+      "kind": "provider-implementation-integration",
+      "mainPushed": true
+    },
+    {
+      "sha": "6036880",
+      "kind": "provider-evidence-integration",
+      "mainPushed": true
+    },
+    {
+      "sha": "3ca8c156179d93202b8cfa94a5bad29bb652d421",
+      "kind": "host-pid-ready-and-provider-cli-ci",
+      "mainPushed": true
+    },
+    {
+      "sha": "72e31aeb35234555031a5c6ebf0a4b4d6646a40c",
+      "kind": "source-cli-loader-correction",
       "mainPushed": true
     }
   ],
@@ -338,6 +363,56 @@
       "originalSha256": "3ab0b42e03bd5961ecac5fada2ae98a747962e3a2d345644e6cecde44e575bf4",
       "longDurationVerified": false,
       "historicalPtyCauseResolved": false
+    },
+    {
+      "key": "provider-host-compiled-integrated",
+      "tests": {
+        "total": 461,
+        "passed": 461,
+        "failed": 0,
+        "skipped": 0
+      },
+      "scope": "compiled provider suites and host commands; broader document/media suites are separate"
+    },
+    {
+      "key": "integrated-hardening-cli-source-loader",
+      "tests": {
+        "total": 99,
+        "passed": 99,
+        "failed": 0,
+        "skipped": 0
+      },
+      "logPath": "/tmp/moodcode-next-integrated-cli-fixed.log",
+      "logSha256": "60321349d9706455d4b16e08a81a71582d39dbd42248e113c42bdd7e4a822615",
+      "earlierFailure": "Root CI test plan omitted absolute tsx loader; original /tmp/moodcode-next-integrated-cli.log retained",
+      "hostedPending": true
+    },
+    {
+      "key": "native-fixture-corrective-compiled",
+      "tests": {
+        "total": 83,
+        "passed": 83,
+        "failed": 0,
+        "skipped": 0
+      },
+      "logPath": "/tmp/moodcode-next-final-fixtures-compiled.log",
+      "logSha256": "a6c93e9a879e4516474bdcb5b4e2e38d7cb8447c4ea795ad626534c06d770091",
+      "historicalGitAndBatchCauses": "unknown; original source/outcomes and native retention are preserved",
+      "wholeHostedPending": true
+    },
+    {
+      "key": "persistent-30min-frozen",
+      "status": "running",
+      "sourceCommit": "78e37b1d54952d173779865b6fb9d2d04fac828f",
+      "worktree": "/Users/yakisoba0728/.codex/worktrees/next-persistent-frozen/Moodcode",
+      "durationMs": 1800000,
+      "maxCycles": 600,
+      "payloadBytes": 256,
+      "maxSamples": 128,
+      "seed": 20261009,
+      "noLive": true,
+      "reportPath": "/tmp/moodcode-next-persistent-30min.json",
+      "longDurationVerified": false
     }
   ],
   "goalTracking": {
