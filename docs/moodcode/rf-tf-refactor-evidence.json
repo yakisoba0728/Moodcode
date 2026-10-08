@@ -1,0 +1,1365 @@
+{
+  "schemaVersion": 1,
+  "kind": "rf-tf-02-03-04-05-09-focused-refactor-acceptance",
+  "recordedAt": "2026-10-08T23:13:42.779638+00:00",
+  "baseRootHead": "d0e5b98217aaa8a36e4c95bf22c9ba986f46cb6b",
+  "branch": "codex/test-evidence-refactors",
+  "worktree": "/Users/yakisoba0728/.codex/worktrees/test-evidence-refactors/Moodcode",
+  "status": "All authorized finite fixture units implemented and focused source/compiled/native qualification complete; Root aggregate regression and hosted/current long qualification remain Root-owned.",
+  "implementationCommitOrder": [
+    "bf9a1f91d942b903796eec7e960644002259ef3b",
+    "df71b7d36a727d969d6fa080d16d621967792172",
+    "5d04fb74b12bd52c1d2b83bff95b4be20f48a0e3"
+  ],
+  "unitEvidence": [
+    {
+      "path": "docs/moodcode/rf-tf-02-evidence.json",
+      "bytes": 33913,
+      "sha256": "f285c1a8335e438635d6e9807be4bcbad593a96720e74694aa3ad9aa7cec4000"
+    },
+    {
+      "path": "docs/moodcode/rf-tf-03-04-evidence.json",
+      "bytes": 29478,
+      "sha256": "e5385a04627c838d6bcaecfd63d730dfbe09d35f8839f29e52fec55b83a4104a"
+    },
+    {
+      "path": "docs/moodcode/rf-tf-05-09-evidence.json",
+      "bytes": 134892,
+      "sha256": "b045fc8667882c012535c766684f8ef64ab20b881d6f80a2943004f258956690"
+    }
+  ],
+  "baseline": [
+    {
+      "group": "02",
+      "exitCode": 0,
+      "counts": {
+        "tests": 56,
+        "pass": 56,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 127979.715417
+      },
+      "log": {
+        "path": "artifacts/rf-tf-refactor/baseline-02-source.log",
+        "bytes": 8817,
+        "sha256": "4609e91b6031c18648146ae4a3018b05b853a052b8ee468660ac508d8822ca32"
+      }
+    },
+    {
+      "group": "03-04",
+      "exitCode": 0,
+      "counts": {
+        "tests": 84,
+        "pass": 84,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 48452.454
+      },
+      "log": {
+        "path": "artifacts/rf-tf-refactor/baseline-03-04-source.log",
+        "bytes": 10513,
+        "sha256": "45f5425377d14dce6ee41ca7f8d9e660e928352d4a1141162ac87340e6cb14cc"
+      }
+    },
+    {
+      "group": "05-09",
+      "exitCode": 0,
+      "counts": {
+        "tests": 81,
+        "pass": 81,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 110774.454625
+      },
+      "log": {
+        "path": "artifacts/rf-tf-refactor/baseline-05-09-source.log",
+        "bytes": 10058,
+        "sha256": "cca2d56b98601c595185201a24339dcfdb7b0b9a809376a80c007203c6184edd"
+      }
+    }
+  ],
+  "finalFocused": [
+    {
+      "group": "02",
+      "mode": "source",
+      "command": [
+        "node",
+        "--import",
+        "/Users/yakisoba0728/.codex/worktrees/test-evidence-refactors/Moodcode/node_modules/tsx/dist/loader.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "packages/engine/src/code-mode/archive.integration.test.ts",
+        "packages/engine/src/code-mode/process-drain.integration.test.ts",
+        "packages/engine/src/code-mode/engine-code-mode.integration.test.ts",
+        "packages/engine/src/code-mode/crash.integration.test.ts",
+        "packages/engine/src/code-mode/native-integrity.integration.test.ts",
+        "packages/engine/src/git/commit.integration.test.ts",
+        "packages/engine/src/git/commit-boundaries.integration.test.ts",
+        "packages/engine/src/git/commit-native.integration.test.ts",
+        "packages/engine/src/git/commit-crash.integration.test.ts",
+        "packages/engine/src/git/commit-fixture-retention.integration.test.ts",
+        "packages/engine/src/integration/host-git-fork.integration.test.ts",
+        "packages/engine/src/test-fixtures/native-data.test.ts"
+      ],
+      "fileCount": 12,
+      "exitCode": 0,
+      "elapsedWallSeconds": 93.158,
+      "log": "artifacts/rf-tf-refactor/final-02-source.log",
+      "counts": {
+        "tests": 61,
+        "pass": 61,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 93127.37475
+      },
+      "logPin": {
+        "path": "artifacts/rf-tf-refactor/final-02-source.log",
+        "bytes": 9304,
+        "sha256": "c39850d2e1d0aa3ca3f17f5691dc8a62801fc452aaa92420ddfd5e8e2ee4e17e"
+      }
+    },
+    {
+      "group": "02",
+      "mode": "compiled",
+      "command": [
+        "node",
+        "--test",
+        "--test-concurrency=1",
+        "packages/engine/dist/code-mode/archive.integration.test.js",
+        "packages/engine/dist/code-mode/process-drain.integration.test.js",
+        "packages/engine/dist/code-mode/engine-code-mode.integration.test.js",
+        "packages/engine/dist/code-mode/crash.integration.test.js",
+        "packages/engine/dist/code-mode/native-integrity.integration.test.js",
+        "packages/engine/dist/git/commit.integration.test.js",
+        "packages/engine/dist/git/commit-boundaries.integration.test.js",
+        "packages/engine/dist/git/commit-native.integration.test.js",
+        "packages/engine/dist/git/commit-crash.integration.test.js",
+        "packages/engine/dist/git/commit-fixture-retention.integration.test.js",
+        "packages/engine/dist/integration/host-git-fork.integration.test.js",
+        "packages/engine/dist/test-fixtures/native-data.test.js"
+      ],
+      "fileCount": 12,
+      "exitCode": 0,
+      "elapsedWallSeconds": 96.689,
+      "log": "artifacts/rf-tf-refactor/final-02-compiled.log",
+      "counts": {
+        "tests": 61,
+        "pass": 61,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 96655.998459
+      },
+      "logPin": {
+        "path": "artifacts/rf-tf-refactor/final-02-compiled.log",
+        "bytes": 9293,
+        "sha256": "46b18ef682ee4569e2b4e8a611556dd25c1dc609434e9c37fc2a692f8a0668aa"
+      }
+    },
+    {
+      "group": "03-04",
+      "mode": "source",
+      "command": [
+        "node",
+        "--import",
+        "/Users/yakisoba0728/.codex/worktrees/test-evidence-refactors/Moodcode/node_modules/tsx/dist/loader.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "packages/engine/src/jobs/host-command-crash.integration.test.ts",
+        "packages/engine/src/teams/crash.integration.test.ts",
+        "packages/engine/src/workflows/crash.integration.test.ts",
+        "packages/engine/src/effect-batches/crash.integration.test.ts",
+        "packages/engine/src/schedules/engine-schedules.integration.test.ts",
+        "packages/engine/src/schedules/native-graph.integration.test.ts",
+        "packages/engine/src/schedules/producer-boundaries.integration.test.ts",
+        "packages/engine/src/schedules/store.test.ts",
+        "packages/engine/src/teams/model-tools-host-proof.test.ts",
+        "packages/engine/src/teams/model-tools.integration.test.ts",
+        "packages/engine/src/workflows/archive.test.ts",
+        "packages/engine/src/workflows/engine-workflows.integration.test.ts",
+        "packages/engine/src/workflows/native-graph.integration.test.ts",
+        "packages/engine/src/workflows/producer-edge.integration.test.ts",
+        "packages/engine/src/workflows/store.test.ts",
+        "packages/engine/src/test-fixtures/atomic-crash-evidence.test.ts",
+        "packages/engine/src/test-fixtures/cooperative-gate.test.ts"
+      ],
+      "fileCount": 17,
+      "exitCode": 0,
+      "elapsedWallSeconds": 28.317,
+      "log": "artifacts/rf-tf-refactor/final-03-04-source.log",
+      "counts": {
+        "tests": 91,
+        "pass": 91,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 28281.273125
+      },
+      "logPin": {
+        "path": "artifacts/rf-tf-refactor/final-03-04-source.log",
+        "bytes": 11183,
+        "sha256": "abd1521eb3382792c39039fbad433d832d9c1927ff1ebf405305e9905d6f0141"
+      }
+    },
+    {
+      "group": "03-04",
+      "mode": "compiled",
+      "command": [
+        "node",
+        "--test",
+        "--test-concurrency=1",
+        "packages/engine/dist/jobs/host-command-crash.integration.test.js",
+        "packages/engine/dist/teams/crash.integration.test.js",
+        "packages/engine/dist/workflows/crash.integration.test.js",
+        "packages/engine/dist/effect-batches/crash.integration.test.js",
+        "packages/engine/dist/schedules/engine-schedules.integration.test.js",
+        "packages/engine/dist/schedules/native-graph.integration.test.js",
+        "packages/engine/dist/schedules/producer-boundaries.integration.test.js",
+        "packages/engine/dist/schedules/store.test.js",
+        "packages/engine/dist/teams/model-tools-host-proof.test.js",
+        "packages/engine/dist/teams/model-tools.integration.test.js",
+        "packages/engine/dist/workflows/archive.test.js",
+        "packages/engine/dist/workflows/engine-workflows.integration.test.js",
+        "packages/engine/dist/workflows/native-graph.integration.test.js",
+        "packages/engine/dist/workflows/producer-edge.integration.test.js",
+        "packages/engine/dist/workflows/store.test.js",
+        "packages/engine/dist/test-fixtures/atomic-crash-evidence.test.js",
+        "packages/engine/dist/test-fixtures/cooperative-gate.test.js"
+      ],
+      "fileCount": 17,
+      "exitCode": 0,
+      "elapsedWallSeconds": 23.613,
+      "log": "artifacts/rf-tf-refactor/final-03-04-compiled.log",
+      "counts": {
+        "tests": 91,
+        "pass": 91,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 23581.144583
+      },
+      "logPin": {
+        "path": "artifacts/rf-tf-refactor/final-03-04-compiled.log",
+        "bytes": 11196,
+        "sha256": "795cdb7bd8a5f9f56452a79f20e9c47e6c0af02f48093662dbdd7cc1fd0b3064"
+      }
+    },
+    {
+      "group": "05-09",
+      "mode": "source",
+      "command": [
+        "node",
+        "--import",
+        "/Users/yakisoba0728/.codex/worktrees/test-evidence-refactors/Moodcode/node_modules/tsx/dist/loader.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "packages/engine/src/coding-runs/batch.integration.test.ts",
+        "packages/engine/src/coding-runs/batch-boundaries.integration.test.ts",
+        "packages/engine/src/coding-runs/crash.integration.test.ts",
+        "packages/engine/src/workflows/effects.integration.test.ts",
+        "packages/engine/src/workflows/effects-crash.integration.test.ts",
+        "packages/engine/src/lifecycle/engine-transforms.test.ts"
+      ],
+      "fileCount": 6,
+      "exitCode": 0,
+      "elapsedWallSeconds": 68.713,
+      "log": "artifacts/rf-tf-refactor/final-05-09-source.log",
+      "counts": {
+        "tests": 81,
+        "pass": 81,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 68678.407917
+      },
+      "logPin": {
+        "path": "artifacts/rf-tf-refactor/final-05-09-source.log",
+        "bytes": 10052,
+        "sha256": "059be5063ec88798101de4c42016ac21e179d40cc26e2548f87c0e9859618db1"
+      }
+    },
+    {
+      "group": "05-09",
+      "mode": "compiled",
+      "command": [
+        "node",
+        "--test",
+        "--test-concurrency=1",
+        "packages/engine/dist/coding-runs/batch.integration.test.js",
+        "packages/engine/dist/coding-runs/batch-boundaries.integration.test.js",
+        "packages/engine/dist/coding-runs/crash.integration.test.js",
+        "packages/engine/dist/workflows/effects.integration.test.js",
+        "packages/engine/dist/workflows/effects-crash.integration.test.js",
+        "packages/engine/dist/lifecycle/engine-transforms.test.js"
+      ],
+      "fileCount": 6,
+      "exitCode": 0,
+      "elapsedWallSeconds": 67.315,
+      "log": "artifacts/rf-tf-refactor/final-05-09-compiled.log",
+      "counts": {
+        "tests": 81,
+        "pass": 81,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 67275.92325
+      },
+      "logPin": {
+        "path": "artifacts/rf-tf-refactor/final-05-09-compiled.log",
+        "bytes": 10028,
+        "sha256": "86312f9c47151e2ac30da2d502671c1688279ea194ba190f812c0ffba8cd6104"
+      }
+    }
+  ],
+  "totals": {
+    "originalSourceBaselinePass": 221,
+    "finalSourcePass": 233,
+    "finalCompiledPass": 233,
+    "fail": 0,
+    "skip": 0,
+    "newNativeBoundaryProofCases": 12
+  },
+  "typecheck": {
+    "command": [
+      "npm",
+      "run",
+      "typecheck"
+    ],
+    "exitCode": 0,
+    "log": {
+      "path": "artifacts/rf-tf-refactor/final-typecheck.log",
+      "bytes": 53,
+      "sha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    }
+  },
+  "setup": {
+    "npmCiExitCode": 0,
+    "preparePtyAfterNpmCiExitCode": 0,
+    "baselineContractsEngineBuildExitCode": 0
+  },
+  "runtime": {
+    "node": "v26.9.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "typescript": "7.0.2",
+    "compiledPins": [
+      {
+        "path": "packages/engine/dist/code-mode/archive.integration.test.js",
+        "bytes": 2315,
+        "sha256": "998661c969b3f7c2c588698bf04e2a0191ae930e5e9b64687022bcf3f58aa03a"
+      },
+      {
+        "path": "packages/engine/dist/code-mode/crash.integration.test.js",
+        "bytes": 3180,
+        "sha256": "ad709f2b292f48c163e2ca5eb989ec791c5c2365e11e5e76d996d6a474dec61a"
+      },
+      {
+        "path": "packages/engine/dist/code-mode/engine-code-mode.integration.test.js",
+        "bytes": 18483,
+        "sha256": "e09b926954e1abb483af40f5a96c7961cefc733b2bdba93fd80a27c1fa8f1298"
+      },
+      {
+        "path": "packages/engine/dist/code-mode/fixtures/engine.js",
+        "bytes": 9030,
+        "sha256": "de2ba0cfd3376b1e21b643381cdb32644896d6fd475478eca9f0624dc837c398"
+      },
+      {
+        "path": "packages/engine/dist/code-mode/native-integrity.integration.test.js",
+        "bytes": 8701,
+        "sha256": "ab2d47a8a431a2412c4a9e20c5df284e05fba436f44c146bd2ba39e928810ec9"
+      },
+      {
+        "path": "packages/engine/dist/code-mode/process-drain.integration.test.js",
+        "bytes": 6653,
+        "sha256": "0286aa4741f8d78f683fceac053948827b16357d64bd69c2930690907205b6df"
+      },
+      {
+        "path": "packages/engine/dist/coding-runs/batch-boundaries.integration.test.js",
+        "bytes": 10425,
+        "sha256": "a8efe0845bd4aab2d540e20a3931678bd4fe1f09c7e611aca209504f580b3557"
+      },
+      {
+        "path": "packages/engine/dist/coding-runs/batch.integration.test.js",
+        "bytes": 27788,
+        "sha256": "f465e2943628267f36bcbb4a9f19c6f74d633c6b4dede9fca6d24038a1954b06"
+      },
+      {
+        "path": "packages/engine/dist/coding-runs/crash.integration.test.js",
+        "bytes": 4996,
+        "sha256": "7f58b4eaaf045be51e160a4db061c30e85dab3c1eec0164c7f5f39995a1d84d4"
+      },
+      {
+        "path": "packages/engine/dist/coding-runs/fixtures/batch-data.js",
+        "bytes": 3856,
+        "sha256": "55c48e3ffe05629d04829ac7ff6724c5c2ad83407e471254c7c6b57bd6f52b13"
+      },
+      {
+        "path": "packages/engine/dist/coding-runs/fixtures/batch.js",
+        "bytes": 14035,
+        "sha256": "700f20b0b032e100acf125334d748f2dfd1d391a7be10cdedf8565b166f51367"
+      },
+      {
+        "path": "packages/engine/dist/effect-batches/crash.integration.test.js",
+        "bytes": 6344,
+        "sha256": "742f2aba072c06d19dd23580873b1d2bed0a0c9858824f752329014b73060c2a"
+      },
+      {
+        "path": "packages/engine/dist/effect-batches/fixtures/crash.js",
+        "bytes": 3323,
+        "sha256": "068a2120840ee482f5893b96ac35ecd4bccfc1f55b4cee3804cbf5ab401a1b85"
+      },
+      {
+        "path": "packages/engine/dist/git/commit-boundaries.integration.test.js",
+        "bytes": 15516,
+        "sha256": "8c858a86f4c09aa7a2137b275533a0cc36c33b7f823cf60fac3247460daba1d8"
+      },
+      {
+        "path": "packages/engine/dist/git/commit-crash.integration.test.js",
+        "bytes": 4970,
+        "sha256": "9e2d5ef78815b84135f08287b2e92472b7ef723244fde41bc600060bc4685d7c"
+      },
+      {
+        "path": "packages/engine/dist/git/commit-fixture-retention.integration.test.js",
+        "bytes": 4323,
+        "sha256": "059f885e9ba96542a4e98065ee3ec03b5c5d9de814e6859c54375414f1f380d3"
+      },
+      {
+        "path": "packages/engine/dist/git/commit-native.integration.test.js",
+        "bytes": 4056,
+        "sha256": "f544fc965770892a119ece8727df6e38131a9bd2ce175778b473dfb32496be76"
+      },
+      {
+        "path": "packages/engine/dist/git/commit.integration.test.js",
+        "bytes": 6445,
+        "sha256": "9da2ecceeb137e84564a42d48e63d769664042e76702221e6e7668953c7dbbb1"
+      },
+      {
+        "path": "packages/engine/dist/git/fixtures/commit.js",
+        "bytes": 8879,
+        "sha256": "b7eb4c4a5272742c29f83d0c5a52b399304451592e07e48859de58a44c8b528a"
+      },
+      {
+        "path": "packages/engine/dist/integration/host-git-fork.integration.test.js",
+        "bytes": 6787,
+        "sha256": "2abde8583980aa231f523a7418ca3209be913cb36ea78659c8f09110a9326929"
+      },
+      {
+        "path": "packages/engine/dist/jobs/fixtures/crash-host-command.js",
+        "bytes": 1817,
+        "sha256": "6148824b4d5fb34278508caffaaf1ef0a16ed1eb517811dde046de96a3734d1c"
+      },
+      {
+        "path": "packages/engine/dist/jobs/host-command-crash.integration.test.js",
+        "bytes": 4950,
+        "sha256": "c280c7692d009d0440959063ae244fd4579000c8ddc8fe18fa2a854a883a080b"
+      },
+      {
+        "path": "packages/engine/dist/lifecycle/engine-transforms.test.js",
+        "bytes": 51230,
+        "sha256": "66624524d65ed35026b7e1c0258aa68379f804ffb8c3a911420485013efab0b5"
+      },
+      {
+        "path": "packages/engine/dist/lifecycle/fixtures/transforms.js",
+        "bytes": 4905,
+        "sha256": "28cce48929b5019aa1e770a2bcf892945876c83b796ce731fe05a6e5f4419b1f"
+      },
+      {
+        "path": "packages/engine/dist/schedules/engine-schedules.integration.test.js",
+        "bytes": 22805,
+        "sha256": "48c761b3b3ae3b956e3782cbf46ead86915c66c6c35793a58c89b5636f9fc588"
+      },
+      {
+        "path": "packages/engine/dist/schedules/fixtures/schedule.js",
+        "bytes": 7925,
+        "sha256": "3bbada0497b074022edd213820f6d53299a972c29324c7977da3763da36d157b"
+      },
+      {
+        "path": "packages/engine/dist/schedules/native-graph.integration.test.js",
+        "bytes": 7343,
+        "sha256": "b16773bf6f9ce7b2d4e5990d1bf39d0f34fb7d1ea819f3e4347425ee0f378a9e"
+      },
+      {
+        "path": "packages/engine/dist/schedules/producer-boundaries.integration.test.js",
+        "bytes": 13168,
+        "sha256": "299751d420ad0eb0e96fb2c575f30d66ee683c3b1cdfb5d596a47adc1ca0f937"
+      },
+      {
+        "path": "packages/engine/dist/schedules/store.test.js",
+        "bytes": 10504,
+        "sha256": "d8eaec20aa1d48fc97b1c9ee966ce9aea78ee6977dab0a5f7d6e9683a7b23f12"
+      },
+      {
+        "path": "packages/engine/dist/teams/crash.integration.test.js",
+        "bytes": 5809,
+        "sha256": "5b05730450d88359bae61b5a09b07237a69de5bedc02167fd4064555d28fcfc4"
+      },
+      {
+        "path": "packages/engine/dist/teams/fixtures/model-tools.js",
+        "bytes": 12953,
+        "sha256": "e31e651c5a950312fdae9d26557b6b2f9e632a4f4969f6a9b111cbde97955be9"
+      },
+      {
+        "path": "packages/engine/dist/teams/fixtures/team-crash-child.js",
+        "bytes": 6827,
+        "sha256": "4288c6817f80e00a4098d3d4847e5216cb047f8448247f6c6aa8de8d83561251"
+      },
+      {
+        "path": "packages/engine/dist/teams/model-tools-host-proof.test.js",
+        "bytes": 5217,
+        "sha256": "421f3e817412c1b7b04ec31fa715530fedac112bb152f35e6b336004fac913b1"
+      },
+      {
+        "path": "packages/engine/dist/teams/model-tools.integration.test.js",
+        "bytes": 25054,
+        "sha256": "6e48a36ae708400ee0935221aa0e45f741ae68f015cbaec5f8283a035ef26692"
+      },
+      {
+        "path": "packages/engine/dist/test-fixtures/atomic-crash-evidence.js",
+        "bytes": 556,
+        "sha256": "cb7cf5fce82e96eba5e86b010ab7d4d828d82084cdbb14640cf3f5c8930913de"
+      },
+      {
+        "path": "packages/engine/dist/test-fixtures/atomic-crash-evidence.test.js",
+        "bytes": 5283,
+        "sha256": "4b50ca4388ce12e7fe8547b3e8190be7e2088d6305008e369c3e139fca9a6eed"
+      },
+      {
+        "path": "packages/engine/dist/test-fixtures/cooperative-gate.js",
+        "bytes": 589,
+        "sha256": "adbe631f9fc83a057de64ac30354299a5817e92d346c4ed7dabda9801f3cc107"
+      },
+      {
+        "path": "packages/engine/dist/test-fixtures/cooperative-gate.test.js",
+        "bytes": 2655,
+        "sha256": "19f7a2e06028fab2ff3bd9da8d63b67e055ba6bedacd92489bd53bf961f06bfa"
+      },
+      {
+        "path": "packages/engine/dist/test-fixtures/native-data.js",
+        "bytes": 1053,
+        "sha256": "9a911bfc982dee6775b31fb95dacdc5a6ae3f715697b6aa9019cb969cf8483ac"
+      },
+      {
+        "path": "packages/engine/dist/test-fixtures/native-data.test.js",
+        "bytes": 5363,
+        "sha256": "51cb69c090bd842e780e05d0288307347a4b3013b798b561877d33f1ed56eff0"
+      },
+      {
+        "path": "packages/engine/dist/workflows/archive.test.js",
+        "bytes": 6566,
+        "sha256": "773733577f2b4a811e57fedb24ea9e8a2b33b6543cfae38bf23909f0e48d0784"
+      },
+      {
+        "path": "packages/engine/dist/workflows/crash.integration.test.js",
+        "bytes": 9086,
+        "sha256": "ed4d14552b1734a575c8a0d6c060472ffcb4ec5123b5da858572f3681fc5114f"
+      },
+      {
+        "path": "packages/engine/dist/workflows/effects-crash.integration.test.js",
+        "bytes": 5838,
+        "sha256": "2da73b43cc7be5e3ac32a5d690f7a56801273f0d1f41dc3e0ce99d8572c1c02c"
+      },
+      {
+        "path": "packages/engine/dist/workflows/effects.integration.test.js",
+        "bytes": 22843,
+        "sha256": "bf3b4b4ae11d86f9e0ce96be71b2399f76a6538260b1161c24749acc5a9a8802"
+      },
+      {
+        "path": "packages/engine/dist/workflows/engine-workflows.integration.test.js",
+        "bytes": 20098,
+        "sha256": "7300d8f484d10c82ed307615a34c45d1f0f861bb3daf93d74065267591ed0b53"
+      },
+      {
+        "path": "packages/engine/dist/workflows/fixtures/archive-workflow.js",
+        "bytes": 8939,
+        "sha256": "1b2f18ca65bef897acfd02ba09c0dd699b6943b267ad54cb49efa5127541e990"
+      },
+      {
+        "path": "packages/engine/dist/workflows/fixtures/crash-child.js",
+        "bytes": 8215,
+        "sha256": "9b3683079e8ad6afdaac4e1b040d6308853f4efa582dc89a0fc85c56ad694b10"
+      },
+      {
+        "path": "packages/engine/dist/workflows/fixtures/effects-data.js",
+        "bytes": 2025,
+        "sha256": "9685fa7eb1a8bb2ec58a5e2d9e279f30dd739ceb48e412bca2ed28792dc3ab5a"
+      },
+      {
+        "path": "packages/engine/dist/workflows/fixtures/effects.js",
+        "bytes": 15343,
+        "sha256": "4ff12ad886f795e36a2babf23a24fa2fc8f8aab96d32ade0598e1594060b4515"
+      },
+      {
+        "path": "packages/engine/dist/workflows/fixtures/workflow.js",
+        "bytes": 12094,
+        "sha256": "ba0fe367d716c99ab48b4b090cef460b62dac56a62c37abbeb9a6598c2ced6c4"
+      },
+      {
+        "path": "packages/engine/dist/workflows/native-graph.integration.test.js",
+        "bytes": 5268,
+        "sha256": "77ceb00fc21e16c37fed2d907086a8482c479e1f2e8b1f2f43be307fdb59e630"
+      },
+      {
+        "path": "packages/engine/dist/workflows/producer-edge.integration.test.js",
+        "bytes": 8798,
+        "sha256": "79b6ca1a9a2cc08ab0e5b2689a9723ac68891db81ec504be266f861078887dab"
+      },
+      {
+        "path": "packages/engine/dist/workflows/store.test.js",
+        "bytes": 11954,
+        "sha256": "3d2f457b116a395e287812be0c1adb77a8d393f002de4db7b51f87fcbd546fc4"
+      }
+    ]
+  },
+  "finiteNativeAdmissionProof": {
+    "expectedSource": "Literal original definitions, independent native SQLite/approval observations; no DATA builder used to calculate expected values.",
+    "script": {
+      "path": "artifacts/rf-tf-refactor/05-native-admission-proof.mjs",
+      "bytes": 12879,
+      "sha256": "8c23caaf808fdbc61a70f668e518c7c4616f00e7e77efa8efd80403d9246f9c3"
+    },
+    "reportCeilingBytes": 2097152,
+    "modes": [
+      {
+        "mode": "source",
+        "batchPassed": true,
+        "workflowPassed": true,
+        "actualNativeSpecs": {
+          "batch": 2,
+          "workflow": 1
+        },
+        "actualCases": 2,
+        "actualChildApprovals": {
+          "batch": 4,
+          "workflow": 2
+        },
+        "artifact": {
+          "path": "artifacts/rf-tf-refactor/05-native-admission-source.json",
+          "bytes": 189853,
+          "sha256": "d0590e4efcfe4c856c30910280ab3cf420840c8aec46724d3468f35acfd3c392"
+        },
+        "log": {
+          "path": "artifacts/rf-tf-refactor/05-native-admission-source.log",
+          "bytes": 245,
+          "sha256": "1b8c032c0fc930ddfdc249bb2333c15274e0d175271c81512838e62aa6fb4996"
+        }
+      },
+      {
+        "mode": "compiled",
+        "batchPassed": true,
+        "workflowPassed": true,
+        "actualNativeSpecs": {
+          "batch": 2,
+          "workflow": 1
+        },
+        "actualCases": 2,
+        "actualChildApprovals": {
+          "batch": 4,
+          "workflow": 2
+        },
+        "artifact": {
+          "path": "artifacts/rf-tf-refactor/05-native-admission-compiled.json",
+          "bytes": 189855,
+          "sha256": "19c317e97d9fc1011652c0a55c12abc013d88e04861a2b46f54e848109f74e83"
+        },
+        "log": {
+          "path": "artifacts/rf-tf-refactor/05-native-admission-compiled.log",
+          "bytes": 247,
+          "sha256": "05e94ca5975d9206f88ae1f403e87c44b1d27c93f4c032601072c2d6a50ac929"
+        }
+      }
+    ]
+  },
+  "fileMetricsAndSourcePins": [
+    {
+      "path": "packages/engine/src/code-mode/fixtures/engine.ts",
+      "before": {
+        "physicalLines": 341,
+        "bytes": 9468,
+        "sha256": "1c9652353be17321d67594b18b953c8f547fc815bdcf162ddfcf4152faa8efdd"
+      },
+      "after": {
+        "physicalLines": 308,
+        "bytes": 8629,
+        "sha256": "0d9aac15cdf71830d2f7e7d894fd6297ccf448cd92c8defc535c891e44637f08"
+      }
+    },
+    {
+      "path": "packages/engine/src/coding-runs/fixtures/batch-data.ts",
+      "before": null,
+      "after": {
+        "physicalLines": 114,
+        "bytes": 3627,
+        "sha256": "859b88fd3022ccedd13c24a862a7d8658690753dfed1d42eb8cd58a9c03f9490"
+      }
+    },
+    {
+      "path": "packages/engine/src/coding-runs/fixtures/batch.ts",
+      "before": {
+        "physicalLines": 513,
+        "bytes": 15591,
+        "sha256": "3ecaeded5a893647e48f810cf65ee354b395a881b4c38bdfa1a00fda6c090833"
+      },
+      "after": {
+        "physicalLines": 430,
+        "bytes": 12944,
+        "sha256": "fa9381f9fc1dc6ae6dc6f7b96f3c186bdeaec0aa6697a26efd63031bff10d556"
+      }
+    },
+    {
+      "path": "packages/engine/src/effect-batches/crash.integration.test.ts",
+      "before": {
+        "physicalLines": 203,
+        "bytes": 6454,
+        "sha256": "7ad6c01ba94814040969671897ae58bec923cccfde081e053e746c5bd52bcfce"
+      },
+      "after": {
+        "physicalLines": 203,
+        "bytes": 6454,
+        "sha256": "7ad6c01ba94814040969671897ae58bec923cccfde081e053e746c5bd52bcfce"
+      }
+    },
+    {
+      "path": "packages/engine/src/effect-batches/fixtures/crash.ts",
+      "before": {
+        "physicalLines": 92,
+        "bytes": 3198,
+        "sha256": "a1e7565a5fb77fe5c08fa374c9d339bf5ebdf9c7edfd2f8a929b176f04c0e070"
+      },
+      "after": {
+        "physicalLines": 92,
+        "bytes": 3198,
+        "sha256": "a1e7565a5fb77fe5c08fa374c9d339bf5ebdf9c7edfd2f8a929b176f04c0e070"
+      }
+    },
+    {
+      "path": "packages/engine/src/git/fixtures/commit.ts",
+      "before": {
+        "physicalLines": 322,
+        "bytes": 9624,
+        "sha256": "353378ab0f850212a33beba48371b3ed12cc03753e5d7d6629f253cfac6b61ca"
+      },
+      "after": {
+        "physicalLines": 292,
+        "bytes": 8784,
+        "sha256": "3b6de4015972667a77f7d1bd659199bd1dc44abc958b1d54b27934d6b436c190"
+      }
+    },
+    {
+      "path": "packages/engine/src/jobs/fixtures/crash-host-command.ts",
+      "before": {
+        "physicalLines": 65,
+        "bytes": 2053,
+        "sha256": "f1374ea24871726df3a88d3724d3411db292308fb18083693fc348a2e9dd4fa3"
+      },
+      "after": {
+        "physicalLines": 62,
+        "bytes": 2027,
+        "sha256": "372929a527991bf3e6f557e006e32ad92841e1d910e08ef6bae36ba0137f869c"
+      }
+    },
+    {
+      "path": "packages/engine/src/lifecycle/engine-transforms.test.ts",
+      "before": {
+        "physicalLines": 1619,
+        "bytes": 54751,
+        "sha256": "5c9ba8e0c4d0cac2d0e6bc7521cd7ded3b337d835ca1fdc60a2f91fa8da71155"
+      },
+      "after": {
+        "physicalLines": 1451,
+        "bytes": 50248,
+        "sha256": "d33cea643475f7a43fab3750a9bc19b94dc23bf8b76e6be8d463da5dd75b7421"
+      }
+    },
+    {
+      "path": "packages/engine/src/lifecycle/fixtures/transforms.ts",
+      "before": null,
+      "after": {
+        "physicalLines": 205,
+        "bytes": 5603,
+        "sha256": "fd105286af8ea9d5f7b324199d2b591e936a00fa6318238a9a10386f8979ef75"
+      }
+    },
+    {
+      "path": "packages/engine/src/schedules/fixtures/schedule.ts",
+      "before": {
+        "physicalLines": 309,
+        "bytes": 8339,
+        "sha256": "d482d184c565155249020109b2c39dd3b73060b02dc7d0e5ca93a4f1483c1112"
+      },
+      "after": {
+        "physicalLines": 295,
+        "bytes": 8027,
+        "sha256": "f24ac64560e670141bb06da8eddf90cca652d4eed8e2314351ea92ee5d46921d"
+      }
+    },
+    {
+      "path": "packages/engine/src/teams/fixtures/model-tools.ts",
+      "before": {
+        "physicalLines": 494,
+        "bytes": 13961,
+        "sha256": "c9bda34882a9882a8a81e5a8f7eb13c43b3f9c935e28e28958420ad3a8b80e85"
+      },
+      "after": {
+        "physicalLines": 481,
+        "bytes": 13657,
+        "sha256": "51647ffb7cb5a224a120460352e2f7bf5df497d56173326b8ea38231c8c483c5"
+      }
+    },
+    {
+      "path": "packages/engine/src/teams/fixtures/team-crash-child.ts",
+      "before": {
+        "physicalLines": 230,
+        "bytes": 7243,
+        "sha256": "46d0542e1c23e25f40c29bdc82bf742788e33a530439a5eb11fe071c4c189968"
+      },
+      "after": {
+        "physicalLines": 229,
+        "bytes": 7210,
+        "sha256": "a5581c714505c5e023b4e6ebfa4e7f46302c105839bd38b97994a6a9c5e8e971"
+      }
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/atomic-crash-evidence.test.ts",
+      "before": null,
+      "after": {
+        "physicalLines": 146,
+        "bytes": 5129,
+        "sha256": "c456291613d375d2c7b5589e23247c3bfea2da5e5ccf6394aea79e420d26ce3d"
+      }
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/atomic-crash-evidence.ts",
+      "before": null,
+      "after": {
+        "physicalLines": 17,
+        "bytes": 511,
+        "sha256": "9f753130966f8bf93907da1a2900060b9e1afd6db23f1e75ed8f8d5e3787c5d6"
+      }
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/cooperative-gate.test.ts",
+      "before": null,
+      "after": {
+        "physicalLines": 73,
+        "bytes": 2681,
+        "sha256": "bfdeafb42f21e9948010f72f64391a6429e5291be580f3a623715f3f59c2ab66"
+      }
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/cooperative-gate.ts",
+      "before": null,
+      "after": {
+        "physicalLines": 19,
+        "bytes": 528,
+        "sha256": "92b63317647bf4dad2770fb60a50d0a1179e1331b95c9d7758c119aa297a35f2"
+      }
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/native-data.test.ts",
+      "before": null,
+      "after": {
+        "physicalLines": 166,
+        "bytes": 5441,
+        "sha256": "279bc80b92610405419b7e69e5eff20587e7256ec0b8749897341bf96a65337e"
+      }
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/native-data.ts",
+      "before": null,
+      "after": {
+        "physicalLines": 50,
+        "bytes": 1333,
+        "sha256": "8548195531ce867aed7cfee0ef6264116c858286778ba5a335addb38b094787a"
+      }
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/archive-workflow.ts",
+      "before": {
+        "physicalLines": 339,
+        "bytes": 9503,
+        "sha256": "782c3a3a8e4b409be9a9d88553d6a013474fd59976d2438475144e62029a1c9b"
+      },
+      "after": {
+        "physicalLines": 325,
+        "bytes": 9205,
+        "sha256": "ad1c718e7eedae9bcbfa8456cd809f76eafaf7e69eb51f8fc4a0769a9f52779b"
+      }
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/crash-child.ts",
+      "before": {
+        "physicalLines": 306,
+        "bytes": 9198,
+        "sha256": "b5077e9fb376969a93aa027f13927c3955935a942a847120faa10a3ac7836676"
+      },
+      "after": {
+        "physicalLines": 294,
+        "bytes": 8894,
+        "sha256": "627be33f1aa6482f164ad20f4dd243dd75fc1a75dbe81215eaefa5c6a591b579"
+      }
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/effects-data.ts",
+      "before": null,
+      "after": {
+        "physicalLines": 71,
+        "bytes": 2007,
+        "sha256": "bf94e49f0332c7068833a64322127295aaacb8e74f87e97bde3958c6899287cf"
+      }
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/effects.ts",
+      "before": {
+        "physicalLines": 533,
+        "bytes": 15880,
+        "sha256": "be6a96a560d7ebf551e70b163478d58d66fb1bc3fb0e6d4aff76c9849e747454"
+      },
+      "after": {
+        "physicalLines": 482,
+        "bytes": 14428,
+        "sha256": "f81e11312746d3d8b34b12f57895eb2c1b76d2be1deca420248c709455af74d9"
+      }
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/workflow.ts",
+      "before": {
+        "physicalLines": 426,
+        "bytes": 12335,
+        "sha256": "af0fb7ab029a47ee9cc2c250d71130d0d44fb875226f168cea476c73dbdaeeed"
+      },
+      "after": {
+        "physicalLines": 412,
+        "bytes": 12034,
+        "sha256": "252b70d760c2c17d9b585ed0d145e9b4939467b002e62ff6236f2ea07df198a2"
+      }
+    }
+  ],
+  "functionMetricRule": "Existing scripts/refactor-inventory/ast.mjs: physical inclusive function lines, branch complexity1+decisions assigned to nearest executable function; nested function bodies excluded. No semantic complexity reduction inferred.",
+  "functionChanges": [
+    {
+      "path": "packages/engine/src/code-mode/fixtures/engine.ts",
+      "name": "nativeEvidence",
+      "before": {
+        "start": 39,
+        "end": 71,
+        "lines": 33,
+        "bodyLines": 31,
+        "complexity": 1,
+        "decisions": 0
+      },
+      "after": null
+    },
+    {
+      "path": "packages/engine/src/git/fixtures/commit.ts",
+      "name": "nativeFixtureEvidence",
+      "before": {
+        "start": 30,
+        "end": 62,
+        "lines": 33,
+        "bodyLines": 31,
+        "complexity": 1,
+        "decisions": 0
+      },
+      "after": null
+    },
+    {
+      "path": "packages/engine/src/coding-runs/fixtures/batch.ts",
+      "name": "batchFixture",
+      "before": {
+        "start": 86,
+        "end": 513,
+        "lines": 428,
+        "bodyLines": 418,
+        "complexity": 6,
+        "decisions": 5
+      },
+      "after": {
+        "start": 86,
+        "end": 430,
+        "lines": 345,
+        "bodyLines": 335,
+        "complexity": 6,
+        "decisions": 5
+      }
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/effects.ts",
+      "name": "workflowEffectsFixture",
+      "before": {
+        "start": 89,
+        "end": 533,
+        "lines": 445,
+        "bodyLines": 437,
+        "complexity": 3,
+        "decisions": 2
+      },
+      "after": {
+        "start": 89,
+        "end": 482,
+        "lines": 394,
+        "bodyLines": 386,
+        "complexity": 3,
+        "decisions": 2
+      }
+    },
+    {
+      "path": "packages/engine/src/lifecycle/engine-transforms.test.ts",
+      "name": "fixture",
+      "before": {
+        "start": 108,
+        "end": 237,
+        "lines": 130,
+        "bodyLines": 130,
+        "complexity": 8,
+        "decisions": 7
+      },
+      "after": null
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/native-data.ts",
+      "name": "nativeFixtureData",
+      "before": null,
+      "after": {
+        "start": 17,
+        "end": 50,
+        "lines": 34,
+        "bodyLines": 31,
+        "complexity": 1,
+        "decisions": 0
+      }
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/atomic-crash-evidence.ts",
+      "name": "publishCrashEvidence",
+      "before": null,
+      "after": {
+        "start": 4,
+        "end": 17,
+        "lines": 14,
+        "bodyLines": 11,
+        "complexity": 1,
+        "decisions": 0
+      }
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/cooperative-gate.ts",
+      "name": "cooperativeGateOrAbort",
+      "before": null,
+      "after": {
+        "start": 2,
+        "end": 19,
+        "lines": 18,
+        "bodyLines": 15,
+        "complexity": 1,
+        "decisions": 0
+      }
+    },
+    {
+      "path": "packages/engine/src/coding-runs/fixtures/batch-data.ts",
+      "name": "batchInputData",
+      "before": null,
+      "after": {
+        "start": 15,
+        "end": 114,
+        "lines": 100,
+        "bodyLines": 100,
+        "complexity": 1,
+        "decisions": 0
+      }
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/effects-data.ts",
+      "name": "effectsSpecData",
+      "before": null,
+      "after": {
+        "start": 11,
+        "end": 71,
+        "lines": 61,
+        "bodyLines": 59,
+        "complexity": 1,
+        "decisions": 0
+      }
+    },
+    {
+      "path": "packages/engine/src/lifecycle/fixtures/transforms.ts",
+      "name": "transformFixture",
+      "before": null,
+      "after": {
+        "start": 73,
+        "end": 205,
+        "lines": 133,
+        "bodyLines": 130,
+        "complexity": 8,
+        "decisions": 7
+      }
+    }
+  ],
+  "structuralProof": {
+    "lifecycleFixtureNativeBodyIdentical": true,
+    "lifecycleScenarioAssertionSuffixBytes": 48270,
+    "lifecycleScenarioAssertionSuffixSha256": "35312df8c392e365e71126bc491143bb4a178b0bd68782163471d551fba8ebb7",
+    "gateBodyMatchesFiveOriginals": [
+      {
+        "path": "packages/engine/src/schedules/fixtures/schedule.ts",
+        "matchingOriginalFunctions": [
+          "waitOrAbort"
+        ]
+      },
+      {
+        "path": "packages/engine/src/teams/fixtures/model-tools.ts",
+        "matchingOriginalFunctions": [
+          "waitOrAbort"
+        ]
+      },
+      {
+        "path": "packages/engine/src/workflows/fixtures/archive-workflow.ts",
+        "matchingOriginalFunctions": [
+          "wait"
+        ]
+      },
+      {
+        "path": "packages/engine/src/workflows/fixtures/crash-child.ts",
+        "matchingOriginalFunctions": [
+          "wait"
+        ]
+      },
+      {
+        "path": "packages/engine/src/workflows/fixtures/workflow.ts",
+        "matchingOriginalFunctions": [
+          "waitOrAbort"
+        ]
+      }
+    ],
+    "originalTestSourcePins": [
+      {
+        "path": "packages/engine/src/code-mode/archive.integration.test.ts",
+        "baselineSha256": "94fdbd31230337b7f5bd19c166da16396a58eddf03eb0a1c56b1f599a768f21f",
+        "afterSha256": "94fdbd31230337b7f5bd19c166da16396a58eddf03eb0a1c56b1f599a768f21f",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/code-mode/process-drain.integration.test.ts",
+        "baselineSha256": "284a1ee4b14891d894c8f928aa1f93077ec020686f762cb045d8a7895788dba1",
+        "afterSha256": "284a1ee4b14891d894c8f928aa1f93077ec020686f762cb045d8a7895788dba1",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/code-mode/engine-code-mode.integration.test.ts",
+        "baselineSha256": "f94010fe1df170853e3beb6677f6700a9465c960074ae16c66249435591e36be",
+        "afterSha256": "f94010fe1df170853e3beb6677f6700a9465c960074ae16c66249435591e36be",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/code-mode/crash.integration.test.ts",
+        "baselineSha256": "22c0b634d7ddec0feb7c4ddfb9b10739483e52fd416972763eafe0f8ff25e0c1",
+        "afterSha256": "22c0b634d7ddec0feb7c4ddfb9b10739483e52fd416972763eafe0f8ff25e0c1",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/code-mode/native-integrity.integration.test.ts",
+        "baselineSha256": "89a72b7cb460b5330be1d50fbbc17ad8590d9a0ce135c0880fc02ebfa60a6233",
+        "afterSha256": "89a72b7cb460b5330be1d50fbbc17ad8590d9a0ce135c0880fc02ebfa60a6233",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/git/commit.integration.test.ts",
+        "baselineSha256": "245e8886a48a0bc2c100ebd2de3e91a2b8b7333b1ab63edeeae6592bef521fd3",
+        "afterSha256": "245e8886a48a0bc2c100ebd2de3e91a2b8b7333b1ab63edeeae6592bef521fd3",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/git/commit-boundaries.integration.test.ts",
+        "baselineSha256": "b49dab2aed3345fb2e779398dfc4f9657feca8612e53aceb59cffcc538b14d52",
+        "afterSha256": "b49dab2aed3345fb2e779398dfc4f9657feca8612e53aceb59cffcc538b14d52",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/git/commit-native.integration.test.ts",
+        "baselineSha256": "ad4ee6bb231e8354a1356df698870cde65c7a11360d4ae7c1e7386f2ef8f38a3",
+        "afterSha256": "ad4ee6bb231e8354a1356df698870cde65c7a11360d4ae7c1e7386f2ef8f38a3",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/git/commit-crash.integration.test.ts",
+        "baselineSha256": "1888bdef55e59d745d57183e0806d245bcf5587352f0fbc243c5ed4008ba2510",
+        "afterSha256": "1888bdef55e59d745d57183e0806d245bcf5587352f0fbc243c5ed4008ba2510",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/git/commit-fixture-retention.integration.test.ts",
+        "baselineSha256": "f8843ac8fbeed1df287dec5aebfff0f72af4abadfd176676a82d37a6a898e237",
+        "afterSha256": "f8843ac8fbeed1df287dec5aebfff0f72af4abadfd176676a82d37a6a898e237",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/integration/host-git-fork.integration.test.ts",
+        "baselineSha256": "6788c5cf5242da6675cf710d1b06433465f29143581b496f44165b15aa50fc9c",
+        "afterSha256": "6788c5cf5242da6675cf710d1b06433465f29143581b496f44165b15aa50fc9c",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/jobs/host-command-crash.integration.test.ts",
+        "baselineSha256": "50dc6bfdc0969ce4be71f01928e36a91b9aa9a3eb7c84832e44fcaa84db04006",
+        "afterSha256": "50dc6bfdc0969ce4be71f01928e36a91b9aa9a3eb7c84832e44fcaa84db04006",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/teams/crash.integration.test.ts",
+        "baselineSha256": "67603c1771d35965f0ad41c466649fe5683e0ebb1c9cc65bec130a30a1158beb",
+        "afterSha256": "67603c1771d35965f0ad41c466649fe5683e0ebb1c9cc65bec130a30a1158beb",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/workflows/crash.integration.test.ts",
+        "baselineSha256": "25944911bb0ab6df45e246e602aa63bf0b3c6ab9e805326a49419a02d36f4f79",
+        "afterSha256": "25944911bb0ab6df45e246e602aa63bf0b3c6ab9e805326a49419a02d36f4f79",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/effect-batches/crash.integration.test.ts",
+        "baselineSha256": "7ad6c01ba94814040969671897ae58bec923cccfde081e053e746c5bd52bcfce",
+        "afterSha256": "7ad6c01ba94814040969671897ae58bec923cccfde081e053e746c5bd52bcfce",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/schedules/engine-schedules.integration.test.ts",
+        "baselineSha256": "82adff5324feb3a12e1228fca063f15bbea816493ebe50d6fbce1952cd4c12b2",
+        "afterSha256": "82adff5324feb3a12e1228fca063f15bbea816493ebe50d6fbce1952cd4c12b2",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/schedules/native-graph.integration.test.ts",
+        "baselineSha256": "731b07b8bb068dd2b1ef9af47ffae8af4691fc0504dc7384254d97e7e72c2c01",
+        "afterSha256": "731b07b8bb068dd2b1ef9af47ffae8af4691fc0504dc7384254d97e7e72c2c01",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/schedules/producer-boundaries.integration.test.ts",
+        "baselineSha256": "d2b6bb96f521f8240fb0eff6239082f362f5dc7fcbf4bce2a37d5575bdaa9963",
+        "afterSha256": "d2b6bb96f521f8240fb0eff6239082f362f5dc7fcbf4bce2a37d5575bdaa9963",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/schedules/store.test.ts",
+        "baselineSha256": "5836087751875764713a276c512503bd59f39449a8d92b96e41aa54d150b71fc",
+        "afterSha256": "5836087751875764713a276c512503bd59f39449a8d92b96e41aa54d150b71fc",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/teams/model-tools-host-proof.test.ts",
+        "baselineSha256": "a77016e499999cc362c97cf939fa204307e6ebc5bcd3d72a7b5c6477536fe9df",
+        "afterSha256": "a77016e499999cc362c97cf939fa204307e6ebc5bcd3d72a7b5c6477536fe9df",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/teams/model-tools.integration.test.ts",
+        "baselineSha256": "76791d479d8c9c5ec74e436b34d234d68f4403b40752e044542bc719f2905c59",
+        "afterSha256": "76791d479d8c9c5ec74e436b34d234d68f4403b40752e044542bc719f2905c59",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/workflows/archive.test.ts",
+        "baselineSha256": "1c5ada935aefa692a21a55457c84244190f59105c1c1c9b52de201faed4d9bad",
+        "afterSha256": "1c5ada935aefa692a21a55457c84244190f59105c1c1c9b52de201faed4d9bad",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/workflows/engine-workflows.integration.test.ts",
+        "baselineSha256": "99399bffb59e76610de2c703d5e9f9f484d919d211fa1832ae102bf18acb995f",
+        "afterSha256": "99399bffb59e76610de2c703d5e9f9f484d919d211fa1832ae102bf18acb995f",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/workflows/native-graph.integration.test.ts",
+        "baselineSha256": "84250cf766a24959e1d903fe265c9f7bce3166c010da95c2a60cef034cdafab9",
+        "afterSha256": "84250cf766a24959e1d903fe265c9f7bce3166c010da95c2a60cef034cdafab9",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/workflows/producer-edge.integration.test.ts",
+        "baselineSha256": "10279adf2ff53cd1569397f99698fc51a9489d9caadfcdadc0f9d8018ca3a3c2",
+        "afterSha256": "10279adf2ff53cd1569397f99698fc51a9489d9caadfcdadc0f9d8018ca3a3c2",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/workflows/store.test.ts",
+        "baselineSha256": "cf2c2075c3422041c797ecb490da21a7ef9d4267c986018cf2001828e7885abb",
+        "afterSha256": "cf2c2075c3422041c797ecb490da21a7ef9d4267c986018cf2001828e7885abb",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/coding-runs/batch.integration.test.ts",
+        "baselineSha256": "34f6367aee02993243a57c13450fe107249883082e400fcab25667f97a3a6b54",
+        "afterSha256": "34f6367aee02993243a57c13450fe107249883082e400fcab25667f97a3a6b54",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/coding-runs/batch-boundaries.integration.test.ts",
+        "baselineSha256": "39832e4379b542b3b1067f0e38bdaf040425b4c08cc3223ce9d8caf0570d3d5e",
+        "afterSha256": "39832e4379b542b3b1067f0e38bdaf040425b4c08cc3223ce9d8caf0570d3d5e",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/coding-runs/crash.integration.test.ts",
+        "baselineSha256": "cd83b5309c2c516c3aa3979378f507beba72707d0d454138950a40f68407b57f",
+        "afterSha256": "cd83b5309c2c516c3aa3979378f507beba72707d0d454138950a40f68407b57f",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/workflows/effects.integration.test.ts",
+        "baselineSha256": "b64d3ad2620b55d6efba72756428467de9859dd60658561861dac114ac009e46",
+        "afterSha256": "b64d3ad2620b55d6efba72756428467de9859dd60658561861dac114ac009e46",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/workflows/effects-crash.integration.test.ts",
+        "baselineSha256": "a4f6bc54c86325dd225e6ecf152ae66c2a4bb54fd3d248778bb879c03fb08783",
+        "afterSha256": "a4f6bc54c86325dd225e6ecf152ae66c2a4bb54fd3d248778bb879c03fb08783",
+        "byteIdentical": true
+      },
+      {
+        "path": "packages/engine/src/lifecycle/engine-transforms.test.ts",
+        "baselineSha256": "5c9ba8e0c4d0cac2d0e6bc7521cd7ded3b337d835ca1fdc60a2f91fa8da71155",
+        "afterSha256": "d33cea643475f7a43fab3750a9bc19b94dc23bf8b76e6be8d463da5dd75b7421",
+        "byteIdentical": false
+      }
+    ],
+    "all221OriginalScenarioNamesPresentInSourceAndCompiled": true,
+    "effectBatchWorkerAndSixCaseTestByteIdentical": true
+  },
+  "compatibility": [
+    "Only private fixtures and lifecycle preparation imports changed; public API/DB/events/serialized native payload definitions unchanged.",
+    "No original scenario deletion/skip/assertion relaxation/timeout increase; independent expected/native/mock clock contracts retained.",
+    "Original Engine/process/lease/budget/permission/SQL-fault/clock/effect ownership and unknown-retention remain in original closures.",
+    "RF-TF-07/08/10 retain their KEEP decisions.",
+    "Root main checkout was read-only for this task; no forbidden production/terminal/resilience/observer/GUI/contracts/README/TODO/CI/package writes."
+  ],
+  "failedAttemptArtifactsRetained": [
+    {
+      "path": "artifacts/rf-tf-refactor/invalid-relative-loader-source.log",
+      "bytes": 13179,
+      "sha256": "d24c1efd9c187781ca1b85598e537f42c668f9879908c987b04816727be7e471"
+    },
+    {
+      "path": "artifacts/rf-tf-refactor/proof-03-04-source-first-attempt.log",
+      "bytes": 2215,
+      "sha256": "7338bffc06dff9378acfdd17d6afa3680eba7a3a0becca275f9b1f477bd74cff"
+    },
+    {
+      "path": "artifacts/rf-tf-refactor/final-typecheck-first-attempt.log",
+      "bytes": 1003,
+      "sha256": "9da500b66cbb510f5193e9663961da058a6140937abdeccf1054d95386f2e440"
+    }
+  ],
+  "limits": {
+    "fullRegressionRunsByThisTask": 0,
+    "hostedCiRunsByThisTask": 0,
+    "liveAccountModelRequests": 0,
+    "goalCalls": 0,
+    "qualification": "Darwin focused acceptance only; no resolution of prior hosted cause or Root aggregate acceptance inferred."
+  }
+}
