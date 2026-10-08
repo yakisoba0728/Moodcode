@@ -2764,21 +2764,21 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
     } finally { this.pendingStorage.delete(operation); }
   }
 
-  importImage(sessionId: string, data: Uint8Array, mimeType: InputImageAttachment['mimeType'], signal?: AbortSignal): Promise<InputImageAttachment> {
+  private trackMediaImport<T>(factory: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<T> {
     if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    const operation = this.images.import(sessionId, data, mimeType, signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal);
+    const operation = factory(signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal);
     this.pendingImages.add(operation);
     void operation.then(() => this.pendingImages.delete(operation), () => this.pendingImages.delete(operation));
     return operation;
   }
 
+  importImage(sessionId: string, data: Uint8Array, mimeType: InputImageAttachment['mimeType'], signal?: AbortSignal): Promise<InputImageAttachment> {
+    return this.trackMediaImport(lifetime => this.images.import(sessionId, data, mimeType, lifetime), signal);
+  }
+
   /** Host-only bounded import. References carry no path, filename or raw bytes. */
   importDocument(sessionId: string, data: Uint8Array, signal?: AbortSignal): Promise<InputDocumentAttachment> {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    const operation = this.documents.import(sessionId, data, signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal);
-    this.pendingImages.add(operation);
-    void operation.then(() => this.pendingImages.delete(operation), () => this.pendingImages.delete(operation));
-    return operation;
+    return this.trackMediaImport(lifetime => this.documents.import(sessionId, data, lifetime), signal);
   }
 
   /** Host-only read of a native media Part; archive/reopened DATA never dispatches a provider. */
@@ -2790,8 +2790,7 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   getMediaCapabilities(providerId:string,modelId:string){return this.mediaCapabilities(providerId,modelId);}
 
   importMedia(sessionId:string,data:Uint8Array,mimeType:InputMediaAttachment['mimeType'],segments:readonly InputMediaSegment[],signal?:AbortSignal):Promise<InputMediaAttachment>{
-    if(this.closing)return Promise.reject(new EngineError('ENGINE_CLOSED','Engine is closing'));
-    const operation=this.segments.import(sessionId,data,mimeType,segments,signal?AbortSignal.any([signal,this.hostResources.signal]):this.hostResources.signal);this.pendingImages.add(operation);void operation.then(()=>this.pendingImages.delete(operation),()=>this.pendingImages.delete(operation));return operation;
+    return this.trackMediaImport(lifetime => this.segments.import(sessionId, data, mimeType, segments, lifetime), signal);
   }
 
   close(): Promise<void> {
