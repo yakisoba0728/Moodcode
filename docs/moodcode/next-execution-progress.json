@@ -23,7 +23,7 @@
       ],
       "threadId": "01a11d5c-a7e9-7e51-be84-276527da793f",
       "hostId": "local",
-      "status": "implementation-integrated-branch-native-four-lanes-passed-combined-ci-pending",
+      "status": "integrated-native-node-and-electron-x64-accepted",
       "progressFile": "docs/moodcode/next-windows-progress.json",
       "requires": [
         "native-binding",
@@ -38,7 +38,7 @@
       ],
       "threadId": "01a11d5c-ab82-7ad3-8710-67c00b999c2e",
       "hostId": "local",
-      "status": "branch-implementation-ready-native-scopes-verified-integration-open",
+      "status": "integrated-finite-profiles-accepted-actual-anthropic-account-open",
       "progressFile": "docs/moodcode/next-provider-progress.json",
       "requires": [
         "bounded-model-qualified-contract",
@@ -56,7 +56,7 @@
       ],
       "threadId": "01a11d5c-affa-79c3-89e4-2cef32922796",
       "hostId": "local",
-      "status": "implementation-integrated-mcp-and-fixture-lifetime-corrections-pending",
+      "status": "integrated-native-gui-and-three-os-bundles-accepted-identity-and-signed-release-open",
       "progressFile": "docs/moodcode/next-desktop-progress.json",
       "requires": [
         "host-preload-renderer-consumption",
@@ -71,7 +71,7 @@
         "N-01"
       ],
       "agent": "/root/persistent_soak",
-      "status": "frozen-original-thirty-minute-passed-current-window-qualification-pending",
+      "status": "current-source-real-thirty-minute-observation-accepted-original-unknown-retained",
       "requires": [
         "same-engine-accumulating-history",
         "actual-duration-and-resource-samples",
@@ -97,7 +97,7 @@
         "RF-01"
       ],
       "agent": "/root/refactor_inventory",
-      "status": "whole-structural-baseline-and-semantic-proposals-recorded-manual-gaps-open",
+      "status": "final-owned-inventory-and-finite-semantic-review-accepted",
       "requires": [
         "source-qualified-inventory",
         "caller-and-compatibility-review",
@@ -118,7 +118,7 @@
         "RF-08"
       ],
       "owner": "Root",
-      "status": "coordinating",
+      "status": "finite-implementation-refactor-and-final-acceptance-completed-docs-finalization",
       "requires": [
         "feature-acceptance-baseline",
         "findings-before-refactor",
@@ -473,12 +473,60 @@
         }
       },
       "wholeAcceptance": false
+    },
+    {
+      "key": "final-corrective-exact-main-hosted",
+      "status": "passed",
+      "sourceCommit": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "jobs": 11,
+      "success": 11,
+      "failed": 0,
+      "artifactZipsApiDigestAndCrcVerified": 11,
+      "nativeCopyManifestsVerified": 24,
+      "evidence": "docs/moodcode/next-corrective-hosted-acceptance.json",
+      "qualification": "Full Engine/native NodeWindows/unsigned Electron directory bundles are scoped separately; historical failure and actual-account/signed/public-main-utility limits retained."
+    },
+    {
+      "key": "current-frozen-real-thirty-minute-acceptance",
+      "status": "passed",
+      "evidence": "docs/moodcode/next-current-persistent-30min-verification.json",
+      "rawReport": {
+        "path": "/tmp/moodcode-next-current-persistent-30min.json",
+        "bytes": 362843,
+        "sha256": "83747dc758b8b27be61a62f318cb746932da51b22d6325aec02b22e429f5c648"
+      },
+      "sourceCommit": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "engineRuntimeSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
+      "requestedObservationMs": 1800000,
+      "actualObservationMs": 1806588.742584,
+      "activeDurationMs": 1807625,
+      "cycles": 417,
+      "inputs": 1672,
+      "inputBytes": 428032,
+      "samples": 128,
+      "resources": {
+        "rssDeltaBytes": 25952256,
+        "heapUsedDeltaBytes": 41297432,
+        "descriptorDelta": 7,
+        "descriptorPeak": 35,
+        "liveDescendantPeak": 2,
+        "sqliteDeltaBytes": 333576240,
+        "artifactDeltaBytes": 289499,
+        "sampledWorkerDurationMs": 1822802
+      },
+      "cleanup": {
+        "physicalConfirmed": true,
+        "nativeConfirmed": false,
+        "databaseRemoved": false,
+        "originalRetained": true
+      },
+      "qualification": "Same resident accumulating history with explicit graceful checkpoint and final SIGKILL/recovery. Original uncertain native records retained; process absence gives no native authority. Measurements give no leak/SLA claim."
     }
   ],
   "goalTracking": {
     "toolStatus": "blocked",
     "unexpectedSharedSessionMutation": true,
-    "execution": "Independent authorized implementation continues; parent owns future goal mutations",
+    "execution": "Independently executable finite implementation/refactor/verification accepted. Shared goal remains blocked; user-resume and actual external acceptance remain separate from completed source work.",
     "externallyRequiredAcceptanceRemainsOpen": true
   },
   "refactorSessions": [
@@ -501,11 +549,25 @@
         "STORE-01",
         "RUNNER-01"
       ]
+    },
+    {
+      "threadId": "01a11db5-8588-7613-8b45-66005ccabe5d",
+      "model": "gpt-6.1-sol",
+      "effort": "xhigh",
+      "units": [
+        "RF-TF-02",
+        "RF-TF-03",
+        "RF-TF-04",
+        "RF-TF-05",
+        "RF-TF-06",
+        "RF-TF-09"
+      ],
+      "status": "integrated-source-and-compiled233/233-passed"
     }
   ],
   "latestIntegration": {
-    "state": "local-accepted-corrective-hosted-and-long-pending",
-    "head": "0777a49",
+    "state": "independent-finite-implementation-refactor-acceptance-completed-external-conditions-open",
+    "head": "2381bff327f89c46159ae943afc6d4feaa8c455f",
     "lanes": {
       "core": "CORE01-04 source172/172 compiled172/172, isolated whole4823/4821/0fail/2skip",
       "storeRunner": "STORE20 +RUNNER159 +cleanup6 source/compiled",
@@ -520,8 +582,8 @@
       "final owned source inventory",
       "11 hosted engine/native-Windows/desktop lanes"
     ],
-    "goalStatus": "blocked; independent execution continues",
-    "mainPushedThrough": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+    "goalStatus": "blocked; independently executable finite work accepted; actual external conditions remain open",
+    "mainPushedThrough": "2381bff327f89c46159ae943afc6d4feaa8c455f",
     "engineRuntimeSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
     "localAcceptance": "next-final-local-acceptance.json",
     "structuralInventory": {
@@ -532,6 +594,51 @@
       "beforeLines": 307720,
       "qualification": "Owned physical source lines including tests/fixtures/tooling; excludes clones/dependencies/generated outputs. Finite semantic review only."
     },
-    "historicalHosted": "a89 10/11 success; Windows receipt lookup failure preserved and corrected in scripts only"
+    "historicalHosted": "a89 10/11 success; Windows receipt lookup failure preserved and corrected in scripts only",
+    "correctiveHosted": {
+      "evidence": "next-corrective-hosted-acceptance.json",
+      "sourceCommit": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "jobs": 11,
+      "success": 11,
+      "failed": 0,
+      "evidencePin": {
+        "path": "docs/moodcode/next-corrective-hosted-acceptance.json",
+        "bytes": 74546,
+        "sha256": "59f77f6730f32c73431d28ba94df051d0f4c52eacfbf3f89862e90bf288aaf86"
+      }
+    },
+    "currentPersistentLong": {
+      "evidence": "next-current-persistent-30min-verification.json",
+      "sourceCommit": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "actualObservationMs": 1806588.742584,
+      "cycles": 417,
+      "inputs": 1672,
+      "status": "passed",
+      "evidencePin": {
+        "path": "docs/moodcode/next-current-persistent-30min-verification.json",
+        "bytes": 23955,
+        "sha256": "e3044036e67f32ed3b3b4f66982e0378a44a9c21f49835297f1c143fbbffbfe0"
+      }
+    },
+    "finalOutcomes": {
+      "build": "passed",
+      "wholeLocal": "4845pass/0fail/2existing conditional skips",
+      "codingEvaluation": "3/3 scripted native tasks",
+      "resilience": "3iterations passed",
+      "nativePTY": "15cases passed",
+      "nativeGUI": "15checks and expected fault preservation passed",
+      "hosted": "11/11 exact2381",
+      "persistentLong": "current1806588.742584ms observation passed",
+      "inventory": "next-final-inventory-comparison.json",
+      "performance": "next-final-performance-comparison.json",
+      "sourceContract": "primary DB23/281catalogue stable; independent native/event/archive/ownership/approval/noReplay contract regressions preserved",
+      "finalization": "Documentation-only acceptance commit follows source-qualified2381; actual final commit/remote pointer lives in Git to avoid self-referential hashes."
+    },
+    "finalPending": [
+      "actual-official-SIWC-login/inference",
+      "actual-Anthropic-account",
+      "signed/notarized/published-distribution",
+      "historical-PTY-cause"
+    ]
   }
 }

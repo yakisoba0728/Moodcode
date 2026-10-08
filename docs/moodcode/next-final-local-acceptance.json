@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "kind": "next-current-integrated-acceptance",
-  "recordedAt": "2026-10-08T23:26:21.616266+00:00",
-  "status": "local-passed-current-hosted-and-long-running",
+  "recordedAt": "2026-10-08T23:50:25.492Z",
+  "status": "finite-integrated-local-hosted-long-scope-accepted-external-conditions-open",
   "engineFreezeCommit": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
   "engineRuntimeSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
   "local": {
@@ -127,8 +127,50 @@
   },
   "performance": "next-final-performance-comparison.json",
   "inventory": "next-final-inventory-comparison.json",
-  "currentLong": "Frozena89 current30min active; pending actual final duration/resource/source/noReplay/cleanup report.",
-  "hosted": "Currenta89 Engine6+nativeWindows2+Desktop3 originally: DesktopWindowslookup failure preserved; corrected exact-main hosted acceptance pending.",
+  "currentLong": {
+    "status": "passed",
+    "evidence": "next-current-persistent-30min-verification.json",
+    "rawReport": {
+      "path": "/tmp/moodcode-next-current-persistent-30min.json",
+      "bytes": 362843,
+      "sha256": "83747dc758b8b27be61a62f318cb746932da51b22d6325aec02b22e429f5c648"
+    },
+    "sourceCommit": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+    "engineRuntimeSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
+    "requestedObservationMs": 1800000,
+    "actualObservationMs": 1806588.742584,
+    "activeDurationMs": 1807625,
+    "cycles": 417,
+    "inputs": 1672,
+    "inputBytes": 428032,
+    "samples": 128,
+    "resources": {
+      "rssDeltaBytes": 25952256,
+      "heapUsedDeltaBytes": 41297432,
+      "descriptorDelta": 7,
+      "descriptorPeak": 35,
+      "liveDescendantPeak": 2,
+      "sqliteDeltaBytes": 333576240,
+      "artifactDeltaBytes": 289499,
+      "sampledWorkerDurationMs": 1822802
+    },
+    "cleanup": {
+      "physicalConfirmed": true,
+      "nativeConfirmed": false,
+      "databaseRemoved": false,
+      "originalRetained": true
+    },
+    "qualification": "Same resident accumulating history with explicit graceful checkpoint and final SIGKILL/recovery. Original uncertain native records retained; process absence gives no native authority. Measurements give no leak/SLA claim."
+  },
+  "hosted": {
+    "status": "passed",
+    "sourceCommit": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+    "evidence": "next-corrective-hosted-acceptance.json",
+    "jobs": 11,
+    "success": 11,
+    "failure": 0,
+    "previousFailurePreserved": "next-final-hosted-acceptance.json"
+  },
   "externalOpen": [
     "actual-SIWC-login/model-inference",
     "actual-Anthropic-account",

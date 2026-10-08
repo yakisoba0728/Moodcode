@@ -4,7 +4,7 @@ Electron 기반 로컬 코딩 에이전트다. 자체 TypeScript/Node 엔진, �
 
 엔진이 세션·요청 접수·모델 turn loop·도구·승인·취소·SQLite 기록과 replay를 소유한다. 모델 adapter는 한 turn의 통신만 담당한다. GUI는 같은 엔진을 Electron utility process에서 실행하며 sandbox preload bridge로 연결한다. 설정 파일, 저장소 변경 감시, DB 검사·백업, 변경 복원 preview와 runtime 진단도 구현했다. 실제 완료 범위와 검증 결과는 [구현 상태](docs/moodcode/implementation-status.md)에 기록한다.
 
-현재 후속 작업은 내부 엔진 우선이다. [엔진 구현 TODO](TODO.md)의 기반 75개 항목 중 73개와 2차 80개 항목·20개 기능군을 명시한 지원 범위에서 구현·검증했다. durable queue/steer·Turn/Part·의미 요약·scoped tools·MCP·PTY·worktree child 실행·상주팀·workflow·ACP session/load·예약·승인한 변경 통합·LSP/formatter·archive·미디어·진단을 자체 엔진에 연결했다. 후속 native Windows Job Object, 고급 GUI, 앱 계정 관리와 업데이트 준비를 통합했고, 최신 공동 소스 검증과 테스트·엔진 리팩터링을 진행한다. [현재 진행 기록](docs/moodcode/next-execution-progress.json)과 [host API](docs/moodcode/engine-host-api.md)를 따른다. 실제 추가 공급자 계정·서명 배포와 과거 PTY 실패의 원인 판정은 열린 항목이다.
+현재 후속 작업은 내부 엔진 우선이다. [엔진 구현 TODO](TODO.md)의 기반 75개 항목 중 74개와 2차 80개 항목·20개 기능군을 명시한 지원 범위에서 구현·검증했다. durable queue/steer·Turn/Part·의미 요약·scoped tools·MCP·PTY·worktree child 실행·상주팀·workflow·ACP session/load·예약·승인한 변경 통합·LSP/formatter·archive·미디어·진단을 자체 엔진에 연결했다. 후속 native Windows Job Object, 고급 GUI, 앱 계정 관리와 업데이트 준비를 통합했고, 확정한 테스트·엔진 리팩터링과 통합 로컬 전체 회귀 4,845 pass·실패 0·기존 skip 2, 현재 OS별 CI 11/11을 통과했다. 동일 엔진의 실제 30분 장기 관측도 입력 1,672개·417회 누적으로 통과했다. [최신 통합 검증](docs/moodcode/next-final-local-acceptance.json)에 근거와 한계를 기록했다. [현재 진행 기록](docs/moodcode/next-execution-progress.json)과 [host API](docs/moodcode/engine-host-api.md)를 따른다. 실제 추가 공급자 계정·서명 배포와 과거 PTY 실패의 원인 판정은 열린 항목이다.
 
 OpenCode/pi/Amp/Claude Code/Codex 등 19개 공개 코딩 에이전트의 근거를 비교하며 자체 엔진을 구현했다. 2차 최종 source `99bf6f0`의 전체 로컬 gate는 4,701개 중 4,699 pass·실패 0·기존 Windows 조건부 skip 2이며 실제 공개 CI 여섯 작업도 통과했다. macOS/Linux 전체 엔진과 Windows portable 범위를 구분하며, 이 결과가 모든 OS·공급자·GUI의 검증을 의미하지는 않는다. [최종 검증](docs/moodcode/engine-phase-two-final-acceptance-verification.json), [기본 도구 문맥 계약](docs/moodcode/engine-eager-catalogue-context.md), [TODO](TODO.md)를 따른다. 후속 PTY 진단·복합 실행 검증·코딩 평가·성능 baseline을 구현했다. 별도 932개 입력 동결본에서 전체 회귀 4,723개 중 4,721 pass·실패 0·기존 skip 2, 60회 반복, native 코딩 과업 3/3, quick/standard 성능 gate를 통과했다. 공개 CI 여섯 작업도 통과했으며 [보강 검증 근거](docs/moodcode/engine-hardening-verification.json)를 따른다.
 
@@ -12,7 +12,7 @@ OpenCode/pi/Amp/Claude Code/Codex 등 19개 공개 코딩 에이전트의 근거
 
 2차의 원래 80개 작업과 20개 기능군은 완료했다. [진행표](docs/moodcode/engine-phase-two-progress.json)와 [최종 검증](docs/moodcode/engine-phase-two-final-acceptance-verification.json)을 따른다. Electron의 고급 패널에서 inbox·tasks/questions·MCP·PTY·child/team·workflow·LSP를 연결한다. 첫 workflow 화면은 읽기·진단 범위이며 고급 효과는 명시적 host 설정·대상 선택·승인을 요구한다.
 
-현재 개발 runtime은 `.nvmrc`의 Node 26.9.0이며, 최소 Node 24의 `node:sqlite` API를 사용한다. Git이 필요하다. macOS arm64 개발용 앱 bundle과 ASAR 내부 supervisor를 검증했다. 서명·공증·공개 지원 OS 검증은 후속 단계다.
+현재 개발 runtime은 `.nvmrc`의 Node 26.9.0이며, 최소 Node 24의 `node:sqlite` API를 사용한다. Git이 필요하다. macOS arm64·Linux x64·Windows x64의 서명 없는 개발용 bundle과 실제 utility 실행을 검증했다. Windows 명령은 Job Object를 사용하며 Windows PTY·arm64 앱은 미검증 범위다. 고급 GUI 전체 흐름은 macOS에서 검증했다. 실제 서명·공증·설치 배포는 별도 조건이다.
 
 ```sh
 npm ci

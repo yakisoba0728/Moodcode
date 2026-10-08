@@ -1,20 +1,23 @@
 {
   "schemaVersion": 1,
   "kind": "next-feature-support-acceptance-draft",
-  "recordedAt": "2026-10-08T23:14:57.311719+00:00",
-  "status": "integrated-followup-final-current-source-acceptance-running",
+  "recordedAt": "2026-10-08T23:50:25.493Z",
+  "status": "integrated-finite-followup-and-refactor-scopes-accepted-external-conditions-open",
   "globalFollowupAccepted": false,
   "historical80of80Preserved": true,
   "newExecution": {
     "builds": 0,
     "nativeRuns": 0,
     "liveProviderRequests": 0,
-    "credentialsRead": false
+    "credentialsRead": false,
+    "scope": "Report update itself executes no build/native/provider calls; cited qualification reports own actual execution counts."
   },
   "sourceSnapshots": {
     "main": {
-      "commit": "3fc2d1450f5a14557e132afb9e6422e528fa58a5",
-      "qualification": "Observed HEAD with pending working-tree fixture/inspection edits; selected source/document hashes below, not final whole source freeze."
+      "commit": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "qualification": "Exact integrated hosted11-job source; all further finalization edits are documentation-only. Engine effective source771files digest33b3f759 identical to frozen a89 local gates.",
+      "engineRuntimeSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
+      "evidence": "next-corrective-hosted-acceptance.json"
     },
     "windows": {
       "commit": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
@@ -34,10 +37,24 @@
     "persistentLongRun": {
       "commit": "78e37b1d54952d173779865b6fb9d2d04fac828f",
       "path": "/Users/yakisoba0728/.codex/worktrees/next-persistent-frozen/Moodcode",
-      "state": "coordinator-reported-running",
+      "state": "passed-at-original-source",
       "requestedDurationMs": 1800000,
-      "measuredDurationMs": null,
-      "accepted": false
+      "measuredDurationMs": 1802370,
+      "accepted": true,
+      "qualification": "Historical78e37b1 source only; current a89 observation-window acceptance recorded separately."
+    },
+    "historicalMainObservation": {
+      "commit": "3fc2d1450f5a14557e132afb9e6422e528fa58a5",
+      "qualification": "Observed HEAD with pending working-tree fixture/inspection edits; selected source/document hashes below, not final whole source freeze."
+    },
+    "currentPersistentLongRun": {
+      "commit": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "state": "passed",
+      "requestedObservationMs": 1800000,
+      "actualObservationMs": 1806588.742584,
+      "engineRuntimeSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
+      "evidence": "next-current-persistent-30min-verification.json",
+      "qualification": "Frozen a89 exact effective771 runtime graph is independently byte-qualified to integrated2381; documentation and desktop-only ASAR lookup changes are excluded."
     }
   },
   "tableColumns": [
@@ -52,7 +69,7 @@
     {
       "id": "MC2-01..20",
       "implemented": "Historical original 80 items / 20 families accepted within their explicit support scope.",
-      "actualLocal": "Historical frozen99bf6f0 complete suite; current combined source needs independent acceptance.",
+      "actualLocal": "Historical frozen99bf6f0 scope retained. Current combined local4845pass/0fail/2existingWindows-conditional skips is separately source-pinned in next-final-local-acceptance.json.",
       "actualHosted": "Historical run37827176532: six successful lanes; Windows then portable only.",
       "accountQualification": "Historical exact model/account reports remain scoped to their original execution pins.",
       "externalConditions": [],
@@ -65,11 +82,11 @@
     {
       "id": "E5-08",
       "implemented": "Actual unnamed kill-on-close Job Object owned by Engine; atomic suspended assignment, native process count/output/handle cleanup, exact approvals and restart unknown/no replay. Native implementation integrated on main; independent branch qualification remains source-scoped.",
-      "actualLocal": "Frozen Windows branch whole4759/4757pass/0fail/2skip completed; Root combined whole/refactor qualification follows next-execution-progress.json.",
-      "actualHosted": "Two exact-source push/dispatch runs, each Node24/26 gate37/37 and32 actual native scenarios total; actual retained DLL hashes independently matched here.",
+      "actualLocal": "Isolated original branch qualification retained. Integrated local whole4845pass/0fail and exact2381 native hosted acceptance recorded separately.",
+      "actualHosted": "Exact2381 Windows2025 x64 Node24/26 each37/37,16 actual native cases; Electron44.5.1 x64 private utility2Original approvals, completed command/native cleanup/ACK+exit. Artifact receipt/DLL/native SQLite binding checked; see next-corrective-hosted-acceptance.json.",
       "accountQualification": "Not applicable; account-free native command scope.",
       "externalConditions": [],
-      "acceptance": "Qualified isolated Windows2025 x64 Node24/26 native scope; combined regression and Desktop integration remain open.",
+      "acceptance": "Integrated native Windows x64 Node24/26 and packaged Electron command scope accepted. Windows PTY, ARM64 and OS file/network sandbox remain unqualified.",
       "evidence": [
         "windows-progress",
         "windows-ci",
@@ -82,8 +99,8 @@
     {
       "id": "E5-13",
       "implemented": "Provider coverage projection and bounded standard Responses PDF / timestamped AVI frames plus Anthropic cleanup ordering integrated on main e6cd1b6 and evidence6036880. Coverage DATA grants no dispatch authority.",
-      "actualLocal": "Provider branch525/525 focused and78/78 compiled CLI; whole4728/4723pass/3fail/2skip preserved. Focused30/30 did not resolve original failures. Main combined source qualification pending.",
-      "actualHosted": "Provider b7c44a3 run37849372005:5/6 lanes; Ubuntu26 batch/deadline/observer failures preserved. Main corrective fixture/CLI integration is a separate pending whole gate.",
+      "actualLocal": "Historical provider525/525 and78/78, preserved original whole failures, and current integrated whole4845pass/0fail are distinct source-pinned scopes. No repeated paid probes.",
+      "actualHosted": "Original provider b7c44a3 failure preserved. Corrected current2381 six-lane whole passed: macOS4845pass/2skip each, Ubuntu4783pass/64skip each, Windows portable gate; see next-corrective-hosted-acceptance.json. Actual account evidence remains its original exact model/source scope.",
       "accountQualification": "Real API-key Responses PDF gpt-4.1-mini-2025-04-14 and AVI frames gpt-4.1-2025-04-14 each one successful bounded POST; initial PDF semantic failure retained. Total ledger1 inventory GET +3 generation POST. Exact invocation credential reference; no persistent account ID. PDF pins exact b7 snapshot; media pins earlier whole source plus unchanged relevant source/complete compiled runtime continuity. No current-main account execution claimed. Anthropic actual account0 requests/unverified.",
       "externalConditions": [
         "approved-anthropic-account"
@@ -103,7 +120,7 @@
       "id": "R-PTY-01",
       "implemented": "Genuine bounded PTY repeatability CLI with SQLite/native outcome/PID/PGID/supervisor diagnostics, compiled default, Original process ownership and retained unknown fault evidence.",
       "actualLocal": "Compiled Darwin arm6415 native cases and actual CI launcher passed; normal lifecycle requires normal completion/known cleanup. Expected fault uncertainty stays retained.",
-      "actualHosted": "Current follow-up hosted qualification must be attached separately; historical unchanged case passes do not establish old cause.",
+      "actualHosted": "Current2381 POSIX native repeatability, hardening, observation and original evidence-copy manifests passed. Original historic EPERM/root-cause evidence remains unknown; passing later executions give no historical causal credit.",
       "accountQualification": "Account-free; no live provider requests.",
       "externalConditions": [
         "historical-pty-evidence"
@@ -119,11 +136,11 @@
     {
       "id": "N-01",
       "implemented": "Same resident Engine bounded seed/input/history soak, mandatory complete/cancel/text cases, resource samples, second-workspace cancellation, actual SIGKILL/reopen native recovery equality and no replay.",
-      "actualLocal": "Frozen78e37b1 genuine30-minute run completed:1802370ms active/398cycles/1596inputs. Current observation-window revision passes quick/source/compiled causal tests; current-source long run and final aggregate acceptance pending. See next-persistent-30min-verification.json and next-persistent-fixture-refactor-review.json.",
-      "actualHosted": "Short account-free CI launch supported; hosted short evidence and final long report require separate attachment. A short pass cannot qualify30 minutes.",
+      "actualLocal": "Current frozena89 passed: full observation1806588.742584ms,417cycles/1672inputs/428032bytes/128samples, graceful digest equality and actual SIGKILL/reopen noReplay. SourceStable true and effective771file digest33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb. Historical78e report retained separately.",
+      "actualHosted": "Exact2381 short native CI fixture passed with original copy manifests. Actual30minute credit belongs only to the separately measured frozen a89 local report.",
       "accountQualification": "Account-free provider fixture;0 live provider requests.",
       "externalConditions": [],
-      "acceptance": "Implementation/quick scope verified; original long-duration acceptance pending actual measured report and closure/resource evidence.",
+      "acceptance": "Requested current30minute observation and finite native/history/resource/restart scope accepted. Physical cleanup confirmed; native cleanup remains false/unknown and uncertain SQL/artifacts retained without replay or recovery acknowledgement. Growth alone establishes no leak-rate/SLA.",
       "evidence": [
         "persistent-contract",
         "persistent-quick",
@@ -134,10 +151,10 @@
       "id": "N-02",
       "implemented": "Host/preload/renderer native inbox/input controls, task CAS/questions, PTY, MCP, LSP, resident/child/team and readonly advisory workflow/history; original handles and approval/owner/budget gates retained.",
       "actualLocal": "Actual macOS arm64 Electron GUI15 checks,0 external requests; current55b desktop210/210. GUI executed at388701f; independently checked unchanged app/engine program from6ca to55b (only executable config/updater fixture changed), no fresh55b full GUI execution claimed. Root current integrated GUI15 checks passed with bounded native copy29files/5613201bytes, original retained because utility close authority unknown. MCP cap/failed-view rollback corrected, source/compiled coverage recorded separately.",
-      "actualHosted": "Isolated desktop6ca six-lane engine CI passed; packaged smoke does not substitute for full advanced GUI on other OS or combined main.",
+      "actualHosted": "Exact2381 macOS native GUI15 checks and intentional fault evidence retained. Three unsigned desktop bundles passed native smoke. Full advanced GUI on Linux/Windows is not inferred.",
       "accountQualification": "GUI uses local native/official-contract account fixture; official user login/inference unverified.",
       "externalConditions": [],
-      "acceptance": "Finite macOS local GUI scope verified; final main integration/rebuild/current GUI acceptance remains open. First workflow is readonly/advisory, no editor/validator/merge/delivery GUI effects.",
+      "acceptance": "Integrated finite macOS GUI15flow scope and MCP/source/compiled contracts accepted. Workflow remains readonly/advisory; main utility close authority remains unknown and originals retained.",
       "evidence": [
         "desktop-progress",
         "desktop-current",
@@ -164,12 +181,12 @@
     },
     {
       "id": "N-04",
-      "implemented": "Finite unsigned macOS/Linux/Windows bundle targets, engine utility/SQLite23/supervisor/renderer smoke. Electron44.5.1 native Windows build/ASAR/utility consumer gates prepared, binding workspace integrated on main; current three-OS hosted package qualification pending.",
+      "implemented": "Integrated finite unsigned macOS arm64/Linux x64/Windows x64 directory bundles with actual utility/SQLite23/supervisor/renderer smoke and platform-specific native command gates.",
       "actualLocal": "Actual unsigned macOS arm64 package passes packaged/context isolation, utility SQLite23, command cleanup and PTY native exit/cleanup; current55b package smoke passed.",
-      "actualHosted": "6ca package run37851820964 macOS+Windows portable passed, Linux executable mismatch failed. 388701f run37852530618 Linux package/native passed but updater failed SUID fixture launch. Current55b follow-up37852974845 recorded in progress; final integrated/current per-OS acceptance pending. Windows portable explicitly lacks binding.",
+      "actualHosted": "Exact2381 all three desktop jobs passed. Windows packaged Electron44.5.1/embeddedNode24.21.0 x64 Original approvals/command/checkpoint/native cleanup/private utility ACK+exit verified, ASAR receipt/DLL hashes bound. Previous a89 lookup failure and raw artifacts retained.",
       "accountQualification": "Package smoke account-free; no provider login qualification.",
       "externalConditions": [],
-      "acceptance": "Unsigned macOS scoped smoke verified; current Linux final hosted gate and actual integrated Windows Electron native package remain pending. No arm64 Windows credit.",
+      "acceptance": "Unsigned directory bundle/native utility smoke accepted for macOS arm64/Linux x64/Windows x64. Does not qualify signed installers, installed updater, Windows ARM64/PTy or full advanced GUI on every OS.",
       "evidence": [
         "desktop-package",
         "desktop-progress",
@@ -181,7 +198,7 @@
       "id": "N-05",
       "implemented": "Explicit stable updater, checksum/version/cleanup acknowledgement gates, disabled automatic install/downgrade, review-only signing preparation and known-good higher-version recovery. Publishing disabled.",
       "actualLocal": "Actual electron-updater6.8.9/Electron44.5.1 disposable POSIX fixture rejects corrupt SHA512, installs0.2.0, recovers0.3.0, blocks downgrade. Current launcher passed locally; real user app untouched.",
-      "actualHosted": "Linux388 updater launcher failed; corrected55b hosted follow-up recorded pending. No real macOS/Windows signed installer/update or approved published feed exercised.",
+      "actualHosted": "Exact2381 desktop jobs passed disposable POSIX unsigned updater fixture. Original Linux388 failure retained; no actual signed installer/notarization/published release/feed exercised.",
       "accountQualification": "No signing/notarization account qualification.",
       "externalConditions": [
         "macos-signing",
@@ -198,8 +215,8 @@
     {
       "id": "N-06",
       "implemented": "This support/acceptance draft plus existing primary DB23 contract evidence. Root owns final feature integration and RF behavior freeze.",
-      "actualLocal": "Read-only manifest/document/raw DLL/archive hash checks only; no build/native/live execution added by this draft. API/secondary DB/events/resources/count/performance/current GUI baseline must be settled against integrated source.",
-      "actualHosted": "Independent isolated branch gates and historic80/80 are preserved; current main six-lane whole acceptance is pending corrective rerun.",
+      "actualLocal": "Integrated local headless4847total/4845pass/0fail/2existingWindows-conditional skips; DB23/281catalogue unchanged, coding3/3, resilience3, nativePTY15, GUI15/intentionalfailedcase retained. Inventory1079files/311524lines and matched quick performance recorded. Exact771runtime digest remains identical after the desktop-only path fix.",
+      "actualHosted": "Exact2381 six headless +two native Windows +three desktop jobs all11passed; all11artifact ZIP API SHA/size/CRC and24original native copy manifests checked. Local acceptance and measured long report separately qualify their exact effective source.",
       "accountQualification": "Only cited exact provider invocation scopes; absent credentials/certificates remain explicit.",
       "externalConditions": [
         "approved-anthropic-account",
@@ -209,7 +226,7 @@
         "approved-release-feed",
         "historical-pty-evidence"
       ],
-      "acceptance": "DRAFT, open; no global E5/N completion or final RF preservation baseline claimed.",
+      "acceptance": "Finite integrated feature/refactor preservation baseline accepted with current whole/build/evaluation/resilience/PTY/GUI/performance/inventory/11hosted jobs and actual30minute report. Real identity/Anthropic/signed-release/historical-cause conditions remain separately open.",
       "evidence": [
         "todo",
         "execution-state",
@@ -227,7 +244,7 @@
       "pty": "Actual local repeatability and Desktop15 GUI native flow/package exit; historical R-PTY unresolved.",
       "osSandbox": "Opt-in Darwin sandbox-exec experimental-deprecated-cli; network deny only, actual scoped probes; no official Apple App Sandbox claim.",
       "artifactStore": "Existing O_NOFOLLOW/symlink/hardlink/root guard contract; POSIX qualification. Path APIs do not isolate every hostile same-UID parent replacement.",
-      "desktop": "Actual unsigned local package/GUI; current integrated main and signed release pending.",
+      "desktop": "Current integrated native macOSarm64 GUI15 +expected live-PTY failure/original retention; hosted macOS unsigned package/native command+PTY and updater fixture passed. Public main utility ACK/exit authority remains unknown. Signed/notarized deployment separate.",
       "evidence": [
         "sandbox-contract",
         "artifact-contract",
@@ -237,11 +254,11 @@
     },
     {
       "platform": "Linux x64 / Ubuntu24.04",
-      "command": "Existing actual POSIX ownership; current whole hosted corrective gate pending.",
+      "command": "Current integrated hosted Ubuntu24.04 Node24/26 actual POSIX process ownership; originala89 six-headless lanes passed. Corrective exact2381 source scope collected separately.",
       "pty": "388701f hosted package native smoke recorded passed; historical headless skips include interactive PTY, no full interactive GUI credit.",
       "osSandbox": "Unsupported by Darwin-only backend; typed rejection/capability false.",
       "artifactStore": "Existing POSIX O_NOFOLLOW contract; no new integrated-source attestation by this draft.",
-      "desktop": "Linux executable-name fix388701f package/native passed, updater failed;55b follow-up/current integrated acceptance pending.",
+      "desktop": "Current2381 unsigned Linuxx64 bundle/utility/SQLite23/renderer +native command/PTY smoke and disposable unsigned updater fixture passed. Advanced GUI and signed/published install are not inferred.",
       "evidence": [
         "sandbox-contract",
         "artifact-contract",
@@ -251,11 +268,11 @@
     },
     {
       "platform": "Windows2025 x64 Node24/26",
-      "command": "Actual Engine-owned atomic Job Object and sealed bounded stdout/stderr verified at8c7aac2. No taskkill/direct-child ownership fallback.",
+      "command": "Integrated actual Engine-owned Job Object: x64 Node24/26 hosted37cases per lane; numeric taskkill/direct-child fallback absent.",
       "pty": "Unsupported; no Windows PTY or interactive/lifetime stdin command transport support.",
       "osSandbox": "Unsupported file/network sandbox; Job Object owns processes under host user only.",
       "artifactStore": "General managed ArtifactStore persistence and artifact.get unsupported where O_NOFOLLOW absent; optional result-copy explicit unavailable warning. Independently sealed native stdout/stderr logs persist; actual supported-store failure remains failure.",
-      "desktop": "Portable package verified separately; Node DLL gates grant no Electron credit. Root integration + exact Electron44.5.1 x64 headers + ASAR-unpacked load/actual utility approval/receipt/cleanup pending.",
+      "desktop": "Corrective2381 Windowsx64 packaged Electron44.5.1/embeddedNode24.21 actual private utility:2native approvals, completed command/exit0/full checkpoint/native cleanup and OriginalUtility ACK+exit. Actual unpacked DLL/ASAR receipt qualification is recorded by current hosted artifact review. Public main utility close authority remains unknown and original fixture retained; unsigned directory smoke does not qualify signed NSIS/install/update.",
       "evidence": [
         "windows-contract",
         "windows-artifacts",
@@ -664,7 +681,7 @@
     }
   ],
   "latestQualification": {
-    "currentSource": "Integrated CORE01-04/STORE01/RUNNER01 and bounded test fixture units; final build/whole/11hosted lanes/long-run/inventory/benchmark gates follow next-execution-progress.json.",
+    "currentSource": "Integrated finite implementation/refactor scopes accepted: local4845pass/0fail/2existing skips, exact2381 hosted11/11 and frozena89 actual30minute observation. Effective771file Engine digest33b3f759 identical across desktop-only path correction and documentation updates.",
     "historicalPins": "Existing evidencePins and isolated branch counts refer to their original frozen snapshots; superseded running claims corrected above.",
     "externalOpen": [
       "actual-SIWC-login/inference",
@@ -672,6 +689,38 @@
       "signed/notarized/published-distribution",
       "historical-PTY-cause"
     ],
-    "goalTracking": "blocked-by-shared-session-mutation; Root implementation continues; user-resume requested"
-  }
+    "goalTracking": "blocked-by-shared-session-mutation; independently executable finite work accepted; actual external acceptance remains open; user resume requested",
+    "hostedEvidence": "next-corrective-hosted-acceptance.json",
+    "longEvidence": "next-current-persistent-30min-verification.json"
+  },
+  "independentlyExecutableScopeAccepted": true,
+  "freezeRequirementsStatus": "Independently executable finite freeze requirements satisfied by final local/hosted/long reports; actual external conditions remain open. Historical snapshots and unsupported scopes retained.",
+  "historicalEvidencePinsQualification": "Original observation pins retained unchanged from the pre-finalization draft in Git2381bff. Mutable paths may now contain later content; these hashes qualify the original observations rather than asserting current path equality. Current support uses the separately source-pinned final reports below.",
+  "currentAcceptanceEvidencePins": [
+    {
+      "path": "docs/moodcode/next-final-local-acceptance.json",
+      "bytes": 6594,
+      "sha256": "57a071dcd5fd0006aee0f64f9da0fe75f143eb75237b918b889d29d4badf52e9"
+    },
+    {
+      "path": "docs/moodcode/next-corrective-hosted-acceptance.json",
+      "bytes": 74546,
+      "sha256": "59f77f6730f32c73431d28ba94df051d0f4c52eacfbf3f89862e90bf288aaf86"
+    },
+    {
+      "path": "docs/moodcode/next-current-persistent-30min-verification.json",
+      "bytes": 23955,
+      "sha256": "e3044036e67f32ed3b3b4f66982e0378a44a9c21f49835297f1c143fbbffbfe0"
+    },
+    {
+      "path": "docs/moodcode/next-final-inventory-comparison.json",
+      "bytes": 33384,
+      "sha256": "9d33a31aea3c9a11e2061e66f8b13ca4062a5279c55b8a90b31fd5b70c6e0ab5"
+    },
+    {
+      "path": "docs/moodcode/next-final-performance-comparison.json",
+      "bytes": 8161,
+      "sha256": "891a6c1ee76bbe9efc7e2b7387ea35fdeb582e9797cd7a5720a9ea200995fc7c"
+    }
+  ]
 }

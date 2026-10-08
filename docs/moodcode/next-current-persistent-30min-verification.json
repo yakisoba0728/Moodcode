@@ -1,0 +1,642 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-current-persistent-30min-verification",
+  "updatedAt": "2026-10-08T23:52:14.868Z",
+  "status": "passed",
+  "execution": {
+    "exitCode": 0,
+    "worktree": "/Users/yakisoba0728/.codex/worktrees/next-refactor-frozen/Moodcode",
+    "command": "node scripts/verify-engine-persistent-soak.mjs --profile long --runtime compiled --duration-ms 1800000 --max-cycles 600 --payload-bytes 256 --max-samples 128 --seed 20261009 --report /tmp/moodcode-next-current-persistent-30min.json",
+    "preparation": {
+      "install": "ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --include=optional",
+      "installExitCode": 0,
+      "pty": "npm run prepare:pty",
+      "ptyExitCode": 0,
+      "build": "node node_modules/typescript/bin/tsc -b packages/contracts packages/engine apps/engine-harness --force --pretty false",
+      "buildExitCode": 0,
+      "helper": {
+        "before": {
+          "path": "node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper",
+          "bytes": 50480,
+          "sha256": "21c589109bca43e287df884f3c34ab888033a83927ea7d273949ac5030583f26",
+          "mode": 420,
+          "device": 16777229,
+          "inode": 28183850,
+          "modifiedMs": 1791501466642.5835
+        },
+        "after": {
+          "path": "node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper",
+          "bytes": 50480,
+          "sha256": "21c589109bca43e287df884f3c34ab888033a83927ea7d273949ac5030583f26",
+          "mode": 493,
+          "device": 16777229,
+          "inode": 28183850,
+          "modifiedMs": 1791501466642.5835
+        },
+        "bytesAndInodeUnchanged": true
+      }
+    },
+    "environment": {
+      "node": "v26.9.0",
+      "os": "darwin",
+      "release": "27.0.0",
+      "architecture": "arm64",
+      "gcExposed": false
+    },
+    "noLive": true,
+    "provider": "ScriptedProvider; all command and repository effects use the private temporary fixture",
+    "commandStartedAtApproximate": "2026-10-08T23:18:37Z",
+    "observedCompletedAt": "2026-10-08T23:49:07Z",
+    "reportTimestamp": "2026-10-08T23:18:37.524Z"
+  },
+  "sourceQualification": {
+    "frozenHead": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+    "frozenCleanBefore": true,
+    "frozenCleanAfter": true,
+    "beforeAfterIdentityEqual": true,
+    "reportIdentityEqual": true,
+    "runtime": "compiled",
+    "sourceSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
+    "files": 771,
+    "bytes": 11899716,
+    "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim",
+    "cliSha256": "97bed9b06c3e7bf03aac762c5872c1c3e28ed9c40822de06b55739b4bbfea0d0",
+    "packageLockSha256": "d7944de18f9cfdf41ecf51afa1350186d93a59f23edd829d99cc88574dd39dfe",
+    "sourceStable": true,
+    "mainCrossQualification": {
+      "observedAt": "2026-10-08T23:50:49.075Z",
+      "frozenHead": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "mainHead": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "proof": {
+        "path": "/tmp/moodcode-next-final-runtime-equivalence.json",
+        "bytes": 112579,
+        "sha256": "67dd0f21e0ccc1cd8764e0023e177669642a723e7546d4506e3afc3f13d4c724",
+        "gitHead": "0e5aa654eaf303fdec91d4967dda08c10c6046ec"
+      },
+      "runtime": "compiled",
+      "sourceSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
+      "files": 771,
+      "bytes": 11899716,
+      "mismatches": 0,
+      "exactPerFileMatch": true,
+      "sourceScope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim",
+      "cliSha256": "97bed9b06c3e7bf03aac762c5872c1c3e28ed9c40822de06b55739b4bbfea0d0",
+      "cliEqual": true,
+      "packageLockSha256": "d7944de18f9cfdf41ecf51afa1350186d93a59f23edd829d99cc88574dd39dfe",
+      "packageLockEqual": true,
+      "changedPathsSinceProof": [
+        "TODO.md",
+        "docs/moodcode/next-desktop-package-progress.json",
+        "docs/moodcode/next-desktop-progress.json",
+        "docs/moodcode/next-execution-progress.json",
+        "docs/moodcode/next-final-hosted-acceptance.json",
+        "docs/moodcode/next-final-inventory-comparison.json",
+        "docs/moodcode/next-final-local-acceptance.json",
+        "docs/moodcode/next-final-performance-comparison.json",
+        "docs/moodcode/next-pty-owned-fixture-review.json"
+      ],
+      "changesSinceProofConfinedToMetadata": true,
+      "qualification": "Actual 30-minute POSIX fixture result applies to this identical engine/contracts effective byte graph and the identical runner CLI. This comparison adds no Desktop/PTY/Windows/dependency execution or whole-repository qualification."
+    }
+  },
+  "configuredBounds": {
+    "profile": "long",
+    "durationMs": 1800000,
+    "maxCycles": 600,
+    "maxInputs": 2404,
+    "maxInputBytes": 67108864,
+    "payloadBytes": 256,
+    "maxSamples": 128,
+    "seed": 20261009,
+    "boundaryTimeoutMs": 10000
+  },
+  "actualObservation": {
+    "startedElapsedMs": 1035.958416,
+    "endedElapsedMs": 1807624.7010000001,
+    "durationMs": 1806588.742584,
+    "requestedDurationMs": 1800000,
+    "fullRequestedIntervalObserved": true,
+    "activeDurationMs": 1807625,
+    "totalVerificationDurationMs": 1830293,
+    "lastCycleElapsedMs": 1807623,
+    "loadStoppedBy": "duration",
+    "engineInstances": 3,
+    "instanceTimeline": [
+      {
+        "phase": "baseline",
+        "elapsedMs": 0,
+        "engineInstance": 1,
+        "cycles": 0,
+        "pid": 25419
+      },
+      {
+        "phase": "before-graceful-reopen",
+        "elapsedMs": 901730,
+        "engineInstance": 1,
+        "cycles": 287,
+        "pid": 25419
+      },
+      {
+        "phase": "after-graceful-reopen",
+        "elapsedMs": 908605,
+        "engineInstance": 2,
+        "cycles": 287,
+        "pid": 25419
+      },
+      {
+        "phase": "load-complete",
+        "elapsedMs": 1807625,
+        "engineInstance": 2,
+        "cycles": 417,
+        "pid": 25419
+      },
+      {
+        "phase": "crash-ready",
+        "elapsedMs": 1822802,
+        "engineInstance": 2,
+        "cycles": 417,
+        "pid": 25419
+      },
+      {
+        "phase": "recovery-host-before-close",
+        "elapsedMs": 1829705,
+        "engineInstance": 3,
+        "cycles": 417,
+        "pid": 25325
+      },
+      {
+        "phase": "recovery-host-after-close",
+        "elapsedMs": 1830234,
+        "engineInstance": 3,
+        "cycles": 417,
+        "pid": 25325
+      }
+    ],
+    "meaning": "A real monotonic observation window starts after mandatory complete/cancel/text cases. The same worker and native session history continue through one explicit graceful Engine close/reopen; a third Engine opens after the final Original worker crash."
+  },
+  "actualLoad": {
+    "workspaceId": "workspace_c5fc6f17788a33a151a05d082cbb21014bf352687a94956540cd263a044a6a42",
+    "sessionId": "6ee0da62-b3e4-4d17-b1be-ef5a55bf9187",
+    "cycles": 417,
+    "inputs": 1672,
+    "inputBytes": 428032,
+    "commands": 62,
+    "completedCommands": 60,
+    "cancelledCommands": 1,
+    "textCycles": 356,
+    "providerCalls": {
+      "command": 122,
+      "observer": 1129
+    },
+    "cycleEvidenceSha256": "78efa9409673133e081f365248c0a44362cc41532ba94b198133424f20ab201a",
+    "mandatoryNativeCasesCovered": true,
+    "cycleAndInputCeilingsRespected": true,
+    "tableCountsAndGrowth": {
+      "runs": {
+        "baseline": 0,
+        "crashReady": 835,
+        "afterRecovery": 835,
+        "netGrowth": 835
+      },
+      "messages": {
+        "baseline": 0,
+        "crashReady": 2562,
+        "afterRecovery": 2562,
+        "netGrowth": 2562
+      },
+      "tools": {
+        "baseline": 0,
+        "crashReady": 62,
+        "afterRecovery": 62,
+        "netGrowth": 62
+      },
+      "approvals": {
+        "baseline": 0,
+        "crashReady": 62,
+        "afterRecovery": 62,
+        "netGrowth": 62
+      },
+      "checkpoints": {
+        "baseline": 0,
+        "crashReady": 61,
+        "afterRecovery": 61,
+        "netGrowth": 61
+      },
+      "session_inputs": {
+        "baseline": 0,
+        "crashReady": 1672,
+        "afterRecovery": 1672,
+        "netGrowth": 1672
+      },
+      "session_turns": {
+        "baseline": 0,
+        "crashReady": 1251,
+        "afterRecovery": 1251,
+        "netGrowth": 1251
+      },
+      "provider_attempts": {
+        "baseline": 0,
+        "crashReady": 1251,
+        "afterRecovery": 1251,
+        "netGrowth": 1251
+      },
+      "message_parts": {
+        "baseline": 0,
+        "crashReady": 1251,
+        "afterRecovery": 1251,
+        "netGrowth": 1251
+      },
+      "attempt_cleanup": {
+        "baseline": 0,
+        "crashReady": 1251,
+        "afterRecovery": 1251,
+        "netGrowth": 1251
+      },
+      "session_documents": {
+        "baseline": 0,
+        "crashReady": 70,
+        "afterRecovery": 70,
+        "netGrowth": 70
+      },
+      "session_events": {
+        "baseline": 0,
+        "crashReady": 22786,
+        "afterRecovery": 22791,
+        "netGrowth": 22791
+      }
+    }
+  },
+  "gracefulCheckpoint": {
+    "before": {
+      "counts": {
+        "runs": 573,
+        "messages": 1759,
+        "tools": 42,
+        "approvals": 42,
+        "checkpoints": 42,
+        "session_inputs": 1149,
+        "session_turns": 859,
+        "provider_attempts": 859,
+        "message_parts": 859,
+        "attempt_cleanup": 859,
+        "session_documents": 50,
+        "session_events": 15647
+      },
+      "recordsSha256": "6d3ae572db7142ecc0a9219f4acb0fcb5771366d32cc04cd6749d9d5caa55149",
+      "integrity": "ok",
+      "foreignKeyViolations": 0
+    },
+    "after": {
+      "counts": {
+        "runs": 573,
+        "messages": 1759,
+        "tools": 42,
+        "approvals": 42,
+        "checkpoints": 42,
+        "session_inputs": 1149,
+        "session_turns": 859,
+        "provider_attempts": 859,
+        "message_parts": 859,
+        "attempt_cleanup": 859,
+        "session_documents": 50,
+        "session_events": 15647
+      },
+      "recordsSha256": "6d3ae572db7142ecc0a9219f4acb0fcb5771366d32cc04cd6749d9d5caa55149",
+      "integrity": "ok",
+      "foreignKeyViolations": 0
+    },
+    "noAutomaticReplay": true,
+    "explicitQueueResume": true,
+    "engineInstance": 2
+  },
+  "cancellation": {
+    "workspaceId": "workspace_12c72f5784d33120b2e2e57bebdd3c7642c68462ff39c0752d2b8161407026d5",
+    "sessionId": "1f75e838-d60c-4ba9-a356-243c4dd64835",
+    "runId": "c30d5388-3c83-49ac-a401-04dde85dfaf1",
+    "jobId": "command-334646bbb8e1d5019a2e03ae1ed8d1f9",
+    "jobSha256": "8fe523a0b76f340930dbe563fba5fe1953245c0279a9c82ca4a223a1fc7250e6",
+    "sourceSha256": "47fdf5dbab92805a24a6406aca5431aaae83a38330d0efd3d3e97fef3c2eb5c5",
+    "approvalId": "c221591f-8eda-4e7b-877c-41514774aa85",
+    "approvalFingerprint": "8e75c5e5fa1320c27ef615c17dafec96d9b00d6f6248cb875a518cd773f9a663",
+    "queuedInputId": "b837fa36-a010-4af6-a6ee-85ea8ca38d73",
+    "steerInputId": "2211e7cd-aa4d-4eef-af71-0024810b0675",
+    "cancelledInputId": "467e89bd-fb19-4477-ab0a-ba5f77aa1dc8",
+    "pid": 25589,
+    "groupPid": 25589,
+    "physicalCleanupConfirmed": true,
+    "nativeCleanupConfirmed": false,
+    "resumeOutcome": "cleanup-pending",
+    "nativeJobState": "uncertain",
+    "nativeErrorCode": "COMMAND_JOB_NATIVE_RESULT_UNCERTAIN",
+    "originalSource": {
+      "workspaceId": "workspace_12c72f5784d33120b2e2e57bebdd3c7642c68462ff39c0752d2b8161407026d5",
+      "sessionId": "1f75e838-d60c-4ba9-a356-243c4dd64835",
+      "runId": "c30d5388-3c83-49ac-a401-04dde85dfaf1",
+      "turnId": "b42dc242-fc4b-49ce-9346-457700a8ec8e",
+      "attemptId": "84ae9f70-c28b-43de-bedc-aa767249741c",
+      "toolCallId": "7430e65c-79f4-42bf-b4ea-bf7f094033ca",
+      "approvalId": "c221591f-8eda-4e7b-877c-41514774aa85",
+      "approvalFingerprint": "8e75c5e5fa1320c27ef615c17dafec96d9b00d6f6248cb875a518cd773f9a663",
+      "sha256": "47fdf5dbab92805a24a6406aca5431aaae83a38330d0efd3d3e97fef3c2eb5c5"
+    },
+    "retainedCompletionOutcome": {
+      "exitCode": null,
+      "signal": "SIGTERM",
+      "cancelled": true,
+      "timedOut": false,
+      "cleanupConfirmed": true,
+      "started": true,
+      "outputDiscarded": true
+    },
+    "retainedCheckpoint": {
+      "id": "7717046e-a4ad-4c87-9174-e494dda0d062",
+      "runId": "c30d5388-3c83-49ac-a401-04dde85dfaf1",
+      "toolCallId": "7430e65c-79f4-42bf-b4ea-bf7f094033ca",
+      "kind": "command",
+      "createdAt": "2026-10-08T23:18:39.315Z",
+      "incomplete": false,
+      "sha256": "868027337628b8c3b80f5ac5e83e4820a8654ffb3698766a671390b00318a71e"
+    },
+    "meaning": "The Original cancelled command has a physical cleanup receipt, but its native job remains uncertain (COMMAND_JOB_NATIVE_RESULT_UNCERTAIN) and explicit resume is rejected as cleanup-pending. The receipt does not grant recovery acknowledgment or erase authority."
+  },
+  "crashRecovery": {
+    "originalJobId": "command-eb7eb1005386e25a963c008ae98cab8d",
+    "originalSource": {
+      "workspaceId": "workspace_c5fc6f17788a33a151a05d082cbb21014bf352687a94956540cd263a044a6a42",
+      "sessionId": "6ee0da62-b3e4-4d17-b1be-ef5a55bf9187",
+      "runId": "b97611cb-4a3e-4874-808c-5fa6b2864a9f",
+      "turnId": "d788d144-e9b5-41fa-b6d9-08bd23eb7a20",
+      "attemptId": "0a85365a-0eac-4334-855e-4801b754d887",
+      "toolCallId": "5333aa5b-cae9-4d18-9bb6-e7199a8f63f5",
+      "approvalId": "5b61e678-1a8e-4bf8-ad7e-ad295ac299be",
+      "approvalFingerprint": "899d26c858a7f2367612c81dd3121aab687e63d1398c3feb0a79fc8999f69495",
+      "sha256": "7c465a5663bf1be9ffed9837337e1f77491c9490555d01cb9c7685d216a8aa2a"
+    },
+    "originalProposalPartId": "89623758-cd54-442c-91ae-c975fcb14327",
+    "nativeJobState": "uncertain",
+    "nativeErrorCode": "OWNED_COMMAND_RESTART_UNCERTAIN",
+    "completion": null,
+    "sourceRunState": "interrupted",
+    "providerCleanupState": "confirmed",
+    "providerCleanupConfirmed": true,
+    "toolEffectOutcome": "unknown",
+    "callbackEntry": "unverified",
+    "pendingInputState": "pending",
+    "cancelledInputState": "cancelled",
+    "noAutomaticReplay": true,
+    "recoveredProviderCalls": 0,
+    "actualProcessLaunches": 62,
+    "before": {
+      "counts": {
+        "runs": 835,
+        "messages": 2562,
+        "tools": 62,
+        "approvals": 62,
+        "checkpoints": 61,
+        "session_inputs": 1672,
+        "session_turns": 1251,
+        "provider_attempts": 1251,
+        "message_parts": 1251,
+        "attempt_cleanup": 1251,
+        "session_documents": 70,
+        "session_events": 22786
+      },
+      "recordsSha256": "ff7bdf04505bd58423cf0f42103e2977dba65b00802ca6ac43b0764fc4318a4d",
+      "integrity": "ok",
+      "foreignKeyViolations": 0
+    },
+    "after": {
+      "counts": {
+        "runs": 835,
+        "messages": 2562,
+        "tools": 62,
+        "approvals": 62,
+        "checkpoints": 61,
+        "session_inputs": 1672,
+        "session_turns": 1251,
+        "provider_attempts": 1251,
+        "message_parts": 1251,
+        "attempt_cleanup": 1251,
+        "session_documents": 70,
+        "session_events": 22791
+      },
+      "recordsSha256": "8870ca30aebd204182b93791116027624766bd25278d360ede8a093a80ecec8e",
+      "integrity": "ok",
+      "foreignKeyViolations": 0
+    },
+    "retained": {
+      "counts": {
+        "runs": 835,
+        "messages": 2562,
+        "tools": 62,
+        "approvals": 62,
+        "checkpoints": 61,
+        "session_inputs": 1672,
+        "session_turns": 1251,
+        "provider_attempts": 1251,
+        "message_parts": 1251,
+        "attempt_cleanup": 1251,
+        "session_documents": 70,
+        "session_events": 22791
+      },
+      "recordsSha256": "8870ca30aebd204182b93791116027624766bd25278d360ede8a093a80ecec8e",
+      "integrity": "ok",
+      "foreignKeyViolations": 0
+    },
+    "exactFiveOriginalRecoveryEvents": [
+      {
+        "type": "tool.recovery_frontier",
+        "eventId": "41277ba2-65ff-40e0-8b41-e9277cc38941",
+        "sessionId": "6ee0da62-b3e4-4d17-b1be-ef5a55bf9187",
+        "runId": "b97611cb-4a3e-4874-808c-5fa6b2864a9f",
+        "turnId": "d788d144-e9b5-41fa-b6d9-08bd23eb7a20",
+        "attemptId": "0a85365a-0eac-4334-855e-4801b754d887"
+      },
+      {
+        "type": "message.part.interrupted",
+        "eventId": "16b141c5-0593-49cc-aa57-9a5441017b23",
+        "sessionId": "6ee0da62-b3e4-4d17-b1be-ef5a55bf9187",
+        "runId": "b97611cb-4a3e-4874-808c-5fa6b2864a9f",
+        "turnId": "d788d144-e9b5-41fa-b6d9-08bd23eb7a20",
+        "attemptId": null
+      },
+      {
+        "type": "turn.uncertain",
+        "eventId": "40910d40-d2a9-40aa-a74b-c8e15846ecae",
+        "sessionId": "6ee0da62-b3e4-4d17-b1be-ef5a55bf9187",
+        "runId": "b97611cb-4a3e-4874-808c-5fa6b2864a9f",
+        "turnId": "d788d144-e9b5-41fa-b6d9-08bd23eb7a20",
+        "attemptId": null
+      },
+      {
+        "type": "session.paused",
+        "eventId": "0dc6678b-ed77-4f1d-a758-33f167d094ff",
+        "sessionId": "6ee0da62-b3e4-4d17-b1be-ef5a55bf9187",
+        "runId": null,
+        "turnId": null,
+        "attemptId": null
+      },
+      {
+        "type": "session.document.updated",
+        "eventId": "37afa8fd-3a6b-41e9-8fc2-392cb55f9227",
+        "sessionId": "6ee0da62-b3e4-4d17-b1be-ef5a55bf9187",
+        "runId": null,
+        "turnId": null,
+        "attemptId": null
+      }
+    ],
+    "rawEventsIndependentlyMatch": true,
+    "retainedDigestBeforeAfterReadEqual": true,
+    "tokens": null,
+    "cost": null,
+    "attemptsWithoutUsage": 1250
+  },
+  "resources": {
+    "samples": 128,
+    "timedSamples": 120,
+    "workerSamples": 126,
+    "descriptorSource": "lsof-numeric-file-descriptors",
+    "processSource": "ps-pid-ppid-pgid-stat",
+    "workerFirst": {
+      "rssBytes": 97042432,
+      "heapUsedBytes": 17959512,
+      "descriptors": 28,
+      "sqliteBytes": 1314096,
+      "artifactBytes": 12288
+    },
+    "workerLast": {
+      "phase": "crash-ready",
+      "rssBytes": 122994688,
+      "heapUsedBytes": 59256944,
+      "descriptors": 35,
+      "sqliteBytes": 334890336,
+      "artifactBytes": 301787
+    },
+    "workerMeasuredGrowth": {
+      "rssDeltaBytes": 25952256,
+      "heapUsedDeltaBytes": 41297432,
+      "descriptorDelta": 7,
+      "descriptorPeak": 35,
+      "liveDescendantPeak": 2,
+      "sqliteDeltaBytes": 333576240,
+      "artifactDeltaBytes": 289499,
+      "sampledWorkerDurationMs": 1822802
+    },
+    "workerSamplePeaks": {
+      "rssBytes": 177586176,
+      "heapUsedBytes": 69048176,
+      "externalBytes": 8452181,
+      "arrayBuffersBytes": 5657233
+    },
+    "afterCloseSqlite": {
+      "primaryBytes": 330448896,
+      "walBytes": 0,
+      "shmBytes": 32768,
+      "effectsBytes": 8192,
+      "counts": {
+        "runs": 835,
+        "messages": 2562,
+        "tools": 62,
+        "approvals": 62,
+        "checkpoints": 61,
+        "session_inputs": 1672,
+        "session_turns": 1251,
+        "provider_attempts": 1251,
+        "message_parts": 1251,
+        "attempt_cleanup": 1251,
+        "session_documents": 70,
+        "session_events": 22791
+      }
+    },
+    "afterCloseArtifacts": {
+      "files": 247,
+      "bytes": 303724,
+      "pathsAndSizesSha256": "a2d423bb1f6d06a0cb45b2b90eabd4fb93c6ca7bed4a24039dbc5f3a1bd88e34",
+      "contentSha256": "d7be6d62b76a279cde084bdf85ec78e2b76fd5e211a0b0c6e96c4d7e01829791"
+    },
+    "interpretation": "Finite native samples show actual workload/history/resource growth. Sampled peaks are not allocator peaks; no leak-rate, absolute performance SLA or multi-hour claim is inferred."
+  },
+  "cleanup": {
+    "workerExited": true,
+    "recoveryEngineClosed": true,
+    "commandPidAbsent": true,
+    "commandGroupAbsent": true,
+    "ownedLiveSurvivors": [],
+    "physicalCleanupConfirmed": true,
+    "nativeCleanupConfirmed": false,
+    "emergencyCleanupUsed": false,
+    "databaseRemoved": false,
+    "retainedEvidencePath": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-nMpoCi",
+    "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment",
+    "retainedLedger": {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-nMpoCi/engine.sqlite",
+      "bytes": 330448896,
+      "sha256": "4201be302d5ae09801463edf900422f7d53c980666e990a0a46061b04402b6fe"
+    },
+    "retainedArtifacts": {
+      "files": 247,
+      "bytes": 303724,
+      "pathsAndSizesSha256": "a2d423bb1f6d06a0cb45b2b90eabd4fb93c6ca7bed4a24039dbc5f3a1bd88e34",
+      "contentSha256": "d7be6d62b76a279cde084bdf85ec78e2b76fd5e211a0b0c6e96c4d7e01829791"
+    },
+    "readOnlyFinalAudit": true,
+    "noAdditionalEngineOpened": true,
+    "noOriginalEvidenceDeleted": true,
+    "meaning": "Worker exit, recovery Engine close, observed Original command PID/group absence and zero known live survivors are physical evidence. Native command uncertainty remains unresolved; no durable completion/recovery acknowledgment is synthesized. SQLite, artifacts and both committed fixture repositories remain retained even though this expected fault qualification passed.",
+    "noHistoricalPidTerminationSignalsIssued": true
+  },
+  "evidence": {
+    "report": {
+      "path": "/tmp/moodcode-next-current-persistent-30min.json",
+      "bytes": 362843,
+      "sha256": "83747dc758b8b27be61a62f318cb746932da51b22d6325aec02b22e429f5c648"
+    },
+    "stdoutStderr": {
+      "path": "/tmp/moodcode-next-current-persistent-30min.log",
+      "bytes": 362843,
+      "sha256": "83747dc758b8b27be61a62f318cb746932da51b22d6325aec02b22e429f5c648"
+    },
+    "startup": {
+      "path": "/tmp/moodcode-next-current-persistent-startup.json",
+      "bytes": 148188,
+      "sha256": "99eef8edff7d5d9883a544c85bfef8f0349446a133fb386c27c13aa3b1b8604b"
+    },
+    "finalReadOnlyAudit": {
+      "path": "/tmp/moodcode-next-current-persistent-final-audit.json",
+      "bytes": 153940,
+      "sha256": "8267169520828a24002f0465cb91775d5e13e6803982a251ac98f937fd17da65"
+    },
+    "runtimeCrossQualification": {
+      "path": "/tmp/moodcode-next-current-persistent-runtime-cross-qualification.json",
+      "bytes": 1794,
+      "sha256": "82e1dcfce30cfae0362e793f9256e07f72fe942b9c1bb29d2aeb6c17a60b7f1c"
+    },
+    "boundedLiveReadOnlyObserver": {
+      "path": "/tmp/moodcode-next-current-persistent-observer.json",
+      "bytes": 10556,
+      "sha256": "1f5eee99e9679b56e4fd5dd6f40b17b20684929fee1d347c0ef74f6b103e045c"
+    },
+    "installLog": {
+      "path": "/tmp/moodcode-next-current-persistent-install.log",
+      "bytes": 1742,
+      "sha256": "8cdb224c46b282150b151e4f847aa7d2a81b3190722d9152743fa56b602dd224"
+    },
+    "preparePtyLog": {
+      "path": "/tmp/moodcode-next-current-persistent-prepare-pty.log",
+      "bytes": 105,
+      "sha256": "a501d5f2ebb78cdaea84e679e74406587620ce7f2ae95a3536eb362776cc1450"
+    },
+    "headlessBuildLog": {
+      "path": "/tmp/moodcode-next-current-persistent-build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "limitations": [
+    "One actual current 30-minute POSIX fixture run; 600 cycles is a ceiling, while 417 cycles actually completed.",
+    "This qualification covers the exact frozen effective engine/contracts byte graph and matching runner CLI, also independently matching main HEAD2381bff. It does not qualify Desktop/GUI, PTY, Windows JobObject, dependency graphs or any real account/provider.",
+    "Expected cancellation and crash uncertainty is retained. Physical cleanup and confirmed provider cleanup do not settle native command effects or authorize replay/deletion.",
+    "The historical 78e37b1 run remains separate evidence under its prior baseline-duration semantics; no old measurements were reused here.",
+    "Root full suites, hosted CI and GUI/package acceptance are independent; this report adds no additional runs, source/goal mutations, timeout changes or skips."
+  ]
+}
