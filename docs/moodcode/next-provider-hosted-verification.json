@@ -1,0 +1,559 @@
+{
+  "schemaVersion": 1,
+  "kind": "actual-provider-branch-hosted-verification",
+  "checkedAt": "2026-10-08T22:01:01.374573+00:00",
+  "runId": 37849372005,
+  "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005",
+  "headSha": "b7c44a3618d9863739bd568dc08d384c9987e66b",
+  "status": "completed",
+  "conclusion": "failure",
+  "jobsPassed": 5,
+  "jobsTotal": 6,
+  "aggregateAcceptanceClaimed": false,
+  "newProviderCLIScriptsHosted": false,
+  "providerCoverageTestIncludedInPosixWhole": true,
+  "nativeAccountEvidenceSource": "Separate direct native compiled account reports; no live requests in hosted fixtures.",
+  "jobs": [
+    {
+      "name": "Portable contracts/storage only / Windows / Node 24.x",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005/job/113558180758"
+    },
+    {
+      "name": "Headless macos-15 / Node 26.x",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005/job/113558180907"
+    },
+    {
+      "name": "Portable contracts/storage only / Windows / Node 26.x",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005/job/113558180932"
+    },
+    {
+      "name": "Headless ubuntu-24.04 / Node 24.x",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005/job/113558180937"
+    },
+    {
+      "name": "Headless ubuntu-24.04 / Node 26.x",
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005/job/113558180943"
+    },
+    {
+      "name": "Headless macos-15 / Node 24.x",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005/job/113558181032"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact": "engine-macos-15-node-24.x-attempt-1",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "node": "v24.20.0",
+      "lane": "posix-full",
+      "status": "success",
+      "commit": "b7c44a3618d9863739bd568dc08d384c9987e66b",
+      "tests": {
+        "tests": 4728,
+        "pass": 4726,
+        "fail": 0,
+        "skipped": 2,
+        "cancelled": 0
+      },
+      "steps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "pty-native-module",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-media-local",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-hardening-cli",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark-report",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "failures": [],
+      "results": {
+        "path": "artifacts/next-provider-hosted/engine-macos-15-node-24.x-attempt-1/results.json",
+        "sha256": "c75699269b3712626ef96cbc297a4e16f34f3facd0ff2fd6d793d922215720fb"
+      },
+      "testLog": {
+        "path": "artifacts/next-provider-hosted/engine-macos-15-node-24.x-attempt-1/test.stdout",
+        "sha256": "9f32b5a405dfbea80d79783c072f4fdd458a53c677dd68dd9260341a07dd820d"
+      },
+      "windowsFullEngineVerified": false,
+      "liveProviderRequests": false,
+      "guiLaunch": false
+    },
+    {
+      "artifact": "engine-macos-15-node-26.x-attempt-1",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "node": "v26.11.1",
+      "lane": "posix-full",
+      "status": "success",
+      "commit": "b7c44a3618d9863739bd568dc08d384c9987e66b",
+      "tests": {
+        "tests": 4728,
+        "pass": 4726,
+        "fail": 0,
+        "skipped": 2,
+        "cancelled": 0
+      },
+      "steps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "pty-native-module",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-media-local",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-hardening-cli",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark-report",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "failures": [],
+      "results": {
+        "path": "artifacts/next-provider-hosted/engine-macos-15-node-26.x-attempt-1/results.json",
+        "sha256": "67a64458586e270941ab0582838489aec7e073881771ff037913bc262f5f9d3a"
+      },
+      "testLog": {
+        "path": "artifacts/next-provider-hosted/engine-macos-15-node-26.x-attempt-1/test.stdout",
+        "sha256": "d0ea54a9a99b9daaedf806f27822a4a3570d50bd89f6b83898e7cd1473d2ec4a"
+      },
+      "windowsFullEngineVerified": false,
+      "liveProviderRequests": false,
+      "guiLaunch": false
+    },
+    {
+      "artifact": "engine-ubuntu-24.04-node-24.x-attempt-1",
+      "platform": "linux",
+      "architecture": "x64",
+      "node": "v24.21.0",
+      "lane": "posix-full",
+      "status": "success",
+      "commit": "b7c44a3618d9863739bd568dc08d384c9987e66b",
+      "tests": {
+        "tests": 4728,
+        "pass": 4666,
+        "fail": 0,
+        "skipped": 62,
+        "cancelled": 0
+      },
+      "steps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "pty-native-module",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-media-local",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-hardening-cli",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "eval-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "resilience-report",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "benchmark-report",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "failures": [],
+      "results": {
+        "path": "artifacts/next-provider-hosted/engine-ubuntu-24.04-node-24.x-attempt-1/results.json",
+        "sha256": "2e6c46aa0c13f55cfab813d17af901553551a6b08a9096fedf0d68b74f7ac377"
+      },
+      "testLog": {
+        "path": "artifacts/next-provider-hosted/engine-ubuntu-24.04-node-24.x-attempt-1/test.stdout",
+        "sha256": "1bbb4010b4488e6e876d31787bd0f4af7913a229dff358987ad3860767ed6bdc"
+      },
+      "windowsFullEngineVerified": false,
+      "liveProviderRequests": false,
+      "guiLaunch": false
+    },
+    {
+      "artifact": "engine-ubuntu-24.04-node-26.x-attempt-1",
+      "platform": "linux",
+      "architecture": "x64",
+      "node": "v26.11.1",
+      "lane": "posix-full",
+      "status": "failure",
+      "commit": "b7c44a3618d9863739bd568dc08d384c9987e66b",
+      "tests": {
+        "tests": 4728,
+        "pass": 4663,
+        "fail": 3,
+        "skipped": 62,
+        "cancelled": 0
+      },
+      "steps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "pty-native-module",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-media-local",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-hardening-cli",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test",
+          "state": "failed",
+          "exitCode": 1
+        }
+      ],
+      "failures": [
+        "two genuine independent coding cases reserve fairly, verify/review and exact approved selection merges once and consumes inbox (6870.536881ms)",
+        "child deadline interrupts a cooperative real stream and releases ownership without delivery (1057.101561ms)",
+        "root replaced by an escaping symlink and failed Git operations propagate once (165.903943ms)"
+      ],
+      "results": {
+        "path": "artifacts/next-provider-hosted/engine-ubuntu-24.04-node-26.x-attempt-1/results.json",
+        "sha256": "a3b971251bf5f4eb8a098b8acc255067b0cd35d239325ff1170bbace8a31d991"
+      },
+      "testLog": {
+        "path": "artifacts/next-provider-hosted/engine-ubuntu-24.04-node-26.x-attempt-1/test.stdout",
+        "sha256": "e1341da8203939ff2f7d3fb4e7251c7f60febf5e8417accafe9ae7931dd24c91"
+      },
+      "windowsFullEngineVerified": false,
+      "liveProviderRequests": false,
+      "guiLaunch": false
+    },
+    {
+      "artifact": "engine-windows-portable-node-24.x-attempt-1",
+      "platform": "win32",
+      "architecture": "x64",
+      "node": "v24.21.0",
+      "lane": "windows-portable",
+      "status": "success",
+      "commit": "b7c44a3618d9863739bd568dc08d384c9987e66b",
+      "tests": {
+        "tests": 152,
+        "pass": 151,
+        "fail": 0,
+        "skipped": 1,
+        "cancelled": 0
+      },
+      "steps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-windows",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "failures": [],
+      "results": {
+        "path": "artifacts/next-provider-hosted/engine-windows-portable-node-24.x-attempt-1/results.json",
+        "sha256": "1b5476a2c93fed6ecac8428c90fb212b40ff90356f32e7c9b1a7bae5bb693826"
+      },
+      "testLog": {
+        "path": "artifacts/next-provider-hosted/engine-windows-portable-node-24.x-attempt-1/test-windows.stdout",
+        "sha256": "b6179d57f3fefc755c628368e7dd971a44c8ef71dc65bce93576869c44b26700"
+      },
+      "windowsFullEngineVerified": false,
+      "liveProviderRequests": false,
+      "guiLaunch": false
+    },
+    {
+      "artifact": "engine-windows-portable-node-26.x-attempt-1",
+      "platform": "win32",
+      "architecture": "x64",
+      "node": "v26.11.1",
+      "lane": "windows-portable",
+      "status": "success",
+      "commit": "b7c44a3618d9863739bd568dc08d384c9987e66b",
+      "tests": {
+        "tests": 152,
+        "pass": 151,
+        "fail": 0,
+        "skipped": 1,
+        "cancelled": 0
+      },
+      "steps": [
+        {
+          "operation": "prepare-pty",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "typecheck",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "build",
+          "state": "passed",
+          "exitCode": 0
+        },
+        {
+          "operation": "test-windows",
+          "state": "passed",
+          "exitCode": 0
+        }
+      ],
+      "failures": [],
+      "results": {
+        "path": "artifacts/next-provider-hosted/engine-windows-portable-node-26.x-attempt-1/results.json",
+        "sha256": "3cb1bd14c393ade9842732468857ff9e2bba3ccbde5f715486e9ce3e9a57609e"
+      },
+      "testLog": {
+        "path": "artifacts/next-provider-hosted/engine-windows-portable-node-26.x-attempt-1/test-windows.stdout",
+        "sha256": "ac44763ccd261f6331cb31d46db115e2c8abe590c38bed88f57e4fe995208805"
+      },
+      "windowsFullEngineVerified": false,
+      "liveProviderRequests": false,
+      "guiLaunch": false
+    }
+  ],
+  "originalFailedJobLog": {
+    "path": "artifacts/next-provider-hosted-ubuntu26-failed.log",
+    "sha256": "a5083791361f73b565a2fa2c973c3243ad783f177cdc2094f6d7bdfb7bcf8b77"
+  },
+  "failedSourcePins": [
+    {
+      "path": "packages/engine/src/coding-runs/batch.integration.test.ts",
+      "sha256": "ab2cfac799635b5242ad68193fff7439ed9b025b8771b7427a8864a0b0a2d43c",
+      "unchangedFromBaseline": true
+    },
+    {
+      "path": "packages/engine/src/coding-runs/fixtures/batch.ts",
+      "sha256": "3ecaeded5a893647e48f810cf65ee354b395a881b4c38bdfa1a00fda6c090833",
+      "unchangedFromBaseline": true
+    },
+    {
+      "path": "packages/engine/src/integration/delegation-review.integration.test.ts",
+      "sha256": "ccbc9e0f7f2854ad35f073100579a0d236e51f40aa28cf704d44c013fbab456b",
+      "unchangedFromBaseline": true
+    },
+    {
+      "path": "packages/engine/src/workspace/observer.test.ts",
+      "sha256": "20acae9cace61737771474806f597a85ae7546e16b4d54a812bfd5a6e4d31a92",
+      "unchangedFromBaseline": true
+    }
+  ],
+  "failureNotes": [
+    {
+      "test": "two genuine independent coding cases reserve fairly, verify/review and exact approved selection merges once and consumes inbox",
+      "compiledLocation": "packages/engine/dist/coding-runs/batch.integration.test.js:27",
+      "error": "Group state uncertain instead of ready",
+      "cause": "Original group/case native rows are not present in the assertion log; exact cause is unqualified. Do not weaken uncertain/no-replay semantics."
+    },
+    {
+      "test": "child deadline interrupts a cooperative real stream and releases ownership without delivery",
+      "compiledLocation": "packages/engine/dist/integration/delegation-review.integration.test.js:164",
+      "error": "entered is false instead of true",
+      "cause": "Fixture allocation150ms may expire before cooperative stream entry; hosted scheduling cause is not proven. Preserve the original absolute allocation and no-delivery assertions."
+    },
+    {
+      "test": "root replaced by an escaping symlink and failed Git operations propagate once",
+      "compiledLocation": "packages/engine/dist/workspace/observer.test.js:325",
+      "error": "WORKSPACE_UNAVAILABLE / Workspace root is unavailable instead of required WORKSPACE_ROOT_CHANGED",
+      "cause": "Fixture renames root, awaits mkdir, then publishes a symlink while observer is active; exact hosted poll ordering is unavailable. Preserve root identity and single-terminal-error semantics."
+    }
+  ],
+  "automaticWholeRetries": 0,
+  "rootIntegrationRequired": true,
+  "historicalFailuresReclassified": false
+}
