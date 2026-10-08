@@ -3,7 +3,7 @@
   "id": "E5-08",
   "canonicalProgress": "docs/moodcode/next-windows-progress.json",
   "nativePackaging": {
-    "status": "interface implemented; actual Windows x64 Node24/26 addon build/load passed; Engine acceptance pending fixes",
+    "status": "Windows2025 x64 Node24/26 actual native build/load and full native/Engine lifecycle gate verified; Electron/Desktop package qualification remains separate",
     "package": "@moodcode/windows-job@0.1.0",
     "workspace": "packages/windows-job",
     "moduleEntrypoint": "index.js (synchronous ESM import/require)",
@@ -16,7 +16,7 @@
     "buildNode": "node packages/windows-job/scripts/build.mjs --runtime=node --arch=x64",
     "buildElectron": "node packages/windows-job/scripts/build.mjs --runtime=electron --target=44.5.1 --arch=x64",
     "architectures": {
-      "x64": "Windows2025 Node24/26 actual verification pending",
+      "x64": "Verified actual Windows2025 x64 Node24.21.0 and26.11.1 at8c7aac2 in both push and workflow_dispatch; all16 real native lifecycle/Engine scenarios passed per lane",
       "arm64": "implementation/build option only; unverified, no support credit"
     },
     "distribution": "Desktop must preserve package-relative build/Release/windows_job.node and unpack the .node binary from ASAR. Rebuild for exact Electron/architecture using Electron headers and keep win_delay_load_hook=true. Verify loading in the actual engine host/utility process.",
@@ -25,5 +25,8 @@
     "unsupported": "No Windows PTY/stdin command lifetime transport, OS file/network sandbox, or general managed ArtifactStore persistence/artifact.get. Native sealed stdout/stderr logs remain persisted with exact identity/SHA/budgets. Optional managed result-copy is explicitly unavailable in result metadata/warnings; actual store failures retain failure behavior. No taskkill/direct-child fallback. Desktop package/signing/update validation belongs to N-04/N-05.",
     "contract": "packages/windows-job/README.md",
     "desktopConsumerWorktree": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode"
-  }
+  },
+  "handoffReady": true,
+  "fullPipelinePending": true,
+  "verifiedSourceCommit": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278"
 }
