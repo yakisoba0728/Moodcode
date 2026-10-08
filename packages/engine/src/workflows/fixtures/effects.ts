@@ -26,7 +26,7 @@ import type {
   TurnRequest,
 } from "../../ports.js";
 import type { WorkflowInstanceRevision } from "../reducer.js";
-import type { WorkflowSpecInput } from "../types.js";
+import { effectsSpecData } from "./effects-data.js";
 import { WORKFLOW_MODEL_NAMES } from "../effects.js";
 export const EFFECT_BEFORE = "before workflow\n",
   EFFECT_AFTER = "editor-approved change\n";
@@ -323,64 +323,13 @@ export async function workflowEffectsFixture(
     config: { agentProfileId: profile.id },
   });
   await entered.promise;
-  const run = engine.store.getRun(parent.runId),
-    resultSchema = {
-      type: "object" as const,
-      properties: { observation: { type: "string" as const, maxLength: 2048 } },
-      required: ["observation"],
-      additionalProperties: false as const,
-    };
-  const allocation = {
-    turns: 4,
-    toolCalls: 2,
-    outputBytes: 16384,
-    durationMs: 10000,
-  };
-  const common = {
-    profile: { id: profile.id, revision: profile.revision },
-    model: { providerId: run.config.providerId, modelId: run.config.modelId },
-    allocation,
-    resultSchema,
-    join: "all" as const,
-  };
-  const spec: WorkflowSpecInput = {
-    schemaVersion: 1,
-    id: "actual-effect-workflow",
-    description: "Actual editor and native validator before parent merge.",
-    parameterSchema: {
-      type: "object",
-      properties: {},
-      required: [],
-      additionalProperties: false,
-    },
-    resultSchema,
-    stages: [
-      {
-        ...common,
-        id: "edit",
-        role: "editor",
-        dependsOn: [],
-        prompt:
-          "ACTUAL_EDITOR: change seed.txt through the native approved patch and then return strict JSON.",
-        tools: ["read_file", "apply_patch"],
-      },
-      {
-        ...common,
-        id: "validate",
-        role: "validator",
-        dependsOn: ["edit"],
-        prompt:
-          "ACTUAL_VALIDATOR: invoke the registered verify_changes check and return strict JSON.",
-        tools: ["read_file", "run_command", "verify_changes"],
-        verification: {
-          checkIds: ["actual-required-check"],
-          sourcePaths: ["seed.txt"],
-          maxRepairs: 0,
-        },
-      },
-    ],
-    resultStageId: "validate",
-  };
+  const run = engine.store.getRun(parent.runId);
+  const spec = effectsSpecData({
+    profileId: profile.id,
+    profileRevision: profile.revision,
+    providerId: run.config.providerId,
+    modelId: run.config.modelId,
+  });
   const registered = engine.registerWorkflow({
       workspaceId: workspace.id,
       requestId: "register-effect-workflow",

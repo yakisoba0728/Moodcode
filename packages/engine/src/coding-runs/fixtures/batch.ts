@@ -25,7 +25,7 @@ import type {
   TurnRequest,
 } from "../../ports.js";
 import { WORKFLOW_MODEL_NAMES } from "../../workflows/effects.js";
-import type { CodingBatchInput } from "../types.js";
+import { batchInputData } from "./batch-data.js";
 export const BEFORE = "batch baseline\n";
 export const batchHash = (s: string) =>
   createHash("sha256").update(s).digest("hex");
@@ -324,105 +324,22 @@ export async function batchFixture(
     config: { agentProfileId: profile.id },
   });
   await entered.promise;
-  const run = engine.store.getRun(parent.runId),
-    resultSchema = {
-      type: "object" as const,
-      properties: { observation: { type: "string" as const, maxLength: 1024 } },
-      required: ["observation"],
-      additionalProperties: false as const,
-    },
-    reviewSchema = {
-      type: "object" as const,
-      properties: {
-        observation: { type: "string" as const, maxLength: 1024 },
-        score: { type: "integer" as const, minimum: 0, maximum: 100 },
-      },
-      required: ["observation", "score"],
-      additionalProperties: false as const,
-    },
-    common = {
-      profile: { id: profile.id, revision: profile.revision },
-      model: { providerId: provider.id, modelId: "fixture" },
-      allocation: {
-        turns: 3,
-        toolCalls: 2,
-        outputBytes: 16384,
-        durationMs: 10000,
-      },
-      join: "all" as const,
-    };
-  const input: CodingBatchInput = {
+  const run = engine.store.getRun(parent.runId);
+  const input = batchInputData({
     workspaceId: workspace.id,
     rootSessionId: session.id,
     parentRunId: parent.runId,
-    groupId: "actual-group",
-    limits: {
-      concurrency: 2,
-      maxDurationMs: 120000,
-      maxSourceBytes: 1048576,
-      maxEvidenceBytes: 262144,
-      maxExportBytes: 1048576,
-      maxTokens: 100000000,
-      maxCostMicros: 1000000,
-      costPerRequestMicros: 100,
-    },
-    cases: ["A", "B"].map((id, i) => ({
-      id,
-      sourcePaths: ["seed.txt"],
-      stageWorktrees: {
-        edit: worktrees[i * 2]!.id,
-        validate: worktrees[i * 2]!.id,
-        review: worktrees[i * 2 + 1]!.id,
-      },
-      spec: {
-        schemaVersion: 1,
-        id: `batch-workflow-${id}`,
-        description: `Actual independent coding problem ${id}.`,
-        parameterSchema: {
-          type: "object",
-          properties: {},
-          required: [],
-          additionalProperties: false,
-        },
-        resultSchema: reviewSchema,
-        resultStageId: "review",
-        stages: [
-          {
-            ...common,
-            id: "edit",
-            role: "editor",
-            dependsOn: [],
-            prompt: `BATCH_EDITOR ${id}: approved native edit seed.txt then strict JSON.`,
-            tools: ["read_file", "apply_patch"],
-            resultSchema,
-          },
-          {
-            ...common,
-            id: "validate",
-            role: "validator",
-            dependsOn: ["edit"],
-            prompt: `BATCH_VALIDATOR ${id}: registered native verification then strict JSON.`,
-            tools: ["read_file", "run_command", "verify_changes"],
-            resultSchema,
-            verification: {
-              checkIds: [`batch-check-${id}`],
-              sourcePaths: ["seed.txt"],
-              maxRepairs: 0,
-            },
-          },
-          {
-            ...common,
-            id: "review",
-            role: "advisory-reviewer",
-            dependsOn: ["validate"],
-            prompt: `BATCH_REVIEWER ${id}: review quoted native predecessor result, score advisory only, strict JSON.`,
-            tools: ["read_file"],
-            resultSchema: reviewSchema,
-          },
-        ],
-      },
-    })),
-  };
+    profileId: profile.id,
+    profileRevision: profile.revision,
+    providerId: provider.id,
+    modelId: "fixture",
+    worktreeIds: [
+      worktrees[0]!.id,
+      worktrees[1]!.id,
+      worktrees[2]!.id,
+      worktrees[3]!.id,
+    ],
+  });
   let pump: ReturnType<typeof setInterval> | undefined;
   const approveChildren = () => {
     pump = setInterval(() => {
