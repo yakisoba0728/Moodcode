@@ -31,7 +31,9 @@
     "package:desktop": "npm run build:desktop && electron-builder --config apps/desktop/electron-builder.config.cjs --mac --arm64 --dir",
     "test:desktop-package": "npm run package:desktop && node scripts/test-desktop-package.mjs",
     "verify:codex": "npm run build && node scripts/verify-codex.mjs --live",
-    "plan:media": "node scripts/plan-media-verification.mjs"
+    "plan:media": "node scripts/plan-media-verification.mjs",
+    "verify:media": "npm run build && node scripts/verify-media-account.mjs",
+    "test:media-verification": "npm run build && node --import ./node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 scripts/plan-media-verification.test.mjs scripts/verify-media-account.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

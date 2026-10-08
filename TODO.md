@@ -415,3 +415,5 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 - [ ] **MC2-16d 실제 새 미디어 모델 계정 검증** — 로컬 audio/video/output wire·native·fault fixture는 통과했다. 기존 Codex 토큰 경로는 새 audio/video/output을 지원하지 않으므로 실제 지원 공급자/모델과 해당 인증 설정에서 MIME/초과/unknown/partial/duplicate/source-delete를 확인해야 한다. 기존 실제 Codex 이미지2요청만으로 종료하지 않는다. E5-13·E5-08·E6-07·E6-08 이월 유지.
 
 - [x] **MC2-16d 계정 검증 준비 — 현재 구현 기준 planner 갱신**: 실제 WAV/AVI/PCM native 경로와 exact 모델·host capability·layout 미확인·unknown cost를 구분하고23 source SHA·19 pending cases를 고정했다. Main CLI6/6, 인증/config/env/provider import/network0을 확인했다. 원래 계획·계정 증거를 보존하며 **79/80·19/20**, 실제16d·환경 이월4개는 미완료다. [현재 계획](docs/moodcode/engine-phase-two-media-verification-plan.md).
+
+- [x] **MC2-16d 계정 검증 준비 — native 실행기 구현·통합**: 실제 엔진 PCM 생성→재시작→새 세션 인식→첫 delta 취소, AVI→PNG Responses 인식, admission 오류·중복·paused import를 연결했다. planner/실행기 source·compiled 각15/15, 전체 엔진4642/4640pass/실패0/기존skip2, type0·평가3pass, 최종899 input SHA 불변 및 독립6개 수정/late-close 검토를 확인했다. 실제 계정0회·**79/80·19/20**, MC2-16d·이월4개는 미완료다. [실행·검증 근거](docs/moodcode/engine-phase-two-media-account-executor.md).

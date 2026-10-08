@@ -812,11 +812,13 @@
             "engine-phase-two-code-media-image-live-verification.json",
             "engine-phase-two-code-media-integration-verification.json",
             "engine-phase-two-media-verification-plan.json",
-            "engine-phase-two-media-verification-plan-verification.json"
+            "engine-phase-two-media-verification-plan-verification.json",
+            "engine-phase-two-media-account-executor.md",
+            "engine-phase-two-media-account-executor-verification.json"
           ]
         }
       ],
-      "notes": "16a plan retained. 16b/c complete actual bounded WAV/AVI source decoder/capability/timestamp/native input/provider wire and genuine provider Artifact/Part/usage/partial/recovery/archive/read APIs. Exact local fixture model/wire evidence is implementation evidence, not production account proof. Two real Codex image/restart requests passed on the initial combined snapshot; all source hashes and honest usage retained. 16d actual new audio/video/generated-output account/model checks remain in progress; Codex new media unsupported before credentials. E5-13 and unknown media token/window costing remain open."
+      "notes": "16a plan retained. 16b/c complete actual bounded WAV/AVI source decoder/capability/timestamp/native input/provider wire and genuine provider Artifact/Part/usage/partial/recovery/archive/read APIs. Exact local fixture model/wire evidence is implementation evidence, not production account proof. Two real Codex image/restart requests passed on the initial combined snapshot; all source hashes and honest usage retained. 16d actual new audio/video/generated-output account/model checks remain in progress; Codex new media unsupported before credentials. E5-13 and unknown media token/window costing remain open. Complete native media account executor now covers actual generated PCM/fresh-session recognition/first-delta cancellation, genuine AVI-to-PNG Responses frames, exact zero-transport negative admission, duplicate/restart/paused import, bounded request attempts and source/runtime/cleanup evidence retention. Local HTTP implementation checks and final review do not grant actual account credit; supported exact API credentials/models/host PCM provenance remain pending."
     },
     {
       "id": "MC2-17",
@@ -1027,5 +1029,5 @@
       "notes": "Complete original preview, fair up-front fixed reservations, actual isolated editor/validator/reviewer workflow children, strict native success, separate approved selection/merge, atomic result input and real subsequent consumer are integrated. Partial/cancel/unknown/skip-resume/SQL/SIGKILL/export/source/import checks pass. Native histories use existing DB23 bounded documents/events; host fixed per-request accounting is distinguished from external invoice and unknown usage remains unknown."
     }
   ],
-  "updatedAt": "2026-10-08T14:15:07.410957+00:00"
+  "updatedAt": "2026-10-08T14:38:04.967184+00:00"
 }
