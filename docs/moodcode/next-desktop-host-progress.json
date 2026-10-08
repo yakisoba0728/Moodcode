@@ -16,7 +16,7 @@
   ],
   "goal": "Connect real advanced native engine APIs through sender-bound desktop IPC, retain Original authority in utility, and verify committed behavior and cleanup",
   "implementation": {
-    "state": "implemented-awaiting-final-integrated-GUI",
+    "state": "implemented-focused-corrective-verification-passed",
     "features": [
       "input inbox/pause/resume/cancel",
       "CAS session tasks",
@@ -98,8 +98,32 @@
       "pty": "real output, owner reload, explicit reconnect and cancel passed",
       "mcp": "stdio discovery/connect/disconnect/reconnect and Build-mode exact v1 approval/native tools-call output passed; Plan preserves native unknown-effect denial",
       "lsp": "current-version native diagnostics passed",
-      "childTeamWorkflow": "final combined GUI pending build6 after paused-parent admission fix"
+      "childTeamWorkflow": "actual finite native GUI15 passed; readonly workflow scope retained"
     },
     "accountFixture": "signup/add2/select/refresh/logout/reconnect/forget passed build5 with actual OS safeStorage and mocked official endpoints; no external network"
+  },
+  "correctiveReview": {
+    "commit": "f3a21841e14cd9822f79ef5c2d523d3dc9e78fd8",
+    "tests": 95,
+    "pass": 95,
+    "fail": 0,
+    "nativeMcpCases": 8,
+    "requirements": [
+      "reserve connecting and uncertain MCP registrations within existing limit16",
+      "validate full DTO and compensate only original resolved native registration",
+      "preserve cleanup uncertainty and same-ID external registration",
+      "always close actual engine despite advanced close failure"
+    ],
+    "evidence": [
+      {
+        "path": "artifacts/desktop-next/mcp-before-fix.log",
+        "sha256": "14050bb95a0380214b78451e60365e9e8b6c6e78ba88664319c77fd2325dfb0b"
+      },
+      {
+        "path": "artifacts/desktop-next/mcp-after-fix-host.log",
+        "sha256": "857feb621dbc01d071512528fb1ec5401a7cdda226674e95f1975e0720ece102"
+      }
+    ],
+    "latestCombinedAcceptance": "Parent Root"
   }
 }

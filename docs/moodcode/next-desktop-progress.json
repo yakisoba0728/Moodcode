@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-08T22:25:29.005Z",
+  "updatedAt": "2026-10-08T23:13:33.939Z",
   "timezone": "Asia/Seoul",
   "owner": "desktop",
   "goal": "N-02–05 actual advanced desktop flows, supported authentication, package smoke and controlled release/update paths",
-  "status": "first-finite-verified-handoff-ready",
+  "status": "finite-corrective-handoff-ready-parent-combined-acceptance-pending",
   "source": {
     "baseCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
     "branch": "codex/next-desktop",
@@ -25,7 +25,7 @@
       ".github/scripts/engine-ci.mjs",
       "package.json"
     ],
-    "codeCommit": "55b213696a056f94976cd0611ba896b356f9a40e",
+    "codeCommit": "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58",
     "commits": [
       "d330b71b47f76ee204a650701757aefc86778e48",
       "5e1785a9240d367f8342bd6b6d7ed49947f11abc",
@@ -36,7 +36,11 @@
       "385477ec85f92f0159bfe2ea71520320cb3d6051",
       "6ca908615e81417db58bac00f121c2f25d863cd8",
       "388701f9085e490f54a30051c99208c487964a56",
-      "55b213696a056f94976cd0611ba896b356f9a40e"
+      "55b213696a056f94976cd0611ba896b356f9a40e",
+      "f3a21841e14cd9822f79ef5c2d523d3dc9e78fd8",
+      "70dc300353df99f02e352384ac4b79909f36a9cb",
+      "1f4b30adf2659dce177c5fcf32185e5d223b9a97",
+      "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58"
     ]
   },
   "implementation": {
@@ -194,8 +198,8 @@
     },
     {
       "id": "windows-native-package",
-      "status": "parent-integration-required",
-      "releaseCondition": "Root integrates @moodcode/windows-job production workspace/locked graph then actual Windows Electron44.5.1 utility Job Object package smoke; Node native gate alone grants no desktop credit"
+      "status": "parent-integrated-actual-combined-package-pending",
+      "releaseCondition": "Actual combined Windows Electron44.5.1 utility Job Object package smoke on the integrated main dependency graph; previous portable and Node native gates do not qualify it"
     }
   ],
   "completion": {
@@ -227,16 +231,16 @@
         "owner": "windows",
         "progress": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/docs/moodcode/next-windows-progress.json",
         "adapter": "packages/windows-job, actual Windows2025 Node24/26 native evidence",
-        "state": "implementation-in-progress"
+        "state": "production integrated in parent; actual combined Electron package acceptance pending"
       },
       {
         "owner": "provider",
         "progress": "/Users/yakisoba0728/.codex/worktrees/next-provider-e513/Moodcode/docs/moodcode/next-provider-progress.json",
         "adapter": "qualified model/MIME support only; current desktop has no new media upload scope",
-        "state": "finite account-qualified verification-in-progress"
+        "state": "production integrated in parent; live account/model qualification pending"
       }
     ],
-    "parentCurrentMain": "72e31ae",
+    "parentCurrentMain": "bf01f113a3cd01027008ac46ed4abcbf695caaeb",
     "rootManifestActions": [
       "reconcile root package-lock with provider/native workspaces",
       "package:desktop => node scripts/package-desktop.mjs",
@@ -247,18 +251,28 @@
     "windowsNodeGate": "37/37 each Node24/26 reported by owner; no Electron desktop acceptance credit",
     "handoff": {
       "branch": "codex/next-desktop",
-      "range": "44d3a07..55b2136",
-      "codeCommit": "55b213696a056f94976cd0611ba896b356f9a40e",
-      "allOwnedProcessesClosed": true,
+      "range": "044aa3a..7d8b50eabe20e7aaa3bb33fa618217f54d0cff58",
+      "codeCommit": "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58",
+      "allOwnedProcessesClosed": null,
       "sourceFrozen": true,
-      "scopeGuard": "No main checkout, TODO/README, engine/contracts/windows core, original engine CI or root package.json edits; root lock contains only desktop dependency integration for parent reconciliation"
+      "scopeGuard": "No main checkout, TODO/README, engine/contracts/windows core, original engine CI or root package.json edits; root lock contains only desktop dependency integration for parent reconciliation",
+      "dependencyOrderedCommits": [
+        "f3a21841e14cd9822f79ef5c2d523d3dc9e78fd8",
+        "70dc300353df99f02e352384ac4b79909f36a9cb",
+        "1f4b30adf2659dce177c5fcf32185e5d223b9a97",
+        "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58"
+      ],
+      "ownedTestDriversSettled": true,
+      "allNativeCleanupConfirmed": false
     },
     "remainingRootAcceptance": [
-      "merge the provider/native/desktop dependency graph and root manifests",
-      "actual combined Windows Electron utility Job Object package smoke",
+      "latest combined source build and complete regression",
+      "actual combined three-OS package CI including Windows Job Object",
       "live account/model qualification",
-      "actual signed macOS/Windows install/update and reviewed published feed"
-    ]
+      "signed macOS/Windows install/update and approved published feed"
+    ],
+    "windowsProductionIntegration": "cc6198b and prior native implementation are present in parent main; the desktop branch still retains its original engine base",
+    "rootManifestActionsResolved": "Parent integrated desktop/provider/native root manifest and lock reconciliation."
   },
   "finiteScope": {
     "N02": [
@@ -355,5 +369,287 @@
     "packageAndPolicies": "passed",
     "updateFixture": "passed current launcher",
     "unchangedProgramSourceSha256": "731cec45b22fd7c5b9b4d5192e24d19a3d1fdb188f7ed3a5e419c19832665df6"
+  },
+  "correctiveReview": {
+    "requestedBy": "Root independent integration review",
+    "status": "focused-corrective-verification-passed",
+    "findings": [
+      {
+        "id": "DESKTOP-MCP-PENDING-CAP",
+        "path": "apps/desktop/src/worker/advanced.ts",
+        "problem": "The desktop counts completed MCP registrations before an asynchronous connect, allowing concurrent distinct connections to exceed16.",
+        "required": "Synchronous exact ID reservation across connecting, connected and cleanup-uncertain states; no limit increases."
+      },
+      {
+        "id": "DESKTOP-MCP-POSTCONNECT-ROLLBACK",
+        "path": "apps/desktop/src/worker/advanced.ts",
+        "problem": "Formatting a valid native resource catalogue above the desktop response bound can fail after native registration without deregistering it.",
+        "required": "Validate the complete response before commit; compensate only resolved exact native registration, retain uncertain cleanup and prohibit replay."
+      },
+      {
+        "id": "DESKTOP-NATIVE-FAULT-EVIDENCE",
+        "paths": [
+          "scripts/test-desktop-package.mjs",
+          "scripts/desktop-package-utility.mjs",
+          "scripts/test-desktop-advanced.mjs"
+        ],
+        "problem": "Some cleanup paths delete controlled fixture databases despite failed or uncertain native cleanup.",
+        "required": "Preserve original controlled fixture on failure/unknown; bounded allowlisted native evidence before/after close; no cleanup credit from mere physical absence."
+      }
+    ],
+    "owners": {
+      "host": "advanced_host",
+      "packageEvidence": "release_auth",
+      "guiEvidence": "advanced_renderer",
+      "independentVerification": "desktop root"
+    },
+    "regressionAccepted": true,
+    "sourceFrozen": true,
+    "hostCommit": "f3a21841e14cd9822f79ef5c2d523d3dc9e78fd8",
+    "hostVerification": {
+      "tests": 95,
+      "pass": 95,
+      "fail": 0,
+      "skipped": 0,
+      "nativeMcpCases": 8,
+      "log": "artifacts/desktop-next/mcp-after-fix-host.log",
+      "sha256": "857feb621dbc01d071512528fb1ec5401a7cdda226674e95f1975e0720ece102"
+    },
+    "originalFailures": {
+      "tests": 5,
+      "pass": 2,
+      "fail": 3,
+      "skipped": 0,
+      "accepted": false,
+      "log": "artifacts/desktop-next/mcp-before-fix.log",
+      "sha256": "14050bb95a0380214b78451e60365e9e8b6c6e78ba88664319c77fd2325dfb0b"
+    },
+    "independentBuild": "passed current frozen desktop production source; final collector/policy10 also passed; no new aggregate or latest package rebuild started after Root requested immediate handoff",
+    "acceptanceScope": "Focused host, collector and actual macOS GUI/package-driver corrections; latest integrated complete regression and rebuilt packages remain with Root.",
+    "guiCommit": "1f4b30adf2659dce177c5fcf32185e5d223b9a97",
+    "collectorCommit": "70dc300353df99f02e352384ac4b79909f36a9cb",
+    "pipelineCommit": "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58",
+    "dependencyOrderedCommits": [
+      "f3a21841e14cd9822f79ef5c2d523d3dc9e78fd8",
+      "70dc300353df99f02e352384ac4b79909f36a9cb",
+      "1f4b30adf2659dce177c5fcf32185e5d223b9a97",
+      "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58"
+    ],
+    "verification": {
+      "host": {
+        "tests": 95,
+        "pass": 95,
+        "nativeMcpCases": 8
+      },
+      "collector": {
+        "tests": 5,
+        "pass": 5
+      },
+      "policyAndCollector": {
+        "tests": 10,
+        "pass": 10
+      },
+      "advancedGui": {
+        "checks": 15,
+        "pass": 15,
+        "platform": "darwin",
+        "externalRequests": 0
+      },
+      "controlledPtyFailure": {
+        "expectedExit": 1,
+        "acceptedExit": 1,
+        "originalNativeRunningPtyObserved": true
+      },
+      "controlledPackageSupervisorFailure": {
+        "expectedExit": 1,
+        "acceptedExit": 1,
+        "originalNativeSupervisorStarted": true
+      },
+      "privateUtility": {
+        "platform": "darwin",
+        "packaged": true,
+        "positive": true,
+        "originalDriverCloseFailureCode": "CONTROLLED_CLOSE_FAILURE",
+        "forcedStopDoesNotConfirmCleanup": true
+      }
+    },
+    "evidence": {
+      "path": "artifacts/desktop-next/corrective-final-handoff.json",
+      "sha256": "497c4b23828cde8ac6b0aafdbbdeeb513484b69e8a816a304fc74bcd82c88826",
+      "logs": [
+        {
+          "path": "artifacts/desktop-next/mcp-before-fix.log",
+          "sha256": "14050bb95a0380214b78451e60365e9e8b6c6e78ba88664319c77fd2325dfb0b"
+        },
+        {
+          "path": "artifacts/desktop-next/mcp-after-fix-host.log",
+          "sha256": "857feb621dbc01d071512528fb1ec5401a7cdda226674e95f1975e0720ece102"
+        },
+        {
+          "path": "artifacts/desktop-next/corrective-build.log",
+          "sha256": "f5f271334dae603f142f6b8c3f578493c8ee94b9aab07b6773dcb180674bf56b"
+        },
+        {
+          "path": "artifacts/desktop-next/corrective-evidence-policy-final.log",
+          "sha256": "3a3125502e493ed8fbd55630a5e6c7ac02a42c22861e21e7a6205a3f0cf50098"
+        },
+        {
+          "path": "artifacts/desktop-advanced/retention-normal-final.log",
+          "sha256": "863f7a87bbcb6d73e404f3bdade07b26a1ee12a2a956d2090da2db02f0b1b980"
+        },
+        {
+          "path": "artifacts/desktop-advanced/retention-terminal-failure-final.log",
+          "sha256": "4dcd7d7683e475803a6e462dd336adcd4c816cabd9341b2d2caec067b833095d"
+        },
+        {
+          "path": "artifacts/desktop-next/corrective-advanced-evidence.log",
+          "sha256": "1c191b5f1c384478844a59fd32f5044be14093b2e804e8644c4068f33f042bf4"
+        },
+        {
+          "path": "artifacts/desktop-next/evidence-package-positive-final.log",
+          "sha256": "4b9c3e26a1d1b7f2121b04385f8b40448beaebac5bdfae73052e51617b75c0f3"
+        },
+        {
+          "path": "artifacts/desktop-next/evidence-package-controlled-failure-final.log",
+          "sha256": "d0b037be318a9b9ef57e332eeda601f91ee2ce8f46e7fc6183104e1b96481b71"
+        },
+        {
+          "path": "artifacts/desktop-next/evidence-private-utility-final.log",
+          "sha256": "2b2b3bd83f0891b6a95101d851db926988fcaa6c485be0779929da2aa88bc8a2"
+        }
+      ],
+      "manifests": [
+        {
+          "path": "artifacts/desktop-advanced/failures/advanced-BqHFe7/manifest.json",
+          "sha256": "e69badce28215c944d52ff7dd91d34a480d918593157af064baf6d99d2836f31",
+          "outcome": "unknown",
+          "cleanup": {
+            "state": "unknown",
+            "nativeConfirmed": null,
+            "utilityAcknowledged": null,
+            "utilityExitObserved": null,
+            "forcedStop": false
+          },
+          "originalSourceRetained": true,
+          "copiedFiles": 29,
+          "totalBytes": 5613201,
+          "truncated": false
+        },
+        {
+          "path": "artifacts/desktop-advanced/failures/advanced-sm4zfa/manifest.json",
+          "sha256": "a16f400cc45c4d2fcef65089274c471276be937d98a2aa8cd46a02b3d2010e6a",
+          "outcome": "failed",
+          "cleanup": {
+            "state": "unknown",
+            "nativeConfirmed": null,
+            "utilityAcknowledged": null,
+            "utilityExitObserved": null,
+            "forcedStop": false
+          },
+          "originalSourceRetained": true,
+          "copiedFiles": 8,
+          "totalBytes": 1257520,
+          "truncated": false
+        },
+        {
+          "path": "artifacts/desktop-advanced/failures/advanced-94KmWV/manifest.json",
+          "sha256": "dc10dff7e28b429e82c7cc19b006f9c6c6dd3375788b42059a0582b1158731a4",
+          "outcome": "failed",
+          "cleanup": {
+            "state": "unknown",
+            "nativeConfirmed": null,
+            "utilityAcknowledged": null,
+            "utilityExitObserved": null,
+            "forcedStop": false
+          },
+          "originalSourceRetained": true,
+          "copiedFiles": 8,
+          "totalBytes": 1257520,
+          "truncated": false
+        },
+        {
+          "path": "artifacts/desktop-package/failures/package-A0GYN1/manifest.json",
+          "sha256": "eda42fb5af15e79dfca06c878e24c6987eda2cfe6667dfde27f733e9722de4c2",
+          "outcome": "unknown",
+          "cleanup": {
+            "state": "unknown",
+            "nativeConfirmed": true,
+            "utilityAcknowledged": null,
+            "utilityExitObserved": null,
+            "forcedStop": false,
+            "utilityScope": "main-utility"
+          },
+          "originalSourceRetained": true,
+          "copiedFiles": 7,
+          "totalBytes": 1265664,
+          "truncated": false
+        },
+        {
+          "path": "artifacts/desktop-package/failures/package-OFUOSA/manifest.json",
+          "sha256": "f5c153de6dc8d4094b3f92fa554048d44fb7466fa694dcabbf78e197e156c693",
+          "outcome": "failed",
+          "cleanup": {
+            "state": "unknown",
+            "nativeConfirmed": true,
+            "utilityAcknowledged": null,
+            "utilityExitObserved": null,
+            "forcedStop": false,
+            "utilityScope": "main-utility"
+          },
+          "originalSourceRetained": true,
+          "copiedFiles": 7,
+          "totalBytes": 1265664,
+          "truncated": false
+        },
+        {
+          "path": "artifacts/desktop-package/utility-failures/utility-positive-1TGwjj/manifest.json",
+          "sha256": "3ee3271c343194d03a651a7b2c785fc8a234e153b617f46fcced8a8ca737c14e",
+          "outcome": "unknown",
+          "cleanup": {
+            "state": "unknown",
+            "nativeConfirmed": true,
+            "utilityAcknowledged": null,
+            "utilityExitObserved": null,
+            "forcedStop": false,
+            "utilityScope": "main-utility"
+          },
+          "originalSourceRetained": true,
+          "copiedFiles": 20,
+          "totalBytes": 2743359,
+          "truncated": false
+        },
+        {
+          "path": "artifacts/desktop-package/utility-failures/utility-close-failure-UKFu7R/manifest.json",
+          "sha256": "bf188c70c201094e391111d47c038383d82fc88fb5a44dbfce0f1f9f8ce55a39",
+          "outcome": "failed",
+          "cleanup": {
+            "state": "unknown",
+            "nativeConfirmed": true,
+            "utilityAcknowledged": null,
+            "utilityExitObserved": null,
+            "forcedStop": true,
+            "utilityScope": "main-utility"
+          },
+          "originalSourceRetained": true,
+          "copiedFiles": 20,
+          "totalBytes": 2743357,
+          "truncated": false
+        }
+      ]
+    },
+    "packagedSourceQualification": {
+      "asarPath": "release/mac-arm64/Moodcode.app/Contents/Resources/app.asar",
+      "sha256": "2b504097970797e4c2aa2e77fc52b3de3b591a71ecd0380fc8d49ed20393a8f9",
+      "qualification": "Existing unsigned macOS bundle and final corrective test drivers; no credit for rebuilding the latest corrective production source.",
+      "currentWorkerEquivalent": false
+    },
+    "evidenceLimits": {
+      "files": 64,
+      "bytes": 16777216,
+      "manifestBytes": 131072,
+      "rows": 32,
+      "depth": 12
+    },
+    "fixturePolicy": "Failures and uncertain utility cleanup retain original controlled fixture and bounded allowlisted copies. Original SQLite is never opened for evidence; observed clones are not qualified recovery backups. Driver collection failure fails a positive lane and preserves a prior failure."
   }
 }

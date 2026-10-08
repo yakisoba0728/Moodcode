@@ -163,10 +163,70 @@
     }
   ],
   "remaining": [
-    "Root final build and identical-source aggregate/native packaged validation after explicit renderer commit"
+    "Parent latest combined complete build/regression and actual OS packages"
   ],
   "externalConditions": [
     "actual external account authorization and provider entitlement beyond isolated fixture need separate account evidence",
     "signed macOS notarized and Windows distributed update/install runs need separate release evidence"
-  ]
+  ],
+  "correctiveReview": {
+    "commit": "1f4b30adf2659dce177c5fcf32185e5d223b9a97",
+    "dependencyCommit": "70dc300353df99f02e352384ac4b79909f36a9cb",
+    "actualGuiChecks": 15,
+    "controlledNativePtyFailureExit": 1,
+    "originalFixtureRetained": true,
+    "mainUtilityCleanup": "unknown",
+    "applicationExitDoesNotConfirmCleanup": true,
+    "evidence": [
+      {
+        "path": "artifacts/desktop-advanced/failures/advanced-BqHFe7/manifest.json",
+        "sha256": "e69badce28215c944d52ff7dd91d34a480d918593157af064baf6d99d2836f31",
+        "outcome": "unknown",
+        "cleanup": {
+          "state": "unknown",
+          "nativeConfirmed": null,
+          "utilityAcknowledged": null,
+          "utilityExitObserved": null,
+          "forcedStop": false
+        },
+        "originalSourceRetained": true,
+        "copiedFiles": 29,
+        "totalBytes": 5613201,
+        "truncated": false
+      },
+      {
+        "path": "artifacts/desktop-advanced/failures/advanced-sm4zfa/manifest.json",
+        "sha256": "a16f400cc45c4d2fcef65089274c471276be937d98a2aa8cd46a02b3d2010e6a",
+        "outcome": "failed",
+        "cleanup": {
+          "state": "unknown",
+          "nativeConfirmed": null,
+          "utilityAcknowledged": null,
+          "utilityExitObserved": null,
+          "forcedStop": false
+        },
+        "originalSourceRetained": true,
+        "copiedFiles": 8,
+        "totalBytes": 1257520,
+        "truncated": false
+      },
+      {
+        "path": "artifacts/desktop-advanced/failures/advanced-94KmWV/manifest.json",
+        "sha256": "dc10dff7e28b429e82c7cc19b006f9c6c6dd3375788b42059a0582b1158731a4",
+        "outcome": "failed",
+        "cleanup": {
+          "state": "unknown",
+          "nativeConfirmed": null,
+          "utilityAcknowledged": null,
+          "utilityExitObserved": null,
+          "forcedStop": false
+        },
+        "originalSourceRetained": true,
+        "copiedFiles": 8,
+        "totalBytes": 1257520,
+        "truncated": false
+      }
+    ],
+    "latestCombinedAcceptance": "Parent Root"
+  }
 }
