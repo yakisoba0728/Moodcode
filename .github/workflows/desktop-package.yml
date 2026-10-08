@@ -38,7 +38,7 @@ jobs:
       - run: node scripts/prepare-pty.mjs
       - run: npm run build:desktop
       - name: Native account, update and release policy regression
-        run: node --import ./node_modules/tsx/dist/loader.mjs --test apps/desktop/src/main/accounts.test.ts apps/desktop/src/main/updates.test.ts scripts/desktop-release-policy.test.mjs
+        run: node --import ./node_modules/tsx/dist/loader.mjs --test apps/desktop/src/main/accounts.test.ts apps/desktop/src/main/updates.test.ts scripts/desktop-release-policy.test.mjs scripts/desktop-native-package.test.mjs
       - name: Package this OS without publishing
         run: node scripts/package-desktop.mjs --no-build
       - name: Linux portable bundle, utility, SQLite and renderer smoke
@@ -50,8 +50,11 @@ jobs:
       - name: Linux real command and PTY supervisor smoke
         if: runner.os == 'Linux'
         run: xvfb-run -a node scripts/test-desktop-package.mjs
-      - name: macOS/Windows real native supervisor smoke
-        if: runner.os != 'Linux'
+      - name: macOS real command and PTY supervisor smoke
+        if: runner.os == 'macOS'
+        run: node scripts/test-desktop-package.mjs
+      - name: Windows actual packaged utility Job Object command and approval gate
+        if: runner.os == 'Windows'
         run: node scripts/test-desktop-package.mjs
       - name: Linux real updater checksum, disposable install and recovery fixture
         if: runner.os == 'Linux'

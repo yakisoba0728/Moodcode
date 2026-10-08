@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import { _electron as electron, expect } from '@playwright/test';
-import { mkdtemp, rm, writeFile, readdir, stat } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readdir, stat, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fork } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
+import { createHash } from 'node:crypto';
+import { extractFile } from '@electron/asar';
 import { createCommandEnvironment } from '../packages/engine/dist/tools/command/process-control.js';
+import { DESKTOP_ELECTRON_VERSION, WINDOWS_NATIVE_BINARY, verifyWindowsBinaryArchitecture } from './desktop-native-package.mjs';
+import { runPackagedUtilityCodingProbe } from './desktop-package-utility.mjs';
 
 const args = process.argv.slice(2);
 const portableOnly = args.includes('--portable');
@@ -22,6 +26,14 @@ async function executable() {
 }
 const binary = await executable();
 const resources = process.platform === 'darwin' ? resolve(dirname(binary), '../Resources') : join(dirname(binary), 'resources');
+let windowsNativeBytes;
+if (process.platform === 'win32' && !portableOnly) {
+  const nativeBinary = join(resources, 'app.asar.unpacked', 'node_modules', '@moodcode', 'windows-job', WINDOWS_NATIVE_BINARY);
+  assert.ok((await stat(nativeBinary).catch(() => undefined))?.isFile(),
+    'Windows native package acceptance requires the integrated @moodcode/windows-job binary at its unpacked package-relative path. Run --portable for the separate portable boundary.');
+  windowsNativeBytes = await readFile(nativeBinary);
+  verifyWindowsBinaryArchitecture(windowsNativeBytes, process.arch);
+}
 const userData = await mkdtemp(join(tmpdir(), 'moodcode-package-smoke-'));
 let app;
 const children = new Set();
@@ -57,7 +69,7 @@ try {
   const page = await app.firstWindow();
   await expect(page.getByText('무엇을 만들어볼까요?', { exact: true })).toBeVisible({ timeout: 20000 });
   const runtime = await app.evaluate(({ app, BrowserWindow }) => ({ packaged: app.isPackaged, node: process.versions.node, electron: process.versions.electron,
-    isolation: BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences().contextIsolation }));
+    arch: process.arch, isolation: BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences().contextIsolation }));
   assert.equal(runtime.packaged, true); assert.equal(runtime.isolation, true);
   const bootstrap = await page.evaluate(() => window.moodcode.getBootstrap());
   assert.equal(bootstrap.host.state, 'ready'); assert.equal(bootstrap.settings.providerId, 'scripted');
@@ -69,28 +81,38 @@ try {
   assert.equal(sqliteVersion, 23, 'Packaged utility must open the current engine database.');
   const updates = await page.evaluate(() => window.moodcode.getAppUpdate());
   assert.equal(updates.state, releaseProfile ? 'idle' : 'disabled', 'The packaged update profile must match its build profile.');
-  await app.close(); app = undefined;
-  const evidence = { ok: true, platform: process.platform, scope: portableOnly ? 'bundle-utility-SQLite-renderer' : 'bundle-utility-SQLite-renderer-native-supervisors',
+  const evidence = { ok: true, platform: process.platform, scope: portableOnly ? 'bundle-utility-SQLite-renderer' : process.platform === 'win32'
+    ? 'bundle-utility-SQLite-renderer-native-Windows-utility' : 'bundle-utility-SQLite-renderer-native-POSIX-supervisors',
     runtime, host: bootstrap.host.state, primarySQLiteVersion: sqliteVersion, testOverridesIgnored: true, updates: updates.state };
-  if (!portableOnly) {
+  if (!portableOnly && process.platform === 'win32') {
+    assert.equal(bootstrap.capabilities.runtime.commandExecution, 'windows-job-object',
+      'Native Windows package acceptance requires the integrated Job Object binding before command effects.');
+    const receipt = JSON.parse(extractFile(join(resources, 'app.asar'), 'dist/main/windows-native-build.json').toString('utf8'));
+    assert.equal(receipt.runtime, 'electron'); assert.equal(receipt.electronVersion, DESKTOP_ELECTRON_VERSION);
+    assert.equal(runtime.electron, receipt.electronVersion); assert.equal(receipt.arch, runtime.arch);
+    assert.equal(receipt.bindingVersion, 1); assert.equal(receipt.nodeApi, 8);
+    assert.equal(receipt.packageRelativeBinary, WINDOWS_NATIVE_BINARY);
+    assert.equal(receipt.bytes, windowsNativeBytes.length);
+    assert.equal(receipt.sha256, createHash('sha256').update(windowsNativeBytes).digest('hex'));
+    evidence.windowsJobObject = await runPackagedUtilityCodingProbe(app, { workerPath: join(resources, 'app.asar', 'dist/main/engine-worker.js'),
+      dataDir: userData, commandExecution: 'windows-job-object', electronVersion: runtime.electron });
+    evidence.windowsNativeBinary = { packageRelativePathPreserved: true, outsideAsar: true, electronHeaders: receipt.electronVersion,
+      arch: receipt.arch, sha256: receipt.sha256 };
+  }
+  await app.close(); app = undefined;
+  if (!portableOnly && process.platform !== 'win32') {
     await writeFile(join(userData, 'packaged.test.mjs'), "import {test} from 'node:test';import assert from 'node:assert/strict';test('packaged supervisor executes node',()=>assert.equal(2+3,5));\n");
     const command = await runSupervisor('supervisor.js', { type: 'init', input: { command: 'node --test packaged.test.mjs', cwd: userData, timeoutMs: 5000 },
       executionLockPath: join(userData, 'packaged.effects.sqlite') }, { type: 'start' });
     assert.match(command.output, /packaged supervisor executes node/u);
     evidence.commandSupervisor = { exitCode: command.outcome.exitCode, cleanupConfirmed: command.outcome.cleanupConfirmed };
-    if (process.platform !== 'win32') {
-      const terminal = await runSupervisor('terminals/supervisor.js', undefined, { type: 'start', input: { file: '/bin/sh', args: ['-c', 'printf "packaged-pty-smoke\\n"'],
-        cwd: userData, cols: 80, rows: 24, maxDurationMs: 5000 } });
-      assert.match(terminal.output, /packaged-pty-smoke/u);
-      assert.equal(terminal.diagnostics.source.platform, process.platform);
-      assert.equal(terminal.diagnostics.nativeExit.observed, true);
-      evidence.ptySupervisor = { exitCode: terminal.outcome.exitCode, cleanupConfirmed: terminal.outcome.cleanupConfirmed,
-        nativeExitObserved: terminal.diagnostics.nativeExit.observed };
-    } else {
-      // The Windows binding owner supplies actual job-tree support. Portable success cannot substitute for this gate.
-      assert.equal(bootstrap.capabilities.runtime.commandExecution, 'windows-job-object', 'Native Windows package acceptance requires the integrated Job Object binding.');
-      evidence.windowsJobObject = true;
-    }
+    const terminal = await runSupervisor('terminals/supervisor.js', undefined, { type: 'start', input: { file: '/bin/sh', args: ['-c', 'printf "packaged-pty-smoke\\n"'],
+      cwd: userData, cols: 80, rows: 24, maxDurationMs: 5000 } });
+    assert.match(terminal.output, /packaged-pty-smoke/u);
+    assert.equal(terminal.diagnostics.source.platform, process.platform);
+    assert.equal(terminal.diagnostics.nativeExit.observed, true);
+    evidence.ptySupervisor = { exitCode: terminal.outcome.exitCode, cleanupConfirmed: terminal.outcome.cleanupConfirmed,
+      nativeExitObserved: terminal.diagnostics.nativeExit.observed };
   }
   console.log(JSON.stringify(evidence));
 } finally {

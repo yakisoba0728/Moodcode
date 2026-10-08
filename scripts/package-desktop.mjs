@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { releaseRequirements, rollbackReleasePlan } from './desktop-release-policy.mjs';
+import { prepareWindowsNativePackage } from './desktop-native-package.mjs';
 
 const args = process.argv.slice(2), allowed = ['--release', '--no-build', '--dir', '--arch', '--version', '--rollback-from', '--replaces'];
 for (let index = 0; index < args.length; index += 1) {
@@ -37,6 +38,7 @@ if (goodRef) {
 if (!args.includes('--no-build')) run('npm', ['run', 'build:desktop']);
 const policy = JSON.parse(await readFile('apps/desktop/dist/main/release-policy.json', 'utf8'));
 if ((policy.profile === 'release') !== release) throw new Error('Build output and packaging profile differ. Rebuild with the intended profile.');
+await prepareWindowsNativePackage({ arch, run });
 const flag = { darwin: '--mac', linux: '--linux', win32: '--win' }[process.platform];
 if (!flag) throw new Error('Desktop packaging is unavailable on this operating system.');
 run(process.execPath, [resolve('node_modules/electron-builder/cli.js'), '--config', 'apps/desktop/electron-builder.config.cjs', flag, `--${arch}`,
