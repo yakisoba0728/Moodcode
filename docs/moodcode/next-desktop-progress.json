@@ -1,0 +1,359 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-10-08T22:25:29.005Z",
+  "timezone": "Asia/Seoul",
+  "owner": "desktop",
+  "goal": "N-02–05 actual advanced desktop flows, supported authentication, package smoke and controlled release/update paths",
+  "status": "first-finite-verified-handoff-ready",
+  "source": {
+    "baseCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+    "branch": "codex/next-desktop",
+    "worktree": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode",
+    "ownedPaths": [
+      "apps/desktop/**",
+      "scripts/*desktop*",
+      ".github/workflows/desktop-*",
+      "docs/moodcode/next-desktop-*"
+    ],
+    "excludedWriters": [
+      "TODO.md",
+      "README.md",
+      "packages/engine/**",
+      "packages/contracts/**",
+      "packages/windows-job/**",
+      ".github/workflows/engine.yml",
+      ".github/scripts/engine-ci.mjs",
+      "package.json"
+    ],
+    "codeCommit": "55b213696a056f94976cd0611ba896b356f9a40e",
+    "commits": [
+      "d330b71b47f76ee204a650701757aefc86778e48",
+      "5e1785a9240d367f8342bd6b6d7ed49947f11abc",
+      "4b81d7f1908c9523422c8ad638c4f67155316964",
+      "d023da428d0720bf8b27376a4d3df5c4a4d48dce",
+      "c8f9dac6dbf4da75017a1833c83918417f9e2c0a",
+      "bf420c8f3480f156befc0b660843dec19987717a",
+      "385477ec85f92f0159bfe2ea71520320cb3d6051",
+      "6ca908615e81417db58bac00f121c2f25d863cd8",
+      "388701f9085e490f54a30051c99208c487964a56",
+      "55b213696a056f94976cd0611ba896b356f9a40e"
+    ]
+  },
+  "implementation": {
+    "host": "delegated: advanced_host, original objects retained in native utility",
+    "renderer": "delegated: advanced_renderer, single writer for App/Settings",
+    "authRelease": "delegated: release_auth, adapters for main/utility integration",
+    "integrationAndIndependentVerification": "desktop root"
+  },
+  "baseline": {
+    "inheritedLocal": {
+      "total": 4723,
+      "pass": 4721,
+      "fail": 0,
+      "skip": 2
+    },
+    "inheritedHosted": {
+      "lanes": 6,
+      "status": "accepted in existing engine-hardening-hosted-verification.json"
+    },
+    "rerun": {
+      "total": 4723,
+      "pass": 4720,
+      "fail": 1,
+      "skip": 2,
+      "durationMs": 396429.8775,
+      "logSha256": "83aae4abbb6c6fa8dbd56bfda2266db0720e55b63f8b4bdd690971cfce673ec3",
+      "failure": "native Moodcode TS7 project snapshot correctly rejected changing source with LSP_PROJECT_SOURCE_STALE during parallel implementation",
+      "acceptance": false,
+      "requiredFollowup": "repeat unchanged complete regression after source freeze"
+    }
+  },
+  "validation": [
+    {
+      "name": "baseline desktop unit",
+      "total": 170,
+      "pass": 170,
+      "fail": 0
+    },
+    {
+      "name": "baseline actual Electron GUI",
+      "status": "passed",
+      "flows": [
+        "approval/patch/command/reload",
+        "stale restore and durable audit",
+        "deny and no effects",
+        "cancel and utility crash/reconnect without replay"
+      ]
+    },
+    {
+      "name": "baseline actual Electron settings",
+      "status": "passed",
+      "checks": [
+        "native safeStorage",
+        "0600 encrypted key",
+        "renderer/journal nonexposure",
+        "key removal",
+        "no remote provider request"
+      ]
+    },
+    {
+      "name": "baseline actual Electron conversation",
+      "status": "passed",
+      "checks": [
+        "GFM/CSP inert content",
+        "bounded code pages",
+        "exact isolated copy and clipboard restoration",
+        "source line navigation",
+        "zero network"
+      ]
+    },
+    {
+      "name": "latest DB23 actual GUI history/recovery",
+      "status": "passed",
+      "initialFailure": "outdated DB1 assertion",
+      "fix": "exact primary23/review1 plus independent backup PRAGMA user_version",
+      "checks": [
+        "25 runs/history pages",
+        "active cancel/recovery blocking",
+        "actual interrupted restore quarantine",
+        "verified primary/review backup hashes and exact rows",
+        "full restart retains ACK and no replay",
+        "zero network"
+      ]
+    },
+    {
+      "name": "frozen complete engine and desktop corpus",
+      "commit": "6ca908615e81417db58bac00f121c2f25d863cd8",
+      "sourceSha256": "783773f1eb9a01de31e9c7beefe98953e6db712b38eeb498ec702dbd9d8d1793",
+      "unchangedDuringVerification": true,
+      "tests": 4933,
+      "pass": 4931,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "report": "artifacts/desktop-next/verification-6ca9086-whole.json",
+      "log": "artifacts/desktop-next/frozen-6ca-whole.log"
+    },
+    {
+      "name": "same-source full actual Electron GUI/account/update/package",
+      "status": "passed",
+      "phases": [
+        "desktop",
+        "desktop-settings",
+        "desktop-conversation",
+        "desktop-history-recovery",
+        "desktop-advanced",
+        "desktop-accounts",
+        "desktop-update",
+        "desktop-package"
+      ],
+      "nativeAdvancedChecks": 15,
+      "remoteProviderRequests": 0,
+      "realExternalIdentityVerified": false
+    },
+    {
+      "name": "current desktop after Linux executable correction",
+      "total": 210,
+      "pass": 210,
+      "fail": 0,
+      "skip": 0,
+      "allGuiPassed": true,
+      "report": "artifacts/desktop-next/verification-388701f-desktop.json"
+    },
+    {
+      "name": "native updater SDK and disposable install/recovery",
+      "status": "passed",
+      "electron": "44.5.1",
+      "sdk": "6.8.9",
+      "corruptChecksumRejected": true,
+      "fixtureInstall": "0.2.0",
+      "higherVersionRecovery": "0.3.0",
+      "downgradeBlocked": true,
+      "signedMacOrWindowsInstallerVerified": false
+    },
+    {
+      "name": "actual local unsigned macOS arm64 package",
+      "status": "passed",
+      "electronNode": "24.21.0",
+      "primarySQLiteVersion": 23,
+      "commandCleanupConfirmed": true,
+      "ptyCleanupAndNativeExitConfirmed": true,
+      "packagedMainIgnoresTestOverrides": true
+    }
+  ],
+  "externalConditions": [
+    {
+      "id": "real-account",
+      "status": "external-unverified",
+      "releaseCondition": "approved isolated live SIWC sign-in, real provider inference and account-qualified models; fixture is not external account proof"
+    },
+    {
+      "id": "signed-release",
+      "status": "external-unverified",
+      "releaseCondition": "macOS Developer ID/notarization and Windows certificate/publisher plus approved release feed and disposable native signed update/install proof"
+    },
+    {
+      "id": "windows-native-package",
+      "status": "parent-integration-required",
+      "releaseCondition": "Root integrates @moodcode/windows-job production workspace/locked graph then actual Windows Electron44.5.1 utility Job Object package smoke; Node native gate alone grants no desktop credit"
+    }
+  ],
+  "completion": {
+    "N-02": false,
+    "N-03": false,
+    "N-04": false,
+    "N-05": false
+  },
+  "contractsPreserved": [
+    "exact approval",
+    "source binding and freshness",
+    "cancel and cleanup",
+    "unknown and no automatic replay",
+    "budgets",
+    "public API/DB/events/archive"
+  ],
+  "integration": {
+    "parentMainPlanningCommit": "9c787fa",
+    "parentDbContractGuard": "ad8a02f",
+    "currentPrimaryDb": 23,
+    "parentOwned": [
+      "root package/lock native-provider integration",
+      "existing engine.yml/engine-ci.mjs",
+      "TODO.md",
+      "README.md"
+    ],
+    "dependencies": [
+      {
+        "owner": "windows",
+        "progress": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/docs/moodcode/next-windows-progress.json",
+        "adapter": "packages/windows-job, actual Windows2025 Node24/26 native evidence",
+        "state": "implementation-in-progress"
+      },
+      {
+        "owner": "provider",
+        "progress": "/Users/yakisoba0728/.codex/worktrees/next-provider-e513/Moodcode/docs/moodcode/next-provider-progress.json",
+        "adapter": "qualified model/MIME support only; current desktop has no new media upload scope",
+        "state": "finite account-qualified verification-in-progress"
+      }
+    ],
+    "parentCurrentMain": "72e31ae",
+    "rootManifestActions": [
+      "reconcile root package-lock with provider/native workspaces",
+      "package:desktop => node scripts/package-desktop.mjs",
+      "test:desktop-package => npm run package:desktop && node scripts/test-desktop-package.mjs",
+      "optional test:desktop-accounts/test:desktop-update/verify-desktop-next entrypoints"
+    ],
+    "windowsNativeOwnerLatest": "8c7aac2",
+    "windowsNodeGate": "37/37 each Node24/26 reported by owner; no Electron desktop acceptance credit",
+    "handoff": {
+      "branch": "codex/next-desktop",
+      "range": "44d3a07..55b2136",
+      "codeCommit": "55b213696a056f94976cd0611ba896b356f9a40e",
+      "allOwnedProcessesClosed": true,
+      "sourceFrozen": true,
+      "scopeGuard": "No main checkout, TODO/README, engine/contracts/windows core, original engine CI or root package.json edits; root lock contains only desktop dependency integration for parent reconciliation"
+    },
+    "remainingRootAcceptance": [
+      "merge the provider/native/desktop dependency graph and root manifests",
+      "actual combined Windows Electron utility Job Object package smoke",
+      "live account/model qualification",
+      "actual signed macOS/Windows install/update and reviewed published feed"
+    ]
+  },
+  "finiteScope": {
+    "N02": [
+      "native queue/steer/pause/resume/cancel",
+      "task CAS and question answer/reject",
+      "actual PTY output/resize/control reconnect/cleanup",
+      "MCP stdio discovery and exact-approved model tool invocation",
+      "LSP asynchronous diagnostics and actual file navigation",
+      "native execution observations"
+    ],
+    "N03": [
+      "native resident initial Run completion, explicit Engine stop, saved native cancelled task outcome",
+      "native running child cancel and clean worktree deletion after parent completion",
+      "native team join/board/Original mailbox claim",
+      "finite readonly advisory workflow Original start, native child stage result and history reload",
+      "documented SIWC account lifecycle with verified JWT/real loopback fixture and native OS encrypted storage"
+    ],
+    "N04": [
+      "unsigned actual macOS arm64 local package",
+      "actual hosted macOS package/native smoke",
+      "actual hosted Windows x64 portable package/utility/SQLite23/renderer",
+      "actual hosted Linux package/utility/SQLite23/command/PTY after executable correction",
+      "exact Electron/windows-job build/ASAR/utility consumer adapter prepared"
+    ],
+    "N05": [
+      "explicit stable update controller",
+      "actual electron-updater checksum rejection and disposable POSIX install/recovery",
+      "signing/notarization/publisher review-only preparation and verification gates",
+      "known-good immutable source rebuilt at a higher stable version; publishing disabled"
+    ]
+  },
+  "semanticNotes": [
+    "Resident Run completed does not close its resident Engine. Explicit stop yields closed Engine and native cancelled task/outcome with saved content.",
+    "First workflow GUI is readonly/advisory; editor/validator/merge/delivery effects have no support credit.",
+    "Linux SHA512/HTTPS and disposable AppImage verification is not macOS/Windows signed installer proof."
+  ],
+  "hosted": {
+    "engine": {
+      "runId": 37851821021,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37851821021",
+      "commit": "6ca908615e81417db58bac00f121c2f25d863cd8",
+      "lanes": 6,
+      "passed": 6,
+      "failed": 0,
+      "evidence": "artifacts/desktop-next/hosted-engine-final.json",
+      "sha256": "1a87517b2aacf54982ef964bafbfb4cc3b5bd76c0b7981acc43a3a56eac90474"
+    },
+    "packageAttempts": [
+      {
+        "runId": 37851820964,
+        "commit": "6ca908615e81417db58bac00f121c2f25d863cd8",
+        "macos": "passed",
+        "linux": "failed before launch due executable name mismatch",
+        "windowsPortable": "passed",
+        "windowsNative": "explicit absent binding gate"
+      },
+      {
+        "runId": 37852530618,
+        "commit": "388701f9085e490f54a30051c99208c487964a56",
+        "macos": "passed",
+        "linuxPackageAndNative": "passed",
+        "linuxUpdater": "SUID fixture launch failure; explicit disposable Linux fixture option fixed in followup",
+        "windowsPortable": "passed",
+        "windowsNative": "explicit absent binding gate"
+      }
+    ],
+    "currentFollowup": {
+      "runId": 37852974845,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37852974845",
+      "commit": "55b213696a056f94976cd0611ba896b356f9a40e",
+      "status": "completed",
+      "overallConclusion": "failure",
+      "macosPackageNativeUpdater": "passed",
+      "linuxPackageNativeUpdater": "passed",
+      "windowsPortable": "passed",
+      "windowsNative": "failed only at explicit absent binding gate",
+      "evidence": "artifacts/desktop-next/hosted-packages-final.json",
+      "sha256": "c4e47507ea2ccc7a6f69154a21650fdb5593eea39682c661a70044acc23f0d98"
+    }
+  },
+  "immutableProgramProof": "artifacts/desktop-next/current-source-delta.json",
+  "finalLocalVerification": {
+    "commit": "55b213696a056f94976cd0611ba896b356f9a40e",
+    "report": "artifacts/desktop-next/verification-55b2136-desktop.json",
+    "sourceSha256": "8c2d738fdff0386b2bed77635abb40437b514406b0ec939269531f10533cccd7",
+    "unchangedSource": true,
+    "desktop": {
+      "tests": 210,
+      "pass": 210,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "packageAndPolicies": "passed",
+    "updateFixture": "passed current launcher",
+    "unchangedProgramSourceSha256": "731cec45b22fd7c5b9b4d5192e24d19a3d1fdb188f7ed3a5e419c19832665df6"
+  }
+}
