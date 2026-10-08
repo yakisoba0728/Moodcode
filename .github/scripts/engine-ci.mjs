@@ -86,6 +86,8 @@ export function commandPlan(mode) {
     case "test-hardening-cli":
       return [
         process.execPath,
+        "--import",
+        join(root, "node_modules", "tsx", "dist", "loader.mjs"),
         "--test",
         "--test-concurrency=1",
         join(root, "scripts", "verify-engine-resilience.test.mjs"),
