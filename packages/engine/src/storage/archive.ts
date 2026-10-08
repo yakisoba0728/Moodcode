@@ -31,6 +31,8 @@ import { WORKFLOW_TABLES } from '../workflows/schema.js';
 import { validateWorkflowDatabase } from '../workflows/store.js';
 import { SCHEDULE_TABLES } from '../schedules/schema.js';
 import { validateScheduleDatabase } from '../schedules/store.js';
+import { BACKEND_TABLES } from '../agent-backends/schema.js';
+import { validateAgentBackendDatabase } from '../agent-backends/store.js';
 import { validateTeamChildInputRelations } from '../teams/child-input-proof.js';
 import { knowledgeHash } from '../knowledge/validation.js';
 import { SqliteStore } from './index.js';
@@ -236,7 +238,12 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
       try { validateScheduleDatabase(db, { check }); }
       catch { fail('ARCHIVE_SCHEDULE_INVALID', 'Archived schedule revisions, occurrence ownership or actual input relationships are invalid'); }
     }
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 20 ? [...workflowTables, ...SCHEDULE_TABLES] : workflowTables, check) };
+    const scheduleTables = schemaVersion >= 20 ? [...workflowTables, ...SCHEDULE_TABLES] : workflowTables;
+    if (schemaVersion >= 21) {
+      try { validateAgentBackendDatabase(db, { check }); }
+      catch { fail('ARCHIVE_BACKEND_INVALID', 'Archived backend ownership, remote requests or client effect receipts are invalid'); }
+    }
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

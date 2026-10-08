@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { types } from 'node:util';
+import { isAbsolute, relative, sep } from 'node:path';
 import {
   EngineError, isTerminal,
   type Checkpoint, type JsonObject, type JsonValue, type Message, type ProviderReplay, type ProviderToolCall,
@@ -8,8 +9,10 @@ import {
 import type {
   CoordinatorOptions, CoordinatorPort, PreparedTool, ProviderAdapter, ProviderEvent,
   ProviderMessage, ToolContext, ToolDefinition, ToolResult,
-  ChildRunReservation, RunUsage, LifecycleContinuationCapture,
+  ChildRunReservation, RunUsage, LifecycleContinuationCapture, TurnRequest, ProviderRequestOwner,
 } from '../ports.js';
+import type { BackendClientReadInput, BackendClientReadProof } from '../agent-backends/client-effects.js';
+import { immutableKnowledgeJson, knowledgeHash } from '../knowledge/validation.js';
 import { EXTRACTIVE_MEMORY_PREFIX } from '../context/index.js';
 import { SEMANTIC_MEMORY_PREFIX } from '../context/semantic-memory.js';
 import { ACTIVE_PREFIX_MEMORY_PREFIX } from '../context/active-prefix.js';
@@ -64,6 +67,53 @@ interface Owner {
   lifecycleContinuationsUsed: number;
   verificationContinuation?: { stageId: string; message: ProviderMessage };
   verificationBoundary?: VerificationBoundary;
+}
+
+interface OriginalProviderRequest {
+  readonly owner: Owner;
+  readonly proof: ProviderRequestOwner;
+  readonly signal: AbortSignal;
+  pendingRead: boolean;
+}
+interface ClientReadCapture {
+  record?: ToolCallRecord;
+  result?: ToolResult;
+  fingerprint?: string;
+}
+
+/** Preserve request insertion order without evaluating adapter-added serializers or accessors. */
+function originalRequestSha256(value: TurnRequest, maxBytes: number): string {
+  let nodes = 0, bytes = 0;
+  const ancestors = new Set<object>();
+  function invalid(): never { throw new EngineError('BACKEND_REQUEST_OWNER_STALE', 'The original request must retain ordinary bounded JSON data'); }
+  const copy = (item: unknown, depth: number): unknown => {
+    if (++nodes > 32768 || depth > 32) invalid();
+    if (item === null || typeof item === 'boolean') return item;
+    if (typeof item === 'number') { if (!Number.isFinite(item)) invalid(); return item; }
+    if (typeof item === 'string') { bytes += Buffer.byteLength(item); if (bytes > maxBytes || Buffer.from(item).toString('utf8') !== item) invalid(); return item; }
+    if (!item || typeof item !== 'object' || types.isProxy(item) || ancestors.has(item)) invalid();
+    const object = item as object, prototype = Object.getPrototypeOf(object), descriptors = Object.getOwnPropertyDescriptors(object);
+    if (Array.isArray(object) ? prototype !== Array.prototype : prototype !== Object.prototype && prototype !== null) invalid();
+    ancestors.add(object);
+    try {
+      if (Array.isArray(object)) {
+        const length = descriptors.length?.value;
+        if (!Number.isSafeInteger(length) || length < 0 || length > 4096 || Reflect.ownKeys(descriptors).length !== length + 1) invalid();
+        const result: unknown[] = []; Object.setPrototypeOf(result, null);
+        for (let index = 0; index < length; index++) { const descriptor = descriptors[String(index)]; if (!descriptor?.enumerable || !('value' in descriptor)) invalid(); result[index] = copy(descriptor.value, depth + 1); }
+        return result;
+      }
+      const result = Object.create(null) as Record<string, unknown>;
+      for (const key of Reflect.ownKeys(descriptors)) {
+        if (typeof key !== 'string') invalid(); const descriptor = descriptors[key as string]!;
+        if (!descriptor.enumerable || !('value' in descriptor)) invalid(); bytes += Buffer.byteLength(key as string); if (bytes > maxBytes) invalid();
+        result[key as string] = copy(descriptor.value, depth + 1);
+      }
+      return result;
+    } finally { ancestors.delete(object); }
+  };
+  const encoded = JSON.stringify(copy(value, 0));
+  if (Buffer.byteLength(encoded) > maxBytes) invalid(); return createHash('sha256').update(encoded).digest('hex');
 }
 
 interface WorkspaceLease {
@@ -215,6 +265,10 @@ export class RunCoordinator implements CoordinatorPort {
   private readonly finalUsage = new Map<string, Readonly<RunUsage>>();
   private readonly verificationSettlementOwners = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; binding: string }>();
   private readonly teamToolContexts = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; phase: 'prepare' | 'execute'; binding: string; signal: AbortSignal; approval?: ApprovedMcpToolOwner['approval'] }>();
+  private readonly providerRequests = new WeakMap<TurnRequest, OriginalProviderRequest>();
+  private readonly clientReadCompletions = new WeakMap<object, BackendClientReadProof>();
+  private readonly retainedClientReads = new Set<object>();
+  private readonly clientReadCaptures = new Map<string, ClientReadCapture>();
   private closing = false;
   private closePromise?: Promise<void>;
   private sessionHooks?: {
@@ -272,6 +326,97 @@ export class RunCoordinator implements CoordinatorPort {
     const current = this.options.store.getRun(runId);
     if (current.sessionId !== owner.run.sessionId || current.workspaceId !== owner.run.workspaceId || JSON.stringify(current.config) !== JSON.stringify(owner.run.config) || current.prompt !== owner.run.prompt) throw new EngineError('RUN_OWNER_STALE', 'Native Run changed after original admission');
     return structuredClone({ ...owner.run, state: current.state });
+  }
+
+  private originalProviderRequest(request: TurnRequest, phase: 'dispatch' | 'observe'): OriginalProviderRequest {
+    if (!request || typeof request !== 'object' || types.isProxy(request)) throw new EngineError('BACKEND_ORIGINAL_REQUEST_REQUIRED', 'A backend requires the original native provider request');
+    const captured = this.providerRequests.get(request);
+    if (!captured) throw new EngineError('BACKEND_ORIGINAL_REQUEST_REQUIRED', 'The provider request is outside its actual Attempt lifetime');
+    const { owner, proof } = captured, records = executionRecords(this.options.store);
+    const current = this.options.store.getRun(proof.runId);
+    const attempt = records?.getAttempt(proof.attemptId), turn = records?.getTurn(proof.turnId), cleanup = records?.getAttemptCleanup?.(proof.attemptId, proof.sessionId);
+    if (!records || this.owners.get(proof.runId) !== owner || owner.turn?.id !== proof.turnId || owner.turn.attemptId !== proof.attemptId
+      || current.workspaceId !== proof.workspaceId || current.sessionId !== proof.sessionId || knowledgeHash(current.config) !== proof.configSha256
+      || originalRequestSha256(request, owner.run.config.limits.maxContextBytes + 65536) !== proof.requestSha256
+      || !attempt || attempt.runId !== proof.runId || attempt.sessionId !== proof.sessionId || attempt.turnId !== proof.turnId || attempt.providerId !== proof.providerId || attempt.modelId !== proof.modelId
+      || !turn || turn.runId !== proof.runId || turn.sessionId !== proof.sessionId || !cleanup || cleanup.requestSha256 !== proof.requestSha256
+      || knowledgeHash(owner.catalogue ?? request.tools) !== proof.catalogueSha256) throw new EngineError('BACKEND_REQUEST_OWNER_STALE', 'The backend request differs from its actual native owner');
+    if (phase === 'dispatch') {
+      this.assertLive(owner);
+      if (captured.signal.aborted) throw captured.signal.reason ?? new EngineError('RUN_CANCELLED', 'The provider Attempt was cancelled');
+      if (!['dispatched', 'streaming'].includes(attempt.state) || !['created', 'streaming'].includes(turn.state)) throw new EngineError('BACKEND_REQUEST_OWNER_STALE', 'New backend effects require the currently dispatched Attempt');
+      if (owner.catalogue) this.options.toolRuntime!.assertCatalogueCurrent(owner.catalogue);
+      owner.discovery?.assertCurrent();
+      if (owner.lifecycle) this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
+    }
+    return captured;
+  }
+
+  readProviderRequestOwner(request: TurnRequest): ProviderRequestOwner {
+    return structuredClone(this.originalProviderRequest(request, 'observe').proof);
+  }
+
+  assertProviderRequest(request: TurnRequest, phase: 'dispatch' | 'observe'): void {
+    this.originalProviderRequest(request, phase);
+  }
+
+  /** One client read executes inside the still-open original provider Attempt. */
+  async executeProviderClientRead(request: TurnRequest, value: BackendClientReadInput, signal: AbortSignal): Promise<object> {
+    const captured = this.originalProviderRequest(request, 'dispatch'), { owner, proof } = captured;
+    const input = immutableKnowledgeJson(value);
+    if (Object.keys(input).some(key => !['callId', 'path', 'line', 'limit'].includes(key)) || typeof input.callId !== 'string' || !input.callId || Buffer.byteLength(input.callId) > 256
+      || typeof input.path !== 'string' || !isAbsolute(input.path) || Buffer.byteLength(input.path) > 4096 || input.path.includes('\0')
+      || input.line !== undefined && (!Number.isSafeInteger(input.line) || input.line < 1)
+      || input.limit !== undefined && (!Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 2000)) throw new EngineError('BACKEND_CLIENT_READ_INVALID', 'The client read must have an explicit absolute path and bounded line range');
+    if (signal.aborted) throw signal.reason ?? new EngineError('RUN_CANCELLED', 'Client read was cancelled');
+    if (captured.pendingRead || owner.callIds.has(input.callId)) throw new EngineError('BACKEND_CLIENT_READ_CONFLICT', 'Client reads must be serialized with distinct request identities');
+    if (this.retainedClientReads.size >= 128) throw new EngineError('BACKEND_CLIENT_READ_LIMIT', 'Client read completion handle limit was reached');
+    const startLine = input.line ?? 1, endLine = input.limit === undefined ? undefined : startLine + input.limit - 1;
+    if (endLine !== undefined && !Number.isSafeInteger(endLine)) throw new EngineError('BACKEND_CLIENT_READ_INVALID', 'Client line range exceeds its integer bound');
+    const workspace = this.options.store.getWorkspace(proof.workspaceId), localPath = relative(workspace.root, input.path).split(sep).join('/');
+    if (!localPath || localPath === '..' || localPath.startsWith('../') || isAbsolute(localPath)) throw new EngineError('BACKEND_CLIENT_READ_OUTSIDE', 'Client reads must remain inside the actual workspace');
+    if (this.remainingChildBudget(owner).toolCalls < 1) throw new EngineError('TOOL_CALL_LIMIT', 'The original Run tool budget is exhausted');
+    owner.budget.reserveToolCalls(1);
+    const toolCallId = randomUUID(), message = this.message(owner, 'assistant');
+    const call: ProviderToolCall = { id: input.callId, name: 'read_file', input: { path: localPath, startLine, ...(endLine === undefined ? {} : { endLine }) } };
+    owner.callIds.add(call.id); owner.invocations.set(call.id, toolCallId);
+    this.options.store.commit(owner.run.id, 'backend.client_read_proposed', { toolCallId, providerToolCallId: call.id, turnId: proof.turnId, attemptId: proof.attemptId }, { message });
+    owner.turn!.toolProposal(message.id, toolCallId, call);
+    const readCapture: ClientReadCapture = {};
+    this.clientReadCaptures.set(toolCallId, readCapture); captured.pendingRead = true;
+    const abort = () => owner.abort.abort(new EngineError('RUN_CANCELLED', 'The original backend client read was cancelled'));
+    signal.addEventListener('abort', abort, { once: true });
+    let failure: unknown;
+    try { this.originalProviderRequest(request, 'dispatch'); await this.executeTool(owner, call, workspace); }
+    catch (error) { failure = error; }
+    finally { signal.removeEventListener('abort', abort); captured.pendingRead = false; this.clientReadCaptures.delete(toolCallId); }
+    const record = readCapture.record;
+    if (!record) throw failure ?? new EngineError('BACKEND_CLIENT_READ_FAILED', 'The native client read was not admitted');
+    const data = readCapture.result?.data;
+    const complete = record.state === 'completed' && data !== null && typeof data === 'object' && !Array.isArray(data) && typeof data.content === 'string' && Buffer.byteLength(data.content) <= 24576
+      && data.truncated === false && data.outputTruncated === false && data.hasMore === false && data.partialFirstLine === false && data.partialLastLine === false;
+    const errorCode = failure instanceof EngineError ? failure.code : failure ? 'BACKEND_CLIENT_READ_FAILED'
+      : record.state === 'denied' ? 'APPROVAL_DENIED' : record.state !== 'completed' ? 'BACKEND_CLIENT_READ_FAILED' : !complete ? 'BACKEND_CLIENT_READ_PARTIAL' : null;
+    const resultBody = { workspaceId: proof.workspaceId, sessionId: proof.sessionId, runId: proof.runId, turnId: proof.turnId, attemptId: proof.attemptId,
+      toolCallId, providerToolCallId: call.id, preparedFingerprint: readCapture.fingerprint ?? null,
+      state: (['completed', 'failed', 'denied', 'interrupted'].includes(record.state) ? record.state : 'interrupted') as BackendClientReadProof['state'],
+      inputSha256: knowledgeHash(record.input), outputSha256: createHash('sha256').update(record.output ?? '').digest('hex'), outputBytes: Buffer.byteLength(record.output ?? ''),
+      content: complete ? (data as JsonObject).content as string : null, errorCode,
+      cleanupConfirmed: !uncertain(failure) && !['CLEANUP_UNCERTAIN', 'TOOL_TIMEOUT'].includes(errorCode ?? '') };
+    const completion: BackendClientReadProof = immutableKnowledgeJson({ ...resultBody, sha256: knowledgeHash(resultBody) });
+    const original = Object.freeze({}); this.clientReadCompletions.set(original, completion); this.retainedClientReads.add(original);
+    return original;
+  }
+
+  readProviderClientReadCompletion(original: object): BackendClientReadProof {
+    if (!original || typeof original !== 'object' || types.isProxy(original)) throw new EngineError('BACKEND_ORIGINAL_REQUIRED', 'Client read completion requires its original receipt');
+    const proof = this.clientReadCompletions.get(original);
+    if (!proof) throw new EngineError('BACKEND_ORIGINAL_REQUIRED', 'The native client read completion receipt is unavailable');
+    return structuredClone(proof);
+  }
+
+  releaseProviderClientReadCompletion(original: object): void {
+    this.clientReadCompletions.delete(original); this.retainedClientReads.delete(original);
   }
 
   private teamContextBinding(context: ToolContext): string {
@@ -754,6 +899,22 @@ export class RunCoordinator implements CoordinatorPort {
         const revisionId = this.options.getContextRevisionId?.(run.sessionId);
         owner.turn = new TurnExecutor({ run, index: turnIndex, inputIds: records?.listRunInputIds?.(run.id) ?? [run.inputId], budget: owner.budget,
           store: this.options.store, wait: abortable, ...(revisionId ? { contextRevisionId: revisionId } : {}), currentContextRevisionId: () => this.options.getContextRevisionId?.(run.sessionId),
+          beforeAdapterIntent: () => {
+            this.assertLive(owner); assertCatalogueCurrent();
+            if (owner.lifecycle) this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
+            this.options.beforeProviderDispatch?.(run);
+          },
+          beforeAdapterDispatch: (request, signal) => {
+            if (!request.turnId || !request.attemptId || !records?.getAttemptCleanup) return;
+            const cleanup = records.getAttemptCleanup(request.attemptId, run.sessionId);
+            this.providerRequests.set(request, { owner, signal, pendingRead: false, proof: {
+              workspaceId: run.workspaceId, sessionId: run.sessionId, runId: run.id, turnId: request.turnId, attemptId: request.attemptId,
+              providerId: provider.id, modelId: request.modelId, requestSha256: cleanup.requestSha256,
+              configSha256: knowledgeHash(run.config), catalogueSha256: knowledgeHash(owner.catalogue ?? request.tools),
+              contextRevisionId: cleanup.contextRevisionId ?? null,
+            } });
+          },
+          afterAdapterSettlement: request => { this.providerRequests.delete(request); },
           assertContextFresh: async (request, signal) => {
             await this.options.assertContextFresh?.(request, signal); assertCatalogueCurrent();
             if (owner.lifecycleContinuation) await this.options.lifecycleContinuation!.assertFresh(run, owner.lifecycleContinuation, signal);
@@ -1136,6 +1297,8 @@ export class RunCoordinator implements CoordinatorPort {
     owner.toolCount++;
     // Provider IDs belong to a conversation; durable tool rows need globally unique IDs.
     const record: ToolCallRecord = { id: owner.invocations.get(call.id) ?? randomUUID(), runId: owner.run.id, sessionId: owner.run.sessionId, name: call.name, input: call.input, state: 'requested' };
+    const clientRead = this.clientReadCaptures.get(record.id);
+    if (clientRead) clientRead.record = record;
     owner.activeTools.set(record.id, record);
     this.options.store.commit(owner.run.id, 'tool.requested', { toolCallId: record.id, providerToolCallId: call.id, name: call.name, input: call.input }, { tool: record });
     let preparedFingerprint: string | undefined;
@@ -1153,6 +1316,9 @@ export class RunCoordinator implements CoordinatorPort {
       if (transform?.action === 'deny') return this.toolResult(owner, record, call, this.toolError(owner, 'LIFECYCLE_DENIED', 'A host lifecycle hook denied tool preparation'), 'denied');
       const effectiveInput = transform?.inputRewrite ? structuredClone(transform.inputRewrite.input) : call.input;
       const effectiveEncoded = JSON.stringify(effectiveInput), effectiveSha256 = createHash('sha256').update(effectiveEncoded).digest('hex');
+      if (clientRead && knowledgeHash(effectiveInput) !== knowledgeHash(call.input)) {
+        throw new EngineError('BACKEND_CLIENT_READ_REWRITE_UNSUPPORTED', 'A client file read must preserve its requested path and line range');
+      }
       if (transform?.inputRewrite && (transform.inputRewrite.originalSha256 !== originalInputSha256 || transform.inputRewrite.effectiveSha256 !== effectiveSha256))
         throw new EngineError('LIFECYCLE_INPUT_STALE', 'Lifecycle tool transformation does not match the exact original/effective input');
       if (Buffer.byteLength(effectiveEncoded) > owner.run.config.limits.maxContextBytes) throw new EngineError('CONTEXT_LIMIT', 'Transformed tool input exceeds the original Run context limit');
@@ -1177,6 +1343,14 @@ export class RunCoordinator implements CoordinatorPort {
         else this.options.store.commit(owner.run.id, 'tool.policy_decision', payload);
       }
       preparedFingerprint = prepared.fingerprint;
+      if (clientRead) {
+        clientRead.fingerprint = preparedFingerprint;
+        const payload: JsonObject = { toolCallId: record.id, providerToolCallId: call.id, toolName: call.name,
+          preparedFingerprint, requiresApproval: prepared.requiresApproval, inputSha256: knowledgeHash(record.input) };
+        const refs = owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {};
+        if (!this.options.store.commitRunObservation) throw new EngineError('BACKEND_NATIVE_OBSERVATION_REQUIRED', 'Client reads require the native preparation journal');
+        this.options.store.commitRunObservation(owner.run.id, 'tool.prepared', payload, refs);
+      }
       const before = await this.lifecycle(owner, 'tool-prepared', `${record.id}:prepared`, { toolCallId: record.id, toolName: call.name, fingerprint: prepared.fingerprint, requiresApproval: prepared.requiresApproval,
         ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}), ...(tool.effectClass ? { effectClass: tool.effectClass } : {}), inputSha256: createHash('sha256').update(JSON.stringify(prepared.input)).digest('hex'), previewSha256: createHash('sha256').update(JSON.stringify(prepared.preview)).digest('hex') });
       if (JSON.stringify(prepared) !== binding) throw new EngineError('PREPARED_TOOL_CHANGED', 'Prepared request changed during the lifecycle boundary');
@@ -1327,6 +1501,8 @@ export class RunCoordinator implements CoordinatorPort {
     }
     this.options.store.commit(owner.run.id, `tool.${finalState}`, payload, { tool: { ...record }, message });
     owner.turn?.toolResult(record.id, { output: output.content, isError: result.isError ?? false, truncated: output.truncated }, finalState !== 'completed');
+    const clientRead = this.clientReadCaptures.get(record.id);
+    if (clientRead) clientRead.result = structuredClone(result);
     if (output.truncated) throw new EngineError('OUTPUT_LIMIT', 'Run output byte budget was exceeded');
     return output.content;
   }

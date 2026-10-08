@@ -6,7 +6,7 @@
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
   "completedFamilies": 8,
-  "completedWorkItems": 36,
+  "completedWorkItems": 38,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -408,33 +408,46 @@
       "title": "ACP·remote host·client effect 완료",
       "priority": "P2",
       "wave": "W5",
-      "status": "pending",
+      "status": "in-progress",
       "workItems": [
         {
           "id": "MC2-09a",
           "completion": "capability negotiation·backend launch tuple·secret reference·scope 고정",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-agent-backends.md",
+            "engine-phase-two-agent-backends-verification.json"
+          ]
         },
         {
           "id": "MC2-09b",
           "completion": "synthetic ACP/remote peer·엄격한 command/event schema·bounded replay",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-agent-backends.md",
+            "engine-phase-two-agent-backends-verification.json"
+          ]
         },
         {
           "id": "MC2-09c",
           "completion": "exact permission bridge와 기존 child/host port를 통한 client effect 실행. unknown capability는 시작 보류",
-          "status": "pending",
-          "evidence": []
+          "status": "in-progress",
+          "evidence": [
+            "engine-phase-two-agent-backends.md",
+            "engine-phase-two-agent-backends-verification.json"
+          ]
         },
         {
           "id": "MC2-09d",
           "completion": "disconnect·late approval·event gap·중복 prompt·owner 교체·ack 후 효과 실패 검사. reconnect를 remote rollback/safe retry 증거로 쓰지 않음",
-          "status": "pending",
-          "evidence": []
+          "status": "in-progress",
+          "evidence": [
+            "engine-phase-two-agent-backends.md",
+            "engine-phase-two-agent-backends-verification.json"
+          ]
         }
-      ]
+      ],
+      "notes": "MC2-09a/b completed for explicit root-owned ACP v1 local stdio/text, strict bounded schema/negotiation, exact executable/source/config/profile/catalogue/audience/env-reference pins and native owner/connection/request/effect/delivery CAS history. Original native same-Attempt read pipeline, exact approval/deny, partial/error output, lifecycle path/range rewrite rejection, actual root SIGKILL/reopen/import, supervisor/SQL receipt faults, duplicate launch and authentic foreign native owner relinking are verified. MC2-09c/d remain in progress for effectful permission/write/terminal, remote hosts/protocol authentication, agent-owned context/load/reconnect; peer output redaction is not guaranteed. No runtime authority/replay from import. Original goal active at38/80 and8/20; existing four environment debts unchanged."
     },
     {
       "id": "MC2-10",
@@ -830,5 +843,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-08T02:30:11.570Z"
+  "updatedAt": "2026-10-08T04:19:37.410Z"
 }

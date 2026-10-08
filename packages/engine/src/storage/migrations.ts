@@ -21,6 +21,7 @@ import { PROPOSAL_APPLY_GUARD_SCHEMA_SQL } from '../proposals/execution-guards.j
 import { TEAM_SCHEMA_SQL } from '../teams/schema.js';
 import { WORKFLOW_SCHEMA_SQL } from '../workflows/schema.js';
 import { SCHEDULE_SCHEMA_SQL } from '../schedules/schema.js';
+import { BACKEND_SCHEMA_SQL } from '../agent-backends/schema.js';
 
 export interface DatabaseMigration {
   /** Append-only, consecutive primary database version, starting at 1. */
@@ -89,6 +90,7 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
   Object.freeze({ version: 18, name: 'native-team-mailbox-and-task-board', apply: (database: DatabaseSync) => { database.exec(TEAM_SCHEMA_SQL); } }),
   Object.freeze({ version: 19, name: 'native-workflow-revisions-and-heads', apply: (database: DatabaseSync) => { database.exec(WORKFLOW_SCHEMA_SQL); } }),
   Object.freeze({ version: 20, name: 'native-schedules-and-occurrence-admission', apply: (database: DatabaseSync) => { database.exec(SCHEDULE_SCHEMA_SQL); } }),
+  Object.freeze({ version: 21, name: 'native-agent-backends-and-client-effect-receipts', apply: (database: DatabaseSync) => { database.exec(BACKEND_SCHEMA_SQL); } }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;
 

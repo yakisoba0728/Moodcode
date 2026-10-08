@@ -22,7 +22,7 @@ export interface EngineStore {
   /** Persisted ordinary execution uncertainty, including unknown cleanup after restart. */
   hasUncertainExecution?(workspaceId: string): boolean;
   commit(runId: string, type: string, payload: JsonObject, change?: CommitChange): EngineEvent;
-  commitRunObservation?(runId: string, type: 'lifecycle.outcome' | 'tool.policy_decision', payload: JsonObject, refs?: { turnId?: string; attemptId?: string }): EngineEvent;
+  commitRunObservation?(runId: string, type: 'lifecycle.outcome' | 'tool.policy_decision' | 'tool.prepared' | 'backend.launch_reserved' | 'backend.connection_admitted', payload: JsonObject, refs?: { turnId?: string; attemptId?: string }): EngineEvent;
   /** Only an already consumed, still executing native verification tool may settle during cancellation. */
   putConsumedVerificationSettlement?(identity: { runId: string; toolCallId: string; turnId: string; attemptId: string }, kind: string, expectedRevision: number, data: JsonObject): import('./storage/native-records.js').SessionDocument;
   getSnapshot(sessionId: string): SessionSnapshot;
@@ -79,6 +79,12 @@ export interface ResolvedInputDocument { attachment: import('@moodcode/contracts
 export interface ProviderMessage { role: 'system' | 'user' | 'assistant' | 'tool'; content: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay; attachments?: import('@moodcode/contracts').InputImageAttachment[]; documents?: import('@moodcode/contracts').InputDocumentAttachment[] }
 export interface ProviderTool { name: string; description: string; inputSchema: JsonObject }
 export interface TurnRequest { runId: string; turnIndex: number; modelId: string; messages: ProviderMessage[]; tools: ProviderTool[]; reasoningEffort?: import('@moodcode/contracts').ReasoningEffort; turnId?: string; attemptId?: string; includeMetadata?: boolean; sessionId?: string; resolvedImages?: ResolvedInputImage[]; resolvedDocuments?: ResolvedInputDocument[] }
+/** Metadata of an ORIGINAL request at actual native provider entry. It grants no dispatch authority. */
+export interface ProviderRequestOwner {
+  workspaceId: string; sessionId: string; runId: string; turnId: string; attemptId: string;
+  providerId: string; modelId: string; requestSha256: string; configSha256: string;
+  catalogueSha256: string; contextRevisionId: string | null;
+}
 export type ProviderEvent = { type: 'text.delta'; delta: string } | { type: 'progress'; providerRequestId?: string } | { type: 'reasoning.delta'; delta: string } | { type: 'media'; mime: string; name?: string; artifact: import('@moodcode/contracts').ArtifactReference } | { type: 'tool.call'; call: ProviderToolCall } | { type: 'usage'; inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; reasoningOutputTokens?: number } | { type: 'finish'; reason: 'stop' | 'tool_calls' | 'length'; replayItems?: JsonObject[] };
 export interface ProviderAdapter { readonly id: string; readonly replayProtocol?: string; readonly retryableHttpStatuses?: readonly number[]; readonly inputModalities?: readonly ('text' | 'image')[]; readonly inputFileTypes?: readonly 'application/pdf'[]; supportsInputFile?(modelId: string, mimeType: 'application/pdf'): boolean; readonly allowUnknownDocumentTokenCost?: boolean; streamTurn(request: TurnRequest, signal: AbortSignal): AsyncIterable<ProviderEvent>; streamGeneration?(request: import('./provider/generation.js').HostGenerationRequest, signal: AbortSignal): AsyncIterable<ProviderEvent> }
 export interface ToolContext { workspace: Workspace; sessionId: string; runId: string; toolCallId: string; signal: AbortSignal; limits: RunLimits; artifactDir: string; executionLockPath?: string; recordCheckpoint(checkpoint: Checkpoint): void; budgets?: EngineBudgets; turnId?: string; attemptId?: string; mcpExecutionObserver?: import('./mcp/execution-observation.js').McpToolCallObserver }

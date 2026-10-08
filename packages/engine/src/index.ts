@@ -1,5 +1,9 @@
 export { createEngine, MoodcodeEngine, type EngineOptions, type RestoreCommandResult, type ReviewHistoryResult, type EngineStorageUsageOptions, type EngineStorageUsageReport, type EngineChildDocumentStorageOptions, type EngineChildDocumentStorageReport } from './engine.js';
 export type * from './ports.js';
+export type * from './agent-backends/types.js';
+export type { CaptureAgentBackendTarget, AgentBackendSecretResolver } from './agent-backends/engine-producer.js';
+export type { AgentBackendRevision, BackendConnectionRevision, BackendRemoteRequest, BackendClientEffectRevision, RegisterAgentBackendInput, DisableAgentBackendInput } from './agent-backends/store.js';
+export { validateAgentBackendSpec, validateAgentBackendTarget, AGENT_BACKEND_LIMITS } from './agent-backends/validation.js';
 export * from './lifecycle/index.js';
 export type * from './knowledge/file-publication-types.js';
 export type { KnowledgeFilePublicationPreview, WorkspaceKnowledgeFilePublicationPreviewInput, WorkspaceKnowledgeFileRevocationPreviewInput, WorkspaceKnowledgeFilePublicationInput, WorkspaceKnowledgeFilePublicationResult } from './knowledge/file-publication-service.js';

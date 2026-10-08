@@ -16,6 +16,9 @@ export interface TurnExecutorOptions {
   currentContextRevisionId?: () => string | undefined;
   assertContextFresh?: (request: TurnRequest, signal: AbortSignal) => Promise<void>;
   recoverContextOverflow?: () => Promise<import('../ports.js').ProviderMessage[]>;
+  beforeAdapterIntent?: (originalRequest: TurnRequest, signal: AbortSignal) => void;
+  beforeAdapterDispatch?: (originalRequest: TurnRequest, signal: AbortSignal) => void;
+  afterAdapterSettlement?: (originalRequest: TurnRequest) => void;
 }
 
 /** Owns provider dispatch/attempt timeouts and durable part lifecycle; tools settle this turn later. */
@@ -82,9 +85,11 @@ export class TurnExecutor {
         }
         // Record dispatch intent first. If its transaction fails, the ordinary
         // attempt still has no dispatch timestamp and can prove no-dispatch.
+        this.options.beforeAdapterIntent?.(dispatchedRequest, combined);
         cleanupStore?.dispatchAttemptCleanup!(this.attempt.id); cleanupDispatched = true;
         const dispatched: ProviderAttempt = { ...this.attempt, state: 'dispatched', dispatchedAt: timestamp() };
         this.records?.putAttempt(dispatched); this.attempt = dispatched;
+        this.options.beforeAdapterDispatch?.(dispatchedRequest, combined);
         providerInvoked = true;
         iterator = provider.streamTurn(dispatchedRequest, combined)[Symbol.asyncIterator]();
         resetInactivity();
@@ -138,6 +143,7 @@ export class TurnExecutor {
         if (failure instanceof EngineError) settlement.errorCode = failure.code;
         try { cleanupStore?.settleAttemptCleanup!(this.attempt.id, settlement); }
         catch { throw new EngineError('CLEANUP_UNCERTAIN', 'Provider cleanup observation could not be durably recorded', { attemptId: this.attempt.id }); }
+        finally { this.options.afterAdapterSettlement?.(dispatchedRequest); }
         if (settlement.outcome === 'uncertain') throw new EngineError('CLEANUP_UNCERTAIN', 'Provider attempt cleanup could not be confirmed', { attemptId: this.attempt.id, method: settlement.method });
       }
       const retry = !observed && !signal.aborted && failure instanceof EngineError && failure.code === 'PROVIDER_HTTP_ERROR'

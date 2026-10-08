@@ -97,6 +97,11 @@ import { EngineScheduleProducer } from './schedules/engine-producer.js';
 import { ScheduleHost } from './schedules/host.js';
 import { ScheduleDispatcher } from './schedules/dispatcher.js';
 import type { ScheduleStorage } from './schedules/store.js';
+import { EngineAgentBackendProducer, type CaptureAgentBackendTarget, type AgentBackendSecretResolver } from './agent-backends/engine-producer.js';
+import { AgentBackendStorage, type RegisterAgentBackendInput, type DisableAgentBackendInput } from './agent-backends/store.js';
+import { OwnedBackendProcesses } from './agent-backends/process.js';
+import { AgentBackendHost } from './agent-backends/host.js';
+import { agentBackendObject, validateAgentBackendSpec } from './agent-backends/validation.js';
 import { TeamHostService } from './teams/host.js';
 import { TeamService } from './teams/service.js';
 import type { TeamStorage } from './teams/store.js';
@@ -194,6 +199,10 @@ export interface EngineOptions {
   workflows?: boolean;
   /** Explicit root lifetime and durable queue-only scheduled input admission. */
   schedules?: boolean;
+  /** Root-owned ACP v1 stdio providers; imported definitions do not restore runtime authority. */
+  agentBackends?: boolean;
+  /** Explicit audience-bound runtime secrets; bodies never enter native backend journals. */
+  agentBackendSecrets?: AgentBackendSecretResolver;
   /** Exact host-selected pending proposals projected as read-only model data. */
   proposalContextPolicy?: ProposalContextPolicy;
   /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
@@ -392,6 +401,13 @@ export class MoodcodeEngine {
   private readonly scheduleRecords: ScheduleStorage;
   private readonly scheduleProducer: EngineScheduleProducer;
   private readonly scheduleDispatcher: ScheduleDispatcher;
+  private readonly agentBackendsEnabled: boolean;
+  private readonly backendProducer: EngineAgentBackendProducer;
+  private readonly backendRecords: AgentBackendStorage;
+  private readonly backendProcesses: OwnedBackendProcesses;
+  private readonly backendHost: AgentBackendHost;
+  private readonly runtimeProviders: Map<string, ProviderAdapter>;
+  private readonly backendProviderIds = new Set<string>();
   private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
   private readonly verificationHost: VerificationHostService;
   private readonly verificationEnabled: boolean;
@@ -452,6 +468,9 @@ export class MoodcodeEngine {
     this.workflowsEnabled = options.workflows === true;
     if (options.schedules !== undefined && typeof options.schedules !== 'boolean') throw new EngineError('INVALID_CONFIG', 'schedules must be an explicit boolean');
     this.schedulesEnabled = options.schedules === true;
+    if (options.agentBackends !== undefined && typeof options.agentBackends !== 'boolean') throw new EngineError('INVALID_CONFIG', 'agentBackends requires an explicit root host boolean');
+    if (options.agentBackendSecrets !== undefined && (!options.agentBackendSecrets || typeof options.agentBackendSecrets.resolve !== 'function')) throw new EngineError('INVALID_CONFIG', 'Backend secrets require an explicit trusted host resolver');
+    this.agentBackendsEnabled = options.agentBackends === true;
     if (this.teamModelToolsEnabled && !this.teamsEnabled) throw new EngineError('INVALID_CONFIG', 'Model team tools require explicit host teams');
     this.proposalsEnabled = options.proposals === true;
     if (options.proposalApply !== undefined && typeof options.proposalApply !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposalApply must be an explicit boolean');
@@ -748,6 +767,7 @@ export class MoodcodeEngine {
         maxArtifactBytes: artifactBudgets.maxArtifactBytes, maxProducerBytes: artifactBudgets.maxProducerBytes,
       } });
       const providers = new Map<string, ProviderAdapter>([['scripted', new ScriptedProvider()]]);
+      this.runtimeProviders = providers;
       for (const provider of options.providers ?? []) providers.set(provider.id, provider);
       this.validateImageInput = async (sessionId, config, refs) => {
         const modalities = models.get(config.providerId, config.modelId).modalities;
@@ -992,6 +1012,23 @@ export class MoodcodeEngine {
       this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, beforePromotion: input => this.scheduleProducer.beforePromotion(input) });
       const scheduleHost = new ScheduleHost({ native: this.scheduleRecords, input: this.scheduleProducer.inputPort() });
       this.scheduleDispatcher = new ScheduleDispatcher({ native: this.scheduleRecords, host: scheduleHost });
+      this.backendProducer = new EngineAgentBackendProducer(this, knowledgeBinding, () => this.backendRecords, () => this.closing,
+        () => this.agentBackendsEnabled, this.executionLockPath, options.agentBackendSecrets);
+      this.backendProcesses = new OwnedBackendProcesses(this.backendProducer);
+      this.backendRecords = this.store.createAgentBackendStorage({
+        readOwner: original => this.backendProducer.readOwner(original),
+        assertOwnerCurrent: (original, proof, phase) => this.backendProducer.assertOwnerCurrent(original, proof, phase),
+        readTarget: original => this.backendProducer.readTarget(original),
+        assertTargetCurrent: (original, proof, spec) => this.backendProducer.assertTargetCurrent(original, proof, spec),
+        readConnection: original => this.backendProducer.observeConnection(original, this.backendProcesses.readConnection(original)),
+        assertConnectionCurrent: original => this.backendProcesses.assertConnectionCurrent(original),
+        readPeerObservation: original => this.backendProcesses.readPeerObservation(original),
+        readWrite: original => this.backendProcesses.readWrite(original),
+        readClientEffect: original => this.coordinator.readProviderClientReadCompletion(original),
+        readDisposal: original => this.backendProcesses.readDisposal(original),
+      });
+      this.backendRecords.recoverInterrupted();
+      this.backendHost = new AgentBackendHost({ store: this.backendRecords, processes: this.backendProcesses, clientReads: this.backendProducer.clientReadPort(), turns: this.backendProducer, lifetime: this.hostResources.signal });
       const recoveredRestores = this.reviewJournal.recoverPending();
       const recoveryAcknowledgments = canonicalDbPath ? readRecoveryAcknowledgments({ dbPath: canonicalDbPath, artifactDir: realpathSync(artifactDir) }) : [];
       for (const operation of recoveredRestores) {
@@ -1439,8 +1476,37 @@ export class MoodcodeEngine {
   }
 
   getCapabilities(): EngineCapabilities {
-    return { ...structuredClone(this.capabilities), tools: [...this.toolRuntime.catalogue('engine', 'build', this.hostAllowedTools).tools] };
+    return { ...structuredClone(this.capabilities), providerIds: [...this.runtimeProviders.keys()].sort(), tools: [...this.toolRuntime.catalogue('engine', 'build', this.hostAllowedTools).tools] };
   }
+
+  private assertAgentBackendsEnabled(): void {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    if (!this.agentBackendsEnabled) throw new EngineError('AGENT_BACKENDS_DISABLED', 'Agent backends require explicit root host opt-in');
+  }
+  captureAgentBackendTarget(input: CaptureAgentBackendTarget): object { this.assertAgentBackendsEnabled(); return this.backendProducer.captureTarget(input); }
+  readAgentBackendTarget(original: object) { return this.backendProducer.readTargetPin(original); }
+  registerAgentBackend(original: object, input: RegisterAgentBackendInput) {
+    this.assertAgentBackendsEnabled();
+    const selected = agentBackendObject(input, ['workspaceId', 'requestId', 'expectedRevision', 'spec']);
+    const spec = validateAgentBackendSpec(selected.spec), providerId = `acp:${spec.id}`;
+    if (this.runtimeProviders.has(providerId) && !this.backendProviderIds.has(providerId)) throw new EngineError('BACKEND_PROVIDER_ID_CONFLICT', 'The backend provider ID is already owned by a registered host provider');
+    const result = this.backendRecords.registerBackend(original, { ...selected, spec } as unknown as RegisterAgentBackendInput);
+    this.backendProducer.activate(result.record, original);
+    this.runtimeProviders.set(providerId, this.backendHost.provider(result.record)); this.backendProviderIds.add(providerId);
+    return result;
+  }
+  disableAgentBackend(input: DisableAgentBackendInput) {
+    this.assertAgentBackendsEnabled(); const result = this.backendRecords.disableBackend(input);
+    this.backendProducer.deactivate(result.record.backendId); const providerId = `acp:${result.record.backendId}`;
+    if (this.backendProviderIds.has(providerId)) this.runtimeProviders.delete(providerId);
+    return result;
+  }
+  getAgentBackend(workspaceId: string, backendId: string, revisionId?: string) { return this.backendRecords.getBackend(workspaceId, backendId, revisionId); }
+  inspectAgentBackends(workspaceId: string) { return this.backendRecords.inspectBackends(workspaceId); }
+  inspectAgentBackendConnections(workspaceId: string) { return this.backendRecords.inspectConnections(workspaceId); }
+  inspectAgentBackendRequests(workspaceId: string) { return this.backendRecords.inspectRequests(workspaceId); }
+  inspectAgentBackendEffects(workspaceId: string) { return this.backendRecords.inspectClientEffects(workspaceId); }
+  releaseAgentBackendTarget(original: object): void { this.backendProducer.releaseTarget(original); }
 
   replaceRoleResourcePolicy(expectedRegistryRevision: number, policy: RoleResourcePolicySnapshot) {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
@@ -2096,7 +2162,7 @@ export class MoodcodeEngine {
         this.teamModelHost.close();
         this.teamHost.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.scheduleDispatcher.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.backendHost.close(), this.scheduleDispatcher.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }
@@ -2104,7 +2170,7 @@ export class MoodcodeEngine {
         await this.executionObserver.close();
         try { this.terminalJournal.close(); }
         finally { try { this.reviewJournal.close(); }
-        finally { this.scheduleProducer.close(); await this.store.closeAsync(); }
+        finally { this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
         }
       }
     })().then(resolve, reject);

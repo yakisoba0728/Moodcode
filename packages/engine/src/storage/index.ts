@@ -66,6 +66,7 @@ import { TeamStorage, pauseImportedTeams } from '../teams/store.js';
 import type { TeamStoragePorts } from '../teams/types.js';
 import { WorkflowStorage, markImportedWorkflowsPaused, type WorkflowStoragePorts } from '../workflows/store.js';
 import { ScheduleStorage, markImportedSchedulesDisabled, type ScheduleStoragePorts } from '../schedules/store.js';
+import { AgentBackendStorage, markImportedAgentBackendsPaused, hasAgentBackendBlocker, type AgentBackendStoragePorts } from '../agent-backends/store.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
@@ -159,6 +160,7 @@ export class SqliteStore implements SessionEngineStore {
   private teamRecords?: TeamStorage;
   private workflowRecords?: WorkflowStorage;
   private scheduleRecords?: ScheduleStorage;
+  private backendRecords?: AgentBackendStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -424,7 +426,10 @@ export class SqliteStore implements SessionEngineStore {
     });
   }
   hasUncertainWorkspace(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId));
+    return this.recoveryBlocked(() => this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId) || this.hasUncertainAgentBackend(workspaceId));
+  }
+  hasUncertainAgentBackend(workspaceId: string): boolean {
+    return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasAgentBackendBlocker(this.db, workspaceId); });
   }
   hasUncertainProposalApply(workspaceId: string): boolean {
     return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return this.proposalApplyRecords?.hasBlocker(workspaceId) ?? hasProposalApplyBlocker(this.db, workspaceId); });
@@ -621,6 +626,12 @@ export class SqliteStore implements SessionEngineStore {
     return this.scheduleRecords = new ScheduleStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
       writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
+  createAgentBackendStorage(ports: Omit<AgentBackendStoragePorts, 'writeTx' | 'getWorkspace'>): AgentBackendStorage {
+    this.assertOpen();
+    if (this.backendRecords) throw new EngineError('AGENT_BACKENDS_ALREADY_CONFIGURED', 'Native agent backends already have an original root owner');
+    return this.backendRecords = new AgentBackendStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
+      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+  }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
   pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string, origin?: { readonly importId: string; readonly sourcePrimaryLogicalSha256: string; readonly sourceStorageBindingSha256: string }): void {
     this.transaction(() => {
@@ -630,6 +641,7 @@ export class SqliteStore implements SessionEngineStore {
       pauseImportedTeams(this.db, workspaceId, archiveSha256);
       markImportedWorkflowsPaused(this.db, archiveSha256, workspaceId);
       markImportedSchedulesDisabled(this.db, archiveSha256, workspaceId);
+      markImportedAgentBackendsPaused(this.db, archiveSha256, workspaceId);
       if (origin) {
         // Imported runtime capabilities are absent. Persist the ordinary native
         // interrupted-owner transition before pinning recovery; this performs
@@ -794,14 +806,23 @@ export class SqliteStore implements SessionEngineStore {
   }
 
   /** Observation only: same active-Run transaction and scope checks in both journals. */
-  commitRunObservation(runId: string, type: 'lifecycle.outcome' | 'tool.policy_decision', payload: JsonObject, refs: { turnId?: string; attemptId?: string } = {}): EngineEvent {
-    if (!['lifecycle.outcome', 'tool.policy_decision'].includes(type)) throw new EngineError('INVALID_RUN_OBSERVATION', 'Unsupported host observation type');
-    const event = this.transaction(() => {
+  commitRunObservation(runId: string, type: 'lifecycle.outcome' | 'tool.policy_decision' | 'tool.prepared' | 'backend.launch_reserved' | 'backend.connection_admitted', payload: JsonObject, refs: { turnId?: string; attemptId?: string } = {}): EngineEvent {
+    if (!['lifecycle.outcome', 'tool.policy_decision', 'tool.prepared', 'backend.launch_reserved', 'backend.connection_admitted'].includes(type)) throw new EngineError('INVALID_RUN_OBSERVATION', 'Unsupported host observation type');
+    const append = () => {
       const run = this.getRun(runId);
       if (isTerminal(run.state)) throw new EngineError('RUN_TERMINAL', 'Terminal Runs cannot accept late observations');
       const native = this.native.appendEvent(run.sessionId, type, payload, { runId, ...refs });
       return this.append(run, type, native.payload);
-    });
+    };
+    // Admission is read from an original process handle inside the backend's
+    // primary write transaction. Its observation and connection receipt must
+    // commit or roll back together.
+    if (this.db.isTransaction && type === 'backend.connection_admitted') {
+      const event = append();
+      queueMicrotask(() => this.notify(event.sessionId));
+      return event;
+    }
+    const event = this.transaction(append);
     this.notify(event.sessionId);
     return event;
   }

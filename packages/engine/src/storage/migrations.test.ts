@@ -459,3 +459,29 @@ test('DB17 to DB18 preserves all historical rows and atomically installs bounded
   migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,18));
   assert.deepEqual(databaseContents(db),after);
 });
+
+
+test('DB20 to DB21 preserves historical schedules and installs bounded native backend journals atomically', t => {
+  const { db } = fixture(t);
+  db.exec('PRAGMA foreign_keys=ON');
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 20));
+  const before = databaseContents(db);
+  const failure = [...DATABASE_MIGRATIONS.slice(0, 20), { version: 21, name: 'intentional-v21-failure', apply(database: DatabaseSync) {
+    DATABASE_MIGRATIONS[20]!.apply(database); throw new Error('DB21 rollback');
+  } }];
+  assert.throws(() => migrateDatabase(db, failure), /DB21 rollback/u);
+  assert.deepEqual(databaseContents(db), before);
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 21));
+  assert.equal(databaseVersion(db), 21);
+  const after = databaseContents(db);
+  for (const entry of before.tables) assert.deepEqual(after.tables.find(row => row.name === entry.name), entry);
+  for (const table of ['backend_revisions', 'backend_heads']) {
+    assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table}`).get()!.n, 0);
+    assert.equal(db.prepare("SELECT wr FROM pragma_table_list WHERE schema='main' AND name=?").get(table)!.wr, 1);
+    assert.equal(db.prepare("SELECT strict FROM pragma_table_list WHERE schema='main' AND name=?").get(table)!.strict, 1);
+  }
+  assert.equal(db.prepare("SELECT count(*) AS n FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'").get()!.n, 134);
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
+  migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 21));
+  assert.deepEqual(databaseContents(db), after);
+});

@@ -202,3 +202,11 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 `claimScheduleOccurrence`의 원본 claim을 `dispatchScheduleOccurrence({approved:true})`에 전달하면 durable intent 뒤 기존 `InputScheduler.accept`를 한 번 호출한다. 원본 `captureScheduleOccurrenceObservation` → `observeScheduleOccurrence`는 accepted/promoted/terminal 상태와 실제 native 입력·Run·측정 usage를 관찰한다. `abandonScheduleOccurrence`는 실행 전 claim 취소 또는 이미 시작된 intent의 uncertainty를 보존하며 효과를 다시 실행하지 않는다. Disable/lease expiry는 이전 입력이나 Run을 취소하지 않는다.
 
 `getSchedule`, `inspectSchedules`, `inspectScheduleOccurrences`, `getSchedulerLease`는 기능이 꺼져 있어도 이력을 조회한다. `releaseScheduleHandle`로 원본 Root/native handle을 해제한다. 재시작의 receipt gap은 uncertain이며 명시적 관찰 없이 일반 session resume으로 우회하지 못한다. Import는 disabled/paused-import이고, queue promotion과 모든 실제 provider 호출 직전에 고정 대상의 현재 설정을 확인한다. [예약 엔진 계약](engine-phase-two-schedules.md)을 따른다.
+
+## ACP v1 로컬 agent backend
+
+`agentBackends:true`에서 `captureAgentBackendTarget` → `readAgentBackendTarget` → 원본 target을 받는 `registerAgentBackend`로 `acp:<backendId>` 공급자를 등록한다. 실제 Root의 workspace/storage/launch source와 전체 config·budget·profile·catalogue·capability·audience·secret reference가 고정된다. `disableAgentBackend`는 새 호출을 막으며 이미 dispatched된 요청의 종료 관찰은 유지한다. 환경 값은 명시적 `agentBackendSecrets.resolve` 참조로만 주입하며 resolver/launch 값을 설정·native launch 기록에 저장하지 않는다. 피어가 출력으로 되돌린 값까지 가려지는 계약은 아니다. Child는 이 기능을 상속하지 않는다.
+
+현재는 engine-owned context의 ACP v1 stdio initialize/new/prompt와 텍스트·`fs/read_text_file`을 지원한다. 엔진 취소는 소유한 프로세스를 정리하고 원격 완료가 없으면 uncertainty를 남긴다. `session/cancel` schema 검증은 있지만 현재 실행 경로에서 wire 취소 메시지를 보내지는 않는다. 파일 읽기는 같은 실제 Turn/Attempt에서 기존 native 도구 예산·정책·정확한 승인·Tool/Part 기록을 사용한다. 요청의 파일·줄 범위를 바꾸는 lifecycle 변환은 실행 전에 거부한다. 완전한24KiB 이하 내용만 ACP 성공으로 반환하며 부분 출력·deny·실패는 원 native 결과와 오류로 남긴다. v2·HTTP host·agent-owned context·load/reconnect·원격 permission grant·쓰기·terminal은 미지원이다.
+
+`getAgentBackend`, `inspectAgentBackends`, `inspectAgentBackendConnections`, `inspectAgentBackendRequests`, `inspectAgentBackendEffects`는 비활성 상태에서도 이력을 읽는다. `releaseAgentBackendTarget`로 원본을 해제한다. 프로세스 정리와 원격 완료는 별도 기록이며, 종료 응답이나 native 영수증이 없으면 workspace uncertainty를 유지한다. Import는 disabled/paused-import·runtime provider 없음·prompt 재실행 없음이다. [지원 범위와 복구 계약](engine-phase-two-agent-backends.md)을 따른다.
