@@ -9,6 +9,7 @@ import test, { type TestContext } from 'node:test';
 import { EngineError, SCHEMA_VERSION, isTerminal, type ApprovalRecord, type CommandResult, type EngineEvent, type JsonObject, type RunReceipt, type Session, type SessionSnapshot, type Workspace } from '@moodcode/contracts';
 import { CodexProvider, type MoodcodeEngine } from '@moodcode/engine';
 import { UtilityWorker, WORKER_LIMITS } from './core.js';
+import { AdvancedService } from './advanced.js';
 import type { WorkerBootstrap, WorkerPush, WorkerRequest, WorkerStartPayload } from './protocol.js';
 
 async function request<T>(worker: UtilityWorker, type: WorkerRequest['type'], payload?: unknown): Promise<T> {
@@ -336,6 +337,37 @@ test('shutdown drains in-flight dispatch before closing engine and is idempotent
   gate.resolve();
   await pending; await closing;
   assert.deepEqual(order, ['command-finished', 'engine-closed']);
+});
+
+test('advanced cleanup failure still drains commands and closes the engine while preserving the original error', async t => {
+  const error = new EngineError('DESKTOP_MCP_CLEANUP_UNCERTAIN', 'Controlled advanced cleanup uncertainty.');
+  t.mock.method(AdvancedService.prototype, 'close', async () => { throw error; });
+  const gate = deferred(), started = deferred(); let engineClosed = false;
+  const worker = new UtilityWorker({ emit() {}, createEngine: () => Object.assign(fakeEngine({
+    dispatch: async value => {
+      const command = value as { type: string; commandId: string };
+      if (command.type === 'workspace.open') { started.resolve(); await gate.promise; }
+      return { schemaVersion: 1, commandId: command.commandId, ok: true, result: {} };
+    }, close: async () => { engineClosed = true; },
+  }), { dispatchSession() {} }) });
+  await request(worker, 'start', { dbPath: ':memory:', artifactDir: join(tmpdir(), 'moodcode-unused'), config: { providerId: 'scripted', modelId: 'echo', baseURL: '' } });
+  const pending = worker.handle({ id: 'pending', type: 'command', payload: { type: 'workspace.open' } });
+  await started.promise;
+  const closing = worker.close(), rejected = assert.rejects(closing, value => value === error);
+  await delay(10); assert.equal(engineClosed, false);
+  gate.resolve(); await pending; await rejected;
+  assert.equal(engineClosed, true);
+});
+
+test('advanced and engine cleanup failures remain independently observable after shutdown', async t => {
+  const advancedError = new EngineError('DESKTOP_MCP_CLEANUP_UNCERTAIN', 'Controlled advanced cleanup uncertainty.');
+  const engineError = new EngineError('CLEANUP_UNCERTAIN', 'Controlled engine cleanup uncertainty.');
+  t.mock.method(AdvancedService.prototype, 'close', async () => { throw advancedError; });
+  let engineCloseCalls = 0;
+  const worker = new UtilityWorker({ emit() {}, createEngine: () => Object.assign(fakeEngine({ close: async () => { engineCloseCalls++; throw engineError; } }), { dispatchSession() {} }) });
+  await request(worker, 'start', { dbPath: ':memory:', artifactDir: join(tmpdir(), 'moodcode-unused'), config: { providerId: 'scripted', modelId: 'echo', baseURL: '' } });
+  await assert.rejects(worker.close(), error => { assert.ok(error instanceof AggregateError); assert.deepEqual(error.errors, [advancedError, engineError]); return true; });
+  assert.equal(engineCloseCalls, 1);
 });
 
 test('command admission is bounded while close still drains pending operations', async () => {

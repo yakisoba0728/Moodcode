@@ -11,7 +11,12 @@ interface Handle {
   original: object; preview: JsonValue; launch?: string; release(): void;
 }
 interface Owner { controller: AbortController; pending: number }
-type McpView = { id: string; transport: string; connected: boolean; toolNames: string[]; resources: JsonValue };
+type McpView = { id: string; transport: string; connected: boolean; toolNames: string[]; resources: JsonValue; state?: 'connecting' | 'cleanup-uncertain'; error?: { code: string; message: string } };
+interface McpConnection {
+  sessionId: string; client: McpClient; view: McpView; controller: AbortController;
+  registered: boolean; settled: Promise<void>; finish(): void;
+  cleanup?: Promise<void>; cleanupError?: EngineError;
+}
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
 function data(value: unknown): JsonValue {
   const encoded = JSON.stringify(value ?? null);
@@ -47,8 +52,9 @@ export class AdvancedService {
   readonly #handles = new Map<string, Handle>();
   readonly #owners = new Map<string, Owner>();
   readonly #dropped = new Map<string, number>();
-  readonly #mcp = new Map<string, { sessionId: string; client: McpClient; view: McpView }>();
+  readonly #mcp = new Map<string, McpConnection>();
   readonly #lsp = new Map<string, { sessionId: string; extensions: Record<string, string> }>();
+  #closing = false;
   constructor(readonly engine: MoodcodeEngine) {}
   get handleCount(): number { return this.#handles.size; }
   #workspace(sessionId: string): Workspace { return this.engine.store.getWorkspace(this.engine.store.getSession(sessionId).workspaceId); }
@@ -104,8 +110,49 @@ export class AdvancedService {
     if (!state?.pending) this.#owners.delete(owner);
   }
   async close(): Promise<void> {
+    this.#closing = true;
     for (const owner of this.#owners.keys()) await this.dropOwner(owner);
     for (const id of this.#handles.keys()) this.#release(id);
+    await Promise.all([...this.#mcp.values()].map(connection => connection.settled));
+    const outstanding = [...this.#mcp.values()].flatMap(connection => connection.cleanup ? [connection.cleanup] : []);
+    const failures = new Set<unknown>();
+    for (const result of await Promise.allSettled(outstanding)) if (result.status === 'rejected') failures.add(result.reason);
+    for (const [id, connection] of this.#mcp) if (connection.cleanupError) {
+      try { await this.#cleanupMcp(id, connection); } catch (error) { failures.add(error); }
+    }
+    if (failures.size === 1) throw [...failures][0];
+    if (failures.size > 1) throw new AggregateError([...failures], 'MCP connection cleanup is unconfirmed.');
+  }
+  #cleanupMcp(id: string, connection: McpConnection, operationError?: unknown): Promise<void> {
+    if (connection.cleanup) return connection.cleanup;
+    const cleanup = (async () => {
+      const failures: unknown[] = [];
+      // Native disconnect consumes this registration before awaiting local close. Never
+      // replay an ID-based disconnect after failure: that ID may now name another client.
+      if (connection.registered) {
+        connection.registered = false;
+        try { await this.engine.disconnectMcp(id); } catch (error) { failures.push(error); }
+      }
+      try { await connection.client.close(); } catch (error) { failures.push(error); }
+      if (connection.cleanupError) throw connection.cleanupError;
+      if (failures.length) {
+        const error = new EngineError('DESKTOP_MCP_CLEANUP_UNCERTAIN', 'MCP registration cleanup is unconfirmed. Retry the engine before reconnecting.', {
+          cleanupUncertain: true, transportCleanupConfirmed: false,
+          operationErrorCode: operationError instanceof EngineError ? operationError.code : 'UNKNOWN_OPERATION_FAILURE',
+          cleanupErrorCodes: failures.map(value => value instanceof EngineError ? value.code : 'UNKNOWN_CLEANUP_FAILURE'),
+        });
+        connection.cleanupError = error;
+        connection.view = { id, transport: connection.view.transport, connected: false, toolNames: [], resources: [], state: 'cleanup-uncertain', error: { code: error.code, message: error.message } };
+        throw error;
+      }
+      if (this.#mcp.get(id) === connection) this.#mcp.delete(id);
+    })();
+    connection.cleanup = cleanup;
+    const settled = () => { if (connection.cleanup === cleanup) connection.cleanup = undefined; };
+    // Callers receive the original cleanup promise and its failure; this observer
+    // only releases the in-flight lock on either outcome.
+    void cleanup.then(settled, settled);
+    return cleanup;
   }
   async #session(type: string, sessionId: string, payload: JsonObject = {}): Promise<JsonValue> {
     const result = await this.engine.dispatchSession({ schemaVersion: 2, commandId: randomUUID(), type, payload: { ...payload, sessionId } });
@@ -144,6 +191,7 @@ export class AdvancedService {
     }) as unknown as DesktopAdvancedSnapshot;
   }
   async action(owner: string, input: DesktopAdvancedAction): Promise<JsonValue> {
+    if (this.#closing) fail('ENGINE_CLOSED', 'Desktop advanced services are closing.');
     const request = validateAdvancedAction(input), { sessionId, type } = request, p = request.payload ?? {};
     if (this.#dropped.has(owner)) fail('DESKTOP_OWNER_DROPPED', 'The desktop window changed.');
     this.#workspace(sessionId);
@@ -223,23 +271,34 @@ export class AdvancedService {
       case 'mcp.connect': {
         fields(p, ['handleId','approved']); this.#approved(p); const entry = this.#take(owner, sessionId, p, type), selection = entry.original as JsonObject;
         const id = selection.id as string;
-        if (this.#mcp.size >= ADVANCED_LIMITS.connections || this.#mcp.has(id)) fail('DESKTOP_CONNECTION_LIMIT', 'Disconnect the existing MCP connection before reconnecting.');
-        const protocolVersion = selection.protocolVersion as '2026-07-28' | '2025-11-25' | undefined;
-        const client = new McpClient({ id, ...(protocolVersion ? { protocolVersion } : {}), transport: selection.transport === 'http'
-          ? new HttpMcpTransport({ url: selection.url as string, ...(protocolVersion ? { protocolVersion } : {}) })
-          : new StdioMcpTransport({ command: selection.file as string, args: selection.args as string[], cwd: workspace.root }) });
+        let connection: McpConnection | undefined;
         try {
-          const registration = await this.engine.connectMcp(client, signal);
-          if (signal.aborted) { await this.engine.disconnectMcp(id); fail('DESKTOP_OWNER_DROPPED', 'The desktop window changed during connection.'); }
-          const view = { id, transport: selection.transport as string, connected: true, toolNames: registration.toolNames, resources: data(registration.resources) };
-          this.#mcp.set(id, { sessionId, client, view }); return view;
-        } catch (error) { await client.close(); throw error; }
-        finally { entry.release(); }
+          if (this.#mcp.size >= ADVANCED_LIMITS.connections || this.#mcp.has(id)) fail('DESKTOP_CONNECTION_LIMIT', 'Disconnect the existing MCP connection before reconnecting.');
+          const protocolVersion = selection.protocolVersion as '2026-07-28' | '2025-11-25' | undefined;
+          const client = new McpClient({ id, ...(protocolVersion ? { protocolVersion } : {}), transport: selection.transport === 'http'
+            ? new HttpMcpTransport({ url: selection.url as string, ...(protocolVersion ? { protocolVersion } : {}) })
+            : new StdioMcpTransport({ command: selection.file as string, args: selection.args as string[], cwd: workspace.root }) });
+          let finish!: () => void;
+          const settled = new Promise<void>(resolve => { finish = resolve; });
+          connection = { sessionId, client, controller: new AbortController(), registered: false, settled, finish,
+            view: { id, transport: selection.transport as string, connected: false, toolNames: [], resources: [], state: 'connecting' } };
+          this.#mcp.set(id, connection);
+          const registration = await this.engine.connectMcp(client, AbortSignal.any([signal, connection.controller.signal]));
+          connection.registered = true;
+          if (signal.aborted || connection.controller.signal.aborted) fail('DESKTOP_OWNER_DROPPED', 'The desktop window changed during connection.');
+          // Validate the whole returned envelope before committing the desktop view;
+          // the outer action projection then serializes exactly this bounded data.
+          const view = data({ id, transport: selection.transport as string, connected: true, toolNames: registration.toolNames, resources: registration.resources }) as McpView;
+          connection.view = view; return view;
+        } catch (error) { if (connection) await this.#cleanupMcp(id, connection, error); throw error; }
+        finally { connection?.finish(); entry.release(); }
       }
       case 'mcp.disconnect': {
         fields(p, ['id']); const id = string(p.id, 'id'), entry = this.#mcp.get(id);
         if (!entry || entry.sessionId !== sessionId) fail('RECORD_SCOPE_MISMATCH', 'MCP connection belongs to another session.');
-        await this.engine.disconnectMcp(id); this.#mcp.delete(id); return null;
+        entry.controller.abort(); await entry.settled;
+        if (this.#mcp.get(id) === entry) await this.#cleanupMcp(id, entry);
+        return null;
       }
       case 'lsp.connect': {
         fields(p, ['handleId','approved']); this.#approved(p); const entry = this.#take(owner, sessionId, p, type), selection = entry.original as JsonObject, id = selection.id as string;
