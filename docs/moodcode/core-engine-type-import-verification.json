@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-09",
+  "unit": "RF-06 unused type import cleanup",
+  "worktree": "/Users/yakisoba0728/.codex/worktrees/core-engine-helpers/Moodcode",
+  "branch": "codex/core-engine-helpers",
+  "baseCommit": "844deebfd481fb09d4e0a0c0d1359f730fd1c9e3",
+  "change": "Remove only the unused type-only SandboxLaunch import binding at engine.ts line18; keep the SandboxHost value and exported sandbox types unchanged.",
+  "readOnlyCheck": {
+    "command": "rg -n 'SandboxLaunch|SandboxHost' packages/engine/src/engine.ts",
+    "result": "SandboxLaunch occurred only in the line18 type-only import; SandboxHost retains its live constructor/member/method uses."
+  },
+  "source": {
+    "path": "packages/engine/src/engine.ts",
+    "before": {
+      "bytes": 225791,
+      "sha256": "19dd9bc931507bcc8c155ea0839dcc98576af81b309052052df666f4e4ef90d8"
+    },
+    "after": {
+      "path": "packages/engine/src/engine.ts",
+      "bytes": 225777,
+      "sha256": "182bdd3a951f2e51bba35ace3c74121592cea6b04cadf0393f6157c8af36fbb1"
+    }
+  },
+  "build": {
+    "command": "npm run typecheck",
+    "script": "tsc -b --pretty false",
+    "exitCode": 0,
+    "evidence": {
+      "path": "/tmp/moodcode-core-engine-type-import-typecheck.log",
+      "bytes": 53,
+      "sha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    }
+  },
+  "emittedOutputs": [
+    {
+      "path": "packages/engine/dist/engine.js",
+      "before": {
+        "bytes": 215751,
+        "sha256": "1dfc08912e703d98cfb8f380a7d3f5e5345e5682d6d35354a6e156f7ce5df209"
+      },
+      "after": {
+        "bytes": 215751,
+        "sha256": "1dfc08912e703d98cfb8f380a7d3f5e5345e5682d6d35354a6e156f7ce5df209"
+      },
+      "byteForByteEqual": true,
+      "comparison": "Node Buffer.equals over the entire saved and rebuilt file",
+      "savedBeforeFile": "/tmp/moodcode-core-engine-type-import-before-engine.js"
+    },
+    {
+      "path": "packages/engine/dist/engine.d.ts",
+      "before": {
+        "bytes": 64213,
+        "sha256": "a1308b4082699beb094ead645b8def1de773a6670712558b8cc9b1aa296587ad"
+      },
+      "after": {
+        "bytes": 64213,
+        "sha256": "a1308b4082699beb094ead645b8def1de773a6670712558b8cc9b1aa296587ad"
+      },
+      "byteForByteEqual": true,
+      "comparison": "Node Buffer.equals over the entire saved and rebuilt file",
+      "savedBeforeFile": "/tmp/moodcode-core-engine-type-import-before-engine.d.ts"
+    }
+  ],
+  "preservedFilePins": [
+    {
+      "path": "docs/moodcode/core-engine-refactor-verification.json",
+      "bytes": 25984,
+      "sha256": "20654bca4f09dca8bf651e376fe56ed60959871a009035c45e040687964684fd"
+    },
+    {
+      "path": "packages/engine/src/sandbox/types.ts",
+      "bytes": 6201,
+      "sha256": "94fa0ab07ff93354d8909a25bc1d67dbe648d1219b79210be012b157d68633bb"
+    },
+    {
+      "path": "packages/engine/src/sandbox/host.ts",
+      "bytes": 27095,
+      "sha256": "6b31bff7b277786f633746c30098b0e70d231fa981bb6f1f1134d302cea45092"
+    }
+  ],
+  "priorFrozenWholeRegression": {
+    "head": "bff7bdfae74d2e224ce38bf4ead603a4ed72bbeb",
+    "engineSourceSha256": "19dd9bc931507bcc8c155ea0839dcc98576af81b309052052df666f4e4ef90d8",
+    "qualification": "The prior refactor report and its frozen source qualification are unchanged. This later erased-type edit is supported by identical emitted JavaScript/declaration bytes; no source, native, compiled or broad test suites were rerun for this unit."
+  }
+}

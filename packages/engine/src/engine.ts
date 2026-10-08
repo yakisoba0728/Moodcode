@@ -15,7 +15,7 @@ import {captureCommandReadSource} from './jobs/command-read-sources.js';
 import { CodingBatchHost } from "./coding-runs/batch-host.js";
 import { WorkflowEffects, WORKFLOW_MODEL_NAMES } from "./workflows/effects.js";
 import {SandboxHost} from './sandbox/host.js';
-import type {SandboxLaunch,PreviewSandboxGrantInput,ApproveSandboxGrantInput} from './sandbox/types.js';
+import type {PreviewSandboxGrantInput,ApproveSandboxGrantInput} from './sandbox/types.js';
 import { TeamWorkflowBoard, teamBoardKind, validateTeamBoardRecord } from './teams/workflow-board.js';
 import { assertResidentProviderDispatch } from './child-tasks/resident.js';
 import { HostCommandService } from './jobs/host-command-service.js';
