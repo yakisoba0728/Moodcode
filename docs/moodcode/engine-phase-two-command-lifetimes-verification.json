@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "feature": "command-foreground-background-lifetime-and-ownership",
+  "baseline": {
+    "commit": "34c7c4a1e7bc0744d19152893779972cdf0d1eab",
+    "tree": "d2ad2d9f7d2192d78a2e329e9e9fbde2b45592f4"
+  },
+  "supported": {
+    "transport": "posix-pipe",
+    "platforms": [
+      "darwin",
+      "linux",
+      "freebsd"
+    ],
+    "verifiedPlatform": "darwin/arm64",
+    "sameOriginalPidTransfer": true,
+    "restoreLive": false,
+    "defaultEnabled": false,
+    "pty": false
+  },
+  "limits": {
+    "retainedJobs": 128,
+    "originalHandles": 128,
+    "stdinPacketBytes": 16384,
+    "pendingInputs": 1,
+    "stdinOperations": 64,
+    "lifetimeInputBytes": 65536,
+    "ownerTransfers": 16,
+    "maxDurationMs": 300000,
+    "nativeHeadsBytes": 2097152,
+    "nativeEvents": 4096,
+    "nativeEventBytes": 33554432,
+    "reservedTerminalEvents": 256,
+    "reservedTerminalBytes": 4194304
+  },
+  "checks": [
+    {
+      "kind": "focused-actual-engine-source",
+      "tests": 18,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/tmp/moodcode-command-lifetime-freeze-source.log",
+      "sha256": "34c8fa94e07cbe2aa0d547166f1eed4576f4e6a99d105703f6e06fe1ce775231"
+    },
+    {
+      "kind": "focused-actual-engine-compiled",
+      "tests": 18,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/tmp/moodcode-command-lifetime-freeze-compiled.log",
+      "sha256": "a4be70f361f586950695bee7f11cf377fc45189537be18866a44681f2a3c15db"
+    },
+    {
+      "kind": "adjacent-command-host-inbox-verification",
+      "tests": 119,
+      "passed": 117,
+      "failed": 0,
+      "skipped": 2,
+      "log": "/tmp/moodcode-command-lifetime-adjacent-final-source.log",
+      "sha256": "bb8e7108da67c8ca1dc599e1cf91c752f2f196cf755a4eb5d97e6783a13f9513"
+    },
+    {
+      "kind": "whole-project-strict-declaration-emission",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-command-lifetime-freeze-declaration.log",
+      "sha256": "204b5bcd82d61fe5364b71c2638951010d59666f68120a902ca7afc4d69580e9"
+    }
+  ],
+  "nativeDatabase": {
+    "databaseVersion": 23,
+    "namedCatalogueRows": 139,
+    "catalogueLimit": 160,
+    "newMigration": false,
+    "platform": "darwin",
+    "architecture": "arm64",
+    "nodeVersion": "v26.9.0",
+    "measuredInActualSqliteStore": true,
+    "log": "/tmp/moodcode-command-lifetime-catalogue.json",
+    "sha256": "073b9fc5bb87116ea524b0c01b6b7d0b34dd12c75b9f91c502b4da845e85cd48"
+  },
+  "actualEvidence": [
+    "one native process admission and unchanged supervisor/group PID/control epoch across foreground/background/foreground",
+    "real Unicode stdin output and EOF, real 64 KiB fixed input budget/backpressure",
+    "genuine model original ToolContext/Run/Turn/Attempt/Part/exact native approval and source profile/catalogue",
+    "parent success preserves explicit fixed Root background lifetime; parent cancel and Root close join actual cleanup",
+    "native admission/transfer/ACK SQL faults retain receipt debt; no replay or new owner",
+    "artifact inode replacement invalidates fresh source; frozen page remains advisory DATA",
+    "existing atomic host result receipt/input/link/birth and provider pins",
+    "SIGKILL after handoff and input ACK; actual group absence/execution lock release and reopen uncertain",
+    "real archive import paused/default-off and no reconstructed Original or source Run execution events"
+  ],
+  "fixtureCorrection": "PID marker publication uses atomic rename; marker PID is matched to the actual native group PID. Empty marker content is never treated as PID zero.",
+  "outsideScope": [
+    "user-PTY ownership transfer",
+    "live PID/guardian restoration after restart",
+    "explicit checkpoint restoration",
+    "Windows pipe/process ownership",
+    "OS-specific environment debt E5/E6",
+    "account-backed models/GUI/push/deploy"
+  ],
+  "integrationRequirements": [
+    "preserve newer Main sandbox policy around new execute-effect tools",
+    "preserve nested verify_changes Original execution guard and workflow after-COMMIT observers",
+    "parent performs final aggregate gate"
+  ],
+  "sourceSha256": {
+    "packages/engine/src/engine.ts": "9695047211ccc4bdbf4cdd6031d513e1f68ac37b5ec298a7c1c83312c2e672b1",
+    "packages/engine/src/index.ts": "0500eb237639838ab7bb0cded79655c1f33b0c9f52937f62106d8b559243054d",
+    "packages/engine/src/jobs/command-lifetime-boundaries.integration.test.ts": "45b29e06327fdb4a29209baa85faab14331b1631a0b42be52e945069bbedc780",
+    "packages/engine/src/jobs/command-lifetime-crash.integration.test.ts": "415dc64b05ab2045e75055451fa3afe83c99c695ea6383ae7b19ea675eb0d001",
+    "packages/engine/src/jobs/command-lifetime-model.integration.test.ts": "8b178c32cf453c5998d270007b4c479e31bc2f30357bb4f81de2c302e7fdf0a7",
+    "packages/engine/src/jobs/command-lifetime-records.ts": "2d82d9b6e7b37173b14732a59dcff94e02a56183fa7226e8291603a7526a68f0",
+    "packages/engine/src/jobs/command-lifetime.integration.test.ts": "435746ee29b07a8deea13b7258d19c065807f9d48540572775558a93163b47bb",
+    "packages/engine/src/jobs/command-lifetime.ts": "7b35463df163582ff766f2a2bad3c8ecb78c366749c068e08bbf9c38214000f4",
+    "packages/engine/src/jobs/fixtures/command-lifetime.ts": "db12b81ce5f4ea40ede0ba6292810cb7e4b2843b1e1243c79ca19257b7fd033b",
+    "packages/engine/src/jobs/host-command-service.ts": "cc84a859da16d7d4c55f200474109d78166529fff801ce13c0e53281f3c59ddc",
+    "packages/engine/src/ports.ts": "98268700c7e580df70bda16d614eed9f1359c73340c6f517b059df28e49bf3d8",
+    "packages/engine/src/recovery/index.ts": "da0bad3758ee4b7f6f3a6f5273160e40f6217d54d33bd160c28d2195b2580c41",
+    "packages/engine/src/runner/index.ts": "124eba7ec994dae55f966adf1888f019992dcc5ad98f1032286b639b7fcc7289",
+    "packages/engine/src/storage/archive.ts": "f1c95d4e44a735a8483d5f57faa2edf12c46e73a210a3435de0910b91418aafb",
+    "packages/engine/src/storage/index.ts": "52f657f2589b65ca8606bf13be680bbfcd5517747ce890fe30e1f721743c5922",
+    "packages/engine/src/tools/command/index.ts": "3d182d6631177d53f9d45220304ebe522e36384c39a244f98bfaa3b2a263d983",
+    "packages/engine/src/tools/command/observation.ts": "8d25c6fd8c78f5fd1f69545a2cf6e71b4ee5525289fc30794ae65860e49a91b1",
+    "packages/engine/src/tools/command/process-control.ts": "5c351e584303c38bf46506547a3f4cdd3ab6be50f27f986d964db41de3975e0a",
+    "packages/engine/src/tools/command/supervisor.ts": "85af478f61e51dee29cdf97ef1e853599c6b59da9eb9460e0d2bfb381ee3c270"
+  },
+  "parentIntegration": {
+    "status": "passed",
+    "report": "engine-phase-two-client-command-effects-verification.json",
+    "sourceFreezeSha256": "37fba03f53bf433e0f1198ff831186df787107b66776f2ea7f2f0c7bf4a1d638",
+    "compiled": {
+      "tests": 4583,
+      "pass": 4581,
+      "fail": 0,
+      "skipped": 2
+    },
+    "directSource": {
+      "tests": 2679,
+      "pass": 2677,
+      "fail": 0,
+      "skipped": 2
+    },
+    "sourceInputsUnchanged": true
+  }
+}

@@ -29,9 +29,18 @@ export interface CommandExecutionCompletion {
   readonly observationFailure?: string;
 }
 /** Synchronous Root-only callbacks; a caller-supplied context or DTO grants no authority. */
+export interface CommandProcessControl {
+  readonly supervisorPid: number;
+  readonly groupPid: number;
+  readonly epoch: string;
+  write(data: string): Promise<void>;
+  end(): Promise<void>;
+  alive(): boolean;
+}
 export interface CommandExecutionObserver {
   beforeSpawn(context: ToolContext, prepared: PreparedTool): object;
   started(original: object, groupPid: number): void;
+  control?(original: object, control: CommandProcessControl): void;
   output(original: object, stream: CommandOutputStream, bytes: Buffer): void;
   closed(original: object, completion: CommandExecutionCompletion): void;
   failed?(original: object, error: unknown): void;

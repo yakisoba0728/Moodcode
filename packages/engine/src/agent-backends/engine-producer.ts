@@ -47,7 +47,7 @@ import type {
   BackendLaunchProof,
   BackendConnectionProof,
 } from "./process.js";
-import type { BackendClientReadPort } from "./client-effects.js";
+import type { BackendNativeClientEffectPort } from "./client-effects.js";
 
 interface FilePin {
   readonly path: string;
@@ -192,6 +192,8 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
     private readonly isEnabled: () => boolean,
     private readonly executionLockPath: string,
     private readonly secrets?: AgentBackendSecretResolver,
+    private readonly clientEffectsEnabled: () => boolean = () => false,
+    private readonly terminalEffectsEnabled: () => boolean = () => false,
   ) {}
   private open(): void {
     if (this.closed || this.isClosing()) fail("ENGINE_CLOSED");
@@ -562,6 +564,19 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
       cwd: spec.launch.cwd,
       env,
       executionLockPath: this.executionLockPath,
+      ...(this.clientEffectsEnabled()
+        ? { executionMode: "engine-client-effects" as const }
+        : {}),
+      clientCapabilities: {
+        readTextFile: request.tools.some((t) => t.name === "read_file"),
+        writeTextFile:
+          this.clientEffectsEnabled() &&
+          request.tools.some((t) => t.name === "apply_patch"),
+        terminal:
+          this.terminalEffectsEnabled() &&
+          process.platform !== "win32" &&
+          request.tools.some((t) => t.name === "run_command"),
+      },
       launchSha256: registration.target.proof.launchSha256,
     });
     const original = this.issue(this.launches, {
@@ -615,6 +630,10 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
         backendId: proof.backendId,
         backendSha256: proof.backendSha256,
         launchSha256: proof.launchSha256,
+        ...(proof.executionMode ? { executionMode: proof.executionMode } : {}),
+        ...(proof.clientCapabilities
+          ? { clientCapabilities: proof.clientCapabilities }
+          : {}),
       },
       { turnId: owner.turnId, attemptId: owner.attemptId },
     );
@@ -636,6 +655,11 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
     )
       fail("BACKEND_LAUNCH_STALE");
   }
+  assertLaunchObserving(original: object): void {
+    const launch = this.original(this.launches, original),
+      owner = this.readOwner(launch.request);
+    this.assertOwnerCurrent(launch.request, owner, "observe");
+  }
   releaseLaunch(original: object): void {
     const launch = this.launches.get(original);
     if (launch) this.launchOwners.delete(launch.proof.ownerSha256);
@@ -646,8 +670,81 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
     this.targets.delete(original);
     this.retained.delete(original);
   }
-  clientReadPort(): BackendClientReadPort {
+  clientReadPort(): BackendNativeClientEffectPort {
     return {
+      prepareEffect: (request, input, signal) => {
+        const owner = this.readOwner(request);
+        this.assertOwnerCurrent(request, owner, "dispatch");
+        return this.engine.coordinator.prepareProviderClientEffect(
+          request,
+          input,
+          signal,
+        );
+      },
+      readTerminalOutput: (original) => {
+        const { permission, input } =
+          this.engine.coordinator.readProviderClientEffectScope(original);
+        const jobId = `command-${knowledgeHash({ runId: permission.runId, toolCallId: permission.toolCallId }).slice(0, 32)}`;
+        const captured = this.engine.captureOwnedCommandJobOutput({
+          workspaceId: permission.workspaceId,
+          jobId,
+        });
+        let output = "",
+          observedBytes = 0,
+          retainedBytes = 0;
+        try {
+          let afterSeq = 0;
+          for (let pages = 0; pages < 16; pages++) {
+            const page = this.engine.readOwnedCommandJobOutput(captured, {
+              afterSeq,
+              maxBytes: 65536,
+            });
+            output += page.output.map((item) => item.data).join("");
+            observedBytes = page.observedBytes;
+            retainedBytes = page.retainedBytes;
+            if (!page.hasMore) break;
+            if (page.nextAfterSeq <= afterSeq)
+              fail("BACKEND_TERMINAL_OUTPUT_LIMIT");
+            afterSeq = page.nextAfterSeq;
+          }
+        } finally {
+          this.engine.releaseOwnedCommandJobHandle(captured);
+        }
+        const bytes = Buffer.from(output),
+          limit = input.outputByteLimit;
+        let start = Math.max(0, bytes.length - limit);
+        while (start < bytes.length && (bytes[start]! & 0xc0) === 0x80) start++;
+        const result = {
+          output: bytes.subarray(start).toString("utf8"),
+          truncated: start > 0 || observedBytes > retainedBytes,
+        };
+        this.engine.store.commitRunObservation(
+          permission.runId,
+          "backend.terminal_output_observed",
+          {
+            toolCallId: permission.toolCallId,
+            providerToolCallId: permission.providerToolCallId,
+            output: result,
+          },
+          { turnId: permission.turnId, attemptId: permission.attemptId },
+        );
+        return result;
+      },
+      readPermission: (original) =>
+        this.engine.coordinator.readProviderClientEffectPermission(original),
+      dispatchEffect: (original) => {
+        const request =
+          this.engine.coordinator.readProviderClientEffectRequest(original);
+        const owner = this.readOwner(request);
+        this.assertOwnerCurrent(request, owner, "dispatch");
+        return this.engine.coordinator.dispatchProviderClientEffect(original);
+      },
+      waitEffect: (original) =>
+        this.engine.coordinator.waitProviderClientEffect(original),
+      cancelEffect: (original) =>
+        this.engine.coordinator.cancelProviderClientEffect(original),
+      releaseEffect: (original) =>
+        this.engine.coordinator.releaseProviderClientEffect(original),
       executeRead: async (request, input, signal) => {
         const owner = this.readOwner(request);
         this.assertOwnerCurrent(request, owner, "dispatch");

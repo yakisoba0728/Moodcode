@@ -1,3 +1,4 @@
+import {hasPreparedResourceProducer,capturePreparedResource} from '../../effect-batches/claims.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { types } from 'node:util';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
@@ -36,6 +37,7 @@ export interface RuntimeCommandPreflightOptions {
   deadlineMs?: number;
 }
 export interface ScopedToolRuntimeOptions {
+  preparedResourceTools?:readonly ToolDefinition[];
   /** Exact original engine registrations whose observed inputs are workspace files. */
   workspaceSourceTools?: readonly ToolDefinition[];
   /** Trusted owner observation after policy validation and before the sole producer call. */
@@ -271,6 +273,8 @@ export class ScopedToolRuntime {
     const captured = this.captures.get(catalogue);
     if (!captured || captured.signature !== JSON.stringify(catalogue) || catalogue.revision !== this.current || catalogue.policyVersion !== this.policy.version || !this.rolePolicyCurrent(captured.roleCapture)) fail('TOOL_CATALOGUE_STALE', 'Tool registry, policy or captured catalogue changed; request a fresh catalogue');
   }
+  hasPreparedResources(catalogue:ToolCatalogue,toolName:string):boolean {this.assertCatalogueCurrent(catalogue);if(!this.captures.get(catalogue)!.entries.has(toolName))return false;const entry=this.entry(catalogue,toolName);return this.options.preparedResourceTools?.includes(entry.sourceIdentity)===true && hasPreparedResourceProducer(entry.sourceIdentity);}
+  async capturePreparedResources(prepared:PreparedTool,context:ToolContext):Promise<object|null>{await this.assertPreparedCurrent(prepared,context);const request=this.requests.get(prepared)!;if(!this.options.preparedResourceTools?.includes(request.entry.sourceIdentity))return null;return capturePreparedResource(request.entry.sourceIdentity,request.inner);}
   /** For old runner registration: every prepare takes a fresh catalogue snapshot. */
   delegate(scopeId: string, toolName: string, mode: 'plan' | 'build' = 'build'): ToolDefinition {
     const initial = [scopeId, ...this.included.get(scopeId) ?? []].map(scope => this.scopes.get(scope)?.get(toolName)).find(Boolean); if (!initial) fail('TOOL_NOT_FOUND', 'Tool is not registered in the scope');
@@ -424,8 +428,10 @@ export class ScopedToolRuntime {
     try {
       const store = await (this.artifactPromise ??= Promise.resolve().then(() => typeof this.options.artifacts === 'function' ? this.options.artifacts() : this.options.artifacts!));
       const settlementOutcome = enriched.structuredResult!.outcome;
-      const artifact = await store.put({ identity: { sessionId: context.sessionId, runId: context.runId, toolCallId: context.toolCallId, ...(context.turnId ? { turnId: context.turnId } : {}), ...(context.attemptId ? { attemptId: context.attemptId } : {}) }, content: result.content, outcome: settlementOutcome, sourceComplete: !(result.artifacts?.some(item => item.truncated)), metadata: { toolName: prepared.name } });
-      return { ...enriched, structuredResult: createToolResultEnvelope({ ...enriched.structuredResult!, artifactRefs: [...(enriched.structuredResult?.artifactRefs ?? []), artifact.reference], warnings: [...(enriched.structuredResult?.warnings ?? []), ...artifact.warnings], outcome: settlementOutcome }, limits) };
+      let artifactContent=result.content, batchTruncated=false;
+      if(context.effectBatchArtifactLimit!==undefined){const maximum=context.effectBatchArtifactLimit;if(!Number.isSafeInteger(maximum)||maximum<1||maximum>(context.budgets?.maxArtifactBytes??0))fail('EFFECT_BATCH_BUDGET_STALE','Original effect artifact allocation changed');if(Buffer.byteLength(artifactContent)>maximum){let bytes=Buffer.from(artifactContent).subarray(0,maximum);while(bytes.length&&Buffer.from(bytes.toString('utf8')).length>maximum)bytes=bytes.subarray(0,bytes.length-1);artifactContent=bytes.toString('utf8');batchTruncated=true;}}
+      const artifact = await store.put({ identity: { sessionId: context.sessionId, runId: context.runId, toolCallId: context.toolCallId, ...(context.turnId ? { turnId: context.turnId } : {}), ...(context.attemptId ? { attemptId: context.attemptId } : {}) }, content: artifactContent, outcome: batchTruncated ? 'failed' : settlementOutcome, sourceComplete: !batchTruncated && !(result.artifacts?.some(item => item.truncated)), metadata: { toolName: prepared.name, ...(batchTruncated?{batchOriginalBytes:Buffer.byteLength(result.content),batchArtifactBytes:Buffer.byteLength(artifactContent)}:{}) } });
+      return { ...enriched, ...(batchTruncated?{isError:true}:{}), structuredResult: createToolResultEnvelope({ ...enriched.structuredResult!, ...(batchTruncated?{outcome:'failed' as const}:{}), artifactRefs: [...(enriched.structuredResult?.artifactRefs ?? []), artifact.reference], warnings: [...(enriched.structuredResult?.warnings ?? []), ...artifact.warnings,...(batchTruncated?['Effect artifact bytes exceeded the original fixed member allocation. Full effects and checkpoints remain reviewable.']:[])], outcome: batchTruncated ? 'failed' : settlementOutcome }, limits) };
     } catch {
       this.artifactPromise = undefined;
       // The producer may already have effects/checkpoints. Preserve that result and expose a partial settlement.

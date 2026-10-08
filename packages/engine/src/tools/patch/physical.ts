@@ -325,6 +325,15 @@ export class PhysicalPatchProducer {
     return structuredClone({ binding: record.binding, changes: record.changes, sourceSha256: record.sourceSha256,
       physicalPinsSha256: record.physicalPinsSha256, preview: preview(record.changes, record.before) });
   }
+  resourceSnapshot(original: object): Omit<import('../../effect-batches/types.js').PreparedResourceClaim, 'sha256'> | null {
+    const record = this.original(original);
+    if (record.state !== 'prepared' || record.changes.some((change, i) => change.content === null || !record.before[i]?.stat || record.before[i]?.hash === null)) return null;
+    const pins = record.pins as {parents:{path:string;dev:string|null;ino:string|null}[]};
+    if (pins.parents.some(parent => parent.dev === null || parent.ino === null)) return null;
+    return {version:1,producer:'physical-patch',workspaceId:record.binding.workspaceId,root:record.binding.root,rootDevice:record.binding.rootDevice,rootInode:record.binding.rootInode,sourceSha256:record.sourceSha256,physicalPinsSha256:record.physicalPinsSha256,
+      files:record.changes.map((change,i)=>({path:change.path,device:String(record.before[i]!.stat!.dev),inode:String(record.before[i]!.stat!.ino),beforeHash:record.before[i]!.hash!,afterHash:hash(change.content!)})),
+      parents:pins.parents.map(parent=>({path:parent.path,device:parent.dev!,inode:parent.ino!}))};
+  }
   private async fresh(record: PhysicalRecord, signal: AbortSignal, tracker: IoTracker): Promise<void> {
     assertActive({ signal }); await this.bindingCurrent(record.binding); const observations: Image[] = [];
     for (let index = 0; index < record.changes.length; index++) {

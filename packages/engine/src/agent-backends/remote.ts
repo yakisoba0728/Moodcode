@@ -1,9 +1,11 @@
+import { platform } from "node:os";
+import { BackendNativeEffects } from "./native-effects.js";
 import { randomUUID } from "node:crypto";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from "../ports.js";
 import {
   BackendClientEffects,
-  type BackendClientReadPort,
+  type BackendNativeClientEffectPort,
 } from "./client-effects.js";
 import type { BackendProcessPort } from "./process.js";
 import type {
@@ -29,9 +31,11 @@ export interface AgentBackendRemoteOptions {
   record: AgentBackendRevision;
   store: AgentBackendStorage;
   processes: BackendProcessPort;
-  clientReads: BackendClientReadPort;
+  clientReads: BackendNativeClientEffectPort;
   turns: ActualBackendTurnPort;
   lifetime: AbortSignal;
+  clientEffectsEnabled?: boolean;
+  terminalEffectsEnabled?: boolean;
 }
 function remoteFailure(value: unknown): EngineError {
   return value instanceof EngineError
@@ -82,7 +86,13 @@ export class AgentBackendRemote implements ProviderAdapter {
     inputSignal: AbortSignal,
     cleanupState: { started: boolean; confirmed: boolean; durable: boolean },
   ): AsyncGenerator<ProviderEvent> {
-    const signal = AbortSignal.any([inputSignal, this.options.lifetime]);
+    const protocolAbort = new AbortController();
+    const signal = AbortSignal.any([
+      inputSignal,
+      this.options.lifetime,
+      protocolAbort.signal,
+    ]);
+    const pendingControls = new Set<Promise<void>>();
     const { store, processes, record } = this.options;
     const workspaceId = record.workspaceId;
     let process: object | undefined;
@@ -91,8 +101,13 @@ export class AgentBackendRemote implements ProviderAdapter {
     let terminal: object | undefined;
     let frames: AsyncIterator<object> | undefined;
     let remoteSessionId: string | undefined;
+    let originalSession: object | undefined;
     let disposal: object | undefined;
     let settled = false;
+    let nativeEffects: BackendNativeEffects | undefined;
+    let capabilities:
+      import("./types.js").AcpV1NegotiatedCapabilities | undefined;
+    let cancelSent = false;
     const observe = (
       original: object,
       state: "initialized" | "session-ready" | "observe",
@@ -184,7 +199,7 @@ export class AgentBackendRemote implements ProviderAdapter {
         originalTurn,
         record.spec,
         record.id,
-        signal,
+        this.options.lifetime,
       );
       const proof = processes.readConnection(process);
       connection = store.openConnection(process, {
@@ -198,20 +213,37 @@ export class AgentBackendRemote implements ProviderAdapter {
       const readTextFile = originalTurn.tools.some(
         (tool) => tool.name === "read_file",
       );
+      const writeTextFile =
+        this.options.clientEffectsEnabled === true &&
+        originalTurn.tools.some((tool) => tool.name === "apply_patch");
+      const terminalSupport =
+        this.options.terminalEffectsEnabled === true &&
+        platform() !== "win32" &&
+        originalTurn.tools.some((tool) => tool.name === "run_command");
       const initialized = await handshake("initialize", {
         protocolVersion: 1,
         clientCapabilities: {
-          fs: { readTextFile, writeTextFile: false },
-          terminal: false,
+          fs: { readTextFile, writeTextFile },
+          terminal: terminalSupport,
         },
         clientInfo: { name: "moodcode", version: "0.1.0" },
       });
       try {
-        negotiateAcpV1Capabilities(
+        capabilities = negotiateAcpV1Capabilities(
           "result" in initialized.response ? initialized.response.result : null,
-          { readTextFile },
+          { readTextFile, writeTextFile, terminal: terminalSupport },
         );
         observe(initialized.original, "initialized", null);
+        connection = store.negotiateCapabilities(
+          originalTurn,
+          initialized.original,
+          {
+            workspaceId,
+            requestId: randomUUID(),
+            expectedRevision: connection.revision,
+            connectionId: connection.connectionId,
+          },
+        ).record;
       } finally {
         processes.releasePeerObservation(initialized.original);
       }
@@ -226,8 +258,10 @@ export class AgentBackendRemote implements ProviderAdapter {
         );
         remoteSessionId = result.sessionId;
         observe(created.original, "session-ready", remoteSessionId);
+        originalSession = created.original;
       } finally {
-        processes.releasePeerObservation(created.original);
+        if (!originalSession)
+          processes.releasePeerObservation(created.original);
       }
       const remoteRequestId = randomUUID(),
         rpcId = randomUUID();
@@ -265,6 +299,15 @@ export class AgentBackendRemote implements ProviderAdapter {
       } finally {
         processes.releaseWrite(sent);
       }
+      nativeEffects = new BackendNativeEffects(this.options, {
+        originalTurn,
+        originalConnection: process,
+        workspaceId,
+        remoteRequestId,
+        remoteSessionId,
+        cwd: record.spec.launch.cwd,
+        signal,
+      });
       yield { type: "progress", providerRequestId: remoteRequestId };
       let stopReason: AcpV1StopReason | undefined;
       while (!terminal) {
@@ -286,6 +329,50 @@ export class AgentBackendRemote implements ProviderAdapter {
                   remoteSessionId,
                   signal,
                 });
+              } else if (
+                (wire.method === "fs/write_text_file" &&
+                  capabilities?.writeTextFile) ||
+                (wire.method.startsWith("terminal/") &&
+                  capabilities?.terminal) ||
+                (wire.method === "session/request_permission" &&
+                  (capabilities?.writeTextFile || capabilities?.terminal))
+              ) {
+                try {
+                  if (wire.method === "terminal/wait_for_exit") {
+                    retain = true;
+                    const active = nativeEffects
+                      .handle(original, wire)
+                      .catch((error) => {
+                        protocolAbort.abort(error);
+                      })
+                      .finally(() => {
+                        processes.releasePeerObservation(original);
+                        pendingControls.delete(active);
+                      });
+                    pendingControls.add(active);
+                  } else await nativeEffects.handle(original, wire);
+                } catch (error) {
+                  if (
+                    signal.aborted &&
+                    wire.method === "session/request_permission"
+                  ) {
+                    try {
+                      const cancelled = await processes.writeCancellation(
+                        process,
+                        originalSession!,
+                        {
+                          jsonrpc: "2.0",
+                          id: wire.id,
+                          result: { outcome: { outcome: "cancelled" } },
+                        },
+                        AbortSignal.timeout(250),
+                        original,
+                      );
+                      processes.releaseWrite(cancelled);
+                    } catch {}
+                  }
+                  throw error;
+                }
               } else {
                 const unsupported = await write({
                   jsonrpc: "2.0",
@@ -361,6 +448,9 @@ export class AgentBackendRemote implements ProviderAdapter {
           if (!retain) processes.releasePeerObservation(original);
         }
       }
+      await Promise.all(pendingControls);
+      if (protocolAbort.signal.aborted) throw protocolAbort.signal.reason;
+      await nativeEffects.complete();
       // A v1 final alone does not establish actual backend process cleanup.
       disposal = await processes.dispose(process);
       const cleanup = processes.readDisposal(disposal);
@@ -432,6 +522,41 @@ export class AgentBackendRemote implements ProviderAdapter {
       }
       throw remoteFailure(error);
     } finally {
+      let clientCloseFailure: unknown;
+      if (process && request && remoteSessionId && !settled && !cancelSent) {
+        cancelSent = true;
+        try {
+          const message = {
+            jsonrpc: "2.0" as const,
+            method: "session/cancel",
+            params: { sessionId: remoteSessionId },
+          };
+          const original = await processes.writeCancellation(
+            process,
+            originalSession!,
+            message,
+            AbortSignal.timeout(250),
+          );
+          try {
+            request = store.recordRequestCancel(original, {
+              workspaceId,
+              requestId: randomUUID(),
+              expectedRevision: request.revision,
+              remoteRequestId: request.remoteRequestId,
+              message,
+            }).record;
+          } finally {
+            processes.releaseWrite(original);
+          }
+        } catch {}
+      }
+      try {
+        await nativeEffects?.close();
+        await Promise.all(pendingControls);
+      } catch (error) {
+        clientCloseFailure = error;
+        cleanupState.durable = false;
+      }
       if (process) {
         // A launch can precede a failed native admission transaction. Physical
         // disposal cannot replace the missing durable connection receipt.
@@ -476,8 +601,10 @@ export class AgentBackendRemote implements ProviderAdapter {
         }
       }
       if (terminal) processes.releasePeerObservation(terminal);
+      if (originalSession) processes.releasePeerObservation(originalSession);
       await frames?.return?.();
       cleanupState.confirmed = cleanupState.durable;
+      if (clientCloseFailure) throw clientCloseFailure;
     }
   }
 }

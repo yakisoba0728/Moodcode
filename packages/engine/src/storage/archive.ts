@@ -1,3 +1,5 @@
+import {validateCommandLifetimeDatabase} from '../jobs/command-lifetime-records.js';
+import {validateEffectBatchDatabase} from '../effect-batches/storage.js';
 import { validatePrFeedbackDatabase } from '../pr-feedback/records.js';
 import {validateHostCommandDeliveryDatabase} from '../jobs/host-command-delivery-records.js';
 
@@ -261,11 +263,11 @@ validateCodingBatchDatabase(db);
     }
     const backendTables = schemaVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
     if (schemaVersion >= 22) {
-      try { validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check }); validateGitCommitDatabase(db, {check}); validateConversationForkDatabase(db); validatePrFeedbackDatabase(db,{check}); validateSandboxDatabase(db,{check}); }
+      try { validateEffectBatchDatabase(db); validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check }); validateGitCommitDatabase(db, {check}); validateConversationForkDatabase(db); validatePrFeedbackDatabase(db,{check}); validateSandboxDatabase(db,{check}); }
       catch { fail('ARCHIVE_JOB_INVALID', 'Archived terminal job sources, immutable output pages or completion delivery receipts are invalid'); }
     }
     const jobTables = schemaVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables;
-    if (schemaVersion >= 23) { try { validateHostCommandDatabase(db,{check}); validateHostCommandDeliveryDatabase(db,{check}); } catch { fail('ARCHIVE_HOST_COMMAND_INVALID','Independent host command approval, process, checkpoint or cleanup evidence is invalid'); } }
+    if (schemaVersion >= 23) { try { validateHostCommandDatabase(db,{check}); validateHostCommandDeliveryDatabase(db,{check}); validateCommandLifetimeDatabase(db,check); } catch { fail('ARCHIVE_HOST_COMMAND_INVALID','Independent host command approval, process, checkpoint or cleanup evidence is invalid'); } }
     return { schemaVersion, logicalHash: checkDatabase(db,schemaVersion,schemaVersion >= 23 ? [...jobTables,...HOST_COMMAND_TABLES] : jobTables,check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };

@@ -1,3 +1,4 @@
+import {registerPreparedResourceProducer,issuePreparedPatchResource,consumeResourcePermit,settleResourcePermit} from '../../effect-batches/claims.js';
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import { EngineError, type Checkpoint, type JsonValue } from '@moodcode/contracts';
@@ -10,13 +11,13 @@ function active(context: ToolContext): void { if (context.signal.aborted) throw 
 interface BoundRequest {
   workspaceId: string; root: string; sessionId: string; runId: string; toolCallId: string;
   executionLockPath?: string; fingerprint: string; input: string; preview: string;
-  capture: PhysicalPatchCapture; used: boolean;
+  capture: PhysicalPatchCapture; resource: object|null; used: boolean;
 }
 
 /** The real tool wrapper owns approval and Run checkpoints; physical I/O has its own original capability. */
 export function createPatchTool(): ToolDefinition {
   const physical = new PhysicalPatchProducer(), requests = new WeakMap<PreparedTool, BoundRequest>();
-  return {
+  const tool:ToolDefinition = {
     name: 'apply_patch',
     description: 'Propose bounded create, update, or delete changes using full UTF-8 file contents and expected SHA-256 hashes. Requires approval.',
     inputSchema: { type: 'object', additionalProperties: false, required: ['changes'], properties: { changes: {
@@ -38,7 +39,7 @@ export function createPatchTool(): ToolDefinition {
           fingerprint: hash(identity), requiresApproval: true, preview: source.preview };
         requests.set(prepared, { workspaceId: context.workspace.id, root: context.workspace.root, sessionId: context.sessionId,
           runId: context.runId, toolCallId: context.toolCallId, executionLockPath: context.executionLockPath,
-          fingerprint: prepared.fingerprint, input: JSON.stringify(prepared.input), preview: JSON.stringify(prepared.preview), capture, used: false });
+          fingerprint: prepared.fingerprint, input: JSON.stringify(prepared.input), preview: JSON.stringify(prepared.preview), capture, resource:physical.resourceSnapshot(capture) ? issuePreparedPatchResource(physical.resourceSnapshot(capture)!,capture,signal=>physical.assertFresh(capture,signal)) : null, used: false });
         return prepared;
       } catch (error) { physical.release(capture); throw error; }
     },
@@ -55,7 +56,7 @@ export function createPatchTool(): ToolDefinition {
       let lock: ExecutionLock | undefined, accountingComplete = false, cleanupConfirmed = false;
       try {
         const originalResult = await physical.apply(request.capture, { signal: context.signal, beforeEffect: async () => {
-          active(context); if (request.executionLockPath) lock = acquireExecutionLock(request.executionLockPath);
+          active(context); if(context.effectBatchPermit)consumeResourcePermit(context.effectBatchPermit,context,request.capture);else if (request.executionLockPath) lock = acquireExecutionLock(request.executionLockPath);
         } });
         const observation = physical.readResult(originalResult); cleanupConfirmed = observation.cleanupConfirmed;
         const checkpoint: Checkpoint = { id: randomUUID(), runId: context.runId, toolCallId: context.toolCallId, kind: 'patch',
@@ -67,12 +68,14 @@ export function createPatchTool(): ToolDefinition {
         catch (error) { throw new EngineError('PATCH_CHECKPOINT_FAILED', 'Filesystem effects may be present, but the checkpoint could not be persisted',
           { checkpointId: checkpoint.id, cause: error instanceof Error ? error.message : String(error) }); }
         accountingComplete = true;
-        const data: JsonValue = { checkpointId: checkpoint.id, changedFiles: checkpoint.files.map(file => file.path), incomplete: checkpoint.incomplete ?? false, warnings: checkpoint.warnings };
+        const data: JsonValue = { cleanupConfirmed: observation.cleanupConfirmed, physicalState: observation.state, checkpointId: checkpoint.id, changedFiles: checkpoint.files.map(file => file.path), incomplete: checkpoint.incomplete ?? false, warnings: checkpoint.warnings };
         const summary = observation.errorMessage === null ? `Applied patch to ${checkpoint.files.length} file(s).` : `Patch partially failed: ${observation.errorMessage}`;
         const limit = Math.max(0, Math.min(context.limits.maxOutputBytes, 4096));
         let content = Buffer.from(summary, 'utf8').subarray(0, limit).toString('utf8'); while (Buffer.byteLength(content, 'utf8') > limit) content = content.slice(0, -1);
         return { content, ...(observation.incomplete ? { isError: true } : {}), data };
-      } finally { physical.release(request.capture); lock?.release(accountingComplete && cleanupConfirmed); }
+      } finally { if(context.effectBatchPermit)settleResourcePermit(context.effectBatchPermit,context,request.capture,accountingComplete && cleanupConfirmed);physical.release(request.capture); lock?.release(accountingComplete && cleanupConfirmed); }
     },
   };
+  registerPreparedResourceProducer(tool, prepared=>requests.get(prepared)?.resource??null);
+  return tool;
 }

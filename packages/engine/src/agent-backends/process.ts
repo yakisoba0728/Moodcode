@@ -29,6 +29,12 @@ export interface BackendLaunchProof {
   cwd: string;
   env: Readonly<Record<string, string>>;
   executionLockPath: string;
+  executionMode?: "engine-client-effects";
+  clientCapabilities?: {
+    readTextFile: boolean;
+    writeTextFile: boolean;
+    terminal: boolean;
+  };
   launchSha256: string;
   ownerSha256: string;
   sha256: string;
@@ -41,6 +47,7 @@ export interface BackendLaunchPort {
   ): object;
   readLaunch(original: object): BackendLaunchProof;
   assertLaunchCurrent(original: object): void;
+  assertLaunchObserving(original: object): void;
   releaseLaunch(original: object): void;
 }
 export interface BackendConnectionProof {
@@ -51,6 +58,12 @@ export interface BackendConnectionProof {
   connectionId: string;
   epoch: string;
   processId: number;
+  executionMode?: "engine-client-effects";
+  clientCapabilities?: {
+    readTextFile: boolean;
+    writeTextFile: boolean;
+    terminal: boolean;
+  };
   birthNonce: string;
   launchSha256: string;
   ownerSha256: string;
@@ -106,6 +119,13 @@ export interface BackendProcessPort {
     originalConnection: object,
     message: AcpV1Message,
     signal: AbortSignal,
+  ): Promise<object>;
+  writeCancellation(
+    originalConnection: object,
+    originalSession: object,
+    message: AcpV1Message,
+    signal: AbortSignal,
+    originalPermission?: object,
   ): Promise<object>;
   readWrite(original: object): BackendWriteProof;
   releaseWrite(original: object): void;
@@ -317,6 +337,12 @@ export class OwnedBackendProcesses implements BackendProcessPort {
         connectionId: randomUUID(),
         epoch: randomUUID(),
         processId: 0,
+        ...(actual.executionMode
+          ? { executionMode: actual.executionMode }
+          : {}),
+        ...(actual.clientCapabilities
+          ? { clientCapabilities: actual.clientCapabilities }
+          : {}),
         birthNonce: randomUUID(),
         launchSha256: actual.launchSha256,
         ownerSha256: actual.ownerSha256,
@@ -484,6 +510,9 @@ export class OwnedBackendProcesses implements BackendProcessPort {
           cwd: actual.cwd,
           env: { ...actual.env },
           executionLockPath: actual.executionLockPath,
+          ...(actual.executionMode
+            ? { executionMode: actual.executionMode }
+            : {}),
         },
       });
       const pid = await abortable(
@@ -608,6 +637,71 @@ export class OwnedBackendProcesses implements BackendProcessPort {
     message: AcpV1Message,
     signal: AbortSignal,
   ): Promise<object> {
+    return this.writeFrame(originalConnection, message, signal, false);
+  }
+  async writeCancellation(
+    originalConnection: object,
+    originalSession: object,
+    message: AcpV1Message,
+    signal: AbortSignal,
+    originalPermission?: object,
+  ): Promise<object> {
+    const state = this.state(originalConnection),
+      session = this.readPeerObservation(originalSession);
+    if (
+      session.connectionId !== state.proof.connectionId ||
+      session.epoch !== state.proof.epoch ||
+      !("result" in session.message) ||
+      !session.message.result ||
+      typeof session.message.result !== "object" ||
+      Array.isArray(session.message.result) ||
+      typeof session.message.result.sessionId !== "string"
+    )
+      throw new EngineError(
+        "BACKEND_REMOTE_SESSION_INVALID",
+        "Cancellation requires the original session response",
+      );
+    const sessionId = session.message.result.sessionId;
+    if ("method" in message) {
+      if (
+        message.method !== "session/cancel" ||
+        "id" in message ||
+        knowledgeHash(message.params) !== knowledgeHash({ sessionId })
+      )
+        throw new EngineError(
+          "BACKEND_CANCEL_INVALID",
+          "Only the exact session cancel notification may use cleanup authority",
+        );
+    } else {
+      const permission = originalPermission
+        ? this.readPeerObservation(originalPermission)
+        : undefined;
+      if (
+        !permission ||
+        permission.connectionId !== state.proof.connectionId ||
+        permission.epoch !== state.proof.epoch ||
+        !("method" in permission.message) ||
+        !("id" in permission.message) ||
+        permission.message.method !== "session/request_permission" ||
+        permission.message.params?.sessionId !== sessionId ||
+        message.id !== permission.wireId ||
+        !("result" in message) ||
+        knowledgeHash(message.result) !==
+          knowledgeHash({ outcome: { outcome: "cancelled" } })
+      )
+        throw new EngineError(
+          "BACKEND_CANCEL_INVALID",
+          "Only the original permission cancellation may use cleanup authority",
+        );
+    }
+    return this.writeFrame(originalConnection, message, signal, true);
+  }
+  private async writeFrame(
+    originalConnection: object,
+    message: AcpV1Message,
+    signal: AbortSignal,
+    cleanup: boolean,
+  ): Promise<object> {
     const state = this.state(originalConnection);
     const text = encodeAcpV1Message(message);
     let release!: () => void;
@@ -617,7 +711,14 @@ export class OwnedBackendProcesses implements BackendProcessPort {
     });
     try {
       await abortable(previous, signal);
-      this.assertConnectionCurrent(originalConnection);
+      if (cleanup) {
+        if (state.disposing || state.closed || state.error || this.closed)
+          throw new EngineError(
+            "BACKEND_DISCONNECTED",
+            "Cleanup cannot write to a closed original transport",
+          );
+        this.launches.assertLaunchObserving(state.launch);
+      } else this.assertConnectionCurrent(originalConnection);
       if (signal.aborted) throw signal.reason;
       const ordinal = ++state.writeOrdinal;
       const operation = new Promise<number>((resolve, reject) => {

@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { types } from "node:util";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
+import type { ToolContext } from "../ports.js";
 import type { MoodcodeEngine } from "../engine.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
@@ -26,6 +27,7 @@ import {
   type CommandOutputRingSnapshot,
   type CommandOutputStream,
   type CommandArtifactDescriptor,
+  type CommandProcessControl,
 } from "../tools/command/observation.js";
 import {
   HostCommandStorage,
@@ -278,6 +280,14 @@ export class HostCommandService {
     return structuredClone(this.original(original).proof);
   }
   async start(input: StartHostCommandInput): Promise<HostCommandRecord> {
+    return this.startInternal(input);
+  }
+  /** Internal original model owner only; host callers cannot select a lease callback. */
+  async startLifetime(input: StartHostCommandInput, control: (control: CommandProcessControl) => void, context?: ToolContext): Promise<HostCommandRecord> {
+    if (context) this.engine.coordinator.readOwnedCommandContext(context, "start");
+    return this.startInternal(input, {control, ...(context ? {context} : {})});
+  }
+  private async startInternal(input: StartHostCommandInput, lifetime?: {control: (control: CommandProcessControl) => void; context?: ToolContext}): Promise<HostCommandRecord> {
     this.active();
     jobHostRecord(
       input,
@@ -367,8 +377,8 @@ export class HostCommandService {
     let flight: Flight | undefined;
     let didAdmit = false,
       journalGap = false;
-    const done = this.engine.coordinator.withWorkspaceLease(
-      input.workspaceId,
+    const lease = lifetime?.context ? (operation: (signal: AbortSignal) => Promise<HostCommandRecord>) => this.engine.coordinator.withCommandWorkspaceLease(lifetime.context!, operation) : (operation: (signal: AbortSignal) => Promise<HostCommandRecord>) => this.engine.coordinator.withWorkspaceLease(input.workspaceId, operation);
+    const done = lease(
       async (leaseSignal) => {
         const signal = AbortSignal.any([
           leaseSignal,
@@ -498,6 +508,7 @@ export class HostCommandService {
                 didAdmit = true;
                 admit(started);
               },
+              ...(lifetime ? {control:(actual: object, handle: CommandProcessControl) => { if (actual !== original) fail("HOST_COMMAND_ORIGINAL_REQUIRED"); lifetime.control(handle); }} : {}),
               output: (actual, stream, bytes) => {
                 if (actual !== original) fail("HOST_COMMAND_ORIGINAL_REQUIRED");
                 events(stream, bytes);
@@ -514,6 +525,7 @@ export class HostCommandService {
             () => {
               jobHostAbort(signal);
               this.current(p);
+              if(lifetime?.context)this.engine.coordinator.readOwnedCommandContext(lifetime.context,"start");
               return original;
             },
           );
@@ -700,6 +712,10 @@ export class HostCommandService {
       stdout: r.completion.stdout,
       stderr: r.completion.stderr,
     });
+  }
+  assertLifetimeCurrent(workspaceId:string,jobId:string):void{
+    this.active();const flight=this.retained.get(jobId),r=this.native.get(workspaceId,jobId);
+    if(!flight||!r||r.owner.epoch!==this.epoch||r.sha256!==flight.record.sha256||r.state!=='running'||knowledgeHash(this.binding(workspaceId))!==r.owner.rootBindingSha256||cwdIdentity(r.preview.input.cwd)!==r.preview.cwdIdentitySha256||this.policy(r.preview.input)!==r.preview.policyVersion)fail('HOST_COMMAND_TARGET_STALE');
   }
   captureOutput(input: { workspaceId: string; jobId: string }): object {
     this.active();

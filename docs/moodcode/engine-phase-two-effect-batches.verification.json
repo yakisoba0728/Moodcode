@@ -1,0 +1,138 @@
+{
+  "feature": "MC2-18a–d",
+  "implementationStatus": "complete-supported-physical-file-lane-awaiting-root-integration",
+  "baseline": {
+    "commit": "34c7c4a1e7bc0744d19152893779972cdf0d1eab",
+    "tree": "d2ad2d9f7d2192d78a2e329e9e9fbde2b45592f4",
+    "manifest": "/tmp/moodcode-effect-batches-feature-baseline.json"
+  },
+  "runtime": {
+    "node": "v26.9.0",
+    "platform": "darwin",
+    "databaseVersion": 23,
+    "actualProvider": "account-free controlled Engine provider",
+    "testExecution": "strict TypeScript source compiled to temporary JS; node --test, no tsx loader in feature fixture"
+  },
+  "gates": {
+    "actual": {
+      "tests": 27,
+      "pass": 27,
+      "fail": 0,
+      "sigkillBoundaries": 5
+    },
+    "finalFocusedPlusAdjacent": {
+      "tests": 171,
+      "pass": 171,
+      "fail": 0,
+      "featureTestsIncluded": 27,
+      "adjacentTests": 144,
+      "excludedOriginalHarnessCases": 1
+    },
+    "strictEngine": {
+      "errors": 0
+    },
+    "declarationEmit": {
+      "errors": 0
+    },
+    "strictActualAndAdjacentSource": {
+      "errors": 0
+    }
+  },
+  "excludedOriginalHarness": {
+    "path": "packages/engine/src/tools/command/file-lock-reservation.test.ts",
+    "test": "explicit recovery clears exact marker of actual terminated file worker and retains foreign marker",
+    "reason": "Existing hardcoded child tsx loader resolves to /node_modules/tsx under /tmp compiled output. Existing fixture and production unchanged; final focused Node --test uses --test-skip-pattern for this one original harness test. Root will test normal repo dist placement.",
+    "initialCombinedResult": {
+      "tests": 171,
+      "pass": 170,
+      "fail": 1
+    },
+    "initialLog": "/tmp/moodcode-effect-batches-final-focused-actual.log"
+  },
+  "actualEvidence": [
+    "Two genuine disjoint writable file handles enter before either write is released",
+    "Different tools targeting the same file serialize and reject the stale second preimage",
+    "Native batch birth SQL rollback has zero approvals and zero physical effects",
+    "Late allowed approval after actual parent cancellation has zero dispatch",
+    "Actual checkpoint/final receipt SQL faults preserve effects and native uncertainty",
+    "Original descriptor close failure and real lock inode loss block later conflicting members",
+    "Actual rename/symlink/same-bytes inode replacement and changed catalogue/parent child budget cannot dispatch stale originals",
+    "Original 32-byte artifact allocation splits into two <=16-byte stored artifacts; incomplete Tool results retain actual file effects/checkpoints/cleanup",
+    "Root SIGKILL at prepared, before-write, after-write, peer-completed and final-completed boundaries preserves actual bytes/evidence/debt with zero provider replay",
+    "Default-off restart, paused relocated archive/import, stable repeated reopen and independently anchored native rehash rejection"
+  ],
+  "supported": {
+    "resource": "Engine-core original prepared existing regular-file in-place updates",
+    "members": 4,
+    "records": 256,
+    "recordBytes": 131072,
+    "revisions": 32,
+    "authority": "Original current native Run/Turn/Attempt/Tool/Part/context and exact independent per-member approval",
+    "serialFallback": [
+      "create",
+      "delete",
+      "rename",
+      "command",
+      "MCP",
+      "unknown resource",
+      "custom producer scope"
+    ],
+    "historyApis": [
+      "inspectEffectBatches(workspaceId,sessionId?)",
+      "getEffectBatch(sessionId,id)"
+    ],
+    "defaultOff": true,
+    "childNonInheritance": true
+  },
+  "limits": [
+    "No command/MCP effects parallelization; unproved physical claims remain serial",
+    "No public member-cancel API; current Runner tool timeouts and parent cancellation retain actual member outcomes",
+    "No automatic replay, reconstructed Original grants, marker deletion or PID-ownership inference on restart/import",
+    "No performance/benchmark improvement claim",
+    "Root aggregate/full regression/fixture gates and integration are separate"
+  ],
+  "logs": {
+    "/tmp/moodcode-effect-batches-final-actual.log": {
+      "sha256": "69195c7bcc9d5bddbdd750e87576020bb1dd1b7f9d7c5501def6596b6ce89687",
+      "bytes": 3109
+    },
+    "/tmp/moodcode-effect-batches-final-actual-type.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "/tmp/moodcode-effect-batches-final-adjacent.log": {
+      "sha256": "e539e6616ccf8c0b47772aabc3f18ac6222c4aa526dd7d3fa8cdd1f19a903e7b",
+      "bytes": 17334
+    },
+    "/tmp/moodcode-effect-batches-final-adjacent-type.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "/tmp/moodcode-effect-batches-final-strict.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "/tmp/moodcode-effect-batches-final-declaration.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  },
+  "parentIntegration": {
+    "status": "passed",
+    "report": "engine-phase-two-client-command-effects-verification.json",
+    "sourceFreezeSha256": "37fba03f53bf433e0f1198ff831186df787107b66776f2ea7f2f0c7bf4a1d638",
+    "compiled": {
+      "tests": 4583,
+      "pass": 4581,
+      "fail": 0,
+      "skipped": 2
+    },
+    "directSource": {
+      "tests": 2679,
+      "pass": 2677,
+      "fail": 0,
+      "skipped": 2
+    },
+    "sourceInputsUnchanged": true
+  }
+}

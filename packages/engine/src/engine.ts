@@ -1,3 +1,5 @@
+import {CommandLifetimeService,createCommandLifetimeTools} from './jobs/command-lifetime.js';
+import {EffectBatchHost} from './effect-batches/host.js';
 import { PrFeedbackHost } from './pr-feedback/host.js';
 import {EngineHostCommandDeliveryProducer} from './jobs/host-command-delivery-producer.js';
 import {EngineHostCommandDeliverySource} from './jobs/host-command-delivery-source.js';
@@ -236,10 +238,14 @@ codingBatches?: boolean;
 schedules?: boolean;
   /** Root-owned ACP v1 stdio providers; imported definitions do not restore runtime authority. */
   agentBackends?: boolean;
+  agentBackendClientEffects?: boolean;
   /** Explicit read-only observation of existing user-owned terminals as native jobs. */
   jobs?: boolean;
+  /** Exact prepared-resource parallel effects; root opt-in, children remain serial. */
+  effectBatches?: boolean;
   /** Explicit independent idle-workspace command owner; disabled by default. */
   hostCommands?: boolean;
+  commandLifetimes?: boolean;
   /** Exact host-approved bounded conversation forks; execution approvals are never inherited. */
   conversationForks?: boolean;
   /** Explicit audience-bound runtime secrets; bodies never enter native backend journals. */
@@ -464,6 +470,7 @@ private readonly workflowRecords: WorkflowStorage;
   private readonly jobDelivery: JobDelivery;
   private readonly ownedCommandHost: OwnedCommandJobHost;
   private readonly hostCommands: HostCommandService;
+  private readonly commandLifetimes: CommandLifetimeService;
   private readonly hostCommandDeliverySource: EngineHostCommandDeliverySource;
   private readonly hostCommandDeliveryProducer: EngineHostCommandDeliveryProducer;
   private readonly hostCommandDelivery: HostCommandDelivery;
@@ -563,8 +570,11 @@ if (options.schedules !== undefined && typeof options.schedules !== 'boolean') t
     if (options.agentBackends !== undefined && typeof options.agentBackends !== 'boolean') throw new EngineError('INVALID_CONFIG', 'agentBackends requires an explicit root host boolean');
     if (options.agentBackendSecrets !== undefined && (!options.agentBackendSecrets || typeof options.agentBackendSecrets.resolve !== 'function')) throw new EngineError('INVALID_CONFIG', 'Backend secrets require an explicit trusted host resolver');
     this.agentBackendsEnabled = options.agentBackends === true;
+    if(options.agentBackendClientEffects!==undefined&&typeof options.agentBackendClientEffects!=="boolean")throw new EngineError("INVALID_CONFIG","ACP client effects require explicit host opt-in");
+    if(options.agentBackendClientEffects&&!this.agentBackendsEnabled)throw new EngineError("INVALID_CONFIG","ACP effects require agentBackends opt-in");
     if (options.jobs !== undefined && typeof options.jobs !== 'boolean') throw new EngineError('INVALID_CONFIG', 'jobs requires an explicit root host boolean');
     this.jobsEnabled = options.jobs === true;
+    if(options.effectBatches!==undefined&&typeof options.effectBatches!=='boolean')throw new EngineError('INVALID_CONFIG','effectBatches requires an explicit boolean');
     if (options.conversationForks !== undefined && typeof options.conversationForks !== 'boolean') throw new EngineError('INVALID_CONFIG','conversationForks must be an explicit boolean');
     this.conversationForksEnabled = options.conversationForks === true;
     if (this.teamModelToolsEnabled && !this.teamsEnabled) throw new EngineError('INVALID_CONFIG', 'Model team tools require explicit host teams');
@@ -576,6 +586,9 @@ if (options.schedules !== undefined && typeof options.schedules !== 'boolean') t
     if(options.osSandbox!==undefined && typeof options.osSandbox!=='boolean')throw new EngineError('INVALID_CONFIG','osSandbox must be an explicit boolean');
     if(options.osSandbox && (options.repositoryContextTools||options.verificationTools||options.lifecycleHooks?.length||options.lifecycleHookRegistry?.list().length))throw new EngineError('SANDBOX_EXTERNAL_EFFECT_UNSUPPORTED','Repository/verification or host lifecycle callbacks require a separately sandbox-bound producer');
     if(options.osSandbox && options.tools)throw new EngineError('SANDBOX_CUSTOM_TOOLS_UNSUPPORTED','Custom effects cannot assert OS sandbox enforcement');
+    if (options.commandLifetimes !== undefined && typeof options.commandLifetimes !== 'boolean') throw new EngineError('INVALID_CONFIG','commandLifetimes requires an explicit host boolean');
+    if(options.osSandbox && options.commandLifetimes===true)throw new EngineError('SANDBOX_COMMAND_LIFETIME_UNSUPPORTED','Interactive ownership transfer requires a separately sandbox-bound command lifetime producer');
+    if(options.commandLifetimes===true&&(!this.jobsEnabled||options.hostCommands!==true))throw new EngineError('INVALID_CONFIG','commandLifetimes requires jobs and hostCommands');
     if (options.hostCommands !== undefined && typeof options.hostCommands !== 'boolean') throw new EngineError('INVALID_CONFIG','hostCommands must be an explicit boolean');
     if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Document token cost policy must be a boolean');
     if (options.repositoryContextTools !== undefined && typeof options.repositoryContextTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Repository tool exposure must be an explicit boolean');
@@ -729,7 +742,7 @@ if (options.schedules !== undefined && typeof options.schedules !== 'boolean') t
       const interruptedFileOwners: string[] = [];
       try { verifyExecutionIdle(this.executionLockPath); }
       catch (error) { const known = this.knowledgeFileExecutionGuards.matching(this.executionLockPath);
-        if (known) interruptedFileOwners.push(known.publicationId); else if (!this.proposalApplyGuards.matching(this.executionLockPath)) { const marker=inspectExecutionLock(this.executionLockPath); if (marker.status!=='uncertain' || !this.store.hasKnownGitCommitSupervisor(marker.marker.ownerPid)) throw error; } }
+        if (known) interruptedFileOwners.push(known.publicationId); else if (!this.proposalApplyGuards.matching(this.executionLockPath)) { const marker=inspectExecutionLock(this.executionLockPath); if (marker.status!=='uncertain' || !this.store.hasKnownGitCommitSupervisor(marker.marker.ownerPid)&&!this.store.hasKnownEffectBatchMarker(marker.marker,this.executionLockPath)) throw error; } }
       reviewJournal = new ReviewJournal(canonicalDbPath === undefined ? resolve(artifactDir, 'review.sqlite') : `${canonicalDbPath}.review.sqlite`);
       this.reviewJournal = reviewJournal;
       this.store.recoverInterrupted();
@@ -1030,7 +1043,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         failed:(original:object,error:unknown)=>{const x=original as {own?:object;sandbox?:object};if(x.sandbox)this.sandboxHost.failed(x.sandbox,error);if(x.own)this.ownedCommandHost.failed(x.own,error);},
       } : undefined;
       const coreCommand = createCommandTool({...commandObserver?{observer:commandObserver}:{},...options.osSandbox?{sandbox:(context:import('./ports.js').ToolContext)=>this.sandboxHost.launch(context)}:{}});
-      const allCoreTools = options.tools ?? [...createReadTools(), createPatchTool(), coreCommand, createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
+      const allCoreTools = options.tools ?? [...createReadTools(), createPatchTool(), coreCommand, ...(options.commandLifetimes===true?createCommandLifetimeTools(()=>this.commandLifetimes):[]), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
       // Effect paths with no OS-bound producer are deliberately absent from this catalogue.
       const coreTools=options.osSandbox ? allCoreTools.filter(t=>['run_command','delegate_task'].includes(t.name)) : allCoreTools;
       const nativeFiles = [canonicalDbPath, canonicalDbPath ? `${canonicalDbPath}.owner.sqlite` : undefined, this.executionLockPath, canonicalDbPath ? `${canonicalDbPath}.review.sqlite` : undefined].filter((path): path is string => path !== undefined);
@@ -1041,7 +1054,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       this.executionObserver = new EngineExecutionObserver(this.store, source, () => this.toolRuntime);
       const workspaceSourceTools = options.tools ? [] : coreTools.filter(tool => ['read_file', 'list_files', 'search_files', 'glob_files', 'regex_search', 'apply_patch', 'edit_file', 'rename_file', 'delete_file', 'run_command'].includes(tool.name));
       this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store), artifacts: this.managedArtifacts,
-        workspaceSourceTools: Object.freeze(workspaceSourceTools), ...(options.diagnosticObservations === true ? { beforeProducer: (prepared, context) => this.executionObserver.beforeProducer(prepared, context) } : {}),
+        workspaceSourceTools: Object.freeze(workspaceSourceTools), preparedResourceTools: options.tools ? [] : Object.freeze([...coreTools]), ...(options.diagnosticObservations === true ? { beforeProducer: (prepared, context) => this.executionObserver.beforeProducer(prepared, context) } : {}),
         ...(options.roleResourcePolicy ? { roleResources: options.roleResourcePolicy } : {}), ...(options.roleResourcePolicyRegistry ? { roleResourcePolicyRegistry: options.roleResourcePolicyRegistry } : {}), ...(options.resolveRoleResources ? { resolveRoleResources: options.resolveRoleResources } : {}), ...(options.commandPreflight ? { commandPreflight: options.commandPreflight } : {}) });
       let commandRegistration: ToolRegistrationCapture | undefined;
       const repositoryTools = options.repositoryContextTools ? [createRepositoryContextTool(this.repository)] : [];
@@ -1061,7 +1074,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
       const tools = options.allowedToolNames ? availableTools.filter(tool => options.allowedToolNames!.includes(tool.name)) : availableTools;
-      for (const tool of tools) this.toolRuntime.register('engine', tool, (WORKFLOW_MODEL_NAMES as readonly string[]).includes(tool.name)?{exactApproval:tool.name!=='observe_workflow_stage'}:(TEAM_MODEL_TOOL_NAMES as readonly string[]).includes(tool.name) ? { exactApproval: (TEAM_MODEL_WRITE_TOOL_NAMES as readonly string[]).includes(tool.name) } : options.tools ? {} : ['delegate_task', 'verify_changes'].includes(tool.name) ? { exactApproval: true } : { revalidate: async (prepared, context) => {
+      for (const tool of tools) this.toolRuntime.register('engine', tool, (WORKFLOW_MODEL_NAMES as readonly string[]).includes(tool.name)?{exactApproval:tool.name!=='observe_workflow_stage'}:(TEAM_MODEL_TOOL_NAMES as readonly string[]).includes(tool.name) ? { exactApproval: (TEAM_MODEL_WRITE_TOOL_NAMES as readonly string[]).includes(tool.name) } : options.tools ? {} : ['delegate_task', 'verify_changes','run_command_job','command_job_input','wait_command_job'].includes(tool.name) ? { exactApproval: true } : { revalidate: async (prepared, context) => {
         const current = await tool.prepare(prepared.input, context);
         if (current.fingerprint !== prepared.fingerprint || JSON.stringify(current.preview) !== JSON.stringify(prepared.preview)) throw new EngineError('TOOL_APPROVAL_STALE', 'Tool resources changed since scoped authorization');
       } });
@@ -1077,6 +1090,9 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
       this.coordinator = new RunCoordinator({
+        ...(options.effectBatches===true?{effectBatches:new EffectBatchHost({save:record=>this.store.writeEffectBatch(record),memberSettled:(record,index)=>this.store.recordEffectBatchMember(record,index),assertOpen:()=>{if(this.closing)throw new EngineError('ENGINE_CLOSED','Effect batch host closed');this.verifyChildStorageIdentity();}})}:{}),
+        onCommandLifetimesSettling:(runId,outcome)=>this.commandLifetimes?.runSettling(runId,outcome)??Promise.resolve(),
+        onCommandLifetimeToolSettled:record=>this.commandLifetimes?.toolSettled(record),
         beforeActualProviderRequest: (original) => {
           if (this.codingBatchCharge) {
             this.coordinator.assertProviderRequest(original, "dispatch");
@@ -1323,7 +1339,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       const scheduleHost = new ScheduleHost({ native: this.scheduleRecords, input: this.scheduleProducer.inputPort() });
       this.scheduleDispatcher = new ScheduleDispatcher({ native: this.scheduleRecords, host: scheduleHost });
       this.backendProducer = new EngineAgentBackendProducer(this, knowledgeBinding, () => this.backendRecords, () => this.closing,
-        () => this.agentBackendsEnabled, this.executionLockPath, options.agentBackendSecrets);
+        () => this.agentBackendsEnabled, this.executionLockPath, options.agentBackendSecrets, ()=>options.agentBackendClientEffects===true, ()=>options.agentBackendClientEffects===true&&this.jobsEnabled);
       this.backendProcesses = new OwnedBackendProcesses(this.backendProducer);
       this.backendRecords = this.store.createAgentBackendStorage({
         readOwner: original => this.backendProducer.readOwner(original),
@@ -1335,10 +1351,11 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         readPeerObservation: original => this.backendProcesses.readPeerObservation(original),
         readWrite: original => this.backendProcesses.readWrite(original),
         readClientEffect: original => this.coordinator.readProviderClientReadCompletion(original),
+        readClientPermission: original => this.coordinator.readProviderClientEffectPermission(original),
         readDisposal: original => this.backendProcesses.readDisposal(original),
       });
       this.backendRecords.recoverInterrupted();
-      this.backendHost = new AgentBackendHost({ store: this.backendRecords, processes: this.backendProcesses, clientReads: this.backendProducer.clientReadPort(), turns: this.backendProducer, lifetime: this.hostResources.signal });
+      this.backendHost = new AgentBackendHost({ store: this.backendRecords, processes: this.backendProcesses, clientReads: this.backendProducer.clientReadPort(), turns: this.backendProducer, clientEffectsEnabled: options.agentBackendClientEffects===true, terminalEffectsEnabled: options.agentBackendClientEffects===true&&this.jobsEnabled, lifetime: this.hostResources.signal });
       this.jobProducer = new EngineJobProducer(this, knowledgeBinding, () => this.jobRecords, () => this.closing, () => this.jobsEnabled, this.storagePaths.artifactDir);
       this.jobRecords = this.store.createJobStorage({
         readOwner: original => this.jobProducer.readOwner(original),
@@ -1356,6 +1373,8 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       this.jobRecords.recoverInterrupted();
       this.jobHost = new JobHost({ native: this.jobRecords, source: this.jobProducer.sourcePort(), lifetime: this.hostResources.signal });
       this.jobDelivery = new JobDelivery({ native: this.jobRecords, input: this.jobProducer.inputPort(), lifetime: this.hostResources.signal });
+      this.store.validateEffectBatches();
+      this.store.recoverEffectBatches();
       this.store.recoverOwnedCommandJobs();
       this.sandboxHost = new SandboxHost(this,this.store.createSandboxStorage(),{enabled:options.osSandbox===true,binding:knowledgeBinding,excluded:[this.storagePaths.artifactDir,...nativeFiles.flatMap(path=>[path,`${path}-wal`,`${path}-shm`,`${path}-journal`])],active:()=>!this.closing});
       this.hostCommands = new HostCommandService(this, this.store.createHostCommandStorage(), knowledgeBinding, { enabled: () => options.hostCommands === true && !this.closing, unsupportedPolicy: Boolean(options.commandPreflight || options.roleResourcePolicy || options.roleResourcePolicyRegistry || options.resolveRoleResources), artifactDir:this.storagePaths.artifactDir, executionLockPath:this.executionLockPath, lifetime:this.hostResources.signal, ...(options.osSandbox?{sandbox:(ws:string,session:string)=>this.sandboxHost.hostLaunch(ws,session)}:{}) });
@@ -1369,6 +1388,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         readAccepted: original => this.ownedCommandProducer.readAccepted(original),
         releaseAccepted: original => this.ownedCommandProducer.release(original),
       })}, lifetime:this.hostResources.signal});
+      this.commandLifetimes=new CommandLifetimeService(this,this.hostCommands,()=>options.commandLifetimes===true&&this.jobsEnabled&&!this.closing);
       this.store.validateHostCommandDeliveries();
       this.hostCommandDeliverySource=new EngineHostCommandDeliverySource(this);
       this.hostCommandDeliveryProducer = new EngineHostCommandDeliveryProducer(this, knowledgeBinding, () => options.hostCommands===true && this.jobsEnabled && !this.closing, this.hostCommandDeliverySource);
@@ -1906,6 +1926,20 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
   approveSandboxGrant(input:ApproveSandboxGrantInput){return this.sandboxHost.approve(input);}
   releaseSandboxGrant(original:object){this.sandboxHost.release(original);}
   observeEnforcement(workspaceId:string){return this.sandboxHost.inspect(workspaceId);}
+  commandLifetimeCapability(){return this.commandLifetimes.capability();}
+  previewCommandLifetime(...args:Parameters<CommandLifetimeService['preview']>){return this.commandLifetimes.preview(...args);}
+  readCommandLifetimePreview(...args:Parameters<CommandLifetimeService['readPreview']>){return this.commandLifetimes.readPreview(...args);}
+  startCommandLifetime(...args:Parameters<CommandLifetimeService['start']>){return this.commandLifetimes.start(...args);}
+  previewCommandLifetimeTransfer(...args:Parameters<CommandLifetimeService['previewTransfer']>){return this.commandLifetimes.previewTransfer(...args);}
+  readCommandLifetimeTransfer(...args:Parameters<CommandLifetimeService['readTransfer']>){return this.commandLifetimes.readTransfer(...args);}
+  transferCommandLifetime(...args:Parameters<CommandLifetimeService['transfer']>){return this.commandLifetimes.transfer(...args);}
+  previewCommandLifetimeInput(...args:Parameters<CommandLifetimeService['previewInput']>){return this.commandLifetimes.previewInput(...args);}
+  readCommandLifetimeInputPreview(...args:Parameters<CommandLifetimeService['readInputPreview']>){return this.commandLifetimes.readInputPreview(...args);}
+  writeCommandLifetimeInput(...args:Parameters<CommandLifetimeService['input']>){return this.commandLifetimes.input(...args);}
+  waitForCommandLifetime(...args:Parameters<CommandLifetimeService['wait']>){return this.commandLifetimes.wait(...args);}
+  cancelCommandLifetime(...args:Parameters<CommandLifetimeService['cancel']>){return this.commandLifetimes.cancel(...args);}
+  inspectCommandLifetimes(...args:Parameters<CommandLifetimeService['inspect']>){return this.commandLifetimes.inspect(...args);}
+  releaseCommandLifetimeHandle(original:object){this.commandLifetimes.release(original);}
   previewHostCommand(...args: Parameters<HostCommandService['preview']>) { return this.hostCommands.preview(...args); }
   readHostCommandPreview(...args: Parameters<HostCommandService['readPreview']>) { return this.hostCommands.readPreview(...args); }
   startHostCommand(...args: Parameters<HostCommandService['start']>) { return this.hostCommands.start(...args); }
@@ -1927,6 +1961,8 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
   readOwnedCommandJobDeliveryTarget(...args: Parameters<OwnedCommandDelivery['readTarget']>) { return this.ownedCommandDelivery.readTarget(...args); }
   deliverOwnedCommandJobResult(...args: Parameters<OwnedCommandDelivery['deliver']>) { return this.ownedCommandDelivery.deliver(...args); }
   releaseOwnedCommandJobDeliveryHandle(original: object): void { this.ownedCommandDelivery.release(original); }
+  inspectEffectBatches(workspaceId:string,sessionId?:string){this.store.getWorkspace(workspaceId);if(sessionId&&this.store.getSession(sessionId).workspaceId!==workspaceId)throw new EngineError('RECORD_SCOPE_MISMATCH','Effect batch session mismatch');return this.store.inspectEffectBatches(workspaceId,sessionId);}
+  getEffectBatch(sessionId:string,id:string){return this.store.getEffectBatch(sessionId,id);}
   getOwnedCommandJobDelivery(...args: Parameters<SqliteStore['getOwnedCommandJobDelivery']>) { return this.store.getOwnedCommandJobDelivery(...args); }
   captureHostCommandJobDeliveryTarget(...args: Parameters<HostCommandDelivery['captureTarget']>) { return this.hostCommandDelivery.captureTarget(...args); }
   readHostCommandJobDeliveryTarget(...args: Parameters<HostCommandDelivery['readTarget']>) { return this.hostCommandDelivery.readTarget(...args); }
@@ -2691,7 +2727,7 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
         this.ownedCommandDelivery.close();
         this.hostCommandDelivery.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.hostCommands.close(), this.gitCommitHost.close(), this.prFeedbackHost.close(), this.backendHost.close(), this.scheduleDispatcher.close(), this.codingBatches.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.commandLifetimes.close(), this.hostCommands.close(), this.gitCommitHost.close(), this.prFeedbackHost.close(), this.backendHost.close(), this.scheduleDispatcher.close(), this.codingBatches.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }

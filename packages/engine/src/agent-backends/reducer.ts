@@ -96,6 +96,41 @@ export function assertBackendTransition(
     invalid();
   }
   if (
+    operation === "negotiate" &&
+    kind === "connection" &&
+    before === "initialized" &&
+    after === before
+  )
+    return;
+  if (
+    operation === "cancel-wire" &&
+    kind === "request" &&
+    before === after &&
+    ["prepared", "dispatching", "dispatched", "uncertain"].includes(after)
+  )
+    return;
+  if (
+    ["bind-effect", "terminal-control"].includes(operation) &&
+    kind === "client-effect" &&
+    before === after &&
+    ["prepared", "completed", "failed", "denied", "interrupted"].includes(after)
+  )
+    return;
+  if (
+    operation === "effect-ack" &&
+    kind === "client-effect" &&
+    before === "prepared" &&
+    after === "prepared"
+  )
+    return;
+  if (
+    operation === "permission" &&
+    kind === "client-effect" &&
+    before === "prepared" &&
+    after === "prepared"
+  )
+    return;
+  if (
     operation === "delivery" &&
     kind === "client-effect" &&
     before === after &&

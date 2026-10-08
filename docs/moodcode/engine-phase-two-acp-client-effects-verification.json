@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "stage": "MC2-09c/d approved ACP v1 native client effects",
+  "status": "passed-supported-lane",
+  "recordedAt": "2026-10-08T11:14:48.069413+00:00",
+  "baseline": {
+    "head": "34c7c4a1e7bc0744d19152893779972cdf0d1eab",
+    "tree": "d2ad2d9f7d2192d78a2e329e9e9fbde2b45592f4",
+    "map": "/tmp/moodcode-acp-effects-feature-baseline.json"
+  },
+  "implementationIdentity": "26 implementation/test sources frozen. 243 focused regression tests passed after the cancellation fix; the final bounded descriptor preimage capture was then verified with all26 actual effects plus9 original-read cases, compiled38 protocol/effect cases, strict typecheck and declaration emit. No Main or other worktree edits.",
+  "environment": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "database": {
+    "version": 23,
+    "catalogueRows": 139,
+    "catalogueCap": 160,
+    "newMigrations": 0,
+    "newTables": 0
+  },
+  "newTests": 27,
+  "featureActualTests": {
+    "wireApprovalEffectLifecycle": 17,
+    "nativeFaultTamperImport": 7,
+    "actualSigkillReopenImport": 2
+  },
+  "checks": [
+    {
+      "kind": "focused-source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 packages/engine/src/agent-backends/*.test.ts packages/engine/src/runner/backend-client-read.integration.test.ts packages/engine/src/runner/native-execution.test.ts packages/engine/src/runner/attempt-cleanup.test.ts packages/engine/src/runner/lifecycle-transforms.test.ts packages/engine/src/runner/output-budget.test.ts packages/engine/src/tools/patch/*.test.ts packages/engine/src/tools/command/supervisor.test.ts packages/engine/src/tools/command/process-control.test.ts packages/engine/src/storage/tool-recovery-frontier*.test.ts",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-acp-effects-final-source.log",
+      "logSha256": "c052ce2ea83ccf2becdb8a87c34b5c60a8de4b871d2a9a13d5c067501c8ebf5c",
+      "tests": 243,
+      "passCount": 243,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 20974.4685
+    },
+    {
+      "kind": "typecheck",
+      "command": "node node_modules/typescript/bin/tsc -p packages/engine --noEmit --composite false --incremental false --pretty false",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-acp-effects-type-final.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "declaration-emit",
+      "command": "node node_modules/typescript/bin/tsc -p packages/engine --declaration --emitDeclarationOnly --composite false --incremental false --outDir /tmp/moodcode-acp-effects-declarations --pretty false",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-acp-effects-declaration-final.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "final-actual-source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 packages/engine/src/agent-backends/client-effects*.test.ts packages/engine/src/runner/backend-client-read.integration.test.ts",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-acp-effects-bounded-source-final.log",
+      "logSha256": "c9c4f92e31d7c1e49e4add8933f532f86b75508bc972fa5b24391301aa533eb1",
+      "tests": 35,
+      "passCount": 35,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 13204.936166
+    },
+    {
+      "kind": "compiled-feature",
+      "command": "node --test --test-concurrency=2 packages/engine/dist/agent-backends/client-effects*.test.js packages/engine/dist/agent-backends/protocol.test.js",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-acp-effects-compiled-final.log",
+      "logSha256": "9c216b8d07116a548b8b26bff7e28e38193696865e28d6bd200c06acc7633f26",
+      "tests": 38,
+      "passCount": 38,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 9350.353417
+    },
+    {
+      "kind": "compiled-build",
+      "command": "node node_modules/typescript/bin/tsc -p packages/engine --composite false --incremental false --pretty false",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-acp-effects-compiled-build.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "format",
+      "command": "prettier --check changed agent-backend sources/fixtures/docs",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-acp-effects-format-final.log",
+      "logSha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "scopeNote": "Existing shared Engine/ports/storage/patch baseline formatting preserved to keep minimal integration diffs; the new Coordinator methods formatted independently."
+    }
+  ],
+  "sourceHashes": {
+    "packages/engine/src/agent-backends/client-effects-crash.integration.test.ts": "431eca3ff3288a1c7f062afbf8e1719ee2a146f04e245ae1bf8124f3f085cd3d",
+    "packages/engine/src/agent-backends/client-effects-native.integration.test.ts": "ff5355af9908057351cc506a4be6823ee257e3f0939896ea82ae46c5ec26e58a",
+    "packages/engine/src/agent-backends/client-effects.integration.test.ts": "177ce1b457f12ae796b3e3c849b80295b33a28247efccea3f04fc71a54784fbf",
+    "packages/engine/src/agent-backends/client-effects.ts": "a8b6a837c77722ba1f89c8a6f9c0c5b40c913a2be71852b5a191d6093159ca56",
+    "packages/engine/src/agent-backends/engine-producer.ts": "f1a4eeec2c6e471c5a78c3a0920d90254da6b09484d4e1ba72397237f8e5b6e3",
+    "packages/engine/src/agent-backends/fixtures/backend.ts": "f291b37a32df9283a3d21f8181d230cd8efce41618db35adc28f0d7f5e70b73c",
+    "packages/engine/src/agent-backends/fixtures/crash-effects.ts": "ddac907406d64588c04f94cc05473487908c37b38ff8d250ae41a1d139119bf9",
+    "packages/engine/src/agent-backends/fixtures/effect-peer.mjs": "51644a31738cb4e7076ff957cf1fdd4fb467bbb7ccd805c849f2d9183392b593",
+    "packages/engine/src/agent-backends/fixtures/effects.ts": "d54f7ae209b8f2da6c174ec7ebc6bc7bf325273b36dd75206d0d19d491f28f1c",
+    "packages/engine/src/agent-backends/host.ts": "540e758e946a169ad58effe37a1014bdba831c4f94364d90abde05d1c4d8785c",
+    "packages/engine/src/agent-backends/native-effects.ts": "33703491056863192ca07b0e7214797a3cb1150f986e8a2c1c096c37e430acfc",
+    "packages/engine/src/agent-backends/process-supervisor.ts": "583c28e29ad775554c755d022d6836b90fc1a719936e8b8ef7c10b966a9ac8bb",
+    "packages/engine/src/agent-backends/process.ts": "25c3ab1328a1c6cfe3cf1782d23638a37173d2ed9fef24bd19405982c7fbfc5f",
+    "packages/engine/src/agent-backends/protocol.test.ts": "6bdd8396be524d124ff6e61e69bf472e2229d5ef6d62bfad818e978d62a093b9",
+    "packages/engine/src/agent-backends/protocol.ts": "8b4bbc28a36bf50a906675b7d942ad65ad9592b6784de762ccc1c75f0d994a3b",
+    "packages/engine/src/agent-backends/reducer.ts": "a0e048bde1c52c71b37bdfb6cf836c1e7052008d46c558e1fd67142d79d3930b",
+    "packages/engine/src/agent-backends/remote.ts": "31e4527c041405e2c8d56afbb9dc84e160d95666c9d564930cfda10a6c479a65",
+    "packages/engine/src/agent-backends/store.ts": "26fa5f7446f4da245a0649ba239b7360b6d5c82d596bee577963f486c02636cb",
+    "packages/engine/src/agent-backends/types.ts": "5af598ca46ca33ff9465c2b4e63416da2a27c7f342a77d1e781faf5035cd8e8e",
+    "packages/engine/src/engine.ts": "74782bf9bed701e782f8e0f21aacca6dbccaf362efa12650b6ec00d0d4d3bbbe",
+    "packages/engine/src/index.ts": "306d763df530dab7f9b2e41c768af5b3f47b0d7fef6cddf05d37283d965e14c2",
+    "packages/engine/src/ports.ts": "2e2ef8f9a45ae131ff37f80a2fa135482773d9c7d67a21b42712d80b1972a152",
+    "packages/engine/src/runner/index.ts": "31910944d019cd0137d739ae43d41e5bcd4289e034d9808255c6b827953ea28b",
+    "packages/engine/src/storage/index.ts": "ed9b38a28cc783b198437fd8c3e491203e367c6d4d7ce85b3b4af600c7fa6c36",
+    "packages/engine/src/storage/tool-recovery-frontier.ts": "fef42f5452293700f40a01a399767950f552868d35548036a7d6c9243c1fdf5a",
+    "packages/engine/src/tools/patch/index.ts": "7630c76436ae9ab94927103681ee462dad3b365bcbc1b3ddf80a4da0f6833772"
+  },
+  "protectedBaselineDrift": [],
+  "supported": [
+    "explicit default-off ACP v1 local stdio text/engine-owned context",
+    "exact native approval and allow_once permission rawInput compatibility subset",
+    "same-Attempt apply_patch create/update with native checkpoint and source revalidation",
+    "POSIX supervised run_command terminals with actual live bounded output, wait/kill/release",
+    "literal argv and denied remote environment additions",
+    "Original session/permission cancellation write with bounded actual pipe receipt",
+    "native failure/ack/completion/delivery/physical cleanup separately",
+    "actual SIGKILL at terminal ACK and physical-write receipt gap; uncertain reopen/paused import; no replay"
+  ],
+  "unsupported": [
+    "ACP v2, HTTP/authentication/live account paths",
+    "agent-owned context, session load/reconnect/history authority",
+    "arbitrary remote permission/name/description grants and permanent allowance",
+    "remote environment additions, independent peer OS-effect sandboxing",
+    "Windows native terminal ownership and escaped process groups",
+    "PTY semantics and full ACP capability coverage"
+  ],
+  "remainingEnvironmentDebts": [
+    "E5-13",
+    "E5-08",
+    "E6-07",
+    "E6-08"
+  ],
+  "liveAccountCalls": 0,
+  "liveProviderCalls": 0,
+  "remoteWrites": 0,
+  "protectedProgressFilesChanged": false,
+  "parentIntegration": {
+    "status": "passed",
+    "report": "engine-phase-two-client-command-effects-verification.json",
+    "sourceFreezeSha256": "37fba03f53bf433e0f1198ff831186df787107b66776f2ea7f2f0c7bf4a1d638",
+    "compiled": {
+      "tests": 4583,
+      "pass": 4581,
+      "fail": 0,
+      "skipped": 2
+    },
+    "directSource": {
+      "tests": 2679,
+      "pass": 2677,
+      "fail": 0,
+      "skipped": 2
+    },
+    "sourceInputsUnchanged": true
+  }
+}

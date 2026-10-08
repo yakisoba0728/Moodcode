@@ -5,9 +5,14 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 15,
-  "completedWorkItems": 64,
-  "environmentDebts": ["E5-13", "E5-08", "E6-07", "E6-08"],
+  "completedFamilies": 18,
+  "completedWorkItems": 73,
+  "environmentDebts": [
+    "E5-13",
+    "E5-08",
+    "E6-07",
+    "E6-08"
+  ],
   "families": [
     {
       "id": "MC2-01",
@@ -413,7 +418,7 @@
       "title": "ACP·remote host·client effect 완료",
       "priority": "P2",
       "wave": "W5",
-      "status": "in-progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-09a",
@@ -436,67 +441,51 @@
         {
           "id": "MC2-09c",
           "completion": "exact permission bridge와 기존 child/host port를 통한 client effect 실행. unknown capability는 시작 보류",
-          "status": "in-progress",
+          "status": "complete",
           "evidence": [
-            "engine-phase-two-agent-backends.md",
-            "engine-phase-two-agent-backends-verification.json"
+            "engine-phase-two-acp-client-effects.md",
+            "engine-phase-two-acp-client-effects-verification.json",
+            "engine-phase-two-client-command-effects-verification.json"
           ]
         },
         {
           "id": "MC2-09d",
           "completion": "disconnect·late approval·event gap·중복 prompt·owner 교체·ack 후 효과 실패 검사. reconnect를 remote rollback/safe retry 증거로 쓰지 않음",
-          "status": "in-progress",
+          "status": "complete",
           "evidence": [
-            "engine-phase-two-agent-backends.md",
-            "engine-phase-two-agent-backends-verification.json"
+            "engine-phase-two-acp-client-effects.md",
+            "engine-phase-two-acp-client-effects-verification.json",
+            "engine-phase-two-client-command-effects-verification.json"
           ]
         }
       ],
-      "notes": "MC2-09a/b completed for explicit root-owned ACP v1 local stdio/text, strict bounded schema/negotiation, exact executable/source/config/profile/catalogue/audience/env-reference pins and native owner/connection/request/effect/delivery CAS history. Original native same-Attempt read pipeline, exact approval/deny, partial/error output, lifecycle path/range rewrite rejection, actual root SIGKILL/reopen/import, supervisor/SQL receipt faults, duplicate launch and authentic foreign native owner relinking are verified. MC2-09c/d remain in progress for effectful permission/write/terminal, remote hosts/protocol authentication, agent-owned context/load/reconnect; peer output redaction is not guaranteed. No runtime authority/replay from import. Original goal active at38/80 and8/20; existing four environment debts unchanged."
+      "notes": "Exact-approved local ACP v1 client write and supervised terminal effects now use the genuine same native Turn/Attempt, existing tools, native Tool/Part/checkpoints and independent source/delivery receipts. Forced exact approvals, cancellation, EOF/late/duplicate/native drift/SQL/SIGKILL/reopen/paused import were validated. HTTP/auth/reconnect/load/agent-owned context/permanent grants/PTY remain explicitly unsupported; no peer OS-isolation claim."
     },
     {
       "id": "MC2-10",
       "title": "session command job·완료 전달",
       "priority": "P2",
       "wave": "W5",
-      "status": "in-progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-10a",
           "completion": "job 상태/owner/lease와 prepared command binding",
-          "status": "in-progress",
+          "status": "complete",
           "evidence": [
-            "engine-phase-two-jobs.md",
-            "engine-phase-two-jobs-verification.json",
-            "engine-phase-two-atomic-command-jobs.md",
-            "engine-phase-two-atomic-command-jobs-verification.json",
-            "engine-phase-two-owned-command-inbox.md",
-            "engine-phase-two-owned-command-inbox-verification.json",
-            "engine-phase-two-host-commands.md",
-            "engine-phase-two-host-commands-verification.json",
-            "engine-phase-two-parallel-features-verification.json",
-            "engine-phase-two-command-consumers.md",
-            "engine-phase-two-command-consumers-verification.json",
-            "engine-phase-two-parallel-consumers-verification.json"
+            "engine-phase-two-command-lifetimes.md",
+            "engine-phase-two-command-lifetimes-verification.json",
+            "engine-phase-two-client-command-effects-verification.json"
           ]
         },
         {
           "id": "MC2-10b",
           "completion": "기존 supervisor/PTY 재사용·bounded output artifact·attach/cancel·lifetime 제한",
-          "status": "in-progress",
+          "status": "complete",
           "evidence": [
-            "engine-phase-two-jobs.md",
-            "engine-phase-two-jobs-verification.json",
-            "engine-phase-two-atomic-command-jobs.md",
-            "engine-phase-two-atomic-command-jobs-verification.json",
-            "engine-phase-two-owned-command-inbox.md",
-            "engine-phase-two-owned-command-inbox-verification.json",
-            "engine-phase-two-host-commands.md",
-            "engine-phase-two-host-commands-verification.json",
-            "engine-phase-two-parallel-features-verification.json",
-            "engine-phase-two-command-consumers.md",
-            "engine-phase-two-command-consumers-verification.json",
-            "engine-phase-two-parallel-consumers-verification.json"
+            "engine-phase-two-command-lifetimes.md",
+            "engine-phase-two-command-lifetimes-verification.json",
+            "engine-phase-two-client-command-effects-verification.json"
           ]
         },
         {
@@ -521,24 +510,15 @@
         {
           "id": "MC2-10d",
           "completion": "detach/reload·parent 종료·crash/host close/EPERM·output backpressure·중복 delivery 검사. 물리 종료 미확정 시 unknown을 유지하고 재spawn하지 않음",
-          "status": "in-progress",
+          "status": "complete",
           "evidence": [
-            "engine-phase-two-jobs.md",
-            "engine-phase-two-jobs-verification.json",
-            "engine-phase-two-atomic-command-jobs.md",
-            "engine-phase-two-atomic-command-jobs-verification.json",
-            "engine-phase-two-owned-command-inbox.md",
-            "engine-phase-two-owned-command-inbox-verification.json",
-            "engine-phase-two-host-commands.md",
-            "engine-phase-two-host-commands-verification.json",
-            "engine-phase-two-parallel-features-verification.json",
-            "engine-phase-two-command-consumers.md",
-            "engine-phase-two-command-consumers-verification.json",
-            "engine-phase-two-parallel-consumers-verification.json"
+            "engine-phase-two-command-lifetimes.md",
+            "engine-phase-two-command-lifetimes-verification.json",
+            "engine-phase-two-client-command-effects-verification.json"
           ]
         }
       ],
-      "notes": "MC2-10c is complete across actual settled cleanup-confirmed user PTY, Run-owned and independent host results: one native inbox input with atomic receipts, no new terminal source Run events, independent target budgets/profile/catalogue and provider guards. New actual model readonly Tool/Part consumes host-selected same-session source aliases with bounded frozen UTF8 pages and explicit loss; repeated identical polls reuse one snapshot. SIGKILL/SQL/native drift/cancel/backpressure/restart/import keep uncertainty and no replay. Foreground/background ownership transfer, explicit lifetime transfer and remaining detach/platform/restore/unknown resolution keep 10a/b/d in progress. Aggregate DB23/catalogue139/cap160; completion53/80 and12/20, active goal."
+      "notes": "Completed the existing atomic result inbox/read-only model consumers with actual original same-supervisor/group-PID foreground/background ownership transfer, bounded stdin/EOF/output/artifacts, native approved model/host admission and fixed lifetime budgets. Successful source completion retains only explicitly transferred background ownership; failure/cancel/close joins cleanup. SQL/ACK/transfer faults and SIGKILL/reopen/import preserve uncertainty without PID-only reclaim or replay. POSIX pipes were tested on Darwin. PTY transfer, live PID restore and combined OS sandbox are unsupported."
     },
     {
       "id": "MC2-11",
@@ -741,30 +721,30 @@
       "title": "제한 code-mode",
       "priority": "P3",
       "wave": "WX",
-      "status": "pending",
+      "status": "in-progress",
       "workItems": [
         {
           "id": "MC2-15a",
           "completion": "제한 언어/runtime factory·capability negotiation·source preview",
-          "status": "pending",
+          "status": "in-progress",
           "evidence": []
         },
         {
           "id": "MC2-15b",
           "completion": "typed broker request/result·nested call budget·exact approval 전달",
-          "status": "pending",
+          "status": "in-progress",
           "evidence": []
         },
         {
           "id": "MC2-15c",
           "completion": "timeout/cancel/owner cleanup·bounded result artifact와 uncertain receipt",
-          "status": "pending",
+          "status": "in-progress",
           "evidence": []
         },
         {
           "id": "MC2-15d",
           "completion": "하나의 실제 지원 환경에서 sandbox 탈출 차단·stale grant·중복 nested call·cancel 직후 dispatch·crash 검사. 검증되지 않은 runtime은 비활성",
-          "status": "pending",
+          "status": "in-progress",
           "evidence": []
         }
       ]
@@ -774,7 +754,7 @@
       "title": "media 확대·실제 공급자 검증",
       "priority": "P2/P3",
       "wave": "ENV/WX",
-      "status": "in_progress",
+      "status": "in-progress",
       "workItems": [
         {
           "id": "MC2-16a",
@@ -782,29 +762,32 @@
           "status": "complete",
           "evidence": [
             "engine-phase-two-media-account-plan.json",
-            "engine-phase-two-media-account-plan-verification.json"
+            "engine-phase-two-media-account-plan-verification.json",
+            "engine-phase-two-media-account-live-verification.json"
           ]
         },
         {
           "id": "MC2-16b",
           "completion": "video/audio segment·anchor·MIME/model gating·bounded paging",
-          "status": "pending",
+          "status": "in-progress",
           "evidence": []
         },
         {
           "id": "MC2-16c",
           "completion": "생성 media output artifact·usage/null·archive/import schema 연결",
-          "status": "pending",
+          "status": "in-progress",
           "evidence": []
         },
         {
           "id": "MC2-16d",
           "completion": "실제 지원 모델별 invalid MIME·oversize·unknown capability·부분 생성·중복 delivery·source 삭제 검사. E5-13 닫힘과 신규 video/audio 완료를 따로 판정",
-          "status": "pending",
-          "evidence": []
+          "status": "in-progress",
+          "evidence": [
+            "engine-phase-two-media-account-live-verification.json"
+          ]
         }
       ],
-      "notes": "MC2-16a verification planning only: executable account-free planner captures nine source hashes, exact proposed provider/model, four adapter lanes, ten required cases and native recognition/cleanup/usage evidence requirements. CLI positive selections and six invalid admissions, 254 actual local image/PDF regression tests pass. No provider/account configuration is read and no live request is issued. Existing opt-in Codex image executors and standard Responses-only exact PDF declaration/two token-uncertainty opt-ins are distinguished. MC2-16b/c/d and E5-13 remain open; plan output is not recognition evidence."
+      "notes": "MC2-16a verification planning only: executable account-free planner captures nine source hashes, exact proposed provider/model, four adapter lanes, ten required cases and native recognition/cleanup/usage evidence requirements. CLI positive selections and six invalid admissions, 254 actual local image/PDF regression tests pass. No provider/account configuration is read and no live request is issued. Existing opt-in Codex image executors and standard Responses-only exact PDF declaration/two token-uncertainty opt-ins are distinguished. MC2-16b/c/d and E5-13 remain open; plan output is not recognition evidence. Later actual Codex gpt-6.1-sol PNG restart recognition passed with two native usage observations and confirmed cleanup against the ACP-integrated working sources. This covers one image account/model; PDF/audio/video/output, exact image token/window estimation and Anthropic account coverage remain unverified. MC2-16d now has actual image groundwork and remains in progress; no new completion credit and E5-13 stays open."
     },
     {
       "id": "MC2-17",
@@ -865,33 +848,50 @@
       "title": "prepared resource 기반 효과 병렬",
       "priority": "P3",
       "wave": "WX",
-      "status": "pending",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-18a",
           "completion": "prepared resource claim·physical path/MCP identity·conflict matrix",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-effect-batches.md",
+            "engine-phase-two-effect-batches.verification.json",
+            "engine-phase-two-client-command-effects-verification.json"
+          ]
         },
         {
           "id": "MC2-18b",
           "completion": "lock/lease epoch·parent budget reservation·직렬 fallback coordinator",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-effect-batches.md",
+            "engine-phase-two-effect-batches.verification.json",
+            "engine-phase-two-client-command-effects-verification.json"
+          ]
         },
         {
           "id": "MC2-18c",
           "completion": "effect receipt와 per-member cancel/cleanup·partial batch 결과",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-effect-batches.md",
+            "engine-phase-two-effect-batches.verification.json",
+            "engine-phase-two-client-command-effects-verification.json"
+          ]
         },
         {
           "id": "MC2-18d",
           "completion": "교차 파일 rename/symlink·동일 resource 다른 tool·한 member crash/cancel·lock loss·receipt 미기록 검사. 성능 향상은 별도 benchmark 이후에만 주장",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-effect-batches.md",
+            "engine-phase-two-effect-batches.verification.json",
+            "engine-phase-two-client-command-effects-verification.json"
+          ]
         }
-      ]
+      ],
+      "notes": "Actual same-Turn original resource claims reserve all member budgets/approval/source before disjoint existing-file patch effects overlap under one group physical lease. Per-member native Tool/Part/checkpoints/artifact shares/cleanup preserve partial outcomes; current source/profile/catalogue, lock loss, receipt/SQL fault, five SIGKILL boundaries and paused import were checked. Conflict and unsupported producers remain serial; no benchmark-derived throughput claim."
     },
     {
       "id": "MC2-19",
@@ -998,5 +998,5 @@
       "notes": "Complete original preview, fair up-front fixed reservations, actual isolated editor/validator/reviewer workflow children, strict native success, separate approved selection/merge, atomic result input and real subsequent consumer are integrated. Partial/cancel/unknown/skip-resume/SQL/SIGKILL/export/source/import checks pass. Native histories use existing DB23 bounded documents/events; host fixed per-request accounting is distinguished from external invoice and unknown usage remains unknown."
     }
   ],
-  "updatedAt": "2026-10-08T11:18:20.474098+00:00"
+  "updatedAt": "2026-10-08T12:29:14.013929+00:00"
 }

@@ -136,7 +136,17 @@ export function captureToolRecoveryFrontiers(native: NativeSessionStorage, optio
           if (receipt.transportCleanupConfirmed === true && (receipt.state === 'not-dispatched' || receipt.state === 'response-terminal')) continue;
         }
         if (turn.state === 'uncertain') continue; // Preserve its existing independent blocker.
-        if (turn.state !== 'awaiting_tools' || attempt.state !== 'completed' || part.state !== 'open') fail('UNSETTLED_OWNER','Unresolved running tools require an active awaiting-tools owner; terminal states cannot be rewritten');
+        // ACP client effects execute while their genuine provider Attempt is open.
+        // These two independent native anchors identify that exact exception;
+        // a generic streaming proposal alone cannot establish callback ownership.
+        let sameAttemptClientEffect=false;
+        if(turn.state==='streaming'&&['dispatched','streaming'].includes(attempt.state)&&attempt.providerId.startsWith('acp:')&&part.state==='open'){
+          const anchors=(type:string)=>{const headers=db.prepare("SELECT seq,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND run_id=? AND turn_id=? AND attempt_id=? AND type=? LIMIT 129").all(run.sessionId,run.id,turn.id,attempt.id,type);if(headers.length>128)fail('LIMIT','Client effect source anchors exceed the bounded capture');return headers.map(header=>{bytes(header.bytes);const raw=db.prepare('SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?').get(run.sessionId,Number(header.seq),Number(header.bytes));if(!raw)fail('SOURCE_CHANGED','Original client effect anchor changed');return JSON.parse(String(raw.data)).payload as JsonObject;});};
+          const proposed=anchors('backend.client_effect_proposed').some(value=>value.toolCallId===tool.id&&value.providerToolCallId===part.providerCallId&&(value.effectMethod==='terminal/create'||value.effectMethod==='fs/write_text_file'));
+          const dispatched=anchors('backend.client_effect_dispatched').some(value=>value.toolCallId===tool.id&&value.providerToolCallId===part.providerCallId&&value.inputSha256===digest(tool.input));
+          sameAttemptClientEffect=proposed&&dispatched;
+        }
+        if ((!sameAttemptClientEffect&&(turn.state !== 'awaiting_tools' || attempt.state !== 'completed')) || part.state !== 'open') fail('UNSETTLED_OWNER','Unresolved running tools require an active awaiting-tools owner; terminal states cannot be rewritten');
         const frontier: ToolRecoveryFrontier = {schemaVersion:1,scope:'native-running-tool-intent',sessionId:run.sessionId,workspaceId:run.workspaceId,runId:run.id,turnId:turn.id,attemptId:attempt.id,toolCallId:tool.id,toolName:tool.name,proposalPartId:part.id,providerId:attempt.providerId,modelId:attempt.modelId,
           ...(attempt.contextRevisionId ? {contextRevisionId:attempt.contextRevisionId} : {}),originalToolOrdinal:cursor,originalToolState:'running',toolRecordSha256:digest(tool),proposalSha256:digest(Object.fromEntries(Object.entries(part).filter(([key])=>!['state','revision','completedAt','result'].includes(key)))),turnRecordSha256:digest(turn),attemptRecordSha256:digest(attempt),capturedAt:new Date().toISOString(),effectOutcome:'unknown',callbackEntry:'unverified'};
         const payload = {frontier:JSON.parse(JSON.stringify(frontier)) as JsonObject};

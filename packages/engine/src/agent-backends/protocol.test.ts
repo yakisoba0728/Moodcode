@@ -107,7 +107,7 @@ test("negotiation is a protocol intersection requiring explicit local read suppo
     fails("ACP_AUTH_UNSUPPORTED"),
   );
 });
-test("write/terminal/MCP/load and unsupported content are typed before any effect port", () => {
+test("malformed effect inputs and unsupported MCP/load/content are rejected before any effect port", () => {
   for (const method of [
     "fs/write_text_file",
     "terminal/create",
@@ -115,7 +115,7 @@ test("write/terminal/MCP/load and unsupported content are typed before any effec
   ])
     assert.throws(
       () => validateAcpV1Request(method, {}),
-      fails("ACP_EFFECT_UNSUPPORTED"),
+      fails("INVALID_AGENT_BACKEND"),
     );
   assert.throws(
     () => validateAcpV1Request("session/load", {}),
@@ -129,16 +129,15 @@ test("write/terminal/MCP/load and unsupported content are typed before any effec
       }),
     fails("ACP_MCP_UNSUPPORTED"),
   );
-  assert.throws(
-    () =>
-      validateAcpV1InitializeParams({
-        protocolVersion: 1,
-        clientCapabilities: {
-          fs: { readTextFile: true, writeTextFile: true },
-          terminal: false,
-        },
-      }),
-    fails("ACP_EFFECT_UNSUPPORTED"),
+  assert.equal(
+    validateAcpV1InitializeParams({
+      protocolVersion: 1,
+      clientCapabilities: {
+        fs: { readTextFile: true, writeTextFile: true },
+        terminal: true,
+      },
+    }).clientCapabilities.terminal,
+    true,
   );
   assert.throws(
     () =>
@@ -355,4 +354,90 @@ test("read responses and streamed text have explicit byte bounds and every suppo
       }),
     fails("AGENT_BACKEND_LIMIT"),
   );
+});
+
+test("bounded effect DTOs describe exact work but cannot infer permission or terminal completion", () => {
+  const write = {
+    sessionId: "peer",
+    path: "/workspace/test.txt",
+    content: "exact content",
+  };
+  assert.deepEqual(validateAcpV1Request("fs/write_text_file", write), write);
+  const terminal = {
+    sessionId: "peer",
+    command: "echo",
+    args: ["literal argv"],
+    cwd: "/workspace",
+    outputByteLimit: 8192,
+  };
+  assert.deepEqual(validateAcpV1Request("terminal/create", terminal), terminal);
+  assert.throws(
+    () =>
+      validateAcpV1Request("terminal/create", {
+        ...terminal,
+        env: [{ name: "TOKEN", value: "untrusted" }],
+      }),
+    fails("ACP_ENV_UNSUPPORTED"),
+  );
+  assert.throws(
+    () =>
+      validateAcpV1Request("fs/write_text_file", {
+        ...write,
+        content: "x".repeat(16385),
+      }),
+    fails("AGENT_BACKEND_LIMIT"),
+  );
+  const permission = {
+    sessionId: "peer",
+    toolCall: {
+      toolCallId: "remote",
+      name: "informational",
+      rawInput: { method: "fs/write_text_file", params: write },
+    },
+    options: [{ optionId: "once", name: "allow", kind: "allow_once" }],
+  };
+  assert.deepEqual(
+    validateAcpV1Request("session/request_permission", permission),
+    permission,
+  );
+  assert.throws(
+    () =>
+      validateAcpV1Request("session/request_permission", {
+        ...permission,
+        toolCall: { toolCallId: "remote", name: "apply_patch" },
+      }),
+    fails("INVALID_AGENT_BACKEND"),
+  );
+  assert.deepEqual(
+    validateAcpV1Result("terminal/output", {
+      output: "partial",
+      truncated: false,
+    }),
+    { output: "partial", truncated: false },
+  );
+  assert.deepEqual(
+    validateAcpV1Result("terminal/create", { terminalId: "original-handle" }),
+    { terminalId: "original-handle" },
+  );
+  assert.throws(
+    () =>
+      validateAcpV1Result("terminal/create", {
+        terminalId: "original-handle",
+        cleanupConfirmed: true,
+      }),
+    fails("INVALID_AGENT_BACKEND"),
+  );
+  assert.throws(
+    () =>
+      validateAcpV1Result("session/request_permission", {
+        outcome: { outcome: "selected" },
+      }),
+    fails("INVALID_AGENT_BACKEND", "AGENT_BACKEND_LIMIT"),
+  );
+  const caps = negotiateAcpV1Capabilities(
+    { protocolVersion: 1, agentCapabilities: {} },
+    { writeTextFile: true, terminal: true },
+  );
+  assert.equal(caps.writeTextFile, true);
+  assert.equal(caps.terminal, true);
 });

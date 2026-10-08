@@ -93,9 +93,9 @@ export interface AcpV1InitializeParams {
   readonly clientCapabilities: {
     readonly fs: {
       readonly readTextFile: boolean;
-      readonly writeTextFile: false;
+      readonly writeTextFile: boolean;
     };
-    readonly terminal: false;
+    readonly terminal: boolean;
   };
   readonly clientInfo?: AcpV1ImplementationInfo;
   readonly _meta?: JsonObject;
@@ -178,8 +178,38 @@ export interface AcpV1NegotiatedCapabilities {
   readonly contextOwner: "engine";
   readonly text: true;
   readonly readTextFile: boolean;
-  readonly writeTextFile: false;
-  readonly terminal: false;
+  readonly writeTextFile: boolean;
+  readonly terminal: boolean;
   readonly loadSession: false;
   readonly sha256: string;
+}
+
+export interface AcpV1WriteTextFileParams {
+  readonly sessionId: string;
+  readonly path: string;
+  readonly content: string;
+}
+export interface AcpV1TerminalCreateParams {
+  readonly sessionId: string;
+  readonly command: string;
+  readonly args?: readonly string[];
+  readonly cwd?: string;
+  readonly outputByteLimit?: number;
+  readonly env?: readonly [];
+}
+export interface AcpV1PermissionParams {
+  readonly sessionId: string;
+  readonly toolCall: {
+    readonly toolCallId: string;
+    readonly rawInput: {
+      readonly method: "fs/write_text_file" | "terminal/create";
+      readonly params: AcpV1WriteTextFileParams | AcpV1TerminalCreateParams;
+    };
+  };
+  readonly options: readonly {
+    readonly optionId: string;
+    readonly name: string;
+    readonly kind:
+      "allow_once" | "allow_always" | "reject_once" | "reject_always";
+  }[];
 }

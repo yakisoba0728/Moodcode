@@ -1,3 +1,4 @@
+import { readOwnedCommandJob } from "../jobs/owned-command-records.js";
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { relative, isAbsolute, sep } from "node:path";
@@ -26,6 +27,8 @@ import type {
 import type {
   BackendClientReadInput,
   BackendClientReadProof,
+  BackendClientEffectInput,
+  BackendClientPermissionProof,
 } from "./client-effects.js";
 import {
   assertBackendTransition,
@@ -38,7 +41,12 @@ import { validateAgentBackendSpec } from "./validation.js";
 import {
   validateAcpV1Message,
   validateAcpV1Result,
+  negotiateAcpV1Capabilities,
+  validateAcpV1Request,
   validateAcpV1ReadTextFileParams,
+  validateAcpV1WriteTextFileParams,
+  validateAcpV1TerminalCreateParams,
+  validateAcpV1PermissionParams,
 } from "./protocol.js";
 export type {
   BackendConnectionProof,
@@ -94,6 +102,7 @@ export interface AgentBackendStoragePorts extends ActualBackendTurnPort {
   readPeerObservation(original: object): BackendPeerObservationProof;
   readWrite(original: object): BackendWriteProof;
   readClientEffect(original: object): BackendClientReadProof;
+  readClientPermission?(original: object): BackendClientPermissionProof;
   readDisposal(original: object): BackendDisposalProof;
   readonly now?: () => number;
 }
@@ -129,6 +138,7 @@ export interface BackendConnectionRevision extends BackendRevisionBase {
   readonly observation: BackendPeerObservationProof | null;
   readonly disposal: BackendDisposalProof | null;
   readonly errorCode: string | null;
+  readonly capabilities?: import("./types.js").AcpV1NegotiatedCapabilities;
 }
 export interface BackendRemoteRequest extends BackendRevisionBase {
   readonly kind: "request";
@@ -144,6 +154,7 @@ export interface BackendRemoteRequest extends BackendRevisionBase {
   readonly wireSha256: string;
   readonly dispatch: BackendWriteProof | null;
   readonly terminal: BackendPeerObservationProof | null;
+  readonly cancellation?: { message: AcpV1Message; write: BackendWriteProof };
   readonly errorCode: string | null;
 }
 export interface BackendClientEffectRevision extends BackendRevisionBase {
@@ -154,10 +165,18 @@ export interface BackendClientEffectRevision extends BackendRevisionBase {
   readonly epoch: string;
   readonly owner: BackendTurnProof;
   readonly rpcId: AcpV1Id;
-  readonly input: BackendClientReadInput;
+  readonly input: BackendClientReadInput | BackendClientEffectInput;
   readonly state: BackendEffectState;
   readonly frame: BackendPeerObservationProof;
   readonly completion: BackendClientReadProof | null;
+  readonly permission?: BackendClientPermissionProof | null;
+  readonly permissionDelivery?: BackendWriteProof | null;
+  readonly executionFrame?: BackendPeerObservationProof;
+  readonly controls?: readonly {
+    frame: BackendPeerObservationProof;
+    write: BackendWriteProof;
+    message: AcpV1Message;
+  }[];
   readonly delivery: BackendWriteProof | null;
   readonly errorCode: string | null;
 }
@@ -219,7 +238,7 @@ export interface ObserveBackendConnectionInput extends BackendMutationInput {
 export interface PrepareBackendClientReadInput extends BackendMutationInput {
   readonly effectId: string;
   readonly remoteRequestId: string;
-  readonly input: BackendClientReadInput;
+  readonly input: BackendClientReadInput | BackendClientEffectInput;
 }
 export interface MutateBackendClientEffectInput extends BackendMutationInput {
   readonly effectId: string;
@@ -986,6 +1005,105 @@ export class AgentBackendStorage {
       });
     });
   }
+  negotiateCapabilities(
+    originalTurn: object,
+    originalFrame: object,
+    input: DisposeBackendConnectionInput,
+  ): BackendRequestResult<BackendConnectionRevision> {
+    const x = this.input(input, ["connectionId"]);
+    return this.ports.writeTx(() => {
+      const d = this.duplicate<BackendConnectionRevision>(
+        x.workspaceId,
+        "connection",
+        x.connectionId,
+        "negotiate",
+        x,
+      );
+      if (d) return d;
+      const before = this.required(
+        this.getConnection(x.workspaceId, x.connectionId),
+      );
+      if (before.state !== "initialized" || before.capabilities)
+        fail("BACKEND_CONNECTION_STALE");
+      const owner = this.owner(originalTurn, "dispatch");
+      if (owner.sha256 !== before.proof.ownerSha256)
+        fail("BACKEND_OWNER_INVALID");
+      const frame = this.frame(originalFrame, before);
+      if (
+        frame.sha256 !== before.observation?.sha256 ||
+        !("result" in frame.message)
+      )
+        fail("BACKEND_FRAME_NOT_RECORDED");
+      const request = originalTurn as import("../ports.js").TurnRequest;
+      const effects = before.proof.executionMode === "engine-client-effects";
+      const capabilities = negotiateAcpV1Capabilities(frame.message.result, {
+        readTextFile: request.tools.some((t) => t.name === "read_file"),
+        writeTextFile:
+          effects && request.tools.some((t) => t.name === "apply_patch"),
+        terminal:
+          effects &&
+          before.proof.clientCapabilities?.terminal === true &&
+          request.tools.some((t) => t.name === "run_command"),
+      });
+      return this.append("connection", x.connectionId, "negotiate", x, before, {
+        ...bodyOf(before),
+        capabilities,
+      });
+    });
+  }
+  recordRequestCancel(
+    originalWrite: object,
+    input: MutateBackendRequestInput & { message: AcpV1Message },
+  ): BackendRequestResult<BackendRemoteRequest> {
+    const x = this.input(input, ["remoteRequestId", "message"]);
+    return this.ports.writeTx(() => {
+      const d = this.duplicate<BackendRemoteRequest>(
+        x.workspaceId,
+        "request",
+        x.remoteRequestId,
+        "cancel-wire",
+        x,
+      );
+      if (d) return d;
+      const before = this.required(
+        this.getRequest(x.workspaceId, x.remoteRequestId),
+      );
+      if (
+        before.cancellation ||
+        ["completed", "failed", "cancelled", "paused-import"].includes(
+          before.state,
+        )
+      )
+        fail("BACKEND_REQUEST_STALE");
+      const message = validateAcpV1Message(x.message);
+      if (
+        !("method" in message) ||
+        message.method !== "session/cancel" ||
+        (
+          validateAcpV1Request(message.method, message.params) as {
+            sessionId: string;
+          }
+        ).sessionId !== before.remoteSessionId
+      )
+        fail("BACKEND_REMOTE_SESSION_INVALID");
+      const write = digest(this.ports.readWrite(originalWrite));
+      this.writeMatches(
+        write,
+        before.connectionId,
+        before.epoch,
+        x.workspaceId,
+        knowledgeHash(message),
+      );
+      return this.append(
+        "request",
+        x.remoteRequestId,
+        "cancel-wire",
+        x,
+        before,
+        { ...bodyOf(before), cancellation: { message, write } },
+      );
+    });
+  }
   prepareClientRead(
     originalTurn: object,
     originalFrame: object,
@@ -1011,27 +1129,24 @@ export class AgentBackendStorage {
         frame = this.frame(originalFrame, c);
       if (c.observation?.sha256 !== frame.sha256)
         fail("BACKEND_FRAME_NOT_RECORDED");
+      validateEffectInput(frame.message, x.input, r.remoteSessionId);
       if (
-        !("method" in frame.message) ||
-        frame.message.method !== "fs/read_text_file" ||
-        !("id" in frame.message) ||
-        !frame.message.params ||
-        frame.message.params.sessionId !== r.remoteSessionId
+        "method" in x.input &&
+        (c.proof.executionMode !== "engine-client-effects" ||
+          (x.input.method === "fs/write_text_file"
+            ? c.capabilities?.writeTextFile !== true
+            : c.capabilities?.terminal !== true))
       )
         fail("ACP_EFFECT_UNSUPPORTED");
-      const params = frame.message.params;
-      if (
-        params.path !== x.input.path ||
-        (params.line ?? undefined) !== x.input.line ||
-        (params.limit ?? undefined) !== x.input.limit
-      )
-        fail("BACKEND_EFFECT_INPUT_INVALID");
+      if (!("method" in frame.message) || !("id" in frame.message))
+        fail("ACP_EFFECT_UNSUPPORTED");
       id(x.input.callId);
       for (const old of this.inspectClientEffects(x.workspaceId))
         if (
           old.connectionId === r.connectionId &&
           old.epoch === r.epoch &&
-          old.rpcId === frame.message.id
+          (old.rpcId === frame.message.id ||
+            old.executionFrame?.wireId === frame.message.id)
         )
           fail("BACKEND_EFFECT_ALREADY_BOUND");
       return this.append(
@@ -1053,6 +1168,9 @@ export class AgentBackendStorage {
           completion: null,
           delivery: null,
           errorCode: null,
+          ...("method" in x.input
+            ? { permission: null, permissionDelivery: null }
+            : {}),
         },
       );
     });
@@ -1087,8 +1205,267 @@ export class AgentBackendStorage {
           state: p.state,
           completion: p,
           errorCode: p.errorCode,
+          ...(before.permission?.allowed === false
+            ? { delivery: before.permissionDelivery }
+            : {}),
         },
       );
+    });
+  }
+  bindApprovedClientEffect(
+    originalTurn: object,
+    originalFrame: object,
+    input: MutateBackendClientEffectInput & { input: BackendClientEffectInput },
+  ): BackendRequestResult<BackendClientEffectRevision> {
+    const x = this.input(input, ["effectId", "input"]);
+    return this.ports.writeTx(() => {
+      const d = this.duplicate<BackendClientEffectRevision>(
+        x.workspaceId,
+        "client-effect",
+        x.effectId,
+        "bind-effect",
+        x,
+      );
+      if (d) return d;
+      const before = this.required(
+        this.getClientEffect(x.workspaceId, x.effectId),
+      );
+      if (
+        before.state !== "prepared" ||
+        !before.permission?.allowed ||
+        !before.permissionDelivery ||
+        before.executionFrame
+      )
+        fail("BACKEND_EFFECT_STALE");
+      const owner = this.owner(originalTurn, "dispatch");
+      if (owner.sha256 !== before.owner.sha256) fail("BACKEND_OWNER_INVALID");
+      const request = this.required(
+          this.getRequest(x.workspaceId, before.remoteRequestId),
+        ),
+        connection = this.liveConnection(request),
+        frame = this.frame(originalFrame, connection);
+      if (
+        connection.observation?.sha256 !== frame.sha256 ||
+        !("method" in frame.message) ||
+        frame.message.method === "session/request_permission"
+      )
+        fail("BACKEND_EFFECT_STALE");
+      validateEffectInput(frame.message, x.input, request.remoteSessionId);
+      if (knowledgeHash(x.input) !== knowledgeHash(before.input))
+        fail("BACKEND_EFFECT_INPUT_INVALID");
+      for (const other of this.inspectClientEffects(x.workspaceId))
+        if (
+          other.effectId !== before.effectId &&
+          other.connectionId === before.connectionId &&
+          other.epoch === before.epoch &&
+          (other.rpcId === frame.wireId ||
+            other.executionFrame?.wireId === frame.wireId)
+        )
+          fail("BACKEND_EFFECT_ALREADY_BOUND");
+      return this.append(
+        "client-effect",
+        x.effectId,
+        "bind-effect",
+        x,
+        before,
+        { ...bodyOf(before), executionFrame: frame },
+      );
+    });
+  }
+  recordTerminalControl(
+    originalTurn: object,
+    originalFrame: object,
+    originalWrite: object,
+    input: DeliverBackendClientEffectInput,
+  ): BackendRequestResult<BackendClientEffectRevision> {
+    const x = this.input(input, ["effectId", "message"]);
+    return this.ports.writeTx(() => {
+      const d = this.duplicate<BackendClientEffectRevision>(
+        x.workspaceId,
+        "client-effect",
+        x.effectId,
+        "terminal-control",
+        x,
+      );
+      if (d) return d;
+      const before = this.required(
+        this.getClientEffect(x.workspaceId, x.effectId),
+      );
+      if (
+        !("method" in before.input) ||
+        before.input.method !== "terminal/create" ||
+        (before.completion && !before.completion.cleanupConfirmed) ||
+        (before.controls?.length ?? 0) >= 32
+      )
+        fail("BACKEND_TERMINAL_STALE");
+      if (this.owner(originalTurn, "dispatch").sha256 !== before.owner.sha256)
+        fail("BACKEND_OWNER_INVALID");
+      const parent = this.required(
+          this.getRequest(x.workspaceId, before.remoteRequestId),
+        ),
+        connection = this.liveConnection(parent),
+        frame = this.frame(originalFrame, connection);
+      if (frame.receiveOrdinal > connection.receiveOrdinal)
+        fail("BACKEND_FRAME_NOT_RECORDED");
+      const write = digest(this.ports.readWrite(originalWrite));
+      this.writeMatches(
+        write,
+        before.connectionId,
+        before.epoch,
+        x.workspaceId,
+        knowledgeHash(x.message),
+      );
+      validateTerminalControl(
+        before,
+        { frame, write, message: x.message },
+        parent.remoteSessionId,
+      );
+      validateTerminalOutputSql(this.db, before, {
+        frame,
+        write,
+        message: x.message,
+      });
+      if (before.controls?.some((c) => c.frame.wireId === frame.wireId))
+        fail("BACKEND_EFFECT_ALREADY_BOUND");
+      return this.append(
+        "client-effect",
+        x.effectId,
+        "terminal-control",
+        x,
+        before,
+        {
+          ...bodyOf(before),
+          controls: [
+            ...(before.controls ?? []),
+            { frame, write, message: x.message },
+          ],
+        },
+      );
+    });
+  }
+  markClientEffectUncertain(
+    input: MutateBackendClientEffectInput & { errorCode: string },
+  ): BackendRequestResult<BackendClientEffectRevision> {
+    const x = this.input(input, ["effectId", "errorCode"]);
+    return this.ports.writeTx(() => {
+      const d = this.duplicate<BackendClientEffectRevision>(
+        x.workspaceId,
+        "client-effect",
+        x.effectId,
+        "uncertain",
+        x,
+      );
+      if (d) return d;
+      const before = this.required(
+        this.getClientEffect(x.workspaceId, x.effectId),
+      );
+      return this.append("client-effect", x.effectId, "uncertain", x, before, {
+        ...bodyOf(before),
+        state: "uncertain",
+        errorCode: id(x.errorCode),
+      });
+    });
+  }
+  recordClientPermission(
+    originalPermission: object,
+    originalWrite: object,
+    input: MutateBackendClientEffectInput & { message: AcpV1Message },
+  ): BackendRequestResult<BackendClientEffectRevision> {
+    const x = this.input(input, ["effectId", "message"]);
+    return this.ports.writeTx(() => {
+      const d = this.duplicate<BackendClientEffectRevision>(
+        x.workspaceId,
+        "client-effect",
+        x.effectId,
+        "permission",
+        x,
+      );
+      if (d) return d;
+      const before = this.required(
+        this.getClientEffect(x.workspaceId, x.effectId),
+      );
+      if (
+        before.state !== "prepared" ||
+        before.permission ||
+        !("method" in before.frame.message) ||
+        before.frame.message.method !== "session/request_permission" ||
+        !this.ports.readClientPermission
+      )
+        fail("BACKEND_EFFECT_STALE");
+      const permission = digest(
+        this.ports.readClientPermission(originalPermission),
+      );
+      validatePermissionSql(this.db, before, permission);
+      const write = digest(this.ports.readWrite(originalWrite));
+      this.writeMatches(
+        write,
+        before.connectionId,
+        before.epoch,
+        x.workspaceId,
+        knowledgeHash(x.message),
+      );
+      validatePermissionResponse(before, permission, x.message);
+      return this.append("client-effect", x.effectId, "permission", x, before, {
+        ...bodyOf(before),
+        permission,
+        permissionDelivery: write,
+      });
+    });
+  }
+  recordClientAcknowledgement(
+    originalWrite: object,
+    input: DeliverBackendClientEffectInput,
+  ): BackendRequestResult<BackendClientEffectRevision> {
+    const x = this.input(input, ["effectId", "message"]);
+    return this.ports.writeTx(() => {
+      const d = this.duplicate<BackendClientEffectRevision>(
+        x.workspaceId,
+        "client-effect",
+        x.effectId,
+        "effect-ack",
+        x,
+      );
+      if (d) return d;
+      const before = this.required(
+        this.getClientEffect(x.workspaceId, x.effectId),
+      );
+      if (
+        before.state !== "prepared" ||
+        before.delivery ||
+        !("method" in before.input) ||
+        before.input.method !== "terminal/create"
+      )
+        fail("BACKEND_EFFECT_STALE");
+      const rows = nativePayloads(
+        this.db,
+        before.owner,
+        "backend.client_effect_dispatched",
+      );
+      if (!rows.some((p) => p.providerToolCallId === before.input.callId))
+        fail("BACKEND_EFFECT_STALE");
+      const message = x.message;
+      if (
+        !("id" in message) ||
+        message.id !== effectRpc(before) ||
+        !("result" in message) ||
+        !message.result ||
+        typeof message.result !== "object" ||
+        Array.isArray(message.result) ||
+        message.result.terminalId !== `terminal:${before.effectId}`
+      )
+        fail("BACKEND_DELIVERY_INVALID");
+      const write = digest(this.ports.readWrite(originalWrite));
+      this.writeMatches(
+        write,
+        before.connectionId,
+        before.epoch,
+        x.workspaceId,
+        knowledgeHash(message),
+      );
+      return this.append("client-effect", x.effectId, "effect-ack", x, before, {
+        ...bodyOf(before),
+        delivery: write,
+      });
     });
   }
   recordClientDelivery(
@@ -1118,21 +1495,9 @@ export class AgentBackendStorage {
         x.workspaceId,
         knowledgeHash(x.message),
       );
-      if (!("id" in x.message) || x.message.id !== before.rpcId)
+      if (!("id" in x.message) || x.message.id !== effectRpc(before))
         fail("BACKEND_DELIVERY_INVALID");
-      if (
-        before.completion?.content !== null &&
-        before.completion?.errorCode === null
-      ) {
-        if (
-          !("result" in x.message) ||
-          !x.message.result ||
-          typeof x.message.result !== "object" ||
-          Array.isArray(x.message.result) ||
-          (x.message.result as JsonObject).content !== before.completion.content
-        )
-          fail("BACKEND_DELIVERY_INVALID");
-      } else if (!("error" in x.message)) fail("BACKEND_DELIVERY_INVALID");
+      validateEffectResponse(before, x.message);
       return this.append("client-effect", x.effectId, "delivery", x, before, {
         ...bodyOf(before),
         delivery: p,
@@ -1343,6 +1708,7 @@ function readPrimary(
   db: DatabaseSync,
   table:
     | "runs"
+    | "checkpoints"
     | "workspaces"
     | "sessions"
     | "session_turns"
@@ -1427,6 +1793,310 @@ function validateTurnSql(db: DatabaseSync, p: BackendTurnProof): void {
   )
     fail("BACKEND_OWNER_INVALID");
 }
+function effectRpc(e: BackendClientEffectRevision): AcpV1Id {
+  return (e.executionFrame?.wireId as AcpV1Id) ?? e.rpcId;
+}
+function validateTerminalOutputSql(
+  db: DatabaseSync,
+  e: BackendClientEffectRevision,
+  control: {
+    frame: BackendPeerObservationProof;
+    write: BackendWriteProof;
+    message: AcpV1Message;
+  },
+): void {
+  const wire = control.frame.message;
+  if (!("method" in wire) || wire.method !== "terminal/output") return;
+  const message = control.message;
+  if (
+    !("result" in message) ||
+    !message.result ||
+    typeof message.result !== "object" ||
+    Array.isArray(message.result)
+  )
+    fail("BACKEND_DELIVERY_INVALID");
+  const result = message.result;
+  const body = { output: result.output, truncated: result.truncated };
+  if (
+    !nativePayloads(db, e.owner, "backend.terminal_output_observed").some(
+      (value) =>
+        value.providerToolCallId === e.input.callId &&
+        knowledgeHash(value.output) === knowledgeHash(body),
+    )
+  )
+    fail("BACKEND_DELIVERY_INVALID");
+  if (result.exitStatus !== undefined) {
+    const data = e.completion?.result as JsonObject | null;
+    if (
+      !e.completion ||
+      knowledgeHash(result.exitStatus) !==
+        knowledgeHash({
+          exitCode: data?.exitCode ?? null,
+          signal: data?.signal ?? null,
+        })
+    )
+      fail("BACKEND_DELIVERY_INVALID");
+  }
+}
+function validateTerminalControl(
+  e: BackendClientEffectRevision,
+  control: {
+    frame: BackendPeerObservationProof;
+    write: BackendWriteProof;
+    message: AcpV1Message;
+  },
+  session: string,
+): void {
+  digest(control.frame);
+  digest(control.write);
+  const wire = control.frame.message,
+    message = control.message;
+  if (
+    !("method" in wire) ||
+    !("id" in wire) ||
+    ![
+      "terminal/output",
+      "terminal/wait_for_exit",
+      "terminal/kill",
+      "terminal/release",
+    ].includes(wire.method) ||
+    !("id" in message) ||
+    message.id !== wire.id ||
+    !("result" in message) ||
+    control.frame.connectionId !== e.connectionId ||
+    control.frame.epoch !== e.epoch ||
+    control.write.connectionId !== e.connectionId ||
+    control.write.epoch !== e.epoch ||
+    control.write.frameSha256 !== knowledgeHash(message)
+  )
+    fail("BACKEND_DELIVERY_INVALID");
+  const p = validateAcpV1Request(wire.method, wire.params) as {
+    terminalId: string;
+    sessionId: string;
+  };
+  if (
+    p.terminalId !== `terminal:${e.effectId}` ||
+    p.sessionId !== session ||
+    (wire.method !== "terminal/output" && !e.completion?.cleanupConfirmed)
+  )
+    fail("BACKEND_TERMINAL_STALE");
+  const data = e.completion?.result as JsonObject | null;
+  if (
+    wire.method === "terminal/wait_for_exit" &&
+    knowledgeHash(message.result) !==
+      knowledgeHash({
+        exitCode: data?.exitCode ?? null,
+        signal: data?.signal ?? null,
+      })
+  )
+    fail("BACKEND_DELIVERY_INVALID");
+  if (
+    ["terminal/kill", "terminal/release"].includes(wire.method) &&
+    knowledgeHash(message.result) !== knowledgeHash({})
+  )
+    fail("BACKEND_DELIVERY_INVALID");
+}
+function effectTool(
+  input: BackendClientReadInput | BackendClientEffectInput,
+): string {
+  return !("method" in input)
+    ? "read_file"
+    : input.method === "fs/write_text_file"
+      ? "apply_patch"
+      : "run_command";
+}
+function validateEffectInput(
+  message: AcpV1Message,
+  input: BackendClientReadInput | BackendClientEffectInput,
+  session: string,
+): void {
+  if (!("method" in message) || !("id" in message))
+    fail("ACP_EFFECT_UNSUPPORTED");
+  let method = message.method,
+    params = message.params as JsonObject;
+  if (method === "session/request_permission") {
+    const request = validateAcpV1PermissionParams(params);
+    method = request.toolCall.rawInput.method;
+    params = request.toolCall.rawInput.params as unknown as JsonObject;
+  }
+  if (params?.sessionId !== session) fail("BACKEND_REMOTE_SESSION_INVALID");
+  if (!("method" in input)) {
+    const p = validateAcpV1ReadTextFileParams(params);
+    if (
+      method !== "fs/read_text_file" ||
+      p.path !== input.path ||
+      (p.line ?? undefined) !== input.line ||
+      (p.limit ?? undefined) !== input.limit
+    )
+      fail("BACKEND_EFFECT_INPUT_INVALID");
+  } else if (input.method === "fs/write_text_file") {
+    const p = validateAcpV1WriteTextFileParams(params);
+    if (
+      method !== input.method ||
+      p.path !== input.path ||
+      p.content !== input.content
+    )
+      fail("BACKEND_EFFECT_INPUT_INVALID");
+  } else {
+    const p = validateAcpV1TerminalCreateParams(params);
+    if (
+      method !== input.method ||
+      p.command !== input.command ||
+      knowledgeHash(p.args ?? []) !== knowledgeHash(input.args) ||
+      (p.cwd !== undefined && p.cwd !== input.cwd) ||
+      (p.outputByteLimit ?? 16384) !== input.outputByteLimit
+    )
+      fail("BACKEND_EFFECT_INPUT_INVALID");
+  }
+}
+function nativePayloads(
+  db: DatabaseSync,
+  owner: BackendTurnProof,
+  type: string,
+): JsonObject[] {
+  const heads = db
+    .prepare(
+      "SELECT seq,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND run_id=? AND turn_id=? AND attempt_id=? AND type=? LIMIT 513",
+    )
+    .all(owner.sessionId, owner.runId, owner.turnId, owner.attemptId, type);
+  if (heads.length > 512) fail("BACKEND_LIMIT");
+  return heads.map((h) => {
+    if (Number(h.bytes) > 65536) fail("BACKEND_LIMIT");
+    const row = db
+      .prepare(
+        "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
+      )
+      .get(owner.sessionId, Number(h.seq), Number(h.bytes));
+    if (!row) fail();
+    return JSON.parse(String(row.data)).payload as JsonObject;
+  });
+}
+function validatePermissionSql(
+  db: DatabaseSync,
+  e: BackendClientEffectRevision,
+  p: BackendClientPermissionProof,
+): void {
+  digest(p);
+  for (const key of [
+    "workspaceId",
+    "sessionId",
+    "runId",
+    "turnId",
+    "attemptId",
+  ] as const)
+    if (p[key] !== e.owner[key]) fail("BACKEND_EFFECT_OWNER_INVALID");
+  if (
+    p.providerToolCallId !== e.input.callId ||
+    !nativePayloads(db, e.owner, "backend.client_permission").some(
+      (value) => knowledgeHash(value.permission) === knowledgeHash(p),
+    )
+  )
+    fail("BACKEND_PERMISSION_INVALID");
+  if (
+    !nativePayloads(db, e.owner, "backend.client_effect_proposed").some(
+      (value) =>
+        value.toolCallId === p.toolCallId &&
+        value.providerToolCallId === e.input.callId &&
+        knowledgeHash(value.input) === knowledgeHash(e.input),
+    )
+  )
+    fail("BACKEND_PERMISSION_INVALID");
+  const tool = readPrimary(db, "tools", p.toolCallId);
+  if (
+    tool.name !== effectTool(e.input) ||
+    tool.sessionId !== p.sessionId ||
+    tool.runId !== p.runId ||
+    knowledgeHash(tool.input) !== p.inputSha256
+  )
+    fail("BACKEND_PERMISSION_INVALID");
+  if (p.allowed) {
+    if (!p.approvalId || !p.preparedFingerprint)
+      fail("BACKEND_PERMISSION_INVALID");
+    const approval = readPrimary(db, "approvals", p.approvalId);
+    if (
+      approval.status !== "allowed" ||
+      approval.toolCallId !== p.toolCallId ||
+      approval.fingerprint !== p.preparedFingerprint ||
+      approval.runId !== p.runId ||
+      approval.sessionId !== p.sessionId ||
+      approval.toolName !== tool.name
+    )
+      fail("BACKEND_PERMISSION_INVALID");
+  }
+}
+function validatePermissionResponse(
+  e: BackendClientEffectRevision,
+  p: BackendClientPermissionProof,
+  message: AcpV1Message,
+): void {
+  if (
+    !("id" in message) ||
+    message.id !== e.rpcId ||
+    !("result" in message) ||
+    !message.result ||
+    typeof message.result !== "object" ||
+    Array.isArray(message.result)
+  )
+    fail("BACKEND_DELIVERY_INVALID");
+  const request = validateAcpV1PermissionParams(
+      (e.frame.message as { params: unknown }).params,
+    ),
+    outcome = message.result.outcome;
+  if (!outcome || typeof outcome !== "object" || Array.isArray(outcome))
+    fail("BACKEND_DELIVERY_INVALID");
+  if (p.allowed) {
+    if (
+      outcome.outcome !== "selected" ||
+      !request.options.some(
+        (o) => o.kind === "allow_once" && o.optionId === outcome.optionId,
+      )
+    )
+      fail("BACKEND_DELIVERY_INVALID");
+  } else if (
+    outcome.outcome !== "cancelled" &&
+    !(
+      outcome.outcome === "selected" &&
+      request.options.some(
+        (o) => o.kind === "reject_once" && o.optionId === outcome.optionId,
+      )
+    )
+  )
+    fail("BACKEND_DELIVERY_INVALID");
+}
+function validateEffectResponse(
+  e: BackendClientEffectRevision,
+  message: AcpV1Message,
+): void {
+  if (!e.completion) fail("BACKEND_DELIVERY_INVALID");
+  const p = e.completion;
+  if (p.effectMethod) {
+    if (p.state === "completed" && p.errorCode === null && p.cleanupConfirmed) {
+      if (!("result" in message)) fail("BACKEND_DELIVERY_INVALID");
+      if (
+        p.effectMethod === "fs/write_text_file" &&
+        knowledgeHash(message.result) !== knowledgeHash({})
+      )
+        fail("BACKEND_DELIVERY_INVALID");
+      if (
+        p.effectMethod === "terminal/create" &&
+        (!message.result ||
+          typeof message.result !== "object" ||
+          Array.isArray(message.result) ||
+          message.result.terminalId !== `terminal:${e.effectId}`)
+      )
+        fail("BACKEND_DELIVERY_INVALID");
+    } else if (!("error" in message)) fail("BACKEND_DELIVERY_INVALID");
+  } else if (p.content !== null && p.errorCode === null) {
+    if (
+      !("result" in message) ||
+      !message.result ||
+      typeof message.result !== "object" ||
+      Array.isArray(message.result) ||
+      message.result.content !== p.content
+    )
+      fail("BACKEND_DELIVERY_INVALID");
+  } else if (!("error" in message)) fail("BACKEND_DELIVERY_INVALID");
+}
 function validateClientEffectSql(
   db: DatabaseSync,
   e: BackendClientEffectRevision,
@@ -1457,7 +2127,7 @@ function validateClientEffectSql(
     fail("BACKEND_EFFECT_INVALID");
   const tool = readPrimary(db, "tools", p.toolCallId, outputBudget * 6 + 65536);
   if (
-    tool.name !== "read_file" ||
+    tool.name !== effectTool(e.input) ||
     tool.sessionId !== p.sessionId ||
     tool.runId !== p.runId ||
     tool.state !== p.state ||
@@ -1469,26 +2139,146 @@ function validateClientEffectSql(
   )
     fail("BACKEND_EFFECT_INVALID");
   const workspace = readPrimary(db, "workspaces", p.workspaceId);
-  if (typeof workspace.root !== "string" || !isAbsolute(e.input.path))
-    fail("BACKEND_EFFECT_INPUT_INVALID");
-  const localPath = relative(workspace.root, e.input.path).split(sep).join("/");
-  if (
-    !localPath ||
-    localPath === ".." ||
-    localPath.startsWith("../") ||
-    isAbsolute(localPath)
-  )
-    fail("BACKEND_EFFECT_INPUT_INVALID");
-  const startLine = e.input.line ?? 1,
-    endLine =
-      e.input.limit === undefined ? undefined : startLine + e.input.limit - 1;
-  const expectedInput = {
-    path: localPath,
-    startLine,
-    ...(endLine === undefined ? {} : { endLine }),
-  };
-  if (knowledgeHash(tool.input) !== knowledgeHash(expectedInput))
-    fail("BACKEND_EFFECT_INPUT_INVALID");
+  if (typeof workspace.root !== "string") fail("BACKEND_EFFECT_INPUT_INVALID");
+  const toolInput = tool.input as JsonObject;
+  if ("method" in e.input) {
+    if (
+      !nativePayloads(db, e.owner, "backend.client_effect_proposed").some(
+        (value) =>
+          value.toolCallId === p.toolCallId &&
+          value.providerToolCallId === e.input.callId &&
+          knowledgeHash(value.input) === knowledgeHash(e.input),
+      )
+    )
+      fail("BACKEND_EFFECT_INPUT_INVALID");
+    if (p.effectMethod !== e.input.method) fail("BACKEND_EFFECT_INPUT_INVALID");
+    if (e.input.method === "fs/write_text_file") {
+      const local = relative(workspace.root, e.input.path).split(sep).join("/");
+      const changes = toolInput.changes;
+      if (
+        !local ||
+        local === ".." ||
+        local.startsWith("../") ||
+        !Array.isArray(changes) ||
+        changes.length !== 1 ||
+        !changes[0] ||
+        typeof changes[0] !== "object" ||
+        Array.isArray(changes[0]) ||
+        changes[0].path !== local ||
+        changes[0].content !== e.input.content
+      )
+        fail("BACKEND_EFFECT_INPUT_INVALID");
+    } else {
+      const quote = (arg: string) => "'" + arg.replaceAll("'", "'\\''") + "'";
+      const command = e.input.args.length
+        ? [e.input.command, ...e.input.args].map(quote).join(" ")
+        : e.input.command;
+      if (toolInput.command !== command || toolInput.cwd !== e.input.cwd)
+        fail("BACKEND_EFFECT_INPUT_INVALID");
+    }
+    if (
+      effectTool(e.input) === "run_command" &&
+      p.result &&
+      typeof p.result === "object" &&
+      !Array.isArray(p.result) &&
+      p.result.started === true
+    ) {
+      const job = readOwnedCommandJob(
+        db,
+        p.workspaceId,
+        `command-${knowledgeHash({ runId: p.runId, toolCallId: p.toolCallId }).slice(0, 32)}`,
+      );
+      if (
+        !job?.completion ||
+        job.source.toolCallId !== p.toolCallId ||
+        job.source.runId !== p.runId ||
+        job.completion.checkpoint.id !== p.checkpoint?.id
+      )
+        fail("BACKEND_EFFECT_CHECKPOINT_INVALID");
+      for (const key of [
+        "exitCode",
+        "signal",
+        "cancelled",
+        "timedOut",
+        "cleanupConfirmed",
+        "started",
+      ] as const)
+        if (
+          knowledgeHash(job.completion.outcome[key]) !==
+          knowledgeHash(p.result[key])
+        )
+          fail("BACKEND_EFFECT_COMPLETION_INVALID");
+    }
+    const completionEvents = nativePayloads(
+      db,
+      e.owner,
+      "backend.client_effect_closed",
+    );
+    if (
+      !completionEvents.some(
+        (value) => knowledgeHash(value.completion) === knowledgeHash(p),
+      )
+    )
+      fail("BACKEND_EFFECT_COMPLETION_INVALID");
+    const effectMethod = e.input.method;
+    if (
+      p.state === "completed" ||
+      (p.result &&
+        typeof p.result === "object" &&
+        !Array.isArray(p.result) &&
+        p.result.checkpointId)
+    ) {
+      const checkpoints = db
+        .prepare(
+          "SELECT id,length(CAST(data AS BLOB)) bytes FROM checkpoints WHERE run_id=? LIMIT 129",
+        )
+        .all(p.runId);
+      if (checkpoints.length > 128) fail("BACKEND_LIMIT");
+      const cpId =
+        p.checkpoint?.id ??
+        (p.result && typeof p.result === "object" && !Array.isArray(p.result)
+          ? p.result.checkpointId
+          : null);
+      if (
+        !cpId ||
+        !checkpoints.some((h) => {
+          const cp = readPrimary(db, "checkpoints", String(h.id), 8388608);
+          return (
+            cp.id === cpId &&
+            cp.runId === p.runId &&
+            cp.toolCallId === p.toolCallId &&
+            (!p.checkpoint || knowledgeHash(cp) === p.checkpoint.sha256) &&
+            cp.kind ===
+              (effectMethod === "terminal/create" ? "command" : "patch")
+          );
+        })
+      )
+        fail("BACKEND_EFFECT_CHECKPOINT_INVALID");
+    }
+  } else {
+    const localPath = relative(workspace.root, e.input.path)
+      .split(sep)
+      .join("/");
+    if (
+      !localPath ||
+      localPath === ".." ||
+      localPath.startsWith("../") ||
+      isAbsolute(localPath)
+    )
+      fail("BACKEND_EFFECT_INPUT_INVALID");
+    const startLine = e.input.line ?? 1,
+      endLine =
+        e.input.limit === undefined ? undefined : startLine + e.input.limit - 1;
+    if (
+      knowledgeHash(tool.input) !==
+      knowledgeHash({
+        path: localPath,
+        startLine,
+        ...(endLine === undefined ? {} : { endLine }),
+      })
+    )
+      fail("BACKEND_EFFECT_INPUT_INVALID");
+  }
   const parts = db
     .prepare(
       "SELECT id FROM message_parts WHERE turn_id=? AND run_id=? AND session_id=? LIMIT 257",
@@ -1502,7 +2292,7 @@ function validateClientEffectSql(
         part.type === "tool" &&
         part.toolCallId === p.toolCallId &&
         part.providerCallId === p.providerToolCallId &&
-        part.name === "read_file" &&
+        part.name === effectTool(e.input) &&
         ["completed", "failed", "interrupted"].includes(String(part.state))
       );
     })
@@ -1527,7 +2317,7 @@ function validateClientEffectSql(
       return (
         event.payload?.toolCallId === p.toolCallId &&
         event.payload?.providerToolCallId === p.providerToolCallId &&
-        event.payload?.toolName === "read_file" &&
+        event.payload?.toolName === effectTool(e.input) &&
         event.payload?.inputSha256 === p.inputSha256 &&
         event.payload?.preparedFingerprint === p.preparedFingerprint
       );
@@ -1538,18 +2328,22 @@ function validateClientEffectSql(
       .all(p.toolCallId);
     if (approvals.length > 16) fail("BACKEND_LIMIT");
     if (
-      approvals.length &&
+      (approvals.length || "method" in e.input) &&
       !approvals.some((a) => {
         const approval = readPrimary(db, "approvals", String(a.id));
         return (
           approval.status === "allowed" &&
+          approval.toolCallId === p.toolCallId &&
           approval.fingerprint === p.preparedFingerprint &&
           approval.sessionId === p.sessionId &&
           approval.runId === p.runId &&
-          approval.toolName === "read_file"
+          approval.toolName === effectTool(e.input)
         );
       }) &&
-      p.state === "completed"
+      (p.state === "completed" ||
+        ("method" in e.input &&
+          p.checkpoint !== undefined &&
+          p.checkpoint !== null))
     )
       fail("BACKEND_EFFECT_APPROVAL_INVALID");
   }
@@ -1609,8 +2403,20 @@ function validateBody(r: AgentBackendRecord): void {
       "observation",
       "disposal",
       "errorCode",
+      ...(r.capabilities ? ["capabilities"] : []),
     ]);
     digest(r.proof);
+    if (r.capabilities) {
+      digest(r.capabilities);
+      const negotiated = negotiateAcpV1Capabilities(
+        { protocolVersion: 1, agentCapabilities: {} },
+        r.proof.clientCapabilities ?? {
+          readTextFile: r.capabilities.readTextFile,
+        },
+      );
+      if (knowledgeHash(negotiated) !== knowledgeHash(r.capabilities))
+        fail("BACKEND_CAPABILITIES_INVALID");
+    }
     for (const key of [
       "backendId",
       "backendRevisionId",
@@ -1684,6 +2490,7 @@ function validateBody(r: AgentBackendRecord): void {
       "dispatch",
       "terminal",
       "errorCode",
+      ...(r.cancellation ? ["cancellation"] : []),
     ]);
     digest(r.owner);
     const wire = validateAcpV1Message(r.wireMessage);
@@ -1712,6 +2519,25 @@ function validateBody(r: AgentBackendRecord): void {
       ].includes(r.state)
     )
       fail();
+    if (r.cancellation) {
+      const cancel = validateAcpV1Message(r.cancellation.message);
+      digest(r.cancellation.write);
+      if (
+        !("method" in cancel) ||
+        "id" in cancel ||
+        cancel.method !== "session/cancel" ||
+        (
+          validateAcpV1Request(cancel.method, cancel.params) as {
+            sessionId: string;
+          }
+        ).sessionId !== r.remoteSessionId ||
+        r.cancellation.write.workspaceId !== r.workspaceId ||
+        r.cancellation.write.connectionId !== r.connectionId ||
+        r.cancellation.write.epoch !== r.epoch ||
+        r.cancellation.write.frameSha256 !== knowledgeHash(cancel)
+      )
+        fail("BACKEND_REMOTE_SESSION_INVALID");
+    }
     if (r.dispatch) {
       digest(r.dispatch);
       if (
@@ -1775,24 +2601,64 @@ function validateBody(r: AgentBackendRecord): void {
       "completion",
       "delivery",
       "errorCode",
+      ...(Object.hasOwn(r, "permission")
+        ? ["permission", "permissionDelivery"]
+        : []),
+      ...(r.executionFrame ? ["executionFrame"] : []),
+      ...(r.controls ? ["controls"] : []),
     ]);
     digest(r.owner);
     digest(r.frame);
     const frame = validateAcpV1Message(r.frame.message);
-    if (
-      !("method" in frame) ||
-      frame.method !== "fs/read_text_file" ||
-      !("id" in frame) ||
-      frame.id !== r.rpcId
-    )
+    if (!("method" in frame) || !("id" in frame) || frame.id !== r.rpcId)
       fail();
-    const params = validateAcpV1ReadTextFileParams(frame.params);
-    if (
-      params.path !== r.input.path ||
-      (params.line ?? undefined) !== r.input.line ||
-      (params.limit ?? undefined) !== r.input.limit
-    )
-      fail();
+    validateEffectInput(
+      frame,
+      r.input,
+      (frame.params as JsonObject)?.sessionId as string,
+    );
+    if (r.executionFrame) {
+      digest(r.executionFrame);
+      if (!r.permission?.allowed || !("method" in r.executionFrame.message))
+        fail();
+      validateEffectInput(
+        r.executionFrame.message,
+        r.input,
+        (frame.params as JsonObject)?.sessionId as string,
+      );
+    }
+    if (r.controls) {
+      if (r.controls.length > 32) fail();
+      const identities = new Set<string>();
+      let released = false;
+      for (const control of r.controls) {
+        const key = knowledgeHash([
+          typeof control.frame.wireId,
+          control.frame.wireId,
+        ]);
+        if (identities.has(key) || released) fail("BACKEND_TERMINAL_STALE");
+        identities.add(key);
+        validateTerminalControl(
+          r,
+          control,
+          (frame.params as JsonObject)?.sessionId as string,
+        );
+        released =
+          "method" in control.frame.message &&
+          control.frame.message.method === "terminal/release";
+      }
+    }
+    if (r.permission) {
+      digest(r.permission);
+      if (!r.permissionDelivery) fail();
+      digest(r.permissionDelivery);
+      if (
+        r.permissionDelivery.workspaceId !== r.workspaceId ||
+        r.permissionDelivery.connectionId !== r.connectionId ||
+        r.permissionDelivery.epoch !== r.epoch
+      )
+        fail();
+    }
     if (
       r.effectId !== r.entityId ||
       r.owner.workspaceId !== r.workspaceId ||
@@ -1827,7 +2693,8 @@ function validateBody(r: AgentBackendRecord): void {
     if (r.delivery) {
       digest(r.delivery);
       if (
-        !r.completion ||
+        (!r.completion &&
+          (!("method" in r.input) || r.input.method !== "terminal/create")) ||
         r.delivery.workspaceId !== r.workspaceId ||
         r.delivery.connectionId !== r.connectionId ||
         r.delivery.epoch !== r.epoch
@@ -1894,15 +2761,20 @@ function validateOwnerSql(db: DatabaseSync, r: AgentBackendRecord): void {
         p.backendRevisionId === r.backendRevisionId &&
         p.backendId === r.backendId &&
         p.backendSha256 === r.backendSha256 &&
-        p.launchSha256 === r.proof.launchSha256
+        p.launchSha256 === r.proof.launchSha256 &&
+        knowledgeHash(p.clientCapabilities ?? null) ===
+          knowledgeHash(r.proof.clientCapabilities ?? null) &&
+        (p.executionMode ?? null) === (r.proof.executionMode ?? null)
       );
     });
     if (!hasAdmission) fail("BACKEND_CONNECTION_OWNER_INVALID");
   }
   if (r.kind === "request" || r.kind === "client-effect") {
     validateTurnSql(db, r.owner);
-    if (r.kind === "client-effect" && r.completion)
-      validateClientEffectSql(db, r, r.completion);
+    if (r.kind === "client-effect") {
+      if (r.permission) validatePermissionSql(db, r, r.permission);
+      if (r.completion) validateClientEffectSql(db, r, r.completion);
+    }
   }
 }
 function validateTransition(
@@ -1937,31 +2809,95 @@ function validateTransition(
   const left = bodyOf(before) as Record<string, unknown>,
     right = bodyOf(after) as Record<string, unknown>;
   const mutable =
-    op === "register"
-      ? ["spec", "target", "enabled"]
-      : op === "disable" || (op === "pause-import" && before.kind === "backend")
-        ? ["enabled"]
-        : op === "observe"
-          ? ["state", "receiveOrdinal", "remoteSessionId", "observation"]
-          : op === "dispose"
-            ? ["state", "disposal", "errorCode"]
-            : op === "dispatch-intent"
-              ? ["state"]
-              : op === "dispatch"
-                ? ["state", "dispatch"]
-                : op === "settle"
-                  ? ["state", "terminal", "errorCode"]
-                  : op === "settle-read"
-                    ? ["state", "completion", "errorCode"]
-                    : op === "delivery"
-                      ? ["delivery"]
-                      : ["state", "errorCode"];
+    op === "negotiate"
+      ? ["capabilities"]
+      : op === "cancel-wire"
+        ? ["cancellation"]
+        : op === "register"
+          ? ["spec", "target", "enabled"]
+          : op === "disable" ||
+              (op === "pause-import" && before.kind === "backend")
+            ? ["enabled"]
+            : op === "observe"
+              ? ["state", "receiveOrdinal", "remoteSessionId", "observation"]
+              : op === "dispose"
+                ? ["state", "disposal", "errorCode"]
+                : op === "dispatch-intent"
+                  ? ["state"]
+                  : op === "dispatch"
+                    ? ["state", "dispatch"]
+                    : op === "settle"
+                      ? ["state", "terminal", "errorCode"]
+                      : op === "bind-effect"
+                        ? ["executionFrame"]
+                        : op === "terminal-control"
+                          ? ["controls"]
+                          : op === "permission"
+                            ? ["permission", "permissionDelivery"]
+                            : op === "settle-read"
+                              ? ["state", "completion", "errorCode", "delivery"]
+                              : op === "delivery" || op === "effect-ack"
+                                ? ["delivery"]
+                                : ["state", "errorCode"];
   for (const key of Object.keys(left))
     if (
       !mutable.includes(key) &&
       knowledgeHash(left[key]) !== knowledgeHash(right[key])
     )
       fail("BACKEND_TRANSITION_INVALID");
+  if (
+    op === "bind-effect" &&
+    before.kind === "client-effect" &&
+    after.kind === "client-effect" &&
+    (before.executionFrame ||
+      !after.executionFrame ||
+      !after.permission?.allowed)
+  )
+    fail();
+  if (
+    op === "terminal-control" &&
+    before.kind === "client-effect" &&
+    after.kind === "client-effect" &&
+    ((after.controls?.length ?? 0) !== (before.controls?.length ?? 0) + 1 ||
+      knowledgeHash(after.controls?.slice(0, -1) ?? []) !==
+        knowledgeHash(before.controls ?? []))
+  )
+    fail();
+  if (
+    op === "settle-read" &&
+    before.kind === "client-effect" &&
+    after.kind === "client-effect" &&
+    knowledgeHash(before.delivery) !== knowledgeHash(after.delivery) &&
+    !(
+      before.permission?.allowed === false &&
+      knowledgeHash(after.delivery) === knowledgeHash(before.permissionDelivery)
+    )
+  )
+    fail();
+  if (
+    op === "permission" &&
+    before.kind === "client-effect" &&
+    after.kind === "client-effect" &&
+    (before.permission || !after.permission || !after.permissionDelivery)
+  )
+    fail("BACKEND_TRANSITION_INVALID");
+  if (
+    op === "negotiate" &&
+    before.kind === "connection" &&
+    after.kind === "connection" &&
+    (before.capabilities || !after.capabilities)
+  )
+    fail();
+  if (
+    op === "cancel-wire" &&
+    before.kind === "request" &&
+    after.kind === "request" &&
+    (before.cancellation ||
+      !after.cancellation ||
+      after.cancellation.write.frameSha256 !==
+        knowledgeHash(after.cancellation.message))
+  )
+    fail();
   if (op === "disable" && after.kind === "backend" && after.enabled) fail();
   if (op === "pause-import" && after.kind === "backend" && after.enabled)
     fail();
@@ -1995,7 +2931,7 @@ function validateTransition(
   )
     fail();
   if (
-    op === "delivery" &&
+    (op === "delivery" || op === "effect-ack") &&
     before.kind === "client-effect" &&
     after.kind === "client-effect" &&
     (before.delivery !== null || after.delivery === null)
@@ -2171,24 +3107,51 @@ export function validateAgentBackendDatabase(
       receiptHeader.owner_epoch !== header.owner_epoch
     )
       fail();
+    if (r.kind === "client-effect" && r.controls)
+      for (const control of r.controls)
+        validateTerminalOutputSql(db, r, control);
+    if (
+      t.operation === "bind-effect" &&
+      r.kind === "client-effect" &&
+      (!r.executionFrame ||
+        r.executionFrame.frameSha256 !==
+          knowledgeHash(r.executionFrame.message))
+    )
+      fail();
+    if (t.operation === "effect-ack" && r.kind === "client-effect") {
+      const message = validateAcpV1Message(t.requestInput.message);
+      if (
+        !("method" in r.input) ||
+        r.input.method !== "terminal/create" ||
+        !r.delivery ||
+        !nativePayloads(db, r.owner, "backend.client_effect_dispatched").some(
+          (value) => value.providerToolCallId === r.input.callId,
+        ) ||
+        !("result" in message) ||
+        !message.result ||
+        typeof message.result !== "object" ||
+        Array.isArray(message.result) ||
+        message.result.terminalId !== `terminal:${r.effectId}` ||
+        r.delivery.frameSha256 !== knowledgeHash(message)
+      )
+        fail();
+    }
     if (t.operation === "delivery" && r.kind === "client-effect") {
       const message = validateAcpV1Message(t.requestInput.message);
       if (
         !("id" in message) ||
-        message.id !== r.rpcId ||
+        message.id !== effectRpc(r) ||
         r.delivery?.frameSha256 !== knowledgeHash(message)
       )
         fail();
-      if (r.completion?.content !== null && r.completion?.errorCode === null) {
-        if (
-          !("result" in message) ||
-          !message.result ||
-          typeof message.result !== "object" ||
-          Array.isArray(message.result) ||
-          (message.result as JsonObject).content !== r.completion.content
-        )
-          fail();
-      } else if (!("error" in message)) fail();
+      validateEffectResponse(r, message);
+    }
+    if (t.operation === "permission" && r.kind === "client-effect") {
+      if (!r.permission || !r.permissionDelivery) fail();
+      const message = validateAcpV1Message(t.requestInput.message);
+      validatePermissionSql(db, r, r.permission);
+      validatePermissionResponse(r, r.permission, message);
+      if (r.permissionDelivery.frameSha256 !== knowledgeHash(message)) fail();
     }
     const before = r.previousId ? records.get(r.previousId) : undefined;
     if ((r.previousId && !before) || (!before && r.revision !== 1)) fail();

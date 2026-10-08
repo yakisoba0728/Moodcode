@@ -24,6 +24,9 @@ export interface BackendClientReadProof {
   errorCode: string | null;
   cleanupConfirmed: boolean;
   sha256: string;
+  effectMethod?: "fs/write_text_file" | "terminal/create";
+  result?: JsonValue | null;
+  checkpoint?: { id: string; sha256: string } | null;
 }
 
 export interface BackendClientReadInput {
@@ -200,4 +203,47 @@ export class BackendClientEffects {
       if (completion) this.options.clientReads.releaseCompletion(completion);
     }
   }
+}
+
+export type BackendClientEffectInput =
+  | {
+      callId: string;
+      method: "fs/write_text_file";
+      path: string;
+      content: string;
+    }
+  | {
+      callId: string;
+      method: "terminal/create";
+      command: string;
+      args: readonly string[];
+      cwd: string;
+      outputByteLimit: number;
+    };
+export interface BackendClientPermissionProof {
+  workspaceId: string;
+  sessionId: string;
+  runId: string;
+  turnId: string;
+  attemptId: string;
+  toolCallId: string;
+  providerToolCallId: string;
+  inputSha256: string;
+  preparedFingerprint: string | null;
+  approvalId: string | null;
+  allowed: boolean;
+  sha256: string;
+}
+export interface BackendNativeClientEffectPort extends BackendClientReadPort {
+  prepareEffect(
+    original: TurnRequest,
+    input: BackendClientEffectInput,
+    signal: AbortSignal,
+  ): Promise<object>;
+  readPermission(original: object): BackendClientPermissionProof;
+  readTerminalOutput(original: object): JsonValue;
+  dispatchEffect(original: object): Promise<void>;
+  waitEffect(original: object): Promise<object>;
+  cancelEffect(original: object): void;
+  releaseEffect(original: object): void;
 }

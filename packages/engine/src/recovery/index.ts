@@ -1,3 +1,4 @@
+import {validateCommandLifetimeDatabase} from '../jobs/command-lifetime-records.js';
 import { validatePrFeedbackDatabase } from '../pr-feedback/records.js';
 import {validateHostCommandDeliveryDatabase} from '../jobs/host-command-delivery-records.js';
 
@@ -164,7 +165,7 @@ validateCodingBatchDatabase(primary);
     const backendTables = primaryVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
     if (primary && primaryVersion >= 22) { validateJobDatabase(primary, { check: snapshot.check }); validateOwnedCommandJobDatabase(primary, { check: snapshot.check }); validateOwnedCommandDeliveryDatabase(primary, { check: snapshot.check }); validateGitCommitDatabase(primary, {check:snapshot.check}); validateConversationForkDatabase(primary); validatePrFeedbackDatabase(primary,{check:snapshot.check}); validateSandboxDatabase(primary,{check:snapshot.check}); }
     const jobTables = primaryVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables;
-    if (primary && primaryVersion >= 23) {validateHostCommandDatabase(primary, { check: snapshot.check }); validateHostCommandDeliveryDatabase(primary,{check:snapshot.check});}
+    if (primary && primaryVersion >= 23) {validateHostCommandDatabase(primary, { check: snapshot.check }); validateHostCommandDeliveryDatabase(primary,{check:snapshot.check});validateCommandLifetimeDatabase(primary,snapshot.check);}
     const hostCommandTables = primaryVersion >= 23 ? [...jobTables, ...HOST_COMMAND_TABLES] : jobTables;
     const primaryHash = primary ? checkDatabase(primary, primaryVersion, hostCommandTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };

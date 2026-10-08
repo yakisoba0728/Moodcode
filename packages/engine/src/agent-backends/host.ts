@@ -1,6 +1,6 @@
 import { EngineError } from "@moodcode/contracts";
 import type { ProviderAdapter } from "../ports.js";
-import type { BackendClientReadPort } from "./client-effects.js";
+import type { BackendNativeClientEffectPort } from "./client-effects.js";
 import type { BackendProcessPort } from "./process.js";
 import type {
   ActualBackendTurnPort,
@@ -12,9 +12,11 @@ import { AgentBackendRemote } from "./remote.js";
 export interface AgentBackendHostOptions {
   store: AgentBackendStorage;
   processes: BackendProcessPort;
-  clientReads: BackendClientReadPort;
+  clientReads: BackendNativeClientEffectPort;
   turns: ActualBackendTurnPort;
   lifetime?: AbortSignal;
+  clientEffectsEnabled?: boolean;
+  terminalEffectsEnabled?: boolean;
 }
 
 /** Root constructs this host; registered descriptions alone cannot construct runtime ports. */

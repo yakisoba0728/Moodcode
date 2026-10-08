@@ -33,6 +33,13 @@ export const ACP_V1_METHODS = Object.freeze([
   "session/cancel",
   "session/update",
   "fs/read_text_file",
+  "fs/write_text_file",
+  "session/request_permission",
+  "terminal/create",
+  "terminal/output",
+  "terminal/wait_for_exit",
+  "terminal/kill",
+  "terminal/release",
 ] as const);
 export function validateAcpV1Id(value: unknown): AcpV1Id {
   if (typeof value === "number")
@@ -93,8 +100,8 @@ export function validateAcpV1InitializeParams(
   const fs = agentBackendObject(caps.fs, ["readTextFile", "writeTextFile"]);
   if (
     typeof fs.readTextFile !== "boolean" ||
-    fs.writeTextFile !== false ||
-    caps.terminal !== false
+    typeof fs.writeTextFile !== "boolean" ||
+    typeof caps.terminal !== "boolean"
   )
     agentBackendError("ACP_EFFECT_UNSUPPORTED");
   if (value.clientInfo !== undefined) info(value.clientInfo);
@@ -158,14 +165,24 @@ export function validateAcpV1InitializeResult(
 }
 export function negotiateAcpV1Capabilities(
   input: unknown,
-  host: { readonly readTextFile?: boolean } = {},
+  host: {
+    readonly readTextFile?: boolean;
+    readonly writeTextFile?: boolean;
+    readonly terminal?: boolean;
+  } = {},
 ): AcpV1NegotiatedCapabilities {
   const result = validateAcpV1InitializeResult(input);
-  const local = agentBackendObject(host, [], ["readTextFile"]);
+  const local = agentBackendObject(
+    host,
+    [],
+    ["readTextFile", "writeTextFile", "terminal"],
+  );
   if (
     local.readTextFile !== undefined &&
     typeof local.readTextFile !== "boolean"
   )
+    agentBackendError("ACP_INVALID_MESSAGE");
+  if (Object.values(local).some((value) => typeof value !== "boolean"))
     agentBackendError("ACP_INVALID_MESSAGE");
   if (result.authMethods?.length) agentBackendError("ACP_AUTH_UNSUPPORTED");
   const body = {
@@ -174,8 +191,8 @@ export function negotiateAcpV1Capabilities(
     contextOwner: "engine" as const,
     text: true as const,
     readTextFile: local.readTextFile === true,
-    writeTextFile: false as const,
-    terminal: false as const,
+    writeTextFile: local.writeTextFile === true,
+    terminal: local.terminal === true,
     loadSession: false as const,
   };
   return agentBackendJson({ ...body, sha256: knowledgeHash(body) });
@@ -229,6 +246,101 @@ export function validateAcpV1ReadTextFileParams(
     agentBackendError("AGENT_BACKEND_LIMIT");
   metadata(value._meta);
   return value as unknown as AcpV1ReadTextFileParams;
+}
+/** Exact wire effects only; terminal env and remote server grants remain unsupported. */
+export function validateAcpV1WriteTextFileParams(
+  input: unknown,
+): import("./types.js").AcpV1WriteTextFileParams {
+  const value = agentBackendObject(
+    input,
+    ["sessionId", "path", "content"],
+    ["_meta"],
+  );
+  agentBackendIdentifier(value.sessionId);
+  agentBackendAbsolutePath(value.path);
+  agentBackendText(value.content, 16384, true);
+  metadata(value._meta);
+  return value as unknown as import("./types.js").AcpV1WriteTextFileParams;
+}
+export function validateAcpV1TerminalCreateParams(
+  input: unknown,
+): import("./types.js").AcpV1TerminalCreateParams {
+  const value = agentBackendObject(
+    input,
+    ["sessionId", "command"],
+    ["args", "cwd", "outputByteLimit", "env", "_meta"],
+  );
+  agentBackendIdentifier(value.sessionId);
+  agentBackendText(value.command, 8192);
+  if ((value.command as string).includes("\0"))
+    agentBackendError("ACP_INVALID_MESSAGE");
+  if (value.cwd !== undefined) agentBackendAbsolutePath(value.cwd);
+  if (value.args !== undefined) {
+    if (!Array.isArray(value.args) || value.args.length > 64)
+      agentBackendError("AGENT_BACKEND_LIMIT");
+    for (const arg of value.args) agentBackendText(arg, 2048, true);
+  }
+  if (
+    value.env !== undefined &&
+    (!Array.isArray(value.env) || value.env.length)
+  )
+    agentBackendError("ACP_ENV_UNSUPPORTED");
+  if (value.outputByteLimit !== undefined)
+    agentBackendInteger(value.outputByteLimit, 16384, 1);
+  metadata(value._meta);
+  return value as unknown as import("./types.js").AcpV1TerminalCreateParams;
+}
+export function validateAcpV1PermissionParams(
+  input: unknown,
+): import("./types.js").AcpV1PermissionParams {
+  const value = agentBackendObject(
+    input,
+    ["sessionId", "toolCall", "options"],
+    ["_meta"],
+  );
+  agentBackendIdentifier(value.sessionId);
+  const call = agentBackendObject(
+    value.toolCall,
+    ["toolCallId", "rawInput"],
+    ["title", "name", "kind", "status", "locations", "content", "_meta"],
+  );
+  agentBackendIdentifier(call.toolCallId);
+  const raw = agentBackendObject(call.rawInput, ["method", "params"]);
+  if (raw.method !== "fs/write_text_file" && raw.method !== "terminal/create")
+    agentBackendError("ACP_PERMISSION_UNSUPPORTED");
+  const params =
+    raw.method === "fs/write_text_file"
+      ? validateAcpV1WriteTextFileParams(raw.params)
+      : validateAcpV1TerminalCreateParams(raw.params);
+  if (params.sessionId !== value.sessionId)
+    agentBackendError("BACKEND_REMOTE_SESSION_INVALID");
+  if (
+    !Array.isArray(value.options) ||
+    value.options.length < 1 ||
+    value.options.length > 8
+  )
+    agentBackendError("AGENT_BACKEND_LIMIT");
+  const ids = new Set<string>();
+  for (const option of value.options) {
+    const o = agentBackendObject(
+      option,
+      ["optionId", "name", "kind"],
+      ["_meta"],
+    );
+    const id = agentBackendIdentifier(o.optionId);
+    if (
+      ids.has(id) ||
+      !["allow_once", "allow_always", "reject_once", "reject_always"].includes(
+        o.kind as string,
+      )
+    )
+      agentBackendError("ACP_INVALID_MESSAGE");
+    ids.add(id);
+    agentBackendText(o.name, 256);
+    metadata(o._meta);
+  }
+  metadata(value._meta);
+  return value as unknown as import("./types.js").AcpV1PermissionParams;
 }
 export function validateAcpV1SessionUpdate(input: unknown): AcpV1SessionUpdate {
   const value = agentBackendObject(input, ["sessionId", "update"], ["_meta"]);
@@ -345,6 +457,26 @@ export function validateAcpV1Request(method: string, input: unknown): object {
       return validateAcpV1PromptParams(input);
     case "fs/read_text_file":
       return validateAcpV1ReadTextFileParams(input);
+    case "fs/write_text_file":
+      return validateAcpV1WriteTextFileParams(input);
+    case "terminal/create":
+      return validateAcpV1TerminalCreateParams(input);
+    case "session/request_permission":
+      return validateAcpV1PermissionParams(input);
+    case "terminal/output":
+    case "terminal/wait_for_exit":
+    case "terminal/kill":
+    case "terminal/release": {
+      const value = agentBackendObject(
+        input,
+        ["sessionId", "terminalId"],
+        ["_meta"],
+      );
+      agentBackendIdentifier(value.sessionId);
+      agentBackendIdentifier(value.terminalId);
+      metadata(value._meta);
+      return value;
+    }
     case "session/update":
       return validateAcpV1SessionUpdate(input);
     case "session/cancel": {
@@ -402,6 +534,61 @@ export function validateAcpV1Result(method: string, input: unknown): object {
     case "fs/read_text_file": {
       const value = agentBackendObject(input, ["content"], ["_meta"]);
       agentBackendText(value.content, AGENT_BACKEND_LIMITS.contentBytes, true);
+      metadata(value._meta);
+      return value;
+    }
+    case "fs/write_text_file":
+    case "terminal/kill":
+    case "terminal/release": {
+      const value = agentBackendObject(input, [], ["_meta"]);
+      metadata(value._meta);
+      return value;
+    }
+    case "terminal/create": {
+      const value = agentBackendObject(input, ["terminalId"], ["_meta"]);
+      agentBackendIdentifier(value.terminalId);
+      metadata(value._meta);
+      return value;
+    }
+    case "terminal/output": {
+      const value = agentBackendObject(
+        input,
+        ["output", "truncated"],
+        ["exitStatus", "_meta"],
+      );
+      agentBackendText(value.output, 16384, true);
+      if (typeof value.truncated !== "boolean")
+        agentBackendError("ACP_INVALID_MESSAGE");
+      if (value.exitStatus !== undefined)
+        validateAcpV1Result("terminal/wait_for_exit", value.exitStatus);
+      metadata(value._meta);
+      return value;
+    }
+    case "terminal/wait_for_exit": {
+      const value = agentBackendObject(
+        input,
+        [],
+        ["exitCode", "signal", "_meta"],
+      );
+      if (value.exitCode !== undefined && value.exitCode !== null)
+        agentBackendInteger(value.exitCode, 2147483647, 0);
+      if (value.signal !== undefined && value.signal !== null)
+        agentBackendText(value.signal, 64);
+      if (value.exitCode === undefined && value.signal === undefined)
+        agentBackendError("ACP_INVALID_MESSAGE");
+      metadata(value._meta);
+      return value;
+    }
+    case "session/request_permission": {
+      const value = agentBackendObject(input, ["outcome"], ["_meta"]),
+        outcome = agentBackendObject(value.outcome, ["outcome"], ["optionId"]);
+      if (outcome.outcome === "selected") {
+        agentBackendIdentifier(outcome.optionId);
+      } else if (
+        outcome.outcome !== "cancelled" ||
+        outcome.optionId !== undefined
+      )
+        agentBackendError("ACP_INVALID_MESSAGE");
       metadata(value._meta);
       return value;
     }

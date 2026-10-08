@@ -29,6 +29,8 @@ export interface ExecutionLockMarker {
 type Marker = ExecutionLockMarker;
 
 export interface ExecutionLockReservation { readonly id: string }
+const heldLocks = new WeakMap<object, () => void>();
+export function assertExecutionLockCurrent(original: ExecutionLock): void { const assert = heldLocks.get(original); if (!assert) throw new EngineError('COMMAND_EXECUTION_LOCK_STALE', 'Original held execution lock required'); assert(); }
 const reservations = new WeakMap<object, { path: string; marker: ExecutionLockMarker; used: boolean }>();
 /** Reserve the exact durable marker before a host records its physical effect intent. */
 export function reserveExecutionLock(path: string): ExecutionLockReservation {
@@ -341,7 +343,8 @@ export function acquireExecutionLock(path: string, reservation?: ExecutionLockRe
     }
     const db = database;
     let released = false;
-    return {
+    const identity = lstatSync(path);
+    const lock: ExecutionLock = {
       recordGroup(pid) {
         if (released) throw new EngineError('COMMAND_EXECUTION_LOCK_RELEASED', 'The command execution lock was already released.');
         if (!Number.isSafeInteger(pid) || pid < 1) throw new EngineError('INVALID_COMMAND_GROUP', 'Command process group PID must be a positive safe integer.');
@@ -370,6 +373,8 @@ export function acquireExecutionLock(path: string, reservation?: ExecutionLockRe
         }
       },
     };
+    heldLocks.set(lock, () => { const current = lstatSync(path), marker = readMarker(db); if (released || !current.isFile() || current.isSymbolicLink() || current.dev !== identity.dev || current.ino !== identity.ino || !marker?.active || marker.ownerPid !== process.pid || marker.updatedAt !== claimed.updatedAt || marker.groupPid !== claimed.groupPid) throw new EngineError('COMMAND_EXECUTION_LOCK_STALE', 'Held execution lock identity or epoch changed'); });
+    return lock;
   } catch (error) {
     discard(database, transaction);
     throw normalizeError(error);

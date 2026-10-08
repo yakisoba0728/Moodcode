@@ -1,4 +1,4 @@
-import { executeShell, type ProcessOutcome, type ShellInput } from './process-control.js';
+import { executeShell, type ProcessOutcome, type ShellInput, type ShellStdinControl } from './process-control.js';
 import type { acquireExecutionLock } from './execution-lock.js';
 
 // This process deliberately outlives the engine. IPC disconnect is its parent
@@ -7,6 +7,10 @@ const abort = new AbortController();
 let lock: ReturnType<typeof acquireExecutionLock> | undefined;
 let input: ShellInput | undefined;
 let ready = false;
+let interactive = false;
+let stdin: ShellStdinControl | undefined;
+let stdinBusy = false;
+let stdinSeq = 0;
 let started = false;
 let finished = false;
 let disconnected = !process.connected;
@@ -89,10 +93,22 @@ function forwardOutput(stream: 'stdout' | 'stderr', bytes: Buffer): void | Promi
 
 process.on('message', async (message: unknown) => {
   if (finished || !message || typeof message !== 'object') return;
-  const packet = message as { type?: string; input?: ShellInput; executionLockPath?: string };
+  const packet = message as { type?: string; input?: ShellInput; executionLockPath?: string; interactive?: boolean; seq?: number; data?: string };
+  if (packet.type === 'stdin' || packet.type === 'eof') {
+    const seq = packet.seq;
+    if (!interactive || !stdin || stdinBusy || !Number.isSafeInteger(seq) || seq !== stdinSeq + 1 || typeof packet.data !== 'string' || Buffer.byteLength(packet.data) > 22000) { abort.abort(); return; }
+    const bytes = Buffer.from(packet.data, 'base64');
+    if (bytes.toString('base64') !== packet.data || bytes.length > 16384 || packet.type === 'eof' && bytes.length !== 0) { abort.abort(); return; }
+    stdinBusy = true; stdinSeq = seq;
+    try { if (packet.type === 'eof') await stdin.end(); else await stdin.write(bytes); send({type:'input-result', seq, ok:true}); }
+    catch { send({type:'input-result', seq, ok:false}); }
+    finally { stdinBusy = false; }
+    return;
+  }
   if (packet.type === 'stop') { abort.abort(); if (ready && !started) idleCancelled(); return; }
   if (packet.type === 'init' && !input) {
     input = packet.input;
+    interactive = packet.interactive === true;
     if (!input || typeof input.command !== 'string' || typeof input.cwd !== 'string' || !Number.isSafeInteger(input.timeoutMs) || input.timeoutMs < 1) {
       finish({ exitCode: null, signal: null, cancelled: false, timedOut: false, cleanupConfirmed: true, started: false, error: 'Invalid supervisor initialization.' });
       return;
@@ -116,7 +132,7 @@ process.on('message', async (message: unknown) => {
     started = true;
     try {
       const outcome = await executeShell(input, abort.signal, forwardOutput,
-        pid => { lock?.recordGroup(pid); send({ type: 'started', pid }); }, warning => send({ type: 'warning', warning }));
+        pid => { lock?.recordGroup(pid); send({ type: 'started', pid }); }, warning => send({ type: 'warning', warning }), undefined, interactive ? control => { stdin = control; } : undefined);
       finish(outcome);
     } catch (error) {
       finish({ exitCode: null, signal: null, cancelled: abort.signal.aborted, timedOut: false, cleanupConfirmed: false, started: true, error: error instanceof Error ? error.message : String(error) });

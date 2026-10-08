@@ -1,3 +1,4 @@
+import {registerPreparedResourceProducer,capturePreparedResource} from '../../effect-batches/claims.js';
 import { createHash } from 'node:crypto';
 import { EngineError, type JsonObject, type JsonValue } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolDefinition } from '../../ports.js';
@@ -11,7 +12,7 @@ function binding(context: ToolContext): string { return JSON.stringify([context.
 export function createPatchAdapter(definition: { name: string; description: string; inputSchema: JsonObject; transform(input: unknown, context: ToolContext): Promise<PatchAdapterInput> }): ToolDefinition {
   const patch = createPatchTool();
   const requests = new WeakMap<PreparedTool, { inner: PreparedTool; snapshot: string; binding: string; used: boolean }>();
-  return { name: definition.name, description: definition.description, inputSchema: definition.inputSchema, effectClass: 'write',
+  const tool:ToolDefinition = { name: definition.name, description: definition.description, inputSchema: definition.inputSchema, effectClass: 'write',
     async prepare(input, context) {
       const transformed = await definition.transform(input, context); const inner = await patch.prepare({ changes: transformed.changes }, context);
       const normalized = boundedJson(transformed.input, 4 * 1024 * 1024);
@@ -30,4 +31,6 @@ export function createPatchAdapter(definition: { name: string; description: stri
       return enrichLegacyToolResult(result, {}, { maxModelBytes: Math.min(context.limits.maxOutputBytes, 32 * 1024), maxDisplayBytes: Math.min(context.limits.maxOutputBytes, 64 * 1024) });
     },
   };
+  registerPreparedResourceProducer(tool,prepared=>{const request=requests.get(prepared);return request&&!request.used?capturePreparedResource(patch,request.inner):null;});
+  return tool;
 }

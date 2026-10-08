@@ -1,3 +1,6 @@
+import {readCommandLifetimes,validateCommandLifetimeRecord,validateCommandLifetimeDatabase,pauseCommandLifetimes,lifetimeKind,type CommandLifetimeRecord} from '../jobs/command-lifetime-records.js';
+import {writeEffectBatch,hasKnownEffectBatchMarker,hasUncertainEffectBatches,listEffectBatches,readEffectBatch,validateEffectBatchDatabase,pauseEffectBatches,type EffectBatchWritePorts} from '../effect-batches/storage.js';
+import type {EffectBatchRecord} from '../effect-batches/types.js';
 import { PrFeedbackStorage, validatePrFeedbackDatabase } from '../pr-feedback/records.js';
 import { validateCommitVerification } from '../git/commit-receipts.js';
 import {deliverHostCommandResultAtomic,readHostCommandDeliveries,readHostCommandDelivery,findHostCommandDeliveryForInput,validateHostCommandDeliveryDatabase,pauseImportedHostCommandDeliveries,type HostCommandDeliveryInput,type HostCommandDeliveryPorts} from '../jobs/host-command-delivery-records.js';
@@ -488,7 +491,7 @@ putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRec
     });
   }
   hasUncertainWorkspace(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => hasWorkflowEffectUncertainty(this.db,workspaceId) || this.hasUncertainGitCommit(workspaceId) || this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId) || this.hasUncertainAgentBackend(workspaceId) || readOwnedCommandJobs(this.db, workspaceId).some(job => job.state === 'uncertain' || job.state === 'paused-import' && job.errorCode === 'COMMAND_JOB_CLEANUP_UNCERTAIN'));
+    return this.recoveryBlocked(() => hasUncertainEffectBatches(this.db,workspaceId) || readCommandLifetimes(this.db,workspaceId).some(r=>r.state==='uncertain'||r.state==='paused-import'&&r.completionSha256===null) || hasWorkflowEffectUncertainty(this.db,workspaceId) || this.hasUncertainGitCommit(workspaceId) || this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId) || this.hasUncertainAgentBackend(workspaceId) || readOwnedCommandJobs(this.db, workspaceId).some(job => job.state === 'uncertain' || job.state === 'paused-import' && job.errorCode === 'COMMAND_JOB_CLEANUP_UNCERTAIN'));
   }
   hasUncertainAgentBackend(workspaceId: string): boolean {
     return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasAgentBackendBlocker(this.db, workspaceId); });
@@ -617,6 +620,23 @@ putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRec
     this.notify(event.sessionId);
     return event;
   }
+  putCommandLifetime(record:CommandLifetimeRecord,expectedRevision:number):void{
+    const write=()=>{
+      const r=validateCommandLifetimeRecord(record);
+      const stats=this.db.prepare("SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM session_events WHERE type='command.lifetime.revision'").get()!;
+      const ordinary=['admit','started','transfer','input-intent','input-ack'].includes(r.operation.kind);
+      if(Number(stats.n)>=(ordinary?3840:4096)||Number(stats.bytes)+Buffer.byteLength(JSON.stringify(r))>(ordinary?29360128:33554432))throw new EngineError('COMMAND_LIFETIME_LIMIT','Native lifetime capacity preserves terminal, recovery and import headroom');
+      this.executionRecords.putSessionDocument(r.sessionId,lifetimeKind(r.jobId),expectedRevision,r as unknown as JsonObject);
+      this.native.appendEvent(r.sessionId,'command.lifetime.revision',{record:r as unknown as JsonObject});
+      validateCommandLifetimeDatabase(this.db);this.publishAfterCommit(()=>this.notify(r.sessionId));
+    };if(this.db.isTransaction)write();else this.transaction(write);
+  }
+  inspectCommandLifetimes(workspaceId?:string):CommandLifetimeRecord[]{return this.evidenceRead(()=>{validateCommandLifetimeDatabase(this.db);return readCommandLifetimes(this.db,workspaceId);});}
+  findCommandLifetimeRequest(workspaceId:string,requestId:string):{record:CommandLifetimeRecord;requestSha256:string}|undefined{
+    return this.evidenceRead(()=>{const rows=this.db.prepare("SELECT e.data FROM session_events e JOIN sessions s ON s.id=e.session_id WHERE s.workspace_id=? AND e.type='command.lifetime.revision' AND json_extract(e.data,'$.payload.record.operation.kind')='admit' AND json_extract(e.data,'$.payload.record.operation.requestId')=? LIMIT 2").all(workspaceId,requestId);if(rows.length>1)throw new EngineError('COMMAND_LIFETIME_EVIDENCE_INVALID','A lifetime request has more than one admission');if(!rows[0])return;const record=validateCommandLifetimeRecord(JSON.parse(String(rows[0].data)).payload.record);return {record,requestSha256:record.operation.requestSha256};});
+  }
+  getCommandLifetime(workspaceId:string,jobId:string):CommandLifetimeRecord|undefined{return this.inspectCommandLifetimes(workspaceId).find(r=>r.jobId===jobId);}
+  validateCommandLifetimes():void{this.evidenceRead(()=>validateCommandLifetimeDatabase(this.db));}
   getSessionDocument(sessionId: string, kind: string): SessionDocument | null { return this.executionRecords.getSessionDocument(sessionId, kind); }
   createKnowledgeStorage(ports: Omit<KnowledgeStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgeStorage {
     this.assertOpen();
@@ -733,6 +753,14 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
     writeDocument:(sessionId,kind,revision,data)=>this.executionRecords.putSessionDocument(sessionId,kind,revision,data),
     appendEvent:(sessionId,type,payload,refs)=>this.native.appendEvent(sessionId,type,payload,refs),
   }); }
+  private effectBatchWritePorts(): EffectBatchWritePorts { return {putDocument:(sessionId,kind,revision,data)=>this.executionRecords.putSessionDocument(sessionId,kind,revision,data),appendEvent:(sessionId,type,payload)=>this.native.appendEvent(sessionId,type,payload)}; }
+  recordEffectBatchMember(record:EffectBatchRecord,index:number):void {this.transaction(()=>{const member=record.members[index];if(!member||this.getToolCall(member.toolCallId!).runId!==record.runId)throw new EngineError('EFFECT_BATCH_MEMBER_INVALID','Actual native member required');this.native.appendEvent(record.sessionId,'effect.batch.member_settled',{batchId:record.id,runId:record.runId,turnId:record.turnId,attemptId:record.attemptId,member:member as unknown as JsonObject});});}
+  writeEffectBatch(record:EffectBatchRecord):void {this.transaction(()=>writeEffectBatch(this.db,record,this.effectBatchWritePorts()));}
+  inspectEffectBatches(workspaceId:string,sessionId?:string):EffectBatchRecord[]{return this.evidenceRead(()=>listEffectBatches(this.db,workspaceId,sessionId));}
+  getEffectBatch(sessionId:string,id:string):EffectBatchRecord|null{return this.evidenceRead(()=>readEffectBatch(this.db,sessionId,id));}
+  hasKnownEffectBatchMarker(marker:import('../tools/command/execution-lock.js').ExecutionLockMarker,executionLockPath:string):boolean{return this.evidenceRead(()=>hasKnownEffectBatchMarker(this.db,marker,executionLockPath));}
+  validateEffectBatches():void {this.evidenceRead(()=>validateEffectBatchDatabase(this.db));}
+  recoverEffectBatches():number{return this.transaction(()=>pauseEffectBatches(this.db,this.effectBatchWritePorts()));}
   validatePrFeedback():void {this.evidenceRead(()=>validatePrFeedbackDatabase(this.db));}
   validatePrVerificationEvidence(evidence:unknown):void {this.evidenceRead(()=>validateCommitVerification(this.db,evidence as import('../git/types.js').GitCommitPreview));}
   createSandboxStorage():SandboxStorage {return new SandboxStorage(this.db,{writeTx:op=>this.db.isTransaction?op():this.transaction(op),writeDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),appendEvent:(s,t,p,refs)=>this.native.appendEvent(s,t,p,refs)});}
@@ -824,9 +852,11 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
       markImportedAgentBackendsPaused(this.db, archiveSha256, workspaceId);
       markImportedJobsPaused(this.db, archiveSha256, workspaceId);
       this.pauseSandboxImports(workspaceId);
+      pauseEffectBatches(this.db,this.effectBatchWritePorts(),workspaceId);
       pauseImportedOwnedCommandJobs(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
       this.createHostCommandStorage().pauseImport(workspaceId,archiveSha256);
       pauseImportedOwnedCommandDeliveries(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
+      pauseCommandLifetimes(this.db,workspaceId,archiveSha256,r=>this.putCommandLifetime(r,r.revision-1));
       pauseImportedHostCommandDeliveries(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
       if (origin) {
         // Imported runtime capabilities are absent. Persist the ordinary native
@@ -1081,8 +1111,8 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
   }
 
   /** Observation only: same active-Run transaction and scope checks in both journals. */
-  commitRunObservation(runId: string, type: 'lifecycle.outcome' | 'tool.policy_decision' | 'tool.prepared' | 'backend.launch_reserved' | 'backend.connection_admitted', payload: JsonObject, refs: { turnId?: string; attemptId?: string } = {}): EngineEvent {
-    if (!['lifecycle.outcome', 'tool.policy_decision', 'tool.prepared', 'backend.launch_reserved', 'backend.connection_admitted'].includes(type)) throw new EngineError('INVALID_RUN_OBSERVATION', 'Unsupported host observation type');
+  commitRunObservation(runId: string, type: 'lifecycle.outcome' | 'tool.policy_decision' | 'tool.prepared' | 'backend.launch_reserved' | 'backend.connection_admitted' | 'backend.client_permission' | 'backend.client_effect_closed' | 'backend.client_effect_dispatched' | 'backend.client_effect_proposed' | 'backend.terminal_output_observed' | 'effect.batch.resource_prepared' | 'effect.batch.serial_fallback', payload: JsonObject, refs: { turnId?: string; attemptId?: string } = {}): EngineEvent {
+    if (!['lifecycle.outcome', 'tool.policy_decision', 'tool.prepared', 'backend.launch_reserved', 'backend.connection_admitted', 'backend.client_permission', 'backend.client_effect_closed', 'backend.client_effect_dispatched', 'backend.client_effect_proposed', 'backend.terminal_output_observed', 'effect.batch.resource_prepared', 'effect.batch.serial_fallback'].includes(type)) throw new EngineError('INVALID_RUN_OBSERVATION', 'Unsupported host observation type');
     const append = () => {
       const run = this.getRun(runId);
       if (isTerminal(run.state)) throw new EngineError('RUN_TERMINAL', 'Terminal Runs cannot accept late observations');

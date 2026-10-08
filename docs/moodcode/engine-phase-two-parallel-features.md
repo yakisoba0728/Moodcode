@@ -40,12 +40,16 @@ The first two worktrees use `aebd896` as their recorded baseline. Coding batches
 
 ## Current complete feature owners
 
-The next three lanes start from `34c7c4a` in separate worktrees while Root verifies the preceding frozen aggregate. Each retains API → actual consumer → persistence/recovery → focused actual verification ownership.
+Each worker owns API → actual consumer → persistence/recovery → focused verification for one complete feature. Root receives an immutable feature-only patch and runs the combined frozen integration gates before completion credit.
 
-| Feature | Owner | Actual completion boundary | Worktree |
+| Feature | Owner | Actual completion boundary | State |
 | --- | --- | --- | --- |
-| Foreground/background command lifetime (MC2-10a/b/d) | `next_team_continuation` | One actual supervisor/group PID through foreground/background transfer; native-approved model/host entry, bounded stdin/EOF/output, original reservations, cancel/close/receipt faults, SIGKILL/restart/import without PID-only reclaim. | `/Users/yakisoba0728/.codex/worktrees/engine-command-lifetimes/Moodcode` |
-| ACP permission/write/terminal effects (MC2-09c/d) | `next_workflow_design` | Exact current session/Attempt/connection permission, native-approved file writes and terminal effects, wire delivery/cancel/late/duplicate failures, real process cleanup and paused restart/import; original readonly mode preserved. | `/Users/yakisoba0728/.codex/worktrees/engine-acp-effects/Moodcode` |
-| Prepared-resource effect batches (MC2-18a–d) | `next_workflow_consumers` | Original current Turn/file identity and approval, up-front native budgets, disjoint existing-file update overlap, conflict serial fallback, per-member native Tool/Part/checkpoint/partial uncertainty, receipt fault and restart/import. Unknown command/MCP/create/delete/rename stay serial. | `/Users/yakisoba0728/.codex/worktrees/engine-effect-batches/Moodcode` |
+| ACP permission/write/terminal (MC2-09c/d) | `next_workflow_design` | Exact native approval, genuine same-Attempt Tool/Part/effect, bounded wire receipts, real process cleanup and paused recovery/import. | Integrated; final combined compiled/source/type/fixture gates passed. |
+| Foreground/background command lifetime (MC2-10a/b/d) | `next_team_continuation` | Same actual supervisor/group PID, exact approval, bounded stdin/EOF, original budgets, cancel/close/SQL/SIGKILL/paused import. | Integrated; final combined compiled/source/type/fixture gates passed. |
+| Prepared-resource effect batches (MC2-18a–d) | `next_workflow_consumers` | Genuine current source/approval, upfront budgets, disjoint existing-file updates overlap, conflict serial fallback, per-member native checkpoint/partial uncertainty, crash/import. | Integrated; final combined compiled/source/type/fixture gates passed. |
+| Restricted code-mode (MC2-15a–d) | `next_workflow_design` | Real restricted worker, typed Original native tool broker, individual approval/budget/receipts, kernel restrictions, runtime/effect cleanup and recovery. | Implementing in `engine-code-mode` from `a1e7409`. |
+| Audio/video input and generated output (MC2-16b–d) | `next_team_continuation` | Bounded genuine WAV/AVI decoding, source/timestamp/capability/frozen provider input, actual provider-owned artifacts/Parts/usage, archive and fault tests. | Implementing in `engine-media-capabilities` from `a1e7409`. |
 
-No interface-only milestone closes a work item. Root accepts one frozen feature patch per lane, resolves shared source once and runs the combined final gates. The count changes only after those gates pass.
+Only three worker lanes run simultaneously. ACP and command workers moved directly to the next complete features after freezing their patches. Actual Codex image/restart account evidence is recorded separately; it does not close unverified audio/video/output accounts or E5-13. Root owns all Main, TODO, progress, aggregate evidence and local commits.
+
+The ACP, lifetime and prepared-effect integration is complete at73/80 and18/20. Final compiled4583 and direct-source2679 tests passed with only two existing skips. Independent acceptance fixed profile-denial classification and Root-only actor-option inheritance; source crash routing and an existing PID observer fixture were corrected. [Final combined evidence](engine-phase-two-client-command-effects-verification.json) preserves separate snapshots and affected compiled/source fixture checks.

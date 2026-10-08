@@ -97,6 +97,7 @@ process.on("message", (packet: unknown) => {
           cwd?: string;
           env?: Record<string, string>;
           executionLockPath?: string;
+          executionMode?: "engine-client-effects";
         }
       | undefined;
     if (
@@ -112,7 +113,10 @@ process.on("message", (packet: unknown) => {
       return;
     }
     try {
-      lock = acquireExecutionLock(launch.executionLockPath);
+      // Transport supervision owns the peer group. In the explicit effect lane,
+      // the genuine native patch/command supervisor owns the effect lock.
+      if (launch.executionMode !== "engine-client-effects")
+        lock = acquireExecutionLock(launch.executionLockPath);
       peer = spawn(launch.command, launch.args, {
         cwd: launch.cwd,
         env: launch.env,

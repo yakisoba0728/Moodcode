@@ -77,7 +77,7 @@ interface Capture {
 interface Observation {
   readonly observer: Pick<
     CommandExecutionObserver,
-    "started" | "output" | "failed"
+    "started" | "output" | "failed" | "control"
   >;
   readonly original: object;
   failure?: string;
@@ -504,6 +504,10 @@ async function runProcess(
     env: { ...createCommandEnvironment(), ELECTRON_RUN_AS_NODE: "1" },
   });
   let groupPid: number | undefined;
+  let inputSequence = 0;
+  let inputClosed = false;
+  let pendingInput: { seq: number; yes: () => void; no: (error: unknown) => void; timer: ReturnType<typeof setTimeout> } | undefined;
+  const controlEpoch = randomUUID();
   let startSent = false;
   let ready = false;
   let closed = false;
@@ -532,6 +536,16 @@ async function runProcess(
         `Supervisor IPC failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  };
+  const writeInput = (type: "stdin" | "eof", data: string): Promise<void> => {
+    if (closed || !child.connected || context.signal.aborted || inputClosed || pendingInput || Buffer.byteLength(data) > 16384) return Promise.reject(new EngineError("COMMAND_STDIN_UNAVAILABLE", "Original stdin is closed, busy or exceeds its bound"));
+    if (type === "eof") inputClosed = true;
+    const seq = ++inputSequence;
+    return new Promise<void>((yes, no) => {
+      const timer = setTimeout(() => { if (pendingInput?.seq === seq) { pendingInput = undefined; no(new EngineError("COMMAND_STDIN_UNCERTAIN", "Physical stdin acknowledgement was not received")); send({type:"stop"}); } }, 2000);
+      pendingInput = {seq,yes,no,timer};
+      send({type,seq,data:Buffer.from(data).toString("base64")});
+    });
   };
   const onAbort = (): void => {
     send({ type: "stop" });
@@ -592,11 +606,15 @@ async function runProcess(
   );
   child.once("close", () => {
     closed = true;
+    if (pendingInput) { clearTimeout(pendingInput.timer); pendingInput.no(new EngineError("COMMAND_STDIN_UNCERTAIN", "Supervisor closed before stdin acknowledgement")); pendingInput = undefined; }
     resolveClosed();
   });
   child.on("message", (packet: unknown) => {
     if (!object(packet)) return;
-    if (packet.type === "ready" && !ready) {
+    if (packet.type === "input-result" && pendingInput && pendingInput.seq === packet.seq) {
+      const pending = pendingInput; pendingInput = undefined; clearTimeout(pending.timer);
+      packet.ok === true ? pending.yes() : pending.no(new EngineError("COMMAND_STDIN_UNAVAILABLE", "Original physical stdin write failed"));
+    } else if (packet.type === "ready" && !ready) {
       ready = true;
       if (context.signal.aborted) onAbort();
       else {
@@ -623,6 +641,7 @@ async function runProcess(
         if (observation && !observation.failure)
           try {
             observation.observer.started(observation.original, groupPid);
+            observation.observer.control?.(observation.original, Object.freeze({supervisorPid:child.pid!,groupPid,epoch:controlEpoch,write:(data: string)=>writeInput("stdin",data),end:()=>writeInput("eof",""),alive:()=>!closed && child.connected && !context.signal.aborted}));
             for (const entry of pendingOutput)
               observation.observer.output(
                 observation.original,
@@ -654,6 +673,7 @@ async function runProcess(
   send({
     type: "init",
     input: {...input,...(context.sandbox ? {sandbox:context.sandbox} : {})},
+    interactive: Boolean(observation?.observer.control),
     ...(context.executionLockPath
       ? { executionLockPath: context.executionLockPath }
       : {}),
@@ -1163,7 +1183,7 @@ export async function executePhysicalCommand(
   input: CommandInput,
   scope: PhysicalCommandScope,
   before: WorkspaceCapture,
-  observer: Pick<CommandExecutionObserver, "started" | "output" | "failed">,
+  observer: Pick<CommandExecutionObserver, "started" | "output" | "failed" | "control">,
   beforeSpawn: () => object,
 ): Promise<PhysicalCommandResult> {
   const warnings = [

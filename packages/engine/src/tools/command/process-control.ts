@@ -75,20 +75,38 @@ export async function cleanupGroup(pid: number, closed: () => boolean = () => tr
   return settleGroup(pid, closed, TERMINATION_LIMITS.killWaitMs);
 }
 
-export async function executeShell(input: ShellInput, signal: AbortSignal, output: ShellOutput, started: (pid: number) => void, warn: (message: string) => void, backend?: CommandProcessBackend): Promise<ProcessOutcome> {
+export interface ShellStdinControl { write(data: Buffer): Promise<void>; end(): Promise<void> }
+
+export async function executeShell(input: ShellInput, signal: AbortSignal, output: ShellOutput, started: (pid: number) => void, warn: (message: string) => void, backend?: CommandProcessBackend, stdinControl?: (control: ShellStdinControl) => void): Promise<ProcessOutcome> {
   if (signal.aborted) return { exitCode: null, signal: null, cancelled: true, timedOut: false, cleanupConfirmed: true, started: false };
   if (backend) {
     if(input.sandbox)throw new EngineError('SANDBOX_BACKEND_UNSUPPORTED','A custom backend cannot claim the native Seatbelt launch');
     const capability = backend.capability();
     if (!capability.available || capability.platform !== process.platform || capability.processTree === 'unsupported') throw new EngineError('COMMAND_BACKEND_UNAVAILABLE', 'The injected command backend has no supported ownership on this platform');
+    if (stdinControl) throw new EngineError('COMMAND_STDIN_UNSUPPORTED', 'The injected backend has no original stdin control');
     return backend.execute(input, signal, output, started, warn);
   }
   if (!['darwin', 'linux', 'freebsd'].includes(process.platform)) throw new EngineError('COMMAND_PLATFORM_UNSUPPORTED', 'Shell execution requires a supported owned process backend');
   const launch=input.sandbox;
   if(launch && (process.platform!=='darwin'||launch.version!==1||launch.backend!=='darwin-seatbelt-v1'||launch.executable!=='/usr/bin/sandbox-exec'||typeof launch.profile!=='string'||Buffer.byteLength(launch.profile)>32768))throw new EngineError('SANDBOX_LAUNCH_INVALID','Unsupported sandbox never falls back to the host backend');
   const child = launch
-    ? spawn(launch.executable,['-p',launch.profile,'/bin/sh','-c',input.command],{cwd:input.cwd,env:{PATH:'/usr/bin:/bin:/usr/sbin:/sbin',HOME:input.cwd,TMPDIR:input.cwd,LANG:'en_US.UTF-8'},shell:false,detached:true,stdio:['ignore','pipe','pipe']})
-    : spawn(input.command,{cwd:input.cwd,env:createCommandEnvironment(),shell:true,detached:true,stdio:['ignore','pipe','pipe']});
+    ? spawn(launch.executable,['-p',launch.profile,'/bin/sh','-c',input.command],{cwd:input.cwd,env:{PATH:'/usr/bin:/bin:/usr/sbin:/sbin',HOME:input.cwd,TMPDIR:input.cwd,LANG:'en_US.UTF-8'},shell:false,detached:true,stdio:[stdinControl ? 'pipe' : 'ignore','pipe','pipe']})
+    : spawn(input.command,{cwd:input.cwd,env:createCommandEnvironment(),shell:true,detached:true,stdio:[stdinControl ? 'pipe' : 'ignore','pipe','pipe']});
+  let stdinEnded = false;
+  let stdinPending = false;
+  const originalStdin: ShellStdinControl = Object.freeze({
+    write: (data: Buffer): Promise<void> => {
+      if (stdinEnded || stdinPending || signal.aborted || !child.stdin || child.stdin.destroyed || data.length > 16384) return Promise.reject(new EngineError('COMMAND_STDIN_UNAVAILABLE', 'Command stdin is closed, busy or exceeds its fixed bound'));
+      stdinPending = true;
+      return new Promise<void>((yes, no) => child.stdin!.write(data, error => { stdinPending = false; error ? no(error) : yes(); }));
+    },
+    end: (): Promise<void> => {
+      if (stdinEnded || stdinPending || signal.aborted || !child.stdin || child.stdin.destroyed) return Promise.reject(new EngineError('COMMAND_STDIN_UNAVAILABLE', 'Command stdin is closed or busy'));
+      stdinEnded = true;
+      return new Promise<void>((yes, no) => { child.stdin!.end(() => yes()); });
+    }
+  });
+  child.stdin?.on('error', () => { stdinEnded = true; });
   let closed = false;
   let exited = false;
   let exitCode: number | null = null;
@@ -167,7 +185,7 @@ export async function executeShell(input: ShellInput, signal: AbortSignal, outpu
   child.on('exit', (code, exitSignalValue) => { exited = true; exitCode = code; exitSignal = exitSignalValue; wake?.(); });
   child.on('close', (code, exitSignalValue) => { closed = true; exitCode = code; exitSignal = exitSignalValue; wake?.(); });
   if (child.pid !== undefined) {
-    try { started(child.pid); }
+    try { started(child.pid); stdinControl?.(originalStdin); }
     catch (error) { processError = `Could not record command group: ${error instanceof Error ? error.message : String(error)}`; terminate('descendants'); }
   }
   const onAbort = (): void => terminate('cancel');

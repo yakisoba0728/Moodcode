@@ -77,8 +77,8 @@ export async function ownedDeliveryFixture(
     script = join(f.root, "owned-delivery.mjs");
   writeFileSync(
     script,
-    `import{writeFileSync,existsSync}from'node:fs';
-writeFileSync(${JSON.stringify(marker)},String(process.pid));process.stdout.write('ACTUAL_OWNED_DELIVERY_READY\\n');
+    `import{writeFileSync,existsSync,renameSync}from'node:fs';
+writeFileSync(${JSON.stringify(marker + ".tmp")},String(process.pid));renameSync(${JSON.stringify(marker + ".tmp")},${JSON.stringify(marker)});process.stdout.write('ACTUAL_OWNED_DELIVERY_READY\\n');
 const timer=setInterval(()=>{if(existsSync(${JSON.stringify(release)})){clearInterval(timer);process.stdout.write('ACTUAL_OWNED_DELIVERY_RESULT\\n',()=>process.exit(${options.exitCode ?? 0}));}},10);
 `,
   );
@@ -147,11 +147,16 @@ const timer=setInterval(()=>{if(existsSync(${JSON.stringify(release)})){clearInt
       (a) => a.runId === receipt.runId && a.status === "pending",
     )!;
   f.engine.approvals.decide(approval.id, "allow", approval.fingerprint);
-  await jobUntil(
-    () => existsSync(marker),
-    "Actual source command did not spawn",
-  );
-  const pid = Number(readFileSync(marker, "utf8"));
+  let pid = 0;
+  await jobUntil(() => {
+    if (!existsSync(marker)) return false;
+    const text = readFileSync(marker, "utf8").trim();
+    if (!/^\d+$/.test(text)) return false;
+    const actual = Number(text);
+    if (!Number.isSafeInteger(actual) || actual < 1) return false;
+    pid = actual;
+    return true;
+  }, "Actual source command did not publish a complete positive PID");
   const inspect = () =>
     jobInvoke<OwnedCommandJobRecord[]>(
       f.engine,

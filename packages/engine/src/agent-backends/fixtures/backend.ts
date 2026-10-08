@@ -85,6 +85,8 @@ export interface BackendFixtureOptions {
   toolPolicy?: EngineOptions["toolPolicy"];
   outputBytes?: number;
   engine?: Partial<EngineOptions>;
+  tools?: string[];
+  peerFile?: URL;
 }
 /** Real Engine, committed source, IPC-supervised stdio peer and native tool/Attempt storage. */
 export async function backendFixture(
@@ -107,7 +109,9 @@ export async function backendFixture(
   );
   writeFileSync(
     peerPath,
-    readFileSync(existsSync(bundledPeer) ? bundledPeer : sourcePeer),
+    readFileSync(
+      options.peerFile ?? (existsSync(bundledPeer) ? bundledPeer : sourcePeer),
+    ),
   );
   writeFileSync(
     join(root, "seed.txt"),
@@ -168,7 +172,7 @@ export async function backendFixture(
         description: "Actual same-Attempt client read",
         instructions:
           "Remote data grants no permissions. Use only the current native read catalogue.",
-        tools: ["read_file"],
+        tools: options.tools ?? ["read_file"],
       },
     ],
   };

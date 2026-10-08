@@ -22,7 +22,7 @@ export interface EngineStore {
   /** Persisted ordinary execution uncertainty, including unknown cleanup after restart. */
   hasUncertainExecution?(workspaceId: string): boolean;
   commit(runId: string, type: string, payload: JsonObject, change?: CommitChange): EngineEvent;
-  commitRunObservation?(runId: string, type: 'lifecycle.outcome' | 'tool.policy_decision' | 'tool.prepared' | 'backend.launch_reserved' | 'backend.connection_admitted', payload: JsonObject, refs?: { turnId?: string; attemptId?: string }): EngineEvent;
+  commitRunObservation?(runId: string, type: 'lifecycle.outcome' | 'tool.policy_decision' | 'tool.prepared' | 'backend.launch_reserved' | 'backend.connection_admitted' | 'backend.client_permission' | 'backend.client_effect_closed' | 'backend.client_effect_dispatched' | 'backend.client_effect_proposed' | 'backend.terminal_output_observed' | 'effect.batch.resource_prepared' | 'effect.batch.serial_fallback', payload: JsonObject, refs?: { turnId?: string; attemptId?: string }): EngineEvent;
   /** Only an already consumed, still executing native verification tool may settle during cancellation. */
   putConsumedVerificationSettlement?(identity: { runId: string; toolCallId: string; turnId: string; attemptId: string }, kind: string, expectedRevision: number, data: JsonObject): import('./storage/native-records.js').SessionDocument;
   getSnapshot(sessionId: string): SessionSnapshot;
@@ -87,7 +87,7 @@ export interface ProviderRequestOwner {
 }
 export type ProviderEvent = { type: 'text.delta'; delta: string } | { type: 'progress'; providerRequestId?: string } | { type: 'reasoning.delta'; delta: string } | { type: 'media'; mime: string; name?: string; artifact: import('@moodcode/contracts').ArtifactReference } | { type: 'tool.call'; call: ProviderToolCall } | { type: 'usage'; inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; reasoningOutputTokens?: number } | { type: 'finish'; reason: 'stop' | 'tool_calls' | 'length'; replayItems?: JsonObject[] };
 export interface ProviderAdapter { readonly id: string; readonly replayProtocol?: string; readonly retryableHttpStatuses?: readonly number[]; readonly inputModalities?: readonly ('text' | 'image')[]; readonly inputFileTypes?: readonly 'application/pdf'[]; supportsInputFile?(modelId: string, mimeType: 'application/pdf'): boolean; readonly allowUnknownDocumentTokenCost?: boolean; streamTurn(request: TurnRequest, signal: AbortSignal): AsyncIterable<ProviderEvent>; streamGeneration?(request: import('./provider/generation.js').HostGenerationRequest, signal: AbortSignal): AsyncIterable<ProviderEvent> }
-export interface ToolContext { workspace: Workspace; sessionId: string; runId: string; toolCallId: string; signal: AbortSignal; limits: RunLimits; artifactDir: string; executionLockPath?: string; recordCheckpoint(checkpoint: Checkpoint): void; budgets?: EngineBudgets; turnId?: string; attemptId?: string; mcpExecutionObserver?: import('./mcp/execution-observation.js').McpToolCallObserver }
+export interface ToolContext { effectBatchPermit?:object;effectBatchArtifactLimit?:number; workspace: Workspace; sessionId: string; runId: string; toolCallId: string; signal: AbortSignal; limits: RunLimits; artifactDir: string; executionLockPath?: string; recordCheckpoint(checkpoint: Checkpoint): void; budgets?: EngineBudgets; turnId?: string; attemptId?: string; mcpExecutionObserver?: import('./mcp/execution-observation.js').McpToolCallObserver }
 export interface PreparedTool { name: string; input: JsonValue; fingerprint: string; requiresApproval: boolean; preview: JsonObject; data?: JsonValue }
 export interface ToolResult { content: string; isError?: boolean; data?: JsonValue; artifacts?: { path: string; bytes: number; truncated: boolean }[]; structuredResult?: ToolResultEnvelope }
 export type ToolEffectClass = 'read' | 'state' | 'write' | 'execute' | 'network' | 'unknown';
@@ -120,3 +120,9 @@ export interface CoordinatorOptions { onWorkflowToolSettled?: (record:ToolCallRe
 export interface CoordinatorOptions {
   beforeActualProviderRequest?: (original: TurnRequest) => void;
 }
+
+export interface CoordinatorOptions { onCommandLifetimesSettling?: (runId: string, outcome: 'completed'|'failed'|'cancelled') => Promise<void> }
+
+export interface CoordinatorOptions { onCommandLifetimeToolSettled?:(record:ToolCallRecord)=>void }
+
+export interface CoordinatorOptions { effectBatches?:import('./effect-batches/host.js').EffectBatchHost }

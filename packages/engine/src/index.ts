@@ -183,3 +183,10 @@ export type * from "./coding-runs/types.js";
 
 export type { ResidentChildRecord, ResidentRunEvidence } from "./child-tasks/resident.js";
 export type { TeamBoardRecord, TeamBoardSubmission } from "./teams/workflow-board.js";
+
+export type { BackendClientEffectInput, BackendClientPermissionProof, BackendNativeClientEffectPort } from "./agent-backends/client-effects.js";
+export {validateAcpV1WriteTextFileParams,validateAcpV1TerminalCreateParams,validateAcpV1PermissionParams} from "./agent-backends/protocol.js";
+
+export type {CommandLifetimeRecord,CommandLifetimeMode,CommandLifetimeOrigin} from './jobs/command-lifetime-records.js';
+
+export type {EffectBatchRecord,EffectBatchMember,PreparedResourceClaim} from './effect-batches/types.js';
