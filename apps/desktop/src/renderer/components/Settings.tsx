@@ -6,6 +6,9 @@ import type {
 } from "../../shared/protocol.js";
 import type { DesktopStore } from "../store.js";
 import { Icon } from "./Icon.js";
+import { AccountSettings } from "./AccountSettings.js";
+import { UpdateSettings } from "./UpdateSettings.js";
+import type { DesktopAccountView } from "../../shared/account-protocol.js";
 
 export function Settings({
   settings,
@@ -17,6 +20,10 @@ export function Settings({
   close: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [credentialMode, setCredentialMode] = useState<"api-key" | "chatgpt">(
+    settings.credentialMode ?? "api-key",
+  );
+  const [accounts, setAccounts] = useState<DesktopAccountView | null>(null);
   const [provider, setProvider] = useState<DesktopProviderId>(
     settings.providerId,
   );
@@ -29,6 +36,21 @@ export function Settings({
   const [clearKey, setClearKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (settings.credentialMode === "chatgpt" && settings.accountId) {
+      setProvider(settings.providerId);
+      setCredentialMode("chatgpt");
+      setModel(settings.modelId);
+      setEndpoint(settings.baseURL);
+      setKey("");
+    }
+  }, [
+    settings.accountId,
+    settings.credentialMode,
+    settings.modelId,
+    settings.providerId,
+    settings.baseURL,
+  ]);
   useEffect(() => {
     const node = dialog.current;
     node?.showModal();
@@ -47,10 +69,24 @@ export function Settings({
             provider === "codex" || provider === "scripted"
               ? ""
               : endpoint.trim(),
-          ...(key && provider !== "codex" && provider !== "scripted"
+          ...(key &&
+          (provider !== "openai-responses" || credentialMode !== "chatgpt") &&
+          provider !== "codex" &&
+          provider !== "scripted"
             ? { apiKey: key }
             : {}),
           ...(clearKey ? { clearKey: true } : {}),
+          ...(provider === "openai-responses"
+            ? {
+                credentialMode,
+                ...(credentialMode === "chatgpt"
+                  ? {
+                      accountId:
+                        accounts?.activeAccountId ?? settings.accountId,
+                    }
+                  : {}),
+              }
+            : { credentialMode: "api-key" as const }),
           ...(effort &&
           (provider === "codex" || provider === "openai-responses")
             ? { reasoningEffort: effort }
@@ -100,6 +136,7 @@ export function Settings({
       <p className="dialog-description">
         작업에 사용할 모델과 로그인 방식을 선택하세요.
       </p>
+      <AccountSettings store={store} onView={setAccounts} />
       <label className="field-label">
         연결 방식
         <select
@@ -119,11 +156,32 @@ export function Settings({
           }}
         >
           <option value="codex">Codex 로그인 계정</option>
-          <option value="openai-responses">OpenAI Responses · API 키</option>
+          <option value="openai-responses">
+            OpenAI Responses · API 키 / 앱 계정
+          </option>
           <option value="openai-compatible">OpenAI 호환 API</option>
           <option value="scripted">테스트 모델 · 로컬</option>
         </select>
       </label>
+      {provider === "openai-responses" ? (
+        <label className="field-label">
+          OpenAI 인증 방식
+          <select
+            value={credentialMode}
+            onChange={(event) => {
+              const value = event.target.value as "api-key" | "chatgpt";
+              setCredentialMode(value);
+              if (value === "chatgpt") {
+                setEndpoint("https://api.openai.com/v1");
+                setKey("");
+              }
+            }}
+          >
+            <option value="api-key">API 키</option>
+            <option value="chatgpt">앱 ChatGPT 계정</option>
+          </select>
+        </label>
+      ) : null}
       {provider === "scripted" ? (
         <div className="settings-note">
           <Icon name="code" />
@@ -142,12 +200,27 @@ export function Settings({
                 setModel(event.target.value);
                 setEffort("");
               }}
-              list={provider === "codex" ? "codex-models" : undefined}
+              list={
+                provider === "codex"
+                  ? "codex-models"
+                  : provider === "openai-responses" && accounts?.activeAccountId
+                    ? "account-models"
+                    : undefined
+              }
               placeholder="사용할 모델 ID"
               autoComplete="off"
               spellCheck={false}
             />
           </label>
+          {provider === "openai-responses" && accounts?.activeAccountId ? (
+            <datalist id="account-models">
+              {accounts.models.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.displayName}
+                </option>
+              ))}
+            </datalist>
+          ) : null}
           {provider === "codex" && settings.codexModels?.length ? (
             <>
               <datalist id="codex-models">
@@ -213,6 +286,15 @@ export function Settings({
                 </span>
               </div>
             </div>
+          ) : provider === "openai-responses" &&
+            credentialMode === "chatgpt" ? (
+            <div className="settings-note">
+              <Icon name="shield" />
+              <p>
+                선택한 앱 계정으로 공식 OpenAI Responses에 연결해요. 이 계정에
+                제공된 모델 목록에서 선택하세요.
+              </p>
+            </div>
           ) : (
             <>
               <label className="field-label">
@@ -267,13 +349,21 @@ export function Settings({
           키를 지우려면 Codex 계정이나 테스트 모델로 전환해 저장하세요.
         </p>
       ) : null}
+      <UpdateSettings />
       <div className="dialog-footer">
         <button className="button secondary" disabled={saving} onClick={close}>
           취소
         </button>
         <button
           className="button primary"
-          disabled={saving || (provider !== "scripted" && !model.trim())}
+          disabled={
+            saving ||
+            (provider !== "scripted" && !model.trim()) ||
+            (provider === "openai-responses" &&
+              credentialMode === "chatgpt" &&
+              !accounts?.activeAccountId &&
+              !settings.accountId)
+          }
           onClick={() => {
             void save();
           }}

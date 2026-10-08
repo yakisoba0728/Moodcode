@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "scope": "N-02 renderer consumption and isolated Electron E2E; N-03/N-05 Settings consumption",
+  "status": "implemented-and-isolated-gui-verified",
+  "source": {
+    "base": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+    "worktree": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode",
+    "branch": "codex/next-desktop"
+  },
+  "ownership": [
+    "apps/desktop/src/renderer/**",
+    "scripts/test-desktop-advanced.mjs",
+    "scripts/fixtures/desktop/{mcp,lsp}.mjs",
+    "docs/moodcode/next-desktop-renderer-progress.json"
+  ],
+  "implemented": [
+    "session-bound async state and exact opaque preview consumption",
+    "queue/steer composer while active",
+    "inbox pause/resume/cancel",
+    "tasks revision CAS and question answer/reject",
+    "terminal output replay and source-bound control reconnect",
+    "MCP connect/catalogue/disconnect",
+    "LSP connect/file diagnostic navigation",
+    "worktree/child/team/workflow native action UI",
+    "managed app account Settings UI",
+    "exact-version app update Settings controls and native disabled reason",
+    "paused-session participation gate and distinct resident Run/Engine/task states",
+    "bounded explicit-file native LSP refresh with no action replay",
+    "terminal/mailbox capability registration releases original source across modal/session cleanup and late admission replies"
+  ],
+  "verification": [
+    {
+      "kind": "renderer-typecheck",
+      "command": "node node_modules/typescript/bin/tsc -p apps/desktop/tsconfig.renderer.json --noEmit --pretty false",
+      "result": "pass"
+    },
+    {
+      "kind": "renderer-source-tests",
+      "count": 19,
+      "pass": 19,
+      "fail": 0,
+      "skip": 0
+    },
+    {
+      "kind": "real-electron-attempt1",
+      "result": "failed",
+      "completed": [
+        "native task CAS create/update",
+        "real worktree preparation",
+        "PTY original preview before process admission",
+        "actual generated shell output + native replay"
+      ],
+      "failure": "renderer reload aborted window owner signal and cancelled committed terminal; host startup signal lifecycle fix requested",
+      "screenshot": "artifacts/desktop-advanced/attempt1-terminal-reload.png"
+    },
+    {
+      "kind": "real-electron-attempt2",
+      "result": "failed",
+      "completed": [
+        "native task CAS",
+        "actual worktree preparation",
+        "PTY resize+generated output+reload replay+explicit control reconnect+native cleanup",
+        "MCP actual stdio catalogue+reload persistence+disconnect"
+      ],
+      "failure": "native LSP notification arrived after first cached getter; renderer did not refresh explicitly selected file",
+      "resolution": "bounded visible-file polling and discarded late replies on cleanup; same GUI expectation preserved",
+      "screenshot": "artifacts/desktop-advanced/attempt2-lsp-notification.png"
+    },
+    {
+      "kind": "real-electron-attempt3-and-native-diagnostic",
+      "bundle": 5,
+      "result": "failed",
+      "completed": [
+        "PTY output/replay/reconnect/cleanup",
+        "MCP stdio catalogue/reload/disconnect",
+        "native LSP diagnostic display",
+        "queue/steer/pause/cancel"
+      ],
+      "failure": "resident child rejected paused Original parent; closed fixture Run error RESIDENT_PARENT_STALE, root still running with native pending question",
+      "resolution": "explicit GUI resume before child flow; native paused guard preserved; UI prevents paused authority previews; idle resident native Run completion displayed separately from owned overall task",
+      "evidence": "artifacts/desktop-advanced/attempt4-native-diagnostic.log"
+    },
+    {
+      "kind": "real-electron-attempt6",
+      "bundle": 6,
+      "result": "failed",
+      "completed": [
+        "native PTY 90x24 resize",
+        "native MCP connection/reload"
+      ],
+      "failure": "Plan mode intentionally excludes unknown-effect MCP provider tools; fixture could not invoke it",
+      "resolution": "test selects Build and requires actual native v1 tool approval rather than granting catalogue annotations authority",
+      "evidence": "artifacts/desktop-advanced/attempt6-native-flows.log"
+    },
+    {
+      "kind": "real-electron-attempt7",
+      "bundle": 6,
+      "result": "failed",
+      "completed": [
+        "native PTY 90x24 resize and generated shell output",
+        "MCP actual native tool invocation with exact v1 approval and real stdio result",
+        "LSP diagnostic click opens real workspace file inspector"
+      ],
+      "failure": "fixture provider matched old historical MCP prompt after disconnected server instead of current root prompt",
+      "resolution": "host-owned deterministic fixture latest user routing; GUI expectations unchanged",
+      "evidence": "artifacts/desktop-advanced/attempt7-mcp-build.log"
+    },
+    {
+      "kind": "real-electron-attempt8",
+      "bundle": 7,
+      "result": "failed",
+      "completed": [
+        "native initial child Run completed while resident owner idle",
+        "explicit native stop closes owner and exposes saved actual result with cancelled task/outcome",
+        "slow child native cancel closes owner",
+        "PTY resize/output/reload/control reconnect/cleanup",
+        "MCP native stdio invocation with v1 approval",
+        "LSP actual diagnostic navigation"
+      ],
+      "failure": "worktree cleanup correctly blocked by native active workspace run while parent question still pending",
+      "resolution": "disable cleanup during live parent; assert actual cleanup after exact parent completion without changing native maintenance gate",
+      "evidence": "artifacts/desktop-advanced/attempt8-build7.log",
+      "screenshot": "artifacts/desktop-advanced/attempt8-parent-maintenance.png"
+    },
+    {
+      "kind": "real-electron-full-advanced",
+      "bundle": 8,
+      "result": "pass",
+      "command": "node scripts/test-desktop-advanced.mjs",
+      "checks": 15,
+      "evidence": "artifacts/desktop-advanced/attempt9-build8.log",
+      "screenshot": "artifacts/desktop-advanced/workflow-completed.png",
+      "externalRequests": 0,
+      "isolation": "temporary committed workspace and temporary Electron userData; actual native engine, PTY, MCP and LSP processes; fixture provider only",
+      "completed": [
+        "native task revision CAS",
+        "native worktree preparation",
+        "PTY preview/approval/resize/write/output/reload/reconnect/cancel/cleanup",
+        "MCP catalogue/reload, actual unknown-effect tool approval/result and disconnect",
+        "LSP actual publishDiagnostics and real workspace file navigation",
+        "active composer queue/steer, pause/resume/cancel",
+        "resident first Run completed with idle owner; explicit stop closes native Engine and records actual cancelled task/outcome with saved result",
+        "slow resident child cancellation and close",
+        "after root completion native worktree removed and directory ENOENT",
+        "native team join/task board put/claim/complete",
+        "native mailbox message delivery and original cursor claim",
+        "finite read-only registered native workflow stage admission/settlement/result/history",
+        "native question answer and exact-version rejection",
+        "renderer reload retains native history without replay",
+        "actual account/update host views in Settings"
+      ]
+    },
+    {
+      "kind": "renderer-quality-check",
+      "result": "pass",
+      "checks": [
+        "React hooks lifetimes and state subscriptions",
+        "source handle lifetime across modal/session/window generation",
+        "named inputs and focusable native dialog",
+        "no automatic effect replay",
+        "worktree selectors show unique suffix and actual root; checked source typecheck after label correction"
+      ]
+    }
+  ],
+  "remaining": [
+    "Root final build and identical-source aggregate/native packaged validation after explicit renderer commit"
+  ],
+  "externalConditions": [
+    "actual external account authorization and provider entitlement beyond isolated fixture need separate account evidence",
+    "signed macOS notarized and Windows distributed update/install runs need separate release evidence"
+  ]
+}
