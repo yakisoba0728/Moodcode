@@ -4,7 +4,7 @@
   "updatedAt": "2026-10-09",
   "timezone": "Asia/Seoul",
   "goal": "Implement and connect the actual native Windows Job Object backend; verify Windows2025 x64 Node24/26 process ownership, termination, output and restart uncertainty through hosted CI.",
-  "status": "implemented-hosted-verification-pending",
+  "status": "native-windows-engine-boundaries-repaired-actual-reverification-pending",
   "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
   "branch": "codex/e5-08-native-windows",
   "worktree": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode",
@@ -24,7 +24,9 @@
     "packages/contracts/src/index.ts (additive Windows capability value only)",
     "packages/engine/src/jobs/host-command-service.ts (native availability gate)",
     "packages/engine/src/jobs/owned-command-records* (exact platform/termination approval compatibility)",
-    "docs/next-windows-progress.json (requested Desktop interface pointer)"
+    "docs/next-windows-progress.json (requested Desktop interface pointer)",
+    "packages/engine/src/jobs/host-command-records* (exact Windows host approval journal platform)",
+    "packages/engine/src/jobs/fixtures/owned-command-lifecycle.ts (atomic existing PID fixture publication)"
   ],
   "preservedBaseline": {
     "local": {
@@ -66,13 +68,78 @@
           "skipped": 0
         },
         "qualification": "Portable orchestration/approval only, not actual Windows evidence"
+      },
+      {
+        "kind": "initial-complete-engine-regression",
+        "sourceCommit": "714197942e6b25b17b9ed3edbab088b1ecb19599",
+        "counts": {
+          "tests": 4735,
+          "pass": 4732,
+          "fail": 1,
+          "skipped": 2
+        },
+        "log": "artifacts/native-windows/local-whole-engine-7141979-failure.log",
+        "sha256": "acfab2998a03186cda275490afe2f60e65bdf8cf9512f2373b6868bf787f0fa6",
+        "cause": "Existing POSIX lifecycle fixture published PID path before bytes were written. Preserved failing assertion; writer now publishes via same-directory atomic rename. Corrected complete run pending."
+      },
+      {
+        "kind": "repaired-build-and-focused-regression",
+        "counts": {
+          "tests": 34,
+          "pass": 34,
+          "fail": 0,
+          "skipped": 0
+        },
+        "log": "artifacts/native-windows/local-repair-focused.log"
       }
     ],
-    "hosted": [],
-    "failuresPreserved": []
+    "hosted": [
+      {
+        "runId": 37846891144,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37846891144",
+        "sourceCommit": "714197942e6b25b17b9ed3edbab088b1ecb19599",
+        "conclusion": "failure",
+        "lanes": [
+          "windows-2025/x64/node24",
+          "windows-2025/x64/node26"
+        ],
+        "nativeBuildLoad": true,
+        "nativeTests": {
+          "tests": 21,
+          "passed": 17,
+          "failed": 4,
+          "skipped": 0
+        },
+        "qualification": "Native lifecycle passed; three real Engine cases failed, plus aggregate parent. No E5-08 completion credit."
+      },
+      {
+        "runId": 37846890895,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37846890895",
+        "sourceCommit": "714197942e6b25b17b9ed3edbab088b1ecb19599",
+        "kind": "preserved-existing-headless-matrix",
+        "conclusion": "success",
+        "lanes": 6,
+        "qualification": "Four actual POSIX whole-engine lanes and two portable Windows lanes; dedicated native Windows acceptance remains pending."
+      }
+    ],
+    "failuresPreserved": [
+      {
+        "runId": 37846891144,
+        "logsZipSha256": "97d4bc22a692cbfc2e909075ef61705b50b8e8fd7c73f978326252f31c30d303",
+        "artifactDigests": {
+          "node24": "6434e16e15305cc89f66d7b55768e16e620a40c18e4d4c78ba29c6bb6e2f49da",
+          "node26": "5cb2f193fade122e83c3f6b65b0f87be0d0f33080f93d22775894087983c0839"
+        },
+        "causes": [
+          "HOST_COMMAND_EVIDENCE_INVALID: host record platform whitelist omitted Windows",
+          "Engine normal failed/cancel uncertain: pre-close output seal mtime conflicts with Windows deferred writer-close timestamp; proposed post-close identity/hash verification pending actual rerun"
+        ],
+        "originalPath": "artifacts/native-windows/hosted-37846891144/"
+      }
+    ]
   },
   "externalConditions": {
-    "windowsHostedRunner": "available through authenticated GitHub Actions; execution pending",
+    "windowsHostedRunner": "available; corrected native and baseline matrix execution pending",
     "desktopPackaging": "N-04/N-05 owned by Desktop session; outside E5-08 completion scope"
   },
   "constraints": [
@@ -83,7 +150,7 @@
     "No account secrets, GUI user state, skip/assertion weakening or timeout relaxation."
   ],
   "nativePackaging": {
-    "status": "implemented-interface; actual Windows build evidence pending",
+    "status": "interface implemented; actual Windows x64 Node24/26 addon build/load passed; Engine acceptance pending fixes",
     "package": "@moodcode/windows-job@0.1.0",
     "workspace": "packages/windows-job",
     "moduleEntrypoint": "index.js (synchronous ESM import/require)",
@@ -105,5 +172,6 @@
     "unsupported": "No Windows PTY/stdin command lifetime transport or OS file/network sandbox. No taskkill/direct-child fallback. Desktop package/signing/update validation belongs to N-04/N-05.",
     "contract": "packages/windows-job/README.md",
     "desktopConsumerWorktree": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode"
-  }
+  },
+  "implementationCommit": "714197942e6b25b17b9ed3edbab088b1ecb19599"
 }

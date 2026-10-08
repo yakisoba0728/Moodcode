@@ -25,9 +25,10 @@ export async function ownedLifecycleFixture(t: TestContext) {
     script = join(f.root, "owned-lifecycle.mjs");
   writeFileSync(
     script,
-    `import{appendFileSync,writeFileSync,existsSync}from'node:fs';
+    `import{appendFileSync,writeFileSync,renameSync,existsSync}from'node:fs';
 appendFileSync(${JSON.stringify(launches)},String(process.pid)+'\\n');
-writeFileSync(${JSON.stringify(marker)},String(process.pid));
+writeFileSync(${JSON.stringify(marker + '.pending')},String(process.pid));
+renameSync(${JSON.stringify(marker + '.pending')},${JSON.stringify(marker)});
 process.stdout.write('OWNED_LIFECYCLE_READY\\n');
 const timer=setInterval(()=>{if(existsSync(${JSON.stringify(release)})){clearInterval(timer);process.stdout.write('OWNED_LIFECYCLE_COMPLETE\\n',()=>process.exit(0));}},10);
 `,
