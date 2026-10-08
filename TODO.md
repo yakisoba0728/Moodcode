@@ -413,3 +413,5 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 
 - [x] **제한 code-mode·미디어 완결 기능 통합** — 전체4642/4640pass/실패0/기존skip2, 직접source3344/3342pass/실패0/기존skip2, type0·coding3pass·source/build input870 SHA 불변. 독립 예산 결함 수정과 native51/52 경계4개, 기존 async 취소·입력 오류 계약, 일반 child의 Root codeMode 비상속을 확인했다. **79/80·19/20**, goal active. [통합 검증](docs/moodcode/engine-phase-two-code-media-integration-verification.json).
 - [ ] **MC2-16d 실제 새 미디어 모델 계정 검증** — 로컬 audio/video/output wire·native·fault fixture는 통과했다. 기존 Codex 토큰 경로는 새 audio/video/output을 지원하지 않으므로 실제 지원 공급자/모델과 해당 인증 설정에서 MIME/초과/unknown/partial/duplicate/source-delete를 확인해야 한다. 기존 실제 Codex 이미지2요청만으로 종료하지 않는다. E5-13·E5-08·E6-07·E6-08 이월 유지.
+
+- [x] **MC2-16d 계정 검증 준비 — 현재 구현 기준 planner 갱신**: 실제 WAV/AVI/PCM native 경로와 exact 모델·host capability·layout 미확인·unknown cost를 구분하고23 source SHA·19 pending cases를 고정했다. Main CLI6/6, 인증/config/env/provider import/network0을 확인했다. 원래 계획·계정 증거를 보존하며 **79/80·19/20**, 실제16d·환경 이월4개는 미완료다. [현재 계획](docs/moodcode/engine-phase-two-media-verification-plan.md).

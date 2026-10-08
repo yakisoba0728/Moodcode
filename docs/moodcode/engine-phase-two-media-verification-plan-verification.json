@@ -1,0 +1,512 @@
+{
+  "schemaVersion": 1,
+  "kind": "current-implementation account-free media planner integration",
+  "recordedAtUTC": "2026-10-08T14:15:07.410957+00:00",
+  "parentCommit": "1bff0255e1f376f659916231e326718da9929bdc",
+  "frozenWorker": {
+    "version": 1,
+    "feature": "source-pinned account-free media verification planner",
+    "workspace": "/Users/yakisoba0728/.codex/worktrees/engine-media-verification-plan/Moodcode",
+    "baselineHead": "1bff0255e1f376f659916231e326718da9929bdc",
+    "baselineTree": "cfae0865f215f77515f06e2eaf0c2647194cd083",
+    "baselineManifest": "/tmp/moodcode-media-plan-feature-baseline.json",
+    "patch": "/tmp/moodcode-media-plan-feature.patch",
+    "patchSha256": "58a32ff1aac1cb63dc47dff873a1251cfe99232ad7e70ed484a16c75a00b1703",
+    "patchBytes": 34975,
+    "sourceHashes": {
+      "scripts/plan-media-verification.mjs": {
+        "before": "a5cd6cc4f634beeca81082918c186b537797e10f48df5e37a28a06d607b8693b",
+        "after": "b3d5dec0496512d4c9073771562604b5182c7bf09bc06eca67b902c83a114ea8"
+      },
+      "scripts/plan-media-verification.test.mjs": {
+        "before": null,
+        "after": "a28c01689c8c97527ffc36338004d37d58331e1db1e5fa7a955056aac052ad0e"
+      }
+    },
+    "unchangedTrackedFiles": 1252,
+    "featureFiles": 2,
+    "enginePackageProgressMainChanged": false,
+    "nodeModules": "untracked Main runtime symlink excluded",
+    "plan": {
+      "schemaVersion": 1,
+      "legacyProviderModelCli": true,
+      "sourcePins": 23,
+      "finitePendingCases": 19,
+      "accountVerified": false,
+      "liveProviderCalls": 0,
+      "accountConfigurationRead": false,
+      "environmentDebt": "E5-13 open",
+      "completionCredit": false,
+      "implementedConditionalLanes": [
+        "Chat PCM16 WAV input",
+        "Chat + standard Responses timestamped AVI→PNG frames",
+        "Chat bounded streamed PCM16→native provider Artifact/media Part"
+      ],
+      "productionModelCompatibility": "unverified; exact CLI selection grants no capability",
+      "layout": "host-selected exact voice/rate/channels must be independently verified; no inferred rate",
+      "unknownCost": "null; explicit fixed media cost host policy + independent PDF opt-ins"
+    },
+    "zeroSideEffectEvidence": {
+      "guardedActualCliCases": 8,
+      "credentialOrConfigurationFilesystemReads": 0,
+      "credentialEnvironmentReads": 0,
+      "providerImports": 0,
+      "fetchCalls": 0,
+      "networkCalls": 0
+    },
+    "verification": {
+      "planner": {
+        "path": "/tmp/moodcode-media-plan-tests-final.log",
+        "sha256": "bea8a399c75070a821af6ec69f64378ff034a5ae1534c5f5de2243819aa58fa8",
+        "cases": 6,
+        "exit": 0
+      },
+      "nativeSource": {
+        "path": "/tmp/moodcode-media-plan-native-source.log",
+        "sha256": "bedbc85a7eff2f0dd1b8fc3930670777e7c0568f91e9ec2418a82a3c17c0da34",
+        "cases": 13,
+        "exit": 0
+      },
+      "nativeCompiled": {
+        "path": "/tmp/moodcode-media-plan-native-compiled.log",
+        "sha256": "7216dea8ce4a4263c583c65676fb5571c1728e6b6178db7e4b5e13d4909f5276",
+        "cases": 13,
+        "exit": 0
+      },
+      "strictJs": {
+        "path": "/tmp/moodcode-media-plan-strict-final.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "cases": null,
+        "exit": 0
+      },
+      "syntaxAndFormat": {
+        "path": "/tmp/moodcode-media-plan-syntax-format.log",
+        "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+        "cases": null,
+        "exit": 0
+      }
+    },
+    "nativeFixtureSourceHashes": {
+      "packages/engine/src/media/segments.test.ts": "8fb4562812a2f92672095f25ef62783c21d3af6a5cb124b4cab54150813b22d5",
+      "packages/engine/src/media/segments.integration.test.ts": "4bb172783b0a702a7c0dcb43e38bfe619e22f3142d918d1b01d6b877572aadae",
+      "packages/engine/src/media/media-output-budgets.integration.test.ts": "4a575af3bd57bfe4d739c76985bedf0e03edd62894b99d228e83b098d749eab7"
+    },
+    "compiledEvidence": "Existing Root HEAD1bff025 compiled artifact tests run read-only; planner production source pins and native fixture source hashes match Main. No Main build performed. Source and compiled thirteen cases overlap; not additive.",
+    "sourcePinSafety": "regular files only, no final symlink following, metadata first <=1MiB/file <=4MiB/total, bounded fd reads and post-read identity/size/time verification, always close",
+    "remaining": [
+      "Actual production account/model audio/video/output verification and E5-13",
+      "Unsupported codecs and native full-video/image/video-generation paths remain unsupported",
+      "Root package integration and aggregate gate"
+    ],
+    "earlierRedRuns": [
+      {
+        "path": "/tmp/moodcode-media-plan-tests-first.log",
+        "reason": "Guard initially rejected Node loader reading the planner module; allow script module only, keep credentials/network blocked."
+      },
+      {
+        "path": "/tmp/moodcode-media-plan-tests-bounded.log",
+        "reason": "FD guard initially excluded actual Node module-source fd; allow only already-source-validated fds."
+      },
+      {
+        "reason": "Transient missing lstatSync named import corrected before final six-case freeze; independent C spotted intermediate source only."
+      }
+    ]
+  },
+  "mainFiles": {
+    "scripts/plan-media-verification.mjs": "b3d5dec0496512d4c9073771562604b5182c7bf09bc06eca67b902c83a114ea8",
+    "scripts/plan-media-verification.test.mjs": "a28c01689c8c97527ffc36338004d37d58331e1db1e5fa7a955056aac052ad0e"
+  },
+  "mainPlannerTests": {
+    "command": [
+      "node",
+      "--test",
+      "scripts/plan-media-verification.test.mjs"
+    ],
+    "tests": 6,
+    "pass": 6,
+    "fail": 0,
+    "skipped": 0,
+    "log": {
+      "path": "/tmp/moodcode-media-plan-main-tests.log",
+      "sha256": "5558b5558b9bd8a34f1588e5bbc7788490d263cc240c54ece8d0f70bd29702c1"
+    }
+  },
+  "independentReview": {
+    "version": 1,
+    "kind": "independent account-free media planner candidate review",
+    "recordedAtUTC": "2026-10-08T14:07:10.424375+00:00",
+    "mainCommit": "1bff0255e1f376f659916231e326718da9929bdc",
+    "worktree": "/Users/yakisoba0728/.codex/worktrees/engine-media-verification-plan/Moodcode",
+    "candidateState": "mutable; final frozen SHA not yet provided",
+    "initialReviewedFiles": {
+      "scripts/plan-media-verification.mjs": "bf60bb044c7222fc049569c1e92bdb85d18e0d79f5936568513c42a6cb6c3cc1",
+      "scripts/plan-media-verification.test.mjs": "531f6f6e2a8fd1c2f5ba6bbe40423702e7e0de727847a7daf58647b85528055f"
+    },
+    "latestReadFiles": {
+      "scripts/plan-media-verification.mjs": "b3d5dec0496512d4c9073771562604b5182c7bf09bc06eca67b902c83a114ea8",
+      "scripts/plan-media-verification.test.mjs": "38e97873e11f4aaf1217c83ba65d8074b446205a3880264e3f638c2d0db19975"
+    },
+    "productionSourcePins": {
+      "packages/contracts/src/index.ts": {
+        "lane": "be2b85ee3924485348202881ad15adcc22a0e04950c84ffdca147b8f7ae93616",
+        "main": "be2b85ee3924485348202881ad15adcc22a0e04950c84ffdca147b8f7ae93616"
+      },
+      "packages/contracts/src/v2.ts": {
+        "lane": "fb5575f0c40b67307325e5d4b24258f32d09d4890bba1d8df6312eb1c6ac28c3",
+        "main": "fb5575f0c40b67307325e5d4b24258f32d09d4890bba1d8df6312eb1c6ac28c3"
+      },
+      "packages/contracts/src/validation.ts": {
+        "lane": "37a239e354575bd53ef9d0658a81139a3b3a656052d1165dff910f45cc4cc636",
+        "main": "37a239e354575bd53ef9d0658a81139a3b3a656052d1165dff910f45cc4cc636"
+      },
+      "packages/engine/src/media/validation.ts": {
+        "lane": "59b4f763dd4b58f5f417a695e4dfb099707a85a4c30f3caa514658d16126baa2",
+        "main": "59b4f763dd4b58f5f417a695e4dfb099707a85a4c30f3caa514658d16126baa2"
+      },
+      "packages/engine/src/media/provider.ts": {
+        "lane": "034ef714e43436947e4c6fe323a73913c909005b456f680afa677ec191880166",
+        "main": "034ef714e43436947e4c6fe323a73913c909005b456f680afa677ec191880166"
+      },
+      "packages/engine/src/media/segments.ts": {
+        "lane": "d8d29cbd7ff12327c1c29cf825774c065730885b106675754019f994bdf61f20",
+        "main": "d8d29cbd7ff12327c1c29cf825774c065730885b106675754019f994bdf61f20"
+      },
+      "packages/engine/src/media/segment-validation.ts": {
+        "lane": "b5eafe48e25e058a02bda25a2d89297b02853d5b1208bb6e99440945141f9bd6",
+        "main": "b5eafe48e25e058a02bda25a2d89297b02853d5b1208bb6e99440945141f9bd6"
+      },
+      "packages/engine/src/media/segment-provider.ts": {
+        "lane": "48afccecdaecd4352a36f4891377918ba671c9521cfe23f99814129e732e5009",
+        "main": "48afccecdaecd4352a36f4891377918ba671c9521cfe23f99814129e732e5009"
+      },
+      "packages/engine/src/media/segment-store.ts": {
+        "lane": "0126fc1d350e9f842379ddc9eba5e9ac61aad395eb01fd1d056d88c7b85142dd",
+        "main": "0126fc1d350e9f842379ddc9eba5e9ac61aad395eb01fd1d056d88c7b85142dd"
+      },
+      "packages/engine/src/media/output.ts": {
+        "lane": "87b9275e8d5781d52a2b85a85aa1f2d15ac94bb331f27b64907af25c34a8fe32",
+        "main": "87b9275e8d5781d52a2b85a85aa1f2d15ac94bb331f27b64907af25c34a8fe32"
+      },
+      "packages/engine/src/media/native-validation.ts": {
+        "lane": "527ed70c75eb9eeaa462ebf1c74657dc93a94d5972cea09f0f3b45cb76206d52",
+        "main": "527ed70c75eb9eeaa462ebf1c74657dc93a94d5972cea09f0f3b45cb76206d52"
+      },
+      "packages/engine/src/media/storage-capacity.ts": {
+        "lane": "662d64098c13ee1b82a977033cb566971ffa8224d5cfb90f4db190a35f6e1788",
+        "main": "662d64098c13ee1b82a977033cb566971ffa8224d5cfb90f4db190a35f6e1788"
+      },
+      "packages/engine/src/documents/validation.ts": {
+        "lane": "440d146a614926b006ce39137f77925623defdc0805aeaab704f3f6b8a200c7b",
+        "main": "440d146a614926b006ce39137f77925623defdc0805aeaab704f3f6b8a200c7b"
+      },
+      "packages/engine/src/documents/provider.ts": {
+        "lane": "15102094b8ae821a3c3a6b91282d47a396757bebcaa7b899cff4c99bd2edb359",
+        "main": "15102094b8ae821a3c3a6b91282d47a396757bebcaa7b899cff4c99bd2edb359"
+      },
+      "packages/engine/src/provider/codex.ts": {
+        "lane": "292b723a7db3d2b983fdf22b33c4a6753f7c786d98744dea2a365b4d88c592fb",
+        "main": "292b723a7db3d2b983fdf22b33c4a6753f7c786d98744dea2a365b4d88c592fb"
+      },
+      "packages/engine/src/provider/responses.ts": {
+        "lane": "0707d60fbcbdbee6f6ee7bb52d9c56344b05c2733fea5881bc9cf877ff83f19f",
+        "main": "0707d60fbcbdbee6f6ee7bb52d9c56344b05c2733fea5881bc9cf877ff83f19f"
+      },
+      "packages/engine/src/provider/anthropic.ts": {
+        "lane": "097b3aff8a4426d50b211b92aa979dcc666948f3c7213bcc9f2811842d42ca96",
+        "main": "097b3aff8a4426d50b211b92aa979dcc666948f3c7213bcc9f2811842d42ca96"
+      },
+      "packages/engine/src/provider/openai-compatible.ts": {
+        "lane": "ca1cf1a8315f82a851c04bd910daf368bcb3b6289c2a6f1a8cffa08d63d3f424",
+        "main": "ca1cf1a8315f82a851c04bd910daf368bcb3b6289c2a6f1a8cffa08d63d3f424"
+      },
+      "packages/engine/src/context/model-spec.ts": {
+        "lane": "c3182111569568713bc1d6f5aedc4fb90717454b36a8e901be1221470a986bae",
+        "main": "c3182111569568713bc1d6f5aedc4fb90717454b36a8e901be1221470a986bae"
+      },
+      "packages/engine/src/context/plan.ts": {
+        "lane": "5c4c08784ff9c532840c22aeb0c8c46ddb4a5c3df954363175f5c81aa3ee46c1",
+        "main": "5c4c08784ff9c532840c22aeb0c8c46ddb4a5c3df954363175f5c81aa3ee46c1"
+      },
+      "packages/engine/src/runner/turn-executor.ts": {
+        "lane": "2ecd2c1bda2d604512f0307e4ff2921e97b902c44f9d0dc8ebf51a92b6d0ed79",
+        "main": "2ecd2c1bda2d604512f0307e4ff2921e97b902c44f9d0dc8ebf51a92b6d0ed79"
+      },
+      "packages/engine/src/artifacts/store.ts": {
+        "lane": "c6ad6295987a8b4f763d63f260a4714920604dcc7bfb444be80c34187f4fa2e6",
+        "main": "c6ad6295987a8b4f763d63f260a4714920604dcc7bfb444be80c34187f4fa2e6"
+      },
+      "packages/engine/src/engine.ts": {
+        "lane": "1a3b5964774a6be4dccc03b06f929ec519f9724587a9068556fb76d172dbefea",
+        "main": "1a3b5964774a6be4dccc03b06f929ec519f9724587a9068556fb76d172dbefea"
+      }
+    },
+    "productionPinCount": 23,
+    "laneVsMainMismatches": [],
+    "verdict": "PASS source review at latest recorded mutable candidate SHA; intermediate missing import is resolved; final frozen identity still needs match.",
+    "verifiedBoundaries": [
+      "Chat conditional exact-model PCM16 WAV input_audio and generated PCM16 native provider Artifact/output are implemented; standard Responses conditional AVI-to-PNG input_image frames; Codex/Anthropic new audio/video and nonChat audio output explicitly unsupported.",
+      "AVI is frame projection, not native video support. Exact --model stays unverified DATA and does not become host capability. Adapter exact IDs AND ModelSpec.mediaCapabilities conjunction is required.",
+      "Host output voice/rate/channel verification is separate; supported rates/channels are implementation ranges only, layoutVerified false. Unknown media/document token cost null and missing usage never zero.",
+      "Plan/matrix/modality accountVerified false, completionCredit false,19 cases pending/evidence null. Source-pinned fixed bounded reads with no provider imports/account lookup. Invalid CLI exits before source reads.",
+      "Native provider Run/Turn/Attempt/Part/Artifact cleanup and source/birth receipts, actual output/header budget, partial/octets, SQL gap unknown, duplicate/source loss/restart/paused import/crash cases are reflected without claiming account proof.",
+      "Old provider/model CLI and schemaVersion1/workItem16a retained. gpt-audio-1.5 audio-only declaration and separate video model account evidence remain actual host/verifier requirements."
+    ],
+    "actionableLatestRead": {
+      "missingLstatSyncImport": false,
+      "location": "scripts/plan-media-verification.mjs node:fs import and source.map physical=lstatSync",
+      "impact": "When absent, valid CLI fails at first source pin rather than emitting plan. Intermediate mutable edit, not final freeze claim. B and Root notified; no reviewer test run.",
+      "state": "resolved in latest reread",
+      "priorIntermediateSourceSha256": "40a3ba6d0c65ebce69f17085a10c83ab6b52a8b4bafc2e1332dca4168376fda1"
+    },
+    "evidenceAttribution": {
+      "workerReportedCliTests": 6,
+      "workerReportedAdjacentNativeTests": 13,
+      "reviewerTestsRun": 0,
+      "readTestAssertions": "Actual CLI subprocess instrumentation of source/config/credential-env/import/fetch/network activity and source mutation/limits; fake sentinel keys prove only absence of lookup, not model account compatibility."
+    },
+    "scope": {
+      "mainEdits": 0,
+      "workerEdits": 0,
+      "testsRun": 0,
+      "accountCalls": 0,
+      "secretReads": 0,
+      "environmentValuesRead": 0,
+      "writesOnlyUnder": "/tmp"
+    },
+    "next": "Compare final frozen manifest with inspected files; further candidate changes are not covered by initial review.",
+    "updatedAtUTC": "2026-10-08T14:07:41.546614+00:00"
+  },
+  "productionCandidateReviewMatchesFinalPlanner": true,
+  "testReviewScope": "Final tests were strengthened after the recorded reviewer test SHA; Root verified final six-case test execution and patch manifest. No claim of identical reviewed test SHA.",
+  "readiness": {
+    "version": 1,
+    "kind": "MC2-16d independent production-account gap and auth-route readiness audit",
+    "recordedAtUTC": "2026-10-08T13:58:33.162112+00:00",
+    "implementationCommit": "1bff0255e1f376f659916231e326718da9929bdc",
+    "sourceHashes": {
+      "packages/engine/src/engine.ts": "1a3b5964774a6be4dccc03b06f929ec519f9724587a9068556fb76d172dbefea",
+      "packages/engine/src/context/model-spec.ts": "c3182111569568713bc1d6f5aedc4fb90717454b36a8e901be1221470a986bae",
+      "packages/engine/src/provider/openai-compatible.ts": "ca1cf1a8315f82a851c04bd910daf368bcb3b6289c2a6f1a8cffa08d63d3f424",
+      "packages/engine/src/provider/responses.ts": "0707d60fbcbdbee6f6ee7bb52d9c56344b05c2733fea5881bc9cf877ff83f19f",
+      "packages/engine/src/provider/codex.ts": "292b723a7db3d2b983fdf22b33c4a6753f7c786d98744dea2a365b4d88c592fb",
+      "packages/engine/src/media/segment-provider.ts": "48afccecdaecd4352a36f4891377918ba671c9521cfe23f99814129e732e5009",
+      "packages/engine/src/media/segments.ts": "d8d29cbd7ff12327c1c29cf825774c065730885b106675754019f994bdf61f20",
+      "packages/engine/src/media/output.ts": "87b9275e8d5781d52a2b85a85aa1f2d15ac94bb331f27b64907af25c34a8fe32",
+      "packages/engine/src/media/native-validation.ts": "527ed70c75eb9eeaa462ebf1c74657dc93a94d5972cea09f0f3b45cb76206d52",
+      "packages/engine/src/media/segment-validation.ts": "b5eafe48e25e058a02bda25a2d89297b02853d5b1208bb6e99440945141f9bd6",
+      "packages/engine/src/media/segment-store.ts": "0126fc1d350e9f842379ddc9eba5e9ac61aad395eb01fd1d056d88c7b85142dd",
+      "packages/engine/src/media/storage-capacity.ts": "662d64098c13ee1b82a977033cb566971ffa8224d5cfb90f4db190a35f6e1788",
+      "scripts/plan-media-verification.mjs": "a5cd6cc4f634beeca81082918c186b537797e10f48df5e37a28a06d607b8693b",
+      "docs/coding-agent-engine-review/implementation-blueprint.md": "d4f8d381430871f23e9676e74efe78b409cfbeb9e1bf063c5207281ebf5359ac",
+      "docs/moodcode/engine-phase-two-media-capabilities.md": "55e84b9096476888792259f345d3545c37db9f0c1eff29a1bed6914cc67d2b0f",
+      "docs/moodcode/engine-phase-two-progress.json": "51e46fec3e7eb2b1f2a70b082e18fa5e285818ba3fa3303dbf80d162744150e2"
+    },
+    "scope": {
+      "mainEdits": 0,
+      "workerEdits": 0,
+      "newTests": 0,
+      "accountCalls": 0,
+      "credentialsRead": false,
+      "environmentValuesReadByReviewer": false,
+      "writesOnlyUnder": "/tmp",
+      "officialDocumentationFetched": true
+    },
+    "originalCriterion": {
+      "id": "MC2-16d",
+      "state": "in-progress",
+      "requires": "Actual supported production models, exact capability declaration and independent native evidence for valid recognition/output plus invalid MIME, oversize, unknown capability, partial generation, duplicate delivery and source removal/change. E5-13 closure is independently assessed.",
+      "completedWorkItems": 79,
+      "completedFamilies": 19,
+      "environmentDebts": [
+        "E5-13",
+        "E5-08",
+        "E6-07",
+        "E6-08"
+      ]
+    },
+    "rootNamedEnvironmentCheck": {
+      "actor": "/root",
+      "reportedReceivedAtUTC": "2026-10-08T13:58:33.162112+00:00",
+      "exactCheckTimestampUTC": null,
+      "OPENAI_API_KEY_present": false,
+      "MOODCODE_API_KEY_present": false,
+      "method": "Root reported existence booleans for the two explicitly named variables only; reviewer did not read either variable or any credential file.",
+      "modelAccessVerified": false
+    },
+    "apiKeyTool": {
+      "available": false,
+      "method": "ALL_TOOLS metadata search only; no request for or inspection of secret content"
+    },
+    "officialReferences": [
+      {
+        "url": "https://developers.openai.com/api/docs/guides/audio-chat-completions",
+        "supports": "Chat audio with audio-capable models, WAV input and audio output. This audio route uses Chat Completions."
+      },
+      {
+        "url": "https://developers.openai.com/api/docs/models/gpt-audio-1.5",
+        "supports": "gpt-audio-1.5 supports text/audio input and output, streaming, context128000/output16384; image and video are unsupported."
+      },
+      {
+        "url": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events",
+        "supports": "Streamed audio partial ID/data/transcript, final expiry update and optional usage; cancelled streams may lack final usage."
+      },
+      {
+        "url": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create",
+        "supports": "Audio output options include pcm16. Reviewed Chat pages do not establish PCM sample rate/channel layout."
+      }
+    ],
+    "closestProductionAudioConfig": {
+      "providerClass": "OpenAICompatibleProvider",
+      "baseURL": "https://api.openai.com/v1",
+      "endpoint": "https://api.openai.com/v1/chat/completions",
+      "apiKey": "Original host-injected valid API credential; no value recorded; existing Codex access token is not a substitute",
+      "id": "openai-compatible",
+      "audioModelIds": [
+        "gpt-audio-1.5"
+      ],
+      "videoModelIds": [],
+      "modelSpec": {
+        "providerId": "openai-compatible",
+        "modelId": "gpt-audio-1.5",
+        "contextWindow": 128000,
+        "maxOutputTokens": 16384,
+        "modalities": [
+          "text",
+          "audio"
+        ],
+        "mediaCapabilities": {
+          "audioInput": true,
+          "videoFrames": false,
+          "audioOutput": "false for input-only; true only with corresponding verified outputAudio config"
+        },
+        "source": {
+          "kind": "host",
+          "observedAt": "actual configuration observation UTC",
+          "reference": "official model URL plus host-specific evidence; source.kind fixture never grants account credit"
+        },
+        "tools": true,
+        "reasoning": null,
+        "nativeReplay": false,
+        "inputFileTypes": []
+      },
+      "engine": {
+        "allowUnknownMediaTokenCost": true,
+        "tools": [],
+        "allowedToolNames": [],
+        "limits": "Fixed finite actual Run/Attempt/turn/tool/output/context/duration budgets and request count; no weakening of native admission/output artifact ceilings"
+      },
+      "outputAudio": "Omit for input recognition. To enable, supply exact modelIds, supported voice and independently attested sampleRate/channels; adapter requests streamed pcm16 and wraps actual PCM in WAV.",
+      "configurationIsData": "Host declaration selects support; genuine provider Run/Turn/Attempt/context/native cleanup remains authority. Unknown or false capabilities reject, not success."
+    },
+    "blockers": [
+      {
+        "id": "credential",
+        "state": "blocked-current-environment",
+        "required": "User-provided exact API-key environment reference or approved injected host credential and actual model/account access. Both currently named variables are absent according to Root."
+      },
+      {
+        "id": "generated-pcm-layout",
+        "state": "unverified-host-attestation",
+        "required": "Endpoint/model-specific sampleRate/channels attestation with origin and observation time; optional reference may be recorded. CLI host declaration must explicitly be called attestation, not official-doc proof. Do not infer Chat PCM layout from TTS or Realtime24kHz."
+      },
+      {
+        "id": "video-frame-account",
+        "state": "separate-unverified-model",
+        "required": "An exact officially image-capable production model and credentials for existing Chat or standard Responses video-derived PNG lane; gpt-audio-1.5 and current Codex media route cannot prove this criterion."
+      },
+      {
+        "id": "production-completion",
+        "state": "pending",
+        "required": "Per-scope actual successful recognition/native output evidence and local negative cases under the same captured production config. No credit for HTTP200, declared model name, fixture audio or previous Codex image-only smoke."
+      }
+    ],
+    "requiredActualCases": [
+      {
+        "id": "audio-recognition",
+        "evidence": "Fresh native session/actual Engine.importMedia -> input.accept -> actual provider Run/Turn/Attempt; real valid spoken/random challenge whose expected answer is absent from serialized recognition prompt/body except its encoded media; independent expected/observed check, source and selected-segment hashes, exact model/endpoint/capability pins and cleanup."
+      },
+      {
+        "id": "video-frame-recognition",
+        "evidence": "Separate supported image-model/account; real AVI decoded pixels/timestamp anchors with random visual answer absent from text prompt; exact source/PNG hashes and native admission/context/Attempt."
+      },
+      {
+        "id": "generated-audio",
+        "evidence": "Actual live provider bytes under attested layout; nonempty canonical aligned PCM, complete finish/DONE/final expiry, native provider Artifact/Part/Attempt birth and cleanup, readonly bytes/SHA/wave verification, truthful transcript and usage-or-unknown; no synthetic Tool."
+      },
+      {
+        "id": "invalid-mime-oversize-unknown",
+        "evidence": "Production-config local preflight negative cases produce zero native accepted input/provider request where applicable; missing exact model declarations/caps remain unknown/unsupported. A real request failure is not recognition."
+      },
+      {
+        "id": "partial-cancel-output-budget",
+        "evidence": "Bounded actual transport interruption with physical response-body join; partial output interrupted, missing usage unknown, unconfirmed cleanup uncertain; exact WAV-header artifact/producer ceilings and Run output caps retained."
+      },
+      {
+        "id": "duplicate",
+        "evidence": "Exact accepted input retry preserves native Input/Run/Attempt/Part/Artifact identity and requests count; no second live model request; changed payload conflicts."
+      },
+      {
+        "id": "source-loss",
+        "evidence": "Actual queued media source missing or changed before dispatch fails closed with zero new remote request; historical successful answer is not new authority."
+      },
+      {
+        "id": "archive-restart",
+        "evidence": "Existing native history/SHA/usage/output source preserved; explicit fresh consumption only if current source/config valid. Imported history paused, no restored model/Original grant and no automatic replay."
+      }
+    ],
+    "evidenceAndRedaction": {
+      "identity": [
+        "full implementation source manifest",
+        "provider/model/endpoint",
+        "nonsecret host capability and PCM attestation digest",
+        "runtime/time",
+        "native Input/Run/Turn/Attempt/Part/Artifact IDs",
+        "source/segment/output SHAs",
+        "cleanup receipts",
+        "actual request count",
+        "independent answer check",
+        "usage fields or null/absent"
+      ],
+      "doNotPublish": [
+        "API keys",
+        "Codex tokens",
+        "Authorization headers",
+        "credential-derived hashes",
+        "raw user recordings or decoded challenge/answer contents"
+      ],
+      "honestUnknowns": [
+        "actual account/model access",
+        "media input token/window estimate",
+        "missing final usage after cancellation",
+        "PCM layout without host verification",
+        "compressed formats/native fullvideo/image-video generation",
+        "other-model/adapter/accounts not exercised"
+      ],
+      "creditRule": "Record separate local/fixture and live account evidence per scope. MC16d stays in-progress until original supported new-media scopes satisfy real account conditions; broad E5-13 does not close from an image or one audio subset."
+    },
+    "pendingCandidateReview": "A verifier and B current planner candidates will be reviewed separately when saved; this audit does not certify unpublished code.",
+    "verdict": "Implementation has a bounded production-compatible Chat audio path, but current named API credentials and PCM output attestation/account/video evidence are not ready. Preserve79/80 and19/20; no account call made."
+  },
+  "namedEnvironmentRecheck": {
+    "observedAtUTC": "2026-10-08T14:15:07.298Z",
+    "checkedNames": {
+      "OPENAI_API_KEY": false,
+      "MOODCODE_API_KEY": false
+    },
+    "rawValuesRecorded": false,
+    "credentialFilesRead": 0,
+    "accountRequests": 0
+  },
+  "completion": {
+    "workItems": 79,
+    "families": 19,
+    "MC2-16d": "in-progress",
+    "newCredit": 0,
+    "goal": "active"
+  },
+  "priorEngineEvidence": {
+    "commit": "1bff0255e1f376f659916231e326718da9929bdc",
+    "report": "engine-phase-two-code-media-integration-verification.json",
+    "scope": "Historical complete compiled/source/type/coding engine gates. This change edits only account-free planner and its tests; all870 prior source/build inputs remain byte-identical. No fresh whole-engine test claimed."
+  }
+}

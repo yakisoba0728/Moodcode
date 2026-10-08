@@ -1,0 +1,542 @@
+{
+  "schemaVersion": 1,
+  "workItem": "MC2-16a",
+  "workItems": [
+    "MC2-16a",
+    "MC2-16b",
+    "MC2-16c",
+    "MC2-16d"
+  ],
+  "kind": "account-media-verification-plan",
+  "state": "plan-only",
+  "liveProviderCalls": 0,
+  "accountConfigurationRead": false,
+  "accountVerified": false,
+  "sourcePins": {
+    "packages/contracts/src/index.ts": "be2b85ee3924485348202881ad15adcc22a0e04950c84ffdca147b8f7ae93616",
+    "packages/contracts/src/v2.ts": "fb5575f0c40b67307325e5d4b24258f32d09d4890bba1d8df6312eb1c6ac28c3",
+    "packages/contracts/src/validation.ts": "37a239e354575bd53ef9d0658a81139a3b3a656052d1165dff910f45cc4cc636",
+    "packages/engine/src/media/validation.ts": "59b4f763dd4b58f5f417a695e4dfb099707a85a4c30f3caa514658d16126baa2",
+    "packages/engine/src/media/provider.ts": "034ef714e43436947e4c6fe323a73913c909005b456f680afa677ec191880166",
+    "packages/engine/src/media/segments.ts": "d8d29cbd7ff12327c1c29cf825774c065730885b106675754019f994bdf61f20",
+    "packages/engine/src/media/segment-validation.ts": "b5eafe48e25e058a02bda25a2d89297b02853d5b1208bb6e99440945141f9bd6",
+    "packages/engine/src/media/segment-provider.ts": "48afccecdaecd4352a36f4891377918ba671c9521cfe23f99814129e732e5009",
+    "packages/engine/src/media/segment-store.ts": "0126fc1d350e9f842379ddc9eba5e9ac61aad395eb01fd1d056d88c7b85142dd",
+    "packages/engine/src/media/output.ts": "87b9275e8d5781d52a2b85a85aa1f2d15ac94bb331f27b64907af25c34a8fe32",
+    "packages/engine/src/media/native-validation.ts": "527ed70c75eb9eeaa462ebf1c74657dc93a94d5972cea09f0f3b45cb76206d52",
+    "packages/engine/src/media/storage-capacity.ts": "662d64098c13ee1b82a977033cb566971ffa8224d5cfb90f4db190a35f6e1788",
+    "packages/engine/src/documents/validation.ts": "440d146a614926b006ce39137f77925623defdc0805aeaab704f3f6b8a200c7b",
+    "packages/engine/src/documents/provider.ts": "15102094b8ae821a3c3a6b91282d47a396757bebcaa7b899cff4c99bd2edb359",
+    "packages/engine/src/provider/codex.ts": "292b723a7db3d2b983fdf22b33c4a6753f7c786d98744dea2a365b4d88c592fb",
+    "packages/engine/src/provider/responses.ts": "0707d60fbcbdbee6f6ee7bb52d9c56344b05c2733fea5881bc9cf877ff83f19f",
+    "packages/engine/src/provider/anthropic.ts": "097b3aff8a4426d50b211b92aa979dcc666948f3c7213bcc9f2811842d42ca96",
+    "packages/engine/src/provider/openai-compatible.ts": "ca1cf1a8315f82a851c04bd910daf368bcb3b6289c2a6f1a8cffa08d63d3f424",
+    "packages/engine/src/context/model-spec.ts": "c3182111569568713bc1d6f5aedc4fb90717454b36a8e901be1221470a986bae",
+    "packages/engine/src/context/plan.ts": "5c4c08784ff9c532840c22aeb0c8c46ddb4a5c3df954363175f5c81aa3ee46c1",
+    "packages/engine/src/runner/turn-executor.ts": "2ecd2c1bda2d604512f0307e4ff2921e97b902c44f9d0dc8ebf51a92b6d0ed79",
+    "packages/engine/src/artifacts/store.ts": "c6ad6295987a8b4f763d63f260a4714920604dcc7bfb444be80c34187f4fa2e6",
+    "packages/engine/src/engine.ts": "1a3b5964774a6be4dccc03b06f929ec519f9724587a9068556fb76d172dbefea"
+  },
+  "implementation": {
+    "authority": "source-pinned-adapter-plan-only",
+    "engineApis": [
+      "importImage",
+      "importDocument",
+      "importMedia",
+      "getMediaCapabilities",
+      "readMediaOutput"
+    ],
+    "modelSelectionGrantsCapability": false,
+    "accountCompatibility": "unverified",
+    "completionCredit": false
+  },
+  "matrix": [
+    {
+      "providerId": "codex",
+      "modelId": null,
+      "accountVerified": false,
+      "image": {
+        "adapter": "declared-input-image",
+        "model": "unverified",
+        "accountVerified": false,
+        "mimeTypes": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/gif"
+        ]
+      },
+      "pdf": {
+        "adapter": "unsupported",
+        "model": "not-requested",
+        "accountVerified": false
+      },
+      "audio": {
+        "adapter": "unsupported",
+        "model": "not-requested",
+        "accountVerified": false
+      },
+      "video": {
+        "adapter": "unsupported",
+        "model": "not-requested",
+        "accountVerified": false
+      },
+      "generatedMedia": {
+        "adapter": "unsupported",
+        "model": "not-requested",
+        "accountVerified": false
+      },
+      "requiredCases": [
+        "image-recognition",
+        "invalid-mime-signature",
+        "oversized-payload",
+        "unknown-model-capability",
+        "duplicate-delivery",
+        "source-removal-or-change",
+        "restart-and-paused-import"
+      ],
+      "unsupportedMediaCheck": "Audio/video/output requests outside these exact adapter/model declarations reject before dispatch; an exact --model string is not a host declaration or verified account."
+    },
+    {
+      "providerId": "openai-responses",
+      "modelId": null,
+      "accountVerified": false,
+      "image": {
+        "adapter": "declared-input-image",
+        "model": "unverified",
+        "accountVerified": false,
+        "mimeTypes": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/gif"
+        ]
+      },
+      "pdf": {
+        "adapter": "explicit-pdfModelIds-and-modelSpec-required",
+        "model": "unverified",
+        "accountVerified": false,
+        "mimeTypes": [
+          "application/pdf"
+        ],
+        "unknownTokenCost": "two-independent-opt-ins-required"
+      },
+      "audio": {
+        "adapter": "unsupported",
+        "model": "not-requested",
+        "accountVerified": false
+      },
+      "video": {
+        "adapter": "implemented-avi-png-input_image",
+        "model": "unverified",
+        "accountVerified": false,
+        "mimeTypes": [
+          "video/x-msvideo"
+        ],
+        "wireMimeTypes": [
+          "image/png"
+        ],
+        "codec": "single video stream RGB24/BI_RGB AVI",
+        "modelDeclaration": "videoModelIds exact ID AND ModelSpec.mediaCapabilities.videoFrames=true",
+        "nativeFullVideo": false
+      },
+      "generatedMedia": {
+        "adapter": "unsupported",
+        "model": "not-requested",
+        "accountVerified": false
+      },
+      "requiredCases": [
+        "image-recognition",
+        "pdf-page-recognition",
+        "video-frame-recognition",
+        "invalid-mime-signature",
+        "oversized-payload",
+        "unknown-model-capability",
+        "unknown-pdf-token-cost",
+        "unknown-media-token-cost",
+        "decoded-segment-anchors",
+        "duplicate-delivery",
+        "source-removal-or-change",
+        "restart-and-paused-import"
+      ],
+      "unsupportedMediaCheck": "Audio/video/output requests outside these exact adapter/model declarations reject before dispatch; an exact --model string is not a host declaration or verified account."
+    },
+    {
+      "providerId": "anthropic",
+      "modelId": null,
+      "accountVerified": false,
+      "image": {
+        "adapter": "declared-input-image",
+        "model": "unverified",
+        "accountVerified": false,
+        "mimeTypes": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/gif"
+        ]
+      },
+      "pdf": {
+        "adapter": "unsupported",
+        "model": "not-requested",
+        "accountVerified": false
+      },
+      "audio": {
+        "adapter": "unsupported",
+        "model": "not-requested",
+        "accountVerified": false
+      },
+      "video": {
+        "adapter": "unsupported",
+        "model": "not-requested",
+        "accountVerified": false
+      },
+      "generatedMedia": {
+        "adapter": "unsupported",
+        "model": "not-requested",
+        "accountVerified": false
+      },
+      "requiredCases": [
+        "image-recognition",
+        "invalid-mime-signature",
+        "oversized-payload",
+        "unknown-model-capability",
+        "duplicate-delivery",
+        "source-removal-or-change",
+        "restart-and-paused-import"
+      ],
+      "unsupportedMediaCheck": "Audio/video/output requests outside these exact adapter/model declarations reject before dispatch; an exact --model string is not a host declaration or verified account."
+    },
+    {
+      "providerId": "openai-compatible",
+      "modelId": null,
+      "accountVerified": false,
+      "image": {
+        "adapter": "declared-input-image",
+        "model": "unverified",
+        "accountVerified": false,
+        "mimeTypes": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/gif"
+        ]
+      },
+      "pdf": {
+        "adapter": "unsupported",
+        "model": "not-requested",
+        "accountVerified": false
+      },
+      "audio": {
+        "adapter": "implemented-wav-input_audio",
+        "model": "unverified",
+        "accountVerified": false,
+        "mimeTypes": [
+          "audio/wav"
+        ],
+        "codec": "PCM16 RIFF WAV",
+        "modelDeclaration": "audioModelIds exact ID AND ModelSpec.mediaCapabilities.audioInput=true"
+      },
+      "video": {
+        "adapter": "implemented-avi-png-image_url",
+        "model": "unverified",
+        "accountVerified": false,
+        "mimeTypes": [
+          "video/x-msvideo"
+        ],
+        "wireMimeTypes": [
+          "image/png"
+        ],
+        "codec": "single video stream RGB24/BI_RGB AVI",
+        "modelDeclaration": "videoModelIds exact ID AND ModelSpec.mediaCapabilities.videoFrames=true",
+        "nativeFullVideo": false
+      },
+      "generatedMedia": {
+        "adapter": "implemented-streamed-pcm16-provider-artifact",
+        "model": "unverified",
+        "accountVerified": false,
+        "mimeTypes": [
+          "audio/wav"
+        ],
+        "partialUnalignedMimeType": "application/octet-stream",
+        "modelDeclaration": "outputAudio.modelIds exact ID AND ModelSpec.mediaCapabilities.audioOutput=true",
+        "layout": "explicit host outputAudio voice/sampleRate/channels independently verified for exact endpoint/model",
+        "nativeIdentity": "actual Run/Turn/Attempt; no fabricated toolCallId",
+        "imageGeneration": false,
+        "videoGeneration": false
+      },
+      "requiredCases": [
+        "image-recognition",
+        "audio-segment-recognition",
+        "video-frame-recognition",
+        "generated-audio-layout",
+        "invalid-mime-signature",
+        "oversized-payload",
+        "unknown-model-capability",
+        "unknown-media-token-cost",
+        "decoded-segment-anchors",
+        "native-provider-artifact",
+        "partial-generation",
+        "artifact-and-output-budget",
+        "native-publication-sql-failure",
+        "duplicate-delivery",
+        "source-removal-or-change",
+        "restart-and-paused-import",
+        "sigkill-and-unjoined-cleanup"
+      ],
+      "unsupportedMediaCheck": "Audio/video/output requests outside these exact adapter/model declarations reject before dispatch; an exact --model string is not a host declaration or verified account."
+    }
+  ],
+  "constraints": {
+    "segments": {
+      "sourceBytes": 524288,
+      "sourceDurationMs": 30000,
+      "maxIntervals": 4,
+      "maxIntervalMs": 10000,
+      "intervalUnit": "integer milliseconds; ordered nonoverlapping",
+      "audioSampleRates": [
+        8000,
+        16000,
+        24000,
+        48000
+      ],
+      "audioChannels": [
+        1,
+        2
+      ],
+      "maxVideoWidth": 256,
+      "maxVideoHeight": 256,
+      "maxVideoSourceFrames": 32,
+      "maxRiffChunks": 256,
+      "decodedAndRepeatedWireAssets": 4,
+      "decodedAndRepeatedWireBytes": 1048576
+    },
+    "output": {
+      "streamsPerAttempt": 1,
+      "pcmBytes": 524244,
+      "wavHeaderBytes": 44,
+      "totalWavBytes": 524288,
+      "maxChunks": 256,
+      "maxDurationMs": 30000,
+      "sampleRates": [
+        8000,
+        16000,
+        24000,
+        48000
+      ],
+      "channels": [
+        1,
+        2
+      ],
+      "layoutVerified": false,
+      "actualRunOutputAndNormalizedArtifactBudgetsRequired": true,
+      "boundedHostReadDefaultBytes": 8192,
+      "boundedHostReadMaximumBytes": 65536
+    },
+    "tokenCost": {
+      "mediaTokens": null,
+      "documentTokens": null,
+      "unknownMediaCost": "fixed host allowUnknownMediaTokenCost=true; independent exact model support",
+      "unknownPdfCost": "independent host and Responses adapter opt-ins",
+      "providerUsage": "record actual usage when supplied; otherwise null/absent, never zero"
+    },
+    "unsupported": [
+      "MP3/AAC/Opus/FLAC",
+      "compressed AVI/MP4/MOV",
+      "native full-video API",
+      "Anthropic/Responses/Codex audio input or audio output",
+      "Anthropic/Codex new video segments",
+      "image/video generation"
+    ],
+    "history": "Original native owners and physical source/output bytes are required. Reopen/import/capability reads never rehydrate a live grant or replay a provider."
+  },
+  "cases": [
+    {
+      "id": "image-recognition",
+      "execution": "live",
+      "acceptance": "A valid image contains a random visual answer absent from the text prompt; independently check its answer and attachment SHA.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "pdf-page-recognition",
+      "execution": "live-responses-only",
+      "acceptance": "A real PDF contains page text and artwork; exact model support, both unknown-document-cost opt-ins and an independent page answer are required.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "audio-segment-recognition",
+      "execution": "live-chat-only",
+      "acceptance": "An exact production Chat model consumes actual selected PCM16 WAV samples. Check a spoken random answer absent from text, source/asset SHA and interval; a local fixture model does not verify the account.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "video-frame-recognition",
+      "execution": "live-frame-adapter",
+      "acceptance": "An exact supported image-capable production model consumes decoded AVI PNG frames. Independently check random frame pixels/order/timestamps; this proves the frame projection, not native video transport.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "generated-audio-layout",
+      "execution": "live-chat-only",
+      "acceptance": "An exact production model with separately verified host voice/rate/channels returns PCM16. Validate complete samples, duration, stream identity, final expiry/finish/DONE, actual Attempt/Part/Artifact and an independently checked audible answer. Never infer layout from another API.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "invalid-mime-signature",
+      "execution": "local-before-live",
+      "acceptance": "Invalid image/PDF or mismatched WAV/AVI container/codec rejects before account lookup, remote dispatch or native input acceptance.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "oversized-payload",
+      "execution": "local-before-live",
+      "acceptance": "Per-source, interval/duration, decoded/repeated asset and aggregate serialized media bounds reject before remote dispatch.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "unknown-model-capability",
+      "execution": "local-before-live",
+      "acceptance": "Unknown exact model IDs, generic modality labels or a missing adapter/model capability conjunction cannot dispatch new media.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "unknown-pdf-token-cost",
+      "execution": "local-before-live",
+      "acceptance": "Either missing independent PDF cost opt-in rejects; opted-in diagnostics keep documentTokens=null and incomplete estimates.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "unknown-media-token-cost",
+      "execution": "local-before-live",
+      "acceptance": "Missing fixed host allowUnknownMediaTokenCost rejects audio/video/output. With explicit permission mediaTokens stays null; absent usage is not zero.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "decoded-segment-anchors",
+      "execution": "local-before-live",
+      "acceptance": "Re-decode genuine source bytes and independently verify selected WAV samples and timestamped lossless PNG pixels; DTO timestamps cannot replace physical bytes.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "native-provider-artifact",
+      "execution": "local-before-live",
+      "acceptance": "A genuine Engine Run/Turn/provider Attempt emits a native media Part and managed Artifact, with immutable provider identity and independent cleanup/birth journals; no invented Tool ID.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "partial-generation",
+      "execution": "local-before-live",
+      "acceptance": "Cancellation/truncated stream retains an interrupted Artifact and failed/interrupted Part. A partial sample is octet data, not WAV; no successful recognition or automatic replay.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "artifact-and-output-budget",
+      "execution": "local-before-live",
+      "acceptance": "Charge PCM and text against the actual Run output budget, and count the full WAV header against normalized producer/artifact budgets before publication.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "native-publication-sql-failure",
+      "execution": "local-before-live",
+      "acceptance": "Physical artifact publication followed by native receipt failure remains uncertain; it cannot fabricate a complete Part or retry the provider.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "duplicate-delivery",
+      "execution": "local-before-live",
+      "acceptance": "Retry the exact accepted media input and assert the same native input/Run identity, one provider request and no second Artifact publication.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "source-removal-or-change",
+      "execution": "local-before-live",
+      "acceptance": "Delete/change the actual source blob or owner before dispatch: reject with zero requests and no substituted bytes. Prior success is historical evidence only.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "restart-and-paused-import",
+      "execution": "local-before-live",
+      "acceptance": "Preserve source/output bytes, exact native owners and receipts through reopen/archive/import; pause imported sessions, expose bounded output reads and never dispatch restored producers.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "sigkill-and-unjoined-cleanup",
+      "execution": "local-before-live",
+      "acceptance": "Actual SIGKILL at artifact/Part/final-settlement boundaries and an unjoinable response leave recovery/uncertainty. No generated output or completion receipt grants execution authority.",
+      "state": "pending",
+      "evidence": null
+    }
+  ],
+  "evidenceContract": {
+    "identity": [
+      "exact-provider-id",
+      "exact-model-id",
+      "adapter-source-sha",
+      "host-model-capability-sha",
+      "exact-endpoint-and-output-layout-source",
+      "runtime-version",
+      "observed-at"
+    ],
+    "input": [
+      "fixture-sha",
+      "mime-and-decoder",
+      "decoded-bytes",
+      "source-and-asset-sha",
+      "segment-or-page-anchor",
+      "prompt-sha",
+      "native-input-run-turn-attempt-ids"
+    ],
+    "observation": [
+      "request-count",
+      "recognition-answer-hash",
+      "independent-expected-answer-check",
+      "native-terminal-state",
+      "actual-cleanup-receipt",
+      "usage-or-null",
+      "provider-artifact-and-native-media-part",
+      "sample-layout-and-full-stored-byte-check"
+    ],
+    "redact": [
+      "credentials",
+      "account-tokens",
+      "authorization-headers",
+      "raw-fixture-or-response-contents"
+    ],
+    "success": "Only an independently checked actual account response proves recognition or production media compatibility. HTTP success, model names, declarations, local fixtures and this plan do not."
+  },
+  "nextExecution": {
+    "local": "Run media segments/segments.integration/segment-boundaries/media-output-budgets and segment-crash source or compiled suites. These use genuine native ownership and local fixture transports; they do not verify an account.",
+    "localSuites": [
+      "packages/engine/src/media/segments.test.ts",
+      "packages/engine/src/media/segments.integration.test.ts",
+      "packages/engine/src/media/segment-boundaries.integration.test.ts",
+      "packages/engine/src/media/media-output-budgets.integration.test.ts",
+      "packages/engine/src/media/segment-crash.integration.test.ts"
+    ],
+    "live": "Select exact account/provider/model and independently verify capability, endpoint, output layout and cost policy before tools-free bounded fixtures. Existing Codex image executors scripts/verify-session-image.mjs --live and scripts/verify-media-history.mjs --live prove image only; neither proves new audio/video/PDF/output support.",
+    "newModalities": "Native audio segments, frame projection and provider audio Artifacts are implemented locally. MC2-16d production account/model evidence and E5-13 stay open until separately executed; unsupported transports/codecs stay unsupported."
+  },
+  "environmentDebt": {
+    "id": "E5-13",
+    "state": "open",
+    "reason": "This plan makes no actual multimodal account request or completion claim."
+  }
+}
