@@ -56,6 +56,10 @@
   ],
   "externalConditions": [
     {
+      "condition": "Actual Windows engine Job Object integration and Electron44.5.1 package-native qualification are pending in the parent integration",
+      "releaseCondition": "Build the integrated production workspace with exact Electron headers/architecture; retain ASAR-unpacked binary; pass actual packaged utility native approval/receipt/cleanup before signed NSIS/update acceptance. Portable bundle and POSIX utility transport results cannot replace this condition."
+    },
+    {
       "condition": "macOS Developer ID and Apple notarization credentials not supplied",
       "releaseCondition": "Prepare signed review artifacts; actual codesign/spctl/stapler + signed installer/update verification on macOS"
     },

@@ -9,7 +9,7 @@ const common = {
   bundle: true,
   platform: "node",
   target: "node24",
-  external: ["electron", "electron-updater", "jose", "node-pty"],
+  external: ["electron", "electron-updater", "jose", "node-pty", "@moodcode/windows-job"],
   sourcemap: false,
   logLevel: "info",
 };
