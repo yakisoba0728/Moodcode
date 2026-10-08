@@ -134,30 +134,16 @@ export function persistentProviders(commandText: string) {
     },
   };
 }
-export async function createPersistentFixture(
-  base: string,
-  options: ResolvedPersistentSoakOptions,
+function initializePersistentRepository(
+  root: string,
+  preservedText: string,
+  commitMessage: string,
 ) {
-  const paths = fixturePaths(base);
-  mkdirSync(paths.root);
-  const script = join(paths.root, "command.mjs");
-  writeFileSync(
-    script,
-    `import{appendFileSync,writeFileSync,renameSync,existsSync}from'node:fs';
-appendFileSync(${JSON.stringify(paths.launches)},String(process.pid)+'\\n');
-writeFileSync(${JSON.stringify(paths.marker + ".tmp")},String(process.pid));renameSync(${JSON.stringify(paths.marker + ".tmp")},${JSON.stringify(paths.marker)});
-process.stdout.write('PERSISTENT_READY\\n'+'local-${options.seed}-'.repeat(128));
-const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){clearInterval(gate);process.stdout.write('\\nPERSISTENT_DONE\\n',()=>process.exit(0));}},5);
-`,
-  );
-  writeFileSync(
-    join(paths.root, "preserved.txt"),
-    `Persistent seed ${options.seed}\n`,
-  );
-  git(paths.root, "init", "--quiet", "--template=");
-  git(paths.root, "add", ".");
+  writeFileSync(join(root, "preserved.txt"), preservedText);
+  git(root, "init", "--quiet", "--template=");
+  git(root, "add", ".");
   git(
-    paths.root,
+    root,
     "-c",
     "user.name=Persistent Fixture",
     "-c",
@@ -169,10 +155,10 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
     "commit",
     "--quiet",
     "-m",
-    "Isolated persistent fixture",
+    commitMessage,
   );
-  const commandText = `${shellQuote(process.execPath)} ${shellQuote(script)}`;
-  const local = persistentProviders(commandText);
+}
+function persistentRunConfigs() {
   const config: RunConfig = {
     providerId: "scripted",
     modelId: "local-persistent",
@@ -203,6 +189,32 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
     mode: "plan",
     agentProfileId: PROFILES[1]!.id,
   };
+  return { config, observerConfig };
+}
+export async function createPersistentFixture(
+  base: string,
+  options: ResolvedPersistentSoakOptions,
+) {
+  const paths = fixturePaths(base);
+  mkdirSync(paths.root);
+  const script = join(paths.root, "command.mjs");
+  writeFileSync(
+    script,
+    `import{appendFileSync,writeFileSync,renameSync,existsSync}from'node:fs';
+appendFileSync(${JSON.stringify(paths.launches)},String(process.pid)+'\\n');
+writeFileSync(${JSON.stringify(paths.marker + ".tmp")},String(process.pid));renameSync(${JSON.stringify(paths.marker + ".tmp")},${JSON.stringify(paths.marker)});
+process.stdout.write('PERSISTENT_READY\\n'+'local-${options.seed}-'.repeat(128));
+const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){clearInterval(gate);process.stdout.write('\\nPERSISTENT_DONE\\n',()=>process.exit(0));}},5);
+`,
+  );
+  initializePersistentRepository(
+    paths.root,
+    `Persistent seed ${options.seed}\n`,
+    "Isolated persistent fixture",
+  );
+  const commandText = `${shellQuote(process.execPath)} ${shellQuote(script)}`;
+  const local = persistentProviders(commandText);
+  const { config, observerConfig } = persistentRunConfigs();
   const open = () =>
     createEngine({
       dbPath: paths.dbPath,
@@ -222,25 +234,9 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
   });
   const cancelRoot = join(base, "cancellation-repository");
   mkdirSync(cancelRoot);
-  writeFileSync(
-    join(cancelRoot, "preserved.txt"),
-    `Cancellation seed ${options.seed}\n`,
-  );
-  git(cancelRoot, "init", "--quiet", "--template=");
-  git(cancelRoot, "add", ".");
-  git(
+  initializePersistentRepository(
     cancelRoot,
-    "-c",
-    "user.name=Persistent Fixture",
-    "-c",
-    "user.email=persistent@example.invalid",
-    "-c",
-    "commit.gpgsign=false",
-    "-c",
-    "core.hooksPath=/dev/null",
-    "commit",
-    "--quiet",
-    "-m",
+    `Cancellation seed ${options.seed}\n`,
     "Isolated cancellation fixture",
   );
   const cancelWorkspace = await command<Workspace>(engine, "workspace.open", {

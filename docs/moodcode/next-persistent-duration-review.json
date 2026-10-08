@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "next-persistent-duration-review",
-  "status": "source-corrective-verified-compiled-ci-pending",
+  "status": "first-corrective-source-and-compiled-verified-followup-qualified-separately",
   "recordedAt": "2026-10-08T22:51:29.730Z",
   "sourceQualification": {
     "mainHead": "d0e5b98217aaa8a36e4c95bf22c9ba986f46cb6b",
@@ -261,5 +261,22 @@
     "No hosted rerun or compiled runtime claim is made by this source-only corrective verification.",
     "The frozen prior 30-minute qualification is untouched and remains qualified only against its original source and baseline-duration semantics; it does not certify this subsequent observation-window change.",
     "No live provider requests, credentials, historical numeric-PID signals, native uncertainty acknowledgments, original fixture deletion, production Engine changes, shared dist writes or commits occurred."
-  ]
+  ],
+  "firstCompiledAcceptance": {
+    "commit": "17749b3b6435ba3c21176da8db51538930312375",
+    "sourcePinsMatchInitialCommit": true,
+    "command": "node --test --test-concurrency=1 packages/engine/dist/resilience/persistent.integration.test.js packages/engine/dist/workspace/observer.test.js",
+    "log": {
+      "path": "/tmp/moodcode-next-duration-observer-compiled.log",
+      "bytes": 2225,
+      "sha256": "bb97238c2bdb096c762b9917833ce0fc3547963abdf6fed15beca6eeff6ef11e"
+    },
+    "exitCode": 0,
+    "total": 20,
+    "passed": 20,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 11402.21325,
+    "qualification": "Persistent native5 + observer15; the two CLI source tests are separately counted in the initial7-source-test record. Later endpoint/RF-TF-06 source changes are qualified in next-persistent-fixture-refactor-review.json."
+  }
 }

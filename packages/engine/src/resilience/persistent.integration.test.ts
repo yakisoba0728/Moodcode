@@ -224,7 +224,7 @@ test(
 );
 
 test(
-  "mandatory native work beyond the requested duration cannot consume the subsequent observation window",
+  "mandatory native work and a real scheduler stall preserve the full observation window and actual endpoint sample",
   { skip: !POSIX_SUPPORTED, timeout: 45000 },
   async (t) => {
     const base = newBase(),
@@ -243,6 +243,8 @@ test(
         ReturnType<typeof samplePersistentResources> & { observedAt: number }
       > = [];
     let pending: ReturnType<typeof runPersistentLoad> | undefined;
+    let schedulerBarrier:
+      { started: number; ended: number; outcome: string } | undefined;
     t.after(async () => {
       gate.release.resolve();
       try {
@@ -265,6 +267,7 @@ test(
                   beforeClose,
                   afterClose: persistentNativeDigest(f.dbPath),
                   samples,
+                  schedulerBarrier,
                   load: f.summary(),
                 },
                 null,
@@ -290,6 +293,21 @@ test(
           ),
           observedAt: performance.now(),
         });
+        if (phase === "mandatory-cases-settled")
+          queueMicrotask(() => {
+            const barrierStarted = performance.now(),
+              outcome = Atomics.wait(
+                new Int32Array(new SharedArrayBuffer(4)),
+                0,
+                0,
+                options.durationMs + 100,
+              );
+            schedulerBarrier = {
+              started: barrierStarted,
+              ended: performance.now(),
+              outcome,
+            };
+          });
       },
       started,
     );
@@ -319,6 +337,10 @@ test(
     assert.ok(complete.observedAt - mandatory.observedAt >= options.durationMs);
     assert.ok(result.observation.durationMs >= options.durationMs);
     assert.ok(result.observation.startedElapsedMs > options.durationMs);
+    assert.equal(schedulerBarrier!.outcome, "timed-out");
+    assert.ok(
+      schedulerBarrier!.ended - schedulerBarrier!.started > options.durationMs,
+    );
     assert.ok(samples.some((sample) => sample.phase === "timed"));
     assert.ok(samples.length <= options.maxSamples - 3);
     assert.equal(new Set(samples.map((sample) => sample.pid)).size, 1);

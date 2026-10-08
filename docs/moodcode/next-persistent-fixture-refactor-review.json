@@ -1,0 +1,323 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-persistent-fixture-refactor-review",
+  "task": "RF-TF-06",
+  "status": "source-compiled-and-native-quick-verified-root-whole-hosted-gui-acceptance-pending",
+  "recordedAt": "2026-10-08T22:59:59.657Z",
+  "sourceQualification": {
+    "baseCommit": "17749b3b6435ba3c21176da8db51538930312375",
+    "currentHead": "b1d39de17df3dab4fd60f738df5817e369fa62c2",
+    "beforeFixture": {
+      "path": "/tmp/moodcode-next-persistent-fixture-before.ts",
+      "bytes": 24051,
+      "sha256": "1ddd432e06afcc5702a082aa2bbde1a8c7ebe47b1e495e5fb63d6c9b997e325c"
+    },
+    "afterSourceFiles": [
+      {
+        "path": "packages/engine/src/resilience/persistent-fixture.ts",
+        "bytes": 24016,
+        "sha256": "4cb3c00489edadc939e0ba592d2cb74b2af790a3bb5cfb67dda4bad58bd56b2d"
+      },
+      {
+        "path": "packages/engine/src/resilience/persistent-worker.ts",
+        "bytes": 5953,
+        "sha256": "e977bc68e4e8a60f0ee40e5412350459e3035d569f654f8c31f351aa996d5e22"
+      },
+      {
+        "path": "packages/engine/src/resilience/persistent.integration.test.ts",
+        "bytes": 13550,
+        "sha256": "50b5ff5fd43a9dc69ca3a672a11e69103b50069b02a572594fcc48e176ff48d4"
+      },
+      {
+        "path": "packages/engine/src/resilience/persistent.ts",
+        "bytes": 19984,
+        "sha256": "103d14c4b6ac60cded2bf9ed00d480f739cd39ce185d73744d83c75cf22eaa61"
+      }
+    ],
+    "effectiveSourceRuntimeSha256": "0daa23a9f52e89e5fa6a2d086ed756a2622bbc489549f76bc6a21c3caf19478b",
+    "sourceStable": true
+  },
+  "changes": [
+    {
+      "file": "packages/engine/src/resilience/persistent-fixture.ts",
+      "unit": "initializePersistentRepository(root,preservedText,commitMessage)",
+      "classification": "private controlled Git preparation",
+      "result": "Share the exact preserved.txt write and init/add/isolated commit sequence. Caller mkdir, primary native command script creation and second workspace opening remain at their original sequence positions.",
+      "constraints": "No user profiles, global/system Git config, signing, hooks, cleanup, owner handles or replay decisions enter the helper."
+    },
+    {
+      "file": "packages/engine/src/resilience/persistent-fixture.ts",
+      "unit": "persistentRunConfigs()",
+      "classification": "private DATA construction",
+      "result": "Create the same fresh bounded command and observer configurations immediately before the original Engine factory. Exact declaration bytes, limits, budgets and current aliasing remain unchanged."
+    },
+    {
+      "file": "packages/engine/src/resilience/persistent-worker.ts",
+      "unit": "observation deadline closure",
+      "classification": "narrow correctness followup to first corrective17749",
+      "result": "Recheck the actual monotonic deadline before optional native work after potentially long checkpoint work. If no timed sample was collected and its reserved budget exists, collect actual native resources at the observation endpoint; maxSamples8 remains exactly eight total samples."
+    }
+  ],
+  "retained": {
+    "ownerScope": "All Engine instances, closure state, native job/approval/Run/Turn/Attempt/Tool identities, counters, input/config/budget assertions, cancellation workspace/debt, native checkpoint, crash-ready and final close remain in their original owning locations.",
+    "ownedClosureSuffix": {
+      "configDeclarationBytesIdentical": true,
+      "configDeclarationsSha256": "69be8654925b021384697a9929907e02812627b5648a21b39fdf08cea249c831",
+      "ownedClosureSuffixBytesIdentical": true,
+      "ownedClosureSuffixBytes": 17072,
+      "ownedClosureSuffixSha256": "193606e1849d5f22b8ba601a6f1f2870f056ae31dc497e57b79f9d0d4a1b6c8e",
+      "nativeCommandScriptConstructionBytesIdentical": true,
+      "nativeCommandScriptConstructionSha256": "8c6e52ac0353f6230f355b3b076b4d084381806ebcc8ed247a96b50ed8402bbd"
+    },
+    "sourceProof": {
+      "path": "/tmp/moodcode-next-persistent-fixture-refactor-source-proof.json",
+      "bytes": 490,
+      "sha256": "483797f6247e63f9715765b001a6085c64dcd44f5a1201d72734ab4b1682da97"
+    },
+    "nativeProof": {
+      "path": "/tmp/moodcode-next-persistent-fixture-refactor-native-proof.json",
+      "bytes": 9221,
+      "sha256": "01a2ba82f89d1ead4fb5d965da571797f3a4e58c7cc60c61e6049dfe4d0229ad"
+    },
+    "nativeConfigLiteralValuesEqual": true,
+    "nativeConfigSha256": "40084743b424e48a37882f120f485d9dfac3a79a171fc79c22561d158089da5b",
+    "nativeRepositoryDataEqual": [
+      {
+        "repository": "repository",
+        "exactPreservedTextAuthorEmailCommitMessageAndTrackedPaths": true,
+        "beforeRoot": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-qlQlzB/repository",
+        "afterRoot": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-hTLVOx/repository"
+      },
+      {
+        "repository": "cancellation-repository",
+        "exactPreservedTextAuthorEmailCommitMessageAndTrackedPaths": true,
+        "beforeRoot": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-qlQlzB/cancellation-repository",
+        "afterRoot": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-hTLVOx/cancellation-repository"
+      }
+    ]
+  },
+  "validation": {
+    "firstCorrective": {
+      "path": "docs/moodcode/next-persistent-duration-review.json",
+      "bytes": 12551,
+      "sha256": "d9513b287caaa37650c5bed2b17d19454ed20a847d9f000a84dc53f2a5bcfcda"
+    },
+    "beforeRepositoryExtraction": {
+      "log": {
+        "path": "/tmp/moodcode-next-persistent-duration-endpoint-focused.log",
+        "bytes": 1012,
+        "sha256": "1ce3fc7ba6546fd831448b194f721c2147e95b621913ee44db05cb7ed3c27e7a"
+      },
+      "tests": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "durationMs": 13802.619875
+    },
+    "afterRepositoryExtraction": {
+      "command": "node --import \"$PWD/node_modules/tsx/dist/loader.mjs\" --test --test-concurrency=1 packages/engine/src/resilience/persistent.integration.test.ts scripts/verify-engine-persistent-soak.test.mjs",
+      "log": {
+        "path": "/tmp/moodcode-next-persistent-fixture-refactor-focused.log",
+        "bytes": 1014,
+        "sha256": "6658760f2f7024d7a567f8260bb7ab3e33180f80ea62527711d38e22b34e6da0"
+      },
+      "tests": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "durationMs": 14284.926959
+    },
+    "typecheck": {
+      "command": "node node_modules/typescript/bin/tsc --project packages/engine/tsconfig.json --noEmit --incremental false --composite false --pretty false",
+      "log": {
+        "path": "/tmp/moodcode-next-persistent-fixture-refactor-typecheck.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "exitCode": 0,
+      "sharedEmit": false
+    },
+    "minimumNativeQuick": {
+      "command": "node --import \"$PWD/node_modules/tsx/dist/loader.mjs\" scripts/verify-engine-persistent-soak.mjs --runtime source --duration-ms 1000 --max-cycles 3 --max-inputs 16 --max-input-bytes 16384 --max-samples 8 --seed 79 --report /tmp/moodcode-next-persistent-fixture-refactor-minimum.json",
+      "report": {
+        "path": "/tmp/moodcode-next-persistent-fixture-refactor-minimum.json",
+        "bytes": 98856,
+        "sha256": "5310a7dcfbf144c2905e88ab4d76186a4129565d199d22faab651634c9afcd31"
+      },
+      "exitCode": 0,
+      "passed": true,
+      "workerObservation": {
+        "startedElapsedMs": 2246.127958,
+        "endedElapsedMs": 3247.439041,
+        "durationMs": 1001.311083
+      },
+      "totalActiveDurationMs": 3247,
+      "workerMandatoryElapsedMs": 2246.127958,
+      "resourceSamples": 8,
+      "cycles": 3,
+      "inputs": 16,
+      "inputBytes": 16384,
+      "commands": 3,
+      "textCycles": 1,
+      "recoveredProviderCalls": 0,
+      "actualNativeDigest": {
+        "counts": {
+          "runs": 7,
+          "messages": 19,
+          "tools": 3,
+          "approvals": 3,
+          "checkpoints": 2,
+          "session_inputs": 16,
+          "session_turns": 9,
+          "provider_attempts": 9,
+          "message_parts": 9,
+          "attempt_cleanup": 9,
+          "session_documents": 11,
+          "session_events": 200
+        },
+        "recordsSha256": "d5979424cdd934c83cfefbdb5fd64624d6bdda2b2c9dde2c61f6acedbb0dcac2",
+        "integrity": "ok",
+        "foreignKeyViolations": 0
+      },
+      "cleanup": {
+        "workerExited": true,
+        "recoveryEngineClosed": true,
+        "commandPidAbsent": true,
+        "commandGroupAbsent": true,
+        "ownedLiveSurvivors": [],
+        "physicalCleanupConfirmed": true,
+        "nativeCleanupConfirmed": false,
+        "emergencyCleanupUsed": false,
+        "databaseRemoved": false,
+        "retainedEvidencePath": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-hTLVOx",
+        "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+      }
+    },
+    "causalSchedulerRegression": {
+      "test": "Existing genuine delayed native-provider barrier regression extended with a real native scheduler barrier; no new mirror-only test added.",
+      "barrier": "queueMicrotask after actual mandatory resource capture, then Atomics.wait on a private 4-byte SharedArrayBuffer for requested1000+100ms. Production starts its monotonic observation before yielding; the real event loop stalls past its deadline. No clock or elapsed values are mocked.",
+      "manifest": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-sB4lNb/persistent-duration-regression.json",
+        "bytes": 12142,
+        "sha256": "901fc2cfd336ee7eae2404c301571c6ad6a6f6e21ab45ec7bd242257ec3f830f"
+      },
+      "mandatoryElapsedMs": 1815,
+      "schedulerBarrier": {
+        "started": 12211.505958,
+        "ended": 13314.165583,
+        "outcome": "timed-out"
+      },
+      "actualSchedulerElapsedMs": 1102.6596250000002,
+      "independentSubsequentObservedIntervalMs": 1328.9610420000008,
+      "actualEndpointSampleCount": 1,
+      "endpointPhase": "timed",
+      "endpointObservedAfterNativeBarrier": true,
+      "nativeBefore": {
+        "counts": {
+          "runs": 6,
+          "messages": 17,
+          "tools": 2,
+          "approvals": 2,
+          "checkpoints": 2,
+          "session_inputs": 13,
+          "session_turns": 8,
+          "provider_attempts": 8,
+          "message_parts": 8,
+          "attempt_cleanup": 8,
+          "session_documents": 10,
+          "session_events": 172
+        },
+        "recordsSha256": "96c1117fc670762cce6ee2d1066ab3a6bf858843efa1ebeb66ae40cc10afb449",
+        "integrity": "ok",
+        "foreignKeyViolations": 0
+      },
+      "nativeAfter": {
+        "counts": {
+          "runs": 6,
+          "messages": 17,
+          "tools": 2,
+          "approvals": 2,
+          "checkpoints": 2,
+          "session_inputs": 13,
+          "session_turns": 8,
+          "provider_attempts": 8,
+          "message_parts": 8,
+          "attempt_cleanup": 8,
+          "session_documents": 10,
+          "session_events": 172
+        },
+        "recordsSha256": "96c1117fc670762cce6ee2d1066ab3a6bf858843efa1ebeb66ae40cc10afb449",
+        "integrity": "ok",
+        "foreignKeyViolations": 0
+      },
+      "exactNativeRetention": true
+    },
+    "diffCheck": {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    "currentCompiledAcceptance": {
+      "head": "b1d39de17df3dab4fd60f738df5817e369fa62c2",
+      "qualification": "Root reports source bytes held unchanged during compile/run; the matching current owned source and effective compiled module/test bytes are pinned below. Known Root fixture working changes remain outside this owned proof.",
+      "build": {
+        "log": {
+          "path": "/tmp/moodcode-next-all-fixtures-build.log",
+          "bytes": 34,
+          "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+        },
+        "exitCode": 0
+      },
+      "combinedGroup": {
+        "log": {
+          "path": "/tmp/moodcode-next-final-root-fixtures-compiled.log",
+          "bytes": 2964,
+          "sha256": "5be1eb4508eccee52d64d25316636fe83a612ac3496bb1cf3b8691fbd2a99b5e"
+        },
+        "exitCode": 0,
+        "total": 23,
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "durationMs": 11032.992292
+      },
+      "ownedPersistentScope": {
+        "nativeTests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "cliTestsIncludedInThisCompiledGroup": 0,
+        "otherScopes": "observer15 + genuine PTY3 are independently counted in the Root23 group; source CLI2 remain separately evidenced in the source7 record."
+      },
+      "compiledPins": [
+        {
+          "path": "packages/engine/dist/resilience/persistent-fixture.js",
+          "bytes": 23513,
+          "sha256": "262628dcc3a1e3fa3a1c96600970dc0fac7687af8d04375b0c1063397909c3ff"
+        },
+        {
+          "path": "packages/engine/dist/resilience/persistent-worker.js",
+          "bytes": 5865,
+          "sha256": "f176d470444be7ffed07aa761c240f54c3879801b7270163fa4d8358b9fa0588"
+        },
+        {
+          "path": "packages/engine/dist/resilience/persistent.integration.test.js",
+          "bytes": 12530,
+          "sha256": "3a96df1b5ce9dc3b180cd32a1358e8a7937f9ab4d7368a150967124701b3fbab"
+        },
+        {
+          "path": "packages/engine/dist/resilience/persistent.js",
+          "bytes": 17898,
+          "sha256": "95ef47af6b94e4625d28dcc4faa0c3b5e20cd43b68613825addf973232a373a7"
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "The original hosted per-test report/DB and exact scheduler timing are unavailable; first-corrective causal qualification remains conditional on that lost observation.",
+    "The original frozen30-minute report is untouched and source-qualified to its original runtime; it does not qualify subsequent observation-window or repository-refactor source.",
+    "Current owned compiled5-case qualification is now recorded; Root whole/hosted/GUI acceptance and any new-source long-duration run remain separate. These proofs do not grant multi-hour, Windows, PTY, GUI, live-provider or real-account coverage.",
+    "No scenario removed, assertion weakened, test timeout raised, fake native row written, old evidence deleted, historical numeric PID signalled, shared dist emitted, production Engine changed or commit made."
+  ]
+}

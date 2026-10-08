@@ -51,6 +51,7 @@ export async function runPersistentLoad(
         observationStarted +
         ((cycle - 3) * options.durationMs) / Math.max(1, optionalCycles);
     if (
+      performance.now() < deadline &&
       cycle < options.maxCycles &&
       f.canAccept(checkpoint ? 7 : 8) &&
       performance.now() >= nextCycle
@@ -92,6 +93,7 @@ export async function runPersistentLoad(
     checkpoint = await f.checkpoint();
     sample("after-graceful-reopen");
   }
+  if (timedLimit && !timedSamples) sample("timed");
   const observationEnded = performance.now(),
     startedElapsedMs = observationStarted - started,
     endedElapsedMs = observationEnded - started,
