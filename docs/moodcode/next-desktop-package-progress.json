@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-10-09",
+  "baselineSource": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "goal": "N-04 per-OS desktop bundle/utility/SQLite/renderer and actual native supervisor smoke",
+  "sourceScope": [
+    "apps/desktop/electron-builder.config.cjs",
+    "apps/desktop/package.json",
+    "scripts/build-desktop.mjs",
+    "scripts/package-desktop.mjs",
+    "scripts/test-desktop-package.mjs",
+    ".github/workflows/desktop-package.yml"
+  ],
+  "status": "implementation-ready-real-per-OS-package-verification-pending",
+  "implementation": {
+    "targets": {
+      "development": [
+        "macOS dir",
+        "Linux dir",
+        "Windows dir"
+      ],
+      "release": [
+        "macOS dmg+zip",
+        "Linux AppImage",
+        "Windows NSIS"
+      ]
+    },
+    "nativeBundle": "Separate main command supervisor and terminals backend/supervisor module boundary; native node-pty and eventual windows-job packages remain external and unpacked",
+    "smoke": "packaged flag/context isolation/actual worker bootstrap/primary SQLite23/test override ignored; portable result separately labelled; native result requires command cleanup and POSIX PTY native exit",
+    "workflow": "real macOS15, Ubuntu24.04, Windows2025 unsigned package build and independent portable/native gates"
+  },
+  "verification": [
+    {
+      "command": "node --check scripts/test-desktop-package.mjs",
+      "result": "passed"
+    },
+    {
+      "command": "node --check scripts/package-desktop.mjs",
+      "result": "passed"
+    }
+  ],
+  "pending": [
+    "Root runs actual unsigned macOS arm64 package smoke after frozen source build",
+    "GitHub branch push and actual hosted macOS/Linux/Windows package runs"
+  ],
+  "externalConditions": [
+    {
+      "condition": "Windows native Job Object binding is owned by a separate parent session and is not integrated in this source yet",
+      "effect": "Windows portable smoke cannot be promoted to native command/PT Y acceptance; the native gate requires actual windows-job-object capability and command cleanup"
+    }
+  ]
+}

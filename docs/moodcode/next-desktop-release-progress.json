@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-10-09",
+  "baselineSource": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "goal": "N-05 signing/notarization/reviewable release artifacts, explicit verified update and safe higher-version rollback path",
+  "sourceScope": [
+    "apps/desktop/src/main/updates.ts",
+    "apps/desktop/src/shared/update-protocol.ts",
+    "apps/desktop/build/entitlements.mac.plist",
+    "scripts/desktop-release-policy.mjs",
+    "scripts/desktop-release-policy.test.mjs",
+    "scripts/desktop-update-fixture.cjs",
+    "scripts/test-desktop-update.mjs",
+    "scripts/verify-desktop-release.mjs",
+    ".github/workflows/desktop-release.yml"
+  ],
+  "status": "implemented-fixture-verified-signed-distribution-external",
+  "implementation": {
+    "channel": "stable GitHub release metadata for yakisoba0728/Moodcode",
+    "reviewOnly": "Package CLI enforces --publish never; release preparation workflow has read-only repository permissions and uploads artifacts for review",
+    "signedRelease": "forceCodeSigning on macOS/Windows; macOS hardened runtime/notarization; Windows publisher verification; signed-review workflow external secrets gate",
+    "linuxSignature": "electron-builder v26 AppImage verifies SHA512/HTTPS; no Linux code signature claimed",
+    "updates": "electron-updater6.8.9 external runtime; dev disabled; autoDownload/autoInstallOnAppQuit/autoRunAppAfterInstall false; downgrade/prerelease/web-installer disabled; exact downloaded version plus acknowledgement and confirmed engine cleanup required",
+    "rollback": "Verified known-good immutable commit rebuilt in isolated checkout at a version greater than withdrawn release; no automated downgrade or publication"
+  },
+  "verification": [
+    {
+      "command": "node --import ./node_modules/tsx/dist/loader.mjs --test apps/desktop/src/main/updates.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "boundary": "controller fixture adapter, never native installer evidence"
+    },
+    {
+      "command": "node --test scripts/desktop-release-policy.test.mjs",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "node scripts/test-desktop-update.mjs",
+      "result": "passed",
+      "electron": "44.5.1",
+      "electronUpdater": "6.8.9",
+      "boundary": "real SDK with real Electron HTTP executor and disposable POSIX AppImage fixture",
+      "checks": [
+        "corrupt-SHA512 rejection",
+        "downloaded exact artifact digest",
+        "fixture actual replacement 0.2.0",
+        "higher-version recovery 0.3.0",
+        "automatic downgrade blocked"
+      ],
+      "realUserAppTouched": false,
+      "signedMacOrWindowsInstallerVerified": false
+    }
+  ],
+  "externalConditions": [
+    {
+      "condition": "macOS Developer ID and Apple notarization credentials not supplied",
+      "releaseCondition": "Prepare signed review artifacts; actual codesign/spctl/stapler + signed installer/update verification on macOS"
+    },
+    {
+      "condition": "Windows signing certificate/password and expected publisher not supplied",
+      "releaseCondition": "Prepare signed review artifacts; actual Authenticode and NSIS update verification in disposable Windows fixture"
+    },
+    {
+      "condition": "No approved published release/feed currently exercised",
+      "releaseCondition": "Human review and release approval followed by published exact artifacts/metadata; do not publish from this task automatically"
+    }
+  ],
+  "officialSources": [
+    "https://www.electron.build/v26/docs/features/auto-update/",
+    "https://www.electron.build/v26/docs/features/code-signing/"
+  ]
+}

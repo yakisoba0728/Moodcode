@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-10-09",
+  "timezone": "Asia/Seoul",
+  "baselineSource": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "goal": "N-03 official desktop ChatGPT account login/logout/select/renewal and secure app-owned credential lifecycle; consume engine Responses adapter without changing provider core or Codex authentication files",
+  "sourceScope": [
+    "apps/desktop/src/main/account-auth.ts",
+    "apps/desktop/src/main/account-vault.ts",
+    "apps/desktop/src/main/accounts.ts",
+    "apps/desktop/src/main/account-fixture.ts",
+    "apps/desktop/src/main/settings.ts",
+    "apps/desktop/src/shared/account-protocol.ts",
+    "scripts/test-desktop-accounts.mjs"
+  ],
+  "status": "implemented-fixture-verified-external-account-validation-pending",
+  "implementation": {
+    "officialFlow": "OpenAI OSS SIWC dynamic registration, system browser, 127.0.0.1 /auth/callback, fresh state/nonce/S256 PKCE, issued-client binding, jose JWKS issuer/audience/expiry/nonce verification",
+    "credentialStorage": "app accounts subdirectory; owner-only safeStorage encrypted record; insecure Linux basic_text refused; no access/refresh/ID token in renderer or journal",
+    "accountBinding": "persisted credentialMode=chatgpt and exact accountId; official Responses URL and account model catalog; no stored/environment API key fallback",
+    "refresh": "serialized rotating renewal; durable uncertainty marker before request; quarantine/no auto replay after failed request, crash or persistence failure",
+    "logout": "revoke renewable session; erase local tokens and retain client/account mapping; report remote revocation unconfirmed on network failure",
+    "engineBoundary": "host admission hold closes prior worker before account mutation; private fresh bearer config only; renderer never receives credential fields"
+  },
+  "verification": [
+    {
+      "command": "node --import ./node_modules/tsx/dist/loader.mjs --test apps/desktop/src/main/accounts.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "boundary": "main service, signed test JWT, actual loopback, AES-GCM test storage; external OpenAI fetch fixture"
+    },
+    {
+      "command": "node --import ./node_modules/tsx/dist/loader.mjs --test apps/desktop/src/main/settings.test.ts",
+      "passed": 39,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "node scripts/test-desktop-accounts.mjs",
+      "result": "passed",
+      "boundary": "actual Electron GUI with native operating system safeStorage and official-contract account fixture",
+      "flows": [
+        "sign-in",
+        "add-second-registration",
+        "select",
+        "refresh-expiry-increase",
+        "logout-stops-worker",
+        "reconnect-same-registration",
+        "forget"
+      ],
+      "nonExposure": [
+        "renderer text",
+        "preload API JSON",
+        "encrypted account file",
+        "native SQLite and WAL"
+      ],
+      "externalIdentityVerified": false,
+      "inferenceRequests": 0
+    },
+    {
+      "command": "node node_modules/typescript/bin/tsc -p apps/desktop/tsconfig.json --noEmit --tsBuildInfoFile /tmp/moodcode-auth-typecheck.tsbuildinfo",
+      "result": "passed"
+    }
+  ],
+  "externalConditions": [
+    {
+      "condition": "Actual user browser authorization and eligible ChatGPT account inference have not been exercised",
+      "releaseCondition": "An explicitly authorized isolated Moodcode account sign-in, account-specific model discovery and completed Responses request; no Codex app auth-file changes"
+    },
+    {
+      "condition": "Official @siwc/local DevKit npm package returned 404",
+      "effect": "No SDK dependency assumed; implemented the currently documented public OSS flow using maintained jose identity verification"
+    }
+  ],
+  "officialSources": [
+    "https://developers.openai.com/siwc/quickstart",
+    "https://developers.openai.com/siwc/token-sharing-open-source/sign-in",
+    "https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions",
+    "https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference",
+    "https://developers.openai.com/siwc/website",
+    "https://www.electronjs.org/docs/latest/api/safe-storage"
+  ]
+}

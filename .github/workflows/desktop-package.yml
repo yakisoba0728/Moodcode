@@ -1,0 +1,71 @@
+name: Desktop packages
+
+on:
+  push:
+    paths: ['apps/desktop/**', 'packages/engine/**', 'packages/contracts/**', 'packages/windows-job/**', 'scripts/*desktop*', 'package*.json', '.github/workflows/desktop-*']
+  pull_request:
+    paths: ['apps/desktop/**', 'packages/engine/**', 'packages/contracts/**', 'packages/windows-job/**', 'scripts/*desktop*', 'package*.json', '.github/workflows/desktop-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Unsigned bundle and native smoke / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04, windows-2025]
+    env:
+      CI: 'true'
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '26.x'
+          cache: npm
+      - run: npm ci --include=optional
+      - run: node scripts/prepare-pty.mjs
+      - run: npm run build:desktop
+      - name: Native account, update and release policy regression
+        run: node --import ./node_modules/tsx/dist/loader.mjs --test apps/desktop/src/main/accounts.test.ts apps/desktop/src/main/updates.test.ts scripts/desktop-release-policy.test.mjs
+      - name: Package this OS without publishing
+        run: node scripts/package-desktop.mjs --no-build
+      - name: Linux portable bundle, utility, SQLite and renderer smoke
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/test-desktop-package.mjs --portable
+      - name: macOS/Windows portable bundle, utility, SQLite and renderer smoke
+        if: runner.os != 'Linux'
+        run: node scripts/test-desktop-package.mjs --portable
+      - name: Linux real command and PTY supervisor smoke
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/test-desktop-package.mjs
+      - name: macOS/Windows real native supervisor smoke
+        if: runner.os != 'Linux'
+        run: node scripts/test-desktop-package.mjs
+      - name: Linux real updater checksum, disposable install and recovery fixture
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/test-desktop-update.mjs
+      - name: macOS real updater checksum, disposable install and recovery fixture
+        if: runner.os == 'macOS'
+        run: node scripts/test-desktop-update.mjs
+      - name: Upload unsigned reviewable package and logs
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: desktop-unsigned-${{ matrix.os }}-${{ github.run_attempt }}
+          path: |
+            release/
+            artifacts/desktop-next/
+          retention-days: 7
+          if-no-files-found: warn
