@@ -18,58 +18,114 @@
   "lanes": [
     {
       "key": "windows",
-      "ids": ["E5-08"],
+      "ids": [
+        "E5-08"
+      ],
       "threadId": "01a11d5c-a7e9-7e51-be84-276527da793f",
       "hostId": "local",
       "status": "implementing",
       "progressFile": "docs/moodcode/next-windows-progress.json",
-      "requires": ["native-binding", "actual-engine-command", "actual-windows-ci"]
+      "requires": [
+        "native-binding",
+        "actual-engine-command",
+        "actual-windows-ci"
+      ]
     },
     {
       "key": "providers",
-      "ids": ["E5-13"],
+      "ids": [
+        "E5-13"
+      ],
       "threadId": "01a11d5c-ab82-7ad3-8710-67c00b999c2e",
       "hostId": "local",
       "status": "implementing",
       "progressFile": "docs/moodcode/next-provider-progress.json",
-      "requires": ["bounded-model-qualified-contract", "native-media-evidence", "actual-account-verification"]
+      "requires": [
+        "bounded-model-qualified-contract",
+        "native-media-evidence",
+        "actual-account-verification"
+      ]
     },
     {
       "key": "desktop",
-      "ids": ["N-02", "N-03", "N-04", "N-05"],
+      "ids": [
+        "N-02",
+        "N-03",
+        "N-04",
+        "N-05"
+      ],
       "threadId": "01a11d5c-affa-79c3-89e4-2cef32922796",
       "hostId": "local",
       "status": "implementing",
       "progressFile": "docs/moodcode/next-desktop-progress.json",
-      "requires": ["host-preload-renderer-consumption", "official-account-lifecycle", "actual-os-package-smoke", "signing-update-rollback-evidence"]
+      "requires": [
+        "host-preload-renderer-consumption",
+        "official-account-lifecycle",
+        "actual-os-package-smoke",
+        "signing-update-rollback-evidence"
+      ]
     },
     {
       "key": "persistent-soak",
-      "ids": ["N-01"],
+      "ids": [
+        "N-01"
+      ],
       "agent": "/root/persistent_soak",
       "status": "implementing",
-      "requires": ["same-engine-accumulating-history", "actual-duration-and-resource-samples", "retained-unknown-and-no-replay"]
+      "requires": [
+        "same-engine-accumulating-history",
+        "actual-duration-and-resource-samples",
+        "retained-unknown-and-no-replay"
+      ]
     },
     {
       "key": "pty-repeatability",
-      "ids": ["R-PTY-01"],
+      "ids": [
+        "R-PTY-01"
+      ],
       "agent": "/root/pty_repeatability",
       "status": "investigating",
-      "requires": ["genuine-native-diagnostics", "retained-failure-evidence", "causal-evidence-before-historical-resolution"]
+      "requires": [
+        "genuine-native-diagnostics",
+        "retained-failure-evidence",
+        "causal-evidence-before-historical-resolution"
+      ]
     },
     {
       "key": "refactor-inventory",
-      "ids": ["RF-01"],
+      "ids": [
+        "RF-01"
+      ],
       "agent": "/root/refactor_inventory",
       "status": "preparing-tooling",
-      "requires": ["source-qualified-inventory", "caller-and-compatibility-review", "final-measurement-after-features"]
+      "requires": [
+        "source-qualified-inventory",
+        "caller-and-compatibility-review",
+        "final-measurement-after-features"
+      ]
     },
     {
       "key": "integration-and-refactoring",
-      "ids": ["N-06", "RF-01", "RF-02", "RF-03", "RF-04", "RF-05", "RF-06", "RF-07", "RF-08"],
+      "ids": [
+        "N-06",
+        "RF-01",
+        "RF-02",
+        "RF-03",
+        "RF-04",
+        "RF-05",
+        "RF-06",
+        "RF-07",
+        "RF-08"
+      ],
       "owner": "Root",
       "status": "coordinating",
-      "requires": ["feature-acceptance-baseline", "findings-before-refactor", "preserved-contracts", "final-local-hosted-gui-verification", "main-sync"]
+      "requires": [
+        "feature-acceptance-baseline",
+        "findings-before-refactor",
+        "preserved-contracts",
+        "final-local-hosted-gui-verification",
+        "main-sync"
+      ]
     }
   ],
   "completionRules": {
@@ -83,5 +139,56 @@
     "externalConditionsRemainOpenUntilVerified": true
   },
   "integrationCommits": [],
-  "currentVerification": []
+  "currentVerification": [
+    {
+      "key": "primary-db-contract-tool",
+      "status": "passed",
+      "tests": {
+        "total": 8,
+        "passed": 8,
+        "failed": 0
+      },
+      "runtime": {
+        "node": "v26.9.0",
+        "platform": "darwin",
+        "arch": "arm64"
+      },
+      "versionsCompared": [
+        "source",
+        "compiled"
+      ],
+      "dbVersion": 23,
+      "schemaObjects": 281,
+      "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+      "evidence": "docs/moodcode/next-db-contract-baseline.json",
+      "sourcePins": [
+        {
+          "path": "scripts/inspect-engine-db-contract.mjs",
+          "sha256": "2487788cba9b56500e2af0372d2ad2bd299e680dc47927602e98ad8a0fd4dbb0"
+        },
+        {
+          "path": "scripts/inspect-engine-db-contract.test.mjs",
+          "sha256": "05953033c2a2fa4d29423e8df925403af492fcfa99d6acd692a7a7886383bc0f"
+        },
+        {
+          "path": ".github/scripts/engine-ci.mjs",
+          "sha256": "9e75f5ae9da91a7fc41dcdb30c341127eead4648a4a3065e297796cdbd2f7047"
+        },
+        {
+          "path": ".github/scripts/engine-ci.test.mjs",
+          "sha256": "a0c633c9a506db20909a0b82f9d73d865c80c9c2ef080a76a78b4b1e574acc76"
+        },
+        {
+          "path": ".github/workflows/engine.yml",
+          "sha256": "f356b7b4f3cb454d64f144504e87327e42d0f9d826e6a8dcf28076c2770538ad"
+        }
+      ],
+      "qualification": "Actual migrated primary SQL catalogue; no secondary DB, API, record/event or dependency attestation",
+      "ciLauncher": {
+        "actualLocalExitCode": 0,
+        "reportAccepted": true,
+        "hostedVerified": false
+      }
+    }
+  ]
 }

@@ -27,6 +27,7 @@ test("headless compiler scope contains no desktop project and no GUI launcher", 
     "eval",
     "resilience",
     "benchmark",
+    "db-contract",
     "test-windows",
   ]) {
     const plan = commandPlan(operation);
@@ -38,6 +39,38 @@ test("headless compiler scope contains no desktop project and no GUI launcher", 
     );
   }
   assert.throws(() => commandPlan("desktop"));
+});
+
+test("database report requires the stored catalogue and rejects incomplete or altered claims", async () => {
+  const baseline = JSON.parse(
+    await readFile(
+      new URL(
+        "../../docs/moodcode/next-db-contract-baseline.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const result = {
+    ...baseline,
+    runtime: { ...baseline.runtime, mode: "compiled" },
+  };
+  assert.equal(validateLocalReport("db-contract", result, baseline), result);
+  for (const update of [
+    { passed: false },
+    { noLive: false },
+    { runtime: { mode: "source" } },
+    { comparison: { equal: false } },
+    { catalogue: { ...baseline.catalogue, objects: [] } },
+    { moduleSha256: null },
+  ])
+    assert.throws(() =>
+      validateLocalReport("db-contract", { ...result, ...update }, baseline),
+    );
+  assert.throws(() => validateLocalReport("db-contract", result));
+  const edited = structuredClone(baseline);
+  edited.catalogue.objects[0].name = "changed";
+  assert.throws(() => validateLocalReport("db-contract", result, edited));
 });
 
 test("report acceptance rejects false success, source drift, live claims and incomplete scenario coverage", () => {

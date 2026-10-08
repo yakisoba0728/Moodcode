@@ -1,0 +1,1806 @@
+{
+  "schemaVersion": 1,
+  "kind": "engine-primary-db-contract",
+  "passed": true,
+  "noLive": true,
+  "runtime": {
+    "mode": "source",
+    "node": "v26.9.0",
+    "sqlite": "3.53.4"
+  },
+  "moduleSha256": "63cfe2ec5e538b7cd20ba2136d1363677d1dc40a0771890f4220da61984d33b7",
+  "catalogue": {
+    "version": 23,
+    "migrations": [
+      {
+        "version": 1,
+        "name": "initial-engine-records"
+      },
+      {
+        "version": 2,
+        "name": "session-inbox-and-execution-records"
+      },
+      {
+        "version": 3,
+        "name": "durable-provider-attempt-usage"
+      },
+      {
+        "version": 4,
+        "name": "durable-summary-attempts-and-image-anchor"
+      },
+      {
+        "version": 5,
+        "name": "explicit-summary-recovery-acknowledgments"
+      },
+      {
+        "version": 6,
+        "name": "durable-provider-cleanup-observations"
+      },
+      {
+        "version": 7,
+        "name": "explicit-provider-outcome-recovery"
+      },
+      {
+        "version": 8,
+        "name": "bounded-session-document-anchor"
+      },
+      {
+        "version": 9,
+        "name": "durable-mcp-tools-call-execution"
+      },
+      {
+        "version": 10,
+        "name": "workspace-trust-and-pending-knowledge"
+      },
+      {
+        "version": 11,
+        "name": "native-host-knowledge-generation"
+      },
+      {
+        "version": 12,
+        "name": "workspace-knowledge-publication-cas"
+      },
+      {
+        "version": 13,
+        "name": "native-physical-knowledge-publication"
+      },
+      {
+        "version": 14,
+        "name": "native-execution-source-observations"
+      },
+      {
+        "version": 15,
+        "name": "explicit-imported-knowledge-recovery"
+      },
+      {
+        "version": 16,
+        "name": "native-pending-proposal-artifacts"
+      },
+      {
+        "version": 17,
+        "name": "native-approved-proposal-effects"
+      },
+      {
+        "version": 18,
+        "name": "native-team-mailbox-and-task-board"
+      },
+      {
+        "version": 19,
+        "name": "native-workflow-revisions-and-heads"
+      },
+      {
+        "version": 20,
+        "name": "native-schedules-and-occurrence-admission"
+      },
+      {
+        "version": 21,
+        "name": "native-agent-backends-and-client-effect-receipts"
+      },
+      {
+        "version": 22,
+        "name": "native-terminal-watch-jobs-and-completion-delivery"
+      },
+      {
+        "version": 23,
+        "name": "independent-approved-host-commands"
+      }
+    ],
+    "objects": [
+      {
+        "type": "index",
+        "name": "approvals_session",
+        "table": "approvals",
+        "sql": "CREATE INDEX approvals_session ON approvals(session_id, ordinal)"
+      },
+      {
+        "type": "index",
+        "name": "attempt_cleanup_pending",
+        "table": "attempt_cleanup",
+        "sql": "CREATE INDEX attempt_cleanup_pending ON attempt_cleanup(state) WHERE state IN ('prepared','dispatched')"
+      },
+      {
+        "type": "index",
+        "name": "attempt_cleanup_run",
+        "table": "attempt_cleanup",
+        "sql": "CREATE INDEX attempt_cleanup_run ON attempt_cleanup(run_id)"
+      },
+      {
+        "type": "index",
+        "name": "attempt_cleanup_session",
+        "table": "attempt_cleanup",
+        "sql": "CREATE INDEX attempt_cleanup_session ON attempt_cleanup(session_id)"
+      },
+      {
+        "type": "index",
+        "name": "attempt_cleanup_workspace_uncertain",
+        "table": "attempt_cleanup",
+        "sql": "CREATE INDEX attempt_cleanup_workspace_uncertain ON attempt_cleanup(workspace_id) WHERE state='uncertain'"
+      },
+      {
+        "type": "index",
+        "name": "attempt_usage_session",
+        "table": "attempt_usage",
+        "sql": "CREATE INDEX attempt_usage_session ON attempt_usage(session_id)"
+      },
+      {
+        "type": "index",
+        "name": "checkpoints_run",
+        "table": "checkpoints",
+        "sql": "CREATE INDEX checkpoints_run ON checkpoints(run_id, ordinal)"
+      },
+      {
+        "type": "index",
+        "name": "diagnostic_execution_owner_active",
+        "table": "diagnostic_execution_observations",
+        "sql": "CREATE INDEX diagnostic_execution_owner_active ON diagnostic_execution_observations(state,ordinal)"
+      },
+      {
+        "type": "index",
+        "name": "diagnostic_execution_run_page",
+        "table": "diagnostic_execution_observations",
+        "sql": "CREATE INDEX diagnostic_execution_run_page ON diagnostic_execution_observations(workspace_id,run_id,ordinal)"
+      },
+      {
+        "type": "index",
+        "name": "host_command_active_workspace",
+        "table": "host_command_heads",
+        "sql": "CREATE UNIQUE INDEX host_command_active_workspace ON host_command_heads(workspace_id) WHERE state IN ('approved','running')"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_candidate_workspace_identity",
+        "table": "knowledge_candidates",
+        "sql": "CREATE UNIQUE INDEX knowledge_candidate_workspace_identity ON knowledge_candidates(workspace_id,id)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_candidate_workspace_page",
+        "table": "knowledge_candidates",
+        "sql": "CREATE INDEX knowledge_candidate_workspace_page ON knowledge_candidates(workspace_id, id)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_file_execution_guard_marker",
+        "table": "knowledge_file_execution_guards",
+        "sql": "CREATE UNIQUE INDEX knowledge_file_execution_guard_marker ON knowledge_file_execution_guards(lock_path,marker_owner_pid,marker_updated_at)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_file_observation_page",
+        "table": "knowledge_file_observations",
+        "sql": "CREATE INDEX knowledge_file_observation_page ON knowledge_file_observations(workspace_id,path,id)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_file_publication_active",
+        "table": "knowledge_file_publications",
+        "sql": "CREATE INDEX knowledge_file_publication_active ON knowledge_file_publications(workspace_id,state)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_file_publication_workspace_page",
+        "table": "knowledge_file_publications",
+        "sql": "CREATE INDEX knowledge_file_publication_workspace_page ON knowledge_file_publications(workspace_id,id)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_generation_active",
+        "table": "knowledge_generations",
+        "sql": "CREATE INDEX knowledge_generation_active ON knowledge_generations(workspace_id,state)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_generation_attempt_workspace_page",
+        "table": "knowledge_generation_attempts",
+        "sql": "CREATE INDEX knowledge_generation_attempt_workspace_page ON knowledge_generation_attempts(workspace_id,id)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_generation_workspace_page",
+        "table": "knowledge_generations",
+        "sql": "CREATE INDEX knowledge_generation_workspace_page ON knowledge_generations(workspace_id,id)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_import_activation_workspace",
+        "table": "knowledge_import_document_activations",
+        "sql": "CREATE INDEX knowledge_import_activation_workspace ON knowledge_import_document_activations(workspace_id,document_key,revision)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_import_decision_workspace",
+        "table": "knowledge_import_recovery_decisions",
+        "sql": "CREATE INDEX knowledge_import_decision_workspace ON knowledge_import_recovery_decisions(workspace_id,id)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_plan_workspace_page",
+        "table": "knowledge_generation_plans",
+        "sql": "CREATE INDEX knowledge_plan_workspace_page ON knowledge_generation_plans(workspace_id, id)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_publication_receipt_page",
+        "table": "knowledge_publication_receipts",
+        "sql": "CREATE INDEX knowledge_publication_receipt_page ON knowledge_publication_receipts(workspace_id,id)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_publication_workspace_page",
+        "table": "knowledge_publications",
+        "sql": "CREATE INDEX knowledge_publication_workspace_page ON knowledge_publications(workspace_id,id)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_receipt_workspace_page",
+        "table": "knowledge_request_receipts",
+        "sql": "CREATE INDEX knowledge_receipt_workspace_page ON knowledge_request_receipts(workspace_id, id)"
+      },
+      {
+        "type": "index",
+        "name": "knowledge_trust_workspace_page",
+        "table": "workspace_trust_revisions",
+        "sql": "CREATE INDEX knowledge_trust_workspace_page ON workspace_trust_revisions(workspace_id, id)"
+      },
+      {
+        "type": "index",
+        "name": "mcp_executions_pending",
+        "table": "mcp_executions",
+        "sql": "CREATE INDEX mcp_executions_pending ON mcp_executions(state) WHERE state IN ('prepared','dispatch-intent')"
+      },
+      {
+        "type": "index",
+        "name": "mcp_executions_run",
+        "table": "mcp_executions",
+        "sql": "CREATE INDEX mcp_executions_run ON mcp_executions(run_id)"
+      },
+      {
+        "type": "index",
+        "name": "mcp_executions_session",
+        "table": "mcp_executions",
+        "sql": "CREATE INDEX mcp_executions_session ON mcp_executions(session_id)"
+      },
+      {
+        "type": "index",
+        "name": "mcp_executions_turn",
+        "table": "mcp_executions",
+        "sql": "CREATE INDEX mcp_executions_turn ON mcp_executions(turn_id)"
+      },
+      {
+        "type": "index",
+        "name": "mcp_executions_workspace_blocked",
+        "table": "mcp_executions",
+        "sql": "CREATE INDEX mcp_executions_workspace_blocked ON mcp_executions(workspace_id) WHERE state IN ('dispatch-intent','uncertain') OR transport_cleanup_confirmed=0"
+      },
+      {
+        "type": "index",
+        "name": "mcp_native_tool_proposals",
+        "table": "message_parts",
+        "sql": "CREATE INDEX mcp_native_tool_proposals ON message_parts(json_extract(data,'$.toolCallId')) WHERE json_extract(data,'$.type')='tool'"
+      },
+      {
+        "type": "index",
+        "name": "message_parts_turn",
+        "table": "message_parts",
+        "sql": "CREATE INDEX message_parts_turn ON message_parts(turn_id,message_id,part_index)"
+      },
+      {
+        "type": "index",
+        "name": "messages_session",
+        "table": "messages",
+        "sql": "CREATE INDEX messages_session ON messages(session_id, ordinal)"
+      },
+      {
+        "type": "index",
+        "name": "model_approvals_run",
+        "table": "approvals",
+        "sql": "CREATE INDEX model_approvals_run ON approvals(run_id,ordinal)"
+      },
+      {
+        "type": "index",
+        "name": "model_messages_role",
+        "table": "messages",
+        "sql": "CREATE INDEX model_messages_role ON messages(run_id,json_extract(data,'$.role'),ordinal)"
+      },
+      {
+        "type": "index",
+        "name": "model_messages_run",
+        "table": "messages",
+        "sql": "CREATE INDEX model_messages_run ON messages(run_id,ordinal)"
+      },
+      {
+        "type": "index",
+        "name": "model_session_latest_document",
+        "table": "messages",
+        "sql": "CREATE INDEX model_session_latest_document ON messages(session_id,ordinal DESC) WHERE json_extract(data,'$.role')='user' AND json_type(data,'$.documents')='array' AND json_array_length(data,'$.documents')>0"
+      },
+      {
+        "type": "index",
+        "name": "model_session_latest_image",
+        "table": "messages",
+        "sql": "CREATE INDEX model_session_latest_image ON messages(session_id,ordinal DESC) WHERE json_extract(data,'$.role')='user' AND json_type(data,'$.attachments')='array' AND json_array_length(data,'$.attachments')>0"
+      },
+      {
+        "type": "index",
+        "name": "model_tools_run",
+        "table": "tools",
+        "sql": "CREATE INDEX model_tools_run ON tools(run_id,ordinal)"
+      },
+      {
+        "type": "index",
+        "name": "one_active_run_per_workspace",
+        "table": "runs",
+        "sql": "CREATE UNIQUE INDEX one_active_run_per_workspace ON runs(workspace_id) WHERE state IN ('created','running','awaiting_approval','cancelling')"
+      },
+      {
+        "type": "index",
+        "name": "ordinary_uncertain_attempts",
+        "table": "provider_attempts",
+        "sql": "CREATE INDEX ordinary_uncertain_attempts ON provider_attempts(run_id) WHERE state='uncertain'"
+      },
+      {
+        "type": "index",
+        "name": "ordinary_uncertain_turns",
+        "table": "session_turns",
+        "sql": "CREATE INDEX ordinary_uncertain_turns ON session_turns(run_id) WHERE state='uncertain'"
+      },
+      {
+        "type": "index",
+        "name": "ordinary_workspace_uncertain",
+        "table": "runs",
+        "sql": "CREATE INDEX ordinary_workspace_uncertain ON runs(workspace_id,id)"
+      },
+      {
+        "type": "index",
+        "name": "proposal_blob_owner",
+        "table": "proposal_blobs",
+        "sql": "CREATE INDEX proposal_blob_owner ON proposal_blobs(workspace_id,revision_id,operation_index,role)"
+      },
+      {
+        "type": "index",
+        "name": "proposal_revision_history",
+        "table": "proposal_revisions",
+        "sql": "CREATE INDEX proposal_revision_history ON proposal_revisions(workspace_id,proposal_id,revision)"
+      },
+      {
+        "type": "index",
+        "name": "proposal_workspace_heads",
+        "table": "proposal_heads",
+        "sql": "CREATE INDEX proposal_workspace_heads ON proposal_heads(workspace_id,id)"
+      },
+      {
+        "type": "index",
+        "name": "provider_attempts_turn",
+        "table": "provider_attempts",
+        "sql": "CREATE INDEX provider_attempts_turn ON provider_attempts(turn_id,attempt_index)"
+      },
+      {
+        "type": "index",
+        "name": "provider_recovery_workspace",
+        "table": "provider_recovery_acknowledgments",
+        "sql": "CREATE INDEX provider_recovery_workspace ON provider_recovery_acknowledgments(workspace_id,binding_scope)"
+      },
+      {
+        "type": "index",
+        "name": "runs_session",
+        "table": "runs",
+        "sql": "CREATE INDEX runs_session ON runs(session_id, ordinal)"
+      },
+      {
+        "type": "index",
+        "name": "session_inputs_pending",
+        "table": "session_inputs",
+        "sql": "CREATE INDEX session_inputs_pending ON session_inputs(session_id,state,delivery,admitted_seq)"
+      },
+      {
+        "type": "index",
+        "name": "session_turns_page",
+        "table": "session_turns",
+        "sql": "CREATE INDEX session_turns_page ON session_turns(run_id,turn_index)"
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_approvals_1",
+        "table": "approvals",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_attempt_cleanup_1",
+        "table": "attempt_cleanup",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_attempt_usage_1",
+        "table": "attempt_usage",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_backend_revisions_2",
+        "table": "backend_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_backend_revisions_3",
+        "table": "backend_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_checkpoints_1",
+        "table": "checkpoints",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_context_revisions_1",
+        "table": "context_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_context_revisions_2",
+        "table": "context_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_diagnostic_effect_epochs_1",
+        "table": "diagnostic_effect_epochs",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_diagnostic_execution_observations_1",
+        "table": "diagnostic_execution_observations",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_diagnostic_execution_observations_2",
+        "table": "diagnostic_execution_observations",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_events_1",
+        "table": "events",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_events_2",
+        "table": "events",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_host_command_heads_2",
+        "table": "host_command_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_host_command_revisions_2",
+        "table": "host_command_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_inputs_1",
+        "table": "inputs",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_inputs_2",
+        "table": "inputs",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_job_revisions_2",
+        "table": "job_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_job_revisions_3",
+        "table": "job_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_candidates_1",
+        "table": "knowledge_candidates",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_candidates_2",
+        "table": "knowledge_candidates",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_candidates_3",
+        "table": "knowledge_candidates",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_checkpoints_1",
+        "table": "knowledge_file_checkpoints",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_checkpoints_2",
+        "table": "knowledge_file_checkpoints",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_checkpoints_3",
+        "table": "knowledge_file_checkpoints",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_execution_guards_1",
+        "table": "knowledge_file_execution_guards",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_execution_guards_2",
+        "table": "knowledge_file_execution_guards",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_heads_1",
+        "table": "knowledge_file_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_heads_2",
+        "table": "knowledge_file_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_observations_1",
+        "table": "knowledge_file_observations",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_observations_2",
+        "table": "knowledge_file_observations",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_observations_3",
+        "table": "knowledge_file_observations",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_publication_receipts_1",
+        "table": "knowledge_file_publication_receipts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_publication_receipts_2",
+        "table": "knowledge_file_publication_receipts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_publication_receipts_3",
+        "table": "knowledge_file_publication_receipts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_publication_receipts_4",
+        "table": "knowledge_file_publication_receipts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_publications_1",
+        "table": "knowledge_file_publications",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_publications_2",
+        "table": "knowledge_file_publications",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_publications_3",
+        "table": "knowledge_file_publications",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_recovery_acknowledgments_1",
+        "table": "knowledge_file_recovery_acknowledgments",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_recovery_acknowledgments_2",
+        "table": "knowledge_file_recovery_acknowledgments",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_recovery_acknowledgments_3",
+        "table": "knowledge_file_recovery_acknowledgments",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_workspace_barriers_1",
+        "table": "knowledge_file_workspace_barriers",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_file_workspace_barriers_2",
+        "table": "knowledge_file_workspace_barriers",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generation_attempts_1",
+        "table": "knowledge_generation_attempts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generation_attempts_2",
+        "table": "knowledge_generation_attempts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generation_attempts_3",
+        "table": "knowledge_generation_attempts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generation_plans_1",
+        "table": "knowledge_generation_plans",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generation_plans_2",
+        "table": "knowledge_generation_plans",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generation_recovery_acknowledgments_1",
+        "table": "knowledge_generation_recovery_acknowledgments",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generation_recovery_acknowledgments_2",
+        "table": "knowledge_generation_recovery_acknowledgments",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generation_recovery_acknowledgments_3",
+        "table": "knowledge_generation_recovery_acknowledgments",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generation_workspace_barriers_1",
+        "table": "knowledge_generation_workspace_barriers",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generation_workspace_barriers_2",
+        "table": "knowledge_generation_workspace_barriers",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generations_1",
+        "table": "knowledge_generations",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generations_2",
+        "table": "knowledge_generations",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generations_3",
+        "table": "knowledge_generations",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_generations_4",
+        "table": "knowledge_generations",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_document_activation_heads_1",
+        "table": "knowledge_import_document_activation_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_document_activation_heads_2",
+        "table": "knowledge_import_document_activation_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_document_activations_1",
+        "table": "knowledge_import_document_activations",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_document_activations_2",
+        "table": "knowledge_import_document_activations",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_document_activations_3",
+        "table": "knowledge_import_document_activations",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_frontier_heads_1",
+        "table": "knowledge_import_frontier_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_frontier_heads_2",
+        "table": "knowledge_import_frontier_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_frontiers_1",
+        "table": "knowledge_import_frontiers",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_frontiers_2",
+        "table": "knowledge_import_frontiers",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_frontiers_3",
+        "table": "knowledge_import_frontiers",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_pauses_1",
+        "table": "knowledge_import_pauses",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_pauses_2",
+        "table": "knowledge_import_pauses",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_recovery_decisions_1",
+        "table": "knowledge_import_recovery_decisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_recovery_decisions_2",
+        "table": "knowledge_import_recovery_decisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_import_recovery_decisions_3",
+        "table": "knowledge_import_recovery_decisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_publication_receipts_1",
+        "table": "knowledge_publication_receipts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_publication_receipts_2",
+        "table": "knowledge_publication_receipts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_publication_receipts_3",
+        "table": "knowledge_publication_receipts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_publications_1",
+        "table": "knowledge_publications",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_publications_2",
+        "table": "knowledge_publications",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_publications_3",
+        "table": "knowledge_publications",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_request_receipts_1",
+        "table": "knowledge_request_receipts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_knowledge_request_receipts_2",
+        "table": "knowledge_request_receipts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_mcp_executions_1",
+        "table": "mcp_executions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_message_parts_1",
+        "table": "message_parts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_message_parts_2",
+        "table": "message_parts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_messages_1",
+        "table": "messages",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_proposal_apply_execution_guards_2",
+        "table": "proposal_apply_execution_guards",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_proposal_apply_owners_2",
+        "table": "proposal_apply_owners",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_proposal_apply_owners_3",
+        "table": "proposal_apply_owners",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_proposal_apply_recovery_decisions_2",
+        "table": "proposal_apply_recovery_decisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_proposal_blobs_1",
+        "table": "proposal_blobs",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_proposal_blobs_2",
+        "table": "proposal_blobs",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_proposal_heads_1",
+        "table": "proposal_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_proposal_heads_2",
+        "table": "proposal_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_proposal_revisions_1",
+        "table": "proposal_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_proposal_revisions_2",
+        "table": "proposal_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_proposal_revisions_3",
+        "table": "proposal_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_proposal_revisions_4",
+        "table": "proposal_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_provider_attempts_1",
+        "table": "provider_attempts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_provider_attempts_2",
+        "table": "provider_attempts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_provider_recovery_acknowledgments_1",
+        "table": "provider_recovery_acknowledgments",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_provider_recovery_acknowledgments_2",
+        "table": "provider_recovery_acknowledgments",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_provider_recovery_acknowledgments_3",
+        "table": "provider_recovery_acknowledgments",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_runs_1",
+        "table": "runs",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_runs_2",
+        "table": "runs",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_schedule_revisions_2",
+        "table": "schedule_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_schedule_revisions_3",
+        "table": "schedule_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_session_controls_1",
+        "table": "session_controls",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_session_documents_1",
+        "table": "session_documents",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_session_events_1",
+        "table": "session_events",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_session_events_2",
+        "table": "session_events",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_session_inputs_1",
+        "table": "session_inputs",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_session_inputs_2",
+        "table": "session_inputs",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_session_inputs_3",
+        "table": "session_inputs",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_session_sequences_1",
+        "table": "session_sequences",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_session_turns_1",
+        "table": "session_turns",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_session_turns_2",
+        "table": "session_turns",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_sessions_1",
+        "table": "sessions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_summary_attempts_1",
+        "table": "summary_attempts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_summary_recovery_acknowledgments_1",
+        "table": "summary_recovery_acknowledgments",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_summary_recovery_acknowledgments_2",
+        "table": "summary_recovery_acknowledgments",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_summary_recovery_acknowledgments_3",
+        "table": "summary_recovery_acknowledgments",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_summary_usage_1",
+        "table": "summary_usage",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_team_deliveries_2",
+        "table": "team_deliveries",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_team_messages_2",
+        "table": "team_messages",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_team_operation_receipts_2",
+        "table": "team_operation_receipts",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_team_state_revisions_2",
+        "table": "team_state_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_tools_1",
+        "table": "tools",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workflow_revisions_2",
+        "table": "workflow_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workflow_revisions_3",
+        "table": "workflow_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspace_document_heads_1",
+        "table": "workspace_document_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspace_document_heads_2",
+        "table": "workspace_document_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspace_document_revisions_1",
+        "table": "workspace_document_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspace_document_revisions_2",
+        "table": "workspace_document_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspace_document_revisions_3",
+        "table": "workspace_document_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspace_document_revisions_4",
+        "table": "workspace_document_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspace_trust_heads_1",
+        "table": "workspace_trust_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspace_trust_heads_2",
+        "table": "workspace_trust_heads",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspace_trust_revisions_1",
+        "table": "workspace_trust_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspace_trust_revisions_2",
+        "table": "workspace_trust_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspace_trust_revisions_3",
+        "table": "workspace_trust_revisions",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspaces_1",
+        "table": "workspaces",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "sqlite_autoindex_workspaces_2",
+        "table": "workspaces",
+        "sql": null
+      },
+      {
+        "type": "index",
+        "name": "summary_attempts_run_state",
+        "table": "summary_attempts",
+        "sql": "CREATE INDEX summary_attempts_run_state ON summary_attempts(run_id,state)"
+      },
+      {
+        "type": "index",
+        "name": "summary_attempts_session",
+        "table": "summary_attempts",
+        "sql": "CREATE INDEX summary_attempts_session ON summary_attempts(session_id)"
+      },
+      {
+        "type": "index",
+        "name": "summary_recovery_workspace",
+        "table": "summary_recovery_acknowledgments",
+        "sql": "CREATE INDEX summary_recovery_workspace ON summary_recovery_acknowledgments(workspace_id,binding_scope)"
+      },
+      {
+        "type": "index",
+        "name": "summary_usage_session",
+        "table": "summary_usage",
+        "sql": "CREATE INDEX summary_usage_session ON summary_usage(session_id)"
+      },
+      {
+        "type": "index",
+        "name": "summary_workspace_uncertain",
+        "table": "summary_attempts",
+        "sql": "CREATE INDEX summary_workspace_uncertain ON summary_attempts(workspace_id) WHERE state='uncertain'"
+      },
+      {
+        "type": "index",
+        "name": "tools_session",
+        "table": "tools",
+        "sql": "CREATE INDEX tools_session ON tools(session_id, ordinal)"
+      },
+      {
+        "type": "index",
+        "name": "workspace_document_revision_page",
+        "table": "workspace_document_revisions",
+        "sql": "CREATE INDEX workspace_document_revision_page ON workspace_document_revisions(workspace_id,document_key,id)"
+      },
+      {
+        "type": "table",
+        "name": "approvals",
+        "table": "approvals",
+        "sql": "CREATE TABLE approvals (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id), tool_call_id TEXT NOT NULL REFERENCES tools(id), status TEXT NOT NULL, data TEXT NOT NULL) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "attempt_cleanup",
+        "table": "attempt_cleanup",
+        "sql": "CREATE TABLE attempt_cleanup (\n  attempt_id TEXT PRIMARY KEY REFERENCES provider_attempts(id),\n  session_id TEXT NOT NULL REFERENCES sessions(id), workspace_id TEXT NOT NULL REFERENCES workspaces(id),\n  run_id TEXT NOT NULL REFERENCES runs(id), turn_id TEXT NOT NULL REFERENCES session_turns(id),\n  provider_id TEXT NOT NULL, model_id TEXT NOT NULL, context_revision_id TEXT REFERENCES context_revisions(id),\n  request_sha256 TEXT NOT NULL CHECK(length(request_sha256)=64),\n  request_bytes INTEGER NOT NULL CHECK(request_bytes BETWEEN 1 AND 67108864),\n  state TEXT NOT NULL CHECK(state IN ('prepared','dispatched','confirmed','uncertain','not-dispatched')),\n  revision INTEGER NOT NULL CHECK(revision BETWEEN 1 AND 9007199254740991),\n  data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=16384)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "attempt_usage",
+        "table": "attempt_usage",
+        "sql": "CREATE TABLE attempt_usage (\n  attempt_id TEXT PRIMARY KEY REFERENCES provider_attempts(id),\n  session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id),\n  turn_id TEXT NOT NULL REFERENCES session_turns(id), revision INTEGER NOT NULL CHECK(revision>0),\n  data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=4096)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "backend_heads",
+        "table": "backend_heads",
+        "sql": "CREATE TABLE backend_heads(workspace_id TEXT NOT NULL REFERENCES workspaces(id),kind TEXT NOT NULL CHECK(kind IN ('backend','connection','request','client-effect')),entity_id TEXT NOT NULL,revision_id TEXT NOT NULL REFERENCES backend_revisions(id),revision INTEGER NOT NULL CHECK(revision>=1),sha256 TEXT NOT NULL CHECK(length(sha256)=64),PRIMARY KEY(workspace_id,kind,entity_id)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "backend_revisions",
+        "table": "backend_revisions",
+        "sql": "CREATE TABLE backend_revisions(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id),kind TEXT NOT NULL CHECK(kind IN ('backend','connection','request','client-effect','transition')),entity_id TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>=1),previous_id TEXT REFERENCES backend_revisions(id),session_id TEXT REFERENCES sessions(id),run_id TEXT REFERENCES runs(id),turn_id TEXT REFERENCES session_turns(id),attempt_id TEXT REFERENCES provider_attempts(id),tool_id TEXT REFERENCES tools(id),connection_id TEXT,owner_epoch TEXT,request_scope TEXT NOT NULL,request_id TEXT NOT NULL,request_sha256 TEXT NOT NULL CHECK(length(request_sha256)=64),sha256 TEXT NOT NULL CHECK(length(sha256)=64),data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),UNIQUE(workspace_id,kind,entity_id,revision),UNIQUE(workspace_id,request_scope,request_id)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "checkpoints",
+        "table": "checkpoints",
+        "sql": "CREATE TABLE checkpoints (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, run_id TEXT NOT NULL REFERENCES runs(id), tool_call_id TEXT NOT NULL REFERENCES tools(id), data TEXT NOT NULL) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "context_revisions",
+        "table": "context_revisions",
+        "sql": "CREATE TABLE context_revisions (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), revision INTEGER NOT NULL CHECK(revision > 0), run_id TEXT REFERENCES runs(id), turn_id TEXT REFERENCES session_turns(id), supersedes_id TEXT REFERENCES context_revisions(id), data TEXT NOT NULL, UNIQUE(session_id,revision)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "diagnostic_effect_epochs",
+        "table": "diagnostic_effect_epochs",
+        "sql": "CREATE TABLE diagnostic_effect_epochs(workspace_id TEXT PRIMARY KEY REFERENCES workspaces(id),epoch INTEGER NOT NULL CHECK(epoch>=0),revision INTEGER NOT NULL CHECK(revision>0),data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=4096)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "diagnostic_execution_observations",
+        "table": "diagnostic_execution_observations",
+        "sql": "CREATE TABLE diagnostic_execution_observations(ordinal INTEGER PRIMARY KEY,id TEXT NOT NULL UNIQUE,workspace_id TEXT NOT NULL REFERENCES workspaces(id),session_id TEXT NOT NULL REFERENCES sessions(id),run_id TEXT NOT NULL REFERENCES runs(id),tool_call_id TEXT NOT NULL UNIQUE REFERENCES tools(id),turn_id TEXT NOT NULL REFERENCES session_turns(id),attempt_id TEXT NOT NULL REFERENCES provider_attempts(id),state TEXT NOT NULL CHECK(state IN ('dispatched','settled','interrupted')),revision INTEGER NOT NULL CHECK(revision>0),data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=16384)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "events",
+        "table": "events",
+        "sql": "CREATE TABLE events (session_id TEXT NOT NULL REFERENCES sessions(id), seq INTEGER NOT NULL CHECK(seq > 0), event_id TEXT NOT NULL UNIQUE, run_id TEXT NOT NULL REFERENCES runs(id), type TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(session_id, seq)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "host_command_heads",
+        "table": "host_command_heads",
+        "sql": "CREATE TABLE host_command_heads (\n job_id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), session_id TEXT NOT NULL REFERENCES sessions(id),\n request_id TEXT NOT NULL, request_sha256 TEXT NOT NULL CHECK(length(request_sha256)=64), revision_id TEXT NOT NULL REFERENCES host_command_revisions(id),\n state TEXT NOT NULL CHECK(state IN ('approved','running','completed','failed','cancelled','denied','uncertain','paused-import')), UNIQUE(workspace_id,request_id)\n) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "host_command_revisions",
+        "table": "host_command_revisions",
+        "sql": "CREATE TABLE host_command_revisions (\n id TEXT PRIMARY KEY, job_id TEXT NOT NULL, workspace_id TEXT NOT NULL REFERENCES workspaces(id), session_id TEXT NOT NULL REFERENCES sessions(id),\n revision INTEGER NOT NULL CHECK(revision>0), previous_id TEXT REFERENCES host_command_revisions(id),\n kind TEXT NOT NULL CHECK(kind IN ('approved','denied','running','output','checkpoint','closed','recovery','import')),\n state TEXT NOT NULL CHECK(state IN ('approved','running','completed','failed','cancelled','denied','uncertain','paused-import')),\n sha256 TEXT NOT NULL CHECK(length(sha256)=64), data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=262144), UNIQUE(job_id,revision)\n) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "inputs",
+        "table": "inputs",
+        "sql": "CREATE TABLE inputs (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), request_id TEXT NOT NULL, fingerprint TEXT NOT NULL, admitted_seq INTEGER NOT NULL, data TEXT NOT NULL, UNIQUE(session_id, request_id)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "job_heads",
+        "table": "job_heads",
+        "sql": "CREATE TABLE job_heads(workspace_id TEXT NOT NULL REFERENCES workspaces(id),kind TEXT NOT NULL CHECK(kind IN ('job','output','delivery')),entity_id TEXT NOT NULL,revision_id TEXT NOT NULL REFERENCES job_revisions(id),revision INTEGER NOT NULL CHECK(revision>=1),sha256 TEXT NOT NULL,PRIMARY KEY(workspace_id,kind,entity_id)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "job_revisions",
+        "table": "job_revisions",
+        "sql": "CREATE TABLE job_revisions(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id),kind TEXT NOT NULL CHECK(kind IN ('job','output','delivery','transition')),entity_id TEXT NOT NULL,job_id TEXT NOT NULL,created_at TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>=1),previous_id TEXT REFERENCES job_revisions(id),session_id TEXT NOT NULL REFERENCES sessions(id),terminal_id TEXT NOT NULL,source_sha256 TEXT NOT NULL,owner_epoch TEXT NOT NULL,input_id TEXT REFERENCES session_inputs(id),request_scope TEXT NOT NULL,request_id TEXT NOT NULL,request_sha256 TEXT NOT NULL,sha256 TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),UNIQUE(workspace_id,kind,entity_id,revision),UNIQUE(workspace_id,request_scope,request_id)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_candidates",
+        "table": "knowledge_candidates",
+        "sql": "CREATE TABLE knowledge_candidates (\n  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,\n  plan_id TEXT NOT NULL UNIQUE, trust_revision_id TEXT NOT NULL, generation_owner_id TEXT NOT NULL,\n  data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) <= 65536), UNIQUE(workspace_id, generation_owner_id),\n  FOREIGN KEY(workspace_id, plan_id) REFERENCES knowledge_generation_plans(workspace_id, id),\n  FOREIGN KEY(workspace_id, trust_revision_id) REFERENCES workspace_trust_revisions(workspace_id, id)\n)"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_file_checkpoints",
+        "table": "knowledge_file_checkpoints",
+        "sql": "CREATE TABLE knowledge_file_checkpoints(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,publication_id TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=1048576),UNIQUE(workspace_id,id),UNIQUE(workspace_id,publication_id),FOREIGN KEY(workspace_id,publication_id) REFERENCES knowledge_file_publications(workspace_id,id)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_file_execution_guards",
+        "table": "knowledge_file_execution_guards",
+        "sql": "CREATE TABLE knowledge_file_execution_guards (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), publication_id TEXT NOT NULL,\n lock_path TEXT NOT NULL, marker_owner_pid INTEGER NOT NULL CHECK(marker_owner_pid>0), marker_updated_at TEXT NOT NULL,\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=4096), UNIQUE(workspace_id,publication_id),\n FOREIGN KEY(workspace_id,publication_id) REFERENCES knowledge_file_publications(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_file_heads",
+        "table": "knowledge_file_heads",
+        "sql": "CREATE TABLE knowledge_file_heads(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,path TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>0),observation_id TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),UNIQUE(workspace_id,path),FOREIGN KEY(workspace_id,observation_id) REFERENCES knowledge_file_observations(workspace_id,id)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_file_observations",
+        "table": "knowledge_file_observations",
+        "sql": "CREATE TABLE knowledge_file_observations(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,path TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>0),previous_id TEXT,publication_id TEXT,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),UNIQUE(workspace_id,id),UNIQUE(workspace_id,path,revision),FOREIGN KEY(workspace_id,previous_id) REFERENCES knowledge_file_observations(workspace_id,id),FOREIGN KEY(workspace_id,publication_id) REFERENCES knowledge_file_publications(workspace_id,id)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_file_publication_receipts",
+        "table": "knowledge_file_publication_receipts",
+        "sql": "CREATE TABLE knowledge_file_publication_receipts(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,request_id TEXT NOT NULL,publication_id TEXT NOT NULL,checkpoint_id TEXT NOT NULL,target_revision_id TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),UNIQUE(workspace_id,id),UNIQUE(workspace_id,request_id),UNIQUE(workspace_id,publication_id),FOREIGN KEY(workspace_id,publication_id) REFERENCES knowledge_file_publications(workspace_id,id),FOREIGN KEY(workspace_id,checkpoint_id) REFERENCES knowledge_file_checkpoints(workspace_id,id),FOREIGN KEY(workspace_id,target_revision_id) REFERENCES knowledge_file_observations(workspace_id,id)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_file_publications",
+        "table": "knowledge_file_publications",
+        "sql": "CREATE TABLE knowledge_file_publications(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,request_id TEXT NOT NULL,path TEXT NOT NULL,operation TEXT NOT NULL CHECK(operation IN ('publish','revoke')),candidate_id TEXT NOT NULL,generation_id TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','dispatched','completed','cancelled','uncertain')),revision INTEGER NOT NULL CHECK(revision>0),data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=1048576),UNIQUE(workspace_id,id),UNIQUE(workspace_id,request_id),FOREIGN KEY(workspace_id,candidate_id) REFERENCES knowledge_candidates(workspace_id,id),FOREIGN KEY(workspace_id,generation_id) REFERENCES knowledge_generations(workspace_id,id)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_file_recovery_acknowledgments",
+        "table": "knowledge_file_recovery_acknowledgments",
+        "sql": "CREATE TABLE knowledge_file_recovery_acknowledgments(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,request_id TEXT NOT NULL,operation TEXT NOT NULL CHECK(operation IN ('acknowledge','resume')),data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=1048576),UNIQUE(workspace_id,id),UNIQUE(workspace_id,request_id)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_file_workspace_barriers",
+        "table": "knowledge_file_workspace_barriers",
+        "sql": "CREATE TABLE knowledge_file_workspace_barriers(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL UNIQUE REFERENCES workspaces(id) ON DELETE CASCADE,revision INTEGER NOT NULL CHECK(revision>0),state TEXT NOT NULL CHECK(state IN ('blocked','pending-resume','clear')),data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),CHECK(id=workspace_id)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_generation_attempts",
+        "table": "knowledge_generation_attempts",
+        "sql": "CREATE TABLE knowledge_generation_attempts (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,\n generation_id TEXT NOT NULL UNIQUE, plan_id TEXT NOT NULL, state TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision > 0),\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) <= 65536), UNIQUE(workspace_id,id),\n FOREIGN KEY(workspace_id,generation_id) REFERENCES knowledge_generations(workspace_id,id),\n FOREIGN KEY(workspace_id,plan_id) REFERENCES knowledge_generation_plans(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_generation_plans",
+        "table": "knowledge_generation_plans",
+        "sql": "CREATE TABLE knowledge_generation_plans (\n  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,\n  trust_revision_id TEXT NOT NULL, data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) <= 65536),\n  UNIQUE(workspace_id, id),\n  FOREIGN KEY(workspace_id, trust_revision_id) REFERENCES workspace_trust_revisions(workspace_id, id)\n)"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_generation_recovery_acknowledgments",
+        "table": "knowledge_generation_recovery_acknowledgments",
+        "sql": "CREATE TABLE knowledge_generation_recovery_acknowledgments (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,\n request_id TEXT NOT NULL, operation TEXT NOT NULL CHECK(operation IN ('acknowledge','resume')),\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) <= 65536), UNIQUE(workspace_id,request_id), UNIQUE(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_generation_workspace_barriers",
+        "table": "knowledge_generation_workspace_barriers",
+        "sql": "CREATE TABLE knowledge_generation_workspace_barriers (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL UNIQUE REFERENCES workspaces(id) ON DELETE CASCADE,\n state TEXT NOT NULL CHECK(state IN ('blocked','pending-resume','clear')), revision INTEGER NOT NULL CHECK(revision > 0),\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) <= 65536), CHECK(id=workspace_id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_generations",
+        "table": "knowledge_generations",
+        "sql": "CREATE TABLE knowledge_generations (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,\n plan_id TEXT NOT NULL UNIQUE, request_id TEXT NOT NULL, state TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision > 0),\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) <= 65536), UNIQUE(workspace_id,id), UNIQUE(workspace_id,request_id),\n FOREIGN KEY(workspace_id,plan_id) REFERENCES knowledge_generation_plans(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_import_document_activation_heads",
+        "table": "knowledge_import_document_activation_heads",
+        "sql": "CREATE TABLE knowledge_import_document_activation_heads (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), document_key TEXT NOT NULL,\n activation_id TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision>0),\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536), UNIQUE(workspace_id,document_key),\n FOREIGN KEY(workspace_id,activation_id) REFERENCES knowledge_import_document_activations(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_import_document_activations",
+        "table": "knowledge_import_document_activations",
+        "sql": "CREATE TABLE knowledge_import_document_activations (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), frontier_id TEXT NOT NULL,\n document_key TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision>0), decision_id TEXT NOT NULL,\n state TEXT NOT NULL CHECK(state IN ('active','inactive')), data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),\n UNIQUE(workspace_id,id), UNIQUE(workspace_id,document_key,revision),\n FOREIGN KEY(workspace_id,frontier_id) REFERENCES knowledge_import_frontiers(workspace_id,id),\n FOREIGN KEY(workspace_id,decision_id) REFERENCES knowledge_import_recovery_decisions(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_import_frontier_heads",
+        "table": "knowledge_import_frontier_heads",
+        "sql": "CREATE TABLE knowledge_import_frontier_heads (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL UNIQUE REFERENCES workspaces(id), frontier_id TEXT NOT NULL,\n revision INTEGER NOT NULL CHECK(revision>=0), data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),\n FOREIGN KEY(workspace_id,frontier_id) REFERENCES knowledge_import_frontiers(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_import_frontiers",
+        "table": "knowledge_import_frontiers",
+        "sql": "CREATE TABLE knowledge_import_frontiers (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), import_id TEXT NOT NULL UNIQUE,\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536), UNIQUE(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_import_pauses",
+        "table": "knowledge_import_pauses",
+        "sql": "CREATE TABLE knowledge_import_pauses (\n  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL UNIQUE REFERENCES workspaces(id) ON DELETE CASCADE,\n  data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) <= 65536), CHECK(id = workspace_id)\n)"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_import_recovery_decisions",
+        "table": "knowledge_import_recovery_decisions",
+        "sql": "CREATE TABLE knowledge_import_recovery_decisions (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), frontier_id TEXT NOT NULL,\n request_id TEXT NOT NULL, operation TEXT NOT NULL CHECK(operation IN ('acknowledge','resume','activate','deactivate')),\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536), UNIQUE(workspace_id,request_id), UNIQUE(workspace_id,id),\n FOREIGN KEY(workspace_id,frontier_id) REFERENCES knowledge_import_frontiers(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_publication_receipts",
+        "table": "knowledge_publication_receipts",
+        "sql": "CREATE TABLE knowledge_publication_receipts (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,\n request_id TEXT NOT NULL, operation TEXT NOT NULL CHECK(operation IN ('publish','revoke')),\n publication_id TEXT NOT NULL, document_revision_id TEXT NOT NULL,\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536), UNIQUE(workspace_id,request_id), UNIQUE(workspace_id,publication_id),\n FOREIGN KEY(workspace_id,publication_id) REFERENCES knowledge_publications(workspace_id,id),\n FOREIGN KEY(workspace_id,document_revision_id) REFERENCES workspace_document_revisions(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_publications",
+        "table": "knowledge_publications",
+        "sql": "CREATE TABLE knowledge_publications (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,\n request_id TEXT NOT NULL, operation TEXT NOT NULL CHECK(operation IN ('publish','revoke')),\n document_key TEXT NOT NULL, candidate_id TEXT NOT NULL REFERENCES knowledge_candidates(id),\n generation_id TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('prepared','completed','cancelled')),\n revision INTEGER NOT NULL CHECK(revision>0), document_revision_id TEXT,\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536), UNIQUE(workspace_id,id), UNIQUE(workspace_id,request_id),\n FOREIGN KEY(workspace_id,generation_id) REFERENCES knowledge_generations(workspace_id,id),\n FOREIGN KEY(workspace_id,document_revision_id) REFERENCES workspace_document_revisions(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "knowledge_request_receipts",
+        "table": "knowledge_request_receipts",
+        "sql": "CREATE TABLE knowledge_request_receipts (\n  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,\n  binding_sha256 TEXT NOT NULL, request_id TEXT NOT NULL,\n  data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) <= 65536), UNIQUE(workspace_id, binding_sha256, request_id)\n)"
+      },
+      {
+        "type": "table",
+        "name": "mcp_executions",
+        "table": "mcp_executions",
+        "sql": "CREATE TABLE mcp_executions (\n tool_call_id TEXT PRIMARY KEY REFERENCES tools(id), session_id TEXT NOT NULL REFERENCES sessions(id), workspace_id TEXT NOT NULL REFERENCES workspaces(id),\n run_id TEXT NOT NULL REFERENCES runs(id), turn_id TEXT NOT NULL REFERENCES session_turns(id), attempt_id TEXT NOT NULL REFERENCES provider_attempts(id),\n approval_id TEXT NOT NULL REFERENCES approvals(id), approval_fingerprint TEXT NOT NULL CHECK(length(approval_fingerprint)=64),\n provider_id TEXT NOT NULL, model_id TEXT NOT NULL, context_revision_id TEXT REFERENCES context_revisions(id),\n tool_name TEXT NOT NULL, server_id TEXT NOT NULL, connection_id TEXT NOT NULL, catalogue_revision INTEGER NOT NULL CHECK(catalogue_revision BETWEEN 0 AND 9007199254740991),\n remote_tool TEXT NOT NULL, protocol_version TEXT NOT NULL CHECK(protocol_version IN ('2026-07-28','2025-11-25')), transport_kind TEXT NOT NULL CHECK(transport_kind IN ('http','stdio')),\n logical_rpc_id TEXT NOT NULL, request_sha256 TEXT NOT NULL CHECK(length(request_sha256)=64), request_bytes INTEGER NOT NULL CHECK(request_bytes BETWEEN 1 AND 1048576),\n proposal_part_id TEXT NOT NULL REFERENCES message_parts(id), proposal_sha256 TEXT NOT NULL CHECK(length(proposal_sha256)=64), approval_sha256 TEXT NOT NULL CHECK(length(approval_sha256)=64),\n state TEXT NOT NULL CHECK(state IN ('prepared','dispatch-intent','response-terminal','uncertain','not-dispatched')),\n revision INTEGER NOT NULL CHECK(revision BETWEEN 1 AND 9007199254740991), transport_cleanup_confirmed INTEGER CHECK(transport_cleanup_confirmed IN (0,1)),\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) BETWEEN 1 AND 16384)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "message_parts",
+        "table": "message_parts",
+        "sql": "CREATE TABLE message_parts (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id), turn_id TEXT NOT NULL REFERENCES session_turns(id), message_id TEXT NOT NULL, part_index INTEGER NOT NULL CHECK(part_index >= 0), revision INTEGER NOT NULL CHECK(revision >= 0), state TEXT NOT NULL CHECK(state IN ('open','completed','failed','interrupted')), data TEXT NOT NULL, UNIQUE(message_id,part_index)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "messages",
+        "table": "messages",
+        "sql": "CREATE TABLE messages (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id), data TEXT NOT NULL) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "proposal_apply_checkpoints",
+        "table": "proposal_apply_checkpoints",
+        "sql": "CREATE TABLE proposal_apply_checkpoints (\n id TEXT PRIMARY KEY REFERENCES proposal_apply_owners(id),workspace_id TEXT NOT NULL REFERENCES workspaces(id),owner_id TEXT NOT NULL REFERENCES proposal_apply_owners(id),\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=262144),CHECK(id=owner_id)\n) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "proposal_apply_execution_guards",
+        "table": "proposal_apply_execution_guards",
+        "sql": "CREATE TABLE proposal_apply_execution_guards (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), owner_id TEXT NOT NULL REFERENCES proposal_apply_owners(id),\n lock_path TEXT NOT NULL, marker_owner_pid INTEGER NOT NULL CHECK(marker_owner_pid>0), marker_updated_at TEXT NOT NULL,\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=4096), UNIQUE(lock_path,marker_owner_pid,marker_updated_at)\n) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "proposal_apply_owners",
+        "table": "proposal_apply_owners",
+        "sql": "CREATE TABLE proposal_apply_owners (\n id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id),proposal_id TEXT NOT NULL REFERENCES proposal_heads(id),\n revision_id TEXT NOT NULL REFERENCES proposal_revisions(id),request_id TEXT NOT NULL,request_sha256 TEXT NOT NULL,\n state TEXT NOT NULL CHECK(state IN ('prepared','dispatched','completed','partial','cancelled','uncertain')),revision INTEGER NOT NULL CHECK(revision>=1),\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),UNIQUE(workspace_id,request_id),UNIQUE(revision_id)\n) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "proposal_apply_receipts",
+        "table": "proposal_apply_receipts",
+        "sql": "CREATE TABLE proposal_apply_receipts (\n id TEXT PRIMARY KEY REFERENCES proposal_apply_owners(id),workspace_id TEXT NOT NULL REFERENCES workspaces(id),owner_id TEXT NOT NULL REFERENCES proposal_apply_owners(id),\n request_id TEXT NOT NULL,request_sha256 TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),CHECK(id=owner_id)\n) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "proposal_apply_recovery_decisions",
+        "table": "proposal_apply_recovery_decisions",
+        "sql": "CREATE TABLE proposal_apply_recovery_decisions (\n id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id),revision INTEGER NOT NULL CHECK(revision>=1),operation TEXT NOT NULL CHECK(operation IN ('acknowledge','resume')),\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),UNIQUE(workspace_id,revision)\n) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "proposal_blobs",
+        "table": "proposal_blobs",
+        "sql": "CREATE TABLE proposal_blobs (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), proposal_id TEXT NOT NULL,\n revision_id TEXT NOT NULL, operation_index INTEGER NOT NULL CHECK(operation_index>=0 AND operation_index<128),\n role TEXT NOT NULL CHECK(role IN ('before','after')), sha256 TEXT NOT NULL, bytes INTEGER NOT NULL CHECK(bytes>=0 AND bytes<=1048576),\n header_sha256 TEXT NOT NULL, data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),\n content BLOB NOT NULL CHECK(length(content)=bytes),\n FOREIGN KEY(workspace_id,revision_id) REFERENCES proposal_revisions(workspace_id,id), UNIQUE(revision_id,operation_index,role)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "proposal_effect_blobs",
+        "table": "proposal_effect_blobs",
+        "sql": "CREATE TABLE proposal_effect_blobs (\n id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id),owner_id TEXT NOT NULL REFERENCES proposal_apply_owners(id),\n checkpoint_id TEXT NOT NULL REFERENCES proposal_apply_checkpoints(id),file_index INTEGER NOT NULL CHECK(file_index>=0 AND file_index<32),\n sha256 TEXT NOT NULL,bytes INTEGER NOT NULL CHECK(bytes>=0 AND bytes<=1048576),header_sha256 TEXT NOT NULL,\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),content BLOB NOT NULL CHECK(length(content)=bytes)\n) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "proposal_heads",
+        "table": "proposal_heads",
+        "sql": "CREATE TABLE proposal_heads (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), revision INTEGER NOT NULL CHECK(revision>=1),\n revision_id TEXT NOT NULL, data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),\n FOREIGN KEY(workspace_id,revision_id) REFERENCES proposal_revisions(workspace_id,id), UNIQUE(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "proposal_revisions",
+        "table": "proposal_revisions",
+        "sql": "CREATE TABLE proposal_revisions (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), proposal_id TEXT NOT NULL,\n revision INTEGER NOT NULL CHECK(revision>=1), previous_id TEXT REFERENCES proposal_revisions(id),\n request_id TEXT NOT NULL, request_sha256 TEXT NOT NULL,\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=262144),\n UNIQUE(workspace_id,proposal_id,revision), UNIQUE(workspace_id,request_id), UNIQUE(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "provider_attempts",
+        "table": "provider_attempts",
+        "sql": "CREATE TABLE provider_attempts (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id), turn_id TEXT NOT NULL REFERENCES session_turns(id), attempt_index INTEGER NOT NULL CHECK(attempt_index >= 0 AND attempt_index < 16), state TEXT NOT NULL CHECK(state IN ('prepared','dispatched','streaming','completed','failed','interrupted','uncertain')), data TEXT NOT NULL, UNIQUE(turn_id,attempt_index)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "provider_recovery_acknowledgments",
+        "table": "provider_recovery_acknowledgments",
+        "sql": "CREATE TABLE provider_recovery_acknowledgments (\n  id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES provider_attempts(id),\n  session_id TEXT NOT NULL REFERENCES sessions(id), workspace_id TEXT NOT NULL REFERENCES workspaces(id),\n  run_id TEXT NOT NULL REFERENCES runs(id), turn_id TEXT NOT NULL REFERENCES session_turns(id),\n  request_id TEXT NOT NULL, binding_scope TEXT NOT NULL CHECK(length(binding_scope)=64),\n  fingerprint TEXT NOT NULL CHECK(length(fingerprint)=64), record_sha256 TEXT NOT NULL CHECK(length(record_sha256)=64),\n  cleanup_record_sha256 TEXT NOT NULL CHECK(length(cleanup_record_sha256)=64), usage_sha256 TEXT CHECK(usage_sha256 IS NULL OR length(usage_sha256)=64),\n  source_sha256 TEXT NOT NULL CHECK(length(source_sha256)=64), context_baseline_sha256 TEXT NOT NULL CHECK(length(context_baseline_sha256)=64),\n  pins_sha256 TEXT NOT NULL CHECK(length(pins_sha256)=64), startup_high_water TEXT NOT NULL,\n  data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),\n  UNIQUE(binding_scope,workspace_id,request_id), UNIQUE(binding_scope,attempt_id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "runs",
+        "table": "runs",
+        "sql": "CREATE TABLE runs (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, input_id TEXT NOT NULL UNIQUE REFERENCES inputs(id), session_id TEXT NOT NULL REFERENCES sessions(id), workspace_id TEXT NOT NULL REFERENCES workspaces(id), state TEXT NOT NULL CHECK(state IN ('created','running','awaiting_approval','cancelling','completed','cancelled','failed','interrupted')), data TEXT NOT NULL) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "schedule_heads",
+        "table": "schedule_heads",
+        "sql": "CREATE TABLE schedule_heads(workspace_id TEXT NOT NULL REFERENCES workspaces(id),kind TEXT NOT NULL CHECK(kind IN ('schedule','lease','occurrence')),entity_id TEXT NOT NULL,revision_id TEXT NOT NULL REFERENCES schedule_revisions(id),revision INTEGER NOT NULL CHECK(revision>=1),sha256 TEXT NOT NULL,PRIMARY KEY(workspace_id,kind,entity_id)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "schedule_revisions",
+        "table": "schedule_revisions",
+        "sql": "CREATE TABLE schedule_revisions(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id),kind TEXT NOT NULL CHECK(kind IN ('schedule','lease','occurrence','transition')),entity_id TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>=1),previous_id TEXT REFERENCES schedule_revisions(id),session_id TEXT REFERENCES sessions(id),input_id TEXT REFERENCES session_inputs(id),run_id TEXT REFERENCES runs(id),owner_epoch TEXT,request_scope TEXT NOT NULL,request_id TEXT NOT NULL,request_sha256 TEXT NOT NULL,sha256 TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=131072),UNIQUE(workspace_id,kind,entity_id,revision),UNIQUE(workspace_id,request_scope,request_id)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "session_controls",
+        "table": "session_controls",
+        "sql": "CREATE TABLE session_controls (session_id TEXT PRIMARY KEY REFERENCES sessions(id), paused INTEGER NOT NULL CHECK(paused IN (0,1)), revision INTEGER NOT NULL CHECK(revision >= 0), data TEXT NOT NULL) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "session_documents",
+        "table": "session_documents",
+        "sql": "CREATE TABLE session_documents (session_id TEXT NOT NULL REFERENCES sessions(id), kind TEXT NOT NULL CHECK(length(kind) BETWEEN 1 AND 64), revision INTEGER NOT NULL CHECK(revision > 0), data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) <= 262144), PRIMARY KEY(session_id,kind)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "session_events",
+        "table": "session_events",
+        "sql": "CREATE TABLE session_events (session_id TEXT NOT NULL REFERENCES sessions(id), seq INTEGER NOT NULL CHECK(seq > 0), event_id TEXT NOT NULL UNIQUE, schema_version INTEGER NOT NULL CHECK(schema_version=2), run_id TEXT REFERENCES runs(id), input_id TEXT REFERENCES session_inputs(id), turn_id TEXT REFERENCES session_turns(id), attempt_id TEXT REFERENCES provider_attempts(id), type TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(session_id,seq)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "session_inputs",
+        "table": "session_inputs",
+        "sql": "CREATE TABLE session_inputs (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), workspace_id TEXT NOT NULL REFERENCES workspaces(id), request_id TEXT NOT NULL, fingerprint TEXT NOT NULL, delivery TEXT NOT NULL CHECK(delivery IN ('queue','steer')), state TEXT NOT NULL CHECK(state IN ('pending','promoted','cancelled')), admitted_seq INTEGER NOT NULL CHECK(admitted_seq > 0), promoted_seq INTEGER, run_id TEXT REFERENCES runs(id), legacy_seq INTEGER, bytes INTEGER NOT NULL CHECK(bytes >= 0), data TEXT NOT NULL, UNIQUE(session_id,request_id), UNIQUE(session_id,admitted_seq), CHECK((state='promoted' AND run_id IS NOT NULL AND promoted_seq IS NOT NULL AND legacy_seq IS NOT NULL AND promoted_seq > admitted_seq AND legacy_seq > 0) OR (state IN ('pending','cancelled') AND run_id IS NULL AND promoted_seq IS NULL AND legacy_seq IS NULL))) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "session_sequences",
+        "table": "session_sequences",
+        "sql": "CREATE TABLE session_sequences (session_id TEXT PRIMARY KEY REFERENCES sessions(id), last_seq INTEGER NOT NULL DEFAULT 0 CHECK(last_seq >= 0)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "session_turns",
+        "table": "session_turns",
+        "sql": "CREATE TABLE session_turns (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id), turn_index INTEGER NOT NULL CHECK(turn_index >= 0), state TEXT NOT NULL CHECK(state IN ('created','streaming','awaiting_tools','completed','failed','interrupted','uncertain')), data TEXT NOT NULL, UNIQUE(run_id,turn_index)) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "sessions",
+        "table": "sessions",
+        "sql": "CREATE TABLE sessions (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), last_seq INTEGER NOT NULL DEFAULT 0 CHECK(last_seq >= 0), data TEXT NOT NULL) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "summary_attempts",
+        "table": "summary_attempts",
+        "sql": "CREATE TABLE summary_attempts (\n  id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), workspace_id TEXT NOT NULL REFERENCES workspaces(id),\n  run_id TEXT NOT NULL REFERENCES runs(id), scope TEXT NOT NULL CHECK(scope IN ('completed-history','active-run-prefix')),\n  state TEXT NOT NULL CHECK(state IN ('prepared','dispatched','streaming','completed','failed','interrupted','uncertain')),\n  revision INTEGER NOT NULL CHECK(revision>0), data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=524288)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "summary_recovery_acknowledgments",
+        "table": "summary_recovery_acknowledgments",
+        "sql": "CREATE TABLE summary_recovery_acknowledgments (\n  id TEXT PRIMARY KEY, summary_attempt_id TEXT NOT NULL REFERENCES summary_attempts(id),\n  session_id TEXT NOT NULL REFERENCES sessions(id), workspace_id TEXT NOT NULL REFERENCES workspaces(id), run_id TEXT NOT NULL REFERENCES runs(id),\n  request_id TEXT NOT NULL, binding_scope TEXT NOT NULL CHECK(length(binding_scope)=64), attempt_revision INTEGER NOT NULL CHECK(attempt_revision>0),\n  fingerprint TEXT NOT NULL CHECK(length(fingerprint)=64), record_sha256 TEXT NOT NULL CHECK(length(record_sha256)=64),\n  usage_sha256 TEXT, source_owner_sha256 TEXT NOT NULL CHECK(length(source_owner_sha256)=64),\n  data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536), proof_version INTEGER NOT NULL DEFAULT 1 CHECK(proof_version IN (1,2)), pins_sha256 TEXT CHECK(pins_sha256 IS NULL OR length(pins_sha256)=64), startup_high_water TEXT CHECK(startup_high_water IS NULL OR length(CAST(startup_high_water AS BLOB)) BETWEEN 1 AND 19),\n  UNIQUE(binding_scope,workspace_id,request_id), UNIQUE(binding_scope,summary_attempt_id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "summary_usage",
+        "table": "summary_usage",
+        "sql": "CREATE TABLE summary_usage (\n  summary_attempt_id TEXT PRIMARY KEY REFERENCES summary_attempts(id), session_id TEXT NOT NULL REFERENCES sessions(id),\n  run_id TEXT NOT NULL REFERENCES runs(id), revision INTEGER NOT NULL CHECK(revision>0), data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=4096)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "team_deliveries",
+        "table": "team_deliveries",
+        "sql": "CREATE TABLE team_deliveries(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id),team_id TEXT NOT NULL,member_id TEXT NOT NULL,generation INTEGER NOT NULL CHECK(generation>=1),request_id TEXT NOT NULL,request_sha256 TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('prepared','dispatched','delivered','cancelled','uncertain')),revision INTEGER NOT NULL CHECK(revision>=1),data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),UNIQUE(team_id,member_id,generation,request_id)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "team_delivery_receipts",
+        "table": "team_delivery_receipts",
+        "sql": "CREATE TABLE team_delivery_receipts(id TEXT PRIMARY KEY REFERENCES team_deliveries(id),workspace_id TEXT NOT NULL REFERENCES workspaces(id),team_id TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "team_mailbox_cursors",
+        "table": "team_mailbox_cursors",
+        "sql": "CREATE TABLE team_mailbox_cursors(workspace_id TEXT NOT NULL REFERENCES workspaces(id),team_id TEXT NOT NULL,member_id TEXT NOT NULL,generation INTEGER NOT NULL CHECK(generation>=1),revision INTEGER NOT NULL CHECK(revision>=1),admitted_seq INTEGER NOT NULL CHECK(admitted_seq>=0),claimed_seq INTEGER NOT NULL CHECK(claimed_seq>=0 AND claimed_seq<=admitted_seq),pending_delivery_id TEXT,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),PRIMARY KEY(team_id,member_id,generation)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "team_messages",
+        "table": "team_messages",
+        "sql": "CREATE TABLE team_messages(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id),team_id TEXT NOT NULL,sender_member_id TEXT NOT NULL,sender_generation INTEGER NOT NULL CHECK(sender_generation>=1),recipient_member_id TEXT NOT NULL,recipient_generation INTEGER NOT NULL CHECK(recipient_generation>=1),seq INTEGER NOT NULL CHECK(seq>=1),bytes INTEGER NOT NULL CHECK(bytes>=0 AND bytes<=4096),request_id TEXT NOT NULL,request_sha256 TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),UNIQUE(team_id,recipient_member_id,recipient_generation,seq)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "team_operation_receipts",
+        "table": "team_operation_receipts",
+        "sql": "CREATE TABLE team_operation_receipts(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id),team_id TEXT NOT NULL,actor_id TEXT NOT NULL,actor_generation INTEGER NOT NULL CHECK(actor_generation>=0),request_id TEXT NOT NULL,request_sha256 TEXT NOT NULL,operation TEXT NOT NULL,record_id TEXT NOT NULL,record_sha256 TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),UNIQUE(team_id,actor_id,actor_generation,request_id)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "team_state_heads",
+        "table": "team_state_heads",
+        "sql": "CREATE TABLE team_state_heads(team_id TEXT NOT NULL,kind TEXT NOT NULL CHECK(kind IN ('team','member','task')),state_key TEXT NOT NULL,workspace_id TEXT NOT NULL REFERENCES workspaces(id),revision_id TEXT NOT NULL REFERENCES team_state_revisions(id),generation INTEGER NOT NULL CHECK(generation>=0),revision INTEGER NOT NULL CHECK(revision>=1),sha256 TEXT NOT NULL,PRIMARY KEY(team_id,kind,state_key)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "team_state_revisions",
+        "table": "team_state_revisions",
+        "sql": "CREATE TABLE team_state_revisions(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id),team_id TEXT NOT NULL,kind TEXT NOT NULL CHECK(kind IN ('team','member','task')),state_key TEXT NOT NULL,generation INTEGER NOT NULL CHECK(generation>=0),revision INTEGER NOT NULL CHECK(revision>=1),previous_id TEXT REFERENCES team_state_revisions(id),sha256 TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536),UNIQUE(team_id,kind,state_key,revision)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "tools",
+        "table": "tools",
+        "sql": "CREATE TABLE tools (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL REFERENCES sessions(id), run_id TEXT NOT NULL REFERENCES runs(id), state TEXT NOT NULL, data TEXT NOT NULL) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "workflow_heads",
+        "table": "workflow_heads",
+        "sql": "CREATE TABLE workflow_heads(workspace_id TEXT NOT NULL REFERENCES workspaces(id),kind TEXT NOT NULL CHECK(kind IN ('spec','instance','stage')),entity_id TEXT NOT NULL,revision_id TEXT NOT NULL REFERENCES workflow_revisions(id),revision INTEGER NOT NULL CHECK(revision>=1),sha256 TEXT NOT NULL,PRIMARY KEY(workspace_id,kind,entity_id)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "workflow_revisions",
+        "table": "workflow_revisions",
+        "sql": "CREATE TABLE workflow_revisions(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES workspaces(id),kind TEXT NOT NULL CHECK(kind IN ('spec','instance','stage','transition')),entity_id TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>=1),previous_id TEXT REFERENCES workflow_revisions(id),root_session_id TEXT REFERENCES sessions(id),root_run_id TEXT REFERENCES runs(id),owner_sha256 TEXT,request_scope TEXT NOT NULL,request_id TEXT NOT NULL,request_sha256 TEXT NOT NULL,sha256 TEXT NOT NULL,data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=131072),UNIQUE(workspace_id,kind,entity_id,revision),UNIQUE(workspace_id,request_scope,request_id)) STRICT, WITHOUT ROWID"
+      },
+      {
+        "type": "table",
+        "name": "workspace_document_heads",
+        "table": "workspace_document_heads",
+        "sql": "CREATE TABLE workspace_document_heads (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,\n document_key TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision>0), revision_id TEXT NOT NULL,\n publication_id TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('active','revoked')),\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536), UNIQUE(workspace_id,document_key),\n FOREIGN KEY(workspace_id,revision_id) REFERENCES workspace_document_revisions(workspace_id,id),\n FOREIGN KEY(workspace_id,publication_id) REFERENCES knowledge_publications(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "workspace_document_revisions",
+        "table": "workspace_document_revisions",
+        "sql": "CREATE TABLE workspace_document_revisions (\n id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,\n document_key TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision>0), previous_revision_id TEXT,\n publication_id TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('active','revoked')),\n data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=65536), UNIQUE(workspace_id,id),\n UNIQUE(workspace_id,document_key,revision), UNIQUE(workspace_id,publication_id),\n FOREIGN KEY(workspace_id,previous_revision_id) REFERENCES workspace_document_revisions(workspace_id,id),\n FOREIGN KEY(workspace_id,publication_id) REFERENCES knowledge_publications(workspace_id,id)\n) STRICT"
+      },
+      {
+        "type": "table",
+        "name": "workspace_trust_heads",
+        "table": "workspace_trust_heads",
+        "sql": "CREATE TABLE workspace_trust_heads (\n  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL UNIQUE REFERENCES workspaces(id) ON DELETE CASCADE,\n  revision INTEGER NOT NULL CHECK(revision > 0), revision_id TEXT NOT NULL,\n  data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) <= 65536), CHECK(id = workspace_id),\n  FOREIGN KEY(workspace_id, revision_id) REFERENCES workspace_trust_revisions(workspace_id, id)\n)"
+      },
+      {
+        "type": "table",
+        "name": "workspace_trust_revisions",
+        "table": "workspace_trust_revisions",
+        "sql": "CREATE TABLE workspace_trust_revisions (\n  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,\n  revision INTEGER NOT NULL CHECK(revision > 0), data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) <= 65536),\n  UNIQUE(workspace_id, revision), UNIQUE(workspace_id, id)\n)"
+      },
+      {
+        "type": "table",
+        "name": "workspaces",
+        "table": "workspaces",
+        "sql": "CREATE TABLE workspaces (id TEXT PRIMARY KEY, root TEXT NOT NULL UNIQUE, data TEXT NOT NULL) STRICT"
+      }
+    ],
+    "sha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b"
+  },
+  "scope": "Actual migrated primary SQL catalogue; no secondary DB, API, record/event or dependency attestation",
+  "comparison": {
+    "equal": true,
+    "sha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b"
+  },
+  "baselineImplementationCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "measuredOnLocalDate": "2026-10-09",
+  "compiledCatalogueCompared": true
+}

@@ -10,6 +10,8 @@ on:
       - "scripts/evaluate-engine.mjs"
       - "scripts/verify-engine-resilience*.mjs"
       - "scripts/benchmark-engine.mjs"
+      - "scripts/inspect-engine-db-contract*.mjs"
+      - "docs/moodcode/next-db-contract-baseline.json"
       - "scripts/prepare-pty.mjs"
       - "scripts/verify-media-account*.mjs"
       - "scripts/plan-media-verification*.mjs"
@@ -26,6 +28,8 @@ on:
       - "scripts/evaluate-engine.mjs"
       - "scripts/verify-engine-resilience*.mjs"
       - "scripts/benchmark-engine.mjs"
+      - "scripts/inspect-engine-db-contract*.mjs"
+      - "docs/moodcode/next-db-contract-baseline.json"
       - "scripts/prepare-pty.mjs"
       - "scripts/verify-media-account*.mjs"
       - "scripts/plan-media-verification*.mjs"
@@ -84,6 +88,8 @@ jobs:
         run: node .github/scripts/engine-ci.mjs typecheck
       - name: Build only headless projects
         run: node .github/scripts/engine-ci.mjs build
+      - name: Preserve the primary SQL database contract
+        run: node .github/scripts/engine-ci.mjs db-contract
       - name: Run local media CLI regression fixtures
         run: node .github/scripts/engine-ci.mjs test-media-local
       - name: Validate resilience CLI preflight and report failures
@@ -146,6 +152,8 @@ jobs:
         run: node .github/scripts/engine-ci.mjs typecheck
       - name: Build only headless projects
         run: node .github/scripts/engine-ci.mjs build
+      - name: Preserve the primary SQL database contract
+        run: node .github/scripts/engine-ci.mjs db-contract
       - name: Run portable contracts and selected SQLite/native-port fixtures
         run: node .github/scripts/engine-ci.mjs test-windows
       - name: Record partial outcome summary

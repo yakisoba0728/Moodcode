@@ -12,6 +12,7 @@ import {
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { performance } from "node:perf_hooks";
+import { assertDatabaseContractEqual } from "../../scripts/inspect-engine-db-contract.mjs";
 
 export const PROJECTS = [
   "packages/contracts",
@@ -36,6 +37,16 @@ const resultsDir = resolve(
 );
 const recordPath = join(resultsDir, "steps.json");
 const require = createRequire(import.meta.url);
+const LOCAL_REPORT_MODES = new Set([
+  "eval",
+  "resilience",
+  "benchmark",
+  "db-contract",
+]);
+const databaseBaselinePath = join(
+  root,
+  "docs/moodcode/next-db-contract-baseline.json",
+);
 
 export function commandPlan(mode) {
   const tsc = join(root, "node_modules", "typescript", "bin", "tsc");
@@ -70,6 +81,7 @@ export function commandPlan(mode) {
         "--test",
         "--test-concurrency=1",
         join(root, "scripts", "verify-engine-resilience.test.mjs"),
+        join(root, "scripts", "inspect-engine-db-contract.test.mjs"),
       ];
     case "eval":
       return [process.execPath, join(root, "scripts", "evaluate-engine.mjs")];
@@ -91,6 +103,15 @@ export function commandPlan(mode) {
         "--runtime",
         "compiled",
       ];
+    case "db-contract":
+      return [
+        process.execPath,
+        join(root, "scripts", "inspect-engine-db-contract.mjs"),
+        "--runtime",
+        "compiled",
+        "--compare",
+        databaseBaselinePath,
+      ];
     case "test-windows":
       return [
         process.execPath,
@@ -108,12 +129,27 @@ export function commandPlan(mode) {
 }
 
 // A successful child exit alone does not certify a complete local report.
-export function validateLocalReport(mode, result) {
+export function validateLocalReport(mode, result, databaseBaseline) {
   const reject = () => {
     throw new Error(`Invalid or incomplete local ${mode} report`);
   };
   if (!result || typeof result !== "object" || Array.isArray(result)) reject();
   if (result.passed !== true || result.noLive !== true) reject();
+  if (mode === "db-contract") {
+    if (
+      result.schemaVersion !== 1 ||
+      result.kind !== "engine-primary-db-contract" ||
+      result.runtime?.mode !== "compiled" ||
+      result.comparison?.equal !== true ||
+      result.comparison.sha256 !== result.catalogue?.sha256 ||
+      !/^[a-f0-9]{64}$/.test(result.moduleSha256 ?? "") ||
+      !Array.isArray(result.catalogue?.objects) ||
+      result.catalogue.objects.length > 1024
+    )
+      reject();
+    assertDatabaseContractEqual(result.catalogue, databaseBaseline?.catalogue);
+    return result;
+  }
   if (mode === "resilience") {
     if (
       result.schemaVersion !== 1 ||
@@ -532,6 +568,7 @@ export async function main(mode) {
           "eval",
           "resilience",
           "benchmark",
+          "db-contract",
         ].map((operation) => [operation, commandPlan(operation)]),
       ),
       windowsStorageSelection: WINDOWS_STORAGE_TESTS,
@@ -556,7 +593,7 @@ export async function main(mode) {
       ...(await windowsTestFiles()),
     ];
   const exitCode = await run(mode, argv);
-  if (["eval", "resilience", "benchmark"].includes(mode)) {
+  if (LOCAL_REPORT_MODES.has(mode)) {
     try {
       const result = JSON.parse(
         await readFile(join(resultsDir, `${mode}.stdout`), "utf8"),
@@ -614,12 +651,16 @@ export async function main(mode) {
         }),
       );
   }
-  if (["eval", "resilience", "benchmark"].includes(mode)) {
+  if (LOCAL_REPORT_MODES.has(mode)) {
     const result = JSON.parse(
       await readFile(join(resultsDir, `${mode}.stdout`), "utf8"),
     );
     try {
-      validateLocalReport(mode, result);
+      const baseline =
+        mode === "db-contract"
+          ? JSON.parse(await readFile(databaseBaselinePath, "utf8"))
+          : undefined;
+      validateLocalReport(mode, result, baseline);
       await record({
         operation: `${mode}-report`,
         state: "passed",
