@@ -45,6 +45,22 @@
 
 리팩터링은 완결 기능별로 병렬 분담하되 `engine.ts`·공통 contracts·동일 store 등 공유 파일의 편집 담당은 하나로 고정한다. 테스트 실패를 숨기는 skip·assertion 축소·timeout 완화로 완료하지 않는다. 줄 수에 임의 목표를 두어 필요한 검증을 없애거나 함수/파일을 과하게 분할하지 않는다. 리팩터링 중 새로운 기능은 별도 TODO로 기록해 완료 범위를 유지한다.
 
+### 진행 중 — 후속 기능과 리팩터링 goal
+
+2026-10-09 전체 goal을 설정하고 `gpt-6.1-sol / xhigh` 세션 세 개와 Root 에이전트 세 개를 시작했다. 구현 기준은 `44d3a07`이며, 착수는 완료 집계에 포함하지 않는다. [진행 기록](docs/moodcode/next-execution-progress.json)에 세션·담당 경계·검증·통합 상태를 기록한다.
+
+| 담당 | 범위 | 완료 판단 |
+|---|---|---|
+| Windows 세션 | E5-08 native Job Object와 실제 Windows CI | 실제 command 연결·child tree·취소·부모 crash·종료 정산 |
+| 공급자 세션 | E5-13 Anthropic·Responses PDF·추가 미디어 | 명시 모델/MIME/상한·native 증거와 실제 계정 결과 |
+| 데스크톱 세션 | N-02~05 host/preload/GUI·인증·패키지·업데이트 | 실제 화면 흐름·OS bundle·공식 인증·서명 조건 |
+| 장기 실행 에이전트 | N-01 같은 Engine의 누적 이력·부하 | 실제 경과 시간·자원 측정·재시작·unknown/no-replay |
+| PTY 에이전트 | R-PTY-01 반복 조사 도구·영구 진단 | native outcome/원본 PID·PGID·supervisor·실패 근거 보존 |
+| 점검 에이전트 | RF-01 inventory 도구와 기준 준비 | caller/export·복잡도·중복 후보 근거, 동적 소비 한계 |
+| Root | N-06·RF-01~08 수용·통합·검증·커밋 | 기능 수용 후 실제 문제 목록과 TODO 재작성, 단계별 회귀 |
+
+각 구현 세션은 격리 worktree에서 구현·검증하고 Root가 main으로 통합한다. 장기 실행·PTY·점검 에이전트는 서로 다른 새 파일을 담당한다. 인증서·계정·과거 원인 자료가 필요한 실제 검증은 별도 미완료 조건을 유지하고, 독립 가능한 작업을 계속 진행한다.
+
 ## 완료: 엔진 안정성·평가 보강 H1–H5
 
 2026-10-09 사용자 승인으로 세 에이전트가 기능 단위로 병렬 구현·상호 검토했고 Root가 같은 932개 동결 입력의 전체 회귀 4,723/4,721/실패0/skip2, 60회 복합 반복, 코딩 과업3/3과 quick/standard 성능을 확인했다. 공개 CI run37840729036의 여섯 OS/Node 작업과 원본 ZIP SHA도 통과했다. 구현 커밋은 `9563e97`이며 [통합 근거](docs/moodcode/engine-hardening-verification.json)·[실제 hosted 근거](docs/moodcode/engine-hardening-hosted-verification.json)를 따른다. 기존 2차 완료 집계와 별도인 후속 범위이며 외부 모델 호출·GUI 실행은 포함하지 않는다.

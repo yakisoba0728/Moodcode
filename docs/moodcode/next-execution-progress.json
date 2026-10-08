@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "updatedAtLocalDate": "2026-10-09",
+  "timezone": "Asia/Seoul",
+  "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "goalStatus": "active",
+  "rootThreadId": "01a102e1-5024-7471-bf77-52e9abf788b4",
+  "sessionModel": "gpt-6.1-sol",
+  "sessionReasoningEffort": "xhigh",
+  "order": [
+    "remaining-features-and-native-verification",
+    "owned-code-and-test-inspection",
+    "evidence-backed-findings-and-todo-rewrite",
+    "test-refactoring",
+    "engine-refactoring-and-comment-maintenance",
+    "final-verification-documentation-commit-main-push"
+  ],
+  "lanes": [
+    {
+      "key": "windows",
+      "ids": ["E5-08"],
+      "threadId": "01a11d5c-a7e9-7e51-be84-276527da793f",
+      "hostId": "local",
+      "status": "implementing",
+      "progressFile": "docs/moodcode/next-windows-progress.json",
+      "requires": ["native-binding", "actual-engine-command", "actual-windows-ci"]
+    },
+    {
+      "key": "providers",
+      "ids": ["E5-13"],
+      "threadId": "01a11d5c-ab82-7ad3-8710-67c00b999c2e",
+      "hostId": "local",
+      "status": "implementing",
+      "progressFile": "docs/moodcode/next-provider-progress.json",
+      "requires": ["bounded-model-qualified-contract", "native-media-evidence", "actual-account-verification"]
+    },
+    {
+      "key": "desktop",
+      "ids": ["N-02", "N-03", "N-04", "N-05"],
+      "threadId": "01a11d5c-affa-79c3-89e4-2cef32922796",
+      "hostId": "local",
+      "status": "implementing",
+      "progressFile": "docs/moodcode/next-desktop-progress.json",
+      "requires": ["host-preload-renderer-consumption", "official-account-lifecycle", "actual-os-package-smoke", "signing-update-rollback-evidence"]
+    },
+    {
+      "key": "persistent-soak",
+      "ids": ["N-01"],
+      "agent": "/root/persistent_soak",
+      "status": "implementing",
+      "requires": ["same-engine-accumulating-history", "actual-duration-and-resource-samples", "retained-unknown-and-no-replay"]
+    },
+    {
+      "key": "pty-repeatability",
+      "ids": ["R-PTY-01"],
+      "agent": "/root/pty_repeatability",
+      "status": "investigating",
+      "requires": ["genuine-native-diagnostics", "retained-failure-evidence", "causal-evidence-before-historical-resolution"]
+    },
+    {
+      "key": "refactor-inventory",
+      "ids": ["RF-01"],
+      "agent": "/root/refactor_inventory",
+      "status": "preparing-tooling",
+      "requires": ["source-qualified-inventory", "caller-and-compatibility-review", "final-measurement-after-features"]
+    },
+    {
+      "key": "integration-and-refactoring",
+      "ids": ["N-06", "RF-01", "RF-02", "RF-03", "RF-04", "RF-05", "RF-06", "RF-07", "RF-08"],
+      "owner": "Root",
+      "status": "coordinating",
+      "requires": ["feature-acceptance-baseline", "findings-before-refactor", "preserved-contracts", "final-local-hosted-gui-verification", "main-sync"]
+    }
+  ],
+  "completionRules": {
+    "startedIsNotCompleted": true,
+    "oldEvidenceDoesNotQualifyNewSource": true,
+    "portableFixturesDoNotQualifyNativeWindows": true,
+    "isolatedIterationsDoNotQualifyPersistentDuration": true,
+    "repeatedPassesDoNotResolveHistoricalPtyCause": true,
+    "unsignedPackagesDoNotQualifySigning": true,
+    "structuralCandidatesDoNotProveUnusedCode": true,
+    "externalConditionsRemainOpenUntilVerified": true
+  },
+  "integrationCommits": [],
+  "currentVerification": []
+}
