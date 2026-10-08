@@ -1484,6 +1484,13 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
     }
   }
 
+  private async validateFreshMediaInput(input: Pick<ReturnType<typeof normalizeSubmitInput>, 'sessionId' | 'config' | 'attachments' | 'documents' | 'media'>): Promise<void> {
+    assertInputMediaBudget(input.attachments, input.documents);
+    if (input.media?.length) await this.validateSegmentInput(input.sessionId, input.config, input.media);
+    if (input.documents?.length) await this.validateDocumentInput(input.sessionId, input.config, input.documents);
+    if (input.attachments?.length) await this.validateImageInput(input.sessionId, input.config, input.attachments);
+  }
+
   /** Native inbox/session commands have their own explicit protocol and journal. */
   async dispatchSession(value: unknown): Promise<SessionCommandResult> {
     let commandId = '';
@@ -1500,10 +1507,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
           const input = normalizeAcceptInput(payload, this.defaults);
           input.config = this.profiles.apply(input.sessionId, input.config);
           if ((input.attachments?.length || input.documents?.length || input.media?.length) && !this.store.lookupInputReceipt(input)) {
-            assertInputMediaBudget(input.attachments, input.documents);
-            if(input.media?.length)await this.validateSegmentInput(input.sessionId,input.config,input.media);
-            if (input.documents?.length) await this.validateDocumentInput(input.sessionId, input.config, input.documents);
-            if (input.attachments?.length) await this.validateImageInput(input.sessionId, input.config, input.attachments);
+            await this.validateFreshMediaInput(input);
           }
           result = this.scheduler.accept(input); break;
         }
@@ -1609,10 +1613,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
             const input = normalizeSubmitInput(payload);
             input.config = this.profiles.apply(input.sessionId, input.config);
             if ((input.attachments?.length || input.documents?.length || input.media?.length) && !this.store.lookupRunReceipt(input)) {
-              assertInputMediaBudget(input.attachments, input.documents);
-            if(input.media?.length)await this.validateSegmentInput(input.sessionId,input.config,input.media);
-              if (input.documents?.length) await this.validateDocumentInput(input.sessionId, input.config, input.documents);
-              if (input.attachments?.length) await this.validateImageInput(input.sessionId, input.config, input.attachments);
+              await this.validateFreshMediaInput(input);
             }
             result = this.scheduler.submitLegacy(input);
           }
