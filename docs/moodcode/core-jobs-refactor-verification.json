@@ -1,0 +1,656 @@
+{
+  "schemaVersion": 1,
+  "status": "CORE-04 bounded extraction verified in its isolated worktree; combined CORE integration validation is recorded separately by the parent task.",
+  "source": {
+    "baseHead": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+    "proposalHead": "72e31aeb35234555031a5c6ebf0a4b4d6646a40c",
+    "branch": "codex/core-jobs-helpers",
+    "worktree": "/Users/yakisoba0728/.codex/worktrees/core-jobs-helpers/Moodcode",
+    "orderedCommits": {
+      "baselineRegressions": "a63d39c801d6fd8c99de19e76d79defbabc33f6f",
+      "extraction": "6b0fbb1bedfceacfbe53f8442011308b32bad344"
+    },
+    "proposalCompatibility": "Both owned production files have identical SHA-256 pins at proposal source 72e31aeb and baseline 5ddf2bf; relevant pre-existing boundary test files also have no intervening commits."
+  },
+  "scope": {
+    "production": [
+      "packages/engine/src/jobs/host-command-delivery-producer.ts",
+      "packages/engine/src/jobs/owned-command-producer.ts",
+      "packages/engine/src/jobs/command-delivery-input.ts"
+    ],
+    "tests": [
+      "packages/engine/src/jobs/host-command-delivery-boundaries.integration.test.ts",
+      "packages/engine/src/jobs/owned-command-dispatch-boundaries.integration.test.ts",
+      "packages/engine/src/jobs/command-delivery-owner-boundaries.integration.test.ts"
+    ],
+    "fixture": "packages/engine/src/jobs/fixtures/owned-command-delivery.ts",
+    "evidence": "docs/moodcode/core-jobs-refactor-verification.json",
+    "outOfScopeUnchanged": [
+      "packages/engine/src/engine.ts",
+      "packages/engine/src/agent-backends/store.ts",
+      "packages/engine/src/runner/index.ts",
+      "GUI",
+      "TODO.md",
+      "README",
+      "CI",
+      "package manifests"
+    ]
+  },
+  "implementation": {
+    "shared": [
+      "Pure acceptedRequest projection retaining sessionId/requestId/prompt/config/delivery and truthy attachments/documents only, with the original field/reference/hash behavior.",
+      "Pure promoted-input/Run comparison using the original short-circuit OR order and lazy receipt.target.config hash."
+    ],
+    "retained": [
+      "Separate host/owned classes, WeakMaps, retained Original sets and release/close ownership.",
+      "getInput then lane-specific beforePromotion; absent receipt returns before active/ownership or Run comparisons.",
+      "Original admission, native acceptAtomic transaction, publishAfterCommit wake, receipts/tables and source capture/release.",
+      "Distinct host-command-result and owned-command-result request prefixes and settled.jobSha256 versus settled.sha256.",
+      "Owner errors and exact messages; optional own attachments/documents reject even when their value is undefined.",
+      "Normal restart uses native accepted history without source recreation; archive remains paused-import/default-off without authority or source/provider replay.",
+      "Approval, cancellation, uncertain sources, cleanup checks and fixed execution/input/byte budgets."
+    ],
+    "comparisonOrder": [
+      "input.state",
+      "input.runId versus run.id",
+      "run.workspaceId",
+      "run.sessionId",
+      "run.requestId",
+      "run.prompt",
+      "knowledgeHash(run.config) versus knowledgeHash(receipt.target.config)",
+      "Object.hasOwn(run, attachments)",
+      "Object.hasOwn(run, documents)"
+    ]
+  },
+  "review": {
+    "reviewer": "/root/contract_review",
+    "initialContract": "Approved extraction scope before production changes; recommended remaining real Run identity/own optional field regressions and same-Root lane ownership coverage.",
+    "tests": "Independent review found no blockers in the tests-first change.",
+    "production": "Independent review of 6b0fbb1 found exact projection/comparison order and unchanged owner/native/restart responsibilities; no blockers."
+  },
+  "regressionAdditions": {
+    "cases": 11,
+    "baselineProductionUnchanged": true,
+    "hostRunDrift": 5,
+    "ownedRunDrift": 5,
+    "laneOwnership": 1,
+    "semantics": "Real native result admission/promotion with changed trusted Run arguments fences provider entry; same-Root genuine opposite-lane/copied target Originals reject exact JOB_ORIGINAL_REQUIRED without SQL/provider effects, then both genuine own-lane targets still accept.",
+    "existingAssertionsSkipsTimeoutsPreserved": true,
+    "noPredicateMirroringUnitTests": true,
+    "fixtureChange": "Optional hostCommands opt-in and existing script path exposure allow two genuine native sources in one Root; default behavior and owner cleanup are retained."
+  },
+  "environment": {
+    "node": "v26.9.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "typescript": "7.0.2",
+    "setup": [
+      {
+        "command": "npm ci",
+        "exitCode": 0,
+        "reportedInstallSeconds": 2
+      },
+      {
+        "command": "npm run prepare:pty",
+        "exitCode": 0
+      }
+    ],
+    "typecheck": {
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/moodcode-core-jobs-typecheck.log",
+        "sha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+      }
+    },
+    "baselineBuild": {
+      "command": "npm run build",
+      "exitCode": 0,
+      "log": {
+        "path": "/tmp/moodcode-core-jobs-regression-baseline-build.log",
+        "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+      }
+    }
+  },
+  "verification": [
+    {
+      "name": "Added semantic regressions on unchanged production, source",
+      "command": "node --import file:///Users/yakisoba0728/.codex/worktrees/core-jobs-helpers/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 packages/engine/src/jobs/host-command-delivery-boundaries.integration.test.ts packages/engine/src/jobs/owned-command-dispatch-boundaries.integration.test.ts packages/engine/src/jobs/command-delivery-owner-boundaries.integration.test.ts",
+      "exitCode": 0,
+      "tests": 22,
+      "passed": 22,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 4534.884833,
+      "log": {
+        "path": "/tmp/moodcode-core-jobs-regression-baseline-source.log",
+        "sha256": "8f1e2776e125e67f5c7ec57b8d132bae4f46a56571ee1b927fa579aae2099746"
+      }
+    },
+    {
+      "name": "Added semantic regressions on unchanged production, compiled",
+      "command": "node --test --test-concurrency=2 packages/engine/dist/jobs/host-command-delivery-boundaries.integration.test.js packages/engine/dist/jobs/owned-command-dispatch-boundaries.integration.test.js packages/engine/dist/jobs/command-delivery-owner-boundaries.integration.test.js",
+      "exitCode": 0,
+      "tests": 22,
+      "passed": 22,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 3663.220625,
+      "log": {
+        "path": "/tmp/moodcode-core-jobs-regression-baseline-compiled.log",
+        "sha256": "249ce71c119face9af2ed16cf8fbc8b822a783a5ddb889b480054c81d51c2a76"
+      }
+    },
+    {
+      "name": "Refactored native jobs plus storage ownership, source",
+      "command": "node --import file:///Users/yakisoba0728/.codex/worktrees/core-jobs-helpers/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 packages/engine/src/jobs/host-command-delivery.integration.test.ts packages/engine/src/jobs/host-command-delivery-boundaries.integration.test.ts packages/engine/src/jobs/owned-command-delivery.integration.test.ts packages/engine/src/jobs/owned-command-dispatch-boundaries.integration.test.ts packages/engine/src/jobs/owned-command-delivery-records.test.ts packages/engine/src/jobs/owned-command-boundaries.integration.test.ts packages/engine/src/jobs/command-delivery-owner-boundaries.integration.test.ts packages/engine/src/jobs/host-command-delivery-crash.integration.test.ts packages/engine/src/jobs/owned-command-delivery-crash.integration.test.ts packages/engine/src/jobs/command-lifetime-boundaries.integration.test.ts packages/engine/src/storage/ownership.test.ts",
+      "exitCode": 0,
+      "tests": 68,
+      "passed": 68,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 15139.809667,
+      "log": {
+        "path": "/tmp/moodcode-core-jobs-focused-source.log",
+        "sha256": "ea5ecebd53a8dd3031382af9817b7c988aed1107914fbe304fbb82bb25319cf1"
+      }
+    },
+    {
+      "name": "Refactored native jobs plus storage ownership, compiled",
+      "command": "node --test --test-concurrency=2 packages/engine/dist/jobs/host-command-delivery.integration.test.js packages/engine/dist/jobs/host-command-delivery-boundaries.integration.test.js packages/engine/dist/jobs/owned-command-delivery.integration.test.js packages/engine/dist/jobs/owned-command-dispatch-boundaries.integration.test.js packages/engine/dist/jobs/owned-command-delivery-records.test.js packages/engine/dist/jobs/owned-command-boundaries.integration.test.js packages/engine/dist/jobs/command-delivery-owner-boundaries.integration.test.js packages/engine/dist/jobs/host-command-delivery-crash.integration.test.js packages/engine/dist/jobs/owned-command-delivery-crash.integration.test.js packages/engine/dist/jobs/command-lifetime-boundaries.integration.test.js packages/engine/dist/storage/ownership.test.js",
+      "exitCode": 0,
+      "tests": 68,
+      "passed": 68,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 15910.2125,
+      "log": {
+        "path": "/tmp/moodcode-core-jobs-focused-compiled.log",
+        "sha256": "ba058fe53f6670cbba0eebedc6004e7474cefef6b74844cc7cd6cd1ce1ccd738"
+      }
+    }
+  ],
+  "verifiedScenarios": [
+    "Actual host/owned result dispatch and full native input/link/birth commits.",
+    "Immutable duplicate receipt history and Original-copy/proxy rejection.",
+    "Native receipt/link/admission/source SQL faults roll back before provider wake.",
+    "Known cancelled/nonzero sources, uncertain cleanup rejection and unchanged fixed pending-input budgets.",
+    "Explicit accepted-history restart/resume without source reconstruction or native command replay.",
+    "Archive paused/default-off history without restored source grants.",
+    "Actual SIGKILL before/after atomic result commit in both lanes.",
+    "Owned source Original expiry/context descriptors and sealed artifact inode replacement.",
+    "Lifetime no resend/replay, cancellation/byte budget/unknown handoff and archive ownership boundaries.",
+    "Storage owner exclusivity and SIGKILL release/recovery."
+  ],
+  "invocationLimitation": {
+    "description": "Relative --import ./node_modules/tsx/dist/loader.mjs or bare tsx cannot resolve in the native source supervisor child, whose cwd is the temporary repository. This existing invocation issue occurs on unchanged production; an absolute loader file URL fixes source execution without production changes.",
+    "failure": {
+      "name": "Unchanged production with relative source loader",
+      "command": "node --import ./node_modules/tsx/dist/loader.mjs --test --test-name-pattern='provider-boundary config drift' packages/engine/src/jobs/host-command-delivery-boundaries.integration.test.ts",
+      "exitCode": 1,
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 1428.770542,
+      "log": {
+        "path": "/tmp/moodcode-core-jobs-baseline-host-source.log",
+        "sha256": "44087af5eeb6d1bd99fb2d126ee8a06fdf37ca7a817b427243c20e7d72392387"
+      }
+    },
+    "corrected": {
+      "name": "Unchanged production with absolute source loader",
+      "command": "node --import file:///Users/yakisoba0728/.codex/worktrees/core-jobs-helpers/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-name-pattern='provider-boundary config drift' packages/engine/src/jobs/host-command-delivery-boundaries.integration.test.ts",
+      "exitCode": 0,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 568.847417,
+      "log": {
+        "path": "/tmp/moodcode-core-jobs-baseline-host-source-absolute.log",
+        "sha256": "4f05ac594c62ea305f978bb8144e124267b6f2d4f374f202b49d2e92bf5a19b9"
+      }
+    },
+    "compiled": {
+      "name": "Unchanged production compiled comparison",
+      "command": "node --test --test-name-pattern='provider-boundary config drift' packages/engine/dist/jobs/host-command-delivery-boundaries.integration.test.js",
+      "exitCode": 0,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 857.474375,
+      "log": {
+        "path": "/tmp/moodcode-core-jobs-baseline-host-compiled.log",
+        "sha256": "a992cc45eb8a30a7a4cc9946f98cbf18cfb2ace9fbf223137fabab9986165662"
+      }
+    }
+  },
+  "measurement": {
+    "method": "Existing bounded RF inventory analyzer and closed TypeScript7 virtual filesystem. Before contains two owners; after includes those owners plus the new helper. Physical lines include blanks/comments and exclude a phantom trailing line. Function complexity is one plus owned syntax decisions excluding nested functions. Exact executable body AST fingerprint retains leaf spelling and requires >=6 body lines and >=40 nodes; metrics describe duplication, not runtime speed or security acceptance.",
+    "methodDocument": "docs/moodcode/refactor-inventory-method.md",
+    "bounds": {
+      "workerDeadlineMs": 30000,
+      "workerOutputBytes": 20971520,
+      "perSourceBytes": 2097152
+    },
+    "toolPins": [
+      {
+        "path": "scripts/refactor-inventory/scope.mjs",
+        "sha256": "bdf457f1ce25e885dc148ad1a88ea6eb5a467ad3e33a3a036be19ea4cbdfb437"
+      },
+      {
+        "path": "scripts/refactor-inventory/process.mjs",
+        "sha256": "d948cbac493d7c60ce301ce28f441da495f5f1699cb1a3501e983e9847c39561"
+      },
+      {
+        "path": "scripts/refactor-inventory/worker.mjs",
+        "sha256": "1ed18ac78331bc9c426a4b4de80c25d720a54fb2493b66fed9eafaa83c2569ea"
+      },
+      {
+        "path": "scripts/refactor-inventory/ast.mjs",
+        "sha256": "c07462dab3058ffaa6c99ae42632963c87b3f382f8ba048f85fb1cf0c749896f"
+      }
+    ],
+    "captures": {
+      "before": {
+        "path": "/tmp/moodcode-core-session-5ddf2bf-before.json",
+        "sha256": "3e58d4a729877a598949ce2c2fd1486a96b29957f18902d9c8bbbc0f466b782e"
+      },
+      "after": {
+        "path": "/tmp/moodcode-core-jobs-after.json",
+        "sha256": "15f1706af65b59e54afbe0a0adc10b9f9e4af0a45c2a1c2407669a5b49173ef3"
+      }
+    },
+    "before": {
+      "files": [
+        {
+          "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+          "bytes": 10738,
+          "physicalLines": 310,
+          "sha256": "6de0392feb24c2ac598b079bcb74ba5501bdb26ed936c17a2e440ba40b7feb2f"
+        },
+        {
+          "path": "packages/engine/src/jobs/owned-command-producer.ts",
+          "bytes": 10810,
+          "physicalLines": 311,
+          "sha256": "0dc8bc7cbf6cb6a459dfb1f8fc77f3e52492e8e918a0d8a9a18bebdeb5fdd186"
+        }
+      ],
+      "totals": {
+        "physicalLines": 621,
+        "bytes": 21548,
+        "executableFunctions": 56,
+        "ownedSyntaxDecisions": 92,
+        "exactDuplicateGroups": 7
+      },
+      "selectedFunctions": [
+        {
+          "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+          "name": "acceptedRequest",
+          "start": 37,
+          "end": 47,
+          "lines": 11,
+          "bodyLines": 11,
+          "complexity": 3,
+          "decisions": 2,
+          "fingerprint": {
+            "sha256": "8a054e2caf53219c1bab95f0e24847181352aa99a3cacc352fc546105765eb0a",
+            "nodes": 58
+          }
+        },
+        {
+          "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+          "name": "beforeProviderDispatch",
+          "start": 272,
+          "end": 288,
+          "lines": 17,
+          "bodyLines": 17,
+          "complexity": 11,
+          "decisions": 10,
+          "fingerprint": {
+            "sha256": "e13dc1f5e48f2793c65b0c4961bc0de17c9f1ab65255460adf40b492c13f747d",
+            "nodes": 120
+          }
+        },
+        {
+          "path": "packages/engine/src/jobs/owned-command-producer.ts",
+          "name": "acceptedRequest",
+          "start": 38,
+          "end": 48,
+          "lines": 11,
+          "bodyLines": 11,
+          "complexity": 3,
+          "decisions": 2,
+          "fingerprint": {
+            "sha256": "8a054e2caf53219c1bab95f0e24847181352aa99a3cacc352fc546105765eb0a",
+            "nodes": 58
+          }
+        },
+        {
+          "path": "packages/engine/src/jobs/owned-command-producer.ts",
+          "name": "beforeProviderDispatch",
+          "start": 273,
+          "end": 289,
+          "lines": 17,
+          "bodyLines": 17,
+          "complexity": 11,
+          "decisions": 10,
+          "fingerprint": {
+            "sha256": "e13dc1f5e48f2793c65b0c4961bc0de17c9f1ab65255460adf40b492c13f747d",
+            "nodes": 120
+          }
+        }
+      ],
+      "exactDuplicateGroups": [
+        {
+          "sha256": "8a054e2caf53219c1bab95f0e24847181352aa99a3cacc352fc546105765eb0a",
+          "occurrences": [
+            {
+              "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+              "name": "acceptedRequest",
+              "bodyLines": 11,
+              "nodes": 58
+            },
+            {
+              "path": "packages/engine/src/jobs/owned-command-producer.ts",
+              "name": "acceptedRequest",
+              "bodyLines": 11,
+              "nodes": 58
+            }
+          ]
+        },
+        {
+          "sha256": "422a87646666f417d029acc1a3710b0cd3428f4a42fe734d66dae704387b57a6",
+          "occurrences": [
+            {
+              "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+              "name": "issue",
+              "bodyLines": 8,
+              "nodes": 45
+            },
+            {
+              "path": "packages/engine/src/jobs/owned-command-producer.ts",
+              "name": "issue",
+              "bodyLines": 8,
+              "nodes": 45
+            }
+          ]
+        },
+        {
+          "sha256": "cf61a9854b98fbe489ca74932fb416e1fb8a66371de23039500cb904cd19b263",
+          "occurrences": [
+            {
+              "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+              "name": "original",
+              "bodyLines": 13,
+              "nodes": 55
+            },
+            {
+              "path": "packages/engine/src/jobs/owned-command-producer.ts",
+              "name": "original",
+              "bodyLines": 13,
+              "nodes": 55
+            }
+          ]
+        },
+        {
+          "sha256": "75bc90a76f785f7c5cc79b3fd16a52f534e4bdb3493a8deae6bb337bc401262f",
+          "occurrences": [
+            {
+              "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+              "name": "readAccepted",
+              "bodyLines": 14,
+              "nodes": 93
+            },
+            {
+              "path": "packages/engine/src/jobs/owned-command-producer.ts",
+              "name": "readAccepted",
+              "bodyLines": 14,
+              "nodes": 93
+            }
+          ]
+        },
+        {
+          "sha256": "e13dc1f5e48f2793c65b0c4961bc0de17c9f1ab65255460adf40b492c13f747d",
+          "occurrences": [
+            {
+              "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+              "name": "beforeProviderDispatch",
+              "bodyLines": 17,
+              "nodes": 120
+            },
+            {
+              "path": "packages/engine/src/jobs/owned-command-producer.ts",
+              "name": "beforeProviderDispatch",
+              "bodyLines": 17,
+              "nodes": 120
+            }
+          ]
+        },
+        {
+          "sha256": "7f6a57d6cfed2ebbc211300b663ba75a77244018c77f288b77c35c817ed9e005",
+          "occurrences": [
+            {
+              "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+              "name": "inputPort",
+              "bodyLines": 9,
+              "nodes": 50
+            },
+            {
+              "path": "packages/engine/src/jobs/owned-command-producer.ts",
+              "name": "inputPort",
+              "bodyLines": 9,
+              "nodes": 50
+            }
+          ]
+        },
+        {
+          "sha256": "4f6898d636400a2a8e0ba3d7fc8d6844382a6655b8959dd2385e8f5d09e1e58e",
+          "occurrences": [
+            {
+              "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+              "name": "release",
+              "bodyLines": 7,
+              "nodes": 50
+            },
+            {
+              "path": "packages/engine/src/jobs/owned-command-producer.ts",
+              "name": "release",
+              "bodyLines": 7,
+              "nodes": 50
+            }
+          ]
+        }
+      ]
+    },
+    "after": {
+      "files": [
+        {
+          "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+          "bytes": 10105,
+          "physicalLines": 292,
+          "sha256": "55771539bc4a4e2740ff2290feb677089bb73a7713e4dab1a428748464011720"
+        },
+        {
+          "path": "packages/engine/src/jobs/owned-command-producer.ts",
+          "bytes": 10177,
+          "physicalLines": 293,
+          "sha256": "723242bafb9646d8a158f1a09c1104fc18eedf45ca44f6d274d616bbee03f574"
+        },
+        {
+          "path": "packages/engine/src/jobs/command-delivery-input.ts",
+          "bytes": 1056,
+          "physicalLines": 32,
+          "sha256": "b3edec20adf699f2a82afd09a9861313c54229e93dfc623444488f7de14cfd4b"
+        }
+      ],
+      "totals": {
+        "physicalLines": 617,
+        "bytes": 21338,
+        "executableFunctions": 56,
+        "ownedSyntaxDecisions": 82,
+        "exactDuplicateGroups": 5
+      },
+      "selectedFunctions": [
+        {
+          "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+          "name": "beforeProviderDispatch",
+          "start": 264,
+          "end": 270,
+          "lines": 7,
+          "bodyLines": 7,
+          "complexity": 3,
+          "decisions": 2,
+          "fingerprint": {
+            "sha256": "5f9bdd369f624fa3aeacae745a385d53c78dfac2b7f314a329c084c6ef5d9dc8",
+            "nodes": 37
+          }
+        },
+        {
+          "path": "packages/engine/src/jobs/owned-command-producer.ts",
+          "name": "beforeProviderDispatch",
+          "start": 265,
+          "end": 271,
+          "lines": 7,
+          "bodyLines": 7,
+          "complexity": 3,
+          "decisions": 2,
+          "fingerprint": {
+            "sha256": "5f9bdd369f624fa3aeacae745a385d53c78dfac2b7f314a329c084c6ef5d9dc8",
+            "nodes": 37
+          }
+        },
+        {
+          "path": "packages/engine/src/jobs/command-delivery-input.ts",
+          "name": "acceptedRequest",
+          "start": 4,
+          "end": 14,
+          "lines": 11,
+          "bodyLines": 11,
+          "complexity": 3,
+          "decisions": 2,
+          "fingerprint": {
+            "sha256": "8a054e2caf53219c1bab95f0e24847181352aa99a3cacc352fc546105765eb0a",
+            "nodes": 58
+          }
+        },
+        {
+          "path": "packages/engine/src/jobs/command-delivery-input.ts",
+          "name": "isPromotedCommandRunInvalid",
+          "start": 16,
+          "end": 32,
+          "lines": 17,
+          "bodyLines": 13,
+          "complexity": 9,
+          "decisions": 8,
+          "fingerprint": {
+            "sha256": "127011f292b268b3fba3f199d2053bb0a673cec98f4fba93668015e6ed216590",
+            "nodes": 91
+          }
+        }
+      ],
+      "exactDuplicateGroups": [
+        {
+          "sha256": "422a87646666f417d029acc1a3710b0cd3428f4a42fe734d66dae704387b57a6",
+          "occurrences": [
+            {
+              "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+              "name": "issue",
+              "bodyLines": 8,
+              "nodes": 45
+            },
+            {
+              "path": "packages/engine/src/jobs/owned-command-producer.ts",
+              "name": "issue",
+              "bodyLines": 8,
+              "nodes": 45
+            }
+          ]
+        },
+        {
+          "sha256": "cf61a9854b98fbe489ca74932fb416e1fb8a66371de23039500cb904cd19b263",
+          "occurrences": [
+            {
+              "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+              "name": "original",
+              "bodyLines": 13,
+              "nodes": 55
+            },
+            {
+              "path": "packages/engine/src/jobs/owned-command-producer.ts",
+              "name": "original",
+              "bodyLines": 13,
+              "nodes": 55
+            }
+          ]
+        },
+        {
+          "sha256": "75bc90a76f785f7c5cc79b3fd16a52f534e4bdb3493a8deae6bb337bc401262f",
+          "occurrences": [
+            {
+              "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+              "name": "readAccepted",
+              "bodyLines": 14,
+              "nodes": 93
+            },
+            {
+              "path": "packages/engine/src/jobs/owned-command-producer.ts",
+              "name": "readAccepted",
+              "bodyLines": 14,
+              "nodes": 93
+            }
+          ]
+        },
+        {
+          "sha256": "7f6a57d6cfed2ebbc211300b663ba75a77244018c77f288b77c35c817ed9e005",
+          "occurrences": [
+            {
+              "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+              "name": "inputPort",
+              "bodyLines": 9,
+              "nodes": 50
+            },
+            {
+              "path": "packages/engine/src/jobs/owned-command-producer.ts",
+              "name": "inputPort",
+              "bodyLines": 9,
+              "nodes": 50
+            }
+          ]
+        },
+        {
+          "sha256": "4f6898d636400a2a8e0ba3d7fc8d6844382a6655b8959dd2385e8f5d09e1e58e",
+          "occurrences": [
+            {
+              "path": "packages/engine/src/jobs/host-command-delivery-producer.ts",
+              "name": "release",
+              "bodyLines": 7,
+              "nodes": 50
+            },
+            {
+              "path": "packages/engine/src/jobs/owned-command-producer.ts",
+              "name": "release",
+              "bodyLines": 7,
+              "nodes": 50
+            }
+          ]
+        }
+      ]
+    },
+    "qualification": "The 11-line acceptedRequest body retains its exact AST fingerprint and has one copy instead of two. The original 17-line dispatch bodies no longer match; two identical 7-line owner wrappers remain intentionally local (37 nodes, below the duplicate threshold), while the 8-OR comparison has one shared copy. Ownership issue/original/readAccepted/inputPort/release duplicate groups are deliberately retained. No performance claim is made."
+  },
+  "limitations": [
+    "Executed on darwin arm64 Node26.9.0; all focused POSIX cases ran, with zero skips. Windows native process cases are outside this isolated POSIX jobs validation.",
+    "Source runs require an absolute loader URL for native forked supervisors and crash fixtures.",
+    "The parent owns combined full repository/integration regression and final acceptance; this evidence records only CORE-04 local validation."
+  ]
+}
