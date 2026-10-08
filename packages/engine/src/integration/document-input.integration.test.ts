@@ -12,6 +12,7 @@ import type { ProviderAdapter, TurnRequest } from '../ports.js';
 import { DOCUMENT_HISTORY_NOTICE_PREFIX } from '../context/document-history.js';
 import { ResponsesProvider, type ResponsesProviderOptions } from '../provider/responses.js';
 import { png } from '../media/fixtures.js';
+import { wav } from '../media/segment-fixtures.js';
 import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
 
 const MODEL = 'document-fixture-model';
@@ -174,6 +175,74 @@ test('cancelled and closed imports never admit an input or dispatch a model', as
   await assert.rejects(f.engine.importDocument('session', pdf('CANCEL'), controller.signal), error => error instanceof EngineError && error.code === 'DOCUMENT_CANCELLED');
   assert.equal(f.engine.store.getSessionDocument('session', 'input_documents'), null); assert.equal(f.bodies.length, 0);
   await f.engine.close(); await assert.rejects(f.engine.importDocument('session', pdf('CLOSED')), error => error instanceof EngineError && error.code === 'ENGINE_CLOSED');
+});
+
+test('document close joins pre-CAS cancellation and retains exact post-CAS success across reopen', async t => {
+  const before = await fixture(t), pending = before.engine.importDocument('session', pdf('BEFORE_CAS'));
+  const outcomes = await Promise.allSettled([pending, before.engine.close()]);
+  assert.equal(outcomes[0]!.status, 'rejected'); assert.equal(outcomes[1]!.status, 'fulfilled');
+  await before.reopen(); assert.equal(before.engine.store.getSessionDocument('session', 'input_documents'), null);
+  const after = await fixture(t), bytes = pdf('AFTER_CAS'), original = after.engine.store.putSessionDocument.bind(after.engine.store);
+  let closing: Promise<void> | undefined;
+  after.engine.store.putSessionDocument = (sessionId, kind, revision, data) => {
+    const result = original(sessionId, kind, revision, data);
+    if (kind === 'input_documents') closing = after.engine.close();
+    return result;
+  };
+  const ref = await after.engine.importDocument('session', bytes); assert.ok(closing); await closing;
+  await after.reopen();
+  assert.deepEqual(after.engine.store.getSessionDocument('session', 'input_documents')?.data.documents, [ref]);
+  assert.deepEqual(await readFile(join(after.artifactDir, 'input-documents', ref.id + '.blob')), bytes);
+  assert.equal(before.bodies.length + after.bodies.length, 0);
+  assert.equal(Number(after.reader.prepare('SELECT count(*) AS n FROM inputs').get()!.n), 0);
+  assert.equal(Number(after.reader.prepare('SELECT count(*) AS n FROM runs').get()!.n), 0);
+});
+
+for (const schemaVersion of [1, 2] as const) test(`v${schemaVersion} mixed media admission preserves budget then segment then document then image failures without native effects`, async t => {
+  const f = await fixture(t, { engine: { allowUnknownMediaTokenCost: true, modelSpecs: [{ ...modelSpec(), mediaCapabilities: { audioInput: true, videoFrames: false, audioOutput: false } }] } });
+  let segmentChecks = 0; f.provider.supportsInputMedia = () => { segmentChecks++; return true; };
+  const image = await f.engine.importImage('session', png(), 'image/png'), document = await f.engine.importDocument('session', pdf('PRIORITY'));
+  const audioBytes = wav(), audio = await f.engine.importMedia('session', audioBytes, 'audio/wav', [{ startMs: 0, endMs: 100 }]);
+  const audioPath = join(f.artifactDir, 'input-segments', audio.id + '.blob'), documentPath = join(f.artifactDir, 'input-documents', document.id + '.blob');
+  const nativeCounts = () => ['inputs', 'runs', 'messages', 'provider_attempts', 'events', 'session_events'].map(table => Number(f.reader.prepare(`SELECT count(*) AS n FROM ${table}`).get()!.n));
+  const before = nativeCounts();
+  await rm(audioPath); await rm(documentPath); await rm(join(f.artifactDir, 'input-media', image.id + '.blob'));
+  const dispatch = (requestId: string, attachments = [image]) => {
+    const payload = { sessionId: 'session', requestId, prompt: 'All original media', config: f.engine.getCapabilities().defaults, attachments, documents: [document], media: [audio] };
+    return schemaVersion === 1
+      ? f.engine.dispatch({ schemaVersion, commandId: requestId, type: 'run.submit', payload })
+      : f.engine.dispatchSession({ schemaVersion, commandId: requestId, type: 'input.accept', payload: { ...payload, delivery: 'queue' } });
+  };
+  const budget = await dispatch('budget', [{ ...image, bytes: 524288 }, { ...image, id: 'img_' + '0'.repeat(32), bytes: 524288 }]);
+  assert.equal(budget.error?.code, 'INVALID_INPUT'); assert.equal(budget.error?.message, 'payload exceeds the combined input media byte limit'); assert.equal(segmentChecks, 0);
+  assert.equal((await dispatch('segment')).error?.code, 'MEDIA_STORAGE_FAILED');
+  await writeFile(audioPath, audioBytes);
+  assert.equal((await dispatch('document')).error?.code, 'DOCUMENT_STORAGE_FAILED');
+  await writeFile(documentPath, pdf('PRIORITY'));
+  assert.equal((await dispatch('image')).error?.code, 'IMAGE_STORAGE_FAILED');
+  assert.deepEqual(nativeCounts(), before); assert.equal(f.bodies.length, 0); assert.equal(f.fullReads(), 0);
+});
+
+for (const origin of [1, 2] as const) test(`v${origin} durable document receipt bypasses deleted source through both admission APIs`, async t => {
+  const f = await fixture(t), ref = await f.engine.importDocument('session', pdf('RECEIPT'));
+  const payload = { sessionId: 'session', requestId: 'original', prompt: 'Exact document', config: f.engine.getCapabilities().defaults, documents: [ref] };
+  const dispatch = (schemaVersion: 1 | 2, request = payload) => schemaVersion === 1
+    ? f.engine.dispatch({ schemaVersion, commandId: 'document', type: 'run.submit', payload: request })
+    : f.engine.dispatchSession({ schemaVersion, commandId: 'document', type: 'input.accept', payload: { ...request, delivery: 'queue' } });
+  const first = await dispatch(origin); assert.equal(first.ok, true, JSON.stringify(first.error));
+  await f.engine.scheduler.waitForSession('session');
+  const inputId = (first.result as JsonObject).inputId as string, runId = f.engine.store.getInput(inputId).runId!;
+  assert.equal((await f.engine.waitForRun(runId)).state, 'completed');
+  await rm(join(f.artifactDir, 'input-documents', ref.id + '.blob'));
+  for (const version of [1, 2] as const) {
+    const duplicate = await dispatch(version); assert.equal(duplicate.ok, true, JSON.stringify(duplicate.error));
+    assert.equal((duplicate.result as JsonObject).runId, runId); assert.equal((duplicate.result as JsonObject).duplicate, true);
+    assert.equal((await dispatch(version, { ...payload, requestId: 'fresh' })).error?.code, 'DOCUMENT_STORAGE_FAILED');
+    assert.equal((await dispatch(version, { ...payload, prompt: 'Changed exact request' })).error?.code, 'REQUEST_ID_CONFLICT');
+  }
+  assert.equal(f.bodies.length, 1); assert.equal(f.engine.store.listInputs('session').inputs.length, 1);
+  assert.equal(Number(f.reader.prepare('SELECT count(*) AS n FROM runs').get()!.n), 1);
+  assert.equal(Number(f.reader.prepare('SELECT count(*) AS n FROM provider_attempts').get()!.n), 1);
 });
 
 test('actual combined image/document input keeps exact independent refs and both token costs unknown', async t => {

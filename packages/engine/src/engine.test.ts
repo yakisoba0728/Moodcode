@@ -155,3 +155,103 @@ test('facade preserves an uncertain effect marker after its owner releases the O
     assert.throws(() => createEngine({ dbPath: f.dbPath, tools: [] }), { code: 'COMMAND_CLEANUP_UNCERTAIN' });
   } finally { lock?.release(false); await f.cleanup(); }
 });
+
+for (const [flag, message] of [
+  ['lifecycleContinuation', 'Lifecycle continuation requires an explicit host boolean'],
+  ['verificationTools', 'Verification tool exposure must be an explicit boolean'],
+  ['knowledgeGeneration', 'Knowledge generation requires an explicit host boolean'],
+  ['knowledgePublication', 'Knowledge publication requires an explicit host boolean'],
+  ['knowledgeFilePublication', 'Knowledge file publication requires an explicit host boolean'],
+  ['knowledgeImportRecovery', 'knowledgeImportRecovery must be an explicit boolean'],
+  ['proposals', 'proposals must be an explicit boolean'],
+  ['teams', 'teams must be an explicit boolean'],
+  ['teamModelTools', 'teamModelTools must be an explicit boolean'],
+  ['commandJobModelTools', 'commandJobModelTools must be an explicit boolean'],
+  ['residentTeams', 'residentTeams requires explicit boolean'],
+  ['workflows', 'workflows must be an explicit boolean'],
+  ['codingBatches', 'codingBatches must be explicit boolean'],
+  ['schedules', 'schedules must be an explicit boolean'],
+  ['agentBackends', 'agentBackends requires an explicit root host boolean'],
+  ['agentBackendClientEffects', 'ACP client effects require explicit host opt-in'],
+  ['jobs', 'jobs requires an explicit root host boolean'],
+  ['codeMode', 'codeMode requires an explicit boolean'],
+  ['effectBatches', 'effectBatches requires an explicit boolean'],
+  ['conversationForks', 'conversationForks must be an explicit boolean'],
+  ['proposalApply', 'proposalApply must be an explicit boolean'],
+  ['diagnosticObservations', 'Execution observations require an explicit host boolean'],
+  ['osSandbox', 'osSandbox must be an explicit boolean'],
+  ['commandLifetimes', 'commandLifetimes requires an explicit host boolean'],
+  ['hostCommands', 'hostCommands must be an explicit boolean'],
+  ['allowUnknownMediaTokenCost', 'Media token cost policy must be a boolean'],
+  ['allowUnknownDocumentTokenCost', 'Document token cost policy must be a boolean'],
+  ['repositoryContextTools', 'Repository tool exposure must be an explicit boolean'],
+] as const) test(`constructor ${flag} preserves exact invalid error and property reads`, () => {
+  let reads = 0;
+  const options = { dbPath: ':memory:' };
+  Object.defineProperty(options, flag, { enumerable: true, get() { reads++; return 'invalid'; } });
+  assert.throws(() => createEngine(options), { code: 'INVALID_CONFIG', message });
+  assert.equal(reads, flag === 'osSandbox' ? 3 : 2);
+});
+
+test('constructor undefined guards short circuit and retain interleaved dependency error priority', () => {
+  const stop = new Error('trusted host stop'), options = { dbPath: ':memory:' };
+  let reads = 0;
+  Object.defineProperty(options, 'lifecycleContinuation', { get() { return ++reads === 1 ? undefined : 'invalid'; } });
+  Object.defineProperty(options, 'roleResourcePolicyRegistry', { get() { throw stop; } });
+  assert.throws(() => createEngine(options), error => error === stop); assert.equal(reads, 1);
+  for (const [values, code, message] of [
+    [{ residentTeams: true, teams: false, workflows: 'invalid' }, 'INVALID_CONFIG', 'Resident teams require teams and team model tools'],
+    [{ codingBatches: true, workflows: false, schedules: 'invalid' }, 'CODING_BATCH_UNSUPPORTED', 'Coding batches require core workflow and verification tools'],
+    [{ agentBackendClientEffects: true, agentBackends: false, jobs: 'invalid' }, 'INVALID_CONFIG', 'ACP effects require agentBackends opt-in'],
+    [{ teamModelTools: true, teams: false, proposalApply: 'invalid' }, 'INVALID_CONFIG', 'Model team tools require explicit host teams'],
+    [{ verificationTools: true, tools: [], osSandbox: 'invalid' }, 'INVALID_VERIFICATION_CONFIG', 'Verification requires the engine-owned command producer and core registrations'],
+    [{ commandLifetimes: true, jobs: false, hostCommands: 'invalid' }, 'INVALID_CONFIG', 'commandLifetimes requires jobs and hostCommands'],
+  ] as const) assert.throws(() => createEngine({ dbPath: ':memory:', ...values } as unknown as EngineOptions), { code, message });
+});
+
+test('import wrappers synchronously return the concrete factory Promise and track both settlements', async () => {
+  const f = await fixture(), pending = Reflect.get(f.engine, 'pendingImages') as Set<Promise<unknown>>;
+  const calls = [
+    { field: 'images', invoke: (signal?: AbortSignal) => f.engine.importImage('fixture', new Uint8Array(), 'image/png', signal) },
+    { field: 'documents', invoke: (signal?: AbortSignal) => f.engine.importDocument('fixture', new Uint8Array(), signal) },
+    { field: 'segments', invoke: (signal?: AbortSignal) => f.engine.importMedia('fixture', new Uint8Array(), 'audio/wav', [], signal) },
+  ];
+  try {
+    for (const call of calls) {
+      const store = Reflect.get(f.engine, call.field) as { import: (...args: unknown[]) => Promise<unknown> }, original = store.import;
+      try {
+        for (const reject of [false, true]) {
+          let settle!: (value: unknown) => void, entered = false;
+          const operation = new Promise<unknown>((resolve, no) => { settle = reject ? no : resolve; });
+          const controller = new AbortController();
+          store.import = (...args) => { entered = true; const signal = args.at(-1) as AbortSignal; assert.equal(signal.aborted, false); return operation; };
+          const result = call.invoke(controller.signal);
+          assert.equal(entered, true); assert.equal(result, operation); assert.equal(pending.has(operation), true);
+          const settled = Promise.allSettled([result]); settle(reject ? new Error('import rejected') : { id: 'imported' });
+          assert.equal((await settled)[0]!.status, reject ? 'rejected' : 'fulfilled'); assert.equal(pending.has(operation), false);
+        }
+        const marker = new Error('synchronous factory failure'); store.import = () => { throw marker; };
+        assert.throws(() => call.invoke(), error => error === marker); assert.equal(pending.size, 0);
+      } finally { store.import = original; }
+    }
+    const caller = new AbortController(), host = Reflect.get(f.engine, 'hostResources') as AbortController;
+    caller.abort('caller abort'); host.abort('host abort');
+    for (const call of calls) {
+      const store = Reflect.get(f.engine, call.field) as { import: (...args: unknown[]) => Promise<unknown> }, original = store.import;
+      try {
+        store.import = (...args) => { assert.equal((args.at(-1) as AbortSignal).reason, 'caller abort'); return Promise.resolve({ id: 'aborted' }); };
+        await call.invoke(caller.signal);
+        store.import = (...args) => { assert.equal(args.at(-1), host.signal); return Promise.resolve({ id: 'host' }); };
+        await call.invoke();
+      } finally { store.import = original; }
+    }
+    await f.engine.close();
+    for (const call of calls) {
+      const store = Reflect.get(f.engine, call.field) as { import: (...args: unknown[]) => Promise<unknown> }, original = store.import;
+      try {
+        store.import = () => { assert.fail('closed imports must not invoke the factory'); };
+        await assert.rejects(call.invoke(), { code: 'ENGINE_CLOSED', message: 'Engine is closing' });
+      } finally { store.import = original; }
+    }
+  } finally { await f.cleanup(); }
+});

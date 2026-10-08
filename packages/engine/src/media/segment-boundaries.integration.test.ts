@@ -28,6 +28,45 @@ const until = async (check: () => boolean) => {
   }
 };
 const code = (v: string) => (e: unknown) => (e as { code: string }).code === v;
+test("media close joins pre-CAS cancellation and retains exact post-CAS success across reopen", async t => {
+  const before = await fixture(t), bytes = wav(), pending = before.engine.importMedia(before.sessionId, bytes, "audio/wav", [{ startMs: 0, endMs: 100 }]);
+  const outcomes = await Promise.allSettled([pending, before.engine.close()]);
+  assert.equal(outcomes[0]!.status, "rejected"); assert.equal(outcomes[1]!.status, "fulfilled");
+  const cancelled = createEngine({ dbPath: before.dbPath, artifactDir: before.artifactDir }); before.engines.push(cancelled);
+  assert.equal(cancelled.store.getSessionDocument(before.sessionId, "input_media_segments"), null);
+  const after = await fixture(t), original = after.engine.store.putSessionDocument.bind(after.engine.store);
+  let closing: Promise<void> | undefined;
+  after.engine.store.putSessionDocument = (sessionId, kind, revision, data) => {
+    const result = original(sessionId, kind, revision, data);
+    if (kind === "input_media_segments") closing = after.engine.close();
+    return result;
+  };
+  const ref = await after.engine.importMedia(after.sessionId, bytes, "audio/wav", [{ startMs: 0, endMs: 100 }]); assert.ok(closing); await closing;
+  const durable = createEngine({ dbPath: after.dbPath, artifactDir: after.artifactDir }); after.engines.push(durable);
+  assert.deepEqual(durable.store.getSessionDocument(after.sessionId, "input_media_segments")?.data.attachments, [ref]);
+  assert.deepEqual(await readFile(join(after.artifactDir, "input-segments", ref.id + ".blob")), bytes);
+  assert.equal(durable.store.getSnapshot(after.sessionId).runs.length, 0); assert.equal(durable.store.listInputs(after.sessionId).inputs.length, 0);
+  assert.equal(before.requests.length + after.requests.length, 0);
+});
+for (const origin of [1, 2] as const) test(`v${origin} durable segment receipt bypasses deleted source through both admission APIs`, async t => {
+  const f = await fixture(t), ref = await f.engine.importMedia(f.sessionId, wav(), "audio/wav", [{ startMs: 0, endMs: 100 }]);
+  const payload = { sessionId: f.sessionId, requestId: "original", prompt: "Exact segment", config: f.engine.getCapabilities().defaults, media: [ref] };
+  const dispatch = (schemaVersion: 1 | 2, request = payload) => schemaVersion === 1
+    ? f.engine.dispatch({ schemaVersion, commandId: "segment", type: "run.submit", payload: request })
+    : f.engine.dispatchSession({ schemaVersion, commandId: "segment", type: "input.accept", payload: { ...request, delivery: "queue" } });
+  const first = await dispatch(origin); assert.equal(first.ok, true, JSON.stringify(first.error)); await f.engine.scheduler.waitForSession(f.sessionId);
+  const inputId = (first.result as { inputId: string }).inputId, runId = f.engine.store.getInput(inputId).runId!;
+  assert.equal((await f.engine.waitForRun(runId)).state, "completed");
+  await unlink(join(f.artifactDir, "input-segments", ref.id + ".blob"));
+  for (const version of [1, 2] as const) {
+    const duplicate = await dispatch(version); assert.equal(duplicate.ok, true, JSON.stringify(duplicate.error));
+    assert.equal((duplicate.result as { runId: string }).runId, runId); assert.equal((duplicate.result as { duplicate: boolean }).duplicate, true);
+    assert.equal((await dispatch(version, { ...payload, requestId: "fresh" })).error?.code, "MEDIA_STORAGE_FAILED");
+    assert.equal((await dispatch(version, { ...payload, prompt: "Changed exact request" })).error?.code, "REQUEST_ID_CONFLICT");
+  }
+  assert.equal(f.requests.length, 1); assert.equal(f.engine.store.listInputs(f.sessionId).inputs.length, 1);
+  assert.equal(f.engine.store.getSnapshot(f.sessionId).runs.length, 1);
+});
 test("actual pending input source deletion at model lifecycle boundary produces zero HTTP dispatch and no substituted source", async (t) => {
   let release!: () => void;
   const gate = new Promise<void>((r) => (release = r));
