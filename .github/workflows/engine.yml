@@ -9,6 +9,8 @@ on:
       - "scripts/test-engine.mjs"
       - "scripts/evaluate-engine.mjs"
       - "scripts/verify-engine-resilience*.mjs"
+      - "scripts/verify-engine-persistent-soak*.mjs"
+      - "scripts/verify-pty-repeatability*.mjs"
       - "scripts/benchmark-engine.mjs"
       - "scripts/inspect-engine-db-contract*.mjs"
       - "docs/moodcode/next-db-contract-baseline.json"
@@ -27,6 +29,8 @@ on:
       - "scripts/test-engine.mjs"
       - "scripts/evaluate-engine.mjs"
       - "scripts/verify-engine-resilience*.mjs"
+      - "scripts/verify-engine-persistent-soak*.mjs"
+      - "scripts/verify-pty-repeatability*.mjs"
       - "scripts/benchmark-engine.mjs"
       - "scripts/inspect-engine-db-contract*.mjs"
       - "docs/moodcode/next-db-contract-baseline.json"
@@ -100,6 +104,10 @@ jobs:
         run: node .github/scripts/engine-ci.mjs eval
       - name: Verify mixed execution, cancellation and restart
         run: node .github/scripts/engine-ci.mjs resilience
+      - name: Verify persistent Engine history and crash quarantine
+        run: node .github/scripts/engine-ci.mjs persistent-soak
+      - name: Repeat native PTY lifecycle and retained fault diagnostics
+        run: node .github/scripts/engine-ci.mjs pty-repeatability
       - name: Measure native engine performance baseline
         run: node .github/scripts/engine-ci.mjs benchmark
       - name: Record outcome summary
@@ -114,6 +122,7 @@ jobs:
         with:
           name: engine-${{ matrix.os }}-node-${{ matrix.node }}-attempt-${{ github.run_attempt }}
           path: artifacts/engine-ci/
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: warn
 

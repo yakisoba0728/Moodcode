@@ -3,7 +3,7 @@
   "updatedAtLocalDate": "2026-10-09",
   "timezone": "Asia/Seoul",
   "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
-  "goalStatus": "active",
+  "goalStatus": "blocked",
   "rootThreadId": "01a102e1-5024-7471-bf77-52e9abf788b4",
   "sessionModel": "gpt-6.1-sol",
   "sessionReasoningEffort": "xhigh",
@@ -38,7 +38,7 @@
       ],
       "threadId": "01a11d5c-ab82-7ad3-8710-67c00b999c2e",
       "hostId": "local",
-      "status": "implementing",
+      "status": "branch-implementation-ready-native-scopes-verified-integration-open",
       "progressFile": "docs/moodcode/next-provider-progress.json",
       "requires": [
         "bounded-model-qualified-contract",
@@ -71,7 +71,7 @@
         "N-01"
       ],
       "agent": "/root/persistent_soak",
-      "status": "implementing",
+      "status": "compiled-quick-verified-long-pending",
       "requires": [
         "same-engine-accumulating-history",
         "actual-duration-and-resource-samples",
@@ -84,7 +84,7 @@
         "R-PTY-01"
       ],
       "agent": "/root/pty_repeatability",
-      "status": "investigating",
+      "status": "compiled-repeatability-verified-historical-cause-open",
       "requires": [
         "genuine-native-diagnostics",
         "retained-failure-evidence",
@@ -97,7 +97,7 @@
         "RF-01"
       ],
       "agent": "/root/refactor_inventory",
-      "status": "preparing-tooling",
+      "status": "tooling-tested-semantic-review-pending",
       "requires": [
         "source-qualified-inventory",
         "caller-and-compatibility-review",
@@ -138,7 +138,18 @@
     "structuralCandidatesDoNotProveUnusedCode": true,
     "externalConditionsRemainOpenUntilVerified": true
   },
-  "integrationCommits": [],
+  "integrationCommits": [
+    {
+      "sha": "9c787fadb6920396e7b2bc8225ce937b0b57c135",
+      "kind": "goal-and-ownership-plan",
+      "mainPushed": true
+    },
+    {
+      "sha": "ad8a02fa05efc3b9b084f4ad1c0d60676021d608",
+      "kind": "primary-db-compatibility-guard",
+      "mainPushed": true
+    }
+  ],
   "currentVerification": [
     {
       "key": "primary-db-contract-tool",
@@ -187,8 +198,152 @@
       "ciLauncher": {
         "actualLocalExitCode": 0,
         "reportAccepted": true,
-        "hostedVerified": false
+        "hostedVerified": true
+      },
+      "hosted": {
+        "runId": 37846389194,
+        "sourceCommit": "ad8a02fa05efc3b9b084f4ad1c0d60676021d608",
+        "dbContractJobsPassed": 6,
+        "aggregateRunConclusion": "failure",
+        "fullJobsPassed": 4,
+        "fullJobsFailed": 2,
+        "failures": [
+          {
+            "id": "NEXT-PROBE-TIMEOUT-01",
+            "lane": "macos-15/node24",
+            "phase": "full-headless",
+            "evidence": "docs/moodcode/next-probe-timeout-review.json"
+          },
+          {
+            "id": "NEXT-EFFECT-CRASH-READY-01",
+            "lane": "macos-15/node26",
+            "phase": "full-headless",
+            "evidence": "docs/moodcode/next-crash-fixture-review.json"
+          }
+        ]
       }
+    },
+    {
+      "key": "followup-tool-focused",
+      "tests": {
+        "total": 32,
+        "passed": 32,
+        "failed": 0,
+        "skipped": 0
+      },
+      "scope": "CI report acceptance, CLI, DB contract and refactor inventory, including bounded source-native PTY fixtures; no full engine/GUI/long-duration completion"
+    },
+    {
+      "key": "pty-repeatability-compiled",
+      "status": "passed",
+      "noLive": true,
+      "reportSha256": "ddd9a7c7dc66fd7a5295a294d60161c70bc93f48824087cc8c6850c760185750",
+      "reportPath": "/tmp/moodcode-next-pty-compiled-final.json",
+      "sourceRuntimeSha256": "106a2f782bd2a11ea2ee85e9b8061b4da663d39740346021ad9f4327f41d1b84",
+      "completedCases": 15,
+      "cycles": null,
+      "inputs": null,
+      "activeDurationMs": null,
+      "longDurationVerified": false,
+      "historicalPtyCauseResolved": false,
+      "retainedEvidence": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-repeatability-UoQIOy"
+    },
+    {
+      "key": "persistent-soak-compiled-quick",
+      "status": "passed",
+      "noLive": true,
+      "reportSha256": "f623823825bde602eac2e448f70bd1e4bed1b13e442075a6dc0fab79e874cc38",
+      "reportPath": "/tmp/moodcode-next-persistent-compiled-final.json",
+      "sourceRuntimeSha256": "106a2f782bd2a11ea2ee85e9b8061b4da663d39740346021ad9f4327f41d1b84",
+      "completedCases": null,
+      "cycles": 3,
+      "inputs": 16,
+      "activeDurationMs": 3553,
+      "longDurationVerified": false,
+      "historicalPtyCauseResolved": false,
+      "retainedEvidence": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-r676yF"
+    },
+    {
+      "key": "full-engine-before-host-pid-fixture-fix",
+      "tests": {
+        "total": 4728,
+        "passed": 4725,
+        "failed": 1,
+        "skipped": 2
+      },
+      "logPath": "/tmp/moodcode-next-full-engine.log",
+      "logSha256": "6157b08145c474bc85307d057dbb02c624a88f2bb7273cf443ad41ae41de2380",
+      "failure": {
+        "file": "packages/engine/src/jobs/host-command.integration.test.ts",
+        "test": "explicit host cancel and Engine.close abort and join the same real process while preserving confirmed independent cleanup",
+        "error": "Missing expected exception",
+        "reviewPending": true
+      },
+      "wholeAcceptance": false
+    },
+    {
+      "key": "corrective-compiled-fixtures",
+      "tests": {
+        "total": 53,
+        "passed": 53,
+        "failed": 0
+      },
+      "scope": "effect batch crash 6 and electron smoke probe 47; whole hosted acceptance pending",
+      "logSha256": "393696fbf36455b1226fb82d85fa4cdd1a394a4c3b2ced6c706e6d0370c61cfb"
+    },
+    {
+      "key": "followup-ci-contract-and-evidence-tests",
+      "tests": {
+        "total": 13,
+        "passed": 13,
+        "failed": 0
+      },
+      "scope": "CI plans/report contract and bounded exact retained fixture copy; PTY JSON integration correction being verified"
+    },
+    {
+      "key": "pty-cli-json-and-gates",
+      "tests": {
+        "total": 17,
+        "passed": 17,
+        "failed": 0
+      },
+      "scope": "CI launcher/report/evidence and actual source PTY CLI, including causal batch deadline"
+    },
+    {
+      "key": "persistent-soak-actual-ci-launcher",
+      "accepted": true,
+      "nativeOutcome": "passed",
+      "compiled": true,
+      "sourceRuntimeSha256": "106a2f782bd2a11ea2ee85e9b8061b4da663d39740346021ad9f4327f41d1b84",
+      "reportSha256": "a23525e76c385a0bbf6919a01a6dbee62465c729887435d87c8f1b776cb38ff1",
+      "evidenceManifest": "/tmp/moodcode-next-native-cli-ci/persistent-soak-evidence.json",
+      "copyQualified": true,
+      "retainedFiles": 48,
+      "retainedBytes": 2538771,
+      "originalSha256": "51540ab12b2eef155b3a1c511bd3e47db1f84435068c2cfcc308f8e9dfc4f213",
+      "longDurationVerified": false,
+      "historicalPtyCauseResolved": false
+    },
+    {
+      "key": "pty-repeatability-actual-ci-launcher",
+      "accepted": true,
+      "nativeOutcome": "passed",
+      "compiled": true,
+      "sourceRuntimeSha256": "106a2f782bd2a11ea2ee85e9b8061b4da663d39740346021ad9f4327f41d1b84",
+      "reportSha256": "7b253fac795fc7d058c0280e6c6a1f1e84de93e0662a5433a2aa4e1ce154cf90",
+      "evidenceManifest": "/tmp/moodcode-next-native-cli-ci/pty-repeatability-evidence.json",
+      "copyQualified": true,
+      "retainedFiles": 142,
+      "retainedBytes": 19492938,
+      "originalSha256": "3ab0b42e03bd5961ecac5fada2ae98a747962e3a2d345644e6cecde44e575bf4",
+      "longDurationVerified": false,
+      "historicalPtyCauseResolved": false
     }
-  ]
+  ],
+  "goalTracking": {
+    "toolStatus": "blocked",
+    "unexpectedSharedSessionMutation": true,
+    "execution": "Independent authorized implementation continues; parent owns future goal mutations",
+    "externallyRequiredAcceptanceRemainsOpen": true
+  }
 }

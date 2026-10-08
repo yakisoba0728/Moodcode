@@ -26,6 +26,7 @@ interface ChildReport {
   run?: { replayedEvents: number };
   error?: SmokeError;
   cleanupErrors?: SmokeError[];
+  elapsedMs?: number;
 }
 interface MainReport {
   ok: boolean;
@@ -236,16 +237,51 @@ test('Electron child probe approves only its exact fixture command and verifies 
 
 test('Electron child probe bounds run wait and closes the engine after timeout', async (t) => {
   const source = fixtureSource.replace(
+    'export const audit =',
+    'const waiting = Promise.withResolvers();\nexport const waitBoundary = {entered: waiting.promise, calls: 0, beforeCreate() {}};\nexport const audit =',
+  ).replace(
+    'export function createEngine(options) {',
+    'export function createEngine(options) { waitBoundary.beforeCreate();',
+  ).replace(
     "return {state: 'completed'};",
-    'return new Promise(() => {});',
+    'waitBoundary.calls++; waiting.resolve(); return new Promise(() => {});',
   );
   const paths = await fixture(t, source);
-  const report = await child.runEngineProbe({ ...paths, timeoutMs: 50 });
-  assert.equal(report.ok, false);
-  assert.equal(report.error?.code, 'SMOKE_TIMEOUT');
-  assert.equal(report.error?.stage, 'run.wait');
-  assert.equal(report.cleanupErrors, undefined);
-  assert.equal((await fixtureAudit(paths)).closedEngines, 1);
+  const { waitBoundary } = await import(pathToFileURL(paths.engineEntry).href) as {
+    waitBoundary: {entered: Promise<void>; calls: number; beforeCreate(): void};
+  };
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 0 });
+  try {
+    // Spend part of the original global budget before run.wait. A per-step
+    // timeout reset would not expire at the final ten-millisecond boundary.
+    waitBoundary.beforeCreate = () => t.mock.timers.tick(40);
+    let settled = false;
+    const pending = child.runEngineProbe({ ...paths, timeoutMs: 50 }).then(report => { settled = true; return report; });
+    await Promise.race([
+      waitBoundary.entered,
+      pending.then(report => assert.fail(`Probe ended before run.wait: ${JSON.stringify(report)}`)),
+    ]);
+    assert.equal(waitBoundary.calls, 1, 'Advance the clock only after the actual waitForRun boundary');
+    assert.equal(Date.now(), 40);
+    t.mock.timers.tick(9);
+    await Promise.resolve();
+    assert.equal(settled, false, 'The original whole-probe deadline must not expire early');
+    assert.equal((await fixtureAudit(paths)).closedEngines, 0);
+    t.mock.timers.tick(1);
+    await new Promise<void>(done => setImmediate(done));
+    assert.equal(settled, true, 'The original deadline must settle the probe and cleanup at 50ms');
+    const report = await pending;
+    assert.equal(report.ok, false);
+    assert.equal(report.error?.code, 'SMOKE_TIMEOUT');
+    assert.equal(report.error?.stage, 'run.wait');
+    assert.equal(report.cleanupErrors, undefined);
+    assert.equal(report.elapsedMs, 50, 'Earlier stages and run wait share one original deadline');
+    assert.equal(report.checks?.commandApproved, true);
+    assert.equal(report.checks?.scriptedRunCompleted, false);
+    assert.equal((await fixtureAudit(paths)).closedEngines, 1);
+  } finally {
+    t.mock.timers.reset();
+  }
 });
 
 test('Electron child never autoapproves a changed command preview, scope or pending request', async (t) => {

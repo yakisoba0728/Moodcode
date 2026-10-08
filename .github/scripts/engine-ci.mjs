@@ -6,6 +6,7 @@ import {
   mkdir,
   readFile,
   readdir,
+  realpath,
   rename,
   writeFile,
 } from "node:fs/promises";
@@ -13,6 +14,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { performance } from "node:perf_hooks";
 import { assertDatabaseContractEqual } from "../../scripts/inspect-engine-db-contract.mjs";
+import {
+  validatePersistentSoakReport,
+  validatePtyRepeatabilityReport,
+} from "./followup-reports.mjs";
+import { preserveFollowupEvidence } from "./followup-evidence.mjs";
 
 export const PROJECTS = [
   "packages/contracts",
@@ -42,6 +48,8 @@ const LOCAL_REPORT_MODES = new Set([
   "resilience",
   "benchmark",
   "db-contract",
+  "persistent-soak",
+  "pty-repeatability",
 ]);
 const databaseBaselinePath = join(
   root,
@@ -82,6 +90,10 @@ export function commandPlan(mode) {
         "--test-concurrency=1",
         join(root, "scripts", "verify-engine-resilience.test.mjs"),
         join(root, "scripts", "inspect-engine-db-contract.test.mjs"),
+        join(root, "scripts", "verify-engine-persistent-soak.test.mjs"),
+        join(root, "scripts", "verify-pty-repeatability.test.mjs"),
+        join(root, ".github", "scripts", "followup-reports.test.mjs"),
+        join(root, ".github", "scripts", "followup-evidence.test.mjs"),
       ];
     case "eval":
       return [process.execPath, join(root, "scripts", "evaluate-engine.mjs")];
@@ -112,6 +124,25 @@ export function commandPlan(mode) {
         "--compare",
         databaseBaselinePath,
       ];
+    case "persistent-soak":
+      return [
+        process.execPath,
+        join(root, "scripts", "verify-engine-persistent-soak.mjs"),
+        "--profile",
+        "quick",
+        "--runtime",
+        "compiled",
+      ];
+    case "pty-repeatability":
+      return [
+        process.execPath,
+        join(root, "scripts", "verify-pty-repeatability.mjs"),
+        "--json",
+        "--runtime",
+        "compiled",
+        "--iterations",
+        "3",
+      ];
     case "test-windows":
       return [
         process.execPath,
@@ -134,6 +165,9 @@ export function validateLocalReport(mode, result, databaseBaseline) {
     throw new Error(`Invalid or incomplete local ${mode} report`);
   };
   if (!result || typeof result !== "object" || Array.isArray(result)) reject();
+  if (mode === "persistent-soak") return validatePersistentSoakReport(result);
+  if (mode === "pty-repeatability")
+    return validatePtyRepeatabilityReport(result);
   if (result.passed !== true || result.noLive !== true) reject();
   if (mode === "db-contract") {
     if (
@@ -569,6 +603,8 @@ export async function main(mode) {
           "resilience",
           "benchmark",
           "db-contract",
+          "persistent-soak",
+          "pty-repeatability",
         ].map((operation) => [operation, commandPlan(operation)]),
       ),
       windowsStorageSelection: WINDOWS_STORAGE_TESTS,
@@ -602,6 +638,44 @@ export async function main(mode) {
         join(resultsDir, mode === "eval" ? "evaluation.json" : `${mode}.json`),
         `${JSON.stringify(result, null, 2)}\n`,
       );
+      if (["persistent-soak", "pty-repeatability"].includes(mode)) {
+        try {
+          const evidence = await preserveFollowupEvidence(
+            mode,
+            result,
+            await realpath(resultsDir),
+          );
+          await writeFile(
+            join(resultsDir, `${mode}-evidence.json`),
+            `${JSON.stringify(evidence, null, 2)}\n`,
+          );
+          if (
+            exitCode === 0 &&
+            (!evidence.sourceQualified || !evidence.exactSourceCopy)
+          )
+            throw new Error(
+              "Passing followup requires an exact retained fixture copy",
+            );
+          await record({
+            operation: `${mode}-evidence`,
+            state: evidence.status === "preserved" ? "passed" : "unavailable",
+            exitCode: evidence.status === "preserved" ? 0 : 1,
+          });
+        } catch (error) {
+          if (error.evidence)
+            await writeFile(
+              join(resultsDir, `${mode}-evidence.json`),
+              `${JSON.stringify(error.evidence, null, 2)}\n`,
+            );
+          await record({
+            operation: `${mode}-evidence`,
+            state: "failed",
+            exitCode: 1,
+            failure: error.message,
+          });
+          return 1;
+        }
+      }
     } catch (error) {
       if (exitCode === 0) throw error;
     }

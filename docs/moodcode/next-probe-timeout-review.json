@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "kind": "probe-timeout-test-independent-review",
+  "state": "local-headless-fixture-fix-verified; hosted-Node24-rerun-pending",
+  "localValidationPassed": true,
+  "source": {
+    "baseHead": "ad8a02fa05efc3b9b084f4ad1c0d60676021d608",
+    "measurement": "working-tree bytes; not a committed fix",
+    "changedFiles": [
+      "apps/engine-harness/src/electron-smoke.test.ts"
+    ],
+    "testSourceSha256": "d2bc18c281cae35cfd6c10b9dfbd1750d68cf13a08c6d8b45bbf1a3a029f6a15",
+    "originalTestSourceSha256": "1b7d15d7cc1b926ffde1fdf3f439c0275965bce37b6a6d0894c6ce5bbd89bb51",
+    "unchangedProbe": {
+      "path": "scripts/electron-engine-child.cjs",
+      "sha256": "87c65cc09a4e0eb4b976bc8890f797050bf212ca92d8830629c8c97c8ba31cb7",
+      "matchesControlledReproduction": true,
+      "productionClockSeamAdded": false
+    }
+  },
+  "originalHostedFailure": {
+    "runUrl": "https://github.com/yakisoba0728/Moodcode/actions/runs/37846389194",
+    "provenance": "Parent-provided downloaded failure log; inspected locally, no new hosted execution",
+    "head": "ad8a02fa05efc3b9b084f4ad1c0d60676021d608",
+    "job": "Headless macos-15 / Node 24.x",
+    "runtime": {
+      "node": "v24.20.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "log": {
+      "path": "/tmp/moodcode-next-ci-ad8-failed.log",
+      "sha256": "458e86778a4062983d22c60b13fd0c68d1e2ba3d1d127da02d9b3a2d71c51056"
+    },
+    "logFailureLine": 7091,
+    "test": "Electron child probe bounds run wait and closes the engine after timeout",
+    "compiledTest": {
+      "path": "apps/engine-harness/dist/electron-smoke.test.js",
+      "testLine": 190,
+      "assertionLine": 196
+    },
+    "errorField": "stage",
+    "expectedStage": "run.wait",
+    "actualStage": "engine.create",
+    "testDurationMs": 100.065042,
+    "headlessSuite": {
+      "tests": 4723,
+      "passed": 4720,
+      "failed": 1,
+      "skipped": 2
+    },
+    "historicalFailurePreserved": true
+  },
+  "diagnosis": {
+    "confirmed": [
+      "The probe starts one Date.now deadline before SQLite checks and dynamic engine import.",
+      "The old test used a real 50ms overall budget and assumed preceding work reached run.wait before expiry.",
+      "A stage reports its own name when that original budget is exhausted; an earlier timeout is correct probe behavior."
+    ],
+    "inference": "CPU scheduling/import overhead can exhaust the original budget before run.wait. The hosted log alone does not identify which earlier work consumed its time.",
+    "controlledCounterexample": {
+      "fixtureImportBlockingMs": 75,
+      "wholeProbeTimeoutMs": 50,
+      "observations": [
+        {
+          "attempt": 1,
+          "ok": false,
+          "error": {
+            "code": "SMOKE_TIMEOUT",
+            "message": "Electron engine smoke timed out during engine.create",
+            "stage": "engine.create"
+          },
+          "elapsedMs": 78,
+          "engineImported": true,
+          "engineClosed": false
+        },
+        {
+          "attempt": 2,
+          "ok": false,
+          "error": {
+            "code": "SMOKE_TIMEOUT",
+            "message": "Electron engine smoke timed out during engine.create",
+            "stage": "engine.create"
+          },
+          "elapsedMs": 76,
+          "engineImported": true,
+          "engineClosed": false
+        },
+        {
+          "attempt": 3,
+          "ok": false,
+          "error": {
+            "code": "SMOKE_TIMEOUT",
+            "message": "Electron engine smoke timed out during engine.create",
+            "stage": "engine.create"
+          },
+          "elapsedMs": 76,
+          "engineImported": true,
+          "engineClosed": false
+        }
+      ],
+      "evidence": {
+        "path": "/tmp/moodcode-next-probe-timeout-counterexample.json",
+        "sha256": "d96573555fe0663db7177dac29fe6c6c0824aafd38adee561ba937f18816f4b4"
+      },
+      "qualification": "Controlled import CPU blocking reproduces the same stage on Node26; it is not a reconstruction of exact hosted scheduling."
+    }
+  },
+  "correction": {
+    "testStartLine": 238,
+    "clock": "Node test-context mock Date and setTimeout; reset in finally",
+    "readiness": "An exported fixture promise resolves from the actual waitForRun body; a completed probe before that boundary explicitly fails.",
+    "timeline": {
+      "originalBudgetMs": 50,
+      "spentBeforeRunWaitMs": 40,
+      "assertPendingAtElapsedMs": 49,
+      "expireAtElapsedMs": 50
+    },
+    "assertions": [
+      "Expected error.stage remains run.wait; SMOKE_TIMEOUT remains required.",
+      "The probe remains unsettled and engine close count stays zero at 49 ms.",
+      "At 50 ms one real setImmediate turn drains deadline rejection and fixture cleanup without advancing the mock clock.",
+      "The report records elapsedMs 50, prior command approval, no scripted run completion, no cleanupErrors and exactly one engine close."
+    ],
+    "preserved": [
+      "Production global deadline calculation is unchanged.",
+      "Production bounded engine cleanup is unchanged.",
+      "No skipped test, phase relaxation, timeout increase, GUI claim or production seam was added."
+    ]
+  },
+  "validation": {
+    "runtime": {
+      "node": "v26.9.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "singleFileNoEmit": {
+      "passed": true,
+      "command": "node node_modules/typescript/bin/tsc --ignoreConfig --noEmit --strict --noUncheckedIndexedAccess --skipLibCheck --module NodeNext --moduleResolution NodeNext --target ES2024 --types node apps/engine-harness/src/electron-smoke.test.ts",
+      "evidence": {
+        "path": "/tmp/moodcode-next-probe-timeout-noemit.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "sharedBuildWrites": false
+    },
+    "fullSmokeFile": {
+      "passed": true,
+      "command": "node --import ./node_modules/tsx/dist/loader.mjs --test apps/engine-harness/src/electron-smoke.test.ts",
+      "tests": 47,
+      "passedTests": 47,
+      "failedTests": 0,
+      "cancelledTests": 0,
+      "skippedTests": 0,
+      "evidence": {
+        "path": "/tmp/moodcode-next-probe-timeout-smoke-file.log",
+        "sha256": "42d8a7a17b258497947daba78d2f2a6281a366359f84d859b9acc7581df34142"
+      }
+    },
+    "loadedRepeatedFocus": {
+      "passed": true,
+      "repetitions": 12,
+      "childConcurrency": 4,
+      "cpuWorkers": 2,
+      "workerGuardMs": 15000,
+      "sourceStable": true,
+      "wallElapsedMsRange": {
+        "min": 311.107,
+        "max": 463.158
+      },
+      "load": [
+        {
+          "done": true,
+          "iterations": 104931328,
+          "elapsedMs": 1167.893292,
+          "guardReached": false
+        },
+        {
+          "done": true,
+          "iterations": 106930176,
+          "elapsedMs": 1167.8485,
+          "guardReached": false
+        }
+      ],
+      "evidence": {
+        "path": "/tmp/moodcode-next-probe-timeout-repetitions.json",
+        "sha256": "cfc4e7bfcab83e96170451503f0cea00caf532ecd68c8b35b8cd71cd88978bfd"
+      }
+    },
+    "negativeMutation": {
+      "detected": true,
+      "mutation": "Reset every stage to timeoutMs instead of remaining original global budget",
+      "expectedFailure": "The original deadline must settle the probe and cleanup at 50ms",
+      "exitCode": 1,
+      "scope": "Temporary copied probe/test fixture only; working-tree production source unchanged",
+      "evidence": {
+        "path": "/tmp/moodcode-next-probe-timeout-negative.json",
+        "sha256": "fe616dc177723b1688728bf4225146e133cf167af99b7dfa88bec20d8a0129ab"
+      }
+    },
+    "diffWhitespaceCheckPassed": true
+  },
+  "acceptance": {
+    "hostedNode24RerunVerified": false,
+    "hostedFinalAcceptance": false,
+    "electronUtilityRuntimeVerified": false,
+    "guiVerified": false,
+    "nativeEngineStorageOrCommandCleanupVerified": false,
+    "headlessFixtureScope": "The real probe orchestration and SQLite availability/query run under Node with an authored engine double. Engine persistence, actual command process ownership and Electron utility/GUI compatibility require separate native evidence.",
+    "remaining": [
+      "Rerun the frozen final compiled suite on the actual supported hosted Node24/OS lane.",
+      "Retain the original hosted failure alongside subsequent acceptance evidence."
+    ]
+  }
+}

@@ -1,9 +1,9 @@
 import fs from "node:fs/promises";
-import { writeFileSync } from "node:fs";
+import { closeSync, openSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { batchFixture, until } from "./batch.js";
 import type { EffectBatchRecord } from "../types.js";
-const [directory, phase] = process.argv.slice(2);
+const [directory, phase, publication] = process.argv.slice(2);
 if (
   !directory ||
   ![
@@ -12,7 +12,9 @@ if (
     "after-write",
     "peer-completed",
     "completed",
-  ].includes(phase!)
+  ].includes(phase!) ||
+  (publication !== undefined && publication !== "pause-publication") ||
+  (publication === "pause-publication" && !process.send)
 )
   throw new Error("Actual crash boundary required");
 const f = await batchFixture({ after: () => {} }, { directory });
@@ -20,8 +22,9 @@ let stopped = false;
 function stop() {
   if (stopped) return;
   stopped = true;
-  writeFileSync(
-    join(directory!, "ready.json"),
+  const readyPath = join(directory!, "ready.json");
+  const stagingPath = `${readyPath}.tmp`;
+  const payload = Buffer.from(
     JSON.stringify({
       pid: process.pid,
       workspaceId: f.workspace.id,
@@ -31,6 +34,19 @@ function stop() {
       runId: receipt.runId,
     }),
   );
+  const fd = openSync(stagingPath, "wx", 0o600);
+  try {
+    if (publication === "pause-publication") {
+      const boundary = Math.floor(payload.length / 2);
+      writeFileSync(fd, payload.subarray(0, boundary));
+      process.send!({ type: "ready-publication-paused", pid: process.pid });
+      process.kill(process.pid, "SIGSTOP");
+      writeFileSync(fd, payload.subarray(boundary));
+    } else writeFileSync(fd, payload);
+  } finally {
+    closeSync(fd);
+  }
+  renameSync(stagingPath, readyPath);
   process.kill(process.pid, "SIGSTOP");
 }
 const save = f.engine.store.writeEffectBatch.bind(f.engine.store);

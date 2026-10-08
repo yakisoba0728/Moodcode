@@ -28,6 +28,8 @@ test("headless compiler scope contains no desktop project and no GUI launcher", 
     "resilience",
     "benchmark",
     "db-contract",
+    "persistent-soak",
+    "pty-repeatability",
     "test-windows",
   ]) {
     const plan = commandPlan(operation);
@@ -346,6 +348,9 @@ test("standalone verification scripts trigger both path filters and POSIX checks
         "scripts/verify-media-account*.mjs",
         "scripts/plan-media-verification*.mjs",
         "scripts/verify-engine-resilience*.mjs",
+        "scripts/verify-engine-persistent-soak*.mjs",
+        "scripts/verify-pty-repeatability*.mjs",
+        "scripts/inspect-engine-db-contract*.mjs",
         "scripts/benchmark-engine.mjs",
       ])
         assert.ok(block.includes(`- "${path}"`), `${event}: ${path}`);
@@ -353,6 +358,7 @@ test("standalone verification scripts trigger both path filters and POSIX checks
     const posix = workflow
       .split("  posix:\n")[1]
       .split("  windows-portable:\n")[0];
+    assert.match(posix, /path: artifacts\/engine-ci\/\n\s+include-hidden-files: true/);
     assert.match(
       posix,
       /run: node \.github\/scripts\/engine-ci\.mjs test-media-local/,
@@ -361,7 +367,12 @@ test("standalone verification scripts trigger both path filters and POSIX checks
       posix.indexOf("engine-ci.mjs build") <
         posix.indexOf("engine-ci.mjs test-media-local"),
     );
-    for (const mode of ["resilience", "benchmark"]) {
+    for (const mode of [
+      "resilience",
+      "benchmark",
+      "persistent-soak",
+      "pty-repeatability",
+    ]) {
       assert.ok(
         posix.includes(`run: node .github/scripts/engine-ci.mjs ${mode}`),
       );
@@ -375,12 +386,13 @@ test("standalone verification scripts trigger both path filters and POSIX checks
           .includes(`engine-ci.mjs ${mode}`),
       );
       const plan = commandPlan(mode);
-      assert.deepEqual(plan.slice(-4), [
-        "--profile",
-        "quick",
-        "--runtime",
-        "compiled",
-      ]);
+      assert.deepEqual(
+        plan.slice(-4),
+        mode === "pty-repeatability"
+          ? ["--runtime", "compiled", "--iterations", "3"]
+          : ["--profile", "quick", "--runtime", "compiled"],
+      );
+      if (mode === "pty-repeatability") assert.ok(plan.includes("--json"));
       assert.ok(!plan.includes("--live"));
     }
   }

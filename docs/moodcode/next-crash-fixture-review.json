@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "issueId": "NEXT-EFFECT-CRASH-READY-01",
+  "checkedAt": "2026-10-08T21:49:05.628Z",
+  "status": "fixture corrected; focused source validation passed; compiled and hosted qualification pending",
+  "scope": "Effect-batch crash-fixture readiness publication",
+  "hostedFailure": {
+    "runUrl": "https://github.com/yakisoba0728/Moodcode/actions/runs/37846389194",
+    "commit": "ad8a02fa05efc3b9b084f4ad1c0d60676021d608",
+    "platform": "macos-15 darwin/arm64",
+    "node": "v26.11.1",
+    "test": "actual Root SIGKILL after-write preserves physical/native effect debt and dispatches no replay",
+    "error": "SyntaxError: Unexpected end of JSON input",
+    "stackLocation": "packages/engine/dist/effect-batches/crash.integration.test.js:55:28",
+    "logPath": "/tmp/moodcode-next-ci-ad8-failed.log",
+    "logSha256": "458e86778a4062983d22c60b13fd0c68d1e2ba3d1d127da02d9b3a2d71c51056",
+    "failureLogLines": [14269, 14279],
+    "rawReadyAvailable": false,
+    "causeAttribution": "The original hosted bytes were not retained. The same source readiness race and parse error were independently reproduced at the actual final-file open boundary."
+  },
+  "cause": {
+    "writer": "stop() wrote the original payload directly to ready.json before SIGSTOP",
+    "reader": "The parent treated existsSync(ready.json) as complete readiness and parsed once",
+    "publicationGap": "Opening the final path exposes zero or partial bytes before writeFileSync completes",
+    "productionDefectProven": false
+  },
+  "deterministicReproduction": {
+    "runtime": "source via absolute local tsx loader, Node v26.9.0, darwin/arm64",
+    "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-effect-ready-open-ldecoJ",
+    "report": "reproduction.json",
+    "instrumentation": "The genuine original fixture ran its unchanged Engine, approval and native file effects. A preload intercepted only its readiness write, retained the actual original payload, opened the actual final path and SIGSTOPped the original child before the first payload byte.",
+    "originalChildPid": 54691,
+    "originalChildKernelState": "T",
+    "originalChildExit": { "code": null, "signal": "SIGKILL" },
+    "signalAuthority": "The spawning parent's original live ChildProcess handle",
+    "observedReadyBytes": 0,
+    "parseError": "Unexpected end of JSON input",
+    "physicalFile": { "path": "repo/a.txt", "content": "A" },
+    "nativeBatch": {
+      "id": "755ab39c599e25518c7822597c933e5a",
+      "runId": "518e837d-9ed1-48d6-b2d7-3902a4bdaf82",
+      "state": "running",
+      "memberStates": ["running", "running"]
+    },
+    "nativeOutcomeFabricated": false,
+    "beforeSourcePins": {
+      "packages/engine/src/effect-batches/fixtures/crash.ts": "3b4243ecc15b20934e75be55336918f3247fa111cee4e85f3db955b56d0e33cd",
+      "packages/engine/src/effect-batches/crash.integration.test.ts": "f25c84b876de097296255ef77d768e187a928fc3dc0092391a6c91b12fde71fb"
+    }
+  },
+  "retainedEvidence": {
+    "root": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-effect-ready-open-ldecoJ",
+    "rawReady": {
+      "file": "ready-observed.raw",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "originalPayload": {
+      "file": "ready.json.original-payload.json",
+      "bytes": 435,
+      "sha256": "4ce207ab9f44856152e0a2129df61717dd44c556575b239b7dc9f80bcbca76cf"
+    },
+    "nativeDatabase": {
+      "file": "engine.sqlite",
+      "bytes": 4096,
+      "sha256": "97e8d54f8a7255106f66cf1b213c4a4d7b558d21310b1c2bfedc3d0d526dddda"
+    },
+    "nativeWal": {
+      "file": "engine.sqlite-wal",
+      "bytes": 2521472,
+      "sha256": "359e012c66b201e8845c2a71f5f0e15e98bc9d929a1fd6bdeca672e357c856e2"
+    },
+    "nativeShm": {
+      "file": "engine.sqlite-shm",
+      "bytes": 32768,
+      "sha256": "0a69d901667f0b1580375df4ca4d08b4781845289b3f1ec90d46052859155364"
+    },
+    "nativeBatchObservation": {
+      "file": "observed-native-batch.json",
+      "sha256": "afb78d5665eb271a04d42685942d82374220f82ebef76689fe5925ca8499152c"
+    },
+    "hostedFailureExcerpt": {
+      "file": "hosted-failure-excerpt.log",
+      "sha256": "0311fb7717d2e436080d5619f9e63a710a06bd7f2eab4bf4d054b901c7f8000b"
+    },
+    "reproductionPreload": {
+      "file": "reproduce-open-preload.cjs",
+      "sha256": "e6bda0bb01bec6bbd503686a1aceb82f353e311411fa65cb3eaa2527319ee055"
+    },
+    "reproductionDriver": {
+      "file": "reproduce.mjs",
+      "sha256": "3023e3f0d408659e23342f4698b53229aff1dc78ef1d91b3a5d50d98a8129722"
+    },
+    "stderr": "worker.stderr.log",
+    "policy": "Keep the original failed fixture, SQLite with its WAL and SHM, original payload and raw observed bytes. Future failed crash tests retain their directory, bounded stderr and final-ready raw bytes."
+  },
+  "correction": {
+    "publication": "Write the complete original UTF-8 payload to a same-directory exclusive mode-0600 staging file, close it, then rename it to ready.json before the original SIGSTOP",
+    "regression": "A sixth genuine after-write case pauses the original child after a partial private staging write. The parent verifies the authenticated child IPC, actual stopped kernel state, malformed private bytes and absence of final readiness, resumes that original live child, then parses final readiness once and applies all original SIGKILL/recovery assertions.",
+    "preservedAssertions": [
+      "Original child PID matches ready payload",
+      "Original five phase cases and actual SIGKILL boundary",
+      "Physical a.txt and peer b.txt contents",
+      "Completed phase remains completed; interrupted phases recover uncertain",
+      "No automatic provider replay",
+      "Session remains paused",
+      "Uncertain workspace debt remains durable",
+      "Second reopen preserves recovery revision"
+    ],
+    "bounds": {
+      "testTimeoutMs": 20000,
+      "existingPollTimeoutMs": 10000,
+      "kernelProbeTimeoutMs": 1000,
+      "kernelProbeMaxBytes": 4096,
+      "retainedStderrMaxCharacters": 8192
+    },
+    "productionFilesChanged": 0,
+    "afterSourcePins": {
+      "packages/engine/src/effect-batches/fixtures/crash.ts": "a1e7565a5fb77fe5c08fa374c9d339bf5ebdf9c7edfd2f8a929b176f04c0e070",
+      "packages/engine/src/effect-batches/crash.integration.test.ts": "7ad6c01ba94814040969671897ae58bec923cccfde081e053e746c5bd52bcfce"
+    }
+  },
+  "validation": {
+    "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 packages/engine/src/effect-batches/crash.integration.test.ts",
+    "exitCode": 0,
+    "tests": 6,
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "sourceTestLog": {
+      "file": "fixed-source-tests.log",
+      "sha256": "5f33b69f12378517aa79334339ca8241a8782f6458a531bb1b18d4e64487e1f3"
+    },
+    "targetedTypeScriptNoEmitExitCode": 0,
+    "sharedBuilds": 0,
+    "fullRegressionRuns": 0,
+    "compiledQualification": "pending main-task build and focused compiled execution",
+    "hostedQualification": "pending a subsequent hosted run"
+  },
+  "noLive": true,
+  "liveProviderRequests": 0,
+  "credentialAccess": "No credential operations requested; fixture providers are in-process scripted adapters"
+}
