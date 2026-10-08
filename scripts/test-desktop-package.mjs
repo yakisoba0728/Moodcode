@@ -5,9 +5,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fork } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { createHash } from 'node:crypto';
-import { extractFile } from '@electron/asar';
 import { createCommandEnvironment } from '../packages/engine/dist/tools/command/process-control.js';
-import { DESKTOP_ELECTRON_VERSION, WINDOWS_NATIVE_BINARY, verifyWindowsBinaryArchitecture } from './desktop-native-package.mjs';
+import { DESKTOP_ELECTRON_VERSION, WINDOWS_NATIVE_BINARY, verifyWindowsBinaryArchitecture, readWindowsNativeBuildReceipt } from './desktop-native-package.mjs';
 import { runPackagedUtilityCodingProbe } from './desktop-package-utility.mjs';
 import { createDesktopTestDirectory, captureDesktopNativeEvidence, preserveDesktopTestEvidence, mayDeleteDesktopTestDirectory } from './desktop-test-evidence.mjs';
 
@@ -122,7 +121,7 @@ try {
   if (!portableOnly && process.platform === 'win32') {
     assert.equal(bootstrap.capabilities.runtime.commandExecution, 'windows-job-object',
       'Native Windows package acceptance requires the integrated Job Object binding before command effects.');
-    const receipt = JSON.parse(extractFile(join(resources, 'app.asar'), 'dist/main/windows-native-build.json').toString('utf8'));
+    const receipt = readWindowsNativeBuildReceipt(join(resources, 'app.asar'));
     assert.equal(receipt.runtime, 'electron'); assert.equal(receipt.electronVersion, DESKTOP_ELECTRON_VERSION);
     assert.equal(runtime.electron, receipt.electronVersion); assert.equal(receipt.arch, runtime.arch);
     assert.equal(receipt.bindingVersion, 1); assert.equal(receipt.nodeApi, 8);

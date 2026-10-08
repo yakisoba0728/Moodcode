@@ -3,10 +3,16 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { extractFile } from '@electron/asar';
 
 export const WINDOWS_NATIVE_PACKAGE = '@moodcode/windows-job';
 export const WINDOWS_NATIVE_BINARY = 'build/Release/windows_job.node';
 export const DESKTOP_ELECTRON_VERSION = '44.5.1';
+
+/** ASAR's directory lookup uses the current OS path separator. */
+export function readWindowsNativeBuildReceipt(archivePath) {
+  return JSON.parse(extractFile(archivePath, join('dist', 'main', 'windows-native-build.json')).toString('utf8'));
+}
 
 /** A missing integration permits a portable bundle; an incompatible integration fails packaging. */
 export function windowsNativeBuildPlan({ arch, electronVersion, nativeManifest, engineManifest }) {
