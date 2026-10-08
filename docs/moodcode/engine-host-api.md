@@ -159,6 +159,8 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 
 `exportEngineArchive/validateEngineArchive/importEngineArchive`는 primary/review/recovery ledger/artifact manifest를 보존한다. import는 살아 있는 engine의 DB를 교체하지 않으며, 복원 뒤 중단한 효과를 자동 실행하지 않는다. [archive](engine-archive.md)·[저장 성능](engine-storage-performance.md)·[process/PTY](engine-process-terminals.md)의 지원 한계를 따른다.
 
+세 archive 함수의 선택 옵션 `archiveDocumentBudgetMs`는 기존 문서 증명 frame의 시간 예산이며 기본 2,000ms, 정수 1~30,000ms다. 값이 유효하지 않으면 `INVALID_ARCHIVE_DOCUMENT_BUDGET`으로 파일 작업 전에 거부한다. 전체 archive 작업의 wall-clock timeout을 뜻하지 않는다. 큰 보관 작업에서 호스트가 명시적으로 확대할 수 있고 같은 frame의 단일 deadline·문서/행/byte 상한·원본 해시·소유권·취소·최종 게시 검사를 유지한다. 일반 live/historical 문서 inspector의 2,000ms 상한에는 적용하지 않는다.
+
 `inspectArchivedChildDocumentStorage({directory,expectedManifestSha256,sessionId,sourceRunId,taskIds,signal?,limits?})`는 standalone historical host 조회다. Exact manifest와 root lineage를 확인하고 전체 archive proof 중 이미 검증한 selected index를 같은 frame에서 재사용한다. 반환값은 bounded document metadata samples·counts·partial/unknown이며 현재 엔진·원본 파일·provider·ACK·새 physical authority를 활성화하지 않는다. 선택 cap과 전체 proof·표시 예산의 차이는 [historical 문서 조회](engine-archive-child-document-inspection.md)를 따른다.
 
 `getChildDocumentStorageUsage`는 기본 8개·최대 32개 exact managed child만 선택한다. source index 관측은 blob hash 검증이나 orphan 판정이 아니며 incomplete 총량은 null이다. 내부 verified child의 archive는 별도 owner read lease와 standalone snapshot·document refs/hash·manifest allowlist를 검사하고 import에서도 session을 pause한다. 원래 mirror·ACK·물리 binding을 새 실행 권한으로 다시 발급하지 않는다. Legacy/external/복원된 typed child의 coverage와 재보관 제한은 [child 문서 저장 계약](engine-child-document-storage.md)을 따른다.

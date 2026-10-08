@@ -16,6 +16,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { closeSync, constants, fstatSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, writeFileSync, writeSync, type Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path';
 import { backup as sqliteBackup, DatabaseSync } from 'node:sqlite';
+import { types } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
 import { acquireRecoveryLease } from '../recovery/index.js';
 import { readAudits, readOperations, scope } from '../recovery/ledger.js';
@@ -58,7 +59,7 @@ import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './inpu
 import { attachments as documentAttachments, sameAttachment as sameDocumentAttachment, validateDocumentBytes } from '../documents/validation.js';
 import type { ManagedWorktree } from '../worktrees/index.js';
 import { childStoragePhysicalIdentity, readChildStorageSelection, validateChildStorageRecord, type ChildStorageHostIdentity, type ChildStorageRecord } from '../child-tasks/storage-binding.js';
-import { createChildDocumentReadFrame, openChildDocumentReader } from './child-document-reader.js';
+import { createArchiveDocumentReadFrame, createChildDocumentReadFrame, openChildDocumentReader, validateArchiveDocumentBudgetMs } from './child-document-reader.js';
 import { buildArchivedChildDocumentStorageReport, validateArchivedChildDocumentStorageRequest,
   type ArchivedChildDocumentStorageRequest, type ArchivedChildDocumentStorageReport } from '../diagnostics/archive-child-documents.js';
 type DocumentFrame = ReturnType<typeof createChildDocumentReadFrame>;
@@ -83,12 +84,43 @@ export interface EngineArchiveManifest {
   recoveryAcknowledgmentsRebound: false;
   documentAudit?: ArchiveDocumentAudit;
 }
-export interface ExportEngineArchiveOptions { dbPath: string; artifactDir: string; destination: string; signal?: AbortSignal }
-export interface ImportEngineArchiveOptions { directory: string; destination: string; signal?: AbortSignal }
+export interface ArchiveDocumentBudgetOptions {
+  /** Document proof deadline, including export's final source checks; defaults to 2000ms, at most 30000ms. */
+  archiveDocumentBudgetMs?: number;
+}
+export interface ExportEngineArchiveOptions extends ArchiveDocumentBudgetOptions { dbPath: string; artifactDir: string; destination: string; signal?: AbortSignal }
+export interface ValidateEngineArchiveOptions extends ArchiveDocumentBudgetOptions { directory: string; signal?: AbortSignal }
+export interface ImportEngineArchiveOptions extends ValidateEngineArchiveOptions { destination: string }
 export interface EngineArchiveResult { directory: string; manifest: EngineArchiveManifest; manifestSha256: string }
 export interface ImportedEngineArchive extends EngineArchiveResult { dbPath: string; artifactDir: string; migratedFromVersion: number; schemaVersion: number; sessionsPaused: number; worktreesRelocated: number; childSessionsPaused: number; documentAuditCoverage: 'complete' | 'partial' | 'unchecked'; artifactPathMapping: { from: string; to: string }; executionResumed: false }
 const digest = (data: string | Buffer) => createHash('sha256').update(data).digest('hex');
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
+function archiveDocumentBudget(options: unknown): number {
+  if (
+    types.isProxy(options) ||
+    !options ||
+    typeof options !== 'object' ||
+    Array.isArray(options) ||
+    ![Object.prototype, null].includes(Object.getPrototypeOf(options))
+  )
+    fail(
+      'INVALID_ARCHIVE_DOCUMENT_BUDGET',
+      'Archive options must contain a plain document budget.',
+    );
+  const descriptor = Object.getOwnPropertyDescriptor(
+    options,
+    'archiveDocumentBudgetMs',
+  );
+  if (
+    descriptor &&
+    (!descriptor.enumerable || !Object.hasOwn(descriptor, 'value'))
+  )
+    fail(
+      'INVALID_ARCHIVE_DOCUMENT_BUDGET',
+      'Archive document budget must be an enumerable data value.',
+    );
+  return validateArchiveDocumentBudgetMs(descriptor?.value);
+}
 function abort(signal?: AbortSignal): void { if (signal?.aborted) fail('ARCHIVE_ABORTED', 'Engine archive operation was cancelled'); }
 function checkedDirectory(input: string): string {
   if (typeof input !== 'string' || !isAbsolute(input) || !input || input.includes('\0')) fail('ARCHIVE_PATH_UNSUPPORTED', 'Archive paths must be absolute paths without symlinks');
@@ -530,10 +562,11 @@ function validateParsedArchive(root:string,parsed:ReturnType<typeof parseManifes
   if (parseManifest(join(root, 'manifest.json')).manifestSha256 !== initialManifestHash) fail('ARCHIVE_SOURCE_CHANGED', 'Archive manifest changed during validation');
   check();
 }
-export function validateEngineArchive(options: { directory: string; signal?: AbortSignal }): EngineArchiveResult {
+export function validateEngineArchive(options: ValidateEngineArchiveOptions): EngineArchiveResult {
+  const archiveDocumentBudgetMs = archiveDocumentBudget(options);
   const root = manifestRoot(options.directory), check = () => abort(options.signal);
   check(); const parsed = parseManifest(join(root, 'manifest.json'));
-  validateParsedArchive(root,parsed,check,()=>createChildDocumentReadFrame({signal:options.signal}));
+  validateParsedArchive(root,parsed,check,()=>createArchiveDocumentReadFrame({signal:options.signal,archiveDocumentBudgetMs}));
   return { directory: checkedDirectory(options.directory), ...parsed };
 }
 /** Scalar owner/task preflight precedes selected index bodies; no current-host authority is accepted. */
@@ -611,6 +644,7 @@ export async function inspectArchivedChildDocumentStorage(value:ArchivedChildDoc
 }
 /** Offline export: leases block engine/review/recovery writes across the entire capture. */
 export async function exportEngineArchive(options: ExportEngineArchiveOptions): Promise<EngineArchiveResult> {
+  const archiveDocumentBudgetMs = archiveDocumentBudget(options);
   abort(options.signal); const paths = recoveryPaths(options), destination = destinationPath(options.destination);
   if (inside(paths.artifacts, destination)) fail('ARCHIVE_PATH_UNSUPPORTED', 'Archive destination must be outside the source artifact tree');
   if (!regular(paths.db) || !regular(paths.review)) fail('ARCHIVE_DATABASE_MISSING', 'Archive requires primary and review databases');
@@ -645,7 +679,7 @@ export async function exportEngineArchive(options: ExportEngineArchiveOptions): 
     const primary = snapshot.open('db')!;
     try { const review = snapshot.open('review')!; try { validateReviewBindings(primary, review, check); } finally { review.close(); } }
     finally { primary.close(); }
-    const frame=createChildDocumentReadFrame({signal:options.signal}),documentPrimary=sqlite(join(staging,databaseFiles.primary)),expectedDocuments=new Map<string,{bytes:number;sha256:string}>();
+    const frame=createArchiveDocumentReadFrame({signal:options.signal,archiveDocumentBudgetMs}),documentPrimary=sqlite(join(staging,databaseFiles.primary)),expectedDocuments=new Map<string,{bytes:number;sha256:string}>();
     const pinDocuments=(index:InputDocumentIndexReport|undefined,prefix:string)=>{for(const ref of index?.refs??[])expectedDocuments.set(`${prefix}/input-documents/${ref.id}.blob`,{bytes:ref.bytes,sha256:ref.sha256});};
     let childSelection:ChildSelection;
     try {

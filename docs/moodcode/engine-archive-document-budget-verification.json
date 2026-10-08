@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "frozen": true,
+  "scope": "Explicit host archive document proof budget",
+  "sourceManifest": {
+    "path": "/tmp/moodcode-archive-budget-source-freeze-v2.json",
+    "sha256": "16fe40ce939eb1e6d3e8a2ab089f926c4d72173e6a41c149180b15e094ec09ad"
+  },
+  "previousManifestPreserved": {
+    "path": "/tmp/moodcode-archive-budget-source-freeze.json",
+    "sha256": "cd9f31a98e2f26b13d01b5fdf7d152be6b720f47963a8249d873363c3ce2f6a2"
+  },
+  "featurePatch": {
+    "path": "/tmp/moodcode-archive-budget-feature.patch",
+    "sha256": "03900eaa171f840493aee4c1b15f9b3543389388ce55bc87329bd25f048dab49",
+    "bytes": 32781
+  },
+  "files": {
+    "packages/engine/src/storage/child-document-reader.ts": {
+      "sha256": "2e8c4a895f5c71e8923a07932ecb024b4ea214009f204af9149fff7042afaee3",
+      "bytes": 26371
+    },
+    "packages/engine/src/storage/archive.ts": {
+      "sha256": "6a5dc0d21f933635fb09e8ee2e891afc5e04abeeaf5cfc8e82f13909a197b822",
+      "bytes": 74074
+    },
+    "packages/engine/src/index.ts": {
+      "sha256": "982441bac0380f3110e0d68fba0a936a6939b72d7ac5064090654459307c3a07",
+      "bytes": 18410
+    },
+    "packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts": {
+      "sha256": "4396346b1d993f96abdb4c711ad01da238a8f85c96bc222ba37916f40870e647",
+      "bytes": 25676
+    },
+    "packages/engine/src/coding-runs/batch-boundaries.integration.test.ts": {
+      "sha256": "39832e4379b542b3b1067f0e38bdaf040425b4c08cc3223ce9d8caf0570d3d5e",
+      "bytes": 10474
+    },
+    "packages/engine/src/storage/archive-budget.test.ts": {
+      "sha256": "fab28405dc874d65923e506038dcef20f2dd9f30df5cf989689cea1421d921d0",
+      "bytes": 16281
+    }
+  },
+  "api": {
+    "entrypoints": [
+      "exportEngineArchive",
+      "validateEngineArchive",
+      "importEngineArchive"
+    ],
+    "option": "archiveDocumentBudgetMs",
+    "defaultMs": 2000,
+    "minimumMs": 1,
+    "maximumMs": 30000,
+    "validation": "finite safe integer, enumerable own data property, proxy/accessor rejection before filesystem effects",
+    "invalidCode": "INVALID_ARCHIVE_DOCUMENT_BUDGET",
+    "inspectorMaximumMs": 2000,
+    "rowsBytesOwnerSourceCancelPublishGuards": "unchanged",
+    "frameScope": "one existing continuous document proof frame per operation; validate/import retains proof-only birth after full member/native hashes"
+  },
+  "verification": [
+    {
+      "name": "final-source",
+      "path": "/tmp/moodcode-archive-budget-v2-source.log",
+      "sha256": "213f891500a154708715898e649e16a4c239880e7961c3d741a25ec26e4b7959",
+      "exitCode": 0,
+      "tests": 8,
+      "passed": 8
+    },
+    {
+      "name": "adjacent-source-before-format-and-nonnull-test-only-correction",
+      "path": "/tmp/moodcode-archive-budget-adjacent-source.log",
+      "sha256": "12f9b4062d0c3da2e6ef8759a897d7da4b540e52c06ab34810e750f1645898f6",
+      "exitCode": 0,
+      "tests": 63,
+      "passed": 63
+    },
+    {
+      "name": "strict-repository-options",
+      "path": "/tmp/moodcode-archive-budget-v2-strict.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 0,
+      "tests": null,
+      "passed": null
+    },
+    {
+      "name": "new-test-format",
+      "path": "/tmp/moodcode-archive-budget-v2-format.log",
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "exitCode": 0,
+      "tests": null,
+      "passed": null
+    }
+  ],
+  "strictFlags": [
+    "target ES2024",
+    "module NodeNext",
+    "moduleResolution NodeNext",
+    "strict",
+    "noUncheckedIndexedAccess",
+    "skipLibCheck",
+    "types node",
+    "noEmit"
+  ],
+  "actualNativeEvidence": [
+    "real temporary Git workspace and actual root/child ProviderAdapter iterators; both native Runs completed and child storage confirmed closed",
+    "four managed child PDFs and two-MiB opaque artifact bytes remain byte/hash identical across actual export/validate/import",
+    "monotonic clock fixture advances after genuine proof-frame birth: default 2000 expires; explicit 30000 survives 2500 per operation; exact 30000 still expires",
+    "failed deadline/abort/corrupt-source operations do not publish a destination or retain private staging",
+    "exact source execution events preserved; import only appends relocation/pause events without Run/Attempt ownership and primary+child sessions paused; provider call count unchanged",
+    "ordinary frame and historical inspector duration ceiling unchanged; invalid public inputs reject without proxy/getter traps"
+  ],
+  "priorFrozenCI13": {
+    "manifestPath": "/tmp/moodcode-ci-posix-corrections-final-freeze.json",
+    "manifestSha256": "5f173dc1f3886146b904ee21805617331892d6f767558809b92ead8f991e8a91",
+    "checked": 13,
+    "allMatch": true
+  },
+  "runtime": {
+    "node": "v26.9.0",
+    "commit": "7ab91d5c71ec8e40c9035a93ec61a190820daaa1",
+    "sourceLoader": "/Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs"
+  },
+  "limitations": [
+    "Time option is the existing document proof deadline, not a new overall archive deadline or row/byte-cap override. Validation/import begins this frame after full member/native integrity hashes, as before.",
+    "Final source8 and strict match frozen V2. Adjacent63 ran before formatting and a test-only non-null indexed-byte correction; Root final integrated build/aggregate is responsible for compiled/current whole regression.",
+    "Initial Root integrated build exposed a test-only noUncheckedIndexedAccess error because the first scoped strict command omitted that repository option. V2 fixes that one line and the final scoped command includes the option; production source is unchanged from V1.",
+    "Large explicit-budget CI fixtures retain inspector2000 ceiling; hosted GitHub execution after the correction remains pending."
+  ],
+  "forbiddenActionsPerformed": {
+    "sharedBuild": false,
+    "wholeSuite": false,
+    "accountAccess": false,
+    "secretOrEnvironmentValueReads": false,
+    "commit": false,
+    "push": false,
+    "GitHubMutation": false
+  }
+}

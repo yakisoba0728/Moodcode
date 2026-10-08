@@ -228,10 +228,12 @@ test("actual archive import is paused batch history without recreated Original a
       dbPath: f.dbPath,
       artifactDir: f.artifactDir,
       destination: join(f.base, "archive"),
+      archiveDocumentBudgetMs: 30_000,
     }),
     imported = await importEngineArchive({
       directory: archive.directory,
       destination: join(f.base, "imported"),
+      archiveDocumentBudgetMs: 30_000,
     }),
     before = f.requests.length,
     restored = new MoodcodeEngine({

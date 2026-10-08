@@ -119,7 +119,7 @@ export { LocalReferenceService, createLocalReferenceTools } from './tools/sessio
 export { AgentProfiles } from './agents/index.js';
 export type { AgentProfile, AgentProfileSpec } from './agents/index.js';
 export { exportEngineArchive, validateEngineArchive, inspectArchivedChildDocumentStorage, importEngineArchive } from './storage/archive.js';
-export type { EngineArchiveManifest, EngineArchiveResult, ImportedEngineArchive, ArchiveDocumentAudit, ExportEngineArchiveOptions, ImportEngineArchiveOptions } from './storage/archive.js';
+export type { EngineArchiveManifest, EngineArchiveResult, ImportedEngineArchive, ArchiveDocumentAudit, ArchiveDocumentBudgetOptions, ExportEngineArchiveOptions, ValidateEngineArchiveOptions, ImportEngineArchiveOptions } from './storage/archive.js';
 export { DEFAULT_ARCHIVED_CHILD_DOCUMENT_STORAGE_LIMITS } from './diagnostics/archive-child-documents.js';
 export type { ArchivedChildDocumentStorageRequest, ArchivedChildDocumentStorageLimits, ArchivedChildDocumentStorageReport, ArchivedChildDocumentStorageItem, ArchivedChildDocumentLineage } from './diagnostics/archive-child-documents.js';
 export * from './terminals/index.js';

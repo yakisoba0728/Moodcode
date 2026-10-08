@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "root": "/Users/yakisoba0728/Documents/GitHub/Moodcode",
+  "files": {
+    "packages/engine/src/storage/child-document-reader.ts": {
+      "sha256": "2e8c4a895f5c71e8923a07932ecb024b4ea214009f204af9149fff7042afaee3",
+      "bytes": 26371
+    },
+    "packages/engine/src/storage/archive.ts": {
+      "sha256": "6a5dc0d21f933635fb09e8ee2e891afc5e04abeeaf5cfc8e82f13909a197b822",
+      "bytes": 74074
+    },
+    "packages/engine/src/index.ts": {
+      "sha256": "982441bac0380f3110e0d68fba0a936a6939b72d7ac5064090654459307c3a07",
+      "bytes": 18410
+    },
+    "packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts": {
+      "sha256": "4396346b1d993f96abdb4c711ad01da238a8f85c96bc222ba37916f40870e647",
+      "bytes": 25676
+    },
+    "packages/engine/src/coding-runs/batch-boundaries.integration.test.ts": {
+      "sha256": "39832e4379b542b3b1067f0e38bdaf040425b4c08cc3223ce9d8caf0570d3d5e",
+      "bytes": 10474
+    },
+    "packages/engine/src/storage/archive-budget.test.ts": {
+      "sha256": "fab28405dc874d65923e506038dcef20f2dd9f30df5cf989689cea1421d921d0",
+      "bytes": 16281
+    }
+  },
+  "frozen": true,
+  "scope": "host-only archive document budget; default 2000ms, 1..30000ms exact integer; inspectors unchanged",
+  "revision": 2,
+  "previousManifest": {
+    "path": "/tmp/moodcode-archive-budget-source-freeze.json",
+    "sha256": "cd9f31a98e2f26b13d01b5fdf7d152be6b720f47963a8249d873363c3ce2f6a2"
+  },
+  "correction": "Test Buffer indexed read carries proven non-null byte; repository noUncheckedIndexedAccess flag included in strict verification."
+}

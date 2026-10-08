@@ -83,7 +83,7 @@ async function fixture(t: TestContext, options: { nested?: boolean; count?: numb
   }
   rootRelease.resolve(); assert.equal((await engine.waitForRun(root.runId)).state, 'completed');
   if (options.legacy) { const selected = tasks[0]!; const db = new DatabaseSync(dbPath); try { db.prepare('DELETE FROM session_documents WHERE session_id=? AND kind=?').run('session', childStorageKind(selected.id)); } finally { db.close(); } }
-  await engine.close(); const archive = await exportEngineArchive({ dbPath, artifactDir, destination: join(directory, 'archive') });
+  await engine.close(); const archive = await exportEngineArchive({ dbPath, artifactDir, destination: join(directory, 'archive'), archiveDocumentBudgetMs: 30_000 });
   const request = { directory: archive.directory, expectedManifestSha256: archive.manifestSha256, sessionId: 'session', sourceRunId: root.runId, taskIds: tasks.map(task => task.id) };
   return { directory, artifactDir, dbPath, archive, request, tasks, references, calls: () => calls, originalFiles: () => files(directory), archiveFiles: () => files(archive.directory) };
 }

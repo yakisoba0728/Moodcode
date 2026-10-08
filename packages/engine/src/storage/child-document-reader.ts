@@ -15,6 +15,22 @@ import { DB_VERSION } from './migrations.js';
 
 export const CHILD_DOCUMENT_READ_LIMITS = Object.freeze({ maxMetadataBytes: 8_388_608, maxRefs: 2048, maxRows: 8192, maxChildren: 64, maxDatabaseBytes: 33_554_432, maxMirrorBytes: 268_435_456, maxDurationMs: 2000 });
 export type ChildDocumentReadLimits = { [K in keyof typeof CHILD_DOCUMENT_READ_LIMITS]: number };
+export const MAX_ARCHIVE_DOCUMENT_BUDGET_MS = 30_000;
+const archiveFrameScope = Symbol('archive-document-budget');
+export function validateArchiveDocumentBudgetMs(value: unknown): number {
+  if (value === undefined) return CHILD_DOCUMENT_READ_LIMITS.maxDurationMs;
+  if (
+    typeof value !== 'number' ||
+    !Number.isSafeInteger(value) ||
+    value < 1 ||
+    value > MAX_ARCHIVE_DOCUMENT_BUDGET_MS
+  )
+    throw new EngineError(
+      'INVALID_ARCHIVE_DOCUMENT_BUDGET',
+      'Archive document budget must be an integer from 1 to 30000 milliseconds.',
+    );
+  return value;
+}
 function fail(code: string): never { throw new EngineError(code, 'Child document inspection could not verify its bounded read-only scope.'); }
 function plain(value: unknown, allowed: readonly string[]): Record<string, unknown> {
   if (types.isProxy(value) || !value || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) fail('INVALID_CHILD_DOCUMENT_STORAGE_OPTIONS');
@@ -29,12 +45,13 @@ export class ChildDocumentReadFrame {
   readonly signal?: AbortSignal;
   private readonly start = performance.now();
   private metadata = 0; private refs = 0; private rows = 0; private children = 0; private mirrors = 0; private exhausted: string | null = null;
-  constructor(value: { signal?: AbortSignal; limits?: Partial<ChildDocumentReadLimits> } = {}) {
+  constructor(value: { signal?: AbortSignal; limits?: Partial<ChildDocumentReadLimits> } = {}, archiveScope?: typeof archiveFrameScope) {
+    if (archiveScope !== undefined && archiveScope !== archiveFrameScope) fail('INVALID_CHILD_DOCUMENT_STORAGE_OPTIONS');
     const options = plain(value, ['signal', 'limits']);
     if (types.isProxy(options.signal) || options.signal !== undefined && !(options.signal instanceof AbortSignal)) fail('INVALID_CHILD_DOCUMENT_STORAGE_OPTIONS');
     const limits = options.limits === undefined ? {} : plain(options.limits, Object.keys(CHILD_DOCUMENT_READ_LIMITS));
     const selected = { ...CHILD_DOCUMENT_READ_LIMITS, ...limits };
-    for (const key of Object.keys(CHILD_DOCUMENT_READ_LIMITS) as (keyof ChildDocumentReadLimits)[]) if (!Number.isSafeInteger(selected[key]) || selected[key] < 1 || selected[key] > CHILD_DOCUMENT_READ_LIMITS[key]) fail('INVALID_CHILD_DOCUMENT_STORAGE_OPTIONS');
+    for (const key of Object.keys(CHILD_DOCUMENT_READ_LIMITS) as (keyof ChildDocumentReadLimits)[]) if (!Number.isSafeInteger(selected[key]) || selected[key] < 1 || selected[key] > (key === 'maxDurationMs' && archiveScope === archiveFrameScope ? MAX_ARCHIVE_DOCUMENT_BUDGET_MS : CHILD_DOCUMENT_READ_LIMITS[key])) fail('INVALID_CHILD_DOCUMENT_STORAGE_OPTIONS');
     this.limits = Object.freeze(selected) as ChildDocumentReadLimits; this.signal = options.signal as AbortSignal | undefined;
   }
   private stop(code: string): never { this.exhausted ??= code; return fail(code); }
@@ -56,7 +73,23 @@ export class ChildDocumentReadFrame {
   stats(): ChildDocumentReadStats { return { selectedMetadataBytes: this.metadata, selectedRefs: this.refs, selectedRows: this.rows, openedChildren: this.children, rawMirrorBytes: this.mirrors, elapsedMs: performance.now() - this.start, exhaustedReason: this.exhausted }; }
 }
 export function createChildDocumentReadFrame(value?: ConstructorParameters<typeof ChildDocumentReadFrame>[0]): ChildDocumentReadFrame { return new ChildDocumentReadFrame(value); }
-
+/** Archive callers may select a longer document proof deadline; inspector ceilings remain unchanged. */
+export function createArchiveDocumentReadFrame(
+  value: { signal?: AbortSignal; archiveDocumentBudgetMs?: number } = {},
+): ChildDocumentReadFrame {
+  const options = plain(value, ['signal', 'archiveDocumentBudgetMs']);
+  return new ChildDocumentReadFrame(
+    {
+      signal: options.signal as AbortSignal | undefined,
+      limits: {
+        maxDurationMs: validateArchiveDocumentBudgetMs(
+          options.archiveDocumentBudgetMs,
+        ),
+      },
+    },
+    archiveFrameScope,
+  );
+}
 export interface ChildArchiveMember { file: string; bytes: number; sha256: string }
 export interface ChildDocumentHistoricalFiles { database: { path: string; bytes: number; sha256: string }; artifacts: { path: string }; allowedMembers: readonly ChildArchiveMember[]; artifactPrefix: string }
 export type ChildDocumentReaderInput = { mode: 'source'; record: ChildStorageRecord } | { mode: 'archive-historical'; record: ChildStorageRecord; archive: ChildDocumentHistoricalFiles };

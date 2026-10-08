@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-10-08T16:42:59.571129+00:00",
+  "reviewer": "next_workflow_design",
+  "reviewMode": "read-only exact frozen V2 delta review",
+  "manifest": "/tmp/moodcode-archive-budget-source-freeze-v2.json",
+  "manifestSha256": "16fe40ce939eb1e6d3e8a2ab089f926c4d72173e6a41c149180b15e094ec09ad",
+  "priorReview": "/tmp/moodcode-archive-budget-independent-review.json",
+  "priorReviewSha256": "b9dfff3b318a36f3a6e4e0840200c9004715b97429be1dee91ab690137b6e82e",
+  "preservedV1ManifestSha256": "cd9f31a98e2f26b13d01b5fdf7d152be6b720f47963a8249d873363c3ce2f6a2",
+  "sourceBefore": {
+    "packages/engine/src/storage/child-document-reader.ts": {
+      "sha256": "2e8c4a895f5c71e8923a07932ecb024b4ea214009f204af9149fff7042afaee3",
+      "bytes": 26371
+    },
+    "packages/engine/src/storage/archive.ts": {
+      "sha256": "6a5dc0d21f933635fb09e8ee2e891afc5e04abeeaf5cfc8e82f13909a197b822",
+      "bytes": 74074
+    },
+    "packages/engine/src/index.ts": {
+      "sha256": "982441bac0380f3110e0d68fba0a936a6939b72d7ac5064090654459307c3a07",
+      "bytes": 18410
+    },
+    "packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts": {
+      "sha256": "4396346b1d993f96abdb4c711ad01da238a8f85c96bc222ba37916f40870e647",
+      "bytes": 25676
+    },
+    "packages/engine/src/coding-runs/batch-boundaries.integration.test.ts": {
+      "sha256": "39832e4379b542b3b1067f0e38bdaf040425b4c08cc3223ce9d8caf0570d3d5e",
+      "bytes": 10474
+    },
+    "packages/engine/src/storage/archive-budget.test.ts": {
+      "sha256": "fab28405dc874d65923e506038dcef20f2dd9f30df5cf989689cea1421d921d0",
+      "bytes": 16281
+    }
+  },
+  "sourceAfter": {
+    "packages/engine/src/storage/child-document-reader.ts": {
+      "sha256": "2e8c4a895f5c71e8923a07932ecb024b4ea214009f204af9149fff7042afaee3",
+      "bytes": 26371
+    },
+    "packages/engine/src/storage/archive.ts": {
+      "sha256": "6a5dc0d21f933635fb09e8ee2e891afc5e04abeeaf5cfc8e82f13909a197b822",
+      "bytes": 74074
+    },
+    "packages/engine/src/index.ts": {
+      "sha256": "982441bac0380f3110e0d68fba0a936a6939b72d7ac5064090654459307c3a07",
+      "bytes": 18410
+    },
+    "packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts": {
+      "sha256": "4396346b1d993f96abdb4c711ad01da238a8f85c96bc222ba37916f40870e647",
+      "bytes": 25676
+    },
+    "packages/engine/src/coding-runs/batch-boundaries.integration.test.ts": {
+      "sha256": "39832e4379b542b3b1067f0e38bdaf040425b4c08cc3223ce9d8caf0570d3d5e",
+      "bytes": 10474
+    },
+    "packages/engine/src/storage/archive-budget.test.ts": {
+      "sha256": "fab28405dc874d65923e506038dcef20f2dd9f30df5cf989689cea1421d921d0",
+      "bytes": 16281
+    }
+  },
+  "sourceUnchanged": true,
+  "deltaFromV1": {
+    "changedFiles": [
+      "packages/engine/src/storage/archive-budget.test.ts"
+    ],
+    "changedLines": 1,
+    "old": "modified[modified.length - 2] ^= 1;",
+    "new": "modified[modified.length - 2] = modified[modified.length - 2]! ^ 1;",
+    "inverseSingleLineSubstitutionReproducesExactV1Sha256": true,
+    "otherFiveFilesByteIdentical": true
+  },
+  "verdict": "No actionable defect found. V1 semantic review remains applicable; V2 changes only a test Buffer index expression to satisfy noUncheckedIndexedAccess.",
+  "reason": "The explicit assignment preserves the same single-byte XOR mutation. The non-null assertion changes TypeScript checking only and does not add a runtime fallback or weaken the integrity assertion.",
+  "inspectedProducerEvidence": [
+    {
+      "log": "/tmp/moodcode-archive-budget-v2-source.log",
+      "pass": 8,
+      "fail": 0
+    },
+    {
+      "log": "/tmp/moodcode-archive-budget-v2-strict.log",
+      "bytes": 0,
+      "exitStatusReportedByProducer": 0,
+      "configuration": "repo ES2024 strict noUncheckedIndexedAccess"
+    },
+    {
+      "buildExitStatusReportedByRoot": 0,
+      "reviewerDidNotRunBuild": true
+    }
+  ],
+  "reviewerActions": {
+    "sourceWrites": 0,
+    "testsRun": 0,
+    "buildsRun": 0,
+    "accountCalls": 0,
+    "credentialReads": 0,
+    "reportWrites": 1
+  },
+  "findings": []
+}
