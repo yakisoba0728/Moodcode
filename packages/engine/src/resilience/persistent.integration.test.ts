@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { createPersistentFixture } from "./persistent-fixture.js";
 import {
   assertPersistentRecoveryEvidence,
   persistentNativeDigest,
+  samplePersistentResources,
 } from "./persistent-native.js";
-import { newBase, POSIX_SUPPORTED, PROFILES } from "./fixture.js";
+import { bounded, newBase, POSIX_SUPPORTED, PROFILES } from "./fixture.js";
+import { runPersistentLoad } from "./persistent-worker.js";
 import { createEngine } from "../engine.js";
 import { ScriptedProvider } from "../provider/scripted.js";
 import {
@@ -63,6 +65,7 @@ test(
     assert.equal(report.load!.cancelledCommands, 1);
     assert.equal(report.load!.commands, 3);
     assert.ok(report.summary.activeDurationMs >= 1500);
+    assert.ok(report.summary.observation!.durationMs >= 1500);
     assert.equal(report.summary.engineInstances, 3);
     assert.deepEqual(
       report.gracefulCheckpoint!.before,
@@ -197,10 +200,140 @@ test(
     assert.equal(report.load!.cycles, 3);
     assert.equal(report.load!.inputs, 16);
     assert.ok(report.summary.activeDurationMs >= 1500);
+    const observation = report.summary.observation!;
+    assert.ok(observation.durationMs >= 1500);
+    assert.equal(
+      observation.endedElapsedMs - observation.startedElapsedMs,
+      observation.durationMs,
+    );
     assert.ok(
       report.samples.filter((sample) => sample.phase === "timed").length >= 1,
     );
+    const mandatory = report.samples.find(
+        (sample) => sample.phase === "mandatory-cases-settled",
+      )!,
+      complete = report.samples.find(
+        (sample) => sample.phase === "load-complete",
+      )!;
+    assert.ok(complete.elapsedMs - mandatory.elapsedMs >= 1500);
+    assert.equal(mandatory.cycles, 3);
+    assert.equal(complete.cycles, 3);
+    assert.equal(complete.pid, mandatory.pid);
     assert.equal(report.crashCheckpoint!.recoveredProviderCalls, 0);
+  },
+);
+
+test(
+  "mandatory native work beyond the requested duration cannot consume the subsequent observation window",
+  { skip: !POSIX_SUPPORTED, timeout: 45000 },
+  async (t) => {
+    const base = newBase(),
+      options = resolvePersistentSoakOptions({
+        durationMs: 1000,
+        maxCycles: 100,
+        maxInputs: 16,
+        maxInputBytes: 16384,
+        maxSamples: 12,
+        seed: 73,
+      }),
+      f = await createPersistentFixture(base, options),
+      gate = f.local.gate(),
+      started = performance.now(),
+      samples: Array<
+        ReturnType<typeof samplePersistentResources> & { observedAt: number }
+      > = [];
+    let pending: ReturnType<typeof runPersistentLoad> | undefined;
+    t.after(async () => {
+      gate.release.resolve();
+      try {
+        await pending;
+      } finally {
+        let beforeClose: ReturnType<typeof persistentNativeDigest> | undefined;
+        try {
+          beforeClose = persistentNativeDigest(f.dbPath);
+        } finally {
+          try {
+            await f.close();
+          } finally {
+            writeFileSync(
+              join(base, "persistent-duration-regression.json"),
+              JSON.stringify(
+                {
+                  source: "resilience/persistent.integration.test.ts",
+                  retainedReason:
+                    "actual-native-cancellation-uncertainty-or-test-failure",
+                  beforeClose,
+                  afterClose: persistentNativeDigest(f.dbPath),
+                  samples,
+                  load: f.summary(),
+                },
+                null,
+                2,
+              ) + "\n",
+            );
+          }
+        }
+      }
+    });
+    pending = runPersistentLoad(
+      f,
+      options,
+      (phase) => {
+        samples.push({
+          ...samplePersistentResources(
+            f.dbPath,
+            f.artifactDir,
+            phase,
+            performance.now() - started,
+            f.instance(),
+            f.summary().cycles,
+          ),
+          observedAt: performance.now(),
+        });
+      },
+      started,
+    );
+    await bounded(
+      gate.reached.promise,
+      options.boundaryTimeoutMs,
+      "actual mandatory observer barrier",
+    );
+    const heldJob = f
+      .engine()
+      .inspectOwnedCommandJobs(f.workspace.id, f.session.id)[0]!;
+    assert.equal(heldJob.state, "completed");
+    assert.equal(heldJob.completion!.outcome.cleanupConfirmed, true);
+    assert.equal(f.launches(), 1);
+    assert.equal(f.summary().cycles, 0);
+    await new Promise<void>((resolve) =>
+      setTimeout(resolve, options.durationMs + 100),
+    );
+    assert.ok(performance.now() - started > options.durationMs);
+    gate.release.resolve();
+    const result = await pending,
+      mandatory = samples.find(
+        (sample) => sample.phase === "mandatory-cases-settled",
+      )!,
+      complete = samples.find((sample) => sample.phase === "load-complete")!;
+    assert.ok(mandatory.elapsedMs > options.durationMs);
+    assert.ok(complete.observedAt - mandatory.observedAt >= options.durationMs);
+    assert.ok(result.observation.durationMs >= options.durationMs);
+    assert.ok(result.observation.startedElapsedMs > options.durationMs);
+    assert.ok(samples.some((sample) => sample.phase === "timed"));
+    assert.ok(samples.length <= options.maxSamples - 3);
+    assert.equal(new Set(samples.map((sample) => sample.pid)).size, 1);
+    assert.deepEqual(result.checkpoint.before, result.checkpoint.after);
+    assert.equal(result.checkpoint.noAutomaticReplay, true);
+    assert.equal(f.instance(), 2);
+    assert.equal(f.summary().cycles, 3);
+    assert.equal(f.summary().inputs, 13);
+    assert.equal(f.launches(), 2);
+    assert.equal(f.summary().cancellation!.nativeCleanupConfirmed, false);
+    assert.equal(f.summary().cancellation!.physicalCleanupConfirmed, true);
+    assert.equal(
+      complete.sqlite.counts.session_inputs,
+      mandatory.sqlite.counts.session_inputs! + 1,
+    );
   },
 );
 

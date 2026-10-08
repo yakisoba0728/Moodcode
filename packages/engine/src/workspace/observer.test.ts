@@ -183,21 +183,71 @@ test('consumer mutation cannot corrupt the comparison baseline or options', asyn
   const { root, observe } = await fixture(t);
   const capture = { maxFiles: 2 };
   const observer = observe({ capture });
-  capture.maxFiles = 1;
-  const initial = await next(observer);
-  (initial.files as Map<string, { hash: string; bytes: number }>).get('tracked.txt')!.hash = 'tampered';
-  (initial.files as Map<string, unknown>).clear();
-  initial.warnings.push('tampered');
-  initial.git.branch = 'tampered';
-  initial.git.entries.push({ path: 'tampered', index: '?', worktree: '?' });
-  await writeFile(path.join(root, 'tracked.txt'), 'changed');
-  await writeFile(path.join(root, 'new.txt'), 'new');
-  const latest = await until(observer, (event) => event.files.get('tracked.txt')?.hash === hash('changed'));
+  const sample = Reflect.get(observer, 'sample').bind(observer) as () => Promise<unknown>;
+  let published!: () => void, samples = 0;
+  const publication = new Promise<void>(resolve => { published = resolve; });
+  Reflect.set(observer, 'sample', async () => {
+    if (++samples > 1) await publication;
+    return sample();
+  });
+  try {
+    capture.maxFiles = 1;
+    const initial = await next(observer);
+    (initial.files as Map<string, { hash: string; bytes: number }>).get('tracked.txt')!.hash = 'tampered';
+    (initial.files as Map<string, unknown>).clear();
+    initial.warnings.push('tampered');
+    initial.git.branch = 'tampered';
+    initial.git.entries.push({ path: 'tampered', index: '?', worktree: '?' });
+    await writeFile(path.join(root, 'tracked.txt'), 'changed');
+    await writeFile(path.join(root, 'new.txt'), 'new');
+  } finally { published(); }
+  const latest = await until(observer, (event) => event.files.get('tracked.txt')?.hash === hash('changed') && event.files.get('new.txt')?.hash === hash('new'));
   assert.equal(latest.files.size, 2);
   assert.equal(latest.changes.find((change) => change.path === 'tracked.txt')?.beforeHash, hash('before'));
   assert.equal(latest.git.branch, 'main');
   assert.equal(latest.warnings.includes('tampered'), false);
   assert.equal(latest.git.entries.some((entry) => entry.path === 'tampered'), false);
+});
+
+test('separate file publications can produce a genuine intermediate observer sample', async (t) => {
+  const { root, observe } = await fixture(t);
+  const observer = observe({ capture: { maxFiles: 2 } });
+  const sample = Reflect.get(observer, 'sample').bind(observer) as () => Promise<Pick<WorkspaceObservation, 'files'>>;
+  let firstWritten!: () => void, captured!: () => void, resume!: () => void, samples = 0;
+  const firstPublication = new Promise<void>(resolve => { firstWritten = resolve; });
+  const intermediate = new Promise<void>(resolve => { captured = resolve; });
+  const later = new Promise<void>(resolve => { resume = resolve; });
+  Reflect.set(observer, 'sample', async () => {
+    const number = ++samples;
+    if (number === 2) await firstPublication;
+    if (number > 2) await later;
+    const result = await sample();
+    if (number === 2) {
+      assert.equal(result.files.get('tracked.txt')?.hash, hash('changed'));
+      assert.equal(result.files.size, 1);
+      captured();
+    }
+    return result;
+  });
+  try {
+    await next(observer);
+    await writeFile(path.join(root, 'tracked.txt'), 'changed');
+    firstWritten();
+    await deadline(intermediate);
+    await writeFile(path.join(root, 'new.txt'), 'new');
+    const observed = await next(observer);
+    assert.equal(observed.files.size, 1);
+    assert.equal(observed.captureComplete, true);
+    assert.equal(observed.files.get('tracked.txt')?.hash, hash('changed'));
+    assert.equal(observed.changes.find(change => change.path === 'tracked.txt')?.beforeHash, hash('before'));
+    assert.equal(await readFile(path.join(root, 'new.txt'), 'utf8'), 'new');
+  } finally {
+    firstWritten();
+    resume();
+    await deadline(observer.stop());
+  }
+  assert.equal(observer.state, 'stopped');
+  assert.equal((await observer.next()).done, true);
 });
 
 test('partial capture marks missing paths unobserved rather than claiming deletion', async (t) => {

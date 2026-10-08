@@ -40,6 +40,7 @@ import {
   type PersistentSoakOptions,
 } from "./persistent-options.js";
 import { failureOf } from "./scenarios.js";
+import type { runPersistentLoad } from "./persistent-worker.js";
 export { resolvePersistentSoakOptions } from "./persistent-options.js";
 export type { PersistentSoakOptions } from "./persistent-options.js";
 
@@ -49,6 +50,7 @@ interface Ready extends Awaited<ReturnType<PersistentFixture["crashReady"]>> {
   checkpoint: Awaited<ReturnType<PersistentFixture["checkpoint"]>>;
   samples: PersistentResourceSample[];
   activeDurationMs: number;
+  observation: Awaited<ReturnType<typeof runPersistentLoad>>["observation"];
   lastCycleElapsedMs: number;
   loadStoppedBy: string;
   engineInstances: number;
@@ -127,6 +129,7 @@ export async function verifyEnginePersistentSoak(
     },
     summary: {
       activeDurationMs: 0,
+      observation: null as null | Ready["observation"],
       lastCycleElapsedMs: 0,
       loadStoppedBy: null as null | string,
       durationMs: 0,
@@ -148,7 +151,7 @@ export async function verifyEnginePersistentSoak(
       "Same Engine and session accumulate native history until an explicit graceful checkpoint; the second instance continues that history before the final process crash.",
       "POSIX owned run_command only; Windows JobObject, PTY, external providers and GUI have separate verification boundaries.",
       "Samples describe measured resource growth; no leak-rate or absolute performance SLA is inferred.",
-      "Load is paced across the requested duration; reaching an input ceiling stops new input while timed observation continues.",
+      "After mandatory native cases settle, load is paced across a measured observation window of at least the requested duration; reaching an input ceiling stops new input while observation continues.",
       "Successful crash verification retains uncertain native SQLite/artifacts; physical process absence never grants recovery authority or automatic replay.",
     ],
   };
@@ -240,6 +243,16 @@ export async function verifyEnginePersistentSoak(
     assert.ok(groupExists(ready.groupPid) && !pidAbsent(ready.pid));
     assert.ok(ready.activeDurationMs >= resolved.durationMs);
     assert.ok(
+      Object.values(ready.observation).every(Number.isFinite) &&
+        ready.observation.startedElapsedMs >= 0 &&
+        ready.observation.durationMs >= resolved.durationMs &&
+        ready.observation.endedElapsedMs -
+          ready.observation.startedElapsedMs ===
+          ready.observation.durationMs &&
+        ready.activeDurationMs === Math.round(ready.observation.endedElapsedMs),
+      "Persistent observation window did not cover the requested duration",
+    );
+    assert.ok(
       ready.summary.cycles >= 3 && ready.summary.cycles <= resolved.maxCycles,
     );
     assert.ok(
@@ -255,6 +268,7 @@ export async function verifyEnginePersistentSoak(
     result.load = ready.summary;
     result.gracefulCheckpoint = ready.checkpoint;
     result.summary.activeDurationMs = ready.activeDurationMs;
+    result.summary.observation = ready.observation;
     result.summary.engineInstances = ready.engineInstances + 1;
     result.summary.lastCycleElapsedMs = ready.lastCycleElapsedMs;
     result.summary.loadStoppedBy = ready.loadStoppedBy;

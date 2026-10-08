@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-persistent-duration-review",
+  "status": "source-corrective-verified-compiled-ci-pending",
+  "recordedAt": "2026-10-08T22:51:29.730Z",
+  "sourceQualification": {
+    "mainHead": "d0e5b98217aaa8a36e4c95bf22c9ba986f46cb6b",
+    "sourceFiles": [
+      {
+        "path": "packages/engine/src/resilience/persistent-worker.ts",
+        "bytes": 5863,
+        "sha256": "83b04e09aaa5d3d45ac610989c8434e42544064211f52c5c0525f241ebdf0e5d"
+      },
+      {
+        "path": "packages/engine/src/resilience/persistent.ts",
+        "bytes": 19984,
+        "sha256": "103d14c4b6ac60cded2bf9ed00d480f739cd39ce185d73744d83c75cf22eaa61"
+      },
+      {
+        "path": "packages/engine/src/resilience/persistent.integration.test.ts",
+        "bytes": 12752,
+        "sha256": "d19ce349b1a9685a96e20c96b095c8e1c8098b05a2a22faee2486c8ed95e9018"
+      }
+    ],
+    "originalFiles": [
+      {
+        "path": "packages/engine/src/resilience/persistent-worker.ts",
+        "commit": "3fc2d1450f5a14557e132afb9e6422e528fa58a5",
+        "bytes": 5033,
+        "sha256": "d48f584f5f1d76c65f6b953739f32d79439b67a625114339461a5f77539784a5"
+      },
+      {
+        "path": "packages/engine/src/resilience/persistent.ts",
+        "commit": "3fc2d1450f5a14557e132afb9e6422e528fa58a5",
+        "bytes": 19169,
+        "sha256": "8b46a9944d9c6b01b98fc8511b567fec41a1db63f1db423ff0c959f80ff1d395"
+      },
+      {
+        "path": "packages/engine/src/resilience/persistent.integration.test.ts",
+        "commit": "3fc2d1450f5a14557e132afb9e6422e528fa58a5",
+        "bytes": 7991,
+        "sha256": "6947bbad9fb4fb952f25c2ed36ca673d281d2bd4f02bf75bef0d12110c3ff439"
+      }
+    ]
+  },
+  "originalFailure": {
+    "runId": "37853473036",
+    "host": {
+      "node": "v24.20.0",
+      "platform": "darwin",
+      "architecture": "arm64"
+    },
+    "commit": "3fc2d1450f5a14557e132afb9e6422e528fa58a5",
+    "log": {
+      "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/artifact-node24/test.stdout",
+      "bytes": 611588,
+      "sha256": "95c2048d996fa2e0222495b27fa8b8c8e8c3a4c53b1bc50f6d27515b70f3ef63"
+    },
+    "environment": {
+      "path": "/tmp/moodcode-hosted-3fc-refactor-inventory/artifact-node24/environment.json",
+      "bytes": 5530,
+      "sha256": "c0319cd87cfa3ca08d0368e6f72fb3a5e286297d8b3035bc490989312c962d5c"
+    },
+    "failureLines": [
+      3193,
+      4857,
+      4872
+    ],
+    "tests": {
+      "total": 4738,
+      "passed": 4735,
+      "failed": 1,
+      "skipped": 2
+    },
+    "failedAssertion": "report.samples.filter(sample => sample.phase === \"timed\").length >= 1",
+    "testElapsedMs": 5142.785458,
+    "nativeReportRetainedByOriginalHostedArtifact": false,
+    "exactOriginalMandatoryElapsedKnown": false
+  },
+  "cause": {
+    "confirmed": "The observation deadline began before three mandatory native cases. The duration-gated loop could therefore finish before any timed observation; total active duration alone did not establish the requested subsequent observation window.",
+    "qualification": "The original artifact does not retain per-test report/SQLite, so exact original mandatory elapsed and scheduler timing are not claimed. A fresh actual provider barrier independently exercises the premature-deadline causal path."
+  },
+  "correction": {
+    "observation": "After all three mandatory native cases and their actual resource sample settle, start a fresh monotonic duration window. Pace optional native work and the real close/reopen checkpoint within that measured window; input ceilings stop new work while observation continues.",
+    "reportField": "summary.observation = { startedElapsedMs, endedElapsedMs, durationMs }",
+    "parentGate": "Finite monotonic offsets, exact end-start duration >= requested durationMs; existing activeDurationMs remains total worker baseline-to-load-complete time.",
+    "sampling": "Reserve six worker boundary samples and two recovery-host samples. Timed sample allocation is exactly maxSamples-8; after allocation is exhausted, its deadline is Infinity so observation does not enter stale-deadline 1ms polling.",
+    "unchanged": [
+      "three mandatory complete/cancel/text cycles",
+      "minimum sixteen unique native inputs including checkpoints",
+      "all native approvals/Original job sources/queue/steer/input cancellation/config and budget assertions",
+      "finite cycle/input/byte/sample/native-operation/overall CLI boundaries",
+      "actual Engine/SQLite/committed Git/ScriptedProvider/native command execution",
+      "exact recovery rows, unknown cleanup retention, physical absence separated from native uncertainty, no automatic replay",
+      "integration test timeouts and original timed assertion"
+    ]
+  },
+  "validation": {
+    "focused": {
+      "command": "node --import \"$PWD/node_modules/tsx/dist/loader.mjs\" --test --test-concurrency=1 packages/engine/src/resilience/persistent.integration.test.ts scripts/verify-engine-persistent-soak.test.mjs",
+      "log": {
+        "path": "/tmp/moodcode-next-persistent-duration-focused-final.log",
+        "bytes": 1001,
+        "sha256": "a12e3440622e8e3fd8226f885fde294e429442f19fde55c02233dcc6af331bf6"
+      },
+      "exitCode": 0,
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 9075.263209
+    },
+    "typecheck": {
+      "command": "node node_modules/typescript/bin/tsc --project packages/engine/tsconfig.json --noEmit --incremental false --composite false --pretty false",
+      "log": {
+        "path": "/tmp/moodcode-next-persistent-duration-typecheck-final.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "exitCode": 0,
+      "sharedEmit": false
+    },
+    "diffCheck": {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    "causalRegression": {
+      "requestedDurationMs": 1000,
+      "barrier": "Actual ScriptedProvider observer in the first native command cycle remains held for at least requestedDurationMs+100ms after its reached signal; the Original command is completed with physical cleanup before release.",
+      "manifest": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-MQ8q0h/persistent-duration-regression.json",
+        "bytes": 16310,
+        "sha256": "e6424b732ecc488a1171ebcecd7603343e0b1fe543399760e4c7bcc3e95a380f"
+      },
+      "mandatoryElapsedMs": 1527,
+      "subsequentIndependentObservedIntervalMs": 1043.6152920000004,
+      "timedSamples": 4,
+      "sampleCount": 9,
+      "sameProcess": true,
+      "engineInstances": 2,
+      "cycles": 3,
+      "inputsBeforeFinalCrash": 13,
+      "actualCommandLaunches": 2,
+      "beforeClose": {
+        "counts": {
+          "runs": 6,
+          "messages": 17,
+          "tools": 2,
+          "approvals": 2,
+          "checkpoints": 2,
+          "session_inputs": 13,
+          "session_turns": 8,
+          "provider_attempts": 8,
+          "message_parts": 8,
+          "attempt_cleanup": 8,
+          "session_documents": 10,
+          "session_events": 172
+        },
+        "recordsSha256": "cfa7c5868c6e6d0f7482ec664d5f03719975ee7b01abdc2503659a159c9a7639",
+        "integrity": "ok",
+        "foreignKeyViolations": 0
+      },
+      "afterClose": {
+        "counts": {
+          "runs": 6,
+          "messages": 17,
+          "tools": 2,
+          "approvals": 2,
+          "checkpoints": 2,
+          "session_inputs": 13,
+          "session_turns": 8,
+          "provider_attempts": 8,
+          "message_parts": 8,
+          "attempt_cleanup": 8,
+          "session_documents": 10,
+          "session_events": 172
+        },
+        "recordsSha256": "cfa7c5868c6e6d0f7482ec664d5f03719975ee7b01abdc2503659a159c9a7639",
+        "integrity": "ok",
+        "foreignKeyViolations": 0
+      },
+      "nativeDigestRetained": true,
+      "cancellation": {
+        "workspaceId": "workspace_52a2c51689b1ea7151def616215e3b2bc7375a24bd4477af101e27c43efd09b9",
+        "sessionId": "c8983373-edd1-4127-91f4-ffbe820f1224",
+        "runId": "5cf04d29-5135-4ddf-8d55-6e9ff478caf3",
+        "jobId": "command-5b057f639c8d2b5d7438750133ac2e98",
+        "jobSha256": "929981a627b5bb0511701441b6b96888f9f9d6fc1051fd89406f847c9998ec32",
+        "sourceSha256": "891388632efc82d3d43853c836f30597535e49f6b10b0a1c9c5d15d88764cec1",
+        "approvalId": "29f4b248-b9d3-4547-8393-58d741ac4c43",
+        "approvalFingerprint": "2bd5d247e3c0bac106a8f296d2275ffeda248675dcf2f4d84ad8b731fa84695f",
+        "queuedInputId": "0e25109e-4c3a-4178-bfcf-feec6688083b",
+        "steerInputId": "b4a15e12-a6b9-4f01-b463-6e8f423b0334",
+        "cancelledInputId": "23b6f704-e5fb-4052-bc58-e21b954fa937",
+        "pid": 31157,
+        "groupPid": 31157,
+        "physicalCleanupConfirmed": true,
+        "nativeCleanupConfirmed": false,
+        "resumeOutcome": "cleanup-pending"
+      },
+      "originalFixtureDeleted": false
+    },
+    "minimumQuick": {
+      "command": "node --import \"$PWD/node_modules/tsx/dist/loader.mjs\" scripts/verify-engine-persistent-soak.mjs --runtime source --duration-ms 1000 --max-cycles 3 --max-inputs 16 --max-input-bytes 16384 --max-samples 8 --seed 79 --report /tmp/moodcode-next-persistent-duration-minimum.json",
+      "report": {
+        "path": "/tmp/moodcode-next-persistent-duration-minimum.json",
+        "bytes": 98817,
+        "sha256": "4e933298fcac4fa356cbcaf19380243412a2ee096fc29e3702b8caa782d06e77"
+      },
+      "exitCode": 0,
+      "passed": true,
+      "effectiveRuntimeSourceSha256": "fea3133faff7baa356bdaa2ed247e3ee1a1b2cf79629c38818ffa4d583fd7d62",
+      "observation": {
+        "startedElapsedMs": 660.2769999999998,
+        "endedElapsedMs": 1662.388875,
+        "durationMs": 1002.1118750000003
+      },
+      "activeDurationMs": 1662,
+      "resourceSamples": 8,
+      "cycles": 3,
+      "inputs": 16,
+      "inputBytes": 16384,
+      "nativeCommandLaunches": 3,
+      "recoveredProviderCalls": 0,
+      "retainedNativeDigest": {
+        "counts": {
+          "runs": 7,
+          "messages": 19,
+          "tools": 3,
+          "approvals": 3,
+          "checkpoints": 2,
+          "session_inputs": 16,
+          "session_turns": 9,
+          "provider_attempts": 9,
+          "message_parts": 9,
+          "attempt_cleanup": 9,
+          "session_documents": 11,
+          "session_events": 200
+        },
+        "recordsSha256": "bdc55788581e8d6843bcc183da998706804056c4d2fed15511c5c598d1c565d6",
+        "integrity": "ok",
+        "foreignKeyViolations": 0
+      },
+      "cleanup": {
+        "workerExited": true,
+        "recoveryEngineClosed": true,
+        "commandPidAbsent": true,
+        "commandGroupAbsent": true,
+        "ownedLiveSurvivors": [],
+        "physicalCleanupConfirmed": true,
+        "nativeCleanupConfirmed": false,
+        "emergencyCleanupUsed": false,
+        "databaseRemoved": false,
+        "retainedEvidencePath": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-qlQlzB",
+        "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+      }
+    }
+  },
+  "limitations": [
+    "No hosted rerun or compiled runtime claim is made by this source-only corrective verification.",
+    "The frozen prior 30-minute qualification is untouched and remains qualified only against its original source and baseline-duration semantics; it does not certify this subsequent observation-window change.",
+    "No live provider requests, credentials, historical numeric-PID signals, native uncertainty acknowledgments, original fixture deletion, production Engine changes, shared dist writes or commits occurred."
+  ]
+}

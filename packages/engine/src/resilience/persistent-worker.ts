@@ -8,8 +8,103 @@ import {
   samplePersistentResources,
   type PersistentResourceSample,
 } from "./persistent-native.js";
-import { resolvePersistentSoakOptions } from "./persistent-options.js";
+import {
+  resolvePersistentSoakOptions,
+  type ResolvedPersistentSoakOptions,
+} from "./persistent-options.js";
 import { failureOf } from "./scenarios.js";
+
+export async function runPersistentLoad(
+  f: PersistentFixture,
+  options: ResolvedPersistentSoakOptions,
+  sample: (phase: string) => void,
+  started: number,
+  disconnected = () => false,
+) {
+  sample("baseline");
+  await f.cycle(0, "complete");
+  await f.cycle(1, "cancel");
+  await f.cycle(2, "text");
+  sample("mandatory-cases-settled");
+  let lastCycleElapsedMs = Math.round(performance.now() - started);
+  let checkpoint: Awaited<ReturnType<typeof f.checkpoint>> | undefined;
+  const observationStarted = performance.now(),
+    deadline = observationStarted + options.durationMs,
+    timedLimit = options.maxSamples - 8,
+    interval = options.durationMs / (timedLimit + 1),
+    optionalCycles = options.maxCycles - 3,
+    commandStride = Math.max(1, Math.ceil(options.maxCycles / 88));
+  let timedSamples = 0,
+    nextSample = timedLimit ? observationStarted + interval : Infinity;
+  while (performance.now() < deadline) {
+    assert.equal(disconnected(), false, "Persistent parent disconnected");
+    if (
+      !checkpoint &&
+      performance.now() - observationStarted >= options.durationMs / 2
+    ) {
+      sample("before-graceful-reopen");
+      checkpoint = await f.checkpoint();
+      sample("after-graceful-reopen");
+    }
+    const cycle = f.summary().cycles,
+      nextCycle =
+        observationStarted +
+        ((cycle - 3) * options.durationMs) / Math.max(1, optionalCycles);
+    if (
+      cycle < options.maxCycles &&
+      f.canAccept(checkpoint ? 7 : 8) &&
+      performance.now() >= nextCycle
+    ) {
+      const kind =
+        cycle % commandStride === 0 && f.summary().commands < 90
+          ? "complete"
+          : "text";
+      await f.cycle(cycle, kind);
+      lastCycleElapsedMs = Math.round(performance.now() - started);
+    }
+    if (performance.now() >= nextSample) {
+      sample("timed");
+      timedSamples++;
+      nextSample =
+        timedSamples < timedLimit
+          ? observationStarted + (timedSamples + 1) * interval
+          : Infinity;
+    }
+    const nextWork =
+      f.summary().cycles < options.maxCycles && f.canAccept(checkpoint ? 7 : 8)
+        ? observationStarted +
+          ((f.summary().cycles - 3) * options.durationMs) /
+            Math.max(1, optionalCycles)
+        : deadline;
+    const pause = Math.max(
+      1,
+      Math.min(
+        250,
+        nextWork - performance.now(),
+        nextSample - performance.now(),
+        deadline - performance.now(),
+      ),
+    );
+    await new Promise<void>((yes) => setTimeout(yes, pause));
+  }
+  if (!checkpoint) {
+    sample("before-graceful-reopen");
+    checkpoint = await f.checkpoint();
+    sample("after-graceful-reopen");
+  }
+  const observationEnded = performance.now(),
+    startedElapsedMs = observationStarted - started,
+    endedElapsedMs = observationEnded - started,
+    observation = {
+      startedElapsedMs,
+      endedElapsedMs,
+      durationMs: endedElapsedMs - startedElapsedMs,
+    },
+    activeDurationMs = Math.round(observationEnded - started);
+  assert.ok(observation.durationMs >= options.durationMs);
+  sample("load-complete");
+  return { checkpoint, observation, activeDurationMs, lastCycleElapsedMs };
+}
 
 if (process.argv[2] === "--persistent-soak-worker") {
   const [base, serialized] = process.argv.slice(3);
@@ -46,82 +141,21 @@ if (process.argv[2] === "--persistent-soak-worker") {
         cycles: f.summary().cycles,
       });
     };
-    sample("baseline");
-    await f.cycle(0, "complete");
-    await f.cycle(1, "cancel");
-    await f.cycle(2, "text");
-    sample("mandatory-cases-settled");
-    let lastCycleElapsedMs = Math.round(performance.now() - started);
-    let checkpoint: Awaited<ReturnType<typeof f.checkpoint>> | undefined;
-    const interval = options.durationMs / Math.max(1, options.maxSamples - 8);
-    let nextSample = started + interval;
-    const commandStride = Math.max(1, Math.ceil(options.maxCycles / 88));
-    while (performance.now() - started < options.durationMs) {
-      assert.equal(disconnected, false, "Persistent parent disconnected");
-      let elapsed = performance.now() - started;
-      if (!checkpoint && elapsed >= options.durationMs / 2) {
-        sample("before-graceful-reopen");
-        checkpoint = await f.checkpoint();
-        sample("after-graceful-reopen");
-      }
-      const cycle = f.summary().cycles;
-      const nextCycle =
-        started + (cycle * options.durationMs) / options.maxCycles;
-      if (
-        cycle < options.maxCycles &&
-        f.canAccept(checkpoint ? 7 : 8) &&
-        performance.now() >= nextCycle
-      ) {
-        const kind =
-          cycle !== 2 &&
-          cycle % commandStride === 0 &&
-          f.summary().commands < 90
-            ? "complete"
-            : "text";
-        await f.cycle(cycle, kind);
-        lastCycleElapsedMs = Math.round(performance.now() - started);
-      }
-      if (
-        performance.now() >= nextSample &&
-        samples.length < options.maxSamples - 8 + (checkpoint ? 4 : 2)
-      ) {
-        sample("timed");
-        nextSample += interval;
-      }
-      elapsed = performance.now() - started;
-      const nextWork =
-        cycle < options.maxCycles && f.canAccept(checkpoint ? 7 : 8)
-          ? nextCycle
-          : started + options.durationMs;
-      const pause = Math.max(
-        1,
-        Math.min(
-          250,
-          nextWork - performance.now(),
-          nextSample - performance.now(),
-          options.durationMs - elapsed,
-        ),
-      );
-      if (pause > 0) await new Promise<void>((yes) => setTimeout(yes, pause));
-    }
-    if (!checkpoint) {
-      sample("before-graceful-reopen");
-      checkpoint = await f.checkpoint();
-      sample("after-graceful-reopen");
-    }
-    const activeDurationMs = Math.round(performance.now() - started);
-    assert.ok(activeDurationMs >= options.durationMs);
-    sample("load-complete");
+    const load = await runPersistentLoad(
+      f,
+      options,
+      sample,
+      started,
+      () => disconnected,
+    );
     const ready = await f.crashReady();
     sample("crash-ready");
     process.send!({
       type: "crash-ready",
       ...ready,
       summary: f.summary(),
-      checkpoint,
       samples,
-      activeDurationMs,
-      lastCycleElapsedMs,
+      ...load,
       loadStoppedBy:
         f.summary().cycles === options.maxCycles
           ? "cycle-ceiling"

@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "id": "NEXT-OBSERVER-MUTATION-PUBLICATION-01",
+  "recordedAt": "2026-10-08T22:50:14.321054+00:00",
+  "status": "causal fixture reproduction and focused source correction verified; combined compiled/hosted acceptance pending",
+  "sourceCommit": "d0e5b98217aaa8a36e4c95bf22c9ba986f46cb6b",
+  "scope": [
+    "packages/engine/src/workspace/observer.test.ts"
+  ],
+  "originalFailure": {
+    "run": "actual Root whole local99cc0c595c54d491090be7d570944fa531fd9d93",
+    "fullLog": {
+      "path": "/tmp/moodcode-next-combined-full-engine.log",
+      "bytes": 663883,
+      "sha256": "1585e7c9f74055d21b2768ff3f0c9ec6156e0ccbcee1d5ad197b57f7d53eedc7"
+    },
+    "rawExcerpt": {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-observer-consumer-cause-r9tn0fxe/original-full-failure.log",
+      "bytes": 665,
+      "sha256": "185360ccee581f33e00f9e47ee22855c1c32e59ca546774f4a6ad690aaedae8e"
+    },
+    "test": "consumer mutation cannot corrupt the comparison baseline or options",
+    "compiledLocation": "packages/engine/dist/workspace/observer.test.js:188",
+    "actual": 1,
+    "expected": 2,
+    "originalSource": {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-observer-consumer-cause-r9tn0fxe/observer.test.ts",
+      "bytes": 18551,
+      "sha256": "2d848ce6cc2248ae112a2c39f617129fdede3f63470684ade7e343ade605a364"
+    }
+  },
+  "causalEvidence": {
+    "script": {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-observer-consumer-cause-r9tn0fxe/reproduce.mjs",
+      "bytes": 4009,
+      "sha256": "a2fcda107ac8575743b20ed207808c015e3ed0379dcbde321950cbbdcf0e4a22"
+    },
+    "report": {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-observer-consumer-cause-r9tn0fxe/reproduction.json",
+      "bytes": 1656,
+      "sha256": "c12cc8991e47ed63f7bb17260d87ed24db5b264bf62bc338a8df36ad80fc2a9c"
+    },
+    "actualNativeGitAndWorkspaceObserver": true,
+    "controlledBoundary": "Original second sample captured after tracked.txt write and before new.txt publication; later sample held. Both physical files existed before original predicate consumed the buffered intermediate observation.",
+    "originalAssertionReproduced": "files.size1 !==2",
+    "detachedBaselineOptionsOracles": "Actual beforeHash before, configured maxFiles2, mutated caller maxFiles1, branch main and no tampered arrays all remained correct.",
+    "limitation": "Original full log lacks poll timestamps; deterministic genuine variant reproduces the source publication race and same assertion, not a reconstruction of that exact scheduler interleaving."
+  },
+  "correction": {
+    "method": "Hold original sample calls after initial until both actual asynchronous file writes complete; release gate in finally. Wait for both genuine file hashes, then retain the original two-file, beforeHash, branch and mutation-detachment assertions.",
+    "newScenario": "A separate genuine intermediate-sample regression captures between original real writes, publishes second file, then confirms retained sample size1/complete/beforeHash before while physical new file exists. Original observer.stop is awaited and terminal next is checked.",
+    "productionChanged": false,
+    "assertionsWeakened": false,
+    "timeoutsIncreased": false,
+    "parseRetriesAdded": false,
+    "preserved": [
+      "maxFiles2 option clone",
+      "all original consumer mutation oracles",
+      "50ms observer and5000ms original readiness bound",
+      "intermediate native samples remain valid"
+    ]
+  },
+  "verification": {
+    "runtime": {
+      "node": "v26.9.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "sourceCommand": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test packages/engine/src/workspace/observer.test.ts",
+    "sourceTests": {
+      "tests": 15,
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 3358.420917,
+      "log": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-observer-consumer-cause-r9tn0fxe/corrected-source-tests.log",
+        "bytes": 1551,
+        "sha256": "145e215e7ece6edc0d92c7f5966be4561350b204f5a71a16bd3e9f99763ec676"
+      }
+    },
+    "typecheck": {
+      "exitCode": 0,
+      "noEmit": true,
+      "log": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-observer-consumer-cause-r9tn0fxe/corrected-typecheck.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "currentTest": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/workspace/observer.test.ts",
+      "bytes": 20812,
+      "sha256": "15bff29df0704f3aafbf1c5742a30010b7c39428cb9ca49769e363daa9ed5728"
+    },
+    "production": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/workspace/observer.ts",
+      "bytes": 12539,
+      "sha256": "26b1f39d469debd5e7bcf35e96b73faf2b34943f684dffa43e332867242e5314"
+    },
+    "compiledAndHosted": "Root integration rerun pending; selected passes do not complete current whole acceptance"
+  },
+  "retainedEvidence": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-observer-consumer-cause-r9tn0fxe",
+  "noLive": true,
+  "liveProviderRequests": 0,
+  "credentialsRead": false
+}
