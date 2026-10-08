@@ -41,6 +41,8 @@ import {
   type CommandExecutionObserver,
   type CommandOutputStream,
 } from "./observation.js";
+import { commandBackendCapability, WindowsJobCommandBackend } from "./backends.js";
+import { acquireExecutionLock } from "./execution-lock.js";
 
 /** Capture and artifact budgets are shared by stdout and stderr. */
 export const COMMAND_LIMITS = Object.freeze({
@@ -109,18 +111,21 @@ const ATTRIBUTION_WARNING =
   "Checkpoint differences are observations; concurrent external edits cannot be reliably attributed to this command.";
 const SCOPE_WARNING =
   "The checkpoint covers bounded workspace text files only. Commands may affect excluded files, processes, or locations outside this workspace; those effects cannot be restored by this checkpoint.";
-const PROCESS_SCOPE_WARNING =
-  "Termination confirmation covers the original POSIX process group. Descendants that create separate process groups or sessions escape this scope.";
+const processScopeWarning = (): string => process.platform === "win32"
+  ? "Termination confirmation covers processes owned by the original Windows Job Object. Commands run with the host user's file and network authority."
+  : "Termination confirmation covers the original POSIX process group. Descendants that create separate process groups or sessions escape this scope.";
+const terminationScope = (): string => process.platform === "win32" ? "windows-job-object" : "posix-process-group";
 
 function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function ensurePosix(): void {
-  if (process.platform === "win32") {
+function ensureCommandBackend(): void {
+  const capability = commandBackendCapability();
+  if (!capability.available) {
     throw new EngineError(
-      "COMMAND_PLATFORM_UNSUPPORTED",
-      "run_command requires POSIX process groups. Windows process-tree termination is not supported.",
+      capability.code ?? "COMMAND_PLATFORM_UNSUPPORTED",
+      "run_command requires an available native process-tree ownership backend.",
     );
   }
 }
@@ -129,7 +134,7 @@ async function normalizeInput(
   value: unknown,
   context: PhysicalCommandScope,
 ): Promise<CommandInput> {
-  ensurePosix();
+  ensureCommandBackend();
   if (
     !object(value) ||
     Object.keys(value).some(
@@ -239,7 +244,7 @@ async function prepareCommand(
     runId: context.runId,
     toolCallId: context.toolCallId,
     platform: process.platform,
-    termination: "posix-process-group",
+    termination: terminationScope(),
   };
   const data: JsonObject = {
     workspaceRoot: context.workspace.root,
@@ -493,6 +498,37 @@ async function runProcess(
       cleanupConfirmed: true,
       started: false,
     };
+  if (process.platform === "win32") {
+    if (context.sandbox) throw new EngineError("SANDBOX_BACKEND_UNSUPPORTED", "Windows Job Object ownership has no supported sandbox launch");
+    const backend = new WindowsJobCommandBackend();
+    if (!backend.capability().available) throw new EngineError("WINDOWS_JOB_BACKEND_UNAVAILABLE", "A native Windows Job Object host is required");
+    let lock: ReturnType<typeof acquireExecutionLock> | undefined;
+    let outcome: ProcessOutcome | undefined;
+    try {
+      if (context.executionLockPath) lock = acquireExecutionLock(context.executionLockPath);
+      outcome = await backend.execute(input, context.signal, (stream, bytes) => {
+        consume(captures[stream], bytes);
+        if (!observation || observation.failure) return;
+        try {
+          for (let at = 0; at < bytes.length; at += COMMAND_OBSERVATION_LIMITS.outputHookBytes)
+            observation.observer.output(observation.original, stream, Buffer.from(bytes.subarray(at, at + COMMAND_OBSERVATION_LIMITS.outputHookBytes)));
+        } catch (error) {
+          observationFailure(observation, error);
+          throw new EngineError("COMMAND_OBSERVATION_FAILED", "Command output observation failed");
+        }
+      }, pid => {
+        lock?.recordGroup(pid);
+        if (observation) try { observation.observer.started(observation.original, pid); }
+        catch (error) { observationFailure(observation, error); throw error; }
+      }, message => warnings.push(message));
+      if (artifactFailure) outcome.error ??= "Output artifact storage failed after the command started.";
+      return outcome;
+    } finally {
+      // A crashed engine loses its kill-on-close handle but leaves this marker
+      // active. Restart preserves unknown effects and never replays a command.
+      lock?.release(outcome?.cleanupConfirmed === true);
+    }
+  }
   const compiled = fileURLToPath(new URL("./supervisor.js", import.meta.url));
   const source = fileURLToPath(new URL("./supervisor.ts", import.meta.url));
   const child = fork(existsSync(compiled) ? compiled : source, [], {
@@ -907,7 +943,7 @@ export function createCommandTool(
   return {
     name: "run_command",
     description:
-      "Run an approved shell command in a workspace directory with bounded output and timeout. POSIX process groups are supported; Windows is unsupported. Workspace checkpoints cannot restore arbitrary command effects.",
+      "Run an approved shell command in a workspace directory with bounded output and timeout using the available native process-tree backend. Workspace checkpoints cannot restore arbitrary command effects.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -967,7 +1003,7 @@ export function createCommandTool(
       const warnings = [
         ATTRIBUTION_WARNING,
         SCOPE_WARNING,
-        PROCESS_SCOPE_WARNING,
+        processScopeWarning(),
         ...before.warnings,
       ];
       const captures = await createCaptures(context.artifactDir);
@@ -1128,7 +1164,7 @@ export function createCommandTool(
           timedOut: outcome.timedOut,
           cleanupConfirmed: outcome.cleanupConfirmed,
           started: outcome.started,
-          terminationScope: "posix-process-group",
+          terminationScope: terminationScope(),
           outputAccounting: "observed-parent-pipe-bytes",
           outputAccountingComplete: !outcome.outputDiscarded,
           ...(outcome.outputDiscarded ? { unobservedBytes: null } : {}),
@@ -1178,7 +1214,7 @@ export interface PhysicalCommandResult {
   readonly observationFailure?: string;
 }
 export const preparePhysicalCommand = normalizeInput;
-/** Reuses the exact native command supervisor, bounded artifacts and process-group cleanup. */
+/** Reuses native process ownership, exact observations and bounded artifacts. */
 export async function executePhysicalCommand(
   input: CommandInput,
   scope: PhysicalCommandScope,
@@ -1189,7 +1225,7 @@ export async function executePhysicalCommand(
   const warnings = [
     ATTRIBUTION_WARNING,
     SCOPE_WARNING,
-    PROCESS_SCOPE_WARNING,
+    processScopeWarning(),
     ...before.warnings,
   ];
   const captures = await createCaptures(scope.artifactDir);

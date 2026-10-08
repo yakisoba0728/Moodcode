@@ -15,6 +15,7 @@ import type { MoodcodeEngine } from "../engine.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
+import { commandBackendCapability } from "../tools/command/backends.js";
 import { captureWorkspace, type WorkspaceCapture } from "../workspace/index.js";
 import {
   executePhysicalCommand,
@@ -164,7 +165,7 @@ export class HostCommandService {
   }
   private active(): void {
     this.open();
-    if (!["darwin", "linux", "freebsd"].includes(process.platform))
+    if (!commandBackendCapability().available)
       fail("HOST_COMMAND_PLATFORM_UNSUPPORTED");
     if (!this.options.enabled()) fail("HOST_COMMANDS_DISABLED");
     if (this.options.unsupportedPolicy) fail("HOST_COMMAND_POLICY_UNSUPPORTED");

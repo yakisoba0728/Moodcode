@@ -473,8 +473,9 @@ function sourceSql(
     preview.workspaceId !== s.workspaceId ||
     preview.runId !== s.runId ||
     preview.toolCallId !== s.toolCallId ||
-    preview.termination !== "posix-process-group" ||
-    !["darwin", "linux", "freebsd"].includes(preview.platform as string)
+    !(preview.platform === "win32"
+      ? preview.termination === "windows-job-object"
+      : ["darwin", "linux", "freebsd"].includes(preview.platform as string) && preview.termination === "posix-process-group")
   )
     fail("OWNED_COMMAND_SOURCE_INVALID");
   const turn = nativeBody(db, "session_turns", s.turnId),
@@ -547,7 +548,7 @@ function sourceSql(
     runId: s.runId,
     toolCallId: s.toolCallId,
     platform: preview.platform,
-    termination: "posix-process-group",
+    termination: preview.termination,
     ...(preview.sandbox?{sandbox:preview.sandbox}:{}),
   };
   const innerData = { workspaceRoot, sessionId: s.sessionId, ...(preview.sandbox?{sandbox:preview.sandbox}:{}) };

@@ -1,0 +1,20 @@
+{
+  "name": "@moodcode/windows-job",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "require": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "scripts": {
+    "install": "node -e \"process.exit(0)\"",
+    "build": "node scripts/build.mjs"
+  },
+  "engines": { "node": ">=24.0.0" },
+  "files": ["index.js", "index.d.ts", "binding.gyp", "src", "scripts", "build/Release/windows_job.node"]
+}

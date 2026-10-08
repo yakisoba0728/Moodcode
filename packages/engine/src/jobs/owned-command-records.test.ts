@@ -31,7 +31,7 @@ import {
 const code = (expected: string) => (error: unknown) =>
   error instanceof EngineError && error.code === expected;
 /** Explicit trusted SQL-shape fixture; no physical process, Original callback or execution authority is claimed. */
-function fixture(t: test.TestContext) {
+function fixture(t: test.TestContext, platform: string = process.platform, termination: string = platform === "win32" ? "windows-job-object" : "posix-process-group") {
   const store = new SqliteStore(":memory:");
   t.after(() => store.close());
   const db = Reflect.get(store, "db") as DatabaseSync;
@@ -97,8 +97,8 @@ function fixture(t: test.TestContext) {
     workspaceId: "workspace",
     runId,
     toolCallId: "tool",
-    platform: process.platform,
-    termination: "posix-process-group",
+    platform,
+    termination,
   };
   const data = { workspaceRoot: root, sessionId: "session" };
   const fingerprint = createHash("sha256")
@@ -626,4 +626,21 @@ test("owned command metadata caps reject oversized rows before body parsing", (t
     () => readOwnedCommandJobs(f.db, "workspace"),
     code("OWNED_COMMAND_DOCUMENT_INVALID"),
   );
+});
+
+test("owned source fingerprints preserve exact Windows Job Object platform approval and historical POSIX approval", t => {
+  for (const platform of ["win32", "darwin", "linux", "freebsd"]) {
+    const f = fixture(t, platform);
+    validateOwnedCommandJobDatabase(f.db);
+    const actual = readOwnedCommandJob(f.db, "workspace", f.jobId);
+    assert.ok(actual);
+    assert.equal(actual.source.preparedFingerprint, f.record.source.preparedFingerprint);
+  }
+});
+
+test("owned source validation rejects mismatched platform and termination despite consistent source fingerprints", t => {
+  for (const [platform, termination] of [["win32", "posix-process-group"], ["linux", "windows-job-object"], ["unsupported", "windows-job-object"]]) {
+    const f = fixture(t, platform, termination);
+    assert.throws(() => validateOwnedCommandJobDatabase(f.db), code("OWNED_COMMAND_SOURCE_INVALID"));
+  }
 });

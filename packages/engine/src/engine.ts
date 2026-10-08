@@ -89,6 +89,7 @@ import { ModelRegistry, type ModelSpec } from './context/model-spec.js';
 import { createReadTools } from './tools/read/index.js';
 import { createPatchTool } from './tools/patch/index.js';
 import { createCommandTool } from './tools/command/index.js';
+import { commandBackendCapability } from './tools/command/backends.js';
 import { createExactEditTool } from './tools/edit/index.js';
 import { createFileActionTools } from './tools/file-actions/index.js';
 import { createPatternSearchTools } from './tools/search/index.js';
@@ -1104,7 +1105,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         commandCapability: (_context, catalogue) => {
           if (!commandRegistration) throw new EngineError('TOOL_PRODUCER_MISMATCH', 'The original engine command producer is unavailable');
           this.toolRuntime.assertRegistrationCurrent(catalogue, commandRegistration);
-          return Object.freeze({ producer: 'engine-owned-run-command' as const, platform: process.platform, supported: process.platform !== 'win32', catalogueRevision: catalogue.revision });
+          return Object.freeze({ producer: 'engine-owned-run-command' as const, platform: process.platform, supported: commandBackendCapability().available, catalogueRevision: catalogue.revision });
         }, artifacts: this.managedArtifacts }) : undefined;
       const verificationTools: ToolDefinition[] = verificationTool ? [{ ...verificationTool, prepare: async (input, context) => { await this.verificationHost.ensurePlan(context, context.signal); return verificationTool.prepare(input, context); } }] : [];
       const codeModeTools:ToolDefinition[]=options.codeMode?[{name:'execute_code',description:'Execute a restricted moodcode-json-v1 program; source and nested effects require native approval.',effectClass:'execute',inputSchema:{type:'object',required:['source','allocation'],additionalProperties:false,properties:{source:{type:'string'},allocation:{type:'object'}}},prepare:(input,ctx)=>this.codeModeHost.tools()[0]!.prepare(input,ctx),execute:(p,ctx)=>this.codeModeHost.tools()[0]!.execute(p,ctx)}]:[];
@@ -1121,9 +1122,10 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       } });
       if (this.verificationEnabled && tools.includes(coreCommand)) commandRegistration = this.toolRuntime.captureRegistration('engine', 'run_command', coreCommand);
       this.plugins = new EnginePluginManager(this.toolRuntime);
+      const commandCapability = commandBackendCapability();
       this.capabilities = {
         schemaVersion: SCHEMA_VERSION,
-        runtime: { node: process.versions.node, electron: process.versions.electron ?? null, platform: process.platform, commandExecution: process.platform === 'win32' ? 'unsupported' : 'posix-process-group' },
+        runtime: { node: process.versions.node, electron: process.versions.electron ?? null, platform: process.platform, commandExecution: commandCapability.processTree === 'windows-job-object' ? 'windows-job-object' : commandCapability.available ? 'posix-process-group' : 'unsupported' },
         providerIds: [...providers.keys()].sort(),
         tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema: structuredClone(inputSchema) })),
         modes: ['plan', 'build'], defaults: structuredClone(this.defaults),

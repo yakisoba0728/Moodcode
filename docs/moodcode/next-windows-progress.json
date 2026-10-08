@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "id": "E5-08",
+  "updatedAt": "2026-10-09",
+  "timezone": "Asia/Seoul",
+  "goal": "Implement and connect the actual native Windows Job Object backend; verify Windows2025 x64 Node24/26 process ownership, termination, output and restart uncertainty through hosted CI.",
+  "status": "implemented-hosted-verification-pending",
+  "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "branch": "codex/e5-08-native-windows",
+  "worktree": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode",
+  "sourceScope": [
+    "packages/windows-job/**",
+    "packages/engine/src/tools/command/backends*",
+    "packages/engine/src/tools/command/windows-*",
+    "packages/engine/src/tools/command/index.ts",
+    "packages/engine/src/tools/command/process-control.ts",
+    "scripts/*windows*",
+    ".github/workflows/engine-native-windows.yml",
+    "docs/moodcode/next-windows-*",
+    "package.json (native workspace/build dependency only)",
+    "package-lock.json (native dependency only)",
+    "packages/engine/package.json (native dependency only)",
+    "packages/engine/src/engine.ts (minimal capability bridge)",
+    "packages/contracts/src/index.ts (additive Windows capability value only)",
+    "packages/engine/src/jobs/host-command-service.ts (native availability gate)",
+    "packages/engine/src/jobs/owned-command-records* (exact platform/termination approval compatibility)",
+    "docs/next-windows-progress.json (requested Desktop interface pointer)"
+  ],
+  "preservedBaseline": {
+    "local": {
+      "total": 4723,
+      "passed": 4721,
+      "failed": 0,
+      "skipped": 2
+    },
+    "hostedLanes": 6,
+    "source": "docs/moodcode/engine-hardening-verification.json",
+    "newSourceRevalidation": "pending"
+  },
+  "completionCriteria": {
+    "nativeKillOnClose": true,
+    "suspendedAssignmentBeforeResume": true,
+    "nativeActiveProcessCount": true,
+    "commandExecutorWiring": true,
+    "outputDrainAndHandleClose": true,
+    "lateOpeningCleanup": true,
+    "parentCrashAndRestartUnknownNoReplay": false,
+    "actualWindows2025Node24": false,
+    "actualWindows2025Node26": false,
+    "originalLogsAndArtifactHashes": false,
+    "committedVerifiedImplementation": false
+  },
+  "validation": {
+    "local": [
+      {
+        "kind": "headless-typecheck",
+        "command": "node node_modules/typescript/bin/tsc -b packages/contracts packages/engine apps/engine-harness --pretty false",
+        "exitCode": 0,
+        "log": "artifacts/native-windows/local-typecheck.log"
+      },
+      {
+        "kind": "portable-backend-adapter-owned-approval-source",
+        "counts": {
+          "passed": 29,
+          "failed": 0,
+          "skipped": 0
+        },
+        "qualification": "Portable orchestration/approval only, not actual Windows evidence"
+      }
+    ],
+    "hosted": [],
+    "failuresPreserved": []
+  },
+  "externalConditions": {
+    "windowsHostedRunner": "available through authenticated GitHub Actions; execution pending",
+    "desktopPackaging": "N-04/N-05 owned by Desktop session; outside E5-08 completion scope"
+  },
+  "constraints": [
+    "Never replace actual Windows native evidence with portable/fake results.",
+    "Keep public API/DB/event/archive, exact approval/source binding, cancellation/unknown/no-replay and output budgets.",
+    "Job handle stays owned by the actual engine process; no detached host fallback.",
+    "Do not edit main checkout, global TODO/README, or existing engine.yml.",
+    "No account secrets, GUI user state, skip/assertion weakening or timeout relaxation."
+  ],
+  "nativePackaging": {
+    "status": "implemented-interface; actual Windows build evidence pending",
+    "package": "@moodcode/windows-job@0.1.0",
+    "workspace": "packages/windows-job",
+    "moduleEntrypoint": "index.js (synchronous ESM import/require)",
+    "binary": "packages/windows-job/build/Release/windows_job.node",
+    "bindingVersion": 1,
+    "nodeApi": 8,
+    "winDelayLoadHook": true,
+    "externalBuffers": false,
+    "runtimeDependencies": "Only Win32 and Node-API; engine production dependency must include this workspace",
+    "buildNode": "node packages/windows-job/scripts/build.mjs --runtime=node --arch=x64",
+    "buildElectron": "node packages/windows-job/scripts/build.mjs --runtime=electron --target=44.5.1 --arch=x64",
+    "architectures": {
+      "x64": "Windows2025 Node24/26 actual verification pending",
+      "arm64": "implementation/build option only; unverified, no support credit"
+    },
+    "distribution": "Desktop must preserve package-relative build/Release/windows_job.node and unpack the .node binary from ASAR. Rebuild for exact Electron/architecture using Electron headers and keep win_delay_load_hook=true. Verify loading in the actual engine host/utility process.",
+    "hostOwnership": "Job handle and output/process handles live in the actual engine process, not a detached supervisor.",
+    "nativeApi": "loadBinding, isAvailable, nativeInfo, createJob, currentProcessHandleCount; job spawnSuspended/assign/resume/terminate/activeProcessCount/close; child pid/readOutput/terminate/close",
+    "unsupported": "No Windows PTY/stdin command lifetime transport or OS file/network sandbox. No taskkill/direct-child fallback. Desktop package/signing/update validation belongs to N-04/N-05.",
+    "contract": "packages/windows-job/README.md",
+    "desktopConsumerWorktree": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode"
+  }
+}

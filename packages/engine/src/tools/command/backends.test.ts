@@ -4,21 +4,21 @@ import { WindowsJobCommandBackend, PosixCommandBackend, executeOwnedWindowsJob, 
 import { executeShell, type ShellInput } from './process-control.js';
 const input: ShellInput = { command: 'fixture command', cwd: '/fixture', timeoutMs: 10_000 };
 function gate<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
-function nativeFixture(options: { assignmentFailure?: boolean; retained?: boolean; closeFailure?: boolean; invalidObservation?: boolean; hangingSpawn?: boolean } = {}) {
-  const calls: string[] = [], childClosed = gate<{ exitCode: number | null }>(), spawnGate = gate<WindowsSuspendedProcess>();
+function nativeFixture(options: { assignmentFailure?: boolean; retained?: boolean; retainedPipes?: boolean; closeFailure?: boolean; invalidObservation?: boolean; hangingSpawn?: boolean } = {}) {
+  const calls: string[] = [], childClosed = gate<{ exitCode: number | null }>(), childExited = gate<{ exitCode: number | null }>(), spawnGate = gate<WindowsSuspendedProcess>();
   let count = 0;
-  const child: WindowsSuspendedProcess = { pid: 123, closed: childClosed.promise, async terminate() { calls.push('child.terminate'); childClosed.resolve({ exitCode: null }); } };
+  const child: WindowsSuspendedProcess = { pid: 123, exited: childExited.promise, closed: childClosed.promise, async terminate() { calls.push('child.terminate'); childClosed.resolve({ exitCode: null }); } };
   const host: WindowsJobHostPort = { platform: 'win32', killOnClose: true, suspendedAssignment: true, async createJob() {
     calls.push('create');
     return { async spawnSuspended(_input, env) { calls.push('spawn.suspended'); assert.equal(env.OPENAI_API_KEY, undefined); return options.hangingSpawn ? spawnGate.promise : child; }, async assign() { calls.push('assign'); if (options.assignmentFailure) throw new Error('private-native-error'); count = 1; }, async resume() { calls.push('resume'); }, async terminate() { calls.push('job.terminate'); count = 0; childClosed.resolve({ exitCode: null }); }, async activeProcessCount() { calls.push('observe'); return options.invalidObservation ? -1 : count; }, async close() { calls.push('close'); if (options.closeFailure) throw new Error('private-close-error'); } };
   } };
-  return { calls, host, child, spawnGate, complete() { count = options.retained ? 2 : 0; childClosed.resolve({ exitCode: 0 }); } };
+  return { calls, host, child, spawnGate, complete() { count = options.retained || options.retainedPipes ? 2 : 0; childExited.resolve({ exitCode: 0 }); if (!options.retainedPipes) childClosed.resolve({ exitCode: 0 }); } };
 }
 async function until(predicate: () => boolean): Promise<void> { for (let i = 0; i < 200; i++) { if (predicate()) return; await new Promise(resolve => setImmediate(resolve)); } assert.fail('native port fixture must progress'); }
 
 test('host commands report user authority without pretending to isolate files or network', () => {
   const capability = new PosixCommandBackend().capability(); assert.equal(capability.isolation, 'host-user'); assert.equal(capability.fileIsolation, false); assert.equal(capability.networkIsolation, false);
-  const windows = new WindowsJobCommandBackend().capability(); assert.equal(windows.available, false); assert.equal(windows.processTree, 'unsupported'); assert.equal(windows.code, 'WINDOWS_JOB_BACKEND_UNAVAILABLE');
+  const windows = new WindowsJobCommandBackend(null).capability(); assert.equal(windows.available, false); assert.equal(windows.processTree, 'unsupported'); assert.equal(windows.code, 'WINDOWS_JOB_BACKEND_UNAVAILABLE');
 });
 test('the existing shell process port delegates only to an available platform-bound ownership backend', async () => {
   const result = { exitCode: 0, signal: null, cancelled: false, timedOut: false, cleanupConfirmed: true, started: true } as const;
@@ -59,4 +59,45 @@ test('cancellation during native spawn never marks cleanup confirmed and termina
   await until(() => f.calls.includes('spawn.suspended')); abort.abort(); const outcome = await running;
   assert.equal(outcome.cleanupConfirmed, false); assert.equal(f.calls.includes('resume'), false); f.spawnGate.resolve(f.child); await until(() => f.calls.includes('child.terminate'));
 });
-test('actual Windows Job Object child-tree timeout and parent-crash verification', { skip: process.platform === 'win32' ? 'No native Windows Job Object binding is installed; portable port tests are not OS verification.' : 'Requires Windows and an actual native Job Object binding.' }, () => {});
+test('primary exit terminates descendants that keep inherited output pipes open before waiting for stream close', async () => {
+  const f = nativeFixture({ retainedPipes: true });
+  const running = executeOwnedWindowsJob(f.host, input, new AbortController().signal, () => {}, () => {}, () => {});
+  await until(() => f.calls.includes('resume')); f.complete();
+  const outcome = await running;
+  assert.ok(f.calls.includes('job.terminate')); assert.equal(outcome.cleanupConfirmed, true); assert.equal(outcome.timedOut, false);
+});
+test('native ownership deadline invalidates a late job lease without needing user cancellation', async () => {
+  const f = nativeFixture(), opening = gate<Awaited<ReturnType<WindowsJobHostPort['createJob']>>>();
+  const running = executeOwnedWindowsJob({ ...f.host, createJob: () => opening.promise }, input, new AbortController().signal, () => {}, () => {}, () => {}, { operationMs: 10, cleanupMs: 20, pollMs: 1 });
+  const outcome = await running;
+  assert.equal(outcome.cleanupConfirmed, false); assert.equal(outcome.cancelled, false); assert.equal(outcome.timedOut, false);
+  opening.resolve(await f.host.createJob()); await until(() => f.calls.includes('close'));
+  assert.equal(f.calls.includes('spawn.suspended'), false);
+});
+test('native spawn deadline terminates a late suspended child without resuming it', async () => {
+  const f = nativeFixture({ hangingSpawn: true });
+  const outcome = await executeOwnedWindowsJob(f.host, input, new AbortController().signal, () => {}, () => {}, () => {}, { operationMs: 10, cleanupMs: 20, pollMs: 1 });
+  assert.equal(outcome.cleanupConfirmed, false); assert.equal(outcome.timedOut, false);
+  f.spawnGate.resolve(f.child); await until(() => f.calls.includes('child.terminate'));
+  assert.equal(f.calls.includes('resume'), false);
+});
+test('command runtime is bounded by approved duration rather than the short native ownership deadline', async () => {
+  const f = nativeFixture();
+  const running = executeOwnedWindowsJob(f.host, input, new AbortController().signal, () => {}, () => {}, () => {}, { operationMs: 10, cleanupMs: 20, pollMs: 1 });
+  await until(() => f.calls.includes('resume'));
+  await new Promise(resolve => setTimeout(resolve, 25)); f.complete();
+  assert.equal((await running).exitCode, 0);
+});
+test('synchronous native startup exceeding the approved duration never resumes the suspended command', async () => {
+  const f = nativeFixture(), host: WindowsJobHostPort = { ...f.host, async createJob() {
+    const job = await f.host.createJob(), spawn = job.spawnSuspended.bind(job);
+    job.spawnSuspended = async (...args) => {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+      return spawn(...args);
+    };
+    return job;
+  } };
+  const outcome = await executeOwnedWindowsJob(host, { ...input, timeoutMs: 5 }, new AbortController().signal, () => {}, () => {}, () => {});
+  assert.equal(outcome.timedOut, true); assert.equal(outcome.cleanupConfirmed, true);
+  assert.equal(f.calls.includes('resume'), false); assert.ok(f.calls.includes('child.terminate'));
+});

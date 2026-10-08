@@ -17,7 +17,7 @@ export interface RunConfig { providerId: string; modelId: string; mode: 'plan' |
 export type RunConfigInput = Partial<Omit<RunConfig, 'limits' | 'budgets'>> & { limits?: Partial<RunLimits>; budgets?: Partial<import('./v2.js').EngineBudgets> };
 export interface EngineCapabilities {
   schemaVersion: number;
-  runtime: { node: string; electron: string | null; platform: string; commandExecution: 'posix-process-group' | 'unsupported' };
+  runtime: { node: string; electron: string | null; platform: string; commandExecution: 'posix-process-group' | 'windows-job-object' | 'unsupported' };
   providerIds: string[];
   tools: { name: string; description: string; inputSchema: JsonObject }[];
   modes: ('plan' | 'build')[];
