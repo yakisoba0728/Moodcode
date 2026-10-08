@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "workItem": "MC2-16a",
+  "status": "plan-and-local-evidence-passed",
+  "recordedAt": "2026-10-08T10:10:05.403217+00:00",
+  "implementationCommit": "d1b7ab07aaaab2adc3f614384cba98cfe2cc8997",
+  "plan": "engine-phase-two-media-account-plan.json",
+  "planSha256": "c99bd36bf6221890607eedfe4da4ef373d26aa392d900df1a9e3d2309b940adc",
+  "planner": "scripts/plan-media-verification.mjs",
+  "plannerSha256": "a5cd6cc4f634beeca81082918c186b537797e10f48df5e37a28a06d607b8693b",
+  "sourcePins": {
+    "packages/engine/src/media/validation.ts": "59b4f763dd4b58f5f417a695e4dfb099707a85a4c30f3caa514658d16126baa2",
+    "packages/engine/src/media/provider.ts": "034ef714e43436947e4c6fe323a73913c909005b456f680afa677ec191880166",
+    "packages/engine/src/documents/validation.ts": "440d146a614926b006ce39137f77925623defdc0805aeaab704f3f6b8a200c7b",
+    "packages/engine/src/documents/provider.ts": "15102094b8ae821a3c3a6b91282d47a396757bebcaa7b899cff4c99bd2edb359",
+    "packages/engine/src/provider/codex.ts": "a3e1dc58423449b3a00576c7e005130185ae6773cb2c788bdae90cba8ae71e99",
+    "packages/engine/src/provider/responses.ts": "062bb8ac5aa5af97e0eb70e070b4b6c7d63c3d5ea9ec68c97d23067c5c13c06d",
+    "packages/engine/src/provider/anthropic.ts": "38cb8a65bd3ce394015e8927a39609609a85d545929dc350df8b21e92cdbf13f",
+    "packages/engine/src/provider/openai-compatible.ts": "4c11ca5cc8280016f17fed7e1f69bef18f5f3a1564484042b1714bea402c2fe9",
+    "packages/engine/src/context/model-spec.ts": "5f1d6c61eee7394e36b1192b3e5917f2effb82af0cc3b571c21335437f4d138a"
+  },
+  "sourcePinsUnchanged": true,
+  "cli": {
+    "matrixProviders": 4,
+    "requiredCases": 10,
+    "exactCodexModelSelection": true,
+    "negativeAdmissions": [
+      {
+        "arguments": [
+          "--live"
+        ],
+        "exitCode": 1,
+        "planEmitted": false
+      },
+      {
+        "arguments": [
+          "--provider",
+          "unknown"
+        ],
+        "exitCode": 1,
+        "planEmitted": false
+      },
+      {
+        "arguments": [
+          "--model",
+          "unbound"
+        ],
+        "exitCode": 1,
+        "planEmitted": false
+      },
+      {
+        "arguments": [
+          "--provider",
+          "codex",
+          "--provider",
+          "codex"
+        ],
+        "exitCode": 1,
+        "planEmitted": false
+      },
+      {
+        "arguments": [
+          "--provider"
+        ],
+        "exitCode": 1,
+        "planEmitted": false
+      },
+      {
+        "arguments": [
+          "--provider",
+          "codex",
+          "--model",
+          "bad\nmodel"
+        ],
+        "exitCode": 1,
+        "planEmitted": false
+      }
+    ]
+  },
+  "localRegression": {
+    "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 packages/engine/src/media/provider.test.ts packages/engine/src/media/store.test.ts packages/engine/src/documents/provider.test.ts packages/engine/src/documents/store.test.ts packages/engine/src/documents/validation.test.ts packages/engine/src/provider/responses.test.ts packages/engine/src/integration/input-media.integration.test.ts packages/engine/src/context/document-wiring-review.test.ts",
+    "log": "/tmp/moodcode-media-plan-source.log",
+    "logSha256": "3e5922375f6741f5c869767cd8801c1a6fc91de53cc53e4c50bc89b08e909ae1",
+    "tests": 254,
+    "pass": 254,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "liveProviderCalls": 0,
+  "accountConfigurationRead": false,
+  "modelRecognitionVerified": false,
+  "environmentDebt": {
+    "id": "E5-13",
+    "status": "open"
+  },
+  "scope": "MC2-16a explicitly requires a verification plan and evidence without account calls. MC2-16b/c/d, actual model support, audio/video/output and environmental debts remain open."
+}

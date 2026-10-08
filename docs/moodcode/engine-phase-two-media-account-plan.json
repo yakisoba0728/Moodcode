@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 1,
+  "workItem": "MC2-16a",
+  "kind": "account-media-verification-plan",
+  "state": "plan-only",
+  "liveProviderCalls": 0,
+  "accountConfigurationRead": false,
+  "sourcePins": {
+    "packages/engine/src/media/validation.ts": "59b4f763dd4b58f5f417a695e4dfb099707a85a4c30f3caa514658d16126baa2",
+    "packages/engine/src/media/provider.ts": "034ef714e43436947e4c6fe323a73913c909005b456f680afa677ec191880166",
+    "packages/engine/src/documents/validation.ts": "440d146a614926b006ce39137f77925623defdc0805aeaab704f3f6b8a200c7b",
+    "packages/engine/src/documents/provider.ts": "15102094b8ae821a3c3a6b91282d47a396757bebcaa7b899cff4c99bd2edb359",
+    "packages/engine/src/provider/codex.ts": "a3e1dc58423449b3a00576c7e005130185ae6773cb2c788bdae90cba8ae71e99",
+    "packages/engine/src/provider/responses.ts": "062bb8ac5aa5af97e0eb70e070b4b6c7d63c3d5ea9ec68c97d23067c5c13c06d",
+    "packages/engine/src/provider/anthropic.ts": "38cb8a65bd3ce394015e8927a39609609a85d545929dc350df8b21e92cdbf13f",
+    "packages/engine/src/provider/openai-compatible.ts": "4c11ca5cc8280016f17fed7e1f69bef18f5f3a1564484042b1714bea402c2fe9",
+    "packages/engine/src/context/model-spec.ts": "5f1d6c61eee7394e36b1192b3e5917f2effb82af0cc3b571c21335437f4d138a"
+  },
+  "matrix": [
+    {
+      "providerId": "codex",
+      "modelId": null,
+      "accountVerified": false,
+      "image": {
+        "adapter": "declared-input-image",
+        "model": "unverified"
+      },
+      "pdf": {
+        "adapter": "unsupported",
+        "model": "not-requested"
+      },
+      "audio": "not-implemented",
+      "video": "not-implemented",
+      "generatedMedia": "not-implemented",
+      "requiredCases": [
+        "image-recognition",
+        "invalid-mime-signature",
+        "oversized-payload",
+        "unknown-model-capability",
+        "unknown-pdf-token-cost",
+        "partial-generation",
+        "duplicate-delivery",
+        "source-removal-or-change",
+        "restart-and-paused-import"
+      ]
+    },
+    {
+      "providerId": "openai-responses",
+      "modelId": null,
+      "accountVerified": false,
+      "image": {
+        "adapter": "declared-input-image",
+        "model": "unverified"
+      },
+      "pdf": {
+        "adapter": "explicit-pdfModelIds-and-modelSpec-required",
+        "model": "unverified",
+        "unknownTokenCost": "two-independent-opt-ins-required"
+      },
+      "audio": "not-implemented",
+      "video": "not-implemented",
+      "generatedMedia": "not-implemented",
+      "requiredCases": [
+        "image-recognition",
+        "pdf-page-recognition",
+        "invalid-mime-signature",
+        "oversized-payload",
+        "unknown-model-capability",
+        "unknown-pdf-token-cost",
+        "partial-generation",
+        "duplicate-delivery",
+        "source-removal-or-change",
+        "restart-and-paused-import"
+      ]
+    },
+    {
+      "providerId": "anthropic",
+      "modelId": null,
+      "accountVerified": false,
+      "image": {
+        "adapter": "declared-input-image",
+        "model": "unverified"
+      },
+      "pdf": {
+        "adapter": "unsupported",
+        "model": "not-requested"
+      },
+      "audio": "not-implemented",
+      "video": "not-implemented",
+      "generatedMedia": "not-implemented",
+      "requiredCases": [
+        "image-recognition",
+        "invalid-mime-signature",
+        "oversized-payload",
+        "unknown-model-capability",
+        "unknown-pdf-token-cost",
+        "partial-generation",
+        "duplicate-delivery",
+        "source-removal-or-change",
+        "restart-and-paused-import"
+      ]
+    },
+    {
+      "providerId": "openai-compatible",
+      "modelId": null,
+      "accountVerified": false,
+      "image": {
+        "adapter": "declared-input-image",
+        "model": "unverified"
+      },
+      "pdf": {
+        "adapter": "unsupported",
+        "model": "not-requested"
+      },
+      "audio": "not-implemented",
+      "video": "not-implemented",
+      "generatedMedia": "not-implemented",
+      "requiredCases": [
+        "image-recognition",
+        "invalid-mime-signature",
+        "oversized-payload",
+        "unknown-model-capability",
+        "unknown-pdf-token-cost",
+        "partial-generation",
+        "duplicate-delivery",
+        "source-removal-or-change",
+        "restart-and-paused-import"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "image-recognition",
+      "execution": "live",
+      "acceptance": "A real valid image containing a random visual answer absent from the text prompt; exact answer and attachment SHA are independently recorded.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "pdf-page-recognition",
+      "execution": "live-responses-only",
+      "acceptance": "A real well-formed PDF with text and page artwork; exact supported model, two unknown-document-token opt-ins and independently checked page answer are required.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "invalid-mime-signature",
+      "execution": "local-before-live",
+      "acceptance": "Mismatch declared MIME and actual bytes; no credential lookup, remote request or accepted Run.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "oversized-payload",
+      "execution": "local-before-live",
+      "acceptance": "Per-item, decoded aggregate and serialized request bounds reject before remote dispatch.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "unknown-model-capability",
+      "execution": "local-before-live",
+      "acceptance": "Missing exact provider/model media declaration stays unknown and prevents dispatch.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "unknown-pdf-token-cost",
+      "execution": "local-before-live",
+      "acceptance": "Either omitted independent opt-in rejects; opted-in diagnostics remain incomplete with documentTokens=null.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "partial-generation",
+      "execution": "local-before-live",
+      "acceptance": "Truncated/cancelled stream is not a recognition receipt; actual iterator cleanup and native uncertainty are retained.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "duplicate-delivery",
+      "execution": "local-before-live",
+      "acceptance": "Exact accepted input retry preserves native identity and does not create a second request.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "source-removal-or-change",
+      "execution": "local-before-live",
+      "acceptance": "Deleted/modified blob or owner is rejected at dispatch; prior success is historical evidence only.",
+      "state": "pending",
+      "evidence": null
+    },
+    {
+      "id": "restart-and-paused-import",
+      "execution": "local-before-live",
+      "acceptance": "Native source/refs survive export and import; restored history does not automatically dispatch a producer.",
+      "state": "pending",
+      "evidence": null
+    }
+  ],
+  "evidenceContract": {
+    "identity": [
+      "exact-provider-id",
+      "exact-model-id",
+      "adapter-source-sha",
+      "host-model-capability-sha",
+      "runtime-version",
+      "observed-at"
+    ],
+    "input": [
+      "fixture-sha",
+      "mime",
+      "decoded-bytes",
+      "segment-or-page-anchor",
+      "prompt-sha",
+      "native-input-run-turn-attempt-ids"
+    ],
+    "observation": [
+      "request-count",
+      "recognition-answer-hash",
+      "independent-expected-answer-check",
+      "native-terminal-state",
+      "actual-cleanup-receipt",
+      "usage-or-null"
+    ],
+    "redact": [
+      "credentials",
+      "account-tokens",
+      "authorization-headers",
+      "raw-fixture-or-response-contents"
+    ],
+    "success": "Only an independently checked answer from an actual account request proves recognition. HTTP success, adapter declaration and a scripted fixture do not."
+  },
+  "nextExecution": {
+    "local": "Use the existing image/PDF source tests and native history/archive tests before account execution.",
+    "live": "Select exact account/provider/model and execute tools-free bounded fixtures after current capability/source checks. Existing Codex image executors are scripts/verify-session-image.mjs --live and scripts/verify-media-history.mjs --live; neither proves PDF support. scripts/verify-codex.mjs verifies text coding.",
+    "newModalities": "MC2-16b/c/d need new segment, capability, output artifact and actual supported-model evidence separately."
+  },
+  "environmentDebt": {
+    "id": "E5-13",
+    "state": "open",
+    "reason": "This plan makes no actual multimodal account request."
+  },
+  "recordedAt": "2026-10-08T10:10:05.403217+00:00",
+  "implementationCommit": "d1b7ab07aaaab2adc3f614384cba98cfe2cc8997",
+  "providerIdentifiers": "Built-in default identifiers; custom host IDs require a corresponding exact declaration before execution."
+}

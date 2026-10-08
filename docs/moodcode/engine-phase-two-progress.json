@@ -6,7 +6,7 @@
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
   "completedFamilies": 12,
-  "completedWorkItems": 53,
+  "completedWorkItems": 54,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -771,13 +771,16 @@
       "title": "media 확대·실제 공급자 검증",
       "priority": "P2/P3",
       "wave": "ENV/WX",
-      "status": "pending",
+      "status": "in_progress",
       "workItems": [
         {
           "id": "MC2-16a",
           "completion": "기존 image/PDF 실제 계정·모델 검증 계획과 증거 기록. 이 문서 작업에서는 계정 호출하지 않음",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-media-account-plan.json",
+            "engine-phase-two-media-account-plan-verification.json"
+          ]
         },
         {
           "id": "MC2-16b",
@@ -797,7 +800,8 @@
           "status": "pending",
           "evidence": []
         }
-      ]
+      ],
+      "notes": "MC2-16a verification planning only: executable account-free planner captures nine source hashes, exact proposed provider/model, four adapter lanes, ten required cases and native recognition/cleanup/usage evidence requirements. CLI positive selections and six invalid admissions, 254 actual local image/PDF regression tests pass. No provider/account configuration is read and no live request is issued. Existing opt-in Codex image executors and standard Responses-only exact PDF declaration/two token-uncertainty opt-ins are distinguished. MC2-16b/c/d and E5-13 remain open; plan output is not recognition evidence."
     },
     {
       "id": "MC2-17",
@@ -951,5 +955,5 @@
       "notes": " One isolated agent now owns the complete actual feature and failure/recovery tests, as recorded in engine-phase-two-parallel-features.md. No completion credit before Root integration and final aggregate gates."
     }
   ],
-  "updatedAt": "2026-10-08T09:45:23.336904+00:00"
+  "updatedAt": "2026-10-08T10:10:05.403217+00:00"
 }
