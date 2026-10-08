@@ -18,6 +18,8 @@ import {
   type ChildStorageRecord,
 } from './storage-binding.js';
 import { ActualChildTeamBridge } from './team-bridge.js';
+import { holdChildProviderAdmission } from './provider-admission.js';
+import { TEAM_MODEL_TOOL_NAMES } from '../teams/model-tools.js';
 import { WorktreeManager } from "../worktrees/index.js";
 import {
   ChildTaskManager,
@@ -276,6 +278,7 @@ export class EngineChildren {
       "merge_child_changes",
     ];
     if (this.options.toolDiscoveryPolicy) available.push("discover_tools");
+    if (this.options.teamModelTools === true) available.push(...TEAM_MODEL_TOOL_NAMES);
     if (request.tools.some((name) => !available.includes(name)))
       throw new EngineError(
         "CHILD_TOOL_UNAVAILABLE",
@@ -339,6 +342,7 @@ export class EngineChildren {
       proposals: false,
       proposalApply: false,
       teams: false,
+      teamModelTools: false,
       proposalContextPolicy: undefined,
       dbPath: join(this.directory, request.task.id, "engine.sqlite"),
       artifactDir: join(this.directory, request.task.id, "artifacts"),
@@ -380,6 +384,7 @@ export class EngineChildren {
         },
       },
     });
+    const admitProvider = holdChildProviderAdmission(engine);
     let unlink: (() => void) | undefined;
     try {
       const configured: unknown = this.options.configureChild?.(engine, structuredClone(request.task));
@@ -475,14 +480,17 @@ export class EngineChildren {
       this.executions.set(request.task.id, execution);
       return {
         runId: receipt.runId,
+        admitted: admitProvider,
         wait: execution.wait,
         cancel: async () => {
           if (!execution.closed) engine.coordinator.cancel(receipt.runId);
+          admitProvider();
           await finished;
         },
       };
     } catch (error) {
       unlink?.();
+      admitProvider();
       await engine.close();
       throw error;
     }
@@ -492,6 +500,18 @@ export class EngineChildren {
     const execution = this.executions.get(childTaskId);
     if (!execution || execution.closed) return [];
     return execution.engine.store.listPendingRunApprovals(execution.runId);
+  }
+  /** An actual live owner selects the private child engine; caller IDs alone do not. */
+  resolveTeamModelExecution(owner: import('../teams/types.js').TeamMemberOwnerProof): MoodcodeEngine {
+    if (owner.kind !== 'child' || !owner.childTaskId) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Expected the original actual child owner');
+    const original = this.teamBridge.capture(owner.rootSessionId, owner.childTaskId);
+    try {
+      const target = this.teamBridge.readTarget(original);
+      if (target.childRunId !== owner.runId || target.childSessionId !== owner.sessionId || target.storageBindingSha256 !== owner.childStorageSha256 || target.rootRunId !== owner.rootRunId || target.workspaceId !== owner.workspaceId) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Child tool owner changed after actual admission');
+      const execution = this.executions.get(owner.childTaskId);
+      if (!execution || execution.closed) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Child tool owner is unavailable');
+      return execution.engine;
+    } finally { this.teamBridge.release(original); }
   }
   /** Host-observed lifecycle metadata; a confirmed closed member has no input capability. */
   describeTeamOwner(rootSessionId: string, childTaskId: string) {

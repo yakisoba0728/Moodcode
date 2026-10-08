@@ -270,7 +270,9 @@
           "status": "complete",
           "evidence": [
             "engine-phase-two-teams.md",
-            "engine-phase-two-teams-verification.json"
+            "engine-phase-two-teams-verification.json",
+            "engine-phase-two-team-model-tools.md",
+            "engine-phase-two-team-model-tools-verification.json"
           ]
         },
         {
@@ -279,7 +281,9 @@
           "status": "complete",
           "evidence": [
             "engine-phase-two-teams.md",
-            "engine-phase-two-teams-verification.json"
+            "engine-phase-two-teams-verification.json",
+            "engine-phase-two-team-model-tools.md",
+            "engine-phase-two-team-model-tools-verification.json"
           ]
         },
         {
@@ -288,7 +292,9 @@
           "status": "in_progress",
           "evidence": [
             "engine-phase-two-teams.md",
-            "engine-phase-two-teams-verification.json"
+            "engine-phase-two-teams-verification.json",
+            "engine-phase-two-team-model-tools.md",
+            "engine-phase-two-team-model-tools-verification.json"
           ]
         },
         {
@@ -297,18 +303,20 @@
           "status": "in_progress",
           "evidence": [
             "engine-phase-two-teams.md",
-            "engine-phase-two-teams-verification.json"
+            "engine-phase-two-teams-verification.json",
+            "engine-phase-two-team-model-tools.md",
+            "engine-phase-two-team-model-tools-verification.json"
           ]
         }
       ],
-      "notes": "DB18 native immutable team/member/task revisions, CAS heads, exact selected alias permissions/generation/expiry, durable bounded mailbox/receipts/cursors, actual recipient-current checks and readonly history complete MC2-06a/b. Original host-approved current live child Run steer admission, safe InputScheduler promotion and four genuine SIGKILL boundaries provide c/d groundwork. Execution-wide alias uncertainty and actual audited child input/Run/request proof are validated; import pauses without rebind/wake. Final typecheck0, engine3973/3971pass/0fail/2existingWindows skips, broad source660pass and authored fixture3pass; 39 frozen sources unchanged. MC2-06c/d remain in progress for actor-bound model tools, terminal resident continuation, imported activation and explicit uncertain delivery ACK/resume. Primary-only metadata does not prove unavailable child inputs, and imported historical re-export can lack exact typed child coverage."
+      "notes": "DB18 native immutable team/member/task revisions, CAS heads, exact selected alias permissions/generation/expiry, durable bounded mailbox/receipts/cursors, actual recipient-current checks and readonly history complete MC2-06a/b. Original host-approved current live child Run steer admission, safe InputScheduler promotion and four genuine SIGKILL boundaries provide c/d groundwork. Execution-wide alias uncertainty and actual audited child input/Run/request proof are validated; import pauses without rebind/wake. Final typecheck0, engine3973/3971pass/0fail/2existingWindows skips, broad source660pass and authored fixture3pass; 39 frozen sources unchanged. MC2-06c/d remain in progress for actor-bound model tools, terminal resident continuation, imported activation and explicit uncertain delivery ACK/resume. Primary-only metadata does not prove unavailable child inputs, and imported historical re-export can lack exact typed child coverage. A later separate model opt-in fixes the catalogue and binds one ORIGINAL exact actor per actual execution. Four root/child tools, exact native mutation approvals, original coordinator ToolContext/Turn/Attempt and selected alias/profile checks, bounded complete model pages and actual provider admission barrier are integrated. Another28 tests cover 11 scoped tools,12 actual consumers,3 independent native context/task proofs and2 real child admission/cancel observations. Final typecheck0, engine4001/3999pass/0fail/2existingWindows skips, broad source688pass and scripted fixture3pass;14 sources unchanged. Terminal resident continuation/import activation/uncertain ACK-resume still keep MC2-06c/d in progress."
     },
     {
       "id": "MC2-07",
       "title": "역할 workflow·recipe·child join",
       "priority": "P2",
       "wave": "W4",
-      "status": "pending",
+      "status": "in_progress",
       "workItems": [
         {
           "id": "MC2-07a",
@@ -334,7 +342,8 @@
           "status": "pending",
           "evidence": []
         }
-      ]
+      ],
+      "notes": "Parallel implementation of bounded workflow schemas/recipes, native revision/head CAS/reducer and original host readonly-stage child consumption is underway. This commit does not integrate the concurrent workflow modules or claim any MC2-07 work item complete."
     },
     {
       "id": "MC2-08",

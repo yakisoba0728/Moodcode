@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "stage": "MC2-06c/d actor-bound current root/child model team consumption and actual provider admission",
+  "status": "passed",
+  "recordedAt": "2026-10-08T01:28:35.944092+00:00",
+  "parentCommit": "de912e5eb3748f5c81f29d33e9d7972928849e7a",
+  "implementationIdentity": "14 implementation/test source hashes frozen before final typecheck, compiled full engine, broad direct-source and authored coding fixtures; verified unchanged after all gates. Concurrent next workflow modules are excluded, not integrated and not claimed complete.",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "newTests": 28,
+  "primaryDatabaseVersion": 18,
+  "actualSqliteSchemaRows": 128,
+  "recoveryCatalogueRowCap": 128,
+  "checks": [
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-team-model-type-final.log",
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "engine",
+      "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-team-model-engine-final.log",
+      "logSha256": "dbe9501dfe251fd1378fe09f8352ef38a781d4a43a8ccf6762041f1a88f2f1da",
+      "tests": 4001,
+      "pass": 3999,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0,
+      "durationMs": 161594.034
+    },
+    {
+      "kind": "source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=4 packages/engine/src/teams/*.test.ts packages/engine/src/child-tasks/*.test.ts packages/engine/src/proposals/*.test.ts packages/engine/src/lifecycle/*.test.ts packages/engine/src/permission/*role-resources*.test.ts packages/engine/src/recovery/*.test.ts packages/engine/src/storage/migrations.test.ts packages/engine/src/storage/archive.test.ts packages/engine/src/storage/v1-compatibility.test.ts packages/engine/src/storage/child-storage-owner-crash-review.test.ts packages/engine/src/integration/children.integration.test.ts packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts packages/engine/src/runner/coordinator.test.ts packages/engine/src/runner/native-execution.test.ts",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-team-model-source-final.log",
+      "logSha256": "55fe0f1d85e38c313dcf6e0811ee21bf91286d1996b4879f131b08e2cfbe1e22",
+      "tests": 688,
+      "pass": 688,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 22341.027625
+    },
+    {
+      "kind": "fixtures",
+      "command": "node scripts/evaluate-engine.mjs",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-team-model-eval-final.log",
+      "logSha256": "49ee1fb02ef75d55b4ef187261ab49394c45a1ff199ff092d68c887ef9c5efb9",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "liveProviderCalls": 0
+    }
+  ],
+  "sourceHashes": {
+    "packages/engine/src/child-tasks/engine-host.ts": "5edb22f80fdf2e2893d74dfc774261e6a84b4031d4b82466866ad20ee54ad974",
+    "packages/engine/src/child-tasks/index.ts": "67a6733c6b4cf0a02aa270d7076ed30461886ebf9b9530db14fad439ae577b94",
+    "packages/engine/src/child-tasks/provider-admission.integration.test.ts": "32dc8404ec37103efe9c4c1f7aaee9f9dba3154c90644c5ac424da593fd5c676",
+    "packages/engine/src/child-tasks/provider-admission.ts": "d30d255919480d2115f79777f0b64683b58843354f0e4bac8bc190dfdd3dfd97",
+    "packages/engine/src/engine.ts": "170fdb0dcac06a0fb97511b291e736a3553cd77b8e21ec019cc44ea6c922f31c",
+    "packages/engine/src/index.ts": "ab5d5ca9dd7f5e8f49e9df09f259e10d754a2afdf579ef8ca82474b9ac64d1cf",
+    "packages/engine/src/runner/index.ts": "689a29f60399b12d0545ae2f70f8f14cc4e3cca20e324aaedadf7e5b0c4d800b",
+    "packages/engine/src/teams/fixtures/model-tools.ts": "c9bda34882a9882a8a81e5a8f7eb13c43b3f9c935e28e28958420ad3a8b80e85",
+    "packages/engine/src/teams/model-tool-catalogue.ts": "e02b041ab088a2e3601713b2db68efe970bb1ec770047b7b3c68d02465cb3e81",
+    "packages/engine/src/teams/model-tool-host.ts": "368124e029e7ea9685b29cd5db800f4bdc1e029804f6d3920be01882766db223",
+    "packages/engine/src/teams/model-tools-host-proof.test.ts": "a77016e499999cc362c97cf939fa204307e6ebc5bcd3d72a7b5c6477536fe9df",
+    "packages/engine/src/teams/model-tools.integration.test.ts": "76791d479d8c9c5ec74e436b34d234d68f4403b40752e044542bc719f2905c59",
+    "packages/engine/src/teams/model-tools.test.ts": "037e277eed4a6d74bb7fa5888551501872eb2a3b03b059130d19fab422e14779",
+    "packages/engine/src/teams/model-tools.ts": "59e975712197620d719102129238323c94e327a61dee88471573164d87c6bf73"
+  },
+  "coverage": [
+    "Four fixed opt-in team model tools with explicit host-selected root/child actor; model cannot select actor/workspace/team/member/generation or unapproved recipient.",
+    "11 tool/parser/real ScopedToolRuntime checks: ORIGINAL prepared object, operation/context/hash pinning, exact writes, readonly complete pages, valid complete UTF-8/input/output caps, policy/deny and grant bypass rejection.",
+    "12 actual Engine/Git/SQLite integration cases: native allowed fingerprint and request receipt, frozen mailbox prefix through approval, worker task claim/completion, selected observer/receive-only alias, parent readonly profile, model extra actor fields, recipient exclusion, denial/cancel/release, copied context, default-off/unbound, close/reopen and output budget.",
+    "Actual explicitly bound child consumes read/send/claim/complete in original current Run using four calls/five turns within its six-turn/eight-call reservation. No added input, Run or budget reservation; child remains teams/model flag false with only explicit requested root handlers.",
+    "Three independent actual consumer proofs: signal/accessor and workspace-root accessor on the ORIGINAL executing context invoke zero getters and perform zero writes, allowed native approvals retained; changed actual task revision while approval pending cannot be claimed.",
+    "Two actual provider admission tests: two siblings first enter provider only after durable running/Run ID/root+mirror admission and worktree ownership; parent cancellation at held native task commit causes zero child provider dispatch, zero child usage, native cancelled state, confirmed close and owner release.",
+    "Existing actual child current input/crash/archive, source/proposal/lifecycle/role-resource/recovery/native scheduler regressions continue to pass, with the same original provider iterators and bounded cleanup evidence."
+  ],
+  "integrationRepairs": [
+    "Use exactApproval only for the three mutation tools; readonly mailbox respects its normal policy without a forced write approval.",
+    "Settle held provider initialization on the actual AbortSignal and release its original gate on child cancellation/setup failure; do not mark a clean zero-dispatch cancellation uncertain.",
+    "Require original coordinator contexts and check plain own descriptors before signal/workspace access, including prototype/deletion changes; native outer approval remains tied to actual original execution.",
+    "Validate normalized model input against the native actual tool row and pin the first inner preparation fingerprint, not a caller-provided actor or chosen historical approval.",
+    "Pin host physical team binding and unresolved execution quarantine during binding, preparation, recipient observation and effect execution.",
+    "Fixture path join shadowing and assertion type narrowing repaired; actual parent generator may settle naturally on abort, so native observed cleanup replaces an incorrect mandatory-return-count expectation."
+  ],
+  "limitations": [
+    "This is current live root/child model consumption, not terminal resident child continuation. MC2-06c/d remain in progress.",
+    "Terminal new Run/admission/budget ledger, imported team activation and explicit uncertain delivery ACK/resume remain open; no automatic wake, replay or root/child path rebinding.",
+    "Native team board completion does not establish a coding verification result or grant file merge effects.",
+    "Full model JSON is limited to32KiB and minimum output budget1KiB; complete overlarge reads fail rather than truncate/advance cursor, while persisted writes can return compact receipt metadata.",
+    "No GUI exposure, live provider calls, push/deploy or new supported Windows cleanup claim."
+  ],
+  "progress": {
+    "completedWorkItems": 30,
+    "totalWorkItems": 80,
+    "completedFamilies": 7,
+    "totalFamilies": 20,
+    "goalStatus": "active"
+  }
+}

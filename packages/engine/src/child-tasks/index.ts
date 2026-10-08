@@ -63,6 +63,8 @@ export interface ChildStart {
 }
 export interface ChildRunHandle {
   runId: string;
+  /** Synchronous release after the actual running task and child Run ID are durable. */
+  admitted?(): void;
   wait(): Promise<ChildOutcome>;
   cancel(): Promise<void>;
 }
@@ -667,6 +669,13 @@ export class ChildTaskManager {
         state: live.controller.signal.aborted ? "cancelling" : "running",
         childRunId: handle.runId,
       });
+      if (!live.controller.signal.aborted && handle.admitted) {
+        const result: unknown = handle.admitted();
+        if (result !== undefined) {
+          void Promise.resolve(result).catch(() => {});
+          throw new EngineError('INVALID_CHILD_ADMISSION_HOOK', 'Child provider admission must synchronously return void');
+        }
+      }
       if (live.controller.signal.aborted)
         await within(handle.cancel(), this.timeout);
       const outcome = await abortable(

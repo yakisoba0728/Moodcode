@@ -50,6 +50,10 @@ import { WorkspaceExecutionSource, type WorkspaceExecutionSourceLimits } from '.
 import type { DiagnosticExecutionPageOptions } from './diagnostics/execution-observation-types.js';
 import { readNativeCodingEvidence, type NativeCodingEvidenceOptions } from './diagnostics/native-attempt-manifest.js';
 import { InputScheduler } from './runner/input-scheduler.js';
+import { waitChildProviderAdmission } from './child-tasks/provider-admission.js';
+import { bindChildTeamModelCatalogue, consumeChildTeamModelCatalogue } from './teams/model-tool-catalogue.js';
+import { EngineTeamModelToolHost, type BindTeamModelToolsInput, type TeamModelToolsBinding } from './teams/model-tool-host.js';
+import { createTeamModelTools, TEAM_MODEL_TOOL_NAMES, TEAM_MODEL_WRITE_TOOL_NAMES } from './teams/model-tools.js';
 import { ScriptedProvider } from './provider/index.js';
 import { validateHostGenerationRequest } from './provider/generation.js';
 import { ApprovalManager } from './permission/index.js';
@@ -176,6 +180,8 @@ export interface EngineOptions {
   proposalApply?: boolean;
   /** Explicit host team membership, native mailbox/board and current child input delivery. */
   teams?: boolean;
+  /** Fixed tool catalogue; host must separately bind an actual selected team member. */
+  teamModelTools?: boolean;
   /** Exact host-selected pending proposals projected as read-only model data. */
   proposalContextPolicy?: ProposalContextPolicy;
   /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
@@ -363,6 +369,9 @@ export class MoodcodeEngine {
   private readonly teamRecords: TeamStorage;
   private readonly teamHost: TeamHostService;
   private readonly teamService: TeamService;
+  private readonly teamModelToolsEnabled: boolean;
+  private readonly teamModelHost: EngineTeamModelToolHost;
+  private readonly teamModelDefinitions: readonly ToolDefinition[];
   private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
   private readonly verificationHost: VerificationHostService;
   private readonly verificationEnabled: boolean;
@@ -417,6 +426,9 @@ export class MoodcodeEngine {
     if (options.proposals !== undefined && typeof options.proposals !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposals must be an explicit boolean');
     if (options.teams !== undefined && typeof options.teams !== 'boolean') throw new EngineError('INVALID_CONFIG', 'teams must be an explicit boolean');
     this.teamsEnabled = options.teams === true;
+    if (options.teamModelTools !== undefined && typeof options.teamModelTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'teamModelTools must be an explicit boolean');
+    this.teamModelToolsEnabled = options.teamModelTools === true;
+    if (this.teamModelToolsEnabled && !this.teamsEnabled) throw new EngineError('INVALID_CONFIG', 'Model team tools require explicit host teams');
     this.proposalsEnabled = options.proposals === true;
     if (options.proposalApply !== undefined && typeof options.proposalApply !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposalApply must be an explicit boolean');
     this.proposalApplyEnabled = options.proposalApply === true;
@@ -620,7 +632,10 @@ export class MoodcodeEngine {
       });
       this.formatters = new FormatterRegistry();
       this.changes = new WorkspaceChangeHub({ signal: this.hostResources.signal });
-      this.children = new EngineChildren(this, { ...options, ...(repositoryPolicy ? { repositoryContextPolicy: repositoryPolicy } : {}), ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => new MoodcodeEngine(value), storageBinding);
+      this.children = new EngineChildren(this, { ...options, ...(repositoryPolicy ? { repositoryContextPolicy: repositoryPolicy } : {}), ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => {
+        bindChildTeamModelCatalogue(value, this.teamModelDefinitions);
+        return new MoodcodeEngine(value);
+      }, storageBinding);
       const teamOwners = new EngineTeamOwners(this);
       this.teamRecords = this.store.createTeamStorage({ checkBinding: knowledgeBinding,
         readMemberOwner: original => this.teamHost.readMemberOwner(original),
@@ -662,6 +677,22 @@ export class MoodcodeEngine {
         release: original => this.children.teamBridge.release(original as ChildTeamTarget),
       } });
       this.teamRecords.recoverInterruptedDeliveries();
+      this.teamModelHost = new EngineTeamModelToolHost({ owner: teamOwners, service: this.teamService,
+        rootSessionWorkspace: sessionId => this.store.getSession(sessionId).workspaceId,
+        getTeam: (workspaceId,teamId) => nativeTeams.activeTeam(workspaceId,teamId),
+        getMember: (workspaceId,teamId,memberId) => nativeTeams.getMember(workspaceId,teamId,memberId),
+        getTask: (workspaceId,teamId,taskId) => nativeTeams.getTask(workspaceId,teamId,taskId),
+        getCursor: (...args) => nativeTeams.cursor(...args),
+        assertOwnerUnquarantined: (workspaceId,owner) => nativeTeams.assertOwnerUnquarantined(workspaceId,owner),
+        resolveExecution: proof => {
+          const actual = proof.kind === 'root' ? this : this.children.resolveTeamModelExecution(proof);
+          return { store: actual.store, coordinator: actual.coordinator, executionLockPath: actual.executionLockPath, artifactDir: actual.storagePaths.artifactDir };
+        }, assertEnabled: () => {
+          this.assertTeamsEnabled();
+          if (!this.teamModelToolsEnabled) throw new EngineError('TEAM_MODEL_DISABLED', 'Model team tools require explicit host opt-in');
+        },
+      });
+      this.teamModelDefinitions = this.teamModelToolsEnabled ? createTeamModelTools(this.teamModelHost.port()) : consumeChildTeamModelCatalogue(options);
       terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
@@ -816,14 +847,14 @@ export class MoodcodeEngine {
           return Object.freeze({ producer: 'engine-owned-run-command' as const, platform: process.platform, supported: process.platform !== 'win32', catalogueRevision: catalogue.revision });
         }, artifacts: this.managedArtifacts }) : undefined;
       const verificationTools: ToolDefinition[] = verificationTool ? [{ ...verificationTool, prepare: async (input, context) => { await this.verificationHost.ensurePlan(context, context.signal); return verificationTool.prepare(input, context); } }] : [];
-      const availableTools = toolDiscoveryPolicy ? [...coreTools, ...repositoryTools, createToolDiscoveryTool({
+      const availableTools = toolDiscoveryPolicy ? [...coreTools, ...repositoryTools, ...this.teamModelDefinitions, createToolDiscoveryTool({
         identity: context => this.coordinator.toolDiscoveryIdentity(context),
         stage: (context, query, limit, expected, action) => this.coordinator.stageToolDiscovery(context, query, limit, expected, action),
-      }), ...verificationTools] : [...coreTools, ...repositoryTools, ...verificationTools];
+      }), ...verificationTools] : [...coreTools, ...repositoryTools, ...this.teamModelDefinitions, ...verificationTools];
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
       const tools = options.allowedToolNames ? availableTools.filter(tool => options.allowedToolNames!.includes(tool.name)) : availableTools;
-      for (const tool of tools) this.toolRuntime.register('engine', tool, options.tools ? {} : ['delegate_task', 'verify_changes'].includes(tool.name) ? { exactApproval: true } : { revalidate: async (prepared, context) => {
+      for (const tool of tools) this.toolRuntime.register('engine', tool, (TEAM_MODEL_TOOL_NAMES as readonly string[]).includes(tool.name) ? { exactApproval: (TEAM_MODEL_WRITE_TOOL_NAMES as readonly string[]).includes(tool.name) } : options.tools ? {} : ['delegate_task', 'verify_changes'].includes(tool.name) ? { exactApproval: true } : { revalidate: async (prepared, context) => {
         const current = await tool.prepare(prepared.input, context);
         if (current.fingerprint !== prepared.fingerprint || JSON.stringify(current.preview) !== JSON.stringify(prepared.preview)) throw new EngineError('TOOL_APPROVAL_STALE', 'Tool resources changed since scoped authorization');
       } });
@@ -839,6 +870,12 @@ export class MoodcodeEngine {
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
       this.coordinator = new RunCoordinator({
+        onRunStarted: async (run,signal) => {
+          const admission = waitChildProviderAdmission(this,signal);
+          if (admission) await admission;
+          if (signal.aborted) throw signal.reason ?? new EngineError('CANCELLED', 'Run initialization was cancelled');
+          if (this.verificationEnabled) await this.verificationHost.start(run,signal);
+        },
         ...(options.diagnosticObservations === true ? { executionObserver: this.executionObserver } : {}),
         ...(options.lifecycleContinuation === true ? { lifecycleContinuation: createLifecycleContinuationPort({ store: this.store, controller: this.verificationController, plans: this.verificationPlans,
           observeSource: (run, signal) => this.verificationHost.observe({ sessionId: run.sessionId, runId: run.id, workspace: this.store.getWorkspace(run.workspaceId) }, signal),
@@ -847,7 +884,6 @@ export class MoodcodeEngine {
           readRemainingBudget: run => this.coordinator.verificationRemainingBudget(run),
         }) } : {}),
         ...(this.verificationEnabled ? {
-          onRunStarted: (run, signal) => this.verificationHost.start(run, signal),
           verificationStop: async (run, boundary, signal) => {
             if (!this.verificationHost.configuration(run.sessionId)) return null;
             const workspace = this.store.getWorkspace(run.workspaceId);
@@ -1433,6 +1469,8 @@ export class MoodcodeEngine {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     if (!this.teamsEnabled) throw new EngineError('TEAMS_DISABLED', 'Teams require explicit host opt-in');
   }
+  bindTeamModelTools(input: BindTeamModelToolsInput): TeamModelToolsBinding { return this.teamModelHost.bind(input); }
+  releaseTeamModelTools(original: TeamModelToolsBinding): void { this.teamModelHost.releaseBinding(original); }
   createTeam(input: Parameters<TeamHostService['createTeam']>[0]) { this.assertTeamsEnabled(); return this.teamHost.createTeam(input); }
   previewTeamMember(input: Parameters<TeamHostService['previewMember']>[0]) { this.assertTeamsEnabled(); return this.teamHost.previewMember(input); }
   joinTeamMember(input: Parameters<TeamHostService['joinMember']>[0]) { this.assertTeamsEnabled(); return this.teamHost.joinMember(input); }
@@ -1936,6 +1974,7 @@ export class MoodcodeEngine {
         this.hostResources.abort();
         this.questions.close();
         this.teamService.close();
+        this.teamModelHost.close();
         this.teamHost.close();
         // Both calls synchronously stop admissions before either awaits active work.
         const outcomes = await Promise.allSettled([this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);

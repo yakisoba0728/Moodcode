@@ -139,3 +139,4 @@ export type { ProposalApplyOwner, ProposalApplyCheckpoint, ProposalApplyReceipt,
 export type { TeamRecord, TeamPermissions, TeamRole, TeamMemberRevision, TeamMemberOwnerProof, AgentMessage, TeamMailboxPage, TeamMailboxCursor, TeamClaimReceipt, TeamTaskRevision, TeamDeliveryRecord, TeamDeliveryReceipt, CreateTeamInput, SendAgentMessageInput, PutTeamTaskInput } from './teams/types.js';
 export type { TeamMemberPreview, PreviewTeamMemberInput, JoinTeamMemberInput, RetireTeamMemberInput } from './teams/host.js';
 export type { ReadAgentMailboxInput, ResumeChildTurnInput, ResumeChildTurnResult, TeamTaskMutationInput } from './teams/service.js';
+export type { BindTeamModelToolsInput, TeamModelToolsBinding } from './teams/model-tool-host.js';

@@ -214,6 +214,7 @@ export class RunCoordinator implements CoordinatorPort {
   private readonly unsafeWorkspaces = new Set<string>();
   private readonly finalUsage = new Map<string, Readonly<RunUsage>>();
   private readonly verificationSettlementOwners = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; binding: string }>();
+  private readonly teamToolContexts = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; phase: 'prepare' | 'execute'; binding: string; signal: AbortSignal; approval?: ApprovedMcpToolOwner['approval'] }>();
   private closing = false;
   private closePromise?: Promise<void>;
   private sessionHooks?: {
@@ -261,6 +262,42 @@ export class RunCoordinator implements CoordinatorPort {
   activeRun(sessionId: string): Run | undefined {
     for (const owner of this.owners.values()) if (owner.run.sessionId === sessionId && !owner.terminal) return this.options.store.getRun(owner.run.id);
     return undefined;
+  }
+
+  private teamContextBinding(context: ToolContext): string {
+    if (types.isProxy(context) || ![Object.prototype,null].includes(Object.getPrototypeOf(context))) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team tools require original plain context data');
+    const fields = Object.getOwnPropertyDescriptors(context);
+    if (Reflect.ownKeys(fields).some(key => typeof key !== 'string' || !Object.hasOwn(fields[key]!, 'value')) || ['workspace','limits','signal','sessionId','runId','toolCallId','turnId','attemptId','artifactDir'].some(key => !Object.hasOwn(fields,key))) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team tools require unchanged original context data');
+    const metadata: Record<string,unknown>[] = [];
+    for (const value of [context.workspace, context.limits]) {
+      if (!value || types.isProxy(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team context metadata changed');
+      const descriptors = Object.getOwnPropertyDescriptors(value);
+      if (Reflect.ownKeys(descriptors).some(key => typeof key !== 'string' || !descriptors[key]!.enumerable || !Object.hasOwn(descriptors[key]!, 'value') || descriptors[key]!.value !== null && !['string', 'number', 'boolean'].includes(typeof descriptors[key]!.value))) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team context metadata must remain plain data');
+      const copy: Record<string,unknown> = Object.create(null);
+      for (const [key,descriptor] of Object.entries(descriptors)) copy[key] = descriptor.value;
+      metadata.push(copy);
+    }
+    return JSON.stringify([...metadata, fields.sessionId!.value, fields.runId!.value, fields.toolCallId!.value, fields.turnId!.value, fields.attemptId!.value, fields.artifactDir!.value, fields.executionLockPath?.value ?? null]);
+  }
+
+  /** SQL-matching copies cannot become an original current tool producer. */
+  assertTeamToolContext(context: ToolContext, phase: 'prepare' | 'execute'): void {
+    const captured = this.teamToolContexts.get(context);
+    if (!captured || captured.phase !== phase || !captured.active()) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team tools require their original current coordinator context');
+    const { owner, record } = captured;
+    const safeBinding = this.teamContextBinding(context);
+    if (!['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task'].includes(record.name)
+      || this.owners.get(owner.run.id) !== owner || owner.terminal || owner.abort.signal.aborted || context.signal !== captured.signal || context.signal.aborted
+      || safeBinding !== captured.binding || owner.activeTools.get(record.id) !== record
+      || owner.run.sessionId !== context.sessionId || owner.run.id !== context.runId || owner.run.workspaceId !== context.workspace.id
+      || owner.turn?.id !== context.turnId || owner.turn?.attemptId !== context.attemptId
+      || record.id !== context.toolCallId || record.state !== (phase === 'prepare' ? 'requested' : 'running')) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Original team tool execution changed');
+    this.captureToolCatalogue(context);
+    if (phase === 'execute' && record.name !== 'read_agent_mailbox') {
+      if (!captured.approval) throw new EngineError('TEAM_MODEL_APPROVAL_REQUIRED', 'Team mutations require exact original native approval');
+      const approval = this.options.store.getApproval(captured.approval.id);
+      if (approval.status !== 'allowed' || approval.fingerprint !== captured.approval.fingerprint || approval.sessionId !== context.sessionId || approval.runId !== context.runId || approval.toolCallId !== record.id || approval.toolName !== record.name) throw new EngineError('TEAM_MODEL_APPROVAL_REQUIRED', 'Team mutation approval changed');
+    }
   }
 
   /** Nested host verification keeps the original advertised profile/discovery capture. */
@@ -1070,7 +1107,9 @@ export class RunCoordinator implements CoordinatorPort {
     const signal = AbortSignal.any([owner.abort.signal, timeout.signal]);
     const timer = setTimeout(() => timeout.abort(new EngineError('TOOL_TIMEOUT', `Tool ${record.name} exceeded its execution timeout`)), owner.run.config.limits.toolTimeoutMs);
     let active = execute;
+    let inProgress = true;
     const context = this.context(owner, record, workspace, signal, () => active);
+    if (['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task'].includes(record.name)) this.teamToolContexts.set(context, { owner, record, active: () => inProgress, phase: execute ? 'execute' : 'prepare', binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
     if (execute) context.mcpExecutionObserver = createMcpExecutionObserver(this.options.store, executionRecords(this.options.store), {
       sessionId: owner.run.sessionId, workspaceId: workspace.id, runId: owner.run.id, toolCallId: record.id, toolName: record.name,
       ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}),
@@ -1079,7 +1118,7 @@ export class RunCoordinator implements CoordinatorPort {
     // Command cleanup includes process-group termination and an after-image capture.
     const cleanupGraceMs = execute && ['run_command', 'verify_changes'].includes(record.name) ? 5_000 : CLEANUP_GRACE_MS;
     try { return await abortable(() => operation(context), signal, `Tool ${record.name}`, cleanupGraceMs); }
-    finally { active = false; clearTimeout(timer); }
+    finally { inProgress = false; active = false; clearTimeout(timer); }
   }
 
   private async executeTool(owner: Owner, call: ProviderToolCall, workspace: ToolContext['workspace']): Promise<string> {
