@@ -40,6 +40,7 @@ import {
 import { validateAgentBackendSpec } from "./validation.js";
 import {
   validateAcpV1Message,
+  encodeAcpV1Message,
   validateAcpV1Result,
   negotiateAcpV1Capabilities,
   validateAcpV1Request,
@@ -78,10 +79,15 @@ export interface BackendTargetProof {
   readonly launchSha256: string;
   readonly rootBindingSha256: string;
   readonly ownerEpoch: string;
+  readonly capabilitiesManifest?: string;
   readonly sha256: string;
 }
 export interface ActualBackendTurnPort {
   readOwner(original: object): BackendTurnProof;
+  readCurrentInput?(original: object): {
+    readonly prompt: string;
+    readonly instructions: readonly string[];
+  };
   assertOwnerCurrent(
     original: object,
     proof: BackendTurnProof,
@@ -139,6 +145,19 @@ export interface BackendConnectionRevision extends BackendRevisionBase {
   readonly disposal: BackendDisposalProof | null;
   readonly errorCode: string | null;
   readonly capabilities?: import("./types.js").AcpV1NegotiatedCapabilities;
+  readonly sessionLoad?: BackendSessionLoadRevision;
+}
+export interface BackendSessionLoadRevision {
+  readonly state: "dispatching" | "loaded" | "uncertain";
+  readonly message: AcpV1Message;
+  readonly write: BackendWriteProof | null;
+  readonly response: BackendPeerObservationProof | null;
+  readonly replayHashes: readonly string[];
+  readonly replayBytes: number;
+}
+export interface PrepareBackendSessionLoadInput extends BackendMutationInput {
+  readonly connectionId: string;
+  readonly message: AcpV1Message;
 }
 export interface BackendRemoteRequest extends BackendRevisionBase {
   readonly kind: "request";
@@ -447,14 +466,52 @@ export class AgentBackendStorage {
   getConnection(
     ws: string,
     connectionId: string,
+    revisionId?: string,
   ): BackendConnectionRevision | undefined {
+    if (revisionId) {
+      const r = this.read<BackendConnectionRevision>(
+        ws,
+        id(revisionId),
+        "connection",
+      );
+      if (r.connectionId !== connectionId) fail();
+      return r;
+    }
     return this.head(ws, "connection", connectionId);
   }
   getRequest(
     ws: string,
     remoteRequestId: string,
+    revisionId?: string,
   ): BackendRemoteRequest | undefined {
+    if (revisionId) {
+      const r = this.read<BackendRemoteRequest>(ws, id(revisionId), "request");
+      if (r.remoteRequestId !== remoteRequestId) fail();
+      return r;
+    }
     return this.head(ws, "request", remoteRequestId);
+  }
+  /** Historical rows are evidence; only the fresh Original target grants dispatch. */
+  assertSessionLoadSource(
+    spec: AgentBackendSpec,
+    target: BackendTargetProof,
+  ): void {
+    const source = validateSessionLoadSourceSql(this.db, spec, target);
+    if (!source) return;
+    const m = spec.sessionLoad!;
+    if (
+      source.connection.proof.ownerSha256 !== source.request.owner.sha256 ||
+      source.request.owner.ownerEpoch !== target.ownerEpoch ||
+      source.request.owner.rootBindingSha256 !== target.rootBindingSha256 ||
+      source.backend.target.launchSha256 !== target.launchSha256 ||
+      this.getBackend(target.workspaceId, m.sourceBackendId)?.id !==
+        m.sourceBackendRevisionId ||
+      this.getRequest(target.workspaceId, m.sourceRequestId)?.id !==
+        m.sourceRequestRevisionId ||
+      this.getConnection(target.workspaceId, m.sourceConnectionId)?.id !==
+        m.sourceConnectionRevisionId
+    )
+      fail("BACKEND_LOAD_SOURCE_INVALID");
   }
   getClientEffect(
     ws: string,
@@ -824,6 +881,36 @@ export class AgentBackendStorage {
       if (p.receiveOrdinal !== before.receiveOrdinal + 1)
         fail("BACKEND_RECEIVE_GAP");
       const next = x.state === "observe" ? before.state : x.state;
+      if (before.sessionLoad?.state === "dispatching") {
+        const message = p.message;
+        if (
+          x.state !== "initialized" ||
+          x.remoteSessionId !== null ||
+          !("method" in message) ||
+          "id" in message ||
+          message.method !== "session/update" ||
+          message.params?.sessionId !==
+            (before.sessionLoad.message as { params: JsonObject }).params
+              .sessionId
+        )
+          fail("ACP_LOAD_EFFECT_UNSUPPORTED");
+        const hashes = [...before.sessionLoad.replayHashes, p.frameSha256];
+        const bytes =
+          before.sessionLoad.replayBytes +
+          Buffer.byteLength(JSON.stringify(message));
+        if (hashes.length > 128 || bytes > 32768)
+          fail("BACKEND_LOAD_REPLAY_LIMIT");
+        return this.append("connection", x.connectionId, "observe", x, before, {
+          ...bodyOf(before),
+          receiveOrdinal: p.receiveOrdinal,
+          observation: p,
+          sessionLoad: {
+            ...before.sessionLoad,
+            replayHashes: hashes,
+            replayBytes: bytes,
+          },
+        });
+      }
       if (
         x.state === "initialized" &&
         (!("result" in p.message) ||
@@ -855,6 +942,126 @@ export class AgentBackendStorage {
         remoteSessionId: x.remoteSessionId,
         observation: p,
       });
+    });
+  }
+  prepareSessionLoad(
+    originalTurn: object,
+    input: PrepareBackendSessionLoadInput,
+  ): BackendRequestResult<BackendConnectionRevision> {
+    const x = this.input(input, ["connectionId", "message"]);
+    return this.ports.writeTx(() => {
+      const d = this.duplicate<BackendConnectionRevision>(
+        x.workspaceId,
+        "connection",
+        x.connectionId,
+        "load-intent",
+        x,
+      );
+      if (d) return d;
+      const before = this.required(
+        this.getConnection(x.workspaceId, x.connectionId),
+      );
+      const b = this.required(this.getBackend(x.workspaceId, before.backendId));
+      const owner = this.owner(originalTurn, "dispatch");
+      const message = validateAcpV1Message(x.message);
+      if (
+        !b.enabled ||
+        !b.spec.sessionLoad ||
+        b.spec.contextOwner !== "agent" ||
+        before.state !== "initialized" ||
+        before.sessionLoad ||
+        before.capabilities?.loadSession !== true ||
+        before.capabilities.contextOwner !== "agent" ||
+        owner.sha256 !== before.proof.ownerSha256 ||
+        !("method" in message) ||
+        !("id" in message) ||
+        message.method !== "session/load"
+      )
+        fail("ACP_LOAD_UNSUPPORTED");
+      const params = validateAcpV1Request("session/load", message.params);
+      if (
+        params.sessionId !== b.spec.sessionLoad.remoteSessionId ||
+        params.cwd !== b.spec.launch.cwd
+      )
+        fail("BACKEND_LOAD_SOURCE_INVALID");
+      this.assertSessionLoadSource(b.spec, b.target);
+      return this.append(
+        "connection",
+        x.connectionId,
+        "load-intent",
+        x,
+        before,
+        {
+          ...bodyOf(before),
+          sessionLoad: {
+            state: "dispatching",
+            message,
+            write: null,
+            response: null,
+            replayHashes: [],
+            replayBytes: 0,
+          },
+        },
+      );
+    });
+  }
+  recordLoadedSession(
+    originalFrame: object,
+    originalWrite: object,
+    input: DisposeBackendConnectionInput,
+  ): BackendRequestResult<BackendConnectionRevision> {
+    const x = this.input(input, ["connectionId"]);
+    return this.ports.writeTx(() => {
+      const d = this.duplicate<BackendConnectionRevision>(
+        x.workspaceId,
+        "connection",
+        x.connectionId,
+        "load-ready",
+        x,
+      );
+      if (d) return d;
+      const before = this.required(
+        this.getConnection(x.workspaceId, x.connectionId),
+      );
+      const load = before.sessionLoad;
+      const frame = this.frame(originalFrame, before),
+        write = digest(this.ports.readWrite(originalWrite));
+      if (
+        before.state !== "initialized" ||
+        load?.state !== "dispatching" ||
+        !("id" in load.message) ||
+        !("result" in frame.message) ||
+        frame.wireId !== load.message.id ||
+        frame.receiveOrdinal !== before.receiveOrdinal + 1 ||
+        write.workspaceId !== x.workspaceId ||
+        write.connectionId !== before.connectionId ||
+        write.epoch !== before.proof.epoch ||
+        write.backendId !== before.backendId ||
+        !Number.isSafeInteger(write.writeOrdinal) ||
+        write.writeOrdinal < 1 ||
+        write.writtenBytes !==
+          Buffer.byteLength(encodeAcpV1Message(load.message)) ||
+        write.frameSha256 !== knowledgeHash(load.message)
+      )
+        fail("BACKEND_REMOTE_SESSION_INVALID");
+      validateAcpV1Result("session/load", frame.message.result);
+      return this.append(
+        "connection",
+        x.connectionId,
+        "load-ready",
+        x,
+        before,
+        {
+          ...bodyOf(before),
+          state: "session-ready",
+          remoteSessionId: (load.message as { params: JsonObject }).params
+            .sessionId as string,
+          receiveOrdinal: frame.receiveOrdinal,
+          writeOrdinal: write.writeOrdinal,
+          observation: frame,
+          sessionLoad: { ...load, state: "loaded", write, response: frame },
+        },
+      );
     });
   }
   prepareRequest(
@@ -1036,6 +1243,7 @@ export class AgentBackendStorage {
         fail("BACKEND_FRAME_NOT_RECORDED");
       const request = originalTurn as import("../ports.js").TurnRequest;
       const effects = before.proof.executionMode === "engine-client-effects";
+      const b = this.required(this.getBackend(x.workspaceId, before.backendId));
       const capabilities = negotiateAcpV1Capabilities(frame.message.result, {
         readTextFile: request.tools.some((t) => t.name === "read_file"),
         writeTextFile:
@@ -1044,7 +1252,11 @@ export class AgentBackendStorage {
           effects &&
           before.proof.clientCapabilities?.terminal === true &&
           request.tools.some((t) => t.name === "run_command"),
+        contextOwner: b.spec.contextOwner,
+        loadSession: b.spec.sessionLoad !== undefined,
       });
+      if (b.spec.sessionLoad && !capabilities.loadSession)
+        fail("ACP_LOAD_UNSUPPORTED");
       return this.append("connection", x.connectionId, "negotiate", x, before, {
         ...bodyOf(before),
         capabilities,
@@ -1592,9 +1804,25 @@ export class AgentBackendStorage {
         fail("BACKEND_DISPOSAL_INVALID");
       return this.append("connection", x.connectionId, "dispose", x, before, {
         ...bodyOf(before),
-        state: p.cleanupConfirmed ? "closed" : "uncertain",
+        state:
+          p.cleanupConfirmed && before.sessionLoad?.state !== "dispatching"
+            ? "closed"
+            : "uncertain",
         disposal: p,
-        errorCode: p.cleanupConfirmed ? null : "CLEANUP_UNCERTAIN",
+        ...(before.sessionLoad?.state === "dispatching"
+          ? {
+              sessionLoad: {
+                ...before.sessionLoad,
+                state: "uncertain" as const,
+              },
+            }
+          : {}),
+        errorCode:
+          before.sessionLoad?.state === "dispatching"
+            ? "BACKEND_LOAD_UNCERTAIN"
+            : p.cleanupConfirmed
+              ? null
+              : "CLEANUP_UNCERTAIN",
       });
     });
   }
@@ -1738,6 +1966,204 @@ function readPrimary(
   )
     fail();
   return result;
+}
+function validateSessionLoadSourceSql(
+  db: DatabaseSync,
+  spec: AgentBackendSpec,
+  target?: BackendTargetProof,
+):
+  | {
+      backend: AgentBackendRevision;
+      request: BackendRemoteRequest;
+      connection: BackendConnectionRevision;
+    }
+  | undefined {
+  const load = spec.sessionLoad;
+  if (!load) return;
+  function revision<T extends AgentBackendRecord>(
+    rid: string,
+    kind: BackendJournalKind,
+  ): T {
+    const h = db
+      .prepare(
+        "SELECT workspace_id,kind,sha256,length(CAST(data AS BLOB)) bytes FROM backend_revisions WHERE id=?",
+      )
+      .get(id(rid));
+    if (
+      !h ||
+      h.workspace_id !== spec.target.workspaceId ||
+      h.kind !== kind ||
+      Number(h.bytes) > AGENT_BACKEND_STORAGE_LIMITS.rowBytes
+    )
+      fail("BACKEND_LOAD_SOURCE_INVALID");
+    const raw = db
+      .prepare(
+        "SELECT data FROM backend_revisions WHERE id=? AND length(CAST(data AS BLOB))=?",
+      )
+      .get(rid, Number(h.bytes));
+    if (!raw) fail("BACKEND_LOAD_SOURCE_INVALID");
+    const r = json(JSON.parse(String(raw.data))) as unknown as T;
+    validateBody(r);
+    validateOwnerSql(db, r);
+    if (
+      r.id !== rid ||
+      r.sha256 !== h.sha256 ||
+      r.workspaceId !== spec.target.workspaceId
+    )
+      fail("BACKEND_LOAD_SOURCE_INVALID");
+    return r;
+  }
+  const backend = revision<AgentBackendRevision>(
+      load.sourceBackendRevisionId,
+      "backend",
+    ),
+    request = revision<BackendRemoteRequest>(
+      load.sourceRequestRevisionId,
+      "request",
+    ),
+    connection = revision<BackendConnectionRevision>(
+      load.sourceConnectionRevisionId,
+      "connection",
+    );
+  const run = readPrimary(db, "runs", request.owner.runId);
+  const header = db
+    .prepare("SELECT workspace_id,session_id,state FROM runs WHERE id=?")
+    .get(request.owner.runId);
+  const oldConfig = {
+    ...spec.target.config,
+    providerId: backend.spec.target.config.providerId,
+  };
+  if (
+    backend.backendId !== load.sourceBackendId ||
+    !backend.enabled ||
+    backend.spec.contextOwner !== "engine" ||
+    backend.spec.sessionLoad ||
+    request.remoteRequestId !== load.sourceRequestId ||
+    request.sha256 !== load.sourceRequestSha256 ||
+    request.state !== "completed" ||
+    connection.connectionId !== load.sourceConnectionId ||
+    connection.sha256 !== load.sourceConnectionSha256 ||
+    connection.state !== "closed" ||
+    connection.disposal?.cleanupConfirmed !== true ||
+    request.backendRevisionId !== backend.id ||
+    connection.backendRevisionId !== backend.id ||
+    request.connectionId !== connection.connectionId ||
+    request.epoch !== connection.proof.epoch ||
+    request.owner.sha256 !== connection.proof.ownerSha256 ||
+    request.remoteSessionId !== load.remoteSessionId ||
+    connection.remoteSessionId !== load.remoteSessionId ||
+    backend.spec.target.sessionId !== spec.target.sessionId ||
+    request.owner.sessionId !== spec.target.sessionId ||
+    backend.spec.launch.cwd !== spec.launch.cwd ||
+    knowledgeHash(backend.spec.launch) !== knowledgeHash(spec.launch) ||
+    knowledgeHash(backend.spec.credentialReference) !==
+      knowledgeHash(spec.credentialReference) ||
+    backend.spec.endpointAudience !== spec.endpointAudience ||
+    knowledgeHash(backend.spec.target.config) !== knowledgeHash(oldConfig) ||
+    knowledgeHash(backend.spec.target.profile) !==
+      knowledgeHash(spec.target.profile) ||
+    backend.spec.target.workspaceBindingSha256 !==
+      spec.target.workspaceBindingSha256 ||
+    backend.spec.target.catalogueSha256 !== spec.target.catalogueSha256 ||
+    knowledgeHash(backend.spec.target.tools) !==
+      knowledgeHash(spec.target.tools) ||
+    !header ||
+    header.state !== "completed" ||
+    run.state !== header.state ||
+    header.workspace_id !== spec.target.workspaceId ||
+    header.session_id !== spec.target.sessionId
+  )
+    fail("BACKEND_LOAD_SOURCE_INVALID");
+  if (target) {
+    function manifest(value: string | undefined): JsonObject {
+      if (typeof value !== "string" || Buffer.byteLength(value) > 32768)
+        fail("BACKEND_LOAD_SOURCE_INVALID");
+      return json(JSON.parse(value)) as JsonObject;
+    }
+    const old = manifest(backend.target.capabilitiesManifest),
+      current = manifest(target.capabilitiesManifest);
+    if (
+      knowledgeHash(old) !== backend.spec.target.capabilitiesSha256 ||
+      knowledgeHash(current) !== spec.target.capabilitiesSha256 ||
+      !Array.isArray(old.providerIds) ||
+      !Array.isArray(current.providerIds) ||
+      knowledgeHash({ ...current, providerIds: old.providerIds }) !==
+        knowledgeHash(old) ||
+      knowledgeHash(current.providerIds) !==
+        knowledgeHash(
+          [...new Set([...old.providerIds, `acp:${spec.id}`])].sort(),
+        )
+    )
+      fail("BACKEND_LOAD_SOURCE_INVALID");
+  }
+  return { backend, request, connection };
+}
+function validateSessionLoadBody(r: BackendConnectionRevision): void {
+  const load = r.sessionLoad;
+  if (!load) return;
+  fields(load, [
+    "state",
+    "message",
+    "write",
+    "response",
+    "replayHashes",
+    "replayBytes",
+  ]);
+  if (
+    !["dispatching", "loaded", "uncertain"].includes(load.state) ||
+    !Array.isArray(load.replayHashes) ||
+    load.replayHashes.length > 128 ||
+    !Number.isSafeInteger(load.replayBytes) ||
+    load.replayBytes < 0 ||
+    load.replayBytes > 32768
+  )
+    fail("BACKEND_LOAD_REPLAY_LIMIT");
+  for (const sha of load.replayHashes)
+    if (typeof sha !== "string" || !/^[a-f0-9]{64}$/.test(sha)) fail();
+  const message = validateAcpV1Message(load.message);
+  if (
+    !("method" in message) ||
+    !("id" in message) ||
+    message.method !== "session/load"
+  )
+    fail();
+  const params = validateAcpV1Request("session/load", message.params);
+  if (load.state === "loaded") {
+    if (!load.write || !load.response || r.remoteSessionId !== params.sessionId)
+      fail();
+    digest(load.write);
+    digest(load.response);
+    if (
+      load.write.workspaceId !== r.workspaceId ||
+      load.write.backendId !== r.backendId ||
+      !Number.isSafeInteger(load.write.writeOrdinal) ||
+      load.write.writeOrdinal < 1 ||
+      load.write.writtenBytes !==
+        Buffer.byteLength(encodeAcpV1Message(message)) ||
+      load.write.connectionId !== r.connectionId ||
+      load.write.epoch !== r.proof.epoch ||
+      load.write.frameSha256 !== knowledgeHash(message) ||
+      load.response.workspaceId !== r.workspaceId ||
+      load.response.connectionId !== r.connectionId ||
+      load.response.epoch !== r.proof.epoch ||
+      load.response.backendId !== r.backendId ||
+      !Number.isSafeInteger(load.response.receiveOrdinal) ||
+      load.response.receiveOrdinal < 1 ||
+      load.response.receiveOrdinal > r.receiveOrdinal ||
+      load.response.wireId !== message.id ||
+      !("result" in load.response.message) ||
+      load.response.frameSha256 !== knowledgeHash(load.response.message)
+    )
+      fail("BACKEND_REMOTE_SESSION_INVALID");
+    validateAcpV1Result("session/load", load.response.message.result);
+  } else if (
+    load.write !== null ||
+    load.response !== null ||
+    r.remoteSessionId !== null
+  )
+    fail();
+  if (!r.capabilities?.loadSession || r.capabilities.contextOwner !== "agent")
+    fail("ACP_LOAD_UNSUPPORTED");
 }
 function validateTurnSql(db: DatabaseSync, p: BackendTurnProof): void {
   digest(p);
@@ -2450,14 +2876,22 @@ function validateBody(r: AgentBackendRecord): void {
       "disposal",
       "errorCode",
       ...(r.capabilities ? ["capabilities"] : []),
+      ...(r.sessionLoad ? ["sessionLoad"] : []),
     ]);
     digest(r.proof);
     if (r.capabilities) {
       digest(r.capabilities);
       const negotiated = negotiateAcpV1Capabilities(
-        { protocolVersion: 1, agentCapabilities: {} },
-        r.proof.clientCapabilities ?? {
-          readTextFile: r.capabilities.readTextFile,
+        {
+          protocolVersion: 1,
+          agentCapabilities: { loadSession: r.capabilities.loadSession },
+        },
+        {
+          ...(r.proof.clientCapabilities ?? {
+            readTextFile: r.capabilities.readTextFile,
+          }),
+          contextOwner: r.capabilities.contextOwner,
+          loadSession: r.capabilities.loadSession,
         },
       );
       if (knowledgeHash(negotiated) !== knowledgeHash(r.capabilities))
@@ -2520,6 +2954,7 @@ function validateBody(r: AgentBackendRecord): void {
     }
     if (r.state === "closed" && r.disposal?.cleanupConfirmed !== true) fail();
     if (r.state === "session-ready" && r.remoteSessionId === null) fail();
+    validateSessionLoadBody(r);
   } else if (r.kind === "request") {
     fields(r, [
       ...base,
@@ -2753,6 +3188,7 @@ function validateOwnerSql(db: DatabaseSync, r: AgentBackendRecord): void {
   if (r.kind === "backend") {
     const s = readPrimary(db, "sessions", r.spec.target.sessionId);
     if (s.workspaceId !== r.workspaceId) fail();
+    validateSessionLoadSourceSql(db, r.spec, r.target);
     return;
   }
   if (r.kind === "connection") {
@@ -2857,34 +3293,66 @@ function validateTransition(
   const mutable =
     op === "negotiate"
       ? ["capabilities"]
-      : op === "cancel-wire"
-        ? ["cancellation"]
-        : op === "register"
-          ? ["spec", "target", "enabled"]
-          : op === "disable" ||
-              (op === "pause-import" && before.kind === "backend")
-            ? ["enabled"]
-            : op === "observe"
-              ? ["state", "receiveOrdinal", "remoteSessionId", "observation"]
-              : op === "dispose"
-                ? ["state", "disposal", "errorCode"]
-                : op === "dispatch-intent"
-                  ? ["state"]
-                  : op === "dispatch"
-                    ? ["state", "dispatch"]
-                    : op === "settle"
-                      ? ["state", "terminal", "errorCode"]
-                      : op === "bind-effect"
-                        ? ["executionFrame"]
-                        : op === "terminal-control"
-                          ? ["controls"]
-                          : op === "permission"
-                            ? ["permission", "permissionDelivery"]
-                            : op === "settle-read"
-                              ? ["state", "completion", "errorCode", "delivery"]
-                              : op === "delivery" || op === "effect-ack"
-                                ? ["delivery"]
-                                : ["state", "errorCode"];
+      : op === "load-intent"
+        ? ["sessionLoad"]
+        : op === "load-ready"
+          ? [
+              "sessionLoad",
+              "state",
+              "receiveOrdinal",
+              "writeOrdinal",
+              "observation",
+              "remoteSessionId",
+            ]
+          : op === "cancel-wire"
+            ? ["cancellation"]
+            : op === "register"
+              ? ["spec", "target", "enabled"]
+              : op === "disable" ||
+                  (op === "pause-import" && before.kind === "backend")
+                ? ["enabled"]
+                : op === "observe"
+                  ? [
+                      "state",
+                      "receiveOrdinal",
+                      "remoteSessionId",
+                      "observation",
+                      ...(before.kind === "connection" && before.sessionLoad
+                        ? ["sessionLoad"]
+                        : []),
+                    ]
+                  : op === "dispose"
+                    ? [
+                        "state",
+                        "disposal",
+                        "errorCode",
+                        ...(before.kind === "connection" &&
+                        before.sessionLoad?.state === "dispatching"
+                          ? ["sessionLoad"]
+                          : []),
+                      ]
+                    : op === "dispatch-intent"
+                      ? ["state"]
+                      : op === "dispatch"
+                        ? ["state", "dispatch"]
+                        : op === "settle"
+                          ? ["state", "terminal", "errorCode"]
+                          : op === "bind-effect"
+                            ? ["executionFrame"]
+                            : op === "terminal-control"
+                              ? ["controls"]
+                              : op === "permission"
+                                ? ["permission", "permissionDelivery"]
+                                : op === "settle-read"
+                                  ? [
+                                      "state",
+                                      "completion",
+                                      "errorCode",
+                                      "delivery",
+                                    ]
+                                  : op === "delivery" || op === "effect-ack"
+                                    ? ["delivery"]
+                                    : ["state", "errorCode"];
   for (const key of Object.keys(left))
     if (
       !mutable.includes(key) &&
@@ -2931,9 +3399,85 @@ function validateTransition(
     op === "negotiate" &&
     before.kind === "connection" &&
     after.kind === "connection" &&
-    (before.capabilities || !after.capabilities)
+    (before.capabilities ||
+      !after.capabilities ||
+      !before.observation ||
+      !("result" in before.observation.message) ||
+      knowledgeHash(
+        negotiateAcpV1Capabilities(before.observation.message.result, {
+          ...(before.proof.clientCapabilities ?? {
+            readTextFile: after.capabilities?.readTextFile ?? false,
+          }),
+          contextOwner: after.capabilities?.contextOwner ?? "engine",
+          loadSession: after.capabilities?.loadSession ?? false,
+        }),
+      ) !== knowledgeHash(after.capabilities))
   )
     fail();
+  if (before.kind === "connection" && after.kind === "connection") {
+    if (
+      op === "load-intent" &&
+      (before.sessionLoad ||
+        after.sessionLoad?.state !== "dispatching" ||
+        after.sessionLoad.replayHashes.length !== 0 ||
+        after.sessionLoad.replayBytes !== 0)
+    )
+      fail();
+    if (
+      op === "load-ready" &&
+      (before.sessionLoad?.state !== "dispatching" ||
+        after.sessionLoad?.state !== "loaded" ||
+        knowledgeHash(before.sessionLoad.message) !==
+          knowledgeHash(after.sessionLoad.message) ||
+        knowledgeHash(before.sessionLoad.replayHashes) !==
+          knowledgeHash(after.sessionLoad.replayHashes) ||
+        before.sessionLoad.replayBytes !== after.sessionLoad.replayBytes ||
+        after.receiveOrdinal !== before.receiveOrdinal + 1 ||
+        after.writeOrdinal !== after.sessionLoad.write?.writeOrdinal ||
+        after.sessionLoad.response?.sha256 !== after.observation?.sha256)
+    )
+      fail();
+    if (op === "observe" && before.sessionLoad?.state === "dispatching") {
+      if (
+        after.sessionLoad?.state !== "dispatching" ||
+        !after.observation ||
+        after.sessionLoad.replayHashes.length !==
+          before.sessionLoad.replayHashes.length + 1 ||
+        knowledgeHash(after.sessionLoad.replayHashes.slice(0, -1)) !==
+          knowledgeHash(before.sessionLoad.replayHashes) ||
+        after.sessionLoad.replayHashes.at(-1) !==
+          after.observation.frameSha256 ||
+        after.sessionLoad.replayBytes !==
+          before.sessionLoad.replayBytes +
+            Buffer.byteLength(JSON.stringify(after.observation.message)) ||
+        !("method" in after.observation.message) ||
+        "id" in after.observation.message ||
+        after.observation.message.method !== "session/update" ||
+        after.observation.message.params?.sessionId !==
+          (before.sessionLoad.message as { params: JsonObject }).params
+            .sessionId ||
+        knowledgeHash({
+          ...before.sessionLoad,
+          replayHashes: after.sessionLoad.replayHashes,
+          replayBytes: after.sessionLoad.replayBytes,
+        }) !== knowledgeHash(after.sessionLoad)
+      )
+        fail("BACKEND_RECEIVE_GAP");
+    }
+    if (
+      op === "observe" &&
+      before.sessionLoad?.state === "loaded" &&
+      knowledgeHash(before.sessionLoad) !== knowledgeHash(after.sessionLoad)
+    )
+      fail();
+    if (
+      op === "dispose" &&
+      before.sessionLoad?.state === "dispatching" &&
+      knowledgeHash({ ...before.sessionLoad, state: "uncertain" }) !==
+        knowledgeHash(after.sessionLoad)
+    )
+      fail();
+  }
   if (
     op === "cancel-wire" &&
     before.kind === "request" &&
@@ -2973,7 +3517,10 @@ function validateTransition(
   if (
     op === "dispose" &&
     after.kind === "connection" &&
-    (after.state === "closed") !== (after.disposal?.cleanupConfirmed === true)
+    (after.state === "closed") !==
+      (after.disposal?.cleanupConfirmed === true &&
+        before?.kind === "connection" &&
+        before.sessionLoad?.state !== "dispatching")
   )
     fail();
   if (
@@ -3219,6 +3766,33 @@ export function validateAgentBackendDatabase(
         b.target.launchSha256 !== r.proof.launchSha256
       )
         fail();
+      if (b.spec.sessionLoad) {
+        if (
+          r.capabilities &&
+          (r.capabilities.contextOwner !== "agent" ||
+            !r.capabilities.loadSession)
+        )
+          fail("ACP_LOAD_UNSUPPORTED");
+        if (r.sessionLoad) {
+          const m = r.sessionLoad.message;
+          if (
+            !("method" in m) ||
+            m.params?.sessionId !== b.spec.sessionLoad.remoteSessionId ||
+            m.params?.cwd !== b.spec.launch.cwd
+          )
+            fail("BACKEND_LOAD_SOURCE_INVALID");
+        }
+        if (
+          r.remoteSessionId !== null &&
+          (r.sessionLoad?.state !== "loaded" ||
+            r.remoteSessionId !== b.spec.sessionLoad.remoteSessionId)
+        )
+          fail("BACKEND_REMOTE_SESSION_INVALID");
+      } else if (
+        r.sessionLoad ||
+        (r.capabilities && r.capabilities.contextOwner !== "engine")
+      )
+        fail("BACKEND_LOAD_SOURCE_INVALID");
     }
     if (r.kind === "request" || r.kind === "client-effect") {
       const c = [...records.values()].find(

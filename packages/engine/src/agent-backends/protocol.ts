@@ -8,6 +8,8 @@ import type {
   AcpV1NegotiatedCapabilities,
   AcpV1NewSessionParams,
   AcpV1NewSessionResult,
+  AcpV1LoadSessionParams,
+  AcpV1LoadSessionResult,
   AcpV1PromptParams,
   AcpV1PromptResult,
   AcpV1ReadTextFileParams,
@@ -29,6 +31,7 @@ export const ACP_PROTOCOL_VERSION = 1 as const;
 export const ACP_V1_METHODS = Object.freeze([
   "initialize",
   "session/new",
+  "session/load",
   "session/prompt",
   "session/cancel",
   "session/update",
@@ -169,31 +172,47 @@ export function negotiateAcpV1Capabilities(
     readonly readTextFile?: boolean;
     readonly writeTextFile?: boolean;
     readonly terminal?: boolean;
+    readonly loadSession?: boolean;
+    readonly contextOwner?: "engine" | "agent";
   } = {},
 ): AcpV1NegotiatedCapabilities {
   const result = validateAcpV1InitializeResult(input);
   const local = agentBackendObject(
     host,
     [],
-    ["readTextFile", "writeTextFile", "terminal"],
+    [
+      "readTextFile",
+      "writeTextFile",
+      "terminal",
+      "loadSession",
+      "contextOwner",
+    ],
   );
   if (
     local.readTextFile !== undefined &&
     typeof local.readTextFile !== "boolean"
   )
     agentBackendError("ACP_INVALID_MESSAGE");
-  if (Object.values(local).some((value) => typeof value !== "boolean"))
+  if (
+    Object.entries(local).some(([key, value]) =>
+      key === "contextOwner"
+        ? value !== "engine" && value !== "agent"
+        : typeof value !== "boolean",
+    )
+  )
     agentBackendError("ACP_INVALID_MESSAGE");
   if (result.authMethods?.length) agentBackendError("ACP_AUTH_UNSUPPORTED");
   const body = {
     protocol: "acp" as const,
     protocolVersion: 1 as const,
-    contextOwner: "engine" as const,
+    contextOwner: (local.contextOwner ?? "engine") as "engine" | "agent",
     text: true as const,
     readTextFile: local.readTextFile === true,
     writeTextFile: local.writeTextFile === true,
     terminal: local.terminal === true,
-    loadSession: false as const,
+    loadSession:
+      local.loadSession === true &&
+      result.agentCapabilities.loadSession === true,
   };
   return agentBackendJson({ ...body, sha256: knowledgeHash(body) });
 }
@@ -435,6 +454,10 @@ export function validateAcpV1Request(
   input: unknown,
 ): AcpV1NewSessionParams;
 export function validateAcpV1Request(
+  method: "session/load",
+  input: unknown,
+): AcpV1LoadSessionParams;
+export function validateAcpV1Request(
   method: "session/prompt",
   input: unknown,
 ): AcpV1PromptParams;
@@ -453,6 +476,20 @@ export function validateAcpV1Request(method: string, input: unknown): object {
       return validateAcpV1InitializeParams(input);
     case "session/new":
       return validateAcpV1NewSessionParams(input);
+    case "session/load": {
+      const value = agentBackendObject(
+        input,
+        ["sessionId", "cwd", "mcpServers"],
+        ["_meta"],
+      );
+      agentBackendIdentifier(value.sessionId);
+      validateAcpV1NewSessionParams({
+        cwd: value.cwd,
+        mcpServers: value.mcpServers,
+        ...(value._meta === undefined ? {} : { _meta: value._meta }),
+      });
+      return value;
+    }
     case "session/prompt":
       return validateAcpV1PromptParams(input);
     case "fs/read_text_file":
@@ -498,6 +535,10 @@ export function validateAcpV1Result(
   input: unknown,
 ): AcpV1NewSessionResult;
 export function validateAcpV1Result(
+  method: "session/load",
+  input: unknown,
+): AcpV1LoadSessionResult;
+export function validateAcpV1Result(
   method: "session/prompt",
   input: unknown,
 ): AcpV1PromptResult;
@@ -513,6 +554,11 @@ export function validateAcpV1Result(method: string, input: unknown): object {
     case "session/new": {
       const value = agentBackendObject(input, ["sessionId"], ["_meta"]);
       agentBackendIdentifier(value.sessionId);
+      metadata(value._meta);
+      return value;
+    }
+    case "session/load": {
+      const value = agentBackendObject(input, [], ["_meta"]);
       metadata(value._meta);
       return value;
     }

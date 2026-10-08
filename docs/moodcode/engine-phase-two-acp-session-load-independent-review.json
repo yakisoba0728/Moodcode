@@ -1,0 +1,370 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-08T18:31:08.372223+00:00",
+  "reviewer": "next_workflow_consumers",
+  "reviewMode": "read-only independent source and existing-evidence review; no new execution",
+  "scope": "Original MC2-09 session/load gap, final bounded local ACP v1 feature and preservation of existing native effects/ownership contracts",
+  "verdict": {
+    "source": "no actionable implementation defect remains in the reviewed frozen supported lane",
+    "findingsResolved": 4,
+    "openImplementationFindings": 0,
+    "parentAggregateStatus": "pending at report creation",
+    "completionAccounting": "Root owns completion after final gates/documents/commit; existing 79/80 and 19/20 are not changed by this review"
+  },
+  "sourceIdentity": {
+    "headAtFreeze": "9eb233bea74c1aa88609d0bcf567ff956824ca0a",
+    "finalV2Manifest": {
+      "path": "/tmp/moodcode-acp-session-load-source-freeze-v2.json",
+      "sha256": "ada026d97218090da0c92301291016b16cc59f06e936ee6573a50c09896a3cba",
+      "bytes": 3832
+    },
+    "pinCheck": {
+      "path": "/tmp/moodcode-acp-session-load-final-pin-check.json",
+      "sha256": "c2875f0b52829f162fe6cacf37d6b661f195311d7223069cd2935b657524d229",
+      "bytes": 5091
+    },
+    "all16CurrentSourcesMatch": true,
+    "AOwn4Match": true,
+    "COwn1Match": true,
+    "v1ToV2": "Only native SIGKILL fixture portable compiled/source loader selection; 15 other file pins unchanged and production source identical.",
+    "files": [
+      {
+        "path": "packages/engine/src/agent-backends/types.ts",
+        "expected": "534d8874999e4e6bbf017c382ba91611c7257be8f420472adc0be692d754da06",
+        "actual": "534d8874999e4e6bbf017c382ba91611c7257be8f420472adc0be692d754da06",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/validation.ts",
+        "expected": "841f96331a1bd7380a595441e407e3e52b20257fff6723c273d3093e6b27f7fd",
+        "actual": "841f96331a1bd7380a595441e407e3e52b20257fff6723c273d3093e6b27f7fd",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/protocol.ts",
+        "expected": "ef255c59cd734f1204d0588a16d498710ad318c87a2b315936524996f2c0937c",
+        "actual": "ef255c59cd734f1204d0588a16d498710ad318c87a2b315936524996f2c0937c",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/store.ts",
+        "expected": "771cfbe0993676657c82d4bfb89e3fcd2c3f06f9922763114c0c71333c0cfaa7",
+        "actual": "771cfbe0993676657c82d4bfb89e3fcd2c3f06f9922763114c0c71333c0cfaa7",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/remote.ts",
+        "expected": "cf68cd12f114d62a81ba11f7dc009f6dd71af8277fa1dba7d55daa04453dfaa0",
+        "actual": "cf68cd12f114d62a81ba11f7dc009f6dd71af8277fa1dba7d55daa04453dfaa0",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/process.ts",
+        "expected": "41c5468600e4c00d18a35b7094d5839290687afe527cdfed1e0cc418426cbde1",
+        "actual": "41c5468600e4c00d18a35b7094d5839290687afe527cdfed1e0cc418426cbde1",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/engine-producer.ts",
+        "expected": "28a0dd0ea1480e4308359e9235b94868bb1da327afcb14c66fac32d2fdb45d9b",
+        "actual": "28a0dd0ea1480e4308359e9235b94868bb1da327afcb14c66fac32d2fdb45d9b",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/host.ts",
+        "expected": "540e758e946a169ad58effe37a1014bdba831c4f94364d90abde05d1c4d8785c",
+        "actual": "540e758e946a169ad58effe37a1014bdba831c4f94364d90abde05d1c4d8785c",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/reducer.ts",
+        "expected": "7e3e8e7f144ef317de9a3511409304c05b18d77ecff276641077b3b7cc3035a6",
+        "actual": "7e3e8e7f144ef317de9a3511409304c05b18d77ecff276641077b3b7cc3035a6",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/protocol.test.ts",
+        "expected": "5dff387e06ff0832621b575e96d2c0073915b63585447d26ab258f6e5803fdf1",
+        "actual": "5dff387e06ff0832621b575e96d2c0073915b63585447d26ab258f6e5803fdf1",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/session-load.protocol.test.ts",
+        "expected": "4dfc928f464cfca226c19935da7f9c6b231758f6e417afc2e3ec746e457ace04",
+        "actual": "4dfc928f464cfca226c19935da7f9c6b231758f6e417afc2e3ec746e457ace04",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/session-load.lifecycle.integration.test.ts",
+        "expected": "ca19ea7aab12988758260264dbcc0e96f0eefa398bba6eebe4f07502fff17f68",
+        "actual": "ca19ea7aab12988758260264dbcc0e96f0eefa398bba6eebe4f07502fff17f68",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/session-load.native.integration.test.ts",
+        "expected": "9acc75fa42673780676493ebe1e6e184c1bc3288403e1efdc2b97d369f23252a",
+        "actual": "9acc75fa42673780676493ebe1e6e184c1bc3288403e1efdc2b97d369f23252a",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/fixtures/session-load-lifecycle-peer.ts",
+        "expected": "3dec34b98b8f918deec5e9445b3cb20fb00afddea839c9404ba760151197054d",
+        "actual": "3dec34b98b8f918deec5e9445b3cb20fb00afddea839c9404ba760151197054d",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/fixtures/session-load.ts",
+        "expected": "b84be161b32190620390102e0d88b4960142a11bc5690dd7f5123b2a4d7dda1f",
+        "actual": "b84be161b32190620390102e0d88b4960142a11bc5690dd7f5123b2a4d7dda1f",
+        "matched": true
+      },
+      {
+        "path": "packages/engine/src/agent-backends/fixtures/session-load-crash.ts",
+        "expected": "6e1a22f5f073193fa4ccf7ca263606b4cefa0775e6765df4416d8b24f61f31cc",
+        "actual": "6e1a22f5f073193fa4ccf7ca263606b4cefa0775e6765df4416d8b24f61f31cc",
+        "matched": true
+      }
+    ],
+    "dedicatedDocs": [
+      {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-acp-session-load.md",
+        "sha256": "ffb0715351e2a7e631421e03f8b6330c8e4d361328a83c4ed00bab697f290915",
+        "bytes": 7693
+      },
+      {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-acp-session-load-verification.json",
+        "sha256": "03e443094feb88ca83d8e272b5656fc88d227f6eacc6216f1f4dc424857f353c",
+        "bytes": 7049
+      }
+    ]
+  },
+  "originalCriteria": {
+    "workItems": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/coding-agent-engine-review/implementation-work-items.json",
+      "sha256": "4bab8379a68c37e817f66aa5c2bda02c6b00a1951d20c3c0147b5885dbc49db4",
+      "bytes": 50422
+    },
+    "blueprint": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/coding-agent-engine-review/implementation-blueprint.md",
+      "sha256": "d4f8d381430871f23e9676e74efe78b409cfbeb9e1bf063c5207281ebf5359ac",
+      "bytes": 41068
+    },
+    "preserved": "agent/engine context distinction; initialize/new/load/prompt/permission/cancel bound to remote identity; accepted binding immutable; received/ack/dispatched/completed/failed/uncertain distinct; native durable dedupe; reconnect not rollback or safe-retry proof",
+    "noAddedCompletionCondition": "No live-account/HTTP/reconnect success is asserted for the bounded local stdio load unit; existing unsupported/deferred scopes remain explicit."
+  },
+  "resolvedFindings": [
+    {
+      "id": "LOAD-REVIEW-01",
+      "problem": "Fresh alias changes capability SHA and initial exact old/current SHA equality rejected valid load.",
+      "finalCorrection": "Root-original bounded capability manifests authenticate both exact SHAs; native comparison permits only the selected fresh provider alias addition while every other capability field stays exact.",
+      "source": [
+        "agent-backends/engine-producer.ts:240",
+        "agent-backends/store.ts:2079"
+      ],
+      "evidence": "Actual positive lifecycle/native loaded executions and stale/foreign tuple guards; no fresh context grant from caller hashes."
+    },
+    {
+      "id": "LOAD-REVIEW-02",
+      "problem": "Connection load/capability/source graph checks were initially nested in the client-effect effect-ack branch.",
+      "finalCorrection": "Checks reside in actual connection graph branch beside backend/launch/owner identity validation.",
+      "source": [
+        "agent-backends/store.ts:3769"
+      ],
+      "evidence": "Genuine loaded archive/import history and independently rehashed native connection contradictions rejected."
+    },
+    {
+      "id": "LOAD-REVIEW-03",
+      "problem": "Loaded write witness lacked full encoded write bytes, positive ordinal and exact loaded-transition ordinal binding.",
+      "finalCorrection": "Original write and typed history require positive ordinal and exact full encoded message bytes; load-ready pins current write ordinal, matching Original frame/RPC/connection/epoch and replay prefix.",
+      "source": [
+        "agent-backends/store.ts:1904",
+        "agent-backends/store.ts:2139",
+        "agent-backends/store.ts:3436"
+      ],
+      "evidence": "Actual native fully-rehashed missing write/zero writtenBytes/zero ordinal mutations fail; no fabricated write receipts."
+    },
+    {
+      "id": "LOAD-REVIEW-04",
+      "problem": "New crash fixture fork used a user-local absolute tsx loader for compiled JavaScript and other CI hosts.",
+      "finalCorrection": "Compiled child has no tsx preload; source fallback derives its absolute loader from repository file URL.",
+      "source": [
+        "agent-backends/session-load.native.integration.test.ts"
+      ],
+      "evidence": "Affected genuine SIGKILL source case rerun 1/1 after V2 correction; no remote/PID/cleanup invariants relaxed."
+    }
+  ],
+  "acceptanceMatrix": [
+    {
+      "boundary": "Original source authority and fresh binding",
+      "assessment": "verified in reviewed source and actual focused evidence",
+      "facts": "Nine immutable source pins select genuine completed engine-owned source request/Run and closed cleanup-confirmed connection. Root current epoch/physical source/launch/profile/config/catalogue/tools/budget/audience are rechecked. Fresh alias single-use; accepted old input/provider binding unchanged; reopened/imported history creates no Original grant."
+    },
+    {
+      "boundary": "Strict capability and wire contract",
+      "assessment": "verified",
+      "facts": "Host agent context plus explicit source and peer true load capability required. ACP v1 canonical absolute cwd/empty MCP; matching load RPC successful {} or bounded _meta only. Default engine context unchanged. Unsupported versions, authentication, extra MCP/modes/configuration or capability/effect requests fail without replacement new-session/prompt fallback."
+    },
+    {
+      "boundary": "History and current context ownership",
+      "assessment": "verified",
+      "facts": "At most128 ordered same-session update notifications and32768 encoded bytes. Repeated frames remain ordered observation DATA. No current answer/Tool/Part/approval/effect is replayed. After load, authenticated original native Run.prompt and current original system instructions only are sent; no old assistant history copied."
+    },
+    {
+      "boundary": "Genuine write/response and cancellation",
+      "assessment": "verified",
+      "facts": "Native load-intent before physical pipe write; private Original write/response maps bind exact message/RPC/session/epoch. Ready load needs matching response and complete actual write; pending cancellation uses original load-write witness, ready cancellation additionally actual matching response. Load ACK/EOF/disposal are distinct from completed current prompt."
+    },
+    {
+      "boundary": "Existing current native client effects",
+      "assessment": "verified preservation",
+      "facts": "Post-load broker retains genuine same Attempt/Turn/Tool/Part, prepared approval tuple, native budgets and cleanup proofs. Replay-time filesystem/permission/terminal RPCs produce no native effects; caller DATA is never reconstructed ToolContext."
+    },
+    {
+      "boundary": "Native SQL/CAS/deduplication",
+      "assessment": "verified",
+      "facts": "Existing DB23 typed revision/head storage reused; no new tables/migration. Native immutable replay order and write/response state validated, duplicate ACK cannot complete prompt, interrupted load remains uncertain, native source/foreign session/fully rehashed contradictions rejected."
+    },
+    {
+      "boundary": "Crash/recovery/archive",
+      "assessment": "verified supported local lane",
+      "facts": "Genuine Root SIGKILL after committed replay preserves unknown remote state and history while actual supervisor removes peer group; physical absence does not prove remote completion. Reopen/import preserves immutable loaded lineage/paused history with provider/Original/prompt replay zero."
+    }
+  ],
+  "focusedEvidence": {
+    "executionAttribution": "Existing owner-produced logs read and hashed by reviewer. No additional source/compiled test or build run during final audit. Overlapping suites are not added together.",
+    "nativeAndOldAdjacent": {
+      "path": "/tmp/moodcode-acp-load-native-adjacent-final-source.log",
+      "sha256": "8251b551238ad7f74eb0b8882863de47bf11638d922ad7a6d184750f1c0e10a6",
+      "bytes": 3205,
+      "observedSummary": {
+        "tests": 26,
+        "pass": 26,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    "nativeNewActualWithin26": 8,
+    "v2AffectedPortableCrash": {
+      "path": "/tmp/moodcode-acp-load-crash-portable-final-source.log",
+      "sha256": "517d1b16307114be782cf574f9498546a19bfeef8992f44bc4d43449ae47af65",
+      "bytes": 249,
+      "observedSummary": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    "lifecycleActual": {
+      "path": "/tmp/moodcode-acp-session-load-lifecycle-third-source.log",
+      "sha256": "c5f4f156d89d09da1cd732a9085d96c6cd3995802de2d27b3eb56222ae5ac825",
+      "bytes": 1055,
+      "observedSummary": {
+        "tests": 8,
+        "pass": 8,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    "lifecycleAdjacent": {
+      "path": "/tmp/moodcode-acp-session-load-lifecycle-adjacent-source.log",
+      "sha256": "5f209669e1ecdffba9ea5f0016107effc820b451fce24e3f09e00a22d785c09e",
+      "bytes": 3225,
+      "observedSummary": {
+        "tests": 28,
+        "pass": 28,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    "independentPublicProtocol": {
+      "path": "/tmp/moodcode-acp-session-load-protocol-source-final.log",
+      "sha256": "67863f67a65895b6db715c6d37c570bcfb7e17819946445a302fc6dbf6adbce6",
+      "bytes": 1134,
+      "observedSummary": {
+        "tests": 9,
+        "pass": 9,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      }
+    },
+    "nativeStrict": {
+      "path": "/tmp/moodcode-acp-load-native-final-type.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "reportedExit": 0
+    },
+    "CProtocolStrict": {
+      "path": "/tmp/moodcode-acp-session-load-protocol-type-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "reportedExit": 0
+    },
+    "AFreeze": {
+      "path": "/tmp/moodcode-acp-session-load-lifecycle-source-freeze.json",
+      "sha256": "3c88214f31bbea0b2df25905f5cf5fb39d6c531142231df3c1225eca2f0483e0",
+      "bytes": 3457
+    },
+    "CFreeze": {
+      "path": "/tmp/moodcode-acp-session-load-protocol-source-freeze.json",
+      "sha256": "23cd921bc56cc95fa7d8b2ad9c892e64900f1949e90f7873ba14c775dcf89760",
+      "bytes": 3952
+    },
+    "parentAggregate": "Root build exit0 reported; final compiled/broad direct-source/media/coding evaluation still running at report creation. No aggregate pass credit assigned here.",
+    "historicalCI": "Run37816462723/head836db4… POSIX/Windows evidence predates this9eb233… load feature and is not current load-source CI evidence."
+  },
+  "scopeLimits": [
+    "ACP v2",
+    "HTTP/reconnect/automatic load",
+    "authentication/live accounts",
+    "arbitrary remoteSessionId",
+    "mode/configuration switch",
+    "MCP server additions",
+    "recursive agent-owned source chains",
+    "over-budget histories",
+    "No claim of native Darwin process ownership on unsupported environments.",
+    "No actual account/model verification performed by this audit.",
+    "Broader E5-13/E5-08 and environment debt unchanged."
+  ],
+  "documentationFollowup": "Dedicated new load document/verification accurately qualify the supported lane and pending aggregate. Historical engine-phase-two-agent-backends.md still literally lists agent-owned context/session load unsupported in its older MC09 snapshot; Root should qualify that historical overview or link the new load increment when finalizing integration documents.",
+  "preservedInterimEvidence": [
+    {
+      "path": "/tmp/moodcode-acp-v1-load-primary-review.json",
+      "sha256": "ffca47f3665806c123857b322d1c7522ddeff0f67ebea9f1e0c7f4fc0566e8fa",
+      "bytes": 4389
+    },
+    {
+      "path": "/tmp/moodcode-acp-session-load-whole-independent-review-interim.json",
+      "sha256": "ee6d00aaaad222b9ea75aafb0706325f1920d7ac0dd9b97f97439e87b9d28fe4",
+      "bytes": 4801
+    }
+  ],
+  "primaryReferences": [
+    {
+      "url": "https://agentclientprotocol.com/protocol/v1/session-setup",
+      "supports": "Load capability, request session identity/absolute cwd/MCP and historical session/update before matching response."
+    },
+    {
+      "url": "https://agentclientprotocol.github.io/typescript-sdk/types/LoadSessionResponse.html",
+      "supports": "No replacement sessionId/stopReason; optional modes/configOptions outside this declared empty-result subset."
+    },
+    {
+      "url": "https://agentclientprotocol.com/protocol/v1/prompt-turn",
+      "supports": "Prompt cancellation lifecycle is distinct from load completion."
+    }
+  ],
+  "finalReviewActions": {
+    "MainOrWorkerWrites": 0,
+    "newTestRuns": 0,
+    "sharedBuilds": 0,
+    "accountCalls": 0,
+    "credentialReads": 0,
+    "remoteMutations": 0,
+    "tmpReportOnly": true
+  }
+}

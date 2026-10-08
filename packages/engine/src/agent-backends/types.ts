@@ -44,11 +44,24 @@ export interface AgentBackendSpecInput {
   readonly description: string;
   readonly protocol: "acp";
   readonly protocolVersion: 1;
-  readonly contextOwner: "engine";
+  readonly contextOwner: "engine" | "agent";
+  /** Explicit fresh host registration; historical DATA cannot activate this binding. */
+  readonly sessionLoad?: AgentBackendSessionLoad;
   readonly launch: AgentBackendLaunch;
   readonly credentialReference: AgentBackendCredentialReference | null;
   readonly endpointAudience: string;
   readonly target: AgentBackendTargetPin;
+}
+export interface AgentBackendSessionLoad {
+  readonly sourceBackendId: string;
+  readonly sourceBackendRevisionId: string;
+  readonly sourceRequestId: string;
+  readonly sourceRequestRevisionId: string;
+  readonly sourceRequestSha256: string;
+  readonly sourceConnectionId: string;
+  readonly sourceConnectionRevisionId: string;
+  readonly sourceConnectionSha256: string;
+  readonly remoteSessionId: string;
 }
 export interface AgentBackendSpec extends AgentBackendSpecInput {
   readonly sha256: string;
@@ -134,6 +147,12 @@ export interface AcpV1NewSessionResult {
   readonly sessionId: string;
   readonly _meta?: JsonObject;
 }
+export interface AcpV1LoadSessionParams extends AcpV1NewSessionParams {
+  readonly sessionId: string;
+}
+export interface AcpV1LoadSessionResult {
+  readonly _meta?: JsonObject;
+}
 export interface AcpV1TextContent {
   readonly type: "text";
   readonly text: string;
@@ -175,12 +194,12 @@ export interface AcpV1SessionUpdate {
 export interface AcpV1NegotiatedCapabilities {
   readonly protocol: "acp";
   readonly protocolVersion: 1;
-  readonly contextOwner: "engine";
+  readonly contextOwner: "engine" | "agent";
   readonly text: true;
   readonly readTextFile: boolean;
   readonly writeTextFile: boolean;
   readonly terminal: boolean;
-  readonly loadSession: false;
+  readonly loadSession: boolean;
   readonly sha256: string;
 }
 

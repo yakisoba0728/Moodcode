@@ -46,7 +46,7 @@ function remoteFailure(value: unknown): EngineError {
       );
 }
 
-/** One fresh remote session per native Attempt keeps the Engine's supplied context authoritative. */
+/** One fresh physical connection per native Attempt; explicit load bindings keep prior agent context separate from Engine context. */
 export class AgentBackendRemote implements ProviderAdapter {
   readonly id: string;
   readonly inputModalities = ["text"] as const;
@@ -102,6 +102,7 @@ export class AgentBackendRemote implements ProviderAdapter {
     let frames: AsyncIterator<object> | undefined;
     let remoteSessionId: string | undefined;
     let originalSession: object | undefined;
+    let originalSessionWrite: object | undefined;
     let disposal: object | undefined;
     let settled = false;
     let nativeEffects: BackendNativeEffects | undefined;
@@ -185,13 +186,31 @@ export class AgentBackendRemote implements ProviderAdapter {
           "ACP_CONTENT_UNSUPPORTED",
           "The backend currently supports text context only",
         );
+      const currentInput =
+        record.spec.contextOwner === "agent"
+          ? this.options.turns.readCurrentInput?.(originalTurn)
+          : undefined;
+      if (record.spec.contextOwner === "agent" && !currentInput)
+        throw new EngineError(
+          "ACP_CONTEXT_OWNER_UNSUPPORTED",
+          "Agent-owned context requires the original native current input producer",
+        );
       const prompt = [
         {
           type: "text" as const,
-          text: JSON.stringify({
-            contextOwner: "engine",
-            messages: originalTurn.messages,
-          }),
+          text: JSON.stringify(
+            record.spec.contextOwner === "agent"
+              ? {
+                  contextOwner: "agent",
+                  source: record.spec.sessionLoad,
+                  instructions: currentInput!.instructions,
+                  messages: [{ role: "user", content: currentInput!.prompt }],
+                }
+              : {
+                  contextOwner: "engine",
+                  messages: originalTurn.messages,
+                },
+          ),
         },
       ];
       validateAcpV1Request("session/prompt", { sessionId: "pending", prompt });
@@ -231,7 +250,13 @@ export class AgentBackendRemote implements ProviderAdapter {
       try {
         capabilities = negotiateAcpV1Capabilities(
           "result" in initialized.response ? initialized.response.result : null,
-          { readTextFile, writeTextFile, terminal: terminalSupport },
+          {
+            readTextFile,
+            writeTextFile,
+            terminal: terminalSupport,
+            loadSession: record.spec.contextOwner === "agent",
+            contextOwner: record.spec.contextOwner,
+          },
         );
         observe(initialized.original, "initialized", null);
         connection = store.negotiateCapabilities(
@@ -247,21 +272,102 @@ export class AgentBackendRemote implements ProviderAdapter {
       } finally {
         processes.releasePeerObservation(initialized.original);
       }
-      const created = await handshake("session/new", {
-        cwd: record.spec.launch.cwd,
-        mcpServers: [],
-      });
-      try {
-        const result = validateAcpV1Result(
-          "session/new",
-          "result" in created.response ? created.response.result : null,
-        );
-        remoteSessionId = result.sessionId;
-        observe(created.original, "session-ready", remoteSessionId);
-        originalSession = created.original;
-      } finally {
-        if (!originalSession)
-          processes.releasePeerObservation(created.original);
+      if (record.spec.contextOwner === "agent") {
+        if (!record.spec.sessionLoad || !capabilities.loadSession)
+          throw new EngineError(
+            "ACP_LOAD_UNSUPPORTED",
+            "The exact backend did not negotiate session loading",
+          );
+        remoteSessionId = record.spec.sessionLoad.remoteSessionId;
+        const loadMessage: AcpV1Request = {
+          jsonrpc: "2.0",
+          id: randomUUID(),
+          method: "session/load",
+          params: {
+            sessionId: remoteSessionId,
+            cwd: record.spec.launch.cwd,
+            mcpServers: [],
+          },
+        };
+        validateAcpV1Request("session/load", loadMessage.params);
+        connection = store.prepareSessionLoad(originalTurn, {
+          workspaceId,
+          requestId: randomUUID(),
+          expectedRevision: connection.revision,
+          connectionId: connection.connectionId,
+          message: loadMessage,
+        }).record;
+        originalSessionWrite = await write(loadMessage);
+        let replayFrames = 0,
+          replayBytes = 0;
+        while (!originalSession) {
+          const original = await next();
+          const wire = processes.readPeerObservation(original).message;
+          let retain = false;
+          try {
+            if ("method" in wire) {
+              if ("id" in wire || wire.method !== "session/update")
+                throw new EngineError(
+                  "ACP_LOAD_EFFECT_UNSUPPORTED",
+                  "Loading only accepts historical session updates",
+                );
+              const update = validateAcpV1Request(
+                "session/update",
+                wire.params,
+              );
+              if (update.sessionId !== remoteSessionId)
+                throw new EngineError(
+                  "BACKEND_REMOTE_SESSION_INVALID",
+                  "Loaded history belongs to another session",
+                );
+              replayBytes += Buffer.byteLength(JSON.stringify(wire));
+              if (++replayFrames > 128 || replayBytes > 32768)
+                throw new EngineError(
+                  "AGENT_BACKEND_LIMIT",
+                  "Loaded history exceeds its finite replay bound",
+                );
+              observe(original, "initialized", null);
+            } else {
+              if (wire.id !== loadMessage.id || !("result" in wire))
+                throw new EngineError(
+                  "ACP_HANDSHAKE_FAILED",
+                  "The load did not return its exact successful response",
+                );
+              validateAcpV1Result("session/load", wire.result);
+              connection = store.recordLoadedSession(
+                original,
+                originalSessionWrite,
+                {
+                  workspaceId,
+                  requestId: randomUUID(),
+                  expectedRevision: connection.revision,
+                  connectionId: connection.connectionId,
+                },
+              ).record;
+              originalSession = original;
+              retain = true;
+            }
+          } finally {
+            if (!retain) processes.releasePeerObservation(original);
+          }
+        }
+      } else {
+        const created = await handshake("session/new", {
+          cwd: record.spec.launch.cwd,
+          mcpServers: [],
+        });
+        try {
+          const result = validateAcpV1Result(
+            "session/new",
+            "result" in created.response ? created.response.result : null,
+          );
+          remoteSessionId = result.sessionId;
+          observe(created.original, "session-ready", remoteSessionId);
+          originalSession = created.original;
+        } finally {
+          if (!originalSession)
+            processes.releasePeerObservation(created.original);
+        }
       }
       const remoteRequestId = randomUUID(),
         rpcId = randomUUID();
@@ -367,6 +473,7 @@ export class AgentBackendRemote implements ProviderAdapter {
                         },
                         AbortSignal.timeout(250),
                         original,
+                        originalSessionWrite,
                       );
                       processes.releaseWrite(cancelled);
                     } catch {}
@@ -523,7 +630,13 @@ export class AgentBackendRemote implements ProviderAdapter {
       throw remoteFailure(error);
     } finally {
       let clientCloseFailure: unknown;
-      if (process && request && remoteSessionId && !settled && !cancelSent) {
+      if (
+        process &&
+        remoteSessionId &&
+        (originalSession || originalSessionWrite) &&
+        !settled &&
+        !cancelSent
+      ) {
         cancelSent = true;
         try {
           const message = {
@@ -533,18 +646,21 @@ export class AgentBackendRemote implements ProviderAdapter {
           };
           const original = await processes.writeCancellation(
             process,
-            originalSession!,
+            originalSession ?? originalSessionWrite!,
             message,
             AbortSignal.timeout(250),
+            undefined,
+            originalSessionWrite,
           );
           try {
-            request = store.recordRequestCancel(original, {
-              workspaceId,
-              requestId: randomUUID(),
-              expectedRevision: request.revision,
-              remoteRequestId: request.remoteRequestId,
-              message,
-            }).record;
+            if (request)
+              request = store.recordRequestCancel(original, {
+                workspaceId,
+                requestId: randomUUID(),
+                expectedRevision: request.revision,
+                remoteRequestId: request.remoteRequestId,
+                message,
+              }).record;
           } finally {
             processes.releaseWrite(original);
           }
@@ -602,6 +718,7 @@ export class AgentBackendRemote implements ProviderAdapter {
       }
       if (terminal) processes.releasePeerObservation(terminal);
       if (originalSession) processes.releasePeerObservation(originalSession);
+      if (originalSessionWrite) processes.releaseWrite(originalSessionWrite);
       await frames?.return?.();
       cleanupState.confirmed = cleanupState.durable;
       if (clientCloseFailure) throw clientCloseFailure;

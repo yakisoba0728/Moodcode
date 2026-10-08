@@ -1,0 +1,98 @@
+{
+  "version": 2,
+  "feature": "MC2-09 bounded ACPv1 session/load",
+  "root": "/Users/yakisoba0728/Documents/GitHub/Moodcode",
+  "headAtFreeze": "9eb233bea74c1aa88609d0bcf567ff956824ca0a",
+  "files": [
+    {
+      "path": "packages/engine/src/agent-backends/types.ts",
+      "sha256": "534d8874999e4e6bbf017c382ba91611c7257be8f420472adc0be692d754da06",
+      "bytes": 7157
+    },
+    {
+      "path": "packages/engine/src/agent-backends/validation.ts",
+      "sha256": "841f96331a1bd7380a595441e407e3e52b20257fff6723c273d3093e6b27f7fd",
+      "bytes": 12430
+    },
+    {
+      "path": "packages/engine/src/agent-backends/protocol.ts",
+      "sha256": "ef255c59cd734f1204d0588a16d498710ad318c87a2b315936524996f2c0937c",
+      "bytes": 25387
+    },
+    {
+      "path": "packages/engine/src/agent-backends/store.ts",
+      "sha256": "771cfbe0993676657c82d4bfb89e3fcd2c3f06f9922763114c0c71333c0cfaa7",
+      "bytes": 134116
+    },
+    {
+      "path": "packages/engine/src/agent-backends/remote.ts",
+      "sha256": "cf68cd12f114d62a81ba11f7dc009f6dd71af8277fa1dba7d55daa04453dfaa0",
+      "bytes": 26369
+    },
+    {
+      "path": "packages/engine/src/agent-backends/process.ts",
+      "sha256": "41c5468600e4c00d18a35b7094d5839290687afe527cdfed1e0cc418426cbde1",
+      "bytes": 29882
+    },
+    {
+      "path": "packages/engine/src/agent-backends/engine-producer.ts",
+      "sha256": "28a0dd0ea1480e4308359e9235b94868bb1da327afcb14c66fac32d2fdb45d9b",
+      "bytes": 29516
+    },
+    {
+      "path": "packages/engine/src/agent-backends/host.ts",
+      "sha256": "540e758e946a169ad58effe37a1014bdba831c4f94364d90abde05d1c4d8785c",
+      "bytes": 2603
+    },
+    {
+      "path": "packages/engine/src/agent-backends/reducer.ts",
+      "sha256": "7e3e8e7f144ef317de9a3511409304c05b18d77ecff276641077b3b7cc3035a6",
+      "bytes": 5064
+    },
+    {
+      "path": "packages/engine/src/agent-backends/protocol.test.ts",
+      "sha256": "5dff387e06ff0832621b575e96d2c0073915b63585447d26ab258f6e5803fdf1",
+      "bytes": 13415
+    },
+    {
+      "path": "packages/engine/src/agent-backends/session-load.protocol.test.ts",
+      "sha256": "4dfc928f464cfca226c19935da7f9c6b231758f6e417afc2e3ec746e457ace04",
+      "bytes": 13915
+    },
+    {
+      "path": "packages/engine/src/agent-backends/session-load.lifecycle.integration.test.ts",
+      "sha256": "ca19ea7aab12988758260264dbcc0e96f0eefa398bba6eebe4f07502fff17f68",
+      "bytes": 14720
+    },
+    {
+      "path": "packages/engine/src/agent-backends/session-load.native.integration.test.ts",
+      "sha256": "9acc75fa42673780676493ebe1e6e184c1bc3288403e1efdc2b97d369f23252a",
+      "bytes": 12119
+    },
+    {
+      "path": "packages/engine/src/agent-backends/fixtures/session-load-lifecycle-peer.ts",
+      "sha256": "3dec34b98b8f918deec5e9445b3cb20fb00afddea839c9404ba760151197054d",
+      "bytes": 4090
+    },
+    {
+      "path": "packages/engine/src/agent-backends/fixtures/session-load.ts",
+      "sha256": "b84be161b32190620390102e0d88b4960142a11bc5690dd7f5123b2a4d7dda1f",
+      "bytes": 4036
+    },
+    {
+      "path": "packages/engine/src/agent-backends/fixtures/session-load-crash.ts",
+      "sha256": "6e1a22f5f073193fa4ccf7ca263606b4cefa0775e6765df4416d8b24f61f31cc",
+      "bytes": 1119
+    }
+  ],
+  "sourceFrozen": true,
+  "accounts": 0,
+  "builds": 0,
+  "notes": [
+    "host.ts unchanged consumer factory dependency",
+    "canonical native source tests in final focused run; complete result recorded separately",
+    "A remote/process/lifecycle files and C protocol test remain their frozen owned source"
+  ],
+  "priorManifestSha256": "bb031b6d4700a0b8dd2aa362dcba14aca468e90388c653211f54da6ce4f2907f",
+  "changeFromV1": "Only native integration SIGKILL test fork execArgv: compiled has no tsx requirement; source derives identical local absolute loader from repository URL."
+}

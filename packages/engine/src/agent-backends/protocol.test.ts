@@ -119,7 +119,7 @@ test("malformed effect inputs and unsupported MCP/load/content are rejected befo
     );
   assert.throws(
     () => validateAcpV1Request("session/load", {}),
-    fails("ACP_METHOD_UNSUPPORTED"),
+    fails("INVALID_AGENT_BACKEND"),
   );
   assert.throws(
     () =>

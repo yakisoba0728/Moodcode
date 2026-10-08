@@ -16,7 +16,12 @@ import {
 } from "../tools/command/process-control.js";
 import type { TurnRequest } from "../ports.js";
 import type { AcpV1Message, AgentBackendSpec } from "./types.js";
-import { encodeAcpV1Message, parseAcpV1Message } from "./protocol.js";
+import {
+  encodeAcpV1Message,
+  parseAcpV1Message,
+  validateAcpV1Request,
+  validateAcpV1Result,
+} from "./protocol.js";
 
 /** Root authenticates the native Attempt and pins actual launch files and credentials. */
 export interface BackendLaunchProof {
@@ -126,6 +131,7 @@ export interface BackendProcessPort {
     message: AcpV1Message,
     signal: AbortSignal,
     originalPermission?: object,
+    originalSessionWrite?: object,
   ): Promise<object>;
   readWrite(original: object): BackendWriteProof;
   releaseWrite(original: object): void;
@@ -246,6 +252,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
     BackendPeerObservationProof
   >();
   private readonly writes = new WeakMap<object, BackendWriteProof>();
+  private readonly writeMessages = new WeakMap<object, AcpV1Message>();
   private readonly disposals = new WeakMap<object, BackendDisposalProof>();
   private closed = false;
   constructor(private readonly launches: BackendLaunchPort) {}
@@ -645,23 +652,59 @@ export class OwnedBackendProcesses implements BackendProcessPort {
     message: AcpV1Message,
     signal: AbortSignal,
     originalPermission?: object,
+    originalSessionWrite?: object,
   ): Promise<object> {
-    const state = this.state(originalConnection),
-      session = this.readPeerObservation(originalSession);
-    if (
-      session.connectionId !== state.proof.connectionId ||
-      session.epoch !== state.proof.epoch ||
-      !("result" in session.message) ||
-      !session.message.result ||
-      typeof session.message.result !== "object" ||
-      Array.isArray(session.message.result) ||
-      typeof session.message.result.sessionId !== "string"
-    )
-      throw new EngineError(
-        "BACKEND_REMOTE_SESSION_INVALID",
-        "Cancellation requires the original session response",
-      );
-    const sessionId = session.message.result.sessionId;
+    const state = this.state(originalConnection);
+    let sessionId: string;
+    if (originalSessionWrite) {
+      const write = this.readWrite(originalSessionWrite);
+      const wire = this.writeMessages.get(originalSessionWrite);
+      if (
+        write.connectionId !== state.proof.connectionId ||
+        write.epoch !== state.proof.epoch ||
+        !wire ||
+        !("method" in wire) ||
+        !("id" in wire) ||
+        wire.method !== "session/load" ||
+        write.frameSha256 !== knowledgeHash(wire)
+      )
+        throw new EngineError(
+          "BACKEND_REMOTE_SESSION_INVALID",
+          "Cancellation requires the actual load write on this transport",
+        );
+      sessionId = validateAcpV1Request("session/load", wire.params).sessionId;
+      if (originalSession !== originalSessionWrite) {
+        const session = this.readPeerObservation(originalSession);
+        if (
+          session.connectionId !== state.proof.connectionId ||
+          session.epoch !== state.proof.epoch ||
+          "method" in session.message ||
+          !("result" in session.message) ||
+          session.message.id !== wire.id
+        )
+          throw new EngineError(
+            "BACKEND_REMOTE_SESSION_INVALID",
+            "Loaded cancellation requires the original matching response",
+          );
+        validateAcpV1Result("session/load", session.message.result);
+      }
+    } else {
+      const session = this.readPeerObservation(originalSession);
+      if (
+        session.connectionId !== state.proof.connectionId ||
+        session.epoch !== state.proof.epoch ||
+        !("result" in session.message) ||
+        !session.message.result ||
+        typeof session.message.result !== "object" ||
+        Array.isArray(session.message.result) ||
+        typeof session.message.result.sessionId !== "string"
+      )
+        throw new EngineError(
+          "BACKEND_REMOTE_SESSION_INVALID",
+          "Cancellation requires the original session response",
+        );
+      sessionId = session.message.result.sessionId;
+    }
     if ("method" in message) {
       if (
         message.method !== "session/cancel" ||
@@ -744,6 +787,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
           writtenBytes: bytes,
         }),
       );
+      this.writeMessages.set(handle, parseAcpV1Message(text.slice(0, -1)));
       return handle;
     } finally {
       release();
@@ -760,6 +804,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
   }
   releaseWrite(original: object): void {
     this.writes.delete(original);
+    this.writeMessages.delete(original);
   }
   dispose(originalConnection: object): Promise<object> {
     const state = this.state(originalConnection);

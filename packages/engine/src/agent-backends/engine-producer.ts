@@ -10,7 +10,7 @@ import {
   type BigIntStats,
 } from "node:fs";
 import { types } from "node:util";
-import type { RunConfig } from "@moodcode/contracts";
+import type { RunConfig, JsonObject } from "@moodcode/contracts";
 import { EngineError } from "@moodcode/contracts";
 import {
   normalizeAcceptInput,
@@ -67,6 +67,8 @@ interface Target {
   readonly endpointAudience: string;
   readonly files: readonly FilePin[];
   readonly proof: BackendTargetProof;
+  readonly contextOwner: "engine" | "agent";
+  readonly sessionLoad: import("./types.js").AgentBackendSessionLoad | null;
 }
 export interface CaptureAgentBackendTarget {
   readonly backendId: string;
@@ -76,6 +78,8 @@ export interface CaptureAgentBackendTarget {
   readonly launch: AgentBackendLaunch;
   readonly credentialReference: AgentBackendCredentialReference | null;
   readonly endpointAudience: string;
+  readonly contextOwner?: "engine" | "agent";
+  readonly sessionLoad?: import("./types.js").AgentBackendSessionLoad;
 }
 export interface AgentBackendSecretResolver {
   resolve(
@@ -231,13 +235,16 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
       fail("BACKEND_ROOT_STALE");
   }
   private capabilities(providerId: string): string {
+    return knowledgeHash(this.capabilitiesManifest(providerId));
+  }
+  private capabilitiesManifest(providerId: string): JsonObject {
     const capabilities = this.engine.getCapabilities();
-    return knowledgeHash({
+    return agentBackendJson({
       ...capabilities,
       providerIds: [
         ...new Set([...capabilities.providerIds, providerId]),
       ].sort(),
-    });
+    }) as unknown as JsonObject;
   }
   private describe(
     workspaceId: string,
@@ -299,15 +306,19 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
   }
   captureTarget(value: CaptureAgentBackendTarget): object {
     this.enabled();
-    const input = agentBackendObject(value, [
-      "backendId",
-      "workspaceId",
-      "sessionId",
-      "config",
-      "launch",
-      "credentialReference",
-      "endpointAudience",
-    ]);
+    const input = agentBackendObject(
+      value,
+      [
+        "backendId",
+        "workspaceId",
+        "sessionId",
+        "config",
+        "launch",
+        "credentialReference",
+        "endpointAudience",
+      ],
+      ["contextOwner", "sessionLoad"],
+    );
     const backendId = agentBackendIdentifier(input.backendId),
       workspaceId = agentBackendIdentifier(input.workspaceId),
       sessionId = agentBackendIdentifier(input.sessionId);
@@ -338,7 +349,10 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
       description: "",
       protocol: "acp",
       protocolVersion: 1,
-      contextOwner: "engine",
+      contextOwner: input.contextOwner ?? "engine",
+      ...(input.sessionLoad === undefined
+        ? {}
+        : { sessionLoad: input.sessionLoad }),
       launch,
       credentialReference: input.credentialReference,
       endpointAudience: input.endpointAudience,
@@ -374,7 +388,14 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
         epoch: this.epoch,
         binding: described.binding,
       }),
+      capabilitiesManifest: JSON.stringify(
+        this.capabilitiesManifest(normalized.config.providerId),
+      ),
     });
+    if (spec.sessionLoad) {
+      if (this.registrations.has(backendId)) fail("BACKEND_LOAD_ALIAS_USED");
+      this.native().assertSessionLoadSource(spec, proof);
+    }
     return this.issue(this.targets, {
       ...described,
       launch,
@@ -382,6 +403,8 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
       endpointAudience: spec.endpointAudience,
       files,
       proof,
+      contextOwner: spec.contextOwner,
+      sessionLoad: spec.sessionLoad ?? null,
     });
   }
   readTarget(original: object): BackendTargetProof {
@@ -413,10 +436,15 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
       knowledgeHash(spec.launch) !== knowledgeHash(target.launch) ||
       knowledgeHash(spec.credentialReference) !==
         knowledgeHash(target.credentialReference) ||
-      spec.endpointAudience !== target.endpointAudience
+      spec.endpointAudience !== target.endpointAudience ||
+      spec.contextOwner !== target.contextOwner ||
+      knowledgeHash(spec.sessionLoad ?? null) !==
+        knowledgeHash(target.sessionLoad)
     )
       fail("BACKEND_TARGET_STALE");
     this.engine.toolRuntime.assertCatalogueCurrent(target.catalogue);
+    if (spec.sessionLoad)
+      this.native().assertSessionLoadSource(spec, target.proof);
   }
   assertTargetCurrent(
     original: object,
@@ -471,6 +499,26 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
     this.turns.set(original, { proof, registration });
     return agentBackendJson(proof);
   }
+  readCurrentInput(original: object): {
+    readonly prompt: string;
+    readonly instructions: readonly string[];
+  } {
+    const owner = this.readOwner(original);
+    this.assertOwnerCurrent(original, owner, "dispatch");
+    const run = this.engine.store.getRun(owner.runId);
+    if (
+      run.workspaceId !== owner.workspaceId ||
+      run.sessionId !== owner.sessionId
+    )
+      fail("BACKEND_OWNER_INVALID");
+    const request = original as TurnRequest;
+    return agentBackendJson({
+      prompt: run.prompt,
+      instructions: request.messages
+        .filter((message) => message.role === "system")
+        .map((message) => message.content),
+    });
+  }
   assertOwnerCurrent(
     original: object,
     proof: BackendTurnProof,
@@ -511,6 +559,13 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
     const owner = this.readOwner(request);
     this.assertOwnerCurrent(request, owner, "dispatch");
     const registration = this.registrations.get(spec.id)!;
+    if (
+      spec.sessionLoad &&
+      this.native()
+        .inspectConnections(owner.workspaceId)
+        .some((c) => c.backendId === spec.id)
+    )
+      fail("BACKEND_LOAD_ALIAS_USED");
     if (
       registration.record.id !== backendRevisionId ||
       registration.record.spec.sha256 !== spec.sha256

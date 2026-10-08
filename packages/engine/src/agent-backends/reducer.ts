@@ -96,10 +96,17 @@ export function assertBackendTransition(
     invalid();
   }
   if (
-    operation === "negotiate" &&
+    ["negotiate", "load-intent"].includes(operation) &&
     kind === "connection" &&
     before === "initialized" &&
     after === before
+  )
+    return;
+  if (
+    operation === "load-ready" &&
+    kind === "connection" &&
+    before === "initialized" &&
+    after === "session-ready"
   )
     return;
   if (

@@ -184,15 +184,19 @@ test("profile null and exact registered profile revision cannot be interchanged"
     fails("AGENT_BACKEND_PROFILE_MISMATCH"),
   );
 });
-test("unsupported protocol/context/transport and caller identity fields fail exact validation", () => {
+test("unsupported protocol/context/transport, incomplete load and caller identity fields fail exact validation", () => {
   const value = definition();
   assert.throws(
     () => validateAgentBackendSpec({ ...value, protocolVersion: 2 }),
     fails("ACP_VERSION_UNSUPPORTED"),
   );
   assert.throws(
-    () => validateAgentBackendSpec({ ...value, contextOwner: "agent" }),
+    () => validateAgentBackendSpec({ ...value, contextOwner: "external" }),
     fails("AGENT_BACKEND_CONTEXT_UNSUPPORTED"),
+  );
+  assert.throws(
+    () => validateAgentBackendSpec({ ...value, contextOwner: "agent" }),
+    fails("INVALID_AGENT_BACKEND"),
   );
   assert.throws(
     () =>
