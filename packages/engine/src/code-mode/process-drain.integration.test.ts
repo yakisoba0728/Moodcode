@@ -11,16 +11,35 @@ const actual = { skip: process.platform !== "darwin", timeout: 45000 };
 function holdActualStdout(corrupt?: (bytes: Buffer) => void) {
   const start = OwnedCodeModeProcess.prototype.start;
   let child: ChildProcess | undefined;
+  let heldStdout: ChildProcess["stdout"];
+  let originalResume: NonNullable<ChildProcess["stdout"]>["resume"] | undefined;
+  let blockedResumeAttempts = 0;
   let receiveClosed!: (packet: Record<string, unknown>) => void;
+  let receiveExit!: () => void;
   const closed = new Promise<Record<string, unknown>>(
     (resolve) => (receiveClosed = resolve),
   );
+  const exited = new Promise<void>((resolve) => (receiveExit = resolve));
+  function releaseStdout() {
+    if (!heldStdout || !originalResume) return;
+    heldStdout.resume = originalResume;
+    originalResume = undefined;
+    heldStdout.resume();
+  }
   OwnedCodeModeProcess.prototype.start = async function (signal) {
     const proof = await start.call(this, signal);
     child = (this as unknown as { child: ChildProcess }).child;
     assert.ok(child.stdout);
     child.stdout.pause();
+    heldStdout = child.stdout;
+    originalResume = child.stdout.resume;
+    // Node's child-exit flushStdio also calls resume; hold the actual bytes until release.
+    child.stdout.resume = function () {
+      blockedResumeAttempts++;
+      return this;
+    };
     if (corrupt) child.stdout.prependListener("data", corrupt);
+    child.once("exit", () => setImmediate(receiveExit));
     child.on("message", (packet: unknown) => {
       if (
         packet &&
@@ -34,12 +53,14 @@ function holdActualStdout(corrupt?: (bytes: Buffer) => void) {
   };
   return {
     closed,
+    exited,
+    blockedResumeAttempts: () => blockedResumeAttempts,
     release() {
-      child?.stdout?.resume();
+      releaseStdout();
     },
     restore() {
       OwnedCodeModeProcess.prototype.start = start;
-      child?.stdout?.resume();
+      releaseStdout();
     },
   };
 }
@@ -60,15 +81,14 @@ for (const [value, expectedError] of [
           program([{ op: "return", value: literal(value) }]),
         );
         const approval = await f.allow(submitted);
-        const physical = await Promise.race([
-          gate.closed,
+        const [physical] = await Promise.race([
+          Promise.all([gate.closed, gate.exited]),
           delay(15000, undefined, { ref: false }).then(() => {
-            throw new Error("genuine supervisor cleanup IPC missing");
+            throw new Error("genuine supervisor cleanup IPC or exit missing");
           }),
         ]);
         assert.equal(physical.cleanupConfirmed, true);
-        // Give IPC/exit observers time to run while the genuine final frame remains unread.
-        await delay(50);
+        assert.ok(gate.blockedResumeAttempts() > 0);
         assert.equal(
           f.engine.inspectCodeMode(f.workspace.id)[0]!.state,
           "running",

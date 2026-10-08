@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "frozen": true,
+  "frozenAt": "2026-10-08T18:45:27.880366+00:00",
+  "scope": "Only the existing code-mode genuine stdout drain fixture lifetime barrier",
+  "head": "f992c710564bcbbd9cf10bcb8bff9924151cd7ba",
+  "files": [
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/code-mode/process-drain.integration.test.ts",
+      "sha256": "284a1ee4b14891d894c8f928aa1f93077ec020686f762cb045d8a7895788dba1",
+      "bytes": 6561
+    }
+  ],
+  "baseline": {
+    "path": "/tmp/moodcode-code-mode-drain-gate-baseline.ts",
+    "sha256": "6f5fe90b9d663de4d8cb0d6a1bae071bbced36710faab4e7b57406d9f4da312b",
+    "bytes": 5777
+  },
+  "patch": {
+    "path": "/tmp/moodcode-code-mode-drain-fixture-gate.patch",
+    "sha256": "169c1ff07499d1f53375df3b967010886bfafa24c4ed902afdee7ef530ffb803",
+    "bytes": 3248
+  },
+  "cause": {
+    "priorRun": 37819518795,
+    "priorHead": "9eb233bea74c1aa88609d0bcf567ff956824ca0a",
+    "failedOSNode": [
+      "macOS Node24",
+      "macOS Node26"
+    ],
+    "case": "actual cleanup IPC before stdout drain preserves CODE_MODE_RESULT_LIMIT",
+    "assertion": "actual settling vs expected running while fixture assumed pause held the final frame",
+    "originalFailureLog": {
+      "path": "/tmp/moodcode-ci-9eb233b-failed.log",
+      "sha256": "b7fd0068010760a5a60843f2adb5d8ff8863ca0dcf42c36314eed62b2f519052",
+      "bytes": 2008682
+    },
+    "confirmedFixtureCause": "Node ChildProcess exit flushStdio implicitly resumes readable stdio, overriding a simple pause. Final fixture intercepts actual stream resume until explicit release. Production stdout/decoder/owner/cleanup code is unchanged."
+  },
+  "genuineProof": {
+    "bytes": "Same original process stdout bytes held unmodified; existing corruption only in negative cases",
+    "physical": "Original cleanup IPC and actual supervisor exit observed; one event-loop turn observes implicit resume attempts",
+    "barrier": "Explicit blockedResumeAttempts>0 and unchanged running assertion before explicit release",
+    "afterRelease": "Original stream resume restored; same successful result or exact RESULT_LIMIT; original native Tool state, approval, PID absence and cleanup confirmed assertions unchanged",
+    "malformed": [
+      "CODE_MODE_FAILED",
+      "CODE_MODE_PROTOCOL_INVALID",
+      "ERR_ENCODING_INVALID_ENCODED_DATA"
+    ],
+    "timing": "Original45s test and15s startup/cleanup bound retained; fixed50ms polling replaced by actual exit+one event-loop turn",
+    "assertionsAndTests": "Existing5 cases preserved; no skip, settling acceptance or narrowed integrity assertion"
+  },
+  "verification": {
+    "source": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skip": 0,
+      "node": "v26.9.0",
+      "platform": "darwin",
+      "log": {
+        "path": "/tmp/moodcode-code-mode-drain-gate-final-source.log",
+        "sha256": "6f7a7c1c8e832880588620b0eba0145f582f9f16b85fb057c849590d8709d42b",
+        "bytes": 616
+      }
+    },
+    "focusedStrict": {
+      "exit": 0,
+      "flags": [
+        "--ignoreConfig",
+        "--noEmit",
+        "--target ES2024",
+        "--module NodeNext",
+        "--moduleResolution NodeNext",
+        "--strict",
+        "--noUncheckedIndexedAccess",
+        "--skipLibCheck",
+        "--esModuleInterop",
+        "--types node"
+      ],
+      "log": {
+        "path": "/tmp/moodcode-code-mode-drain-gate-final-type.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      }
+    },
+    "format": {
+      "exit": 0,
+      "log": {
+        "path": "/tmp/moodcode-code-mode-drain-gate-final-format.log",
+        "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+        "bytes": 66
+      }
+    },
+    "firstTypeHarnessAttemptsPreserved": [
+      {
+        "path": "/tmp/moodcode-code-mode-drain-gate-initial-type.log",
+        "sha256": "5b766b55df5bc15c215149742c8fe88d72a584cb45f5422c7edca1594b6d0cb5",
+        "bytes": 142
+      },
+      {
+        "path": "/tmp/moodcode-code-mode-drain-gate-unconfigured-type.log",
+        "sha256": "56fa47ce75eb123d0e52f326a0f7d1e40e1809251bf662802a0845d93f703618",
+        "bytes": 404342
+      }
+    ],
+    "typeAttemptQualification": "First invocation omitted TS6 --ignoreConfig, next omitted explicit node types. Final invocation uses repository equivalent compiler flags; source was unchanged across all type invocations."
+  },
+  "actions": {
+    "sourceFilesChanged": 1,
+    "productionChanged": 0,
+    "testsRun": 5,
+    "sharedBuild": 0,
+    "accountCalls": 0,
+    "credentialReads": 0,
+    "GitOrRemoteMutation": 0
+  },
+  "parentNext": "Root build/final whole frozen-source tests and new committed-head CI remain separate. Existing f992 CI is not this corrected fixture source."
+}
