@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-09",
+  "updatedAt": "2026-10-08T23:13:33.939Z",
   "baselineSource": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
   "goal": "N-04 per-OS desktop bundle/utility/SQLite/renderer, actual POSIX supervisors and Windows engine-utility native command smoke",
   "sourceScope": [
@@ -12,9 +12,11 @@
     "scripts/desktop-native-package.mjs",
     "scripts/desktop-native-package.test.mjs",
     "scripts/desktop-package-utility.mjs",
-    ".github/workflows/desktop-package.yml"
+    ".github/workflows/desktop-package.yml",
+    "scripts/desktop-test-evidence.mjs",
+    "scripts/desktop-test-evidence.test.mjs"
   ],
-  "status": "implementation-ready-real-per-OS-package-verification-pending",
+  "status": "corrective-drivers-verified-latest-combined-packages-pending",
   "implementation": {
     "targets": {
       "development": [
@@ -57,7 +59,13 @@
       "boundary": "development bundle8 POSIX utility transport only; no Windows native qualification",
       "log": "artifacts/desktop-next/private-utility-posix.log",
       "logSha256": "4d5cf067c3ba71ccdab4dce23af5cf3b22e1f8963b1e462b7afd289a6422677e",
-      "checks": ["exact patch and command approval", "real approved command marker", "exit0 and cleanupConfirmed", "complete command checkpoint", "utility close acknowledged and exit0"],
+      "checks": [
+        "exact patch and command approval",
+        "real approved command marker",
+        "exit0 and cleanupConfirmed",
+        "complete command checkpoint",
+        "utility close acknowledged and exit0"
+      ],
       "packaged": false,
       "windowsNativeVerified": false
     },
@@ -69,18 +77,115 @@
       "smokeLog": "artifacts/desktop-next/package-smoke-1.log",
       "buildLogSha256": "9de08a64c47710303e22814072e559f4a39492f974be8f7206497d33495c4e27",
       "smokeLogSha256": "60feda7c0103094b6e3828d03db260a365e7aad0d7d002f1cacff5a99784ef95",
-      "checks": ["packaged and context isolation", "actual engine utility primary SQLite23", "packaged test override ignored", "unsigned updates disabled", "command supervisor exit0/cleanupConfirmed", "PTY exit0/cleanupConfirmed/native exit observed"]
+      "checks": [
+        "packaged and context isolation",
+        "actual engine utility primary SQLite23",
+        "packaged test override ignored",
+        "unsigned updates disabled",
+        "command supervisor exit0/cleanupConfirmed",
+        "PTY exit0/cleanupConfirmed/native exit observed"
+      ]
     }
   ],
   "pending": [
-    "Root repeats actual unsigned macOS arm64 package smoke after final frozen source build",
-    "GitHub branch push and actual hosted macOS/Linux/Windows package runs"
+    "Parent latest combined source rebuild and complete regression",
+    "Parent three-OS package CI including actual Windows Job Object consumer"
   ],
   "externalConditions": [
     {
-      "condition": "Windows native Job Object binding is owned by a separate parent session and is not integrated in this source yet",
+      "condition": "Windows native production implementation is integrated in parent main; actual combined Electron package qualification remains pending. Desktop corrective source retains original Engine base.",
       "contractSource": "Separate Windows owner's implementation714197942e6b25b17b9ed3edbab088b1ecb19599 and repair55df66ac20bdf5c5b05d9896e5e4ab7f206a09f3; read-only next-windows-progress.json nativePackaging contract",
       "effect": "Windows portable smoke cannot be promoted to native command acceptance. Actual Windows Electron44.5.1 build/load and engine-utility approval/receipt/cleanup must pass after parent integration. Windows PTY is outside this contract; arm64 remains unverified. No Windows core code was copied into this Desktop worktree."
     }
-  ]
+  ],
+  "correctiveReview": {
+    "commit": "70dc300353df99f02e352384ac4b79909f36a9cb",
+    "collectorTests": 5,
+    "collectorPass": 5,
+    "policyAndCollectorTests": 10,
+    "actualMacPackagePositive": "passed with existing unsigned bundle",
+    "actualRunningSupervisorFailureExit": 1,
+    "actualPackagedPrivateUtilityPositive": "passed POSIX only",
+    "actualPackagedPrivateCloseFailure": "original code/source and forced stop retained",
+    "mainUtilityAcknowledgement": null,
+    "mainUtilityCleanup": "unknown",
+    "originalFixturesRetained": true,
+    "packagedSourceQualification": {
+      "asarPath": "release/mac-arm64/Moodcode.app/Contents/Resources/app.asar",
+      "sha256": "2b504097970797e4c2aa2e77fc52b3de3b591a71ecd0380fc8d49ed20393a8f9",
+      "qualification": "Existing unsigned macOS bundle and final corrective test drivers; no credit for rebuilding the latest corrective production source.",
+      "currentWorkerEquivalent": false
+    },
+    "evidence": [
+      {
+        "path": "artifacts/desktop-package/failures/package-A0GYN1/manifest.json",
+        "sha256": "eda42fb5af15e79dfca06c878e24c6987eda2cfe6667dfde27f733e9722de4c2",
+        "outcome": "unknown",
+        "cleanup": {
+          "state": "unknown",
+          "nativeConfirmed": true,
+          "utilityAcknowledged": null,
+          "utilityExitObserved": null,
+          "forcedStop": false,
+          "utilityScope": "main-utility"
+        },
+        "originalSourceRetained": true,
+        "copiedFiles": 7,
+        "totalBytes": 1265664,
+        "truncated": false
+      },
+      {
+        "path": "artifacts/desktop-package/failures/package-OFUOSA/manifest.json",
+        "sha256": "f5c153de6dc8d4094b3f92fa554048d44fb7466fa694dcabbf78e197e156c693",
+        "outcome": "failed",
+        "cleanup": {
+          "state": "unknown",
+          "nativeConfirmed": true,
+          "utilityAcknowledged": null,
+          "utilityExitObserved": null,
+          "forcedStop": false,
+          "utilityScope": "main-utility"
+        },
+        "originalSourceRetained": true,
+        "copiedFiles": 7,
+        "totalBytes": 1265664,
+        "truncated": false
+      },
+      {
+        "path": "artifacts/desktop-package/utility-failures/utility-positive-1TGwjj/manifest.json",
+        "sha256": "3ee3271c343194d03a651a7b2c785fc8a234e153b617f46fcced8a8ca737c14e",
+        "outcome": "unknown",
+        "cleanup": {
+          "state": "unknown",
+          "nativeConfirmed": true,
+          "utilityAcknowledged": null,
+          "utilityExitObserved": null,
+          "forcedStop": false,
+          "utilityScope": "main-utility"
+        },
+        "originalSourceRetained": true,
+        "copiedFiles": 20,
+        "totalBytes": 2743359,
+        "truncated": false
+      },
+      {
+        "path": "artifacts/desktop-package/utility-failures/utility-close-failure-UKFu7R/manifest.json",
+        "sha256": "bf188c70c201094e391111d47c038383d82fc88fb5a44dbfce0f1f9f8ce55a39",
+        "outcome": "failed",
+        "cleanup": {
+          "state": "unknown",
+          "nativeConfirmed": true,
+          "utilityAcknowledged": null,
+          "utilityExitObserved": null,
+          "forcedStop": true,
+          "utilityScope": "main-utility"
+        },
+        "originalSourceRetained": true,
+        "copiedFiles": 20,
+        "totalBytes": 2743357,
+        "truncated": false
+      }
+    ],
+    "ciCommit": "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58"
+  }
 }
