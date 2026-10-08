@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { _electron as electron, expect } from '@playwright/test';
-import { mkdtemp, rm, writeFile, readdir, stat, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { rm, writeFile, readdir, stat, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fork } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
@@ -10,10 +9,13 @@ import { extractFile } from '@electron/asar';
 import { createCommandEnvironment } from '../packages/engine/dist/tools/command/process-control.js';
 import { DESKTOP_ELECTRON_VERSION, WINDOWS_NATIVE_BINARY, verifyWindowsBinaryArchitecture } from './desktop-native-package.mjs';
 import { runPackagedUtilityCodingProbe } from './desktop-package-utility.mjs';
+import { createDesktopTestDirectory, captureDesktopNativeEvidence, preserveDesktopTestEvidence, mayDeleteDesktopTestDirectory } from './desktop-test-evidence.mjs';
 
 const args = process.argv.slice(2);
 const portableOnly = args.includes('--portable');
 const releaseProfile = args.includes('--release');
+const failSupervisorRunning = args.includes('--fail-supervisor-running');
+if (failSupervisorRunning && (portableOnly || process.platform === 'win32')) throw new Error('Controlled supervisor failure requires the POSIX native package lane.');
 const explicit = args.includes('--executable') ? args[args.indexOf('--executable') + 1] : undefined;
 async function executable() {
   if (explicit) return resolve(explicit);
@@ -34,25 +36,56 @@ if (process.platform === 'win32' && !portableOnly) {
   windowsNativeBytes = await readFile(nativeBinary);
   verifyWindowsBinaryArchitecture(windowsNativeBytes, process.arch);
 }
-const userData = await mkdtemp(join(tmpdir(), 'moodcode-package-smoke-'));
-let app;
+const userData = await createDesktopTestDirectory('package');
+let app, failure, resultEvidence, nativeBeforeClose, nativeAfterClose, retained, fixtureDeleted = false;
 const children = new Set();
+const supervisorObservations = [];
+const observationByChild = new Map();
+const applicationClose = { requested: false, settled: false, exitObserved: null, exitCode: null, signal: null };
+async function bounded(operation, ms) {
+  return new Promise(resolve => {
+    const timer = setTimeout(() => resolve({ settled: false }), ms);
+    operation.then(value => { clearTimeout(timer); resolve({ settled: true, value }); }, error => { clearTimeout(timer); resolve({ settled: true, error }); });
+  });
+}
+async function closeApplication() {
+  if (!app || applicationClose.requested) return;
+  applicationClose.requested = true;
+  const result = await bounded(app.close(), 10000);
+  applicationClose.settled = result.settled && !result.error;
+  if (result.settled && !result.error) app = undefined;
+  else failure ??= result.error ?? new Error('Packaged application close did not settle within its observation deadline.');
+}
 async function runSupervisor(relative, initial, start) {
   const child = fork(join(resources, 'app.asar', 'dist', 'main', relative), [], {
     cwd: userData, execPath: binary, execArgv: [], detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     env: { ...createCommandEnvironment(), ELECTRON_RUN_AS_NODE: '1' },
   });
   children.add(child);
+  const observed = { kind: relative.startsWith('terminals/') ? 'pty-supervisor' : 'command-supervisor', source: 'original-supervisor',
+    resultObserved: false, exitObserved: false, closeObserved: false, exitCode: null, exitSignal: null, stopRequested: false, outcome: null, diagnostics: null, events: [] };
+  supervisorObservations.push(observed);
+  observationByChild.set(child, observed);
+  const note = kind => { if (observed.events.length < 32) observed.events.push({ kind }); };
+  const keep = value => { try { return Buffer.byteLength(JSON.stringify(value)) <= 16384 ? value : null; } catch { return null; } };
   let outcome, diagnostics, output = '', errorOutput = '';
-  child.stdout.on('data', chunk => { output += chunk.toString(); });
-  child.stderr.on('data', chunk => { errorOutput += chunk.toString(); });
+  child.stdout.on('data', chunk => { if (output.length < 1_048_576) output += chunk.toString().slice(0, 1_048_576 - output.length); });
+  child.stderr.on('data', chunk => { if (errorOutput.length < 1_048_576) errorOutput += chunk.toString().slice(0, 1_048_576 - errorOutput.length); });
+  child.on('exit', (code, signal) => { observed.exitObserved = true; observed.exitCode = code; observed.exitSignal = signal; note('exit'); });
+  observed.closed = new Promise(resolve => child.once('close', resolve));
+  child.on('close', (code, signal) => { observed.closeObserved = true; observed.exitCode = code; observed.exitSignal = signal; note('close'); });
   const closed = new Promise((resolveClose, reject) => {
-    const timer = setTimeout(() => { child.send({ type: 'stop' }); reject(new Error('Packaged supervisor deadline exceeded.')); }, 15000);
-    child.on('error', error => { clearTimeout(timer); reject(error); });
+    const timer = setTimeout(() => { note('deadline'); reject(new Error('Packaged supervisor deadline exceeded.')); }, 15000);
+    child.on('error', error => { note('error'); clearTimeout(timer); reject(error); });
     child.on('message', message => {
-      if (message.type === 'ready') child.send(start);
-      if (message.type === 'diagnostics') diagnostics = message.diagnostics;
-      if (message.type === 'result') { outcome = message.outcome; diagnostics ??= message.diagnostics; }
+      if (message.type === 'ready') { note('ready'); try { child.send(start); } catch (error) { clearTimeout(timer); reject(error); } }
+      if (message.type === 'started') {
+        note('started');
+        if (failSupervisorRunning && observed.kind === 'command-supervisor') { clearTimeout(timer); reject(new Error('Controlled package verification failure after original native command started.')); }
+      }
+      if (message.type === 'diagnostics') { note('diagnostics'); diagnostics = message.diagnostics; observed.diagnostics = keep(message.diagnostics); }
+      if (message.type === 'result') { note('result'); outcome = message.outcome; diagnostics ??= message.diagnostics;
+        observed.resultObserved = true; observed.outcome = keep(message.outcome); observed.diagnostics ??= keep(message.diagnostics); }
     });
     child.on('close', code => { clearTimeout(timer); children.delete(child); resolveClose(code); });
   });
@@ -66,6 +99,7 @@ try {
   await writeFile(join(userData, 'settings.json'), JSON.stringify({ schemaVersion: 1, providerId: 'scripted', modelId: 'local', baseURL: '' }), { mode: 0o600 });
   app = await electron.launch({ executablePath: binary, args: [], env: { ...process.env, MOODCODE_DESKTOP_USER_DATA: userData,
     MOODCODE_DESKTOP_TEST: '1', MOODCODE_DESKTOP_TEST_SCENARIO: 'coding', MOODCODE_API_KEY: '', OPENAI_API_KEY: '' } });
+  app.process().once('exit', (code, signal) => { applicationClose.exitObserved = true; applicationClose.exitCode = code; applicationClose.signal = signal; });
   const page = await app.firstWindow();
   await expect(page.getByText('무엇을 만들어볼까요?', { exact: true })).toBeVisible({ timeout: 20000 });
   const runtime = await app.evaluate(({ app, BrowserWindow }) => ({ packaged: app.isPackaged, node: process.versions.node, electron: process.versions.electron,
@@ -84,6 +118,7 @@ try {
   const evidence = { ok: true, platform: process.platform, scope: portableOnly ? 'bundle-utility-SQLite-renderer' : process.platform === 'win32'
     ? 'bundle-utility-SQLite-renderer-native-Windows-utility' : 'bundle-utility-SQLite-renderer-native-POSIX-supervisors',
     runtime, host: bootstrap.host.state, primarySQLiteVersion: sqliteVersion, testOverridesIgnored: true, updates: updates.state };
+  resultEvidence = evidence;
   if (!portableOnly && process.platform === 'win32') {
     assert.equal(bootstrap.capabilities.runtime.commandExecution, 'windows-job-object',
       'Native Windows package acceptance requires the integrated Job Object binding before command effects.');
@@ -99,9 +134,12 @@ try {
     evidence.windowsNativeBinary = { packageRelativePathPreserved: true, outsideAsar: true, electronHeaders: receipt.electronVersion,
       arch: receipt.arch, sha256: receipt.sha256 };
   }
-  await app.close(); app = undefined;
+  await closeApplication();
+  if (failure) throw failure;
   if (!portableOnly && process.platform !== 'win32') {
-    await writeFile(join(userData, 'packaged.test.mjs'), "import {test} from 'node:test';import assert from 'node:assert/strict';test('packaged supervisor executes node',()=>assert.equal(2+3,5));\n");
+    await writeFile(join(userData, 'packaged.test.mjs'), failSupervisorRunning
+      ? "import {test} from 'node:test';import assert from 'node:assert/strict';test('packaged supervisor executes node',async()=>{await new Promise(resolve=>setTimeout(resolve,2000));assert.equal(2+3,5)});\n"
+      : "import {test} from 'node:test';import assert from 'node:assert/strict';test('packaged supervisor executes node',()=>assert.equal(2+3,5));\n");
     const command = await runSupervisor('supervisor.js', { type: 'init', input: { command: 'node --test packaged.test.mjs', cwd: userData, timeoutMs: 5000 },
       executionLockPath: join(userData, 'packaged.effects.sqlite') }, { type: 'start' });
     assert.match(command.output, /packaged supervisor executes node/u);
@@ -114,9 +152,37 @@ try {
     evidence.ptySupervisor = { exitCode: terminal.outcome.exitCode, cleanupConfirmed: terminal.outcome.cleanupConfirmed,
       nativeExitObserved: terminal.diagnostics.nativeExit.observed };
   }
-  console.log(JSON.stringify(evidence));
-} finally {
-  await app?.close();
-  for (const child of children) { if (child.connected) child.send({ type: 'stop' }); await new Promise(resolve => { child.once('close', resolve); setTimeout(resolve, 3000); }); }
-  await rm(userData, { recursive: true, force: true });
+} catch (error) { failure ??= error; }
+finally {
+  nativeBeforeClose = failure?.desktopTestEvidence?.nativeBeforeClose ?? await captureDesktopNativeEvidence({ sourceDirectory: userData, phase: 'before-close',
+    liveSnapshot: { supervisor: supervisorObservations }, close: { applicationClose } }).catch(() => { failure ??= new Error('Packaged test before-close evidence collection failed.'); return undefined; });
+  await closeApplication();
+  for (const child of children) {
+    const observed = observationByChild.get(child);
+    if (observed) { observed.stopRequested = true; if (observed.events.length < 32) observed.events.push({ kind: 'stop-requested' }); }
+    if (child.connected) try { child.send({ type: 'stop' }); } catch { if (observed) observed.stopSendFailed = true; }
+  }
+  for (const observed of supervisorObservations) if (!observed.closeObserved) await bounded(observed.closed, 3000);
+  nativeAfterClose = await captureDesktopNativeEvidence({ sourceDirectory: userData, phase: 'after-close', liveSnapshot: { supervisor: supervisorObservations },
+    close: { applicationClose, utility: failure?.desktopTestEvidence ? {
+      ...failure.desktopTestEvidence.nativeAfterClose?.close, cleanup: failure.desktopTestEvidence.cleanup,
+    } : undefined } }).catch(() => { failure ??= new Error('Packaged test after-close evidence collection failed.'); return undefined; });
+  const supervisorConfirmed = supervisorObservations.some(value => value.resultObserved && value.outcome?.cleanupConfirmed === false) ? false
+    : supervisorObservations.length && supervisorObservations.every(value => value.resultObserved && value.outcome?.cleanupConfirmed === true) ? true : null;
+  const nativeConfirmed = supervisorConfirmed ?? resultEvidence?.windowsJobObject?.cleanup?.nativeConfirmed ?? null;
+  // Public packaged main exposes no original utility close receipt. A private
+  // coding utility receipt or physical app exit cannot qualify that main utility.
+  const cleanup = { state: nativeConfirmed === false || failure?.desktopTestEvidence?.cleanup?.nativeConfirmed === false ? 'unconfirmed' : 'unknown', nativeConfirmed,
+    utilityAcknowledged: null, utilityExitObserved: null, forcedStop: failure?.desktopTestEvidence?.cleanup?.forcedStop === true, utilityScope: 'main-utility' };
+  if (mayDeleteDesktopTestDirectory({ outcome: failure ? 'failed' : 'passed', cleanup })) { await rm(userData, { recursive: true, force: true }); fixtureDeleted = true; }
+  else {
+    retained = await preserveDesktopTestEvidence({ sourceDirectory: userData, artifactDirectory: resolve('artifacts/desktop-package/failures'), scenario: 'package',
+      outcome: failure ? 'failed' : 'unknown', cleanup, nativeBeforeClose, nativeAfterClose }).catch(() => { failure ??= new Error('Packaged test evidence bundle collection failed.'); return undefined; });
+    if (!retained) console.error(JSON.stringify({ fixtureRetained: true, evidenceBundleAvailable: false, sourceDirectory: userData }));
+    else if (failure) console.error(JSON.stringify({ testFailed: true, originalFixtureRetained: true, evidenceManifest: retained.manifestPath }));
+  }
+  if (resultEvidence) { resultEvidence.cleanup = cleanup; resultEvidence.originalFixtureRetained = !fixtureDeleted; resultEvidence.evidenceBundleAvailable = !!retained;
+    if (retained) resultEvidence.evidenceManifest = retained.manifestPath; }
 }
+if (failure) throw failure;
+console.log(JSON.stringify(resultEvidence));
