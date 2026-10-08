@@ -457,6 +457,35 @@ export function createDesktopStore(
       if (!stopped) publish({ submitting: false });
     }
   }
+  async function acceptInput(
+    prompt: string,
+    config: RunConfigInput,
+    requestId: string,
+    delivery: "queue" | "steer",
+  ) {
+    const sessionId = state.sessionId;
+    if (!sessionId || state.submitting || !api.advanced) return false;
+    publish({ submitting: true, error: null });
+    try {
+      await api.advanced({
+        sessionId,
+        type: "input.accept",
+        payload: {
+          prompt,
+          requestId,
+          delivery,
+          config: config as CommandEnvelope["payload"],
+        },
+      });
+      if (state.sessionId === sessionId && !stopped) await refresh();
+      return true;
+    } catch (error) {
+      fail(error);
+      return false;
+    } finally {
+      if (!stopped) publish({ submitting: false });
+    }
+  }
   async function cancel(runId: string) {
     try {
       await command("run.cancel", { runId });
@@ -564,6 +593,7 @@ export function createDesktopStore(
     createSession,
     openWorkspace,
     submit,
+    acceptInput,
     cancel,
     decide,
     saveSettings,

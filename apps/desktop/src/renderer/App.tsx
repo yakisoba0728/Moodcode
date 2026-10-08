@@ -8,6 +8,8 @@ import { ReviewPane } from "./components/ReviewPane.js";
 import { workspaceFilePath, type FileTarget } from "./navigation.js";
 import { Recovery } from "./components/Recovery.js";
 import { Settings } from "./components/Settings.js";
+import { AdvancedPanel } from "./components/AdvancedPanel.js";
+import "./components/advanced.css";
 
 const suggestions = [
   {
@@ -53,6 +55,12 @@ export function App({ store }: { store: DesktopStore }) {
   );
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [delivery, setDelivery] = useState<"queue" | "steer">("queue");
+  const advancedApi =
+    window.moodcode?.getAdvancedSnapshot && window.moodcode?.advanced
+      ? window.moodcode
+      : undefined;
   const [fileTarget, setFileTarget] = useState<FileTarget | null>(null);
   const [navigationError, setNavigationError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -162,7 +170,13 @@ export function App({ store }: { store: DesktopStore }) {
   async function submit() {
     const sessionId = state.sessionId,
       prompt = draft.trim();
-    if (!sessionId || !prompt || active || state.submitting || !connected)
+    if (
+      !sessionId ||
+      !prompt ||
+      (active && !advancedApi) ||
+      state.submitting ||
+      !connected
+    )
       return;
     const config: RunConfigInput = {
       mode,
@@ -176,7 +190,7 @@ export function App({ store }: { store: DesktopStore }) {
           }
         : {}),
     };
-    const encoded = JSON.stringify(config);
+    const encoded = JSON.stringify({ config, delivery });
     if (
       !request.current ||
       request.current.prompt !== prompt ||
@@ -189,7 +203,15 @@ export function App({ store }: { store: DesktopStore }) {
         config: encoded,
         requestId: crypto.randomUUID(),
       };
-    if (await store.submit(prompt, config, request.current.requestId)) {
+    const accepted = active
+      ? await store.acceptInput(
+          prompt,
+          config,
+          request.current.requestId,
+          delivery,
+        )
+      : await store.submit(prompt, config, request.current.requestId);
+    if (accepted) {
       setDrafts((current) =>
         current[sessionId] === draft
           ? { ...current, [sessionId]: "" }
@@ -590,6 +612,29 @@ export function App({ store }: { store: DesktopStore }) {
                     <Icon name="chevronDown" size={11} />
                   </button>
                 </div>
+                {advancedApi ? (
+                  <select
+                    className="delivery-select"
+                    aria-label="입력 전달 방식"
+                    value={delivery}
+                    onChange={(event) =>
+                      setDelivery(event.target.value as "queue" | "steer")
+                    }
+                  >
+                    <option value="queue">Queue</option>
+                    <option value="steer">Steer</option>
+                  </select>
+                ) : null}
+                {active && advancedApi ? (
+                  <button
+                    type="submit"
+                    className="send-button"
+                    aria-label="요청 대기열에 추가"
+                    disabled={!draft.trim() || state.submitting}
+                  >
+                    <Icon name="arrow" size={17} />
+                  </button>
+                ) : null}
                 {active ? (
                   <button
                     type="button"
@@ -655,6 +700,15 @@ export function App({ store }: { store: DesktopStore }) {
           <button className="text-button" onClick={() => setRecoveryOpen(true)}>
             진단·복구
           </button>
+          {advancedApi ? (
+            <button
+              className="text-button"
+              disabled={!state.sessionId || !connected}
+              onClick={() => setAdvancedOpen(true)}
+            >
+              고급 작업
+            </button>
+          ) : null}
           <Icon name="shield" size={12} />
           <span>승인 후 실행</span>
           <span className="statusbar-separator" />
@@ -677,6 +731,27 @@ export function App({ store }: { store: DesktopStore }) {
           <span>Moodcode {state.version}</span>
         </div>
       </footer>
+      {advancedOpen && advancedApi && state.sessionId ? (
+        <AdvancedPanel
+          api={
+            advancedApi as Required<
+              Pick<
+                NonNullable<typeof window.moodcode>,
+                "getAdvancedSnapshot" | "advanced"
+              >
+            >
+          }
+          sessionId={state.sessionId}
+          generation={state.host.generation}
+          parentRunId={active?.id}
+          settings={state.settings}
+          close={() => setAdvancedOpen(false)}
+          onOpenFile={(path, line) => {
+            openFile(path, line);
+            setAdvancedOpen(false);
+          }}
+        />
+      ) : null}
       {recoveryOpen ? <Recovery close={() => setRecoveryOpen(false)} /> : null}
       {settingsOpen && state.settings ? (
         <Settings
