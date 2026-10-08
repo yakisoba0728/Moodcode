@@ -12,7 +12,7 @@ export const RECOVERY_LIMITS = Object.freeze({
   snapshotTimeoutMs: 10_000,
   maxOperations: 1_000,
   maxLedgerRecordBytes: 4 * 1024 * 1024,
-  maxSchemaEntries: 128,
+  maxSchemaEntries: 160,
 });
 export interface RecoveryPaths { db: string; review: string; effect: string; ledger: string; artifacts: string }
 export interface Identity { dev: number; ino: number }

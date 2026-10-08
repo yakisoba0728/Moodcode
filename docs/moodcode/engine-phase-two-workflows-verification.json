@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "stage": "MC2-07a/b native workflow/recipe/reducer and actual readonly child stage integration",
+  "status": "passed",
+  "recordedAt": "2026-10-08T02:30:11.570Z",
+  "parentCommit": "2682e464b58704cbec44cc831525b7570e222e78",
+  "implementationIdentity": "32 implementation/test sources frozen before final typecheck, compiled full engine, broad direct-source and coding fixtures; verified unchanged after every gate. MC08 remains design-only until this commit.",
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "node": "v26.9.0"
+  },
+  "newTests": 49,
+  "primaryDatabaseVersion": 19,
+  "actualSqliteSchemaRows": 130,
+  "recoveryCatalogueRowCap": 160,
+  "checks": [
+    {
+      "kind": "typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-workflow-type-final.log",
+      "logSha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "kind": "engine",
+      "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=2 npm run test:engine",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-workflow-engine-final.log",
+      "logSha256": "ad30ca9042acbd669eb428e2c001fc6b726fcef8b8fefc9735f03d290986d114",
+      "tests": 4050,
+      "pass": 4048,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0,
+      "durationMs": 165911.869708
+    },
+    {
+      "kind": "source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=4 packages/engine/src/workflows/*.test.ts packages/engine/src/teams/*.test.ts packages/engine/src/child-tasks/*.test.ts packages/engine/src/proposals/*.test.ts packages/engine/src/lifecycle/*.test.ts packages/engine/src/permission/*role-resources*.test.ts packages/engine/src/recovery/*.test.ts packages/engine/src/storage/migrations.test.ts packages/engine/src/storage/archive.test.ts packages/engine/src/storage/v1-compatibility.test.ts packages/engine/src/storage/child-storage-owner-crash-review.test.ts packages/engine/src/integration/children.integration.test.ts packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts packages/engine/src/runner/coordinator.test.ts packages/engine/src/runner/native-execution.test.ts",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-workflow-source-final.log",
+      "logSha256": "d0171b288212d881c0e3675ead004ee868e9425ac118e443591db285cced0a59",
+      "tests": 737,
+      "pass": 737,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 25297.349167
+    },
+    {
+      "kind": "fixtures",
+      "command": "node scripts/evaluate-engine.mjs",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-workflow-eval-final.log",
+      "logSha256": "039c19c7d7e681abd05cf89c2c182c71ed8999ead61c0fcc615d82bd36576fa6",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "liveProviderCalls": 0
+    }
+  ],
+  "sourceHashes": {
+    "packages/engine/src/child-tasks/engine-host.ts": "3de9d189645783f4e66dd447e1d5c2efaf294321c36f23bbe95bfa2d88024525",
+    "packages/engine/src/engine.ts": "a0f257ba33a3541aed58bac359b6538f31e027db325c30f264784749cfdff1cf",
+    "packages/engine/src/index.ts": "cb1d77fe10137f80b0ba6889c322e9d24616998e57588b0e5c89c5ece41bda6c",
+    "packages/engine/src/integration/archive-child-document-inspection-review.integration.test.ts": "889384e9ab99ba744ba37d5578456731fa88965aa440bc85260dbb6ff31c338b",
+    "packages/engine/src/recovery/index.ts": "f4048fdec7b13424e85c2722350031245458d4d274b2c17c5571a1d7d95c7195",
+    "packages/engine/src/recovery/schema-bounds.test.ts": "a5baaa3e78fd2cf66aeb5e1d4b3ab7aca04cfe7abb47fb098d9faecce038e29d",
+    "packages/engine/src/recovery/snapshot.ts": "4e202f2fad2a3c02427fcad949f4dd29f73e98b3267d0e803b4fa14eb758adc3",
+    "packages/engine/src/runner/index.ts": "77f4ea20e40aad84321c2ef7117039f4a49a15c0e6856c4ff899b5454306bb46",
+    "packages/engine/src/storage/archive.ts": "8a0d83c75dea3c56786d2af5a81dac9417bc8d6b0f755809ab67725240c8a9ef",
+    "packages/engine/src/storage/index.ts": "7ef9d69638a5a35df4eb0f92485a3031ba354ad1586f83af578871fe09f0e9eb",
+    "packages/engine/src/storage/migrations.test.ts": "6c4d0b87ed0bd23041d0299c1f8528e6353df19a551f497fae461dc495f00b23",
+    "packages/engine/src/storage/migrations.ts": "1084cf61d094d194d16ce0be24b0953540a5151c85e54cbc4485839cfacf5516",
+    "packages/engine/src/teams/store.test.ts": "0afac0b27b5c1af51c4d5d8007eff6720fc8b37d17647ec5b0e8a507b3f264e8",
+    "packages/engine/src/workflows/archive.test.ts": "1c5ada935aefa692a21a55457c84244190f59105c1c1c9b52de201faed4d9bad",
+    "packages/engine/src/workflows/crash.integration.test.ts": "25944911bb0ab6df45e246e602aa63bf0b3c6ab9e805326a49419a02d36f4f79",
+    "packages/engine/src/workflows/engine-owner.ts": "655a25a25d40d3a026a38f5c9126f7290b449256b9f570c1f24fb1d049a9357f",
+    "packages/engine/src/workflows/engine-workflows.integration.test.ts": "7fc6efe2c4a462f07bff852a4256fbce3bd539cec9353253de7f9fd76a665a9d",
+    "packages/engine/src/workflows/fixtures/archive-workflow.ts": "782c3a3a8e4b409be9a9d88553d6a013474fd59976d2438475144e62029a1c9b",
+    "packages/engine/src/workflows/fixtures/crash-child.ts": "fcd47a81eda9e9fe099e2c88ff2600aa601b2ca229e5e96b429efbc944604f5f",
+    "packages/engine/src/workflows/fixtures/workflow.ts": "af0fb7ab029a47ee9cc2c250d71130d0d44fb875226f168cea476c73dbdaeeed",
+    "packages/engine/src/workflows/host.ts": "446c6efb2b87b7a7b7b9a6316ed1b8177375061a682f60e1f6aab7bd9cb46902",
+    "packages/engine/src/workflows/native-graph.integration.test.ts": "84250cf766a24959e1d903fe265c9f7bce3166c010da95c2a60cef034cdafab9",
+    "packages/engine/src/workflows/producer-edge.integration.test.ts": "10279adf2ff53cd1569397f99698fc51a9489d9caadfcdadc0f9d8018ca3a3c2",
+    "packages/engine/src/workflows/recipes.ts": "73132b68b0a473eefedf73d9892b7068baa56cb5efdea286bf55ff4b5b3a7222",
+    "packages/engine/src/workflows/reducer.ts": "623ee9d946e824026a6323e9cb52f35dd5493761ca706b598b78a2eba278cdab",
+    "packages/engine/src/workflows/schema.ts": "cfb5c189e67c4279ce1a587cc4f5af268d46dda58cfac840cb98e6059faa4855",
+    "packages/engine/src/workflows/service.ts": "1ed13d36f05bc888ab2e5bc81a82dec8660b3d5718c38b90ad35c77082707b98",
+    "packages/engine/src/workflows/spec.test.ts": "2652dbc115d0df927982794a1d54b905d2ea9edd7c7a6c309107b5ed2f026526",
+    "packages/engine/src/workflows/spec.ts": "bcc361666c67e7a5187778107a67f445d31f537360c661a36c5ddb04602e88ab",
+    "packages/engine/src/workflows/store.test.ts": "cf2c2075c3422041c797ecb490da21a7ef9d4267c986018cf2001828e7885abb",
+    "packages/engine/src/workflows/store.ts": "886528f3e2cc7dffb662b993b0330ac1a8325f9fc7f2ef9a01e2870c4aaef373",
+    "packages/engine/src/workflows/types.ts": "94751f7bbfdb242f8cea75502d3d22952f95dea2f1a8c50f9550b9c7ae75c53e"
+  },
+  "coverage": [
+    "Bounded schema/recipe/DAG validation with explicit profile/model/tools/budget; all/any joins retain the first selected dependency set.",
+    "Native immutable revisions, SHA preimages, exact request dedupe before producers, CAS and local graph replay; borrowed head alias, head rewind and rehashed contradictory result are rejected.",
+    "Actual Engine/Git/SQLite isolated readonly planner/reviewer execution; original native child admission and retained admitted Run/usage remain valid after actual child engine close.",
+    "Admission waits for the durable running task commit; actual parent/worktree guards run before dispatch and before provider release. Duplicate dispatch cannot reserve child budget again.",
+    "Complete untruncated structured child result within 4KiB and schema; copied handles and changed native config/outcome/owner fail.",
+    "Observation cancellation settles promptly, retains the running child and supports a later explicit observation; existing dispatched work can settle after parent cancellation without new dispatch authority.",
+    "Four actual SIGKILL boundaries, uncertain restart without replay, archive local child graph checks, paused-import history and default-off readonly inspection.",
+    "DB18 to DB19 rollback and historical rows/hash, exact DB19 130-row catalogue, inclusive recovery cap160/excess161 and full prior regressions."
+  ],
+  "integrationRepairs": [
+    "Root private admission confirmation resolves only after ChildTaskManager commits running state and childRunId; workflow producer waits on this confirmation instead of the initial starting clone.",
+    "Preserve the original admitted Run snapshot after confirmed child close and compare actual task outcome with measured coordinator completion.",
+    "Pin any-join dependency choices in the ready revision; later sibling completion cannot replace advisory parameters.",
+    "Hash canonical revision bodies without their former SHA and validate physical worktree paths as paths rather than identifiers.",
+    "The first full suite found one existing latest-schema fixture expecting DB18 count128. Replaced that current-schema assertion with the bounded catalogue invariant; explicit historical DB18 count128 and new exact DB19 count130 tests remain."
+  ],
+  "initialFailure": {
+    "log": "/tmp/moodcode-workflow-engine-initial.log",
+    "logSha256": "0ce353cd5c287d6fbebbbaaf9c6a7d5c20fa2ec714a917d54977e1978fed1996",
+    "tests": 4050,
+    "pass": 4047,
+    "fail": 1,
+    "skipped": 2,
+    "remediation": "teams/store.test.ts current-schema bound plus39 passing schema/team/migration source regression tests before refreeze and full rerun"
+  },
+  "limitations": [
+    "MC2-07c/d remain in progress: editor/validator effects, approved merge, role/model escalation, full dirty-file source/artifact freshness and complete delivery/parent-admission crash paths.",
+    "Physical readonly worktree and Git HEAD identity are pinned; this is not a complete frozen dirty-file snapshot or authority for file effects.",
+    "No automatic parent result delivery, scheduler wake, retry/replay, or imported execution authority.",
+    "MC2-06c/d terminal resident continuation/import activation/uncertain ACK-resume and other remaining phase-two work continue under the original active goal.",
+    "No live provider calls, GUI, push/deploy or additional Windows environment claim."
+  ],
+  "progress": {
+    "completedWorkItems": 32,
+    "totalWorkItems": 80,
+    "completedFamilies": 7,
+    "totalFamilies": 20,
+    "goalStatus": "active"
+  }
+}

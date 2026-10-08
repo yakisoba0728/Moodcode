@@ -264,6 +264,16 @@ export class RunCoordinator implements CoordinatorPort {
     return undefined;
   }
 
+  /** Current native state paired with the original configuration of this actual owner. */
+  getOwnedActiveRun(runId: string): Run {
+    const owner = this.owners.get(runId);
+    if (!owner) throw new EngineError('PARENT_RUN_NOT_ACTIVE', 'Run requires its original active coordinator owner');
+    this.assertLive(owner);
+    const current = this.options.store.getRun(runId);
+    if (current.sessionId !== owner.run.sessionId || current.workspaceId !== owner.run.workspaceId || JSON.stringify(current.config) !== JSON.stringify(owner.run.config) || current.prompt !== owner.run.prompt) throw new EngineError('RUN_OWNER_STALE', 'Native Run changed after original admission');
+    return structuredClone({ ...owner.run, state: current.state });
+  }
+
   private teamContextBinding(context: ToolContext): string {
     if (types.isProxy(context) || ![Object.prototype,null].includes(Object.getPrototypeOf(context))) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team tools require original plain context data');
     const fields = Object.getOwnPropertyDescriptors(context);

@@ -6,7 +6,7 @@
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
   "completedFamilies": 7,
-  "completedWorkItems": 30,
+  "completedWorkItems": 32,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -321,29 +321,41 @@
         {
           "id": "MC2-07a",
           "completion": "workflow/recipe parameter·result schema·순서/순환/depth 검사",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-workflows.md",
+            "engine-phase-two-workflows-verification.json"
+          ]
         },
         {
           "id": "MC2-07b",
           "completion": "stage/join reducer·CAS와 read-only planner/advisory reviewer",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-workflows.md",
+            "engine-phase-two-workflows-verification.json"
+          ]
         },
         {
           "id": "MC2-07c",
           "completion": "기존 engine-owned child와 승인 merge로 전이. 제안 초기 stage8·depth4 및 parent budget 제한",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-workflows.md",
+            "engine-phase-two-workflows-verification.json"
+          ]
         },
         {
           "id": "MC2-07d",
           "completion": "child 완료→delivery→stage commit→parent admission crash 구간, 중복 join/submit·stale 설계·deny/cancel/budget 검사. 실패 후 발생한 효과를 자동 재실행하지 않음",
-          "status": "pending",
-          "evidence": []
+          "status": "in_progress",
+          "evidence": [
+            "engine-phase-two-workflows.md",
+            "engine-phase-two-workflows-verification.json"
+          ]
         }
       ],
-      "notes": "Parallel implementation of bounded workflow schemas/recipes, native revision/head CAS/reducer and original host readonly-stage child consumption is underway. This commit does not integrate the concurrent workflow modules or claim any MC2-07 work item complete."
+      "notes": "MC2-07a/b implements bounded schema/recipe validation, native revisions/head CAS, persisted all/any dependency selection and original actual readonly planner/advisory-reviewer child consumption. Actual admission waits for the native running task commit and guards owner/worktree before provider release. Complete structured results, original measured outcome, cancellation/duplicate/stale/SQL graph and four SIGKILL boundaries are verified. MC2-07c/d remain open for editor/validator effects, approved merge, role/model requests, full file-source/artifact freshness and delivery/parent-admission crash paths. No automatic parent delivery or replay. MC2-06c/d and the remaining 48 work items continue under the unchanged active goal."
     },
     {
       "id": "MC2-08",
@@ -805,5 +817,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-07T23:28:21.839594+00:00"
+  "updatedAt": "2026-10-08T02:30:11.570Z"
 }

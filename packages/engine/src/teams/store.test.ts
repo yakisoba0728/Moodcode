@@ -5,6 +5,7 @@ import test from "node:test";
 import { EngineError } from "@moodcode/contracts";
 import { TeamStorage, validateTeamDatabase } from "./store.js";
 import { TEAM_TABLES } from "./schema.js";
+import { RECOVERY_LIMITS } from "../recovery/snapshot.js";
 import type {
   TeamMemberRevision,
   TeamRequestResult,
@@ -117,7 +118,7 @@ test("native seven-table schema fits existing recovery catalog and immutable his
       "SELECT count(*) AS n FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'",
     )
     .get()!.n;
-  assert.equal(catalog, 128);
+  assert.ok(Number(catalog) <= RECOVERY_LIMITS.maxSchemaEntries);
   assert.equal(TEAM_TABLES.length, 7);
   f.send();
   assert.doesNotThrow(() => validateTeamDatabase(f.db));

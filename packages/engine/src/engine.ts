@@ -89,6 +89,10 @@ import { AgentProfiles, type AgentProfileSpec } from './agents/index.js';
 import { TerminalService, SqliteTerminalJournal, type PtyBackend } from './terminals/index.js';
 import { EngineChildren, type EngineChildRequest } from './child-tasks/engine-host.js';
 import { EngineTeamOwners } from './teams/engine-owners.js';
+import { EngineWorkflowOwners } from './workflows/engine-owner.js';
+import { WorkflowHost } from './workflows/host.js';
+import { WorkflowService } from './workflows/service.js';
+import type { WorkflowStorage } from './workflows/store.js';
 import { TeamHostService } from './teams/host.js';
 import { TeamService } from './teams/service.js';
 import type { TeamStorage } from './teams/store.js';
@@ -182,6 +186,8 @@ export interface EngineOptions {
   teams?: boolean;
   /** Fixed tool catalogue; host must separately bind an actual selected team member. */
   teamModelTools?: boolean;
+  /** Explicit host workflow orchestration through isolated actual child executions. */
+  workflows?: boolean;
   /** Exact host-selected pending proposals projected as read-only model data. */
   proposalContextPolicy?: ProposalContextPolicy;
   /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
@@ -372,6 +378,10 @@ export class MoodcodeEngine {
   private readonly teamModelToolsEnabled: boolean;
   private readonly teamModelHost: EngineTeamModelToolHost;
   private readonly teamModelDefinitions: readonly ToolDefinition[];
+  private readonly workflowsEnabled: boolean;
+  private readonly workflowRecords: WorkflowStorage;
+  private readonly workflowHost: WorkflowHost;
+  private readonly workflowService: WorkflowService;
   private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
   private readonly verificationHost: VerificationHostService;
   private readonly verificationEnabled: boolean;
@@ -428,6 +438,8 @@ export class MoodcodeEngine {
     this.teamsEnabled = options.teams === true;
     if (options.teamModelTools !== undefined && typeof options.teamModelTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'teamModelTools must be an explicit boolean');
     this.teamModelToolsEnabled = options.teamModelTools === true;
+    if (options.workflows !== undefined && typeof options.workflows !== 'boolean') throw new EngineError('INVALID_CONFIG', 'workflows must be an explicit boolean');
+    this.workflowsEnabled = options.workflows === true;
     if (this.teamModelToolsEnabled && !this.teamsEnabled) throw new EngineError('INVALID_CONFIG', 'Model team tools require explicit host teams');
     this.proposalsEnabled = options.proposals === true;
     if (options.proposalApply !== undefined && typeof options.proposalApply !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposalApply must be an explicit boolean');
@@ -693,6 +705,20 @@ export class MoodcodeEngine {
         },
       });
       this.teamModelDefinitions = this.teamModelToolsEnabled ? createTeamModelTools(this.teamModelHost.port()) : consumeChildTeamModelCatalogue(options);
+      const workflowOwners = new EngineWorkflowOwners(this, knowledgeBinding);
+      const workflowChildren = this.children.workflowObservationPort(workflowOwners);
+      this.workflowRecords = this.store.createWorkflowStorage({
+        readOwner: original => workflowOwners.read(original),
+        assertOwnerCurrent: (original, expected) => workflowOwners.assertCurrent(original, expected),
+        assertOwnerSettling: (original, expected) => workflowOwners.assertSettling(original, expected),
+        readWorktree: (original, worktreeId) => workflowOwners.worktree(original, worktreeId),
+        assertWorktreeCurrent: (original, expected) => workflowOwners.assertWorktreeCurrent(original, expected),
+        readChildAdmission: original => workflowChildren.readAdmission(original),
+        readChildCompletion: original => workflowChildren.readCompletion(original),
+      });
+      this.workflowHost = new WorkflowHost({ owner: workflowOwners, getWorkflow: (...args) => this.workflowRecords.getWorkflow(...args) });
+      this.workflowService = new WorkflowService({ native: this.workflowRecords, host: this.workflowHost, owner: workflowOwners, children: workflowChildren });
+      this.workflowRecords.recoverInterrupted();
       terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
@@ -1470,6 +1496,33 @@ export class MoodcodeEngine {
     if (!this.teamsEnabled) throw new EngineError('TEAMS_DISABLED', 'Teams require explicit host opt-in');
   }
   bindTeamModelTools(input: BindTeamModelToolsInput): TeamModelToolsBinding { return this.teamModelHost.bind(input); }
+  private assertWorkflowsEnabled(): void {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    if (!this.workflowsEnabled) throw new EngineError('WORKFLOWS_DISABLED', 'Workflows require explicit host opt-in');
+  }
+  registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.assertWorkflowsEnabled(); return this.workflowService.register(input); }
+  getWorkflow(workspaceId: string, workflowId: string, revisionId?: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.readExecutionObservationEvidence(() => this.workflowRecords.getWorkflow(workspaceId, workflowId, revisionId));
+  }
+  async previewWorkflowStart(input: Parameters<WorkflowHost['previewStart']>[0]) {
+    this.assertWorkflowsEnabled();
+    const operation = this.workflowHost.previewStart(input);
+    this.pendingStorage.add(operation);
+    try { return await operation; } finally { this.pendingStorage.delete(operation); }
+  }
+  startWorkflow(input: Parameters<WorkflowService['start']>[0]) { this.assertWorkflowsEnabled(); return this.workflowService.start(input); }
+  startWorkflowStage(input: Parameters<WorkflowService['startStage']>[0]) {
+    try { this.assertWorkflowsEnabled(); return this.workflowService.startStage(input); } catch (error) { return Promise.reject(error); }
+  }
+  observeWorkflowStage(input: Parameters<WorkflowService['observeStage']>[0]) {
+    try { this.assertWorkflowsEnabled(); return this.workflowService.observeStage(input); } catch (error) { return Promise.reject(error); }
+  }
+  inspectWorkflow(workspaceId: string, instanceId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.readExecutionObservationEvidence(() => this.workflowRecords.inspectWorkflow(workspaceId, instanceId));
+  }
+  releaseWorkflowStartPreview(input: Parameters<WorkflowHost['release']>[0]): void { this.workflowHost.release(input); }
   releaseTeamModelTools(original: TeamModelToolsBinding): void { this.teamModelHost.releaseBinding(original); }
   createTeam(input: Parameters<TeamHostService['createTeam']>[0]) { this.assertTeamsEnabled(); return this.teamHost.createTeam(input); }
   previewTeamMember(input: Parameters<TeamHostService['previewMember']>[0]) { this.assertTeamsEnabled(); return this.teamHost.previewMember(input); }
@@ -1977,7 +2030,7 @@ export class MoodcodeEngine {
         this.teamModelHost.close();
         this.teamHost.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }

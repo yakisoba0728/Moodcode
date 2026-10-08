@@ -16,10 +16,21 @@ import {
   validateChildStorageHostIdentity,
   type ChildStorageHostIdentity,
   type ChildStorageRecord,
-} from './storage-binding.js';
-import { ActualChildTeamBridge } from './team-bridge.js';
-import { holdChildProviderAdmission } from './provider-admission.js';
-import { TEAM_MODEL_TOOL_NAMES } from '../teams/model-tools.js';
+} from "./storage-binding.js";
+import { ActualChildTeamBridge } from "./team-bridge.js";
+import { holdChildProviderAdmission } from "./provider-admission.js";
+import { TEAM_MODEL_TOOL_NAMES } from "../teams/model-tools.js";
+import { knowledgeHash } from "../knowledge/validation.js";
+import {
+  workflowAbort,
+  type ActualWorkflowOwnerPort,
+} from "../workflows/host.js";
+import { workflowJson } from "../workflows/spec.js";
+import type { ActualWorkflowChildObservationPort } from "../workflows/service.js";
+import type {
+  WorkflowChildAdmissionProof,
+  WorkflowChildCompletionProof,
+} from "../workflows/reducer.js";
 import { WorktreeManager } from "../worktrees/index.js";
 import {
   ChildTaskManager,
@@ -44,6 +55,8 @@ interface Admission {
   input: ChildStart;
   signal: AbortSignal;
   done: Promise<ChildTaskRecord>;
+  confirmed: Promise<void>;
+  confirm(): void;
 }
 interface Execution {
   engine: MoodcodeEngine;
@@ -52,6 +65,7 @@ interface Execution {
   closed: boolean;
   wait: ChildRunHandle["wait"];
   storageRecord?: ChildStorageRecord;
+  admittedRun: Run;
 }
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -64,6 +78,7 @@ export class EngineChildren {
   private readonly directory: string;
   private readonly admissions = new Map<string, Admission>();
   private readonly executions = new Map<string, Execution>();
+  private readonly workflowAdmissionGuards = new Map<string, () => void>();
   private readonly recoveredSessions = new Set<string>();
   private readonly storageIdentity?: ChildStorageHostIdentity;
   constructor(
@@ -73,7 +88,10 @@ export class EngineChildren {
     private readonly create: (options: EngineOptions) => MoodcodeEngine,
     hostIdentity?: ChildStorageHostIdentity,
   ) {
-    this.storageIdentity = hostIdentity === undefined ? undefined : validateChildStorageHostIdentity(hostIdentity);
+    this.storageIdentity =
+      hostIdentity === undefined
+        ? undefined
+        : validateChildStorageHostIdentity(hostIdentity);
     mkdirSync(directory, { recursive: true, mode: 0o700 });
     this.directory = realpathSync(directory);
     this.worktrees = new WorktreeManager({
@@ -85,6 +103,9 @@ export class EngineChildren {
       worktrees: this.worktrees,
       cleanupTimeoutMs: 7000,
       beforeDispatch: (task) => {
+        this.workflowAdmissionGuards.get(
+          JSON.stringify([task.sessionId, task.requestId]),
+        )?.();
         const parent = this.parent(
           task.sessionId,
           task.parentRunId,
@@ -129,24 +150,76 @@ export class EngineChildren {
         },
       },
     });
-    this.teamBridge = new ActualChildTeamBridge((rootSessionId, childTaskId) => {
-      const task = this.tasks.get(rootSessionId, childTaskId);
-      const execution = this.executions.get(childTaskId);
-      if (!execution || execution.closed || !execution.storageRecord || task.state !== 'running') throw new EngineError('TEAM_CHILD_STALE', 'Team member requires its original live admitted child engine');
-      const parent = this.parent(rootSessionId, task.parentRunId, task.parentTaskId);
-      if (this.root.store.getSessionControl(rootSessionId).paused || parent.engine.coordinator.getRunCancellationSignal(parent.run.id).aborted) throw new EngineError('TEAM_CHILD_STALE', 'Paused or cancelling parents cannot admit team input');
-      const rootRun = this.root.store.getRun(task.rootRunId);
-      this.root.coordinator.assertWorkspaceCleanupConfirmed(rootRun.workspaceId);
-      const document = this.root.store.getSessionDocument(rootSessionId, childStorageKind(childTaskId));
-      const mirror = execution.engine.store.getSessionDocument(execution.sessionId, CHILD_STORAGE_MIRROR_KIND);
-      if (!document || !mirror) throw new EngineError('TEAM_CHILD_STALE', 'Actual child storage proof is unavailable');
-      const storageRecord = validateChildStorageRecord(document.data);
-      const mirrorRecord = validateChildStorageRecord(mirror.data);
-      if (storageRecord.sha256 !== execution.storageRecord.sha256 || JSON.stringify(storageRecord.binding.hostIdentity) !== JSON.stringify(this.storageIdentity)) throw new EngineError('TEAM_CHILD_STALE', 'Child storage proof changed after actual host admission');
-      return { ...execution, task, parentRun: parent.run, rootRun, storageRecord, mirrorRecord };
-    });
+    this.teamBridge = new ActualChildTeamBridge(
+      (rootSessionId, childTaskId) => {
+        const task = this.tasks.get(rootSessionId, childTaskId);
+        const execution = this.executions.get(childTaskId);
+        if (
+          !execution ||
+          execution.closed ||
+          !execution.storageRecord ||
+          task.state !== "running"
+        )
+          throw new EngineError(
+            "TEAM_CHILD_STALE",
+            "Team member requires its original live admitted child engine",
+          );
+        const parent = this.parent(
+          rootSessionId,
+          task.parentRunId,
+          task.parentTaskId,
+        );
+        if (
+          this.root.store.getSessionControl(rootSessionId).paused ||
+          parent.engine.coordinator.getRunCancellationSignal(parent.run.id)
+            .aborted
+        )
+          throw new EngineError(
+            "TEAM_CHILD_STALE",
+            "Paused or cancelling parents cannot admit team input",
+          );
+        const rootRun = this.root.store.getRun(task.rootRunId);
+        this.root.coordinator.assertWorkspaceCleanupConfirmed(
+          rootRun.workspaceId,
+        );
+        const document = this.root.store.getSessionDocument(
+          rootSessionId,
+          childStorageKind(childTaskId),
+        );
+        const mirror = execution.engine.store.getSessionDocument(
+          execution.sessionId,
+          CHILD_STORAGE_MIRROR_KIND,
+        );
+        if (!document || !mirror)
+          throw new EngineError(
+            "TEAM_CHILD_STALE",
+            "Actual child storage proof is unavailable",
+          );
+        const storageRecord = validateChildStorageRecord(document.data);
+        const mirrorRecord = validateChildStorageRecord(mirror.data);
+        if (
+          storageRecord.sha256 !== execution.storageRecord.sha256 ||
+          JSON.stringify(storageRecord.binding.hostIdentity) !==
+            JSON.stringify(this.storageIdentity)
+        )
+          throw new EngineError(
+            "TEAM_CHILD_STALE",
+            "Child storage proof changed after actual host admission",
+          );
+        return {
+          ...execution,
+          task,
+          parentRun: parent.run,
+          rootRun,
+          storageRecord,
+          mirrorRecord,
+        };
+      },
+    );
   }
-  getStorageDirectory(): string { return this.directory; }
+  getStorageDirectory(): string {
+    return this.directory;
+  }
   private parent(
     sessionId: string,
     runId: string,
@@ -178,7 +251,10 @@ export class EngineChildren {
       run: execution.engine.store.getRun(runId),
     };
   }
-  async start(value: EngineChildRequest, executionSignal?: AbortSignal): Promise<ChildTaskRecord> {
+  async start(
+    value: EngineChildRequest,
+    executionSignal?: AbortSignal,
+  ): Promise<ChildTaskRecord> {
     const request = structuredClone(value);
     if (
       !request ||
@@ -215,7 +291,12 @@ export class EngineChildren {
           "CHILD_REQUEST_CONFLICT",
           "Durable child request differs from this input",
         );
-      if (['completed', 'failed', 'cancelled', 'uncertain'].includes(durable.state)) return durable;
+      if (
+        ["completed", "failed", "cancelled", "uncertain"].includes(
+          durable.state,
+        )
+      )
+        return durable;
       this.recover(request.sessionId);
       return this.tasks.get(request.sessionId, durable.id); // Recovery observes unfinished work without redispatch.
     }
@@ -278,7 +359,8 @@ export class EngineChildren {
       "merge_child_changes",
     ];
     if (this.options.toolDiscoveryPolicy) available.push("discover_tools");
-    if (this.options.teamModelTools === true) available.push(...TEAM_MODEL_TOOL_NAMES);
+    if (this.options.teamModelTools === true)
+      available.push(...TEAM_MODEL_TOOL_NAMES);
     if (request.tools.some((name) => !available.includes(name)))
       throw new EngineError(
         "CHILD_TOOL_UNAVAILABLE",
@@ -295,8 +377,12 @@ export class EngineChildren {
     const remainingBudget = parent.engine.coordinator.getRemainingChildBudget(
         parent.run.id,
       ),
-      parentSignal = parent.engine.coordinator.getRunCancellationSignal(parent.run.id),
-      signal = executionSignal ? AbortSignal.any([parentSignal, executionSignal]) : parentSignal;
+      parentSignal = parent.engine.coordinator.getRunCancellationSignal(
+        parent.run.id,
+      ),
+      signal = executionSignal
+        ? AbortSignal.any([parentSignal, executionSignal])
+        : parentSignal;
     const input: ChildStart = {
       sessionId: request.sessionId,
       requestId: request.requestId,
@@ -309,6 +395,10 @@ export class EngineChildren {
       allocation: request.allocation,
       remainingBudget,
     };
+    let confirm!: () => void;
+    const confirmed = new Promise<void>((resolve) => {
+      confirm = resolve;
+    });
     const done = this.tasks.start(input, signal).catch((error) => {
       const accepted = this.tasks
         .list(request.sessionId)
@@ -316,7 +406,14 @@ export class EngineChildren {
       if (accepted) return accepted;
       throw error;
     });
-    this.admissions.set(key, { fingerprint, input, signal, done });
+    this.admissions.set(key, {
+      fingerprint,
+      input,
+      signal,
+      done,
+      confirmed,
+      confirm,
+    });
     return done;
   }
   private async execute(
@@ -343,6 +440,7 @@ export class EngineChildren {
       proposalApply: false,
       teams: false,
       teamModelTools: false,
+      workflows: false,
       proposalContextPolicy: undefined,
       dbPath: join(this.directory, request.task.id, "engine.sqlite"),
       artifactDir: join(this.directory, request.task.id, "artifacts"),
@@ -354,7 +452,9 @@ export class EngineChildren {
       toolPolicyInstance: parent.engine.toolRuntime.policy,
       lifecycleHooks: undefined,
       lifecycleHookRegistry: parent.engine.lifecycleHooks,
-      roleResourcePolicy: parent.engine.roleResourcePolicyRegistry ? undefined : this.options.roleResourcePolicy,
+      roleResourcePolicy: parent.engine.roleResourcePolicyRegistry
+        ? undefined
+        : this.options.roleResourcePolicy,
       roleResourcePolicyRegistry: parent.engine.roleResourcePolicyRegistry,
       childTaskScope: {
         tasks: this.tasks,
@@ -387,12 +487,22 @@ export class EngineChildren {
     const admitProvider = holdChildProviderAdmission(engine);
     let unlink: (() => void) | undefined;
     try {
-      const configured: unknown = this.options.configureChild?.(engine, structuredClone(request.task));
-      if (configured !== null && (typeof configured === 'object' || typeof configured === 'function') && typeof (configured as { then?: unknown }).then === 'function') {
+      const configured: unknown = this.options.configureChild?.(
+        engine,
+        structuredClone(request.task),
+      );
+      if (
+        configured !== null &&
+        (typeof configured === "object" || typeof configured === "function") &&
+        typeof (configured as { then?: unknown }).then === "function"
+      ) {
         // Host setup is a synchronous contract. Observe rejected promises so an
         // invalid adapter cannot detach an unhandled rejection after admission.
         void Promise.resolve(configured).catch(() => {});
-        throw new EngineError('INVALID_CHILD_CONFIGURATION', 'Child configuration must complete synchronously before admission');
+        throw new EngineError(
+          "INVALID_CHILD_CONFIGURATION",
+          "Child configuration must complete synchronously before admission",
+        );
       }
       engine.store.putWorkspace(request.workspace);
       const session: Session = {
@@ -411,17 +521,29 @@ export class EngineChildren {
         session.id,
         engine.getCapabilities().defaults,
       );
-      const admission = this.admissions.get(JSON.stringify([request.task.sessionId, request.task.requestId]));
-      if (!admission) throw new EngineError('CHILD_ADMISSION_MISSING', 'Child storage binding requires its original host admission');
-      const preparedStorage = this.storageIdentity === undefined ? undefined : prepareChildStorageBinding(this.root.store, engine.store, {
-        task: request.task,
-        requestFingerprint: admission.fingerprint,
-        hostIdentity: this.storageIdentity,
-        childrenDirectory: this.directory,
-        worktree: this.worktrees.get(request.task.sessionId, request.task.worktreeId),
-        workspace: request.workspace,
-        childSessionId: session.id,
-      });
+      const admission = this.admissions.get(
+        JSON.stringify([request.task.sessionId, request.task.requestId]),
+      );
+      if (!admission)
+        throw new EngineError(
+          "CHILD_ADMISSION_MISSING",
+          "Child storage binding requires its original host admission",
+        );
+      const preparedStorage =
+        this.storageIdentity === undefined
+          ? undefined
+          : prepareChildStorageBinding(this.root.store, engine.store, {
+              task: request.task,
+              requestFingerprint: admission.fingerprint,
+              hostIdentity: this.storageIdentity,
+              childrenDirectory: this.directory,
+              worktree: this.worktrees.get(
+                request.task.sessionId,
+                request.task.worktreeId,
+              ),
+              workspace: request.workspace,
+              childSessionId: session.id,
+            });
       const receipt = engine.scheduler.submitLegacy({
         sessionId: session.id,
         requestId: request.task.id,
@@ -429,7 +551,14 @@ export class EngineChildren {
         config,
       });
       // Both durable admissions finish synchronously before the scheduler's provider microtask.
-      const admittedStorage = preparedStorage ? admitChildStorageBinding(this.root.store, engine.store, preparedStorage, receipt.runId) : undefined;
+      const admittedStorage = preparedStorage
+        ? admitChildStorageBinding(
+            this.root.store,
+            engine.store,
+            preparedStorage,
+            receipt.runId,
+          )
+        : undefined;
       const cancel = () => {
         void engine.coordinator.cancel(receipt.runId);
       };
@@ -441,8 +570,11 @@ export class EngineChildren {
         sessionId: session.id,
         runId: receipt.runId,
         closed: false,
+        admittedRun: structuredClone(engine.store.getRun(receipt.runId)),
         wait: undefined!,
-        ...(admittedStorage ? { storageRecord: structuredClone(admittedStorage) } : {}),
+        ...(admittedStorage
+          ? { storageRecord: structuredClone(admittedStorage) }
+          : {}),
       };
       const finished = engine
         .waitForRun(receipt.runId)
@@ -473,14 +605,21 @@ export class EngineChildren {
           await engine.close();
           execution.closed = true;
           // The admitted child mirror remains immutable. Only the root records host-observed close.
-          if (admittedStorage) confirmChildStorageClosed(this.root.store, admittedStorage);
+          if (admittedStorage)
+            confirmChildStorageClosed(this.root.store, admittedStorage);
         });
       void finished.catch(() => {});
       execution.wait = () => finished;
       this.executions.set(request.task.id, execution);
       return {
         runId: receipt.runId,
-        admitted: admitProvider,
+        admitted: () => {
+          this.workflowAdmissionGuards.get(
+            JSON.stringify([request.task.sessionId, request.task.requestId]),
+          )?.();
+          admission.confirm();
+          admitProvider();
+        },
         wait: execution.wait,
         cancel: async () => {
           if (!execution.closed) engine.coordinator.cancel(receipt.runId);
@@ -495,6 +634,331 @@ export class EngineChildren {
       throw error;
     }
   }
+  /** Original admission and completion handles from the private child engines, including fast completion. */
+  workflowObservationPort(
+    owners: ActualWorkflowOwnerPort,
+  ): ActualWorkflowChildObservationPort {
+    interface OriginalChild {
+      owner: object;
+      request: EngineChildRequest;
+      execution: Execution;
+      proof: WorkflowChildAdmissionProof;
+    }
+    const children = new WeakMap<object, OriginalChild>();
+    const completions = new WeakMap<
+      object,
+      { child: OriginalChild; proof: WorkflowChildCompletionProof }
+    >();
+    function fail(): never {
+      throw new EngineError(
+        "WORKFLOW_CHILD_STALE",
+        "Workflow requires its original admitted child execution",
+      );
+    }
+    const observeWait = async <T>(
+      pending: Promise<T>,
+      signal?: AbortSignal,
+    ): Promise<T> => {
+      workflowAbort(signal);
+      if (!signal) return pending;
+      let abort!: () => void;
+      try {
+        return await Promise.race([
+          pending,
+          new Promise<never>((_, reject) => {
+            abort = () =>
+              reject(
+                new EngineError(
+                  "CANCELLED",
+                  "Workflow observation was cancelled",
+                ),
+              );
+            signal.addEventListener("abort", abort, { once: true });
+            if (signal.aborted) abort();
+          }),
+        ]);
+      } finally {
+        signal.removeEventListener("abort", abort);
+      }
+    };
+    const verify = (child: OriginalChild): ChildTaskRecord => {
+      const { request, execution, proof } = child;
+      const task = this.tasks.get(request.sessionId, proof.taskId);
+      const admission = this.admissions.get(
+        JSON.stringify([request.sessionId, request.requestId]),
+      );
+      const document = this.root.store.getSessionDocument(
+        request.sessionId,
+        childStorageKind(task.id),
+      );
+      if (
+        !admission ||
+        admission.fingerprint !== digest(request) ||
+        this.executions.get(task.id) !== execution ||
+        !execution.storageRecord ||
+        !document
+      )
+        fail();
+      const record = validateChildStorageRecord(document.data);
+      if (
+        record.sha256 !== execution.storageRecord.sha256 ||
+        record.sha256 !== proof.storageSha256 ||
+        knowledgeHash(record.binding.hostIdentity) !==
+          knowledgeHash(this.storageIdentity) ||
+        task.fingerprint !== proof.taskFingerprint ||
+        task.childRunId !== proof.childRunId ||
+        task.parentRunId !== proof.parentRunId ||
+        task.rootRunId !== proof.rootRunId ||
+        task.requestId !== proof.requestId ||
+        task.worktreeId !== proof.worktreeId ||
+        knowledgeHash(task.toolNames) !== knowledgeHash(proof.tools) ||
+        knowledgeHash(task.budget) !== knowledgeHash(proof.allocation) ||
+        record.binding.child.sessionId !== execution.sessionId ||
+        record.binding.child.runId !== execution.runId ||
+        record.binding.child.workspaceId !== proof.childWorkspaceId ||
+        execution.admittedRun.prompt !== request.prompt ||
+        createHash("sha256")
+          .update(execution.admittedRun.prompt)
+          .digest("hex") !== proof.promptSha256
+      )
+        fail();
+      const parent = owners.read(child.owner);
+      owners.assertSettling(child.owner, parent);
+      owners.assertWorktreeCurrent(
+        child.owner,
+        owners.worktree(child.owner, proof.worktreeId),
+      );
+      if (
+        parent.sessionId !== proof.rootSessionId ||
+        parent.runId !== proof.parentRunId
+      )
+        fail();
+      if (!execution.closed) {
+        const mirror = execution.engine.store.getSessionDocument(
+          execution.sessionId,
+          CHILD_STORAGE_MIRROR_KIND,
+        );
+        const run = execution.engine.store.getRun(execution.runId);
+        if (
+          !mirror ||
+          validateChildStorageRecord(mirror.data).sha256 !==
+            proof.storageSha256 ||
+          knowledgeHash(run.config) !==
+            knowledgeHash(execution.admittedRun.config) ||
+          run.prompt !== request.prompt
+        )
+          fail();
+      } else if (!record.confirmedClose && task.state !== "uncertain") fail();
+      return task;
+    };
+    return {
+      start: async (originalOwner, value, signal) => {
+        workflowAbort(signal);
+        const owner = owners.read(originalOwner);
+        owners.assertCurrent(originalOwner, owner);
+        const request = structuredClone(value);
+        if (
+          request.sessionId !== owner.sessionId ||
+          request.parentRunId !== owner.runId ||
+          request.parentTaskId !== undefined
+        )
+          fail();
+        owners.assertWorktreeCurrent(
+          originalOwner,
+          owners.worktree(originalOwner, request.worktreeId),
+        );
+        const configuration = owners.configuration(originalOwner);
+        const key = JSON.stringify([request.sessionId, request.requestId]);
+        this.workflowAdmissionGuards.set(key, () => {
+          workflowAbort(signal);
+          owners.assertCurrent(originalOwner, owner);
+          owners.assertWorktreeCurrent(
+            originalOwner,
+            owners.worktree(originalOwner, request.worktreeId),
+          );
+        });
+        let task: ChildTaskRecord;
+        try {
+          const starting = await this.start(request, signal);
+          const admission = this.admissions.get(key);
+          if (!admission || admission.fingerprint !== digest(request)) fail();
+          await observeWait(
+            Promise.race([
+              admission.confirmed,
+              this.tasks.wait(request.sessionId, starting.id).then(() => {
+                throw new EngineError(
+                  "WORKFLOW_DISPATCH_UNCERTAIN",
+                  "Original child did not confirm provider admission",
+                );
+              }),
+            ]),
+            signal,
+          );
+          task = this.tasks.get(request.sessionId, starting.id);
+        } finally {
+          this.workflowAdmissionGuards.delete(key);
+        }
+        const execution = this.executions.get(task.id);
+        if (
+          !execution?.storageRecord ||
+          !task.childRunId ||
+          task.childRunId !== execution.runId ||
+          execution.admittedRun.config.providerId !==
+            configuration.model.providerId ||
+          execution.admittedRun.config.modelId !==
+            configuration.model.modelId ||
+          execution.admittedRun.config.reasoningEffort !==
+            configuration.model.reasoningEffort
+        )
+          fail();
+        const fields: Omit<WorkflowChildAdmissionProof, "sha256"> = {
+          rootSessionId: task.sessionId,
+          rootRunId: task.rootRunId,
+          parentRunId: task.parentRunId,
+          taskId: task.id,
+          taskFingerprint: task.fingerprint,
+          childSessionId: execution.sessionId,
+          childRunId: execution.runId,
+          childWorkspaceId: execution.admittedRun.workspaceId,
+          worktreeId: task.worktreeId,
+          storageSha256: execution.storageRecord.sha256,
+          requestId: task.requestId,
+          promptSha256: createHash("sha256")
+            .update(execution.admittedRun.prompt)
+            .digest("hex"),
+          tools: [...task.toolNames],
+          allocation: structuredClone(task.budget),
+        };
+        const child: OriginalChild = {
+          owner: originalOwner,
+          request,
+          execution,
+          proof: { ...fields, sha256: knowledgeHash(fields) },
+        };
+        verify(child);
+        const original = Object.freeze({});
+        children.set(original, child);
+        return original;
+      },
+      readAdmission: (original) => {
+        const child = children.get(original);
+        if (!child) fail();
+        verify(child);
+        return structuredClone(child.proof);
+      },
+      observe: async (originalOwner, originalChild, signal) => {
+        workflowAbort(signal);
+        const child = children.get(originalChild);
+        if (!child || child.owner !== originalOwner) fail();
+        verify(child);
+        let actual: Awaited<ReturnType<ChildRunHandle["wait"]>> | undefined;
+        try {
+          actual = await observeWait(child.execution.wait(), signal);
+        } catch {
+          workflowAbort(signal);
+          // The actual journal below must independently record the unconfirmed outcome.
+        }
+        const settled = await observeWait(
+          this.tasks.wait(child.request.sessionId, child.proof.taskId),
+          signal,
+        );
+        workflowAbort(signal);
+        verify(child);
+        let state: WorkflowChildCompletionProof["state"];
+        let result: import("@moodcode/contracts").JsonObject | null = null;
+        let complete = false;
+        const measured = child.execution.engine.coordinator.getRunUsage(
+          child.execution.runId,
+        );
+        if (settled.state === "uncertain") state = "uncertain";
+        else {
+          const outcome = settled.outcome;
+          if (
+            !actual ||
+            !outcome ||
+            !child.execution.closed ||
+            !["completed", "failed", "cancelled"].includes(settled.state) ||
+            actual.state !== outcome.state ||
+            knowledgeHash(actual.usage) !== knowledgeHash(outcome.usage) ||
+            knowledgeHash(measured) !== knowledgeHash(actual.usage)
+          )
+            fail();
+          const limit = Math.min(settled.budget.outputBytes, 4096);
+          if (
+            Buffer.byteLength(actual.content) <= limit &&
+            actual.content !== outcome.content
+          )
+            fail();
+          const truncated =
+            Buffer.byteLength(actual.content) > limit ||
+            outcome.truncated === true;
+          state = outcome.state;
+          if (state === "completed") {
+            if (truncated)
+              throw new EngineError(
+                "WORKFLOW_RESULT_INCOMPLETE",
+                "Workflow results require complete child output",
+              );
+            let parsed: unknown;
+            try {
+              parsed = JSON.parse(actual.content);
+            } catch {
+              throw new EngineError(
+                "WORKFLOW_RESULT_INVALID",
+                "Workflow child output must be a JSON object",
+              );
+            }
+            const data = workflowJson(parsed);
+            if (!data || typeof data !== "object" || Array.isArray(data))
+              throw new EngineError(
+                "WORKFLOW_RESULT_INVALID",
+                "Workflow child result must be an object",
+              );
+            result = data as import("@moodcode/contracts").JsonObject;
+            complete = true;
+          }
+        }
+        const fields: Omit<WorkflowChildCompletionProof, "sha256"> = {
+          child: structuredClone(child.proof),
+          state,
+          result,
+          complete,
+          outcomeSha256: knowledgeHash(
+            settled.outcome ?? {
+              state: settled.state,
+              errorCode: settled.errorCode ?? null,
+            },
+          ),
+          usage: { ...measured },
+        };
+        const original = Object.freeze({});
+        completions.set(original, {
+          child,
+          proof: { ...fields, sha256: knowledgeHash(fields) },
+        });
+        return original;
+      },
+      readCompletion: (original) => {
+        const completion = completions.get(original);
+        if (!completion) fail();
+        const task = verify(completion.child);
+        if (
+          knowledgeHash(
+            task.outcome ?? {
+              state: task.state,
+              errorCode: task.errorCode ?? null,
+            },
+          ) !== completion.proof.outcomeSha256
+        )
+          fail();
+        return structuredClone(completion.proof);
+      },
+      release: (original) => {
+        children.delete(original);
+        completions.delete(original);
+      },
+    };
+  }
   approvals(sessionId: string, childTaskId: string) {
     this.tasks.get(sessionId, childTaskId);
     const execution = this.executions.get(childTaskId);
@@ -502,41 +966,106 @@ export class EngineChildren {
     return execution.engine.store.listPendingRunApprovals(execution.runId);
   }
   /** An actual live owner selects the private child engine; caller IDs alone do not. */
-  resolveTeamModelExecution(owner: import('../teams/types.js').TeamMemberOwnerProof): MoodcodeEngine {
-    if (owner.kind !== 'child' || !owner.childTaskId) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Expected the original actual child owner');
-    const original = this.teamBridge.capture(owner.rootSessionId, owner.childTaskId);
+  resolveTeamModelExecution(
+    owner: import("../teams/types.js").TeamMemberOwnerProof,
+  ): MoodcodeEngine {
+    if (owner.kind !== "child" || !owner.childTaskId)
+      throw new EngineError(
+        "TEAM_MODEL_OWNER_STALE",
+        "Expected the original actual child owner",
+      );
+    const original = this.teamBridge.capture(
+      owner.rootSessionId,
+      owner.childTaskId,
+    );
     try {
       const target = this.teamBridge.readTarget(original);
-      if (target.childRunId !== owner.runId || target.childSessionId !== owner.sessionId || target.storageBindingSha256 !== owner.childStorageSha256 || target.rootRunId !== owner.rootRunId || target.workspaceId !== owner.workspaceId) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Child tool owner changed after actual admission');
+      if (
+        target.childRunId !== owner.runId ||
+        target.childSessionId !== owner.sessionId ||
+        target.storageBindingSha256 !== owner.childStorageSha256 ||
+        target.rootRunId !== owner.rootRunId ||
+        target.workspaceId !== owner.workspaceId
+      )
+        throw new EngineError(
+          "TEAM_MODEL_OWNER_STALE",
+          "Child tool owner changed after actual admission",
+        );
       const execution = this.executions.get(owner.childTaskId);
-      if (!execution || execution.closed) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Child tool owner is unavailable');
+      if (!execution || execution.closed)
+        throw new EngineError(
+          "TEAM_MODEL_OWNER_STALE",
+          "Child tool owner is unavailable",
+        );
       return execution.engine;
-    } finally { this.teamBridge.release(original); }
+    } finally {
+      this.teamBridge.release(original);
+    }
   }
   /** Host-observed lifecycle metadata; a confirmed closed member has no input capability. */
   describeTeamOwner(rootSessionId: string, childTaskId: string) {
     const task = this.tasks.get(rootSessionId, childTaskId);
     const execution = this.executions.get(childTaskId);
-    if (!execution?.storageRecord) throw new EngineError('TEAM_OWNER_UNAVAILABLE', 'Team ownership requires an actual admitted child in this host');
-    const document = this.root.store.getSessionDocument(rootSessionId, childStorageKind(childTaskId));
-    if (!document) throw new EngineError('TEAM_OWNER_UNAVAILABLE', 'Original child storage proof is missing');
+    if (!execution?.storageRecord)
+      throw new EngineError(
+        "TEAM_OWNER_UNAVAILABLE",
+        "Team ownership requires an actual admitted child in this host",
+      );
+    const document = this.root.store.getSessionDocument(
+      rootSessionId,
+      childStorageKind(childTaskId),
+    );
+    if (!document)
+      throw new EngineError(
+        "TEAM_OWNER_UNAVAILABLE",
+        "Original child storage proof is missing",
+      );
     const record = validateChildStorageRecord(document.data);
-    if (record.sha256 !== execution.storageRecord.sha256 || task.fingerprint !== record.binding.lineage.taskFingerprint || task.childRunId !== execution.runId || record.binding.child.runId !== execution.runId || record.binding.child.sessionId !== execution.sessionId) throw new EngineError('TEAM_OWNER_STALE', 'Child ownership changed after actual admission');
-    let cleanup: 'live' | 'confirmed' | 'unknown' = 'unknown';
-    if (execution.closed && record.confirmedClose && ['completed', 'failed', 'cancelled'].includes(task.state)) cleanup = 'confirmed';
-    else if (!execution.closed && task.state === 'running') {
+    if (
+      record.sha256 !== execution.storageRecord.sha256 ||
+      task.fingerprint !== record.binding.lineage.taskFingerprint ||
+      task.childRunId !== execution.runId ||
+      record.binding.child.runId !== execution.runId ||
+      record.binding.child.sessionId !== execution.sessionId
+    )
+      throw new EngineError(
+        "TEAM_OWNER_STALE",
+        "Child ownership changed after actual admission",
+      );
+    let cleanup: "live" | "confirmed" | "unknown" = "unknown";
+    if (
+      execution.closed &&
+      record.confirmedClose &&
+      ["completed", "failed", "cancelled"].includes(task.state)
+    )
+      cleanup = "confirmed";
+    else if (!execution.closed && task.state === "running") {
       const original = this.teamBridge.capture(rootSessionId, childTaskId);
       this.teamBridge.release(original);
-      cleanup = 'live';
+      cleanup = "live";
     }
-    return { workspaceId: record.binding.child.workspaceId,
-      sessionId: execution.sessionId, runId: execution.runId, rootSessionId,
-      rootRunId: task.rootRunId, childTaskId, childTaskFingerprint: task.fingerprint,
-      childStorageSha256: record.sha256, worktreeId: task.worktreeId, cleanup };
+    return {
+      workspaceId: record.binding.child.workspaceId,
+      sessionId: execution.sessionId,
+      runId: execution.runId,
+      rootSessionId,
+      rootRunId: task.rootRunId,
+      childTaskId,
+      childTaskFingerprint: task.fingerprint,
+      childStorageSha256: record.sha256,
+      worktreeId: task.worktreeId,
+      cleanup,
+    };
   }
   /** The engine supplies its private effect-lock identity; callers cannot choose a workspace lease. */
   delegationHost(executionLockPath: string): DelegationHost {
-    return createApprovedDelegationHost({ engine: this.root, worktrees: this.worktrees, tasks: this.tasks, executionLockPath, start: (request, signal) => this.start(request, signal) });
+    return createApprovedDelegationHost({
+      engine: this.root,
+      worktrees: this.worktrees,
+      tasks: this.tasks,
+      executionLockPath,
+      start: (request, signal) => this.start(request, signal),
+    });
   }
   recover(sessionId: string): void {
     if (this.recoveredSessions.has(sessionId)) return;

@@ -24,6 +24,8 @@ import { PROPOSAL_TABLES, validateProposalDatabase } from '../proposals/store.js
 import { PROPOSAL_APPLY_TABLES, validateProposalApplyDatabase } from '../proposals/apply-store.js';
 import { PROPOSAL_APPLY_GUARD_TABLE, validateProposalApplyExecutionGuards } from '../proposals/execution-guards.js';
 import { TEAM_TABLES, validateTeamDatabase } from '../teams/store.js';
+import { WORKFLOW_TABLES } from '../workflows/schema.js';
+import { validateWorkflowDatabase } from '../workflows/store.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
 import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
@@ -134,7 +136,9 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     const proposalTables = primaryVersion >= 17 ? [...pendingProposalTables, ...PROPOSAL_APPLY_TABLES, PROPOSAL_APPLY_GUARD_TABLE] : pendingProposalTables;
     if (primary && primaryVersion >= 18) validateTeamDatabase(primary, snapshot.check);
     const teamTables = primaryVersion >= 18 ? [...proposalTables, ...TEAM_TABLES] : proposalTables;
-    const primaryHash = primary ? checkDatabase(primary, primaryVersion, teamTables, snapshot.check) : null;
+    if (primary && primaryVersion >= 19) validateWorkflowDatabase(primary, { check: snapshot.check });
+    const workflowTables = primaryVersion >= 19 ? [...teamTables, ...WORKFLOW_TABLES] : teamTables;
+    const primaryHash = primary ? checkDatabase(primary, primaryVersion, workflowTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);
     let marker: Marker | null = null;

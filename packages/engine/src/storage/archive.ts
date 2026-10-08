@@ -27,6 +27,8 @@ import { PROPOSAL_TABLES, validateProposalDatabase } from '../proposals/store.js
 import { PROPOSAL_APPLY_TABLES, validateProposalApplyDatabase } from '../proposals/apply-store.js';
 import { PROPOSAL_APPLY_GUARD_TABLE, validateProposalApplyExecutionGuards } from '../proposals/execution-guards.js';
 import { TEAM_TABLES, validateTeamDatabase } from '../teams/store.js';
+import { WORKFLOW_TABLES } from '../workflows/schema.js';
+import { validateWorkflowDatabase } from '../workflows/store.js';
 import { validateTeamChildInputRelations } from '../teams/child-input-proof.js';
 import { knowledgeHash } from '../knowledge/validation.js';
 import { SqliteStore } from './index.js';
@@ -222,7 +224,12 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
       try { validateTeamDatabase(db, check); }
       catch { fail('ARCHIVE_TEAM_INVALID', 'Team membership, mailbox, board or actual input delivery relationships are invalid'); }
     }
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 18 ? [...applyTables, ...TEAM_TABLES] : applyTables, check) };
+    const teamTables = schemaVersion >= 18 ? [...applyTables, ...TEAM_TABLES] : applyTables;
+    if (schemaVersion >= 19) {
+      try { validateWorkflowDatabase(db, { check }); }
+      catch { fail('ARCHIVE_WORKFLOW_INVALID', 'Archived workflow revisions, native stage ownership or transition receipts are invalid'); }
+    }
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 19 ? [...teamTables, ...WORKFLOW_TABLES] : teamTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

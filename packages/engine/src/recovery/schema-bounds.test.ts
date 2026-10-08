@@ -21,6 +21,18 @@ test('excessive schema metadata remains bounded even with empty data and an othe
   for (let index = count; index <= RECOVERY_LIMITS.maxSchemaEntries; index++) db.exec(`CREATE INDEX authored_schema_bound_${index} ON workspaces(root)`);
   assert.throws(() => checkDatabase(db, DB_VERSION, tables, () => {}), { code: 'RECOVERY_LIMIT_EXCEEDED' });
 });
+test('DB19 workflow schema fits its measured catalogue and the schema cap is inclusive', t => {
+  const { db, tables } = fixture(t,19);
+  const count = Number(db.prepare("SELECT count(*) AS count FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'").get()!.count);
+  assert.equal(count,130);
+  assert.equal(RECOVERY_LIMITS.maxSchemaEntries,160);
+  assert.ok(tables.includes('workflow_revisions'));
+  assert.ok(tables.includes('workflow_heads'));
+  for (let index = count; index < RECOVERY_LIMITS.maxSchemaEntries; index++) db.exec(`CREATE INDEX authored_workflow_cap_${index} ON workspaces(root)`);
+  assert.match(checkDatabase(db,19,tables,()=>{}),/^[a-f0-9]{64}$/u);
+  db.exec('CREATE INDEX authored_workflow_cap_excess ON workspaces(root)');
+  assert.throws(()=>checkDatabase(db,19,tables,()=>{}),{code:'RECOVERY_LIMIT_EXCEEDED'});
+});
 test('an unexpected table below the schema count cap cannot become trusted archive/recovery metadata', t => {
   const version = DB_VERSION - 1;
   const { db, tables } = fixture(t, version); db.exec('CREATE TABLE authored_foreign_metadata(value TEXT)');

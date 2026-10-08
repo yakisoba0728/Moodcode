@@ -188,3 +188,9 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 `teams:true, teamModelTools:true`는 모델용 `send_agent_message`, `read_agent_mailbox`, `claim_team_task`, `complete_team_task`를 처음부터 고정 catalogue에 등록한다. Host가 `bindTeamModelTools({rootSessionId,teamId,memberId,generation,childTaskId?,recipientAliases?})`로 실제 현재 root/child 멤버를 별도로 선택해야 한다. 실행당 선택은 하나이며 수신 별칭 기본 허용 목록은 비어 있다. 원본 binding을 `releaseTeamModelTools`로 해제하면 이미 준비된 요청도 그 권한을 재사용하지 못한다. 모델은 actor/team/member/generation을 지정할 수 없다.
 
 쓰기3종은 exact native 승인을 사용하고 읽기는 기존 readonly 정책을 따른다. 실제 원본 ToolContext·Run/Turn/Attempt·멤버 역할과 parent profile을 함께 검사한다. Child에는 root가 명시한 handler/선택 멤버만 전달하며 팀 생성 권한을 상속하지 않는다. 읽기는 cursor를 바꾸지 않으며 기본4개/명시1~64개, 전체 모델 JSON32KiB와 최소 남은 출력1KiB 제한을 적용한다. Child 첫 provider 호출은 실제 task running/Run ID 저장 뒤 시작하고 취소된 admission 대기는 종료한다. [모델 팀 도구 계약](engine-phase-two-team-model-tools.md)을 따른다.
+
+## 역할 workflow·recipe
+
+`workflows:true`에서 `registerWorkflow`, 원본 `previewWorkflowStart` → `startWorkflow({approved:true})`, 명시적 `startWorkflowStage({approved:true})`와 `observeWorkflowStage`를 사용한다. 실제 live parent·profile/model/catalogue·예산·관리 worktree를 고정하고, 기존 child admission을 통해 별도 readonly planner/advisory-reviewer를 실행한다. 관찰 취소는 child를 재실행하지 않으며 나중에 원본 결과를 다시 관찰할 수 있다.
+
+`getWorkflow`와 `inspectWorkflow`는 기능이 꺼져 있어도 bounded 이력을 조회한다. DB19 revision/head/receipt와 stage join은 native CAS를 사용한다. 재시작은 unfinished stage를 uncertain으로, import는 paused-import로 보존하며 자동 dispatch·parent delivery·승인 merge를 수행하지 않는다. Editor/validator 효과 실행과 role/model escalation은 후속 구현이다. [워크플로 계약과 검증 범위](engine-phase-two-workflows.md)를 따른다.
