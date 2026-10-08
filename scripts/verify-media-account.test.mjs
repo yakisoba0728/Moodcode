@@ -253,6 +253,72 @@ const fixtureArgs = (f, scenario = "all") => [
 ];
 const hookRuntime = { engineModuleURL: sourceEngine };
 
+function assertSelectedPreflights(report, modalities) {
+  const expected = {
+    "invalid-mime": "MEDIA_INVALID_SOURCE",
+    "oversize-source": "MEDIA_LIMIT_EXCEEDED",
+    "unknown-capability": "PROVIDER_UNSUPPORTED_INPUT",
+    "source-loss": "MEDIA_STORAGE_FAILED",
+  };
+  const checks = report.scopeCoverage.filter((item) =>
+    Object.hasOwn(expected, item.caseId),
+  );
+  assert.equal(checks.length, modalities.length * 4);
+  for (const modality of modalities) {
+    for (const [caseId, code] of Object.entries(expected)) {
+      const matches = checks.filter(
+        (item) => item.caseId === caseId && item.modality === modality,
+      );
+      assert.equal(matches.length, 1, modality + ":" + caseId);
+      const item = matches[0];
+      assert.equal(item.state, "passed");
+      assert.equal(item.code, code);
+      assert.equal(
+        item.providerId,
+        modality === "audio" ? "verify-audio-input" : "verify-video-frames",
+      );
+      assert.equal(item.selectedModelId, "explicit-http-" + modality);
+      assert.equal(
+        item.modelId,
+        caseId === "unknown-capability"
+          ? "undeclared-verification-model"
+          : "explicit-http-" + modality,
+      );
+      assert.equal(item.requests, 0);
+      assert.equal(item.attempts, 0);
+      assert.equal(item.accountVerified, false);
+    }
+  }
+}
+
+function assertSelectedDuplicates(report, modalities) {
+  const duplicates = report.scopeCoverage.filter(
+    (item) => item.caseId === "duplicate-input",
+  );
+  assert.equal(duplicates.length, modalities.length);
+  for (const modality of modalities) {
+    const matches = duplicates.filter((item) => item.modality === modality);
+    assert.equal(matches.length, 1, modality);
+    const duplicate = matches[0];
+    const positive = report.scopeCoverage.find(
+      (item) =>
+        item.caseId ===
+        (modality === "audio"
+          ? "audio-fresh-recognition"
+          : "video-frame-recognition"),
+    );
+    assert.equal(duplicate.state, "passed");
+    assert.equal(duplicate.inputId, positive.native.inputId);
+    assert.equal(duplicate.runId, positive.native.runId);
+    assert.equal(duplicate.sessionId, positive.native.sessionId);
+    assert.equal(duplicate.sameNativeIdentity, true);
+    assert.match(duplicate.inputSha256, /^[a-f0-9]{64}$/u);
+    assert.match(duplicate.nativeSha256, /^[a-f0-9]{64}$/u);
+    assert.equal(duplicate.requests, 0);
+    assert.equal(duplicate.accountVerified, false);
+  }
+}
+
 test("default is plan-only and invalid CLI never reads a credential or calls transport", async () => {
   let reads = 0,
     fetches = 0;
@@ -337,6 +403,8 @@ test(
     assert.equal(f.requests.length, 4);
     assert.equal(f.closedCancel, 1);
     assert.ok(f.requests.every((r) => r.authorization === undefined));
+    assertSelectedPreflights(report, ["audio", "video"]);
+    assertSelectedDuplicates(report, ["audio", "video"]);
     const cases = new Map(report.scopeCoverage.map((c) => [c.caseId, c]));
     for (const id of [
       "invalid-mime",
@@ -393,7 +461,7 @@ test(
 );
 
 test(
-  "video-only uses genuine selected AVI for source-loss and unknown model admission; one Responses request",
+  "video-only proves all four exact AVI admission failures and same native duplicate identity; one Responses request",
   { timeout: 20000 },
   async (t) => {
     const f = await httpFixture(t),
@@ -404,6 +472,9 @@ test(
       JSON.stringify({ failure: report.failure, cases: report.scopeCoverage }),
     );
     assert.equal(report.actualRequests.length, 1);
+    assert.equal(f.requests.length, 1);
+    assertSelectedPreflights(report, ["video"]);
+    assertSelectedDuplicates(report, ["video"]);
     assert.equal(f.requests[0].body.model, "explicit-http-video");
     assert.equal(
       report.scopeCoverage.find((c) => c.caseId === "source-loss").code,

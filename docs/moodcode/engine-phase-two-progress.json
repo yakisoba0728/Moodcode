@@ -814,7 +814,10 @@
             "engine-phase-two-media-verification-plan.json",
             "engine-phase-two-media-verification-plan-verification.json",
             "engine-phase-two-media-account-executor.md",
-            "engine-phase-two-media-account-executor-verification.json"
+            "engine-phase-two-media-account-executor-verification.json",
+            "engine-phase-two-media-model-coverage.md",
+            "engine-phase-two-media-model-coverage-verification.json",
+            "engine-phase-two-media-account-acceptance-audit.json"
           ]
         }
       ],
@@ -1029,5 +1032,5 @@
       "notes": "Complete original preview, fair up-front fixed reservations, actual isolated editor/validator/reviewer workflow children, strict native success, separate approved selection/merge, atomic result input and real subsequent consumer are integrated. Partial/cancel/unknown/skip-resume/SQL/SIGKILL/export/source/import checks pass. Native histories use existing DB23 bounded documents/events; host fixed per-request accounting is distinguished from external invoice and unknown usage remains unknown."
     }
   ],
-  "updatedAt": "2026-10-08T14:38:04.967184+00:00"
+  "updatedAt": "2026-10-08T14:52:30.915924+00:00"
 }

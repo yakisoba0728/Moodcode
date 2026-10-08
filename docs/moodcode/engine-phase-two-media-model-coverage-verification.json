@@ -1,0 +1,512 @@
+{
+  "schemaVersion": 1,
+  "kind": "MC2-16d selected-model media verification coverage correction",
+  "recordedAtUTC": "2026-10-08T14:52:30.915924+00:00",
+  "baselineCommit": "d1c80e0c47167b72c4edba32f377f9a93495ebcd",
+  "coverageFindingsBeforeCorrection": {
+    "path": "/tmp/moodcode-mc16d-remaining-acceptance-audit.json",
+    "sha256": "ac5f9e8b1b2311e51afb6da88848d28c066b11199a348e0ab2013f580109e67e",
+    "data": {
+      "schemaVersion": 1,
+      "kind": "MC2-16d remaining acceptance independent bounded audit BEFORE coverage correction",
+      "recordedAtUTC": "2026-10-08T14:43:36.330770+00:00",
+      "mainHead": "d1c80e0c47167b72c4edba32f377f9a93495ebcd",
+      "mainCleanAtRead": true,
+      "sourceSha256": {
+        "docs/coding-agent-engine-review/implementation-work-items.json": "4bab8379a68c37e817f66aa5c2bda02c6b00a1951d20c3c0147b5885dbc49db4",
+        "docs/coding-agent-engine-review/implementation-blueprint.md": "d4f8d381430871f23e9676e74efe78b409cfbeb9e1bf063c5207281ebf5359ac",
+        "scripts/verify-media-account.mjs": "1750170382f12d81eadd4e01c39414a591119b55960c399595e4c16c7408a48a",
+        "scripts/verify-media-account.test.mjs": "dadb705f591c2de0a90ae09e3669a2f74a165af100f97f40103f6188fc040a3b",
+        "docs/moodcode/engine-phase-two-media-account-executor-verification.json": "fcdec70b8a49fae9f31129d8e2dee4bcb2995992f9b452388194a26ebf9b9d84",
+        "packages/engine/src/provider/codex.ts": "292b723a7db3d2b983fdf22b33c4a6753f7c786d98744dea2a365b4d88c592fb",
+        "packages/engine/src/provider/openai-compatible.ts": "ca1cf1a8315f82a851c04bd910daf368bcb3b6289c2a6f1a8cffa08d63d3f424",
+        "packages/engine/src/provider/responses.ts": "0707d60fbcbdbee6f6ee7bb52d9c56344b05c2733fea5881bc9cf877ff83f19f"
+      },
+      "originalCriterion": "실제 지원 모델별 invalid MIME·oversize·unknown capability·부분 생성·중복 delivery·source 삭제 검사. E5-13 닫힘과 신규 video/audio 완료를 따로 판정",
+      "verdict": "Supported native WAV input/AVI-to-PNG frame input/PCM audio output execution is implemented; no additional missing core runtime path identified. Original per-model acceptance coverage has two executor omissions at this exact pre-correction source, besides unavailable production account/configuration evidence.",
+      "coverageFindings": [
+        {
+          "id": "all-negative-selected-audio-only",
+          "source": "scripts/verify-media-account.mjs:897",
+          "details": "scenario all selects WAV/audio for native unknown-capability/source-delete negatives; invalid-MIME and oversize source fixtures are also WAV only. It does not execute the per-video selected lane negative matrix. Video-only invocation covers selected AVI unknown/source-deletion; all4 alone cannot prove each supported model criterion.",
+          "requiredExistingScopeCorrection": "Perform each selected audio/video native negative matrix without provider dispatch; preserve audio3/video1/all4 transport bounds."
+        },
+        {
+          "id": "video-duplicate-assertion-missing",
+          "source": "scripts/verify-media-account.mjs:1075",
+          "details": "Native duplicate accepted input/no-extra-request assertion exists only under options.audio. Video-frame input branch has no corresponding exact request replay assertion.",
+          "requiredExistingScopeCorrection": "Repeat the genuine accepted video payload and assert same native input identity and zero additional dispatch/transport."
+        }
+      ],
+      "followUp": "Root acknowledged both as original criterion coverage and delegated narrow executor/test correction to A. This audit binds the uncorrected SHA17501703…; final changed freeze requires bounded verification of only those corrections.",
+      "blockedProductionEvidence": {
+        "credential": "A supported OpenAI API credential via explicitly selected environment name, not the existing Codex OAuth/native credential route.",
+        "models": "Exact account-accessible Chat audio input/output model plus separate image-capable standard Responses model for AVI frame recognition. gpt-audio-1.5 is a documented audio candidate, not account access proof and not video-capable.",
+        "pcm": "Explicit host-attested endpoint/model PCM sampleRate/channels/voice and provenance; do not infer Chat layout from Realtime/TTS or merely a passing answer.",
+        "policy": "Explicit unknown media cost opt-in, fixed request/Attempt/output/byte/duration ceilings; no retries.",
+        "successfulNativeReports": "Actual production generation→fresh-session recognition, partial cancellation, frame recognition and per-model native negatives/duplicates/source-loss/paused history; genuine native cleanup and frozen source/runtime required."
+      },
+      "credentialReadinessAttribution": {
+        "source": "Root recorded named existence-only check; reviewer did not recheck environment or read credentials.",
+        "recorded": {
+          "recordedAtUTC": "2026-10-08T14:34:52.672271+00:00",
+          "kind": "named-environment-existence-only",
+          "variables": {
+            "OPENAI_API_KEY": false,
+            "MOODCODE_API_KEY": false
+          },
+          "valuesRecorded": false,
+          "credentialFilesRead": 0,
+          "accountRequests": 0
+        }
+      },
+      "codexBoundary": "CodexProvider is fixed native chatgpt.com/backend-api/codex route, text/image only. providerSegments(request,()=>false) rejects audio/video before credential use; no audio output declaration. Existing live image evidence gives no new-media credit.",
+      "status": {
+        "workItems": "79/80",
+        "families": "19/20",
+        "MC2_16d": "in-progress",
+        "actualNewMediaAccountRequests": 0,
+        "accountVerified": false,
+        "E5_13": "open; distinct from new audio/video completion",
+        "otherOriginalEnvironmentDebts": "E5-08/E6-07/E6-08 unchanged"
+      },
+      "scope": {
+        "mainEdits": 0,
+        "workerEdits": 0,
+        "testsRun": 0,
+        "accountCalls": 0,
+        "credentialFilesRead": 0,
+        "environmentValuesRead": 0,
+        "reviewLimitedTo": "remaining MC2-16d; no 79-item re-audit",
+        "writesOnlyUnder": "/tmp"
+      }
+    }
+  },
+  "workerFreeze": {
+    "path": "/tmp/moodcode-media-account-executor-coverage-freeze.json",
+    "sha256": "fa0373e48121c44c9f076a57f56d5fc0f4bc063d0a7796a3a8de2cfa0573e435",
+    "data": {
+      "schemaVersion": 1,
+      "feature": "MC2-16d-selected-modality-coverage-correction",
+      "frozen": true,
+      "worktree": "/Users/yakisoba0728/.codex/worktrees/engine-media-account-executor/Moodcode",
+      "base": "previous frozen two-file executor, present in Main d1c80e0; delta only",
+      "baseline": {
+        "path": "/tmp/moodcode-media-account-executor-coverage-baseline.json",
+        "sha256": "84885f468ddc775ee6bbb86f7532f0691a410d186e2d4d43593e12cbb6242340",
+        "files": {
+          "scripts/verify-media-account.mjs": "1750170382f12d81eadd4e01c39414a591119b55960c399595e4c16c7408a48a",
+          "scripts/verify-media-account.test.mjs": "dadb705f591c2de0a90ae09e3669a2f74a165af100f97f40103f6188fc040a3b"
+        }
+      },
+      "files": {
+        "scripts/verify-media-account.mjs": "210444acafe42907ff5bd4297068750393c7bafc5342cdae84bea153328e92bd",
+        "scripts/verify-media-account.test.mjs": "f819b8859865d639510ed4f4600f97da33e837eba4781e7dd7ecc04437ef6861"
+      },
+      "patch": {
+        "path": "/tmp/moodcode-media-account-executor-coverage-delta.patch",
+        "bytes": 15039,
+        "sha256": "433d352b4a4016cf9d510127ef68467cc7783ef0f9b3041a72a5e7aba096c22e"
+      },
+      "originalCoreTrackedUnchanged": 1253,
+      "excluded": [
+        "previous new-file patch",
+        "node_modules",
+        "engine/contracts/policy/Original changes",
+        "Main/package/docs/planner/TODO"
+      ],
+      "createdAt": "2026-10-08T14:48:51.007469+00:00"
+    }
+  },
+  "workerVerification": {
+    "path": "/tmp/moodcode-media-account-executor-coverage-verification.json",
+    "sha256": "a343a0e1ef06e8b0763a28fc33bb54f64b2976fe41370c3d2963dccff3f0246e",
+    "data": {
+      "schemaVersion": 1,
+      "feature": "MC2-16d-selected-modality-coverage-correction",
+      "frozenManifest": {
+        "path": "/tmp/moodcode-media-account-executor-coverage-freeze.json",
+        "sha256": "fa0373e48121c44c9f076a57f56d5fc0f4bc063d0a7796a3a8de2cfa0573e435"
+      },
+      "patch": {
+        "path": "/tmp/moodcode-media-account-executor-coverage-delta.patch",
+        "bytes": 15039,
+        "sha256": "433d352b4a4016cf9d510127ef68467cc7783ef0f9b3041a72a5e7aba096c22e"
+      },
+      "preimage": {
+        "scripts/verify-media-account.mjs": "1750170382f12d81eadd4e01c39414a591119b55960c399595e4c16c7408a48a",
+        "scripts/verify-media-account.test.mjs": "dadb705f591c2de0a90ae09e3669a2f74a165af100f97f40103f6188fc040a3b"
+      },
+      "sources": {
+        "scripts/verify-media-account.mjs": "210444acafe42907ff5bd4297068750393c7bafc5342cdae84bea153328e92bd",
+        "scripts/verify-media-account.test.mjs": "f819b8859865d639510ed4f4600f97da33e837eba4781e7dd7ecc04437ef6861"
+      },
+      "coreTrackedUnchanged": 1253,
+      "source": {
+        "tests": 9,
+        "pass": 9,
+        "fail": 0,
+        "path": "/tmp/moodcode-media-account-executor-coverage-source.log",
+        "sha256": "8ff235faef206926e92b3620922525b52ae5365ac9e1db3027588af3c54edeb2"
+      },
+      "compiled": {
+        "tests": 9,
+        "pass": 9,
+        "fail": 0,
+        "path": "/tmp/moodcode-media-account-executor-coverage-compiled.log",
+        "sha256": "d0bbfc3cfe872e391fdb235612f8f8c2ef0a3ae729163917e89cc99645c0af8c"
+      },
+      "format": {
+        "passed": true,
+        "path": "/tmp/moodcode-media-account-executor-coverage-format.log",
+        "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+      },
+      "syntax": {
+        "passed": true,
+        "files": [
+          "scripts/verify-media-account.mjs",
+          "scripts/verify-media-account.test.mjs"
+        ]
+      },
+      "actualCredentialReads": 0,
+      "actualRemoteAccountRequests": 0,
+      "accountVerified": false,
+      "selectedCoverage": {
+        "audio": [
+          "invalid-mime",
+          "oversize-source",
+          "unknown-capability",
+          "source-loss",
+          "duplicate-input"
+        ],
+        "video": [
+          "invalid-mime",
+          "oversize-source",
+          "unknown-capability",
+          "source-loss",
+          "duplicate-input"
+        ]
+      },
+      "nativeErrors": {
+        "invalid-mime": "MEDIA_INVALID_SOURCE",
+        "oversize-source": "MEDIA_LIMIT_EXCEEDED",
+        "unknown-capability": "PROVIDER_UNSUPPORTED_INPUT",
+        "source-loss": "MEDIA_STORAGE_FAILED"
+      },
+      "invalidMimeMeaning": "Actual supported WAV/AVI source bytes are deliberately declared as the opposite supported MIME, and genuine native decoding rejects bytes/MIME mismatch; exact observed error code asserted. Oversize uses each lane correct MIME. Unknown-capability records actual undeclared requested modelId separately from selectedModelId.",
+      "zeroEffects": "Each selected lane independently records its actual provider/model, native error, requests0 and native Attempts0. All now yields eight distinct modality-scoped negative records; video-only four.",
+      "duplicateProof": "Both lane duplicates re-submit genuine accepted payload/requestId via Engine.input.accept, preserve actual Input body+Run/Part/Attempt/cleanup/usage snapshot SHA and exact identities, scheduler join, and assert no extra HTTP request. All yields two duplicate records and video-only one.",
+      "unchangedContracts": [
+        "real request bound audio3/video1/all4",
+        "maxProviderAttempts1/no retry",
+        "Original native request/source/cleanup handling",
+        "final source/runtime SHA check",
+        "unknown receipt/proof/close retains DB/Artifact",
+        "final all-level account credit after cleanup only",
+        "scope/account progress remains pending actual remote selected media verification"
+      ],
+      "cliUnchanged": true,
+      "priorVerification": "/tmp/moodcode-media-account-executor-verification.json"
+    }
+  },
+  "finalIndependentReview": {
+    "path": "/tmp/moodcode-media-account-executor-coverage-independent-review.json",
+    "sha256": "e17aaf9f3eccf4f2a1cd5d0959c01a45ec2ac3e574558f6cff16d6b757e1e204",
+    "data": {
+      "schemaVersion": 1,
+      "kind": "bounded independent MC2-16d per-modality coverage correction review",
+      "recordedAtUTC": "2026-10-08T14:49:17.540054+00:00",
+      "worktree": "/Users/yakisoba0728/.codex/worktrees/engine-media-account-executor/Moodcode",
+      "baseline": {
+        "manifest": "/tmp/moodcode-media-account-executor-coverage-baseline.json",
+        "manifestSha256": "84885f468ddc775ee6bbb86f7532f0691a410d186e2d4d43593e12cbb6242340",
+        "sourceSha256": {
+          "scripts/verify-media-account.mjs": "1750170382f12d81eadd4e01c39414a591119b55960c399595e4c16c7408a48a",
+          "scripts/verify-media-account.test.mjs": "dadb705f591c2de0a90ae09e3669a2f74a165af100f97f40103f6188fc040a3b"
+        },
+        "baselineCopiesVerified": true
+      },
+      "verdict": "PASS final frozen bounded coverage review; source/patch exact match; previous two criterion omissions corrected without engine/Original/cleanup/credit/request-bound changes.",
+      "requirements": [
+        {
+          "id": "all-negative-selected-audio-only",
+          "result": "corrected",
+          "evidence": "The selected audio/video loop uses each lane real WAV or authored AVI, correct MIME/selected provider/model, wrong MIME and oversize exact native error, unknown selected-adapter model and actual source blob deletion. Every selected modality has four scope entries with zero added request and dispatched observed native Attempt count. all selects both lanes; video-only selects only AVI."
+        },
+        {
+          "id": "video-duplicate-assertion-missing",
+          "result": "corrected",
+          "evidence": "checkDuplicate consumes the genuine previously accepted payload through actual Engine.input.accept for audio fresh recognition and video frame recognition. It asserts same input identity and complete Input record, same Run SHA/Turns/Parts/Attempt native cleanup+usage snapshot and zero extra actual requests. No synthesized Run, Part, context or receipt is accepted."
+        }
+      ],
+      "testsAuthoredReadOnly": [
+        {
+          "scenario": "all",
+          "expect": "eight per-modality negative results + two native duplicate results; exact provider/selected model/denial model/codes; four HTTP requests total"
+        },
+        {
+          "scenario": "video-only",
+          "expect": "four AVI negative results + one native duplicate result; one genuine Responses HTTP request total"
+        }
+      ],
+      "unchangedSharedBoundaries": [
+        "No changes to original source/request identity capture or immutable output/native evidence consumption.",
+        "No changes to final native cleanup cache/open-store reads, unknown retention, final source/runtime checks, late-credit computation or late-close regression.",
+        "No changes to audio3/video1/all4 HTTP bound or providerAttemptsPerTurn1; duplicates/preflights make no new provider request.",
+        "Host PCM attestation remains explicit and unknown token/cost remain null; injected/local proof never earns actual account credit."
+      ],
+      "originalRemainingAudit": "/tmp/moodcode-mc16d-remaining-acceptance-audit.json is preserved as pre-correction evidence bound to executor17501703/testdadb705f.",
+      "accountStatus": {
+        "newActualAccountRequests": 0,
+        "MC2_16d": "in-progress",
+        "progress": "79/80 work items,19/20 families",
+        "remaining": "Supported exact API credential/models/host PCM provenance and genuine selected production account execution/native success evidence; both previous automation coverage gaps are now corrected."
+      },
+      "scope": {
+        "mainEdits": 0,
+        "workerEdits": 0,
+        "testsRun": 0,
+        "accountCalls": 0,
+        "credentialsRead": 0,
+        "writesOnlyUnder": "/tmp"
+      },
+      "priorMutableReview": {
+        "reviewedSha256": {
+          "scripts/verify-media-account.mjs": "2c3fbaa24e30999c9b9ac82962afbb5a0d88b43f7fbbbf730ebccf89a4c29d30",
+          "scripts/verify-media-account.test.mjs": "efa41a25990f654129c4af28eb3b02d1b970a8870225f10a54d6c2b40e314877"
+        },
+        "currentSha256AtRecord": {
+          "scripts/verify-media-account.mjs": "210444acafe42907ff5bd4297068750393c7bafc5342cdae84bea153328e92bd",
+          "scripts/verify-media-account.test.mjs": "f819b8859865d639510ed4f4600f97da33e837eba4781e7dd7ecc04437ef6861"
+        },
+        "sameAsRead": false,
+        "state": "mutable candidate; awaiting final frozen manifest exact match"
+      },
+      "finalFrozenReview": {
+        "recordedAtUTC": "2026-10-08T14:50:26.579151+00:00",
+        "freezePath": "/tmp/moodcode-media-account-executor-coverage-freeze.json",
+        "freezeSha256": "fa0373e48121c44c9f076a57f56d5fc0f4bc063d0a7796a3a8de2cfa0573e435",
+        "files": {
+          "scripts/verify-media-account.mjs": "210444acafe42907ff5bd4297068750393c7bafc5342cdae84bea153328e92bd",
+          "scripts/verify-media-account.test.mjs": "f819b8859865d639510ed4f4600f97da33e837eba4781e7dd7ecc04437ef6861"
+        },
+        "matchesFreeze": true,
+        "patchPath": "/tmp/moodcode-media-account-executor-coverage-delta.patch",
+        "patchSha256": "433d352b4a4016cf9d510127ef68467cc7783ef0f9b3041a72a5e7aba096c22e",
+        "matchesPatchFreeze": true,
+        "patchFiles": [
+          "diff --git a/scripts/verify-media-account.mjs b/scripts/verify-media-account.mjs",
+          "diff --git a/scripts/verify-media-account.test.mjs b/scripts/verify-media-account.test.mjs"
+        ],
+        "verdict": "PASS on exact frozen coverage delta. Both original coverage omissions corrected, no actionable remaining implementation gap found in supported native lane.",
+        "lastMutableToFrozenDifference": "Formatted wrapping of the already-reviewed requested modelId/selectedModelId ternaries. Re-read exact final delta and native helper/preflight/test bodies; unknown-capability correctly reports undeclared requested modelId separately from the selected actual production model pin.",
+        "invalidMimeMeaning": "Opposite supported MIME with genuine lane bytes creates actual byte/MIME mismatch, rejected MEDIA_INVALID_SOURCE. Oversize source is rejected MEDIA_LIMIT_EXCEEDED before decoder/provider execution.",
+        "actualNativeDuplicateMeaning": "Existing genuine accepted payload is delivered again; complete Input and native Run/Turns/Parts/Attempt request+cleanup+usage evidence unchanged, same input identity, no additional actual HTTP.",
+        "testEvidence": {
+          "sourceWorkerReported": {
+            "tests": 9,
+            "pass": 9,
+            "fail": 0
+          },
+          "compiledWorkerReported": {
+            "tests": 9,
+            "pass": 9,
+            "fail": 0
+          },
+          "reviewerExecuted": 0,
+          "qualification": "Local actual Engine/HTTP fixture counts attributed to worker, not actual account or independent rerun."
+        },
+        "remainingOnlyForSupported16dAcceptance": "Authorized supported API credential + exact audio/Responses frame models + endpoint/model host PCM layout/provenance + genuine production native successful account reports. No actual account calls performed or new completion credit."
+      }
+    }
+  },
+  "mainVerification": {
+    "gates": [
+      {
+        "kind": "syntax-executor",
+        "command": [
+          "node",
+          "--check",
+          "scripts/verify-media-account.mjs"
+        ],
+        "exitCode": 0,
+        "log": "/tmp/moodcode-media-coverage-final-syntax-executor.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sourceFreezeSha256": "42f3284ef4752a5a3b96570163dd1dc957672ccc1d3a517e3d676130fb0eea2c"
+      },
+      {
+        "kind": "syntax-tests",
+        "command": [
+          "node",
+          "--check",
+          "scripts/verify-media-account.test.mjs"
+        ],
+        "exitCode": 0,
+        "log": "/tmp/moodcode-media-coverage-final-syntax-tests.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sourceFreezeSha256": "42f3284ef4752a5a3b96570163dd1dc957672ccc1d3a517e3d676130fb0eea2c"
+      },
+      {
+        "kind": "compiled",
+        "command": [
+          "node",
+          "--test",
+          "--test-concurrency=2",
+          "scripts/plan-media-verification.test.mjs",
+          "scripts/verify-media-account.test.mjs"
+        ],
+        "exitCode": 0,
+        "log": "/tmp/moodcode-media-coverage-final-compiled.log",
+        "logSha256": "72d6153db6c8e882e74fe5eea46010a1a35efc4ac81b88add2f1411ebd28abb4",
+        "sourceFreezeSha256": "42f3284ef4752a5a3b96570163dd1dc957672ccc1d3a517e3d676130fb0eea2c",
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "skipped": 0,
+          "cancelled": 0,
+          "duration_ms": 2525.46875
+        }
+      },
+      {
+        "kind": "source",
+        "command": [
+          "node",
+          "--import",
+          "/Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs",
+          "--test",
+          "--test-concurrency=2",
+          "scripts/plan-media-verification.test.mjs",
+          "scripts/verify-media-account.test.mjs"
+        ],
+        "exitCode": 0,
+        "log": "/tmp/moodcode-media-coverage-final-source.log",
+        "logSha256": "e1739be2e1379e79fb313591fe067665286c1679626773eee5678f2a8a62197b",
+        "sourceFreezeSha256": "42f3284ef4752a5a3b96570163dd1dc957672ccc1d3a517e3d676130fb0eea2c",
+        "counts": {
+          "tests": 15,
+          "pass": 15,
+          "fail": 0,
+          "skipped": 0,
+          "cancelled": 0,
+          "duration_ms": 2253.668208
+        }
+      },
+      {
+        "kind": "plan-only",
+        "command": [
+          "node",
+          "scripts/verify-media-account.mjs"
+        ],
+        "exitCode": 0,
+        "log": "/tmp/moodcode-media-coverage-final-plan-only.log",
+        "logSha256": "2509c7f613c15f7ba7c596b8a79d647ee70c4e04337a92a0897bcd278019b5fc",
+        "sourceFreezeSha256": "42f3284ef4752a5a3b96570163dd1dc957672ccc1d3a517e3d676130fb0eea2c"
+      }
+    ],
+    "sourceInputs": {
+      "count": 899,
+      "snapshotSha256": "42f3284ef4752a5a3b96570163dd1dc957672ccc1d3a517e3d676130fb0eea2c",
+      "previousFullSnapshot": "docs/moodcode/engine-phase-two-media-account-executor-verification.json",
+      "previousReportSha256": "fcdec70b8a49fae9f31129d8e2dee4bcb2995992f9b452388194a26ebf9b9d84",
+      "previousSnapshotSha256": "0f0adda8eafaa5a6d83936c5823acfb14ec535d95919703664f5460baf0afd98",
+      "changedFiles": {
+        "scripts/verify-media-account.mjs": {
+          "before": "1750170382f12d81eadd4e01c39414a591119b55960c399595e4c16c7408a48a",
+          "after": "210444acafe42907ff5bd4297068750393c7bafc5342cdae84bea153328e92bd"
+        },
+        "scripts/verify-media-account.test.mjs": {
+          "before": "dadb705f591c2de0a90ae09e3669a2f74a165af100f97f40103f6188fc040a3b",
+          "after": "f819b8859865d639510ed4f4600f97da33e837eba4781e7dd7ecc04437ef6861"
+        }
+      },
+      "allOtherInputCount": 897,
+      "allOtherInputsByteIdentical": true,
+      "unchangedAcrossFinalGatesAndReport": true,
+      "reconstruction": "Use previousFullSnapshot.mainSourceIdentity.files and replace only changedFiles.after; sorted indent=2 JSON plus final newline matches current snapshot SHA."
+    },
+    "defaultPlanOnly": {
+      "path": "/tmp/moodcode-media-coverage-final-plan-only.log",
+      "sha256": "2509c7f613c15f7ba7c596b8a79d647ee70c4e04337a92a0897bcd278019b5fc",
+      "data": {
+        "schemaVersion": 1,
+        "kind": "media-account-verification",
+        "state": "plan-only",
+        "observedAt": "2026-10-08T14:49:17.522Z",
+        "implementationCommit": "d1c80e0c47167b72c4edba32f377f9a93495ebcd",
+        "runtime": {
+          "node": "26.9.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "scenario": "all",
+        "sourceFreeze": {
+          "sha256": "162600ce1757d7f3c44ba145477c6a20276acfd3074d5e87e3581c5850124140",
+          "files": 354,
+          "executorSha256": "210444acafe42907ff5bd4297068750393c7bafc5342cdae84bea153328e92bd",
+          "unchanged": true
+        },
+        "accountVerified": false,
+        "credentialReads": 0,
+        "actualRequests": [],
+        "maxRequests": 4,
+        "transport": "none",
+        "scopeCoverage": [],
+        "remainingScopes": [
+          "unselected account/model modalities",
+          "PDF",
+          "Anthropic",
+          "Codex new audio/video",
+          "E5-13 broader environments"
+        ],
+        "passed": false,
+        "cleanupConfirmed": true
+      }
+    }
+  },
+  "historicalWholeEngineGate": {
+    "record": "docs/moodcode/engine-phase-two-media-account-executor-verification.json",
+    "tests": 4642,
+    "pass": 4640,
+    "fail": 0,
+    "existingSkips": 2,
+    "typecheckExitCode": 0,
+    "codingFixturePass": 3,
+    "scope": "Prior committed engine/contracts/harness/package/runtime remains byte-identical; this correction changes only CLI executor and its tests. Whole engine suite was not rerun or relabelled as coverage-script evidence."
+  },
+  "correction": "Every selected audio/video lane performs actual zero-transport MIME/oversize/unknown/source-loss checks with exact native codes and lane identity. Both accepted media deliveries prove duplicate identity/native state/usage/cleanup unchanged and provider requests/attempts zero.",
+  "bounds": {
+    "audio": 3,
+    "video": 1,
+    "all": 4,
+    "providerAttemptsPerTurn": 1,
+    "retry": false,
+    "newActualAccountRequests": 0
+  },
+  "accountReadiness": {
+    "recordedAtUTC": "2026-10-08T14:52:30.915924+00:00",
+    "variables": {
+      "OPENAI_API_KEY": false,
+      "MOODCODE_API_KEY": false
+    },
+    "valuesRecorded": false,
+    "credentialFilesRead": 0,
+    "accountRequests": 0
+  },
+  "actualAccountVerified": false,
+  "completionCredit": false,
+  "remaining": "Actual supported audio and frame model account/native success, supported credentials, exact selected model IDs and host PCM layout provenance. Prior Codex image proof and local HTTP/native fixtures do not close MC2-16d.",
+  "progress": {
+    "workItems": 79,
+    "totalWorkItems": 80,
+    "families": 19,
+    "totalFamilies": 20,
+    "MC2-16d": "in-progress",
+    "environmentDebts": [
+      "E5-13",
+      "E5-08",
+      "E6-07",
+      "E6-08"
+    ]
+  }
+}

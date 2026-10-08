@@ -867,105 +867,182 @@ export async function verifyMediaAccount(argv, runtime = {}) {
         physicalUnknown = true;
       return { run, payload, receipt: result.result, evidence };
     };
-    activeCase = "local-admission";
-    // All these use actual import/admission and the selected configuration; zero transport effects.
-    const negative = await session(),
-      silence = pcmWave(Buffer.alloc(4800), 24000, 1),
-      baselineRequests = report.actualRequests.length;
-    for (const [caseId, bytes, mime, segments] of [
-      [
-        "invalid-mime",
-        silence,
-        "video/x-msvideo",
-        [{ startMs: 0, endMs: 100 }],
-      ],
-      [
-        "oversize-source",
-        Buffer.alloc(524289),
-        "audio/wav",
-        [{ startMs: 0, endMs: 100 }],
-      ],
-    ]) {
-      await assert.rejects(engine.importMedia(negative, bytes, mime, segments));
-      report.scopeCoverage.push({
-        caseId,
-        state: "passed",
-        accountVerified: false,
-        requests: 0,
+    const checkDuplicate = async (accepted, modality) => {
+      activeCase = modality + "-duplicate-input";
+      const count = report.actualRequests.length;
+      const beforeInput = engine.store.getInput(accepted.receipt.inputId);
+      const beforeEvidence = nativeEvidence(
+        engine,
+        engine.store.getRun(accepted.run.id),
+        observations,
+      );
+      const duplicate = await engine.dispatchSession({
+        schemaVersion: 2,
+        commandId: randomUUID(),
+        type: "input.accept",
+        payload: accepted.payload,
       });
+      assert.equal(duplicate.ok, true);
+      assert.equal(duplicate.result.inputId, accepted.receipt.inputId);
+      await engine.scheduler.waitForSession(accepted.run.sessionId);
+      assert.deepEqual(
+        engine.store.getInput(duplicate.result.inputId),
+        beforeInput,
+      );
+      assert.deepEqual(
+        nativeEvidence(
+          engine,
+          engine.store.getRun(accepted.run.id),
+          observations,
+        ),
+        beforeEvidence,
+      );
+      assert.equal(report.actualRequests.length, count);
+      report.scopeCoverage.push({
+        caseId: "duplicate-input",
+        modality,
+        state: "passed",
+        sessionId: accepted.run.sessionId,
+        inputId: duplicate.result.inputId,
+        runId: accepted.run.id,
+        inputSha256: hash(JSON.stringify(beforeInput)),
+        nativeSha256: hash(JSON.stringify(beforeEvidence)),
+        sameNativeIdentity: true,
+        requests: 0,
+        accountVerified: false,
+      });
+    };
+    // Run independent actual import/admission checks for every selected provider path.
+    // Each records the exact native error and checks zero new transport/Attempt effects.
+    const silence = pcmWave(Buffer.alloc(4800), 24000, 1);
+    const videoBytes = colorAvi([
+      [255, 0, 0],
+      [0, 255, 0],
+      [0, 0, 255],
+    ]);
+    for (const lane of [
+      ...(options.audio
+        ? [
+            {
+              modality: "audio",
+              bytes: silence,
+              mime: "audio/wav",
+              invalidMime: "video/x-msvideo",
+              endMs: 100,
+              providerId: recognitionId,
+              modelId: options["audio-model"],
+            },
+          ]
+        : []),
+      ...(options.video
+        ? [
+            {
+              modality: "video",
+              bytes: videoBytes,
+              mime: "video/x-msvideo",
+              invalidMime: "audio/wav",
+              endMs: 1500,
+              providerId: videoId,
+              modelId: options["video-model"],
+            },
+          ]
+        : []),
+    ]) {
+      activeCase = lane.modality + "-local-admission";
+      const negative = await session();
+      const baselineRequests = report.actualRequests.length,
+        baselineAttempts = observations.length;
+      const segments = [{ startMs: 0, endMs: lane.endMs }];
+      const recordNegative = (caseId, code) => {
+        assert.equal(report.actualRequests.length, baselineRequests);
+        assert.equal(observations.length, baselineAttempts);
+        report.scopeCoverage.push({
+          caseId,
+          modality: lane.modality,
+          providerId: lane.providerId,
+          selectedModelId: lane.modelId,
+          modelId:
+            caseId === "unknown-capability"
+              ? "undeclared-verification-model"
+              : lane.modelId,
+          state: "passed",
+          code,
+          requests: 0,
+          attempts: 0,
+          accountVerified: false,
+        });
+      };
+      for (const [caseId, bytes, mime, expectedCode] of [
+        ["invalid-mime", lane.bytes, lane.invalidMime, "MEDIA_INVALID_SOURCE"],
+        [
+          "oversize-source",
+          Buffer.alloc(524289),
+          lane.mime,
+          "MEDIA_LIMIT_EXCEEDED",
+        ],
+      ]) {
+        let actualCode;
+        await assert.rejects(
+          engine.importMedia(negative, bytes, mime, segments),
+          (error) => {
+            actualCode = errorCode(error);
+            assert.equal(actualCode, expectedCode);
+            return true;
+          },
+        );
+        recordNegative(caseId, actualCode);
+      }
+      const ref = await engine.importMedia(
+        negative,
+        lane.bytes,
+        lane.mime,
+        segments,
+      );
+      const unknown = await engine.dispatchSession({
+        schemaVersion: 2,
+        commandId: randomUUID(),
+        type: "input.accept",
+        payload: {
+          sessionId: negative,
+          requestId: "unknown",
+          prompt: "Inspect this recording",
+          media: [ref],
+          delivery: "queue",
+          config: {
+            providerId: lane.providerId,
+            modelId: "undeclared-verification-model",
+            budgets: { maxProviderAttempts: 1 },
+          },
+        },
+      });
+      assert.equal(unknown.ok, false);
+      assert.equal(unknown.error.code, "PROVIDER_UNSUPPORTED_INPUT");
+      recordNegative("unknown-capability", unknown.error.code);
+      const blob = join(artifactDir, "input-segments", ref.id + ".blob");
+      const sourceBytes = await readFile(blob);
+      await unlink(blob);
+      const lost = await engine.dispatchSession({
+        schemaVersion: 2,
+        commandId: randomUUID(),
+        type: "input.accept",
+        payload: {
+          sessionId: negative,
+          requestId: "lost",
+          prompt: "Inspect this recording",
+          media: [ref],
+          delivery: "queue",
+          config: {
+            providerId: lane.providerId,
+            modelId: lane.modelId,
+            budgets: { maxProviderAttempts: 1 },
+          },
+        },
+      });
+      assert.equal(lost.ok, false);
+      assert.equal(lost.error.code, "MEDIA_STORAGE_FAILED");
+      await writeFile(blob, sourceBytes, { flag: "wx", mode: 0o600 });
+      recordNegative("source-loss", lost.error.code);
     }
-    const selectedBytes = options.audio
-      ? silence
-      : colorAvi([
-          [255, 0, 0],
-          [0, 255, 0],
-          [0, 0, 255],
-        ]);
-    const ref = await engine.importMedia(
-      negative,
-      selectedBytes,
-      options.audio ? "audio/wav" : "video/x-msvideo",
-      [{ startMs: 0, endMs: options.audio ? 100 : 1500 }],
-    );
-    const unknown = await engine.dispatchSession({
-      schemaVersion: 2,
-      commandId: randomUUID(),
-      type: "input.accept",
-      payload: {
-        sessionId: negative,
-        requestId: "unknown",
-        prompt: "Inspect this recording",
-        media: [ref],
-        delivery: "queue",
-        config: {
-          providerId: recognitionId ?? videoId,
-          modelId: "undeclared-verification-model",
-          budgets: { maxProviderAttempts: 1 },
-        },
-      },
-    });
-    assert.equal(unknown.ok, false);
-    assert.equal(unknown.error.code, "PROVIDER_UNSUPPORTED_INPUT");
-    report.scopeCoverage.push({
-      caseId: "unknown-capability",
-      state: "passed",
-      code: unknown.error.code,
-      requests: 0,
-      accountVerified: false,
-    });
-    const blob = join(artifactDir, "input-segments", ref.id + ".blob");
-    const sourceBytes = await readFile(blob);
-    await unlink(blob);
-    const lost = await engine.dispatchSession({
-      schemaVersion: 2,
-      commandId: randomUUID(),
-      type: "input.accept",
-      payload: {
-        sessionId: negative,
-        requestId: "lost",
-        prompt: "Inspect this recording",
-        media: [ref],
-        delivery: "queue",
-        config: {
-          providerId: recognitionId ?? videoId,
-          modelId: options.audio
-            ? options["audio-model"]
-            : options["video-model"],
-          budgets: { maxProviderAttempts: 1 },
-        },
-      },
-    });
-    assert.equal(lost.ok, false);
-    assert.equal(lost.error.code, "MEDIA_STORAGE_FAILED");
-    await writeFile(blob, sourceBytes, { flag: "wx", mode: 0o600 });
-    report.scopeCoverage.push({
-      caseId: "source-loss",
-      state: "passed",
-      code: lost.error.code,
-      requests: 0,
-      accountVerified: false,
-    });
-    assert.equal(report.actualRequests.length, baselineRequests);
     if (options.audio) {
       const words = [
         "amber",
@@ -1061,24 +1138,7 @@ export async function verifyMediaAccount(argv, runtime = {}) {
         sourceSha256: input.sha256,
         selectedEndMs: endMs,
       };
-      const count = report.actualRequests.length;
-      const duplicate = await engine.dispatchSession({
-        schemaVersion: 2,
-        commandId: randomUUID(),
-        type: "input.accept",
-        payload: recognition.payload,
-      });
-      assert.equal(duplicate.ok, true);
-      assert.equal(duplicate.result.inputId, recognition.receipt.inputId);
-      await engine.scheduler.waitForSession(recognizedSession);
-      assert.equal(report.actualRequests.length, count);
-      report.scopeCoverage.push({
-        caseId: "duplicate-input",
-        state: "passed",
-        inputId: duplicate.result.inputId,
-        requests: 0,
-        accountVerified: false,
-      });
+      await checkDuplicate(recognition, "audio");
       cancelSession = await session();
       activeCase = "audio-partial-cancel";
       answers.delete(options["audio-model"] + ":input");
@@ -1154,6 +1214,7 @@ export async function verifyMediaAccount(argv, runtime = {}) {
         sourceSha256: ref.sha256,
         timestamps: [0, 500, 1000],
       };
+      await checkDuplicate(recognized, "video");
     }
     const count = report.actualRequests.length,
       nativeBefore = sessions.map((id) => ({
