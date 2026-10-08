@@ -834,5 +834,71 @@
       "Keep full-pipeline pending flags and existing baseline failures until independently reverified"
     ],
     "knownLimits": "No Windows PTY/stdin command lifetime transport, OS file/network sandbox, or general managed ArtifactStore persistence/artifact.get. Native sealed stdout/stderr logs remain persisted with exact identity/SHA/budgets. Optional managed result-copy is explicitly unavailable in result metadata/warnings; actual store failures retain failure behavior. No taskkill/direct-child fallback. Desktop package/signing/update validation belongs to N-04/N-05."
+  },
+  "verificationAudit": {
+    "observedAt": "2026-10-08T22:40:56.369572+00:00",
+    "verdict": "Native branch requirements proven; complete combined pipeline remains unproven",
+    "qualifiedSource": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+    "requirements": [
+      {
+        "requirement": "Real native Windows Job ownership: atomic suspended membership, no inherited owner job handle, KILL_ON_JOB_CLOSE",
+        "status": "proven",
+        "source": "packages/windows-job/src/windows_job.cc",
+        "evidence": "Both exact-source Windows2025 x64 Node24/26 push and workflow_dispatch; actual integration cases1,2,11,12"
+      },
+      {
+        "requirement": "Actual command backend wiring and original approval/source binding",
+        "status": "proven",
+        "source": "packages/engine/src/tools/command/index.ts and jobs/host-command-service.ts",
+        "evidence": "Actual integration cases13,14,15,16; identical integrated source hashes"
+      },
+      {
+        "requirement": "Exit/count distinction, bounded output, drain/handle cleanup, late opening and backpressure",
+        "status": "proven",
+        "evidence": "Actual native integration cases3 through10 per four successful Windows lanes; each aggregate37pass/fail0/cancel0/skip0"
+      },
+      {
+        "requirement": "Crash recovery retains unknown and never infers cleanup or replays effects",
+        "status": "proven",
+        "evidence": "Actual engine SIGKILL case16, original reservation/root/approval witness DATA tests; original marker retained across repeated reopen"
+      },
+      {
+        "requirement": "Original logs, artifact ZIP/API digest, addon and every reported file hash",
+        "status": "proven",
+        "evidence": "hosted-37851661119 and hosted-37851910921 original19-file manifests reverified on disk this turn; hiddenPathCount0; no scratch/.git bundle claim"
+      },
+      {
+        "requirement": "Verified commits and native packaging interface",
+        "status": "proven",
+        "evidence": "code8c7 and docsHEADa6e56da pushed; docs/next-windows-progress.json and packages/windows-job/README.md; Node-API8/package-relative DLL/ASAR/exact Electron rebuild contract"
+      },
+      {
+        "requirement": "Frozen local full regression preserves all assertions/timeouts and original two skips",
+        "status": "proven",
+        "evidence": "4759total/4757pass/0fail/0cancel/2skip at8c7; all1009 tracked source-input hashes unchanged; original interrupted/failing runs retained"
+      },
+      {
+        "requirement": "Original six-lane final outcome and combined-main native workflow dispatch",
+        "status": "incomplete",
+        "evidence": "Run37851661133 has four successes, original unchanged macOS24 hook failure and Ubuntu26 stillin_progress. Rootmain99cc0c5 has identical native source but remote main3fc2d14 not yet contains integration; no main-native execution observed."
+      }
+    ],
+    "integratedSourceComparison": {
+      "localMainHead": "99cc0c595c54d491090be7d570944fa531fd9d93",
+      "inputs": 40,
+      "identicalInputs": 38,
+      "differentInputs": [
+        "package-lock.json",
+        "package.json"
+      ],
+      "evidence": "artifacts/native-windows/integrated-source-comparison.json",
+      "sha256": "8f2bd730847b31260cbcaf5b9da6e9af49e19879d8ec186bf3fa00c866835c71"
+    },
+    "remaining": [
+      "Capture actual terminal Ubuntu26/run outcome and original remaining logs/artifact hashes; never infer terminal state from timeout",
+      "Root publishes integrated main and dispatches actual native Windows workflow; retain8c7 Node-only source/binary qualification",
+      "Desktop actual Electron/package verification remains separately owned; no Node evidence is substituted for packaged Electron"
+    ],
+    "goalControl": "No goal status mutation: Root explicitly owns shared goal control; completion has not been asserted for the combined pipeline"
   }
 }
