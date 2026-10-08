@@ -37,8 +37,19 @@ jobs:
       - run: npm ci --include=optional
       - run: node scripts/prepare-pty.mjs
       - run: npm run build:desktop
-      - name: Native account, update and release policy regression
-        run: node --import ./node_modules/tsx/dist/loader.mjs --test apps/desktop/src/main/accounts.test.ts apps/desktop/src/main/updates.test.ts scripts/desktop-release-policy.test.mjs scripts/desktop-native-package.test.mjs
+      - name: Native account, update, MCP and evidence regression
+        run: >-
+          node --import ./node_modules/tsx/dist/loader.mjs --test
+          apps/desktop/src/main/accounts.test.ts apps/desktop/src/main/updates.test.ts
+          apps/desktop/src/worker/advanced-mcp.test.ts
+          scripts/desktop-release-policy.test.mjs scripts/desktop-native-package.test.mjs
+          scripts/desktop-test-evidence.test.mjs
+      - name: macOS actual advanced GUI flows
+        if: runner.os == 'macOS'
+        run: node scripts/test-desktop-advanced.mjs
+      - name: macOS actual PTY failure and native evidence retention
+        if: runner.os == 'macOS'
+        run: node scripts/verify-desktop-advanced-evidence.mjs
       - name: Package this OS without publishing
         run: node scripts/package-desktop.mjs --no-build
       - name: Linux portable bundle, utility, SQLite and renderer smoke
@@ -70,5 +81,8 @@ jobs:
           path: |
             release/
             artifacts/desktop-next/
+            artifacts/desktop-advanced/
+            artifacts/desktop-package/
           retention-days: 7
+          include-hidden-files: true
           if-no-files-found: warn
