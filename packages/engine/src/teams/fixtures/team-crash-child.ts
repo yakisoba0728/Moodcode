@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { renameSync, writeFileSync } from "node:fs";
 import { createEngine } from "../../engine.js";
+import { publishCrashEvidence } from "../../test-fixtures/atomic-crash-evidence.js";
 import type { ProviderAdapter, ProviderEvent } from "../../ports.js";
 import {
   childStorageKind,
@@ -167,8 +167,7 @@ function freeze(record: TeamDeliveryRecord) {
       ),
     ),
   };
-  writeFileSync(readyPath! + ".tmp", JSON.stringify(proof));
-  renameSync(readyPath! + ".tmp", readyPath!);
+  publishCrashEvidence(readyPath!, proof);
   process.kill(process.pid, "SIGSTOP");
   throw Error("Parent must SIGKILL original stopped process");
 }

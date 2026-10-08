@@ -21,6 +21,7 @@ import type {
   Workspace,
 } from "@moodcode/contracts";
 import { createEngine, type EngineOptions } from "../../engine.js";
+import { cooperativeGateOrAbort } from "../../test-fixtures/cooperative-gate.js";
 import type {
   ProviderAdapter,
   ProviderEvent,
@@ -46,21 +47,6 @@ function gate() {
     resolve = done;
   });
   return { promise, resolve };
-}
-async function waitOrAbort(promise: Promise<void>, signal: AbortSignal) {
-  let listener!: () => void;
-  try {
-    await Promise.race([
-      promise,
-      new Promise<void>((done) => {
-        listener = done;
-        signal.addEventListener("abort", listener, { once: true });
-        if (signal.aborted) done();
-      }),
-    ]);
-  } finally {
-    signal.removeEventListener("abort", listener);
-  }
 }
 export async function untilModelTools(
   check: () => boolean,
@@ -148,7 +134,8 @@ export class ActualModelTurns {
       owner: ActualModelTurns,
     ): AsyncGenerator<ProviderEvent> {
       yield { type: "progress" };
-      if (!owner.stopped) await waitOrAbort(step.release.promise, signal);
+      if (!owner.stopped)
+        await cooperativeGateOrAbort(step.release.promise, signal);
       if (signal.aborted) return;
       if (!owner.stopped && step.calls.length) {
         for (const call of step.calls)

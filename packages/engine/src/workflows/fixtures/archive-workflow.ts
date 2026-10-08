@@ -14,6 +14,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { TestContext } from "node:test";
 import type { JsonObject, Session, Workspace } from "@moodcode/contracts";
 import { createEngine, type EngineOptions } from "../../engine.js";
+import { cooperativeGateOrAbort } from "../../test-fixtures/cooperative-gate.js";
 import type { ProviderAdapter, ProviderEvent } from "../../ports.js";
 import type { WorkflowInstanceRevision } from "../reducer.js";
 import type { WorkflowRequestResult, WorkflowSpecRevision } from "../store.js";
@@ -25,21 +26,6 @@ export function gate() {
     resolve = done;
   });
   return { promise, resolve };
-}
-async function wait(promise: Promise<void>, signal: AbortSignal) {
-  let listener!: () => void;
-  try {
-    await Promise.race([
-      promise,
-      new Promise<void>((done) => {
-        listener = done;
-        signal.addEventListener("abort", listener, { once: true });
-        if (signal.aborted) done();
-      }),
-    ]);
-  } finally {
-    signal.removeEventListener("abort", listener);
-  }
 }
 export function invoke<T>(
   engine: WorkflowEngine,
@@ -161,7 +147,7 @@ export async function workflowArchiveFixture(t: TestContext) {
         }
         yield { type: "progress" };
         if (!child) parentEntered.resolve();
-        await wait(
+        await cooperativeGateOrAbort(
           child ? childRelease.promise : parentRelease.promise,
           signal,
         );

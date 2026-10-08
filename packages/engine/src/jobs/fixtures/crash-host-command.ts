@@ -1,5 +1,6 @@
-import { readFileSync, renameSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createEngine } from "../../engine.js";
+import { publishCrashEvidence } from "../../test-fixtures/atomic-crash-evidence.js";
 import type { HostCommandStorage } from "../host-command-records.js";
 
 const options = JSON.parse(readFileSync(process.argv[2]!, "utf8")) as {
@@ -23,11 +24,7 @@ const service = Reflect.get(engine, "hostCommands") as {
 const storage = Reflect.get(service, "native") as HostCommandStorage;
 const append = storage.append.bind(storage);
 function stop(phase: string): void {
-  writeFileSync(
-    `${options.ready}.tmp`,
-    JSON.stringify({ phase, pid: process.pid }),
-  );
-  renameSync(`${options.ready}.tmp`, options.ready);
+  publishCrashEvidence(options.ready, { phase, pid: process.pid });
   process.kill(process.pid, "SIGSTOP");
 }
 if (options.phase === "before-approval-commit") {

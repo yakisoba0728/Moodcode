@@ -21,6 +21,7 @@ import {
 } from "@moodcode/contracts";
 import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
 import { createEngine, type EngineOptions } from "../../engine.js";
+import { cooperativeGateOrAbort } from "../../test-fixtures/cooperative-gate.js";
 import type {
   ProviderAdapter,
   ProviderEvent,
@@ -35,21 +36,6 @@ export function scheduleGate() {
     resolve = done;
   });
   return { promise, resolve };
-}
-async function waitOrAbort(promise: Promise<void>, signal: AbortSignal) {
-  let listener!: () => void;
-  try {
-    await Promise.race([
-      promise,
-      new Promise<void>((done) => {
-        listener = done;
-        signal.addEventListener("abort", listener, { once: true });
-        if (signal.aborted) done();
-      }),
-    ]);
-  } finally {
-    signal.removeEventListener("abort", listener);
-  }
 }
 export async function scheduleUntil(
   check: () => boolean,
@@ -141,7 +127,7 @@ export async function scheduleFixture(
       releases.push(gate);
       const original = (async function* (): AsyncGenerator<ProviderEvent> {
         yield { type: "progress" };
-        await waitOrAbort(gate.promise, signal);
+        await cooperativeGateOrAbort(gate.promise, signal);
         if (!signal.aborted) {
           yield {
             type: "text.delta",

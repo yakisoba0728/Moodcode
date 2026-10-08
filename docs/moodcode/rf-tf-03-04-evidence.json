@@ -1,0 +1,748 @@
+{
+  "schemaVersion": 1,
+  "ids": [
+    "RF-TF-03",
+    "RF-TF-04"
+  ],
+  "checkedAt": "2026-10-08T23:09:28.059Z",
+  "baseCommit": "d0e5b98217aaa8a36e4c95bf22c9ba986f46cb6b",
+  "status": "implemented and verified: original source baseline84/84, native helper source proofs7/7, focused final source91/91, compiled91/91 and TypeScript exit0",
+  "units": {
+    "atomicPublisher": {
+      "helper": "packages/engine/src/test-fixtures/atomic-crash-evidence.ts",
+      "callers": [
+        "packages/engine/src/jobs/fixtures/crash-host-command.ts",
+        "packages/engine/src/teams/fixtures/team-crash-child.ts",
+        "packages/engine/src/workflows/fixtures/crash-child.ts"
+      ],
+      "contract": "Captured object and exact ready path only; original JSON.stringify UTF-8 bytes, same-directory .tmp, exclusive wx mode0600 FD, full synchronous write, finally close, then rename. Native gathering, phase interception and original SIGSTOP remain caller-owned. Failed private staging remains retained; no fsync/durability claim.",
+      "capturedTeamAndWorkflowObjectTextUnchanged": true,
+      "hostObjectText": "{ phase, pid: process.pid }",
+      "effectBatchInstrumentedPathUnchanged": true,
+      "originalSixEffectBatchCases": {
+        "source": "passed unchanged within final91 source tests",
+        "compiled": "passed unchanged within final91 compiled tests",
+        "workerAndAssertionsByteIdentical": true
+      }
+    },
+    "cooperativeGate": {
+      "helper": "packages/engine/src/test-fixtures/cooperative-gate.ts",
+      "originalBodyCount": 5,
+      "callSites": 6,
+      "contract": "Original Promise.race resolves on abort, registers once, handles already-aborted signal, and removes the same listener in finally. Original local gates and caller post-abort checks remain in place.",
+      "identicalBodyProof": [
+        {
+          "path": "packages/engine/src/schedules/fixtures/schedule.ts",
+          "original": {
+            "name": "waitOrAbort",
+            "start": 39,
+            "lines": 15,
+            "bodyLines": 15,
+            "decisions": 0,
+            "complexity": 1,
+            "fingerprint": {
+              "sha256": "703136056de83bb42a98f930742e23a4a7785fd116dd29ae638d9920db1cfaec",
+              "nodes": 57
+            }
+          },
+          "replacementBodyMatches": true
+        },
+        {
+          "path": "packages/engine/src/teams/fixtures/model-tools.ts",
+          "original": {
+            "name": "waitOrAbort",
+            "start": 50,
+            "lines": 15,
+            "bodyLines": 15,
+            "decisions": 0,
+            "complexity": 1,
+            "fingerprint": {
+              "sha256": "703136056de83bb42a98f930742e23a4a7785fd116dd29ae638d9920db1cfaec",
+              "nodes": 57
+            }
+          },
+          "replacementBodyMatches": true
+        },
+        {
+          "path": "packages/engine/src/workflows/fixtures/archive-workflow.ts",
+          "original": {
+            "name": "wait",
+            "start": 29,
+            "lines": 15,
+            "bodyLines": 15,
+            "decisions": 0,
+            "complexity": 1,
+            "fingerprint": {
+              "sha256": "703136056de83bb42a98f930742e23a4a7785fd116dd29ae638d9920db1cfaec",
+              "nodes": 57
+            }
+          },
+          "replacementBodyMatches": true
+        },
+        {
+          "path": "packages/engine/src/workflows/fixtures/crash-child.ts",
+          "original": {
+            "name": "wait",
+            "start": 55,
+            "lines": 15,
+            "bodyLines": 15,
+            "decisions": 0,
+            "complexity": 1,
+            "fingerprint": {
+              "sha256": "703136056de83bb42a98f930742e23a4a7785fd116dd29ae638d9920db1cfaec",
+              "nodes": 57
+            }
+          },
+          "replacementBodyMatches": true
+        },
+        {
+          "path": "packages/engine/src/workflows/fixtures/workflow.ts",
+          "original": {
+            "name": "waitOrAbort",
+            "start": 42,
+            "lines": 15,
+            "bodyLines": 15,
+            "decisions": 0,
+            "complexity": 1,
+            "fingerprint": {
+              "sha256": "703136056de83bb42a98f930742e23a4a7785fd116dd29ae638d9920db1cfaec",
+              "nodes": 57
+            }
+          },
+          "replacementBodyMatches": true
+        }
+      ],
+      "otherNonidenticalWaitsRetained": true
+    }
+  },
+  "compatibility": {
+    "publicApiExportsChanged": false,
+    "dbSchemaChanged": false,
+    "eventsChanged": false,
+    "serializedPayloadChanged": false,
+    "originalTestScenariosChanged": false,
+    "timeoutsChanged": false,
+    "productionFilesChanged": 0,
+    "RF_TF_07_08_10": "KEEP"
+  },
+  "measurements": {
+    "method": "Existing RF-01 inventory AST worker; decisions belong to the nearest executable function and exclude nested bodies. Physical lines exclude trailing empty newline.",
+    "typescript": "7.0.2",
+    "sourceMetrics": [
+      {
+        "path": "packages/engine/src/jobs/fixtures/crash-host-command.ts",
+        "before": {
+          "sha256": "f1374ea24871726df3a88d3724d3411db292308fb18083693fc348a2e9dd4fa3",
+          "bytes": 2053,
+          "physicalLines": 65,
+          "functionCount": 3,
+          "fileDecisions": 3
+        },
+        "after": {
+          "sha256": "372929a527991bf3e6f557e006e32ad92841e1d910e08ef6bae36ba0137f869c",
+          "bytes": 2027,
+          "physicalLines": 62,
+          "functionCount": 3,
+          "fileDecisions": 3
+        }
+      },
+      {
+        "path": "packages/engine/src/teams/fixtures/team-crash-child.ts",
+        "before": {
+          "sha256": "46d0542e1c23e25f40c29bdc82bf742788e33a530439a5eb11fe071c4c189968",
+          "bytes": 7243,
+          "physicalLines": 230,
+          "functionCount": 13,
+          "fileDecisions": 17
+        },
+        "after": {
+          "sha256": "a5581c714505c5e023b4e6ebfa4e7f46302c105839bd38b97994a6a9c5e8e971",
+          "bytes": 7210,
+          "physicalLines": 229,
+          "functionCount": 13,
+          "fileDecisions": 17
+        }
+      },
+      {
+        "path": "packages/engine/src/workflows/fixtures/crash-child.ts",
+        "before": {
+          "sha256": "b5077e9fb376969a93aa027f13927c3955935a942a847120faa10a3ac7836676",
+          "bytes": 9198,
+          "physicalLines": 306,
+          "functionCount": 17,
+          "fileDecisions": 28
+        },
+        "after": {
+          "sha256": "627be33f1aa6482f164ad20f4dd243dd75fc1a75dbe81215eaefa5c6a591b579",
+          "bytes": 8894,
+          "physicalLines": 294,
+          "functionCount": 15,
+          "fileDecisions": 27
+        }
+      },
+      {
+        "path": "packages/engine/src/schedules/fixtures/schedule.ts",
+        "before": {
+          "sha256": "d482d184c565155249020109b2c39dd3b73060b02dc7d0e5ca93a4f1483c1112",
+          "bytes": 8339,
+          "physicalLines": 309,
+          "functionCount": 21,
+          "fileDecisions": 9
+        },
+        "after": {
+          "sha256": "f24ac64560e670141bb06da8eddf90cca652d4eed8e2314351ea92ee5d46921d",
+          "bytes": 8027,
+          "physicalLines": 295,
+          "functionCount": 19,
+          "fileDecisions": 8
+        }
+      },
+      {
+        "path": "packages/engine/src/teams/fixtures/model-tools.ts",
+        "before": {
+          "sha256": "c9bda34882a9882a8a81e5a8f7eb13c43b3f9c935e28e28958420ad3a8b80e85",
+          "bytes": 13961,
+          "physicalLines": 494,
+          "functionCount": 36,
+          "fileDecisions": 23
+        },
+        "after": {
+          "sha256": "51647ffb7cb5a224a120460352e2f7bf5df497d56173326b8ea38231c8c483c5",
+          "bytes": 13657,
+          "physicalLines": 481,
+          "functionCount": 34,
+          "fileDecisions": 22
+        }
+      },
+      {
+        "path": "packages/engine/src/workflows/fixtures/archive-workflow.ts",
+        "before": {
+          "sha256": "782c3a3a8e4b409be9a9d88553d6a013474fd59976d2438475144e62029a1c9b",
+          "bytes": 9503,
+          "physicalLines": 339,
+          "functionCount": 22,
+          "fileDecisions": 9
+        },
+        "after": {
+          "sha256": "ad1c718e7eedae9bcbfa8456cd809f76eafaf7e69eb51f8fc4a0769a9f52779b",
+          "bytes": 9205,
+          "physicalLines": 325,
+          "functionCount": 20,
+          "fileDecisions": 8
+        }
+      },
+      {
+        "path": "packages/engine/src/workflows/fixtures/workflow.ts",
+        "before": {
+          "sha256": "af0fb7ab029a47ee9cc2c250d71130d0d44fb875226f168cea476c73dbdaeeed",
+          "bytes": 12335,
+          "physicalLines": 426,
+          "functionCount": 29,
+          "fileDecisions": 22
+        },
+        "after": {
+          "sha256": "252b70d760c2c17d9b585ed0d145e9b4939467b002e62ff6236f2ea07df198a2",
+          "bytes": 12034,
+          "physicalLines": 412,
+          "functionCount": 27,
+          "fileDecisions": 21
+        }
+      }
+    ],
+    "publisherCallers": [
+      {
+        "path": "packages/engine/src/jobs/fixtures/crash-host-command.ts",
+        "before": {
+          "name": "stop",
+          "start": 25,
+          "lines": 8,
+          "bodyLines": 8,
+          "decisions": 0,
+          "complexity": 1,
+          "fingerprint": {
+            "sha256": "e909d0837b61cb4a6b7b30f31a0cb49cbda0897dd608ff99733ef8ff416f81af",
+            "nodes": 45
+          }
+        },
+        "after": {
+          "name": "stop",
+          "start": 26,
+          "lines": 4,
+          "bodyLines": 4,
+          "decisions": 0,
+          "complexity": 1,
+          "fingerprint": {
+            "sha256": "9d86726b0feee863aa7f3539a9b041652962044fcd8766e746533be16d454379",
+            "nodes": 24
+          }
+        }
+      },
+      {
+        "path": "packages/engine/src/teams/fixtures/team-crash-child.ts",
+        "before": {
+          "name": "freeze",
+          "start": 139,
+          "lines": 36,
+          "bodyLines": 36,
+          "decisions": 0,
+          "complexity": 1,
+          "fingerprint": {
+            "sha256": "1090b0c074b489f6efdff4c195633a6081b047a145e3041502b5d03d37e703f7",
+            "nodes": 173
+          }
+        },
+        "after": {
+          "name": "freeze",
+          "start": 139,
+          "lines": 35,
+          "bodyLines": 35,
+          "decisions": 0,
+          "complexity": 1,
+          "fingerprint": {
+            "sha256": "0de07de8d00506b5abd68da15ddd87ff715a6ea41e6e5ab7fd76c89cda10aafa",
+            "nodes": 156
+          }
+        }
+      },
+      {
+        "path": "packages/engine/src/workflows/fixtures/crash-child.ts",
+        "before": {
+          "name": "freeze",
+          "start": 178,
+          "lines": 67,
+          "bodyLines": 67,
+          "decisions": 6,
+          "complexity": 7,
+          "fingerprint": {
+            "sha256": "d1bd7c50e3da25ebf731f246e3878e74bfe878cc314e653a03d52985f0f5db16",
+            "nodes": 328
+          }
+        },
+        "after": {
+          "name": "freeze",
+          "start": 167,
+          "lines": 66,
+          "bodyLines": 66,
+          "decisions": 6,
+          "complexity": 7,
+          "fingerprint": {
+            "sha256": "9bd20f5fcd8e60543b3a6ad3734f2dbdd0513ee2ce146f5a33e87de1353fa318",
+            "nodes": 313
+          }
+        }
+      }
+    ],
+    "helperFunctions": [
+      {
+        "name": "publishCrashEvidence",
+        "start": 4,
+        "lines": 14,
+        "bodyLines": 11,
+        "decisions": 0,
+        "complexity": 1,
+        "fingerprint": {
+          "sha256": "17d1f8b2100b06084144f37bfef46aa9bf71d783283bb4498bf8ca5e8722a91c",
+          "nodes": 49
+        }
+      },
+      {
+        "name": "cooperativeGateOrAbort",
+        "start": 2,
+        "lines": 18,
+        "bodyLines": 15,
+        "decisions": 0,
+        "complexity": 1,
+        "fingerprint": {
+          "sha256": "703136056de83bb42a98f930742e23a4a7785fd116dd29ae638d9920db1cfaec",
+          "nodes": 57
+        }
+      }
+    ],
+    "newImplementationFiles": [
+      {
+        "path": "packages/engine/src/test-fixtures/atomic-crash-evidence.ts",
+        "bytes": 511,
+        "physicalLines": 17
+      },
+      {
+        "path": "packages/engine/src/test-fixtures/cooperative-gate.ts",
+        "bytes": 528,
+        "physicalLines": 19
+      }
+    ],
+    "implementationTotals": {
+      "scope": "Seven original fixture files plus two new implementation helpers; proof test files excluded explicitly.",
+      "beforeBytes": 62632,
+      "afterBytes": 62093,
+      "beforePhysicalLines": 2169,
+      "afterPhysicalLines": 2134,
+      "interpretation": "Finite responsibility sharing; no native behavior, complexity, runtime performance or durability improvement claimed."
+    }
+  },
+  "validation": {
+    "baseline": {
+      "kind": "15 original source test files",
+      "tests": 84,
+      "passed": 84,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 48452.454,
+      "log": {
+        "path": "artifacts/rf-tf-refactor/baseline-03-04-source.log",
+        "sha256": "45f5425377d14dce6ee41ca7f8d9e660e928352d4a1141162ac87340e6cb14cc"
+      }
+    },
+    "sourceProof": {
+      "command": "node --import /Users/yakisoba0728/.codex/worktrees/test-evidence-refactors/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 packages/engine/src/test-fixtures/atomic-crash-evidence.test.ts packages/engine/src/test-fixtures/cooperative-gate.test.ts",
+      "tests": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 375.519167,
+      "log": {
+        "path": "artifacts/rf-tf-refactor/proof-03-04-source.log",
+        "sha256": "c92fab3124ad080a84679668c7a832b2473d736835e40ac201a5b12c40dd606c"
+      },
+      "nativeChecks": [
+        "Malformed partial native stage is private and POSIX0600 until full write+close+same-dir rename",
+        "Actual EBADF from same native stage reopened read-only preserves partial stage, closes original FD and publishes no final path",
+        "Actual EEXIST retains original stage bytes",
+        "Independent literal complete UTF-8 payload matches final bytes",
+        "Real AbortController pre-aborted/gate-first/abort-first resolve and dispose original listener",
+        "Gate rejection retains original Error identity and disposes original listener"
+      ]
+    },
+    "initialProofAttempt": {
+      "tests": 7,
+      "passed": 6,
+      "failed": 1,
+      "cause": "New proof observer also intercepted readFileSync internal read-only opens; scope corrected to original first staging FD. Production helper unchanged.",
+      "log": {
+        "path": "artifacts/rf-tf-refactor/proof-03-04-source-first-attempt.log",
+        "sha256": "7338bffc06dff9378acfdd17d6afa3680eba7a3a0becca275f9b1f477bd74cff"
+      }
+    },
+    "focusedOriginalAndProofSource": {
+      "command": [
+        "node",
+        "--import",
+        "/Users/yakisoba0728/.codex/worktrees/test-evidence-refactors/Moodcode/node_modules/tsx/dist/loader.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "packages/engine/src/jobs/host-command-crash.integration.test.ts",
+        "packages/engine/src/teams/crash.integration.test.ts",
+        "packages/engine/src/workflows/crash.integration.test.ts",
+        "packages/engine/src/effect-batches/crash.integration.test.ts",
+        "packages/engine/src/schedules/engine-schedules.integration.test.ts",
+        "packages/engine/src/schedules/native-graph.integration.test.ts",
+        "packages/engine/src/schedules/producer-boundaries.integration.test.ts",
+        "packages/engine/src/schedules/store.test.ts",
+        "packages/engine/src/teams/model-tools-host-proof.test.ts",
+        "packages/engine/src/teams/model-tools.integration.test.ts",
+        "packages/engine/src/workflows/archive.test.ts",
+        "packages/engine/src/workflows/engine-workflows.integration.test.ts",
+        "packages/engine/src/workflows/native-graph.integration.test.ts",
+        "packages/engine/src/workflows/producer-edge.integration.test.ts",
+        "packages/engine/src/workflows/store.test.ts",
+        "packages/engine/src/test-fixtures/atomic-crash-evidence.test.ts",
+        "packages/engine/src/test-fixtures/cooperative-gate.test.ts"
+      ],
+      "fileCount": 17,
+      "exitCode": 0,
+      "elapsedWallSeconds": 28.317,
+      "tests": 91,
+      "passed": 91,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "log": {
+        "path": "artifacts/rf-tf-refactor/final-03-04-source.log",
+        "sha256": "abd1521eb3382792c39039fbad433d832d9c1927ff1ebf405305e9905d6f0141"
+      }
+    },
+    "compiled": {
+      "command": [
+        "node",
+        "--test",
+        "--test-concurrency=1",
+        "packages/engine/dist/jobs/host-command-crash.integration.test.js",
+        "packages/engine/dist/teams/crash.integration.test.js",
+        "packages/engine/dist/workflows/crash.integration.test.js",
+        "packages/engine/dist/effect-batches/crash.integration.test.js",
+        "packages/engine/dist/schedules/engine-schedules.integration.test.js",
+        "packages/engine/dist/schedules/native-graph.integration.test.js",
+        "packages/engine/dist/schedules/producer-boundaries.integration.test.js",
+        "packages/engine/dist/schedules/store.test.js",
+        "packages/engine/dist/teams/model-tools-host-proof.test.js",
+        "packages/engine/dist/teams/model-tools.integration.test.js",
+        "packages/engine/dist/workflows/archive.test.js",
+        "packages/engine/dist/workflows/engine-workflows.integration.test.js",
+        "packages/engine/dist/workflows/native-graph.integration.test.js",
+        "packages/engine/dist/workflows/producer-edge.integration.test.js",
+        "packages/engine/dist/workflows/store.test.js",
+        "packages/engine/dist/test-fixtures/atomic-crash-evidence.test.js",
+        "packages/engine/dist/test-fixtures/cooperative-gate.test.js"
+      ],
+      "fileCount": 17,
+      "exitCode": 0,
+      "elapsedWallSeconds": 23.613,
+      "tests": 91,
+      "passed": 91,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "log": {
+        "path": "artifacts/rf-tf-refactor/final-03-04-compiled.log",
+        "sha256": "795cdb7bd8a5f9f56452a79f20e9c47e6c0af02f48093662dbdd7cc1fd0b3064"
+      }
+    },
+    "typecheck": {
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "authority": "Parent serialized full workspace typecheck; exit0 explicitly reported",
+      "log": {
+        "path": "artifacts/rf-tf-refactor/final-typecheck.log",
+        "sha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+      }
+    },
+    "initialTypecheckAttempt": {
+      "result": "failed on new proof observer typing only; no production/helper error",
+      "errors": [
+        "Atomic proof rename rest spread TS2556 replaced with explicit old/new paths",
+        "Gate proof signal wrapper parameters explicitly typed from native AbortSignal methods"
+      ],
+      "assertionsChanged": false,
+      "log": {
+        "path": "artifacts/rf-tf-refactor/final-typecheck-first-attempt.log",
+        "sha256": "9da500b66cbb510f5193e9663961da058a6140937abdeccf1054d95386f2e440"
+      }
+    }
+  },
+  "historicalRetention": {
+    "reviewPath": "docs/moodcode/next-crash-fixture-review.json",
+    "reviewSha256": "c1ddfefa2371adc0dc0a164470307459e118b7666c34583de2e9ca4b48738763",
+    "retained": [
+      {
+        "name": "rawReady",
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-effect-ready-open-ldecoJ/ready-observed.raw",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "exists": true,
+        "matches": true
+      },
+      {
+        "name": "originalPayload",
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-effect-ready-open-ldecoJ/ready.json.original-payload.json",
+        "sha256": "4ce207ab9f44856152e0a2129df61717dd44c556575b239b7dc9f80bcbca76cf",
+        "exists": true,
+        "matches": true
+      },
+      {
+        "name": "nativeDatabase",
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-effect-ready-open-ldecoJ/engine.sqlite",
+        "sha256": "97e8d54f8a7255106f66cf1b213c4a4d7b558d21310b1c2bfedc3d0d526dddda",
+        "exists": true,
+        "matches": true
+      },
+      {
+        "name": "nativeWal",
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-effect-ready-open-ldecoJ/engine.sqlite-wal",
+        "sha256": "359e012c66b201e8845c2a71f5f0e15e98bc9d929a1fd6bdeca672e357c856e2",
+        "exists": true,
+        "matches": true
+      },
+      {
+        "name": "nativeShm",
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-effect-ready-open-ldecoJ/engine.sqlite-shm",
+        "sha256": "0a69d901667f0b1580375df4ca4d08b4781845289b3f1ec90d46052859155364",
+        "exists": true,
+        "matches": true
+      },
+      {
+        "name": "nativeBatchObservation",
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-effect-ready-open-ldecoJ/observed-native-batch.json",
+        "sha256": "afb78d5665eb271a04d42685942d82374220f82ebef76689fe5925ca8499152c",
+        "exists": true,
+        "matches": true
+      },
+      {
+        "name": "hostedFailureExcerpt",
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-effect-ready-open-ldecoJ/hosted-failure-excerpt.log",
+        "sha256": "0311fb7717d2e436080d5619f9e63a710a06bd7f2eab4bf4d054b901c7f8000b",
+        "exists": true,
+        "matches": true
+      },
+      {
+        "name": "reproductionPreload",
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-effect-ready-open-ldecoJ/reproduce-open-preload.cjs",
+        "sha256": "e6bda0bb01bec6bbd503686a1aceb82f353e311411fa65cb3eaa2527319ee055",
+        "exists": true,
+        "matches": true
+      },
+      {
+        "name": "reproductionDriver",
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-effect-ready-open-ldecoJ/reproduce.mjs",
+        "sha256": "3023e3f0d408659e23342f4698b53229aff1dc78ef1d91b3a5d50d98a8129722",
+        "exists": true,
+        "matches": true
+      }
+    ],
+    "reverifiedAfterFinalChecksAt": "2026-10-08T23:09:28.059Z"
+  },
+  "sourcePins": [
+    {
+      "path": "packages/engine/src/jobs/fixtures/crash-host-command.ts",
+      "before": "f1374ea24871726df3a88d3724d3411db292308fb18083693fc348a2e9dd4fa3",
+      "after": "372929a527991bf3e6f557e006e32ad92841e1d910e08ef6bae36ba0137f869c"
+    },
+    {
+      "path": "packages/engine/src/teams/fixtures/team-crash-child.ts",
+      "before": "46d0542e1c23e25f40c29bdc82bf742788e33a530439a5eb11fe071c4c189968",
+      "after": "a5581c714505c5e023b4e6ebfa4e7f46302c105839bd38b97994a6a9c5e8e971"
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/crash-child.ts",
+      "before": "b5077e9fb376969a93aa027f13927c3955935a942a847120faa10a3ac7836676",
+      "after": "627be33f1aa6482f164ad20f4dd243dd75fc1a75dbe81215eaefa5c6a591b579"
+    },
+    {
+      "path": "packages/engine/src/schedules/fixtures/schedule.ts",
+      "before": "d482d184c565155249020109b2c39dd3b73060b02dc7d0e5ca93a4f1483c1112",
+      "after": "f24ac64560e670141bb06da8eddf90cca652d4eed8e2314351ea92ee5d46921d"
+    },
+    {
+      "path": "packages/engine/src/teams/fixtures/model-tools.ts",
+      "before": "c9bda34882a9882a8a81e5a8f7eb13c43b3f9c935e28e28958420ad3a8b80e85",
+      "after": "51647ffb7cb5a224a120460352e2f7bf5df497d56173326b8ea38231c8c483c5"
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/archive-workflow.ts",
+      "before": "782c3a3a8e4b409be9a9d88553d6a013474fd59976d2438475144e62029a1c9b",
+      "after": "ad1c718e7eedae9bcbfa8456cd809f76eafaf7e69eb51f8fc4a0769a9f52779b"
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/workflow.ts",
+      "before": "af0fb7ab029a47ee9cc2c250d71130d0d44fb875226f168cea476c73dbdaeeed",
+      "after": "252b70d760c2c17d9b585ed0d145e9b4939467b002e62ff6236f2ea07df198a2"
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/atomic-crash-evidence.ts",
+      "before": null,
+      "after": "9f753130966f8bf93907da1a2900060b9e1afd6db23f1e75ed8f8d5e3787c5d6"
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/cooperative-gate.ts",
+      "before": null,
+      "after": "92b63317647bf4dad2770fb60a50d0a1179e1331b95c9d7758c119aa297a35f2"
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/atomic-crash-evidence.test.ts",
+      "before": null,
+      "after": "c456291613d375d2c7b5589e23247c3bfea2da5e5ccf6394aea79e420d26ce3d"
+    },
+    {
+      "path": "packages/engine/src/test-fixtures/cooperative-gate.test.ts",
+      "before": null,
+      "after": "bfdeafb42f21e9948010f72f64391a6429e5291be580f3a623715f3f59c2ab66"
+    }
+  ],
+  "noLive": true,
+  "liveProviderRequests": 0,
+  "originalScenarioAndGuardPins": [
+    {
+      "path": "packages/engine/src/jobs/host-command-crash.integration.test.ts",
+      "beforeSha256": "50dc6bfdc0969ce4be71f01928e36a91b9aa9a3eb7c84832e44fcaa84db04006",
+      "afterSha256": "50dc6bfdc0969ce4be71f01928e36a91b9aa9a3eb7c84832e44fcaa84db04006",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/teams/crash.integration.test.ts",
+      "beforeSha256": "67603c1771d35965f0ad41c466649fe5683e0ebb1c9cc65bec130a30a1158beb",
+      "afterSha256": "67603c1771d35965f0ad41c466649fe5683e0ebb1c9cc65bec130a30a1158beb",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/workflows/crash.integration.test.ts",
+      "beforeSha256": "25944911bb0ab6df45e246e602aa63bf0b3c6ab9e805326a49419a02d36f4f79",
+      "afterSha256": "25944911bb0ab6df45e246e602aa63bf0b3c6ab9e805326a49419a02d36f4f79",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/effect-batches/crash.integration.test.ts",
+      "beforeSha256": "7ad6c01ba94814040969671897ae58bec923cccfde081e053e746c5bd52bcfce",
+      "afterSha256": "7ad6c01ba94814040969671897ae58bec923cccfde081e053e746c5bd52bcfce",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/schedules/engine-schedules.integration.test.ts",
+      "beforeSha256": "82adff5324feb3a12e1228fca063f15bbea816493ebe50d6fbce1952cd4c12b2",
+      "afterSha256": "82adff5324feb3a12e1228fca063f15bbea816493ebe50d6fbce1952cd4c12b2",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/schedules/native-graph.integration.test.ts",
+      "beforeSha256": "731b07b8bb068dd2b1ef9af47ffae8af4691fc0504dc7384254d97e7e72c2c01",
+      "afterSha256": "731b07b8bb068dd2b1ef9af47ffae8af4691fc0504dc7384254d97e7e72c2c01",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/schedules/producer-boundaries.integration.test.ts",
+      "beforeSha256": "d2b6bb96f521f8240fb0eff6239082f362f5dc7fcbf4bce2a37d5575bdaa9963",
+      "afterSha256": "d2b6bb96f521f8240fb0eff6239082f362f5dc7fcbf4bce2a37d5575bdaa9963",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/schedules/store.test.ts",
+      "beforeSha256": "5836087751875764713a276c512503bd59f39449a8d92b96e41aa54d150b71fc",
+      "afterSha256": "5836087751875764713a276c512503bd59f39449a8d92b96e41aa54d150b71fc",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/teams/model-tools-host-proof.test.ts",
+      "beforeSha256": "a77016e499999cc362c97cf939fa204307e6ebc5bcd3d72a7b5c6477536fe9df",
+      "afterSha256": "a77016e499999cc362c97cf939fa204307e6ebc5bcd3d72a7b5c6477536fe9df",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/teams/model-tools.integration.test.ts",
+      "beforeSha256": "76791d479d8c9c5ec74e436b34d234d68f4403b40752e044542bc719f2905c59",
+      "afterSha256": "76791d479d8c9c5ec74e436b34d234d68f4403b40752e044542bc719f2905c59",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/workflows/archive.test.ts",
+      "beforeSha256": "1c5ada935aefa692a21a55457c84244190f59105c1c1c9b52de201faed4d9bad",
+      "afterSha256": "1c5ada935aefa692a21a55457c84244190f59105c1c1c9b52de201faed4d9bad",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/workflows/engine-workflows.integration.test.ts",
+      "beforeSha256": "99399bffb59e76610de2c703d5e9f9f484d919d211fa1832ae102bf18acb995f",
+      "afterSha256": "99399bffb59e76610de2c703d5e9f9f484d919d211fa1832ae102bf18acb995f",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/workflows/native-graph.integration.test.ts",
+      "beforeSha256": "84250cf766a24959e1d903fe265c9f7bce3166c010da95c2a60cef034cdafab9",
+      "afterSha256": "84250cf766a24959e1d903fe265c9f7bce3166c010da95c2a60cef034cdafab9",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/workflows/producer-edge.integration.test.ts",
+      "beforeSha256": "10279adf2ff53cd1569397f99698fc51a9489d9caadfcdadc0f9d8018ca3a3c2",
+      "afterSha256": "10279adf2ff53cd1569397f99698fc51a9489d9caadfcdadc0f9d8018ca3a3c2",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/workflows/store.test.ts",
+      "beforeSha256": "cf2c2075c3422041c797ecb490da21a7ef9d4267c986018cf2001828e7885abb",
+      "afterSha256": "cf2c2075c3422041c797ecb490da21a7ef9d4267c986018cf2001828e7885abb",
+      "unchanged": true
+    },
+    {
+      "path": "packages/engine/src/effect-batches/fixtures/crash.ts",
+      "beforeSha256": "a1e7565a5fb77fe5c08fa374c9d339bf5ebdf9c7edfd2f8a929b176f04c0e070",
+      "afterSha256": "a1e7565a5fb77fe5c08fa374c9d339bf5ebdf9c7edfd2f8a929b176f04c0e070",
+      "unchanged": true
+    }
+  ]
+}

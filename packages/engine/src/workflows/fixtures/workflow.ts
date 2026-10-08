@@ -19,6 +19,7 @@ import type {
   Workspace,
 } from "@moodcode/contracts";
 import { createEngine, type EngineOptions } from "../../engine.js";
+import { cooperativeGateOrAbort } from "../../test-fixtures/cooperative-gate.js";
 import type {
   ProviderAdapter,
   ProviderEvent,
@@ -38,21 +39,6 @@ export function workflowGate() {
     resolve = done;
   });
   return { promise, resolve };
-}
-async function waitOrAbort(promise: Promise<void>, signal: AbortSignal) {
-  let listener!: () => void;
-  try {
-    await Promise.race([
-      promise,
-      new Promise<void>((done) => {
-        listener = done;
-        signal.addEventListener("abort", listener, { once: true });
-        if (signal.aborted) done();
-      }),
-    ]);
-  } finally {
-    signal.removeEventListener("abort", listener);
-  }
 }
 export async function workflowUntil(
   check: () => boolean,
@@ -185,7 +171,7 @@ export async function workflowFixture(
         if (parent) {
           parentEntered.resolve();
           yield { type: "progress" };
-          await waitOrAbort(parentRelease.promise, signal);
+          await cooperativeGateOrAbort(parentRelease.promise, signal);
           if (!signal.aborted) yield { type: "finish", reason: "stop" };
           return;
         }
@@ -202,7 +188,7 @@ export async function workflowFixture(
           return;
         }
         yield { type: "progress" };
-        await waitOrAbort(childRelease[index]!.promise, signal);
+        await cooperativeGateOrAbort(childRelease[index]!.promise, signal);
         if (!signal.aborted) {
           const result = options.childResults?.[index] ?? {
             observation: `Actual readonly child ${index} completed.`,

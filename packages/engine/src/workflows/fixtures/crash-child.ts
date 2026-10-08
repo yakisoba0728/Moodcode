@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { renameSync, writeFileSync } from "node:fs";
 import type { JsonObject } from "@moodcode/contracts";
 import { createEngine, type EngineOptions } from "../../engine.js";
+import { publishCrashEvidence } from "../../test-fixtures/atomic-crash-evidence.js";
+import { cooperativeGateOrAbort } from "../../test-fixtures/cooperative-gate.js";
 import type { ProviderAdapter, ProviderEvent } from "../../ports.js";
 import {
   CHILD_STORAGE_MIRROR_KIND,
@@ -52,21 +53,6 @@ const parentEntered = gate(),
   heldChild = gate();
 const childEngines: ReturnType<typeof createEngine>[] = [];
 let providerEntries = 0;
-async function wait(promise: Promise<void>, signal: AbortSignal) {
-  let listener!: () => void;
-  try {
-    await Promise.race([
-      promise,
-      new Promise<void>((done) => {
-        listener = done;
-        signal.addEventListener("abort", listener, { once: true });
-        if (signal.aborted) done();
-      }),
-    ]);
-  } finally {
-    signal.removeEventListener("abort", listener);
-  }
-}
 const provider: ProviderAdapter = {
   id: "actual-workflow-provider",
   streamTurn(request, signal) {
@@ -91,7 +77,10 @@ const provider: ProviderAdapter = {
       }
       yield { type: "progress" };
       if (!child) parentEntered.resolve();
-      await wait(child ? heldChild.promise : heldParent.promise, signal);
+      await cooperativeGateOrAbort(
+        child ? heldChild.promise : heldParent.promise,
+        signal,
+      );
       if (!signal.aborted) {
         if (child)
           yield {
@@ -237,8 +226,7 @@ function freeze() {
     revisions,
     providerEntries,
   };
-  writeFileSync(readyPath + ".tmp", JSON.stringify(proof));
-  renameSync(readyPath + ".tmp", readyPath);
+  publishCrashEvidence(readyPath, proof);
   process.kill(process.pid, "SIGSTOP");
   throw Error("Parent must SIGKILL this original stopped process");
 }
