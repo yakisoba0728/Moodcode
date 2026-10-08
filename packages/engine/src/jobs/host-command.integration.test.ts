@@ -23,9 +23,24 @@ const posix = {
 const quote = (x: string) => `'${x.replaceAll("'", "'\\''")}'`;
 const code = (name: string) => (e: unknown) =>
   e instanceof EngineError && e.code === name;
+async function waitForHostPid(marker: string): Promise<number> {
+  let pid = 0;
+  await jobUntil(() => {
+    if (!existsSync(marker)) return false;
+    // Creating the marker precedes writing its PID; an empty read means PID 0.
+    const text = readFileSync(marker, "utf8");
+    if (!/^[1-9]\d*$/.test(text)) return false;
+    const candidate = Number(text);
+    if (!Number.isSafeInteger(candidate)) return false;
+    pid = candidate;
+    return true;
+  }, "Actual host command positive PID was not observed");
+  return pid;
+}
 async function fixture(
   t: test.TestContext,
   extra: Parameters<typeof jobFixture>[1] = {},
+  deferPidPublication = false,
 ) {
   const f = await jobFixture(t, {
     ...extra,
@@ -33,12 +48,13 @@ async function fixture(
     engine: { hostCommands: true, ...extra.engine },
   });
   const marker = join(f.root, "host.pid"),
+    publishPid = join(f.root, "host-pid.publish"),
     release = join(f.root, "host.release"),
     effect = join(f.root, "host-effect.txt"),
     script = join(f.root, "host-command.mjs");
   writeFileSync(
     script,
-    `import{writeFileSync,existsSync}from'node:fs';writeFileSync(${JSON.stringify(marker)},String(process.pid));writeFileSync(${JSON.stringify(effect)},'Actual independent host effect\\n');process.stdout.write('HOST_READY 한글🙂\\n');let timer=setInterval(()=>{if(existsSync(${JSON.stringify(release)})){clearInterval(timer);process.stdout.write('HOST_DONE\\n',()=>process.exit(0));}},10);`,
+    `import{writeFileSync,existsSync}from'node:fs';${deferPidPublication ? `writeFileSync(${JSON.stringify(marker)},'');while(!existsSync(${JSON.stringify(publishPid)}))await new Promise(resolve=>setTimeout(resolve,1));` : ""}writeFileSync(${JSON.stringify(marker)},String(process.pid));writeFileSync(${JSON.stringify(effect)},'Actual independent host effect\\n');process.stdout.write('HOST_READY 한글🙂\\n');let timer=setInterval(()=>{if(existsSync(${JSON.stringify(release)})){clearInterval(timer);process.stdout.write('HOST_DONE\\n',()=>process.exit(0));}},10);`,
   );
   const command = `${quote(process.execPath)} ${quote(script)}`;
   const preview = () =>
@@ -90,6 +106,7 @@ async function fixture(
   return {
     ...f,
     marker,
+    publishPid,
     release,
     effect,
     script,
@@ -282,8 +299,7 @@ test(
     for (const close of [false, true]) {
       const f = await fixture(t),
         started = await f.start(await f.preview());
-      await jobUntil(() => existsSync(f.marker), "Host PID absent");
-      const pid = Number(readFileSync(f.marker, "utf8"));
+      const pid = await waitForHostPid(f.marker);
       if (close) {
         await f.engine.close();
         const restarted = createEngine({
@@ -312,6 +328,45 @@ test(
       );
       assert.equal(f.providerCalls.length, 0);
     }
+  },
+);
+
+test(
+  "host cancel waits for the real positive PID when its native marker exists before publication",
+  posix,
+  async (t) => {
+    const f = await fixture(t, {}, true),
+      started = await f.start(await f.preview());
+    await jobUntil(() => existsSync(f.marker), "Host PID marker absent");
+    assert.equal(readFileSync(f.marker, "utf8"), "");
+    assert.equal(Number(readFileSync(f.marker, "utf8")), 0);
+    let ready = false;
+    const pendingPid = waitForHostPid(f.marker).then((pid) => {
+      ready = true;
+      return pid;
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(ready, false, "An empty marker must not publish PID 0");
+    writeFileSync(f.publishPid, "Publish the original process PID");
+    const pid = await pendingPid;
+    assert.ok(Number.isSafeInteger(pid) && pid > 0);
+    assert.doesNotThrow(() => process.kill(pid, 0));
+    const record = await f.engine.cancelHostCommand({
+      workspaceId: f.workspace.id,
+      jobId: started.jobId,
+    });
+    assert.equal(record.pid, started.pid);
+    assert.equal(record.state, "cancelled");
+    assert.equal(record.completion?.outcome.cleanupConfirmed, true);
+    assert.throws(
+      () => process.kill(pid, 0),
+      (e: unknown) => (e as NodeJS.ErrnoException).code === "ESRCH",
+    );
+    await f.engine.coordinator.withWorkspaceLease(
+      f.workspace.id,
+      async () => {},
+    );
+    assert.equal(f.providerCalls.length, 0);
   },
 );
 

@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "scope": "Fix the native host cancel/Engine.close test synchronization and add a controlled PID publication regression; no production edits.",
+  "source": {
+    "baseCommit": "78e37b1d54952d173779865b6fb9d2d04fac828f",
+    "test": {
+      "path": "packages/engine/src/jobs/host-command.integration.test.ts",
+      "sha256": "c33ee1b9049a334693b50e5fa04bbb11f5b877b50626b1d6e7612976562858c0",
+      "originalHeadSha256": "f4079b8b58adced3391486bf935a47a94c3ed055cbce274a0fdc0957ff3b2244",
+      "pidWaitLine": 26,
+      "cancelTestLine": 296,
+      "regressionLine": 335
+    },
+    "productionReadPins": [
+      {
+        "path": "packages/engine/src/jobs/host-command-service.ts",
+        "sha256": "540100c4675c2d01169fa3ed8439089af85395e894398c691769e56ce8bd92ea"
+      },
+      {
+        "path": "packages/engine/src/jobs/host-command-records.ts",
+        "sha256": "463dd2e91eb059974477e29b5aa2ab375b828d313ac454e6271bdbd73bf308f4"
+      },
+      {
+        "path": "packages/engine/src/jobs/fixtures/job.ts",
+        "sha256": "4b87082f6ae3dd0648debca17a0e7057df325f582d81e9e2e771afd87b9bc191"
+      },
+      {
+        "path": "packages/engine/src/tools/command/index.ts",
+        "sha256": "9a3b3d196acd8c88f6104c5a9e1792d3931e89ef9ae82638f2a567ab2e311e43"
+      },
+      {
+        "path": "packages/engine/src/tools/command/process-control.ts",
+        "sha256": "ff48257d45665c85f8077ea17d09d22b043fff41b768db0420fa2c9314ea1173"
+      },
+      {
+        "path": "packages/engine/src/tools/command/supervisor.ts",
+        "sha256": "85af478f61e51dee29cdf97ef1e853599c6b59da9eb9460e0d2bfb381ee3c270"
+      }
+    ]
+  },
+  "originalFailure": {
+    "log": {
+      "path": "/tmp/moodcode-next-full-engine.log",
+      "sha256": "6157b08145c474bc85307d057dbb02c624a88f2bb7273cf443ad41ae41de2380"
+    },
+    "logLines": [1515, 4829, 4831, 4832],
+    "testName": "explicit host cancel and Engine.close abort and join the same real process while preserving confirmed independent cleanup",
+    "compiledLocation": "packages/engine/dist/jobs/host-command.integration.test.js:209:16",
+    "originalSourceMarkerWaitLine": 285,
+    "assertion": "assert.throws(() => process.kill(pid, 0), errno.code === ESRCH)",
+    "message": "Missing expected exception.",
+    "fullEngineResult": {
+      "tests": 4728,
+      "pass": 4725,
+      "fail": 1,
+      "skip": 2
+    },
+    "capturedPidLogged": false,
+    "qualification": "The original full-run failure did not log the captured PID. The source race and deterministic native counterexample establish a mechanism matching the failure; they do not retrospectively prove the exact original captured value."
+  },
+  "cause": {
+    "mechanism": [
+      "writeFileSync creates/truncates the marker before writing its numeric contents.",
+      "The existence-only reader can capture an empty string; Number(\"\") is 0.",
+      "process.kill(0, 0) successfully probes the current process group, so the ESRCH assertion fails even after the owned command group has stopped."
+    ],
+    "counterexample": {
+      "summary": {
+        "path": "/tmp/moodcode-next-host-cancel-counterexample.json",
+        "sha256": "f53f6181451884edceaa135202d477db7785e96c040a5be22b1f7630e48bf650"
+      },
+      "copiedOriginalCompiledTestSha256": "daafadd7d2c310076d7602e1a48e8b1b448ea6c57a1669c26f330a3ad9b7e76e",
+      "controlledTestSha256": "c8c376ecf1e821d579f67c23e899449a29908d02ed8fe3f907b3214398b1567f",
+      "mutation": "Hold native fixture marker empty behind a local publication barrier; engine production and cancel/close assertions unchanged.",
+      "attempts": [
+        {
+          "attempt": 1,
+          "status": 1,
+          "log": "/tmp/moodcode-next-host-cancel-controlled-1.log",
+          "logSha256": "30ef59a09a51cb1fc35f2d33775e1f1c56362d7ccde117fdf8b6f9165d9d9dab",
+          "missingExpectedException": true,
+          "pidZeroObserved": true,
+          "originalGroupAbsent": true
+        },
+        {
+          "attempt": 2,
+          "status": 1,
+          "log": "/tmp/moodcode-next-host-cancel-controlled-2.log",
+          "logSha256": "72b1841dfec94ef27a39bd11a21b907a758c036d3819e9d6b855180492a1f032",
+          "missingExpectedException": true,
+          "pidZeroObserved": true,
+          "originalGroupAbsent": true
+        },
+        {
+          "attempt": 3,
+          "status": 1,
+          "log": "/tmp/moodcode-next-host-cancel-controlled-3.log",
+          "logSha256": "eb36d81503da8f8d93cdbac6db91f13e23cf52f17a482f9422e76c5f34094a3e",
+          "missingExpectedException": true,
+          "pidZeroObserved": true,
+          "originalGroupAbsent": true
+        }
+      ],
+      "result": "3/3 original assertions fail with capturedPid=0 while originalGroupProbe=ESRCH. Only a native fixture publication barrier and diagnostics were introduced in an isolated copy."
+    }
+  },
+  "fix": {
+    "behavior": "Wait for the marker to contain a positive decimal safe integer before capturing the original child PID and invoking cancel/close.",
+    "regression": "A real host fixture writes an empty marker and waits behind an explicit local publication gate. PID readiness must remain pending before the gate opens; afterward the test observes a positive live PID, cancels the original job and verifies cleanupConfirmed, original group identity, ESRCH, workspace lease availability and no provider calls.",
+    "preserved": [
+      "Original cancel and Engine.close cases and ESRCH assertion",
+      "25s test bound, 10s native command budget and existing 10s jobUntil bound",
+      "Production cleanup/unknown/replay behavior",
+      "Only signal 0 observations occur in test code; actual termination uses original engine process ownership"
+    ]
+  },
+  "validation": {
+    "runtime": {
+      "node": "v26.9.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "typecheck": {
+      "command": "node node_modules/typescript/bin/tsc --project packages/engine/tsconfig.json --outDir /tmp/moodcode-next-host-cancel-emitted/engine --tsBuildInfoFile /tmp/moodcode-next-host-cancel-emitted/engine.tsbuildinfo",
+      "result": "pass",
+      "log": {
+        "path": "/tmp/moodcode-next-host-cancel-typecheck.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "sharedBuildWrites": false
+    },
+    "focused": {
+      "tests": 2,
+      "pass": 2,
+      "log": {
+        "path": "/tmp/moodcode-next-host-cancel-focused.log",
+        "sha256": "c7c32ad76980b6649248070f273e0611254eb0bbf30ed56e8fd18dafaca3ff23"
+      }
+    },
+    "assignedTestFile": {
+      "tests": 14,
+      "pass": 14,
+      "fail": 0,
+      "skip": 0,
+      "log": {
+        "path": "/tmp/moodcode-next-host-cancel-file.log",
+        "sha256": "d91e0982e70efb02bec033bff0476be85f956dfac3c15277a4f0dba85a413e61"
+      }
+    },
+    "loadedRepetitions": {
+      "summary": {
+        "path": "/tmp/moodcode-next-host-cancel-repetitions.json",
+        "sha256": "32c80865ff13b3a26dfc2c7785c7c2d6ff16550cde2d845d143e773f368a4970"
+      },
+      "attempts": 12,
+      "pass": 12,
+      "testsPerAttempt": 2,
+      "parallelTestProcesses": 4,
+      "cpuLoadThreads": 2,
+      "cpuLoadBoundMs": 20000,
+      "totalDurationMs": 2712.088625,
+      "sourceUnchanged": true,
+      "emittedUnchanged": true,
+      "emittedTestSha256": "8c36b04561f7a6a9a0cd972fbea7b17d6ba871ff7b04dd3b1f30054203dca5cc"
+    },
+    "negativeControl": {
+      "summary": {
+        "path": "/tmp/moodcode-next-host-cancel-negative.json",
+        "sha256": "4eb3098cbb38020746ccbcbd25acf5c135f2cec809eed2c2165c7e5155dd45c4"
+      },
+      "mutation": "Restore original existence-only PID reader in an isolated emitted test copy; engine production and publication barrier unchanged.",
+      "status": 1,
+      "detected": true,
+      "assertion": "An empty marker must not publish PID 0"
+    },
+    "formatAndDiff": "Prettier check and git diff --check pass."
+  },
+  "limitations": [
+    "Validation executes a real local POSIX child with engine/SQLite under plain Node on macOS arm64. It does not cover Windows, Linux, Electron GUI or hosted CI.",
+    "The parent owns full shared engine build and regression at the next boundary. No shared dist, commits, TODO or goals were changed.",
+    "A source-direct tsx attempt produced a separate HOST_COMMAND_EVIDENCE_INVALID closed-transition error. Tests here use consistent isolated emitted source; that attempt is not evidence that the original PID assertion reproduces."
+  ],
+  "localEvidence": "Full counterexample and repetition transcripts remain local in /tmp; this review stores concise counters and hashes."
+}

@@ -346,6 +346,7 @@ test("standalone verification scripts trigger both path filters and POSIX checks
       const block = workflow.split(`  ${event}:\n`)[1].split(/^  \w+:\s*$/m)[0];
       for (const path of [
         "scripts/verify-media-account*.mjs",
+        "scripts/verify-provider-coverage*.mjs",
         "scripts/plan-media-verification*.mjs",
         "scripts/verify-engine-resilience*.mjs",
         "scripts/verify-engine-persistent-soak*.mjs",

@@ -92,6 +92,10 @@ export function commandPlan(mode) {
         join(root, "scripts", "inspect-engine-db-contract.test.mjs"),
         join(root, "scripts", "verify-engine-persistent-soak.test.mjs"),
         join(root, "scripts", "verify-pty-repeatability.test.mjs"),
+        join(root, "scripts", "verify-provider-coverage.test.mjs"),
+        join(root, "scripts", "verify-provider-coverage-anthropic.test.mjs"),
+        join(root, "scripts", "verify-provider-coverage-pdf.test.mjs"),
+        join(root, "scripts", "verify-provider-coverage-media.test.mjs"),
         join(root, ".github", "scripts", "followup-reports.test.mjs"),
         join(root, ".github", "scripts", "followup-evidence.test.mjs"),
       ];
