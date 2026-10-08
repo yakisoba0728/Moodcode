@@ -6,7 +6,7 @@
 
 ## 다음 실행 순서 — 추가 작업 → 점검·TODO 재작성 → 테스트·엔진 리팩터링
 
-2026-10-09 사용자 요청에 따라 후속 작업을 먼저 완료한 뒤 전체 코드를 점검하고, 실제 근거에 따라 수정·삭제·추가·유지할 항목을 정리해 리팩터링 TODO를 다시 작성한다. 현재 아래 목록은 실행 계획이며 전체 코드 감사나 리팩터링 완료를 의미하지 않는다. 기존 E5·MC2·H 완료 집계는 유지한다.
+2026-10-09 사용자 요청에 따라 후속 작업을 먼저 완료한 뒤 전체 코드를 점검하고, 실제 근거에 따라 수정·삭제·추가·유지할 항목을 정리해 리팩터링 TODO를 다시 작성한다. 아래 기능 단위 구현·점검·영향 검증은 통합했고 최종 공동 소스의 전체 회귀·OS별 CI·장기 실행 수용을 진행한다. 구조 점검은 전체 의미 감사나 미사용 코드 증명을 대신하지 않는다. 기존 E5·MC2·H 완료 집계는 유지한다.
 
 ### 1. 남은 기능과 제품 연결
 
@@ -29,11 +29,11 @@
 
 ### 2. 문제 목록 작성과 리팩터링 TODO 재작성
 
-- [ ] **RF-01 — 전체 소유 코드 inventory·기준 측정**: engine/contracts/harness/desktop/scripts/CI와 테스트·fixture의 책임·호출자·공개 API·DB transaction·자원 소유·의존성을 조사한다. 파일/함수 길이·복잡도·중복·미사용 코드·실행 시간·메모리 기준을 기록한다. clone·dependency·생성 결과는 제품 코드와 분리한다.
-- [ ] **RF-02 — 문제·수정·삭제·추가·유지 목록 작성**: 각 항목에 ID·실제 경로/근거·영향·재현 또는 확인 방법·분류·해결안·선행 작업·검증·완료 조건을 붙인다. 확인된 결함과 조사 후보를 구분하고 caller/export/동적 등록·기존 기록 호환까지 확인한다.
-- [ ] **RF-03 — 실제 근거로 TODO 재작성**: 우선순위를 정확성/cleanup → 테스트 신뢰성 → 책임·중복 → 성능·문서로 정한다. 기능 단위 작업·담당 파일·검증 범위·완료 조건을 확정하고, 현재 열린 목록과 완료/역사적 기록을 구분한다. 원래 ID·실패 근거·호환 계약은 보존한다.
+- [x] **RF-01 — 전체 소유 코드 inventory·기준 측정**: engine/contracts/harness/desktop/scripts/CI와 테스트·fixture의 책임·호출자·공개 API·DB transaction·자원 소유·의존성을 조사한다. 파일/함수 길이·복잡도·중복·미사용 코드·실행 시간·메모리 기준을 기록한다. clone·dependency·생성 결과는 제품 코드와 분리한다.
+- [x] **RF-02 — 문제·수정·삭제·추가·유지 목록 작성**: 각 항목에 ID·실제 경로/근거·영향·재현 또는 확인 방법·분류·해결안·선행 작업·검증·완료 조건을 붙인다. 확인된 결함과 조사 후보를 구분하고 caller/export/동적 등록·기존 기록 호환까지 확인한다.
+- [x] **RF-03 — 실제 근거로 TODO 재작성**: 우선순위를 정확성/cleanup → 테스트 신뢰성 → 책임·중복 → 성능·문서로 정한다. 기능 단위 작업·담당 파일·검증 범위·완료 조건을 확정하고, 현재 열린 목록과 완료/역사적 기록을 구분한다. 원래 ID·실패 근거·호환 계약은 보존한다.
 
-현재 확인한 점검 후보는 `agent-backends/store.ts` 4,088줄, `engine.ts` 2,815줄, `runner/index.ts` 2,411줄 및 1,000줄 이상 테스트 파일이다. 길이는 조사 우선순위 근거이며 중복·미사용·동작 결함 판정은 RF-01/02에서 별도로 확인한다.
+현재 확인한 점검 후보는 `agent-backends/store.ts` 4,088줄, `engine.ts` 2,815줄, `runner/index.ts` 2,411줄 및 1,000줄 이상 테스트 파일이다. 이는 변경 전 길이다. 확인한 중복만 기능 단위로 정리했고 동작/cleanup·거래·소유 경계를 보존했다. 전체 미사용 판정이나 줄 수 감소를 주장하지 않는다.
 
 #### 근거에 따라 확정한 작업 단위
 
@@ -41,43 +41,45 @@
 
 | 상태·ID | 수정·삭제·추가 범위 | 보존·검증 조건 |
 |---|---|---|
-| [ ] TEST-01 | PTY fixture의 역사적 숫자 PID cleanup을 원본 live 소유 capability로 교체 | stopped shell·supervisor loss 별도 시나리오, stale PID 신호 0, uncertain 자료 보존 |
-| [ ] TEST-02 | observer 준비/변경 관찰 및 persistent 시간 fixture의 인과 경계 정리 | 원 duration·입력 상한·실제 elapsed·비교 baseline 유지, skip/timeout 완화 금지 |
-| [ ] CORE-01 | v1/v2 새 입력의 미디어 admission 순서를 private helper로 합침 | durable receipt 중복 조회 뒤 실행; budget→segment→document→image 순서·삭제 blob 중복·효과 0 유지 |
-| [ ] CORE-02 | image/PDF/media import의 signal·pending lifetime 공통화 | 원 Promise·동기 factory 실행·close join·원 CAS/index 유지 |
-| [ ] CORE-03 | constructor optional boolean guard 28개 공통화 | 원 guard 위치·property 평가 횟수·오류 우선순위·자식 opt-in·dependency 조건 유지 |
-| [ ] CORE-04 | host/owned 명령 결과의 순수 request projection·promoted Run 비교 공통화 | lane별 Original·receipt·native transaction·source release·restart/no-replay 유지 |
-| [ ] STORE-01 | live/admin backend revision·receipt 순수 값 조립 공통화 | UUID/time·quota·CAS·SQL 거래·독립 archive validator·unknown/paused state 유지 |
-| [ ] RUNNER-01 | team/workflow의 동일한 live owner predicate 공통화 | allowlist 먼저, 14조건 평가 순서·오류·승인 유지; readonly/code-mode/settle는 원 계약 유지 |
-| [ ] DOC-01 | 중복 진행 문서와 주석의 실제 소비 확인 뒤 정리 | 공개 API·라이선스·역사 실패 근거 유지, 근거 없이 export/dependency/test 삭제 금지 |
+| [ ] TEST-01 | PTY fixture의 역사적 숫자 PID cleanup을 원본 live 소유 capability로 교체 | stopped shell·supervisor loss 별도 시나리오, 숫자 PID 신호 없음·borrowed receiver 격리, uncertain 자료 보존; OS PID 재사용 강제 증명은 별도 |
+| [x] TEST-02 | observer 준비/변경 관찰 및 persistent 시간 fixture의 인과 경계 정리 | 원 duration·입력 상한·실제 elapsed·비교 baseline 유지, skip/timeout 완화 금지 |
+| [x] CORE-01 | v1/v2 새 입력의 미디어 admission 순서를 private helper로 합침 | durable receipt 중복 조회 뒤 실행; budget→segment→document→image 순서·삭제 blob 중복·효과 0 유지 |
+| [x] CORE-02 | image/PDF/media import의 signal·pending lifetime 공통화 | 원 Promise·동기 factory 실행·close join·원 CAS/index 유지 |
+| [x] CORE-03 | constructor optional boolean guard 28개 공통화 | 원 guard 위치·property 평가 횟수·오류 우선순위·자식 opt-in·dependency 조건 유지 |
+| [x] CORE-04 | host/owned 명령 결과의 순수 request projection·promoted Run 비교 공통화 | lane별 Original·receipt·native transaction·source release·restart/no-replay 유지 |
+| [x] STORE-01 | live/admin backend revision·receipt 순수 값 조립 공통화 | UUID/time·quota·CAS·SQL 거래·독립 archive validator·unknown/paused state 유지 |
+| [x] RUNNER-01 | team/workflow의 동일한 live owner predicate 공통화 | allowlist 먼저, 14조건 평가 순서·오류·승인 유지; readonly/code-mode/settle는 원 계약 유지 |
+| [x] DOC-01 | 중복 진행 문서와 주석의 실제 소비 확인 뒤 정리 | 공개 API·라이선스·역사 실패 근거 유지, 근거 없이 export/dependency/test 삭제 금지 |
 
 테스트 점검의 [상세 근거](docs/moodcode/next-test-refactor-proposals.json)에 따라 다음 단위를 추가한다. RF-TF-01은 TEST-01과 같은 작업이며 중복 집계하지 않는다.
 
 | 상태·ID | 범위 | 보존·검증 조건 |
 |---|---|---|
-| [ ] RF-TF-02 | code-mode/Git fixture의 bounded native DATA 수집 공통화 | caller별 실패/unknown 보존 정책·SQL close 순서·독립 expected 유지 |
-| [ ] RF-TF-03 | host/team/workflow/effect crash 원본 증거의 atomic publisher | exclusive private stage→close→same-dir rename, 완전한 native binding·crash 시점 유지 |
-| [ ] RF-TF-04 | 동일한 cooperative gate/abort wait만 공통화 | 원 signal·취소 cleanup·resolve/reject·원 deadline 유지 |
-| [ ] RF-TF-05 | coding batch/workflow 대형 fixture DATA 정의를 domain-local builder로 정리 | Original 소유·실제 effect·SQL·lease·예산은 현 fixture에 유지 |
-| [ ] RF-TF-06 | persistent fixture 저장소 준비 중복 정리 | repository identity·같은 DB/Engine history·실제 자원/기간·원 unknown 보존 |
-| [ ] RF-TF-09 | lifecycle transform의 준비 코드를 scenario와 분리 | 독립 expected·원 1,619줄 suite의 전체 native 시나리오·API/event/DB 유지 |
+| [x] RF-TF-02 | code-mode/Git fixture의 bounded native DATA 수집 공통화 | caller별 실패/unknown 보존 정책·SQL close 순서·독립 expected 유지 |
+| [x] RF-TF-03 | host/team/workflow/effect crash 원본 증거의 atomic publisher | exclusive private stage→close→same-dir rename, 완전한 native binding·crash 시점 유지 |
+| [x] RF-TF-04 | 동일한 cooperative gate/abort wait만 공통화 | 원 signal·취소 cleanup·resolve/reject·원 deadline 유지 |
+| [x] RF-TF-05 | coding batch/workflow 대형 fixture DATA 정의를 domain-local builder로 정리 | Original 소유·실제 effect·SQL·lease·예산은 현 fixture에 유지 |
+| [x] RF-TF-06 | persistent fixture 저장소 준비 중복 정리 | repository identity·같은 DB/Engine history·실제 자원/기간·원 unknown 보존 |
+| [x] RF-TF-09 | lifecycle transform의 준비 코드를 scenario와 분리 | 독립 expected·원 1,619줄 suite의 전체 native 시나리오·API/event/DB 유지 |
 | [x] RF-TF-07/08/10 | 서로 다른 clock/native precondition/controlled port 검증은 유지 | 중복처럼 보여도 독립 계약이므로 삭제·통합하지 않음; 검토 근거에 유지 이유 기록 |
 
 테스트·fixture 수정과 영향 검증을 먼저 완료한다. `engine.ts`, `agent-backends/store.ts`, `runner/index.ts`는 각각 단일 편집 담당을 둔다. 각 단위는 기존 source/compiled 회귀와 독립 expected/native SQLite 검증을 통과해야 완료 처리한다. 외부 계정·인증서·과거 PID 자료의 대기는 열린 상태로 남기고 독립 가능한 작업을 계속한다.
 
+진행 근거: [core](docs/moodcode/core-refactor-integration-verification.json), [store/runner](docs/moodcode/next-store-runner-refactor-progress.json), [테스트](docs/moodcode/rf-tf-05-09-evidence.json), [유지·정리](docs/moodcode/next-cleanup-retain-review.json). 전체 통합 수용은 RF-08에서 별도로 판단한다.
+
 ### 3. 테스트부터 엔진까지 기능 단위 리팩터링
 
-- [ ] **RF-04 — 테스트·fixture 정리**: 반복 setup·임시 repo/DB·실제 process·cleanup helper를 정리하고 큰 suite를 계약/시나리오별로 나눈다. 의도와 독립 expected 값을 유지하며 중복 테스트 삭제는 보존되는 회귀 시나리오를 기록한다. 실패 증거·미확정 cleanup은 보존하고 실제 구현과 같은 계산으로 expected를 만들지 않는다.
-- [ ] **RF-05 — 메인 엔진 책임 분리**: API dispatch/admission/scheduler/turn/context/tool/permission/storage·recovery/lifecycle을 책임별로 정리한다. 큰 store는 native 소유권·transaction 경계에 맞춰 분리하고 의미가 같은 정책·검증만 공통화한다. 먼저 한 완결 기능을 변경·검증한 뒤 다음 범위로 진행한다.
-- [ ] **RF-06 — 미사용·중복·의존성·주석 정리**: 실제 소비·호환성이 확인된 불필요 코드와 dependency를 제거한다. 함수는 한 책임·명확한 이름·단순한 흐름으로 정리하고, 주석은 비자명한 이유·불변식·외부 제약·필수 고지만 남겨 현재 구현과 맞춘다. 코드와 같은 설명·오래된 TODO 주석은 정리한다.
+- [x] **RF-04 — 테스트·fixture 정리**: 반복 setup·임시 repo/DB·실제 process·cleanup helper를 정리하고 큰 suite를 계약/시나리오별로 나눈다. 의도와 독립 expected 값을 유지하며 중복 테스트 삭제는 보존되는 회귀 시나리오를 기록한다. 실패 증거·미확정 cleanup은 보존하고 실제 구현과 같은 계산으로 expected를 만들지 않는다.
+- [x] **RF-05 — 메인 엔진 책임 분리**: API dispatch/admission/scheduler/turn/context/tool/permission/storage·recovery/lifecycle을 책임별로 정리한다. 큰 store는 native 소유권·transaction 경계에 맞춰 분리하고 의미가 같은 정책·검증만 공통화한다. 먼저 한 완결 기능을 변경·검증한 뒤 다음 범위로 진행한다.
+- [x] **RF-06 — 미사용·중복·의존성·주석 정리**: 실제 소비·호환성이 확인된 불필요 코드와 dependency를 제거한다. 함수는 한 책임·명확한 이름·단순한 흐름으로 정리하고, 주석은 비자명한 이유·불변식·외부 제약·필수 고지만 남겨 현재 구현과 맞춘다. 코드와 같은 설명·오래된 TODO 주석은 정리한다.
 - [ ] **RF-07 — 성능·검증 실행 개선**: 병목은 측정 후 개선하고 focused/contract/integration/crash/OS/GUI 검증 경계를 정리한다. 작업 중에는 영향 검증, 큰 통합 경계와 최종 수용에는 전체 회귀·실제 지원 CI를 실행한다. 이력·context·event·summary·장기 자원 수명을 같은 조건으로 비교한다.
 - [ ] **RF-08 — 최종 수용·커밋·문서 최신화**: 타입/build·전체 엔진·코딩 과업·resilience·성능·OS CI와 변경된 GUI/package를 검증한다. public API/event/DB/archive·승인·cancel/unknown/no-replay·예산 계약을 보존하고 코드 양·중복·복잡도·실행 시간의 전후 차이를 기록한다. 남은 조건을 명시한 검증 근거와 TODO를 정리하고 커밋·푸시한다.
 
 리팩터링은 완결 기능별로 병렬 분담하되 `engine.ts`·공통 contracts·동일 store 등 공유 파일의 편집 담당은 하나로 고정한다. 테스트 실패를 숨기는 skip·assertion 축소·timeout 완화로 완료하지 않는다. 줄 수에 임의 목표를 두어 필요한 검증을 없애거나 함수/파일을 과하게 분할하지 않는다. 리팩터링 중 새로운 기능은 별도 TODO로 기록해 완료 범위를 유지한다.
 
-### 진행 중 — 후속 기능과 리팩터링 goal
+### 진행 중 — 후속 기능·리팩터링 통합 검증
 
-2026-10-09 전체 goal을 설정하고 `gpt-6.1-sol / xhigh` 세션 세 개와 Root 에이전트 세 개를 시작했다. 구현 기준은 `44d3a07`이며, 착수는 완료 집계에 포함하지 않는다. [진행 기록](docs/moodcode/next-execution-progress.json)에 세션·담당 경계·검증·통합 상태를 기록한다.
+2026-10-09 전체 goal을 설정하고 `gpt-6.1-sol / xhigh` 세션 다섯 개와 Root 에이전트 세 개를 시작했다. 각 세션도 에이전트를 병렬로 사용한다. 구현 기준은 `44d3a07`이며, 착수는 완료 집계에 포함하지 않는다. [진행 기록](docs/moodcode/next-execution-progress.json)에 세션·담당 경계·검증·통합 상태를 기록한다. 공유 goal은 세션의 상태 변경으로 blocked이며 사용자 재개를 요청했다. 구현·검증은 독립적으로 계속 진행한다.
 
 | 담당 | 범위 | 완료 판단 |
 |---|---|---|

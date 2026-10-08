@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "kind": "next-feature-support-acceptance-draft",
-  "recordedAt": "2026-10-08T22:27:42.078917+00:00",
-  "status": "draft-for-root-n06-rf-baseline",
+  "recordedAt": "2026-10-08T23:16:00Z",
+  "status": "integrated-followup-final-current-source-acceptance-running",
   "globalFollowupAccepted": false,
   "historical80of80Preserved": true,
   "newExecution": {
@@ -64,8 +64,8 @@
     },
     {
       "id": "E5-08",
-      "implemented": "Actual unnamed kill-on-close Job Object owned by Engine; atomic suspended assignment, native process count/output/handle cleanup, exact approvals and restart unknown/no replay. Isolated8c7aac2 branch; main integration pending.",
-      "actualLocal": "POSIX portable/adapter checks do not qualify Windows. Frozen local whole run was SIGKILLed after754 passes with no footer/cause; retry is recorded running, no aggregate credit.",
+      "implemented": "Actual unnamed kill-on-close Job Object owned by Engine; atomic suspended assignment, native process count/output/handle cleanup, exact approvals and restart unknown/no replay. Native implementation integrated on main; independent branch qualification remains source-scoped.",
+      "actualLocal": "Frozen Windows branch whole4759/4757pass/0fail/2skip completed; Root combined whole/refactor qualification follows next-execution-progress.json.",
       "actualHosted": "Two exact-source push/dispatch runs, each Node24/26 gate37/37 and32 actual native scenarios total; actual retained DLL hashes independently matched here.",
       "accountQualification": "Not applicable; account-free native command scope.",
       "externalConditions": [],
@@ -119,7 +119,7 @@
     {
       "id": "N-01",
       "implemented": "Same resident Engine bounded seed/input/history soak, mandatory complete/cancel/text cases, resource samples, second-workspace cancellation, actual SIGKILL/reopen native recovery equality and no replay.",
-      "actualLocal": "Compiled quick3 cycles/16 inputs/3553ms passed at pinned report; no long duration credit. Root reports genuine30-minute run underway in private frozen78e37b1 checkout; final duration/outcome/report not yet accepted.",
+      "actualLocal": "Frozen78e37b1 genuine30-minute run completed:1802370ms active/398cycles/1596inputs. Current observation-window revision passes quick/source/compiled causal tests; current-source long run and final aggregate acceptance pending. See next-persistent-30min-verification.json and next-persistent-fixture-refactor-review.json.",
       "actualHosted": "Short account-free CI launch supported; hosted short evidence and final long report require separate attachment. A short pass cannot qualify30 minutes.",
       "accountQualification": "Account-free provider fixture;0 live provider requests.",
       "externalConditions": [],
@@ -133,7 +133,7 @@
     {
       "id": "N-02",
       "implemented": "Host/preload/renderer native inbox/input controls, task CAS/questions, PTY, MCP, LSP, resident/child/team and readonly advisory workflow/history; original handles and approval/owner/budget gates retained.",
-      "actualLocal": "Actual macOS arm64 Electron GUI15 checks,0 external requests; current55b desktop210/210. GUI executed at388701f; independently checked unchanged app/engine program from6ca to55b (only executable config/updater fixture changed), no fresh55b full GUI execution claimed.",
+      "actualLocal": "Actual macOS arm64 Electron GUI15 checks,0 external requests; current55b desktop210/210. GUI executed at388701f; independently checked unchanged app/engine program from6ca to55b (only executable config/updater fixture changed), no fresh55b full GUI execution claimed. Root current integrated GUI15 checks passed with bounded native copy29files/5613201bytes, original retained because utility close authority unknown. MCP cap/failed-view rollback corrected, source/compiled coverage recorded separately.",
       "actualHosted": "Isolated desktop6ca six-lane engine CI passed; packaged smoke does not substitute for full advanced GUI on other OS or combined main.",
       "accountQualification": "GUI uses local native/official-contract account fixture; official user login/inference unverified.",
       "externalConditions": [],
@@ -164,7 +164,7 @@
     },
     {
       "id": "N-04",
-      "implemented": "Finite unsigned macOS/Linux/Windows bundle targets, engine utility/SQLite23/supervisor/renderer smoke. Electron44.5.1 native Windows build/ASAR/utility consumer gates prepared, binding workspace not integrated.",
+      "implemented": "Finite unsigned macOS/Linux/Windows bundle targets, engine utility/SQLite23/supervisor/renderer smoke. Electron44.5.1 native Windows build/ASAR/utility consumer gates prepared, binding workspace integrated on main; current three-OS hosted package qualification pending.",
       "actualLocal": "Actual unsigned macOS arm64 package passes packaged/context isolation, utility SQLite23, command cleanup and PTY native exit/cleanup; current55b package smoke passed.",
       "actualHosted": "6ca package run37851820964 macOS+Windows portable passed, Linux executable mismatch failed. 388701f run37852530618 Linux package/native passed but updater failed SUID fixture launch. Current55b follow-up37852974845 recorded in progress; final integrated/current per-OS acceptance pending. Windows portable explicitly lacks binding.",
       "accountQualification": "Package smoke account-free; no provider login qualification.",
@@ -662,5 +662,16 @@
       "sha256": "91e54d5c3f5782659e188030ccb75841b6e5d6ec89e2c0eab4417d8bfafb8079",
       "bytes": 34608
     }
-  ]
+  ],
+  "latestQualification": {
+    "currentSource": "Integrated CORE01-04/STORE01/RUNNER01 and bounded test fixture units; final build/whole/11hosted lanes/long-run/inventory/benchmark gates follow next-execution-progress.json.",
+    "historicalPins": "Existing evidencePins and isolated branch counts refer to their original frozen snapshots; superseded running claims corrected above.",
+    "externalOpen": [
+      "actual-SIWC-login/inference",
+      "actual-Anthropic-account",
+      "signed/notarized/published-distribution",
+      "historical-PTY-cause"
+    ],
+    "goalTracking": "blocked-by-shared-session-mutation; Root implementation continues; user-resume requested"
+  }
 }

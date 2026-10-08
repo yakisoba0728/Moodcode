@@ -1,0 +1,888 @@
+{
+  "schemaVersion": 1,
+  "status": "finite-read-only-proposals-pending-owner-review-and-integrated-source-validation",
+  "sourceWindow": {
+    "head": "b1d39de17df3dab4fd60f738df5817e369fa62c2",
+    "date": "2026-10-09",
+    "timezone": "Asia/Seoul",
+    "qualification": "Cleanup/document candidates below are an immutable b1d39de proposal snapshot. During validation Root integrated STORE/RUNNER and corrected living docs, so those original lines are validated against each recorded immutable sourcePin gitCommit rather than claimed current. The finite native trigger caller comparison is separately qualified to nativeTriggerComparedCommit. This is not final RF-01 measurement or all-source unused/dependency/license certification.",
+    "nativeTriggerComparedCommit": "5fdb90d9cec858ab7a2cdc4c477c8c054483c033",
+    "movingSourceObserved": "Initial current-file validation rejected STORE/RUNNER line/hash changes and subsequent Root implementation-status corrections. No mismatch was silently accepted; original proposal evidence is reproducible from b1d39de blobs."
+  },
+  "scope": {
+    "write": "Only this new review JSON",
+    "read": "Finite progress/documentation routing, selected compiler diagnostic bindings, selected rationale comments and five direct dependency mappings.",
+    "excluded": "No production/test/package/lock/TODO edits; no build, tests, accounts, network or live readers; no native cleanup signals. Original evidence and license records remain."
+  },
+  "method": {
+    "inventory": {
+      "path": "docs/moodcode/refactor-inventory-method.md",
+      "line": 57
+    },
+    "manual": "rg first, then exact declaration/call/export/registry/package and document consumers. A missing literal consumer is an investigation result, not proof that public, developer or external session usage is absent.",
+    "diagnosticLog": {
+      "path": "/tmp/moodcode-next-unused-imports-review.log",
+      "sha256": "bf015dd24672c77763cdc90da3ca581810c442872ad4b6e971a2d046c643a568",
+      "bytes": 17302,
+      "diagnostics": 138,
+      "qualification": "Existing Root compiler noUnused diagnostic capture, not rerun on this moving source. Errors include value imports, parameters, locals and private fields; the count is not a deletion count."
+    },
+    "typeRemovalVerification": {
+      "path": "docs/moodcode/next-unused-type-imports-verification.json",
+      "files": 16,
+      "bindings": 20,
+      "recordedEmittedJsAndDeclarationFiles": 32,
+      "recordedHashesEqual": true,
+      "currentAfterSourcePinsMatched": 16,
+      "qualification": "Read and compared the existing verification record; no new compiler/emission/runtime run in this audit."
+    }
+  },
+  "decisions": [
+    {
+      "id": "DOC01-01",
+      "classification": "fix",
+      "status": "original-stale-document-observation-root-correcting-current-docs",
+      "problem": "Three living status entry points duplicate present/future claims while their sources represent different historical phases.",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line": 7
+        },
+        {
+          "path": "README.md",
+          "line": 5
+        },
+        {
+          "path": "docs/moodcode/README.md",
+          "line": 20
+        },
+        {
+          "path": "docs/moodcode/implementation-status.md",
+          "line": 25
+        },
+        {
+          "path": "docs/moodcode/implementation-status.md",
+          "line": 31
+        },
+        {
+          "path": "docs/moodcode/next-execution-progress.json",
+          "line": 6
+        }
+      ],
+      "fix": "Keep README/TODO -> implementation-status as user entry points. Add a concise current follow-up pointer to next-execution-progress and exact lane progress; label the existing original phase-two/native/GUI paragraphs as their pinned historical scope. Change the phase-two goal table label from active to original completed scope. Do not copy mutable task or hosted counts into another index.",
+      "retain": "Original source99bf6f0/4701 and frozen932-input/4723 acceptance, 2026-10-04 GUI results and external/account/signing limits. Root current goal tool status blocked is recorded state and must not be changed by this document audit.",
+      "verification": "Validate local links and compare each current assertion with integrated source/lane evidence after Root final freeze; preserve historical count paragraphs and exact report links."
+    },
+    {
+      "id": "DOC01-02",
+      "classification": "add",
+      "status": "original-pending-handoff-observation-root-correcting-current-docs",
+      "problem": "PDF subagent status still says its corrective one-request retry is pending, while the provider parent records the exact completed corrective account check.",
+      "evidence": [
+        {
+          "path": "docs/moodcode/next-provider-pdf-progress.json",
+          "line": 6
+        },
+        {
+          "path": "docs/moodcode/next-provider-progress.json",
+          "line": 107
+        },
+        {
+          "path": "docs/moodcode/next-provider-progress.json",
+          "line": 247
+        },
+        {
+          "path": "docs/moodcode/next-provider-progress.json",
+          "line": 250
+        }
+      ],
+      "consumers": "Bounded rg found the PDF progress filename only in its own writerPaths; this does not establish absence of external session readers. The provider parent is the aggregate current consumer/status owner and links the exact native reports.",
+      "fix": "Label the subagent progress as a source-pinned handoff snapshot and add currentStatusSource -> next-provider-progress. Its original pending state can remain under historicalHandoffStatus. Current account credit is only the parent exact model/MIME/wire evidence; aggregate integrated validation stays open.",
+      "retain": "First failed-semantic PDF report, corrective report, independent review, source/runtime qualifications, request ledger and unknown token-cost policies. No repeated account request is needed for doc routing."
+    },
+    {
+      "id": "DOC01-03",
+      "classification": "retain",
+      "status": "duplicate-established-field-deletion-held-for-interface-owner",
+      "problem": "The requested Windows Desktop interface pointer embeds the entire canonical nativePackaging object.",
+      "evidence": [
+        {
+          "path": "docs/next-windows-progress.json",
+          "line": 4
+        },
+        {
+          "path": "docs/next-windows-progress.json",
+          "line": 5
+        },
+        {
+          "path": "docs/moodcode/next-windows-progress.json",
+          "line": 27
+        },
+        {
+          "path": "docs/moodcode/next-desktop-package-progress.json",
+          "line": 82
+        },
+        {
+          "path": "docs/moodcode/next-execution-progress.json",
+          "line": 27
+        }
+      ],
+      "duplicate": {
+        "fields": 19,
+        "allFieldsIdentical": true,
+        "fieldNames": [
+          "status",
+          "package",
+          "workspace",
+          "moduleEntrypoint",
+          "binary",
+          "bindingVersion",
+          "nodeApi",
+          "winDelayLoadHook",
+          "externalBuffers",
+          "runtimeDependencies",
+          "buildNode",
+          "buildElectron",
+          "architectures",
+          "distribution",
+          "hostOwnership",
+          "nativeApi",
+          "unsupported",
+          "contract",
+          "desktopConsumerWorktree"
+        ]
+      },
+      "consumers": "No literal docs/next-windows-progress.json code/CI/package consumer found in the bounded rg; canonical sourceScope explicitly preserves the requested external Desktop interface. Desktop package evidence records reading this nativePackaging contract. That known external boundary prevents unqualified alias/field deletion.",
+      "fix": "Keep the alias path. If the Desktop owner confirms it now follows canonicalProgress, a separate reviewable doc change may replace the 19-field copy with the canonical pointer and preserve any frozen packaging interface in its original evidence record. Until then, qualify copied status and architectures.x64 text as the handoff snapshot; canonical current native status should route to next-windows-js-progress and next-windows-ci-verification.",
+      "delete": "No file deletion authorized by this evidence. Do not remove native ABI/build/ASAR/original-handle compatibility facts merely because they are duplicated.",
+      "verification": "Inspect the exact current Desktop package reader plus any external handoff reader before field removal. A literal no-match alone is insufficient."
+    },
+    {
+      "id": "RF06-TYPE-01",
+      "classification": "delete",
+      "status": "candidate-forwarded-to-core-owner-no-edit",
+      "problem": "SandboxLaunch remains imported with import type in engine.ts and has no other identifier occurrence in that file.",
+      "evidence": [
+        {
+          "path": "packages/engine/src/engine.ts",
+          "line": 18
+        },
+        {
+          "path": "packages/engine/src/sandbox/host.ts",
+          "line": 351
+        },
+        {
+          "path": "packages/engine/src/sandbox/host.ts",
+          "line": 365
+        }
+      ],
+      "delete": "Only the engine.ts type import binding, after CORE integration owner confirms current diagnostic and byte-identical emitted JS+d.ts. The public SandboxLaunch type and actual sandbox methods remain.",
+      "retain": "SESSION_COMMAND_TYPES value import and buildContext value import are not covered by type-only verification. Row/private registered/unused local/parameter diagnostic hints are not automatically removable, and public exports/dynamic callback registrations are outside noUnused proof.",
+      "verification": "Owner reruns noUnused check for exact binding and compares affected emitted JS/declarations before/after. No extra mirrored tests for an erased binding."
+    },
+    {
+      "id": "RF06-COMMENT-01",
+      "classification": "fix",
+      "status": "comment-only-candidate-forwarded-to-runner-owner",
+      "problem": "Runner cleanup rationale names POSIX process-group termination while run_command can now use native Windows owned Job Object handles.",
+      "evidence": [
+        {
+          "path": "packages/engine/src/runner/index.ts",
+          "line": 2178
+        },
+        {
+          "path": "packages/engine/src/tools/command/backends.ts",
+          "line": 58
+        },
+        {
+          "path": "packages/engine/src/tools/command/windows-job-host.ts",
+          "line": 113
+        }
+      ],
+      "fix": "Use one accurate rationale sentence such as: Command cleanup joins the native process owner and captures the workspace after-image. Preserve the exact cleanupGraceMs expression and original deadline/unknown/no-replay behavior.",
+      "verification": "Review only comment diff; no behavior test needed unless source logic changes."
+    },
+    {
+      "id": "RF06-COMMENT-02",
+      "classification": "retain",
+      "status": "manual-rationale-confirmed-in-selected-scope",
+      "evidence": [
+        {
+          "path": "packages/engine/src/engine.ts",
+          "line": 387
+        },
+        {
+          "path": "packages/engine/src/engine.ts",
+          "line": 784
+        },
+        {
+          "path": "packages/engine/src/runner/index.ts",
+          "line": 1350
+        },
+        {
+          "path": "packages/engine/src/runner/input-scheduler.ts",
+          "line": 44
+        },
+        {
+          "path": "packages/engine/src/runner/input-scheduler.ts",
+          "line": 55
+        },
+        {
+          "path": "packages/engine/src/agent-backends/store.ts",
+          "line": 371
+        },
+        {
+          "path": "packages/engine/src/lifecycle/registry.ts",
+          "line": 38
+        }
+      ],
+      "retain": "These explain observable ordering, original owner vs historical state, durable acceptance/v1 compatibility, reentrant close and host-only registry authority. Keep concise rationale near the actual responsibility after extraction; avoid copying the same full explanation to every caller. No stale safety rationale established in these selected comments."
+    },
+    {
+      "id": "RF06-DEPS-01",
+      "classification": "retain",
+      "status": "finite-direct-consumer-and-dynamic-export-map",
+      "dependencies": [
+        {
+          "name": "node-pty@1.1.0",
+          "declarations": [
+            {
+              "path": "packages/engine/package.json",
+              "line": 17
+            },
+            {
+              "path": "apps/desktop/package.json",
+              "line": 21
+            }
+          ],
+          "consumers": [
+            {
+              "path": "packages/engine/src/terminals/backend.ts",
+              "line": 48
+            },
+            {
+              "path": "packages/engine/src/terminals/supervisor.ts",
+              "line": 241
+            },
+            {
+              "path": "packages/engine/src/terminals/service.ts",
+              "line": 90
+            }
+          ],
+          "exportOrPackaging": [
+            {
+              "path": "packages/engine/src/index.ts",
+              "line": 127
+            },
+            {
+              "path": "apps/desktop/electron-builder.config.cjs",
+              "line": 9
+            }
+          ],
+          "dynamicBoundary": "Actual host terminal service -> POSIX capability check -> sibling supervisor dynamic import/pty.spawn. Platform unavailability must remain an explicit capability result; static imports alone miss the runtime package."
+        },
+        {
+          "name": "@moodcode/windows-job@0.1.0",
+          "declarations": [
+            {
+              "path": "packages/engine/package.json",
+              "line": 14
+            },
+            {
+              "path": "packages/windows-job/package.json",
+              "line": 6
+            }
+          ],
+          "consumers": [
+            {
+              "path": "packages/engine/src/tools/command/windows-job-host.ts",
+              "line": 129
+            },
+            {
+              "path": "packages/engine/src/tools/command/backends.ts",
+              "line": 59
+            }
+          ],
+          "exportOrPackaging": [
+            {
+              "path": "packages/windows-job/index.js",
+              "line": 11
+            },
+            {
+              "path": "packages/windows-job/index.d.ts",
+              "line": 43
+            },
+            {
+              "path": "scripts/build-desktop.mjs",
+              "line": 12
+            },
+            {
+              "path": "apps/desktop/electron-builder.config.cjs",
+              "line": 9
+            }
+          ],
+          "dynamicBoundary": "Windows-only dynamic require -> package-relative Node-API binding -> original live Job/child handles. A Darwin call-site/no-import scan cannot establish unused. Native dependency, Electron external and ASAR unpack must remain coupled."
+        },
+        {
+          "name": "tsx@4.23.15",
+          "declarations": [
+            {
+              "path": "package.json",
+              "line": 58
+            }
+          ],
+          "consumers": [
+            {
+              "path": "package.json",
+              "line": 44
+            },
+            {
+              "path": "packages/engine/src/terminals/backend.ts",
+              "line": 30
+            },
+            {
+              "path": "packages/engine/src/code-mode/process.ts",
+              "line": 78
+            }
+          ],
+          "dynamicBoundary": "Source subprocess --import loader branches and direct source verification CLI. Compiled JS branches use no loader; lack of compiled import is expected and does not justify removal."
+        },
+        {
+          "name": "typescript@7.0.2",
+          "declarations": [
+            {
+              "path": "package.json",
+              "line": 59
+            },
+            {
+              "path": "package.json",
+              "line": 17
+            }
+          ],
+          "consumers": [
+            {
+              "path": "scripts/refactor-inventory/worker.mjs",
+              "line": 2
+            },
+            {
+              "path": "packages/engine/src/repository/fixtures/native-semantic-benchmark.ts",
+              "line": 17
+            },
+            {
+              "path": "packages/engine/src/lsp/typescript-native.ts",
+              "line": 184
+            }
+          ],
+          "exportOrPackaging": [
+            {
+              "path": "packages/engine/src/lsp/index.ts",
+              "line": 27
+            }
+          ],
+          "dynamicBoundary": "Direct compiler JS API for closed inventory VFS; installed native platform executable is explicitly host supplied to public LSP factory and exercised by source-qualified semantic fixtures. Root build/typecheck use tsc. No runtime installation/discovery implied."
+        },
+        {
+          "name": "jose@6.2.12",
+          "declarations": [
+            {
+              "path": "apps/desktop/package.json",
+              "line": 17
+            }
+          ],
+          "consumers": [
+            {
+              "path": "apps/desktop/src/main/account-auth.ts",
+              "line": 3
+            },
+            {
+              "path": "apps/desktop/src/main/account-auth.ts",
+              "line": 92
+            }
+          ],
+          "exportOrPackaging": [
+            {
+              "path": "scripts/build-desktop.mjs",
+              "line": 12
+            }
+          ],
+          "dynamicBoundary": "Actual main-side signature/issuer/audience token validation, plus authored JWT fixture. Bundler externalization makes the runtime dependency necessary; no real account was accessed in this audit."
+        }
+      ],
+      "limits": "Only these five declarations inspected in detail. Contracts/engine public barrels, optional native loading, platform branches and external host registries are not all-source unused proofs. No lockfile or dependency mutation."
+    },
+    {
+      "id": "RF06-DEPS-02",
+      "classification": "retain",
+      "status": "prettier-removal-candidate-needs-developer-tooling-decision",
+      "evidence": [
+        {
+          "path": "package.json",
+          "line": 57
+        },
+        {
+          "path": "packages/engine/src/formatters/index.ts",
+          "line": 14
+        },
+        {
+          "path": "packages/engine/src/formatters/index.ts",
+          "line": 28
+        },
+        {
+          "path": "packages/engine/src/engine.ts",
+          "line": 1098
+        },
+        {
+          "path": "packages/engine/src/index.ts",
+          "line": 143
+        }
+      ],
+      "observation": {
+        "search": "Literal prettier across 1083 Git-tracked owned code/manifests in packages engine/contracts/windows-job, apps desktop/harness, scripts, CI plus root README/TODO/package.",
+        "matches": "Only package.json:57 development dependency declaration.",
+        "exclusions": "Dependency/generated dist/release/build/lockfile/binary assets and docs history; untracked, editor/global configuration and external manual developer commands were not examined."
+      },
+      "decision": "Do not remove a development dependency solely from a no-caller graph. Prettier is the finite removal candidate if Root confirms no intended editor/manual formatting tool; otherwise retain with an explicit tooling purpose. FormatterRegistry stays exported and host registered, independently of this package.",
+      "verificationIfDeleted": "A separate approved package/lock update must leave formal build/typecheck/test/package consumers valid and inspect package-lock diff. No new test that only searches for the absence of the name."
+    },
+    {
+      "id": "RF06-DOC-RETAIN",
+      "classification": "retain",
+      "status": "original-native-historical-and-license-records-preserved",
+      "evidence": [
+        {
+          "path": "docs/moodcode/next-host-cancel-review.json",
+          "line": 59
+        },
+        {
+          "path": "docs/moodcode/next-ci-hardening-retention-review.json",
+          "line": 4
+        },
+        {
+          "path": "docs/opencode-engine-review/05-license-and-provenance.md",
+          "line": 22
+        },
+        {
+          "path": "docs/opencode-engine-review/05-license-and-provenance.md",
+          "line": 33
+        }
+      ],
+      "retain": "Do not delete original native/hosted/GUI/account failure reports, independent reviews, retained SQLite/native provenance manifests, immutable source pins, phase acceptance records or license/source notices. Different source/runtime/OS/account/scenario evidence is not redundant because outcome/count text overlaps. The new CI retention copy proof does not resolve the original macOS26 EPERM/process-snapshot failure.",
+      "delete": "No whole progress/evidence/license document has sufficiently complete internal+external consumer and historical provenance evidence for unconditional deletion in this finite audit."
+    },
+    {
+      "id": "RF06-CI-TRIGGER",
+      "classification": "fix",
+      "status": "confirmed-at-qualified-source-scheduling-gap-forwarded-to-root-no-edit",
+      "priorReview": {
+        "path": "docs/moodcode/next-inventory-manual-review.json",
+        "id": "RF01-NATIVE-CI-TRIGGER",
+        "comparedMain": "b1d39de17df3dab4fd60f738df5817e369fa62c2",
+        "scope": "Exactly nine unsupported-format files, manual source coverage; no native execution acceptance."
+      },
+      "target": ".github/workflows/engine-native-windows.yml",
+      "evidence": [
+        {
+          "path": ".github/workflows/engine-native-windows.yml",
+          "line": 7
+        },
+        {
+          "path": ".github/workflows/engine-native-windows.yml",
+          "line": 18
+        },
+        {
+          "path": ".github/workflows/engine-native-windows.yml",
+          "line": 73
+        },
+        {
+          "path": ".github/workflows/engine-native-windows.yml",
+          "line": 77
+        },
+        {
+          "path": ".github/workflows/engine-native-windows.yml",
+          "line": 83
+        }
+      ],
+      "requiredFilters": [
+        {
+          "pattern": ".github/scripts/**",
+          "reason": "Direct engine-ci launcher plus unconditionally loaded helper graph. The native lists omit this input.",
+          "callers": [
+            {
+              "path": ".github/scripts/engine-ci.mjs",
+              "line": 21
+            },
+            {
+              "path": ".github/scripts/engine-ci.mjs",
+              "line": 22
+            },
+            {
+              "path": ".github/scripts/engine-ci.mjs",
+              "line": 23
+            },
+            {
+              "path": ".github/scripts/hardening-evidence.mjs",
+              "line": 13
+            }
+          ]
+        },
+        {
+          "pattern": "scripts/inspect-engine-db-contract.mjs",
+          "reason": "Unconditional static import is linked before native launcher modes; db-contract operation need not run for the module to be a dependency.",
+          "callers": [
+            {
+              "path": ".github/scripts/engine-ci.mjs",
+              "line": 17
+            }
+          ]
+        },
+        {
+          "pattern": "tsconfig.base.json",
+          "reason": "All explicit native build/typecheck projects extend this root compiler input. Per-package configs already match existing package paths.",
+          "callers": [
+            {
+              "path": "packages/contracts/tsconfig.json",
+              "line": 2
+            },
+            {
+              "path": "packages/engine/tsconfig.json",
+              "line": 2
+            },
+            {
+              "path": "apps/engine-harness/tsconfig.json",
+              "line": 2
+            }
+          ]
+        },
+        {
+          "pattern": "apps/engine-harness/**",
+          "reason": "Actual PROJECTS typechecks/builds the harness. A harness-only change affects the gate but matches neither native trigger list.",
+          "callers": [
+            {
+              "path": ".github/scripts/engine-ci.mjs",
+              "line": 32
+            }
+          ]
+        }
+      ],
+      "notRequiredByCurrentNativeCallerProof": [
+        {
+          "path": "tsconfig.json",
+          "reason": "Native commandPlan passes explicit PROJECTS to tsc -b. Root references file is not a direct native input; tsconfig*.json may be chosen for future consistency, but tsconfig.base.json is the established missing compiler input."
+        },
+        {
+          "path": "scripts/test-engine.mjs",
+          "reason": "Native test-windows directly enumerates compiled contracts/storage/backends tests; this file is called by the separate test mode."
+        },
+        {
+          "pattern": "scripts/*windows*.mjs",
+          "reason": "Already present in both lists; covers direct native metadata/prepare/verify scripts."
+        }
+      ],
+      "fix": "Root adds required source patterns to BOTH push and pull_request lists. No native outcome/classification/deadline changes.",
+      "verification": "Check matching/nonmatching path examples for both filters and require actual hosted native acceptance on the next integrated source. This is a source scheduling gap, not an observed Windows runtime failure; no workflow dispatch in this audit."
+    }
+  ],
+  "validation": {
+    "kind": "source/document evidence validation only",
+    "noExecutionCredit": true,
+    "checks": [
+      "Existing compiler verification record reports20 erased bindings in16 files,32 identical emitted JS/declarations; all16 current after-source hashes matched at capture.",
+      "Windows alias/canonical nativePackaging compared structurally:19/19 values identical.",
+      "All review references resolve to exact existing anchors and source SHA pins; generated JSON parsed and source pins rechecked.",
+      "Initial current-file validation rejected moving source/docs. Every exact reference then validated against its recorded immutable gitCommit; no stale line claimed current.",
+      "Native trigger gap compared with exact current import/project callers; root tsconfig.json and test-engine.mjs distinguished from native inputs."
+    ],
+    "limits": "No new build/typecheck/test/native/GUI/account/performance execution. Pending integrated source changes require reassessing anchors and semantics. Root final RF06 acceptance remains open.",
+    "exactReferencesChecked": 81
+  },
+  "sourcePins": [
+    {
+      "path": ".github/scripts/engine-ci.mjs",
+      "sha256": "747d8090ee1b3703e93c2618150d8595cf3779d24c5a9400e9faf1c32939ed08",
+      "bytes": 25758,
+      "gitCommit": "5fdb90d9cec858ab7a2cdc4c477c8c054483c033"
+    },
+    {
+      "path": ".github/scripts/hardening-evidence.mjs",
+      "sha256": "061075b5e2b171434162f1ff2438150735ad68f40bcb211d4c260c1ac1d5cb3f",
+      "bytes": 7568,
+      "gitCommit": "5fdb90d9cec858ab7a2cdc4c477c8c054483c033"
+    },
+    {
+      "path": ".github/workflows/engine-native-windows.yml",
+      "sha256": "d51b326ec6ccfaeff82411b90d175d96f75793dbfd982d8018f2d43abbe7bd1a",
+      "bytes": 3688,
+      "gitCommit": "5fdb90d9cec858ab7a2cdc4c477c8c054483c033"
+    },
+    {
+      "path": "apps/desktop/electron-builder.config.cjs",
+      "sha256": "1cb78594f486ce60497c2719ba235bb58f09f93f7a47c498ef3dce6e5c6c9aea",
+      "bytes": 1421,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "apps/desktop/package.json",
+      "sha256": "a7ec8eafc89a460b214fe9d6a45125c9c95d40c368053bce369aca98eb2d32f8",
+      "bytes": 561,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "apps/desktop/src/main/account-auth.ts",
+      "sha256": "f61b7c3471cd1f8203d8585655e41ec0ad89ea5cbb6efc5068037d9efb6f05d9",
+      "bytes": 16612,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "apps/engine-harness/tsconfig.json",
+      "sha256": "6164ab79c46f48e18d3c0df3c1f98dfd0be27139834929da2608e4c3ef1dbddb",
+      "bytes": 280,
+      "gitCommit": "5fdb90d9cec858ab7a2cdc4c477c8c054483c033"
+    },
+    {
+      "path": "docs/moodcode/implementation-status.md",
+      "sha256": "ef2d88302dfc25db87653c1f025194b503022a668ddcaf90a7219fdae8956980",
+      "bytes": 18034,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "docs/moodcode/next-ci-hardening-retention-review.json",
+      "sha256": "4ac49fac05122027ba0720b5b50d1afdb0f9d17d9ba357cbe2a208f7a88aea47",
+      "bytes": 29001,
+      "gitCommit": "5fdb90d9cec858ab7a2cdc4c477c8c054483c033"
+    },
+    {
+      "path": "docs/moodcode/next-desktop-package-progress.json",
+      "sha256": "cddf3e9b2462132a365a11f3bf58beba6c24a0b98ef23d55fd5f1f179bd536f2",
+      "bytes": 5418,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "docs/moodcode/next-execution-progress.json",
+      "sha256": "9153ec9052dcd17074321f687abc2ad6b149fbff49e0467e3123628b90292d40",
+      "bytes": 15648,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "docs/moodcode/next-host-cancel-review.json",
+      "sha256": "7bc93f7ede5f8d788f9e501f0976a010ee7d835e513569a4f3fdc57973c9ceae",
+      "bytes": 8631,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "docs/moodcode/next-inventory-manual-review.json",
+      "sha256": "54080e898f976d5b14247217c770456b1925816d639ed4cf230938c306200848",
+      "bytes": 52750,
+      "gitCommit": "5fdb90d9cec858ab7a2cdc4c477c8c054483c033"
+    },
+    {
+      "path": "docs/moodcode/next-provider-pdf-progress.json",
+      "sha256": "6cd12425d9b431cf619a934a9a999f6f599a33b06050e0f93b226e2ae5b82463",
+      "bytes": 8722,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "docs/moodcode/next-provider-progress.json",
+      "sha256": "f54861cef625a4889687b17baa2bbcced7ca45f95d57a55a36381b824d570f08",
+      "bytes": 13871,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "docs/moodcode/next-unused-type-imports-verification.json",
+      "sha256": "316c46a4a259654be714b456c280d5aca7c3b6782cedabd501c4d499748d22db",
+      "bytes": 14144,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "docs/moodcode/next-windows-progress.json",
+      "sha256": "4af36bde8014405db7c888dd1d91d4ce8760418b03f6e3247fb47634361ab2c5",
+      "bytes": 21440,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "docs/moodcode/README.md",
+      "sha256": "fca54c9240478191206774e9f48ecc5fd1f701e85ba9fee40165dc1e0528b09a",
+      "bytes": 6008,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "docs/moodcode/refactor-inventory-method.md",
+      "sha256": "3164d66b2b1b2fb537f8c1b103bb42cda6222746af5a0ad034d6710b648fc134",
+      "bytes": 14479,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "docs/next-windows-progress.json",
+      "sha256": "8d0956f240d74c8ab88846079e4e7d3b32e528890691b5a59aaeeb6b11a5eb7c",
+      "bytes": 2308,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "docs/opencode-engine-review/05-license-and-provenance.md",
+      "sha256": "edbc7458195765478fa4a38e2c6dce638e82af12cc4592f8930ead6e230e1b6c",
+      "bytes": 4936,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "package.json",
+      "sha256": "2ddee2bcf17d79b6bedb2637b2cdbc4e7be5e8ac8dbab0881ee87a2c28e15e4d",
+      "bytes": 3035,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/contracts/tsconfig.json",
+      "sha256": "8f98007fa9bfcc4f64a943e25fd2e06f9fd3f726088ffbf88ac58874252651e4",
+      "bytes": 173,
+      "gitCommit": "5fdb90d9cec858ab7a2cdc4c477c8c054483c033"
+    },
+    {
+      "path": "packages/engine/package.json",
+      "sha256": "ec334fefaa64cc358ed11a95072ebaeecfa1df5e8aa00d210fb41956b12b8002",
+      "bytes": 356,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/agent-backends/store.ts",
+      "sha256": "771cfbe0993676657c82d4bfb89e3fcd2c3f06f9922763114c0c71333c0cfaa7",
+      "bytes": 134116,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/code-mode/process.ts",
+      "sha256": "5432bdf1378f6ec56919217e3407eb4694def81724109115ff2c26d3f74da28b",
+      "bytes": 11228,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/engine.ts",
+      "sha256": "a9c169e08d53ac9aef15e7be10f309e549e12431ac87af39f5e3aee2351df46e",
+      "bytes": 228279,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/formatters/index.ts",
+      "sha256": "61aa4c5e093a5edb60192d8f0fd2e970be9c1f994ce35f6a5f1a246c77b892b6",
+      "bytes": 6819,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/index.ts",
+      "sha256": "a83d2a3e385e20862adf3882cc67660f0fce9a02d0714f2c8d0c61c9d4d9fa9a",
+      "bytes": 18731,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/registry.ts",
+      "sha256": "6304874e458a5eda61fa40256f4ebd83ba8f53fcf7799cd5908a227c66ad7d0d",
+      "bytes": 8165,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/lsp/index.ts",
+      "sha256": "7e0265278f3a64c3023d970a29339c743f03341e9a3a12ac571da98ea5848bd1",
+      "bytes": 30674,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/lsp/typescript-native.ts",
+      "sha256": "a5d0eb6722c2d8d51356ee985d710b20e21b5e62cc9b56d52eb90b0d0d7cda03",
+      "bytes": 7016,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/repository/fixtures/native-semantic-benchmark.ts",
+      "sha256": "a66c9b191fb16898e328c5fdce21ef223913a20351eba96ca7cef1609397f9a6",
+      "bytes": 13286,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/runner/index.ts",
+      "sha256": "16895c5d89eabb216eb65fb1aa6dbd2ab5d5a807a92b77a586d87808e22cbdac",
+      "bytes": 162554,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/runner/input-scheduler.ts",
+      "sha256": "5df073f59c5b96f2b167c2a68a1d90bde818ad21435caf6cebbe6144ee51ff78",
+      "bytes": 8694,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/sandbox/host.ts",
+      "sha256": "6b31bff7b277786f633746c30098b0e70d231fa981bb6f1f1134d302cea45092",
+      "bytes": 27095,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/terminals/backend.ts",
+      "sha256": "6577743bde681dbe553780d6d044574888cc4b162961833b3bc41a54aa43fda8",
+      "bytes": 14422,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/terminals/service.ts",
+      "sha256": "4242abf99070bc67e4490a8893f9689d1148f19888b9b27f0169bbae8fb6b5f0",
+      "bytes": 26831,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/terminals/supervisor.ts",
+      "sha256": "b979e040a976c61b6ee05d82f4151757fefdd9e11302693d775137f9a3ee82df",
+      "bytes": 9861,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/tools/command/backends.ts",
+      "sha256": "64b2de5fae36d7f8d5afe2aba773f5fdf0350cdb1d7666a976ab9f50a7238ac5",
+      "bytes": 12570,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/src/tools/command/windows-job-host.ts",
+      "sha256": "4f0d5f5d7deeaa5ed03e6783a03ceefd321eb1d2a2aa7a7efd4d40dc2e3ff122",
+      "bytes": 6090,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/engine/tsconfig.json",
+      "sha256": "77bce36f3e9727b65bad73927abbf5ef3391453d2ff407f2740e4f7c83783567",
+      "bytes": 217,
+      "gitCommit": "5fdb90d9cec858ab7a2cdc4c477c8c054483c033"
+    },
+    {
+      "path": "packages/windows-job/index.d.ts",
+      "sha256": "94087e99fe64c36073149e085d5cd20f3991f128c918c0137966cd838363401b",
+      "bytes": 1486,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/windows-job/index.js",
+      "sha256": "45db7f3ec4ac72f3e78ceebb39bdae47b74ff49dde81a6aed054df9beebd7b13",
+      "bytes": 1579,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "packages/windows-job/package.json",
+      "sha256": "6354a37f42e33904592e4b78ade2a75ea5a2b910cd267c7997ea7048d582c570",
+      "bytes": 505,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "README.md",
+      "sha256": "9a9b952fcf1316dcbfd1789d1fe30fc90c0691b37c588bd4706ad20e2f9c0795",
+      "bytes": 15198,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "scripts/build-desktop.mjs",
+      "sha256": "b9a70bcfc73dddfe5580ed4d0b00754eefe6bc46381f28cabf98ca8579155970",
+      "bytes": 2027,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    },
+    {
+      "path": "scripts/refactor-inventory/worker.mjs",
+      "sha256": "1ed18ac78331bc9c426a4b4de80c25d720a54fb2493b66fed9eafaa83c2569ea",
+      "bytes": 3065,
+      "gitCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2"
+    }
+  ]
+}
