@@ -155,15 +155,36 @@ async function httpFixture(t, mode = "normal") {
           .flatMap((item) => item.content ?? [])
           .filter((b) => b.type === "input_image");
         assert.equal(frames.length, 3);
-        outgoing.end(
-          responseText(
-            frames.map((frame) => frameColor(frame.image_url)).join(" "),
-          ),
-        );
+        const colors = frames.map((frame) => frameColor(frame.image_url));
+        const answer =
+          mode === "video-punctuation"
+            ? colors.join(",")
+            : mode === "video-wrong-order"
+              ? colors.toReversed().join(" ")
+              : mode === "video-extra-digit"
+                ? colors.join(" 123 ")
+                : mode === "video-extra-word"
+                  ? "private-upstream-value " + colors.join(" ")
+                  : colors.join(" ");
+        outgoing.end(responseText(answer));
         return;
       }
       if (body.modalities?.includes("audio")) {
         outputCount++;
+        if (mode === "malformed-audio") {
+          outgoing.end(
+            event(
+              choice({
+                audio: {
+                  id: "private-remote-audio-id",
+                  transcript: "private-remote-audio-transcript",
+                  "private-remote-audio-key": "private-remote-audio-value",
+                },
+              }),
+            ),
+          );
+          return;
+        }
         const prompt = body.messages.at(-1).content;
         assert.equal(typeof prompt, "string");
         const phrase = prompt.includes("nothing else: ")
@@ -403,6 +424,11 @@ test(
     assert.equal(f.requests.length, 4);
     assert.equal(f.closedCancel, 1);
     assert.ok(f.requests.every((r) => r.authorization === undefined));
+    assert.equal(report.configuration.chatStreamObfuscation, false);
+    for (const request of f.requests.filter(
+      (r) => r.body.model === "explicit-http-audio",
+    ))
+      assert.equal(request.body.stream_options.include_obfuscation, false);
     assertSelectedPreflights(report, ["audio", "video"]);
     assertSelectedDuplicates(report, ["audio", "video"]);
     const cases = new Map(report.scopeCoverage.map((c) => [c.caseId, c]));
@@ -490,6 +516,39 @@ test(
 );
 
 test(
+  "malformed audio retains only bounded structural diagnostics and genuine failed native cleanup evidence",
+  { timeout: 20000 },
+  async (t) => {
+    const f = await httpFixture(t, "malformed-audio"),
+      report = await verifyMediaAccount(fixtureArgs(f, "audio"), hookRuntime);
+    assert.equal(report.passed, false);
+    assert.equal(report.accountVerified, false);
+    assert.equal(report.failure, "PROVIDER_MALFORMED_STREAM");
+    assert.equal(report.actualRequests.length, 1);
+    assert.equal(
+      report.actualRequests[0].responseContentType,
+      "text/event-stream",
+    );
+    assert.equal(report.cleanupConfirmed, true);
+    assert.equal(report.streamDiagnostics.length, 1);
+    assert.equal(report.streamDiagnostics[0].providerId, "verify-audio-output");
+    assert.equal(report.streamDiagnostics[0].modelId, "explicit-http-audio");
+    assert.ok(
+      Buffer.byteLength(JSON.stringify(report.streamDiagnostics)) < 4096,
+    );
+    assert.equal(
+      JSON.stringify(report).includes("private-remote-audio"),
+      false,
+    );
+    const native = report.scopeCoverage.find(
+      (item) => item.caseId === "audio-output-native",
+    ).native;
+    assert.equal(native.state, "failed");
+    assert.ok(native.attempts.every((attempt) => attempt.cleanup.confirmed));
+  },
+);
+
+test(
   "recognition mismatch cannot receive account credit or conceal actual completed native attempts",
   { timeout: 20000 },
   async (t) => {
@@ -506,8 +565,86 @@ test(
       "completed",
     );
     assert.ok(report.remainingScopes.includes("audio-partial-cancel"));
+    const recognition = report.scopeCoverage.find(
+      (c) => c.caseId === "audio-fresh-recognition",
+    );
+    assert.equal(recognition.state, "recognition-mismatch");
+    assert.equal(recognition.recognition.matched, false);
+    assert.notEqual(
+      recognition.recognition.expectedSha256,
+      recognition.recognition.observedSha256,
+    );
+    assert.equal(
+      JSON.stringify(report).includes("unrelated wrong answer"),
+      false,
+    );
   },
 );
+
+test(
+  "video recognizes punctuation-separated colors without losing word boundaries",
+  { timeout: 20000 },
+  async (t) => {
+    const f = await httpFixture(t, "video-punctuation");
+    const report = await verifyMediaAccount(
+      fixtureArgs(f, "video"),
+      hookRuntime,
+    );
+    assert.equal(report.passed, true, report.failure);
+    const recognition = report.scopeCoverage.find(
+      (c) => c.caseId === "video-frame-recognition",
+    );
+    assert.equal(recognition.recognition.matched, true);
+    assert.equal(recognition.recognition.tokenCount, 3);
+    assert.deepEqual(
+      recognition.recognition.observedTokenKinds,
+      recognition.recognition.expectedColors,
+    );
+    assert.equal(report.actualRequests.length, 1);
+    assert.equal(report.accountVerified, false);
+  },
+);
+
+for (const mode of [
+  "video-wrong-order",
+  "video-extra-digit",
+  "video-extra-word",
+])
+  test(
+    "video mismatch retains bounded semantic diagnostics: " + mode,
+    { timeout: 20000 },
+    async (t) => {
+      const f = await httpFixture(t, mode);
+      const report = await verifyMediaAccount(
+        fixtureArgs(f, "video"),
+        hookRuntime,
+      );
+      assert.equal(report.failure, "VERIFY_RECOGNITION_MISMATCH");
+      assert.equal(report.passed, false);
+      assert.equal(report.accountVerified, false);
+      assert.equal(report.actualRequests.length, 1);
+      assert.equal(report.cleanupConfirmed, true);
+      const recognition = report.scopeCoverage.find(
+        (c) => c.caseId === "video-frame-recognition",
+      );
+      assert.equal(recognition.native.state, "completed");
+      assert.equal(recognition.state, "recognition-mismatch");
+      assert.equal(recognition.recognition.matched, false);
+      assert.notEqual(
+        recognition.recognition.expectedSha256,
+        recognition.recognition.observedSha256,
+      );
+      assert.equal(recognition.recognition.tokensTruncated, false);
+      assert.equal(
+        JSON.stringify(report).includes("private-upstream-value"),
+        false,
+      );
+      assert.equal(
+        report.scopeCoverage.some((c) => c.caseId === "duplicate-input"),
+        false,
+      );
+    },
+  );
 
 test(
   "truncated HTTP audio has real interrupted Artifact/failed Part and confirmed iterator cleanup, never a recognition pass",

@@ -1,0 +1,72 @@
+{
+  "kind": "actual-offline-engine-video-wire-pixels",
+  "accountVerified": false,
+  "networkCalls": 0,
+  "credentialReads": 0,
+  "passed": true,
+  "fixtureProviderRequests": 1,
+  "nativeRunState": "completed",
+  "nativeAttempts": 1,
+  "wireAssets": [
+    {
+      "index": 0,
+      "width": 8,
+      "height": 8,
+      "pngBytes": 75,
+      "pngSha256": "96fc68e2c468dc5f804be781a845306b7f8cc1bf78ba8b46091d92e1194054f4",
+      "allPixelsMatch": true,
+      "detail": "auto"
+    },
+    {
+      "index": 1,
+      "width": 8,
+      "height": 8,
+      "pngBytes": 73,
+      "pngSha256": "0c36f4f8a6b6438ca79882def5e8b70e37aab7db0a8d097f4604a61fcd6a3bfe",
+      "allPixelsMatch": true,
+      "detail": "auto"
+    },
+    {
+      "index": 2,
+      "width": 8,
+      "height": 8,
+      "pngBytes": 75,
+      "pngSha256": "57cda64cead0869cd5f90dfebb024f4bd9a922aaea91d513de6fa3e949d88921",
+      "allPixelsMatch": true,
+      "detail": "auto"
+    }
+  ],
+  "timestamps": [
+    {
+      "index": 0,
+      "startMs": 0,
+      "endMs": 500,
+      "sourceSha256": "8c46b7761a83b3c9ed7c0698d51b84d965f8f07fe5c833511eaa75683905b39b",
+      "assetSha256": "96fc68e2c468dc5f804be781a845306b7f8cc1bf78ba8b46091d92e1194054f4"
+    },
+    {
+      "index": 1,
+      "startMs": 500,
+      "endMs": 1000,
+      "sourceSha256": "8c46b7761a83b3c9ed7c0698d51b84d965f8f07fe5c833511eaa75683905b39b",
+      "assetSha256": "0c36f4f8a6b6438ca79882def5e8b70e37aab7db0a8d097f4604a61fcd6a3bfe"
+    },
+    {
+      "index": 2,
+      "startMs": 1000,
+      "endMs": 1500,
+      "sourceSha256": "8c46b7761a83b3c9ed7c0698d51b84d965f8f07fe5c833511eaa75683905b39b",
+      "assetSha256": "57cda64cead0869cd5f90dfebb024f4bd9a922aaea91d513de6fa3e949d88921"
+    }
+  ],
+  "sourceBytes": 824,
+  "sourceSha256": "8c46b7761a83b3c9ed7c0698d51b84d965f8f07fe5c833511eaa75683905b39b",
+  "matchesLiveSourceSha256": true,
+  "storedTextExactlyMatchesFixture": true,
+  "storedTextSha256": "634ed009cb1698d59932ad8da2fcf7d16f3af69cb253d38f3b680d6bfd444d13",
+  "nativeTextPartSha256": [
+    "9fba77c7e8cf5a55921620677e3ce21f9b0c34502cf09b9afcd6347dd390962b"
+  ],
+  "compiledProviderSha256": "1559e3360f45ba21ec012150ef08182696d53fd212ea070e5448b13ec6c5bf9d",
+  "compiledSegmentsSha256": "889617443149033e1304d324b1c34df31bc9bd76837c0018ce653d3d43fba968"
+}

@@ -1,0 +1,24 @@
+{
+  "kind": "readonly-media-verifier-semantic-diagnostics-review",
+  "files": {
+    "scripts/verify-media-account.mjs": "c8d05f2200650ae9039f7bfce84a11ab27b332a532902046dfc5d94ac88d4add",
+    "scripts/verify-media-account.test.mjs": "72f5af12f4c1552250c10b0e6b39855aa86a3b77a30cd317d620cb7a96cfc450"
+  },
+  "sameBeforeAfterSha": true,
+  "result": "no actionable defect found within reviewed diff",
+  "findings": [],
+  "checked": [
+    "Unicode punctuation becomes a separator; digits and other symbols retained",
+    "word order/extra words/extra digits remain equality failures",
+    "raw/normalized upstream response not stored; only fixed colors/other first16 tokens, counts and hashes",
+    "mismatch evidence saved before failure; native completed separated from semantic passed",
+    "accountVerified remains false on mismatch/local fixture/cleanup failure",
+    "four HTTP fixture cases cover comma separators, wrong order, extra digit and extra meaningful word"
+  ],
+  "reviewerTests": 0,
+  "reviewerBuilds": 0,
+  "reviewerSourceEdits": 0,
+  "reviewerCredentialReads": 0,
+  "reviewerAccountCalls": 0,
+  "qualification": "static source review; producer local tests are still independently run by Root"
+}

@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "reviewedAt": "2026-10-08T16:22:14.822221+00:00",
+  "report": {
+    "path": "/tmp/moodcode-media-live-expiry-profile-all-20261009.json",
+    "sha256": "9aa481c0cbd04704998a33e72a02a0bcb447e3416c23b268f79ece975104b685",
+    "observedAt": "2026-10-08T16:14:05.160Z",
+    "passed": false,
+    "accountVerified": false,
+    "failureCode": "VERIFY_RECOGNITION_MISMATCH",
+    "failureCaseId": "video-frame-recognition",
+    "cleanupConfirmed": true,
+    "actualHttpRequests": 4,
+    "statuses": [
+      200,
+      200,
+      200,
+      200
+    ],
+    "sourceUnchanged": true,
+    "runtimeUnchanged": true,
+    "executorSha256": "2367b3f9461dd0a71404de98eca9bca084cfd089083d4381e2fb5087d8a9536a",
+    "runtimeSha256": "053590073941a92200a89e8fb71db4abeb48c1eb29430a039958c99e9066f5fa"
+  },
+  "reviewedSource": [
+    {
+      "path": "packages/engine/src/provider/openai-compatible.ts",
+      "sha256": "4d9a242beccb9b2b8cbf5bd282509c1c601580753b4c3479e8f80533c73ba78d"
+    },
+    {
+      "path": "packages/engine/src/provider/openai-compatible.test.ts",
+      "sha256": "ad2a85ee4441f84ad58c595e245420a8b6a0ca049022a67872d9d4086c797e5d"
+    },
+    {
+      "path": "scripts/verify-media-account.mjs",
+      "sha256": "c8d05f2200650ae9039f7bfce84a11ab27b332a532902046dfc5d94ac88d4add"
+    }
+  ],
+  "compatibilityVerdict": "Bounded explicit profile preserves native ownership and genuine cleanup. Default false; only declared audio output and no host-generation normalize missing stop after exact whole choice tuple, positive aligned PCM, expiry, DONE, known input/output counts and zero tool calls. Existing explicit length/filter/tools/recognition/missing terminal conditions still fail. This is host compatibility observed on an exact production model, not an assertion that generic expiry universally proves provider stop.",
+  "criteria": {
+    "id": "MC2-16d",
+    "completion": "실제 지원 모델별 invalid MIME·oversize·unknown capability·부분 생성·중복 delivery·source 삭제 검사. E5-13 닫힘과 신규 video/audio 완료를 따로 판정",
+    "audioExactModel": "gpt-audio-1.5",
+    "videoExactModel": "gpt-4.1-mini",
+    "fulfilledObservedAudio": [
+      "Four selected-model preflight negatives: invalid MIME, oversize, unknown capability, source deletion; each requests0/attempts0 with exact expected errors.",
+      "Actual completed native audio media Part and complete managed WAV Artifact, one actual Attempt and confirmed cleanup.",
+      "Fresh-session actual audio recognition matched random expected hash; expected absent from whole serialized recognition request; source hash matches output artifact.",
+      "Duplicate audio input retains exact Input/Run/Part/Attempt/cleanup/usage native snapshot with extra requests0.",
+      "Actual cancellation after native media data preserves interrupted media Part and incomplete Artifact; Run cancelled; original iterator cleanup confirmed; unknown usage remains null."
+    ],
+    "unresolved": [
+      "Video request/native Run completed but exact semantic recognition assertion failed; native completion cannot substitute for semantic match.",
+      "Video duplicate assertion did not run after failed semantic assertion.",
+      "Following successful-suite archive/restart/no-replay checks were not reached; existing fixture proof cannot be relabeled as this account run.",
+      "Global and every per-case accountVerified remain false; MC2-16d and E5-13 remain unclosed."
+    ]
+  },
+  "audioFacts": {
+    "artifactSha256": "fbc06bf891ce05aa83294cad335dc9dcf464a74bf0513a6f0c05efdc4b709e79",
+    "pcmBytes": 153600,
+    "wavBytes": 153644,
+    "recognitionMatched": true,
+    "recognitionHash": "3bc3346eb7509977d9c673d5c632926d37db407c252eca1ebd9b8de9d7cdae48",
+    "freshSession": true,
+    "expectedAbsentFromFullWire": true,
+    "duplicateSameNative": true,
+    "duplicateAdditionalRequests": 0,
+    "partialBytes": 19244,
+    "partialComplete": false,
+    "partialCleanup": true,
+    "partialUsageKnown": false
+  },
+  "layoutBoundary": {
+    "sampleRate": 24000,
+    "channels": 1,
+    "bits": 16,
+    "provenance": "explicit host declaration; successful recognition is operational evidence, not official Chat PCM-rate/channel documentation and not inference from Realtime/TTS.",
+    "tokenCost": null,
+    "unknownCostAllowed": true
+  },
+  "reportCaveat": "scopeCoverage video-frame-recognition state passed denotes native transport step; global VERIFY_RECOGNITION_MISMATCH means its semantic requirement did not pass. Root is updating verifier; do not count that item as completed account evidence.",
+  "reviewer": {
+    "sourceWrites": 0,
+    "builds": 0,
+    "testRuns": 0,
+    "credentialReads": 0,
+    "accountRequests": 0,
+    "commits": 0
+  }
+}

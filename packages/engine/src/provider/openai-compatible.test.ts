@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import { getEventListeners } from 'node:events';
+import { execFileSync } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { setImmediate as nextTick } from 'node:timers/promises';
 import test, { type TestContext } from 'node:test';
-import { EngineError } from '@moodcode/contracts';
+import { EngineError, type JsonObject } from '@moodcode/contracts';
+import { createEngine } from '../engine.js';
+import { decodePcmWave } from '../media/segments.js';
 import type { ProviderEvent, TurnRequest } from '../ports.js';
-import { OpenAICompatibleProvider, type OpenAICompatibleProviderOptions } from './openai-compatible.js';
+import { OpenAICompatibleProvider, type ChatMalformedStreamDiagnostic, type OpenAICompatibleProviderOptions } from './openai-compatible.js';
 
 const SECRET = 'sk-fixture-private-1234567890';
 const DONE = 'data: [DONE]\r\n\r\n';
@@ -393,4 +399,465 @@ test('malformed UTF-8 is rejected and cannot produce a replacement-character com
     outgoing.end(Buffer.concat([Buffer.from('data: {"choices":[{"index":0,"delta":{"content":"'), Buffer.from([0xc3, 0x28]), Buffer.from('"},"finish_reason":"stop"}]}\r\n\r\n' + DONE)]));
   });
   await failure(new OpenAICompatibleProvider({ baseURL: local.baseURL }), 'PROVIDER_MALFORMED_STREAM');
+});
+
+test('malformed audio diagnostics identify exact partial-field branches without exposing remote data', async t => {
+  const privateId = 'private-remote-audio-id';
+  const privateTranscript = 'private-remote-transcript';
+  const privateKey = 'private-remote-key';
+  const privateValue = 'private-remote-value';
+  const cases = [
+    { audio: { id: privateId, transcript: privateTranscript, [privateKey]: privateValue }, stage: 'audio-fields', type: 'missing' },
+    { audio: { id: 17, transcript: privateTranscript }, stage: 'audio-id', type: 'missing' },
+    { audio: { id: privateId, data: [privateValue] }, stage: 'audio-data', type: 'array' },
+    { audio: { id: privateId, data: privateValue }, stage: 'audio-data', type: 'string' },
+    { audio: { id: privateId, transcript: { [privateKey]: privateValue } }, stage: 'audio-transcript', type: 'missing' },
+    { audio: { id: privateId, expires_at: privateValue }, stage: 'audio-expiry', type: 'missing' },
+  ] as const;
+  let ordinal = 0;
+  const local = await fixture(t, (_incoming, outgoing) => {
+    const selected = cases[ordinal++];
+    assert.ok(selected);
+    sse(outgoing);
+    const wire = chunk({ role: 'assistant' }) + chunk({ audio: selected.audio }) + DONE;
+    // Actual HTTP fragments do not necessarily align with SSE or JSON fields.
+    outgoing.write(wire.slice(0, 19));
+    outgoing.write(wire.slice(19, 137));
+    outgoing.end(wire.slice(137));
+  });
+  for (const selected of cases) {
+    const diagnostics: ChatMalformedStreamDiagnostic[] = [];
+    const provider = new OpenAICompatibleProvider({
+      baseURL: local.baseURL, apiKey: SECRET,
+      outputAudio: { modelIds: ['explicit-fixture-model'], voice: 'alloy', sampleRate: 8_000, channels: 1 },
+      onMalformedStream: diagnostic => diagnostics.push(diagnostic),
+    });
+    await failure(provider, 'PROVIDER_MALFORMED_STREAM');
+    assert.equal(diagnostics.length, 1);
+    const diagnostic = diagnostics[0]!;
+    assert.ok(Object.isFrozen(diagnostic));
+    assert.equal(diagnostic.version, 1);
+    assert.equal(diagnostic.frameOrdinal, 2);
+    assert.equal(diagnostic.stage, selected.stage);
+    assert.equal(diagnostic.choicesType, 'array');
+    assert.equal(diagnostic.choicesCount, 1);
+    assert.equal(diagnostic.indexIsZero, true);
+    assert.equal(diagnostic.audioType, 'object');
+    assert.equal(diagnostic.audioDataType, selected.type);
+    assert.equal(diagnostic.audioBytesSeen, 0);
+    const rendered = JSON.stringify(diagnostic);
+    assert.ok(Buffer.byteLength(rendered) < 4_096);
+    for (const privateText of [privateId, privateTranscript, privateKey, privateValue, SECRET]) assert.ok(!rendered.includes(privateText));
+    assert.ok(Object.values(diagnostic).every(value => value === diagnostic.top || value === diagnostic.precedingFrames || value === null || ['boolean', 'number', 'string'].includes(typeof value)));
+    assert.ok(Object.isFrozen(diagnostic.top));
+    assert.ok(Object.isFrozen(diagnostic.precedingFrames));
+    assert.equal(diagnostic.precedingFrames.length, 1);
+  }
+  assert.equal(local.requestCount(), cases.length);
+});
+
+test('audio expiry-only terminal update remains valid with the diagnostic observer enabled', async t => {
+  const diagnostics: ChatMalformedStreamDiagnostic[] = [];
+  const pcm = Buffer.from([0, 0, 1, 0]);
+  const local = await fixture(t, (_incoming, outgoing) => {
+    sse(outgoing);
+    outgoing.end(chunk({ audio: { id: 'fixture-audio', data: pcm.toString('base64'), transcript: 'sound' } }) + chunk({}, 'stop')
+      + `data: ${JSON.stringify({ choices: [{ index: 0, delta: { audio: { expires_at: 1_893_456_000 } } }] })}\r\n\r\n`
+      + usage({ prompt_tokens: 2, completion_tokens: 3 }) + DONE);
+  });
+  const provider = new OpenAICompatibleProvider({
+    baseURL: local.baseURL,
+    outputAudio: { modelIds: ['explicit-fixture-model'], voice: 'alloy', sampleRate: 8_000, channels: 1 },
+    onMalformedStream: diagnostic => diagnostics.push(diagnostic),
+  });
+  const events = await collect(provider);
+  assert.deepEqual(diagnostics, []);
+  assert.equal(events.filter(event => event.type === 'media.delta').length, 1);
+  assert.equal(events.filter(event => event.type === 'media.end').length, 1);
+  assert.deepEqual(events.at(-1), { type: 'finish', reason: 'stop' });
+  assert.equal(local.requestCount(), 1);
+});
+
+test('diagnostic observer throws cannot replace malformed failure or actual body cancellation', async t => {
+  for (const asynchronous of [false, true]) {
+    const closed = deferred<void>();
+    let observations = 0;
+    const local = await fixture(t, (_incoming, outgoing) => {
+      outgoing.once('close', () => closed.resolve());
+      sse(outgoing);
+      outgoing.write(chunk({ audio: { id: 'fixture-audio', data: [] } }));
+    });
+    const onMalformedStream = asynchronous
+      ? async () => { observations += 1; throw new Error(SECRET); }
+      : () => { observations += 1; throw new Error(SECRET); };
+    await deadline(failure(new OpenAICompatibleProvider({
+      baseURL: local.baseURL,
+      outputAudio: { modelIds: ['explicit-fixture-model'], voice: 'alloy', sampleRate: 8_000, channels: 1 },
+      onMalformedStream,
+    }), 'PROVIDER_MALFORMED_STREAM'));
+    await deadline(closed.promise);
+    await nextTick();
+    assert.equal(observations, 1);
+    assert.equal(local.requestCount(), 1);
+  }
+});
+
+test('malformed response diagnostics expose a fixed response stage without reflecting headers', async t => {
+  const diagnostics: ChatMalformedStreamDiagnostic[] = [];
+  const local = await fixture(t, (_incoming, outgoing) => {
+    outgoing.writeHead(200, { 'Content-Type': `application/private-${SECRET}` });
+    outgoing.end(SECRET);
+  });
+  await failure(new OpenAICompatibleProvider({ baseURL: local.baseURL, onMalformedStream: diagnostic => diagnostics.push(diagnostic) }), 'PROVIDER_MALFORMED_STREAM');
+  assert.equal(diagnostics.length, 1);
+  assert.equal(diagnostics[0]!.stage, 'response');
+  assert.equal(diagnostics[0]!.frameOrdinal, 0);
+  assert.equal(diagnostics[0]!.choicesType, 'missing');
+  noSecret(diagnostics);
+  assert.throws(() => new OpenAICompatibleProvider({ onMalformedStream: 'invalid' } as unknown as OpenAICompatibleProviderOptions), error => error instanceof EngineError && error.code === 'PROVIDER_INVALID_CONFIG');
+});
+
+test('choice-less frame diagnostics retain only three preceding fixed top-level shapes', async t => {
+  const diagnostics: ChatMalformedStreamDiagnostic[] = [];
+  const privateText = 'private-remote-shape-value';
+  const local = await fixture(t, (_incoming, outgoing) => {
+    sse(outgoing);
+    outgoing.end(chunk({ role: 'assistant' }) + chunk({}) + chunk({}) + chunk({ audio: { id: 'private-audio-id' } })
+      + `data: ${JSON.stringify({ id: privateText, object: privateText, type: privateText, audio: { data: privateText }, data: privateText, delta: { audio: null }, usage: null, obfuscation: privateText, [privateText]: privateText })}\r\n\r\n` + DONE);
+  });
+  await failure(new OpenAICompatibleProvider({
+    baseURL: local.baseURL, apiKey: SECRET,
+    outputAudio: { modelIds: ['explicit-fixture-model'], voice: 'alloy', sampleRate: 8_000, channels: 1 },
+    onMalformedStream: diagnostic => diagnostics.push(diagnostic),
+  }), 'PROVIDER_MALFORMED_STREAM');
+  assert.equal(diagnostics.length, 1);
+  const diagnostic = diagnostics[0]!;
+  assert.equal(diagnostic.stage, 'choices');
+  assert.equal(diagnostic.frameOrdinal, 5);
+  assert.equal(diagnostic.audioIdSeen, true);
+  assert.equal(diagnostic.audioBytesSeen, 0);
+  assert.deepEqual(diagnostic.precedingFrames.map(frame => frame.frameOrdinal), [2, 3, 4]);
+  assert.equal(diagnostic.top.rootType, 'object');
+  assert.equal(diagnostic.top.choicesType, 'missing');
+  assert.equal(diagnostic.top.objectKind, 'other-string');
+  assert.equal(diagnostic.top.typeKind, 'other-string');
+  assert.equal(diagnostic.top.audioDataType, 'string');
+  assert.equal(diagnostic.top.audioDataCharacters, privateText.length);
+  assert.equal(diagnostic.top.deltaAudioType, 'null');
+  assert.equal(diagnostic.top.obfuscationType, 'string');
+  assert.equal(diagnostic.top.unknownFieldCount, 1);
+  for (const shape of [diagnostic.top, ...diagnostic.precedingFrames]) {
+    assert.ok(Object.isFrozen(shape));
+    assert.ok(Object.values(shape).every(value => value === null || ['boolean', 'number', 'string'].includes(typeof value)));
+  }
+  const rendered = JSON.stringify(diagnostic);
+  assert.ok(Buffer.byteLength(rendered) < 4_096);
+  assert.ok(!rendered.includes(privateText));
+  assert.ok(!rendered.includes('private-audio-id'));
+  noSecret(diagnostic);
+  assert.equal(local.requestCount(), 1);
+});
+
+test('explicit obfuscation transport selection completes audio without accepting choice-less metadata', async t => {
+  const serializedOptions: unknown[] = [];
+  const diagnostics: ChatMalformedStreamDiagnostic[] = [];
+  let forceMetadata = false;
+  const local = await fixture(t, async (incoming, outgoing) => {
+    const received = await body(incoming);
+    const streamOptions = received.stream_options as Record<string, unknown>;
+    serializedOptions.push(streamOptions);
+    sse(outgoing);
+    const prefix = chunk({ audio: { id: 'fixture-audio' } });
+    if (streamOptions.include_obfuscation !== false || forceMetadata) {
+      outgoing.end(prefix + `data: ${JSON.stringify({ id: 'fixture-completion', object: 'chat.completion.chunk', usage: null, obfuscation: 'private-padding' })}\r\n\r\n` + DONE);
+      return;
+    }
+    outgoing.end(prefix + chunk({ audio: { data: Buffer.from([0, 0, 1, 0]).toString('base64') } }) + chunk({}, 'stop')
+      + `data: ${JSON.stringify({ choices: [{ index: 0, delta: { audio: { expires_at: 1_893_456_000 } } }] })}\r\n\r\n` + DONE);
+  });
+  const options: OpenAICompatibleProviderOptions = {
+    baseURL: local.baseURL,
+    outputAudio: { modelIds: ['explicit-fixture-model'], voice: 'alloy', sampleRate: 8_000, channels: 1 },
+    onMalformedStream: diagnostic => diagnostics.push(diagnostic),
+  };
+  await failure(new OpenAICompatibleProvider(options), 'PROVIDER_MALFORMED_STREAM');
+  assert.deepEqual(serializedOptions[0], { include_usage: true });
+  assert.equal(diagnostics[0]!.stage, 'choices');
+  assert.equal(diagnostics[0]!.top.objectKind, 'chat.completion.chunk');
+  assert.equal(diagnostics[0]!.top.obfuscationType, 'string');
+  assert.equal(diagnostics[0]!.top.choicesType, 'missing');
+  const events = await collect(new OpenAICompatibleProvider({ ...options, includeStreamObfuscation: false }));
+  assert.deepEqual(serializedOptions[1], { include_usage: true, include_obfuscation: false });
+  assert.equal(events.filter(event => event.type === 'media.delta').length, 1);
+  assert.equal(events.filter(event => event.type === 'media.end').length, 1);
+  assert.deepEqual(events.at(-1), { type: 'finish', reason: 'stop' });
+  assert.equal(diagnostics.length, 1, 'Successful transport selection emits no malformed diagnostic.');
+  forceMetadata = true;
+  await failure(new OpenAICompatibleProvider({ ...options, includeStreamObfuscation: false }), 'PROVIDER_MALFORMED_STREAM');
+  assert.equal(diagnostics.length, 2, 'Opting out cannot authorize arbitrary choice-less frames.');
+  assert.equal(local.requestCount(), 3);
+});
+
+test('obfuscation selection is an exact optional boolean and true is transmitted unchanged', async t => {
+  let requests = 0;
+  const noFetch: typeof fetch = async () => { requests += 1; throw new Error('Unexpected HTTP request.'); };
+  for (const value of [null, 'false', 0, {}]) {
+    assert.throws(() => new OpenAICompatibleProvider({ fetch: noFetch, includeStreamObfuscation: value } as unknown as OpenAICompatibleProviderOptions), error => error instanceof EngineError && error.code === 'PROVIDER_INVALID_CONFIG');
+  }
+  assert.equal(requests, 0);
+  const local = await fixture(t, async (incoming, outgoing) => {
+    const received = await body(incoming);
+    assert.deepEqual(received.stream_options, { include_usage: true, include_obfuscation: true });
+    sse(outgoing);
+    outgoing.end(chunk({}, 'stop') + DONE);
+  });
+  const events = await collect(new OpenAICompatibleProvider({ baseURL: local.baseURL, includeStreamObfuscation: true }));
+  assert.deepEqual(events.at(-1), { type: 'finish', reason: 'stop' });
+  assert.equal(local.requestCount(), 1);
+});
+
+const audioMetadataTuple = { id: 'completion-fixture', object: 'chat.completion.chunk', created: 1_893_456_000, model: 'fixture-response-model' };
+function metadataFrame(value: Record<string, unknown>): string {
+  return `data: ${JSON.stringify(value)}\r\n\r\n`;
+}
+function metadataChoice(delta: Record<string, unknown> = {}, finish_reason: string | null = null, tuple = audioMetadataTuple): string {
+  return metadataFrame({ ...tuple, choices: [{ index: 0, delta, finish_reason }] });
+}
+
+test('audio metadata compatibility requires a preceding exact tuple and rejects every payload or scope widening', async t => {
+  const invalidFrames: Array<Record<string, unknown>> = [
+    { ...audioMetadataTuple, id: 'different-completion' },
+    { ...audioMetadataTuple, object: 'chat.completion' },
+    { ...audioMetadataTuple, created: audioMetadataTuple.created + 1 },
+    { ...audioMetadataTuple, model: 'different-model' },
+    { ...audioMetadataTuple, id: 1 },
+    { ...audioMetadataTuple, created: String(audioMetadataTuple.created) },
+    { ...audioMetadataTuple, model: null },
+    { ...audioMetadataTuple, usage: {} },
+    { ...audioMetadataTuple, usage: { prompt_tokens: 1 } },
+    { ...audioMetadataTuple, choices: null },
+    { ...audioMetadataTuple, audio: null },
+    { ...audioMetadataTuple, data: 'AAAA' },
+    { ...audioMetadataTuple, delta: {} },
+    { ...audioMetadataTuple, tool_calls: [] },
+    { ...audioMetadataTuple, error: null },
+    { ...audioMetadataTuple, unknown: 'private-value' },
+    { ...audioMetadataTuple, service_tier: {} },
+    { ...audioMetadataTuple, system_fingerprint: false },
+    { ...audioMetadataTuple, obfuscation: [] },
+  ];
+  let current = 0;
+  let wire = '';
+  const local = await fixture(t, (_incoming, outgoing) => { sse(outgoing); outgoing.end(wire); });
+  const options: OpenAICompatibleProviderOptions = { baseURL: local.baseURL, allowEmptyAudioMetadata: true, audioModelIds: ['explicit-fixture-model'] };
+  for (const invalid of invalidFrames) {
+    wire = metadataChoice({ role: 'assistant' }) + metadataFrame(invalid) + metadataChoice({}, 'stop') + DONE;
+    await failure(new OpenAICompatibleProvider(options), 'PROVIDER_MALFORMED_STREAM');
+    current += 1;
+  }
+  wire = metadataFrame(audioMetadataTuple) + metadataChoice({}, 'stop') + DONE;
+  await failure(new OpenAICompatibleProvider(options), 'PROVIDER_MALFORMED_STREAM');
+  wire = metadataChoice({}) + metadataFrame(audioMetadataTuple) + metadataChoice({}, 'stop') + DONE;
+  for (const disabled of [{ ...options, allowEmptyAudioMetadata: false }, { ...options, allowEmptyAudioMetadata: undefined }, { ...options, audioModelIds: [] }]) await failure(new OpenAICompatibleProvider(disabled), 'PROVIDER_MALFORMED_STREAM');
+  wire = metadataChoice({}) + metadataChoice({ content: 'must-not-emit' }, null, { ...audioMetadataTuple, id: 'different-completion' }) + DONE;
+  const drift = await failure(new OpenAICompatibleProvider(options), 'PROVIDER_MALFORMED_STREAM');
+  assert.ok(!drift.events.some(event => event.type === 'text.delta'));
+  assert.equal(local.requestCount(), current + 5);
+  for (const value of [null, 'true', 1, {}]) assert.throws(() => new OpenAICompatibleProvider({ allowEmptyAudioMetadata: value } as unknown as OpenAICompatibleProviderOptions), error => error instanceof EngineError && error.code === 'PROVIDER_INVALID_CONFIG');
+});
+
+test('valid empty audio metadata cannot manufacture media bytes, finish, expiry or DONE', async t => {
+  const wires = [
+    metadataChoice({}) + metadataFrame(audioMetadataTuple) + DONE,
+    metadataChoice({ audio: { id: 'fixture-audio' } }) + metadataFrame(audioMetadataTuple) + metadataChoice({}, 'stop') + metadataChoice({ audio: { expires_at: 1_893_456_000 } }) + DONE,
+    metadataChoice({ audio: { id: 'fixture-audio', data: 'AAAAAA==' } }) + metadataFrame(audioMetadataTuple) + metadataChoice({}, 'stop') + DONE,
+    metadataChoice({ audio: { id: 'fixture-audio', data: 'AAAAAA==' } }) + metadataFrame(audioMetadataTuple) + metadataChoice({}, 'stop') + metadataChoice({ audio: { expires_at: 1_893_456_000 } }),
+  ];
+  let ordinal = 0;
+  const local = await fixture(t, (_incoming, outgoing) => { sse(outgoing); outgoing.end(wires[ordinal++]); });
+  for (const _wire of wires) {
+    const failed = await failure(new OpenAICompatibleProvider({
+      baseURL: local.baseURL, allowEmptyAudioMetadata: true,
+      outputAudio: { modelIds: ['explicit-fixture-model'], voice: 'alloy', sampleRate: 8_000, channels: 1 },
+    }), 'PROVIDER_INCOMPLETE_STREAM');
+    assert.ok(!failed.events.some(event => event.type === 'media.end'));
+  }
+  assert.equal(local.requestCount(), wires.length);
+});
+
+test('audio metadata compatibility preserves genuine remote overflow and error mapping without remote text exposure', async t => {
+  const errors = [
+    { error: { code: 'context_length_exceeded', message: SECRET }, expected: 'PROVIDER_CONTEXT_OVERFLOW' },
+    { error: { message: SECRET }, expected: 'PROVIDER_REMOTE_ERROR' },
+  ];
+  let ordinal = 0;
+  const diagnostics: ChatMalformedStreamDiagnostic[] = [];
+  const local = await fixture(t, (_incoming, outgoing) => {
+    sse(outgoing);
+    const selected = errors[ordinal++];
+    assert.ok(selected);
+    outgoing.end(metadataChoice({ role: 'assistant' }) + metadataFrame({ ...audioMetadataTuple, error: selected.error }) + DONE);
+  });
+  for (const selected of errors) await failure(new OpenAICompatibleProvider({
+    baseURL: local.baseURL, allowEmptyAudioMetadata: true, audioModelIds: ['explicit-fixture-model'], apiKey: SECRET,
+    onMalformedStream: diagnostic => diagnostics.push(diagnostic),
+  }), selected.expected);
+  assert.deepEqual(diagnostics, []);
+  assert.equal(local.requestCount(), errors.length);
+});
+
+test('incomplete stream diagnostics distinguish DONE, finish and expiry without changing partial audio outcomes', async t => {
+  const prefix = metadataChoice({ audio: { id: 'private-incomplete-audio-id', data: 'AAAAAA==' } });
+  const cases = [
+    { wire: prefix + metadataChoice({}, 'stop'), done: false, finish: 'stop', expiry: false, stage: 'complete-markers' },
+    { wire: prefix + DONE, done: true, finish: 'missing', expiry: false, stage: 'complete-markers' },
+    { wire: prefix + metadataChoice({}, 'stop') + DONE, done: true, finish: 'stop', expiry: false, stage: 'complete-audio' },
+    { wire: prefix + 'data: {"private-incomplete-audio-id":', done: false, finish: 'missing', expiry: false, stage: 'sse' },
+  ] as const;
+  let ordinal = 0;
+  const local = await fixture(t, (_incoming, outgoing) => { sse(outgoing); outgoing.end(cases[ordinal++]!.wire); });
+  for (const selected of cases) {
+    const diagnostics: ChatMalformedStreamDiagnostic[] = [];
+    const failed = await failure(new OpenAICompatibleProvider({
+      baseURL: local.baseURL, allowEmptyAudioMetadata: true,
+      outputAudio: { modelIds: ['explicit-fixture-model'], voice: 'alloy', sampleRate: 8_000, channels: 1 },
+      onMalformedStream: diagnostic => diagnostics.push(diagnostic),
+    }), 'PROVIDER_INCOMPLETE_STREAM');
+    assert.equal(failed.events.filter(event => event.type === 'media.delta').length, 1);
+    assert.ok(!failed.events.some(event => event.type === 'media.end'));
+    assert.equal(diagnostics.length, 1);
+    const diagnostic = diagnostics[0]!;
+    assert.equal(diagnostic.failureCode, 'PROVIDER_INCOMPLETE_STREAM');
+    assert.equal(diagnostic.doneSeen, selected.done);
+    assert.equal(diagnostic.finishKind, selected.finish);
+    assert.equal(diagnostic.audioExpirySeen, selected.expiry);
+    assert.equal(diagnostic.stage, selected.stage);
+    assert.equal(diagnostic.audioBytesSeen, 4);
+    assert.equal(diagnostic.audioIdSeen, true);
+    assert.ok(Buffer.byteLength(JSON.stringify(diagnostic)) < 4_096);
+    assert.ok(!JSON.stringify(diagnostic).includes('private-incomplete-audio-id'));
+  }
+  assert.equal(local.requestCount(), cases.length);
+});
+
+test('audio expiry completion opt-in requires real PCM, exact tuple, counted usage and every terminal condition', async t => {
+  const pcm = metadataChoice({ audio: { id: 'fixture-expiry-audio', data: 'AAAAAA==' } });
+  const counted = metadataFrame({ ...audioMetadataTuple, choices: [], usage: { prompt_tokens: 3, completion_tokens: 4 } });
+  const expiry = metadataChoice({ audio: { expires_at: 1_893_456_000 } });
+  const complete = pcm + counted + expiry + DONE;
+  let wire = complete;
+  const local = await fixture(t, (_incoming, outgoing) => { sse(outgoing); outgoing.end(wire); });
+  const options: OpenAICompatibleProviderOptions = {
+    baseURL: local.baseURL, allowAudioExpiryCompletion: true,
+    outputAudio: { modelIds: ['explicit-fixture-model'], voice: 'alloy', sampleRate: 8_000, channels: 1 },
+  };
+  const events = await collect(new OpenAICompatibleProvider(options));
+  assert.equal(events.filter(event => event.type === 'media.delta').length, 1);
+  assert.equal(events.filter(event => event.type === 'media.end').length, 1);
+  assert.deepEqual(events.find(event => event.type === 'usage'), { type: 'usage', inputTokens: 3, outputTokens: 4 });
+  assert.deepEqual(events.at(-1), { type: 'finish', reason: 'stop' });
+  for (const disabled of [undefined, false]) await failure(new OpenAICompatibleProvider({ ...options, allowAudioExpiryCompletion: disabled }), 'PROVIDER_INCOMPLETE_STREAM');
+  const negatives = [
+    { wire: pcm + expiry + DONE, code: 'PROVIDER_INCOMPLETE_STREAM' },
+    { wire: pcm + usage({ prompt_tokens: 3 }) + expiry + DONE, code: 'PROVIDER_INCOMPLETE_STREAM' },
+    { wire: pcm + usage({}) + expiry + DONE, code: 'PROVIDER_INCOMPLETE_STREAM' },
+    { wire: pcm + counted + DONE, code: 'PROVIDER_INCOMPLETE_STREAM' },
+    { wire: pcm + counted + expiry, code: 'PROVIDER_INCOMPLETE_STREAM' },
+    { wire: metadataChoice({ audio: { id: 'fixture-expiry-audio' } }) + counted + expiry + DONE, code: 'PROVIDER_INCOMPLETE_STREAM' },
+    { wire: metadataChoice({ audio: { id: 'fixture-expiry-audio', data: 'AA==' } }) + counted + expiry + DONE, code: 'PROVIDER_INCOMPLETE_STREAM' },
+    { wire: chunk({ audio: { id: 'fixture-expiry-audio', data: 'AAAAAA==' } }) + counted + expiry + DONE, code: 'PROVIDER_INCOMPLETE_STREAM' },
+    { wire: pcm + metadataChoice({ tool_calls: [tool(0, 'call-fixture', 'read_file', '{}')] }) + counted + expiry + DONE, code: 'PROVIDER_INCOMPLETE_STREAM' },
+    { wire: pcm + counted + metadataChoice({}, 'length') + expiry + DONE, code: 'PROVIDER_INCOMPLETE_STREAM' },
+    { wire: pcm + metadataChoice({ tool_calls: [tool(0, 'call-fixture', 'read_file', '{}')] }, 'tool_calls') + counted + expiry + DONE, code: 'PROVIDER_INCOMPLETE_STREAM' },
+    { wire: pcm + metadataChoice({}, 'content_filter') + counted + expiry + DONE, code: 'PROVIDER_CONTENT_FILTERED' },
+  ];
+  for (const selected of negatives) {
+    wire = selected.wire;
+    const failed = await failure(new OpenAICompatibleProvider(options), selected.code);
+    assert.ok(!failed.events.some(event => event.type === 'media.end'));
+  }
+  wire = complete;
+  await failure(new OpenAICompatibleProvider({ ...options, outputAudio: { modelIds: ['unknown-fixture-model'], voice: 'alloy', sampleRate: 8_000, channels: 1 } }), 'PROVIDER_UNSUPPORTED_OUTPUT');
+  wire = metadataChoice({ content: 'text recognition is not audio output' }) + counted + DONE;
+  await failure(new OpenAICompatibleProvider({ baseURL: local.baseURL, audioModelIds: ['explicit-fixture-model'], allowAudioExpiryCompletion: true }), 'PROVIDER_INCOMPLETE_STREAM');
+  assert.equal(local.requestCount(), 1 + 2 + negatives.length + 2);
+  for (const value of [null, 'true', 1, {}]) assert.throws(() => new OpenAICompatibleProvider({ allowAudioExpiryCompletion: value } as unknown as OpenAICompatibleProviderOptions), error => error instanceof EngineError && error.code === 'PROVIDER_INVALID_CONFIG');
+});
+
+test('actual Engine metadata compatibility publishes PCM Artifact then recognizes newly admitted audio in a fresh session', async t => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-audio-metadata-')));
+  const repo = join(root, 'repo');
+  await mkdir(repo);
+  execFileSync('git', ['init', '-q', repo]);
+  const modelId = 'explicit-fixture-model';
+  const pcm = Buffer.alloc(128);
+  for (let i = 0; i < pcm.length / 2; i++) pcm.writeInt16LE(i - 32, i * 2);
+  const captured: Record<string, unknown>[] = [];
+  const local = await fixture(t, async (incoming, outgoing) => {
+    const received = await body(incoming);
+    captured.push(received);
+    assert.deepEqual(received.stream_options, { include_usage: true, include_obfuscation: false });
+    sse(outgoing);
+    if (captured.length === 1) {
+      assert.deepEqual(received.modalities, ['text', 'audio']);
+      outgoing.end(metadataChoice({ role: 'assistant' }) + metadataChoice({ audio: { id: 'fixture-audio' } }) + metadataFrame({ ...audioMetadataTuple, usage: null })
+        + metadataChoice({ audio: { data: pcm.toString('base64'), transcript: 'private-generation-transcript' } }) + metadataFrame(audioMetadataTuple)
+        + metadataFrame({ ...audioMetadataTuple, choices: [], usage: { prompt_tokens: 3, completion_tokens: 4 } }) + metadataChoice({ audio: { expires_at: 1_893_456_000 } }) + DONE);
+    } else {
+      assert.equal(captured.length, 2);
+      assert.equal(received.modalities, undefined);
+      assert.ok(!JSON.stringify(received).includes('private-generation-transcript'));
+      const messages = received.messages as Array<{ content: unknown }>;
+      const content = messages.flatMap(message => Array.isArray(message.content) ? message.content : []) as Array<{ type: string; input_audio?: { data: string } }>;
+      const audio = content.find(part => part.type === 'input_audio');
+      assert.ok(audio?.input_audio);
+      assert.deepEqual(decodePcmWave(Buffer.from(audio.input_audio.data, 'base64')).samples, pcm);
+      outgoing.end(metadataChoice({ role: 'assistant' }) + metadataFrame({ ...audioMetadataTuple, usage: null }) + metadataChoice({ content: 'Recognized exact local PCM' }) + metadataChoice({}, 'stop') + DONE);
+    }
+  });
+  const common = { baseURL: local.baseURL, audioModelIds: [modelId], includeStreamObfuscation: false, allowEmptyAudioMetadata: true, allowAudioExpiryCompletion: true };
+  const providers = [
+    new OpenAICompatibleProvider({ ...common, id: 'metadata-output', outputAudio: { modelIds: [modelId], voice: 'alloy', sampleRate: 8_000, channels: 1 } }),
+    new OpenAICompatibleProvider({ ...common, id: 'metadata-input' }),
+  ];
+  const artifactDir = join(root, 'artifacts');
+  const engine = createEngine({
+    dbPath: join(root, 'engine.sqlite'), artifactDir, providers, allowUnknownMediaTokenCost: true,
+    modelSpecs: providers.map(provider => ({ providerId: provider.id, modelId, contextWindow: 100_000, maxOutputTokens: 10_000, modalities: ['text', 'audio'], mediaCapabilities: { audioInput: true, videoFrames: false, audioOutput: provider.id === 'metadata-output' }, tools: true, reasoning: false, nativeReplay: false, source: { kind: 'fixture', observedAt: '2026-10-09T00:00:00Z' } })),
+    defaults: { providerId: 'metadata-output', modelId },
+  });
+  t.after(async () => { await engine.close(); await rm(root, { recursive: true, force: true }); });
+  const workspace = await engine.dispatch({ schemaVersion: 1, commandId: 'open', type: 'workspace.open', payload: { path: repo } });
+  assert.equal(workspace.ok, true, JSON.stringify(workspace.error));
+  const createSession = async (id: string) => {
+    const result = await engine.dispatch({ schemaVersion: 1, commandId: id, type: 'session.create', payload: { workspaceId: (workspace.result as JsonObject).id } });
+    assert.equal(result.ok, true, JSON.stringify(result.error));
+    return (result.result as JsonObject).id as string;
+  };
+  const submit = async (sessionId: string, requestId: string, extra: JsonObject = {}) => {
+    const accepted = await engine.dispatchSession({ schemaVersion: 2, commandId: requestId, type: 'input.accept', payload: { sessionId, requestId, prompt: 'Inspect quoted local sound', delivery: 'queue', ...extra } });
+    assert.equal(accepted.ok, true, JSON.stringify(accepted.error));
+    await engine.scheduler.waitForSession(sessionId);
+    const runId = engine.store.getInput((accepted.result as JsonObject).inputId as string).runId!;
+    return engine.coordinator.waitForRun(runId);
+  };
+  const outputSession = await createSession('output');
+  const outputRun = await submit(outputSession, 'produce');
+  assert.equal(outputRun.state, 'completed', JSON.stringify(outputRun));
+  const media = engine.store.listTurns(outputRun.id).flatMap(turn => engine.store.listParts(turn.id)).find(part => part.type === 'media');
+  assert.ok(media?.type === 'media');
+  assert.equal(media.state, 'completed');
+  assert.equal(media.artifact.complete, true);
+  const bytes = await readFile(join(artifactDir, 'managed', media.artifact.id, 'content'));
+  assert.deepEqual(decodePcmWave(bytes).samples, pcm);
+  const inputSession = await createSession('fresh-recognition');
+  const attachment = await engine.importMedia(inputSession, bytes, 'audio/wav', [{ startMs: 0, endMs: 8 }]);
+  const inputRun = await submit(inputSession, 'recognize', { media: [attachment] as unknown as JsonObject['media'], config: { providerId: 'metadata-input', modelId } });
+  assert.equal(inputRun.state, 'completed', JSON.stringify(inputRun));
+  assert.equal(captured.length, 2);
+  assert.equal(local.requestCount(), 2);
+  assert.equal(engine.store.getSnapshot(inputSession).tools.length, 0);
+  assert.equal(engine.store.getNativeMetrics(inputSession).attempts.total, 1);
+  const textParts = engine.store.listTurns(inputRun.id).flatMap(turn => engine.store.listParts(turn.id)).filter(part => part.type === 'text');
+  assert.ok(JSON.stringify(textParts).includes('Recognized exact local PCM'));
 });

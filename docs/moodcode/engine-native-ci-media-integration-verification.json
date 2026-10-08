@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "kind": "native-ci-media-archive-final-integration",
+  "observedAt": "2026-10-08T16:45:20.189Z",
+  "implementationBaseline": "7ab91d5c71ec8e40c9035a93ec61a190820daaa1",
+  "workingTreeSourceQualified": true,
+  "scope": "code-mode real stdout drain; platform process observation and fixture races; bounded archive host budget; explicit audio provider dialect; bounded media semantic diagnostics",
+  "sourceFreeze": {
+    "file": "engine-native-ci-media-source-freeze.json",
+    "inputs": 906,
+    "sha256": "55116abf2b4e32e51d19fd0d3c0b3a914af484724eb61e31ef4ea33c42522c01",
+    "unchanged": true
+  },
+  "build": {
+    "exitCode": 0,
+    "logSha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+  },
+  "wholeEngine": {
+    "exitCode": 0,
+    "tests": 4674,
+    "passed": 4672,
+    "failed": 0,
+    "skipped": 2,
+    "skipScope": "existing actual Windows native process ownership support absent",
+    "durationMs": 255015.966167,
+    "logSha256": "93f98c60a628a8a8630ff6643cd646562e8fc5e3cb158184eea9b91edd63695e"
+  },
+  "mediaSource": {
+    "tests": 20,
+    "passed": 20,
+    "failed": 0,
+    "logSha256": "c0375de516ebc31fa885757078c607473d41a94289fb34d32e33e2659b75c54e"
+  },
+  "mediaCompiled": {
+    "tests": 20,
+    "passed": 20,
+    "failed": 0,
+    "exitCode": 0,
+    "logSha256": "69eb6a7e0f16d6390f3ef49705900254dd005513b65d69c12a380062e3809c2a"
+  },
+  "providerProcessGroupsLauncherTargeted": {
+    "tests": 59,
+    "passed": 59,
+    "failed": 0,
+    "exitCode": 0,
+    "sourceQualification": "before archive change; final whole gate includes final production source",
+    "logSha256": "d9e9cbe318de1d4b563457b1325c1cfd2949c50088be2eca41bb6567d429e74a"
+  },
+  "ciMediaLocal": {
+    "operation": "test-media-local",
+    "command": [
+      "/usr/local/bin/node",
+      "--test",
+      "--test-concurrency=1",
+      "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/plan-media-verification.test.mjs",
+      "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-media-account.test.mjs"
+    ],
+    "startedAt": "2026-10-08T16:41:43.966Z",
+    "durationMs": 14623,
+    "exitCode": 0,
+    "signal": null,
+    "state": "passed",
+    "environmentOverrides": {
+      "MOODCODE_MEDIA_VERIFY_TEST_ENGINE": "compiled"
+    },
+    "qualification": "actual launcher local execution, not hosted CI or account evidence"
+  },
+  "evaluation": {
+    "tasks": 3,
+    "allPassed": true,
+    "qualification": "scripted local coding fixture; not model quality or actual account",
+    "reportSha256": "36b7805798c6d4e28c8c6cff922b170a50f90347d8aea60e27fd9752912c881b"
+  },
+  "previousFailedIntegration": {
+    "sourceSha256": "6b40b13e1308e7e966623e89818016064cdbcf6e80547e4c42060e80f9ac5adc",
+    "buildExit": 2,
+    "code": "TS2532",
+    "path": "packages/engine/src/storage/archive-budget.test.ts",
+    "wholeEngine": "not run after compile failure",
+    "followups": "partial failed-build runtime followup results excluded from final credit",
+    "resolution": "one fixture Buffer index assertion; final build and gates rerun"
+  },
+  "format": {
+    "verifierFilesPassed": true,
+    "providerWholeFilePrettierWarnings": "both files already unformatted at baseline HEAD; preserved focused changes",
+    "diffCheckPassed": true
+  },
+  "repository": {
+    "url": "https://github.com/yakisoba0728/Moodcode",
+    "visibility": "PUBLIC",
+    "verified": true
+  },
+  "firstHostedRun": {
+    "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37801446778",
+    "baseline": "7ab91d5",
+    "failedLanes": 6,
+    "windowsPortable": "not executed after launcher failure"
+  },
+  "nextHostedRun": "pending source commit and push; local success does not grant hosted credit",
+  "account": {
+    "actualGenerationRequests": 11,
+    "modelListGetRequests": 1,
+    "accountVerified": false,
+    "remaining": "video semantic recognition, successful video duplicate and whole-success paused archive/import",
+    "sourceQualification": "prior actual runs are bound to their own exact source/runtime pins"
+  },
+  "goal": {
+    "completedWorkItems": 79,
+    "completedFamilies": 19,
+    "totalWorkItems": 80,
+    "totalFamilies": 20,
+    "remainingWorkItem": "MC2-16d",
+    "environmentDebts": [
+      "E5-13",
+      "E5-08",
+      "E6-07",
+      "E6-08"
+    ]
+  }
+}

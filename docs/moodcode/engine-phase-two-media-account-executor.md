@@ -28,6 +28,8 @@ npm run verify:media -- --live --scenario audio \
 
 [gpt-audio-1.5 공식 모델 설명](https://developers.openai.com/api/docs/models/gpt-audio-1.5)과 [Chat 오디오 가이드](https://developers.openai.com/api/docs/guides/audio-chat-completions)는 지원 후보를 판단하는 근거다. 계정 접근 가능 여부나 PCM layout을 증명하지 않는다. 이 모델에는 이미지/비디오 인식 지원이 없으므로 비디오 프레임 검증에는 별도 모델이 필요하다. 현재 Moodcode Codex 인증 경로는 새 오디오/비디오/output을 지원하지 않는다.
 
-실제 계정 호출은 0회다. 지정된 두 API 키 환경 변수는 존재 여부만 확인했으며 값과 credential 파일은 기록하지 않았다. 로컬 HTTP 응답, runtime 주입, 실제 Codex 이미지 검증의 이전 증거에는 새 미디어 계정 완료 점수를 주지 않는다. 기존 전체 직접 소스 회귀는 이전 1bff025 통합 범위의 증거로 보존하고, 이번 변경의 직접 소스 검사는 새 planner/실행기 15개 범위로 명시한다. engine/contracts/harness 소스는 1bff025와 동일하다.
+실행기 최초 통합 당시 실제 계정 호출은 0회였다. 당시 전체 직접 소스 회귀는 이전 1bff025 통합 범위, planner/실행기 직접 소스 검사는 15개 범위이며 engine/contracts/harness 소스는 1bff025와 같았다. 이 과거 검증은 이후 변경의 전체 회귀 증거로 확대하지 않는다. 로컬 HTTP 응답, runtime 주입, 실제 Codex 이미지 검증의 이전 증거에는 새 미디어 계정 완료 점수를 주지 않는다.
+
+2026-10-09 실제 계정 검증은 [최신 기록](engine-phase-two-media-account-status.md)을 따른다. 공식 모델 목록 GET 1회와 provider 요청 11회를 구분했다. 오디오의 완료 출력·새 세션 인식·중복·실제 부분 취소 관측은 충족했지만, 영상 의미 검증 실패로 전체 MC2-16d는 미완료다. 인증 환경 변수 값과 HTTP 인증 헤더는 보고서에 기록하지 않는다.
 
 진척은 **79/80 작업, 19/20 기능군**으로 유지한다. MC2-16d는 실제로 선택한 지원 계정/모델의 오디오·비디오·생성 출력 검증이 남아 있다. 오디오만 성공해도 전체 MC2-16d를 닫지 않는다. E5-13·E5-08·E6-07·E6-08은 기존 이월 상태를 유지한다.

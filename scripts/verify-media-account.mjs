@@ -337,9 +337,32 @@ export function colorAvi(colors) {
 const normalizeAnswer = (value) =>
   value
     .toLowerCase()
-    .replace(/[^a-z\s]/gu, "")
+    .replace(/\p{P}+/gu, " ")
     .replace(/\s+/gu, " ")
     .trim();
+function recordRecognition(report, raw, expected, details) {
+  const observed = normalizeAnswer(raw);
+  const tokens = observed ? observed.split(" ") : [];
+  const item = report.scopeCoverage.at(-1);
+  item.recognition = {
+    expectedSha256: hash(expected),
+    observedSha256: hash(observed),
+    matched: observed === expected,
+    expectedAbsentFromFullWire: true,
+    rawCharacters: raw.length,
+    tokenCount: tokens.length,
+    // Fixed vocabulary only; never persist arbitrary upstream answer text.
+    observedTokenKinds: tokens
+      .slice(0, 16)
+      .map((token) =>
+        ["red", "green", "blue", "yellow"].includes(token) ? token : "other",
+      ),
+    tokensTruncated: tokens.length > 16,
+    ...details,
+  };
+  item.state = item.recognition.matched ? "passed" : "recognition-mismatch";
+  if (!item.recognition.matched) fail("VERIFY_RECOGNITION_MISMATCH");
+}
 function assertAnswerAbsent(body, answer) {
   const serialized = JSON.stringify(body);
   if (serialized.toLowerCase().includes(answer.toLowerCase()))
@@ -525,6 +548,7 @@ export async function verifyMediaAccount(argv, runtime = {}) {
     accountVerified: false,
     credentialReads: 0,
     actualRequests: [],
+    streamDiagnostics: [],
     maxRequests: options.maxRequests,
     transport:
       options["fixture-endpoint"] ||
@@ -624,6 +648,19 @@ export async function verifyMediaAccount(argv, runtime = {}) {
       report.actualRequests.push(observation);
       const response = await requestFetch(url, { ...init, redirect: "error" });
       observation.status = response.status;
+      const contentType = response.headers
+        .get("content-type")
+        ?.split(";")[0]
+        ?.trim()
+        .toLowerCase();
+      observation.responseContentType = [
+        "text/event-stream",
+        "application/json",
+      ].includes(contentType)
+        ? contentType
+        : contentType
+          ? "other"
+          : "missing";
       if (
         response.redirected ||
         (options.live &&
@@ -678,6 +715,9 @@ export async function verifyMediaAccount(argv, runtime = {}) {
             baseURL: options.endpoint,
             apiKey,
             audioModelIds: [modelId],
+            includeStreamObfuscation: false,
+            allowEmptyAudioMetadata: true,
+            allowAudioExpiryCompletion: true,
             ...(audioOutput
               ? {
                   outputAudio: {
@@ -690,6 +730,13 @@ export async function verifyMediaAccount(argv, runtime = {}) {
               : {}),
             fetch: captureFetch,
             timeoutMs: 45000,
+            onMalformedStream: (diagnostic) => {
+              report.streamDiagnostics.push({
+                providerId: id,
+                modelId,
+                ...diagnostic,
+              });
+            },
           });
       providers.push({
         id: transport.id,
@@ -753,6 +800,13 @@ export async function verifyMediaAccount(argv, runtime = {}) {
     report.configuration = {
       audioModelId: options["audio-model"] ?? null,
       videoModelId: options["video-model"] ?? null,
+      chatStreamObfuscation: options.audio ? false : null,
+      chatEmptyAudioMetadata: options.audio
+        ? "explicit host compatibility; exact prior stream tuple and scalar metadata only"
+        : null,
+      chatAudioCompletion: options.audio
+        ? "explicit host compatibility; exact stream tuple, PCM, expiry, final usage and DONE; no tool calls"
+        : null,
       capabilitiesSha256: hash(JSON.stringify(specs)),
       capabilityReferenceSha256: hash(options["capability-reference"]),
       outputLayout: options.audio
@@ -854,7 +908,10 @@ export async function verifyMediaAccount(argv, runtime = {}) {
       }
       report.scopeCoverage.push({
         caseId: activeCase,
-        state: run.state === "completed" ? "passed" : "observed-noncomplete",
+        state:
+          run.state === "completed"
+            ? "observed-complete"
+            : "observed-noncomplete",
         native: evidence,
         accountVerified: false,
       });
@@ -1103,6 +1160,7 @@ export async function verifyMediaAccount(argv, runtime = {}) {
         parts(engine, generated.run.id).find((p) => p.type === "media"),
         output,
       );
+      report.scopeCoverage.at(-1).state = "passed";
       const recognizedSession = await session();
       assert.notEqual(recognizedSession, generatedSession);
       const endMs = Math.floor(decoded.durationMs);
@@ -1125,19 +1183,16 @@ export async function verifyMediaAccount(argv, runtime = {}) {
       );
       if (recognition.run.state !== "completed")
         fail(recognition.run.error?.code ?? "VERIFY_RECOGNITION_INCOMPLETE");
-      const observed = normalizeAnswer(
+      recordRecognition(
+        report,
         engine.store.getLastRunAssistantContent(recognition.run.id),
+        expected,
+        {
+          freshSession: true,
+          sourceSha256: input.sha256,
+          selectedEndMs: endMs,
+        },
       );
-      if (observed !== expected) fail("VERIFY_RECOGNITION_MISMATCH");
-      report.scopeCoverage.at(-1).recognition = {
-        expectedSha256: hash(expected),
-        observedSha256: hash(observed),
-        matched: true,
-        expectedAbsentFromFullWire: true,
-        freshSession: true,
-        sourceSha256: input.sha256,
-        selectedEndMs: endMs,
-      };
       await checkDuplicate(recognition, "audio");
       cancelSession = await session();
       activeCase = "audio-partial-cancel";
@@ -1201,19 +1256,17 @@ export async function verifyMediaAccount(argv, runtime = {}) {
       );
       if (recognized.run.state !== "completed")
         fail(recognized.run.error?.code ?? "VERIFY_RECOGNITION_INCOMPLETE");
-      const observed = normalizeAnswer(
+      recordRecognition(
+        report,
         engine.store.getLastRunAssistantContent(recognized.run.id),
+        expected,
+        {
+          decoder: ref.decoder,
+          sourceSha256: ref.sha256,
+          timestamps: [0, 500, 1000],
+          expectedColors: selected.map((item) => item[0]),
+        },
       );
-      if (observed !== expected) fail("VERIFY_RECOGNITION_MISMATCH");
-      report.scopeCoverage.at(-1).recognition = {
-        expectedSha256: hash(expected),
-        observedSha256: hash(observed),
-        matched: true,
-        expectedAbsentFromFullWire: true,
-        decoder: ref.decoder,
-        sourceSha256: ref.sha256,
-        timestamps: [0, 500, 1000],
-      };
       await checkDuplicate(recognized, "video");
     }
     const count = report.actualRequests.length,

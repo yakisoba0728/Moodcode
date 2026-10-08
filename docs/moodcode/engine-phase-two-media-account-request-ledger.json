@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "scope": "actual supported media profile verification; partial",
+  "implementationBaseline": "7ab91d5c71ec8e40c9035a93ec61a190820daaa1",
+  "sourceQualifiedWorkingTree": true,
+  "completedWorkItems": 79,
+  "completedFamilies": 19,
+  "actualProviderRequests": 11,
+  "automaticRetries": 0,
+  "modelInventoryRequests": 1,
+  "accountVerified": false,
+  "remaining": [
+    "video exact semantic recognition",
+    "video native duplicate on accepted successful recognition",
+    "later restarted paused archive/import after full account success"
+  ],
+  "audioObservations": "completed output, restart/fresh session exact recognition, duplicate request zero, genuine partial cancel and confirmed cleanup; no combined account completion credit",
+  "pcmLayout": "explicit host declaration: 24000 Hz mono PCM16; not official numeric Chat guarantee",
+  "reports": [
+    {
+      "path": "engine-phase-two-media-account-first-live-failure.json",
+      "sha256": "e9734ee68a05f0d2afe94a8f6e4868945fd252da1edafde0de8358ac17e53176",
+      "state": "failed",
+      "failure": "PROVIDER_MALFORMED_STREAM",
+      "actualRequests": 1,
+      "actualModels": [
+        "gpt-audio-1.5"
+      ],
+      "accountVerified": false,
+      "cleanupConfirmed": true,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true
+    },
+    {
+      "path": "engine-phase-two-media-account-stream-diagnostic-failure.json",
+      "sha256": "9e0510c9025366b414ee23172eafe55ae8855e67ec984c853d7b4dfb94851c4c",
+      "state": "failed",
+      "failure": "PROVIDER_MALFORMED_STREAM",
+      "actualRequests": 1,
+      "actualModels": [
+        "gpt-audio-1.5"
+      ],
+      "accountVerified": false,
+      "cleanupConfirmed": true,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true
+    },
+    {
+      "path": "engine-phase-two-media-account-padding-diagnostic-failure.json",
+      "sha256": "bb687359c30b64e72f813a48a9188d8570889d87a65876ffecc5ed01871f9ca9",
+      "state": "failed",
+      "failure": "PROVIDER_MALFORMED_STREAM",
+      "actualRequests": 1,
+      "actualModels": [
+        "gpt-audio-1.5"
+      ],
+      "accountVerified": false,
+      "cleanupConfirmed": true,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true
+    },
+    {
+      "path": "engine-phase-two-media-account-padding-disabled-failure.json",
+      "sha256": "76fcdebe0ceb8bb30051cbfcf90f413e0a841bde01fb0d0b619fbab2df5ff1ec",
+      "state": "failed",
+      "failure": "PROVIDER_MALFORMED_STREAM",
+      "actualRequests": 1,
+      "actualModels": [
+        "gpt-audio-1.5"
+      ],
+      "accountVerified": false,
+      "cleanupConfirmed": true,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true
+    },
+    {
+      "path": "engine-phase-two-media-account-terminal-failure.json",
+      "sha256": "b72c3d59816ccb9760429d8f9cb6cf0ea8419cb29948cc56bfcf6967c6590d75",
+      "state": "failed",
+      "failure": "PROVIDER_INCOMPLETE_STREAM",
+      "actualRequests": 1,
+      "actualModels": [
+        "gpt-audio-1.5"
+      ],
+      "accountVerified": false,
+      "cleanupConfirmed": true,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true
+    },
+    {
+      "path": "engine-phase-two-media-account-terminal-diagnostic-failure.json",
+      "sha256": "9e923aa264472e614cd1b6d70ea819296e8626b91b4badaf6e94c556948bc743",
+      "state": "failed",
+      "failure": "PROVIDER_INCOMPLETE_STREAM",
+      "actualRequests": 1,
+      "actualModels": [
+        "gpt-audio-1.5"
+      ],
+      "accountVerified": false,
+      "cleanupConfirmed": true,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true
+    },
+    {
+      "path": "engine-phase-two-media-account-expiry-profile-failure.json",
+      "sha256": "9aa481c0cbd04704998a33e72a02a0bcb447e3416c23b268f79ece975104b685",
+      "state": "failed",
+      "failure": "VERIFY_RECOGNITION_MISMATCH",
+      "actualRequests": 4,
+      "actualModels": [
+        "gpt-audio-1.5",
+        "gpt-4.1-mini"
+      ],
+      "accountVerified": false,
+      "cleanupConfirmed": true,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true
+    },
+    {
+      "path": "engine-phase-two-media-account-video-recognition-failure.json",
+      "sha256": "8018cf30e2eb56fe1943cc71365bf7f9e88fbd4deabba2823fca1d3b71ffbaed",
+      "state": "failed",
+      "failure": "VERIFY_RECOGNITION_MISMATCH",
+      "actualRequests": 1,
+      "actualModels": [
+        "gpt-4.1-mini"
+      ],
+      "accountVerified": false,
+      "cleanupConfirmed": true,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true
+    }
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "reviewedAt": "2026-10-08T16:28:38.799161+00:00",
+  "liveReport": {
+    "path": "/tmp/moodcode-media-live-video-diagnostic-20261009.json",
+    "sha256": "8018cf30e2eb56fe1943cc71365bf7f9e88fbd4deabba2823fca1d3b71ffbaed",
+    "passed": false,
+    "accountVerified": false,
+    "failureCode": "VERIFY_RECOGNITION_MISMATCH",
+    "failureCaseId": "video-frame-recognition",
+    "actualRequests": 1,
+    "status": 200,
+    "modelId": "gpt-4.1-mini",
+    "nativeRunState": "completed",
+    "cleanupConfirmed": true,
+    "responseFacts": {
+      "rawCharacters": 24,
+      "tokenCount": 3,
+      "observedTokenKinds": [
+        "other",
+        "other",
+        "other"
+      ],
+      "matched": false,
+      "tokensTruncated": false
+    },
+    "sourceSha256": "8c46b7761a83b3c9ed7c0698d51b84d965f8f07fe5c833511eaa75683905b39b",
+    "runtimeFreezeSha256": "053590073941a92200a89e8fb71db4abeb48c1eb29430a039958c99e9066f5fa",
+    "runtimeUnchanged": true
+  },
+  "reviewedSource": [
+    {
+      "path": "packages/engine/src/media/segments.ts",
+      "sha256": "d8d29cbd7ff12327c1c29cf825774c065730885b106675754019f994bdf61f20"
+    },
+    {
+      "path": "packages/engine/src/media/segment-provider.ts",
+      "sha256": "48afccecdaecd4352a36f4891377918ba671c9521cfe23f99814129e732e5009"
+    },
+    {
+      "path": "packages/engine/src/provider/responses.ts",
+      "sha256": "0707d60fbcbdbee6f6ee7bb52d9c56344b05c2733fea5881bc9cf877ff83f19f"
+    },
+    {
+      "path": "packages/engine/src/storage/index.ts",
+      "sha256": "1984bc06713d2658d5e2187a70ad87f6497e9df61b8b328414ebd95f73394beb"
+    },
+    {
+      "path": "scripts/verify-media-account.mjs",
+      "sha256": "c8d05f2200650ae9039f7bfce84a11ab27b332a532902046dfc5d94ac88d4add"
+    }
+  ],
+  "offlineEvidence": {
+    "path": "/tmp/moodcode-video-wire-pixels-offline-evidence.json",
+    "sha256": "6a2053faf8924a078f98f58cc75244588275f30ffab7a801955ccf4b6d260d3a",
+    "script": "/tmp/moodcode-video-wire-pixels-offline.mjs",
+    "scriptSha256": "a116ad9e291625cc940e1823d159926b5a71d8b545034f723554ca7f371ce670",
+    "passed": true,
+    "sameLiveSourceSha256": true,
+    "nativeRunState": "completed",
+    "nativeAttempts": 1,
+    "fixtureProviderRequests": 1,
+    "networkCalls": 0,
+    "accountVerified": false,
+    "assets": [
+      {
+        "index": 0,
+        "width": 8,
+        "height": 8,
+        "pngBytes": 75,
+        "pngSha256": "96fc68e2c468dc5f804be781a845306b7f8cc1bf78ba8b46091d92e1194054f4",
+        "allPixelsMatch": true,
+        "detail": "auto"
+      },
+      {
+        "index": 1,
+        "width": 8,
+        "height": 8,
+        "pngBytes": 73,
+        "pngSha256": "0c36f4f8a6b6438ca79882def5e8b70e37aab7db0a8d097f4604a61fcd6a3bfe",
+        "allPixelsMatch": true,
+        "detail": "auto"
+      },
+      {
+        "index": 2,
+        "width": 8,
+        "height": 8,
+        "pngBytes": 75,
+        "pngSha256": "57cda64cead0869cd5f90dfebb024f4bd9a922aaea91d513de6fa3e949d88921",
+        "allPixelsMatch": true,
+        "detail": "auto"
+      }
+    ],
+    "timestamps": [
+      [
+        0,
+        500
+      ],
+      [
+        500,
+        1000
+      ],
+      [
+        1000,
+        1500
+      ]
+    ],
+    "storedTextExactlyMatchesControlledFixture": true,
+    "runtimeComparisons": [
+      {
+        "path": "engine/provider/responses.js",
+        "reportSha256": "1559e3360f45ba21ec012150ef08182696d53fd212ea070e5448b13ec6c5bf9d",
+        "offlineSha256": "1559e3360f45ba21ec012150ef08182696d53fd212ea070e5448b13ec6c5bf9d",
+        "matches": true
+      },
+      {
+        "path": "engine/media/segments.js",
+        "reportSha256": "889617443149033e1304d324b1c34df31bc9bd76837c0018ce653d3d43fba968",
+        "offlineSha256": "889617443149033e1304d324b1c34df31bc9bd76837c0018ce653d3d43fba968",
+        "matches": true
+      }
+    ]
+  },
+  "conclusions": [
+    "Independent native Engine import and actual Responses serialization preserve this exact diagnostic AVI source, three ordered PNG frames, every RGB pixel and source/asset hashes.",
+    "No missing-image, BGR/RGB swap, PNG size corruption, frame order error or assistant string formatting defect was reproduced. getLastRunAssistantContent returns the native bounded string unchanged.",
+    "Observed wire images are genuinely only8x8, detail:auto, lossless73-75B PNGs; this is not independent evidence of upstream model resizing or semantic interpretation.",
+    "All three normalized token kinds other only proves exact basic palette words absent. Synonyms, language variation, unsupported visual interpretation and non-color output cannot be distinguished from the retained redacted facts. No raw reply or retained DB exists to resolve them.",
+    "Recognition normalization lowers case and removes Unicode punctuation; additional JSON quoting/punctuation alone would not explain allother. It does not canonicalize color synonyms or translations.",
+    "No demonstrated engine transport defect warrants changing decoder/provider or retrying a paid request on this evidence. Root owns subsequent verifier changes; semantic mismatch remains unfulfilled account acceptance."
+  ],
+  "limitations": [
+    "Offline fixture response is controlled local data, not actual account response or recognition credit.",
+    "The recorded live full wire was not retained, so identical live bytes reaching the remote model are supported by exact source/runtime correspondence rather than independent upstream transport inspection.",
+    "Only bounded metadata/hashes inspected; no raw upstream answer, credential or runtime pin dump."
+  ],
+  "reviewer": {
+    "accountCalls": 0,
+    "credentialReads": 0,
+    "networkCalls": 0,
+    "sourceWrites": 0,
+    "sharedBuilds": 0,
+    "commits": 0,
+    "offlineFixtureExecutions": 2
+  }
+}

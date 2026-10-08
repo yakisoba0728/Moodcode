@@ -817,11 +817,20 @@
             "engine-phase-two-media-account-executor-verification.json",
             "engine-phase-two-media-model-coverage.md",
             "engine-phase-two-media-model-coverage-verification.json",
-            "engine-phase-two-media-account-acceptance-audit.json"
+            "engine-phase-two-media-account-acceptance-audit.json",
+            "engine-phase-two-media-account-status.md",
+            "engine-phase-two-media-account-request-ledger.json",
+            "engine-phase-two-media-account-expiry-profile-failure.json",
+            "engine-phase-two-media-account-video-recognition-failure.json",
+            "engine-phase-two-media-audio-account-independent-review.json",
+            "engine-phase-two-video-wire-independent-review.json",
+            "engine-phase-two-media-recognition-independent-review.json",
+            "engine-phase-two-video-wire-offline-verification.json",
+            "engine-phase-two-media-ci-docs-independent-review.json"
           ]
         }
       ],
-      "notes": "16a plan retained. 16b/c complete actual bounded WAV/AVI source decoder/capability/timestamp/native input/provider wire and genuine provider Artifact/Part/usage/partial/recovery/archive/read APIs. Exact local fixture model/wire evidence is implementation evidence, not production account proof. Two real Codex image/restart requests passed on the initial combined snapshot; all source hashes and honest usage retained. 16d actual new audio/video/generated-output account/model checks remain in progress; Codex new media unsupported before credentials. E5-13 and unknown media token/window costing remain open. Complete native media account executor now covers actual generated PCM/fresh-session recognition/first-delta cancellation, genuine AVI-to-PNG Responses frames, exact zero-transport negative admission, duplicate/restart/paused import, bounded request attempts and source/runtime/cleanup evidence retention. Local HTTP implementation checks and final review do not grant actual account credit; supported exact API credentials/models/host PCM provenance remain pending."
+      "notes": "16a plan retained. 16b/c complete actual bounded WAV/AVI source decoder/capability/timestamp/native input/provider wire and genuine provider Artifact/Part/usage/partial/recovery/archive/read APIs. Exact local fixture model/wire evidence is implementation evidence, not production account proof. Two real Codex image/restart requests passed on the initial combined snapshot; all source hashes and honest usage retained. 16d actual new audio/video/generated-output account/model checks remain in progress; Codex new media unsupported before credentials. E5-13 and unknown media token/window costing remain open. Complete native media account executor now covers actual generated PCM/fresh-session recognition/first-delta cancellation, genuine AVI-to-PNG Responses frames, exact zero-transport negative admission, duplicate/restart/paused import, bounded request attempts and source/runtime/cleanup evidence retention. Local HTTP implementation checks and final review do not grant actual account credit; 2026-10-09 actual OpenAI profile tests made eleven generation requests plus one separate model-list GET. Exact gpt-audio-1.5 completed output/restart/fresh recognition/duplicate/partial cancel cleanup observations passed; gpt-4.1-mini video native completion did not pass exact semantic recognition, so video duplicate and later whole-success paused archive steps remain unexecuted. All account credit remains false and counts stay 79/80, 19/20. PCM numeric layout is an explicit host declaration, not an official Chat guarantee. Failure reports and bounded diagnostics are retained without raw credentials or upstream text."
     },
     {
       "id": "MC2-17",

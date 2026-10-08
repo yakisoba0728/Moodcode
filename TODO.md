@@ -227,7 +227,7 @@ E5는 코딩 loop 기반을 만든 뒤 순서대로 확장한다. 초기 검증�
   선행: E6-03, E6-04. 완료: queue·turn·retry·summary·cleanup·quarantine·artifact의 관찰 지표와 사용자용 오류를 정리하고 누락 값·표본 범위를 표시한다.
 - [ ] **E6-07 — 엔진 CI·OS별 지원 검증 연결** `[신규·검증]`
   선행: E6-05, E6-06. 완료: 엔진 검증을 기본 CI에 연결하고 macOS/Linux/Windows의 실제 pass/skip·미지원 경계를 기록한다. 확장 backend는 해당 E5 항목 완료 후 추가한다.
-  현재: [CI workflow](.github/workflows/engine.yml)와 headless launcher를 구성하고 로컬 launcher 2개 테스트를 통과했다. 이 저장소에는 Git remote가 없어 Actions를 실행하지 못했다. Linux/Windows 및 Node24 hosted 결과를 확인한 뒤 완료 처리한다. [OS별 정확한 범위](docs/moodcode/engine-ci.md)를 따른다.
+  현재(2026-10-09): [Public 저장소](https://github.com/yakisoba0728/Moodcode)에 push하고 [첫 실제 Actions](https://github.com/yakisoba0728/Moodcode/actions/runs/37801446778)를 확인했다. macOS/Linux Node24·26 전체 gate는 실패했고 Windows 두 lane은 launcher CRLF 검사에서 실패해 portable 엔진 검사가 실행되지 않았다. 확인한 프로세스 drain·PGID·fixture 경합 수정과 archive 시간 예산 보강 후 실제 CI 재검증이 필요하다. [OS별 정확한 범위](docs/moodcode/engine-ci.md)를 따른다.
 - [ ] **E6-08 — 확장 통합과 구현 명세 갱신** `[검증·문서]`
   선행: E6-02, E6-07 및 구현한 E5 항목. 완료: 실제 지원 목록·command/schema·복구/성능/OS 한계를 갱신하고 핵심 엔진 배포·host 연결 가능 상태를 정리한다. 미완료 E5는 열린 TODO로 남긴다.
   현재: 지원 목록·host API·schema·복구/성능 한계와 검증 보고서를 갱신했다. macOS headless host 연결은 검증했다. 선행 E6-07의 실제 CI 결과와 OS 지원 명세 확정이 남아 있어 항목을 열어 둔다.
@@ -419,3 +419,7 @@ W3 최초 묶음에서는 전체20개 범위 중2개, 세부80개 중15개를 �
 - [x] **MC2-16d 계정 검증 준비 — native 실행기 구현·통합**: 실제 엔진 PCM 생성→재시작→새 세션 인식→첫 delta 취소, AVI→PNG Responses 인식, admission 오류·중복·paused import를 연결했다. planner/실행기 source·compiled 각15/15, 전체 엔진4642/4640pass/실패0/기존skip2, type0·평가3pass, 최종899 input SHA 불변 및 독립6개 수정/late-close 검토를 확인했다. 실제 계정0회·**79/80·19/20**, MC2-16d·이월4개는 미완료다. [실행·검증 근거](docs/moodcode/engine-phase-two-media-account-executor.md).
 
 - [x] **MC2-16d 선택 모델별 검증 coverage 보완**: all 경로 audio/video 각각 native MIME/초과/unknown/source-delete4건과 실제 Input·Run·Part·Attempt/cleanup/usage 동일한 duplicate를 확인한다. Main source·compiled 각15/15, syntax·최종동결 독립검토 통과, 공급자 상한audio3/video1/all4 유지. 실제 계정0회·79/80·19/20 유지. [검증](docs/moodcode/engine-phase-two-media-model-coverage.md), [남은 외부조건·3연속 goal audit](docs/moodcode/engine-phase-two-media-account-acceptance-audit.json).
+
+- [ ] **MC2-16d 실제 계정 진행 — 2026-10-09**: 공식 모델 목록 GET1회와 생성 요청11회를 구분해 기록했다. gpt-audio-1.5 완료 WAV→재시작→새 세션 exact 인식·중복 요청0·genuine 부분 취소/cleanup과 양 modality admission 거부8개를 관측했다. gpt-4.1-mini 영상 exact 답은 실패했고 이후 영상 duplicate·paused archive 단계는 미실행이다. 구조 진단·좁은 opt-in 오디오 완료 호환·영상 비교 진단을 보강했고 직접 planner/실행기20개와 provider/process/group/launcher59개는 로컬 통과했다. 전체 계정 credit=false·**79/80·19/20** 및 이월4개 유지. [실제 진행과 한계](docs/moodcode/engine-phase-two-media-account-status.md).
+
+- [x] **실제 CI 실패 수정·최종 로컬 통합 — 2026-10-09**: native code-mode IPC/output drain·Linux PGID 관측·Electron Node guard·CRLF/PID/output/inode fixture 경합을 수정하고 archive 전용 명시적1~30,000ms document budget을 연결했다. input906개 SHA 불변, build0·전체4,674/4,672pass/실패0/기존 Windows skip2·compiled media20/20·CI local media20/20·scripted 평가3/3 확인. Public 저장소에서 source push 후 실제 hosted 재검증이 남고 E6-07은 미완료다. [통합 근거](docs/moodcode/engine-native-ci-media-integration-verification.json)·[archive API](docs/moodcode/engine-archive-document-budget.md).

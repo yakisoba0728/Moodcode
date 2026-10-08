@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "observedAt": "2026-10-08T16:38:54.389636+00:00",
+  "scope": "Current docs only before new whole-engine/hosted CI gates. No fresh runtime verification inferred.",
+  "files": [
+    {
+      "path": "docs/moodcode/engine-phase-two-progress.json",
+      "sha256": "f41160752b14e7625d925719eb6247a43609864b5b4c81496dc176d0d565bf43"
+    },
+    {
+      "path": "docs/moodcode/engine-phase-two-media-account-status.md",
+      "sha256": "7f64f3cf82c705da37abe324262f499dc5cd32770dc93aad0895abcf38184f0c"
+    },
+    {
+      "path": "docs/moodcode/engine-phase-two-media-account-request-ledger.json",
+      "sha256": "12b9d00c37fcfff7c598a0d6b498e016ba2ed54a07508bfe58e84221cd9c7e30"
+    },
+    {
+      "path": "docs/moodcode/engine-ci.md",
+      "sha256": "be4431eb427305c6e350625fdb597b1cdf329a03c88bd9e40ccac36d12183d4b"
+    },
+    {
+      "path": "TODO.md",
+      "sha256": "ae3c5c0e325a4cc660dfb458b1f9559938f5ea63f770ba4c49ea1fa995d65c2a"
+    }
+  ],
+  "originalPlan": {
+    "IDs": 80,
+    "sameIDs": true,
+    "completionTextChanged": [],
+    "complete": 79,
+    "inProgress": [
+      "MC2-16d"
+    ],
+    "completeFamilies": 19,
+    "uniqueEvidenceFiles": 94,
+    "missingEvidenceFiles": []
+  },
+  "accountLedger": {
+    "declaredRequests": 11,
+    "summedRequests": 11,
+    "requestsByModel": {
+      "gpt-audio-1.5": 9,
+      "gpt-4.1-mini": 2
+    },
+    "inventoryGETsSeparate": 1,
+    "automaticRetries": 0,
+    "accountVerified": false,
+    "reports": [
+      {
+        "path": "engine-phase-two-media-account-first-live-failure.json",
+        "sha256": "e9734ee68a05f0d2afe94a8f6e4868945fd252da1edafde0de8358ac17e53176",
+        "recordedSha256Matches": true,
+        "actualRequestCount": 1,
+        "declaredCountMatches": true,
+        "allAccountCreditFalse": true,
+        "cleanupConfirmed": true
+      },
+      {
+        "path": "engine-phase-two-media-account-stream-diagnostic-failure.json",
+        "sha256": "9e0510c9025366b414ee23172eafe55ae8855e67ec984c853d7b4dfb94851c4c",
+        "recordedSha256Matches": true,
+        "actualRequestCount": 1,
+        "declaredCountMatches": true,
+        "allAccountCreditFalse": true,
+        "cleanupConfirmed": true
+      },
+      {
+        "path": "engine-phase-two-media-account-padding-diagnostic-failure.json",
+        "sha256": "bb687359c30b64e72f813a48a9188d8570889d87a65876ffecc5ed01871f9ca9",
+        "recordedSha256Matches": true,
+        "actualRequestCount": 1,
+        "declaredCountMatches": true,
+        "allAccountCreditFalse": true,
+        "cleanupConfirmed": true
+      },
+      {
+        "path": "engine-phase-two-media-account-padding-disabled-failure.json",
+        "sha256": "76fcdebe0ceb8bb30051cbfcf90f413e0a841bde01fb0d0b619fbab2df5ff1ec",
+        "recordedSha256Matches": true,
+        "actualRequestCount": 1,
+        "declaredCountMatches": true,
+        "allAccountCreditFalse": true,
+        "cleanupConfirmed": true
+      },
+      {
+        "path": "engine-phase-two-media-account-terminal-failure.json",
+        "sha256": "b72c3d59816ccb9760429d8f9cb6cf0ea8419cb29948cc56bfcf6967c6590d75",
+        "recordedSha256Matches": true,
+        "actualRequestCount": 1,
+        "declaredCountMatches": true,
+        "allAccountCreditFalse": true,
+        "cleanupConfirmed": true
+      },
+      {
+        "path": "engine-phase-two-media-account-terminal-diagnostic-failure.json",
+        "sha256": "9e923aa264472e614cd1b6d70ea819296e8626b91b4badaf6e94c556948bc743",
+        "recordedSha256Matches": true,
+        "actualRequestCount": 1,
+        "declaredCountMatches": true,
+        "allAccountCreditFalse": true,
+        "cleanupConfirmed": true
+      },
+      {
+        "path": "engine-phase-two-media-account-expiry-profile-failure.json",
+        "sha256": "9aa481c0cbd04704998a33e72a02a0bcb447e3416c23b268f79ece975104b685",
+        "recordedSha256Matches": true,
+        "actualRequestCount": 4,
+        "declaredCountMatches": true,
+        "allAccountCreditFalse": true,
+        "cleanupConfirmed": true
+      },
+      {
+        "path": "engine-phase-two-media-account-video-recognition-failure.json",
+        "sha256": "8018cf30e2eb56fe1943cc71365bf7f9e88fbd4deabba2823fca1d3b71ffbaed",
+        "recordedSha256Matches": true,
+        "actualRequestCount": 1,
+        "declaredCountMatches": true,
+        "allAccountCreditFalse": true,
+        "cleanupConfirmed": true
+      }
+    ]
+  },
+  "knownFailureSHAUnchanged": true,
+  "documentLinks": {
+    "checked": 10,
+    "missing": []
+  },
+  "verifiedClaims": [
+    "79/80,19/20 and only16d in progress preserve exact original IDs/completion text.",
+    "Actual11 model requests = gpt-audio-1.5 nine + gpt-4.1-mini two; separate model-list GET1. All8immutable failure reports match ledger SHA and request counts.",
+    "Completed/restarted/fresh-recognized/duplicate/partial-cancel audio observations clearly differ from global/per-case account credit false; video semantic mismatch and unexecuted later checks remain explicit.",
+    "Original historical scopeCoverage native passed value is not relabeled as semantic/account success; new video failure report and exact offline runtime correspondence are linked.",
+    "Public repository transition and first actual6failed Actions lanes are explicit; Windows portable did not execute. Hosted retry/current whole aggregate not claimed passed.",
+    "PCM numeric layout is host declaration; unknown token cost remains null. PDF/other provider/account/Codex new media and E5-13/E5-08/E6-07/E6-08 remain outside completed credit."
+  ],
+  "actionable": [
+    {
+      "severity": "minor factual name",
+      "file": "docs/moodcode/engine-phase-two-media-account-status.md",
+      "current": "OpenAICompatibleAdapter",
+      "expected": "OpenAICompatibleProvider",
+      "impact": "Actual exported class uses Provider; no acceptance/count/credit issue."
+    }
+  ],
+  "verdict": "Acceptance counters, model ledger and unresolved criteria correct. One non-blocking class-name typo; current whole/CI results remain pending.",
+  "reviewer": {
+    "sourceWrites": 0,
+    "testRuns": 0,
+    "builds": 0,
+    "accountCalls": 0,
+    "credentialReads": 0,
+    "GitHubCalls": 0,
+    "mutationsOutsideTmp": 0
+  }
+}
