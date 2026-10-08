@@ -15,6 +15,7 @@ import { backupDatabase, inspectIntegrity, type DatabaseBackup, type IntegrityCh
 import { databaseVersion, DB_VERSION, migrateDatabase } from './migrations.js';
 import { NativeSessionStorage, type ExistingInputReceipt, type StoredInputPromotion } from './native.js';
 import { NativeExecutionStorage, type PartPage, type SessionDocument, type TurnPage } from './native-records.js';
+import { ownedCommandJobKind, validateOwnedCommandJob, validateOwnedCommandJobDatabase, readOwnedCommandJobs, readOwnedCommandJob, recoverInterruptedOwnedCommandJobs, pauseImportedOwnedCommandJobs, type OwnedCommandJobSource } from '../jobs/owned-command-records.js';
 import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPage } from './history-search.js';
 import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js';
 import { readActiveHistoryWindow, withSessionDocumentAnchor, withSessionImageAnchor, type ActiveHistoryWindow, type SessionDocumentAnchor, type SessionImageAnchor } from './native-history.js';
@@ -147,6 +148,7 @@ export class SqliteStore implements SessionEngineStore {
   private readonly summaryRecords: SummaryAttemptStorage;
   private readonly attemptCleanupRecords: AttemptCleanupStorage;
   private readonly mcpExecutionRecords: McpExecutionStorage;
+  private postCommitCallbacks?: Array<() => void>;
   private executionObservationRecords?: DiagnosticExecutionObservationStorage;
   private readonly summaryRecoveryHighWater: string;
   private summaryRecovery?: SummaryRecoveryStorage;
@@ -246,8 +248,21 @@ export class SqliteStore implements SessionEngineStore {
   private transaction<T>(operation: () => T, write = true): T {
     this.assertOpen();
     this.db.exec(write ? 'BEGIN IMMEDIATE' : 'BEGIN');
-    try { const result = operation(); this.db.exec('COMMIT'); return result; }
-    catch (error) { try { this.db.exec('ROLLBACK'); } catch { /* Keep the transaction failure. */ } throw error; }
+    const callbacks: Array<() => void> = [];
+    this.postCommitCallbacks = callbacks;
+    let result: T;
+    try { result = operation(); this.db.exec('COMMIT'); }
+    catch (error) { this.postCommitCallbacks = undefined; try { this.db.exec('ROLLBACK'); } catch { /* Keep the transaction failure. */ } throw error; }
+    this.postCommitCallbacks = undefined;
+    // Durable acceptance does not fail merely because a notification or wake is unavailable.
+    for (const callback of callbacks) try { callback(); } catch { /* The committed journal remains authoritative. */ }
+    return result;
+  }
+  /** Trusted synchronous storage producers publish/wake only after this owner's COMMIT. */
+  publishAfterCommit(operation: () => void): void {
+    this.assertOpen();
+    if (!this.db.isTransaction || !this.postCommitCallbacks) throw new EngineError('STORAGE_TRANSACTION_REQUIRED', 'Post-commit publication requires this store owner’s active primary transaction');
+    this.postCommitCallbacks.push(operation);
   }
   private evidenceRead<T>(operation: () => T): T {
     if (this.db.isTransaction) return withEvidenceRead(this.db, operation);
@@ -272,6 +287,7 @@ export class SqliteStore implements SessionEngineStore {
     return this.evidenceRead(() => new ProposalBlobStorage(this.db).readText(reference));
   }
   private notify(sessionId: string): void {
+    if (this.db.isTransaction && this.postCommitCallbacks) { this.publishAfterCommit(() => this.notify(sessionId)); return; }
     for (const waiter of [...this.waiters]) if (waiter.sessionId === sessionId) waiter.wake();
   }
 
@@ -362,7 +378,11 @@ export class SqliteStore implements SessionEngineStore {
     this.writeMessage(run, message);
     return this.append(run, 'input.steered', { inputId: input.id, requestId: input.requestId, messageId: message.id }).seq;
   }
-  acceptInput(input: AcceptInput): InputReceipt { return this.native.acceptInput(input); }
+  acceptInput(input: AcceptInput): InputReceipt {
+    const receipt = this.native.acceptInput(input);
+    if (this.db.isTransaction && this.postCommitCallbacks) this.publishAfterCommit(() => this.notify(input.sessionId));
+    return receipt;
+  }
   lookupInputReceipt(input: AcceptInput): ExistingInputReceipt | undefined { return this.native.lookupInputReceipt(input); }
   lookupRunReceipt(input: SubmitInput): RunReceipt | undefined { return this.native.lookupRunReceipt(input); }
   getInput(id: string): InputRecord { return this.native.getInput(id); }
@@ -428,7 +448,7 @@ export class SqliteStore implements SessionEngineStore {
     });
   }
   hasUncertainWorkspace(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId) || this.hasUncertainAgentBackend(workspaceId));
+    return this.recoveryBlocked(() => this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId) || this.hasUncertainAgentBackend(workspaceId) || readOwnedCommandJobs(this.db, workspaceId).some(job => job.state === 'uncertain' || job.state === 'paused-import' && job.errorCode === 'COMMAND_JOB_CLEANUP_UNCERTAIN'));
   }
   hasUncertainAgentBackend(workspaceId: string): boolean {
     return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasAgentBackendBlocker(this.db, workspaceId); });
@@ -640,11 +660,28 @@ export class SqliteStore implements SessionEngineStore {
     return this.jobRecords = new JobStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
       writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
+  putOwnedCommandJob(source: OwnedCommandJobSource, jobId: string, expectedRevision: number, data: JsonObject): SessionDocument {
+    const write = () => {
+      const record = validateOwnedCommandJob(data), run = this.getRun(source.runId), tool = this.getToolCall(source.toolCallId);
+      if (isTerminal(run.state) || run.workspaceId !== source.workspaceId || run.sessionId !== source.sessionId || tool.runId !== run.id || tool.name !== 'run_command'
+        || record.source.sha256 !== source.sha256 || record.jobId !== jobId || record.revision !== expectedRevision + 1) throw new EngineError('COMMAND_JOB_OWNER_STALE', 'Command job updates require their actual nonterminal native owner');
+      const kind = ownedCommandJobKind(jobId), previous = this.executionRecords.getSessionDocument(source.sessionId, kind);
+      if (expectedRevision === 0) this.native.appendEvent(source.sessionId, 'command.job.source_admitted', { jobId, source: source as unknown as JsonObject, workspaceRoot: this.getWorkspace(source.workspaceId).root }, { runId: run.id, turnId: source.turnId, attemptId: source.attemptId });
+      if (record.groupPid !== null && !previous?.data.groupPid) this.native.appendEvent(source.sessionId, 'command.job.process_admitted', { jobId, sourceSha256: source.sha256, groupPid: record.groupPid }, { runId: run.id, turnId: source.turnId, attemptId: source.attemptId });
+      if (record.completion && !previous?.data.completion) this.native.appendEvent(source.sessionId, 'command.job.closed_observed', { jobId, sourceSha256: source.sha256, completionSha256: knowledgeHash(record.completion) }, { runId: run.id, turnId: source.turnId, attemptId: source.attemptId });
+      const saved = this.executionRecords.putSessionDocument(source.sessionId, kind, expectedRevision, data);
+      validateOwnedCommandJobDatabase(this.db); this.publishAfterCommit(() => this.notify(source.sessionId)); return saved;
+    };
+    return this.db.isTransaction ? write() : this.transaction(write);
+  }
+  getOwnedCommandJob(workspaceId: string, jobId: string) { return this.evidenceRead(() => readOwnedCommandJob(this.db, workspaceId, jobId)); }
+  inspectOwnedCommandJobs(workspaceId: string, sessionId?: string) { return this.evidenceRead(() => readOwnedCommandJobs(this.db, workspaceId, sessionId)); }
+  recoverOwnedCommandJobs(): number { return this.transaction(() => recoverInterruptedOwnedCommandJobs(this.db, { writeDocument: (sessionId, kind, expectedRevision, data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) })); }
   /** Only genuine Root terminal readers publish these session-scoped observations. */
   commitTerminalJobObservation(sessionId: string, type: 'terminal.source_admitted' | 'terminal.output_observed' | 'terminal.source_closed', payload: JsonObject): SessionEventV2 {
     if (!['terminal.source_admitted', 'terminal.output_observed', 'terminal.source_closed'].includes(type)) throw new EngineError('INVALID_SESSION_OBSERVATION', 'Unknown terminal observation type');
     const append = () => { this.getSession(sessionId); return this.native.appendEvent(sessionId, type, payload); };
-    if (this.db.isTransaction) { const event = append(); queueMicrotask(() => this.notify(sessionId)); return event; }
+    if (this.db.isTransaction) { const event = append(); this.publishAfterCommit(() => this.notify(sessionId)); return event; }
     const event = this.transaction(append); this.notify(sessionId); return event;
   }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
@@ -658,6 +695,7 @@ export class SqliteStore implements SessionEngineStore {
       markImportedSchedulesDisabled(this.db, archiveSha256, workspaceId);
       markImportedAgentBackendsPaused(this.db, archiveSha256, workspaceId);
       markImportedJobsPaused(this.db, archiveSha256, workspaceId);
+      pauseImportedOwnedCommandJobs(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
       if (origin) {
         // Imported runtime capabilities are absent. Persist the ordinary native
         // interrupted-owner transition before pinning recovery; this performs
@@ -835,7 +873,7 @@ export class SqliteStore implements SessionEngineStore {
     // commit or roll back together.
     if (this.db.isTransaction && type === 'backend.connection_admitted') {
       const event = append();
-      queueMicrotask(() => this.notify(event.sessionId));
+      this.publishAfterCommit(() => this.notify(event.sessionId));
       return event;
     }
     const event = this.transaction(append);

@@ -207,7 +207,13 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 
 `jobs:true`에서 `captureTerminalJob` → `readTerminalJobSource` → `attachTerminalJob`로 실제 사용자 PTY를 관찰한다. `captureJobOutput`의 `jobRevisionId`는 처음 job의 `sourceRevisionId`이며 `readJobOutputPage`는 DATA, `recordJobOutput`은 원본 page/CAS 기록이다. `settleTerminalJob`은 실제 종료·정리 관찰, `cancelCommandJobWatch`는 관찰만 종료한다. 새 명령 실행·모델의 터미널 쓰기·실행 lease는 후속 구현이다.
 
-`captureCommandJobDeliveryTarget` → `readCommandJobDeliveryTarget` → `deliverCommandJobResult({workspaceId,requestId,expectedRevision:0,target,approved:true})`로 원본 완료 관찰을 실제 queue에 한 번 입력한다. Intent/실제 accept/receipt gap은 uncertain이며 자동 재전달하지 않는다. Normal reopen의 기존 승인 input은 명시적으로 resume할 수 있지만 source/target은 복원하지 않는다. Import는 paused-import다. 기본 off에서도 `getCommandJob`, `inspectCommandJobs`, `readCommandJobOutputs`, `inspectCommandJobDeliveries`로 이력을 조회한다. `releaseCommandJobHandle`로 원본 source/page/target을 해제한다. [Job 엔진 계약](engine-phase-two-jobs.md)을 따른다.
+`captureCommandJobDeliveryTarget` → `readCommandJobDeliveryTarget` → `deliverCommandJobResult({workspaceId,requestId,expectedRevision:0,target,approved:true})`로 원본 완료 관찰을 실제 queue에 한 번 입력한다. Root는 intent·실제 native input·input.accepted·receipt를 같은 거래에 저장하고 COMMIT 뒤 publish/wake한다. Rollback은 전부 제거하고, COMMIT 뒤 crash는 기존 input 한 건을 유지한다. Atomic port가 없는 기존 trusted consumer의 receipt gap은 uncertain이며 자동 재전달하지 않는다. Normal reopen의 기존 승인 input은 명시적으로 resume할 수 있지만 source/target은 복원하지 않는다. Import는 paused-import다. 기본 off에서도 `getCommandJob`, `inspectCommandJobs`, `readCommandJobOutputs`, `inspectCommandJobDeliveries`로 이력을 조회한다. `releaseCommandJobHandle`로 원본 source/page/target을 해제한다. [Job 엔진 계약](engine-phase-two-jobs.md)과 [원자적 전달 보강](engine-phase-two-atomic-command-jobs.md)을 따른다.
+
+## 승인된 native 명령의 job 관찰
+
+`jobs:true`인 Root에서 built-in `run_command`가 실제 exact 승인을 받아 실행되면 별도 관찰 기록을 남긴다. 실제 Run이 명령·예산·workspace 소유권을 유지한다. `inspectOwnedCommandJobs(workspaceId,sessionId?)`, `getOwnedCommandJob(workspaceId,jobId)`는 기본 off에서도 bounded 이력을 읽는다. `captureOwnedCommandJobOutput({workspaceId,jobId})` → `readOwnedCommandJobOutput(original,{afterSeq?,maxBytes?})`는 현재 Root의 원본 고정 출력 페이지를 읽는다. 페이지는 16–64KiB·whole event·명시적 gap을 사용한다. `releaseOwnedCommandJobHandle(original)`은 관찰만 해제한다.
+
+`cancelOwnedCommandJob({workspaceId,jobId,expectedRevision,requestId})`는 실제 소유 Run 전체를 취소하고 원래 cleanup을 기다린다. 명령 하나의 독립 취소나 background 소유권 이전은 제공하지 않는다. Native source/PID/closed/document anchors, 실제 approval·Tool/Part·checkpoint와 sealed artifact를 검사한다. 재시작은 unfinished를 uncertain으로, import는 paused-import로 보존하고 Original을 재발급하거나 명령을 재실행하지 않는다. 미확정 cleanup의 workspace 격리를 유지한다. 별도 host 실행·parent 종료 후 lifetime·모델 output 도구·owned command의 완료 inbox 전달은 남아 있다. [명령 관찰 계약](engine-phase-two-atomic-command-jobs.md)을 따른다.
 
 ## ACP v1 로컬 agent backend
 

@@ -418,7 +418,7 @@ test(
 );
 
 test(
-  "an actual accepted input with a failed native delivery receipt stays uncertain and cannot reaccept on retry",
+  "atomic delivery rolls back its actual input and receipt together when native receipt storage fails",
   posix,
   async (t) => {
     const f = await jobFixture(t),
@@ -450,20 +450,22 @@ test(
       assert.throws(() =>
         jobInvoke(f.engine, "deliverCommandJobResult", input),
       );
-      assert.equal(f.rows("session_inputs").length, 1);
+      assert.equal(f.rows("session_inputs").length, 0);
       assert.throws(() =>
         jobInvoke(f.engine, "deliverCommandJobResult", input),
       );
-      assert.equal(f.rows("session_inputs").length, 1);
+      assert.equal(f.rows("session_inputs").length, 0);
       const head = db
         .prepare(
           "SELECT r.data FROM job_heads h JOIN job_revisions r ON r.id=h.revision_id WHERE h.kind='delivery'",
         )
         .get();
-      assert.ok(head);
+      assert.equal(head, undefined);
+      assert.equal(f.engine.store.pendingInputs(f.session.id).length, 0);
       assert.equal(
-        (JSON.parse(String(head.data)) as { state: string }).state,
-        "uncertain",
+        f.rows("session_events").filter((row) => row.type === "input.accepted")
+          .length,
+        0,
       );
       assert.equal(f.providerCalls.length, 0);
     } finally {

@@ -532,6 +532,20 @@ export class EngineJobProducer {
     };
   }
   accept(original: object): object {
+    return this.acceptOwnedInput(original, false);
+  }
+  acceptAtomicInput(
+    originalTarget: object,
+    request: { readonly inputRequestId: string; readonly prompt: string },
+  ): object {
+    const original = this.captureInput(originalTarget, request);
+    try {
+      return this.acceptOwnedInput(original, true);
+    } finally {
+      this.release(original);
+    }
+  }
+  private acceptOwnedInput(original: object, atomic: boolean): object {
     const captured = this.original(this.inputs, original);
     this.assertTarget(captured.target);
     if (this.usedInputs.has(original)) fail("JOB_INPUT_ALREADY_USED");
@@ -552,7 +566,15 @@ export class EngineJobProducer {
     )
       fail("JOB_DELIVERY_UNCERTAIN");
     this.usedInputs.add(original);
-    const receipt = this.engine.scheduler.accept(captured.input),
+    if (atomic)
+      this.engine.store.publishAfterCommit(() => {
+        void this.engine.scheduler
+          .wake(captured.input.sessionId)
+          .catch(() => {});
+      });
+    const receipt = atomic
+        ? this.engine.store.acceptInput(captured.input)
+        : this.engine.scheduler.accept(captured.input),
       stored = this.engine.store.getInput(receipt.inputId);
     if (
       stored.workspaceId !== proof.workspaceId ||

@@ -1,0 +1,29 @@
+# Next command engine increments
+
+This is a plan from the three agents' read-only review after the [atomic/command observation increment](engine-phase-two-atomic-command-jobs.md). The APIs below are proposed, not implemented. MC2-10 and the overall engine goal remain in progress.
+
+## 1. Atomic inbox consumer for completed Run-owned commands
+
+Add an original completed-source target to `OwnedCommandJobHost`, gated by the current Root epoch, physical workspace binding, actual terminal source Run, native completed job/approval/Tool/Part/checkpoint/closed proof and current sealed artifacts. Proposed APIs are `captureOwnedCommandJobDeliveryTarget`, `readOwnedCommandJobDeliveryTarget`, `deliverOwnedCommandJobResult`, `get/inspectOwnedCommandJobDeliveries`, and `releaseOwnedCommandJobDeliveryHandle`.
+
+Reuse normalized target configuration, `profiles.apply`, catalogue/capability/budget DATA pinning from existing schedule/job producers. Create a new private original target; an original schedule target grants no command delivery authority. Do not grant the source command's approval to the consuming Run. First support genuine completed commands with confirmed cleanup; interrupted, imported, stale, or settling sources cannot mint a target.
+
+Write the actual native input, exact accepted input tuple, signed delivery receipt and independent session-scoped acceptance anchor in one primary transaction, then publish/wake after COMMIT. A compact immutable receipt must include the exact signed source settlement snapshot, target, request digest, native input identity and quoted prompt. SessionDocuments are suitable only if the independent immutable acceptance anchor preserves that complete original receipt across head updates/import pause. Otherwise use typed revision/head storage. Existing PTY-only job DTOs cannot represent this source.
+
+The receipt's input link must be checked on promotion and every provider dispatch against the native accepted input, exact prompt/configuration/profile/catalogue and current physical workspace. Historical duplicates return their existing input without new acceptance, wake or Original reconstruction. Crash before COMMIT removes everything; after COMMIT preserves one input. Restart resumes an existing accepted input explicitly; import pauses the history without replay. No new event is appended to the terminal source Run.
+
+Start with a bounded 32 KiB quoted advisory result containing state/outcome, source/settlement digests, compact checkpoint and artifact byte/truncation metadata. Model output paging and independent host-command delivery remain separate increments. Do not turn an absolute artifact path into model execution authority.
+
+Parallel ownership: Root for genuine completed target, actual input producer and Engine promotion/dispatch integration; A for a new bounded result formatter/types; B for native atomic receipt/history/import validation; C for the consumer and actual engine/crash fixtures. Verify real completed source/one accepted input, deny/copy/getter/released/stale/unknown zero effects, SQL rollback, both COMMIT crash boundaries, duplicate response mutation, default-off restart resume, paused import, and fully rehashed receipt/input contradictions.
+
+## 2. Independently owned idle-workspace host commands
+
+Factor the existing command preparation, process supervision and sealed artifacts into a neutral execution scope containing the actual workspace, signal, artifact directory, execution lock and explicit limits. The original Tool adapter retains actual native context and Checkpoint; a host command has its own genuine owner and effects receipt. Never synthesize a Run, ToolContext, Tool, Attempt or PTY ID.
+
+Use a host-owned exact Original preview/decision and durable consumed approval before launch. Pin canonical command/cwd/timeout, physical root, complete independent budgets and before-effects snapshot. Root retains the actual `withWorkspaceLease` promise for the entire process/cleanup/checkpoint/receipt lifetime. The start API returns only after native admission; cancel and Root close abort and join that same physical execution. Snapshot or output observer release cannot release the lease.
+
+The initial native design is DB23 `host_command_revisions` and `host_command_heads`, STRICT/WITHOUT ROWID, with typed approval/owner/process/checkpoint/chunk/closed/receipt/transition revisions, workspace/session FKs and exact CAS/request dedupe. It must preserve DB22 PTY and Run-owned histories. Measure the actual catalogue and migration rollback/idempotency within the existing 160-row recovery cap; a predicted row count is not verification. Persist bounded checkpoint manifests/chunks and independent physical receipt anchors. Terminal receipt failure composes a durable workspace uncertainty blocker even after an in-memory lease exits.
+
+Preserve current role/resource and command-preflight policy. A configured Run-only preflight that cannot support a genuine host owner must fail before any effect with explicit unsupported status. It must not be bypassed by calling the core command executor directly. Foreground-to-background transfer and parent-terminal-independent handoff need a later explicit ownership contract.
+
+Parallel ownership: Root for Original approval/job producer, lease/cancellation/Engine integration; A for neutral physical command extraction and existing native adapter regression; B for host journal/migration/archive/recovery; C for actual independent host API/fixtures. Verify no native Run/Tool/Turn/Attempt/checkpoint rows, exact deny/stale/duplicate zero spawn, live Run/restore/other-host lease conflict, actual output/effects/sealed completion, cancellation/host close cleanup, admission/PID/checkpoint/receipt SQL faults, SIGKILL and no replay, paused import, UTF-8 backpressure/truncation, and PID/null-erasure/artifact drift.

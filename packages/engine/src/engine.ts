@@ -104,6 +104,7 @@ import { AgentBackendHost } from './agent-backends/host.js';
 import { EngineJobProducer } from './jobs/engine-producer.js';
 import { JobHost } from './jobs/host.js';
 import { JobDelivery } from './jobs/delivery.js';
+import { OwnedCommandJobHost } from './jobs/owned-command-host.js';
 import type { JobStorage } from './jobs/store.js';
 import { agentBackendObject, validateAgentBackendSpec } from './agent-backends/validation.js';
 import { TeamHostService } from './teams/host.js';
@@ -417,6 +418,7 @@ export class MoodcodeEngine {
   private readonly jobRecords: JobStorage;
   private readonly jobHost: JobHost;
   private readonly jobDelivery: JobDelivery;
+  private readonly ownedCommandHost: OwnedCommandJobHost;
   private readonly runtimeProviders: Map<string, ProviderAdapter>;
   private readonly backendProviderIds = new Set<string>();
   private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
@@ -896,7 +898,13 @@ export class MoodcodeEngine {
         ...(options.lifecycleContextSlotBytes === undefined ? {} : { lifecycleContextSlotBytes: options.lifecycleContextSlotBytes }),
         ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}), ...(knowledgeContext ? { knowledgeContext } : {}), ...(proposalContext ? { proposalContext } : {}) });
       if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
-      const coreCommand = createCommandTool();
+      const coreCommand = createCommandTool(this.jobsEnabled ? { observer: {
+        beforeSpawn: (context,prepared) => this.ownedCommandHost.beforeSpawn(context,prepared),
+        started: (original,pid) => this.ownedCommandHost.started(original,pid),
+        output: (original,stream,bytes) => this.ownedCommandHost.output(original,stream,bytes),
+        closed: (original,completion) => this.ownedCommandHost.closed(original,completion),
+        failed: (original,error) => this.ownedCommandHost.failed(original,error),
+      } } : {});
       const coreTools = options.tools ?? [...createReadTools(), createPatchTool(), coreCommand, createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
       const nativeFiles = [canonicalDbPath, canonicalDbPath ? `${canonicalDbPath}.owner.sqlite` : undefined, this.executionLockPath, canonicalDbPath ? `${canonicalDbPath}.review.sqlite` : undefined].filter((path): path is string => path !== undefined);
       const source = new WorkspaceExecutionSource({ checkWorkspaceBinding: workspace => {
@@ -942,6 +950,7 @@ export class MoodcodeEngine {
       };
       this.coordinator = new RunCoordinator({
         beforeProviderDispatch: run => { this.scheduleProducer.beforeProviderDispatch(run); this.jobProducer?.beforeProviderDispatch(run); },
+        onOwnedCommandToolSettled: record => this.ownedCommandHost?.toolSettled(record),
         onRunStarted: async (run,signal) => {
           const admission = waitChildProviderAdmission(this,signal);
           if (admission) await admission;
@@ -1053,10 +1062,14 @@ export class MoodcodeEngine {
         readDeliveryTarget: original => this.jobProducer.readTarget(original),
         assertDeliveryTargetCurrent: (original, expected) => this.jobProducer.assertTargetCurrent(original, expected),
         readAccepted: original => this.jobProducer.readAccepted(original),
+        acceptAtomicInput: (original, request) => this.jobProducer.acceptAtomicInput(original, request),
+        releaseAtomicInput: original => this.jobProducer.release(original),
       });
       this.jobRecords.recoverInterrupted();
       this.jobHost = new JobHost({ native: this.jobRecords, source: this.jobProducer.sourcePort(), lifetime: this.hostResources.signal });
       this.jobDelivery = new JobDelivery({ native: this.jobRecords, input: this.jobProducer.inputPort(), lifetime: this.hostResources.signal });
+      this.store.recoverOwnedCommandJobs();
+      this.ownedCommandHost = new OwnedCommandJobHost(this, knowledgeBinding, () => this.jobsEnabled && !this.closing);
       const recoveredRestores = this.reviewJournal.recoverPending();
       const recoveryAcknowledgments = canonicalDbPath ? readRecoveryAcknowledgments({ dbPath: canonicalDbPath, artifactDir: realpathSync(artifactDir) }) : [];
       for (const operation of recoveredRestores) {
@@ -1552,6 +1565,12 @@ export class MoodcodeEngine {
   readCommandJobDeliveryTarget(...args: Parameters<JobDelivery['readTarget']>) { return this.jobDelivery.readTarget(...args); }
   deliverCommandJobResult(...args: Parameters<JobDelivery['deliver']>) { return this.jobDelivery.deliver(...args); }
   releaseCommandJobHandle(original: object): void { this.jobHost.release(original); this.jobDelivery.release(original); }
+  inspectOwnedCommandJobs(...args: Parameters<OwnedCommandJobHost['inspect']>) { return this.ownedCommandHost.inspect(...args); }
+  getOwnedCommandJob(...args: Parameters<OwnedCommandJobHost['get']>) { return this.ownedCommandHost.get(...args); }
+  captureOwnedCommandJobOutput(...args: Parameters<OwnedCommandJobHost['captureOutput']>) { return this.ownedCommandHost.captureOutput(...args); }
+  readOwnedCommandJobOutput(...args: Parameters<OwnedCommandJobHost['readOutput']>) { return this.ownedCommandHost.readOutput(...args); }
+  releaseOwnedCommandJobHandle(original: object): void { this.ownedCommandHost.release(original); }
+  cancelOwnedCommandJob(...args: Parameters<OwnedCommandJobHost['cancel']>) { return this.ownedCommandHost.cancel(...args); }
 
   replaceRoleResourcePolicy(expectedRegistryRevision: number, policy: RoleResourcePolicySnapshot) {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
@@ -2217,7 +2236,7 @@ export class MoodcodeEngine {
         await this.executionObserver.close();
         try { this.terminalJournal.close(); }
         finally { try { this.reviewJournal.close(); }
-        finally { this.jobProducer.close(); this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
+        finally { this.ownedCommandHost.close(); this.jobProducer.close(); this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
         }
       }
     })().then(resolve, reject);

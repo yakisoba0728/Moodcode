@@ -462,7 +462,9 @@
           "status": "in-progress",
           "evidence": [
             "engine-phase-two-jobs.md",
-            "engine-phase-two-jobs-verification.json"
+            "engine-phase-two-jobs-verification.json",
+            "engine-phase-two-atomic-command-jobs.md",
+            "engine-phase-two-atomic-command-jobs-verification.json"
           ]
         },
         {
@@ -471,7 +473,9 @@
           "status": "in-progress",
           "evidence": [
             "engine-phase-two-jobs.md",
-            "engine-phase-two-jobs-verification.json"
+            "engine-phase-two-jobs-verification.json",
+            "engine-phase-two-atomic-command-jobs.md",
+            "engine-phase-two-atomic-command-jobs-verification.json"
           ]
         },
         {
@@ -480,7 +484,9 @@
           "status": "in-progress",
           "evidence": [
             "engine-phase-two-jobs.md",
-            "engine-phase-two-jobs-verification.json"
+            "engine-phase-two-jobs-verification.json",
+            "engine-phase-two-atomic-command-jobs.md",
+            "engine-phase-two-atomic-command-jobs-verification.json"
           ]
         },
         {
@@ -489,11 +495,13 @@
           "status": "in-progress",
           "evidence": [
             "engine-phase-two-jobs.md",
-            "engine-phase-two-jobs-verification.json"
+            "engine-phase-two-jobs-verification.json",
+            "engine-phase-two-atomic-command-jobs.md",
+            "engine-phase-two-atomic-command-jobs-verification.json"
           ]
         }
       ],
-      "notes": "DB22 native user-terminal-watch revisions/head CAS connect original current Root/TerminalService sources, exact journal inode/physical owner, frozen bounded UTF-8 snapshots, native output continuity and genuine settled PTY outcomes. Explicit host-approved advisory completion uses durable intent, actual synchronous queue acceptance and a separate native receipt; gaps remain uncertain with no reaccept. Normal reopen can explicitly resume the existing accepted input; source/new target restoration and imported replay remain blocked. Watching does not grant command/write/cancel/workspace-lease authority and does not quarantine unrelated Runs. MC2-10a/b/c/d remain in progress for prepared approved owned command/preflight/lease, output artifacts/model consumers, atomic completion/inbox admission and full crash/detach/EPERM recovery. Verified completed work items stay38/80 and families8/20; original goal remains active and the four environment debts remain unchanged. Final gates: typecheck0, wholeengine4200/4198pass/0fail/2existingWindows skips, broadsource899pass and scriptedcoding3pass; 31 frozen sources unchanged and44new tests. DB22 catalogue136 within existingcap160; DB21history/rollback preserved."
+      "notes": "Root existing-user-terminal completion now uses one actual primary transaction for intent, native input, input.accepted and acceptance receipt; publish/wake occurs after COMMIT. Approved built-in run_command observations bind genuine live Run/Turn/Attempt/Tool/context, exact approval/prepared command, actual supervisor PID and sealed bounded output/checkpoint. Existing native CAS SessionDocuments plus immutable source/process/closed/doc-updated events reject source/PID/completion drift. Completion follows actual Tool/Part settlement; journal faults stop with uncertainty without a second Tool result. Actual Root SIGKILL, paused import, default-off reopen, output gaps/artifact replacement, SQL faults and legitimate lifecycle input rewrite are verified. MC2-10a/b/c/d remain in progress: independent host command approval/lease, foreground-background ownership transfer and parent-terminal-independent lifetime, model output consumer, owned-command completion inbox and remaining EPERM/backpressure coverage are open. Completed counts remain38/80 and8/20; goal active and environment debts unchanged. Current increment aggregate gate evidence is engine-phase-two-atomic-command-jobs-verification.json; DB22/catalogue136/cap160 unchanged. Final gates: typecheck0, wholeengine4240/4238pass/0fail/2existingplatform skips, broadsource1016/1014pass/0fail/2existingplatform skips, scriptedcoding3pass/live0; 48 frozen sources unchanged and40new tests."
     },
     {
       "id": "MC2-11",
@@ -856,5 +864,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-08T05:04:48.421Z"
+  "updatedAt": "2026-10-08T06:13:44.330083+00:00"
 }

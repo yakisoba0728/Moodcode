@@ -265,6 +265,7 @@ export class RunCoordinator implements CoordinatorPort {
   private readonly finalUsage = new Map<string, Readonly<RunUsage>>();
   private readonly verificationSettlementOwners = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; binding: string }>();
   private readonly teamToolContexts = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; phase: 'prepare' | 'execute'; binding: string; signal: AbortSignal; approval?: ApprovedMcpToolOwner['approval'] }>();
+  private readonly commandJobContexts = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; binding: string; signal: AbortSignal; approval?: ApprovedMcpToolOwner['approval'] }>();
   private readonly providerRequests = new WeakMap<TurnRequest, OriginalProviderRequest>();
   private readonly clientReadCompletions = new WeakMap<object, BackendClientReadProof>();
   private readonly retainedClientReads = new Set<object>();
@@ -462,6 +463,24 @@ export class RunCoordinator implements CoordinatorPort {
     owner.discovery?.assertCurrent();
     this.options.toolRuntime.assertCatalogueCurrent(owner.catalogue);
     return owner.catalogue;
+  }
+  /** ORIGINAL approved execution scope, retained only while the genuine command owns its Run. */
+  readOwnedCommandContext(context: ToolContext, phase: 'start' | 'settle') {
+    const captured = this.commandJobContexts.get(context);
+    if (!captured || !captured.active() || this.teamContextBinding(context) !== captured.binding) throw new EngineError('COMMAND_JOB_OWNER_STALE', 'Command jobs require the original unchanged execution context');
+    const { owner, record, approval: pin } = captured;
+    if (owner.terminal || this.owners.get(owner.run.id) !== owner || owner.activeTools.get(record.id) !== record || context.signal !== captured.signal
+      || owner.run.id !== context.runId || owner.run.sessionId !== context.sessionId || owner.run.workspaceId !== context.workspace.id
+      || owner.turn?.id !== context.turnId || owner.turn?.attemptId !== context.attemptId || !['run_command','verify_changes'].includes(record.name)
+      || phase === 'start' && (context.signal.aborted || owner.abort.signal.aborted || record.state !== 'running')) throw new EngineError('COMMAND_JOB_OWNER_STALE', 'The actual command execution owner changed');
+    if (!pin) throw new EngineError('COMMAND_JOB_APPROVAL_REQUIRED', 'Command observation requires its exact native approval');
+    const approval = this.options.store.getApproval(pin.id);
+    if (approval.status !== 'allowed' || approval.fingerprint !== pin.fingerprint || approval.toolCallId !== record.id || approval.runId !== context.runId || approval.sessionId !== context.sessionId || approval.toolName !== record.name) throw new EngineError('COMMAND_JOB_APPROVAL_REQUIRED', 'The actual native command approval changed');
+    const catalogue = phase === 'start' ? this.captureToolCatalogue(context) : owner.catalogue;
+    if (!catalogue) throw new EngineError('COMMAND_JOB_OWNER_STALE', 'Command catalogue is unavailable');
+    return { name: record.name, workspaceId: context.workspace.id, sessionId: context.sessionId, runId: context.runId,
+      toolCallId: record.id, turnId: context.turnId!, attemptId: context.attemptId!, approvalId: approval.id,
+      approvalFingerprint: approval.fingerprint, catalogueSha256: knowledgeHash(catalogue) };
   }
 
   /** Cancellation can settle the consumed command, without creating any new verification work. */
@@ -1252,6 +1271,7 @@ export class RunCoordinator implements CoordinatorPort {
   private setTool(owner: Owner, tool: ToolCallRecord, state: ToolCallRecord['state'], fields: Partial<Pick<ToolCallRecord, 'output' | 'error'>> = {}): void {
     Object.assign(tool, { state }, fields);
     this.options.store.commit(owner.run.id, `tool.${state}`, { toolCallId: tool.id, name: tool.name, state, ...fields }, { tool: { ...tool } });
+    if (tool.name === 'run_command' && state === 'interrupted') this.options.onOwnedCommandToolSettled?.(tool);
   }
 
   private context(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], signal: AbortSignal, allowCheckpoint: () => boolean): ToolContext {
@@ -1281,6 +1301,7 @@ export class RunCoordinator implements CoordinatorPort {
     let active = execute;
     let inProgress = true;
     const context = this.context(owner, record, workspace, signal, () => active);
+    if (execute && ['run_command','verify_changes'].includes(record.name)) this.commandJobContexts.set(context, { owner, record, active: () => inProgress, binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
     if (['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task'].includes(record.name)) this.teamToolContexts.set(context, { owner, record, active: () => inProgress, phase: execute ? 'execute' : 'prepare', binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
     if (execute) context.mcpExecutionObserver = createMcpExecutionObserver(this.options.store, executionRecords(this.options.store), {
       sessionId: owner.run.sessionId, workspaceId: workspace.id, runId: owner.run.id, toolCallId: record.id, toolName: record.name,
@@ -1501,6 +1522,7 @@ export class RunCoordinator implements CoordinatorPort {
     }
     this.options.store.commit(owner.run.id, `tool.${finalState}`, payload, { tool: { ...record }, message });
     owner.turn?.toolResult(record.id, { output: output.content, isError: result.isError ?? false, truncated: output.truncated }, finalState !== 'completed');
+    if (record.name === 'run_command') this.options.onOwnedCommandToolSettled?.(record);
     const clientRead = this.clientReadCaptures.get(record.id);
     if (clientRead) clientRead.result = structuredClone(result);
     if (output.truncated) throw new EngineError('OUTPUT_LIMIT', 'Run output byte budget was exceeded');

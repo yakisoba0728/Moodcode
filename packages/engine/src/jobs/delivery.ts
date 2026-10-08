@@ -6,6 +6,7 @@ import { jobIdentifier, jobInteger, jobJson } from "./validation.js";
 import type {
   AbandonJobDeliveryInput,
   CommandJob,
+  DeliverJobResultAtomicInput,
   DispatchJobDeliveryInput,
   JobDelivery as NativeJobDelivery,
   JobRequestResult,
@@ -96,6 +97,11 @@ export function formatJobResult(
   return prompt;
 }
 export interface JobDeliveryNativePort {
+  /** The trusted Root can admit its actual native input and receipt in one transaction. */
+  deliverJobResultAtomic?(
+    originalTarget: object,
+    input: DeliverJobResultAtomicInput,
+  ): JobRequestResult<NativeJobDelivery>;
   getJob(
     workspaceId: string,
     jobId: string,
@@ -274,6 +280,22 @@ export class JobDelivery {
       accepted: object | undefined,
       intent = false;
     try {
+      if (this.ports.native.deliverJobResultAtomic) {
+        jobHostAbort(input.signal);
+        jobHostAbort(this.signal);
+        this.ports.input.assertTargetCurrent(input.target, target);
+        const completed = this.ports.native.deliverJobResultAtomic(
+          input.target,
+          {
+            workspaceId: input.workspaceId,
+            jobId: target.jobId,
+            requestId: input.requestId,
+            expectedRevision: input.expectedRevision,
+          },
+        );
+        cached.result = structuredClone(completed);
+        return structuredClone(completed);
+      }
       const prepared = this.ports.native.prepareJobDelivery(input.target, {
         workspaceId: input.workspaceId,
         jobId: target.jobId,
