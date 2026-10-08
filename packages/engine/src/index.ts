@@ -133,3 +133,6 @@ export type { AttemptCleanupIdentity, AttemptCleanupRecord, AttemptCleanupSettle
 export { ATTEMPT_CLEANUP_LIMITS } from './storage/attempt-cleanup.js';
 export type { McpExecutionIdentity, McpExecutionRecord, McpExecutionSettlement, McpExecutionState } from './storage/mcp-executions.js';
 export { MCP_EXECUTION_LIMITS as MCP_EXECUTION_STORAGE_LIMITS } from './storage/mcp-executions.js';
+
+export type { ProposalApplyPreviewInput, ProposalApplyPreview, ApplyProposalInput, ApplyProposalResult } from './proposals/apply-service.js';
+export type { ProposalApplyOwner, ProposalApplyCheckpoint, ProposalApplyReceipt, ProposalApplyHistory, ProposalApplyRecoveryPreview, ProposalApplyRecoveryDecision } from './proposals/apply-types.js';

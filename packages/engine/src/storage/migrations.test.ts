@@ -366,3 +366,20 @@ test('DB11 to DB12 adds workspace document CAS without fabricating legacy approv
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
   const after = databaseContents(db); migrateDatabase(db, DATABASE_MIGRATIONS.slice(0, 12)); assert.deepEqual(databaseContents(db), after);
 });
+
+test('DB16 to DB17 installs exact host proposal effects without fabricated Run owners and preserves rollback/history',t=>{
+  const {db}=fixture(t);db.exec('PRAGMA foreign_keys=ON');migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,16));
+  const before=databaseContents(db),failure=[...DATABASE_MIGRATIONS.slice(0,16),{version:17,name:'intentional-v17-failure',apply(database:DatabaseSync){DATABASE_MIGRATIONS[16]!.apply(database);throw new Error('DB17 rollback');}}];
+  assert.throws(()=>migrateDatabase(db,failure),/DB17 rollback/u);assert.deepEqual(databaseContents(db),before);
+  migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,17));assert.equal(databaseVersion(db),17);
+  for(const entry of before.tables)assert.deepEqual(db.prepare(`SELECT * FROM "${String(entry.name)}" ORDER BY rowid`).all(),entry.rows);
+  for(const table of ['proposal_apply_owners','proposal_apply_checkpoints','proposal_effect_blobs','proposal_apply_receipts','proposal_apply_recovery_decisions','proposal_apply_execution_guards']){
+    assert.equal(db.prepare(`SELECT count(*) AS count FROM ${table}`).get()!.count,0);
+    assert.ok(db.prepare(`PRAGMA foreign_key_list(${table})`).all().every(row=>!['sessions','runs','tools','checkpoints','provider_attempts'].includes(String(row.table))));
+    assert.equal(db.prepare("SELECT wr FROM pragma_table_list WHERE schema='main' AND name=?").get(table)!.wr,1);
+  }
+  const catalog=db.prepare("SELECT count(*) AS count FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'").get()!.count;
+  assert.ok(Number(catalog)<=128,`Actual catalog ${String(catalog)} exceeds recovery bound`);
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
+  const after=databaseContents(db);migrateDatabase(db,DATABASE_MIGRATIONS.slice(0,17));assert.deepEqual(databaseContents(db),after);
+});

@@ -21,6 +21,8 @@ import { KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGua
 import { DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validateDiagnosticExecutionObservationDatabase } from '../diagnostics/execution-observation-store.js';
 import { KNOWLEDGE_IMPORT_RECOVERY_TABLES, validateKnowledgeImportRecoveryDatabase } from '../knowledge/import-recovery-store.js';
 import { PROPOSAL_TABLES, validateProposalDatabase } from '../proposals/store.js';
+import { PROPOSAL_APPLY_TABLES, validateProposalApplyDatabase } from '../proposals/apply-store.js';
+import { PROPOSAL_APPLY_GUARD_TABLE, validateProposalApplyExecutionGuards } from '../proposals/execution-guards.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
 import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
@@ -126,7 +128,9 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     if (primary && primaryVersion >= 15) validateKnowledgeImportRecoveryDatabase(primary, snapshot.check);
     const importTables = primaryVersion >= 15 ? [...observationTables, ...KNOWLEDGE_IMPORT_RECOVERY_TABLES] : observationTables;
     if (primary && primaryVersion >= 16) validateProposalDatabase(primary, snapshot.check);
-    const proposalTables = primaryVersion >= 16 ? [...importTables, ...PROPOSAL_TABLES] : importTables;
+    const pendingProposalTables = primaryVersion >= 16 ? [...importTables, ...PROPOSAL_TABLES] : importTables;
+    if (primary && primaryVersion >= 17) { validateProposalApplyDatabase(primary, snapshot.check); validateProposalApplyExecutionGuards(primary, snapshot.check); }
+    const proposalTables = primaryVersion >= 17 ? [...pendingProposalTables, ...PROPOSAL_APPLY_TABLES, PROPOSAL_APPLY_GUARD_TABLE] : pendingProposalTables;
     const primaryHash = primary ? checkDatabase(primary, primaryVersion, proposalTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);

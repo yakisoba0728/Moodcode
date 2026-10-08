@@ -73,7 +73,17 @@ Instruction source cache는 최대 128개이며 idle entry를 교체한다. 진�
 
 `getProposalSet(workspaceId,proposalId)`, `listProposalSets({workspaceId,cursor?,limit?,maxBytes?})`, `getProposalDiff({workspaceId,proposalId,revisionId?,cursor?,limit?,maxBytes?,signal?})`는 authoring opt-in과 독립적인 읽기 전용 API다. diff는 저장된 원본 before/after와 현재 source freshness를 구분하고 완전한 파일 단위로 생략한다. row64·전체 JSON64KiB paging 한도를 적용한다.
 
-`proposalContextPolicy: {proposalIds,slotBytes,profiles?}`는 최대8개 exact pending proposal을 실제 ContextPlan에 선택한다. `slotBytes`는 필수이며 최대32KiB다. 필수 문맥·output·repository·knowledge 예약 뒤 남은 공유 예산에 한 quoted assistant DATA entry를 넣고 head/revision/source/binding/BLOB lineage를 실제 ContextRevision/Attempt에 고정한다. 같은 Turn retry는 원본 요청을 유지하며 source/head 변화는 추가 dispatch를 거부한다. child는 선택을 상속하지 않는다. import는 head를 paused로 보존한다. 현재 승인·물리 적용 API는 구현 중이며 [현재 범위](engine-phase-two-proposals.md)를 따른다.
+`proposalContextPolicy: {proposalIds,slotBytes,profiles?}`는 최대8개 exact pending proposal을 실제 ContextPlan에 선택한다. `slotBytes`는 필수이며 최대32KiB다. 필수 문맥·output·repository·knowledge 예약 뒤 남은 공유 예산에 한 quoted assistant DATA entry를 넣고 head/revision/source/binding/BLOB lineage를 실제 ContextRevision/Attempt에 고정한다. 같은 Turn retry는 원본 요청을 유지하며 source/head 변화는 추가 dispatch를 거부한다. child는 선택을 상속하지 않는다. import는 head를 paused로 보존한다. diff는 `state: captured-history`와 실제 현재 `proposalStatus`를 함께 반환한다. [저장·문맥 범위](engine-phase-two-proposals.md)를 따른다.
+
+## 변경안 승인·실제 파일 적용
+
+`proposalApply: true`는 `proposals`와 별도의 host opt-in이다. `previewProposalApply({workspaceId,proposalId,revisionId?,expiresAt?,signal?})`는 현재 idle workspace와 원본 source·head·binding·실제 파일/parent identity를 확인하고 original preview를 반환한다. 기본 만료는60초, 최대90초다. `applyProposal({workspaceId,requestId,approved,preview,signal?})`는 같은 원본 객체의 `approved: true`만 실행한다. 복사한 preview, 거부, 취소, stale source/head/root는 새 효과 승인이 되지 않는다. 사용하지 않는 preview는 `releaseProposalApplyPreview`로 해제한다.
+
+실제 적용은 whole proposal32파일·파일당1MiB·before/desired-after 합산4MiB 이하다. 큰 저장 proposal은 미리보기 단계에서 거부하며 자동 분할하지 않는다. 기존 `apply_patch`와 같은 실제 파일 실행기를 사용하되 host apply owner·checkpoint·BLOB·receipt는 별도 native ID로 소유한다. 가짜 Session/Run/tool/Checkpoint를 만들지 않는다. 원본 실행 잠금 의도→잠금 획득→전체 source 재검사→durable dispatch→파일 효과→actual checkpoint→원본 정리·잠금 해제→receipt/head CAS 순서다. 부분 효과와 unknown postimage를 구분하여 보존하고 재적용하지 않는다.
+
+`getProposalApply(workspaceId,ownerId)`와 `getProposalApplyRequest(workspaceId,requestId)`는 mutation opt-in과 독립적인 역사 조회다. 원본 승인 요청의 동일 재전송은 과거 owner/checkpoint/receipt만 반환한다. 재시작 후 저장 JSON은 새 승인 권한이 되지 않는다. `previewProposalApplyRecovery(workspaceId)`의 원본 frontier로 비동기 `acknowledgeProposalApplyRecovery({workspaceId,requestId,preview,reason})`를 수행하고, 새 frontier의 `resumeProposalApplyRecovery`를 별도로 호출한다. 원래 uncertain/cleanup=false를 유지하며 exact known stopped marker만 명시적으로 정리한다. 효과 재실행·큐 자동 재개·foreign marker 삭제는 수행하지 않는다.
+
+적용된 head는 content revision을 만들지 않고 CAS version을 진전시킨다. 이번 경로에서는 terminal head의 같은 ProposalSet에 새 revision을 추가하지 않으며 새 ProposalSet을 명시적으로 만든다. 활성 effects marker가 있는 archive export는 기존 `ARCHIVE_EFFECT_ACTIVE`로 거부한다. 성공 영수증 archive/import는 원래 증거를 유지하고 현재 head를 paused로 둔다. host 효과의 변경 허브 attribution과 캐시 진단 갱신은 별도 보강 대상이다. 네이티브 TypeScript navigation/format/context는 실제 파일·프로젝트 SHA를 다시 확인하지만 cached diagnostics getter는 query/update/watch 전의 관측을 반환할 수 있다. [적용·복구 계약](engine-phase-two-proposal-apply.md)을 따른다.
 
 ## child 작업과 Git workspace
 

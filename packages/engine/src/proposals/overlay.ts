@@ -774,12 +774,15 @@ export interface ProposalDiffOptions {
   readonly limit?: number;
   readonly maxBytes?: number;
   readonly sourceFreshness?: "current" | "stale" | "unknown";
+  /** Current host-read head status; independent from the selected immutable content revision. */
+  readonly proposalStatus?: ProposalSet["status"] | "unknown";
 }
 export interface ProposalReadonlyDiff {
   readonly schemaVersion: 1;
   readonly projection: "proposal-readonly-diff-v1";
   readonly authority: "observation-only";
-  readonly state: "pending-unapplied";
+  readonly state: "captured-history";
+  readonly proposalStatus: ProposalSet["status"] | "unknown";
   readonly proposalId: string;
   readonly revisionId: string;
   readonly revisionSha256: string;
@@ -800,17 +803,32 @@ export function buildProposalDiff(
   options: ProposalDiffOptions = {},
 ): ProposalReadonlyDiff {
   const revision = validateProposalRevision(input);
-  plain(options, [], ["after", "limit", "maxBytes", "sourceFreshness"]);
+  plain(
+    options,
+    [],
+    ["after", "limit", "maxBytes", "sourceFreshness", "proposalStatus"],
+  );
   if (typeof readBlobText !== "function") fail();
   const after = count(options.after ?? 0, revision.files.length),
     limit = count(options.limit ?? 64, 64),
     maxBytes = count(options.maxBytes ?? 65536, 65536),
     sourceFreshness = (options.sourceFreshness ?? "unknown") as
-      "current" | "stale" | "unknown";
+      "current" | "stale" | "unknown",
+    proposalStatus = (options.proposalStatus ?? "unknown") as
+      ProposalSet["status"] | "unknown";
   if (
     !limit ||
     maxBytes < 512 ||
-    !["current", "stale", "unknown"].includes(sourceFreshness)
+    !["current", "stale", "unknown"].includes(sourceFreshness) ||
+    ![
+      "pending",
+      "cancelled",
+      "paused-import",
+      "applied",
+      "partial",
+      "uncertain",
+      "unknown",
+    ].includes(proposalStatus)
   )
     fail();
   const files: PayloadFile[] = [],
@@ -820,7 +838,8 @@ export function buildProposalDiff(
     schemaVersion: 1 as const,
     projection: "proposal-readonly-diff-v1" as const,
     authority: "observation-only" as const,
-    state: "pending-unapplied" as const,
+    state: "captured-history" as const,
+    proposalStatus,
     proposalId: revision.proposalId,
     revisionId: revision.id,
     revisionSha256: revision.sha256,

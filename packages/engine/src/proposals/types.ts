@@ -72,7 +72,22 @@ export interface ProposalSet {
   readonly revisionId: string;
   readonly revisionSha256: string;
   readonly headRevision: number;
-  readonly status: "pending" | "cancelled" | "paused-import";
+  readonly status:
+    | "pending"
+    | "cancelled"
+    | "paused-import"
+    | "applied"
+    | "partial"
+    | "uncertain";
+  readonly applySettlement?: {
+    readonly ownerId: string;
+    readonly ownerSha256: string;
+    readonly checkpointId: string;
+    readonly checkpointSha256: string;
+    readonly receiptId: string;
+    readonly state: "completed" | "partial" | "uncertain";
+    readonly cleanupConfirmed: boolean;
+  };
   readonly archiveSha256: string | null;
   readonly updatedAt: string;
   readonly sha256: string;

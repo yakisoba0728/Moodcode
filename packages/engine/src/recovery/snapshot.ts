@@ -176,7 +176,15 @@ export function checkDatabase(db: DatabaseSync, version: number, expectedTables:
   for (const name of tables) {
     digest.update(name);
     // Table names are an exact allowlist, not identifiers read from arbitrary SQL.
-    const statement = db.prepare('SELECT * FROM "' + name + '" ORDER BY rowid');
+    const withoutRowid = db.prepare("SELECT wr FROM pragma_table_list WHERE schema='main' AND name=? LIMIT 2").all(name);
+    if (withoutRowid.length !== 1) fail('RECOVERY_DATABASE_INVALID');
+    let order = 'rowid';
+    if (withoutRowid[0]!.wr === 1) {
+      const primary = db.prepare('SELECT name FROM pragma_table_info(?) WHERE pk>0 ORDER BY pk LIMIT 33').all(name);
+      if (!primary.length || primary.length > 32 || primary.some(column => typeof column.name !== 'string' || !/^[a-z_][a-z_0-9]*$/u.test(column.name))) fail('RECOVERY_DATABASE_INVALID');
+      order = primary.map(column => '"' + String(column.name) + '"').join(',');
+    }
+    const statement = db.prepare('SELECT * FROM "' + name + '" ORDER BY ' + order);
     statement.setReadBigInts(true);
     for (const row of statement.iterate()) { check(); digest.update(canonical(row)).update('\n'); }
   }

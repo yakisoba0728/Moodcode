@@ -24,6 +24,8 @@ import { KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGua
 import { DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validateDiagnosticExecutionObservationDatabase } from '../diagnostics/execution-observation-store.js';
 import { KNOWLEDGE_IMPORT_RECOVERY_TABLES, validateKnowledgeImportRecoveryDatabase } from '../knowledge/import-recovery-store.js';
 import { PROPOSAL_TABLES, validateProposalDatabase } from '../proposals/store.js';
+import { PROPOSAL_APPLY_TABLES, validateProposalApplyDatabase } from '../proposals/apply-store.js';
+import { PROPOSAL_APPLY_GUARD_TABLE, validateProposalApplyExecutionGuards } from '../proposals/execution-guards.js';
 import { knowledgeHash } from '../knowledge/validation.js';
 import { SqliteStore } from './index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
@@ -208,7 +210,12 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
       try { validateProposalDatabase(db, check); }
       catch { fail('ARCHIVE_PROPOSAL_INVALID', 'Archived pending proposals or their original artifact owners are invalid'); }
     }
-    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 16 ? [...importTables, ...PROPOSAL_TABLES] : importTables, check) };
+    const proposalTables = schemaVersion >= 16 ? [...importTables, ...PROPOSAL_TABLES] : importTables;
+    if (schemaVersion >= 17) {
+      try { validateProposalApplyDatabase(db, check); validateProposalApplyExecutionGuards(db, check); }
+      catch { fail('ARCHIVE_DATABASE_INVALID', 'Proposal apply ownership, checkpoints, artifacts or receipt proofs are invalid'); }
+    }
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 17 ? [...proposalTables, ...PROPOSAL_APPLY_TABLES, PROPOSAL_APPLY_GUARD_TABLE] : proposalTables, check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };

@@ -314,6 +314,7 @@ export class EngineChildren {
       // A separately owned child starts without inherited document context.
       knowledgeContextPolicy: undefined,
       proposals: false,
+      proposalApply: false,
       proposalContextPolicy: undefined,
       dbPath: join(this.directory, request.task.id, "engine.sqlite"),
       artifactDir: join(this.directory, request.task.id, "artifacts"),

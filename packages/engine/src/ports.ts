@@ -14,6 +14,7 @@ export interface EngineStore {
   /** All persisted recovery blockers in one bounded workspace evidence snapshot. */
   hasUncertainWorkspace?(workspaceId: string): boolean;
   hasUncertainKnowledgeFilePublication?(workspaceId: string): boolean;
+  hasUncertainProposalApply?(workspaceId: string): boolean;
   /** Authoritative native host-generation quarantine; never inferred from a returned provider object. */
   hasUncertainKnowledgeGeneration?(workspaceId: string): boolean;
   /** Admission blocker: uncertain summaries without a valid explicit host decision. */

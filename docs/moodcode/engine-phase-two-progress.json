@@ -5,8 +5,8 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 6,
-  "completedWorkItems": 26,
+  "completedFamilies": 7,
+  "completedWorkItems": 28,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -216,7 +216,7 @@
       "title": "적용 전 ProposalSet overlay",
       "priority": "P2",
       "wave": "W4",
-      "status": "in_progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-05a",
@@ -239,17 +239,23 @@
         {
           "id": "MC2-05c",
           "completion": "preview→approval→revalidation→apply receipt",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-proposal-apply.md",
+            "engine-phase-two-proposal-apply-verification.json"
+          ]
         },
         {
           "id": "MC2-05d",
           "completion": "외부편집·partial apply·cancel/crash·중복 요청 검사",
-          "status": "pending",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-proposal-apply.md",
+            "engine-phase-two-proposal-apply-verification.json"
+          ]
         }
       ],
-      "notes": "Native DB16 immutable proposal revisions and dedicated artifacts, original source/head CAS, bounded readonly diff and actual pending ContextRevision/Attempt consumption are integrated and verified. Import pauses heads while retaining native artifact identities; required context/output reservations and child noninheritance remain enforced. MC2-05c/d approved physical apply, partial/checkpoint/receipt and apply crash recovery remain pending; larger 128-file/8MiB stored proposals are not silently split into the existing 32-file/4MiB effect lane."
+      "notes": "Native DB16 immutable pending proposal revisions/artifacts and actual ContextRevision/Attempt consumption are joined by DB17 exact host approval and the shared physical patch producer, original execution guards, observed postimages, immutable native checkpoints/receipts and explicit recovery. Actual partial/cancel/descriptor-close failures and eight SIGKILL boundaries preserve uncertainty and false cleanup without replay, queued wake or fabricated Run ownership. Native history is independently readable, terminal readonly status is captured history, and import pauses heads while retaining proof. Final typecheck, engine3918/3916pass/0fail/2existingWindows skips, broad source1473pass and three authored coding tasks passed. Larger 128-file/8MiB proposals are not split into the 32-file/4MiB physical lane; new content after terminal apply requires a fresh set. Active marker archive export, arbitrary root/guard rebinding and host receipt attribution to cached LSP/watch observers remain unsupported or separate follow-ups."
     },
     {
       "id": "MC2-06",

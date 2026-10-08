@@ -570,29 +570,73 @@ export function validateProposalRevision(value: unknown): ProposalRevision {
   return r as unknown as ProposalRevision;
 }
 export function validateProposalSet(value: unknown): ProposalSet {
-  const r = exact(json(value, PROPOSAL_LIMITS.headerBytes), [
-    "schemaVersion",
-    "id",
-    "workspaceId",
-    "revisionId",
-    "revisionSha256",
-    "headRevision",
-    "status",
-    "archiveSha256",
-    "updatedAt",
-    "sha256",
-  ]);
+  const r = exact(
+    json(value, PROPOSAL_LIMITS.headerBytes),
+    [
+      "schemaVersion",
+      "id",
+      "workspaceId",
+      "revisionId",
+      "revisionSha256",
+      "headRevision",
+      "status",
+      "archiveSha256",
+      "updatedAt",
+      "sha256",
+    ],
+    ["applySettlement"],
+  );
   if (r.schemaVersion !== 1) fail();
   for (const key of ["id", "workspaceId", "revisionId"]) id(r[key]);
   if (number(r.headRevision) < 1) fail();
   hash(r.revisionSha256);
   stamp(r.updatedAt);
   if (
-    !["pending", "cancelled", "paused-import"].includes(r.status as string) ||
+    ![
+      "pending",
+      "cancelled",
+      "paused-import",
+      "applied",
+      "partial",
+      "uncertain",
+    ].includes(r.status as string) ||
     (r.status === "paused-import") !== (r.archiveSha256 !== null)
   )
     fail();
   if (r.archiveSha256 !== null) hash(r.archiveSha256);
+  const terminal = ["applied", "partial", "uncertain"].includes(
+    r.status as string,
+  );
+  if (
+    (terminal !== Object.hasOwn(r, "applySettlement") &&
+      r.status !== "paused-import") ||
+    (Object.hasOwn(r, "applySettlement") &&
+      ["pending", "cancelled"].includes(r.status as string))
+  )
+    fail();
+  if (Object.hasOwn(r, "applySettlement")) {
+    const p = exact(r.applySettlement, [
+      "ownerId",
+      "ownerSha256",
+      "checkpointId",
+      "checkpointSha256",
+      "receiptId",
+      "state",
+      "cleanupConfirmed",
+    ]);
+    id(p.ownerId);
+    hash(p.ownerSha256);
+    hash(p.checkpointSha256);
+    if (
+      id(p.checkpointId) !== p.ownerId ||
+      id(p.receiptId) !== p.ownerId ||
+      !["completed", "partial", "uncertain"].includes(p.state as string) ||
+      typeof p.cleanupConfirmed !== "boolean" ||
+      (p.state !== "uncertain" && p.cleanupConfirmed !== true) ||
+      (terminal && r.status !== (p.state === "completed" ? "applied" : p.state))
+    )
+      fail();
+  }
   checkHash(r);
   return r as unknown as ProposalSet;
 }

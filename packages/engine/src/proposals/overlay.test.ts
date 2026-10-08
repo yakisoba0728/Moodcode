@@ -260,10 +260,49 @@ test("physical edits stale captured overlay and are omitted on rebuild while imm
     }),
   );
   assert.equal(diff.sourceFreshness, "stale");
+  assert.equal(diff.state, "captured-history");
+  assert.equal(diff.proposalStatus, "unknown");
   assert.equal(diff.files[0]!.before, f.before);
   assert.equal(diff.files[0]!.after, 'pending "quoted" unapplied 한글😀\n');
   assert.equal(diff.bytes, Buffer.byteLength(JSON.stringify(diff)));
   assert.equal(readFileSync(join(f.root, "a"), "utf8"), "actual external edit");
+});
+test("readonly captured history reports supplied current status without changing pending context authority or artifact bytes", async (t) => {
+  const f = await fixture(t),
+    contribution = await f.source.prepare(f.request());
+  assert.equal(contribution.state, "pending-unapplied");
+  for (const proposalStatus of [
+    "pending",
+    "cancelled",
+    "paused-import",
+    "applied",
+    "partial",
+    "uncertain",
+  ] as const) {
+    const diff = f.tx(() =>
+      buildProposalDiff(f.selection.revision, (ref) => f.blobs.readText(ref), {
+        proposalStatus,
+      }),
+    );
+    assert.equal(diff.state, "captured-history");
+    assert.equal(diff.proposalStatus, proposalStatus);
+    assert.equal(diff.files[0]!.before, f.before);
+    assert.equal(diff.files[0]!.after, 'pending "quoted" unapplied 한글😀\n');
+    assert.equal(diff.bytes, Buffer.byteLength(JSON.stringify(diff)));
+  }
+  let reads = 0;
+  assert.throws(() =>
+    buildProposalDiff(
+      f.selection.revision,
+      () => {
+        reads++;
+        return "";
+      },
+      { proposalStatus: "completed" as never },
+    ),
+  );
+  assert.equal(reads, 0);
+  assert.equal(contribution.state, "pending-unapplied");
 });
 test("shared required/repository/knowledge reservations and exact quoted-byte expansion permit only whole fitting proposals", async (t) => {
   const f = await fixture(t),

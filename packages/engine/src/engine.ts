@@ -33,6 +33,11 @@ import { ProposalHostService, type CreateProposalSetInput } from './proposals/ho
 import { ProposalOverlayContextSource, proposalContextPolicy } from './proposals/overlay.js';
 import type { ProposalContextPolicy } from './proposals/overlay.js';
 import type { ProposalStorage } from './proposals/store.js';
+import type { ProposalApplyStorage } from './proposals/apply-store.js';
+import type { ProposalApplyCapture, ProposalApplyCleanup, ProposalApplyRecoveryPreview } from './proposals/apply-types.js';
+import type { ProposalApplyExecutionGuards } from './proposals/execution-guards.js';
+import { ProposalApplyService } from './proposals/apply-service.js';
+import { PhysicalPatchProducer } from './tools/patch/physical.js';
 import { knowledgeContextPolicy } from './knowledge/context-source.js';
 import type { KnowledgeContextPolicy } from './knowledge/context-types.js';
 import { WorkspaceTrustService, assertWorkspaceTrustSourcesCurrent } from './workspace/trust.js';
@@ -162,6 +167,8 @@ export interface EngineOptions {
   knowledgeContextPolicy?: KnowledgeContextPolicy;
   /** Host-authored pending proposals, saved separately from physical application. */
   proposals?: boolean;
+  /** Separate exact-approved idle host file application. */
+  proposalApply?: boolean;
   /** Exact host-selected pending proposals projected as read-only model data. */
   proposalContextPolicy?: ProposalContextPolicy;
   /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
@@ -339,6 +346,12 @@ export class MoodcodeEngine {
   private readonly proposalSource: ProposalSourceCaptureHost;
   private readonly proposalService: ProposalHostService;
   private readonly proposalOverlay: ProposalOverlayContextSource;
+  private readonly proposalApplyEnabled: boolean;
+  private readonly proposalApplies: ProposalApplyStorage;
+  private readonly proposalApplyService: ProposalApplyService;
+  private readonly proposalApplyGuards: ProposalApplyExecutionGuards;
+  private readonly proposalApplyCleanups = new WeakMap<object, { capture: ProposalApplyCapture; proof: ProposalApplyCleanup }>();
+  private readonly proposalApplyRecoveryPreviews = new WeakMap<object, string>();
   private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
   private readonly verificationHost: VerificationHostService;
   private readonly verificationEnabled: boolean;
@@ -392,6 +405,8 @@ export class MoodcodeEngine {
     this.knowledgeImportRecoveryEnabled = options.knowledgeImportRecovery === true;
     if (options.proposals !== undefined && typeof options.proposals !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposals must be an explicit boolean');
     this.proposalsEnabled = options.proposals === true;
+    if (options.proposalApply !== undefined && typeof options.proposalApply !== 'boolean') throw new EngineError('INVALID_CONFIG', 'proposalApply must be an explicit boolean');
+    this.proposalApplyEnabled = options.proposalApply === true;
     if (options.diagnosticObservations !== undefined && typeof options.diagnosticObservations !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Execution observations require an explicit host boolean');
     if (this.verificationEnabled && options.tools !== undefined) throw new EngineError('INVALID_VERIFICATION_CONFIG', 'Verification requires the engine-owned command producer and core registrations');
     if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Document token cost policy must be a boolean');
@@ -477,6 +492,58 @@ export class MoodcodeEngine {
         assertSourcesCurrent: (native, original) => this.proposalService.assertCommitCurrent(native, original) });
       this.proposalService = new ProposalHostService(this.proposalRecords, this.proposalSource,
         operation => this.store.readExecutionObservationEvidence(operation), this.hostResources.signal);
+      this.proposalApplies = this.store.createProposalApplyStorage({ checkBinding: knowledgeBinding,
+        getRevision: (workspaceId, id) => this.proposalRecords.getRevision(workspaceId, id),
+        getHead: (workspaceId, id) => this.proposalRecords.getSet(workspaceId, id),
+        readApprovedCapture: (original, input) => this.proposalApplyService.readApprovedCapture(original, input),
+        assertCurrent: (original, capture, phase) => this.proposalApplyService.assertCurrent(original, capture, phase),
+        readPhysicalResult: (capture, original) => this.proposalApplyService.assertPhysicalResult(capture, original),
+        readExecutionGuard: (capture, original) => { const guard = this.proposalApplyGuards.readOriginal(original);
+          if (guard.ownerId !== capture.ownerId || guard.workspaceId !== capture.workspaceId) throw new EngineError('PROPOSAL_APPLY_GUARD_INVALID', 'Execution guard belongs to another original apply owner'); return guard; },
+        getExecutionGuard: (workspaceId, ownerId) => this.proposalApplyGuards.get(workspaceId, ownerId),
+        assertCleanup: (capture, original) => { const cleanup = this.proposalApplyCleanups.get(original);
+          if (!cleanup || cleanup.capture !== capture) throw new EngineError('PROPOSAL_APPLY_CLEANUP_INVALID', 'Cleanup requires its original apply owner and actual lock release'); return cleanup.proof; },
+        beforeRecoveryDecision: (workspaceId, operation) => {
+          if (operation === 'acknowledge') this.proposalApplyGuards.reconcile(workspaceId, this.executionLockPath);
+          verifyExecutionIdle(this.executionLockPath);
+          if (operation === 'resume' && (this.store.hasUncertainExecution(workspaceId) || this.store.hasUncertainSummaries(workspaceId)
+            || this.store.hasUncertainKnowledgeGeneration(workspaceId) || this.store.hasUncertainKnowledgeFilePublication(workspaceId))) throw new EngineError('CLEANUP_PENDING', 'Other native producers require their own recovery before proposal resume');
+        } });
+      this.proposalApplyGuards = this.store.createProposalApplyExecutionGuards({ checkBinding: knowledgeBinding,
+        getOwner: (workspaceId, id) => { const owner = this.proposalApplies.getOwner(workspaceId, id);
+          if (!owner) throw new EngineError('PROPOSAL_APPLY_NOT_FOUND', 'Native proposal apply owner is absent'); return owner; } });
+      this.proposalApplyService = new ProposalApplyService(this.proposalApplies, {
+        readTx: operation => this.store.readExecutionObservationEvidence(operation), checkBinding: knowledgeBinding,
+        getSelection: (workspaceId, id) => this.proposalRecords.getSelection(workspaceId, id),
+        getRevision: (workspaceId, id) => this.proposalRecords.getRevision(workspaceId, id),
+        readBlobText: reference => this.store.readProposalBlobText(reference),
+        assertUnpaused: workspaceId => this.workspaceKnowledge.assertUnpaused(workspaceId),
+        assertIdleAndNoExecutionUncertainty: workspaceId => { this.coordinator.assertWorkspaceCleanupConfirmed(workspaceId); verifyExecutionIdle(this.executionLockPath); },
+        assertSourcesCurrent: (binding, manifest, signal) => this.proposalSource.assertStoredManifestCurrentSync(binding, manifest, signal),
+        withWorkspaceLease: (workspaceId, signal, operation) => this.coordinator.withHostProposalApplyLease(workspaceId,
+          lease => operation(AbortSignal.any([signal, lease, this.hostResources.signal]))),
+        physical: new PhysicalPatchProducer(),
+        acquireExecutionGuard: async capture => {
+          const owner = this.proposalApplies.getOwner(capture.workspaceId, capture.ownerId);
+          if (!owner) throw new EngineError('PROPOSAL_APPLY_NOT_FOUND', 'Native proposal apply owner is absent');
+          const reservation = reserveExecutionLock(this.executionLockPath);
+          const originalGuard = this.proposalApplyGuards.reserve(owner.binding, owner.id, this.executionLockPath, readExecutionLockReservation(reservation));
+          this.proposalApplies.claim(capture, originalGuard);
+          let lock;
+          try { lock = acquireExecutionLock(this.executionLockPath, reservation); }
+          catch (error) { this.proposalApplies.uncertain(capture, error instanceof EngineError ? error.code : 'PROPOSAL_APPLY_LOCK_FAILED'); throw error; }
+          let released = false;
+          return { guard: originalGuard, release: cleanupConfirmed => {
+            if (released) throw new EngineError('PROPOSAL_APPLY_CLEANUP_INVALID', 'Original execution lease was already released'); released = true;
+            let confirmed = false;
+            if (cleanupConfirmed) confirmed = this.proposalApplyService.readCurrentPhysicalOutcome(capture).cleanupConfirmed;
+            lock.release(confirmed);
+            if (confirmed) verifyExecutionIdle(this.executionLockPath);
+            const guard = this.proposalApplyGuards.readOriginal(originalGuard), original = Object.freeze({ id: owner.id });
+            this.proposalApplyCleanups.set(original, { capture, proof: { confirmed, guardSha256: guard.sha256 } }); return original;
+          } };
+        },
+      }, this.hostResources.signal);
       this.workspaceTrust = new WorkspaceTrustService(this.workspaceKnowledge);
       const recoveryBinding = (workspaceId: string) => {
         const database = canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database;
@@ -493,13 +560,15 @@ export class MoodcodeEngine {
       this.executionLockPath = canonicalDbPath === undefined ? resolve(artifactDir, 'effects.sqlite') : `${canonicalDbPath}.effects.sqlite`;
       const interruptedFileOwners: string[] = [];
       try { verifyExecutionIdle(this.executionLockPath); }
-      catch (error) { const known = this.knowledgeFileExecutionGuards.matching(this.executionLockPath); if (!known) throw error; interruptedFileOwners.push(known.publicationId); }
+      catch (error) { const known = this.knowledgeFileExecutionGuards.matching(this.executionLockPath);
+        if (known) interruptedFileOwners.push(known.publicationId); else if (!this.proposalApplyGuards.matching(this.executionLockPath)) throw error; }
       reviewJournal = new ReviewJournal(canonicalDbPath === undefined ? resolve(artifactDir, 'review.sqlite') : `${canonicalDbPath}.review.sqlite`);
       this.reviewJournal = reviewJournal;
       this.store.recoverInterrupted();
       this.knowledgeGenerations.recoverInterruptedOwners();
       this.knowledgePublications.recoverInterruptedOwners();
       this.knowledgeFilePublications.recoverInterruptedOwners(interruptedFileOwners);
+      this.proposalApplies.recoverInterruptedOwners();
       this.approvals = new ApprovalManager(this.store);
       this.questions = new QuestionManager(this.store);
       this.tasks = new SessionTaskService(this.store);
@@ -1313,6 +1382,55 @@ export class MoodcodeEngine {
       return this.proposalService.create(input);
     } catch (error) { return Promise.reject(error); }
   }
+  previewProposalApply(input: Parameters<ProposalApplyService['preview']>[0]) {
+    try { this.assertProposalApplyEnabled(); return this.proposalApplyService.preview(input); }
+    catch (error) { return Promise.reject(error); }
+  }
+  applyProposal(input: Parameters<ProposalApplyService['apply']>[0]) {
+    try { this.assertProposalApplyEnabled(); return this.proposalApplyService.apply(input); }
+    catch (error) { return Promise.reject(error); }
+  }
+  releaseProposalApplyPreview(preview: Parameters<ProposalApplyService['releasePreview']>[0]): void { this.proposalApplyService.releasePreview(preview); }
+  getProposalApply(workspaceId: string, ownerId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.readExecutionObservationEvidence(() => this.proposalApplies.getHistory(workspaceId, ownerId));
+  }
+  getProposalApplyRequest(workspaceId: string, requestId: string) {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.store.readExecutionObservationEvidence(() => this.proposalApplies.getRequest(workspaceId, requestId));
+  }
+  previewProposalApplyRecovery(workspaceId: string): ProposalApplyRecoveryPreview {
+    this.assertProposalApplyEnabled();
+    const preview = this.store.readExecutionObservationEvidence(() => this.proposalApplies.previewRecovery(workspaceId));
+    this.proposalApplyRecoveryPreviews.set(preview, workspaceId); return preview;
+  }
+  acknowledgeProposalApplyRecovery(input: { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string }) {
+    return this.proposalApplyRecoveryDecision('acknowledge', input);
+  }
+  resumeProposalApplyRecovery(input: { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string }) {
+    return this.proposalApplyRecoveryDecision('resume', input);
+  }
+  private assertProposalApplyEnabled(): void {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    if (!this.proposalApplyEnabled) throw new EngineError('PROPOSAL_APPLY_DISABLED', 'Applying proposals requires separate explicit host opt-in');
+  }
+  private proposalApplyRecoveryDecision(operation: 'acknowledge' | 'resume', input: { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string }) {
+    try {
+      this.assertProposalApplyEnabled();
+      if (!input || typeof input !== 'object' || types.isProxy(input) || Array.isArray(input) || ![Object.prototype, null].includes(Object.getPrototypeOf(input))) throw new EngineError('INVALID_PROPOSAL_APPLY_RECOVERY', 'Recovery requires original bounded host data');
+      const fields = Object.getOwnPropertyDescriptors(input);
+      if (Reflect.ownKeys(fields).length !== 4 || ['workspaceId','requestId','preview','reason'].some(key => !fields[key]?.enumerable || !Object.hasOwn(fields[key]!, 'value'))) throw new EngineError('INVALID_PROPOSAL_APPLY_RECOVERY', 'Recovery requires original bounded host data');
+      const workspaceId = fields.workspaceId!.value as string, requestId = fields.requestId!.value as string,
+        preview = fields.preview!.value as ProposalApplyRecoveryPreview, reason = fields.reason!.value as string;
+      if (this.proposalApplyRecoveryPreviews.get(preview) !== workspaceId || typeof reason !== 'string' || !reason.trim()
+        || Buffer.byteLength(reason, 'utf8') > 512 || Buffer.from(reason, 'utf8').toString('utf8') !== reason) throw new EngineError('INVALID_PROPOSAL_APPLY_RECOVERY', 'Recovery requires its original preview and bounded explicit reason');
+      return this.coordinator.withRecoveryDecisionLease(workspaceId, async signal => {
+        if (signal.aborted || this.hostResources.signal.aborted) throw new EngineError('ENGINE_CLOSED', 'Engine closed during proposal recovery');
+        const decision = operation === 'acknowledge' ? this.proposalApplies.acknowledge(preview, { requestId, reason, approved: true })
+          : this.proposalApplies.resume(preview, { requestId, reason, approved: true }); return decision;
+      });
+    } catch (error) { return Promise.reject(error); }
+  }
   getProposalSet(workspaceId: string, proposalId: string) {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     return this.proposalService.get(workspaceId, proposalId);
@@ -1738,7 +1856,7 @@ export class MoodcodeEngine {
         this.hostResources.abort();
         this.questions.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }

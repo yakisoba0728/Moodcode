@@ -157,11 +157,13 @@ export class ProposalHostService {
         return this.readTx(() => {
           const current = this.native.getRevision(revision.workspaceId, revision.id);
           if (!current || current.sha256 !== revision.sha256) fail('PROPOSAL_CORRUPT');
+          const head = this.native.getSet(revision.workspaceId, revision.proposalId);
+          if (!head) fail('PROPOSAL_CORRUPT');
           return buildProposalDiff(current, ref => {
             const page = this.native.ports.blobs.read(ref, { offset: 0, limit: Math.max(1, Math.min(ref.bytes, 65_536)) });
             if (page.nextOffset !== null) fail('PROPOSAL_DIFF_BODY_LIMIT');
             return Buffer.from(page.bytes).toString('utf8');
-          }, { ...options, sourceFreshness });
+          }, { ...options, sourceFreshness, proposalStatus: head.status });
         });
       })();
     } catch (error) { return Promise.reject(error); }

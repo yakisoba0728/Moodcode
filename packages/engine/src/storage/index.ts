@@ -59,6 +59,9 @@ import { ProposalStorage, pauseImportedProposals } from '../proposals/store.js';
 import { ProposalBlobStorage } from '../proposals/blob-store.js';
 import type { ProposalStoragePorts } from '../proposals/types.js';
 import type { ProposalBlobReference } from '../proposals/types.js';
+import { ProposalApplyStorage, hasProposalApplyBlocker, pauseImportedProposalApplies } from '../proposals/apply-store.js';
+import type { ProposalApplyStoragePorts } from '../proposals/apply-types.js';
+import { ProposalApplyExecutionGuards } from '../proposals/execution-guards.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
@@ -148,6 +151,7 @@ export class SqliteStore implements SessionEngineStore {
   private knowledgeFilePublicationRecords?: KnowledgeFilePublicationStorage;
   private knowledgeImportRecoveryRecords?: KnowledgeImportRecoveryStorage;
   private proposalRecords?: ProposalStorage;
+  private proposalApplyRecords?: ProposalApplyStorage;
   private readonly waiters = new Set<Waiter>();
   private pendingBackups = 0;
   private released = false;
@@ -413,7 +417,10 @@ export class SqliteStore implements SessionEngineStore {
     });
   }
   hasUncertainWorkspace(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId));
+    return this.recoveryBlocked(() => this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId));
+  }
+  hasUncertainProposalApply(workspaceId: string): boolean {
+    return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return this.proposalApplyRecords?.hasBlocker(workspaceId) ?? hasProposalApplyBlocker(this.db, workspaceId); });
   }
   hasUncertainKnowledgeFilePublication(workspaceId: string): boolean {
     return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasKnowledgeFilePublicationBlocker(this.db, workspaceId); });
@@ -579,11 +586,22 @@ export class SqliteStore implements SessionEngineStore {
     return this.proposalRecords = new ProposalStorage(this.db, { ...ports, blobs: new ProposalBlobStorage(this.db),
       getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
+  createProposalApplyStorage(ports: Omit<ProposalApplyStoragePorts, 'writeTx'>): ProposalApplyStorage {
+    this.assertOpen();
+    if (this.proposalApplyRecords) throw new EngineError('PROPOSAL_APPLY_ALREADY_CONFIGURED', 'Native proposal application already has an original host owner');
+    return this.proposalApplyRecords = new ProposalApplyStorage(this.db, { ...ports,
+      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+  }
+  createProposalApplyExecutionGuards(ports: Omit<ConstructorParameters<typeof ProposalApplyExecutionGuards>[1], 'writeTx'>): ProposalApplyExecutionGuards {
+    this.assertOpen(); return new ProposalApplyExecutionGuards(this.db, { ...ports,
+      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+  }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
   pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string, origin?: { readonly importId: string; readonly sourcePrimaryLogicalSha256: string; readonly sourceStorageBindingSha256: string }): void {
     this.transaction(() => {
       const workspace = this.getWorkspace(workspaceId);
       pauseImportedProposals(this.db, workspaceId, archiveSha256);
+      pauseImportedProposalApplies(this.db, workspaceId, archiveSha256);
       if (origin) {
         // Imported runtime capabilities are absent. Persist the ordinary native
         // interrupted-owner transition before pinning recovery; this performs

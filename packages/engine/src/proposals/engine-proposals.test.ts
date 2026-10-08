@@ -115,7 +115,11 @@ function proposalRows(file: string) {
           assert.match(table, /^[a-z_]+$/);
           return [
             table,
-            db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(),
+            db
+              .prepare(
+                `SELECT * FROM ${table} ORDER BY ${db.prepare("SELECT wr FROM pragma_table_list WHERE name=?").get(table)!.wr === 1 ? "id" : "rowid"}`,
+              )
+              .all(),
           ];
         }),
     ),
@@ -398,7 +402,8 @@ test("actual host-native proposal staging and readonly diff allocate no coding/e
   assert.deepEqual(list.items, [created.set]);
   assert.equal(list.next, null);
   assert.equal(result.authority, "observation-only");
-  assert.equal(result.state, "pending-unapplied");
+  assert.equal(result.state, "captured-history");
+  assert.equal(result.proposalStatus, "pending");
   assert.equal(result.sourceFreshness, "current");
   assert.equal(result.revisionId, created.revision.id);
   assert.equal(result.revisionSha256, created.revision.sha256);
@@ -520,7 +525,8 @@ test("readonly proposal diff after a physical external edit retains original pre
   const result = await f.diff();
   assert.equal(result.sourceFreshness, "stale");
   assert.equal(result.authority, "observation-only");
-  assert.equal(result.state, "pending-unapplied");
+  assert.equal(result.state, "captured-history");
+  assert.equal(result.proposalStatus, "pending");
   assert.equal(result.files[0]!.before, ORIGINAL);
   assert.equal(result.files[0]!.after, PROPOSED);
   assert.deepEqual(proposalRows(f.dbPath), history);
