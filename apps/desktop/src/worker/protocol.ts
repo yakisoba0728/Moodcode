@@ -13,7 +13,7 @@ export interface WorkerStartPayload {
   dbPath: string;
   artifactDir: string;
   config: WorkerEngineConfig;
-  testScenario?: 'coding' | 'slow';
+  testScenario?: 'coding' | 'slow' | 'advanced' | 'account';
 }
 export interface WorkerBootstrap {
   workspaces: Workspace[];
@@ -21,7 +21,7 @@ export interface WorkerBootstrap {
 }
 export interface WorkerRequest {
   id: string;
-  type: 'start' | 'bootstrap' | 'command' | 'subscribe' | 'unsubscribe' | 'dropOwner' | 'assertIdle' | 'diagnostics' | 'recover' | 'backup' | 'close';
+  type: 'start' | 'bootstrap' | 'command' | 'advanced' | 'advancedSnapshot' | 'subscribe' | 'unsubscribe' | 'dropOwner' | 'assertIdle' | 'diagnostics' | 'recover' | 'backup' | 'close';
   payload?: unknown;
 }
 export type WorkerResponse =

@@ -1,5 +1,7 @@
 import { validateRecoveryInput } from '../shared/recovery.js';
 import { randomUUID } from 'node:crypto';
+import type { DesktopAdvancedAction, DesktopAdvancedSnapshot } from '../shared/advanced.js';
+import type { JsonValue } from '@moodcode/contracts';
 import type { CommandEnvelope, CommandResult } from '@moodcode/contracts';
 import type { DesktopBootstrap, DesktopSettings, DesktopUpdate, HostStatus, SaveDesktopSettings, DesktopRecoveryStatus, DesktopRecoveryResult } from '../shared/protocol.js';
 import type { WorkerBootstrap, WorkerEngineConfig, WorkerPush, WorkerRequest, WorkerStartPayload } from '../worker/protocol.js';
@@ -23,7 +25,7 @@ export interface DesktopHostOptions {
   artifactDir: string;
   platform: string;
   version: string;
-  testScenario?: 'coding' | 'slow';
+  testScenario?: 'coding' | 'slow' | 'advanced' | 'account';
   onStatus?: (status: HostStatus) => void;
   onUpdate?: (ownerId: string, update: DesktopUpdate) => void;
   rpcTimeoutMs?: number;
@@ -78,12 +80,13 @@ export class DesktopHost {
     const publicView: DesktopSettings = {
       providerId: view.providerId, modelId: view.modelId, baseURL: view.baseURL,
       keyConfigured: view.keyConfigured, keySource: view.keySource, credentialStorage: view.credentialStorage,
+      ...(view.credentialMode ? { credentialMode: view.credentialMode } : {}), ...(view.accountId ? { accountId: view.accountId } : {}),
       ...(view.codexAuthState ? { codexAuthState: view.codexAuthState } : {}),
       ...(view.codexModelId ? { codexModelId: view.codexModelId } : {}),
       ...(view.codexModels ? { codexModels: structuredClone(view.codexModels) } : {}),
       ...(view.reasoningEffort ? { reasoningEffort: view.reasoningEffort } : {}),
     };
-    return { ...publicView, ...(this.options.testScenario ? { providerId: 'scripted' as const, modelId: `desktop-${this.options.testScenario}-fixture`, baseURL: '', keyConfigured: false, keySource: 'none' as const } : {}) };
+    return { ...publicView, ...(this.options.testScenario && this.options.testScenario !== 'account' ? { providerId: 'scripted' as const, modelId: `desktop-${this.options.testScenario}-fixture`, baseURL: '', keyConfigured: false, keySource: 'none' as const } : {}) };
   }
   private beginTransition(): void {
     this.transition = true;
@@ -113,7 +116,7 @@ export class DesktopHost {
     try { return (await this.options.settings.load()).engineConfig; }
     catch (error) {
       const failure = safeError(error, 'SETTINGS_LOAD_FAILED');
-      if (this.options.testScenario && [
+      if (this.options.testScenario && this.options.testScenario !== 'account' && [
         'SETTINGS_KEY_REQUIRED', 'SETTINGS_CODEX_AUTH_REQUIRED', 'SETTINGS_CODEX_MODEL_REQUIRED',
         'SETTINGS_CREDENTIAL_STORAGE_UNAVAILABLE', 'SETTINGS_CREDENTIAL_DECRYPT_FAILED',
         'SETTINGS_ENVIRONMENT_CREDENTIAL_INVALID',
@@ -222,6 +225,12 @@ export class DesktopHost {
   command(command: CommandEnvelope): Promise<CommandResult> {
     return this.tracked(this.rpc(this.requireReady(), 'command', command));
   }
+  advanced(ownerId: string, input: DesktopAdvancedAction): Promise<JsonValue> {
+    return this.tracked(this.rpc(this.requireReady(), 'advanced', { ownerId, input }));
+  }
+  getAdvancedSnapshot(sessionId: string): Promise<DesktopAdvancedSnapshot> {
+    return this.tracked(this.rpc(this.requireReady(), 'advancedSnapshot', { sessionId }));
+  }
   subscribe(ownerId: string, sessionId: string, afterSeq: number): Promise<string> {
     return this.tracked(this.rpc(this.requireReady(), 'subscribe', { ownerId, sessionId, afterSeq }));
   }
@@ -244,6 +253,29 @@ export class DesktopHost {
   private async idle(): Promise<void> {
     await Promise.allSettled([...this.inflight]);
     if (this.connection && !this.connection.exited && !this.connection.closed && !this.connection.closeRequested) await this.rpc(this.connection, 'assertIdle');
+  }
+  /** Account rotation holds admission for the complete browser/refresh operation. */
+  async accountTransition<T>(operation: () => Promise<T>, assertCurrent: () => void = () => {}): Promise<T> {
+    if (this.transition || this.closing) throw new HostError('ENGINE_BUSY', 'Desktop engine settings are already changing.');
+    this.beginTransition();
+    let stopped = false;
+    try {
+      await this.idle();
+      assertCurrent();
+      await this.closeConnection(this.connection); stopped = true;
+      this.publish('starting');
+      assertCurrent();
+      const result = await operation();
+      await this.start(await this.loadConfig());
+      return result;
+    } catch (error) {
+      const failure = safeError(error, 'ACCOUNT_OPERATION_FAILED', this.connection?.secrets ?? []);
+      if (stopped) {
+        // A failed refresh/sign-out must not leave the utility holding the old bearer.
+        try { await this.start(await this.loadConfig()); } catch { this.publish('failed', failure); }
+      }
+      throw failure;
+    } finally { this.endTransition(); }
   }
   async saveSettings(input: SaveDesktopSettings): Promise<DesktopSettings> {
     if (this.transition || this.closing) throw new HostError('ENGINE_BUSY', 'Desktop engine settings are already changing.');

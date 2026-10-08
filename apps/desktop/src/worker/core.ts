@@ -5,10 +5,12 @@ import { getRecoveryStatus, recoverEngine, createEngine, CodexProvider, OpenAICo
 import type { DesktopUpdate } from '../shared/protocol.js';
 import type { WorkerBootstrap, WorkerEngineConfig, WorkerPush, WorkerResponse, WorkerStartPayload } from './protocol.js';
 import { testFixtureProvider } from './fixtures.js';
+import { AdvancedService } from './advanced.js';
+import { validateAdvancedAction } from '../shared/advanced.js';
 
 export const WORKER_LIMITS = Object.freeze({ maxRequestBytes: 1_048_576, maxDepth: 32, maxNodes: 20_000, maxInflightCommands: 64,
   maxSubscriptions: 128, maxOwnerSubscriptions: 32, invalidationDelayMs: 25 });
-const TYPES = new Set(['start', 'bootstrap', 'command', 'subscribe', 'unsubscribe', 'dropOwner', 'assertIdle', 'diagnostics', 'recover', 'backup', 'close']);
+const TYPES = new Set(['start', 'bootstrap', 'command', 'advanced', 'advancedSnapshot', 'subscribe', 'unsubscribe', 'dropOwner', 'assertIdle', 'diagnostics', 'recover', 'backup', 'close']);
 type WorkerEngine = Pick<MoodcodeEngine, 'store' | 'dispatch' | 'subscribe' | 'close'> & Partial<Pick<MoodcodeEngine, 'backup'>>;
 export interface UtilityWorkerOptions {
   emit(push: WorkerPush): void;
@@ -76,7 +78,7 @@ function boundedJson(value: unknown): void {
   visit(value, 0);
 }
 
-function config(value: unknown, scenario?: 'coding' | 'slow'): WorkerEngineConfig {
+function config(value: unknown, scenario?: 'coding' | 'slow' | 'advanced' | 'account'): WorkerEngineConfig {
   const source = record(value, ['providerId', 'modelId', 'baseURL', 'apiKey', 'reasoningEffort']);
   if (source.providerId !== 'scripted' && source.providerId !== 'openai-compatible' && source.providerId !== 'openai-responses' && source.providerId !== 'codex') {
     throw new EngineError('INVALID_CONFIG', 'Desktop provider is not supported.');
@@ -113,7 +115,7 @@ function startPayload(value: unknown): WorkerStartPayload {
   const dbPath = text(source.dbPath, 'dbPath', 4096);
   const artifactDir = text(source.artifactDir, 'artifactDir', 4096);
   if ((dbPath !== ':memory:' && !isAbsolute(dbPath)) || !isAbsolute(artifactDir)) throw new EngineError('INVALID_CONFIG', 'Engine storage paths must be absolute.');
-  if (source.testScenario !== undefined && source.testScenario !== 'coding' && source.testScenario !== 'slow') invalid('Unknown desktop test scenario.');
+  if (source.testScenario !== undefined && source.testScenario !== 'coding' && source.testScenario !== 'slow' && source.testScenario !== 'advanced' && source.testScenario !== 'account') invalid('Unknown desktop test scenario.');
   const resolved = config(source.config, source.testScenario);
   return { dbPath, artifactDir, config: resolved, ...(source.testScenario ? { testScenario: source.testScenario } : {}) };
 }
@@ -134,6 +136,7 @@ export class UtilityWorker {
   readonly #ownerValidations = new Map<string, { pending: number; revision: number }>();
   readonly #commands = new Set<Promise<unknown>>();
   #engine?: WorkerEngine;
+  #advanced?: AdvancedService;
   #closing = false;
   #closePromise?: Promise<void>;
   #secrets: string[] = [];
@@ -163,7 +166,9 @@ export class UtilityWorker {
           this.#engine = (this.#options.createEngine ?? createEngine)({
             dbPath: payload.dbPath, artifactDir: payload.artifactDir, providers: [provider],
             defaults: { providerId: payload.config.providerId, modelId: payload.config.modelId, ...(payload.config.reasoningEffort ? { reasoningEffort: payload.config.reasoningEffort } : {}) },
+            teams: true, teamModelTools: true, residentTeams: true, workflows: true, jobs: true, diagnosticObservations: true,
           });
+          if ('dispatchSession' in this.#engine) this.#advanced = new AdvancedService(this.#engine as MoodcodeEngine);
           try { result = await this.#tracked(() => this.#bootstrap()); }
           catch (error) { await this.#engine.close(); this.#engine = undefined; throw error; }
           break;
@@ -195,6 +200,20 @@ export class UtilityWorker {
         case 'command':
           result = await this.#tracked(() => this.#ready().dispatch(request.payload));
           break;
+        case 'advanced': {
+          const input = record(request.payload, ['ownerId','input']);
+          if (!this.#advanced) throw new EngineError('ENGINE_NOT_READY', 'Advanced engine APIs are unavailable.');
+          const ownerId = text(input.ownerId, 'ownerId'), action = validateAdvancedAction(input.input);
+          result = await this.#tracked(() => this.#advanced!.action(ownerId, action));
+          break;
+        }
+        case 'advancedSnapshot': {
+          const input = record(request.payload, ['sessionId']);
+          if (!this.#advanced) throw new EngineError('ENGINE_NOT_READY', 'Advanced engine APIs are unavailable.');
+          const sessionId = text(input.sessionId, 'sessionId');
+          result = await this.#tracked(() => this.#advanced!.snapshot(sessionId));
+          break;
+        }
         case 'subscribe': {
           const input = record(request.payload, ['ownerId', 'sessionId', 'afterSeq']);
           const ownerId = text(input.ownerId, 'ownerId');
@@ -218,6 +237,7 @@ export class UtilityWorker {
           const ownerId = text(input.ownerId, 'ownerId');
           const validation = this.#ownerValidations.get(ownerId);
           if (validation) validation.revision++;
+          await this.#advanced?.dropOwner(ownerId);
           await Promise.all([...this.#subscriptions.values()].filter(subscription => subscription.ownerId === ownerId).map(subscription => this.#removeSubscription(subscription)));
           break;
         }
@@ -360,6 +380,7 @@ export class UtilityWorker {
     for (const subscription of subscriptions) { subscription.abort.abort(); this.#clearUpdate(subscription); }
     this.#subscriptions.clear();
     this.#closePromise = (async () => {
+      await this.#advanced?.close();
       await Promise.allSettled([...this.#commands]);
       try { await this.#engine?.close(); }
       finally { await Promise.allSettled(subscriptions.map(subscription => subscription.task)); }

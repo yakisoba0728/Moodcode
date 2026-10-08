@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "scope": "N-02 advanced native desktop host/worker/preload and N-03/N-05 main integration",
+  "baseCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "branch": "codex/next-desktop",
+  "owner": "advanced_host",
+  "sourcePaths": [
+    "apps/desktop/src/main/host.ts",
+    "apps/desktop/src/main/host.test.ts",
+    "apps/desktop/src/main/index.ts",
+    "apps/desktop/src/main/ipc-channels.ts",
+    "apps/desktop/src/worker/**",
+    "apps/desktop/src/preload/**",
+    "apps/desktop/src/shared/advanced.ts",
+    "apps/desktop/src/shared/protocol.ts"
+  ],
+  "goal": "Connect real advanced native engine APIs through sender-bound desktop IPC, retain Original authority in utility, and verify committed behavior and cleanup",
+  "implementation": {
+    "state": "implemented-awaiting-final-integrated-GUI",
+    "features": [
+      "input inbox/pause/resume/cancel",
+      "CAS session tasks",
+      "exact native question decisions",
+      "user PTY preview/create/replay/control/reconnect/cancel",
+      "MCP stdio/HTTP preview and native registration/disconnect/reconnect",
+      "native LSP registration/current-version diagnostics and bounded execution source observations",
+      "managed worktree create/cleanup",
+      "Original resident child preview/start/inspect/stop",
+      "native team membership/tasks/mailbox Original claim",
+      "Original workflow preview/start/stage admission/observation",
+      "main-owned account/update integration"
+    ],
+    "authority": {
+      "privateOriginals": "utility only",
+      "maxHandles": 256,
+      "maxOwnerHandles": 32,
+      "handleTtlMs": 300000,
+      "sourceBinding": "sender generation + native session/workspace + physical root + launch executable identity/hash + canonical cwd",
+      "duplicateDispatch": "one-use launch handles removed before await",
+      "reload": "previews/control handles invalidated; committed PTY retains native lifetime and requires new explicit attach",
+      "childCleanup": "native stopResidentChildTask closes actual child Engine before worktree cleanup",
+      "credentials": "main/utility only; app-owned encrypted account vault; explicit credentialMode/accountId; API-key mode never refreshes accounts",
+      "pausedParent": "child/workflow preview rejects a paused parent before native allocation; resumed native parent source remains required"
+    }
+  },
+  "verification": [
+    {
+      "command": "node --import <absolute-node_modules>/tsx/dist/loader.mjs --test apps/desktop/src/worker/advanced.test.ts apps/desktop/src/main/host.test.ts apps/desktop/src/preload/advanced-api.test.ts",
+      "tests": 44,
+      "pass": 44,
+      "fail": 0,
+      "skip": 0,
+      "evidence": "actual native Engine/SQLite/git/worktree/process/PTY/MCP/LSP; exact approvals, forged/stale/duplicate handles, owner reload, resident close and filesystem cleanup; paused/queued-cancel/steer/resume history, resident Run completion and native stop outcome"
+    },
+    {
+      "command": "node --import <absolute-node_modules>/tsx/dist/loader.mjs --test apps/desktop/src/worker/advanced.test.ts apps/desktop/src/preload/api.test.ts apps/desktop/src/worker/core.test.ts",
+      "tests": 46,
+      "pass": 46,
+      "fail": 0,
+      "skip": 0,
+      "evidence": "existing native coding approval/cancel/cleanup regression retained; later LSP/native MCP cases covered in focused44 run"
+    },
+    {
+      "command": "tsc -p apps/desktop/tsconfig.json --noEmit --tsBuildInfoFile /tmp/moodcode-host-types.tsbuildinfo",
+      "state": "passed"
+    }
+  ],
+  "externalConditions": [
+    {
+      "scope": "actual provider account authorization",
+      "state": "not-claimed",
+      "releaseCondition": "explicit actual user account verification; GUI fixture uses mocked official transport + actual loopback/JWT only"
+    },
+    {
+      "scope": "OS package/signing/update",
+      "owner": "release_auth/root",
+      "state": "separate verification"
+    }
+  ],
+  "limitations": [
+    "LSP registration has native engine lifetime; an engine retry closes native LSP resources and allows a fresh registration; no per-server native unregister API is invented",
+    "The first GUI workflow supports native planner/advisory-reviewer readonly stages and explicit observation; engine effect/merge APIs are not exposed by this adapter",
+    "PTY OS availability follows the actual engine backend and is not promoted from fixture evidence",
+    "First relative tsx loader invocation caused nested supervised Node command loader resolution failures; rerun with absolute loader passed without changing assertions"
+  ],
+  "commit": null,
+  "integrationEvidence": {
+    "actualElectron": {
+      "pty": "real output, owner reload, explicit reconnect and cancel passed",
+      "mcp": "stdio discovery/connect/disconnect/reconnect passed",
+      "lsp": "current-version native diagnostics passed",
+      "childTeamWorkflow": "final combined GUI pending build6 after paused-parent admission fix"
+    },
+    "accountFixture": "signup/add2/select/refresh/logout/reconnect/forget passed build5 with actual OS safeStorage and mocked official endpoints; no external network"
+  }
+}

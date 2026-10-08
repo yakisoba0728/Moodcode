@@ -63,8 +63,44 @@ export class CodingFixtureProvider implements ProviderAdapter {
   }
 }
 
-export function testFixtureProvider(scenario: 'coding' | 'slow'): ProviderAdapter {
+/** Deterministic GUI input still travels through the genuine question and child APIs. */
+export class AdvancedFixtureProvider implements ProviderAdapter {
+  readonly id = 'scripted';
+  async *streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+    if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Advanced fixture was cancelled.');
+    const slowChild = request.messages.some(message => message.role === 'user' && message.content.includes('desktop child slow fixture'));
+    if (slowChild) await new Promise<void>((resolve, reject) => {
+      const aborted = () => { clearTimeout(timer); reject(new EngineError('PROVIDER_CANCELLED', 'Advanced child fixture was cancelled.')); };
+      const timer = setTimeout(() => { signal.removeEventListener('abort', aborted); resolve(); }, 10_000);
+      signal.addEventListener('abort', aborted, { once: true });
+    });
+    const child = slowChild || request.messages.some(message => message.role === 'user' && message.content.includes('desktop child fixture'));
+    if (child) {
+      yield { type: 'text.delta', delta: JSON.stringify({ summary: 'fixture child result' }) };
+      yield { type: 'finish', reason: 'stop' }; return;
+    }
+    if (request.messages.some(message => message.role === 'user' && message.content.includes('desktop MCP fixture'))) {
+      if (request.turnIndex === 0) {
+        const tool = request.tools.find(value => value.name === 'mcp_fixture_echo');
+        if (!tool) throw new EngineError('FIXTURE_TOOL_FAILED', 'Connect the fixture MCP before starting this flow.');
+        yield { type: 'tool.call', call: { id: `fixture-mcp-${request.runId}`, name: tool.name, input: {} } };
+        yield { type: 'finish', reason: 'tool_calls' }; return;
+      }
+      yield { type: 'text.delta', delta: 'The desktop fixture consumed the native MCP result.' };
+      yield { type: 'finish', reason: 'stop' }; return;
+    }
+    if (request.turnIndex === 0) {
+      yield { type: 'tool.call', call: { id: `fixture-question-${request.runId}`, name: 'ask_user', input: { prompt: 'Continue the desktop fixture?', options: [{ id: 'continue', label: 'Continue' }], allowFreeText: true, multiple: false } } };
+      yield { type: 'finish', reason: 'tool_calls' }; return;
+    }
+    yield { type: 'text.delta', delta: 'The desktop fixture received the answer.' };
+    yield { type: 'finish', reason: 'stop' };
+  }
+}
+export function testFixtureProvider(scenario: 'coding' | 'slow' | 'advanced' | 'account'): ProviderAdapter {
   if (scenario === 'coding') return new CodingFixtureProvider();
+  if (scenario === 'advanced') return new AdvancedFixtureProvider();
+  if (scenario === 'account') return new ScriptedProvider();
   return new ScriptedProvider([{ delayMs: 10_000, events: [
     { type: 'text.delta', delta: 'The slow desktop fixture completed.' },
     { type: 'finish', reason: 'stop' },

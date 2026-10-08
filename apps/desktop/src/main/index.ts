@@ -11,12 +11,17 @@ import { DESKTOP_CHANNELS, type DesktopIpcResult } from './ipc-channels.js';
 import { assertTrustedSender, installNavigationGuards, validateExternalURL } from './security.js';
 import { SettingsStore, type CredentialStorage, type DesktopCodexAuth } from './settings.js';
 import type { SaveDesktopSettings } from '../shared/protocol.js';
+import { DesktopAccounts } from './accounts.js';
+import { createAccountFixtureTransport } from './account-fixture.js';
+import { createDesktopUpdates, type DesktopUpdates } from './updates.js';
+import type { DesktopAccountAction } from '../shared/account-protocol.js';
+import type { DesktopAppUpdateAction } from '../shared/update-protocol.js';
 
 const bundleDirectory = dirname(fileURLToPath(import.meta.url));
 const rendererPath = join(bundleDirectory, '../renderer/index.html');
 const rendererURL = pathToFileURL(rendererPath).href;
 const testLaunch = !app.isPackaged && (process.env.MOODCODE_DESKTOP_TEST === '1' || process.env.MOODCODE_DESKTOP_TEST_LAUNCH === '1');
-const scenario = testLaunch && (process.env.MOODCODE_DESKTOP_TEST_SCENARIO === 'coding' || process.env.MOODCODE_DESKTOP_TEST_SCENARIO === 'slow')
+const scenario = testLaunch && (process.env.MOODCODE_DESKTOP_TEST_SCENARIO === 'coding' || process.env.MOODCODE_DESKTOP_TEST_SCENARIO === 'slow' || process.env.MOODCODE_DESKTOP_TEST_SCENARIO === 'advanced' || process.env.MOODCODE_DESKTOP_TEST_SCENARIO === 'account')
   ? process.env.MOODCODE_DESKTOP_TEST_SCENARIO : undefined;
 
 const override = process.env.MOODCODE_DESKTOP_USER_DATA;
@@ -29,7 +34,10 @@ app.setName('Moodcode');
 let window: BrowserWindow | undefined;
 let ownerId = randomUUID();
 let host: DesktopHost | undefined;
+let accounts: DesktopAccounts | undefined;
+let updates: DesktopUpdates | undefined;
 let refreshSettingsMetadata: (() => Promise<void>) | undefined;
+let bindSelectedAccount: ((view: import('../shared/account-protocol.js').DesktopAccountView) => Promise<void>) | undefined;
 let quitting = false;
 let quitPending = false;
 
@@ -85,6 +93,22 @@ function requireHost(): DesktopHost {
 function installIpc(): void {
   handle(DESKTOP_CHANNELS.bootstrap, async () => { await refreshSettingsMetadata?.(); return requireHost().getBootstrap(); });
   handle(DESKTOP_CHANNELS.command, async args => requireHost().command(args[0] as CommandEnvelope));
+  handle(DESKTOP_CHANNELS.advanced, async (args, owner) => requireHost().advanced(owner, args[0] as import('../shared/advanced.js').DesktopAdvancedAction));
+  handle(DESKTOP_CHANNELS.advancedSnapshot, async args => requireHost().getAdvancedSnapshot(args[0] as string));
+  handle(DESKTOP_CHANNELS.accounts, async () => accounts!.getView());
+  handle(DESKTOP_CHANNELS.accountAction, async (args, owner) => {
+    const input = args[0] as DesktopAccountAction;
+    if (input?.action === 'cancel') return accounts!.action(input, owner);
+    return requireHost().accountTransition(async () => {
+      if (!window || owner !== ownerId) throw new HostError('WINDOW_RELOADED', 'The window changed before the account operation began.');
+      const view = await accounts!.action(input, owner);
+      if (!window || owner !== ownerId) throw new HostError('WINDOW_RELOADED', 'The window changed before the account binding was saved.');
+      if (input.action === 'sign-in' || input.action === 'select') await bindSelectedAccount?.(view);
+      return accounts!.getView();
+    }, () => { if (!window || owner !== ownerId) throw new HostError('WINDOW_RELOADED', 'The window changed before the account operation began.'); });
+  });
+  handle(DESKTOP_CHANNELS.appUpdate, async () => updates!.getView());
+  handle(DESKTOP_CHANNELS.appUpdateAction, async args => updates!.action(args[0] as DesktopAppUpdateAction));
   handle(DESKTOP_CHANNELS.subscribe, async (args, owner) => requireHost().subscribe(owner, args[0] as string, args[1] as number));
   handle(DESKTOP_CHANNELS.unsubscribe, async (args, owner) => requireHost().unsubscribe(owner, args[0] as string));
   handle(DESKTOP_CHANNELS.saveSettings, async args => requireHost().saveSettings(args[0] as SaveDesktopSettings));
@@ -128,6 +152,7 @@ function createWindow(): void {
     windowOwner = randomUUID();
     if (window === created) ownerId = windowOwner;
     void host?.dropOwner(previous).catch(() => {});
+    accounts?.cancelOwner(previous);
   });
   created.once('ready-to-show', () => created.show());
   created.on('closed', () => {
@@ -135,6 +160,7 @@ function createWindow(): void {
     const previous = windowOwner;
     if (window === created) window = undefined;
     void host?.dropOwner(previous).catch(() => {});
+    accounts?.cancelOwner(previous);
   });
   void created.loadFile(rendererPath).catch(() => {
     dialog.showErrorBox('Moodcode renderer unavailable', 'The desktop renderer could not be loaded. Rebuild the desktop application and reopen it.');
@@ -148,6 +174,7 @@ app.on('before-quit', event => {
   quitPending = true;
   void (async () => {
     try {
+      await accounts?.close();
       await host?.close();
       quitting = true;
       app.quit();
@@ -168,13 +195,39 @@ void app.whenReady().then(async () => {
     decryptString: value => safeStorage.decryptString(value),
     ...(process.platform === 'linux' ? { getSelectedStorageBackend: () => safeStorage.getSelectedStorageBackend() } : {}),
   };
-  const settingsStore = new SettingsStore({ directory: userData, safeStorage: credentialStorage, environment: scenario ? {} : process.env, codexAuth: () => authMetadata });
-  refreshSettingsMetadata = async () => { await refreshCodexAuth(); settingsStore.refreshView(); };
+  const accountTransport = scenario === 'account' ? await createAccountFixtureTransport() : { openExternal: (url: string) => shell.openExternal(url) };
+  accounts = new DesktopAccounts({ directory: join(userData, 'accounts'), safeStorage: credentialStorage, ...accountTransport });
+  const settingsStore = new SettingsStore({ directory: userData, safeStorage: credentialStorage, environment: scenario ? {} : process.env, codexAuth: () => authMetadata, accountCredential: () => accounts!.getCredential() });
+  refreshSettingsMetadata = async () => { if (settingsStore.getView().providerId === 'codex') await refreshCodexAuth(); settingsStore.refreshView(); };
   const settings = {
-    load: async () => { await refreshCodexAuth(); return settingsStore.load(); },
-    prepare: async (input: SaveDesktopSettings) => { await refreshCodexAuth(); return settingsStore.prepare(input); },
+    load: async () => {
+      if ((!scenario || scenario === 'account') && settingsStore.getView().credentialMode === 'chatgpt') await accounts!.resolveCredential();
+      try { return await settingsStore.load(); }
+      catch (error) {
+        const provider = settingsStore.getView().providerId;
+        if (!scenario && provider === 'codex') { await refreshCodexAuth(); return settingsStore.load(); }
+        if ((!scenario || scenario === 'account') && provider === 'openai-responses' && settingsStore.getView().credentialMode === 'chatgpt') { await accounts!.resolveCredential(); return settingsStore.load(); }
+        throw error;
+      }
+    },
+    prepare: async (input: SaveDesktopSettings) => {
+      if (!scenario && input.providerId === 'codex') await refreshCodexAuth();
+      if ((!scenario || scenario === 'account') && input.credentialMode === 'chatgpt') await accounts!.resolveCredential();
+      return settingsStore.prepare(input);
+    },
     commit: settingsStore.commit.bind(settingsStore),
     getView: settingsStore.getView.bind(settingsStore),
+  };
+  bindSelectedAccount = async view => {
+    const selected = view.accounts.find(account => account.id === view.activeAccountId);
+    if (!selected?.sharing || !view.activeAccountId) return;
+    const credential = await accounts!.resolveCredential();
+    if (!credential?.models.length) throw new HostError('ACCOUNT_MODEL_REQUIRED', 'The selected account did not offer a supported API model.');
+    const previous = settingsStore.getView();
+    const prepared = await settingsStore.prepare({ providerId: 'openai-responses', baseURL: credential.baseURL,
+      modelId: credential.models.find(model => model.id === previous.modelId)?.id ?? credential.models[0]!.id,
+      credentialMode: 'chatgpt', accountId: view.activeAccountId });
+    await settingsStore.commit(prepared);
   };
   host = new DesktopHost({
     spawn: spawnWorker, settings, dbPath: join(userData, 'engine.sqlite'), artifactDir: join(userData, 'artifacts'),
@@ -182,6 +235,7 @@ void app.whenReady().then(async () => {
     onStatus: status => { if (window && !window.isDestroyed()) window.webContents.send(DESKTOP_CHANNELS.hostState, status); },
     onUpdate: (owner, update) => { if (owner === ownerId && window && !window.isDestroyed()) window.webContents.send(DESKTOP_CHANNELS.update, update); },
   });
+  updates = await createDesktopUpdates({ currentVersion: app.getVersion(), isPackaged: app.isPackaged, closeEngine: async () => { await accounts?.close(); await requireHost().close(); } });
   installIpc();
   createWindow();
   await host.initialize();
