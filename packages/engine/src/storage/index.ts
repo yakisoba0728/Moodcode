@@ -16,6 +16,7 @@ import { databaseVersion, DB_VERSION, migrateDatabase } from './migrations.js';
 import { NativeSessionStorage, type ExistingInputReceipt, type StoredInputPromotion } from './native.js';
 import { NativeExecutionStorage, type PartPage, type SessionDocument, type TurnPage } from './native-records.js';
 import { ownedCommandJobKind, validateOwnedCommandJob, validateOwnedCommandJobDatabase, readOwnedCommandJobs, readOwnedCommandJob, recoverInterruptedOwnedCommandJobs, pauseImportedOwnedCommandJobs, type OwnedCommandJobSource } from '../jobs/owned-command-records.js';
+import { deliverOwnedCommandResultAtomic, readOwnedCommandDeliveries, readOwnedCommandDelivery, findOwnedCommandDeliveryForInput, validateOwnedCommandDeliveryDatabase, pauseImportedOwnedCommandDeliveries, type OwnedCommandDeliveryInput, type OwnedCommandDeliveryPorts } from '../jobs/owned-command-delivery-records.js';
 import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPage } from './history-search.js';
 import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js';
 import { readActiveHistoryWindow, withSessionDocumentAnchor, withSessionImageAnchor, type ActiveHistoryWindow, type SessionDocumentAnchor, type SessionImageAnchor } from './native-history.js';
@@ -677,6 +678,16 @@ export class SqliteStore implements SessionEngineStore {
   getOwnedCommandJob(workspaceId: string, jobId: string) { return this.evidenceRead(() => readOwnedCommandJob(this.db, workspaceId, jobId)); }
   inspectOwnedCommandJobs(workspaceId: string, sessionId?: string) { return this.evidenceRead(() => readOwnedCommandJobs(this.db, workspaceId, sessionId)); }
   recoverOwnedCommandJobs(): number { return this.transaction(() => recoverInterruptedOwnedCommandJobs(this.db, { writeDocument: (sessionId, kind, expectedRevision, data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) })); }
+  deliverOwnedCommandResultAtomic(originalTarget: object, input: OwnedCommandDeliveryInput, ports: Pick<OwnedCommandDeliveryPorts,'readTargetOriginal'|'assertTarget'|'acceptAtomic'|'readAccepted'|'releaseAccepted'>) {
+    const write = () => deliverOwnedCommandResultAtomic(this.db, originalTarget, input, {...ports,
+      writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data),
+      appendEvent: (sessionId,type,payload,refs) => this.native.appendEvent(sessionId,type,payload,refs) });
+    return this.db.isTransaction ? write() : this.transaction(write);
+  }
+  getOwnedCommandJobDelivery(workspaceId: string, deliveryId: string) { return this.evidenceRead(() => readOwnedCommandDelivery(this.db,workspaceId,deliveryId)); }
+  inspectOwnedCommandJobDeliveries(workspaceId: string, sessionId?: string) { return this.evidenceRead(() => readOwnedCommandDeliveries(this.db,workspaceId,sessionId)); }
+  findOwnedCommandDeliveryForInput(input: Parameters<typeof findOwnedCommandDeliveryForInput>[1]) { return this.evidenceRead(() => findOwnedCommandDeliveryForInput(this.db,input)); }
+  validateOwnedCommandDeliveries(): void { this.evidenceRead(() => validateOwnedCommandDeliveryDatabase(this.db)); }
   /** Only genuine Root terminal readers publish these session-scoped observations. */
   commitTerminalJobObservation(sessionId: string, type: 'terminal.source_admitted' | 'terminal.output_observed' | 'terminal.source_closed', payload: JsonObject): SessionEventV2 {
     if (!['terminal.source_admitted', 'terminal.output_observed', 'terminal.source_closed'].includes(type)) throw new EngineError('INVALID_SESSION_OBSERVATION', 'Unknown terminal observation type');
@@ -696,6 +707,7 @@ export class SqliteStore implements SessionEngineStore {
       markImportedAgentBackendsPaused(this.db, archiveSha256, workspaceId);
       markImportedJobsPaused(this.db, archiveSha256, workspaceId);
       pauseImportedOwnedCommandJobs(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
+      pauseImportedOwnedCommandDeliveries(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
       if (origin) {
         // Imported runtime capabilities are absent. Persist the ordinary native
         // interrupted-owner transition before pinning recovery; this performs

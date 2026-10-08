@@ -105,6 +105,8 @@ import { EngineJobProducer } from './jobs/engine-producer.js';
 import { JobHost } from './jobs/host.js';
 import { JobDelivery } from './jobs/delivery.js';
 import { OwnedCommandJobHost } from './jobs/owned-command-host.js';
+import { OwnedCommandDelivery } from './jobs/owned-command-delivery.js';
+import { EngineOwnedCommandDeliveryProducer } from './jobs/owned-command-producer.js';
 import type { JobStorage } from './jobs/store.js';
 import { agentBackendObject, validateAgentBackendSpec } from './agent-backends/validation.js';
 import { TeamHostService } from './teams/host.js';
@@ -419,6 +421,8 @@ export class MoodcodeEngine {
   private readonly jobHost: JobHost;
   private readonly jobDelivery: JobDelivery;
   private readonly ownedCommandHost: OwnedCommandJobHost;
+  private readonly ownedCommandProducer: EngineOwnedCommandDeliveryProducer;
+  private readonly ownedCommandDelivery: OwnedCommandDelivery;
   private readonly runtimeProviders: Map<string, ProviderAdapter>;
   private readonly backendProviderIds = new Set<string>();
   private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
@@ -949,7 +953,7 @@ export class MoodcodeEngine {
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
       this.coordinator = new RunCoordinator({
-        beforeProviderDispatch: run => { this.scheduleProducer.beforeProviderDispatch(run); this.jobProducer?.beforeProviderDispatch(run); },
+        beforeProviderDispatch: run => { this.scheduleProducer.beforeProviderDispatch(run); this.jobProducer?.beforeProviderDispatch(run); this.ownedCommandProducer?.beforeProviderDispatch(run); },
         onOwnedCommandToolSettled: record => this.ownedCommandHost?.toolSettled(record),
         onRunStarted: async (run,signal) => {
           const admission = waitChildProviderAdmission(this,signal);
@@ -1031,7 +1035,7 @@ export class MoodcodeEngine {
         assertDueBatchCurrent: (original, expected, spec) => this.scheduleProducer.assertDueBatchCurrent(original, expected, spec),
       });
       this.scheduleRecords.recoverInterrupted();
-      this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, beforePromotion: input => { this.scheduleProducer.beforePromotion(input); this.jobProducer?.beforePromotion(input); } });
+      this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, beforePromotion: input => { this.scheduleProducer.beforePromotion(input); this.jobProducer?.beforePromotion(input); this.ownedCommandProducer?.beforePromotion(input); } });
       const scheduleHost = new ScheduleHost({ native: this.scheduleRecords, input: this.scheduleProducer.inputPort() });
       this.scheduleDispatcher = new ScheduleDispatcher({ native: this.scheduleRecords, host: scheduleHost });
       this.backendProducer = new EngineAgentBackendProducer(this, knowledgeBinding, () => this.backendRecords, () => this.closing,
@@ -1070,6 +1074,15 @@ export class MoodcodeEngine {
       this.jobDelivery = new JobDelivery({ native: this.jobRecords, input: this.jobProducer.inputPort(), lifetime: this.hostResources.signal });
       this.store.recoverOwnedCommandJobs();
       this.ownedCommandHost = new OwnedCommandJobHost(this, knowledgeBinding, () => this.jobsEnabled && !this.closing);
+      this.store.validateOwnedCommandDeliveries();
+      this.ownedCommandProducer = new EngineOwnedCommandDeliveryProducer(this, knowledgeBinding, () => this.jobsEnabled && !this.closing, this.ownedCommandHost);
+      this.ownedCommandDelivery = new OwnedCommandDelivery({input:this.ownedCommandProducer.inputPort(),native:{deliver:(original,input) => this.store.deliverOwnedCommandResultAtomic(original,input,{
+        readTargetOriginal: original => this.ownedCommandProducer.readTarget(original),
+        assertTarget: (original,expected) => this.ownedCommandProducer.assertTargetCurrent(original,expected),
+        acceptAtomic: (original,request) => this.ownedCommandProducer.acceptAtomic(original,request),
+        readAccepted: original => this.ownedCommandProducer.readAccepted(original),
+        releaseAccepted: original => this.ownedCommandProducer.release(original),
+      })}, lifetime:this.hostResources.signal});
       const recoveredRestores = this.reviewJournal.recoverPending();
       const recoveryAcknowledgments = canonicalDbPath ? readRecoveryAcknowledgments({ dbPath: canonicalDbPath, artifactDir: realpathSync(artifactDir) }) : [];
       for (const operation of recoveredRestores) {
@@ -1571,6 +1584,12 @@ export class MoodcodeEngine {
   readOwnedCommandJobOutput(...args: Parameters<OwnedCommandJobHost['readOutput']>) { return this.ownedCommandHost.readOutput(...args); }
   releaseOwnedCommandJobHandle(original: object): void { this.ownedCommandHost.release(original); }
   cancelOwnedCommandJob(...args: Parameters<OwnedCommandJobHost['cancel']>) { return this.ownedCommandHost.cancel(...args); }
+  captureOwnedCommandJobDeliveryTarget(...args: Parameters<OwnedCommandDelivery['captureTarget']>) { return this.ownedCommandDelivery.captureTarget(...args); }
+  readOwnedCommandJobDeliveryTarget(...args: Parameters<OwnedCommandDelivery['readTarget']>) { return this.ownedCommandDelivery.readTarget(...args); }
+  deliverOwnedCommandJobResult(...args: Parameters<OwnedCommandDelivery['deliver']>) { return this.ownedCommandDelivery.deliver(...args); }
+  releaseOwnedCommandJobDeliveryHandle(original: object): void { this.ownedCommandDelivery.release(original); }
+  getOwnedCommandJobDelivery(...args: Parameters<SqliteStore['getOwnedCommandJobDelivery']>) { return this.store.getOwnedCommandJobDelivery(...args); }
+  inspectOwnedCommandJobDeliveries(...args: Parameters<SqliteStore['inspectOwnedCommandJobDeliveries']>) { return this.store.inspectOwnedCommandJobDeliveries(...args); }
 
   replaceRoleResourcePolicy(expectedRegistryRevision: number, policy: RoleResourcePolicySnapshot) {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
@@ -2227,6 +2246,7 @@ export class MoodcodeEngine {
         this.teamHost.close();
         this.jobHost.close();
         this.jobDelivery.close();
+        this.ownedCommandDelivery.close();
         // Both calls synchronously stop admissions before either awaits active work.
         const outcomes = await Promise.allSettled([this.backendHost.close(), this.scheduleDispatcher.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
@@ -2236,7 +2256,7 @@ export class MoodcodeEngine {
         await this.executionObserver.close();
         try { this.terminalJournal.close(); }
         finally { try { this.reviewJournal.close(); }
-        finally { this.ownedCommandHost.close(); this.jobProducer.close(); this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
+        finally { this.ownedCommandProducer.close(); this.ownedCommandHost.close(); this.jobProducer.close(); this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
         }
       }
     })().then(resolve, reject);

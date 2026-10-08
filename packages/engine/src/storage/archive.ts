@@ -36,6 +36,7 @@ import { validateAgentBackendDatabase } from '../agent-backends/store.js';
 import { JOB_TABLES } from '../jobs/schema.js';
 import { validateJobDatabase } from '../jobs/store.js';
 import { validateOwnedCommandJobDatabase } from '../jobs/owned-command-records.js';
+import { validateOwnedCommandDeliveryDatabase } from '../jobs/owned-command-delivery-records.js';
 import { validateTeamChildInputRelations } from '../teams/child-input-proof.js';
 import { knowledgeHash } from '../knowledge/validation.js';
 import { SqliteStore } from './index.js';
@@ -248,7 +249,7 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
     }
     const backendTables = schemaVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
     if (schemaVersion >= 22) {
-      try { validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); }
+      try { validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check }); }
       catch { fail('ARCHIVE_JOB_INVALID', 'Archived terminal job sources, immutable output pages or completion delivery receipts are invalid'); }
     }
     return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, schemaVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables, check) };

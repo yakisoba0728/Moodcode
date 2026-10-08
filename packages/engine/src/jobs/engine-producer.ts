@@ -9,15 +9,12 @@ import {
   type Run,
   type RunConfig,
 } from "@moodcode/contracts";
-import {
-  normalizeAcceptInput,
-  normalizeEngineBudgets,
-} from "@moodcode/contracts/validation";
+import { normalizeAcceptInput } from "@moodcode/contracts/validation";
 import type { MoodcodeEngine } from "../engine.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
-import { validateScheduleTarget } from "../schedules/spec.js";
+import { describeEngineQueueTarget } from "./queue-target.js";
 import type { ScheduleTargetPin } from "../schedules/types.js";
 import type { ActualTerminalJobPort } from "./host.js";
 import { jobHostRecord } from "./host.js";
@@ -366,54 +363,13 @@ export class EngineJobProducer {
     sessionId: string,
     config: RunConfig,
   ): ScheduleTargetPin {
-    config = { ...config, budgets: normalizeEngineBudgets(config.budgets) };
-    const binding = this.binding(workspaceId),
-      session = this.engine.store.getSession(sessionId);
-    if (session.workspaceId !== workspaceId) fail("JOB_TARGET_STALE");
-    const capabilities = this.engine.getCapabilities();
-    if (!capabilities.providerIds.includes(config.providerId))
-      fail("JOB_PROVIDER_UNSUPPORTED");
-    const profile = this.engine.profiles.forRun(sessionId, config);
-    if (
-      profile &&
-      !this.engine.profiles
-        .list()
-        .some(
-          (item) =>
-            item.id === profile.id && item.revision === profile.revision,
-        )
-    )
-      fail("JOB_PROFILE_STALE");
-    const profilePin = profile
-      ? { id: profile.id, revision: profile.revision }
-      : null;
-    const tools = capabilities.tools.map((tool) => tool.name);
-    const catalogue = this.engine.toolRuntime.catalogue(
-      "engine",
-      config.mode,
-      profile?.tools
-        ? tools.filter((name) => profile.tools!.includes(name))
-        : tools,
-      profilePin ?? undefined,
-    );
-    return validateScheduleTarget({
+    return describeEngineQueueTarget(
+      this.engine,
+      (id) => this.binding(id),
       workspaceId,
       sessionId,
-      workspaceBindingSha256: knowledgeHash(binding),
-      capabilitiesSha256: knowledgeHash(capabilities),
-      catalogueSha256: knowledgeHash(catalogue),
-      profile: profilePin,
       config,
-      runConfigSha256: knowledgeHash(config),
-      tools: catalogue.tools.map((tool) => tool.name).sort(),
-      delivery: "queue",
-      allocation: {
-        maxTurns: config.limits.maxTurns,
-        maxToolCalls: config.limits.maxToolCalls,
-        maxOutputBytes: config.limits.maxOutputBytes,
-        maxDurationMs: config.limits.maxDurationMs,
-      },
-    });
+    );
   }
   captureTarget(
     input: Parameters<ActualJobInputPort["captureTarget"]>[0],

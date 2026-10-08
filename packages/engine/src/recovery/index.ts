@@ -33,6 +33,7 @@ import { validateAgentBackendDatabase } from '../agent-backends/store.js';
 import { JOB_TABLES } from '../jobs/schema.js';
 import { validateJobDatabase } from '../jobs/store.js';
 import { validateOwnedCommandJobDatabase } from '../jobs/owned-command-records.js';
+import { validateOwnedCommandDeliveryDatabase } from '../jobs/owned-command-delivery-records.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
 import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
@@ -149,7 +150,7 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     const scheduleTables = primaryVersion >= 20 ? [...workflowTables, ...SCHEDULE_TABLES] : workflowTables;
     if (primary && primaryVersion >= 21) validateAgentBackendDatabase(primary, { check: snapshot.check });
     const backendTables = primaryVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
-    if (primary && primaryVersion >= 22) { validateJobDatabase(primary, { check: snapshot.check }); validateOwnedCommandJobDatabase(primary, { check: snapshot.check }); }
+    if (primary && primaryVersion >= 22) { validateJobDatabase(primary, { check: snapshot.check }); validateOwnedCommandJobDatabase(primary, { check: snapshot.check }); validateOwnedCommandDeliveryDatabase(primary, { check: snapshot.check }); }
     const jobTables = primaryVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables;
     const primaryHash = primary ? checkDatabase(primary, primaryVersion, jobTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };

@@ -464,7 +464,9 @@
             "engine-phase-two-jobs.md",
             "engine-phase-two-jobs-verification.json",
             "engine-phase-two-atomic-command-jobs.md",
-            "engine-phase-two-atomic-command-jobs-verification.json"
+            "engine-phase-two-atomic-command-jobs-verification.json",
+            "engine-phase-two-owned-command-inbox.md",
+            "engine-phase-two-owned-command-inbox-verification.json"
           ]
         },
         {
@@ -475,7 +477,9 @@
             "engine-phase-two-jobs.md",
             "engine-phase-two-jobs-verification.json",
             "engine-phase-two-atomic-command-jobs.md",
-            "engine-phase-two-atomic-command-jobs-verification.json"
+            "engine-phase-two-atomic-command-jobs-verification.json",
+            "engine-phase-two-owned-command-inbox.md",
+            "engine-phase-two-owned-command-inbox-verification.json"
           ]
         },
         {
@@ -486,7 +490,9 @@
             "engine-phase-two-jobs.md",
             "engine-phase-two-jobs-verification.json",
             "engine-phase-two-atomic-command-jobs.md",
-            "engine-phase-two-atomic-command-jobs-verification.json"
+            "engine-phase-two-atomic-command-jobs-verification.json",
+            "engine-phase-two-owned-command-inbox.md",
+            "engine-phase-two-owned-command-inbox-verification.json"
           ]
         },
         {
@@ -497,11 +503,13 @@
             "engine-phase-two-jobs.md",
             "engine-phase-two-jobs-verification.json",
             "engine-phase-two-atomic-command-jobs.md",
-            "engine-phase-two-atomic-command-jobs-verification.json"
+            "engine-phase-two-atomic-command-jobs-verification.json",
+            "engine-phase-two-owned-command-inbox.md",
+            "engine-phase-two-owned-command-inbox-verification.json"
           ]
         }
       ],
-      "notes": "Root existing-user-terminal completion now uses one actual primary transaction for intent, native input, input.accepted and acceptance receipt; publish/wake occurs after COMMIT. Approved built-in run_command observations bind genuine live Run/Turn/Attempt/Tool/context, exact approval/prepared command, actual supervisor PID and sealed bounded output/checkpoint. Existing native CAS SessionDocuments plus immutable source/process/closed/doc-updated events reject source/PID/completion drift. Completion follows actual Tool/Part settlement; journal faults stop with uncertainty without a second Tool result. Actual Root SIGKILL, paused import, default-off reopen, output gaps/artifact replacement, SQL faults and legitimate lifecycle input rewrite are verified. MC2-10a/b/c/d remain in progress: independent host command approval/lease, foreground-background ownership transfer and parent-terminal-independent lifetime, model output consumer, owned-command completion inbox and remaining EPERM/backpressure coverage are open. Completed counts remain38/80 and8/20; goal active and environment debts unchanged. Current increment aggregate gate evidence is engine-phase-two-atomic-command-jobs-verification.json; DB22/catalogue136/cap160 unchanged. Final gates: typecheck0, wholeengine4240/4238pass/0fail/2existingplatform skips, broadsource1016/1014pass/0fail/2existingplatform skips, scriptedcoding3pass/live0; 48 frozen sources unchanged and40new tests."
+      "notes": "Genuine terminal Run-owned completed/failed/cancelled result targets now deliver a bounded quoted advisory into one actual primary transaction: native input/input.accepted/full signed receipt/immutable input link/full independent birth anchor. Consuming config/profile/catalogue/budget/physical binding and new tool approval are independent. Every promotion/provider dispatch validates exact input/Run/media/source evidence; SQL rollback, actual before/after-COMMIT SIGKILL, restart explicit resume, paused import, source header/body and rehashed receipt drift are verified without source Run events/replay. Long valid command source bounds are corrected and ordinary absent-link input avoids aggregate scans. Final frozen62 source gate: typecheck0, engine4276/4274pass/0fail/2existing skips, source1052/1050pass/0fail/2existing skips, fixtures3pass/live0, DB22/catalogue136/cap160 unchanged. MC2-10a/b/c/d remain in progress for independently owned host commands, foreground/background transfer, parent-terminal-independent lifetime, model output tools and remaining platform/EPERM/backpressure coverage. Completed38/80 and8/20; goal active and four environment debts unchanged. New full-feature lanes independently implement host commands, approved Git commit receipts and conversation forks; see engine-phase-two-parallel-features.md."
     },
     {
       "id": "MC2-11",
@@ -864,5 +872,5 @@
       ]
     }
   ],
-  "updatedAt": "2026-10-08T06:13:44.330083+00:00"
+  "updatedAt": "2026-10-08T07:05:15.116771+00:00"
 }

@@ -14,6 +14,7 @@ import {
   type JsonObject,
   type Run,
   type ToolCallRecord,
+  isTerminal,
 } from "@moodcode/contracts";
 import type { MoodcodeEngine } from "../engine.js";
 import type { PreparedTool, ToolContext } from "../ports.js";
@@ -84,6 +85,11 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
   private readonly skipped = new WeakSet<object>();
   private readonly entries = new Map<string, Entry>();
   private readonly snapshots = new WeakMap<object, Snapshot>();
+  private readonly settledSources = new WeakMap<
+    object,
+    { entry: Entry; sha256: string }
+  >();
+  private readonly settledHandles = new Set<object>();
   private readonly handles = new Set<object>();
   private snapshotBytes = 0;
   private readonly cancellations = new Map<
@@ -140,7 +146,7 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
       revision: before.revision + 1,
       updatedAt: new Date().toISOString(),
     };
-    const next = validateOwnedCommandJob(signJobData(body));
+    const next = validateOwnedCommandJob(signJobData(body, 65536));
     this.engine.store.putOwnedCommandJob(
       next.source,
       next.jobId,
@@ -162,23 +168,29 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
     }
     if (this.entries.size >= 128) fail("COMMAND_JOB_LIMIT");
     const binding = jobJson(this.checkBinding(owner.workspaceId)),
-      input = jobJson(prepared.input) as {
+      input = jobJson(prepared.input, 65536) as {
         command: string;
         cwd: string;
         timeoutMs: number;
       };
     const { name: _name, ...identity } = owner;
-    const source = signJobData({
-      ...identity,
-      rootBindingSha256: knowledgeHash(binding),
-      ownerEpoch: this.epoch,
-      command: input.command,
-      cwd: input.cwd,
-      timeoutMs: input.timeoutMs,
-      preparedFingerprint: prepared.fingerprint,
-      preparedSha256: knowledgeHash(prepared),
+    const source = signJobData(
+      {
+        ...identity,
+        rootBindingSha256: knowledgeHash(binding),
+        ownerEpoch: this.epoch,
+        command: input.command,
+        cwd: input.cwd,
+        timeoutMs: input.timeoutMs,
+        preparedFingerprint: prepared.fingerprint,
+        preparedSha256: knowledgeHash(prepared),
+      },
+      65536,
+    );
+    const jobId = ownedCommandJobId({
+      runId: source.runId,
+      toolCallId: source.toolCallId,
     });
-    const jobId = ownedCommandJobId(source);
     if (
       this.entries.has(jobId) ||
       this.engine.store.getOwnedCommandJob(source.workspaceId, jobId)
@@ -186,18 +198,21 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
       fail("COMMAND_JOB_ALREADY_ADMITTED");
     const now = new Date().toISOString(),
       record = validateOwnedCommandJob(
-        signJobData({
-          version: 1 as const,
-          jobId,
-          revision: 1,
-          source,
-          state: "starting" as const,
-          groupPid: null,
-          completion: null,
-          errorCode: null,
-          createdAt: now,
-          updatedAt: now,
-        }),
+        signJobData(
+          {
+            version: 1 as const,
+            jobId,
+            revision: 1,
+            source,
+            state: "starting" as const,
+            groupPid: null,
+            completion: null,
+            errorCode: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+          65536,
+        ),
       );
     const entry: Entry = {
       context,
@@ -409,6 +424,63 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
     this.open();
     return this.engine.store.getOwnedCommandJob(workspaceId, jobId);
   }
+  /** Only a genuine current Root observation can issue a settled-source capability. */
+  captureSettledSource(input: { workspaceId: string; jobId: string }): object {
+    this.active();
+    jobHostRecord(input, ["workspaceId", "jobId"]);
+    const data = jobJson(input),
+      entry = this.entries.get(data.jobId);
+    if (!entry || entry.source.workspaceId !== data.workspaceId)
+      fail("COMMAND_JOB_SOURCE_UNAVAILABLE");
+    if (this.settledHandles.size >= 128) fail("COMMAND_JOB_LIMIT");
+    this.assertSettledEntry(entry, entry.record.sha256);
+    const original = Object.freeze({});
+    this.settledSources.set(original, { entry, sha256: entry.record.sha256 });
+    this.settledHandles.add(original);
+    return original;
+  }
+  private assertSettledEntry(
+    entry: Entry,
+    expected: string,
+  ): OwnedCommandJobRecord {
+    this.active();
+    this.current(entry);
+    const record = this.engine.store.getOwnedCommandJob(
+      entry.source.workspaceId,
+      entry.record.jobId,
+    );
+    const run = this.engine.store.getRun(entry.source.runId);
+    if (
+      !record ||
+      record.sha256 !== expected ||
+      record.sha256 !== entry.record.sha256 ||
+      record.source.ownerEpoch !== this.epoch ||
+      !isTerminal(run.state) ||
+      !["completed", "failed", "cancelled"].includes(record.state) ||
+      record.completion?.outcome.cleanupConfirmed !== true ||
+      Object.hasOwn(record.completion, "observationFailure")
+    )
+      fail("OWNED_COMMAND_NOT_SETTLED");
+    this.engine.coordinator.assertWorkspaceCleanupConfirmed(
+      entry.source.workspaceId,
+    );
+    this.artifacts(record.completion);
+    return record;
+  }
+  readSettledSource(original: object): OwnedCommandJobRecord {
+    this.active();
+    if (
+      !original ||
+      types.isProxy(original) ||
+      !this.settledHandles.has(original)
+    )
+      fail("COMMAND_JOB_ORIGINAL_REQUIRED");
+    const source = this.settledSources.get(original);
+    if (!source) fail("COMMAND_JOB_ORIGINAL_REQUIRED");
+    return structuredClone(
+      this.assertSettledEntry(source.entry, source.sha256),
+    );
+  }
   captureOutput(input: { workspaceId: string; jobId: string }): object {
     this.active();
     jobHostRecord(input, ["workspaceId", "jobId"]);
@@ -503,6 +575,8 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
     );
   }
   release(original: object): void {
+    if (this.settledHandles.delete(original))
+      this.settledSources.delete(original);
     const capture = this.snapshots.get(original);
     if (capture) {
       this.snapshotBytes -= capture.bytes;
@@ -550,6 +624,7 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
   }
   close(): void {
     for (const original of this.handles) this.release(original);
+    for (const original of this.settledHandles) this.release(original);
     this.isClosed = true;
     this.entries.clear();
     this.cancellations.clear();
