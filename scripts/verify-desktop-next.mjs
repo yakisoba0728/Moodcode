@@ -74,7 +74,7 @@ try {
   const tests = (await Promise.all(projects.map(project => files(join(root, project))))).flat().filter(path => path.endsWith('.test.js')).sort();
   if (!tests.length) throw new Error('No compiled tests found');
   await run(options.has('--whole') ? 'whole' : 'desktop-unit', process.execPath, ['--test', '--test-concurrency=4', ...tests]);
-  await run('release-policy', process.execPath, ['--test', 'scripts/desktop-release-policy.test.mjs']);
+  await run('release-policy', process.execPath, ['--test', 'scripts/desktop-release-policy.test.mjs', 'scripts/desktop-native-package.test.mjs']);
   if (options.has('--gui')) {
     for (const name of ['desktop', 'desktop-settings', 'desktop-conversation', 'desktop-history-recovery', 'desktop-advanced', 'desktop-accounts', 'desktop-update']) {
       await run(name, process.execPath, [`scripts/test-${name}.mjs`]);
