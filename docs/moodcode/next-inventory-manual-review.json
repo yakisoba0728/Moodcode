@@ -1,0 +1,1269 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-inventory-manual-review",
+  "task": "RF01",
+  "observedAt": "2026-10-08T23:01:10.123Z",
+  "worktree": "/Users/yakisoba0728/.codex/worktrees/store-runner-refactor/Moodcode",
+  "baselineCommit": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+  "worktreeHeadAtReview": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+  "comparedMainCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2",
+  "earlierComparedMainCommit": "17749b3b6435ba3c21176da8db51538930312375",
+  "status": "complete-selected-nine-manual-review",
+  "method": {
+    "selectedPaths": "Exactly four workflows, the Desktop HTML entry, three Desktop stylesheets and Windows native C++ source.",
+    "fullRead": "All selected bytes and physical lines were read; long source was viewed in contiguous non-truncated chunks.",
+    "physicalLines": "CRLF counts once; CR, LF, U+2028 and U+2029 are line breaks; an unterminated final line counts once.",
+    "sourceStability": "Each raw-byte SHA256 matches the initial full read, immutable 5ddf2bf baseline blob and independently pinned main blob. Moving main refs do not broaden this snapshot.",
+    "supportingReads": "Full-file supporting sources are pinned below. Engine catalogue and inventory-classification excerpts are explicitly bounded region reads.",
+    "inventoryBoundary": "These unsupported AST formats remain physical plus manual coverage. No parser, AST/semantic completion, complexity metric, global unused-code or delete judgment is supplied.",
+    "authorityBoundary": "Manual source review is not an OS, native, GUI, signing, account, model or release acceptance run."
+  },
+  "aggregate": {
+    "selectedFileCount": 9,
+    "fullReadFileCount": 9,
+    "stableFileCount": 9,
+    "baselineEqualFileCount": 9,
+    "comparedMainEqualFileCount": 9,
+    "bytes": 82453,
+    "physicalLines": 3162,
+    "unsupportedAstFileCount": 9,
+    "parserExecutedFileCount": 0,
+    "semanticCompletionClaimed": false,
+    "actionableExecutionFixTargetCount": 1,
+    "investigationCandidateCount": 1,
+    "implementationChanges": 0
+  },
+  "actions": {
+    "sourceEdits": 0,
+    "testEdits": 0,
+    "configEdits": 0,
+    "testsRun": 0,
+    "buildsRun": 0,
+    "nativeExecutions": 0,
+    "guiLaunches": 0,
+    "liveRequests": 0,
+    "credentialsRead": false,
+    "signingActions": 0,
+    "gitCommits": 0,
+    "gitPushes": 0,
+    "onlyTrackedOutput": "docs/moodcode/next-inventory-manual-review.json"
+  },
+  "actionableExecutionFixTargets": [
+    {
+      "id": "RF01-NATIVE-CI-TRIGGER",
+      "classification": "confirmed-source-trigger-coverage-gap",
+      "target": ".github/workflows/engine-native-windows.yml",
+      "evidence": [
+        {
+          "path": ".github/workflows/engine-native-windows.yml",
+          "line": 7,
+          "endLine": 21,
+          "evidence": "Neither push nor PR path filters include the launcher or root TypeScript configuration."
+        },
+        {
+          "path": ".github/workflows/engine-native-windows.yml",
+          "line": 62,
+          "endLine": 75,
+          "evidence": "The native lane directly calls engine-ci.mjs for typecheck, build and portable regressions."
+        },
+        {
+          "path": ".github/workflows/engine.yml",
+          "line": 133,
+          "endLine": 171,
+          "evidence": "The other workflow only schedules a portable Windows lane, so it does not replace native acceptance."
+        }
+      ],
+      "triggerExample": "A change limited to .github/scripts/engine-ci.mjs or tsconfig.json matches neither automatic native trigger list.",
+      "fix": "Include the used .github/scripts launcher/helper and root tsconfig inputs in both native push and pull_request path lists, then verify scheduling on such a change.",
+      "observedRuntimeFailure": false,
+      "edited": false,
+      "owner": "Root-owned CI; review document only."
+    }
+  ],
+  "investigationCandidates": [
+    {
+      "id": "RF01-RESTORE-HISTORY-THEME",
+      "classification": "presentation-intent-investigation",
+      "evidence": [
+        {
+          "path": "apps/desktop/src/renderer/styles.css",
+          "line": 1642,
+          "endLine": 1644,
+          "evidence": "restore-history-entry strong uses var(--text) without a fallback."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/ReviewPane.tsx",
+          "line": 419,
+          "endLine": 436,
+          "evidence": "Restore history emits the concrete entry and strong consumer."
+        }
+      ],
+      "boundedSearch": "rg over apps/desktop/src found only the use of --text and no declaration; this is lexical evidence, not CSS parser/computed-style proof.",
+      "consequence": "The declaration has no locally declared custom property; inherited color remains available. Confirm intended theme/computed color before changing it.",
+      "executionFixEstablished": false,
+      "unusedOrDeletionClaim": false,
+      "edited": false
+    }
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/engine.yml",
+      "purpose": "Schedules the headless POSIX engine gates and a deliberately partial portable Windows gate.",
+      "ownership": "GitHub Actions owns runner lifetime; the launcher owns command plans and retained local reports.",
+      "consumers": [
+        {
+          "path": ".github/scripts/engine-ci.mjs",
+          "line": 23,
+          "endLine": 41,
+          "evidence": "The headless project list and the explicit portable Windows storage selection are finite."
+        },
+        {
+          "path": ".github/scripts/engine-ci.mjs",
+          "line": 59,
+          "endLine": 165,
+          "evidence": "commandPlan supplies the workflow operations; the hardening CLI plan injects the absolute tsx loader."
+        },
+        {
+          "path": ".github/scripts/engine-ci.mjs",
+          "line": 432,
+          "endLine": 459,
+          "evidence": "Metadata identifies the Windows gate as partial and refuses actual native verification claims."
+        },
+        {
+          "path": ".github/scripts/engine-ci.mjs",
+          "line": 558,
+          "endLine": 608,
+          "evidence": "Summary preserves child exit states and explicitly limits Windows and live/GUI coverage."
+        }
+      ],
+      "observations": [
+        "PR and push filters include packages/windows-job/** at lines 8 and 30; both include .github/** at lines 24 and 46.",
+        "POSIX Ubuntu/macOS and portable Windows use Node 24/26 matrices. Locked installation preserves shell failure status; summary and artifacts use always().",
+        "The separate native Windows workflow is the actual OS gate; this workflow does not build or certify the Windows native addon."
+      ],
+      "conclusion": "The declared caller routes are present and the portable/native boundary is explicit. No execution fix is established in this selected file.",
+      "limits": [
+        "A source read does not prove any hosted runner job passed.",
+        "Local fixture gates and loader configuration do not certify an account, model, GUI or native Windows execution."
+      ],
+      "fullRead": {
+        "completed": true,
+        "bytes": 7388,
+        "physicalLines": 185,
+        "sha256": "78a377b40684dc9d98edccd287a346908ba4b691447f0b5392a214c555a0891f",
+        "reviewedLineRanges": [
+          [
+            1,
+            185
+          ]
+        ]
+      },
+      "syntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.yml",
+        "parserExecuted": false,
+        "semanticCompletionClaimed": false
+      },
+      "sourceStability": {
+        "initialSha256": "78a377b40684dc9d98edccd287a346908ba4b691447f0b5392a214c555a0891f",
+        "finalSha256": "78a377b40684dc9d98edccd287a346908ba4b691447f0b5392a214c555a0891f",
+        "baselineSha256": "78a377b40684dc9d98edccd287a346908ba4b691447f0b5392a214c555a0891f",
+        "comparedMainSha256": "78a377b40684dc9d98edccd287a346908ba4b691447f0b5392a214c555a0891f",
+        "stable": true,
+        "baselineEqual": true,
+        "comparedMainEqual": true
+      },
+      "preserved": {
+        "sourceBytes": true,
+        "ownershipBoundary": true,
+        "existingLicenseAndHeaderBytes": true
+      }
+    },
+    {
+      "path": ".github/workflows/engine-native-windows.yml",
+      "purpose": "Requires the real Windows x64 native addon and process ownership fixtures on Node 24/26.",
+      "ownership": "The runner owns the Windows build and test process; windows-job-ci retains source-qualified original artifacts.",
+      "consumers": [
+        {
+          "path": "scripts/windows-job-ci.mjs",
+          "line": 30,
+          "endLine": 41,
+          "evidence": "requireWindows rejects other OS/architecture/Node matrix values and records the source and actual runner."
+        },
+        {
+          "path": "scripts/prepare-windows-job.mjs",
+          "line": 9,
+          "endLine": 23,
+          "evidence": "Preparation builds, loads and checks the native interface, closes a zero-process job and hashes the binary."
+        },
+        {
+          "path": "scripts/verify-windows-job.mjs",
+          "line": 6,
+          "endLine": 22,
+          "evidence": "Verification invokes compiled native/host/record tests and requires every test to pass with zero skipped or cancelled cases."
+        },
+        {
+          "path": "scripts/windows-job-ci.mjs",
+          "line": 43,
+          "endLine": 60,
+          "evidence": "The summary recursively hashes retained original evidence."
+        },
+        {
+          "path": ".github/scripts/engine-ci.mjs",
+          "line": 59,
+          "endLine": 165,
+          "evidence": "The workflow directly depends on this launcher for typecheck, build and portable test plans."
+        }
+      ],
+      "observations": [
+        "The dedicated gate disables cancellation of an in-progress run and uploads original failure evidence with if-no-files-found:error.",
+        "packages/windows-job/** is present in both trigger lists. The PR/push lists omit .github/scripts/engine-ci.mjs and tsconfig*.json even though those inputs supply its build/test plans.",
+        "The native build and actual native tests precede the separate portable regression step."
+      ],
+      "conclusion": "One confirmed trigger coverage fix target remains: launcher-only or tsconfig-only changes do not schedule this native gate. This is a scheduling gap, not an observed native execution failure.",
+      "fixTargetIds": [
+        "RF01-NATIVE-CI-TRIGGER"
+      ],
+      "limits": [
+        "Only x64 is in this native workflow; source support for arm64 is not arm64 acceptance.",
+        "No Windows binary, real process tree, crash cleanup or CI artifact was executed or accepted by this review."
+      ],
+      "fullRead": {
+        "completed": true,
+        "bytes": 3416,
+        "physicalLines": 94,
+        "sha256": "d4f304871eeb48efb42c26071b48d01014734f8a61e7f6a2d12e2b9ef36b3747",
+        "reviewedLineRanges": [
+          [
+            1,
+            94
+          ]
+        ]
+      },
+      "syntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.yml",
+        "parserExecuted": false,
+        "semanticCompletionClaimed": false
+      },
+      "sourceStability": {
+        "initialSha256": "d4f304871eeb48efb42c26071b48d01014734f8a61e7f6a2d12e2b9ef36b3747",
+        "finalSha256": "d4f304871eeb48efb42c26071b48d01014734f8a61e7f6a2d12e2b9ef36b3747",
+        "baselineSha256": "d4f304871eeb48efb42c26071b48d01014734f8a61e7f6a2d12e2b9ef36b3747",
+        "comparedMainSha256": "d4f304871eeb48efb42c26071b48d01014734f8a61e7f6a2d12e2b9ef36b3747",
+        "stable": true,
+        "baselineEqual": true,
+        "comparedMainEqual": true
+      },
+      "preserved": {
+        "sourceBytes": true,
+        "ownershipBoundary": true,
+        "existingLicenseAndHeaderBytes": true
+      }
+    },
+    {
+      "path": ".github/workflows/desktop-package.yml",
+      "purpose": "Prepares unsigned reviewable desktop packages and separates portable smoke from actual native packaged execution.",
+      "ownership": "Each OS runner owns its disposable app/package checks; packaging scripts own native rebuild/profile validation.",
+      "consumers": [
+        {
+          "path": "package.json",
+          "line": 36,
+          "endLine": 40,
+          "evidence": "build:desktop compiles headless modules, typechecks the renderer and invokes build-desktop.mjs."
+        },
+        {
+          "path": "scripts/build-desktop.mjs",
+          "line": 6,
+          "endLine": 61,
+          "evidence": "Build emits main, utility, command/PTY supervisors, preload and Vite renderer bundles."
+        },
+        {
+          "path": "scripts/package-desktop.mjs",
+          "line": 38,
+          "endLine": 45,
+          "evidence": "Packaging checks the build profile, prepares the Windows native package and uses --publish never."
+        },
+        {
+          "path": "scripts/desktop-native-package.mjs",
+          "line": 29,
+          "endLine": 54,
+          "evidence": "Windows preparation checks production dependency resolution, Electron headers, PE architecture and binary hash while leaving actual utility verification false."
+        },
+        {
+          "path": "scripts/test-desktop-package.mjs",
+          "line": 27,
+          "endLine": 35,
+          "evidence": "Non-portable Windows smoke requires the exact unpacked package-relative native binary."
+        },
+        {
+          "path": "scripts/test-desktop-package.mjs",
+          "line": 84,
+          "endLine": 115,
+          "evidence": "Portable scope, Windows utility proof and POSIX supervisor/PTY proof are distinct branches."
+        },
+        {
+          "path": "scripts/desktop-package-utility.mjs",
+          "line": 58,
+          "endLine": 106,
+          "evidence": "The disposable private utility fixture checks the actual native capability, exact approvals, effect receipt and completed command checkpoint."
+        }
+      ],
+      "observations": [
+        "Both PR and push path lists include packages/windows-job/** at lines 5 and 7.",
+        "Three OS runners use Node 26. portableOnly is a separate smoke boundary; Windows then requires the actual packaged utility Job Object backend.",
+        "Updater checksum/install/recovery fixtures are declared for Linux/macOS; this workflow contains no Windows updater installation step."
+      ],
+      "conclusion": "The package, unpacked binary and actual native utility routes are wired in source. No execution fix is established in this selected file.",
+      "limits": [
+        "Unsigned review bundles do not prove signed release, notarization, an installed-user updater or provider account acceptance.",
+        "GUI/native branches were read but never launched in this review."
+      ],
+      "fullRead": {
+        "completed": true,
+        "bytes": 3233,
+        "physicalLines": 74,
+        "sha256": "224340a61236e210e949e2d30f7d7e5a8c1606fe91b25db1035a304ddabf9bf6",
+        "reviewedLineRanges": [
+          [
+            1,
+            74
+          ]
+        ]
+      },
+      "syntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.yml",
+        "parserExecuted": false,
+        "semanticCompletionClaimed": false
+      },
+      "sourceStability": {
+        "initialSha256": "224340a61236e210e949e2d30f7d7e5a8c1606fe91b25db1035a304ddabf9bf6",
+        "finalSha256": "224340a61236e210e949e2d30f7d7e5a8c1606fe91b25db1035a304ddabf9bf6",
+        "baselineSha256": "224340a61236e210e949e2d30f7d7e5a8c1606fe91b25db1035a304ddabf9bf6",
+        "comparedMainSha256": "224340a61236e210e949e2d30f7d7e5a8c1606fe91b25db1035a304ddabf9bf6",
+        "stable": true,
+        "baselineEqual": true,
+        "comparedMainEqual": true
+      },
+      "preserved": {
+        "sourceBytes": true,
+        "ownershipBoundary": true,
+        "existingLicenseAndHeaderBytes": true
+      }
+    },
+    {
+      "path": ".github/workflows/desktop-release.yml",
+      "purpose": "Manually prepares versioned release artifacts, signs on the relevant OS and verifies artifacts without publishing.",
+      "ownership": "The desktop-release environment supplies external signing inputs; each OS runner owns release verification.",
+      "consumers": [
+        {
+          "path": "scripts/desktop-release-policy.mjs",
+          "line": 1,
+          "endLine": 15,
+          "evidence": "Preflight requires macOS certificate/notarization credentials, Windows signing identity/password/publisher, or Linux."
+        },
+        {
+          "path": "scripts/package-desktop.mjs",
+          "line": 15,
+          "endLine": 19,
+          "evidence": "Missing release conditions stop packaging before a release build."
+        },
+        {
+          "path": "scripts/package-desktop.mjs",
+          "line": 38,
+          "endLine": 45,
+          "evidence": "Release profile matching and --publish never remain required."
+        },
+        {
+          "path": "apps/desktop/electron-builder.config.cjs",
+          "line": 8,
+          "endLine": 29,
+          "evidence": "Release config controls ASAR unpacking, force signing, notarization, installer and publisher policy."
+        },
+        {
+          "path": "scripts/verify-desktop-release.mjs",
+          "line": 10,
+          "endLine": 45,
+          "evidence": "Verification matches SHA512 metadata and invokes macOS codesign/Gatekeeper/stapler or Windows Authenticode/publisher checks; Linux evidence remains integrity-only."
+        },
+        {
+          "path": "scripts/test-desktop-package.mjs",
+          "line": 65,
+          "endLine": 98,
+          "evidence": "Release smoke uses the scripted local provider and verifies the expected update profile and actual package runtime."
+        }
+      ],
+      "observations": [
+        "workflow_dispatch requires a stable review version and uses the desktop-release environment.",
+        "Secret and variable names are declared in YAML; their values, availability and environment protection were not inspected.",
+        "Publication is disabled by the packaging command even though electron-builder contains draft release provider configuration."
+      ],
+      "conclusion": "The source routes release preflight, OS verification and package smoke while preserving review-before-publication. No execution fix is established in this selected file.",
+      "limits": [
+        "Source declarations cannot prove signing identity, notarization, publisher entitlement, release-environment approval or successful installed-user update.",
+        "No secret access, account login, signing command, GUI launch or release publication occurred."
+      ],
+      "fullRead": {
+        "completed": true,
+        "bytes": 2701,
+        "physicalLines": 68,
+        "sha256": "aa7fd08abb0be751ebeb162272fc87aa938b713713ec61b8d229728b77b13f97",
+        "reviewedLineRanges": [
+          [
+            1,
+            68
+          ]
+        ]
+      },
+      "syntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.yml",
+        "parserExecuted": false,
+        "semanticCompletionClaimed": false
+      },
+      "sourceStability": {
+        "initialSha256": "aa7fd08abb0be751ebeb162272fc87aa938b713713ec61b8d229728b77b13f97",
+        "finalSha256": "aa7fd08abb0be751ebeb162272fc87aa938b713713ec61b8d229728b77b13f97",
+        "baselineSha256": "aa7fd08abb0be751ebeb162272fc87aa938b713713ec61b8d229728b77b13f97",
+        "comparedMainSha256": "aa7fd08abb0be751ebeb162272fc87aa938b713713ec61b8d229728b77b13f97",
+        "stable": true,
+        "baselineEqual": true,
+        "comparedMainEqual": true
+      },
+      "preserved": {
+        "sourceBytes": true,
+        "ownershipBoundary": true,
+        "existingLicenseAndHeaderBytes": true
+      }
+    },
+    {
+      "path": "apps/desktop/index.html",
+      "purpose": "Defines the Korean local renderer document, root mount and CSP before Vite builds the desktop assets.",
+      "ownership": "Vite owns source-to-bundle rewriting; BrowserWindow and preload own the local renderer/IPC boundary.",
+      "consumers": [
+        {
+          "path": "apps/desktop/vite.config.mjs",
+          "line": 4,
+          "endLine": 12,
+          "evidence": "The desktop directory is the Vite root, base is ./ and output is dist/renderer."
+        },
+        {
+          "path": "scripts/build-desktop.mjs",
+          "line": 61,
+          "endLine": 61,
+          "evidence": "The desktop build invokes Vite using this config."
+        },
+        {
+          "path": "apps/desktop/src/main/index.ts",
+          "line": 20,
+          "endLine": 22,
+          "evidence": "Main resolves the generated renderer/index.html relative to its bundle."
+        },
+        {
+          "path": "apps/desktop/src/main/index.ts",
+          "line": 138,
+          "endLine": 169,
+          "evidence": "BrowserWindow uses sandbox/contextIsolation, disables nodeIntegration, installs navigation/permission guards and loadFile."
+        },
+        {
+          "path": "apps/desktop/src/main/security.ts",
+          "line": 21,
+          "endLine": 33,
+          "evidence": "IPC requires the exact current main frame and renderer URL."
+        },
+        {
+          "path": "apps/desktop/src/preload/index.ts",
+          "line": 1,
+          "endLine": 8,
+          "evidence": "The preload exposes only the moodcode API through contextBridge."
+        },
+        {
+          "path": "apps/desktop/src/renderer/main.tsx",
+          "line": 6,
+          "endLine": 48,
+          "evidence": "React mounts the declared root and uses the bridge; absent bridge displays the desktop-only fallback."
+        }
+      ],
+      "observations": [
+        "CSP declares self scripts, no renderer connect-src, no object/base/form routes, and inline styles.",
+        "The module entry and root id have concrete build and runtime consumers; inline styles are used by the renderer textarea sizing path (App.tsx:131-137)."
+      ],
+      "conclusion": "The source entry is consumed through the expected local build/load/bridge route. No execution fix or deletion target is established.",
+      "limits": [
+        "This review did not compile the HTML, launch Electron or inspect the emitted CSP/assets.",
+        "Renderer CSP and bridge source do not prove credential/account or provider-network acceptance."
+      ],
+      "fullRead": {
+        "completed": true,
+        "bytes": 586,
+        "physicalLines": 11,
+        "sha256": "a2be3e053d7ba83c05bf53e2f0a13d47d6c859e312dd1cd008d7622bfc8645b5",
+        "reviewedLineRanges": [
+          [
+            1,
+            11
+          ]
+        ]
+      },
+      "syntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.html",
+        "parserExecuted": false,
+        "semanticCompletionClaimed": false
+      },
+      "sourceStability": {
+        "initialSha256": "a2be3e053d7ba83c05bf53e2f0a13d47d6c859e312dd1cd008d7622bfc8645b5",
+        "finalSha256": "a2be3e053d7ba83c05bf53e2f0a13d47d6c859e312dd1cd008d7622bfc8645b5",
+        "baselineSha256": "a2be3e053d7ba83c05bf53e2f0a13d47d6c859e312dd1cd008d7622bfc8645b5",
+        "comparedMainSha256": "a2be3e053d7ba83c05bf53e2f0a13d47d6c859e312dd1cd008d7622bfc8645b5",
+        "stable": true,
+        "baselineEqual": true,
+        "comparedMainEqual": true
+      },
+      "preserved": {
+        "sourceBytes": true,
+        "ownershipBoundary": true,
+        "existingLicenseAndHeaderBytes": true
+      }
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/advanced.css",
+      "purpose": "Styles the advanced modal, nested forms/preview/output, input delivery and account/settings panels.",
+      "ownership": "The desktop React components own modal state and API actions; CSS owns presentation only.",
+      "consumers": [
+        {
+          "path": "apps/desktop/src/renderer/App.tsx",
+          "line": 12,
+          "endLine": 12,
+          "evidence": "App imports the stylesheet."
+        },
+        {
+          "path": "apps/desktop/src/renderer/App.tsx",
+          "line": 614,
+          "endLine": 626,
+          "evidence": "The composer consumes delivery-select for queue/steer input."
+        },
+        {
+          "path": "apps/desktop/src/renderer/App.tsx",
+          "line": 730,
+          "endLine": 762,
+          "evidence": "App mounts AdvancedPanel and Settings under actual state/API guards."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/AdvancedPanel.tsx",
+          "line": 96,
+          "endLine": 183,
+          "evidence": "The component emits advanced-dialog, tabs, preview, actions and scrollable content with modal lifecycle."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/AdvancedPanel.tsx",
+          "line": 272,
+          "endLine": 288,
+          "evidence": "Diagnostics emits advanced-section and advanced-output."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/AccountSettings.tsx",
+          "line": 87,
+          "endLine": 133,
+          "evidence": "AccountSettings emits account-panel and advanced-actions."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/Settings.tsx",
+          "line": 104,
+          "endLine": 115,
+          "evidence": "Settings consumes settings-dialog also extended by this stylesheet."
+        }
+      ],
+      "observations": [
+        "The repeated settings-dialog selector adds max-height and overflow; base styles.css supplies other dialog properties.",
+        "Actual modal/account/delivery consumers exist. Shared rule names are not evidence of unused code or safe deletion."
+      ],
+      "conclusion": "Full manual presentation and consumer review is complete for the selected stylesheet. No execution fix is established.",
+      "limits": [
+        "No CSS parser, computed-style cascade, every nested advanced state, focus/scroll visual acceptance or GUI test was executed.",
+        "Source class examples do not constitute a repository-wide selector liveness/deletion result."
+      ],
+      "fullRead": {
+        "completed": true,
+        "bytes": 3131,
+        "physicalLines": 166,
+        "sha256": "52139f5960cc84bada280a01d4a67ddedee4921cc764cadb60da6d0b4dc7b953",
+        "reviewedLineRanges": [
+          [
+            1,
+            166
+          ]
+        ]
+      },
+      "syntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.css",
+        "parserExecuted": false,
+        "semanticCompletionClaimed": false
+      },
+      "sourceStability": {
+        "initialSha256": "52139f5960cc84bada280a01d4a67ddedee4921cc764cadb60da6d0b4dc7b953",
+        "finalSha256": "52139f5960cc84bada280a01d4a67ddedee4921cc764cadb60da6d0b4dc7b953",
+        "baselineSha256": "52139f5960cc84bada280a01d4a67ddedee4921cc764cadb60da6d0b4dc7b953",
+        "comparedMainSha256": "52139f5960cc84bada280a01d4a67ddedee4921cc764cadb60da6d0b4dc7b953",
+        "stable": true,
+        "baselineEqual": true,
+        "comparedMainEqual": true
+      },
+      "preserved": {
+        "sourceBytes": true,
+        "ownershipBoundary": true,
+        "existingLicenseAndHeaderBytes": true
+      }
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/conversation.css",
+      "purpose": "Styles bounded conversation tables, file buttons, highlighted code pages, line navigation, output notices, approvals and run errors.",
+      "ownership": "ConversationMarkdown, CodeBlock and Timeline own data/action lifetimes; CSS controls layout and presentation.",
+      "consumers": [
+        {
+          "path": "apps/desktop/src/renderer/components/ConversationMarkdown.tsx",
+          "line": 6,
+          "endLine": 6,
+          "evidence": "The Markdown component imports conversation.css."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/ConversationMarkdown.tsx",
+          "line": 55,
+          "endLine": 89,
+          "evidence": "Table region and alignment classes are emitted from Markdown nodes."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/ConversationMarkdown.tsx",
+          "line": 109,
+          "endLine": 133,
+          "evidence": "File and inline-code buttons consume conversation file styles."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/CodeBlock.tsx",
+          "line": 94,
+          "endLine": 161,
+          "evidence": "CodeBlock highlights only bounded current pages and derives line/copy state."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/CodeBlock.tsx",
+          "line": 189,
+          "endLine": 332,
+          "evidence": "The actual code, line-number, footer and copy-error consumers are present."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/Timeline.tsx",
+          "line": 154,
+          "endLine": 205,
+          "evidence": "Tool output emits notices, bounded file references and CodeBlock."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/Timeline.tsx",
+          "line": 226,
+          "endLine": 247,
+          "evidence": "ApprovalPanel wraps CodeBlock in approval-preview."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/Timeline.tsx",
+          "line": 347,
+          "endLine": 366,
+          "evidence": "Native run-error/notice states have actual presentation consumers."
+        }
+      ],
+      "observations": [
+        "More-specific conversation selectors override base Markdown/tool pre rules and the approval preview container; they are deliberate distinct consumers, not established semantic duplicates.",
+        "Line-number and footer styles correspond to current-page navigation; actual highlight rendering supplies hljs classes."
+      ],
+      "conclusion": "Full source and concrete consumer review is complete. No execution fix or unused/deletion judgment is established.",
+      "limits": [
+        "No CSS/parser semantics, emitted stylesheet order, Chromium layout, clipboard acceptance or every Markdown edge was executed.",
+        "This review does not certify arbitrary Markdown data or account-generated response behavior."
+      ],
+      "fullRead": {
+        "completed": true,
+        "bytes": 5131,
+        "physicalLines": 251,
+        "sha256": "bd3c71e45e9c88b2f1da239a4680e92f8295cb95cbf69ccbefbe5224c2e42fff",
+        "reviewedLineRanges": [
+          [
+            1,
+            251
+          ]
+        ]
+      },
+      "syntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.css",
+        "parserExecuted": false,
+        "semanticCompletionClaimed": false
+      },
+      "sourceStability": {
+        "initialSha256": "bd3c71e45e9c88b2f1da239a4680e92f8295cb95cbf69ccbefbe5224c2e42fff",
+        "finalSha256": "bd3c71e45e9c88b2f1da239a4680e92f8295cb95cbf69ccbefbe5224c2e42fff",
+        "baselineSha256": "bd3c71e45e9c88b2f1da239a4680e92f8295cb95cbf69ccbefbe5224c2e42fff",
+        "comparedMainSha256": "bd3c71e45e9c88b2f1da239a4680e92f8295cb95cbf69ccbefbe5224c2e42fff",
+        "stable": true,
+        "baselineEqual": true,
+        "comparedMainEqual": true
+      },
+      "preserved": {
+        "sourceBytes": true,
+        "ownershipBoundary": true,
+        "existingLicenseAndHeaderBytes": true
+      }
+    },
+    {
+      "path": "apps/desktop/src/renderer/styles.css",
+      "purpose": "Provides the desktop theme, shell/sidebar/composer/timeline/review/settings/recovery layout, responsive rules and motion/scroll styling.",
+      "ownership": "The React tree supplies state-specific classes; this global stylesheet supplies theme and presentation.",
+      "consumers": [
+        {
+          "path": "apps/desktop/src/renderer/main.tsx",
+          "line": 4,
+          "endLine": 4,
+          "evidence": "Renderer entry imports the global stylesheet."
+        },
+        {
+          "path": "apps/desktop/src/renderer/App.tsx",
+          "line": 222,
+          "endLine": 241,
+          "evidence": "App emits desktop-shell, titlebar and workbench."
+        },
+        {
+          "path": "apps/desktop/src/renderer/App.tsx",
+          "line": 455,
+          "endLine": 476,
+          "evidence": "History toolbar is an actual history-state consumer."
+        },
+        {
+          "path": "apps/desktop/src/renderer/App.tsx",
+          "line": 552,
+          "endLine": 690,
+          "evidence": "Composer/mode/model/run controls and ReviewPane are mounted."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/Timeline.tsx",
+          "line": 289,
+          "endLine": 367,
+          "evidence": "Timeline emits run-section/state, tool stack, approval, working and error/notice classes."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/ReviewPane.tsx",
+          "line": 329,
+          "endLine": 664,
+          "evidence": "ReviewPane emits review/files/diff/restore classes and restores history."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/Settings.tsx",
+          "line": 104,
+          "endLine": 381,
+          "evidence": "Settings emits the shared dialog/field/note/footer classes."
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/Recovery.tsx",
+          "line": 122,
+          "endLine": 222,
+          "evidence": "Recovery consumes dialog, check-field, recovery-status and dialog-actions."
+        }
+      ],
+      "observations": [
+        "The 1120px/930px breakpoints and reduced-motion rule are explicit. BrowserWindow minWidth is 820; source alone does not validate their appearance.",
+        "Restore history strong at line 1644 uses var(--text), with no declaration found by a bounded apps/desktop/src lexical search; ReviewPane:419-436 emits the real consumer. This remains a theme-intent investigation candidate because inherited color is available.",
+        "Global Markdown/approval/dialog styles coexist with component rules; selector overlap is not semantic or deletion proof."
+      ],
+      "conclusion": "The entire 1690-line source and the concrete main component consumers were reviewed. Only the bounded theme investigation candidate is recorded; no execution fix is established.",
+      "investigationIds": [
+        "RF01-RESTORE-HISTORY-THEME"
+      ],
+      "limits": [
+        "No CSS parser, selector-wide liveness, computed style, font/zoom/high-contrast, animation performance or GUI acceptance was completed.",
+        "Physical file length does not establish complexity, duplication equivalence or a safe extraction/delete decision."
+      ],
+      "fullRead": {
+        "completed": true,
+        "bytes": 29222,
+        "physicalLines": 1690,
+        "sha256": "3b92638b9ce76264581bd2a05ba3bdda1b56f4c791d40c8b356eb1e82f6684b0",
+        "reviewedLineRanges": [
+          [
+            1,
+            430
+          ],
+          [
+            431,
+            850
+          ],
+          [
+            851,
+            1270
+          ],
+          [
+            1271,
+            1690
+          ]
+        ]
+      },
+      "syntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.css",
+        "parserExecuted": false,
+        "semanticCompletionClaimed": false
+      },
+      "sourceStability": {
+        "initialSha256": "3b92638b9ce76264581bd2a05ba3bdda1b56f4c791d40c8b356eb1e82f6684b0",
+        "finalSha256": "3b92638b9ce76264581bd2a05ba3bdda1b56f4c791d40c8b356eb1e82f6684b0",
+        "baselineSha256": "3b92638b9ce76264581bd2a05ba3bdda1b56f4c791d40c8b356eb1e82f6684b0",
+        "comparedMainSha256": "3b92638b9ce76264581bd2a05ba3bdda1b56f4c791d40c8b356eb1e82f6684b0",
+        "stable": true,
+        "baselineEqual": true,
+        "comparedMainEqual": true
+      },
+      "preserved": {
+        "sourceBytes": true,
+        "ownershipBoundary": true,
+        "existingLicenseAndHeaderBytes": true
+      }
+    },
+    {
+      "path": "packages/windows-job/src/windows_job.cc",
+      "purpose": "Implements the Node-API 8 Windows Job Object owner, suspended process launch, bounded output polling and native cleanup interface.",
+      "ownership": "The real Node/Electron utility owns the non-inheritable kill-on-close job; children share native job identity and own their process/thread/pipe handles.",
+      "consumers": [
+        {
+          "path": "packages/windows-job/binding.gyp",
+          "line": 2,
+          "endLine": 11,
+          "evidence": "The build target selects this source with N-API 8, C++17, Windows 10 and copied-buffer constraints; non-Windows builds are disabled."
+        },
+        {
+          "path": "packages/windows-job/index.js",
+          "line": 11,
+          "endLine": 24,
+          "evidence": "The public loader requires actual win32 x64/arm64, N-API 8 and matching nativeInfo before returning the native exports."
+        },
+        {
+          "path": "packages/windows-job/index.d.ts",
+          "line": 1,
+          "endLine": 47,
+          "evidence": "The declared job/child/output APIs match the bounded native ownership interface."
+        },
+        {
+          "path": "packages/engine/src/tools/command/windows-job-host.ts",
+          "line": 37,
+          "endLine": 87,
+          "evidence": "The Engine adapter polls exit separately from pipe EOF and pauses byte reads for pending output sinks."
+        },
+        {
+          "path": "packages/engine/src/tools/command/windows-job-host.ts",
+          "line": 93,
+          "endLine": 135,
+          "evidence": "The host forwards ownership operations, closes job before children and refuses a direct-child fallback."
+        },
+        {
+          "path": "packages/engine/src/tools/command/backends.ts",
+          "line": 131,
+          "endLine": 186,
+          "evidence": "The orchestrator records assigned ownership before resume and preserves bounded cleanup uncertainty."
+        },
+        {
+          "path": "packages/engine/src/tools/command/index.ts",
+          "line": 520,
+          "endLine": 554,
+          "evidence": "Actual win32 command execution constructs WindowsJobCommandBackend and records lock/observer admission."
+        },
+        {
+          "path": "packages/engine/src/engine.ts",
+          "line": 1097,
+          "endLine": 1143,
+          "evidence": "The reviewed registration block installs the command tool in the Engine catalogue and exposes the actual process backend capability."
+        },
+        {
+          "path": "scripts/desktop-native-package.mjs",
+          "line": 12,
+          "endLine": 54,
+          "evidence": "Electron packaging rebuilds this addon for the pinned Electron/architecture and hashes the real binary."
+        },
+        {
+          "path": "apps/desktop/electron-builder.config.cjs",
+          "line": 8,
+          "endLine": 9,
+          "evidence": "The native package remains ASAR-unpacked at its package-relative path."
+        }
+      ],
+      "observations": [
+        "Handle move/close/destructor ownership is explicit (40-63); environment teardown and finalizers have their own best-effort native cleanup paths (138-164). Explicit close errors are distinct from teardown best effort.",
+        "Unicode inputs reject NUL; environment names are case-insensitively unique and sorted; output pipes restrict inherited handles (228-309).",
+        "Spawn attaches PROC_THREAD_ATTRIBUTE_JOB_LIST before CREATE_SUSPENDED creation (414-473); assign checks ownership and resume requires the assigned suspended identity (476-515).",
+        "ReadPipe and readOutput cap each stream at 65536 bytes, preserve independent EOF/exit status and copy JS buffers (331-390).",
+        "activeProcessCount queries actual Job accounting; CreateJob installs KILL_ON_JOB_CLOSE; nativeInfo and NAPI_MODULE register the exported interface (528-623)."
+      ],
+      "conclusion": "Full native source plus concrete build/loader/Engine/packaging consumers were reviewed. No native execution repair or safe deletion/extraction judgment is established.",
+      "limits": [
+        "No C++ parser/compiler, addon load, Windows process/crash/handle experiment or native/GUI acceptance was executed.",
+        "Workflow qualification is Windows x64 Node 24/26; arm64, other Windows versions and actual packaged Electron evidence remain separate runtime limits.",
+        "The backend runs with host-user file/network authority; Job ownership is not a file/network sandbox.",
+        "Manual source lifetime reasoning is not proof that every synchronous Win32 call, OS failure or finalizer cleanup is bounded/confirmed."
+      ],
+      "fullRead": {
+        "completed": true,
+        "bytes": 27645,
+        "physicalLines": 623,
+        "sha256": "9ab90de8a0341876a8ce0572c49cc721a59e4f4259a0fa266d1235b273c64ca4",
+        "reviewedLineRanges": [
+          [
+            1,
+            320
+          ],
+          [
+            321,
+            623
+          ]
+        ]
+      },
+      "syntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.cc",
+        "parserExecuted": false,
+        "semanticCompletionClaimed": false
+      },
+      "sourceStability": {
+        "initialSha256": "9ab90de8a0341876a8ce0572c49cc721a59e4f4259a0fa266d1235b273c64ca4",
+        "finalSha256": "9ab90de8a0341876a8ce0572c49cc721a59e4f4259a0fa266d1235b273c64ca4",
+        "baselineSha256": "9ab90de8a0341876a8ce0572c49cc721a59e4f4259a0fa266d1235b273c64ca4",
+        "comparedMainSha256": "9ab90de8a0341876a8ce0572c49cc721a59e4f4259a0fa266d1235b273c64ca4",
+        "stable": true,
+        "baselineEqual": true,
+        "comparedMainEqual": true
+      },
+      "preserved": {
+        "sourceBytes": true,
+        "ownershipBoundary": true,
+        "existingLicenseAndHeaderBytes": true
+      }
+    }
+  ],
+  "supportingFullFileReads": [
+    {
+      "path": ".github/scripts/engine-ci.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 24418,
+      "physicalLines": 778,
+      "sha256": "769ce94d9e953b7fe3c8bc27c820c73f38ae430beedc144fb2495b7b16587d1a"
+    },
+    {
+      "path": "scripts/windows-job-ci.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 4072,
+      "physicalLines": 68,
+      "sha256": "304cfe9012a2fbd9923bc1bafa7fe272b506b065c547afb53d659e604e01a2de"
+    },
+    {
+      "path": "scripts/prepare-windows-job.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 1535,
+      "physicalLines": 29,
+      "sha256": "ce8a94dc54aa60caff6826a00b40c7797af24b54a784c49cf0823cf30ee2fa8d"
+    },
+    {
+      "path": "scripts/verify-windows-job.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 1537,
+      "physicalLines": 27,
+      "sha256": "a7e963903294054babc984b12d1e92be841a86c0396bec4f9b12a32455362b34"
+    },
+    {
+      "path": "scripts/build-desktop.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 2027,
+      "physicalLines": 61,
+      "sha256": "b9a70bcfc73dddfe5580ed4d0b00754eefe6bc46381f28cabf98ca8579155970"
+    },
+    {
+      "path": "scripts/package-desktop.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 3816,
+      "physicalLines": 45,
+      "sha256": "a2ccd422cf1e3d6ba283a08418bd84dcbdd3fd914ee69fe0ec986cbcdacf43fc"
+    },
+    {
+      "path": "scripts/desktop-native-package.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 3790,
+      "physicalLines": 55,
+      "sha256": "86a27bd7dae71045872674032e938a1bd3f588d38ae79fa0394de9104c837585"
+    },
+    {
+      "path": "scripts/desktop-release-policy.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 2434,
+      "physicalLines": 32,
+      "sha256": "c211a055197b1296523d3fa4efd159f3f7a511e6ef886f8feb35f10b060abf94"
+    },
+    {
+      "path": "scripts/verify-desktop-release.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 3854,
+      "physicalLines": 48,
+      "sha256": "dae4dd6b9093fcb04747ae203f9a97ee33f1c1d85785d1ec92fa7d00ef1eab06"
+    },
+    {
+      "path": "scripts/test-desktop-package.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 9307,
+      "physicalLines": 122,
+      "sha256": "52400fd41c70e893d8ab9bdf3e94cec4423d2e1757b86a8c761b139e54a24285"
+    },
+    {
+      "path": "scripts/test-desktop-update.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 950,
+      "physicalLines": 18,
+      "sha256": "90b1a884e459bdc99ed6f5d7144932b777971f4aff66146f7ffe3fb6f2f443a1"
+    },
+    {
+      "path": "scripts/desktop-package-utility.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 9334,
+      "physicalLines": 131,
+      "sha256": "092bdf93911c9dcd93dd92ffa87a32e9cab66f79a47d547422859d6a524d95da"
+    },
+    {
+      "path": "packages/windows-job/index.js",
+      "mode": "full-file-manual-read",
+      "bytes": 1579,
+      "physicalLines": 34,
+      "sha256": "45db7f3ec4ac72f3e78ceebb39bdae47b74ff49dde81a6aed054df9beebd7b13"
+    },
+    {
+      "path": "packages/windows-job/index.d.ts",
+      "mode": "full-file-manual-read",
+      "bytes": 1486,
+      "physicalLines": 47,
+      "sha256": "94087e99fe64c36073149e085d5cd20f3991f128c918c0137966cd838363401b"
+    },
+    {
+      "path": "packages/windows-job/binding.gyp",
+      "mode": "full-file-manual-read",
+      "bytes": 485,
+      "physicalLines": 12,
+      "sha256": "e7d892441000cad5f362d1b4af58b7ae9dc748e7b1eb5a5eacfcf7b040459b4b"
+    },
+    {
+      "path": "packages/windows-job/scripts/build.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 1521,
+      "physicalLines": 23,
+      "sha256": "aa835b63fc56abbc832686f9315df2dbf11ed024fa3f6855f1cfe654cf547d24"
+    },
+    {
+      "path": "packages/windows-job/package.json",
+      "mode": "full-file-manual-read",
+      "bytes": 505,
+      "physicalLines": 20,
+      "sha256": "6354a37f42e33904592e4b78ade2a75ea5a2b910cd267c7997ea7048d582c570"
+    },
+    {
+      "path": "package.json",
+      "mode": "full-file-manual-read",
+      "bytes": 3035,
+      "physicalLines": 62,
+      "sha256": "2ddee2bcf17d79b6bedb2637b2cdbc4e7be5e8ac8dbab0881ee87a2c28e15e4d"
+    },
+    {
+      "path": "packages/engine/package.json",
+      "mode": "full-file-manual-read",
+      "bytes": 356,
+      "physicalLines": 19,
+      "sha256": "ec334fefaa64cc358ed11a95072ebaeecfa1df5e8aa00d210fb41956b12b8002"
+    },
+    {
+      "path": "apps/desktop/package.json",
+      "mode": "full-file-manual-read",
+      "bytes": 561,
+      "physicalLines": 23,
+      "sha256": "a7ec8eafc89a460b214fe9d6a45125c9c95d40c368053bce369aca98eb2d32f8"
+    },
+    {
+      "path": "apps/desktop/vite.config.mjs",
+      "mode": "full-file-manual-read",
+      "bytes": 297,
+      "physicalLines": 13,
+      "sha256": "a753242dbe73283837badfdf01310a4352b170efc6b58df558e2092ce4bbdfe7"
+    },
+    {
+      "path": "apps/desktop/electron-builder.config.cjs",
+      "mode": "full-file-manual-read",
+      "bytes": 1421,
+      "physicalLines": 30,
+      "sha256": "1cb78594f486ce60497c2719ba235bb58f09f93f7a47c498ef3dce6e5c6c9aea"
+    },
+    {
+      "path": "apps/desktop/src/main/index.ts",
+      "mode": "full-file-manual-read",
+      "bytes": 16073,
+      "physicalLines": 245,
+      "sha256": "e871a35b735e8a144054e9fd68f8d631b2900f5641e08e6b135f020edf3a7534"
+    },
+    {
+      "path": "apps/desktop/src/main/security.ts",
+      "mode": "full-file-manual-read",
+      "bytes": 3479,
+      "physicalLines": 87,
+      "sha256": "56b0e4cc312dae9e83c22414db5aedba4a095eb8e19f733a9177e6ad2401f53c"
+    },
+    {
+      "path": "apps/desktop/src/preload/index.ts",
+      "mode": "full-file-manual-read",
+      "bytes": 391,
+      "physicalLines": 8,
+      "sha256": "66aea30fa643bc38743fd7feb8afbc483ece9c7d4295bc3e8bc1e69cbd11bd93"
+    },
+    {
+      "path": "apps/desktop/src/worker/index.ts",
+      "mode": "full-file-manual-read",
+      "bytes": 216,
+      "physicalLines": 4,
+      "sha256": "d532450bfe453026e533774f15b76a760e267302d3f0e7a68f982f15864f63f2"
+    },
+    {
+      "path": "apps/desktop/src/renderer/main.tsx",
+      "mode": "full-file-manual-read",
+      "bytes": 1390,
+      "physicalLines": 48,
+      "sha256": "e5d54c3840da4a949b488b861a4c4be8141b733e4423a788c2db5490777b91b6"
+    },
+    {
+      "path": "apps/desktop/src/renderer/App.tsx",
+      "mode": "full-file-manual-read",
+      "bytes": 27427,
+      "physicalLines": 765,
+      "sha256": "5d13511cf06bf1d11c2f002ad9cf83ce5da3efb86986db68386e37c5461d8ae1"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/AdvancedPanel.tsx",
+      "mode": "full-file-manual-read",
+      "bytes": 8858,
+      "physicalLines": 288,
+      "sha256": "a7a945c3c4986478ec49c810af0948b938cb41d50c5bac3359ea6cad34e11708"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/AccountSettings.tsx",
+      "mode": "full-file-manual-read",
+      "bytes": 8073,
+      "physicalLines": 245,
+      "sha256": "2d76d4cbe22b55b0a8c09fd530bdaae4ec4b3fe455474639b5290f9a3c978a91"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/Settings.tsx",
+      "mode": "full-file-manual-read",
+      "bytes": 13202,
+      "physicalLines": 381,
+      "sha256": "845163a7b1604d5e0909524feba09980f45cbefb74db53ce65941558a79f18c5"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/Recovery.tsx",
+      "mode": "full-file-manual-read",
+      "bytes": 8307,
+      "physicalLines": 222,
+      "sha256": "2ff80b9fbef91ab557dcf779172e5f1b9fd967954fc0762331d700dc01a890c8"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/ConversationMarkdown.tsx",
+      "mode": "full-file-manual-read",
+      "bytes": 4383,
+      "physicalLines": 151,
+      "sha256": "1e4815807650fdb9fc617c42f996ae3a1292998bc6a0e8be686a9a6aeca246eb"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/CodeBlock.tsx",
+      "mode": "full-file-manual-read",
+      "bytes": 9771,
+      "physicalLines": 333,
+      "sha256": "88e7449e5fdd1755f5d5a2fbe42e5020e64b250a3d9969df691c63cf1db23de7"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/Timeline.tsx",
+      "mode": "full-file-manual-read",
+      "bytes": 11487,
+      "physicalLines": 371,
+      "sha256": "45a0e063b514be63a86a22bd19f4595765e12bba430c6aa73b1d74ceae9f5fcb"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/ReviewPane.tsx",
+      "mode": "full-file-manual-read",
+      "bytes": 22323,
+      "physicalLines": 664,
+      "sha256": "414307916bab06d0125b35b5adce7efb68a429fd0ba1b2ce85f55a33179c19c5"
+    },
+    {
+      "path": "packages/engine/src/tools/command/windows-job-host.ts",
+      "mode": "full-file-manual-read",
+      "bytes": 6090,
+      "physicalLines": 135,
+      "sha256": "4f0d5f5d7deeaa5ed03e6783a03ceefd321eb1d2a2aa7a7efd4d40dc2e3ff122"
+    },
+    {
+      "path": "packages/engine/src/tools/command/backends.ts",
+      "mode": "full-file-manual-read",
+      "bytes": 12570,
+      "physicalLines": 193,
+      "sha256": "64b2de5fae36d7f8d5afe2aba773f5fdf0350cdb1d7666a976ab9f50a7238ac5"
+    },
+    {
+      "path": "packages/engine/src/tools/command/index.ts",
+      "mode": "full-file-manual-read",
+      "bytes": 45714,
+      "physicalLines": 1309,
+      "sha256": "a434fbfd5d9d090a754bea4649055273414dc766a3a2b581c274b76effae82dc"
+    }
+  ],
+  "supportingBoundedRegionReads": [
+    {
+      "path": "packages/engine/src/engine.ts",
+      "mode": "bounded-registration-block",
+      "bytes": 228279,
+      "physicalLines": 2832,
+      "sha256": "a9c169e08d53ac9aef15e7be10f309e549e12431ac87af39f5e3aee2351df46e",
+      "reviewedLineRanges": [
+        [
+          1060,
+          1155
+        ]
+      ]
+    },
+    {
+      "path": "scripts/refactor-inventory/scope.mjs",
+      "mode": "bounded-format-classification",
+      "bytes": 5591,
+      "physicalLines": 211,
+      "sha256": "bdf457f1ce25e885dc148ad1a88ea6eb5a467ad3e33a3a036be19ea4cbdfb437",
+      "reviewedLineRanges": [
+        [
+          1,
+          115
+        ]
+      ]
+    },
+    {
+      "path": "scripts/inspect-refactor-scope.mjs",
+      "mode": "bounded-unsupported-parser-record",
+      "bytes": 12032,
+      "physicalLines": 362,
+      "sha256": "0434f1237d48b554307d3e24eb3a361175d32dc9f9bca0ea931d8d584fbf8f1f",
+      "reviewedLineRanges": [
+        [
+          174,
+          199
+        ]
+      ]
+    }
+  ],
+  "limits": [
+    "This completes only the selected nine-file manual review; it does not complete repository-wide RF01 semantics or unused/delete decisions.",
+    "The supplied baseline integrates native/GUI source. Separate MCP work is outside this review and no MCP acceptance is inferred.",
+    "Source evidence is snapshot-qualified. Later parent refactors, commits, CI results or runtime artifacts need their own source qualification.",
+    "No workflow was dispatched; no dependencies were installed; no account credential or live endpoint was read or called.",
+    "All selected source, resource ownership, license/header and file bytes remain intact; the sole tracked output is this review document."
+  ]
+}
