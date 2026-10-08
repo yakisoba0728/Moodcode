@@ -68,18 +68,19 @@ export class AdvancedFixtureProvider implements ProviderAdapter {
   readonly id = 'scripted';
   async *streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
     if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Advanced fixture was cancelled.');
-    const slowChild = request.messages.some(message => message.role === 'user' && message.content.includes('desktop child slow fixture'));
+    const prompt = request.messages.findLast(message => message.role === 'user')?.content ?? '';
+    const slowChild = prompt.includes('desktop child slow fixture');
     if (slowChild) await new Promise<void>((resolve, reject) => {
       const aborted = () => { clearTimeout(timer); reject(new EngineError('PROVIDER_CANCELLED', 'Advanced child fixture was cancelled.')); };
       const timer = setTimeout(() => { signal.removeEventListener('abort', aborted); resolve(); }, 10_000);
       signal.addEventListener('abort', aborted, { once: true });
     });
-    const child = slowChild || request.messages.some(message => message.role === 'user' && message.content.includes('desktop child fixture'));
+    const child = slowChild || prompt.includes('desktop child fixture');
     if (child) {
       yield { type: 'text.delta', delta: JSON.stringify({ summary: 'fixture child result' }) };
       yield { type: 'finish', reason: 'stop' }; return;
     }
-    if (request.messages.some(message => message.role === 'user' && message.content.includes('desktop MCP fixture'))) {
+    if (prompt.includes('desktop MCP fixture')) {
       if (request.turnIndex === 0) {
         const tool = request.tools.find(value => value.name === 'mcp_fixture_echo');
         if (!tool) throw new EngineError('FIXTURE_TOOL_FAILED', 'Connect the fixture MCP before starting this flow.');

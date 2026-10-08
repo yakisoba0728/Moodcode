@@ -41,7 +41,8 @@
       "childCleanup": "native stopResidentChildTask closes actual child Engine before worktree cleanup",
       "credentials": "main/utility only; app-owned encrypted account vault; explicit credentialMode/accountId; API-key mode never refreshes accounts",
       "pausedParent": "child/workflow preview rejects a paused parent before native allocation; resumed native parent source remains required"
-    }
+    },
+    "fixtureRouting": "current latest user prompt selects advanced fixture behavior; previous completed Run messages cannot hijack later Runs"
   },
   "verification": [
     {
@@ -63,6 +64,14 @@
     {
       "command": "tsc -p apps/desktop/tsconfig.json --noEmit --tsBuildInfoFile /tmp/moodcode-host-types.tsbuildinfo",
       "state": "passed"
+    },
+    {
+      "command": "node --import <absolute-node_modules>/tsx/dist/loader.mjs --test apps/desktop/src/worker/advanced.test.ts",
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skip": 0,
+      "evidence": "actual same-session completed child marker, exact-approved MCP call/result, disconnect and follow-up native question/answer prove current Run routing with retained history"
     }
   ],
   "externalConditions": [
@@ -83,11 +92,11 @@
     "PTY OS availability follows the actual engine backend and is not promoted from fixture evidence",
     "First relative tsx loader invocation caused nested supervised Node command loader resolution failures; rerun with absolute loader passed without changing assertions"
   ],
-  "commit": null,
+  "commit": "5e1785a",
   "integrationEvidence": {
     "actualElectron": {
       "pty": "real output, owner reload, explicit reconnect and cancel passed",
-      "mcp": "stdio discovery/connect/disconnect/reconnect passed",
+      "mcp": "stdio discovery/connect/disconnect/reconnect and Build-mode exact v1 approval/native tools-call output passed; Plan preserves native unknown-effect denial",
       "lsp": "current-version native diagnostics passed",
       "childTeamWorkflow": "final combined GUI pending build6 after paused-parent admission fix"
     },
