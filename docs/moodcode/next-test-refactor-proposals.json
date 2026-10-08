@@ -1,0 +1,817 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-test-fixture-refactor-proposals",
+  "recordedAt": "2026-10-08T22:44:17.176607+00:00",
+  "status": "read-only bounded semantic proposals; no refactor accepted or performed",
+  "scope": [
+    "RF-04",
+    "RF-06"
+  ],
+  "source": {
+    "head": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+    "inventory": "/tmp/moodcode-next-owned-inventory-baseline.json",
+    "inventoryBytes": 11482800,
+    "inventorySha256": "9609ce81e4805fd1973c59aa90b4f3f5a4635b178f61636225ed90b1f1cbdf2d",
+    "inventorySourceHead": "99cc0c595c54d491090be7d570944fa531fd9d93",
+    "inventoryFingerprint": "655bf731c7a1466c675b08649d5949fd5585e926d03328b2c32344b0b2823e02",
+    "stableAtInventory": true,
+    "ownedFiles": 1060,
+    "ownedPhysicalLines": 307720,
+    "syntaxMeasuredFiles": 1051,
+    "syntaxUnsupportedFiles": 9,
+    "syntaxGapsExplicit": true,
+    "testFixtureFiles": 579,
+    "testFixturePhysicalLines": 147270,
+    "duplicateGroupsAll": 36,
+    "duplicateGroupsContainingTestFixture": 19,
+    "duplicateOccurrencesInThoseGroups": 56,
+    "graphSymbolResolution": false,
+    "qualification": "Inventory is structural and incomplete at unsupported syntax; only pinned primary sites/callers received this semantic review. No whole repository or all19 duplicate-group audit claimed."
+  },
+  "execution": {
+    "tests": 0,
+    "builds": 0,
+    "nativeRuns": 0,
+    "liveRequests": 0,
+    "goalCalls": 0,
+    "writes": [
+      "docs/moodcode/next-test-refactor-proposals.json"
+    ]
+  },
+  "removeVerdict": {
+    "approvedTestRemovals": [],
+    "approvedFixtureRemovals": [],
+    "reason": "No independently redundant or unreachable scenario demonstrated. Exported fixtures with zero same-file call counts have verified worker/test callers; AST body equality omits free-variable/table/clock/owner semantics."
+  },
+  "primaryItems": [
+    {
+      "id": "RF-TF-01",
+      "priority": "P1",
+      "classification": [
+        "refactor",
+        "new-scenario"
+      ],
+      "title": "Replace test PID-derived signalling with Original live ownership",
+      "files": [
+        "packages/engine/src/terminals/job-group-cleanup.integration.test.ts",
+        "packages/engine/src/terminals/repeatability.ts"
+      ],
+      "evidence": [
+        "job-group-cleanup.integration.test.ts:46–58,126–138 SIGKILL replay-derived numeric PIDs after process.kill(pid,0); second case:158–178 derives supervisor PID from ps then signals it.",
+        "Exact duplicate group14 is an unsafe cleanup implementation candidate, not a redundant correctness scenario. Repeatability.ts:305–358,458–460 captures the actual original fork ChildProcess and uses its live kill/disconnect methods."
+      ],
+      "callerProof": [
+        "Two active Darwin tests: stopped shell/separate background group confirms cancelled+cleanup; supervisor loss confirms uncertain+cleanupfalse+supervisor_lost. Their oracles differ."
+      ],
+      "unit": "Keep both scenarios; capture the original supervisor ChildProcess at creation for fault injection, use Original TerminalService/PtyProcess cancellation/close first, and remove authority inferred from stored/replayed PID or ps tuples. Before launching the lost-owner case, establish an actual original physical capability for any descendant emergency cleanup; if lost, retain unknown/native artifacts and fail rather than signal unowned numbers. This fixture ownership design must be settled before replacing its after-hooks; do not merely delete cleanup and leave stopped processes.",
+      "preserve": [
+        "Original real interactive job-group separation and supervisor-loss trigger",
+        "Existing10s test/2s wait/15s service budgets and uncertainty assertions",
+        "No PID absence or emergency rescue promoted to cleanup confirmation"
+      ],
+      "validation": [
+        "Actual native paired cases after ownership repair",
+        "Controlled stale/replaced observation supplied to cleanup cannot cause a signal; use only fixture-owned controlled processes/handles, no unrelated PID experiment",
+        "Lost Original ownership retains uncertainty and evidence; emergency cleanup records failure"
+      ],
+      "dependencies": [
+        "Actual native PTY capability available",
+        "Root confirmation for any production interface change"
+      ],
+      "state": "Confirmed source ownership concern; no unintended process signal reproduced; repair pending"
+    },
+    {
+      "id": "RF-TF-02",
+      "priority": "P2",
+      "classification": [
+        "refactor"
+      ],
+      "title": "Share bounded native DATA extraction while retaining caller retention policy",
+      "files": [
+        "packages/engine/src/code-mode/fixtures/engine.ts",
+        "packages/engine/src/git/fixtures/commit.ts"
+      ],
+      "evidence": [
+        "Exact groups3/5/25: same31-line read-only DatabaseSync collector and nested row mapping.",
+        "Code-mode evidenceTables includes message_parts; Git omits it. Code-mode retains failed/uncertain/interrupted or cleanupfalse and closes a Set of actual Engines; Git also retains preparation failure/CLEANUP_UNCERTAIN and closes its current Engine."
+      ],
+      "callerProof": [
+        "Code-mode after-hook invokes collector at183/214; Git saveEvidence153 and after-hook187. Both capture before-close and retain native DB/WAL/artifacts on failure."
+      ],
+      "unit": "Extract only synchronous whitelisted-table DATA extraction to a test fixture module with explicit original dbPath and caller-owned table list. Preserve1024 rows/table,8MiB total raw JSON charge, fail-on-bound behavior and read-only close in finally. Keep failure selection, Engine close/retention/rethrow, filenames, source/request diagnostics in each caller.",
+      "preserve": [
+        "Distinct table manifests and retention predicates",
+        "Actual native SQLite observations before close and after close",
+        "No copied report/PID grants cleanup authority and no removal of uncertainty debt"
+      ],
+      "validation": [
+        "Existing genuine code-mode and Git fixture retention fault scenarios",
+        "Actual caller-specific message_parts inclusion and row/byte boundary failure",
+        "Original DB/WAL/artifact and error behavior unchanged"
+      ],
+      "dependencies": [
+        "Current corrective fixture acceptance evidence retained"
+      ],
+      "state": "Safe bounded extraction candidate; semantic inputs explicitly differ"
+    },
+    {
+      "id": "RF-TF-03",
+      "priority": "P2",
+      "classification": [
+        "refactor"
+      ],
+      "title": "A private atomic full-evidence publisher for three crash workers",
+      "files": [
+        "packages/engine/src/jobs/fixtures/crash-host-command.ts",
+        "packages/engine/src/teams/fixtures/team-crash-child.ts",
+        "packages/engine/src/workflows/fixtures/crash-child.ts",
+        "packages/engine/src/effect-batches/fixtures/crash.ts",
+        "packages/engine/src/effect-batches/crash.integration.test.ts"
+      ],
+      "evidence": [
+        "Host stop26–31, team169–173 and workflow240–243 each serialize genuine native evidence to a same-directory staging file, rename, then SIGSTOP.",
+        "The repaired effect-batch stop25–49 owns exclusive0600 staging FD, full write/close/rename and authenticated partial-publication pause. Historical direct-publication race has actual retained raw/native proof in next-crash-fixture-review.json."
+      ],
+      "callerProof": [
+        "Workers are actual spawned crash fixtures; their parent tests inspect complete native payload and SIGKILL the original child at specific durable-effect boundaries."
+      ],
+      "unit": "Pilot one fixture-only synchronous full JSON staging/close/rename publisher in host/team/workflow workers. Pass already captured actual evidence and exact ready path; leave phase interception, native evidence gathering, Original child handling and SIGSTOP outside. Preserve worker payload bytes/phase boundaries. Keep effect-batch partial-publication instrumented path local and its genuine regression intact; exclude generated inline PID scripts and platform-specific launch/sandbox code.",
+      "preserve": [
+        "Final ready path means complete original evidence",
+        "Same-directory native rename and original SIGSTOP/SIGKILL boundaries",
+        "No parse retry, timeout increase, weakened assertions or fsync/durability claim absent original contract"
+      ],
+      "validation": [
+        "Existing host/team/workflow crash/reopen/no-replay suites",
+        "Existing effect-batch6 genuine phase/partial-publication cases unchanged",
+        "Controlled native staging write remains private until complete close+rename"
+      ],
+      "dependencies": [
+        "Retain historical failing artifact and exact corrected source pins"
+      ],
+      "state": "Publication pattern verified; no additional race alleged in already atomic workers"
+    },
+    {
+      "id": "RF-TF-04",
+      "priority": "P2",
+      "classification": [
+        "refactor"
+      ],
+      "title": "Extract only the identical cooperative gate-versus-abort wait",
+      "files": [
+        "packages/engine/src/schedules/fixtures/schedule.ts",
+        "packages/engine/src/teams/fixtures/model-tools.ts",
+        "packages/engine/src/workflows/fixtures/archive-workflow.ts",
+        "packages/engine/src/workflows/fixtures/crash-child.ts",
+        "packages/engine/src/workflows/fixtures/workflow.ts"
+      ],
+      "evidence": [
+        "Exact group0: five15-line promise/AbortSignal races; each resolves on abort, handles already-aborted signal and removes original listener in finally. No timer/process cleanup."
+      ],
+      "callerProof": [
+        "Schedule144; team151; archive164; crash-child94; workflow188/205 await original provider-held gates. Callers retain their own post-abort finish checks."
+      ],
+      "unit": "Add one private fixture cooperativeGateOrAbort(promise,signal) with the exact existing resolve-on-abort/listener semantics, and replace only these five implementations. Keep local authored gate identity and caller signal checks.",
+      "preserve": [
+        "No rejection/error rewriting on cancellation",
+        "No timer, retry, poll, automatic Engine/process cleanup or universal until helper",
+        "Original held provider/child lifetime and listener removal"
+      ],
+      "validation": [
+        "Existing schedule/team/workflow held-provider cancellation/crash cases",
+        "Pre-aborted, gate-first and abort-first outcomes and original listener disposal"
+      ],
+      "dependencies": [],
+      "state": "Actual identical body and original callers verified"
+    },
+    {
+      "id": "RF-TF-05",
+      "priority": "P2",
+      "classification": [
+        "refactor"
+      ],
+      "title": "Move two large fixture DATA definitions into domain-local builders",
+      "files": [
+        "packages/engine/src/coding-runs/fixtures/batch.ts",
+        "packages/engine/src/workflows/fixtures/effects.ts"
+      ],
+      "evidence": [
+        "batchFixture86–513:428 lines; pure case/spec/schema/allocation DATA block332–420 is embedded with native setup, providers, child approvals and close.",
+        "workflowEffectsFixture89–533:445 lines mixes pure spec/schema/allocations with native parent/child admission and merge driving."
+      ],
+      "callerProof": [
+        "batchFixture:12 batch tests+6 boundary tests+actual crash-batch worker=19 call sites; workflowEffectsFixture:15 effects tests+actual crash worker=16 call sites. Failed case, unknown cleanup/usage, manual/automatic delivery and crash options are active."
+      ],
+      "unit": "Extract CodingBatchInput case/stage construction and WorkflowSpecInput definitions into separate private domain builders with exact captured workspace/session/run/worktree/profile IDs supplied as DATA. Leave registration order, real Engine/provider closures, approval interval, failed/unknown options, stage driving and owned close in current fixtures. Do not create a universal Engine fixture or clone authority handles.",
+      "preserve": [
+        "Exact allocations/tool names/check IDs/stage dependencies and binding fields",
+        "Caller-owned dbRoot failure retention; first actual unknown group evidence remains",
+        "Original native approvals and no replay under crash/unknown cleanup"
+      ],
+      "validation": [
+        "Existing batch/boundary/crash and workflow effects/crash suites",
+        "Inspect actual admitted native spec/case/approval rows and unknown cleanup outcomes",
+        "No new mirror-only tests of builder implementation"
+      ],
+      "dependencies": [
+        "Current corrective whole-run evidence before extraction"
+      ],
+      "state": "Concrete DATA-only extraction; no scenario removal"
+    },
+    {
+      "id": "RF-TF-06",
+      "priority": "P3",
+      "classification": [
+        "refactor"
+      ],
+      "title": "Factor persistent fixture repository setup without moving state ownership",
+      "files": [
+        "packages/engine/src/resilience/persistent-fixture.ts",
+        "packages/engine/src/resilience/persistent-worker.ts",
+        "packages/engine/src/resilience/persistent.integration.test.ts"
+      ],
+      "evidence": [
+        "createPersistentFixture137–767:631 lines; identical Git init/add/isolated commit options used for primary repository145–186 and cancellation repository221–247.",
+        "Length/parent AST complexity1 exclude nested closures; this is not evidence of triviality or dead code. Mutable actual Engine getter/reopen, scope/counters/cancellation debt and original native jobs live in that closure."
+      ],
+      "callerProof": [
+        "Actual worker20 and integration test212 instantiate the exported fixture even though same-file call matching reports0."
+      ],
+      "unit": "First extract only private initializePersistentRepository(root,preservedText,commitMessage) and immutable bounded RunConfig construction. Keep calls at their original sequence positions and keep all Engine instances, second workspace, mandatory cases, counters, job source/approval IDs, checkpoint/crashReady and no-replay proof in the owning closure. Further phase decomposition needs an explicit original-handle/state design.",
+      "preserve": [
+        "Same resident Engine across accumulating cycles until explicit reopen",
+        "Second-workspace uncertain cancellation and no replay",
+        "Mandatory complete/cancel/text before optional duration loop; finite input/resource/report bounds"
+      ],
+      "validation": [
+        "Existing persistent native/input-ceiling/exact-recovery negatives",
+        "Compiled quick mandatory cases, same source/runtime pins and original native evidence",
+        "Repeat affected long qualification only when initialization/source change invalidates frozen evidence"
+      ],
+      "dependencies": [
+        "N-01 running frozen30-minute qualification settles before refactor; preserve its original report"
+      ],
+      "state": "Bounded first extraction, not a broad persistent rewrite"
+    },
+    {
+      "id": "RF-TF-07",
+      "priority": "P2",
+      "classification": [
+        "keep"
+      ],
+      "title": "Keep deadline clock and wall readiness contracts separate",
+      "files": [
+        "packages/engine/src/integration/delegation-review.integration.test.ts",
+        "packages/engine/src/schedules/fixtures/schedule.ts",
+        "packages/engine/src/teams/fixtures/model-tools.ts",
+        "packages/engine/src/workflows/fixtures/workflow.ts",
+        "packages/engine/src/terminals/job-group-cleanup.integration.test.ts"
+      ],
+      "evidence": [
+        "Delegation18–24 captures real Date.now/setTimeout for8s readiness and enables separate mocked Date/setTimeout;101–118 tick149+1 after real entry,120 onward expires original150ms before host entry.",
+        "Exact group23 has10s Date.now/3ms schedule/team/workflow pollers. Other polls use performance.now, setImmediate,5/10ms cadence or distinct12/15/20s deadlines."
+      ],
+      "callerProof": [
+        "150ms cooperative cancel expects released owner; pre-entry expiry expects uncertain retained owner/no delivery/no replay. Neither is duplicate. Schedules compare actual expiry timestamps."
+      ],
+      "unit": "Keep both original deadline cases and their realwall readiness aliases. Do not unify all until/wait functions or import real-time timers into deliberately mocked allocation checks. A future limited group23 extraction must retain its exact clock/cadence/default and cannot replace other poll contracts.",
+      "preserve": [
+        "Original allocation begins before actual host.start, total150ms remains",
+        "Separate startup expiry uncertainty",
+        "No deadline increases, broad retries or timeout masking"
+      ],
+      "validation": [
+        "Original cooperative+startup-expiry oracles remain unchanged during nearby refactors"
+      ],
+      "dependencies": [],
+      "state": "KEEP; superficially similar waits have different observable semantics"
+    },
+    {
+      "id": "RF-TF-08",
+      "priority": "P2",
+      "classification": [
+        "keep"
+      ],
+      "title": "Keep repeated completion assertions for different native preconditions",
+      "files": [
+        "packages/engine/src/knowledge/file-publication-store.test.ts",
+        "packages/engine/src/terminals/job-group-cleanup.integration.test.ts",
+        "packages/engine/src/knowledge/publication-store.test.ts",
+        "packages/engine/src/proposals/store.test.ts"
+      ],
+      "evidence": [
+        "Group20 same11-line complete callback appears after no original dispatch515 and after actual dispatch plus SQLite failing receipt trigger549; expected errors and rollback/receipt oracles differ.",
+        "Group14 same PTY after-hook belongs stopped-shell confirmed cancellation versus lost-supervisor unknown cleanup. Group7 transaction body closes a rebound let db in publication reopen()420–434; proposal fixture uses a different owned connection."
+      ],
+      "callerProof": [
+        "Actual file publication tests prove missing dispatch cannot issue receipt and post-effect receipt SQL failure rolls back native head/checkpoint/completion. Reopened publication store reconstructs its ports against the new connection."
+      ],
+      "unit": "Retain both SQL boundary scenarios and both PTY correctness scenarios; repair only unsafe fixture ownership separately inRF-TF-01. Keep tiny transaction wrappers local until an exact connection-getter/nested-transaction design is justified; never share production transaction/authority helpers into fixture oracles just because AST bodies match.",
+      "preserve": [
+        "Original intent/receipt distinction and native rollback rows",
+        "Connection identity after actual reopen",
+        "Independent expectations, not test-title deduplication"
+      ],
+      "validation": [
+        "No test/scenario deletion from exact callback fingerprint alone"
+      ],
+      "dependencies": [],
+      "state": "KEEP; proven distinct setup and result expectations"
+    },
+    {
+      "id": "RF-TF-09",
+      "priority": "P3",
+      "classification": [
+        "refactor"
+      ],
+      "title": "Separate lifecycle transform fixture from the1619-line scenario file",
+      "files": [
+        "packages/engine/src/lifecycle/engine-transforms.test.ts"
+      ],
+      "evidence": [
+        "Large file contains a real native Engine/Git/SQLite fixture114–236 plus distinct model-context, same-Turn retry, tool transform/post-effect failure, verification, imported image and knowledge scenarios."
+      ],
+      "callerProof": [
+        "Tests instantiate fixture with image/generation/tools/hooks/verification/limits/script variants; its after-hook owns each actual Engine/DB directory. Shared fixture is already one local implementation, not unused."
+      ],
+      "unit": "Move only native fixture and its required private setup/types into lifecycle/fixtures/transforms.ts; keep scenario registrations and assertion helpers in the original test file first. Preserve independent instance pertest and authored producer vs native approval oracles. Avoid splitting test files into additional concurrent workers until duration/resource acceptance is measured.",
+      "preserve": [
+        "Test names/registration order/source bindings/budgets",
+        "Original cleanup and native transform event/data assertions",
+        "No replacement by fake coordinator ports or production transform helper"
+      ],
+      "validation": [
+        "Existing full lifecycle transform file with exact native row/context and post-effect no-repeat assertions",
+        "Report fixture resource/deadline effects before any multi-file split"
+      ],
+      "dependencies": [
+        "Frozen current local/hosted corrective acceptance baseline"
+      ],
+      "state": "Structural proposal only; file length is not a defect"
+    },
+    {
+      "id": "RF-TF-10",
+      "priority": "P2",
+      "classification": [
+        "keep"
+      ],
+      "title": "Retain controlled coordinator ports as an independent oracle",
+      "files": [
+        "packages/engine/src/runner/coordinator.test.ts",
+        "packages/engine/src/knowledge/import-recovery.integration.test.ts"
+      ],
+      "evidence": [
+        "Coordinator1561 lines includes actual authored MemoryStore/approval/tool/context ports and independent steer/budget/admission/close/maintenance-uncertainty races.",
+        "Import-recovery fixture176–569:394 lines separately builds actual native Engine/SQLite/archive and paused historical knowledge; repeated test setup is not the coordinator runtime."
+      ],
+      "callerProof": [
+        "Coordinator fixture returns distinct runner/store/approval state per case; maintenance lease tests1332–1561 assert quarantine/settlement. Import fixture12 active calls prove genuine native historical/imported record and no-provider-replay behavior."
+      ],
+      "unit": "Keep controlled port tests and native recovery integration tests as separate layers. Do not delete pure-looking state tests or substitute shared production admission/recovery code for their expected-value oracle; later case grouping requires exact failure/state coverage proof.",
+      "preserve": [
+        "Authored late event/unsafe cleanup counters",
+        "Native historical DATA stays non-authoritative after import",
+        "Budget/quarantine/close semantics tested independently"
+      ],
+      "validation": [
+        "No removal approved from noMatchedCall, repeated assertions or fake-port labels"
+      ],
+      "dependencies": [],
+      "state": "KEEP; actual scenario layers are distinct"
+    }
+  ],
+  "selectedExactBodyGroups": [
+    {
+      "inventoryGroup": 0,
+      "fingerprint": "703136056de83bb42a98f930742e23a4a7785fd116dd29ae638d9920db1cfaec",
+      "occurrences": [
+        {
+          "path": "packages/engine/src/schedules/fixtures/schedule.ts",
+          "line": 39,
+          "name": "waitOrAbort",
+          "bodyLines": 15
+        },
+        {
+          "path": "packages/engine/src/teams/fixtures/model-tools.ts",
+          "line": 50,
+          "name": "waitOrAbort",
+          "bodyLines": 15
+        },
+        {
+          "path": "packages/engine/src/workflows/fixtures/archive-workflow.ts",
+          "line": 29,
+          "name": "wait",
+          "bodyLines": 15
+        },
+        {
+          "path": "packages/engine/src/workflows/fixtures/crash-child.ts",
+          "line": 55,
+          "name": "wait",
+          "bodyLines": 15
+        },
+        {
+          "path": "packages/engine/src/workflows/fixtures/workflow.ts",
+          "line": 42,
+          "name": "waitOrAbort",
+          "bodyLines": 15
+        }
+      ],
+      "qualification": "Body fingerprint only; semantic disposition is in primary items."
+    },
+    {
+      "inventoryGroup": 3,
+      "fingerprint": "c452b9e3228664390200371b063bdd80a04a9cda78d6fb9f8139dd0ec20055e3",
+      "occurrences": [
+        {
+          "path": "packages/engine/src/code-mode/fixtures/engine.ts",
+          "line": 41,
+          "name": "nativeEvidence",
+          "bodyLines": 31
+        },
+        {
+          "path": "packages/engine/src/git/fixtures/commit.ts",
+          "line": 32,
+          "name": "nativeFixtureEvidence",
+          "bodyLines": 31
+        }
+      ],
+      "qualification": "Body fingerprint only; semantic disposition is in primary items."
+    },
+    {
+      "inventoryGroup": 5,
+      "fingerprint": "7d7dd0467856f4278242d0de128e3c8a1436d27cff78053f75415dc621a9815f",
+      "occurrences": [
+        {
+          "path": "packages/engine/src/code-mode/fixtures/engine.ts",
+          "line": 46,
+          "name": "<arrow@46>",
+          "bodyLines": 21
+        },
+        {
+          "path": "packages/engine/src/git/fixtures/commit.ts",
+          "line": 37,
+          "name": "<arrow@37>",
+          "bodyLines": 21
+        }
+      ],
+      "qualification": "Body fingerprint only; semantic disposition is in primary items."
+    },
+    {
+      "inventoryGroup": 7,
+      "fingerprint": "267044ec1a0c03de4ef295318e673660a4bde038bfd3817033f7d87a27ac2b00",
+      "occurrences": [
+        {
+          "path": "packages/engine/src/knowledge/generation-store.test.ts",
+          "line": 72,
+          "name": "writeTx",
+          "bodyLines": 12
+        },
+        {
+          "path": "packages/engine/src/knowledge/publication-store.test.ts",
+          "line": 78,
+          "name": "writeTx",
+          "bodyLines": 12
+        },
+        {
+          "path": "packages/engine/src/proposals/store.test.ts",
+          "line": 71,
+          "name": "tx",
+          "bodyLines": 12
+        }
+      ],
+      "qualification": "Body fingerprint only; semantic disposition is in primary items."
+    },
+    {
+      "inventoryGroup": 14,
+      "fingerprint": "669620989b9a2b409e02666d4305bb33392cf043d7d8428d979ef84425b884e5",
+      "occurrences": [
+        {
+          "path": "packages/engine/src/terminals/job-group-cleanup.integration.test.ts",
+          "line": 46,
+          "name": "<arrow@46>",
+          "bodyLines": 13
+        },
+        {
+          "path": "packages/engine/src/terminals/job-group-cleanup.integration.test.ts",
+          "line": 126,
+          "name": "<arrow@126>",
+          "bodyLines": 13
+        }
+      ],
+      "qualification": "Body fingerprint only; semantic disposition is in primary items."
+    },
+    {
+      "inventoryGroup": 20,
+      "fingerprint": "4444ceb5b4b32db755840d7859122c3c44eeca0718ad046472bc5246be6b055d",
+      "occurrences": [
+        {
+          "path": "packages/engine/src/knowledge/file-publication-store.test.ts",
+          "line": 515,
+          "name": "<arrow@514>",
+          "bodyLines": 11
+        },
+        {
+          "path": "packages/engine/src/knowledge/file-publication-store.test.ts",
+          "line": 549,
+          "name": "<arrow@548>",
+          "bodyLines": 11
+        }
+      ],
+      "qualification": "Body fingerprint only; semantic disposition is in primary items."
+    },
+    {
+      "inventoryGroup": 23,
+      "fingerprint": "7c08789d07ecbd66f430010a99df0203bce0a675ff0b1d110979872553aeb503",
+      "occurrences": [
+        {
+          "path": "packages/engine/src/schedules/fixtures/schedule.ts",
+          "line": 58,
+          "name": "scheduleUntil",
+          "bodyLines": 7
+        },
+        {
+          "path": "packages/engine/src/teams/fixtures/model-tools.ts",
+          "line": 69,
+          "name": "untilModelTools",
+          "bodyLines": 7
+        },
+        {
+          "path": "packages/engine/src/workflows/fixtures/workflow.ts",
+          "line": 61,
+          "name": "workflowUntil",
+          "bodyLines": 7
+        }
+      ],
+      "qualification": "Body fingerprint only; semantic disposition is in primary items."
+    },
+    {
+      "inventoryGroup": 25,
+      "fingerprint": "336895e4d2bf69655546689308b19cee929d2d53dba9902d1b206f533889c805",
+      "occurrences": [
+        {
+          "path": "packages/engine/src/code-mode/fixtures/engine.ts",
+          "line": 56,
+          "name": "<arrow@56>",
+          "bodyLines": 9
+        },
+        {
+          "path": "packages/engine/src/git/fixtures/commit.ts",
+          "line": 47,
+          "name": "<arrow@47>",
+          "bodyLines": 9
+        }
+      ],
+      "qualification": "Body fingerprint only; semantic disposition is in primary items."
+    }
+  ],
+  "largestFixtureDisposition": [
+    {
+      "path": "packages/engine/src/resilience/persistent-fixture.ts",
+      "function": "createPersistentFixture",
+      "start": 137,
+      "end": 767,
+      "lines": 631,
+      "item": "RF-TF-06"
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/effects.ts",
+      "function": "workflowEffectsFixture",
+      "start": 89,
+      "end": 533,
+      "lines": 445,
+      "item": "RF-TF-05"
+    },
+    {
+      "path": "packages/engine/src/coding-runs/fixtures/batch.ts",
+      "function": "batchFixture",
+      "start": 86,
+      "end": 513,
+      "lines": 428,
+      "item": "RF-TF-05"
+    },
+    {
+      "path": "packages/engine/src/knowledge/import-recovery.integration.test.ts",
+      "function": "fixture",
+      "start": 176,
+      "end": 569,
+      "lines": 394,
+      "item": "RF-TF-10"
+    },
+    {
+      "path": "packages/engine/src/knowledge/publication-store.test.ts",
+      "function": "fixture",
+      "start": 43,
+      "end": 440,
+      "lines": 398,
+      "item": "RF-TF-08"
+    }
+  ],
+  "sourcePins": [
+    {
+      "path": "packages/engine/src/code-mode/fixtures/engine.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/code-mode/fixtures/engine.ts",
+      "sha256": "1c9652353be17321d67594b18b953c8f547fc815bdcf162ddfcf4152faa8efdd",
+      "physicalLines": 341,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/coding-runs/fixtures/batch.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/coding-runs/fixtures/batch.ts",
+      "sha256": "3ecaeded5a893647e48f810cf65ee354b395a881b4c38bdfa1a00fda6c090833",
+      "physicalLines": 513,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/effect-batches/crash.integration.test.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/effect-batches/crash.integration.test.ts",
+      "sha256": "7ad6c01ba94814040969671897ae58bec923cccfde081e053e746c5bd52bcfce",
+      "physicalLines": 203,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/effect-batches/fixtures/crash.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/effect-batches/fixtures/crash.ts",
+      "sha256": "a1e7565a5fb77fe5c08fa374c9d339bf5ebdf9c7edfd2f8a929b176f04c0e070",
+      "physicalLines": 92,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/git/fixtures/commit.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/git/fixtures/commit.ts",
+      "sha256": "353378ab0f850212a33beba48371b3ed12cc03753e5d7d6629f253cfac6b61ca",
+      "physicalLines": 322,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/integration/delegation-review.integration.test.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/integration/delegation-review.integration.test.ts",
+      "sha256": "ec29f8419e2b4310c2fc2f311c77f02ff7601656ebe2ff64511eb87af0fef597",
+      "physicalLines": 219,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/jobs/fixtures/crash-host-command.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/jobs/fixtures/crash-host-command.ts",
+      "sha256": "f1374ea24871726df3a88d3724d3411db292308fb18083693fc348a2e9dd4fa3",
+      "physicalLines": 65,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/knowledge/file-publication-store.test.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/knowledge/file-publication-store.test.ts",
+      "sha256": "e09aa6e24daabbc8c13f50423f394743d1e6a0e68dfd419015612842f15f48a5",
+      "physicalLines": 970,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/knowledge/generation-store.test.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/knowledge/generation-store.test.ts",
+      "sha256": "12d136f42649e94ae64768566af8bfd9076aca5745dd0c9f2dcbe94c8ce98507",
+      "physicalLines": 1145,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/knowledge/import-recovery.integration.test.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/knowledge/import-recovery.integration.test.ts",
+      "sha256": "7f4b09f0e9e75a097ce1217e35cd85acfe42e3c961c1fb0419e2e762eebdb632",
+      "physicalLines": 1367,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/knowledge/publication-store.test.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/knowledge/publication-store.test.ts",
+      "sha256": "208353790aea3afbd7484b3695fda75493f29fd5be32a9e3f5b0acd0e6f3e790",
+      "physicalLines": 977,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/lifecycle/engine-transforms.test.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/lifecycle/engine-transforms.test.ts",
+      "sha256": "5c9ba8e0c4d0cac2d0e6bc7521cd7ded3b337d835ca1fdc60a2f91fa8da71155",
+      "physicalLines": 1619,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/proposals/store.test.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/proposals/store.test.ts",
+      "sha256": "563caa9de231041f452024d9936fd5907c956f24a4f6e72df302cf48270f5aec",
+      "physicalLines": 837,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/resilience/persistent-fixture.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/resilience/persistent-fixture.ts",
+      "sha256": "1ddd432e06afcc5702a082aa2bbde1a8c7ebe47b1e495e5fb63d6c9b997e325c",
+      "physicalLines": 770,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/resilience/persistent-worker.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/resilience/persistent-worker.ts",
+      "sha256": "d48f584f5f1d76c65f6b953739f32d79439b67a625114339461a5f77539784a5",
+      "physicalLines": 156,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/resilience/persistent.integration.test.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/resilience/persistent.integration.test.ts",
+      "sha256": "6947bbad9fb4fb952f25c2ed36ca673d281d2bd4f02bf75bef0d12110c3ff439",
+      "physicalLines": 234,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/runner/coordinator.test.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/runner/coordinator.test.ts",
+      "sha256": "b109ea5decf42ad1121a0ff949d0bc1dd1453e7067508b312cf89d0fdb7e0af6",
+      "physicalLines": 1561,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/schedules/fixtures/schedule.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/schedules/fixtures/schedule.ts",
+      "sha256": "d482d184c565155249020109b2c39dd3b73060b02dc7d0e5ca93a4f1483c1112",
+      "physicalLines": 309,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/teams/fixtures/model-tools.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/teams/fixtures/model-tools.ts",
+      "sha256": "c9bda34882a9882a8a81e5a8f7eb13c43b3f9c935e28e28958420ad3a8b80e85",
+      "physicalLines": 494,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/teams/fixtures/team-crash-child.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/teams/fixtures/team-crash-child.ts",
+      "sha256": "46d0542e1c23e25f40c29bdc82bf742788e33a530439a5eb11fe071c4c189968",
+      "physicalLines": 230,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/terminals/job-group-cleanup.integration.test.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/job-group-cleanup.integration.test.ts",
+      "sha256": "6d194528a15d09a1387794f2a4d586abc5a1cde1f289571af53e30d183ac0f69",
+      "physicalLines": 187,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/terminals/repeatability.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/repeatability.ts",
+      "sha256": "f187544b607040618050a9fc069e925e92f8f66140b8acf7b3fcc05aac48a7d0",
+      "physicalLines": 661,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/archive-workflow.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/workflows/fixtures/archive-workflow.ts",
+      "sha256": "782c3a3a8e4b409be9a9d88553d6a013474fd59976d2438475144e62029a1c9b",
+      "physicalLines": 339,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/crash-child.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/workflows/fixtures/crash-child.ts",
+      "sha256": "b5077e9fb376969a93aa027f13927c3955935a942a847120faa10a3ac7836676",
+      "physicalLines": 306,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/effects.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/workflows/fixtures/effects.ts",
+      "sha256": "be6a96a560d7ebf551e70b163478d58d66fb1bc3fb0e6d4aff76c9849e747454",
+      "physicalLines": 533,
+      "matchesInventory": true
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/workflow.ts",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/workflows/fixtures/workflow.ts",
+      "sha256": "af0fb7ab029a47ee9cc2c250d71130d0d44fb875226f168cea476c73dbdaeeed",
+      "physicalLines": 426,
+      "matchesInventory": true
+    }
+  ],
+  "referenceDocuments": [
+    {
+      "path": "docs/moodcode/next-crash-fixture-review.json",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/next-crash-fixture-review.json",
+      "sha256": "c1ddfefa2371adc0dc0a164470307459e118b7666c34583de2e9ca4b48738763"
+    },
+    {
+      "path": "docs/moodcode/next-hosted-fixtures-review.json",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/next-hosted-fixtures-review.json",
+      "sha256": "1f53a25d2720e621769c18d7fd231faf42b84827143b91dae61995903476ae9f"
+    },
+    {
+      "path": "docs/moodcode/next-feature-support-draft.json",
+      "absolutePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/next-feature-support-draft.json",
+      "sha256": "11de6da91a4eb66ec338071adbbdebbe05ffa3f0eb8527438adf4ea4c508ba06"
+    }
+  ],
+  "acceptanceRules": [
+    "Prioritize confirmed fixture ownership/readiness failures before code movement.",
+    "One bounded unit with original native scenarios and retained unknown evidence; no universal wait/cleanup/authority fixture.",
+    "Preserve current source/runtime, test names/original budgets/skip support and before/after native rows; no parse retry/assertion relaxation.",
+    "Production process/approval/recovery changes require independent causal evidence and Root ownership.",
+    "Do not claim all local/hosted failures fixed from selected passes. Current99cc observer consumer-mutation and PTY capability failures remain a separate corrective investigation."
+  ]
+}

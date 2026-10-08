@@ -23,7 +23,7 @@
       ],
       "threadId": "01a11d5c-a7e9-7e51-be84-276527da793f",
       "hostId": "local",
-      "status": "implementing",
+      "status": "implementation-integrated-branch-native-four-lanes-passed-combined-ci-pending",
       "progressFile": "docs/moodcode/next-windows-progress.json",
       "requires": [
         "native-binding",
@@ -56,7 +56,7 @@
       ],
       "threadId": "01a11d5c-affa-79c3-89e4-2cef32922796",
       "hostId": "local",
-      "status": "implementing",
+      "status": "implementation-integrated-mcp-and-fixture-lifetime-corrections-pending",
       "progressFile": "docs/moodcode/next-desktop-progress.json",
       "requires": [
         "host-preload-renderer-consumption",
@@ -71,7 +71,7 @@
         "N-01"
       ],
       "agent": "/root/persistent_soak",
-      "status": "actual-thirty-minute-run-in-progress",
+      "status": "frozen-original-thirty-minute-passed-current-window-qualification-pending",
       "requires": [
         "same-engine-accumulating-history",
         "actual-duration-and-resource-samples",
@@ -97,7 +97,7 @@
         "RF-01"
       ],
       "agent": "/root/refactor_inventory",
-      "status": "tooling-tested-semantic-review-pending",
+      "status": "whole-structural-baseline-and-semantic-proposals-recorded-manual-gaps-open",
       "requires": [
         "source-qualified-inventory",
         "caller-and-compatibility-review",
@@ -402,7 +402,7 @@
     },
     {
       "key": "persistent-30min-frozen",
-      "status": "running",
+      "status": "passed",
       "sourceCommit": "78e37b1d54952d173779865b6fb9d2d04fac828f",
       "worktree": "/Users/yakisoba0728/.codex/worktrees/next-persistent-frozen/Moodcode",
       "durationMs": 1800000,
@@ -412,7 +412,34 @@
       "seed": 20261009,
       "noLive": true,
       "reportPath": "/tmp/moodcode-next-persistent-30min.json",
-      "longDurationVerified": false
+      "longDurationVerified": true,
+      "sourceRuntimeSha256": "106a2f782bd2a11ea2ee85e9b8061b4da663d39740346021ad9f4327f41d1b84",
+      "activeDurationMs": 1802370,
+      "cycles": 398,
+      "inputs": 1596,
+      "evidence": "docs/moodcode/next-persistent-30min-verification.json",
+      "qualification": "Frozen original78e source only; current observation-window and engine refactor checks remain."
+    },
+    {
+      "key": "combined-full-before-pty-environment-and-observer-fix",
+      "sourceCommit": "99cc0c595c54d491090be7d570944fa531fd9d93",
+      "tests": {
+        "total": 4774,
+        "passed": 4723,
+        "failed": 49,
+        "skipped": 2
+      },
+      "durationMs": 441774.153875,
+      "logPath": "/tmp/moodcode-next-combined-full-engine.log",
+      "logSha256": "1585e7c9f74055d21b2768ff3f0c9ec6156e0ccbcee1d5ad197b57f7d53eedc7",
+      "findings": {
+        "ptyFailures": 48,
+        "ptyCause": "npm ci helper0644 after installation; established prepare-pty restored0755 with identical bytes and actual native success",
+        "otherFailures": [
+          "observer test mutation sample accepted before new.txt publication"
+        ]
+      },
+      "wholeAcceptance": false
     }
   ],
   "goalTracking": {
@@ -420,5 +447,27 @@
     "unexpectedSharedSessionMutation": true,
     "execution": "Independent authorized implementation continues; parent owns future goal mutations",
     "externallyRequiredAcceptanceRemainsOpen": true
-  }
+  },
+  "refactorSessions": [
+    {
+      "threadId": "01a11db0-05c1-7132-a980-099b26d11ee9",
+      "model": "gpt-6.1-sol",
+      "effort": "xhigh",
+      "units": [
+        "CORE-01",
+        "CORE-02",
+        "CORE-03",
+        "CORE-04"
+      ]
+    },
+    {
+      "threadId": "01a11d5c-ab82-7ad3-8710-67c00b999c2e",
+      "model": "gpt-6.1-sol",
+      "effort": "xhigh",
+      "units": [
+        "STORE-01",
+        "RUNNER-01"
+      ]
+    }
+  ]
 }

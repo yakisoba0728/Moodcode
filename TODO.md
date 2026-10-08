@@ -51,6 +51,18 @@
 | [ ] RUNNER-01 | team/workflow의 동일한 live owner predicate 공통화 | allowlist 먼저, 14조건 평가 순서·오류·승인 유지; readonly/code-mode/settle는 원 계약 유지 |
 | [ ] DOC-01 | 중복 진행 문서와 주석의 실제 소비 확인 뒤 정리 | 공개 API·라이선스·역사 실패 근거 유지, 근거 없이 export/dependency/test 삭제 금지 |
 
+테스트 점검의 [상세 근거](docs/moodcode/next-test-refactor-proposals.json)에 따라 다음 단위를 추가한다. RF-TF-01은 TEST-01과 같은 작업이며 중복 집계하지 않는다.
+
+| 상태·ID | 범위 | 보존·검증 조건 |
+|---|---|---|
+| [ ] RF-TF-02 | code-mode/Git fixture의 bounded native DATA 수집 공통화 | caller별 실패/unknown 보존 정책·SQL close 순서·독립 expected 유지 |
+| [ ] RF-TF-03 | host/team/workflow/effect crash 원본 증거의 atomic publisher | exclusive private stage→close→same-dir rename, 완전한 native binding·crash 시점 유지 |
+| [ ] RF-TF-04 | 동일한 cooperative gate/abort wait만 공통화 | 원 signal·취소 cleanup·resolve/reject·원 deadline 유지 |
+| [ ] RF-TF-05 | coding batch/workflow 대형 fixture DATA 정의를 domain-local builder로 정리 | Original 소유·실제 effect·SQL·lease·예산은 현 fixture에 유지 |
+| [ ] RF-TF-06 | persistent fixture 저장소 준비 중복 정리 | repository identity·같은 DB/Engine history·실제 자원/기간·원 unknown 보존 |
+| [ ] RF-TF-09 | lifecycle transform의 준비 코드를 scenario와 분리 | 독립 expected·원 1,619줄 suite의 전체 native 시나리오·API/event/DB 유지 |
+| [x] RF-TF-07/08/10 | 서로 다른 clock/native precondition/controlled port 검증은 유지 | 중복처럼 보여도 독립 계약이므로 삭제·통합하지 않음; 검토 근거에 유지 이유 기록 |
+
 테스트·fixture 수정과 영향 검증을 먼저 완료한다. `engine.ts`, `agent-backends/store.ts`, `runner/index.ts`는 각각 단일 편집 담당을 둔다. 각 단위는 기존 source/compiled 회귀와 독립 expected/native SQLite 검증을 통과해야 완료 처리한다. 외부 계정·인증서·과거 PID 자료의 대기는 열린 상태로 남기고 독립 가능한 작업을 계속한다.
 
 ### 3. 테스트부터 엔진까지 기능 단위 리팩터링

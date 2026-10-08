@@ -1,0 +1,322 @@
+{
+  "schemaVersion": 1,
+  "status": "passed-frozen-original-thirty-minute-duration",
+  "passed": true,
+  "noLive": true,
+  "source": {
+    "runtime": "compiled",
+    "gitHead": "78e37b1d54952d173779865b6fb9d2d04fac828f",
+    "sourceSha256": "106a2f782bd2a11ea2ee85e9b8061b4da663d39740346021ad9f4327f41d1b84",
+    "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim",
+    "cliSha256": "97bed9b06c3e7bf03aac762c5872c1c3e28ed9c40822de06b55739b4bbfea0d0"
+  },
+  "runtime": {
+    "node": "v26.9.0",
+    "os": "darwin",
+    "release": "27.0.0",
+    "architecture": "arm64",
+    "gcExposed": false
+  },
+  "options": {
+    "profile": "long",
+    "durationMs": 1800000,
+    "maxCycles": 600,
+    "maxInputs": 2404,
+    "maxInputBytes": 67108864,
+    "payloadBytes": 256,
+    "seed": 20261009,
+    "maxSamples": 128,
+    "boundaryTimeoutMs": 10000
+  },
+  "summary": {
+    "activeDurationMs": 1802370,
+    "lastCycleElapsedMs": 1802296,
+    "loadStoppedBy": "duration",
+    "durationMs": 1819785,
+    "engineInstances": 3,
+    "sourceStable": true,
+    "workerGrowth": {
+      "rssDeltaBytes": 42811392,
+      "heapUsedDeltaBytes": 47231464,
+      "descriptorDelta": 7,
+      "descriptorPeak": 35,
+      "liveDescendantPeak": 2,
+      "sqliteDeltaBytes": 317564808,
+      "artifactDeltaBytes": 275264,
+      "sampledWorkerDurationMs": 1814464
+    }
+  },
+  "load": {
+    "cycles": 398,
+    "inputs": 1596,
+    "inputBytes": 408576,
+    "commands": 59,
+    "completedCommands": 57,
+    "cancelledCommands": 1,
+    "textCycles": 340,
+    "providerCalls": {
+      "command": 116,
+      "observer": 1078
+    },
+    "cycleEvidenceSha256": "1acf64214b46b51d7a6cf12556b7b08e7eaf5cd26387e1739e5e74009cd89bf2"
+  },
+  "resourceSamples": {
+    "count": 128,
+    "first": {
+      "phase": "baseline",
+      "elapsedMs": 0,
+      "engineInstance": 1,
+      "cycles": 0,
+      "pid": 50294,
+      "memory": {
+        "rss": 106332160,
+        "heapUsed": 18403912,
+        "heapTotal": 35143680,
+        "external": 2987114,
+        "arrayBuffers": 212381
+      },
+      "descriptors": {
+        "count": 28,
+        "source": "lsof-numeric-file-descriptors"
+      },
+      "processes": {
+        "descendants": 0,
+        "liveDescendants": 0,
+        "pids": [],
+        "truncated": false,
+        "source": "ps-pid-ppid-pgid-stat"
+      },
+      "sqlite": {
+        "primaryBytes": 4096,
+        "walBytes": 1277232,
+        "shmBytes": 32768,
+        "effectsBytes": 0,
+        "counts": {
+          "runs": 0,
+          "messages": 0,
+          "tools": 0,
+          "approvals": 0,
+          "checkpoints": 0,
+          "session_inputs": 0,
+          "session_turns": 0,
+          "provider_attempts": 0,
+          "message_parts": 0,
+          "attempt_cleanup": 0,
+          "session_documents": 0,
+          "session_events": 0
+        }
+      },
+      "artifacts": {
+        "files": 1,
+        "bytes": 12288,
+        "pathsAndSizesSha256": "a0a7227b0bd0bc0e4ad90cfa478049111829042d1bd44d76b2ce2e79a89cf584",
+        "contentSha256": "b39ff5e010daaffd08228cf98d21b9daa1a4a233ddef9b328d3ff36d1721f8f7"
+      }
+    },
+    "last": {
+      "phase": "recovery-host-after-close",
+      "elapsedMs": 1819739,
+      "engineInstance": 3,
+      "cycles": 398,
+      "pid": 50088,
+      "memory": {
+        "rss": 80019456,
+        "heapUsed": 24900432,
+        "heapTotal": 32260096,
+        "external": 4983098,
+        "arrayBuffers": 440396
+      },
+      "descriptors": {
+        "count": 18,
+        "source": "lsof-numeric-file-descriptors"
+      },
+      "processes": {
+        "descendants": 0,
+        "liveDescendants": 0,
+        "pids": [],
+        "truncated": false,
+        "source": "ps-pid-ppid-pgid-stat"
+      },
+      "sqlite": {
+        "primaryBytes": 314478592,
+        "walBytes": 0,
+        "shmBytes": 32768,
+        "effectsBytes": 8192,
+        "counts": {
+          "runs": 797,
+          "messages": 2445,
+          "tools": 59,
+          "approvals": 59,
+          "checkpoints": 58,
+          "session_inputs": 1596,
+          "session_turns": 1194,
+          "provider_attempts": 1194,
+          "message_parts": 1194,
+          "attempt_cleanup": 1194,
+          "session_documents": 67,
+          "session_events": 21751
+        }
+      },
+      "artifacts": {
+        "files": 235,
+        "bytes": 289489,
+        "pathsAndSizesSha256": "bfb87c9254f78fe3115fca467893b0b3cf429a5c87ae4cda53303199176b1ed8",
+        "contentSha256": "9cc88e3232337cdb5c0d50e7f8c288637f889ec42783e667ba7263a921d0f93f"
+      }
+    }
+  },
+  "gracefulCheckpoint": {
+    "before": {
+      "counts": {
+        "runs": 553,
+        "messages": 1698,
+        "tools": 41,
+        "approvals": 41,
+        "checkpoints": 41,
+        "session_inputs": 1109,
+        "session_turns": 829,
+        "provider_attempts": 829,
+        "message_parts": 829,
+        "attempt_cleanup": 829,
+        "session_documents": 49,
+        "session_events": 15106
+      },
+      "recordsSha256": "6a9d1630bc61fe349cb0dcaedd1ac3b8aa40f55ec4a0de203c401af2dd9f04c0",
+      "integrity": "ok",
+      "foreignKeyViolations": 0
+    },
+    "after": {
+      "counts": {
+        "runs": 553,
+        "messages": 1698,
+        "tools": 41,
+        "approvals": 41,
+        "checkpoints": 41,
+        "session_inputs": 1109,
+        "session_turns": 829,
+        "provider_attempts": 829,
+        "message_parts": 829,
+        "attempt_cleanup": 829,
+        "session_documents": 49,
+        "session_events": 15106
+      },
+      "recordsSha256": "6a9d1630bc61fe349cb0dcaedd1ac3b8aa40f55ec4a0de203c401af2dd9f04c0",
+      "integrity": "ok",
+      "foreignKeyViolations": 0
+    },
+    "noAutomaticReplay": true,
+    "explicitQueueResume": true,
+    "engineInstance": 2
+  },
+  "crashCheckpoint": {
+    "originalJobId": "command-97dcd49dcbdffc6d2e343f09176f7093",
+    "originalProposalPartId": "d5582ba8-a69e-476e-92d8-a8322709ebb0",
+    "originalSourceSha256": "11a9b2d6f11c26a4e81c0f9b0df9656b3091d4ab3e8379a841d9947b910c449f",
+    "originalApprovalId": "a94beee0-bd9a-47a4-8b38-3f53a8084ad9",
+    "originalApprovalFingerprint": "c0c566893293e17c26c35ff68d9dd077bf7383f8c4f122161e7e335ef0dd505e",
+    "before": {
+      "counts": {
+        "runs": 797,
+        "messages": 2445,
+        "tools": 59,
+        "approvals": 59,
+        "checkpoints": 58,
+        "session_inputs": 1596,
+        "session_turns": 1194,
+        "provider_attempts": 1194,
+        "message_parts": 1194,
+        "attempt_cleanup": 1194,
+        "session_documents": 67,
+        "session_events": 21746
+      },
+      "recordsSha256": "4ae49f1fd9fe44582812810511021f3b4042bc6ac97bcad3eb87b68a919650ed",
+      "integrity": "ok",
+      "foreignKeyViolations": 0
+    },
+    "after": {
+      "counts": {
+        "runs": 797,
+        "messages": 2445,
+        "tools": 59,
+        "approvals": 59,
+        "checkpoints": 58,
+        "session_inputs": 1596,
+        "session_turns": 1194,
+        "provider_attempts": 1194,
+        "message_parts": 1194,
+        "attempt_cleanup": 1194,
+        "session_documents": 67,
+        "session_events": 21751
+      },
+      "recordsSha256": "e22b4b7784e6c4317958f1db037988c4fd2d4590bd8ff256edebd859f2e580cd",
+      "integrity": "ok",
+      "foreignKeyViolations": 0
+    },
+    "retained": {
+      "counts": {
+        "runs": 797,
+        "messages": 2445,
+        "tools": 59,
+        "approvals": 59,
+        "checkpoints": 58,
+        "session_inputs": 1596,
+        "session_turns": 1194,
+        "provider_attempts": 1194,
+        "message_parts": 1194,
+        "attempt_cleanup": 1194,
+        "session_documents": 67,
+        "session_events": 21751
+      },
+      "recordsSha256": "e22b4b7784e6c4317958f1db037988c4fd2d4590bd8ff256edebd859f2e580cd",
+      "integrity": "ok",
+      "foreignKeyViolations": 0
+    },
+    "jobState": "uncertain",
+    "completion": null,
+    "sourceRunState": "interrupted",
+    "providerCleanupState": "confirmed",
+    "providerCleanupConfirmed": true,
+    "pendingInputState": "pending",
+    "cancelledInputState": "cancelled",
+    "noAutomaticReplay": true,
+    "recoveredProviderCalls": 0,
+    "processLaunches": 59,
+    "tokens": null,
+    "cost": null,
+    "unknownTokenAttempts": 1193
+  },
+  "recoveryEventTypes": [
+    "tool.recovery_frontier",
+    "message.part.interrupted",
+    "turn.uncertain",
+    "session.paused",
+    "session.document.updated"
+  ],
+  "cleanup": {
+    "workerExited": true,
+    "recoveryEngineClosed": true,
+    "commandPidAbsent": true,
+    "commandGroupAbsent": true,
+    "ownedLiveSurvivors": [],
+    "physicalCleanupConfirmed": true,
+    "nativeCleanupConfirmed": false,
+    "emergencyCleanupUsed": false,
+    "databaseRemoved": false,
+    "retainedEvidencePath": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-fAZvNH",
+    "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+  },
+  "limitations": [
+    "Same Engine and session accumulate native history until an explicit graceful checkpoint; the second instance continues that history before the final process crash.",
+    "POSIX owned run_command only; Windows JobObject, PTY, external providers and GUI have separate verification boundaries.",
+    "Samples describe measured resource growth; no leak-rate or absolute performance SLA is inferred.",
+    "Load is paced across the requested duration; reaching an input ceiling stops new input while timed observation continues.",
+    "Successful crash verification retains uncertain native SQLite/artifacts; physical process absence never grants recovery authority or automatic replay."
+  ],
+  "evidence": {
+    "path": "/tmp/moodcode-next-persistent-30min.json",
+    "sha256": "9dc66f26e9337fc6e3c222942bf5e9f170951061c9bd09aa9b5b5386460ebb7d",
+    "logPath": "/tmp/moodcode-next-persistent-30min.log",
+    "logSha256": "9dc66f26e9337fc6e3c222942bf5e9f170951061c9bd09aa9b5b5386460ebb7d"
+  },
+  "qualification": "Actual original requested30-minute same-engine history on frozen78e37b1 source. Independent feature and refactor changes need current-source checks; mandatory-cases-followed-by-full-observation-window revision is not qualified by this older report. Resource growth is measured, not a leak verdict. Uncertain retained originals remain untouched."
+}

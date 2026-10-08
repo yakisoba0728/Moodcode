@@ -4,18 +4,19 @@ Electron 기반 로컬 코딩 에이전트다. 자체 TypeScript/Node 엔진, �
 
 엔진이 세션·요청 접수·모델 turn loop·도구·승인·취소·SQLite 기록과 replay를 소유한다. 모델 adapter는 한 turn의 통신만 담당한다. GUI는 같은 엔진을 Electron utility process에서 실행하며 sandbox preload bridge로 연결한다. 설정 파일, 저장소 변경 감시, DB 검사·백업, 변경 복원 preview와 runtime 진단도 구현했다. 실제 완료 범위와 검증 결과는 [구현 상태](docs/moodcode/implementation-status.md)에 기록한다.
 
-현재 후속 작업은 내부 엔진 우선이다. [엔진 구현 TODO](TODO.md)의 기반 75개 항목 중 73개와 2차 80개 항목·20개 기능군을 명시한 지원 범위에서 구현·검증했다. durable queue/steer·Turn/Part·의미 요약·scoped tools·MCP·PTY·worktree child 실행·상주팀·workflow·ACP session/load·예약·승인한 변경 통합·LSP/formatter·archive·미디어·진단을 자체 엔진에 연결했다. [2차 최종 수용 근거](docs/moodcode/engine-phase-two-final-acceptance-verification.json)와 [host API](docs/moodcode/engine-host-api.md)가 지원 범위의 기준이다. native Windows, 추가 공급자·미디어 모델과 과거 PTY 종료 실패 진단은 열린 항목이다. 새 엔진 기능의 GUI 노출은 후속이다.
+현재 후속 작업은 내부 엔진 우선이다. [엔진 구현 TODO](TODO.md)의 기반 75개 항목 중 73개와 2차 80개 항목·20개 기능군을 명시한 지원 범위에서 구현·검증했다. durable queue/steer·Turn/Part·의미 요약·scoped tools·MCP·PTY·worktree child 실행·상주팀·workflow·ACP session/load·예약·승인한 변경 통합·LSP/formatter·archive·미디어·진단을 자체 엔진에 연결했다. 후속 native Windows Job Object, 고급 GUI, 앱 계정 관리와 업데이트 준비를 통합했고, 최신 공동 소스 검증과 테스트·엔진 리팩터링을 진행한다. [현재 진행 기록](docs/moodcode/next-execution-progress.json)과 [host API](docs/moodcode/engine-host-api.md)를 따른다. 실제 추가 공급자 계정·서명 배포와 과거 PTY 실패의 원인 판정은 열린 항목이다.
 
 OpenCode/pi/Amp/Claude Code/Codex 등 19개 공개 코딩 에이전트의 근거를 비교하며 자체 엔진을 구현했다. 2차 최종 source `99bf6f0`의 전체 로컬 gate는 4,701개 중 4,699 pass·실패 0·기존 Windows 조건부 skip 2이며 실제 공개 CI 여섯 작업도 통과했다. macOS/Linux 전체 엔진과 Windows portable 범위를 구분하며, 이 결과가 모든 OS·공급자·GUI의 검증을 의미하지는 않는다. [최종 검증](docs/moodcode/engine-phase-two-final-acceptance-verification.json), [기본 도구 문맥 계약](docs/moodcode/engine-eager-catalogue-context.md), [TODO](TODO.md)를 따른다. 후속 PTY 진단·복합 실행 검증·코딩 평가·성능 baseline을 구현했다. 별도 932개 입력 동결본에서 전체 회귀 4,723개 중 4,721 pass·실패 0·기존 skip 2, 60회 반복, native 코딩 과업 3/3, quick/standard 성능 gate를 통과했다. 공개 CI 여섯 작업도 통과했으며 [보강 검증 근거](docs/moodcode/engine-hardening-verification.json)를 따른다.
 
 ## 개발 실행
 
-2차의 원래 80개 작업과 20개 기능군은 완료했다. [진행표](docs/moodcode/engine-phase-two-progress.json)와 [최종 검증](docs/moodcode/engine-phase-two-final-acceptance-verification.json)을 따른다. 고급 실행 기능은 명시적 host 설정·대상 선택·승인을 요구하며 현재 Electron 화면이 이를 모두 노출하지는 않는다.
+2차의 원래 80개 작업과 20개 기능군은 완료했다. [진행표](docs/moodcode/engine-phase-two-progress.json)와 [최종 검증](docs/moodcode/engine-phase-two-final-acceptance-verification.json)을 따른다. Electron의 고급 패널에서 inbox·tasks/questions·MCP·PTY·child/team·workflow·LSP를 연결한다. 첫 workflow 화면은 읽기·진단 범위이며 고급 효과는 명시적 host 설정·대상 선택·승인을 요구한다.
 
 현재 개발 runtime은 `.nvmrc`의 Node 26.9.0이며, 최소 Node 24의 `node:sqlite` API를 사용한다. Git이 필요하다. macOS arm64 개발용 앱 bundle과 ASAR 내부 supervisor를 검증했다. 서명·공증·공개 지원 OS 검증은 후속 단계다.
 
 ```sh
 npm ci
+npm run prepare:pty
 npm run desktop
 npm test
 npm run test:desktop
@@ -117,10 +118,10 @@ npm run harness -- --config /absolute/path/moodcode.json
 
 Run은 완료·실패·사용자 취소·프로세스 중단을 구별한다. 재시작 시 미완료 실행은 interrupted로 기록하고 도구를 자동 재실행하지 않는다. SQLite transaction은 journal과 공개 상태를 함께 기록하며, 파일·shell 효과까지 원자적으로 묶지는 않는다.
 
-명령 실행은 별도 supervisor가 담당한다. 엔진 프로세스가 강제 종료되면 supervisor가 원래 POSIX process group을 정리한다. 효과가 진행 중이거나 정리 여부가 불확실하면 SQLite 실행 marker가 엔진 재시작을 차단한다. 파일 patch도 같은 실행 잠금을 사용한다. 불확실한 marker를 자동 제거하지 않으며, 진단·복구 화면에서 현재 상태를 확인한다. 종료가 확인된 상태만 대화·복원 DB 백업 검증과 사용자 확인을 거쳐 복구 기록에 남기고 차단을 해제한다. 살아 있는 PID/group, 권한 부족 또는 기록되지 않은 group은 해제하지 않는다. POSIX 명령 실행은 실제 macOS/Linux CI에서 검증했고 Windows native 실행은 지원하지 않는다.
+명령 실행은 별도 supervisor가 담당한다. 엔진 프로세스가 강제 종료되면 supervisor가 원래 POSIX process group을 정리한다. 효과가 진행 중이거나 정리 여부가 불확실하면 SQLite 실행 marker가 엔진 재시작을 차단한다. 파일 patch도 같은 실행 잠금을 사용한다. 불확실한 marker를 자동 제거하지 않으며, 진단·복구 화면에서 현재 상태를 확인한다. 종료가 확인된 상태만 대화·복원 DB 백업 검증과 사용자 확인을 거쳐 복구 기록에 남기고 차단을 해제한다. 살아 있는 PID/group, 권한 부족 또는 기록되지 않은 group은 해제하지 않는다. Windows x64 Job Object 명령 실행은 Node 24/26의 실제 Windows CI에서 별도로 검증했다. Electron bundle·ARM64·대화형 PTY·OS sandbox의 지원 범위는 해당 검증과 구분한다. [Windows 근거](docs/moodcode/next-windows-ci-verification.json).
 
 복원은 workspace lease 안에서 확인한 fingerprint를 재검증한다. 별도 SQLite review journal에 효과 전 시작과 결과를 기록하므로 완료된 Run의 terminal-last 규칙을 유지한다. 미확정 복원 기록은 재시작 후에도 해당 workspace의 새 실행을 차단한다. 복구 확인은 원본 복원 기록·Run을 수정하지 않고 별도 ledger에 exact binding을 저장한다. 중단된 모델·도구는 자동 재실행하지 않는다. 진단 화면의 대화 DB 백업 버튼은 대화 DB만 저장하며, 복구 절차의 자동 백업은 대화·복원 DB를 함께 보존한다.
 
-대화형 PTY·MCP·worktree child 실행·의미 요약은 엔진 API로 구현했으며 GUI 연결은 후속이다. Anthropic adapter는 host 등록 방식으로 text/tool·공개 reasoning summary·replay를 제공하고 synthetic fixture로 검증했다. 이미지·PDF·선택한 audio/video 모델의 제한된 계약을 구현했으며 실제 계정 검증은 기록한 모델·형식에 한한다. 앱 자체 로그인/토큰 갱신·추가 공급자/미디어 모델·native Windows process-tree·서명된 공개 배포는 후속이다. [CI 구성과 실제 결과](docs/moodcode/engine-ci.md)는 macOS/Linux 전체와 Windows portable 범위를 구분한다. 임의 shell 명령의 모든 부작용이나 동시에 외부에서 편집한 파일의 원인을 정확히 복원한다고 보장하지 않는다.
+대화형 PTY·MCP·worktree child 실행·의미 요약은 엔진 API로 구현했고 고급 GUI 소비도 연결했다. Anthropic adapter는 host 등록 방식으로 text/tool·공개 reasoning summary·replay를 제공하며 실제 계정은 추가 검증이 필요하다. 이미지·PDF·선택한 audio/video 모델의 제한된 계약을 구현했으며 실제 계정 검증은 기록한 모델·형식에 한한다. 앱 로그인·토큰 갱신·계정 선택과 검토형 업데이트를 구현했고, 실제 사용자 로그인·서명/공증·공개 배포는 외부 조건이 남아 있다. [현재 지원 범위와 검증 한계](docs/moodcode/next-feature-support-draft.json), [CI 구성과 실제 결과](docs/moodcode/engine-ci.md)를 따른다. 임의 shell 명령의 모든 부작용이나 동시에 외부에서 편집한 파일의 원인을 정확히 복원한다고 보장하지 않는다.
 
 [엔진 명세](docs/moodcode/engine-spec.md) · [구현 계획](docs/moodcode/implementation-plan.md) · [병렬 작업 계약](docs/moodcode/parallel-implementation.md) · [세션 목록](docs/moodcode/implementation-sessions.json)
