@@ -1,52 +1,57 @@
 import { pathToFileURL } from "node:url";
 
-export function parseEvaluationArgs(argv) {
-  const options = {
-    runtime: "compiled",
-    seed: 20261009,
-    commit: process.platform === "win32" ? "none" : "approved",
-  };
+export function parseBenchmarkArgs(argv) {
+  const options = { runtime: "compiled", profile: "quick", seed: 20261009 };
   const seen = new Set();
+  const bounds = {
+    "--runs": [8, 1000],
+    "--message-bytes": [256, 2048],
+    "--samples": [3, 100],
+    "--warmup": [0, 10],
+    "--seed": [0, 0xffffffff],
+  };
+  const names = {
+    "--runs": "runs",
+    "--message-bytes": "messageBytes",
+    "--samples": "samples",
+    "--warmup": "warmup",
+    "--seed": "seed",
+  };
   for (let index = 0; index < argv.length; index++) {
     const key = argv[index];
     if (key === "--help" && argv.length === 1) return { help: true };
     if (
       seen.has(key) ||
-      !["--runtime", "--seed", "--commit", "--task"].includes(key) ||
+      !["--runtime", "--profile", ...Object.keys(bounds)].includes(key) ||
       index + 1 === argv.length
     )
-      throw new Error(
-        key === "--live"
-          ? "LIVE_EVALUATION_UNSUPPORTED"
-          : "INVALID_BASELINE_ARGUMENT",
-      );
+      throw new Error("INVALID_BASELINE_ARGUMENT");
     seen.add(key);
     const value = argv[++index];
     if (key === "--runtime" && ["source", "compiled"].includes(value))
       options.runtime = value;
-    else if (key === "--commit" && ["approved", "none"].includes(value))
-      options.commit = value;
+    else if (key === "--profile" && ["quick", "standard"].includes(value))
+      options.profile = value;
     else if (
-      key === "--seed" &&
+      bounds[key] &&
       /^(0|[1-9][0-9]{0,9})$/.test(value) &&
-      Number(value) <= 0xffffffff
+      Number(value) >= bounds[key][0] &&
+      Number(value) <= bounds[key][1]
     )
-      options.seed = Number(value);
-    else if (
-      key === "--task" &&
-      ["addition-bug", "empty-list-boundary", "two-module-change"].includes(
-        value,
-      )
-    )
-      options.task = value;
+      options[names[key]] = Number(value);
     else throw new Error("INVALID_BASELINE_ARGUMENT");
   }
-  return options;
+  return {
+    ...(options.profile === "quick"
+      ? { runs: 24, messageBytes: 256, samples: 5, warmup: 1 }
+      : { runs: 200, messageBytes: 1024, samples: 20, warmup: 3 }),
+    ...options,
+  };
 }
-export async function evaluateEngine(argv = []) {
+export async function benchmarkEngine(argv = []) {
   const report = {
-    schemaVersion: 2,
-    kind: "engine-fixture-evaluation",
+    schemaVersion: 1,
+    kind: "native-engine-performance-baseline",
     timestamp: new Date().toISOString(),
     passed: false,
     noLive: true,
@@ -56,16 +61,15 @@ export async function evaluateEngine(argv = []) {
     liveRequests: 0,
     credentialsRead: false,
     modelQualityEvaluated: false,
-    tasks: [],
+    absoluteTimingGate: false,
     sourceRuntime: null,
     failure: null,
   };
   let identity, assertStable;
   try {
-    const options = parseEvaluationArgs(argv);
+    const options = parseBenchmarkArgs(argv);
     if (options.help) return { help: true };
-    report.seed = options.seed;
-    report.commitMode = options.commit;
+    report.parameters = options;
     const directory = options.runtime === "source" ? "src" : "dist",
       extension = options.runtime === "source" ? "ts" : "js";
     const runtime = await import(
@@ -82,13 +86,13 @@ export async function evaluateEngine(argv = []) {
       after: null,
       stable: false,
     };
-    const { runCodingEvaluation } = await import(
+    const { runEngineBenchmark } = await import(
       new URL(
-        `../packages/engine/${directory}/evaluation/coding.${extension}`,
+        `../packages/engine/${directory}/evaluation/benchmark.${extension}`,
         import.meta.url,
       )
     );
-    Object.assign(report, await runCodingEvaluation(options));
+    Object.assign(report, await runEngineBenchmark(options));
   } catch (error) {
     report.passed = false;
     report.failure =
@@ -96,7 +100,7 @@ export async function evaluateEngine(argv = []) {
         ? error.code
         : /^[A-Z][A-Z0-9_]+$/.test(error?.message ?? "")
           ? error.message
-          : "EVALUATION_FAILED";
+          : "BENCHMARK_FAILED";
   } finally {
     if (identity && report.sourceRuntime)
       try {
@@ -115,10 +119,10 @@ if (
   process.argv[1] &&
   pathToFileURL(process.argv[1]).href === import.meta.url
 ) {
-  const report = await evaluateEngine(process.argv.slice(2));
+  const report = await benchmarkEngine(process.argv.slice(2));
   if (report.help)
     process.stdout.write(
-      "Usage: node scripts/evaluate-engine.mjs [--runtime compiled|source] [--seed 0..4294967295] [--task addition-bug|empty-list-boundary|two-module-change] [--commit approved|none]\nDefault: three deterministic native coding tasks; no model/account/network calls. Compiled mode needs an existing build. Source mode needs the repository tsx loader. Git effects only occur in fresh temporary repositories.\n",
+      "Usage: node scripts/benchmark-engine.mjs [--runtime compiled|source] [--profile quick|standard] [--runs 8..1000] [--message-bytes 256..2048] [--samples 3..100] [--warmup 0..10] [--seed 0..4294967295]\nActual native Runs create the history; no bulk SQL fixture rows or live providers. Measures bounded history/context/event/summary/DB metrics. Timing and memory are informational, not absolute CI thresholds.\n",
     );
   else {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

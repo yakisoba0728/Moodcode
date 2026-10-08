@@ -64,8 +64,33 @@ export function commandPlan(mode) {
         join(root, "scripts", "plan-media-verification.test.mjs"),
         join(root, "scripts", "verify-media-account.test.mjs"),
       ];
+    case "test-hardening-cli":
+      return [
+        process.execPath,
+        "--test",
+        "--test-concurrency=1",
+        join(root, "scripts", "verify-engine-resilience.test.mjs"),
+      ];
     case "eval":
       return [process.execPath, join(root, "scripts", "evaluate-engine.mjs")];
+    case "resilience":
+      return [
+        process.execPath,
+        join(root, "scripts", "verify-engine-resilience.mjs"),
+        "--profile",
+        "quick",
+        "--runtime",
+        "compiled",
+      ];
+    case "benchmark":
+      return [
+        process.execPath,
+        join(root, "scripts", "benchmark-engine.mjs"),
+        "--profile",
+        "quick",
+        "--runtime",
+        "compiled",
+      ];
     case "test-windows":
       return [
         process.execPath,
@@ -80,6 +105,233 @@ export function commandPlan(mode) {
     default:
       throw new Error(`Unknown CI operation: ${mode}`);
   }
+}
+
+// A successful child exit alone does not certify a complete local report.
+export function validateLocalReport(mode, result) {
+  const reject = () => {
+    throw new Error(`Invalid or incomplete local ${mode} report`);
+  };
+  if (!result || typeof result !== "object" || Array.isArray(result)) reject();
+  if (result.passed !== true || result.noLive !== true) reject();
+  if (mode === "resilience") {
+    if (
+      result.schemaVersion !== 1 ||
+      result.kind !== "engine-resilience-soak" ||
+      result.supported !== true ||
+      result.runtime?.mode !== "compiled" ||
+      !Number.isSafeInteger(result.iterations) ||
+      result.iterations < 3 ||
+      !Array.isArray(result.results) ||
+      result.results.length !== result.iterations ||
+      result.results.some(
+        (item) =>
+          item.passed !== true ||
+          item.noReplay !== true ||
+          item.cleanup?.engineClosed !== true ||
+          item.cleanup?.physicalGroupAbsent !== true ||
+          item.cleanup?.databaseRemoved !== true,
+      )
+    )
+      reject();
+    const scenarios = new Set(result.results.map((item) => item.scenario));
+    if (
+      !["complete", "cancel", "root-sigkill"].every((value) =>
+        scenarios.has(value),
+      )
+    )
+      reject();
+    const sha = (value) => /^[a-f0-9]{64}$/.test(value ?? "");
+    if (
+      !sha(result.source?.harnessEntrySha256) ||
+      !sha(result.source?.engineEntrySha256) ||
+      result.summary?.completed !== result.iterations ||
+      result.summary?.failed !== 0 ||
+      result.summary?.cleanupFailures !== 0 ||
+      result.summary?.processLaunches !== result.iterations ||
+      new Set(result.results.map((item) => item.iteration)).size !==
+        result.iterations
+    )
+      reject();
+    let observedCalls = 0,
+      unknownOutcomes = 0;
+    for (const item of result.results) {
+      const native = item.native;
+      if (
+        !Number.isSafeInteger(item.iteration) ||
+        item.iteration < 0 ||
+        item.iteration >= result.iterations ||
+        item.processLaunches !== 1 ||
+        !native ||
+        !sha(native.sourceConfigSha256) ||
+        !sha(native.job?.sha256) ||
+        native.cancelledInputState !== "cancelled" ||
+        native.tokens !== null ||
+        native.cost !== null ||
+        !Number.isSafeInteger(item.providerCalls?.command) ||
+        item.providerCalls.command < 1 ||
+        item.providerCalls.command > 2 ||
+        !Number.isSafeInteger(item.providerCalls?.observer) ||
+        item.providerCalls.observer < 0 ||
+        item.providerCalls.observer > 1
+      )
+        reject();
+      // Known cancellation may explicitly consume the original queued input.
+      // This never permits replay of the cancelled command or an unknown effect.
+      const queuedObserver =
+        item.scenario === "cancel" &&
+        native.job.state === "cancelled" &&
+        native.resumeOutcome === "resumed" &&
+        native.pendingInputState === "promoted"
+          ? 1
+          : 0;
+      if (item.providerCalls?.reopened !== queuedObserver) reject();
+      observedCalls +=
+        item.providerCalls.command +
+        item.providerCalls.observer +
+        item.providerCalls.reopened;
+      for (const phase of ["beforeReopen", "afterReopen"]) {
+        const observation = native[phase];
+        if (
+          !sha(observation?.recordsSha256) ||
+          observation.counts?.tools !== 1 ||
+          observation.counts?.session_inputs !== 3 ||
+          !Number.isSafeInteger(observation.counts?.runs) ||
+          observation.counts.runs < 1 ||
+          observation.counts.runs > 2
+        )
+          reject();
+      }
+      if (
+        item.scenario === "complete" &&
+        (native.job.state !== "completed" ||
+          !sha(native.job.completionSha256) ||
+          native.sourceRunState !== "completed" ||
+          native.pendingInputState !== "promoted")
+      )
+        reject();
+      if (
+        item.scenario === "cancel" &&
+        (!["cancelled", "uncertain"].includes(native.job.state) ||
+          native.sourceRunState !== "cancelled")
+      )
+        reject();
+      if (native.job.state === "cancelled" && !sha(native.job.completionSha256))
+        reject();
+      if (
+        item.scenario === "root-sigkill" &&
+        (native.job.state !== "uncertain" ||
+          native.job.completionSha256 !== null ||
+          native.sourceRunState !== "interrupted")
+      )
+        reject();
+      if (native.job.state === "uncertain") {
+        unknownOutcomes++;
+        if (
+          native.resumeOutcome !== "cleanup-pending" ||
+          native.pendingInputState !== "pending"
+        )
+          reject();
+      }
+    }
+    if (
+      result.summary.providerCalls !== observedCalls ||
+      result.summary.unknownOutcomes !== unknownOutcomes
+    )
+      reject();
+    return result;
+  }
+  if (!["eval", "benchmark"].includes(mode)) reject();
+  const identity = result.sourceRuntime;
+  if (
+    result.providerId !== "scripted" ||
+    result.modelId !== "local" ||
+    result.accountVerified !== false ||
+    result.liveRequests !== 0 ||
+    result.credentialsRead !== false ||
+    result.modelQualityEvaluated !== false ||
+    identity?.stable !== true ||
+    identity.before?.runtime !== "compiled" ||
+    identity.after?.runtime !== "compiled" ||
+    !/^[a-f0-9]{64}$/.test(identity.before?.sourceSha256 ?? "") ||
+    identity.before.sourceSha256 !== identity.after?.sourceSha256 ||
+    identity.before.gitHead !== identity.after?.gitHead
+  )
+    reject();
+  if (mode === "eval") {
+    if (
+      result.schemaVersion !== 2 ||
+      result.kind !== "engine-fixture-evaluation" ||
+      !Array.isArray(result.tasks) ||
+      result.tasks.length !== 3 ||
+      result.tasks.some((task) => task.passed !== true)
+    )
+      reject();
+    if (
+      result.commitMode !== "approved" ||
+      result.tasks.some(
+        (task) =>
+          task.verification?.taskVerified !== true ||
+          task.checks?.processCleanupConfirmed !== true ||
+          task.cleanup?.engineClosed !== true ||
+          task.cleanup?.temporaryFilesRemoved !== true ||
+          task.commit?.requested !== true ||
+          task.commit?.state !== "committed" ||
+          task.commit?.duplicateNoSecondCommit !== true ||
+          !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(task.commit?.sha ?? ""),
+      )
+    )
+      reject();
+    const ids = result.tasks.map((task) => task.taskId).sort();
+    if (
+      JSON.stringify(ids) !==
+      JSON.stringify([
+        "addition-bug",
+        "empty-list-boundary",
+        "two-module-change",
+      ])
+    )
+      reject();
+  } else {
+    if (
+      result.schemaVersion !== 1 ||
+      result.kind !== "native-engine-performance-baseline" ||
+      result.absoluteTimingGate !== false ||
+      result.cleanup?.engineClosed !== true ||
+      result.cleanup?.temporaryFilesRemoved !== true ||
+      result.fixture?.historyPaginationExact !== true ||
+      result.fixture?.reopenedWithoutProviderReplay !== true ||
+      result.summary?.state !== "completed" ||
+      result.summary?.cleanupConfirmed !== true
+    )
+      reject();
+    for (const key of [
+      "history",
+      "modelHistory",
+      "contextRun",
+      "contextObservation",
+      "metrics",
+      "eventReplay",
+      "summaryUsage",
+      "summaryAttempt",
+      "summaryList",
+      "storageInspection",
+    ]) {
+      const latency = result.measurements?.[key]?.latency;
+      if (
+        !Number.isSafeInteger(latency?.count) ||
+        latency.count < 3 ||
+        ![latency.min, latency.p50, latency.p95, latency.max].every(
+          (value) => Number.isFinite(value) && value >= 0,
+        ) ||
+        latency.min > latency.p50 ||
+        latency.p50 > latency.p95 ||
+        latency.p95 > latency.max
+      )
+        reject();
+    }
+  }
+  return result;
 }
 
 async function collect(directory) {
@@ -275,8 +527,11 @@ export async function main(mode) {
           "build",
           "test",
           "test-media-local",
+          "test-hardening-cli",
           "test-windows",
           "eval",
+          "resilience",
+          "benchmark",
         ].map((operation) => [operation, commandPlan(operation)]),
       ),
       windowsStorageSelection: WINDOWS_STORAGE_TESTS,
@@ -301,13 +556,13 @@ export async function main(mode) {
       ...(await windowsTestFiles()),
     ];
   const exitCode = await run(mode, argv);
-  if (mode === "eval") {
+  if (["eval", "resilience", "benchmark"].includes(mode)) {
     try {
       const result = JSON.parse(
-        await readFile(join(resultsDir, "eval.stdout"), "utf8"),
+        await readFile(join(resultsDir, `${mode}.stdout`), "utf8"),
       );
       await writeFile(
-        join(resultsDir, "evaluation.json"),
+        join(resultsDir, mode === "eval" ? "evaluation.json" : `${mode}.json`),
         `${JSON.stringify(result, null, 2)}\n`,
       );
     } catch (error) {
@@ -359,24 +614,26 @@ export async function main(mode) {
         }),
       );
   }
-  if (mode === "eval") {
+  if (["eval", "resilience", "benchmark"].includes(mode)) {
     const result = JSON.parse(
-      await readFile(join(resultsDir, "eval.stdout"), "utf8"),
+      await readFile(join(resultsDir, `${mode}.stdout`), "utf8"),
     );
-    if (
-      result.schemaVersion !== 1 ||
-      result.kind !== "engine-fixture-evaluation" ||
-      !Array.isArray(result.tasks) ||
-      result.tasks.length !== 3 ||
-      result.tasks.some((task) => task.passed !== true)
-    )
-      throw new Error(
-        "Engine fixture evaluation did not produce three passing local scripted tasks",
-      );
-    await writeFile(
-      join(resultsDir, "evaluation.json"),
-      `${JSON.stringify(result, null, 2)}\n`,
-    );
+    try {
+      validateLocalReport(mode, result);
+      await record({
+        operation: `${mode}-report`,
+        state: "passed",
+        exitCode: 0,
+      });
+    } catch (error) {
+      await record({
+        operation: `${mode}-report`,
+        state: "failed",
+        exitCode: 1,
+        failure: error.message,
+      });
+      throw error;
+    }
   }
   return 0;
 }

@@ -8,6 +8,8 @@ on:
       - "apps/engine-harness/**"
       - "scripts/test-engine.mjs"
       - "scripts/evaluate-engine.mjs"
+      - "scripts/verify-engine-resilience*.mjs"
+      - "scripts/benchmark-engine.mjs"
       - "scripts/prepare-pty.mjs"
       - "scripts/verify-media-account*.mjs"
       - "scripts/plan-media-verification*.mjs"
@@ -22,6 +24,8 @@ on:
       - "apps/engine-harness/**"
       - "scripts/test-engine.mjs"
       - "scripts/evaluate-engine.mjs"
+      - "scripts/verify-engine-resilience*.mjs"
+      - "scripts/benchmark-engine.mjs"
       - "scripts/prepare-pty.mjs"
       - "scripts/verify-media-account*.mjs"
       - "scripts/plan-media-verification*.mjs"
@@ -82,10 +86,16 @@ jobs:
         run: node .github/scripts/engine-ci.mjs build
       - name: Run local media CLI regression fixtures
         run: node .github/scripts/engine-ci.mjs test-media-local
+      - name: Validate resilience CLI preflight and report failures
+        run: node .github/scripts/engine-ci.mjs test-hardening-cli
       - name: Run complete headless fixtures
         run: node .github/scripts/engine-ci.mjs test
       - name: Run scripted local engine evaluation
         run: node .github/scripts/engine-ci.mjs eval
+      - name: Verify mixed execution, cancellation and restart
+        run: node .github/scripts/engine-ci.mjs resilience
+      - name: Measure native engine performance baseline
+        run: node .github/scripts/engine-ci.mjs benchmark
       - name: Record outcome summary
         if: always()
         env:

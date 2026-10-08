@@ -1,6 +1,8 @@
 # Moodcode 구현 상태
 
-갱신일: 2026-10-07, Asia/Seoul. 자체 엔진 **1차 구현·최종 검증**을 마쳤다. [TODO](../../TODO.md)의 원래75개 중71개와 지속 개선 G1-01~29를 구현·검증했다. 최종 source `464812f`의 headless gate는 동시성4에서2,594 pass·실패0·취소0·기존 조건부2 skip이며 타입 검사·fixture3/3·같은 source Codex child text1회가 통과했다. [최신 검증](engine-goal-verification.md), [이전 headless 검증](engine-native-final-verification.md), [host API](engine-host-api.md)를 따른다. [1차 종료 조건](engine-phase-one-exit-criteria.md)의 문서·로컬 커밋·clean tree 최종 확인 뒤 goal을 완료 처리한다. 아래 기존 GUI·bundle 결과는2026-10-04 기록이며 이번 엔진 작업에서 GUI를 다시 실행하지 않았다.
+갱신일: 2026-10-09, Asia/Seoul. 자체 엔진 기반 **73/75**, 2차 원래 범위 **80/80 항목·20/20 기능군**을 명시 지원 범위에서 구현·검증했다. source `99bf6f0`의 전체 로컬 gate는 4,701개 중 4,699 pass·실패 0·기존 Windows 조건부 skip 2이며 실제 공개 CI 여섯 작업도 성공했다. [최종 수용 근거](engine-phase-two-final-acceptance-verification.json), [현재 진행표](engine-phase-two-progress.json), [host API](engine-host-api.md)를 따른다. native Windows `E5-08`, 추가 공급자·미디어 모델 `E5-13`, 과거 PTY 실패 원인 진단 `R-PTY-01`은 열려 있다. 아래 GUI·bundle 결과는 2026-10-04의 역사적 기록이며 최신 엔진의 GUI 검증을 의미하지 않는다.
+
+2차에는 저장소 frozen 문맥·등록 검증과 제한 repair·ProposalSet·지속 지침/기억·resident 팀·typed workflow·예약/webhook admission·local ACP new/load·독립 명령 jobs·PTY 관측·대화 fork·code-mode·Darwin sandbox·disjoint patch 병렬 효과·PR feedback/coding batch·제한된 미디어를 연결했다. 고급 기능의 명시적 host opt-in·Original 대상·승인과 OS/model 제한은 각 계약을 따른다. 후속 PTY 진단·복합 작업 반복 검증·native 코딩 평가·실제 이력 성능 baseline을 구현했다. 별도 932개 입력 동결본의 전체 회귀는 4,723개 중 4,721 pass·실패 0·기존 skip 2다. 60회 반복과 코딩 과업 3/3, quick/standard 성능 baseline도 통과했으며 공개 CI 통합 확인은 진행 중이다. [보강 검증 근거](engine-hardening-verification.json)를 따른다.
 
 ## 현재 자체 엔진 범위
 
@@ -20,7 +22,7 @@
 
 핵심 실행과 확장 연결은 GUI 없이 engine host에서 사용할 수 있다. host `startChildTask`는 살아 있는 부모 Run과 미리 준비한 worktree를 요구한다. 추가된 모델 도구 `delegate_task`는 matching approval 뒤 직접 읽기 전용 worktree/child를 준비한다. LSP/formatter/provider 등록은 명시적 host API다. 모델이나 renderer가 실행 파일·credential을 임의로 설정하는 경로는 제공하지 않는다. 지속 개선 목표의 최신 범위는 [G1 TODO](../../TODO.md)와 [목표 문서](engine-improvement-goal.md)를 따른다.
 
-Anthropic 추가 adapter는 text/tool·공개 reasoning summary·opaque replay·usage·retry/cancel과 image 입력을 synthetic fixture로 검증했다. Responses/Codex/ChatCompletions image 입력도 연결했다. 실제 모델별 이미지 capability·token 예산과 Anthropic 계정은 별도 검증이 남아 있다. PDF는 표준 Responses의 explicit 모델/MIME 및 host/provider unknown-token opt-in으로 로컬 계약을 구현했다. 실제 원격 PDF 인식·Codex PDF·완전 parser/token 계산과 audio/video 입력·media 출력은 별도 범위다. [PDF 명세](engine-input-documents.md)를 따른다. Windows native process ownership binding과 새 CI의 Linux/Windows/Node24 hosted 실행도 아직 없다. 원래 열린 4개 TODO와 지속 개선 G1 항목은 별도로 관리한다.
+Anthropic adapter는 text/tool·공개 reasoning summary·opaque replay·usage·retry/cancel과 image 입력을 synthetic fixture로 검증했다. Responses/Codex/ChatCompletions image 입력도 연결했다. 실제 Anthropic 계정은 추가 검증이 필요하다. PDF는 표준 Responses의 explicit 모델/MIME 및 host/provider unknown-token opt-in으로 로컬 계약을 구현했다. [PDF 명세](engine-input-documents.md)를 따른다. 제한 WAV audio/AVI video 입력과 WAV 출력의 실제 계정 검증은 [선택 모델별 증거](engine-phase-two-media-model-account-acceptance-audit.json)에 한정하며 더 넓은 모델/PDF 지원은 E5-13이다. macOS/Linux Node24/26 hosted 전체 CI와 Windows portable CI는 통과했고 native Windows binding/OS 실행은 E5-08로 남는다. 비용·token 미제공은 unknown을 유지한다.
 
 G1-25는 typed MCP 호출의 actual accepted timeout/disconnect/cancel3red와 committed-intent callback 회귀를 수정했다. G1-26은 receiptless native running/콜백 진입의 SIGKILL2red를 원래 owner/SHA의 dual-journal frontier와 tool_effect 격리로 수정했다. 미시작3개와 stronger MCP safe2개, startup2/archive·pending queue·newRun/resume/maintenance 및 provider completed/cleanup/usage 보존을 source/bundle로 확인했다. [MCP 계약](engine-mcp-execution.md), [일반 frontier 계약](engine-tool-recovery-frontier.md)을 따른다. 이미 interrupted 역사/v1-only의 native coverage는 소급 인증하지 않는다. G1-27은 `ad787d6`에서 core21을 보존하는 bounded discovery·clone 전 schema count/bytes·다음 모델 경계 선택·같은 reservation/context/request를 연결했다. 실제 MCP40개 검색→승인된 호출과 overflow stale·제한 child·uncertainty를 source/bundle로 검증했다. [도구 검색 계약](engine-tool-discovery.md)을 따른다. G1-28 `93bfeaa`는 같은 승인/저장/현재 batch/child 상한으로 명시적 작업 집합 교체를 완료했다. G1-29 `464812f`는 eager reservation 불일치와 adapter mutation의 same-Turn retry 오염을 수정했다. 실제 예산/경계/빈 catalogue/static Coordinator의 새41개와 원래 전체 gate·타입 검사·eval3/live1을 통과했다. [기본 도구 문맥 계약](engine-eager-catalogue-context.md)을 따르며 최종 문서·커밋·clean tree 확인으로 1차를 종료한다.
 
@@ -89,7 +91,7 @@ Codex에 로그인되어 있고 로컬 모델 설정이 있으면 기본 공급�
 ## 남은 작업과 한계
 
 - group PID가 없는 effect marker, 살아 있는 프로세스, 접근 권한 부족, daemon 등 종료를 증명할 수 없는 상태는 복구 화면에서도 차단한다.
-- macOS 서명·공증·설치/업데이트, Linux 지원 검증, Windows process-tree 실행. 현재 bundle은 서명되지 않은 개발용 앱이다.
+- macOS 서명·공증·설치/업데이트, Linux/Windows 데스크톱 배포 검증, Windows native process-tree 실행. 현재 bundle은 서명되지 않은 개발용 앱이다.
 - 앱 자체 Codex 로그인·토큰 갱신, 다중 계정 선택, 추가 공급자·모델별 실제 계정 검증.
 - 엔진에서 구현한 semantic memory·이력 검색·PTY·MCP·worktree child·LSP/formatter의 GUI 연결, child 실행과 승인·결과를 사용자가 조작하는 화면.
 - 원래 POSIX process group을 벗어난 daemon, 저장소 밖 효과, binary·directory·mode·ownership 전체 복원은 지원 범위 밖이다. 파일 복원은 독립 적용이므로 부분 실패가 가능하다.

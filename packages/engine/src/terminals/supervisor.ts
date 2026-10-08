@@ -4,7 +4,6 @@ import { observedJobGroupsFromSnapshot } from "./job-groups.js";
 import {
   createCommandEnvironment,
   cleanupGroup,
-  groupExists,
 } from "../tools/command/process-control.js";
 import {
   TERMINAL_LIMITS,
@@ -12,6 +11,11 @@ import {
   type PtyOutcome,
 } from "./types.js";
 import type { IPty } from "node-pty";
+import {
+  PtyDiagnosticRecorder,
+  ptyDiagnosticErrorCode,
+  observePtyGroupExists,
+} from "./diagnostics.js";
 
 // A detached supervisor owns the PTY. Losing engine IPC closes the process
 // group even when the engine itself was killed and cannot run a finally block.
@@ -24,6 +28,15 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 let cleanup: Promise<PtyOutcome> | undefined;
 let exitCode: number | null = null;
 let outputPaused = false;
+const diagnostics = new PtyDiagnosticRecorder(process.platform, process.pid);
+let currentReason: PtyOutcome["reason"];
+const currentOutcome = (): PtyOutcome => ({
+  exitCode,
+  cancelled: currentReason !== undefined && currentReason !== "descendants",
+  timedOut: currentReason === "timeout",
+  cleanupConfirmed: false,
+  ...(currentReason ? { reason: currentReason } : {}),
+});
 const send = (packet: object, done?: () => void): void => {
   try {
     if (process.connected && process.send) process.send(packet, () => done?.());
@@ -40,13 +53,19 @@ const finish = (outcome: PtyOutcome): void => {
     () => process.exit(outcome.cleanupConfirmed ? 0 : 1),
     250,
   );
-  send({ type: "result", outcome }, () => {
-    if (process.connected) process.disconnect?.();
-    if (disconnected || outputPaused) process.stdout.destroy();
-    else process.stdout.end();
-    clearTimeout(deadline);
-    process.exitCode = outcome.cleanupConfirmed ? 0 : 1;
-  });
+  send(
+    {
+      type: "result",
+      outcome: { ...outcome, diagnostics: diagnostics.snapshot(outcome) },
+    },
+    () => {
+      if (process.connected) process.disconnect?.();
+      if (disconnected || outputPaused) process.stdout.destroy();
+      else process.stdout.end();
+      clearTimeout(deadline);
+      process.exitCode = outcome.cleanupConfirmed ? 0 : 1;
+    },
+  );
 };
 const inspectProcesses = promisify(execFile);
 // A PTY shell creates job-control groups outside its original process group.
@@ -66,8 +85,28 @@ async function observedJobGroups(
         env: createCommandEnvironment(),
       },
     );
-    return observedJobGroupsFromSnapshot(stdout, pid, process.pid);
-  } catch {
+    const groups = observedJobGroupsFromSnapshot(stdout, pid, process.pid);
+    diagnostics.groupSnapshot(groups, "group-cleanup");
+    if (!groups)
+      diagnostics.note({
+        kind: "error",
+        errorCode: "PROCESS_SNAPSHOT_UNCONFIRMED",
+      });
+    send({
+      type: "diagnostics",
+      diagnostics: diagnostics.snapshot(currentOutcome()),
+    });
+    return groups;
+  } catch (error) {
+    diagnostics.groupSnapshot(undefined, "group-cleanup");
+    diagnostics.note({
+      kind: "error",
+      errorCode: ptyDiagnosticErrorCode(error),
+    });
+    send({
+      type: "diagnostics",
+      diagnostics: diagnostics.snapshot(currentOutcome()),
+    });
     return undefined;
   }
 }
@@ -75,6 +114,7 @@ const stop = (
   reason: "cancel" | "timeout" | "parent_lost" | "descendants",
 ): Promise<PtyOutcome> => {
   if (cleanup) return cleanup;
+  currentReason = reason;
   cleanup = (async () => {
     if (!terminal)
       return {
@@ -93,16 +133,32 @@ const stop = (
     const groups = await observedJobGroups(terminal.pid);
     try {
       terminal.kill("SIGHUP");
-    } catch {
+      diagnostics.note({ kind: "signal", pid: terminal.pid, signal: "SIGHUP" });
+    } catch (error) {
+      diagnostics.note({
+        kind: "signal",
+        pid: terminal.pid,
+        signal: "SIGHUP",
+        errorCode: ptyDiagnosticErrorCode(error),
+      });
       /* Every observed group is independently cleaned below. */
     }
     const results = await Promise.all(
-      (groups ?? [terminal.pid]).map((group) =>
-        cleanupGroup(
+      (groups ?? [terminal.pid]).map(async (group) => {
+        const confirmed = await cleanupGroup(
           group,
           group === terminal!.pid ? () => exited : () => true,
-        ).catch(() => false),
-      ),
+        ).catch((error) => {
+          diagnostics.note({
+            kind: "error",
+            groupPid: group,
+            errorCode: ptyDiagnosticErrorCode(error),
+          });
+          return false;
+        });
+        diagnostics.note({ kind: "group-cleanup", groupPid: group, confirmed });
+        return confirmed;
+      }),
     );
     const confirmed = groups !== undefined && results.every(Boolean);
     return {
@@ -194,6 +250,7 @@ process.on("message", async (message: unknown) => {
         cwd: input.cwd,
         env: createCommandEnvironment() as Record<string, string>,
       });
+      diagnostics.started(terminal.pid);
       terminal.onData((data) => {
         if (finished || disconnected || cleanup) return;
         if (!process.stdout.write(data)) {
@@ -204,8 +261,19 @@ process.on("message", async (message: unknown) => {
       terminal.onExit((event) => {
         exited = true;
         exitCode = event.exitCode;
+        diagnostics.nativeExit(
+          event.exitCode,
+          Number.isSafeInteger(event.signal) ? event.signal! : null,
+        );
+        send({
+          type: "diagnostics",
+          diagnostics: diagnostics.snapshot(currentOutcome()),
+        });
         if (cleanup) return;
-        if (terminal && groupExists(terminal.pid)) {
+        const present = terminal
+          ? observePtyGroupExists(terminal.pid, diagnostics)
+          : false;
+        if (terminal && present) {
           void stop("descendants");
           return;
         }

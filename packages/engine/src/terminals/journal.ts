@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
 import { TERMINAL_LIMITS, type TerminalJournal, type TerminalSnapshot } from './types.js';
+import { validatePtyDiagnostics } from './diagnostics.js';
 
 const STATES = new Set(['starting', 'running', 'completed', 'cancelled', 'failed', 'interrupted', 'uncertain']);
 function validSnapshot(value: unknown): TerminalSnapshot {
@@ -20,6 +21,10 @@ function validSnapshot(value: unknown): TerminalSnapshot {
     seq = item.seq; bytes += item.bytes;
   }
   if (bytes !== record.retainedBytes || seq !== record.outputSeq || record.observedBytes < bytes) throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Stored terminal replay accounting is invalid');
+  if (record.diagnostics !== undefined) {
+    try { validatePtyDiagnostics(record.diagnostics); }
+    catch { throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Stored terminal diagnostics are invalid'); }
+  }
   return structuredClone(snapshot);
 }
 

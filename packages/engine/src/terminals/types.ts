@@ -6,6 +6,8 @@ export interface TerminalRecord {
   cols: number; rows: number; state: TerminalState; createdAt: string; updatedAt: string;
   outputSeq: number; oldestSeq: number; observedBytes: number; retainedBytes: number;
   cleanupConfirmed: boolean | null; exitCode: number | null; reason?: string;
+  /** Historical observation only; never a live process handle or cleanup authority. */
+  diagnostics?: PtyDiagnostics;
 }
 export interface TerminalSnapshot { record: TerminalRecord; output: TerminalOutput[] }
 export interface TerminalReplay { terminal: TerminalRecord; output: TerminalOutput[]; nextSeq: number; gap: boolean; hasMore: boolean }
@@ -13,7 +15,32 @@ export type TerminalEvent = { type: 'output'; terminalId: string; output: Termin
 export interface TerminalAttachment { id: string; replay: TerminalReplay; events: AsyncIterable<TerminalEvent>; detach(): void }
 export interface TerminalCreateRequest { owner: TerminalOwner; cwd?: string; file?: string; args?: string[]; cols?: number; rows?: number; signal?: AbortSignal }
 export interface PtySpawnInput { file: string; args: string[]; cwd: string; cols: number; rows: number; maxDurationMs: number }
-export interface PtyOutcome { exitCode: number | null; cancelled: boolean; timedOut: boolean; cleanupConfirmed: boolean; reason?: string }
+export interface PtyOutcome { exitCode: number | null; cancelled: boolean; timedOut: boolean; cleanupConfirmed: boolean; reason?: string; diagnostics?: PtyDiagnostics }
+
+export interface PtyDiagnosticEvent {
+  seq: number;
+  kind: 'started' | 'native-exit' | 'group-probe' | 'group-snapshot' | 'group-cleanup' | 'signal' | 'supervisor-exit' | 'supervisor-close' | 'supervisor-lost' | 'invalid-diagnostics' | 'error';
+  pid?: number;
+  groupPid?: number;
+  exitCode?: number | null;
+  exitSignal?: number | null;
+  signal?: string;
+  errorCode?: string;
+  presence?: 'present' | 'absent' | 'unknown';
+  confirmed?: boolean;
+  groupCount?: number;
+}
+export interface PtyDiagnostics {
+  version: 1;
+  authority: 'observation-only';
+  source: { platform: string; supervisorPid: number | null; terminalPid: number | null; originalGroupPid: number | null };
+  nativeExit: { observed: boolean; exitCode: number | null; signal: number | null };
+  supervisorExit: { observed: boolean; closeObserved: boolean; exitCode: number | null; signal: string | null };
+  outcome: { exitCode: number | null; cancelled: boolean; timedOut: boolean; cleanupConfirmed: boolean; reason: string | null };
+  cleanup: { path: 'none' | 'group-cleanup' | 'backend-fallback'; groupSnapshot: 'not-requested' | 'observed' | 'unavailable'; groupCount: number; sampledGroups: number[]; groupsTruncated: boolean };
+  events: PtyDiagnosticEvent[];
+  eventsDropped: number;
+}
 export interface PtyProcess { readonly pid: number; readonly closed: Promise<PtyOutcome>; write(data: string): Promise<void>; resize(cols: number, rows: number): Promise<void>; cancel(): Promise<PtyOutcome> }
 export interface PtyCapability { available: boolean; platform: string; backend: 'posix-pty-supervisor' | 'unavailable'; processTree: 'posix-group' | 'unsupported'; isolation: 'host-user'; code?: string }
 export interface PtyBackend { capability(): Promise<PtyCapability>; spawn(input: PtySpawnInput, output: (data: string) => void): Promise<PtyProcess> }

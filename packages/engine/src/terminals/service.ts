@@ -4,6 +4,7 @@ import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { EngineError } from '@moodcode/contracts';
 import { PosixPtyBackend } from './backend.js';
 import { MemoryTerminalJournal } from './journal.js';
+import { validatePtyOutcome, PtyDiagnosticRecorder } from './diagnostics.js';
 import { knowledgeHash } from '../knowledge/validation.js';
 import type { JobOutputSnapshot, TerminalJobSourceProof, TerminalObservationProof, TerminalClosedOutcomeProof } from '../jobs/types.js';
 import { validateTerminalJobSourceProof, validateJobOutputSnapshot, validateTerminalObservationProof, validateTerminalClosedOutcomeProof } from '../jobs/validation.js';
@@ -128,11 +129,22 @@ export class TerminalService {
     }
   }
   private finish(entry: TerminalEntry, outcome: PtyOutcome): void {
+    if (outcome.diagnostics !== undefined) {
+      try { outcome = validatePtyOutcome(outcome); }
+      catch {
+        const recorder = new PtyDiagnosticRecorder(process.platform, null);
+        if (entry.process && Number.isSafeInteger(entry.process.pid) && entry.process.pid > 1) recorder.started(entry.process.pid);
+        recorder.note({ kind: 'invalid-diagnostics', errorCode: 'PTY_DIAGNOSTICS_INVALID' });
+        try { outcome = { ...outcome, diagnostics: recorder.snapshot(outcome) }; }
+        catch { const { diagnostics: _invalid, ...actualOutcome } = outcome; outcome = actualOutcome; }
+      }
+    }
     entry.closedOutcome = structuredClone(outcome);
     entry.process = undefined;
     const record = entry.snapshot.record;
     record.state = !outcome.cleanupConfirmed ? 'uncertain' : entry.savingFailed ? 'failed' : outcome.cancelled || outcome.timedOut ? 'cancelled' : outcome.exitCode === 0 ? 'completed' : 'failed';
     record.exitCode = outcome.exitCode; record.cleanupConfirmed = outcome.cleanupConfirmed; record.updatedAt = new Date().toISOString();
+    if (outcome.diagnostics) record.diagnostics = structuredClone(outcome.diagnostics);
     if (outcome.reason) record.reason = outcome.reason;
     try { this.persist(entry); } catch { record.state = 'uncertain'; record.reason = 'journal_failed'; }
     this.state(entry);

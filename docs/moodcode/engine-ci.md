@@ -1,16 +1,18 @@
 # Headless engine CI와 OS 검증 범위
 
-2026-10-09 [Moodcode 저장소](https://github.com/yakisoba0728/Moodcode)는 Public이다. `836db4b`의 [실제 Actions run](https://github.com/yakisoba0728/Moodcode/actions/runs/37816462723)은 여섯 lane 모두 통과했다. [POSIX 원본 artifact 검토](engine-ci-public-836db4b-posix-verification.json)와 [Windows 검토](engine-ci-windows-public-verification.json)는 실제 source·Node·OS·검사 수를 기록한다. 첫 두 run의 실패와 수정 근거는 아래에 보존한다. 이후 ACP load 보강은 별도 미완료이며 이 CI를 그 신규 working tree의 검증으로 확대하지 않는다.
+2026-10-09 [Moodcode 저장소](https://github.com/yakisoba0728/Moodcode)는 Public이다. 2차 최종 source `99bf6f0`의 [실제 Actions run](https://github.com/yakisoba0728/Moodcode/actions/runs/37827176532)은 ACP session/load 보강과 code-mode drain fixture 수정까지 포함하여 여섯 lane 모두 통과했다. [최종 POSIX 검토](engine-ci-final-posix-verification.json), [최종 Windows 검토](engine-ci-final-windows-verification.json), [artifact SHA](engine-ci-final-artifact-sha256.json)를 따른다. 아래 초기/836db4b 결과와 실패 기록은 역사적 증거이며 이후 변경의 통과 증거로 확대하지 않는다. 새로운 안정성·평가·성능 작업은 별도의 현재 source에서 검증한다.
 
 표준 GitHub-hosted runner의 Public 저장소 사용은 [공식 무료 사용 범위](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)에 해당한다. [job별 실행 시간·동시 실행 제한](https://docs.github.com/en/actions/reference/limits)과 이 workflow의 20~25분 timeout은 유지된다. Larger runner는 별도 과금 범위다.
+
+현재 보강 후보는 별도 932개 입력 동결본으로 로컬 전체 회귀 4,723개 중4,721pass·실패0·기존skip2, compiled media26/26, CLI unit8/8, native 코딩 과업3/3·승인 commit, 복합 반복60/60, quick/standard 성능 검증을 통과했다. 이번 새 단계의 실제 hosted 결과는 아직 대기 중이며 [보강 통합 근거](engine-hardening-verification.json)에 별도로 기록한다.
 
 ## 구성한 matrix
 
 | Lane | Runner / Node | 실행 범위 | 현재 확인한 상태 |
 | --- | --- | --- | --- |
-| POSIX full | `macos-15` arm64 × `24.x`, `26.x` | locked install, PTY 준비·native module 확인, headless typecheck/build/test, local scripted eval | 실제836db4b 통과: 각4,676개 중4,674pass·실패0·Windows native skip2, media26/26·eval3/3 |
-| POSIX full | `ubuntu-24.04` x64 × `24.x`, `26.x` | 위와 동일, 실제 POSIX child/group/PTY fixture 포함 | 실제836db4b 통과: 각4,676개 중4,614pass·실패0·skip62, media26/26·eval3/3 |
-| Windows portable | `windows-2025` x64 × `24.x`, `26.x` | headless source typecheck/build, contracts 전체, 명시한 SQLite fixture, fake native ownership port fixture | 실제836db4b 통과: 각152개 중151pass·실패0·native skip1. portable 범위만 확인 |
+| POSIX full | `macos-15` arm64 × `24.x`, `26.x` | locked install, PTY 준비·native module 확인, headless typecheck/build/test, local scripted eval | 실제99bf6f0 통과: 각4,701개 중4,699pass·실패0·Windows native skip2, media26/26·eval3/3 |
+| POSIX full | `ubuntu-24.04` x64 × `24.x`, `26.x` | 위와 동일, 실제 POSIX child/group/PTY fixture 포함 | 실제99bf6f0 통과: 각4,701개 중4,639pass·실패0·skip62, media26/26·eval3/3 |
+| Windows portable | `windows-2025` x64 × `24.x`, `26.x` | headless source typecheck/build, contracts 전체, 명시한 SQLite fixture, fake native ownership port fixture | 실제99bf6f0 통과: 각152개 중151pass·실패0·native skip1. portable 범위만 확인 |
 
 runner 이름과 architecture는 [GitHub-hosted runner 공식 표](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)를 확인했다. `latest` runner 대신 OS label을 고정했다. OS 이미지 내부 도구와 Node patch는 계속 갱신될 수 있으므로 artifact에 실제 platform/arch/Node/commit을 기록한다. 이 matrix는 Node 24 이상을 다루며 Node22 이하·Bun·Electron ABI 검증은 포함하지 않는다. macOS Intel/Linux arm64/Windows arm64 역시 후속이다.
 
@@ -34,7 +36,9 @@ runner 이름과 architecture는 [GitHub-hosted runner 공식 표](https://docs.
 
 설치 다음 `node scripts/prepare-pty.mjs`를 호출한다. 이 명시적 helper는 macOS node-pty prebuilt spawn-helper 실행 비트를 보정한다. POSIX lane은 optional native module을 실제 require하고 spawn API가 없으면 실패한다. module load 자체를 실제 PTY 종료 검증으로 간주하지 않는다. 실제 TTY·resize·input·cancel·supervisor parent-loss 검증은 후속 engine fixture가 담당한다. Windows lane은 준비 결과와 지원 공백을 기록하고 실제 PTY를 시작하지 않는다.
 
-compiler는 `tsc -b packages/contracts packages/engine apps/engine-harness`만 대상으로 한다. typecheck는 기존 build-mode의 타입 검사/emit이며 build는 `--force`로 headless output을 다시 생성한다. root 전체 `npm run build`, desktop renderer, Electron launch는 사용하지 않는다. POSIX 테스트는 기존 `scripts/test-engine.mjs`를 사용한다. 평가도 기존 `scripts/evaluate-engine.mjs`의 세 local scripted coding task이며 실제 모델 품질·네트워크 provider 연결·과금·계정 인증의 증거는 아니다.
+compiler는 `tsc -b packages/contracts packages/engine apps/engine-harness`만 대상으로 한다. typecheck는 기존 build-mode의 타입 검사/emit이며 build는 `--force`로 headless output을 다시 생성한다. root 전체 `npm run build`, desktop renderer, Electron launch는 사용하지 않는다. POSIX 테스트는 기존 `scripts/test-engine.mjs`를 사용한다. 평가는 `scripts/evaluate-engine.mjs`의 세 local scripted coding task이며 실제 모델 품질·네트워크 provider 연결·과금·계정 인증의 증거는 아니다. 후속 H3 평가에는 native verify_changes와 Original 승인 Git commit까지 연결하고 fixture 내 사용자 staging·exact duplicate·재시작 동작을 확인한다.
+
+후속 H2/H4는 POSIX lane에서 `resilience`와 `benchmark` 단계로 구성한다. 전자는 `verify-engine-resilience.mjs --profile quick --runtime compiled`로 완료/실행 중 취소/엔진 SIGKILL의 세 경계를 반복하고 실제 process cleanup·SQLite 재시작·no replay를 확인한다. 후자는 `benchmark-engine.mjs --profile quick --runtime compiled`로 native Run 이력을 만든 뒤 history/context/events/metrics/summary를 측정한다. wall-clock percentile·메모리는 정보형이며 환경별 절대 latency gate는 없다. 각 JSON 보고서를 실패 시에도 보존하고, child exit0 외에 expected schema·전체 과업/시나리오·no-live qualification·정리 결과·소스 안정성을 검사한다. Windows portable scope는 그대로 유지한다. 워크플로 연결과 실제 hosted 성공은 별도 증거로 구분한다.
 
 POSIX full lane은 build 이후 `node .github/scripts/engine-ci.mjs test-media-local`도 실행한다. 기존 engine fixture/eval은 별도 `.mjs` CLI 테스트를 포함하지 않으므로 이 단계에서 `plan-media-verification.test.mjs`와 `verify-media-account.test.mjs`를 명시적으로 실행한다. 실행기는 `MOODCODE_MEDIA_VERIFY_TEST_ENGINE=compiled`로 빌드된 엔진을 사용하며, 실제 native media receipt·로컬 HTTP fixture·입력 거부·중복·partial 취소·paused import·불확실한 cleanup 보존을 확인한다. 라이브 계정 CLI나 `--live`는 호출하지 않으며 fixture 통과에 account 검증 credit을 부여하지 않는다. 이 단계의 명령·compiled 선택·stdout/stderr·실패는 `test-media-local` 로그와 step 기록에 남는다. Windows portable lane 범위에는 추가하지 않는다.
 
@@ -70,8 +74,8 @@ macOS arm64의 실제 Node24.20.0/26.11.1과 Linux x64의 Node24.21.0/26.11.1에
 
 현재 fixture lifetime 두 회귀와 영상 CLI 여섯 회귀는 b10de7b 이후 변경이다. 이전 hosted 전체4,674/media20개 결과에 이 신규 사례를 포함하지 않는다. 새 push에서 POSIX full과 Windows portable을 다시 실행하고 실제 OS 결과에 따라 E6-07·E6-08을 판정한다. E5-08 native Windows와 더 넓은 E5-13 계정 검증은 별도 열린 범위다.
 
-## 836db4b 실제 six-lane 완료 판정
+## 836db4b 당시 six-lane 완료 판정
 
 [세 번째 run](https://github.com/yakisoba0728/Moodcode/actions/runs/37816462723)은 전체success이다. macOS arm64 Node24.20.0/26.11.1, Linux x64 Node24.21.0/26.11.1의 실제 source/PTY/type/build·whole4,676·media26/26·scripted eval3/3을 확인했다. macOS는4,674pass/skip2, Linux는4,614pass/skip62이며 failure0이다. 새로운 genuineSQLite lifetime2회귀도 네 lane 모두 실행했다. [artifact 파일 SHA](engine-ci-public-836db4b-artifact-sha256.json)를 기록한다.
 
-Windows win32/x64 Node24.21.0/26.11.1은 각152개 중151pass·실패0·기존 nativeJobObject skip1이다. 이전EPERM9개와 새lifetime2개를 실제 로그에서 확인했으며 다운로드ZIP digest도 서버 값과 일치했다. windowsFullEngineVerified=false와 JobObject unavailable을 유지한다. 이 supported matrix의 실제 CI·OS 결과와 갱신된 host/schema/복구·성능/OS 명세를 근거로 E6-07·E6-08을 닫고 E5-08·E5-13은 별도 열린 범위로 유지한다. 원 MC2-09 load 미구현은 goal의 별도 진행 항목이며 새 구현 후 CI를 다시 검증한다.
+Windows win32/x64 Node24.21.0/26.11.1은 각152개 중151pass·실패0·기존 nativeJobObject skip1이다. 이전EPERM9개와 새lifetime2개를 실제 로그에서 확인했으며 다운로드ZIP digest도 서버 값과 일치했다. windowsFullEngineVerified=false와 JobObject unavailable을 유지한다. 당시 supported matrix의 실제 CI·OS 결과와 갱신된 host/schema/복구·성능/OS 명세를 근거로 E6-07·E6-08을 닫았고 E5-08·E5-13은 별도 열린 범위로 유지했다. 당시 MC2-09 load는 진행 항목이었으며 이후 실제 구현과 위99bf6f0 최종 CI로 검증했다.

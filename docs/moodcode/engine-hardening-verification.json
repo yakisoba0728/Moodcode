@@ -1,0 +1,1726 @@
+{
+  "schemaVersion": 1,
+  "kind": "engine-hardening-acceptance",
+  "observedAt": "2026-10-08T20:35:27.413654+00:00",
+  "status": "local-gates-passed-hosted-ci-pending",
+  "baselineCommit": "c4af35ea827101855823c29c445bd25d15b85774",
+  "sourceFreeze": {
+    "path": "docs/moodcode/engine-hardening-source-freeze.json",
+    "count": 932,
+    "snapshotSha256": "dc935f6c01a8173b34ee52b2f43b5c9ad451b6114d5882775710a8a80b996976",
+    "fileSha256": "6dd1afb4111654fb878968982361ffd6c8ad0e2bae4860e6367a0d9567ba738c",
+    "allCurrentFilesMatch": true,
+    "postGatesMismatches": 0
+  },
+  "runtime": {
+    "node": "v26.9.0",
+    "os": "darwin",
+    "arch": "arm64",
+    "mode": "compiled"
+  },
+  "build": {
+    "command": "npm run build",
+    "exitCode": 0,
+    "log": {
+      "path": "/tmp/moodcode-hardening-build.log",
+      "bytes": 34,
+      "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+    }
+  },
+  "wholeEngine": {
+    "command": "npm run test:engine",
+    "concurrency": 4,
+    "exitCode": 0,
+    "tests": 4723,
+    "pass": 4721,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 2,
+    "todo": 0,
+    "duration_ms": 241197.184167,
+    "log": {
+      "path": "/tmp/moodcode-hardening-whole-engine.log",
+      "bytes": 605013,
+      "sha256": "df0954dd55dce8b2a87f19ef3cb1ef23df704d2bbe0c1876b8b18213804013b4"
+    }
+  },
+  "cliUnits": {
+    "command": "node --test .github/scripts/engine-ci.test.mjs scripts/verify-engine-resilience.test.mjs",
+    "exitCode": 0,
+    "tests": 8,
+    "pass": 8,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "duration_ms": 89.62025,
+    "log": {
+      "path": "/tmp/moodcode-hardening-cli-unit.log",
+      "bytes": 925,
+      "sha256": "7a6cb2428396a6c3445d8b8e31b207c685565d766b3e39c64216ddaa0a62650a"
+    }
+  },
+  "mediaLocal": {
+    "command": "MOODCODE_CI_RESULTS_DIR=/tmp/moodcode-hardening-local-ci node .github/scripts/engine-ci.mjs test-media-local",
+    "exitCode": 0,
+    "tests": 26,
+    "pass": 26,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "duration_ms": 9753.972042,
+    "log": {
+      "path": "/tmp/moodcode-hardening-local-ci/test-media-local.log",
+      "bytes": 3186,
+      "sha256": "ea081234294e90f664779fdf49881158cd27d2237d2a482a2525b62749c6df90"
+    },
+    "runtimeOverride": "MOODCODE_MEDIA_VERIFY_TEST_ENGINE=compiled",
+    "accountVerified": false
+  },
+  "resilience": {
+    "command": "node scripts/verify-engine-resilience.mjs --profile extended --iterations 60 --seed 20261010 --runtime compiled",
+    "rawReport": {
+      "path": "/tmp/moodcode-hardening-resilience-60.json",
+      "bytes": 405390,
+      "sha256": "48f58fee50f455a01292ea17d4b7abb6b267b6eef402450578c5fb2d61dc37bb"
+    },
+    "passed": true,
+    "runtime": {
+      "mode": "compiled",
+      "node": "v26.9.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "entrySources": {
+      "harnessEntrySha256": "4df8eacb420e5bcc9a02dd50163952c4cad560612e66438c63ce0f0a8c9dd4cf",
+      "engineEntrySha256": "291bad76348257672593c35d7961059774a621307b83f57443c9e828c9da4812",
+      "gitHead": "c4af35ea827101855823c29c445bd25d15b85774",
+      "qualification": "Entry-file identities only; this report is not a full engine source freeze."
+    },
+    "iterations": 60,
+    "seed": 20261010,
+    "summary": {
+      "completed": 60,
+      "failed": 0,
+      "providerCalls": 100,
+      "processLaunches": 60,
+      "unknownOutcomes": 40,
+      "cleanupFailures": 0,
+      "durationMs": 20411
+    },
+    "scenarioCounts": {
+      "complete": 20,
+      "cancel": 20,
+      "root-sigkill": 20
+    },
+    "allNoReplay": true,
+    "allOriginalGroupAbsent": true,
+    "allDatabasesRemoved": true,
+    "ciQuick": {
+      "report": {
+        "path": "/tmp/moodcode-hardening-local-resilience-ci/resilience.json",
+        "bytes": 21561,
+        "sha256": "f28bf0735d640baa0046683d280d9044cc05af7ba74f2a6aba6374e1f1912881"
+      },
+      "steps": {
+        "schemaVersion": 1,
+        "steps": [
+          {
+            "operation": "resilience",
+            "command": [
+              "/usr/local/bin/node",
+              "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-engine-resilience.mjs",
+              "--profile",
+              "quick",
+              "--runtime",
+              "compiled"
+            ],
+            "startedAt": "2026-10-08T20:30:39.239Z",
+            "durationMs": 1580,
+            "exitCode": 0,
+            "signal": null,
+            "state": "passed"
+          },
+          {
+            "operation": "resilience-report",
+            "state": "passed",
+            "exitCode": 0
+          }
+        ]
+      }
+    },
+    "validatorAcceptedExtended": true,
+    "qualification": "60 isolated bounded iterations, not multi-hour soak or same-instance retained-memory proof"
+  },
+  "codingEvaluation": {
+    "rawReport": {
+      "path": "/tmp/moodcode-hardening-local-ci/evaluation.json",
+      "bytes": 305009,
+      "sha256": "ce6e011223c78ca51f6a402b5f1145d6857c582b9f6e228a2e385aa02c66fe44"
+    },
+    "passed": true,
+    "summary": {
+      "attempted": 3,
+      "successful": 3,
+      "failed": 0,
+      "successRate": 1,
+      "denominator": "authored deterministic tasks; not model-quality samples"
+    },
+    "sourceRuntime": {
+      "stable": true,
+      "before": {
+        "runtime": "compiled",
+        "gitHead": "c4af35ea827101855823c29c445bd25d15b85774",
+        "sourceSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+        "files": 735,
+        "bytes": 11635651,
+        "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+      },
+      "after": {
+        "runtime": "compiled",
+        "gitHead": "c4af35ea827101855823c29c445bd25d15b85774",
+        "sourceSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+        "files": 735,
+        "bytes": 11635651,
+        "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+      },
+      "fileCountQualification": "files is inventory count; raw report retains each source/runtime hash"
+    },
+    "tasks": [
+      {
+        "taskId": "addition-bug",
+        "kind": "deterministic-native-coding-task",
+        "providerId": "scripted",
+        "modelId": "local",
+        "seed": 20261009,
+        "fixtureSha256": "109539b21abbdfc60e7d6ec62f840254682352e449bd291d5336809b91f5192a",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "runId": "bc290d82-f70d-46fe-9120-78a6b2ccd982",
+        "durationMs": 1972.29,
+        "changedFiles": [
+          "math.mjs"
+        ],
+        "providerAttempts": 4,
+        "checks": {
+          "initialTestsFailed": true,
+          "expectedFilesExact": true,
+          "unrelatedFilesPreserved": true,
+          "stagedChangesPreserved": true,
+          "nativeVerificationPassed": true,
+          "nativeToolPartsComplete": true,
+          "processCleanupConfirmed": true,
+          "duplicateRunNoReplay": true,
+          "reopenedWithoutProvider": true
+        },
+        "verification": {
+          "taskVerified": true,
+          "reason": "required_checks_passed",
+          "receipts": [
+            {
+              "id": "verification_receipt_c2389239b89b4e66af8a4fc2bbe9d81d",
+              "status": "pass",
+              "phase": "settled",
+              "receiptSha256": "1823288be4b666daedf3e63461ec888c6628d197bf2af0930a12c167e7186005",
+              "toolCallId": "b337fcd8-6a8d-4fa3-9fb2-292c38a9c19e",
+              "cleanupConfirmed": true,
+              "checkpointId": "fca23938-0d48-47e6-a771-625b69315e08",
+              "exitCode": 0
+            }
+          ]
+        },
+        "native": {
+          "tools": [
+            {
+              "id": "2f79b981-e6ef-4419-a16d-5c6aac7f7f4b",
+              "name": "read_file",
+              "state": "completed",
+              "errorPresent": false
+            },
+            {
+              "id": "06fecaf9-3168-454c-a017-95d4d1c05b50",
+              "name": "apply_patch",
+              "state": "completed",
+              "errorPresent": false
+            },
+            {
+              "id": "b337fcd8-6a8d-4fa3-9fb2-292c38a9c19e",
+              "name": "verify_changes",
+              "state": "completed",
+              "errorPresent": false
+            }
+          ],
+          "approvals": [
+            {
+              "toolName": "apply_patch",
+              "status": "allowed"
+            },
+            {
+              "toolName": "verify_changes",
+              "status": "allowed"
+            }
+          ],
+          "turns": 4,
+          "toolParts": 3
+        },
+        "commit": {
+          "requested": true,
+          "state": "committed",
+          "sha": "628497dcf2a231a4b4c2e5c8e7ffdc98da702a27",
+          "previewSha256": "1bac4bc60c0a7ef73efe66b46e8c596bff8eb88d5f5d64d0be9c315dd3233742",
+          "duplicateNoSecondCommit": true
+        },
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 6496,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "tokens": {
+          "input": null,
+          "output": null,
+          "billed": null,
+          "reason": "scripted-provider-emits-no-observed-token-usage"
+        },
+        "cost": {
+          "amount": null,
+          "currency": null,
+          "reason": "no-account-request-or-billing-observation"
+        },
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 1583192,
+          "failure": null
+        }
+      },
+      {
+        "taskId": "empty-list-boundary",
+        "kind": "deterministic-native-coding-task",
+        "providerId": "scripted",
+        "modelId": "local",
+        "seed": 20261009,
+        "fixtureSha256": "596da5d7855704b1dfd5c9fb5f1d536f76689a6b7ec02d864fd61dda4fd679b4",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "runId": "12f46463-62eb-40ac-8ee1-6804c67cc450",
+        "durationMs": 1496.542,
+        "changedFiles": [
+          "average.mjs"
+        ],
+        "providerAttempts": 4,
+        "checks": {
+          "initialTestsFailed": true,
+          "expectedFilesExact": true,
+          "unrelatedFilesPreserved": true,
+          "stagedChangesPreserved": true,
+          "nativeVerificationPassed": true,
+          "nativeToolPartsComplete": true,
+          "processCleanupConfirmed": true,
+          "duplicateRunNoReplay": true,
+          "reopenedWithoutProvider": true
+        },
+        "verification": {
+          "taskVerified": true,
+          "reason": "required_checks_passed",
+          "receipts": [
+            {
+              "id": "verification_receipt_ee714c50551b421d90bdd5231e95ec54",
+              "status": "pass",
+              "phase": "settled",
+              "receiptSha256": "b14998474ff64f13591d2fb49dcd4246503afde9bc9b508a03ccca1705fe0985",
+              "toolCallId": "dd187fee-6fc2-4d97-b84c-322f2647ed7f",
+              "cleanupConfirmed": true,
+              "checkpointId": "6c24f8ea-ba45-4cd2-ad28-175331446890",
+              "exitCode": 0
+            }
+          ]
+        },
+        "native": {
+          "tools": [
+            {
+              "id": "5a50f59e-d3a9-40ca-ba50-56395f08ab5a",
+              "name": "read_file",
+              "state": "completed",
+              "errorPresent": false
+            },
+            {
+              "id": "70935ce8-3f01-45b3-85b9-d78257fed5ab",
+              "name": "apply_patch",
+              "state": "completed",
+              "errorPresent": false
+            },
+            {
+              "id": "dd187fee-6fc2-4d97-b84c-322f2647ed7f",
+              "name": "verify_changes",
+              "state": "completed",
+              "errorPresent": false
+            }
+          ],
+          "approvals": [
+            {
+              "toolName": "apply_patch",
+              "status": "allowed"
+            },
+            {
+              "toolName": "verify_changes",
+              "status": "allowed"
+            }
+          ],
+          "turns": 4,
+          "toolParts": 3
+        },
+        "commit": {
+          "requested": true,
+          "state": "committed",
+          "sha": "f78991b05c913bccc091154216e3ed0a274420d8",
+          "previewSha256": "fb2ebb863a8e9a4fa48394d17f1d31b03275b2941a1f1d6be0bbfc7ef43ec861",
+          "duplicateNoSecondCommit": true
+        },
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 6583,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 3
+          }
+        },
+        "tokens": {
+          "input": null,
+          "output": null,
+          "billed": null,
+          "reason": "scripted-provider-emits-no-observed-token-usage"
+        },
+        "cost": {
+          "amount": null,
+          "currency": null,
+          "reason": "no-account-request-or-billing-observation"
+        },
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 1583351,
+          "failure": null
+        }
+      },
+      {
+        "taskId": "two-module-change",
+        "kind": "deterministic-native-coding-task",
+        "providerId": "scripted",
+        "modelId": "local",
+        "seed": 20261009,
+        "fixtureSha256": "eefdebad052bca8ad523b838b1a1e2821eaf77ea834ca6f9fedb03862fc52cae",
+        "passed": true,
+        "failure": null,
+        "runState": "completed",
+        "runId": "332470bc-35f7-4870-bbd9-17464c74aba0",
+        "durationMs": 1817.292,
+        "changedFiles": [
+          "greet.mjs",
+          "strings.mjs"
+        ],
+        "providerAttempts": 5,
+        "checks": {
+          "initialTestsFailed": true,
+          "expectedFilesExact": true,
+          "unrelatedFilesPreserved": true,
+          "stagedChangesPreserved": true,
+          "nativeVerificationPassed": true,
+          "nativeToolPartsComplete": true,
+          "processCleanupConfirmed": true,
+          "duplicateRunNoReplay": true,
+          "reopenedWithoutProvider": true
+        },
+        "verification": {
+          "taskVerified": true,
+          "reason": "required_checks_passed",
+          "receipts": [
+            {
+              "id": "verification_receipt_ac8159af97f040338ae48e73cbca2e11",
+              "status": "pass",
+              "phase": "settled",
+              "receiptSha256": "d27f5b452e5c079b3388c799632e56cd62aa1b8b684f7fb1bfa5ba0c43d1e4af",
+              "toolCallId": "8e5bfed6-cda4-49fa-b131-a9c2f52d14f9",
+              "cleanupConfirmed": true,
+              "checkpointId": "bbf02f0f-e8b6-4cd1-a226-abfab3801152",
+              "exitCode": 0
+            }
+          ]
+        },
+        "native": {
+          "tools": [
+            {
+              "id": "9d07bd25-a40b-449f-b9ec-5b2b2eb8f624",
+              "name": "read_file",
+              "state": "completed",
+              "errorPresent": false
+            },
+            {
+              "id": "55fd464f-8834-49a1-a943-5d0f2ab681fd",
+              "name": "read_file",
+              "state": "completed",
+              "errorPresent": false
+            },
+            {
+              "id": "7908ce44-582f-451f-81aa-09ad9dd6c64f",
+              "name": "apply_patch",
+              "state": "completed",
+              "errorPresent": false
+            },
+            {
+              "id": "8e5bfed6-cda4-49fa-b131-a9c2f52d14f9",
+              "name": "verify_changes",
+              "state": "completed",
+              "errorPresent": false
+            }
+          ],
+          "approvals": [
+            {
+              "toolName": "apply_patch",
+              "status": "allowed"
+            },
+            {
+              "toolName": "verify_changes",
+              "status": "allowed"
+            }
+          ],
+          "turns": 5,
+          "toolParts": 4
+        },
+        "commit": {
+          "requested": true,
+          "state": "committed",
+          "sha": "c27ff903b14d9535b3052211f102896511950fd7",
+          "previewSha256": "bd702d4c6577303cc28aeda7224a7c304553fdb8bfa18092b2a53d6cdaccad2c",
+          "duplicateNoSecondCommit": true
+        },
+        "usage": {
+          "observedUsageEvents": 0,
+          "inputTokens": null,
+          "outputTokens": null,
+          "usageWindowTruncated": false,
+          "context": {
+            "bytes": 7388,
+            "limit": 262144,
+            "summaryIncluded": false,
+            "turnIndex": 4
+          }
+        },
+        "tokens": {
+          "input": null,
+          "output": null,
+          "billed": null,
+          "reason": "scripted-provider-emits-no-observed-token-usage"
+        },
+        "cost": {
+          "amount": null,
+          "currency": null,
+          "reason": "no-account-request-or-billing-observation"
+        },
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 1654324,
+          "failure": null
+        }
+      }
+    ],
+    "qualification": "deterministic authored coding tasks; actual native tests and approved Git commits; no live model-quality evidence"
+  },
+  "performance": [
+    {
+      "profile": "quick",
+      "rawReport": {
+        "path": "/tmp/moodcode-hardening-local-ci/benchmark.json",
+        "bytes": 306164,
+        "sha256": "77bb2ce87ca3cf69ea3f4ea8cd6ad24c48269707e99afaefebbf5453c54d3f34"
+      },
+      "passed": true,
+      "parameters": {
+        "runs": 24,
+        "messageBytes": 256,
+        "samples": 5,
+        "warmup": 1,
+        "runtime": "compiled",
+        "profile": "quick",
+        "seed": 20261009
+      },
+      "sourceRuntime": {
+        "stable": true,
+        "before": {
+          "runtime": "compiled",
+          "gitHead": "c4af35ea827101855823c29c445bd25d15b85774",
+          "sourceSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+          "files": 735,
+          "bytes": 11635651,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "after": {
+          "runtime": "compiled",
+          "gitHead": "c4af35ea827101855823c29c445bd25d15b85774",
+          "sourceSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+          "files": 735,
+          "bytes": 11635651,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "fileCountQualification": "files is inventory count; raw report retains each source/runtime hash"
+      },
+      "fixture": {
+        "seed": 20261009,
+        "inputRuns": 24,
+        "persistedMessages": 48,
+        "messageUtf8Bytes": 256,
+        "promptSha256": "66786f73cb473e4a74a3df5bfbcf3243bd773b7906d55617328a820a2b2fe065",
+        "seedElapsedMs": 201.075,
+        "seedRunLatency": {
+          "count": 24,
+          "min": 5.938,
+          "p50": 6.912,
+          "p95": 16.199,
+          "p99": 21.836,
+          "max": 21.836,
+          "mean": 8.375,
+          "method": "nearest-rank",
+          "unit": "milliseconds"
+        },
+        "creation": "actual Engine run.submit/waitForRun; no direct SQL writes",
+        "dbAndArtifactLogicalBytes": 6730574,
+        "historyPaginationExact": true,
+        "nativeEventsReplayedPerSample": 512,
+        "actualRuns": 31,
+        "tools": 0,
+        "integrityOk": true,
+        "reopenedWithoutProviderReplay": true
+      },
+      "measurements": {
+        "history": {
+          "latency": {
+            "count": 5,
+            "min": 0.204,
+            "p50": 0.21,
+            "p95": 0.234,
+            "p99": 0.234,
+            "max": 0.234,
+            "mean": 0.215,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 45644,
+            "max": 45644
+          },
+          "memory": {
+            "before": {
+              "rss": 146735104,
+              "heapTotal": 54804480,
+              "heapUsed": 30109952,
+              "external": 4084364,
+              "arrayBuffers": 1273002
+            },
+            "after": {
+              "rss": 146784256,
+              "heapTotal": 54804480,
+              "heapUsed": 32465480,
+              "external": 4084854,
+              "arrayBuffers": 1273452
+            },
+            "peakRssBytes": 146784256,
+            "peakHeapUsedBytes": 32465224,
+            "retainedHeapDeltaBytes": 2355528,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "modelHistory": {
+          "latency": {
+            "count": 5,
+            "min": 0.231,
+            "p50": 0.236,
+            "p95": 0.247,
+            "p99": 0.247,
+            "max": 0.247,
+            "mean": 0.238,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 54654,
+            "max": 54654
+          },
+          "memory": {
+            "before": {
+              "rss": 146800640,
+              "heapTotal": 54804480,
+              "heapUsed": 33265904,
+              "external": 4085070,
+              "arrayBuffers": 1273668
+            },
+            "after": {
+              "rss": 146817024,
+              "heapTotal": 54804480,
+              "heapUsed": 34930936,
+              "external": 4085070,
+              "arrayBuffers": 1273668
+            },
+            "peakRssBytes": 146817024,
+            "peakHeapUsedBytes": 34930664,
+            "retainedHeapDeltaBytes": 1665032,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "contextRun": {
+          "latency": {
+            "count": 5,
+            "min": 6.449,
+            "p50": 7.995,
+            "p95": 9.199,
+            "p99": 9.199,
+            "max": 9.199,
+            "mean": 7.958,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 2984,
+            "max": 3296
+          },
+          "memory": {
+            "before": {
+              "rss": 146866176,
+              "heapTotal": 54804480,
+              "heapUsed": 25641240,
+              "external": 3676732,
+              "arrayBuffers": 865330
+            },
+            "after": {
+              "rss": 148111360,
+              "heapTotal": 55853056,
+              "heapUsed": 32052568,
+              "external": 4356165,
+              "arrayBuffers": 1544763
+            },
+            "peakRssBytes": 148111360,
+            "peakHeapUsedBytes": 34705944,
+            "retainedHeapDeltaBytes": 6411328,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "contextObservation": {
+          "latency": {
+            "count": 5,
+            "min": 0.03,
+            "p50": 0.034,
+            "p95": 0.037,
+            "p99": 0.037,
+            "max": 0.037,
+            "mean": 0.034,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 3296,
+            "max": 3296
+          },
+          "memory": {
+            "before": {
+              "rss": 148111360,
+              "heapTotal": 55853056,
+              "heapUsed": 32087744,
+              "external": 4356237,
+              "arrayBuffers": 1544835
+            },
+            "after": {
+              "rss": 148144128,
+              "heapTotal": 55853056,
+              "heapUsed": 32784128,
+              "external": 4356597,
+              "arrayBuffers": 1545195
+            },
+            "peakRssBytes": 148144128,
+            "peakHeapUsedBytes": 32783856,
+            "retainedHeapDeltaBytes": 696384,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "metrics": {
+          "latency": {
+            "count": 5,
+            "min": 2.518,
+            "p50": 2.788,
+            "p95": 3.079,
+            "p99": 3.079,
+            "max": 3.079,
+            "mean": 2.769,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 12399,
+            "max": 12399
+          },
+          "memory": {
+            "before": {
+              "rss": 148520960,
+              "heapTotal": 55853056,
+              "heapUsed": 32710496,
+              "external": 4356669,
+              "arrayBuffers": 1545267
+            },
+            "after": {
+              "rss": 150437888,
+              "heapTotal": 55853056,
+              "heapUsed": 33925064,
+              "external": 4357029,
+              "arrayBuffers": 1545627
+            },
+            "peakRssBytes": 150437888,
+            "peakHeapUsedBytes": 33924792,
+            "retainedHeapDeltaBytes": 1214568,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "eventReplay": {
+          "latency": {
+            "count": 5,
+            "min": 7.883,
+            "p50": 8.493,
+            "p95": 9.646,
+            "p99": 9.646,
+            "max": 9.646,
+            "mean": 8.738,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 104,
+            "max": 104
+          },
+          "memory": {
+            "before": {
+              "rss": 154386432,
+              "heapTotal": 57688064,
+              "heapUsed": 30245624,
+              "external": 4181548,
+              "arrayBuffers": 1370146
+            },
+            "after": {
+              "rss": 155271168,
+              "heapTotal": 57950208,
+              "heapUsed": 35863120,
+              "external": 4864659,
+              "arrayBuffers": 2053257
+            },
+            "peakRssBytes": 155271168,
+            "peakHeapUsedBytes": 39067752,
+            "retainedHeapDeltaBytes": 5617496,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "summaryUsage": {
+          "latency": {
+            "count": 5,
+            "min": 0.086,
+            "p50": 0.092,
+            "p95": 0.126,
+            "p99": 0.126,
+            "max": 0.126,
+            "mean": 0.1,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 4,
+            "max": 4
+          },
+          "memory": {
+            "before": {
+              "rss": 155631616,
+              "heapTotal": 58212352,
+              "heapUsed": 27369552,
+              "external": 3396668,
+              "arrayBuffers": 585266
+            },
+            "after": {
+              "rss": 155648000,
+              "heapTotal": 58212352,
+              "heapUsed": 27729664,
+              "external": 3396668,
+              "arrayBuffers": 585266
+            },
+            "peakRssBytes": 155648000,
+            "peakHeapUsedBytes": 27729392,
+            "retainedHeapDeltaBytes": 360112,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "summaryAttempt": {
+          "latency": {
+            "count": 5,
+            "min": 0.067,
+            "p50": 0.07,
+            "p95": 0.08,
+            "p99": 0.08,
+            "max": 0.08,
+            "mean": 0.072,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 4756,
+            "max": 4756
+          },
+          "memory": {
+            "before": {
+              "rss": 155648000,
+              "heapTotal": 58212352,
+              "heapUsed": 27803016,
+              "external": 3396668,
+              "arrayBuffers": 585266
+            },
+            "after": {
+              "rss": 155648000,
+              "heapTotal": 58212352,
+              "heapUsed": 28177512,
+              "external": 3396668,
+              "arrayBuffers": 585266
+            },
+            "peakRssBytes": 155648000,
+            "peakHeapUsedBytes": 28177240,
+            "retainedHeapDeltaBytes": 374496,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "summaryList": {
+          "latency": {
+            "count": 5,
+            "min": 0.09,
+            "p50": 0.095,
+            "p95": 0.137,
+            "p99": 0.137,
+            "max": 0.137,
+            "mean": 0.109,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 4789,
+            "max": 4789
+          },
+          "memory": {
+            "before": {
+              "rss": 155648000,
+              "heapTotal": 58212352,
+              "heapUsed": 28256848,
+              "external": 3396668,
+              "arrayBuffers": 585266
+            },
+            "after": {
+              "rss": 155697152,
+              "heapTotal": 58212352,
+              "heapUsed": 28644960,
+              "external": 3396668,
+              "arrayBuffers": 585266
+            },
+            "peakRssBytes": 155697152,
+            "peakHeapUsedBytes": 28644688,
+            "retainedHeapDeltaBytes": 388112,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "storageInspection": {
+          "latency": {
+            "count": 5,
+            "min": 2.271,
+            "p50": 2.392,
+            "p95": 2.617,
+            "p99": 2.617,
+            "max": 2.617,
+            "mean": 2.44,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 3788,
+            "max": 3788
+          },
+          "memory": {
+            "before": {
+              "rss": 155828224,
+              "heapTotal": 58212352,
+              "heapUsed": 29736800,
+              "external": 3428780,
+              "arrayBuffers": 617378
+            },
+            "after": {
+              "rss": 156024832,
+              "heapTotal": 58212352,
+              "heapUsed": 34571024,
+              "external": 3589340,
+              "arrayBuffers": 777938
+            },
+            "peakRssBytes": 156024832,
+            "peakHeapUsedBytes": 34570752,
+            "retainedHeapDeltaBytes": 4834224,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        }
+      },
+      "summary": {
+        "durationMs": 11.503,
+        "measuredActivations": 1,
+        "attemptId": "12b796e6-1663-4687-a9b5-0291544187ff",
+        "state": "completed",
+        "publication": "activated",
+        "cleanupConfirmed": true,
+        "requestBytes": 24345,
+        "sourceMessages": 60,
+        "observedOutputBytes": 113,
+        "retainedTextBytes": 113,
+        "fixtureContextWindowTokens": 1536,
+        "readUsageSql": {
+          "returnedSqlBytes": 7569,
+          "queries": 9,
+          "summaryFullPayloadReads": 0,
+          "summaryTextBytesReturned": 0,
+          "writeStatements": 0,
+          "elapsedMs": 0.2966670000000704
+        },
+        "sqlAccounting": "SQL values returned to JavaScript; not physical I/O",
+        "usage": null
+      },
+      "cleanup": {
+        "engineClosed": true,
+        "nativeCleanupConfirmed": true,
+        "runtimeCleanupConfirmed": true,
+        "noActiveExecution": true,
+        "temporaryFilesRemoved": true,
+        "retainedBytesBeforeRemoval": 3485894,
+        "failure": null
+      },
+      "absoluteTimingGate": false
+    },
+    {
+      "profile": "standard",
+      "rawReport": {
+        "path": "/tmp/moodcode-hardening-benchmark-standard.json",
+        "bytes": 306292,
+        "sha256": "5521fa8faa3dcddec5af94f0ef97300101ec6acfd8a6212c736c5337696ccb69"
+      },
+      "passed": true,
+      "parameters": {
+        "runs": 200,
+        "messageBytes": 1024,
+        "samples": 20,
+        "warmup": 3,
+        "runtime": "compiled",
+        "profile": "standard",
+        "seed": 20261009
+      },
+      "sourceRuntime": {
+        "stable": true,
+        "before": {
+          "runtime": "compiled",
+          "gitHead": "c4af35ea827101855823c29c445bd25d15b85774",
+          "sourceSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+          "files": 735,
+          "bytes": 11635651,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "after": {
+          "runtime": "compiled",
+          "gitHead": "c4af35ea827101855823c29c445bd25d15b85774",
+          "sourceSha256": "27e9048482c36045a4c0aa26154a7973f915f6a1b2c267aa683e8ab975375486",
+          "files": 735,
+          "bytes": 11635651,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "fileCountQualification": "files is inventory count; raw report retains each source/runtime hash"
+      },
+      "fixture": {
+        "seed": 20261009,
+        "inputRuns": 200,
+        "persistedMessages": 400,
+        "messageUtf8Bytes": 1024,
+        "promptSha256": "f380bb1a3086fd103e0caad7b0db7a9d1efb8b12f794779bd287f173b65f8f8d",
+        "seedElapsedMs": 3490.711,
+        "seedRunLatency": {
+          "count": 200,
+          "min": 6.134,
+          "p50": 19.161,
+          "p95": 27.431,
+          "p99": 39.792,
+          "max": 50.194,
+          "mean": 17.452,
+          "method": "nearest-rank",
+          "unit": "milliseconds"
+        },
+        "creation": "actual Engine run.submit/waitForRun; no direct SQL writes",
+        "dbAndArtifactLogicalBytes": 93450158,
+        "historyPaginationExact": true,
+        "nativeEventsReplayedPerSample": 3793,
+        "actualRuns": 224,
+        "tools": 0,
+        "integrityOk": true,
+        "reopenedWithoutProviderReplay": true
+      },
+      "measurements": {
+        "history": {
+          "latency": {
+            "count": 20,
+            "min": 0.283,
+            "p50": 0.291,
+            "p95": 0.332,
+            "p99": 0.335,
+            "max": 0.335,
+            "mean": 0.298,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 91751,
+            "max": 91751
+          },
+          "memory": {
+            "before": {
+              "rss": 241614848,
+              "heapTotal": 97812480,
+              "heapUsed": 37907224,
+              "external": 9291634,
+              "arrayBuffers": 6500002
+            },
+            "after": {
+              "rss": 241745920,
+              "heapTotal": 97812480,
+              "heapUsed": 59082176,
+              "external": 9293474,
+              "arrayBuffers": 6501802
+            },
+            "peakRssBytes": 241745920,
+            "peakHeapUsedBytes": 59081904,
+            "retainedHeapDeltaBytes": 21174952,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "modelHistory": {
+          "latency": {
+            "count": 20,
+            "min": 0.864,
+            "p50": 0.91,
+            "p95": 0.965,
+            "p99": 1.389,
+            "max": 1.389,
+            "mean": 0.933,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 292743,
+            "max": 292743
+          },
+          "memory": {
+            "before": {
+              "rss": 245104640,
+              "heapTotal": 103088128,
+              "heapUsed": 70534648,
+              "external": 9294698,
+              "arrayBuffers": 6503026
+            },
+            "after": {
+              "rss": 256311296,
+              "heapTotal": 115834880,
+              "heapUsed": 59464888,
+              "external": 9294698,
+              "arrayBuffers": 6498004
+            },
+            "peakRssBytes": 256311296,
+            "peakHeapUsedBytes": 75073512,
+            "retainedHeapDeltaBytes": -11069760,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "contextRun": {
+          "latency": {
+            "count": 20,
+            "min": 22.182,
+            "p50": 27.094,
+            "p95": 34.191,
+            "p99": 106.937,
+            "max": 106.937,
+            "mean": 30.699,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 10946,
+            "max": 10946
+          },
+          "memory": {
+            "before": {
+              "rss": 259194880,
+              "heapTotal": 117817344,
+              "heapUsed": 57937648,
+              "external": 15434269,
+              "arrayBuffers": 12642597
+            },
+            "after": {
+              "rss": 280297472,
+              "heapTotal": 146096128,
+              "heapUsed": 104876528,
+              "external": 27810352,
+              "arrayBuffers": 25018680
+            },
+            "peakRssBytes": 286294016,
+            "peakHeapUsedBytes": 104876256,
+            "retainedHeapDeltaBytes": 46938880,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "contextObservation": {
+          "latency": {
+            "count": 20,
+            "min": 0.038,
+            "p50": 0.039,
+            "p95": 0.04,
+            "p99": 0.042,
+            "max": 0.042,
+            "mean": 0.039,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 10946,
+            "max": 10946
+          },
+          "memory": {
+            "before": {
+              "rss": 280297472,
+              "heapTotal": 146096128,
+              "heapUsed": 105134712,
+              "external": 27810568,
+              "arrayBuffers": 25018896
+            },
+            "after": {
+              "rss": 280297472,
+              "heapTotal": 146096128,
+              "heapUsed": 107056992,
+              "external": 27812008,
+              "arrayBuffers": 25020336
+            },
+            "peakRssBytes": 280297472,
+            "peakHeapUsedBytes": 107056720,
+            "retainedHeapDeltaBytes": 1922280,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "metrics": {
+          "latency": {
+            "count": 20,
+            "min": 27.274,
+            "p50": 28.329,
+            "p95": 44.255,
+            "p99": 73.04,
+            "max": 73.04,
+            "mean": 32.594,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 20082,
+            "max": 20082
+          },
+          "memory": {
+            "before": {
+              "rss": 281575424,
+              "heapTotal": 146096128,
+              "heapUsed": 108025264,
+              "external": 27812224,
+              "arrayBuffers": 25020552
+            },
+            "after": {
+              "rss": 250789888,
+              "heapTotal": 105971712,
+              "heapUsed": 42741376,
+              "external": 9356140,
+              "arrayBuffers": 6564468
+            },
+            "peakRssBytes": 286523392,
+            "peakHeapUsedBytes": 109575680,
+            "retainedHeapDeltaBytes": -65283888,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "eventReplay": {
+          "latency": {
+            "count": 20,
+            "min": 135.743,
+            "p50": 141.183,
+            "p95": 189.609,
+            "p99": 223.49,
+            "max": 223.49,
+            "mean": 150.388,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 108,
+            "max": 108
+          },
+          "memory": {
+            "before": {
+              "rss": 295190528,
+              "heapTotal": 131399680,
+              "heapUsed": 72169720,
+              "external": 23325794,
+              "arrayBuffers": 20534122
+            },
+            "after": {
+              "rss": 307625984,
+              "heapTotal": 151552000,
+              "heapUsed": 91335368,
+              "external": 26165949,
+              "arrayBuffers": 23374277
+            },
+            "peakRssBytes": 375439360,
+            "peakHeapUsedBytes": 157315104,
+            "retainedHeapDeltaBytes": 19165648,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "summaryUsage": {
+          "latency": {
+            "count": 20,
+            "min": 0.151,
+            "p50": 0.158,
+            "p95": 0.171,
+            "p99": 0.174,
+            "max": 0.174,
+            "mean": 0.16,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 4,
+            "max": 4
+          },
+          "memory": {
+            "before": {
+              "rss": 253673472,
+              "heapTotal": 93061120,
+              "heapUsed": 30199592,
+              "external": 3935784,
+              "arrayBuffers": 1144112
+            },
+            "after": {
+              "rss": 254181376,
+              "heapTotal": 93061120,
+              "heapUsed": 34182608,
+              "external": 3935784,
+              "arrayBuffers": 1144112
+            },
+            "peakRssBytes": 254181376,
+            "peakHeapUsedBytes": 34182336,
+            "retainedHeapDeltaBytes": 3983016,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "summaryAttempt": {
+          "latency": {
+            "count": 20,
+            "min": 0.114,
+            "p50": 0.118,
+            "p95": 0.129,
+            "p99": 0.135,
+            "max": 0.135,
+            "mean": 0.119,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 16106,
+            "max": 16106
+          },
+          "memory": {
+            "before": {
+              "rss": 254214144,
+              "heapTotal": 93061120,
+              "heapUsed": 34780584,
+              "external": 3935784,
+              "arrayBuffers": 1144112
+            },
+            "after": {
+              "rss": 254558208,
+              "heapTotal": 93061120,
+              "heapUsed": 39102008,
+              "external": 3935784,
+              "arrayBuffers": 1144112
+            },
+            "peakRssBytes": 254558208,
+            "peakHeapUsedBytes": 39101736,
+            "retainedHeapDeltaBytes": 4321424,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "summaryList": {
+          "latency": {
+            "count": 20,
+            "min": 0.124,
+            "p50": 0.132,
+            "p95": 0.189,
+            "p99": 0.196,
+            "max": 0.196,
+            "mean": 0.139,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 16139,
+            "max": 16139
+          },
+          "memory": {
+            "before": {
+              "rss": 254607360,
+              "heapTotal": 93061120,
+              "heapUsed": 39704576,
+              "external": 3935784,
+              "arrayBuffers": 1144112
+            },
+            "after": {
+              "rss": 255033344,
+              "heapTotal": 93061120,
+              "heapUsed": 44031560,
+              "external": 3935784,
+              "arrayBuffers": 1144112
+            },
+            "peakRssBytes": 255033344,
+            "peakHeapUsedBytes": 44031288,
+            "retainedHeapDeltaBytes": 4326984,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        },
+        "storageInspection": {
+          "latency": {
+            "count": 20,
+            "min": 2.145,
+            "p50": 2.278,
+            "p95": 2.481,
+            "p99": 2.944,
+            "max": 2.944,
+            "mean": 2.314,
+            "method": "nearest-rank",
+            "unit": "milliseconds"
+          },
+          "resultBytes": {
+            "min": 3796,
+            "max": 3796
+          },
+          "memory": {
+            "before": {
+              "rss": 255524864,
+              "heapTotal": 93585408,
+              "heapUsed": 47076648,
+              "external": 4032120,
+              "arrayBuffers": 1240448
+            },
+            "after": {
+              "rss": 256196608,
+              "heapTotal": 92110848,
+              "heapUsed": 37970440,
+              "external": 3559271,
+              "arrayBuffers": 767599
+            },
+            "peakRssBytes": 256196608,
+            "peakHeapUsedBytes": 48994848,
+            "retainedHeapDeltaBytes": -9106208,
+            "note": "sampled process memory; not allocator peak, leak proof or controlled-GC retained size"
+          }
+        }
+      },
+      "summary": {
+        "durationMs": 30.499,
+        "measuredActivations": 1,
+        "attemptId": "bc097fb4-40dd-4476-9f68-63aaa2a067e7",
+        "state": "completed",
+        "publication": "activated",
+        "cleanupConfirmed": true,
+        "requestBytes": 295950,
+        "sourceMessages": 254,
+        "observedOutputBytes": 113,
+        "retainedTextBytes": 113,
+        "fixtureContextWindowTokens": 4096,
+        "readUsageSql": {
+          "returnedSqlBytes": 20271,
+          "queries": 9,
+          "summaryFullPayloadReads": 0,
+          "summaryTextBytesReturned": 0,
+          "writeStatements": 0,
+          "elapsedMs": 0.40825000000040745
+        },
+        "sqlAccounting": "SQL values returned to JavaScript; not physical I/O",
+        "usage": null
+      },
+      "cleanup": {
+        "engineClosed": true,
+        "nativeCleanupConfirmed": true,
+        "runtimeCleanupConfirmed": true,
+        "noActiveExecution": true,
+        "temporaryFilesRemoved": true,
+        "retainedBytesBeforeRemoval": 104394950,
+        "failure": null
+      },
+      "absoluteTimingGate": false
+    }
+  ],
+  "ciLocalSteps": {
+    "schemaVersion": 1,
+    "steps": [
+      {
+        "operation": "eval",
+        "command": [
+          "/usr/local/bin/node",
+          "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/evaluate-engine.mjs"
+        ],
+        "startedAt": "2026-10-08T20:29:54.467Z",
+        "durationMs": 5779,
+        "exitCode": 0,
+        "signal": null,
+        "state": "passed"
+      },
+      {
+        "operation": "eval-report",
+        "state": "passed",
+        "exitCode": 0
+      },
+      {
+        "operation": "test-media-local",
+        "command": [
+          "/usr/local/bin/node",
+          "--test",
+          "--test-concurrency=1",
+          "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/plan-media-verification.test.mjs",
+          "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-media-account.test.mjs"
+        ],
+        "startedAt": "2026-10-08T20:30:38.084Z",
+        "durationMs": 9786,
+        "exitCode": 0,
+        "signal": null,
+        "state": "passed",
+        "environmentOverrides": {
+          "MOODCODE_MEDIA_VERIFY_TEST_ENGINE": "compiled"
+        }
+      },
+      {
+        "operation": "benchmark",
+        "command": [
+          "/usr/local/bin/node",
+          "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/benchmark-engine.mjs",
+          "--profile",
+          "quick",
+          "--runtime",
+          "compiled"
+        ],
+        "startedAt": "2026-10-08T20:33:23.763Z",
+        "durationMs": 738,
+        "exitCode": 0,
+        "signal": null,
+        "state": "passed"
+      },
+      {
+        "operation": "benchmark-report",
+        "state": "passed",
+        "exitCode": 0
+      }
+    ]
+  },
+  "independentReviews": [
+    {
+      "evidence": {
+        "path": "/tmp/moodcode-evaluation-independent-review.json",
+        "bytes": 11052,
+        "sha256": "de2f30e65b4033fdf37ba670f9e5c1f86df5aba10450190e308348d5472e564c"
+      },
+      "verdict": "accept-with-scope-limitations",
+      "findings": [
+        {
+          "id": "EVAL-CLEANUP-01",
+          "status": "resolved-in-v2",
+          "severity": "correctness-evidence-preservation",
+          "initialProblem": "Resolved Engine.close could erase native/runtime uncertainty evidence because cleanup treated promise fulfillment as confirmed cleanup.",
+          "resolution": "While the store remains open, query native uncertain workspace debt, runtime cleanup guard, and active workspace ownership. Always join original Engine.close, independently report engineClosed, and retain DB/artifact directory for false, unavailable or active cleanup proof.",
+          "source": {
+            "path": "packages/engine/src/evaluation/runtime.ts",
+            "start": 232,
+            "end": 307
+          },
+          "actualRegression": {
+            "path": "packages/engine/src/evaluation/runtime.test.ts",
+            "start": 119,
+            "end": 255,
+            "fixtures": [
+              "Genuine ProviderAdapter return done:false causes actual native Attempt cleanupConfirmed:false and Run CLEANUP_UNCERTAIN; resolved close preserves DB/history and reopen debt without provider replay.",
+              "Genuine completed Run then public runtime-only quarantine; resolved close preserves DB/artifacts despite no native uncertain workspace."
+            ],
+            "executionAttribution": "feature-worker; reviewer read exact pinned output only"
+          }
+        }
+      ],
+      "attribution": "independent read-only peer review; execution results belong to feature worker or Root, not reviewer"
+    },
+    {
+      "evidence": {
+        "path": "/tmp/moodcode-resilience-independent-review.json",
+        "bytes": 8025,
+        "sha256": "78dc4ca970c5c7f2d64f384e8dd11391cb9834cddf730376716ff0cc5823a5b6"
+      },
+      "verdict": "no-open-actionable-static-finding-in-bounded-supported-command-harness; Root compiled/extended60 still pending",
+      "findings": [
+        {
+          "id": "RESILIENCE-01",
+          "status": "resolved-in-v2",
+          "location": "packages/engine/src/resilience/scenarios.ts:163",
+          "initialSha256": "a9868f5e8925e598210d8751d56be30c2e4ea19d2f47ca73e3a073f2a6592835",
+          "resolvedSha256": "03203ecb45066a33bb033c3b05cc4a472e7cd7bf1e0dd1d93425fec7891dd2cd",
+          "issue": "Cancellation-to-native Run settlement bypassed declared boundary-timeout-ms.",
+          "resolution": "Uses existing bounded(waitForRun, timeoutMs, source cancellation settlement); original cancelled assertion and cleanup behavior preserved."
+        }
+      ],
+      "attribution": "independent read-only peer review; execution results belong to feature worker or Root, not reviewer"
+    },
+    {
+      "evidence": {
+        "path": "/tmp/moodcode-hardening-independent-review.json",
+        "bytes": 12062,
+        "sha256": "1c59c63843dffea3ac2a3644b59daf0ca22fc035fa8ebafdc1847751d1555947"
+      },
+      "verdict": "All actionable findings in this bounded review are resolved. Actual current PTY source matches its final frozen manifest; CI validator is current-byte pinned. Root authoritative aggregate evidence remains separate and pending.",
+      "findings": [
+        {
+          "id": "CI-01",
+          "issue": "initial resilience validator accepted contradictory reports with missing native/source facts or failed summaries",
+          "status": "resolved in inspected current source",
+          "negativeCoverage": "missing native, zero process launches, failed summary, no replay and summary consistency negatives"
+        },
+        {
+          "id": "CI-02",
+          "issue": "first stricter validator rejected genuine known cancelled explicit queue observer resume",
+          "status": "resolved in inspected current source",
+          "negativeCoverage": "known-cancelled queued observer positive; unknown/SIGKILL replay negative"
+        },
+        {
+          "id": "CI-03",
+          "issue": "known cancelled path initially lacked native completion SHA64 requirement",
+          "status": "resolved in inspected current source",
+          "negativeCoverage": "known cancelled completion:null rejection"
+        },
+        {
+          "id": "SOAK-01",
+          "discoveredBy": "independent reviewer next_workflow_design",
+          "issue": "cancel native Run completion wait was not wrapped by configured boundary timeout",
+          "status": "resolved by approved narrow existing bounded helper",
+          "file": "packages/engine/src/resilience/scenarios.ts",
+          "oldSha256": "a9868f5e8925e598210d8751d56be30c2e4ea19d2f47ca73e3a073f2a6592835",
+          "newSha256": "03203ecb45066a33bb033c3b05cc4a472e7cd7bf1e0dd1d93425fec7891dd2cd",
+          "verification": {
+            "focusedSource": {
+              "total": 7,
+              "pass": 7,
+              "fail": 0,
+              "skip": 0,
+              "durationMs": 1547.322959,
+              "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test packages/engine/src/resilience/soak.integration.test.ts scripts/verify-engine-resilience.test.mjs",
+              "log": {
+                "path": "/tmp/moodcode-resilience-v2-focused-source.log",
+                "bytes": 827,
+                "sha256": "b005f68518baecab617f06dc09410ef54485dc65fcccd02c9afc6a0f5d5de911"
+              }
+            },
+            "scopedStrict": {
+              "exitCode": 0,
+              "noUncheckedIndexedAccess": true,
+              "sharedBuild": false,
+              "log": {
+                "path": "/tmp/moodcode-resilience-v2-scoped-type.log",
+                "bytes": 0,
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "config": {
+                "path": "/tmp/moodcode-resilience-v2-scoped-tsconfig.json",
+                "bytes": 497,
+                "sha256": "71e5b4395318140da876fee15fdf5e2b823d31734995dee45c4126146f487ff4"
+              }
+            },
+            "format": {
+              "exitCode": 0,
+              "files": [
+                "packages/engine/src/resilience/scenarios.ts"
+              ],
+              "log": {
+                "path": "/tmp/moodcode-resilience-v2-format.log",
+                "bytes": 66,
+                "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+              }
+            }
+          }
+        }
+      ],
+      "attribution": "independent read-only peer review; execution results belong to feature worker or Root, not reviewer"
+    }
+  ],
+  "preservedFailedEvidence": [
+    {
+      "evidence": {
+        "path": "/tmp/moodcode-hardening-media-local.log",
+        "bytes": 17332,
+        "sha256": "14b21ce1e9c56bc497a73a443ef966beac05a71dcfedbb5a5f9ca0e440ec5978"
+      },
+      "tests": 26,
+      "pass": 9,
+      "fail": 17,
+      "classification": "Root invocation mistake: direct source-mode media tests without tsx loader; source .js import MODULE_NOT_FOUND. Repeated using existing compiled CI launcher, 26/26 pass. No engine source change, skip or assertion relaxation."
+    },
+    {
+      "evidence": {
+        "path": "/tmp/moodcode-pty-disconnect-facts.log",
+        "bytes": 1243,
+        "sha256": "58e8b31652f64359a2d8f9ef26b413ac8adbcdbd06a436d46e151a992928a444"
+      },
+      "classification": "actual IPC disconnect + supervisor exit/stdout EOF without ChildProcess close, separately reproduced and narrowly fixed; does not establish R-PTY-01 historical cause"
+    }
+  ],
+  "hostedCI": {
+    "state": "pending",
+    "requiredJobs": 6,
+    "scope": "macOS15 and Ubuntu24.04 full headless Node24/26; Windows2025 Node24/26 portable contracts/storage only"
+  },
+  "noLive": true,
+  "liveRequests": 0,
+  "credentialsRead": false,
+  "modelQualityEvaluated": false,
+  "limitations": [
+    "R-PTY-01 historical normal-exit uncertainty cause remains unresolved.",
+    "Native Windows E5-08 and additional provider/model/media E5-13 remain open.",
+    "GUI/signing/updater/current packaged-app E2E were not executed.",
+    "Wall-clock/memory baselines are observations, not SLA, leak proof or physical I/O.",
+    "Raw local logs/reports remain pinned under /tmp; selected witness bodies are embedded here, hosted artifacts have workflow retention."
+  ]
+}
