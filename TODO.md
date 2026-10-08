@@ -1,8 +1,49 @@
-# Moodcode 엔진 구현 TODO
+# Moodcode 구현·리팩터링 TODO
 
-갱신일: 2026-10-09, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 2차 최종 검증 source: `99bf6f0`, 문서 커밋: `c4af35e`. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
+갱신일: 2026-10-09, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 2차 최종 검증 source: `99bf6f0`, 문서 커밋: `c4af35e`. 최신 보강 구현: `9563e97`, 검증 문서: `bd256ea`. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
 
 상태: G1-29까지 1차 구현과 자체 메인 엔진 2차 MC2-01~20의 **80/80 항목·20/20 기능군**을 명시 지원 범위에서 완료했다. 원래 조건을 유지한 독립 감사, 전체 회귀와 실제 공개 CI 여섯 작업으로 확인했다. [최종 수용 근거](docs/moodcode/engine-phase-two-final-acceptance-verification.json)와 docs/moodcode/engine-phase-two-progress.json을 기준으로 사용한다. E5-08·E5-13 및 과거 PTY 실패 진단 R-PTY-01은 열린 후속 범위로 남긴다.
+
+## 다음 실행 순서 — 추가 작업 → 점검·TODO 재작성 → 테스트·엔진 리팩터링
+
+2026-10-09 사용자 요청에 따라 후속 작업을 먼저 완료한 뒤 전체 코드를 점검하고, 실제 근거에 따라 수정·삭제·추가·유지할 항목을 정리해 리팩터링 TODO를 다시 작성한다. 현재 아래 목록은 실행 계획이며 전체 코드 감사나 리팩터링 완료를 의미하지 않는다. 기존 E5·MC2·H 완료 집계는 유지한다.
+
+### 1. 남은 기능과 제품 연결
+
+기존 열린 항목은 아래 원래 ID에서 추적하며 별도 완료 집계로 중복 계산하지 않는다.
+
+| 기존 ID | 다음 구현·검증 |
+|---|---|
+| E5-08 | native Windows Job Object backend 연결, 실제 child tree·timeout·parent crash·cleanup·restart 검증과 Windows CI 확대 |
+| E5-13 | 추가 공급자·원격 PDF·미디어의 첫 대상 모델/MIME/상한 확정, 실제 계정별 검증과 capability·unknown usage/cost 명세 갱신 |
+| R-PTY-01 | 보존된 실패·현재 진단을 대조하고 재현을 조사. 실제 PID/PGID·native outcome·supervisor close 근거로 원인과 수정 여부 판정 |
+
+- [ ] **N-01 — 동일 엔진 장기 실행·부하 검증**: 같은 인스턴스에서 queue/steer·승인·취소·재시작 경합과 큰 이력을 검증한다. 유한 실행 시간·seed·입력량을 고정하고 메모리·FD·프로세스·SQLite·artifact 증가 및 종료 정산을 측정한다. 기존 60회 독립 반복 근거와 구분한다.
+- [ ] **N-02 — 고급 엔진 기능의 GUI 연결**: inbox·tasks/questions·MCP·PTY·child/team·workflow·LSP·진단을 host/preload/renderer까지 연결한다. 기존 승인·owner·budget을 유지하고 실제 화면의 소비·reload·cancel·reconnect를 검증한다.
+- [ ] **N-03 — 앱 인증·계정 관리**: 공급자별 공식 지원 인증·갱신 방식과 첫 지원 범위를 확인한 뒤 로그인·로그아웃·계정 선택·갱신 실패를 구현한다. credential 저장·삭제와 renderer/journal 비노출을 검증한다.
+- [ ] **N-04 — 지원 OS 패키지·최신 GUI 검증**: 최신 엔진의 macOS/Linux/Windows 지원 범위를 명시하고 해당 bundle·utility·SQLite·supervisor·renderer 및 설치/실행 smoke를 실제 OS에서 확인한다.
+- [ ] **N-05 — 서명·배포·업데이트**: 대상 OS·배포 채널을 고정하고 서명/공증·설치·업데이트·실패 복구를 구현·검증한다. 인증서·계정이 필요한 실제 서명/배포와 로컬 준비 완료를 구분한다.
+- [ ] **N-06 — 추가 작업 수용·기준 동결**: 구현·실제 검증·외부 조건 대기를 구분하고 현재 지원 표·API·DB·코드/테스트 줄 수·성능·CI·GUI 근거를 고정한다. 이후 리팩터링의 동작 보존 기준으로 사용한다.
+
+추가 기능은 첫 지원 OS·모델·GUI 흐름과 완료 조건을 구현 전에 고정한다. 계정·인증서·과거 실행 자료가 없는 항목은 대기 사유와 해제 조건을 남기고 완료 처리하지 않는다. 외부 조건과 독립인 구현·검증·점검은 계속 진행한다.
+
+### 2. 문제 목록 작성과 리팩터링 TODO 재작성
+
+- [ ] **RF-01 — 전체 소유 코드 inventory·기준 측정**: engine/contracts/harness/desktop/scripts/CI와 테스트·fixture의 책임·호출자·공개 API·DB transaction·자원 소유·의존성을 조사한다. 파일/함수 길이·복잡도·중복·미사용 코드·실행 시간·메모리 기준을 기록한다. clone·dependency·생성 결과는 제품 코드와 분리한다.
+- [ ] **RF-02 — 문제·수정·삭제·추가·유지 목록 작성**: 각 항목에 ID·실제 경로/근거·영향·재현 또는 확인 방법·분류·해결안·선행 작업·검증·완료 조건을 붙인다. 확인된 결함과 조사 후보를 구분하고 caller/export/동적 등록·기존 기록 호환까지 확인한다.
+- [ ] **RF-03 — 실제 근거로 TODO 재작성**: 우선순위를 정확성/cleanup → 테스트 신뢰성 → 책임·중복 → 성능·문서로 정한다. 기능 단위 작업·담당 파일·검증 범위·완료 조건을 확정하고, 현재 열린 목록과 완료/역사적 기록을 구분한다. 원래 ID·실패 근거·호환 계약은 보존한다.
+
+현재 확인한 점검 후보는 `agent-backends/store.ts` 4,088줄, `engine.ts` 2,815줄, `runner/index.ts` 2,411줄 및 1,000줄 이상 테스트 파일이다. 길이는 조사 우선순위 근거이며 중복·미사용·동작 결함 판정은 RF-01/02에서 별도로 확인한다.
+
+### 3. 테스트부터 엔진까지 기능 단위 리팩터링
+
+- [ ] **RF-04 — 테스트·fixture 정리**: 반복 setup·임시 repo/DB·실제 process·cleanup helper를 정리하고 큰 suite를 계약/시나리오별로 나눈다. 의도와 독립 expected 값을 유지하며 중복 테스트 삭제는 보존되는 회귀 시나리오를 기록한다. 실패 증거·미확정 cleanup은 보존하고 실제 구현과 같은 계산으로 expected를 만들지 않는다.
+- [ ] **RF-05 — 메인 엔진 책임 분리**: API dispatch/admission/scheduler/turn/context/tool/permission/storage·recovery/lifecycle을 책임별로 정리한다. 큰 store는 native 소유권·transaction 경계에 맞춰 분리하고 의미가 같은 정책·검증만 공통화한다. 먼저 한 완결 기능을 변경·검증한 뒤 다음 범위로 진행한다.
+- [ ] **RF-06 — 미사용·중복·의존성·주석 정리**: 실제 소비·호환성이 확인된 불필요 코드와 dependency를 제거한다. 함수는 한 책임·명확한 이름·단순한 흐름으로 정리하고, 주석은 비자명한 이유·불변식·외부 제약·필수 고지만 남겨 현재 구현과 맞춘다. 코드와 같은 설명·오래된 TODO 주석은 정리한다.
+- [ ] **RF-07 — 성능·검증 실행 개선**: 병목은 측정 후 개선하고 focused/contract/integration/crash/OS/GUI 검증 경계를 정리한다. 작업 중에는 영향 검증, 큰 통합 경계와 최종 수용에는 전체 회귀·실제 지원 CI를 실행한다. 이력·context·event·summary·장기 자원 수명을 같은 조건으로 비교한다.
+- [ ] **RF-08 — 최종 수용·커밋·문서 최신화**: 타입/build·전체 엔진·코딩 과업·resilience·성능·OS CI와 변경된 GUI/package를 검증한다. public API/event/DB/archive·승인·cancel/unknown/no-replay·예산 계약을 보존하고 코드 양·중복·복잡도·실행 시간의 전후 차이를 기록한다. 남은 조건을 명시한 검증 근거와 TODO를 정리하고 커밋·푸시한다.
+
+리팩터링은 완결 기능별로 병렬 분담하되 `engine.ts`·공통 contracts·동일 store 등 공유 파일의 편집 담당은 하나로 고정한다. 테스트 실패를 숨기는 skip·assertion 축소·timeout 완화로 완료하지 않는다. 줄 수에 임의 목표를 두어 필요한 검증을 없애거나 함수/파일을 과하게 분할하지 않는다. 리팩터링 중 새로운 기능은 별도 TODO로 기록해 완료 범위를 유지한다.
 
 ## 완료: 엔진 안정성·평가 보강 H1–H5
 
@@ -20,7 +61,7 @@
 - 항목 ID는 유지한다. 범위를 나누면 하위 ID를 추가하고, 순서를 바꾸면 선행 조건도 함께 갱신한다. 같은 기능을 여러 문서에서 따로 완료 처리하지 않는다.
 - 선행 계약을 합의한 작업은 파일 담당 범위를 나누어 병렬 구현한다. 통합·검증·검토·커밋은 검증 가능한 변경 단위로 진행하고, 완료 항목에 검증 명령·보고서와 커밋을 연결한다. 설계 문서나 독립 모듈 작성만으로 연결되지 않은 실행 기능을 완료 처리하지 않는다.
 - OpenCode에서 확인한 동작을 Moodcode 계약과 자체 fixture로 구현한다. 원본 코드·프롬프트·도구 설명·테스트를 이름만 바꿔 가져오지 않는다. 실제 외부 코드 재사용이 필요하면 출처와 고지를 별도로 기록한다.
-- 각 단계는 headless engine/harness로 검증한다. 기본 회귀는 fixture를 사용하고, 실제 계정 요청은 명시적으로 분리한다. GUI·서명·앱 업데이트는 이 목록의 구현 범위에 넣지 않는다.
+- 엔진 단계는 headless engine/harness로 검증한다. 기본 회귀는 fixture를 사용하고, 실제 계정 요청은 명시적으로 분리한다. 후속 N-02~05의 GUI·인증·패키지·서명/업데이트는 별도 실행 경계와 실제 근거로 검증한다.
 
 **구현·검증 완료 73/75**. 열린 항목은 **E5-08, E5-13**이며 각각 아래에 남은 조건을 기록한다. E0-01~04는 [첫 통합 기록](docs/moodcode/engine-foundation-verification.md), 기본 native 엔진은 [첫 native 통합](docs/moodcode/engine-native-verification.md), 확장 연결과 최신 gate는 [최종 headless 검증](docs/moodcode/engine-native-final-verification.md)을 따른다. 담당 범위는 [병렬 엔진 구현](docs/moodcode/engine-implementation-waves.md)에 기록한다.
 
@@ -206,7 +247,7 @@ E5는 코딩 loop 기반을 만든 뒤 순서대로 확장한다. 초기 검증�
   선행: E5-06. 완료: 부모 종료·분리·process group 정리를 실제 OS에서 확인한다. 저장된 terminal 기록이 살아 있는 프로세스의 증거가 되지 않도록 한다.
 - [ ] **E5-08 — Windows process-tree backend 구현** `[신규]`
   선행: E5-05. 완료: Job Object 등 실제 소유·종료 확인 backend와 기존 process port를 연결하고 Windows에서 child tree·timeout·crash를 검증한다.
-  현재: ownership port와 명시적 unavailable 처리는 구현했다. native Job Object binding과 실제 Windows 실행 호스트가 필요하다. macOS의 fake port fixture·OS skip은 완료 근거로 사용하지 않는다.
+  현재: ownership port와 명시적 unavailable 처리는 구현했고 실제 Windows Node24/26 portable CI는 통과했다. native Job Object binding 연결과 실제 Windows child tree·timeout·parent crash fixture는 남는다. portable/fake port·OS skip은 native 완료 근거로 사용하지 않는다.
 - [x] **E5-09 — worktree lifecycle 구현** `[신규]`
   선행: E4-12. 완료: create/boot/ready/failure/cleanup을 durable 상태로 기록하고 기존 사용자 수정·branch/path를 보존한다. Git 준비 완료와 실행 완료를 구분한다.
 - [x] **E5-10 — child task·cancel·budget 상속 구현** `[신규]`
