@@ -35,6 +35,24 @@
 
 현재 확인한 점검 후보는 `agent-backends/store.ts` 4,088줄, `engine.ts` 2,815줄, `runner/index.ts` 2,411줄 및 1,000줄 이상 테스트 파일이다. 길이는 조사 우선순위 근거이며 중복·미사용·동작 결함 판정은 RF-01/02에서 별도로 확인한다.
 
+#### 근거에 따라 확정한 작업 단위
+
+통합 기준 `99cc0c5`에서 소유 파일 1,060개·307,720줄을 측정했다. AST 분석 1,051개·미지원 문법 9개이며 파싱 실패는 0개다. 줄 수는 공백·주석을 포함하고 clone·dependency·생성물을 제외한다. 이는 구조 점검 기준이며 전체 의미 감사나 후속 수용 완료를 뜻하지 않는다. 근거: [core](docs/moodcode/next-core-refactor-proposals.json), [store/runner](docs/moodcode/next-store-runner-refactor-proposals.json), [Desktop 결함](docs/moodcode/next-desktop-integration-review.json). 실제 검증 실패를 먼저 해결하고 아래 기능별로 원 계약을 보존한다.
+
+| 상태·ID | 수정·삭제·추가 범위 | 보존·검증 조건 |
+|---|---|---|
+| [ ] TEST-01 | PTY fixture의 역사적 숫자 PID cleanup을 원본 live 소유 capability로 교체 | stopped shell·supervisor loss 별도 시나리오, stale PID 신호 0, uncertain 자료 보존 |
+| [ ] TEST-02 | observer 준비/변경 관찰 및 persistent 시간 fixture의 인과 경계 정리 | 원 duration·입력 상한·실제 elapsed·비교 baseline 유지, skip/timeout 완화 금지 |
+| [ ] CORE-01 | v1/v2 새 입력의 미디어 admission 순서를 private helper로 합침 | durable receipt 중복 조회 뒤 실행; budget→segment→document→image 순서·삭제 blob 중복·효과 0 유지 |
+| [ ] CORE-02 | image/PDF/media import의 signal·pending lifetime 공통화 | 원 Promise·동기 factory 실행·close join·원 CAS/index 유지 |
+| [ ] CORE-03 | constructor optional boolean guard 28개 공통화 | 원 guard 위치·property 평가 횟수·오류 우선순위·자식 opt-in·dependency 조건 유지 |
+| [ ] CORE-04 | host/owned 명령 결과의 순수 request projection·promoted Run 비교 공통화 | lane별 Original·receipt·native transaction·source release·restart/no-replay 유지 |
+| [ ] STORE-01 | live/admin backend revision·receipt 순수 값 조립 공통화 | UUID/time·quota·CAS·SQL 거래·독립 archive validator·unknown/paused state 유지 |
+| [ ] RUNNER-01 | team/workflow의 동일한 live owner predicate 공통화 | allowlist 먼저, 14조건 평가 순서·오류·승인 유지; readonly/code-mode/settle는 원 계약 유지 |
+| [ ] DOC-01 | 중복 진행 문서와 주석의 실제 소비 확인 뒤 정리 | 공개 API·라이선스·역사 실패 근거 유지, 근거 없이 export/dependency/test 삭제 금지 |
+
+테스트·fixture 수정과 영향 검증을 먼저 완료한다. `engine.ts`, `agent-backends/store.ts`, `runner/index.ts`는 각각 단일 편집 담당을 둔다. 각 단위는 기존 source/compiled 회귀와 독립 expected/native SQLite 검증을 통과해야 완료 처리한다. 외부 계정·인증서·과거 PID 자료의 대기는 열린 상태로 남기고 독립 가능한 작업을 계속한다.
+
 ### 3. 테스트부터 엔진까지 기능 단위 리팩터링
 
 - [ ] **RF-04 — 테스트·fixture 정리**: 반복 setup·임시 repo/DB·실제 process·cleanup helper를 정리하고 큰 suite를 계약/시나리오별로 나눈다. 의도와 독립 expected 값을 유지하며 중복 테스트 삭제는 보존되는 회귀 시나리오를 기록한다. 실패 증거·미확정 cleanup은 보존하고 실제 구현과 같은 계산으로 expected를 만들지 않는다.

@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-08T22:31:36.408Z",
+  "scope": "Read-only Desktop N02/N03/N05 correctness and N04 Windows packaging interface",
+  "status": "Three source-proven integration/evidence defects reported; no production or test changes; final merged qualification remains Root-owned",
+  "source": {
+    "desktop": {
+      "worktree": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode",
+      "initialCommit": "55b213696a056f94976cd0611ba896b356f9a40e",
+      "finalCommit": "044aa3aff903e3e17d374f7071e112c39daf0fcb",
+      "commitDrift": [
+        "docs/moodcode/next-desktop-progress.json"
+      ],
+      "programFileCount": 46,
+      "pinsSha256": "c17264e64f36a64457c4b74138aab4e81c35e69b18db0f149de33fea09eef879",
+      "matchesInitialImmutableSource": true,
+      "programDriftPaths": [],
+      "criticalPins": {
+        "apps/desktop/src/worker/advanced.ts": "ee589c6e35a0e49c5abaf3d8c1260b06a96e4364f4b71cf8dd9ecb7b38b1d862",
+        "apps/desktop/src/main/account-auth.ts": "f61b7c3471cd1f8203d8585655e41ec0ad89ea5cbb6efc5068037d9efb6f05d9",
+        "apps/desktop/src/main/account-vault.ts": "82ec6def025c0476cc1ccd025786bac9bd30f93c3dad35464edd14acf1e38435",
+        "apps/desktop/src/main/accounts.ts": "7287ac47fe637455d3d23800b160ea4fb9ae25cc42ff5b880f589afd415f9762",
+        "apps/desktop/src/main/index.ts": "e871a35b735e8a144054e9fd68f8d631b2900f5641e08e6b135f020edf3a7534",
+        "apps/desktop/src/main/host.ts": "cdfda91502854d71837b1b8cdb4c7c781dc9678c2f1d566589dcfe9113bd8774",
+        "apps/desktop/src/main/updates.ts": "a00dd88bba6333bc8e3fefc5cd185bbeb12701e118d85cbacbb3890c45227f91",
+        "scripts/package-desktop.mjs": "a2ccd422cf1e3d6ba283a08418bd84dcbdd3fd914ee69fe0ec986cbcdacf43fc",
+        "scripts/desktop-native-package.mjs": "86a27bd7dae71045872674032e938a1bd3f588d38ae79fa0394de9104c837585",
+        "scripts/desktop-package-utility.mjs": "092bdf93911c9dcd93dd92ffa87a32e9cab66f79a47d547422859d6a524d95da",
+        "scripts/test-desktop-package.mjs": "52400fd41c70e893d8ab9bdf3e94cec4423d2e1757b86a8c761b139e54a24285",
+        "scripts/desktop-update-fixture.cjs": "957862c189be6835ecf0b7dd85783395d4ef16a0a9d60f08ae62b8194185428b"
+      }
+    },
+    "windows": {
+      "worktree": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode",
+      "initialCommit": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+      "finalCommit": "a6e56da1a193e1798500ad947873522e51689431",
+      "programFileCount": 9,
+      "pinsSha256": "ba7e7791cd06759c92a3d823b18351176646df4403a2f512ce2e1588b8553da5",
+      "matchesInitialImmutableSource": true,
+      "programDriftPaths": [],
+      "pins": {
+        "packages/windows-job/package.json": "6354a37f42e33904592e4b78ade2a75ea5a2b910cd267c7997ea7048d582c570",
+        "packages/windows-job/index.js": "45db7f3ec4ac72f3e78ceebb39bdae47b74ff49dde81a6aed054df9beebd7b13",
+        "packages/windows-job/index.d.ts": "94087e99fe64c36073149e085d5cd20f3991f128c918c0137966cd838363401b",
+        "packages/windows-job/binding.gyp": "e7d892441000cad5f362d1b4af58b7ae9dc748e7b1eb5a5eacfcf7b040459b4b",
+        "packages/windows-job/scripts/build.mjs": "aa835b63fc56abbc832686f9315df2dbf11ed024fa3f6855f1cfe654cf547d24",
+        "packages/engine/src/tools/command/backends.ts": "64b2de5fae36d7f8d5afe2aba773f5fdf0350cdb1d7666a976ab9f50a7238ac5",
+        "packages/engine/src/tools/command/windows-job-host.ts": "4f0d5f5d7deeaa5ed03e6783a03ceefd321eb1d2a2aa7a7efd4d40dc2e3ff122",
+        "packages/engine/src/tools/runtime/index.ts": "5f18db1c3cc932b5e1d758945bdbd87c754d1160ec67916baff633b7c0b10d08",
+        "packages/engine/package.json": "ec334fefaa64cc358ed11a95072ebaeecfa1df5e8aa00d210fb41956b12b8002"
+      }
+    }
+  },
+  "findings": [
+    {
+      "id": "desktop-mcp-pending-capacity",
+      "priority": 2,
+      "file": "apps/desktop/src/worker/advanced.ts",
+      "line": 226,
+      "confidence": "source-proven",
+      "cause": "Desktop checks only completed #mcp.size before awaiting Engine.connectMcp, and publishes the entry afterward. Concurrent distinct approved handles all pass the same unreserved 16-slot check.",
+      "impact": "The Desktop 16-connection ceiling can be exceeded. The independent Engine ceiling of 32 still applies; this finding does not claim an unbounded native process count.",
+      "consumerEvidence": [
+        {
+          "file": "packages/engine/src/engine.ts",
+          "line": 2604,
+          "detail": "Engine separately counts pendingMcp and permits 32."
+        },
+        {
+          "file": "apps/desktop/src/worker/runtime.ts",
+          "line": 7,
+          "detail": "Utility handles concurrent requests; renderer busy state is not a worker reservation."
+        }
+      ],
+      "existingCoverage": "advanced.test.ts validates preview owner limits and one connection/disconnect/reconnect; it has no concurrent distinct connection capacity oracle.",
+      "candidateFix": "Reserve the connection ID and a bounded pending slot before awaiting native discovery; release the original reservation in finally."
+    },
+    {
+      "id": "desktop-mcp-post-registration-failure",
+      "priority": 2,
+      "file": "apps/desktop/src/worker/advanced.ts",
+      "line": 234,
+      "confidence": "source-proven",
+      "cause": "After Engine.connectMcp has registered the native connection, data(registration.resources) may reject a valid paginated catalog over Desktop responseBytes. Catch closes the client but never removes the already committed Engine registration; #mcp entry is never published.",
+      "impact": "The native Engine retains the connection ID while GUI mcp.disconnect cannot find its session entry. Reconnect with that ID fails until the worker restarts. Native client close removes its registered tool scope, so this is not a claim of continuing tool authority.",
+      "consumerEvidence": [
+        {
+          "file": "packages/engine/src/mcp/client.ts",
+          "line": 160,
+          "detail": "256 resources over up to 8 separately bounded 1 MiB pages can exceed a single Desktop response."
+        },
+        {
+          "file": "packages/engine/src/mcp/registration.ts",
+          "line": 38,
+          "detail": "Client close unregisters tool scope; Engine connection map is removed only by disconnectMcp."
+        },
+        {
+          "file": "apps/desktop/src/worker/advanced.ts",
+          "line": 241,
+          "detail": "GUI disconnect requires an existing #mcp session entry."
+        }
+      ],
+      "existingCoverage": "Only the small fixture catalog is exercised.",
+      "candidateFix": "Treat native registration plus bounded view publication as one ownership transition; on any post-registration failure, disconnect the exact newly registered native connection before discarding its Desktop bookkeeping. Preserve cleanup uncertainty if that disconnect fails."
+    },
+    {
+      "id": "desktop-package-uncertain-evidence-deletion",
+      "priority": 2,
+      "file": "scripts/test-desktop-package.mjs",
+      "line": 120,
+      "confidence": "source-proven failure path",
+      "cause": "The finalizer waits at most 3 seconds for the original supervisors, then removes userData without requiring close or cleanup confirmation. The Windows private utility helper rethrows a close failure after stopping its original live utility, and the caller then removes its SQLite/artifacts.",
+      "impact": "Native package failures can lose actual SQLite/effect markers/artifacts needed to distinguish confirmed physical cleanup from consumed uncertain outcomes. This does not establish that a current accepted run failed cleanup.",
+      "consumerEvidence": [
+        {
+          "file": "scripts/desktop-package-utility.mjs",
+          "line": 118,
+          "detail": "A failed private utility close waits finitely, force-stops the original utility and rethrows; it does not qualify retained native records."
+        },
+        {
+          "file": "scripts/test-desktop-advanced.mjs",
+          "line": 705,
+          "detail": "GUI failure finalizer similarly deletes native fixture root after app close."
+        }
+      ],
+      "candidateFix": "Retain fresh fixture originals on assertion failure, missing native terminal outcome or uncertainty even if Engine.close succeeds. Attempt Original owner cleanup independently; upload bounded read-only evidence and report physical process absence separately."
+    }
+  ],
+  "retainedContracts": {
+    "N02": {
+      "source": "advanced.ts retains utility-private Original objects with owner/session/kind/root identity and five-minute lifetime, finite handles, explicit release; executable/launch-directory checks run again before launch.",
+      "nativeCancellation": "Owner drop aborts pending MCP work, releases previews and fences late owner handles. Terminal creation forwards owner abort to the Original native terminal service; resident/team/workflow effects consume native Original previews.",
+      "renderer": "advanced-store discards late session replies, releases old preview/control/mailbox handles and consumes effect previews before dispatch; no automatic replay is introduced.",
+      "remainingCoverage": "Executable substitution, foreign/duplicate handles, owner drop, actual PTY/MCP/LSP/child/team/workflow native paths are represented in existing tests; no new tests ran in this review."
+    },
+    "N03": {
+      "source": "Fixed official issuer/endpoints/resource, actual loopback state/nonce/S256 PKCE, issued client binding and signed JWT issuer/audience/expiry/subject validation. Main owns encrypted credentials; worker receives only a private fresh selected bearer.",
+      "refresh": "Original rotating refresh is serialized under a durable pending marker; failures and unpersisted replacements are quarantined without retrying an old grant.",
+      "lateCancel": "Existing tests hold JWKS and cancel during encryption; account-auth checks after async identity verification and vault checks signal immediately before atomic rename. No code defect was established in these exercised boundaries.",
+      "fixtureSeparation": "Unpackaged account scenario injects signed fixture JWT/fetch and ScriptedProvider. GUI proof uses native safeStorage, but reports externalIdentityVerified=false and inferenceRequests=0. No live account acceptance is inferred.",
+      "knownScope": "Credential resolution/renewal is invoked at worker configuration or explicit account transition; no continuous background bearer renewal is claimed."
+    },
+    "N05": {
+      "source": "autoDownload/autoInstallOnAppQuit/autoRunAppAfterInstall disabled; stable channel and downgrade protection; exact downloaded version plus explicit acknowledgment plus actual Engine cleanup gate installer.",
+      "sdkProof": "desktop-update-fixture uses real electron-updater AppImage checksum/download/install code and real loopback transport against a disposable shell fixture, including checksum rejection and higher-version recovery. The app adapter and payload are fixtures; no signed macOS/Windows update proof is claimed.",
+      "rollback": "rollbackReleasePlan requires a higher stable version and immutable known-good SHA; packaging checks current HEAD equals that SHA and always passes --publish never.",
+      "remainingQualification": "Signed installer/publisher/notarization and approved actual release feed/update installation remain external conditions."
+    },
+    "N04": {
+      "interface": "Windows native build requires engine production dependency @moodcode/windows-job@0.1.0, exact Electron44.5.1 headers and x64/arm64 PE architecture; package-relative binding is ASAR-unpacked.",
+      "nativeConsumer": "windows-job validates bindingVersion1/NAPI8/platform/arch/atomicJobAssignment. The packaged private Engine utility probe requires actual windows-job-object capability, exact patch/command approvals, real file effect/output, complete native checkpoint and graceful utility exit.",
+      "qualificationBoundary": "Portable package smoke and Windows Node24/26 native results do not establish Electron utility or signed package acceptance. Merged locked workspace and genuine Windows packaged utility run are still required.",
+      "notReviewed": "This review traces the JS/Desktop native packaging interface; it is not an exhaustive Windows C++ implementation audit."
+    }
+  },
+  "priorEvidence": {
+    "reportPath": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode/artifacts/desktop-next/verification-55b2136-desktop.json",
+    "reportSha256": "6ca6a53d172a76bfafaf52588f1b4c084aa0afb4aee42833c4d56f058b277eaa",
+    "declaredStatus": "passed",
+    "declaredSourceSha256": "8c2d738fdff0386b2bed77635abb40437b514406b0ec939269531f10533cccd7",
+    "declaredFinalSourceSha256": "8c2d738fdff0386b2bed77635abb40437b514406b0ec939269531f10533cccd7",
+    "currentLogs": [
+      {
+        "name": "desktop-unit",
+        "exitCode": 0,
+        "totals": {
+          "tests": 210,
+          "pass": 210,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "declaredLogSha256": "9f7b082215c2aade784ec5b359aa504e6cb38247ef308d83d41ceed9c68644fc",
+        "currentLogSha256": "9f7b082215c2aade784ec5b359aa504e6cb38247ef308d83d41ceed9c68644fc",
+        "currentLogMatchesReported": true
+      },
+      {
+        "name": "release-policy",
+        "exitCode": 0,
+        "totals": {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "declaredLogSha256": "0ddbe24a795748cb367f826bf8a741ae4c79217858fefcbd90a2214aef2fd61a",
+        "currentLogSha256": "0ddbe24a795748cb367f826bf8a741ae4c79217858fefcbd90a2214aef2fd61a",
+        "currentLogMatchesReported": true
+      },
+      {
+        "name": "desktop-package",
+        "exitCode": 0,
+        "declaredLogSha256": "60feda7c0103094b6e3828d03db260a365e7aad0d7d002f1cacff5a99784ef95",
+        "currentLogSha256": "60feda7c0103094b6e3828d03db260a365e7aad0d7d002f1cacff5a99784ef95",
+        "currentLogMatchesReported": true
+      }
+    ],
+    "independentExecution": false
+  },
+  "reviewLimits": {
+    "readOnlySourceAndReports": true,
+    "newTestsRun": 0,
+    "buildsRun": 0,
+    "liveProviderRequests": 0,
+    "actualUserAuthChanges": 0,
+    "branchOrProductionChanges": 0,
+    "noSecurityPluginOrFullScan": true,
+    "noGoalCalls": true,
+    "onlyWrittenFile": "docs/moodcode/next-desktop-integration-review.json"
+  }
+}

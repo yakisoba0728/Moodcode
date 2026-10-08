@@ -1,0 +1,481 @@
+{
+  "schemaVersion": 1,
+  "status": "Read-only RF02 proposals; no production change, test execution, database inspection or completed refactor claim.",
+  "generatedAt": "2026-10-08T22:33:07.460Z",
+  "source": {
+    "head": "99cc0c595c54d491090be7d570944fa531fd9d93",
+    "scope": "Current main source after host-command feature integration. These file pins qualify this audit; feature integration and the final all-owned inventory remain Root-owned.",
+    "databaseBaseline": {
+      "version": 23,
+      "basis": ["migrations:97", "migrations:99"],
+      "qualification": "Source-defined migration baseline; no live database was opened. Proposals require no migration or DB_VERSION change."
+    },
+    "referenceFormat": "alias:one-based-line; alias resolves through files. Each reference was located by a required source anchor before its anchor text was compacted from this summary.",
+    "files": {
+      "store": {
+        "path": "packages/engine/src/agent-backends/store.ts",
+        "sha256": "771cfbe0993676657c82d4bfb89e3fcd2c3f06f9922763114c0c71333c0cfaa7"
+      },
+      "runner": {
+        "path": "packages/engine/src/runner/index.ts",
+        "sha256": "16895c5d89eabb216eb65fb1aa6dbd2ab5d5a807a92b77a586d87808e22cbdac"
+      },
+      "scheduler": {
+        "path": "packages/engine/src/runner/input-scheduler.ts",
+        "sha256": "5df073f59c5b96f2b167c2a68a1d90bde818ad21435caf6cebbe6144ee51ff78"
+      },
+      "sqlStore": {
+        "path": "packages/engine/src/storage/index.ts",
+        "sha256": "1984bc06713d2658d5e2187a70ad87f6497e9df61b8b328414ebd95f73394beb"
+      },
+      "archive": {
+        "path": "packages/engine/src/storage/archive.ts",
+        "sha256": "6a5dc0d21f933635fb09e8ee2e891afc5e04abeeaf5cfc8e82f13909a197b822"
+      },
+      "migrations": {
+        "path": "packages/engine/src/storage/migrations.ts",
+        "sha256": "63cfe2ec5e538b7cd20ba2136d1363677d1dc40a0771890f4220da61984d33b7"
+      },
+      "engine": {
+        "path": "packages/engine/src/engine.ts",
+        "sha256": "a9c169e08d53ac9aef15e7be10f309e549e12431ac87af39f5e3aee2351df46e"
+      },
+      "exports": {
+        "path": "packages/engine/src/index.ts",
+        "sha256": "a83d2a3e385e20862adf3882cc67660f0fce9a02d0714f2c8d0c61c9d4d9fa9a"
+      },
+      "teamHost": {
+        "path": "packages/engine/src/teams/model-tool-host.ts",
+        "sha256": "f94569ad16595953b854f446ac9a1fedb223c48581731533a3149c8986b5fbdf"
+      },
+      "workflowHost": {
+        "path": "packages/engine/src/workflows/effects.ts",
+        "sha256": "8a6f17bb20a485a38434eda1ecce7b128a254213fcf89522fc7f1b6120c676ff"
+      },
+      "jobHost": {
+        "path": "packages/engine/src/jobs/command-model-tools.ts",
+        "sha256": "3b560ac083703f042089dadf5bdebc5cfa912f96ee07c42feaa5e522c612826c"
+      },
+      "backendTests": {
+        "path": "packages/engine/src/agent-backends/store.test.ts",
+        "sha256": "ea501475eddc463ad69795dd896e4872ea6cf8320dc9efc778de53711bfc55f1"
+      },
+      "backendGraphTests": {
+        "path": "packages/engine/src/agent-backends/native-graph.integration.test.ts",
+        "sha256": "8e6514f575c0831c1b5164d725361b0d32cbb03f6df4a958f575272c3f4e7669"
+      },
+      "backendArchiveTests": {
+        "path": "packages/engine/src/agent-backends/archive.integration.test.ts",
+        "sha256": "6a7c6ed0f92c60e9a6e224a0fb7b211f6c1a84cc1e9079f2954bc72e2093c5b3"
+      },
+      "teamTests": {
+        "path": "packages/engine/src/teams/model-tools.integration.test.ts",
+        "sha256": "76791d479d8c9c5ec74e436b34d234d68f4403b40752e044542bc719f2905c59"
+      },
+      "teamProofTests": {
+        "path": "packages/engine/src/teams/model-tools-host-proof.test.ts",
+        "sha256": "a77016e499999cc362c97cf939fa204307e6ebc5bcd3d72a7b5c6477536fe9df"
+      },
+      "jobTests": {
+        "path": "packages/engine/src/jobs/command-model-tools.integration.test.ts",
+        "sha256": "29a9f2760eee717c602f8f040448966886dffc7c568aaacf4542a704700ad1a1"
+      },
+      "workflowEffectsTests": {
+        "path": "packages/engine/src/workflows/effects.integration.test.ts",
+        "sha256": "b64d3ad2620b55d6efba72756428467de9859dd60658561861dac114ac009e46"
+      },
+      "workflowEdgeTests": {
+        "path": "packages/engine/src/workflows/producer-edge.integration.test.ts",
+        "sha256": "10279adf2ff53cd1569397f99698fc51a9489d9caadfcdadc0f9d8018ca3a3c2"
+      },
+      "coordinatorTests": {
+        "path": "packages/engine/src/runner/coordinator.test.ts",
+        "sha256": "b109ea5decf42ad1121a0ff949d0bc1dd1453e7067508b312cf89d0fdb7e0af6"
+      },
+      "compatibilityTests": {
+        "path": "packages/engine/src/storage/v1-compatibility.test.ts",
+        "sha256": "756e6270fe239fe2d43baccd2f630d8efff838b69b4646b5a60e1353a87e5216"
+      },
+      "inventoryAst": {
+        "path": "scripts/refactor-inventory/ast.mjs",
+        "sha256": "c07462dab3058ffaa6c99ae42632963c87b3f382f8ba048f85fb1cf0c749896f"
+      },
+      "inventoryScope": {
+        "path": "scripts/refactor-inventory/scope.mjs",
+        "sha256": "bdf457f1ce25e885dc148ad1a88ea6eb5a467ad3e33a3a036be19ea4cbdfb437"
+      },
+      "inventoryWorker": {
+        "path": "scripts/refactor-inventory/worker.mjs",
+        "sha256": "1ed18ac78331bc9c426a4b4de80c25d720a54fb2493b66fed9eafaa83c2569ea"
+      },
+      "inventoryMethod": {
+        "path": "docs/moodcode/refactor-inventory-method.md",
+        "sha256": "3164d66b2b1b2fb537f8c1b103bb42cda6222746af5a0ad034d6710b648fc134"
+      }
+    }
+  },
+  "measurement": {
+    "method": "Existing RF01 TypeScript 7 AST worker in a closed synthetic virtual filesystem (noResolve/noLib), plus manual source/caller/test inspection. No semantic type resolver, runtime registry inspection or unused-code proof.",
+    "methodSources": ["inventoryWorker:35", "inventoryAst:184"],
+    "runtime": {
+      "node": "v26.9.0",
+      "typescript": "7.0.2",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "bounds": {
+      "files": 3,
+      "astDeadlineMs": 30000,
+      "workerOutputMaxBytes": 31457280,
+      "physicalLinesInclude": "Blanks/comments; CRLF/CR/LF/U+2028/U+2029; no phantom trailing line.",
+      "complexity": "1 plus owned syntax decision nodes; nested function decisions belong to the nested function. Syntax proxy only."
+    },
+    "coverage": {
+      "requested": 3,
+      "measured": 3,
+      "measurementFailures": 0,
+      "unsupported": 0,
+      "unreadable": 0,
+      "sourceChangedAtDelivery": 0,
+      "physicalLines": 6673,
+      "bytes": 305364,
+      "functions": 407
+    },
+    "files": [
+      {
+        "path": "packages/engine/src/agent-backends/store.ts",
+        "status": "measured",
+        "sha256": "771cfbe0993676657c82d4bfb89e3fcd2c3f06f9922763114c0c71333c0cfaa7",
+        "physicalLines": 4088,
+        "bytes": 134116,
+        "functions": 144,
+        "priorityFunctions": [
+          {
+            "name": "validateTransition",
+            "start": 3262,
+            "end": 3550,
+            "lines": 289,
+            "complexity": 170
+          },
+          {
+            "name": "validateAgentBackendDatabase",
+            "start": 3551,
+            "end": 3873,
+            "lines": 323,
+            "complexity": 150
+          },
+          {
+            "name": "validateBody",
+            "start": 2828,
+            "end": 3186,
+            "lines": 359,
+            "complexity": 130
+          }
+        ],
+        "candidateFunctions": [
+          {
+            "name": "append",
+            "start": 579,
+            "end": 739,
+            "lines": 161,
+            "complexity": 32
+          },
+          {
+            "name": "appendAdministrative",
+            "start": 3874,
+            "end": 4014,
+            "lines": 141,
+            "complexity": 25
+          }
+        ]
+      },
+      {
+        "path": "packages/engine/src/runner/index.ts",
+        "status": "measured",
+        "sha256": "16895c5d89eabb216eb65fb1aa6dbd2ab5d5a807a92b77a586d87808e22cbdac",
+        "physicalLines": 2423,
+        "bytes": 162554,
+        "functions": 229,
+        "priorityFunctions": [
+          {
+            "name": "executeTool",
+            "start": 2184,
+            "end": 2366,
+            "lines": 183,
+            "complexity": 144
+          },
+          {
+            "name": "providerTurn",
+            "start": 1936,
+            "end": 2094,
+            "lines": 159,
+            "complexity": 91
+          },
+          {
+            "name": "execute",
+            "start": 1549,
+            "end": 1855,
+            "lines": 307,
+            "complexity": 72
+          }
+        ],
+        "candidateFunctions": [
+          {
+            "name": "teamContextBinding",
+            "start": 980,
+            "end": 994,
+            "lines": 15,
+            "complexity": 12
+          },
+          {
+            "name": "assertTeamToolContext",
+            "start": 997,
+            "end": 1014,
+            "lines": 18,
+            "complexity": 29
+          },
+          {
+            "name": "readCommandJobToolContext",
+            "start": 1017,
+            "end": 1023,
+            "lines": 7,
+            "complexity": 21
+          },
+          {
+            "name": "assertWorkflowToolContext",
+            "start": 1025,
+            "end": 1042,
+            "lines": 18,
+            "complexity": 29
+          }
+        ]
+      },
+      {
+        "path": "packages/engine/src/runner/input-scheduler.ts",
+        "status": "measured",
+        "sha256": "5df073f59c5b96f2b167c2a68a1d90bde818ad21435caf6cebbe6144ee51ff78",
+        "physicalLines": 162,
+        "bytes": 8694,
+        "functions": 34,
+        "priorityFunctions": [
+          {
+            "name": "drain",
+            "start": 104,
+            "end": 130,
+            "lines": 27,
+            "complexity": 14
+          },
+          {
+            "name": "applySteers",
+            "start": 145,
+            "end": 161,
+            "lines": 17,
+            "complexity": 8
+          },
+          {
+            "name": "settled",
+            "start": 26,
+            "end": 32,
+            "lines": 7,
+            "complexity": 7
+          }
+        ],
+        "candidateFunctions": []
+      }
+    ],
+    "completeBodyDuplicates": {
+      "groups": 0,
+      "minBodyLines": 6,
+      "minAstNodes": 40,
+      "qualification": "No exact complete-body candidate at these thresholds in these three files. The proposed repeated blocks are manual partial-block matches with explicitly retained differences."
+    },
+    "localArtifact": {
+      "path": "/tmp/moodcode-next-store-runner-scoped-ast.json",
+      "sha256": "36e71657b7d0f1ee762f106a66ac1037616408cdc4072cc77e072fef631d7ca0",
+      "policy": "Full AST/call output stays local; this bounded source-qualified summary is committed documentation. Local artifact absence does not invalidate the pinned summaries."
+    }
+  },
+  "candidates": [
+    {
+      "id": "STORE-01",
+      "priority": 1,
+      "unit": "Typed, pure backend revision/transition receipt preparation",
+      "problem": "Live append and administrative append independently assemble the same linked revision/receipt pair, hash the same request input, and validate the same body/state/operation relation. Any future new receipt field or hash binding must currently be updated twice. Separate SQL writers do not require separate pair construction.",
+      "evidence": [
+        "store:579",
+        "store:616",
+        "store:3874",
+        "store:3907",
+        "store:313"
+      ],
+      "manualDuplicate": "Both sequences set revision = previous revision + 1, previousId, lastReceiptId, creation time, then validateBody -> assertBackendTransition -> validateTransition, then sign a receipt linking before/after IDs, after SHA, request ID, request SHA and immutable request input. This is a repeated value construction sequence, not a claim that the whole functions are equivalent.",
+      "fix": [
+        "Add a private typed preparation function taking the already-selected kind/entity/workspace, before/body, normalized request input, revision ID, receipt ID, operation and timestamp. It returns the immutable signed record/receipt pair. Keep this function free of DatabaseSync, transaction creation, ports, caches, randomUUID and current time.",
+        "Preserve the current signing and validation order and the existing immutableKnowledgeJson/knowledgeHash implementation and limits. Caller-specific body/state/request selection remains outside the helper.",
+        "Use the preparation function from live append and appendAdministrative only after their current row/quota checks and ID/time capture. Preserve the first-create previousId/null behavior and administrative prior revision behavior."
+      ],
+      "delete": [
+        "Remove only the two duplicated revision/receipt assembly sequences once replaced. Do not delete either caller, Original port, domain validator, operation state branch or SQL failure path."
+      ],
+      "add": [
+        "One internal record/receipt input/output type and preparation function in this domain, optionally a short internal source file if it improves bounded responsibility. No new public export, service framework or general JSON parser.",
+        "A regression exercising independently read native SQL rows and independent archive validation for a live transition plus recover and pause-import transitions, with immutable request inputs and deterministic captured IDs/timestamps."
+      ],
+      "retain": [
+        "Live expectedRevision check, per-kind first-create limits, total revision row/byte limits and historical request dedupe before Original producer reads/current CAS.",
+        "Caller-owned sync writeTx, both row insert statements, conditional initial head INSERT versus previous ID/revision/SHA UPDATE, changes === 1 checks and transaction rollback. Do not move writes or acquire a new/nested transaction in the preparation helper.",
+        "UUID and timestamp creation at their present points: live time() validation after quota checks; administrative timestamp supplied by recovery/import. Preserve recovery/import request ID formats and archive SHA binding.",
+        "Recovery remains uncertain/owner-lost; import remains paused-import/disabled and imported. Never recreate an Original handle, dispatch a request, upgrade unknown to success, retry a prior effect or invent cleanup evidence.",
+        "Original owner/connection/tool/completion/read permission capture, descriptor/proxy rejection, dispatch-versus-observe differences and all per-operation transition validation. Keep backendRecords single original instance and any outer store evidence/cache ownership.",
+        "Independent validateAgentBackendDatabase/validateOwnerSql checks and archive traversal stay separate from writer construction. Their independent SQL-column/hash/transition comparisons must not reuse a writer-derived expected graph.",
+        "Writer column projection stays local initially: live connection column uses eid for connection kind; administrative column uses after.connectionId. Validate rather than silently normalize any disagreement.",
+        "Backend payload header-before-read 65,536-byte bound versus native primary row 262,144-byte bound, depth/node/identifier/error distinctions and import workspace scoping remain unchanged."
+      ],
+      "callersAndExports": [
+        "store:1912",
+        "store:4052",
+        "store:4055",
+        "sqlStore:747",
+        "sqlStore:861",
+        "engine:1403",
+        "archive:295",
+        "exports:13"
+      ],
+      "publicBoundary": "Engine exports backend record/input types, while SqliteStore and direct domain imports consume AgentBackendStorage and recovery/import functions. Keep every existing signature and serialized field; no value-export removal is justified by AST call counts.",
+      "verification": {
+        "existingSourceTests": [
+          "backendTests:99",
+          "backendTests:141",
+          "backendTests:182",
+          "backendTests:229",
+          "backendTests:260",
+          "backendGraphTests:96",
+          "backendGraphTests:139",
+          "backendArchiveTests:93",
+          "backendArchiveTests:130"
+        ],
+        "gates": [
+          "Run focused source/native SQLite tests after implementation; retain real head-CAS fault rollback with no orphan revision/receipt and dedupe with zero new Original reads.",
+          "Compare resulting native columns and canonical record/receipt JSON under fixed UUID/time captures; separately assert headers, receipt scopes, request SHA, after SHA and graph validity without using the new builder as the expected-value generator.",
+          "Use genuine completed and cancelled history export/import/recovery scenarios: preserve historical IDs; only required administrative revisions appear; disabled/paused/unknown states and quarantine remain; no provider/process recreation or replay.",
+          "Run engine source typecheck and Root-owned compiled/full regression at the agreed integration boundary."
+        ],
+        "executedForThisProposal": false
+      },
+      "rollback": "Implement as one isolated reversible source change; keep original callers and schema. If serialization/error order, native SQL fault behavior, archive verification or Original ownership differs, revert the helper replacement. No migration/data rewrite is involved.",
+      "limitation": "Not a rewrite of the high-complexity validateBody/validateTransition validators. Their branches encode operation-specific proof semantics and require a separate operation matrix before any reduction."
+    },
+    {
+      "id": "RUNNER-01",
+      "priority": 2,
+      "unit": "One private predicate for the exact live tool-owner checks shared by team and workflow",
+      "problem": "The two methods authenticate the same captured original ToolContext using the same 14 owner/signal/binding/native Turn/Attempt/tool state comparisons in the same order. Drift between these predicates could admit one lane after the other rejects an expired execution. Domain-specific allowlists, approvals and errors remain separate.",
+      "evidence": [
+        "runner:282",
+        "runner:997",
+        "runner:1025",
+        "runner:980",
+        "runner:2172"
+      ],
+      "manualDuplicate": "After capture/phase/active and plain-data binding checks, team and workflow each compare owners-map identity, owner terminal/abort, original signal identity/abort, binding, active tool object identity, Run session/ID/workspace, Turn/Attempt IDs, tool ID and requested-versus-running state. Their allowlist is tested first. Team and workflow have identical internal ordering; readonly command job has a related predicate but checks Run ID before Session ID.",
+      "fix": [
+        "Add a private boolean predicate receiving the already-authenticated capture, original context, phase and binding. Extract only the identical 14-condition block from team and workflow, preserving short-circuit field order.",
+        "Keep each method's WeakMap lookup, phase/active check, binding guard and errors in their current order. Keep the allowlist on the left of the helper call so an unsupported name does not trigger extra owner/context reads.",
+        "Keep current catalogue/discovery verification and the separate allowed approval/fingerprint/session/Run/tool/name checks at the same points in each wrapper. Preserve every existing error code/message, including the current TEAM_MODEL_OWNER_STALE error from teamContextBinding for all consumers."
+      ],
+      "delete": [
+        "Remove the duplicated team/workflow owner comparison block only. Do not delete wrapper methods, names, tool registry entries, captures or approval checks."
+      ],
+      "add": [
+        "A private capture type if necessary to express the existing WeakMap value once; no public type/API change.",
+        "Parameterize meaningful native-context negative scenarios across actual team and workflow operations: copied object, accessor/proxy, stale original signal, original owner/active-tool/Turn/Attempt drift and replaced approval. Assert zero effect and zero getter/proxy invocation where applicable, as well as the existing lane error."
+      ],
+      "retain": [
+        "The actual toolOperation capture uses the exact WeakMap key and remains active only during that original prepare/execute operation. Identical serialized tuples cannot become Original authority.",
+        "Team allowlist and its read_mailbox/read_board execute approval exemption; workflow allowlist and observe_workflow_stage exemption. Exact native approval remains mandatory for each respective mutation.",
+        "Readonly command job guard stays unchanged in this initial unit because its Run ID/Session ID evaluation order differs; its source/budget proof and return catalogue/profile fields remain local.",
+        "Code mode uses a separate WeakMap and observe phase that intentionally permits bounded cleanup/observation after abort. Owned-command start/settle uses a separate WeakMap and settle can consume cleanup after abort. Do not route either through a live non-aborted predicate.",
+        "Dynamic native tool registration, option gates, exactApproval policy, tool catalogue/discovery capture, nested operation signals/timeouts and final inProgress=false cleanup.",
+        "Public RunCoordinator class/method signatures and direct host dependencies; no AST-based method export removal or new authorization framework."
+      ],
+      "callersAndRegistry": [
+        "teamHost:396",
+        "workflowHost:481",
+        "workflowHost:859",
+        "jobHost:212",
+        "workflowHost:632",
+        "engine:1134",
+        "exports:66"
+      ],
+      "verification": {
+        "existingSourceTests": [
+          "teamTests:425",
+          "teamTests:387",
+          "teamProofTests:7",
+          "teamProofTests:75",
+          "jobTests:502",
+          "workflowEdgeTests:50",
+          "workflowEdgeTests:92",
+          "workflowEffectsTests:374",
+          "workflowEffectsTests:441"
+        ],
+        "gates": [
+          "Exercise actual dynamically registered team and workflow mutation/read tools through both prepare and execute; verify catalogue capture happens only after original owner checks and actual approvals still bind exact native rows.",
+          "Run accessor/proxy/copied-owner cases with zero effect/trap assertions; add a workflow equivalent if the existing suite does not cover that exact original-context lane. Reject phase mismatch, inactive original operation and stale native Turn/Attempt with the same errors.",
+          "Retain readonly job positive/negative controls unchanged. Separately run code-mode post-abort observe and owned-command settle/close tests to detect an accidental expansion of the live predicate.",
+          "Run provider cleanup, cancellation and coordinator close tests with Original handles, plus Root-owned compiled/full regression. No historical PID signaling or replay is introduced."
+        ],
+        "executedForThisProposal": false
+      },
+      "rollback": "Keep wrapper methods and private captures intact. Revert the one predicate extraction if field evaluation order, error precedence, approval timing, dynamic tool behavior or post-abort cleanup changes. No durable data change is involved.",
+      "limitation": "This bounded two-caller extraction does not resolve the larger provider/client effect or executeTool responsibilities; their different timeout, approval, native effect and cleanup paths need independent semantic work."
+    }
+  ],
+  "retainReviewedOwners": [
+    {
+      "owner": "InputScheduler",
+      "evidence": [
+        "scheduler:45",
+        "scheduler:36",
+        "scheduler:104",
+        "scheduler:145",
+        "engine:1396"
+      ],
+      "decision": "Retain durable queued acceptance versus v1 immediate/busy receipts, workspace FIFO/session flights, beforePromotion callbacks, bounded steer cutoff, recovery quarantine and close/join. The two promotion sites operate on distinct accepted inputs versus steer batches; combining them would hide rather than remove stateful responsibility."
+    },
+    {
+      "owner": "Store validators and bounded reads",
+      "evidence": [
+        "store:2828",
+        "store:3262",
+        "store:3551",
+        "store:1935",
+        "archive:295"
+      ],
+      "decision": "Retain graph/transition/column validation independence and payload-before-decode bounds. High syntax complexity alone does not justify deleting proof cases or combining domain parsers with different limits/errors."
+    },
+    {
+      "owner": "Coordinator post-abort phases",
+      "evidence": ["runner:1059", "runner:1082", "scheduler:86"],
+      "decision": "Retain different Original signal/approval/source ownership and post-abort observe/settle obligations. Preserve unknown outcomes and noReplay behavior."
+    },
+    {
+      "owner": "Public, archive and compatibility consumers",
+      "evidence": ["exports:101", "compatibilityTests:41"],
+      "decision": "No deletion candidate is approved. Keep exported methods/types, source-level consumers, archive validators and frozen v1 behavior until consumer evidence and functional tests prove removal safe."
+    }
+  ],
+  "deliveryChecks": {
+    "sourcePinsStable": true,
+    "jsonParsed": true,
+    "prettierChecked": true,
+    "diffWhitespaceChecked": true,
+    "implementationTestsRun": false
+  },
+  "limits": [
+    "Audit covers three measured production modules and listed caller/test sources. It is not a repository-wide security audit, full semantic unused-code analysis or final all-owned baseline.",
+    "Tests above were inspected as evidence and are required future gates; no test/build/live/native process/provider/database operation was run for these proposals. Previous CI/engine results belong to their separately pinned investigations.",
+    "No claim of reduced lines/complexity or completed RF01/RF02 is made before implementation and a final source-pinned measurement. Reject a helper that merely relocates the two functions without removing their repeated value construction or exact predicate responsibility.",
+    "Concurrent feature integration can invalidate these pins. Verify pins and refresh affected source/AST/caller evidence before implementation; Root owns the final baseline and TODO rewrite."
+  ]
+}

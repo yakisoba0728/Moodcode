@@ -1,0 +1,378 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "head": "99cc0c595c54d491090be7d570944fa531fd9d93",
+    "indexSha256": "48531b9eecb967bd5f6f28cadb0fb101e1d825e711bdbd70e70fa03fdbcdcbf7",
+    "afterIndexSha256": "48531b9eecb967bd5f6f28cadb0fb101e1d825e711bdbd70e70fa03fdbcdcbf7",
+    "afterHead": "99cc0c595c54d491090be7d570944fa531fd9d93",
+    "stable": true,
+    "fingerprint": "655bf731c7a1466c675b08649d5949fd5585e926d03328b2c32344b0b2823e02",
+    "selection": "Git index tracked paths; captured working-tree bytes",
+    "workingTreeChangedPaths": [],
+    "validationFailures": []
+  },
+  "runtime": {
+    "node": "v26.9.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "typescript": "7.0.2",
+    "toolPins": {
+      "scripts/inspect-refactor-scope.mjs": "0434f1237d48b554307d3e24eb3a361175d32dc9f9bca0ea931d8d584fbf8f1f",
+      "scripts/refactor-inventory/scope.mjs": "bdf457f1ce25e885dc148ad1a88ea6eb5a467ad3e33a3a036be19ea4cbdfb437",
+      "scripts/refactor-inventory/ast.mjs": "c07462dab3058ffaa6c99ae42632963c87b3f382f8ba048f85fb1cf0c749896f",
+      "scripts/refactor-inventory/worker.mjs": "1ed18ac78331bc9c426a4b4de80c25d720a54fb2493b66fed9eafaa83c2569ea",
+      "scripts/refactor-inventory/report.mjs": "ad144354a178b1848442dfdfbfae6cef0fdd0211e0a14e3719b311cab2139284",
+      "scripts/refactor-inventory/process.mjs": "d948cbac493d7c60ce301ce28f441da495f5f1699cb1a3501e983e9847c39561"
+    },
+    "observations": null
+  },
+  "totals": {
+    "owned": {
+      "files": 1060,
+      "measuredFiles": 1060,
+      "physicalLines": 307720,
+      "bytes": 14605820,
+      "functions": 31051,
+      "imports": 9089,
+      "exports": 3709,
+      "calls": 179228
+    },
+    "byAreaAndRole": {
+      "ci/test": {
+        "files": 3,
+        "measuredFiles": 3,
+        "lines": 1137,
+        "bytes": 34555,
+        "syntaxMeasuredFiles": 3,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 103,
+        "imports": 18,
+        "exports": 0,
+        "calls": 374
+      },
+      "ci/tooling": {
+        "files": 7,
+        "measuredFiles": 7,
+        "lines": 1815,
+        "bytes": 61791,
+        "syntaxMeasuredFiles": 3,
+        "syntaxUnsupportedFiles": 4,
+        "syntaxFailedFiles": 0,
+        "functions": 60,
+        "imports": 19,
+        "exports": 10,
+        "calls": 545
+      },
+      "contracts/product": {
+        "files": 3,
+        "measuredFiles": 3,
+        "lines": 880,
+        "bytes": 71989,
+        "syntaxMeasuredFiles": 3,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 58,
+        "imports": 18,
+        "exports": 103,
+        "calls": 638
+      },
+      "contracts/test": {
+        "files": 6,
+        "measuredFiles": 6,
+        "lines": 784,
+        "bytes": 56809,
+        "syntaxMeasuredFiles": 6,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 222,
+        "imports": 26,
+        "exports": 0,
+        "calls": 855
+      },
+      "desktop/fixture": {
+        "files": 2,
+        "measuredFiles": 2,
+        "lines": 147,
+        "bytes": 9625,
+        "syntaxMeasuredFiles": 2,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 14,
+        "imports": 4,
+        "exports": 4,
+        "calls": 77
+      },
+      "desktop/product": {
+        "files": 49,
+        "measuredFiles": 49,
+        "lines": 12076,
+        "bytes": 452485,
+        "syntaxMeasuredFiles": 45,
+        "syntaxUnsupportedFiles": 4,
+        "syntaxFailedFiles": 0,
+        "functions": 889,
+        "imports": 196,
+        "exports": 142,
+        "calls": 3416
+      },
+      "desktop/test": {
+        "files": 20,
+        "measuredFiles": 20,
+        "lines": 4254,
+        "bytes": 235224,
+        "syntaxMeasuredFiles": 20,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 782,
+        "imports": 142,
+        "exports": 0,
+        "calls": 3645
+      },
+      "engine/fixture": {
+        "files": 89,
+        "measuredFiles": 89,
+        "lines": 14445,
+        "bytes": 526704,
+        "syntaxMeasuredFiles": 89,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 1032,
+        "imports": 644,
+        "exports": 209,
+        "calls": 4788
+      },
+      "engine/product": {
+        "files": 361,
+        "measuredFiles": 361,
+        "lines": 132737,
+        "bytes": 5970424,
+        "syntaxMeasuredFiles": 361,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 9206,
+        "imports": 2950,
+        "exports": 3096,
+        "calls": 54560
+      },
+      "engine/test": {
+        "files": 434,
+        "measuredFiles": 434,
+        "lines": 120616,
+        "bytes": 6287910,
+        "syntaxMeasuredFiles": 434,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 16876,
+        "imports": 4539,
+        "exports": 32,
+        "calls": 99348
+      },
+      "harness/product": {
+        "files": 2,
+        "measuredFiles": 2,
+        "lines": 572,
+        "bytes": 31540,
+        "syntaxMeasuredFiles": 2,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 54,
+        "imports": 12,
+        "exports": 20,
+        "calls": 289
+      },
+      "harness/test": {
+        "files": 8,
+        "measuredFiles": 8,
+        "lines": 1993,
+        "bytes": 118424,
+        "syntaxMeasuredFiles": 8,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 372,
+        "imports": 74,
+        "exports": 0,
+        "calls": 1481
+      },
+      "scripts/fixture": {
+        "files": 3,
+        "measuredFiles": 3,
+        "lines": 202,
+        "bytes": 9452,
+        "syntaxMeasuredFiles": 3,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 21,
+        "imports": 10,
+        "exports": 0,
+        "calls": 136
+      },
+      "scripts/test": {
+        "files": 14,
+        "measuredFiles": 14,
+        "lines": 3692,
+        "bytes": 162070,
+        "syntaxMeasuredFiles": 14,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 459,
+        "imports": 109,
+        "exports": 0,
+        "calls": 2222
+      },
+      "scripts/tooling": {
+        "files": 55,
+        "measuredFiles": 55,
+        "lines": 11643,
+        "bytes": 544587,
+        "syntaxMeasuredFiles": 55,
+        "syntaxUnsupportedFiles": 0,
+        "syntaxFailedFiles": 0,
+        "functions": 897,
+        "imports": 323,
+        "exports": 77,
+        "calls": 6810
+      },
+      "windows-job/product": {
+        "files": 4,
+        "measuredFiles": 4,
+        "lines": 727,
+        "bytes": 32231,
+        "syntaxMeasuredFiles": 3,
+        "syntaxUnsupportedFiles": 1,
+        "syntaxFailedFiles": 0,
+        "functions": 6,
+        "imports": 5,
+        "exports": 16,
+        "calls": 44
+      }
+    },
+    "ancillaryByAreaAndRole": {
+      "analysis/analysis": {
+        "files": 2,
+        "measuredFiles": 2,
+        "lines": 424,
+        "bytes": 28257,
+        "syntaxMeasuredFiles": 0,
+        "syntaxUnsupportedFiles": 2,
+        "syntaxFailedFiles": 0,
+        "functions": 0,
+        "imports": 0,
+        "exports": 0,
+        "calls": 0
+      }
+    }
+  },
+  "coverage": {
+    "physical": {
+      "attempted": 1060,
+      "measured": 1060,
+      "failed": 0
+    },
+    "syntax": {
+      "attempted": 1060,
+      "measured": 1051,
+      "unsupported": 9,
+      "failed": 0
+    },
+    "ancillary": {
+      "files": 2,
+      "physicalMeasured": 2,
+      "syntaxMeasured": 0
+    },
+    "failures": [
+      {
+        "path": ".github/workflows/desktop-package.yml",
+        "scope": "owned",
+        "physicalStatus": "measured",
+        "physicalReason": null,
+        "syntaxStatus": "unsupported",
+        "syntaxReason": "no-parser-for-.yml"
+      },
+      {
+        "path": ".github/workflows/desktop-release.yml",
+        "scope": "owned",
+        "physicalStatus": "measured",
+        "physicalReason": null,
+        "syntaxStatus": "unsupported",
+        "syntaxReason": "no-parser-for-.yml"
+      },
+      {
+        "path": ".github/workflows/engine-native-windows.yml",
+        "scope": "owned",
+        "physicalStatus": "measured",
+        "physicalReason": null,
+        "syntaxStatus": "unsupported",
+        "syntaxReason": "no-parser-for-.yml"
+      },
+      {
+        "path": ".github/workflows/engine.yml",
+        "scope": "owned",
+        "physicalStatus": "measured",
+        "physicalReason": null,
+        "syntaxStatus": "unsupported",
+        "syntaxReason": "no-parser-for-.yml"
+      },
+      {
+        "path": "apps/desktop/index.html",
+        "scope": "owned",
+        "physicalStatus": "measured",
+        "physicalReason": null,
+        "syntaxStatus": "unsupported",
+        "syntaxReason": "no-parser-for-.html"
+      },
+      {
+        "path": "apps/desktop/src/renderer/components/advanced.css",
+        "scope": "owned",
+        "physicalStatus": "measured",
+        "physicalReason": null,
+        "syntaxStatus": "unsupported",
+        "syntaxReason": "no-parser-for-.css"
+      },
+      {
+        "path": "apps/desktop/src/renderer/components/conversation.css",
+        "scope": "owned",
+        "physicalStatus": "measured",
+        "physicalReason": null,
+        "syntaxStatus": "unsupported",
+        "syntaxReason": "no-parser-for-.css"
+      },
+      {
+        "path": "apps/desktop/src/renderer/styles.css",
+        "scope": "owned",
+        "physicalStatus": "measured",
+        "physicalReason": null,
+        "syntaxStatus": "unsupported",
+        "syntaxReason": "no-parser-for-.css"
+      },
+      {
+        "path": "docs/coding-agent-engine-review/verify-comparison.py",
+        "scope": "ancillary-analysis",
+        "physicalStatus": "measured",
+        "physicalReason": null,
+        "syntaxStatus": "unsupported",
+        "syntaxReason": "no-parser-for-.py"
+      },
+      {
+        "path": "docs/coding-agent-engine-review/verify-evidence.py",
+        "scope": "ancillary-analysis",
+        "physicalStatus": "measured",
+        "physicalReason": null,
+        "syntaxStatus": "unsupported",
+        "syntaxReason": "no-parser-for-.py"
+      },
+      {
+        "path": "packages/windows-job/src/windows_job.cc",
+        "scope": "owned",
+        "physicalStatus": "measured",
+        "physicalReason": null,
+        "syntaxStatus": "unsupported",
+        "syntaxReason": "no-parser-for-.cc"
+      }
+    ],
+    "boundsExceeded": false
+  },
+  "reportPath": "/tmp/moodcode-next-owned-inventory-baseline.json",
+  "reportSha256": "9609ce81e4805fd1973c59aa90b4f3f5a4635b178f61636225ed90b1f1cbdf2d",
+  "acceptance": "Provisional structural inventory; source99cc0c5 before corrective fixtures/MCP/refactoring. Unsupported owned syntax requires manual review; ancillary Python is separate. This does not claim full semantic audit or refactor completion."
+}

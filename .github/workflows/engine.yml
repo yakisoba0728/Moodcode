@@ -5,6 +5,7 @@ on:
     paths:
       - "packages/contracts/**"
       - "packages/engine/**"
+      - "packages/windows-job/**"
       - "apps/engine-harness/**"
       - "scripts/test-engine.mjs"
       - "scripts/evaluate-engine.mjs"
@@ -26,6 +27,7 @@ on:
     paths:
       - "packages/contracts/**"
       - "packages/engine/**"
+      - "packages/windows-job/**"
       - "apps/engine-harness/**"
       - "scripts/test-engine.mjs"
       - "scripts/evaluate-engine.mjs"

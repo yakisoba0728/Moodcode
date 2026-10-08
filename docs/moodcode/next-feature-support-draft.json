@@ -1,0 +1,666 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-feature-support-acceptance-draft",
+  "recordedAt": "2026-10-08T22:27:42.078917+00:00",
+  "status": "draft-for-root-n06-rf-baseline",
+  "globalFollowupAccepted": false,
+  "historical80of80Preserved": true,
+  "newExecution": {
+    "builds": 0,
+    "nativeRuns": 0,
+    "liveProviderRequests": 0,
+    "credentialsRead": false
+  },
+  "sourceSnapshots": {
+    "main": {
+      "commit": "3fc2d1450f5a14557e132afb9e6422e528fa58a5",
+      "qualification": "Observed HEAD with pending working-tree fixture/inspection edits; selected source/document hashes below, not final whole source freeze."
+    },
+    "windows": {
+      "commit": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+      "sourceManifest": "windows-source-freeze",
+      "matchedEntries": 1009,
+      "mismatches": [],
+      "qualification": "Actual native hosted source; progress docs are newer working-tree observations."
+    },
+    "desktop": {
+      "commit": "044aa3aff903e3e17d374f7071e112c39daf0fcb",
+      "sourceSha256": "8c2d738fdff0386b2bed77635abb40437b514406b0ec939269531f10533cccd7",
+      "sourceManifest": "desktop-current",
+      "matchedEntries": 128,
+      "mismatches": [],
+      "qualification": "Current frozen desktop source; prior full GUI/whole evidence retained via explicit immutable program continuity."
+    },
+    "persistentLongRun": {
+      "commit": "78e37b1d54952d173779865b6fb9d2d04fac828f",
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-persistent-frozen/Moodcode",
+      "state": "coordinator-reported-running",
+      "requestedDurationMs": 1800000,
+      "measuredDurationMs": null,
+      "accepted": false
+    }
+  },
+  "tableColumns": [
+    "implemented",
+    "actualLocal",
+    "actualHosted",
+    "accountQualification",
+    "externalConditions",
+    "acceptance"
+  ],
+  "features": [
+    {
+      "id": "MC2-01..20",
+      "implemented": "Historical original 80 items / 20 families accepted within their explicit support scope.",
+      "actualLocal": "Historical frozen99bf6f0 complete suite; current combined source needs independent acceptance.",
+      "actualHosted": "Historical run37827176532: six successful lanes; Windows then portable only.",
+      "accountQualification": "Historical exact model/account reports remain scoped to their original execution pins.",
+      "externalConditions": [],
+      "acceptance": "Preserve historical80/80; does not complete follow-up E5/N work.",
+      "evidence": [
+        "todo",
+        "historical-acceptance"
+      ]
+    },
+    {
+      "id": "E5-08",
+      "implemented": "Actual unnamed kill-on-close Job Object owned by Engine; atomic suspended assignment, native process count/output/handle cleanup, exact approvals and restart unknown/no replay. Isolated8c7aac2 branch; main integration pending.",
+      "actualLocal": "POSIX portable/adapter checks do not qualify Windows. Frozen local whole run was SIGKILLed after754 passes with no footer/cause; retry is recorded running, no aggregate credit.",
+      "actualHosted": "Two exact-source push/dispatch runs, each Node24/26 gate37/37 and32 actual native scenarios total; actual retained DLL hashes independently matched here.",
+      "accountQualification": "Not applicable; account-free native command scope.",
+      "externalConditions": [],
+      "acceptance": "Qualified isolated Windows2025 x64 Node24/26 native scope; combined regression and Desktop integration remain open.",
+      "evidence": [
+        "windows-progress",
+        "windows-ci",
+        "windows-source-freeze",
+        "windows-contract",
+        "windows-hosted-37851661119",
+        "windows-hosted-37851910921"
+      ]
+    },
+    {
+      "id": "E5-13",
+      "implemented": "Provider coverage projection and bounded standard Responses PDF / timestamped AVI frames plus Anthropic cleanup ordering integrated on main e6cd1b6 and evidence6036880. Coverage DATA grants no dispatch authority.",
+      "actualLocal": "Provider branch525/525 focused and78/78 compiled CLI; whole4728/4723pass/3fail/2skip preserved. Focused30/30 did not resolve original failures. Main combined source qualification pending.",
+      "actualHosted": "Provider b7c44a3 run37849372005:5/6 lanes; Ubuntu26 batch/deadline/observer failures preserved. Main corrective fixture/CLI integration is a separate pending whole gate.",
+      "accountQualification": "Real API-key Responses PDF gpt-4.1-mini-2025-04-14 and AVI frames gpt-4.1-2025-04-14 each one successful bounded POST; initial PDF semantic failure retained. Total ledger1 inventory GET +3 generation POST. Exact invocation credential reference; no persistent account ID. PDF pins exact b7 snapshot; media pins earlier whole source plus unchanged relevant source/complete compiled runtime continuity. No current-main account execution claimed. Anthropic actual account0 requests/unverified.",
+      "externalConditions": [
+        "approved-anthropic-account"
+      ],
+      "acceptance": "Finite profiles qualified at reported source/runtime/account; broader E5-13 remains open.",
+      "evidence": [
+        "provider-progress",
+        "provider-pdf-account",
+        "provider-media-account",
+        "provider-continuity",
+        "provider-requests",
+        "provider-coverage-source",
+        "provider-anthropic-source"
+      ]
+    },
+    {
+      "id": "R-PTY-01",
+      "implemented": "Genuine bounded PTY repeatability CLI with SQLite/native outcome/PID/PGID/supervisor diagnostics, compiled default, Original process ownership and retained unknown fault evidence.",
+      "actualLocal": "Compiled Darwin arm6415 native cases and actual CI launcher passed; normal lifecycle requires normal completion/known cleanup. Expected fault uncertainty stays retained.",
+      "actualHosted": "Current follow-up hosted qualification must be attached separately; historical unchanged case passes do not establish old cause.",
+      "accountQualification": "Account-free; no live provider requests.",
+      "externalConditions": [
+        "historical-pty-evidence"
+      ],
+      "acceptance": "Historical f992 cause UNKNOWN: missing original authoritative closed outcome/reason/raw PID/PGID. Separate reproduced Node26 IPC-close defect fix does not classify old failure. Unknown/EPERM/leader-loss unchanged.",
+      "evidence": [
+        "pty-history",
+        "pty-repeatability",
+        "pty-compiled",
+        "execution-state"
+      ]
+    },
+    {
+      "id": "N-01",
+      "implemented": "Same resident Engine bounded seed/input/history soak, mandatory complete/cancel/text cases, resource samples, second-workspace cancellation, actual SIGKILL/reopen native recovery equality and no replay.",
+      "actualLocal": "Compiled quick3 cycles/16 inputs/3553ms passed at pinned report; no long duration credit. Root reports genuine30-minute run underway in private frozen78e37b1 checkout; final duration/outcome/report not yet accepted.",
+      "actualHosted": "Short account-free CI launch supported; hosted short evidence and final long report require separate attachment. A short pass cannot qualify30 minutes.",
+      "accountQualification": "Account-free provider fixture;0 live provider requests.",
+      "externalConditions": [],
+      "acceptance": "Implementation/quick scope verified; original long-duration acceptance pending actual measured report and closure/resource evidence.",
+      "evidence": [
+        "persistent-contract",
+        "persistent-quick",
+        "execution-state"
+      ]
+    },
+    {
+      "id": "N-02",
+      "implemented": "Host/preload/renderer native inbox/input controls, task CAS/questions, PTY, MCP, LSP, resident/child/team and readonly advisory workflow/history; original handles and approval/owner/budget gates retained.",
+      "actualLocal": "Actual macOS arm64 Electron GUI15 checks,0 external requests; current55b desktop210/210. GUI executed at388701f; independently checked unchanged app/engine program from6ca to55b (only executable config/updater fixture changed), no fresh55b full GUI execution claimed.",
+      "actualHosted": "Isolated desktop6ca six-lane engine CI passed; packaged smoke does not substitute for full advanced GUI on other OS or combined main.",
+      "accountQualification": "GUI uses local native/official-contract account fixture; official user login/inference unverified.",
+      "externalConditions": [],
+      "acceptance": "Finite macOS local GUI scope verified; final main integration/rebuild/current GUI acceptance remains open. First workflow is readonly/advisory, no editor/validator/merge/delivery GUI effects.",
+      "evidence": [
+        "desktop-progress",
+        "desktop-current",
+        "desktop-gui",
+        "desktop-advanced-log",
+        "desktop-continuity"
+      ]
+    },
+    {
+      "id": "N-03",
+      "implemented": "Documented official OSS SIWC browser+loopback/state/nonce/S256/JWKS JWT flow, native encrypted safeStorage, account select/logout/rotation quarantine; close previous worker before mutation and no renderer/journal tokens.",
+      "actualLocal": "Real Electron OS safeStorage + loopback/signed-JWT transport fixture lifecycle passed; external identity verified=false and inference requests0.",
+      "actualHosted": "No actual external provider login qualification from CI fixture/package tests.",
+      "accountQualification": "Official user browser authorization, account entitlement/models and completed Responses inference remain unverified; provider API-key probes do not qualify Desktop SIWC login.",
+      "externalConditions": [
+        "official-desktop-login"
+      ],
+      "acceptance": "Implementation and fixture verified; actual official account acceptance pending.",
+      "evidence": [
+        "desktop-auth",
+        "desktop-progress",
+        "desktop-gui"
+      ]
+    },
+    {
+      "id": "N-04",
+      "implemented": "Finite unsigned macOS/Linux/Windows bundle targets, engine utility/SQLite23/supervisor/renderer smoke. Electron44.5.1 native Windows build/ASAR/utility consumer gates prepared, binding workspace not integrated.",
+      "actualLocal": "Actual unsigned macOS arm64 package passes packaged/context isolation, utility SQLite23, command cleanup and PTY native exit/cleanup; current55b package smoke passed.",
+      "actualHosted": "6ca package run37851820964 macOS+Windows portable passed, Linux executable mismatch failed. 388701f run37852530618 Linux package/native passed but updater failed SUID fixture launch. Current55b follow-up37852974845 recorded in progress; final integrated/current per-OS acceptance pending. Windows portable explicitly lacks binding.",
+      "accountQualification": "Package smoke account-free; no provider login qualification.",
+      "externalConditions": [],
+      "acceptance": "Unsigned macOS scoped smoke verified; current Linux final hosted gate and actual integrated Windows Electron native package remain pending. No arm64 Windows credit.",
+      "evidence": [
+        "desktop-package",
+        "desktop-progress",
+        "desktop-current",
+        "desktop-continuity"
+      ]
+    },
+    {
+      "id": "N-05",
+      "implemented": "Explicit stable updater, checksum/version/cleanup acknowledgement gates, disabled automatic install/downgrade, review-only signing preparation and known-good higher-version recovery. Publishing disabled.",
+      "actualLocal": "Actual electron-updater6.8.9/Electron44.5.1 disposable POSIX fixture rejects corrupt SHA512, installs0.2.0, recovers0.3.0, blocks downgrade. Current launcher passed locally; real user app untouched.",
+      "actualHosted": "Linux388 updater launcher failed; corrected55b hosted follow-up recorded pending. No real macOS/Windows signed installer/update or approved published feed exercised.",
+      "accountQualification": "No signing/notarization account qualification.",
+      "externalConditions": [
+        "macos-signing",
+        "windows-signing",
+        "approved-release-feed"
+      ],
+      "acceptance": "Local preparation/fixture verified; actual certificates/notarization/publisher/signed install-update/distribution remain external pending. Linux SHA512/HTTPS is not code signing.",
+      "evidence": [
+        "desktop-release",
+        "desktop-progress",
+        "desktop-current"
+      ]
+    },
+    {
+      "id": "N-06",
+      "implemented": "This support/acceptance draft plus existing primary DB23 contract evidence. Root owns final feature integration and RF behavior freeze.",
+      "actualLocal": "Read-only manifest/document/raw DLL/archive hash checks only; no build/native/live execution added by this draft. API/secondary DB/events/resources/count/performance/current GUI baseline must be settled against integrated source.",
+      "actualHosted": "Independent isolated branch gates and historic80/80 are preserved; current main six-lane whole acceptance is pending corrective rerun.",
+      "accountQualification": "Only cited exact provider invocation scopes; absent credentials/certificates remain explicit.",
+      "externalConditions": [
+        "approved-anthropic-account",
+        "official-desktop-login",
+        "macos-signing",
+        "windows-signing",
+        "approved-release-feed",
+        "historical-pty-evidence"
+      ],
+      "acceptance": "DRAFT, open; no global E5/N completion or final RF preservation baseline claimed.",
+      "evidence": [
+        "todo",
+        "execution-state",
+        "db-contract",
+        "windows-progress",
+        "desktop-progress",
+        "provider-progress"
+      ]
+    }
+  ],
+  "platformSupport": [
+    {
+      "platform": "macOS arm64",
+      "command": "Existing actual POSIX process-group ownership; source/runtime-specific qualification.",
+      "pty": "Actual local repeatability and Desktop15 GUI native flow/package exit; historical R-PTY unresolved.",
+      "osSandbox": "Opt-in Darwin sandbox-exec experimental-deprecated-cli; network deny only, actual scoped probes; no official Apple App Sandbox claim.",
+      "artifactStore": "Existing O_NOFOLLOW/symlink/hardlink/root guard contract; POSIX qualification. Path APIs do not isolate every hostile same-UID parent replacement.",
+      "desktop": "Actual unsigned local package/GUI; current integrated main and signed release pending.",
+      "evidence": [
+        "sandbox-contract",
+        "artifact-contract",
+        "pty-repeatability",
+        "desktop-progress"
+      ]
+    },
+    {
+      "platform": "Linux x64 / Ubuntu24.04",
+      "command": "Existing actual POSIX ownership; current whole hosted corrective gate pending.",
+      "pty": "388701f hosted package native smoke recorded passed; historical headless skips include interactive PTY, no full interactive GUI credit.",
+      "osSandbox": "Unsupported by Darwin-only backend; typed rejection/capability false.",
+      "artifactStore": "Existing POSIX O_NOFOLLOW contract; no new integrated-source attestation by this draft.",
+      "desktop": "Linux executable-name fix388701f package/native passed, updater failed;55b follow-up/current integrated acceptance pending.",
+      "evidence": [
+        "sandbox-contract",
+        "artifact-contract",
+        "historical-acceptance",
+        "desktop-progress"
+      ]
+    },
+    {
+      "platform": "Windows2025 x64 Node24/26",
+      "command": "Actual Engine-owned atomic Job Object and sealed bounded stdout/stderr verified at8c7aac2. No taskkill/direct-child ownership fallback.",
+      "pty": "Unsupported; no Windows PTY or interactive/lifetime stdin command transport support.",
+      "osSandbox": "Unsupported file/network sandbox; Job Object owns processes under host user only.",
+      "artifactStore": "General managed ArtifactStore persistence and artifact.get unsupported where O_NOFOLLOW absent; optional result-copy explicit unavailable warning. Independently sealed native stdout/stderr logs persist; actual supported-store failure remains failure.",
+      "desktop": "Portable package verified separately; Node DLL gates grant no Electron credit. Root integration + exact Electron44.5.1 x64 headers + ASAR-unpacked load/actual utility approval/receipt/cleanup pending.",
+      "evidence": [
+        "windows-contract",
+        "windows-artifacts",
+        "windows-ci",
+        "desktop-package"
+      ]
+    },
+    {
+      "platform": "Windows arm64",
+      "command": "Source/build option exists; actual arm64 DLL/lifecycle unverified, no support credit.",
+      "pty": "Unsupported.",
+      "osSandbox": "Unsupported.",
+      "artifactStore": "General managed persistence/artifact.get unsupported.",
+      "desktop": "Actual arm64 Electron/package/installer unverified.",
+      "evidence": [
+        "windows-progress",
+        "windows-contract",
+        "desktop-package"
+      ]
+    }
+  ],
+  "windowsNativeHosted": [
+    {
+      "runId": 37851661119,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37851661119",
+      "event": "push",
+      "sourceCommit": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+      "conclusion": "success",
+      "actualNativeScenariosPerRun": 32,
+      "totalGateRecordsPerRun": 74,
+      "lanes": [
+        {
+          "node": "24.21.0",
+          "gate": {
+            "tests": 37,
+            "pass": 37,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0
+          },
+          "actualNativeScenarios": 16,
+          "dllSha256": "fc449a605385c764f58527c4d27ff0366b5ddfde6145e634f0bfce3d71185fb0",
+          "dllBytes": 178176,
+          "retainedDll": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/artifacts/native-windows/hosted-37851661119/node24/windows_job.node",
+          "archiveSha256": "c55918b01ba58445964f11c1355c75514b93171269799f82c7f5e3194dbaba1e"
+        },
+        {
+          "node": "26.11.1",
+          "gate": {
+            "tests": 37,
+            "pass": 37,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0
+          },
+          "actualNativeScenarios": 16,
+          "dllSha256": "a6b38edc8838a28cf945df4d9ee63ea702c668e57e4ab5ef1ec73e87e4a811b1",
+          "dllBytes": 1121792,
+          "retainedDll": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/artifacts/native-windows/hosted-37851661119/node26/windows_job.node",
+          "archiveSha256": "0f6eb6884ab58fc50be03b6ee968301b1ab97ae288b28cf1d57e94b0808242e4"
+        }
+      ],
+      "evidence": "windows-hosted-37851661119"
+    },
+    {
+      "runId": 37851910921,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37851910921",
+      "event": "workflow_dispatch",
+      "sourceCommit": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+      "conclusion": "success",
+      "actualNativeScenariosPerRun": 32,
+      "totalGateRecordsPerRun": 74,
+      "lanes": [
+        {
+          "node": "24.21.0",
+          "gate": {
+            "tests": 37,
+            "pass": 37,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0
+          },
+          "actualNativeScenarios": 16,
+          "dllSha256": "6811f456f3d78a946ea4aa30ef5464045b40eb31ec0ef5a10fe6dfbf86c6755c",
+          "dllBytes": 178176,
+          "retainedDll": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/artifacts/native-windows/hosted-37851910921/node24/windows_job.node",
+          "archiveSha256": "e06bf14216453a2685d130815f2b47d417cedeed2141dba3d5041ebb1167a395"
+        },
+        {
+          "node": "26.11.1",
+          "gate": {
+            "tests": 37,
+            "pass": 37,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0
+          },
+          "actualNativeScenarios": 16,
+          "dllSha256": "b1e90d0cd8a503dc1b88feec1221696b7df55410d64a86b5ea3b8a821221b203",
+          "dllBytes": 1121792,
+          "retainedDll": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/artifacts/native-windows/hosted-37851910921/node26/windows_job.node",
+          "archiveSha256": "b9e5230b5a0d7a03f51ee242c529fad1c6aa4603f1b463204dfe1e941dbd5957"
+        }
+      ],
+      "evidence": "windows-hosted-37851910921"
+    }
+  ],
+  "externalConditions": [
+    {
+      "id": "approved-anthropic-account",
+      "state": "external-unverified",
+      "releaseCondition": "Explicitly supplied official key, exact model selection and successful finite native/account lane; preserve cleanup/no replay and unknown cost opt-in.",
+      "evidence": [
+        "provider-progress"
+      ]
+    },
+    {
+      "id": "official-desktop-login",
+      "state": "external-unverified",
+      "releaseCondition": "Approved isolated Moodcode browser sign-in, actual identity/model entitlement and completed Responses request without Codex auth-file mutation.",
+      "evidence": [
+        "desktop-auth"
+      ]
+    },
+    {
+      "id": "macos-signing",
+      "state": "external-pending",
+      "releaseCondition": "Developer ID/notarization credentials and actual codesign/spctl/stapler plus signed installer/update proof.",
+      "evidence": [
+        "desktop-release"
+      ]
+    },
+    {
+      "id": "windows-signing",
+      "state": "external-pending",
+      "releaseCondition": "Certificate/password/expected publisher; integrate native utility first, then actual Authenticode/NSIS signed update in disposable Windows fixture.",
+      "evidence": [
+        "desktop-release",
+        "desktop-package"
+      ]
+    },
+    {
+      "id": "approved-release-feed",
+      "state": "external-pending",
+      "releaseCondition": "Human approval and exact published artifacts/metadata plus actual stable feed verification; review-only artifacts remain unpublished.",
+      "evidence": [
+        "desktop-release"
+      ]
+    },
+    {
+      "id": "historical-pty-evidence",
+      "state": "historical-cause-unknown",
+      "releaseCondition": "Original authoritative native outcome/reason/raw PID/PGID if recoverable, or genuine recurrence with native diagnostics allowing causal comparison. Repeated passing lifecycles cannot discharge missing old evidence.",
+      "evidence": [
+        "pty-history",
+        "historical-acceptance"
+      ]
+    }
+  ],
+  "freezeRequirements": [
+    "Integrate frozen Windows/Desktop source and reconcile exact runtime/native dependency graph.",
+    "Complete current main whole local and six-lane hosted regression; attach corrective fixture raw/native evidence without deleting original failures.",
+    "Attach settled same-Engine long-duration report with measured duration/resource series/closure; quick repeats are independent evidence.",
+    "Rebuild and verify current integrated GUI/package/utility on each claimed OS; Node-native and portable bundle scopes remain separate.",
+    "Freeze public API, primary/secondary DB, events/archive, ownership/budget/approval/no-replay, code/test inventory, performance and artifact-retention contracts before RF changes.",
+    "Keep official user login, Anthropic account, signed distribution and historical PTY missing evidence open until their stated release conditions are actually met."
+  ],
+  "evidencePins": [
+    {
+      "id": "todo",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/TODO.md",
+      "sha256": "8ac785457770aa41ec929d29a32acfc0560b4426f4e64fa5f632be2f0a76db41",
+      "bytes": 108262
+    },
+    {
+      "id": "historical-acceptance",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-final-acceptance-verification.json",
+      "sha256": "a02caf51e04685a64ea1c26ca4a399eccdeb43071f176bdb2cdd37675fa95054",
+      "bytes": 9127
+    },
+    {
+      "id": "execution-state",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/next-execution-progress.json",
+      "sha256": "888ed696bd0ddcae5563cb26408557a85a29d46d0ce8fb67877f7bfa31a60a98",
+      "bytes": 13841
+    },
+    {
+      "id": "db-contract",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/next-db-contract-baseline.json",
+      "sha256": "5115a137300a43e677e68022ffd21fbab8c3f44e07b8559534e79bcc2b0b485b",
+      "bytes": 90833
+    },
+    {
+      "id": "windows-progress",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/docs/moodcode/next-windows-progress.json",
+      "sha256": "e745fc462b051fece7b31e65e5393c3c7389947e90ba9e2f431be9fc77f8fbc3",
+      "bytes": 32486
+    },
+    {
+      "id": "windows-ci",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/docs/moodcode/next-windows-ci-verification.json",
+      "sha256": "f3d519eb1a3f9559ed7f2643c8f0d2eca0836b9ce2eebe437badbef074b7de7e",
+      "bytes": 39439
+    },
+    {
+      "id": "windows-contract",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/packages/windows-job/README.md",
+      "sha256": "ed562d61304acd3e3830462f24359865bf6547613d757a767fafa2edea8916c3",
+      "bytes": 6026
+    },
+    {
+      "id": "windows-artifacts",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/packages/engine/src/tools/runtime/README.md",
+      "sha256": "7c0344298b9da169d8f0a8d5f360b4d3ad4ad6964de5c650e630457578ae6248",
+      "bytes": 5964
+    },
+    {
+      "id": "desktop-progress",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode/docs/moodcode/next-desktop-progress.json",
+      "sha256": "f5aa940d13957720db022e2a211d1fdee3349d136320cdf0a1acc3bca4947046",
+      "bytes": 13753
+    },
+    {
+      "id": "desktop-auth",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode/docs/moodcode/next-desktop-auth-progress.json",
+      "sha256": "9e91fb3c9184510fa8ae30839e88d26c1ff5ef320abfd7459ec3131345798c7a",
+      "bytes": 4495
+    },
+    {
+      "id": "desktop-package",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode/docs/moodcode/next-desktop-package-progress.json",
+      "sha256": "cddf3e9b2462132a365a11f3bf58beba6c24a0b98ef23d55fd5f1f179bd536f2",
+      "bytes": 5418
+    },
+    {
+      "id": "desktop-release",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode/docs/moodcode/next-desktop-release-progress.json",
+      "sha256": "f3bd7d88fe0c393668a7611be1b323e3d2b0788d1dd19f5995842c8e58252d15",
+      "bytes": 4133
+    },
+    {
+      "id": "provider-progress",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/next-provider-progress.json",
+      "sha256": "f54861cef625a4889687b17baa2bbcced7ca45f95d57a55a36381b824d570f08",
+      "bytes": 13871
+    },
+    {
+      "id": "provider-pdf-account",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/next-provider-pdf-corrective-live.json",
+      "sha256": "9b834a4ef7f25f2b31cdda0fe42c07b458acd5e2728d2f69259fae1af851f50a",
+      "bytes": 370626
+    },
+    {
+      "id": "provider-media-account",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/next-provider-media-live.json",
+      "sha256": "f411895945608f9e1576691f0a4d0baec3bb3f1f8c55811df5f48dd4fad9d6e6",
+      "bytes": 330061
+    },
+    {
+      "id": "provider-continuity",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/next-provider-media-independent-review.json",
+      "sha256": "6b4400ea75f627c2984dcc78062f608b77dc2eba5c6a541d184e07a66c865d7e",
+      "bytes": 12910
+    },
+    {
+      "id": "provider-requests",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/next-provider-request-ledger.json",
+      "sha256": "71b50183e3c58e04d8b1d672194ca20aeae8f477d56abc65ca4e0a56458438a2",
+      "bytes": 3521
+    },
+    {
+      "id": "pty-history",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-pty-f992-diagnosis.json",
+      "sha256": "de9e3a14316be146c558e68c4967f1b48ec2bf8ad634b29e538a610ed8aad0cc",
+      "bytes": 5963
+    },
+    {
+      "id": "pty-repeatability",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-pty-repeatability.md",
+      "sha256": "12dd78cf47239042337ee85419c996f3b13d240ddde6e3905152699f5da363c5",
+      "bytes": 4717
+    },
+    {
+      "id": "persistent-contract",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-persistent-soak.md",
+      "sha256": "b18bc7402b1a1ab6972f15ec7516c8a47526d11b5bc08057d5eb1ea67af8530b",
+      "bytes": 7955
+    },
+    {
+      "id": "sandbox-contract",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-phase-two-os-sandbox.md",
+      "sha256": "f4ea6257da0ed93155499191bf2768829e9353f0a137129c8244a17edd4c2713",
+      "bytes": 8549
+    },
+    {
+      "id": "artifact-contract",
+      "kind": "document",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/engine-artifacts.md",
+      "sha256": "be777e1cae5f66dd405a3f1ffc64168e500a0b37325bf7e1ddbffb8ba01e10d5",
+      "bytes": 5107
+    },
+    {
+      "id": "windows-source-freeze",
+      "kind": "source-manifest",
+      "path": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/artifacts/native-windows/local-source-freeze-marker-runtime.json",
+      "sha256": "175963a562b1e93f6386c0391247a84707d3d50b91ae5d3ceca35c67798bed04",
+      "bytes": 164622
+    },
+    {
+      "id": "desktop-current",
+      "kind": "verification-artifact",
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode/artifacts/desktop-next/verification-55b2136-desktop.json",
+      "sha256": "6ca6a53d172a76bfafaf52588f1b4c084aa0afb4aee42833c4d56f058b277eaa",
+      "bytes": 45326
+    },
+    {
+      "id": "desktop-gui",
+      "kind": "verification-artifact",
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode/artifacts/desktop-next/verification-388701f-desktop.json",
+      "sha256": "3ffe6c7bf386fe97f9c808567f72d1291161b16f3858c7d899c4ddcdf6607c4f",
+      "bytes": 48142
+    },
+    {
+      "id": "desktop-whole",
+      "kind": "verification-artifact",
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode/artifacts/desktop-next/verification-6ca9086-whole.json",
+      "sha256": "bd7b1e92675f0626c2d74f7ecbbe7287ce792f2cb9e8d672f8ea4f04692cbc1b",
+      "bytes": 413233
+    },
+    {
+      "id": "desktop-continuity",
+      "kind": "verification-artifact",
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode/artifacts/desktop-next/current-source-delta.json",
+      "sha256": "a2f5082d1813f161c0c199fb53ddfc54589547862b733d76b3f3987251d2cb06",
+      "bytes": 707
+    },
+    {
+      "id": "desktop-advanced-log",
+      "kind": "verification-artifact",
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode/artifacts/desktop-next/desktop-advanced.log",
+      "sha256": "9d242caf647d45e854742120752123f44225968a943beb5cb475ee9152f2d003",
+      "bytes": 1808
+    },
+    {
+      "id": "windows-hosted-37851661119",
+      "kind": "verification-artifact",
+      "path": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/artifacts/native-windows/hosted-37851661119/download-verification.json",
+      "sha256": "2c6507ef2a313bc8e787cdefb2c4dc967f4f27bbd60fd9c3a18d04d2c7eeb65a",
+      "bytes": 4022
+    },
+    {
+      "id": "windows-hosted-37851910921",
+      "kind": "verification-artifact",
+      "path": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode/artifacts/native-windows/hosted-37851910921/download-verification.json",
+      "sha256": "a34eee280f0017c7f8196265094263ce8c93f2773f8d723f37c3e6161b19bd88",
+      "bytes": 4035
+    },
+    {
+      "id": "pty-compiled",
+      "kind": "verification-artifact",
+      "path": "/tmp/moodcode-next-pty-compiled-final.json",
+      "sha256": "ddd9a7c7dc66fd7a5295a294d60161c70bc93f48824087cc8c6850c760185750",
+      "bytes": 262611
+    },
+    {
+      "id": "persistent-quick",
+      "kind": "verification-artifact",
+      "path": "/tmp/moodcode-next-persistent-compiled-final.json",
+      "sha256": "f623823825bde602eac2e448f70bd1e4bed1b13e442075a6dc0fab79e874cc38",
+      "bytes": 167158
+    },
+    {
+      "id": "provider-coverage-source",
+      "kind": "production-source",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/provider/coverage.ts",
+      "sha256": "2793a8ef1a3deb05d9374de9cf8a08b7a9cfde52e0224a96f63a46a3228df80a",
+      "bytes": 8002
+    },
+    {
+      "id": "provider-anthropic-source",
+      "kind": "production-source",
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/provider/anthropic.ts",
+      "sha256": "91e54d5c3f5782659e188030ccb75841b6e5d6ec89e2c0eab4417d8bfafb8079",
+      "bytes": 34608
+    }
+  ]
+}
