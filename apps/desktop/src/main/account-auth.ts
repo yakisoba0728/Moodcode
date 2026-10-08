@@ -60,6 +60,7 @@ export class ChatGPTAuth {
       accountFail(signal.aborted ? 'ACCOUNT_CANCELLED' : 'ACCOUNT_NETWORK', signal.aborted ? 'Sign-in was cancelled.' : 'The account service could not be reached. Try again.');
     }
     const data = await boundedJson(response);
+    if (signal.aborted) accountFail('ACCOUNT_CANCELLED', 'The account operation was cancelled.');
     if (!response.ok) {
       if (data.error === 'invalid_grant' || response.status === 401) accountFail('ACCOUNT_REAUTH_REQUIRED', 'This account needs a new sign-in.');
       accountFail('ACCOUNT_REQUEST_FAILED', 'The account service declined the request. Try again.');
@@ -93,10 +94,11 @@ export class ChatGPTAuth {
         algorithms: ['RS256', 'ES256'], clockTolerance: 5, currentDate: new Date(this.#now()),
       });
       if (!opaque(payload.sub, 512) || (nonce !== undefined && (typeof payload.nonce !== 'string' || !same(payload.nonce, nonce)))) throw new Error();
+      if (signal.aborted) accountFail('ACCOUNT_CANCELLED', 'The account operation was cancelled.');
       const name = typeof payload.email === 'string' ? payload.email : typeof payload.name === 'string' ? payload.name : 'ChatGPT account';
       if (name.length > 256 || /[\u0000-\u001f\u007f]/u.test(name)) throw new Error();
       return { subject: payload.sub, label: name };
-    } catch { accountFail('ACCOUNT_IDENTITY_INVALID', 'The account identity could not be verified.'); }
+    } catch (error) { if (error instanceof AccountError) throw error; accountFail('ACCOUNT_IDENTITY_INVALID', 'The account identity could not be verified.'); }
   }
 
   async signIn(hostId: string, registration: AccountRegistration | undefined, signal: AbortSignal,
@@ -158,6 +160,7 @@ export class ChatGPTAuth {
         code: result.code, code_verifier: verifier, redirect_uri: redirect, resource: CHATGPT_API }));
       const tokens = parseTokens(data, this.#now());
       const identity = await this.#identity(tokens.idToken, result.clientId, nonce, discovery.jwks, signal);
+      if (signal.aborted) accountFail('ACCOUNT_CANCELLED', 'Sign-in was cancelled.');
       if (registration?.subject && registration.subject !== identity.subject) accountFail('ACCOUNT_IDENTITY_CHANGED', 'The signed-in identity did not match the selected account.');
       return { clientId: result.clientId, ...identity, tokens };
     } finally {
