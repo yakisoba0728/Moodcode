@@ -1,4 +1,5 @@
 import type { EffectBatchExecution } from '../effect-batches/host.js';
+import {ProviderAudioCapture} from '../media/output.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { types } from 'node:util';
 import { lstat, open, realpath } from 'node:fs/promises';
@@ -16,6 +17,7 @@ import type {
   ChildRunReservation, RunUsage, LifecycleContinuationCapture, TurnRequest, ProviderRequestOwner,
 } from '../ports.js';
 import type { BackendClientReadInput, BackendClientReadProof, BackendClientEffectInput, BackendClientPermissionProof } from '../agent-backends/client-effects.js';
+import { codeJson, CODE_MODE_TOOLS, codeModeError } from '../code-mode/types.js';
 import { immutableKnowledgeJson, knowledgeHash } from '../knowledge/validation.js';
 import { EXTRACTIVE_MEMORY_PREFIX } from '../context/index.js';
 import { SEMANTIC_MEMORY_PREFIX } from '../context/semantic-memory.js';
@@ -277,11 +279,13 @@ export class RunCoordinator implements CoordinatorPort {
   private readonly finalUsage = new Map<string, Readonly<RunUsage>>();
   private readonly verificationSettlementOwners = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; binding: string }>();
   private readonly teamToolContexts = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; phase: 'prepare' | 'execute'; binding: string; signal: AbortSignal; approval?: ApprovedMcpToolOwner['approval'] }>();
+  private readonly codeModeContexts = new WeakMap<ToolContext,{owner:Owner;record:ToolCallRecord;phase:'prepare'|'execute';active:()=>boolean;binding:string;signal:AbortSignal;approval?:ApprovedMcpToolOwner['approval']}>();
+  private readonly codeModeNested = new Map<string,{outer:ToolContext;signal:AbortSignal;deadline:number;assertCurrent:()=>void}>();
   private readonly commandJobContexts = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; binding: string; signal: AbortSignal; approval?: ApprovedMcpToolOwner['approval'] }>();
   private readonly providerRequests = new WeakMap<TurnRequest, OriginalProviderRequest>();
   private readonly clientReadCompletions = new WeakMap<object, BackendClientReadProof>();
   private readonly retainedClientReads = new Set<object>();
-  private readonly clientEffectHandles = new WeakMap<object, {request:TurnRequest;input:BackendClientEffectInput;proof:BackendClientPermissionProof;dispatch:()=>void;abort:AbortController;done:Promise<object>;started:Promise<void>;dispatched:boolean;}>();
+  private readonly clientEffectHandles = new WeakMap<object, {request:TurnRequest;input:BackendClientEffectInput;proof:BackendClientPermissionProof;dispatch:()=>void;abort:AbortController;done:Promise<object>;started:Promise<void>;dispatched:boolean;completion:()=>BackendClientReadProof|undefined;}>();
   private readonly clientReadCaptures = new Map<string, ClientReadCapture>();
   private closing = false;
   private closePromise?: Promise<void>;
@@ -654,6 +658,7 @@ export class RunCoordinator implements CoordinatorPort {
     let actualStart!: () => void;
     const started = new Promise<void>((resolve) => (actualStart = resolve));
     let permission: BackendClientPermissionProof | undefined;
+    let terminalCompletion: BackendClientReadProof | undefined;
     const capture: ClientReadCapture = {
       signal: effectSignal,
       dispatched: actualStart,
@@ -841,6 +846,7 @@ export class RunCoordinator implements CoordinatorPort {
         { completion: completion as unknown as JsonValue },
         { turnId: proof.turnId, attemptId: proof.attemptId },
       );
+      terminalCompletion = completion;
       const original = Object.freeze({});
       this.clientReadCompletions.set(original, completion);
       this.retainedClientReads.add(original);
@@ -868,6 +874,7 @@ export class RunCoordinator implements CoordinatorPort {
       done,
       started,
       dispatched: false,
+      completion: () => terminalCompletion,
     });
     return original;
   }
@@ -920,9 +927,22 @@ export class RunCoordinator implements CoordinatorPort {
         'Only the original admitted terminal has output authority',
       );
     this.originalProviderRequest(x.request, 'dispatch');
+    const completion = x.completion(), result = completion?.result;
+    // The same actual settled Tool proves cancellation before a physical source existed.
+    const noProcessCompletionSha256 =
+      x.abort.signal.aborted && completion?.state === 'failed' &&
+      completion.effectMethod === 'terminal/create' &&
+      completion.cleanupConfirmed === true && completion.content === null &&
+      completion.checkpoint === null && result &&
+      typeof result === 'object' && !Array.isArray(result) &&
+      result.status === 'cancelled' && result.started === false &&
+      result.cancelled === true && result.timedOut === false &&
+      result.cleanupConfirmed === true && result.exitCode === null &&
+      result.signal === null ? completion.sha256 : null;
     return {
       permission: structuredClone(x.proof),
       input: structuredClone(x.input),
+      noProcessCompletionSha256,
     };
   }
   waitProviderClientEffect(original: object): Promise<object> {
@@ -1035,6 +1055,28 @@ export class RunCoordinator implements CoordinatorPort {
     this.options.toolRuntime.assertCatalogueCurrent(owner.catalogue);
     return owner.catalogue;
   }
+  readCodeModeContext(context:ToolContext, phase:'prepare'|'execute'|'observe') {
+    const c=this.codeModeContexts.get(context);if(!c||!c.active()||c.phase!==(phase==='observe'?'execute':phase)||this.teamContextBinding(context)!==c.binding)codeModeError('CODE_MODE_OWNER_STALE');
+    const {owner,record}=c;if(this.owners.get(owner.run.id)!==owner||owner.terminal||owner.activeTools.get(record.id)!==record||context.signal!==c.signal||record.name!=='execute_code'||context.runId!==owner.run.id||context.sessionId!==owner.run.sessionId||context.workspace.id!==owner.run.workspaceId||context.turnId!==owner.turn?.id||context.attemptId!==owner.turn?.attemptId||phase!=='observe'&&(context.signal.aborted||owner.abort.signal.aborted||record.state!==(phase==='prepare'?'requested':'running')))codeModeError('CODE_MODE_OWNER_STALE');
+    const catalogue=phase==='observe'?owner.catalogue:this.captureToolCatalogue(context);if(!catalogue)codeModeError('CODE_MODE_OWNER_STALE');
+    let approval:null|{id:string;fingerprint:string}=null;
+    if(phase!=='prepare'){if(!c.approval)codeModeError('CODE_MODE_APPROVAL_REQUIRED');const a=this.options.store.getApproval(c.approval.id);if(a.status!=='allowed'||a.fingerprint!==c.approval.fingerprint||a.runId!==context.runId||a.toolCallId!==record.id||a.toolName!==record.name)codeModeError('CODE_MODE_APPROVAL_REQUIRED');approval={id:a.id,fingerprint:a.fingerprint};}
+    return {workspaceId:context.workspace.id,sessionId:context.sessionId,runId:context.runId,turnId:context.turnId!,attemptId:context.attemptId!,toolCallId:record.id,configSha256:knowledgeHash(owner.run.config),catalogueSha256:knowledgeHash(catalogue),profile:catalogue.profile??null,approval};
+  }
+  async executeCodeModeNested(context:ToolContext,input:{id:string;tool:string;input:JsonObject;deadline:number;signal:AbortSignal;assertCurrent:()=>void}) {
+    this.readCodeModeContext(context,'execute');input.assertCurrent();if(!(CODE_MODE_TOOLS as readonly string[]).includes(input.tool))codeModeError('CODE_MODE_TOOL_UNSUPPORTED');
+    const owner=this.codeModeContexts.get(context)!.owner;
+    if(!owner.turn||owner.callIds.has(input.id))codeModeError('CODE_MODE_DUPLICATE_CALL');
+    if(this.remainingChildBudget(owner).toolCalls<1)codeModeError('TOOL_CALL_LIMIT');
+    const clean=codeJson(input.input);owner.budget.reserveToolCalls(1);owner.callIds.add(input.id);
+    const toolId=randomUUID();owner.invocations.set(input.id,toolId);this.codeModeNested.set(toolId,{outer:context,signal:AbortSignal.any([context.signal,input.signal]),deadline:input.deadline,assertCurrent:input.assertCurrent});
+    const call={id:input.id,name:input.tool,input:clean};
+    const message={...this.message(owner,'assistant',''),toolCalls:[call]};this.options.store.commit(owner.run.id,'message.created',{}, {message});
+    owner.turn.toolProposal(message.id,toolId,call);
+    try{await this.executeTool(owner,call,context.workspace);const tool=this.options.store.getSnapshot(owner.run.sessionId).tools.find(t=>t.id===toolId)!;const approvals=this.options.store.getSnapshot(owner.run.sessionId).approvals.filter(a=>a.toolCallId===toolId&&a.status==='allowed');return {toolCallId:toolId,providerToolCallId:input.id,name:tool.name,inputSha256:knowledgeHash(tool.input),state:tool.state,outputSha256:createHash('sha256').update(tool.output??'').digest('hex'),outputBytes:Buffer.byteLength(tool.output??''),approval:approvals[0]?{id:approvals[0].id,fingerprint:approvals[0].fingerprint}:null,content:tool.output??''};}
+    finally{this.codeModeNested.delete(toolId);}
+  }
+
   /** ORIGINAL approved execution scope, retained only while the genuine command owns its Run. */
   readOwnedCommandContext(context: ToolContext, phase: 'start' | 'settle') {
     const captured = this.commandJobContexts.get(context);
@@ -1888,6 +1930,8 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     let finish: 'stop' | 'tool_calls' | 'length' | undefined;
     let replay: ProviderReplay | undefined;
     let pendingDelta = '', firstDelta = true;
+    let media:ProviderAudioCapture|undefined;
+    const saveMedia=async(success:boolean)=>{if(!media?.bytes)return;if(!this.options.providerArtifacts)throw new EngineError('CLEANUP_UNCERTAIN','Media artifact storage is unavailable');const ref=await media.store(await this.options.providerArtifacts(),success,owner.budget.budgets);if(ref){try{owner.turn!.putMedia(message.id,{type:'media',mime:media.mime,artifact:ref});}catch{throw new EngineError('CLEANUP_UNCERTAIN','Published provider media lacks a durable native Part receipt');}}};
     const flush = () => {
       if (!pendingDelta) return;
       const delta = pendingDelta;
@@ -1986,7 +2030,17 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
             if (output.truncated) throw new EngineError('OUTPUT_LIMIT', 'Run output byte budget was exceeded');
             break;
           }
-          case 'media': owner.turn!.putMedia(message.id, event); break;
+          case 'media.delta': {
+            const attemptId=owner.turn!.attemptId;if(!attemptId||!owner.turn!.records)throw new EngineError('PROVIDER_PROTOCOL_ERROR','Media requires an actual native Attempt');
+            media??=new ProviderAudioCapture({source:'provider',sessionId:owner.run.sessionId,runId:owner.run.id,turnId:owner.turn!.id,attemptId,providerId:provider.id,modelId:owner.run.config.modelId},provider.requestedOutputMedia?.(owner.run.config.modelId)==='audio/wav');
+            owner.outputBytes+=media.append(event,Math.max(0,owner.run.config.limits.maxOutputBytes-owner.outputBytes-owner.childReserved.outputBytes));break;
+          }
+          case 'media.end': if(!media)throw new EngineError('PROVIDER_PROTOCOL_ERROR','Media end has no stream');else media.end(event);break;
+          case 'media': {
+            // An adapter-supplied serialized Artifact is never proof of a provider output.
+            if('source'in event.artifact.identity)throw new EngineError('PROVIDER_PROTOCOL_ERROR','Provider media artifacts must be published by the actual Attempt');
+            owner.turn!.putMedia(message.id, event);break;
+          }
           case 'progress': break;
           case 'finish':
             if (!['stop', 'tool_calls', 'length'].includes(event.reason)) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider finish reason is unsupported');
@@ -2004,6 +2058,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       flush();
       if (finish === 'length') throw new EngineError('PROVIDER_LENGTH', 'Provider stopped at its output limit');
       if ((finish === 'tool_calls') !== (calls.length > 0)) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider finish reason does not match its complete tool calls');
+      await saveMedia(true);
       if (calls.length) message.toolCalls = calls;
       if (replay) message.providerReplay = replay;
       this.options.store.commit(owner.run.id, 'message.completed', { messageId: message.id, turnIndex, finishReason: finish }, { message });
@@ -2022,8 +2077,9 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
           new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), PROVIDER_CLEANUP_GRACE_MS); }),
         ]);
         if (timer) clearTimeout(timer);
-        if (!closed) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider stream cleanup could not be confirmed');
+        if (!closed){try{await saveMedia(false);}catch{}throw new EngineError('CLEANUP_UNCERTAIN', 'Provider stream cleanup could not be confirmed');}
       }
+      try{await saveMedia(false);}catch{throw new EngineError('CLEANUP_UNCERTAIN','Observed media publication or native receipt could not be established');}
       throw errorOf(failure, 'PROVIDER_ERROR', 'Provider failed while streaming a turn');
     } finally { clearInterval(flushTimer); }
   }
@@ -2066,6 +2122,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     Object.assign(tool, { state }, fields);
     this.options.store.commit(owner.run.id, `tool.${state}`, { toolCallId: tool.id, name: tool.name, state, ...fields }, { tool: { ...tool } });
     if(['run_command_job','command_job_input','wait_command_job'].includes(tool.name)&&state==='interrupted')this.options.onCommandLifetimeToolSettled?.(tool);
+    if(tool.name==='execute_code'&&state==='interrupted')this.options.onCodeModeToolSettled?.(tool);
     if (tool.name === 'run_command' && state === 'interrupted') this.options.onOwnedCommandToolSettled?.(tool);
     if(tool.name==='merge_workflow_stage' && state==='interrupted')this.options.onWorkflowToolSettled?.(tool);
   }
@@ -2092,11 +2149,13 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
 
   private async toolOperation<T>(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], execute: boolean, operation: (context: ToolContext) => Promise<T>, approval?: ApprovedMcpToolOwner['approval']): Promise<T> {
     const timeout = new AbortController();
-    const signal = AbortSignal.any([owner.abort.signal, timeout.signal, ...(this.clientReadCaptures.get(record.id)?.signal ? [this.clientReadCaptures.get(record.id)!.signal!] : [])]);
-    const timer = setTimeout(() => timeout.abort(new EngineError('TOOL_TIMEOUT', `Tool ${record.name} exceeded its execution timeout`)), owner.run.config.limits.toolTimeoutMs);
+    const nested=this.codeModeNested.get(record.id);if(nested){this.readCodeModeContext(nested.outer,'execute');nested.assertCurrent();}
+    const signal = AbortSignal.any([owner.abort.signal, timeout.signal,...(nested?[nested.signal]:[]), ...(this.clientReadCaptures.get(record.id)?.signal ? [this.clientReadCaptures.get(record.id)!.signal!] : [])]);
+    const timer = setTimeout(() => timeout.abort(new EngineError('TOOL_TIMEOUT', `Tool ${record.name} exceeded its execution timeout`)), Math.max(1,Math.min(owner.run.config.limits.toolTimeoutMs,nested?nested.deadline-Date.now():Infinity)));
     let active = execute;
     let inProgress = true;
     const context = this.context(owner, record, workspace, signal, () => active);
+    if(record.name==='execute_code')this.codeModeContexts.set(context,{owner,record,phase:execute?'execute':'prepare',active:()=>inProgress,binding:this.teamContextBinding(context),signal,...approval?{approval}:{}});
     if (execute && ['run_command','verify_changes','run_command_job','command_job_input','wait_command_job'].includes(record.name)) this.commandJobContexts.set(context, { owner, record, active: () => inProgress, binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
     if (['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task','read_team_board','submit_team_task','review_team_task','read_command_job','read_command_job_output','request_workflow_stage','observe_workflow_stage','merge_workflow_stage','deliver_workflow_result'].includes(record.name)) this.teamToolContexts.set(context, { owner, record, active: () => inProgress, phase: execute ? 'execute' : 'prepare', binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
     if (execute) context.mcpExecutionObserver = createMcpExecutionObserver(this.options.store, executionRecords(this.options.store), {
@@ -2105,7 +2164,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       ...(approval ? { approval } : {}),
     });
     // Command cleanup includes process-group termination and an after-image capture.
-    const cleanupGraceMs = execute && ['run_command', 'verify_changes'].includes(record.name) ? 5_000 : CLEANUP_GRACE_MS;
+    const cleanupGraceMs = execute && ['run_command', 'verify_changes', 'execute_code'].includes(record.name) ? 5_000 : CLEANUP_GRACE_MS;
     try { return await abortable(() => operation(context), signal, `Tool ${record.name}`, cleanupGraceMs); }
     finally { inProgress = false; active = false; clearTimeout(timer); }
   }
@@ -2201,13 +2260,14 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       if (owner.run.config.mode === 'plan' && (prepared.requiresApproval || effectful)) {
         return this.toolResult(owner, record, call, this.toolError(owner, 'PLAN_MODE_WRITE_BLOCKED', 'Plan mode does not allow this tool effect'), 'denied');
       }
-      if (prepared.requiresApproval || (!this.options.toolRuntime && effectful) || clientRead?.approved) {
+      const codeNested=this.codeModeNested.get(record.id);
+      if (prepared.requiresApproval || (codeNested&&effectful) || (!this.options.toolRuntime && effectful) || clientRead?.approved) {
         this.setTool(owner, record, 'awaiting_approval');
         this.options.store.commit(owner.run.id, 'run.awaiting_approval', { toolCallId: record.id }, { run: { state: 'awaiting_approval' } });
         const decision = await abortable(() => this.options.approvals.request({
           sessionId: owner.run.sessionId, runId: owner.run.id, toolCallId: record.id,
           toolName: prepared.name, fingerprint: prepared.fingerprint, preview: structuredClone(prepared.preview),
-        }, owner.abort.signal), owner.abort.signal, 'Approval wait');
+        }, codeNested?.signal??owner.abort.signal), codeNested?.signal??owner.abort.signal, 'Approval wait');
         this.assertLive(owner);
         if (![...owner.activeTools.values()].some(other => other.id !== record.id && other.state === 'awaiting_approval')) this.options.store.commit(owner.run.id, 'run.resumed', { toolCallId: record.id }, { run: { state: 'running' } });
         const current = this.options.store.getApproval(decision.id);
@@ -2263,6 +2323,8 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
         if (!['completed', 'failed', 'denied', 'interrupted'].includes(record.state)) this.setTool(owner, record, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
         throw failure;
       }
+      // A narrowed code scope may cancel its own approval without cancelling the Root Run.
+      if(this.codeModeNested.has(record.id)&&record.state==='awaiting_approval'&&!owner.abort.signal.aborted&&this.options.store.getRun(owner.run.id).state==='awaiting_approval'&&![...owner.activeTools.values()].some(other=>other.id!==record.id&&other.state==='awaiting_approval'))this.options.store.commit(owner.run.id,'run.resumed',{toolCallId:record.id},{run:{state:'running'}});
       // Input errors, denied permissions, and ordinary tool failures let the model adapt.
       return this.toolResult(owner, record, call, this.toolError(owner, failure.code, failure.message), deniedReceipt ? 'denied' : undefined);
     } finally {
@@ -2339,6 +2401,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     owner.turn?.toolResult(record.id, { output: output.content, isError: result.isError ?? false, truncated: output.truncated }, finalState !== 'completed');
     if(['run_command_job','command_job_input','wait_command_job'].includes(record.name))this.options.onCommandLifetimeToolSettled?.(record);
     if (record.name === 'run_command') this.options.onOwnedCommandToolSettled?.(record);
+    if(record.name==='execute_code')this.options.onCodeModeToolSettled?.(record);
     if(record.name==='merge_workflow_stage')this.options.onWorkflowToolSettled?.(record);
     const clientRead = this.clientReadCaptures.get(record.id);
     if (clientRead) clientRead.result = structuredClone(result);

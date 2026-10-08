@@ -5,8 +5,8 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 18,
-  "completedWorkItems": 73,
+  "completedFamilies": 19,
+  "completedWorkItems": 79,
   "environmentDebts": [
     "E5-13",
     "E5-08",
@@ -721,33 +721,50 @@
       "title": "제한 code-mode",
       "priority": "P3",
       "wave": "WX",
-      "status": "in-progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-15a",
           "completion": "제한 언어/runtime factory·capability negotiation·source preview",
-          "status": "in-progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-code-mode.md",
+            "engine-phase-two-code-mode.verification.json",
+            "engine-phase-two-code-media-integration-verification.json"
+          ]
         },
         {
           "id": "MC2-15b",
           "completion": "typed broker request/result·nested call budget·exact approval 전달",
-          "status": "in-progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-code-mode.md",
+            "engine-phase-two-code-mode.verification.json",
+            "engine-phase-two-code-media-integration-verification.json"
+          ]
         },
         {
           "id": "MC2-15c",
           "completion": "timeout/cancel/owner cleanup·bounded result artifact와 uncertain receipt",
-          "status": "in-progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-code-mode.md",
+            "engine-phase-two-code-mode.verification.json",
+            "engine-phase-two-code-media-integration-verification.json"
+          ]
         },
         {
           "id": "MC2-15d",
           "completion": "하나의 실제 지원 환경에서 sandbox 탈출 차단·stale grant·중복 nested call·cancel 직후 dispatch·crash 검사. 검증되지 않은 runtime은 비활성",
-          "status": "in-progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-code-mode.md",
+            "engine-phase-two-code-mode.verification.json",
+            "engine-phase-two-code-media-integration-verification.json"
+          ]
         }
-      ]
+      ],
+      "notes": "Opt-in actual Darwin Seatbelt closed JSON worker, immutable native source/grant/runtime generation, individually approved existing tool broker and original normalized aggregate budgets. Actual command/patch/verification, duplicate/stale/cancel/timeout/SQL/native-anchor/SIGKILL/restart/paused import and cross-feature acceptance passed on frozen Main. OtherOS/arbitraryJS/MCP/reconnect unsupported."
     },
     {
       "id": "MC2-16",
@@ -769,25 +786,35 @@
         {
           "id": "MC2-16b",
           "completion": "video/audio segment·anchor·MIME/model gating·bounded paging",
-          "status": "in-progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-media-capabilities.md",
+            "engine-phase-two-media-capabilities.verification.json",
+            "engine-phase-two-code-media-integration-verification.json"
+          ]
         },
         {
           "id": "MC2-16c",
           "completion": "생성 media output artifact·usage/null·archive/import schema 연결",
-          "status": "in-progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-media-capabilities.md",
+            "engine-phase-two-media-capabilities.verification.json",
+            "engine-phase-two-code-media-integration-verification.json"
+          ]
         },
         {
           "id": "MC2-16d",
           "completion": "실제 지원 모델별 invalid MIME·oversize·unknown capability·부분 생성·중복 delivery·source 삭제 검사. E5-13 닫힘과 신규 video/audio 완료를 따로 판정",
           "status": "in-progress",
           "evidence": [
-            "engine-phase-two-media-account-live-verification.json"
+            "engine-phase-two-media-account-live-verification.json",
+            "engine-phase-two-code-media-image-live-verification.json",
+            "engine-phase-two-code-media-integration-verification.json"
           ]
         }
       ],
-      "notes": "MC2-16a verification planning only: executable account-free planner captures nine source hashes, exact proposed provider/model, four adapter lanes, ten required cases and native recognition/cleanup/usage evidence requirements. CLI positive selections and six invalid admissions, 254 actual local image/PDF regression tests pass. No provider/account configuration is read and no live request is issued. Existing opt-in Codex image executors and standard Responses-only exact PDF declaration/two token-uncertainty opt-ins are distinguished. MC2-16b/c/d and E5-13 remain open; plan output is not recognition evidence. Later actual Codex gpt-6.1-sol PNG restart recognition passed with two native usage observations and confirmed cleanup against the ACP-integrated working sources. This covers one image account/model; PDF/audio/video/output, exact image token/window estimation and Anthropic account coverage remain unverified. MC2-16d now has actual image groundwork and remains in progress; no new completion credit and E5-13 stays open."
+      "notes": "16a plan retained. 16b/c complete actual bounded WAV/AVI source decoder/capability/timestamp/native input/provider wire and genuine provider Artifact/Part/usage/partial/recovery/archive/read APIs. Exact local fixture model/wire evidence is implementation evidence, not production account proof. Two real Codex image/restart requests passed on the initial combined snapshot; all source hashes and honest usage retained. 16d actual new audio/video/generated-output account/model checks remain in progress; Codex new media unsupported before credentials. E5-13 and unknown media token/window costing remain open."
     },
     {
       "id": "MC2-17",
@@ -998,5 +1025,5 @@
       "notes": "Complete original preview, fair up-front fixed reservations, actual isolated editor/validator/reviewer workflow children, strict native success, separate approved selection/merge, atomic result input and real subsequent consumer are integrated. Partial/cancel/unknown/skip-resume/SQL/SIGKILL/export/source/import checks pass. Native histories use existing DB23 bounded documents/events; host fixed per-request accounting is distinguished from external invoice and unknown usage remains unknown."
     }
   ],
-  "updatedAt": "2026-10-08T12:29:14.013929+00:00"
+  "updatedAt": "2026-10-08T13:49:51.712675+00:00"
 }

@@ -214,7 +214,7 @@ export class TurnExecutor {
   }
   putMedia(messageId: string, event: Extract<ProviderEvent, { type: 'media' }>): void {
     const part: MessagePart = { ...this.partBase(messageId), type: 'media', mime: event.mime, artifact: event.artifact, ...(event.name ? { name: event.name } : {}) };
-    this.parts.set(part.id, part); this.records?.putPart(part);
+    this.records?.putPart(part); this.parts.set(part.id, part);
   }
   toolProposal(messageId: string, internalId: string, call: import('@moodcode/contracts').ProviderToolCall): void {
     const part: MessagePart = { ...this.partBase(messageId), type: 'tool', toolCallId: internalId, providerCallId: call.id, name: call.name, input: call.input };

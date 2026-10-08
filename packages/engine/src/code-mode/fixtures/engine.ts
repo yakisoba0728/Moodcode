@@ -1,0 +1,227 @@
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import {
+  mkdtempSync,
+  mkdirSync,
+  realpathSync,
+  writeFileSync,
+  rmSync,
+} from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { randomUUID } from "node:crypto";
+import type { TestContext } from "node:test";
+import {
+  DEFAULT_LIMITS,
+  type RunConfig,
+  type Workspace,
+  type Session,
+  type RunReceipt,
+} from "@moodcode/contracts";
+import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
+import { createEngine, type EngineOptions } from "../../engine.js";
+import type { ProviderAdapter, TurnRequest } from "../../ports.js";
+export async function until(
+  p: () => boolean,
+  message = "fixture wait",
+  ms = 20000,
+) {
+  const end = Date.now() + ms;
+  while (!p()) {
+    assert.ok(Date.now() < end, message);
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}
+export const literal = (value: any) => ({ op: "literal", value });
+export const variable = (name: string) => ({ op: "var", name });
+export const program = (statements: any[]) =>
+  JSON.stringify({ version: 1, statements });
+export const call = (id: string, tool: string, input: any, result = id) => ({
+  op: "call",
+  id,
+  tool,
+  input: literal(input),
+  result,
+});
+export async function fixture(
+  t: TestContext,
+  extra: Partial<EngineOptions> = {},
+) {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), "moodcode-code-mode-"))),
+    root = join(base, "repo"),
+    dbPath = join(base, "db.sqlite"),
+    artifactDir = join(base, "artifacts");
+  mkdirSync(root);
+  writeFileSync(join(root, "seed"), "actual seed");
+  execFileSync("git", ["init", "-q", "--template=", root]);
+  execFileSync("git", ["-C", root, "add", "."]);
+  execFileSync("git", [
+    "-C",
+    root,
+    "-c",
+    "user.name=fixture",
+    "-c",
+    "user.email=fixture@example.invalid",
+    "commit",
+    "-qm",
+    "seed",
+  ]);
+  let source = program([{ op: "return", value: literal(7) }]);
+  const seen = new Set<string>(),
+    requests: TurnRequest[] = [];
+  const provider: ProviderAdapter = {
+    id: "code-mode-fixture",
+    async *streamTurn(request) {
+      requests.push(request);
+      if (!seen.has(request.runId)) {
+        seen.add(request.runId);
+        yield {
+          type: "tool.call",
+          call: {
+            id: "original-code",
+            name: "execute_code",
+            input: {
+              source,
+              allocation: {
+                maxSteps: 512,
+                maxNestedCalls: 8,
+                maxResultBytes: 8192,
+                maxDurationMs: 7000,
+              },
+            },
+          },
+        };
+        yield { type: "finish", reason: "tool_calls" };
+      } else {
+        yield { type: "text.delta", delta: "actual code result observed" };
+        yield { type: "finish", reason: "stop" };
+      }
+    },
+  };
+  const config: RunConfig = {
+    providerId: provider.id,
+    modelId: "fixture",
+    mode: "build",
+    limits: {
+      ...DEFAULT_LIMITS,
+      maxTurns: 2,
+      maxToolCalls: 10,
+      maxOutputBytes: 131072,
+      maxDurationMs: 20000,
+      toolTimeoutMs: 10000,
+    },
+    budgets: normalizeEngineBudgets({
+      turnAllowance: 2,
+      maxProviderAttempts: 1,
+      maxToolCallsPerTurn: 10,
+    }),
+  };
+  const options: EngineOptions = {
+    dbPath,
+    artifactDir,
+    providers: [provider],
+    defaults: config,
+    codeMode: true,
+    ...extra,
+  };
+  let engine = createEngine(options);
+  const engines = new Set([engine]);
+  t.after(async () => {
+    for (const e of engines) await e.close().catch(() => {});
+    rmSync(base, { force: true, recursive: true });
+  });
+  const dispatch = async <T>(type: string, payload: any) => {
+    const r = await engine.dispatch({
+      schemaVersion: 1,
+      commandId: randomUUID(),
+      type,
+      payload,
+    });
+    assert.equal(r.ok, true, JSON.stringify(r.error));
+    return r.result as unknown as T;
+  };
+  const workspace = await dispatch<Workspace>("workspace.open", { path: root }),
+    session = await dispatch<Session>("session.create", {
+      workspaceId: workspace.id,
+    });
+  const grant = async () => {
+    await engine.registerCodeModeHost();
+    const original = engine.previewCodeModeGrant({
+      workspaceId: workspace.id,
+      sessionId: session.id,
+      config,
+    });
+    const proof = engine.readCodeModeGrant(original);
+    engine.approveCodeModeGrant({
+      preview: original,
+      fingerprint: proof.sha256,
+      approved: true,
+    });
+    return original;
+  };
+  const submit = async (text = source) => {
+    source = text;
+    return dispatch<RunReceipt>("run.submit", {
+      sessionId: session.id,
+      requestId: randomUUID(),
+      prompt: "Execute real restricted code",
+      config,
+    });
+  };
+  const approval = async (r: RunReceipt) => {
+    await until(() => {
+      const run = engine.store.getRun(r.runId);
+      if (
+        ["failed", "interrupted", "cancelled", "completed"].includes(run.state)
+      )
+        throw new Error(JSON.stringify(run));
+      return engine.store
+        .getSnapshot(session.id)
+        .approvals.some((a) => a.runId === r.runId && a.status === "pending");
+    }, "actual native approval");
+    return engine.store
+      .getSnapshot(session.id)
+      .approvals.find((a) => a.runId === r.runId && a.status === "pending")!;
+  };
+  const allow = async (r: RunReceipt) => {
+    const a = await approval(r);
+    engine.approvals.decide(a.id, "allow", a.fingerprint);
+    return a;
+  };
+  const wait = async (r: RunReceipt) => {
+    await until(
+      () =>
+        ["completed", "failed", "interrupted", "cancelled"].includes(
+          engine.store.getRun(r.runId).state,
+        ),
+      "actual Run terminal",
+    );
+    return engine.store.getRun(r.runId);
+  };
+  return {
+    base,
+    root,
+    dbPath,
+    artifactDir,
+    workspace,
+    session,
+    config,
+    options,
+    requests,
+    get engine() {
+      return engine;
+    },
+    grant,
+    submit,
+    approval,
+    allow,
+    wait,
+    dispatch,
+    reopen: async (extra: Partial<EngineOptions> = {}) => {
+      await engine.close();
+      engine = createEngine({ ...options, ...extra });
+      engines.add(engine);
+      return engine;
+    },
+  };
+}

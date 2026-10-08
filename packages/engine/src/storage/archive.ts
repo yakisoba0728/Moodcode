@@ -1,5 +1,7 @@
 import {validateCommandLifetimeDatabase} from '../jobs/command-lifetime-records.js';
 import {validateEffectBatchDatabase} from '../effect-batches/storage.js';
+import {validateCodeModeDatabase} from '../code-mode/records.js';
+import {validateMediaDatabase,validateMediaFiles} from '../media/native-validation.js';
 import { validatePrFeedbackDatabase } from '../pr-feedback/records.js';
 import {validateHostCommandDeliveryDatabase} from '../jobs/host-command-delivery-records.js';
 
@@ -175,7 +177,7 @@ function sqlite(path: string): DatabaseSync {
 function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { schemaVersion: number; logicalHash: string } {
   const schemaVersion = Number(db.prepare('PRAGMA user_version').get()?.user_version);
   if (role === 'primary') {
-    databaseVersion(db);
+    databaseVersion(db);validateMediaDatabase(db,check);
     if (schemaVersion < 1) fail('ARCHIVE_DATABASE_INVALID', 'Primary archive database has no supported schema');
     const tables = schemaVersion >= 2 ? [...primaryTables, ...NATIVE_SESSION_TABLES] : primaryTables;
     const usageTables = schemaVersion >= 3 ? [...tables, 'attempt_usage'] : tables;
@@ -263,7 +265,7 @@ validateCodingBatchDatabase(db);
     }
     const backendTables = schemaVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
     if (schemaVersion >= 22) {
-      try { validateEffectBatchDatabase(db); validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check }); validateGitCommitDatabase(db, {check}); validateConversationForkDatabase(db); validatePrFeedbackDatabase(db,{check}); validateSandboxDatabase(db,{check}); }
+      try { validateEffectBatchDatabase(db); validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check }); validateGitCommitDatabase(db, {check}); validateConversationForkDatabase(db); validatePrFeedbackDatabase(db,{check}); validateSandboxDatabase(db,{check}); validateCodeModeDatabase(db,{check}); }
       catch { fail('ARCHIVE_JOB_INVALID', 'Archived terminal job sources, immutable output pages or completion delivery receipts are invalid'); }
     }
     const jobTables = schemaVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables;
@@ -470,7 +472,7 @@ function validateChildDocumentArchive(root:string,manifest:EngineArchiveManifest
       if (!item || canonical(item.record)!==canonical(record)) fail('ARCHIVE_CHILD_INVALID','Child audit record differs from its immutable root binding');
       const childDb=sqlite(join(root,item.database.file));
       try {
-        const actual=logicalDatabase(childDb,'primary',check); if (actual.schemaVersion!==item.database.schemaVersion || actual.logicalHash!==item.database.logicalHash) fail('ARCHIVE_CHILD_INVALID','Child logical database differs from its audited snapshot');
+        validateMediaFiles(childDb,join(root,item.artifactPrefix),check,manifest.artifacts,item.artifactPrefix);const actual=logicalDatabase(childDb,'primary',check); if (actual.schemaVersion!==item.database.schemaVersion || actual.logicalHash!==item.database.logicalHash) fail('ARCHIVE_CHILD_INVALID','Child logical database differs from its audited snapshot');
         try { validateTeamChildInputRelations(primary,childDb,record,check);validateResidentChildHistory(primary,childDb,record,check); }
         catch { fail('ARCHIVE_TEAM_INVALID','Team delivery receipt differs from the actual admitted child input'); }
       } finally { childDb.close(); }
@@ -518,6 +520,7 @@ function validateParsedArchive(root:string,parsed:ReturnType<typeof parseManifes
     try { const actual = logicalDatabase(db, item.role, check); if (actual.schemaVersion !== item.schemaVersion || actual.logicalHash !== item.logicalHash) fail('ARCHIVE_DATABASE_INVALID', 'Archive database logical content does not match'); }
     finally { db.close(); }
   }
+  const mediaPrimary=sqlite(join(root,databaseFiles.primary));try{validateMediaFiles(mediaPrimary,join(root,'artifacts'),check,parsed.manifest.artifacts);}finally{mediaPrimary.close();}
   validateReviewFiles(root, check);
   // Preserve the existing validator's proof-only deadline. An explicit
   // inspection supplies its already-started operation-wide frame instead.
@@ -646,7 +649,7 @@ export async function exportEngineArchive(options: ExportEngineArchiveOptions): 
     const pinDocuments=(index:InputDocumentIndexReport|undefined,prefix:string)=>{for(const ref of index?.refs??[])expectedDocuments.set(`${prefix}/input-documents/${ref.id}.blob`,{bytes:ref.bytes,sha256:ref.sha256});};
     let childSelection:ChildSelection;
     try {
-      documentPrimary.exec('BEGIN');
+      documentPrimary.exec('BEGIN');validateMediaFiles(documentPrimary,paths.artifacts,check);
       pinDocuments(validateDocumentFiles(documentPrimary,paths.artifacts,check,frame),'artifacts');
       childSelection=selectArchiveChildren(documentPrimary,{database:childStoragePhysicalIdentity(paths.db),artifacts:childStoragePhysicalIdentity(paths.artifacts,true)},join(paths.artifacts,'children'),frame,'source',check);
       requireTeamChildCoverage(documentPrimary,childSelection.records,check);
@@ -655,7 +658,7 @@ export async function exportEngineArchive(options: ExportEngineArchiveOptions): 
     const replaced=new Set<string>(),excluded=new Set<string>();
     const artifacts: ArchiveFile[]=[];
     for(const record of childSelection.records) {
-      const reader=openChildDocumentReader({mode:'source',record},frame);childReaders.push(reader);
+      const reader=openChildDocumentReader({mode:'source',record},frame);childReaders.push(reader);validateMediaFiles(reader.db,record.binding.physical.artifacts.path,()=>{check();reader.check();});
       pinDocuments(validateDocumentFiles(reader.db,record.binding.physical.artifacts.path,check,frame,reader.readIndex()),`artifacts/children/${record.binding.lineage.taskId}/artifacts`);
       const taskId=record.binding.lineage.taskId,name=`artifacts/children/${taskId}/engine.sqlite`,output=join(staging,name);
       mkdirSync(dirname(output),{recursive:true,mode:0o700});

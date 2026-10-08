@@ -1,4 +1,5 @@
 import { EngineError } from '@moodcode/contracts';
+import { jobJson } from '../jobs/validation.js';
 import { types } from 'node:util';
 
 export interface ModelSpec {
@@ -9,6 +10,7 @@ export interface ModelSpec {
   modalities: readonly ('text' | 'image' | 'audio' | 'video')[] | null;
   /** null/omitted means unknown; an empty list explicitly declares no native file inputs. */
   inputFileTypes?: readonly 'application/pdf'[] | null;
+  mediaCapabilities?: {audioInput:boolean;videoFrames:boolean;audioOutput:boolean} | null;
   tools: boolean | null;
   reasoning: boolean | null;
   nativeReplay: boolean | null;
@@ -54,6 +56,10 @@ export class ModelRegistry {
   private key(providerId: string, modelId: string): string { return JSON.stringify([providerId, modelId]); }
   put(spec: ModelSpec): ModelSpec {
     const inputFileTypes = fileTypes(spec);
+    const capDescriptor=Object.getOwnPropertyDescriptor(spec,'mediaCapabilities');
+    if(capDescriptor&&(!capDescriptor.enumerable||!Object.hasOwn(capDescriptor,'value')))throw new EngineError('INVALID_MODEL_SPEC','Media metadata must be data');
+    const rawCaps=capDescriptor?.value, mediaCapabilities=rawCaps===undefined||rawCaps===null?null:jobJson(rawCaps,4096);
+    if(mediaCapabilities!==null&&(typeof mediaCapabilities!=='object'||Array.isArray(mediaCapabilities)||Object.keys(mediaCapabilities).length!==3||['audioInput','videoFrames','audioOutput'].some(k=>typeof (mediaCapabilities as Record<string,unknown>)[k]!=='boolean')))throw new EngineError('INVALID_MODEL_SPEC','Explicit media capability fields are invalid');
     identifier(spec.providerId); identifier(spec.modelId);
     count(spec.contextWindow); count(spec.maxOutputTokens);
     for (const value of [spec.tools, spec.reasoning, spec.nativeReplay]) if (value !== null && typeof value !== 'boolean') {
@@ -67,7 +73,7 @@ export class ModelRegistry {
     }
     const key = this.key(spec.providerId, spec.modelId);
     if (!this.specs.has(key) && this.specs.size >= 256) throw new EngineError('MODEL_CATALOG_LIMIT', 'Model metadata catalog is full');
-    const copy = { ...structuredClone(spec), inputFileTypes };
+    const copy:ModelSpec = { ...structuredClone(spec), inputFileTypes, ...(capDescriptor ? {mediaCapabilities:mediaCapabilities as ModelSpec['mediaCapabilities']} : {}) };
     this.specs.set(key, copy);
     return structuredClone(copy);
   }

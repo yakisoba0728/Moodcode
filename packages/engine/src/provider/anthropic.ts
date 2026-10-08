@@ -1,3 +1,4 @@
+import {providerSegments} from '../media/segment-provider.js';
 import { isDeepStrictEqual } from 'node:util';
 import { EngineError, type JsonObject, type JsonValue, type ProviderToolCall } from '@moodcode/contracts';
 import type { ModelSpec } from '../context/model-spec.js';
@@ -311,6 +312,7 @@ export class AnthropicProvider implements ProviderAdapter {
 
   async *#stream(request: ProviderTransportRequest, signal: AbortSignal, generation: boolean): AsyncGenerator<ProviderEvent> {
     if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
+    providerSegments(request,()=>false,signal);
     providerDocuments(request, false, signal);
     let serialized: string;
     try {

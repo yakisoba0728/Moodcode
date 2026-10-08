@@ -1,3 +1,4 @@
+import { assertMediaIndexCapacity, assertProviderMediaPartCapacity } from '../media/storage-capacity.js';
 import { createHash } from 'node:crypto';
 import {
   EngineError, isTerminal, type ContextRevision, type JsonObject, type MessagePart,
@@ -208,11 +209,21 @@ export class NativeExecutionStorage {
         if (owner && (owner.session_id !== part.sessionId || owner.run_id !== part.runId || owner.turn_id !== part.turnId)) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Message identity belongs to another owner');
         if (part.index !== (owner ? Number(owner.part_index) + 1 : 0)) throw new EngineError('PART_ORDER_CONFLICT', 'Part index must continue its message order');
       }
+      if (previous?.type === 'media' && part.type === 'media' && ('source' in previous.artifact.identity || 'source' in part.artifact.identity)) sameRecord([previous.artifact, previous.mime, previous.name], [part.artifact, part.mime, part.name], 'Provider media artifact identity and description are immutable');
+      if(part.type==='media'&&'source'in part.artifact.identity){
+        const owner=part.artifact.identity,attempt=this.getAttempt(owner.attemptId),run=this.native.scopeRun(part.sessionId,part.runId);
+        const header=this.database.prepare('SELECT session_id,run_id,turn_id,attempt_index,state FROM provider_attempts WHERE id=?').get(attempt.id);
+        if(header?.session_id!==attempt.sessionId||header.run_id!==attempt.runId||header.turn_id!==attempt.turnId||header.attempt_index!==attempt.index||header.state!==attempt.state)throw new EngineError('MEDIA_OWNER_INVALID','Media provider Attempt SQL owner disagrees with its native body');
+        const latest=this.database.prepare('SELECT id FROM provider_attempts WHERE turn_id=? ORDER BY attempt_index DESC LIMIT 1').get(part.turnId);
+        if(owner.source!=='provider'||owner.sessionId!==part.sessionId||owner.runId!==part.runId||owner.turnId!==part.turnId||attempt.turnId!==part.turnId||attempt.sessionId!==part.sessionId||attempt.runId!==part.runId||attempt.providerId!==owner.providerId||attempt.modelId!==owner.modelId||run.config.providerId!==owner.providerId||run.config.modelId!==owner.modelId||latest?.id!==attempt.id||!attempt.dispatchedAt)throw new EngineError('MEDIA_OWNER_INVALID','Media artifact lacks the exact native provider Attempt');
+        if(!previous)this.native.appendEvent(part.sessionId,'provider.media.admitted',{part:storedJson(part),attempt:storedJson(attempt)},{runId:part.runId,turnId:part.turnId,attemptId:attempt.id});
+      }
       if (part.type === 'tool') {
         const tool = this.database.prepare('SELECT session_id,run_id FROM tools WHERE id=?').get(part.toolCallId);
         if (tool && (tool.session_id !== part.sessionId || tool.run_id !== part.runId)) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Tool call identity belongs to another owner');
       }
       const encoded = JSON.stringify(part);
+      if (part.type === 'media' && 'source' in part.artifact.identity) assertProviderMediaPartCapacity(this.database, { encoded, previousBytes: row ? Buffer.byteLength(String(row.data)) : 0, previousOpen: previous?.state === 'open', nextOpen: part.state === 'open', newRecord: !previous });
       const sizes = this.database.prepare('SELECT count(*) AS count,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM message_parts WHERE turn_id=?').get(part.turnId)!;
       const bytes = Number(sizes.bytes) - (row ? Buffer.byteLength(String(row.data)) : 0) + Buffer.byteLength(encoded);
       if (!previous && Number(sizes.count) >= PARTS_LIMIT || bytes > this.native.budgets.maxProducerBytes) throw new EngineError('PART_STORAGE_LIMIT', 'Turn part count or byte budget is full');
@@ -308,6 +319,7 @@ export class NativeExecutionStorage {
       const current = this.getSessionDocument(sessionId, kind);
       if ((current?.revision ?? 0) !== expectedRevision) throw new EngineError('REVISION_CONFLICT', 'Session document was updated by another operation');
       const revision = expectedRevision + 1;
+      if (kind === 'input_media_segments') assertMediaIndexCapacity(this.database, sessionId, encoded);
       invalidateEvidenceRead(this.database);
       this.database.prepare('INSERT INTO session_documents(session_id,kind,revision,data) VALUES(?,?,?,?) ON CONFLICT(session_id,kind) DO UPDATE SET revision=excluded.revision,data=excluded.data')
         .run(sessionId, kind, revision, encoded);

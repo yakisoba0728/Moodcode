@@ -1,4 +1,4 @@
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 const [mode, logPath, root] = process.argv.slice(2);
@@ -16,7 +16,7 @@ const write = {
 };
 const command =
   mode.includes("hold") || mode.includes("kill")
-    ? `${JSON.stringify(process.execPath)} -e 'require("fs").writeFileSync("command-pid",String(process.pid));const child=require("child_process").spawn(process.execPath,["-e","setInterval(()=>{},1000)"],{stdio:"ignore"});require("fs").writeFileSync("command-child-pid",String(child.pid));process.stdout.write("running live output\\n");setInterval(()=>{},1000)'`
+    ? `${JSON.stringify(process.execPath)} -e 'require("fs").writeFileSync("command-pid",String(process.pid));const child=require("child_process").spawn(process.execPath,["-e","setInterval(()=>{},1000)"],{stdio:"ignore"});require("fs").writeFileSync("command-child-pid",String(child.pid));require("fs").writeFileSync("command-ready","ready\\n");process.stdout.write("running live output\\n");setInterval(()=>{},1000)'`
     : `${JSON.stringify(process.execPath)} -e 'require("fs").writeFileSync("command.txt","actual command");process.stdout.write("actual native terminal output\\n")'`;
 const terminal = {
   sessionId,
@@ -40,6 +40,23 @@ const request = (id, method, params) =>
   send({ jsonrpc: "2.0", id, method, params });
 const finish = () =>
   send({ jsonrpc: "2.0", id: promptId, result: { stopReason: "end_turn" } });
+// An ACK proves dispatch, not that the actual command has written its PID markers.
+const killAfterCommandReady = () => {
+  const deadline = Date.now() + 5_000;
+  const poll = () => {
+    let ready = false;
+    try {
+      ready = readFileSync(join(root, "command-ready"), "utf8") === "ready\n";
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+    if (ready) request("kill", "terminal/kill", { sessionId, terminalId });
+    else if (Date.now() >= deadline)
+      throw new Error("Actual terminal command readiness timed out");
+    else setTimeout(poll, 25);
+  };
+  poll();
+};
 const lines = createInterface({ input: process.stdin });
 lines.on("line", (text) => {
   const v = JSON.parse(text);
@@ -110,11 +127,9 @@ lines.on("line", (text) => {
             }),
           150,
         );
-      else if (mode === "terminal-kill")
-        setTimeout(
-          () => request("kill", "terminal/kill", { sessionId, terminalId }),
-          100,
-        );
+      else if (mode === "terminal-kill") killAfterCommandReady();
+      else if (mode === "terminal-kill-immediate")
+        request("kill", "terminal/kill", { sessionId, terminalId });
       else request("wait", "terminal/wait_for_exit", { sessionId, terminalId });
     } else finish();
   } else if (v.id === "live-output") {

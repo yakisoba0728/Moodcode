@@ -1,6 +1,9 @@
 import {readCommandLifetimes,validateCommandLifetimeRecord,validateCommandLifetimeDatabase,pauseCommandLifetimes,lifetimeKind,type CommandLifetimeRecord} from '../jobs/command-lifetime-records.js';
 import {writeEffectBatch,hasKnownEffectBatchMarker,hasUncertainEffectBatches,listEffectBatches,readEffectBatch,validateEffectBatchDatabase,pauseEffectBatches,type EffectBatchWritePorts} from '../effect-batches/storage.js';
 import type {EffectBatchRecord} from '../effect-batches/types.js';
+import {CodeModeStorage} from '../code-mode/records.js';
+import { assertMediaReferenceCapacity } from '../media/storage-capacity.js';
+import {validateMediaDatabase} from '../media/native-validation.js';
 import { PrFeedbackStorage, validatePrFeedbackDatabase } from '../pr-feedback/records.js';
 import { validateCommitVerification } from '../git/commit-receipts.js';
 import {deliverHostCommandResultAtomic,readHostCommandDeliveries,readHostCommandDelivery,findHostCommandDeliveryForInput,validateHostCommandDeliveryDatabase,pauseImportedHostCommandDeliveries,type HostCommandDeliveryInput,type HostCommandDeliveryPorts} from '../jobs/host-command-delivery-records.js';
@@ -26,7 +29,7 @@ import {
   type Message, type Run, type RunReceipt, type RunState, type Session,
   type SessionSnapshot, type SessionControl, type SessionEventV2, type SessionHistoryPage, type SessionMetrics, type SubmitInput, type ToolCallRecord, type TurnRecord, type Workspace,
 } from '@moodcode/contracts';
-import { normalizeDocumentAttachments, normalizeImageAttachments } from '@moodcode/contracts/validation';
+import { normalizeDocumentAttachments, normalizeMediaAttachments, normalizeImageAttachments } from '@moodcode/contracts/validation';
 import type { CommitChange, SessionEngineStore } from '../ports.js';
 import { backupDatabase, inspectIntegrity, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './maintenance.js';
 import { databaseVersion, DB_VERSION, migrateDatabase } from './migrations.js';
@@ -36,7 +39,7 @@ import { ownedCommandJobKind, validateOwnedCommandJob, validateOwnedCommandJobDa
 import { deliverOwnedCommandResultAtomic, readOwnedCommandDeliveries, readOwnedCommandDelivery, findOwnedCommandDeliveryForInput, validateOwnedCommandDeliveryDatabase, pauseImportedOwnedCommandDeliveries, type OwnedCommandDeliveryInput, type OwnedCommandDeliveryPorts } from '../jobs/owned-command-delivery-records.js';
 import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPage } from './history-search.js';
 import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js';
-import { readActiveHistoryWindow, withSessionDocumentAnchor, withSessionImageAnchor, type ActiveHistoryWindow, type SessionDocumentAnchor, type SessionImageAnchor } from './native-history.js';
+import { readActiveHistoryWindow, withSessionSegmentAnchor, withSessionDocumentAnchor, withSessionImageAnchor, type ActiveHistoryWindow, type SessionDocumentAnchor, type SessionImageAnchor } from './native-history.js';
 import { putAttemptUsage, type AttemptUsageRecord, type AttemptUsageSnapshot } from './native-usage.js';
 import { inspectInputImageIndex, type InputImageIndexOptions, type InputImageIndexReport } from './input-image-index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexOptions, type InputDocumentIndexReport } from './input-document-index.js';
@@ -233,6 +236,7 @@ export class SqliteStore implements SessionEngineStore {
         admit: (input, inputId) => this.admitInTransaction(input, inputId),
         steer: (input, run) => this.steerInTransaction(input, run), notify: id => this.notify(id),
       }, hostBudgets);
+      validateMediaDatabase(db);
       this.executionRecords = new NativeExecutionStorage(this.native, turn => {
         const dependency = turn.uncertainty?.summaryDependency;
         if (dependency && this.getSummaryOverflowDependency(dependency.summaryAttemptId, turn.id, dependency.failedAttemptId).cleanupRecordSha256 !== dependency.cleanupRecordSha256) {
@@ -248,6 +252,10 @@ export class SqliteStore implements SessionEngineStore {
       try { db?.close(); } finally { ownership?.close(); }
       throw error;
     }
+  }
+
+  readProviderMediaPart(sessionId:string,partId:string):Extract<MessagePart,{type:'media'}>{
+    return this.evidenceRead(()=>{const history=validateMediaDatabase(this.db),part=history.outputs.find(part=>part.id===partId&&part.sessionId===sessionId);if(!part)throw new EngineError('MEDIA_PART_NOT_FOUND','Native provider media Part does not belong to this session');return structuredClone(part);});
   }
 
   private assertOpen(): void {
@@ -393,13 +401,13 @@ export class SqliteStore implements SessionEngineStore {
         requestId: input.requestId, prompt: input.prompt, config: input.config,
         state: 'created', createdAt: timestamp, updatedAt: timestamp,
         ...(input.attachments === undefined ? {} : { attachments: normalizeImageAttachments(input.attachments) }),
-        ...(input.documents === undefined ? {} : { documents: normalizeDocumentAttachments(input.documents) }),
+        ...(input.documents === undefined ? {} : { documents: normalizeDocumentAttachments(input.documents) }), ...(input.media === undefined ? {} : { media: normalizeMediaAttachments(input.media) }),
       };
       this.db.prepare('INSERT INTO inputs(id,session_id,request_id,fingerprint,admitted_seq,data) VALUES(?,?,?,?,0,?)').run(inputId, session.id, input.requestId, fingerprint, encode(input));
       this.db.prepare('INSERT INTO runs(id,input_id,session_id,workspace_id,state,data) VALUES(?,?,?,?,?,?)').run(run.id, inputId, session.id, session.workspaceId, run.state, encode(run));
       const message: Message = { id: randomUUID(), sessionId: session.id, runId: run.id, role: 'user', content: input.prompt, createdAt: timestamp,
         ...(run.attachments === undefined ? {} : { attachments: structuredClone(run.attachments) }),
-        ...(run.documents === undefined ? {} : { documents: structuredClone(run.documents) }) };
+        ...(run.documents === undefined ? {} : { documents: structuredClone(run.documents) }), ...(run.media === undefined ? {} : { media: structuredClone(run.media) }) };
       this.writeMessage(run, message);
       const admitted = this.append(run, 'input.admitted', { runId: run.id, inputId, requestId: input.requestId });
       this.db.prepare('UPDATE inputs SET admitted_seq=? WHERE id=?').run(admitted.seq, inputId);
@@ -408,7 +416,7 @@ export class SqliteStore implements SessionEngineStore {
   private steerInTransaction(input: InputRecord, run: Run): number {
     const message: Message = { id: input.id, sessionId: input.sessionId, runId: run.id, role: 'user', content: input.prompt, createdAt: new Date().toISOString(),
       ...(input.attachments === undefined ? {} : { attachments: normalizeImageAttachments(input.attachments) }),
-      ...(input.documents === undefined ? {} : { documents: normalizeDocumentAttachments(input.documents) }) };
+      ...(input.documents === undefined ? {} : { documents: normalizeDocumentAttachments(input.documents) }), ...(input.media === undefined ? {} : { media: normalizeMediaAttachments(input.media) }) };
     this.writeMessage(run, message);
     return this.append(run, 'input.steered', { inputId: input.id, requestId: input.requestId, messageId: message.id }).seq;
   }
@@ -491,7 +499,7 @@ putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRec
     });
   }
   hasUncertainWorkspace(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => hasUncertainEffectBatches(this.db,workspaceId) || readCommandLifetimes(this.db,workspaceId).some(r=>r.state==='uncertain'||r.state==='paused-import'&&r.completionSha256===null) || hasWorkflowEffectUncertainty(this.db,workspaceId) || this.hasUncertainGitCommit(workspaceId) || this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId) || this.hasUncertainAgentBackend(workspaceId) || readOwnedCommandJobs(this.db, workspaceId).some(job => job.state === 'uncertain' || job.state === 'paused-import' && job.errorCode === 'COMMAND_JOB_CLEANUP_UNCERTAIN'));
+    return this.recoveryBlocked(() => this.createCodeModeStorage().hasUncertain(workspaceId) || hasUncertainEffectBatches(this.db,workspaceId) || readCommandLifetimes(this.db,workspaceId).some(r=>r.state==='uncertain'||r.state==='paused-import'&&r.completionSha256===null) || hasWorkflowEffectUncertainty(this.db,workspaceId) || this.hasUncertainGitCommit(workspaceId) || this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId) || this.hasUncertainAgentBackend(workspaceId) || readOwnedCommandJobs(this.db, workspaceId).some(job => job.state === 'uncertain' || job.state === 'paused-import' && job.errorCode === 'COMMAND_JOB_CLEANUP_UNCERTAIN'));
   }
   hasUncertainAgentBackend(workspaceId: string): boolean {
     return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasAgentBackendBlocker(this.db, workspaceId); });
@@ -763,6 +771,7 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
   recoverEffectBatches():number{return this.transaction(()=>pauseEffectBatches(this.db,this.effectBatchWritePorts()));}
   validatePrFeedback():void {this.evidenceRead(()=>validatePrFeedbackDatabase(this.db));}
   validatePrVerificationEvidence(evidence:unknown):void {this.evidenceRead(()=>validateCommitVerification(this.db,evidence as import('../git/types.js').GitCommitPreview));}
+  createCodeModeStorage(assertOriginal:import('../code-mode/records.js').CodeModeRecordPorts['assertOriginal']=()=>{throw new EngineError('CODE_MODE_ORIGINAL_REQUIRED','Readonly code-mode history grants no execution');}):CodeModeStorage{return new CodeModeStorage(this.db,{assertOriginal,writeTx:operation=>this.db.isTransaction?operation():this.transaction(operation),writeDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),appendEvent:(s,t,p,refs)=>this.native.appendEvent(s,t,p,refs)});}
   createSandboxStorage():SandboxStorage {return new SandboxStorage(this.db,{writeTx:op=>this.db.isTransaction?op():this.transaction(op),writeDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),appendEvent:(s,t,p,refs)=>this.native.appendEvent(s,t,p,refs)});}
   validateSandboxes():void {this.evidenceRead(()=>validateSandboxDatabase(this.db));}
   pauseSandboxImports(workspaceId:string):void {pauseImportedSandboxes(this.db,workspaceId,{writeTx:op=>this.db.isTransaction?op():this.transaction(op),writeDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),appendEvent:(s,t,p,refs)=>this.native.appendEvent(s,t,p,refs)});}
@@ -853,6 +862,7 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
       markImportedJobsPaused(this.db, archiveSha256, workspaceId);
       this.pauseSandboxImports(workspaceId);
       pauseEffectBatches(this.db,this.effectBatchWritePorts(),workspaceId);
+      this.createCodeModeStorage().pause(workspaceId);
       pauseImportedOwnedCommandJobs(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
       this.createHostCommandStorage().pauseImport(workspaceId,archiveSha256);
       pauseImportedOwnedCommandDeliveries(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
@@ -1033,6 +1043,7 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
       requireMatch([old.runId, old.sessionId, old.role, old.createdAt], [message.runId, message.sessionId, message.role, message.createdAt], 'Message identity cannot change');
     }
     this.db.prepare('INSERT INTO messages(id,session_id,run_id,data) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(message.id, message.sessionId, message.runId, encode(message));
+    if (message.media !== undefined) assertMediaReferenceCapacity(this.db);
   }
   private writeTool(run: Run, tool: ToolCallRecord): void {
     this.assertScope(run, tool);
@@ -1279,8 +1290,8 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
         const active = readActiveHistoryWindow(this.db, session, run, lastSeq, maxMessages, maxBytes);
         const totalRuns = Number(this.db.prepare('SELECT count(*) AS count FROM runs WHERE session_id=?').get(sessionId)?.count);
         const totalMessages = Number(this.db.prepare('SELECT count(*) AS count FROM messages WHERE session_id=?').get(sessionId)?.count);
-        return withSessionDocumentAnchor(this.db, withSessionImageAnchor(this.db, { snapshot: active.snapshot, omittedRuns: totalRuns-1, omittedMessages: totalMessages-active.snapshot.messages.length,
-          beforeRunId: totalRuns > 1 ? run.id : null, activeWindow: active.window }, maxMessages, maxBytes), maxMessages, maxBytes);
+        return withSessionSegmentAnchor(this.db, withSessionDocumentAnchor(this.db, withSessionImageAnchor(this.db, { snapshot: active.snapshot, omittedRuns: totalRuns-1, omittedMessages: totalMessages-active.snapshot.messages.length,
+          beforeRunId: totalRuns > 1 ? run.id : null, activeWindow: active.window }, maxMessages, maxBytes), maxMessages, maxBytes), maxMessages, maxBytes);
       };
       const newest = this.db.prepare('SELECT id,state FROM runs WHERE session_id=? ORDER BY ordinal DESC LIMIT 1').get(sessionId);
       if (newest && !isTerminal(String(newest.state) as RunState)) {
@@ -1329,8 +1340,8 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
       }
       const totalRuns = Number(this.db.prepare('SELECT count(*) AS count FROM runs WHERE session_id=?').get(sessionId)?.count);
       const totalMessages = Number(this.db.prepare('SELECT count(*) AS count FROM messages WHERE session_id=?').get(sessionId)?.count);
-      return withSessionDocumentAnchor(this.db, withSessionImageAnchor(this.db, { snapshot, omittedRuns: totalRuns - snapshot.runs.length, omittedMessages: totalMessages - snapshot.messages.length,
-        beforeRunId: totalRuns > snapshot.runs.length ? snapshot.runs[0]?.id ?? null : null }, maxMessages, maxBytes), maxMessages, maxBytes);
+      return withSessionSegmentAnchor(this.db, withSessionDocumentAnchor(this.db, withSessionImageAnchor(this.db, { snapshot, omittedRuns: totalRuns - snapshot.runs.length, omittedMessages: totalMessages - snapshot.messages.length,
+        beforeRunId: totalRuns > snapshot.runs.length ? snapshot.runs[0]?.id ?? null : null }, maxMessages, maxBytes), maxMessages, maxBytes), maxMessages, maxBytes);
     }, false);
   }
   /** GUI pages never expose native replay; the original journal remains intact. */

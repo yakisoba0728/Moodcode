@@ -190,3 +190,7 @@ export {validateAcpV1WriteTextFileParams,validateAcpV1TerminalCreateParams,valid
 export type {CommandLifetimeRecord,CommandLifetimeMode,CommandLifetimeOrigin} from './jobs/command-lifetime-records.js';
 
 export type {EffectBatchRecord,EffectBatchMember,PreparedResourceClaim} from './effect-batches/types.js';
+export {CODE_MODE_LIMITS,CODE_MODE_TOOLS,parseCodeProgram,validateCodeAllocation} from './code-mode/types.js';
+export type {CodeProgram,CodeExpression,CodeStatement,CodeModeAllocation,CodeModeRuntimeCapability} from './code-mode/types.js';
+export type {CodeModeRecord,CodeModeSource,NestedCallReceipt} from './code-mode/records.js';
+export type {CodeModeGrant} from './code-mode/host.js';

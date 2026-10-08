@@ -1,4 +1,4 @@
-import type { InputDocumentAttachment, InputImageAttachment, JsonObject, JsonValue, Run, RunConfig, RunReceipt } from './index.js';
+import type { InputDocumentAttachment, InputImageAttachment, InputMediaAttachment, JsonObject, JsonValue, Run, RunConfig, RunReceipt } from './index.js';
 
 /** Independent session journal; existing v1 commands, event sequence and Run stay valid. */
 export const SESSION_SCHEMA_VERSION = 2 as const;
@@ -26,7 +26,7 @@ export const DEFAULT_ENGINE_BUDGETS: Readonly<EngineBudgets> = Object.freeze({
 });
 export type InputDelivery = 'queue' | 'steer';
 export type InputState = 'pending' | 'promoted' | 'cancelled';
-export interface AcceptInput { sessionId: string; requestId: string; prompt: string; config: RunConfig; delivery: InputDelivery; attachments?: InputImageAttachment[]; documents?: InputDocumentAttachment[] }
+export interface AcceptInput { sessionId: string; requestId: string; prompt: string; config: RunConfig; delivery: InputDelivery; attachments?: InputImageAttachment[]; documents?: InputDocumentAttachment[]; media?: InputMediaAttachment[] }
 export interface InputRecord extends AcceptInput {
   schemaVersion: typeof SESSION_SCHEMA_VERSION;
   id: string;
@@ -72,7 +72,9 @@ export interface ProviderAttempt {
 export interface ProviderUsageSnapshot { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; reasoningOutputTokens?: number }
 export interface AttemptUsageRecord { attemptId: string; sessionId: string; runId: string; turnId: string; revision: number; usage: ProviderUsageSnapshot; observedAt: string }
 export interface ToolCallIdentity { id: string; sessionId: string; runId: string; turnId: string; attemptId: string; providerCallId: string }
-export interface ArtifactIdentity { sessionId: string; runId: string; toolCallId: string; turnId?: string; attemptId?: string }
+export interface ToolArtifactIdentity { sessionId: string; runId: string; toolCallId: string; turnId?: string; attemptId?: string }
+export interface ProviderArtifactIdentity { source: 'provider'; sessionId: string; runId: string; turnId: string; attemptId: string; providerId: string; modelId: string; toolCallId?: never }
+export type ArtifactIdentity = ToolArtifactIdentity | ProviderArtifactIdentity;
 export interface ArtifactReference {
   id: string; identity: ArtifactIdentity; sha256: string; storedBytes: number; observedBytes: number;
   producerTruncatedBytes: number | null; artifactTruncatedBytes: number;
@@ -82,7 +84,7 @@ export interface ToolResultEnvelope {
   displayContent: string; modelContent: string; structuredData?: JsonValue; metadata?: JsonObject;
   warnings: string[]; artifactRefs: ArtifactReference[]; outcome: 'completed' | 'failed' | 'interrupted';
 }
-export interface ArtifactCheckpointBinding extends ArtifactIdentity { checkpointId: string; artifactIds: string[]; partial: boolean }
+export interface ArtifactCheckpointBinding extends ToolArtifactIdentity { checkpointId: string; artifactIds: string[]; partial: boolean }
 export interface PartBase {
   schemaVersion: typeof SESSION_SCHEMA_VERSION;
   id: string; sessionId: string; runId: string; turnId: string; messageId: string;

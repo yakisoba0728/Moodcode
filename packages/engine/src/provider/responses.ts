@@ -1,3 +1,4 @@
+import {declaredMediaModels,messageSegments,segmentNotice,type ProviderSegmentSource,providerSegments} from '../media/segment-provider.js';
 import { EngineError, REASONING_EFFORTS, type ProviderToolCall } from '@moodcode/contracts';
 import { types } from 'node:util';
 import type { ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
@@ -21,6 +22,7 @@ export interface ResponsesProviderOptions extends OpenAICompatibleProviderOption
   streamProfile?: 'responses' | 'codex';
   /** Exact host-declared PDF-capable models; no model-name inference or discovery. */
   pdfModelIds?: readonly string[];
+  videoModelIds?:readonly string[];
   /** PDF page/text token cost is unknown; host opt-in is required independently of model support. */
   allowUnknownDocumentTokenCost?: boolean;
 }
@@ -63,7 +65,7 @@ function declaredPdfModels(value: unknown, secrets: readonly string[]): Readonly
   }
   return result;
 }
-function inputItems(message: ProviderMessage, images: ReadonlyMap<string, ResolvedInputImage>, documents: ReadonlyMap<string, ResolvedInputDocument>): Record<string, unknown>[] {
+function inputItems(message: ProviderMessage, images: ReadonlyMap<string, ResolvedInputImage>, documents: ReadonlyMap<string, ResolvedInputDocument>,segments:ReadonlyMap<string,ProviderSegmentSource>): Record<string, unknown>[] {
   if (message.role === 'tool') {
     if (!message.toolCallId) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Tool messages require a call identifier.');
     return [{ type: 'function_call_output', call_id: message.toolCallId, output: message.content }];
@@ -71,7 +73,9 @@ function inputItems(message: ProviderMessage, images: ReadonlyMap<string, Resolv
   const items: Record<string, unknown>[] = [];
   const media = messageImages(message, images);
   const files = messageDocuments(message, documents);
-  if (media.length || files.length) items.push({ role: 'user', content: [
+  const selected=messageSegments(message,segments);
+  if (media.length || files.length ||selected.length) items.push({ role: 'user', content: [
+    ...selected.flatMap(({source,asset})=>[{type:'input_text',text:segmentNotice(source,asset)},{type:'input_image',image_url:`data:image/png;base64,${asset.bytes.toString('base64')}`,detail:'auto'}]),
     ...files.map(file => ({ type: 'input_file', filename: `${file.attachment.id}.pdf`, file_data: `data:application/pdf;base64,${file.data}` })),
     ...media.map(image => ({ type: 'input_image', image_url: `data:${image.attachment.mimeType};base64,${image.data}`, detail: 'auto' })),
     ...(message.content ? [{ type: 'input_text', text: message.content }] : []),
@@ -114,7 +118,8 @@ export class ResponsesProvider implements ProviderAdapter {
   #apiKey: string | undefined;
   #secrets: string[];
   #codexProfile: boolean;
-  #pdfModelIds: ReadonlySet<string>;
+  #pdfModelIds: ReadonlySet<string>;#videoModels:ReadonlySet<string>;
+  supportsInputMedia(modelId:string,kind:'audio'|'video'):boolean{return kind==='video'&&!this.#codexProfile&&this.#videoModels.has(modelId);}
   #generationCleanupTimeoutMs: number;
   #fetch: typeof globalThis.fetch;
   #limits: { timeoutMs: number; maxFrameBytes: number; maxResponseBytes: number; maxRequestBytes: number; maxToolArgumentBytes: number; maxToolCalls: number; maxOutputItems: number };
@@ -134,6 +139,7 @@ export class ResponsesProvider implements ProviderAdapter {
     this.#endpoint = base.href;
     if (options.streamProfile !== undefined && options.streamProfile !== 'responses' && options.streamProfile !== 'codex') throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider stream profile is invalid.');
     this.#codexProfile = options.streamProfile === 'codex';
+    this.#videoModels=declaredMediaModels(options.videoModelIds);
     this.#pdfModelIds = declaredPdfModels(options.pdfModelIds, this.#secrets);
     if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') {
       throw new EngineError('PROVIDER_INVALID_CONFIG', 'Document token-cost policy must be an explicit boolean.');
@@ -179,6 +185,7 @@ export class ResponsesProvider implements ProviderAdapter {
       if (request.reasoningEffort !== undefined && !REASONING_EFFORTS.includes(request.reasoningEffort)) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider reasoning effort is invalid.');
       if (hasDocumentInputs(request) && !this.allowUnknownDocumentTokenCost) throw new EngineError('DOCUMENT_TOKEN_COST_UNKNOWN', 'PDF input token cost is unknown and requires explicit host opt-in.');
       const images = providerImages(request, true, signal);
+      const segments=providerSegments(request,kind=>!generation&&this.supportsInputMedia(request.modelId,kind),signal);
       const documents = providerDocuments(request, this.supportsInputFile(request.modelId, 'application/pdf'), signal, images);
       const input: Record<string, unknown>[] = [];
       let inputBytes = 2;
@@ -192,7 +199,7 @@ export class ResponsesProvider implements ProviderAdapter {
           });
           validateReplayBinding(message, replayItems);
           messageItems = replayItems;
-        } else messageItems = inputItems(message, images, documents);
+        } else messageItems = inputItems(message, images, documents,segments);
         for (const item of messageItems) {
           inputBytes += Buffer.byteLength(JSON.stringify(item), 'utf8') + (input.length ? 1 : 0);
           if (inputBytes > this.#limits.maxRequestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');

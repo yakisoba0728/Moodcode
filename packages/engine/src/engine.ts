@@ -1,5 +1,10 @@
 import {CommandLifetimeService,createCommandLifetimeTools} from './jobs/command-lifetime.js';
 import {EffectBatchHost} from './effect-batches/host.js';
+import {CodeModeHost} from './code-mode/host.js';
+import {jobJson} from './jobs/validation.js';
+import { MediaSegmentStore } from './media/segment-store.js';
+import { providerSegments } from './media/segment-provider.js';
+import type { InputMediaAttachment,InputMediaSegment } from '@moodcode/contracts';
 import { PrFeedbackHost } from './pr-feedback/host.js';
 import {EngineHostCommandDeliveryProducer} from './jobs/host-command-delivery-producer.js';
 import {EngineHostCommandDeliverySource} from './jobs/host-command-delivery-source.js';
@@ -189,6 +194,8 @@ const NATIVE_COMMANDS_ENABLED = ['input.accept', 'input.list', 'input.cancel', '
 export interface EngineOptions {
   /** Actual Darwin kernel sandbox, explicit grants, never a host fallback. */
   osSandbox?:boolean;
+  /** Actual OS-isolated closed JSON runtime, with individual nested native approvals. */
+  codeMode?:boolean;
   /** Original producer observations; bounded physical reads are disabled by default. */
   diagnosticObservations?: boolean;
   diagnosticSourceLimits?: Partial<WorkspaceExecutionSourceLimits>;
@@ -275,6 +282,8 @@ schedules?: boolean;
   activePrefixPolicy?: ActivePrefixPolicy;
   /** PDF page/text token cost is opaque. The default refuses this unknown cost. */
   allowUnknownDocumentTokenCost?: boolean;
+  /** Explicitly admit media whose token cost remains unknown. */
+  allowUnknownMediaTokenCost?: boolean;
   documentHistoryPolicy?: DocumentHistoryPolicy;
   agentProfiles?: readonly AgentProfileSpec[];
   allowedToolNames?: readonly string[];
@@ -307,8 +316,21 @@ function assertDocumentSupport(provider: ProviderAdapter | undefined, models: Mo
   if (!allowUnknownTokenCost || provider.allowUnknownDocumentTokenCost !== true) throw new EngineError('DOCUMENT_TOKEN_COST_UNKNOWN', 'PDF token cost is unknown; host and provider must explicitly permit this cost');
 }
 
-function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore, documents: DocumentAttachmentStore, store: SqliteStore, models: ModelRegistry, allowUnknownTokenCost: boolean): ProviderAdapter {
-  return { id: provider.id, ...(provider.replayProtocol ? { replayProtocol: provider.replayProtocol } : {}),
+function assertMediaCommandData(value:unknown):void{
+  if(types.isProxy(value))throw new EngineError('INVALID_INPUT','command must be an inspectable JSON object',{path:'command'});if(!value||typeof value!=='object')return;const p=Object.getOwnPropertyDescriptor(value,'payload');if(!p||!('value'in p)||!p.value||typeof p.value!=='object')return;if(types.isProxy(p.value))throw new EngineError('INVALID_INPUT','payload must be an inspectable JSON object',{path:'payload'});const m=Object.getOwnPropertyDescriptor(p.value,'media');if(m&&'value'in m)jobJson(m.value,65536);
+}
+
+function assertSegmentSupport(provider:ProviderAdapter|undefined,models:ModelRegistry,modelId:string,refs:readonly InputMediaAttachment[],allowUnknown:boolean):void{
+  const caps=provider?models.get(provider.id,modelId).mediaCapabilities:null;
+  for(const ref of refs)if(provider?.supportsInputMedia?.(modelId,ref.kind)!==true||(ref.kind==='audio'?caps?.audioInput:caps?.videoFrames)!==true)throw new EngineError('PROVIDER_UNSUPPORTED_INPUT','Selected provider and exact model require verified media support');
+  if(provider?.requestedOutputMedia?.(modelId)&&caps?.audioOutput!==true)throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT','Selected exact model requires verified audio output support');
+  if((refs.length||provider?.requestedOutputMedia?.(modelId))&&!allowUnknown)throw new EngineError('MEDIA_TOKEN_COST_UNKNOWN','Media token cost is unknown and requires explicit host policy');
+}
+
+function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore, documents: DocumentAttachmentStore, segments:MediaSegmentStore, store: SqliteStore, models: ModelRegistry, allowUnknownTokenCost: boolean, allowMediaCost:boolean): ProviderAdapter {
+  return { id: provider.id,
+    ...(provider.supportsInputMedia?{supportsInputMedia:(modelId:string,kind:'audio'|'video')=>provider.supportsInputMedia!(modelId,kind)}:{}),
+    ...(provider.requestedOutputMedia?{requestedOutputMedia:(modelId:string)=>provider.requestedOutputMedia!(modelId)}:{}), ...(provider.replayProtocol ? { replayProtocol: provider.replayProtocol } : {}),
     ...(provider.retryableHttpStatuses ? { retryableHttpStatuses: provider.retryableHttpStatuses } : {}),
     ...(provider.inputModalities ? { inputModalities: provider.inputModalities } : {}),
     ...(provider.inputFileTypes ? { inputFileTypes: provider.inputFileTypes } : {}),
@@ -321,9 +343,10 @@ function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore,
       let iterator: AsyncIterator<ProviderEvent> | undefined, initialization: Promise<void> | undefined;
       let providerEntered = false, confirmedDone = false;
       const initialize = () => initialization ??= (async () => {
-        if (request.resolvedImages !== undefined || request.resolvedDocuments !== undefined) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Input bytes must be resolved by the engine');
+        if (request.resolvedImages !== undefined || request.resolvedDocuments !== undefined || request.resolvedMedia !== undefined) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Input bytes must be resolved by the engine');
         const refs = new Map<string, InputImageAttachment>();
         const documentRefs = new Map<string, InputDocumentAttachment>();
+        const segmentRefs = new Map<string,InputMediaAttachment>();
         for (const message of request.messages) for (const ref of message.attachments ?? []) {
           if (message.role !== 'user') throw new EngineError('PROVIDER_INVALID_REQUEST', 'Image references belong to user messages');
           const previous = refs.get(ref.id);
@@ -336,8 +359,10 @@ function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore,
           if (previous && JSON.stringify(previous) !== JSON.stringify(ref)) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Conflicting document references');
           documentRefs.set(ref.id, ref);
         }
+        for(const message of request.messages)for(const ref of message.media??[]){if(message.role!=='user')throw new EngineError('PROVIDER_INVALID_REQUEST','Media references belong to user inputs');const old=segmentRefs.get(ref.id);if(old&&JSON.stringify(old)!==JSON.stringify(ref))throw new EngineError('PROVIDER_INVALID_REQUEST','Conflicting media references');segmentRefs.set(ref.id,ref);}
+        assertSegmentSupport(provider,models,request.modelId,[...segmentRefs.values()],allowMediaCost);
         let resolved = request;
-        if (refs.size || documentRefs.size) {
+        if (refs.size || documentRefs.size || segmentRefs.size) {
           const run = store.getRun(request.runId);
           if (request.sessionId !== run.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Input request belongs to another session');
           if (documentRefs.size) assertDocumentSupport(provider, models, { providerId: provider.id, modelId: request.modelId }, allowUnknownTokenCost);
@@ -347,6 +372,10 @@ function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore,
             resolved = { ...resolved, resolvedImages: await images.resolve(run.sessionId, [...refs.values()], signal) };
           }
           if (documentRefs.size) resolved = { ...resolved, resolvedDocuments: await documents.resolve(run.sessionId, [...documentRefs.values()], signal) };
+          if(segmentRefs.size)resolved={...resolved,resolvedMedia:await segments.resolve(run.sessionId,[...segmentRefs.values()],signal)};
+          const decoded=providerSegments(resolved,kind=>provider.supportsInputMedia?.(request.modelId,kind)===true,signal);
+          const assetBytes=[...decoded.values()].reduce((sum,v)=>sum+v.assets.reduce((n,a)=>n+a.bytes.length,0),0);
+          if([...refs.values()].reduce((sum,v)=>sum+v.bytes,0)+[...documentRefs.values()].reduce((sum,v)=>sum+v.bytes,0)+assetBytes>1048576)throw new EngineError('INPUT_MEDIA_LIMIT','Combined input media wire budget exceeded');
           providerImages(resolved, true, signal);
           if (documentRefs.size) providerDocuments(resolved, true, signal);
         }
@@ -381,6 +410,9 @@ export class MoodcodeEngine {
   readonly tasks: SessionTaskService;
   readonly context: ContextService;
   private readonly images: ImageAttachmentStore;
+  private readonly segments:MediaSegmentStore;
+  private readonly mediaCapabilities:(providerId:string,modelId:string)=>{audioInput:boolean;videoFrames:boolean;audioOutput:boolean;unknownTokenCostAllowed:boolean;tokenCost:null;source:ModelSpec['source']};
+  private readonly validateSegmentInput:(sessionId:string,config:RunConfig,refs:InputMediaAttachment[])=>Promise<void>;
   private readonly documents: DocumentAttachmentStore;
   private readonly pendingImages = new Set<Promise<unknown>>();
   private readonly pendingStorage = new Set<Promise<unknown>>();
@@ -461,6 +493,7 @@ private readonly workflowRecords: WorkflowStorage;
   private readonly backendRecords: AgentBackendStorage;
   private readonly backendProcesses: OwnedBackendProcesses;
   private readonly backendHost: AgentBackendHost;
+  private readonly codeModeHost:CodeModeHost;
   private readonly jobsEnabled: boolean;
   private readonly conversationForkHost: ConversationForkHost;
   private readonly conversationForksEnabled: boolean;
@@ -573,6 +606,8 @@ if (options.schedules !== undefined && typeof options.schedules !== 'boolean') t
     if(options.agentBackendClientEffects!==undefined&&typeof options.agentBackendClientEffects!=="boolean")throw new EngineError("INVALID_CONFIG","ACP client effects require explicit host opt-in");
     if(options.agentBackendClientEffects&&!this.agentBackendsEnabled)throw new EngineError("INVALID_CONFIG","ACP effects require agentBackends opt-in");
     if (options.jobs !== undefined && typeof options.jobs !== 'boolean') throw new EngineError('INVALID_CONFIG', 'jobs requires an explicit root host boolean');
+    if(options.codeMode!==undefined&&typeof options.codeMode!=='boolean')throw new EngineError('INVALID_CONFIG','codeMode requires an explicit boolean');
+    if(options.codeMode&&options.tools)throw new EngineError('CODE_MODE_CUSTOM_TOOLS_UNSUPPORTED','Restricted code mode requires the actual engine core tool producers');
     this.jobsEnabled = options.jobs === true;
     if(options.effectBatches!==undefined&&typeof options.effectBatches!=='boolean')throw new EngineError('INVALID_CONFIG','effectBatches requires an explicit boolean');
     if (options.conversationForks !== undefined && typeof options.conversationForks !== 'boolean') throw new EngineError('INVALID_CONFIG','conversationForks must be an explicit boolean');
@@ -590,6 +625,7 @@ if (options.schedules !== undefined && typeof options.schedules !== 'boolean') t
     if(options.osSandbox && options.commandLifetimes===true)throw new EngineError('SANDBOX_COMMAND_LIFETIME_UNSUPPORTED','Interactive ownership transfer requires a separately sandbox-bound command lifetime producer');
     if(options.commandLifetimes===true&&(!this.jobsEnabled||options.hostCommands!==true))throw new EngineError('INVALID_CONFIG','commandLifetimes requires jobs and hostCommands');
     if (options.hostCommands !== undefined && typeof options.hostCommands !== 'boolean') throw new EngineError('INVALID_CONFIG','hostCommands must be an explicit boolean');
+    if(options.allowUnknownMediaTokenCost!==undefined&&typeof options.allowUnknownMediaTokenCost!=='boolean')throw new EngineError('INVALID_CONFIG','Media token cost policy must be a boolean');
     if (options.allowUnknownDocumentTokenCost !== undefined && typeof options.allowUnknownDocumentTokenCost !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Document token cost policy must be a boolean');
     if (options.repositoryContextTools !== undefined && typeof options.repositoryContextTools !== 'boolean') throw new EngineError('INVALID_CONFIG', 'Repository tool exposure must be an explicit boolean');
     if (options.lifecycleHooks !== undefined) {
@@ -904,9 +940,11 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         if (session.workspaceId !== owner.workspaceId) throw new EngineError('TERMINAL_AUTHORITY', 'Terminal session belongs to a different workspace');
         return { sessionId: session.id, workspaceId: session.workspaceId, root: this.store.getWorkspace(session.workspaceId).root };
       } });
+      const allowMediaCost=options.allowUnknownMediaTokenCost===true;
       const models = new ModelRegistry();
       for (const spec of options.modelSpecs ?? []) models.put(spec);
       this.images = new ImageAttachmentStore({ directory: join(realpathSync(artifactDir), 'input-media'), documents: this.store });
+      this.segments=new MediaSegmentStore({directory:join(realpathSync(artifactDir),'input-segments'),documents:this.store});
       this.documents = new DocumentAttachmentStore({ directory: join(realpathSync(artifactDir), 'input-documents'), documents: this.store });
       let artifacts: Promise<ArtifactStore> | undefined;
       const artifactBudgets = normalizeEngineBudgets(this.defaults.budgets);
@@ -927,7 +965,9 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         await this.documents.resolve(sessionId, refs, this.hostResources.signal);
         if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
       };
-      for (const [id, provider] of providers) providers.set(id, withInputMedia(provider, this.images, this.documents, this.store, models, options.allowUnknownDocumentTokenCost === true));
+      this.mediaCapabilities=(providerId,modelId)=>{const spec=models.get(providerId,modelId),provider=providers.get(providerId);return{audioInput:spec.mediaCapabilities?.audioInput===true&&provider?.supportsInputMedia?.(modelId,'audio')===true,videoFrames:spec.mediaCapabilities?.videoFrames===true&&provider?.supportsInputMedia?.(modelId,'video')===true,audioOutput:spec.mediaCapabilities?.audioOutput===true&&provider?.requestedOutputMedia?.(modelId)==='audio/wav',unknownTokenCostAllowed:allowMediaCost,tokenCost:null,source:spec.source};};
+      this.validateSegmentInput=async(sessionId,config,refs)=>{assertSegmentSupport(providers.get(config.providerId),models,config.modelId,refs,allowMediaCost);await this.segments.resolve(sessionId,refs,this.hostResources.signal);};
+      for (const [id, provider] of providers) providers.set(id, withInputMedia(provider, this.images, this.documents, this.segments,this.store, models, options.allowUnknownDocumentTokenCost === true,allowMediaCost));
       this.hostGenerationProviders = providers;
       this.knowledgeGenerationService = new KnowledgeGenerationService({ native: this.knowledgeGenerations, knowledge: this.workspaceKnowledge, host: this.knowledgeHost,
         provider: id => this.knowledgeGenerationProvider(id), assertPlanCurrent: plan => this.workspaceKnowledge.assertGenerationPlanCurrent(plan),
@@ -1067,14 +1107,15 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
           return Object.freeze({ producer: 'engine-owned-run-command' as const, platform: process.platform, supported: process.platform !== 'win32', catalogueRevision: catalogue.revision });
         }, artifacts: this.managedArtifacts }) : undefined;
       const verificationTools: ToolDefinition[] = verificationTool ? [{ ...verificationTool, prepare: async (input, context) => { await this.verificationHost.ensurePlan(context, context.signal); return verificationTool.prepare(input, context); } }] : [];
-      const availableTools = toolDiscoveryPolicy ? [...coreTools, ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled?this.workflowEffects.tools():[]), createToolDiscoveryTool({
+      const codeModeTools:ToolDefinition[]=options.codeMode?[{name:'execute_code',description:'Execute a restricted moodcode-json-v1 program; source and nested effects require native approval.',effectClass:'execute',inputSchema:{type:'object',required:['source','allocation'],additionalProperties:false,properties:{source:{type:'string'},allocation:{type:'object'}}},prepare:(input,ctx)=>this.codeModeHost.tools()[0]!.prepare(input,ctx),execute:(p,ctx)=>this.codeModeHost.tools()[0]!.execute(p,ctx)}]:[];
+      const availableTools = toolDiscoveryPolicy ? [...coreTools, ...codeModeTools, ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled?this.workflowEffects.tools():[]), createToolDiscoveryTool({
         identity: context => this.coordinator.toolDiscoveryIdentity(context),
         stage: (context, query, limit, expected, action) => this.coordinator.stageToolDiscovery(context, query, limit, expected, action),
-      }), ...verificationTools] : [...coreTools, ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled?this.workflowEffects.tools():[]), ...verificationTools];
+      }), ...verificationTools] : [...coreTools, ...codeModeTools, ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled?this.workflowEffects.tools():[]), ...verificationTools];
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
       const tools = options.allowedToolNames ? availableTools.filter(tool => options.allowedToolNames!.includes(tool.name)) : availableTools;
-      for (const tool of tools) this.toolRuntime.register('engine', tool, (WORKFLOW_MODEL_NAMES as readonly string[]).includes(tool.name)?{exactApproval:tool.name!=='observe_workflow_stage'}:(TEAM_MODEL_TOOL_NAMES as readonly string[]).includes(tool.name) ? { exactApproval: (TEAM_MODEL_WRITE_TOOL_NAMES as readonly string[]).includes(tool.name) } : options.tools ? {} : ['delegate_task', 'verify_changes','run_command_job','command_job_input','wait_command_job'].includes(tool.name) ? { exactApproval: true } : { revalidate: async (prepared, context) => {
+      for (const tool of tools) this.toolRuntime.register('engine', tool, (WORKFLOW_MODEL_NAMES as readonly string[]).includes(tool.name)?{exactApproval:tool.name!=='observe_workflow_stage'}:(TEAM_MODEL_TOOL_NAMES as readonly string[]).includes(tool.name) ? { exactApproval: (TEAM_MODEL_WRITE_TOOL_NAMES as readonly string[]).includes(tool.name) } : options.tools ? {} : ['delegate_task', 'verify_changes','run_command_job','command_job_input','wait_command_job','execute_code'].includes(tool.name) ? { exactApproval: true } : { revalidate: async (prepared, context) => {
         const current = await tool.prepare(prepared.input, context);
         if (current.fingerprint !== prepared.fingerprint || JSON.stringify(current.preview) !== JSON.stringify(prepared.preview)) throw new EngineError('TOOL_APPROVAL_STALE', 'Tool resources changed since scoped authorization');
       } });
@@ -1118,6 +1159,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         },
         onWorkflowToolSettled: (record) =>
           this.workflowEffects.toolSettled(record),
+        onCodeModeToolSettled:record=>this.codeModeHost?.toolSettled(record),
         onOwnedCommandToolSettled: (record) =>
           this.ownedCommandHost?.toolSettled(record),
         onRunStarted: async (run, signal) => {
@@ -1253,7 +1295,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
           : {}),
         lifecycleHooks: options.osSandbox ? undefined : this.lifecycleHooks,
         store: this.store,
-        providers,
+        providers, providerArtifacts:this.managedArtifacts,
         tools,
         approvals: this.approvals,
         artifactDir,
@@ -1356,6 +1398,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       });
       this.backendRecords.recoverInterrupted();
       this.backendHost = new AgentBackendHost({ store: this.backendRecords, processes: this.backendProcesses, clientReads: this.backendProducer.clientReadPort(), turns: this.backendProducer, clientEffectsEnabled: options.agentBackendClientEffects===true, terminalEffectsEnabled: options.agentBackendClientEffects===true&&this.jobsEnabled, lifetime: this.hostResources.signal });
+      this.codeModeHost=new CodeModeHost(this,this.store.createCodeModeStorage((original,record,revision)=>this.codeModeHost.assertRecordOwner(original,record,revision)),knowledgeBinding,options.codeMode===true);
       this.jobProducer = new EngineJobProducer(this, knowledgeBinding, () => this.jobRecords, () => this.closing, () => this.jobsEnabled, this.storagePaths.artifactDir);
       this.jobRecords = this.store.createJobStorage({
         readOwner: original => this.jobProducer.readOwner(original),
@@ -1428,6 +1471,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
   async dispatchSession(value: unknown): Promise<SessionCommandResult> {
     let commandId = '';
     try {
+      assertMediaCommandData(value);
       const command = validateSessionCommand(value, { defaults: this.defaults, enabledCommands: NATIVE_COMMANDS_ENABLED });
       commandId = command.commandId;
       if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
@@ -1438,8 +1482,9 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         case 'input.accept': {
           const input = normalizeAcceptInput(payload, this.defaults);
           input.config = this.profiles.apply(input.sessionId, input.config);
-          if ((input.attachments?.length || input.documents?.length) && !this.store.lookupInputReceipt(input)) {
+          if ((input.attachments?.length || input.documents?.length || input.media?.length) && !this.store.lookupInputReceipt(input)) {
             assertInputMediaBudget(input.attachments, input.documents);
+            if(input.media?.length)await this.validateSegmentInput(input.sessionId,input.config,input.media);
             if (input.documents?.length) await this.validateDocumentInput(input.sessionId, input.config, input.documents);
             if (input.attachments?.length) await this.validateImageInput(input.sessionId, input.config, input.attachments);
           }
@@ -1497,6 +1542,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
   async dispatch(value: CommandEnvelope | unknown): Promise<CommandResult> {
     let commandId = '';
     try {
+      assertMediaCommandData(value);
       const command = validateCommand(value, this.defaults);
       commandId = command.commandId;
       if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
@@ -1545,8 +1591,9 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
           {
             const input = normalizeSubmitInput(payload);
             input.config = this.profiles.apply(input.sessionId, input.config);
-            if ((input.attachments?.length || input.documents?.length) && !this.store.lookupRunReceipt(input)) {
+            if ((input.attachments?.length || input.documents?.length || input.media?.length) && !this.store.lookupRunReceipt(input)) {
               assertInputMediaBudget(input.attachments, input.documents);
+            if(input.media?.length)await this.validateSegmentInput(input.sessionId,input.config,input.media);
               if (input.documents?.length) await this.validateDocumentInput(input.sessionId, input.config, input.documents);
               if (input.attachments?.length) await this.validateImageInput(input.sessionId, input.config, input.attachments);
             }
@@ -1980,6 +2027,15 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
 
   previewPrWatch(...args:Parameters<PrFeedbackHost['preview']>){return this.prFeedbackHost.preview(...args);}
   readPrWatchPreview(...args:Parameters<PrFeedbackHost['readPreview']>){return this.prFeedbackHost.readPreview(...args);}
+  getCodeModeCapability(){return this.codeModeHost.getCapability();}
+  getCodeModeSupport(){return this.codeModeHost.getSupport();}
+  registerCodeModeHost(){return this.codeModeHost.registerCodeModeHost();}
+  previewCodeModeGrant(input:unknown){return this.codeModeHost.previewCodeModeGrant(input);}
+  readCodeModeGrant(original:object){return this.codeModeHost.readCodeModeGrant(original);}
+  approveCodeModeGrant(input:unknown){return this.codeModeHost.approveCodeModeGrant(input);}
+  releaseCodeModeGrant(original:object){this.codeModeHost.release(original);}
+  inspectCodeMode(workspaceId:string){return this.codeModeHost.inspect(workspaceId);}
+  getCodeMode(workspaceId:string,id:string){return this.codeModeHost.get(workspaceId,id);}
   registerPrWatch(...args:Parameters<PrFeedbackHost['register']>){return this.prFeedbackHost.register(...args);}
   pollPrWatch(...args:Parameters<PrFeedbackHost['poll']>){return this.prFeedbackHost.poll(...args);}
   acceptCiFeedback(...args:Parameters<PrFeedbackHost['acceptWebhook']>){return this.prFeedbackHost.acceptWebhook(...args);}
@@ -2707,6 +2763,19 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
     return operation;
   }
 
+  /** Host-only read of a native media Part; archive/reopened DATA never dispatches a provider. */
+  async readMediaOutput(input:{sessionId:string;partId:string;offset?:number;limit?:number;signal?:AbortSignal}){
+    if(this.closing)throw new EngineError('ENGINE_CLOSED','Engine is closing');
+    if(!input||typeof input!=='object'||types.isProxy(input)||![Object.prototype,null].includes(Object.getPrototypeOf(input))||Reflect.ownKeys(input).some(k=>typeof k!=='string'))throw new EngineError('MEDIA_INVALID_READ','Read options must be ordinary data');const d=Object.getOwnPropertyDescriptor(input,'signal');if(d&&(!d.enumerable||!('value'in d)))throw new EngineError('MEDIA_INVALID_READ','Read options must be ordinary data');const signal=d?.value as AbortSignal|undefined;const raw=Object.fromEntries(Object.entries(Object.getOwnPropertyDescriptors(input)).filter(([key])=>key!=='signal').map(([key,value])=>{if(!value.enumerable||!('value'in value))throw new EngineError('MEDIA_INVALID_READ','Read options cannot contain accessors');return[key,value.value];}));const safe=jobJson(raw,4096) as Omit<typeof input,'signal'>;if(Object.keys(safe).some(k=>!['sessionId','partId','offset','limit'].includes(k))||typeof safe.sessionId!=='string'||typeof safe.partId!=='string'||safe.offset!==undefined&&(!Number.isSafeInteger(safe.offset)||safe.offset<0)||safe.limit!==undefined&&(!Number.isSafeInteger(safe.limit)||safe.limit<1||safe.limit>65536))throw new EngineError('MEDIA_INVALID_READ','Bounded native media read options are required');
+    const part=this.store.readProviderMediaPart(safe.sessionId,safe.partId);const operation=(await this.managedArtifacts()).read(part.artifact.id,{identity:part.artifact.identity,...(safe.offset===undefined?{}:{offset:safe.offset}),limit:safe.limit??8192,signal:signal?AbortSignal.any([signal,this.hostResources.signal]):this.hostResources.signal});this.pendingStorage.add(operation);try{return await operation;}finally{this.pendingStorage.delete(operation);}
+  }
+  getMediaCapabilities(providerId:string,modelId:string){return this.mediaCapabilities(providerId,modelId);}
+
+  importMedia(sessionId:string,data:Uint8Array,mimeType:InputMediaAttachment['mimeType'],segments:readonly InputMediaSegment[],signal?:AbortSignal):Promise<InputMediaAttachment>{
+    if(this.closing)return Promise.reject(new EngineError('ENGINE_CLOSED','Engine is closing'));
+    const operation=this.segments.import(sessionId,data,mimeType,segments,signal?AbortSignal.any([signal,this.hostResources.signal]):this.hostResources.signal);this.pendingImages.add(operation);void operation.then(()=>this.pendingImages.delete(operation),()=>this.pendingImages.delete(operation));return operation;
+  }
+
   close(): Promise<void> {
     if (this.closePromise) return this.closePromise;
     this.closing = true;
@@ -2735,7 +2804,7 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
         await this.executionObserver.close();
         try { this.terminalJournal.close(); }
         finally { try { this.reviewJournal.close(); }
-        finally { this.workflowEffects.close(); this.hostCommandDeliveryProducer.close(); this.hostCommandDeliverySource.close(); this.ownedCommandProducer.close(); this.ownedCommandHost.close(); this.jobProducer.close(); this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
+        finally { await this.codeModeHost.close(); this.workflowEffects.close(); this.hostCommandDeliveryProducer.close(); this.hostCommandDeliverySource.close(); this.ownedCommandProducer.close(); this.ownedCommandHost.close(); this.jobProducer.close(); this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
         }
       }
     })().then(resolve, reject);

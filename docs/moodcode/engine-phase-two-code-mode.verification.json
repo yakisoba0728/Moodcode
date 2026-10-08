@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "feature": "MC2-15-restricted-code-mode",
+  "baselineHead": "a1e740902c6c1fd9851e0dc2fc892d5b0c7d0fc5",
+  "baselineTree": "0c750fd5aee490aaff4d26e690f45b552f89061b",
+  "supportedRuntime": {
+    "language": "moodcode-json-v1",
+    "os": "darwin",
+    "backend": "darwin-seatbelt-v1",
+    "grade": "experimental-deprecated-cli",
+    "enforcement": "actual file-read/write, process-fork and loopback network denial probes at registration; no unrestricted fallback",
+    "arbitraryJavaScript": false,
+    "liveAccountsUsed": false
+  },
+  "environment": {
+    "node": "v26.9.0",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "osRelease": "27.0.0",
+    "databaseVersion": 23,
+    "catalogueRows": 139
+  },
+  "limits": {
+    "sourceBytes": 16384,
+    "nodes": 512,
+    "depth": 12,
+    "repeatCount": 64,
+    "steps": 4096,
+    "nestedCalls": 16,
+    "resultBytes": 32768,
+    "durationMs": 30000,
+    "nodeHeapMiB": 64,
+    "nativeRows": 128,
+    "nativeRowBytes": 65536,
+    "nativeTotalBytes": 8388608
+  },
+  "checks": [
+    {
+      "kind": "focused-direct-source",
+      "tests": 26,
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 packages/engine/src/code-mode/*.test.ts",
+      "log": "/tmp/moodcode-code-mode-final-focused.log"
+    },
+    {
+      "kind": "focused-emitted-javascript",
+      "tests": 26,
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "command": "node --test --test-concurrency=1 packages/engine/dist/code-mode/*.test.js",
+      "log": "/tmp/moodcode-code-mode-final-compiled.log"
+    },
+    {
+      "kind": "adjacent-native-coordinator-output-verification-owned-command",
+      "tests": 183,
+      "passed": 183,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/tmp/moodcode-code-mode-adjacent-first.log"
+    },
+    {
+      "kind": "whole-engine-strict-no-emit",
+      "exitCode": 0,
+      "command": "tsc -p packages/engine --noEmit --composite false --incremental false",
+      "log": "/tmp/moodcode-code-mode-final-strict.log"
+    },
+    {
+      "kind": "whole-engine-declaration-build",
+      "exitCode": 0,
+      "command": "tsc -p packages/engine --composite false --incremental false",
+      "log": "/tmp/moodcode-code-mode-final-declaration.log"
+    },
+    {
+      "kind": "whole-project-declaration-build",
+      "exitCode": 0,
+      "command": "tsc -b --pretty false",
+      "log": "/tmp/moodcode-code-mode-final-project-declaration.log"
+    },
+    {
+      "kind": "native-schema-unchanged",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-code-mode-final-schema.log"
+    },
+    {
+      "kind": "new-files-format",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-code-mode-final-format-check.log"
+    }
+  ],
+  "nativeDatabase": {
+    "version": 23,
+    "catalogueRows": 139,
+    "catalogueLimit": 160,
+    "newMigration": false,
+    "storage": "reserved SessionDocuments plus independent immutable source/process/closed/full-record anchors"
+  },
+  "acceptance": {
+    "MC2-15a": "Explicit opt-in Original host registration/grant/source approval, closed bounded language and actual-probed runtime.",
+    "MC2-15b": "Original coordinator ownership, precise native per-call approval, same Run/Turn/Attempt Tool/Part and cumulative allocation/Run budgets.",
+    "MC2-15c": "Allocation timeout, parent cancel/close, actual supervisor/group join, bounded persisted result, truthful uncertain receipts and no replay.",
+    "MC2-15d": "One actual Darwin lane verified against kernel file/network/fork denial, stale/copied grants, duplicate calls, cancel-before-dispatch, SQL faults, physical workspace replacement, real SIGKILL/restart and paused import."
+  },
+  "boundaries": [
+    "actual patch checkpoint and command checkpoint retain native producers",
+    "nested verify_changes keeps narrow Original verification command scope",
+    "outer final ToolPart precedes terminal code-mode receipt",
+    "full-rehashed generic SessionDocument/PID/outcome/result cannot contradict independent native anchors",
+    "readonly history and default-off reopen cannot recreate live grants",
+    "child engines explicitly codeMode=false",
+    "worker.mjs is frozen; compiled runtime resolves and verifies actual source worker via file URL fallback"
+  ],
+  "earlierRedRunsNotFinalEvidence": [
+    {
+      "log": "/tmp/moodcode-code-mode-actual-first.log",
+      "failed": 3,
+      "status": "initial native execution handoff failed; superseded by completed genuine Tool/Part receipts in final source26 and compiled26"
+    },
+    {
+      "log": "/tmp/moodcode-code-mode-focused-third.log",
+      "failed": 2,
+      "status": "superseded exploratory timeout/patch cases; timeout approval-wait transition fixed and patch fixture uses actual Moodcode input schema"
+    },
+    {
+      "log": "/tmp/moodcode-code-mode-native-first.log",
+      "failed": 1,
+      "status": "tamper fixture changed an uncommitted external connection invisible to engine; corrected fixture mutates the genuine engine connection, final native corruption case passes"
+    },
+    {
+      "log": "/tmp/moodcode-code-mode-crash-first.log",
+      "failed": 1,
+      "status": "reopen attempted while original command supervisor retained physical lock; corrected fixture waits for actual lock release, final SIGKILL case passes"
+    }
+  ],
+  "unsupported": [
+    "other OS/runtime backends",
+    "JavaScript/TypeScript/eval/vm/WASI",
+    "custom/MCP/remote tools or callbacks",
+    "runtime reconnect or historical grant restoration",
+    "automatic replay or acknowledgement of uncertain effects",
+    "live-account/media environment verification E5-13/E5-08/E6-07/E6-08",
+    "GUI/push/deploy"
+  ],
+  "parentIntegration": {
+    "report": "engine-phase-two-code-media-integration-verification.json",
+    "status": "passed-local-implementation",
+    "sourceFreezeSha256": "26c4393b0e7d3d32eda9e9383153513366d59eb9e3a152d2c09026ad86483c16",
+    "compiled": {
+      "tests": 4642,
+      "pass": 4640,
+      "fail": 0,
+      "skipped": 2
+    },
+    "source": {
+      "tests": 3344,
+      "pass": 3342,
+      "fail": 0,
+      "skipped": 2
+    },
+    "newMediaAccountVerified": false
+  }
+}

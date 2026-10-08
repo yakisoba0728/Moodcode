@@ -133,10 +133,12 @@ test("terminal kill uses its original native command abort and joins the actual 
   await decide(f);
   const run = await f.done;
   assert.equal(run.state, "completed", JSON.stringify(run));
+  assert.equal(readFileSync(join(f.root, "command-ready"), "utf8"), "ready\n");
   const pid = Number(readFileSync(join(f.root, "command-pid"), "utf8"));
   assert.equal(groupExists(pid), false);
   const e = f.engine.inspectAgentBackendEffects(f.workspace.id)[0]!;
   assert.equal(e.completion?.cleanupConfirmed, true);
+  assert.equal(e.controls?.length, 3);
   assert.equal(
     (e.completion?.result as { cancelled: boolean }).cancelled,
     true,

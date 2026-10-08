@@ -711,6 +711,7 @@ const engine = this.create({
       schedules: false,
       agentBackends: false,
       agentBackendClientEffects: false,
+      codeMode: false,
       jobs: false,
       effectBatches: false,
       commandLifetimes: false,

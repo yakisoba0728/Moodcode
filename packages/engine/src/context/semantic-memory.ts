@@ -47,6 +47,7 @@ export class SemanticMemoryService {
     const sourceMessages = older.filter(message => availableRunIds.has(message.runId));
     if (sourceMessages.length > 512) throw new EngineError('SUMMARY_SOURCE_LIMIT', 'Summary source exceeds the complete-message count limit');
     if (!sourceMessages.length) throw new EngineError('SUMMARY_SOURCE_UNAVAILABLE', 'There is no settled conversation to summarize');
+    if (sourceMessages.some(message=>message.media?.length)) throw new EngineError('SUMMARY_MEDIA_SOURCE_UNSUPPORTED','Audio/video sources cannot be replaced by text memory');
     if (sourceMessages.some(message => message.attachments?.length)) throw new EngineError('SUMMARY_IMAGE_SOURCE_UNSUPPORTED', 'Image-bearing history cannot be replaced by a text-only semantic summary');
     if (sourceMessages.some(message => message.documents?.length)) throw new EngineError('SUMMARY_DOCUMENT_SOURCE_UNSUPPORTED', 'Document-bearing history cannot be replaced by a text-only semantic summary');
     const source = JSON.stringify(sourceMessages.map(({ id, runId, role, content }) => ({ id, runId, role, content })));

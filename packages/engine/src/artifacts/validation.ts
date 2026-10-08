@@ -1,8 +1,9 @@
+import { normalizeArtifactIdentity } from '@moodcode/contracts/validation';
 import { EngineError, type ArtifactIdentity, type ArtifactReference, type JsonValue } from '@moodcode/contracts';
 
 export const ARTIFACT_ID = /^artifact_[a-f0-9]{32}$/;
 const HASH = /^[a-f0-9]{64}$/;
-const IDENTITY_KEYS = ['sessionId', 'runId', 'toolCallId', 'turnId', 'attemptId'] as const;
+const IDENTITY_KEYS = ['sessionId', 'runId', 'toolCallId', 'turnId', 'attemptId', 'source', 'providerId', 'modelId'] as const;
 
 export function fail(code: string, message: string): never { throw new EngineError(code, message); }
 export function number(value: unknown, label: string, maximum = Number.MAX_SAFE_INTEGER): number {
@@ -14,19 +15,9 @@ export function positive(value: unknown, label: string, maximum: number): number
   if (result === 0) fail('INVALID_ARTIFACT_OPTIONS', `${label} must be positive`);
   return result;
 }
-export function identity(value: ArtifactIdentity): ArtifactIdentity {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) fail('INVALID_ARTIFACT_IDENTITY', 'Artifact identity is required');
-  const result: Record<string, string> = {};
-  for (const key of IDENTITY_KEYS) {
-    const item = value[key];
-    if (item === undefined && (key === 'turnId' || key === 'attemptId')) continue;
-    if (typeof item !== 'string' || !item.length || Buffer.byteLength(item) > 512 || /[\u0000-\u001f\u007f]/.test(item)) fail('INVALID_ARTIFACT_IDENTITY', `Invalid artifact ${key}`);
-    result[key] = item;
-  }
-  return result as unknown as ArtifactIdentity;
-}
+export function identity(value: ArtifactIdentity): ArtifactIdentity { return normalizeArtifactIdentity(value); }
 export function sameIdentity(left: ArtifactIdentity, right: ArtifactIdentity): boolean {
-  return IDENTITY_KEYS.every(key => left[key] === right[key]);
+  return IDENTITY_KEYS.every(key => (left as unknown as Record<string,unknown>)[key] === (right as unknown as Record<string,unknown>)[key]);
 }
 export function artifactId(value: unknown): string {
   if (typeof value !== 'string' || !ARTIFACT_ID.test(value)) fail('INVALID_ARTIFACT_ID', 'Invalid managed artifact ID');

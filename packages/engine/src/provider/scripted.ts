@@ -1,3 +1,4 @@
+import {providerSegments} from '../media/segment-provider.js';
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 import { providerImages } from '../media/provider.js';
 import { providerDocuments } from '../documents/provider.js';
@@ -102,6 +103,7 @@ export class ScriptedProvider implements ProviderAdapter {
     checkCancellation(signal);
     providerDocuments(request, false, signal);
     providerImages(request, false, signal);
+    providerSegments(request, () => false, signal);
     if (!Number.isSafeInteger(request.turnIndex) || request.turnIndex < 0) {
       throw new RangeError('Scripted provider turnIndex must be a non-negative safe integer.');
     }

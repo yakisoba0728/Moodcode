@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { normalizeDocumentAttachments, normalizeImageAttachments } from "@moodcode/contracts/validation";
+import { normalizeDocumentAttachments, normalizeMediaAttachments, normalizeImageAttachments } from "@moodcode/contracts/validation";
 import {
   EngineError,
   type Message,
@@ -49,6 +49,7 @@ export interface SessionImageAnchor {
   runMetadataUtf8Bytes: number;
   physicalReadBytes: null;
 }
+export interface SessionSegmentAnchor extends Omit<SessionImageAnchor, 'source'> { source:'latest-media-user-in-session' }
 export interface SessionDocumentAnchor extends Omit<SessionImageAnchor, 'source'> { source: 'latest-document-user-in-session' }
 type HistoryPage = {
   snapshot: SessionSnapshot;
@@ -58,6 +59,7 @@ type HistoryPage = {
   activeWindow?: ActiveHistoryWindow;
   sessionImageAnchor?: SessionImageAnchor;
   sessionDocumentAnchor?: SessionDocumentAnchor;
+  sessionSegmentAnchor?: SessionSegmentAnchor;
 };
 
 /** Preserve one exact image user across Run pagination; never reconstruct pixels from memory. */
@@ -69,8 +71,8 @@ export function withSessionImageAnchor<T extends HistoryPage>(
 export function withSessionDocumentAnchor<T extends HistoryPage>(database: DatabaseSync, page: T, maxMessages: number, maxBytes: number): T {
   return withSessionInputAnchor(database, page, maxMessages, maxBytes, 'document');
 }
-function withSessionInputAnchor<T extends HistoryPage>(database: DatabaseSync, page: T, maxMessages: number, maxBytes: number, kind: 'image' | 'document'): T {
-  const field = kind === 'image' ? 'attachments' : 'documents';
+function withSessionInputAnchor<T extends HistoryPage>(database: DatabaseSync, page: T, maxMessages: number, maxBytes: number, kind: 'image' | 'document' | 'segment'): T {
+  const field = kind === 'image' ? 'attachments' : kind==='document' ? 'documents' : 'media';
   const limitCode = kind === 'image' ? 'IMAGE_CONTEXT_LIMIT' : 'DOCUMENT_CONTEXT_LIMIT';
   const session = page.snapshot.session;
   const metadata = database.prepare(`SELECT m.id,m.run_id,m.session_id,CAST(m.ordinal AS TEXT) AS ordinal,
@@ -95,15 +97,15 @@ function withSessionInputAnchor<T extends HistoryPage>(database: DatabaseSync, p
     || origin.id !== metadata.run_id || origin.sessionId !== session.id || origin.workspaceId !== session.workspaceId || origin.state !== metadata.run_state) {
     throw new EngineError("MODEL_HISTORY_BINDING_MISMATCH", "Latest image anchor payload has an inconsistent owner");
   }
-  try { if (!(kind === 'image' ? normalizeImageAttachments(message.attachments) : normalizeDocumentAttachments(message.documents)).length) throw new Error("empty"); }
+  try { if (!(kind === 'image' ? normalizeImageAttachments(message.attachments) : kind==='document'?normalizeDocumentAttachments(message.documents):normalizeMediaAttachments(message.media)).length) throw new Error("empty"); }
   catch { throw new EngineError("MODEL_HISTORY_BINDING_MISMATCH", "Latest image anchor references are invalid"); }
-  const anchor: SessionImageAnchor | SessionDocumentAnchor = { messageId: message.id, runId: origin.id, source: kind === 'image' ? "latest-image-user-in-session" : 'latest-document-user-in-session',
+  const anchor: SessionImageAnchor | SessionDocumentAnchor | SessionSegmentAnchor = { messageId: message.id, runId: origin.id, source: kind === 'image' ? "latest-image-user-in-session" : kind==='document'?'latest-document-user-in-session':'latest-media-user-in-session',
     messageUtf8Bytes: messageBytes, runMetadataUtf8Bytes: runBytes, physicalReadBytes: null };
   let snapshot = page.snapshot, window = page.activeWindow;
   if (!snapshot.messages.some(item => item.id === message.id)) {
     if (window) {
       const active = snapshot.runs.find(item => item.id === window!.runId);
-      const priorIds = new Set([page.sessionImageAnchor?.messageId, page.sessionDocumentAnchor?.messageId].filter((id): id is string => Boolean(id) && id !== message.id));
+      const priorIds = new Set([page.sessionImageAnchor?.messageId, page.sessionDocumentAnchor?.messageId, page.sessionSegmentAnchor?.messageId].filter((id): id is string => Boolean(id) && id !== message.id));
       // Active anchors are already mandatory in readActiveHistoryWindow. Reserve
       // only foreign Run inputs here, otherwise the same message is charged twice.
       const priorMessages = snapshot.messages.filter(item => priorIds.has(item.id) && item.runId !== active?.id);
@@ -126,14 +128,14 @@ function withSessionInputAnchor<T extends HistoryPage>(database: DatabaseSync, p
     // be dropped to make space for this required, independently bound image user.
     while (!window && (snapshot.messages.length > maxMessages || Buffer.byteLength(JSON.stringify(snapshot)) > maxBytes)) {
       const removable = snapshot.runs.find(item => item.id !== origin.id && item.id !== page.snapshot.runs.at(-1)?.id
-        && item.id !== page.sessionImageAnchor?.runId && item.id !== page.sessionDocumentAnchor?.runId);
+        && item.id !== page.sessionImageAnchor?.runId && item.id !== page.sessionDocumentAnchor?.runId && item.id !== page.sessionSegmentAnchor?.runId);
       if (!removable) break;
       snapshot = { ...snapshot, runs: snapshot.runs.filter(item => item.id !== removable.id),
         messages: snapshot.messages.filter(item => item.runId !== removable.id), tools: snapshot.tools.filter(item => item.runId !== removable.id),
         approvals: snapshot.approvals.filter(item => item.runId !== removable.id) };
     }
   }
-  if (kind === 'document' && snapshot.messages.length > 1) {
+  if (kind !== 'image' && snapshot.messages.length > 1) {
     const ids = snapshot.messages.map(item => item.id);
     const ordered = database.prepare(`SELECT id FROM messages WHERE session_id=? AND id IN (${ids.map(() => '?').join(',')}) ORDER BY ordinal`).all(session.id, ...ids);
     const positions = new Map(ordered.map((item, position) => [String(item.id), position]));
@@ -149,7 +151,7 @@ function withSessionInputAnchor<T extends HistoryPage>(database: DatabaseSync, p
   const totalMessages = Number(database.prepare("SELECT count(*) AS count FROM messages WHERE session_id=?").get(session.id)?.count);
   return { ...page, snapshot, omittedRuns: totalRuns - snapshot.runs.length, omittedMessages: totalMessages - snapshot.messages.length,
     beforeRunId: totalRuns > snapshot.runs.length ? snapshot.runs[0]?.id ?? null : null,
-    ...(window ? { activeWindow: window } : {}), ...(kind === 'image' ? { sessionImageAnchor: anchor as SessionImageAnchor } : { sessionDocumentAnchor: anchor as SessionDocumentAnchor }) };
+    ...(window ? { activeWindow: window } : {}), ...(kind === 'image' ? { sessionImageAnchor: anchor as SessionImageAnchor } : kind==='document'?{ sessionDocumentAnchor: anchor as SessionDocumentAnchor }:{sessionSegmentAnchor:anchor as SessionSegmentAnchor}) };
 }
 
 // SQL never returns the original large content to JavaScript. All remaining fields,
@@ -374,3 +376,5 @@ export function readActiveHistoryWindow(
     },
   };
 }
+
+export function withSessionSegmentAnchor<T extends HistoryPage>(database:DatabaseSync,page:T,maxMessages:number,maxBytes:number):T{return withSessionInputAnchor(database,page,maxMessages,maxBytes,'segment');}

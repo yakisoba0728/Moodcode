@@ -215,8 +215,9 @@ export class ContextService {
       // this image. Retain its exact user text/refs and owner above that cutoff.
       const image = request.snapshot.messages.findLast(message => message.role === 'user' && message.attachments?.length);
       const document = request.snapshot.messages.findLast(message => message.role === 'user' && message.documents?.length);
+      const segment = request.snapshot.messages.findLast(message => message.role === 'user' && message.media?.length);
       let restored = prefix.snapshot;
-      for (const input of [image, document]) if (input && !restored.messages.some(message => message.id === input.id)) {
+      for (const input of [image, document, segment]) if (input && !restored.messages.some(message => message.id === input.id)) {
         const origin = request.snapshot.runs.find(run => run.id === input.runId);
         if (!origin) throw new EngineError('MODEL_HISTORY_BINDING_MISMATCH', 'Required session input has no retained Run owner');
         const selectedIds = new Set(restored.messages.map(message => message.id)); selectedIds.add(input.id);
@@ -227,7 +228,7 @@ export class ContextService {
       const media = this.mediaHistoryPolicy ? projectMediaHistory(restored, { policy: this.mediaHistoryPolicy, ...(request.run ? { activeRunId: request.run.id } : {}) }, request.signal) : undefined;
       const documents = this.documentHistoryPolicy ? projectDocumentHistory(media?.snapshot ?? restored, { policy: this.documentHistoryPolicy, ...(request.run ? { activeRunId: request.run.id } : {}) }, request.signal) : undefined;
       const projected = { ...prefix, snapshot: projectToolHistory(documents?.snapshot ?? media?.snapshot ?? restored, request.run?.id),
-        requiredHistoryMessageIds: [...new Set([...(prefix.requiredHistoryMessageIds ?? []), ...(image ? [image.id] : []), ...(document ? [document.id] : []), ...(media ? [...media.requiredTextMessageIds, ...media.requiredExchangeMessageIds] : []), ...(documents?.requiredTextMessageIds ?? [])])],
+        requiredHistoryMessageIds: [...new Set([...(prefix.requiredHistoryMessageIds ?? []), ...(image ? [image.id] : []), ...(document ? [document.id] : []), ...(segment ? [segment.id] : []), ...(media ? [...media.requiredTextMessageIds, ...media.requiredExchangeMessageIds] : []), ...(documents?.requiredTextMessageIds ?? [])])],
         ...(media?.requiredNotice ? { mediaHistoryNotice: media.requiredNotice } : {}), ...(documents?.requiredNotice ? { documentHistoryNotice: documents.requiredNotice } : {}) };
       const planRequest = { ...projected, reservedBytes, instructionSources: observation.sources };
       const fork = this.conversationFork?.prepare(sessionId,request.config);

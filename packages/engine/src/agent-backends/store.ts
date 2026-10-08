@@ -1817,11 +1817,57 @@ function validateTerminalOutputSql(
     fail("BACKEND_DELIVERY_INVALID");
   const result = message.result;
   const body = { output: result.output, truncated: result.truncated };
+  const completion = e.completion,
+    data = completion?.result;
+  const noProcess =
+    completion?.state === "failed" &&
+    completion.effectMethod === "terminal/create" &&
+    completion.cleanupConfirmed === true &&
+    completion.content === null &&
+    completion.checkpoint === null &&
+    data &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    data.status === "cancelled" &&
+    data.started === false &&
+    data.cancelled === true &&
+    data.timedOut === false &&
+    data.cleanupConfirmed === true &&
+    data.exitCode === null &&
+    data.signal === null;
+  if (noProcess) {
+    const jobId = `command-${knowledgeHash({ runId: completion.runId, toolCallId: completion.toolCallId }).slice(0, 32)}`;
+    if (
+      result.exitStatus !== undefined ||
+      readOwnedCommandJob(db, completion.workspaceId, jobId) ||
+      db
+        .prepare(
+          "SELECT 1 FROM checkpoints WHERE run_id=? AND tool_call_id=? LIMIT 1",
+        )
+        .get(completion.runId, completion.toolCallId) ||
+      [
+        "command.job.source_admitted",
+        "command.job.process_admitted",
+        "command.job.closed_observed",
+      ].some((type) =>
+        nativePayloads(db, e.owner, type).some(
+          (value) => value.jobId === jobId,
+        ),
+      )
+    )
+      fail("BACKEND_EFFECT_COMPLETION_INVALID");
+  }
   if (
     !nativePayloads(db, e.owner, "backend.terminal_output_observed").some(
       (value) =>
         value.providerToolCallId === e.input.callId &&
-        knowledgeHash(value.output) === knowledgeHash(body),
+        knowledgeHash(value.output) === knowledgeHash(body) &&
+        (noProcess
+          ? value.toolCallId === completion.toolCallId &&
+            value.noProcessCompletionSha256 === completion.sha256 &&
+            knowledgeHash(body) ===
+              knowledgeHash({ output: "", truncated: false })
+          : value.noProcessCompletionSha256 === undefined),
     )
   )
     fail("BACKEND_DELIVERY_INVALID");

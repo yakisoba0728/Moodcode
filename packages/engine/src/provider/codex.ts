@@ -1,3 +1,4 @@
+import { providerSegments } from '../media/segment-provider.js';
 import { EngineError } from '@moodcode/contracts';
 import { createCodexCredentialReader, type CodexAuthOptions } from '../auth/codex.js';
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
@@ -69,6 +70,7 @@ export class CodexProvider implements ProviderAdapter {
     // Invalid media must fail before any host credential source is consulted.
     providerDocuments(request, false, signal);
     providerImages(request, true, signal);
+    providerSegments(request, () => false, signal);
     const provider = await this.#reader.use(signal, credential => {
       const transport: typeof fetch = async (url, init) => {
         if (String(url) !== ENDPOINT || init?.method !== 'POST' || typeof init.body !== 'string' || init.redirect !== 'error') invalidConfiguration();

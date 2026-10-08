@@ -682,19 +682,34 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
         );
       },
       readTerminalOutput: (original) => {
-        const { permission, input } =
+        const { permission, input, noProcessCompletionSha256 } =
           this.engine.coordinator.readProviderClientEffectScope(original);
         const jobId = `command-${knowledgeHash({ runId: permission.runId, toolCallId: permission.toolCallId }).slice(0, 32)}`;
-        const captured = this.engine.captureOwnedCommandJobOutput({
-          workspaceId: permission.workspaceId,
-          jobId,
-        });
+        if (
+          noProcessCompletionSha256 &&
+          (this.engine.store.getOwnedCommandJob(
+            permission.workspaceId,
+            jobId,
+          ) ||
+            this.engine.store
+              .listCheckpoints(permission.runId)
+              .some(
+                (checkpoint) => checkpoint.toolCallId === permission.toolCallId,
+              ))
+        )
+          fail("BACKEND_EFFECT_COMPLETION_INVALID");
+        const captured = noProcessCompletionSha256
+          ? null
+          : this.engine.captureOwnedCommandJobOutput({
+              workspaceId: permission.workspaceId,
+              jobId,
+            });
         let output = "",
           observedBytes = 0,
           retainedBytes = 0;
         try {
           let afterSeq = 0;
-          for (let pages = 0; pages < 16; pages++) {
+          for (let pages = 0; captured && pages < 16; pages++) {
             const page = this.engine.readOwnedCommandJobOutput(captured, {
               afterSeq,
               maxBytes: 65536,
@@ -708,7 +723,7 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
             afterSeq = page.nextAfterSeq;
           }
         } finally {
-          this.engine.releaseOwnedCommandJobHandle(captured);
+          if (captured) this.engine.releaseOwnedCommandJobHandle(captured);
         }
         const bytes = Buffer.from(output),
           limit = input.outputByteLimit;
@@ -725,6 +740,7 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
             toolCallId: permission.toolCallId,
             providerToolCallId: permission.providerToolCallId,
             output: result,
+            ...(noProcessCompletionSha256 ? { noProcessCompletionSha256 } : {}),
           },
           { turnId: permission.turnId, attemptId: permission.attemptId },
         );

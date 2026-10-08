@@ -120,7 +120,7 @@ export class ActivePrefixMemoryService {
     const protectedIds = new Set(source.protectedMessageIds);
     const first = request.snapshot.messages.find(message => message.runId === source.runId && message.role === 'user');
     const last = request.snapshot.messages.findLast(message => message.runId === source.runId && message.role === 'user');
-    if (first && !protectedIds.has(first.id) || last && !protectedIds.has(last.id) || request.snapshot.messages.some(message => message.runId === source.runId && (message.attachments?.length || message.documents?.length) && !protectedIds.has(message.id))) {
+    if (first && !protectedIds.has(first.id) || last && !protectedIds.has(last.id) || request.snapshot.messages.some(message => message.runId === source.runId && (message.attachments?.length || message.documents?.length || message.media?.length) && !protectedIds.has(message.id))) {
       throw new EngineError('ACTIVE_PREFIX_BINDING_MISMATCH', 'Goal, current steer and media inputs must remain outside summary coverage');
     }
   }
@@ -137,7 +137,7 @@ export class ActivePrefixMemoryService {
     const firstUser = request.snapshot.messages.find(message => message.runId === request.run!.id && message.role === 'user');
     const latestUser = request.snapshot.messages.findLast(message => message.runId === request.run!.id && message.role === 'user');
     if (latestUser) protectedIds.add(latestUser.id);
-    for (const message of request.snapshot.messages) if (message.attachments?.length || message.documents?.length || message.id === firstUser?.id) protectedIds.add(message.id);
+    for (const message of request.snapshot.messages) if (message.attachments?.length || message.documents?.length || message.media?.length || message.id === firstUser?.id) protectedIds.add(message.id);
     const present = new Set(request.snapshot.messages.map(message => message.id));
     return { ...request, activePrefixMemory: active.message, snapshot: { ...request.snapshot,
       messages: request.snapshot.messages.filter(message => message.runId !== request.run!.id || !omit.has(message.id) || protectedIds.has(message.id)) },

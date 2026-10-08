@@ -2,7 +2,7 @@ import { constants } from 'node:fs';
 import { lstat, open } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { EngineError, type JsonObject, type JsonValue, type Message, type ProviderReplay, type ProviderToolCall, type RunConfig } from '@moodcode/contracts';
-import { normalizeDocumentAttachments, normalizeImageAttachments } from '@moodcode/contracts/validation';
+import { normalizeDocumentAttachments, normalizeMediaAttachments, normalizeImageAttachments } from '@moodcode/contracts/validation';
 import type { ContextRequest, ProviderMessage } from '../ports.js';
 import { agentInstructions } from './instructions.js';
 import { extractiveMemory, MAX_MEMORY_BYTES, MIN_MEMORY_BYTES, type MemorySource } from './memory.js';
@@ -192,12 +192,13 @@ function historyBlocks(request: ContextRequest): ContextBlock[] {
     const providerReplay = checkedMessageReplay(message, sessionId, request.config, message && typeof message === 'object' ? runModels.get(message.runId) : undefined);
     if (!validMessage(message, sessionId)) continue;
     if (message.attachments?.length && message.role !== 'user') throw new EngineError('INVALID_CONTEXT', 'Image input references belong to user messages');
+    if (message.media?.length && message.role !== 'user') throw new EngineError('INVALID_CONTEXT','Media sources belong to user messages');
     if (message.documents?.length && message.role !== 'user') throw new EngineError('INVALID_CONTEXT', 'Document input references belong to user messages');
     const source: MemorySource = { ordinal: index + 1, message };
     if (message.role === 'tool') continue;
     if (message.role === 'user') {
       blocks.push(block([{ role: 'user', content: message.content, ...(message.attachments === undefined ? {} : { attachments: normalizeImageAttachments(message.attachments) }),
-        ...(message.documents === undefined ? {} : { documents: normalizeDocumentAttachments(message.documents) }) }], [source]));
+        ...(message.documents === undefined ? {} : { documents: normalizeDocumentAttachments(message.documents) }), ...(message.media === undefined ? {} : { media: normalizeMediaAttachments(message.media) }) }], [source]));
       continue;
     }
     const calls = copyCalls(message.toolCalls);
@@ -374,7 +375,7 @@ export async function buildContext(request: ContextRequest, options: { requiredO
   }
   // A text projection cannot stand in for omitted pixels. Keep selected history's
   // image-bearing blocks whole until an explicit media compaction policy exists.
-  const imageBlocks = blocks.filter(item => item.messages.some(message => message.attachments?.length));
+  const imageBlocks = blocks.filter(item => item.messages.some(message => message.attachments?.length || message.media?.length));
   for (const item of imageBlocks) selected.add(item);
   const documentBlocks = blocks.filter(item => item.messages.some(message => message.documents?.length));
   for (const item of documentBlocks) selected.add(item);
@@ -388,7 +389,7 @@ export async function buildContext(request: ContextRequest, options: { requiredO
   const mediaNotice = request.mediaHistoryNotice;
   if (mediaNotice) {
     if (mediaNotice.role !== 'assistant' || typeof mediaNotice.content !== 'string' || mediaNotice.toolCalls !== undefined
-      || mediaNotice.toolCallId !== undefined || mediaNotice.attachments !== undefined || mediaNotice.documents !== undefined || mediaNotice.providerReplay !== undefined
+      || mediaNotice.toolCallId !== undefined || mediaNotice.attachments !== undefined || mediaNotice.documents !== undefined || mediaNotice.media !== undefined || mediaNotice.providerReplay !== undefined
       || arrayBytes(cost + entryCost(mediaNotice), count + 1) > limit) {
       throw new EngineError('IMAGE_HISTORY_METADATA_LIMIT', 'Required image history provenance cannot fit beside the current exchange');
     }
@@ -397,7 +398,7 @@ export async function buildContext(request: ContextRequest, options: { requiredO
   const documentNotice = request.documentHistoryNotice;
   if (documentNotice) {
     if (documentNotice.role !== 'assistant' || typeof documentNotice.content !== 'string' || documentNotice.toolCalls !== undefined
-      || documentNotice.toolCallId !== undefined || documentNotice.attachments !== undefined || documentNotice.documents !== undefined || documentNotice.providerReplay !== undefined
+      || documentNotice.toolCallId !== undefined || documentNotice.attachments !== undefined || documentNotice.documents !== undefined || documentNotice.media !== undefined || documentNotice.providerReplay !== undefined
       || arrayBytes(cost + entryCost(documentNotice), count + 1) > limit) throw new EngineError('DOCUMENT_HISTORY_METADATA_LIMIT', 'Required document provenance cannot fit beside the current exchange');
     cost += entryCost(documentNotice); count++;
   }

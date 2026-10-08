@@ -29,7 +29,7 @@ test("resource batch opt-in preserves native profile denial and provider continu
 });
 
 test(
-  "Root client effects, lifetime and batches preserve ordinary readonly child admission",
+  "Root client effects, lifetime, batches and code mode preserve ordinary readonly child admission",
   { timeout: 30000 },
   async (t) => {
     const f = await teamFixture(t, {
@@ -40,6 +40,7 @@ test(
         agentBackends: true,
         agentBackendClientEffects: true,
         effectBatches: true,
+        codeMode: true,
       },
     });
     await f.startParent();
@@ -64,12 +65,14 @@ test(
     assert.ok(task.childRunId);
     assert.ok(f.requests.length > 1);
     assert.equal(child.child.commandLifetimeCapability().available, false);
+    assert.equal(child.child.getCodeModeSupport().enabled, false);
     assert.equal(
       child.child
         .getCapabilities()
         .tools.some((x) => x.name === "run_command_job"),
       false,
     );
+    assert.equal(child.child.getCapabilities().tools.some((x) => x.name === "execute_code"), false);
     f.parentRelease.resolve();
   },
 );

@@ -58,7 +58,7 @@ test('default engine persists read_file artifact, projects only past Run, replay
           assert.equal(projection.historicalObservation, true); assert.equal(projection.currentFileEvidence, false);
           assert.equal(projection.artifacts[0]!.id, reference.id); assert.deepEqual(projection.artifacts[0]!.identity, reference.identity);
           yield { type: 'tool.call', call: { id: 'read-artifact-provider', name: 'read_artifact', input: { artifactId: reference.id, runId: reference.identity.runId,
-            toolCallId: reference.identity.toolCallId, turnId: reference.identity.turnId!, attemptId: reference.identity.attemptId!, offset: 0, limit: 16384 } } };
+            toolCallId: reference.identity.toolCallId!, turnId: reference.identity.turnId!, attemptId: reference.identity.attemptId!, offset: 0, limit: 16384 } } };
           yield { type: 'finish', reason: 'tool_calls' }; return;
         }
         if (requests.length === 4) {
@@ -73,7 +73,7 @@ test('default engine persists read_file artifact, projects only past Run, replay
         if (requests.length === 5) {
           assert.ok(request.messages.every(message => !message.content.includes('HISTORICAL_PRIVATE_VALUE')));
           yield { type: 'tool.call', call: { id: 'cross-session-provider', name: 'read_artifact', input: { artifactId: reference.id, runId: reference.identity.runId,
-            toolCallId: reference.identity.toolCallId, turnId: reference.identity.turnId!, attemptId: reference.identity.attemptId! } } };
+            toolCallId: reference.identity.toolCallId!, turnId: reference.identity.turnId!, attemptId: reference.identity.attemptId! } } };
           yield { type: 'finish', reason: 'tool_calls' }; return;
         }
         assert.equal(requests.length, 6);

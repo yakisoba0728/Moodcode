@@ -150,10 +150,11 @@ function normalizeConfig(value: unknown, defaults?: RunConfigInput): RunConfig {
 
 /** Validate and copy a submit payload; omitted config fields receive stable defaults. */
 export function normalizeSubmitInput(value: unknown, defaults?: RunConfigInput): SubmitInput {
-  const payload = object(value, 'payload', ['sessionId', 'requestId', 'prompt', 'config', 'attachments', 'documents']);
+  const payload = object(value, 'payload', ['sessionId', 'requestId', 'prompt', 'config', 'attachments', 'documents', 'media']);
   if (has(payload, 'config') && payload.config === undefined) invalid('payload.config', 'must be a JSON object');
   const attachments = has(payload, 'attachments') ? normalizeImageAttachments(payload.attachments) : undefined;
   const documents = has(payload, 'documents') ? normalizeDocumentAttachments(payload.documents) : undefined;
+  const media = has(payload, 'media') ? normalizeMediaAttachments(payload.media) : undefined;
   assertInputMediaBudget(attachments, documents);
   return {
     sessionId: id(payload.sessionId, 'payload.sessionId'),
@@ -162,6 +163,7 @@ export function normalizeSubmitInput(value: unknown, defaults?: RunConfigInput):
     config: normalizeConfig(payload.config, defaults),
     ...(attachments === undefined ? {} : { attachments }),
     ...(documents === undefined ? {} : { documents }),
+    ...(media === undefined ? {} : { media }),
   };
 }
 
@@ -290,12 +292,12 @@ export function normalizeEngineBudgets(value?: unknown, defaults?: Partial<Engin
 }
 
 export function normalizeAcceptInput(value: unknown, defaults?: RunConfigInput): AcceptInput {
-  const input = object(value, 'payload', ['sessionId', 'requestId', 'prompt', 'config', 'delivery', 'attachments', 'documents']);
+  const input = object(value, 'payload', ['sessionId', 'requestId', 'prompt', 'config', 'delivery', 'attachments', 'documents', 'media']);
   const delivery = has(input, 'delivery') ? input.delivery : 'steer';
   if (delivery !== 'queue' && delivery !== 'steer') invalid('payload.delivery', 'must be queue or steer');
   return { ...normalizeSubmitInput({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt,
     ...(has(input, 'config') ? { config: input.config } : {}), ...(has(input, 'attachments') ? { attachments: input.attachments } : {}),
-    ...(has(input, 'documents') ? { documents: input.documents } : {}) }, defaults), delivery };
+    ...(has(input, 'documents') ? { documents: input.documents } : {}), ...(has(input, 'media') ? { media: input.media } : {}) }, defaults), delivery };
 }
 
 function attachmentArray(value: unknown, path: string, maxCount: number): { descriptors: Record<string, PropertyDescriptor>; length: number } {
@@ -478,7 +480,7 @@ export function validateInputReceipt(value: unknown): InputReceipt {
   return { inputId: id(input.inputId, 'receipt.inputId'), admittedSeq: integer(input.admittedSeq, 'receipt.admittedSeq', 1, Number.MAX_SAFE_INTEGER), state, duplicate: bool(input.duplicate, 'receipt.duplicate'), ...inputBinding(input, 'receipt', state) };
 }
 export function validateInputRecord(value: unknown): InputRecord {
-  const input = schema2(value, 'input', ['id', 'workspaceId', 'sessionId', 'requestId', 'prompt', 'config', 'delivery', 'attachments', 'documents', 'state', 'admittedSeq', 'createdAt', 'updatedAt', 'runId', 'promotedSeq', 'terminalReason']);
+  const input = schema2(value, 'input', ['id', 'workspaceId', 'sessionId', 'requestId', 'prompt', 'config', 'delivery', 'attachments', 'documents', 'media', 'state', 'admittedSeq', 'createdAt', 'updatedAt', 'runId', 'promotedSeq', 'terminalReason']);
   const state = choice(input.state, 'input.state', ['pending', 'promoted', 'cancelled']);
   const admittedSeq = integer(input.admittedSeq, 'input.admittedSeq', 1, Number.MAX_SAFE_INTEGER);
   if ((state === 'promoted') !== has(input, 'promotedSeq')) invalid('input.promotedSeq', 'must exist exactly for promoted input');
@@ -486,12 +488,12 @@ export function validateInputRecord(value: unknown): InputRecord {
   const updatedAt = date(input.updatedAt, 'input.updatedAt');
   if (updatedAt < createdAt) invalid('input.updatedAt', 'must not precede creation');
   return { schemaVersion: SESSION_SCHEMA_VERSION, id: id(input.id, 'input.id'), workspaceId: id(input.workspaceId, 'input.workspaceId'),
-    ...normalizeAcceptInput({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt, config: input.config, delivery: input.delivery, ...(has(input, 'attachments') ? { attachments: input.attachments } : {}), ...(has(input, 'documents') ? { documents: input.documents } : {}) }), state, admittedSeq, createdAt, updatedAt,
+    ...normalizeAcceptInput({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt, config: input.config, delivery: input.delivery, ...(has(input, 'attachments') ? { attachments: input.attachments } : {}), ...(has(input, 'documents') ? { documents: input.documents } : {}), ...(has(input, 'media') ? { media: input.media } : {}) }), state, admittedSeq, createdAt, updatedAt,
     ...inputBinding(input, 'input', state), ...(has(input, 'promotedSeq') ? { promotedSeq: integer(input.promotedSeq, 'input.promotedSeq', admittedSeq + 1, Number.MAX_SAFE_INTEGER) } : {}),
     ...(has(input, 'terminalReason') ? { terminalReason: string(input.terminalReason, 'input.terminalReason', 2048) } : {}) };
 }
 export function validateRunRecordV2(value: unknown): RunRecordV2 {
-  const input = schema2(value, 'run', ['id', 'inputId', 'sessionId', 'workspaceId', 'requestId', 'prompt', 'config', 'attachments', 'documents', 'state', 'createdAt', 'updatedAt', 'error', 'inputIds', 'uncertainty']);
+  const input = schema2(value, 'run', ['id', 'inputId', 'sessionId', 'workspaceId', 'requestId', 'prompt', 'config', 'attachments', 'documents', 'media', 'state', 'createdAt', 'updatedAt', 'error', 'inputIds', 'uncertainty']);
   const state = choice(input.state, 'run.state', ['created', 'running', 'awaiting_approval', 'cancelling', 'completed', 'cancelled', 'failed', 'interrupted']);
   const inputId = id(input.inputId, 'run.inputId');
   const inputIds = stringList(input.inputIds, 'run.inputIds');
@@ -501,7 +503,7 @@ export function validateRunRecordV2(value: unknown): RunRecordV2 {
   if (updatedAt < createdAt) invalid('run.updatedAt', 'must not precede creation');
   let error: RunRecordV2['error'];
   if (has(input, 'error')) { const failure = object(input.error, 'run.error', ['code', 'message']); error = { code: id(failure.code, 'run.error.code'), message: string(failure.message, 'run.error.message', 2048) }; }
-  return { schemaVersion: SESSION_SCHEMA_VERSION, id: id(input.id, 'run.id'), inputId, workspaceId: id(input.workspaceId, 'run.workspaceId'), ...normalizeSubmitInput({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt, config: input.config, ...(has(input, 'attachments') ? { attachments: input.attachments } : {}), ...(has(input, 'documents') ? { documents: input.documents } : {}) }), state, createdAt, updatedAt, inputIds, ...(error ? { error } : {}), ...(has(input, 'uncertainty') ? { uncertainty: uncertainty(input.uncertainty, 'run.uncertainty') } : {}) };
+  return { schemaVersion: SESSION_SCHEMA_VERSION, id: id(input.id, 'run.id'), inputId, workspaceId: id(input.workspaceId, 'run.workspaceId'), ...normalizeSubmitInput({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt, config: input.config, ...(has(input, 'attachments') ? { attachments: input.attachments } : {}), ...(has(input, 'documents') ? { documents: input.documents } : {}), ...(has(input, 'media') ? { media: input.media } : {}) }), state, createdAt, updatedAt, inputIds, ...(error ? { error } : {}), ...(has(input, 'uncertainty') ? { uncertainty: uncertainty(input.uncertainty, 'run.uncertainty') } : {}) };
 }
 export function validateToolCallIdentity(value: unknown): ToolCallIdentity {
   const input = object(value, 'call', ['id', 'sessionId', 'runId', 'turnId', 'attemptId', 'providerCallId']);
@@ -536,7 +538,7 @@ export function validateProviderAttempt(value: unknown): ProviderAttempt {
 }
 export function validateArtifactReference(value: unknown): ArtifactReference {
   const input = object(value, 'artifact', ['id', 'identity', 'sha256', 'storedBytes', 'observedBytes', 'producerTruncatedBytes', 'artifactTruncatedBytes', 'createdAt', 'expiresAt', 'complete', 'outcome']);
-  const identity = object(input.identity, 'artifact.identity', ['sessionId', 'runId', 'toolCallId', 'turnId', 'attemptId']);
+  const identity = object(input.identity, 'artifact.identity', ['sessionId', 'runId', 'toolCallId', 'turnId', 'attemptId', 'source', 'providerId', 'modelId']);
   if (has(identity, 'attemptId') && !has(identity, 'turnId')) invalid('artifact.identity.attemptId', 'requires a turn ID');
   const storedBytes = integer(input.storedBytes, 'artifact.storedBytes', 0, 536_870_912);
   const observedBytes = integer(input.observedBytes, 'artifact.observedBytes', storedBytes, 536_870_912);
@@ -548,7 +550,7 @@ export function validateArtifactReference(value: unknown): ArtifactReference {
   const createdAt = date(input.createdAt, 'artifact.createdAt');
   const expiresAt = date(input.expiresAt, 'artifact.expiresAt');
   if (expiresAt <= createdAt) invalid('artifact.expiresAt', 'must follow creation');
-  return { id: id(input.id, 'artifact.id'), identity: { sessionId: id(identity.sessionId, 'artifact.identity.sessionId'), runId: id(identity.runId, 'artifact.identity.runId'), toolCallId: id(identity.toolCallId, 'artifact.identity.toolCallId'), ...optionalId(identity, 'turnId', 'artifact.identity'), ...optionalId(identity, 'attemptId', 'artifact.identity') }, sha256: hash(input.sha256, 'artifact.sha256'), storedBytes, observedBytes, producerTruncatedBytes, artifactTruncatedBytes, createdAt, expiresAt, complete, outcome: choice(input.outcome, 'artifact.outcome', ['completed', 'failed', 'interrupted']) };
+  return { id: id(input.id, 'artifact.id'), identity: normalizeArtifactIdentity(identity), sha256: hash(input.sha256, 'artifact.sha256'), storedBytes, observedBytes, producerTruncatedBytes, artifactTruncatedBytes, createdAt, expiresAt, complete, outcome: choice(input.outcome, 'artifact.outcome', ['completed', 'failed', 'interrupted']) };
 }
 export function validateMessagePart(value: unknown): MessagePart {
   const input = schema2(value, 'part', ['id', 'sessionId', 'runId', 'turnId', 'messageId', 'index', 'revision', 'state', 'createdAt', 'completedAt', 'type', 'text', 'providerData', 'toolCallId', 'providerCallId', 'name', 'input', 'result', 'mime', 'artifact']);
@@ -658,4 +660,50 @@ export function validateToolResultEnvelope(value: unknown): ToolResultEnvelope {
   const artifactRefs = artifacts.map(validateArtifactReference);
   if (new Set(artifactRefs.map((artifact) => artifact.id)).size !== artifactRefs.length) invalid('result.artifactRefs', 'must contain distinct artifact IDs');
   return { displayContent: text(input.displayContent, 'result.displayContent'), modelContent: text(input.modelContent, 'result.modelContent'), warnings: warnings.map((warning) => string(warning, 'result.warnings', 2048)), artifactRefs, outcome: choice(input.outcome, 'result.outcome', ['completed', 'failed', 'interrupted']), ...(has(input, 'structuredData') ? { structuredData: json(input.structuredData, 'result.structuredData') } : {}), ...(has(input, 'metadata') ? { metadata: jsonObject(input.metadata, 'result.metadata') } : {}) };
+}
+
+/** Exact source selections; host Node boundaries reject proxies before descriptor inspection. */
+export function normalizeMediaAttachments(value: unknown, path = 'payload.media'): import('./index.js').InputMediaAttachment[] {
+  const { descriptors, length } = attachmentArray(value, path, 4);
+  let total = 0;
+  const ids = new Set<string>();
+  const result: import('./index.js').InputMediaAttachment[] = [];
+  for (let n = 0; n < length; n++) {
+    const d = descriptors[String(n)];
+    if (!d?.enumerable || !('value' in d)) invalid(path, 'requires dense data');
+    const v = object(d.value, path, ['id','kind','mimeType','bytes','sha256','decoder','segments']);
+    const identity = id(v.id,path);
+    if (!/^med_[a-f0-9]{32}$/.test(identity) || ids.has(identity)) invalid(path,'requires unique imported source IDs');
+    ids.add(identity);
+    const kind = choice(v.kind,path,['audio','video'] as const);
+    if (v.mimeType !== (kind === 'audio' ? 'audio/wav' : 'video/x-msvideo') || v.decoder !== (kind === 'audio' ? 'wav-pcm16-v1' : 'avi-rgb24-v1')) invalid(path,'requires an exact supported MIME/decoder');
+    const bytes = integer(v.bytes,path,1,524288); total += bytes;
+    if (total > 1048576) invalid(path,'exceeds source byte cap');
+    const selection = attachmentArray(v.segments,path,4), segments: import('./index.js').InputMediaSegment[]=[];
+    if (!selection.length) invalid(path,'requires a bounded selection');
+    let previous = -1;
+    for (let i=0;i<selection.length;i++) {
+      const descriptor=selection.descriptors[String(i)];
+      if (!descriptor?.enumerable || !('value' in descriptor)) invalid(path,'requires dense selections');
+      const segment=object(descriptor.value,path,['startMs','endMs']);
+      const startMs=integer(segment.startMs,path,0,30000),endMs=integer(segment.endMs,path,1,30000);
+      if(endMs<=startMs || startMs<previous || endMs-startMs>10000)invalid(path,'requires ordered nonoverlapping bounded timestamps');
+      previous=endMs;segments.push({startMs,endMs});
+    }
+    result.push({id:identity,kind,mimeType:v.mimeType as 'audio/wav'|'video/x-msvideo',bytes,sha256:hash(v.sha256,path),decoder:v.decoder as 'wav-pcm16-v1'|'avi-rgb24-v1',segments});
+  }
+  rejectUncloneableReferences(value,path);
+  return result;
+}
+
+export function normalizeArtifactIdentity(value:unknown): import('./index.js').ArtifactIdentity {
+  const v=object(value,'artifact.identity',['sessionId','runId','toolCallId','turnId','attemptId','source','providerId','modelId']);
+  const common={sessionId:id(v.sessionId,'artifact.identity.sessionId'),runId:id(v.runId,'artifact.identity.runId')};
+  if(has(v,'source')) {
+    if(v.source!=='provider'||has(v,'toolCallId'))invalid('artifact.identity','requires an exact provider owner without a Tool');
+    return {...common,source:'provider',turnId:id(v.turnId,'artifact.identity.turnId'),attemptId:id(v.attemptId,'artifact.identity.attemptId'),providerId:id(v.providerId,'artifact.identity.providerId'),modelId:id(v.modelId,'artifact.identity.modelId')};
+  }
+  if(has(v,'providerId')||has(v,'modelId'))invalid('artifact.identity','provider fields require provider ownership');
+  if(has(v,'attemptId')&&!has(v,'turnId'))invalid('artifact.identity','attempt requires turn');
+  return {...common,toolCallId:id(v.toolCallId,'artifact.identity.toolCallId'),...optionalId(v,'turnId','artifact.identity'),...optionalId(v,'attemptId','artifact.identity')};
 }

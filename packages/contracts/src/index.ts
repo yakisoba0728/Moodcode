@@ -33,13 +33,16 @@ export const INPUT_DOCUMENT_LIMITS = Object.freeze({ maxCount: 1, maxDocumentByt
 /** Host-imported immutable bytes. Commands carry references, never paths, URLs, or base64 data. */
 export interface InputImageAttachment { id: string; kind: 'image'; mimeType: typeof INPUT_IMAGE_MIME_TYPES[number]; bytes: number; sha256: string }
 export interface InputDocumentAttachment { id: string; kind: 'document'; mimeType: typeof INPUT_DOCUMENT_MIME_TYPES[number]; bytes: number; sha256: string }
-export interface SubmitInput { sessionId: string; requestId: string; prompt: string; config: RunConfig; attachments?: InputImageAttachment[]; documents?: InputDocumentAttachment[] }
-export interface Run { id: string; inputId: string; sessionId: string; workspaceId: string; requestId: string; prompt: string; config: RunConfig; state: RunState; createdAt: string; updatedAt: string; error?: { code: string; message: string }; attachments?: InputImageAttachment[]; documents?: InputDocumentAttachment[] }
+export interface InputMediaSegment { startMs: number; endMs: number }
+/** Immutable local source with an exact bounded selection, not URLs or decoder authority. */
+export interface InputMediaAttachment { id: string; kind: 'audio' | 'video'; mimeType: 'audio/wav' | 'video/x-msvideo'; bytes: number; sha256: string; decoder: 'wav-pcm16-v1' | 'avi-rgb24-v1'; segments: InputMediaSegment[] }
+export interface SubmitInput { sessionId: string; requestId: string; prompt: string; config: RunConfig; attachments?: InputImageAttachment[]; documents?: InputDocumentAttachment[]; media?: InputMediaAttachment[] }
+export interface Run { id: string; inputId: string; sessionId: string; workspaceId: string; requestId: string; prompt: string; config: RunConfig; state: RunState; createdAt: string; updatedAt: string; error?: { code: string; message: string }; attachments?: InputImageAttachment[]; documents?: InputDocumentAttachment[]; media?: InputMediaAttachment[] }
 export interface RunReceipt { runId: string; inputId: string; admittedSeq: number; duplicate: boolean }
 export interface ProviderToolCall { id: string; name: string; input: JsonValue }
 /** Provider-native completed output for manual replay; opaque to tools and the UI. */
 export interface ProviderReplay { providerId: string; items: JsonObject[]; modelId?: string; protocol?: string; version?: number }
-export interface Message { id: string; sessionId: string; runId: string; role: 'user' | 'assistant' | 'tool'; content: string; createdAt: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay; toolResult?: Pick<import('./v2.js').ToolResultEnvelope, 'artifactRefs' | 'warnings' | 'outcome'>; attachments?: InputImageAttachment[]; documents?: InputDocumentAttachment[] }
+export interface Message { id: string; sessionId: string; runId: string; role: 'user' | 'assistant' | 'tool'; content: string; createdAt: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay; toolResult?: Pick<import('./v2.js').ToolResultEnvelope, 'artifactRefs' | 'warnings' | 'outcome'>; attachments?: InputImageAttachment[]; documents?: InputDocumentAttachment[]; media?: InputMediaAttachment[] }
 export interface ToolCallRecord { id: string; runId: string; sessionId: string; name: string; input: JsonValue; state: 'requested' | 'awaiting_approval' | 'running' | 'completed' | 'failed' | 'denied' | 'interrupted'; output?: string; error?: string }
 export interface ApprovalRecord { id: string; sessionId: string; runId: string; toolCallId: string; toolName: string; fingerprint: string; preview: JsonObject; status: 'pending' | 'allowed' | 'denied' | 'expired'; createdAt: string; resolvedAt?: string }
 export interface CheckpointFile { path: string; before: string | null; after: string | null; beforeHash: string | null; afterHash: string | null }

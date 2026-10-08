@@ -37,6 +37,7 @@ export interface ProviderTransportRequest {
   readonly sessionId?: string;
   readonly resolvedImages?: readonly ResolvedInputImage[];
   readonly resolvedDocuments?: readonly ResolvedInputDocument[];
+  readonly resolvedMedia?: readonly import('../ports.js').ResolvedInputMedia[];
 }
 
 export const HOST_GENERATION_REQUEST_LIMITS = Object.freeze({ maxBytes: 262_144, maxMessages: 256, maxIdentifierBytes: 256 });

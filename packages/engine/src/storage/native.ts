@@ -1,3 +1,4 @@
+import { assertMediaReferenceCapacity } from '../media/storage-capacity.js';
 import { randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import {
@@ -154,6 +155,7 @@ export class NativeSessionStorage {
         state: 'pending', admittedSeq: this.nextSeq(session.id), createdAt: now, updatedAt: now };
       this.database.prepare('INSERT INTO session_inputs(id,session_id,workspace_id,request_id,fingerprint,delivery,state,admitted_seq,bytes,data) VALUES(?,?,?,?,?,?,?,?,?,?)')
         .run(input.id, input.sessionId, input.workspaceId, input.requestId, fingerprint, input.delivery, input.state, input.admittedSeq, bytes, JSON.stringify(input));
+      if (input.media !== undefined) assertMediaReferenceCapacity(this.database);
       this.appendEvent(session.id, 'input.accepted', { input: storedJson(input) }, { inputId: input.id });
       return this.inputReceipt(input, false);
     });
@@ -171,6 +173,7 @@ export class NativeSessionStorage {
       admittedSeq, promotedSeq, runId: run.id, createdAt: run.createdAt, updatedAt: run.createdAt };
     this.database.prepare('INSERT INTO session_inputs(id,session_id,workspace_id,request_id,fingerprint,delivery,state,admitted_seq,promoted_seq,run_id,legacy_seq,bytes,data) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)')
       .run(input.id, input.sessionId, input.workspaceId, input.requestId, requestIdentity(accepted), input.delivery, input.state, admittedSeq, promotedSeq, run.id, Number(legacy.admitted_seq), Buffer.byteLength(JSON.stringify(accepted)), JSON.stringify(input));
+    if (input.media !== undefined) assertMediaReferenceCapacity(this.database);
     this.appendEvent(input.sessionId, 'input.legacy_bound', { requestId: input.requestId, legacy: true }, { inputId: input.id, runId: run.id });
     this.appendEvent(input.sessionId, 'input.promoted', { requestId: input.requestId, legacy: true }, { inputId: input.id, runId: run.id });
     return input;
@@ -281,7 +284,7 @@ export class NativeSessionStorage {
       if (first?.id !== inputId) throw new EngineError('INPUT_ORDER_CONFLICT', 'Promote the oldest pending input first');
       receipt = this.hooks.admit({ sessionId: input.sessionId, requestId: input.requestId, prompt: input.prompt, config: input.config,
         ...(input.attachments === undefined ? {} : { attachments: structuredClone(input.attachments) }),
-        ...(input.documents === undefined ? {} : { documents: structuredClone(input.documents) }) }, input.id);
+        ...(input.documents === undefined ? {} : { documents: structuredClone(input.documents) }), ...(input.media === undefined ? {} : { media: structuredClone(input.media) }) }, input.id);
       run = this.hooks.run(receipt.runId);
     }
     const promoted = validateInputRecord({ ...input, state: 'promoted', runId: run.id, promotedSeq: this.nextSeq(input.sessionId), updatedAt: new Date().toISOString() });

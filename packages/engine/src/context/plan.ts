@@ -7,7 +7,7 @@ import type { ModelSpec } from './model-spec.js';
 import { boundedJson } from '../artifacts/validation.js';
 import { REPOSITORY_CONTRIBUTION_LIMITS } from './repository-contributions.js';
 
-export interface TokenEstimate { tokens: number; source: 'utf8-byte-upper-bound'; estimated: true; imageTokens?: null; documentTokens?: null; complete?: false }
+export interface TokenEstimate { tokens: number; source: 'utf8-byte-upper-bound'; estimated: true; imageTokens?: null; documentTokens?: null; mediaTokens?:null; complete?: false }
 export interface ContextPlan {
   messages: ProviderMessage[];
   sha256: string;
@@ -26,6 +26,7 @@ export interface ContextPlan {
 export function estimateTokens(messages: ProviderMessage[], envelopeBytes = 0): TokenEstimate {
   return { tokens: Buffer.byteLength(JSON.stringify(messages)) + envelopeBytes, source: 'utf8-byte-upper-bound', estimated: true,
     ...(messages.some(message => message.attachments?.length) ? { imageTokens: null, complete: false } as const : {}),
+    ...(messages.some(message => message.media?.length)?{mediaTokens:null,complete:false} as const:{}),
     ...(messages.some(message => message.documents?.length) ? { documentTokens: null, complete: false } as const : {}) };
 }
 
@@ -129,7 +130,7 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
     const index = request.snapshot.messages.findLastIndex((message, position) => position <= previous && message.role === selected.role
       && message.content === selected.content && message.toolCallId === selected.toolCallId
       && JSON.stringify(message.attachments) === JSON.stringify(selected.attachments)
-      && JSON.stringify(message.documents) === JSON.stringify(selected.documents));
+      && JSON.stringify(message.media) === JSON.stringify(selected.media) && JSON.stringify(message.documents) === JSON.stringify(selected.documents));
     if (index >= 0) { selectedMessageIds.unshift(request.snapshot.messages[index]!.id); previous = index - 1; }
   }
   return {
@@ -139,6 +140,7 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
     inputEstimate, tokenLimit, model: { providerId: request.config.providerId, modelId: request.config.modelId, source: model?.source ?? null },
     warnings: [...(tokenLimit === null ? ['Model context window is unknown; only the byte hard cap is enforced.'] : ['Token count is a conservative UTF-8 estimate, not measured usage.']),
       ...(inputEstimate.imageTokens === null ? ['Image token cost is unknown; the UTF-8 estimate covers text and reference metadata only. Image byte caps are enforced separately; the complete model token window is not verified.'] : []),
+      ...(inputEstimate.mediaTokens===null?['Audio/video token cost is unknown; only text/reference estimates and separate source/decoded-byte caps are verified.']:[]),
       ...(inputEstimate.documentTokens === null ? ['PDF page/text token cost is unknown; the UTF-8 estimate covers text and reference metadata only. Document byte caps are enforced separately; the complete model token window is not verified.'] : [])],
   };
 }

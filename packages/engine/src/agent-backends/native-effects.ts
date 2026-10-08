@@ -340,7 +340,8 @@ export class BackendNativeEffects {
       if (
         entry.completion?.result &&
         typeof entry.completion.result === "object" &&
-        !Array.isArray(entry.completion.result)
+        !Array.isArray(entry.completion.result) &&
+        entry.completion.result.started !== false
       ) {
         const data = entry.completion.result;
         result = {

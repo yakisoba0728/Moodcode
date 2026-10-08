@@ -1,4 +1,5 @@
 import {validateCommandLifetimeDatabase} from '../jobs/command-lifetime-records.js';
+import {validateMediaDatabase} from '../media/native-validation.js';
 import { validatePrFeedbackDatabase } from '../pr-feedback/records.js';
 import {validateHostCommandDeliveryDatabase} from '../jobs/host-command-delivery-records.js';
 
@@ -167,6 +168,7 @@ validateCodingBatchDatabase(primary);
     const jobTables = primaryVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables;
     if (primary && primaryVersion >= 23) {validateHostCommandDatabase(primary, { check: snapshot.check }); validateHostCommandDeliveryDatabase(primary,{check:snapshot.check});validateCommandLifetimeDatabase(primary,snapshot.check);}
     const hostCommandTables = primaryVersion >= 23 ? [...jobTables, ...HOST_COMMAND_TABLES] : jobTables;
+    if(primary)validateMediaDatabase(primary,snapshot.check);
     const primaryHash = primary ? checkDatabase(primary, primaryVersion, hostCommandTables, snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);
