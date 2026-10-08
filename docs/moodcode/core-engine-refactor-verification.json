@@ -1,0 +1,686 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-09",
+  "status": "CORE-01/02/03 implemented and verified in the isolated engine worktree; final Root integration acceptance is recorded separately.",
+  "ownership": {
+    "worktree": "/Users/yakisoba0728/.codex/worktrees/core-engine-helpers/Moodcode",
+    "branch": "codex/core-engine-helpers",
+    "base": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+    "productionHead": "e17e6eca2afd109b1d77b252cee796a5d8a90af3",
+    "scope": [
+      "packages/engine/src/engine.ts",
+      "three existing engine/media/document test files",
+      "this verification report"
+    ],
+    "mainModified": false,
+    "pushed": false
+  },
+  "orderedCommits": [
+    {
+      "unit": "semantic regressions before extraction",
+      "sha": "4fc041970cd8de14866b8b3ae1cb659e7cbb797f"
+    },
+    {
+      "unit": "CORE-01",
+      "sha": "8fd36e4fbc2a2eb91c14385cb5c6a70525d4fa49"
+    },
+    {
+      "unit": "CORE-02",
+      "sha": "1c93d0af75be17779c47fa72119f4ae5afa9d6d2"
+    },
+    {
+      "unit": "CORE-03",
+      "sha": "e17e6eca2afd109b1d77b252cee796a5d8a90af3"
+    }
+  ],
+  "proposalBaseline": {
+    "head": "72e31aeb35234555031a5c6ebf0a4b4d6646a40c",
+    "engineSha256": "1a3b5964774a6be4dccc03b06f929ec519f9724587a9068556fb76d172dbefea",
+    "comparedWithCurrentBase": true,
+    "delta": "Only integrated Windows execution marker recovery, managed-artifact availability and native command capability wiring changed in engine.ts. Nominated CORE-01/02/03 blocks were unchanged; constructor measurement increased from proposal926/220 to base942/226."
+  },
+  "units": [
+    {
+      "id": "CORE-01",
+      "implementation": "One private typed fresh media input validator is called inside the two original fresh-receipt branches. Original lookup short circuit, profile application, native scheduler calls and resolver closing checks remain.",
+      "contracts": [
+        "budget -> segment -> document -> image",
+        "durable duplicates bypass deleted sources",
+        "no native Input/Run/Message/Attempt/event or HTTP effect before validation succeeds",
+        "unknown token cost and byte accounting unchanged"
+      ],
+      "regressions": [
+        "actual mixed source deletion/restoration independently pins segment/document/image error priority through v1 and v2",
+        "oversized combined reference metadata rejects before any segment support check or native effect",
+        "image existing duplicate plus new PDF/audio duplicate cases cover both APIs after deletion, exact receipt identity, conflict rejection and no repeat attempt"
+      ],
+      "qualification": "Public normalizers independently enforce the same combined budget before this helper; the public budget regression verifies externally observable priority and does not isolate a later redundant assertion."
+    },
+    {
+      "id": "CORE-02",
+      "implementation": "One private non-async factory tracker invokes the concrete import synchronously, registers its original Promise and removes it on either settlement. Three wrappers return that original Promise.",
+      "contracts": [
+        "immediate ENGINE_CLOSED rejected Promise before factory invocation",
+        "caller then host AbortSignal.any order; absent caller uses exact host signal",
+        "synchronous factory throw remains synchronous",
+        "native CAS/index stores and close joining unchanged"
+      ],
+      "regressions": [
+        "controlled factories pin original Promise identity, synchronous entry/throw, pending addition/deletion on fulfilment and rejection, already-aborted caller/host precedence, closed no-factory behavior",
+        "actual image/PDF/audio close before CAS cancels without durable index; post-CAS close retains exact blob/ref after native reopen with no provider or Input/Run effects"
+      ]
+    },
+    {
+      "id": "CORE-03",
+      "implementation": "Twenty-eight guard calls remain at their original constructor positions. The private helper reads options[key] once for undefined and twice for a non-undefined value under the original short circuit; it does not cache the value.",
+      "contracts": [
+        "all original INVALID_CONFIG codes/messages",
+        "initial osSandbox assignment before dbPath validation",
+        "PR feedback loop is unchanged and excluded from the28 guards",
+        "interleaved dependencies, error priority and child opt-ins unchanged"
+      ],
+      "regressions": [
+        "28 independently authored exact invalid messages and getter counts (2 each; osSandbox3 including its earlier assignment)",
+        "undefined short circuit and six later-invalid/earlier-dependency error cases",
+        "actual native team model/default-off child, scoped child owner, resident close/restart/archive, coding batch archive/no replay, command lifetime and role child suites"
+      ]
+    }
+  ],
+  "regressionFirst": {
+    "newCases": 38,
+    "changedExistingAssertions": 0,
+    "deletedTests": 0,
+    "addedSkips": 0,
+    "timeoutIncreases": 0,
+    "baselineProductionHead": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+    "baselineTestCommit": "4fc041970cd8de14866b8b3ae1cb659e7cbb797f",
+    "reviewGate": "Independent contract reviewer gave initial constraints before production extraction; new regressions passed source and compiled against the original engine before the first production commit."
+  },
+  "runtime": {
+    "node": "v26.9.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "typescript": "7.0.2",
+    "setupCommands": [
+      "npm ci",
+      "npm run prepare:pty"
+    ],
+    "setupResult": "Both exited0 in this worktree; dependency/package files were unchanged."
+  },
+  "typechecks": [
+    {
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "evidence": {
+        "path": "/tmp/moodcode-core-engine-baseline-typecheck-final.log",
+        "sha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670",
+        "bytes": 53
+      }
+    },
+    {
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "evidence": {
+        "path": "/tmp/moodcode-core01-typecheck.log",
+        "sha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670",
+        "bytes": 53
+      }
+    },
+    {
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "evidence": {
+        "path": "/tmp/moodcode-core02-typecheck.log",
+        "sha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670",
+        "bytes": 53
+      }
+    },
+    {
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "evidence": {
+        "path": "/tmp/moodcode-core03-typecheck-final.log",
+        "sha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670",
+        "bytes": 53
+      }
+    }
+  ],
+  "checks": [
+    {
+      "stage": "baseline",
+      "mode": "source",
+      "command": "node --import file:///Users/yakisoba0728/.codex/worktrees/core-engine-helpers/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 --test-reporter=tap packages/engine/src/engine.test.ts packages/engine/src/integration/input-media-review.integration.test.ts packages/engine/src/integration/document-input.integration.test.ts packages/engine/src/media/segment-boundaries.integration.test.ts",
+      "result": {
+        "tests": 85,
+        "pass": 85,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 4988.658417
+      },
+      "evidence": {
+        "path": "/tmp/moodcode-core-engine-new-tests-baseline-source-final.tap",
+        "sha256": "7271fe0aedb552304aebd1184f5c89edbdf031e495a67ef355c0fb040994af70",
+        "bytes": 21141
+      }
+    },
+    {
+      "stage": "baseline",
+      "mode": "compiled",
+      "command": "node --test --test-concurrency=2 --test-reporter=tap packages/engine/dist/engine.test.js packages/engine/dist/integration/input-media-review.integration.test.js packages/engine/dist/integration/document-input.integration.test.js packages/engine/dist/media/segment-boundaries.integration.test.js",
+      "result": {
+        "tests": 85,
+        "pass": 85,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 4552.459542
+      },
+      "evidence": {
+        "path": "/tmp/moodcode-core-engine-new-tests-baseline-compiled-final.tap",
+        "sha256": "01de6a20f8233c53df372cfdeffb4b18fd11b5170d7677d48573c0581b714671",
+        "bytes": 21138
+      }
+    },
+    {
+      "stage": "CORE01",
+      "mode": "source",
+      "command": "node --import file:///Users/yakisoba0728/.codex/worktrees/core-engine-helpers/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 --test-reporter=tap packages/engine/src/integration/input-media-review.integration.test.ts packages/engine/src/integration/document-input.integration.test.ts packages/engine/src/media/segment-boundaries.integration.test.ts packages/engine/src/media/segments.integration.test.ts packages/engine/src/media/segment-crash.integration.test.ts",
+      "result": {
+        "tests": 55,
+        "pass": 55,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 6953.665542
+      },
+      "evidence": {
+        "path": "/tmp/moodcode-core01-source.tap",
+        "sha256": "35648dd660b6133dedb91a59df8fbddeb71d79f89d67d70b3e62ac81efdcc741",
+        "bytes": 14651
+      }
+    },
+    {
+      "stage": "CORE01",
+      "mode": "compiled",
+      "command": "node --test --test-concurrency=2 --test-reporter=tap packages/engine/dist/integration/input-media-review.integration.test.js packages/engine/dist/integration/document-input.integration.test.js packages/engine/dist/media/segment-boundaries.integration.test.js packages/engine/dist/media/segments.integration.test.js packages/engine/dist/media/segment-crash.integration.test.js",
+      "result": {
+        "tests": 55,
+        "pass": 55,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 5369.898416
+      },
+      "evidence": {
+        "path": "/tmp/moodcode-core01-compiled.tap",
+        "sha256": "ac6de8c9950391c5f1b07d2f1c9ab25bb4b1dd8ddb4c891d18004d6236f790d8",
+        "bytes": 14651
+      }
+    },
+    {
+      "stage": "CORE02",
+      "mode": "source",
+      "command": "node --import file:///Users/yakisoba0728/.codex/worktrees/core-engine-helpers/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 --test-reporter=tap packages/engine/src/engine.test.ts packages/engine/src/integration/input-media-review.integration.test.ts packages/engine/src/integration/document-input.integration.test.ts packages/engine/src/media/segment-boundaries.integration.test.ts packages/engine/src/media/segments.integration.test.ts packages/engine/src/documents/store.test.ts packages/engine/src/media/store.test.ts",
+      "result": {
+        "tests": 129,
+        "pass": 129,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 18289.069708
+      },
+      "evidence": {
+        "path": "/tmp/moodcode-core02-source.tap",
+        "sha256": "f9a1488ecf5e0a48b7abc80c2d264a374df85c0c9f1e95ea6f8e38074558d47e",
+        "bytes": 30965
+      }
+    },
+    {
+      "stage": "CORE02",
+      "mode": "compiled",
+      "command": "node --test --test-concurrency=2 --test-reporter=tap packages/engine/dist/engine.test.js packages/engine/dist/integration/input-media-review.integration.test.js packages/engine/dist/integration/document-input.integration.test.js packages/engine/dist/media/segment-boundaries.integration.test.js packages/engine/dist/media/segments.integration.test.js packages/engine/dist/documents/store.test.js packages/engine/dist/media/store.test.js",
+      "result": {
+        "tests": 129,
+        "pass": 129,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 8771.365542
+      },
+      "evidence": {
+        "path": "/tmp/moodcode-core02-compiled.tap",
+        "sha256": "741198d0f57e569d3dd1190127419b65de0260f3b83b28569e1f0551f2c1958f",
+        "bytes": 30947
+      }
+    },
+    {
+      "stage": "CORE03",
+      "mode": "source",
+      "command": "node --import file:///Users/yakisoba0728/.codex/worktrees/core-engine-helpers/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 --test-reporter=tap packages/engine/src/engine.test.ts packages/engine/src/teams/model-tools.integration.test.ts packages/engine/src/teams/resident-boundaries.integration.test.ts packages/engine/src/coding-runs/batch-boundaries.integration.test.ts packages/engine/src/jobs/command-lifetime-boundaries.integration.test.ts packages/engine/src/permission/engine-role-registry-child.test.ts",
+      "result": {
+        "tests": 77,
+        "pass": 77,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 19628.315541
+      },
+      "evidence": {
+        "path": "/tmp/moodcode-core03-source.tap",
+        "sha256": "aa556359587ef321749a5ecfa1f53f031a6b68a07a94a1a176dd57b8bcffece7",
+        "bytes": 20510
+      }
+    },
+    {
+      "stage": "CORE03",
+      "mode": "compiled",
+      "command": "node --test --test-concurrency=2 --test-reporter=tap packages/engine/dist/engine.test.js packages/engine/dist/teams/model-tools.integration.test.js packages/engine/dist/teams/resident-boundaries.integration.test.js packages/engine/dist/coding-runs/batch-boundaries.integration.test.js packages/engine/dist/jobs/command-lifetime-boundaries.integration.test.js packages/engine/dist/permission/engine-role-registry-child.test.js",
+      "result": {
+        "tests": 77,
+        "pass": 77,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 15974.67925
+      },
+      "evidence": {
+        "path": "/tmp/moodcode-core03-compiled.tap",
+        "sha256": "9897418b8632d5bda6e9e257e9a30f14dcfc98a503a12ee5382325cddd6ea2a3",
+        "bytes": 20505
+      }
+    },
+    {
+      "stage": "final",
+      "mode": "source",
+      "command": "node --import file:///Users/yakisoba0728/.codex/worktrees/core-engine-helpers/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 --test-reporter=tap packages/engine/src/engine.test.ts packages/engine/src/integration/input-media-review.integration.test.ts packages/engine/src/integration/document-input.integration.test.ts packages/engine/src/media/segment-boundaries.integration.test.ts",
+      "result": {
+        "tests": 85,
+        "pass": 85,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 14363.378125
+      },
+      "evidence": {
+        "path": "/tmp/moodcode-core-engine-final-source.tap",
+        "sha256": "3337dd63fdfba1acce64a48259547bc61907aefaebcd2ec0496a48d955a97b01",
+        "bytes": 21156
+      }
+    },
+    {
+      "stage": "final",
+      "mode": "compiled",
+      "command": "node --test --test-concurrency=2 --test-reporter=tap packages/engine/dist/engine.test.js packages/engine/dist/integration/input-media-review.integration.test.js packages/engine/dist/integration/document-input.integration.test.js packages/engine/dist/media/segment-boundaries.integration.test.js",
+      "result": {
+        "tests": 85,
+        "pass": 85,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 13554.994
+      },
+      "evidence": {
+        "path": "/tmp/moodcode-core-engine-final-compiled.tap",
+        "sha256": "08a4dfe5e94575fb7b40a3b9930365b980d57778bdd61a04f5453b5324aa8e64",
+        "bytes": 21181
+      }
+    }
+  ],
+  "measurements": {
+    "method": "Installed TypeScript 7 inventory worker: owned syntax decisions exclude nested functions; physical lines include blanks/comments.",
+    "typescript": "7.0.2",
+    "stages": [
+      {
+        "unit": "baseline",
+        "commit": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+        "path": "packages/engine/src/engine.ts",
+        "bytes": 228279,
+        "physicalLines": 2832,
+        "sha256": "a9c169e08d53ac9aef15e7be10f309e549e12431ac87af39f5e3aee2351df46e",
+        "status": "measured",
+        "functions": [
+          {
+            "name": "constructor",
+            "start": 544,
+            "end": 1485,
+            "lines": 942,
+            "complexity": 226,
+            "decisions": 225
+          },
+          {
+            "name": "dispatchSession",
+            "start": 1488,
+            "end": 1557,
+            "lines": 70,
+            "complexity": 45,
+            "decisions": 44
+          },
+          {
+            "name": "dispatch",
+            "start": 1559,
+            "end": 1667,
+            "lines": 109,
+            "complexity": 45,
+            "decisions": 44
+          },
+          {
+            "name": "importImage",
+            "start": 2766,
+            "end": 2772,
+            "lines": 7,
+            "complexity": 3,
+            "decisions": 2
+          },
+          {
+            "name": "importDocument",
+            "start": 2775,
+            "end": 2781,
+            "lines": 7,
+            "complexity": 3,
+            "decisions": 2
+          },
+          {
+            "name": "importMedia",
+            "start": 2791,
+            "end": 2794,
+            "lines": 4,
+            "complexity": 3,
+            "decisions": 2
+          }
+        ]
+      },
+      {
+        "unit": "CORE-01",
+        "commit": "8fd36e4fbc2a2eb91c14385cb5c6a70525d4fa49",
+        "path": "packages/engine/src/engine.ts",
+        "bytes": 228108,
+        "physicalLines": 2833,
+        "sha256": "aae457b60edc4578178e85be458dd8cf7ce6f7ae83775afd586d7bbd8516720a",
+        "status": "measured",
+        "functions": [
+          {
+            "name": "constructor",
+            "start": 544,
+            "end": 1485,
+            "lines": 942,
+            "complexity": 226,
+            "decisions": 225
+          },
+          {
+            "name": "validateFreshMediaInput",
+            "start": 1487,
+            "end": 1492,
+            "lines": 6,
+            "complexity": 4,
+            "decisions": 3
+          },
+          {
+            "name": "dispatchSession",
+            "start": 1495,
+            "end": 1561,
+            "lines": 67,
+            "complexity": 42,
+            "decisions": 41
+          },
+          {
+            "name": "dispatch",
+            "start": 1563,
+            "end": 1668,
+            "lines": 106,
+            "complexity": 42,
+            "decisions": 41
+          },
+          {
+            "name": "importImage",
+            "start": 2767,
+            "end": 2773,
+            "lines": 7,
+            "complexity": 3,
+            "decisions": 2
+          },
+          {
+            "name": "importDocument",
+            "start": 2776,
+            "end": 2782,
+            "lines": 7,
+            "complexity": 3,
+            "decisions": 2
+          },
+          {
+            "name": "importMedia",
+            "start": 2792,
+            "end": 2795,
+            "lines": 4,
+            "complexity": 3,
+            "decisions": 2
+          }
+        ]
+      },
+      {
+        "unit": "CORE-02",
+        "commit": "1c93d0af75be17779c47fa72119f4ae5afa9d6d2",
+        "path": "packages/engine/src/engine.ts",
+        "bytes": 227686,
+        "physicalLines": 2832,
+        "sha256": "a31fc30ad9f443cd4a1f3bc8464b231fdf83f2ec8501df21c904887ce86d6906",
+        "status": "measured",
+        "functions": [
+          {
+            "name": "constructor",
+            "start": 544,
+            "end": 1485,
+            "lines": 942,
+            "complexity": 226,
+            "decisions": 225
+          },
+          {
+            "name": "validateFreshMediaInput",
+            "start": 1487,
+            "end": 1492,
+            "lines": 6,
+            "complexity": 4,
+            "decisions": 3
+          },
+          {
+            "name": "dispatchSession",
+            "start": 1495,
+            "end": 1561,
+            "lines": 67,
+            "complexity": 42,
+            "decisions": 41
+          },
+          {
+            "name": "dispatch",
+            "start": 1563,
+            "end": 1668,
+            "lines": 106,
+            "complexity": 42,
+            "decisions": 41
+          },
+          {
+            "name": "trackMediaImport",
+            "start": 2767,
+            "end": 2773,
+            "lines": 7,
+            "complexity": 3,
+            "decisions": 2
+          },
+          {
+            "name": "importImage",
+            "start": 2775,
+            "end": 2777,
+            "lines": 3,
+            "complexity": 1,
+            "decisions": 0
+          },
+          {
+            "name": "importDocument",
+            "start": 2780,
+            "end": 2782,
+            "lines": 3,
+            "complexity": 1,
+            "decisions": 0
+          },
+          {
+            "name": "importMedia",
+            "start": 2792,
+            "end": 2794,
+            "lines": 3,
+            "complexity": 1,
+            "decisions": 0
+          }
+        ]
+      },
+      {
+        "unit": "CORE-03",
+        "commit": "e17e6eca2afd109b1d77b252cee796a5d8a90af3",
+        "path": "packages/engine/src/engine.ts",
+        "bytes": 225791,
+        "physicalLines": 2829,
+        "sha256": "19dd9bc931507bcc8c155ea0839dcc98576af81b309052052df666f4e4ef90d8",
+        "status": "measured",
+        "functions": [
+          {
+            "name": "constructor",
+            "start": 544,
+            "end": 1478,
+            "lines": 935,
+            "complexity": 170,
+            "decisions": 169
+          },
+          {
+            "name": "assertOptionalBoolean",
+            "start": 1480,
+            "end": 1482,
+            "lines": 3,
+            "complexity": 3,
+            "decisions": 2
+          },
+          {
+            "name": "validateFreshMediaInput",
+            "start": 1484,
+            "end": 1489,
+            "lines": 6,
+            "complexity": 4,
+            "decisions": 3
+          },
+          {
+            "name": "dispatchSession",
+            "start": 1492,
+            "end": 1558,
+            "lines": 67,
+            "complexity": 42,
+            "decisions": 41
+          },
+          {
+            "name": "dispatch",
+            "start": 1560,
+            "end": 1665,
+            "lines": 106,
+            "complexity": 42,
+            "decisions": 41
+          },
+          {
+            "name": "trackMediaImport",
+            "start": 2764,
+            "end": 2770,
+            "lines": 7,
+            "complexity": 3,
+            "decisions": 2
+          },
+          {
+            "name": "importImage",
+            "start": 2772,
+            "end": 2774,
+            "lines": 3,
+            "complexity": 1,
+            "decisions": 0
+          },
+          {
+            "name": "importDocument",
+            "start": 2777,
+            "end": 2779,
+            "lines": 3,
+            "complexity": 1,
+            "decisions": 0
+          },
+          {
+            "name": "importMedia",
+            "start": 2789,
+            "end": 2791,
+            "lines": 3,
+            "complexity": 1,
+            "decisions": 0
+          }
+        ]
+      }
+    ]
+  },
+  "finalFilePins": [
+    {
+      "path": "packages/engine/src/engine.ts",
+      "sha256": "19dd9bc931507bcc8c155ea0839dcc98576af81b309052052df666f4e4ef90d8",
+      "bytes": 225791
+    },
+    {
+      "path": "packages/engine/src/engine.test.ts",
+      "sha256": "60aaf6bd74e2e7ea8afc96975a6c9900e27201182062f76a15e93759ea2adc92",
+      "bytes": 15940
+    },
+    {
+      "path": "packages/engine/src/integration/document-input.integration.test.ts",
+      "sha256": "2990fb58fa2417f114804769ebaa99561d5c012331c9fa6c9c278ed881bf9c65",
+      "bytes": 32387
+    },
+    {
+      "path": "packages/engine/src/media/segment-boundaries.integration.test.ts",
+      "sha256": "f6ee8ebc774007fdab148e98110b84a614db013e68a414f712c319873d4fdf5b",
+      "bytes": 22903
+    }
+  ],
+  "preservedFailedAttempts": [
+    {
+      "phase": "new-test initial typecheck before production changes",
+      "result": "TS2352 intentional invalid option cast and TS2739 incomplete authored mediaCapabilities fields.",
+      "evidence": "Original npm run typecheck tool output remains in this chat (session93038).",
+      "resolution": "Cast the intentionally invalid test object through unknown and supply all three declared capability fields; no production change."
+    },
+    {
+      "phase": "new-test initial source before production changes",
+      "evidence": {
+        "path": "/tmp/moodcode-core-engine-new-tests-baseline-source.tap",
+        "sha256": "855a6377c4f2d25aa06831950c278b46f2d13155488dc75b1787bfdc5ef4d9eb",
+        "bytes": 23012
+      },
+      "result": "83tests/81pass/2fail: authored capability fixture omitted required fields.",
+      "resolution": "Complete the fixture fields."
+    },
+    {
+      "phase": "new-test second source before production changes",
+      "evidence": {
+        "path": "/tmp/moodcode-core-engine-new-tests-baseline-source-r2.tap",
+        "sha256": "284a8237cb9b68e02c6cf273ab4a9af4289b369580c892ed4bb4cc9682133987",
+        "bytes": 10957
+      },
+      "result": "83tests/81pass/2fail: independently authored expected budget message included an extra colon.",
+      "resolution": "Confirm the original contract error text and correct only the new expected string; the exact message assertion remains."
+    }
+  ],
+  "limitations": [
+    "Checks use local authored fixture providers; no external account requests, GUI execution or Windows runtime verification were performed.",
+    "Syntax complexity measures structure; it does not claim performance improvements or a complete security/semantic audit.",
+    "Focused suites ran in this isolated worktree. Root owns final combined compiled regression and integration review on its frozen branch.",
+    "Full TAP logs and AST report are local /tmp evidence with SHA256 pins; this report records measured values and does not replace those originals."
+  ]
+}
