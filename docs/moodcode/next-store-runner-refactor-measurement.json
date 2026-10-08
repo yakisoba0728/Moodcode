@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "method": "Same existing RF01 TypeScript7.0.2 closed synthetic worker, syntax-only; no semantic unused-code claim",
+  "baselineCommit": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+  "beforeReport": {
+    "path": "artifacts/store-runner-refactor/before-ast.json",
+    "sha256": "76b5814a9a9b988df9d3acc9d989027cc0768f56a6bd04718a044d4eca4d6bf2"
+  },
+  "afterReport": {
+    "path": "artifacts/store-runner-refactor/after-ast.json",
+    "sha256": "57c533f34d9b360fa4e058f5c802090ed0cad73cec8c4b98753052d23fb3a738"
+  },
+  "files": [
+    {
+      "path": "packages/engine/src/agent-backends/store.ts",
+      "before": {
+        "sha256": "771cfbe0993676657c82d4bfb89e3fcd2c3f06f9922763114c0c71333c0cfaa7",
+        "bytes": 134116,
+        "physicalLines": 4088,
+        "functions": 144,
+        "sumComplexity": 1375,
+        "decisions": 1231
+      },
+      "after": {
+        "sha256": "1a47ea5d3caf772dc96ef9053d7e36b5929b79c0f2aa75ddce5ef4576d473ff9",
+        "bytes": 134863,
+        "physicalLines": 4118,
+        "functions": 145,
+        "sumComplexity": 1376,
+        "decisions": 1231
+      },
+      "changedExistingNamedFunctions": [
+        {
+          "name": "append",
+          "before": {
+            "lines": 161,
+            "bodyLines": 154,
+            "complexity": 32,
+            "decisions": 31
+          },
+          "after": {
+            "lines": 140,
+            "bodyLines": 133,
+            "complexity": 28,
+            "decisions": 27
+          }
+        },
+        {
+          "name": "appendAdministrative",
+          "before": {
+            "lines": 141,
+            "bodyLines": 135,
+            "complexity": 25,
+            "decisions": 24
+          },
+          "after": {
+            "lines": 125,
+            "bodyLines": 119,
+            "complexity": 25,
+            "decisions": 24
+          }
+        }
+      ],
+      "addedNamedFunctions": [
+        {
+          "name": "prepareSignedBackendRevision",
+          "lines": 50,
+          "bodyLines": 48,
+          "complexity": 5,
+          "decisions": 4
+        }
+      ],
+      "ambiguousChangedRepeatedNames": [],
+      "removedNamedFunctions": [],
+      "anonymousFingerprintMultisetsEqual": true
+    },
+    {
+      "path": "packages/engine/src/runner/index.ts",
+      "before": {
+        "sha256": "16895c5d89eabb216eb65fb1aa6dbd2ab5d5a807a92b77a586d87808e22cbdac",
+        "bytes": 162554,
+        "physicalLines": 2423,
+        "functions": 229,
+        "sumComplexity": 1383,
+        "decisions": 1154
+      },
+      "after": {
+        "sha256": "ebb4d567f1215b81fc1d704e7371df8f9be5197ab42e5cccdc37cee33adf58e0",
+        "bytes": 162454,
+        "physicalLines": 2435,
+        "functions": 230,
+        "sumComplexity": 1370,
+        "decisions": 1140
+      },
+      "changedExistingNamedFunctions": [
+        {
+          "name": "assertTeamToolContext",
+          "before": {
+            "lines": 18,
+            "bodyLines": 18,
+            "complexity": 29,
+            "decisions": 28
+          },
+          "after": {
+            "lines": 14,
+            "bodyLines": 14,
+            "complexity": 15,
+            "decisions": 14
+          }
+        },
+        {
+          "name": "assertWorkflowToolContext",
+          "before": {
+            "lines": 18,
+            "bodyLines": 18,
+            "complexity": 29,
+            "decisions": 28
+          },
+          "after": {
+            "lines": 14,
+            "bodyLines": 14,
+            "complexity": 15,
+            "decisions": 14
+          }
+        }
+      ],
+      "addedNamedFunctions": [
+        {
+          "name": "liveToolOwnerChanged",
+          "lines": 8,
+          "bodyLines": 8,
+          "complexity": 15,
+          "decisions": 14
+        }
+      ],
+      "ambiguousChangedRepeatedNames": [],
+      "removedNamedFunctions": [],
+      "anonymousFingerprintMultisetsEqual": true
+    }
+  ],
+  "matchingQualification": "Unique named functions match by name and AST fingerprint. Repeated names compare fingerprint multisets and are not paired by location. Synthetic anonymous labels contain line numbers and are excluded from named identity matching; their fingerprint multisets are compared separately. Module totals include every function."
+}

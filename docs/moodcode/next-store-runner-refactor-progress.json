@@ -1,0 +1,480 @@
+{
+  "schemaVersion": 1,
+  "workItems": ["STORE-01", "RUNNER-01", "RF01-manual-unsupported9"],
+  "status": "delegated-scope-complete-ready-for-Root-integration",
+  "baselineCommit": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+  "branch": "codex/store-runner-refactor",
+  "worktree": "/Users/yakisoba0728/.codex/worktrees/store-runner-refactor/Moodcode",
+  "timezone": "Asia/Seoul",
+  "writers": {
+    "packages/engine/src/agent-backends/store.ts": "store_refactor",
+    "packages/engine/src/runner/index.ts": "runner_refactor",
+    "docs/moodcode/next-inventory-manual-review.json": "reused anthropic reviewer",
+    "aggregate-builds-measurements-progress-commits": "parent"
+  },
+  "setup": {
+    "npmCi": {
+      "exitCode": 0,
+      "log": "artifacts/store-runner-refactor/npm-ci.log",
+      "electronBinaryDownloadSkipped": true
+    },
+    "preparePty": {
+      "exitCode": 0,
+      "log": "artifacts/store-runner-refactor/prepare-pty.log"
+    },
+    "baselineTypecheckBuild": {
+      "exitCode": 0,
+      "log": "artifacts/store-runner-refactor/baseline-typecheck.log",
+      "scope": "Own complete TypeScript project graph"
+    }
+  },
+  "beforeMeasurement": {
+    "method": "Existing RF01 TS7 closed synthetic AST worker on two captured modules; syntax proxy, not semantic unused analysis",
+    "typescript": "7.0.2",
+    "report": "artifacts/store-runner-refactor/before-ast.json",
+    "sha256": "76b5814a9a9b988df9d3acc9d989027cc0768f56a6bd04718a044d4eca4d6bf2",
+    "files": [
+      {
+        "path": "packages/engine/src/agent-backends/store.ts",
+        "sha256": "771cfbe0993676657c82d4bfb89e3fcd2c3f06f9922763114c0c71333c0cfaa7",
+        "bytes": 134116,
+        "physicalLines": 4088,
+        "functions": 144,
+        "sumSyntacticComplexity": 1375,
+        "candidateFunctions": [
+          {
+            "id": "packages/engine/src/agent-backends/store.ts:579:3",
+            "name": "append",
+            "kind": "method",
+            "start": 579,
+            "end": 739,
+            "lines": 161,
+            "bodyStart": 586,
+            "bodyEnd": 739,
+            "bodyLines": 154,
+            "branches": {
+              "??": 15,
+              "&&": 1,
+              "||": 1,
+              "conditional": 8,
+              "if": 6
+            },
+            "decisions": 31,
+            "complexity": 32,
+            "fingerprint": {
+              "sha256": "85faac6266f7d46b7a6506cd8b832f907e499152bf30f5eecd10ccf4d1dc9024",
+              "nodes": 644
+            }
+          },
+          {
+            "id": "packages/engine/src/agent-backends/store.ts:3874:1",
+            "name": "appendAdministrative",
+            "kind": "function",
+            "start": 3874,
+            "end": 4014,
+            "lines": 141,
+            "bodyStart": 3880,
+            "bodyEnd": 4014,
+            "bodyLines": 135,
+            "branches": {
+              "??": 11,
+              "||": 1,
+              "conditional": 8,
+              "if": 4
+            },
+            "decisions": 24,
+            "complexity": 25,
+            "fingerprint": {
+              "sha256": "40e82410ccfd9236cae7fae9a02749895552dd2d656ecc05420e923f76930bef",
+              "nodes": 612
+            }
+          }
+        ]
+      },
+      {
+        "path": "packages/engine/src/runner/index.ts",
+        "sha256": "16895c5d89eabb216eb65fb1aa6dbd2ab5d5a807a92b77a586d87808e22cbdac",
+        "bytes": 162554,
+        "physicalLines": 2423,
+        "functions": 229,
+        "sumSyntacticComplexity": 1383,
+        "candidateFunctions": [
+          {
+            "id": "packages/engine/src/runner/index.ts:997:3",
+            "name": "assertTeamToolContext",
+            "kind": "method",
+            "start": 997,
+            "end": 1014,
+            "lines": 18,
+            "bodyStart": 997,
+            "bodyEnd": 1014,
+            "bodyLines": 18,
+            "branches": {
+              "&&": 1,
+              "||": 21,
+              "conditional": 1,
+              "if": 5
+            },
+            "decisions": 28,
+            "complexity": 29,
+            "fingerprint": {
+              "sha256": "577b131a4b2dd7ee4104aee4dc6a01126454b7d3d2fd0de768bacda3f949dc5f",
+              "nodes": 349
+            }
+          },
+          {
+            "id": "packages/engine/src/runner/index.ts:1017:3",
+            "name": "readCommandJobToolContext",
+            "kind": "method",
+            "start": 1017,
+            "end": 1023,
+            "lines": 7,
+            "bodyStart": 1017,
+            "bodyEnd": 1023,
+            "bodyLines": 7,
+            "branches": {
+              "||": 16,
+              "conditional": 2,
+              "if": 2
+            },
+            "decisions": 20,
+            "complexity": 21,
+            "fingerprint": {
+              "sha256": "2c45b727eab0ce943143648569a1a4ca087f6680a86edbb5a28c0ebef60bb1bc",
+              "nodes": 303
+            }
+          },
+          {
+            "id": "packages/engine/src/runner/index.ts:1025:3",
+            "name": "assertWorkflowToolContext",
+            "kind": "method",
+            "start": 1025,
+            "end": 1042,
+            "lines": 18,
+            "bodyStart": 1025,
+            "bodyEnd": 1042,
+            "bodyLines": 18,
+            "branches": {
+              "&&": 1,
+              "||": 21,
+              "conditional": 1,
+              "if": 5
+            },
+            "decisions": 28,
+            "complexity": 29,
+            "fingerprint": {
+              "sha256": "581e3c9f801a75586ffcec4c978be37a228d22e77f6ce052747a67708f1f0aa2",
+              "nodes": 342
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "preservation": [
+    "Caller live/admin SQL, CAS, transactions, quotas, request dedupe, UUID/time locations",
+    "Independent archive validator and existing Original capture/bounded read validators",
+    "Exact team/workflow14-condition order and left allowlists",
+    "Unchanged readonly job, code-mode post-abort observe, owned-command settle guards",
+    "DB/API/event/error/approval/unknown/no-replay contracts; no migrations",
+    "Licenses and bytes for unsupported9 manual source review"
+  ],
+  "protected": [
+    "Shared main edits",
+    "Root TODO/README/CI",
+    "engine.ts and jobs producers",
+    "Goal tools",
+    "Live/account requests"
+  ],
+  "actualPaidModelCalls": 0,
+  "goalToolMutations": 0,
+  "baselineProposalPinsMatch": true,
+  "pending": [
+    "Root-owned combined full validation on integrated main and source qualification of any later changes",
+    "Root-owned native Windows/GUI/account/signing acceptance and original environment/fixture failures remain open; selected manual source review does not close them",
+    "Root-owned CI trigger coverage fix target and theme-intent investigation; no protected source edits in this branch"
+  ],
+  "completed": [
+    "Own npm ci then prepare:pty; baseline all-project build/typecheck exit0",
+    "Missing regression tests passed before production extraction in both units",
+    "Bounded STORE/RUNNER extraction; protected producer and independent validation paths unchanged",
+    "STORE source20/20 and compiled20/20; RUNNER source159/159 and post-abort6/6; no skips in executed source gates",
+    "Serial after all-project typecheck/build exit0 after dedicated assertion message type correction",
+    "Independent parent diff and test oracle review; named and anonymous AST matching qualified correctly",
+    "RUNNER compiled159/159 and selective post-abort6/6 with zero skips",
+    "Full manual9 review and independent parent hash/byte/line/supporting-source recheck",
+    "Three separate implementation/manual commits; aggregate evidence follows as a docs-only commit"
+  ],
+  "afterMeasurement": "docs/moodcode/next-store-runner-refactor-measurement.json",
+  "verification": {
+    "typecheck": {
+      "exitCode": 0,
+      "log": "artifacts/store-runner-refactor/after-typecheck.log",
+      "initialFailure": {
+        "exitCode": 2,
+        "log": "artifacts/store-runner-refactor/after-typecheck-initial-failure.log",
+        "qualification": "Exact diagnostic restored from captured tool output after fresh successful rerun replaced the original log. Assertion message string fallback fixed; no production or contract changes."
+      }
+    },
+    "storeCompiled": {
+      "tests": 20,
+      "pass": 20,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "log": "artifacts/store-runner-refactor/store-compiled.log"
+    },
+    "runnerCompiled": {
+      "exitCode": 0,
+      "tests": 159,
+      "pass": 159,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "durationMs": 79725.557334,
+      "log": "artifacts/store-runner-refactor/runner-compiled.log",
+      "logSha256": "1a634e415ef9891d935701387db12837ee28900dd24bf55246ceb4d59ebb9a5e"
+    },
+    "runnerPostAbortCompiled": {
+      "exitCode": 0,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "durationMs": 7310.377291,
+      "log": "artifacts/store-runner-refactor/runner-post-abort-compiled.log",
+      "logSha256": "570fc478cffcf8095d8d5c4ee97d96319e4b8e2789411a303c42c1cf15e37d3f",
+      "retainedNativeFixture": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-i1BPGw"
+    },
+    "sourceGates": {
+      "store": {
+        "exitCode": 0,
+        "tests": 20,
+        "pass": 20,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "durationMs": 9978.560542,
+        "log": "artifacts/store-runner-refactor/store-tests-after.log",
+        "logSha256": "a8b4a9defaf2ef53d313f2f455a1f506e59245d0d7f03e24297e1751db616d8f"
+      },
+      "runner": {
+        "exitCode": 0,
+        "tests": 159,
+        "pass": 159,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "durationMs": 41381.762375,
+        "log": "artifacts/store-runner-refactor/runner-tests-after.log",
+        "logSha256": "077c77f176a71792a86ecd74e28a56757943aba4f27a81e788436d39c2a89bf8"
+      },
+      "postAbort": {
+        "exitCode": 0,
+        "tests": 6,
+        "pass": 6,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "durationMs": 5902.685083,
+        "log": "artifacts/store-runner-refactor/runner-post-abort-source.log",
+        "logSha256": "8d7ed5e936a3066a307aa3f35f721c934be2992ccfc38edefc70189162695e63",
+        "retainedNativeFixture": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-code-mode-hF39ra"
+      },
+      "finalRunnerAssertionTypeCorrection": {
+        "exitCode": 0,
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "durationMs": 4384.525292,
+        "log": "artifacts/store-runner-refactor/runner-dedicated-final-source.log",
+        "logSha256": "ca2b2b5dec8bb7ad5b0083c6910ea1078990229ef72ed9dd86c426b67bc31c62"
+      }
+    },
+    "testsFirstBaseline": {
+      "store": {
+        "exitCode": 0,
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "durationMs": 1016.909375,
+        "log": "artifacts/store-runner-refactor/store-tests-before.log",
+        "logSha256": "d96b124e8bd17da63c47df329d9bb23640564d804b780df21646ba41a67a76b5"
+      },
+      "runner": {
+        "exitCode": 0,
+        "tests": 2,
+        "pass": 2,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "durationMs": 3287.308833,
+        "log": "artifacts/store-runner-refactor/runner-tests-before.log",
+        "logSha256": "53167aaad95b6617bbcce1bbfcc83419b5f2fb15895bfaeddfe706f4b29b5ff3"
+      }
+    },
+    "interpretation": "Source and compiled executions are separate gates over overlapping cases, not added together as distinct coverage. RUNNER 22 rejected operations are scenario counters inside two top-level integration tests.",
+    "compiledCommands": {
+      "store": "node --test --test-concurrency=1 packages/engine/dist/agent-backends/{receipt-contract.integration,store,native-graph.integration,archive.integration,crash.integration,admission-rollback.integration,producer-boundaries.integration}.test.js",
+      "runner": "node --test --test-concurrency=1 packages/engine/dist/runner/live-tool-owner.integration.test.js packages/engine/dist/teams/model-tools-host-proof.test.js packages/engine/dist/teams/model-tools.integration.test.js packages/engine/dist/workflows/effects.integration.test.js packages/engine/dist/workflows/producer-edge.integration.test.js packages/engine/dist/runner/coordinator.test.js packages/engine/dist/jobs/command-model-tools.integration.test.js",
+      "postAbort": "node --test --test-concurrency=1 --test-name-pattern='outer parent cancellation|owned command cancellation|closing the real Root|actual command producer|actual completed job transaction' packages/engine/dist/code-mode/engine-code-mode.integration.test.js packages/engine/dist/jobs/owned-command.integration.test.js packages/engine/dist/jobs/owned-command-boundaries.integration.test.js packages/engine/dist/jobs/owned-command-settlement.integration.test.js"
+    },
+    "allProjectTypecheckCommand": "node node_modules/typescript/bin/tsc -b --pretty false"
+  },
+  "artifactHashes": [
+    {
+      "path": "artifacts/store-runner-refactor/after-ast.json",
+      "bytes": 588207,
+      "sha256": "57c533f34d9b360fa4e058f5c802090ed0cad73cec8c4b98753052d23fb3a738"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/after-typecheck-initial-failure.log",
+      "bytes": 313,
+      "sha256": "109519f2b939f9e9c9023fc5d5673cce7a49a4bc83a70f6c7c10a86119d9ae24"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/after-typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/baseline-typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/before-ast.json",
+      "bytes": 588398,
+      "sha256": "76b5814a9a9b988df9d3acc9d989027cc0768f56a6bd04718a044d4eca4d6bf2"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/npm-ci.log",
+      "bytes": 1741,
+      "sha256": "a08758138ca9695995c7e73d3f939fe3a7bf40692d3e2a3732a99d928f528671"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/parent-source-scope-check.json",
+      "bytes": 1119,
+      "sha256": "37236f42d6ac8886f5f5851b3b6b4514d70d1c234332595dc45f7dd6a2f8fefb"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/prepare-pty.log",
+      "bytes": 105,
+      "sha256": "a501d5f2ebb78cdaea84e679e74406587620ce7f2ae95a3536eb362776cc1450"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/runner-compiled.log",
+      "bytes": 15290,
+      "sha256": "1a634e415ef9891d935701387db12837ee28900dd24bf55246ceb4d59ebb9a5e"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/runner-dedicated-final-source.log",
+      "bytes": 591,
+      "sha256": "ca2b2b5dec8bb7ad5b0083c6910ea1078990229ef72ed9dd86c426b67bc31c62"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/runner-post-abort-compiled.log",
+      "bytes": 998,
+      "sha256": "570fc478cffcf8095d8d5c4ee97d96319e4b8e2789411a303c42c1cf15e37d3f"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/runner-post-abort-source.log",
+      "bytes": 996,
+      "sha256": "8d7ed5e936a3066a307aa3f35f721c934be2992ccfc38edefc70189162695e63"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/runner-source-contract-check.json",
+      "bytes": 555,
+      "sha256": "3ec62fd3a331a2dd0e2febff246b9c2aa78c0d270ed7472777c693d0aad16f85"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/runner-tests-after.log",
+      "bytes": 15284,
+      "sha256": "077c77f176a71792a86ecd74e28a56757943aba4f27a81e788436d39c2a89bf8"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/runner-tests-before.log",
+      "bytes": 591,
+      "sha256": "53167aaad95b6617bbcce1bbfcc83419b5f2fb15895bfaeddfe706f4b29b5ff3"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/store-after-ast.json",
+      "bytes": 254637,
+      "sha256": "9aa1842d4554b3b2871e92d617c4ec97b9dca71dee54feefcbf5f26683436bf5"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/store-agent-metrics.json",
+      "bytes": 3714,
+      "sha256": "6973e1f4d3bae420177e29a49280bffec2aab505f9c83b4eda8026058c836851"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/store-compiled.log",
+      "bytes": 2713,
+      "sha256": "b184ae7f75ebcd71e23da59b1e64ea10d3585775eeb103f516c0c73e18ac5a71"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/store-tests-after.log",
+      "bytes": 2711,
+      "sha256": "a8b4a9defaf2ef53d313f2f455a1f506e59245d0d7f03e24297e1751db616d8f"
+    },
+    {
+      "path": "artifacts/store-runner-refactor/store-tests-before.log",
+      "bytes": 374,
+      "sha256": "d96b124e8bd17da63c47df329d9bb23640564d804b780df21646ba41a67a76b5"
+    }
+  ],
+  "independentParentReview": "artifacts/store-runner-refactor/parent-source-scope-check.json",
+  "implementationCommits": [
+    {
+      "unit": "STORE-01",
+      "commit": "8041bcd3d18918b5c71a11937e037a1c79ca82e7"
+    },
+    {
+      "unit": "RUNNER-01",
+      "commit": "370d5f8d87d18fd51ea52ec226a7025ee9962112"
+    },
+    {
+      "unit": "RF01-manual-unsupported9",
+      "commit": "5a8228a608ae099a820b6e774753d10d61ef7e67",
+      "scope": "docs-only single-file commit"
+    }
+  ],
+  "metadataPreparedAtHead": "5a8228a608ae099a820b6e774753d10d61ef7e67",
+  "manualReview": {
+    "path": "docs/moodcode/next-inventory-manual-review.json",
+    "sha256": "54080e898f976d5b14247217c770456b1925816d639ed4cf230938c306200848",
+    "selectedFiles": 9,
+    "fullReadFiles": 9,
+    "bytes": 82453,
+    "physicalLines": 3162,
+    "supportingFullReadFiles": 39,
+    "supportingBoundedReadFiles": 3,
+    "baseline": "5ddf2bf49bad0eaf03cd8630d1d754a6180c96c8",
+    "comparedMainCommit": "b1d39de17df3dab4fd60f738df5817e369fa62c2",
+    "sourceBytesUnchanged": true,
+    "unsupportedAstStatusPreserved": true,
+    "actionableFixTargets": ["RF01-NATIVE-CI-TRIGGER"],
+    "investigationCandidates": ["RF01-RESTORE-HISTORY-THEME"],
+    "parentRecheck": "All9 selected raw bytes/hashes/physical lines plus42 supporting full/bounded source hashes independently rechecked before docs-only commit"
+  },
+  "afterMeasurementConclusion": {
+    "store": {
+      "physicalLinesDelta": 30,
+      "sumSyntacticComplexityDelta": 1,
+      "ownedDecisionsDelta": 0,
+      "gain": "One pure typed record/receipt assembly responsibility; no whole-file line or complexity reduction claim"
+    },
+    "runner": {
+      "physicalLinesDelta": 12,
+      "bytesDelta": -100,
+      "sumSyntacticComplexityDelta": -13,
+      "ownedDecisionsDelta": -14,
+      "gain": "One maintained definition of exact original14 owner conditions; scoped complexity including helper58->45"
+    }
+  }
+}
