@@ -9,6 +9,9 @@ import {
   validatePtyOutcome,
 } from "./diagnostics.js";
 import type { PtyOutcome } from "./types.js";
+import { analyzeJobGroupsFromSnapshot } from "./job-groups.js";
+import { SqliteTerminalJournal } from "./journal.js";
+import { TerminalService } from "./service.js";
 
 const outcome: PtyOutcome = {
   exitCode: 0,
@@ -239,5 +242,111 @@ test("EPERM remains unknown and conservatively present; ESRCH alone observes abs
     }
   } finally {
     process.kill = original;
+  }
+});
+
+test("finite snapshot rejection DATA persists in native SQLite while generic error precedence and closed unknown remain unchanged", async () => {
+  const analysis = analyzeJobGroupsFromSnapshot("200 1 200", 300, 200);
+  assert.equal(analysis.groups, undefined);
+  assert.equal(analysis.errorCode, "PROCESS_SNAPSHOT_LEADER_ABSENT");
+  const recorder = new PtyDiagnosticRecorder("darwin", 200);
+  recorder.started(300);
+  recorder.nativeExit(0, 0);
+  recorder.groupSnapshot(analysis.groups, "group-cleanup");
+  recorder.note({ kind: "error", errorCode: "PROCESS_SNAPSHOT_UNCONFIRMED" });
+  recorder.note({ kind: "error", errorCode: analysis.errorCode });
+  // A successful cleanup observation cannot fill the missing ancestry proof.
+  recorder.note({ kind: "group-cleanup", groupPid: 300, confirmed: true });
+  const unknown: PtyOutcome = {
+    ...outcome,
+    cleanupConfirmed: false,
+    reason: "descendants",
+  };
+  const diagnostics = recorder.snapshot(unknown);
+  assert.deepEqual(validatePtyOutcome({ ...unknown, diagnostics }), {
+    ...unknown,
+    diagnostics,
+  });
+  assert.deepEqual(
+    diagnostics.events
+      .filter((event) => event.kind === "error")
+      .map((event) => event.errorCode),
+    ["PROCESS_SNAPSHOT_UNCONFIRMED", "PROCESS_SNAPSHOT_LEADER_ABSENT"],
+  );
+  assert.equal(diagnostics.authority, "observation-only");
+  assert.equal(diagnostics.source.originalGroupPid, null);
+  assert.equal(diagnostics.cleanup.groupSnapshot, "unavailable");
+  assert.equal(diagnostics.outcome.cleanupConfirmed, false);
+  assert.ok(
+    Buffer.byteLength(JSON.stringify(diagnostics)) <=
+      PTY_DIAGNOSTIC_LIMITS.bytes,
+  );
+
+  // These are explicit parser/recorder DATA, not a reconstruction of a native run.
+  const journal = new SqliteTerminalJournal();
+  const owner = {
+    authority: "user" as const,
+    workspaceId: "workspace",
+    sessionId: "session",
+  };
+  journal.save({
+    record: {
+      version: 1,
+      id: "snapshot_rejection_data",
+      owner,
+      cwd: "/data",
+      file: "data",
+      args: [],
+      cols: 80,
+      rows: 24,
+      state: "uncertain",
+      createdAt: "2026-10-09T00:00:00.000Z",
+      updatedAt: "2026-10-09T00:00:00.000Z",
+      outputSeq: 0,
+      oldestSeq: 1,
+      observedBytes: 0,
+      retainedBytes: 0,
+      cleanupConfirmed: false,
+      exitCode: 0,
+      reason: "descendants",
+      diagnostics,
+    },
+    output: [],
+  });
+  const service = new TerminalService({
+    journal,
+    resolveOwner: (input) => ({ ...input, root: "/data" }),
+  });
+  try {
+    assert.deepEqual(
+      journal.read("snapshot_rejection_data")?.record.diagnostics,
+      diagnostics,
+    );
+    const restored = service.get("snapshot_rejection_data", owner);
+    assert.equal(restored.state, "uncertain");
+    assert.equal(restored.cleanupConfirmed, false);
+    assert.deepEqual(restored.diagnostics, diagnostics);
+    assert.throws(
+      () =>
+        service.captureReadSource(
+          "snapshot_rejection_data",
+          owner,
+          "0".repeat(64),
+        ),
+      (error: unknown) =>
+        (error as { code?: string }).code === "JOB_SOURCE_HISTORY_ONLY",
+    );
+    await assert.rejects(
+      service.write("snapshot_rejection_data", owner, "must not replay"),
+      (error: unknown) =>
+        (error as { code?: string }).code === "TERMINAL_CLOSED",
+    );
+    assert.deepEqual(
+      await service.cancel("snapshot_rejection_data", owner),
+      restored,
+    );
+  } finally {
+    await service.close();
+    journal.close();
   }
 });

@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { observedJobGroupsFromSnapshot } from "./job-groups.js";
+import { analyzeJobGroupsFromSnapshot } from "./job-groups.js";
 import {
   createCommandEnvironment,
   cleanupGroup,
@@ -85,13 +85,16 @@ async function observedJobGroups(
         env: createCommandEnvironment(),
       },
     );
-    const groups = observedJobGroupsFromSnapshot(stdout, pid, process.pid);
+    const analysis = analyzeJobGroupsFromSnapshot(stdout, pid, process.pid);
+    const groups = analysis.groups;
     diagnostics.groupSnapshot(groups, "group-cleanup");
-    if (!groups)
+    if (!groups) {
       diagnostics.note({
         kind: "error",
         errorCode: "PROCESS_SNAPSHOT_UNCONFIRMED",
       });
+      diagnostics.note({ kind: "error", errorCode: analysis.errorCode });
+    }
     send({
       type: "diagnostics",
       diagnostics: diagnostics.snapshot(currentOutcome()),
