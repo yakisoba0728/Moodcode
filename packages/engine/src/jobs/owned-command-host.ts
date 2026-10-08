@@ -379,6 +379,20 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
       return;
     try {
       if (tool.state === "interrupted") {
+        const completion = entry.record.completion;
+        if (
+          process.platform === "win32" &&
+          entry.record.state === "settling" &&
+          completion?.outcome.cleanupConfirmed === true &&
+          (completion.outcome.cancelled || completion.outcome.timedOut) &&
+          !completion.observationFailure
+        ) {
+          // write() validates the exact approval/source, physical closed receipt,
+          // checkpoint, sealed artifacts and now-interrupted native Tool/Part.
+          this.artifacts(completion);
+          this.write(entry, { state: "cancelled", errorCode: null });
+          return;
+        }
         this.write(entry, {
           state: "uncertain",
           errorCode: "COMMAND_JOB_NATIVE_RESULT_UNCERTAIN",

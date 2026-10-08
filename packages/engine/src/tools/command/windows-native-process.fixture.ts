@@ -9,8 +9,8 @@ const pidFile = (role: string) => join(directory, `${role}.pid`);
 const hold = () => setInterval(() => {}, 100);
 const script = fileURLToPath(import.meta.url);
 
-if (mode === 'output' || mode === 'overflow') {
-  const repetitions = mode === 'output' ? 8192 : 100000;
+if (mode === 'output' || mode === 'output-small' || mode === 'overflow') {
+  const repetitions = mode === 'output-small' ? 2048 : mode === 'output' ? 8192 : 100000;
   const stdout = Buffer.from('한글🙂'.repeat(repetitions));
   const stderr = Buffer.from('stderr🙂'.repeat(repetitions));
   await Promise.all([

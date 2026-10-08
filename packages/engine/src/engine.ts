@@ -779,7 +779,20 @@ if (options.schedules !== undefined && typeof options.schedules !== 'boolean') t
       const interruptedFileOwners: string[] = [];
       try { verifyExecutionIdle(this.executionLockPath); }
       catch (error) { const known = this.knowledgeFileExecutionGuards.matching(this.executionLockPath);
-        if (known) interruptedFileOwners.push(known.publicationId); else if (!this.proposalApplyGuards.matching(this.executionLockPath)) { const marker=inspectExecutionLock(this.executionLockPath); if (marker.status!=='uncertain' || !this.store.hasKnownGitCommitSupervisor(marker.marker.ownerPid)&&!this.store.hasKnownEffectBatchMarker(marker.marker,this.executionLockPath)) throw error; } }
+        if (known) interruptedFileOwners.push(known.publicationId); else if (!this.proposalApplyGuards.matching(this.executionLockPath)) {
+          const marker = inspectExecutionLock(this.executionLockPath);
+          // A native Windows owner crash leaves its marker active after the job
+          // handle has closed. Permit inspection of the exactly bound journal;
+          // recovery retains uncertainty and every execution gate keeps the
+          // active marker. This does not confirm cleanup or authorize replay.
+          const knownWindowsHost = process.platform === 'win32' && marker.status === 'uncertain' && marker.marker.groupPid !== null &&
+            this.store.createHostCommandStorage().inspect().filter(record =>
+              record.preview.platform === 'win32' && record.pid === marker.marker.groupPid && record.completion === null &&
+              (record.state === 'running' || record.state === 'uncertain') &&
+              record.owner.rootBindingSha256 === knowledgeHash(knowledgeBinding(record.workspaceId))).length === 1;
+          if (marker.status !== 'uncertain' || !knownWindowsHost && !this.store.hasKnownGitCommitSupervisor(marker.marker.ownerPid) &&
+            !this.store.hasKnownEffectBatchMarker(marker.marker, this.executionLockPath)) throw error;
+        } }
       reviewJournal = new ReviewJournal(canonicalDbPath === undefined ? resolve(artifactDir, 'review.sqlite') : `${canonicalDbPath}.review.sqlite`);
       this.reviewJournal = reviewJournal;
       this.store.recoverInterrupted();

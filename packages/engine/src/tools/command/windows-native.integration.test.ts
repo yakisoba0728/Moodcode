@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { fork } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -14,7 +15,7 @@ import {
 
 interface NativeChild {
   pid: number;
-  readOutput(): { stdout: Buffer; stderr: Buffer; stdoutClosed: boolean; stderrClosed: boolean; exited: boolean; exitCode: number | null };
+  readOutput(maximum?: number): { stdout: Buffer; stderr: Buffer; stdoutClosed: boolean; stderrClosed: boolean; exited: boolean; exitCode: number | null };
   terminate(): void;
   close(): void;
 }
@@ -84,10 +85,44 @@ nativeTest('native JS host drains exact multibyte stdout/stderr before reporting
   assert.equal(outcome.started, true);
   assert.equal(outcome.cleanupConfirmed, true);
   assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.error, undefined);
   assert.equal(outcome.cancelled, false);
   assert.equal(outcome.timedOut, false);
   assert.deepEqual(Buffer.concat(stdout), Buffer.from('한글🙂'.repeat(8192)));
   assert.deepEqual(Buffer.concat(stderr), Buffer.from('stderr🙂'.repeat(8192)));
+});
+
+nativeTest('status-only native exit releases process accounting while buffered multibyte output remains drainable', async t => {
+  const directory = directoryFixture(t), job = binding().createJob();
+  const child = job.spawnSuspended({ command: windowsCommand('output-small', directory), cwd: directory, environment: process.env });
+  t.after(() => { job.close(); child.close(); });
+  job.assign(child);
+  job.resume(child);
+  let state: ReturnType<NativeChild['readOutput']> | undefined;
+  await until(() => {
+    state = child.readOutput(0);
+    assert.equal(state.stdout.length, 0);
+    assert.equal(state.stderr.length, 0);
+    return state.exited;
+  }, 'Actual primary process must exit without consuming its buffered output');
+  assert.ok(state);
+  assert.equal(state.exitCode, 0);
+  assert.equal(state.stdoutClosed, false);
+  assert.equal(state.stderrClosed, false);
+  assert.equal(job.activeProcessCount(), 0, 'QueryInformationJobObject must exclude the exited primary after its native process handles are released');
+  const stdout: Buffer[] = [], stderr: Buffer[] = [];
+  await until(() => {
+    const batch = child.readOutput();
+    stdout.push(batch.stdout);
+    stderr.push(batch.stderr);
+    assert.equal(batch.exited, true);
+    assert.equal(batch.exitCode, 0, 'Cached exit truth must survive releasing the original process handle');
+    return batch.stdoutClosed && batch.stderrClosed;
+  }, 'Native output must drain to both real pipe EOFs after process handle release');
+  for (const [observed, expected] of [[Buffer.concat(stdout), Buffer.from('한글🙂'.repeat(2048))], [Buffer.concat(stderr), Buffer.from('stderr🙂'.repeat(2048))]] as const) {
+    assert.deepEqual(observed, expected);
+    assert.equal(createHash('sha256').update(observed).digest('hex'), createHash('sha256').update(expected).digest('hex'));
+  }
 });
 
 for (const stop of ['primary-exit', 'timeout', 'cancel'] as const) {
@@ -144,6 +179,7 @@ nativeTest('native handle counts return to the warmed baseline after repeated ch
     const outcome = await backend.execute({ command: 'echo native_handle_cycle', cwd: directory, timeoutMs: 10_000 },
       new AbortController().signal, () => {}, () => {}, () => {});
     assert.equal(outcome.exitCode, 0);
+    assert.equal(outcome.error, undefined);
     assert.equal(outcome.cleanupConfirmed, true);
   };
   await execute();

@@ -153,8 +153,11 @@ export async function executeOwnedWindowsJob(host: WindowsJobHostPort, input: Sh
     }
     cleanupConfirmed = await observeEmpty();
     await interrupted(child.closed, input.timeoutMs);
-  } catch {
-    abandoned = true; cleanupConfirmed = false; abort.abort(); error ??= 'Windows command ownership, execution, or cleanup failed.';
+  } catch (failure) {
+    abandoned = true; cleanupConfirmed = false; abort.abort();
+    // Cancellation and the approved deadline still require the same native
+    // cleanup below; the expected interruption itself is not an ownership fault.
+    if (!(failure instanceof EngineError && failure.code === 'ABORTED' && (cancelled || timedOut))) error ??= 'Windows command ownership, execution, or cleanup failed.';
   } finally {
     clearTimeout(timer); signal.removeEventListener('abort', onAbort);
     try {

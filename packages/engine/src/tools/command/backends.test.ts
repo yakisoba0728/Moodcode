@@ -35,12 +35,12 @@ test('Windows ownership assigns the suspended process before recording or resumi
 });
 test('assignment failure terminates the unassigned suspended child without executing it or exposing private errors', async () => {
   const f = nativeFixture({ assignmentFailure: true }); const result = await executeOwnedWindowsJob(f.host, input, new AbortController().signal, () => {}, () => f.calls.push('record'), () => {});
-  assert.equal(f.calls.includes('resume'), false); assert.equal(f.calls.includes('record'), false); assert.ok(f.calls.includes('child.terminate')); assert.ok(f.calls.includes('job.terminate')); assert.equal(result.started, false); assert.equal(result.cleanupConfirmed, true); assert.equal(JSON.stringify(result).includes('private-native-error'), false);
+  assert.equal(f.calls.includes('resume'), false); assert.equal(f.calls.includes('record'), false); assert.ok(f.calls.includes('child.terminate')); assert.ok(f.calls.includes('job.terminate')); assert.equal(result.started, false); assert.equal(result.cleanupConfirmed, true); assert.ok(result.error); assert.equal(JSON.stringify(result).includes('private-native-error'), false);
 });
 test('in-flight cancellation terminates the owned job and waits for both empty job and child stream settlement', async () => {
   const f = nativeFixture(), abort = new AbortController(); const running = executeOwnedWindowsJob(f.host, input, abort.signal, () => {}, () => {}, () => {});
   await until(() => f.calls.includes('resume')); abort.abort(); const outcome = await running;
-  assert.equal(outcome.cancelled, true); assert.equal(outcome.cleanupConfirmed, true); assert.ok(f.calls.indexOf('job.terminate') < f.calls.indexOf('close'));
+  assert.equal(outcome.cancelled, true); assert.equal(outcome.cleanupConfirmed, true); assert.equal(outcome.error, undefined); assert.ok(f.calls.indexOf('job.terminate') < f.calls.indexOf('close'));
 });
 test('primary exit does not leave retained job descendants alive', async () => {
   const f = nativeFixture({ retained: true }), warnings: string[] = [];
@@ -57,7 +57,7 @@ test('invalid native ownership observations and close failure preserve cleanup u
 test('cancellation during native spawn never marks cleanup confirmed and terminates a late unassigned handle', async () => {
   const f = nativeFixture({ hangingSpawn: true }), abort = new AbortController(); const running = executeOwnedWindowsJob(f.host, input, abort.signal, () => {}, () => {}, () => {});
   await until(() => f.calls.includes('spawn.suspended')); abort.abort(); const outcome = await running;
-  assert.equal(outcome.cleanupConfirmed, false); assert.equal(f.calls.includes('resume'), false); f.spawnGate.resolve(f.child); await until(() => f.calls.includes('child.terminate'));
+  assert.equal(outcome.cleanupConfirmed, false); assert.ok(outcome.error); assert.equal(f.calls.includes('resume'), false); f.spawnGate.resolve(f.child); await until(() => f.calls.includes('child.terminate'));
 });
 test('primary exit terminates descendants that keep inherited output pipes open before waiting for stream close', async () => {
   const f = nativeFixture({ retainedPipes: true });
@@ -99,5 +99,6 @@ test('synchronous native startup exceeding the approved duration never resumes t
   } };
   const outcome = await executeOwnedWindowsJob(host, { ...input, timeoutMs: 5 }, new AbortController().signal, () => {}, () => {}, () => {});
   assert.equal(outcome.timedOut, true); assert.equal(outcome.cleanupConfirmed, true);
+  assert.equal(outcome.error, undefined);
   assert.equal(f.calls.includes('resume'), false); assert.ok(f.calls.includes('child.terminate'));
 });

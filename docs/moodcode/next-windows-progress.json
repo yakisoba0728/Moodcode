@@ -4,7 +4,7 @@
   "updatedAt": "2026-10-09",
   "timezone": "Asia/Seoul",
   "goal": "Implement and connect the actual native Windows Job Object backend; verify Windows2025 x64 Node24/26 process ownership, termination, output and restart uncertainty through hosted CI.",
-  "status": "native-windows-engine-boundaries-repaired-actual-reverification-pending",
+  "status": "native-reference-lifetime-and-exact-cancellation-repaired-actual-reverification-pending",
   "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
   "branch": "codex/e5-08-native-windows",
   "worktree": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode",
@@ -26,7 +26,9 @@
     "packages/engine/src/jobs/owned-command-records* (exact platform/termination approval compatibility)",
     "docs/next-windows-progress.json (requested Desktop interface pointer)",
     "packages/engine/src/jobs/host-command-records* (exact Windows host approval journal platform)",
-    "packages/engine/src/jobs/fixtures/owned-command-lifecycle.ts (atomic existing PID fixture publication)"
+    "packages/engine/src/jobs/fixtures/owned-command-lifecycle.ts (atomic existing PID fixture publication)",
+    "packages/engine/src/jobs/owned-command-host.ts (exact native Windows cancellation completion)",
+    "packages/engine/src/runner/index.ts (Windows interruption observation after original Part settlement)"
   ],
   "preservedBaseline": {
     "local": {
@@ -91,6 +93,27 @@
           "skipped": 0
         },
         "log": "artifacts/native-windows/local-repair-focused.log"
+      },
+      {
+        "kind": "second-complete-local-diagnostic",
+        "sourceCommit": "55df66ac20bdf5c5b05d9896e5e4ab7f206a09f3",
+        "sourceFreeze": "artifacts/native-windows/local-source-freeze-repair.json",
+        "acceptance": false,
+        "counts": {
+          "tests": 4738,
+          "pass": 4733,
+          "fail": 2,
+          "cancelled": 1,
+          "skipped": 2
+        },
+        "log": "artifacts/native-windows/local-whole-engine-repair.log",
+        "sha256": "c64986823a83ce3127d2da7b4f804aebcfdb5df87399891a8f2c30b8959e3436",
+        "causes": [
+          "Original long accounting loop exhausted its unchanged 30000ms Run budget under concurrent fixture load.",
+          "Original lifecycle continuation callback observed already-ended source Run.",
+          "Original workflow merge fixture exceeded unchanged 20000ms test deadline."
+        ],
+        "qualification": "Source boundary fixes landed while this previous compiled-source suite ran; diagnostic only. Final frozen complete run with supported concurrency2 pending; no timeout/assertion/skip changes."
       }
     ],
     "hosted": [
@@ -120,6 +143,169 @@
         "conclusion": "success",
         "lanes": 6,
         "qualification": "Four actual POSIX whole-engine lanes and two portable Windows lanes; dedicated native Windows acceptance remains pending."
+      },
+      {
+        "runId": 37848097899,
+        "event": "push",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37848097899",
+        "sourceSha": "55df66ac20bdf5c5b05d9896e5e4ab7f206a09f3",
+        "runner": "windows-2025 x64 (win25-vs2026)",
+        "conclusion": "failure",
+        "lanes": [
+          {
+            "node": "24.21.0",
+            "jobId": 113553931519,
+            "conclusion": "failure",
+            "counts": {
+              "tests": 24,
+              "pass": 20,
+              "fail": 4,
+              "cancelled": 0,
+              "skipped": 0
+            },
+            "artifactId": 11580487224,
+            "artifactSha256": "e5d06090566440c8587de2c4857acb3ae6ac32be01441f147c82d15798446364",
+            "nativeAddon": {
+              "available": true,
+              "info": {
+                "bindingVersion": 1,
+                "napiVersion": 8,
+                "platform": "win32",
+                "arch": "x64",
+                "atomicJobAssignment": true
+              },
+              "relativePath": "packages/windows-job/build/Release/windows_job.node",
+              "bytes": 178176,
+              "sha256": "7f37a34ed1fb6698c4411e000f45dcf3e1cd6b515b8c741a5b2ce9f4205b84ef"
+            },
+            "originalFilesVerified": 16
+          },
+          {
+            "node": "26.11.1",
+            "jobId": 113553931866,
+            "conclusion": "failure",
+            "counts": {
+              "tests": 24,
+              "pass": 20,
+              "fail": 4,
+              "cancelled": 0,
+              "skipped": 0
+            },
+            "artifactId": 11581445127,
+            "artifactSha256": "2373b8067a8de003ec70a14fa4276f74478d85ed1fea0aee557539636c97c364",
+            "nativeAddon": {
+              "available": true,
+              "info": {
+                "bindingVersion": 1,
+                "napiVersion": 8,
+                "platform": "win32",
+                "arch": "x64",
+                "atomicJobAssignment": true
+              },
+              "relativePath": "packages/windows-job/build/Release/windows_job.node",
+              "bytes": 1121792,
+              "sha256": "54b5d868bcbc5245bb4c29fdaba32a8f35cf4604d27bb776eaf98075f17cb841"
+            },
+            "originalFilesVerified": 16
+          }
+        ],
+        "originalLogArchiveSha256": "6268f51a97993dfb692986cd226828cf0d5959a447091056ee46bb23d761ea38",
+        "evidenceDirectory": "artifacts/native-windows/hosted-37848097899",
+        "confirmedFailures": [
+          "Actual approved owned Job ends failed while source Run completes",
+          "Confirmed native cancelled completion is classified uncertain because source Tool is interrupted",
+          "Restart rejects still-active native owner marker before opening; actual child tree cleanup and unknown marker are confirmed"
+        ],
+        "preservedAssertions": true
+      },
+      {
+        "runId": 37848142678,
+        "event": "workflow_dispatch",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37848142678",
+        "sourceSha": "55df66ac20bdf5c5b05d9896e5e4ab7f206a09f3",
+        "runner": "windows-2025 x64 (win25-vs2026)",
+        "conclusion": "failure",
+        "lanes": [
+          {
+            "node": "24.21.0",
+            "jobId": 113554867944,
+            "conclusion": "failure",
+            "counts": {
+              "tests": 24,
+              "pass": 20,
+              "fail": 4,
+              "cancelled": 0,
+              "skipped": 0
+            },
+            "artifactId": 11581016279,
+            "artifactSha256": "92576999b615de6a893b3686dd829bf9b1899a33e921fac2649a3db399c1efa0",
+            "nativeAddon": {
+              "available": true,
+              "info": {
+                "bindingVersion": 1,
+                "napiVersion": 8,
+                "platform": "win32",
+                "arch": "x64",
+                "atomicJobAssignment": true
+              },
+              "relativePath": "packages/windows-job/build/Release/windows_job.node",
+              "bytes": 178176,
+              "sha256": "b66169d57ae0147ea4f92c626969c0fec16b7092cf9ad104fec83fcac7de8527"
+            },
+            "originalFilesVerified": 16
+          },
+          {
+            "node": "26.11.1",
+            "jobId": 113554868060,
+            "conclusion": "failure",
+            "counts": {
+              "tests": 24,
+              "pass": 20,
+              "fail": 4,
+              "cancelled": 0,
+              "skipped": 0
+            },
+            "artifactId": 11581430570,
+            "artifactSha256": "32de4f29e00a61474767716cff13320f474f1ab4660f6a1a34052c7ed8a1504a",
+            "nativeAddon": {
+              "available": true,
+              "info": {
+                "bindingVersion": 1,
+                "napiVersion": 8,
+                "platform": "win32",
+                "arch": "x64",
+                "atomicJobAssignment": true
+              },
+              "relativePath": "packages/windows-job/build/Release/windows_job.node",
+              "bytes": 1121792,
+              "sha256": "9d00d6a412c21b1bfc041f2367f7bd1f390745eb06c804d688885df536add8c5"
+            },
+            "originalFilesVerified": 16
+          }
+        ],
+        "originalLogArchiveSha256": "5408726965a3624018b30cb0f032a0ffb192cb64b395bf8f04cdd970f891e1c4",
+        "evidenceDirectory": "artifacts/native-windows/hosted-37848142678",
+        "confirmedFailures": [
+          "Actual approved owned Job ends failed while source Run completes",
+          "Confirmed native cancelled completion is classified uncertain because source Tool is interrupted",
+          "Restart rejects still-active native owner marker before opening; actual child tree cleanup and unknown marker are confirmed"
+        ],
+        "preservedAssertions": true
+      },
+      {
+        "runId": 37848098070,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37848098070",
+        "sourceCommit": "55df66ac20bdf5c5b05d9896e5e4ab7f206a09f3",
+        "kind": "existing-six-lane-regression",
+        "conclusion": "failure",
+        "passedLanes": 5,
+        "failedLane": "ubuntu-24.04/Node26",
+        "log": "artifacts/native-windows/hosted-headless-repair-failed.log",
+        "causes": [
+          "Original native batch runtime became unavailable during pending selection fixture.",
+          "Original cooperative-child deadline fixture did not reach stream before its unchanged child allowance expired."
+        ],
+        "qualification": "Preserved all assertions and timeouts; final-source matrix revalidation pending."
       }
     ],
     "failuresPreserved": [
@@ -135,6 +321,24 @@
           "Engine normal failed/cancel uncertain: pre-close output seal mtime conflicts with Windows deferred writer-close timestamp; proposed post-close identity/hash verification pending actual rerun"
         ],
         "originalPath": "artifacts/native-windows/hosted-37846891144/"
+      },
+      {
+        "sourceCommit": "55df66ac20bdf5c5b05d9896e5e4ab7f206a09f3",
+        "runIds": [
+          37848097899,
+          37848142678
+        ],
+        "originalEvidence": "docs/moodcode/next-windows-ci-verification.json",
+        "causes": [
+          "Normal Run completed; owned Job classified failed. Bounded record diagnostic added, original expected completed retained.",
+          "Native cancellation confirms actual tree cleanup but interrupted Tool/Part ordering keeps owned Job uncertain; exact Windows completion bridge in progress.",
+          "Actual owner SIGKILL removes tree and retains active uncertainty marker. Exactly bound Windows host journal read-only startup recovery bridge in progress; marker and all execution blockers retained."
+        ]
+      },
+      {
+        "cause": "Native primary process handle remained referenced until output EOF, retaining exited primary in real ActiveProcesses and falsely classifying it as running descendant. Cache observed exit and close process/thread references immediately; independent output pipes continue byte-exact drain.",
+        "reference": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_accounting_information",
+        "qualification": "Actual unread-output/accounting regression added; native repaired build verification pending."
       }
     ]
   },
@@ -173,5 +377,6 @@
     "contract": "packages/windows-job/README.md",
     "desktopConsumerWorktree": "/Users/yakisoba0728/.codex/worktrees/next-desktop/Moodcode"
   },
-  "implementationCommit": "714197942e6b25b17b9ed3edbab088b1ecb19599"
+  "implementationCommit": "714197942e6b25b17b9ed3edbab088b1ecb19599",
+  "repairCommit": "55df66ac20bdf5c5b05d9896e5e4ab7f206a09f3"
 }
