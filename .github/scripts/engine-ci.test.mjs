@@ -36,30 +36,34 @@ test("headless compiler scope contains no desktop project and no GUI launcher", 
   assert.throws(() => commandPlan("desktop"));
 });
 
-test("media scripts trigger both path filters and execute local compiled regression tests in the full POSIX lane", async () => {
-  const workflow = await readFile(
+test("media scripts trigger both path filters and execute local compiled regression tests with LF or CRLF workflow checkout", async () => {
+  const source = await readFile(
     new URL("../workflows/engine.yml", import.meta.url),
     "utf8",
   );
-  for (const event of ["pull_request", "push"]) {
-    const block = workflow.split(`  ${event}:\n`)[1].split(/^  \w+:\s*$/m)[0];
-    for (const path of [
-      "scripts/verify-media-account*.mjs",
-      "scripts/plan-media-verification*.mjs",
-    ])
-      assert.ok(block.includes(`- "${path}"`), `${event}: ${path}`);
+  for (const ending of ["\n", "\r\n"]) {
+    const checkout = source.replace(/\r\n?/g, "\n").replace(/\n/g, ending);
+    const workflow = checkout.replace(/\r\n?/g, "\n");
+    for (const event of ["pull_request", "push"]) {
+      const block = workflow.split(`  ${event}:\n`)[1].split(/^  \w+:\s*$/m)[0];
+      for (const path of [
+        "scripts/verify-media-account*.mjs",
+        "scripts/plan-media-verification*.mjs",
+      ])
+        assert.ok(block.includes(`- "${path}"`), `${event}: ${path}`);
+    }
+    const posix = workflow
+      .split("  posix:\n")[1]
+      .split("  windows-portable:\n")[0];
+    assert.match(
+      posix,
+      /run: node \.github\/scripts\/engine-ci\.mjs test-media-local/,
+    );
+    assert.ok(
+      posix.indexOf("engine-ci.mjs build") <
+        posix.indexOf("engine-ci.mjs test-media-local"),
+    );
   }
-  const posix = workflow
-    .split("  posix:\n")[1]
-    .split("  windows-portable:\n")[0];
-  assert.match(
-    posix,
-    /run: node \.github\/scripts\/engine-ci\.mjs test-media-local/,
-  );
-  assert.ok(
-    posix.indexOf("engine-ci.mjs build") <
-      posix.indexOf("engine-ci.mjs test-media-local"),
-  );
   const plan = commandPlan("test-media-local");
   assert.deepEqual(plan.slice(0, 3), [
     process.execPath,

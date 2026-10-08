@@ -42,10 +42,40 @@ test('copied, foreign-service, proxy and wrong-workspace previews cannot approve
   assert.throws(() => peer.set({ ...input, preview }), hasCode('WORKSPACE_TRUST_PREVIEW_INVALID')); assert.throws(() => f.service.set({ ...input, workspaceId: 'other', preview }), hasCode('WORKSPACE_TRUST_PREVIEW_INVALID')); assert.equal(f.store.getTrust('workspace'), undefined);
 });
 
-test('source change, deletion and replacement after preview block its original host approval', t => {
-  const f = fixture(t), preview = f.service.preview('workspace', ['AGENTS.md']), input = { workspaceId: 'workspace', requestId: 'approve', expectedRevision: 0, decision: 'allow' as const, preview };
-  writeFileSync(join(f.root, 'AGENTS.md'), 'Unapproved replacement text\n'); assert.throws(() => f.service.set(input), hasCode('KNOWLEDGE_SOURCE_CHANGED'));
-  rmSync(join(f.root, 'AGENTS.md')); assert.throws(() => f.service.set(input), hasCode('KNOWLEDGE_SOURCE_UNAVAILABLE')); writeFileSync(join(f.root, 'AGENTS.md'), 'Host-authored trusted instructions.\n'); assert.throws(() => f.service.set(input), hasCode('KNOWLEDGE_SOURCE_CHANGED')); assert.equal(f.store.getTrust('workspace'), undefined);
+test("source change, deletion and replacement after preview block its original host approval", (t) => {
+  const f = fixture(t),
+    preview = f.service.preview("workspace", ["AGENTS.md"]),
+    input = {
+      workspaceId: "workspace",
+      requestId: "approve",
+      expectedRevision: 0,
+      decision: "allow" as const,
+      preview,
+    };
+  writeFileSync(join(f.root, "AGENTS.md"), "Unapproved replacement text\n");
+  assert.throws(
+    () => f.service.set(input),
+    hasCode("KNOWLEDGE_SOURCE_CHANGED"),
+  );
+  rmSync(join(f.root, "AGENTS.md"));
+  assert.throws(
+    () => f.service.set(input),
+    hasCode("KNOWLEDGE_SOURCE_UNAVAILABLE"),
+  ); // Keep an actual old inode alive: unlink/recreate may reuse the same inode on Linux.
+  writeFileSync(
+    join(f.root, "AGENTS.md"),
+    "Host-authored trusted instructions.\n",
+  );
+  renameSync(join(f.root, "AGENTS.md"), join(f.root, "retained-old-inode.md"));
+  writeFileSync(
+    join(f.root, "AGENTS.md"),
+    "Host-authored trusted instructions.\n",
+  );
+  assert.throws(
+    () => f.service.set(input),
+    hasCode("KNOWLEDGE_SOURCE_CHANGED"),
+  );
+  assert.equal(f.store.getTrust("workspace"), undefined);
 });
 
 test('physical root replacement invalidates trust even when instruction content matches', t => {

@@ -532,12 +532,17 @@ test(
     for (const phase of ["checkpoint", "closed"]) {
       const f = await fixture(t),
         started = await f.start(await f.preview());
-      await jobUntil(
-        () => existsSync(f.marker),
-        "Actual host command PID was not observed",
-      );
-      const pid = Number(readFileSync(f.marker, "utf8")),
-        db = new DatabaseSync(f.dbPath);
+      let pid = 0;
+      await jobUntil(() => {
+        if (!existsSync(f.marker)) return false;
+        const text = readFileSync(f.marker, "utf8");
+        if (!/^[1-9]\d*$/.test(text)) return false;
+        const candidate = Number(text);
+        if (!Number.isSafeInteger(candidate)) return false;
+        pid = candidate;
+        return true;
+      }, "Actual host command positive PID was not observed");
+      const db = new DatabaseSync(f.dbPath);
       db.exec(
         `CREATE TRIGGER host_settle_fault BEFORE INSERT ON host_command_revisions WHEN NEW.kind='${phase}' BEGIN SELECT RAISE(ABORT,'genuine settlement fault'); END;`,
       );

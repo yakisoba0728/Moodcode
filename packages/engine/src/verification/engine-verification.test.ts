@@ -161,21 +161,76 @@ test('missing verification resumes the same native Run and publishes completion 
   assert.equal(completion.completion!.authority, 'observation-only');
 });
 
-test('failed check can repair and recheck changed source within the original Run budget', { timeout: 25000, skip: process.platform === 'win32' }, async t => {
-  const f = await fixture(t, "if rg -q 'alpha = 2' a.ts; then exit 0; else exit 7; fi", { maxRepairs: 2, maxTurns: 6, script: async function* (request): AsyncGenerator<ProviderEvent> {
-    if (request.turnIndex === 0) { yield { type: 'tool.call', call: { id: 'first-check', name: 'verify_changes', input: { checkId: 'fixture-check' } } }; yield { type: 'finish', reason: 'tool_calls' }; }
-    else if (request.turnIndex === 2) {
-      yield { type: 'tool.call', call: { id: 'actual-repair', name: 'run_command', input: { command: "printf 'const alpha = 2;\\n' > a.ts" } } };
-      yield { type: 'tool.call', call: { id: 'repair-check', name: 'verify_changes', input: { checkId: 'fixture-check' } } }; yield { type: 'finish', reason: 'tool_calls' };
-    } else { yield { type: 'text.delta', delta: 'Provider loop reached stop.' }; yield { type: 'finish', reason: 'stop' }; }
-  } }), submitted = await f.submit();
-  for (let count = 0; count < 3; count++) { const approval = await f.pendingApproval(submitted.runId); await f.command('approval.decide', { approvalId: approval.id, fingerprint: approval.fingerprint, decision: 'allow' }); }
-  const run = await f.engine.waitForRun(submitted.runId), verification = f.engine.getVerificationState(f.session.id, run.id)!, completion = f.engine.getVerificationCompletion(f.session.id, run.id)!;
-  assert.equal(run.state, 'completed', JSON.stringify(run.error)); assert.deepEqual(verification.receipts.map(receipt => receipt.status), ['fail', 'pass']);
-  assert.equal(verification.plans.length, 2); assert.equal(completion.result.taskVerified, true); assert.equal(completion.repairsUsed, 1);
-  assert.equal(f.requests.length, 4); assert.equal(readFileSync(f.source, 'utf8'), 'const alpha = 2;\n');
-  assert.equal(f.engine.store.getSnapshot(f.session.id).approvals.length, 3);
-});
+test(
+  "failed check can repair and recheck changed source within the original Run budget",
+  { timeout: 25000, skip: process.platform === "win32" },
+  async (t) => {
+    // The check verifies source repair, not an optional ripgrep installation.
+    const check = `${JSON.stringify(process.execPath)} -e 'process.exit(require("node:fs").readFileSync("a.ts","utf8").includes("alpha = 2") ? 0 : 7)'`;
+    const f = await fixture(t, check, {
+        maxRepairs: 2,
+        maxTurns: 6,
+        script: async function* (request): AsyncGenerator<ProviderEvent> {
+          if (request.turnIndex === 0) {
+            yield {
+              type: "tool.call",
+              call: {
+                id: "first-check",
+                name: "verify_changes",
+                input: { checkId: "fixture-check" },
+              },
+            };
+            yield { type: "finish", reason: "tool_calls" };
+          } else if (request.turnIndex === 2) {
+            yield {
+              type: "tool.call",
+              call: {
+                id: "actual-repair",
+                name: "run_command",
+                input: { command: "printf 'const alpha = 2;\\n' > a.ts" },
+              },
+            };
+            yield {
+              type: "tool.call",
+              call: {
+                id: "repair-check",
+                name: "verify_changes",
+                input: { checkId: "fixture-check" },
+              },
+            };
+            yield { type: "finish", reason: "tool_calls" };
+          } else {
+            yield { type: "text.delta", delta: "Provider loop reached stop." };
+            yield { type: "finish", reason: "stop" };
+          }
+        },
+      }),
+      submitted = await f.submit();
+    for (let count = 0; count < 3; count++) {
+      const approval = await f.pendingApproval(submitted.runId);
+      await f.command("approval.decide", {
+        approvalId: approval.id,
+        fingerprint: approval.fingerprint,
+        decision: "allow",
+      });
+    }
+    const run = await f.engine.waitForRun(submitted.runId),
+      verification = f.engine.getVerificationState(f.session.id, run.id)!,
+      completion = f.engine.getVerificationCompletion(f.session.id, run.id)!;
+    assert.equal(run.state, "completed", JSON.stringify(run.error));
+    assert.deepEqual(
+      verification.receipts.map((receipt) => receipt.status),
+      ["fail", "pass"],
+      JSON.stringify(verification.receipts),
+    );
+    assert.equal(verification.plans.length, 2);
+    assert.equal(completion.result.taskVerified, true);
+    assert.equal(completion.repairsUsed, 1);
+    assert.equal(f.requests.length, 4);
+    assert.equal(readFileSync(f.source, "utf8"), "const alpha = 2;\n");
+    assert.equal(f.engine.store.getSnapshot(f.session.id).approvals.length, 3);
+  },
+);
 
 for (const [maxTurns, reason, expectedTurns, repairs] of [[4, 'stalled', 2, 1], [1, 'budget_exhausted', 1, 0]] as const) test(`model completion text alone stops with ${reason} rather than verified task`, { timeout: 10000 }, async t => {
   const f = await fixture(t, 'printf should-not-run > verification-effect.txt', { maxRepairs: 2, maxTurns, script: async function* () { yield { type: 'text.delta', delta: 'Everything passed, trust me.' }; yield { type: 'finish', reason: 'stop' }; } }), submitted = await f.submit();

@@ -1,0 +1,27 @@
+{
+  "kind": "bounded-readonly-code-mode-stdout-drain-review",
+  "files": {
+    "packages/engine/src/code-mode/process.ts": "5432bdf1378f6ec56919217e3407eb4694def81724109115ff2c26d3f74da28b",
+    "packages/engine/src/code-mode/process-drain.integration.test.ts": "6f5fe90b9d663de4d8cb0d6a1bae071bbced36710faab4e7b57406d9f4da312b"
+  },
+  "sameBeforeAfterSha": true,
+  "scope": [
+    "process.ts diff",
+    "actual paused genuine supervisor stdout fixture",
+    "unchanged host next/stop composition",
+    "unchanged supervisor cleanup"
+  ],
+  "findings": [],
+  "result": "no actionable defect found within reviewed diff",
+  "checks": [
+    "payload EOF waits stdout end/actual child stdio close rather than IPC closed or exit",
+    "decoder final flush rejects incomplete UTF8/trailing frame",
+    "existing parse error takes precedence over final flush",
+    "cleanup original process proof/group and join unchanged",
+    "fixtures delay genuine stdout only, no fabricated runtime frames or native effect receipts"
+  ],
+  "reviewerActualTests": 0,
+  "reviewerAccountCalls": 0,
+  "reviewerSourceEdits": 0,
+  "producerReportedEvidence": "C reported prior29/29; final5 rerun completion is independently reported by C, not executed by reviewer"
+}

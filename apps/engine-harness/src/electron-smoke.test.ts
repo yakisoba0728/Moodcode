@@ -346,6 +346,36 @@ test('Electron smoke entries reject direct Node execution with exactly one JSON 
   }
 });
 
+test("direct Node runtime rejection precedes loading the Electron npm installer shim", async (t) => {
+  const directory = await mkdtemp(
+    join(tmpdir(), "moodcode-electron-no-install-"),
+  );
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const preload = join(directory, "deny-electron.cjs");
+  await writeFile(
+    preload,
+    `const Module=require('node:module');const load=Module._load;Module._load=function(name,...args){if(name==='electron')throw new Error('Electron installer shim must not load under Node');return load.call(this,name,...args);};`,
+  );
+  const result = spawnSync(
+    process.execPath,
+    ["--require", preload, mainEntry],
+    { encoding: "utf8", timeout: 2_000 },
+  );
+  assert.equal(
+    result.error,
+    undefined,
+    result.error?.message ??
+      "Direct Node runtime must reject without installing Electron",
+  );
+  assert.equal(result.status, 1, result.stderr);
+  assert.equal(result.stderr, "");
+  const lines = result.stdout.trim().split("\n");
+  assert.equal(lines.length, 1);
+  const report = JSON.parse(lines[0]!) as ChildReport;
+  assert.equal(report.ok, false);
+  assert.equal(report.error?.code, "ELECTRON_MAIN_RUNTIME_REQUIRED");
+});
+
 test('Electron launch arguments reject missing, duplicate and credential parameters', () => {
   assert.throws(() => child.parseArguments(['--db']));
   assert.throws(() => child.parseArguments(['--db', 'one', '--db', 'two']));

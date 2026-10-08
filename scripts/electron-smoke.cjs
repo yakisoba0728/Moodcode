@@ -219,20 +219,36 @@ async function runSmoke(electron, options = {}) {
 }
 
 async function main() {
-  const electron = require('electron');
+  let electron;
   let report;
   try {
-    if (process.type !== 'browser' || !electron.app) {
-      const error = new Error('This entry must run as an Electron main process');
+    // Loading the npm shim may install a missing binary. Reject Node first.
+    if (process.type !== 'browser') {
+      const error = new Error(
+        'This entry must run as an Electron main process',
+      );
+      error.code = 'ELECTRON_MAIN_RUNTIME_REQUIRED';
+      throw error;
+    }
+    electron = require('electron');
+    if (!electron.app) {
+      const error = new Error(
+        'This entry must run as an Electron main process',
+      );
       error.code = 'ELECTRON_MAIN_RUNTIME_REQUIRED';
       throw error;
     }
     report = await runSmoke(electron);
   } catch (error) {
-    report = { schemaVersion: 1, type: 'moodcode.electron.smoke', ok: false, error: errorDetails(error, 'main.startup') };
+    report = {
+      schemaVersion: 1,
+      type: 'moodcode.electron.smoke',
+      ok: false,
+      error: errorDetails(error, 'main.startup'),
+    };
   }
   process.stdout.write(`${JSON.stringify(report)}\n`, () => {
-    if (electron.app) electron.app.exit(report.ok ? 0 : 1);
+    if (electron?.app) electron.app.exit(report.ok ? 0 : 1);
     else process.exitCode = report.ok ? 0 : 1;
   });
 }

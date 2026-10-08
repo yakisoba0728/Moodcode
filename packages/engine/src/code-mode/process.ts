@@ -37,7 +37,7 @@ export class OwnedCodeModeProcess {
   private readyReject!: (error: unknown) => void;
   private exited!: () => void;
   private closed!: () => void;
-  private closeObserved = false;
+  private stdoutFinished = false;
   private joined = false;
   private readonly readyPromise = new Promise<void>((resolve, reject) => {
     this.ready = resolve;
@@ -116,6 +116,28 @@ export class OwnedCodeModeProcess {
         void this.stop();
       }
     });
+    const finishStdout = () => {
+      if (this.stdoutFinished) return;
+      try {
+        if (this.error !== undefined) return;
+        this.text += this.decoder.decode();
+        if (this.text.length) codeModeError("CODE_MODE_PROTOCOL_INVALID");
+      } catch (error) {
+        failed(error);
+        void this.stop();
+      } finally {
+        this.stdoutFinished = true;
+        this.wake?.();
+      }
+    };
+    child.stdout?.once("end", finishStdout);
+    child.stdout?.once("error", (error) => {
+      failed(error);
+      void this.stop();
+    });
+    // IPC cleanup and process exit can precede delivery of the final stdout frame.
+    // Child close is the fallback only after its actual stdio streams have closed.
+    child.once("close", finishStdout);
     child.on("message", (packet: unknown) => {
       const value = packet as Record<string, any>;
       if (value?.type === "started") {
@@ -132,7 +154,6 @@ export class OwnedCodeModeProcess {
         });
         this.ready();
       } else if (value?.type === "closed") {
-        this.closeObserved = true;
         if (this.proof)
           this.result = codeSign({
             version: 1 as const,
@@ -250,12 +271,7 @@ export class OwnedCodeModeProcess {
       if (this.error) throw this.error;
       const message = this.messages.shift();
       if (message) return codeJson(message);
-      if (
-        this.closeObserved ||
-        this.child?.exitCode !== null ||
-        this.child?.signalCode !== null
-      )
-        codeModeError("CODE_MODE_EOF");
+      if (this.stdoutFinished) codeModeError("CODE_MODE_EOF");
       await new Promise<void>((resolve, reject) => {
         const abort = () => {
           this.wake = undefined;

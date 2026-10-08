@@ -6,6 +6,8 @@ const sessionId = `effect-session-${process.pid}`;
 let promptId, terminalId;
 let liveWait = false,
   liveKill = false;
+let liveOutputDeadline = 0,
+  liveOutputRequests = 0;
 const log = (value) => appendFileSync(logPath, JSON.stringify(value) + "\n");
 const send = (value) => process.stdout.write(JSON.stringify(value) + "\n");
 log({ type: "started", pid: process.pid });
@@ -14,9 +16,14 @@ const write = {
   path: join(root, "effect.txt"),
   content: "Approved exact native ACP write.\n",
 };
+// A file may exist before its PID contents are published, even for a live source.
+const markerPrelude =
+  mode === "terminal-hold-slow-marker"
+    ? 'require("fs").writeFileSync("command-pid", "");const publicationDeadline=Date.now()+5000;while(!require("fs").existsSync("command-marker-release")){if(Date.now()>=publicationDeadline)throw new Error("Actual PID publication fixture timed out");Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,25);}'
+    : "";
 const command =
   mode.includes("hold") || mode.includes("kill")
-    ? `${JSON.stringify(process.execPath)} -e 'require("fs").writeFileSync("command-pid",String(process.pid));const child=require("child_process").spawn(process.execPath,["-e","setInterval(()=>{},1000)"],{stdio:"ignore"});require("fs").writeFileSync("command-child-pid",String(child.pid));require("fs").writeFileSync("command-ready","ready\\n");process.stdout.write("running live output\\n");setInterval(()=>{},1000)'`
+    ? `${JSON.stringify(process.execPath)} -e '${markerPrelude}require("fs").writeFileSync("command-pid",String(process.pid));const child=require("child_process").spawn(process.execPath,["-e","setInterval(()=>{},1000)"],{stdio:"ignore"});require("fs").writeFileSync("command-child-pid",String(child.pid));require("fs").writeFileSync("command-ready","ready\\n");process.stdout.write("running live output\\n");setInterval(()=>{},1000)'`
     : `${JSON.stringify(process.execPath)} -e 'require("fs").writeFileSync("command.txt","actual command");process.stdout.write("actual native terminal output\\n")'`;
 const terminal = {
   sessionId,
@@ -41,7 +48,7 @@ const request = (id, method, params) =>
 const finish = () =>
   send({ jsonrpc: "2.0", id: promptId, result: { stopReason: "end_turn" } });
 // An ACK proves dispatch, not that the actual command has written its PID markers.
-const killAfterCommandReady = () => {
+const afterCommandReady = (action) => {
   const deadline = Date.now() + 5_000;
   const poll = () => {
     let ready = false;
@@ -50,7 +57,7 @@ const killAfterCommandReady = () => {
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
     }
-    if (ready) request("kill", "terminal/kill", { sessionId, terminalId });
+    if (ready) action();
     else if (Date.now() >= deadline)
       throw new Error("Actual terminal command readiness timed out");
     else setTimeout(poll, 25);
@@ -117,27 +124,38 @@ lines.on("line", (text) => {
   } else if (v.id === "create") {
     if (v.result?.terminalId) {
       terminalId = v.result.terminalId;
-      if (mode === "terminal-hold") return;
-      if (mode === "terminal-live-wait-kill")
-        setTimeout(
-          () =>
-            request("live-output", "terminal/output", {
-              sessionId,
-              terminalId,
-            }),
-          150,
+      if (mode.startsWith("terminal-hold")) return;
+      if (mode === "terminal-live-wait-kill") {
+        liveOutputDeadline = Date.now() + 5_000;
+        afterCommandReady(() =>
+          request("live-output", "terminal/output", { sessionId, terminalId }),
         );
-      else if (mode === "terminal-kill") killAfterCommandReady();
+      } else if (mode === "terminal-kill")
+        afterCommandReady(() =>
+          request("kill", "terminal/kill", { sessionId, terminalId }),
+        );
       else if (mode === "terminal-kill-immediate")
         request("kill", "terminal/kill", { sessionId, terminalId });
       else request("wait", "terminal/wait_for_exit", { sessionId, terminalId });
     } else finish();
-  } else if (v.id === "live-output") {
+  } else if (typeof v.id === "string" && v.id.startsWith("live-output")) {
+    if (typeof v.result?.output !== "string")
+      throw new Error("Actual terminal output request failed");
+    if (!v.result.output.includes("running live output")) {
+      if (Date.now() >= liveOutputDeadline || ++liveOutputRequests > 32)
+        throw new Error("Actual terminal live output readiness timed out");
+      setTimeout(
+        () =>
+          request(`live-output-${liveOutputRequests}`, "terminal/output", {
+            sessionId,
+            terminalId,
+          }),
+        100,
+      );
+      return;
+    }
     request("wait", "terminal/wait_for_exit", { sessionId, terminalId });
-    setTimeout(
-      () => request("kill", "terminal/kill", { sessionId, terminalId }),
-      50,
-    );
+    request("kill", "terminal/kill", { sessionId, terminalId });
   } else if (
     (v.id === "wait" || v.id === "kill") &&
     mode === "terminal-live-wait-kill"

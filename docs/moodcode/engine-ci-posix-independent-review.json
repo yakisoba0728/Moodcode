@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-08T16:21:20.804705+00:00",
+  "review": "read-only final CI/POSIX freeze and archive deadline",
+  "sourceManifest": {
+    "manifestSha256": "5f173dc1f3886146b904ee21805617331892d6f767558809b92ead8f991e8a91",
+    "files": [
+      {
+        "path": ".github/scripts/engine-ci.test.mjs",
+        "match": true,
+        "sha256": "95d72f587a0a1b3d748603a65628a4d654a6467a587a292d1ed00a4ceabfaf57"
+      },
+      {
+        "path": "scripts/electron-smoke.cjs",
+        "match": true,
+        "sha256": "9f36a0ae2909017f1c53079e8cb68b84298425ace444d02ad2f7f01e335f3816"
+      },
+      {
+        "path": "apps/engine-harness/src/electron-smoke.test.ts",
+        "match": true,
+        "sha256": "1b7d15d7cc1b926ffde1fdf3f439c0275965bce37b6a6d0894c6ce5bbd89bb51"
+      },
+      {
+        "path": "packages/engine/src/jobs/host-command.integration.test.ts",
+        "match": true,
+        "sha256": "f4079b8b58adced3391486bf935a47a94c3ed055cbce274a0fdc0957ff3b2244"
+      },
+      {
+        "path": "packages/engine/src/verification/engine-verification.test.ts",
+        "match": true,
+        "sha256": "570fe1931f80caa655cfaa03ef4720169b617f9492e6508d6d1028d4204f511c"
+      },
+      {
+        "path": "packages/engine/src/agent-backends/fixtures/effect-peer.mjs",
+        "match": true,
+        "sha256": "08c3a7c66dd41675db8dbe59c6f53152edf5b76fd82d60ec062e884c2ac69fec"
+      },
+      {
+        "path": "packages/engine/src/agent-backends/client-effects.integration.test.ts",
+        "match": true,
+        "sha256": "657f316792034459ac48410e5ca5b3918a7fedac82c415f47caa73d5b95649bf"
+      },
+      {
+        "path": "packages/engine/src/workspace/trust.test.ts",
+        "match": true,
+        "sha256": "7b7c94ecdf29df9b5dfbbd8ff4da334b86e921d82571bcf9f8673af6a8b10675"
+      },
+      {
+        "path": "packages/engine/src/terminals/supervisor.ts",
+        "match": true,
+        "sha256": "bdbb263dfb00f2c5603b9d1c36bec39070ddf9df3e3e522a8ae1af4c3497e3dc"
+      },
+      {
+        "path": "packages/engine/src/agent-backends/client-effects-crash.integration.test.ts",
+        "match": true,
+        "sha256": "0e0c2342585bd2d4e075f4cabe01d7fff09699614f6fdfb9958caf43c9ed0614"
+      },
+      {
+        "path": "packages/engine/src/agent-backends/fixtures/crash-effects.ts",
+        "match": true,
+        "sha256": "70f7a9abd447044a634b20281c3581e81cc2dd82e4aa7618aac9fd9f5aae6553"
+      },
+      {
+        "path": "packages/engine/src/terminals/job-groups.ts",
+        "match": true,
+        "sha256": "fb1063798421b7e4098b17f5c2541d6af69f2c44504d2c4fd0f2f88da12cd789"
+      },
+      {
+        "path": "packages/engine/src/terminals/job-groups.test.ts",
+        "match": true,
+        "sha256": "b67b8804c35bae1bb27786aef0097a983a3167ee36fbd6ba66d0e33d93dc36ca"
+      }
+    ],
+    "matched": 13,
+    "total": 13
+  },
+  "conclusion": "No new actionable defect in frozen thirteen-file correction; CI remote rerun still needed. Archive failure is hard read-frame exhaustion, not weakened owner or proven corrupt storage.",
+  "archiveCause": {
+    "error": "CHILD_DOCUMENT_STORAGE_TIME_LIMIT",
+    "defaultAndHardCeilingMs": 2000,
+    "definition": "packages/engine/src/storage/child-document-reader.ts:16",
+    "enforcement": "packages/engine/src/storage/child-document-reader.ts:37",
+    "exportFrameBirth": "packages/engine/src/storage/archive.ts:648",
+    "sharedWork": [
+      "document metadata selection",
+      "child owner-pinned mirrored DB read",
+      "child SQLite backup",
+      "logical DB validation",
+      "all artifact copies and fsync",
+      "second artifact hash pass",
+      "final publication source checks"
+    ],
+    "validationSeparateScope": "validateEngineArchive creates document frame after full archive hashing (archive.ts:527,536); existing deterministic test preserves this boundary",
+    "originalSemantics": "One frame and finite row/byte/member caps; time exhausted before publication throws and staging/leases/readers are cleaned in finally."
+  },
+  "existingBudgetApis": {
+    "export": "none (archive.ts:86)",
+    "validate": "none (archive.ts:533)",
+    "import": "none; first calls default validateEngineArchive (archive.ts:87,716)",
+    "selectedHistoricalInspection": "limits.maxDurationMs accepted but only 1..2000; diagnostics/archive-child-documents.ts:67-72 and ChildDocumentReadFrame clamp permit narrowing only",
+    "liveChildInspection": "same narrowing-only default/hard bound"
+  },
+  "safeProposal": {
+    "shape": "Optional finite archiveDocumentBudgetMs on export/validate/import, default 2000; independent validated hard ceiling e.g.30000 for explicit host operation only",
+    "preserve": [
+      "selected live/historical inspection limit 2000",
+      "single continuous frame per operation, no per-child clock reset",
+      "row/byte/mirror caps",
+      "signal checks",
+      "owner/source inode and hashes",
+      "archive publication/cleanup behavior"
+    ],
+    "validation": [
+      "descriptor-safe duration admission before leases/staging/files",
+      "default exhausted path still rejects and leaves no published archive",
+      "explicit larger bounded path succeeds under deterministic delayed real archive fixture",
+      "larger path still rejects cancellation/source substitution/cap exhaustion",
+      "existing proof-only validation vs operation-wide selected inspector deadline test retained"
+    ],
+    "avoid": [
+      "globally raising CHILD_DOCUMENT_READ_LIMITS",
+      "pausing/restarting proof clock during backup/copy",
+      "returning partial verification as complete",
+      "CI skip or synthetic cleanup credit"
+    ]
+  },
+  "sourceEdits": 0,
+  "builds": 0,
+  "testExecutions": 0,
+  "accountAccess": 0,
+  "githubMutations": 0
+}

@@ -144,31 +144,83 @@ test("terminal kill uses its original native command abort and joins the actual 
     true,
   );
 });
-test("parent cancellation joins original terminal/peer groups and keeps remote outcome uncertain", async (t) => {
-  const f = await approved(t, "terminal-hold");
-  await decide(f);
-  await backendUntil(
-    () => existsSync(join(f.root, "command-pid")),
-    "actual group did not start",
-  );
-  const pid = Number(readFileSync(join(f.root, "command-pid"), "utf8"));
-  f.engine.coordinator.cancel(f.runId);
-  await f.done;
-  assert.equal(groupExists(pid), false);
-  const c = f.engine.inspectAgentBackendConnections(f.workspace.id)[0]!;
-  assert.equal(groupExists(c.proof.processId), false);
-  const request = f.engine.inspectAgentBackendRequests(f.workspace.id)[0]!;
-  assert.equal(request.state, "uncertain");
-  assert.equal(
-    (request.cancellation?.message as { method?: string } | undefined)?.method,
-    "session/cancel",
-  );
-  assert.ok(f.logs().some((v) => v.type === "cancel-received"));
-  assert.equal(
-    f.logs().filter((v) => v.message?.method === "session/prompt").length,
-    1,
-  );
-});
+function markerPid(root: string, name: string): number | undefined {
+  const file = join(root, name);
+  if (!existsSync(file)) return undefined;
+  const text = readFileSync(file, "utf8");
+  if (!/^[1-9]\d*$/.test(text)) return undefined;
+  const value = Number(text);
+  return Number.isSafeInteger(value) ? value : undefined;
+}
+for (const mode of ["terminal-hold", "terminal-hold-slow-marker"])
+  test(`parent cancellation joins original terminal/peer groups and keeps remote outcome uncertain${mode.endsWith("slow-marker") ? " after incomplete PID publication" : ""}`, async (t) => {
+    const f = await approved(t, mode);
+    await decide(f);
+    if (mode.endsWith("slow-marker")) {
+      await backendUntil(
+        () => existsSync(join(f.root, "command-pid")),
+        "Actual command did not publish its empty marker",
+      );
+      assert.equal(readFileSync(join(f.root, "command-pid"), "utf8"), "");
+      assert.equal(markerPid(f.root, "command-pid"), undefined);
+      // Release the real process only after the old exists+Number observation failed.
+      writeFileSync(
+        join(f.root, "command-marker-release"),
+        "Publish actual PID",
+      );
+    }
+    await backendUntil(() => {
+      const source = f.engine.inspectOwnedCommandJobs(f.workspace.id)[0];
+      return (
+        markerPid(f.root, "command-pid") !== undefined &&
+        markerPid(f.root, "command-child-pid") !== undefined &&
+        Number.isSafeInteger(source?.groupPid) &&
+        source!.groupPid! > 0
+      );
+    }, "Actual positive command/descendant PIDs were not published");
+    const pids = [
+      markerPid(f.root, "command-pid")!,
+      markerPid(f.root, "command-child-pid")!,
+    ];
+    for (const pid of pids)
+      assert.equal(
+        pidAlive(pid),
+        true,
+        `Actual source PID ${pid} was not live`,
+      );
+    const command = f.engine.inspectOwnedCommandJobs(f.workspace.id)[0]!;
+    assert.ok(Number.isSafeInteger(command.groupPid) && command.groupPid! > 0);
+    assert.equal(groupExists(command.groupPid!), true);
+    const peer = f.engine.inspectAgentBackendConnections(f.workspace.id)[0]!;
+    assert.equal(groupExists(peer.proof.processId), true);
+    f.engine.coordinator.cancel(f.runId);
+    await f.done;
+    assert.equal(
+      groupExists(command.groupPid!),
+      false,
+      `Original command group ${command.groupPid} remained live`,
+    );
+    for (const pid of pids)
+      assert.equal(
+        pidAlive(pid),
+        false,
+        `Actual source PID ${pid} remained live after native join`,
+      );
+    assert.equal(groupExists(peer.proof.processId), false);
+    const request = f.engine.inspectAgentBackendRequests(f.workspace.id)[0]!;
+    assert.equal(request.state, "uncertain");
+    assert.equal(
+      (request.cancellation?.message as { method?: string } | undefined)
+        ?.method,
+      "session/cancel",
+    );
+    assert.ok(f.logs().some((v) => v.type === "cancel-received"));
+    assert.equal(
+      f.logs().filter((v) => v.message?.method === "session/prompt").length,
+      1,
+    );
+  });
+
 test("late native approval after parent cancellation cannot grant or execute a write", async (t) => {
   const f = await approved(t, "permission-write");
   await backendUntil(
@@ -234,8 +286,18 @@ test("live terminal output does not wait for exit and concurrent wait/kill joins
   await decide(f);
   const run = await f.done;
   assert.equal(run.state, "completed", JSON.stringify(run));
-  const output = f.logs().find((v) => v.message?.id === "live-output")?.message
-    ?.result as { output: string; truncated: boolean; exitStatus?: unknown };
+  const outputs = f
+    .logs()
+    .filter(
+      (v) =>
+        typeof v.message?.id === "string" &&
+        v.message.id.startsWith("live-output"),
+    );
+  const output = outputs.at(-1)?.message?.result as {
+    output: string;
+    truncated: boolean;
+    exitStatus?: unknown;
+  };
   assert.ok(
     output.output.includes("running live output"),
     JSON.stringify(output),
@@ -248,7 +310,8 @@ test("live terminal output does not wait for exit and concurrent wait/kill joins
     );
   const effect = f.engine.inspectAgentBackendEffects(f.workspace.id)[0]!;
   assert.equal(effect.completion?.cleanupConfirmed, true);
-  assert.equal(effect.controls?.length, 4);
+  assert.ok(outputs.length >= 1 && outputs.length <= 33);
+  assert.equal(effect.controls?.length, outputs.length + 3);
 });
 test("terminal argv is quoted as literal data, including apostrophes and shell syntax", async (t) => {
   const f = await approved(t, "terminal-args");

@@ -29,6 +29,8 @@ try {
       commandPid: existsSync(join(f.root, "command-pid"))
         ? Number(readFileSync(join(f.root, "command-pid"), "utf8"))
         : null,
+      commandGroupPid:
+        f.engine.inspectOwnedCommandJobs(f.workspace.id)[0]?.groupPid ?? null,
     });
   };
   if (mode === "direct-write") {
@@ -48,6 +50,13 @@ try {
     await backendUntil(
       () =>
         existsSync(join(f.root, "command-pid")) &&
+        /^[1-9]\d*$/.test(readFileSync(join(f.root, "command-pid"), "utf8")) &&
+        Number.isSafeInteger(
+          Number(readFileSync(join(f.root, "command-pid"), "utf8")),
+        ) &&
+        Boolean(
+          f.engine.inspectOwnedCommandJobs(f.workspace.id)[0]?.groupPid,
+        ) &&
         f
           .logs()
           .some((v) => v.message?.id === "create" && Boolean(v.message.result)),

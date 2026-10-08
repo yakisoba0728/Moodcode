@@ -1,14 +1,16 @@
 # Headless engine CI와 OS 검증 범위
 
-2026-10-07 기준 `.github/workflows/engine.yml`을 작성했다. **워크플로 구성과 로컬 launcher 검증만 완료했으며 GitHub Actions를 실행하거나 Linux/Windows 실제 통과를 확인하지 않았다.** 기존 엔진 전체 gate는 macOS arm64 / Node v26.9.0에서 root 세션이 확인한 결과이다. CI green badge나 다른 OS 지원 증거로 바꾸어 해석하지 않는다.
+2026-10-09 현재 [Moodcode 저장소](https://github.com/yakisoba0728/Moodcode)는 사용자 요청으로 Public이다. [첫 실제 Actions run](https://github.com/yakisoba0728/Moodcode/actions/runs/37801446778)은 `7ab91d5`에서 실행했으며 여섯 lane 모두 실패했다. macOS/Linux는 전체 엔진 검사에 도달했고 Windows는 launcher CRLF 검사에서 실패해 portable 엔진 검사를 실행하지 않았다. 수정 이후 실제 hosted 통과 확인이 필요하다. 기존 macOS 로컬 통과 이력과 실제 CI 결과를 구분한다.
+
+표준 GitHub-hosted runner의 Public 저장소 사용은 [공식 무료 사용 범위](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)에 해당한다. [job별 실행 시간·동시 실행 제한](https://docs.github.com/en/actions/reference/limits)과 이 workflow의 20~25분 timeout은 유지된다. Larger runner는 별도 과금 범위다.
 
 ## 구성한 matrix
 
 | Lane | Runner / Node | 실행 범위 | 현재 확인한 상태 |
 | --- | --- | --- | --- |
-| POSIX full | `macos-15` arm64 × `24.x`, `26.x` | locked install, PTY 준비·native module 확인, headless typecheck/build/test, local scripted eval | 로컬 macOS Node26에서 엔진 gate 통과 이력; 새 matrix 실행은 미확인 |
-| POSIX full | `ubuntu-24.04` x64 × `24.x`, `26.x` | 위와 동일, 실제 POSIX child/group/PTY fixture 포함 | CI 구성 완료; Linux 실제 실행 미확인 |
-| Windows portable | `windows-2025` x64 × `24.x`, `26.x` | headless source typecheck/build, contracts 전체, 명시한 SQLite fixture, fake native ownership port fixture | CI 구성 완료; Windows 실제 실행 미확인; 전체 엔진 지원을 뜻하지 않음 |
+| POSIX full | `macos-15` arm64 × `24.x`, `26.x` | locked install, PTY 준비·native module 확인, headless typecheck/build/test, local scripted eval | 첫 실제 run: 전체 엔진 실패, eval 미실행; 수정 재검증 필요 |
+| POSIX full | `ubuntu-24.04` x64 × `24.x`, `26.x` | 위와 동일, 실제 POSIX child/group/PTY fixture 포함 | 첫 실제 run: 전체 엔진 실패, eval 미실행; 수정 재검증 필요 |
+| Windows portable | `windows-2025` x64 × `24.x`, `26.x` | headless source typecheck/build, contracts 전체, 명시한 SQLite fixture, fake native ownership port fixture | 첫 실제 run: launcher 실패로 portable gate 미실행; 전체 엔진 지원을 뜻하지 않음 |
 
 runner 이름과 architecture는 [GitHub-hosted runner 공식 표](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)를 확인했다. `latest` runner 대신 OS label을 고정했다. OS 이미지 내부 도구와 Node patch는 계속 갱신될 수 있으므로 artifact에 실제 platform/arch/Node/commit을 기록한다. 이 matrix는 Node 24 이상을 다루며 Node22 이하·Bun·Electron ABI 검증은 포함하지 않는다. macOS Intel/Linux arm64/Windows arm64 역시 후속이다.
 
@@ -44,7 +46,7 @@ push/pull_request의 경로 필터에는 `scripts/verify-media-account*.mjs`와 
 
 POSIX signal crash, symlink/permission ownership/backup, 실제 shell/process group/PTY, worktree·LSP process lifetime와 local coding eval는 Windows lane에서 실행하지 않는다. `v1-compatibility` 파일에는 POSIX recovery/backup 경계도 함께 있어 partial 목록에서 제외했다. 이는 해당 기능의 Windows 정상 동작을 확인했다는 의미가 아니다.
 
-실제 native Windows Job Object binding이 없으므로 `WindowsJobCommandBackend`는 capability unavailable을 유지한다. backends fixture의 fake host callback이 통과해도 Job Object assignment/child tree/timeout/parent crash를 Windows OS에서 검증한 것으로 기록하지 않는다. actual Windows fixture는 명시적으로 skip되고 result metadata의 `windowsFullEngineVerified`는 false이다. E5-08의 native 구현과 실제 Windows process-tree 검증은 남아 있다. Windows partial lane 자체도 첫 실제 Actions 실행 전까지 미검증이다.
+실제 native Windows Job Object binding이 없으므로 `WindowsJobCommandBackend`는 capability unavailable을 유지한다. backends fixture의 fake host callback이 통과해도 Job Object assignment/child tree/timeout/parent crash를 Windows OS에서 검증한 것으로 기록하지 않는다. actual Windows fixture는 명시적으로 skip되고 result metadata의 `windowsFullEngineVerified`는 false이다. E5-08의 native 구현과 실제 Windows process-tree 검증은 남아 있다. Windows partial lane은 첫 실제 Actions에서 launcher 실패 후 미실행이며 통과 증거가 없다.
 
 ## 결과와 실패 로그
 
@@ -54,6 +56,10 @@ job summary와 upload-artifact step은 `if: always()`이며 job/matrix별 artifa
 
 ## 완료한 로컬 확인과 다음 검증
 
-로컬에서는 launcher `node --check`, fixture 세 개, YAML parsing과 trigger/matrix/고정 SHA/always-summary 구조, plan/summary가 실행 없이 현재 darwin·Node26 및 `not-a-github-run`을 기록하는 것을 확인했다. 이 확인은 설치를 새로 실행하거나 workflow를 dispatch하지 않았다. GitHub expression의 실제 평가나 hosted image에서의 optional native dependency 설치도 아직 확인하지 않았다.
+워크플로 최초 추가 시 로컬에서 launcher `node --check`, fixture 세 개, YAML parsing과 trigger/matrix/고정 SHA/always-summary 구조, plan/summary가 실행 없이 darwin·Node26 및 `not-a-github-run`을 기록하는 것을 확인했다. 당시 확인은 설치를 새로 실행하거나 workflow를 dispatch하지 않았다. 이후 첫 실제 run에서 POSIX 설치·PTY module·typecheck/build·local media 단계의 통과와 전체 엔진 실패를 별도로 확인했다. Windows는 launcher 실패 뒤 설치 및 portable gate 결과를 통과 증거로 세지 않는다.
 
-첫 실제 Actions run에서 Node24/26 두 ABI의 PTY load/TTY fixture, Linux group/descendant 정리, Windows SQLite close/locking, artifact 결과·실패 retention을 확인한다. 실패를 skip으로 숨기기보다 해당 OS의 구현 문제 또는 명시적 지원 공백으로 분리해 수정한다. editor UI·GUI smoke·packaging·서명/배포는 별도 승인된 pipeline 범위이다.
+첫 실제 실패에서 확인한 CRLF assertion, direct Node 실행의 불필요한 Electron require, IPC 종료 뒤 stdout drain, PID 파일 publication·출력 marker 경합, inode 재사용 fixture, Linux의 무관한 kernel PGID=0 관측을 수정했다. [13파일 동결](engine-ci-posix-source-freeze.json)과 [독립 검토](engine-ci-posix-independent-review.json), [code mode drain 검토](engine-code-mode-drain-independent-review.json)는 수정 소스를 확인하며 새 hosted run의 통과를 대신하지 않는다.
+
+Archive 문서 증명의 기존 단일 2초 deadline을 초과한 대형 fixture에는 [호스트 선택 시간 예산](engine-archive-document-budget.md)을 연결했다. 기본 2초와 일반 inspector 상한, bytes/rows·원본·취소·무결성 검사와 기존 assertion은 유지한다. 최종 로컬 통합에서 동결 input906개 불변, build0, 전체4,674개 중4,672pass/실패0/기존 Windows skip2, compiled media20/20·실제 local CI launcher media20/20·scripted 평가3/3을 확인했다. [정확한 검증 범위](engine-native-ci-media-integration-verification.json)는 새 hosted 결과와 실제 미디어 계정 완료를 구분한다.
+
+수정된 Actions run에서 Node24/26 두 ABI의 PTY load/TTY fixture, Linux group/descendant 정리, Windows SQLite close/locking, artifact 결과·실패 retention을 다시 확인한다. 실패를 skip으로 숨기기보다 해당 OS의 구현 문제 또는 명시적 지원 공백으로 분리해 수정한다. editor UI·GUI smoke·packaging·서명/배포는 별도 승인된 pipeline 범위이다.

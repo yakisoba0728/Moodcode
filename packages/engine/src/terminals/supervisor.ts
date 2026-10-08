@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { observedJobGroupsFromSnapshot } from "./job-groups.js";
 import {
   createCommandEnvironment,
   cleanupGroup,
@@ -65,44 +66,7 @@ async function observedJobGroups(
         env: createCommandEnvironment(),
       },
     );
-    const rows = stdout.trim().split("\n");
-    if (rows.length > 65_536) return undefined;
-    const byPid = new Map<number, { parent: number; group: number }>();
-    const children = new Map<number, number[]>();
-    for (const row of rows) {
-      const fields = row.trim().split(/\s+/);
-      if (fields.length !== 3) return undefined;
-      const [child, parent, group] = fields.map(Number);
-      if (
-        ![child, parent, group].every(Number.isSafeInteger) ||
-        child! <= 0 ||
-        parent! < 0 ||
-        group! <= 0 ||
-        byPid.has(child!)
-      )
-        return undefined;
-      byPid.set(child!, { parent: parent!, group: group! });
-      const siblings = children.get(parent!) ?? [];
-      siblings.push(child!);
-      children.set(parent!, siblings);
-    }
-    // The native PTY leader is a direct child and owns its fresh process group.
-    const leader = byPid.get(pid);
-    if (!leader || leader.parent !== process.pid || leader.group !== pid)
-      return undefined;
-    const groups = new Set<number>([pid]),
-      visited = new Set<number>();
-    const pending = [pid];
-    for (let at = 0; at < pending.length; at++) {
-      const child = pending[at]!;
-      if (visited.has(child) || pending.length > 8192) return undefined;
-      visited.add(child);
-      const group = byPid.get(child)!.group;
-      if (group <= 1 || group === process.pid) return undefined;
-      groups.add(group);
-      pending.push(...(children.get(child) ?? []));
-    }
-    return [...groups];
+    return observedJobGroupsFromSnapshot(stdout, pid, process.pid);
   } catch {
     return undefined;
   }

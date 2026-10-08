@@ -24,6 +24,7 @@ interface Ready {
   runId: string;
   peerPid: number;
   commandPid: number | null;
+  commandGroupPid: number | null;
 }
 for (const mode of ["terminal-hold", "direct-write"])
   test(
@@ -57,7 +58,7 @@ for (const mode of ["terminal-hold", "direct-write"])
           await exited;
         }
         if (ready) {
-          for (const pid of [ready.peerPid, ready.commandPid])
+          for (const pid of [ready.peerPid, ready.commandGroupPid])
             if (pid && groupExists(pid)) await cleanupGroup(pid);
           for (const engine of engines) await engine.close();
           rmSync(ready.base, { recursive: true, force: true });
@@ -81,17 +82,41 @@ for (const mode of ["terminal-hold", "direct-write"])
       });
       const logs = readFileSync(ready.logPath, "utf8");
       assert.equal(groupExists(ready.peerPid), true);
-      if (ready.commandPid) assert.equal(groupExists(ready.commandPid), true);
+      if (ready.commandPid) {
+        assert.ok(
+          Number.isSafeInteger(ready.commandPid) && ready.commandPid > 0,
+        );
+        assert.ok(
+          Number.isSafeInteger(ready.commandGroupPid) &&
+            ready.commandGroupPid! > 0,
+        );
+        assert.doesNotThrow(() => process.kill(ready!.commandPid!, 0));
+        assert.equal(groupExists(ready.commandGroupPid!), true);
+      }
       const exited = once(child, "exit");
       child.kill("SIGKILL");
       await exited;
       await backendUntil(
         () =>
           !groupExists(ready!.peerPid) &&
-          (!ready!.commandPid || !groupExists(ready!.commandPid)),
+          (!ready!.commandGroupPid || !groupExists(ready!.commandGroupPid)),
         "actual original peer/command groups not cleaned",
         8000,
       );
+      if (ready.commandPid) {
+        await backendUntil(
+          () => {
+            try {
+              process.kill(ready!.commandPid!, 0);
+              return false;
+            } catch (error) {
+              return (error as NodeJS.ErrnoException).code === "ESRCH";
+            }
+          },
+          "actual command PID was not cleaned",
+          8000,
+        );
+      }
       if (ready.commandPid)
         await backendUntil(
           () => {
@@ -112,6 +137,11 @@ for (const mode of ["terminal-hold", "direct-write"])
       });
       engines.add(engine);
       const effects = engine.inspectAgentBackendEffects(ready.workspaceId);
+      if (ready.commandGroupPid)
+        assert.equal(
+          engine.inspectOwnedCommandJobs(ready.workspaceId)[0]?.groupPid,
+          ready.commandGroupPid,
+        );
       assert.equal(effects.length, 1);
       assert.equal(effects[0]?.state, "uncertain");
       assert.equal(effects[0]?.completion, null);
