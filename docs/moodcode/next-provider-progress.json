@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "workItem": "E5-13",
   "goal": "Finite provider/multimodal implementation and source/account/runtime-qualified verification",
-  "status": "active",
+  "status": "finite-implementation-verified; aggregate-integration-open",
   "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
   "branch": "codex/next-provider-e513",
   "worktree": "/Users/yakisoba0728/.codex/worktrees/next-provider-e513/Moodcode",
@@ -29,16 +29,68 @@
     }
   },
   "validation": {
-    "local": "Second full regression with unchanged concurrency4 and corrected canonical native TypeScript dependency in progress; first entire result retained. Final provider/script focused in progress.",
+    "local": "Final provider525/525 and compiled CLI78/78 passed with no skips; all-project typecheck exit0. Second concurrency4 whole4728/4723pass/3fail/skip2 preserved; same three unchanged modules passed30/30 at concurrency4. No whole acceptance or causal resolution claimed.",
     "liveGenerationRequests": 3,
     "modelInventoryRequests": 1,
-    "sourceRuntimeQualification": "pending",
-    "hostedCI": "baseline six lanes preserved; new branch pending",
+    "sourceRuntimeQualification": "Corrective PDF exact whole source/runtime match implementation commit files. Media executed its pinned earlier whole source; all native/media/compiled execution files independently unchanged after PDF-only verifier correction. No current whole-source media execution claimed.",
+    "hostedCI": {
+      "runId": 37849372005,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005",
+      "headSha": "b7c44a3618d9863739bd568dc08d384c9987e66b",
+      "status": "completed",
+      "conclusion": "failure",
+      "newProviderCLIScriptsHosted": false,
+      "scope": "Existing full six-lane engine workflow including new coverage tests and existing provider contracts; new CLI525/78 local + actual account reports independent.",
+      "jobs": [
+        {
+          "name": "Portable contracts/storage only / Windows / Node 24.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005/job/113558180758"
+        },
+        {
+          "name": "Headless macos-15 / Node 26.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005/job/113558180907"
+        },
+        {
+          "name": "Portable contracts/storage only / Windows / Node 26.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005/job/113558180932"
+        },
+        {
+          "name": "Headless ubuntu-24.04 / Node 24.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005/job/113558180937"
+        },
+        {
+          "name": "Headless ubuntu-24.04 / Node 26.x",
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005/job/113558180943"
+        },
+        {
+          "name": "Headless macos-15 / Node 24.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37849372005/job/113558181032"
+        }
+      ],
+      "jobsPassed": 5,
+      "jobsTotal": 6,
+      "report": "docs/moodcode/next-provider-hosted-verification.json",
+      "aggregateAcceptanceClaimed": false
+    },
     "modelCatalog": "docs/moodcode/next-provider-catalog.json",
     "wholeOriginalLog": "artifacts/next-provider-whole.log",
     "liveReports": [
       "docs/moodcode/next-provider-pdf-live.json",
-      "docs/moodcode/next-provider-media-live.json"
+      "docs/moodcode/next-provider-media-live.json",
+      "docs/moodcode/next-provider-pdf-corrective-live.json",
+      "docs/moodcode/next-provider-anthropic-external.json"
     ],
     "liveSummary": {
       "pdfFirst": {
@@ -105,10 +157,49 @@
     },
     "independentActualEvidence": "docs/moodcode/next-provider-media-independent-review.json",
     "secondWholeObservedFailures": [
-      "Original code-mode parent cancellation fixture",
-      "Original commit source drift fixture"
+      "Original code-mode parent cancellation PID assertion; raw PID unavailable",
+      "Original Git verify_changes CLEANUP_UNCERTAIN during fixture preparation",
+      "Original archive export CHILD_DOCUMENT_STORAGE_TIME_LIMIT during fixture preparation"
     ],
-    "secondWholeAcceptanceClaimed": false
+    "secondWholeAcceptanceClaimed": false,
+    "secondWhole": {
+      "total": 4728,
+      "pass": 4723,
+      "fail": 3,
+      "skip": 2,
+      "cancelled": 0,
+      "durationMs": 575472.948875,
+      "log": "artifacts/next-provider-whole-corrected-environment.log",
+      "logSha256": "e9736c770575853e418478ba3b9673a08d0c7a427674623f6ab15c36a74eb533",
+      "concurrency": 4,
+      "nativeDependencySetupCorrected": true,
+      "sourceAssertionsTimeoutsSkipsChanged": false,
+      "acceptanceClaimed": false
+    },
+    "secondWholeTargeted": {
+      "tests": 30,
+      "pass": 30,
+      "fail": 0,
+      "skip": 0,
+      "cancelled": 0,
+      "durationMs": 62724.3055,
+      "concurrency": 4,
+      "log": "artifacts/next-provider-second-failure-targeted.log",
+      "logSha256": "47e85e3d0faa07d9313490b2405af1cb8df3107bc6298f4ce22644d28deb0ef6",
+      "modules": [
+        "packages/engine/dist/code-mode/engine-code-mode.integration.test.js",
+        "packages/engine/dist/git/commit.integration.test.js",
+        "packages/engine/dist/storage/archive-historical-child-review.test.js"
+      ],
+      "sourceAssertionsTimeoutsSkipsChanged": false,
+      "doesNotResolveOriginalFailureCause": true
+    },
+    "finalExecutionPins": {
+      "sourceSha256": "21b660123cafa3d067ae908503db697c356f138d84d9f33efc0005fe4f17d22a",
+      "sourceFiles": 913,
+      "runtimeSha256": "7fc877b388216641cad8d4d31f7a1ef1cf3ff66c64a433fb5266aec6bcc2c4dd",
+      "runtimeFiles": 872
+    }
   },
   "externalConditions": [
     {
@@ -131,7 +222,15 @@
     "Unsupported audio stream model inference",
     "GUI/auth/Windows/signing"
   ],
-  "commits": [],
+  "commits": [
+    {
+      "sha": "b7c44a3618d9863739bd568dc08d384c9987e66b",
+      "kind": "implementation + native/source/account evidence",
+      "branch": "codex/next-provider-e513",
+      "pushed": true,
+      "sourceQualified": "Corrective PDF current source/runtime exactly match commit files; media executed historical whole source with independently unchanged current native/media/complete runtime continuity."
+    }
+  ],
   "firstSupport": [
     {
       "lane": "pdf",
@@ -194,10 +293,7 @@
     "persistentAccountIdentityClaimed": false
   },
   "updatedAt": "2026-10-09 Asia/Seoul",
-  "pending": [
-    "Second whole regression completion and original failure evidence",
-    "Commit/push + actual hosted six-lane CI"
-  ],
+  "pending": [],
   "rootIntegrationNotice": {
     "mainCommit": "ad8a02f",
     "rootHostedRun": "37846389194",
@@ -205,6 +301,20 @@
     "rootCorrections": "Root owns deterministic clock for harness wall50ms + atomic READY publication; do not weaken original assertions/timeouts/unknown/no-replay",
     "matchingOwnFailure": "First whole after-write ready.json exists-before-full-write JSON.parse failure matches Root source diagnosis",
     "ownDetachedPatch": "docs/moodcode/next-provider-root-fixture-ready.patch (historical proposal; Root implements actual correction)",
-    "rootCorrectionCombinedRetest": "Pending exact Root correction commit; current provider source/API scopes frozen."
+    "rootCorrectionCombinedRetest": "Root correction remains uncommitted on main ad8a02f; not copied or edited by provider worktree. Both original macOS CI lanes passed on b7; historical Root fixture failures remain independently preserved."
+  },
+  "integrationRemaining": [
+    "Root combines provider commits into the final source and requalifies affected native/GUI/hosted flows.",
+    "Root investigates retained existing whole/Ubuntu26 native-fixture failures with genuine diagnostics; targeted passes do not establish causal resolution.",
+    "Approved Anthropic key/account remains external; no account credit until the finite lane passes."
+  ],
+  "delivery": {
+    "implementationCommit": "b7c44a3618d9863739bd568dc08d384c9987e66b",
+    "rootMainEdited": false,
+    "rootTodoReadmeEdited": false,
+    "runtimeAuthorizationAltered": false,
+    "finiteTaskDelivered": true,
+    "broaderE513Complete": false,
+    "evidenceCommitReference": "codex/next-provider-e513 tip; metadata-only descendant of the implementation commit"
   }
 }

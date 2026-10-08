@@ -57,6 +57,73 @@
       "fail": 0,
       "skip": 0,
       "log": "artifacts/next-provider-whole-failure-targeted.log"
+    },
+    "secondWholeFailures": {
+      "tests": 30,
+      "pass": 30,
+      "fail": 0,
+      "skip": 0,
+      "cancelled": 0,
+      "durationMs": 62724.3055,
+      "concurrency": 4,
+      "log": "artifacts/next-provider-second-failure-targeted.log",
+      "logSha256": "47e85e3d0faa07d9313490b2405af1cb8df3107bc6298f4ce22644d28deb0ef6",
+      "modules": [
+        "packages/engine/dist/code-mode/engine-code-mode.integration.test.js",
+        "packages/engine/dist/git/commit.integration.test.js",
+        "packages/engine/dist/storage/archive-historical-child-review.test.js"
+      ],
+      "sourceAssertionsTimeoutsSkipsChanged": false,
+      "doesNotResolveOriginalFailureCause": true
     }
+  },
+  "secondWhole": {
+    "total": 4728,
+    "pass": 4723,
+    "fail": 3,
+    "skip": 2,
+    "cancelled": 0,
+    "durationMs": 575472.948875,
+    "log": "artifacts/next-provider-whole-corrected-environment.log",
+    "logSha256": "e9736c770575853e418478ba3b9673a08d0c7a427674623f6ab15c36a74eb533",
+    "concurrency": 4,
+    "nativeDependencySetupCorrected": true,
+    "sourceAssertionsTimeoutsSkipsChanged": false,
+    "acceptanceClaimed": false,
+    "failures": [
+      {
+        "test": "outer parent cancellation joins running command group and restricted runtime with no replay",
+        "module": "packages/engine/src/code-mode/engine-code-mode.integration.test.ts",
+        "error": "Missing expected exception at process.kill(pid, 0)",
+        "observedCause": "Original failed log does not retain the PID-file bytes or value; no causal conclusion is claimed. Static fixture writes directly to pid and treats existsSync as readiness, which is a candidate publication gap, not proof of the observed failure.",
+        "scope": "Unmodified existing code-mode fixture; no remote provider request."
+      },
+      {
+        "test": "exact source drift denies effects before Git commit",
+        "module": "packages/engine/src/git/commit.integration.test.ts",
+        "error": "CLEANUP_UNCERTAIN: Tool verify_changes did not confirm cleanup during fixture preparation",
+        "observedCause": "Failure occurs before commit source-drift oracle; original cleanup uncertainty is retained.",
+        "scope": "Unmodified existing Git fixture; no remote provider request."
+      },
+      {
+        "test": "full historical proof budget exhaustion rejects before copying selected index bodies",
+        "module": "packages/engine/src/storage/archive-historical-child-review.test.ts",
+        "error": "CHILD_DOCUMENT_STORAGE_TIME_LIMIT while authoredArchive exports the fixture",
+        "observedCause": "Stack fails during preparation before the intended metadata/row/database rejection oracle. Exact scheduling and time consumption are unqualified.",
+        "scope": "Unmodified existing archive fixture; no remote provider request."
+      }
+    ]
+  },
+  "actualHosted": {
+    "runId": 37849372005,
+    "headSha": "b7c44a3618d9863739bd568dc08d384c9987e66b",
+    "jobsPassed": 5,
+    "jobsTotal": 6,
+    "conclusion": "failure",
+    "report": "docs/moodcode/next-provider-hosted-verification.json",
+    "failedLane": "Ubuntu24.04 x64 Node26.11.1",
+    "originalFailureCount": 3,
+    "aggregateAcceptanceClaimed": false,
+    "failureSourcesUnchangedFromBaseline": true
   }
 }
