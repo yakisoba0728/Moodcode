@@ -41,7 +41,7 @@
 
 | 상태·ID | 수정·삭제·추가 범위 | 보존·검증 조건 |
 |---|---|---|
-| [ ] TEST-01 | PTY fixture의 역사적 숫자 PID cleanup을 원본 live 소유 capability로 교체 | stopped shell·supervisor loss 별도 시나리오, 숫자 PID 신호 없음·borrowed receiver 격리, uncertain 자료 보존; OS PID 재사용 강제 증명은 별도 |
+| [x] TEST-01 | PTY fixture의 역사적 숫자 PID cleanup을 원본 live 소유 capability로 교체 | stopped shell·supervisor loss 별도 시나리오, 숫자 PID 신호 없음·borrowed receiver 격리, uncertain 자료 보존; OS PID 재사용 강제 증명은 별도 |
 | [x] TEST-02 | observer 준비/변경 관찰 및 persistent 시간 fixture의 인과 경계 정리 | 원 duration·입력 상한·실제 elapsed·비교 baseline 유지, skip/timeout 완화 금지 |
 | [x] CORE-01 | v1/v2 새 입력의 미디어 admission 순서를 private helper로 합침 | durable receipt 중복 조회 뒤 실행; budget→segment→document→image 순서·삭제 blob 중복·효과 0 유지 |
 | [x] CORE-02 | image/PDF/media import의 signal·pending lifetime 공통화 | 원 Promise·동기 factory 실행·close join·원 CAS/index 유지 |

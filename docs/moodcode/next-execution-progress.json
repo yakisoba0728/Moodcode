@@ -440,6 +440,39 @@
         ]
       },
       "wholeAcceptance": false
+    },
+    {
+      "key": "root-current-GUI-and-cleanup-fixture",
+      "GUI": {
+        "passed": 15,
+        "externalRequests": 0,
+        "nativeCleanupAuthority": "unknown; original retained",
+        "log": {
+          "path": "/tmp/moodcode-next-final-integrated-gui.log",
+          "bytes": 2901,
+          "sha256": "77fbd3c1fbe9d5fb2b92d35b2c1e9b4369fa6708bbd0c8b86cb8b7760679779c"
+        }
+      },
+      "ciLauncher": {
+        "passed": 7,
+        "failed": 0,
+        "log": {
+          "path": "/tmp/moodcode-next-final-ci-launcher-tests.log",
+          "bytes": 1180,
+          "sha256": "1755a694cf6112281359aac8e9fd62a25ad52c4d8afefe833bfda6c27f1597e3"
+        }
+      },
+      "ownedPTY": {
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "log": {
+          "path": "/tmp/moodcode-next-final-pty-owned-v2.log",
+          "bytes": 1115,
+          "sha256": "f67c92418569159c1d3b23bc45c003d250812937835638b61817763951ad542b"
+        }
+      },
+      "wholeAcceptance": false
     }
   ],
   "goalTracking": {
@@ -469,5 +502,24 @@
         "RUNNER-01"
       ]
     }
-  ]
+  ],
+  "latestIntegration": {
+    "state": "implementation-integrated-final-acceptance-preparing",
+    "head": "0777a49",
+    "lanes": {
+      "core": "CORE01-04 source172/172 compiled172/172, isolated whole4823/4821/0fail/2skip",
+      "storeRunner": "STORE20 +RUNNER159 +cleanup6 source/compiled",
+      "testFixtures": "source233/233 and compiled233/233 from baseline221",
+      "desktop": "MCP correction, original native evidence retention and 15 actual current GUI flows integrated",
+      "CI": "finite failed-native artifact copies and native build-input scheduling corrected"
+    },
+    "finalPlanned": [
+      "current frozen whole headless",
+      "current source 30min native observation",
+      "matched performance benchmark",
+      "final owned source inventory",
+      "11 hosted engine/native-Windows/desktop lanes"
+    ],
+    "goalStatus": "blocked; independent execution continues"
+  }
 }
