@@ -504,7 +504,7 @@
     }
   ],
   "latestIntegration": {
-    "state": "implementation-integrated-final-acceptance-preparing",
+    "state": "local-accepted-corrective-hosted-and-long-pending",
     "head": "0777a49",
     "lanes": {
       "core": "CORE01-04 source172/172 compiled172/172, isolated whole4823/4821/0fail/2skip",
@@ -520,6 +520,18 @@
       "final owned source inventory",
       "11 hosted engine/native-Windows/desktop lanes"
     ],
-    "goalStatus": "blocked; independent execution continues"
+    "goalStatus": "blocked; independent execution continues",
+    "mainPushedThrough": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+    "engineRuntimeSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
+    "localAcceptance": "next-final-local-acceptance.json",
+    "structuralInventory": {
+      "files": 1079,
+      "lines": 311524,
+      "ASTFiles": 1070,
+      "manualFormats": 9,
+      "beforeLines": 307720,
+      "qualification": "Owned physical source lines including tests/fixtures/tooling; excludes clones/dependencies/generated outputs. Finite semantic review only."
+    },
+    "historicalHosted": "a89 10/11 success; Windows receipt lookup failure preserved and corrected in scripts only"
   }
 }

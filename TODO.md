@@ -19,7 +19,7 @@
 | R-PTY-01 | 보존된 실패·현재 진단을 대조하고 재현을 조사. 실제 PID/PGID·native outcome·supervisor close 근거로 원인과 수정 여부 판정 |
 
 - [ ] **N-01 — 동일 엔진 장기 실행·부하 검증**: 같은 인스턴스에서 queue/steer·승인·취소·재시작 경합과 큰 이력을 검증한다. 유한 실행 시간·seed·입력량을 고정하고 메모리·FD·프로세스·SQLite·artifact 증가 및 종료 정산을 측정한다. 기존 60회 독립 반복 근거와 구분한다.
-- [ ] **N-02 — 고급 엔진 기능의 GUI 연결**: inbox·tasks/questions·MCP·PTY·child/team·workflow·LSP·진단을 host/preload/renderer까지 연결한다. 기존 승인·owner·budget을 유지하고 실제 화면의 소비·reload·cancel·reconnect를 검증한다.
+- [x] **N-02 — 고급 엔진 기능의 GUI 연결**: inbox·tasks/questions·MCP·PTY·child/team·workflow·LSP·진단을 host/preload/renderer까지 연결한다. 기존 승인·owner·budget을 유지하고 실제 화면의 소비·reload·cancel·reconnect를 검증한다.
 - [ ] **N-03 — 앱 인증·계정 관리**: 공급자별 공식 지원 인증·갱신 방식과 첫 지원 범위를 확인한 뒤 로그인·로그아웃·계정 선택·갱신 실패를 구현한다. credential 저장·삭제와 renderer/journal 비노출을 검증한다.
 - [ ] **N-04 — 지원 OS 패키지·최신 GUI 검증**: 최신 엔진의 macOS/Linux/Windows 지원 범위를 명시하고 해당 bundle·utility·SQLite·supervisor·renderer 및 설치/실행 smoke를 실제 OS에서 확인한다.
 - [ ] **N-05 — 서명·배포·업데이트**: 대상 OS·배포 채널을 고정하고 서명/공증·설치·업데이트·실패 복구를 구현·검증한다. 인증서·계정이 필요한 실제 서명/배포와 로컬 준비 완료를 구분한다.
@@ -72,10 +72,16 @@
 - [x] **RF-04 — 테스트·fixture 정리**: 반복 setup·임시 repo/DB·실제 process·cleanup helper를 정리하고 큰 suite를 계약/시나리오별로 나눈다. 의도와 독립 expected 값을 유지하며 중복 테스트 삭제는 보존되는 회귀 시나리오를 기록한다. 실패 증거·미확정 cleanup은 보존하고 실제 구현과 같은 계산으로 expected를 만들지 않는다.
 - [x] **RF-05 — 메인 엔진 책임 분리**: API dispatch/admission/scheduler/turn/context/tool/permission/storage·recovery/lifecycle을 책임별로 정리한다. 큰 store는 native 소유권·transaction 경계에 맞춰 분리하고 의미가 같은 정책·검증만 공통화한다. 먼저 한 완결 기능을 변경·검증한 뒤 다음 범위로 진행한다.
 - [x] **RF-06 — 미사용·중복·의존성·주석 정리**: 실제 소비·호환성이 확인된 불필요 코드와 dependency를 제거한다. 함수는 한 책임·명확한 이름·단순한 흐름으로 정리하고, 주석은 비자명한 이유·불변식·외부 제약·필수 고지만 남겨 현재 구현과 맞춘다. 코드와 같은 설명·오래된 TODO 주석은 정리한다.
-- [ ] **RF-07 — 성능·검증 실행 개선**: 병목은 측정 후 개선하고 focused/contract/integration/crash/OS/GUI 검증 경계를 정리한다. 작업 중에는 영향 검증, 큰 통합 경계와 최종 수용에는 전체 회귀·실제 지원 CI를 실행한다. 이력·context·event·summary·장기 자원 수명을 같은 조건으로 비교한다.
+- [x] **RF-07 — 성능·검증 실행 개선**: 병목은 측정 후 개선하고 focused/contract/integration/crash/OS/GUI 검증 경계를 정리한다. 작업 중에는 영향 검증, 큰 통합 경계와 최종 수용에는 전체 회귀·실제 지원 CI를 실행한다. 이력·context·event·summary·장기 자원 수명을 같은 조건으로 비교한다.
 - [ ] **RF-08 — 최종 수용·커밋·문서 최신화**: 타입/build·전체 엔진·코딩 과업·resilience·성능·OS CI와 변경된 GUI/package를 검증한다. public API/event/DB/archive·승인·cancel/unknown/no-replay·예산 계약을 보존하고 코드 양·중복·복잡도·실행 시간의 전후 차이를 기록한다. 남은 조건을 명시한 검증 근거와 TODO를 정리하고 커밋·푸시한다.
 
-리팩터링은 완결 기능별로 병렬 분담하되 `engine.ts`·공통 contracts·동일 store 등 공유 파일의 편집 담당은 하나로 고정한다. 테스트 실패를 숨기는 skip·assertion 축소·timeout 완화로 완료하지 않는다. 줄 수에 임의 목표를 두어 필요한 검증을 없애거나 함수/파일을 과하게 분할하지 않는다. 리팩터링 중 새로운 기능은 별도 TODO로 기록해 완료 범위를 유지한다.
+리팩터링은 완결 기능별로 병렬 분담하되 `engine.ts`·공통 contracts·동일 store 등 공유 파일의 편집 담당은 하나로 고정한다. 테스트 실패를 숨기는 skip·assertion 축소·timeout 완화로 완료하지 않는다. 줄 수에 임의 목표를 두어 필요한 검증을 없애거나 함수/파일을 과하게 분할하지 않는다. 리팩터링 중 새로운 기능은 별도 TODO로 기록해 완료 범위를 유지한다. RF-04/05/06 완료는 위에서 확정한 테스트·CORE·STORE·RUNNER·정리 단위의 구현과 영향 검증에 한정하며, 전체 코드의 의미 감사나 임의의 모든 모듈 재작성을 뜻하지 않는다.
+
+### 후속 개선 후보 — 현재 수용과 분리
+
+- [ ] **NEXT-01 — 큰 이력의 SQLite 저장 비용**: 실제 30분 이력에서 기록한 테이블별 증가와 중복 저장을 근거로 hot/cold 보관·조회 방식을 비교한다. 원본 감사 이력·signed receipt·archive·unknown 자료를 삭제하거나 DB23을 근거 없이 변경하지 않는다.
+- [ ] **NEXT-02 — renderer 초기 로딩 분할**: 현재 빌드 JS 656,738bytes의 큰 chunk 경고를 그대로 기록한다. 필요한 화면별 지연 로딩을 측정하고 실제 GUI/reload 흐름을 보존한 뒤 개선한다.
+- [ ] **NEXT-03 — 복원 이력의 테마 색상**: `var(--text)`의 실제 computed style과 intended theme를 확인한다. 현재 lexical 후보만으로 CSS를 삭제·변경하지 않는다.
 
 ### 진행 중 — 후속 기능·리팩터링 통합 검증
 

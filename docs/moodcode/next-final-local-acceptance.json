@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-current-integrated-acceptance",
+  "recordedAt": "2026-10-08T23:26:21.616266+00:00",
+  "status": "local-passed-current-hosted-and-long-running",
+  "engineFreezeCommit": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+  "engineRuntimeSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
+  "local": {
+    "headless": {
+      "total": 4847,
+      "passed": 4845,
+      "failed": 0,
+      "skipped": 2,
+      "durationMs": 341211.113,
+      "log": {
+        "path": "/tmp/moodcode-next-final-whole-engine.log",
+        "bytes": 622244,
+        "sha256": "c3e6c44ba6738eebc56c35092b0cf5923413b40e69390428d42e0e9276f4ec8b"
+      }
+    },
+    "primaryDatabase": {
+      "version": 23,
+      "schemaObjects": 281,
+      "catalogueUnchanged": true,
+      "sha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+      "report": {
+        "path": "/tmp/moodcode-next-final-db-contract.json",
+        "bytes": 90681,
+        "sha256": "e514fcfabfaae94d7309ee1a57e459410352ffbb5f1ef3d3cc20189f23b4c659"
+      }
+    },
+    "codingEvaluation": {
+      "successful": 3,
+      "attempted": 3,
+      "liveRequests": 0,
+      "modelQualityEvaluated": false,
+      "report": {
+        "path": "/tmp/moodcode-next-final-coding-evaluation.json",
+        "bytes": 320206,
+        "sha256": "9ee4d9203fde0daf916c523e02191fa6533c389e2f4be55cfb2f8dad679dcb2b"
+      }
+    },
+    "resilience": {
+      "passed": true,
+      "iterations": 3,
+      "report": {
+        "path": "/tmp/moodcode-next-final-resilience.json",
+        "bytes": 21561,
+        "sha256": "d4e2c8b87dc7735fbf05cca9b79fed6bcd098962548be5fa3fea437f93935d93"
+      }
+    },
+    "PTY": {
+      "status": "passed",
+      "nativeCases": 15,
+      "historicalCauseClosed": false,
+      "report": {
+        "path": "/tmp/moodcode-next-final-pty-repeatability.json",
+        "bytes": 267221,
+        "sha256": "d0ddf520d2a21ce52f5abb1204cc937b66ff3f94557218f831d6ea044da0a1d1"
+      }
+    },
+    "desktopHost": {
+      "passed": 39,
+      "failed": 0,
+      "log": {
+        "path": "/tmp/moodcode-next-final-desktop-host-tests.log",
+        "bytes": 4402,
+        "sha256": "98b62adf36f823f91c91058b729b99798ffafac9d2260af987387dfcfe2a6893"
+      }
+    },
+    "desktopGUI": {
+      "checks": 15,
+      "externalRequests": 0,
+      "log": {
+        "path": "/tmp/moodcode-next-final-integrated-gui.log",
+        "bytes": 2901,
+        "sha256": "77fbd3c1fbe9d5fb2b92d35b2c1e9b4369fa6708bbd0c8b86cb8b7760679779c"
+      },
+      "expectedFailureRetention": {
+        "path": "/tmp/moodcode-next-final-integrated-gui-failure.log",
+        "bytes": 295,
+        "sha256": "1f18db619b784ca0eeb0967d3f9125df4eba7db50cb4104da1b619ce297e464f"
+      },
+      "utilityCleanupAuthority": "unknown; original fixture kept"
+    },
+    "build": {
+      "passed": true,
+      "rendererJSBytes": 656738,
+      "warning": "renderer chunk exceeds500kB; not hidden or declared optimized",
+      "log": {
+        "path": "/tmp/moodcode-next-final-freeze-build.log",
+        "bytes": 1324,
+        "sha256": "1eebc690610614710d24ca427c687a440f410cfd78e18b3f6e69b428d547b62c"
+      },
+      "rendererAssets": [
+        {
+          "path": "apps/desktop/dist/renderer/assets/index-DK2kWjgj.js",
+          "bytes": 656738
+        }
+      ]
+    }
+  },
+  "correctiveDesktopScope": {
+    "commit": "0e5aa654eaf303fdec91d4967dda08c10c6046ec",
+    "paths": [
+      "scripts/desktop-native-package.mjs",
+      "scripts/desktop-native-package.test.mjs",
+      "scripts/test-desktop-package.mjs"
+    ],
+    "cause": "Actual original Windows ASAR contains the receipt; forward-slash lookup conflicts with native directory separator. Native join fixes traversal without relaxing receipt/approval/binding gates.",
+    "focused": {
+      "passed": 4,
+      "failed": 0,
+      "log": {
+        "path": "/tmp/moodcode-next-windows-asar-corrective-tests.log",
+        "bytes": 669,
+        "sha256": "23e82b708326f111c376d27e4f3b251e0e9054056c4b26d707fff7a313f68e8f"
+      }
+    },
+    "engineEffectiveGraphIdentical": true,
+    "graph": {
+      "path": "/tmp/moodcode-next-final-runtime-equivalence.json",
+      "bytes": 112579,
+      "sha256": "67dd0f21e0ccc1cd8764e0023e177669642a723e7546d4506e3afc3f13d4c724"
+    },
+    "wholeRepeatDecision": "No changed engine/contracts/harness/runtime/native graph; complete prior local whole retained with exact771files/33b digest equivalence. Current hosted source qualification is separate."
+  },
+  "performance": "next-final-performance-comparison.json",
+  "inventory": "next-final-inventory-comparison.json",
+  "currentLong": "Frozena89 current30min active; pending actual final duration/resource/source/noReplay/cleanup report.",
+  "hosted": "Currenta89 Engine6+nativeWindows2+Desktop3 originally: DesktopWindowslookup failure preserved; corrected exact-main hosted acceptance pending.",
+  "externalOpen": [
+    "actual-SIWC-login/model-inference",
+    "actual-Anthropic-account",
+    "signed/notarized/published-distribution",
+    "historical-RPTY-cause"
+  ],
+  "goalToolStatus": "blocked-by-shared-session-mutation; user resume requested; independent execution continues"
+}

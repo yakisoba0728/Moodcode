@@ -1,0 +1,517 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-pty-original-owned-fixture-review",
+  "unit": "RF-TF-01",
+  "status": "local-native-source-and-compiled-qualified-hosted-pending",
+  "repositoryHeadAtEvidenceReview": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+  "noLive": true,
+  "liveProviderRequests": 0,
+  "credentialsRead": false,
+  "scope": {
+    "changedTests": [
+      "packages/engine/src/terminals/job-group-cleanup.integration.test.ts"
+    ],
+    "newPrivateHelpers": [
+      "packages/engine/src/terminals/fixtures/job-group.ts"
+    ],
+    "productionChanges": [],
+    "sourceQualification": true,
+    "compiledQualification": true,
+    "hostedQualification": false,
+    "fullSuiteRun": false
+  },
+  "originalFinding": {
+    "source": {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-job-group-owned-review-56x2nt2e/original-job-group-cleanup.integration.test.ts",
+      "bytes": 5871,
+      "sha256": "6d194528a15d09a1387794f2a4d586abc5a1cde1f289571af53e30d183ac0f69"
+    },
+    "locations": [
+      "Original test first t.after loop",
+      "Original test second t.after loop",
+      "Original test supervisorPid derived through /bin/ps"
+    ],
+    "proof": "Both original after-hooks took numeric PIDs reconstructed from replay output and used process.kill(pid, SIGKILL) when a fresh signal-0 presence check succeeded. The loss case also derived a numeric supervisor PID from ps and signalled it. Those observations can become stale and cannot confer Original process ownership.",
+    "classification": "fixture cleanup ownership defect; no independently proven production defect",
+    "historicalRpty01Cause": "unknown; this fixture correction does not supply the missing historical raw PID/PGID and authoritative outcome"
+  },
+  "correction": {
+    "genuineProductionPath": "TerminalService with its default PosixPtyBackend forks the original terminals/supervisor.ts on the source run; native node-pty creates real interactive zsh and a separate background job group. No replacement or mock backend.",
+    "originalForkSeam": "Capture and restore node:child_process.fork with syncBuiltinESMExports, as in existing diagnostics.integration.test.ts; invoke the actual original fork and retain the resulting ChildProcess.",
+    "selfStop": "The original interactive shell sends SIGSTOP to itself after actual background readiness, preserving the stopped-shell scenario without deriving host signalling authority from replay.",
+    "originalRelease": "Private canonical mkdtemp directory, exclusive mode-600 release file, retained original descriptor and dev/inode/UID identities. Close validates both descriptor and named file plus original parent identity and permissions, then writes through that original descriptor. The original background child holds its own descriptor and exits itself. Copied record/path/PID values are never consulted for release.",
+    "originalSupervisorLoss": "SIGKILL is sent only through the captured live Original ChildProcess after its exitCode and signalCode remain null.",
+    "observations": "Replay PIDs and ps output remain data for original native group assertions and signal-0 absence observation; no numeric process.kill with a nonzero signal exists in the new fixture.",
+    "retention": "Actual SQLite terminal journal, bounded mode-600 before/after-close JSON and source pins remain retained for success, expected uncertainty, and failure. Physical absence never upgrades the native outcome.",
+    "nativeTimeBounds": {
+      "testTimeoutMs": 10000,
+      "terminalMaxDurationMs": 15000,
+      "readinessAndAbsenceMs": 2000,
+      "pollIntervalMs": 10,
+      "psTimeoutMs": 1000,
+      "psMaxBufferBytes": 4096,
+      "evidenceMaxBytes": 524288,
+      "nestedExpectedFailureChildTimeoutMs": 9000,
+      "nestedOutputMaxBytes": 524288
+    },
+    "unchangedOriginalOracles": [
+      "Two actual separate job groups before cancellation",
+      "Every original job absent before private release on cancellation",
+      "Cancellation state cancelled and cleanupConfirmed true",
+      "Actual supervisor loss state uncertain, cleanupConfirmed false, reason supervisor_lost"
+    ],
+    "receiverIsolationRegression": "A copied native record substitutes a genuinely live unrelated Original ChildProcess PID and borrowed paths as the close receiver. The original arrow closure ignores that receiver, closes only original handles/control, and the unrelated child answers ping with zero nonzero signals. This proves receiver isolation only; it does not force OS PID reuse or cover a future numeric-rescue branch from captured observations.",
+    "evidenceFailureCleanup": "close remembers the first error and still independently attempts actual owned service.close, original descriptor release and bounded absence observation; both original control FD and journal are closed in finally. The first error is rethrown unchanged. The after-hook keeps the same rejected close promise, including on expected write failure.",
+    "actualWriteFault": "The new genuine nested native test makes before-close.json a private directory, causing actual EISDIR on helper publication. Repeated close rejects with the exact same Error, release byte becomes1, original observed jobs are absent, and reopened Native SQLite remains uncertain/cleanupfalse. Its actual after-hook leaves child exit1/hookFailed; the outer test asserts that failure rather than granting a successful native fixture outcome."
+  },
+  "priorQualification": {
+    "originalOwnershipSourceAndCompiled3PassProof": {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-job-group-owned-review-56x2nt2e/pre-evidence-order-review.json",
+      "bytes": 26098,
+      "sha256": "1fe4e0a96a5d82facdbf64f9cbc0b323158a988097874c398a10620b5cbe6467"
+    },
+    "preservedBeforeCorrections": [
+      {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-job-group-owned-review-56x2nt2e/pre-evidence-order-fixture.ts",
+        "bytes": 7458,
+        "sha256": "129c4b7e989e74df173515726859430533d73f14007fdc02c8742e2499a8a7f6"
+      },
+      {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-job-group-owned-review-56x2nt2e/pre-evidence-order-tests.ts",
+        "bytes": 3691,
+        "sha256": "736f783b61cc6a3b5d0110d545ca70c2bccb0d1947de7f2ae187c1690fa833c4"
+      },
+      {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-job-group-owned-review-56x2nt2e/pre-evidence-order-fixture.js",
+        "bytes": 7703,
+        "sha256": "eabef09e12b98372ddc64ca67edde7e6e10419cad24c660799725cbc27dfce52"
+      },
+      {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-job-group-owned-review-56x2nt2e/pre-evidence-order-tests.js",
+        "bytes": 3853,
+        "sha256": "d52f1200a9dfdaa0460ea68513df3d06a76b50929112469d041474a30714ead3"
+      },
+      {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-job-group-owned-review-56x2nt2e/pre-evidence-order-compiled.log",
+        "bytes": 2964,
+        "sha256": "5be1eb4508eccee52d64d25316636fe83a612ac3496bb1cf3b8691fbd2a99b5e"
+      },
+      {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-job-group-owned-review-56x2nt2e/pre-evidence-order-build.log",
+        "bytes": 34,
+        "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+      }
+    ],
+    "qualification": "These exact earlier source/compiled bytes and 3/3 proof remain preserved; they do not qualify the later error-order correction or TAP change. Root earlier owned-cleanup9/9 also used the earlier reporter bytes and is not credited as the final test source."
+  },
+  "verification": {
+    "runtime": {
+      "node": "v26.9.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "selection": "Focused TerminalService/default PosixPtyBackend with real original supervisor and node-pty; selected source/effective files are pinned below. Whole source-graph attestation belongs to the separate Root freeze."
+    },
+    "source": {
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test packages/engine/src/terminals/job-group-cleanup.integration.test.ts",
+      "exitCode": 0,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skip": 0,
+      "durationMs": 1882.023583,
+      "rawLog": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-job-group-owned-review-56x2nt2e/evidence-order-final-source.log",
+        "bytes": 1117,
+        "sha256": "b60823383ede2f4ac53f34e7716b3e839006105b00803d3e320275633e189ba9"
+      },
+      "nativeFixtures": [
+        {
+          "case": "cancel",
+          "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-bKz85m",
+          "journalSchemaVersion": 1,
+          "nativeId": "a0254ef2-135b-4985-a9d8-9fe93f3269d3",
+          "nativeOutcome": {
+            "state": "cancelled",
+            "cleanupConfirmed": true,
+            "reason": "cancel"
+          },
+          "actualReopenedSqliteMatchesEvidence": true,
+          "fixtureSource": {
+            "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/fixtures/job-group.ts",
+            "sha256": "f42ee80b5839947e5a99edfa5291a3fd1511ffa65c3569f91118bcd23ac15f7f"
+          },
+          "retainedFiles": [
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-bKz85m/terminal.sqlite",
+              "bytes": 12288,
+              "sha256": "c1075e507639cddc41cea34788df26bf39140b573bbcfce83af7bba9fc8b4771"
+            },
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-bKz85m/after-close.json",
+              "bytes": 4164,
+              "sha256": "36a03e24a52b8732ab9cb63f33b5bcf7e18d80ab8dbb6331405397efa3c7dfe0"
+            }
+          ]
+        },
+        {
+          "case": "supervisor-loss",
+          "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-6sRY89",
+          "journalSchemaVersion": 1,
+          "nativeId": "9da40552-d4dd-4786-b250-472ce6af133a",
+          "nativeOutcome": {
+            "state": "uncertain",
+            "cleanupConfirmed": false,
+            "reason": "supervisor_lost"
+          },
+          "actualReopenedSqliteMatchesEvidence": true,
+          "fixtureSource": {
+            "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/fixtures/job-group.ts",
+            "sha256": "f42ee80b5839947e5a99edfa5291a3fd1511ffa65c3569f91118bcd23ac15f7f"
+          },
+          "retainedFiles": [
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-6sRY89/terminal.sqlite",
+              "bytes": 12288,
+              "sha256": "666121ecdc2b641d03bc0fbc664e6dbe1431b939349bf79083215a80ebe53faf"
+            },
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-6sRY89/after-close.json",
+              "bytes": 3926,
+              "sha256": "a288c5a181b62ca657cac00a6ab35832a5b67663b0df78ec060f2e709121c940"
+            }
+          ]
+        },
+        {
+          "case": "receiver-isolation",
+          "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-WCd8Kg",
+          "journalSchemaVersion": 1,
+          "nativeId": "036ddd9f-3723-43b0-8395-ed5da52917da",
+          "nativeOutcome": {
+            "state": "uncertain",
+            "cleanupConfirmed": false,
+            "reason": "supervisor_lost"
+          },
+          "actualReopenedSqliteMatchesEvidence": true,
+          "fixtureSource": {
+            "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/fixtures/job-group.ts",
+            "sha256": "f42ee80b5839947e5a99edfa5291a3fd1511ffa65c3569f91118bcd23ac15f7f"
+          },
+          "retainedFiles": [
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-WCd8Kg/terminal.sqlite",
+              "bytes": 12288,
+              "sha256": "eff3973f29bad72067d6aa0befae4b2039749d196569a4be36d30b701131cfcb"
+            },
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-WCd8Kg/after-close.json",
+              "bytes": 3935,
+              "sha256": "4ec6ac91424f8d39a46a1935bf45673d968ae80402b4ffad4cd4e170fcd2aba9"
+            }
+          ]
+        },
+        {
+          "case": "expected-evidence-write-failure",
+          "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-26CjKd",
+          "journalSchemaVersion": 1,
+          "nativeId": "b447b386-9795-4ca3-a04d-aa927f9a9738",
+          "nativeOutcome": {
+            "state": "uncertain",
+            "cleanupConfirmed": false,
+            "reason": "supervisor_lost"
+          },
+          "actualReopenedSqliteMatchesEvidence": true,
+          "fixtureSource": {
+            "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/fixtures/job-group.ts",
+            "sha256": "f42ee80b5839947e5a99edfa5291a3fd1511ffa65c3569f91118bcd23ac15f7f"
+          },
+          "retainedFiles": [
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-26CjKd/terminal.sqlite",
+              "bytes": 12288,
+              "sha256": "ae2f329f4335b3a380866c2bd3ff76b985267e5a284ed0ba75408989b7359b7e"
+            },
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-26CjKd/close-failure.json",
+              "bytes": 4127,
+              "sha256": "8d959c05d07c905aef3b753807aa141b917ff989cbb52d9a4c6cbf6f18c724cc"
+            },
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-26CjKd/expected-failed-child.log",
+              "bytes": 3354,
+              "sha256": "5cd2cceae0c896e653749d68a5f6918520b56130230d8f493fa3c48240d819f9"
+            }
+          ]
+        }
+      ]
+    },
+    "compiled": {
+      "command": "node --test packages/engine/dist/terminals/job-group-cleanup.integration.test.js",
+      "exitCode": 0,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skip": 0,
+      "durationMs": 1783.77,
+      "rawLog": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-job-group-owned-review-56x2nt2e/evidence-order-final-compiled.log",
+        "bytes": 1115,
+        "sha256": "f67c92418569159c1d3b23bc45c003d250812937835638b61817763951ad542b"
+      },
+      "rootBuild": {
+        "exitCode": 0,
+        "rawLog": {
+          "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-job-group-owned-review-56x2nt2e/evidence-order-final-build.log",
+          "bytes": 34,
+          "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+        }
+      },
+      "nativeFixtures": [
+        {
+          "case": "cancel",
+          "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-0zvboy",
+          "journalSchemaVersion": 1,
+          "nativeId": "e531120c-3e80-4ea7-9bed-c926f21d2746",
+          "nativeOutcome": {
+            "state": "cancelled",
+            "cleanupConfirmed": true,
+            "reason": "cancel"
+          },
+          "actualReopenedSqliteMatchesEvidence": true,
+          "fixtureSource": {
+            "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/fixtures/job-group.js",
+            "sha256": "d7615a995d45587932fa68db90d55b451916c1c8babd004814cbac143eff402e"
+          },
+          "retainedFiles": [
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-0zvboy/terminal.sqlite",
+              "bytes": 12288,
+              "sha256": "855de3ad583517f192dadc44c06f93484e44a59d34492d9c669bc2a4dccceb31"
+            },
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-0zvboy/after-close.json",
+              "bytes": 4165,
+              "sha256": "4ad395b527345fda7d667c4807bcfd7e9fcf3330a8a929484875b39898eba693"
+            }
+          ]
+        },
+        {
+          "case": "supervisor-loss",
+          "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-dLVvBD",
+          "journalSchemaVersion": 1,
+          "nativeId": "4683f06d-8f4a-4f6e-972f-62326914e3f6",
+          "nativeOutcome": {
+            "state": "uncertain",
+            "cleanupConfirmed": false,
+            "reason": "supervisor_lost"
+          },
+          "actualReopenedSqliteMatchesEvidence": true,
+          "fixtureSource": {
+            "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/fixtures/job-group.js",
+            "sha256": "d7615a995d45587932fa68db90d55b451916c1c8babd004814cbac143eff402e"
+          },
+          "retainedFiles": [
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-dLVvBD/terminal.sqlite",
+              "bytes": 12288,
+              "sha256": "3cd7e3221933d3145cca2363c589d77ffee564a2fe2cc5d027b636dbdb4a233d"
+            },
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-dLVvBD/after-close.json",
+              "bytes": 3927,
+              "sha256": "9fb1f9a446f147894c68dce1c2894ce76cb2588e180d1e0298a62f16be02ce0a"
+            }
+          ]
+        },
+        {
+          "case": "receiver-isolation",
+          "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-uRLSQh",
+          "journalSchemaVersion": 1,
+          "nativeId": "7727c432-d4a7-4846-a220-f04b87a9e91d",
+          "nativeOutcome": {
+            "state": "uncertain",
+            "cleanupConfirmed": false,
+            "reason": "supervisor_lost"
+          },
+          "actualReopenedSqliteMatchesEvidence": true,
+          "fixtureSource": {
+            "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/fixtures/job-group.js",
+            "sha256": "d7615a995d45587932fa68db90d55b451916c1c8babd004814cbac143eff402e"
+          },
+          "retainedFiles": [
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-uRLSQh/terminal.sqlite",
+              "bytes": 12288,
+              "sha256": "0144eab03d328e1f9ec89c80182b6a8c6d647700a004b315368e711a144f8d8c"
+            },
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-uRLSQh/after-close.json",
+              "bytes": 3936,
+              "sha256": "481e286e9064c5664365e5f933dbf4d01e1a7470de9e3ef5483f8cea0866d392"
+            }
+          ]
+        },
+        {
+          "case": "expected-evidence-write-failure",
+          "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-0yUZyQ",
+          "journalSchemaVersion": 1,
+          "nativeId": "6578bab5-2bc0-4bcb-9c2c-e9743616c782",
+          "nativeOutcome": {
+            "state": "uncertain",
+            "cleanupConfirmed": false,
+            "reason": "supervisor_lost"
+          },
+          "actualReopenedSqliteMatchesEvidence": true,
+          "fixtureSource": {
+            "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/fixtures/job-group.js",
+            "sha256": "d7615a995d45587932fa68db90d55b451916c1c8babd004814cbac143eff402e"
+          },
+          "retainedFiles": [
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-0yUZyQ/terminal.sqlite",
+              "bytes": 12288,
+              "sha256": "d68a40fbf400a86e39faa038fc9ad47b8c74da6fdfa0eb28a810c87b16594d2c"
+            },
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-0yUZyQ/close-failure.json",
+              "bytes": 4128,
+              "sha256": "2922bdcd733d568e74a3e3049c71e4ce58489b47102934cd465158d01c4743d6"
+            },
+            {
+              "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-pty-owned-groups-0yUZyQ/expected-failed-child.log",
+              "bytes": 3364,
+              "sha256": "dd02b061c89241cd074c9b56a5952ec9631ed9db7a00e3b23ce1210e6eeb40cf"
+            }
+          ]
+        }
+      ]
+    },
+    "typecheck": {
+      "exitCode": 0,
+      "rawLog": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-job-group-owned-review-56x2nt2e/evidence-order-final-typecheck.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "diffCheck": {
+      "exitCode": 0
+    },
+    "nativeCapabilityReference": {
+      "path": "/tmp/moodcode-next-pty-environment-causality.json",
+      "bytes": 21888,
+      "sha256": "8f239a2bd4487064625e913d234b9d8ab33b97354ab7e6eac342f84497e9e48e"
+    },
+    "intermediateProof": "Intermediate4/4 source used inherited child-v8 reporter bytes decoded as UTF8; retained local fixture aSqX3h and original source log remain, but that reporter capture is not credited as raw-byte-exact. Final nested child clears NODE_TEST_CONTEXT and explicitly uses TAP."
+  },
+  "sourcePins": [
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/job-group-cleanup.integration.test.ts",
+      "bytes": 6629,
+      "sha256": "2e75ba97f84bd991708083cacd56b752c67a8b4ce0f2f26b8454318050cec691"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/fixtures/job-group.ts",
+      "bytes": 7971,
+      "sha256": "f42ee80b5839947e5a99edfa5291a3fd1511ffa65c3569f91118bcd23ac15f7f"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/service.ts",
+      "bytes": 26831,
+      "sha256": "4242abf99070bc67e4490a8893f9689d1148f19888b9b27f0169bbae8fb6b5f0"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/backend.ts",
+      "bytes": 14422,
+      "sha256": "6577743bde681dbe553780d6d044574888cc4b162961833b3bc41a54aa43fda8"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/supervisor.ts",
+      "bytes": 9979,
+      "sha256": "15490da803f0b6fbea2bcd6c2b25e8ea7e0779527903905229d59b4f994b073b"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/journal.ts",
+      "bytes": 7178,
+      "sha256": "22d9991ffbf4b1076d3489460098f99eae1a42c56b8f6195b95b1c8aa9badf57"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/diagnostics.ts",
+      "bytes": 15837,
+      "sha256": "f6cf9c22449e353d68e69ead491af99f9f8584caa5f95668bfe92b8b72bf96ae"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/types.ts",
+      "bytes": 4096,
+      "sha256": "235f6c8efa305aa45cb17133ac0800de9afaced8f0fd5a7eb2fbb69109a9cb92"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/terminals/job-groups.ts",
+      "bytes": 3565,
+      "sha256": "e9f00039a55b1b4e91ffae53701e9fdad3c831ba6b48f7b45aa22f13270fbe10"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/tools/command/process-control.ts",
+      "bytes": 13000,
+      "sha256": "ff48257d45665c85f8077ea17d09d22b043fff41b768db0420fa2c9314ea1173"
+    }
+  ],
+  "effectiveRuntimePins": [
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/job-group-cleanup.integration.test.js",
+      "bytes": 6825,
+      "sha256": "e53479439db1a5915ed57f1aa067be711bca1add9ca73eb19e0666d9df6d0456"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/fixtures/job-group.js",
+      "bytes": 8704,
+      "sha256": "d7615a995d45587932fa68db90d55b451916c1c8babd004814cbac143eff402e"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/service.js",
+      "bytes": 27200,
+      "sha256": "81a3f177c767a19cd811c9665682d7799ceedd9635e3ac08ea5a6753af47a8f5"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/backend.js",
+      "bytes": 15722,
+      "sha256": "d43895888243893fa5e138f4f0e77092a1766837ab2278cefcb7586d6bf468dd"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/supervisor.js",
+      "bytes": 10786,
+      "sha256": "c04ec200949a0569e42a98dfc62d561c08795d39421bcbbaa568a84219e9c35e"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/journal.js",
+      "bytes": 7379,
+      "sha256": "ee7198e5fe41a037e20f5600b9315126b5b9cbe565c68add7b966b9f9aad5c43"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/diagnostics.js",
+      "bytes": 16692,
+      "sha256": "7c35b9fdb9df177d3c20fbe752020264eb70338de7f7763c02a62d9e243d470d"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/types.js",
+      "bytes": 383,
+      "sha256": "e775302ef954ed5ba0a245895898d324ab288da32c9e660677dcd4ea2df1c1e2"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/terminals/job-groups.js",
+      "bytes": 3039,
+      "sha256": "e0e6a503d1c8e6b7f4aa17da38e363a9d340c9eb0fd55ff26166a9562eb3bbc3"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/tools/command/process-control.js",
+      "bytes": 12938,
+      "sha256": "4a687c905eaef651e7e024b85019c29cce8ab766dbd5944c47cc0af267f1c2ff"
+    }
+  ],
+  "remainingLimitations": [
+    "Focused actual Darwin source/compiled tests only; hosted gates/full engine/current whole-source qualification remain separate",
+    "Standalone SqliteTerminalJournal schema1, distinct from Engine database23",
+    "Receiver isolation is proven; actual OS PID reuse and a future stale captured-PID rescue branch are not reproduced or qualified",
+    "Historical R-PTY-01 cause remains unknown; no missing historical raw PID/PGID or authoritative outcome is reconstructed",
+    "No Windows native PTY support credit; original Darwin gate and existing native timeouts remain"
+  ]
+}

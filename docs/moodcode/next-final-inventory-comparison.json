@@ -1,0 +1,764 @@
+{
+  "schemaVersion": 1,
+  "status": "qualified-frozen-structural-comparison-and-finite-manual-review",
+  "workItem": "RF-01/RF-02/RF-06",
+  "source": {
+    "baselineCommit": "99cc0c595c54d491090be7d570944fa531fd9d93",
+    "finalCommit": "0e5aa654eaf303fdec91d4967dda08c10c6046ec",
+    "baselineIndexSha256": "48531b9eecb967bd5f6f28cadb0fb101e1d825e711bdbd70e70fa03fdbcdcbf7",
+    "finalIndexSha256": "7575b48ef894c5d9418f0289173283a48c96a10cd23d60c2a48da392018e5e98",
+    "baselineFingerprint": "655bf731c7a1466c675b08649d5949fd5585e926d03328b2c32344b0b2823e02",
+    "finalFingerprint": "df642a753ee3171eb6d64ffe5465e5259a6424bdc4615b02c8546eb64674fbbe",
+    "bothHeadIndexSourceStable": true,
+    "comparisonOnly": "No main source, HEAD, index, build or goal mutation. Only this new document is written.",
+    "priorQualifiedCommit": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+    "observedReviewHead": "35746c63b1693e8e9e74b0db6c0c372545804382",
+    "docsOnlyChangesAfterMeasuredSnapshot": [
+      "docs/moodcode/next-desktop-package-progress.json",
+      "docs/moodcode/next-desktop-progress.json"
+    ]
+  },
+  "inputs": {
+    "baseline": {
+      "path": "/tmp/moodcode-next-owned-inventory-baseline.json",
+      "bytes": 11482800,
+      "sha256": "9609ce81e4805fd1973c59aa90b4f3f5a4635b178f61636225ed90b1f1cbdf2d"
+    },
+    "qualifiedFinal": {
+      "path": "/tmp/moodcode-next-final-owned-inventory-corrective.json",
+      "bytes": 11510462,
+      "sha256": "c35abfd3785accc6d0dcc5245015d47c21270d9338c4a091039d39fa16fefba4"
+    },
+    "preservedFailedFullAttempt": {
+      "path": "/tmp/moodcode-next-final-owned-inventory.json",
+      "bytes": 240,
+      "sha256": "50c1b641f7bb11abe9672b149cd0f3378a36dbb0c8bc77ccbf12a6b679d9b9d5",
+      "state": "measurement-failed",
+      "executionStatus": "failed",
+      "failure": "max-report-bytes",
+      "qualification": "240-byte max-report-bytes operational failure from full/top100 output under64MiB. No source counts/candidates inferred from this failed attempt."
+    },
+    "qualifiedFinalStderr": {
+      "path": "/tmp/moodcode-next-final-owned-inventory-corrective.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "failedAttemptStderr": {
+      "path": "/tmp/moodcode-next-final-owned-inventory.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "priorQualifiedSnapshot": {
+      "path": "/tmp/moodcode-next-final-owned-inventory-qualified.json",
+      "bytes": 11508778,
+      "sha256": "a8d5f91286544b6af1d4b46000ef92ce6c8fd4ff49e1edd5409eb69c54397cad",
+      "source": {
+        "head": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+        "indexSha256": "a4cca20fd52c61011c1c4a19272170aac8a9bfdd5fc96e5c546e0dcdbf9d9b47",
+        "afterIndexSha256": "a4cca20fd52c61011c1c4a19272170aac8a9bfdd5fc96e5c546e0dcdbf9d9b47",
+        "afterHead": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+        "stable": true,
+        "fingerprint": "e05144bc736535812e676c63f84165fd86718b63ba923c16af6475a3c887864e",
+        "selection": "Git index tracked paths; captured working-tree bytes",
+        "workingTreeChangedPaths": [],
+        "validationFailures": []
+      },
+      "ownedTotals": {
+        "files": 1079,
+        "measuredFiles": 1079,
+        "physicalLines": 311494,
+        "bytes": 14789359,
+        "functions": 31428,
+        "imports": 9221,
+        "exports": 3733,
+        "calls": 181459
+      },
+      "functionComplexity": {
+        "total": 80658,
+        "p50": 1,
+        "p95": 8,
+        "max": 204
+      },
+      "qualification": "Original a89d749 completed summary/top20 snapshot retained unchanged; corrective final does not replace its provenance."
+    },
+    "priorQualifiedSnapshotStderr": {
+      "path": "/tmp/moodcode-next-final-owned-inventory-qualified.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "wholeEngineRunLog": {
+      "path": "/tmp/moodcode-next-final-whole-engine.log",
+      "bytes": 622244,
+      "sha256": "c3e6c44ba6738eebc56c35092b0cf5923413b40e69390428d42e0e9276f4ec8b",
+      "observedCounters": {
+        "tests": 4847,
+        "pass": 4845,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 2,
+        "todo": 0,
+        "durationMs": 341211.113
+      },
+      "sourceFreeze": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "qualification": "Completed Root run, observed from its retained log. This comparison did not execute tests. Only the three Desktop scripts changed after the a89d749 freeze; compiled-runtime continuity to corrective HEAD requires the separate Root byte comparison and is not established here."
+    }
+  },
+  "method": {
+    "reference": {
+      "path": "docs/moodcode/refactor-inventory-method.md",
+      "line": 44
+    },
+    "runtime": "v26.9.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "typescript": "7.0.2",
+    "allSixToolPinsEqual": true,
+    "detail": "summary on baseline, prior a89d749 and corrective final captures; full function/call arrays omitted",
+    "boundsDifferences": {
+      "baseline": {
+        "top": 40,
+        "maxReportBytes": 134217728,
+        "timeoutMs": 120000
+      },
+      "final": {
+        "top": 20,
+        "maxReportBytes": 67108864,
+        "timeoutMs": 60000
+      }
+    },
+    "comparable": "Owned source selection, physical counting, function/decision definitions, parser/tool pins and duplicate minimum6body-lines/40AST-nodes match. All three captures completed without unreadable, syntax-error, changed-source or exceeded measurement bounds. Baseline/current top caps differ only for ranked candidates; top/noMatchedCall samples are not exhaustive.",
+    "complexity": "1+owned syntax decisions per executable function, nested decisions owned once. File/helper sums are structure proxies; do not infer semantic path count, runtime/coverage or safety from them.",
+    "physicalLines": "Blank lines, comments and literals included. Inclusive function spans overlap; their sum is not distinct source size."
+  },
+  "coverage": {
+    "baseline": {
+      "ownedPhysical": 1060,
+      "ownedAst": 1051,
+      "ownedUnsupported": 9,
+      "physicalFailures": 0,
+      "syntaxFailures": 0
+    },
+    "final": {
+      "ownedPhysical": 1079,
+      "ownedAst": 1070,
+      "ownedUnsupported": 9,
+      "physicalFailures": 0,
+      "syntaxFailures": 0
+    },
+    "scope": "1051 baseline AST files ->1070 current AST files, plus9 physical/manual unsupported formats. Two tracked Python analysis files/424lines remain a separate ancillary bucket. This is structural coverage plus selected nine-file/manual and finite caller/contract review, not all-source semantic/unused/dependency proof.",
+    "completeFlags": {
+      "baseline": false,
+      "final": false,
+      "baselineRefactorAcceptance": false,
+      "finalRefactorAcceptance": false
+    },
+    "exitMeaning": "Qualified JSON executionStatus completed with9 unsupported AST formats. The CLI complete=false exit1 is the documented coverage result, not operational failure. The earlier max-report-bytes exit1 is operational failure and remains separately retained."
+  },
+  "ownedTotals": {
+    "before": {
+      "files": 1060,
+      "measuredFiles": 1060,
+      "physicalLines": 307720,
+      "bytes": 14605820,
+      "functions": 31051,
+      "imports": 9089,
+      "exports": 3709,
+      "calls": 179228
+    },
+    "after": {
+      "files": 1079,
+      "measuredFiles": 1079,
+      "physicalLines": 311524,
+      "bytes": 14791078,
+      "functions": 31433,
+      "imports": 9222,
+      "exports": 3734,
+      "calls": 181490
+    },
+    "delta": {
+      "files": 19,
+      "measuredFiles": 19,
+      "physicalLines": 3804,
+      "bytes": 185258,
+      "functions": 382,
+      "imports": 133,
+      "exports": 25,
+      "calls": 2262
+    },
+    "functionComplexity": {
+      "before": {
+        "total": 79873,
+        "p50": 1,
+        "p95": 8,
+        "max": 226
+      },
+      "after": {
+        "total": 80663,
+        "p50": 1,
+        "p95": 8,
+        "max": 204
+      },
+      "deltaSum": 790
+    },
+    "interpretation": "Global source/test growth is real. Function complexity maximum226->204 includes the selected constructor reduction; total79873->80663 increases with added tests/fixtures/tooling. No global line/complexity/performance reduction claimed."
+  },
+  "sourceGrowth": {
+    "addedOwnedFiles": 19,
+    "removedOwnedFiles": 0,
+    "changedExistingOwnedFiles": 64,
+    "byToolRole": [
+      {
+        "role": "product",
+        "files": [
+          419,
+          423
+        ],
+        "lineDelta": 271,
+        "functionDelta": 21
+      },
+      {
+        "role": "test",
+        "files": [
+          485,
+          493
+        ],
+        "lineDelta": 2415,
+        "functionDelta": 268
+      },
+      {
+        "role": "fixture",
+        "files": [
+          94,
+          98
+        ],
+        "lineDelta": 278,
+        "functionDelta": 25
+      },
+      {
+        "role": "tooling",
+        "files": [
+          62,
+          65
+        ],
+        "lineDelta": 840,
+        "functionDelta": 68
+      }
+    ],
+    "manualRoleQualification": {
+      "paths": [
+        "packages/engine/src/test-fixtures/atomic-crash-evidence.ts",
+        "packages/engine/src/test-fixtures/cooperative-gate.ts",
+        "packages/engine/src/test-fixtures/native-data.ts"
+      ],
+      "toolRole": "product fallback",
+      "actualConsumerEvidence": [
+        {
+          "path": "packages/engine/src/jobs/fixtures/crash-host-command.ts",
+          "line": 3
+        },
+        {
+          "path": "packages/engine/src/workflows/fixtures/workflow.ts",
+          "line": 22
+        },
+        {
+          "path": "packages/engine/src/code-mode/fixtures/engine.ts",
+          "line": 26
+        }
+      ],
+      "qualification": "These3 new helpers/86lines are test support, imported by authored tests/native fixtures and not re-exported by the engine index in the finite consumer check. Keep raw tool roles/totals unchanged; do not mislabel their increase as user-facing production functionality or claim global private/unused proof."
+    },
+    "addedClassificationCounts": {
+      "product": 4,
+      "test": 8,
+      "fixture": 4,
+      "tooling": 3
+    }
+  },
+  "selectedUnits": [
+    {
+      "id": "CORE-01/02/03/04",
+      "paths": [
+        "packages/engine/src/engine.ts",
+        "packages/engine/src/jobs/host-command-delivery-producer.ts",
+        "packages/engine/src/jobs/owned-command-producer.ts",
+        "packages/engine/src/jobs/command-delivery-input.ts"
+      ],
+      "before": {
+        "files": 3,
+        "lines": 3453,
+        "bytes": 249827,
+        "functions": 815,
+        "syntaxDecisions": 952,
+        "functionComplexitySum": 1767
+      },
+      "after": {
+        "files": 4,
+        "lines": 3446,
+        "bytes": 247115,
+        "functions": 817,
+        "syntaxDecisions": 881,
+        "functionComplexitySum": 1698
+      },
+      "delta": {
+        "files": 1,
+        "lines": -7,
+        "bytes": -2712,
+        "functions": 2,
+        "syntaxDecisions": -71,
+        "functionComplexitySum": -69
+      },
+      "constructorWithBooleanHelper": {
+        "before": {
+          "constructorLines": 942,
+          "constructorComplexity": 226
+        },
+        "after": {
+          "constructorLines": 935,
+          "constructorComplexity": 170,
+          "helperComplexity": 3,
+          "helperCalls": 28,
+          "inclusiveSelectedComplexity": 173
+        }
+      },
+      "evidence": "docs/moodcode/core-refactor-integration-verification.json",
+      "qualification": "Metrics include the new command-delivery-input module and all functions of the selected production files. Final engine SHA matches the later erased-type source proof; other3 final hashes match CORE filesAfter. Whole scope decisions952->881 and complexity1767->1698, rather than treating moved code as removed. Existing independent contract/native tests are separate evidence, not newly executed here."
+    },
+    {
+      "id": "STORE-01",
+      "path": "packages/engine/src/agent-backends/store.ts",
+      "before": {
+        "lines": 4088,
+        "bytes": 134116,
+        "functions": 144,
+        "syntaxDecisions": 1231,
+        "functionComplexitySum": 1375,
+        "sha256": "771cfbe0993676657c82d4bfb89e3fcd2c3f06f9922763114c0c71333c0cfaa7"
+      },
+      "after": {
+        "lines": 4118,
+        "bytes": 134863,
+        "functions": 145,
+        "syntaxDecisions": 1231,
+        "functionComplexitySum": 1376,
+        "sha256": "1a47ea5d3caf772dc96ef9053d7e36b5929b79c0f2aa75ddce5ef4576d473ff9"
+      },
+      "affectedFunctions": {
+        "beforeComplexity": 57,
+        "afterIncludingHelperComplexity": 58,
+        "beforeDecisions": 55,
+        "afterIncludingHelperDecisions": 55,
+        "functions": [
+          "append",
+          "appendAdministrative",
+          "prepareSignedBackendRevision"
+        ]
+      },
+      "evidence": "docs/moodcode/next-store-runner-refactor-measurement.json",
+      "qualification": "Current source hash exactly matches the verified after record. Whole store4088->4118lines,1231 decisions unchanged,1375->1376 complexity. Gain is one typed pure record/receipt assembly responsibility; transactions/cache/UUID/time/error/order stay with original callers. No line/complexity reduction claimed."
+    },
+    {
+      "id": "RUNNER-01",
+      "path": "packages/engine/src/runner/index.ts",
+      "before": {
+        "lines": 2423,
+        "bytes": 162554,
+        "functions": 229,
+        "syntaxDecisions": 1154,
+        "functionComplexitySum": 1383,
+        "sha256": "16895c5d89eabb216eb65fb1aa6dbd2ab5d5a807a92b77a586d87808e22cbdac"
+      },
+      "after": {
+        "lines": 2435,
+        "bytes": 162444,
+        "functions": 230,
+        "syntaxDecisions": 1140,
+        "functionComplexitySum": 1370,
+        "sha256": "05e11db20fb722d870be650d6d18e3945da6b70ac1e923bde5869d9c83e40b9e"
+      },
+      "affectedFunctions": {
+        "beforeComplexity": 58,
+        "afterIncludingHelperComplexity": 45,
+        "beforeDecisions": 56,
+        "afterIncludingHelperDecisions": 42,
+        "functions": [
+          "assertTeamToolContext",
+          "assertWorkflowToolContext",
+          "liveToolOwnerChanged"
+        ]
+      },
+      "evidence": "docs/moodcode/next-store-runner-refactor-measurement.json",
+      "commentOnlySourceContinuity": {
+        "verifiedAfterSha256": "ebb4d567f1215b81fc1d704e7371df8f9be5197ab42e5cccdc37cee33adf58e0",
+        "finalSha256": "05e11db20fb722d870be650d6d18e3945da6b70ac1e923bde5869d9c83e40b9e",
+        "finalTextWithOnlyNativeOwnerCommentRevertedSha256": "ebb4d567f1215b81fc1d704e7371df8f9be5197ab42e5cccdc37cee33adf58e0"
+      },
+      "qualification": "Current bytes differ from delegated after capture only by the source-qualified POSIX->native-owner rationale correction. Whole runner2423->2435lines,1154->1140 decisions,1383->1370 complexity; helper-inclusive scoped58->45. Readonly command-job predicate order and post-abort observation differences remain separate."
+    }
+  ],
+  "comments": {
+    "selectedScope": "Six production files in CORE/STORE/RUNNER, exact baseline->frozen diff only",
+    "addedRationale": [
+      {
+        "path": "packages/engine/src/agent-backends/store.ts",
+        "line": 335
+      },
+      {
+        "path": "packages/engine/src/runner/index.ts",
+        "line": 1006
+      }
+    ],
+    "correctedRationale": {
+      "path": "packages/engine/src/runner/index.ts",
+      "line": 2190
+    },
+    "retainedExamples": [
+      {
+        "path": "packages/engine/src/engine.ts",
+        "line": 387
+      },
+      {
+        "path": "packages/engine/src/engine.ts",
+        "line": 777
+      },
+      {
+        "path": "packages/engine/src/runner/index.ts",
+        "line": 1362
+      },
+      {
+        "path": "packages/engine/src/agent-backends/store.ts",
+        "line": 438
+      }
+    ],
+    "delta": "Selected diff has3 added comment-looking lines and1 removed; two concise helper responsibilities added and one POSIX-specific sentence corrected. This is finite manual rationale review, not a global comment count. Original ownership, unknown/no-replay and license notices remain."
+  },
+  "duplicateCandidates": {
+    "definition": "Complete executable body AST and exact leaf spelling, trivia omitted; minimum6lines/40nodes. Candidates require manual caller/registry/public API/native/DB/archive evidence.",
+    "beforeTotalGroups": 36,
+    "afterTotalGroups": 30,
+    "deltaGroups": -6,
+    "reportCaps": {
+      "beforeReported": 36,
+      "afterReported": 20,
+      "afterUnreported": 10
+    },
+    "finiteExamples": [
+      {
+        "fingerprint": "8a054e2caf53219c1bab95f0e24847181352aa99a3cacc352fc546105765eb0a",
+        "name": "acceptedRequest",
+        "beforeOccurrences": 4,
+        "afterOccurrences": 3,
+        "finalPaths": [
+          "packages/engine/src/jobs/command-delivery-input.ts",
+          "packages/engine/src/jobs/engine-producer.ts",
+          "packages/engine/src/schedules/engine-producer.ts"
+        ],
+        "decision": "CORE extracts host/owned input checks to one internal helper. Engine-job and schedule producers retain distinct ownership/admission scopes; residual3 exact bodies are a retained future candidate, not dead code."
+      },
+      {
+        "fingerprint": "74cc2028e94e88c9ea6b320bd002a4c86a22b12f5485f01f63e1d02f0e4a009b",
+        "name": "sameBirth",
+        "beforeOccurrences": 2,
+        "afterOccurrences": 2,
+        "finalPaths": [
+          "packages/engine/src/jobs/host-command-delivery-records.ts",
+          "packages/engine/src/jobs/owned-command-delivery-records.ts"
+        ],
+        "decision": "Retain original native journal/birth validation scopes. Exact body similarity alone does not authorize merging records, cleanup authority or archive compatibility."
+      }
+    ],
+    "limits": "36->30 is an exact structural group-count delta, not a proven count of semantic duplication removed. Final top20 omits10 groups: absence from the reported list cannot establish removal. Fixture/scenario command bodies still repeat, and their native assertions/consumer distinctions remain."
+  },
+  "unsupportedManualQualification": {
+    "existingReview": "docs/moodcode/next-inventory-manual-review.json",
+    "existingReviewScope": "complete-selected-nine-manual-review",
+    "finalMatchedExistingPins": 7,
+    "files": [
+      {
+        "path": ".github/workflows/desktop-package.yml",
+        "existingManualMatchesFinal": false,
+        "changedSinceBaseline": true,
+        "physicalLines": 88
+      },
+      {
+        "path": ".github/workflows/desktop-release.yml",
+        "existingManualMatchesFinal": true,
+        "changedSinceBaseline": false,
+        "physicalLines": 68
+      },
+      {
+        "path": ".github/workflows/engine-native-windows.yml",
+        "existingManualMatchesFinal": false,
+        "changedSinceBaseline": true,
+        "physicalLines": 102
+      },
+      {
+        "path": ".github/workflows/engine.yml",
+        "existingManualMatchesFinal": true,
+        "changedSinceBaseline": true,
+        "physicalLines": 185
+      },
+      {
+        "path": "apps/desktop/index.html",
+        "existingManualMatchesFinal": true,
+        "changedSinceBaseline": false,
+        "physicalLines": 11
+      },
+      {
+        "path": "apps/desktop/src/renderer/components/advanced.css",
+        "existingManualMatchesFinal": true,
+        "changedSinceBaseline": false,
+        "physicalLines": 166
+      },
+      {
+        "path": "apps/desktop/src/renderer/components/conversation.css",
+        "existingManualMatchesFinal": true,
+        "changedSinceBaseline": false,
+        "physicalLines": 251
+      },
+      {
+        "path": "apps/desktop/src/renderer/styles.css",
+        "existingManualMatchesFinal": true,
+        "changedSinceBaseline": false,
+        "physicalLines": 1690
+      },
+      {
+        "path": "packages/windows-job/src/windows_job.cc",
+        "existingManualMatchesFinal": true,
+        "changedSinceBaseline": false,
+        "physicalLines": 623
+      }
+    ],
+    "supplementedChangedWorkflows": [
+      {
+        "path": ".github/workflows/desktop-package.yml",
+        "review": "Read all current88lines and exact diff from baseline. Added worker MCP/evidence regression, macOS advanced GUI and intentional-failure evidence-verifier steps; expanded actual artifact roots/include-hidden-files. Existing matrix, unsigned/publish boundary and conditional Linux/Windows/macOS runtime checks retained.",
+        "refs": [
+          {
+            "path": ".github/workflows/desktop-package.yml",
+            "line": 40
+          },
+          {
+            "path": ".github/workflows/desktop-package.yml",
+            "line": 47
+          },
+          {
+            "path": ".github/workflows/desktop-package.yml",
+            "line": 50
+          },
+          {
+            "path": ".github/workflows/desktop-package.yml",
+            "line": 87
+          }
+        ],
+        "newConsumer": {
+          "path": "scripts/verify-desktop-advanced-evidence.mjs",
+          "line": 18
+        },
+        "qualification": "The source verifier deliberately requires the failing child exit1 plus retained native running-PTY observation/SQLite-byte checks. This source read proves declared gates, not actual current GUI/package/hosted success."
+      },
+      {
+        "path": ".github/workflows/engine-native-windows.yml",
+        "review": "Existing complete manual94-line source plus exact8-line trigger-only diff and current trigger/caller recheck. Both push/PR now include launcher helpers, imported DB-inspection module, built harness and root tsconfig pattern; this addresses RF01-NATIVE-CI-TRIGGER.",
+        "refs": [
+          {
+            "path": ".github/workflows/engine-native-windows.yml",
+            "line": 13
+          },
+          {
+            "path": ".github/workflows/engine-native-windows.yml",
+            "line": 18
+          }
+        ],
+        "qualification": "Source scheduling fix only; native runtime/handle/cleanup/Node24/26 execution still requires actual hosted acceptance."
+      }
+    ],
+    "alreadyQualifiedChangedBaselineWorkflow": ".github/workflows/engine.yml changed from baseline but final bytes already exactly match existing manual review; the6 other final-matched resources are unchanged.",
+    "limits": "Physical and manual coverage does not add AST support; complete=false remains honest. No compiler/YAML/CSS/C++ parser, OS native acceptance, computed-style or signing proof inferred."
+  },
+  "erasedTypeProofReuse": {
+    "records": [
+      "docs/moodcode/next-unused-type-imports-verification.json",
+      "docs/moodcode/core-engine-type-import-verification.json"
+    ],
+    "bindings": 21,
+    "sourceFiles": 17,
+    "recordedEmittedFiles": 34,
+    "allRecordedJsAndDeclarationsByteIdentical": true,
+    "qualification": "Reuse existing20 erased bindings in16 files plus SandboxLaunch in engine.ts. Current final engine SHA matches the core type proof. No new compiler/test run, value import/private field/parameter/public-export/dependency deletion, or global unused-code claim."
+  },
+  "acceptanceLimits": [
+    "Inventory is structural measurement and finite selected manual semantics. Root whole-engine log completed4847 tests/4845pass/0fail/2skip at the a89d749 source freeze; the corrective diff contains only three Desktop scripts. Current compiled-runtime continuity, performance, GUI, account or hosted acceptance requires its separate retained evidence and is not claimed from AST counts or source disjointness.",
+    "The original hosted macOS26 EPERM/process-snapshot failure, external account/signing limits and old failure artifacts remain separate; latest local repeats or retained-copy proof do not retrospectively establish original causes.",
+    "No evidence-based deletion beyond the existing type-only21 proof is inferred from this comparison. Public/dynamic registries, native handles, SQL transactions/cache/archives and error/depth/byte limits remain subject to their original contract tests."
+  ],
+  "validation": {
+    "sourceHeadPreserved": "35746c63b1693e8e9e74b0db6c0c372545804382",
+    "checks": [
+      "Baseline, prior a89d749 and corrective-final input graphs parsed; stable HEAD/index/source and zero operational measurement failures verified. Original max-report-bytes artifact retained separately.",
+      "CORE scope sums match existing pinned measure; current engine erased-type SHA matched. STORE current SHA matched and RUNNER differs only by verified comment text.",
+      "Existing unsupported9 source pins compared:7 match current;2 workflow changes reviewed with exact diff/source callers.",
+      "Every committed source reference pinned and line-bounds checked; JSON/whitespace and immutable source qualification checked.",
+      "Corrective source diff is exactly three Desktop scripts; current totals/roles/file metrics derived from its completed existing graph. Selected CORE/STORE/RUNNER and unsupported-nine pins unchanged. Root whole log counters observed with separate source/runtime qualification; subsequent HEAD changes are only the two recorded progress documents."
+    ],
+    "executionCredit": "Read-only JSON/hash/source/diff verification only; no production module execution/build/test or goal mutation.",
+    "sourceReferencesChecked": 18,
+    "measuredFinalSourceCommit": "0e5aa654eaf303fdec91d4967dda08c10c6046ec",
+    "sourcePinsChecked": 29
+  },
+  "sourcePins": {
+    ".github/workflows/desktop-package.yml": "1f65d851bee5d722568bdc30acd3615f0c202493622ee8b7cc115f69440f960e",
+    ".github/workflows/desktop-release.yml": "aa7fd08abb0be751ebeb162272fc87aa938b713713ec61b8d229728b77b13f97",
+    ".github/workflows/engine-native-windows.yml": "d51b326ec6ccfaeff82411b90d175d96f75793dbfd982d8018f2d43abbe7bd1a",
+    ".github/workflows/engine.yml": "78a377b40684dc9d98edccd287a346908ba4b691447f0b5392a214c555a0891f",
+    "apps/desktop/index.html": "a2be3e053d7ba83c05bf53e2f0a13d47d6c859e312dd1cd008d7622bfc8645b5",
+    "apps/desktop/src/renderer/components/advanced.css": "52139f5960cc84bada280a01d4a67ddedee4921cc764cadb60da6d0b4dc7b953",
+    "apps/desktop/src/renderer/components/conversation.css": "bd3c71e45e9c88b2f1da239a4680e92f8295cb95cbf69ccbefbe5224c2e42fff",
+    "apps/desktop/src/renderer/styles.css": "3b92638b9ce76264581bd2a05ba3bdda1b56f4c791d40c8b356eb1e82f6684b0",
+    "docs/moodcode/core-engine-type-import-verification.json": "7599835885dd48c269142c26199106ab793809785ee4d09ef9ef65d9c0130101",
+    "docs/moodcode/core-refactor-integration-verification.json": "f28f9de6bb3418f7212fd44f47fe3c729eb684d1c0893b6bed8d5a5794a034fe",
+    "docs/moodcode/next-inventory-manual-review.json": "54080e898f976d5b14247217c770456b1925816d639ed4cf230938c306200848",
+    "docs/moodcode/next-store-runner-refactor-measurement.json": "b3e127a2a08ba8f61f6520ee8fe0ad4025e6202788afc96b5494a9f52603fe4a",
+    "docs/moodcode/next-unused-type-imports-verification.json": "316c46a4a259654be714b456c280d5aca7c3b6782cedabd501c4d499748d22db",
+    "docs/moodcode/refactor-inventory-method.md": "3164d66b2b1b2fb537f8c1b103bb42cda6222746af5a0ad034d6710b648fc134",
+    "packages/engine/src/agent-backends/store.ts": "1a47ea5d3caf772dc96ef9053d7e36b5929b79c0f2aa75ddce5ef4576d473ff9",
+    "packages/engine/src/code-mode/fixtures/engine.ts": "0d9aac15cdf71830d2f7e7d894fd6297ccf448cd92c8defc535c891e44637f08",
+    "packages/engine/src/engine.ts": "182bdd3a951f2e51bba35ace3c74121592cea6b04cadf0393f6157c8af36fbb1",
+    "packages/engine/src/jobs/command-delivery-input.ts": "b3edec20adf699f2a82afd09a9861313c54229e93dfc623444488f7de14cfd4b",
+    "packages/engine/src/jobs/fixtures/crash-host-command.ts": "372929a527991bf3e6f557e006e32ad92841e1d910e08ef6bae36ba0137f869c",
+    "packages/engine/src/jobs/host-command-delivery-producer.ts": "55771539bc4a4e2740ff2290feb677089bb73a7713e4dab1a428748464011720",
+    "packages/engine/src/jobs/owned-command-producer.ts": "723242bafb9646d8a158f1a09c1104fc18eedf45ca44f6d274d616bbee03f574",
+    "packages/engine/src/runner/index.ts": "05e11db20fb722d870be650d6d18e3945da6b70ac1e923bde5869d9c83e40b9e",
+    "packages/engine/src/workflows/fixtures/workflow.ts": "252b70d760c2c17d9b585ed0d145e9b4939467b002e62ff6236f2ea07df198a2",
+    "packages/windows-job/src/windows_job.cc": "9ab90de8a0341876a8ce0572c49cc721a59e4f4259a0fa266d1235b273c64ca4",
+    "scripts/desktop-native-package.mjs": "5886c2299292006e2efec7b6533922cd788e37a0186ce574ca8e658b725c82d6",
+    "scripts/desktop-native-package.test.mjs": "bb4e281613f925f85d6a2289a8d7ca37694e07c5a631a5b73d032415ad29086e",
+    "scripts/refactor-inventory/report.mjs": "ad144354a178b1848442dfdfbfae6cef0fdd0211e0a14e3719b311cab2139284",
+    "scripts/test-desktop-package.mjs": "816db2c27443dad3d12f2761925f38a5b34f1c34a07d0c034d5248c7f34df861",
+    "scripts/verify-desktop-advanced-evidence.mjs": "b4eb46a9da591c891d0eee5eda96443fa78e175783a4f26730dc10220af3ab2f"
+  },
+  "correctiveSnapshot": {
+    "from": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+    "to": "0e5aa654eaf303fdec91d4967dda08c10c6046ec",
+    "changedOwnedFiles": 3,
+    "ownedTotalDelta": {
+      "files": 0,
+      "measuredFiles": 0,
+      "physicalLines": 30,
+      "bytes": 1719,
+      "functions": 5,
+      "imports": 1,
+      "exports": 1,
+      "calls": 31
+    },
+    "functionComplexitySumDelta": 5,
+    "functionSyntaxDecisionDelta": 0,
+    "physicalCoverageUnchanged": true,
+    "syntaxCoverageUnchanged": true,
+    "duplicateGroupCountUnchanged": true,
+    "selectedCoreStoreRunnerPinsUnchanged": true,
+    "files": [
+      {
+        "path": "scripts/desktop-native-package.mjs",
+        "role": "tooling",
+        "beforeSha256": "86a27bd7dae71045872674032e938a1bd3f588d38ae79fa0394de9104c837585",
+        "afterSha256": "5886c2299292006e2efec7b6533922cd788e37a0186ce574ca8e658b725c82d6",
+        "before": {
+          "physicalLines": 55,
+          "bytes": 3790,
+          "functions": 4,
+          "syntaxDecisions": 4,
+          "imports": 5,
+          "exports": 6,
+          "calls": 49
+        },
+        "after": {
+          "physicalLines": 61,
+          "bytes": 4082,
+          "functions": 5,
+          "syntaxDecisions": 4,
+          "imports": 6,
+          "exports": 7,
+          "calls": 53
+        },
+        "delta": {
+          "physicalLines": 6,
+          "bytes": 292,
+          "functions": 1,
+          "syntaxDecisions": 0,
+          "imports": 1,
+          "exports": 1,
+          "calls": 4
+        }
+      },
+      {
+        "path": "scripts/desktop-native-package.test.mjs",
+        "role": "test",
+        "beforeSha256": "27b82836342a865142464d2878a4f3b65980144bf8089e6b35ad6932ec7ae763",
+        "afterSha256": "bb4e281613f925f85d6a2289a8d7ca37694e07c5a631a5b73d032415ad29086e",
+        "before": {
+          "physicalLines": 36,
+          "bytes": 2308,
+          "functions": 10,
+          "syntaxDecisions": 0,
+          "imports": 6,
+          "exports": 0,
+          "calls": 35
+        },
+        "after": {
+          "physicalLines": 61,
+          "bytes": 3800,
+          "functions": 14,
+          "syntaxDecisions": 0,
+          "imports": 7,
+          "exports": 0,
+          "calls": 64
+        },
+        "delta": {
+          "physicalLines": 25,
+          "bytes": 1492,
+          "functions": 4,
+          "syntaxDecisions": 0,
+          "imports": 1,
+          "exports": 0,
+          "calls": 29
+        }
+      },
+      {
+        "path": "scripts/test-desktop-package.mjs",
+        "role": "tooling",
+        "beforeSha256": "f2c05586503395cc19e1dce9aafbebbf26dc64b0a3a0d1626336bb524076c418",
+        "afterSha256": "816db2c27443dad3d12f2761925f38a5b34f1c34a07d0c034d5248c7f34df861",
+        "before": {
+          "physicalLines": 188,
+          "bytes": 15967,
+          "functions": 33,
+          "syntaxDecisions": 77,
+          "imports": 12,
+          "exports": 0,
+          "calls": 187
+        },
+        "after": {
+          "physicalLines": 187,
+          "bytes": 15902,
+          "functions": 33,
+          "syntaxDecisions": 77,
+          "imports": 11,
+          "exports": 0,
+          "calls": 185
+        },
+        "delta": {
+          "physicalLines": -1,
+          "bytes": -65,
+          "functions": 0,
+          "syntaxDecisions": 0,
+          "imports": -1,
+          "exports": 0,
+          "calls": -2
+        }
+      }
+    ],
+    "sourceReview": "Exact three-file diff: new readWindowsNativeBuildReceipt uses OS-native join for ASAR nested lookup; packaged Windows consumer calls it; one added real-ASAR test covers the exact nested path, a wrong-location receipt and invalid JSON. AST function+5 consists of one tooling function and four test callbacks, not five tests. Existing native gate assertions remain.",
+    "testCredit": "Source/diff review only. The new real-ASAR test and Windows packaged gate are not executed by this document; current-OS unit results or hosted Windows acceptance must be credited to their actual retained runs.",
+    "continuity": "All six selected CORE/STORE/RUNNER source pins, nine unsupported resources and previously qualified comments/manual contracts are unchanged from a89d749. Original failed full-output artifact remains independent of both completed snapshots."
+  }
+}

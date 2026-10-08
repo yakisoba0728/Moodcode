@@ -1,0 +1,1252 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-exact-head-hosted-acceptance",
+  "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+  "observedAt": "2026-10-08T23:28:59.647703+00:00",
+  "evidenceDirectory": "/private/tmp/moodcode-next-final-hosted-acceptance",
+  "status": "completed-with-failures",
+  "expectedJobs": 11,
+  "summary": {
+    "completed": 11,
+    "success": 10,
+    "failure": 1,
+    "pending": 0,
+    "allElevenJobsAccepted": false
+  },
+  "runs": [
+    {
+      "id": 37858447214,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447214",
+      "workflow": "Engine headless",
+      "event": "push",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "metadata": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/run-37858447214.json",
+        "bytes": 12498,
+        "sha256": "9cf73537f16680107cacd8a797892c12c2661f58d4c632ff8e0df716ecc9a348"
+      },
+      "jobMetadata": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/run-37858447214-jobs.json",
+        "bytes": 28384,
+        "sha256": "8dab8469fa9fe5ee90f8166eaa38e068799b86838b65db23d3b8ec5e1f278bea"
+      },
+      "artifactMetadata": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/run-37858447214-artifacts.json",
+        "bytes": 4293,
+        "sha256": "1221264e40272d71534e53c4689b0aaa0091fecc0349bc4a69d4ae16c346d101"
+      },
+      "logsZip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/run-37858447214-logs.zip",
+        "bytes": 5330321,
+        "sha256": "090cb0a3954b2fd3107c7fdd55e69f1fb06bf3f9eb293e63a8a8f4e5aaafdb43",
+        "crcPass": true
+      }
+    },
+    {
+      "id": 37858447077,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447077",
+      "workflow": "Engine native Windows",
+      "event": "push",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "metadata": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/run-37858447077.json",
+        "bytes": 12518,
+        "sha256": "1ba25560adaff6d7bcef88a14cb4a5c8e971306581900390498e30986929fb9f"
+      },
+      "jobMetadata": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/run-37858447077-jobs.json",
+        "bytes": 7862,
+        "sha256": "1b4847ae22c8f21e94a8ec71cc94e890bd3c9386a9f14320b9410885f811724e"
+      },
+      "artifactMetadata": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/run-37858447077-artifacts.json",
+        "bytes": 1455,
+        "sha256": "542c854da25fff66eaf9ea69c143374b5f7d00973cdbd4a00eec30ab65a34bbf"
+      },
+      "logsZip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/run-37858447077-logs.zip",
+        "bytes": 92032,
+        "sha256": "2630308a6778563d6d3deac32e9181e15c1fced1fbbda8e4c9c38a1c046e49a4",
+        "crcPass": true
+      }
+    },
+    {
+      "id": 37858447261,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447261",
+      "workflow": "Desktop packages",
+      "event": "push",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "failure",
+      "metadata": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/run-37858447261.json",
+        "bytes": 12507,
+        "sha256": "00b2096bdee7b8c4c3d6cbbf0076fb96e23c4fa3835fd25fc4a8c1da9494dc1b"
+      },
+      "jobMetadata": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/run-37858447261-jobs.json",
+        "bytes": 14718,
+        "sha256": "a8cb382686cdc4fa811b53f253bfdc1f4d777dc3fe2cdcec9f98bb62aeb392b2"
+      },
+      "artifactMetadata": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/run-37858447261-artifacts.json",
+        "bytes": 2142,
+        "sha256": "e8b48799ed92be71d13e5f3dccf128a48165f7fdfdb308ff70ed2760fe78c708"
+      },
+      "logsZip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/run-37858447261-logs.zip",
+        "bytes": 98982,
+        "sha256": "c97e8b190e48f7562c253a6c7a94c279b9ce089a6730b8902b9d1be225fe3ad6",
+        "crcPass": true
+      }
+    }
+  ],
+  "jobs": [
+    {
+      "id": 113588172701,
+      "runId": 37858447214,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447214/job/113588172701",
+      "name": "Headless macos-15 / Node 24.x",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T23:16:01Z",
+      "completedAt": "2026-10-08T23:26:53Z",
+      "failedSteps": [],
+      "expectedArtifact": "engine-macos-15-node-24.x-attempt-1",
+      "artifactId": 11585331815,
+      "downloadAndDigestQualified": true
+    },
+    {
+      "id": 113588172993,
+      "runId": 37858447214,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447214/job/113588172993",
+      "name": "Headless ubuntu-24.04 / Node 26.x",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T23:15:56Z",
+      "completedAt": "2026-10-08T23:21:40Z",
+      "failedSteps": [],
+      "expectedArtifact": "engine-ubuntu-24.04-node-26.x-attempt-1",
+      "artifactId": 11584968930,
+      "downloadAndDigestQualified": true
+    },
+    {
+      "id": 113588173010,
+      "runId": 37858447214,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447214/job/113588173010",
+      "name": "Headless ubuntu-24.04 / Node 24.x",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T23:15:56Z",
+      "completedAt": "2026-10-08T23:24:41Z",
+      "failedSteps": [],
+      "expectedArtifact": "engine-ubuntu-24.04-node-24.x-attempt-1",
+      "artifactId": 11585845465,
+      "downloadAndDigestQualified": true
+    },
+    {
+      "id": 113588173114,
+      "runId": 37858447214,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447214/job/113588173114",
+      "name": "Portable contracts/storage only / Windows / Node 26.x",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T23:15:56Z",
+      "completedAt": "2026-10-08T23:17:21Z",
+      "failedSteps": [],
+      "expectedArtifact": "engine-windows-portable-node-26.x-attempt-1",
+      "artifactId": 11584349563,
+      "downloadAndDigestQualified": true
+    },
+    {
+      "id": 113588173170,
+      "runId": 37858447214,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447214/job/113588173170",
+      "name": "Headless macos-15 / Node 26.x",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T23:16:00Z",
+      "completedAt": "2026-10-08T23:25:44Z",
+      "failedSteps": [],
+      "expectedArtifact": "engine-macos-15-node-26.x-attempt-1",
+      "artifactId": 11585406516,
+      "downloadAndDigestQualified": true
+    },
+    {
+      "id": 113588173200,
+      "runId": 37858447214,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447214/job/113588173200",
+      "name": "Portable contracts/storage only / Windows / Node 24.x",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T23:15:56Z",
+      "completedAt": "2026-10-08T23:17:23Z",
+      "failedSteps": [],
+      "expectedArtifact": "engine-windows-portable-node-24.x-attempt-1",
+      "artifactId": 11585077969,
+      "downloadAndDigestQualified": true
+    },
+    {
+      "id": 113588171849,
+      "runId": 37858447077,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447077/job/113588171849",
+      "name": "Native Windows Job Object / x64 / Node 24.x",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T23:15:56Z",
+      "completedAt": "2026-10-08T23:19:26Z",
+      "failedSteps": [],
+      "expectedArtifact": "engine-native-windows-node-24.x-attempt-1",
+      "artifactId": 11585286052,
+      "downloadAndDigestQualified": true
+    },
+    {
+      "id": 113588172115,
+      "runId": 37858447077,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447077/job/113588172115",
+      "name": "Native Windows Job Object / x64 / Node 26.x",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T23:15:55Z",
+      "completedAt": "2026-10-08T23:20:22Z",
+      "failedSteps": [],
+      "expectedArtifact": "engine-native-windows-node-26.x-attempt-1",
+      "artifactId": 11585326018,
+      "downloadAndDigestQualified": true
+    },
+    {
+      "id": 113588172891,
+      "runId": 37858447261,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447261/job/113588172891",
+      "name": "Unsigned bundle and native smoke / windows-2025",
+      "status": "completed",
+      "conclusion": "failure",
+      "startedAt": "2026-10-08T23:15:57Z",
+      "completedAt": "2026-10-08T23:18:02Z",
+      "failedSteps": [
+        "Windows actual packaged utility Job Object command and approval gate"
+      ],
+      "expectedArtifact": "desktop-unsigned-windows-2025-1",
+      "artifactId": 11585585149,
+      "downloadAndDigestQualified": true
+    },
+    {
+      "id": 113588172982,
+      "runId": 37858447261,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447261/job/113588172982",
+      "name": "Unsigned bundle and native smoke / macos-15",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T23:16:01Z",
+      "completedAt": "2026-10-08T23:17:59Z",
+      "failedSteps": [],
+      "expectedArtifact": "desktop-unsigned-macos-15-1",
+      "artifactId": 11584424888,
+      "downloadAndDigestQualified": true
+    },
+    {
+      "id": 113588173066,
+      "runId": 37858447261,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447261/job/113588173066",
+      "name": "Unsigned bundle and native smoke / ubuntu-24.04",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T23:15:56Z",
+      "completedAt": "2026-10-08T23:17:02Z",
+      "failedSteps": [],
+      "expectedArtifact": "desktop-unsigned-ubuntu-24.04-1",
+      "artifactId": 11584344783,
+      "downloadAndDigestQualified": true
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 11585845465,
+      "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+      "runId": 37858447214,
+      "apiBytes": 2675112,
+      "apiDigest": "sha256:dae2bb8ac9c08c5e7c07e98673d33165075d948c065bf96493dc0d7bf3a36a55",
+      "expired": false,
+      "downloaded": true,
+      "zip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/artifact-11585845465.zip",
+        "bytes": 2675112,
+        "sha256": "dae2bb8ac9c08c5e7c07e98673d33165075d948c065bf96493dc0d7bf3a36a55"
+      },
+      "apiDigestMatches": true,
+      "crcPass": true,
+      "entries": 421,
+      "uncompressedBytes": 50394741,
+      "engineQualification": {
+        "sourceSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+        "sourceMatches": true,
+        "platform": "linux",
+        "arch": "x64",
+        "node": "v24.21.0",
+        "jobStatus": "success",
+        "ciRunConfirmed": true,
+        "windowsFullEngineVerified": false,
+        "liveProviderRequests": false,
+        "stepCount": 22,
+        "allRecordedStepsPassed": true,
+        "results": {
+          "path": "results.json",
+          "bytes": 8112,
+          "sha256": "07c61a3b926d72f89e6dac20dd7b2fb9960d193d48798cf5f355a1e9b2833134"
+        },
+        "ptyRepeatability": {
+          "status": "passed",
+          "nativeQualified": true,
+          "runtime": "compiled",
+          "identityStable": true,
+          "completedCases": 15,
+          "requestedIterations": 3,
+          "scenarios": [
+            "normal-exit",
+            "input-resize",
+            "cancel",
+            "supervisor-death",
+            "ipc-disconnect"
+          ],
+          "retainedUncertainCases": 6,
+          "historicalRpty01": {
+            "causeConfirmed": false,
+            "reproduced": false,
+            "resolved": false
+          },
+          "report": {
+            "path": "pty-repeatability.json",
+            "bytes": 264937,
+            "sha256": "a24ebc74d9d8942a960b6a4f2cf9b5d3eb41df080dc640304a67cb73e2577e79"
+          }
+        },
+        "persistentSoak": {
+          "passed": true,
+          "profile": "quick",
+          "requestedDurationMs": 1000,
+          "noLive": true,
+          "report": {
+            "path": "persistent-soak.json",
+            "bytes": 182401,
+            "sha256": "6c89e813cecd8f46f10801fefad865bf4b8f0f6f26afd9613c7507ac475a8393"
+          }
+        },
+        "nativeEvidenceCopies": [
+          {
+            "report": {
+              "path": "persistent-soak-evidence.json",
+              "bytes": 12419,
+              "sha256": "c4115a25d900aa05086a508fbc320c6ea5de3dedfc0a0602f1bdc56b3d29fde6"
+            },
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 56,
+            "bytes": 3457192,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 6
+          },
+          {
+            "report": {
+              "path": "pty-repeatability-evidence.json",
+              "bytes": 29164,
+              "sha256": "7270f287aece81e0420efa02d57f65be1fe6464268023b135da7dace996ab019"
+            },
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 142,
+            "bytes": 19502385,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 90
+          },
+          {
+            "caseName": "batch-deadline",
+            "reportOutcome": "failed",
+            "reportSha256": "ef9248de7bd635996246d1351936a2351a394091af0879e3b7374db172c1a341",
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 115,
+            "bytes": 15415821,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 72
+          },
+          {
+            "caseName": "native-lifecycle",
+            "reportOutcome": "passed",
+            "reportSha256": "0d7bfd26f9b1a3e4bb64495c9ff10dc30bca7b065b2266994b6fe6faa982a36b",
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 52,
+            "bytes": 6576560,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 30
+          }
+        ]
+      }
+    },
+    {
+      "id": 11585406516,
+      "name": "engine-macos-15-node-26.x-attempt-1",
+      "runId": 37858447214,
+      "apiBytes": 2882295,
+      "apiDigest": "sha256:fd0e27b2982b75c37304c3c98cdd6d298cdd273427797f0586b07b6a50c9f1fe",
+      "expired": false,
+      "downloaded": true,
+      "zip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/artifact-11585406516.zip",
+        "bytes": 2882295,
+        "sha256": "fd0e27b2982b75c37304c3c98cdd6d298cdd273427797f0586b07b6a50c9f1fe"
+      },
+      "apiDigestMatches": true,
+      "crcPass": true,
+      "entries": 481,
+      "uncompressedBytes": 59428276,
+      "engineQualification": {
+        "sourceSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+        "sourceMatches": true,
+        "platform": "darwin",
+        "arch": "arm64",
+        "node": "v26.11.1",
+        "jobStatus": "success",
+        "ciRunConfirmed": true,
+        "windowsFullEngineVerified": false,
+        "liveProviderRequests": false,
+        "stepCount": 22,
+        "allRecordedStepsPassed": true,
+        "results": {
+          "path": "results.json",
+          "bytes": 8271,
+          "sha256": "c531a8373d5e4d8e6c224768182bb6d036bc5cd52d1dd8a7d60d368dad7ac0de"
+        },
+        "ptyRepeatability": {
+          "status": "passed",
+          "nativeQualified": true,
+          "runtime": "compiled",
+          "identityStable": true,
+          "completedCases": 15,
+          "requestedIterations": 3,
+          "scenarios": [
+            "normal-exit",
+            "input-resize",
+            "cancel",
+            "supervisor-death",
+            "ipc-disconnect"
+          ],
+          "retainedUncertainCases": 6,
+          "historicalRpty01": {
+            "causeConfirmed": false,
+            "reproduced": false,
+            "resolved": false
+          },
+          "report": {
+            "path": "pty-repeatability.json",
+            "bytes": 267248,
+            "sha256": "3750384b99b1c8ab4e3e560b97ced5baa551d7499b0d14acae2aacbaa979ab62"
+          }
+        },
+        "persistentSoak": {
+          "passed": true,
+          "profile": "quick",
+          "requestedDurationMs": 1000,
+          "noLive": true,
+          "report": {
+            "path": "persistent-soak.json",
+            "bytes": 184113,
+            "sha256": "9c40f48f7a387d35be05c1dcb36e7aa87b379fb77c36de14328ad40e0532607e"
+          }
+        },
+        "nativeEvidenceCopies": [
+          {
+            "report": {
+              "path": "persistent-soak-evidence.json",
+              "bytes": 12476,
+              "sha256": "a5f9922b34028047d8a5c8de2a8009381da37b6229d9ed87d81820346ad472e2"
+            },
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 56,
+            "bytes": 3457583,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 6
+          },
+          {
+            "report": {
+              "path": "pty-repeatability-evidence.json",
+              "bytes": 29219,
+              "sha256": "a668876c554c683667650e059a43b892f642d9a2a3c7fa7cde95ca6e7a8ce1d7"
+            },
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 142,
+            "bytes": 19506660,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 90
+          },
+          {
+            "caseName": "batch-deadline",
+            "reportOutcome": "failed",
+            "reportSha256": "22b501e5abb83330e6d398bdfe9aad20c79dd1712cb6ba2a5eb881ff681a1a58",
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 175,
+            "bytes": 24322315,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 114
+          },
+          {
+            "caseName": "native-lifecycle",
+            "reportOutcome": "passed",
+            "reportSha256": "ecb6af505aa15490cd6996ffbb368dda0e97db5447fc781a7f83c7b7b9c67a8e",
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 52,
+            "bytes": 6578262,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 30
+          }
+        ]
+      }
+    },
+    {
+      "id": 11585331815,
+      "name": "engine-macos-15-node-24.x-attempt-1",
+      "runId": 37858447214,
+      "apiBytes": 2703898,
+      "apiDigest": "sha256:ab4922c311671de7ea32dfb6ca6beb34909d0e8cf0bc6ad6fe4d8da1e7ebe375",
+      "expired": false,
+      "downloaded": true,
+      "zip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/artifact-11585331815.zip",
+        "bytes": 2703898,
+        "sha256": "ab4922c311671de7ea32dfb6ca6beb34909d0e8cf0bc6ad6fe4d8da1e7ebe375"
+      },
+      "apiDigestMatches": true,
+      "crcPass": true,
+      "entries": 430,
+      "uncompressedBytes": 51698265,
+      "engineQualification": {
+        "sourceSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+        "sourceMatches": true,
+        "platform": "darwin",
+        "arch": "arm64",
+        "node": "v24.20.0",
+        "jobStatus": "success",
+        "ciRunConfirmed": true,
+        "windowsFullEngineVerified": false,
+        "liveProviderRequests": false,
+        "stepCount": 22,
+        "allRecordedStepsPassed": true,
+        "results": {
+          "path": "results.json",
+          "bytes": 8273,
+          "sha256": "55c6d4e4c2e3eefd3b41711c9ab87c3b5746d0936183eb0bb2bec00785586004"
+        },
+        "ptyRepeatability": {
+          "status": "passed",
+          "nativeQualified": true,
+          "runtime": "compiled",
+          "identityStable": true,
+          "completedCases": 15,
+          "requestedIterations": 3,
+          "scenarios": [
+            "normal-exit",
+            "input-resize",
+            "cancel",
+            "supervisor-death",
+            "ipc-disconnect"
+          ],
+          "retainedUncertainCases": 6,
+          "historicalRpty01": {
+            "causeConfirmed": false,
+            "reproduced": false,
+            "resolved": false
+          },
+          "report": {
+            "path": "pty-repeatability.json",
+            "bytes": 267315,
+            "sha256": "7646c94d2943a89363cfba2141a1c79a794528568502f5e64d70d311761f6663"
+          }
+        },
+        "persistentSoak": {
+          "passed": true,
+          "profile": "quick",
+          "requestedDurationMs": 1000,
+          "noLive": true,
+          "report": {
+            "path": "persistent-soak.json",
+            "bytes": 178644,
+            "sha256": "dee99eddaa904fab6c18ae0a99d0438471c36744dcc2fe41ff173bf466214b6e"
+          }
+        },
+        "nativeEvidenceCopies": [
+          {
+            "report": {
+              "path": "persistent-soak-evidence.json",
+              "bytes": 12476,
+              "sha256": "668bc8b617bf9b90c7c87d114c0ae1a2f247dc5edca8612c0a813903c73f3ab7"
+            },
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 56,
+            "bytes": 3457585,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 6
+          },
+          {
+            "report": {
+              "path": "pty-repeatability-evidence.json",
+              "bytes": 29219,
+              "sha256": "3137d0a7966686d4e85772ed795d1d3278153e40887547d99c48bbbe3729a8f9"
+            },
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 142,
+            "bytes": 19506794,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 90
+          },
+          {
+            "caseName": "batch-deadline",
+            "reportOutcome": "failed",
+            "reportSha256": "00bc8137902a03106ab1b359eba6bde2297c979f3a0ee106e7c391cf86f0434a",
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 124,
+            "bytes": 16691906,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 78
+          },
+          {
+            "caseName": "native-lifecycle",
+            "reportOutcome": "passed",
+            "reportSha256": "9efe8f026f02e3199af0e429b07d107cbba03ea74068c04fc42e5b4a6f2834be",
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 52,
+            "bytes": 6578222,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 30
+          }
+        ]
+      }
+    },
+    {
+      "id": 11585077969,
+      "name": "engine-windows-portable-node-24.x-attempt-1",
+      "runId": 37858447214,
+      "apiBytes": 43989,
+      "apiDigest": "sha256:6f4271489aaadddd96dfcd9fdf5b08784d3fe0167cc2c4a27036ea645e7fe449",
+      "expired": false,
+      "downloaded": true,
+      "zip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/artifact-11585077969.zip",
+        "bytes": 43989,
+        "sha256": "6f4271489aaadddd96dfcd9fdf5b08784d3fe0167cc2c4a27036ea645e7fe449"
+      },
+      "apiDigestMatches": true,
+      "crcPass": true,
+      "entries": 21,
+      "uncompressedBytes": 321401,
+      "engineQualification": {
+        "sourceSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+        "sourceMatches": true,
+        "platform": "win32",
+        "arch": "x64",
+        "node": "v24.21.0",
+        "jobStatus": "success",
+        "ciRunConfirmed": true,
+        "windowsFullEngineVerified": false,
+        "liveProviderRequests": false,
+        "stepCount": 6,
+        "allRecordedStepsPassed": true,
+        "results": {
+          "path": "results.json",
+          "bytes": 4479,
+          "sha256": "e95ede4dd82de70cd4b1c08c8dcd91ed7ce7d6b07f253c5eb8aa23b8708ab29e"
+        }
+      }
+    },
+    {
+      "id": 11584968930,
+      "name": "engine-ubuntu-24.04-node-26.x-attempt-1",
+      "runId": 37858447214,
+      "apiBytes": 2945684,
+      "apiDigest": "sha256:7880381f109f61b7251f2543064d7a4a6b244832fae0d52c4ffde50acf28f20c",
+      "expired": false,
+      "downloaded": true,
+      "zip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/artifact-11584968930.zip",
+        "bytes": 2945684,
+        "sha256": "7880381f109f61b7251f2543064d7a4a6b244832fae0d52c4ffde50acf28f20c"
+      },
+      "apiDigestMatches": true,
+      "crcPass": true,
+      "entries": 499,
+      "uncompressedBytes": 62058144,
+      "engineQualification": {
+        "sourceSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+        "sourceMatches": true,
+        "platform": "linux",
+        "arch": "x64",
+        "node": "v26.11.1",
+        "jobStatus": "success",
+        "ciRunConfirmed": true,
+        "windowsFullEngineVerified": false,
+        "liveProviderRequests": false,
+        "stepCount": 22,
+        "allRecordedStepsPassed": true,
+        "results": {
+          "path": "results.json",
+          "bytes": 8110,
+          "sha256": "bf80b3b2cc0dad7e6afc26c825fc541e20357236b215cc1035296511c7cdc3c4"
+        },
+        "ptyRepeatability": {
+          "status": "passed",
+          "nativeQualified": true,
+          "runtime": "compiled",
+          "identityStable": true,
+          "completedCases": 15,
+          "requestedIterations": 3,
+          "scenarios": [
+            "normal-exit",
+            "input-resize",
+            "cancel",
+            "supervisor-death",
+            "ipc-disconnect"
+          ],
+          "retainedUncertainCases": 6,
+          "historicalRpty01": {
+            "causeConfirmed": false,
+            "reproduced": false,
+            "resolved": false
+          },
+          "report": {
+            "path": "pty-repeatability.json",
+            "bytes": 264937,
+            "sha256": "d3b37362e0faa2e15049d30572f1b6a264dd597755b1c450c340f9be56207f06"
+          }
+        },
+        "persistentSoak": {
+          "passed": true,
+          "profile": "quick",
+          "requestedDurationMs": 1000,
+          "noLive": true,
+          "report": {
+            "path": "persistent-soak.json",
+            "bytes": 213638,
+            "sha256": "3f64a220f1e0ee7ced69c98eaf6968fd3620853dea94becba59d15a49137edc3"
+          }
+        },
+        "nativeEvidenceCopies": [
+          {
+            "report": {
+              "path": "persistent-soak-evidence.json",
+              "bytes": 12419,
+              "sha256": "f9a11d4738129688282fa9a89645900b287e96c55f99f1ea9c76938b0fadc330"
+            },
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 56,
+            "bytes": 3457193,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 6
+          },
+          {
+            "report": {
+              "path": "pty-repeatability-evidence.json",
+              "bytes": 29164,
+              "sha256": "cf421fe1153b8499d16d7415c2f926a459d730eb6744bbfb0528d90a24c8134e"
+            },
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 142,
+            "bytes": 19502391,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 90
+          },
+          {
+            "caseName": "batch-deadline",
+            "reportOutcome": "failed",
+            "reportSha256": "68b1dd3911a9de7a10ca4c620cb31084fb4ca74a06c382026f0ccafefe74d3ca",
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 193,
+            "bytes": 26860957,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 126
+          },
+          {
+            "caseName": "native-lifecycle",
+            "reportOutcome": "passed",
+            "reportSha256": "5ae81c23496a4a27d6be89c6af57324c46bf6d741e7c2169f5cea37c11d455ae",
+            "status": "preserved",
+            "sourceQualified": true,
+            "exactSourceCopy": true,
+            "files": 52,
+            "bytes": 6576409,
+            "allManifestFileHashesMatchArchive": true,
+            "sqliteFiles": 30
+          }
+        ]
+      }
+    },
+    {
+      "id": 11584349563,
+      "name": "engine-windows-portable-node-26.x-attempt-1",
+      "runId": 37858447214,
+      "apiBytes": 43963,
+      "apiDigest": "sha256:8a757c60982e744590a462f7cda7c738d587ba0d42a68ea876e46d0c84518e94",
+      "expired": false,
+      "downloaded": true,
+      "zip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/artifact-11584349563.zip",
+        "bytes": 43963,
+        "sha256": "8a757c60982e744590a462f7cda7c738d587ba0d42a68ea876e46d0c84518e94"
+      },
+      "apiDigestMatches": true,
+      "crcPass": true,
+      "entries": 21,
+      "uncompressedBytes": 321373,
+      "engineQualification": {
+        "sourceSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+        "sourceMatches": true,
+        "platform": "win32",
+        "arch": "x64",
+        "node": "v26.11.1",
+        "jobStatus": "success",
+        "ciRunConfirmed": true,
+        "windowsFullEngineVerified": false,
+        "liveProviderRequests": false,
+        "stepCount": 6,
+        "allRecordedStepsPassed": true,
+        "results": {
+          "path": "results.json",
+          "bytes": 4479,
+          "sha256": "55e73ebccbe67b8261782f445ccdec1e1860936c18d6d0870d9a8033d5bae27c"
+        }
+      }
+    },
+    {
+      "id": 11585326018,
+      "name": "engine-native-windows-node-26.x-attempt-1",
+      "runId": 37858447077,
+      "apiBytes": 373952,
+      "apiDigest": "sha256:818c6f24f18285ca3c526acdef82992c6437514ba4fc42eeec0d9a72635fff6a",
+      "expired": false,
+      "downloaded": true,
+      "zip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/artifact-11585326018.zip",
+        "bytes": 373952,
+        "sha256": "818c6f24f18285ca3c526acdef82992c6437514ba4fc42eeec0d9a72635fff6a"
+      },
+      "apiDigestMatches": true,
+      "crcPass": true,
+      "entries": 20,
+      "uncompressedBytes": 1181309,
+      "nativeQualification": {
+        "sourceSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+        "sourceMatches": true,
+        "platform": "win32",
+        "arch": "x64",
+        "node": "26.11.1",
+        "jobStatus": "success",
+        "actualWindows": true,
+        "nativeRequired": true,
+        "passed": true,
+        "counts": {
+          "tests": 37,
+          "pass": 37,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "bindingInfo": {
+          "bindingVersion": 1,
+          "napiVersion": 8,
+          "platform": "win32",
+          "arch": "x64",
+          "atomicJobAssignment": true
+        },
+        "nativeBinary": {
+          "path": "windows_job.node",
+          "bytes": 1121792,
+          "sha256": "1b06a39e3b393fdd59fb68c7c2c092a9f80d4632be12bf64d6b49176fee3e7c4"
+        },
+        "binaryPinMatches": true,
+        "reports": [
+          {
+            "path": "environment.json",
+            "bytes": 444,
+            "sha256": "fe3608d1be29b7986b3ef905d16243abf689162dc84de9a322af0bbcc41f0722"
+          },
+          {
+            "path": "summary.json",
+            "bytes": 3078,
+            "sha256": "0b3bb4fefb2c9e521c7ca4c0a468a8784453c8c5ccde27d23098d49311dfecd2"
+          },
+          {
+            "path": "native-addon.json",
+            "bytes": 337,
+            "sha256": "8ecf6a74e08d679e183458199531c804a6ab45946e3700e72fb1bcc83b60af5c"
+          },
+          {
+            "path": "native-verification.json",
+            "bytes": 176,
+            "sha256": "3caec68832b60d845e7f650e89fdabbcce7b886173db41384edde60e949777f6"
+          }
+        ]
+      }
+    },
+    {
+      "id": 11585286052,
+      "name": "engine-native-windows-node-24.x-attempt-1",
+      "runId": 37858447077,
+      "apiBytes": 107866,
+      "apiDigest": "sha256:39c8be8d620b607f0b87bf730c6eef1739e5b446293a25ca02ea6d9ff2440ec7",
+      "expired": false,
+      "downloaded": true,
+      "zip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/artifact-11585286052.zip",
+        "bytes": 107866,
+        "sha256": "39c8be8d620b607f0b87bf730c6eef1739e5b446293a25ca02ea6d9ff2440ec7"
+      },
+      "apiDigestMatches": true,
+      "crcPass": true,
+      "entries": 20,
+      "uncompressedBytes": 237404,
+      "nativeQualification": {
+        "sourceSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+        "sourceMatches": true,
+        "platform": "win32",
+        "arch": "x64",
+        "node": "24.21.0",
+        "jobStatus": "success",
+        "actualWindows": true,
+        "nativeRequired": true,
+        "passed": true,
+        "counts": {
+          "tests": 37,
+          "pass": 37,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "bindingInfo": {
+          "bindingVersion": 1,
+          "napiVersion": 8,
+          "platform": "win32",
+          "arch": "x64",
+          "atomicJobAssignment": true
+        },
+        "nativeBinary": {
+          "path": "windows_job.node",
+          "bytes": 178176,
+          "sha256": "29bd0d3bb9fe22c6210b490f1c4b3c3c6a0985aa81ecc0137dcb924b3c95d56a"
+        },
+        "binaryPinMatches": true,
+        "reports": [
+          {
+            "path": "environment.json",
+            "bytes": 444,
+            "sha256": "9309cbfded98239e97dd0c2d51607b8c6066fd8ff6c1ed38420c022d76694561"
+          },
+          {
+            "path": "summary.json",
+            "bytes": 3077,
+            "sha256": "ed56ffc385851a9dfe3cfa4c15f5595f213010015eea703c6f969b87b423e94a"
+          },
+          {
+            "path": "native-addon.json",
+            "bytes": 336,
+            "sha256": "dccf5e90f9db63833300de538da17e1e6eac3f985649b7ea328d006afadf9fc6"
+          },
+          {
+            "path": "native-verification.json",
+            "bytes": 176,
+            "sha256": "3caec68832b60d845e7f650e89fdabbcce7b886173db41384edde60e949777f6"
+          }
+        ]
+      }
+    },
+    {
+      "id": 11585585149,
+      "name": "desktop-unsigned-windows-2025-1",
+      "runId": 37858447261,
+      "apiBytes": 179097428,
+      "apiDigest": "sha256:f5557ed4a1dc7df72ec176117e843abc171b4e4337ab0e4f42da3e0b904a12cc",
+      "expired": false,
+      "downloaded": true,
+      "zip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/artifact-11585585149.zip",
+        "bytes": 179097428,
+        "sha256": "f5557ed4a1dc7df72ec176117e843abc171b4e4337ab0e4f42da3e0b904a12cc"
+      },
+      "apiDigestMatches": true,
+      "crcPass": true,
+      "entries": 286,
+      "uncompressedBytes": 464273850,
+      "desktopEvidence": {
+        "unsigned": true,
+        "retainedManifests": [
+          {
+            "path": "artifacts/desktop-package/failures/package-AGw3Q1/manifest.json",
+            "bytes": 12860,
+            "sha256": "72a9bd279782685e917964a16cf5bc22540d54980223bcbc21a6f764a2e837ea"
+          },
+          {
+            "path": "artifacts/desktop-package/failures/package-SdNiHN/manifest.json",
+            "bytes": 11908,
+            "sha256": "7473380f030106f7858950421ae8c6fe439e5650e171503c02316f5e7e16a50e"
+          }
+        ],
+        "asarFiles": [
+          {
+            "path": "release/win-unpacked/resources/app.asar",
+            "bytes": 64663222,
+            "sha256": "ad01b4d531068ede38b1f4a1f8578790eac96e66bcb37ebee632076118191654"
+          }
+        ],
+        "qualification": "Native fixture and package scope is anchored by exact-head job steps/logs. Archived retained manifests do not grant native cleanup or account/signing authority."
+      }
+    },
+    {
+      "id": 11584424888,
+      "name": "desktop-unsigned-macos-15-1",
+      "runId": 37858447261,
+      "apiBytes": 407244990,
+      "apiDigest": "sha256:9ed0de0ebf668299bbc65d00c342a3f6f578d19fc5aecde4790367a9213314f8",
+      "expired": false,
+      "downloaded": true,
+      "zip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/artifact-11584424888.zip",
+        "bytes": 407244990,
+        "sha256": "9ed0de0ebf668299bbc65d00c342a3f6f578d19fc5aecde4790367a9213314f8"
+      },
+      "apiDigestMatches": true,
+      "crcPass": true,
+      "entries": 960,
+      "uncompressedBytes": 977142819,
+      "desktopEvidence": {
+        "unsigned": true,
+        "retainedManifests": [
+          {
+            "path": "artifacts/desktop-advanced/failures/advanced-IUVhEI/manifest.json",
+            "bytes": 15917,
+            "sha256": "f04c4f6eeb12fc6265ce27eb406fc7b330058f164694ec107fe14bca1f71fdee"
+          },
+          {
+            "path": "artifacts/desktop-advanced/failures/advanced-PScJNU/manifest.json",
+            "bytes": 77700,
+            "sha256": "9b034d23eb6f5a3e9bbf01ad5b7177cc974dc4a80e4de260e06d35bc4154a350"
+          },
+          {
+            "path": "artifacts/desktop-package/failures/package-Lyj2Og/manifest.json",
+            "bytes": 20192,
+            "sha256": "3f261ea78c031757884396549992a1e4c8582ff661e73bf588a843185c8a70b9"
+          },
+          {
+            "path": "artifacts/desktop-package/failures/package-rrOYFX/manifest.json",
+            "bytes": 11908,
+            "sha256": "03a8307bab161e18c9edef3bea0cd9738087e5975b40f9740c51b6ebcd25cccc"
+          }
+        ],
+        "asarFiles": [
+          {
+            "path": "release/mac-arm64/Moodcode.app/Contents/Resources/app.asar",
+            "bytes": 64380891,
+            "sha256": "582d7cf9d040d48ae8d1f61583baf9bcff0574b758da1375e139eb2fdc5321e2"
+          }
+        ],
+        "qualification": "Native fixture and package scope is anchored by exact-head job steps/logs. Archived retained manifests do not grant native cleanup or account/signing authority."
+      }
+    },
+    {
+      "id": 11584344783,
+      "name": "desktop-unsigned-ubuntu-24.04-1",
+      "runId": 37858447261,
+      "apiBytes": 138238906,
+      "apiDigest": "sha256:1b8fe1ff13d47b8909479e7d8e050e39fb0580a4dd1e99665e4766497e5644c3",
+      "expired": false,
+      "downloaded": true,
+      "zip": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/artifact-11584344783.zip",
+        "bytes": 138238906,
+        "sha256": "1b8fe1ff13d47b8909479e7d8e050e39fb0580a4dd1e99665e4766497e5644c3"
+      },
+      "apiDigestMatches": true,
+      "crcPass": true,
+      "entries": 257,
+      "uncompressedBytes": 365514175,
+      "desktopEvidence": {
+        "unsigned": true,
+        "retainedManifests": [
+          {
+            "path": "artifacts/desktop-package/failures/package-NXe1pH/manifest.json",
+            "bytes": 20188,
+            "sha256": "8bda3764700d2929b2c7f344d87b4828e10ac0f2a098da9023061fcd481bcc66"
+          },
+          {
+            "path": "artifacts/desktop-package/failures/package-xVS1LK/manifest.json",
+            "bytes": 11908,
+            "sha256": "4e33c273a915beb7bffaa32c09a0475c5146551c45fe4a9215f568bb60ba9095"
+          }
+        ],
+        "asarFiles": [
+          {
+            "path": "release/linux-unpacked/resources/app.asar",
+            "bytes": 64381523,
+            "sha256": "ff4b3a4b2b5ed602284ab1e8f792a9ef35a9719a9df5f944e54808f47306fe42"
+          }
+        ],
+        "qualification": "Native fixture and package scope is anchored by exact-head job steps/logs. Archived retained manifests do not grant native cleanup or account/signing authority."
+      }
+    }
+  ],
+  "sourcePins": [
+    {
+      "repositoryPath": ".github/workflows/engine.yml",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "path": "/private/tmp/moodcode-next-final-hosted-acceptance/source/.github/workflows/engine.yml",
+      "bytes": 7388,
+      "sha256": "78a377b40684dc9d98edccd287a346908ba4b691447f0b5392a214c555a0891f"
+    },
+    {
+      "repositoryPath": ".github/workflows/engine-native-windows.yml",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "path": "/private/tmp/moodcode-next-final-hosted-acceptance/source/.github/workflows/engine-native-windows.yml",
+      "bytes": 3688,
+      "sha256": "d51b326ec6ccfaeff82411b90d175d96f75793dbfd982d8018f2d43abbe7bd1a"
+    },
+    {
+      "repositoryPath": ".github/workflows/desktop-package.yml",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "path": "/private/tmp/moodcode-next-final-hosted-acceptance/source/.github/workflows/desktop-package.yml",
+      "bytes": 3781,
+      "sha256": "1f65d851bee5d722568bdc30acd3615f0c202493622ee8b7cc115f69440f960e"
+    },
+    {
+      "repositoryPath": "scripts/test-desktop-package.mjs",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "path": "/private/tmp/moodcode-next-final-hosted-acceptance/source/scripts/test-desktop-package.mjs",
+      "bytes": 15967,
+      "sha256": "f2c05586503395cc19e1dce9aafbebbf26dc64b0a3a0d1626336bb524076c418"
+    },
+    {
+      "repositoryPath": "scripts/desktop-native-package.mjs",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "path": "/private/tmp/moodcode-next-final-hosted-acceptance/source/scripts/desktop-native-package.mjs",
+      "bytes": 3790,
+      "sha256": "86a27bd7dae71045872674032e938a1bd3f588d38ae79fa0394de9104c837585"
+    },
+    {
+      "repositoryPath": "apps/desktop/electron-builder.config.cjs",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "path": "/private/tmp/moodcode-next-final-hosted-acceptance/source/apps/desktop/electron-builder.config.cjs",
+      "bytes": 1421,
+      "sha256": "1cb78594f486ce60497c2719ba235bb58f09f93f7a47c498ef3dce6e5c6c9aea"
+    },
+    {
+      "repositoryPath": ".github/scripts/hardening-evidence.mjs",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "path": "/private/tmp/moodcode-next-final-hosted-acceptance/source/.github/scripts/hardening-evidence.mjs",
+      "bytes": 7568,
+      "sha256": "061075b5e2b171434162f1ff2438150735ad68f40bcb211d4c260c1ac1d5cb3f"
+    },
+    {
+      "repositoryPath": ".github/scripts/followup-evidence.mjs",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "path": "/private/tmp/moodcode-next-final-hosted-acceptance/source/.github/scripts/followup-evidence.mjs",
+      "bytes": 13714,
+      "sha256": "7d634326829b86fdc4f0c6167361ef4cd1a8753262eb9bf30f3333009771a360"
+    },
+    {
+      "repositoryPath": "packages/engine/src/terminals/backend.ts",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "path": "/private/tmp/moodcode-next-final-hosted-acceptance/source/packages/engine/src/terminals/backend.ts",
+      "bytes": 14422,
+      "sha256": "6577743bde681dbe553780d6d044574888cc4b162961833b3bc41a54aa43fda8"
+    },
+    {
+      "repositoryPath": "packages/engine/src/terminals/supervisor.ts",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "path": "/private/tmp/moodcode-next-final-hosted-acceptance/source/packages/engine/src/terminals/supervisor.ts",
+      "bytes": 9979,
+      "sha256": "15490da803f0b6fbea2bcd6c2b25e8ea7e0779527903905229d59b4f994b073b"
+    },
+    {
+      "repositoryPath": "packages/engine/src/terminals/job-group-cleanup.integration.test.ts",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "path": "/private/tmp/moodcode-next-final-hosted-acceptance/source/packages/engine/src/terminals/job-group-cleanup.integration.test.ts",
+      "bytes": 6629,
+      "sha256": "2e75ba97f84bd991708083cacd56b752c67a8b4ce0f2f26b8454318050cec691"
+    },
+    {
+      "repositoryPath": "packages/engine/src/terminals/fixtures/job-group.ts",
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "path": "/private/tmp/moodcode-next-final-hosted-acceptance/source/packages/engine/src/terminals/fixtures/job-group.ts",
+      "bytes": 7971,
+      "sha256": "f42ee80b5839947e5a99edfa5291a3fd1511ffa65c3569f91118bcd23ac15f7f"
+    }
+  ],
+  "failureEvidence": [
+    {
+      "jobId": 113588172891,
+      "step": "Windows actual packaged utility Job Object command and approval gate",
+      "originalError": "dist/main/windows-native-build.json was not found in this archive",
+      "originalModule": "scripts/test-desktop-package.mjs:125",
+      "rawFailedStep": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/desktop-windows-failed-step-0.log",
+        "bytes": 1545,
+        "sha256": "cfb4f02e741e548c496412365b73c3684c38688f95f19481372724c911671cb4"
+      },
+      "originalAsar": {
+        "path": "/private/tmp/moodcode-next-final-hosted-acceptance/windows-app.asar",
+        "bytes": 64663222,
+        "sha256": "ad01b4d531068ede38b1f4a1f8578790eac96e66bcb37ebee632076118191654"
+      },
+      "artifactReceiptActuallyPresent": true,
+      "causeClassification": "Archive lookup path failure; missing publication was disproved by the original archived receipt. Native path-separator dependence in @electron/asar3.4.1 is the source-supported cause inference; corrective Windows rerun remains separate.",
+      "nativePackageAcceptance": false,
+      "authorityOrCleanupUpgraded": false
+    }
+  ],
+  "limits": {
+    "liveProviderRequestsByCollector": 0,
+    "providerCredentialsRead": false,
+    "githubAuthentication": "Existing gh authentication used for requested read-only Actions retrieval; no credential file or environment values output",
+    "sourceOrBuildChangesByCollector": false,
+    "secretsPrinted": false,
+    "artifactPayloadOutput": "Only selected metadata, schema, counts, hashes and failure evidence; no provider/chat payloads or credential values",
+    "scope": "Read-only GitHub Actions metadata/downloads, bounded selected JSON/manifest and archive byte validation; no new local native/live tests"
+  },
+  "externalConditionsStillUnverified": [
+    "Actual official SIWC/account login; fixture signed JWT and loopback flows give no actual account qualification",
+    "Developer ID/notarization/Windows Authenticode/publisher certificates and real signed installer/feed",
+    "Windows arm64 native DLL/Electron qualification; these native jobs target x64",
+    "Windows PTY and OS file/network sandbox support",
+    "Historical R-PTY-01 cause and historical Mac26 EPERM syscall/ancestry root cause; later passing runs do not reclassify original uncertainty",
+    "Requested genuine30minute acceptance belongs to its separate measured source-pinned run; hosted quick profile gives no30minute credit"
+  ],
+  "acceptanceRule": "Native Windows Node37/37 gates and desktop package gates are separate scopes. Preserve native unknown/cleanupfalse rows and failed-original archive copies; process disappearance and job success do not turn observation into original ownership."
+}

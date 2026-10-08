@@ -1,0 +1,331 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-refactor-performance-comparison",
+  "status": "completed-matched-protocol-informational-comparison",
+  "parametersEqual": true,
+  "environmentEqual": true,
+  "before": {
+    "path": "/tmp/moodcode-next-refactor-before-benchmark.json",
+    "bytes": 318051,
+    "sha256": "c64ef4b22eed3782fc101678b13ca53cd540959556a8e7ffda8f0163b0d52f43"
+  },
+  "afterConcurrent": {
+    "path": "/tmp/moodcode-next-refactor-after-benchmark.json",
+    "bytes": 321386,
+    "sha256": "92ea9d13c99ca356b874420354459e13ab6be84ea51e1465615a37ab389c0879"
+  },
+  "beforeHead": "0b04d127e1d0201e1f198b7cf039ab4a641ce986",
+  "afterHead": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+  "runtimeIdentityStable": {
+    "before": true,
+    "after": true
+  },
+  "parameters": {
+    "runs": 24,
+    "messageBytes": 256,
+    "samples": 5,
+    "warmup": 1,
+    "runtime": "compiled",
+    "profile": "quick",
+    "seed": 20261009
+  },
+  "environment": {
+    "node": "v26.9.0",
+    "os": "darwin",
+    "release": "27.0.0",
+    "architecture": "arm64",
+    "gcExposed": false
+  },
+  "observations": [
+    {
+      "operation": "history",
+      "beforeP50ms": 0.214,
+      "afterP50ms": 0.595,
+      "beforeP95ms": 0.243,
+      "afterP95ms": 0.703,
+      "beforeResultBytes": {
+        "min": 45644,
+        "max": 45644
+      },
+      "afterResultBytes": {
+        "min": 45644,
+        "max": 45644
+      }
+    },
+    {
+      "operation": "modelHistory",
+      "beforeP50ms": 0.242,
+      "afterP50ms": 0.542,
+      "beforeP95ms": 0.248,
+      "afterP95ms": 0.874,
+      "beforeResultBytes": {
+        "min": 54654,
+        "max": 54654
+      },
+      "afterResultBytes": {
+        "min": 54654,
+        "max": 54654
+      }
+    },
+    {
+      "operation": "contextRun",
+      "beforeP50ms": 8.961,
+      "afterP50ms": 14.658,
+      "beforeP95ms": 20.64,
+      "afterP95ms": 51.241,
+      "beforeResultBytes": {
+        "min": 2984,
+        "max": 3296
+      },
+      "afterResultBytes": {
+        "min": 2984,
+        "max": 3296
+      }
+    },
+    {
+      "operation": "contextObservation",
+      "beforeP50ms": 0.034,
+      "afterP50ms": 0.131,
+      "beforeP95ms": 0.054,
+      "afterP95ms": 0.459,
+      "beforeResultBytes": {
+        "min": 3296,
+        "max": 3296
+      },
+      "afterResultBytes": {
+        "min": 3296,
+        "max": 3296
+      }
+    },
+    {
+      "operation": "metrics",
+      "beforeP50ms": 2.557,
+      "afterP50ms": 4.303,
+      "beforeP95ms": 2.629,
+      "afterP95ms": 8.066,
+      "beforeResultBytes": {
+        "min": 12401,
+        "max": 12401
+      },
+      "afterResultBytes": {
+        "min": 12401,
+        "max": 12401
+      }
+    },
+    {
+      "operation": "eventReplay",
+      "beforeP50ms": 9.407,
+      "afterP50ms": 13.915,
+      "beforeP95ms": 9.94,
+      "afterP95ms": 14.635,
+      "beforeResultBytes": {
+        "min": 104,
+        "max": 104
+      },
+      "afterResultBytes": {
+        "min": 104,
+        "max": 104
+      }
+    },
+    {
+      "operation": "summaryUsage",
+      "beforeP50ms": 0.1,
+      "afterP50ms": 0.103,
+      "beforeP95ms": 0.138,
+      "afterP95ms": 0.16,
+      "beforeResultBytes": {
+        "min": 4,
+        "max": 4
+      },
+      "afterResultBytes": {
+        "min": 4,
+        "max": 4
+      }
+    },
+    {
+      "operation": "summaryAttempt",
+      "beforeP50ms": 0.068,
+      "afterP50ms": 0.079,
+      "beforeP95ms": 0.075,
+      "afterP95ms": 0.088,
+      "beforeResultBytes": {
+        "min": 4756,
+        "max": 4756
+      },
+      "afterResultBytes": {
+        "min": 4756,
+        "max": 4756
+      }
+    },
+    {
+      "operation": "summaryList",
+      "beforeP50ms": 0.081,
+      "afterP50ms": 0.096,
+      "beforeP95ms": 0.088,
+      "afterP95ms": 0.102,
+      "beforeResultBytes": {
+        "min": 4789,
+        "max": 4789
+      },
+      "afterResultBytes": {
+        "min": 4789,
+        "max": 4789
+      }
+    },
+    {
+      "operation": "storageInspection",
+      "beforeP50ms": 2.538,
+      "afterP50ms": 7.25,
+      "beforeP95ms": 2.902,
+      "afterP95ms": 8.984,
+      "beforeResultBytes": {
+        "min": 3788,
+        "max": 3788
+      },
+      "afterResultBytes": {
+        "min": 3788,
+        "max": 3788
+      }
+    }
+  ],
+  "semantics": {
+    "bothPassed": true,
+    "nativeRuns": 31,
+    "nativeEventsPerSample": 512,
+    "historyExact": true,
+    "noProviderReplay": true,
+    "summaryReturnedSqlBytes": 7569,
+    "summaryQueries": 9,
+    "fullSummaryPayloadReads": 0,
+    "summaryWrites": 0,
+    "nativeCleanupConfirmed": true
+  },
+  "interpretation": [
+    "After invocation overlapped Root full headless and structural inventory; source/params/env are pinned but scheduling load is not controlled. Slower values cannot establish a code regression or speedup.",
+    "Five samples make p95/p99 the observed maximum; no absolute timing gate, statistical claim, controlled-GC memory or leak inference.",
+    "Retained the original concurrent-load report and one justified quieter follow-up after whole completion. Both use the exact same protocol and pass all native invariants. Metrics serialized lengths include timing/dynamic numeric observations; byte counts are reported per invocation."
+  ],
+  "quietFollowup": {
+    "status": "passed",
+    "report": {
+      "path": "/tmp/moodcode-next-refactor-after-quiet-benchmark.json",
+      "bytes": 321368,
+      "sha256": "e50c0974294be38fad5a1394f01083a32e8183626de3fe716515c3d1c48a0491"
+    },
+    "head": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+    "sourceSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
+    "runtimeIdentityStable": true,
+    "parametersEqual": true,
+    "environmentEqual": true,
+    "RootWholeHadCompleted": true,
+    "remainingLoad": "Separate persistent worker remains active; scheduling and GC are still not controlled.",
+    "nativeRuns": 31,
+    "eventsPerSample": 512,
+    "summaryQueries": 9,
+    "summaryReturnedSqlBytes": 7569,
+    "summaryFullPayloadReads": 0,
+    "summaryWrites": 0,
+    "noProviderReplay": true,
+    "cleanup": {
+      "engineClosed": true,
+      "nativeCleanupConfirmed": true,
+      "runtimeCleanupConfirmed": true,
+      "noActiveExecution": true,
+      "temporaryFilesRemoved": true,
+      "retainedBytesBeforeRemoval": 3485894,
+      "failure": null
+    },
+    "observations": [
+      {
+        "operation": "history",
+        "p50Ms": 0.217,
+        "p95Ms": 0.289,
+        "resultBytes": {
+          "min": 45644,
+          "max": 45644
+        }
+      },
+      {
+        "operation": "modelHistory",
+        "p50Ms": 0.247,
+        "p95Ms": 0.27,
+        "resultBytes": {
+          "min": 54654,
+          "max": 54654
+        }
+      },
+      {
+        "operation": "contextRun",
+        "p50Ms": 8.927,
+        "p95Ms": 9.141,
+        "resultBytes": {
+          "min": 2984,
+          "max": 3296
+        }
+      },
+      {
+        "operation": "contextObservation",
+        "p50Ms": 0.039,
+        "p95Ms": 0.042,
+        "resultBytes": {
+          "min": 3296,
+          "max": 3296
+        }
+      },
+      {
+        "operation": "metrics",
+        "p50Ms": 2.85,
+        "p95Ms": 3.058,
+        "resultBytes": {
+          "min": 12397,
+          "max": 12397
+        }
+      },
+      {
+        "operation": "eventReplay",
+        "p50Ms": 10.546,
+        "p95Ms": 10.688,
+        "resultBytes": {
+          "min": 104,
+          "max": 104
+        }
+      },
+      {
+        "operation": "summaryUsage",
+        "p50Ms": 0.171,
+        "p95Ms": 0.255,
+        "resultBytes": {
+          "min": 4,
+          "max": 4
+        }
+      },
+      {
+        "operation": "summaryAttempt",
+        "p50Ms": 0.088,
+        "p95Ms": 0.204,
+        "resultBytes": {
+          "min": 4756,
+          "max": 4756
+        }
+      },
+      {
+        "operation": "summaryList",
+        "p50Ms": 0.096,
+        "p95Ms": 0.1,
+        "resultBytes": {
+          "min": 4789,
+          "max": 4789
+        }
+      },
+      {
+        "operation": "storageInspection",
+        "p50Ms": 3.488,
+        "p95Ms": 3.959,
+        "resultBytes": {
+          "min": 3788,
+          "max": 3788
+        }
+      }
+    ]
+  }
+}
