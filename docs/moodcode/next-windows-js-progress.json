@@ -129,7 +129,7 @@
   },
   "remaining": [
     "Root combined-main native Windows workflow after integration",
-    "Root original six-lane hosted acceptance: preserve macOS24 unchanged hook failure; Ubuntu26 outcome remains pending",
+    "Root original six-lane hosted remediation/reverification: terminal4success, unchangedmacOS24hookfailure andUbuntu26actual25m timeoutcancellation; no complete six-lane success",
     "Desktop actual Electron/package qualification; dedicated x64 Node native gates do not qualify Desktop packaging"
   ],
   "limitations": [
@@ -255,15 +255,17 @@
     "sixLaneHostedRun": {
       "runId": 37851661133,
       "sourceSha": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
-      "status": "not-accepted-as-all-green",
+      "status": "terminal-failure-with-original-evidence-preserved",
       "preservedMacosNode24Failure": {
         "case": "actual hook cancellation and timeout join the entire process group",
         "error": "Actual process boundary did not arrive",
         "gitCodeAndFixtureChanged": false,
         "fixtureBlob": "c188513116327f8e056350a942c47afcc915add4"
       },
-      "ubuntuNode26": "pending-at-documentation-snapshot",
-      "authoritativeEvidence": "docs/moodcode/next-windows-ci-verification.json"
+      "ubuntuNode26": "cancelled:original25minutetimeoutannotation; log/artifact unavailable after propagation retry",
+      "authoritativeEvidence": "docs/moodcode/next-windows-ci-verification.json",
+      "terminalEvidence": "artifacts/native-windows/hosted-37851661133/terminal-verification.json",
+      "terminalEvidenceSha256": "54c6ae2ba7aea90dbbd105b74e6e4188615dfb15d07f52a4739d094191273b53"
     }
   },
   "frozenLocalFullVerification": {

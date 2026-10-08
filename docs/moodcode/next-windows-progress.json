@@ -40,7 +40,7 @@
     },
     "hostedLanes": 6,
     "source": "docs/moodcode/engine-hardening-verification.json",
-    "newSourceRevalidation": "pending with unmodified macOS24 Git hook fixture failure preserved; original six-lane workflow unchanged",
+    "newSourceRevalidation": "Terminal:four success,one unchanged macOS24 hook failure,one Ubuntu26timeout cancellation; combinedRoot verification remains open",
     "localRevalidated": {
       "status": "complete",
       "accepted": true,
@@ -618,8 +618,8 @@
         "runId": 37851661133,
         "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37851661133",
         "sourceCommit": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
-        "status": "in_progress",
-        "conclusion": null,
+        "status": "completed",
+        "conclusion": "failure",
         "kind": "existing-six-lane-headless-matrix",
         "successLanes": [
           "windows-2025/Node24 portable only",
@@ -644,13 +644,122 @@
             "sameTestPassedFrozenLocalRetryMs": 2656.590417
           }
         ],
-        "pendingLanes": [
+        "pendingLanes": [],
+        "qualification": "Terminal original matrix:4successful,macOS24existing unchanged hook failure,Ubuntu26actual25min-timeout cancellation. Five available artifacts/combined logs preserved; Ubuntu26trace/artifact unavailable after propagation retry. No all-six-success or complete-six-log-bundle claim.",
+        "cancelledLanes": [
           {
             "lane": "ubuntu-24.04/Node26",
-            "jobId": 113565771781
+            "jobId": 113565771781,
+            "reason": "The job has exceeded the maximum execution time of 25m0s",
+            "originalLogAvailable": false,
+            "artifactAvailable": false,
+            "countsAvailable": false,
+            "hangRootCauseConfirmed": false
           }
         ],
-        "qualification": "No all-six-green claim; all original failures and platform skips retained. Root owns combined baseline fixture remediation and integration verification."
+        "logsZipSha256": "cc96f238dd49d60d92f4dcf2fa7111efd7f2f9afb661af3f73ef91b61ade1e59",
+        "completeSixLaneRawLogBundle": false,
+        "terminalEvidence": "artifacts/native-windows/hosted-37851661133/terminal-verification.json",
+        "terminalEvidenceSha256": "54c6ae2ba7aea90dbbd105b74e6e4188615dfb15d07f52a4739d094191273b53",
+        "artifactZipVerification": [
+          {
+            "artifactId": 11583131190,
+            "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+            "artifactSha256": "9cb577883eaa2808079459951e808c18d18cd5852b578f31cc659a349650429d",
+            "originalFiles": 35,
+            "node": "v24.21.0",
+            "platform": "linux",
+            "conclusion": "success",
+            "counts": [
+              {
+                "tests": 4759,
+                "pass": 4697,
+                "fail": 0,
+                "cancelled": 0,
+                "skipped": 62
+              }
+            ],
+            "failedOperations": []
+          },
+          {
+            "artifactId": 11583001419,
+            "name": "engine-macos-15-node-26.x-attempt-1",
+            "artifactSha256": "5f304001b45c8480c247da5470c0146b9710af2f4d6f07ca402dcbaa6443df5d",
+            "originalFiles": 35,
+            "node": "v26.11.1",
+            "platform": "darwin",
+            "conclusion": "success",
+            "counts": [
+              {
+                "tests": 4759,
+                "pass": 4757,
+                "fail": 0,
+                "cancelled": 0,
+                "skipped": 2
+              }
+            ],
+            "failedOperations": []
+          },
+          {
+            "artifactId": 11582552571,
+            "name": "engine-macos-15-node-24.x-attempt-1",
+            "artifactSha256": "828de76525b8830ca0fb261e6e658f1bbeb05d338215ea508b960b9a9b06386a",
+            "originalFiles": 23,
+            "node": "v24.20.0",
+            "platform": "darwin",
+            "conclusion": "failure",
+            "counts": [
+              {
+                "tests": 4759,
+                "pass": 4756,
+                "fail": 1,
+                "cancelled": 0,
+                "skipped": 2
+              }
+            ],
+            "failedOperations": [
+              "test"
+            ]
+          },
+          {
+            "artifactId": 11582436574,
+            "name": "engine-windows-portable-node-26.x-attempt-1",
+            "artifactSha256": "cfeb62f327709f58c8bf31e31325d5819e73fca7355121352b459a2d14bd5b02",
+            "originalFiles": 17,
+            "node": "v26.11.1",
+            "platform": "win32",
+            "conclusion": "success",
+            "counts": [
+              {
+                "tests": 158,
+                "pass": 158,
+                "fail": 0,
+                "cancelled": 0,
+                "skipped": 0
+              }
+            ],
+            "failedOperations": []
+          },
+          {
+            "artifactId": 11581454440,
+            "name": "engine-windows-portable-node-24.x-attempt-1",
+            "artifactSha256": "8161aad2b0ea50ae1de11e03111ba16515dfa7791749a54a9383421e9452ddf0",
+            "originalFiles": 17,
+            "node": "v24.21.0",
+            "platform": "win32",
+            "conclusion": "success",
+            "counts": [
+              {
+                "tests": 158,
+                "pass": 158,
+                "fail": 0,
+                "cancelled": 0,
+                "skipped": 0
+              }
+            ],
+            "failedOperations": []
+          }
+        ]
       }
     ],
     "failuresPreserved": [
@@ -700,7 +809,7 @@
     ]
   },
   "externalConditions": {
-    "windowsHostedRunner": "Exact8c7 native push and workflow_dispatch fully qualified; frozen local4759/4757/0fail/2skip verified. Existing six-lane Ubuntu26 remains pending and unchanged macOS24 hook failure preserved; Root requested immediate handoff.",
+    "windowsHostedRunner": "Exact8c7 native fourWindowsgates and frozenlocalwholepass remainverified. Originalsixlaneisnowterminalfailure withexistingmac24hook+Ubuntu26actualtimeout; Rootcombinedpublication/nativeCI pending.",
     "desktopPackaging": "N-04/N-05 owned by Desktop session; outside E5-08 completion scope"
   },
   "constraints": [
@@ -741,7 +850,7 @@
   "fullPipelinePending": true,
   "wholePipelineGreenClaim": false,
   "fullPipeline": {
-    "status": "pending",
+    "status": "awaiting-Root-combined-main-native-and-baseline-verification",
     "local": {
       "status": "complete",
       "accepted": true,
@@ -772,8 +881,8 @@
       "runId": 37851661133,
       "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37851661133",
       "sourceCommit": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
-      "status": "in_progress",
-      "conclusion": null,
+      "status": "completed",
+      "conclusion": "failure",
       "kind": "existing-six-lane-headless-matrix",
       "successLanes": [
         "windows-2025/Node24 portable only",
@@ -798,13 +907,122 @@
           "sameTestPassedFrozenLocalRetryMs": 2656.590417
         }
       ],
-      "pendingLanes": [
+      "pendingLanes": [],
+      "qualification": "Terminal original matrix:4successful,macOS24existing unchanged hook failure,Ubuntu26actual25min-timeout cancellation. Five available artifacts/combined logs preserved; Ubuntu26trace/artifact unavailable after propagation retry. No all-six-success or complete-six-log-bundle claim.",
+      "cancelledLanes": [
         {
           "lane": "ubuntu-24.04/Node26",
-          "jobId": 113565771781
+          "jobId": 113565771781,
+          "reason": "The job has exceeded the maximum execution time of 25m0s",
+          "originalLogAvailable": false,
+          "artifactAvailable": false,
+          "countsAvailable": false,
+          "hangRootCauseConfirmed": false
         }
       ],
-      "qualification": "No all-six-green claim; all original failures and platform skips retained. Root owns combined baseline fixture remediation and integration verification."
+      "logsZipSha256": "cc96f238dd49d60d92f4dcf2fa7111efd7f2f9afb661af3f73ef91b61ade1e59",
+      "completeSixLaneRawLogBundle": false,
+      "terminalEvidence": "artifacts/native-windows/hosted-37851661133/terminal-verification.json",
+      "terminalEvidenceSha256": "54c6ae2ba7aea90dbbd105b74e6e4188615dfb15d07f52a4739d094191273b53",
+      "artifactZipVerification": [
+        {
+          "artifactId": 11583131190,
+          "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+          "artifactSha256": "9cb577883eaa2808079459951e808c18d18cd5852b578f31cc659a349650429d",
+          "originalFiles": 35,
+          "node": "v24.21.0",
+          "platform": "linux",
+          "conclusion": "success",
+          "counts": [
+            {
+              "tests": 4759,
+              "pass": 4697,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 62
+            }
+          ],
+          "failedOperations": []
+        },
+        {
+          "artifactId": 11583001419,
+          "name": "engine-macos-15-node-26.x-attempt-1",
+          "artifactSha256": "5f304001b45c8480c247da5470c0146b9710af2f4d6f07ca402dcbaa6443df5d",
+          "originalFiles": 35,
+          "node": "v26.11.1",
+          "platform": "darwin",
+          "conclusion": "success",
+          "counts": [
+            {
+              "tests": 4759,
+              "pass": 4757,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 2
+            }
+          ],
+          "failedOperations": []
+        },
+        {
+          "artifactId": 11582552571,
+          "name": "engine-macos-15-node-24.x-attempt-1",
+          "artifactSha256": "828de76525b8830ca0fb261e6e658f1bbeb05d338215ea508b960b9a9b06386a",
+          "originalFiles": 23,
+          "node": "v24.20.0",
+          "platform": "darwin",
+          "conclusion": "failure",
+          "counts": [
+            {
+              "tests": 4759,
+              "pass": 4756,
+              "fail": 1,
+              "cancelled": 0,
+              "skipped": 2
+            }
+          ],
+          "failedOperations": [
+            "test"
+          ]
+        },
+        {
+          "artifactId": 11582436574,
+          "name": "engine-windows-portable-node-26.x-attempt-1",
+          "artifactSha256": "cfeb62f327709f58c8bf31e31325d5819e73fca7355121352b459a2d14bd5b02",
+          "originalFiles": 17,
+          "node": "v26.11.1",
+          "platform": "win32",
+          "conclusion": "success",
+          "counts": [
+            {
+              "tests": 158,
+              "pass": 158,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0
+            }
+          ],
+          "failedOperations": []
+        },
+        {
+          "artifactId": 11581454440,
+          "name": "engine-windows-portable-node-24.x-attempt-1",
+          "artifactSha256": "8161aad2b0ea50ae1de11e03111ba16515dfa7791749a54a9383421e9452ddf0",
+          "originalFiles": 17,
+          "node": "v24.21.0",
+          "platform": "win32",
+          "conclusion": "success",
+          "counts": [
+            {
+              "tests": 158,
+              "pass": 158,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0
+            }
+          ],
+          "failedOperations": []
+        }
+      ]
     },
     "combinedMainAndDesktop": "Root will integrate this qualified native source and Desktop then dispatch native Windows and actual Windows Electron/three-OS package CI; branch Node evidence does not qualify combined main or Electron."
   },
@@ -880,7 +1098,7 @@
       {
         "requirement": "Original six-lane final outcome and combined-main native workflow dispatch",
         "status": "incomplete",
-        "evidence": "Run37851661133 has four successes, original unchanged macOS24 hook failure and Ubuntu26 stillin_progress. Rootmain99cc0c5 has identical native source but remote main3fc2d14 not yet contains integration; no main-native execution observed."
+        "evidence": "Original37851661133terminalfailure with4success/1existingmacfailure/1Ubuntu26timeout; originalavailable5ZIPs/logs+timeoutannotation verified. Rootremote publication and combined-main native dispatch stillunobserved."
       }
     ],
     "integratedSourceComparison": {
@@ -895,10 +1113,17 @@
       "sha256": "8f2bd730847b31260cbcaf5b9da6e9af49e19879d8ec186bf3fa00c866835c71"
     },
     "remaining": [
-      "Capture actual terminal Ubuntu26/run outcome and original remaining logs/artifact hashes; never infer terminal state from timeout",
+      "Original matrixterminalcaptured; missingUbuntu26trace/artifact explicitlyunavailable. Rootowns fullbaseline remediation/reverification; no existing failure is masked.",
       "Root publishes integrated main and dispatches actual native Windows workflow; retain8c7 Node-only source/binary qualification",
       "Desktop actual Electron/package verification remains separately owned; no Node evidence is substituted for packaged Electron"
     ],
-    "goalControl": "No goal status mutation: Root explicitly owns shared goal control; completion has not been asserted for the combined pipeline"
+    "goalControl": "No goal status mutation: Root explicitly owns shared goal control; completion has not been asserted for the combined pipeline",
+    "terminalOriginalSixLaneEvidence": {
+      "path": "artifacts/native-windows/hosted-37851661133/terminal-verification.json",
+      "sha256": "54c6ae2ba7aea90dbbd105b74e6e4188615dfb15d07f52a4739d094191273b53",
+      "status": "completed",
+      "conclusion": "failure",
+      "completeSixLaneRawLogBundle": false
+    }
   }
 }

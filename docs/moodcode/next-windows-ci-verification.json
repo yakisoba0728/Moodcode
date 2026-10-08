@@ -8,7 +8,7 @@
     "scripts/windows-job-ci.mjs",
     "packages/engine/src/tools/command/windows-native*"
   ],
-  "verificationState": "handoff-ready: exact8c7 Windows native push and workflow_dispatch allfourlanes verified; frozen local4759/4757pass/0fail/2skip complete with1009 unchanged inputs. Original six-lane macOS24 unchanged Git hook readiness failure preserved and Ubuntu26 pending; combined pipeline green notclaimed",
+  "verificationState": "Exact8c7 native fourWindowsgates verified and frozenlocal4759/4757/0fail/2skip verified. Originalsixlane terminalfailure:4success, unchangedmac24hookfailure,Ubuntu26actual25m-timeoutcancel; available5raw/artifactevidence preserved,Ubuntu26log/artifact unavailable. Rootcombinedpipeline unqualified.",
   "hostedRuns": [
     {
       "runId": 37846891144,
@@ -1038,8 +1038,12 @@
     "headlessRun": 37851661133,
     "headlessObservedSuccesses": 4,
     "headlessObservedFailureJob": 113565771908,
-    "headlessPendingJob": 113565771781,
-    "localWholeRetry": "complete and accepted:4759total4757pass0fail0cancelled2skip;1009 source inputs unchanged; see frozenLocalFullVerification"
+    "headlessPendingJob": null,
+    "localWholeRetry": "complete and accepted:4759total4757pass0fail0cancelled2skip;1009 source inputs unchanged; see frozenLocalFullVerification",
+    "headlessConclusion": "failure",
+    "headlessCancelledJob": 113565771781,
+    "headlessTimeoutAnnotationSha256": "0f6d263edd75d8893df75d989578b94ce333d68c30a8f4a562fe71b3610de500",
+    "completeSixLaneRawLogBundle": false
   },
   "frozenLocalFullVerification": {
     "status": "complete",
@@ -1067,5 +1071,240 @@
     "finalFooterAvailable": true,
     "qualification": "Complete original engine suite, unchanged assertions/timeouts/skips. Test-driver-only isolated process group. Native Windows support derives exclusively from actual Windows hosted gates."
   },
-  "wholePipelineGreenClaim": false
+  "wholePipelineGreenClaim": false,
+  "terminalOriginalSixLaneVerification": {
+    "observedAt": "2026-10-08T22:41:49.871304+00:00",
+    "runId": 37851661133,
+    "sourceSha": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+    "status": "completed",
+    "conclusion": "failure",
+    "jobs": [
+      {
+        "jobId": 113565771624,
+        "name": "Portable contracts/storage only / Windows / Node 24.x",
+        "status": "completed",
+        "conclusion": "success",
+        "completedAt": "2026-10-08T22:10:55Z"
+      },
+      {
+        "jobId": 113565771757,
+        "name": "Headless macos-15 / Node 26.x",
+        "status": "completed",
+        "conclusion": "success",
+        "completedAt": "2026-10-08T22:17:23Z"
+      },
+      {
+        "jobId": 113565771781,
+        "name": "Headless ubuntu-24.04 / Node 26.x",
+        "status": "completed",
+        "conclusion": "cancelled",
+        "completedAt": "2026-10-08T22:39:31Z"
+      },
+      {
+        "jobId": 113565771908,
+        "name": "Headless macos-15 / Node 24.x",
+        "status": "completed",
+        "conclusion": "failure",
+        "completedAt": "2026-10-08T22:18:19Z"
+      },
+      {
+        "jobId": 113565771912,
+        "name": "Portable contracts/storage only / Windows / Node 26.x",
+        "status": "completed",
+        "conclusion": "success",
+        "completedAt": "2026-10-08T22:11:32Z"
+      },
+      {
+        "jobId": 113565772109,
+        "name": "Headless ubuntu-24.04 / Node 24.x",
+        "status": "completed",
+        "conclusion": "success",
+        "completedAt": "2026-10-08T22:17:24Z"
+      }
+    ],
+    "originalTimeoutAnnotation": [
+      {
+        "path": ".github",
+        "blob_href": "https://github.com/yakisoba0728/Moodcode/blob/8c7aac2c48ad975f9679d482acfcd78bf9a1f278/.github",
+        "start_line": 1,
+        "start_column": null,
+        "end_line": 1,
+        "end_column": null,
+        "annotation_level": "failure",
+        "title": "",
+        "message": "The job has exceeded the maximum execution time of 25m0s",
+        "raw_details": ""
+      }
+    ],
+    "annotationSha256": "0f6d263edd75d8893df75d989578b94ce333d68c30a8f4a562fe71b3610de500",
+    "downloads": [
+      {
+        "name": "logs-after-terminal-propagation.zip",
+        "available": true,
+        "bytes": 2324936,
+        "sha256": "cc96f238dd49d60d92f4dcf2fa7111efd7f2f9afb661af3f73ef91b61ade1e59"
+      },
+      {
+        "name": "job-113565771781.log",
+        "available": false,
+        "exitCode": 1,
+        "error": "gh: HTTP 404"
+      },
+      {
+        "name": "artifacts-after-terminal-propagation.json",
+        "available": true,
+        "bytes": 3689,
+        "sha256": "e09db56b270153975f99d648b4678d6f57532163b392e3c675a2ae22d2e2f330"
+      },
+      {
+        "name": "ubuntu26-job-after-terminal-propagation.json",
+        "available": true,
+        "bytes": 4117,
+        "sha256": "6ba357ae5944d810182af97c41dc38d4045f772205642211c6897c0ad03980d5"
+      }
+    ],
+    "logsArchives": [
+      {
+        "path": "artifacts/native-windows/hosted-37851661133/logs.zip",
+        "sha256": "cc96f238dd49d60d92f4dcf2fa7111efd7f2f9afb661af3f73ef91b61ade1e59",
+        "entryCount": 96,
+        "combinedJobLogEntries": [
+          "0_Headless ubuntu-24.04 _ Node 24.x.txt",
+          "1_Portable contracts_storage only _ Windows _ Node 26.x.txt",
+          "2_Headless macos-15 _ Node 24.x.txt",
+          "4_Headless macos-15 _ Node 26.x.txt",
+          "5_Portable contracts_storage only _ Windows _ Node 24.x.txt"
+        ],
+        "includesUbuntu26": false
+      },
+      {
+        "path": "artifacts/native-windows/hosted-37851661133/logs-after-terminal-propagation.zip",
+        "sha256": "cc96f238dd49d60d92f4dcf2fa7111efd7f2f9afb661af3f73ef91b61ade1e59",
+        "entryCount": 96,
+        "combinedJobLogEntries": [
+          "0_Headless ubuntu-24.04 _ Node 24.x.txt",
+          "1_Portable contracts_storage only _ Windows _ Node 26.x.txt",
+          "2_Headless macos-15 _ Node 24.x.txt",
+          "4_Headless macos-15 _ Node 26.x.txt",
+          "5_Portable contracts_storage only _ Windows _ Node 24.x.txt"
+        ],
+        "includesUbuntu26": false
+      }
+    ],
+    "artifactCount": 5,
+    "artifactZipVerification": [
+      {
+        "artifactId": 11583131190,
+        "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+        "artifactSha256": "9cb577883eaa2808079459951e808c18d18cd5852b578f31cc659a349650429d",
+        "originalFiles": 35,
+        "node": "v24.21.0",
+        "platform": "linux",
+        "conclusion": "success",
+        "counts": [
+          {
+            "tests": 4759,
+            "pass": 4697,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 62
+          }
+        ],
+        "failedOperations": []
+      },
+      {
+        "artifactId": 11583001419,
+        "name": "engine-macos-15-node-26.x-attempt-1",
+        "artifactSha256": "5f304001b45c8480c247da5470c0146b9710af2f4d6f07ca402dcbaa6443df5d",
+        "originalFiles": 35,
+        "node": "v26.11.1",
+        "platform": "darwin",
+        "conclusion": "success",
+        "counts": [
+          {
+            "tests": 4759,
+            "pass": 4757,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 2
+          }
+        ],
+        "failedOperations": []
+      },
+      {
+        "artifactId": 11582552571,
+        "name": "engine-macos-15-node-24.x-attempt-1",
+        "artifactSha256": "828de76525b8830ca0fb261e6e658f1bbeb05d338215ea508b960b9a9b06386a",
+        "originalFiles": 23,
+        "node": "v24.20.0",
+        "platform": "darwin",
+        "conclusion": "failure",
+        "counts": [
+          {
+            "tests": 4759,
+            "pass": 4756,
+            "fail": 1,
+            "cancelled": 0,
+            "skipped": 2
+          }
+        ],
+        "failedOperations": [
+          "test"
+        ]
+      },
+      {
+        "artifactId": 11582436574,
+        "name": "engine-windows-portable-node-26.x-attempt-1",
+        "artifactSha256": "cfeb62f327709f58c8bf31e31325d5819e73fca7355121352b459a2d14bd5b02",
+        "originalFiles": 17,
+        "node": "v26.11.1",
+        "platform": "win32",
+        "conclusion": "success",
+        "counts": [
+          {
+            "tests": 158,
+            "pass": 158,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0
+          }
+        ],
+        "failedOperations": []
+      },
+      {
+        "artifactId": 11581454440,
+        "name": "engine-windows-portable-node-24.x-attempt-1",
+        "artifactSha256": "8161aad2b0ea50ae1de11e03111ba16515dfa7791749a54a9383421e9452ddf0",
+        "originalFiles": 17,
+        "node": "v24.21.0",
+        "platform": "win32",
+        "conclusion": "success",
+        "counts": [
+          {
+            "tests": 158,
+            "pass": 158,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0
+          }
+        ],
+        "failedOperations": []
+      }
+    ],
+    "ubuntu26": {
+      "jobId": 113565771781,
+      "conclusion": "cancelled",
+      "originalLogAvailable": false,
+      "artifactAvailable": false,
+      "countsAvailable": false,
+      "timeoutReason": "The job has exceeded the maximum execution time of 25m0s",
+      "hangRootCauseConfirmed": false
+    },
+    "wholeSixLaneSuccess": false,
+    "completeSixLaneRawLogBundle": false,
+    "nativeGateQualificationUnchanged": true,
+    "frozenSourceOrDocsModified": false,
+    "evidencePath": "artifacts/native-windows/hosted-37851661133/terminal-verification.json",
+    "evidenceSha256": "54c6ae2ba7aea90dbbd105b74e6e4188615dfb15d07f52a4739d094191273b53"
+  }
 }
