@@ -1,32 +1,21 @@
 import assert from "node:assert/strict";
-import { DatabaseSync } from "node:sqlite";
 import { _electron as electron, expect } from "@playwright/test";
-import { mkdtemp, mkdir, writeFile, rm, access } from "node:fs/promises";
+import { mkdir, writeFile, access } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import {
+  captureDesktopNativeEvidence,
+  createDesktopTestDirectory,
+  preserveDesktopTestEvidence,
+} from "./desktop-test-evidence.mjs";
 
-const root = await mkdtemp(join(tmpdir(), "moodcode-desktop-advanced-"));
+const root = await createDesktopTestDirectory("advanced");
 const workspace = join(root, "workspace"),
   screenshots = resolve("artifacts/desktop-advanced");
 const checks = [];
-let app, page;
-await mkdir(workspace);
-await mkdir(screenshots, { recursive: true });
-await writeFile(join(workspace, "example.ts"), "export const value = 1;\n");
-execFileSync("git", ["init", "-q", workspace]);
-execFileSync("git", ["-C", workspace, "add", "example.ts"]);
-execFileSync("git", [
-  "-C",
-  workspace,
-  "-c",
-  "user.name=Desktop Fixture",
-  "-c",
-  "user.email=desktop-fixture@example.invalid",
-  "commit",
-  "-qm",
-  "desktop fixture",
-]);
+let app, page, originalApplicationProcess, guiResult;
+let testOutcome = "unknown";
+const failurePoint = process.env.MOODCODE_DESKTOP_ADVANCED_TEST_FAILURE;
 const selected = () =>
   page.evaluate(() =>
     JSON.parse(localStorage.getItem("moodcode.selection.v1")),
@@ -74,7 +63,77 @@ const approve = async () => {
 const noError = async () => {
   await expect(page.locator(".advanced-dialog .inline-error")).toHaveCount(0);
 };
+const errorCode = (error, fallback) =>
+  typeof error?.code === "string" && /^[A-Z0-9_-]{1,64}$/u.test(error.code)
+    ? error.code
+    : fallback;
+const applicationObservation = () => ({
+  scope: "original-electron-application",
+  exitObserved: originalApplicationProcess
+    ? Number.isInteger(originalApplicationProcess.exitCode) ||
+      typeof originalApplicationProcess.signalCode === "string"
+    : null,
+  exitCode: originalApplicationProcess?.exitCode ?? null,
+  signal: originalApplicationProcess?.signalCode ?? null,
+  establishesNativeCleanup: false,
+});
+const capturePhase = async (phase, liveSnapshot, applicationClose) => {
+  try {
+    return await captureDesktopNativeEvidence({
+      sourceDirectory: root,
+      phase,
+      ...(liveSnapshot ? { liveSnapshot } : {}),
+      // Existing production IPC exposes no direct utility-close receipt.
+      close: {
+        acknowledged: null,
+        exitObserved: null,
+        exitCode: null,
+        forcedStop: false,
+        applicationClose,
+      },
+    });
+  } catch (error) {
+    return {
+      schemaVersion: 1,
+      phase,
+      close: {
+        acknowledged: null,
+        exitObserved: null,
+        exitCode: null,
+        forcedStop: false,
+        applicationClose,
+      },
+      errors: [{ code: errorCode(error, "NATIVE_EVIDENCE_UNAVAILABLE") }],
+      qualification: {
+        cleanupAuthority: "original-native-source-only",
+        physicalAbsenceEstablishesCleanup: false,
+        coherentRecoveryBackup: false,
+      },
+    };
+  }
+};
 try {
+  await mkdir(workspace);
+  await mkdir(screenshots, { recursive: true });
+  await writeFile(join(workspace, "example.ts"), "export const value = 1;\n");
+  execFileSync("git", ["init", "-q", workspace]);
+  execFileSync("git", ["-C", workspace, "add", "example.ts"]);
+  execFileSync("git", [
+    "-C",
+    workspace,
+    "-c",
+    "user.name=Desktop Fixture",
+    "-c",
+    "user.email=desktop-fixture@example.invalid",
+    "commit",
+    "-qm",
+    "desktop fixture",
+  ]);
+  if (failurePoint && failurePoint !== "terminal-running")
+    throw Object.assign(
+      new Error("Unsupported controlled advanced test failure point."),
+      { code: "INVALID_TEST_FAILURE_POINT" },
+    );
   app = await electron.launch({
     args: [resolve("apps/desktop")],
     env: {
@@ -87,6 +146,7 @@ try {
       OPENAI_API_KEY: "",
     },
   });
+  originalApplicationProcess = app.process();
   page = await app.firstWindow();
   await expect(
     page.getByText("무엇을 만들어볼까요?", { exact: true }),
@@ -143,6 +203,13 @@ try {
   await expect
     .poll(async () => (await native()).terminals[0]?.state)
     .toBe("running");
+  if (failurePoint === "terminal-running")
+    throw Object.assign(
+      new Error(
+        "Controlled test failure with an actual native PTY still running.",
+      ),
+      { code: "CONTROLLED_DESKTOP_ADVANCED_FAILURE" },
+    );
   await page.getByLabel("터미널 열").fill("90");
   await page.getByLabel("터미널 행").fill("24");
   await page
@@ -606,20 +673,16 @@ try {
   checks.push(
     "account lifecycle controls and unsigned-dev update restriction consume actual host views; no external sign-in or install",
   );
-  console.log(
-    JSON.stringify(
-      {
-        ok: true,
-        platform: process.platform,
-        checks,
-        screenshots,
-        externalRequests: 0,
-      },
-      null,
-      2,
-    ),
-  );
+  testOutcome = "passed";
+  guiResult = {
+    ok: true,
+    platform: process.platform,
+    checks,
+    screenshots,
+    externalRequests: 0,
+  };
 } catch (error) {
+  testOutcome = "failed";
   await page
     ?.screenshot({ path: join(screenshots, "failure.png") })
     .catch(() => {});
@@ -640,53 +703,32 @@ try {
           )
           .catch(() => null)
       : null;
-    for (const child of evidence?.children ?? []) {
-      if (child.resident?.state !== "closed") continue;
-      let db;
-      try {
-        db = new DatabaseSync(
-          join(
-            root,
-            "userData",
-            "artifacts",
-            "children",
-            child.id,
-            "engine.sqlite",
-          ),
-          { readOnly: true },
-        );
-        console.error(
-          "Closed fixture child Run:",
-          JSON.stringify(
-            db
-              .prepare("SELECT data FROM runs")
-              .all()
-              .map((row) => {
-                const run = JSON.parse(row.data);
-                return { id: run.id, state: run.state, error: run.error };
-              }),
-          ),
-        );
-      } catch (failure) {
-        console.error("Closed fixture child diagnostic:", failure.message);
-      } finally {
-        db?.close();
-      }
-    }
     console.error(
       "Native fixture failure:",
       JSON.stringify({
-        children: evidence?.children,
-        questions: evidence?.questions,
-        runs: snapshot?.result?.runs.map((run) => ({
+        children: evidence?.children?.slice(0, 32).map((child) => ({
+          id: child.id,
+          state: child.state,
+          parentRunId: child.parentRunId,
+          childRunId: child.childRunId,
+          worktreeId: child.worktreeId,
+          residentState: child.resident?.state,
+          outcomeState: child.outcome?.state,
+        })),
+        questions: evidence?.questions?.slice(0, 32).map((question) => ({
+          id: question.id,
+          runId: question.runId,
+          version: question.version,
+          status: question.status,
+        })),
+        runs: snapshot?.result?.runs.slice(0, 32).map((run) => ({
           id: run.id,
           state: run.state,
-          error: run.error,
+          errorCode: run.error?.code,
         })),
-        tools: snapshot?.result?.tools.map((tool) => ({
+        tools: snapshot?.result?.tools.slice(0, 32).map((tool) => ({
           name: tool.name,
           state: tool.state,
-          error: tool.error,
         })),
       }),
     );
@@ -702,6 +744,102 @@ try {
   console.error(error);
   process.exitCode = 1;
 } finally {
-  await app?.close();
-  await rm(root, { recursive: true, force: true });
+  const beforeReads = await Promise.allSettled([
+    page ? native() : Promise.resolve(null),
+    page ? sessionSnapshot() : Promise.resolve(null),
+  ]);
+  const advanced =
+    beforeReads[0].status === "fulfilled" ? beforeReads[0].value : null;
+  const session =
+    beforeReads[1].status === "fulfilled" ? beforeReads[1].value : null;
+  const nativeBeforeClose = await capturePhase(
+    "before-close",
+    advanced || session
+      ? {
+          runs: session?.runs ?? [],
+          tools: session?.tools ?? [],
+          terminals: advanced?.terminals ?? [],
+          children: advanced?.children ?? [],
+          executionObservations:
+            advanced?.diagnostics?.executionObservations?.items ?? [],
+        }
+      : undefined,
+    { requested: false, settled: false, ...applicationObservation() },
+  );
+  let applicationCloseError = null;
+  try {
+    await app?.close();
+  } catch (error) {
+    applicationCloseError = errorCode(error, "APPLICATION_CLOSE_UNCONFIRMED");
+    process.exitCode = 1;
+  }
+  const applicationClose = {
+    requested: Boolean(app),
+    settled: Boolean(app) && applicationCloseError === null,
+    errorCode: applicationCloseError,
+    ...(applicationCloseError
+      ? { error: { code: applicationCloseError } }
+      : {}),
+    ...applicationObservation(),
+  };
+  const nativeAfterClose = await capturePhase(
+    "after-close",
+    undefined,
+    applicationClose,
+  );
+  const cleanup = {
+    state: applicationCloseError ? "unconfirmed" : "unknown",
+    nativeConfirmed: null,
+    utilityAcknowledged: null,
+    utilityExitObserved: null,
+    forcedStop: false,
+  };
+  // Keep actual per-record cleanup in evidence. App close/exit does not supply
+  // missing native utility authority, and never turns unknown cleanup true.
+  let retention;
+  try {
+    retention = await preserveDesktopTestEvidence({
+      sourceDirectory: root,
+      artifactDirectory: resolve("artifacts/desktop-advanced/failures"),
+      scenario: "advanced",
+      outcome:
+        testOutcome === "failed" || applicationCloseError
+          ? "failed"
+          : "unknown",
+      cleanup,
+      nativeBeforeClose,
+      nativeAfterClose,
+    });
+  } catch (error) {
+    retention = {
+      sourceDirectory: root,
+      sourceDeletionRequested: false,
+      errorCode: errorCode(error, "EVIDENCE_COPY_UNCONFIRMED"),
+    };
+    process.exitCode = 1;
+  }
+  console.log(
+    JSON.stringify(
+      {
+        ...(guiResult ?? {
+          ok: false,
+          platform: process.platform,
+          checks,
+          screenshots,
+          externalRequests: 0,
+        }),
+        ok:
+          testOutcome === "passed" &&
+          applicationCloseError === null &&
+          !retention.errorCode,
+        testOutcome,
+        cleanup,
+        applicationClose,
+        retainedSourceDirectory: root,
+        retention,
+      },
+      null,
+      2,
+    ),
+  );
 }
