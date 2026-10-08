@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "kind": "finite-original-provider-account-request-ledger",
+  "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "modelInventoryRequests": 1,
+  "generationRequests": 3,
+  "automaticRetries": 0,
+  "anthropicGenerationRequests": 0,
+  "originalReportsPreserved": true,
+  "entries": [
+    {
+      "path": "docs/moodcode/next-provider-pdf-live.json",
+      "sha256": "0a86b1bcfdeb9e0bbe6cb8f91bff8381720e5a841af4380bb7d5845f41dc7309",
+      "observedAt": "2026-10-08T21:30:56.357Z",
+      "lane": "pdf",
+      "modelId": "gpt-4.1-mini-2025-04-14",
+      "generationRequests": 1,
+      "requestStatuses": [
+        200
+      ],
+      "passed": false,
+      "accountVerified": false,
+      "cleanupConfirmed": true,
+      "sourceSha256": "a190df7bfb33c49a18759416507488cda4f5b95b55b2b74b839a4c5a2054ce02",
+      "runtimeSha256": "7fc877b388216641cad8d4d31f7a1ef1cf3ff66c64a433fb5266aec6bcc2c4dd",
+      "sourceRuntimeUnchanged": true,
+      "qualification": {
+        "transport": "real-remote",
+        "accountReference": "probe-account-bfb41b90-6e50-4b17-8548-63b553c11ba0",
+        "sourceSha256": "a190df7bfb33c49a18759416507488cda4f5b95b55b2b74b839a4c5a2054ce02",
+        "runtimeSha256": "7fc877b388216641cad8d4d31f7a1ef1cf3ff66c64a433fb5266aec6bcc2c4dd"
+      },
+      "originalFailure": {
+        "code": "VERIFY_PDF_RECOGNITION_MISMATCH",
+        "caseId": "pdf-exact-recognition",
+        "nativeErrorCode": null
+      }
+    },
+    {
+      "path": "docs/moodcode/next-provider-media-live.json",
+      "sha256": "f411895945608f9e1576691f0a4d0baec3bb3f1f8c55811df5f48dd4fad9d6e6",
+      "observedAt": "2026-10-08T21:31:19.940Z",
+      "lane": "media",
+      "modelId": "gpt-4.1-2025-04-14",
+      "generationRequests": 1,
+      "requestStatuses": [
+        200
+      ],
+      "passed": true,
+      "accountVerified": true,
+      "cleanupConfirmed": true,
+      "sourceSha256": "a190df7bfb33c49a18759416507488cda4f5b95b55b2b74b839a4c5a2054ce02",
+      "runtimeSha256": "7fc877b388216641cad8d4d31f7a1ef1cf3ff66c64a433fb5266aec6bcc2c4dd",
+      "sourceRuntimeUnchanged": true,
+      "qualification": {
+        "transport": "real-remote",
+        "accountReference": "probe-account-f6d36d52-9593-4e00-b800-777ad50e4cab",
+        "sourceSha256": "a190df7bfb33c49a18759416507488cda4f5b95b55b2b74b839a4c5a2054ce02",
+        "runtimeSha256": "7fc877b388216641cad8d4d31f7a1ef1cf3ff66c64a433fb5266aec6bcc2c4dd"
+      },
+      "originalFailure": null
+    },
+    {
+      "path": "docs/moodcode/next-provider-pdf-corrective-live.json",
+      "sha256": "9b834a4ef7f25f2b31cdda0fe42c07b458acd5e2728d2f69259fae1af851f50a",
+      "observedAt": "2026-10-08T21:39:48.283Z",
+      "lane": "pdf",
+      "modelId": "gpt-4.1-mini-2025-04-14",
+      "generationRequests": 1,
+      "requestStatuses": [
+        200
+      ],
+      "passed": true,
+      "accountVerified": true,
+      "cleanupConfirmed": true,
+      "sourceSha256": "21b660123cafa3d067ae908503db697c356f138d84d9f33efc0005fe4f17d22a",
+      "runtimeSha256": "7fc877b388216641cad8d4d31f7a1ef1cf3ff66c64a433fb5266aec6bcc2c4dd",
+      "sourceRuntimeUnchanged": true,
+      "qualification": {
+        "transport": "real-remote",
+        "accountReference": "probe-account-a47aac10-9fff-4e64-bcb3-7697042d0419",
+        "sourceSha256": "21b660123cafa3d067ae908503db697c356f138d84d9f33efc0005fe4f17d22a",
+        "runtimeSha256": "7fc877b388216641cad8d4d31f7a1ef1cf3ff66c64a433fb5266aec6bcc2c4dd"
+      },
+      "originalFailure": null
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "anthropic-subagent",
+  "observedAt": "2026-10-09",
+  "scope": [
+    "scripts/verify-provider-coverage-pdf.mjs",
+    "packages/engine/src/provider/coverage.ts",
+    "scripts/verify-provider-coverage-media.mjs",
+    "scripts/verify-provider-coverage.mjs"
+  ],
+  "method": "Static source review plus independent source-engine/local fixture tests; no live endpoint or build",
+  "independentTests": {
+    "command": "node --import ./node_modules/tsx/dist/loader.mjs --test scripts/verify-provider-coverage-pdf.test.mjs scripts/verify-provider-coverage-media.test.mjs packages/engine/src/provider/coverage.test.ts",
+    "passed": 44,
+    "failed": 0,
+    "skipped": 0,
+    "timing": "Before the subsequent admission-presentation and capture-owned cleanup additions; parent owns their final integration validation"
+  },
+  "findings": [
+    {
+      "id": "coverage-admission-drift",
+      "priority": "P2",
+      "status": "source-fix-reviewed",
+      "evidence": "Image admission permits unknown model modalities when adapter supports image; PDF admission rejects only an explicit false optional supportsInputFile predicate. Initial coverage.ts required true declarations for both.",
+      "resolution": "Parent preserved conservative account verification while computing image dispatchAllowed with modelDeclared !== false and allowing an absent optional PDF predicate. Added unknown-image/custom-PDF fixtures observed in source."
+    },
+    {
+      "id": "resolved-credential-qualification",
+      "priority": "P2",
+      "status": "source-fix-reviewed",
+      "evidence": "An env variable name alone can identify different resolved accounts after its value changes; identical reference/source/runtime hashes must not imply the same resolved account.",
+      "resolution": "Parent now creates an opaque per-invocation account reference and explicitly denies persistent account identity or cross-run reuse. Credential file path is identified only by SHA-256; raw key/account values remain private."
+    },
+    {
+      "id": "capture-owned-response-cleanup",
+      "priority": "P1",
+      "status": "central-and-own-fix-reviewed-pdf-host-capture-final-check-required",
+      "evidence": "A capture can receive then reject a response before the adapter obtains it. Provider helpers intentionally sanitize transport-thrown cleanup codes, so adapter/native cleanup alone cannot prove that capture-owned body joined.",
+      "resolution": "Central executor tracks physicalUnknown independently and denies account/native credit. Anthropic lane now cancels its own rejected body within one second and preserves host capture cleanup uncertainty in native records; 66 focused tests passed. PDF's own rejected-body path now has bounded cancellation and original native wrapper errors. Its host-injected transport throw still requires the final preservation check by PDF writer."
+    }
+  ],
+  "approvedBoundaries": [
+    "PDF is a bounded authored one-page probe through native Responses input_file.file_data; no general PDF parser or file_url/file_id claim",
+    "PDF requires provider and exact model support plus both unknown-document-cost opt-ins; estimates remain null/incomplete",
+    "PDF exact recognition, foreign source owner denial, duplicate conflict, restart and archive no-replay require original native records and bytes",
+    "Media selection is exact gpt-4.1-2025-04-14 via bounded RGB AVI frame projection to Responses images; native video transport is false",
+    "Media validation requires original source/runtime unchanged, exact native Attempt/Part cleanup, exact ordered recognition, PNG pixels/CRC/timestamps and source identity",
+    "Media execution/fetch hooks remain fixture evidence; historical reports do not certify the newly selected model",
+    "Unknown audio/video/document token costs remain null and require host policy",
+    "Coverage is detached immutable presentation; supplied evidence never grants adapter/model support or execution authority"
+  ],
+  "limits": [
+    "Static review and local fixtures do not establish additional account/model capabilities",
+    "Final merged/source-qualified tests and actual account credit remain parent-owned",
+    "Public reasoning summary and remote cancellation account behavior remain unverified for Anthropic",
+    "No live requests, credential discovery, shared build, foreign-path edits or commit were performed by this review"
+  ],
+  "approval": "Accept bounded PDF/media/public-capability design after the pending PDF host-capture cleanup preservation check and final parent integration tests"
+}

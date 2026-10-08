@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "owner": "anthropic-subagent",
+  "scope": "E5-13 Anthropic native account-verification lane and narrow HTTP rejection cleanup correction",
+  "state": "local-implemented-account-pending",
+  "sourcePaths": [
+    "packages/engine/src/provider/anthropic.ts",
+    "scripts/verify-provider-coverage-anthropic.mjs",
+    "scripts/verify-provider-coverage-anthropic.test.mjs",
+    "docs/moodcode/next-provider-anthropic.md"
+  ],
+  "goal": "Provide a finite callable actual Engine/native Anthropic lane for exact file-tool roundtrip, source-bound replay, fresh image recognition, usage, duplicate no request and confirmed cleanup",
+  "localVerification": {
+    "command": "node --import ./node_modules/tsx/dist/loader.mjs --test scripts/verify-provider-coverage-anthropic.test.mjs packages/engine/src/provider/anthropic.test.ts",
+    "execution": "source",
+    "tests": 66,
+    "passed": 66,
+    "failed": 0,
+    "skipped": 0,
+    "newNativeLaneTests": 13,
+    "loopbackRequestsInNewTests": 15,
+    "injectedFailureTransportCalls": 4,
+    "maxRequestsPerLane": 3,
+    "buildOwner": "parent"
+  },
+  "accountVerification": {
+    "state": "missing-credential",
+    "accountVerified": false,
+    "actualRemoteRequests": 0,
+    "credentialDiscoveryInLane": false,
+    "inventoryOwner": "parent",
+    "plannedModelId": "claude-sonnet-5-5",
+    "modelSelectionProvenance": "official documentation only; no Models API/account acceptance evidence",
+    "officialReferences": [
+      "https://platform.claude.com/docs/en/models/overview",
+      "https://platform.claude.com/docs/en/build-with-claude/vision",
+      "https://platform.claude.com/docs/en/build-with-claude/thinking-tool-workflows"
+    ]
+  },
+  "originalFailure": {
+    "scenario": "actual loopback HTTP 401 with an unread response body",
+    "before": "CLEANUP_UNCERTAIN masked PROVIDER_HTTP_ERROR",
+    "after": "PROVIDER_HTTP_ERROR with status 401 and original native confirmed cleanup",
+    "correction": "Close bounded owned response body before aborting fetch; always abort afterward; keep rejected/non-cooperative cancellation uncertain",
+    "captureLayerCorrection": "Cancel a rejected response body within one second; preserve capture-owned endpoint failure or cleanup uncertainty at the native wrapper; retain isolated evidence when cleanup is unconfirmed"
+  },
+  "remainingAccountScopes": [
+    "text-tool-replay-account",
+    "fresh-image-recognition-account",
+    "public-reasoning-summary-account",
+    "cancel-account"
+  ],
+  "unsupportedByCurrentAnthropicAdapter": ["PDF", "audio", "video", "media-output", "server-tools"],
+  "commit": null,
+  "commitOwner": "parent"
+}

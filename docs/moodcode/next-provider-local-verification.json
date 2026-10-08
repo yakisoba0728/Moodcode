@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "kind": "provider-local-verification-log-manifest",
+  "logs": [
+    {
+      "path": "artifacts/next-provider-provider-focused.log",
+      "bytes": 46035,
+      "sha256": "87bbbfdd852c57eb04baa273d384eef73af39074f5e4835fb8d63ee23f36ccd6",
+      "summary": [
+        "ℹ tests 525",
+        "ℹ suites 0",
+        "ℹ pass 525",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 0",
+        "ℹ todo 0",
+        "ℹ duration_ms 32439.49275"
+      ]
+    },
+    {
+      "path": "artifacts/next-provider-typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": []
+    },
+    {
+      "path": "artifacts/next-provider-whole.log",
+      "bytes": 560175,
+      "sha256": "76855a71e7290bdd16017db677600106e407e07f3fd3a3b99aa809a8acab8b54",
+      "summary": [
+        "ℹ task-outcome: before/after provider counts 3/3; historical ACK rows 1; child DB/files unchanged",
+        "ℹ tests 4728",
+        "ℹ suites 0",
+        "ℹ pass 4720",
+        "ℹ fail 6",
+        "ℹ cancelled 0",
+        "ℹ skipped 2",
+        "ℹ todo 0",
+        "ℹ duration_ms 522577.816792"
+      ]
+    },
+    {
+      "path": "artifacts/next-provider-ts7-corrected.log",
+      "bytes": 52999,
+      "sha256": "dcbaafa99129574654eb14204b6ccae4ea6aea54a1533bb31d67b1731b0ca5ce",
+      "summary": [
+        "ℹ tests 5",
+        "ℹ suites 0",
+        "ℹ pass 5",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 0",
+        "ℹ todo 0",
+        "ℹ duration_ms 33304.952042"
+      ]
+    },
+    {
+      "path": "artifacts/next-provider-whole-failure-targeted.log",
+      "bytes": 2082,
+      "sha256": "a512ae9f0fd7473eca482ed2095980b5382f341f3427d7627eb83109a0e5a16c",
+      "summary": [
+        "ℹ tests 17",
+        "ℹ suites 0",
+        "ℹ pass 17",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 0",
+        "ℹ todo 0",
+        "ℹ duration_ms 17095.2775"
+      ]
+    },
+    {
+      "path": "artifacts/next-provider-cli-compiled.log",
+      "bytes": 7653,
+      "sha256": "a8fcbaf58c0b5200b5e7a4fd4cedb343486e54003d381c5bee7dcb4ee5325ca4",
+      "summary": [
+        "ℹ tests 78",
+        "ℹ suites 0",
+        "ℹ pass 78",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 0",
+        "ℹ todo 0",
+        "ℹ duration_ms 23765.97475"
+      ]
+    }
+  ]
+}

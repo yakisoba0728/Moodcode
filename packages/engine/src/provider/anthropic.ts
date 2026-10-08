@@ -485,8 +485,12 @@ export class AnthropicProvider implements ProviderAdapter {
       if (timedOut) throw new EngineError('PROVIDER_TIMEOUT', 'Provider turn timed out.');
       throw publicError(error);
     } finally {
-      clearTimeout(timer); signal.removeEventListener('abort', abort); controller.abort();
-      const clean = body ? await body.close() : response?.body && !response.body.locked ? await settles(response.body.cancel(), this.#limits.cleanupTimeoutMs) : true;
+      clearTimeout(timer); signal.removeEventListener('abort', abort);
+      // Cancel the owned reader before aborting fetch: abort can error an unread HTTP
+      // rejection body and make its later cancellation mask the original status.
+      let clean = false;
+      try { clean = body ? await body.close() : response?.body && !response.body.locked ? await settles(response.body.cancel(), this.#limits.cleanupTimeoutMs) : true; }
+      finally { controller.abort(); }
       if (!clean) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider stream cleanup could not be confirmed.');
     }
   }

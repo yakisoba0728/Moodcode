@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "kind": "provider-coverage-verification",
+  "observedAt": "2026-10-08T21:37:40.293Z",
+  "lane": "anthropic",
+  "modelId": "claude-sonnet-5-5",
+  "state": "external-condition",
+  "implementationCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "runtime": {
+    "node": "26.9.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "maxRequests": 3,
+  "actualRequests": [],
+  "actualRequestCountKnown": true,
+  "actualRequestCount": 0,
+  "credentialReads": 1,
+  "accountVerified": false,
+  "passed": false,
+  "cleanupConfirmed": true,
+  "sourceRuntimeUnchanged": null,
+  "capabilityReference": "https://platform.claude.com/docs/en/models/overview",
+  "authentication": {
+    "method": "api-key",
+    "credentialOwner": "host",
+    "rendererCredentialExposure": false,
+    "persistentAccountIdentity": null
+  },
+  "credentialReference": "env-file-path-sha256:85d8cacb75023fdd24dd4fa7fcec3663bba414dddc3fe0aec598ca8dc15057d8:ANTHROPIC_API_KEY",
+  "accountReference": "probe-account-eb9fc0d2-7ef3-4c39-a4a0-eb003fe0dfc6",
+  "accountIdentityClaimed": false,
+  "accountReferenceScope": "One resolved credential in this invocation; no persistent provider account identity or cross-run reuse.",
+  "unknownDocumentTokenCost": null,
+  "unknownMediaTokenCost": null,
+  "transport": "real-remote",
+  "error": {
+    "code": "VERIFY_CREDENTIAL_UNAVAILABLE"
+  }
+}

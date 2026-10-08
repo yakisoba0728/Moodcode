@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "workItem": "E5-13-standard-responses-pdf",
+  "goal": "Verify existing bounded native PDF file_data through finite actual Engine Input/Run/Part/Attempt evidence and account/runtime/source qualification",
+  "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
+  "status": "corrective-source-verified-central-one-request-retry-pending",
+  "owner": "responses_pdf subagent",
+  "sourcePins": {
+    "scripts/verify-provider-coverage-pdf.mjs": "7bc281d21c3409aae8f2a8641c0f5b3945a5a3a4d0250b61aadc027b32943c4e",
+    "scripts/verify-provider-coverage-pdf.test.mjs": "17f6e4cfc285735a158292eb401449919191d74128c63d996d6296b46cb69a5a"
+  },
+  "writerPaths": [
+    "scripts/verify-provider-coverage-pdf.mjs",
+    "scripts/verify-provider-coverage-pdf.test.mjs",
+    "docs/moodcode/next-provider-pdf.md",
+    "docs/moodcode/next-provider-pdf-progress.json",
+    "docs/moodcode/next-provider-pdf-independent-review.json"
+  ],
+  "existingSourcePreserved": [
+    "packages/engine/src/provider/responses.ts",
+    "packages/engine/src/provider/responses.test.ts",
+    "packages/engine/src/documents/**",
+    "packages/engine/src/engine.ts",
+    "packages/contracts/**",
+    "TODO.md",
+    "README.md"
+  ],
+  "selection": {
+    "firstLiveModelId": "gpt-4.1-mini-2025-04-14",
+    "mimeType": "application/pdf",
+    "protocol": "standard-openai-responses",
+    "transport": "native-input_file-file_data",
+    "probe": "authored-single-page-courier-v1",
+    "probePages": 1,
+    "probeMaxBytes": 4096,
+    "maxProviderRequests": 1,
+    "maxProviderAttemptsPerTurn": 1,
+    "providerTimeoutMs": 45000,
+    "runMaxDurationMs": 60000,
+    "nativeDocumentMaxBytes": 524288,
+    "nativeCombinedInputMaxBytes": 1048576,
+    "serializedProviderRequestMaxBytes": 2097152,
+    "unknownDocumentTokenCost": true,
+    "genericPdfPageValidation": false
+  },
+  "officialSources": [
+    {
+      "url": "https://developers.openai.com/api/docs/guides/file-inputs",
+      "observedAt": "2026-10-09",
+      "supports": [
+        "Responses input_file file_data",
+        "PDF text/page-image processing on vision models",
+        "provider file-size limit differs from tighter native Moodcode bounds"
+      ]
+    },
+    {
+      "url": "https://developers.openai.com/api/docs/models/gpt-4.1-mini",
+      "observedAt": "2026-10-09",
+      "supports": [
+        "gpt-4.1-mini-2025-04-14 snapshot",
+        "image input",
+        "Responses endpoint"
+      ]
+    }
+  ],
+  "nativeAcceptance": [
+    "Exact one-page PDF SHA and stored blob match imported native reference",
+    "Foreign-session document reference rejected before Input/Attempt/HTTP",
+    "Exact fixture token exists only in PDF stream and is absent from plaintext request",
+    "One completed native Run/Turn/text Part/Attempt with positive observed usage and confirmed cleanup",
+    "Duplicate exact Input preserves native identity and makes zero requests",
+    "Changed request identity returns REQUEST_ID_CONFLICT and makes zero requests",
+    "Restart and archive import preserve original native records/blob and make zero requests",
+    "Archive import remains paused",
+    "Credential/error body/base64 are absent from report; authored synthetic expected token and adapter-redacted observed text are bounded explicit diagnostics",
+    "Runtime/source drift invalidates success and retains evidence",
+    "Rejected response body cancellation is bounded and actual uncertainty propagates as original native CLEANUP_UNCERTAIN",
+    "Full28-character Courier24pt line independently fits the fixed page; prompt requests every character without prefix/suffix answer leakage",
+    "Semantic mismatch keeps strict failure and completed native record, positive usage and confirmed cleanup without account credit; Engine closes before native SQLite/blob evidence is deliberately retained",
+    "Observed synthetic diagnostics are UTF-8 bounded to128bytes without splitting codepoints and exclude echoed approved credentials"
+  ],
+  "localVerification": [
+    {
+      "command": "node --import ./node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 scripts/verify-provider-coverage-pdf.test.mjs",
+      "tests": 21,
+      "pass": 21,
+      "fail": 0,
+      "skip": 0,
+      "durationMs": 6795.711334,
+      "qualification": "Corrective source Engine and injected/loopback transport; full-token assertion unchanged; no account credit"
+    },
+    {
+      "command": "node --import ./node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 scripts/verify-provider-coverage-pdf.test.mjs",
+      "tests": 18,
+      "pass": 18,
+      "fail": 0,
+      "skip": 0,
+      "durationMs": 11921.239959,
+      "qualification": "actual source Engine and injected/loopback transport; no account credit"
+    },
+    {
+      "command": "node --import ./node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 packages/engine/src/provider/responses.test.ts packages/engine/src/integration/document-input.integration.test.ts",
+      "tests": 162,
+      "pass": 162,
+      "fail": 0,
+      "skip": 0,
+      "durationMs": 6358.737167,
+      "qualification": "existing source contract regression; no account credit"
+    }
+  ],
+  "historicalFailure": {
+    "cause": "Central barrel integration briefly duplicated existing Anthropic exports; esbuild rejected index.ts before runtime import/HTTP",
+    "failedTests": 10,
+    "resolution": "Central owner removed duplicate exports and reran identical 15-test source lane; later added three independent received-body/central-capture cleanup regressions, final 18/18 pass",
+    "assertionsTimeoutsSkipsChanged": false
+  },
+  "liveRequestsByThisSubagent": 0,
+  "externalConditions": [
+    "Central executor owns approved credentials, catalog inventory, official live fetch and account qualification",
+    "First real PDF probe remains immutable failed semantic evidence with no account credit",
+    "One additional real request requires central corrective-source freeze, separate immutable report and source/runtime pins",
+    "Parent integration build, full regression and verified commit remain in central progress"
+  ],
+  "excluded": [
+    "generic PDF page/object/decompression parsing",
+    "Codex PDF",
+    "file_url/file_id transport",
+    "unselected accounts/models",
+    "shared main checkout changes",
+    "child commits or shared build"
+  ],
+  "verifiedCommit": null,
+  "commitOwner": "parent",
+  "firstRealPdfFailure": {
+    "report": "docs/moodcode/next-provider-pdf-live.json",
+    "sha256": "0a86b1bcfdeb9e0bbe6cb8f91bff8381720e5a841af4380bb7d5845f41dc7309",
+    "preservedByteForByte": true,
+    "modelId": "gpt-4.1-mini-2025-04-14",
+    "state": "failed",
+    "accountVerified": false,
+    "actualRequestCount": 1,
+    "status": 200,
+    "nativeState": "completed",
+    "nativeErrorCode": null,
+    "failure": "VERIFY_PDF_RECOGNITION_MISMATCH",
+    "observedTextBytes": 16,
+    "expectedSha256": "a71af69a6b7c52f22af562c9d31ec639541bc4dccb12ac91268fc816da9e225e",
+    "observedSha256": "f2e0c9a56c8f7c942b0f01b3333d0fcd7d61e9d2051e9a0e44532c895a70d674",
+    "usage": {
+      "inputTokens": 315,
+      "outputTokens": 10,
+      "cachedInputTokens": 0,
+      "reasoningOutputTokens": 0
+    },
+    "cleanupConfirmed": true,
+    "limitations": [
+      "Original report stores expected/observed hashes, not either original string",
+      "Original native evidence directory was removed according to parent executor; prefix omission is an unproven hypothesis",
+      "The source grammar is MOODCODEPDF_ plus16hex (28ASCII characters); a27-byte expected-length claim is not in the immutable report",
+      "Later results do not replace or qualify this failed probe"
+    ]
+  },
+  "correctiveScope": {
+    "changes": [
+      "Prompt explicitly requests the entire sole printed line including every letter, underscore and digit",
+      "Bounded authored-synthetic expectedToken/adapter-redacted observedText diagnostics",
+      "Retain failed-semantic native SQLite and original source blob after physical Engine.close, with cleanup confirmation independent of disk retention",
+      "Fixed Courier layout audit and exact suffix-only/Unicode-bounds/credential-echo/closed-native-evidence tests"
+    ],
+    "unchanged": [
+      "Original token grammar",
+      "Exact complete-token semantic equality; only outer ASCII whitespace permitted",
+      "Model/adapter/Engine capability and unknown-token-cost opt-ins",
+      "Native provenance and byte/page/time limits",
+      "One provider request/attempt per invocation",
+      "Existing provider source implementation"
+    ],
+    "realRequestsByThisSubagent": 0,
+    "extraRealRequestOwner": "parent",
+    "extraRealRequestsAuthorizedByParent": 1,
+    "sourceFrozen": true
+  }
+}

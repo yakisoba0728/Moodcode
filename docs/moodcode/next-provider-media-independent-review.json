@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 1,
+  "kind": "provider-account-contract-independent-review",
+  "reviewedAt": "2026-10-08T21:36:37.037Z",
+  "reviewerScope": "media/public capability implementation; independent central/PDF/Anthropic source review",
+  "sourcePins": {
+    "scripts/verify-provider-coverage.mjs": "290c1f03589d72eb60e8f9bcd7b805de6ca1bda7b6eaefd8490b63e63c2bad66",
+    "scripts/verify-provider-coverage.test.mjs": "61f12db4f6a1fd1c28be394ea3d2fb6cfbfb200b9ea812845303e16f681608e3",
+    "scripts/verify-provider-coverage-anthropic.mjs": "741c93d59b199b5e66b0b5e7e646937ebf81c294ec6e0f0303d0298232bfaf9f",
+    "scripts/verify-provider-coverage-pdf.mjs": "19c673953e511afb030a9e93de06720c5dc6dce84a30a780a968fc8fdeac7910",
+    "scripts/verify-provider-coverage-media.mjs": "e93d855ae95ea6977740167cde10b8bb010f5c9712989dd0dfd1bfa7937ea8f6",
+    "packages/engine/src/provider/coverage.ts": "2793a8ef1a3deb05d9374de9cf8a08b7a9cfde52e0224a96f63a46a3228df80a"
+  },
+  "verdict": "Finite corrective PDF and media account scopes independently verified; first PDF failure immutable; media current-whole execution not claimed; Anthropic account external.",
+  "checks": {
+    "directCliOnlyAccountQualification": true,
+    "injectedNativeFixturesRemainNonAccount": true,
+    "officialExactEndpointAndModelBudget": true,
+    "nativeRecordsRequiredBeforeLaneSuccess": true,
+    "rawSecretNeverReturned": true,
+    "opaquePerInvocationAccountReference": true,
+    "persistentProviderAccountIdentityClaimed": false,
+    "credentialSourceFileReferenceDistinct": true,
+    "sourceRuntimeFreezeFailureRetainsOriginalRequests": true,
+    "shortNodeHooksDenyAccountCredit": true,
+    "rejectedResponseCleanupBounded": true,
+    "publicAccountVerificationCannotExceedCentral": true,
+    "publicProjectionFailureRetainsOriginalReport": true,
+    "mediaExecutorReusedWithoutNativeExecutorDuplication": true,
+    "mediaProcessDeadlineAndTermKillJoinBounded": true,
+    "forcedMediaExitRequestCountAndNativeCleanupRemainUnknown": true,
+    "unknownDocumentAndMediaTokenCostNull": true,
+    "historicalAudioSourceRuntimeQualificationsPreserved": true,
+    "centralUnknownMediaRequestCountPropagated": true,
+    "centralUnknownRequestCountDeniesAccountCredit": true
+  },
+  "resolvedFindings": [
+    {
+      "id": "PC-MR-01",
+      "finding": "An uncaught final freeze could discard observed requests and original native failures.",
+      "resolution": "confirmProviderCoverageFreeze catches unavailable source/runtime, records bounded freeze failure, and retains original evidence; native test passes."
+    },
+    {
+      "id": "PC-MR-02",
+      "finding": "Short -r/-e loader options were not covered by authoritative real transport detection.",
+      "resolution": "Short hooks are rejected together with long import/require/loader/eval options."
+    },
+    {
+      "id": "PC-MR-03",
+      "finding": "Generic explicit-env-file references collided across different credential files.",
+      "resolution": "Canonical source path hash plus env name is recorded; account reference is per invocation with accountIdentityClaimed=false."
+    },
+    {
+      "id": "PC-MR-04",
+      "finding": "Public evidence could show verified real account while the central account decision was false.",
+      "resolution": "Real transport evidence native verification is gated by the authoritative central result, and a projection regression test passes."
+    },
+    {
+      "id": "PC-MR-05",
+      "finding": "Capability PDF cost presentation omitted the independent Engine host opt-in.",
+      "resolution": "Host and provider policy conjunction is required; all four combinations are tested."
+    },
+    {
+      "id": "PC-MR-06",
+      "finding": "Capability presentation differed from existing unknown-image and optional custom-PDF admission semantics.",
+      "resolution": "Unknown image dispatch remains allowed while modelDeclared stays null/supported false; optional PDF predicate absence permits existing declared PDF providers; explicit false rejects."
+    },
+    {
+      "id": "PC-MR-07",
+      "finding": "Media child provider timers did not bound the whole process and final archive/fs phases.",
+      "resolution": "90sec process deadline +1sec SIGTERM join +1sec SIGKILL join; actual SIGTERM-ignoring Node child is killed/joined, without claiming native cleanup or zero requests."
+    }
+  ],
+  "validation": {
+    "commands": [
+      {
+        "command": "node --test scripts/verify-provider-coverage-media.test.mjs",
+        "tests": 29,
+        "passed": 29,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "command": "node --import tsx --test packages/engine/src/provider/coverage.test.ts",
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "command": "node --test scripts/verify-provider-coverage.test.mjs",
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      }
+    ],
+    "realNativeChildFixture": true,
+    "actualSigtermIgnoringProcess": true,
+    "actualProviderAccountCalls": 0,
+    "modelInventoryCalls": 0,
+    "realCredentialReads": 0,
+    "sharedBuildWrites": 0,
+    "actualProviderAccountCallsByReviewer": 0,
+    "parentActualGenerationRequestsObserved": 3,
+    "parentModelInventoryRequestsObserved": 1
+  },
+  "limits": [
+    "This review does not relabel local native fixtures as actual account responses.",
+    "The parent owns final build/live media/PDF generation requests, result ledgers, source/runtime pins, committed source and remote CI.",
+    "One exact credential in one invocation is qualified; no persistent provider account ID is discovered.",
+    "Current source review does not extend historical media success to the new complete runtime.",
+    "Native video, new audio models, generalized PDF support and exact media cost remain outside this finite scope.",
+    "Subsequent PDF-only verifier corrections change the whole source hash. Media credit is historical whole-source qualification plus explicit unchanged relevant source and complete compiled runtime continuity; no new media account execution is claimed."
+  ],
+  "actualAccountReports": [
+    {
+      "lane": "pdf",
+      "path": "docs/moodcode/next-provider-pdf-live.json",
+      "reportSha256": "0a86b1bcfdeb9e0bbe6cb8f91bff8381720e5a841af4380bb7d5845f41dc7309",
+      "modelId": "gpt-4.1-mini-2025-04-14",
+      "state": "failed",
+      "passed": false,
+      "accountVerified": false,
+      "actualRequests": 1,
+      "cleanupConfirmed": true,
+      "currentWholeSourceMatches": false,
+      "currentCompiledRuntimeMatches": true,
+      "wholeSourceSha256": "a190df7bfb33c49a18759416507488cda4f5b95b55b2b74b839a4c5a2054ce02",
+      "wholeRuntimeSha256": "7fc877b388216641cad8d4d31f7a1ef1cf3ff66c64a433fb5266aec6bcc2c4dd",
+      "accountReference": "probe-account-bfb41b90-6e50-4b17-8548-63b553c11ba0",
+      "credentialReference": "env-file-path-sha256:85d8cacb75023fdd24dd4fa7fcec3663bba414dddc3fe0aec598ca8dc15057d8:OPENAI_API_KEY",
+      "persistentAccountIdentityClaimed": false,
+      "originalFailure": {
+        "code": "VERIFY_PDF_RECOGNITION_MISMATCH",
+        "caseId": "pdf-exact-recognition",
+        "nativeErrorCode": null
+      },
+      "nativeCompletedButExactRecognitionFailed": true,
+      "followupDuplicateRestartArchiveNotPassed": true,
+      "initialAuditWholeSourceMatch": true
+    },
+    {
+      "lane": "media",
+      "path": "docs/moodcode/next-provider-media-live.json",
+      "reportSha256": "f411895945608f9e1576691f0a4d0baec3bb3f1f8c55811df5f48dd4fad9d6e6",
+      "modelId": "gpt-4.1-2025-04-14",
+      "state": "completed",
+      "passed": true,
+      "accountVerified": true,
+      "actualRequests": 1,
+      "cleanupConfirmed": true,
+      "currentWholeSourceMatches": false,
+      "currentCompiledRuntimeMatches": true,
+      "wholeSourceSha256": "a190df7bfb33c49a18759416507488cda4f5b95b55b2b74b839a4c5a2054ce02",
+      "wholeRuntimeSha256": "7fc877b388216641cad8d4d31f7a1ef1cf3ff66c64a433fb5266aec6bcc2c4dd",
+      "accountReference": "probe-account-f6d36d52-9593-4e00-b800-777ad50e4cab",
+      "credentialReference": "env-file-path-sha256:85d8cacb75023fdd24dd4fa7fcec3663bba414dddc3fe0aec598ca8dc15057d8:OPENAI_API_KEY",
+      "persistentAccountIdentityClaimed": false,
+      "independentNative": {
+        "nativeVerified": true,
+        "cleanupConfirmed": true,
+        "duplicateNoReplay": true,
+        "feature": "video-frames",
+        "sourceSha256": "f6e228051794bd5b3b1aad6e0725de1971ce6d79d13f8dd86dc60b584da2eaf7",
+        "runtimeSha256": "5821a18881b520724427dcf0e441a81e835bbefa558d93dfa519c7da597f7e56"
+      },
+      "nativeVideoTransport": false,
+      "initialAuditWholeSourceMatch": true
+    }
+  ],
+  "mediaNarrowContinuity": {
+    "observedAt": "2026-10-08T21:42:19.779Z",
+    "historicalMediaReport": "docs/moodcode/next-provider-media-live.json",
+    "historicalMediaReportSha256": "f411895945608f9e1576691f0a4d0baec3bb3f1f8c55811df5f48dd4fad9d6e6",
+    "accountGenerationRequestsStillOne": true,
+    "additionalAccountRequestsByReviewer": 0,
+    "historicalWholeSourceSha256": "a190df7bfb33c49a18759416507488cda4f5b95b55b2b74b839a4c5a2054ce02",
+    "currentWholeSourceSha256": "21b660123cafa3d067ae908503db697c356f138d84d9f33efc0005fe4f17d22a",
+    "currentWholeSourceSame": false,
+    "currentWholeSourceMediaAccountExecuted": false,
+    "changedSource": [
+      {
+        "path": "scripts/verify-provider-coverage-pdf.mjs",
+        "originalSha256": "19c673953e511afb030a9e93de06720c5dc6dce84a30a780a968fc8fdeac7910",
+        "currentSha256": "7bc281d21c3409aae8f2a8641c0f5b3945a5a3a4d0250b61aadc027b32943c4e",
+        "scope": "PDF-only corrective verifier and tests; not executed in media lane"
+      },
+      {
+        "path": "scripts/verify-provider-coverage-pdf.test.mjs",
+        "originalSha256": "1f3cab8998ab12477ffdd9a7015c35ee001ad4f1a1bbe06afd972b740bd6a62c",
+        "currentSha256": "17f6e4cfc285735a158292eb401449919191d74128c63d996d6296b46cb69a5a",
+        "scope": "PDF-only corrective verifier and tests; not executed in media lane"
+      }
+    ],
+    "unchangedRelevantSourcePins": 911,
+    "unchangedCompleteParentRuntimePins": 872,
+    "unchangedCompleteChildRuntimePins": 730,
+    "compiledRuntimeSha256": "7fc877b388216641cad8d4d31f7a1ef1cf3ff66c64a433fb5266aec6bcc2c4dd",
+    "nodePlatformArchUnchanged": true,
+    "originalMediaChildNativeEvidenceRevalidated": {
+      "nativeVerified": true,
+      "cleanupConfirmed": true,
+      "duplicateNoReplay": true,
+      "feature": "video-frames",
+      "sourceSha256": "f6e228051794bd5b3b1aad6e0725de1971ce6d79d13f8dd86dc60b584da2eaf7",
+      "runtimeSha256": "5821a18881b520724427dcf0e441a81e835bbefa558d93dfa519c7da597f7e56"
+    },
+    "mediaNativeSourceAndCentralAndWrapperUnchanged": true,
+    "conclusion": "Historical whole-source media account success is retained at its original source hash. Exact media-relevant source and all parent/child compiled pins remain unchanged; current whole source was not executed as media account evidence."
+  },
+  "finalCorrectivePdf": {
+    "observedAt": "2026-10-08T21:42:19.778Z",
+    "path": "docs/moodcode/next-provider-pdf-corrective-live.json",
+    "reportSha256": "9b834a4ef7f25f2b31cdda0fe42c07b458acd5e2728d2f69259fae1af851f50a",
+    "sourceSha256": "21b660123cafa3d067ae908503db697c356f138d84d9f33efc0005fe4f17d22a",
+    "runtimeSha256": "7fc877b388216641cad8d4d31f7a1ef1cf3ff66c64a433fb5266aec6bcc2c4dd",
+    "correctiveScriptSha256": "7bc281d21c3409aae8f2a8641c0f5b3945a5a3a4d0250b61aadc027b32943c4e",
+    "correctiveTestSha256": "17f6e4cfc285735a158292eb401449919191d74128c63d996d6296b46cb69a5a",
+    "state": "completed",
+    "accountVerified": true,
+    "actualGenerationRequests": 1,
+    "actualPdfGenerationRequestsIncludingFirstFailure": 2,
+    "allActualGenerationsPdfAndMedia": 3,
+    "actualRequestsByReviewer": 0,
+    "exactNativeOwnerInputRunTurnAttemptPart": true,
+    "exactWholePrintedAsciiLineRecognition": true,
+    "positiveNativeUsage": {
+      "inputTokens": 345,
+      "outputTokens": 16
+    },
+    "confirmedEngineAndAttemptCleanup": true,
+    "duplicateConflictAndRestartArchiveRequestsZero": true,
+    "exactArchivedBlobRestoredAndPaused": true,
+    "pdfChildRuntimePinsVerified": 730,
+    "currentWholeSourceExactMatch": true,
+    "currentCompiledRuntimeExactMatch": true,
+    "opaqueAccountReference": "probe-account-a47aac10-9fff-4e64-bcb3-7697042d0419",
+    "accountIdentityClaimed": false,
+    "firstFailureSha256": "0a86b1bcfdeb9e0bbe6cb8f91bff8381720e5a841af4380bb7d5845f41dc7309",
+    "firstFailureUnmodified": true,
+    "firstFailureStillAccountVerifiedFalse": true,
+    "noInferenceOfFirstFailurePrefixOmission": true,
+    "qualifiedByCentralExecutor": true,
+    "subordinateInjectedLaneAccountVerifiedFalse": true,
+    "documentTokenCost": null
+  },
+  "finalQualifiedSnapshotAt": "2026-10-08T21:42:19.779Z"
+}
