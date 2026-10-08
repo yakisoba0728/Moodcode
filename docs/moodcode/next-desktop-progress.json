@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-08T23:13:33.939Z",
+  "updatedAt": "2026-10-08T23:24:13.162Z",
   "timezone": "Asia/Seoul",
   "owner": "desktop",
   "goal": "N-02–05 actual advanced desktop flows, supported authentication, package smoke and controlled release/update paths",
-  "status": "finite-corrective-handoff-ready-parent-combined-acceptance-pending",
+  "status": "windows-package-receipt-corrected-parent-rerun-pending",
   "source": {
     "baseCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
     "branch": "codex/next-desktop",
@@ -25,7 +25,7 @@
       ".github/scripts/engine-ci.mjs",
       "package.json"
     ],
-    "codeCommit": "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58",
+    "codeCommit": "bcbe8b7a8938665bd8d1501c67cd2a8c192fd258",
     "commits": [
       "d330b71b47f76ee204a650701757aefc86778e48",
       "5e1785a9240d367f8342bd6b6d7ed49947f11abc",
@@ -40,7 +40,8 @@
       "f3a21841e14cd9822f79ef5c2d523d3dc9e78fd8",
       "70dc300353df99f02e352384ac4b79909f36a9cb",
       "1f4b30adf2659dce177c5fcf32185e5d223b9a97",
-      "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58"
+      "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58",
+      "bcbe8b7a8938665bd8d1501c67cd2a8c192fd258"
     ]
   },
   "implementation": {
@@ -240,7 +241,7 @@
         "state": "production integrated in parent; live account/model qualification pending"
       }
     ],
-    "parentCurrentMain": "bf01f113a3cd01027008ac46ed4abcbf695caaeb",
+    "parentCurrentMain": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
     "rootManifestActions": [
       "reconcile root package-lock with provider/native workspaces",
       "package:desktop => node scripts/package-desktop.mjs",
@@ -251,8 +252,8 @@
     "windowsNodeGate": "37/37 each Node24/26 reported by owner; no Electron desktop acceptance credit",
     "handoff": {
       "branch": "codex/next-desktop",
-      "range": "044aa3a..7d8b50eabe20e7aaa3bb33fa618217f54d0cff58",
-      "codeCommit": "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58",
+      "range": "b6eb5dc..bcbe8b7a8938665bd8d1501c67cd2a8c192fd258",
+      "codeCommit": "bcbe8b7a8938665bd8d1501c67cd2a8c192fd258",
       "allOwnedProcessesClosed": null,
       "sourceFrozen": true,
       "scopeGuard": "No main checkout, TODO/README, engine/contracts/windows core, original engine CI or root package.json edits; root lock contains only desktop dependency integration for parent reconciliation",
@@ -260,7 +261,8 @@
         "f3a21841e14cd9822f79ef5c2d523d3dc9e78fd8",
         "70dc300353df99f02e352384ac4b79909f36a9cb",
         "1f4b30adf2659dce177c5fcf32185e5d223b9a97",
-        "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58"
+        "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58",
+        "bcbe8b7a8938665bd8d1501c67cd2a8c192fd258"
       ],
       "ownedTestDriversSettled": true,
       "allNativeCleanupConfirmed": false
@@ -351,6 +353,39 @@
       "windowsNative": "failed only at explicit absent binding gate",
       "evidence": "artifacts/desktop-next/hosted-packages-final.json",
       "sha256": "c4e47507ea2ccc7a6f69154a21650fdb5593eea39682c661a70044acc23f0d98"
+    },
+    "latestIntegratedDesktop": {
+      "conclusion": "failure",
+      "databaseId": 37858447261,
+      "headSha": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "jobs": [
+        {
+          "conclusion": "failure",
+          "id": 113588172891,
+          "name": "Unsigned bundle and native smoke / windows-2025",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "id": 113588172982,
+          "name": "Unsigned bundle and native smoke / macos-15",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "id": 113588173066,
+          "name": "Unsigned bundle and native smoke / ubuntu-24.04",
+          "status": "completed"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37858447261",
+      "evidence": "artifacts/desktop-next/integrated-a89-desktop-final.json",
+      "sha256": "76d8b2b58c232ecbc7ac9051a6bab1d16c3953ba7e21b1ac57ec4a3480245b1e",
+      "windowsPortable": "passed",
+      "windowsNativeCapability": "windows-job-object confirmed before receipt lookup",
+      "windowsApprovedCommand": "not reached; failed archive receipt lookup",
+      "scope": "actual latest integrated a89d749 macOS/Linux package/native smoke passed; Windows command approval/effects need corrected source rerun"
     }
   },
   "immutableProgramProof": "artifacts/desktop-next/current-source-delta.json",
@@ -650,6 +685,50 @@
       "rows": 32,
       "depth": 12
     },
-    "fixturePolicy": "Failures and uncertain utility cleanup retain original controlled fixture and bounded allowlisted copies. Original SQLite is never opened for evidence; observed clones are not qualified recovery backups. Driver collection failure fails a positive lane and preserves a prior failure."
+    "fixturePolicy": "Failures and uncertain utility cleanup retain original controlled fixture and bounded allowlisted copies. Original SQLite is never opened for evidence; observed clones are not qualified recovery backups. Driver collection failure fails a positive lane and preserves a prior failure.",
+    "windowsAsarLookup": {
+      "sourceCommit": "bcbe8b7a8938665bd8d1501c67cd2a8c192fd258",
+      "originalIntegratedCommit": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "originalRunId": 37858447261,
+      "status": "actual-archive-root-cause-proved-fix-reviewed-Windows-rerun-required",
+      "failure": "The receipt exists in the genuine hosted ASAR, but the caller supplied POSIX separators to the library Windows-native directory lookup.",
+      "fix": "readWindowsNativeBuildReceipt uses path.join for the exact nested archive path; missing and malformed receipts still reject.",
+      "portableTests": {
+        "total": 4,
+        "pass": 4,
+        "fail": 0,
+        "skip": 0,
+        "platform": "darwin",
+        "log": "artifacts/desktop-next/windows-asar-path-regression.log",
+        "sha256": "9df1e5c3e8817cc499e716d33f34504bc4440e3047b033c9b830864afd15aabe"
+      },
+      "sameActualArchiveWindowsPathModel": {
+        "evidence": "artifacts/desktop-next/windows-asar-path-actual-artifact.json",
+        "sha256": "729618796c44d34fbfff44b25cc7e24a88f69a6a46bc56d2c8d9b74a86db1412",
+        "archiveSha256": "ad01b4d531068ede38b1f4a1f8578790eac96e66bcb37ebee632076118191654",
+        "nativeBinarySha256": "af5c2552bf3ac3b38bfaf824c49ac0bfddd4b24da575e17d4dd18c25fb552784",
+        "oldLookupRejected": true,
+        "correctedHeaderLookupAccepted": true,
+        "qualification": "Installed genuine ASAR Filesystem with node:path.win32 and actual hosted archive header; no Windows command effects execution."
+      },
+      "originalFailure": {
+        "log": "artifacts/desktop-next/integrated-a89-windows-package-failed.log",
+        "sha256": "57afc2ad6b50eb2f212a42d1aaa6fc6605e1d79a00fc62e425bf17838aa2a278",
+        "manifestRetained": true,
+        "cleanup": "unknown"
+      },
+      "guardsPreserved": [
+        "receipt presence/JSON",
+        "exact Electron/architecture/bindingVersion/nodeApi",
+        "exact native binary byte count/SHA256",
+        "actual utility capability",
+        "exact patch and command approvals",
+        "native command result/checkpoint",
+        "original close acknowledgement/exit/no forced stop"
+      ],
+      "pushPerformed": false,
+      "mainChanged": false,
+      "actualWindowsAfterFix": false
+    }
   }
 }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-08T23:13:33.939Z",
+  "updatedAt": "2026-10-08T23:24:13.162Z",
   "baselineSource": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
   "goal": "N-04 per-OS desktop bundle/utility/SQLite/renderer, actual POSIX supervisors and Windows engine-utility native command smoke",
   "sourceScope": [
@@ -16,7 +16,7 @@
     "scripts/desktop-test-evidence.mjs",
     "scripts/desktop-test-evidence.test.mjs"
   ],
-  "status": "corrective-drivers-verified-latest-combined-packages-pending",
+  "status": "actual-integrated-Mac-Linux-passed-Windows-receipt-fixed-rerun-pending",
   "implementation": {
     "targets": {
       "development": [
@@ -88,8 +88,8 @@
     }
   ],
   "pending": [
-    "Parent latest combined source rebuild and complete regression",
-    "Parent three-OS package CI including actual Windows Job Object consumer"
+    "Root applies bcbe8b7 and reruns actual integrated Windows Electron utility command/approval/checkpoint/cleanup gate",
+    "Parent final integrated source regression and three-OS package acceptance"
   ],
   "externalConditions": [
     {
@@ -187,5 +187,49 @@
       }
     ],
     "ciCommit": "7d8b50eabe20e7aaa3bb33fa618217f54d0cff58"
+  },
+  "windowsAsarLookupCorrection": {
+    "sourceCommit": "bcbe8b7a8938665bd8d1501c67cd2a8c192fd258",
+    "originalIntegratedCommit": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+    "originalRunId": 37858447261,
+    "status": "actual-archive-root-cause-proved-fix-reviewed-Windows-rerun-required",
+    "failure": "The receipt exists in the genuine hosted ASAR, but the caller supplied POSIX separators to the library Windows-native directory lookup.",
+    "fix": "readWindowsNativeBuildReceipt uses path.join for the exact nested archive path; missing and malformed receipts still reject.",
+    "portableTests": {
+      "total": 4,
+      "pass": 4,
+      "fail": 0,
+      "skip": 0,
+      "platform": "darwin",
+      "log": "artifacts/desktop-next/windows-asar-path-regression.log",
+      "sha256": "9df1e5c3e8817cc499e716d33f34504bc4440e3047b033c9b830864afd15aabe"
+    },
+    "sameActualArchiveWindowsPathModel": {
+      "evidence": "artifacts/desktop-next/windows-asar-path-actual-artifact.json",
+      "sha256": "729618796c44d34fbfff44b25cc7e24a88f69a6a46bc56d2c8d9b74a86db1412",
+      "archiveSha256": "ad01b4d531068ede38b1f4a1f8578790eac96e66bcb37ebee632076118191654",
+      "nativeBinarySha256": "af5c2552bf3ac3b38bfaf824c49ac0bfddd4b24da575e17d4dd18c25fb552784",
+      "oldLookupRejected": true,
+      "correctedHeaderLookupAccepted": true,
+      "qualification": "Installed genuine ASAR Filesystem with node:path.win32 and actual hosted archive header; no Windows command effects execution."
+    },
+    "originalFailure": {
+      "log": "artifacts/desktop-next/integrated-a89-windows-package-failed.log",
+      "sha256": "57afc2ad6b50eb2f212a42d1aaa6fc6605e1d79a00fc62e425bf17838aa2a278",
+      "manifestRetained": true,
+      "cleanup": "unknown"
+    },
+    "guardsPreserved": [
+      "receipt presence/JSON",
+      "exact Electron/architecture/bindingVersion/nodeApi",
+      "exact native binary byte count/SHA256",
+      "actual utility capability",
+      "exact patch and command approvals",
+      "native command result/checkpoint",
+      "original close acknowledgement/exit/no forced stop"
+    ],
+    "pushPerformed": false,
+    "mainChanged": false,
+    "actualWindowsAfterFix": false
   }
 }
