@@ -34,6 +34,10 @@ runner 이름과 architecture는 [GitHub-hosted runner 공식 표](https://docs.
 
 compiler는 `tsc -b packages/contracts packages/engine apps/engine-harness`만 대상으로 한다. typecheck는 기존 build-mode의 타입 검사/emit이며 build는 `--force`로 headless output을 다시 생성한다. root 전체 `npm run build`, desktop renderer, Electron launch는 사용하지 않는다. POSIX 테스트는 기존 `scripts/test-engine.mjs`를 사용한다. 평가도 기존 `scripts/evaluate-engine.mjs`의 세 local scripted coding task이며 실제 모델 품질·네트워크 provider 연결·과금·계정 인증의 증거는 아니다.
 
+POSIX full lane은 build 이후 `node .github/scripts/engine-ci.mjs test-media-local`도 실행한다. 기존 engine fixture/eval은 별도 `.mjs` CLI 테스트를 포함하지 않으므로 이 단계에서 `plan-media-verification.test.mjs`와 `verify-media-account.test.mjs`를 명시적으로 실행한다. 실행기는 `MOODCODE_MEDIA_VERIFY_TEST_ENGINE=compiled`로 빌드된 엔진을 사용하며, 실제 native media receipt·로컬 HTTP fixture·입력 거부·중복·partial 취소·paused import·불확실한 cleanup 보존을 확인한다. 라이브 계정 CLI나 `--live`는 호출하지 않으며 fixture 통과에 account 검증 credit을 부여하지 않는다. 이 단계의 명령·compiled 선택·stdout/stderr·실패는 `test-media-local` 로그와 step 기록에 남는다. Windows portable lane 범위에는 추가하지 않는다.
+
+push/pull_request의 경로 필터에는 `scripts/verify-media-account*.mjs`와 `scripts/plan-media-verification*.mjs`를 포함하여 해당 실행기·계획·테스트만 변경해도 CI 실행 조건을 충족한다. 워크플로 구성 변경과 로컬 단계 통과는 실제 GitHub hosted run 등록·완료 확인과 구분한다.
+
 ## Windows partial gate
 
 `.github/scripts/engine-ci.mjs`의 명시 목록은 `storage`, `migrations`, `native-inbox`, `native-records`, `native-documents-history`, `history-search`, `next-stage-history-metrics`, `terminal-approval`이다. contracts의 compiled 테스트 전체와 `tools/command/backends.test.js`도 실행한다. 이 목록은 SQLite journal/CAS/history/migration/terminal approval 및 portable ownership callback 계약을 다룬다. 빠진 compiled fixture나 비어 있는 contracts 발견은 실패한다. 신규 storage 테스트가 자동으로 포함되지는 않으며 portability 확인 뒤 목록을 갱신한다.
@@ -50,6 +54,6 @@ job summary와 upload-artifact step은 `if: always()`이며 job/matrix별 artifa
 
 ## 완료한 로컬 확인과 다음 검증
 
-로컬에서는 launcher `node --check`, fixture 두 개, YAML parsing과 trigger/matrix/고정 SHA/always-summary 구조, plan/summary가 실행 없이 현재 darwin·Node26 및 `not-a-github-run`을 기록하는 것을 확인했다. 이 확인은 설치를 새로 실행하거나 workflow를 dispatch하지 않았다. GitHub expression의 실제 평가나 hosted image에서의 optional native dependency 설치도 아직 확인하지 않았다.
+로컬에서는 launcher `node --check`, fixture 세 개, YAML parsing과 trigger/matrix/고정 SHA/always-summary 구조, plan/summary가 실행 없이 현재 darwin·Node26 및 `not-a-github-run`을 기록하는 것을 확인했다. 이 확인은 설치를 새로 실행하거나 workflow를 dispatch하지 않았다. GitHub expression의 실제 평가나 hosted image에서의 optional native dependency 설치도 아직 확인하지 않았다.
 
 첫 실제 Actions run에서 Node24/26 두 ABI의 PTY load/TTY fixture, Linux group/descendant 정리, Windows SQLite close/locking, artifact 결과·실패 retention을 확인한다. 실패를 skip으로 숨기기보다 해당 OS의 구현 문제 또는 명시적 지원 공백으로 분리해 수정한다. editor UI·GUI smoke·packaging·서명/배포는 별도 승인된 pipeline 범위이다.

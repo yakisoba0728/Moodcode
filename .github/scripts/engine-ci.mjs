@@ -55,6 +55,14 @@ export function commandPlan(mode) {
       return [process.execPath, join(root, "scripts", "prepare-pty.mjs")];
     case "test":
       return [process.execPath, join(root, "scripts", "test-engine.mjs")];
+    case "test-media-local":
+      return [
+        process.execPath,
+        "--test",
+        "--test-concurrency=1",
+        join(root, "scripts", "plan-media-verification.test.mjs"),
+        join(root, "scripts", "verify-media-account.test.mjs"),
+      ];
     case "eval":
       return [process.execPath, join(root, "scripts", "evaluate-engine.mjs")];
     case "test-windows":
@@ -161,11 +169,17 @@ async function run(mode, argv) {
   const stderr = createWriteStream(join(resultsDir, `${mode}.stderr`));
   let failure;
   let status;
+  // The executor tests use loopback HTTP and explicit fixture capabilities.
+  // Force built engine modules; this stage never invokes an account CLI with --live.
+  const environmentOverrides =
+    mode === "test-media-local"
+      ? { MOODCODE_MEDIA_VERIFY_TEST_ENGINE: "compiled" }
+      : {};
   try {
     status = await new Promise((resolveStatus, reject) => {
       const child = spawn(argv[0], argv.slice(1), {
         cwd: root,
-        env: process.env,
+        env: { ...process.env, ...environmentOverrides },
         shell: false,
         windowsHide: true,
         stdio: ["ignore", "pipe", "pipe"],
@@ -206,6 +220,7 @@ async function run(mode, argv) {
     exitCode: status?.code ?? null,
     signal: status?.signal ?? null,
     state: !failure && status?.code === 0 ? "passed" : "failed",
+    ...(mode === "test-media-local" ? { environmentOverrides } : {}),
     ...(failure ? { failure } : {}),
   });
   return failure ? 1 : (status?.code ?? 1);
@@ -258,6 +273,7 @@ export async function main(mode) {
           "typecheck",
           "build",
           "test",
+          "test-media-local",
           "test-windows",
           "eval",
         ].map((operation) => [operation, commandPlan(operation)]),

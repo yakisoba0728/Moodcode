@@ -9,6 +9,8 @@ on:
       - "scripts/test-engine.mjs"
       - "scripts/evaluate-engine.mjs"
       - "scripts/prepare-pty.mjs"
+      - "scripts/verify-media-account*.mjs"
+      - "scripts/plan-media-verification*.mjs"
       - "package*.json"
       - "tsconfig*.json"
       - ".github/**"
@@ -21,6 +23,8 @@ on:
       - "scripts/test-engine.mjs"
       - "scripts/evaluate-engine.mjs"
       - "scripts/prepare-pty.mjs"
+      - "scripts/verify-media-account*.mjs"
+      - "scripts/plan-media-verification*.mjs"
       - "package*.json"
       - "tsconfig*.json"
       - ".github/**"
@@ -76,6 +80,8 @@ jobs:
         run: node .github/scripts/engine-ci.mjs typecheck
       - name: Build only headless projects
         run: node .github/scripts/engine-ci.mjs build
+      - name: Run local media CLI regression fixtures
+        run: node .github/scripts/engine-ci.mjs test-media-local
       - name: Run complete headless fixtures
         run: node .github/scripts/engine-ci.mjs test
       - name: Run scripted local engine evaluation

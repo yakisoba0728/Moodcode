@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -20,6 +20,7 @@ test("headless compiler scope contains no desktop project and no GUI launcher", 
     "typecheck",
     "build",
     "test",
+    "test-media-local",
     "prepare-pty",
     "eval",
     "test-windows",
@@ -33,6 +34,47 @@ test("headless compiler scope contains no desktop project and no GUI launcher", 
     );
   }
   assert.throws(() => commandPlan("desktop"));
+});
+
+test("media scripts trigger both path filters and execute local compiled regression tests in the full POSIX lane", async () => {
+  const workflow = await readFile(
+    new URL("../workflows/engine.yml", import.meta.url),
+    "utf8",
+  );
+  for (const event of ["pull_request", "push"]) {
+    const block = workflow.split(`  ${event}:\n`)[1].split(/^  \w+:\s*$/m)[0];
+    for (const path of [
+      "scripts/verify-media-account*.mjs",
+      "scripts/plan-media-verification*.mjs",
+    ])
+      assert.ok(block.includes(`- "${path}"`), `${event}: ${path}`);
+  }
+  const posix = workflow
+    .split("  posix:\n")[1]
+    .split("  windows-portable:\n")[0];
+  assert.match(
+    posix,
+    /run: node \.github\/scripts\/engine-ci\.mjs test-media-local/,
+  );
+  assert.ok(
+    posix.indexOf("engine-ci.mjs build") <
+      posix.indexOf("engine-ci.mjs test-media-local"),
+  );
+  const plan = commandPlan("test-media-local");
+  assert.deepEqual(plan.slice(0, 3), [
+    process.execPath,
+    "--test",
+    "--test-concurrency=1",
+  ]);
+  assert.deepEqual(
+    plan.slice(3).map((path) => path.split(/[\\/]/).at(-1)),
+    ["plan-media-verification.test.mjs", "verify-media-account.test.mjs"],
+  );
+  assert.ok(
+    !plan.some(
+      (argument) => argument === "--live" || argument === "--api-key-env",
+    ),
+  );
 });
 
 test("Windows selection includes contracts and selected SQLite/port fixtures without POSIX process authority tests", async (t) => {
