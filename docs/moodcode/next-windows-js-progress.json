@@ -2,7 +2,7 @@
   "scope": "E5-08 native Windows command host adapter and engine wiring",
   "baselineCommit": "44d3a0763bc0b00029fb09adeba84a75204d4f99",
   "workspace": "/Users/yakisoba0728/.codex/worktrees/e5-08-native-windows/Moodcode",
-  "status": "implemented-awaiting-actual-windows-ci",
+  "status": "actual-windows-native-qualified-awaiting-combined-main-integration",
   "source": [
     "packages/engine/src/tools/command/windows-job-host.ts",
     "packages/engine/src/tools/command/backends.ts",
@@ -12,7 +12,9 @@
     "packages/engine/src/jobs/owned-command-host.ts",
     "packages/engine/src/runner/index.ts",
     "packages/engine/src/tools/runtime/index.ts",
-    "packages/engine/src/tools/runtime/runtime.test.ts"
+    "packages/engine/src/tools/runtime/runtime.test.ts",
+    "packages/engine/src/engine.ts",
+    "packages/engine/src/jobs/host-command-records.ts"
   ],
   "implemented": [
     "Load only a validated real native addon before reporting Windows backend availability",
@@ -23,7 +25,11 @@
     "Confirm native active-process count and output settlement before releasing the durable effect marker",
     "Invalidate and clean late job/spawn leases after native operation timeout without user cancellation",
     "Check the monotonic approved execution deadline before resume after synchronous startup",
-    "Preserve exact platform/termination approval source fingerprints and existing POSIX records"
+    "Preserve exact platform/termination approval source fingerprints and existing POSIX records",
+    "Post-close Windows artifact timestamp sealing retains original file identity, size and producer hash checks",
+    "Settle confirmed Windows cancellation after the original native Tool Part has closed; preserve source and closed-receipt validation",
+    "Declare unsupported optional managed result copying before dispatch while preserving native producer results and existing validated references",
+    "Retain exact original execution reservation and unknown crash marker without automatic command replay"
   ],
   "localVerification": [
     {
@@ -50,6 +56,20 @@
       "skip": 1,
       "durationMs": 6861.62875,
       "actualWindows": false
+    },
+    {
+      "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=1 npm run test:engine",
+      "tests": 4759,
+      "pass": 4757,
+      "fail": 0,
+      "cancelled": 0,
+      "skip": 2,
+      "durationMs": 767294.356417,
+      "sourceCommit": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+      "actualWindows": false,
+      "log": "artifacts/native-windows/local-whole-engine-marker-runtime-retry.log",
+      "sha256": "eb592cc51d62298ad7243bf929a5ddc21854744acdfa23d3bbfcc8d8c2c40645",
+      "sourceInputsUnchanged": 1009
     }
   ],
   "preservedFailure": {
@@ -72,7 +92,7 @@
       "fail": 0,
       "skip": 1
     },
-    "actualWindowsRepairVerified": false,
+    "actualWindowsRepairVerified": true,
     "followup": {
       "failingRunId": "37848097899",
       "observed": "Post-close artifact sealing allows the normal Run to complete, but the job remains failed; cancelled native cleanup is confirmed while the Tool interruption leaves the owned job uncertain. Native process-reference accounting and interrupted Tool/Part ordering were identified as distinct causes.",
@@ -82,7 +102,7 @@
         "Require the original settling observation, confirmed native cancellation/timeout, exact source/approval/closed receipt/checkpoint/interrupted Tool+Part and unchanged sealed artifacts before publishing cancelled",
         "Accept absent cleanupConfirmed in only the bound Windows interrupted Tool event; explicit false cleanup and absent/foreign physical evidence reject"
       ],
-      "nativeAccountingRepairOwner": "native_binding: close primary process/thread references after observed exit while retaining readable output handles and cached exit status",
+      "nativeAccountingRepairOwner": "native_binding: release primary process/thread references after observed exit while preserving output handles and cached status; bounded native-count joining remains within the approved deadline before retained-descendant cleanup.",
       "focusedSourceVerification": {
         "tests": 40,
         "pass": 40,
@@ -92,13 +112,25 @@
         "durationMs": 6981.715334,
         "log": "artifacts/native-windows/js-cancellation-source-tests.log"
       },
-      "actualWindowsRepairVerified": false
-    }
+      "actualWindowsRepairVerified": true,
+      "verifiedSourceSha": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+      "verifiedHostedRunIds": [
+        37851661119,
+        37851910921
+      ],
+      "authoritativeEvidence": "docs/moodcode/next-windows-ci-verification.json"
+    },
+    "verifiedSourceSha": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+    "verifiedHostedRunIds": [
+      37851661119,
+      37851910921
+    ],
+    "authoritativeEvidence": "docs/moodcode/next-windows-ci-verification.json"
   },
   "remaining": [
-    "Root-coordinated TypeScript and whole-engine regression",
-    "Actual Windows 2025 x64 Node 24/26 CI and original native evidence",
-    "Root-coordinated verified commit and branch publication"
+    "Root combined-main native Windows workflow after integration",
+    "Root original six-lane hosted acceptance: preserve macOS24 unchanged hook failure; Ubuntu26 outcome remains pending",
+    "Desktop actual Electron/package qualification; dedicated x64 Node native gates do not qualify Desktop packaging"
   ],
   "limitations": [
     "Windows command lifetime and interactive stdin controls remain explicitly unavailable",
@@ -127,6 +159,139 @@
       "durationMs": 1750.229542,
       "log": "artifacts/native-windows/js-runtime-artifact-source-tests.log"
     },
-    "actualWindowsRepairVerified": false
-  }
+    "actualWindowsRepairVerified": true,
+    "verifiedSourceSha": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+    "verifiedHostedRunIds": [
+      37851661119,
+      37851910921
+    ],
+    "authoritativeEvidence": "docs/moodcode/next-windows-ci-verification.json"
+  },
+  "qualifiedSourceSha": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+  "authoritativeHostedEvidence": "docs/moodcode/next-windows-ci-verification.json",
+  "hostedQualification": {
+    "sourceSha": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+    "scope": "Dedicated native Windows 2025 x64 gate on Node 24.21.0 and 26.11.1; this does not qualify Electron, ARM64, or the whole-engine regression.",
+    "runs": [
+      {
+        "runId": 37851661119,
+        "event": "push",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37851661119",
+        "conclusion": "success"
+      },
+      {
+        "runId": 37851910921,
+        "event": "workflow_dispatch",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37851910921",
+        "conclusion": "success"
+      }
+    ],
+    "runner": "windows-2025 x64 (win25-vs2026)",
+    "nodeVersions": [
+      "24.21.0",
+      "26.11.1"
+    ],
+    "lanesVerified": 4,
+    "eachGateCounts": {
+      "tests": 37,
+      "pass": 37,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "eachGateClassification": {
+      "actualNativeEngineAndLifecycleScenarios": 16,
+      "topLevelNativeSuiteRecord": 1,
+      "adapterPortUnitTestRecords": 5,
+      "markerDataUnitTestRecords": 15
+    },
+    "classificationQualification": "The suite, adapter-port and marker-DATA records are not counted as additional actual native integration scenarios.",
+    "verifiedBehavior": [
+      "Suspended atomic ownership, descendant containment, native count observation and primary exit before pipe EOF",
+      "Exact multibyte stdout/stderr draining, bounded capture/artifact/model budgets and producer-hash output sealing",
+      "Native timeout/cancellation, blocked output delivery, late ownership lease cleanup and warmed handle disposal",
+      "Engine approval fingerprint and Run/Turn/Attempt/Tool/Job source binding; denied or mismatched approval creates no native effects",
+      "Native confirmed cancellation settles only with original physical completion, checkpoint, sealed artifacts and native interrupted Tool/Part",
+      "SIGKILL releases engine-owned kill-on-close job handles; exact original reservation admits read recovery while retaining the active marker and unknown effects without replay",
+      "Host-known unsupported optional managed-result copying is explicit metadata and warning; original sealed command artifacts remain available"
+    ],
+    "originalEvidence": {
+      "authoritativeDocument": "docs/moodcode/next-windows-ci-verification.json",
+      "allReportedFilesVerifiedPerLane": 19,
+      "hiddenPathCount": 0,
+      "hashEvidence": "Original log ZIP, reported artifact ZIP and native addon DLL hashes are recorded in the authoritative document. No entire scratch checkout or .git bundle claim."
+    },
+    "assertionsTimeoutsBudgetsAndSkipsPreserved": true,
+    "originalFailingRunsRetained": true
+  },
+  "executionMarkerRepair": {
+    "scope": "Exact original host-command execution reservation and crash read-recovery bridge",
+    "behavior": "Persist the original approval-bound reservation before physical native launch and pass it into lock acquisition. Restart validates the exact reservation/marker/path/owner/root binding, including an active groupPid=null marker, before allowing journal inspection; it retains uncertainty and grants neither cleanup confirmation nor effect replay.",
+    "actualWindowsRepairVerified": true,
+    "verifiedSourceSha": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+    "verifiedHostedRunIds": [
+      37851661119,
+      37851910921
+    ],
+    "authoritativeEvidence": "docs/moodcode/next-windows-ci-verification.json"
+  },
+  "wholeRegressionQualification": {
+    "separateFromNativeWindowsGate": true,
+    "localFrozenRetry": {
+      "status": "complete",
+      "finalFooterAvailable": true,
+      "wholeSuiteAcceptanceClaim": true,
+      "counts": {
+        "tests": 4759,
+        "pass": 4757,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 2,
+        "todo": 0
+      },
+      "sourceInputsUnchanged": 1009,
+      "authoritativeEvidence": "frozenLocalFullVerification"
+    },
+    "sixLaneHostedRun": {
+      "runId": 37851661133,
+      "sourceSha": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+      "status": "not-accepted-as-all-green",
+      "preservedMacosNode24Failure": {
+        "case": "actual hook cancellation and timeout join the entire process group",
+        "error": "Actual process boundary did not arrive",
+        "gitCodeAndFixtureChanged": false,
+        "fixtureBlob": "c188513116327f8e056350a942c47afcc915add4"
+      },
+      "ubuntuNode26": "pending-at-documentation-snapshot",
+      "authoritativeEvidence": "docs/moodcode/next-windows-ci-verification.json"
+    }
+  },
+  "frozenLocalFullVerification": {
+    "status": "complete",
+    "accepted": true,
+    "sourceCommit": "8c7aac2c48ad975f9679d482acfcd78bf9a1f278",
+    "command": "MOODCODE_ENGINE_TEST_CONCURRENCY=1 npm run test:engine",
+    "concurrency": 1,
+    "exitCode": 0,
+    "counts": {
+      "tests": 4759,
+      "pass": 4757,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 2,
+      "todo": 0
+    },
+    "durationMs": 767294.356417,
+    "evidence": "artifacts/native-windows/local-whole-engine-marker-runtime-retry.json",
+    "log": "artifacts/native-windows/local-whole-engine-marker-runtime-retry.log",
+    "sha256": "eb592cc51d62298ad7243bf929a5ddc21854744acdfa23d3bbfcc8d8c2c40645",
+    "sourceFreeze": "artifacts/native-windows/local-source-freeze-marker-runtime.json",
+    "frozenInputs": 1009,
+    "changedSourceInputsBefore": [],
+    "changedSourceInputsAfter": [],
+    "finalFooterAvailable": true,
+    "qualification": "Complete original engine suite, unchanged assertions/timeouts/skips. Test-driver-only isolated process group. Native Windows support derives exclusively from actual Windows hosted gates."
+  },
+  "fullPipelinePending": true,
+  "wholePipelineGreenClaim": false
 }
