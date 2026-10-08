@@ -16,6 +16,7 @@ import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { commandBackendCapability } from "../tools/command/backends.js";
+import { reserveExecutionLock, readExecutionLockReservation } from "../tools/command/execution-lock.js";
 import { captureWorkspace, type WorkspaceCapture } from "../workspace/index.js";
 import {
   executePhysicalCommand,
@@ -398,6 +399,7 @@ export class HostCommandService {
             },
             artifactDir: this.options.artifactDir,
             executionLockPath: this.options.executionLockPath,
+            ...(process.platform === "win32" ? { executionLockReservation: reserveExecutionLock(this.options.executionLockPath) } : {}),
             ...(p.proof.sandbox?{sandbox:p.proof.sandbox}:{}),
           };
         try {
@@ -414,7 +416,13 @@ export class HostCommandService {
           });
           jobHostAbort(signal);
           this.current(p);
-          const record = initial(checkpointBefore(before), "approved");
+          const snapshot = checkpointBefore(before);
+          // Bind the committed crash marker before the native owner opens a job.
+          // Its process-group update is intentionally rolled back on a crash.
+          const record = initial(scope.executionLockReservation ? {
+            ...snapshot,
+            executionLock: { path: this.options.executionLockPath, marker: { ...readExecutionLockReservation(scope.executionLockReservation) } },
+          } : snapshot, "approved");
           flight = { record, abort, ring, done };
           this.retained.set(jobId, flight);
           const update = (

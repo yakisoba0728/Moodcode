@@ -728,6 +728,23 @@ export class HostCommandStorage {
   inspect(workspaceId?: string) {
     return inspectHostCommands(this.db, workspaceId);
   }
+  /** Read-only crash correlation; it grants neither cleanup nor new effects. */
+  hasKnownWindowsExecutionMarker(marker: import("../tools/command/execution-lock.js").ExecutionLockMarker, path: string,
+    rootBinding: (workspaceId: string) => string): boolean {
+    if (!marker.active || marker.groupPid !== null) return false;
+    const matches = this.inspect().filter(record => {
+      if (record.preview.platform !== "win32" || !["approved", "running", "uncertain"].includes(record.state) ||
+        record.completion !== null || record.owner.rootBindingSha256 !== rootBinding(record.workspaceId)) return false;
+      const row = this.db.prepare("SELECT id FROM host_command_revisions WHERE job_id=? AND revision=1").get(record.jobId);
+      if (!row) return false;
+      const original = readRow(this.db, String(row.id));
+      const proof = original.payload.executionLock;
+      return original.kind === "approved" && original.owner.epoch === record.owner.epoch &&
+        proof !== null && typeof proof === "object" && !Array.isArray(proof) &&
+        proof.path === path && knowledgeHash(proof.marker) === knowledgeHash(marker);
+    });
+    return matches.length === 1;
+  }
   append(body: Omit<HostCommandRecord, "sha256">): HostCommandRecord {
     return this.ports.transaction(() => {
       caps(this.db);

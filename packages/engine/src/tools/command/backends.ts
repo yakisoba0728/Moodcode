@@ -114,6 +114,19 @@ export async function executeOwnedWindowsJob(host: WindowsJobHostPort, input: Sh
     } while (performance.now() < deadline);
     return false;
   };
+  const observeExitCount = async (): Promise<number> => {
+    // Windows accounting can retain exiting kernel references after the owned
+    // process handle closes. Join real counts briefly, without waiting on EOF.
+    const deadline = Math.min(executionDeadline, performance.now() + Math.min(100, limits.cleanupMs));
+    for (;;) {
+      ensureLive();
+      const count = await interrupted(job!.activeProcessCount(), Math.max(1, Math.min(limits.operationMs, deadline - performance.now())));
+      ensureLive();
+      if (!Number.isSafeInteger(count) || count < 0) throw new EngineError('WINDOWS_JOB_INVALID_COUNT', 'The native host returned an invalid active-process count');
+      if (count === 0 || performance.now() >= deadline) return count;
+      await new Promise(resolve => setTimeout(resolve, Math.min(limits.pollMs, Math.max(1, deadline - performance.now()))));
+    }
+  };
   try {
     const opening = host.createJob();
     void opening.then(late => { openingSettled = true; if ((abandoned || abort.signal.aborted) && !job) void late.close().catch(() => {}); }, () => { openingSettled = true; });
@@ -144,8 +157,7 @@ export async function executeOwnedWindowsJob(host: WindowsJobHostPort, input: Sh
     // execution. Primary exit must precede inherited-output-pipe settlement.
     const completion = child.exited ?? child.closed;
     const completed = await interrupted(completion, input.timeoutMs); exitCode = completed.exitCode;
-    const count = await bounded(job.activeProcessCount());
-    if (!Number.isSafeInteger(count) || count < 0) throw new EngineError('WINDOWS_JOB_INVALID_COUNT', 'The native host returned an invalid active-process count');
+    const count = await observeExitCount();
     if (count > 0) {
       warn('The primary Windows command exited while its owned job retained descendants.');
       error = 'The command left running descendants; they required engine cleanup.';

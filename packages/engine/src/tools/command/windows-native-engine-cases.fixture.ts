@@ -48,6 +48,23 @@ async function runFixture(t: TestContext, mode: string) {
   return { ...f, directory, calls, receipt, approval, jobs };
 }
 
+function nativeDiagnostic(f: Awaited<ReturnType<typeof runFixture>>, record?: OwnedCommandJobRecord): string {
+  const tool = f.engine.store.getToolCall(f.approval.toolCallId), run = f.engine.store.getRun(f.receipt.runId);
+  const event = f.engine.store.readEvents(f.session.id, 0, 1024).find(row =>
+    ['tool.completed', 'tool.failed', 'tool.interrupted'].includes(row.type) && row.payload.toolCallId === tool.id);
+  const projection = event?.payload.structuredResult;
+  const envelope = projection && typeof projection === 'object' && !Array.isArray(projection) ? projection : undefined;
+  const part = record && f.engine.store.listParts(record.source.turnId).find(row => row.type === 'tool' && row.toolCallId === tool.id);
+  const result = part?.type === 'tool' ? part.result : undefined;
+  const terminal = result && typeof result === 'object' && !Array.isArray(result) ? result : undefined;
+  return JSON.stringify({ job: record, run: { id: run.id, state: run.state, error: run.error },
+    tool: { id: tool.id, state: tool.state, errorPrefix: tool.error?.slice(0, 2048), outputBytes: Buffer.byteLength(tool.output ?? '') },
+    event: event && { type: event.type, isError: event.payload.isError, truncated: event.payload.truncated,
+      projection: envelope && { metadata: envelope.metadata, warnings: envelope.warnings, outcome: envelope.outcome, artifactRefs: envelope.artifactRefs } },
+    part: part && { state: part.state, result: terminal && { isError: terminal.isError, truncated: terminal.truncated } },
+  }).slice(0, 24_576);
+}
+
 export function registerWindowsEngineCases(register: (name: string, execute: (t: TestContext) => void | Promise<void>) => void): void {
   register('real Windows Engine denies mismatched or rejected approval before creating native effects', async t => {
     const f = await runFixture(t, 'tree-hold');
@@ -66,11 +83,11 @@ export function registerWindowsEngineCases(register: (name: string, execute: (t:
     assert.equal(f.engine.getCapabilities().runtime.commandExecution, 'windows-job-object');
     f.engine.approvals.decide(f.approval.id, 'allow', f.approval.fingerprint);
     const run = await f.engine.waitForRun(f.receipt.runId);
-    assert.equal(run.state, 'completed', JSON.stringify({ run, tool: f.engine.store.getToolCall(f.approval.toolCallId), jobs: f.jobs() }).slice(0, 24_576));
+    assert.equal(run.state, 'completed', nativeDiagnostic(f, f.jobs()[0]));
     const records = f.jobs();
     assert.equal(records.length, 1);
     const record = records[0]!;
-    assert.equal(record.state, 'completed', JSON.stringify({ job: record, tool: f.engine.store.getToolCall(f.approval.toolCallId), run }).slice(0, 24_576));
+    assert.equal(record.state, 'completed', nativeDiagnostic(f, record));
     assert.equal(record.source.runId, f.receipt.runId);
     assert.equal(record.source.toolCallId, f.approval.toolCallId);
     assert.equal(record.source.approvalId, f.approval.id);
@@ -78,6 +95,29 @@ export function registerWindowsEngineCases(register: (name: string, execute: (t:
     assert.equal(f.engine.store.getTurn(record.source.turnId).runId, f.receipt.runId);
     assert.equal(f.engine.store.getAttempt(record.source.attemptId).turnId, record.source.turnId);
     assert.equal(f.engine.store.getToolCall(record.source.toolCallId).state, 'completed');
+    const event = f.engine.store.readEvents(f.session.id, 0, 1024).find(row =>
+      row.type === 'tool.completed' && row.payload.toolCallId === record.source.toolCallId);
+    assert.ok(event);
+    assert.equal(event.payload.isError, false);
+    assert.equal(event.payload.truncated, false);
+    assert.equal(typeof event.payload.output, 'string');
+    assert.ok(Buffer.byteLength(event.payload.output as string) <= 65_536);
+    const projection = event.payload.structuredResult;
+    assert.ok(projection && typeof projection === 'object' && !Array.isArray(projection));
+    assert.equal(projection.outcome, 'completed');
+    assert.deepEqual(projection.artifactRefs, []);
+    const metadata = projection.metadata;
+    assert.ok(metadata && typeof metadata === 'object' && !Array.isArray(metadata));
+    assert.equal(metadata.artifactPersistenceUnavailable, true);
+    assert.equal(metadata.artifactPersistenceCode, 'ARTIFACT_PLATFORM_UNSUPPORTED');
+    assert.ok(Array.isArray(projection.warnings) && projection.warnings.some(warning =>
+      typeof warning === 'string' && warning.includes('Managed result copies are unavailable')));
+    const part = f.engine.store.listParts(record.source.turnId).find(row => row.type === 'tool' && row.toolCallId === record.source.toolCallId);
+    assert.ok(part && part.type === 'tool' && part.state === 'completed');
+    const result = part.result;
+    assert.ok(result && typeof result === 'object' && !Array.isArray(result));
+    assert.equal(result.isError, false);
+    assert.equal(result.truncated, false);
     const completion = record.completion!;
     assert.ok(completion);
     assert.equal(completion.outcome.cleanupConfirmed, true);
@@ -144,6 +184,7 @@ export function registerWindowsEngineCases(register: (name: string, execute: (t:
     assert.equal(marker.status, 'uncertain', 'Owner crash releases SQLite locking but must preserve the active effect marker');
     assert.ok(marker.marker);
     assert.equal(marker.marker.ownerPid, ready.ownerPid);
+    assert.equal(marker.marker.groupPid, null, 'A killed exclusive transaction must retain its original committed marker');
     assert.equal(marker.marker.active, true);
     const before = readFileSync(join(directory, 'effects.log'), 'utf8');
     assert.equal(before.trim().split('\n').length, 1);
@@ -160,6 +201,9 @@ export function registerWindowsEngineCases(register: (name: string, execute: (t:
       await new Promise(yes => setTimeout(yes, 100));
       assert.equal(readFileSync(join(directory, 'effects.log'), 'utf8'), before);
       await reopened.close();
+      const retainedMarker = inspectExecutionLock(f.dbPath + '.effects.sqlite');
+      assert.equal(retainedMarker.status, 'uncertain');
+      assert.deepEqual(retainedMarker.marker, marker.marker, 'Inspection must retain the exact original owner, epoch nonce and active effect marker');
     }
     assert.equal(f.providerCalls.length, 0);
     assert.equal(inspectExecutionLock(f.dbPath + '.effects.sqlite').status, 'uncertain');

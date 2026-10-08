@@ -43,6 +43,8 @@ export interface ScopedToolRuntimeOptions {
   /** Trusted owner observation after policy validation and before the sole producer call. */
   beforeProducer?(prepared: PreparedTool, context: ToolContext): Promise<() => void>;
   policy?: ToolPolicy; grants?: ScopedToolGrants; artifacts?: ArtifactStore | Promise<ArtifactStore> | (() => ArtifactStore | Promise<ArtifactStore>);
+  /** Host-known optional storage capability, fixed before any producer dispatch. */
+  artifactsUnavailable?: Readonly<{ code: 'ARTIFACT_PLATFORM_UNSUPPORTED'; reason: string }>;
   roleResources?: RoleResourcePolicy;
   /** Shared host-only CAS policy holder. Cannot be combined with the immutable roleResources option. */
   roleResourcePolicyRegistry?: RoleResourcePolicyRegistry;
@@ -90,12 +92,19 @@ export class ScopedToolRuntime {
   private readonly roleResourcePolicyRegistry?: RoleResourcePolicyRegistry;
   private readonly resolveRoleResources?: ScopedToolRuntimeOptions['resolveRoleResources'];
   private readonly commandPreflight?: Readonly<RuntimeCommandPreflightOptions>;
+  private readonly artifactsUnavailable?: ScopedToolRuntimeOptions['artifactsUnavailable'];
   constructor(private readonly options: ScopedToolRuntimeOptions = {}) {
     this.policy = options.policy ?? new ToolPolicy(); this.grants = options.grants ?? new ScopedToolGrants();
     if (options.roleResources && options.roleResourcePolicyRegistry) fail('INVALID_ROLE_POLICY_CONFIGURATION', 'Use one immutable role policy or one shared role policy registry');
     this.roleResources = options.roleResources; this.resolveRoleResources = options.resolveRoleResources;
     this.roleResourcePolicyRegistry = options.roleResourcePolicyRegistry;
     this.commandPreflight = options.commandPreflight ? Object.freeze({ registry: options.commandPreflight.registry, selectAnalyzer: options.commandPreflight.selectAnalyzer.bind(options.commandPreflight), resolveSourceRevision: options.commandPreflight.resolveSourceRevision?.bind(options.commandPreflight), deadlineMs: options.commandPreflight.deadlineMs }) : undefined;
+    if (options.artifactsUnavailable) {
+      if (options.artifacts !== undefined || options.artifactsUnavailable.code !== 'ARTIFACT_PLATFORM_UNSUPPORTED' ||
+        typeof options.artifactsUnavailable.reason !== 'string' || !options.artifactsUnavailable.reason ||
+        Buffer.byteLength(options.artifactsUnavailable.reason) > 256) fail('INVALID_ARTIFACT_CONFIGURATION', 'Known unavailable artifact storage requires one bounded host capability and no persistence port');
+      this.artifactsUnavailable = Object.freeze({ ...options.artifactsUnavailable });
+    }
   }
   get revision(): number { return this.current; }
   /** Reads one current original entry without catalogue materialization, policy evaluation or producer calls. */
@@ -423,6 +432,11 @@ export class ScopedToolRuntime {
     let enriched: ToolResult;
     try { enriched = result.structuredResult ? { ...result, structuredResult: createToolResultEnvelope({ ...result.structuredResult, outcome }, limits) } : enrichLegacyToolResult(result, { outcome }, limits); }
     catch { enriched = { content: result.content, isError: true, ...(result.artifacts ? { artifacts: result.artifacts } : {}), structuredResult: createToolResultEnvelope({ displayContent: result.content, metadata: { resultProjectionFailed: true, producerOutcome: outcome, effectsMayBePresent: true }, warnings: ['Producer returned content, but its structured projection was invalid; recorded checkpoints and returned content remain reviewable.'], outcome: 'failed' }, limits) }; }
+    if (this.artifactsUnavailable) return { ...enriched, structuredResult: createToolResultEnvelope({
+      ...enriched.structuredResult!,
+      metadata: { ...enriched.structuredResult!.metadata, artifactPersistenceUnavailable: true, artifactPersistenceCode: this.artifactsUnavailable.code },
+      warnings: [...enriched.structuredResult!.warnings, this.artifactsUnavailable.reason],
+    }, limits) };
     if (!this.options.artifacts) return enriched;
     // Only this producer's returned bytes can be observed; legacy truncation must remain explicit.
     try {
