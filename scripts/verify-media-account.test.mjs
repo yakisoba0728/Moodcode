@@ -9,6 +9,8 @@ import {
   verifyMediaAccount,
   parseMediaAccountArgs,
   inspectWave,
+  colorAvi,
+  inspectColorAvi,
 } from "./verify-media-account.mjs";
 const sourceEngine =
   process.env.MOODCODE_MEDIA_VERIFY_TEST_ENGINE === "compiled"
@@ -106,21 +108,41 @@ function responseText(text) {
     .map(event)
     .join("");
 }
-function frameColor(url) {
+function frameColor(url, expectedSize = 8) {
   const bytes = Buffer.from(url.split(",")[1], "base64"),
     compressed = [];
   assert.deepEqual(
     [...bytes.subarray(0, 8)],
     [137, 80, 78, 71, 13, 10, 26, 10],
   );
+  let width, height;
   for (let at = 8; at < bytes.length;) {
     const n = bytes.readUInt32BE(at),
       type = bytes.toString("ascii", at + 4, at + 8);
     if (type === "IDAT") compressed.push(bytes.subarray(at + 8, at + 8 + n));
+    if (type === "IHDR") {
+      width = bytes.readUInt32BE(at + 8);
+      height = bytes.readUInt32BE(at + 12);
+      assert.equal(bytes[at + 16], 8);
+      assert.equal(bytes[at + 17], 2);
+    }
     at += 12 + n;
   }
   const pixels = inflateSync(Buffer.concat(compressed));
+  assert.equal(width, expectedSize);
+  assert.equal(height, expectedSize);
+  const stride = width * 3 + 1;
+  assert.equal(pixels.length, stride * height);
   assert.equal(pixels[0], 0);
+  const rgb = [...pixels.subarray(1, 4)];
+  for (let y = 0; y < height; y++) {
+    assert.equal(pixels[y * stride], 0);
+    for (let x = 0; x < width; x++)
+      assert.deepEqual(
+        [...pixels.subarray(y * stride + 1 + x * 3, y * stride + 4 + x * 3)],
+        rgb,
+      );
+  }
   const color = [...pixels.subarray(1, 4)].join(",");
   return {
     "255,0,0": "red",
@@ -129,7 +151,7 @@ function frameColor(url) {
     "255,255,0": "yellow",
   }[color];
 }
-async function httpFixture(t, mode = "normal") {
+async function httpFixture(t, mode = "normal", probeSize = 8) {
   const requests = [],
     phraseForPcm = new Map(),
     errors = [];
@@ -155,7 +177,20 @@ async function httpFixture(t, mode = "normal") {
           .flatMap((item) => item.content ?? [])
           .filter((b) => b.type === "input_image");
         assert.equal(frames.length, 3);
-        const colors = frames.map((frame) => frameColor(frame.image_url));
+        const colors = frames.map((frame) =>
+          frameColor(frame.image_url, probeSize),
+        );
+        const plaintext = body.input
+          .flatMap((item) => item.content ?? [])
+          .filter((item) => item.type === "input_text")
+          .map((item) => item.text)
+          .join("\n");
+        assert.match(plaintext, /using English color names/u);
+        for (const color of colors)
+          assert.equal(
+            new RegExp("\\b" + color + "\\b", "u").test(plaintext),
+            false,
+          );
         const answer =
           mode === "video-punctuation"
             ? colors.join(",")
@@ -165,7 +200,11 @@ async function httpFixture(t, mode = "normal") {
                 ? colors.join(" 123 ")
                 : mode === "video-extra-word"
                   ? "private-upstream-value " + colors.join(" ")
-                  : colors.join(" ");
+                  : mode === "video-unicode-script"
+                    ? "秘密颜色 한글 кириллица"
+                    : mode === "video-unicode-number"
+                      ? colors.join(" ") + " ١۲３"
+                      : colors.join(" ");
         outgoing.end(responseText(answer));
         return;
       }
@@ -358,6 +397,14 @@ test("default is plan-only and invalid CLI never reads a credential or calls tra
   assert.equal(reads, 0);
   assert.equal(fetches, 0);
   assert.equal(report.actualRequests.length, 0);
+  assert.deepEqual(report.videoProbe, {
+    profile: "rgb24-8px-v1",
+    width: 8,
+    height: 8,
+    stride: 24,
+    frames: 3,
+    modelMinimumClaimed: false,
+  });
   for (const args of [
     ["--live"],
     ["--scenario", "audio", "--scenario", "video"],
@@ -389,6 +436,227 @@ test("default is plan-only and invalid CLI never reads a credential or calls tra
   assert.equal(child.status, 0, child.stderr);
   assert.equal(JSON.parse(child.stdout).state, "plan-only");
 });
+
+test("video probe size is an explicit finite profile and invalid selections have zero credential and fetch reads", async () => {
+  let reads = 0,
+    fetches = 0;
+  const runtime = { readCredential: () => reads++, fetch: () => fetches++ };
+  for (const size of [
+    "0",
+    "16",
+    "256",
+    "08",
+    "128.0",
+    "Infinity",
+    "-1",
+    "1e2",
+    "999999",
+    "128x",
+  ])
+    await assert.rejects(
+      verifyMediaAccount(["--video-probe-size", size], runtime),
+      (error) => error.code === "VERIFY_INVALID_ARGUMENT",
+    );
+  const planned = await verifyMediaAccount(
+    ["--scenario", "video", "--video-probe-size", "128"],
+    runtime,
+  );
+  assert.equal(planned.state, "plan-only");
+  assert.equal(planned.passed, false);
+  assert.equal(planned.accountVerified, false);
+  assert.equal(planned.actualRequests.length, 0);
+  assert.equal(planned.credentialReads, 0);
+  assert.deepEqual(planned.videoProbe, {
+    profile: "rgb24-128px-v1",
+    width: 128,
+    height: 128,
+    stride: 384,
+    frames: 3,
+    modelMinimumClaimed: false,
+  });
+  assert.equal(reads, 0);
+  assert.equal(fetches, 0);
+});
+
+test("actual AVI profiles preserve historical 8px bytes and reject header, frame-length and pixel drift", () => {
+  const colors = [
+      [255, 0, 0],
+      [0, 255, 0],
+      [0, 0, 255],
+    ],
+    legacy = colorAvi(colors);
+  assert.equal(
+    digest(legacy),
+    "ee4c26a92691eb2c3b0f83ff53be2f45ae85b1792dd8e665124e8f5d6e3a75d6",
+  );
+  for (const size of [8, 128]) {
+    const bytes = colorAvi(colors, size),
+      audit = inspectColorAvi(bytes, colors, size);
+    assert.equal(audit.width, size);
+    assert.equal(audit.height, size);
+    assert.equal(audit.stride, size * 3);
+    assert.equal(audit.frameBytes, size * size * 3);
+    assert.equal(audit.frames, 3);
+    assert.equal(audit.sourceBytes, bytes.length);
+    assert.ok(bytes.length < 524288);
+    assert.equal(audit.sourceSha256, digest(bytes));
+    assert.equal(audit.allPixelsVerified, true);
+    assert.deepEqual(audit.timestamps, [0, 500, 1000]);
+    const width = Buffer.from(bytes),
+      length = Buffer.from(bytes),
+      pixel = Buffer.from(bytes);
+    width.writeInt32LE(size + 1, width.indexOf("strf") + 12);
+    length.writeUInt32LE(audit.frameBytes - 1, length.indexOf("00db") + 4);
+    pixel[pixel.length - 1] ^= 1;
+    for (const wrong of [
+      width,
+      length,
+      pixel,
+      bytes.subarray(0, bytes.length - 1),
+    ])
+      assert.throws(
+        () => inspectColorAvi(wrong, colors, size),
+        (error) => error.code === "VERIFY_VIDEO_PROBE_INVALID",
+      );
+  }
+  assert.throws(
+    () => inspectColorAvi(legacy, colors, 128),
+    (error) => error.code === "VERIFY_VIDEO_PROBE_INVALID",
+  );
+  assert.throws(
+    () => colorAvi(colors, 256),
+    (error) => error.code === "VERIFY_VIDEO_PROBE_INVALID",
+  );
+});
+
+test(
+  "explicit 128px probe binds actual AVI pixels and native source/input/Run to all three HTTP PNG frames with one request",
+  { timeout: 20000 },
+  async (t) => {
+    const f = await httpFixture(t, "normal", 128);
+    const args = fixtureArgs(f, "video");
+    args[args.indexOf("--max-requests") + 1] = "1";
+    const report = await verifyMediaAccount(
+      [...args, "--video-probe-size", "128"],
+      hookRuntime,
+    );
+    assert.equal(report.passed, true, JSON.stringify(report.failure));
+    assert.equal(report.accountVerified, false);
+    assert.equal(report.credentialReads, 0);
+    assert.equal(report.actualRequests.length, 1);
+    assert.equal(f.requests.length, 1);
+    assert.equal(report.cleanupConfirmed, true);
+    assert.equal(report.sourceFreeze.unchanged, true);
+    assert.equal(report.runtimeFreeze.unchanged, true);
+    const positive = report.scopeCoverage.find(
+        (item) => item.caseId === "video-frame-recognition",
+      ),
+      wire = report.actualRequests[0].videoProbe;
+    assert.equal(positive.native.state, "completed");
+    assert.equal(positive.state, "passed");
+    assert.equal(positive.inputProfile.profile, "rgb24-128px-v1");
+    assert.equal(positive.inputProfile.sourceBytes, 147704);
+    assert.equal(positive.inputProfile.frameBytes, 49152);
+    assert.equal(
+      positive.inputProfile.nativeInputMediaSha256,
+      positive.inputProfile.nativeRunMediaSha256,
+    );
+    assert.equal(wire.sourceSha256, positive.inputProfile.sourceSha256);
+    assert.equal(
+      wire.nativeAttachmentSha256,
+      positive.inputProfile.nativeAttachmentSha256,
+    );
+    assert.equal(wire.nativeSourceId, positive.inputProfile.nativeSourceId);
+    assert.equal(wire.allPixelsVerified, true);
+    assert.equal(wire.wireFrames.length, 3);
+    for (const frame of wire.wireFrames) {
+      assert.equal(frame.width, 128);
+      assert.equal(frame.height, 128);
+      assert.equal(frame.allPixelsVerified, true);
+      assert.equal(frame.crcVerified, true);
+      assert.match(frame.sha256, /^[a-f0-9]{64}$/u);
+    }
+    assert.deepEqual(
+      wire.wireFrames.map((frame) => frame.startMs),
+      [0, 500, 1000],
+    );
+    assertSelectedPreflights(report, ["video"]);
+    assertSelectedDuplicates(report, ["video"]);
+    assert.equal(report.configuration.videoProbe.modelMinimumClaimed, false);
+  },
+);
+
+test(
+  "actual native video request rejects a single corrupt PNG CRC before HTTP even with matching wire asset digest",
+  { timeout: 20000 },
+  async (t) => {
+    const f = await httpFixture(t),
+      actual = await import(sourceEngine);
+    let injected = 0,
+      wireFailure;
+    class CorruptPngProvider extends actual.ResponsesProvider {
+      constructor(options) {
+        super({
+          ...options,
+          fetch: async (url, init) => {
+            const body = JSON.parse(String(init.body)),
+              content = body.input.flatMap((item) =>
+                Array.isArray(item.content) ? item.content : [],
+              ),
+              image = content.find((item) => item.type === "input_image"),
+              bytes = Buffer.from(image.image_url.split(",")[1], "base64");
+            assert.equal(bytes.toString("ascii", 12, 16), "IHDR");
+            const crcAt = 16 + bytes.readUInt32BE(8);
+            bytes[crcAt] = bytes[crcAt] ^ 1;
+            image.image_url =
+              "data:image/png;base64," + bytes.toString("base64");
+            const notice = content[content.indexOf(image) - 1],
+              prefix = "[Moodcode quoted media DATA v1]\n",
+              metadata = JSON.parse(notice.text.slice(prefix.length));
+            metadata.assetSha256 = digest(bytes);
+            notice.text = prefix + JSON.stringify(metadata);
+            injected++;
+            try {
+              return await options.fetch(url, {
+                ...init,
+                body: JSON.stringify(body),
+              });
+            } catch (error) {
+              wireFailure = error.code;
+              throw error;
+            }
+          },
+        });
+      }
+    }
+    const report = await verifyMediaAccount(fixtureArgs(f, "video"), {
+      ...hookRuntime,
+      engineModule: { ...actual, ResponsesProvider: CorruptPngProvider },
+    });
+    assert.equal(injected, 1);
+    assert.equal(wireFailure, "VERIFY_VIDEO_WIRE_INVALID");
+    assert.equal(f.requests.length, 0);
+    assert.equal(report.actualRequests.length, 0);
+    assert.equal(report.passed, false);
+    assert.equal(report.accountVerified, false);
+    assert.equal(report.credentialReads, 0);
+    assert.equal(report.cleanupConfirmed, true);
+    assert.equal(report.sourceFreeze.unchanged, true);
+    assert.equal(report.runtimeFreeze.unchanged, true);
+    const positive = report.scopeCoverage.find(
+      (item) => item.caseId === "video-frame-recognition",
+    );
+    assert.equal(positive.native.state, "failed");
+    assert.equal(positive.native.attempts.length, 1);
+    assert.deepEqual(positive.native.parts, []);
+    assert.equal(positive.native.attempts[0].cleanup.confirmed, true);
+    assert.equal(positive.inputProfile.allPixelsVerified, true);
+    assert.equal(
+      report.scopeCoverage.some((item) => item.caseId === "duplicate-input"),
+      false,
+    );
+  },
+);
 
 test(
   "actual Engine/local HTTP audio and Responses video complete native output, fresh recognition, cancellation, duplicate and paused import",
@@ -609,6 +877,8 @@ for (const mode of [
   "video-wrong-order",
   "video-extra-digit",
   "video-extra-word",
+  "video-unicode-script",
+  "video-unicode-number",
 ])
   test(
     "video mismatch retains bounded semantic diagnostics: " + mode,
@@ -635,6 +905,19 @@ for (const mode of [
         recognition.recognition.observedSha256,
       );
       assert.equal(recognition.recognition.tokensTruncated, false);
+      const categories = recognition.recognition.characterCategories;
+      assert.ok(Buffer.byteLength(JSON.stringify(categories)) < 1024);
+      if (mode === "video-extra-digit") assert.ok(categories.ascii.digits > 0);
+      if (mode === "video-unicode-script") {
+        assert.ok(categories.scripts.han > 0);
+        assert.ok(categories.scripts.hangul > 0);
+        assert.ok(categories.scripts.cyrillic > 0);
+        assert.equal(categories.ascii.letters, 0);
+      }
+      if (mode === "video-unicode-number")
+        assert.equal(categories.nonAscii.numbers, 3);
+      for (const forbidden of ["秘密颜色", "한글", "кириллица", "١۲３"])
+        assert.equal(JSON.stringify(report).includes(forbidden), false);
       assert.equal(
         JSON.stringify(report).includes("private-upstream-value"),
         false,

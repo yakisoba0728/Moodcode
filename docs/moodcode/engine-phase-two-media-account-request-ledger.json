@@ -5,16 +5,14 @@
   "sourceQualifiedWorkingTree": true,
   "completedWorkItems": 79,
   "completedFamilies": 19,
-  "actualProviderRequests": 11,
+  "actualProviderRequests": 14,
   "automaticRetries": 0,
   "modelInventoryRequests": 1,
   "accountVerified": false,
   "remaining": [
-    "video exact semantic recognition",
-    "video native duplicate on accepted successful recognition",
-    "later restarted paused archive/import after full account success"
+    "independent original MC2-16d model-by-model acceptance audit with source/runtime continuity across historical audio and current video evidence"
   ],
-  "audioObservations": "completed output, restart/fresh session exact recognition, duplicate request zero, genuine partial cancel and confirmed cleanup; no combined account completion credit",
+  "audioObservations": "Historical source-qualified completed output, restart/fresh session exact recognition, duplicate request zero, genuine partial cancel and confirmed cleanup; latest all128 run failed exact audio recognition (4 versus expected 3 tokens); no combined completion credit",
   "pcmLayout": "explicit host declaration: 24000 Hz mono PCM16; not official numeric Chat guarantee",
   "reports": [
     {
@@ -129,6 +127,66 @@
       "cleanupConfirmed": true,
       "sourceUnchanged": true,
       "runtimeUnchanged": true
+    },
+    {
+      "path": "engine-phase-two-media-account-128px-audio-failure.json",
+      "sha256": "1dce77e2007cc1f1c52c2f4a50ca705caf4a629997836f101f6971687aef452a",
+      "implementationCommit": "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21",
+      "state": "failed",
+      "failure": "VERIFY_RECOGNITION_MISMATCH",
+      "scenario": "all",
+      "videoProbe": {
+        "profile": "rgb24-128px-v1",
+        "width": 128,
+        "height": 128,
+        "stride": 384,
+        "frames": 3,
+        "modelMinimumClaimed": false
+      },
+      "actualRequests": 2,
+      "actualModels": [
+        "gpt-audio-1.5"
+      ],
+      "accountVerified": false,
+      "cleanupConfirmed": true,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true
+    },
+    {
+      "path": "engine-phase-two-media-account-128px-video-verification.json",
+      "sha256": "ee7b4a3a3b3da5ee3a1fefc5aa17eaf3c0296b5e5acdeaa378f6699fd808158a",
+      "implementationCommit": "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21",
+      "state": "passed",
+      "failure": null,
+      "scenario": "video",
+      "videoProbe": {
+        "profile": "rgb24-128px-v1",
+        "width": 128,
+        "height": 128,
+        "stride": 384,
+        "frames": 3,
+        "modelMinimumClaimed": false
+      },
+      "actualRequests": 1,
+      "actualModels": [
+        "gpt-4.1-mini"
+      ],
+      "accountVerified": true,
+      "cleanupConfirmed": true,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true
     }
-  ]
+  ],
+  "actualRequestsByModality": {
+    "audio": 11,
+    "video": 3
+  },
+  "implementationBaselines": [
+    "7ab91d5c71ec8e40c9035a93ec61a190820daaa1",
+    "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21"
+  ],
+  "videoAccountVerifiedForSelectedScope": true,
+  "videoObservations": "First actual rgb24-128px-v1 video-only request passed exact 3-color recognition, source/PNG pixel+CRC+timestamp proof, native duplicate with zero transport, and restarted paused import; one actual provider request; selected video scope only",
+  "latestCombinedAttemptPassed": false,
+  "originalCompletionRequiresSingleAllRun": false
 }

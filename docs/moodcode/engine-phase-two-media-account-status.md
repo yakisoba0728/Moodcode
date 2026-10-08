@@ -1,8 +1,8 @@
 Moodcode 실제 미디어 계정 검증 — 2026-10-09
 
-현재 **79/80 작업·19/20 기능군**이다. 선택한 `gpt-audio-1.5`의 오디오 관측 조건은 충족했지만 `gpt-4.1-mini` 영상 프레임 답이 기대 색상과 달라 MC2-16d를 완료하지 않는다. 각 실제 실행은 baseline `7ab91d5` 위 working tree의 원본 구현 및 compiled runtime SHA에 결속한다. 후속 커밋에 포함됐다는 사실만으로 다른 소스 버전의 계정 검증을 주장하지 않는다.
+현재 **79/80 작업·19/20 기능군**이며 원래 MC2-16d의 모델별 완료 조건을 독립 감사 중이다. 첫 실제128px 영상은 exact 의미 검증·중복·paused import까지 통과했다. 직전 all128 실행은 오디오 인식 불일치로 실패했다. 각 실제 실행은 baseline `7ab91d5` 또는 `b10de7b` 위 working tree의 구현 및 compiled runtime SHA에 결속한다. 실패 보고서와 source-qualified 성공 증거를 별도로 유지하며 다른 source 버전의 계정 성공을 주장하지 않는다.
 
-실제 생성 요청은 총 **11회**, 공식 모델 목록 GET은 별도 1회다. 자동 재시도는 없다. 각 실행의 상한은 audio 3회·video 1회·all 4회이며 Turn당 provider Attempt는 1회다. [요청 원장](engine-phase-two-media-account-request-ledger.json)은 실패 이력을 덮어쓰지 않고 각 보고서 SHA와 요청 수를 기록한다. 모델 목록에 있다는 사실은 생성 성공 증거가 아니다.
+실제 생성 요청은 총 **14회**, 공식 모델 목록 GET은 별도 1회다. 자동 재시도는 없다. 각 실행의 상한은 audio 3회·video 1회·all 4회이며 Turn당 provider Attempt는 1회다. [요청 원장](engine-phase-two-media-account-request-ledger.json)은 실패 이력을 덮어쓰지 않고 각 보고서 SHA와 요청 수를 기록한다. 모델 목록에 있다는 사실은 생성 성공 증거가 아니다.
 
 | 선택한 경로 | 실제 관측 | 판정 |
 | --- | --- | --- |
@@ -11,10 +11,10 @@ Moodcode 실제 미디어 계정 검증 — 2026-10-09
 | 오디오 중복 | 원래 Input·Run·Part·Attempt snapshot 동일, 추가 요청 0 | 관측 충족 |
 | 첫 실제 media delta 이후 취소 | 부분 WAV Artifact 19,244 bytes, complete=false, native cancelled·cleanup confirmed | 관측 충족 |
 | audio/video admission 거부 | 선택 모델별 MIME·초과·unknown capability·source deletion 4개씩, 요청 및 Attempt 0 | 관측 충족 |
-| Responses 영상 | native Run completed지만 exact 색상 답 불일치 | 미충족 |
-| 영상 성공 입력 중복 및 후속 paused archive/import | 실제 전체 실행이 영상 불일치에서 종료되어 미실행 | 미검증 |
+| Responses 영상 | 첫128px video-only 요청의 exact 색상3개·순서·pixels/CRC/SHA/timestamp·native usage/cleanup 확인 | 선택 영상 scope 충족 |
+| 영상 성공 입력 중복 및 후속 paused archive/import | 실제128px video-only 성공 뒤 native identity 동일·요청0, 재시작 후 paused import 요청0 | 선택 영상 scope 충족 |
 
-[실제 전체 실행](engine-phase-two-media-account-expiry-profile-failure.json)과 [독립 오디오 검토](engine-phase-two-media-audio-account-independent-review.json)가 위 관측을 확인한다. 전체 `accountVerified`와 각 사례의 계정 완료 표시는 false다. 오디오 관측의 부분 성공을 전체 작업 완료로 바꾸지 않는다.
+[실제 전체 실행](engine-phase-two-media-account-expiry-profile-failure.json)과 [독립 오디오 검토](engine-phase-two-media-audio-account-independent-review.json)가 위 관측을 확인한다. 이 과거 전체 실행의 `accountVerified`와 각 사례 완료 표시는 false로 유지한다. 새 [128px 영상 실행](engine-phase-two-media-account-128px-video-verification.json)은 선택 영상 scope만 accountVerified=true다. 서로 다른 실행의 credit을 섞어 failed all을 passed로 재분류하지 않는다.
 
 실제 Chat 오디오 스트림에는 정상 오디오·expiry·usage·DONE이 있고 `finish_reason`이 없었다. `OpenAICompatibleProvider`의 호스트 호환 옵션은 기본 비활성이며 다음 좁은 조건만 허용한다.
 
@@ -29,4 +29,6 @@ PCM16 24,000Hz·mono·alloy는 명시적 호스트 프로파일이다. Chat 문�
 
 [실제 영상 실패 진단](engine-phase-two-media-account-video-recognition-failure.json)은 24자·token 3개 모두 other이며 native cleanup과 소스/runtime 불변을 확인했다. [오프라인 native 검사](engine-phase-two-video-wire-offline-verification.json)는 같은 AVI SHA·해당 runtime SHA에서 PNG 3개가 각각 8×8 RGB이고 모든 픽셀과 0/500/1000ms 순서, Responses image 데이터 및 assistant 문자열이 보존됨을 확인했다. 이 검사의 공급자 네트워크·credential·실제 계정 호출은 0이다. [독립 검토](engine-phase-two-video-wire-independent-review.json).
 
-실제 upstream 답 원문과 닫힌 DB는 보존되지 않아 동의어·언어·모델 인식 원인을 확정할 수 없다. 실패를 성공으로 정규화하거나 모델 답이 맞을 때까지 반복 호출하지 않는다. 영상 의미 검증, 성공 입력의 duplicate, 전체 성공 후 paused archive/import가 남아 있다. PDF·Anthropic·다른 계정/모델·Codex 새 audio/video/output·정확한 미디어 비용·Windows native engine 지원은 이 증거에 포함하지 않는다. E5-13·E5-08·E6-07·E6-08을 열린 별도 이월 항목으로 유지한다.
+실제 upstream 답 원문과 닫힌 DB는 보존되지 않아 동의어·언어·모델 인식 원인을 확정할 수 없다. 실패를 성공으로 정규화하거나 모델 답이 맞을 때까지 반복 호출하지 않는다. 이전 실패의 후속 단계는 계속 미실행으로 남긴다. 새128px 영상 실행에서는 의미 검증·duplicate·paused import를 실제로 확인했다. PDF·Anthropic·다른 계정/모델·Codex 새 audio/video/output·정확한 미디어 비용·Windows native engine 지원은 이 증거에 포함하지 않는다. E5-13·E5-08·E6-07·E6-08을 열린 별도 이월 항목으로 유지한다.
+
+추가된 [all128 실제 실패](engine-phase-two-media-account-128px-audio-failure.json)는 오디오 완료 생성 뒤 새 세션 인식에서4token(기대3) 불일치로 종료했다. 이 실행은 실제 요청2회이고 영상·오디오 duplicate/partial cancel·최종 archive까지 도달하지 않았다. 구조 진단만으로 실제 단어·오류 원인을 확정할 수 없다. 첫 실제128px video-only 성공은 별도1요청이며 통합 실행의 재시도가 아니다. [입력 개선과 근거](engine-phase-two-video-probe.md)에 실제 native/source/wire 검사를 기록했다.

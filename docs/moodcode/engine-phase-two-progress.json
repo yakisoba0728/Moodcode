@@ -826,11 +826,18 @@
             "engine-phase-two-video-wire-independent-review.json",
             "engine-phase-two-media-recognition-independent-review.json",
             "engine-phase-two-video-wire-offline-verification.json",
-            "engine-phase-two-media-ci-docs-independent-review.json"
+            "engine-phase-two-media-ci-docs-independent-review.json",
+            "engine-phase-two-media-account-128px-audio-failure.json",
+            "engine-phase-two-media-account-128px-video-verification.json",
+            "engine-phase-two-video-probe.md",
+            "engine-phase-two-video-probe-source-freeze.json",
+            "engine-phase-two-video-probe-verification.json",
+            "engine-phase-two-video-probe-independent-review.json",
+            "engine-ci-windows-video-local-integration.json"
           ]
         }
       ],
-      "notes": "16a plan retained. 16b/c complete actual bounded WAV/AVI source decoder/capability/timestamp/native input/provider wire and genuine provider Artifact/Part/usage/partial/recovery/archive/read APIs. Exact local fixture model/wire evidence is implementation evidence, not production account proof. Two real Codex image/restart requests passed on the initial combined snapshot; all source hashes and honest usage retained. 16d actual new audio/video/generated-output account/model checks remain in progress; Codex new media unsupported before credentials. E5-13 and unknown media token/window costing remain open. Complete native media account executor now covers actual generated PCM/fresh-session recognition/first-delta cancellation, genuine AVI-to-PNG Responses frames, exact zero-transport negative admission, duplicate/restart/paused import, bounded request attempts and source/runtime/cleanup evidence retention. Local HTTP implementation checks and final review do not grant actual account credit; 2026-10-09 actual OpenAI profile tests made eleven generation requests plus one separate model-list GET. Exact gpt-audio-1.5 completed output/restart/fresh recognition/duplicate/partial cancel cleanup observations passed; gpt-4.1-mini video native completion did not pass exact semantic recognition, so video duplicate and later whole-success paused archive steps remain unexecuted. All account credit remains false and counts stay 79/80, 19/20. PCM numeric layout is an explicit host declaration, not an official Chat guarantee. Failure reports and bounded diagnostics are retained without raw credentials or upstream text."
+      "notes": "16a plan retained. 16b/c complete actual bounded WAV/AVI source decoder/capability/timestamp/native input/provider wire and genuine provider Artifact/Part/usage/partial/recovery/archive/read APIs. Exact local fixture model/wire evidence is implementation evidence, not production account proof. Two real Codex image/restart requests passed on the initial combined snapshot; all source hashes and honest usage retained. 16d actual new audio/video/generated-output account/model checks remain in progress; Codex new media unsupported before credentials. E5-13 and unknown media token/window costing remain open. Complete native media account executor now covers actual generated PCM/fresh-session recognition/first-delta cancellation, genuine AVI-to-PNG Responses frames, exact zero-transport negative admission, duplicate/restart/paused import, bounded request attempts and source/runtime/cleanup evidence retention. Local HTTP implementation checks and final review do not grant actual account credit; 2026-10-09 actual OpenAI profile tests made eleven generation requests plus one separate model-list GET. Exact gpt-audio-1.5 completed output/restart/fresh recognition/duplicate/partial cancel cleanup observations passed; gpt-4.1-mini video native completion did not pass exact semantic recognition, so video duplicate and later whole-success paused archive steps remain unexecuted. All account credit remains false and counts stay 79/80, 19/20. PCM numeric layout is an explicit host declaration, not an official Chat guarantee. Failure reports and bounded diagnostics are retained without raw credentials or upstream text. Subsequent 2026-10-09 requests total fourteen (audio11/video3), inventory GET1 separate, auto retries0. First actual128px video-only run passed exact recognition and genuine source/PNG pixel+CRC/timestamp binding, duplicate0requests and restarted paused import. Its account credit is selected-video only; historical failed reports remain accountfalse. Latest all128 audio fresh recognition failed (4 expected3 tokens) after2requests and before video. Original16d model-by-model acceptance is under independent source/runtime-qualified audit; no new requirement for one successful all run is introduced. Counts remain79/19 pending that audit."
     },
     {
       "id": "MC2-17",
@@ -1041,5 +1048,5 @@
       "notes": "Complete original preview, fair up-front fixed reservations, actual isolated editor/validator/reviewer workflow children, strict native success, separate approved selection/merge, atomic result input and real subsequent consumer are integrated. Partial/cancel/unknown/skip-resume/SQL/SIGKILL/export/source/import checks pass. Native histories use existing DB23 bounded documents/events; host fixed per-request accounting is distinguished from external invoice and unknown usage remains unknown."
     }
   ],
-  "updatedAt": "2026-10-08T14:52:30.915924+00:00"
+  "updatedAt": "2026-10-08T17:25:08.587Z"
 }

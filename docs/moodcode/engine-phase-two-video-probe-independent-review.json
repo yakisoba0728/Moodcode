@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent-frozen-video-probe-v2-crc-review",
+  "reviewedAt": "2026-10-08T17:10:59.272734+00:00",
+  "sourceFreeze": {
+    "path": "/tmp/moodcode-video-probe-source-freeze-v2.json",
+    "sha256": "ca689a84d72c08fa9f0ae0d280d5320fca4c36276fb77bd5b2e86e3bce6661cb",
+    "files": {
+      "scripts/verify-media-account.mjs": {
+        "sha256": "c370654f7533417917ece342304c0a2fb61d3eaf78bec453f92f0e0bbbdd6655",
+        "bytes": 59426,
+        "exactFrozenMatch": true
+      },
+      "scripts/verify-media-account.test.mjs": {
+        "sha256": "02a8b2d213ac6826b64fc17639b4625cb1cc785ccbb286f8ffcdc919cfa435b2",
+        "bytes": 38482,
+        "exactFrozenMatch": true
+      }
+    },
+    "patchPath": "/tmp/moodcode-video-probe-feature-v2.patch",
+    "patchSha256": "0015f3ba695d8cea2ff67e8ed8fceab6de4eb199af6b0cd91469ed9342525adc",
+    "onlyTwoScriptsInPatch": true,
+    "baselineSourceHead": "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21",
+    "priorV1ManifestSha256": "dd87a0bc564258ca3d8a4e74e64de9184cb9a94be821e53c2c40f54da13fb65e"
+  },
+  "verdict": "No actionable defect found in this bounded two-script feature. Exact frozen source validates the probe bytes and serialized video wire before transport, retains truthful original native evidence, and never awards local fixtures production-account credit. New actual video recognition/account success is not established by this review.",
+  "verifiedBoundaries": {
+    "profile": "--video-probe-size accepts only literal8 or128, default8; validation precedes credential/transport. Historical 8px RGB24 AVI source bytes retain the pre-change exact SHA asserted by the pure regression. English prompt changes intentionally and historical full wire/body SHA is not claimed identical. Probe dimensions are explicit host profiles, not model minimum claims.",
+    "avi": "Exactly three RGB24 uncompressed positive-dimension AVI frames; bounded RIFF/LIST/header/frame lengths,1/2fps timing, aligned rows and every BGR source pixel validated. 128px source147704 bytes remains below524288 bound.",
+    "nativeSource": "Stored owned input-segments blob must exactly equal authored AVI and native reference SHA/bytes/decoder. Real accepted Input and real Run media attachments are compared to the same exact reference before a positive result is credited.",
+    "wire": "Actual Responses serialized body is intercepted before underlying fetch. Exactly three owned PNGs, preceding quoted untrusted-media notices, sourceId/sourceSHA/decoder/MIME, individual assetSHA and timestamps0–500/500–1000/1000–1500 match original source. PNG signature, exact dimensions/RGB8 format, IHDR/IDAT/IEND sequence, every independently node:zlib.crc32-verified chunk CRC, bounded inflate and every decoded RGB pixel must match. No HTTP observation is published before this succeeds.",
+    "crcNegative": "Existing test uses real Engine/Responses native Attempt and corrupts one actual serialized PNG CRC while recomputing metadata assetSHA; checker rejects VERIFY_VIDEO_WIRE_INVALID before underlying localHTTP. It expects exactly one real failed native Attempt, no published Parts, requests0, genuine confirmed cleanup; it does not insert synthetic native rows.",
+    "recognition": "Generic English color prompt contains no selected expected words in plaintext. Existing entire-body answer-leak detection and media-only expected source remain unchanged. Equality of normalized answer to original ordered three color names is mandatory; wrong order, digits, extra word and non-English/Unicode-number cases remain semantic failures.",
+    "privacy": "Character diagnostic is fixed ASCII/nonASCII numeric buckets plus fixed script names/counts; arbitrary upstream characters and tokens are not persisted. Token projection retains only known color vocabulary or other, bounded16; report retains hashes and source palette as input metadata. Native response/output and report serialization bounds are unchanged.",
+    "approvalNativeBudgetCleanup": "Original nativeEvidence, answer-leak logic, source/runtime pinning and final cleanup/late-global-and-percase-credit code blocks byte-identical to baseline. Actual native Attempt tuple and cleanup records remain required; failed source/runtime/native proof/close preserves uncertainty and zero account credit. Existing one Attempt/no retries, audio3/video1/all4 request caps and actual duplicate/archive checks remain intact.",
+    "accountCredit": "Runtime hooks/local HTTP remain non-real-remote and accountVerified false, including all new positive fixtures. No whole MC2-16d, actual model minimum or actual 128px account success is inferred. Existing real account records and earlier8px mismatch reports are separate historical evidence.",
+    "scope": "No production engine/provider/decoder changes, native Windows/sandbox capability changes, broader modality support or model claims in the patch."
+  },
+  "criticalBaselineBlocksByteIdentical": {
+    "nativeEvidence": true,
+    "answerLeakDetection": true,
+    "sourceRuntimePins": true,
+    "finalCleanupCredit": true
+  },
+  "reportedExistingWorkerEvidence": [
+    {
+      "path": "/tmp/moodcode-video-probe-v2-final-source-pass.log",
+      "sha256": "c4f19eb92cfb8c428e5904846e6df8fe4b76e1311e98669825d18d90e26106da",
+      "counts": {
+        "tests": 20,
+        "pass": 20,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 4072.180667
+      },
+      "attribution": "existing worker log read only, not reviewer rerun"
+    },
+    {
+      "path": "/tmp/moodcode-video-probe-v2-compiled-pass.log",
+      "sha256": "db39044edb806d92840188852b98e38ead73595e7ea4beff89e5c5aa4cdaa347",
+      "counts": {
+        "tests": 3,
+        "pass": 3,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 1093.439541
+      },
+      "attribution": "existing worker log read only, not reviewer rerun"
+    },
+    {
+      "path": "/tmp/moodcode-video-probe-v2-crc-source.log",
+      "sha256": "62883193813d3dc45621f3ee53520f205bdd5cc3688766730383c11e52353bbd",
+      "counts": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 456.577583
+      },
+      "attribution": "existing worker log read only, not reviewer rerun"
+    },
+    {
+      "path": "/tmp/moodcode-video-probe-v2-strict-pass.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "counts": {},
+      "attribution": "existing worker log read only, not reviewer rerun"
+    },
+    {
+      "path": "/tmp/moodcode-video-probe-v2-final-format-pass.log",
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "counts": {},
+      "attribution": "existing worker log read only, not reviewer rerun"
+    }
+  ],
+  "reviewerActions": {
+    "sourceEdits": 0,
+    "testExecutions": 0,
+    "builds": 0,
+    "accountRequests": 0,
+    "credentialReads": 0,
+    "remoteMutations": 0
+  },
+  "actionableFindings": [],
+  "remainingActualAcceptance": "Root may perform the separately authorized bounded actual video request or all4 on a recorded exact runtime/source. This static review and local fixtures do not close MC2-16d; global successful native/semantic video and final cleanup/account evidence are still required."
+}

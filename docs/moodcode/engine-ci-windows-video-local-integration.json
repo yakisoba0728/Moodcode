@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "kind": "root-windows-lifetime-and-video-probe-integration",
+  "observedAt": "2026-10-08T17:19:50.027Z",
+  "baselineCommit": "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "node": "v26.9.0",
+  "productionCoreModified": false,
+  "sourceFreezes": [
+    {
+      "path": "engine-ci-windows-lifetime-source-freeze.json",
+      "sha256": "59f8bdcc9c307689aa9b02ec28fc03afe0cf11f00aea49bb44b0bf4a581e39aa",
+      "files": 8,
+      "allCurrentBytesMatch": true
+    },
+    {
+      "path": "engine-phase-two-video-probe-source-freeze.json",
+      "sha256": "ca689a84d72c08fa9f0ae0d280d5320fca4c36276fb77bd5b2e86e3bce6661cb",
+      "files": 2,
+      "allCurrentBytesMatch": true
+    }
+  ],
+  "build": {
+    "command": "npm run build",
+    "exitCode": 0,
+    "path": "/tmp/moodcode-windows-video-current-build.log",
+    "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+  },
+  "checks": [
+    {
+      "name": "source planner and media executor",
+      "path": "/tmp/moodcode-video-probe-root-source-combined.log",
+      "sha256": "fe83be5ebbde291bbf4348a069b316b2093a25cadb4f0586ce8055ea2ebf62e2",
+      "exitCode": 0,
+      "tests": 26,
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "compiled planner and media executor",
+      "path": "/tmp/moodcode-video-probe-root-compiled-combined.log",
+      "sha256": "aec644fb69a70e0d1e6b6a7989b9c30abcf486cf591a552bc1f258b64626e986",
+      "exitCode": 0,
+      "tests": 26,
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "portable CI selection executed locally on Darwin",
+      "path": "/tmp/moodcode-windows-portable-local-v2.log",
+      "sha256": "58443e658538dc703817677d30679c1d7b0e9629c88597ee4aafbd9bdc91be52",
+      "exitCode": 0,
+      "tests": 152,
+      "passed": 151,
+      "failed": 0,
+      "skipped": 1
+    },
+    {
+      "name": "CI launcher unit",
+      "path": "/tmp/moodcode-windows-lifetime-launcher-tests.log",
+      "sha256": "01b6f75f3f295091e8e3fc4e80a9d0f60eec87853c57338fd670070cf698a679",
+      "exitCode": 0,
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "retainedFailedCommand": {
+    "command": "engine-ci.mjs test-portable",
+    "exitCode": 1,
+    "reason": "unknown operation; no tests ran",
+    "path": "/tmp/moodcode-windows-portable-local.log",
+    "sha256": "538cae679038ba07886e135b224da5412a812948548122f1b128367a24645e71"
+  },
+  "actualCI": {
+    "runId": 37811495182,
+    "sourceCommit": "b10de7bbd80c75af1a1b8b1249bd1d5bcd21df21",
+    "posixJobsPassed": 4,
+    "windowsPortableJobsFailed": 2,
+    "newSourceHostedResult": "pending after next push"
+  },
+  "actualAccount": {
+    "ledger": "engine-phase-two-media-account-request-ledger.json",
+    "requests": 14,
+    "automaticRetries": 0,
+    "latestVideoSelectedScopeVerified": true,
+    "latestCombinedAudioMismatch": true,
+    "allScopesVerified": false
+  },
+  "completedWorkItems": 79,
+  "completedFamilies": 19,
+  "limitations": [
+    "Local portable selection ran on Darwin; not actual Windows proof.",
+    "POSIX hosted 4674 total is the b10de7b snapshot; current fixture lifetime adds 2 cases awaiting the next hosted run.",
+    "Video-only success does not change the failed combined/audio reports or complete MC2-16d.",
+    "Windows native Job Object remains unavailable/unverified; E5-08 and broader E5-13 remain open."
+  ]
+}

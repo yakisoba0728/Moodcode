@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-10-08T17:08:24.023786+00:00",
+  "root": "/Users/yakisoba0728/Documents/GitHub/Moodcode",
+  "baseline": "/tmp/moodcode-video-probe-feature-baseline.json",
+  "priorManifest": "/tmp/moodcode-video-probe-source-freeze.json",
+  "files": {
+    "scripts/verify-media-account.mjs": {
+      "sha256": "c370654f7533417917ece342304c0a2fb61d3eaf78bec453f92f0e0bbbdd6655",
+      "bytes": 59426
+    },
+    "scripts/verify-media-account.test.mjs": {
+      "sha256": "02a8b2d213ac6826b64fc17639b4625cb1cc785ccbb286f8ffcdc919cfa435b2",
+      "bytes": 38482
+    }
+  },
+  "frozen": true,
+  "patch": "/tmp/moodcode-video-probe-feature-v2.patch",
+  "patchSha256": "0015f3ba695d8cea2ff67e8ed8fceab6de4eb199af6b0cd91469ed9342525adc",
+  "scope": "Verifier-only 8/128 profiles, exact AVI/native/PNG bindings including each PNG CRC, English prompt and fixed structural diagnostics; no engine changes/account calls"
+}

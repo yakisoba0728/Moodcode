@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "manifest": "/tmp/moodcode-video-probe-source-freeze-v2.json",
+  "manifestSha256": "ca689a84d72c08fa9f0ae0d280d5320fca4c36276fb77bd5b2e86e3bce6661cb",
+  "featurePatch": "/tmp/moodcode-video-probe-feature-v2.patch",
+  "patchSha256": "0015f3ba695d8cea2ff67e8ed8fceab6de4eb199af6b0cd91469ed9342525adc",
+  "implemented": [
+    "canonical --video-probe-size 8|128 default8 with distinct rgb24-size-v1 profile and no model minimum claim",
+    "actual AVI header/stream/stride/length/every BGR pixel audit before actual native import",
+    "byte-identical historical 8px source fixture; 128px AVI147704B frame49152B within native524288B limit",
+    "stored blob and imported media ref match sourceSHA; exact native Input/Run media tuple and attachmentSHA",
+    "actual Responses PNGs have size/all RGB pixels/assetSHA/sourceSHA/decoder/timestamps matching the admitted source",
+    "generic English-color prompt without selected answer words; exact order/extra words/digits failure retained",
+    "fixed aggregate ASCII/Unicode/script/number diagnostics only, no raw unknown token text",
+    "plan/fixture/runtime-injected evidence never grants account credit; video1 and all4 request limits remain",
+    "Node native zlib.crc32 validates stored CRC for each IHDR/IDAT/IEND before any HTTP; wire frames record crcVerified separately from allPixelsVerified"
+  ],
+  "tests": [
+    {
+      "log": "/tmp/moodcode-video-probe-v2-final-source-pass.log",
+      "pass": 20,
+      "fail": 0,
+      "runtime": "actual Engine source/localHTTP/realSQLite"
+    },
+    {
+      "log": "/tmp/moodcode-video-probe-v2-compiled-pass.log",
+      "pass": 3,
+      "fail": 0,
+      "runtime": "existing Root-compiled Engine; no rebuild by agent"
+    },
+    {
+      "log": "/tmp/moodcode-video-probe-v2-strict-pass.log",
+      "exit": 0,
+      "qualification": "allowJs/noEmit strict/noUncheckedIndexedAccess with repo-untyped MJS; no checkJs/full JS type-proof claim"
+    },
+    {
+      "log": "/tmp/moodcode-video-probe-v2-final-format-pass.log",
+      "exit": 0
+    },
+    {
+      "check": "node --check both scripts",
+      "exit": 0
+    }
+  ],
+  "preservedHistoricalEvidence": "Prior actual 8px semantic mismatch remains unsatisfied historical evidence; no retries/account completion claims",
+  "actions": {
+    "ownedSourceFilesChanged": 2,
+    "otherSourceWrites": 0,
+    "sharedBuilds": 0,
+    "accountRequests": 0,
+    "credentialReads": 0,
+    "commits": 0,
+    "pushes": 0
+  },
+  "remaining": "Root decides whether and when to run a separately approved bounded production account probe. Local fixtures do not satisfy account verification.",
+  "crcRegression": {
+    "effect": "actual Responses serializer PNG IHDR stored CRC single-byte corruption; quoted assetSHA updated to corrupted PNG digest so checksum validation is independent from wire digest comparison",
+    "httpRequests": 0,
+    "nativeRun": "failed",
+    "actualAttempts": 1,
+    "nativeParts": 0,
+    "cleanupConfirmed": true,
+    "accountVerified": false,
+    "credentialReads": 0
+  },
+  "historicalRedRuns": [
+    {
+      "log": "/tmp/moodcode-video-probe-v2-first-focused.log",
+      "reason": "test incorrectly expected a state field omitted by existing attempt report DTO; production checksum gate correctly rejected"
+    },
+    {
+      "log": "/tmp/moodcode-video-probe-v2-final-source.log",
+      "reason": "test incorrectly expected a failed Part before any response had begun; truthful Parts0 assertion substituted"
+    },
+    {
+      "log": "/tmp/moodcode-video-probe-v2-compiled-focused.log",
+      "reason": "same incorrect Part expectation; preserved historical log"
+    },
+    {
+      "log": "/tmp/moodcode-video-probe-scoped-strict.log",
+      "reason": "TypeScript requires --ignoreConfig for explicitly scoped files; final explicit command passed"
+    }
+  ],
+  "sourceFiles": {
+    "scripts/verify-media-account.mjs": {
+      "sha256": "c370654f7533417917ece342304c0a2fb61d3eaf78bec453f92f0e0bbbdd6655",
+      "bytes": 59426
+    },
+    "scripts/verify-media-account.test.mjs": {
+      "sha256": "02a8b2d213ac6826b64fc17639b4625cb1cc785ccbb286f8ffcdc919cfa435b2",
+      "bytes": 38482
+    }
+  }
+}

@@ -24,12 +24,14 @@ npm run verify:media -- --live --scenario audio \
   --report /absolute/new-audio-report.json
 ```
 
-비디오만 검증할 때는 `--scenario video --video-model EXACT_IMAGE_CAPABLE_RESPONSES_MODEL --declare-video-frames --max-requests 1`과 공통 live/API 환경 변수/capability 근거/unknown-cost/report 옵션을 지정한다. 전체 실행은 audio/video 옵션 모두와 `--scenario all --max-requests 4`를 지정한다. report는 기존 파일을 덮어쓰지 않는다.
+비디오만 검증할 때는 `--scenario video --video-model EXACT_IMAGE_CAPABLE_RESPONSES_MODEL --declare-video-frames --video-probe-size 128 --max-requests 1`과 공통 live/API 환경 변수/capability 근거/unknown-cost/report 옵션을 지정한다. 전체 실행은 audio/video 옵션 모두와 `--scenario all --max-requests 4`를 지정한다. report는 기존 파일을 덮어쓰지 않는다.
 
 [gpt-audio-1.5 공식 모델 설명](https://developers.openai.com/api/docs/models/gpt-audio-1.5)과 [Chat 오디오 가이드](https://developers.openai.com/api/docs/guides/audio-chat-completions)는 지원 후보를 판단하는 근거다. 계정 접근 가능 여부나 PCM layout을 증명하지 않는다. 이 모델에는 이미지/비디오 인식 지원이 없으므로 비디오 프레임 검증에는 별도 모델이 필요하다. 현재 Moodcode Codex 인증 경로는 새 오디오/비디오/output을 지원하지 않는다.
 
 실행기 최초 통합 당시 실제 계정 호출은 0회였다. 당시 전체 직접 소스 회귀는 이전 1bff025 통합 범위, planner/실행기 직접 소스 검사는 15개 범위이며 engine/contracts/harness 소스는 1bff025와 같았다. 이 과거 검증은 이후 변경의 전체 회귀 증거로 확대하지 않는다. 로컬 HTTP 응답, runtime 주입, 실제 Codex 이미지 검증의 이전 증거에는 새 미디어 계정 완료 점수를 주지 않는다.
 
-2026-10-09 실제 계정 검증은 [최신 기록](engine-phase-two-media-account-status.md)을 따른다. 공식 모델 목록 GET 1회와 provider 요청 11회를 구분했다. 오디오의 완료 출력·새 세션 인식·중복·실제 부분 취소 관측은 충족했지만, 영상 의미 검증 실패로 전체 MC2-16d는 미완료다. 인증 환경 변수 값과 HTTP 인증 헤더는 보고서에 기록하지 않는다.
+2026-10-09 실제 계정 검증은 [최신 기록](engine-phase-two-media-account-status.md)을 따른다. 공식 모델 목록 GET 1회와 provider 요청14회를 구분했다. 과거 source-qualified 오디오 완료 출력·새 세션 exact 인식·중복·부분 취소 관측과 새128px 영상1요청의 exact 인식·중복·paused import를 보존했다. 직전 all128 오디오 불일치2요청도 실패 그대로 기록하며, 원16d 모델별 조건과 소스 연속성을 독립 감사 중이다. 인증 환경 변수 값과 HTTP 인증 헤더는 보고서에 기록하지 않는다.
 
 진척은 **79/80 작업, 19/20 기능군**으로 유지한다. MC2-16d는 실제로 선택한 지원 계정/모델의 오디오·비디오·생성 출력 검증이 남아 있다. 오디오만 성공해도 전체 MC2-16d를 닫지 않는다. E5-13·E5-08·E6-07·E6-08은 기존 이월 상태를 유지한다.
+
+영상 입력 크기의 기본값은8px이며 canonical8/128만 허용한다. [128px source/wire 검증](engine-phase-two-video-probe.md)과 실제 보고서는 모델의 공식 최소 크기나 native video 지원을 주장하지 않는다. 원 MC2-16d는 실제 선택 모델별 조건으로 판정하며 단일 all 실행 성공을 새 종료 조건으로 추가하지 않는다.

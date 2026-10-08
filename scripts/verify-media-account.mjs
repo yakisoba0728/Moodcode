@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { crc32, inflateSync } from "node:zlib";
 import {
   mkdtemp,
   mkdir,
@@ -56,6 +57,7 @@ const strings = new Set([
   "scenario",
   "audio-model",
   "video-model",
+  "video-probe-size",
   "api-key-env",
   "pcm-sample-rate",
   "pcm-channels",
@@ -129,6 +131,8 @@ export function parseMediaAccountArgs(argv) {
   }
   const audio = scenario !== "video",
     video = scenario !== "audio";
+  const videoProbeSize = options["video-probe-size"] ?? "8";
+  if (!["8", "128"].includes(videoProbeSize)) fail("VERIFY_INVALID_ARGUMENT");
   const maxRequests = integer(options["max-requests"] ?? "4", 1, 4);
   const sampleRate = options["pcm-sample-rate"]
     ? integer(options["pcm-sample-rate"], 8000, 48000)
@@ -199,6 +203,8 @@ export function parseMediaAccountArgs(argv) {
     maxRequests,
     sampleRate,
     channels,
+    videoProbeSize: Number(videoProbeSize),
+    videoProbeProfile: "rgb24-" + videoProbeSize + "px-v1",
   });
 }
 
@@ -288,14 +294,34 @@ function riffChunk(type, data) {
     ...(data.length % 2 ? [Buffer.alloc(1)] : []),
   ]);
 }
-/** Supported uncompressed RGB24 AVI. Pixels and order are selected independently of the recognition prompt. */
-export function colorAvi(colors) {
+function probeDimensions(size) {
+  if (size !== 8 && size !== 128) fail("VERIFY_VIDEO_PROBE_INVALID");
+  return { width: size, height: size, stride: Math.ceil((size * 3) / 4) * 4 };
+}
+function probeColors(colors) {
+  if (
+    !Array.isArray(colors) ||
+    colors.length !== 3 ||
+    colors.some(
+      (rgb) =>
+        !Array.isArray(rgb) ||
+        rgb.length !== 3 ||
+        rgb.some((n) => !Number.isInteger(n) || n < 0 || n > 255),
+    )
+  )
+    fail("VERIFY_VIDEO_PROBE_INVALID");
+}
+/** Supported uncompressed RGB24 AVI. Size is a host probe profile, not a claim about a model minimum. */
+export function colorAvi(colors, size = 8) {
+  probeColors(colors);
+  const { width, height, stride } = probeDimensions(size),
+    frameBytes = stride * height;
   const avih = Buffer.alloc(56);
   avih.writeUInt32LE(500000);
   avih.writeUInt32LE(colors.length, 16);
   avih.writeUInt32LE(1, 24);
-  avih.writeUInt32LE(8, 32);
-  avih.writeUInt32LE(8, 36);
+  avih.writeUInt32LE(width, 32);
+  avih.writeUInt32LE(height, 36);
   const strh = Buffer.alloc(56);
   strh.write("vids");
   strh.write("DIB ", 4);
@@ -304,16 +330,17 @@ export function colorAvi(colors) {
   strh.writeUInt32LE(colors.length, 32);
   const strf = Buffer.alloc(40);
   strf.writeUInt32LE(40);
-  strf.writeInt32LE(8, 4);
-  strf.writeInt32LE(8, 8);
+  strf.writeInt32LE(width, 4);
+  strf.writeInt32LE(height, 8);
   strf.writeUInt16LE(1, 12);
   strf.writeUInt16LE(24, 14);
-  strf.writeUInt32LE(192, 20);
+  strf.writeUInt32LE(frameBytes, 20);
   const list = (type, data) =>
     riffChunk("LIST", Buffer.concat([Buffer.from(type), data]));
   const frames = colors.map(([r, g, b]) => {
-    const frame = Buffer.alloc(192);
-    for (let at = 0; at < frame.length; at += 3) frame.set([b, g, r], at);
+    const frame = Buffer.alloc(frameBytes);
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) frame.set([b, g, r], y * stride + x * 3);
     return riffChunk("00db", frame);
   });
   return riffChunk(
@@ -334,12 +361,242 @@ export function colorAvi(colors) {
     ]),
   );
 }
+/** Audit actual headers, lengths and every source pixel before native import. */
+export function inspectColorAvi(bytes, colors, size = 8) {
+  probeColors(colors);
+  const { width, height, stride } = probeDimensions(size);
+  if (
+    !Buffer.isBuffer(bytes) ||
+    bytes.length > 524288 ||
+    bytes.length < 240 ||
+    bytes.toString("ascii", 0, 4) !== "RIFF" ||
+    bytes.readUInt32LE(4) !== bytes.length - 8 ||
+    bytes.toString("ascii", 8, 12) !== "AVI "
+  )
+    fail("VERIFY_VIDEO_PROBE_INVALID");
+  const chunks = (start, end) => {
+    const list = [];
+    for (let at = start; at < end;) {
+      if (at + 8 > end || list.length >= 8) fail("VERIFY_VIDEO_PROBE_INVALID");
+      const n = bytes.readUInt32LE(at + 4),
+        next = at + 8 + n + (n % 2);
+      if (next > end) fail("VERIFY_VIDEO_PROBE_INVALID");
+      list.push({
+        id: bytes.toString("ascii", at, at + 4),
+        at: at + 8,
+        end: at + 8 + n,
+      });
+      at = next;
+    }
+    return list;
+  };
+  const top = chunks(12, bytes.length);
+  if (top.length !== 2 || top.some((c) => c.id !== "LIST"))
+    fail("VERIFY_VIDEO_PROBE_INVALID");
+  const [header, movi] = top;
+  if (
+    bytes.toString("ascii", header.at, header.at + 4) !== "hdrl" ||
+    bytes.toString("ascii", movi.at, movi.at + 4) !== "movi"
+  )
+    fail("VERIFY_VIDEO_PROBE_INVALID");
+  const headers = chunks(header.at + 4, header.end);
+  if (
+    headers.length !== 2 ||
+    headers[0].id !== "avih" ||
+    headers[0].end - headers[0].at !== 56 ||
+    headers[1].id !== "LIST" ||
+    bytes.toString("ascii", headers[1].at, headers[1].at + 4) !== "strl"
+  )
+    fail("VERIFY_VIDEO_PROBE_INVALID");
+  const avih = headers[0].at,
+    stream = chunks(headers[1].at + 4, headers[1].end);
+  if (
+    stream.length !== 2 ||
+    stream[0].id !== "strh" ||
+    stream[0].end - stream[0].at !== 56 ||
+    stream[1].id !== "strf" ||
+    stream[1].end - stream[1].at !== 40
+  )
+    fail("VERIFY_VIDEO_PROBE_INVALID");
+  const strh = stream[0].at,
+    strf = stream[1].at,
+    frameBytes = stride * height;
+  if (
+    bytes.readUInt32LE(avih) !== 500000 ||
+    bytes.readUInt32LE(avih + 16) !== 3 ||
+    bytes.readUInt32LE(avih + 24) !== 1 ||
+    bytes.readUInt32LE(avih + 32) !== width ||
+    bytes.readUInt32LE(avih + 36) !== height ||
+    bytes.toString("ascii", strh, strh + 4) !== "vids" ||
+    bytes.toString("ascii", strh + 4, strh + 8) !== "DIB " ||
+    bytes.readUInt32LE(strh + 20) !== 1 ||
+    bytes.readUInt32LE(strh + 24) !== 2 ||
+    bytes.readUInt32LE(strh + 32) !== 3 ||
+    bytes.readUInt32LE(strf) !== 40 ||
+    bytes.readInt32LE(strf + 4) !== width ||
+    bytes.readInt32LE(strf + 8) !== height ||
+    bytes.readUInt16LE(strf + 12) !== 1 ||
+    bytes.readUInt16LE(strf + 14) !== 24 ||
+    bytes.readUInt32LE(strf + 16) !== 0 ||
+    bytes.readUInt32LE(strf + 20) !== frameBytes
+  )
+    fail("VERIFY_VIDEO_PROBE_INVALID");
+  const frames = chunks(movi.at + 4, movi.end);
+  if (frames.length !== 3) fail("VERIFY_VIDEO_PROBE_INVALID");
+  for (const [i, frame] of frames.entries()) {
+    if (frame.id !== "00db" || frame.end - frame.at !== frameBytes)
+      fail("VERIFY_VIDEO_PROBE_INVALID");
+    const [r, g, b] = colors[i];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const at = frame.at + y * stride + x * 3;
+        if (bytes[at] !== b || bytes[at + 1] !== g || bytes[at + 2] !== r)
+          fail("VERIFY_VIDEO_PROBE_INVALID");
+      }
+      for (let at = width * 3; at < stride; at++)
+        if (bytes[frame.at + y * stride + at] !== 0)
+          fail("VERIFY_VIDEO_PROBE_INVALID");
+    }
+  }
+  return {
+    profile: "rgb24-" + size + "px-v1",
+    width,
+    height,
+    stride,
+    frameBytes,
+    frames: 3,
+    sourceBytes: bytes.length,
+    sourceSha256: hash(bytes),
+    timestamps: [0, 500, 1000],
+    allPixelsVerified: true,
+  };
+}
+function inspectProbePng(url, rgb, size) {
+  if (typeof url !== "string" || !url.startsWith("data:image/png;base64,"))
+    fail("VERIFY_VIDEO_WIRE_INVALID");
+  const base64 = url.slice(22);
+  if (
+    base64.length > 699052 ||
+    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(
+      base64,
+    )
+  )
+    fail("VERIFY_VIDEO_WIRE_INVALID");
+  const bytes = Buffer.from(base64, "base64"),
+    compressed = [];
+  if (
+    !bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  )
+    fail("VERIFY_VIDEO_WIRE_INVALID");
+  const types = [];
+  for (let at = 8; at < bytes.length;) {
+    if (at + 12 > bytes.length || types.length >= 3)
+      fail("VERIFY_VIDEO_WIRE_INVALID");
+    const n = bytes.readUInt32BE(at),
+      type = bytes.toString("ascii", at + 4, at + 8);
+    if (at + n + 12 > bytes.length) fail("VERIFY_VIDEO_WIRE_INVALID");
+    if (
+      bytes.readUInt32BE(at + 8 + n) !==
+      crc32(bytes.subarray(at + 4, at + 8 + n))
+    )
+      fail("VERIFY_VIDEO_WIRE_INVALID");
+    types.push(type);
+    if (type === "IHDR") {
+      if (
+        n !== 13 ||
+        bytes.readUInt32BE(at + 8) !== size ||
+        bytes.readUInt32BE(at + 12) !== size ||
+        !bytes.subarray(at + 16, at + 21).equals(Buffer.from([8, 2, 0, 0, 0]))
+      )
+        fail("VERIFY_VIDEO_WIRE_INVALID");
+    } else if (type === "IDAT")
+      compressed.push(bytes.subarray(at + 8, at + 8 + n));
+    else if (type !== "IEND" || n !== 0) fail("VERIFY_VIDEO_WIRE_INVALID");
+    at += n + 12;
+  }
+  if (types.join(",") !== "IHDR,IDAT,IEND") fail("VERIFY_VIDEO_WIRE_INVALID");
+  const rowBytes = size * 3 + 1,
+    expectedBytes = rowBytes * size;
+  let pixels;
+  try {
+    pixels = inflateSync(Buffer.concat(compressed), {
+      maxOutputLength: expectedBytes,
+    });
+  } catch {
+    fail("VERIFY_VIDEO_WIRE_INVALID");
+  }
+  if (pixels.length !== expectedBytes) fail("VERIFY_VIDEO_WIRE_INVALID");
+  for (let y = 0; y < size; y++) {
+    if (pixels[y * rowBytes] !== 0) fail("VERIFY_VIDEO_WIRE_INVALID");
+    for (let x = 0; x < size; x++)
+      for (let c = 0; c < 3; c++)
+        if (pixels[y * rowBytes + 1 + x * 3 + c] !== rgb[c])
+          fail("VERIFY_VIDEO_WIRE_INVALID");
+  }
+  return {
+    width: size,
+    height: size,
+    bytes: bytes.length,
+    sha256: hash(bytes),
+    allPixelsVerified: true,
+    crcVerified: true,
+  };
+}
 const normalizeAnswer = (value) =>
   value
     .toLowerCase()
     .replace(/\p{P}+/gu, " ")
     .replace(/\s+/gu, " ")
     .trim();
+function recognitionCharacterCategories(raw) {
+  const counts = {
+    codePoints: 0,
+    ascii: { letters: 0, digits: 0, whitespace: 0, punctuation: 0, other: 0 },
+    nonAscii: {
+      letters: 0,
+      numbers: 0,
+      whitespace: 0,
+      punctuation: 0,
+      other: 0,
+    },
+    scripts: {
+      latin: 0,
+      han: 0,
+      hangul: 0,
+      hiragana: 0,
+      katakana: 0,
+      cyrillic: 0,
+      arabic: 0,
+      devanagari: 0,
+      otherLetters: 0,
+    },
+  };
+  const scripts = [
+    ["latin", /\p{Script=Latin}/u],
+    ["han", /\p{Script=Han}/u],
+    ["hangul", /\p{Script=Hangul}/u],
+    ["hiragana", /\p{Script=Hiragana}/u],
+    ["katakana", /\p{Script=Katakana}/u],
+    ["cyrillic", /\p{Script=Cyrillic}/u],
+    ["arabic", /\p{Script=Arabic}/u],
+    ["devanagari", /\p{Script=Devanagari}/u],
+  ];
+  for (const character of raw) {
+    counts.codePoints++;
+    const ascii = character.codePointAt(0) < 128,
+      letters = /\p{L}/u.test(character),
+      bucket = ascii ? counts.ascii : counts.nonAscii;
+    if (letters) {
+      bucket.letters++;
+      const script = scripts.find(([, pattern]) => pattern.test(character));
+      counts.scripts[script?.[0] ?? "otherLetters"]++;
+    } else if (/\p{N}/u.test(character)) bucket[ascii ? "digits" : "numbers"]++;
+    else if (/\s/u.test(character)) bucket.whitespace++;
+    else if (/\p{P}/u.test(character)) bucket.punctuation++;
+    else bucket.other++;
+  }
+  return counts;
+}
 function recordRecognition(report, raw, expected, details) {
   const observed = normalizeAnswer(raw);
   const tokens = observed ? observed.split(" ") : [];
@@ -350,6 +607,7 @@ function recordRecognition(report, raw, expected, details) {
     matched: observed === expected,
     expectedAbsentFromFullWire: true,
     rawCharacters: raw.length,
+    characterCategories: recognitionCharacterCategories(raw),
     tokenCount: tokens.length,
     // Fixed vocabulary only; never persist arbitrary upstream answer text.
     observedTokenKinds: tokens
@@ -539,6 +797,14 @@ export async function verifyMediaAccount(argv, runtime = {}) {
       arch: process.arch,
     },
     scenario: options.scenario,
+    videoProbe: options.video
+      ? {
+          profile: options.videoProbeProfile,
+          ...probeDimensions(options.videoProbeSize),
+          frames: 3,
+          modelMinimumClaimed: false,
+        }
+      : null,
     sourceFreeze: {
       sha256: hash(JSON.stringify(before)),
       files: Object.keys(before).length,
@@ -586,6 +852,7 @@ export async function verifyMediaAccount(argv, runtime = {}) {
   const engines = [],
     observations = [],
     answers = new Map(),
+    videoProbes = new Map(),
     sessions = [],
     observedEngines = new Map(),
     cleanupProofs = new Map();
@@ -645,6 +912,54 @@ export async function verifyMediaAccount(argv, runtime = {}) {
           : null,
         status: null,
       };
+      const probe =
+        target.pathname.endsWith("/responses") && videoProbes.get(body.model);
+      if (probe) {
+        const content = body.input.flatMap((item) =>
+            Array.isArray(item.content) ? item.content : [],
+          ),
+          images = content.filter((item) => item.type === "input_image");
+        if (images.length !== 3) fail("VERIFY_VIDEO_WIRE_INVALID");
+        const wireFrames = images.map((image, index) => {
+          const png = inspectProbePng(
+              image.image_url,
+              probe.colors[index],
+              options.videoProbeSize,
+            ),
+            notice = content[content.indexOf(image) - 1];
+          if (
+            notice?.type !== "input_text" ||
+            !notice.text.startsWith("[Moodcode quoted media DATA v1]\n")
+          )
+            fail("VERIFY_VIDEO_WIRE_INVALID");
+          let metadata;
+          try {
+            metadata = JSON.parse(
+              notice.text.slice("[Moodcode quoted media DATA v1]\n".length),
+            );
+          } catch {
+            fail("VERIFY_VIDEO_WIRE_INVALID");
+          }
+          if (
+            metadata.authority !== "untrusted-media" ||
+            metadata.sourceId !== probe.ref.id ||
+            metadata.sourceSha256 !== probe.audit.sourceSha256 ||
+            metadata.decoder !== "avi-rgb24-v1" ||
+            metadata.assetSha256 !== png.sha256 ||
+            metadata.mimeType !== "image/png" ||
+            metadata.startMs !== index * 500 ||
+            metadata.endMs !== (index + 1) * 500
+          )
+            fail("VERIFY_VIDEO_WIRE_INVALID");
+          return { ...png, startMs: metadata.startMs, endMs: metadata.endMs };
+        });
+        observation.videoProbe = {
+          ...probe.audit,
+          nativeSourceId: probe.ref.id,
+          nativeAttachmentSha256: hash(JSON.stringify(probe.ref)),
+          wireFrames,
+        };
+      }
       report.actualRequests.push(observation);
       const response = await requestFetch(url, { ...init, redirect: "error" });
       observation.status = response.status;
@@ -800,6 +1115,7 @@ export async function verifyMediaAccount(argv, runtime = {}) {
     report.configuration = {
       audioModelId: options["audio-model"] ?? null,
       videoModelId: options["video-model"] ?? null,
+      videoProbe: report.videoProbe,
       chatStreamObfuscation: options.audio ? false : null,
       chatEmptyAudioMetadata: options.audio
         ? "explicit host compatibility; exact prior stream tuple and scalar metadata only"
@@ -972,11 +1288,14 @@ export async function verifyMediaAccount(argv, runtime = {}) {
     // Run independent actual import/admission checks for every selected provider path.
     // Each records the exact native error and checks zero new transport/Attempt effects.
     const silence = pcmWave(Buffer.alloc(4800), 24000, 1);
-    const videoBytes = colorAvi([
-      [255, 0, 0],
-      [0, 255, 0],
-      [0, 0, 255],
-    ]);
+    const videoBytes = colorAvi(
+      [
+        [255, 0, 0],
+        [0, 255, 0],
+        [0, 0, 255],
+      ],
+      options.videoProbeSize,
+    );
     for (const lane of [
       ...(options.audio
         ? [
@@ -1240,20 +1559,47 @@ export async function verifyMediaAccount(argv, runtime = {}) {
         if (!selected.includes(item)) selected.push(item);
       }
       const expected = selected.map((item) => item[0]).join(" "),
-        bytes = colorAvi(selected.map((item) => item[1])),
+        colors = selected.map((item) => item[1]),
+        bytes = colorAvi(colors, options.videoProbeSize),
+        audit = inspectColorAvi(bytes, colors, options.videoProbeSize),
         s = await session();
       const ref = await engine.importMedia(s, bytes, "video/x-msvideo", [
         { startMs: 0, endMs: 1500 },
       ]);
+      const storedSource = await readFile(
+        join(artifactDir, "input-segments", ref.id + ".blob"),
+      );
+      if (
+        ref.sha256 !== audit.sourceSha256 ||
+        ref.bytes !== bytes.length ||
+        ref.decoder !== "avi-rgb24-v1" ||
+        !storedSource.equals(bytes) ||
+        hash(storedSource) !== audit.sourceSha256
+      )
+        fail("VERIFY_VIDEO_SOURCE_INVALID");
+      videoProbes.set(options["video-model"], { audit, colors, ref });
       answers.set(options["video-model"] + ":input", expected);
       activeCase = "video-frame-recognition";
       const recognized = await submit(
         s,
         videoId,
         options["video-model"],
-        "Name the predominant color of each video frame in temporal order. Return only the three color names separated by spaces.",
+        "Name the predominant color of each video frame in temporal order using English color names. Return only the three color names separated by spaces.",
         [ref],
       );
+      const input = engine.store.getInput(recognized.receipt.inputId);
+      if (
+        JSON.stringify(input.media) !== JSON.stringify([ref]) ||
+        JSON.stringify(recognized.run.media) !== JSON.stringify([ref])
+      )
+        fail("VERIFY_VIDEO_SOURCE_INVALID");
+      report.scopeCoverage.at(-1).inputProfile = {
+        ...audit,
+        nativeSourceId: ref.id,
+        nativeAttachmentSha256: hash(JSON.stringify(ref)),
+        nativeInputMediaSha256: hash(JSON.stringify(input.media)),
+        nativeRunMediaSha256: hash(JSON.stringify(recognized.run.media)),
+      };
       if (recognized.run.state !== "completed")
         fail(recognized.run.error?.code ?? "VERIFY_RECOGNITION_INCOMPLETE");
       recordRecognition(
