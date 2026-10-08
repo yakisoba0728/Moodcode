@@ -8,7 +8,7 @@
     "scripts/windows-job-ci.mjs",
     "packages/engine/src/tools/command/windows-native*"
   ],
-  "verificationState": "handoff-ready: exact8c7 Windows native push and workflow_dispatch allfourlanes verified; original six-lane macOS24 unchanged Git hook readiness failure preserved; unrelated Ubuntu26 and local whole suite stillpending, whole pipeline green notclaimed",
+  "verificationState": "handoff-ready: exact8c7 Windows native push and workflow_dispatch allfourlanes verified; frozen local4759/4757pass/0fail/2skip complete with1009 unchanged inputs. Original six-lane macOS24 unchanged Git hook readiness failure preserved and Ubuntu26 pending; combined pipeline green notclaimed",
   "hostedRuns": [
     {
       "runId": 37846891144,
@@ -1039,7 +1039,7 @@
     "headlessObservedSuccesses": 4,
     "headlessObservedFailureJob": 113565771908,
     "headlessPendingJob": 113565771781,
-    "localWholeRetry": "ongoing; parent owns qualification; no whole-suite completion credit"
+    "localWholeRetry": "complete and accepted:4759total4757pass0fail0cancelled2skip;1009 source inputs unchanged; see frozenLocalFullVerification"
   },
   "frozenLocalFullVerification": {
     "status": "complete",

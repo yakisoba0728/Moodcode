@@ -129,7 +129,7 @@
   },
   "remaining": [
     "Root combined-main native Windows workflow after integration",
-    "Root whole-regression final footer and separate hosted-lane acceptance; the current frozen local retry is not yet a complete verification result",
+    "Root original six-lane hosted acceptance: preserve macOS24 unchanged hook failure; Ubuntu26 outcome remains pending",
     "Desktop actual Electron/package qualification; dedicated x64 Node native gates do not qualify Desktop packaging"
   ],
   "limitations": [
@@ -238,10 +238,19 @@
   "wholeRegressionQualification": {
     "separateFromNativeWindowsGate": true,
     "localFrozenRetry": {
-      "status": "in_progress-at-documentation-snapshot",
-      "rootReportedFailuresSoFar": 0,
-      "finalFooterAvailable": false,
-      "wholeSuiteAcceptanceClaim": false
+      "status": "complete",
+      "finalFooterAvailable": true,
+      "wholeSuiteAcceptanceClaim": true,
+      "counts": {
+        "tests": 4759,
+        "pass": 4757,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 2,
+        "todo": 0
+      },
+      "sourceInputsUnchanged": 1009,
+      "authoritativeEvidence": "frozenLocalFullVerification"
     },
     "sixLaneHostedRun": {
       "runId": 37851661133,
