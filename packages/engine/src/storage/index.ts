@@ -1,7 +1,11 @@
 import { PrFeedbackStorage, validatePrFeedbackDatabase } from '../pr-feedback/records.js';
 import { validateCommitVerification } from '../git/commit-receipts.js';
 import {deliverHostCommandResultAtomic,readHostCommandDeliveries,readHostCommandDelivery,findHostCommandDeliveryForInput,validateHostCommandDeliveryDatabase,pauseImportedHostCommandDeliveries,type HostCommandDeliveryInput,type HostCommandDeliveryPorts} from '../jobs/host-command-delivery-records.js';
+
+import { CodingBatchStorage } from "../coding-runs/groups.js";
 import {WorkflowEffectStorage, readWorkflowEffect, readWorkflowDelivery, hasWorkflowEffectUncertainty, pauseImportedWorkflowEffects, type WorkflowEffectNativePorts} from "../workflows/effects-records.js";
+import {SandboxStorage,pauseImportedSandboxes,validateSandboxDatabase} from '../sandbox/records.js';
+import { validateResidentTeamDatabase, pauseResidentTeamHistories, assertResidentHistoryCapacity } from '../teams/resident-validation.js';
 import { HostCommandStorage, hasHostCommandUncertainty, validateHostCommandDatabase } from '../jobs/host-command-records.js';
 import { GitCommitStorage, hasUncertainGitCommit, hasKnownGitCommitSupervisor, readGitCommitProcessEvidence, validateGitCommitDatabase } from '../git/commit-receipts.js';
 import { readForkChildData } from '../sessions/fork-child.js';
@@ -428,7 +432,16 @@ export class SqliteStore implements SessionEngineStore {
   listTurns(runId: string): TurnRecord[] { return this.executionRecords.listTurns(runId); }
   listTurnsPage(runId: string, afterTurnId?: string, limit?: number): TurnPage { return this.executionRecords.listTurnsPage(runId, afterTurnId, limit); }
   putAttempt(attempt: ProviderAttempt): ProviderAttempt { return this.executionRecords.putAttempt(attempt); }
-  putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRecord { return putAttemptUsage(this.native, attemptId, usage); }
+
+getAttemptUsage(
+    attemptId: string,
+  ): import("@moodcode/contracts").AttemptUsageRecord | null {
+    const row = this.db
+      .prepare("SELECT data FROM attempt_usage WHERE attempt_id=?")
+      .get(attemptId);
+    return row ? JSON.parse(String(row.data)) : null;
+  }
+putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRecord { return putAttemptUsage(this.native, attemptId, usage); }
   createSummaryAttempt(identity: SummaryAttemptIdentity): SummaryAttemptRecord { return this.summaryRecords.create(identity); }
   dispatchSummaryAttempt(id: string): SummaryAttemptRecord { return this.summaryRecords.dispatch(id); }
   observeSummaryAttempt(id: string, observation: SummaryObservation): SummaryAttemptRecord { return this.summaryRecords.observe(id, observation); }
@@ -661,6 +674,10 @@ export class SqliteStore implements SessionEngineStore {
     this.assertOpen(); return new ProposalApplyExecutionGuards(this.db, { ...ports,
       writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
+  commitTeamWorkflow(sessionId:string,kind:string,revision:number,data:JsonObject,effect:()=>void):void{this.transaction(()=>{if(revision===0)assertResidentHistoryCapacity(this.db,'board');effect();this.executionRecords.putSessionDocument(sessionId,kind,revision,data);this.native.appendEvent(sessionId,'team.workflow.committed',{kind,revision:revision+1,dataSha256:knowledgeHash(data)});this.publishAfterCommit(()=>this.notify(sessionId));});}
+  assertResidentAdmissionCapacity():void{this.evidenceRead(()=>assertResidentHistoryCapacity(this.db,'resident'));}
+  putResidentDocument(sessionId:string,kind:string,revision:number,data:JsonObject):void{this.transaction(()=>{if(revision===0)assertResidentHistoryCapacity(this.db,'resident');this.executionRecords.putSessionDocument(sessionId,kind,revision,data);});}
+  validateResidentTeams():void{this.evidenceRead(()=>validateResidentTeamDatabase(this.db));}
   createTeamStorage(ports: Omit<TeamStoragePorts, 'writeTx' | 'getWorkspace'>): TeamStorage {
     this.assertOpen();
     if (this.teamRecords) throw new EngineError('TEAMS_ALREADY_CONFIGURED', 'Native team storage already has an original host owner');
@@ -670,7 +687,20 @@ export class SqliteStore implements SessionEngineStore {
   readWorkflowEffect(sessionId:string,instanceId:string,stageId:string){return this.evidenceRead(()=>readWorkflowEffect(this.db,sessionId,instanceId,stageId));}
   readWorkflowDelivery(sessionId:string,instanceId:string){return this.evidenceRead(()=>readWorkflowDelivery(this.db,sessionId,instanceId));}
   withWorkflowEffectsTransaction<T>(operation:()=>T):T {return this.db.isTransaction?operation():this.transaction(operation);}
-  createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'putDocument'|'appendEvent'>):WorkflowEffectStorage {
+
+createCodingBatchStorage(): CodingBatchStorage {
+    return new CodingBatchStorage(this.db, {
+      transaction: (op) => this.withWorkflowEffectsTransaction(op),
+      put: (s, k, r, d) => {
+        this.executionRecords.putSessionDocument(s, k, r, d);
+      },
+      event: (s, t, d) => {
+        this.native.appendEvent(s, t, d);
+        this.publishAfterCommit(() => this.notify(s));
+      },
+    });
+  }
+createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'putDocument'|'appendEvent'>):WorkflowEffectStorage {
     this.assertOpen();if(this.workflowEffectRecords)throw new EngineError('WORKFLOW_EFFECTS_ALREADY_BOUND','Workflow effects have one actual Root producer');
     return this.workflowEffectRecords=new WorkflowEffectStorage(this.db,{...ports,transaction:operation=>this.withWorkflowEffectsTransaction(operation),putDocument:(s,k,r,d)=>{this.executionRecords.putSessionDocument(s,k,r,d);},appendEvent:(s,t,d,inputId)=>{this.native.appendEvent(s,t,d,inputId?{inputId}:{});this.publishAfterCommit(()=>this.notify(s));}});
   }
@@ -705,6 +735,9 @@ export class SqliteStore implements SessionEngineStore {
   }); }
   validatePrFeedback():void {this.evidenceRead(()=>validatePrFeedbackDatabase(this.db));}
   validatePrVerificationEvidence(evidence:unknown):void {this.evidenceRead(()=>validateCommitVerification(this.db,evidence as import('../git/types.js').GitCommitPreview));}
+  createSandboxStorage():SandboxStorage {return new SandboxStorage(this.db,{writeTx:op=>this.db.isTransaction?op():this.transaction(op),writeDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),appendEvent:(s,t,p,refs)=>this.native.appendEvent(s,t,p,refs)});}
+  validateSandboxes():void {this.evidenceRead(()=>validateSandboxDatabase(this.db));}
+  pauseSandboxImports(workspaceId:string):void {pauseImportedSandboxes(this.db,workspaceId,{writeTx:op=>this.db.isTransaction?op():this.transaction(op),writeDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),appendEvent:(s,t,p,refs)=>this.native.appendEvent(s,t,p,refs)});}
   createGitCommitStorage(): GitCommitStorage {
     return new GitCommitStorage(this.db, {
       writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation),
@@ -776,11 +809,21 @@ export class SqliteStore implements SessionEngineStore {
       pauseImportedProposals(this.db, workspaceId, archiveSha256);
       pauseImportedProposalApplies(this.db, workspaceId, archiveSha256);
       pauseImportedTeams(this.db, workspaceId, archiveSha256);
+      pauseResidentTeamHistories(this.db,workspaceId,(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d));
       markImportedWorkflowsPaused(this.db, archiveSha256, workspaceId);
-      pauseImportedWorkflowEffects(this.db,workspaceId,{putDocument:(s,k,r,d)=>{this.executionRecords.putSessionDocument(s,k,r,d);},appendEvent:(s,t,d,inputId)=>{this.native.appendEvent(s,t,d,inputId?{inputId}:{});}});
+      this.createCodingBatchStorage().pauseImport(workspaceId);
+      pauseImportedWorkflowEffects(this.db, workspaceId, {
+        putDocument: (s, k, r, d) => {
+          this.executionRecords.putSessionDocument(s, k, r, d);
+        },
+        appendEvent: (s, t, d, inputId) => {
+          this.native.appendEvent(s, t, d, inputId ? { inputId } : {});
+        },
+      });
       markImportedSchedulesDisabled(this.db, archiveSha256, workspaceId);
       markImportedAgentBackendsPaused(this.db, archiveSha256, workspaceId);
       markImportedJobsPaused(this.db, archiveSha256, workspaceId);
+      this.pauseSandboxImports(workspaceId);
       pauseImportedOwnedCommandJobs(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
       this.createHostCommandStorage().pauseImport(workspaceId,archiveSha256);
       pauseImportedOwnedCommandDeliveries(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
@@ -789,29 +832,118 @@ export class SqliteStore implements SessionEngineStore {
         // Imported runtime capabilities are absent. Persist the ordinary native
         // interrupted-owner transition before pinning recovery; this performs
         // no provider dispatch, target write, marker removal or source rebinding.
-        const denied = (): never => { throw new EngineError('KNOWLEDGE_IMPORT_PAUSED', 'Archive quarantine cannot dispatch or approve an effect'); };
-        const base = { writeTx: <T>(operation: () => T): T => operation(), getWorkspace: (id: string) => this.getWorkspace(id), checkBinding: denied };
-        new KnowledgeGenerationStorage(this.db, { ...base, getPlan: denied, assertPlanCurrent: denied }).recoverInterruptedOwners();
-        new KnowledgePublicationStorage(this.db, { ...base, getCandidate: denied, assertCommitCurrent: denied }).recoverInterruptedOwners();
-        const guardHeaders = this.db.prepare("SELECT g.publication_id FROM knowledge_file_execution_guards g JOIN knowledge_file_publications p ON p.workspace_id=g.workspace_id AND p.id=g.publication_id WHERE p.state='prepared' ORDER BY g.id LIMIT 129").all();
-        if (guardHeaders.length > 128) throw new EngineError('KNOWLEDGE_IMPORT_LIMIT', 'Imported physical effect guards exceed the native quarantine cap');
-        new KnowledgeFilePublicationStorage(this.db, { ...base, getCandidate: denied, assertCommitCurrent: denied }).recoverInterruptedOwners(guardHeaders.map(row => String(row.publication_id)));
+        const denied = (): never => {
+          throw new EngineError(
+            "KNOWLEDGE_IMPORT_PAUSED",
+            "Archive quarantine cannot dispatch or approve an effect",
+          );
+        };
+        const base = {
+          writeTx: <T>(operation: () => T): T => operation(),
+          getWorkspace: (id: string) => this.getWorkspace(id),
+          checkBinding: denied,
+        };
+        new KnowledgeGenerationStorage(this.db, {
+          ...base,
+          getPlan: denied,
+          assertPlanCurrent: denied,
+        }).recoverInterruptedOwners();
+        new KnowledgePublicationStorage(this.db, {
+          ...base,
+          getCandidate: denied,
+          assertCommitCurrent: denied,
+        }).recoverInterruptedOwners();
+        const guardHeaders = this.db
+          .prepare(
+            "SELECT g.publication_id FROM knowledge_file_execution_guards g JOIN knowledge_file_publications p ON p.workspace_id=g.workspace_id AND p.id=g.publication_id WHERE p.state='prepared' ORDER BY g.id LIMIT 129",
+          )
+          .all();
+        if (guardHeaders.length > 128)
+          throw new EngineError(
+            "KNOWLEDGE_IMPORT_LIMIT",
+            "Imported physical effect guards exceed the native quarantine cap",
+          );
+        new KnowledgeFilePublicationStorage(this.db, {
+          ...base,
+          getCandidate: denied,
+          assertCommitCurrent: denied,
+        }).recoverInterruptedOwners(
+          guardHeaders.map((row) => String(row.publication_id)),
+        );
       }
-      const record = validateKnowledgeArchiveRow({ table: 'knowledge_import_pauses', key: workspaceId, workspaceId, data: { workspaceId, archiveSha256, createdAt: new Date().toISOString(), state: 'paused' } });
-      this.db.prepare('INSERT INTO knowledge_import_pauses(id,workspace_id,data) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(workspaceId, workspaceId, JSON.stringify(record.data));
+      const record = validateKnowledgeArchiveRow({
+        table: "knowledge_import_pauses",
+        key: workspaceId,
+        workspaceId,
+        data: {
+          workspaceId,
+          archiveSha256,
+          createdAt: new Date().toISOString(),
+          state: "paused",
+        },
+      });
+      this.db
+        .prepare(
+          "INSERT INTO knowledge_import_pauses(id,workspace_id,data) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+        )
+        .run(workspaceId, workspaceId, JSON.stringify(record.data));
       if (origin) {
         // The physical workspace can be absent at import. Preserve an actual
         // historical root pin when available instead of inventing old inode proof.
-        const trustHead = this.db.prepare('SELECT revision_id FROM workspace_trust_heads WHERE workspace_id=?').get(workspaceId);
-        const trust = trustHead ? this.db.prepare('SELECT id,workspace_id,length(CAST(data AS BLOB)) AS bytes,substr(data,1,65537) AS data FROM workspace_trust_revisions WHERE id=? AND workspace_id=?').get(String(trustHead.revision_id), workspaceId) : undefined;
-        if (trust && (Number(trust.bytes) < 1 || Number(trust.bytes) > 65_536)) throw new EngineError('KNOWLEDGE_IMPORT_LIMIT', 'Historical workspace binding exceeds the import read cap');
-        const raw = trust ? validateKnowledgeArchiveRow({ table: 'workspace_trust_revisions', key: trust.id, workspaceId, data: JSON.parse(String(trust.data)) }).data as import('../knowledge/types.js').TrustRevision : undefined;
+        const trustHead = this.db
+          .prepare(
+            "SELECT revision_id FROM workspace_trust_heads WHERE workspace_id=?",
+          )
+          .get(workspaceId);
+        const trust = trustHead
+          ? this.db
+              .prepare(
+                "SELECT id,workspace_id,length(CAST(data AS BLOB)) AS bytes,substr(data,1,65537) AS data FROM workspace_trust_revisions WHERE id=? AND workspace_id=?",
+              )
+              .get(String(trustHead.revision_id), workspaceId)
+          : undefined;
+        if (trust && (Number(trust.bytes) < 1 || Number(trust.bytes) > 65_536))
+          throw new EngineError(
+            "KNOWLEDGE_IMPORT_LIMIT",
+            "Historical workspace binding exceeds the import read cap",
+          );
+        const raw = trust
+          ? (validateKnowledgeArchiveRow({
+              table: "workspace_trust_revisions",
+              key: trust.id,
+              workspaceId,
+              data: JSON.parse(String(trust.data)),
+            }).data as import("../knowledge/types.js").TrustRevision)
+          : undefined;
         const originalBinding = raw ? validateBinding(raw.binding) : null;
-        if (originalBinding && originalBinding.root !== workspace.root) throw new EngineError('KNOWLEDGE_IMPORT_BINDING_MISMATCH', 'Historical workspace root differs from the imported workspace');
-        const native = new KnowledgeImportRecoveryStorage(this.db, { writeTx: operation => operation(), getWorkspace: id => this.getWorkspace(id),
-          checkBinding: () => { throw new EngineError('KNOWLEDGE_IMPORT_PAUSED', 'Archive seeding grants no physical binding authority'); },
-          assertCommitCurrent: () => { throw new EngineError('KNOWLEDGE_IMPORT_PAUSED', 'Archive seeding grants no recovery approval'); } });
-        native.seedImport({ workspaceId, archiveSha256, ...origin, originalBinding, pauseSha256: knowledgeHash(record.data) });
+        if (originalBinding && originalBinding.root !== workspace.root)
+          throw new EngineError(
+            "KNOWLEDGE_IMPORT_BINDING_MISMATCH",
+            "Historical workspace root differs from the imported workspace",
+          );
+        const native = new KnowledgeImportRecoveryStorage(this.db, {
+          writeTx: (operation) => operation(),
+          getWorkspace: (id) => this.getWorkspace(id),
+          checkBinding: () => {
+            throw new EngineError(
+              "KNOWLEDGE_IMPORT_PAUSED",
+              "Archive seeding grants no physical binding authority",
+            );
+          },
+          assertCommitCurrent: () => {
+            throw new EngineError(
+              "KNOWLEDGE_IMPORT_PAUSED",
+              "Archive seeding grants no recovery approval",
+            );
+          },
+        });
+        native.seedImport({
+          workspaceId,
+          archiveSha256,
+          ...origin,
+          originalBinding,
+          pauseSha256: knowledgeHash(record.data),
+        });
       }
     });
   }

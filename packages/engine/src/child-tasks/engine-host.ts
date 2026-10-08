@@ -33,6 +33,14 @@ import type {
   WorkflowChildAdmissionProof,
   WorkflowChildCompletionProof,
 } from "../workflows/reducer.js";
+import {
+  ResidentChild,
+  bindResidentProviderGuard,
+  RESIDENT_KIND_PREFIX,
+  validateResidentRecord,
+  type ResidentChildRecord,
+} from "./resident.js";
+import { teamHostData, teamHostObject } from "../teams/policy.js";
 import { WorktreeManager } from "../worktrees/index.js";
 import {
   ChildTaskManager,
@@ -61,6 +69,7 @@ interface Admission {
   confirm(): void;
 }
 interface Execution {
+  resident?: ResidentChild;
   engine: MoodcodeEngine;
   sessionId: string;
   runId: string;
@@ -79,11 +88,38 @@ export class EngineChildren {
   readonly tasks: ChildTaskManager;
   readonly teamBridge: ActualChildTeamBridge;
   private readonly directory: string;
+  private readonly residentRequests = new Map<string, number>();
+  private readonly retainedResidentPreviews = new Set<object>();
+  private readonly residentPreviews = new WeakMap<
+    object,
+    { request: EngineChildRequest; idleTimeoutMs: number; sourceSha256: string }
+  >();
   private readonly admissions = new Map<string, Admission>();
   private readonly executions = new Map<string, Execution>();
   private readonly workflowStages=new Map<string,WorkflowStageSpec>();
   private readonly workflowAdmissionGuards = new Map<string, () => void>();
-  private readonly recoveredSessions = new Set<string>();
+
+private readonly batchSlots = new Map<string, object>();
+  private readonly batchGuards = new Map<string, () => void>();
+  private readonly batchProviderGuards = new Map<string, () => void>();
+  installCodingMember(
+    sessionId: string,
+    requestId: string,
+    slot: object,
+    guard: () => void,
+    providerGuard: () => void,
+  ): void {
+    const key = JSON.stringify([sessionId, requestId]);
+    if (this.batchSlots.has(key))
+      throw new EngineError(
+        "CHILD_RESERVATION_STALE",
+        "Member already installed",
+      );
+    this.batchSlots.set(key, slot);
+    this.batchGuards.set(key, guard);
+    this.batchProviderGuards.set(key, providerGuard);
+  }
+private readonly recoveredSessions = new Set<string>();
   private readonly storageIdentity?: ChildStorageHostIdentity;
   constructor(
     private readonly root: MoodcodeEngine,
@@ -91,7 +127,13 @@ export class EngineChildren {
     directory: string,
     private readonly create: (options: EngineOptions) => MoodcodeEngine,
     hostIdentity?: ChildStorageHostIdentity,
-    private readonly inheritForkContext?: (child: MoodcodeEngine, sessionId: string, parent: MoodcodeEngine, parentRunId: string, allocation: ChildBudget) => void,
+    private readonly inheritForkContext?: (
+      child: MoodcodeEngine,
+      sessionId: string,
+      parent: MoodcodeEngine,
+      parentRunId: string,
+      allocation: ChildBudget,
+    ) => void,
   ) {
     this.storageIdentity =
       hostIdentity === undefined
@@ -130,7 +172,17 @@ export class EngineChildren {
           0,
           { fingerprint: admission.fingerprint },
         );
-        parent.engine.coordinator.reserveChildRun(parent.run.id, task.budget);
+        const key = JSON.stringify([task.sessionId, task.requestId]),
+          slot = this.batchSlots.get(key);
+        if (slot) {
+          this.batchGuards.get(key)!();
+          parent.engine.coordinator.consumeChildRunGroupSlot(
+            slot,
+            parent.run.id,
+            task.budget,
+          );
+        } else
+          parent.engine.coordinator.reserveChildRun(parent.run.id, task.budget);
       },
       host: {
         start: (request) => this.execute(request),
@@ -218,9 +270,206 @@ export class EngineChildren {
           rootRun,
           storageRecord,
           mirrorRecord,
+          ...(execution.resident ? { resident: execution.resident } : {}),
         };
       },
     );
+  }
+  private residentSource(request: EngineChildRequest): string {
+    const parent = this.parent(
+      request.sessionId,
+      request.parentRunId,
+      request.parentTaskId,
+    );
+    const run = parent.engine.coordinator.getOwnedActiveRun(parent.run.id);
+    if (!["created", "running", "awaiting_approval"].includes(run.state))
+      throw new EngineError(
+        "RESIDENT_PARENT_STALE",
+        "Resident admission requires an active original parent",
+      );
+    parent.engine.coordinator.getRunCancellationSignal(run.id);
+    parent.engine.coordinator.assertWorkspaceCleanupConfirmed(run.workspaceId);
+    const profile = parent.engine.profiles.forRun(run.sessionId, run.config);
+    const worktree = this.worktrees.get(request.sessionId, request.worktreeId);
+    return knowledgeHash({
+      request,
+      config: run.config,
+      parentPromptSha256: knowledgeHash(run.prompt),
+      profile: profile ?? null,
+      catalogue: parent.engine.toolRuntime.catalogue(
+        "engine",
+        run.config.mode,
+        profile?.tools,
+      ),
+      worktree,
+    });
+  }
+  previewResident(request: EngineChildRequest, idleTimeoutMs = 30000): object {
+    if (
+      this.options.residentTeams !== true ||
+      this.options.teams !== true ||
+      this.options.teamModelTools !== true
+    )
+      throw new EngineError(
+        "RESIDENT_TEAMS_DISABLED",
+        "Resident teams require explicit host opt-in",
+      );
+    teamHostObject(
+      request,
+      [
+        "sessionId",
+        "requestId",
+        "parentRunId",
+        "worktreeId",
+        "prompt",
+        "tools",
+        "allocation",
+      ],
+      ["parentTaskId"],
+    );
+    const data = teamHostData(request);
+    if (
+      data.tools.some((name) =>
+        ["delegate_task", "merge_child_changes"].includes(name),
+      )
+    )
+      throw new EngineError(
+        "RESIDENT_NESTED_UNSUPPORTED",
+        "Resident task grants do not yet transfer allocations to nested children",
+      );
+    if (
+      !Number.isSafeInteger(idleTimeoutMs) ||
+      idleTimeoutMs < 25 ||
+      idleTimeoutMs > 300000
+    )
+      throw new EngineError(
+        "INVALID_RESIDENT_TTL",
+        "Resident idle timeout must be bounded",
+      );
+    if (this.residentRequests.size >= 8)
+      throw new EngineError(
+        "RESIDENT_LIMIT",
+        "At most eight resident admissions belong to this Root",
+      );
+    this.root.store.assertResidentAdmissionCapacity();
+    if (this.retainedResidentPreviews.size >= 32)
+      throw new EngineError(
+        "RESIDENT_PREVIEW_LIMIT",
+        "Original resident previews require explicit release after bounded capture",
+      );
+    const original = Object.freeze({});
+    this.retainedResidentPreviews.add(original);
+    this.residentPreviews.set(original, {
+      request: data,
+      idleTimeoutMs,
+      sourceSha256: this.residentSource(data),
+    });
+    return original;
+  }
+  releaseResidentPreview(original: object): void {
+    this.residentPreviews.delete(original);
+    this.retainedResidentPreviews.delete(original);
+  }
+  readResidentPreview(original: object) {
+    const p = this.residentPreviews.get(original);
+    if (!p)
+      throw new EngineError(
+        "RESIDENT_PREVIEW_STALE",
+        "Expected original host resident preview",
+      );
+    return teamHostData(p);
+  }
+  startResident(original: object, approved: boolean): Promise<ChildTaskRecord> {
+    if (approved !== true)
+      throw new EngineError(
+        "RESIDENT_APPROVAL_REQUIRED",
+        "Resident execution requires exact host approval",
+      );
+    const p = this.residentPreviews.get(original);
+    if (!p)
+      throw new EngineError(
+        "RESIDENT_PREVIEW_STALE",
+        "Expected original resident approval",
+      );
+    const key = JSON.stringify([p.request.sessionId, p.request.requestId]);
+    const previous = this.residentRequests.get(key);
+    if (previous !== undefined) {
+      if (previous !== p.idleTimeoutMs)
+        throw new EngineError(
+          "RESIDENT_REQUEST_CONFLICT",
+          "Resident request differs",
+        );
+      return this.start(p.request);
+    }
+    if (this.residentSource(p.request) !== p.sourceSha256)
+      throw new EngineError(
+        "RESIDENT_PREVIEW_STALE",
+        "Resident approval source changed",
+      );
+    this.residentRequests.set(key, p.idleTimeoutMs);
+    return this.start(p.request);
+  }
+  inspectResident(
+    sessionId: string,
+    taskId: string,
+  ): ResidentChildRecord | undefined {
+    this.tasks.get(sessionId, taskId);
+    const d = this.root.store.getSessionDocument(
+      sessionId,
+      RESIDENT_KIND_PREFIX + taskId,
+    );
+    return d ? validateResidentRecord(d.data) : undefined;
+  }
+  async stopResident(
+    sessionId: string,
+    taskId: string,
+  ): Promise<ChildTaskRecord> {
+    const x = this.executions.get(taskId);
+    if (!x?.resident || x.closed)
+      throw new EngineError(
+        "RESIDENT_OWNER_UNAVAILABLE",
+        "Resident owner is unavailable",
+      );
+    await x.resident.stop();
+    return this.tasks.wait(sessionId, taskId);
+  }
+  recoverResidentHistories(): void {
+    for (const workspace of this.root.store.listWorkspaces())
+      for (const session of this.root.store.listSessions(workspace.id)) {
+        const tasks = this.tasks.list(session.id);
+        for (const task of tasks) {
+          const d = this.root.store.getSessionDocument(
+            session.id,
+            RESIDENT_KIND_PREFIX + task.id,
+          );
+          if (!d) continue;
+          const r = validateResidentRecord(d.data);
+          if (
+            ["running", "idle"].includes(r.state) &&
+            !this.executions.has(task.id)
+          ) {
+            const { sha256, ...old } = r;
+            const body = {
+              ...old,
+              revision: r.revision + 1,
+              state: "uncertain",
+              runs: r.runs.map((x) =>
+                x.state === "running" ? { ...x, state: "uncertain" } : x,
+              ),
+            };
+            this.root.store.putSessionDocument(
+              session.id,
+              RESIDENT_KIND_PREFIX + task.id,
+              d.revision,
+              {
+                ...body,
+                sha256: knowledgeHash(body),
+              } as unknown as import("@moodcode/contracts").JsonObject,
+            );
+            this.recover(session.id);
+          }
+        }
+      }
   }
   getStorageDirectory(): string {
     return this.directory;
@@ -380,15 +629,24 @@ export class EngineChildren {
         "INVALID_CHILD_INPUT",
         "Child engines currently require positive tool and output caps",
       );
-    const remainingBudget = parent.engine.coordinator.getRemainingChildBudget(
-        parent.run.id,
-      ),
+
+const slot = this.batchSlots.get(
+      JSON.stringify([request.sessionId, request.requestId]),
+    );
+    const remainingBudget = slot
+        ? parent.engine.coordinator.childRunGroupCapacity(
+            slot,
+            parent.run.id,
+            request.allocation,
+          )
+        : parent.engine.coordinator.getRemainingChildBudget(parent.run.id),
       parentSignal = parent.engine.coordinator.getRunCancellationSignal(
         parent.run.id,
       ),
       signal = executionSignal
         ? AbortSignal.any([parentSignal, executionSignal])
         : parentSignal;
+
     const input: ChildStart = {
       sessionId: request.sessionId,
       requestId: request.requestId,
@@ -437,11 +695,13 @@ export class EngineChildren {
     const { revision: _revision, ...definition } = profile ?? { revision: "" };
     const inherited = normalizeEngineBudgets(parent.run.config.budgets),
       allocation = request.task.budget;
-    const engine = this.create({
+
+const engine = this.create({
       ...this.options,
       // Knowledge selectors are host authority for the parent's physical store.
       // A separately owned child starts without inherited document context.
       knowledgeContextPolicy: undefined,
+      residentTeams: false,
       proposals: false,
       proposalApply: false,
       teams: false,
@@ -452,6 +712,7 @@ export class EngineChildren {
       agentBackends: false,
       jobs: false,
       conversationForks: false,
+      codingBatches: false,
       agentBackendSecrets: undefined,
       proposalContextPolicy: undefined,
       dbPath: join(this.directory, request.task.id, "engine.sqlite"),
@@ -496,6 +757,17 @@ export class EngineChildren {
         },
       },
     });
+    const batchGuard = this.batchProviderGuards.get(
+      JSON.stringify([request.task.sessionId, request.task.requestId]),
+    );
+    if (batchGuard)
+      engine.installCodingBatchDispatchGuard(
+        this.batchGuards.get(
+          JSON.stringify([request.task.sessionId, request.task.requestId]),
+        )!,
+        batchGuard,
+      );
+
     const admitProvider = holdChildProviderAdmission(engine);
     let unlink: (() => void) | undefined;
     try {
@@ -524,7 +796,13 @@ export class EngineChildren {
         createdAt: new Date().toISOString(),
       };
       engine.store.createSession(session);
-      this.inheritForkContext?.(engine,session.id,parent.engine,parent.run.id,allocation);
+      this.inheritForkContext?.(
+        engine,
+        session.id,
+        parent.engine,
+        parent.run.id,
+        allocation,
+      );
       if (request.signal.aborted)
         throw new EngineError(
           "CANCELLED",
@@ -578,7 +856,9 @@ export class EngineChildren {
           )
         : undefined;
       const cancel = () => {
-        void engine.coordinator.cancel(receipt.runId);
+        const current = this.executions.get(request.task.id);
+        if (current?.resident) void current.resident.stop();
+        else void engine.coordinator.cancel(receipt.runId);
       };
       request.signal.addEventListener("abort", cancel, { once: true });
       unlink = () => request.signal.removeEventListener("abort", cancel);
@@ -594,7 +874,92 @@ export class EngineChildren {
           ? { storageRecord: structuredClone(admittedStorage) }
           : {}),
       };
-      const finished = engine
+      const parentCatalogueSha256 = knowledgeHash(
+        parent.engine.toolRuntime.catalogue(
+          "engine",
+          parent.run.config.mode,
+          profile?.tools,
+        ),
+      );
+      const idleTimeoutMs = this.residentRequests.get(
+        JSON.stringify([request.task.sessionId, request.task.requestId]),
+      );
+      let resident: ResidentChild | undefined;
+      if (idleTimeoutMs !== undefined) {
+        if (!admittedStorage)
+          throw new EngineError(
+            "RESIDENT_STORAGE_REQUIRED",
+            "Resident owner requires original child storage proof",
+          );
+        resident = new ResidentChild(
+          this.root,
+          engine,
+          request.task,
+          config,
+          execution.admittedRun,
+          admittedStorage.sha256,
+          idleTimeoutMs,
+          {
+            assertCurrent: () => {
+              const fresh = this.parent(
+                request.task.sessionId,
+                request.task.parentRunId,
+                request.task.parentTaskId,
+              );
+              fresh.engine.coordinator.getOwnedActiveRun(fresh.run.id);
+              if (
+                knowledgeHash(fresh.run.prompt) !==
+                  knowledgeHash(parent.run.prompt) ||
+                knowledgeHash(fresh.run.config) !==
+                  knowledgeHash(parent.run.config) ||
+                fresh.engine.coordinator.getRunCancellationSignal(fresh.run.id)
+                  .aborted ||
+                this.root.store.getSessionControl(request.task.sessionId).paused
+              )
+                throw new EngineError(
+                  "RESIDENT_PARENT_STALE",
+                  "Original parent is unavailable",
+                );
+              const currentProfile = fresh.engine.profiles.forRun(
+                fresh.run.sessionId,
+                fresh.run.config,
+              );
+              if (
+                (currentProfile &&
+                  fresh.engine.profiles
+                    .list()
+                    .find((x) => x.id === currentProfile.id)?.revision !==
+                    currentProfile.revision) ||
+                knowledgeHash(
+                  fresh.engine.toolRuntime.catalogue(
+                    "engine",
+                    fresh.run.config.mode,
+                    currentProfile?.tools,
+                  ),
+                ) !== parentCatalogueSha256 ||
+                knowledgeHash(currentProfile ?? null) !==
+                  knowledgeHash(profile ?? null)
+              )
+                throw new EngineError(
+                  "RESIDENT_SOURCE_STALE",
+                  "Parent profile changed",
+                );
+            },
+            admitted: () => {},
+            close: async () => {
+              unlink?.();
+              await engine.close();
+              execution.closed = true;
+              confirmChildStorageClosed(this.root.store, admittedStorage);
+            },
+          },
+        );
+        execution.resident = resident;
+        bindResidentProviderGuard(engine, (run) =>
+          resident!.assertProvider(run),
+        );
+      }
+      const finished = resident ? resident.finished : engine
         .waitForRun(receipt.runId)
         .then((run) => {
           if (
@@ -605,10 +970,36 @@ export class EngineChildren {
               "CHILD_EXECUTION_UNCERTAIN",
               "Child execution cleanup is unconfirmed",
             );
-          if(workflowStage){
-            const snapshot=engine.store.getSnapshot(session.id),turns=engine.store.listTurns(run.id),attempts=turns.map(turn=>engine.store.getLatestAttemptForTurn(turn.id)).filter((value):value is NonNullable<typeof value>=>!!value),parts=turns.flatMap(turn=>engine.store.listParts(turn.id)),cleanups=attempts.map(a=>engine.store.getAttemptCleanup(a.id,session.id)).filter((value):value is NonNullable<typeof value>=>!!value),verification=engine.getVerificationState(session.id,run.id);
-            const body={version:1 as const,run:structuredClone(run),snapshot,turns,attempts,parts,cleanups,verification,checkpoints:engine.store.listCheckpoints(run.id)};
-            execution.workflowEvidence=workflowJson({...body,sha256:knowledgeHash(body)});
+          if (workflowStage) {
+            const snapshot = engine.store.getSnapshot(session.id),
+              turns = engine.store.listTurns(run.id),
+              attempts = turns
+                .map((turn) => engine.store.getLatestAttemptForTurn(turn.id))
+                .filter((value): value is NonNullable<typeof value> => !!value),
+              parts = turns.flatMap((turn) => engine.store.listParts(turn.id)),
+              cleanups = attempts
+                .map((a) => engine.store.getAttemptCleanup(a.id, session.id))
+                .filter((value): value is NonNullable<typeof value> => !!value),
+              verification = engine.getVerificationState(session.id, run.id);
+            const attemptUsages = attempts
+              .map((a) => engine.store.getAttemptUsage(a.id))
+              .filter((v): v is NonNullable<typeof v> => !!v);
+            const body = {
+              version: 1 as const,
+              run: structuredClone(run),
+              snapshot,
+              turns,
+              attempts,
+              parts,
+              cleanups,
+              verification,
+              checkpoints: engine.store.listCheckpoints(run.id),
+              attemptUsages,
+            };
+            execution.workflowEvidence = workflowJson({
+              ...body,
+              sha256: knowledgeHash(body),
+            });
           }
           const usage = engine.coordinator.getRunUsage(run.id);
           const content = engine.store.getLastRunAssistantContent(run.id);
@@ -645,7 +1036,11 @@ export class EngineChildren {
         },
         wait: execution.wait,
         cancel: async () => {
-          if (!execution.closed) engine.coordinator.cancel(receipt.runId);
+          if (resident) {
+            admitProvider();
+            await resident.stop();
+          } else if (!execution.closed)
+            engine.coordinator.cancel(receipt.runId);
           admitProvider();
           await finished;
         },
@@ -989,7 +1384,9 @@ export class EngineChildren {
     this.tasks.get(sessionId, childTaskId);
     const execution = this.executions.get(childTaskId);
     if (!execution || execution.closed) return [];
-    return execution.engine.store.listPendingRunApprovals(execution.runId);
+    return execution.engine.store.listPendingRunApprovals(
+      execution.resident?.currentRunId ?? execution.runId,
+    );
   }
   /** An actual live owner selects the private child engine; caller IDs alone do not. */
   resolveTeamModelExecution(
@@ -1028,6 +1425,14 @@ export class EngineChildren {
       this.teamBridge.release(original);
     }
   }
+  currentTeamRunId(
+    owner: import("../teams/types.js").TeamMemberOwnerProof,
+  ): string {
+    const x = owner.childTaskId
+      ? this.executions.get(owner.childTaskId)
+      : undefined;
+    return x?.resident?.currentRunId ?? owner.runId;
+  }
   /** Host-observed lifecycle metadata; a confirmed closed member has no input capability. */
   describeTeamOwner(rootSessionId: string, childTaskId: string) {
     const task = this.tasks.get(rootSessionId, childTaskId);
@@ -1065,7 +1470,14 @@ export class EngineChildren {
       ["completed", "failed", "cancelled"].includes(task.state)
     )
       cleanup = "confirmed";
-    else if (!execution.closed && task.state === "running") {
+    else if (
+      !execution.closed &&
+      task.state === "running" &&
+      execution.resident
+    ) {
+      execution.resident.assertCurrent();
+      cleanup = "live";
+    } else if (!execution.closed && task.state === "running") {
       const original = this.teamBridge.capture(rootSessionId, childTaskId);
       this.teamBridge.release(original);
       cleanup = "live";
@@ -1107,8 +1519,9 @@ export class EngineChildren {
         "CHILD_OWNER_UNAVAILABLE",
         "Child budget owner is unavailable",
       );
-    return execution.engine.coordinator.getRemainingChildBudget(
-      execution.runId,
+    return (
+      execution.resident?.remaining() ??
+      execution.engine.coordinator.getRemainingChildBudget(execution.runId)
     );
   }
   decide(
@@ -1126,7 +1539,9 @@ export class EngineChildren {
         "Child approval owner is unavailable",
       );
     const approval = execution.engine.store.getApproval(approvalId);
-    if (approval.runId !== execution.runId)
+    if (
+      approval.runId !== (execution.resident?.currentRunId ?? execution.runId)
+    )
       throw new EngineError(
         "CHILD_APPROVAL_MISMATCH",
         "Approval belongs to a different child Run",

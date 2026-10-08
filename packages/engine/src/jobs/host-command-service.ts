@@ -152,6 +152,7 @@ export class HostCommandService {
       artifactDir: string;
       executionLockPath: string;
       lifetime: AbortSignal;
+      sandbox?:(ws:string,session:string)=>import('../sandbox/types.js').SandboxLaunch;
     },
   ) {
     native.recover();
@@ -191,6 +192,7 @@ export class HostCommandService {
       this.policy(p.proof.input) !== p.proof.policyVersion
     )
       fail("HOST_COMMAND_TARGET_STALE");
+    if(this.options.sandbox&&knowledgeHash(this.options.sandbox(p.proof.workspaceId,p.proof.sessionId))!==knowledgeHash(p.proof.sandbox))fail("HOST_COMMAND_TARGET_STALE");
     const session = this.engine.store.getSession(p.proof.sessionId);
     if (session.workspaceId !== p.proof.workspaceId)
       fail("HOST_COMMAND_TARGET_STALE");
@@ -258,6 +260,7 @@ export class HostCommandService {
       platform: process.platform,
       policyVersion: this.policy(command),
       limits: x.limits,
+      ...(this.options.sandbox?{sandbox:this.options.sandbox(workspace.id,session.id)}:{}),
     };
     const proof = jobJson(
         { ...body, fingerprint: knowledgeHash(body) },
@@ -384,6 +387,7 @@ export class HostCommandService {
             },
             artifactDir: this.options.artifactDir,
             executionLockPath: this.options.executionLockPath,
+            ...(p.proof.sandbox?{sandbox:p.proof.sandbox}:{}),
           };
         try {
           jobHostAbort(signal);

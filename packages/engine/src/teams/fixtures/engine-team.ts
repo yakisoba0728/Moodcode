@@ -94,8 +94,21 @@ export function readDatabase<T>(
   }
 }
 export interface TeamFixtureOptions {
+  resident?: {
+    idleTimeoutMs: number;
+    allocation?: {
+      turns: number;
+      toolCalls: number;
+      outputBytes: number;
+      durationMs: number;
+    };
+  };
   engine?: Partial<EngineOptions>;
   childTools?: string[];
+  streamParent?: (
+    request: TurnRequest,
+    signal: AbortSignal,
+  ) => AsyncIterable<ProviderEvent>;
   streamChild?: (
     request: TurnRequest,
     signal: AbortSignal,
@@ -163,6 +176,10 @@ export async function teamFixture(
       const generator = (async function* (): AsyncGenerator<ProviderEvent> {
         if (parent) {
           parentEntered.resolve();
+          if (options.streamParent) {
+            yield* options.streamParent(request, signal);
+            return;
+          }
           yield { type: "progress" };
           await waitOrAbort(parentRelease.promise, signal);
           if (!signal.aborted) yield { type: "finish", reason: "stop" };
@@ -227,6 +244,7 @@ export async function teamFixture(
       options.engine?.configureChild?.(child, task);
     },
     defaults: {
+      ...options.engine?.defaults,
       providerId: provider.id,
       modelId: "fixture",
       mode: "build",
@@ -235,11 +253,13 @@ export async function teamFixture(
         maxToolCalls: 12,
         maxDurationMs: 30000,
         maxOutputBytes: 65536,
+        ...options.engine?.defaults?.limits,
       },
       budgets: {
         turnAllowance: 12,
         maxProviderAttempts: 3,
         retryBaseDelayMs: 0,
+        ...options.engine?.defaults?.budgets,
       },
     },
   };
@@ -289,20 +309,29 @@ export async function teamFixture(
       worktree,
       "Fixture creates two actual isolated siblings before the parent admission",
     );
-    const accepted = await engine.startChildTask({
+    const childRequest = {
       sessionId: session.id,
       requestId: `actual-team-child-request-${index}`,
       parentRunId: parent.runId,
       worktreeId: worktree.id,
       prompt: `actual-team-child-${index}`,
       tools,
-      allocation: {
+      allocation: options.resident?.allocation ?? {
         turns: 3,
         toolCalls: 2,
         outputBytes: 8192,
         durationMs: 10000,
       },
-    });
+    };
+    const accepted = options.resident
+      ? await engine.startResidentChildTask(
+          engine.previewResidentChildTask(
+            childRequest,
+            options.resident.idleTimeoutMs,
+          ),
+          true,
+        )
+      : await engine.startChildTask(childRequest);
     await entered[index]!.promise;
     let task = engine.children.tasks.get(session.id, accepted.id);
     const deadline = Date.now() + 3000;

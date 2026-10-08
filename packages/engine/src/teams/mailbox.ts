@@ -469,7 +469,7 @@ export function validateInput(value: unknown): TeamAcceptedInputProof {
   ]);
   for (const k of ["sessionId", "runId", "inputId", "requestId"]) teamId(r[k]);
   teamSha(r.inputSha256);
-  if (!teamInteger(r.admittedSeq) || r.delivery !== "steer") teamError();
+  if (!teamInteger(r.admittedSeq) || !["steer","queue"].includes(String(r.delivery))) teamError();
   return r as unknown as TeamAcceptedInputProof;
 }
 export function validateDeliveryReceipt(value: unknown): TeamDeliveryReceipt {
@@ -675,7 +675,8 @@ export function completeDelivery(
     const input = validateInput(s.ports.readAcceptedInput(c, originalInput));
     if (
       input.sessionId !== record.owner.sessionId ||
-      input.runId !== record.owner.runId ||
+      (input.delivery==="steer" && input.runId !== record.owner.runId) ||
+      (input.delivery==="queue" && record.owner.kind!=="child") ||
       input.requestId !== `team-delivery:${record.id}`
     )
       teamError("TEAM_INPUT_SCOPE");

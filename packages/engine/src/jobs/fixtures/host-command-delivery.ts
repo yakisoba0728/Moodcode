@@ -33,8 +33,14 @@ export async function hostDeliveryFixture(
       fingerprint: f.engine.readHostCommandPreview(original).fingerprint,
       approved: true,
     });
-  await jobUntil(() => existsSync(marker), "Genuine host process not observed");
-  const pid = Number(readFileSync(marker, "utf8"));
+  let pid = 0;
+  await jobUntil(() => {
+    if (!existsSync(marker)) return false;
+    const text = readFileSync(marker, "utf8");
+    if (!/^\d+$/.test(text)) return false;
+    pid = Number(text);
+    return Number.isSafeInteger(pid) && pid > 0;
+  }, "Genuine host process PID not observed");
   async function complete() {
     if (options.hold) writeFileSync(release, "continue");
     const result = await f.engine.waitForHostCommand({

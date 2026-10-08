@@ -5,14 +5,9 @@
   "engineBaselineCommit": "e8b0d565828f6c0370424152505a9f6a8497482f",
   "plan": "../coding-agent-engine-review/implementation-work-items.json",
   "status": "active",
-  "completedFamilies": 12,
-  "completedWorkItems": 54,
-  "environmentDebts": [
-    "E5-13",
-    "E5-08",
-    "E6-07",
-    "E6-08"
-  ],
+  "completedFamilies": 15,
+  "completedWorkItems": 64,
+  "environmentDebts": ["E5-13", "E5-08", "E6-07", "E6-08"],
   "families": [
     {
       "id": "MC2-01",
@@ -262,7 +257,7 @@
       "title": "상주 child·팀 mailbox·board",
       "priority": "P2",
       "wave": "W4",
-      "status": "in_progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-06a",
@@ -289,27 +284,35 @@
         {
           "id": "MC2-06c",
           "completion": "child continuation/input scheduler 연결. 승인 대기 중 메시지가 이미 준비된 효과를 바꾸지 않음",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
             "engine-phase-two-teams.md",
             "engine-phase-two-teams-verification.json",
             "engine-phase-two-team-model-tools.md",
-            "engine-phase-two-team-model-tools-verification.json"
+            "engine-phase-two-team-model-tools-verification.json",
+            "engine-phase-two-resident-teams.md",
+            "engine-phase-two-resident-teams-verification.json",
+            "engine-phase-two-parallel-runtime.md",
+            "engine-phase-two-parallel-runtime-verification.json"
           ]
         },
         {
           "id": "MC2-06d",
           "completion": "send/read/owner 충돌·overflow·terminal member·parent cancel·crash/reopen 검사. 미확정 효과가 있는 child의 wake/owner 재사용 금지",
-          "status": "in_progress",
+          "status": "complete",
           "evidence": [
             "engine-phase-two-teams.md",
             "engine-phase-two-teams-verification.json",
             "engine-phase-two-team-model-tools.md",
-            "engine-phase-two-team-model-tools-verification.json"
+            "engine-phase-two-team-model-tools-verification.json",
+            "engine-phase-two-resident-teams.md",
+            "engine-phase-two-resident-teams-verification.json",
+            "engine-phase-two-parallel-runtime.md",
+            "engine-phase-two-parallel-runtime-verification.json"
           ]
         }
       ],
-      "notes": "DB18 native immutable team/member/task revisions, CAS heads, exact selected alias permissions/generation/expiry, durable bounded mailbox/receipts/cursors, actual recipient-current checks and readonly history complete MC2-06a/b. Original host-approved current live child Run steer admission, safe InputScheduler promotion and four genuine SIGKILL boundaries provide c/d groundwork. Execution-wide alias uncertainty and actual audited child input/Run/request proof are validated; import pauses without rebind/wake. Final typecheck0, engine3973/3971pass/0fail/2existingWindows skips, broad source660pass and authored fixture3pass; 39 frozen sources unchanged. MC2-06c/d remain in progress for actor-bound model tools, terminal resident continuation, imported activation and explicit uncertain delivery ACK/resume. Primary-only metadata does not prove unavailable child inputs, and imported historical re-export can lack exact typed child coverage. A later separate model opt-in fixes the catalogue and binds one ORIGINAL exact actor per actual execution. Four root/child tools, exact native mutation approvals, original coordinator ToolContext/Turn/Attempt and selected alias/profile checks, bounded complete model pages and actual provider admission barrier are integrated. Another28 tests cover 11 scoped tools,12 actual consumers,3 independent native context/task proofs and2 real child admission/cancel observations. Final typecheck0, engine4001/3999pass/0fail/2existingWindows skips, broad source688pass and scripted fixture3pass;14 sources unchanged. Terminal resident continuation/import activation/uncertain ACK-resume still keep MC2-06c/d in progress. One isolated agent now owns the complete actual feature and failure/recovery tests, as recorded in engine-phase-two-parallel-features.md. No completion credit before Root integration and final aggregate gates."
+      "notes": "Actual engine-owned resident multi-Run mailbox continuation with Original actor/native approval, shared parent lifetime reservations, independent model task submission/review, bounded native history, CAS/SQL fault/cancel/real SIGKILL/archive and paused import is integrated and passes the frozen aggregate. Uncertain/imported actor activation, detached terminal-parent lifetime and nested resident allocation remain explicitly unsupported; native owner is never recreated or replayed."
     },
     {
       "id": "MC2-07",
@@ -808,34 +811,54 @@
       "title": "실제 OS 파일/네트워크 sandbox",
       "priority": "P3",
       "wave": "ENV/WX",
-      "status": "in_progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-17a",
           "completion": "capability port/version·지원 OS/backend matrix·제한 source manifest",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-os-sandbox.md",
+            "engine-phase-two-os-sandbox-verification.json",
+            "engine-phase-two-parallel-runtime.md",
+            "engine-phase-two-parallel-runtime-verification.json"
+          ]
         },
         {
           "id": "MC2-17b",
           "completion": "한 OS에서 실제 filesystem/network enforcement와 native ownership 연결",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-os-sandbox.md",
+            "engine-phase-two-os-sandbox-verification.json",
+            "engine-phase-two-parallel-runtime.md",
+            "engine-phase-two-parallel-runtime-verification.json"
+          ]
         },
         {
           "id": "MC2-17c",
           "completion": "denial projection·추가 승인 preview·child/MCP 제약 상속",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-os-sandbox.md",
+            "engine-phase-two-os-sandbox-verification.json",
+            "engine-phase-two-parallel-runtime.md",
+            "engine-phase-two-parallel-runtime-verification.json"
+          ]
         },
         {
           "id": "MC2-17d",
           "completion": "실제 OS에서 symlink·subprocess·network·cancel·denial 후 부분 효과 검사. Windows native ownership E5-08과 kernel sandbox 지원을 혼동하지 않음",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-os-sandbox.md",
+            "engine-phase-two-os-sandbox-verification.json",
+            "engine-phase-two-parallel-runtime.md",
+            "engine-phase-two-parallel-runtime-verification.json"
+          ]
         }
       ],
-      "notes": " One isolated agent now owns the complete actual feature and failure/recovery tests, as recorded in engine-phase-two-parallel-features.md. No completion credit before Root integration and final aggregate gates."
+      "notes": "Default-off experimental Darwin deprecated sandbox-exec backend genuinely enforces selected filesystem and network-deny restrictions. Command/host/child/readonly stdio MCP exact grants, physical source/PID/native cleanup, denied partial effects and crash/import are integrated. Root cross-feature fixture confirms profiled resident inheritance and private native-authenticated budget narrowing. Unsupported OS/producers reject before effects; privileged denial audit, formal App Sandbox and network allowances are not claimed."
     },
     {
       "id": "MC2-18",
@@ -925,35 +948,55 @@
       "title": "coding attempt group·headless batch",
       "priority": "P2",
       "wave": "W5",
-      "status": "in_progress",
+      "status": "complete",
       "workItems": [
         {
           "id": "MC2-20a",
           "completion": "case/group manifest·attempt/result schema·strict success 기준",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-coding-batches.md",
+            "engine-phase-two-coding-batches-verification.json",
+            "engine-phase-two-parallel-runtime.md",
+            "engine-phase-two-parallel-runtime-verification.json"
+          ]
         },
         {
           "id": "MC2-20b",
           "completion": "bounded headless batch host·격리 worktree/DB·fair budget reservation",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-coding-batches.md",
+            "engine-phase-two-coding-batches-verification.json",
+            "engine-phase-two-parallel-runtime.md",
+            "engine-phase-two-parallel-runtime-verification.json"
+          ]
         },
         {
           "id": "MC2-20c",
           "completion": "reviewer/verification receipt 기반 selection preview와 승인 merge",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-coding-batches.md",
+            "engine-phase-two-coding-batches-verification.json",
+            "engine-phase-two-parallel-runtime.md",
+            "engine-phase-two-parallel-runtime-verification.json"
+          ]
         },
         {
           "id": "MC2-20d",
           "completion": "partial case failure·skip/resume·cancel pending/running 구분·child cleanup unknown·중복 selection/crash 검사. output export 후 source/runtime를 다시 검증",
-          "status": "in_progress",
-          "evidence": []
+          "status": "complete",
+          "evidence": [
+            "engine-phase-two-coding-batches.md",
+            "engine-phase-two-coding-batches-verification.json",
+            "engine-phase-two-parallel-runtime.md",
+            "engine-phase-two-parallel-runtime-verification.json"
+          ]
         }
       ],
-      "notes": " One isolated agent now owns the complete actual feature and failure/recovery tests, as recorded in engine-phase-two-parallel-features.md. No completion credit before Root integration and final aggregate gates."
+      "notes": "Complete original preview, fair up-front fixed reservations, actual isolated editor/validator/reviewer workflow children, strict native success, separate approved selection/merge, atomic result input and real subsequent consumer are integrated. Partial/cancel/unknown/skip-resume/SQL/SIGKILL/export/source/import checks pass. Native histories use existing DB23 bounded documents/events; host fixed per-request accounting is distinguished from external invoice and unknown usage remains unknown."
     }
   ],
-  "updatedAt": "2026-10-08T10:10:05.403217+00:00"
+  "updatedAt": "2026-10-08T11:18:20.474098+00:00"
 }

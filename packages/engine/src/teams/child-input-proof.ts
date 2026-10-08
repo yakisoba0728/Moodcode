@@ -86,20 +86,21 @@ export function validateTeamChildInputRelations(
       receipt.teamId !== owner.teamId ||
       receipt.messagesSha256 !== knowledgeHash(owner.page.messages) ||
       receipt.input.sessionId !== proof.sessionId ||
-      receipt.input.runId !== proof.runId ||
+      (receipt.input.delivery==="steer" && receipt.input.runId !== proof.runId) ||
       receipt.input.requestId !== `team-delivery:${owner.id}`
     )
       invalid();
 
+    const acceptedRunId=receipt.input.runId;
     check();
     const runMeta = child
       .prepare(
         "SELECT runs.id,runs.session_id,runs.workspace_id,runs.state,length(CAST(runs.data AS BLOB)) AS bytes FROM runs JOIN sessions ON sessions.id=runs.session_id WHERE runs.id=? AND sessions.workspace_id=runs.workspace_id",
       )
-      .get(proof.runId);
+      .get(acceptedRunId);
     if (
       !runMeta ||
-      runMeta.id !== proof.runId ||
+      runMeta.id !== acceptedRunId ||
       runMeta.session_id !== proof.sessionId ||
       runMeta.workspace_id !== proof.workspaceId
     )
@@ -110,10 +111,10 @@ export function validateTeamChildInputRelations(
         .prepare(
           "SELECT data FROM runs WHERE id=? AND length(CAST(data AS BLOB))<=?",
         )
-        .get(proof.runId, CHILD_ROW_BYTES)?.data,
+        .get(acceptedRunId, CHILD_ROW_BYTES)?.data,
     );
     if (
-      run.id !== proof.runId ||
+      run.id !== acceptedRunId ||
       run.sessionId !== proof.sessionId ||
       run.workspaceId !== proof.workspaceId ||
       run.state !== runMeta.state
@@ -151,13 +152,13 @@ export function validateTeamChildInputRelations(
       input.requestId !== inputMeta.request_id ||
       input.admittedSeq !== receipt.input.admittedSeq ||
       input.admittedSeq !== inputMeta.admitted_seq ||
-      input.delivery !== "steer" ||
+      input.delivery !== receipt.input.delivery ||
       input.delivery !== inputMeta.delivery ||
       input.state !== inputMeta.state ||
       (input.runId ?? null) !== inputMeta.run_id ||
       (input.promotedSeq ?? null) !== inputMeta.promoted_seq ||
       (input.state === "promoted" &&
-        (input.runId !== proof.runId ||
+        (input.runId !== acceptedRunId ||
           !Number.isSafeInteger(inputMeta.legacy_seq) ||
           Number(inputMeta.legacy_seq) <= 0)) ||
       (input.state !== "promoted" && inputMeta.legacy_seq !== null) ||
@@ -174,7 +175,7 @@ export function validateTeamChildInputRelations(
         requestId: input.requestId,
         prompt: input.prompt,
         config: run.config,
-        delivery: "steer",
+        delivery: receipt.input.delivery,
       });
     } catch {
       return invalid();

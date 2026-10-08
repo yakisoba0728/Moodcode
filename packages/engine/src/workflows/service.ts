@@ -131,6 +131,22 @@ export class WorkflowService {
       host: WorkflowHost;
       owner: ActualWorkflowOwnerPort;
       children: ActualWorkflowChildObservationPort;
+      batch?: {
+        reserved(
+          record: WorkflowInstanceRevision,
+          stage: WorkflowStageSpec,
+        ): boolean;
+        dispatch(
+          record: WorkflowInstanceRevision,
+          stage: WorkflowStageSpec,
+          childRequestId: string,
+        ): void;
+        observed(
+          record: WorkflowInstanceRevision,
+          stageId: string,
+          completion: object,
+        ): void;
+      };
       effects?: {
         captureChild(
           record: WorkflowInstanceRevision,
@@ -329,6 +345,7 @@ export class WorkflowService {
       record.owner,
       registration.spec,
       [stage],
+      this.ports.batch?.reserved(record, stage) ?? false,
     );
     const worktree = record.worktrees[stage.id];
     if (!worktree) workflowError("WORKFLOW_WORKTREE_SELECTION_INVALID");
@@ -363,7 +380,9 @@ export class WorkflowService {
     if (Buffer.byteLength(prompt) > WORKFLOW_LIMITS.promptBytes)
       workflowError("WORKFLOW_STAGE_PROMPT_LIMIT");
     const childRequestId = `workflow:${knowledgeHash({ instanceId: record.instanceId, stageId: stage.id, requestId: input.requestId })}`;
-    const prepared = this.ports.native.prepareStage(owner.original, {
+
+this.ports.batch?.dispatch(record, stage, childRequestId);
+const prepared = this.ports.native.prepareStage(owner.original, {
       workspaceId: input.workspaceId,
       instanceId: input.instanceId,
       stageId: input.stageId,
@@ -523,6 +542,12 @@ export class WorkflowService {
           );
           if (originalEffect && !result.duplicate)
             this.ports.effects!.commitChild(originalEffect, result.record);
+          if (!result.duplicate)
+            this.ports.batch?.observed(
+              result.record,
+              input.stageId,
+              completion,
+            );
           return result;
         };
         return this.ports.effects

@@ -45,6 +45,7 @@ export interface TeamChildInputPort {
     originalTarget: object,
     originalAccepted: object,
   ): TeamAcceptedInputProof;
+  confirmDelivery?(originalTarget:object,originalAccepted:object):void;
   release(original: object): void;
 }
 export const TEAM_INPUT_PREFIX = "[Moodcode team mailbox v1]\n";

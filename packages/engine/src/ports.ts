@@ -117,3 +117,6 @@ export interface CoordinatorOptions { onOwnedCommandToolSettled?: (record: ToolC
 export interface CoordinatorPort { submit(input: SubmitInput): RunReceipt; cancel(runId: string): { runId: string; state: RunState }; waitForRun(runId: string): Promise<Run>; close(): Promise<void> }
 
 export interface CoordinatorOptions { onWorkflowToolSettled?: (record:ToolCallRecord)=>void }
+export interface CoordinatorOptions {
+  beforeActualProviderRequest?: (original: TurnRequest) => void;
+}

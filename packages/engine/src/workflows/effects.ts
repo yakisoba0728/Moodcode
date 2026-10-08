@@ -149,6 +149,8 @@ interface MergeCapture {
   tuple: string;
   head: string;
   used: boolean;
+batchSelection: JsonObject | null;
+
 }
 /** One Root-constructed consumer owns all ORIGINAL child/effect/model/target handles. */
 export class WorkflowEffects {
@@ -166,7 +168,41 @@ export class WorkflowEffects {
     }
   >();
   private native!: WorkflowEffectStorage;
-  private closed = false;
+
+batchPolicy?: {
+    merge(
+      record: WorkflowInstanceRevision,
+      stageId: string,
+      phase: "prepare" | "execute",
+    ): JsonObject | null;
+    settled(record: WorkflowEffectRecord): void;
+  };
+  assertCandidateFiles(workspaceId: string, instanceId: string): void {
+    const { record, owner } = this.service().effectOwner(
+      workspaceId,
+      instanceId,
+    );
+    this.owners.assertSettling(owner.original, record.owner);
+    for (const effect of this.effectRecords(record)) {
+      this.owners.assertWorktreeCurrent(
+        owner.original,
+        record.worktrees[effect.stageId]!,
+      );
+      pinsCurrent(effect.files);
+      pinsCurrent(effect.artifacts);
+    }
+  }
+  assertMergeCandidate(
+    workspaceId: string,
+    instanceId: string,
+    stageId: string,
+  ) {
+    return this.mergeSelection(
+      this.service().effectOwner(workspaceId, instanceId).record,
+      stageId,
+    );
+  }
+private closed = false;
   private readonly merge: ToolDefinition;
   constructor(
     private readonly engine: MoodcodeEngine,
@@ -635,6 +671,12 @@ export class WorkflowEffects {
             effectFail("WORKFLOW_STAGE_STALE");
         }
         if (name === "merge_workflow_stage") {
+          const batchSelection =
+            this.batchPolicy?.merge(
+              a.record,
+              String(data.stageId),
+              "prepare",
+            ) ?? null;
           const selection = await this.mergeSelection(
               a.record,
               String(data.stageId),
@@ -653,6 +695,7 @@ export class WorkflowEffects {
               sourceSha256: selection.editor.sha256,
               verificationSha256: selection.validator.sha256,
               head: selection.head,
+              ...(batchSelection ? { codingSelection: batchSelection } : {}),
             },
           };
           const prepared: PreparedTool = {
@@ -677,6 +720,7 @@ export class WorkflowEffects {
             preparedSha: knowledgeHash(prepared),
             tuple: this.tuple(context),
             used: false,
+            batchSelection,
           });
           return prepared;
         }
@@ -797,7 +841,14 @@ export class WorkflowEffects {
       effectFail("WORKFLOW_ORIGINAL_REQUIRED");
     p.used = true;
     if (a.record.sha256 !== p.record.sha256) effectFail("WORKFLOW_STAGE_STALE");
-    const now = await this.mergeSelection(a.record, p.editor.stageId);
+
+const currentBatchSelection =
+      this.batchPolicy?.merge(a.record, p.editor.stageId, "execute") ?? null;
+    if (
+      knowledgeHash(currentBatchSelection) !== knowledgeHash(p.batchSelection)
+    )
+      effectFail("CODING_SELECTION_STALE");
+const now = await this.mergeSelection(a.record, p.editor.stageId);
     if (
       now.editor.sha256 !== p.editor.sha256 ||
       now.validator.sha256 !== p.validator.sha256 ||
@@ -913,7 +964,10 @@ export class WorkflowEffects {
         },
       });
     try {
-      this.native.publish(o, p.expectedRevision);
+      this.engine.store.withWorkflowEffectsTransaction(() => {
+        this.native.publish(o, p.expectedRevision);
+        this.batchPolicy?.settled(record);
+      });
       this.pendingMerge.delete(tool.id);
     } finally {
       this.release(o);

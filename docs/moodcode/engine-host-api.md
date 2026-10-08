@@ -181,9 +181,9 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 
 `teams:true`에서 host는 `createTeam`, 원본 `previewTeamMember` → `joinTeamMember({approved:true})`, `retireTeamMember`를 사용한다. 실제 root/child owner·member revision/generation·선택 역할·권한·expiry를 native 저장과 대조한다. child 엔진에는 팀 생성 권한을 상속하지 않는다.
 
-`sendAgentMessage`는 메시지와 중복 제거 영수증을 먼저 저장한다. `readAgentMailbox`의 원본 페이지를 `claimAgentMailbox`에 전달하면 cursor CAS와 claim 영수증을 저장한다. `resumeChildTurn({approved:true,page,expectedCursorRevision,...})`은 원본 페이지를 실제 살아 있는 child의 현재 Run에 steer 입력으로 수락하고 root delivery 영수증을 남긴다. 승인 대기 효과·동일 Turn retry는 바뀌지 않으며 종료된 child의 새 Run 생성과 예산 갱신은 제공하지 않는다. DB 사이의 crash는 uncertain으로 보존하고 자동 재전송하지 않는다.
+`sendAgentMessage`는 메시지와 중복 제거 영수증을 먼저 저장한다. `readAgentMailbox`의 원본 페이지를 `claimAgentMailbox`에 전달하면 cursor CAS와 claim 영수증을 저장한다. `resumeChildTurn({approved:true,page,expectedCursorRevision,...})`은 원본 페이지를 실제 살아 있는 child의 현재 Run에 steer 입력으로 수락하고 root delivery 영수증을 남긴다. 승인 대기 효과·동일 Turn retry는 바뀌지 않는다. 별도 `residentTeams:true`에서 승인한 상주 child는 같은 실제 Engine/DB에 새 native Run을 만들고, 원래 lifetime 예약의 남은 예산만 사용한다. DB 사이의 crash는 uncertain으로 보존하고 자동 재전송하지 않는다.
 
-`putTeamTask`, `claimTeamTask`, `completeTeamTask`는 정확한 역할·의존성·작업 owner와 head CAS를 사용한다. 효과 기능이 꺼져 있어도 `getTeam`, `getTeamMember`, `listTeamMembers`, `getTeamTask`, `listTeamTasks`, `getTeamDelivery`로 bounded 이력을 조회할 수 있다. Import는 paused-import 이력만 보존한다. 메시지4KiB·전체 페이지64KiB·팀당32멤버/128작업, 실제 child-input archive 증명과 미지원 범위는 [팀 엔진 계약](engine-phase-two-teams.md)을 따른다. Terminal 상주 재개는 후속 구현이다.
+`putTeamTask`, `claimTeamTask`, `completeTeamTask`는 정확한 역할·의존성·작업 owner와 head CAS를 사용한다. 효과 기능이 꺼져 있어도 `getTeam`, `getTeamMember`, `listTeamMembers`, `getTeamTask`, `listTeamTasks`, `getTeamDelivery`로 bounded 이력을 조회할 수 있다. Import는 paused-import 이력만 보존한다. 메시지4KiB·전체 페이지64KiB·팀당32멤버/128작업, 실제 child-input archive 증명과 미지원 범위는 [팀 엔진 계약](engine-phase-two-teams.md)을 따른다. 상주 실행과 추가 모델 board/submit/review 도구는 [상주 팀 계약](engine-phase-two-resident-teams.md)을 따른다.
 
 `teams:true, teamModelTools:true`는 모델용 `send_agent_message`, `read_agent_mailbox`, `claim_team_task`, `complete_team_task`를 처음부터 고정 catalogue에 등록한다. Host가 `bindTeamModelTools({rootSessionId,teamId,memberId,generation,childTaskId?,recipientAliases?})`로 실제 현재 root/child 멤버를 별도로 선택해야 한다. 실행당 선택은 하나이며 수신 별칭 기본 허용 목록은 비어 있다. 원본 binding을 `releaseTeamModelTools`로 해제하면 이미 준비된 요청도 그 권한을 재사용하지 못한다. 모델은 actor/team/member/generation을 지정할 수 없다.
 
@@ -255,3 +255,14 @@ MCP receipt 없는 native tool도 원래 running intent가 있으면 startup에�
 재시작은 이미 접수된 입력을 명시적으로 resume할 수 있는 역사만 보존한다. Import는 paused history이며 Original source/actor/target grant나 자동 명령·merge·HTTP replay를 복원하지 않는다. 워크플로 효과는 기존 core UTF8 create/update와 inherited model/profile을 지원하고, custom producer/삭제/mode/symlink/alternate model-profile은 효과 전에 거부한다. DB23 catalogue139/cap160을 유지한다.
 
 [명령 소비](engine-phase-two-command-consumers.md), [PR 피드백](engine-phase-two-pr-feedback.md), [워크플로 효과](engine-phase-two-workflow-effects.md), [통합 검증](engine-phase-two-parallel-consumers-verification.json)을 따른다.
+
+
+## 상주 child·OS sandbox·coding batch
+
+`residentTeams:true`는 `teams:true,teamModelTools:true`와 함께 사용한다. 원본 `previewResidentChildTask` → `startResidentChildTask(preview,true)`는 한 실제 child Engine에 여러 sequential Run을 허용한다. `inspectResidentChildTask`와 `stopResidentChildTask`는 실제 current owner와 정리를 관찰한다. 새 mailbox Run은 입력/ACK COMMIT 뒤 provider를 시작하고, 처음 예약한 parent lifetime 예산을 공유한다. `read_team_board`, `submit_team_task`, `review_team_task`는 현재 claimant와 독립 coordinator의 exact native 승인을 사용한다. Import/uncertain 기록은 실행 권한을 복구하지 않는다.
+
+`osSandbox:true`에서 `registerSandboxBackend`, 원본 `previewSandboxGrant` → `approveSandboxGrant`, `observeEnforcement`를 사용한다. 실행 전 idle workspace에서 실제 source/profile/catalogue와 canonical read/write paths 및 network deny를 고정한다. Darwin의 deprecated `/usr/bin/sandbox-exec`는 명시적 experimental backend이고 기본값은 off다. 실제 command, 독립 host command, child command와 readonly stdio MCP를 제한한다. `connectSandboxedMcp`는 discovery만 수행하고, 새 catalogue를 고정한 승인 후 `bindSandboxedMcp`로 Original 실제 connection을 한 번 결속해야 tools/call이 가능하다. 다른 OS·허용 네트워크·HTTP MCP·ACP·custom effect는 실행 전에 unsupported로 거절한다. 상주 후속 Run은 private native owner가 인증한 예산 축소만 허용하며 kernel 정책과 model/profile/catalogue/source는 고정한다. 정식 Apple App Sandbox 지원이나 privileged denial audit는 주장하지 않는다.
+
+`codingBatches:true,workflows:true,verificationTools:true`는 실제 live parent와 사전에 생성한 독립 managed worktrees에 대해 원본 `previewCodingAttemptGroup` → `startCodingAttemptGroup` → `runCodingAttemptGroup`을 제공한다. 최대4개 case의 editor/validator/reviewer 예약을 먼저 지불하고 실제 Tool/Part/checkpoint/check receipt로 성공을 판정한다. `inspectBatchEvidence`, 원본 `previewCodingAttemptSelection` → `selectCodingAttempt`와 별도 native `merge_workflow_stage` 승인을 사용한다. `captureCodingBatchDeliveryTarget` → `deliverCodingBatchResult`는 merge 결과를 실제 입력과 같은 거래에 저장한다. `resumeVerifiedBatch`는 원래 예약의 pending/skipped case만 재개하며 이미 효과를 만든 case나 merge는 재실행하지 않는다. 명시적 host cost ledger와 알 수 없는 provider 사용량을 구분하며 live billing 증거는 별도다.
+
+[상주 팀](engine-phase-two-resident-teams.md), [OS sandbox 지원 범위](engine-phase-two-os-sandbox.md), [coding batch](engine-phase-two-coding-batches.md)의 상세 한도를 따른다.

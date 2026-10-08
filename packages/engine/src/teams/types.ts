@@ -185,7 +185,7 @@ export interface TeamAcceptedInputProof {
   readonly requestId: string;
   readonly inputSha256: string;
   readonly admittedSeq: number;
-  readonly delivery: "steer";
+  readonly delivery: "steer" | "queue";
 }
 export interface TeamDeliveryReceipt {
   readonly id: string;

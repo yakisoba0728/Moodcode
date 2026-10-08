@@ -114,12 +114,14 @@ const timer=setInterval(()=>{if(existsSync(${JSON.stringify(release)})){clearInt
     return record;
   }
   async function started(): Promise<number> {
-    await jobUntil(
-      () => existsSync(marker),
-      "The actual approved command did not start",
-    );
-    const pid = Number(readFileSync(marker, "utf8"));
-    assert.ok(Number.isSafeInteger(pid) && pid > 0);
+    let pid = 0;
+    await jobUntil(() => {
+      if (!existsSync(marker)) return false;
+      const text = readFileSync(marker, "utf8");
+      if (!/^\d+$/.test(text)) return false;
+      pid = Number(text);
+      return Number.isSafeInteger(pid) && pid > 0;
+    }, "The actual approved command did not publish its PID");
     return pid;
   }
   function finish() {

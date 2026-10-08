@@ -1,6 +1,10 @@
 import { validatePrFeedbackDatabase } from '../pr-feedback/records.js';
 import {validateHostCommandDeliveryDatabase} from '../jobs/host-command-delivery-records.js';
+
+import { validateCodingBatchDatabase } from "../coding-runs/groups.js";
 import {validateWorkflowEffectsDatabase} from "../workflows/effects-records.js";
+import {validateSandboxDatabase} from '../sandbox/records.js';
+import { validateResidentTeamDatabase, validateResidentChildHistory } from '../teams/resident-validation.js';
 import { HOST_COMMAND_TABLES, validateHostCommandDatabase } from '../jobs/host-command-records.js';
 import { validateGitCommitDatabase } from '../git/commit-receipts.js';
 import { validateConversationForkDatabase } from '../sessions/fork-native.js';
@@ -235,12 +239,14 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
     }
     const applyTables = schemaVersion >= 17 ? [...proposalTables, ...PROPOSAL_APPLY_TABLES, PROPOSAL_APPLY_GUARD_TABLE] : proposalTables;
     if (schemaVersion >= 18) {
-      try { validateTeamDatabase(db, check); }
+      try { validateTeamDatabase(db, check);validateResidentTeamDatabase(db,check); }
       catch { fail('ARCHIVE_TEAM_INVALID', 'Team membership, mailbox, board or actual input delivery relationships are invalid'); }
     }
     const teamTables = schemaVersion >= 18 ? [...applyTables, ...TEAM_TABLES] : applyTables;
     if (schemaVersion >= 19) {
-      try { validateWorkflowDatabase(db, { check }); validateWorkflowEffectsDatabase(db); }
+      try { validateWorkflowDatabase(db, { check }); validateWorkflowEffectsDatabase(db);
+validateCodingBatchDatabase(db);
+ }
       catch { fail('ARCHIVE_WORKFLOW_INVALID', 'Archived workflow revisions, native stage ownership or transition receipts are invalid'); }
     }
     const workflowTables = schemaVersion >= 19 ? [...teamTables, ...WORKFLOW_TABLES] : teamTables;
@@ -255,7 +261,7 @@ function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { sch
     }
     const backendTables = schemaVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
     if (schemaVersion >= 22) {
-      try { validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check }); validateGitCommitDatabase(db, {check}); validateConversationForkDatabase(db); validatePrFeedbackDatabase(db,{check}); }
+      try { validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check }); validateGitCommitDatabase(db, {check}); validateConversationForkDatabase(db); validatePrFeedbackDatabase(db,{check}); validateSandboxDatabase(db,{check}); }
       catch { fail('ARCHIVE_JOB_INVALID', 'Archived terminal job sources, immutable output pages or completion delivery receipts are invalid'); }
     }
     const jobTables = schemaVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables;
@@ -463,7 +469,7 @@ function validateChildDocumentArchive(root:string,manifest:EngineArchiveManifest
       const childDb=sqlite(join(root,item.database.file));
       try {
         const actual=logicalDatabase(childDb,'primary',check); if (actual.schemaVersion!==item.database.schemaVersion || actual.logicalHash!==item.database.logicalHash) fail('ARCHIVE_CHILD_INVALID','Child logical database differs from its audited snapshot');
-        try { validateTeamChildInputRelations(primary,childDb,record,check); }
+        try { validateTeamChildInputRelations(primary,childDb,record,check);validateResidentChildHistory(primary,childDb,record,check); }
         catch { fail('ARCHIVE_TEAM_INVALID','Team delivery receipt differs from the actual admitted child input'); }
       } finally { childDb.close(); }
       const reader=openChildDocumentReader({mode:'archive-historical',record,archive:{database:{path:join(root,item.database.file),bytes:item.database.bytes,sha256:item.database.sha256},artifacts:{path:join(root,item.artifactPrefix)},allowedMembers:manifest.artifacts.filter(member=>member.file.startsWith(`artifacts/children/${item.taskId}/`)),artifactPrefix:item.artifactPrefix}},frame);readers.push(reader);
@@ -659,7 +665,7 @@ export async function exportEngineArchive(options: ExportEngineArchiveOptions): 
         captured.exec('PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON');metadata=logicalDatabase(captured,'primary',check);
         const capturedPrimary=sqlite(join(staging,databaseFiles.primary));
         try {
-          try { validateTeamChildInputRelations(capturedPrimary,captured,record,check); }
+          try { validateTeamChildInputRelations(capturedPrimary,captured,record,check);validateResidentChildHistory(capturedPrimary,captured,record,check); }
           catch { fail('ARCHIVE_TEAM_INVALID','Captured team receipt differs from the actual admitted child input'); }
         } finally { capturedPrimary.close(); }
       } finally {captured.close();}

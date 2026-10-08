@@ -113,6 +113,7 @@ export interface TeamTaskMutationInput {
   readonly expectedRevision: number;
 }
 export interface TeamServicePorts {
+  beforeCompleteTask?(input:TeamTaskMutationInput):void;
   readonly native: TeamServiceNativePort;
   readonly host: TeamHostService;
   readonly input: TeamChildInputPort;
@@ -330,8 +331,11 @@ export class TeamService {
   completeTeamTask(
     input: TeamTaskMutationInput,
   ): TeamRequestResult<TeamTaskRevision> {
+    this.ports.beforeCompleteTask?.(teamHostData(input));
     return this.task(input, true);
   }
+  /** Called only through the private exact-approved board review producer. */
+  completeReviewedTask(input:TeamTaskMutationInput):TeamRequestResult<TeamTaskRevision>{return this.task(input,true);}
   private taskDuplicate(
     data: {
       workspaceId: string;
@@ -482,6 +486,7 @@ export class TeamService {
       state.accepted = accepted;
       const completed = this.ports.native.completeDelivery(capture, accepted),
         result = teamHostData({ ...completed, duplicate: false });
+      this.ports.input.confirmDelivery?.(target,accepted);
       page.deliveryRequestId = input.requestId;
       page.delivery = result;
       this.releasePage(page.original);
@@ -521,9 +526,9 @@ export class TeamService {
       target = this.ports.input.readTarget(state.target);
     if (
       proof.sessionId !== target.childSessionId ||
-      proof.runId !== target.childRunId ||
+      (proof.delivery==="steer" && proof.runId !== target.childRunId) ||
       proof.requestId !== state.inputRequestId ||
-      proof.delivery !== "steer"
+      !["steer","queue"].includes(proof.delivery)
     )
       teamHostError("TEAM_INPUT_STALE");
     return proof;

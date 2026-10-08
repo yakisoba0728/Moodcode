@@ -1,0 +1,244 @@
+{
+  "version": 1,
+  "feature": "MC2-17a–d",
+  "status": "implemented-and-verified-for-Darwin-experimental-opt-in-lane",
+  "generatedAt": "2026-10-08T10:09:36.479535+00:00",
+  "workspace": "/Users/yakisoba0728/.codex/worktrees/engine-os-sandbox/Moodcode",
+  "baseline": {
+    "commit": "aebd89617bd42b82a9b26e48b01b89bc9b6fa1b1",
+    "tree": "e90018c758b34980ed506cc6c7cf9f7f8298065d",
+    "shaMap": "/tmp/moodcode-os-sandbox-feature-baseline.json"
+  },
+  "scope": {
+    "backend": "darwin-seatbelt-v1",
+    "supportTier": "experimental-deprecated-cli",
+    "optIn": "EngineOptions.osSandbox === true",
+    "filesystem": "canonical selected workspace read/write; protected engine files/artifacts excluded",
+    "network": "deny-all; actual loopback connection0",
+    "descendants": "actual effect descendants inherit kernel restriction",
+    "paths": [
+      "run_command",
+      "independent host command",
+      "actual isolated child",
+      "Root-owned readonly stdio MCP with one-time Original catalogue binding"
+    ],
+    "unsupported": [
+      "non-Darwin backends",
+      "network allowances",
+      "HTTP/custom MCP",
+      "ACP",
+      "plugins",
+      "custom tools",
+      "repository/verification tools",
+      "external lifecycle effects",
+      "privileged per-command kernel audit"
+    ],
+    "remainingEnvironmentWork": ["E5-13", "E5-08", "E6-07", "E6-08"]
+  },
+  "environment": {
+    "platform": "darwin",
+    "osRelease": "27.0.0",
+    "arch": "arm64",
+    "node": "v26.9.0",
+    "capability": {
+      "version": 1,
+      "backend": "darwin-seatbelt-v1",
+      "platform": "darwin",
+      "osRelease": "27.0.0",
+      "supportTier": "experimental-deprecated-cli",
+      "available": true,
+      "fileIsolation": true,
+      "networkIsolation": true,
+      "descendantIsolation": true,
+      "executable": {
+        "path": "/usr/bin/sandbox-exec",
+        "kind": "file",
+        "device": "16777229",
+        "inode": "1152921500312608665",
+        "mode": "33261",
+        "size": "135136",
+        "mtimeNs": "1790233837000000000",
+        "sha256": "58839ef01b4eef8aac0d2aa8f9d1c074ae45aafe3533965b030672450064acc8"
+      },
+      "evidenceSha256": "217c0b34b93549a0a7d29591c49dc2dd4794a10b21eaf4c5359672d849862030",
+      "code": null,
+      "sha256": "e89bcffebc222764cfcfdb97007a9c61bd804df8d2ecf91f4901e755c514ce5b"
+    },
+    "schema": {
+      "count": 139
+    },
+    "tables": {
+      "count": 80
+    },
+    "version": {
+      "user_version": 23
+    }
+  },
+  "storage": {
+    "userVersion": 23,
+    "migrationsAdded": 0,
+    "tablesAdded": 0,
+    "catalogueObjectsObserved": 139,
+    "catalogueCap": 160,
+    "records": "existing SessionDocuments + independent immutable sandbox.record anchors",
+    "nativeGraph": [
+      "actual Run/Tool/Turn/Attempt/allowed approval",
+      "document revision/hash anchors",
+      "actual checkpoint full SHA",
+      "independent owned command closed event when present",
+      "MCP actual physical/source/PID and independent one-time approved grant binding"
+    ],
+    "caps": {
+      "records": 256,
+      "events": 8192,
+      "rowBytes": 131072,
+      "totalBytes": 16777216
+    },
+    "recovery": "starting/running uncertain; no runtime grant restoration/no replay",
+    "import": "paused-import retaining immutable previous source/receipt snapshots"
+  },
+  "checks": [
+    {
+      "name": "feature actual source",
+      "command": "node --import /Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 packages/engine/src/sandbox/{engine-sandbox,boundaries,inheritance,native-integrity,archive,crash}.integration.test.ts",
+      "tests": 27,
+      "pass": 27,
+      "fail": 0,
+      "skip": 0,
+      "log": "/tmp/moodcode-sandbox-final-source.log"
+    },
+    {
+      "name": "adjacent command/job/MCP/child regression",
+      "tests": 73,
+      "pass": 72,
+      "fail": 0,
+      "skip": 1,
+      "log": "/tmp/moodcode-sandbox-adjacent-source.log"
+    },
+    {
+      "name": "existing lifecycle regression plus native callback boundary",
+      "tests": 24,
+      "pass": 24,
+      "fail": 0,
+      "skip": 0,
+      "existingLifecycleCases": 17,
+      "featureCases": 7,
+      "log": "/tmp/moodcode-sandbox-final-callback-source.log"
+    },
+    {
+      "name": "engine strict noEmit",
+      "exitCode": 0,
+      "diagnostics": 0,
+      "log": "/tmp/moodcode-sandbox-type-final.log"
+    },
+    {
+      "name": "declaration emit",
+      "exitCode": 0,
+      "diagnostics": 0,
+      "output": "/tmp/moodcode-os-sandbox-declarations",
+      "log": "/tmp/moodcode-sandbox-declarations-final.log"
+    },
+    {
+      "name": "format new sandbox sources + feature docs",
+      "exitCode": 0,
+      "log": "/tmp/moodcode-sandbox-format-final.log"
+    }
+  ],
+  "evidence": {
+    "/tmp/moodcode-sandbox-final-source.log": {
+      "sha256": "8c37dd184c289a6fc73443879a3d3f35884baef53124a24716514d994f821aef",
+      "bytes": 3176
+    },
+    "/tmp/moodcode-sandbox-adjacent-source.log": {
+      "sha256": "4681a58d23e5724c29d795b7a228cf4c7ae551e4ec3d1406d13c329eeec81ae8",
+      "bytes": 8037
+    },
+    "/tmp/moodcode-sandbox-final-callback-source.log": {
+      "sha256": "5f56a2bd0960c81f4624eae0e62d80aab185a7fc2c7def9e804c492ce647cd66",
+      "bytes": 2918
+    },
+    "/tmp/moodcode-sandbox-type-final.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "/tmp/moodcode-sandbox-declarations-final.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "/tmp/moodcode-sandbox-format-final.log": {
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "bytes": 66
+    },
+    "/tmp/moodcode-os-sandbox-capability-evidence.json": {
+      "sha256": "87a7a4104b94bc012fe482d8906b09e373cbf3189970655d7fdbf5bf10371bd0",
+      "bytes": 1013
+    },
+    "/tmp/moodcode-os-sandbox-canonical-probe.json": {
+      "sha256": "8085324b457d08b03e08d3203303c2f7f479b411a9bab027874fe8b85f6a5f43",
+      "bytes": 1795
+    }
+  },
+  "primarySources": [
+    {
+      "path": "/usr/share/man/man1/sandbox-exec.1",
+      "sha256": "0d264f72dc6a8e0db5474840f33b512542c469beb109ed146c17055da287336b",
+      "finding": "Apple-shipped CLI is deprecated; supports profile-string execution"
+    },
+    {
+      "path": "/usr/share/man/man7/sandbox.7",
+      "sha256": "9043d9296715714f95b4de6c5f88a5436c5cc3b83b62641327212078c5c69b04",
+      "finding": "parent restriction inheritance; acquisition-time enforcement and preopened FD caveat"
+    },
+    {
+      "url": "https://developer.apple.com/forums/thread/661939",
+      "finding": "Apple DTS explains SBPL is not a third-party supported API"
+    },
+    {
+      "url": "https://developer.apple.com/documentation/security/protecting-user-data-with-app-sandbox",
+      "finding": "official supported App Sandbox is distinct from this CLI backend"
+    }
+  ],
+  "featureSourceSha256": {
+    "docs/moodcode/engine-phase-two-os-sandbox.md": "f4ea6257da0ed93155499191bf2768829e9353f0a137129c8244a17edd4c2713",
+    "packages/engine/src/engine.ts": "2a0c1ea05793366bfd9e1f9b7f0a45b2d4839081d7c296564c2ae72dafe1c974",
+    "packages/engine/src/index.ts": "edc1150c10bc89f77e9ff4b029b7e73e7d61e128e709d4f82853420ac241d4da",
+    "packages/engine/src/jobs/host-command-records.ts": "463dd2e91eb059974477e29b5aa2ab375b828d313ac454e6271bdbd73bf308f4",
+    "packages/engine/src/jobs/host-command-service.ts": "4f96976a380bc8693d1a408f24781f749e6806e82e783aeb6616507bfca5eadc",
+    "packages/engine/src/jobs/owned-command-records.ts": "30145af7c0ec77237cb839ee912613078ed1554ecedccf8cd77f75070062329d",
+    "packages/engine/src/mcp/stdio.ts": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b",
+    "packages/engine/src/recovery/index.ts": "fd30a3a16a4731d8467f19080d570cd84bc57e0ddfe2d386123760bef5b8d5da",
+    "packages/engine/src/sandbox/archive.integration.test.ts": "9a2e2654ae89cd7aa7b79db581c3ad88f4de1a32149d56c0cafc15f12db41a22",
+    "packages/engine/src/sandbox/boundaries.integration.test.ts": "c4d047da68e239d8d56c7ce05213492706c6eebfa5e73361328d5c24234de092",
+    "packages/engine/src/sandbox/crash.integration.test.ts": "f2492a541ce53f05920b5200e4e093d03904360619d356c9f497cf64f4141b1b",
+    "packages/engine/src/sandbox/engine-sandbox.integration.test.ts": "88a3ee5b460bd650197b65e0290cc98c5b97405fb95b0d11304a0d210f06aea8",
+    "packages/engine/src/sandbox/fixtures/crash.ts": "7198cb638da7f2be3ea724c6c7af755aa61870cfd7e209f10d237a2d57416e08",
+    "packages/engine/src/sandbox/fixtures/engine.ts": "15b838445ed8d0885ff84addac73c8bfd81b3bb3efcd1ccc8a783b04f5561114",
+    "packages/engine/src/sandbox/host.ts": "d32a83b687ae932713b1e6907f7bb91244f5ad3c1d1ef0c7a708aee58056ab34",
+    "packages/engine/src/sandbox/inheritance.integration.test.ts": "63a1914f70a5d8dc6a5bea389c8c15eb98ebdc1ee4316c08e42f71a8dc27aaef",
+    "packages/engine/src/sandbox/mcp-supervisor.ts": "38f954e9c70bfd1f99a240dd420ec0d85a4c4f73b1e4ab2fd0c27bacb379150d",
+    "packages/engine/src/sandbox/native-integrity.integration.test.ts": "b63d93918cabd57cc0c9ddd6e032f47bd000cea1812d08b97b91036048f3ebca",
+    "packages/engine/src/sandbox/platform-backends.ts": "3e316df31770d9e9d1c7b30fb9ec6fbb259d6597de354f7556c06e66ffbf0c8b",
+    "packages/engine/src/sandbox/records.ts": "1939a61530295473ece05e434a25d8337cb82f6790274afeca81781c916f53d3",
+    "packages/engine/src/sandbox/types.ts": "3f0599744724c72fd5b183a9e3c02e3493c4e257822a90778a8c8b99a1c6918b",
+    "packages/engine/src/storage/archive.ts": "0000be7358b7d899d01b844ade204d227bdd32d998591cc54285d2799d5e414f",
+    "packages/engine/src/storage/index.ts": "d4db56d6daf2fc51a9895c6e077ddb8fee4afe803fc3eadc8c0d507b8ab88e3d",
+    "packages/engine/src/tools/command/index.ts": "671cbdcb7e181d2c4eec0872f0f53c6faa4201e836664cec0426c29cfa364650",
+    "packages/engine/src/tools/command/process-control.ts": "f759bcae7c44a116e1cea5f6231e4eba7b60c167ee158cb9abcc78b5cf56a700"
+  },
+  "wholeAggregateGate": "Root owns final aggregate after feature-only patch; not rerun/claimed here",
+  "accountNetworkEffects": {
+    "accounts": 0,
+    "tokens": 0,
+    "liveModels": 0,
+    "remoteWrites": 0,
+    "pushes": 0,
+    "deployments": 0
+  },
+  "parentIntegration": {
+    "status": "passed",
+    "evidence": "engine-phase-two-parallel-runtime-verification.json",
+    "rootRuntimeCorrectionsRecorded": true,
+    "frozenWholeCompiledTests": 4508,
+    "frozenDirectSourceTests": 2604
+  }
+}

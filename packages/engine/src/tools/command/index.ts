@@ -303,7 +303,7 @@ async function createCaptures(
   }
 }
 
-function supervisorExecArgv(): string[] {
+export function supervisorExecArgv(): string[] {
   // Consumers may run the engine through node -e, --test, or Electron. Only
   // module-loader options belong to this different program's script entry.
   const result: string[] = [];
@@ -653,7 +653,7 @@ async function runProcess(
   context.signal.addEventListener("abort", onAbort, { once: true });
   send({
     type: "init",
-    input,
+    input: {...input,...(context.sandbox ? {sandbox:context.sandbox} : {})},
     ...(context.executionLockPath
       ? { executionLockPath: context.executionLockPath }
       : {}),
@@ -871,10 +871,19 @@ function cancelledResult(context: ToolContext): ToolResult {
 }
 
 export function createCommandTool(
-  options: { readonly observer?: CommandExecutionObserver } = {},
+  options: { readonly observer?: CommandExecutionObserver; readonly sandbox?: (context: ToolContext) => import("../../sandbox/types.js").SandboxLaunch } = {},
 ): ToolDefinition {
   const observer = options.observer;
   const consumed = new Set<string>();
+  const prepare = async (value:unknown,context:ToolContext):Promise<PreparedTool> => {
+    const prepared = await prepareCommand(value,context);
+    if (!options.sandbox) return prepared;
+    const launch = options.sandbox(context);
+    const preview = {...prepared.preview,sandbox:launch as unknown as JsonObject};
+    const data = {...prepared.data as JsonObject,sandbox:launch as unknown as JsonObject};
+    const fingerprint=createHash("sha256").update(JSON.stringify({version:1,name:"run_command",preview,data})).digest("hex");
+    return {...prepared,preview,data,fingerprint};
+  };
   return {
     name: "run_command",
     description:
@@ -900,9 +909,9 @@ export function createCommandTool(
         },
       },
     },
-    prepare: prepareCommand,
+    prepare,
     async execute(prepared, context) {
-      const checked = await prepareCommand(prepared.input, context);
+      const checked = await prepare(prepared.input, context);
       if (
         prepared.name !== checked.name ||
         prepared.requiresApproval !== true ||
@@ -946,7 +955,7 @@ export function createCommandTool(
       let observation: Observation | undefined;
       try {
         // Recheck immediately before spawn, after snapshot and artifact setup.
-        const ready = await prepareCommand(checked.input, context);
+        const ready = await prepare(checked.input, context);
         if (ready.fingerprint !== checked.fingerprint)
           throw new EngineError(
             "COMMAND_APPROVAL_MISMATCH",
@@ -973,7 +982,7 @@ export function createCommandTool(
         }
         outcome = await runProcess(
           input,
-          context,
+          {...context,...(options.sandbox ? {sandbox:options.sandbox(context)} : {})},
           captures,
           warnings,
           observation,
@@ -1137,6 +1146,7 @@ export interface PhysicalCommandScope {
   };
   readonly artifactDir: string;
   readonly executionLockPath?: string;
+  readonly sandbox?: import("../../sandbox/types.js").SandboxLaunch;
 }
 export interface PhysicalCommandResult {
   readonly outcome: ProcessOutcome;

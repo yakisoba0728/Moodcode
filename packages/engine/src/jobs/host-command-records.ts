@@ -1,3 +1,4 @@
+import {sandboxDigest} from '../sandbox/types.js';
 import { createHash } from "node:crypto";
 import { isAbsolute, posix } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -52,6 +53,7 @@ export type HostCommandState =
   | "uncertain"
   | "paused-import";
 export interface HostCommandPreview {
+  readonly sandbox?:import('../sandbox/types.js').SandboxLaunch;
   readonly version: 1;
   readonly workspaceId: string;
   readonly sessionId: string;
@@ -169,10 +171,11 @@ export function validateHostCommandRecord(value: unknown): HostCommandRecord {
       "limits",
       "fingerprint",
     ],
-    [],
+    ["sandbox"],
     131072,
   );
   const { fingerprint, ...previewBody } = p;
+  if(p.sandbox){const launch=sandboxDigest(p.sandbox);if(p.platform!=='darwin'||launch.backend!=='darwin-seatbelt-v1'||launch.executable!=='/usr/bin/sandbox-exec'||typeof launch.profile!=='string'||Buffer.byteLength(launch.profile)>32768)failure();}
   if (
     p.version !== 1 ||
     !["darwin", "linux", "freebsd"].includes(String(p.platform)) ||

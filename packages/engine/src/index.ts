@@ -177,3 +177,9 @@ export type {BindCommandJobModelToolsInput,CommandJobReadSelection,CommandJobSou
 
 export type {HostCommandSettlementPin,HostCommandDeliveryTargetProof} from './jobs/host-command-result.js';
 export type {HostCommandDeliveryRecord,HostCommandDeliveryResult} from './jobs/host-command-delivery-records.js';
+export * from "./sandbox/types.js";
+export {probeSeatbelt} from "./sandbox/platform-backends.js";
+export type * from "./coding-runs/types.js";
+
+export type { ResidentChildRecord, ResidentRunEvidence } from "./child-tasks/resident.js";
+export type { TeamBoardRecord, TeamBoardSubmission } from "./teams/workflow-board.js";

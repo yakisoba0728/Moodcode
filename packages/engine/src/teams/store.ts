@@ -560,6 +560,12 @@ export class TeamStorage {
   listTasks(ws: string, team: string, limit = 32) {
     return this.listState<TeamTaskRevision>(ws, team, "task", limit);
   }
+  listTasksPage(ws:string,team:string,afterTaskId:string|undefined,limit=1):{tasks:TeamTaskRevision[];hasMore:boolean;nextTaskId:string|null}{
+    teamId(ws);teamId(team);if(afterTaskId!==undefined)teamId(afterTaskId);if(!teamInteger(limit,1)||limit<1)teamError("TEAM_LIMIT");
+    const rows=this.db.prepare("SELECT state_key FROM team_state_heads WHERE workspace_id=? AND team_id=? AND kind='task' AND state_key>? ORDER BY state_key LIMIT ?").all(ws,team,afterTaskId??'',limit+1);
+    const tasks=rows.slice(0,limit).map(row=>this.state<TeamTaskRevision>(ws,team,'task',teamId(row.state_key))!);if(tasks.some(t=>!t))teamError();
+    return {tasks,hasMore:rows.length>limit,nextTaskId:rows.length>limit?tasks.at(-1)!.taskId:null};
+  }
   createTeam(input: CreateTeamInput) {
     return createTeam(this, input);
   }
@@ -613,7 +619,8 @@ export class TeamStorage {
           receipt.generation !== record.generation ||
           receipt.messagesSha256 !== knowledgeHash(record.page.messages) ||
           receipt.input.sessionId !== record.owner.sessionId ||
-          receipt.input.runId !== record.owner.runId ||
+          (receipt.input.delivery==="steer" && receipt.input.runId !== record.owner.runId) ||
+          (receipt.input.delivery==="queue" && record.owner.kind!=="child") ||
           receipt.input.requestId !== `team-delivery:${record.id}`))
     )
       teamError("TEAM_SCOPE_MISMATCH");

@@ -174,6 +174,7 @@ export class WorkflowHost {
     owner: WorkflowOwnerProof,
     spec: WorkflowSpec,
     stages = spec.stages,
+    reserved = false,
   ): WorkflowParentConfiguration {
     this.ports.owner.assertCurrent(original, owner);
     const configuration = workflowJson(
@@ -221,7 +222,7 @@ export class WorkflowHost {
       "outputBytes",
       "durationMs",
     ] as const)
-      if (allocation[key] > configuration.remainingBudget[key])
+      if (!reserved && allocation[key] > configuration.remainingBudget[key])
         workflowError("WORKFLOW_BUDGET_EXCEEDED");
     return configuration;
   }

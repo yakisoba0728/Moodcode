@@ -548,8 +548,9 @@ function sourceSql(
     toolCallId: s.toolCallId,
     platform: preview.platform,
     termination: "posix-process-group",
+    ...(preview.sandbox?{sandbox:preview.sandbox}:{}),
   };
-  const innerData = { workspaceRoot, sessionId: s.sessionId };
+  const innerData = { workspaceRoot, sessionId: s.sessionId, ...(preview.sandbox?{sandbox:preview.sandbox}:{}) };
   const fingerprint = createHash("sha256")
     .update(
       JSON.stringify({

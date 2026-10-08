@@ -37,6 +37,7 @@ export interface BindTeamModelToolsInput {
   readonly recipientAliases?: readonly string[];
 }
 export interface TeamModelExecution {
+  readonly currentRunId?: string;
   readonly store: Pick<
     SqliteStore,
     | "getRun"
@@ -63,6 +64,7 @@ export interface TeamModelExecution {
   readonly artifactDir: string;
 }
 export interface EngineTeamModelToolHostPorts {
+  readonly board?: import("./workflow-board.js").TeamWorkflowBoard;
   readonly owner: TeamOwnerPort;
   readonly service: Pick<
     TeamService,
@@ -395,14 +397,16 @@ export class EngineTeamModelToolHost {
     contextShape(context);
     if (
       context.signal.aborted ||
-      execution.coordinator.getRunCancellationSignal(proof.runId).aborted
+      execution.coordinator.getRunCancellationSignal(
+        execution.currentRunId ?? proof.runId,
+      ).aborted
     )
       fail("CANCELLED");
     if (
       executionKey(proof) !== binding.executionKey ||
       context.workspace.id !== proof.workspaceId ||
       context.sessionId !== proof.sessionId ||
-      context.runId !== proof.runId ||
+      context.runId !== (execution.currentRunId ?? proof.runId) ||
       context.executionLockPath !== execution.executionLockPath ||
       context.artifactDir !== execution.artifactDir
     )
@@ -412,7 +416,7 @@ export class EngineTeamModelToolHost {
       workspace = execution.store.getWorkspace(run.workspaceId);
     if (
       run.state !== "running" ||
-      run.id !== proof.runId ||
+      run.id !== (execution.currentRunId ?? proof.runId) ||
       run.sessionId !== proof.sessionId ||
       run.workspaceId !== proof.workspaceId ||
       session.workspaceId !== run.workspaceId ||
@@ -467,14 +471,19 @@ export class EngineTeamModelToolHost {
     )
       fail("TEAM_MODEL_OUTPUT_LIMIT");
     if (
-      operation === "read_agent_mailbox"
+      ["read_agent_mailbox", "read_team_board"].includes(operation)
         ? !member.permissions.receive
-        : operation === "send_agent_message"
-          ? !member.permissions.send || member.role === "observer"
-          : !member.permissions.claimTasks || member.role === "observer"
+        : operation === "review_team_task"
+          ? !member.permissions.manageTasks || member.role !== "coordinator"
+          : operation === "send_agent_message"
+            ? !member.permissions.send || member.role === "observer"
+            : !member.permissions.claimTasks || member.role === "observer"
     )
       fail("TEAM_MODEL_PERMISSION_DENIED");
-    if (phase === "execute" && operation !== "read_agent_mailbox") {
+    if (
+      phase === "execute" &&
+      !["read_agent_mailbox", "read_team_board"].includes(operation)
+    ) {
       if (
         run.config.mode !== "build" ||
         !fingerprint ||
@@ -507,7 +516,17 @@ export class EngineTeamModelToolHost {
       page: TeamMailboxPage | undefined,
       messageExpiresAt: string | undefined;
     let resources: JsonObject = {};
-    if (operation === "send_agent_message") {
+    if (
+      ["read_team_board", "submit_team_task", "review_team_task"].includes(
+        operation,
+      )
+    ) {
+      if (!this.ports.board) fail("TEAM_WORKFLOW_UNAVAILABLE");
+      resources =
+        operation === "read_team_board"
+          ? this.ports.board.read(binding.member, parsed)
+          : this.ports.board.prepare(binding.member, operation, parsed);
+    } else if (operation === "send_agent_message") {
       const send = parsed as {
         requestId: string;
         recipient: string;
@@ -687,6 +706,17 @@ export class EngineTeamModelToolHost {
         fail("TEAM_MODEL_RECIPIENT_STALE");
       this.observe(member);
     }
+    if (
+      ["submit_team_task", "review_team_task"].includes(captured.operation) &&
+      knowledgeHash(
+        this.ports.board!.prepare(
+          captured.binding.member,
+          captured.operation,
+          captured.input,
+        ),
+      ) !== knowledgeHash(captured.snapshot.resources)
+    )
+      fail("TEAM_MODEL_TASK_STALE");
     if (captured.task) {
       const task = this.ports.getTask(
         captured.binding.workspaceId,
@@ -739,6 +769,36 @@ export class EngineTeamModelToolHost {
     });
     captured.invoked = true;
     const member = captured.binding.member;
+    if (operation === "read_team_board")
+      return immutableKnowledgeJson(captured.snapshot.resources);
+    if (["submit_team_task", "review_team_task"].includes(operation)) {
+      let approvalFingerprint: string | undefined;
+      const execution = this.current(
+        captured.binding,
+        context,
+        operation,
+        "execute",
+        fingerprint,
+        captured.input,
+      );
+      const approvals = execution.store
+        .listToolApprovals(context.toolCallId)
+        .filter(
+          (a) =>
+            a.status === "allowed" &&
+            a.preview.teamModelRequestFingerprint === fingerprint,
+        );
+      if (approvals.length !== 1) fail("TEAM_MODEL_APPROVAL_REQUIRED");
+      approvalFingerprint = approvals[0]!.fingerprint;
+      return this.ports.board!.invoke(
+        member,
+        operation,
+        captured.input,
+        context,
+        fingerprint,
+        approvalFingerprint,
+      );
+    }
     if (operation === "read_agent_mailbox")
       return immutableKnowledgeJson(captured.page!) as unknown as JsonObject;
     const result =
@@ -834,8 +894,16 @@ export class EngineTeamModelToolHost {
             context.runId,
           ]),
         );
-        if (!binding) fail("TEAM_MODEL_BINDING_REQUIRED");
-        return this.capture(binding, context, operation, input);
+        const selectedBinding =
+          binding ??
+          [...this.selected.values()].find(
+            (x) =>
+              x.member.owner.kind === "child" &&
+              x.member.owner.sessionId === context.sessionId &&
+              x.member.owner.workspaceId === context.workspace.id,
+          );
+        if (!selectedBinding) fail("TEAM_MODEL_BINDING_REQUIRED");
+        return this.capture(selectedBinding, context, operation, input);
       },
       read: (original) => this.invocation(original).snapshot,
       assertCurrent: (original, context, phase, expected) =>

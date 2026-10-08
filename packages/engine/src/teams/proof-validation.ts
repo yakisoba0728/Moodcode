@@ -422,7 +422,8 @@ export function validateTeamRelations(s: TeamStorage, check: () => void): void {
         receipt.generation !== record.generation ||
         receipt.messagesSha256 !== knowledgeHash(record.page.messages) ||
         receipt.input.sessionId !== record.owner.sessionId ||
-        receipt.input.runId !== record.owner.runId ||
+        (receipt.input.delivery==="steer" && receipt.input.runId !== record.owner.runId) ||
+        (receipt.input.delivery==="queue" && record.owner.kind!=="child") ||
         receipt.input.requestId !== `team-delivery:${record.id}` ||
         receipt.cursor.claimedSeq !== record.page.messages.at(-1)!.seq ||
         receipt.cursor.pendingDeliveryId !== null ||

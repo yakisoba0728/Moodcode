@@ -27,7 +27,7 @@ No lane edits the primary checkout or another lane's worktree. Shared API/storag
 The original 80-item goal and four environment debts remain active. Schemas, tool interfaces or type checks without actual consumers never satisfy completion. GUI, live account calls, copied external source, push and deployment remain outside this engine goal.
 
 
-## Current complete feature owners
+## Resident/sandbox/coding complete feature integration
 
 | Feature | Owner | Actual completion boundary | Worktree |
 | --- | --- | --- | --- |
@@ -36,3 +36,16 @@ The original 80-item goal and four environment debts remain active. Schemas, too
 | Coding attempt groups/headless batches (MC2-20a–d) | `next_workflow_consumers` | Two actual isolated editor/validator/reviewer candidates, fair parent budget reservation, bounded concurrency and strict native success evidence; Original selection plus genuinely approved merge; partial failures/cancel, exact source/runtime/export verification, SQL/crash/import and no candidate or merge replay. | `/Users/yakisoba0728/.codex/worktrees/engine-coding-batches/Moodcode` |
 
 The first two worktrees use `aebd896` as their recorded baseline. Coding batches also seed the frozen workflow-effects patch so the complete workflow consumer can be reused immediately; its feature delta excludes that seed. Root keeps the integrated branch stable during aggregate tests. Agents run focused tests in parallel and deliver frozen feature-only patches, supporting source hashes and actual lifecycle evidence. Root integrates complete functionality, fixes shared-path incompatibilities and performs one fresh aggregate gate justified by each integration change. No agent is assigned only interfaces, only types or an unconsumed service.
+
+
+## Current complete feature owners
+
+The next three lanes start from `34c7c4a` in separate worktrees while Root verifies the preceding frozen aggregate. Each retains API → actual consumer → persistence/recovery → focused actual verification ownership.
+
+| Feature | Owner | Actual completion boundary | Worktree |
+| --- | --- | --- | --- |
+| Foreground/background command lifetime (MC2-10a/b/d) | `next_team_continuation` | One actual supervisor/group PID through foreground/background transfer; native-approved model/host entry, bounded stdin/EOF/output, original reservations, cancel/close/receipt faults, SIGKILL/restart/import without PID-only reclaim. | `/Users/yakisoba0728/.codex/worktrees/engine-command-lifetimes/Moodcode` |
+| ACP permission/write/terminal effects (MC2-09c/d) | `next_workflow_design` | Exact current session/Attempt/connection permission, native-approved file writes and terminal effects, wire delivery/cancel/late/duplicate failures, real process cleanup and paused restart/import; original readonly mode preserved. | `/Users/yakisoba0728/.codex/worktrees/engine-acp-effects/Moodcode` |
+| Prepared-resource effect batches (MC2-18a–d) | `next_workflow_consumers` | Original current Turn/file identity and approval, up-front native budgets, disjoint existing-file update overlap, conflict serial fallback, per-member native Tool/Part/checkpoint/partial uncertainty, receipt fault and restart/import. Unknown command/MCP/create/delete/rename stay serial. | `/Users/yakisoba0728/.codex/worktrees/engine-effect-batches/Moodcode` |
+
+No interface-only milestone closes a work item. Root accepts one frozen feature patch per lane, resolves shared source once and runs the combined final gates. The count changes only after those gates pass.

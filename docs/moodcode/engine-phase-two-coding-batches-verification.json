@@ -1,0 +1,146 @@
+{
+  "feature": "MC2-20a–d supported local coding attempt group/headless host batch",
+  "baseline": {
+    "baseCommit": "aebd896",
+    "tree": "080c3bb939b856e1943753f0659ed2856cd54b8e",
+    "seedSha256": "4848c4005100da18f9294b4678863ceff22af2199fe5e81e5386ebd7cb64cb15"
+  },
+  "baselineMap": "/tmp/moodcode-coding-batches-feature-baseline.json",
+  "databaseVersion": 23,
+  "migrationAdded": false,
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v26.9.0",
+    "testExecution": "compiled JavaScript; no source loaders"
+  },
+  "supportedLane": "Original host preview/admission → actual isolated editor/validator/reviewer Engines → native case verification → Original selection + exact parent native tool approval → actual merge → atomic result input → actual provider consumption",
+  "gates": {
+    "focusedCompiled": {
+      "tests": 74,
+      "pass": 74,
+      "fail": 0,
+      "newActual": 24,
+      "newSIGKILL": 6,
+      "adjacentRegression": 50,
+      "log": "/tmp/moodcode-coding-batches-final-actual.log",
+      "sourceIdentity": "74 actual/regression tests run before removal of shared-file formatter churn; identical parsed TypeScript AST verified for all 12 shared files afterward; final strict/declaration checks use frozen minimized source"
+    },
+    "focusedStrict": {
+      "exitCode": 0,
+      "log": "/tmp/moodcode-coding-batches-final-type.log"
+    },
+    "productionDeclaration": {
+      "exitCode": 0,
+      "log": "/tmp/moodcode-coding-batches-final-declaration-type.log"
+    },
+    "format": {
+      "exitCode": 0,
+      "log": "/tmp/moodcode-coding-batches-final-format-check.log",
+      "scope": "New feature modules and docs; legacy shared file text preserved"
+    }
+  },
+  "evidence": [
+    "Two concurrent genuine problems, six independent child Engine databases/artifact stores, two editor worktrees and two distinct readonly reviewer worktrees; actual native approval/patch/Tool/Part/checkpoint/verification/review evidence",
+    "Upfront actual 18-turn/12-tool/98304-output reservation; skip/resume uses original one-use slots; group-birth SQL failure never re-reserves; actual provider request ledger charged once per original entry",
+    "Native measured token pairs and absent/null/partial unknown handling; actual missing native usage remains unmeasured, request charge500 preserved",
+    "Selection/reselection native CAS and pending exact approval fingerprint; denied/stale selection and unselected effects retained; unrelated staged changes unchanged",
+    "Actual physical merge followed by native SQL group-receipt failure preserves effects/uncertain debt and does not reapply",
+    "Real provider return.done:false leaves unconfirmed cleanup and uncertain group/task; no explicit resume",
+    "Exported evidence/source freshness, changed physical candidate/check/HEAD and actual parent owner loss prevent new dispatch/selection",
+    "Rehashed native group pending rewind/reviewer receipt corruption rejected using actual native workflow/effect ancestor/immutable independent anchors",
+    "Atomic pending result exactly once, no source terminal execution events; actual subsequent provider consumes quoted DATA",
+    "Default-off readonly reopen; unchanged accepted pending input explicit resume once; archive pauses groups/effects with IDs/hash retained and no Original recapture or child/merge replay",
+    "Actual Root SIGKILL child completion, committed selection, physical merge before receipt commit, export, input write before COMMIT and COMMIT before wake"
+  ],
+  "limits": {
+    "cases": 4,
+    "concurrency": 4,
+    "durationMs": 300000,
+    "sourceBytes": 1048576,
+    "evidenceBytes": 1048576,
+    "nativeDocumentBytes": 262144,
+    "exportBytes": 2097152,
+    "workspaceGroups": 16,
+    "globalGroupAndCaseDocuments": 256,
+    "previews": 16,
+    "selectionHandles": 32,
+    "exportHandles": 32,
+    "retainedOperationRequests": 128
+  },
+  "sourceSHA256": {
+    "docs/moodcode/engine-phase-two-coding-batches.md": "f90af6991cf8590916a68f4d379f8b271abb2a2dcd080b0bded1dec3681831f1",
+    "packages/engine/src/child-tasks/engine-host.ts": "3dd04f5611cd188d455ca6099c0075d7690a678db43fc3e0e9b119051d6352af",
+    "packages/engine/src/coding-runs/batch-boundaries.integration.test.ts": "edc4abe4900f3a914a6ae8e5ba1c9885ce4aab5c1b14f0b13e5d9767bbf32221",
+    "packages/engine/src/coding-runs/batch-host.ts": "358f655f91d5148cfe20f067d7fd18b276a3f456cb8c52c9e5908c256af00c39",
+    "packages/engine/src/coding-runs/batch.integration.test.ts": "ab2cfac799635b5242ad68193fff7439ed9b025b8771b7427a8864a0b0a2d43c",
+    "packages/engine/src/coding-runs/crash.integration.test.ts": "cd83b5309c2c516c3aa3979378f507beba72707d0d454138950a40f68407b57f",
+    "packages/engine/src/coding-runs/fixtures/batch.ts": "3ecaeded5a893647e48f810cf65ee354b395a881b4c38bdfa1a00fda6c090833",
+    "packages/engine/src/coding-runs/fixtures/crash-batch.ts": "9865b9df5d78427cc42df535fd0d76f1f93c11b4537f622f88936c9146a41108",
+    "packages/engine/src/coding-runs/groups.ts": "8055d9340c2cdcf2b37c7d1c7c70351e693c62de37f44569520ed0b0c46d5c0d",
+    "packages/engine/src/coding-runs/types.ts": "9b533041dba3b2709cbc398133445d07a54af6eec72a7efe3a020162ff0457c1",
+    "packages/engine/src/coding-runs/validation.ts": "af6ed50902d43c6ad2f1175849343ede99dd97fc86c7c0c35aba955a9903a34a",
+    "packages/engine/src/engine.ts": "4b655b95d897382a2f7f8316ee77c3a613d23f9d44fa6346b5bb4fe73d74c0c2",
+    "packages/engine/src/index.ts": "ec2be6981933771b3eae5d4a295a7e473dfb15a593310b0a528521720f0e7799",
+    "packages/engine/src/ports.ts": "72627141772bcf25360822e80c05ec380e11f6d1722a0e2c1ef0b67611473bee",
+    "packages/engine/src/recovery/index.ts": "d8a7dcde58460fc0331f47c848ea89ab45c20d593f68d495fb9ccf930cade613",
+    "packages/engine/src/runner/index.ts": "857fb91ac117f50b24d6c17d42fcaa98cd21d9a6df3ac2108f4096d347ee6a2b",
+    "packages/engine/src/storage/archive.ts": "21bc80b5a81a392457952c2f5313db82ad2635251db29a7f8a65210c51603c3c",
+    "packages/engine/src/storage/index.ts": "4c2c596705fac3031ef2981637fc4f44e1d4d00271e9fd875b83965aac736ea5",
+    "packages/engine/src/workflows/effect-evidence.ts": "e7ce6f4e876882430aed71ef4c7f339d5e102a91c76fa30ec5d9e9bec98713dd",
+    "packages/engine/src/workflows/effects.ts": "beea3f1a3a60d0be30d1cb4f820bab171401082e6aae2c8ea171088f471f4cc8",
+    "packages/engine/src/workflows/host.ts": "9fd43a0c2117d47c3b30526f4e0d49f42f240e15009d14e016613b649d03077d",
+    "packages/engine/src/workflows/service.ts": "37d64e744023995ab6a7ee2b99c4c9d1878c376f72ed76d58cdb8140323e0ca5"
+  },
+  "limitations": [
+    "Actual live parent Run required through ordinary Engine admission; no fabricated standalone coordinator/provider/context/native rows",
+    "Exact inherited current profile/model/core effect tools; custom effect definitions and escalation unsupported",
+    "Fixed conservative text request/context/output envelope token reservation; unknown provider token usage remains unknown",
+    "Explicit costPerRequestMicros host policy ledger; no live provider invoice/hidden-token pricing enforcement claim",
+    "Original parent ToolContext and fresh exact native approval required for selected merge; advisory score grants no effect",
+    "Restart/import preserve history and cleanup debt but never rebuild Originals/reservations/actors or automatically replay attempts/merge/result admission",
+    "Supported core bounded UTF-8 patch/checkpoint lane; general OS sandbox and hostile external-writer atomic filesystem snapshot unsupported",
+    "No live account/provider/GUI/push/deploy/external source copy"
+  ],
+  "environmentDebts": ["E5-13", "E5-08", "E6-07", "E6-08"],
+  "aggregateGate": "Root runs final combined integration/gates and handles progress/commit",
+  "featurePatch": "/tmp/moodcode-coding-batches-feature.patch",
+  "actualGateSourceSHA256": {
+    "packages/engine/src/child-tasks/engine-host.ts": "f9d0cb5f242c84d099a1ae518208fc96a040d39b59e58d7d116ff32aaa6eb705",
+    "packages/engine/src/coding-runs/batch-boundaries.integration.test.ts": "edc4abe4900f3a914a6ae8e5ba1c9885ce4aab5c1b14f0b13e5d9767bbf32221",
+    "packages/engine/src/coding-runs/batch-host.ts": "358f655f91d5148cfe20f067d7fd18b276a3f456cb8c52c9e5908c256af00c39",
+    "packages/engine/src/coding-runs/batch.integration.test.ts": "ab2cfac799635b5242ad68193fff7439ed9b025b8771b7427a8864a0b0a2d43c",
+    "packages/engine/src/coding-runs/crash.integration.test.ts": "cd83b5309c2c516c3aa3979378f507beba72707d0d454138950a40f68407b57f",
+    "packages/engine/src/coding-runs/fixtures/batch.ts": "3ecaeded5a893647e48f810cf65ee354b395a881b4c38bdfa1a00fda6c090833",
+    "packages/engine/src/coding-runs/fixtures/crash-batch.ts": "9865b9df5d78427cc42df535fd0d76f1f93c11b4537f622f88936c9146a41108",
+    "packages/engine/src/coding-runs/groups.ts": "8055d9340c2cdcf2b37c7d1c7c70351e693c62de37f44569520ed0b0c46d5c0d",
+    "packages/engine/src/coding-runs/types.ts": "9b533041dba3b2709cbc398133445d07a54af6eec72a7efe3a020162ff0457c1",
+    "packages/engine/src/coding-runs/validation.ts": "af6ed50902d43c6ad2f1175849343ede99dd97fc86c7c0c35aba955a9903a34a",
+    "packages/engine/src/engine.ts": "51b84b47dc841886bb82947c593e4c8e1569fb40fcc4549fa822edb9b20abe5d",
+    "packages/engine/src/index.ts": "377a4c9dab7c5d8ccf8eb473e4c88da9abb4a8bc58fe7d13017df55ec38a9cd6",
+    "packages/engine/src/ports.ts": "1cd6477da555c656dec525fef64d6deb69bca16220d3fc5988cd9cd6dd18ab1a",
+    "packages/engine/src/recovery/index.ts": "9b8d5ed6309294621c4b90415c30ab16505e1fb4ffbb8d868dbb399b312ee79c",
+    "packages/engine/src/runner/index.ts": "20b038371930cd11a64bbb8973fb38f55dfdac91cf472dc3375af5cc169fd8e5",
+    "packages/engine/src/storage/archive.ts": "f3d8ed33f8ada181ee4cd405c09a4cf85a6094e0931204af3ba785b2c961c0e1",
+    "packages/engine/src/storage/index.ts": "44c8f87920ecd5b697c43b5e7462f3948eac4896838a16dd27544616a4ee19ca",
+    "packages/engine/src/workflows/effect-evidence.ts": "caf4d98ab9a6943503226a67f7de4970796ab36c8631379cac173c411560f10f",
+    "packages/engine/src/workflows/effects.ts": "a51c3649809c6fa4f8fb050bb1ac9f8191f99798ade723d788b87067d2293762",
+    "packages/engine/src/workflows/host.ts": "9fd43a0c2117d47c3b30526f4e0d49f42f240e15009d14e016613b649d03077d",
+    "packages/engine/src/workflows/service.ts": "8786119031edf3180a9706a362a0d1a3f16da0b07025b15fd70526656f775061"
+  },
+  "semanticFormattingTrim": {
+    "sharedFiles": 12,
+    "sameParsedTypeScriptAST": true,
+    "ignore": "locations, raw quote/comment metadata, parser content offsets only",
+    "log": "/tmp/moodcode-coding-batches-semantic-format-trim.log",
+    "finalStrictAndDeclaration": 0,
+    "aggregateActualFinalSource": "Root final combined gate"
+  },
+  "parentIntegration": {
+    "status": "passed",
+    "evidence": "engine-phase-two-parallel-runtime-verification.json",
+    "rootRuntimeCorrectionsRecorded": true,
+    "frozenWholeCompiledTests": 4508,
+    "frozenDirectSourceTests": 2604
+  }
+}

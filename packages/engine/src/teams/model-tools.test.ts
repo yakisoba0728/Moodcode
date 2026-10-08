@@ -509,7 +509,18 @@ test("all board write tools request approval and preserve bounded durable receip
   for (const operation of TEAM_MODEL_WRITE_TOOL_NAMES) {
     const tool = f.tool(operation),
       prepared = await tool.prepare(
-        operation === "send_agent_message" ? send : task,
+        operation === "send_agent_message"
+          ? send
+          : operation === "submit_team_task"
+            ? { ...task, text: "Advisory result" }
+            : operation === "review_team_task"
+              ? {
+                  ...task,
+                  text: "Advisory review",
+                  submissionId: "submission-1",
+                  verdict: "accept",
+                }
+              : task,
         ctx,
       );
     assert.equal(prepared.requiresApproval, true);
@@ -548,4 +559,53 @@ test("actor snapshot change after capture releases the producer handle without e
   );
   assert.equal(f.state.invokeCalls, 0);
   assert.equal(f.state.releaseCalls, 1);
+});
+
+test("board model schemas reject actor selection and advisory verdict objects without invoking conversion traps", () => {
+  let traps = 0;
+  const base = {
+    requestId: "review",
+    taskId: "task",
+    expectedRevision: 2,
+    text: "Bounded quoted DATA",
+    submissionId: "submission",
+    verdict: "accept",
+  };
+  for (const verdict of [
+    {
+      toString() {
+        traps++;
+        return "accept";
+      },
+    },
+    new Proxy(
+      {},
+      {
+        get() {
+          traps++;
+          return "accept";
+        },
+      },
+    ),
+  ])
+    assert.throws(() =>
+      parseTeamModelInput("review_team_task", { ...base, verdict }),
+    );
+  for (const input of [
+    { actor: "coordinator" },
+    { teamId: "chosen" },
+    { memberId: "admin" },
+    { afterTaskId: "task", limit: 2 },
+  ])
+    assert.throws(() => parseTeamModelInput("read_team_board", input));
+  for (const text of ["", "x\0y", "\ud800", "😀".repeat(1025)])
+    assert.throws(() =>
+      parseTeamModelInput("submit_team_task", {
+        requestId: "submit",
+        taskId: "task",
+        expectedRevision: 2,
+        text,
+      }),
+    );
+  assert.equal(traps, 0);
 });

@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "stage": "MC2-06c/d resident child and actual actor-bound model board workflow",
+  "status": "focused passed; frozen for Root integration",
+  "baseline": "aebd89617bd42b82a9b26e48b01b89bc9b6fa1b1",
+  "baselineTree": "e90018c758b34980ed506cc6c7cf9f7f8298065d",
+  "recordedAt": "2026-10-08T10:38:55.533353+00:00",
+  "environment": {
+    "version": {
+      "user_version": 23
+    },
+    "catalogue": {
+      "count": 139
+    },
+    "rawCatalogue": {
+      "count": 281
+    },
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v26.9.0"
+  },
+  "newTests": 21,
+  "databaseVersion": 23,
+  "namedCatalogueRows": 139,
+  "recoveryCatalogueCap": 160,
+  "migrationAdded": false,
+  "checks": [
+    {
+      "log": "/tmp/moodcode-resident-adjacent-final-source.log",
+      "sha256": "021c136f07d496212cd21667ffbb17c67b80109dfbc4d3808f6190f542fad808",
+      "exitCode": 0,
+      "tests": 161,
+      "pass": 161,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "log": "/tmp/moodcode-resident-actual-final-source.log",
+      "sha256": "1272d5594533577cdffddf338c84fecabc473bd0a1a10e3edd8f02dd6a277863",
+      "exitCode": 0,
+      "tests": 45,
+      "pass": 45,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "log": "/tmp/moodcode-resident-crash-final-source.log",
+      "sha256": "803e9c14bdabf482724d1e74786dab31922da91b9253454eae8789fc5a5211ab",
+      "exitCode": 0,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "log": "/tmp/moodcode-resident-last-boundary-source.log",
+      "exitCode": 0,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "sha256": "d1826b5321e8f3a165ab488e717dd1ad82dbedcc6b7edaf44d21ea3b255e9e5b"
+    },
+    {
+      "log": "/tmp/moodcode-resident-declaration-final.log",
+      "sha256": "204b5bcd82d61fe5364b71c2638951010d59666f68120a902ca7afc4d69580e9",
+      "exitCode": 0
+    },
+    {
+      "log": "/tmp/moodcode-resident-format-final.log",
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "exitCode": 0
+    },
+    {
+      "log": "/tmp/moodcode-resident-final-freeze-format.log",
+      "sha256": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+      "exitCode": 0
+    }
+  ],
+  "aggregateGate": "Root integrates this feature with other frozen increments and performs the aggregate gate; not run independently here",
+  "proved": [
+    "actual same child engine/storage/worktree consumes two mailbox inputs as distinct Runs/providers/native Tool Parts/ACKs",
+    "one original parent reservation and measured cumulative budget across resident turns",
+    "actual claim/read_file/approved submit/independent approved review with real Tool/Part/approval evidence",
+    "actual Root review deny/allow and complete readonly board paging",
+    "simultaneous actual model claims admit one owner",
+    "review SQL failure rolls back task completion, board CAS and typed source event",
+    "duplicate approved review has no additional native transition",
+    "actual Node PID cancellation and truthful unknown provider cleanup quarantine",
+    "default-off/reopen and paused archive import issue no live grant or provider replay",
+    "actual Root approval tamper is refused by native source and archive validation",
+    "five genuine process SIGKILL boundaries preserve actual persisted input/ACK/board source history without replay",
+    "actual source drift after committed ACK preserves the receipt but immediately cleans up and quarantines the unstarted child Run"
+  ],
+  "remainingOutsideLane": [
+    "activation of imported or uncertain physical ownership",
+    "lifetime detached from a terminal parent",
+    "nested resident budget/ownership transfer",
+    "foreground/background owner transfer",
+    "live account/model and additional OS evidence"
+  ],
+  "files": {
+    "packages/engine/src/child-tasks/engine-host.ts": "10abb3e683d4d0a8209c7cdcaf543891bc088f0e4fd9b3e2a76c51f7faf36bc7",
+    "packages/engine/src/child-tasks/resident.ts": "f5364c1a2a2cbf53c57c4b57e886b3100c4736dad18859813fee6e9055e15071",
+    "packages/engine/src/child-tasks/team-bridge.ts": "dc4f26b92eeb933aaf8cb3dae58d261cab7a3a07adf3122f0b5b37e081361582",
+    "packages/engine/src/engine.ts": "e6b4abd934213002f93740e6d5972b313d7f59ad86c17b72fdca4c401a403afd",
+    "packages/engine/src/index.ts": "8d642e18c229580b870f68cbc839aba00613d41441b300b3793b0885a1caf1f7",
+    "packages/engine/src/recovery/index.ts": "35c74d93e180a6b1e2624f32e74531826118b92975d0e52e761f44ac378a6075",
+    "packages/engine/src/runner/index.ts": "5b64a811fd5617a97eaf5c04d5ed3bc50e59dd4f3c41f906a0894273131e4076",
+    "packages/engine/src/storage/archive.ts": "ea4a3feea15b682f14e95c78598b292134516ed685e4b117ae2d0d4c5b62c5f6",
+    "packages/engine/src/storage/child-document-reader.ts": "93164543b84fa538fa9bffc1cf48847a44601247d0e8cc211fd99699b23b3c1e",
+    "packages/engine/src/storage/index.ts": "2cb39c7194a3562ee81627de696de2e740043f7efb1ea0c41abb3e404bbcbe9f",
+    "packages/engine/src/teams/child-input-proof.ts": "fefa380bb1ef705c194722db4bd0da7550806f418127bee01f8abd788d5aadbb",
+    "packages/engine/src/teams/fixtures/engine-team.ts": "0946b54d6aace3b380ad5cf6434f430031c69d97f487b9549a8e2a4971068cc8",
+    "packages/engine/src/teams/fixtures/resident-crash-child.ts": "a00579b2d140148e5ed7f870862bd07219e1998d7b81c4e8dbe90f4f1d56eff1",
+    "packages/engine/src/teams/fixtures/resident.ts": "7aa9185c675f7e3180bb78091dcab1d81b1dd652e8d85b2558d16d47b92e30e8",
+    "packages/engine/src/teams/input-port.ts": "2f8b356a85db42ed428edb05d1f738450276f307fd05c8ec9c9c3e6122f8a896",
+    "packages/engine/src/teams/mailbox.ts": "5480bd01f51cdd3c9a47ca74af844338b8c9c8f6394d799156b15d6d081ec4f1",
+    "packages/engine/src/teams/model-tool-host.ts": "f94569ad16595953b854f446ac9a1fedb223c48581731533a3149c8986b5fbdf",
+    "packages/engine/src/teams/model-tools.test.ts": "7491962ebda6511d9c5f7f775043e4ad599824039c6e3b4bfc18a85bc64cc2ba",
+    "packages/engine/src/teams/model-tools.ts": "528d828446fb09bb342fec7e67041c0e85323b4163f62bca5ad29ee732551982",
+    "packages/engine/src/teams/proof-validation.ts": "07e8b8722345d86109810ab5c614ae7fbc9a9865da9f4d630fb1ebfebac75029",
+    "packages/engine/src/teams/resident-archive.integration.test.ts": "87fc4416c3dd15f95fc885bcbefde4e105b0fb5c353c857df6091fc43288d9bf",
+    "packages/engine/src/teams/resident-board-boundaries.integration.test.ts": "0a5841bee5b4168aca9a58efdb07ebeae03bfe15b6d28dc4daaf869e0a5e42f4",
+    "packages/engine/src/teams/resident-boundaries.integration.test.ts": "2f5dfef74c68651ae049b69dc989df84f872381cd5c2f54dab1af37608f6b713",
+    "packages/engine/src/teams/resident-crash.integration.test.ts": "68f33e910185c57484dcde449391d6856d9eee5d1849435d673ad1831c16d8cc",
+    "packages/engine/src/teams/resident-validation.ts": "abcfcc5f897a5ab1370aa56acf3096acf448e69d7d235d7bce11745498541298",
+    "packages/engine/src/teams/resident.integration.test.ts": "610d6707079bb7b2b8c5a18523d02a82688625e2d38b603f8c39b302911d483c",
+    "packages/engine/src/teams/service.ts": "8797a905ae315933729d93b80b55b0212250f42899456684eee88acafa5d749c",
+    "packages/engine/src/teams/store.ts": "d12d63b31976f09501b55ef14b18b9a68b0d8e9cd47e55f1fcd56c4633bbb352",
+    "packages/engine/src/teams/types.ts": "f485368f6e90248bfca2f5af6846a61c55e8f2ab3f3af9adb3ccee2f0d7a50a3",
+    "packages/engine/src/teams/workflow-board.ts": "1199e42a0001b03920abd0a0d80635e2a7127eccaf6f0beb838de3d0b0afd3cd"
+  },
+  "parentIntegration": {
+    "status": "passed",
+    "evidence": "engine-phase-two-parallel-runtime-verification.json",
+    "rootRuntimeCorrectionsRecorded": true,
+    "frozenWholeCompiledTests": 4508,
+    "frozenDirectSourceTests": 2604
+  }
+}

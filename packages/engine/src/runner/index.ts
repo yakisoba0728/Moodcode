@@ -442,14 +442,14 @@ export class RunCoordinator implements CoordinatorPort {
     if (!captured || captured.phase !== phase || !captured.active()) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team tools require their original current coordinator context');
     const { owner, record } = captured;
     const safeBinding = this.teamContextBinding(context);
-    if (!['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task'].includes(record.name)
+    if (!['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task','read_team_board','submit_team_task','review_team_task'].includes(record.name)
       || this.owners.get(owner.run.id) !== owner || owner.terminal || owner.abort.signal.aborted || context.signal !== captured.signal || context.signal.aborted
       || safeBinding !== captured.binding || owner.activeTools.get(record.id) !== record
       || owner.run.sessionId !== context.sessionId || owner.run.id !== context.runId || owner.run.workspaceId !== context.workspace.id
       || owner.turn?.id !== context.turnId || owner.turn?.attemptId !== context.attemptId
       || record.id !== context.toolCallId || record.state !== (phase === 'prepare' ? 'requested' : 'running')) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Original team tool execution changed');
     this.captureToolCatalogue(context);
-    if (phase === 'execute' && record.name !== 'read_agent_mailbox') {
+    if (phase === 'execute' && !['read_agent_mailbox','read_team_board'].includes(record.name)) {
       if (!captured.approval) throw new EngineError('TEAM_MODEL_APPROVAL_REQUIRED', 'Team mutations require exact original native approval');
       const approval = this.options.store.getApproval(captured.approval.id);
       if (approval.status !== 'allowed' || approval.fingerprint !== captured.approval.fingerprint || approval.sessionId !== context.sessionId || approval.runId !== context.runId || approval.toolCallId !== record.id || approval.toolName !== record.name) throw new EngineError('TEAM_MODEL_APPROVAL_REQUIRED', 'Team mutation approval changed');
@@ -778,7 +778,97 @@ export class RunCoordinator implements CoordinatorPort {
   }
 
   /** Child allocations permanently reduce the active parent's absolute caps. */
-  reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
+
+private readonly childGroupSlots = new WeakMap<
+    object,
+    {
+      runId: string;
+      allocation: ChildBudget;
+      total: ChildBudget;
+      used: boolean;
+    }
+  >();
+  /** All members reserve real parent capacity before the first batch child. Slots never refund. */
+  reserveChildRunGroup(
+    runId: string,
+    allocations: readonly ChildBudget[],
+  ): object[] {
+    if (!allocations.length || allocations.length > 24)
+      throw new EngineError(
+        "CHILD_BUDGET_EXCEEDED",
+        "Bounded member allocations required",
+      );
+    const total = { turns: 0, toolCalls: 0, outputBytes: 0, durationMs: 0 };
+    for (const allocation of allocations)
+      for (const key of [
+        "turns",
+        "toolCalls",
+        "outputBytes",
+        "durationMs",
+      ] as const) {
+        if (!Number.isSafeInteger(allocation[key]) || allocation[key] < 1)
+          throw new EngineError(
+            "CHILD_BUDGET_EXCEEDED",
+            "Positive allocations required",
+          );
+        total[key] += allocation[key];
+      }
+    this.reserveChildRun(runId, total);
+    return allocations.map((allocation) => {
+      const original = Object.freeze(Object.create(null));
+      this.childGroupSlots.set(original, {
+        runId,
+        allocation: { ...allocation },
+        total: { ...total },
+        used: false,
+      });
+      return original;
+    });
+  }
+  assertChildRunGroupSlot(
+    original: object,
+    runId: string,
+    allocation: ChildBudget,
+  ): void {
+    const slot = this.childGroupSlots.get(original),
+      owner = this.owners.get(runId);
+    if (
+      !slot ||
+      slot.runId !== runId ||
+      slot.used ||
+      !owner ||
+      knowledgeHash(slot.allocation) !== knowledgeHash(allocation)
+    )
+      throw new EngineError(
+        "CHILD_RESERVATION_STALE",
+        "Original reserved member required",
+      );
+    this.assertLive(owner);
+  }
+  childRunGroupCapacity(
+    original: object,
+    runId: string,
+    allocation: ChildBudget,
+  ): ChildBudget {
+    this.assertChildRunGroupSlot(original, runId, allocation);
+    const slot = this.childGroupSlots.get(original)!,
+      remaining = this.getRemainingChildBudget(runId);
+    return {
+      ...remaining,
+      turns: remaining.turns + slot.total.turns,
+      toolCalls: remaining.toolCalls + slot.total.toolCalls,
+      outputBytes: remaining.outputBytes + slot.total.outputBytes,
+    };
+  }
+  consumeChildRunGroupSlot(
+    original: object,
+    runId: string,
+    allocation: ChildBudget,
+  ): void {
+    this.assertChildRunGroupSlot(original, runId, allocation);
+    this.childGroupSlots.get(original)!.used = true;
+  }
+reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     const owner = this.owners.get(runId);
     if (!owner) throw new EngineError('PARENT_RUN_NOT_ACTIVE', 'Child allocation requires an active owned parent Run');
     this.assertLive(owner);
@@ -977,42 +1067,118 @@ export class RunCoordinator implements CoordinatorPort {
         });
         const records = executionRecords(this.options.store);
         const revisionId = this.options.getContextRevisionId?.(run.sessionId);
-        owner.turn = new TurnExecutor({ run, index: turnIndex, inputIds: records?.listRunInputIds?.(run.id) ?? [run.inputId], budget: owner.budget,
-          store: this.options.store, wait: abortable, ...(revisionId ? { contextRevisionId: revisionId } : {}), currentContextRevisionId: () => this.options.getContextRevisionId?.(run.sessionId),
+        owner.turn = new TurnExecutor({
+          run,
+          index: turnIndex,
+          inputIds: records?.listRunInputIds?.(run.id) ?? [run.inputId],
+          budget: owner.budget,
+          store: this.options.store,
+          wait: abortable,
+          ...(revisionId ? { contextRevisionId: revisionId } : {}),
+          currentContextRevisionId: () =>
+            this.options.getContextRevisionId?.(run.sessionId),
           beforeAdapterIntent: () => {
-            this.assertLive(owner); assertCatalogueCurrent();
-            if (owner.lifecycle) this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
+            this.assertLive(owner);
+            assertCatalogueCurrent();
+            if (owner.lifecycle)
+              this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
             this.options.beforeProviderDispatch?.(run);
           },
           beforeAdapterDispatch: (request, signal) => {
-            if (!request.turnId || !request.attemptId || !records?.getAttemptCleanup) return;
-            const cleanup = records.getAttemptCleanup(request.attemptId, run.sessionId);
-            this.providerRequests.set(request, { owner, signal, pendingRead: false, proof: {
-              workspaceId: run.workspaceId, sessionId: run.sessionId, runId: run.id, turnId: request.turnId, attemptId: request.attemptId,
-              providerId: provider.id, modelId: request.modelId, requestSha256: cleanup.requestSha256,
-              configSha256: knowledgeHash(run.config), catalogueSha256: knowledgeHash(owner.catalogue ?? request.tools),
-              contextRevisionId: cleanup.contextRevisionId ?? null,
-            } });
+            if (
+              !request.turnId ||
+              !request.attemptId ||
+              !records?.getAttemptCleanup
+            )
+              return;
+            const cleanup = records.getAttemptCleanup(
+              request.attemptId,
+              run.sessionId,
+            );
+            this.providerRequests.set(request, {
+              owner,
+              signal,
+              pendingRead: false,
+              proof: {
+                workspaceId: run.workspaceId,
+                sessionId: run.sessionId,
+                runId: run.id,
+                turnId: request.turnId,
+                attemptId: request.attemptId,
+                providerId: provider.id,
+                modelId: request.modelId,
+                requestSha256: cleanup.requestSha256,
+                configSha256: knowledgeHash(run.config),
+                catalogueSha256: knowledgeHash(
+                  owner.catalogue ?? request.tools,
+                ),
+                contextRevisionId: cleanup.contextRevisionId ?? null,
+              },
+            });
+            this.options.beforeActualProviderRequest?.(request);
           },
-          afterAdapterSettlement: request => { this.providerRequests.delete(request); },
+          afterAdapterSettlement: (request) => {
+            this.providerRequests.delete(request);
+          },
           assertContextFresh: async (request, signal) => {
-            await this.options.assertContextFresh?.(request, signal); assertCatalogueCurrent();
-            if (owner.lifecycleContinuation) await this.options.lifecycleContinuation!.assertFresh(run, owner.lifecycleContinuation, signal);
-            if (owner.verificationContinuation && owner.verificationBoundary && this.options.verificationBeforeProvider) await this.options.verificationBeforeProvider(run, owner.verificationBoundary, signal);
+            await this.options.assertContextFresh?.(request, signal);
+            assertCatalogueCurrent();
+            if (owner.lifecycleContinuation)
+              await this.options.lifecycleContinuation!.assertFresh(
+                run,
+                owner.lifecycleContinuation,
+                signal,
+              );
+            if (
+              owner.verificationContinuation &&
+              owner.verificationBoundary &&
+              this.options.verificationBeforeProvider
+            )
+              await this.options.verificationBeforeProvider(
+                run,
+                owner.verificationBoundary,
+                signal,
+              );
             this.assertLive(owner);
-            if (owner.lifecycle) this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
+            if (owner.lifecycle)
+              this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
             assertCatalogueCurrent();
           },
-          ...(this.options.recoverContextOverflow ? { recoverContextOverflow: async () => {
-            assertCatalogueCurrent();
-            const failedAttemptId = owner.turn?.attemptId;
-            await abortable(() => this.options.recoverContextOverflow!({ ...contextRequest(), ...(owner.turn && failedAttemptId ? {
-              activePrefixStage: { stage: 'overflow-recovery' as const, currentTurnId: owner.turn.id, failedAttemptId, cleanupConfirmed: true as const },
-            } : {}) }, provider), owner.abort.signal, 'Context overflow recovery');
-            // TurnExecutor replaces only messages on overflow retry. Retain the
-            // same advertised schemas and handler capture or stop before retry.
-            messages = structuredClone(await context(true)); this.checkContext(owner, messages); return messages;
-          } } : {}) });
+          ...(this.options.recoverContextOverflow
+            ? {
+                recoverContextOverflow: async () => {
+                  assertCatalogueCurrent();
+                  const failedAttemptId = owner.turn?.attemptId;
+                  await abortable(
+                    () =>
+                      this.options.recoverContextOverflow!(
+                        {
+                          ...contextRequest(),
+                          ...(owner.turn && failedAttemptId
+                            ? {
+                                activePrefixStage: {
+                                  stage: "overflow-recovery" as const,
+                                  currentTurnId: owner.turn.id,
+                                  failedAttemptId,
+                                  cleanupConfirmed: true as const,
+                                },
+                              }
+                            : {}),
+                        },
+                        provider,
+                      ),
+                    owner.abort.signal,
+                    "Context overflow recovery",
+                  );
+                  // TurnExecutor replaces only messages on overflow retry. Retain the
+                  // same advertised schemas and handler capture or stop before retry.
+                  messages = structuredClone(await context(true));
+                  this.checkContext(owner, messages);
+                  return messages;
+                },
+              }
+            : {}),
+        });
         const turn = await this.providerTurn(owner, provider, messages, turnIndex);
         owner.verificationContinuation = undefined; owner.verificationBoundary = undefined; owner.lifecycleContinuation = undefined;
         this.assertLive(owner);
@@ -1364,7 +1530,7 @@ export class RunCoordinator implements CoordinatorPort {
     let inProgress = true;
     const context = this.context(owner, record, workspace, signal, () => active);
     if (execute && ['run_command','verify_changes'].includes(record.name)) this.commandJobContexts.set(context, { owner, record, active: () => inProgress, binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
-    if (['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task','read_command_job','read_command_job_output','request_workflow_stage','observe_workflow_stage','merge_workflow_stage','deliver_workflow_result'].includes(record.name)) this.teamToolContexts.set(context, { owner, record, active: () => inProgress, phase: execute ? 'execute' : 'prepare', binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
+    if (['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task','read_team_board','submit_team_task','review_team_task','read_command_job','read_command_job_output','request_workflow_stage','observe_workflow_stage','merge_workflow_stage','deliver_workflow_result'].includes(record.name)) this.teamToolContexts.set(context, { owner, record, active: () => inProgress, phase: execute ? 'execute' : 'prepare', binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
     if (execute) context.mcpExecutionObserver = createMcpExecutionObserver(this.options.store, executionRecords(this.options.store), {
       sessionId: owner.run.sessionId, workspaceId: workspace.id, runId: owner.run.id, toolCallId: record.id, toolName: record.name,
       ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}),
