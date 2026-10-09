@@ -4,7 +4,7 @@
 
 상태: G1-29까지 1차 구현과 자체 메인 엔진 2차 MC2-01~20의 **80/80 항목·20/20 기능군**을 명시 지원 범위에서 완료했다. 원래 조건을 유지한 독립 감사, 전체 회귀와 실제 공개 CI 여섯 작업으로 확인했다. [최종 수용 근거](docs/moodcode/engine-phase-two-final-acceptance-verification.json)와 docs/moodcode/engine-phase-two-progress.json을 기준으로 사용한다. E5-08 native Windows x64와 N-03의 선택 앱 계정 추론을 확인했다. E5-13·서명 배포·과거 PTY 실패 진단 R-PTY-01 및 아래 추가 검증은 열린 후속 범위다.
 
-최신 보강의 로컬 build·전체 compiled 5,326/5,323 pass/실패 0/취소 0/skip 3·DB23·CLI 6/6·계정/설정 GUI를 통과했다. 첫 전체 7개 실패는 보존하고 독립 실행 조건과 fixture 수정 근거를 분리했다. **다음 첫 작업은 게시 HEAD의 OS CI 11개 job 확인**이며, 아직 새 커밋의 hosted 성공은 기록하지 않았다.
+최신 보강의 로컬 build·전체 compiled 5,326/5,323 pass/실패 0/취소 0/skip 3·DB23·CLI 6/6·계정/설정 GUI를 통과했다. 첫 전체 7개 실패는 보존하고 독립 실행 조건과 fixture 수정 근거를 분리했다. 게시 커밋 `16e266a`의 hosted CI는 10/11 성공이며, Desktop windows-2025의 새 계정 코딩 테스트가 Job Object 애드온 미빌드(CI 순서)로 실패했다. `69c320d`의 CI 단계 격리로 세 OS Desktop packages를 통과했다. [hosted CI 기록](docs/moodcode/engine-account-lsp-followup-hosted-ci.json).
 
 ## 다음 실행 순서 — 추가 작업 → 점검·TODO 재작성 → 테스트·엔진 리팩터링
 

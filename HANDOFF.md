@@ -39,7 +39,7 @@
 
 LSP의 기존 전체 실패는 `bom-crlf-astral-definition`이다. `e3032f0` 로컬 전체는 5,303개 중 5,299 pass·1 fail·skip 3, 동일 파일 단독은 2/2 pass였다. 이후 같은 코드의 실제 OS CI 세 workflow는 성공했다. 원래 실패를 삭제하거나 단독 성공으로 전체 성공을 만들지 않는다. Native disk BOM 제거와 열린 문서 BOM 보존의 차이는 확인했고, 같은 원래 경합의 재현 여부와 일관된 projection 수정의 검증을 구분한다.
 
-최종 로컬 build·전체 compiled **5,326/5,323 pass/실패 0/취소 0/skip 3**·DB23 비교·CLI 6/6·계정 GUI·Settings GUI는 통과했다. 첫 전체 7개 실패와 fixture 수정·실행 조건 차이는 최신 검증 문서에 보존했다. 새 게시 커밋의 OS CI는 아직 확인 전이므로 다음 세션이 해당 HEAD의 11개 job 상태를 확인한다.
+최종 로컬 build·전체 compiled **5,326/5,323 pass/실패 0/취소 0/skip 3**·DB23 비교·CLI 6/6·계정 GUI·Settings GUI는 통과했다. 첫 전체 7개 실패와 fixture 수정·실행 조건 차이는 최신 검증 문서에 보존했다. 게시 커밋 `16e266a`의 OS CI는 11개 중 10개 성공, Desktop packages windows-2025 1개 실패였다. 새 계정 코딩 테스트의 `run_command`가 `WINDOWS_JOB_BACKEND_UNAVAILABLE`로 실패했고, 원인은 해당 job이 그 단계 전에 Job Object 애드온을 빌드하지 않은 CI 순서였다(제품 결함 아님). `69c320d`에서 이 테스트를 별도 단계로 옮겨 Windows에서만 Node 애드온 빌드→테스트→제거로 격리했고 세 OS Desktop packages가 통과했다. [hosted CI 기록](docs/moodcode/engine-account-lsp-followup-hosted-ci.json).
 
 ## 남아 있는 후속
 

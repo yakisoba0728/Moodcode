@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "kind": "moodcode-engine-account-lsp-followup-hosted-ci",
+  "date": "2026-10-10",
+  "publicationCommit": "16e266aa4858745d6c753b491b1694da3cbbaac7",
+  "priorRecord": "engine-account-lsp-followup-verification.json",
+  "priorRecordUnchanged": true,
+  "priorRecordQualification": "The prior record pins the local sources of the publication commit and its hostedCi field is not-yet-observed. It is kept as written; this record adds the hosted outcome and the follow-up fix.",
+  "publicationHostedCi": {
+    "expectedJobs": 11,
+    "observedJobs": 11,
+    "passedJobs": 10,
+    "failedJobs": 1,
+    "runs": [
+      { "workflow": "Engine headless", "runId": 37980915869, "conclusion": "success",
+        "jobs": { "Headless macos-15 / Node 24.x": "success", "Headless macos-15 / Node 26.x": "success", "Headless ubuntu-24.04 / Node 24.x": "success", "Headless ubuntu-24.04 / Node 26.x": "success", "Portable contracts/storage only / Windows / Node 24.x": "success", "Portable contracts/storage only / Windows / Node 26.x": "success" } },
+      { "workflow": "Engine native Windows", "runId": 37980915815, "conclusion": "success",
+        "jobs": { "Native Windows Job Object / x64 / Node 24.x": "success", "Native Windows Job Object / x64 / Node 26.x": "success" } },
+      { "workflow": "Desktop packages", "runId": 37980915884, "conclusion": "failure",
+        "jobs": { "Unsigned bundle and native smoke / macos-15": "success", "Unsigned bundle and native smoke / ubuntu-24.04": "success", "Unsigned bundle and native smoke / windows-2025": "failure" } }
+    ]
+  },
+  "failure": {
+    "job": "Unsigned bundle and native smoke / windows-2025",
+    "step": "Native account, update, MCP and evidence regression",
+    "test": "scripts/desktop-codex-account-verification.test.mjs: local HTTP native Codex flow observes red/green, exact approvals, immutable tests, usage and zero duplicate replay while retaining Original",
+    "stepTotals": { "tests": 220, "pass": 218, "fail": 1, "skipped": 1 },
+    "observed": "Baseline RED, completed Run, verified patch and unchanged test file passed; nativeExitZero, nativeCleanupConfirmed, tenCasesPassed and zeroFailures were all false.",
+    "evidenceGap": "The verifier child printed its report only on success and its temporary directory was outside the uploaded artifact paths, so the first run did not record the tool state."
+  },
+  "diagnosis": {
+    "evidenceCommit": "2ee2fb74156b76af48e0076a0efdc7934aedf928",
+    "evidenceChange": "The failed child prints its secret-free report and exits normally; report.tools carries only the code of an Engine tool-error envelope.",
+    "runId": 37982319626,
+    "windowsJobId": 113995643935,
+    "tools": [
+      { "name": "read_file", "state": "completed" },
+      { "name": "apply_patch", "state": "completed" },
+      { "name": "run_command", "state": "failed", "errorCode": "WINDOWS_JOB_BACKEND_UNAVAILABLE" }
+    ],
+    "approvalsRequested": ["apply_patch"],
+    "runState": "completed",
+    "cause": "The Engine requires the native Windows Job Object host and never falls back to a direct child. The desktop package job does not build @moodcode/windows-job before this step (its install script is a no-op); packaging builds it later and only for Electron.",
+    "productDefect": false
+  },
+  "fix": {
+    "commit": "69c320d89eea2c7997f009936ffc9c62f3361b01",
+    "change": "Run the account coding test in its own Desktop packages step. On Windows, build the Node Job Object addon immediately before it and remove packages/windows-job/build immediately after, so the later Electron utility steps keep their original native state and packaging still performs its own Electron rebuild.",
+    "assertionsChanged": false,
+    "skipsAdded": 0,
+    "sourcePins": [
+      { "path": ".github/workflows/desktop-package.yml", "bytes": 6500, "sha256": "f4aa446d1cae72c0c029ac4158bbfab0e519b16c65776721d81fac7b12e19a37" },
+      { "path": "scripts/desktop-codex-account-verification.mjs", "bytes": 18692, "sha256": "8c2720a374b21e0f4f4700b50ce01f573b3dacd03417a63eb28004516bf453d3" },
+      { "path": "scripts/desktop-codex-account-verification.test.mjs", "bytes": 11320, "sha256": "dae5590ac03397a17865b25e25566c5aadf2f9ab8248c03ab66c31e6607619ad" }
+    ],
+    "supersedesPriorPinsFor": [".github/workflows/desktop-package.yml", "scripts/desktop-codex-account-verification.mjs", "scripts/desktop-codex-account-verification.test.mjs"],
+    "localCheck": { "platform": "darwin", "arch": "arm64", "node": "26.9.0", "test": "node --test scripts/desktop-codex-account-verification.test.mjs", "pass": 6, "fail": 0, "failurePathReportPrinted": true }
+  },
+  "fixHostedCi": {
+    "branch": "fix/desktop-windows-account-test",
+    "commit": "69c320d89eea2c7997f009936ffc9c62f3361b01",
+    "workflow": "Desktop packages",
+    "runId": 37982775822,
+    "conclusion": "success",
+    "jobs": { "Unsigned bundle and native smoke / macos-15": "success", "Unsigned bundle and native smoke / ubuntu-24.04": "success", "Unsigned bundle and native smoke / windows-2025": "success" },
+    "windows": {
+      "jobId": 113997173117,
+      "sharedRegressionStep": { "tests": 214, "pass": 213, "fail": 0, "cancelled": 0, "skipped": 1 },
+      "accountCodingStep": { "tests": 6, "pass": 6, "fail": 0, "cancelled": 0, "skipped": 0 },
+      "nodeAddonBuildStep": "success",
+      "nodeAddonRemovalStep": "success",
+      "laterElectronAndPackagedJobObjectSteps": "success"
+    },
+    "notCoveredByThisRun": "Engine native Windows does not run for this path set; its 16e266a success is unchanged by these test/CI-only edits. Publication to main triggers its own hosted runs."
+  },
+  "qualification": [
+    "macOS and Linux never exercised the Windows Job Object path; their earlier local and hosted results are unchanged. The local 5,326-test gate was darwin arm64.",
+    "The new Windows result adds coverage of the local HTTP account coding fixture under a Node-built Job Object addon. It is not a live account request and does not cover the Electron-built addon, which the existing packaged Windows step covers.",
+    "report.tools gains errorCode only for an Engine tool-error envelope, so the recorded successful live report shape is unaffected and its pins need no requalification."
+  ]
+}

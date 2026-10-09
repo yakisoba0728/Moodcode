@@ -46,7 +46,7 @@ Source focused Accounts 31/31·Host 55/55·broker 7/7·Worker core 25/25를 확�
 
 DB23 baseline 비교·live verifier CLI 6/6·계정 GUI·Settings GUI도 통과했다. 계정 GUI의 로그인·선택·갱신·로그아웃·재연결·삭제는 외부 인증 fixture이며 추론 0회다. Utility 6개 ACK/exit 0·앱 exit 0은 관측했고 전체 Native cleanup unknown은 유지했다. 기존 GUI 원본을 덮어쓰지 않도록 계정 GUI script에 별도 artifact 디렉터리 인자를 추가했다. Settings GUI는 암호화 키 저장/제거·비공개 경계·설정 오류 표시를 확인했고 provider 0회였다. 격리 환경에서 로컬 Codex 전환은 관측하지 않았다.
 
-새 게시 커밋의 OS CI는 아직 확인 전이다. 이전 커밋의 성공을 이번 구현의 11개 hosted job 성공으로 사용하지 않는다. 다음 세션은 remote HEAD에 맞는 실제 job 상태와 실패 로그를 먼저 확인한다.
+새 게시 커밋의 OS CI는 아직 확인 전이다. 이전 커밋의 성공을 이번 구현의 11개 hosted job 성공으로 사용하지 않는다. 다음 세션은 remote HEAD에 맞는 실제 job 상태와 실패 로그를 먼저 확인한다. 이후 관측한 hosted 결과(10/11)와 Windows CI 순서 수정은 위 문장을 고치지 않고 [hosted CI 기록](engine-account-lsp-followup-hosted-ci.json)에 별도로 남겼다.
 
 첫 CPU 기본 동시성 전체 실행은 5,326개 중 5,316 PASS·7 fail·기존 Windows skip 3이었다. 다음 판정을 별도로 남겼다.
 
