@@ -4,10 +4,12 @@ import { mkdir, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { createDesktopTestDirectory, captureDesktopNativeEvidence, preserveDesktopTestEvidence } from './desktop-test-evidence.mjs';
 import { MAIN_UTILITY_CLOSE_EVENT, bindMainUtilityClose, readMainUtilityClose, qualifyMainUtilityClose, qualifyDesktopNativeCleanup, aggregateFixtureCleanup } from './desktop-main-utility-close.mjs';
 
 const output = resolve('artifacts/next-main-utility-close');
+const executablePath = createRequire(import.meta.url)('electron');
 const runId = randomUUID();
 await mkdir(output, { recursive: true });
 const environment = { ...process.env, MOODCODE_API_KEY: '', OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '' };
@@ -24,7 +26,7 @@ async function productionQuit() {
   let application, before, after, receiptPath, receipt, failure;
   const applicationClose = { requested: false, settled: false, exitObserved: false, exitCode: null, establishesNativeCleanup: false };
   try {
-    application = await electron.launch({ timeout: 20_000, args: [resolve('apps/desktop')], env: { ...environment, MOODCODE_DESKTOP_USER_DATA: join(fixture, 'userData'),
+    application = await electron.launch({ executablePath, timeout: 20_000, args: [resolve('apps/desktop')], env: { ...environment, MOODCODE_DESKTOP_USER_DATA: join(fixture, 'userData'),
       MOODCODE_DESKTOP_TEST: '1', MOODCODE_DESKTOP_TEST_SCENARIO: 'coding' } });
     application.process().once('exit', code => { applicationClose.exitObserved = true; applicationClose.exitCode = code; });
     receiptPath = await bindMainUtilityClose(application, fixture);
@@ -79,7 +81,7 @@ parentPort.on('message',({data:m})=>{
 });\n`);
   let application, receiptPath, before, after, receipt, observation, failure;
   try {
-    application = await electron.launch({ timeout: 20_000, args: [entry], env: { ...environment, MOODCODE_DESKTOP_USER_DATA: join(fixture, 'userData') } });
+    application = await electron.launch({ executablePath, timeout: 20_000, args: [entry], env: { ...environment, MOODCODE_DESKTOP_USER_DATA: join(fixture, 'userData') } });
     receiptPath = await bindMainUtilityClose(application, fixture);
     const started = await application.evaluate(async ({ app, utilityProcess }, { key, worker, fixture, mode, event }) => {
       const DesktopHost = globalThis[key];
