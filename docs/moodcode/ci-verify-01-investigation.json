@@ -37,7 +37,14 @@
     "preservedAssertions": true,
     "productCodeChanged": false,
     "localVerification": { "command": "node --test packages/engine/dist/verification/engine-verification.test.js", "runs": 3, "tests": 16, "pass": 16, "fail": 0 },
-    "intermediateFailure": "A first version subscribed from seq 0; the repair test's second wait then matched the earlier, already decided approval and failed 2/2 locally. Subscribing after the snapshot's lastSeq fixed it."
+    "intermediateFailure": "A first version subscribed from seq 0; the repair test's second wait then matched the earlier, already decided approval and failed 2/2 locally. Subscribing after the snapshot's lastSeq fixed it.",
+    "hostedAfterFix": {
+      "commit": "396199bd49b5ce2879c7221f7f2891210fcda60d", "branch": "fix/ci-verify-01-approval-wait",
+      "runs": { "Engine headless": 38002283249, "Desktop packages": 38002283259 }, "conclusion": "success", "jobs": "6/6 Engine headless, 3/3 Desktop packages",
+      "macosNode24": { "job": 114062930407, "testMs": 3060.6, "gate": { "tests": 5034, "pass": 5031, "fail": 0, "skipped": 3 } },
+      "macosNode26": { "job": 114062930497, "testMs": 3499.0, "gate": { "tests": 5034, "pass": 5031, "fail": 0, "skipped": 3 } },
+      "note": "The same test took 5.4-5.6 s before the change on hosted macOS; one run per OS does not establish the size of the improvement."
+    }
   },
   "followUp": "PERF-GIT-01: bounded reduction of repository-context git probes (for example one combined HEAD/branch probe, or reusing the query observation's own preview inside assertFresh) that preserves the never-bypass-fresh-check contract and passes the full gate."
 }
