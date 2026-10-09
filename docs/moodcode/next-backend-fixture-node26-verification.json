@@ -1,0 +1,671 @@
+{
+  "schemaVersion": 1,
+  "kind": "backend-fixture-node26-original-retention-verification",
+  "generatedAt": "2026-10-09T10:50:04.946426+00:00",
+  "scope": "One Node 26.9.0 affected backend group plus five existing native fixture-retention cases and bounded collector; implementation/build/Node24/renderer/GUI/whole/soak results belong to separate tasks.",
+  "passed": true,
+  "noLive": true,
+  "runtime": {
+    "mode": "compiled",
+    "nodeVersion": "v26.9.0",
+    "nodeBinary": {
+      "path": "/usr/local/bin/node",
+      "bytes": 295829824,
+      "sha256": "5795fa1228fbf4b781ecc0d681de06cd9d2b07b148dba33880574b0792304f5a"
+    }
+  },
+  "execution": {
+    "outerCommand": [
+      "python3",
+      "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/run-focused.py",
+      "/usr/local/bin/node",
+      "node26"
+    ],
+    "actualTestCommand": [
+      "/usr/local/bin/node",
+      "--test",
+      "--test-concurrency=1",
+      "packages/engine/dist/agent-backends/fixture-retention.integration.test.js",
+      "packages/engine/dist/agent-backends/receipt-contract.integration.test.js",
+      "packages/engine/dist/agent-backends/engine-backends.integration.test.js",
+      "packages/engine/dist/agent-backends/store.test.js",
+      "packages/engine/dist/agent-backends/archive.integration.test.js",
+      "packages/engine/dist/agent-backends/producer-boundaries.integration.test.js",
+      "packages/engine/dist/agent-backends/admission-rollback.integration.test.js",
+      ".github/scripts/engine-ci.test.mjs"
+    ],
+    "workingDirectory": "/Users/yakisoba0728/Documents/GitHub/Moodcode",
+    "started": "2026-10-09T10:45:38.847869+00:00",
+    "completed": "2026-10-09T10:45:50.565097+00:00",
+    "durationMs": 11717.046624999966,
+    "exitCode": 0,
+    "counters": {
+      "tests": 37,
+      "suites": 0,
+      "pass": 37,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "groupCounts": {
+      "fixture-retention": 5,
+      "receipt-contract": 2,
+      "engine-backends": 10,
+      "store": 6,
+      "archive": 2,
+      "producer-boundaries": 4,
+      "admission-rollback": 1,
+      "engine-ci": 7
+    },
+    "testGroupExecutions": 1,
+    "postProcessCollectorExecutions": 1,
+    "actualPostProcessCollectorCommand": [
+      "/usr/local/bin/node",
+      "--input-type=module",
+      "-e",
+      "import { preserveBackendFixtureEvidence } from './.github/scripts/engine-ci.mjs'; const result = await preserveBackendFixtureEvidence(process.argv[1], process.argv[2]); console.log(JSON.stringify(result)); if(result.status !== 'preserved-selected-diagnostics') process.exitCode = 1;",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc",
+      "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics"
+    ],
+    "postProcessCollectorExitCode": 0
+  },
+  "isolation": {
+    "TMPDIR": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/",
+    "temporaryCanonical": true,
+    "temporaryOutsideGitCheckout": true,
+    "noAncestorPackageJsonOrGit": true,
+    "backendOnlyOwnedParent": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc",
+    "backendParentCreatedFreshByRunner": true,
+    "selectedDiagnosticsIgnoredProjectRoot": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics",
+    "scriptedFixtureDataOnly": true,
+    "realAuthOrProfileRead": false,
+    "nativeOriginalDeleteAuthorityUsed": false,
+    "numericPidSignalAuthorityUsed": false
+  },
+  "sourceCompiledPins": {
+    "beforeAfterPinsEqual": true,
+    "files": [
+      {
+        "path": ".github/scripts/engine-ci.mjs",
+        "bytes": 32344,
+        "sha256": "bbc735c19ff8dcdf4602cc5d77347361c5b0187de9fe5091e2a69cc6b81d398f"
+      },
+      {
+        "path": "packages/engine/src/agent-backends/fixtures/backend.ts",
+        "bytes": 9530,
+        "sha256": "b127253af92d6bbccee5df452428943cc8cafb041e933b25ee5dc259e50ea5bc"
+      },
+      {
+        "path": "packages/engine/src/agent-backends/fixture-retention.integration.test.ts",
+        "bytes": 7758,
+        "sha256": "a1cd1339c2968876f994e887347064f26345a6f755f65deebaeba947682d1839"
+      },
+      {
+        "path": "packages/engine/dist/agent-backends/fixtures/backend.js",
+        "bytes": 9081,
+        "sha256": "e8e278abc872502152e53f2ea8d88837ed7f9610c54c85f5c746939d3e7f86e7"
+      },
+      {
+        "path": "packages/engine/dist/agent-backends/fixture-retention.integration.test.js",
+        "bytes": 8379,
+        "sha256": "587d5fda02d1c657d807a2ee45d205768d87d21208de8dc1f81d9d515aa72b82"
+      },
+      {
+        "path": "packages/engine/dist/agent-backends/receipt-contract.integration.test.js",
+        "bytes": 11696,
+        "sha256": "f989b34cb9ea51b22f31209fbd80471716aaf9b4272e68246e0f525c285d7f81"
+      },
+      {
+        "path": "packages/engine/dist/agent-backends/engine-backends.integration.test.js",
+        "bytes": 10093,
+        "sha256": "201b9cd6fcf0f2f8aaacc2fe9301e3da9e440c55734fcad95f5823c114d66f4c"
+      },
+      {
+        "path": "packages/engine/dist/agent-backends/store.test.js",
+        "bytes": 9187,
+        "sha256": "02970ad0f885fa6d7e0ecd04e68d033a3d8eda288448c9c04d324891d0144f91"
+      },
+      {
+        "path": "packages/engine/dist/agent-backends/archive.integration.test.js",
+        "bytes": 7193,
+        "sha256": "89064bb56c2d485b1cb06e60045ff70f0fee86ba4d76b1735bc3111408fb25c7"
+      },
+      {
+        "path": "packages/engine/dist/agent-backends/producer-boundaries.integration.test.js",
+        "bytes": 10887,
+        "sha256": "ddfbfbd41b9d739f6014f5f1a197c78d4e2c3e2c1786f947259af89ea5c6ecd3"
+      },
+      {
+        "path": "packages/engine/dist/agent-backends/admission-rollback.integration.test.js",
+        "bytes": 3804,
+        "sha256": "eb205ff0784751e6d3bf8ae114844d49fa3d1be8e9f4dc4b59302b6ecc1ff24e"
+      },
+      {
+        "path": ".github/scripts/engine-ci.test.mjs",
+        "bytes": 19505,
+        "sha256": "0313d59dbf7e2de1b5c8c2230ddf046cbfa6211aeba3952dddc89c14db46dc0e"
+      }
+    ],
+    "runnerPinObservedAtEvidenceAssembly": {
+      "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/run-focused.py",
+      "bytes": 4652,
+      "sha256": "9e8d5ed4c1ba8506c680aa6a4a694473a29c67987365229f33bf9e8fe8def4d3"
+    },
+    "changedHarness": {
+      "childEnvironmentRemovesOnly": "NODE_TEST_CONTEXT",
+      "deadlineMs": 30000,
+      "sameIndependentAssertions": true,
+      "sourceSha256": "a1cd1339c2968876f994e887347064f26345a6f755f65deebaeba947682d1839",
+      "compiledSha256": "587d5fda02d1c657d807a2ee45d205768d87d21208de8dc1f81d9d515aa72b82"
+    }
+  },
+  "productionGraph": {
+    "frozenManifest": {
+      "path": "artifacts/next-continuation/engine-16b2a10/runtime-before.json",
+      "bytes": 149152,
+      "sha256": "4b02ab6c342051b29da1d4a05e40bbaf0a7a57949b0db07446e8e7c19003588b"
+    },
+    "frozenGraphSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+    "independentlyRehashedCurrentGraphSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+    "files": 771,
+    "bytes": 11899924,
+    "everyFilePinMatchesFrozen16b": true,
+    "runnerBeforeAfterMismatches": [],
+    "backendFixtureManifestEntries": 0,
+    "qualification": "Fixture/test/collector changes are outside the frozen production manifest; no new whole/soak assertion."
+  },
+  "nativeRetentionCases": [
+    {
+      "mode": "success",
+      "existingIndependentAssertions": "passed",
+      "original": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-7ZlvaP/moodcode-backend-consumer-9Wwc8o",
+      "selectedDiagnostics": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-eLprzv",
+      "childExitExpectedAndAsserted": 0,
+      "childAfterAllTestCleanupObservation": {
+        "base": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-7ZlvaP/moodcode-backend-consumer-9Wwc8o",
+        "handlesClosed": [
+          true
+        ]
+      },
+      "originalPeerStarts": 1,
+      "originalPeerPrompts": 1,
+      "primarySqlite": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-7ZlvaP/moodcode-backend-consumer-9Wwc8o/engine.sqlite",
+        "bytes": 1474560,
+        "sha256": "e0c44cd33f6223b5f6806df94cd6076cbf42103e133da73bb6c1478907f9cc2f"
+      },
+      "selectedPrimarySqlite": {
+        "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-eLprzv/moodcode-backend-consumer-9Wwc8o/engine.sqlite",
+        "bytes": 1474560,
+        "sha256": "e0c44cd33f6223b5f6806df94cd6076cbf42103e133da73bb6c1478907f9cc2f"
+      },
+      "retention": {
+        "schemaVersion": 1,
+        "kind": "backend-fixture-retention",
+        "base": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-7ZlvaP/moodcode-backend-consumer-9Wwc8o",
+        "outcome": "success",
+        "ownedEngines": 1,
+        "closedEngines": 1,
+        "closeFailures": 0,
+        "nativeCleanupConfirmed": null,
+        "databaseRemoved": false
+      },
+      "originalRetained": true,
+      "collectorStatus": "preserved-selected-diagnostics",
+      "collectorFailure": null,
+      "originalTestErrorPreservedByExistingAssertion": false,
+      "firstCloseErrorPreservedByExistingAssertion": false,
+      "manifestWriteFailurePreservesOriginalErrorByExistingAssertion": false,
+      "nativeCleanupConfirmed": null
+    },
+    {
+      "mode": "failure",
+      "existingIndependentAssertions": "passed",
+      "original": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-b1CVRj/moodcode-backend-consumer-Tk8gNi",
+      "selectedDiagnostics": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-5ZP3ke",
+      "childExitExpectedAndAsserted": 1,
+      "childAfterAllTestCleanupObservation": {
+        "base": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-b1CVRj/moodcode-backend-consumer-Tk8gNi",
+        "handlesClosed": [
+          true
+        ]
+      },
+      "originalPeerStarts": 1,
+      "originalPeerPrompts": 1,
+      "primarySqlite": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-b1CVRj/moodcode-backend-consumer-Tk8gNi/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "4dda9954350a52502bf45409485782e1523c3660c94839a426150878833895b3"
+      },
+      "selectedPrimarySqlite": {
+        "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-5ZP3ke/moodcode-backend-consumer-Tk8gNi/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "4dda9954350a52502bf45409485782e1523c3660c94839a426150878833895b3"
+      },
+      "retention": {
+        "schemaVersion": 1,
+        "kind": "backend-fixture-retention",
+        "base": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-b1CVRj/moodcode-backend-consumer-Tk8gNi",
+        "outcome": "failure",
+        "ownedEngines": 1,
+        "closedEngines": 1,
+        "closeFailures": 0,
+        "nativeCleanupConfirmed": null,
+        "databaseRemoved": false
+      },
+      "originalRetained": true,
+      "collectorStatus": "preserved-selected-diagnostics",
+      "collectorFailure": null,
+      "originalTestErrorPreservedByExistingAssertion": true,
+      "firstCloseErrorPreservedByExistingAssertion": false,
+      "manifestWriteFailurePreservesOriginalErrorByExistingAssertion": false,
+      "nativeCleanupConfirmed": null
+    },
+    {
+      "mode": "close-error",
+      "existingIndependentAssertions": "passed",
+      "original": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-htkm9h/moodcode-backend-consumer-lh1yay",
+      "selectedDiagnostics": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-o9kSt2",
+      "childExitExpectedAndAsserted": 1,
+      "childAfterAllTestCleanupObservation": {
+        "base": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-htkm9h/moodcode-backend-consumer-lh1yay",
+        "handlesClosed": [
+          true,
+          true
+        ]
+      },
+      "originalPeerStarts": 1,
+      "originalPeerPrompts": 1,
+      "primarySqlite": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-htkm9h/moodcode-backend-consumer-lh1yay/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "d876beb3ae58119ad2b097dc651d73eee49622e856f34bd7e5898bac48ba5ccd"
+      },
+      "selectedPrimarySqlite": {
+        "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-o9kSt2/moodcode-backend-consumer-lh1yay/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "d876beb3ae58119ad2b097dc651d73eee49622e856f34bd7e5898bac48ba5ccd"
+      },
+      "retention": {
+        "schemaVersion": 1,
+        "kind": "backend-fixture-retention",
+        "base": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-htkm9h/moodcode-backend-consumer-lh1yay",
+        "outcome": "close-error",
+        "ownedEngines": 2,
+        "closedEngines": 1,
+        "closeFailures": 1,
+        "nativeCleanupConfirmed": null,
+        "databaseRemoved": false
+      },
+      "originalRetained": true,
+      "collectorStatus": "preserved-selected-diagnostics",
+      "collectorFailure": null,
+      "originalTestErrorPreservedByExistingAssertion": false,
+      "firstCloseErrorPreservedByExistingAssertion": true,
+      "manifestWriteFailurePreservesOriginalErrorByExistingAssertion": false,
+      "nativeCleanupConfirmed": null
+    },
+    {
+      "mode": "unknown",
+      "existingIndependentAssertions": "passed",
+      "original": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-VI0GL6/moodcode-backend-consumer-YPpsxH",
+      "selectedDiagnostics": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-SqP7Sh",
+      "childExitExpectedAndAsserted": 0,
+      "childAfterAllTestCleanupObservation": {
+        "base": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-VI0GL6/moodcode-backend-consumer-YPpsxH",
+        "handlesClosed": [
+          true
+        ]
+      },
+      "originalPeerStarts": 1,
+      "originalPeerPrompts": 1,
+      "primarySqlite": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-VI0GL6/moodcode-backend-consumer-YPpsxH/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "2f0acb78b65a9ccabb698aa0cc933ca181654c257e27bf421e9ae1a7408e3357"
+      },
+      "selectedPrimarySqlite": {
+        "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-SqP7Sh/moodcode-backend-consumer-YPpsxH/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "2f0acb78b65a9ccabb698aa0cc933ca181654c257e27bf421e9ae1a7408e3357"
+      },
+      "retention": {
+        "schemaVersion": 1,
+        "kind": "backend-fixture-retention",
+        "base": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-VI0GL6/moodcode-backend-consumer-YPpsxH",
+        "outcome": "unknown",
+        "ownedEngines": 1,
+        "closedEngines": 1,
+        "closeFailures": 0,
+        "nativeCleanupConfirmed": null,
+        "databaseRemoved": false
+      },
+      "originalRetained": true,
+      "collectorStatus": "preserved-selected-diagnostics",
+      "collectorFailure": null,
+      "originalTestErrorPreservedByExistingAssertion": false,
+      "firstCloseErrorPreservedByExistingAssertion": false,
+      "manifestWriteFailurePreservesOriginalErrorByExistingAssertion": false,
+      "nativeCleanupConfirmed": null
+    },
+    {
+      "mode": "manifest-error",
+      "existingIndependentAssertions": "passed",
+      "original": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-buZ59F/moodcode-backend-consumer-keAdUa",
+      "selectedDiagnostics": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-pZSRQo",
+      "childExitExpectedAndAsserted": 1,
+      "childAfterAllTestCleanupObservation": {
+        "base": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-buZ59F/moodcode-backend-consumer-keAdUa",
+        "handlesClosed": [
+          true
+        ]
+      },
+      "originalPeerStarts": 1,
+      "originalPeerPrompts": 1,
+      "primarySqlite": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-buZ59F/moodcode-backend-consumer-keAdUa/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "9b4d740065c7721f6ed44e99da0f547cbf6a4de7e51d3c7e0ec07a475410ca02"
+      },
+      "selectedPrimarySqlite": {
+        "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-pZSRQo/moodcode-backend-consumer-keAdUa/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "9b4d740065c7721f6ed44e99da0f547cbf6a4de7e51d3c7e0ec07a475410ca02"
+      },
+      "retention": null,
+      "originalRetained": true,
+      "collectorStatus": "incomplete-selected-diagnostics",
+      "collectorFailure": "BACKEND_EVIDENCE_UNSUPPORTED_ENTRY",
+      "originalTestErrorPreservedByExistingAssertion": true,
+      "firstCloseErrorPreservedByExistingAssertion": false,
+      "manifestWriteFailurePreservesOriginalErrorByExistingAssertion": true,
+      "nativeCleanupConfirmed": null
+    }
+  ],
+  "collectorBoundaries": {
+    "unknownBudgetPartial": {
+      "manifest": {
+        "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-iCtSZU/manifest.json",
+        "bytes": 1411,
+        "sha256": "7e3e6e1bb1cb99be4618ae9a02133c9d9f16df7a2aa6a7ab2b62209afc9de558"
+      },
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_BYTE_OR_FILE_LIMIT",
+      "selectedFiles": 1,
+      "selectedBytes": 0,
+      "fixtureCount": 1,
+      "refusedRoots": [],
+      "nativeCleanupConfirmed": null,
+      "fullFixtureCopy": false
+    },
+    "unknownUnsupportedRootRefusal": {
+      "manifest": {
+        "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-0Nir0q/manifest.json",
+        "bytes": 3626,
+        "sha256": "62a8a35a350a8fbcc62ca80a2d3d81de3dc93e021b92852b170df9dcfb96cd7c"
+      },
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ROOT",
+      "selectedFiles": 11,
+      "selectedBytes": 1511314,
+      "fixtureCount": 1,
+      "refusedRoots": [
+        {
+          "original": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-VI0GL6/moodcode-backend-consumer-ordinary",
+          "reason": "not-directory",
+          "retainedType": "regular-file"
+        },
+        {
+          "original": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-VI0GL6/moodcode-backend-consumer-symlink",
+          "reason": "not-directory",
+          "retainedType": "symlink"
+        }
+      ],
+      "nativeCleanupConfirmed": null,
+      "fullFixtureCopy": false
+    },
+    "existingPrimaryBytesUnchangedAndOriginalRetained": true,
+    "metadataWriteRefusal": {
+      "mode": "manifest-error",
+      "retentionMetadataRetainedAsDirectory": true,
+      "testBodyMarkerPreservedByExistingAssertion": true,
+      "collectorSelectedEntryRefused": true
+    },
+    "qualification": "Partial/refused copies are incomplete diagnostics, never cleanup success."
+  },
+  "postProcessCollector": {
+    "status": "preserved-selected-diagnostics",
+    "failure": null,
+    "originalRoot": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc",
+    "selectedDestination": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-glRmbE",
+    "fixtures": 27,
+    "files": 262,
+    "bytes": 41279940,
+    "fullFixtureCopy": false,
+    "nativeCleanupConfirmed": null
+  },
+  "allSelectedDiagnosticCopies": {
+    "manifests": [
+      {
+        "manifest": {
+          "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-0Nir0q/manifest.json",
+          "bytes": 3626,
+          "sha256": "62a8a35a350a8fbcc62ca80a2d3d81de3dc93e021b92852b170df9dcfb96cd7c"
+        },
+        "status": "incomplete-selected-diagnostics",
+        "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ROOT",
+        "selectedFiles": 11,
+        "selectedBytes": 1511314,
+        "fixtureCount": 1,
+        "refusedRoots": [
+          {
+            "original": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-VI0GL6/moodcode-backend-consumer-ordinary",
+            "reason": "not-directory",
+            "retainedType": "regular-file"
+          },
+          {
+            "original": "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-VI0GL6/moodcode-backend-consumer-symlink",
+            "reason": "not-directory",
+            "retainedType": "symlink"
+          }
+        ],
+        "nativeCleanupConfirmed": null,
+        "fullFixtureCopy": false
+      },
+      {
+        "manifest": {
+          "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-5ZP3ke/manifest.json",
+          "bytes": 2991,
+          "sha256": "424555adbe72aea44a4f182cfea464ae7badfab0c87630b3b6b17c388f20562a"
+        },
+        "status": "preserved-selected-diagnostics",
+        "failure": null,
+        "selectedFiles": 10,
+        "selectedBytes": 1511314,
+        "fixtureCount": 1,
+        "refusedRoots": [],
+        "nativeCleanupConfirmed": null,
+        "fullFixtureCopy": false
+      },
+      {
+        "manifest": {
+          "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-SqP7Sh/manifest.json",
+          "bytes": 2991,
+          "sha256": "e08167ee8bdcd3c7b7ef7bb50222aca158485519faf12b196911c00c59f7d484"
+        },
+        "status": "preserved-selected-diagnostics",
+        "failure": null,
+        "selectedFiles": 10,
+        "selectedBytes": 1511314,
+        "fixtureCount": 1,
+        "refusedRoots": [],
+        "nativeCleanupConfirmed": null,
+        "fullFixtureCopy": false
+      },
+      {
+        "manifest": {
+          "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-eLprzv/manifest.json",
+          "bytes": 2991,
+          "sha256": "92271d6e21720c85f0dd1eef16654962c1461ec845e3be4c4ba69d1ffaa77d3d"
+        },
+        "status": "preserved-selected-diagnostics",
+        "failure": null,
+        "selectedFiles": 10,
+        "selectedBytes": 1589289,
+        "fixtureCount": 1,
+        "refusedRoots": [],
+        "nativeCleanupConfirmed": null,
+        "fullFixtureCopy": false
+      },
+      {
+        "manifest": {
+          "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-glRmbE/manifest.json",
+          "bytes": 62279,
+          "sha256": "f7c0c3e153ee0608fb62b0bcf0ab8b62b77e3bfc6dddc68160a71c20820050a2"
+        },
+        "status": "preserved-selected-diagnostics",
+        "failure": null,
+        "selectedFiles": 262,
+        "selectedBytes": 41279940,
+        "fixtureCount": 27,
+        "refusedRoots": [],
+        "nativeCleanupConfirmed": null,
+        "fullFixtureCopy": false
+      },
+      {
+        "manifest": {
+          "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-iCtSZU/manifest.json",
+          "bytes": 1411,
+          "sha256": "7e3e6e1bb1cb99be4618ae9a02133c9d9f16df7a2aa6a7ab2b62209afc9de558"
+        },
+        "status": "incomplete-selected-diagnostics",
+        "failure": "BACKEND_EVIDENCE_BYTE_OR_FILE_LIMIT",
+        "selectedFiles": 1,
+        "selectedBytes": 0,
+        "fixtureCount": 1,
+        "refusedRoots": [],
+        "nativeCleanupConfirmed": null,
+        "fullFixtureCopy": false
+      },
+      {
+        "manifest": {
+          "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-o9kSt2/manifest.json",
+          "bytes": 3895,
+          "sha256": "d85e766497bdb69ccd2afd82c1033a3c2b87644b265c861026e983acaea95f7d"
+        },
+        "status": "preserved-selected-diagnostics",
+        "failure": null,
+        "selectedFiles": 15,
+        "selectedBytes": 2756502,
+        "fixtureCount": 1,
+        "refusedRoots": [],
+        "nativeCleanupConfirmed": null,
+        "fullFixtureCopy": false
+      },
+      {
+        "manifest": {
+          "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-pZSRQo/manifest.json",
+          "bytes": 2887,
+          "sha256": "615ed7fff3081c1458195971157afba8e8f7bdea4ff836296dddcc041c050f38"
+        },
+        "status": "incomplete-selected-diagnostics",
+        "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ENTRY",
+        "selectedFiles": 9,
+        "selectedBytes": 1510974,
+        "fixtureCount": 1,
+        "refusedRoots": [],
+        "nativeCleanupConfirmed": null,
+        "fullFixtureCopy": false
+      }
+    ],
+    "selectedFileOccurrences": 328,
+    "selectedBytesOccurrences": 51670647,
+    "allCopiedLengthsAndHashesMatchManifestAndCurrentOriginal": true,
+    "uniqueOriginalFixturesRetained": 32,
+    "originalBases": [
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-4MQYbK",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-DKvgMg",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-H0EYUf",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-HnSuC9",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-JW7yfQ",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-LDKaKt",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-MFgSNw",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-Mq7qjN",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-NrwDID",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-Oonbue",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-Q90y3l",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-QhlQ1e",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-SGQ9xJ",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-UQe3ut",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-USqorr",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-W7hjKy",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-XLbzvR",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-YlruFZ",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-cjTIoP",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-d0nJJx",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-fWpKmN",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-i3slNj",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-j2racl",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-lYHKgg",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-szV569",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-u2PR9f",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-62da55a11dc244529db6b7ffd37e32dc/moodcode-backend-consumer-zLuQCt",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-7ZlvaP/moodcode-backend-consumer-9Wwc8o",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-VI0GL6/moodcode-backend-consumer-YPpsxH",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-b1CVRj/moodcode-backend-consumer-Tk8gNi",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-buZ59F/moodcode-backend-consumer-keAdUa",
+      "/Users/yakisoba0728/Library/Caches/MoodcodeTest03-ca7c39248f7142bcab68451fd3f548dd/moodcode-backend-evidence-htkm9h/moodcode-backend-consumer-lh1yay"
+    ],
+    "nativeCleanupConfirmed": null,
+    "fullFixtureCopy": false
+  },
+  "retainedLogsAndPins": [
+    {
+      "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26.log",
+      "bytes": 17317,
+      "sha256": "333575aa84d2f4970ac1e5a052ac1a513a27f03738597aceff5d64cda9b54237"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-result.json",
+      "bytes": 1631,
+      "sha256": "2cc43dc5ad2d4b1db316375a0e35d6d5db26ad7c5de62dc0a8bc225fe356eab5"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-before.json",
+      "bytes": 2587,
+      "sha256": "5bcc05a8212a41a82f13e691fa4d71fcd81e02f52dbe3e2f78783181d2845ecc"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-after.json",
+      "bytes": 2587,
+      "sha256": "5bcc05a8212a41a82f13e691fa4d71fcd81e02f52dbe3e2f78783181d2845ecc"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-collector.json",
+      "bytes": 46291,
+      "sha256": "5005d86ed535c33dcb3b15b89f6fefb2eb07c37910f10293954f0ad246bec132"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-collector.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/build.log",
+      "bytes": 34,
+      "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/build-harness-correction.log",
+      "bytes": 34,
+      "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+    }
+  ],
+  "limitations": [
+    "The first-close and body-error markers are validated by the existing child test assertions; child stdout is not separately persisted. Actual peer logs and child after-cleanup observations remain retained.",
+    "Native database handles are observed closed, but fixture-wide cleanup ownership remains unknown. Original bases, databases and uncertainty are retained.",
+    "The seven engine-ci cases include synthetic catalog/SQLite boundary fixtures; they establish their own selected-copy assertions and do not establish native PTY execution.",
+    "This report makes no Windows, installed application, external account, full suite or long-duration claim."
+  ]
+}

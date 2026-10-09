@@ -1,0 +1,844 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-native-sqlite-failure-analysis",
+  "status": "bounded-investigation-and-authorized-fixture-correction-complete",
+  "conclusion": {
+    "originalCiCause": "unknown",
+    "candidateMechanism": "same-source-handle active write transaction makes native backup reject with ERR_SQLITE_ERROR, errcode 0, not an error",
+    "candidateMechanismValidation": "reproduced once in an independently owned native Node24 SQLite fixture",
+    "originalCiAttribution": "plausible-not-established",
+    "fixtureSourceGap": "resolved by consuming the existing public Engine.backup snapshot protection",
+    "originalCiFailureSuperseded": false,
+    "productionPatchApplied": false
+  },
+  "sourcePins": {
+    "ciCommit": "eef2b759061971b07bc4a3f8abd582e234d3df0f",
+    "frozenProductionEngineCommit": "16b2a103a698174ce67bbd9a9ba253af5c187d15",
+    "initialSourceAndCompiled": {
+      "packages/engine/src/agent-backends/receipt-contract.integration.test.ts": "8d00a4e6889043e39445c76023435c9235cfadf902869ab4f9618caac0912e7b",
+      "packages/engine/dist/agent-backends/receipt-contract.integration.test.js": "41865a175c294c79edb73e03c2ae216a93e0acb3f497d638c65e340edcd35794",
+      "packages/engine/src/agent-backends/fixtures/backend.ts": "f291b37a32df9283a3d21f8181d230cd8efce41618db35adc28f0d7f5e70b73c",
+      "packages/engine/dist/agent-backends/fixtures/backend.js": "71a0d0a727dc0853c9bb8804101e0ccd4be4fa592df7ffbb4bb5451ea65ffe19",
+      "packages/engine/src/storage/native-records.ts": "05864c8c2394fe851600226a7cdc545a708393021268f8e94ac434f7c7964eaf",
+      "packages/engine/dist/storage/native-records.js": "ccd62cb95ec7bd23f443c79d463beac164370a2dfc14bcba24e3b51ecc29cbeb",
+      "packages/engine/src/storage/index.ts": "1984bc06713d2658d5e2187a70ad87f6497e9df61b8b328414ebd95f73394beb",
+      "packages/engine/src/storage/maintenance.ts": "259c2321dbd00c396c688484ce1a0157db30f1af46d069b9214cd37f2731e10f",
+      "packages/engine/src/engine.ts": "182bdd3a951f2e51bba35ace3c74121592cea6b04cadf0393f6157c8af36fbb1",
+      "packages/engine/src/review/audit.ts": "89a91a1a10dee69707c9f529f146b29ba2c58a4c52a6e3bb2cd4aa8aaac275b7"
+    },
+    "postCorrectionSourceAndCompiled": {
+      "packages/engine/src/agent-backends/receipt-contract.integration.test.ts": "553d53e16257dc50bf01a0887a0f9af6aca1f34681b3ac308a1c0a17e704a593",
+      "packages/engine/dist/agent-backends/receipt-contract.integration.test.js": "f989b34cb9ea51b22f31209fbd80471716aaf9b4272e68246e0f525c285d7f81",
+      "packages/engine/src/agent-backends/fixtures/backend.ts": "f291b37a32df9283a3d21f8181d230cd8efce41618db35adc28f0d7f5e70b73c",
+      "packages/engine/dist/agent-backends/fixtures/backend.js": "71a0d0a727dc0853c9bb8804101e0ccd4be4fa592df7ffbb4bb5451ea65ffe19",
+      "packages/engine/src/storage/native-records.ts": "05864c8c2394fe851600226a7cdc545a708393021268f8e94ac434f7c7964eaf",
+      "packages/engine/dist/storage/native-records.js": "ccd62cb95ec7bd23f443c79d463beac164370a2dfc14bcba24e3b51ecc29cbeb",
+      "packages/engine/src/storage/index.ts": "1984bc06713d2658d5e2187a70ad87f6497e9df61b8b328414ebd95f73394beb",
+      "packages/engine/src/storage/maintenance.ts": "259c2321dbd00c396c688484ce1a0157db30f1af46d069b9214cd37f2731e10f",
+      "packages/engine/src/engine.ts": "182bdd3a951f2e51bba35ace3c74121592cea6b04cadf0393f6157c8af36fbb1",
+      "packages/engine/src/review/audit.ts": "89a91a1a10dee69707c9f529f146b29ba2c58a4c52a6e3bb2cd4aa8aaac275b7",
+      "packages/engine/src/storage/maintenance.test.ts": "bab472da07ced8f639df0444b18b2a6a2c5b21d0e536c23194e59ad2fd17ad16",
+      "packages/engine/dist/storage/maintenance.test.js": "1b17caa2c6e85b0fdfd58c3d203883c174bc79b1f3ccabdc2a4e92ca2ea887a4"
+    },
+    "onlyAuthorizedSourceEdit": "packages/engine/src/agent-backends/receipt-contract.integration.test.ts",
+    "changedTestSourceSha256": "553d53e16257dc50bf01a0887a0f9af6aca1f34681b3ac308a1c0a17e704a593",
+    "changedTestCompiledSha256": "f989b34cb9ea51b22f31209fbd80471716aaf9b4272e68246e0f525c285d7f81",
+    "fixtureBackendSourceUnchanged": true,
+    "nativeRecordsEncodingSourceUnchanged": true,
+    "rootOwnsCommitAndFinalPinAdmission": true,
+    "initialHead": "974a4c46d32187379404eabac8e2006cd13e57cc",
+    "testCorrectionCommit": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+    "completionHeadObserved": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+    "rootOwnedRuntimeContinuity": {
+      "record": {
+        "path": "artifacts/next-continuation/local/snapshot-fixture-runtime-continuity.json",
+        "bytes": 1117,
+        "sha256": "f07df02280d44e61a7b7ddb53dbef3231649e43f10bbe350bcf0b9c6e5becb4f"
+      },
+      "runtime": {
+        "files": 771,
+        "mismatchCount": 0,
+        "mismatches": []
+      },
+      "declarations": {
+        "files": 914,
+        "mismatchCount": 1,
+        "mismatches": [
+          "packages/engine/dist/pr-feedback/host.d.ts"
+        ],
+        "difference": {
+          "path": "packages/engine/dist/pr-feedback/host.d.ts",
+          "classification": "ordering of an unchanged optional object property in an inferred return type",
+          "baselineSha256": "1a2c4585b359ffcf089609f5f4dd567c55c7f4538603afecfb9e25cdfb16e4bb",
+          "currentSha256": "1864e5a59af23076a0fdb4ccc2f102132f3947be00e61b5fb7aee6ae5cbeb795",
+          "remainingBytesIdenticalWhenExistingRunIdLinesAreRemoved": true,
+          "addedRemovedOrChangedTypes": false
+        }
+      },
+      "qualification": "All 771 pinned engine runtime modules are byte-identical. Of 914 declarations, 913 are byte-identical; one differs only in the ordering of the existing runId?: undefined property. The integration test behavior is validated separately. Frozen 16b declarations remain independently stable."
+    }
+  },
+  "originalFailure": {
+    "runId": 37913088794,
+    "jobId": 113762664383,
+    "platform": "darwin/arm64",
+    "runtime": "v24.20.0",
+    "case": "administrative SQL pairs preserve authentic unknown ownership, history and archive binding without Original replay",
+    "sourceCaseLocation": "packages/engine/src/agent-backends/receipt-contract.integration.test.ts:265",
+    "compiledCaseLocation": "packages/engine/dist/agent-backends/receipt-contract.integration.test.js:198:1",
+    "durationMs": 970.652417,
+    "counts": {
+      "tests": 4848,
+      "pass": 4845,
+      "fail": 1,
+      "cancelled": 0,
+      "skipped": 2
+    },
+    "error": {
+      "message": "not an error",
+      "code": "ERR_SQLITE_ERROR",
+      "errcode": 0,
+      "errstr": "not an error",
+      "deeperStackAvailable": false
+    },
+    "failingNativeOperation": null,
+    "rawFailureLog": "artifacts/next-continuation/local/engine-eef-failure.log:7396",
+    "collectorRecord": "artifacts/next-continuation/hosted/37913088794/macos-node24-failure-evidence.json",
+    "collectorRecordSha256": "e8e809e57f9dd64ed864790a51f5b0e12592f1e8577d3d3f32c264df2034d866",
+    "zip": {
+      "artifactId": 11608676223,
+      "artifactName": "engine-macos-15-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37913088794/original-zips/11608676223-engine-macos-15-node-24.x-attempt-1.zip",
+      "zipBytes": 1141061,
+      "zipSha256": "b215de57565554a719f708ed870e5a54414c6b72708e29a4ab8e9d96c03fc4b4",
+      "apiDigestMatches": true,
+      "apiSizeMatches": true,
+      "zipCRCValid": true,
+      "safeExtraction": true,
+      "entryCount": 217
+    },
+    "independentZipRead": {
+      "bytes": 1141061,
+      "sha256": "b215de57565554a719f708ed870e5a54414c6b72708e29a4ab8e9d96c03fc4b4",
+      "crcFailure": null,
+      "entries": 217,
+      "targetReceiptFixtureEntries": 0
+    },
+    "failedOriginalDatabaseAvailable": false,
+    "failedOriginalBackupStageAvailable": false,
+    "actualDeletionObserved": false,
+    "cleanupPolicyEvidence": "backend.ts:181–185 registers a t.after that awaits Engine.close for owned fixture engines and calls rmSync(base) in finally. ZIP absence and this cleanup policy do not independently observe deletion in the CI run.",
+    "originalEngineCiAssessment": "5 successful jobs / 1 failed job; the original failure remains recorded",
+    "node24LinuxSuccessDisallowsOsOrVersionExclusiveAttribution": true
+  },
+  "operationAndAuthorityReview": [
+    {
+      "sourceBeforeCorrection": "receipt-contract.integration.test.ts:266–274",
+      "operation": "Create a fresh real Engine fixture, register through its native backend producer, submit, and wait for the genuine request to reach dispatched.",
+      "authority": "Fixture-owned actual Engine and process supervisor; no recovered database authorizes an Original."
+    },
+    {
+      "sourceBeforeCorrection": "receipt-contract.integration.test.ts:275–281",
+      "operation": "Reflect backendRecords and await node:sqlite backup on its live primary writer handle before awaiting Engine.close.",
+      "finding": "Bypasses store.backup separate read-only BEGIN snapshot protection while peer hold notification can still cause native Turn/MessagePart writes."
+    },
+    {
+      "source": "storage/index.ts:275–285,750–751; storage/native.ts:44–50; agent-backends/remote.ts:400–408,495–531",
+      "operation": "Backend/native records share the primary SqliteStore DatabaseSync and synchronous BEGIN IMMEDIATE transactions. Held peer text can be delivered after dispatched.",
+      "finding": "JS synchronous transactions can overlap SQLite backup worker execution; exact CI overlap is unobserved."
+    },
+    {
+      "source": "engine.ts:2791–2824; agent-backends/host.ts:68–74; agent-backends/process.ts:889–895",
+      "operation": "Engine close stops admissions, aborts owned host lifetime, awaits coordinator/owned supervisor and other consumers, then closes review journal and primary store connections.",
+      "authority": "Existing owned Engine/Original handles perform normal close. Investigation sent no numeric PID signals and did not substitute native settlement or cleanup receipts."
+    },
+    {
+      "sourceBeforeCorrection": "receipt-contract.integration.test.ts:284–291",
+      "operation": "Only after awaited Engine.close, open the review DB read-only, await its backup, and close that reader in finally.",
+      "finding": "Separate inactive review source. Retained local originals have a 16384-byte review DB, schema version 1, three schema entries and zero review operations; an empty table does not mean an empty DB file."
+    },
+    {
+      "sourceBeforeCorrection": "receipt-contract.integration.test.ts:302–388; agent-backends/store.ts:4066–4102; storage/archive.ts:646–675",
+      "operation": "On the owned historical copy only, recover exact nonterminal heads to uncertain, pause imported heads, verify independently signed SQL pairs and unchanged immutable old rows, validate, close, then export/archive with leases.",
+      "authority": "Administrative historical writes do not dispatch Original; final peer log equality and one session/prompt verify no replay."
+    }
+  ],
+  "primarySources": [
+    {
+      "url": "https://raw.githubusercontent.com/nodejs/node/v24.20.0/src/node_sqlite.cc",
+      "lines": "497–547,578–599",
+      "finding": "BackupJob accepts BUSY/LOCKED from the worker step, then checks remaining pages. With zero remaining and status other than DONE it constructs the rejection from the destination connection rather than the step status. An initially locked step can therefore report destination error code zero. This explains the reproduced symptom, not the unobserved CI operation."
+    },
+    {
+      "url": "https://www.sqlite.org/c3ref/backup_finish.html",
+      "finding": "The official API documents immediate LOCKED when the source connection is being used to write. Backup page counts are updated by backup_step. A different read handle with an established WAL snapshot avoids sharing that active writer transaction."
+    },
+    {
+      "url": "https://raw.githubusercontent.com/nodejs/node/v26.9.0/src/node_sqlite.cc",
+      "lines": "589–650",
+      "finding": "The same remaining-pages/status decision is present in this Node26 source; no Node24-only or macOS-only cause is established."
+    },
+    {
+      "url": "https://nodejs.org/download/release/v24.20.0/SHASUMS256.txt",
+      "artifact": "node-v24.20.0-darwin-arm64.tar.gz",
+      "sha256": "40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8",
+      "verifiedBeforeExecution": true
+    }
+  ],
+  "originalSourceFocusedExecutions": [
+    {
+      "run": 1,
+      "runtime": "v24.20.0",
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "durationMs": 538.781917,
+      "classification": "reproduction-not-reproduced / trace-unavailable",
+      "hookLimitation": "Changing sqlite.default.backup plus syncBuiltinESMExports did not update Node24 named backup export. Cleanup preservation hook worked. This instrumentation error is retained rather than treating the pass as a CI explanation.",
+      "sourceIdentityMaintained": true,
+      "retainedFixtureParent": "/Users/yakisoba0728/Library/Caches/MoodcodeNativeSqliteReview-89382646-0777-4523-8543-7c54c538df16",
+      "log": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/exact-case.log",
+      "trace": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/backup-stage-trace.jsonl"
+    },
+    {
+      "run": 2,
+      "runtime": "v24.20.0",
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "durationMs": 1556.057917,
+      "classification": "reproduction-not-reproduced / native-stage-traced",
+      "actualBackupStages": [
+        {
+          "destination": "held-history.sqlite",
+          "pages": 333,
+          "sourceTransactionAtCall": false
+        },
+        {
+          "destination": "held-history.sqlite.review.sqlite",
+          "pages": 4,
+          "sourceTransactionAtCall": false
+        },
+        {
+          "destination": "archive primary private staging",
+          "pages": 353
+        },
+        {
+          "destination": "archive review private staging",
+          "pages": 4
+        }
+      ],
+      "sourceIdentityMaintained": true,
+      "retainedFixtureParent": "/Users/yakisoba0728/Library/Caches/MoodcodeNativeSqliteReview-e81fd8f1-62df-4844-84ef-e6b9e29c377f",
+      "log": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/exact-case-v2.log",
+      "trace": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/backup-stage-trace-v2.jsonl"
+    }
+  ],
+  "independentNativeProbe": {
+    "executions": 1,
+    "runtime": "v24.20.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "retainedFixtureRoot": "/Users/yakisoba0728/Library/Caches/MoodcodeNativeSqliteProbe-80b20ac4-f64e-44ac-8e05-999604035479",
+    "cases": [
+      {
+        "stage": "same-handle-active-writer",
+        "sourceTransaction": true,
+        "outcome": "rejected",
+        "code": "ERR_SQLITE_ERROR",
+        "errcode": 0,
+        "errstr": "not an error"
+      },
+      {
+        "stage": "separate-readonly-begin-snapshot-active-writer",
+        "sourceTransaction": true,
+        "outcome": "resolved",
+        "pages": 2,
+        "snapshotValue": 1
+      },
+      {
+        "stage": "zero-byte-readonly-source",
+        "sourceTransaction": false,
+        "outcome": "resolved",
+        "pages": 0
+      }
+    ],
+    "files": [
+      {
+        "name": "empty-readonly-backup.sqlite",
+        "bytes": 4096
+      },
+      {
+        "name": "empty-readonly.sqlite",
+        "bytes": 0
+      },
+      {
+        "name": "reader-snapshot.sqlite",
+        "bytes": 8192
+      },
+      {
+        "name": "same-handle.sqlite",
+        "bytes": 0
+      },
+      {
+        "name": "source.sqlite",
+        "bytes": 8192
+      }
+    ],
+    "source": "native-lock-probe.mjs",
+    "result": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/native-lock-probe.json",
+    "qualification": "Fresh directly owned SQLite handles only. The writer transaction was intentionally held during the first probe, rolled back after native completion, and closed. The protected reader copied committed marker 1 while writer had uncommitted marker 2. Zero-byte read-only source succeeded. This verifies the mechanism and controls; it does not reproduce the CI request scheduling."
+  },
+  "encodingDiffRelationship": {
+    "commit": "b901af6",
+    "source": "packages/engine/src/storage/native-records.ts",
+    "finding": "The accepted encoding reuse changes synchronous JSON.stringify reuse and detached event-body parse. It changes no SQL statements, DB23 schema, backup API, thread/await boundary, worker close authority or backend administrative signing. The independent native marker-table probe reproduces the symptom without this code. A timing contribution to the original CI race is unmeasured.",
+    "encodingOrStorageRegressionEstablished": false,
+    "comparisonBaseline": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6"
+  },
+  "authorizedFixtureCorrection": {
+    "file": "packages/engine/src/agent-backends/receipt-contract.integration.test.ts:276",
+    "change": "Replace only the first await backup(rootNative.db,snapshotPath) with await f.engine.backup(snapshotPath), and remove the unused rootNative Reflect declaration in that case.",
+    "reason": "Consume existing production coherent snapshot protection. CI causal attribution remains unknown.",
+    "executedPublicPath": "engine.ts:2719–2721 → storage/index.ts:1536–1565 → storage/maintenance.ts:108–160",
+    "snapshotMechanism": "For file databases the public store creates a separate read-only DatabaseSync, BEGINs and reads sessions to establish a WAL snapshot before native backup. Private output is version/integrity checked and published exclusively.",
+    "preserved": [
+      "Original dispatched precondition",
+      "DB version 23 and data/owner relationships",
+      "snapshot before Engine.close order",
+      "review backup after close",
+      "fixed UUID and Date values",
+      "independent signed receipt/hash oracle",
+      "immutable history and exact row-count checks",
+      "recovery uncertain and paused-import states",
+      "archive validation/binding",
+      "one Original prompt and equal peer logs/noReplay",
+      "all assertions, provider/test timeouts and skip/retry policy",
+      "AgentBackendStorage imports and other callers",
+      "shared backend fixture source"
+    ],
+    "productionSourceEdited": false,
+    "rootBuild": "Root reported exit 0; updated compiled call and hash independently observed before tests."
+  },
+  "postCorrectionFocusedVerification": {
+    "scope": [
+      "receipt-contract.integration.test.js: all 2 cases",
+      "storage/maintenance.test.js: all 10 cases"
+    ],
+    "executionsPerRuntime": 1,
+    "testConcurrency": 4,
+    "runtimes": [
+      {
+        "runtime": "v24.20.0",
+        "exitCode": 0,
+        "counts": {
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "durationMs": 933.903,
+        "sourceAndCompiledIdentityMaintained": true,
+        "firstAdministrativeNativeBackup": {
+          "start": {
+            "stage": "backup-start",
+            "at": "2026-10-09T10:12:08.171Z",
+            "destination": "database.sqlite",
+            "fixture": ".moodcode-backup-x1XToG",
+            "fixtureOwner": "moodcode-backend-consumer-1OxOqC",
+            "sourceOpen": true,
+            "sourceTransaction": true
+          },
+          "completion": {
+            "stage": "backup-resolved",
+            "at": "2026-10-09T10:12:08.174Z",
+            "destination": "database.sqlite",
+            "fixture": ".moodcode-backup-x1XToG",
+            "fixtureOwner": "moodcode-backend-consumer-1OxOqC",
+            "sourceOpen": true,
+            "sourceTransaction": true,
+            "pages": 333
+          },
+          "runtimeReadOnlyFlagSeparatelyObserved": false,
+          "qualification": "Native call observed on an already-open transaction; pinned executed public store.backup constructs this handle with readOnly:true, then BEGIN and SELECT to establish its snapshot. The shim did not query or alter the handle."
+        },
+        "retainedFixtureParent": "/Users/yakisoba0728/Library/Caches/MoodcodeNativeSqliteFocusedNode24-0702d9fc-5bbc-4af6-a92d-4e88a1f5fa33",
+        "retainedBackendFixtureRoots": 2,
+        "retainedMaintenanceFixtureRoots": 10,
+        "originalWorkerStartsInAdministrativeFixture": 1,
+        "promptDispatchesInAdministrativeFixture": 1,
+        "log": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-node24.log",
+        "trace": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-node24-trace.jsonl"
+      },
+      {
+        "runtime": "v26.9.0",
+        "exitCode": 0,
+        "counts": {
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "durationMs": 1359.41775,
+        "sourceAndCompiledIdentityMaintained": true,
+        "firstAdministrativeNativeBackup": {
+          "start": {
+            "stage": "backup-start",
+            "at": "2026-10-09T10:12:09.585Z",
+            "destination": "database.sqlite",
+            "fixture": ".moodcode-backup-3MLxMK",
+            "fixtureOwner": "moodcode-backend-consumer-donVEU",
+            "sourceOpen": true,
+            "sourceTransaction": true
+          },
+          "completion": {
+            "stage": "backup-resolved",
+            "at": "2026-10-09T10:12:09.588Z",
+            "destination": "database.sqlite",
+            "fixture": ".moodcode-backup-3MLxMK",
+            "fixtureOwner": "moodcode-backend-consumer-donVEU",
+            "sourceOpen": true,
+            "sourceTransaction": true,
+            "pages": 333
+          },
+          "runtimeReadOnlyFlagSeparatelyObserved": false,
+          "qualification": "Native call observed on an already-open transaction; pinned executed public store.backup constructs this handle with readOnly:true, then BEGIN and SELECT to establish its snapshot. The shim did not query or alter the handle."
+        },
+        "retainedFixtureParent": "/Users/yakisoba0728/Library/Caches/MoodcodeNativeSqliteFocusedNode26-e22ee1ae-9228-457d-b32e-84fd7319712f",
+        "retainedBackendFixtureRoots": 2,
+        "retainedMaintenanceFixtureRoots": 10,
+        "originalWorkerStartsInAdministrativeFixture": 1,
+        "promptDispatchesInAdministrativeFixture": 1,
+        "log": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-node26.log",
+        "trace": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-node26-trace.jsonl"
+      }
+    ],
+    "maintainedContracts": [
+      "WAL mutation event/projection consistency",
+      "standalone restoration and uncheckpointed WAL rows",
+      "pre/in-flight cancellation and private partial cleanup",
+      "close/closeAsync native backup settlement and owner release",
+      "parallel backups and memory-store export",
+      "native connection release failure visibility",
+      "corrupt FK/version rejection",
+      "receipt/admin/history/archive/unknown/noReplay assertions"
+    ],
+    "intermediatePartialCleanupPreserved": true,
+    "nativeClassAndBackupArgumentsChangedByShim": false,
+    "retainedFixtureSummary": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-retained-fixture-summary.json"
+  },
+  "instrumentationAndPreservation": {
+    "artifactRoot": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289",
+    "runtimeInstallation": "Official binary only in fresh ignored artifact; system Node and shared dependencies untouched.",
+    "shim": "registerHooks redirects node:sqlite imports to a wrapper exporting the same native classes and invoking the original native backup with the identical argument references. Only stage/error labels and read-only isOpen/isTransaction properties are observed; no source SQL or JSON body changes.",
+    "cleanupExemption": "Fresh isolated Library TMPDIR direct-child roots matching moodcode-backend-consumer-* only for original-source runs; moodcode-backend-consumer-* and moodcode-maintenance-* for final focused runs. Only root rmSync at cleanup is bypassed. Engine/native close and intermediate backup staging cleanup are unchanged.",
+    "fixtureRootCounts": {
+      "originalSourceBackend": 2,
+      "focusedBackend": 4,
+      "focusedMaintenance": 20,
+      "independentNativeProbe": 1
+    },
+    "allCreatedOriginalRootsRetained": true,
+    "originalCiZipAndLogsRetained": true,
+    "manualPidSignals": false,
+    "originalFixtureDeletion": false,
+    "credentialsOrUserProfilesRead": false,
+    "goalOrGitMutation": false,
+    "externalSigningSiwcAnthropicAcceptance": "Still deferred; these native local tests do not close account/signing/live acceptance."
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/instrumentation-manifest.json",
+      "bytes": 1797,
+      "sha256": "e00c859fdc5fbe50b14a819a3f00915df89321f2686ed10f623e0a5de7610639"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/instrumentation-manifest-v2.json",
+      "bytes": 2042,
+      "sha256": "418a6fc475672216a62beb03e2eb01d4e71a8577903079c8393760108bb109b9"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-instrumentation-manifest.json",
+      "bytes": 2282,
+      "sha256": "1e57f98eb23f964d99a78274b6dcc74792f52140860b232ca5e89cf3bbde36e5"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/backup-stage-hook.mjs",
+      "bytes": 1709,
+      "sha256": "c49f49262c4e61d96e168c077f4e7761563eb1deaa1f6a4b8a4fc390cacd1cd7"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/backup-stage-hook-v2.mjs",
+      "bytes": 1127,
+      "sha256": "43b0156957b19d14c33ea184c327ce71e3d2ee9023767eaf43263a4af42e68ae"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/backup-stage-hook-focused.mjs",
+      "bytes": 1151,
+      "sha256": "dc073f4b28aa33918178beb228bab937cd682304c49e718d85c3c01f0e9a6db3"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/sqlite-forwarder.mjs",
+      "bytes": 1121,
+      "sha256": "2dbf4595440ef5f94ff085910071ecba06d7de4d30564dd08919f140e4b2efbd"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/sqlite-forwarder-focused.mjs",
+      "bytes": 1176,
+      "sha256": "6fd41e45c98f582cb4d1fa8122ef0a8b6ce9bd64a589e249df9847d3d0503d1a"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/exact-case.log",
+      "bytes": 249,
+      "sha256": "19f258e71ea5bc68733d77189f749d9e8906bdca1cf269454a8ae78c4a0b4b11"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/exact-case-v2.log",
+      "bytes": 251,
+      "sha256": "385991ee7ed245b18be0c25d478b83c63a7333fd01839969e3b65690e87612ac"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/backup-stage-trace.jsonl",
+      "bytes": 135,
+      "sha256": "0e5fe11157507eed658add0d986213da6bea417570bb6cd9249f49f04e4fab85"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/backup-stage-trace-v2.jsonl",
+      "bytes": 1623,
+      "sha256": "2e090051d9916d915cc1fa61f4a3fb944a384a8aede983ec23614c98ae7bc9e9"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/native-lock-probe.mjs",
+      "bytes": 1877,
+      "sha256": "5218005465d2416b6390e585ed61dede23211969895e61594fd6c325d958a3a9"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/native-lock-probe.json",
+      "bytes": 1093,
+      "sha256": "86b7bbc003a2d153fc7855adf2ef8f0f04a71b6e47fec039a5b6280f4efa6fed"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-node24.log",
+      "bytes": 1497,
+      "sha256": "e138f91f59c4f261e0b3186ca3262ccfa13445b46458b16f4052491a41df1116"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-node26.log",
+      "bytes": 1496,
+      "sha256": "fe44edd4a60bfa0af7a5b70f99bd5da97a5ffd0f935d9565d224b661ccc0ca23"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-node24-trace.jsonl",
+      "bytes": 9284,
+      "sha256": "f0c5599e222e8624bd802cc31b8cc336b484ce203c122da178a2f9be0e89a373"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-node26-trace.jsonl",
+      "bytes": 9284,
+      "sha256": "56011fd3546ee805b080eb7a34f872cb54eb69f310429c91c947a20cfcca91ac"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-node24-result.json",
+      "bytes": 3802,
+      "sha256": "dd93ca075c5cde548fe552784659246598f32ce27cf7b5408f9673811e491cae"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-node26-result.json",
+      "bytes": 3664,
+      "sha256": "088841e157967ad916a27c11d5ee8724b24dd7342b3768e537b7c7551464642a"
+    },
+    {
+      "path": "artifacts/next-native-sqlite-analysis/7303f25b-3c42-47d7-b419-5de1aea48289/focused-retained-fixture-summary.json",
+      "bytes": 5107,
+      "sha256": "2312646d38f9a9dbbd98a7a8b997f6229a485dce77b4169af1b36d8915d7c794"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/source-before-build.json",
+      "bytes": 497,
+      "sha256": "989ec7ceb9a8b7a8f39ca3d1953668c8e98464a50df2f179d6514f8b2092aeb0"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/compiled-after-build.json",
+      "bytes": 542,
+      "sha256": "c2c00144f332c542327b2c6b4767d822d16c88cae6688a6444411d6e5fc9f72f"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/run-focused.py",
+      "bytes": 4652,
+      "sha256": "9e8d5ed4c1ba8506c680aa6a4a694473a29c67987365229f33bf9e8fe8def4d3"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24.log",
+      "bytes": 19871,
+      "sha256": "618d078f245ac29e5ed0fde327f3a96997ce3915cf96e46111cd9704cd529392"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-result.json",
+      "bytes": 1785,
+      "sha256": "35f83f7c3fb7078c4e52ab9c1a8722cb6fe55a8e79c0ccc08d2cda825757ca4b"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-before.json",
+      "bytes": 2587,
+      "sha256": "d434d3e0081edd2643af742be0fc0ee3bc28a33376ad614cc92b78a6d25f6400"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-after.json",
+      "bytes": 2587,
+      "sha256": "d434d3e0081edd2643af742be0fc0ee3bc28a33376ad614cc92b78a6d25f6400"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-collector.json",
+      "bytes": 46291,
+      "sha256": "624d06cbb1e2da9f4cab650282b3814ca31b5bec3f0556a2415970bcfd8f234c"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention.log",
+      "bytes": 2719,
+      "sha256": "06daa68f66f174681aada328580095e9ffc2364df9b72da734285106b99e0711"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-before.json",
+      "bytes": 1200,
+      "sha256": "4f44277775e238b596a3e5102c907e5f602b8a83a741dbf94b27ff7172d6bce3"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-after.json",
+      "bytes": 1200,
+      "sha256": "4f44277775e238b596a3e5102c907e5f602b8a83a741dbf94b27ff7172d6bce3"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26.log",
+      "bytes": 17317,
+      "sha256": "333575aa84d2f4970ac1e5a052ac1a513a27f03738597aceff5d64cda9b54237"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-before.json",
+      "bytes": 2587,
+      "sha256": "5bcc05a8212a41a82f13e691fa4d71fcd81e02f52dbe3e2f78783181d2845ecc"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-after.json",
+      "bytes": 2587,
+      "sha256": "5bcc05a8212a41a82f13e691fa4d71fcd81e02f52dbe3e2f78783181d2845ecc"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-collector.json",
+      "bytes": 46291,
+      "sha256": "5005d86ed535c33dcb3b15b89f6fefb2eb07c37910f10293954f0ad246bec132"
+    }
+  ],
+  "remainingRootOwnedValidation": {
+    "freshCiRequired": true,
+    "originalFailureMustRemainVisible": true,
+    "freshWholeAndCiResultsReportedHere": false,
+    "productionOrWholeSourceAdmission": "Root owns production source identity checks, fresh whole/Engine6/WindowsNative2/Desktop3 validation, final commit pins and integration. No new full suite or long run was performed by this investigator."
+  },
+  "sharedFixtureRetentionPolicyFollowup": {
+    "status": "implemented-and-focused-native-verified-fresh-ci-owned-by-root",
+    "scope": "TEST03: shared backend fixture, new actual child Native regression, selected CI evidence collector only. No production API, SQLite schema, approval/cancel/unknown/noReplay or existing test assertion/timeout change.",
+    "historicalGap": {
+      "sourceCommit": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+      "source": "packages/engine/src/agent-backends/fixtures/backend.ts:181",
+      "policy": "The old finally removed the fixture base unconditionally and stopped serial engine closing on first rejection. Historical CI ZIP absence still does not prove actual deletion."
+    },
+    "implementation": {
+      "sourcePins": [
+        {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/agent-backends/fixtures/backend.ts",
+          "bytes": 9530,
+          "sha256": "b127253af92d6bbccee5df452428943cc8cafb041e933b25ee5dc259e50ea5bc"
+        },
+        {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/agent-backends/fixture-retention.integration.test.ts",
+          "bytes": 7758,
+          "sha256": "a1cd1339c2968876f994e887347064f26345a6f755f65deebaeba947682d1839"
+        },
+        {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/.github/scripts/engine-ci.mjs",
+          "bytes": 32344,
+          "sha256": "bbc735c19ff8dcdf4602cc5d77347361c5b0187de9fe5091e2a69cc6b81d398f"
+        }
+      ],
+      "compiledPins": [
+        {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/agent-backends/fixtures/backend.js",
+          "bytes": 9081,
+          "sha256": "e8e278abc872502152e53f2ea8d88837ed7f9610c54c85f5c746939d3e7f86e7"
+        },
+        {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/agent-backends/fixture-retention.integration.test.js",
+          "bytes": 8379,
+          "sha256": "587d5fda02d1c657d807a2ee45d205768d87d21208de8dc1f81d9d515aa72b82"
+        }
+      ],
+      "ownedClose": "Preserve Set insertion order; await every owned Engine.close, catch each rejection and attempt all remaining engines. Record counts, then rethrow the first original close error.",
+      "originalRetention": "Always retain the fresh Original base, including passed tests, because no typed native cleanup receipt is available at this fixture boundary. Outcome success refers only to test assertions. nativeCleanupConfirmed:null and databaseRemoved:false persist.",
+      "boundedMetadata": "A fixed shape manifest contains outcome, owned/closed/error counts and Original path; no request payload or error stack. Exclusive manifest write or diagnostic output failure cannot replace the original body/close error.",
+      "ciDelivery": "Only test mode creates a fresh canonical backend-owned parent outside the checkout. After test workers finish, selected SQLite/sidecars, fixture metadata, peer log and known synthetic repository inputs are copied under the existing artifact directory. Full Originals remain untouched; fullFixtureCopy:false. Selected raw files are not a coherent archive, cleanup receipt or recovery authority.",
+      "budgets": {
+        "parentEntries": 1024,
+        "roots": 512,
+        "fixtureEntries": 256,
+        "files": 8192,
+        "bytes": 536870912,
+        "fileBytes": 67108864
+      },
+      "refusal": "A partial copy or refused expected-name root remains incomplete with bounded failure/manifest. Symlink/non-regular/hard-linked/changed selected files are refused. Budget exhaustion never deletes source Originals or converts partial diagnostics to complete. If destination manifest writing itself fails, main records unavailable evidence rather than certifying preservation."
+    },
+    "initialExecution": {
+      "node": "v24.20.0",
+      "exitCode": 1,
+      "counters": {
+        "tests": 37,
+        "suites": 0,
+        "pass": 32,
+        "fail": 5,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "actualOriginalBackendFixtures": 27,
+      "failure": "The new child harness inherited NODE_TEST_CONTEXT; Node emitted recursive runner warnings and skipped child tests. There was no Native child observation for these five failures. Existing 32 affected cases actually passed; all logs, first source/compiled pins and 27 Originals remain retained.",
+      "correction": "Remove NODE_TEST_CONTEXT from only the new child process environment using the existing crash test pattern. Child assertions and 30000ms deadline were preserved. The already passed affected cases were not rerun on Node24."
+    },
+    "focusedVerification": {
+      "node24": {
+        "version": "v24.20.0",
+        "exitCode": 0,
+        "counters": {
+          "tests": 5,
+          "suites": 0,
+          "pass": 5,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "durationMs": 2519.130749999931,
+        "scope": "Corrected new five Native child/after-closure cases only; existing 32 passed cases retained as the earlier independent result.",
+        "result": {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-result.json",
+          "bytes": 1419,
+          "sha256": "a1eda0a0bad56716aebc906b4c0714ccd86bdf0ba9ab8826ed36381496df5ff4"
+        }
+      },
+      "node26": {
+        "version": "v26.9.0",
+        "exitCode": 0,
+        "counters": {
+          "tests": 37,
+          "suites": 0,
+          "pass": 37,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "durationMs": 11717.046624999966,
+        "scope": "Final eight-file affected group, including all five corrected Native child cases, independently executed once by renderer_delivery.",
+        "result": {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-result.json",
+          "bytes": 1631,
+          "sha256": "2cc43dc5ad2d4b1db316375a0e35d6d5db26ad7c5de62dc0a8bc225fe356eab5"
+        },
+        "independentReport": {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/docs/moodcode/next-backend-fixture-node26-verification.json",
+          "bytes": 36198,
+          "sha256": "8a057adc1d854d690ce917903ec9220220f615c217cf9c27f77c490c235728bc"
+        }
+      },
+      "actualCases": [
+        "success",
+        "failed assertion",
+        "owned close rejection",
+        "lifecycle with no test outcome/native unknown",
+        "retention manifest write failure"
+      ],
+      "nativeObservations": "Each actual child launched exactly one peer and sent exactly one original session/prompt. Global after observed the owned primary DatabaseSync closed; close-error case observed both actual owned database handles closed. Failure/manifest-error preserved the body marker; close-error preserved the close marker.",
+      "closeErrorQualification": "The test injects rejection after the first real Engine.close finishes; it proves serial continuation to the second actual owned Native engine and original-error retention. It does not simulate every possible OS close failure.",
+      "actualBoundaries": "On both runtimes a 1-byte file limit copied the owned empty prefix file then returned incomplete with a manifest; expected-name symlink and ordinary-file siblings were explicitly refused (two roots); manifest path directory left the original body failure visible. Original primary SHA remained unchanged. All copied Native primary SHA values match retained originals.",
+      "evidenceSummary": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/native-retention-evidence-summary.json",
+        "bytes": 124871,
+        "sha256": "551ff001a020f0d2f10476e6c92a12052db9c879e541e400e4c1e4483201558e"
+      },
+      "globalCollector": {
+        "node24": {
+          "status": "preserved-selected-diagnostics",
+          "failure": null,
+          "files": 262,
+          "bytes": 41275844,
+          "fullFixtureCopy": false,
+          "nativeCleanupConfirmed": null,
+          "fixtures": 27
+        },
+        "node26": {
+          "status": "preserved-selected-diagnostics",
+          "failure": null,
+          "files": 262,
+          "bytes": 41279940,
+          "fullFixtureCopy": false,
+          "nativeCleanupConfirmed": null,
+          "fixtures": 27
+        }
+      },
+      "qualification": "Selected diagnostics and actual handle closure are not typed native cleanup. Original primary files and diagnostic copies are retained. This follow-up does not recover historical Originals, resolve the original CI attribution, or supersede prior failures."
+    },
+    "productionContinuity": {
+      "frozenSource": "16b2a103a698174ce67bbd9a9ba253af5c187d15",
+      "files": 771,
+      "bytes": 11899924,
+      "frozenGraphSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+      "actualMismatchCount": 0,
+      "beforeAfterPinsEqual": true,
+      "backendFixtureEntriesInManifest": 0,
+      "baseline": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/runtime-before.json",
+        "bytes": 149152,
+        "sha256": "4b02ab6c342051b29da1d4a05e40bbaf0a7a57949b0db07446e8e7c19003588b"
+      },
+      "currentEvidence": [
+        {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-after.json",
+          "bytes": 2587,
+          "sha256": "d434d3e0081edd2643af742be0fc0ee3bc28a33376ad614cc92b78a6d25f6400"
+        },
+        {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-after.json",
+          "bytes": 1200,
+          "sha256": "4f44277775e238b596a3e5102c907e5f602b8a83a741dbf94b27ff7172d6bce3"
+        },
+        {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-after.json",
+          "bytes": 2587,
+          "sha256": "5bcc05a8212a41a82f13e691fa4d71fcd81e02f52dbe3e2f78783181d2845ecc"
+        }
+      ],
+      "qualification": "The actual 771-entry production engine/contracts source/effective-runtime plus reused SQL-helper manifest excludes backend fixture/test/CI collector files. Those three source files and two compiled fixture modules changed and were verified separately. Frozen actual 30min evidence remains eligible only within its original production scope; no new 30min run or all-declaration equality claim is made."
+    },
+    "builds": [
+      {
+        "log": {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/build.log",
+          "bytes": 34,
+          "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+        },
+        "exitCode": 0,
+        "reason": "Initial authorized implementation build"
+      },
+      {
+        "log": {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/build-harness-correction.log",
+          "bytes": 34,
+          "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+        },
+        "exitCode": 0,
+        "reason": "Necessary child-environment harness correction build after observed new test failure"
+      }
+    ],
+    "rootOwnedRemaining": "Root owns final commit/source pins, fresh full CI and integration. Local retention behavior is verified; hosted artifact delivery remains pending the new source CI. No original CI causality or external account/signing acceptance is closed by this follow-up."
+  }
+}

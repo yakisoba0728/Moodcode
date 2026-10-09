@@ -1,0 +1,297 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-history-storage-layout-comparison",
+  "status": "comparison-complete-new-closed-original-measured-implementation-not-authorized",
+  "scope": "Source and qualified artifact comparison only. This comparison opened no database and applied no storage codec, migration or deletion; the separate authorized SQLite fixture investigation is recorded in next-native-sqlite-failure-analysis.json.",
+  "sourcePins": {
+    "rootAtStart": "59d4360e2e77a6d9b97f961d5dfff778504d9040",
+    "rootObservedAtPreparation": "f4651cb122263d5015c611960133756844a20577",
+    "rootAtComparisonCompletion": "974a4c46d32187379404eabac8e2006cd13e57cc",
+    "frozenEngine": "16b2a103a698174ce67bbd9a9ba253af5c187d15",
+    "dbVersion": 23,
+    "nativeRecordsSha256": "05864c8c2394fe851600226a7cdc545a708393021268f8e94ac434f7c7964eaf",
+    "contextServiceSha256": "a6ff7016e70d0e13f3eacfcc89c83b26308055f4b1230a58e858dd0df3d80773",
+    "archiveSha256": "6a5dc0d21f933635fb09e8ee2e891afc5e04abeeaf5cfc8e82f13909a197b822",
+    "qualification": "Actual long run used frozen Engine16b2a10. Root continuity records all 771 production runtime modules byte-identical after the later test-only change; 913/914 declarations are byte-identical and one differs only in existing optional-property order. Root owns final source admission.",
+    "engineAndContractsSourceDiffAgainstFrozenEmptyAtInitialComparison": true,
+    "rootAtMeasurementIntegration": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+    "laterAuthorizedEngineSourceDifference": "receipt-contract.integration.test.ts test-only public snapshot call correction in 1fd6061; production runtime is unchanged.",
+    "runtimeContinuityRecord": {
+      "path": "artifacts/next-continuation/local/snapshot-fixture-runtime-continuity.json",
+      "bytes": 1117,
+      "sha256": "f07df02280d44e61a7b7ddb53dbef3231649e43f10bbe350bcf0b9c6e5becb4f"
+    }
+  },
+  "recommendation": {
+    "adoptNow": "Keep the accepted 15-line encoding reuse optimization and the current DB23 records, ownership, API and archive format.",
+    "reason": "The measured benefit is less repeated write-side JSON serialization with identical durable rows and SQL work. Storage-layout changes require a separate implementation scope and proof of exact reconstruction.",
+    "nextDecision": "The newly qualified Original measures context_revisions and session_events as the largest retained table allocations shown here. Investigate one bounded lossless compression experiment for immutable context/event bodies before cross-file cold placement. This priority combines measured cost with architectural scope; no compression ratio, persistent saving, SQL reduction or latency benefit is established.",
+    "migrationAuthorizedByThisComparison": false
+  },
+  "existingEvidence": {
+    "reportsRead": [
+      "docs/moodcode/next-history-storage-independent-review.json",
+      "docs/moodcode/next-history-storage-integration.json",
+      "docs/moodcode/next-history-storage-optimization.json",
+      "docs/moodcode/next-history-storage-retained-analysis.json"
+    ],
+    "boundedNativeFixture": {
+      "runs": 12,
+      "primaryFileLengthBytesBoth": 4362240,
+      "allTableSerializedDataColumnBytesBoth": 2739956,
+      "contextRowsPlusRecordedContextEventDataBytesBoth": 1590142,
+      "writeStringifyCallsAvoided": 276,
+      "transientSerializedUtf8BytesAvoided": 1706882,
+      "persistentBytesReduced": false,
+      "sqlCountsReduced": false,
+      "latencyOrHeapImprovementEstablished": false,
+      "qualification": "Separate bounded ScriptedProvider fixture, identical inputs and exact ordered rows plus public/model/archive equivalence. The 2739956 total is serialized data-column bytes, not all-column logical bytes, SQLite payload or physical file size. These numbers cannot be scaled to a 30-minute workload."
+    },
+    "historicalLongRun": {
+      "sampledMultiFileGrowthBytes": 333576240,
+      "reportedAfterClosePrimaryBytes": 330448896,
+      "originalRawDatabaseAvailable": false,
+      "currentPerTableAttribution": null,
+      "qualification": "Historical file-length delta and after-close primary size have different baselines, file scopes and observation stages. Original primary/sidecars/raw report are unavailable; no table ranking, compression ratio, leak rate or new-run final size is inferred."
+    },
+    "newLongRun": {
+      "source": "16b2a103a698174ce67bbd9a9ba253af5c187d15",
+      "frozenRuntimeGraph": {
+        "files": 771,
+        "bytes": 11899924,
+        "sha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8"
+      },
+      "actualWindowUtc": [
+        "2026-10-09T09:40:48.548Z",
+        "2026-10-09T10:11:15.613Z"
+      ],
+      "requestedDurationMs": 1800000,
+      "observedActiveWindowMs": 1804836.490583,
+      "cycles": 382,
+      "inputs": 1532,
+      "workerSamples": 128,
+      "finalReport": {
+        "path": "artifacts/next-continuation/engine-16b2a10/persistent-report.json",
+        "bytes": 360975,
+        "sha256": "eb2d85d853ce377da9381812e2ad3cdd00786c9d7ab510a7473cf50f641fbfdd"
+      },
+      "verification": {
+        "path": "docs/moodcode/next-continuation-engine-verification.json",
+        "bytes": 21182,
+        "sha256": "04b183ff9efd20f2d359f93834400c2ca48a511285a9d3c77da1c207f807c782"
+      },
+      "closedSnapshotAdmission": {
+        "path": "artifacts/next-continuation/engine-16b2a10/history-storage-admission.json",
+        "bytes": 1786,
+        "sha256": "fc187dec06571562914efc70b61472b0ce30d0b0dce8f5edff237dc1a4b87e37"
+      },
+      "historyStorageReport": {
+        "path": "artifacts/next-continuation/engine-16b2a10/history-storage-report.json",
+        "bytes": 155445,
+        "sha256": "556151bcbf1d249131dfdb75032f0a8c3edb60b2f1d4542b0f7e2b23543c0cf2"
+      },
+      "historyStorageExecution": {
+        "path": "artifacts/next-continuation/engine-16b2a10/history-storage-execution.json",
+        "bytes": 852,
+        "sha256": "b801253a601819ba400b9e369219778be5ff29a2557a91901bc12cb0fb62bb41"
+      },
+      "inspectorPins": {
+        "path": "artifacts/next-continuation/engine-16b2a10/history-storage-inspector-pins.json",
+        "bytes": 395,
+        "sha256": "a2b23bc6f85ade2e0b20a379f7bfc95a14eb5569b1193844484791162bc1002b"
+      },
+      "originalPrimary": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/persistent-native-tmp/moodcode-resilience-FOGlvx/engine.sqlite",
+        "bytes": 303001600,
+        "sha256": "6028375783f50da9c34647c258e56b5eaf0561a2adf3f79e40d8f46227442c1a",
+        "pageSize": 4096,
+        "pages": 73975,
+        "freeListPages": 0,
+        "dbVersion": 23,
+        "schemaObjects": 281,
+        "tables": 80
+      },
+      "tables": [
+        {
+          "table": "context_revisions",
+          "rows": 1201,
+          "dataColumnBytes": 119872717,
+          "allSerializedColumnBytes": 120049283,
+          "physicalIncludingIndexes": {
+            "pages": 29532,
+            "allocatedBytes": 120963072,
+            "payloadBytes": 120161559,
+            "unusedBytes": 654495
+          }
+        },
+        {
+          "table": "session_events",
+          "rows": 20881,
+          "dataColumnBytes": 138742175,
+          "allSerializedColumnBytes": 142344082,
+          "physicalIncludingIndexes": {
+            "pages": 36738,
+            "allocatedBytes": 150478848,
+            "payloadBytes": 144318721,
+            "unusedBytes": 5657722
+          }
+        }
+      ],
+      "contextRevisionRecordedEventCategory": {
+        "categorySha256": "a689e70cad0aec81c7ef5e7573cbf3ee5fbf5c6879d1452882c6b3b4a53cb975",
+        "rows": 1201,
+        "dataBytes": 120228769
+      },
+      "revisionGroupSampling": {
+        "groupsAtEachEnd": 8,
+        "maximumReturnedGroupsPerTable": 16,
+        "allOwnerNumericGroups": 1200,
+        "truncated": true,
+        "qualification": "Numeric revision groups across all sessions. These first/last groups are not one owner’s chronological history, an active-prefix trace or a complete per-revision sample."
+      },
+      "admission": {
+        "freshOwnedOriginal": true,
+        "reportedWorkerExited": true,
+        "reportedRecoveryEngineClosed": true,
+        "observedLiveSurvivors": [],
+        "lsof": {
+          "exit": 1,
+          "stdoutBytes": 0,
+          "stderrBytes": 0,
+          "matchingProcessCount": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "observedWalAbsentOrEmpty": true,
+        "originalFilesUnchanged": true,
+        "allInspectorFingerprintsUnchanged": true,
+        "primaryAndRelatedSqliteTotalBelow512MiB": true,
+        "nativeCleanupConfirmed": false,
+        "databaseRemoved": false
+      },
+      "qualification": "Measured once on the separately admitted closed Original primary, with mode=ro/immutable and unchanged file fingerprints. Serialized data-column bytes, all-column serialized totals, SQLite record payload and allocated table/index pages are distinct. The context event category includes its envelope; matching row counts do not prove raw body equality. Effects companions were fingerprinted only. Closure admission does not grant native cleanup, recovery acknowledgment or replay authority. No old missing 333MB Original, compression savings, speed comparison or leak/retention intent is inferred."
+    }
+  },
+  "sourceEvidence": [
+    {
+      "anchor": "packages/engine/src/context/service.ts:399",
+      "fact": "A changed plan/source/config binding retains JSON.stringify(plan.messages) as a content-hashed ContextRevision; selected history is bounded, but successive revisions can repeat earlier message bytes."
+    },
+    {
+      "anchor": "packages/engine/src/storage/native-records.ts:277",
+      "fact": "Context revision identity, session revision order, ownership and supersedes references are checked before the complete TEXT JSON row and full context.revision.recorded event are written in the same transaction."
+    },
+    {
+      "anchor": "packages/engine/src/storage/native-schema.ts:20",
+      "fact": "context_revisions and session_events store data TEXT in STRICT tables, with owner foreign keys, session revision uniqueness and independent event sequence uniqueness."
+    },
+    {
+      "anchor": "packages/engine/src/storage/native.ts:312",
+      "fact": "Event readers select ascending original seq values, bound raw data bytes to 8 MiB, then parse/validate complete JSON; old cursors remain addressable."
+    },
+    {
+      "anchor": "packages/engine/src/storage/index.ts:1282",
+      "fact": "Model history retains original provider continuation metadata and selects bounded whole Run groups, with a separate active-run window and protected media/document anchors."
+    },
+    {
+      "anchor": "packages/engine/src/storage/index.ts:1348",
+      "fact": "GUI history uses original run ordinals/cursors and SQL json_remove(data,'$.providerReplay'); it preserves exact pending approval previews and has a 4 MiB display budget."
+    },
+    {
+      "anchor": "packages/engine/src/storage/evidence-read.ts:46",
+      "fact": "Recovery proof selection uses SQL JSON owner projections and exact selected byte checks inside a synchronous primary transaction; cached evidence does not replace owner validation."
+    },
+    {
+      "anchor": "packages/engine/src/context/active-prefix.ts:98",
+      "fact": "Active memory reads a historical summary revision by ID and verifies owner, source IDs and exact text hash; a revision's age does not make it unused."
+    },
+    {
+      "anchor": "packages/engine/src/context/semantic-memory.ts:23",
+      "fact": "Session context.memory also resolves historical ContextRevision IDs directly."
+    },
+    {
+      "anchor": "packages/engine/src/runner/turn-executor.ts:45",
+      "fact": "Attempts bind contextRevisionId and the exact detached request digest; freshness checking cannot rewrite that request during retry."
+    },
+    {
+      "anchor": "packages/engine/src/provider/replay.ts:15",
+      "fact": "Opaque replay remains bound to provider/model/protocol/version; layout changes cannot reconstruct signatures from visible text or substitute a semantically similar replay."
+    },
+    {
+      "anchor": "packages/engine/src/storage/archive.ts:209",
+      "fact": "Archive logical validation explicitly includes native tables and schema-version-specific evidence; export requires owned stopped source snapshots, and import preserves recoveryAcknowledgmentsRebound:false and executionResumed:false."
+    },
+    {
+      "anchor": "scripts/inspect-history-storage-cost.py:103",
+      "fact": "Inspector requires caller-established closure, rejects nonempty primary WAL/rollback journal, opens mode=ro&immutable=1, bounds queries/rows/VM work and verifies all companion fingerprints afterward. Optional unavailable dbstat remains explicitly unmeasured."
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "current-db23-with-encoding-reuse",
+      "layout": "Keep complete JSON records and both journals in the existing primary database; reuse validated local encoding for SQL and detached event copies.",
+      "benefitEstablished": "276 serialization calls and 1706882 transient UTF-8 serialized bytes avoided in the bounded paired fixture.",
+      "storageAndQueryEffect": "Durable bytes and SQL read/write counts remain identical. Existing indexes, bounded pages and direct JSON SQL continue to work; no storage or latency reduction is claimed.",
+      "contractCost": "No schema, API, hash, replay, approval, cancellation, unknown/noReplay or archive migration.",
+      "decision": "Recommended current implementation; accepted compatibility optimization."
+    },
+    {
+      "id": "lossless-stored-json-compression",
+      "layout": "A future versioned storage codec compresses eligible complete context/event bodies while retaining queryable owner/order metadata and exact decoded JSON bytes.",
+      "possibleBenefit": "Repeated text may use fewer stored payload bytes; ratio and primary-file shrinkage are unmeasured. Compressing context rows alone leaves their full event copies intact.",
+      "storageAndQueryEffect": "Adds encode/decode CPU and decoded allocations. Existing data TEXT, JSON SQL, length-based page admission and evidence projections cannot silently receive compressed blobs/envelopes. Limits must charge exact decoded size as well as stored size before bounded decoding.",
+      "contractCost": "Explicit schema/codec migration after DB23, format/version detection, full caller audit and archive validation changes. Rewriting bodies can leave free pages without shrinking the primary file; any later compaction is separate scope.",
+      "entryConditions": [
+        "Qualified new table/page attribution identifies eligible immutable payloads.",
+        "A codec design preserves exact UTF-8 reconstruction, hashes and opaque replay without canonicalizing nested data.",
+        "Old DB23 remains readable; corruption/unknown codec/truncation fail closed without rewriting originals or claiming no-dispatch."
+      ],
+      "decision": "Next-scope candidate only; do not implement or estimate savings from this comparison."
+    },
+    {
+      "id": "immutable-history-in-local-cold-segments",
+      "layout": "A future primary catalogue retains all owner identities, revision/seq/ordinal indexes and content bindings; verified immutable old bodies live in local segments and are reconstructed for existing reads.",
+      "possibleBenefit": "Can reduce the hot working set. Moving bytes alone does not reduce total primary-plus-cold storage, and existing allocated primary pages may remain; compression or deduplication would be another measured variable.",
+      "storageAndQueryEffect": "Every ID lookup, old event/history cursor and dependency must resolve across hot/cold boundaries with bounded synchronous local reads. Current single-primary transactional snapshots do not provide atomic cross-file publication automatically.",
+      "contractCost": "Largest change: versioned catalogue/segment format, eligibility and dependency closure, crash-safe publication, complete archive membership or exact DB23 export materialization, and source-bound recovery fingerprints.",
+      "entryConditions": [
+        "Define a small first scope such as unreferenced completed-run context/event bodies; age or terminal state alone is insufficient.",
+        "Keep active summary/context anchors, pending approvals, cancellation/control ownership and unresolved/uncertain effect/recovery records authoritative and reachable.",
+        "Stage and verify immutable segments before transactional catalogue publication; crash at every boundary must leave an exact readable copy and no missing range.",
+        "Choose and verify archive compatibility before removing any hot body; retain originals throughout the prototype."
+      ],
+      "decision": "Later explicit scope after measured hot-read pressure justifies the extra ownership and archive machinery."
+    }
+  ],
+  "sharedContractRequirements": [
+    {
+      "contract": "caller/schema",
+      "requirement": "Public synchronous getters, errors, record ownership and DB23 compatibility remain intact; a new physical layout needs an explicit migration version, never hidden reinterpretation of current TEXT JSON."
+    },
+    {
+      "contract": "replay/signed evidence",
+      "requirement": "Decoded original text, opaque signatures, request digests, source IDs and provider/model/protocol bindings remain exact. Visible text, compression success or a clean storage copy cannot regenerate approval or signed authority."
+    },
+    {
+      "contract": "unknown/noReplay",
+      "requirement": "Missing, corrupt, truncated or unresolved cold/compressed evidence stays blocked/unknown. Migration, archive read or absent effects must never dispatch or promote unknown native cleanup to success."
+    },
+    {
+      "contract": "approval/cancel/receipts",
+      "requirement": "Exact approval fingerprint/preview, duplicate request receipt, pending cancellation, monotonic revision and event identity survive. A changed physical source binding cannot silently reuse or rebind a prior recovery acknowledgment."
+    },
+    {
+      "contract": "archive",
+      "requirement": "Retain complete logical native history, artifacts, managed-child evidence and manifests. Either reconstruct an exact compatible DB23 archive or define a new manifest version covering every segment and hash; import stays paused and executionResumed:false."
+    }
+  ],
+  "nextImplementationAndValidationPlan": [
+    "The actual closed Original costs are now recorded here and in the retained inspector report. Re-admit each future comparison original independently: row/data/all-column totals, table/index allocation and payload, primary/WAL/SHM/effects file scopes, closure proof, measured_unchanged and dbstat availability. Missing/refused/partial values remain null.",
+    "Choose one layout variable and a bounded immutable-record scope. Pin the old DB23 runtime and codec/catalogue design; prototype only on separately generated retained clones after a new implementation request. Preserve original source files and never overwrite the historical missing-evidence gap.",
+    "Verify exact reconstruction across Unicode/escapes/numeric keys/negative-zero normalization, raw JSON and content/request hashes, nested replay/signatures, old cursor boundaries, summary dependencies and archive round trips. Public GUI projection must still hide replay; rejected writes and journal failures must roll back together.",
+    "Inject publication interruption, missing/truncated/corrupt bodies, decode-budget exhaustion and hot/cold range gaps; prove owner checks, duplicate receipts, pending approval/cancel, uncertain/noReplay and recovery acknowledgment binding remain conservative. Archive import must not resume execution.",
+    "Measure identical retained workloads separately for physical total storage, decoded logical bytes, serialization/decompression work, SQL calls/returned bytes and cold/hot query latency/heap. Use repeated bounded samples with declared warm/cold conditions; require exact semantic/archive equivalence before reporting a storage or latency benefit. Do not substitute these experiments for the actual source-pinned 30-minute acceptance."
+  ],
+  "deferred": "Release signing, SIWC and Anthropic live acceptance remain pending user preparation and execution decision; no local comparison or temporary fixture result closes those gates.",
+  "completion": "The requested alternative comparison and qualified new-long-run attribution are complete. Layout selection, a codec/catalogue experiment and any migration remain separate implementation work.",
+  "newClosedOriginalTableMeasurementIntegrated": true
+}

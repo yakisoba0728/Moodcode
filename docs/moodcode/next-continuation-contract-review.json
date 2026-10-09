@@ -1,0 +1,367 @@
+{
+  "schemaVersion": 1,
+  "kind": "ordinary-correctness-and-continuation-contract-review",
+  "status": "reviewed-with-one-resolved-fixture-receipt-finding",
+  "reviewedAt": "2026-10-09T09:49:35.392Z",
+  "sourcePins": {
+    "baseline": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6",
+    "rootInitial": "16b2a103a698174ce67bbd9a9ba253af5c187d15",
+    "rootFinal": "59d4360e2e77a6d9b97f961d5dfff778504d9040",
+    "utilityInitial": "91c1254e0112b5353e48a8da1ff4284a53dd2408",
+    "utilityFinal": "862e6dda3f10620679db1c3e575f8c6a45cb1010",
+    "rootChangedDuringReview": true,
+    "changeObserved": "Root integrated 9031ee2 and eef2b75 during review; after independent reproduction, Root fixed receipt flags in 59d4360. Private worktree only added verification documentation as 862e6dd; its production host/update/evidence/native fixture sources remain unchanged.",
+    "rootFileSha256": {
+      "apps/desktop/src/renderer/App.tsx": "20bb476c0619d2d89b6bd2e967e6f1552b6d45df3027589ca5d59a884ff9f251",
+      "apps/desktop/src/renderer/components/AdvancedPanel.tsx": "767a865b81cdacdf355582d39bce48eb407f3d2da87a8a2817e1b5b995aa16bc",
+      "apps/desktop/src/renderer/components/ConversationMarkdown.tsx": "f491f0da06cccc0a84aafd63781ec5347946f31ca00cd0003e9d4ea75c892987",
+      "apps/desktop/src/renderer/components/LazyCodeBlock.tsx": "43db30622cc4aa671e2be1b327ccfd58d1248ef7c6ebc5bb859561a195fb57e0",
+      "apps/desktop/src/renderer/components/ReviewPane.tsx": "20843ef7984f0e277bfccae57107e992c198aa8c27635271018ac1067f6d4a53",
+      "apps/desktop/src/renderer/components/Timeline.tsx": "2daaed100334e1c4eadc6e0672b6afbf5ccf39c52d92aa038574183d5e9bf01d",
+      "apps/desktop/src/renderer/styles.css": "9ee464d1c50ef71d5dce28109dd3393ef12ad57a496446dabf5606aef1198808",
+      "apps/desktop/src/renderer/fixtures/verify-delivery.mjs": "f7e95868191a8d6166fd10bd92a64d3f43061684137aa39be1d0976ce5c56144",
+      "packages/engine/src/storage/native-records.ts": "05864c8c2394fe851600226a7cdc545a708393021268f8e94ac434f7c7964eaf",
+      "scripts/inspect-history-storage-cost.mjs": "3cfb2292c21885d5f5de5f9cb9ef23124f0ffdcecacba9ff8a350c1813dee8be",
+      "scripts/inspect-history-storage-cost.py": "fc4cf4fc1cd02daf98e1432b76741599fc85684048e8bc452ec3be665fa60881",
+      "scripts/compare-history-storage-cost.mjs": "b80d5dc2f77a7a499aff4b498d9436446d4ae65c967787c54351d681b29ecd6c",
+      "apps/desktop/src/main/host.ts": "73d6364da334aff738566048a98934239b0c96365ea30acc2aa2776f44c88a5f",
+      "apps/desktop/src/main/index.ts": "08a7847c3c5278853c1eaf098752574e0789d6623ce8b1732f611e365fe37b3b",
+      "apps/desktop/src/main/updates.ts": "4571a7305e32fc2c86ea46e78cc6d9c584926e42d6029ce10b99a608b7ffaeaf",
+      "scripts/desktop-main-utility-close.mjs": "6d1acc6c52e27a4d15aa9bf3a3849b1615d553cb4f1c544cfdd39568522a82ce",
+      "scripts/verify-desktop-main-utility-close.mjs": "36cab6b994650907c070c816b7085b020c5c04bf6127a516d76eb4b66811046d",
+      "scripts/desktop-test-evidence.mjs": "50fd3d5668234fe66c121bcb8d62c08e098c2c7dd3aa6c2090e2a0f33864a4bb",
+      "scripts/desktop-main-utility-close.test.mjs": "91d4c10bd7714a331e82ffaadec67790f44ba05729d1674bd9b38ff88e3d04c7"
+    },
+    "utilityFileSha256": {
+      "apps/desktop/src/main/host.ts": "73d6364da334aff738566048a98934239b0c96365ea30acc2aa2776f44c88a5f",
+      "apps/desktop/src/main/index.ts": "08a7847c3c5278853c1eaf098752574e0789d6623ce8b1732f611e365fe37b3b",
+      "apps/desktop/src/main/updates.ts": "4571a7305e32fc2c86ea46e78cc6d9c584926e42d6029ce10b99a608b7ffaeaf",
+      "scripts/desktop-main-utility-close.mjs": "6dfea16e0fd8bc58c0c7081788bacf95d3e33f11b050b570cb9f7309ff36753e",
+      "scripts/verify-desktop-main-utility-close.mjs": "36cab6b994650907c070c816b7085b020c5c04bf6127a516d76eb4b66811046d",
+      "scripts/desktop-test-evidence.mjs": "50fd3d5668234fe66c121bcb8d62c08e098c2c7dd3aa6c2090e2a0f33864a4bb"
+    },
+    "utilitySourcesMatchIntegratedRoot": false,
+    "initialDynamicReproduction": {
+      "rootCommit": "eef2b759061971b07bc4a3f8abd582e234d3df0f",
+      "helperSha256": "6dfea16e0fd8bc58c0c7081788bacf95d3e33f11b050b570cb9f7309ff36753e",
+      "normalRootHelperUnmodifiedAtExecution": true
+    },
+    "fixedDynamicValidation": {
+      "rootCommit": "59d4360e2e77a6d9b97f961d5dfff778504d9040",
+      "helperSha256": "6d1acc6c52e27a4d15aa9bf3a3849b1615d553cb4f1c544cfdd39568522a82ce",
+      "helperTestSha256": "91d4c10bd7714a331e82ffaadec67790f44ba05729d1674bd9b38ff88e3d04c7",
+      "changedFiles": [
+        "scripts/desktop-main-utility-close.mjs",
+        "scripts/desktop-main-utility-close.test.mjs"
+      ],
+      "helperWorkingTreeDiff": ""
+    },
+    "utilityRootDifferences": [
+      "scripts/desktop-main-utility-close.mjs"
+    ],
+    "utilityRootDifferenceQualification": "Only the original helper differs because Root owns the independent review fix. Host/index/updates/evidence and native fixture remain byte identical across private and integrated Root."
+  },
+  "authorizationAndLimits": {
+    "onlyWrittenFile": "docs/moodcode/next-continuation-contract-review.json",
+    "codeTestsReadmeTodoWorkflowsNativeLiveAuthGitAndGoalUnmodified": true,
+    "noCredentialSearchOrOutput": true,
+    "noSignalsSent": true,
+    "noOriginalOrNativeFixtureDeleted": true,
+    "noRebuildFullSuiteGuiNativeOrLongRunRerun": true,
+    "focusedDynamicValidation": "Two independent read-only Node invocations imported current pure receipt/inspector/comparison exports: original reproduction and one post-fix validation. No fixture or DB was created by this reviewer.",
+    "notSecurityScan": true
+  },
+  "findings": [
+    {
+      "id": "continuation-receipt-unknown-booleans",
+      "priority": 2,
+      "status": "resolved-and-independently-verified-at-root",
+      "file": "scripts/desktop-main-utility-close.mjs",
+      "lines": [
+        22,
+        25,
+        28,
+        60,
+        61
+      ],
+      "title": "Unknown receipt flags can be normalized into confirmed utility cleanup",
+      "condition": "Start with a complete positive original-utility receipt; set forcedStop to null at the aggregate and connection levels, or set spawnUnobserved to null while keeping complete:true.",
+      "actual": "qualifyMainUtilityClose returns state:confirmed in both cases. forcedStop uses ===true and therefore erases null/missing into false; complete accepts spawnUnobserved!==true rather than requiring an observed false.",
+      "expected": "Malformed or unknown authority/forced-stop fields retain unknown qualification; only explicit false permits positive qualification.",
+      "impact": "The retained JSON receipt validator can accept missing/unknown proof fields as successful utility closure. Current DesktopHost-generated DTOs emit explicit booleans, so this is a receipt validation defect, not evidence of a normal production installer bypass or native cleanup promotion.",
+      "reproduction": {
+        "module": "./scripts/desktop-main-utility-close.mjs",
+        "normalReceipt": {
+          "schemaVersion": 1,
+          "utilityScope": "main-utilities",
+          "complete": true,
+          "spawnAttempted": true,
+          "spawnUnobserved": false,
+          "evictedCount": 0,
+          "utilityAcknowledged": true,
+          "utilityExitObserved": true,
+          "cleanupConfirmed": true,
+          "forcedStop": false,
+          "connections": [
+            {
+              "connectionId": "11111111-1111-4111-8111-111111111111",
+              "scope": "engine",
+              "source": "original-electron-utility",
+              "generation": 1,
+              "utilityExitObservable": true,
+              "engineCloseAcknowledged": true,
+              "utilityExitObserved": true,
+              "exitCode": 0,
+              "cleanupConfirmed": true,
+              "forcedStop": false,
+              "reason": null
+            }
+          ]
+        },
+        "calls": [
+          "qualifyMainUtilityClose({...normalReceipt,forcedStop:null,connections:[{...normalReceipt.connections[0],forcedStop:null}]}).state",
+          "qualifyMainUtilityClose({...normalReceipt,spawnUnobserved:null}).state"
+        ],
+        "observedOutputs": [
+          "confirmed",
+          "confirmed"
+        ]
+      },
+      "suggestion": "Preserve malformed booleans as null in projection and require explicit spawnUnobserved:false and forcedStop:false for positive qualification. Keep valid original DTOs unchanged.",
+      "resolution": {
+        "commit": "59d4360e2e77a6d9b97f961d5dfff778504d9040",
+        "owner": "Root",
+        "file": "scripts/desktop-main-utility-close.mjs",
+        "lines": [
+          22,
+          25,
+          28,
+          60,
+          61
+        ],
+        "change": "Malformed forcedStop values remain null; complete requires explicit spawnUnobserved:false; positive qualification requires explicit spawnAttempted:true. A valid original host DTO still confirms.",
+        "regressionFile": "scripts/desktop-main-utility-close.test.mjs",
+        "regressionLines": [
+          33,
+          34,
+          35,
+          38,
+          39,
+          41,
+          42,
+          43
+        ],
+        "independentPostFixValidation": {
+          "readOnly": true,
+          "exitCode": 0,
+          "cases": 16,
+          "fields": [
+            "top forcedStop",
+            "connection forcedStop",
+            "top spawnUnobserved",
+            "top spawnAttempted"
+          ],
+          "values": [
+            "JSON omitted",
+            "null",
+            "string false",
+            "number 0"
+          ],
+          "allUnknownAfterJsonDecodeAndTwoProjections": true,
+          "allUnknownEvenWithIndependentNativeConfirmedTrue": true,
+          "validPositivePreserved": true,
+          "noEffectNativeStillUnknown": true
+        }
+      }
+    }
+  ],
+  "reviewConclusions": [
+    {
+      "area": "production renderer 9cdecba",
+      "conclusion": "No actionable contract regression found in reviewed source.",
+      "evidence": [
+        "App.tsx module-scope lazy factories defer Timeline/Recovery/Settings/AdvancedPanel; current snapshot/session/generation are passed on mount.",
+        "Timeline.tsx:209-270 keeps the exact approval ID/fingerprint store.decide call; the enclosing Suspense covers preview plus action buttons.",
+        "App main cancel controls remain outside delayed Timeline; loading dialogs close on cancel and do not dispatch commands.",
+        "Renderer delivery fixture source independently drives delayed imports, native approval, session switch/reload, restore history/theme and cancel; it was read, not rerun."
+      ]
+    },
+    {
+      "area": "native execution encoding b901af6",
+      "conclusion": "No actionable byte/schema/ordering/aliasing regression found in reviewed production source.",
+      "evidence": [
+        "Validators return normalized fresh structures before encoding (contracts validation.ts:519-575).",
+        "native-records.ts:84-128,153-189,191-237,277-298 reuses the same local encoded string for SQL and fresh JSON.parse event copies. No caller alias or shared encoded object is introduced.",
+        "Run/Turn/Attempt scope, transitions, identity, prefix and capacity validation precede durable writes, within the existing native.write transaction. Notification remains after commit (native.ts:44-49).",
+        "The actual storage/index.ts:240-245 summary dependency callback only reads and verifies its dependency; it does not mutate the earlier encoded Turn.",
+        "Uncertain state control writes and provider media admission remain in the same transaction; a later rejection rolls back row/journal writes. NoReplay/provider continuation code was changed."
+      ]
+    },
+    {
+      "area": "closed snapshot inspector",
+      "conclusion": "No unsafe partial measurement success found in reviewed source.",
+      "evidence": [
+        "Python opens only primary mode=ro&immutable=1 after caller closure assertion and absent/empty WAL/rollback admission; secondary effects files are fingerprinted only.",
+        "File/row/schema/query/VM/process/output bounds exist; refusal after opening retains measurement_failed and never reaches measured_unchanged.",
+        "Final fingerprint change/incompletion overrides measurement success. Optional context/dbstat failures retain explicit unavailable status; values are not emitted.",
+        "Physical/logical/serialized costs remain separately qualified; immutable before/after hashes cannot prove no transient concurrent mutation."
+      ]
+    },
+    {
+      "area": "bounded native comparison helper",
+      "conclusion": "No actionable correctness regression found in reviewed comparison source.",
+      "evidence": [
+        "12 genuine ScriptedProvider engine runs, exact original native row/event copies, bounded model/public history and native archive export/validation are compared.",
+        "compareResults requires identical fixture inputs, exact ordered rows, normalized rows, public/model semantics, archive rows and SQL counters.",
+        "Instrumentation uses saved JSON functions for its own accounting, runs in isolated child processes, and restores hooks; timing/heap claims are informational.",
+        "A changed exact row digest with matching normalized data was rejected by the focused read-only invocation."
+      ]
+    },
+    {
+      "area": "host/update/original utility boundary",
+      "conclusion": "Original utility ACK/exit distinction and existing engine retry contract are preserved in reviewed production source.",
+      "evidence": [
+        "host.ts:319-323 records matching close ACK before resolving the close promise, preventing same-turn exit from erasing the ACK.",
+        "ACK detaches only the message channel; exit listeners remain until the exact original child emits exit. Immutable connection IDs/generations prevent a sibling or replacement from supplying old exit evidence.",
+        "retryEngine/account/settings/recover still await engine close ACK before opening another engine; full application close additionally awaits every retained original utility exit.",
+        "closeForUpdate rejects unknown/nonzero/unacknowledged/unobserved spawn or evicted ledger evidence; never-spawned exception excludes failed unknown spawn.",
+        "onUtilityClose receives fresh bounded DTOs; observer mutation/throw is isolated from lifecycle and admission."
+      ]
+    },
+    {
+      "area": "native qualifier and actual native fixture source",
+      "conclusion": "Complete native cleanup is not inferred from clean utility/application exit or empty partial projections.",
+      "evidence": [
+        "qualifyDesktopNativeCleanup returns false for observed uncertainty and otherwise null, including no-effect/empty/terminal bounded records.",
+        "Observed active execution lock marker, unresolved review operations, negative cleanup/effect flags remain negative; unstable/unavailable/omitted records cannot supply success.",
+        "aggregateFixtureCleanup keeps unknown unless independent main/private/native proof is positive; original retention remains required.",
+        "verify-desktop-main-utility-close.mjs drives actual original Electron utility handles with finite worker self-exit and controlled ACK/error/exit modes; source retains fixtures and never uses PID lookup as cleanup proof. This reviewer did not execute it."
+      ]
+    }
+  ],
+  "focusedValidation": {
+    "node": "v26.9.0",
+    "exitCode": 0,
+    "readOnly": true,
+    "negativeCoverageCases": 9,
+    "noEffectNativeResult": null,
+    "noEffectAggregateResult": "unknown",
+    "activeNativeMarkerResult": false,
+    "exactRowDifferenceRejected": true,
+    "explicitClosedSnapshotRequired": true,
+    "beforeFix": {
+      "node": "v26.9.0",
+      "exitCode": 0,
+      "readOnly": true,
+      "negativeCoverageCases": 9,
+      "noEffectNativeResult": null,
+      "noEffectAggregateResult": "unknown",
+      "activeNativeMarkerResult": false,
+      "exactRowDifferenceRejected": true,
+      "explicitClosedSnapshotRequired": true,
+      "unknownForcedStopResult": "confirmed",
+      "unknownSpawnUnobservedResult": "confirmed"
+    },
+    "afterFix": {
+      "readOnly": true,
+      "exitCode": 0,
+      "cases": 16,
+      "fields": [
+        "top forcedStop",
+        "connection forcedStop",
+        "top spawnUnobserved",
+        "top spawnAttempted"
+      ],
+      "values": [
+        "JSON omitted",
+        "null",
+        "string false",
+        "number 0"
+      ],
+      "allUnknownAfterJsonDecodeAndTwoProjections": true,
+      "allUnknownEvenWithIndependentNativeConfirmedTrue": true,
+      "validPositivePreserved": true,
+      "noEffectNativeStillUnknown": true
+    },
+    "qualification": "The original unknown-to-confirmed outputs are historical reproductions at the beforeFix pin; the current helper returns unknown for those inputs."
+  },
+  "limitations": [
+    "The production renderer/browser/engine DB and actual native utility commands were not rerun; Root owns integrated validation.",
+    "Close/exit timeout, prior failed close, nonzero/crashed child and any settled ledger eviction intentionally remain conservative for update installation even after a later normal exit. Tests explicitly pin this behavior; the physical quit retry can still settle.",
+    "The utility ledger permits 64 retained connections and rejects additional live-child admission; evicted settled history makes complete false and requires reopening for future updater acceptance.",
+    "No structural inventory/name similarity was used as deletion justification; no source deletion was performed.",
+    "Signature/release signing, SIWC and Anthropic live acceptance remain pending the user prepared execution decision. No new temporary success closes those gates.",
+    "A clean source review does not establish external provider credentials, Windows package acceptance or whole native cleanup."
+  ],
+  "integrationRequirement": "Root must check current commit and file hashes before incorporation. No unresolved actionable finding remains in this reviewed scope; original and fixed source pins plus independent focused outcomes are retained. External signing/SIWC/Anthropic gates remain pending user preparation.",
+  "rootValidationEvidence": {
+    "focusedTests": {
+      "source": "Root direct coordination message after fix",
+      "passed": 10,
+      "total": 10,
+      "scope": "helper plus bounded native evidence tests",
+      "reviewerDidNotRerun": true
+    },
+    "actualOriginalUtilityBoundary": {
+      "source": "Root generated existing report, independently read without launching or altering native processes",
+      "file": "artifacts/next-main-utility-close/native-close-boundary-ce0687d0-5546-44ff-ab88-fd58c34218e6.json",
+      "mtime": "2026-10-09T09:46:37.515Z",
+      "sha256": "7a9beaba3db3d127e5db41989d64e8b384f8e02e8df410612d070b719112132f",
+      "ok": true,
+      "finite": true,
+      "noForcedStop": true,
+      "physicalApplicationExitEstablishesCleanup": false,
+      "cases": [
+        {
+          "case": "production-main-app-quit",
+          "ok": true,
+          "cleanupState": "unknown",
+          "nativeConfirmed": null,
+          "originalFixtureRetained": true
+        },
+        {
+          "case": "close-error",
+          "ok": true,
+          "cleanupState": "unknown",
+          "nativeConfirmed": null,
+          "originalFixtureRetained": true
+        },
+        {
+          "case": "ack-absent",
+          "ok": true,
+          "cleanupState": "unknown",
+          "nativeConfirmed": null,
+          "originalFixtureRetained": true
+        },
+        {
+          "case": "exit-without-ack",
+          "ok": true,
+          "cleanupState": "unknown",
+          "nativeConfirmed": null,
+          "originalFixtureRetained": true
+        },
+        {
+          "case": "exit-timeout",
+          "ok": true,
+          "cleanupState": "unknown",
+          "nativeConfirmed": null,
+          "originalFixtureRetained": true
+        },
+        {
+          "case": "late-original",
+          "ok": true,
+          "cleanupState": "unknown",
+          "nativeConfirmed": null,
+          "originalFixtureRetained": true
+        },
+        {
+          "case": "never-started",
+          "ok": true,
+          "cleanupState": "unknown",
+          "nativeConfirmed": null,
+          "originalFixtureRetained": true
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,2550 @@
+{
+  "schemaVersion": 1,
+  "kind": "current-head-hosted-original-evidence-verification",
+  "recordedAt": "2026-10-09T11:16:16.781754+00:00",
+  "source": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+  "collection": {
+    "complete": true,
+    "jobScopes": 11,
+    "terminalJobs": 11,
+    "successfulJobs": 11,
+    "failedJobs": 0,
+    "allCurrentJobScopesPassed": true,
+    "originalZipCount": 11,
+    "originalZipBytes": 759747087,
+    "originalZipEntries": 6752,
+    "rawJobLogs": 11,
+    "allApiSizeAndDigestPinsMatch": true,
+    "allZipCRCAndSafeExtractionChecksPass": true,
+    "fileReferenceHashAndSizeChecks": 4995,
+    "missingReferencedFiles": 0,
+    "mismatchedReferencedFiles": 0,
+    "desktopRetentionManifests": 31,
+    "fileReferenceCheckScope": "4,995 checks by collecting agents; primary collector independently hashed all 3,279 selected backend references. A second full reference audit was not performed.",
+    "desktopNativeFileReferences": 121,
+    "desktopCopiedNativeBytes": 22455145,
+    "independentCrossReview": {
+      "path": "artifacts/next-continuation/hosted/hosted-review-663a3a0.json",
+      "bytes": 25872,
+      "sha256": "01fa5a2698153241dc7e175360a1e03fca22f4535a5507032c9b49526e42aa38"
+    },
+    "independentCrossReviewStatus": "partial-independent-byte-audit",
+    "finiteSourceAndDocumentaryReviewComplete": true,
+    "independentAllOriginalByteAuditComplete": false,
+    "independentCrossReviewScope": "Source and documentary semantic review; collector-qualified ZIP CRC, extraction and full reference checks, with independent selected-backend file hashing.",
+    "reviewAgentIndependentlyRehashedAll11ZipsAnd4995References": false,
+    "documentWriterRehashedAll11OriginalZipDigestPins": true,
+    "semanticOriginalPersistentAndPtyValidatorsPassed": 8
+  },
+  "sourceQualification": {
+    "allCurrentRunsAtExactHead": true,
+    "exactFourFileChanges": [
+      {
+        "path": ".github/scripts/engine-ci.mjs",
+        "before": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "7e8acf4213e4b82889e7d2c09d1eef5185a734e5"
+        },
+        "after": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "eb8dd278ef2c4f52da087bbab7807add3f045280"
+        }
+      },
+      {
+        "path": "docs/moodcode/engine-ci.md",
+        "before": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "7a61e84a91f53d90e5b02918e5e40ce53a5029f8"
+        },
+        "after": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "4808c9448c093c4da77b13ac1a0b89d2b0824726"
+        }
+      },
+      {
+        "path": "packages/engine/src/agent-backends/fixture-retention.integration.test.ts",
+        "before": null,
+        "after": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "0cabb3abd9c1f964653a8d7dce9b9fe534874619"
+        }
+      },
+      {
+        "path": "packages/engine/src/agent-backends/fixtures/backend.ts",
+        "before": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "41230b8338283cebc0c1c7328a16247bc3a0fd3c"
+        },
+        "after": {
+          "mode": "100644",
+          "kind": "blob",
+          "blob": "60640278a1fdfc5cd972fe5c470bcac07cd9f52e"
+        }
+      }
+    ],
+    "productionQualification": {
+      "desktopMainWorkerBlobsAndModesIdentical": true,
+      "engineNativeContractNonTestCount": 482,
+      "engineNativeContractNonTestAllIdentical": false,
+      "changedNonTestInput": [
+        "packages/engine/src/agent-backends/fixtures/backend.ts"
+      ],
+      "unchangedOtherNonTestInputCount": 481,
+      "changedFixtureImportedOnlyByTrackedTestFiles": true,
+      "fixtureImporterPaths": [
+        "packages/engine/src/agent-backends/admission-rollback.integration.test.ts",
+        "packages/engine/src/agent-backends/archive.integration.test.ts",
+        "packages/engine/src/agent-backends/client-effects-crash.integration.test.ts",
+        "packages/engine/src/agent-backends/client-effects-native.integration.test.ts",
+        "packages/engine/src/agent-backends/client-effects-no-spawn.integration.test.ts",
+        "packages/engine/src/agent-backends/client-effects.integration.test.ts",
+        "packages/engine/src/agent-backends/crash.integration.test.ts",
+        "packages/engine/src/agent-backends/engine-backends.integration.test.ts",
+        "packages/engine/src/agent-backends/fixture-retention.integration.test.ts",
+        "packages/engine/src/agent-backends/native-graph.integration.test.ts",
+        "packages/engine/src/agent-backends/process-lifecycle.integration.test.ts",
+        "packages/engine/src/agent-backends/producer-boundaries.integration.test.ts",
+        "packages/engine/src/agent-backends/receipt-contract.integration.test.ts",
+        "packages/engine/src/agent-backends/session-load.lifecycle.integration.test.ts",
+        "packages/engine/src/agent-backends/session-load.native.integration.test.ts",
+        "packages/engine/src/agent-backends/store.test.ts"
+      ],
+      "declarationsBlobsAndModesIdentical": true,
+      "workflowDefinitionBlobsAndModesIdentical": true,
+      "buildDependencyInputBlobsAndModesIdentical": true,
+      "ciRunnerScriptChanged": true,
+      "compiledFixtureImplementationChanged": true,
+      "actualNewCICompiledOutputIdentityInferredFromLocalSource": false,
+      "scope": "The non-test filename backend.ts is a changed test fixture; the prior482-all-identical claim does not apply. The existing effectful runtime tracked module inputs are unchanged; the test fixture, added compiled integration test and CI evidence runner behavior changed."
+    },
+    "localFrozenRuntimeReadOnlyScope": "LOCAL current source/runtime bytes compared read-only to prior retained fingerprint metadata. Unuploaded new CI runtime bytes are not independently certified or substituted with these local files.",
+    "actualNewCICompiledOutputIdentityInferredFromLocalFiles": false
+  },
+  "runs": [
+    {
+      "runId": 37919775610,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37919775610",
+      "source": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+      "status": "completed",
+      "conclusion": "success",
+      "successfulJobs": 6,
+      "failedJobs": 0,
+      "jobs": [
+        {
+          "jobId": 113784636818,
+          "jobName": "Headless macos-15 / Node 24.x",
+          "jobConclusion": "success",
+          "platform": "darwin",
+          "architecture": "arm64",
+          "node": "v24.20.0",
+          "scope": "Complete headless fixtures plus actually executed compiled local quick-profile reports; skip/uncertain scopes remain explicit",
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37919775610/original-job-logs/113784636818-20261009T110018240120Z.log",
+            "bytes": 2993493,
+            "sha256": "49f26728bacab7dd1ac9190a45fe16349170b5c8b4fc3f055d07d9fd9226b223"
+          },
+          "manifestReferenceValidation": {
+            "path": "artifacts/next-continuation/hosted/37919775610/reference-validation-11611338657-20261009T110257143813Z.json",
+            "bytes": 665989,
+            "sha256": "4e1fcb76f85a1ffcb1051d9c5861c8707d7def2db700d424ef6da228df8d101e"
+          },
+          "tests": {
+            "tests": 4853,
+            "pass": 4851,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 2,
+            "todo": 0
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "currentProtectedReceiptCasePass": {
+            "line": 2725,
+            "text": "2026-10-09T10:50:08.5020530Z ✔ administrative SQL pairs preserve authentic unknown ownership, history and archive binding without Original replay (1139.3195ms)"
+          },
+          "backendSelectedDiagnostics": {
+            "mainFixtureCount": 76,
+            "mainSelectedFiles": 754,
+            "mainSelectedBytes": 123051596,
+            "mainEvidence": {
+              "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1/test-backend-fixture-evidence.json",
+              "bytes": 164917,
+              "sha256": "b4a19f35f73ab6d9c9336bdb4409bace375d914780fdfc8ee4e551d030f2c252"
+            },
+            "testEnvironmentOverrides": {
+              "MOODCODE_CI_BACKEND_FIXTURE_ROOT": "/private/var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T/moodcode-backend-evidence-d6U6T7",
+              "MOODCODE_CI_BACKEND_FIXTURE_REPORT_DIR": "/Users/runner/work/Moodcode/Moodcode/artifacts/engine-ci"
+            },
+            "freshOutsideCheckoutRootObserved": true,
+            "fiveActualNewOuterTests": [
+              {
+                "mode": "success",
+                "outerTestPassed": true,
+                "line": 2681,
+                "text": "2026-10-09T10:50:08.2903320Z ✔ backend Original survives success after native test cleanup (1415.026041ms)"
+              },
+              {
+                "mode": "failure",
+                "outerTestPassed": true,
+                "line": 2683,
+                "text": "2026-10-09T10:50:08.2928860Z ✔ backend Original survives failure after native test cleanup (1211.3875ms)"
+              },
+              {
+                "mode": "close-error",
+                "outerTestPassed": true,
+                "line": 2685,
+                "text": "2026-10-09T10:50:08.2932370Z ✔ backend Original survives close-error after native test cleanup (1615.906ms)"
+              },
+              {
+                "mode": "unknown",
+                "outerTestPassed": true,
+                "line": 2687,
+                "text": "2026-10-09T10:50:08.2937910Z ✔ backend Original survives unknown after native test cleanup (1392.202958ms)"
+              },
+              {
+                "mode": "manifest-error",
+                "outerTestPassed": true,
+                "line": 2689,
+                "text": "2026-10-09T10:50:08.2941890Z ✔ backend Original survives manifest-error after native test cleanup (1497.813291ms)"
+              }
+            ]
+          }
+        },
+        {
+          "jobId": 113784636840,
+          "jobName": "Portable contracts/storage only / Windows / Node 24.x",
+          "jobConclusion": "success",
+          "platform": "win32",
+          "architecture": "x64",
+          "node": "v24.21.0",
+          "scope": "Portable contracts and selected storage/native-port fixtures; no Windows OS native Job Object/PT Y credit",
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37919775610/original-job-logs/113784636840-20261009T105253032114Z.log",
+            "bytes": 205660,
+            "sha256": "dbf1c312f757dbd772c76ea2461c2779d875dc9c26ec89df061b6afde5eabfc8"
+          },
+          "manifestReferenceValidation": {
+            "path": "artifacts/next-continuation/hosted/37919775610/reference-validation-11611515384-20261009T110257143813Z.json",
+            "bytes": 645,
+            "sha256": "7ff4c3b8d2f452316625c11903b648533c35bbc3560d279bd1b1e3fe492641ac"
+          },
+          "tests": {
+            "tests": 159,
+            "pass": 159,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "backendSelectedDiagnosticsIncluded": false,
+          "portableCIHarnessTestScope": "Actual raw launcher tests 7/7, separate portable contracts/storage 159/159."
+        },
+        {
+          "jobId": 113784636565,
+          "jobName": "Portable contracts/storage only / Windows / Node 26.x",
+          "jobConclusion": "success",
+          "platform": "win32",
+          "architecture": "x64",
+          "node": "v26.11.1",
+          "scope": "Portable contracts and selected storage/native-port fixtures; no Windows OS native Job Object/PT Y credit",
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37919775610/original-job-logs/113784636565-20261009T105253032114Z.log",
+            "bytes": 205873,
+            "sha256": "45ae9cf931f60fbb83c38dd94cd991084c90a2c903031308d4681011b83b4188"
+          },
+          "manifestReferenceValidation": {
+            "path": "artifacts/next-continuation/hosted/37919775610/reference-validation-11611665130-20261009T110257143813Z.json",
+            "bytes": 645,
+            "sha256": "7ff4c3b8d2f452316625c11903b648533c35bbc3560d279bd1b1e3fe492641ac"
+          },
+          "tests": {
+            "tests": 159,
+            "pass": 159,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "backendSelectedDiagnosticsIncluded": false,
+          "portableCIHarnessTestScope": "Actual raw launcher tests 7/7, separate portable contracts/storage 159/159."
+        },
+        {
+          "jobId": 113784636625,
+          "jobName": "Headless ubuntu-24.04 / Node 24.x",
+          "jobConclusion": "success",
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "v24.21.0",
+          "scope": "Complete headless fixtures plus actually executed compiled local quick-profile reports; skip/uncertain scopes remain explicit",
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37919775610/original-job-logs/113784636625-20261009T105740680684Z.log",
+            "bytes": 2990582,
+            "sha256": "30d433892b2bf2dfcfdec57a56b823468e8e8d89caa23d3f362ad39d62862ec1"
+          },
+          "manifestReferenceValidation": {
+            "path": "artifacts/next-continuation/hosted/37919775610/reference-validation-11611761316-20261009T110257143813Z.json",
+            "bytes": 646561,
+            "sha256": "6d4ccdfc9b5f530229bca06d72a0b00ae91940bf382c4da950efb794f701b169"
+          },
+          "tests": {
+            "tests": 4853,
+            "pass": 4789,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 64,
+            "todo": 0
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "currentProtectedReceiptCasePass": {
+            "line": 2722,
+            "text": "2026-10-09T10:49:34.8438247Z ✔ administrative SQL pairs preserve authentic unknown ownership, history and archive binding without Original replay (1188.587889ms)"
+          },
+          "backendSelectedDiagnostics": {
+            "mainFixtureCount": 76,
+            "mainSelectedFiles": 754,
+            "mainSelectedBytes": 123845111,
+            "mainEvidence": {
+              "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1/test-backend-fixture-evidence.json",
+              "bytes": 160836,
+              "sha256": "23aebfb304f2448287f64911caad5939d2a791cac2329a8467883f3753a33d69"
+            },
+            "testEnvironmentOverrides": {
+              "MOODCODE_CI_BACKEND_FIXTURE_ROOT": "/tmp/moodcode-backend-evidence-FjyKTS",
+              "MOODCODE_CI_BACKEND_FIXTURE_REPORT_DIR": "/home/runner/work/Moodcode/Moodcode/artifacts/engine-ci"
+            },
+            "freshOutsideCheckoutRootObserved": true,
+            "fiveActualNewOuterTests": [
+              {
+                "mode": "success",
+                "outerTestPassed": true,
+                "line": 2678,
+                "text": "2026-10-09T10:49:34.8178838Z ✔ backend Original survives success after native test cleanup (1508.052219ms)"
+              },
+              {
+                "mode": "failure",
+                "outerTestPassed": true,
+                "line": 2680,
+                "text": "2026-10-09T10:49:34.8184122Z ✔ backend Original survives failure after native test cleanup (1479.490111ms)"
+              },
+              {
+                "mode": "close-error",
+                "outerTestPassed": true,
+                "line": 2682,
+                "text": "2026-10-09T10:49:34.8234382Z ✔ backend Original survives close-error after native test cleanup (1518.895138ms)"
+              },
+              {
+                "mode": "unknown",
+                "outerTestPassed": true,
+                "line": 2684,
+                "text": "2026-10-09T10:49:34.8240057Z ✔ backend Original survives unknown after native test cleanup (1567.523552ms)"
+              },
+              {
+                "mode": "manifest-error",
+                "outerTestPassed": true,
+                "line": 2686,
+                "text": "2026-10-09T10:49:34.8244963Z ✔ backend Original survives manifest-error after native test cleanup (1506.480958ms)"
+              }
+            ]
+          }
+        },
+        {
+          "jobId": 113784636839,
+          "jobName": "Headless macos-15 / Node 26.x",
+          "jobConclusion": "success",
+          "platform": "darwin",
+          "architecture": "arm64",
+          "node": "v26.11.1",
+          "scope": "Complete headless fixtures plus actually executed compiled local quick-profile reports; skip/uncertain scopes remain explicit",
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37919775610/original-job-logs/113784636839-20261009T110018240120Z.log",
+            "bytes": 3010758,
+            "sha256": "ac043f0ed946055626ebdf13729cedf03958099a076256aad47ac402e0467349"
+          },
+          "manifestReferenceValidation": {
+            "path": "artifacts/next-continuation/hosted/37919775610/reference-validation-11611981451-20261009T110257143813Z.json",
+            "bytes": 672720,
+            "sha256": "5cc145e473d5f9e75f3c43c890c20af59d003dea162f544e7125260adfcbc06d"
+          },
+          "tests": {
+            "tests": 4853,
+            "pass": 4851,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 2,
+            "todo": 0
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "currentProtectedReceiptCasePass": {
+            "line": 2727,
+            "text": "2026-10-09T10:49:53.7929550Z ✔ administrative SQL pairs preserve authentic unknown ownership, history and archive binding without Original replay (1080.932875ms)"
+          },
+          "backendSelectedDiagnostics": {
+            "mainFixtureCount": 76,
+            "mainSelectedFiles": 753,
+            "mainSelectedBytes": 122994026,
+            "mainEvidence": {
+              "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1/test-backend-fixture-evidence.json",
+              "bytes": 164756,
+              "sha256": "c1bef7b8007a2cbd5ce793c118074661b4cce5a2fc880e32183fb22c21c615b5"
+            },
+            "testEnvironmentOverrides": {
+              "MOODCODE_CI_BACKEND_FIXTURE_ROOT": "/private/var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T/moodcode-backend-evidence-RvwwSO",
+              "MOODCODE_CI_BACKEND_FIXTURE_REPORT_DIR": "/Users/runner/work/Moodcode/Moodcode/artifacts/engine-ci"
+            },
+            "freshOutsideCheckoutRootObserved": true,
+            "fiveActualNewOuterTests": [
+              {
+                "mode": "success",
+                "outerTestPassed": true,
+                "line": 2683,
+                "text": "2026-10-09T10:49:53.7863150Z ✔ backend Original survives success after native test cleanup (1320.714791ms)"
+              },
+              {
+                "mode": "failure",
+                "outerTestPassed": true,
+                "line": 2685,
+                "text": "2026-10-09T10:49:53.7865930Z ✔ backend Original survives failure after native test cleanup (1458.304833ms)"
+              },
+              {
+                "mode": "close-error",
+                "outerTestPassed": true,
+                "line": 2687,
+                "text": "2026-10-09T10:49:53.7870080Z ✔ backend Original survives close-error after native test cleanup (1273.289959ms)"
+              },
+              {
+                "mode": "unknown",
+                "outerTestPassed": true,
+                "line": 2689,
+                "text": "2026-10-09T10:49:53.7873020Z ✔ backend Original survives unknown after native test cleanup (1343.423916ms)"
+              },
+              {
+                "mode": "manifest-error",
+                "outerTestPassed": true,
+                "line": 2691,
+                "text": "2026-10-09T10:49:53.7875830Z ✔ backend Original survives manifest-error after native test cleanup (1181.392625ms)"
+              }
+            ]
+          }
+        },
+        {
+          "jobId": 113784636697,
+          "jobName": "Headless ubuntu-24.04 / Node 26.x",
+          "jobConclusion": "success",
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "v26.11.1",
+          "scope": "Complete headless fixtures plus actually executed compiled local quick-profile reports; skip/uncertain scopes remain explicit",
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37919775610/original-job-logs/113784636697-20261009T105740680684Z.log",
+            "bytes": 2993886,
+            "sha256": "7d366bc98305427c660789266a9caf01633af27f07584baf7834061b6139e828"
+          },
+          "manifestReferenceValidation": {
+            "path": "artifacts/next-continuation/hosted/37919775610/reference-validation-11612290591-20261009T110257143813Z.json",
+            "bytes": 655637,
+            "sha256": "f5077b5bb8f1658c20881302c287d75ff924d80c482af93fee65293543670d24"
+          },
+          "tests": {
+            "tests": 4853,
+            "pass": 4789,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 64,
+            "todo": 0
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "currentProtectedReceiptCasePass": {
+            "line": 2726,
+            "text": "2026-10-09T10:49:28.7487380Z ✔ administrative SQL pairs preserve authentic unknown ownership, history and archive binding without Original replay (1151.599223ms)"
+          },
+          "backendSelectedDiagnostics": {
+            "mainFixtureCount": 76,
+            "mainSelectedFiles": 754,
+            "mainSelectedBytes": 123923045,
+            "mainEvidence": {
+              "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1/test-backend-fixture-evidence.json",
+              "bytes": 160836,
+              "sha256": "810434fe4f2eb0f29668997813fbb4c959072a83f2900d4150fb610d7c379992"
+            },
+            "testEnvironmentOverrides": {
+              "MOODCODE_CI_BACKEND_FIXTURE_ROOT": "/tmp/moodcode-backend-evidence-zv3Q1l",
+              "MOODCODE_CI_BACKEND_FIXTURE_REPORT_DIR": "/home/runner/work/Moodcode/Moodcode/artifacts/engine-ci"
+            },
+            "freshOutsideCheckoutRootObserved": true,
+            "fiveActualNewOuterTests": [
+              {
+                "mode": "success",
+                "outerTestPassed": true,
+                "line": 2682,
+                "text": "2026-10-09T10:49:28.7348378Z ✔ backend Original survives success after native test cleanup (1338.812109ms)"
+              },
+              {
+                "mode": "failure",
+                "outerTestPassed": true,
+                "line": 2684,
+                "text": "2026-10-09T10:49:28.7354750Z ✔ backend Original survives failure after native test cleanup (1512.186296ms)"
+              },
+              {
+                "mode": "close-error",
+                "outerTestPassed": true,
+                "line": 2686,
+                "text": "2026-10-09T10:49:28.7361238Z ✔ backend Original survives close-error after native test cleanup (1521.439077ms)"
+              },
+              {
+                "mode": "unknown",
+                "outerTestPassed": true,
+                "line": 2688,
+                "text": "2026-10-09T10:49:28.7367386Z ✔ backend Original survives unknown after native test cleanup (1501.425282ms)"
+              },
+              {
+                "mode": "manifest-error",
+                "outerTestPassed": true,
+                "line": 2690,
+                "text": "2026-10-09T10:49:28.7373747Z ✔ backend Original survives manifest-error after native test cleanup (1482.926997ms)"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "runId": 37919775855,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37919775855",
+      "source": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+      "status": "completed",
+      "conclusion": "success",
+      "successfulJobs": 2,
+      "failedJobs": 0,
+      "jobs": [
+        {
+          "jobId": 113784638095,
+          "jobName": "Native Windows Job Object / x64 / Node 26.x",
+          "jobConclusion": "success",
+          "platform": "win32",
+          "architecture": "x64",
+          "node": "26.11.1",
+          "scope": "Actual Windows x64 original Job Object addon, native lifecycle and Engine integration; portable contracts/storage regressions separately recorded",
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37919775855/original-job-logs/113784638095-20261009T105253032114Z.log",
+            "bytes": 74765,
+            "sha256": "f1a2c0e692292546ed7d02c14625442d8775467d27676780fa0583dd89a74bf2"
+          },
+          "manifestReferenceValidation": {
+            "path": "artifacts/next-continuation/hosted/37919775855/reference-validation-11610354746-20261009T105253032114Z.json",
+            "bytes": 9094,
+            "sha256": "6ac1550d1acdddb3109d3d80ee3cf814a031255de1d56074b955b0d9c93f4134"
+          },
+          "nativeVerification": {
+            "actualWindows": true,
+            "nativeRequired": true,
+            "counts": {
+              "tests": 37,
+              "pass": 37,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0
+            },
+            "passed": true
+          },
+          "nativeTAPCounts": {
+            "tests": 37,
+            "pass": 37,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "nativeCountsMatch": true,
+          "portableCounts": {
+            "tests": 159,
+            "pass": 159,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "addonPersistedFingerprint": {
+            "available": true,
+            "info": {
+              "bindingVersion": 1,
+              "napiVersion": 8,
+              "platform": "win32",
+              "arch": "x64",
+              "atomicJobAssignment": true
+            },
+            "relativePath": "packages/windows-job/build/Release/windows_job.node",
+            "bytes": 1121792,
+            "sha256": "75a47ba9b5d57817d680155f0c68f0e07eac4528630c8ec6ebe0e2374b65ea30"
+          },
+          "addonBinaryPresentInArtifact": true,
+          "addonBinaryOriginalReference": {
+            "path": "windows_job.node",
+            "bytes": 1121792,
+            "sha256": "75a47ba9b5d57817d680155f0c68f0e07eac4528630c8ec6ebe0e2374b65ea30",
+            "nativeAddonMetadataMatches": true
+          },
+          "actualArchivedAddon": {
+            "path": "artifacts/next-continuation/hosted/37919775855/extracted-originals/11610354746-engine-native-windows-node-26.x-attempt-1/windows_job.node",
+            "bytes": 1121792,
+            "sha256": "75a47ba9b5d57817d680155f0c68f0e07eac4528630c8ec6ebe0e2374b65ea30"
+          }
+        },
+        {
+          "jobId": 113784637782,
+          "jobName": "Native Windows Job Object / x64 / Node 24.x",
+          "jobConclusion": "success",
+          "platform": "win32",
+          "architecture": "x64",
+          "node": "24.21.0",
+          "scope": "Actual Windows x64 original Job Object addon, native lifecycle and Engine integration; portable contracts/storage regressions separately recorded",
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37919775855/original-job-logs/113784637782-20261009T105253032114Z.log",
+            "bytes": 74322,
+            "sha256": "8ebecdf1d200c8e87ab2336f895b4e34db67b477ddc4a7259f244d2bd162767a"
+          },
+          "manifestReferenceValidation": {
+            "path": "artifacts/next-continuation/hosted/37919775855/reference-validation-11611615501-20261009T105253032114Z.json",
+            "bytes": 9089,
+            "sha256": "4094739192574906730b244fda06fd588ae3a367e59e2f87a0ed09607752172f"
+          },
+          "nativeVerification": {
+            "actualWindows": true,
+            "nativeRequired": true,
+            "counts": {
+              "tests": 37,
+              "pass": 37,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0
+            },
+            "passed": true
+          },
+          "nativeTAPCounts": {
+            "tests": 37,
+            "pass": 37,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "nativeCountsMatch": true,
+          "portableCounts": {
+            "tests": 159,
+            "pass": 159,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "addonPersistedFingerprint": {
+            "available": true,
+            "info": {
+              "bindingVersion": 1,
+              "napiVersion": 8,
+              "platform": "win32",
+              "arch": "x64",
+              "atomicJobAssignment": true
+            },
+            "relativePath": "packages/windows-job/build/Release/windows_job.node",
+            "bytes": 178176,
+            "sha256": "7720a7c033748ed4890e99ae247dfb7f6a4f482e57ec2429936f2229a03b105e"
+          },
+          "addonBinaryPresentInArtifact": true,
+          "addonBinaryOriginalReference": {
+            "path": "windows_job.node",
+            "bytes": 178176,
+            "sha256": "7720a7c033748ed4890e99ae247dfb7f6a4f482e57ec2429936f2229a03b105e",
+            "nativeAddonMetadataMatches": true
+          },
+          "actualArchivedAddon": {
+            "path": "artifacts/next-continuation/hosted/37919775855/extracted-originals/11611615501-engine-native-windows-node-24.x-attempt-1/windows_job.node",
+            "bytes": 178176,
+            "sha256": "7720a7c033748ed4890e99ae247dfb7f6a4f482e57ec2429936f2229a03b105e"
+          }
+        }
+      ]
+    },
+    {
+      "runId": 37919775652,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37919775652",
+      "source": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+      "status": "completed",
+      "conclusion": "success",
+      "successfulJobs": 3,
+      "failedJobs": 0,
+      "jobs": [
+        {
+          "jobId": 113784636720,
+          "jobName": "Unsigned bundle and native smoke / windows-2025",
+          "jobConclusion": "success",
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37919775652/job-113784636720-original.log",
+            "bytes": 61754,
+            "sha256": "b734ac24ae150cf82a78610cb3d4ed94fca7f2db8d8c586bca5cff909440d54d"
+          },
+          "unitTests": 113,
+          "unitTestsPassed": 113,
+          "unitTestsFailed": 0,
+          "strictMissingOrNullOriginalFlagsTestPassed": true,
+          "utilityBoundary": {
+            "report": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37919775652/artifact-11611466672-extracted/artifacts/next-main-utility-close/native-close-boundary-f0b73a0f-20ed-47a0-a490-a31f08f42877.json",
+            "reportSha256": "fde98eaa412b01dd80581d0c177b8a1362ad46891d03586fd30e4da7fbf7e591",
+            "casesPassed": 7,
+            "originalMainConnections": 1,
+            "faultUpdateAdmissionRejected": true,
+            "lateOriginalExactChildObserved": true,
+            "neverSpawnedAdmissionSeparated": true,
+            "globalNativeCleanupRemainsUnknown": true
+          },
+          "packagedProofs": [
+            {
+              "scope": "bundle-utility-SQLite-renderer",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37919775652/artifact-11611466672-extracted/artifacts/desktop-package/failures/package-OhiWmU/manifest.json"
+            },
+            {
+              "scope": "bundle-utility-SQLite-renderer-native-Windows-utility",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37919775652/artifact-11611466672-extracted/artifacts/desktop-package/failures/package-HwdmmB/manifest.json",
+              "windowsNativeProof": {
+                "exactApprovals": 2,
+                "completeCommandCheckpoint": true,
+                "actualPackagedUtilityCloseAcknowledgedAndOriginalExit": true,
+                "nativeBinary": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37919775652/artifact-11611466672-extracted/release/win-unpacked/resources/app.asar.unpacked/node_modules/@moodcode/windows-job/build/Release/windows_job.node",
+                "nativeBinarySha256": "32ba9f732b780d7c373520062b3de5607c2a609e9fcb9b7db77e4c69b1c931bc",
+                "mainTestOverridesEnabled": false
+              }
+            }
+          ]
+        },
+        {
+          "jobId": 113784636986,
+          "jobName": "Unsigned bundle and native smoke / ubuntu-24.04",
+          "jobConclusion": "success",
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37919775652/job-113784636986-original.log",
+            "bytes": 55380,
+            "sha256": "fcc3d8383db18fcbaa9489d52e46e211624c0d725d63f10a616428c71d506e2e"
+          },
+          "unitTests": 113,
+          "unitTestsPassed": 113,
+          "unitTestsFailed": 0,
+          "strictMissingOrNullOriginalFlagsTestPassed": true,
+          "utilityBoundary": {
+            "report": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37919775652/artifact-11611431491-extracted/artifacts/next-main-utility-close/native-close-boundary-ffd96365-fc6a-42fa-be02-1f886678e31a.json",
+            "reportSha256": "e61e0b61b0a9154231741e69a15b5685d0376ed929e4bab97d7148682407f94e",
+            "casesPassed": 7,
+            "originalMainConnections": 1,
+            "faultUpdateAdmissionRejected": true,
+            "lateOriginalExactChildObserved": true,
+            "neverSpawnedAdmissionSeparated": true,
+            "globalNativeCleanupRemainsUnknown": true
+          },
+          "packagedProofs": [
+            {
+              "scope": "bundle-utility-SQLite-renderer",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37919775652/artifact-11611431491-extracted/artifacts/desktop-package/failures/package-s244Kj/manifest.json"
+            },
+            {
+              "scope": "bundle-utility-SQLite-renderer-native-POSIX-supervisors",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37919775652/artifact-11611431491-extracted/artifacts/desktop-package/failures/package-UzsgD2/manifest.json",
+              "posixSupervisors": {
+                "commandCleanupConfirmed": true,
+                "ptyCleanupConfirmed": true,
+                "originalPtyExitObserved": true
+              }
+            }
+          ]
+        },
+        {
+          "jobId": 113784637198,
+          "jobName": "Unsigned bundle and native smoke / macos-15",
+          "jobConclusion": "success",
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37919775652/job-113784637198-original.log",
+            "bytes": 72050,
+            "sha256": "4a55531ce3654f1729ea2b5c1016411b5864202a8c556091ecf87e5827a21944"
+          },
+          "unitTests": 113,
+          "unitTestsPassed": 113,
+          "unitTestsFailed": 0,
+          "strictMissingOrNullOriginalFlagsTestPassed": true,
+          "utilityBoundary": {
+            "report": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37919775652/artifact-11610354644-extracted/artifacts/next-main-utility-close/native-close-boundary-9f7fb1d8-38e1-4b8f-8f8e-ba522165bed9.json",
+            "reportSha256": "4b031918df26ca06fb8ae4add1d33052db32f62a3ee07c122e414eb3417b4c4f",
+            "casesPassed": 7,
+            "originalMainConnections": 1,
+            "faultUpdateAdmissionRejected": true,
+            "lateOriginalExactChildObserved": true,
+            "neverSpawnedAdmissionSeparated": true,
+            "globalNativeCleanupRemainsUnknown": true
+          },
+          "packagedProofs": [
+            {
+              "scope": "bundle-utility-SQLite-renderer",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37919775652/artifact-11610354644-extracted/artifacts/desktop-package/failures/package-0M3xHi/manifest.json"
+            },
+            {
+              "scope": "bundle-utility-SQLite-renderer-native-POSIX-supervisors",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37919775652/artifact-11610354644-extracted/artifacts/desktop-package/failures/package-UUnt1d/manifest.json",
+              "posixSupervisors": {
+                "commandCleanupConfirmed": true,
+                "ptyCleanupConfirmed": true,
+                "originalPtyExitObserved": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "originalArtifacts": [
+    {
+      "runId": 37919775610,
+      "jobId": 113784636818,
+      "id": 11611338657,
+      "name": "engine-macos-15-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37919775610/original-zips/11611338657-engine-macos-15-node-24.x-attempt-1.zip",
+      "bytes": 8572252,
+      "sha256": "bacd8a7933b370ec1dc6c0b366d58bfde81a7f57041cb32f9f1f7f26e76d4ead",
+      "entries": 1279,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37919775610,
+      "jobId": 113784636840,
+      "id": 11611515384,
+      "name": "engine-windows-portable-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37919775610/original-zips/11611515384-engine-windows-portable-node-24.x-attempt-1.zip",
+      "bytes": 44042,
+      "sha256": "39c2fb228afb159ede17e004d2d4f6ae6cd1214f3d2feae89df36611452f2cbc",
+      "entries": 21,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37919775610,
+      "jobId": 113784636565,
+      "id": 11611665130,
+      "name": "engine-windows-portable-node-26.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37919775610/original-zips/11611665130-engine-windows-portable-node-26.x-attempt-1.zip",
+      "bytes": 44024,
+      "sha256": "7b39e0492674d09e9e068d52d9db851027159cce71f157dd7d8d924b5f562292",
+      "entries": 21,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37919775610,
+      "jobId": 113784636625,
+      "id": 11611761316,
+      "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37919775610/original-zips/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1.zip",
+      "bytes": 8512260,
+      "sha256": "bc02ca51fa2f4f7d00a45164ce21a00565ba2d212dd150164a170bd037304265",
+      "entries": 1255,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37919775610,
+      "jobId": 113784636839,
+      "id": 11611981451,
+      "name": "engine-macos-15-node-26.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37919775610/original-zips/11611981451-engine-macos-15-node-26.x-attempt-1.zip",
+      "bytes": 8592803,
+      "sha256": "ebd90706f9ddce7bc058ca90aaca01c3cc4b7f2150aaba9055f1847452f24153",
+      "entries": 1290,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37919775610,
+      "jobId": 113784636697,
+      "id": 11612290591,
+      "name": "engine-ubuntu-24.04-node-26.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37919775610/original-zips/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1.zip",
+      "bytes": 8566376,
+      "sha256": "e9a300aa1ff1e61e1d8f4c627c75142d6b549df6383ad2854fbd4978d1245401",
+      "entries": 1270,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37919775855,
+      "jobId": 113784638095,
+      "id": 11610354746,
+      "name": "engine-native-windows-node-26.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37919775855/original-zips/11610354746-engine-native-windows-node-26.x-attempt-1.zip",
+      "bytes": 373994,
+      "sha256": "30d056537583cfb96ecdde2307e337f4244c7622ea6ec1cce7c53d51f9bda3b0",
+      "entries": 20,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37919775855,
+      "jobId": 113784637782,
+      "id": 11611615501,
+      "name": "engine-native-windows-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37919775855/original-zips/11611615501-engine-native-windows-node-24.x-attempt-1.zip",
+      "bytes": 107904,
+      "sha256": "f69f5488f58d198ed07d10f6d6afbc2781cdc8dc73270276931c7b99e52f629a",
+      "entries": 20,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37919775652,
+      "jobId": 113784636720,
+      "id": 11611466672,
+      "name": "desktop-unsigned-windows-2025-1",
+      "originalZip": "artifacts/next-continuation/hosted/37919775652/artifact-11611466672-original.zip",
+      "bytes": 179219071,
+      "sha256": "91eae1633e4ed5e64233ee5953fd5ece523bb42d6066a6b7749ac43bf3d96a44",
+      "entries": 308,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true,
+      "retentionManifests": 9,
+      "nativeFileReferencesHashAndSizeVerified": 26,
+      "copiedNativeBytes": 5251233
+    },
+    {
+      "runId": 37919775652,
+      "jobId": 113784636986,
+      "id": 11611431491,
+      "name": "desktop-unsigned-ubuntu-24.04-1",
+      "originalZip": "artifacts/next-continuation/hosted/37919775652/artifact-11611431491-original.zip",
+      "bytes": 138292071,
+      "sha256": "e42f0d2bbd29c3ac79f99923eb339a50489f08f1c0e771a1805de1c8c7c90876",
+      "entries": 271,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true,
+      "retentionManifests": 9,
+      "nativeFileReferencesHashAndSizeVerified": 19,
+      "copiedNativeBytes": 3780608
+    },
+    {
+      "runId": 37919775652,
+      "jobId": 113784637198,
+      "id": 11610354644,
+      "name": "desktop-unsigned-macos-15-1",
+      "originalZip": "artifacts/next-continuation/hosted/37919775652/artifact-11610354644-original.zip",
+      "bytes": 407422290,
+      "sha256": "4bcce561e898e6b5bbb066e07ba7362e2cc807abe98e7a9bd3224044f49ad22e",
+      "entries": 997,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true,
+      "retentionManifests": 13,
+      "nativeFileReferencesHashAndSizeVerified": 76,
+      "copiedNativeBytes": 13423304
+    }
+  ],
+  "successfulPosixQuickScopes": [
+    {
+      "jobId": 113784636818,
+      "evaluation": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1/evaluation.json",
+        "bytes": 320208,
+        "sha256": "8eeadec5e690077669fd3bd8b3c968732dad16375c3962ab531a22eeb9b34ae5",
+        "credited": true,
+        "kind": "engine-fixture-evaluation",
+        "passed": true,
+        "noLive": true,
+        "credentialsRead": false,
+        "accountVerified": false,
+        "failure": null,
+        "summary": {
+          "attempted": 3,
+          "successful": 3,
+          "failed": 0,
+          "successRate": 1,
+          "denominator": "authored deterministic tasks; not model-quality samples"
+        },
+        "persistedSourceQualification": {
+          "before": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "after": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "stable": true
+        }
+      },
+      "resilience": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1/resilience.json",
+        "bytes": 21562,
+        "sha256": "6fdc7e23b6733a61f62efa4d1ee227e1cac3a285ae65171991a4875c25780c44",
+        "credited": true,
+        "kind": "engine-resilience-soak",
+        "passed": true,
+        "profile": "quick",
+        "iterations": 3,
+        "noLive": true,
+        "summary": {
+          "completed": 3,
+          "failed": 0,
+          "providerCalls": 5,
+          "processLaunches": 3,
+          "unknownOutcomes": 2,
+          "cleanupFailures": 0,
+          "durationMs": 1388
+        },
+        "runtime": {
+          "mode": "compiled",
+          "node": "v24.20.0",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "persistedSourceQualification": {
+          "harnessEntrySha256": "4df8eacb420e5bcc9a02dd50163952c4cad560612e66438c63ce0f0a8c9dd4cf",
+          "engineEntrySha256": "1dfc08912e703d98cfb8f380a7d3f5e5345e5682d6d35354a6e156f7ce5df209",
+          "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+          "qualification": "Entry-file identities only; this report is not a full engine source freeze."
+        }
+      },
+      "persistentSoak": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1/persistent-soak.json",
+        "bytes": 178636,
+        "sha256": "ec2e13491fd33891ca70af5b893e42b72288b01af90815e7812a758696d140d7",
+        "credited": true,
+        "kind": "engine-persistent-soak",
+        "passed": true,
+        "profile": "quick",
+        "durationMs": 1000,
+        "noLive": true,
+        "failure": null,
+        "summary": {
+          "activeDurationMs": 1753,
+          "observation": {
+            "startedElapsedMs": 699.611541,
+            "endedElapsedMs": 1753.4828749999997,
+            "durationMs": 1053.8713339999997
+          },
+          "lastCycleElapsedMs": 1716,
+          "loadStoppedBy": "cycle-ceiling",
+          "durationMs": 2996,
+          "engineInstances": 3,
+          "sourceStable": true,
+          "workerGrowth": {
+            "rssDeltaBytes": 38207488,
+            "heapUsedDeltaBytes": 13624472,
+            "descriptorDelta": 7,
+            "descriptorPeak": 35,
+            "liveDescendantPeak": 2,
+            "sqliteDeltaBytes": 6132224,
+            "artifactDeltaBytes": 25716,
+            "sampledWorkerDurationMs": 1964
+          }
+        },
+        "cleanup": {
+          "workerExited": true,
+          "recoveryEngineClosed": true,
+          "commandPidAbsent": true,
+          "commandGroupAbsent": true,
+          "ownedLiveSurvivors": [],
+          "physicalCleanupConfirmed": true,
+          "nativeCleanupConfirmed": false,
+          "emergencyCleanupUsed": false,
+          "databaseRemoved": false,
+          "retainedEvidencePath": "/private/var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T/moodcode-resilience-4Kp1zB",
+          "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+        },
+        "runtime": {
+          "node": "v24.20.0",
+          "os": "darwin",
+          "release": "24.6.0",
+          "architecture": "arm64",
+          "gcExposed": false
+        },
+        "persistedSourceQualification": {
+          "runtime": "compiled",
+          "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim",
+          "cliSha256": "97bed9b06c3e7bf03aac762c5872c1c3e28ed9c40822de06b55739b4bbfea0d0"
+        }
+      },
+      "ptyRepeatability": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1/pty-repeatability.json",
+        "bytes": 267279,
+        "sha256": "d5668748371060058396b375a21c13651c238f16316d58c0d0353967e7179e5b",
+        "credited": true,
+        "kind": "native-pty-repeatability",
+        "status": "passed",
+        "durationMs": 7791.768042,
+        "requestedIterations": 3,
+        "requestedScenarios": [
+          "normal-exit",
+          "input-resize",
+          "cancel",
+          "supervisor-death",
+          "ipc-disconnect"
+        ],
+        "completedCases": 15,
+        "nativeQualified": true,
+        "noLive": true,
+        "liveProviderRequests": 0,
+        "credentialsRead": false,
+        "identityStable": true,
+        "errors": [],
+        "historicalRpty01": {
+          "causeConfirmed": false,
+          "reproduced": false,
+          "resolved": false
+        },
+        "runtime": "compiled",
+        "persistedSourceQualification": {
+          "runtime": "compiled",
+          "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "caseCounts": {
+          "total": 15,
+          "confirmedCleanup": 9,
+          "uncertainCleanup": 6
+        },
+        "originalWorkerExitAndPhysicalAbsenceAllObserved": true
+      },
+      "benchmark": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1/benchmark.json",
+        "bytes": 321389,
+        "sha256": "ce9858899ffad5e27760e8bff30d5d65b7ab03300a136ae84b1f7875071e1f97",
+        "credited": true,
+        "kind": "native-engine-performance-baseline",
+        "passed": true,
+        "durationMs": 1042.237,
+        "noLive": true,
+        "credentialsRead": false,
+        "accountVerified": false,
+        "failure": null,
+        "summary": {
+          "durationMs": 23.651,
+          "measuredActivations": 1,
+          "attemptId": "719d1bb5-d7dc-46a6-9c66-22a805da6da9",
+          "state": "completed",
+          "publication": "activated",
+          "cleanupConfirmed": true,
+          "requestBytes": 24345,
+          "sourceMessages": 60,
+          "observedOutputBytes": 113,
+          "retainedTextBytes": 113,
+          "fixtureContextWindowTokens": 1536,
+          "readUsageSql": {
+            "returnedSqlBytes": 7569,
+            "queries": 9,
+            "summaryFullPayloadReads": 0,
+            "summaryTextBytesReturned": 0,
+            "writeStatements": 0,
+            "elapsedMs": 0.5952500000000782
+          },
+          "sqlAccounting": "SQL values returned to JavaScript; not physical I/O",
+          "usage": null
+        },
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 3485894,
+          "failure": null
+        },
+        "parameters": {
+          "runs": 24,
+          "messageBytes": 256,
+          "samples": 5,
+          "warmup": 1,
+          "runtime": "compiled",
+          "profile": "quick",
+          "seed": 20261009
+        },
+        "persistedSourceQualification": {
+          "before": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "after": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "stable": true
+        }
+      },
+      "deliberateSourceHardeningReports": [
+        {
+          "queue": "test-hardening-cli-evidence-ViJYlW/batch-deadline-53dc6800-dbe8-449e-8685-1fafad933780.json",
+          "caseName": "batch-deadline",
+          "reportBytes": 193119,
+          "reportSha256": "dcee81213039d7ab60c2c318f81de8b3dd36ec1ec6347ca5e15787511fc53413",
+          "base64PinMatches": true,
+          "copiedReportBytesMatch": true,
+          "status": "failed",
+          "nativeQualified": false,
+          "runtime": "source",
+          "identityStable": false,
+          "completedCases": 15,
+          "requestedIterations": 32,
+          "errors": [
+            {
+              "phase": "identity",
+              "code": "PTY_REPEATABILITY_BATCH_TIMEOUT",
+              "message": "PTY_REPEATABILITY_BATCH_TIMEOUT"
+            }
+          ],
+          "sourceQualification": {
+            "runtime": "source",
+            "node": "v24.20.0",
+            "sourceSha256": "466ca18abbdfe79aaf61206135200c7258bb53815ae95883d8f2648eef65844a",
+            "finalSourceSha256": null,
+            "identityStable": false
+          },
+          "originalReportQueue": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1/test-hardening-cli-evidence-ViJYlW/batch-deadline-53dc6800-dbe8-449e-8685-1fafad933780.json",
+            "bytes": 257852,
+            "sha256": "d0ec45b193b3a9c4ebf7660166c3706526142c8f18b502f4d645c3e0921d9b7e"
+          },
+          "originalReport": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1/test-hardening-cli-evidence-ViJYlW/batch-deadline-copy-coQlQy/pty-repeatability-evidence/fixture/report.json",
+            "bytes": 193119,
+            "sha256": "dcee81213039d7ab60c2c318f81de8b3dd36ec1ec6347ca5e15787511fc53413"
+          }
+        },
+        {
+          "queue": "test-hardening-cli-evidence-ViJYlW/native-lifecycle-4edfcd77-f703-4b6a-83ce-496962231cb6.json",
+          "caseName": "native-lifecycle",
+          "reportBytes": 117044,
+          "reportSha256": "76e564edc67cebf1e8c3398bb66acce0ee0a598b01e949106afdbd650e4e9adf",
+          "base64PinMatches": true,
+          "copiedReportBytesMatch": true,
+          "status": "passed",
+          "nativeQualified": true,
+          "runtime": "source",
+          "identityStable": true,
+          "completedCases": 5,
+          "requestedIterations": 1,
+          "errors": [],
+          "sourceQualification": {
+            "runtime": "source",
+            "node": "v24.20.0",
+            "sourceSha256": "466ca18abbdfe79aaf61206135200c7258bb53815ae95883d8f2648eef65844a",
+            "finalSourceSha256": "466ca18abbdfe79aaf61206135200c7258bb53815ae95883d8f2648eef65844a",
+            "identityStable": true
+          },
+          "originalReportQueue": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1/test-hardening-cli-evidence-ViJYlW/native-lifecycle-4edfcd77-f703-4b6a-83ce-496962231cb6.json",
+            "bytes": 156483,
+            "sha256": "bc6d738064072c71573713149a36216b3d6fb3fcee948d301ab79c23cfc29d4c"
+          },
+          "originalReport": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1/test-hardening-cli-evidence-ViJYlW/native-lifecycle-copy-YzWr0f/pty-repeatability-evidence/fixture/report.json",
+            "bytes": 117044,
+            "sha256": "76e564edc67cebf1e8c3398bb66acce0ee0a598b01e949106afdbd650e4e9adf"
+          }
+        }
+      ],
+      "uploadedRuntimeFilesRecreatedOrSubstituted": false
+    },
+    {
+      "jobId": 113784636625,
+      "evaluation": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1/evaluation.json",
+        "bytes": 320216,
+        "sha256": "b61ddb746aa5657dac92b98e4a047a5e90d4d1fa0986a4da5e61146cd86afb39",
+        "credited": true,
+        "kind": "engine-fixture-evaluation",
+        "passed": true,
+        "noLive": true,
+        "credentialsRead": false,
+        "accountVerified": false,
+        "failure": null,
+        "summary": {
+          "attempted": 3,
+          "successful": 3,
+          "failed": 0,
+          "successRate": 1,
+          "denominator": "authored deterministic tasks; not model-quality samples"
+        },
+        "persistedSourceQualification": {
+          "before": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "after": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "stable": true
+        }
+      },
+      "resilience": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1/resilience.json",
+        "bytes": 21559,
+        "sha256": "2b736cacfbeb438ac831dad64fe2f7b63f3f92c7a70bfff228ccd3fbcb2e183a",
+        "credited": true,
+        "kind": "engine-resilience-soak",
+        "passed": true,
+        "profile": "quick",
+        "iterations": 3,
+        "noLive": true,
+        "summary": {
+          "completed": 3,
+          "failed": 0,
+          "providerCalls": 5,
+          "processLaunches": 3,
+          "unknownOutcomes": 2,
+          "cleanupFailures": 0,
+          "durationMs": 1342
+        },
+        "runtime": {
+          "mode": "compiled",
+          "node": "v24.21.0",
+          "platform": "linux",
+          "arch": "x64"
+        },
+        "persistedSourceQualification": {
+          "harnessEntrySha256": "4df8eacb420e5bcc9a02dd50163952c4cad560612e66438c63ce0f0a8c9dd4cf",
+          "engineEntrySha256": "1dfc08912e703d98cfb8f380a7d3f5e5345e5682d6d35354a6e156f7ce5df209",
+          "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+          "qualification": "Entry-file identities only; this report is not a full engine source freeze."
+        }
+      },
+      "persistentSoak": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1/persistent-soak.json",
+        "bytes": 182412,
+        "sha256": "cfd848f638ef65397c9d5757879c4d097053ba4e67bb295db09693d5d44e5ea9",
+        "credited": true,
+        "kind": "engine-persistent-soak",
+        "passed": true,
+        "profile": "quick",
+        "durationMs": 1000,
+        "noLive": true,
+        "failure": null,
+        "summary": {
+          "activeDurationMs": 1892,
+          "observation": {
+            "startedElapsedMs": 674.0829270000002,
+            "endedElapsedMs": 1891.611462,
+            "durationMs": 1217.528535
+          },
+          "lastCycleElapsedMs": 1876,
+          "loadStoppedBy": "cycle-ceiling",
+          "durationMs": 3130,
+          "engineInstances": 3,
+          "sourceStable": true,
+          "workerGrowth": {
+            "rssDeltaBytes": 39485440,
+            "heapUsedDeltaBytes": 16796336,
+            "descriptorDelta": 7,
+            "descriptorPeak": 41,
+            "liveDescendantPeak": 3,
+            "sqliteDeltaBytes": 6194024,
+            "artifactDeltaBytes": 25716,
+            "sampledWorkerDurationMs": 2086
+          }
+        },
+        "cleanup": {
+          "workerExited": true,
+          "recoveryEngineClosed": true,
+          "commandPidAbsent": true,
+          "commandGroupAbsent": true,
+          "ownedLiveSurvivors": [],
+          "physicalCleanupConfirmed": true,
+          "nativeCleanupConfirmed": false,
+          "emergencyCleanupUsed": false,
+          "databaseRemoved": false,
+          "retainedEvidencePath": "/tmp/moodcode-resilience-vRfoLo",
+          "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+        },
+        "runtime": {
+          "node": "v24.21.0",
+          "os": "linux",
+          "release": "6.17.0-1022-azure",
+          "architecture": "x64",
+          "gcExposed": false
+        },
+        "persistedSourceQualification": {
+          "runtime": "compiled",
+          "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim",
+          "cliSha256": "97bed9b06c3e7bf03aac762c5872c1c3e28ed9c40822de06b55739b4bbfea0d0"
+        }
+      },
+      "ptyRepeatability": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1/pty-repeatability.json",
+        "bytes": 264947,
+        "sha256": "f5b9085e69900eb80f78cabf8e4a6d9fae0cd0508511ba3504cd2c9d3f5e36bf",
+        "credited": true,
+        "kind": "native-pty-repeatability",
+        "status": "passed",
+        "durationMs": 8353.350398999999,
+        "requestedIterations": 3,
+        "requestedScenarios": [
+          "normal-exit",
+          "input-resize",
+          "cancel",
+          "supervisor-death",
+          "ipc-disconnect"
+        ],
+        "completedCases": 15,
+        "nativeQualified": true,
+        "noLive": true,
+        "liveProviderRequests": 0,
+        "credentialsRead": false,
+        "identityStable": true,
+        "errors": [],
+        "historicalRpty01": {
+          "causeConfirmed": false,
+          "reproduced": false,
+          "resolved": false
+        },
+        "runtime": "compiled",
+        "persistedSourceQualification": {
+          "runtime": "compiled",
+          "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "caseCounts": {
+          "total": 15,
+          "confirmedCleanup": 9,
+          "uncertainCleanup": 6
+        },
+        "originalWorkerExitAndPhysicalAbsenceAllObserved": true
+      },
+      "benchmark": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1/benchmark.json",
+        "bytes": 321386,
+        "sha256": "2258a80efd53518e4472cbbaba3ac8f7d3492c89e507b41ba94c3653e6b788fe",
+        "credited": true,
+        "kind": "native-engine-performance-baseline",
+        "passed": true,
+        "durationMs": 1396.158,
+        "noLive": true,
+        "credentialsRead": false,
+        "accountVerified": false,
+        "failure": null,
+        "summary": {
+          "durationMs": 42.886,
+          "measuredActivations": 1,
+          "attemptId": "8c9c5dcd-f3e2-4143-9485-3b95e4bd1f11",
+          "state": "completed",
+          "publication": "activated",
+          "cleanupConfirmed": true,
+          "requestBytes": 24345,
+          "sourceMessages": 60,
+          "observedOutputBytes": 113,
+          "retainedTextBytes": 113,
+          "fixtureContextWindowTokens": 1536,
+          "readUsageSql": {
+            "returnedSqlBytes": 7569,
+            "queries": 9,
+            "summaryFullPayloadReads": 0,
+            "summaryTextBytesReturned": 0,
+            "writeStatements": 0,
+            "elapsedMs": 1.2738710000000992
+          },
+          "sqlAccounting": "SQL values returned to JavaScript; not physical I/O",
+          "usage": null
+        },
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 3481753,
+          "failure": null
+        },
+        "parameters": {
+          "runs": 24,
+          "messageBytes": 256,
+          "samples": 5,
+          "warmup": 1,
+          "runtime": "compiled",
+          "profile": "quick",
+          "seed": 20261009
+        },
+        "persistedSourceQualification": {
+          "before": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "after": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "stable": true
+        }
+      },
+      "deliberateSourceHardeningReports": [
+        {
+          "queue": "test-hardening-cli-evidence-1toDol/batch-deadline-4fd6e7eb-1200-4443-8b23-081176731ae0.json",
+          "caseName": "batch-deadline",
+          "reportBytes": 173982,
+          "reportSha256": "181a23841ce9f3ffeaf4b8a2538398cda2a035cbb0be949e07c1add9412957ca",
+          "base64PinMatches": true,
+          "copiedReportBytesMatch": true,
+          "status": "failed",
+          "nativeQualified": false,
+          "runtime": "source",
+          "identityStable": false,
+          "completedCases": 13,
+          "requestedIterations": 32,
+          "errors": [
+            {
+              "phase": "identity",
+              "code": "PTY_REPEATABILITY_BATCH_TIMEOUT",
+              "message": "PTY_REPEATABILITY_BATCH_TIMEOUT"
+            }
+          ],
+          "sourceQualification": {
+            "runtime": "source",
+            "node": "v24.21.0",
+            "sourceSha256": "466ca18abbdfe79aaf61206135200c7258bb53815ae95883d8f2648eef65844a",
+            "finalSourceSha256": null,
+            "identityStable": false
+          },
+          "originalReportQueue": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1/test-hardening-cli-evidence-1toDol/batch-deadline-4fd6e7eb-1200-4443-8b23-081176731ae0.json",
+            "bytes": 232336,
+            "sha256": "8f41580ac9102107767c994555ac724de44cba36e1efc50823564711b83e7b54"
+          },
+          "originalReport": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1/test-hardening-cli-evidence-1toDol/batch-deadline-copy-szfXhJ/pty-repeatability-evidence/fixture/report.json",
+            "bytes": 173982,
+            "sha256": "181a23841ce9f3ffeaf4b8a2538398cda2a035cbb0be949e07c1add9412957ca"
+          }
+        },
+        {
+          "queue": "test-hardening-cli-evidence-1toDol/native-lifecycle-4119334a-68bd-49b0-8df6-792cf002938d.json",
+          "caseName": "native-lifecycle",
+          "reportBytes": 116023,
+          "reportSha256": "590651990725e32c9edaee204a594c76bf5a72abdffe74155f3bbe5a25bb9662",
+          "base64PinMatches": true,
+          "copiedReportBytesMatch": true,
+          "status": "passed",
+          "nativeQualified": true,
+          "runtime": "source",
+          "identityStable": true,
+          "completedCases": 5,
+          "requestedIterations": 1,
+          "errors": [],
+          "sourceQualification": {
+            "runtime": "source",
+            "node": "v24.21.0",
+            "sourceSha256": "466ca18abbdfe79aaf61206135200c7258bb53815ae95883d8f2648eef65844a",
+            "finalSourceSha256": "466ca18abbdfe79aaf61206135200c7258bb53815ae95883d8f2648eef65844a",
+            "identityStable": true
+          },
+          "originalReportQueue": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1/test-hardening-cli-evidence-1toDol/native-lifecycle-4119334a-68bd-49b0-8df6-792cf002938d.json",
+            "bytes": 155123,
+            "sha256": "8f638e96e2dc99428f19af751e670af4b2ecdbe962cd1caac8d9e8516423f44b"
+          },
+          "originalReport": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1/test-hardening-cli-evidence-1toDol/native-lifecycle-copy-ggRnS2/pty-repeatability-evidence/fixture/report.json",
+            "bytes": 116023,
+            "sha256": "590651990725e32c9edaee204a594c76bf5a72abdffe74155f3bbe5a25bb9662"
+          }
+        }
+      ],
+      "uploadedRuntimeFilesRecreatedOrSubstituted": false
+    },
+    {
+      "jobId": 113784636839,
+      "evaluation": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1/evaluation.json",
+        "bytes": 320209,
+        "sha256": "27eff42cd9f96d4afe67022325c8e5c7ab7cc08c7527f1075c8ce0bc675f2827",
+        "credited": true,
+        "kind": "engine-fixture-evaluation",
+        "passed": true,
+        "noLive": true,
+        "credentialsRead": false,
+        "accountVerified": false,
+        "failure": null,
+        "summary": {
+          "attempted": 3,
+          "successful": 3,
+          "failed": 0,
+          "successRate": 1,
+          "denominator": "authored deterministic tasks; not model-quality samples"
+        },
+        "persistedSourceQualification": {
+          "before": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "after": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "stable": true
+        }
+      },
+      "resilience": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1/resilience.json",
+        "bytes": 21562,
+        "sha256": "f7b544cdd10a8895c7ecc98b7d67801ee23e2533bf6fdebd29159213ce22c9a9",
+        "credited": true,
+        "kind": "engine-resilience-soak",
+        "passed": true,
+        "profile": "quick",
+        "iterations": 3,
+        "noLive": true,
+        "summary": {
+          "completed": 3,
+          "failed": 0,
+          "providerCalls": 5,
+          "processLaunches": 3,
+          "unknownOutcomes": 2,
+          "cleanupFailures": 0,
+          "durationMs": 1114
+        },
+        "runtime": {
+          "mode": "compiled",
+          "node": "v26.11.1",
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "persistedSourceQualification": {
+          "harnessEntrySha256": "4df8eacb420e5bcc9a02dd50163952c4cad560612e66438c63ce0f0a8c9dd4cf",
+          "engineEntrySha256": "1dfc08912e703d98cfb8f380a7d3f5e5345e5682d6d35354a6e156f7ce5df209",
+          "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+          "qualification": "Entry-file identities only; this report is not a full engine source freeze."
+        }
+      },
+      "persistentSoak": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1/persistent-soak.json",
+        "bytes": 186867,
+        "sha256": "353cf7afbf78a5b6362c55576961577fce1cc0660e4629556a3dedc8e92143a1",
+        "credited": true,
+        "kind": "engine-persistent-soak",
+        "passed": true,
+        "profile": "quick",
+        "durationMs": 1000,
+        "noLive": true,
+        "failure": null,
+        "summary": {
+          "activeDurationMs": 1513,
+          "observation": {
+            "startedElapsedMs": 489.922167,
+            "endedElapsedMs": 1513.284084,
+            "durationMs": 1023.361917
+          },
+          "lastCycleElapsedMs": 1375,
+          "loadStoppedBy": "cycle-ceiling",
+          "durationMs": 2499,
+          "engineInstances": 3,
+          "sourceStable": true,
+          "workerGrowth": {
+            "rssDeltaBytes": 42958848,
+            "heapUsedDeltaBytes": 13506624,
+            "descriptorDelta": 7,
+            "descriptorPeak": 35,
+            "liveDescendantPeak": 2,
+            "sqliteDeltaBytes": 6198144,
+            "artifactDeltaBytes": 25716,
+            "sampledWorkerDurationMs": 1754
+          }
+        },
+        "cleanup": {
+          "workerExited": true,
+          "recoveryEngineClosed": true,
+          "commandPidAbsent": true,
+          "commandGroupAbsent": true,
+          "ownedLiveSurvivors": [],
+          "physicalCleanupConfirmed": true,
+          "nativeCleanupConfirmed": false,
+          "emergencyCleanupUsed": false,
+          "databaseRemoved": false,
+          "retainedEvidencePath": "/private/var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T/moodcode-resilience-7aIz48",
+          "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+        },
+        "runtime": {
+          "node": "v26.11.1",
+          "os": "darwin",
+          "release": "24.6.0",
+          "architecture": "arm64",
+          "gcExposed": false
+        },
+        "persistedSourceQualification": {
+          "runtime": "compiled",
+          "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim",
+          "cliSha256": "97bed9b06c3e7bf03aac762c5872c1c3e28ed9c40822de06b55739b4bbfea0d0"
+        }
+      },
+      "ptyRepeatability": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1/pty-repeatability.json",
+        "bytes": 267275,
+        "sha256": "f691b6f3194e153bc2d95d4e80b4c8343ca36a054f63e319262bc3b7a36033ca",
+        "credited": true,
+        "kind": "native-pty-repeatability",
+        "status": "passed",
+        "durationMs": 9133.7355,
+        "requestedIterations": 3,
+        "requestedScenarios": [
+          "normal-exit",
+          "input-resize",
+          "cancel",
+          "supervisor-death",
+          "ipc-disconnect"
+        ],
+        "completedCases": 15,
+        "nativeQualified": true,
+        "noLive": true,
+        "liveProviderRequests": 0,
+        "credentialsRead": false,
+        "identityStable": true,
+        "errors": [],
+        "historicalRpty01": {
+          "causeConfirmed": false,
+          "reproduced": false,
+          "resolved": false
+        },
+        "runtime": "compiled",
+        "persistedSourceQualification": {
+          "runtime": "compiled",
+          "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "caseCounts": {
+          "total": 15,
+          "confirmedCleanup": 9,
+          "uncertainCleanup": 6
+        },
+        "originalWorkerExitAndPhysicalAbsenceAllObserved": true
+      },
+      "benchmark": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1/benchmark.json",
+        "bytes": 321387,
+        "sha256": "4ff0187f64ed7e208efcfbe9f9fe0ea5ca139181210556f6edc1d1535d25c0c5",
+        "credited": true,
+        "kind": "native-engine-performance-baseline",
+        "passed": true,
+        "durationMs": 1117.72,
+        "noLive": true,
+        "credentialsRead": false,
+        "accountVerified": false,
+        "failure": null,
+        "summary": {
+          "durationMs": 63.416,
+          "measuredActivations": 1,
+          "attemptId": "788e6702-9972-422b-a1a5-824ad837f381",
+          "state": "completed",
+          "publication": "activated",
+          "cleanupConfirmed": true,
+          "requestBytes": 24345,
+          "sourceMessages": 60,
+          "observedOutputBytes": 113,
+          "retainedTextBytes": 113,
+          "fixtureContextWindowTokens": 1536,
+          "readUsageSql": {
+            "returnedSqlBytes": 7569,
+            "queries": 9,
+            "summaryFullPayloadReads": 0,
+            "summaryTextBytesReturned": 0,
+            "writeStatements": 0,
+            "elapsedMs": 0.6474580000001424
+          },
+          "sqlAccounting": "SQL values returned to JavaScript; not physical I/O",
+          "usage": null
+        },
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 3485894,
+          "failure": null
+        },
+        "parameters": {
+          "runs": 24,
+          "messageBytes": 256,
+          "samples": 5,
+          "warmup": 1,
+          "runtime": "compiled",
+          "profile": "quick",
+          "seed": 20261009
+        },
+        "persistedSourceQualification": {
+          "before": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "after": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "stable": true
+        }
+      },
+      "deliberateSourceHardeningReports": [
+        {
+          "queue": "test-hardening-cli-evidence-HPKRUb/batch-deadline-467d50db-be6a-4f89-9a7a-952f2a14285e.json",
+          "caseName": "batch-deadline",
+          "reportBytes": 208669,
+          "reportSha256": "89ef6ef198923385d986bff474f4f8e0151ac74c615a018aefa739e3d6af6288",
+          "base64PinMatches": true,
+          "copiedReportBytesMatch": true,
+          "status": "failed",
+          "nativeQualified": false,
+          "runtime": "source",
+          "identityStable": false,
+          "completedCases": 17,
+          "requestedIterations": 32,
+          "errors": [
+            {
+              "phase": "identity",
+              "code": "PTY_REPEATABILITY_BATCH_TIMEOUT",
+              "message": "PTY_REPEATABILITY_BATCH_TIMEOUT"
+            }
+          ],
+          "sourceQualification": {
+            "runtime": "source",
+            "node": "v26.11.1",
+            "sourceSha256": "466ca18abbdfe79aaf61206135200c7258bb53815ae95883d8f2648eef65844a",
+            "finalSourceSha256": null,
+            "identityStable": false
+          },
+          "originalReportQueue": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1/test-hardening-cli-evidence-HPKRUb/batch-deadline-467d50db-be6a-4f89-9a7a-952f2a14285e.json",
+            "bytes": 278588,
+            "sha256": "0a36f967bedffb787043985f3eed424175fa96735f82ade52544e43dd8095ffb"
+          },
+          "originalReport": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1/test-hardening-cli-evidence-HPKRUb/batch-deadline-copy-LblWN8/pty-repeatability-evidence/fixture/report.json",
+            "bytes": 208669,
+            "sha256": "89ef6ef198923385d986bff474f4f8e0151ac74c615a018aefa739e3d6af6288"
+          }
+        },
+        {
+          "queue": "test-hardening-cli-evidence-HPKRUb/native-lifecycle-c6cc22a4-70c0-4051-bd36-a757b7cee007.json",
+          "caseName": "native-lifecycle",
+          "reportBytes": 117145,
+          "reportSha256": "11c9f28e94005f084316c93861aa2390d14d9db39c47d8f7a98c812e24d1966e",
+          "base64PinMatches": true,
+          "copiedReportBytesMatch": true,
+          "status": "passed",
+          "nativeQualified": true,
+          "runtime": "source",
+          "identityStable": true,
+          "completedCases": 5,
+          "requestedIterations": 1,
+          "errors": [],
+          "sourceQualification": {
+            "runtime": "source",
+            "node": "v26.11.1",
+            "sourceSha256": "466ca18abbdfe79aaf61206135200c7258bb53815ae95883d8f2648eef65844a",
+            "finalSourceSha256": "466ca18abbdfe79aaf61206135200c7258bb53815ae95883d8f2648eef65844a",
+            "identityStable": true
+          },
+          "originalReportQueue": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1/test-hardening-cli-evidence-HPKRUb/native-lifecycle-c6cc22a4-70c0-4051-bd36-a757b7cee007.json",
+            "bytes": 156619,
+            "sha256": "b653d6a009391a6b18b5721b071d496e13f6c1ec5b3ed5d96e3e87992af0210e"
+          },
+          "originalReport": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1/test-hardening-cli-evidence-HPKRUb/native-lifecycle-copy-cAEaCJ/pty-repeatability-evidence/fixture/report.json",
+            "bytes": 117145,
+            "sha256": "11c9f28e94005f084316c93861aa2390d14d9db39c47d8f7a98c812e24d1966e"
+          }
+        }
+      ],
+      "uploadedRuntimeFilesRecreatedOrSubstituted": false
+    },
+    {
+      "jobId": 113784636697,
+      "evaluation": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1/evaluation.json",
+        "bytes": 320216,
+        "sha256": "d312601771036baec9f57e6eef7e49cd8979dcde8804e1fcbd0a499c06abcf96",
+        "credited": true,
+        "kind": "engine-fixture-evaluation",
+        "passed": true,
+        "noLive": true,
+        "credentialsRead": false,
+        "accountVerified": false,
+        "failure": null,
+        "summary": {
+          "attempted": 3,
+          "successful": 3,
+          "failed": 0,
+          "successRate": 1,
+          "denominator": "authored deterministic tasks; not model-quality samples"
+        },
+        "persistedSourceQualification": {
+          "before": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "after": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "stable": true
+        }
+      },
+      "resilience": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1/resilience.json",
+        "bytes": 21559,
+        "sha256": "251f424455ad88c1ecec256adde93b5569cecaadd303c376d1a141f410ecfe94",
+        "credited": true,
+        "kind": "engine-resilience-soak",
+        "passed": true,
+        "profile": "quick",
+        "iterations": 3,
+        "noLive": true,
+        "summary": {
+          "completed": 3,
+          "failed": 0,
+          "providerCalls": 5,
+          "processLaunches": 3,
+          "unknownOutcomes": 2,
+          "cleanupFailures": 0,
+          "durationMs": 1333
+        },
+        "runtime": {
+          "mode": "compiled",
+          "node": "v26.11.1",
+          "platform": "linux",
+          "arch": "x64"
+        },
+        "persistedSourceQualification": {
+          "harnessEntrySha256": "4df8eacb420e5bcc9a02dd50163952c4cad560612e66438c63ce0f0a8c9dd4cf",
+          "engineEntrySha256": "1dfc08912e703d98cfb8f380a7d3f5e5345e5682d6d35354a6e156f7ce5df209",
+          "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+          "qualification": "Entry-file identities only; this report is not a full engine source freeze."
+        }
+      },
+      "persistentSoak": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1/persistent-soak.json",
+        "bytes": 183781,
+        "sha256": "60d30291b254860ada0dd9de3f258c58f413abf3bbf74be9f0c95223d3b3b6f9",
+        "credited": true,
+        "kind": "engine-persistent-soak",
+        "passed": true,
+        "profile": "quick",
+        "durationMs": 1000,
+        "noLive": true,
+        "failure": null,
+        "summary": {
+          "activeDurationMs": 1730,
+          "observation": {
+            "startedElapsedMs": 662.6331319999999,
+            "endedElapsedMs": 1729.6865410000003,
+            "durationMs": 1067.0534090000003
+          },
+          "lastCycleElapsedMs": 1715,
+          "loadStoppedBy": "cycle-ceiling",
+          "durationMs": 2770,
+          "engineInstances": 3,
+          "sourceStable": true,
+          "workerGrowth": {
+            "rssDeltaBytes": 41570304,
+            "heapUsedDeltaBytes": 16533664,
+            "descriptorDelta": 7,
+            "descriptorPeak": 41,
+            "liveDescendantPeak": 3,
+            "sqliteDeltaBytes": 6144584,
+            "artifactDeltaBytes": 23779,
+            "sampledWorkerDurationMs": 1917
+          }
+        },
+        "cleanup": {
+          "workerExited": true,
+          "recoveryEngineClosed": true,
+          "commandPidAbsent": true,
+          "commandGroupAbsent": true,
+          "ownedLiveSurvivors": [],
+          "physicalCleanupConfirmed": true,
+          "nativeCleanupConfirmed": false,
+          "emergencyCleanupUsed": false,
+          "databaseRemoved": false,
+          "retainedEvidencePath": "/tmp/moodcode-resilience-ZOrBTF",
+          "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+        },
+        "runtime": {
+          "node": "v26.11.1",
+          "os": "linux",
+          "release": "6.17.0-1022-azure",
+          "architecture": "x64",
+          "gcExposed": false
+        },
+        "persistedSourceQualification": {
+          "runtime": "compiled",
+          "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim",
+          "cliSha256": "97bed9b06c3e7bf03aac762c5872c1c3e28ed9c40822de06b55739b4bbfea0d0"
+        }
+      },
+      "ptyRepeatability": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1/pty-repeatability.json",
+        "bytes": 264939,
+        "sha256": "b6610267c0191e428d3f10145cfbc536230c892265d2b66e05d38137617e5883",
+        "credited": true,
+        "kind": "native-pty-repeatability",
+        "status": "passed",
+        "durationMs": 7836.9287810000005,
+        "requestedIterations": 3,
+        "requestedScenarios": [
+          "normal-exit",
+          "input-resize",
+          "cancel",
+          "supervisor-death",
+          "ipc-disconnect"
+        ],
+        "completedCases": 15,
+        "nativeQualified": true,
+        "noLive": true,
+        "liveProviderRequests": 0,
+        "credentialsRead": false,
+        "identityStable": true,
+        "errors": [],
+        "historicalRpty01": {
+          "causeConfirmed": false,
+          "reproduced": false,
+          "resolved": false
+        },
+        "runtime": "compiled",
+        "persistedSourceQualification": {
+          "runtime": "compiled",
+          "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "caseCounts": {
+          "total": 15,
+          "confirmedCleanup": 9,
+          "uncertainCleanup": 6
+        },
+        "originalWorkerExitAndPhysicalAbsenceAllObserved": true
+      },
+      "benchmark": {
+        "present": true,
+        "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1/benchmark.json",
+        "bytes": 321390,
+        "sha256": "41dad32e374191c3990befd8a64bcb6976d889c5111e8632fc8d2195f8165cbb",
+        "credited": true,
+        "kind": "native-engine-performance-baseline",
+        "passed": true,
+        "durationMs": 1348.652,
+        "noLive": true,
+        "credentialsRead": false,
+        "accountVerified": false,
+        "failure": null,
+        "summary": {
+          "durationMs": 41.82,
+          "measuredActivations": 1,
+          "attemptId": "c19ec762-59d8-4ebf-bdb5-0f197fc2312c",
+          "state": "completed",
+          "publication": "activated",
+          "cleanupConfirmed": true,
+          "requestBytes": 24345,
+          "sourceMessages": 60,
+          "observedOutputBytes": 113,
+          "retainedTextBytes": 113,
+          "fixtureContextWindowTokens": 1536,
+          "readUsageSql": {
+            "returnedSqlBytes": 7569,
+            "queries": 9,
+            "summaryFullPayloadReads": 0,
+            "summaryTextBytesReturned": 0,
+            "writeStatements": 0,
+            "elapsedMs": 1.1111920000000737
+          },
+          "sqlAccounting": "SQL values returned to JavaScript; not physical I/O",
+          "usage": null
+        },
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 3481753,
+          "failure": null
+        },
+        "parameters": {
+          "runs": 24,
+          "messageBytes": 256,
+          "samples": 5,
+          "warmup": 1,
+          "runtime": "compiled",
+          "profile": "quick",
+          "seed": 20261009
+        },
+        "persistedSourceQualification": {
+          "before": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "after": {
+            "runtime": "compiled",
+            "gitHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+            "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+            "bytes": 11899924,
+            "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+          },
+          "stable": true
+        }
+      },
+      "deliberateSourceHardeningReports": [
+        {
+          "queue": "test-hardening-cli-evidence-akEpbH/batch-deadline-060641e5-5e91-4b23-a7ab-387266730abb.json",
+          "caseName": "batch-deadline",
+          "reportBytes": 189679,
+          "reportSha256": "09d0355cd01e6787f13c7e25bba62c21555348a81a25075a7dc0dfa4c4d9c4cb",
+          "base64PinMatches": true,
+          "copiedReportBytesMatch": true,
+          "status": "failed",
+          "nativeQualified": false,
+          "runtime": "source",
+          "identityStable": false,
+          "completedCases": 14,
+          "requestedIterations": 32,
+          "errors": [
+            {
+              "phase": "identity",
+              "code": "PTY_REPEATABILITY_BATCH_TIMEOUT",
+              "message": "PTY_REPEATABILITY_BATCH_TIMEOUT"
+            }
+          ],
+          "sourceQualification": {
+            "runtime": "source",
+            "node": "v26.11.1",
+            "sourceSha256": "466ca18abbdfe79aaf61206135200c7258bb53815ae95883d8f2648eef65844a",
+            "finalSourceSha256": null,
+            "identityStable": false
+          },
+          "originalReportQueue": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1/test-hardening-cli-evidence-akEpbH/batch-deadline-060641e5-5e91-4b23-a7ab-387266730abb.json",
+            "bytes": 253268,
+            "sha256": "1a5b888396ea8f228aad68ff3992fd8fd6b0b739a6304c19728f229d1fa91cf7"
+          },
+          "originalReport": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1/test-hardening-cli-evidence-akEpbH/batch-deadline-copy-fq9znh/pty-repeatability-evidence/fixture/report.json",
+            "bytes": 189679,
+            "sha256": "09d0355cd01e6787f13c7e25bba62c21555348a81a25075a7dc0dfa4c4d9c4cb"
+          }
+        },
+        {
+          "queue": "test-hardening-cli-evidence-akEpbH/native-lifecycle-eb8717b3-9f67-4d37-aa4d-fae2f696b819.json",
+          "caseName": "native-lifecycle",
+          "reportBytes": 116034,
+          "reportSha256": "f15162e33192340d643df3a667ad1ef919676fb74a833351269862ed65270aae",
+          "base64PinMatches": true,
+          "copiedReportBytesMatch": true,
+          "status": "passed",
+          "nativeQualified": true,
+          "runtime": "source",
+          "identityStable": true,
+          "completedCases": 5,
+          "requestedIterations": 1,
+          "errors": [],
+          "sourceQualification": {
+            "runtime": "source",
+            "node": "v26.11.1",
+            "sourceSha256": "466ca18abbdfe79aaf61206135200c7258bb53815ae95883d8f2648eef65844a",
+            "finalSourceSha256": "466ca18abbdfe79aaf61206135200c7258bb53815ae95883d8f2648eef65844a",
+            "identityStable": true
+          },
+          "originalReportQueue": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1/test-hardening-cli-evidence-akEpbH/native-lifecycle-eb8717b3-9f67-4d37-aa4d-fae2f696b819.json",
+            "bytes": 155135,
+            "sha256": "62f11b5bd909b9d930e33916d69c1d635d15aa87cfa1d12c4869b61497655418"
+          },
+          "originalReport": {
+            "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1/test-hardening-cli-evidence-akEpbH/native-lifecycle-copy-MlqVPN/pty-repeatability-evidence/fixture/report.json",
+            "bytes": 116034,
+            "sha256": "f15162e33192340d643df3a667ad1ef919676fb74a833351269862ed65270aae"
+          }
+        }
+      ],
+      "uploadedRuntimeFilesRecreatedOrSubstituted": false
+    }
+  ],
+  "backendSelectedDiagnostics": {
+    "verification": {
+      "path": "artifacts/next-continuation/hosted/663a3a0-selected-backend-evidence.json",
+      "bytes": 89512,
+      "sha256": "03e75a4725769991b3a7bd6b9c14c919150145ae7a25727e9793a1bd5b65121c"
+    },
+    "summary": {
+      "posixJobs": 4,
+      "mainFixtureRoots": 304,
+      "selectedManifests": 32,
+      "intentionallyIncompleteManifests": 12,
+      "selectedFileReferencesHashAndSizeVerified": 3279,
+      "selectedBytesVerified": 535312854,
+      "mainSelectedFiles": 3015,
+      "mainSelectedBytes": 493813778,
+      "missingFiles": 0,
+      "mismatchedFiles": 0
+    },
+    "fullFixtureCopy": false,
+    "nativeCleanupConfirmed": null,
+    "fiveRegressionModesPerPosixJob": [
+      "success",
+      "failure",
+      "close-error",
+      "unknown",
+      "manifest-error"
+    ],
+    "expectedIncompleteCaptureCount": 12,
+    "passingOuterTestsPromoteIncompleteCaptures": false,
+    "desktopBackendCopiesIncluded": 0,
+    "windowsPortableBackendCopiesIncluded": 0,
+    "selection": {
+      "freshOwnedRoot": "engine-ci test step records mkdtemp(realpath(tmpdir()),moodcode-backend-evidence-) in environmentOverrides; source outside checkout",
+      "ordinaryFixtureOriginalsRetained": true,
+      "allOwnedEngineClosesAttempted": true,
+      "firstCloseFailureRethrownAfterRetentionDiagnostic": true,
+      "nativeCleanupConfirmed": null,
+      "fullFixtureCopy": false,
+      "databaseRemoved": false,
+      "selectedSourceFiles": [
+        "repository/peer.mjs",
+        "repository/seed.txt",
+        "repository/large.txt"
+      ],
+      "selectedTopLevelFiles": [
+        "fixture-retention.json",
+        "peer.log",
+        "SQLite filenames and -wal/-shm/-journal sidecars"
+      ],
+      "selectedDiagnosticsAreNotRecoveryBackupsOrFullFixtures": true,
+      "limits": {
+        "entries": 1024,
+        "roots": 512,
+        "files": 8192,
+        "bytes": 536870912,
+        "fileBytes": 67108864,
+        "perFixtureEnumeratedEntries": 256
+      },
+      "refusedRootsBecomeIncomplete": true,
+      "refusedEntriesBecomeIncomplete": true,
+      "budgetOrUnstableReadBecomesIncompleteWithPartialSelectedCopiesRetained": true,
+      "nativeEffectsNeverConfirmedByCollector": true,
+      "topLevelCollectorFailureMakesCIStageFail": true,
+      "expectedNegativeNestedCollectorsMustKeepStatus": "incomplete-selected-diagnostics",
+      "fiveNewOuterRegressionCases": [
+        "success",
+        "failure",
+        "close-error",
+        "unknown",
+        "manifest-error"
+      ],
+      "unknownCaseIncludesByteBudgetPartialAndRefusedRootSubcases": true,
+      "manifestWriteErrorDoesNotReplaceOriginalBodyOrCloseError": true,
+      "localParentRunsAreNotNewHostedEvidence": true,
+      "scope": "Selected source-observed raw diagnostics and original retention assertions only; an outer passing regression never promotes a deliberately incomplete nested capture, native/effect cleanup, or full Original completeness."
+    }
+  },
+  "currentFailures": [],
+  "historicalEngineFailure": {
+    "runId": 37913088794,
+    "jobId": 113762664383,
+    "source": "eef2b759061971b07bc4a3f8abd582e234d3df0f",
+    "test": "administrative SQL pairs preserve authentic unknown ownership, history and archive binding without Original replay",
+    "location": "packages/engine/dist/agent-backends/receipt-contract.integration.test.js:198:1",
+    "error": {
+      "code": "ERR_SQLITE_ERROR",
+      "errcode": 0,
+      "errstr": "not an error"
+    },
+    "deeperStackPresent": false,
+    "failedNativeFixtureUploaded": false,
+    "unknownUnderlyingCause": true,
+    "downstreamProductionReportsCredited": false,
+    "retainedEvidence": {
+      "path": "artifacts/next-continuation/hosted/37913088794/macos-node24-failure-evidence.json",
+      "bytes": 2735,
+      "sha256": "e8e809e57f9dd64ed864790a51f5b0e12592f1e8577d3d3f32c264df2034d866"
+    },
+    "otherArchivedSQLiteFilesEstablishFailedFixtureState": false,
+    "newCurrentPassProvesHistoricalCause": false
+  },
+  "historicalDesktopRuns": [
+    {
+      "runId": 37913088812,
+      "source": "eef2b759061971b07bc4a3f8abd582e234d3df0f",
+      "conclusion": "success",
+      "successfulJobs": 3,
+      "current974AcceptanceCredit": false,
+      "currentOriginal11Credit": false,
+      "retainedMetadataAndRawLogs": {
+        "path": "artifacts/next-continuation/hosted/37913088812/historical-summary.json",
+        "bytes": 1593,
+        "sha256": "118b2c41649c23c51d74cd056469cbd9ae8d2136f4bea21069c6c971ae9dc268"
+      },
+      "current663AcceptanceCredit": false
+    },
+    {
+      "runId": 37913553488,
+      "source": "59d4360e2e77a6d9b97f961d5dfff778504d9040",
+      "conclusion": "failure",
+      "successfulJobs": 2,
+      "failedJobs": 1,
+      "availableOriginalZips": 2,
+      "missingOriginalZips": 1,
+      "failedLinuxJobId": 113764184931,
+      "failure": "Downloading Electron binary followed by uncaught Playwright20-second timeout; no boundary report/native receipt survived, uploader found no files.",
+      "causeQualification": "Dependency resolution inside the launch deadline is inferred from original logs and installed Playwright/Electron code; production native cleanup and exact case were unobserved.",
+      "current974AcceptanceCredit": false,
+      "currentOriginal11Credit": false,
+      "assessment": {
+        "path": "artifacts/next-continuation/hosted/37913553488/desktop-assessment.json",
+        "bytes": 58962,
+        "sha256": "97f552e6757d11479456ff6f5d1b295b0372df08c0b34fee75d75f86e1bf3810"
+      },
+      "current663AcceptanceCredit": false
+    },
+    {
+      "runId": 37914356473,
+      "source": "974a4c46d32187379404eabac8e2006cd13e57cc",
+      "conclusion": "success",
+      "current1fdAcceptanceCredit": false,
+      "assessment": {
+        "path": "artifacts/next-continuation/hosted/37914356473/desktop-assessment.json",
+        "bytes": 74035,
+        "sha256": "6f2ea057aa093b973b2593f991150e99a92aa4eb739108b1610ae7e06bf33613"
+      },
+      "current663AcceptanceCredit": false,
+      "currentOriginal11Credit": false
+    }
+  ],
+  "previousCohortSnapshot": {
+    "path": "artifacts/next-continuation/hosted/1fd6061-hosted-verification-final-20261009T103434Z.json",
+    "bytes": 55695,
+    "sha256": "0ab7c1bf0be623d9f4eeecce8464699cf4ecc27617a6aff869fb213c127038ff"
+  },
+  "qualification": {
+    "wholeProductGoalCompletionAsserted": false,
+    "nativeSQLiteOpened": false,
+    "nativeEvidenceReadForHashAndSizeOnly": true,
+    "originalZipBytesPreserved": true,
+    "archivesRepackaged": false,
+    "applicationExitEstablishesGlobalNativeCleanup": false,
+    "utilityAckAndOriginalExitEstablishGlobalNativeCleanup": false,
+    "desktopGlobalNativeCleanup": "unknown; retained originals are driver and manifest witnesses",
+    "remoteTemporaryOriginalsReverifiedAfterRunnerTeardown": false,
+    "longDurationOr30MinuteSoakEstablishedByTheseRuns": false,
+    "historicalRpty01CauseReproducedOrResolvedByTheseRuns": false,
+    "historicalEefFailureCauseEstablishedByCurrentPassingCase": false,
+    "liveProviderAccountAcceptance": "not established by these runs",
+    "signedProductionDistributionAcceptance": "not established by these runs",
+    "updaterScope": "Two scheduled disposable unsigned POSIX Electron updater fixtures; Windows not scheduled.",
+    "expectedFailedSourceBatchDeadlineReportsPromoted": false,
+    "unuploadedCIProductionJsDeclarationsAndNodeBytesSubstituted": false,
+    "localParentNode24And26ClaimsUsedAsNewHostedProof": false,
+    "writes": "Ignored collection artifacts and one explicitly authorized new docs/moodcode/next-continuation-hosted-663a3a0-verification.json; previous docs/source/TODO/git/goal untouched.",
+    "additionalCIExecutionOrRerunPerformed": false
+  },
+  "assessments": [
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/engine-assessment.json",
+      "bytes": 5563359,
+      "sha256": "9648ff8b38736a1bbc17be9c95c0e5109a1d4c918ceca37ae2b328d8af6697af"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775855/engine-assessment.json",
+      "bytes": 14912,
+      "sha256": "8236ae9077090729b91b943cda8beac804ec55ea5d56f059f0bbf72fd4cef97a"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775652/desktop-assessment.json",
+      "bytes": 78721,
+      "sha256": "4467c9700af1a289b371a4282ea5361c12d8989030d2277f59e215811f4d5877"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775652/desktop-updater-assessment.json",
+      "bytes": 2900,
+      "sha256": "715cafa9cc6a9d553935a5f7c8d8c56b33cd5583b3c33963fdd5864e0de069b9"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775652/desktop-backend-diagnostics-assessment.json",
+      "bytes": 454,
+      "sha256": "11db7029f536a194ad224b88f6d1f321726553366638f473ebe368319056f58a"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/source-qualification-663a3a0-final-20261009T111616Z.json",
+      "bytes": 73371,
+      "sha256": "83b4fba5ed30293643dd108c19ec1ecb51511f543c3da6178db2b668d3787728"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/hosted-review-663a3a0.json",
+      "bytes": 25872,
+      "sha256": "01fa5a2698153241dc7e175360a1e03fca22f4535a5507032c9b49526e42aa38"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/663a3a0-selected-backend-evidence.json",
+      "bytes": 89512,
+      "sha256": "03e75a4725769991b3a7bd6b9c14c919150145ae7a25727e9793a1bd5b65121c"
+    }
+  ],
+  "pureOriginalReportSemanticValidation": {
+    "path": "artifacts/next-continuation/hosted/37919775610/report-semantic-validation-20261009T110153741Z.json",
+    "bytes": 1305993,
+    "sha256": "9631a8535a629dac65669e2a101b9c37e39685fe219b2c28c8435e3f468eb669"
+  }
+}

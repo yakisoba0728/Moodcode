@@ -1,0 +1,389 @@
+{
+  "schemaVersion": 1,
+  "kind": "baseline-hosted-artifact-recovery",
+  "recordedAt": "2026-10-09T09:23:56.390544+00:00",
+  "status": "eight-small-original-artifacts-recovered-hashes-crc-and-manifests-verified",
+  "baselineSourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+  "priorAcceptance": {
+    "path": "docs/moodcode/next-corrective-hosted-acceptance.json",
+    "bytes": 74546,
+    "sha256": "59f77f6730f32c73431d28ba94df051d0f4c52eacfbf3f89862e90bf288aaf86"
+  },
+  "storage": {
+    "directory": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted",
+    "gitIgnored": true,
+    "retention": "Project-local durable recovery files; no /tmp staging, deletion, extraction or Original-source cleanup claim."
+  },
+  "metadata": [
+    {
+      "runId": 37860012347,
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/run-37860012347-artifacts.json",
+      "bytes": 4293,
+      "sha256": "edadd28fbfe559bca4587d50f35c73c61949d24a1c69d95a496cef8920de95a5"
+    },
+    {
+      "runId": 37859976748,
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/run-37859976748-artifacts.json",
+      "bytes": 1455,
+      "sha256": "f0bfda91b6fd3624b3a2084ef6cda0002048ba1f1fcc903169b02bbf4017e4e8"
+    },
+    {
+      "runId": 37859942934,
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/run-37859942934-artifacts.json",
+      "bytes": 2142,
+      "sha256": "1a148532bbd3ee94038b6d6d47871c45d37688e0f0f8fb6f8c95f036f8fb8cd8"
+    }
+  ],
+  "currentAvailability": {
+    "expectedArtifacts": 11,
+    "presentInApi": 11,
+    "expired": 0,
+    "apiSourceSizeDigestMatchAllEleven": true
+  },
+  "summary": {
+    "downloaded": 8,
+    "totalZipBytes": 11656726,
+    "crcVerified": 8,
+    "totalEntriesRead": 1874,
+    "uncompressedBytesStreamed": 220391864,
+    "originalCopyManifestsVerified": 16,
+    "originalManifestReferencedFilesVerified": 1568,
+    "originalManifestSqliteRelatedFilesVerified": 878,
+    "archiveSqliteRelatedFilesHashed": 878,
+    "nativeWindowsAddonSummariesVerified": 2,
+    "desktopDownloaded": 0,
+    "desktopCrcRevalidated": 0,
+    "networkRetries": 0
+  },
+  "recoveredArtifacts": [
+    {
+      "id": 11586516247,
+      "name": "engine-macos-15-node-26.x-attempt-1",
+      "runId": 37860012347,
+      "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "currentlyExpired": false,
+      "zip": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11586516247.zip",
+        "bytes": 2944063,
+        "sha256": "f55385dff843fabaf56e0953a024d95c5e255617fff5df328739eb6f534fa75c"
+      },
+      "apiSizeMatches": true,
+      "apiDigestMatches": true,
+      "priorRecordedZipMatches": true,
+      "crcPass": true,
+      "entries": 499,
+      "uncompressedBytes": 61994201,
+      "downloadAttempts": 1,
+      "proof": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11586516247-proof.json",
+        "bytes": 150810,
+        "sha256": "3f4257131c859a0619852a67a5bb056e683da8e043d56d42a1843b2ae4705cd4"
+      },
+      "originalCopyManifests": 4,
+      "originalManifestReferencedFiles": 443,
+      "originalManifestSqliteRelatedFiles": 254,
+      "allManifestFileHashesMatchArchive": true,
+      "allArchiveSqliteRelatedFiles": 254,
+      "priorRecordedEntryPinsMatched": 4,
+      "nativeSummary": null
+    },
+    {
+      "id": 11586121141,
+      "name": "engine-windows-portable-node-26.x-attempt-1",
+      "runId": 37860012347,
+      "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "currentlyExpired": false,
+      "zip": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11586121141.zip",
+        "bytes": 43929,
+        "sha256": "26f1f49567d0aa680d2f34cd69ea2b1232c06a9e2549c15441f4ccc36c42de78"
+      },
+      "apiSizeMatches": true,
+      "apiDigestMatches": true,
+      "priorRecordedZipMatches": true,
+      "crcPass": true,
+      "entries": 21,
+      "uncompressedBytes": 321378,
+      "downloadAttempts": 1,
+      "proof": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11586121141-proof.json",
+        "bytes": 4647,
+        "sha256": "304700e58c3ff3fdf7dd4414f662afc7a70d397a627c11fc488722d7216ab3bb"
+      },
+      "originalCopyManifests": 0,
+      "originalManifestReferencedFiles": 0,
+      "originalManifestSqliteRelatedFiles": 0,
+      "allManifestFileHashesMatchArchive": true,
+      "allArchiveSqliteRelatedFiles": 0,
+      "priorRecordedEntryPinsMatched": 1,
+      "nativeSummary": null
+    },
+    {
+      "id": 11585707151,
+      "name": "engine-windows-portable-node-24.x-attempt-1",
+      "runId": 37860012347,
+      "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "currentlyExpired": false,
+      "zip": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11585707151.zip",
+        "bytes": 43966,
+        "sha256": "c0355b01e1b3989a3eb7cc8920d587d9379e95aa7cb87f531e2b170b2d6af3a0"
+      },
+      "apiSizeMatches": true,
+      "apiDigestMatches": true,
+      "priorRecordedZipMatches": true,
+      "crcPass": true,
+      "entries": 21,
+      "uncompressedBytes": 321392,
+      "downloadAttempts": 1,
+      "proof": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11585707151-proof.json",
+        "bytes": 4647,
+        "sha256": "5d63282a1057b5ff7c041bed59e962d80cf639560fa678a24687226bf38c80ac"
+      },
+      "originalCopyManifests": 0,
+      "originalManifestReferencedFiles": 0,
+      "originalManifestSqliteRelatedFiles": 0,
+      "allManifestFileHashesMatchArchive": true,
+      "allArchiveSqliteRelatedFiles": 0,
+      "priorRecordedEntryPinsMatched": 1,
+      "nativeSummary": null
+    },
+    {
+      "id": 11585678186,
+      "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+      "runId": 37860012347,
+      "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "currentlyExpired": false,
+      "zip": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11585678186.zip",
+        "bytes": 2705276,
+        "sha256": "b7705e027e7794f7921c0f25bea2764228340ba61d9324f0c96ed3f98a340286"
+      },
+      "apiSizeMatches": true,
+      "apiDigestMatches": true,
+      "priorRecordedZipMatches": true,
+      "crcPass": true,
+      "entries": 427,
+      "uncompressedBytes": 51676727,
+      "downloadAttempts": 1,
+      "proof": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11585678186-proof.json",
+        "bytes": 126187,
+        "sha256": "41a80c494fc58789c234d66836a654bd6d49fb2c90989324e79666e4119d1c50"
+      },
+      "originalCopyManifests": 4,
+      "originalManifestReferencedFiles": 371,
+      "originalManifestSqliteRelatedFiles": 206,
+      "allManifestFileHashesMatchArchive": true,
+      "allArchiveSqliteRelatedFiles": 206,
+      "priorRecordedEntryPinsMatched": 4,
+      "nativeSummary": null
+    },
+    {
+      "id": 11585333702,
+      "name": "engine-macos-15-node-24.x-attempt-1",
+      "runId": 37860012347,
+      "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "currentlyExpired": false,
+      "zip": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11585333702.zip",
+        "bytes": 2733549,
+        "sha256": "a0846fee479aabe7c6f8c6fb5ec9cbeab2460567f08409288fc63ba9665cea4c"
+      },
+      "apiSizeMatches": true,
+      "apiDigestMatches": true,
+      "priorRecordedZipMatches": true,
+      "crcPass": true,
+      "entries": 439,
+      "uncompressedBytes": 52990289,
+      "downloadAttempts": 1,
+      "proof": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11585333702-proof.json",
+        "bytes": 130132,
+        "sha256": "7080dea30f5f128f801210094934d4d2b66c3c30261efbd034995c798827d807"
+      },
+      "originalCopyManifests": 4,
+      "originalManifestReferencedFiles": 383,
+      "originalManifestSqliteRelatedFiles": 212,
+      "allManifestFileHashesMatchArchive": true,
+      "allArchiveSqliteRelatedFiles": 212,
+      "priorRecordedEntryPinsMatched": 4,
+      "nativeSummary": null
+    },
+    {
+      "id": 11585224230,
+      "name": "engine-ubuntu-24.04-node-26.x-attempt-1",
+      "runId": 37860012347,
+      "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "currentlyExpired": false,
+      "zip": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11585224230.zip",
+        "bytes": 2704116,
+        "sha256": "4681c07c2d4f1444d317a2bb7f0104c461ad64fb2368c58e943ac214723bfdc8"
+      },
+      "apiSizeMatches": true,
+      "apiDigestMatches": true,
+      "priorRecordedZipMatches": true,
+      "crcPass": true,
+      "entries": 427,
+      "uncompressedBytes": 51669191,
+      "downloadAttempts": 1,
+      "proof": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11585224230-proof.json",
+        "bytes": 126187,
+        "sha256": "819575a211cbfa7c8af828ebeb5f142c2aa1edd6aa32de8790c31ed1208e0c3c"
+      },
+      "originalCopyManifests": 4,
+      "originalManifestReferencedFiles": 371,
+      "originalManifestSqliteRelatedFiles": 206,
+      "allManifestFileHashesMatchArchive": true,
+      "allArchiveSqliteRelatedFiles": 206,
+      "priorRecordedEntryPinsMatched": 4,
+      "nativeSummary": null
+    },
+    {
+      "id": 11585986999,
+      "name": "engine-native-windows-node-26.x-attempt-1",
+      "runId": 37859976748,
+      "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "currentlyExpired": false,
+      "zip": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11585986999.zip",
+        "bytes": 373968,
+        "sha256": "1b6bce2216ae97a808f0e3fea0067e0980a6dceba34391e7fc47b979a42bb36a"
+      },
+      "apiSizeMatches": true,
+      "apiDigestMatches": true,
+      "priorRecordedZipMatches": true,
+      "crcPass": true,
+      "entries": 20,
+      "uncompressedBytes": 1181313,
+      "downloadAttempts": 1,
+      "proof": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11585986999-proof.json",
+        "bytes": 9167,
+        "sha256": "71692cbaf3a417362c6bda86e258d7339f11fd81147ab28dba1520990ab32437"
+      },
+      "originalCopyManifests": 0,
+      "originalManifestReferencedFiles": 0,
+      "originalManifestSqliteRelatedFiles": 0,
+      "allManifestFileHashesMatchArchive": true,
+      "allArchiveSqliteRelatedFiles": 0,
+      "priorRecordedEntryPinsMatched": 24,
+      "nativeSummary": {
+        "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+        "entries": 19,
+        "allEntryHashesMatchArchive": true,
+        "binaryHashedOnlyNeverLoaded": true
+      }
+    },
+    {
+      "id": 11585647167,
+      "name": "engine-native-windows-node-24.x-attempt-1",
+      "runId": 37859976748,
+      "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "currentlyExpired": false,
+      "zip": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11585647167.zip",
+        "bytes": 107859,
+        "sha256": "05adb7485e33772213508e73923d725ef09ee3f4fc03eefc7f8326fc95bc2453"
+      },
+      "apiSizeMatches": true,
+      "apiDigestMatches": true,
+      "priorRecordedZipMatches": true,
+      "crcPass": true,
+      "entries": 20,
+      "uncompressedBytes": 237373,
+      "downloadAttempts": 1,
+      "proof": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/baseline-hosted/artifact-11585647167-proof.json",
+        "bytes": 9164,
+        "sha256": "34a35d64d444d4d74627c4ec02644be9367251f93f650bb294f7331506aacca5"
+      },
+      "originalCopyManifests": 0,
+      "originalManifestReferencedFiles": 0,
+      "originalManifestSqliteRelatedFiles": 0,
+      "allManifestFileHashesMatchArchive": true,
+      "allArchiveSqliteRelatedFiles": 0,
+      "priorRecordedEntryPinsMatched": 24,
+      "nativeSummary": {
+        "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+        "entries": 19,
+        "allEntryHashesMatchArchive": true,
+        "binaryHashedOnlyNeverLoaded": true
+      }
+    }
+  ],
+  "desktopMetadataOnly": [
+    {
+      "id": 11586105869,
+      "name": "desktop-unsigned-macos-15-1",
+      "runId": 37859942934,
+      "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "currentlyExpired": false,
+      "apiBytes": 407245609,
+      "apiDigest": "sha256:570bc3c75f33d5a8fc41a5b443d8b409be7f83d691cbbd7cd73d770c40e796eb",
+      "apiMatchesCommittedRecord": true,
+      "downloadedThisRecovery": false,
+      "crcRevalidatedThisRecovery": false,
+      "payloadInspectedThisRecovery": false
+    },
+    {
+      "id": 11585866639,
+      "name": "desktop-unsigned-ubuntu-24.04-1",
+      "runId": 37859942934,
+      "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "currentlyExpired": false,
+      "apiBytes": 138238908,
+      "apiDigest": "sha256:55f0e172d5094bc66c3f3a94d9ee337289a1bb1162564e72a93fdb9a8d90345a",
+      "apiMatchesCommittedRecord": true,
+      "downloadedThisRecovery": false,
+      "crcRevalidatedThisRecovery": false,
+      "payloadInspectedThisRecovery": false
+    },
+    {
+      "id": 11585239465,
+      "name": "desktop-unsigned-windows-2025-1",
+      "runId": 37859942934,
+      "sourceSha": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+      "currentlyExpired": false,
+      "apiBytes": 179169742,
+      "apiDigest": "sha256:7d6d59015769712a1ffefe91a2b8d009c8eb9bf1958c232734b42e5892c7c37a",
+      "apiMatchesCommittedRecord": true,
+      "downloadedThisRecovery": false,
+      "crcRevalidatedThisRecovery": false,
+      "payloadInspectedThisRecovery": false
+    }
+  ],
+  "qualification": {
+    "recoveryMeaning": "Recovered identical original API artifacts from head2381, with fresh archive integrity and Original copy-byte hash checks. Original manifests/report outcomes remain recorded data and issue no current native owner/dispatch/cleanup authority.",
+    "currentWork": "Root renderer/Desktop updater changes are a different source. These old2381 artifacts are historical baseline; they do not qualify the changed source.",
+    "nativeSqlScope": "Only bounded read-only streaming hashes of archived SQLite/WAL/SHM bytes and manifest refs. No SQL bodies were output, databases opened, coherent live backups certified, or copied native libraries executed.",
+    "historicalElevenCRC": "Previous committed eleven-artifact CRC success is a previous actual observation. This recovery freshly revalidates8CRC; Desktop3 currently available metadata only.",
+    "fullThirtyMinuteOriginal": "Not recovered: previous local a89 actual30minute report/database/Original fixture were local /tmp evidence, not these2381 hosted artifact scopes. Hosted persistent quick reports/copies cannot replace that duration/source/Original.",
+    "historicalRpty": "No f992 archive requested or causal native evidence recovered. Old RPTY cause remains UNKNOWN."
+  },
+  "bounds": {
+    "maxZipBytes": 4194304,
+    "maxEntriesPerZip": 1024,
+    "maxMemberUncompressedBytes": 16777216,
+    "maxUncompressedBytesPerZip": 134217728,
+    "maxAllUncompressedBytes": 536870912,
+    "maxJsonBytes": 1048576,
+    "streamChunkBytes": 1048576,
+    "pathsChecked": "No absolute/drive/traversal/backslash/NUL/empty components, duplicate ZIP paths, symlink or encrypted entries; no ZIP extraction."
+  },
+  "actions": {
+    "metadataReadRequests": 3,
+    "binaryDownloadRequests": 8,
+    "credentialFilesOrValuesRead": 0,
+    "rawPayloadsPrinted": 0,
+    "testsOrBuilds": 0,
+    "nativeExecution": 0,
+    "sourceOrGoalOrGitMutations": 0,
+    "deletionsOrProcessSignals": 0,
+    "externalAuditChanged": false,
+    "goalCompletionClaimed": false
+  }
+}

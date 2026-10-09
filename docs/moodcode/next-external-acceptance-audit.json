@@ -1,0 +1,517 @@
+{
+  "schemaVersion": 1,
+  "kind": "finite-external-and-original-scope-acceptance-audit",
+  "recordedAt": "2026-10-09T09:11:01.333367+00:00",
+  "auditBaseCommit": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6",
+  "status": "audit-complete-full-goal-unfulfilled-external-validation-deferred-until-inputs",
+  "fullGoalAchieved": false,
+  "userSteering": {
+    "source": "Human instruction relayed by Root during this audit",
+    "instruction": "외부 검증은 준비 후 진행",
+    "effect": "Actual SIWC/Anthropic/signing/feed validation remains deferred until preparation and inputs; no renewed question or live operation by this auditor. This deferral is neither completion nor a reduction of the original goal. Root owns goal status."
+  },
+  "authority": {
+    "currentSupport": "docs/moodcode/next-feature-support-draft.json",
+    "currentLocal": "docs/moodcode/next-final-local-acceptance.json",
+    "currentHosted": "docs/moodcode/next-corrective-hosted-acceptance.json",
+    "hostedSource": "2381bff327f89c46159ae943afc6d4feaa8c455f",
+    "allFiveCurrentAcceptancePinsMatch": true,
+    "limits": "Existing acceptance qualifies its frozen finite scope. This audit performs source/document inspection only, supplies no new native/account/CI evidence and grants no fresh dispatch or cleanup authority."
+  },
+  "requirementMatrix": [
+    {
+      "id": "N-03",
+      "contract": "TODO.md:23; login/logout/select/refresh failure, official first support, credential store/delete and renderer/journal non-exposure.",
+      "state": "implemented-fixture-verified-actual-account-deferred",
+      "evidence": [
+        "next-desktop-auth-progress.json",
+        "next-feature-support-draft.json features/N-03"
+      ],
+      "established": "Browser loopback/state/nonce/S256/JWKS verification, app-owned encrypted safeStorage, serialized rotation/quarantine and account binding; actual Electron OS safeStorage fixture reports externalIdentityVerified=false and inferenceRequests=0.",
+      "gap": "No actual SIWC identity/entitlement/model catalog/completed Responses inference. API-key PDF/media proofs and signed-JWT fixtures do not qualify ChatGPT account login.",
+      "releaseConditions": [
+        "Prepared isolated Moodcode profile with secure native safeStorage and eligible human-authorized ChatGPT browser account; leave Codex auth files unchanged.",
+        "Record exact source/runtime, verified identity binding and returned account models, selected exact model and bounded completed Responses Run/Attempt/usage/cleanup.",
+        "Exercise sign-out/token erasure, account selection and renewal/re-auth failure at their explicitly stated actual or fixture boundary; retain no raw credential values in renderer/journal/reports."
+      ],
+      "independentRemaining": "Shutdown authority precondition is local work under NEXT-04; no other production auth defect established in this finite inspection."
+    },
+    {
+      "id": "E5-13",
+      "contract": "TODO.md:316-318; required provider text/tool/reasoning/media/usage/retry/cancel fixtures and only actual verified capabilities.",
+      "state": "finite-OpenAI-profiles-qualified-Anthropic-actual-account-deferred",
+      "evidence": [
+        "next-feature-support-draft.json features/E5-13",
+        "next-provider-anthropic-external.json",
+        "next-provider-anthropic-progress.json"
+      ],
+      "established": "Existing exact API-key Responses PDF and AVI frame evidence remains source/runtime/model scoped. Anthropic external report has0 actualRequests/accountVerified=false; planned claude-sonnet-5-5 comes from documentation, not account inventory.",
+      "gap": "No approved Anthropic credential/account proof. The current finite Anthropic lane covers text/tool/replay2POST plus fresh PNG1POST, not public reasoning-summary or actual remote cancellation.",
+      "releaseConditions": [
+        "Root checks/supplies official Anthropic key by reference and explicitly selects exact available model; source/runtime freeze precedes inference.",
+        "Run the existing bounded3request official Messages lane with exact native tool/replay/recognition, positive usage, duplicate0request and Original cleanup proof; preserve unknown costs and failure evidence.",
+        "Public reasoning-summary and cancel account scopes need separately bounded explicit evidence before claiming them. PDF/audio/video/media-output/server-tools remain unsupported by this adapter; no generic expansion is implied."
+      ],
+      "documentedInputs": [
+        "MOODCODE_ANTHROPIC_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "--lane anthropic",
+        "--model",
+        "--live",
+        "--max-requests3",
+        "--credential-env",
+        "--credential-file optional explicit path",
+        "--capability-reference",
+        "--report new immutable path"
+      ],
+      "independentRemaining": "Existing callable native lane is ready; this audit identifies no missing local adapter implementation beyond documented unselected scopes."
+    },
+    {
+      "id": "N-05",
+      "contract": "TODO.md:25; fixed OS/channel, signing/notarization, install/update/failure recovery; separate local preparation from actual distribution.",
+      "state": "local-preparation-verified-actual-signed-install-update-feed-deferred",
+      "evidence": [
+        "next-desktop-release-progress.json",
+        "next-feature-support-draft.json features/N-05",
+        "scripts/verify-desktop-release.mjs",
+        "scripts/desktop-update-fixture.cjs"
+      ],
+      "established": "Stable GitHub policy, review-only publish-never packaging, metadata digest checks, signing checks, explicit updater gates and disposable POSIX AppImage0.2.0/0.3.0 higher-version recovery. No actual signed Mac/NSIS installed updater or published stable feed proof.",
+      "gap": "Developer ID/notarization and Windows certificate/publisher unavailable by Root presence-only check; signed install/update/recovery and approved actual release-feed exercise remain unverified.",
+      "releaseConditions": [
+        "Complete local NEXT-04 updater shutdown gate for actual main utility; unexpected exit/unknown native cleanup must not reach quitAndInstall.",
+        "Produce source/version/OS/architecture-bound review artifacts with credentials; verify metadata/file SHA512 and macOS codesign/spctl/stapler or Windows Authenticode exact publisher.",
+        "In disposable target-OS installation, prove installed baseline→signed higher-version update→restart/version/data preservation, corrupt/signature failure, cancellation and known-good higher-version recovery. Existing POSIX AppImage fixture cannot substitute for macOS/NSIS update.",
+        "After human release approval, publish exact reviewed artifacts/metadata and verify real stable GitHub feed; no publication is authorized by this audit."
+      ],
+      "documentedConfiguration": {
+        "macOS": [
+          "CSC_LINK",
+          "CSC_KEY_PASSWORD",
+          "APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID",
+          "alternative CLI: APPLE_API_KEY + APPLE_API_KEY_ID + APPLE_API_ISSUER"
+        ],
+        "Windows": [
+          "WIN_CSC_LINK or CSC_LINK",
+          "WIN_CSC_KEY_PASSWORD or CSC_KEY_PASSWORD",
+          "MOODCODE_WINDOWS_PUBLISHER_NAME"
+        ],
+        "workflow": [
+          "DESKTOP_CSC_LINK",
+          "DESKTOP_CSC_KEY_PASSWORD",
+          "DESKTOP_WIN_CSC_LINK",
+          "DESKTOP_WIN_CSC_KEY_PASSWORD",
+          "DESKTOP_APPLE_ID",
+          "DESKTOP_APPLE_APP_SPECIFIC_PASSWORD",
+          "DESKTOP_APPLE_TEAM_ID",
+          "vars.DESKTOP_WINDOWS_PUBLISHER_NAME",
+          "environment desktop-release",
+          "inputs.version"
+        ],
+        "build": [
+          "MOODCODE_DESKTOP_RELEASE=1",
+          "stable owner yakisoba0728/repo Moodcode",
+          "--release --version; --publish never enforced"
+        ]
+      },
+      "independentRemaining": "Actual main utility cleanup installation gate described in finding LOCAL-N05-01; native signed installed-update verification requires artifacts and is still absent."
+    },
+    {
+      "id": "N-04-Windows-precondition",
+      "state": "accepted-exact2381-unsigned-native-x64-scope",
+      "evidence": [
+        "next-corrective-hosted-acceptance.json desktopWindowsActualNative"
+      ],
+      "established": "Actual packaged Electron44.5.1/Node24.21.0 x64 private coding utility native command,2 Original approvals, SQLite23 checkpoint/cleanup, Original ACK+exit, ASAR receipt/native binary pins.",
+      "stalePointers": [
+        "next-desktop-release-progress.json externalConditions[0]",
+        "next-desktop-package-progress.json status/externalConditions",
+        "next-desktop-progress.json status/externalConditions windows-native-package"
+      ],
+      "qualification": "Those old parent-integration pending claims are superseded by latest support/hosted pointers. This does not qualify separate public main utility close, signing, installed NSIS update, Windows arm64/PTy or all-OS advanced GUI."
+    },
+    {
+      "id": "R-PTY-01",
+      "contract": "TODO.md:544; original f992 uncertain/completed mismatch with missing authoritative outcome/reason/PID/PGID; later pass must not be causal credit.",
+      "state": "historical-cause-unknown-original-raw-paths-currently-unavailable",
+      "evidence": [
+        "engine-pty-f992-diagnosis.json",
+        "engine-ci-f992-posix-failure-verification.json",
+        "next-feature-support-draft.json features/R-PTY-01"
+      ],
+      "established": {
+        "runId": 37825930807,
+        "commit": "f992c710564bcbbd9cf10bcb8bff9924151cd7ba",
+        "lane": "macOS Node26",
+        "case": "real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit",
+        "actual": "uncertain",
+        "expected": "completed",
+        "durationMs": 155.940208,
+        "originalClosedOutcomeRecorded": false,
+        "terminalReasonRecorded": false,
+        "physicalPIDOrGroupRecorded": false,
+        "causeConfirmed": false
+      },
+      "gap": "All16 explicitly referenced raw evidence paths checked here are absent. Git-tracked reports retain original run/artifact/test-log hashes and honest failure. No original native cause can be reconstructed from newer passing runs.",
+      "releaseConditions": [
+        "If original run37825930807 artifact11572251171/archive0c1703291517e1aa34f6b2868bdf6b7e7f157989151141b223ee6aba55d01215 remains recoverable, retrieve read-only and validate original archive/test-log SHA before comparison; restoring logs alone does not supply fields the report says were never recorded.",
+        "Original authoritative backend.closed/native outcome, terminal reason and original PID/PGID/supervisor close/real group probes, or genuine recurrence with preserved diagnostics, must support an actual causal comparison.",
+        "Keep unknown/EPERM/leader-loss and old uncertain outcome; separate reproduced IPC defect or current15case success is insufficient. If causal violation is demonstrated, reopen affected acceptance and repair with original native contract."
+      ],
+      "independentRemaining": "Existing durable diagnostics/repeatability preparation is implemented. No evidence-backed PTY production correction is established by this audit."
+    },
+    {
+      "id": "Original-full-code-semantic-and-unused-review",
+      "contract": "TODO.md:9,32-34,74,78; structural inventory and accepted finite refactors do not themselves discharge original whole-code review.",
+      "state": "finite-structural-and-selected-semantics-established-global-proof-absent",
+      "evidence": [
+        "next-final-inventory-comparison.json coverage/acceptanceLimits",
+        "next-inventory-manual-review.json limits",
+        "next-cleanup-retain-review.json scope/decisions"
+      ],
+      "established": "1079 physical/1070 AST files plus9 formats, selected nine-file manual review and finite caller/dependency/contract units; existing21 erased type bindings in17 files. Both inventory complete flags are false by design.",
+      "gap": "These reports explicitly disclaim all-source semantic/unused/dependency proof. Green regression gates establish tested behavior preservation, not that every module/comment/export/dependency has been semantically audited or safely deleted.",
+      "releaseConditions": [
+        "Root retains finite accepted units separately and records a source-pinned responsibility/caller/export/dynamic registration/compatibility review map for any remaining originally requested global audit.",
+        "Each confirmed fix/delete/add/retain decision needs exact source/caller or preserved contract evidence; unsupported or unreviewed areas remain named gaps rather than completion. No arbitrary refactor/deletion quota is implied."
+      ],
+      "independentRemaining": "This is local review work, not an account/certificate blocker; this finite external audit cannot claim it completed."
+    }
+  ],
+  "findings": [
+    {
+      "id": "LOCAL-N05-01",
+      "status": "confirmed-source-precondition-owned-by-NEXT-04",
+      "paths": [
+        {
+          "path": "apps/desktop/src/main/host.ts",
+          "line": 386
+        },
+        {
+          "path": "apps/desktop/src/main/host.ts",
+          "line": 397
+        },
+        {
+          "path": "apps/desktop/src/main/index.ts",
+          "line": 238
+        },
+        {
+          "path": "apps/desktop/src/main/updates.ts",
+          "line": 92
+        }
+      ],
+      "trigger": "Utility exits unexpectedly before DesktopUpdates install invokes closeEngine; or close ACK arrives while Original utility exit remains unobserved.",
+      "current": "Host closeConnection returns immediately for connection.exited and host.close publishes stopped; after ACK it detaches exit listeners. Updater closeEngine awaits this Promise only and then invokes quitAndInstall.",
+      "impact": "Unknown native cleanup/Original main utility termination can be treated as successful installation precondition. Actual signed-updater acceptance must include the production close chain, not private fixture authority.",
+      "requiredEvidence": "NEXT-04 owner must distinguish no-worker, acknowledged+Original-exit, unexpected-exit/no-ACK, ACK-without-exit and failed/unknown native cleanup; install must remain blocked whenever required closure is unconfirmed. A meaningful host→updater regression proves installer0calls on those unknown/failure cases.",
+      "mutationByAuditor": false
+    }
+  ],
+  "availabilityFromRoot": {
+    "provenance": "Parent reported presence-only noninteractive checks in this session; not independently repeated by auditor",
+    "anthropicNamedInputsPresent": false,
+    "signingAndAppleAndPublisherNamedInputsPresent": false,
+    "validCodesigningIdentities": 0,
+    "developerIdApplicationPresent": false,
+    "credentialOrIdentityValuesIncluded": false,
+    "notAClaimAboutRemoteGitHubSecretAvailability": true
+  },
+  "historicalRawEvidenceAvailability": [
+    {
+      "path": "/tmp/moodcode-actions-37825930807-f992/macos26-artifact/test.log",
+      "presentAtAudit": false,
+      "expectedSha256": "a88851b7c6c5b8dfb5f9ef20c0c59362f118cbefb9d5d221514eeb55be4b1f3e"
+    },
+    {
+      "path": "/tmp/moodcode-actions-37825930807-f992/macos26-job.log",
+      "presentAtAudit": false,
+      "expectedSha256": "ff731063f66a648612e43436380ec64fbe5c4f9729d5b759d20ac6f2eda955c0"
+    },
+    {
+      "path": "/tmp/moodcode-pty-normal-exit-diagnosis.log",
+      "presentAtAudit": false,
+      "expectedSha256": "3f79f952b0befda52bf3280e021ef3ca66e91636f68133722ceeb5d7ca516673"
+    },
+    {
+      "path": "/tmp/moodcode-pty-normal-exit-original-summary.json",
+      "presentAtAudit": false,
+      "expectedSha256": "880a3257db35c55236eadf8bdeebfd6e01de7d54439999ebeb0b9d250d5be0fd"
+    },
+    {
+      "path": "/tmp/moodcode-pty-normal-exit-observed.log",
+      "presentAtAudit": false,
+      "expectedSha256": "c1a95a3e17be744dde27d8ae57f2b90b7782a604c35632f76e41e47572f46510"
+    },
+    {
+      "path": "/tmp/moodcode-pty-normal-exit-observed-details.json",
+      "presentAtAudit": false,
+      "expectedSha256": "cd87a46d10391dd34ba3e7aa1b6cf6d07c64522dfdf881f35152c3207283ce24"
+    },
+    {
+      "path": "/tmp/moodcode-pty-supervisor-observations.jsonl",
+      "presentAtAudit": false,
+      "expectedSha256": "2e8029170a40aee8cf599d9f179523c1b434e7a2fb3e5ced1aea8e11c40d93eb"
+    },
+    {
+      "path": "/tmp/moodcode-pty-normal-exit-diagnosis.mts",
+      "presentAtAudit": false,
+      "expectedSha256": "fde8d7da3e908af913d1b1df8c8cdeb856cb3cd18f9ef22d41333183d1efb3a3"
+    },
+    {
+      "path": "/tmp/moodcode-pty-supervisor-observe.mjs",
+      "presentAtAudit": false,
+      "expectedSha256": "6423fd22fe179de67f02d26cd53fef78cc58076c1c178bf0cae76be61749c362"
+    },
+    {
+      "path": "/tmp/moodcode-pty-fork-observe.mjs",
+      "presentAtAudit": false,
+      "expectedSha256": "283ae59146c8da616a4b3da26dbccf4da8316b0afb8d4ad880c8e27ec3d21f44"
+    },
+    {
+      "path": "/tmp/moodcode-actions-37827176532-99bf/macos26-artifact/test.log",
+      "presentAtAudit": false,
+      "expectedSha256": "b09b4a94ce98a0892380a3b92af5f2b7faea96b35c8e39ed0829af1fbec612b2"
+    },
+    {
+      "path": "/tmp/moodcode-actions-37825930807-f992/macos26.zip",
+      "presentAtAudit": false,
+      "expectedSha256": "0c1703291517e1aa34f6b2868bdf6b7e7f157989151141b223ee6aba55d01215"
+    },
+    {
+      "path": "/tmp/moodcode-actions-37825930807-f992/macos26-artifact/results.json",
+      "presentAtAudit": false,
+      "expectedSha256": "d4a6d908ce34ca7d20dcef992a7f659459e3ad47f60c92a7012893dc85bd2193"
+    },
+    {
+      "path": "/tmp/moodcode-actions-37825930807-f992/artifact-file-sha256-manifest.json",
+      "presentAtAudit": false,
+      "expectedSha256": "ee8dcf825e9bd0c3194cdcffa43ccc7f386cd8e67c8b178108061610e33a33fb"
+    },
+    {
+      "path": "/tmp/moodcode-actions-37825930807-f992-metadata-live.json",
+      "presentAtAudit": false,
+      "expectedSha256": "aeed5cb5bd4ea49d4639eaa9b7fbfb81a1aba55c542b8d04d0a669da14f8dfcd"
+    },
+    {
+      "path": "/tmp/moodcode-actions-37825930807-f992-artifact-metadata.json",
+      "presentAtAudit": false,
+      "expectedSha256": "f15122e6468d61d91feca4b7b8efec109406ff2b5332ca6c49333f05337444a7"
+    }
+  ],
+  "sourcePins": [
+    {
+      "path": "apps/desktop/src/main/account-auth.ts",
+      "bytes": 16612,
+      "sha256": "f61b7c3471cd1f8203d8585655e41ec0ad89ea5cbb6efc5068037d9efb6f05d9",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "apps/desktop/src/main/accounts.ts",
+      "bytes": 16110,
+      "sha256": "7287ac47fe637455d3d23800b160ea4fb9ae25cc42ff5b880f589afd415f9762",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "apps/desktop/src/main/account-vault.ts",
+      "bytes": 9880,
+      "sha256": "82ec6def025c0476cc1ccd025786bac9bd30f93c3dad35464edd14acf1e38435",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "apps/desktop/src/main/host.ts",
+      "bytes": 22817,
+      "sha256": "cdfda91502854d71837b1b8cdb4c7c781dc9678c2f1d566589dcfe9113bd8774",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "apps/desktop/src/main/index.ts",
+      "bytes": 16073,
+      "sha256": "e871a35b735e8a144054e9fd68f8d631b2900f5641e08e6b135f020edf3a7534",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "apps/desktop/src/main/updates.ts",
+      "bytes": 8921,
+      "sha256": "a00dd88bba6333bc8e3fefc5cd185bbeb12701e118d85cbacbb3890c45227f91",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "apps/desktop/src/worker/core.ts",
+      "bytes": 23646,
+      "sha256": "4c911165863762e9ee654b1e83e6b46234fd0e895a203a153fefbac763a90ac4",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "apps/desktop/src/worker/runtime.ts",
+      "bytes": 2276,
+      "sha256": "655b929513bccbde58c039cdabb8640138a79fc27177e08e243d6f144e4e42bc",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "scripts/verify-provider-coverage-anthropic.mjs",
+      "bytes": 23738,
+      "sha256": "741c93d59b199b5e66b0b5e7e646937ebf81c294ec6e0f0303d0298232bfaf9f",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "scripts/verify-provider-coverage.mjs",
+      "bytes": 16636,
+      "sha256": "290c1f03589d72eb60e8f9bcd7b805de6ca1bda7b6eaefd8490b63e63c2bad66",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "scripts/desktop-release-policy.mjs",
+      "bytes": 2434,
+      "sha256": "c211a055197b1296523d3fa4efd159f3f7a511e6ef886f8feb35f10b060abf94",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "scripts/verify-desktop-release.mjs",
+      "bytes": 3854,
+      "sha256": "dae4dd6b9093fcb04747ae203f9a97ee33f1c1d85785d1ec92fa7d00ef1eab06",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "scripts/test-desktop-update.mjs",
+      "bytes": 950,
+      "sha256": "90b1a884e459bdc99ed6f5d7144932b777971f4aff66146f7ffe3fb6f2f443a1",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "scripts/desktop-update-fixture.cjs",
+      "bytes": 5977,
+      "sha256": "957862c189be6835ecf0b7dd85783395d4ef16a0a9d60f08ae62b8194185428b",
+      "matchesAuditBase": true
+    },
+    {
+      "path": ".github/workflows/desktop-release.yml",
+      "bytes": 2701,
+      "sha256": "aa7fd08abb0be751ebeb162272fc87aa938b713713ec61b8d229728b77b13f97",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "apps/desktop/electron-builder.config.cjs",
+      "bytes": 1421,
+      "sha256": "1cb78594f486ce60497c2719ba235bb58f09f93f7a47c498ef3dce6e5c6c9aea",
+      "matchesAuditBase": true
+    }
+  ],
+  "evidencePins": [
+    {
+      "path": "TODO.md",
+      "bytes": 116345,
+      "sha256": "a026e0acb697f39a496e79ef4901322f58cdad2ead54e8bfd7576ab62be64d28",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/next-final-local-acceptance.json",
+      "bytes": 6594,
+      "sha256": "57a071dcd5fd0006aee0f64f9da0fe75f143eb75237b918b889d29d4badf52e9",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/next-feature-support-draft.json",
+      "bytes": 38841,
+      "sha256": "63978ad3fb768adc9bef6d6c973a5832daeaea1070c964f236dc2a5165c76a4a",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/next-corrective-hosted-acceptance.json",
+      "bytes": 74546,
+      "sha256": "59f77f6730f32c73431d28ba94df051d0f4c52eacfbf3f89862e90bf288aaf86",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/next-desktop-auth-progress.json",
+      "bytes": 4495,
+      "sha256": "9e91fb3c9184510fa8ae30839e88d26c1ff5ef320abfd7459ec3131345798c7a",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/next-desktop-release-progress.json",
+      "bytes": 4133,
+      "sha256": "f3bd7d88fe0c393668a7611be1b323e3d2b0788d1dd19f5995842c8e58252d15",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/next-provider-anthropic-progress.json",
+      "bytes": 2656,
+      "sha256": "b07de804a463878a0853c4b84812722c9773ecd1e8c703e15d055770b25ab0e1",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/next-provider-anthropic-external.json",
+      "bytes": 1380,
+      "sha256": "a84b05ccec82aef93c2c071d4c459e8cb50ef192ee6bc5caf3d0503476c3f5dc",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/next-provider-anthropic.md",
+      "bytes": 5344,
+      "sha256": "058fd3c3f595a826dbae2bb421f750c0d492e19b960bbc7c35b2dee0da35beec",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/engine-pty-f992-diagnosis.json",
+      "bytes": 5963,
+      "sha256": "de9e3a14316be146c558e68c4967f1b48ec2bf8ad634b29e538a610ed8aad0cc",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/engine-ci-f992-posix-failure-verification.json",
+      "bytes": 39880,
+      "sha256": "d3c6865b9e0079cf29d61aa0ab2c29ba16ab7f9353eec882ccabc531b5b9d90b",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/next-final-inventory-comparison.json",
+      "bytes": 33384,
+      "sha256": "9d33a31aea3c9a11e2061e66f8b13ca4062a5279c55b8a90b31fd5b70c6e0ab5",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/next-inventory-manual-review.json",
+      "bytes": 52750,
+      "sha256": "54080e898f976d5b14247217c770456b1925816d639ed4cf230938c306200848",
+      "matchesAuditBase": true
+    },
+    {
+      "path": "docs/moodcode/next-cleanup-retain-review.json",
+      "bytes": 37696,
+      "sha256": "ccd33bd320d7e77dcd9942d694df360f1c114de20cac3cd91f5b3ad5e5342835",
+      "matchesAuditBase": true
+    }
+  ],
+  "rootBoundaries": {
+    "scope": "Only this new report may be written; Root owns integration, semantic coverage, authoritative docs, final validation, commit/push and every goal status.",
+    "performed": [
+      "Finite local source/document reads",
+      "Explicit historical path existence checks",
+      "Current acceptance document hash comparison"
+    ],
+    "notPerformed": [
+      "Source/README/TODO/goal changes",
+      "build or tests",
+      "git mutation",
+      "UI/browser login",
+      "provider API or live inference",
+      "credential/keychain/auth-cache reads",
+      "publish or sign",
+      "process signals or data deletion",
+      "messages to user-owned chats"
+    ],
+    "completion": "This report completes only the assigned finite acceptance audit; original full goal and external acceptance remain unfulfilled."
+  },
+  "currentNativeAvailabilityFromRoot": {
+    "provenance": "Parent reported exact-path stat checks during this audit; no original native data read by this auditor.",
+    "reportedAbsent": [
+      "prior /tmp actual30minute raw report",
+      "prior /tmp runtime-equivalence JSON",
+      "prior /tmp whole-engine log",
+      "prior /tmp hosted ZIP directory",
+      "prior Original nMpoCi/engine.sqlite"
+    ],
+    "frozenA89WorktreeReportedPresent": true,
+    "qualification": "Committed source-pinned acceptance reports and previous recorded actual observations remain historical evidence. Missing current raw paths supply no deletion/cause/cleanup authority and do not become fresh exact-current-source native acceptance. Root owns recovery/download of archived CI artifacts to durable project paths and final current evidence."
+  }
+}

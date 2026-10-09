@@ -1,0 +1,517 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-continuation-engine-verification",
+  "timestamp": "2026-10-09T10:14:45.938818+00:00",
+  "status": "verified-local-engine-with-external-acceptance-deferred",
+  "passed": true,
+  "scope": {
+    "worktree": "/Users/yakisoba0728/.codex/worktrees/next-continuation-frozen/Moodcode",
+    "sourceCommit": "16b2a103a698174ce67bbd9a9ba253af5c187d15",
+    "runtime": "compiled",
+    "singleBuild": true,
+    "headlessWholeOriginalPlusOneEnvironmentCorrectedRerun": true,
+    "actualPersistentRunCount": 1,
+    "externalAccountOrProviderRequests": 0,
+    "originalGoalComplete": false,
+    "goalStatusOwnedByRoot": true,
+    "qualification": "New frozen 16b2a10 evidence only. Desktop changes outside this worktree require Root runtime-input comparison. Existing external validation is deferred until prepared inputs; no goal scope/status mutation."
+  },
+  "build": {
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "-b",
+      "packages/contracts",
+      "packages/engine",
+      "apps/engine-harness",
+      "--force",
+      "--pretty",
+      "false"
+    ],
+    "startedAt": "2026-10-09T09:39:06.097140+00:00",
+    "completedAt": "2026-10-09T09:39:09.677942+00:00",
+    "durationMs": 3580.8561660001033,
+    "exitCode": 0,
+    "log": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "runtime": {
+    "files": 771,
+    "bytes": 11899924,
+    "sha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+    "sortedPathBytesShaInventory": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/runtime-before.json",
+      "bytes": 149152,
+      "sha256": "4b02ab6c342051b29da1d4a05e40bbaf0a7a57949b0db07446e8e7c19003588b"
+    },
+    "finalInventory": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/runtime-after.json",
+      "bytes": 149152,
+      "sha256": "4b02ab6c342051b29da1d4a05e40bbaf0a7a57949b0db07446e8e7c19003588b"
+    },
+    "beforeCorrectionAndAfterAllEqual": true,
+    "actualResolvedFrozenImports": 7,
+    "mutableMainEngineOrContractsDistResolved": false,
+    "importsEvidence": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/runtime-corrected-before.json",
+      "bytes": 149152,
+      "sha256": "4b02ab6c342051b29da1d4a05e40bbaf0a7a57949b0db07446e8e7c19003588b"
+    },
+    "trackedSourceChanges": false,
+    "qualification": "Inventory is the existing sourceRuntimeIdentity engine/contracts production/evaluation graph; external dependency trees and Desktop source are separate scopes."
+  },
+  "declarations": {
+    "emittedDeclarations": 914,
+    "allBeforeAfterEqual": true,
+    "baseline": {
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-refactor-frozen/Moodcode",
+      "head": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+      "declarationsPresent": 914,
+      "shared": 914,
+      "equalShared": 914,
+      "changed": [],
+      "nonTestChanged": [],
+      "added": [],
+      "removed": []
+    },
+    "beforeDigest": "6c402043da6112b965c6884e7704a6ea4e257a37204d162dccf377f40e5f6951",
+    "before": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/declarations-before.json",
+      "bytes": 172362,
+      "sha256": "63ff90f53e04f2405c049c1038f4c22bcb86e2110a37ca3fbbd7ebbc27ea9456"
+    },
+    "after": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/declarations-after.json",
+      "bytes": 172184,
+      "sha256": "eebb690203b2470a0b93c2d4b528be8dd14208f98487b55bc161ccd2d662b8f8"
+    },
+    "qualification": "All 914 actual current emitted declarations equal all 914 available declarations in the actual a89d749 baseline worktree; no prior long runtime acceptance is reused."
+  },
+  "wholeHeadless": {
+    "testFiles": 451,
+    "concurrency": 4,
+    "initial": {
+      "exitCode": 1,
+      "summary": {
+        "tests": 4848,
+        "suites": 0,
+        "pass": 4825,
+        "fail": 21,
+        "cancelled": 0,
+        "skipped": 2,
+        "todo": 0,
+        "duration_ms": 342482.920583
+      },
+      "log": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/whole.log",
+        "bytes": 588405,
+        "sha256": "adeef64d692aac860dfe88422f2d4e07e168415f5390c7886817f4d4c253cabf"
+      },
+      "classifiedEnvironmentFailures": {
+        "ancestorPackageEsmFakeGit": 16,
+        "ancestorGitDiscovery": 2,
+        "noncanonicalNativeTypeScriptExecutable": 3
+      },
+      "failureClassification": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/whole-initial-failure-classification.json",
+        "bytes": 13220,
+        "sha256": "7889dbb52e4277454590c3be4694e3d62f3e4dc0961ef06a69bba4d559d92270"
+      },
+      "retainedOriginalManifest": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/whole-initial-retained-manifest.json",
+        "bytes": 229837,
+        "sha256": "d8db7072acf101ea201bdaf4b00e16b3c1c68948c977c4df42da9fb0722e1045"
+      }
+    },
+    "corrected": {
+      "exitCode": 0,
+      "summary": {
+        "tests": 4848,
+        "suites": 0,
+        "pass": 4846,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 2,
+        "todo": 0,
+        "duration_ms": 316632.444708
+      },
+      "startedAt": "2026-10-09T09:53:58.823777+00:00",
+      "finishedAt": "2026-10-09T09:59:15.501546+00:00",
+      "log": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/whole-corrected.log",
+        "bytes": 625264,
+        "sha256": "1df8d2b02c62fa312bce5defbd019e3ef8a85c761c85c303ebb11d2dc93caf0d"
+      },
+      "execution": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/whole-corrected-execution.json",
+        "bytes": 991,
+        "sha256": "94c17181c432f311f35ffec3a14df6ef3c3a9b8c282c96a9ef88ce66f0d6b4c4"
+      },
+      "all21FormerFailuresPassed": true,
+      "retainedOriginalManifest": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/whole-corrected-retained-manifest.json",
+        "bytes": 229859,
+        "sha256": "1abb35703fe42d808ff03ee13bf10735078855171f2a87c7dd4a680a0acac595"
+      }
+    },
+    "environmentCorrection": {
+      "metadata": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/whole-environment-correction.json",
+        "bytes": 115075,
+        "sha256": "6678f51dc74f6e0a90379bf80cbcb8d0496de00ba58caeea75ec60479bb1aac9"
+      },
+      "rootSharedSymlinkPreserved": "/Users/yakisoba0728/.codex/worktrees/next-continuation-frozen/Moodcode/artifacts/next-continuation/dependency-origin/node_modules-shared-link",
+      "newWholeTmpdir": "/Users/yakisoba0728/Library/Application Support/Moodcode-verification/abee36ab-cee9-4e6b-a648-e4726f609174/whole-native-tmp",
+      "gitAndPackageJsonAncestorsAbsent": true,
+      "sharedMainNodeModulesChanged": false,
+      "copiedPlatformFiles": 113,
+      "copiedPlatformBytes": 27498111,
+      "copyCanonicalRegularAndHashUnchangedAfterAll": true,
+      "assertionsTimeoutsSourcesOrBuildModified": false
+    },
+    "skips": [
+      "Windows commands require the available real native process-tree backend",
+      "actual Windows native Job Object lifecycle and Engine integration"
+    ],
+    "skipQualification": "Darwin local verification does not prove current Windows native runtime. Hosted baseline 2381 evidence remains separately scoped."
+  },
+  "primaryDatabaseContract": {
+    "passed": true,
+    "version": 23,
+    "objects": 281,
+    "sha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+    "baselineEqual": true,
+    "report": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/db-contract-report.json",
+      "bytes": 90681,
+      "sha256": "e514fcfabfaae94d7309ee1a57e459410352ffbb5f1ef3d3cc20189f23b4c659"
+    },
+    "qualification": "Actual freshly migrated in-memory primary contract; schema version 23 is not a table count."
+  },
+  "scriptedCoding": {
+    "passed": true,
+    "summary": {
+      "attempted": 3,
+      "successful": 3,
+      "failed": 0,
+      "successRate": 1,
+      "denominator": "authored deterministic tasks; not model-quality samples"
+    },
+    "noLive": true,
+    "liveRequests": 0,
+    "accountVerified": false,
+    "modelQualityEvaluated": false,
+    "beforeAndAfterEntireFrozenRuntimeEqual": true,
+    "report": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/coding-report.json",
+      "bytes": 320207,
+      "sha256": "c76b905b719c3c39ee8a86cf2de8ee28dcaa5e772e78aa6bbe8c69ce947e1643"
+    }
+  },
+  "resilience": {
+    "passed": true,
+    "iterations": 3,
+    "seed": 20261009,
+    "summary": {
+      "completed": 3,
+      "failed": 0,
+      "providerCalls": 5,
+      "processLaunches": 3,
+      "unknownOutcomes": 2,
+      "cleanupFailures": 0,
+      "durationMs": 2743
+    },
+    "report": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/resilience-report.json",
+      "bytes": 21562,
+      "sha256": "ce886b0e115846d8b267d4ea8112dc4aa2b9d8d3d8734450a36c8d8455993cce"
+    },
+    "entryIdentityMatchesFrozenGraph": true,
+    "sourceIdentityQualification": "Entry-file identities only; this report is not a full engine source freeze.",
+    "fixtureRetentionQualification": "Existing verified quick scenarios record databaseRemoved=true and retainedEvidencePath=null. Their raw report is retained; physical Original retention is established separately by the persistent run, not inferred from quick unknownOutcomes."
+  },
+  "persistent30Minute": {
+    "passed": true,
+    "noLive": true,
+    "strictReportContractPassed": true,
+    "validator": {
+      "path": ".github/scripts/followup-reports.mjs",
+      "bytes": 6989,
+      "sha256": "52d433ca09bf1b36ce9e22befb7fdd772f3e703b4f4acfd8cc1761039ae22251"
+    },
+    "options": {
+      "profile": "long",
+      "durationMs": 1800000,
+      "maxCycles": 600,
+      "maxInputs": 2404,
+      "maxInputBytes": 67108864,
+      "payloadBytes": 256,
+      "maxSamples": 128,
+      "seed": 20261009,
+      "boundaryTimeoutMs": 10000
+    },
+    "summary": {
+      "activeDurationMs": 1806443,
+      "observation": {
+        "startedElapsedMs": 1606.331334,
+        "endedElapsedMs": 1806442.821917,
+        "durationMs": 1804836.490583
+      },
+      "lastCycleElapsedMs": 1806442,
+      "loadStoppedBy": "duration",
+      "durationMs": 1826577,
+      "engineInstances": 3,
+      "sourceStable": true,
+      "workerGrowth": {
+        "rssDeltaBytes": 40337408,
+        "heapUsedDeltaBytes": 22352792,
+        "descriptorDelta": 7,
+        "descriptorPeak": 35,
+        "liveDescendantPeak": 2,
+        "sqliteDeltaBytes": 305592224,
+        "artifactDeltaBytes": 265774,
+        "sampledWorkerDurationMs": 1820342
+      }
+    },
+    "cycles": 382,
+    "inputs": 1532,
+    "samples": 128,
+    "cleanup": {
+      "workerExited": true,
+      "recoveryEngineClosed": true,
+      "commandPidAbsent": true,
+      "commandGroupAbsent": true,
+      "ownedLiveSurvivors": [],
+      "physicalCleanupConfirmed": true,
+      "nativeCleanupConfirmed": false,
+      "emergencyCleanupUsed": false,
+      "databaseRemoved": false,
+      "retainedEvidencePath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/persistent-native-tmp/moodcode-resilience-FOGlvx",
+      "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+    },
+    "unknownNativeOutcome": {
+      "jobState": "uncertain",
+      "completion": null,
+      "tokens": null,
+      "cost": null,
+      "noAutomaticReplay": true,
+      "recoveredProviderCalls": 0
+    },
+    "report": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/persistent-report.json",
+      "bytes": 360975,
+      "sha256": "eb2d85d853ce377da9381812e2ad3cdd00786c9d7ab510a7473cf50f641fbfdd"
+    },
+    "execution": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/persistent-execution.json",
+      "bytes": 1000,
+      "sha256": "754c0b704d7cd77e6c0bb7a68e5d6e05ffc08e2380c265a2c8850bb52ed20bc3"
+    },
+    "log": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/persistent.log",
+      "bytes": 360975,
+      "sha256": "eb2d85d853ce377da9381812e2ad3cdd00786c9d7ab510a7473cf50f641fbfdd"
+    },
+    "original": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/persistent-native-tmp/moodcode-resilience-FOGlvx",
+      "files": 260,
+      "bytes": 303343057,
+      "manifestSha256": "7165715e24ef161e20b8449e7808279747499a792f04896d1f30e52a6afea4cd",
+      "manifest": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/persistent-original-manifest.json",
+        "bytes": 80220,
+        "sha256": "2e1e75683f1dcfd3aaf2679040c0903f80120e2d4cf98dc6df0829c520984416"
+      },
+      "allStableDuringHash": true,
+      "duplicateCopyMade": false,
+      "removedByThisAudit": false,
+      "cleanupOrRecoveryAuthorityGranted": false
+    }
+  },
+  "freshHistoryStorage": {
+    "status": "measured_unchanged",
+    "admission": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/history-storage-admission.json",
+      "bytes": 1786,
+      "sha256": "fc187dec06571562914efc70b61472b0ce30d0b0dce8f5edff237dc1a4b87e37"
+    },
+    "closedSnapshotScope": "Fresh Original primary SQLite handles externally observed closed after reported worker exit/recovery Engine close, no matching lsof open owners, all observed WAL/journal absent or empty. Native cleanup/recovery uncertainty remains false/unknown. No live DB immutable declaration was made.",
+    "lsof": {
+      "exit": 1,
+      "stdoutBytes": 0,
+      "stderrBytes": 0,
+      "matchingProcessCount": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "nativeCleanupConfirmed": false,
+    "inspectorPins": [
+      {
+        "path": "scripts/inspect-history-storage-cost.mjs",
+        "bytes": 3248,
+        "sha256": "3cfb2292c21885d5f5de5f9cb9ef23124f0ffdcecacba9ff8a350c1813dee8be",
+        "rootMatchesFrozen": true
+      },
+      {
+        "path": "scripts/inspect-history-storage-cost.py",
+        "bytes": 15749,
+        "sha256": "fc4cf4fc1cd02daf98e1432b76741599fc85684048e8bc452ec3be665fa60881",
+        "rootMatchesFrozen": true
+      }
+    ],
+    "maxAdmittedSqliteBytes": 536870912,
+    "timeoutMs": 60000,
+    "allOriginalInspectorFingerprintsUnchanged": true,
+    "primary": {
+      "exists": true,
+      "bytes": 303001600,
+      "sha256": "6028375783f50da9c34647c258e56b5eaf0561a2adf3f79e40d8f46227442c1a",
+      "inode": 29209556,
+      "device": 16777229,
+      "mtimeNs": 1791540675174730800
+    },
+    "sqlite": {
+      "page_size": 4096,
+      "page_count": 73975,
+      "freelist_count": 0,
+      "user_version": 23
+    },
+    "schema": {
+      "objects": 281,
+      "tables": 80,
+      "sha256": "33482a8942ea9bbac84f84225f6d182124c66289e2ac0d93eca891454a3f47ab"
+    },
+    "tables": [
+      {
+        "table": "context_revisions",
+        "rows": 1201,
+        "dataBytes": 119872717,
+        "logicalBytes": 120049283,
+        "physicalIncludingIndexes": {
+          "pages": 29532,
+          "allocatedBytes": 120963072,
+          "payloadBytes": 120161559,
+          "unusedBytes": 654495
+        }
+      },
+      {
+        "table": "session_events",
+        "rows": 20881,
+        "dataBytes": 138742175,
+        "logicalBytes": 142344082,
+        "physicalIncludingIndexes": {
+          "pages": 36738,
+          "allocatedBytes": 150478848,
+          "payloadBytes": 144318721,
+          "unusedBytes": 5657722
+        }
+      },
+      {
+        "table": "messages",
+        "rows": 2347,
+        "dataBytes": 987788,
+        "logicalBytes": 1249545,
+        "physicalIncludingIndexes": {
+          "pages": 461,
+          "allocatedBytes": 1888256,
+          "payloadBytes": 1680293,
+          "unusedBytes": 159043
+        }
+      },
+      {
+        "table": "message_parts",
+        "rows": 1146,
+        "dataBytes": 631331,
+        "logicalBytes": 850221,
+        "physicalIncludingIndexes": {
+          "pages": 304,
+          "allocatedBytes": 1245184,
+          "payloadBytes": 1048131,
+          "unusedBytes": 175238
+        }
+      },
+      {
+        "table": "provider_attempts",
+        "rows": 1146,
+        "dataBytes": 553432,
+        "logicalBytes": 729916,
+        "physicalIncludingIndexes": {
+          "pages": 240,
+          "allocatedBytes": 983040,
+          "payloadBytes": 881950,
+          "unusedBytes": 80428
+        }
+      }
+    ],
+    "contextRevisionEventCategory": {
+      "categorySha256": "a689e70cad0aec81c7ef5e7573cbf3ee5fbf5c6879d1452882c6b3b4a53cb975",
+      "rows": 1201,
+      "dataBytes": 120228769
+    },
+    "contextRevisionGroupCount": 1200,
+    "sampleMeaning": "Numeric revision groups across all sessions; first/last groups are not one owner's chronological history.",
+    "report": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/history-storage-report.json",
+      "bytes": 155445,
+      "sha256": "556151bcbf1d249131dfdb75032f0a8c3edb60b2f1d4542b0f7e2b23543c0cf2"
+    },
+    "execution": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/history-storage-execution.json",
+      "bytes": 852,
+      "sha256": "b801253a601819ba400b9e369219778be5ff29a2557a91901bc12cb0fb62bb41"
+    },
+    "qualification": "Aggregate serialized-column bytes and SQLite page allocation are distinct measures. Category data includes an event envelope; no raw body equality, historical per-table cost, leak, or retention intent is asserted.",
+    "maxReturnedRevisionGroupsPerTable": 16
+  },
+  "evidenceIndex": [
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/database.log",
+      "bytes": 90681,
+      "sha256": "e514fcfabfaae94d7309ee1a57e459410352ffbb5f1ef3d3cc20189f23b4c659"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/coding.log",
+      "bytes": 320207,
+      "sha256": "c76b905b719c3c39ee8a86cf2de8ee28dcaa5e772e78aa6bbe8c69ce947e1643"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/resilience.log",
+      "bytes": 21562,
+      "sha256": "ce886b0e115846d8b267d4ea8112dc4aa2b9d8d3d8734450a36c8d8455993cce"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/final-runtime-comparison.json",
+      "bytes": 404,
+      "sha256": "5405097bc550dd05d6b8be8417cda0edf7be597ddac445aba723656ea836c972"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/whole-test-files.json",
+      "bytes": 28599,
+      "sha256": "9a55d9efab158d9ca6f8c9d94fd2efda6ffc4067c7afb6e139d214d49a680e19"
+    },
+    {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/engine-16b2a10/preflight.json",
+      "bytes": 1331,
+      "sha256": "efda0fd1eb2cda295b0a977c64a89ef4a7f7a11f48e55bb32e5dddd0070993ef"
+    }
+  ],
+  "boundaries": [
+    "No production source, assertions, timeouts, Root/shared node_modules, git or goal mutation; one new report only.",
+    "No external account, auth cache, credential/keychain values, live API inference, signing/publishing or browser login.",
+    "Original unknown native evidence retained without numeric PID signaling, deletion, recovered authority, or automatic replay.",
+    "No 33b/a89 long-run runtime acceptance or missing historical full30 Original evidence reused.",
+    "No current Windows native, actual SIWC/Anthropic/signing/feed/distribution acceptance inferred from these local Engine checks.",
+    "These finite local checks do not establish all-source semantic-unused review or full original-objective completion; Root owns remaining acceptance."
+  ],
+  "relatedSeparateScopeDocuments": [
+    "docs/moodcode/next-external-acceptance-audit.json",
+    "docs/moodcode/next-baseline-artifact-recovery.json"
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "kind": "continuation-owned-code-inventory",
+  "recordedAt": "2026-10-09T10:49:19.454511+00:00",
+  "sourceCommit": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+  "sourceFingerprint": "5db791880aec85ece1a3283a549a7ab495c93816baa53ff64f21d7d67762adfa",
+  "workingSourceStable": true,
+  "owned": {
+    "files": 1092,
+    "measuredFiles": 1092,
+    "physicalLines": 314309,
+    "bytes": 14956937,
+    "functions": 31757,
+    "imports": 9309,
+    "exports": 3755,
+    "calls": 183559
+  },
+  "physicalLinesByRole": {
+    "test": 135648,
+    "tooling": 15373,
+    "product": 147549,
+    "fixture": 15739
+  },
+  "physicalCoverage": {
+    "attempted": 1092,
+    "measured": 1092,
+    "failed": 0
+  },
+  "syntaxCoverage": {
+    "attempted": 1092,
+    "measured": 1082,
+    "unsupported": 10,
+    "failed": 0
+  },
+  "baseline": {
+    "source": "0e5aa654eaf303fdec91d4967dda08c10c6046ec",
+    "files": 1079,
+    "physicalLines": 311524,
+    "report": "docs/moodcode/next-final-inventory-comparison.json"
+  },
+  "delta": {
+    "files": 13,
+    "physicalLines": 2785
+  },
+  "qualification": [
+    "Physical lines include blanks/comments, tests/fixtures/tooling/CI; dependencies, generated outputs, clones and Markdown/JSON reports are excluded.",
+    "Unsupported syntax remains explicit: 10 owned files. Measurement exit1 is incomplete AST coverage, not a parse/source-stability failure.",
+    "New production renderer, host lifecycle and storage encodings have finite independent source/native checks; structural totals are not a repository-wide semantic/unused-code proof.",
+    "Added validation/measurement/native evidence paths explain the positive line delta; no overall line reduction or unused dependency removal is claimed."
+  ],
+  "rawInventory": {
+    "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/local/inventory-663a3a0-final-source.json",
+    "bytes": 11738170,
+    "sha256": "8eb9d7536370fc9a938326ed4a4ee5a5741cda0b8da550600e3b681d174f6112"
+  },
+  "qualifiedScopeReports": {
+    "next-integrated-renderer-delivery-verification.json": {
+      "bytes": 26458,
+      "sha256": "1b656cc80b7f0d6bb8a1bea2243a14fe38899ab561fb89dbd0e15acbf8b83a66"
+    },
+    "next-continuation-contract-review.json": {
+      "bytes": 20344,
+      "sha256": "cc8db7615360116b5ec25daa07f55ce00e8854391902657bf869335b5952f67c"
+    },
+    "next-history-storage-integration.json": {
+      "bytes": 8087,
+      "sha256": "1f574bba4b0e2bb740c65bdeb0f6f51c0f4dd1154cf4899690c9fcae2b37859f"
+    },
+    "next-native-sqlite-failure-analysis.json": {
+      "bytes": 46640,
+      "sha256": "6742b17042af0b302cf41c8bc0275c1b9277064757c0af712eec84e05d22e3f6"
+    },
+    "next-backend-fixture-node26-verification.json": {
+      "bytes": 36198,
+      "sha256": "8a057adc1d854d690ce917903ec9220220f615c217cf9c27f77c490c235728bc"
+    },
+    "next-continuation-independent-review.json": {
+      "bytes": 32721,
+      "sha256": "a60c18cc81ed8c9aeb8f08190aac95d2f2cebb1c28e220480177f3ae8e0b4af9"
+    }
+  },
+  "precedingSourceMeasurement": {
+    "sourceCommit": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+    "files": 1091,
+    "physicalLines": 314087,
+    "scope": "before added backend fixture retention regression/CI diagnostics; no production source change in TEST03"
+  }
+}

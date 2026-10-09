@@ -1,0 +1,907 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-continuation-source-qualified-hosted-verification",
+  "recordedAt": "2026-10-09T10:11:32.193603+00:00",
+  "collection": {
+    "complete": true,
+    "jobScopes": 11,
+    "terminalJobs": 11,
+    "successfulJobs": 10,
+    "failedJobs": 1,
+    "allJobScopesPassed": false,
+    "originalZipCount": 11,
+    "originalZipBytes": 734859355,
+    "originalZipEntries": 3198,
+    "allApiSizeAndDigestPinsMatch": true,
+    "allZipCRCAndSafeExtractionChecksPass": true,
+    "rawJobLogs": 11,
+    "fileReferenceHashAndSizeChecks": 1516,
+    "missingReferencedFiles": 0,
+    "mismatchedReferencedFiles": 0,
+    "desktopRetentionManifests": 31,
+    "desktopNativeFileReferences": 121,
+    "desktopCopiedNativeBytes": 22455141,
+    "independentCrossReview": "completeFiniteReadOnlyCrossReview; no actionable integrity defects",
+    "crossReviewDetails": {
+      "engineAndWindowsNativeArchiveEntriesIndependentlyHashed": 1622,
+      "desktopEvidenceEntriesIndependentlyHashed": 159,
+      "desktopNativePhysicalCopiesIndependentlyHashed": 121,
+      "fullPackagedReleaseCRCVerifiedByCollector": true,
+      "allOriginalZipApiPinsIndependentlyVerified": true
+    }
+  },
+  "sources": {
+    "engineAndWindowsNative": "eef2b759061971b07bc4a3f8abd582e234d3df0f",
+    "currentDesktop": "974a4c46d32187379404eabac8e2006cd13e57cc",
+    "unknownFlagFix": "59d4360e2e77a6d9b97f961d5dfff778504d9040",
+    "productionInputsIdenticalAcrossSources": true,
+    "identicalInputCategories": {
+      "desktopMainWorker": {
+        "trackedFileCount": 28,
+        "allGitBlobsAndModesIdentical": true
+      },
+      "engineNativeContractInputs": {
+        "trackedFileCount": 925,
+        "allGitBlobsAndModesIdentical": true
+      },
+      "declarationInputs": {
+        "trackedFileCount": 2,
+        "allGitBlobsAndModesIdentical": true
+      },
+      "workflows": {
+        "trackedFileCount": 4,
+        "allGitBlobsAndModesIdentical": true
+      },
+      "buildAndDependencyInputs": {
+        "trackedFileCount": 18,
+        "allGitBlobsAndModesIdentical": true
+      }
+    },
+    "compiledArtifactIdentityInferredFromSourceIdentity": false,
+    "flags": "Missing/null/non-boolean forcedStop or spawnUnobserved remain unknown; confirmation requires explicit false flags and spawnAttempted true. Current974 focused tests and native receipts retain the59d fix.",
+    "launchPreflight": "974 resolves Electron before the20-second launch observation deadline and passes its path to both launches; timeout/assertions/production behavior remain unchanged.",
+    "compiledEngineAndDeclarationFilesUploadedInWindowsNativeZip": false,
+    "windowsNativeOriginalAddonUploadedAndHashVerified": true
+  },
+  "runs": [
+    {
+      "runId": 37913088794,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37913088794",
+      "source": "eef2b759061971b07bc4a3f8abd582e234d3df0f",
+      "conclusion": "failure",
+      "successfulJobs": 5,
+      "failedJobs": 1,
+      "jobs": [
+        {
+          "jobId": 113762664336,
+          "jobName": "Portable contracts/storage only / Windows / Node 26.x",
+          "jobConclusion": "success",
+          "platform": "win32",
+          "architecture": "x64",
+          "node": "v26.11.1",
+          "tests": {
+            "tests": 159,
+            "pass": 159,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "rawLog": {
+            "jobId": 113762664336,
+            "name": "Portable contracts/storage only / Windows / Node 26.x",
+            "bytes": 205874,
+            "sha256": "61a63f14c6e8a03d9b7de06e78022b3ac7d6229e9da97c55c4472b1970de551b",
+            "path": "artifacts/next-continuation/hosted/37913088794/original-job-logs/113762664336-20261009T095513883443Z.log"
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "quickProductionReportsPresent": [],
+          "scope": "portable contracts and selected storage only; no actual Windows Job Object or full engine proof"
+        },
+        {
+          "jobId": 113762664322,
+          "jobName": "Headless ubuntu-24.04 / Node 24.x",
+          "jobConclusion": "success",
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "v24.21.0",
+          "tests": {
+            "tests": 4848,
+            "pass": 4784,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 64,
+            "todo": 0
+          },
+          "rawLog": {
+            "jobId": 113762664322,
+            "name": "Headless ubuntu-24.04 / Node 24.x",
+            "bytes": 2964426,
+            "sha256": "a156bd0c9e09b0cc501a986cd3a7bac300c68ed740c3b6887ae9111a1166f463",
+            "path": "artifacts/next-continuation/hosted/37913088794/original-job-logs/113762664322-20261009T095513883443Z.log"
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "quickProductionReportsPresent": [
+            "evaluation",
+            "resilience",
+            "persistentSoak",
+            "ptyRepeatability",
+            "benchmark"
+          ],
+          "scope": "full headless fixture suite and finite local quick-profile reports"
+        },
+        {
+          "jobId": 113762663998,
+          "jobName": "Portable contracts/storage only / Windows / Node 24.x",
+          "jobConclusion": "success",
+          "platform": "win32",
+          "architecture": "x64",
+          "node": "v24.21.0",
+          "tests": {
+            "tests": 159,
+            "pass": 159,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "rawLog": {
+            "jobId": 113762663998,
+            "name": "Portable contracts/storage only / Windows / Node 24.x",
+            "bytes": 205636,
+            "sha256": "a8a2631ee1ec06e9355e66271d658156e1dd6a2cd37c572011c6c0c9a5c5cd2b",
+            "path": "artifacts/next-continuation/hosted/37913088794/original-job-logs/113762663998-20261009T095513883443Z.log"
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "quickProductionReportsPresent": [],
+          "scope": "portable contracts and selected storage only; no actual Windows Job Object or full engine proof"
+        },
+        {
+          "jobId": 113762664428,
+          "jobName": "Headless macos-15 / Node 26.x",
+          "jobConclusion": "success",
+          "platform": "darwin",
+          "architecture": "arm64",
+          "node": "v26.11.1",
+          "tests": {
+            "tests": 4848,
+            "pass": 4846,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 2,
+            "todo": 0
+          },
+          "rawLog": {
+            "jobId": 113762664428,
+            "name": "Headless macos-15 / Node 26.x",
+            "bytes": 2966013,
+            "sha256": "909dd76bc9c9fafdebd30c1d66c1a769dc199e4edaeadde27ceb945ad844f4ae",
+            "path": "artifacts/next-continuation/hosted/37913088794/original-job-logs/113762664428-20261009T095513883443Z.log"
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "quickProductionReportsPresent": [
+            "evaluation",
+            "resilience",
+            "persistentSoak",
+            "ptyRepeatability",
+            "benchmark"
+          ],
+          "scope": "full headless fixture suite and finite local quick-profile reports"
+        },
+        {
+          "jobId": 113762664293,
+          "jobName": "Headless ubuntu-24.04 / Node 26.x",
+          "jobConclusion": "success",
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "v26.11.1",
+          "tests": {
+            "tests": 4848,
+            "pass": 4784,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 64,
+            "todo": 0
+          },
+          "rawLog": {
+            "jobId": 113762664293,
+            "name": "Headless ubuntu-24.04 / Node 26.x",
+            "bytes": 2967786,
+            "sha256": "5803aed66df37e94f731becf1c86093189bd786da9ee19df5a26f2e358581cf3",
+            "path": "artifacts/next-continuation/hosted/37913088794/original-job-logs/113762664293-20261009T095513883443Z.log"
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "quickProductionReportsPresent": [
+            "evaluation",
+            "resilience",
+            "persistentSoak",
+            "ptyRepeatability",
+            "benchmark"
+          ],
+          "scope": "full headless fixture suite and finite local quick-profile reports"
+        },
+        {
+          "jobId": 113762664383,
+          "jobName": "Headless macos-15 / Node 24.x",
+          "jobConclusion": "failure",
+          "platform": "darwin",
+          "architecture": "arm64",
+          "node": "v24.20.0",
+          "tests": {
+            "tests": 4848,
+            "pass": 4845,
+            "fail": 1,
+            "cancelled": 0,
+            "skipped": 2,
+            "todo": 0
+          },
+          "rawLog": {
+            "jobId": 113762664383,
+            "name": "Headless macos-15 / Node 24.x",
+            "bytes": 970370,
+            "sha256": "18b229f79dba2f4ccc97aa4a31499840f3540ea286806bf2a768ff7b40a6f449",
+            "path": "artifacts/next-continuation/hosted/37913088794/original-job-logs/113762664383-20261009T095513883443Z.log"
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "quickProductionReportsPresent": [],
+          "scope": "full fixture suite failed; downstream quick production reports absent"
+        }
+      ]
+    },
+    {
+      "runId": 37913088735,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37913088735",
+      "source": "eef2b759061971b07bc4a3f8abd582e234d3df0f",
+      "conclusion": "success",
+      "successfulJobs": 2,
+      "failedJobs": 0,
+      "scope": "Actual Windows x64 native addon and37 lifecycle/Engine tests per Node version;159 portable tests are separate.",
+      "jobs": [
+        {
+          "jobId": 113762663515,
+          "jobName": "Native Windows Job Object / x64 / Node 26.x",
+          "jobConclusion": "success",
+          "platform": "win32",
+          "architecture": "x64",
+          "node": "26.11.1",
+          "nativeTAPCounts": {
+            "tests": 37,
+            "pass": 37,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "portableCounts": {
+            "tests": 159,
+            "pass": 159,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "addonPersistedFingerprint": {
+            "available": true,
+            "info": {
+              "bindingVersion": 1,
+              "napiVersion": 8,
+              "platform": "win32",
+              "arch": "x64",
+              "atomicJobAssignment": true
+            },
+            "relativePath": "packages/windows-job/build/Release/windows_job.node",
+            "bytes": 1121792,
+            "sha256": "cf4077f5ea09edf8311cc083e5894255a9075c8844c5675d4ff3a514dccd198d"
+          },
+          "addonBinaryOriginalReference": {
+            "artifactId": 11607194613,
+            "artifactName": "engine-native-windows-node-26.x-attempt-1",
+            "context": "native-addon.json exact actual addon fingerprint",
+            "declaredCIPath": "packages/windows-job/build/Release/windows_job.node",
+            "resolvedOriginalCopyPath": "artifacts/next-continuation/hosted/37913088735/extracted-originals/11607194613-engine-native-windows-node-26.x-attempt-1/windows_job.node",
+            "expectedBytes": 1121792,
+            "actualBytes": 1121792,
+            "expectedSha256": "cf4077f5ea09edf8311cc083e5894255a9075c8844c5675d4ff3a514dccd198d",
+            "actualSha256": "cf4077f5ea09edf8311cc083e5894255a9075c8844c5675d4ff3a514dccd198d",
+            "bytesMatch": true,
+            "sha256Matches": true,
+            "originalBytesModified": false
+          },
+          "rawLog": {
+            "jobId": 113762663515,
+            "name": "Native Windows Job Object / x64 / Node 26.x",
+            "bytes": 74748,
+            "sha256": "0363fd8c34c2be7f7d992c35aac357ef26c48c17cafeef0b3601fbc9716de071",
+            "path": "artifacts/next-continuation/hosted/37913088735/original-job-logs/113762663515-20261009T095513883443Z.log"
+          }
+        },
+        {
+          "jobId": 113762663781,
+          "jobName": "Native Windows Job Object / x64 / Node 24.x",
+          "jobConclusion": "success",
+          "platform": "win32",
+          "architecture": "x64",
+          "node": "24.21.0",
+          "nativeTAPCounts": {
+            "tests": 37,
+            "pass": 37,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "portableCounts": {
+            "tests": 159,
+            "pass": 159,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "addonPersistedFingerprint": {
+            "available": true,
+            "info": {
+              "bindingVersion": 1,
+              "napiVersion": 8,
+              "platform": "win32",
+              "arch": "x64",
+              "atomicJobAssignment": true
+            },
+            "relativePath": "packages/windows-job/build/Release/windows_job.node",
+            "bytes": 178176,
+            "sha256": "3100971f7920467db7e26199df39d0a6392c6d834f01998fe8184d3ca13e723c"
+          },
+          "addonBinaryOriginalReference": {
+            "artifactId": 11608755139,
+            "artifactName": "engine-native-windows-node-24.x-attempt-1",
+            "context": "native-addon.json exact actual addon fingerprint",
+            "declaredCIPath": "packages/windows-job/build/Release/windows_job.node",
+            "resolvedOriginalCopyPath": "artifacts/next-continuation/hosted/37913088735/extracted-originals/11608755139-engine-native-windows-node-24.x-attempt-1/windows_job.node",
+            "expectedBytes": 178176,
+            "actualBytes": 178176,
+            "expectedSha256": "3100971f7920467db7e26199df39d0a6392c6d834f01998fe8184d3ca13e723c",
+            "actualSha256": "3100971f7920467db7e26199df39d0a6392c6d834f01998fe8184d3ca13e723c",
+            "bytesMatch": true,
+            "sha256Matches": true,
+            "originalBytesModified": false
+          },
+          "rawLog": {
+            "jobId": 113762663781,
+            "name": "Native Windows Job Object / x64 / Node 24.x",
+            "bytes": 74321,
+            "sha256": "4d849e94e8978b0fa1dc274cd126bfaf823bdcde282bcb4fba58f501b3bb5e01",
+            "path": "artifacts/next-continuation/hosted/37913088735/original-job-logs/113762663781-20261009T095513883443Z.log"
+          }
+        }
+      ]
+    },
+    {
+      "runId": 37914356473,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37914356473",
+      "source": "974a4c46d32187379404eabac8e2006cd13e57cc",
+      "conclusion": "success",
+      "successfulJobs": 3,
+      "failedJobs": 0,
+      "scope": "Finite unsigned Desktop gates: production main quit plus six controlled boundary cases per OS, including the genuinely never-started case. Controlled workers establish protocol boundaries only.",
+      "jobs": [
+        {
+          "jobId": 113766808616,
+          "jobName": "Unsigned bundle and native smoke / ubuntu-24.04",
+          "conclusion": "success",
+          "focusedUnitTestsPassed": 113,
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37914356473/job-113766808616-original.log",
+            "bytes": 55307,
+            "sha256": "acc62d13142ede2dac38266c674f0647b7d777fef8601c477efebcf82587cc0f"
+          },
+          "utilityBoundary": {
+            "report": "artifacts/next-continuation/hosted/37914356473/artifact-11609855402-extracted/artifacts/next-main-utility-close/native-close-boundary-68b8a7e9-2876-4493-a61a-4499c5cf553d.json",
+            "reportSha256": "947aa5ba749ddd2afd6964ab70bc640b656d1c9fa67c0ec8c51643c705b8c2d3",
+            "casesPassed": 7,
+            "originalMainConnections": 1,
+            "faultUpdateAdmissionRejected": true,
+            "lateOriginalExactChildObserved": true,
+            "neverSpawnedAdmissionSeparated": true,
+            "globalNativeCleanupRemainsUnknown": true
+          },
+          "packagedProofs": [
+            {
+              "scope": "bundle-utility-SQLite-renderer",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "artifacts/next-continuation/hosted/37914356473/artifact-11609855402-extracted/artifacts/desktop-package/failures/package-FktIZ7/manifest.json"
+            },
+            {
+              "scope": "bundle-utility-SQLite-renderer-native-POSIX-supervisors",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "artifacts/next-continuation/hosted/37914356473/artifact-11609855402-extracted/artifacts/desktop-package/failures/package-k4f9fq/manifest.json",
+              "posixSupervisors": {
+                "commandCleanupConfirmed": true,
+                "ptyCleanupConfirmed": true,
+                "originalPtyExitObserved": true
+              }
+            }
+          ]
+        },
+        {
+          "jobId": 113766808650,
+          "jobName": "Unsigned bundle and native smoke / macos-15",
+          "conclusion": "success",
+          "focusedUnitTestsPassed": 113,
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37914356473/job-113766808650-original.log",
+            "bytes": 71982,
+            "sha256": "6b3d89234c55f14d663d87344fb93938dd4526470a19a18cd40f4f3956e215de"
+          },
+          "utilityBoundary": {
+            "report": "artifacts/next-continuation/hosted/37914356473/artifact-11609190899-extracted/artifacts/next-main-utility-close/native-close-boundary-978c2b21-70b1-47fb-8a04-7375bf8c9567.json",
+            "reportSha256": "015d604071f0a8c3b26833b5bff3345054c44a9fd7227f0dbf1c7f35bf21eeb8",
+            "casesPassed": 7,
+            "originalMainConnections": 1,
+            "faultUpdateAdmissionRejected": true,
+            "lateOriginalExactChildObserved": true,
+            "neverSpawnedAdmissionSeparated": true,
+            "globalNativeCleanupRemainsUnknown": true
+          },
+          "packagedProofs": [
+            {
+              "scope": "bundle-utility-SQLite-renderer",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "artifacts/next-continuation/hosted/37914356473/artifact-11609190899-extracted/artifacts/desktop-package/failures/package-HdW4DK/manifest.json"
+            },
+            {
+              "scope": "bundle-utility-SQLite-renderer-native-POSIX-supervisors",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "artifacts/next-continuation/hosted/37914356473/artifact-11609190899-extracted/artifacts/desktop-package/failures/package-s93DX4/manifest.json",
+              "posixSupervisors": {
+                "commandCleanupConfirmed": true,
+                "ptyCleanupConfirmed": true,
+                "originalPtyExitObserved": true
+              }
+            }
+          ],
+          "rendererAndAdvanced": {
+            "rendererReport": "artifacts/next-continuation/hosted/37914356473/artifact-11609190899-extracted/artifacts/renderer-delivery/verification.json",
+            "rendererReportSha256": "fd80e222ec1a80954e3298d015f8118f2bf8d74217cc1fafb5b72306129117e9",
+            "rendererChecksPassed": 6,
+            "advancedChecksPassed": 15,
+            "advancedManifest": "artifacts/next-continuation/hosted/37914356473/artifact-11609190899-extracted/artifacts/desktop-advanced/failures/advanced-tFmWCZ/manifest.json",
+            "ptyFaultExpectedExitCode": 1,
+            "ptyFaultOriginalRunningRecordBeforeClose": true,
+            "ptyFaultManifest": "artifacts/next-continuation/hosted/37914356473/artifact-11609190899-extracted/artifacts/desktop-advanced/failures/advanced-iy2aFg/manifest.json",
+            "originalFixturesRetained": true,
+            "remoteRequests": 0
+          }
+        },
+        {
+          "jobId": 113766808853,
+          "jobName": "Unsigned bundle and native smoke / windows-2025",
+          "conclusion": "success",
+          "focusedUnitTestsPassed": 113,
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37914356473/job-113766808853-original.log",
+            "bytes": 61749,
+            "sha256": "569d9601cb4074d1cfa417e4fc83ca19628d0d5f4df16bf04f1f1326836740a7"
+          },
+          "utilityBoundary": {
+            "report": "artifacts/next-continuation/hosted/37914356473/artifact-11609790638-extracted/artifacts/next-main-utility-close/native-close-boundary-581edd1d-3ead-42b2-a8e6-e3d342b83105.json",
+            "reportSha256": "546d1c17e513e44aeb76f026bb203a36b1eb75c605c4b3c69e607b3b39a8ff00",
+            "casesPassed": 7,
+            "originalMainConnections": 1,
+            "faultUpdateAdmissionRejected": true,
+            "lateOriginalExactChildObserved": true,
+            "neverSpawnedAdmissionSeparated": true,
+            "globalNativeCleanupRemainsUnknown": true
+          },
+          "packagedProofs": [
+            {
+              "scope": "bundle-utility-SQLite-renderer",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "artifacts/next-continuation/hosted/37914356473/artifact-11609790638-extracted/artifacts/desktop-package/failures/package-iKn05Z/manifest.json"
+            },
+            {
+              "scope": "bundle-utility-SQLite-renderer-native-Windows-utility",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "artifacts/next-continuation/hosted/37914356473/artifact-11609790638-extracted/artifacts/desktop-package/failures/package-vcyntU/manifest.json",
+              "windowsNativeProof": {
+                "exactApprovals": 2,
+                "completeCommandCheckpoint": true,
+                "actualPackagedUtilityCloseAcknowledgedAndOriginalExit": true,
+                "nativeBinary": "artifacts/next-continuation/hosted/37914356473/artifact-11609790638-extracted/release/win-unpacked/resources/app.asar.unpacked/node_modules/@moodcode/windows-job/build/Release/windows_job.node",
+                "nativeBinarySha256": "4987c07e2e6d2f06adb41c070f6627ec0465c163908ede4a644ce1bcedd6887b",
+                "mainTestOverridesEnabled": false
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "originalArtifacts": [
+    {
+      "runId": 37913088794,
+      "jobId": 113762664336,
+      "id": 11606953745,
+      "name": "engine-windows-portable-node-26.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37913088794/original-zips/11606953745-engine-windows-portable-node-26.x-attempt-1.zip",
+      "bytes": 44020,
+      "sha256": "2151bba570b9514af9d027b1d2eea221e027c9f805ab0a397ac63a3d11854c8d",
+      "entries": 21,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37913088794,
+      "jobId": 113762664322,
+      "id": 11607429786,
+      "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37913088794/original-zips/11607429786-engine-ubuntu-24.04-node-24.x-attempt-1.zip",
+      "bytes": 2675509,
+      "sha256": "f4bb266ede30b7c667d0c30f2446c5c8b6a3484f07a62405fb55fc7d29d082f4",
+      "entries": 421,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37913088794,
+      "jobId": 113762663998,
+      "id": 11607527810,
+      "name": "engine-windows-portable-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37913088794/original-zips/11607527810-engine-windows-portable-node-24.x-attempt-1.zip",
+      "bytes": 44037,
+      "sha256": "145017e18e4cefb1c2cb84c056d2caee84d9333f697d6bb798c38fffefcca8e4",
+      "entries": 21,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37913088794,
+      "jobId": 113762664428,
+      "id": 11607837000,
+      "name": "engine-macos-15-node-26.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37913088794/original-zips/11607837000-engine-macos-15-node-26.x-attempt-1.zip",
+      "bytes": 2852663,
+      "sha256": "745fdffd57a8dffdcacbae0d4accbb60c0d4bccf0af32ee8207432916f6ecbf6",
+      "entries": 472,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37913088794,
+      "jobId": 113762664293,
+      "id": 11608140914,
+      "name": "engine-ubuntu-24.04-node-26.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37913088794/original-zips/11608140914-engine-ubuntu-24.04-node-26.x-attempt-1.zip",
+      "bytes": 2705516,
+      "sha256": "d52b94ddf2cf8003b8ee0da9de29953411cf5d4a261a14410a128db2b60e11e5",
+      "entries": 430,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37913088794,
+      "jobId": 113762664383,
+      "id": 11608676223,
+      "name": "engine-macos-15-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37913088794/original-zips/11608676223-engine-macos-15-node-24.x-attempt-1.zip",
+      "bytes": 1141061,
+      "sha256": "b215de57565554a719f708ed870e5a54414c6b72708e29a4ab8e9d96c03fc4b4",
+      "entries": 217,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37913088735,
+      "jobId": 113762663515,
+      "id": 11607194613,
+      "name": "engine-native-windows-node-26.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37913088735/original-zips/11607194613-engine-native-windows-node-26.x-attempt-1.zip",
+      "bytes": 373965,
+      "sha256": "cce684cf8ea8f0345c237d2cad5861380c854489e89e47f12529bc978d641061",
+      "entries": 20,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37913088735,
+      "jobId": 113762663781,
+      "id": 11608755139,
+      "name": "engine-native-windows-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37913088735/original-zips/11608755139-engine-native-windows-node-24.x-attempt-1.zip",
+      "bytes": 107940,
+      "sha256": "0c75b4da6df47942ca4d12b4a49f8a081002a4be1decf2d857411e7c9212fe1e",
+      "entries": 20,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37914356473,
+      "jobId": 113766808616,
+      "id": 11609855402,
+      "name": "desktop-unsigned-ubuntu-24.04-1",
+      "originalZip": "artifacts/next-continuation/hosted/37914356473/artifact-11609855402-original.zip",
+      "bytes": 138285097,
+      "sha256": "57faab4955724786138fe8a78e839d560ab180005d2443c849b8ff7c47906742",
+      "entries": 271,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37914356473,
+      "jobId": 113766808650,
+      "id": 11609190899,
+      "name": "desktop-unsigned-macos-15-1",
+      "originalZip": "artifacts/next-continuation/hosted/37914356473/artifact-11609190899-original.zip",
+      "bytes": 407414967,
+      "sha256": "987a555d2e65ac239606b223e12a02595802aefb24dfd6f0ac952335d8929311",
+      "entries": 997,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37914356473,
+      "jobId": 113766808853,
+      "id": 11609790638,
+      "name": "desktop-unsigned-windows-2025-1",
+      "originalZip": "artifacts/next-continuation/hosted/37914356473/artifact-11609790638-original.zip",
+      "bytes": 179214580,
+      "sha256": "1bd918a732ac98626e1e5ce51bfb3dc2389fef06caaaba43e394567ddd144ff0",
+      "entries": 308,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    }
+  ],
+  "successfulPosixQuickScopes": [
+    {
+      "jobId": 113762664322,
+      "resilience": {
+        "iterations": 3,
+        "completed": 3,
+        "expectedUnknownOutcomes": 2
+      },
+      "persistentSoak": {
+        "profile": "quick",
+        "configuredDurationMs": 1000,
+        "observedDurationMs": 1063.5740969999997,
+        "loadStoppedBy": "cycle-ceiling",
+        "physicalCleanupConfirmed": true,
+        "nativeCleanupConfirmed": false,
+        "databaseRemoved": false,
+        "emergencyCleanupUsed": false
+      },
+      "pty": {
+        "runtime": "compiled",
+        "iterations": 3,
+        "cases": 15,
+        "confirmedCleanup": 9,
+        "uncertainCleanup": 6,
+        "originalWorkerExitAndPhysicalAbsenceAllObserved": true,
+        "historicalRpty01CauseConfirmed": false,
+        "historicalRpty01Reproduced": false,
+        "historicalRpty01Resolved": false
+      }
+    },
+    {
+      "jobId": 113762664428,
+      "resilience": {
+        "iterations": 3,
+        "completed": 3,
+        "expectedUnknownOutcomes": 2
+      },
+      "persistentSoak": {
+        "profile": "quick",
+        "configuredDurationMs": 1000,
+        "observedDurationMs": 1240.501459,
+        "loadStoppedBy": "cycle-ceiling",
+        "physicalCleanupConfirmed": true,
+        "nativeCleanupConfirmed": false,
+        "databaseRemoved": false,
+        "emergencyCleanupUsed": false
+      },
+      "pty": {
+        "runtime": "compiled",
+        "iterations": 3,
+        "cases": 15,
+        "confirmedCleanup": 9,
+        "uncertainCleanup": 6,
+        "originalWorkerExitAndPhysicalAbsenceAllObserved": true,
+        "historicalRpty01CauseConfirmed": false,
+        "historicalRpty01Reproduced": false,
+        "historicalRpty01Resolved": false
+      }
+    },
+    {
+      "jobId": 113762664293,
+      "resilience": {
+        "iterations": 3,
+        "completed": 3,
+        "expectedUnknownOutcomes": 2
+      },
+      "persistentSoak": {
+        "profile": "quick",
+        "configuredDurationMs": 1000,
+        "observedDurationMs": 1071.113165,
+        "loadStoppedBy": "cycle-ceiling",
+        "physicalCleanupConfirmed": true,
+        "nativeCleanupConfirmed": false,
+        "databaseRemoved": false,
+        "emergencyCleanupUsed": false
+      },
+      "pty": {
+        "runtime": "compiled",
+        "iterations": 3,
+        "cases": 15,
+        "confirmedCleanup": 9,
+        "uncertainCleanup": 6,
+        "originalWorkerExitAndPhysicalAbsenceAllObserved": true,
+        "historicalRpty01CauseConfirmed": false,
+        "historicalRpty01Reproduced": false,
+        "historicalRpty01Resolved": false
+      }
+    }
+  ],
+  "remainingFailure": {
+    "runId": 37913088794,
+    "jobId": 113762664383,
+    "source": "eef2b759061971b07bc4a3f8abd582e234d3df0f",
+    "test": "administrative SQL pairs preserve authentic unknown ownership, history and archive binding without Original replay",
+    "location": "packages/engine/dist/agent-backends/receipt-contract.integration.test.js:198:1",
+    "error": {
+      "code": "ERR_SQLITE_ERROR",
+      "errcode": 0,
+      "errstr": "not an error"
+    },
+    "deeperStackPresent": false,
+    "failedNativeFixtureUploaded": false,
+    "unknownUnderlyingCause": true,
+    "downstreamProductionReportsCredited": false,
+    "retainedEvidence": {
+      "path": "artifacts/next-continuation/hosted/37913088794/macos-node24-failure-evidence.json",
+      "bytes": 2735,
+      "sha256": "e8e809e57f9dd64ed864790a51f5b0e12592f1e8577d3d3f32c264df2034d866"
+    },
+    "otherArchivedSQLiteFilesEstablishFailedFixtureState": false
+  },
+  "historicalDesktopRuns": [
+    {
+      "runId": 37913088812,
+      "source": "eef2b759061971b07bc4a3f8abd582e234d3df0f",
+      "conclusion": "success",
+      "successfulJobs": 3,
+      "current974AcceptanceCredit": false,
+      "currentOriginal11Credit": false,
+      "retainedMetadataAndRawLogs": {
+        "path": "artifacts/next-continuation/hosted/37913088812/historical-summary.json",
+        "bytes": 1593,
+        "sha256": "118b2c41649c23c51d74cd056469cbd9ae8d2136f4bea21069c6c971ae9dc268"
+      }
+    },
+    {
+      "runId": 37913553488,
+      "source": "59d4360e2e77a6d9b97f961d5dfff778504d9040",
+      "conclusion": "failure",
+      "successfulJobs": 2,
+      "failedJobs": 1,
+      "availableOriginalZips": 2,
+      "missingOriginalZips": 1,
+      "failedLinuxJobId": 113764184931,
+      "failure": "Downloading Electron binary followed by uncaught Playwright20-second timeout; no boundary report/native receipt survived, uploader found no files.",
+      "causeQualification": "Dependency resolution inside the launch deadline is inferred from original logs and installed Playwright/Electron code; production native cleanup and exact case were unobserved.",
+      "current974AcceptanceCredit": false,
+      "currentOriginal11Credit": false,
+      "assessment": {
+        "path": "artifacts/next-continuation/hosted/37913553488/desktop-assessment.json",
+        "bytes": 58962,
+        "sha256": "97f552e6757d11479456ff6f5d1b295b0372df08c0b34fee75d75f86e1bf3810"
+      }
+    }
+  ],
+  "qualification": {
+    "nativeSQLiteOpened": false,
+    "nativeEvidenceReadForHashAndSizeOnly": true,
+    "originalZipBytesPreserved": true,
+    "archiveRepackaged": false,
+    "noPIDCleanupOrAuthorityProbe": true,
+    "applicationExitEstablishesNativeCleanup": false,
+    "utilityACKAndOriginalExitEstablishGlobalNativeCleanup": false,
+    "desktopGlobalNativeCleanup": "unknown; source fixtures retained per driver assertions and manifest metadata",
+    "remoteTemporaryOriginalsReverifiedAfterRunnerTeardown": false,
+    "retentionScope": "Original ZIP copies and driver retention witnesses; live hosted temporary fixtures are unavailable after runner teardown.",
+    "historicalRpty01Resolved": false,
+    "liveProviderAccountAcceptance": "deferred",
+    "signedProductionDistributionAcceptance": "deferred",
+    "posixUpdater": "Actual Electron updater disposable AppImage fixture checksum rejection, digest verification,0.2.0 install,0.3.0 recovery and downgrade blocking passed on Linux/macOS; signed macOS/Windows production installers remain unverified.",
+    "longDurationOr30MinuteSoakEstablishedByTheseRuns": false
+  },
+  "assessments": [
+    {
+      "path": "artifacts/next-continuation/hosted/37913088794/engine-assessment.json",
+      "bytes": 85497,
+      "sha256": "f9205a2cc16b0f8c499afa060a86a12dfc3aceccedf7cf9e7ee80cc91f70f4e7"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37913088735/engine-assessment.json",
+      "bytes": 16889,
+      "sha256": "d8c29acba5d8190a55fc84b18d4c54cee95ba247d73ba4dc1cd8d89bb709c363"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37914356473/desktop-assessment.json",
+      "bytes": 74035,
+      "sha256": "6f2ea057aa093b973b2593f991150e99a92aa4eb739108b1610ae7e06bf33613"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37914356473/desktop-updater-assessment.json",
+      "bytes": 2625,
+      "sha256": "2927627179017f8e1dedc20faf785433972bb4b43bfb283fb8bb78554d0a8dc4"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/source-qualification.json",
+      "bytes": 98529,
+      "sha256": "5d0ce64e0302a199ce9b33786f2376c23c37ea3246bc00fedc9634f650ed2b1b"
+    }
+  ]
+}

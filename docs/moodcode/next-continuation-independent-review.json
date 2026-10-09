@@ -1,0 +1,671 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent-continuation-source-and-evidence-review",
+  "recordedAt": "2026-10-09T10:23:44.423000+00:00",
+  "status": "reviewed-continuity-and-test03-with-one-resolved-diagnostic-finding",
+  "reviewedHead": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+  "headWhenWritten": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+  "frozenEngineHead": "16b2a103a698174ce67bbd9a9ba253af5c187d15",
+  "readOnlyReview": true,
+  "productionGitGoalTodoReadmeOrOtherReportMutated": false,
+  "onlyOwnedDocument": "docs/moodcode/next-continuation-independent-review.json",
+  "findings": [],
+  "runtimeContinuity": {
+    "files": 771,
+    "bytes": 11899924,
+    "sha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+    "allSourceRuntimeIdentityFilePinsByteEqualToFrozen": true,
+    "independentlyRegeneratedMainIdentity": true,
+    "record": {
+      "path": "artifacts/next-continuation/local/snapshot-fixture-runtime-continuity.json",
+      "bytes": 1117,
+      "sha256": "f07df02280d44e61a7b7ddb53dbef3231649e43f10bbe350bcf0b9c6e5becb4f"
+    },
+    "freezeRecord": {
+      "path": "artifacts/next-continuation/engine-16b2a10/runtime-before.json",
+      "bytes": 149152,
+      "sha256": "4b02ab6c342051b29da1d4a05e40bbaf0a7a57949b0db07446e8e7c19003588b"
+    },
+    "qualification": "771 production/evaluation runtime graph equality does not imply unchanged test/fixture/CI collector behavior or all-source semantic review."
+  },
+  "declarations": {
+    "byteEqual": 913,
+    "different": 1,
+    "path": "packages/engine/dist/pr-feedback/host.d.ts",
+    "beforeSha256": "1a2c4585b359ffcf089609f5f4dd567c55c7f4538603afecfb9e25cdfb16e4bb",
+    "afterSha256": "1864e5a59af23076a0fdb4ccc2f102132f3947be00e61b5fb7aee6ae5cbeb795",
+    "independentDifferenceReview": {
+      "method": "Unified diff and exact canonical flat property-list comparison in the first repairVerification Promise return object; all text outside that property order is identical.",
+      "flatProperties": 7,
+      "optionalRunIdUndefinedCountBefore": 1,
+      "optionalRunIdUndefinedCountAfter": 1,
+      "sameObjectAndSameProperties": true,
+      "addedRemovedOrChangedTypes": false
+    },
+    "qualification": "914 frozen paired declarations compare to current headless output: 913 byte equal and one semantically unchanged property order. Current physical count is 917, including one TEST03 private test declaration and two source-absent leftovers whose origin is unknown; no declaration removal or API change is inferred.",
+    "comparedFrozenDeclarations": 914,
+    "currentHeadlessPhysicalDeclarations": 917,
+    "headlessDirectories": [
+      "packages/contracts/dist",
+      "packages/engine/dist",
+      "apps/engine-harness/dist"
+    ],
+    "additionalPhysicalDeclarations": [
+      {
+        "path": "packages/engine/dist/agent-backends/fixture-retention.integration.test.d.ts",
+        "classification": "new TEST03 private test declaration"
+      },
+      {
+        "path": "packages/engine/dist/teams/model-tools.review-test.d.ts",
+        "classification": "preexisting observed build leftover; source counterpart absent; creation time unknown; not attributed to TEST03"
+      },
+      {
+        "path": "packages/engine/dist/teams/model-tools.integration.review-test.d.ts",
+        "classification": "preexisting observed build leftover; source counterpart absent; creation time unknown; not attributed to TEST03"
+      }
+    ]
+  },
+  "evidenceDocuments": [
+    {
+      "path": "docs/moodcode/next-continuation-engine-verification.json",
+      "bytes": 21182,
+      "sha256": "04b183ff9efd20f2d359f93834400c2ca48a511285a9d3c77da1c207f807c782"
+    },
+    {
+      "path": "docs/moodcode/next-integrated-renderer-delivery-verification.json",
+      "bytes": 26458,
+      "sha256": "1b656cc80b7f0d6bb8a1bea2243a14fe38899ab561fb89dbd0e15acbf8b83a66"
+    },
+    {
+      "path": "docs/moodcode/next-continuation-contract-review.json",
+      "bytes": 20344,
+      "sha256": "cc8db7615360116b5ec25daa07f55ce00e8854391902657bf869335b5952f67c"
+    },
+    {
+      "path": "docs/moodcode/next-continuation-inventory.json",
+      "bytes": 2536,
+      "sha256": "227ef345b502b0bf2780152752f9fac31116d78a5d64a421e0d83bef18458152"
+    },
+    {
+      "path": "docs/moodcode/next-baseline-artifact-recovery.json",
+      "bytes": 16336,
+      "sha256": "f6bc385c8c986d5f1857ec818f9e71a5b512986ed60cd8df596e4c3239862139"
+    }
+  ],
+  "referenceChecks": {
+    "smallReferencedFileShaChecks": 89,
+    "maxSingleFileBytes": 20971520,
+    "shaMismatches": 0,
+    "missingReferencedPaths": 0,
+    "sizeFieldInterpretation": "Renderer runtime graph and copy manifest bytes denote their aggregate file sizes, not the JSON file byte length. Their SHA256 values independently match."
+  },
+  "inventoryReview": {
+    "raw": {
+      "path": "artifacts/next-continuation/local/inventory-current-final-source.json",
+      "bytes": 11717421,
+      "sha256": "93900ce35948a84b666e3f9c1ce31a1290d1d3e1c4d6b1ac8b992f3500d9cb0e"
+    },
+    "sourceCommit": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+    "fingerprint": "504b96a1c71fd3db7cfd849f34c3e1dad27e2ab4dd7335e85a1249a15141bea8",
+    "allMeasuredFilesRehashed": 1093,
+    "owned": 1091,
+    "ancillary": 2,
+    "bytesRehashed": 14969956,
+    "mismatches": 0,
+    "syntaxUnsupportedOwned": 10,
+    "rawComplete": false,
+    "rawRefactorAcceptance": false,
+    "qualification": "Structural inventory and positive line delta do not establish unused-code removal, full semantic acceptance, or a repository-wide line reduction."
+  },
+  "historicalCurrentAndCleanupReview": {
+    "engine": "New actual whole/30-minute 16b evidence and closed fresh303001600B Original measurements remain distinct from missing a89 long and old33b runtime. Current1fd runtime graph equality preserves production-input continuity; the changed receipt fixture has separate Node24/26 affected verification.",
+    "renderer": "18 observed59d source file pins remain byte identical at1fd. Existing six flows, 33 prior same-renderer unit outcomes, actual main utility ACK/exit and native unknown/unconfirmed copies are explicitly separate. Clean application/utility exit does not establish whole native cleanup.",
+    "contract": "19 Root source file pins are scoped to observed59d. Current verify-desktop-main-utility-close.mjs differs at974; no false current-source claim was found. Integration requirement demands checking current hashes before incorporation.",
+    "baseline": "All recovered artifacts remain historical2381.8 small ZIPs were downloaded/CRC checked;3 Desktop ZIPs have API metadata only in this recovery. No old full30 Original or f992 RPTY causal recovery is claimed.",
+    "freshStorage": "Closed primary SQLite handle admission is based on worker exit/recovery Engine close plus no observed open owners and absent/empty WAL/journal, with unchanged Original fingerprints. NativeCleanupConfirmed:false/databaseRemoved:false remains independent.16 numeric revision groups sampled per table, truncated, across sessions and not one-owner chronological history."
+  },
+  "currentPreflightDifference": {
+    "commit": "974a4c46d32187379404eabac8e2006cd13e57cc",
+    "path": "scripts/verify-desktop-main-utility-close.mjs",
+    "beforeReviewedSource": "59d4360e2e77a6d9b97f961d5dfff778504d9040",
+    "changes": [
+      "createRequire(import.meta.url)(electron) resolves the existing installed executable once before launch deadlines.",
+      "Two existing electron.launch calls receive that executablePath."
+    ],
+    "unchanged": [
+      "20,000ms launch timeout",
+      "receipt/helper qualification",
+      "native cleanup assertions and original retention policy",
+      "production host/update API"
+    ],
+    "scope": "Read-only exact diff reviewed; native launch not rerun by this reviewer."
+  },
+  "changedReceiptFixture": {
+    "sourceCommit": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+    "path": "packages/engine/src/agent-backends/receipt-contract.integration.test.ts",
+    "change": "One direct backup(rootNative.db) call consumes preexisting f.engine.backup; unused Reflect alias removed. All other source/production inputs and assertions are unchanged in this commit.",
+    "analysis": {
+      "path": "docs/moodcode/next-native-sqlite-failure-analysis.json",
+      "bytes": 31701,
+      "sha256": "a9f169711f2a6503f8739102b8543dc1c7ca2725c14455258fb7c9e53d61a7ff"
+    },
+    "node24AffectedCases": 12,
+    "node26AffectedCases": 12,
+    "reviewerDidNotRerun": true,
+    "underlyingOriginalCiCause": "unknown; independent active-transaction reproduction is plausible-not-established attribution"
+  },
+  "nextTest03": {
+    "status": "independent-source-and-existing-actual-evidence-review-complete",
+    "requestedPaths": [
+      "packages/engine/src/agent-backends/fixtures/backend.ts",
+      "packages/engine/src/agent-backends/fixture-retention.integration.test.ts",
+      ".github/scripts/engine-ci.mjs"
+    ],
+    "qualification": "Completion is limited to this independent review. Parent owns production/goal acceptance and current hosted results. Local actual evidence is not installed/external acceptance or whole native cleanup.",
+    "sourceReviewComplete": true,
+    "completed": true,
+    "rootPlanObservedAt": "2026-10-09T10:28:23.969107+00:00",
+    "rootOwnedPlan": "Preserve all backend Original roots including success. Attempt close on every owned Engine and retain bounded outcomes/unknown-native metadata. CI creates a fresh os.tmpdir parent only for this fixture and copies selected diagnostics with SHA/bounds. Selected copies are not the entire Original archive, coherent snapshot, cleanup or replay authority.",
+    "supplementalReviewRequired": [
+      "fresh parent direct ownership and symlink/budget/refusal handling preserves Originals",
+      "all owned Engine closes attempted even when an earlier close fails; errors remain visible",
+      "Node24 TestContext passed/error and custom contexts remain unknown without explicit observation",
+      "stored native evidence remains false/unknown and never receives cleanup authority",
+      "production runtime modules do not import fixtures; compiled fixture/CI scope classified separately"
+    ],
+    "reviewedCommit": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+    "baseCommit": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+    "sourcePins": [
+      {
+        "path": "packages/engine/src/agent-backends/fixtures/backend.ts",
+        "bytes": 9530,
+        "sha256": "b127253af92d6bbccee5df452428943cc8cafb041e933b25ee5dc259e50ea5bc"
+      },
+      {
+        "path": "packages/engine/src/agent-backends/fixture-retention.integration.test.ts",
+        "bytes": 7758,
+        "sha256": "a1cd1339c2968876f994e887347064f26345a6f755f65deebaeba947682d1839"
+      },
+      {
+        "path": ".github/scripts/engine-ci.mjs",
+        "bytes": 32344,
+        "sha256": "bbc735c19ff8dcdf4602cc5d77347361c5b0187de9fe5091e2a69cc6b81d398f"
+      }
+    ],
+    "compiledPins": [
+      {
+        "path": "packages/engine/dist/agent-backends/fixtures/backend.js",
+        "bytes": 9081,
+        "sha256": "e8e278abc872502152e53f2ea8d88837ed7f9610c54c85f5c746939d3e7f86e7"
+      },
+      {
+        "path": "packages/engine/dist/agent-backends/fixture-retention.integration.test.js",
+        "bytes": 8379,
+        "sha256": "587d5fda02d1c657d807a2ee45d205768d87d21208de8dc1f81d9d515aa72b82"
+      }
+    ],
+    "ciDocument": {
+      "path": "docs/moodcode/engine-ci.md",
+      "bytes": 17255,
+      "sha256": "6de789ff5f1ee9aa3a58645efc6ad68fb2cb7ccf6b8ede2421e819d56d860199"
+    },
+    "implementationAcceptanceOwner": "Root",
+    "reviewerRequiresAdditionalSourceChanges": false,
+    "productionClassification": {
+      "compiledProductionFiles": 771,
+      "bytes": 11899924,
+      "sha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+      "independentExactFilePinMismatchesAgainst16bFrozen": 0,
+      "fixtureImportersObserved": 16,
+      "allImportersAreTests": true,
+      "nonTestProductionFixtureImporters": 0,
+      "qualification": "Changed fixture and new native test modules, test declarations and CI collector are excluded from this production/evaluation graph. Graph equality cannot establish unchanged fixture behavior."
+    },
+    "resolvedFinding": {
+      "kind": "expected-prefix-unsupported-root-diagnostic-omission",
+      "initialScope": ".github/scripts/engine-ci.mjs collector originally skipped expected-prefix symlink/non-directory siblings without refusal metadata.",
+      "status": "resolved",
+      "resolvedSourceSha256": "bbc735c19ff8dcdf4602cc5d77347361c5b0187de9fe5091e2a69cc6b81d398f",
+      "resolution": "Prefix-matching non-directory entries now appear in refusedRoots; status is incomplete-selected-diagnostics with BACKEND_EVIDENCE_UNSUPPORTED_ROOT.",
+      "actualRegression": "Both Node24 and Node26 unknown-case evidence records two refused siblings (symlink and ordinary non-directory), one retained valid fixture and unchanged Original SHA.",
+      "impactQualification": "Diagnostic incompleteness; no Original deletion or native-cleanup authority was added."
+    },
+    "closeAndRetentionReview": {
+      "allOwnedClosesAttemptedAfterError": true,
+      "firstOriginalCloseErrorRethrown": true,
+      "serialCloseOrderPreserved": true,
+      "successAlsoPreservesOriginal": true,
+      "sourceContainsOriginalRemoval": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false,
+      "outcomeRules": "close-error before test-body failure; explicit TestContext passed true yields success; error yields failure; custom/unobservable context yields unknown; retention metadata write failure preserves Original and actual close/body failure.",
+      "closeCountQualification": "closedCallsSucceeded counts non-throwing close calls. Close-error child physically closed both observed handles, but reports one successful call and one visible close failure; these are not contradictory native-cleanup verdicts."
+    },
+    "collectorReview": {
+      "mode": "test phase only uses a fresh os.tmpdir parent for this fixture",
+      "sourceAdmission": "Direct canonical expected-prefix parent; expected-prefix symlink/non-directory fixture roots refused; regular singly-linked selected files opened without following links; identity/size/time and published-copy SHA checks.",
+      "limits": {
+        "entries": 1024,
+        "roots": 512,
+        "files": 8192,
+        "bytes": 536870912,
+        "fileBytes": 67108864,
+        "entriesPerFixture": 256
+      },
+      "failureBehavior": "Budget/refusal/write failure returns incomplete selected diagnostics, retains manifest when possible and never removes Original.",
+      "fullFixtureCopy": false,
+      "coherentSqliteSnapshotEstablished": false,
+      "originalPersistenceQualification": "Local inspected Original paths currently exist and selected hashes match. Selected files are not an entire Original archive; hosted runner disposal can later make uncopied Originals unavailable.",
+      "fixtureEnvironmentQualification": "The fixture parent environment variable is supplied by the reviewed owned CI caller; no general untrusted-environment parent admission is claimed."
+    },
+    "actualExecutionEvidence": {
+      "reviewerReranTests": false,
+      "node24Initial": {
+        "tests": 37,
+        "pass": 32,
+        "fail": 5,
+        "exitCode": 1,
+        "newChildNativeObservations": "absent due inherited NODE_TEST_CONTEXT recursive child-test harness behavior",
+        "preserved": true,
+        "result": {
+          "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-result.json",
+          "bytes": 1785,
+          "sha256": "35f83f7c3fb7078c4e52ab9c1a8722cb6fe55a8e79c0ccc08d2cda825757ca4b"
+        }
+      },
+      "harnessCorrection": "Only NODE_TEST_CONTEXT is omitted from copied child environment. Existing assertions, child scenarios, 30-second child timeout and native outcome policy remain unchanged. This new harness cause does not identify the old historical CI cause.",
+      "node24CorrectedNewCases": {
+        "tests": 5,
+        "pass": 5,
+        "fail": 0,
+        "exitCode": 0,
+        "collectorExitCode": 0,
+        "result": {
+          "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-result.json",
+          "bytes": 1419,
+          "sha256": "a1eda0a0bad56716aebc906b4c0714ccd86bdf0ba9ab8826ed36381496df5ff4"
+        }
+      },
+      "node26FirstAffectedGroup": {
+        "tests": 37,
+        "pass": 37,
+        "fail": 0,
+        "exitCode": 0,
+        "collectorExitCode": 0,
+        "result": {
+          "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-result.json",
+          "bytes": 1631,
+          "sha256": "2cc43dc5ad2d4b1db316375a0e35d6d5db26ad7c5de62dc0a8bc225fe356eab5"
+        }
+      },
+      "sourceRuntimePinsBeforeAfterMismatchCount": 0,
+      "postProcessCollectors": {
+        "node24": {
+          "fixtures": 0,
+          "files": 0,
+          "bytes": 0,
+          "manifest": {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-collector.json",
+            "bytes": 636,
+            "sha256": "4f1eb755a532f0c6f762cb4a5acf139f058868a57142e8f3d030c78752a5fcb1"
+          },
+          "qualification": "Fresh child cases collect their own roots; this empty group-level collector does not itself establish five child Original copies."
+        },
+        "node26": {
+          "fixtures": 27,
+          "files": 262,
+          "bytes": 41279940,
+          "manifest": {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-collector.json",
+            "bytes": 46291,
+            "sha256": "5005d86ed535c33dcb3b15b89f6fefb2eb07c37910f10293954f0ad246bec132"
+          }
+        }
+      },
+      "node26OwnerReport": {
+        "path": "docs/moodcode/next-backend-fixture-node26-verification.json",
+        "bytes": 36198,
+        "sha256": "8a057adc1d854d690ce917903ec9220220f615c217cf9c27f77c490c235728bc"
+      }
+    },
+    "ciDocumentReview": "663 changes only the three TEST03 source files and engine-ci.md. The document now identifies prior source outcomes as historical, points current evidence to separate reports, and retains the old CI cause as unknown; it makes no TEST03 cleanup or coherent-snapshot claim."
+  },
+  "limits": [
+    "No builds/tests/native fixtures/SQL/provider calls or browser/auth/signing actions rerun. Only existing trusted runtime identity helper and bounded file/diff/hash reads were executed.",
+    "Whole headless at16b includes2 actual Windows-native skips. Current hosted3 CI run completion belongs to another session and is unverified here.",
+    "External SIWC/Anthropic/signing/installed update/feed acceptance remains deferred until prepared inputs. Full original goal completion is not claimed.",
+    "No physical absence/copy/hash/utility ACK/exit grants native cleanup, replay, numeric PID signaling or deletion authority.",
+    "No full all-source semantic-unused or external-account acceptance is established by scoped no-findings.",
+    "TEST03 current production runtime equality and local selected-diagnostic review do not update historical full30 missing evidence, CI root-cause UNKNOWN, whole native cleanup, external acceptance, or full-goal completion. First Node24 37-case run remains failed; final Node24 is five corrected new cases only, while Node26 is one actual 37-case group."
+  ],
+  "test03ActualArtifactChecks": {
+    "totals": {
+      "copiedFiles": 394,
+      "copiedBytes": 62061354,
+      "originalFilesCompared": 394,
+      "originalRootsObserved": 37,
+      "originalMismatches": [],
+      "allCopiedHashesMatch": true
+    },
+    "phases": [
+      {
+        "phase": "node24-retention-selected-diagnostics",
+        "caseProofs": [
+          {
+            "outcome": "success",
+            "handlesClosed": [
+              true
+            ],
+            "ownedEngines": 1,
+            "closedCallsSucceeded": 1,
+            "closeFailures": 0
+          },
+          {
+            "outcome": "unknown",
+            "handlesClosed": [
+              true
+            ],
+            "ownedEngines": 1,
+            "closedCallsSucceeded": 1,
+            "closeFailures": 0
+          },
+          {
+            "outcome": "manifest-error",
+            "handlesClosed": [
+              true
+            ],
+            "manifestWritten": false
+          },
+          {
+            "outcome": "failure",
+            "handlesClosed": [
+              true
+            ],
+            "ownedEngines": 1,
+            "closedCallsSucceeded": 1,
+            "closeFailures": 0
+          },
+          {
+            "outcome": "close-error",
+            "handlesClosed": [
+              true,
+              true
+            ],
+            "ownedEngines": 2,
+            "closedCallsSucceeded": 1,
+            "closeFailures": 1
+          }
+        ],
+        "manifests": [
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-selected-diagnostics/backend-fixture-copy-2TOn9J/manifest.json",
+            "sha256": "0c5a46c6ad324cccec65ccaaa28fdd6b0f15ca792d2f9b1bc5f44d4fbfdf643d",
+            "status": "preserved-selected-diagnostics",
+            "failure": null,
+            "files": 10,
+            "bytes": 1589289,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-selected-diagnostics/backend-fixture-copy-BvTfmM/manifest.json",
+            "sha256": "8548ef4408136c33b73da6daad6c3ebfe589fceed5e1f4feaa9484f1655a9d3a",
+            "status": "preserved-selected-diagnostics",
+            "failure": null,
+            "files": 10,
+            "bytes": 1511314,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-selected-diagnostics/backend-fixture-copy-DRaxJK/manifest.json",
+            "sha256": "5ade5978317f3a7b2f74799a0f1c3eb0f29448b4606e5d3e1d7ae2400c3cf8be",
+            "status": "incomplete-selected-diagnostics",
+            "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ENTRY",
+            "files": 9,
+            "bytes": 1510974,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-selected-diagnostics/backend-fixture-copy-Jx5aW5/manifest.json",
+            "sha256": "20ddfb7ddec71c0b27ad494282274724f680140307cf9f49100246238f997f72",
+            "status": "preserved-selected-diagnostics",
+            "failure": null,
+            "files": 10,
+            "bytes": 1511314,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-selected-diagnostics/backend-fixture-copy-QYkVrs/manifest.json",
+            "sha256": "8971db85007b6efa9ba2cfdc86f678255513c346bb85c2777db817e35e0d273a",
+            "status": "incomplete-selected-diagnostics",
+            "failure": "BACKEND_EVIDENCE_BYTE_OR_FILE_LIMIT",
+            "files": 1,
+            "bytes": 0,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-selected-diagnostics/backend-fixture-copy-YxkI3J/manifest.json",
+            "sha256": "bd71307fa9c64d5635f74a4978ad75a71fcbcfb290750a8e0ecd3dfb308e6568",
+            "status": "preserved-selected-diagnostics",
+            "failure": null,
+            "files": 15,
+            "bytes": 2756502,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-selected-diagnostics/backend-fixture-copy-fWpVBT/manifest.json",
+            "sha256": "3eed535ac32d7fbf7afdcebd98c2d55a89bbd217fa724a4fb6742ce900a629c9",
+            "status": "preserved-selected-diagnostics",
+            "failure": null,
+            "files": 0,
+            "bytes": 0,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention-selected-diagnostics/backend-fixture-copy-gEXO7F/manifest.json",
+            "sha256": "7f8e924568b5d8465fc252e7cbae2ecd56ee9cd5ec5bbfe7b7def25f8dbcf20c",
+            "status": "incomplete-selected-diagnostics",
+            "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ROOT",
+            "files": 11,
+            "bytes": 1511314,
+            "refusedRoots": 2
+          }
+        ],
+        "statusCounts": {
+          "preserved-selected-diagnostics": 5,
+          "incomplete-selected-diagnostics": 3
+        }
+      },
+      {
+        "phase": "node26-selected-diagnostics",
+        "caseProofs": [
+          {
+            "outcome": "failure",
+            "handlesClosed": [
+              true
+            ],
+            "ownedEngines": 1,
+            "closedCallsSucceeded": 1,
+            "closeFailures": 0
+          },
+          {
+            "outcome": "unknown",
+            "handlesClosed": [
+              true
+            ],
+            "ownedEngines": 1,
+            "closedCallsSucceeded": 1,
+            "closeFailures": 0
+          },
+          {
+            "outcome": "success",
+            "handlesClosed": [
+              true
+            ],
+            "ownedEngines": 1,
+            "closedCallsSucceeded": 1,
+            "closeFailures": 0
+          },
+          {
+            "outcome": "close-error",
+            "handlesClosed": [
+              true,
+              true
+            ],
+            "ownedEngines": 2,
+            "closedCallsSucceeded": 1,
+            "closeFailures": 1
+          },
+          {
+            "outcome": "manifest-error",
+            "handlesClosed": [
+              true
+            ],
+            "manifestWritten": false
+          }
+        ],
+        "manifests": [
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-0Nir0q/manifest.json",
+            "sha256": "62a8a35a350a8fbcc62ca80a2d3d81de3dc93e021b92852b170df9dcfb96cd7c",
+            "status": "incomplete-selected-diagnostics",
+            "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ROOT",
+            "files": 11,
+            "bytes": 1511314,
+            "refusedRoots": 2
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-5ZP3ke/manifest.json",
+            "sha256": "424555adbe72aea44a4f182cfea464ae7badfab0c87630b3b6b17c388f20562a",
+            "status": "preserved-selected-diagnostics",
+            "failure": null,
+            "files": 10,
+            "bytes": 1511314,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-SqP7Sh/manifest.json",
+            "sha256": "e08167ee8bdcd3c7b7ef7bb50222aca158485519faf12b196911c00c59f7d484",
+            "status": "preserved-selected-diagnostics",
+            "failure": null,
+            "files": 10,
+            "bytes": 1511314,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-eLprzv/manifest.json",
+            "sha256": "92271d6e21720c85f0dd1eef16654962c1461ec845e3be4c4ba69d1ffaa77d3d",
+            "status": "preserved-selected-diagnostics",
+            "failure": null,
+            "files": 10,
+            "bytes": 1589289,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-glRmbE/manifest.json",
+            "sha256": "f7c0c3e153ee0608fb62b0bcf0ab8b62b77e3bfc6dddc68160a71c20820050a2",
+            "status": "preserved-selected-diagnostics",
+            "failure": null,
+            "files": 262,
+            "bytes": 41279940,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-iCtSZU/manifest.json",
+            "sha256": "7e3e6e1bb1cb99be4618ae9a02133c9d9f16df7a2aa6a7ab2b62209afc9de558",
+            "status": "incomplete-selected-diagnostics",
+            "failure": "BACKEND_EVIDENCE_BYTE_OR_FILE_LIMIT",
+            "files": 1,
+            "bytes": 0,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-o9kSt2/manifest.json",
+            "sha256": "d85e766497bdb69ccd2afd82c1033a3c2b87644b265c861026e983acaea95f7d",
+            "status": "preserved-selected-diagnostics",
+            "failure": null,
+            "files": 15,
+            "bytes": 2756502,
+            "refusedRoots": 0
+          },
+          {
+            "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26-selected-diagnostics/backend-fixture-copy-pZSRQo/manifest.json",
+            "sha256": "615ed7fff3081c1458195971157afba8e8f7bdea4ff836296dddcc041c050f38",
+            "status": "incomplete-selected-diagnostics",
+            "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ENTRY",
+            "files": 9,
+            "bytes": 1510974,
+            "refusedRoots": 0
+          }
+        ],
+        "statusCounts": {
+          "incomplete-selected-diagnostics": 3,
+          "preserved-selected-diagnostics": 5
+        }
+      }
+    ],
+    "logs": [
+      {
+        "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24.log",
+        "bytes": 19871,
+        "sha256": "618d078f245ac29e5ed0fde327f3a96997ce3915cf96e46111cd9704cd529392",
+        "summary": {
+          "tests": "37",
+          "pass": "32",
+          "fail": "5",
+          "cancelled": "0",
+          "skipped": "0",
+          "todo": "0"
+        }
+      },
+      {
+        "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node24-retention.log",
+        "bytes": 2719,
+        "sha256": "06daa68f66f174681aada328580095e9ffc2364df9b72da734285106b99e0711",
+        "summary": {
+          "tests": "5",
+          "pass": "5",
+          "fail": "0",
+          "cancelled": "0",
+          "skipped": "0",
+          "todo": "0"
+        }
+      },
+      {
+        "path": "artifacts/next-native-sqlite-analysis/test03-e65fd066-910c-4bfe-849f-4e8213f6586d/node26.log",
+        "bytes": 17317,
+        "sha256": "333575aa84d2f4970ac1e5a052ac1a513a27f03738597aceff5d64cda9b54237",
+        "summary": {
+          "tests": "37",
+          "pass": "37",
+          "fail": "0",
+          "cancelled": "0",
+          "skipped": "0",
+          "todo": "0"
+        }
+      }
+    ],
+    "elapsedMs": 157,
+    "admission": {
+      "manifestsReviewed": 16,
+      "nativeChildObservationsReviewed": 10,
+      "boundedHashReview": {
+        "maxFiles": 1024,
+        "maxBytes": 134217728,
+        "maxSeconds": 60
+      },
+      "rawSqlOrChatBodiesOutput": false,
+      "nativeOrSqliteExecuted": false,
+      "allManifestsFullFixtureCopyFalse": true,
+      "allManifestsNativeCleanupConfirmedNull": true,
+      "allFixtureEntriesOriginalRemovedFalse": true,
+      "originalAvailability": "current local observed paths only",
+      "firstFailureArtifactsRetained": true,
+      "partialDiagnosticBytesCase": "One owned zero-byte selected file copied with per-file limit1; later larger file refused. Manifest remains incomplete, Original unchanged.",
+      "noWholeArchiveOrNativeCleanupPromotion": true
+    }
+  },
+  "supplementRecordedAt": "2026-10-09T10:53:36.591575+00:00",
+  "independentScopedReviewComplete": true,
+  "unresolvedFindings": 0,
+  "evidenceDocumentPinsQualification": "These five document pins and 89 referenced-file checks were observed for the original 1fd review. Later owner report edits or hosted results require separate current pins and are not retroactively admitted."
+}

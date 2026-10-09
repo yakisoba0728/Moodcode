@@ -1,0 +1,1298 @@
+{
+  "schemaVersion": 1,
+  "kind": "latest-exact-head-hosted-verification",
+  "recordedAt": "2026-10-09T10:34:35.018020+00:00",
+  "source": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+  "collection": {
+    "complete": true,
+    "jobScopes": 11,
+    "terminalJobs": 11,
+    "successfulJobs": 11,
+    "failedJobs": 0,
+    "allCurrentJobScopesPassed": true,
+    "originalZipCount": 11,
+    "originalZipBytes": 736543776,
+    "originalZipEntries": 3447,
+    "rawJobLogs": 11,
+    "allApiSizeAndDigestPinsMatch": true,
+    "allZipCRCAndSafeExtractionChecksPass": true,
+    "fileReferenceHashAndSizeChecks": 1746,
+    "missingReferencedFiles": 0,
+    "mismatchedReferencedFiles": 0,
+    "desktopRetentionManifests": 31,
+    "desktopNativeFileReferences": 121,
+    "desktopCopiedNativeBytes": 22455145,
+    "independentCrossReview": "completeIndependentCurrentHead11OriginalArchiveReview",
+    "semanticOriginalPersistentAndPtyValidatorsPassed": 8
+  },
+  "sourceQualification": {
+    "allCurrentRunsAtExactHead": true,
+    "changedIntegrationTest": "packages/engine/src/agent-backends/receipt-contract.integration.test.ts",
+    "change": "Protected f.engine.backup(snapshotPath) replaces direct private backend-records database backup; unused four-line private local is removed.",
+    "productionQualification": {
+      "mainAndWorkerBlobsAndModesIdentical": true,
+      "engineNativeContractsAllExceptSingleIntegrationTestIdentical": true,
+      "engineNativeContractsUnchangedFileCount": 924,
+      "declarationInputsBlobsAndModesIdentical": true,
+      "workflowBuildDependencyBlobsAndModesIdentical": true,
+      "actualCICompiledOutputIdentityInferredFromGitSource": false,
+      "scope": "The changed integration test is a compiled test input; all other tracked engine/native/contract inputs and effectful production graph are byte-identical git blobs with identical modes. Local frozen compiler fingerprints are not substituted for unuploaded CI runtime files.",
+      "engineNativeContractNonTestTrackedFileCount": 482,
+      "engineNativeContractTestTrackedFileCount": 443,
+      "nonTestEngineNativeContractGitBlobsAndModesIdenticalAcrossAllThreeSources": true,
+      "nonTestCategoryScope": "Same Engine/native/contracts category with basenames containing .test. excluded; source/fixture/build inputs remain governed by the explicit exact path list, not a claim about unuploaded CI compiled artifacts."
+    },
+    "desktopHelperTestsAndVerifierIdenticalTo974": true,
+    "compiledOutputIdentityInferredFromSourceIdentity": false,
+    "originalCompiledFingerprintScope": "Actual new CI driver reports persist stable cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8 at exact1fd; missing runtime JS/declaration/Node executable bytes are not replaced with local files."
+  },
+  "runs": [
+    {
+      "runId": 37916561986,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37916561986",
+      "source": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+      "status": "completed",
+      "conclusion": "success",
+      "successfulJobs": 6,
+      "failedJobs": 0,
+      "jobs": [
+        {
+          "jobId": 113774068458,
+          "jobName": "Portable contracts/storage only / Windows / Node 24.x",
+          "jobConclusion": "success",
+          "platform": "win32",
+          "architecture": "x64",
+          "node": "v24.21.0",
+          "scope": "Portable contracts and selected storage/native-port fixtures; no Windows OS native Job Object/PT Y credit",
+          "rawLog": {
+            "jobId": 113774068458,
+            "name": "Portable contracts/storage only / Windows / Node 24.x",
+            "path": "artifacts/next-continuation/hosted/37916561986/original-job-logs/113774068458-20261009T102030131869Z.log",
+            "bytes": 205738,
+            "sha256": "a0fa3daac809b7a147db04ce307ac22e6c3a4619eec22264225608dd717117fa"
+          },
+          "tests": {
+            "tests": 159,
+            "pass": 159,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "quickProductionReportsPresent": []
+        },
+        {
+          "jobId": 113774068939,
+          "jobName": "Portable contracts/storage only / Windows / Node 26.x",
+          "jobConclusion": "success",
+          "platform": "win32",
+          "architecture": "x64",
+          "node": "v26.11.1",
+          "scope": "Portable contracts and selected storage/native-port fixtures; no Windows OS native Job Object/PT Y credit",
+          "rawLog": {
+            "jobId": 113774068939,
+            "name": "Portable contracts/storage only / Windows / Node 26.x",
+            "path": "artifacts/next-continuation/hosted/37916561986/original-job-logs/113774068939-20261009T102030131869Z.log",
+            "bytes": 205890,
+            "sha256": "8ce7fa301c2fb3ab64545d76f76bd151d00d0eb6c738d103e3cf75ffb0a638c7"
+          },
+          "tests": {
+            "tests": 159,
+            "pass": 159,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "quickProductionReportsPresent": []
+        },
+        {
+          "jobId": 113774068882,
+          "jobName": "Headless ubuntu-24.04 / Node 24.x",
+          "jobConclusion": "success",
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "v24.21.0",
+          "scope": "Complete headless fixtures plus actually executed compiled local quick-profile reports; skip/uncertain scopes remain explicit",
+          "rawLog": {
+            "jobId": 113774068882,
+            "name": "Headless ubuntu-24.04 / Node 24.x",
+            "path": "artifacts/next-continuation/hosted/37916561986/original-job-logs/113774068882-20261009T102505649600Z.log",
+            "bytes": 2992530,
+            "sha256": "7f2b6888b07724c21a7ff8cbeccb964d1c4deb9bed11f50f0196d3fb6e9c02e2"
+          },
+          "tests": {
+            "tests": 4848,
+            "pass": 4784,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 64,
+            "todo": 0
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "quickProductionReportsPresent": [
+            "evaluation",
+            "resilience",
+            "persistentSoak",
+            "ptyRepeatability",
+            "benchmark"
+          ],
+          "currentProtectedReceiptCasePass": {
+            "line": 2659,
+            "text": "2026-10-09T10:18:03.0594523Z ✔ administrative SQL pairs preserve authentic unknown ownership, history and archive binding without Original replay (1051.848382ms)"
+          }
+        },
+        {
+          "jobId": 113774068768,
+          "jobName": "Headless ubuntu-24.04 / Node 26.x",
+          "jobConclusion": "success",
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "v26.11.1",
+          "scope": "Complete headless fixtures plus actually executed compiled local quick-profile reports; skip/uncertain scopes remain explicit",
+          "rawLog": {
+            "jobId": 113774068768,
+            "name": "Headless ubuntu-24.04 / Node 26.x",
+            "path": "artifacts/next-continuation/hosted/37916561986/original-job-logs/113774068768-20261009T102505649600Z.log",
+            "bytes": 2959203,
+            "sha256": "0e7ea6162f1cda52e0b95b16997781d0ea439d6d0bb5bfd26d11ac2011ed1582"
+          },
+          "tests": {
+            "tests": 4848,
+            "pass": 4784,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 64,
+            "todo": 0
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "quickProductionReportsPresent": [
+            "evaluation",
+            "resilience",
+            "persistentSoak",
+            "ptyRepeatability",
+            "benchmark"
+          ],
+          "currentProtectedReceiptCasePass": {
+            "line": 2663,
+            "text": "2026-10-09T10:18:09.5374327Z ✔ administrative SQL pairs preserve authentic unknown ownership, history and archive binding without Original replay (1152.519843ms)"
+          }
+        },
+        {
+          "jobId": 113774068821,
+          "jobName": "Headless macos-15 / Node 24.x",
+          "jobConclusion": "success",
+          "platform": "darwin",
+          "architecture": "arm64",
+          "node": "v24.20.0",
+          "scope": "Complete headless fixtures plus actually executed compiled local quick-profile reports; skip/uncertain scopes remain explicit",
+          "rawLog": {
+            "jobId": 113774068821,
+            "name": "Headless macos-15 / Node 24.x",
+            "path": "artifacts/next-continuation/hosted/37916561986/original-job-logs/113774068821-20261009T102705952343Z.log",
+            "bytes": 2965583,
+            "sha256": "5dccd8003d6663b097b48080aeeead1cee9af3a3d9d2d9ee991e0a6f78ad8230"
+          },
+          "tests": {
+            "tests": 4848,
+            "pass": 4846,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 2,
+            "todo": 0
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "quickProductionReportsPresent": [
+            "evaluation",
+            "resilience",
+            "persistentSoak",
+            "ptyRepeatability",
+            "benchmark"
+          ],
+          "currentProtectedReceiptCasePass": {
+            "line": 2659,
+            "text": "2026-10-09T10:18:34.4369670Z ✔ administrative SQL pairs preserve authentic unknown ownership, history and archive binding without Original replay (861.437ms)"
+          }
+        },
+        {
+          "jobId": 113774068976,
+          "jobName": "Headless macos-15 / Node 26.x",
+          "jobConclusion": "success",
+          "platform": "darwin",
+          "architecture": "arm64",
+          "node": "v26.11.1",
+          "scope": "Complete headless fixtures plus actually executed compiled local quick-profile reports; skip/uncertain scopes remain explicit",
+          "rawLog": {
+            "jobId": 113774068976,
+            "name": "Headless macos-15 / Node 26.x",
+            "path": "artifacts/next-continuation/hosted/37916561986/original-job-logs/113774068976-20261009T102705952343Z.log",
+            "bytes": 2965966,
+            "sha256": "1948806ddf83ff93a09ef041d8aa61de84d56e267c552138f4091aa7f5202939"
+          },
+          "tests": {
+            "tests": 4848,
+            "pass": 4846,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 2,
+            "todo": 0
+          },
+          "dbContract": {
+            "passed": true,
+            "version": 23,
+            "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+            "equal": true
+          },
+          "quickProductionReportsPresent": [
+            "evaluation",
+            "resilience",
+            "persistentSoak",
+            "ptyRepeatability",
+            "benchmark"
+          ],
+          "currentProtectedReceiptCasePass": {
+            "line": 2663,
+            "text": "2026-10-09T10:18:25.7250340Z ✔ administrative SQL pairs preserve authentic unknown ownership, history and archive binding without Original replay (1274.343875ms)"
+          }
+        }
+      ]
+    },
+    {
+      "runId": 37916562021,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37916562021",
+      "source": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+      "status": "completed",
+      "conclusion": "success",
+      "successfulJobs": 2,
+      "failedJobs": 0,
+      "jobs": [
+        {
+          "jobId": 113774068924,
+          "jobName": "Native Windows Job Object / x64 / Node 26.x",
+          "jobConclusion": "success",
+          "platform": "win32",
+          "architecture": "x64",
+          "node": "26.11.1",
+          "scope": "Actual Windows x64 original Job Object addon, native lifecycle and Engine integration; portable contracts/storage regressions separately recorded",
+          "rawLog": {
+            "jobId": 113774068924,
+            "name": "Native Windows Job Object / x64 / Node 26.x",
+            "path": "artifacts/next-continuation/hosted/37916562021/original-job-logs/113774068924-20261009T102030131869Z.log",
+            "bytes": 74747,
+            "sha256": "244e5d1f64ae6e301ee42cd28e61a1247fefa4b36b7d02c7100c0895f3e77b62"
+          },
+          "nativeTests": {
+            "tests": 37,
+            "pass": 37,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "portableTests": {
+            "tests": 159,
+            "pass": 159,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "originalAddon": {
+            "path": "windows_job.node",
+            "bytes": 1121792,
+            "sha256": "60b9358125d8a248c9584dc97e92dff881490fdf8e900872d717031dadd579bb",
+            "nativeAddonMetadataMatches": true
+          },
+          "addonPersistedFingerprint": {
+            "available": true,
+            "info": {
+              "bindingVersion": 1,
+              "napiVersion": 8,
+              "platform": "win32",
+              "arch": "x64",
+              "atomicJobAssignment": true
+            },
+            "relativePath": "packages/windows-job/build/Release/windows_job.node",
+            "bytes": 1121792,
+            "sha256": "60b9358125d8a248c9584dc97e92dff881490fdf8e900872d717031dadd579bb"
+          }
+        },
+        {
+          "jobId": 113774069274,
+          "jobName": "Native Windows Job Object / x64 / Node 24.x",
+          "jobConclusion": "success",
+          "platform": "win32",
+          "architecture": "x64",
+          "node": "24.21.0",
+          "scope": "Actual Windows x64 original Job Object addon, native lifecycle and Engine integration; portable contracts/storage regressions separately recorded",
+          "rawLog": {
+            "jobId": 113774069274,
+            "name": "Native Windows Job Object / x64 / Node 24.x",
+            "path": "artifacts/next-continuation/hosted/37916562021/original-job-logs/113774069274-20261009T102030131869Z.log",
+            "bytes": 74329,
+            "sha256": "dd38f485d1c2af1aa7f1789468691fb0d78647098848494a525d7b85e416580d"
+          },
+          "nativeTests": {
+            "tests": 37,
+            "pass": 37,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "portableTests": {
+            "tests": 159,
+            "pass": 159,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          "originalAddon": {
+            "path": "windows_job.node",
+            "bytes": 178176,
+            "sha256": "b52b4da0d2844cdff73d5f7140e4c90d74a59f569db715f3003e7f1cd48e4a5e",
+            "nativeAddonMetadataMatches": true
+          },
+          "addonPersistedFingerprint": {
+            "available": true,
+            "info": {
+              "bindingVersion": 1,
+              "napiVersion": 8,
+              "platform": "win32",
+              "arch": "x64",
+              "atomicJobAssignment": true
+            },
+            "relativePath": "packages/windows-job/build/Release/windows_job.node",
+            "bytes": 178176,
+            "sha256": "b52b4da0d2844cdff73d5f7140e4c90d74a59f569db715f3003e7f1cd48e4a5e"
+          }
+        }
+      ]
+    },
+    {
+      "runId": 37916562085,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37916562085",
+      "source": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+      "status": "completed",
+      "conclusion": "success",
+      "successfulJobs": 3,
+      "failedJobs": 0,
+      "scope": "Finite unsigned Desktop gates: production main quit plus six controlled boundary cases per OS, including never-started. Controlled workers establish protocol boundaries only.",
+      "jobs": [
+        {
+          "jobId": 113774069094,
+          "jobName": "Unsigned bundle and native smoke / windows-2025",
+          "conclusion": "success",
+          "focusedUnitTestsPassed": 113,
+          "strictMissingOrNullOriginalFlagsTestPassed": true,
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37916562085/job-113774069094-original.log",
+            "bytes": 61835,
+            "sha256": "2acd4a981b00884093be951dc18c222703ba89730df18ab98de1e0a0a6aaa324"
+          },
+          "utilityBoundary": {
+            "report": "artifacts/next-continuation/hosted/37916562085/artifact-11609199687-extracted/artifacts/next-main-utility-close/native-close-boundary-da6a310c-4f65-458b-b357-013364c9ae4d.json",
+            "reportSha256": "52a6e168c572bd709a7a3f30cc67f4fd27c0df8cb46c84ef4c85428dc05dfa0d",
+            "casesPassed": 7,
+            "originalMainConnections": 1,
+            "faultUpdateAdmissionRejected": true,
+            "lateOriginalExactChildObserved": true,
+            "neverSpawnedAdmissionSeparated": true,
+            "globalNativeCleanupRemainsUnknown": true
+          },
+          "packagedProofs": [
+            {
+              "scope": "bundle-utility-SQLite-renderer",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37916562085/artifact-11609199687-extracted/artifacts/desktop-package/failures/package-p6vvol/manifest.json"
+            },
+            {
+              "scope": "bundle-utility-SQLite-renderer-native-Windows-utility",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37916562085/artifact-11609199687-extracted/artifacts/desktop-package/failures/package-31TkTW/manifest.json",
+              "windowsNativeProof": {
+                "exactApprovals": 2,
+                "completeCommandCheckpoint": true,
+                "actualPackagedUtilityCloseAcknowledgedAndOriginalExit": true,
+                "nativeBinary": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37916562085/artifact-11609199687-extracted/release/win-unpacked/resources/app.asar.unpacked/node_modules/@moodcode/windows-job/build/Release/windows_job.node",
+                "nativeBinarySha256": "40c5fe873a154db88f5f591e1effe61dabd7f83315a301f2580ac4735e32cca5",
+                "mainTestOverridesEnabled": false
+              }
+            }
+          ]
+        },
+        {
+          "jobId": 113774069404,
+          "jobName": "Unsigned bundle and native smoke / macos-15",
+          "conclusion": "success",
+          "focusedUnitTestsPassed": 113,
+          "strictMissingOrNullOriginalFlagsTestPassed": true,
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37916562085/job-113774069404-original.log",
+            "bytes": 71972,
+            "sha256": "632d3993bce5ce74d73900fccff8b45126e060459fb13e26f16ca699d4dd887d"
+          },
+          "utilityBoundary": {
+            "report": "artifacts/next-continuation/hosted/37916562085/artifact-11610465159-extracted/artifacts/next-main-utility-close/native-close-boundary-554a58f6-d34f-4693-b3aa-89544c7cce76.json",
+            "reportSha256": "d435316e9c0e13929b2c3b1cc73e43285889ec3691792c2dc3b2b249f6fd3013",
+            "casesPassed": 7,
+            "originalMainConnections": 1,
+            "faultUpdateAdmissionRejected": true,
+            "lateOriginalExactChildObserved": true,
+            "neverSpawnedAdmissionSeparated": true,
+            "globalNativeCleanupRemainsUnknown": true
+          },
+          "packagedProofs": [
+            {
+              "scope": "bundle-utility-SQLite-renderer",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37916562085/artifact-11610465159-extracted/artifacts/desktop-package/failures/package-XVdLzw/manifest.json"
+            },
+            {
+              "scope": "bundle-utility-SQLite-renderer-native-POSIX-supervisors",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37916562085/artifact-11610465159-extracted/artifacts/desktop-package/failures/package-V4crgm/manifest.json",
+              "posixSupervisors": {
+                "commandCleanupConfirmed": true,
+                "ptyCleanupConfirmed": true,
+                "originalPtyExitObserved": true
+              }
+            }
+          ],
+          "rendererAndAdvanced": {
+            "rendererReport": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37916562085/artifact-11610465159-extracted/artifacts/renderer-delivery/verification.json",
+            "rendererReportSha256": "9b3c9775b2d20c4f1fe5b4056ca2f76f8cb6b93c89bab02567bfa81bc1445ec8",
+            "rendererChecksPassed": 6,
+            "advancedChecksPassed": 15,
+            "advancedManifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37916562085/artifact-11610465159-extracted/artifacts/desktop-advanced/failures/advanced-JNdLrQ/manifest.json",
+            "ptyFaultExpectedExitCode": 1,
+            "ptyFaultOriginalRunningRecordBeforeClose": true,
+            "ptyFaultManifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37916562085/artifact-11610465159-extracted/artifacts/desktop-advanced/failures/advanced-ptDgfC/manifest.json",
+            "originalFixturesRetained": true,
+            "remoteRequests": 0
+          }
+        },
+        {
+          "jobId": 113774069687,
+          "jobName": "Unsigned bundle and native smoke / ubuntu-24.04",
+          "conclusion": "success",
+          "focusedUnitTestsPassed": 113,
+          "strictMissingOrNullOriginalFlagsTestPassed": true,
+          "rawLog": {
+            "path": "artifacts/next-continuation/hosted/37916562085/job-113774069687-original.log",
+            "bytes": 55237,
+            "sha256": "81bd3b6a32153c609e5e67bf02cddde956a97e19b332affdb59c8af6328265eb"
+          },
+          "utilityBoundary": {
+            "report": "artifacts/next-continuation/hosted/37916562085/artifact-11608699805-extracted/artifacts/next-main-utility-close/native-close-boundary-32e38ac5-b83b-4479-b8d6-0c5e57a2928c.json",
+            "reportSha256": "beb27ebe600ed27674f6d3c3253684f021ddcb18a77c7d91fe7fbb341500f5de",
+            "casesPassed": 7,
+            "originalMainConnections": 1,
+            "faultUpdateAdmissionRejected": true,
+            "lateOriginalExactChildObserved": true,
+            "neverSpawnedAdmissionSeparated": true,
+            "globalNativeCleanupRemainsUnknown": true
+          },
+          "packagedProofs": [
+            {
+              "scope": "bundle-utility-SQLite-renderer",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37916562085/artifact-11608699805-extracted/artifacts/desktop-package/failures/package-kFMv6d/manifest.json"
+            },
+            {
+              "scope": "bundle-utility-SQLite-renderer-native-POSIX-supervisors",
+              "primarySQLiteVersion": 23,
+              "testOverridesIgnored": true,
+              "mainUtilityAckAndOriginalExitZero": true,
+              "globalNativeCleanup": "unknown",
+              "originalFixtureRetained": true,
+              "manifest": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/hosted/37916562085/artifact-11608699805-extracted/artifacts/desktop-package/failures/package-T4uoBX/manifest.json",
+              "posixSupervisors": {
+                "commandCleanupConfirmed": true,
+                "ptyCleanupConfirmed": true,
+                "originalPtyExitObserved": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "originalArtifacts": [
+    {
+      "runId": 37916561986,
+      "jobId": 113774068458,
+      "id": 11608914744,
+      "name": "engine-windows-portable-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37916561986/original-zips/11608914744-engine-windows-portable-node-24.x-attempt-1.zip",
+      "bytes": 44047,
+      "sha256": "616f2cfc46a0b407864e2800ced24e5c5142545d17377dffce30bacb0630e498",
+      "entries": 21,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37916561986,
+      "jobId": 113774068939,
+      "id": 11609799407,
+      "name": "engine-windows-portable-node-26.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37916561986/original-zips/11609799407-engine-windows-portable-node-26.x-attempt-1.zip",
+      "bytes": 44029,
+      "sha256": "db4595a00c8b953410cf69b7d63f501acc1c5c07866c07929b8daf28d13fcfe3",
+      "entries": 21,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37916561986,
+      "jobId": 113774068882,
+      "id": 11610080915,
+      "name": "engine-ubuntu-24.04-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37916561986/original-zips/11610080915-engine-ubuntu-24.04-node-24.x-attempt-1.zip",
+      "bytes": 2705810,
+      "sha256": "4a326e7e753406dd739b989ef4b57ca3a69d8d71aad974d3a0c76c30953cbc7d",
+      "entries": 430,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37916561986,
+      "jobId": 113774068768,
+      "id": 11610330937,
+      "name": "engine-ubuntu-24.04-node-26.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37916561986/original-zips/11610330937-engine-ubuntu-24.04-node-26.x-attempt-1.zip",
+      "bytes": 2706104,
+      "sha256": "8d40bf41a5508f2a69d2b773c74f78a5f48389f8b3f1fc7feb3efd903e4b5e1f",
+      "entries": 430,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37916561986,
+      "jobId": 113774068821,
+      "id": 11610776003,
+      "name": "engine-macos-15-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37916561986/original-zips/11610776003-engine-macos-15-node-24.x-attempt-1.zip",
+      "bytes": 2735153,
+      "sha256": "767cd69045ad92ed800541edd905b358a99b700f6a089453a6d913aa51995371",
+      "entries": 439,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37916561986,
+      "jobId": 113774068976,
+      "id": 11610920943,
+      "name": "engine-macos-15-node-26.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37916561986/original-zips/11610920943-engine-macos-15-node-26.x-attempt-1.zip",
+      "bytes": 2912945,
+      "sha256": "c61f47d3e3976b8377aa88156b60fb898638cae95d292985c2aa75e85ca2554d",
+      "entries": 490,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37916562021,
+      "jobId": 113774068924,
+      "id": 11609159878,
+      "name": "engine-native-windows-node-26.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37916562021/original-zips/11609159878-engine-native-windows-node-26.x-attempt-1.zip",
+      "bytes": 373948,
+      "sha256": "25ae86d5704d438c9bfea0234a83cbb31714f8cf84f0c137a6a21b1a642b4b4d",
+      "entries": 20,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37916562021,
+      "jobId": 113774069274,
+      "id": 11609504591,
+      "name": "engine-native-windows-node-24.x-attempt-1",
+      "originalZip": "artifacts/next-continuation/hosted/37916562021/original-zips/11609504591-engine-native-windows-node-24.x-attempt-1.zip",
+      "bytes": 107926,
+      "sha256": "e3def6830863df95ee1e56d7482bdc4c3659ea2e7e9a4bc3fef56b25df3aeeb9",
+      "entries": 20,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37916562085,
+      "jobId": 113774069094,
+      "id": 11609199687,
+      "name": "desktop-unsigned-windows-2025-1",
+      "originalZip": "artifacts/next-continuation/hosted/37916562085/artifact-11609199687-original.zip",
+      "bytes": 179214504,
+      "sha256": "3b5d412fac3d2df4f710c117c1dca06031c72d944de97fae93daf2d4196f8c7a",
+      "entries": 308,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37916562085,
+      "jobId": 113774069404,
+      "id": 11610465159,
+      "name": "desktop-unsigned-macos-15-1",
+      "originalZip": "artifacts/next-continuation/hosted/37916562085/artifact-11610465159-original.zip",
+      "bytes": 407414336,
+      "sha256": "76aec4b4f640444af18ff65e4d59277941add47a302928196ca6f9fc9ff0590b",
+      "entries": 997,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    },
+    {
+      "runId": 37916562085,
+      "jobId": 113774069687,
+      "id": 11608699805,
+      "name": "desktop-unsigned-ubuntu-24.04-1",
+      "originalZip": "artifacts/next-continuation/hosted/37916562085/artifact-11608699805-original.zip",
+      "bytes": 138284974,
+      "sha256": "49e9a4b8886da3688c6b49ac59f24456d3d442e3d7214a288ded83040d187903",
+      "entries": 271,
+      "apiSizeAndDigestMatch": true,
+      "zipCRCValid": true,
+      "safeExtraction": true
+    }
+  ],
+  "successfulPosixQuickScopes": [
+    {
+      "jobId": 113774068882,
+      "evaluation": {
+        "attempted": 3,
+        "successful": 3
+      },
+      "resilience": {
+        "profile": "quick",
+        "iterations": 3,
+        "summary": {
+          "completed": 3,
+          "failed": 0,
+          "providerCalls": 5,
+          "processLaunches": 3,
+          "unknownOutcomes": 2,
+          "cleanupFailures": 0,
+          "durationMs": 1109
+        },
+        "sourceQualificationScope": "Entry-file identities only; not a full source freeze."
+      },
+      "persistentSoak": {
+        "profile": "quick",
+        "configuredDurationMs": 1000,
+        "observationDurationMs": 1003.9681309999999,
+        "loadStoppedBy": "cycle-ceiling",
+        "cleanup": {
+          "workerExited": true,
+          "recoveryEngineClosed": true,
+          "commandPidAbsent": true,
+          "commandGroupAbsent": true,
+          "ownedLiveSurvivors": [],
+          "physicalCleanupConfirmed": true,
+          "nativeCleanupConfirmed": false,
+          "emergencyCleanupUsed": false,
+          "databaseRemoved": false,
+          "retainedEvidencePath": "/tmp/moodcode-resilience-Jne8uF",
+          "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+        }
+      },
+      "ptyRepeatability": {
+        "runtime": "compiled",
+        "iterations": 3,
+        "completedCases": 15,
+        "caseCounts": {
+          "total": 15,
+          "confirmedCleanup": 9,
+          "uncertainCleanup": 6
+        },
+        "originalWorkerExitAndPhysicalAbsenceAllObserved": true,
+        "historicalRpty01": {
+          "causeConfirmed": false,
+          "reproduced": false,
+          "resolved": false
+        }
+      },
+      "benchmark": {
+        "profile": "quick",
+        "passed": true,
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 3485849,
+          "failure": null
+        }
+      },
+      "persistedDriverCompiledSourceQualification": {
+        "before": {
+          "runtime": "compiled",
+          "gitHead": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "after": {
+          "runtime": "compiled",
+          "gitHead": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "stable": true,
+        "metadataIsNotSubstitutedUploadedRuntimeBytes": true
+      },
+      "originalQuickReports": [
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610080915-engine-ubuntu-24.04-node-24.x-attempt-1/evaluation.json",
+          "bytes": 320216,
+          "sha256": "0e9ea47c87e0dd98e27faae3694ff3b4d9e3a9cd697bfdcc428e4d5e342c645e"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610080915-engine-ubuntu-24.04-node-24.x-attempt-1/resilience.json",
+          "bytes": 21559,
+          "sha256": "9a6adecfac0a2c62d014a75bc174ad1721a88b0f9de2508c8e5d3ce0d7d91102"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610080915-engine-ubuntu-24.04-node-24.x-attempt-1/persistent-soak.json",
+          "bytes": 195991,
+          "sha256": "230756aee2e4216311bdaed5cf84bccfc101b9063cc0c66a13ccc6858bccc986"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610080915-engine-ubuntu-24.04-node-24.x-attempt-1/pty-repeatability.json",
+          "bytes": 264857,
+          "sha256": "6eb4b12b610dbf5601ead4120502005069364382f851a4ca07567dc429578ff3"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610080915-engine-ubuntu-24.04-node-24.x-attempt-1/benchmark.json",
+          "bytes": 321402,
+          "sha256": "e4855e03d486858f854368d0ecd21e0e040385aae3876cc9f567cf4822951e36"
+        }
+      ]
+    },
+    {
+      "jobId": 113774068768,
+      "evaluation": {
+        "attempted": 3,
+        "successful": 3
+      },
+      "resilience": {
+        "profile": "quick",
+        "iterations": 3,
+        "summary": {
+          "completed": 3,
+          "failed": 0,
+          "providerCalls": 5,
+          "processLaunches": 3,
+          "unknownOutcomes": 2,
+          "cleanupFailures": 0,
+          "durationMs": 1512
+        },
+        "sourceQualificationScope": "Entry-file identities only; not a full source freeze."
+      },
+      "persistentSoak": {
+        "profile": "quick",
+        "configuredDurationMs": 1000,
+        "observationDurationMs": 1125.727806,
+        "loadStoppedBy": "cycle-ceiling",
+        "cleanup": {
+          "workerExited": true,
+          "recoveryEngineClosed": true,
+          "commandPidAbsent": true,
+          "commandGroupAbsent": true,
+          "ownedLiveSurvivors": [],
+          "physicalCleanupConfirmed": true,
+          "nativeCleanupConfirmed": false,
+          "emergencyCleanupUsed": false,
+          "databaseRemoved": false,
+          "retainedEvidencePath": "/tmp/moodcode-resilience-X1bdJw",
+          "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+        }
+      },
+      "ptyRepeatability": {
+        "runtime": "compiled",
+        "iterations": 3,
+        "completedCases": 15,
+        "caseCounts": {
+          "total": 15,
+          "confirmedCleanup": 9,
+          "uncertainCleanup": 6
+        },
+        "originalWorkerExitAndPhysicalAbsenceAllObserved": true,
+        "historicalRpty01": {
+          "causeConfirmed": false,
+          "reproduced": false,
+          "resolved": false
+        }
+      },
+      "benchmark": {
+        "profile": "quick",
+        "passed": true,
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 3481753,
+          "failure": null
+        }
+      },
+      "persistedDriverCompiledSourceQualification": {
+        "before": {
+          "runtime": "compiled",
+          "gitHead": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "after": {
+          "runtime": "compiled",
+          "gitHead": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "stable": true,
+        "metadataIsNotSubstitutedUploadedRuntimeBytes": true
+      },
+      "originalQuickReports": [
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610330937-engine-ubuntu-24.04-node-26.x-attempt-1/evaluation.json",
+          "bytes": 320217,
+          "sha256": "51b9c45ec972eb8707b9f6c6f0793e78db675b7a424831b602ee94f464fe629c"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610330937-engine-ubuntu-24.04-node-26.x-attempt-1/resilience.json",
+          "bytes": 21559,
+          "sha256": "71de16be143a13f3b666df617826bd28fe5e4a77a32a4dd9f7e57236006183a8"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610330937-engine-ubuntu-24.04-node-26.x-attempt-1/persistent-soak.json",
+          "bytes": 179692,
+          "sha256": "30be0bda19ce4ede66a711f560841441071f2028c4bce9dde611aff2073d1fee"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610330937-engine-ubuntu-24.04-node-26.x-attempt-1/pty-repeatability.json",
+          "bytes": 264940,
+          "sha256": "071ef9864e08f94963008a8e7530ede4839e190a914997ec3a80260c43c80d50"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610330937-engine-ubuntu-24.04-node-26.x-attempt-1/benchmark.json",
+          "bytes": 321393,
+          "sha256": "ead436445a21a23f057e50d54db9309abaefdf334251dcee075e41e9fd8214a7"
+        }
+      ]
+    },
+    {
+      "jobId": 113774068821,
+      "evaluation": {
+        "attempted": 3,
+        "successful": 3
+      },
+      "resilience": {
+        "profile": "quick",
+        "iterations": 3,
+        "summary": {
+          "completed": 3,
+          "failed": 0,
+          "providerCalls": 5,
+          "processLaunches": 3,
+          "unknownOutcomes": 2,
+          "cleanupFailures": 0,
+          "durationMs": 1271
+        },
+        "sourceQualificationScope": "Entry-file identities only; not a full source freeze."
+      },
+      "persistentSoak": {
+        "profile": "quick",
+        "configuredDurationMs": 1000,
+        "observationDurationMs": 1118.93325,
+        "loadStoppedBy": "cycle-ceiling",
+        "cleanup": {
+          "workerExited": true,
+          "recoveryEngineClosed": true,
+          "commandPidAbsent": true,
+          "commandGroupAbsent": true,
+          "ownedLiveSurvivors": [],
+          "physicalCleanupConfirmed": true,
+          "nativeCleanupConfirmed": false,
+          "emergencyCleanupUsed": false,
+          "databaseRemoved": false,
+          "retainedEvidencePath": "/private/var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T/moodcode-resilience-NOGTv4",
+          "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+        }
+      },
+      "ptyRepeatability": {
+        "runtime": "compiled",
+        "iterations": 3,
+        "completedCases": 15,
+        "caseCounts": {
+          "total": 15,
+          "confirmedCleanup": 9,
+          "uncertainCleanup": 6
+        },
+        "originalWorkerExitAndPhysicalAbsenceAllObserved": true,
+        "historicalRpty01": {
+          "causeConfirmed": false,
+          "reproduced": false,
+          "resolved": false
+        }
+      },
+      "benchmark": {
+        "profile": "quick",
+        "passed": true,
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 3485894,
+          "failure": null
+        }
+      },
+      "persistedDriverCompiledSourceQualification": {
+        "before": {
+          "runtime": "compiled",
+          "gitHead": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "after": {
+          "runtime": "compiled",
+          "gitHead": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "stable": true,
+        "metadataIsNotSubstitutedUploadedRuntimeBytes": true
+      },
+      "originalQuickReports": [
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610776003-engine-macos-15-node-24.x-attempt-1/evaluation.json",
+          "bytes": 320209,
+          "sha256": "1935ebd7ee6e8bb8940007b8a62100fa9145c0ec6325f6029bb4e6bdde96b433"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610776003-engine-macos-15-node-24.x-attempt-1/resilience.json",
+          "bytes": 21562,
+          "sha256": "74d6213787e1083c5be53e7b90030e7ebc55cbf7fcad4cb6258a1dd0ec601a58"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610776003-engine-macos-15-node-24.x-attempt-1/persistent-soak.json",
+          "bytes": 179996,
+          "sha256": "f9249ebe684ae0903be1a897fb4e32aa178191da6a1d4a1f52b28fae94a27bc5"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610776003-engine-macos-15-node-24.x-attempt-1/pty-repeatability.json",
+          "bytes": 267282,
+          "sha256": "76676b74a09b1a3ffc7902e52e39f4e158b19c7cbede16932118238a2671d24e"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610776003-engine-macos-15-node-24.x-attempt-1/benchmark.json",
+          "bytes": 321382,
+          "sha256": "5fa4a961b9a84923940a9ace33fc5ec8821123e82744847dc9432b5214aef1b9"
+        }
+      ]
+    },
+    {
+      "jobId": 113774068976,
+      "evaluation": {
+        "attempted": 3,
+        "successful": 3
+      },
+      "resilience": {
+        "profile": "quick",
+        "iterations": 3,
+        "summary": {
+          "completed": 3,
+          "failed": 0,
+          "providerCalls": 5,
+          "processLaunches": 3,
+          "unknownOutcomes": 2,
+          "cleanupFailures": 0,
+          "durationMs": 1215
+        },
+        "sourceQualificationScope": "Entry-file identities only; not a full source freeze."
+      },
+      "persistentSoak": {
+        "profile": "quick",
+        "configuredDurationMs": 1000,
+        "observationDurationMs": 1105.0839580000002,
+        "loadStoppedBy": "cycle-ceiling",
+        "cleanup": {
+          "workerExited": true,
+          "recoveryEngineClosed": true,
+          "commandPidAbsent": true,
+          "commandGroupAbsent": true,
+          "ownedLiveSurvivors": [],
+          "physicalCleanupConfirmed": true,
+          "nativeCleanupConfirmed": false,
+          "emergencyCleanupUsed": false,
+          "databaseRemoved": false,
+          "retainedEvidencePath": "/private/var/folders/nj/vtw8zd2j31d1gdrtntc5y4600000gn/T/moodcode-resilience-Wh0nVp",
+          "retainedReason": "expected-uncertain-command-no-recovery-acknowledgment"
+        }
+      },
+      "ptyRepeatability": {
+        "runtime": "compiled",
+        "iterations": 3,
+        "completedCases": 15,
+        "caseCounts": {
+          "total": 15,
+          "confirmedCleanup": 9,
+          "uncertainCleanup": 6
+        },
+        "originalWorkerExitAndPhysicalAbsenceAllObserved": true,
+        "historicalRpty01": {
+          "causeConfirmed": false,
+          "reproduced": false,
+          "resolved": false
+        }
+      },
+      "benchmark": {
+        "profile": "quick",
+        "passed": true,
+        "cleanup": {
+          "engineClosed": true,
+          "nativeCleanupConfirmed": true,
+          "runtimeCleanupConfirmed": true,
+          "noActiveExecution": true,
+          "temporaryFilesRemoved": true,
+          "retainedBytesBeforeRemoval": 3485894,
+          "failure": null
+        }
+      },
+      "persistedDriverCompiledSourceQualification": {
+        "before": {
+          "runtime": "compiled",
+          "gitHead": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "after": {
+          "runtime": "compiled",
+          "gitHead": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+          "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+          "bytes": 11899924,
+          "scope": "engine/contracts production sources; effective engine/contracts runtime; runner modules and reused SQL measurement helper; no dependency/whole-repository claim"
+        },
+        "stable": true,
+        "metadataIsNotSubstitutedUploadedRuntimeBytes": true
+      },
+      "originalQuickReports": [
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610920943-engine-macos-15-node-26.x-attempt-1/evaluation.json",
+          "bytes": 320209,
+          "sha256": "f572feb022463c5cad7e66650c8cb8b4010127a5db13c192a52870ad69a93e37"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610920943-engine-macos-15-node-26.x-attempt-1/resilience.json",
+          "bytes": 21562,
+          "sha256": "1e579a9f35f21108b2e0496b6a9b1efc78ae743ba9057550474fde45929ccb84"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610920943-engine-macos-15-node-26.x-attempt-1/persistent-soak.json",
+          "bytes": 180015,
+          "sha256": "395fcd86f8b43fdd553217ab7d939b8160c782ecc418d3be843eb42517e3857c"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610920943-engine-macos-15-node-26.x-attempt-1/pty-repeatability.json",
+          "bytes": 267272,
+          "sha256": "2a6f2c17d32f9f00ac1d1f8a9f4c8d037a25c266e9f77912fcdde38b709824d2"
+        },
+        {
+          "path": "artifacts/next-continuation/hosted/37916561986/extracted-originals/11610920943-engine-macos-15-node-26.x-attempt-1/benchmark.json",
+          "bytes": 321384,
+          "sha256": "e01c5d4e28140723784b7e452dc387349f68cc7a20de083bfacb6363beac0d58"
+        }
+      ]
+    }
+  ],
+  "currentFailures": [],
+  "historicalEngineFailure": {
+    "runId": 37913088794,
+    "jobId": 113762664383,
+    "source": "eef2b759061971b07bc4a3f8abd582e234d3df0f",
+    "test": "administrative SQL pairs preserve authentic unknown ownership, history and archive binding without Original replay",
+    "location": "packages/engine/dist/agent-backends/receipt-contract.integration.test.js:198:1",
+    "error": {
+      "code": "ERR_SQLITE_ERROR",
+      "errcode": 0,
+      "errstr": "not an error"
+    },
+    "deeperStackPresent": false,
+    "failedNativeFixtureUploaded": false,
+    "unknownUnderlyingCause": true,
+    "downstreamProductionReportsCredited": false,
+    "retainedEvidence": {
+      "path": "artifacts/next-continuation/hosted/37913088794/macos-node24-failure-evidence.json",
+      "bytes": 2735,
+      "sha256": "e8e809e57f9dd64ed864790a51f5b0e12592f1e8577d3d3f32c264df2034d866"
+    },
+    "otherArchivedSQLiteFilesEstablishFailedFixtureState": false,
+    "newCurrentPassProvesHistoricalCause": false
+  },
+  "historicalDesktopRuns": [
+    {
+      "runId": 37913088812,
+      "source": "eef2b759061971b07bc4a3f8abd582e234d3df0f",
+      "conclusion": "success",
+      "successfulJobs": 3,
+      "current974AcceptanceCredit": false,
+      "currentOriginal11Credit": false,
+      "retainedMetadataAndRawLogs": {
+        "path": "artifacts/next-continuation/hosted/37913088812/historical-summary.json",
+        "bytes": 1593,
+        "sha256": "118b2c41649c23c51d74cd056469cbd9ae8d2136f4bea21069c6c971ae9dc268"
+      }
+    },
+    {
+      "runId": 37913553488,
+      "source": "59d4360e2e77a6d9b97f961d5dfff778504d9040",
+      "conclusion": "failure",
+      "successfulJobs": 2,
+      "failedJobs": 1,
+      "availableOriginalZips": 2,
+      "missingOriginalZips": 1,
+      "failedLinuxJobId": 113764184931,
+      "failure": "Downloading Electron binary followed by uncaught Playwright20-second timeout; no boundary report/native receipt survived, uploader found no files.",
+      "causeQualification": "Dependency resolution inside the launch deadline is inferred from original logs and installed Playwright/Electron code; production native cleanup and exact case were unobserved.",
+      "current974AcceptanceCredit": false,
+      "currentOriginal11Credit": false,
+      "assessment": {
+        "path": "artifacts/next-continuation/hosted/37913553488/desktop-assessment.json",
+        "bytes": 58962,
+        "sha256": "97f552e6757d11479456ff6f5d1b295b0372df08c0b34fee75d75f86e1bf3810"
+      }
+    },
+    {
+      "runId": 37914356473,
+      "source": "974a4c46d32187379404eabac8e2006cd13e57cc",
+      "conclusion": "success",
+      "current1fdAcceptanceCredit": false,
+      "assessment": {
+        "path": "artifacts/next-continuation/hosted/37914356473/desktop-assessment.json",
+        "bytes": 74035,
+        "sha256": "6f2ea057aa093b973b2593f991150e99a92aa4eb739108b1610ae7e06bf33613"
+      }
+    }
+  ],
+  "previousCohortSnapshot": {
+    "path": "artifacts/next-continuation/hosted/previous-hosted-verification-e30c7b4.json",
+    "bytes": 37374,
+    "sha256": "e30c7b4ffccb4bc739170b4131632c8928c75a403f07f228b3dc1acfdf158677"
+  },
+  "qualification": {
+    "wholeProductGoalCompletionAsserted": false,
+    "nativeSQLiteOpened": false,
+    "nativeEvidenceReadForHashAndSizeOnly": true,
+    "originalZipBytesPreserved": true,
+    "archivesRepackaged": false,
+    "applicationExitEstablishesGlobalNativeCleanup": false,
+    "utilityAckAndOriginalExitEstablishGlobalNativeCleanup": false,
+    "desktopGlobalNativeCleanup": "unknown; originals retained per driver and manifest witnesses",
+    "remoteTemporaryOriginalsReverifiedAfterRunnerTeardown": false,
+    "longDurationOr30MinuteSoakEstablishedByTheseRuns": false,
+    "historicalRpty01CauseReproducedOrResolvedByTheseRuns": false,
+    "liveProviderAccountAcceptance": "not established by these runs",
+    "signedProductionDistributionAcceptance": "not established by these runs",
+    "updaterScope": "Two scheduled real Electron updater disposable unsigned AppImage fixtures on POSIX; checksum rejection, digest verification, install0.2.0, recovery0.3.0 and downgrade block pass. Windows not scheduled.",
+    "sourceBatchDeadlineReports": "Expected failed/nativeQualified:false reports are retained and remain failed; green outer tests do not promote their cleanup or identity.",
+    "writesRestrictedToIgnoredArtifacts": true,
+    "docsTodoSourceGoalGitModifiedByThisCollection": false,
+    "additionalCIExecutionOrRerunPerformed": false
+  },
+  "assessments": [
+    {
+      "path": "artifacts/next-continuation/hosted/37916561986/engine-assessment.json",
+      "bytes": 4482058,
+      "sha256": "a6b2f0b55a9cb6092208200ad7a2f3fa15685902132969660354176d7354653e"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37916562021/engine-assessment.json",
+      "bytes": 14708,
+      "sha256": "d6086708bcbf453dd622e2b5d6bcf1e45a617f5ea188ee3a1af71617a72bf424"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37916562085/desktop-assessment.json",
+      "bytes": 77956,
+      "sha256": "fb53d088cb60eac7814a9f6b5e718a1b389eccde9903da83b3f74d132b140cf8"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37916562085/desktop-updater-assessment.json",
+      "bytes": 2900,
+      "sha256": "3921f8f8a5733cd9f6c56845d918924fe0f5d0cf8fe93b1bde669cc8857c0d70"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/source-qualification-1fd6061-final-20261009T103434Z.json",
+      "bytes": 127908,
+      "sha256": "41e4bdae7b73e8a306f7ecb95409568033a8aad805ff44f32194650b967fa6f3"
+    }
+  ],
+  "pureOriginalReportSemanticValidation": {
+    "path": "artifacts/next-continuation/hosted/37916561986/report-semantic-validation-20261009T102812939Z.json",
+    "bytes": 1302786,
+    "sha256": "65b6da5f2b9a1b8cd80e899c0fb0622014490e3ec049c7d2a178ddc70ad7323d"
+  }
+}

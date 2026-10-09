@@ -20,9 +20,9 @@
 
 - [x] **N-01 — 동일 엔진 장기 실행·부하 검증**: 같은 인스턴스에서 queue/steer·승인·취소·재시작 경합과 큰 이력을 검증한다. 유한 실행 시간·seed·입력량을 고정하고 메모리·FD·프로세스·SQLite·artifact 증가 및 종료 정산을 측정한다. 기존 60회 독립 반복 근거와 구분한다.
 - [x] **N-02 — 고급 엔진 기능의 GUI 연결**: inbox·tasks/questions·MCP·PTY·child/team·workflow·LSP·진단을 host/preload/renderer까지 연결한다. 기존 승인·owner·budget을 유지하고 실제 화면의 소비·reload·cancel·reconnect를 검증한다.
-- [ ] **N-03 — 앱 인증·계정 관리**: 공급자별 공식 지원 인증·갱신 방식과 첫 지원 범위를 확인한 뒤 로그인·로그아웃·계정 선택·갱신 실패를 구현한다. credential 저장·삭제와 renderer/journal 비노출을 검증한다.
+- [ ] **N-03 — 앱 인증·계정 관리**: 로그인·로그아웃·계정 선택·갱신 실패와 credential 저장·삭제·renderer/journal 비노출을 구현하고 로컬 회귀를 검증했다. 남은 완료 조건은 사용자가 준비한 실제 SIWC 브라우저 로그인·계정 추론 검증이다.
 - [x] **N-04 — 지원 OS 패키지·최신 GUI 검증**: 최신 엔진의 macOS/Linux/Windows 지원 범위를 명시하고 해당 bundle·utility·SQLite·supervisor·renderer 및 서명 없는 bundle의 실제 실행 smoke를 해당 OS에서 확인했다. 서명 installer·설치 배포는 N-05로 별도 추적한다. Windows x64 명령은 실제 Job Object, Windows PTY·arm64는 미검증 범위다.
-- [ ] **N-05 — 서명·배포·업데이트**: 대상 OS·배포 채널을 고정하고 서명/공증·설치·업데이트·실패 복구를 구현·검증한다. 인증서·계정이 필요한 실제 서명/배포와 로컬 준비 완료를 구분한다.
+- [ ] **N-05 — 서명·배포·업데이트**: 서명 준비·검토형 업데이트·실패 복구·main utility 설치 전 종료 증거를 구현하고 서명 없는 세 OS bundle과 실제 disposable 업데이트 범위를 검증했다. 실제 macOS·Windows 서명/공증·설치·공개 feed 검증은 자격 준비 후 진행한다.
 - [x] **N-06 — 추가 작업 수용·기준 동결**: 구현·실제 검증·외부 조건 대기를 구분하고 현재 지원 표·API·DB·코드/테스트 줄 수·성능·CI·GUI 근거를 고정한다. 이후 리팩터링의 동작 보존 기준으로 사용한다.
 
 추가 기능은 첫 지원 OS·모델·GUI 흐름과 완료 조건을 구현 전에 고정한다. 계정·인증서·과거 실행 자료가 없는 항목은 대기 사유와 해제 조건을 남기고 완료 처리하지 않는다. 외부 조건과 독립인 구현·검증·점검은 계속 진행한다.
@@ -79,14 +79,20 @@
 
 ### 후속 개선 후보 — 현재 수용과 분리
 
-- [ ] **NEXT-01 — 큰 이력의 SQLite 저장 비용**: 실제 30분 이력에서 기록한 테이블별 증가와 중복 저장을 근거로 hot/cold 보관·조회 방식을 비교한다. 원본 감사 이력·signed receipt·archive·unknown 자료를 삭제하거나 DB23을 근거 없이 변경하지 않는다.
-- [ ] **NEXT-02 — renderer 초기 로딩 분할**: 현재 빌드 JS 656,738bytes의 큰 chunk 경고를 그대로 기록한다. 필요한 화면별 지연 로딩을 측정하고 실제 GUI/reload 흐름을 보존한 뒤 개선한다.
-- [ ] **NEXT-03 — 복원 이력의 테마 색상**: `var(--text)`의 실제 computed style과 intended theme를 확인한다. 현재 lexical 후보만으로 CSS를 삭제·변경하지 않는다.
-- [ ] **NEXT-04 — 데스크톱 main utility 종료 관측**: 실제 main utility의 close 응답과 Original exit를 테스트·host 진단에서 확인할 수 있게 한다. 현재 passing GUI/package도 해당 권한이 unknown이면 원본 DB·artifact를 보존한다. private coding utility의 확인이나 물리적 앱 종료를 main utility의 확인으로 승격하지 않는다.
+2026-10-09 goal 재개로 아래 독립 가능한 개선을 이어간다. 실제 SIWC·Anthropic 계정·서명/공증·공개 배포 검증은 사용자의 “외부 검증은 준비 후 진행” 결정으로 대기하며 완료 처리하지 않는다. [재개 진행](docs/moodcode/next-continuation-progress.json)·[필수 조건 감사](docs/moodcode/next-external-acceptance-audit.json).
 
-### 완료 — 확정한 후속 구현·리팩터링·통합 검증
+- [x] **NEXT-01 — 큰 이력의 SQLite 저장 비용**: 새 실제 30분 이력의 종료된 원본 DB 303,001,600bytes를 변경 없이 측정하고 현 구조·압축·immutable cold 보관을 비교했다. context 1,201개와 해당 이벤트 사본의 data 열은 각각 119,872,717·120,228,769bytes다. DB23·원본·archive를 유지하면서 동일 JSON 인코딩을 재사용했고, 독립 12회 비교에서 직렬화 276회·임시 UTF-8 1,706,882bytes를 줄였다. 저장량·지연 감소를 주장하지 않는다. [실제 측정](docs/moodcode/next-continuation-engine-verification.json)·[비교안](docs/moodcode/next-history-storage-layout-comparison.json)·[최적화 검증](docs/moodcode/next-history-storage-integration.json).
+- [x] **NEXT-02 — renderer 초기 로딩 분할**: 화면별 lazy loading으로 실제 initial JS 656,738→261,484bytes(−60.18%)를 확인했다. total JS는 660,534bytes로 3,796bytes 늘었고 chunk 경고 임계값은 유지했다. 지연 중 취소·reload·승인 preview·native 복원/이력 등 6개 실제 Electron flow와 33개 renderer 회귀를 통과했다. 구현 `9cdecba`, [검증](docs/moodcode/next-renderer-delivery-verification.json).
+- [x] **NEXT-03 — 복원 이력의 테마 색상**: 실제 computed 제목 색상이 undefined `--text`로 warning 색상에 의존하던 것을 확인했다. 기존 root 기본색 #d9dce0를 토큰으로 명명했고 완성된 native 복원 이력에서 rgb(217,220,224)를 확인했다. 기존 explicit dark 테마와 warning 본문색은 유지했다. [검증](docs/moodcode/next-renderer-delivery-verification.json).
+- [x] **NEXT-04 — 데스크톱 main utility 종료 관측**: 실제 main의 bounded Original 연결 기록에 close ACK·exit를 관측하고, updater 설치에는 모든 Original의 ACK·정상 종료 증거를 요구한다. 누락·timeout·abnormal exit·ledger eviction이면 설치를 차단한다. 잘못된 receipt의 null·누락 flags도 unknown을 유지한다. `974a4c4`의 실제 세 OS Desktop CI와 로컬 native 7개·지연 GUI 6개를 통과했다. 물리적 종료가 native cleanup을 증명하지 않으며 unknown 원본은 보존한다. [통합 GUI](docs/moodcode/next-integrated-renderer-delivery-verification.json)·[독립 계약 검토](docs/moodcode/next-continuation-contract-review.json)·[실제 hosted](docs/moodcode/next-continuation-hosted-verification.json).
 
-2026-10-09 전체 goal을 설정하고 `gpt-6.1-sol / xhigh` 세션 다섯 개와 Root 에이전트 세 개를 시작했다. 각 세션도 에이전트를 병렬로 사용한다. 구현 기준은 `44d3a07`이며, 착수는 완료 집계에 포함하지 않는다. [진행 기록](docs/moodcode/next-execution-progress.json)에 세션·담당 경계·검증·통합 상태를 기록한다. 공유 goal은 세션의 상태 변경으로 blocked이며 사용자 재개를 요청했다. 독립 가능한 확정 구현·검증은 완료했고, 실제 계정·서명 배포·역사적 원인 판정은 열린 조건으로 유지한다.
+현재 엔진 검증은 `16b2a10`의 전체 4,848개 중 4,846 pass·실패 0·기존 Windows skip 2, 코딩 과업 3/3, 새 실제 30분 관측 1,804,836.490583ms·382회·입력 1,532개다. `1fd6061`의 receipt 테스트는 실행 중인 writer 직접 백업을 보호된 Engine 백업으로 바꿨고 Node 24·26 각각 receipt/storage 12개를 통과했다. 현재 엔진 source/runtime input 771개는 동결본과 byte-identical이다. 소유 소스는 1,092파일·314,309줄(제품 147,549줄)이며 구조 측정은 전체 의미 감사를 대신하지 않는다. `663a3a0`의 최종 OS·Node CI 11개가 모두 통과했다. 원본 ZIP 11개와 파일 참조 4,995건의 무결성 검사도 통과했다. [최종 hosted 근거](docs/moodcode/next-continuation-hosted-663a3a0-verification.json)를 따른다. 별도 검토자의 전체 바이트 재검증은 미실행이며 수집 담당 검증과 제한된 독립 검토를 구분한다. 이전 `1fd6061`의 11/11 근거도 보존한다. [엔진 검증](docs/moodcode/next-continuation-engine-verification.json)·[구조 측정](docs/moodcode/next-continuation-inventory.json).
+
+- [x] **TEST-03 — backend fixture 실패·unknown 원본 보존**: 모든 owned Engine을 기존 순서로 close하며 오류 뒤에도 나머지를 정산하고 첫 원래 오류를 유지한다. typed native cleanup 근거가 없어 성공도 원본을 보존한다. Node 24의 새 실제 보존 5개·Node 26의 영향 범위 37개와 `663a3a0`의 실제 CI 11개를 통과했다. bounded 선택 진단 사본은 예산 초과·경로 거부·manifest 오류를 incomplete로 남기며 전체 원본 복사나 cleanup 권한을 뜻하지 않는다. [구현·검증](docs/moodcode/next-native-sqlite-failure-analysis.json)·[독립 검토](docs/moodcode/next-continuation-independent-review.json).
+
+### 이전 수용 기록 — 확정한 후속 구현·리팩터링·통합 검증
+
+2026-10-09 전체 goal을 설정하고 `gpt-6.1-sol / xhigh` 세션 다섯 개와 Root 에이전트 세 개를 시작했다. 각 세션도 에이전트를 병렬로 사용한다. 구현 기준은 `44d3a07`이며, 착수는 완료 집계에 포함하지 않는다. [이전 진행 기록](docs/moodcode/next-execution-progress.json)에 세션·담당 경계·검증·통합 상태를 보존한다. 당시 blocked 상태와 현재 재개한 active goal은 구분한다. 실제 계정·서명 배포·역사적 원인 판정은 열린 조건으로 유지한다.
 
 | 담당 | 범위 | 완료 판단 |
 |---|---|---|
@@ -100,7 +106,7 @@
 
 각 구현 세션은 격리 worktree에서 구현·검증하고 Root가 main으로 통합한다. 장기 실행·PTY·점검 에이전트는 서로 다른 새 파일을 담당한다. 인증서·계정·과거 원인 자료가 필요한 실제 검증은 별도 미완료 조건을 유지하고, 독립 가능한 작업을 계속 진행한다.
 
-최종 수용: 로컬 전체 4,845 pass·실패 0·기존 skip 2, 실제 hosted 11/11, native 코딩 과업 3/3·PTY 15개·GUI 15개, 현재 소스의 실제 30분 관측 1,806,588.742584ms·417회·입력 1,672개를 확인했다. 소유 소스 inventory는 1,079파일·311,524줄이며 테스트·fixture·도구·CI를 포함한다. 이전 307,720줄 대비 추가 검증과 기능으로 3,804줄 증가했고, CORE/runner에서 확인한 중복은 계약을 유지하며 줄였다. [로컬 최종 수용](docs/moodcode/next-final-local-acceptance.json)·[최신 hosted](docs/moodcode/next-corrective-hosted-acceptance.json)·[실제 장기 실행](docs/moodcode/next-current-persistent-30min-verification.json)·[구조 전후](docs/moodcode/next-final-inventory-comparison.json)·[성능 전후](docs/moodcode/next-final-performance-comparison.json). 물리적 종료와 native cleanup 권한은 구분하며 unknown 원본은 보존한다.
+이전 동결 수용: 로컬 전체 4,845 pass·실패 0·기존 skip 2, 실제 hosted 11/11, native 코딩 과업 3/3·PTY 15개·GUI 15개, 당시 소스의 실제 30분 관측 1,806,588.742584ms·417회·입력 1,672개를 확인했다. 소유 소스 inventory는 1,079파일·311,524줄이며 테스트·fixture·도구·CI를 포함한다. 이전 307,720줄 대비 추가 검증과 기능으로 3,804줄 증가했고, CORE/runner에서 확인한 중복은 계약을 유지하며 줄였다. [로컬 최종 수용](docs/moodcode/next-final-local-acceptance.json)·[최신 hosted](docs/moodcode/next-corrective-hosted-acceptance.json)·[실제 장기 실행](docs/moodcode/next-current-persistent-30min-verification.json)·[구조 전후](docs/moodcode/next-final-inventory-comparison.json)·[성능 전후](docs/moodcode/next-final-performance-comparison.json). 물리적 종료와 native cleanup 권한은 구분하며 unknown 원본은 보존한다.
 
 ## 완료: 엔진 안정성·평가 보강 H1–H5
 

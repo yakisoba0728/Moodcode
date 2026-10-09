@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "kind": "post-acceptance-independent-improvements",
+  "recordedAt": "2026-10-09T11:17:32.580334+00:00",
+  "baselineCommit": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6",
+  "goalStatus": "active",
+  "previousCompletedGoalTurn": {
+    "classification": "progress",
+    "evidence": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6 documentation acceptance and remote main synchronization"
+  },
+  "goalMutationOwner": "Root only; subordinate goal mutations forbidden",
+  "scopePreserved": true,
+  "externalDecision": {
+    "source": "human answer to request_user_input_async",
+    "answer": "외부 검증은 준비 후 진행",
+    "status": "deferred-until-inputs",
+    "goalPaused": false,
+    "items": [
+      "actual SIWC account login/inference",
+      "actual Anthropic model/account verification",
+      "macOS/Windows signing/notarization/installed update/published feed"
+    ]
+  },
+  "lanes": [
+    {
+      "id": "NEXT-02/NEXT-03",
+      "owner": "/root/renderer_delivery",
+      "status": "integrated-actual-delayed-gui-six-flows-passed-unknown-originals-retained",
+      "sourceBoundary": "renderer JSX/styles and renderer fixture; Root main shared worktree",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "finalHostedSource": "663a3a0",
+      "finiteInternalScopeAccepted": true
+    },
+    {
+      "id": "NEXT-04/N-05-precondition",
+      "ownerThreadId": "01a11d5c-affa-79c3-89e4-2cef32922796",
+      "status": "integrated-native-seven-and-three-os-desktop-passed-new-current-head-ci-collecting",
+      "sourceBoundary": "main/host/worker and native fixture, private codex/next-utility-close worktree",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "finalHostedSource": "663a3a0",
+      "finiteInternalScopeAccepted": true
+    },
+    {
+      "id": "NEXT-01",
+      "ownerThreadId": "01a11db0-05c1-7132-a980-099b26d11ee9",
+      "status": "integrated-whole-and-actual-thirty-minute-passed-closed-original-cost-measured-comparison-reviewed",
+      "sourceBoundary": "measurement CLI/helper or evidence-backed compatible engine query optimization, private codex/next-history-cost worktree",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "finalHostedSource": "663a3a0",
+      "finiteInternalScopeAccepted": true
+    },
+    {
+      "id": "current-engine-regression",
+      "owner": "/root/external_acceptance_audit",
+      "status": "whole-and-actual-thirty-minute-passed",
+      "freezeCommit": "16b2a10",
+      "runtimeFiles": 771,
+      "runtimeBytes": 11899924,
+      "runtimeSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+      "declarations": {
+        "files": 914,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "artifactRoot": "artifacts/next-continuation/engine-16b2a10",
+      "longAccepted": true,
+      "whole": {
+        "tests": 4848,
+        "pass": 4846,
+        "fail": 0,
+        "skipped": 2
+      },
+      "long": {
+        "observationDurationMs": 1804836.490583,
+        "cycles": 382,
+        "inputs": 1532,
+        "physicalCleanupConfirmed": true,
+        "nativeCleanupConfirmed": false,
+        "originalRetained": true
+      },
+      "report": "docs/moodcode/next-continuation-engine-verification.json"
+    },
+    {
+      "id": "TEST-03",
+      "owner": "/root/continuation_contract_review",
+      "status": "implemented-affected-native-verified-exact-11-job-ci-and-selected-diagnostics-accepted",
+      "sourceBoundary": "backend fixture and meaningful retention regression; no production engine mutation",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "sourceCommit": "663a3a0",
+      "node24": {
+        "initialGroup": {
+          "tests": 37,
+          "pass": 32,
+          "harnessFailures": 5
+        },
+        "correctedActualRetention": {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0
+        }
+      },
+      "node26": {
+        "tests": 37,
+        "pass": 37,
+        "fail": 0
+      },
+      "nativeCleanupConfirmed": null,
+      "originalsRetained": true,
+      "limits": "Selected diagnostics only; partial/refused/budget/metadata write failure never grant deletion or recovery authority.",
+      "independentReview": "completed; zero unresolved findings, Original/hash/close/unknown/budget/refusal qualification checked",
+      "reports": [
+        "docs/moodcode/next-native-sqlite-failure-analysis.json",
+        "docs/moodcode/next-backend-fixture-node26-verification.json",
+        "docs/moodcode/next-continuation-independent-review.json"
+      ]
+    }
+  ],
+  "verifiedNewFinding": {
+    "file": "apps/desktop/src/main/host.ts",
+    "consumer": "apps/desktop/src/main/updates.ts install",
+    "issue": "closeConnection returns success after Original utility exited without close ACK; ACK path does not wait for Original exit. Updater install currently treats this resolve as cleanup confirmation.",
+    "action": "Desktop NEXT04 owner must preserve recovery/unknown semantics and block installation unless appropriate Original close proof exists.",
+    "status": "resolved-with-original-ack-and-exit-install-precondition",
+    "sourceCommit": "9031ee2",
+    "remainingNativeCleanupQualification": "Utility receipt confirms transport closure only; unknown native effect state remains retained."
+  },
+  "historicalEvidenceAvailability": {
+    "observedAt": "2026-10-09T09:11:35.923Z",
+    "currentPathsAbsent": [
+      "/tmp/moodcode-next-current-persistent-30min.json",
+      "/tmp/moodcode-next-final-runtime-equivalence.json",
+      "/tmp/moodcode-next-final-whole-engine.log",
+      "/private/tmp/moodcode-next-final-hosted-acceptance",
+      "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-nMpoCi/engine.sqlite"
+    ],
+    "cause": "unknown; no deletion or termination performed by this audit",
+    "historicalObservationEvidence": "committed next-current-persistent-30min-verification.json and next-corrective-hosted-acceptance.json retain original source/results/digests; path references do not assert present availability",
+    "independentNewMeasurement": "Fresh durable 16b Original DB closed-store observation, unchanged read-only table cost measurement; historical missing DB not reconstructed.",
+    "hostedRecoveryReport": "docs/moodcode/next-baseline-artifact-recovery.json"
+  },
+  "currentExternalConfiguration": {
+    "anthropicEnvironmentAndApprovedLocalFileConfigured": false,
+    "releaseSigningAndNotarizationEnvironmentConfigured": false,
+    "keychainValidCodeSigningIdentities": 0,
+    "rawValuesPrinted": false
+  },
+  "validationPolicy": "Changed production storage received actual frozen current whole/30minute verification. The later snapshot test and bounded fixture retention use explicit source/module diff qualification and affected runtime/native checks; historical evidence is never promoted to changed production. Every final exact source receives appropriate actual hosted acceptance.",
+  "completion": "Finite internal improvement scopes are implemented and verified. Full original goal remains active and unachieved pending actual SIWC/Anthropic/signed-published acceptance and unresolved historical PTY cause; user deferred external verification until prepared.",
+  "integratedCommits": {
+    "renderer": "9cdecba",
+    "history": "16b2a10",
+    "utilityClose": "9031ee2",
+    "receiptUnknown": "59d4360",
+    "electronBinaryPreflight": "974a4c4",
+    "protectedSnapshotFixture": "1fd6061",
+    "backendFixtureRetention": "663a3a0"
+  },
+  "currentSourceCommit": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+  "currentHosted": {
+    "head": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+    "status": "11-jobs-passed-original-integrity-qualification-complete",
+    "runIds": [
+      37919775610,
+      37919775855,
+      37919775652
+    ],
+    "previousExactHead": {
+      "head": "1fd6061da90771bbb5fc41f9f9ac1865eab76b6d",
+      "pass": 11,
+      "fail": 0,
+      "report": "docs/moodcode/next-continuation-hosted-1fd6061-verification.json",
+      "sha256": "0ab7c1bf0be623d9f4eeecce8464699cf4ecc27617a6aff869fb213c127038ff"
+    },
+    "jobs": 11,
+    "pass": 11,
+    "fail": 0,
+    "report": "docs/moodcode/next-continuation-hosted-663a3a0-verification.json",
+    "sha256": "117c5b322a03c33f9c18025f5eed4c42df29c7b18552433e0d733ce9652e39a3",
+    "fileReferenceChecks": 4995,
+    "allOriginalByteAuditBySeparateReviewer": false
+  }
+}

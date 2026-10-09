@@ -1,0 +1,613 @@
+{
+  "schemaVersion": 1,
+  "kind": "integrated-renderer-and-original-main-utility-close-verification",
+  "verifiedAt": "2026-10-09T09:49:48.375Z",
+  "sourceHeadWhenObserved": "59d4360e2e77a6d9b97f961d5dfff778504d9040",
+  "status": "passed",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "node": "v26.9.0",
+  "scope": [
+    "Existing six delayed renderer/native flows after current CORE and Desktop close-gate integration.",
+    "Actual Original Electron main utility close acknowledgment and exit observations.",
+    "Independent bounded native cleanup qualification; preserved unknown/unconfirmed originals."
+  ],
+  "historicalReport": {
+    "path": "docs/moodcode/next-renderer-delivery-verification.json",
+    "sha256": "780451156fecadb3a924d267521877353df4323c33c4f8f70c51c06667b7a226",
+    "unchanged": true,
+    "qualification": "Pinned historical renderer evidence and its null utility authority remain historical. Fresh receipts identify only the newly generated original fixture connections."
+  },
+  "sourceFiles": [
+    {
+      "path": "apps/desktop/src/renderer/App.tsx",
+      "bytes": 29322,
+      "sha256": "20bb476c0619d2d89b6bd2e967e6f1552b6d45df3027589ca5d59a884ff9f251"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/AdvancedPanel.tsx",
+      "bytes": 8883,
+      "sha256": "767a865b81cdacdf355582d39bce48eb407f3d2da87a8a2817e1b5b995aa16bc"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/Timeline.tsx",
+      "bytes": 11746,
+      "sha256": "2daaed100334e1c4eadc6e0672b6afbf5ccf39c52d92aa038574183d5e9bf01d"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/ConversationMarkdown.tsx",
+      "bytes": 4387,
+      "sha256": "f491f0da06cccc0a84aafd63781ec5347946f31ca00cd0003e9d4ea75c892987"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/ReviewPane.tsx",
+      "bytes": 22327,
+      "sha256": "20843ef7984f0e277bfccae57107e992c198aa8c27635271018ac1067f6d4a53"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/LazyCodeBlock.tsx",
+      "bytes": 586,
+      "sha256": "43db30622cc4aa671e2be1b327ccfd58d1248ef7c6ebc5bb859561a195fb57e0"
+    },
+    {
+      "path": "apps/desktop/src/renderer/styles.css",
+      "bytes": 29245,
+      "sha256": "9ee464d1c50ef71d5dce28109dd3393ef12ad57a496446dabf5606aef1198808"
+    },
+    {
+      "path": "apps/desktop/src/renderer/fixtures/delivery-launch.cjs",
+      "bytes": 1343,
+      "sha256": "b6ddd970f73b59f70473e0a2fe8f72c104739009491e42030e75b663cc38f426"
+    },
+    {
+      "path": "apps/desktop/src/renderer/fixtures/verify-delivery.mjs",
+      "bytes": 20111,
+      "sha256": "f7e95868191a8d6166fd10bd92a64d3f43061684137aa39be1d0976ce5c56144"
+    },
+    {
+      "path": "apps/desktop/src/renderer/fixtures/measure-delivery.mjs",
+      "bytes": 2784,
+      "sha256": "ce46e13ec83b049207a3334677aed6082cd9e956748d5bb5cf1e39fbac9e995c"
+    },
+    {
+      "path": "apps/desktop/vite.config.mjs",
+      "bytes": 297,
+      "sha256": "a753242dbe73283837badfdf01310a4352b170efc6b58df558e2092ce4bbdfe7"
+    },
+    {
+      "path": "apps/desktop/index.html",
+      "bytes": 586,
+      "sha256": "a2be3e053d7ba83c05bf53e2f0a13d47d6c859e312dd1cd008d7622bfc8645b5"
+    },
+    {
+      "path": "scripts/desktop-test-evidence.mjs",
+      "bytes": 24102,
+      "sha256": "50fd3d5668234fe66c121bcb8d62c08e098c2c7dd3aa6c2090e2a0f33864a4bb"
+    },
+    {
+      "path": "scripts/desktop-main-utility-close.mjs",
+      "bytes": 7872,
+      "sha256": "6d1acc6c52e27a4d15aa9bf3a3849b1615d553cb4f1c544cfdd39568522a82ce"
+    },
+    {
+      "path": "apps/desktop/src/main/index.ts",
+      "bytes": 16222,
+      "sha256": "08a7847c3c5278853c1eaf098752574e0789d6623ce8b1732f611e365fe37b3b"
+    },
+    {
+      "path": "apps/desktop/src/main/host.ts",
+      "bytes": 31852,
+      "sha256": "73d6364da334aff738566048a98934239b0c96365ea30acc2aa2776f44c88a5f"
+    },
+    {
+      "path": "apps/desktop/src/main/updates.ts",
+      "bytes": 8924,
+      "sha256": "4571a7305e32fc2c86ea46e78cc6d9c584926e42d6029ce10b99a608b7ffaeaf"
+    },
+    {
+      "path": "apps/desktop/src/worker/index.ts",
+      "bytes": 216,
+      "sha256": "d532450bfe453026e533774f15b76a760e267302d3f0e7a68f982f15864f63f2"
+    }
+  ],
+  "runtime": {
+    "bundles": [
+      {
+        "path": "apps/desktop/dist/main/index.js",
+        "bytes": 236914,
+        "sha256": "8b1a9fcb4c7ca8016f1a63036d8a236fee088a92a0bef31a423c8269dd16f084"
+      },
+      {
+        "path": "apps/desktop/dist/main/engine-worker.js",
+        "bytes": 4605805,
+        "sha256": "0235e636d3af6156cd2de59b9f0dbd0372c3d9b268859c227d122e08eb0f1867"
+      },
+      {
+        "path": "apps/desktop/dist/main/preload.cjs",
+        "bytes": 40549,
+        "sha256": "ced9286c0217913390f33e52000f92a0f16823ec1694a5e632ba97ff54304184"
+      },
+      {
+        "path": "apps/desktop/dist/main/supervisor.js",
+        "bytes": 39273,
+        "sha256": "69b1b32bcb177b2ad6112884996f3d591a4b0425396d2b8cb2b4a5368f6301f2"
+      },
+      {
+        "path": "apps/desktop/dist/main/terminals/backend.js",
+        "bytes": 29121,
+        "sha256": "4e2379ac3560d9cf4a21e557bb386ae558c69f1b27c1ed1f87e6c7f2f469516b"
+      },
+      {
+        "path": "apps/desktop/dist/main/terminals/supervisor.js",
+        "bytes": 27264,
+        "sha256": "4ae464fc22cc20e628561e2d8fe167ea5441103c0bc5f824cefd5156a8413274"
+      }
+    ],
+    "engineGraph": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/integrated-engine-runtime-graph.json",
+      "sha256": "1dfe232c4ed6482c5917680fb0aa7dbbbbe78af700384744c598c4932f6b9a49",
+      "sourceSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+      "files": 771,
+      "bytes": 11899924,
+      "comparisonManifest": "artifacts/next-continuation/engine-16b2a10/runtime-before.json",
+      "allCurrentFilePinsMatch": true,
+      "historicalSourceSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
+      "changedFromHistorical": true,
+      "qualification": "Current cc485857 graph differs from old 33b graph. Historical whole/30-minute results are not reused by this finite renderer verification."
+    },
+    "rendererGraph": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/integrated-renderer-runtime-graph.json",
+      "sha256": "09af5eb1c7be29cc9a55818fd123739f8fbb55ef44fc14c462f5afad68e2f407",
+      "initialJSBytes": 261484,
+      "totalJSBytes": 660534,
+      "largestChunkBytes": 261484,
+      "unchangedFromHistoricalRendererBytes": true,
+      "build": "Root completed npm run build:desktop before this execution; this agent did not rebuild."
+    }
+  },
+  "verification": {
+    "rendererUnits": {
+      "pass": 33,
+      "fail": 0,
+      "skipped": 0,
+      "command": "node --import ./node_modules/tsx/dist/loader.mjs --test apps/desktop/src/renderer/store.test.ts apps/desktop/src/renderer/advanced-store.test.ts apps/desktop/src/renderer/next-stage-history-store.test.ts apps/desktop/src/renderer/model.test.ts apps/desktop/src/renderer/conversation.test.ts",
+      "qualification": "Previously observed 33/33 at the same pinned renderer source. These tests do not import the modified main utility-close helper; Root requested no repeat."
+    },
+    "gui": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/integrated-after-helper-fix-gui.json",
+      "sha256": "53b08bc637ea10a4dce00b8a41e193e4e204c3ee9813c77cbc0251e4019b3f28",
+      "status": "passed",
+      "checks": [
+        "Delayed advanced dialog cancels; reopen after session change binds only the current native session.",
+        "Reload during a delayed settings import cannot reopen the previous dialog; the new view opens normally.",
+        "Timeline/code imports remain deferred; approval actions wait for the preview; session change/reload preserves native approval without stale UI or replay.",
+        "With file CodeBlock still deferred and unmounted, restore's eager before/after diff is visible; native restore preserves the exact preview fingerprint and the late code view stays absent.",
+        "Native approve/edit/command/diff/stale-restore/restore/history reload/file preview/recovery flows pass; the terminal event sequence remains unchanged by restore.",
+        "Reload and cancel operate while the delayed Timeline is absent; its eventual mount receives the current cancelled native Run."
+      ],
+      "fixtureCount": 2,
+      "networkAttempts": 0,
+      "rendererErrors": [],
+      "hidden": true,
+      "isolation": [
+        {
+          "scenario": "coding",
+          "require": "undefined",
+          "process": "undefined",
+          "urlProtocol": "file:"
+        },
+        {
+          "scenario": "slow",
+          "require": "undefined",
+          "process": "undefined",
+          "urlProtocol": "file:"
+        }
+      ],
+      "themeResults": [
+        {
+          "media": "dark",
+          "rootColor": "rgb(217, 220, 224)",
+          "rootTextToken": "#d9dce0",
+          "historyStrongColor": "rgb(217, 220, 224)",
+          "historyColor": "rgb(181, 170, 138)",
+          "colorScheme": "dark"
+        },
+        {
+          "media": "light",
+          "rootColor": "rgb(217, 220, 224)",
+          "rootTextToken": "#d9dce0",
+          "historyStrongColor": "rgb(217, 220, 224)",
+          "historyColor": "rgb(181, 170, 138)",
+          "colorScheme": "dark"
+        }
+      ]
+    },
+    "mainUtilities": {
+      "receiptSource": "Original Electron app event moodcode:utility-close; fixture-only allowlisted read-only observer; no public IPC addition.",
+      "connections": [
+        {
+          "connectionId": "899a948d-0796-47e9-a140-f8b7d77af857",
+          "scope": "engine",
+          "source": "original-electron-utility",
+          "generation": 1,
+          "utilityExitObservable": true,
+          "engineCloseAcknowledged": true,
+          "utilityExitObserved": true,
+          "exitCode": 0,
+          "cleanupConfirmed": true,
+          "forcedStop": false,
+          "reason": null
+        },
+        {
+          "connectionId": "f80e0735-e6ae-4e7d-b804-ddb1eb4dd7fa",
+          "scope": "storage",
+          "source": "original-electron-utility",
+          "generation": 1,
+          "utilityExitObservable": true,
+          "engineCloseAcknowledged": true,
+          "utilityExitObserved": true,
+          "exitCode": 0,
+          "cleanupConfirmed": true,
+          "forcedStop": false,
+          "reason": null
+        },
+        {
+          "connectionId": "d3423de0-a337-4458-beae-d915e810f391",
+          "scope": "engine",
+          "source": "original-electron-utility",
+          "generation": 1,
+          "utilityExitObservable": true,
+          "engineCloseAcknowledged": true,
+          "utilityExitObserved": true,
+          "exitCode": 0,
+          "cleanupConfirmed": true,
+          "forcedStop": false,
+          "reason": null
+        }
+      ],
+      "utilityAcknowledged": true,
+      "utilityExitObserved": true,
+      "forcedStop": false,
+      "allOriginalExitCodesZero": true,
+      "completeCoverage": true
+    }
+  },
+  "cleanup": {
+    "fixtures": [
+      {
+        "scenario": "coding",
+        "originalDirectory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-9JqLXo",
+        "state": "unconfirmed",
+        "nativeConfirmed": false,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility",
+        "applicationExitObserved": true,
+        "applicationExitCode": 0,
+        "originalPreserved": true,
+        "preservedEvidence": {
+          "directory": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-coding-q6jnPh",
+          "manifestPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-coding-q6jnPh/manifest.json",
+          "copiedFiles": 14,
+          "totalBytes": 1489929,
+          "truncated": false,
+          "originalSourceRetained": true,
+          "originalSourceDirectory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-9JqLXo"
+        }
+      },
+      {
+        "scenario": "slow",
+        "originalDirectory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-5f8Zju",
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility",
+        "applicationExitObserved": true,
+        "applicationExitCode": 0,
+        "originalPreserved": true,
+        "preservedEvidence": {
+          "directory": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-slow-jZqoZu",
+          "manifestPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-slow-jZqoZu/manifest.json",
+          "copiedFiles": 6,
+          "totalBytes": 1282048,
+          "truncated": false,
+          "originalSourceRetained": true,
+          "originalSourceDirectory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-5f8Zju"
+        }
+      }
+    ],
+    "nativeManifests": [
+      {
+        "scenario": "coding",
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-coding-q6jnPh/manifest.json",
+        "sha256": "c596d33ac88c0c3c7b0a77f4f18cfa26dcaf3b145a588d3d23739375416db581",
+        "copiedFiles": 14,
+        "bytes": 1489929,
+        "rawCopyHashesMatchManifest": true,
+        "mainReceiptCopy": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-coding-q6jnPh/main-utility-close.json",
+        "mainReceiptSha256": "5ce6b789dbac11b00cc69a4f4f4c1c8322d6ebea7655b2f0cf6a19487891416f",
+        "nativeQualification": false,
+        "aggregateState": "unconfirmed",
+        "reviewOperations": [
+          {
+            "state": "failed",
+            "effectsUncertain": true,
+            "error": {
+              "code": "RESTORE_PREVIEW_STALE"
+            }
+          },
+          {
+            "state": "completed",
+            "effectsUncertain": false
+          }
+        ],
+        "originalSourceExists": true,
+        "coherentRecoveryBackup": false
+      },
+      {
+        "scenario": "slow",
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-slow-jZqoZu/manifest.json",
+        "sha256": "54af7b1564bcb2dcce77cf83c017d8d393ae392937761b101a7febb2b5d01f9a",
+        "copiedFiles": 6,
+        "bytes": 1282048,
+        "rawCopyHashesMatchManifest": true,
+        "mainReceiptCopy": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-slow-jZqoZu/main-utility-close.json",
+        "mainReceiptSha256": "392694d059c228714d8fdf1ecc986c6ea2cb56bdbb473897bdd8fa1842345b08",
+        "nativeQualification": null,
+        "aggregateState": "unknown",
+        "reviewOperations": [],
+        "originalSourceExists": true,
+        "coherentRecoveryBackup": false
+      }
+    ],
+    "oldUnknownRetention": [
+      {
+        "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-zI5FPy",
+        "originalExists": true,
+        "nativeCleanupAuthority": null,
+        "originalRetained": true
+      },
+      {
+        "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-9hVRUx",
+        "originalExists": true,
+        "nativeCleanupAuthority": null,
+        "originalRetained": true
+      },
+      {
+        "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-kz4l0p",
+        "originalExists": true,
+        "nativeCleanupAuthority": null,
+        "originalRetained": true
+      },
+      {
+        "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-ZGfiSc",
+        "originalExists": true,
+        "nativeCleanupAuthority": null,
+        "originalRetained": true
+      },
+      {
+        "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-lmQ0rl",
+        "originalExists": true,
+        "nativeCleanupAuthority": null,
+        "originalRetained": true
+      },
+      {
+        "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-v84tQp",
+        "originalExists": true,
+        "nativeCleanupAuthority": null,
+        "originalRetained": true
+      },
+      {
+        "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-3ZUmKT",
+        "originalExists": true,
+        "nativeCleanupAuthority": null,
+        "originalRetained": true
+      },
+      {
+        "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-theme-baseline-uJdGj4",
+        "originalExists": true,
+        "nativeCleanupAuthority": null,
+        "originalRetained": true
+      },
+      {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-ZztkV9",
+        "originalExists": true,
+        "nativeCleanupAuthority": null,
+        "originalRetained": true
+      },
+      {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-WKE2tL",
+        "originalExists": true,
+        "nativeCleanupAuthority": null,
+        "originalRetained": true
+      },
+      {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-82Ay8e",
+        "originalExists": true,
+        "nativeCleanupAuthority": null,
+        "originalRetained": true,
+        "scope": "before-helper-fix actual six-flow fixture"
+      },
+      {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-WjW4mD",
+        "originalExists": true,
+        "nativeCleanupAuthority": null,
+        "originalRetained": true,
+        "scope": "before-helper-fix actual six-flow fixture"
+      }
+    ],
+    "qualification": "Original Electron main app events supply utility close ACK/exit receipts. Application or utility exit cannot prove complete native cleanup; bounded native qualification and aggregate cleanup remain independent. Generated originals and native copies are preserved; no numeric PID is signalled or used for deletion.",
+    "negativeNativeQualification": "The deliberate stale restore test leaves a failed restore audit that the bounded native qualifier treats as uncertainty. Coding remains unconfirmed; slow remains unknown. Confirmed Original utility closure supplies no full native effect/ownership proof.",
+    "anyOriginalDeleted": false,
+    "pidUsedAsAuthority": false
+  },
+  "qualification": {
+    "accounts": "Scripted providers only; no real profile, auth file, live inference, signing, publishing or network dispatch.",
+    "coverage": "This report verifies the existing six renderer flows and 33 renderer unit tests. Whole-engine, long-running soak, installed update and external-account acceptance remain owned and qualified separately by Root."
+  },
+  "reproduce": {
+    "gui": "node apps/desktop/src/renderer/fixtures/verify-delivery.mjs artifacts/renderer-delivery/integrated-after-helper-fix-gui.json",
+    "prerequisite": "Use the source-pinned integrated desktop build. GUI creates fresh isolated scripted profiles, hides windows and preserves native originals/copies."
+  },
+  "executionHelper": {
+    "phase": "after-malformed-flag-fix",
+    "path": "scripts/desktop-main-utility-close.mjs",
+    "sha256": "6d1acc6c52e27a4d15aa9bf3a3849b1615d553cb4f1c544cfdd39568522a82ce",
+    "preflight": {
+      "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/integrated-after-helper-fix-preflight.json",
+      "sha256": "c6f4e56cc7cc7e529002d9ee9c50d392720e18643824982938177cd310eedc59",
+      "capturedAt": "2026-10-09T09:48:28.551Z",
+      "head": "59d4360e2e77a6d9b97f961d5dfff778504d9040"
+    },
+    "unchangedThroughoutExecution": true,
+    "qualification": "Helper and relevant source/runtime bytes were captured before execution and compared afterward. Genuine main receipt flags remain explicit; no missing/null field is promoted."
+  },
+  "helperFixComparison": {
+    "before": {
+      "helperSha256": "6dfea16e0fd8bc58c0c7081788bacf95d3e33f11b050b570cb9f7309ff36753e",
+      "sourceRevision": "eef2b759061971b07bc4a3f8abd582e234d3df0f",
+      "report": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/integrated-before-helper-fix-verification.json",
+        "sha256": "7491449a293e7462940100bd0973831e15fe0fac0e02adead5ccf805834e6bb7"
+      },
+      "gui": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/integrated-final-gui.json",
+        "sha256": "f1baf4ec077b71caa17fd0134327aa2f5b3bb842fb30dd139125b984d57ea5bd",
+        "status": "passed",
+        "checks": [
+          "Delayed advanced dialog cancels; reopen after session change binds only the current native session.",
+          "Reload during a delayed settings import cannot reopen the previous dialog; the new view opens normally.",
+          "Timeline/code imports remain deferred; approval actions wait for the preview; session change/reload preserves native approval without stale UI or replay.",
+          "With file CodeBlock still deferred and unmounted, restore's eager before/after diff is visible; native restore preserves the exact preview fingerprint and the late code view stays absent.",
+          "Native approve/edit/command/diff/stale-restore/restore/history reload/file preview/recovery flows pass; the terminal event sequence remains unchanged by restore.",
+          "Reload and cancel operate while the delayed Timeline is absent; its eventual mount receives the current cancelled native Run."
+        ],
+        "fixtureCount": 2,
+        "networkAttempts": 0,
+        "rendererErrors": [],
+        "hidden": true,
+        "isolation": [
+          {
+            "scenario": "coding",
+            "require": "undefined",
+            "process": "undefined",
+            "urlProtocol": "file:"
+          },
+          {
+            "scenario": "slow",
+            "require": "undefined",
+            "process": "undefined",
+            "urlProtocol": "file:"
+          }
+        ],
+        "themeResults": [
+          {
+            "media": "dark",
+            "rootColor": "rgb(217, 220, 224)",
+            "rootTextToken": "#d9dce0",
+            "historyStrongColor": "rgb(217, 220, 224)",
+            "historyColor": "rgb(181, 170, 138)",
+            "colorScheme": "dark"
+          },
+          {
+            "media": "light",
+            "rootColor": "rgb(217, 220, 224)",
+            "rootTextToken": "#d9dce0",
+            "historyStrongColor": "rgb(217, 220, 224)",
+            "historyColor": "rgb(181, 170, 138)",
+            "colorScheme": "dark"
+          }
+        ]
+      },
+      "mainUtilities": {
+        "receiptSource": "Original Electron app event moodcode:utility-close; fixture-only allowlisted read-only observer; no public IPC addition.",
+        "connections": [
+          {
+            "connectionId": "8daf1cf2-aec4-4395-82db-6558717fc7be",
+            "scope": "engine",
+            "source": "original-electron-utility",
+            "generation": 1,
+            "utilityExitObservable": true,
+            "engineCloseAcknowledged": true,
+            "utilityExitObserved": true,
+            "exitCode": 0,
+            "cleanupConfirmed": true,
+            "forcedStop": false,
+            "reason": null
+          },
+          {
+            "connectionId": "7ec082ff-b0a8-4085-a385-ed1ab1fdd18a",
+            "scope": "storage",
+            "source": "original-electron-utility",
+            "generation": 1,
+            "utilityExitObservable": true,
+            "engineCloseAcknowledged": true,
+            "utilityExitObserved": true,
+            "exitCode": 0,
+            "cleanupConfirmed": true,
+            "forcedStop": false,
+            "reason": null
+          },
+          {
+            "connectionId": "626cba05-6261-4304-951d-304aa803ad5b",
+            "scope": "engine",
+            "source": "original-electron-utility",
+            "generation": 1,
+            "utilityExitObservable": true,
+            "engineCloseAcknowledged": true,
+            "utilityExitObserved": true,
+            "exitCode": 0,
+            "cleanupConfirmed": true,
+            "forcedStop": false,
+            "reason": null
+          }
+        ],
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "allOriginalExitCodesZero": true,
+        "completeCoverage": true
+      },
+      "nativeStates": [
+        {
+          "scenario": "coding",
+          "state": "unconfirmed",
+          "nativeConfirmed": false
+        },
+        {
+          "scenario": "slow",
+          "state": "unknown",
+          "nativeConfirmed": null
+        }
+      ],
+      "qualification": "First six-flow execution imported the pre-fix helper. The later source-file capture occurred after Root changed this helper; its execution pin is corrected using the exact unchanged 903/eef helper bytes, without changing the actual first-run results or original receipts."
+    },
+    "after": {
+      "helperSha256": "6d1acc6c52e27a4d15aa9bf3a3849b1615d553cb4f1c544cfdd39568522a82ce",
+      "gui": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/integrated-after-helper-fix-gui.json",
+        "sha256": "53b08bc637ea10a4dce00b8a41e193e4e204c3ee9813c77cbc0251e4019b3f28",
+        "status": "passed",
+        "checks": 6
+      },
+      "mainUtilityConnections": 3,
+      "nativeStates": [
+        {
+          "scenario": "coding",
+          "state": "unconfirmed",
+          "nativeConfirmed": false
+        },
+        {
+          "scenario": "slow",
+          "state": "unknown",
+          "nativeConfirmed": null
+        }
+      ],
+      "sourceRuntimePreflightUnchanged": true
+    },
+    "scope": "Only the shared driver receipt projection/qualification helper changed between these runs. Existing six flows were repeated exactly once; no production rebuild or renderer unit repeat was performed. First-run receipts and original unknown/unconfirmed native states remain distinct."
+  }
+}
