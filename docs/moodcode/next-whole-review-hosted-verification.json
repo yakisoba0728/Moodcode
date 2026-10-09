@@ -1,0 +1,417 @@
+{
+  "schemaVersion": 1,
+  "kind": "whole-review-current-actual-hosted-acceptance",
+  "recordedAt": "2026-10-09T14:09:57.218251+00:00",
+  "codeCommit": "864f68afc4c1376d2804be672779df69d00cf58a",
+  "status": "eleven-actual-jobs-passed-original-artifacts-and-contracts-validated",
+  "counts": {
+    "workflows": 3,
+    "jobs": 11,
+    "successfulJobs": 11,
+    "failedJobs": 0,
+    "originalArtifacts": 11,
+    "originalJobLogs": 11,
+    "archives": 11,
+    "rawJobLogs": 11,
+    "zipBytes": 761900131,
+    "archiveEntries": 7092,
+    "uncompressedBytes": 2620155355,
+    "originalManifestDerivedReferenceReads": 5340
+  },
+  "jobs": [
+    {
+      "runId": 37940078380,
+      "jobId": 113851918472,
+      "jobName": "Portable contracts/storage only / Windows / Node 24.x",
+      "scope": "portable-contracts-storage",
+      "conclusion": "success",
+      "rawCounts": {
+        "tests": 159,
+        "suites": 0,
+        "pass": 159,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "referencesChecked": 0,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37940078380/job/113851918472",
+      "originalTestLog": {
+        "bytes": 17024,
+        "sha256": "15910794bf8c9ae536948d5c49b5e3a1a55dd4d443ac754f1fcfe61d1bd853e5"
+      }
+    },
+    {
+      "runId": 37940078380,
+      "jobId": 113851918668,
+      "jobName": "Headless ubuntu-24.04 / Node 24.x",
+      "scope": "headless-POSIX",
+      "conclusion": "success",
+      "rawCounts": {
+        "tests": 4994,
+        "suites": 0,
+        "pass": 4929,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 65,
+        "todo": 0
+      },
+      "referencesChecked": 1293,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37940078380/job/113851918668",
+      "originalTestLog": {
+        "bytes": 710572,
+        "sha256": "0d0b2145efa1210c3bfddf9dede7e91bca7a664fd64c690c9bd08437deed3b51"
+      },
+      "postFullHeadlessReports": [
+        {
+          "kind": "evaluation",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "resilience",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "persistent-soak",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "pty-repeatability",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "benchmark",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        }
+      ]
+    },
+    {
+      "runId": 37940078380,
+      "jobId": 113851918670,
+      "jobName": "Portable contracts/storage only / Windows / Node 26.x",
+      "scope": "portable-contracts-storage",
+      "conclusion": "success",
+      "rawCounts": {
+        "tests": 159,
+        "suites": 0,
+        "pass": 159,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "referencesChecked": 0,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37940078380/job/113851918670",
+      "originalTestLog": {
+        "bytes": 17001,
+        "sha256": "ed63999bcde5ea3340e6dd2680e3ade4035c2093bab6f85e551f5dcb5e191f3b"
+      }
+    },
+    {
+      "runId": 37940078380,
+      "jobId": 113851918808,
+      "jobName": "Headless ubuntu-24.04 / Node 26.x",
+      "scope": "headless-POSIX",
+      "conclusion": "success",
+      "rawCounts": {
+        "tests": 4994,
+        "suites": 0,
+        "pass": 4929,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 65,
+        "todo": 0
+      },
+      "referencesChecked": 1238,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37940078380/job/113851918808",
+      "originalTestLog": {
+        "bytes": 711145,
+        "sha256": "32e2a950a9c7435d3da8cb47bb99ba21e98240864728bac7dc57ae0ec6e97532"
+      },
+      "postFullHeadlessReports": [
+        {
+          "kind": "evaluation",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "resilience",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "persistent-soak",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "pty-repeatability",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "benchmark",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        }
+      ]
+    },
+    {
+      "runId": 37940078380,
+      "jobId": 113851918822,
+      "jobName": "Headless macos-15 / Node 24.x",
+      "scope": "headless-POSIX",
+      "conclusion": "success",
+      "rawCounts": {
+        "tests": 4994,
+        "suites": 0,
+        "pass": 4991,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 3,
+        "todo": 0
+      },
+      "referencesChecked": 1281,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37940078380/job/113851918822",
+      "originalTestLog": {
+        "bytes": 731613,
+        "sha256": "e6471d9a2ee110199933ba7bf3b3036ded7d15dbc05f1b75fe558cbbef6dc289"
+      },
+      "postFullHeadlessReports": [
+        {
+          "kind": "evaluation",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "resilience",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "persistent-soak",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "pty-repeatability",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "benchmark",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        }
+      ]
+    },
+    {
+      "runId": 37940078380,
+      "jobId": 113851918945,
+      "jobName": "Headless macos-15 / Node 26.x",
+      "scope": "headless-POSIX",
+      "conclusion": "success",
+      "rawCounts": {
+        "tests": 4994,
+        "suites": 0,
+        "pass": 4991,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 3,
+        "todo": 0
+      },
+      "referencesChecked": 1362,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37940078380/job/113851918945",
+      "originalTestLog": {
+        "bytes": 731181,
+        "sha256": "ca28b8f22fe9bcfd1e6c40a2d2a3921d94991875d3f2db5cad0b01c6588422b9"
+      },
+      "postFullHeadlessReports": [
+        {
+          "kind": "evaluation",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "resilience",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "persistent-soak",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "pty-repeatability",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        },
+        {
+          "kind": "benchmark",
+          "originalContractPassed": true,
+          "executionExitCode": 0
+        }
+      ]
+    },
+    {
+      "runId": 37940078465,
+      "jobId": 113851918423,
+      "jobName": "Native Windows Job Object / x64 / Node 26.x",
+      "scope": "actual-Windows-native",
+      "conclusion": "success",
+      "rawCounts": {
+        "tests": 38,
+        "suites": 0,
+        "pass": 38,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "referencesChecked": 20,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37940078465/job/113851918423",
+      "originalTestLog": {
+        "bytes": 13736,
+        "sha256": "dfcc5110075489e22e4e95463ccafc17268d4bd197c1954d24ab21b361c85a6d"
+      },
+      "newOwnedDeliveryActuallyExecuted": true,
+      "newOwnedDeliveryPassed": true
+    },
+    {
+      "runId": 37940078465,
+      "jobId": 113851918712,
+      "jobName": "Native Windows Job Object / x64 / Node 24.x",
+      "scope": "actual-Windows-native",
+      "conclusion": "success",
+      "rawCounts": {
+        "tests": 38,
+        "suites": 0,
+        "pass": 38,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "referencesChecked": 20,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37940078465/job/113851918712",
+      "originalTestLog": {
+        "bytes": 13736,
+        "sha256": "63717b0e7d113764806965f0e1e0f358bdb01bd32e9c9d753f7a9a19522935b3"
+      },
+      "newOwnedDeliveryActuallyExecuted": true,
+      "newOwnedDeliveryPassed": true
+    },
+    {
+      "runId": 37940078359,
+      "jobId": 113851918410,
+      "jobName": "Unsigned bundle and native smoke / ubuntu-24.04",
+      "scope": "unsigned-desktop-package-smoke",
+      "conclusion": "success",
+      "rawCounts": {
+        "tests": 113,
+        "suites": 0,
+        "pass": 113,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "referencesChecked": 19,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37940078359/job/113851918410",
+      "originalTestLog": {
+        "bytes": 55238,
+        "sha256": "dd9a6ff947d41090425fd38cf817605b4ebdd5bc3ff3c108abc6657afd0ba949"
+      }
+    },
+    {
+      "runId": 37940078359,
+      "jobId": 113851918754,
+      "jobName": "Unsigned bundle and native smoke / windows-2025",
+      "scope": "unsigned-desktop-package-smoke",
+      "conclusion": "success",
+      "rawCounts": {
+        "tests": 113,
+        "suites": 0,
+        "pass": 113,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "referencesChecked": 26,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37940078359/job/113851918754",
+      "originalTestLog": {
+        "bytes": 61769,
+        "sha256": "4da2740c93442bb78e06081e7f7b1b28b5e201d4f5a8ba83ebf841122628fa6a"
+      }
+    },
+    {
+      "runId": 37940078359,
+      "jobId": 113851918796,
+      "jobName": "Unsigned bundle and native smoke / macos-15",
+      "scope": "unsigned-desktop-package-smoke",
+      "conclusion": "success",
+      "rawCounts": {
+        "tests": 113,
+        "suites": 0,
+        "pass": 113,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "referencesChecked": 81,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37940078359/job/113851918796",
+      "originalTestLog": {
+        "bytes": 79584,
+        "sha256": "2123a302cd545d52cda4327debf0a2b0743ee0b11cbd7889bbef952104d26e3c"
+      }
+    }
+  ],
+  "localEvidenceAvailability": "Raw logs, Original ZIPs and retained native copies remain in ignored local artifacts. Pins alone do not publish those bytes. GitHub run URLs retain hosted artifacts subject to provider retention.",
+  "originalEvidencePins": [
+    {
+      "path": "artifacts/next-continuation/full-review/integration/hosted-864f68a/hosted-summary.json",
+      "bytes": 8904968,
+      "sha256": "526e0fa5b1d378730f13c0729f1510d7d9948d47c147a1878d071481d5ae00a7"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/integration/hosted-864f68a/independent-original-byte-audit.json",
+      "bytes": 10204,
+      "sha256": "b6fd088f21bfa4cfb2f93b2404c29e1231351b0d737076497b0fe0d383efcc0e"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/integration/hosted-864f68a/post-headless-semantic-validation.json",
+      "bytes": 4050308,
+      "sha256": "58a74f58877bac56fd105fae097caed7e789d53913c27fec5a2ff175696f8abf"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/integration/hosted-35796ab/hosted-summary.json",
+      "bytes": 405021,
+      "sha256": "a5055398b9aa3332bb2059963afe3a80e95c2443aeba8ae345a3b160d9c0052b"
+    }
+  ],
+  "previousFailedCommit": {
+    "sha": "35796ab052389508125476ae3dca0a1887e806fa",
+    "successfulJobs": 6,
+    "failedJobs": 5,
+    "originalFailuresPreserved": true,
+    "oldPidValueOrExactInodeReuseCauseEstablished": false
+  },
+  "scopes": {
+    "WindowsPortable": "contracts/storage159, not full Windows engine",
+    "WindowsNative": "actual x64 Job Object and Engine38 per Node24/26; new cancelled-owned-delivery body actually passed",
+    "POSIXHeadless": "macOS4991pass/3skips; Linux4929pass/65skips per Node24/26; unsupported native bodies remain skips",
+    "Desktop": "three actual unsigned bundle/native utility smoke jobs;113 tests each; not signed installer acceptance",
+    "PostHeadless": "four POSIX jobs each executed evaluation/resilience/persistent/PTY/benchmark;20 Original JSON reports; persistent quick1000ms, PTY3 repeats x5 cases; separate30min local gate",
+    "Unknown": "native cleanup null/false, partial diagnostic coverage and historical failure observations remain unchanged"
+  },
+  "fullGoalAchieved": false,
+  "externalDecision": "외부 검증은 준비 후 진행"
+}

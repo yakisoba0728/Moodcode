@@ -4,14 +4,15 @@
   "recordedAt": "2026-10-09T11:41:00.757089+00:00",
   "mainAtAudit": "f3582bd1af33754e281810fe8e8bde5e0c3373a9",
   "previousAcceptedImplementation": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
-  "status": "whole-review-and-approved-current-source-local-gates-complete; persistent-and-actual-OS-acceptance-pending",
+  "status": "whole-review-and-reviewed-current-source-controlled-local-long-OS-package-acceptance-complete; external-conditions-pending",
   "fullGoalAchieved": false,
-  "previousTurnClassification": "progress; implementation, actual regression/CI/30-minute acceptance, documentation and main push",
+  "previousTurnClassification": "progress; actualCI failures diagnosed, four minimal test-only corrections implemented/reviewed/compiled/pushed, actual30min completed and newCI11/11 verified",
   "currentProgress": [
     "Independently verified all eleven retained ZIPs and all 4995 declared references, plus five additional managed content references",
     "Direct manual review of all ten currently AST-unsupported owned files and source-absent declaration evidence",
     "Found locally fixable CSS load-order and crash/load Original-retention gaps",
-    "Reopened original whole-owned-code responsibility/caller/registration/resource/compatibility/disposition review and dispatched all 1092 files without overlap or omission"
+    "Reopened original whole-owned-code responsibility/caller/registration/resource/compatibility/disposition review and dispatched all 1092 files without overlap or omission",
+    "35796ab whole-source local gates and GUI7; preserved failedOS originals;864f68a test-only correction with actual11/11 hosted/20 post-headless contracts and actual30min productgraph parity"
   ],
   "reopenedTodo": [
     "RF-01",
@@ -37,7 +38,7 @@
       "dispatch": "reused",
       "model": "gpt-6.1-sol",
       "reasoning": "xhigh",
-      "stateWhenObserved": "initial-review-complete; authorized-followup-fixes-active",
+      "stateWhenObserved": "assigned-source-review/fixes/affected-verification-complete",
       "files": 320,
       "physicalLines": 89951,
       "parallelAgentsRequested": true,
@@ -61,7 +62,7 @@
       "dispatch": "reused",
       "model": "gpt-6.1-sol",
       "reasoning": "xhigh",
-      "stateWhenObserved": "initial-review-complete; authorized-followup-fixes-active",
+      "stateWhenObserved": "assigned-source-review/fixes/affected-verification-complete",
       "files": 266,
       "physicalLines": 55734,
       "parallelAgentsRequested": true,
@@ -85,7 +86,7 @@
       "dispatch": "created",
       "model": "gpt-6.1-sol",
       "reasoning": "xhigh",
-      "stateWhenObserved": "initial-review-complete; authorized-followup-fixes-active",
+      "stateWhenObserved": "assigned-source-review/fixes/affected-verification-complete",
       "files": 298,
       "physicalLines": 79947,
       "parallelAgentsRequested": true,
@@ -109,7 +110,7 @@
       "dispatch": "created",
       "model": "gpt-6.1-sol",
       "reasoning": "xhigh",
-      "stateWhenObserved": "initial-review-complete; authorized-followup-fixes-active",
+      "stateWhenObserved": "assigned-source-review/fixes/affected-verification-complete",
       "files": 208,
       "physicalLines": 88677,
       "parallelAgentsRequested": true,
@@ -140,28 +141,28 @@
     {
       "id": "GUI-CSS-01",
       "owner": "/root/renderer_delivery",
-      "state": "affected-local-verification-and-independent-acceptance-complete; common-source-OS-integration-pending",
+      "state": "affected-source/local-independent-and-current-supported-OS-acceptance-complete",
       "trigger": "Eager composer/Settings/account/update shared rules live only in Advanced lazy CSS",
       "preservation": "Move exact shared declarations to eager ownership, keep Advanced-specific loading and compare fresh-before-Advanced computed styles"
     },
     {
       "id": "TEST-04",
       "owner": "/root/continuation_contract_review",
-      "state": "affected-local-verification-and-independent-acceptance-complete; common-source-OS-integration-pending",
+      "state": "affected-source/local-independent-and-current-supported-OS-acceptance-complete",
       "trigger": "Parent crash/load tests bypass child after hook, delete uncertain Originals and issue numeric fallback cleanup",
       "preservation": "Keep real SIGKILL on original ChildProcess handle, exact assertions/deadlines/no-replay/archive, settle every owned Engine and retain Original/unknown metadata"
     },
     {
       "id": "DP-MCP-STDIO-CLOSE-01",
       "owner": "desktop-provider session; one delegated editor",
-      "state": "affected-local-verification-and-independent-acceptance-complete; common-source-OS-integration-pending",
+      "state": "affected-source/local-independent-and-current-supported-OS-acceptance-complete",
       "trigger": "Plain MCP stdio observer sees cleanup false while shutdown returns fulfilled",
       "preservation": "Existing typed cleanup-uncertain contract, memoized close/cancel/observer and native effect uncertainty"
     },
     {
       "id": "DP-RESILIENCE-TEMP-01",
       "owner": "desktop-provider session; one delegated editor",
-      "state": "affected-local-verification-and-independent-acceptance-complete; common-source-OS-integration-pending",
+      "state": "affected-source/local-independent-and-current-supported-OS-acceptance-complete",
       "trigger": "Failed report rename leaves this invocation exclusive temporary file",
       "preservation": "Only dispose a temporary created by this invocation, retain foreign files and original failure/no-green contract"
     }
@@ -226,7 +227,7 @@
     ]
   },
   "goalPolicy": "Keep the full original objective active while meaningful local review/fix work runs. External deferral is neither completion nor permission for live validation.",
-  "updatedAt": "2026-10-09T13:23:02.620430+00:00",
+  "updatedAt": "2026-10-09T14:09:57.218251+00:00",
   "initialSemanticReview": {
     "files": 1092,
     "physicalLines": 314309,
@@ -565,17 +566,20 @@
     "provenance": "Exact owner initial findings pins above; genuine Native/account tests, controlled probes and static-only candidates distinguished in those raw findings."
   },
   "confirmedAdditionalWork": [
-    "Core audio/video fork/recovery source fixes passed affected checks; compiled acceptance pending",
-    "Core ACP cumulative evidence budget actual Native red confirmed; same shared readEvidenceBody fix authorized",
-    "Context Native192-session retention growth and fork-only128-capture bypass confirmed; minimum lifecycle-bound fixes authorized",
-    "Native/tools10 and Automation/CI5 findings assigned to functional parallel fix units; affected/native OS gates preserved",
-    "Desktop/provider7 further lifecycle/presentation/credential projections assigned; no live account requested",
-    "CSTORE-002 genuine2-Run resident Native public usage red confirmed: 10,683-byte reduced budget accepted15,241 raw JSON bytes with4,572 uncharged; existing shared-budget minimum fix authorized"
+    "Context ownership/media fork/provider recovery, ACP and resident shared evidence budgets implemented and actual supported regression passed",
+    "Native command/child/workflow/Git boundaries and scoped source loaders implemented; two named unproved diagnostic candidates retained",
+    "Original fixture joins/first failures/unknown retention, plugin disposal and desktop/provider projections implemented and verified",
+    "Automation jobs/nativeWindows delivery/PR observer/branded signal checks implemented and actual38-case Windows native lanes passed",
+    "Four actualCI fixture failures corrected without product/API/DB/budget changes, assertion deletion, new skips or timeout expansion"
   ],
   "currentSourceVerification": "docs/moodcode/next-whole-review-source-verification.json",
   "remainingParentGates": [
-    "actual30min same-instance current production run",
-    "actualOS/NodeCI and unsigned packages",
-    "final TODO/docs and main synchronization"
-  ]
+    "actual SIWC browser/account acceptance",
+    "actual Anthropic/provider/media acceptance",
+    "signed/notarized installed and published update acceptance",
+    "historical R-PTY-01 causal Original data"
+  ],
+  "currentCodeCommit": "864f68afc4c1376d2804be672779df69d00cf58a",
+  "currentHostedVerification": "docs/moodcode/next-whole-review-hosted-verification.json",
+  "publicationQualification": "Current source acceptance is 864f68a. Final documentation is prepared as a documentation-only descendant; publication is checked against actual main refs after commit and push. The goal remains incomplete for the original external conditions."
 }
