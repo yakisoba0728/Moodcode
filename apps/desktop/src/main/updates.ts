@@ -10,7 +10,7 @@ interface UpdateOptions {
   currentVersion: string;
   enabled: boolean;
   reason?: string;
-  /** Cleanup must complete before the installer can quit or replace the application. */
+  /** Must reject unless original utility close ACKs and successful exits are confirmed. */
   closeEngine(): Promise<void>;
   onChange?(view: DesktopAppUpdate): void;
 }

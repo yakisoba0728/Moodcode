@@ -13,11 +13,11 @@ export function mayDeleteDesktopTestDirectory({ outcome, cleanup }) {
 }
 const sources = new Map();
 const captures = new WeakSet();
-const states = new Set(['created','running','awaiting_approval','cancelling','completed','cancelled','failed','interrupted','uncertain','requested','streaming','awaiting_tools','pending','allowed','denied','expired','settled','prepared','dispatched','not-dispatched','dispatch-intent','response-terminal','closed','open','starting','exited','draining','unknown','active','stopping','terminated','waiting','ready','confirmed','unconfirmed','unavailable']);
-const containers = new Set(['runs','tools','parts','turns','children','terminals','attempts','attemptCleanup','mcpExecutions','executionObservations','records','record','resident','cleanup','nativeExit','groupCleanup','supervisor','utility','applicationClose','outcome','source','sourceBefore','sourceAfter','diagnostics','events','error','errors']);
-const booleans = new Set(['available','observed','cleanupConfirmed','cleanupUncertain','effectsUncertain','transportCleanupConfirmed','executionBlocked','remoteResponseObserved','nativeConfirmed','utilityAcknowledged','utilityExitObserved','acknowledged','exitObserved','closeObserved','resultObserved','stopRequested','stopSendFailed','forcedStop','requested','settled','nativeExitObserved','resultComplete','incomplete','complete','confirmed','exited','closed','cancelled','timedOut']);
-const numeric = new Set(['exitCode','ordinal','revision','turnIndex','activeProcessCount','fileCount','bytes']);
-const ids = new Set(['id','runId','sessionId','toolCallId','turnId','attemptId','workspaceId','childRunId']);
+const states = new Set(['created','running','awaiting_approval','cancelling','completed','cancelled','failed','interrupted','uncertain','requested','streaming','awaiting_tools','pending','allowed','denied','expired','settled','prepared','dispatched','not-dispatched','dispatch-intent','response-terminal','closed','open','starting','started','exited','draining','unknown','active','stopping','terminated','waiting','ready','confirmed','unconfirmed','unavailable']);
+const containers = new Set(['runs','tools','parts','turns','children','terminals','attempts','attemptCleanup','mcpExecutions','executionObservations','executionLock','reviewOperations','records','record','resident','cleanup','nativeExit','groupCleanup','supervisor','utility','mainUtility','connections','applicationClose','outcome','source','sourceBefore','sourceAfter','diagnostics','events','error','errors']);
+const booleans = new Set(['available','observed','active','spawnAttempted','spawnUnobserved','cleanupConfirmed','cleanupUncertain','effectsUncertain','transportCleanupConfirmed','executionBlocked','remoteResponseObserved','nativeConfirmed','utilityAcknowledged','utilityExitObserved','utilityExitObservable','engineCloseAcknowledged','acknowledged','exitObserved','closeObserved','resultObserved','stopRequested','stopSendFailed','forcedStop','requested','settled','nativeExitObserved','resultComplete','incomplete','complete','confirmed','exited','closed','cancelled','timedOut']);
+const numeric = new Set(['exitCode','ordinal','revision','turnIndex','activeProcessCount','fileCount','bytes','schemaVersion','generation','evictedCount','userVersion']);
+const ids = new Set(['id','runId','sessionId','toolCallId','turnId','attemptId','workspaceId','childRunId','connectionId']);
 const forbidden = /(?:^|\/)(?:accounts?|auth|credentials?|settings\.json|cookies|cache|local storage|session storage|indexeddb|browser|profile|\.git)(?:\/|$)|(?:token|secret|credential|\.pem$|\.p12$|\.key$)/iu;
 function errorCode(code) { return { code }; }
 function within(parent, child) { const value = relative(parent, child); return value !== '..' && !value.startsWith(`..${sep}`) && !isAbsolute(value); }
@@ -42,9 +42,10 @@ function projection(input, budget = { nodes: 0, truncated: false }, depth = 0) {
     else if (['code','errorCode'].includes(key) && typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,79}$/u.test(value)) output[key] = value;
     else if (['signal','exitSignal'].includes(key) && (value === null || ['SIGINT','SIGTERM','SIGKILL','SIGHUP','SIGABRT','SIGSEGV'].includes(value))) output[key] = value;
     else if (key === 'platform' && ['darwin','linux','win32'].includes(value)) output[key] = value;
-    else if (key === 'source' && ['original-supervisor','actual-engine-utility','actual-native-IPC','read-only-native-sqlite','driver-protocol','driver-lifecycle','driver-deadline','unavailable'].includes(value)) output[key] = value;
-    else if (key === 'utilityScope' && ['all-fixture-utilities','private-coding-utility','main-utility','unknown'].includes(value)) output[key] = value;
-    else if (key === 'reason' && ['natural-done','error','consumer-close','cancel','restart','timeout','descendants','close-failed','not-observed'].includes(value)) output[key] = value;
+    else if (key === 'source' && ['original-supervisor','actual-engine-utility','actual-native-IPC','read-only-native-sqlite','driver-protocol','driver-lifecycle','driver-deadline','original-electron-utility','utility-transport','unavailable'].includes(value)) output[key] = value;
+    else if (key === 'scope' && ['engine','storage'].includes(value)) output[key] = value;
+    else if (key === 'utilityScope' && ['all-fixture-utilities','private-coding-utility','main-utility','main-utilities','unknown'].includes(value)) output[key] = value;
+    else if (key === 'reason' && (value === null || ['natural-done','error','consumer-close','cancel','restart','timeout','descendants','close-failed','not-observed','close-error','close-timeout','exit-timeout','exit-without-ack','nonzero-exit','exit-status-unknown','exit-unobservable','observation-limit'].includes(value))) output[key] = value;
     else if (key === 'completeness' && ['full','unknown'].includes(value)) output[key] = value;
     else if (key === 'kind' && ['command-supervisor','pty-supervisor','ready','started','result','diagnostics','exit','close','error','deadline','stop-requested','native-exit','group-probe','group-snapshot','group-cleanup','signal','supervisor-exit','supervisor-close','supervisor-lost'].includes(value)) output[key] = value;
     else if (key === 'presence' && ['present','absent','unknown'].includes(value)) output[key] = value;
@@ -136,6 +137,7 @@ export async function captureDesktopNativeEvidence({ sourceDirectory: input, pha
   let bytesObserved = 0;
   const budget = { nodes: 0, truncated: false };
   const observations = new Map();
+  let sqliteTruncated = listing.files.filter(file => file.name.endsWith('.sqlite')).length > 16;
   try {
     for (const file of listing.files.filter(file => /\.sqlite(?:-(?:wal|shm))?$/u.test(file.name))) {
       const observation = await observeFile(root, file, DESKTOP_EVIDENCE_LIMITS.bytes - bytesObserved);
@@ -150,16 +152,25 @@ export async function captureDesktopNativeEvidence({ sourceDirectory: input, pha
     for (const file of listing.files.filter(file => file.name.endsWith('.sqlite')).slice(0, 16)) {
       const observation = observations.get(file.name);
       const item = { file: file.name.split(sep).join('/'), available: false, records: {}, errors: [],
+        nativeCoverage: 'unrecognized',
         readSource: 'bounded-observed-file-clone', originalSQLiteOpened: false,
         fileObservation: { bytes: observation.bytes ?? null, sha256: observation.sha256 ?? null, observedStable: observation.observedStable ?? false } };
       let db;
       if (!observation.omitted) try {
       db = new DatabaseSync(join(cloneRoot, file.name), { readOnly: true, timeout: 0 });
+      item.userVersion = Number(db.prepare('PRAGMA user_version').get().user_version);
+      const userTables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' LIMIT 64").all();
+      if (!userTables.length && item.userVersion === 0 && observation.bytes === 0 && /\.(?:effects|owner)\.sqlite$/u.test(file.name)) {
+        item.nativeCoverage = 'empty-execution-lock';
+        item.records.executionLock = { available: true, active: false };
+      }
       for (const [key, table] of Object.entries(tables)) {
         if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table)) continue;
         const columns = db.prepare(`PRAGMA table_info(${table})`).all().map(value => value.name);
         const column = columns.includes('data') ? 'data' : columns.includes('payload') ? 'payload' : undefined;
         if (!column) continue;
+        item.nativeCoverage = 'engine-records';
+        if (Number(db.prepare(`SELECT count(*) AS count FROM ${table}`).get().count) > DESKTOP_EVIDENCE_LIMITS.records) sqliteTruncated = true;
         const rows = db.prepare(`SELECT substr(${column},1,16384) AS data FROM ${table} LIMIT 32`).all();
         item.records[key] = rows.map(row => { try {
           const original = JSON.parse(row.data), projected = projection(original, budget);
@@ -169,6 +180,26 @@ export async function captureDesktopNativeEvidence({ sourceDirectory: input, pha
           }
           return projected;
         } catch { return { code: 'ROW_PROJECTION_UNAVAILABLE' }; } });
+      }
+      if (db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='command_execution'").get()) {
+        item.nativeCoverage = 'execution-lock';
+        const markers = db.prepare('SELECT id,active FROM command_execution LIMIT 2').all();
+        if (item.userVersion !== 0 || markers.length > 1 || markers.some(marker => marker.id !== 1 || ![0, 1].includes(marker.active))) {
+          item.records.executionLock = { available: false, active: null, error: { code: 'EXECUTION_LOCK_PROJECTION_UNAVAILABLE' } };
+        } else item.records.executionLock = { available: true, active: markers[0]?.active === 1 };
+      }
+      if (item.userVersion === 1 && Number(db.prepare('PRAGMA application_id').get().application_id) === 0x4d43524a
+          && userTables.length === 1 && userTables[0].name === 'review_operations') {
+        item.nativeCoverage = 'review-journal';
+        if (Number(db.prepare('SELECT count(*) AS count FROM review_operations').get().count) > DESKTOP_EVIDENCE_LIMITS.records) sqliteTruncated = true;
+        item.records.reviewOperations = db.prepare('SELECT state,substr(result,1,16384) AS result,substr(error,1,16384) AS error FROM review_operations LIMIT 32').all().map(row => {
+          try {
+            const result = row.result === null ? null : JSON.parse(row.result), error = row.error === null ? null : JSON.parse(row.error);
+            if (!['started','completed','failed','interrupted'].includes(row.state)) throw new Error();
+            return { state: row.state, effectsUncertain: row.state !== 'completed' || result?.truncated === true || result?.failed?.length > 0 || result?.totals?.failed > 0,
+              ...(error ? { error: projection(error, budget) } : {}) };
+          } catch { return { code: 'ROW_PROJECTION_UNAVAILABLE' }; }
+        });
       }
       item.available = true;
       } catch { item.errors.push(errorCode('SQLITE_CLONE_READ_FAILED')); }
@@ -192,7 +223,7 @@ export async function captureDesktopNativeEvidence({ sourceDirectory: input, pha
   } finally { await rm(cloneRoot, { recursive: true, force: true }); }
   const live = projection(liveSnapshot, budget) ?? {};
   const captured = { schemaVersion: 1, phase, live: { available: liveSnapshot !== undefined, source: liveSnapshot === undefined ? 'unavailable' : 'actual-native-IPC', records: live },
-    close: projection(close, budget), sqlite, errors: listing.errors, truncated: listing.truncated || budget.truncated,
+    close: projection(close, budget), sqlite, errors: listing.errors, truncated: listing.truncated || budget.truncated || sqliteTruncated,
     qualification: { cleanupAuthority: 'original-native-source-only', physicalAbsenceEstablishesCleanup: false, coherentRecoveryBackup: false, nativeReadSource: 'bounded-observed-file-clones', originalSQLiteOpened: false } };
   if (Buffer.byteLength(JSON.stringify(captured)) > DESKTOP_EVIDENCE_LIMITS.manifestBytes / 4) {
     captured.live.records = {};

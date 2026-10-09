@@ -1,19 +1,21 @@
 import assert from "node:assert/strict";
 import { _electron as electron, expect } from "@playwright/test";
-import { mkdir, writeFile, access } from "node:fs/promises";
+import { mkdir, writeFile, access, rm } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import {
   captureDesktopNativeEvidence,
   createDesktopTestDirectory,
   preserveDesktopTestEvidence,
+  mayDeleteDesktopTestDirectory,
 } from "./desktop-test-evidence.mjs";
+import { bindMainUtilityClose, readMainUtilityClose, qualifyDesktopNativeCleanup, aggregateFixtureCleanup } from './desktop-main-utility-close.mjs';
 
 const root = await createDesktopTestDirectory("advanced");
 const workspace = join(root, "workspace"),
-  screenshots = resolve("artifacts/desktop-advanced");
+  screenshots = resolve("artifacts/desktop-advanced", basename(root));
 const checks = [];
-let app, page, originalApplicationProcess, guiResult;
+let app, page, originalApplicationProcess, guiResult, mainUtilityReceiptPath;
 let testOutcome = "unknown";
 const failurePoint = process.env.MOODCODE_DESKTOP_ADVANCED_TEST_FAILURE;
 const selected = () =>
@@ -78,17 +80,14 @@ const applicationObservation = () => ({
   establishesNativeCleanup: false,
 });
 const capturePhase = async (phase, liveSnapshot, applicationClose) => {
+  const mainUtility = mainUtilityReceiptPath ? await readMainUtilityClose(mainUtilityReceiptPath) : null;
   try {
     return await captureDesktopNativeEvidence({
       sourceDirectory: root,
       phase,
       ...(liveSnapshot ? { liveSnapshot } : {}),
-      // Existing production IPC exposes no direct utility-close receipt.
       close: {
-        acknowledged: null,
-        exitObserved: null,
-        exitCode: null,
-        forcedStop: false,
+        mainUtility,
         applicationClose,
       },
     });
@@ -97,10 +96,7 @@ const capturePhase = async (phase, liveSnapshot, applicationClose) => {
       schemaVersion: 1,
       phase,
       close: {
-        acknowledged: null,
-        exitObserved: null,
-        exitCode: null,
-        forcedStop: false,
+        mainUtility,
         applicationClose,
       },
       errors: [{ code: errorCode(error, "NATIVE_EVIDENCE_UNAVAILABLE") }],
@@ -147,6 +143,7 @@ try {
     },
   });
   originalApplicationProcess = app.process();
+  mainUtilityReceiptPath = await bindMainUtilityClose(app, root);
   page = await app.firstWindow();
   await expect(
     page.getByText("무엇을 만들어볼까요?", { exact: true }),
@@ -787,18 +784,14 @@ try {
     undefined,
     applicationClose,
   );
-  const cleanup = {
-    state: applicationCloseError ? "unconfirmed" : "unknown",
-    nativeConfirmed: null,
-    utilityAcknowledged: null,
-    utilityExitObserved: null,
-    forcedStop: false,
-  };
-  // Keep actual per-record cleanup in evidence. App close/exit does not supply
-  // missing native utility authority, and never turns unknown cleanup true.
-  let retention;
+  const mainUtilityClose = mainUtilityReceiptPath ? await readMainUtilityClose(mainUtilityReceiptPath) : null;
+  const cleanup = aggregateFixtureCleanup({ mainReceipt: mainUtilityClose, nativeConfirmed: qualifyDesktopNativeCleanup(nativeAfterClose) });
+  let retention, fixtureDeleted = false;
   try {
-    retention = await preserveDesktopTestEvidence({
+    if (mayDeleteDesktopTestDirectory({ outcome: testOutcome, cleanup }) && !applicationCloseError) {
+      await rm(root, { recursive: true, force: true });
+      fixtureDeleted = true;
+    } else retention = await preserveDesktopTestEvidence({
       sourceDirectory: root,
       artifactDirectory: resolve("artifacts/desktop-advanced/failures"),
       scenario: "advanced",
@@ -831,11 +824,13 @@ try {
         ok:
           testOutcome === "passed" &&
           applicationCloseError === null &&
-          !retention.errorCode,
+          !retention?.errorCode,
         testOutcome,
         cleanup,
         applicationClose,
-        retainedSourceDirectory: root,
+        mainUtilityClose,
+        originalFixtureRetained: !fixtureDeleted,
+        ...(fixtureDeleted ? {} : { retainedSourceDirectory: root }),
         retention,
       },
       null,

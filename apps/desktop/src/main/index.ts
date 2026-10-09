@@ -64,6 +64,7 @@ function spawnWorker(): UtilityTransport {
   child.stdout?.resume();
   child.stderr?.resume();
   return {
+    diagnosticSource: 'original-electron-utility',
     postMessage: request => child.postMessage(request),
     onMessage: listener => { child.on('message', listener); return () => { child.off('message', listener); }; },
     onExit: listener => { child.on('exit', listener); return () => { child.off('exit', listener); }; },
@@ -232,10 +233,11 @@ void app.whenReady().then(async () => {
   host = new DesktopHost({
     spawn: spawnWorker, settings, dbPath: join(userData, 'engine.sqlite'), artifactDir: join(userData, 'artifacts'),
     platform: process.platform, version: app.getVersion(), ...(scenario ? { testScenario: scenario } : {}),
+    onUtilityClose: diagnostics => { app.emit('moodcode:utility-close', diagnostics); },
     onStatus: status => { if (window && !window.isDestroyed()) window.webContents.send(DESKTOP_CHANNELS.hostState, status); },
     onUpdate: (owner, update) => { if (owner === ownerId && window && !window.isDestroyed()) window.webContents.send(DESKTOP_CHANNELS.update, update); },
   });
-  updates = await createDesktopUpdates({ currentVersion: app.getVersion(), isPackaged: app.isPackaged, closeEngine: async () => { await accounts?.close(); await requireHost().close(); } });
+  updates = await createDesktopUpdates({ currentVersion: app.getVersion(), isPackaged: app.isPackaged, closeEngine: async () => { await accounts?.close(); await requireHost().closeForUpdate(); } });
   installIpc();
   createWindow();
   await host.initialize();

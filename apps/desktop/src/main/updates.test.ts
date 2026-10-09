@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import type { AppUpdater, UpdateCheckResult } from 'electron-updater';
 import { DesktopUpdates, UpdateError } from './updates.js';
+import { DesktopHost, type UtilityTransport } from './host.js';
+import type { WorkerRequest } from '../worker/protocol.js';
 
 class FixtureUpdater extends EventEmitter {
   autoDownload = true; autoInstallOnAppQuit = true; autoRunAppAfterInstall = true; allowDowngrade = true;
@@ -63,3 +65,53 @@ test('unsigned development packages reject every update action', async () => {
   const updates = new DesktopUpdates(undefined, { currentVersion: '0.1.0', enabled: false, closeEngine: async () => assert.fail('unexpected cleanup') });
   assert.equal(updates.getView().state, 'disabled'); await assert.rejects(updates.action({ action: 'check' }), code('UPDATE_DISABLED'));
 });
+
+
+for (const scenario of ['never-started', 'confirmed', 'crashed-history', 'ack-no-exit', 'exit-without-ack'] as const) {
+  test(`the actual host update gate ${scenario} controls installer admission`, async t => {
+    const updater = new FixtureUpdater();
+    const originals: EventEmitter[] = [];
+    const view = { providerId: 'scripted' as const, modelId: 'fixture', baseURL: '', keyConfigured: false,
+      keySource: 'none' as const, credentialStorage: 'unavailable' as const };
+    const resolved = { view, engineConfig: { providerId: 'scripted' as const, modelId: 'fixture', baseURL: '' } };
+    const host = new DesktopHost({
+      platform: 'fixture', version: '0.1.0', dbPath: '/unused-fixture/database', artifactDir: '/unused-fixture/artifacts',
+      rpcTimeoutMs: 100, closeTimeoutMs: 20, utilityExitTimeoutMs: 15,
+      settings: { getView: () => view, load: async () => resolved, prepare: async () => resolved, commit: async () => resolved },
+      spawn(): UtilityTransport {
+        const original = new EventEmitter(); originals.push(original);
+        return {
+          onMessage(listener) { original.on('message', listener); return () => { original.off('message', listener); }; },
+          onExit(listener) { original.on('exit', listener); return () => { original.off('exit', listener); }; },
+          postMessage(request: WorkerRequest) {
+            queueMicrotask(() => {
+              if (request.type === 'close' && scenario === 'exit-without-ack') { original.emit('exit', 0); return; }
+              original.emit('message', { id: request.id, ok: true });
+              if (request.type === 'close' && scenario !== 'ack-no-exit') queueMicrotask(() => original.emit('exit', 0));
+            });
+          },
+        };
+      },
+    });
+    t.after(async () => { for (const original of originals) original.emit('exit', 0); await host.close().catch(() => {}); });
+    if (scenario !== 'never-started') await host.initialize();
+    if (scenario === 'crashed-history') { originals[0]!.emit('exit', 1); assert.equal((await host.retryEngine()).state, 'ready'); }
+    const updates = new DesktopUpdates(updater as unknown as AppUpdater, {
+      currentVersion: '0.1.0', enabled: true, closeEngine: () => host.closeForUpdate(),
+    });
+    await updates.action({ action: 'check' }); await updates.action({ action: 'download', version: '0.2.0' });
+    const installing = updates.action({ action: 'install', version: '0.2.0', acknowledged: true });
+    if (scenario === 'never-started' || scenario === 'confirmed') {
+      assert.equal((await installing).state, 'installing'); assert.equal(updater.installs, 1);
+    } else {
+      await assert.rejects(installing, code('UPDATE_CLEANUP_PENDING'));
+      assert.equal(updater.installs, 0); assert.equal(updates.getView().state, 'downloaded');
+      assert.notEqual(host.getUtilityCloseDiagnostics().cleanupConfirmed, true);
+      // Physical exit may allow normal quit, but cannot erase failed installer admission.
+      for (const original of originals) original.emit('exit', 0);
+      await host.close();
+      await assert.rejects(updates.action({ action: 'install', version: '0.2.0', acknowledged: true }), code('UPDATE_CLEANUP_PENDING'));
+      assert.equal(updater.installs, 0);
+    }
+  });
+}

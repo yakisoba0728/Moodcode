@@ -3,12 +3,12 @@ import { _electron as electron, expect } from '@playwright/test';
 import { rm, writeFile, readdir, stat, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fork } from 'node:child_process';
-import { DatabaseSync } from 'node:sqlite';
 import { createHash } from 'node:crypto';
 import { createCommandEnvironment } from '../packages/engine/dist/tools/command/process-control.js';
 import { DESKTOP_ELECTRON_VERSION, WINDOWS_NATIVE_BINARY, verifyWindowsBinaryArchitecture, readWindowsNativeBuildReceipt } from './desktop-native-package.mjs';
 import { runPackagedUtilityCodingProbe } from './desktop-package-utility.mjs';
 import { createDesktopTestDirectory, captureDesktopNativeEvidence, preserveDesktopTestEvidence, mayDeleteDesktopTestDirectory } from './desktop-test-evidence.mjs';
+import { bindMainUtilityClose, readMainUtilityClose, qualifyDesktopNativeCleanup, aggregateFixtureCleanup } from './desktop-main-utility-close.mjs';
 
 const args = process.argv.slice(2);
 const portableOnly = args.includes('--portable');
@@ -36,7 +36,8 @@ if (process.platform === 'win32' && !portableOnly) {
   verifyWindowsBinaryArchitecture(windowsNativeBytes, process.arch);
 }
 const userData = await createDesktopTestDirectory('package');
-let app, failure, resultEvidence, nativeBeforeClose, nativeAfterClose, retained, fixtureDeleted = false;
+let app, failure, resultEvidence, nativeBeforeClose, nativeAfterClose, retained, mainUtilityReceiptPath, fixtureDeleted = false;
+const privateUtilities = [];
 const children = new Set();
 const supervisorObservations = [];
 const observationByChild = new Map();
@@ -50,6 +51,9 @@ async function bounded(operation, ms) {
 async function closeApplication() {
   if (!app || applicationClose.requested) return;
   applicationClose.requested = true;
+  nativeBeforeClose ??= await captureDesktopNativeEvidence({ sourceDirectory: userData, phase: 'before-close', liveSnapshot: { supervisor: supervisorObservations },
+    close: { applicationClose, mainUtility: mainUtilityReceiptPath ? await readMainUtilityClose(mainUtilityReceiptPath) : null } })
+    .catch(() => { failure ??= new Error('Packaged test before-close evidence collection failed.'); return undefined; });
   const result = await bounded(app.close(), 10000);
   applicationClose.settled = result.settled && !result.error;
   if (result.settled && !result.error) app = undefined;
@@ -83,8 +87,11 @@ async function runSupervisor(relative, initial, start) {
         if (failSupervisorRunning && observed.kind === 'command-supervisor') { clearTimeout(timer); reject(new Error('Controlled package verification failure after original native command started.')); }
       }
       if (message.type === 'diagnostics') { note('diagnostics'); diagnostics = message.diagnostics; observed.diagnostics = keep(message.diagnostics); }
-      if (message.type === 'result') { note('result'); outcome = message.outcome; diagnostics ??= message.diagnostics;
-        observed.resultObserved = true; observed.outcome = keep(message.outcome); observed.diagnostics ??= keep(message.diagnostics); }
+      if (message.type === 'result') { note('result'); outcome = message.outcome;
+        const finalDiagnostics = message.diagnostics ?? message.outcome?.diagnostics;
+        diagnostics = finalDiagnostics ?? diagnostics;
+        observed.resultObserved = true; observed.outcome = keep(message.outcome);
+        if (finalDiagnostics) observed.diagnostics = keep(finalDiagnostics); }
     });
     child.on('close', code => { clearTimeout(timer); children.delete(child); resolveClose(code); });
   });
@@ -99,6 +106,7 @@ try {
   app = await electron.launch({ executablePath: binary, args: [], env: { ...process.env, MOODCODE_DESKTOP_USER_DATA: userData,
     MOODCODE_DESKTOP_TEST: '1', MOODCODE_DESKTOP_TEST_SCENARIO: 'coding', MOODCODE_API_KEY: '', OPENAI_API_KEY: '' } });
   app.process().once('exit', (code, signal) => { applicationClose.exitObserved = true; applicationClose.exitCode = code; applicationClose.signal = signal; });
+  mainUtilityReceiptPath = await bindMainUtilityClose(app, userData);
   const page = await app.firstWindow();
   await expect(page.getByText('무엇을 만들어볼까요?', { exact: true })).toBeVisible({ timeout: 20000 });
   const runtime = await app.evaluate(({ app, BrowserWindow }) => ({ packaged: app.isPackaged, node: process.versions.node, electron: process.versions.electron,
@@ -109,8 +117,8 @@ try {
   assert.equal(bootstrap.settings.modelId, 'local', 'Packaged builds must ignore the test scenario override.');
   assert.equal(bootstrap.capabilities.runtime.platform, process.platform);
   await expect(page.locator('.error-banner')).toHaveCount(0);
-  const db = new DatabaseSync(join(userData, 'engine.sqlite'), { readOnly: true });
-  const sqliteVersion = Number(db.prepare('PRAGMA user_version').get().user_version); db.close();
+  const initialNative = await captureDesktopNativeEvidence({ sourceDirectory: userData, phase: 'before-close' });
+  const sqliteVersion = initialNative.sqlite.find(item => item.file === 'engine.sqlite' && item.available)?.userVersion;
   assert.equal(sqliteVersion, 23, 'Packaged utility must open the current engine database.');
   const updates = await page.evaluate(() => window.moodcode.getAppUpdate());
   assert.equal(updates.state, releaseProfile ? 'idle' : 'disabled', 'The packaged update profile must match its build profile.');
@@ -130,6 +138,7 @@ try {
     assert.equal(receipt.sha256, createHash('sha256').update(windowsNativeBytes).digest('hex'));
     evidence.windowsJobObject = await runPackagedUtilityCodingProbe(app, { workerPath: join(resources, 'app.asar', 'dist/main/engine-worker.js'),
       dataDir: userData, commandExecution: 'windows-job-object', electronVersion: runtime.electron });
+    privateUtilities.push(evidence.windowsJobObject.cleanup);
     evidence.windowsNativeBinary = { packageRelativePathPreserved: true, outsideAsar: true, electronHeaders: receipt.electronVersion,
       arch: receipt.arch, sha256: receipt.sha256 };
   }
@@ -153,8 +162,21 @@ try {
   }
 } catch (error) { failure ??= error; }
 finally {
-  nativeBeforeClose = failure?.desktopTestEvidence?.nativeBeforeClose ?? await captureDesktopNativeEvidence({ sourceDirectory: userData, phase: 'before-close',
-    liveSnapshot: { supervisor: supervisorObservations }, close: { applicationClose } }).catch(() => { failure ??= new Error('Packaged test before-close evidence collection failed.'); return undefined; });
+  // The private probe owns this original pre-close capture. Never replace its
+  // failure observation with a later snapshot taken after utility teardown.
+  nativeBeforeClose = failure?.desktopTestEvidence?.nativeBeforeClose ?? nativeBeforeClose;
+  if (failure && supervisorObservations.length && !failure.desktopTestEvidence?.nativeBeforeClose) {
+    // POSIX package supervisors run after main quits. Capture their original
+    // failed/running state before requesting their stop, rather than reusing
+    // the earlier main-only snapshot from before any supervisor was spawned.
+    nativeBeforeClose = await captureDesktopNativeEvidence({ sourceDirectory: userData, phase: 'before-close',
+      liveSnapshot: { supervisor: supervisorObservations }, close: { applicationClose,
+        mainUtility: mainUtilityReceiptPath ? await readMainUtilityClose(mainUtilityReceiptPath) : null } })
+      .catch(() => nativeBeforeClose);
+  }
+  nativeBeforeClose ??= await captureDesktopNativeEvidence({ sourceDirectory: userData, phase: 'before-close',
+    liveSnapshot: { supervisor: supervisorObservations }, close: { applicationClose,
+      mainUtility: mainUtilityReceiptPath ? await readMainUtilityClose(mainUtilityReceiptPath) : null } }).catch(() => { failure ??= new Error('Packaged test before-close evidence collection failed.'); return undefined; });
   await closeApplication();
   for (const child of children) {
     const observed = observationByChild.get(child);
@@ -163,16 +185,18 @@ finally {
   }
   for (const observed of supervisorObservations) if (!observed.closeObserved) await bounded(observed.closed, 3000);
   nativeAfterClose = await captureDesktopNativeEvidence({ sourceDirectory: userData, phase: 'after-close', liveSnapshot: { supervisor: supervisorObservations },
-    close: { applicationClose, utility: failure?.desktopTestEvidence ? {
+    close: { applicationClose, mainUtility: mainUtilityReceiptPath ? await readMainUtilityClose(mainUtilityReceiptPath) : null, utility: failure?.desktopTestEvidence ? {
       ...failure.desktopTestEvidence.nativeAfterClose?.close, cleanup: failure.desktopTestEvidence.cleanup,
     } : undefined } }).catch(() => { failure ??= new Error('Packaged test after-close evidence collection failed.'); return undefined; });
   const supervisorConfirmed = supervisorObservations.some(value => value.resultObserved && value.outcome?.cleanupConfirmed === false) ? false
     : supervisorObservations.length && supervisorObservations.every(value => value.resultObserved && value.outcome?.cleanupConfirmed === true) ? true : null;
-  const nativeConfirmed = supervisorConfirmed ?? resultEvidence?.windowsJobObject?.cleanup?.nativeConfirmed ?? null;
-  // Public packaged main exposes no original utility close receipt. A private
-  // coding utility receipt or physical app exit cannot qualify that main utility.
-  const cleanup = { state: nativeConfirmed === false || failure?.desktopTestEvidence?.cleanup?.nativeConfirmed === false ? 'unconfirmed' : 'unknown', nativeConfirmed,
-    utilityAcknowledged: null, utilityExitObserved: null, forcedStop: failure?.desktopTestEvidence?.cleanup?.forcedStop === true, utilityScope: 'main-utility' };
+  if (failure?.desktopTestEvidence?.cleanup) privateUtilities.push(failure.desktopTestEvidence.cleanup);
+  const persistedNative = qualifyDesktopNativeCleanup(nativeAfterClose);
+  const nativeConfirmed = persistedNative === false || supervisorConfirmed === false ? false
+    : persistedNative === true && (!supervisorObservations.length || supervisorConfirmed === true) ? true : null;
+  const mainUtilityClose = mainUtilityReceiptPath ? await readMainUtilityClose(mainUtilityReceiptPath) : null;
+  const cleanup = aggregateFixtureCleanup({ mainReceipt: mainUtilityClose, nativeConfirmed, privateUtilities,
+    privateUtilitiesExpected: !portableOnly && process.platform === 'win32' ? 1 : 0 });
   if (mayDeleteDesktopTestDirectory({ outcome: failure ? 'failed' : 'passed', cleanup })) { await rm(userData, { recursive: true, force: true }); fixtureDeleted = true; }
   else {
     retained = await preserveDesktopTestEvidence({ sourceDirectory: userData, artifactDirectory: resolve('artifacts/desktop-package/failures'), scenario: 'package',
@@ -180,7 +204,7 @@ finally {
     if (!retained) console.error(JSON.stringify({ fixtureRetained: true, evidenceBundleAvailable: false, sourceDirectory: userData }));
     else if (failure) console.error(JSON.stringify({ testFailed: true, originalFixtureRetained: true, evidenceManifest: retained.manifestPath }));
   }
-  if (resultEvidence) { resultEvidence.cleanup = cleanup; resultEvidence.originalFixtureRetained = !fixtureDeleted; resultEvidence.evidenceBundleAvailable = !!retained;
+  if (resultEvidence) { resultEvidence.cleanup = cleanup; resultEvidence.mainUtilityClose = mainUtilityClose; resultEvidence.originalFixtureRetained = !fixtureDeleted; resultEvidence.evidenceBundleAvailable = !!retained;
     if (retained) resultEvidence.evidenceManifest = retained.manifestPath; }
 }
 if (failure) throw failure;

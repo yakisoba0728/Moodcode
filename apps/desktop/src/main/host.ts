@@ -8,6 +8,7 @@ import type { WorkerBootstrap, WorkerEngineConfig, WorkerPush, WorkerRequest, Wo
 import type { PreparedSettings, ResolvedDesktopSettings } from './settings.js';
 
 export interface UtilityTransport {
+  readonly diagnosticSource?: 'original-electron-utility';
   postMessage(message: WorkerRequest): void;
   onMessage(listener: (message: unknown) => void): () => void;
   onExit(listener: (code: number) => void): () => void;
@@ -18,6 +19,36 @@ export interface HostSettingsStore {
   commit(prepared: PreparedSettings): Promise<ResolvedDesktopSettings>;
   getView(): DesktopSettings;
 }
+/** This receipt proves only original utility transport close/exit, never native effects. */
+export interface UtilityCloseConnectionDiagnostic {
+  connectionId: string;
+  scope: 'engine' | 'storage';
+  generation: number;
+  source: 'original-electron-utility' | 'utility-transport';
+  utilityExitObservable: boolean;
+  closeRequested: boolean;
+  engineCloseAcknowledged: boolean;
+  utilityExitObserved: boolean;
+  exitCode: number | null;
+  cleanupConfirmed: boolean | null;
+  forcedStop: false;
+  reason: 'close-error' | 'close-timeout' | 'exit-timeout' | 'exit-without-ack' | 'nonzero-exit' | 'exit-status-unknown' | 'exit-unobservable' | null;
+}
+export interface UtilityCloseDiagnostics {
+  schemaVersion: 1;
+  utilityScope: 'main-utilities';
+  complete: boolean;
+  evictedCount: number;
+  spawnAttempted: boolean;
+  spawnUnobserved: boolean;
+  connections: UtilityCloseConnectionDiagnostic[];
+  utilityAcknowledged: boolean | null;
+  utilityExitObserved: boolean | null;
+  cleanupConfirmed: boolean | null;
+  forcedStop: false;
+}
+export const UTILITY_CLOSE_DIAGNOSTIC_LIMIT = 64;
+
 export interface DesktopHostOptions {
   spawn: () => UtilityTransport;
   settings: HostSettingsStore;
@@ -28,13 +59,16 @@ export interface DesktopHostOptions {
   testScenario?: 'coding' | 'slow' | 'advanced' | 'account';
   onStatus?: (status: HostStatus) => void;
   onUpdate?: (ownerId: string, update: DesktopUpdate) => void;
+  onUtilityClose?: (diagnostics: UtilityCloseDiagnostics) => void;
   rpcTimeoutMs?: number;
   closeTimeoutMs?: number;
+  utilityExitTimeoutMs?: number;
 }
 export class HostError extends Error {
   constructor(readonly code: string, message: string) { super(message); }
 }
 interface PendingRpc {
+  type: WorkerRequest['type'];
   resolve: (value: unknown) => void;
   reject: (error: HostError) => void;
   timer: ReturnType<typeof setTimeout>;
@@ -42,7 +76,17 @@ interface PendingRpc {
 interface Connection {
   transport: UtilityTransport;
   pending: Map<string, PendingRpc>;
-  detach: Array<() => void>;
+  connectionId: string;
+  scope: 'engine' | 'storage';
+  generation: number;
+  detachMessage?: () => void;
+  detachExit?: () => void;
+  utilityExitObservable: boolean;
+  exitCode: number | null;
+  closeFailureReason?: 'close-error' | 'close-timeout' | 'exit-unobservable';
+  exitTimedOut: boolean;
+  exitWaiters: Set<() => void>;
+  closeTask?: Promise<void>;
   exited: boolean;
   closed: boolean;
   closeRequested: boolean;
@@ -64,6 +108,11 @@ export class DesktopHost {
   private status: HostStatus = { state: 'starting', generation: 0 };
   private connection?: Connection;
   private readonly auxiliaries = new Set<Connection>();
+  private readonly utilityConnections: Connection[] = [];
+  private evictedUtilityCount = 0;
+  private evictedUtilityUnconfirmed = false;
+  private spawnAttempted = false;
+  private spawnUnobserved = false;
   private diagnosticTask?: Promise<DesktopRecoveryStatus>;
   private transition = false;
   private transitionSettled?: Promise<void>;
@@ -75,6 +124,79 @@ export class DesktopHost {
   constructor(options: DesktopHostOptions) { this.options = options; }
 
   getStatus(): HostStatus { return structuredClone(this.status); }
+  getUtilityCloseDiagnostics(): UtilityCloseDiagnostics {
+    const connections = this.utilityConnections.map(connection => {
+      const reason: UtilityCloseConnectionDiagnostic['reason'] = connection.closeFailureReason
+        ?? (connection.exitTimedOut ? 'exit-timeout'
+          : !connection.exited ? null
+          : !connection.closed ? 'exit-without-ack'
+          : connection.exitCode === null ? 'exit-status-unknown'
+          : connection.exitCode !== 0 ? 'nonzero-exit' : null);
+      return {
+        connectionId: connection.connectionId, scope: connection.scope, generation: connection.generation,
+        source: connection.transport.diagnosticSource === 'original-electron-utility' ? 'original-electron-utility' as const : 'utility-transport' as const,
+        utilityExitObservable: connection.utilityExitObservable, closeRequested: connection.closeRequested,
+        engineCloseAcknowledged: connection.closed, utilityExitObserved: connection.exited, exitCode: connection.exitCode,
+        cleanupConfirmed: reason ? false : connection.closed && connection.exited ? true : null,
+        forcedStop: false as const, reason,
+      };
+    });
+    const complete = this.evictedUtilityCount === 0 && !this.spawnUnobserved;
+    const cleanupConfirmed = this.evictedUtilityUnconfirmed || connections.some(connection => connection.cleanupConfirmed === false) ? false
+      : !complete || connections.length === 0 || connections.some(connection => connection.cleanupConfirmed !== true) ? null : true;
+    return {
+      schemaVersion: 1, utilityScope: 'main-utilities', complete, evictedCount: this.evictedUtilityCount,
+      spawnAttempted: this.spawnAttempted, spawnUnobserved: this.spawnUnobserved, connections,
+      utilityAcknowledged: !complete || connections.length === 0 ? null : connections.every(connection => connection.engineCloseAcknowledged),
+      utilityExitObserved: !complete || connections.length === 0 ? null : connections.every(connection => connection.utilityExitObserved),
+      cleanupConfirmed, forcedStop: false,
+    };
+  }
+  private publishUtilityClose(): void {
+    // Observers receive a new bounded DTO and cannot change cleanup or admission.
+    try { this.options.onUtilityClose?.(this.getUtilityCloseDiagnostics()); } catch { /* Diagnostic observers are optional. */ }
+  }
+  private spawnUtility(): UtilityTransport {
+    this.spawnAttempted = true;
+    try { return this.options.spawn(); }
+    catch (error) {
+      // Native fork can allocate a child before its adapter throws. An absent
+      // returned transport cannot establish that this attempt spawned nothing.
+      this.spawnUnobserved = true;
+      this.publishUtilityClose();
+      throw error;
+    }
+  }
+  private reserveUtilityConnection(): void {
+    if (this.utilityConnections.length < UTILITY_CLOSE_DIAGNOSTIC_LIMIT) return;
+    // A live original child retains its transport and exit listener. Bound further
+    // admission instead of losing ownership to make room in a diagnostic ledger.
+    const settled = this.utilityConnections.findIndex(connection => connection.exited);
+    if (settled < 0) throw new HostError('HOST_UTILITY_CAPACITY', 'Original utility processes must exit before another utility can start.');
+    const [removed] = this.utilityConnections.splice(settled, 1);
+    this.evictedUtilityCount += 1;
+    if (removed && (!removed.closed || removed.exitCode !== 0 || removed.closeFailureReason || removed.exitTimedOut)) this.evictedUtilityUnconfirmed = true;
+  }
+  private attachConnection(transport: UtilityTransport, scope: Connection['scope'], secrets: string[]): Connection {
+    const connection: Connection = {
+      transport, connectionId: randomUUID(), scope, generation: this.status.generation,
+      pending: new Map(), utilityExitObservable: false, exitCode: null, exitTimedOut: false, exitWaiters: new Set(),
+      exited: false, closed: false, closeRequested: false, secrets,
+    };
+    this.utilityConnections.push(connection);
+    if (scope === 'engine') this.connection = connection; else this.auxiliaries.add(connection);
+    try {
+      connection.detachExit = transport.onExit(code => this.exited(connection, code));
+      connection.utilityExitObservable = true;
+      connection.detachMessage = transport.onMessage(message => this.receive(connection, message));
+    } catch (error) {
+      connection.closeFailureReason = 'exit-unobservable';
+      this.publishUtilityClose();
+      throw safeError(error, 'HOST_TRANSPORT_FAILED', secrets);
+    }
+    this.publishUtilityClose();
+    return connection;
+  }
   getSettings(): DesktopSettings {
     const view = this.options.settings.getView();
     const publicView: DesktopSettings = {
@@ -134,13 +256,11 @@ export class DesktopHost {
     this.status.generation += 1;
     this.publish('starting');
     const secrets = config.apiKey ? [config.apiKey] : [];
+    this.reserveUtilityConnection();
     let transport: UtilityTransport;
-    try { transport = this.options.spawn(); }
+    try { transport = this.spawnUtility(); }
     catch (error) { throw safeError(error, 'HOST_SPAWN_FAILED', secrets); }
-    const connection: Connection = { transport, pending: new Map(), detach: [], exited: false, closed: false, closeRequested: false, secrets };
-    this.connection = connection;
-    connection.detach.push(connection.transport.onMessage(message => this.receive(connection, message)));
-    connection.detach.push(connection.transport.onExit(() => this.exited(connection)));
+    const connection = this.attachConnection(transport, 'engine', secrets);
     const payload: WorkerStartPayload = {
       dbPath: this.options.dbPath, artifactDir: this.options.artifactDir,
       config: this.options.testScenario ? { providerId: 'scripted', modelId: `desktop-${this.options.testScenario}-fixture`, baseURL: '' } : { ...config },
@@ -157,15 +277,20 @@ export class DesktopHost {
       throw safeError(error, 'HOST_START_FAILED', connection.secrets);
     }
   }
-  private exited(connection: Connection): void {
+  private exited(connection: Connection, code: number): void {
+    if (connection.exited) return;
     connection.exited = true;
+    connection.exitCode = Number.isSafeInteger(code) && code >= -2_147_483_648 && code <= 2_147_483_647 ? code : null;
     for (const pending of connection.pending.values()) {
       clearTimeout(pending.timer);
       pending.reject(new HostError('HOST_WORKER_EXITED', 'The engine utility process exited. Retry to reopen its persisted state.'));
     }
     connection.pending.clear();
-    for (const detach of connection.detach.splice(0)) detach();
+    connection.detachMessage?.(); connection.detachMessage = undefined;
+    connection.detachExit?.(); connection.detachExit = undefined;
     connection.secrets.length = 0;
+    for (const finish of [...connection.exitWaiters]) finish();
+    this.publishUtilityClose();
     if (this.connection === connection && !connection.closed) this.publish('failed', new HostError('HOST_WORKER_EXITED', 'The engine utility process exited. Retry to reopen its persisted state.'));
   }
   private receive(connection: Connection, message: unknown): void {
@@ -191,7 +316,12 @@ export class DesktopHost {
     if (!pending) return;
     connection.pending.delete(message.id);
     clearTimeout(pending.timer);
-    if (message.ok) pending.resolve(message.result);
+    if (message.ok) {
+      // Record the exact close reply before resolving its promise: an original
+      // child exit in the same turn cannot be mistaken for exit without ACK.
+      if (pending.type === 'close') this.acknowledgedClose(connection);
+      pending.resolve(message.result);
+    }
     else pending.reject(safeError(message.error, 'HOST_RPC_FAILED', connection.secrets));
   }
   private rpc(connection: Connection, type: WorkerRequest['type'], payload?: unknown, timeout = this.options.rpcTimeoutMs ?? 120_000): Promise<unknown> {
@@ -203,7 +333,7 @@ export class DesktopHost {
         connection.pending.delete(id);
         reject(new HostError('HOST_RPC_TIMEOUT', `The engine did not confirm the ${type} operation before its deadline.`));
       }, timeout);
-      connection.pending.set(id, { resolve, reject, timer });
+      connection.pending.set(id, { type, resolve, reject, timer });
       try { connection.transport.postMessage({ id, type, ...(payload === undefined ? {} : { payload }) } as WorkerRequest); }
       catch (error) {
         connection.pending.delete(id); clearTimeout(timer);
@@ -311,10 +441,8 @@ export class DesktopHost {
   }
   private async storageRequest<T>(type: 'diagnostics' | 'recover', input: Record<string, unknown> = {}): Promise<T> {
     if (this.closing) throw new HostError('ENGINE_CLOSED', 'Desktop is closing.');
-    const transport = this.options.spawn();
-    const connection: Connection = { transport, pending: new Map(), detach: [], exited: false, closed: false, closeRequested: false, secrets: [] };
-    this.auxiliaries.add(connection);
-    connection.detach.push(transport.onMessage(message => this.receive(connection, message)), transport.onExit(() => this.exited(connection)));
+    this.reserveUtilityConnection();
+    const connection = this.attachConnection(this.spawnUtility(), 'storage', []);
     try { return await this.rpc(connection, type, { dbPath: this.options.dbPath, artifactDir: this.options.artifactDir, ...input }) as T; }
     finally { await this.closeConnection(connection); this.auxiliaries.delete(connection); }
   }
@@ -382,19 +510,57 @@ export class DesktopHost {
     } finally { this.endTransition(); }
     return this.getStatus();
   }
-  private async closeConnection(connection?: Connection): Promise<void> {
-    if (!connection || connection.exited || connection.closed) return;
-    connection.closeRequested = true;
-    await this.rpc(connection, 'close', undefined, this.options.closeTimeoutMs ?? 120_000);
+  private acknowledgedClose(connection: Connection): void {
     connection.closed = true;
-    // engine.close was acknowledged: no Run, approval or DB handle remains.
+    // Engine close admission and physical utility exit are separate evidence.
     connection.secrets.length = 0;
     for (const pending of connection.pending.values()) {
       clearTimeout(pending.timer);
       pending.reject(new HostError('ENGINE_CLOSED', 'The engine has closed.'));
     }
     connection.pending.clear();
-    for (const detach of connection.detach.splice(0)) detach();
+    connection.detachMessage?.(); connection.detachMessage = undefined;
+    this.publishUtilityClose();
+  }
+  private closeConnection(connection?: Connection): Promise<void> {
+    if (!connection || connection.exited || connection.closed) return Promise.resolve();
+    if (connection.closeTask) return connection.closeTask;
+    connection.closeRequested = true;
+    this.publishUtilityClose();
+    const task = this.rpc(connection, 'close', undefined, this.options.closeTimeoutMs ?? 120_000).then(() => undefined, error => {
+      // Exit without its matching close ACK remains visible as such, while a
+      // failed/timed out close attempt is retained even if a later retry exits.
+      if (!connection.exited) connection.closeFailureReason = error instanceof HostError && error.code === 'HOST_RPC_TIMEOUT' ? 'close-timeout' : 'close-error';
+      this.publishUtilityClose();
+      throw error;
+    }).finally(() => { if (connection.closeTask === task) connection.closeTask = undefined; });
+    connection.closeTask = task;
+    return task;
+  }
+  private waitForUtilityExit(connection: Connection): Promise<void> {
+    if (connection.exited) return Promise.resolve();
+    if (!connection.utilityExitObservable) return Promise.reject(new HostError('HOST_WORKER_EXIT_UNOBSERVABLE', 'The original utility process exit cannot be observed.'));
+    const configured = this.options.utilityExitTimeoutMs ?? 5_000;
+    const timeout = Number.isFinite(configured) ? Math.max(1, Math.min(30_000, configured)) : 5_000;
+    return new Promise((resolve, reject) => {
+      const finish = (): void => { clearTimeout(timer); connection.exitWaiters.delete(finish); resolve(); };
+      const timer = setTimeout(() => {
+        connection.exitWaiters.delete(finish);
+        connection.exitTimedOut = true;
+        this.publishUtilityClose();
+        // Keep the original listener for a subsequent quit retry and exact late
+        // exit evidence; admission bounds the number of retained live children.
+        reject(new HostError('HOST_WORKER_EXIT_TIMEOUT', 'The original engine utility process did not confirm exit before its deadline.'));
+      }, timeout);
+      connection.exitWaiters.add(finish);
+    });
+  }
+  /** Installer admission requires every original utility ACK and successful exit. */
+  async closeForUpdate(): Promise<void> {
+    await this.close();
+    const diagnostics = this.getUtilityCloseDiagnostics();
+    const neverSpawned = !diagnostics.spawnAttempted && diagnostics.complete && diagnostics.connections.length === 0;
+    if (!neverSpawned && diagnostics.cleanupConfirmed !== true) throw new HostError('HOST_UTILITY_CLOSE_UNCONFIRMED', 'Original utility cleanup has not been confirmed for update installation.');
   }
   close(): Promise<void> {
     if (this.closePromise) return this.closePromise;
@@ -405,6 +571,8 @@ export class DesktopHost {
       await this.closeConnection(this.connection);
       await Promise.all([...this.auxiliaries].map(connection => this.closeConnection(connection)));
       this.auxiliaries.clear();
+      await Promise.all(this.utilityConnections.map(connection => this.waitForUtilityExit(connection)));
+      this.publishUtilityClose();
       this.publish('stopped');
     })();
     void this.closePromise.catch(error => {

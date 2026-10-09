@@ -4,7 +4,7 @@ import { test, type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, type CommandEnvelope, type EngineCapabilities } from '@moodcode/contracts';
 import type { DesktopSettings, DesktopUpdate, HostStatus, SaveDesktopSettings } from '../shared/protocol.js';
 import type { WorkerRequest, WorkerResponse, WorkerStartPayload } from '../worker/protocol.js';
-import { DesktopHost, HostError, type HostSettingsStore, type UtilityTransport } from './host.js';
+import { DesktopHost, HostError, UTILITY_CLOSE_DIAGNOSTIC_LIMIT, type HostSettingsStore, type UtilityTransport, type UtilityCloseDiagnostics } from './host.js';
 import type { PreparedSettings, ResolvedDesktopSettings } from './settings.js';
 
 function gate<T>() {
@@ -68,6 +68,7 @@ class FakeUtility implements UtilityTransport {
   readonly held = new Set<WorkerRequest['type']>();
   onRequest?: (request: WorkerRequest, utility: FakeUtility) => boolean;
   sendFailure?: Error;
+  autoExit = true;
   constructor(readonly index: number, readonly trace: string[]) {}
   postMessage(message: WorkerRequest): void {
     if (this.sendFailure) throw this.sendFailure;
@@ -98,6 +99,7 @@ class FakeUtility implements UtilityTransport {
     this.outstanding.delete(message.id);
     this.trace.push(`worker${this.index}.${message.type}.confirmed`);
     this.emit({ id: message.id, ok: true, result } satisfies WorkerResponse);
+    if (message.type === 'close' && this.autoExit) queueMicrotask(() => this.exit(0));
   }
   failure(message: WorkerRequest, code: string, text: string): void {
     this.outstanding.delete(message.id);
@@ -165,6 +167,8 @@ function setup(t: TestContext, input: {
   testScenario?: 'coding' | 'slow' | 'account';
   rpcTimeoutMs?: number;
   closeTimeoutMs?: number;
+  utilityExitTimeoutMs?: number;
+  onUtilityClose?: (diagnostics: UtilityCloseDiagnostics) => void;
   spawnFailure?: Error;
 } = {}) {
   const trace: string[] = [];
@@ -175,7 +179,8 @@ function setup(t: TestContext, input: {
   const host = new DesktopHost({
     settings, dbPath: '/fixture/engine.sqlite', artifactDir: '/fixture/artifacts', platform: 'darwin', version: 'fixture-version',
     ...(input.testScenario ? { testScenario: input.testScenario } : {}),
-    rpcTimeoutMs: input.rpcTimeoutMs ?? 1_000, closeTimeoutMs: input.closeTimeoutMs ?? 500,
+    rpcTimeoutMs: input.rpcTimeoutMs ?? 1_000, closeTimeoutMs: input.closeTimeoutMs ?? 500, utilityExitTimeoutMs: input.utilityExitTimeoutMs ?? 100,
+    onUtilityClose: input.onUtilityClose,
     spawn: () => {
       if (input.spawnFailure) throw input.spawnFailure;
       trace.push(`worker${workers.length}.spawn`);
@@ -187,9 +192,8 @@ function setup(t: TestContext, input: {
     onUpdate: (ownerId, update) => { updates.push({ ownerId, update }); },
   });
   t.after(async () => {
-    for (const worker of workers) worker.settleAll();
+    for (const worker of workers) { worker.autoExit = true; worker.settleAll(); worker.exit(0); }
     await host.close().catch(() => undefined);
-    for (const worker of workers) worker.exit(0);
   });
   return { host, settings, workers, trace, statuses, updates };
 }
@@ -629,12 +633,165 @@ test('an unconfirmed failed-start cleanup prevents retry from opening another da
   assert.equal(workers.length, 3);
 });
 
-test('successful close detaches transport listeners without waiting for a process exit', async (t) => {
+test('close ACK detaches messages but retains the original exit listener until final close observes exit', async (t) => {
   const { host, workers } = setup(t);
   await host.initialize();
+  const worker = workers[0]!; worker.autoExit = false;
+  let settled = false;
+  const closing = host.close().then(() => { settled = true; });
+  await until(() => worker.requests('close').length === 1 && worker.messageListeners.size === 0);
+  assert.equal(settled, false);
+  assert.equal(worker.exitListeners.size, 1);
+  const receipt = host.getUtilityCloseDiagnostics();
+  assert.equal(receipt.cleanupConfirmed, null);
+  assert.equal(receipt.utilityAcknowledged, true);
+  assert.equal(receipt.utilityExitObserved, false);
+  assert.equal(receipt.connections[0]!.engineCloseAcknowledged, true);
+  worker.exit(0); await closing;
+  assert.equal(host.getStatus().state, 'stopped');
+  assert.equal(worker.exitListeners.size, 0);
+  assert.equal(host.getUtilityCloseDiagnostics().cleanupConfirmed, true);
+});
+
+test('ACK without original exit times out safely and a late exit only settles physical quit', async (t) => {
+  const { host, workers } = setup(t, { utilityExitTimeoutMs: 15 });
+  await host.initialize(); const worker = workers[0]!; worker.autoExit = false;
+  await assert.rejects(host.close(), errorCode('HOST_WORKER_EXIT_TIMEOUT'));
+  assert.equal(host.getStatus().state, 'failed');
+  assert.equal(worker.exitListeners.size, 1, 'original observation capability is retained for quit retry');
+  const timedOut = host.getUtilityCloseDiagnostics();
+  assert.equal(timedOut.cleanupConfirmed, false);
+  assert.equal(timedOut.connections[0]!.reason, 'exit-timeout');
+  worker.exit(0); await host.close();
+  assert.equal(host.getUtilityCloseDiagnostics().connections[0]!.utilityExitObserved, true);
+  await assert.rejects(host.closeForUpdate(), errorCode('HOST_UTILITY_CLOSE_UNCONFIRMED'));
+  assert.equal(worker.requests('close').length, 1);
+});
+
+test('original exit without ACK rejects its pending close and never credits a late ACK', async (t) => {
+  const { host, workers } = setup(t);
+  await host.initialize(); const worker = workers[0]!; worker.held.add('close');
+  const closing = host.close(); const rejected = assert.rejects(closing, errorCode('HOST_WORKER_EXITED'));
+  await until(() => worker.requests('close').length === 1);
+  const request = worker.requests('close')[0]!; worker.exit(0); await rejected;
+  worker.success(request); await host.close();
+  const receipt = host.getUtilityCloseDiagnostics();
+  assert.equal(receipt.connections[0]!.reason, 'exit-without-ack');
+  assert.equal(receipt.connections[0]!.engineCloseAcknowledged, false);
+  assert.equal(receipt.cleanupConfirmed, false);
+  await assert.rejects(host.closeForUpdate(), errorCode('HOST_UTILITY_CLOSE_UNCONFIRMED'));
+});
+
+test('a nonzero original exit after ACK is observed but is not confirmed cleanup', async (t) => {
+  const { host, workers } = setup(t);
+  await host.initialize(); const worker = workers[0]!; worker.autoExit = false;
+  const closing = host.close();
+  await until(() => worker.messageListeners.size === 0);
+  worker.exit(7); await closing;
+  const receipt = host.getUtilityCloseDiagnostics();
+  assert.equal(receipt.utilityAcknowledged, true); assert.equal(receipt.utilityExitObserved, true);
+  assert.equal(receipt.connections[0]!.exitCode, 7);
+  assert.equal(receipt.connections[0]!.reason, 'nonzero-exit'); assert.equal(receipt.cleanupConfirmed, false);
+  await assert.rejects(host.closeForUpdate(), errorCode('HOST_UTILITY_CLOSE_UNCONFIRMED'));
+});
+
+test('retry admits a new engine after ACK while a late old exit credits only its immutable connection', async (t) => {
+  const { host, workers } = setup(t);
+  await host.initialize(); const original = workers[0]!; original.autoExit = false;
+  assert.equal((await host.retryEngine()).state, 'ready');
+  const current = workers[1]!; current.autoExit = false;
+  const before = host.getUtilityCloseDiagnostics();
+  assert.notEqual(before.connections[0]!.connectionId, before.connections[1]!.connectionId);
+  assert.deepEqual(before.connections.map(record => record.generation), [1, 2]);
+  const closing = host.close();
+  await until(() => current.messageListeners.size === 0);
+  original.exit(0);
+  const late = host.getUtilityCloseDiagnostics();
+  assert.equal(late.connections[0]!.utilityExitObserved, true);
+  assert.equal(late.connections[1]!.utilityExitObserved, false);
+  assert.equal(late.cleanupConfirmed, null);
+  current.exit(0); await closing;
+  assert.equal(host.getUtilityCloseDiagnostics().cleanupConfirmed, true);
+});
+
+for (const mode of ['error', 'timeout'] as const) {
+  test(`a close ${mode} retains uncertainty even if a later retry ACKs and exits`, async (t) => {
+    const { host, workers } = setup(t, { closeTimeoutMs: 15 }); await host.initialize(); const worker = workers[0]!;
+    if (mode === 'timeout') worker.held.add('close');
+    else worker.onRequest = (request, utility) => {
+      if (request.type !== 'close') return false;
+      queueMicrotask(() => utility.failure(request, 'CLOSE_FAILED', `private ${remote.apiKey}`)); return true;
+    };
+    await assert.rejects(host.close(), errorCode(mode === 'timeout' ? 'HOST_RPC_TIMEOUT' : 'CLOSE_FAILED'));
+    assert.equal(host.getUtilityCloseDiagnostics().connections[0]!.reason, `close-${mode}`);
+    // A late timed-out reply is not the acknowledgement of a newer close RPC.
+    if (mode === 'timeout') { worker.autoExit = false; worker.release('close'); }
+    assert.equal(host.getUtilityCloseDiagnostics().connections[0]!.engineCloseAcknowledged, false);
+    worker.autoExit = true; worker.held.delete('close'); worker.onRequest = undefined;
+    await host.close();
+    assert.equal(host.getUtilityCloseDiagnostics().cleanupConfirmed, false);
+    await assert.rejects(host.closeForUpdate(), errorCode('HOST_UTILITY_CLOSE_UNCONFIRMED'));
+  });
+}
+
+test('close receipts expose only bounded transport metadata and observers cannot affect lifecycle', async (t) => {
+  const receipts: UtilityCloseDiagnostics[] = [];
+  const { host } = setup(t, { settingsInput: remote, onUtilityClose(receipt) {
+    receipts.push(structuredClone(receipt)); receipt.connections.length = 0; throw new Error('private observer');
+  } });
+  await host.initialize(); await host.closeForUpdate();
+  const receipt = host.getUtilityCloseDiagnostics();
+  assert.equal(receipt.connections.length, 1); assert.equal(receipt.cleanupConfirmed, true);
+  assert.ok(receipts.some(value => value.utilityAcknowledged === true && value.utilityExitObserved === false));
+  assert.equal(receipts.at(-1)!.cleanupConfirmed, true);
+  assert.doesNotMatch(JSON.stringify(receipts), /fixture-private-key|fixture-model|fixture\/engine|private observer/u);
+  receipt.connections[0]!.engineCloseAcknowledged = false;
+  assert.equal(host.getUtilityCloseDiagnostics().connections[0]!.engineCloseAcknowledged, true);
+});
+
+test('settled ledger eviction keeps coverage incomplete and blocks updater confirmation', async (t) => {
+  const { host, workers } = setup(t); await host.initialize();
+  for (let count = 0; count < UTILITY_CLOSE_DIAGNOSTIC_LIMIT; count++) {
+    assert.equal((await host.retryEngine()).state, 'ready');
+  }
   await host.close();
-  assert.equal(workers[0]!.messageListeners.size, 0);
-  assert.equal(workers[0]!.exitListeners.size, 0);
+  const receipt = host.getUtilityCloseDiagnostics();
+  assert.equal(workers.length, UTILITY_CLOSE_DIAGNOSTIC_LIMIT + 1);
+  assert.equal(receipt.connections.length, UTILITY_CLOSE_DIAGNOSTIC_LIMIT);
+  assert.equal(receipt.evictedCount, 1); assert.equal(receipt.complete, false); assert.equal(receipt.cleanupConfirmed, null);
+  await assert.rejects(host.closeForUpdate(), errorCode('HOST_UTILITY_CLOSE_UNCONFIRMED'));
+});
+
+test('live original utility capacity stops further spawning without abandoning original exit listeners', async (t) => {
+  const { host, workers } = setup(t, { configureWorker(worker) { worker.autoExit = false; } }); await host.initialize();
+  for (let count = 1; count < UTILITY_CLOSE_DIAGNOSTIC_LIMIT; count++) assert.equal((await host.retryEngine()).state, 'ready');
+  const limited = await host.retryEngine();
+  assert.equal(limited.state, 'failed'); assert.equal(limited.error?.code, 'HOST_UTILITY_CAPACITY');
+  assert.equal(workers.length, UTILITY_CLOSE_DIAGNOSTIC_LIMIT);
+  assert.ok(workers.every(worker => worker.exitListeners.size === 1));
+  assert.equal(host.getUtilityCloseDiagnostics().evictedCount, 0);
+  // An exact original exit frees capacity, but omitted history prevents a full receipt.
+  workers[0]!.exit(0); assert.equal((await host.retryEngine()).state, 'ready');
+  assert.equal(host.getUtilityCloseDiagnostics().evictedCount, 1);
+  for (const worker of workers) worker.autoExit = true;
+  for (const worker of workers.slice(0, -1)) worker.exit(0);
+  await host.close();
+});
+
+test('strict update cleanup permits a never-spawned host and complete original utility cleanup', async (t) => {
+  const empty = setup(t); await empty.host.closeForUpdate(); assert.equal(empty.workers.length, 0);
+  assert.equal(empty.host.getUtilityCloseDiagnostics().cleanupConfirmed, null);
+  const running = setup(t); await running.host.initialize(); await running.host.closeForUpdate();
+  assert.equal(running.host.getUtilityCloseDiagnostics().cleanupConfirmed, true);
+});
+
+test('a crashed original remains visible and blocks updates after successful engine retry', async (t) => {
+  const { host, workers } = setup(t); await host.initialize(); workers[0]!.exit(1);
+  assert.equal((await host.retryEngine()).state, 'ready'); await host.close();
+  assert.equal(host.getStatus().state, 'stopped');
+  const receipt = host.getUtilityCloseDiagnostics();
+  assert.equal(receipt.connections[1]!.cleanupConfirmed, true); assert.equal(receipt.cleanupConfirmed, false);
+  await assert.rejects(host.closeForUpdate(), errorCode('HOST_UTILITY_CLOSE_UNCONFIRMED'));
 });
 
 test('a spawn failure cannot publish the selected key in host state', async (t) => {
@@ -699,4 +856,40 @@ test('public settings strip unexpectedly private store fields while preserving d
     'baseURL', 'codexAuthState', 'codexModelId', 'credentialStorage', 'keyConfigured', 'keySource', 'modelId', 'providerId',
   ]);
   assert.ok(!JSON.stringify(await host.getBootstrap()).includes(remote.apiKey!));
+});
+
+
+test('the matching close ACK is recorded before a same-turn original exit', async t => {
+  const { host, workers } = setup(t); await host.initialize(); const worker = workers[0]!; worker.autoExit = false;
+  worker.onRequest = (request, utility) => {
+    if (request.type !== 'close') return false;
+    queueMicrotask(() => { utility.success(request); utility.exit(0); }); return true;
+  };
+  await host.closeForUpdate(); assert.equal(host.getUtilityCloseDiagnostics().cleanupConfirmed, true);
+});
+
+test('unknown original exit status stays uncertain despite a matching close ACK', async t => {
+  const { host, workers } = setup(t); await host.initialize(); const worker = workers[0]!; worker.autoExit = false;
+  const closing = host.close(); await until(() => worker.messageListeners.size === 0); worker.exit(Number.NaN); await closing;
+  const receipt = host.getUtilityCloseDiagnostics();
+  assert.equal(receipt.connections[0]!.exitCode, null); assert.equal(receipt.connections[0]!.reason, 'exit-status-unknown');
+  assert.equal(receipt.cleanupConfirmed, false);
+  await assert.rejects(host.closeForUpdate(), errorCode('HOST_UTILITY_CLOSE_UNCONFIRMED'));
+});
+
+
+test('a failed spawn attempt is unknown authority and cannot use the never-started updater exception', async t => {
+  const f = setup(t, { spawnFailure: new Error('private native adapter failure') });
+  assert.equal((await f.host.initialize()).state, 'failed');
+  await assert.rejects(f.host.closeForUpdate(), errorCode('HOST_UTILITY_CLOSE_UNCONFIRMED'));
+  const receipt = f.host.getUtilityCloseDiagnostics();
+  assert.equal(receipt.connections.length, 0); assert.equal(receipt.spawnAttempted, true);
+  assert.equal(receipt.spawnUnobserved, true); assert.equal(receipt.complete, false);
+  assert.notEqual(receipt.cleanupConfirmed, true); assert.doesNotMatch(JSON.stringify(receipt), /private native/u);
+});
+
+test('settings failure before any spawn remains a legitimate never-started updater close', async t => {
+  const f = setup(t); f.settings.loadHook = async () => { throw new HostError('SETTINGS_KEY_REQUIRED', 'Fixture requires its configured credential.'); };
+  assert.equal((await f.host.initialize()).state, 'failed'); await f.host.closeForUpdate();
+  assert.equal(f.workers.length, 0); assert.equal(f.host.getUtilityCloseDiagnostics().spawnAttempted, false);
 });

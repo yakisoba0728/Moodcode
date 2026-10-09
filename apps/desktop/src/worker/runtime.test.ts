@@ -114,3 +114,15 @@ test('cleanup failure is surfaced before utility can acknowledge close', async (
   assert.deepEqual(lifecycle.codes, []);
   await assert.rejects(attached.shutdown());
 });
+
+
+test('engine close followed by failed ACK delivery exits without inventing a close receipt', async () => {
+  const order: string[] = []; const port = new Port(order); const lifecycle = new Lifecycle(order); let closed = 0;
+  const attached = attachUtilityWorker(port, lifecycle, { createEngine: () => engine(async () => { closed++; order.push('engine-closed'); }) });
+  port.emit('message', { data: start }); await until(() => port.messages.length === 1);
+  port.broken = true; port.emit('message', { data: { id: 'close-unobserved', type: 'close' } });
+  await until(() => lifecycle.codes.length === 1);
+  assert.deepEqual(order, ['reply:start', 'engine-closed', 'exit:0']);
+  assert.equal(port.messages.some(message => 'id' in message && message.id === 'close-unobserved'), false);
+  assert.equal(closed, 1); await attached.shutdown();
+});

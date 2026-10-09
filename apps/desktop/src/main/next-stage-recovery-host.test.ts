@@ -19,6 +19,7 @@ class FixtureUtility implements UtilityTransport {
   readonly exits = new Set<(code: number) => void>();
   readonly historicalExits: ((code: number) => void)[] = [];
   active = false;
+  autoExit = true;
   constructor(readonly index: number, readonly trace: string[], readonly diagnostic: () => DesktopRecoveryStatus) {}
   postMessage(request: WorkerRequest): void {
     this.messages.push(request); this.pending.set(request.id, request); this.trace.push(`${this.index}:${request.type}`);
@@ -34,7 +35,9 @@ class FixtureUtility implements UtilityTransport {
     const result = request.type === 'diagnostics' ? structuredClone(this.diagnostic()) : request.type === 'recover' ? recovery : request.type === 'backup' ? { bytes: 1234 } : undefined;
     const response = failed ? { id: request.id, ok: false, error: { code: 'WORKSPACE_BUSY', message: 'Fixture active Run' } } : { id: request.id, ok: true, result };
     for (const listener of [...this.listeners]) listener(response);
+    if (request.type === 'close' && !failed && this.autoExit) queueMicrotask(() => this.exit(0));
   }
+  exit(code = 0): void { for (const listener of [...this.exits]) listener(code); }
   release(type: WorkerRequest['type']): void { this.held.delete(type); for (const request of [...this.pending.values()]) if (request.type === type) this.respond(request); }
   settle(): void { this.held.clear(); this.active = false; for (const request of [...this.pending.values()]) this.respond(request); }
 }
@@ -50,7 +53,7 @@ function fixture(t: TestContext) {
     settings: { getView: () => view, load: async () => resolved, prepare: async () => resolved, commit: async () => resolved },
     spawn() { const worker = new FixtureUtility(workers.length, trace, () => diagnostic); workers.push(worker); configure?.(worker); return worker; },
   });
-  t.after(async () => { for (const worker of workers) worker.settle(); await host.close(); });
+  t.after(async () => { for (const worker of workers) { worker.autoExit = true; worker.settle(); worker.exit(); } await host.close(); });
   return { host, trace, workers, setStatus(value: DesktopRecoveryStatus) { diagnostic = value; }, configure(value: typeof configure) { configure = value; } };
 }
 
@@ -145,4 +148,22 @@ test('an active Run blocks recovery and backup without closing its engine or spa
   assert.equal(f.workers.length, 1);
   assert.equal(f.workers[0]!.requests('close').length, 0);
   assert.equal(f.host.getStatus().state, 'ready');
+});
+
+
+test('final quit observes auxiliary originals even after storage ACK released the diagnostic request', async t => {
+  const f = fixture(t); await f.host.initialize(); f.configure(worker => { worker.autoExit = false; });
+  await f.host.getRecoveryStatus();
+  const auxiliary = f.workers[1]!;
+  const before = f.host.getUtilityCloseDiagnostics();
+  assert.deepEqual(before.connections.map(connection => connection.scope), ['engine', 'storage']);
+  assert.equal(before.connections[1]!.engineCloseAcknowledged, true);
+  assert.equal(before.connections[1]!.utilityExitObserved, false);
+  assert.equal(auxiliary.exits.size, 1);
+  let settled = false; const closing = f.host.close().then(() => { settled = true; });
+  await until(() => f.host.getUtilityCloseDiagnostics().connections[0]!.utilityExitObserved);
+  assert.equal(settled, false); assert.notEqual(f.host.getUtilityCloseDiagnostics().cleanupConfirmed, true);
+  auxiliary.exit(); await closing;
+  assert.equal(f.host.getUtilityCloseDiagnostics().cleanupConfirmed, true);
+  assert.equal(auxiliary.exits.size, 0);
 });

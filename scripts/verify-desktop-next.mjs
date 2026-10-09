@@ -74,12 +74,13 @@ try {
   const tests = (await Promise.all(projects.map(project => files(join(root, project))))).flat().filter(path => path.endsWith('.test.js')).sort();
   if (!tests.length) throw new Error('No compiled tests found');
   await run(options.has('--whole') ? 'whole' : 'desktop-unit', process.execPath, ['--test', '--test-concurrency=4', ...tests]);
-  await run('release-policy', process.execPath, ['--test', 'scripts/desktop-release-policy.test.mjs', 'scripts/desktop-native-package.test.mjs', 'scripts/desktop-test-evidence.test.mjs']);
+  await run('release-policy', process.execPath, ['--test', 'scripts/desktop-release-policy.test.mjs', 'scripts/desktop-native-package.test.mjs', 'scripts/desktop-test-evidence.test.mjs', 'scripts/desktop-main-utility-close.test.mjs']);
   if (options.has('--gui')) {
     for (const name of ['desktop', 'desktop-settings', 'desktop-conversation', 'desktop-history-recovery', 'desktop-advanced', 'desktop-accounts', 'desktop-update']) {
       await run(name, process.execPath, [`scripts/test-${name}.mjs`]);
     }
     await run('desktop-advanced-evidence', process.execPath, ['scripts/verify-desktop-advanced-evidence.mjs']);
+    await run('desktop-main-utility-close', process.execPath, ['scripts/verify-desktop-main-utility-close.mjs']);
   }
   if (options.has('--package')) await run('desktop-package', process.execPath, ['scripts/test-desktop-package.mjs']);
   report.finishedAt = new Date().toISOString();
