@@ -1,0 +1,417 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-history-storage-retained-analysis",
+  "updatedAt": "2026-10-09T09:14:01.737429+00:00",
+  "status": "historical_evidence_gap_with_reusable_inspector",
+  "sourceQualification": {
+    "nextBaselineHead": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6",
+    "historicalEngineHead": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+    "historicalEffectiveSourceSha256": "33b3f759b6bfc6ab3cb79bf7faf46599075c58f5e19e18a8d2d8e71a72a83edb",
+    "compactHistoricalReport": {
+      "path": "docs/moodcode/next-current-persistent-30min-verification.json",
+      "bytes": 23955,
+      "sha256": "e3044036e67f32ed3b3b4f66982e0378a44a9c21f49835297f1c143fbbffbfe0"
+    },
+    "historicalRawReportReference": {
+      "path": "/tmp/moodcode-next-current-persistent-30min.json",
+      "bytes": 362843,
+      "sha256": "83747dc758b8b27be61a62f318cb746932da51b22d6325aec02b22e429f5c648"
+    },
+    "historicalRawReportAvailableNow": false,
+    "measurementToolCommit": "982c7b3a33f08bb8de2ceb63ddab121c6e4af9c6"
+  },
+  "retainedOriginal": {
+    "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-nMpoCi/engine.sqlite",
+    "reportedHistoricalBytes": 330448896,
+    "reportedHistoricalSha256": "4201be302d5ae09801463edf900422f7d53c980666e990a0a46061b04402b6fe",
+    "reportedClosed": {
+      "workerExited": true,
+      "recoveryEngineClosed": true
+    },
+    "availableNow": false,
+    "openedNow": false,
+    "recreated": false,
+    "fixtureRerun": false,
+    "inspection": {
+      "schemaVersion": 1,
+      "kind": "history-storage-cost",
+      "status": "refused_before_open",
+      "admission": {
+        "callerAssertedClosedSnapshot": true,
+        "uriMode": "ro",
+        "immutable": true,
+        "opened": false
+      },
+      "bounds": {
+        "maxFileBytes": 1073741824,
+        "maxSchemaObjects": 1024,
+        "maxTables": 256,
+        "maxColumns": 64,
+        "maxRowsPerTable": 1000000,
+        "maxCategories": 256,
+        "maxCategoryBytes": 256,
+        "maxQueries": 600,
+        "maxVmOperations": 100000000,
+        "timeoutMs": 30000
+      },
+      "limitations": [
+        "Immutable SQLite ignores locks; caller must establish closure. Before/after digests detect persistent changes, not transient concurrent writes.",
+        "Serialized-column bytes use CAST(column AS BLOB), including textual numbers; they are not SQLite record payload or file bytes.",
+        "dbstat payload includes record encoding and index keys; allocated/unused bytes include page layout and do not prove leak or retention intent.",
+        "Effects companions are fingerprinted only; no secondary SQLite connection is opened."
+      ],
+      "growthTableSelection": [
+        "runs",
+        "messages",
+        "tools",
+        "approvals",
+        "checkpoints",
+        "session_inputs",
+        "session_turns",
+        "provider_attempts",
+        "message_parts",
+        "attempt_cleanup",
+        "session_documents",
+        "session_events"
+      ],
+      "filesBefore": {
+        "primary": {
+          "exists": false,
+          "bytes": null,
+          "sha256": null,
+          "inode": null,
+          "device": null,
+          "mtimeNs": null
+        },
+        "wal": {
+          "exists": false,
+          "bytes": null,
+          "sha256": null,
+          "inode": null,
+          "device": null,
+          "mtimeNs": null
+        },
+        "shm": {
+          "exists": false,
+          "bytes": null,
+          "sha256": null,
+          "inode": null,
+          "device": null,
+          "mtimeNs": null
+        },
+        "effects": {
+          "exists": false,
+          "bytes": null,
+          "sha256": null,
+          "inode": null,
+          "device": null,
+          "mtimeNs": null
+        },
+        "effectsWal": {
+          "exists": false,
+          "bytes": null,
+          "sha256": null,
+          "inode": null,
+          "device": null,
+          "mtimeNs": null
+        },
+        "effectsShm": {
+          "exists": false,
+          "bytes": null,
+          "sha256": null,
+          "inode": null,
+          "device": null,
+          "mtimeNs": null
+        }
+      },
+      "refusalCode": "primary_missing",
+      "filesAfter": {
+        "primary": {
+          "exists": false,
+          "bytes": null,
+          "sha256": null,
+          "inode": null,
+          "device": null,
+          "mtimeNs": null
+        },
+        "wal": {
+          "exists": false,
+          "bytes": null,
+          "sha256": null,
+          "inode": null,
+          "device": null,
+          "mtimeNs": null
+        },
+        "shm": {
+          "exists": false,
+          "bytes": null,
+          "sha256": null,
+          "inode": null,
+          "device": null,
+          "mtimeNs": null
+        },
+        "effects": {
+          "exists": false,
+          "bytes": null,
+          "sha256": null,
+          "inode": null,
+          "device": null,
+          "mtimeNs": null
+        },
+        "effectsWal": {
+          "exists": false,
+          "bytes": null,
+          "sha256": null,
+          "inode": null,
+          "device": null,
+          "mtimeNs": null
+        },
+        "effectsShm": {
+          "exists": false,
+          "bytes": null,
+          "sha256": null,
+          "inode": null,
+          "device": null,
+          "mtimeNs": null
+        }
+      },
+      "filesUnchanged": true,
+      "queries": 0,
+      "approximateVmOperations": 0,
+      "elapsedMs": 0
+    },
+    "command": "node scripts/inspect-history-storage-cost.mjs --database /private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-resilience-nMpoCi/engine.sqlite --closed-snapshot --timeout-ms 30000",
+    "exitCode": 1,
+    "localArtifact": {
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-history-measure/Moodcode/artifacts/next-history-cost/retained-original-absence.json",
+      "bytes": 3360,
+      "sha256": "74692730e3d22e4b7fcca2e1a145b1cf674c998d55f14792787c557f7f2abe16"
+    }
+  },
+  "historicalAggregateAccounting": {
+    "sampledScope": "primary + WAL + SHM + effects SQLite file bytes at worker sample times; excludes artifact-directory bytes",
+    "firstSampleAggregateBytes": 1314096,
+    "lastSampleAggregateBytes": 334890336,
+    "sampledAggregateDeltaBytes": 333576240,
+    "afterCloseScope": "different recovery-host after-close stage, after checkpoint/closure/recovery; components are historical report values",
+    "afterClosePrimaryBytes": 330448896,
+    "afterCloseWalBytes": 0,
+    "afterCloseShmBytes": 32768,
+    "afterCloseEffectsBytes": 8192,
+    "afterCloseAggregateBytes": 330489856,
+    "lastAggregateMinusAfterCloseAggregateBytes": 4400480,
+    "lastAggregateMinusAfterClosePrimaryBytes": 4441440,
+    "meaning": "333576240 is a sampled multi-file delta, while 330448896 is the final primary-file absolute size. They differ in baseline, file scope and time. WAL can retain repeated changed pages until checkpoint/reset; SHM is coordination overhead; effects is separate bookkeeping. No exact historical last-sample WAL/primary decomposition survives in the available compact report.",
+    "afterCloseArtifactBytes": 303724,
+    "artifactDirectorySeparate": true,
+    "noLeakClaim": true
+  },
+  "historicalSelectedGrowthCounts": {
+    "cycles": 417,
+    "inputs": 1672,
+    "inputBytes": 428032,
+    "tableCountsAndGrowth": {
+      "runs": {
+        "baseline": 0,
+        "crashReady": 835,
+        "afterRecovery": 835,
+        "netGrowth": 835
+      },
+      "messages": {
+        "baseline": 0,
+        "crashReady": 2562,
+        "afterRecovery": 2562,
+        "netGrowth": 2562
+      },
+      "tools": {
+        "baseline": 0,
+        "crashReady": 62,
+        "afterRecovery": 62,
+        "netGrowth": 62
+      },
+      "approvals": {
+        "baseline": 0,
+        "crashReady": 62,
+        "afterRecovery": 62,
+        "netGrowth": 62
+      },
+      "checkpoints": {
+        "baseline": 0,
+        "crashReady": 61,
+        "afterRecovery": 61,
+        "netGrowth": 61
+      },
+      "session_inputs": {
+        "baseline": 0,
+        "crashReady": 1672,
+        "afterRecovery": 1672,
+        "netGrowth": 1672
+      },
+      "session_turns": {
+        "baseline": 0,
+        "crashReady": 1251,
+        "afterRecovery": 1251,
+        "netGrowth": 1251
+      },
+      "provider_attempts": {
+        "baseline": 0,
+        "crashReady": 1251,
+        "afterRecovery": 1251,
+        "netGrowth": 1251
+      },
+      "message_parts": {
+        "baseline": 0,
+        "crashReady": 1251,
+        "afterRecovery": 1251,
+        "netGrowth": 1251
+      },
+      "attempt_cleanup": {
+        "baseline": 0,
+        "crashReady": 1251,
+        "afterRecovery": 1251,
+        "netGrowth": 1251
+      },
+      "session_documents": {
+        "baseline": 0,
+        "crashReady": 70,
+        "afterRecovery": 70,
+        "netGrowth": 70
+      },
+      "session_events": {
+        "baseline": 0,
+        "crashReady": 22786,
+        "afterRecovery": 22791,
+        "netGrowth": 22791
+      }
+    },
+    "meaning": "These twelve tables were selected by the fixture; they are not a complete schema census. Row count is not a byte attribution. context_revisions and legacy events are omitted."
+  },
+  "causalSourceInference": {
+    "sources": [
+      {
+        "path": "packages/engine/src/context/service.ts",
+        "bytes": 43878,
+        "sha256": "a6ff7016e70d0e13f3eacfcc89c83b26308055f4b1230a58e858dd0df3d80773"
+      },
+      {
+        "path": "packages/engine/src/storage/native-records.ts",
+        "bytes": 34896,
+        "sha256": "37246595fd74168a5c2ca14113d6403387fd9d70c6f5360ae4ebb7edf5e864e3"
+      },
+      {
+        "path": "packages/engine/src/storage/native-schema.ts",
+        "bytes": 7623,
+        "sha256": "e614c674f26b8886b937c9c72b5ed33c4932ca3861129fe3bb10d725bce31faf"
+      },
+      {
+        "path": "packages/engine/src/resilience/persistent.ts",
+        "bytes": 19984,
+        "sha256": "103d14c4b6ac60cded2bf9ed00d480f739cd39ce185d73744d83c75cf22eaa61"
+      },
+      {
+        "path": "packages/engine/src/resilience/persistent-native.ts",
+        "bytes": 8552,
+        "sha256": "1f0abc8a5719bf2811207e1cca10b62af9b53df0ace53f9c055e03f1536ba79b"
+      }
+    ],
+    "sourceDiffCommand": "git diff --stat a89d749ea2a13e1b291dbf5de9dd813178496d46 f6953e6256fd3fc2d54b0cb89f10deff59cebbd6 -- packages/engine/src/context/service.ts packages/engine/src/storage/native-records.ts packages/engine/src/storage/native-schema.ts packages/engine/src/resilience/persistent.ts packages/engine/src/resilience/persistent-native.ts",
+    "sourceDiffEmpty": true,
+    "contextSnapshot": {
+      "file": "packages/engine/src/context/service.ts",
+      "line": 405,
+      "fact": "When the plan binding changes, ContextRevision.text receives JSON.stringify(plan.messages), with selected sourceIds and a content digest."
+    },
+    "journalDuplicate": {
+      "file": "packages/engine/src/storage/native-records.ts",
+      "line": 292,
+      "fact": "putContextRevision inserts the full serialized ContextRevision in context_revisions and appends its full context to the context.revision.recorded session event."
+    },
+    "schemaOmission": {
+      "file": "packages/engine/src/storage/native-schema.ts",
+      "line": 20,
+      "fact": "context_revisions is a durable table and is absent from the historical twelve-table growth selection."
+    },
+    "inference": "Successive snapshots of growing selected model history can repeat earlier message bytes in context_revisions, then repeat the complete revision in session_events. This is a concrete growth mechanism, not a measured allocation ranking of the unavailable retained DB. Actual selected-context bounds and workload determine growth.",
+    "knownContextRecordedCategorySha256": "a689e70cad0aec81c7ef5e7573cbf3ee5fbf5c6879d1452882c6b3b4a53cb975"
+  },
+  "unmeasuredHistoricalAttribution": {
+    "tableLogicalBytes": null,
+    "tableAllocatedPayloadUnusedIncludingIndexes": null,
+    "eventTypeAndDocumentKindBytes": null,
+    "freelistBytes": null,
+    "reason": "Original primary/WAL/SHM/effects and original raw /tmp report are absent. No retained database connection or dbstat query was made. Historical digests are recorded references, not newly verified contents."
+  },
+  "inspector": {
+    "source": [
+      {
+        "path": "scripts/inspect-history-storage-cost.mjs",
+        "bytes": 3245,
+        "sha256": "df577a45aa56c2a1f6498d317b102b4b4621b6537bca54d3e6b09f40a8375f38"
+      },
+      {
+        "path": "scripts/inspect-history-storage-cost.py",
+        "bytes": 12610,
+        "sha256": "a09e50563978aab7f07299105542ad96e88da44f9c1f0829a0b001ce9ed66ba4"
+      },
+      {
+        "path": "scripts/inspect-history-storage-cost.test.mjs",
+        "bytes": 6207,
+        "sha256": "e8c700fdb1ee882d006096ee46fc2b6f76b1fba7750afb5ef3ac1cebab9a5e7b"
+      }
+    ],
+    "admission": "Caller must establish a closed snapshot; refuses missing/nonregular primary or nonempty WAL before SQLite open. Uses Python SQLite file URI mode=ro&immutable=1 plus query_only and trusted_schema=OFF; never Engine/DatabaseSync/checkpoint/VACUUM/CREATE dbstat.",
+    "beforeAfter": "SHA256, bytes, inode, device and mtimeNs for primary/WAL/SHM/effects and effects WAL/SHM. Missing files explicitly record null metadata. File read atime is outside the equality proof.",
+    "logical": "All ordinary schema tables are counted, all stored columns summed by length(CAST(column AS BLOB)); data column byte totals separate. These textual serialized column lengths are distinct from SQLite record payload.",
+    "physical": "Existing eponymous dbstat aggregates leaf/internal/overflow allocated/payload/unused pages, maps indexes to owning tables, and reconciles freelist and unattributed bytes. Compile option and unavailable/error states explicit; no virtual table is created.",
+    "privacy": "Schema table/column/index names, aggregate counts/bytes and digests only. Event/document category values and stored identities/content are not printed; known source event names can be matched using categorySha256.",
+    "bounds": {
+      "maxFileBytes": 1073741824,
+      "maxSchemaObjects": 1024,
+      "maxTables": 256,
+      "maxColumns": 64,
+      "maxRowsPerTable": 1000000,
+      "maxCategories": 256,
+      "maxCategoryBytes": 256,
+      "maxQueries": 600,
+      "maxVmOperations": 100000000,
+      "timeoutMs": 30000
+    },
+    "maxOutputBytes": 2097152,
+    "noDependenciesInstalled": true,
+    "sqliteRuntimeCapability": {
+      "python": "3.14.7",
+      "sqlite": "3.53.4",
+      "ENABLE_DBSTAT_VTAB": true,
+      "eponymousDbstatAvailable": true,
+      "scope": "separate in-memory capability probe, not the missing historical DB"
+    }
+  },
+  "validation": {
+    "command": "node --test scripts/inspect-history-storage-cost.test.mjs",
+    "exitCode": 0,
+    "tests": 6,
+    "passed": 6,
+    "testLog": {
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-history-measure/Moodcode/artifacts/next-history-cost/measurement-tests.log",
+      "bytes": 641,
+      "sha256": "6c5038968aa48fe750b3ca9b17c533c92ad44c239ae4bdb23e33cb737d2258f1"
+    },
+    "covers": [
+      "closed fixture all-table logical bytes and index/page reconciliation",
+      "privacy of stored values/categories",
+      "before/after fingerprints unchanged with SHM/effects companions",
+      "nonempty WAL refused before open",
+      "missing evidence not created and empty WAL supported",
+      "symlink and unsupported schema identifier refusal",
+      "explicit closure and finite CLI bounds"
+    ],
+    "syntaxCheck": "node --check scripts/inspect-history-storage-cost.mjs",
+    "diffCheck": "git diff --check"
+  },
+  "limitations": [
+    "No actual historical per-table attribution is possible while the retained files are absent.",
+    "Closure is an external precondition: immutable ignores SQLite locks. Before/after digests cannot rule out transient concurrent changes.",
+    "No whole-engine/desktop/provider acceptance, longer soak or leak-rate conclusion is added.",
+    "Fresh bounded native comparison belongs to a separate new fixture and cannot replace original evidence."
+  ]
+}
