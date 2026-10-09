@@ -1,0 +1,368 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-history-storage-independent-review",
+  "task": "NEXT-01",
+  "updatedAt": "2026-10-09T09:26:27.571Z",
+  "status": "passed-with-historical-attribution-gap",
+  "decision": {
+    "accepted": true,
+    "actionableFindings": [],
+    "scope": "Bounded native storage encoding reuse and immutable aggregate inspector.",
+    "durableStorageSizeReduced": false,
+    "transientSerializationWorkReduced": true
+  },
+  "sourceQualification": {
+    "baselineHead": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6",
+    "integratedHeadAtReview": "fcfda3a54a1f92027dc0759e96bf821ed6b6827e",
+    "productionCommit": "7a75a1692b14e0e672be92ed457787e5ae8e1628",
+    "originalOptimizationCommit": "1cc8081af0811c6eb3ab11dffdacb5815d852b2d",
+    "inspectorCommit": "85f68fcf6d10407b626b9e1ae44e0dae3b35529d",
+    "reviewedComparisonCommit": "0f9fee6ec0693ca7087f64f6c3c7507dd2416de7",
+    "nativeRecordsSource": {
+      "path": "packages/engine/src/storage/native-records.ts",
+      "bytes": 35026,
+      "sha256": "05864c8c2394fe851600226a7cdc545a708393021268f8e94ac434f7c7964eaf"
+    },
+    "nativeRecordsCompiled": {
+      "path": "packages/engine/dist/storage/native-records.js",
+      "bytes": 36900,
+      "sha256": "ccd62cb95ec7bd23f443c79d463beac164370a2dfc14bcba24e3b51ecc29cbeb"
+    },
+    "packageLock": {
+      "path": "package-lock.json",
+      "bytes": 248602,
+      "sha256": "d7944de18f9cfdf41ecf51afa1350186d93a59f23edd829d99cc88574dd39dfe"
+    },
+    "changedEngineContractsHarnessSources": [
+      "packages/engine/src/storage/native-records.test.ts",
+      "packages/engine/src/storage/native-records.ts"
+    ],
+    "runtimeGraph": {
+      "baselineFiles": 1790,
+      "candidateFiles": 1790,
+      "added": [],
+      "removed": [],
+      "changed": [
+        "storage/native-records.js",
+        "storage/native-records.test.js"
+      ],
+      "productionJsChanged": [
+        "storage/native-records.js"
+      ],
+      "allDeclarationsUnchanged": true,
+      "evidence": {
+        "path": "artifacts/next-history-cost/integrated-runtime-diff.json",
+        "bytes": 176,
+        "sha256": "084c102cf5da938ed65ffa46d7d3a2d569bbd86aca5a52bff974590643ebdb89"
+      }
+    },
+    "productionBytesUnchangedAfterIndependentTests": true
+  },
+  "contractMap": [
+    {
+      "anchor": "storage/migrations.ts:99 and storage/native-schema.ts:6-23",
+      "contract": "DB23 catalogue, migrations, TEXT record/event storage, public declarations and signatures unchanged."
+    },
+    {
+      "anchor": "contracts/validation.ts:400-442 and519-582",
+      "contract": "Record validators return detached finite plain JSON with fixed record-field order and preserved opaque nested key order."
+    },
+    {
+      "anchor": "storage/native.ts:62-83 and312-325",
+      "contract": "Native session refs/owner checks, transaction requirement, event validation, exact JSON encoding, independent v2 sequence and ascending cursor order unchanged."
+    },
+    {
+      "anchor": "storage/index.ts:1027-1134",
+      "contract": "Legacy journal, immutable approval identity/fingerprint, approval expiry before terminal event and transaction publication remain unchanged."
+    },
+    {
+      "anchor": "storage/native.ts:98-115 and132-160",
+      "contract": "Canonical request identity, receipt/duplicate binding, actual native admission and queue ownership are unchanged."
+    },
+    {
+      "anchor": "storage/native-records.ts:311-332",
+      "contract": "Session-document namespace/byte checks, detached return, parse of prior body, CAS revision and rollback remain unchanged; metadata-only CAS shortcut was rejected."
+    },
+    {
+      "anchor": "storage/native-history.ts and storage/index.ts:1281-1339",
+      "contract": "Run/message order, bounded whole-exchange model history, required anchors and opaque replay are unchanged."
+    },
+    {
+      "anchor": "storage/native-records.ts:217-235",
+      "contract": "provider.media.admitted remains after owner checks and before capacity gates/row insertion; its event copy remains validated and admission rollback remains transactional."
+    },
+    {
+      "anchor": "storage/archive.ts and recovery/snapshot.ts:166-191",
+      "contract": "Archive validation, ordered-row logical hashing, authority and native unknown/noReplay/cancellation behavior receive no production edits."
+    }
+  ],
+  "historicalEvidence": {
+    "compactReport": {
+      "path": "docs/moodcode/next-current-persistent-30min-verification.json",
+      "bytes": 23955,
+      "sha256": "e3044036e67f32ed3b3b4f66982e0378a44a9c21f49835297f1c143fbbffbfe0"
+    },
+    "retainedAnalysis": {
+      "path": "docs/moodcode/next-history-storage-retained-analysis.json",
+      "bytes": 22672,
+      "sha256": "b5453439c0f8f395ab4c9f27f69a4d0a94c0c48fa07ab842f149986faff59009"
+    },
+    "originalPrimaryAvailable": false,
+    "originalRawReportAvailable": false,
+    "originalDatabaseOpenedByReviewer": false,
+    "aggregateSampledGrowthBytes": 333576240,
+    "afterClosePrimaryBytes": 330448896,
+    "interpretation": "The historical sampled delta sums primary/WAL/SHM/effects sizes; it is not per-table logical bytes. Its twelve-table counts/data digest omit context_revisions and other DB23 tables.",
+    "sourceInference": "context/service.ts:405-410 snapshots JSON.stringify(plan.messages); native-records.ts retains a full ContextRevision row and the full context.revision.recorded event. Repeated context snapshots are a concrete growth mechanism, but unavailable Original bytes prevent measured historical attribution.",
+    "perTableHistoricalAllocation": null,
+    "leakConclusion": null
+  },
+  "independentValidation": {
+    "node": "v26.9.0",
+    "noLive": true,
+    "helper": {
+      "path": "artifacts/next-history-cost/independent-native-review.mjs",
+      "bytes": 12081,
+      "sha256": "0b0f5bd146083be86600e9e69afde5154ac3de7d3ea52e1224cd2aca95d2ffa2"
+    },
+    "baseline": {
+      "runtime": "compiled",
+      "exitCode": 0,
+      "durationMs": 103.664125,
+      "expectedExactWrites": 5,
+      "rejectedWrites": 6,
+      "allPrimaryTables": 80,
+      "allPrimaryRows": 22,
+      "orderedSourceAndArchiveSha256": "6dff0dda06069ee5272d93240b10ef97baccced2c24dc1b17c2d08ad6a80d8a8",
+      "archivePrimaryLogicalHash": "4de9b207e14d93d991ed31accf0696683d9a523a4796b2dfbb8d1e72a837b47a",
+      "sourceFileSha256": "4ebec876c4bc25c158991eda28869c7b6354fa94a64d004d21114317ca54adab",
+      "sourceFileUnchanged": true,
+      "noncanonicalStoredBodyIdempotent": true,
+      "journalRollback": true,
+      "corruptPriorDocumentRejected": true,
+      "callerMutationDetached": true,
+      "fixture": "/Users/yakisoba0728/.codex/worktrees/next-history-cost/Moodcode/artifacts/next-history-cost/independent-compiled-chr6u0",
+      "evidence": {
+        "path": "artifacts/next-history-cost/independent-baseline-native.json",
+        "bytes": 4838,
+        "sha256": "b863e0785f870701e836d3811cbcef0343685ac83e31877b0276cce35a072704"
+      },
+      "command": "node artifacts/next-history-cost/independent-native-review.mjs /Users/yakisoba0728/.codex/worktrees/next-history-cost/Moodcode compiled artifacts/next-history-cost/independent-baseline-native.json"
+    },
+    "currentCompiled": {
+      "runtime": "compiled",
+      "exitCode": 0,
+      "durationMs": 125.940875,
+      "expectedExactWrites": 5,
+      "rejectedWrites": 6,
+      "allPrimaryTables": 80,
+      "allPrimaryRows": 22,
+      "orderedSourceAndArchiveSha256": "a522cf9bc340f2afd4d24ceb93f0da85a35a8e59f2cd444b34d7fa81be9f07c7",
+      "archivePrimaryLogicalHash": "a7b2ca735e1fe19ac2101397e3a12c11fe71e4ced7a1c55baf58178ba3453b05",
+      "sourceFileSha256": "9e56952d31c6c6aadf7ec9de3c519bc248ab63462e2ff6606a119ccb53eddae0",
+      "sourceFileUnchanged": true,
+      "noncanonicalStoredBodyIdempotent": true,
+      "journalRollback": true,
+      "corruptPriorDocumentRejected": true,
+      "callerMutationDetached": true,
+      "fixture": "/Users/yakisoba0728/.codex/worktrees/next-history-cost/Moodcode/artifacts/next-history-cost/independent-compiled-AXXlT6",
+      "evidence": {
+        "path": "artifacts/next-history-cost/independent-current-compiled-native.json",
+        "bytes": 4838,
+        "sha256": "da2354779b2d8527d813201aff47ca4b328d5bad77f2886934bf55e5eb170167"
+      },
+      "command": "node artifacts/next-history-cost/independent-native-review.mjs /Users/yakisoba0728/.codex/worktrees/next-history-cost/Moodcode compiled artifacts/next-history-cost/independent-current-compiled-native.json"
+    },
+    "currentSource": {
+      "runtime": "source",
+      "exitCode": 0,
+      "durationMs": 102.95470899999998,
+      "expectedExactWrites": 5,
+      "rejectedWrites": 6,
+      "allPrimaryTables": 80,
+      "allPrimaryRows": 22,
+      "orderedSourceAndArchiveSha256": "d873752f3d28cec00e55874ae53994766dbf94552f7c02c7bbd0b7aa24ec7efb",
+      "archivePrimaryLogicalHash": "d23be6882fcd32f810d214ef20b5af7302fefa1ad6cfeca7e3e8088bf95b0cce",
+      "sourceFileSha256": "966985ba82563a0d88d889a141754ac5a74451775b3d8d4d6efdce0526ccf7fe",
+      "sourceFileUnchanged": true,
+      "noncanonicalStoredBodyIdempotent": true,
+      "journalRollback": true,
+      "corruptPriorDocumentRejected": true,
+      "callerMutationDetached": true,
+      "fixture": "/Users/yakisoba0728/.codex/worktrees/next-history-cost/Moodcode/artifacts/next-history-cost/independent-source-0mvOse",
+      "evidence": {
+        "path": "artifacts/next-history-cost/independent-current-source-native.json",
+        "bytes": 4842,
+        "sha256": "b26d0fc761663d6d4a73945cdec8b86016ade233f8b8529fa2a160e619ef471b"
+      },
+      "command": "node --import file:///Users/yakisoba0728/.codex/worktrees/next-history-cost/Moodcode/node_modules/tsx/dist/loader.mjs artifacts/next-history-cost/independent-native-review.mjs /Users/yakisoba0728/.codex/worktrees/next-history-cost/Moodcode source artifacts/next-history-cost/independent-current-source-native.json"
+    },
+    "freshFixtureDigestQualification": "Each independent run has real random identities/timestamps; source-to-archive byte/order equality is exact within that run. Cross-baseline/candidate equality comes separately from the deterministic paired fixture.",
+    "focusedRegressions": [
+      {
+        "runtime": "source",
+        "exitCode": 0,
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "durationMs": 1903.405833,
+        "command": "node '--import' 'file:///Users/yakisoba0728/.codex/worktrees/next-history-cost/Moodcode/node_modules/tsx/dist/loader.mjs' '--test' '--test-concurrency=2' '--test-name-pattern=immutable results|revision.*conflicts|dispatch journal|ownership and identity|dispatched crash|context revisions|session document CAS|document namespaces|document journal failure|context revision activation|model history queries|legacy admissions|native provider media admission SQL failure|native current source and foreign|active 1000-message' 'packages/engine/src/storage/native-records.test.ts' 'packages/engine/src/storage/native-documents-history.test.ts' 'packages/engine/src/storage/native-history.test.ts' 'packages/engine/src/media/segment-boundaries.integration.test.ts' > artifacts/next-history-cost/independent-focused-source.log 2>&1; printf 'exit=%s\\n' \"$?\"; tail -10 artifacts/next-history-cost/independent-focused-source.log",
+        "evidence": {
+          "path": "artifacts/next-history-cost/independent-focused-source.log",
+          "bytes": 2051,
+          "sha256": "dd963e8f8221b60ffdf7ecde4b816d7c94dfe015f6086ac1b2944eb7bef1bd25"
+        }
+      },
+      {
+        "runtime": "compiled",
+        "exitCode": 0,
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "durationMs": 1630.805833,
+        "command": "node '--test' '--test-concurrency=2' '--test-name-pattern=immutable results|revision.*conflicts|dispatch journal|ownership and identity|dispatched crash|context revisions|session document CAS|document namespaces|document journal failure|context revision activation|model history queries|legacy admissions|native provider media admission SQL failure|native current source and foreign|active 1000-message' 'packages/engine/dist/storage/native-records.test.js' 'packages/engine/dist/storage/native-documents-history.test.js' 'packages/engine/dist/storage/native-history.test.js' 'packages/engine/dist/media/segment-boundaries.integration.test.js' > artifacts/next-history-cost/independent-focused-compiled.log 2>&1; printf 'exit=%s\\n' \"$?\"; tail -10 artifacts/next-history-cost/independent-focused-compiled.log",
+        "evidence": {
+          "path": "artifacts/next-history-cost/independent-focused-compiled.log",
+          "bytes": 2054,
+          "sha256": "4be4df027c1660f1411778b66b3091e0d7fc8566784a0df4523bab85d5178e8b"
+        }
+      }
+    ],
+    "coveredCases": [
+      "record mutation and terminal idempotency",
+      "noncanonical existing body validation",
+      "prefix/revision conflicts",
+      "journal and dual-stream rollback",
+      "document CAS/detachment/corrupt prior JSON",
+      "legacy real receipt identity",
+      "foreign native owner and provider media admission rollback",
+      "uncertain dispatched crash without replay",
+      "1000-message bounded history with opaque replay"
+    ],
+    "inspectorFocused": {
+      "command": "node --test --test-name-pattern='rollback journals|fingerprint enforces|ordinary table|context revision samples' scripts/inspect-history-storage-cost.test.mjs",
+      "exitCode": 0,
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 468.032834,
+      "evidence": {
+        "path": "artifacts/next-history-cost/independent-inspector-focused.log",
+        "bytes": 526,
+        "sha256": "ef938c5fea519b52959df6af23be6d57635b63f1974dbcc65dc4d867fc6a5c82"
+      }
+    },
+    "freshImmutableInspection": {
+      "status": "measured_unchanged",
+      "closedByReviewerBeforeInspection": true,
+      "allEightCompanionFingerprintsUnchanged": true,
+      "sqlite": "3.53.4",
+      "schemaVersion": 23,
+      "allTables": 80,
+      "queries": 180,
+      "elapsedMs": 84,
+      "dbstat": "measured",
+      "allocatedFileBytes": 1236992,
+      "evidence": {
+        "path": "artifacts/next-history-cost/independent-inspector-native.json",
+        "bytes": 121331,
+        "sha256": "bb8df35fa65c9315f60edb4c460b5b756218813b92a78d60163f1c4de7cd96d6"
+      }
+    },
+    "initialHelperRepairs": {
+      "productionFailures": 0,
+      "details": [
+        "NUL was rejected by the existing plain JSON validator; fixture adjusted to valid newline/quote/Unicode data.",
+        "Independent all-table digest was amended for DB23 WITHOUT ROWID tables."
+      ],
+      "failedSetupLogs": [
+        {
+          "path": "artifacts/next-history-cost/independent-baseline-native.log",
+          "bytes": 1557,
+          "sha256": "ece920e7f14b3d6bbf5454c27a9293a84517f562dc14c9fef533453c2e73ec0d"
+        },
+        {
+          "path": "artifacts/next-history-cost/independent-baseline-native-repaired.log",
+          "bytes": 659,
+          "sha256": "2a221c9358d38c1bd9fd649174b48fbb68135cb90acd0ab19155025970b2d835"
+        }
+      ]
+    }
+  },
+  "sameConditionComparisonReview": {
+    "freshNativeRuns": 12,
+    "providerCallsEach": 12,
+    "allTables": 80,
+    "exactOrderedRowsSha256": "d331dadc863322c60ce855d8425648f7c41b7df7d8476a614dc7db9754ee6cd6",
+    "primaryBytesEach": 4362240,
+    "sameExactOrderedRows": true,
+    "samePublicModelAndArchive": true,
+    "sameSqlResponsibility": true,
+    "nativeRowWritesEach": 168,
+    "exactRecordEventCopiesEach": 168,
+    "baselineWriteStringifyCalls": 7386,
+    "candidateWriteStringifyCalls": 7110,
+    "stringifyCallsSaved": 276,
+    "baselineSerializedUtf8Bytes": 18041806,
+    "candidateSerializedUtf8Bytes": 16334924,
+    "serializedUtf8BytesSaved": 1706882,
+    "savedPercent": 9.460704765365508,
+    "parseCallsEach": 2855,
+    "sqlReadCallsEach": 4959,
+    "sqlWriteCallsEach": 1049,
+    "sqlReturnedJsonUtf8BytesEach": 8543100,
+    "measurementHelper": {
+      "path": "artifacts/next-history-cost/independent-reviewed-comparison-helper.mjs",
+      "bytes": 20192,
+      "sha256": "104e78a9c68bf696ca1a6c7941105c7df259bb5a4437f91f9b7d0f6bc868bcda"
+    },
+    "pairedReport": {
+      "path": "artifacts/next-history-cost/independent-reviewed-comparison.json",
+      "bytes": 23396,
+      "sha256": "8682d60bb27b1a6c3ad1a07da843105bb8401d6cc6c608d5e8515906ea87c9b3"
+    },
+    "helperFinalization": "Independently inspected helper diff: final additions record runtime manifests/provenance/hashes; fixture, instrumentation and byte comparison are unchanged from the preserved successful helper.",
+    "comparisonNotDuplicated": true,
+    "interpretation": "The saved bytes count avoided transient JSON serialization/allocation work. SQLite allocated/logical bytes, queries, events and archive history remain identical; wall/heap samples add no SLA or leak proof.",
+    "assembledReportMetadataDrift": {
+      "resolved": true,
+      "qualification": "The assembled comparison report was extended after measurement with provenance/runtime manifests and immutable inspection metadata. Root corrected the stale summary reference; unchanged raw worker reports, helper and production/runtime bytes retain measurement authority.",
+      "finalPairedReportSha256": "8682d60bb27b1a6c3ad1a07da843105bb8401d6cc6c608d5e8515906ea87c9b3"
+    }
+  },
+  "inspectorReview": {
+    "sources": [
+      {
+        "path": "scripts/inspect-history-storage-cost.mjs",
+        "bytes": 3248,
+        "sha256": "3cfb2292c21885d5f5de5f9cb9ef23124f0ffdcecacba9ff8a350c1813dee8be"
+      },
+      {
+        "path": "scripts/inspect-history-storage-cost.py",
+        "bytes": 15749,
+        "sha256": "fc4cf4fc1cd02daf98e1432b76741599fc85684048e8bc452ec3be665fa60881"
+      },
+      {
+        "path": "scripts/inspect-history-storage-cost.test.mjs",
+        "bytes": 10465,
+        "sha256": "e28af301e1461a98e5268b88b5af4079b2add98e1bbf17a6e1232675713d3887"
+      }
+    ],
+    "reviewFindingsResolved": [
+      "Fingerprint and refuse nonempty primary rollback journal before immutable opening; fingerprint effects journal.",
+      "Enforce stream hash byte cap after the initial stat.",
+      "Reject case-insensitive schema DBSTAT shadowing before reading contents."
+    ],
+    "safety": "Explicit externally established closure; immutable read-only primary connection, no Engine or checkpoint/VACUUM/migration/CREATE dbstat. Query/time/output/schema/VM bounds and aggregates/digests only.",
+    "qualification": "Immutable ignores locks. Persistent before/after signatures cannot prove absence of transient concurrent writes; file atime is outside equality. CAST(column AS BLOB) logical bytes differ from record payload/page allocation; effects files are fingerprinted only."
+  },
+  "limitations": [
+    "Missing Original DB/raw report prevents historical per-table, per-category or freelist attribution; fresh fixtures cannot replace that evidence.",
+    "No persistent byte reduction, pruning, compression, migration, execution authority change, unknown-outcome resolution or replay is claimed.",
+    "Finite ScriptedProvider/private fixtures and focused checks; no whole suite, long soak, Desktop/PTY/Windows/GUI/provider-account acceptance.",
+    "Independent fixture setup failures were corrected and preserved; all scoped production/runtime checks then passed."
+  ]
+}
