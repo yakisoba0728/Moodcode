@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "kind": "moodcode-perf-git-01-verification",
+  "date": "2026-10-10",
+  "todo": "PERF-GIT-01",
+  "baseCommit": "f94ff7fa42f1bccd24ae9501e9305eb97fdb2b0b",
+  "scope": "Bounded, semantics-preserving reduction of repository-context git processes. Every observation point and every never-bypass-fresh-check comparison is kept.",
+  "changes": [
+    {
+      "path": "packages/engine/src/repository/index.ts",
+      "function": "gitIdentity",
+      "before": "rev-parse --verify HEAD, then (on failure) rev-parse --verify --quiet HEAD to confirm an unborn repository",
+      "after": "one rev-parse --verify --quiet HEAD: exit 0 is the validated HEAD hash, exit 1 is an unborn repository, any other exit still fails with REPOSITORY_GIT_UNAVAILABLE",
+      "equivalence": "The quiet and non-quiet forms resolve HEAD identically; the old pair could only reach null through the quiet exit 1, and invalid output from exit 0 still fails the hash check.",
+      "saves": "one git process per preview in unborn repositories; none in repositories with a commit"
+    },
+    {
+      "path": "packages/engine/src/context/repository-contributions.ts",
+      "function": "RepositoryContextSource.prepare",
+      "before": "preview, then query(expectedPreview = that fingerprint), then compare the fingerprint with the query's manifest",
+      "after": "query, then fingerprint = sha({ manifest, query }) of its result; the trailing preview after snippet reads and verifySources is unchanged and still fails with REPOSITORY_CONTEXT_STALE",
+      "equivalence": "The removed preview ran immediately before the query's own leading preview with no work between them; the query still compares its leading and trailing previews and the old comparison proved both fingerprints use the same hash.",
+      "saves": "one preview (3-4 git processes) per prepare"
+    }
+  ],
+  "unchanged": [
+    "RepositoryContextSource.assertFresh keeps its leading preview (before source reads, REPOSITORY_CONTEXT_STALE), the re-observing query and its trailing preview.",
+    "VerificationHostService observation points.",
+    "Public commands, DB schema 23 and error codes."
+  ],
+  "measurement": {
+    "flow": "engine-verification 'missing verification resumes' flow in a one-file repository: submit, resumed turn, verify_changes approval, completion",
+    "method": "spawn counter around node:child_process (syncBuiltinESMExports) in an otherwise identical script; before = sources stashed and engine rebuilt at the base commit. Counts cover the run from submit to completion; workspace setup adds 5 more (totals 276/208/84/64 before, 199/199/64/64 after).",
+    "gitProcessesPerRun": [
+      { "repositoryContext": true, "commit": false, "before": 270, "after": 194, "beforeApprovalBefore": 184, "beforeApprovalAfter": 132 },
+      { "repositoryContext": true, "commit": true, "before": 203, "after": 194, "beforeApprovalBefore": 138, "beforeApprovalAfter": 132 },
+      { "repositoryContext": false, "commit": false, "before": 78, "after": 59, "beforeApprovalBefore": 56, "beforeApprovalAfter": 42 },
+      { "repositoryContext": false, "commit": true, "before": 59, "after": 59, "beforeApprovalBefore": 42, "beforeApprovalAfter": 42 }
+    ],
+    "qualification": "Most engine fixtures use unborn repositories, so test runs gain most; a user repository with commits gains about 4% in this flow. Single local runs on darwin arm64; elapsed times are not claimed."
+  },
+  "verification": {
+    "build": "npx tsc -b (exit 0)",
+    "targeted": [
+      { "command": "node --test --test-concurrency=2 packages/engine/dist/{repository,context,verification}/**/*.test.js", "files": 37, "tests": 430, "pass": 430, "fail": 0, "includesNativeCorpus": true },
+      { "command": "node --test --test-concurrency=2 lifecycle/engine-transforms, proposals/engine-proposals, lsp/*.test.js", "tests": 80, "pass": 80, "fail": 0 }
+    ],
+    "localWholeGate": "Deliberately not run locally at the user's request to limit load; acceptance of the whole suite rests on hosted CI."
+  },
+  "followUp": "PERF-GIT-02: assertFresh runs 3 times per turn with 4 previews each (leading, query leading/trailing, trailing). Collapsing any of them removes a freshness observation point or changes the REPOSITORY_CONTEXT_STALE/REPOSITORY_SOURCE_STALE codes, so it needs an explicit contract decision."
+}

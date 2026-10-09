@@ -288,9 +288,10 @@ export class RepositoryContextSource implements ContextSourcePort {
     const frozen = requestSnapshot(request);
     const originalSignal = request.signal;
     const prepared = await this.bounded(originalSignal, async signal => {
-      const before = await this.repository.preview(frozen.workspace, frozen.query, signal); check(signal);
-      const observed = snapshot(await this.repository.query(frozen.workspace, frozen.query, signal, before.fingerprint), frozen.workspace, frozen.query); check(signal);
-      if (before.fingerprint !== sha({ manifest: observed.manifest, query: observed.query })) fail('REPOSITORY_CONTEXT_STALE', 'Repository query no longer matches its prepared manifest');
+      // The query binds its manifest with its own leading and trailing previews; a separate preview
+      // immediately before it would repeat the same observation.
+      const observed = snapshot(await this.repository.query(frozen.workspace, frozen.query, signal), frozen.workspace, frozen.query); check(signal);
+      const fingerprint = sha({ manifest: observed.manifest, query: observed.query });
       const omissions: RepositoryContributionOmissions = { unsupportedPaths: [...observed.unsupportedPaths], repositoryObservations: observed.omittedObservations,
         lsp: { outsideWorkspace: 0, unavailable: 0, ignored: 0, limits: 0 }, duplicateRanges: 0, emptyRanges: 0,
         snippetBytes: 0, selectionLimits: 0, contextBudget: 0, message: false };
@@ -331,7 +332,7 @@ export class RepositoryContextSource implements ContextSourcePort {
       const observedSources = [...files].map(([path, file]) => ({ path, hash: file.hash }));
       await this.verifySources(frozen.workspace, observedSources, signal);
       const after = await this.repository.preview(frozen.workspace, frozen.query, signal); check(signal);
-      if (after.fingerprint !== before.fingerprint) fail('REPOSITORY_CONTEXT_STALE', 'Files, branch, ignore rules or language routing changed during preparation');
+      if (after.fingerprint !== fingerprint) fail('REPOSITORY_CONTEXT_STALE', 'Files, branch, ignore rules or language routing changed during preparation');
       const complete = () => observed.complete && !omissions.unsupportedPaths.length && !omissions.repositoryObservations && Object.values(omissions.lsp).every(value => value === 0)
         && !omissions.duplicateRanges && !omissions.emptyRanges && !omissions.snippetBytes && !omissions.selectionLimits && !omissions.contextBudget && !omissions.message;
       let message = evidenceMessage(frozen.query, observed.generation, snippets, omissions, complete());
@@ -348,7 +349,7 @@ export class RepositoryContextSource implements ContextSourcePort {
         inputEstimate: { tokens: null, utf8ByteUpperBound: envelopeBytes, estimated: true, source: 'utf8-byte-upper-bound', contextWindow: frozen.budget.contextWindow } };
       data.id = sha(data);
       check(signal);
-      return { value: freeze(data), state: { workspace: frozen.workspace, query: frozen.query, fingerprint: before.fingerprint,
+      return { value: freeze(data), state: { workspace: frozen.workspace, query: frozen.query, fingerprint,
         snapshot: observed, observedSources, signal: originalSignal } satisfies State };
     });
     check(originalSignal);

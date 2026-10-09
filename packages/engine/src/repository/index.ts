@@ -144,26 +144,20 @@ async function gitIdentity(
   signal: AbortSignal,
 ): Promise<{ gitHead: string | null; branch: string | null }> {
   if (!workspace.gitRoot) return { gitHead: null, branch: null };
+  // One quiet probe distinguishes a commit (0) from an unborn repository (1); every other
+  // Git failure still fails rather than becoming a fabricated null HEAD.
   const result = await runGit(
     workspace.root,
-    ["rev-parse", "--verify", "HEAD"],
+    ["rev-parse", "--verify", "--quiet", "HEAD"],
     { signal },
   );
-  // An unborn repository is supported; other Git failures do not become a fabricated null HEAD.
-  let gitHead: string | null = result.stdout.toString("utf8").trim() || null;
-  if (result.code !== 0) {
-    const unborn = await runGit(
-      workspace.root,
-      ["rev-parse", "--verify", "--quiet", "HEAD"],
-      { signal },
+  if (result.code !== 0 && result.code !== 1)
+    throw new EngineError(
+      "REPOSITORY_GIT_UNAVAILABLE",
+      "Repository HEAD could not be observed",
     );
-    if (unborn.code !== 1)
-      throw new EngineError(
-        "REPOSITORY_GIT_UNAVAILABLE",
-        "Repository HEAD could not be observed",
-      );
-    gitHead = null;
-  } else if (!/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(gitHead!))
+  const gitHead = result.code === 0 ? result.stdout.toString("utf8").trim() : null;
+  if (gitHead !== null && !/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(gitHead))
     throw new EngineError(
       "REPOSITORY_GIT_UNAVAILABLE",
       "Invalid Git HEAD identity",
