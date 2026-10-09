@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-history-storage-integration",
+  "task": "NEXT-01",
+  "status": "accepted-with-historical-attribution-gap",
+  "baseline": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6",
+  "integratedHeadBeforeThisReport": "4b25d0104a1b9870e0ea28f18c0b1d832bd65382",
+  "branch": "codex/next-history-cost",
+  "worktree": "/Users/yakisoba0728/.codex/worktrees/next-history-cost/Moodcode",
+  "cherryPickOrderBeforeThisReport": [
+    {
+      "sha": "8383382647e47748f1e192e3e9fbb3c298ef5163",
+      "subject": "Add bounded immutable history storage inspector"
+    },
+    {
+      "sha": "d03b849054d1681663fb3a5839a5c06bea2ce18a",
+      "subject": "test(storage): preserve native record row and journal bytes"
+    },
+    {
+      "sha": "7a75a1692b14e0e672be92ed457787e5ae8e1628",
+      "subject": "perf(storage): reuse native execution record encodings"
+    },
+    {
+      "sha": "85f68fcf6d10407b626b9e1ae44e0dae3b35529d",
+      "subject": "Harden immutable storage admission and bound revision samples"
+    },
+    {
+      "sha": "0ebb4875772455f13074f075a58cd3241dd6d751",
+      "subject": "Record retained history storage evidence gap and source mechanism"
+    },
+    {
+      "sha": "0ff7e069d8ba6690915ca0051d59e5ddf91bacc3",
+      "subject": "Summarize closed native storage costs with preserved evidence"
+    },
+    {
+      "sha": "e26f06d6b5c0d13d3d52a2d0715310dd1816ad51",
+      "subject": "test(storage): compare bounded native history storage costs"
+    },
+    {
+      "sha": "fcfda3a54a1f92027dc0759e96bf821ed6b6827e",
+      "subject": "docs: pin assembled storage comparison metadata"
+    },
+    {
+      "sha": "4b25d0104a1b9870e0ea28f18c0b1d832bd65382",
+      "subject": "docs: record independent NEXT-01 storage review"
+    }
+  ],
+  "production": {
+    "commit": "7a75a1692b14e0e672be92ed457787e5ae8e1628",
+    "source": {
+      "path": "packages/engine/src/storage/native-records.ts",
+      "bytes": 35026,
+      "sha256": "05864c8c2394fe851600226a7cdc545a708393021268f8e94ac434f7c7964eaf"
+    },
+    "compiled": {
+      "path": "packages/engine/dist/storage/native-records.js",
+      "bytes": 36900,
+      "sha256": "ccd62cb95ec7bd23f443c79d463beac164370a2dfc14bcba24e3b51ecc29cbeb"
+    },
+    "scope": "Reuse one encoding of each validated native record for its existing SQL write and copied journal payload. Preserve validators, idempotency, error ordering, ownership checks, media admission publication point and transaction rollback.",
+    "dbVersion": 23,
+    "runtimeDiff": {
+      "baselineFiles": 1790,
+      "candidateFiles": 1790,
+      "added": [],
+      "removed": [],
+      "changed": [
+        "storage/native-records.js",
+        "storage/native-records.test.js"
+      ]
+    },
+    "allDeclarationsUnchanged": true,
+    "preserved": [
+      "public history/context/events/archive",
+      "signed and opaque replay bytes",
+      "approval/receipt authority",
+      "unknown/noReplay",
+      "CAS and sequence ownership"
+    ]
+  },
+  "findings": {
+    "historicalSampledMultiFileGrowthBytes": 333576240,
+    "historicalAfterClosePrimaryBytes": 330448896,
+    "historicalScope": "Worker-sample primary+WAL+SHM+effects file-length delta. The after-close primary size has a different baseline, scope and observation stage.",
+    "historicalOriginalAvailable": false,
+    "historicalOriginalOpenedOrRecreated": false,
+    "historicalPerTableAttribution": null,
+    "leakClaim": false,
+    "sourceAndFreshFixtureMechanism": "Changed selected-context snapshots retain earlier message text in context_revisions and again in context.revision.recorded events. Historical twelve-table counts omit context_revisions and legacy events.",
+    "freshRuns": 12,
+    "freshPrimaryBytesBoth": 4362240,
+    "freshAllTableDataBytesBoth": 2739956,
+    "freshContextRowAndRecordedEventDataBytesBoth": 1590142,
+    "freshContextRevisionDataBytesFirstLast": [
+      1813,
+      130392
+    ],
+    "freshComparedScope": "Separate native ScriptedProvider processes share identical inputs/config, fixture UUID/time and sequential fixture path. Exact ordered rows plus independent normalized public/model/archive digests match. This fixture differs from the historical long workload.",
+    "writeSerializationCallsAvoided": 276,
+    "writeSerializationUtf8BytesAvoided": 1706882,
+    "durableStorageReadBytesAndSqlCountsReduced": false,
+    "latencyOrHeapImprovementClaim": false
+  },
+  "validation": {
+    "originalBeforeProductionNativeRecordTests": 10,
+    "optimizerSourceFocusedTests": 40,
+    "optimizerCompiledFocusedTests": 40,
+    "optimizerTypecheck": "passed",
+    "independentSourceFocusedTests": 15,
+    "independentCompiledFocusedTests": 15,
+    "independentFocusedFailures": 0,
+    "independentFocusedSkips": 0,
+    "independentExpectedNativeWritesEach": 5,
+    "independentRejectedWritesEach": 6,
+    "independentArchiveTablesEach": 80,
+    "independentArchiveRowsEach": 22,
+    "independentArchiveOrderedDigestsAndSourceFileShaPreserved": true,
+    "independentActionableFindings": [],
+    "integratedInspectorTests": 10,
+    "integratedComparisonHelperTests": 4,
+    "independentInspectorTests": 4,
+    "compiledBuilds": [
+      {
+        "path": "artifacts/next-history-cost/base-build.log",
+        "bytes": 34,
+        "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+      },
+      {
+        "path": "artifacts/next-history-cost/candidate-build.log",
+        "bytes": 34,
+        "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+      }
+    ],
+    "provenanceAudit": {
+      "path": "artifacts/next-history-cost/final-provenance-audit.json",
+      "bytes": 6189,
+      "sha256": "ccf6ec40c2dd2ff99bdc4f477e6918bd078fe392b3d56b772cbf686b04b382d8"
+    },
+    "rawWorkerArtifacts": [
+      {
+        "path": "/Users/yakisoba0728/.codex/worktrees/next-history-optimize/Moodcode/artifacts/next-history-cost/comparison-PVwcFg/baseline.json",
+        "bytes": 9073,
+        "sha256": "b3e3b8a3e6c5f08bb4e281f8b3689586545922c51c66074b61514aab9fc07306"
+      },
+      {
+        "path": "/Users/yakisoba0728/.codex/worktrees/next-history-optimize/Moodcode/artifacts/next-history-cost/comparison-PVwcFg/candidate.json",
+        "bytes": 9083,
+        "sha256": "41ea66b2eb5292fbc4eb11b9d22f13fa9e001b9544ffd939427c8cb210d43099"
+      }
+    ],
+    "metadataQualification": "One stale assembled-summary reference was corrected in fcfda3a. Original worker metrics/helper are unchanged; assembled worker content matches except appended inspection metadata. No paired fixture rerun was needed."
+  },
+  "reports": [
+    {
+      "path": "docs/moodcode/next-history-storage-retained-analysis.json",
+      "bytes": 22672,
+      "sha256": "b5453439c0f8f395ab4c9f27f69a4d0a94c0c48fa07ab842f149986faff59009"
+    },
+    {
+      "path": "docs/moodcode/next-history-storage-optimization.json",
+      "bytes": 17085,
+      "sha256": "3d348f53f115b1373f1f94c847ae40c0d97931006b0ab246814692c6728289c1"
+    },
+    {
+      "path": "docs/moodcode/next-history-storage-independent-review.json",
+      "bytes": 19486,
+      "sha256": "b6075fbd6bb03bf175a0789ebab53e13d36c801e9fbf284fd3b0c236ded112c2"
+    }
+  ],
+  "retainedArtifacts": {
+    "parent": "artifacts/next-history-cost",
+    "optimizer": "/Users/yakisoba0728/.codex/worktrees/next-history-optimize/Moodcode/artifacts/next-history-cost",
+    "measurement": "/Users/yakisoba0728/.codex/worktrees/next-history-measure/Moodcode/artifacts/next-history-cost",
+    "preservation": "Closed fixture databases, archives, dummy workspace repositories, raw worker metrics, runtime manifests, measured helper and focused validation logs remain under ignored worktree artifacts. No OS-temp-only evidence dependence."
+  },
+  "qualification": "Bounded encoding work reduction accepted. Exact historical allocation cannot be measured without Original files. Schema migration, compression, pruning and hot/cold storage remain future comparison proposals; external validation remains deferred. No additional full suite/30-minute run, live account, signing, push or goal-state action."
+}
