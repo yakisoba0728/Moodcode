@@ -154,21 +154,20 @@
     {
       "id": "DP-MCP-STDIO-CLOSE-01",
       "owner": "desktop-provider session; one delegated editor",
-      "state": "source46-and-compiled12-passed; independent-acceptance-pending",
+      "state": "affected-local-verification-and-independent-acceptance-complete; common-source-OS-integration-pending",
       "trigger": "Plain MCP stdio observer sees cleanup false while shutdown returns fulfilled",
       "preservation": "Existing typed cleanup-uncertain contract, memoized close/cancel/observer and native effect uncertainty"
     },
     {
       "id": "DP-RESILIENCE-TEMP-01",
       "owner": "desktop-provider session; one delegated editor",
-      "state": "script4-passed; independent-review-found-rename-success-authority-gap; minimal-correction-active",
+      "state": "affected-local-verification-and-independent-acceptance-complete; common-source-OS-integration-pending",
       "trigger": "Failed report rename leaves this invocation exclusive temporary file",
       "preservation": "Only dispose a temporary created by this invocation, retain foreign files and original failure/no-green contract"
     }
   ],
   "notYetValidatedCandidates": [
-    "CSTORE-001 native SQLite close/ownership failure reachability remains unproved; retain named test-injection gap",
-    "CSTORE-002 genuine resident child cumulative metadata proof still being constructed; source change awaits actual minimum evidence"
+    "CSTORE-001 native SQLite close/ownership failure reachability remains unproved; retain named test-injection gap"
   ],
   "evidencePins": [
     {
@@ -195,6 +194,11 @@
       "path": "docs/moodcode/next-renderer-shared-style-verification.json",
       "bytes": 64301,
       "sha256": "92d7c79b3e4f1dd71103f48af47ce0aed57467a195d0a4e157a91d64dfd56df4"
+    },
+    {
+      "path": "docs/moodcode/next-mcp-report-fixes-independent-review.json",
+      "bytes": 68144,
+      "sha256": "92666d2035639d0ca7635ed1a5dad13b140fa9b684b41d9626c0edfb98c4b444"
     }
   ],
   "independentHostedAudit": {
@@ -565,6 +569,7 @@
     "Core ACP cumulative evidence budget actual Native red confirmed; same shared readEvidenceBody fix authorized",
     "Context Native192-session retention growth and fork-only128-capture bypass confirmed; minimum lifecycle-bound fixes authorized",
     "Native/tools10 and Automation/CI5 findings assigned to functional parallel fix units; affected/native OS gates preserved",
-    "Desktop/provider7 further lifecycle/presentation/credential projections assigned; no live account requested"
+    "Desktop/provider7 further lifecycle/presentation/credential projections assigned; no live account requested",
+    "CSTORE-002 genuine2-Run resident Native public usage red confirmed: 10,683-byte reduced budget accepted15,241 raw JSON bytes with4,572 uncharged; existing shared-budget minimum fix authorized"
   ]
 }

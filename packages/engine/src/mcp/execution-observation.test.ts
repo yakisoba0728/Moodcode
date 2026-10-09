@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import { existsSync } from 'node:fs';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -269,6 +270,31 @@ test('actual stdio uses the write boundary and an observer rejection writes no t
   stdin.write = function (...args: unknown[]) { written.push(Buffer.byteLength(String(args[0]))); return originalWrite.apply(this, args); };
   await assert.rejects(client.callTool('echo', {}, client.revision, signal(), event => { if (event.phase === 'dispatch-intent') throw new Error('authored write-intent rejection'); }), errorCode('MCP_EXECUTION_RECORD_FAILED'));
   assert.equal(written.length, 0); stdin.write = originalWrite;
+});
+
+test('unconfirmed plain stdio cleanup rejects transport and client close with one retained cleanup outcome', async () => {
+  const outcomes: { exitCode: number | null; cleanupConfirmed: boolean; started: boolean }[] = [];
+  const transport = new StdioMcpTransport({ command: process.execPath, cwd: process.cwd(), observer: { beforeStart() {}, started() {}, closed(outcome) { outcomes.push(outcome); } } });
+  let ended = 0, destroyed = 0;
+  const signals: NodeJS.Signals[] = [];
+  // This authored no-PID child never confirms exit; it does not reproduce an OS termination denial.
+  const child = Object.assign(new EventEmitter(), {
+    pid: undefined,
+    stdin: { end() { ended++; }, destroy() { destroyed++; } },
+    stdout: { destroy() { destroyed++; } },
+    stderr: { destroy() { destroyed++; } },
+    kill(signal: NodeJS.Signals) { signals.push(signal); return false; },
+  });
+  (transport as unknown as { child: typeof child }).child = child;
+  let firstError: unknown;
+  const uncertain = (error: unknown) => { assert.ok(error instanceof EngineError); assert.equal(error.code, 'MCP_TRANSPORT_CLEANUP_UNCERTAIN'); assert.equal(error.details?.cleanupUncertain, true); assert.equal(error.details?.transportCleanupConfirmed, false); firstError ??= error; return true; };
+  await assert.rejects(transport.close(), uncertain);
+  await assert.rejects(transport.close(), error => { uncertain(error); assert.equal(error, firstError); return true; });
+  const client = new McpClient({ id: 'stdio-cleanup-fixture', transport });
+  await assert.rejects(client.close(), uncertain);
+  assert.deepEqual(outcomes, [{ exitCode: null, cleanupConfirmed: false, started: false }]);
+  assert.equal(ended, 1); assert.equal(destroyed, 3); assert.deepEqual(signals, ['SIGTERM', 'SIGKILL']);
+  assert.equal(child.listenerCount('exit'), 0);
 });
 
 test('an overridden builtin send cannot retain physical no-send authority from its constructor', async t => {

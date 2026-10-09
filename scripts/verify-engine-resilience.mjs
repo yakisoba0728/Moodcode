@@ -1,4 +1,4 @@
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, open, rename, unlink } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -98,8 +98,36 @@ export async function runResilienceCli(args, ports = {}) {
     if (destination) {
       await mkdir(dirname(destination), { recursive: true });
       const temporary = `${destination}.${process.pid}.tmp`;
-      await writeFile(temporary, text, { mode: 0o600, flag: "wx" });
-      await rename(temporary, destination);
+      let handle;
+      let created = false;
+      let failure;
+      try {
+        handle = await open(temporary, "wx", 0o600);
+        created = true;
+        await handle.writeFile(text);
+        await handle.close();
+        handle = undefined;
+        await rename(temporary, destination);
+        created = false;
+      } catch (error) {
+        failure = error;
+      } finally {
+        if (handle) {
+          try {
+            await handle.close();
+          } catch (error) {
+            failure ??= error;
+          }
+        }
+        if (created) {
+          try {
+            await unlink(temporary);
+          } catch (error) {
+            if (error.code !== "ENOENT") failure ??= error;
+          }
+        }
+      }
+      if (failure) throw failure;
     }
     output(text);
     return report.passed === true ? 0 : 1;

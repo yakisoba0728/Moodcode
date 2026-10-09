@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import fs from "node:fs";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -115,11 +117,65 @@ test("report persistence failure cannot turn a passing fixture result into a gre
       JSON.parse(await readFile(join(base, "result.json"), "utf8")),
       JSON.parse(text),
     );
+    const directory = join(base, "directory");
+    await mkdir(directory);
+    const temporary = `${directory}.${process.pid}.tmp`;
+    text = "";
     assert.equal(
-      await runResilienceCli(["--report", base], { load, output() {} }),
+      await runResilienceCli(["--report", directory], {
+        load,
+        output(value) {
+          text += value;
+        },
+      }),
       1,
     );
+    assert.equal(JSON.parse(text).passed, false);
+    assert.match(JSON.parse(text).failure.message, /rename/);
+    await assert.rejects(access(temporary), { code: "ENOENT" });
+    const foreign = Buffer.from("preexisting report temporary bytes");
+    await writeFile(temporary, foreign, { flag: "wx" });
+    text = "";
+    assert.equal(
+      await runResilienceCli(["--report", directory], {
+        load,
+        output(value) {
+          text += value;
+        },
+      }),
+      1,
+    );
+    assert.equal(JSON.parse(text).passed, false);
+    assert.match(JSON.parse(text).failure.message, /EEXIST/);
+    assert.deepEqual(await readFile(temporary), foreign);
   } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+test("successful report rename releases the old temporary path before cleanup", async () => {
+  const base = await mkdtemp(join(tmpdir(), "resilience-cli-transfer-"));
+  const destination = join(base, "result.json");
+  const temporary = `${destination}.${process.pid}.tmp`;
+  const foreign = Buffer.from("new owner after successful report rename");
+  const realRename = fs.promises.rename;
+  const report = { passed: true, kind: "report-transfer-fixture-only" };
+  fs.promises.rename = async (from, to) => {
+    await realRename(from, to);
+    assert.equal(from, temporary);
+    assert.equal(to, destination);
+    await writeFile(temporary, foreign, { flag: "wx" });
+  };
+  syncBuiltinESMExports();
+  try {
+    assert.equal(await runResilienceCli(["--report", destination], {
+      load: async () => ({ verifyEngineResilience: async () => report }),
+      output() {},
+    }), 0);
+    assert.deepEqual(JSON.parse(await readFile(destination, "utf8")), report);
+    assert.deepEqual(await readFile(temporary), foreign);
+  } finally {
+    fs.promises.rename = realRename;
+    syncBuiltinESMExports();
     await rm(base, { recursive: true, force: true });
   }
 });

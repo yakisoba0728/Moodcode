@@ -103,8 +103,8 @@
 
 - [x] **GUI-CSS-01 — 공유 스타일의 lazy 의존 제거**: 공유 규칙을 eager 소유 경계로 옮겼다. Renderer 33/33과 기존 실제 6-flow·새 fresh-before-Advanced style 검증을 통과했다. 초기 JS 261,484B는 동일하며 eager CSS +449B·Advanced CSS −425B다. 새 소스의 전체 OS/package 수용은 RF-08에 남는다.
 - [x] **TEST-04 — crash/load 부모의 unknown 원본 보존**: 실제 Original ChildProcess SIGKILL·assertion·deadline·no-replay/archive를 유지하고 숫자 fallback 신호와 unknown 삭제를 제거했다. 모든 owned Engine을 정산하며 첫 오류를 보존한다. Node 24·26 총 70 tests와 2 owner-error probes, Original 72개·selected 참조 762개를 검증했다. SIGKILL 뒤 cleanup은 unknown/null이며 partial 진단도 보존한다. 새 loader 등 후속 변경은 별도 영향 검증이 필요하다.
-- [ ] **DP-MCP-STDIO-CLOSE-01 — MCP 로컬 transport 종료의 미확정 처리**: 일반 stdio 종료에서 observer의 `cleanupConfirmed:false`를 무시하고 Promise를 성공시키는 분기를 수정한다. 기존 cleanup-uncertain 오류·memoized close/cancel/관측 및 native effect의 unknown을 보존하고 실제 정상 종료·독립 실패 경계를 검증한다.
-- [ ] **DP-RESILIENCE-TEMP-01 — 보고서 임시 파일의 소유 정산**: 보고서 rename 실패 뒤 이번 호출이 exclusive 생성한 임시 파일만 정산한다. 선재 파일·원래 실패·no-green 계약을 보존하고 독립 filesystem assertion으로 확인한다.
+- [x] **DP-MCP-STDIO-CLOSE-01 — MCP 로컬 transport 종료의 미확정 처리**: 일반 stdio의 cleanup false도 기존 typed uncertain 오류로 전달한다. memoized close/cancel·관측과 native unknown은 유지했다. Source 46/46·compiled 12/12와 독립 수용을 통과했다. 실패 observer는 주입 검증이며 실제 OS 권한 거부의 재현을 주장하지 않는다.
+- [x] **DP-RESILIENCE-TEMP-01 — 보고서 임시 파일의 소유 정산**: 실패 시 이번 호출이 생성한 temp만 정산하고 성공 rename 직후 소유권을 해제한다. 선재·이관 후 재생성한 foreign 파일과 첫 오류를 보존했다. 실제 filesystem·controlled interleave를 포함한 5/5와 독립 수용을 통과했다. [두 수정의 근거](docs/moodcode/next-mcp-report-fixes-independent-review.json).
 
 [두 수정의 독립 수용](docs/moodcode/next-followup-fixes-independent-review.json)·[backend 실제 검증](docs/moodcode/next-backend-crash-retention-verification.json)·[GUI 실제 검증](docs/moodcode/next-renderer-shared-style-verification.json)을 보존한다. 이 결과가 이후 동시 수정이나 전체 OS 검증을 대신하지 않는다.
 

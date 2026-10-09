@@ -1,0 +1,1425 @@
+{
+  "schemaVersion": 1,
+  "kind": "desktop-provider-two-fixes-independent-review",
+  "observedUtc": "2026-10-09T12:39:21.582135+00:00",
+  "scope": {
+    "requirements": [
+      "DP-MCP-STDIO-CLOSE-01",
+      "DP-RESILIENCE-TEMP-01"
+    ],
+    "sources": [
+      "packages/engine/src/mcp/stdio.ts",
+      "packages/engine/src/mcp/execution-observation.test.ts",
+      "scripts/verify-engine-resilience.mjs",
+      "scripts/verify-engine-resilience.test.mjs"
+    ],
+    "independentReview": "Direct source/baseline-copy diffs, raw log-derived counts and names, current file hashes and recorded build/phase bindings; no producer verdict reused as byte proof.",
+    "exclusions": "Concurrent TEST04 backend retention, renderer CSS, broader semantic review, historical hosted663/1532-input/30min/PTY acceptance, external accounts/providers/signing and unrelated plugin drainage."
+  },
+  "fullOriginalGoalAchieved": false,
+  "externalAcceptance": "deferred-until-user-prepared-inputs",
+  "nativeCleanupAuthority": null,
+  "noRerunsOrMutations": "No test/build/CI/GUI/Native/SQLite/live account/signing/Original deletion/PID signal/source/docs/TODO/goal operation by this review. Initial git HEAD/diff were read-only; no git mutation. Only this ignored audit artifact is written.",
+  "status": "accepted-two-scoped-fixes-with-explicit-limits",
+  "errors": [],
+  "producerEvidencePins": [
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/build-pins.json",
+      "bytes": 564228,
+      "sha256": "bf94024402dcea68ce310bef092826f57670844146f8a13d8cc1e5679478222f"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/capture-audit.json",
+      "bytes": 3397,
+      "sha256": "841c8fee87fee381565bb6fc019aa8ee431dd823bbb4758d7a0021296633ffcc"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/compiled-runtime-pins.json",
+      "bytes": 17474,
+      "sha256": "3a55738b368733237602a61a59b7c60b49ac241cb4231ecd5d263c5656aecb2f"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/native-original-evidence.json",
+      "bytes": 1784,
+      "sha256": "dc83a271083a2b704acc74283941ca1ea2054df77a4d4a1791b195fcc74b8513"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/post-source-pins.json",
+      "bytes": 376,
+      "sha256": "5d51322b1f943d5f236901d8035fe5df0805f8ab56af8ae558234d9633fbd032"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/pre-source-pins.json",
+      "bytes": 499,
+      "sha256": "856105748bb41151b2fa61580bab5ca24e8613272044cedc9b0419546984e517"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/progress.json",
+      "bytes": 1279,
+      "sha256": "6688435f2d49f8af8d96660424ca047cabb75ad0c158ab04f8f7fe1f987bcb67"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/source-runtime-pins.json",
+      "bytes": 5593,
+      "sha256": "daada72951a8472cbae9313d004cf1e560c10ab1f7d07a0fd1663a5f7b97fb57"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-report/after-pins.json",
+      "bytes": 425,
+      "sha256": "934756239061b6f19ec8a0f76c7db56372fb8da96a5aeb96207a99cb65bbecac"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-report/before-pins.json",
+      "bytes": 434,
+      "sha256": "0df0216b5ae33e2d500a28ade7ed29a7465f4410a0d5d4c647cc098b50241eee"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/source-tests.log",
+      "bytes": 4695,
+      "sha256": "71965c4a476d920ad4747b705d548be2ca551f31bc94820be5847ec0253e497c"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/compiled-tests.log",
+      "bytes": 1354,
+      "sha256": "cee72f281900a254ba15c67a97536e807918eaa8a8c5ec9282a4e35ad63ac68f"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-report/test.log",
+      "bytes": 468,
+      "sha256": "3bfb5bc3270c701830b809f6bc11375450dfdf8b4efe785010ba5058b92859b3"
+    },
+    {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-report/fix.diff",
+      "bytes": 3184,
+      "sha256": "6d94a8ba7f2944756747dde31346ae2884abff9fe103f270ffa46b4646458f35"
+    }
+  ],
+  "mcpSourceDiff": [
+    {
+      "path": "packages/engine/src/mcp/stdio.ts",
+      "before": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/pre-source/stdio.ts",
+        "bytes": 9998,
+        "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+      },
+      "current": {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 10032,
+        "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+      },
+      "diffBytes": 788,
+      "diffSha256": "24b38a1140f24fd2fe23067f8d9dafafe3f4d03ddd77a3afe12a0654619a3703"
+    },
+    {
+      "path": "packages/engine/src/mcp/execution-observation.test.ts",
+      "before": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/pre-source/execution-observation.test.ts",
+        "bytes": 28488,
+        "sha256": "71ee00d14d12a1c3c2794713933998ce5b9913c16baca4f1e0018bc78b28423a"
+      },
+      "current": {
+        "path": "packages/engine/src/mcp/execution-observation.test.ts",
+        "bytes": 30360,
+        "sha256": "252f452968c44ceae316fab083b873a1df4914e37c75609d21be40ea07548ae5"
+      },
+      "diffBytes": 2598,
+      "diffSha256": "e33f7db7dfcb7cd3eb9c3541bd3198e82016c9430fb7fe8d037644cd69903bc0"
+    }
+  ],
+  "currentMcpSourcePins": [
+    {
+      "path": "packages/engine/src/mcp/stdio.ts",
+      "bytes": 10032,
+      "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+    },
+    {
+      "path": "packages/engine/src/mcp/execution-observation.test.ts",
+      "bytes": 30360,
+      "sha256": "252f452968c44ceae316fab083b873a1df4914e37c75609d21be40ea07548ae5"
+    }
+  ],
+  "actualLogEvidence": [
+    {
+      "phase": "mcp-source",
+      "rawLog": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/source-tests.log",
+        "bytes": 4695,
+        "sha256": "71965c4a476d920ad4747b705d548be2ca551f31bc94820be5847ec0253e497c"
+      },
+      "derivedCounters": {
+        "tests": 46,
+        "suites": 0,
+        "pass": 46,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "executedTestNames": [
+        "physical intent precedes HTTP dispatch and exact logical request/response hashes contain no credentials",
+        "prepared or durable-intent rejection cannot send an HTTP request",
+        "post-dispatch receipt failure cannot become an ordinary success",
+        "an asynchronous prepared observer is rejected without trusting unfinished durable work",
+        "an asynchronous dispatch-intent observer is rejected without trusting unfinished durable work",
+        "an asynchronous settled observer is rejected without trusting unfinished durable work",
+        "ambiguous committed intent stays unsafe when a later no-send settlement is rejected",
+        "credential failure after preparation proves no physical request was sent",
+        "pre-abort, stale catalogue and header validation never assert dispatch",
+        "abort while host credentials are pending stays not-dispatched without future fetch",
+        "after dispatch malformed tool content preserves unknown effects",
+        "after dispatch unsupported input-required preserves unknown effects",
+        "after dispatch wrong response ID preserves unknown effects",
+        "after dispatch oversized response preserves unknown effects",
+        "valid isError tool results and correlated JSON-RPC errors are known terminal observations",
+        "a generic HTTP rejection after fetch entry remains effect-uncertain",
+        "plain reader cancellation failure preserves a terminal response but denies local cleanup proof",
+        "a plain body cancellation rejection cannot claim cleanup after an unsupported response type",
+        "a plain reader release exception does not overwrite unconfirmed cleanup with a generic transport error",
+        "a locked HTTP body cannot be acquired or advertised as locally cleaned",
+        "legacy DELETE best-effort peer termination does not hide an owned response body cleanup failure",
+        "legacy and falsely claimed hook transports use conservative API-entry intent",
+        "late correlated responses cannot overwrite the first uncertain settlement or settle a later call",
+        "an already dispatched valid response survives catalogue invalidation while a new old-catalogue call is rejected",
+        "bounded response cleanup cannot claim completion of a noncooperating send",
+        "completed peer responses still occupy the request cap until their local sends are settled",
+        "a rejected cancellation is not a confirmed local cleanup receipt",
+        "close joins request observers and a plain close rejection remains cleanup-uncertain",
+        "actual stdio uses the write boundary and an observer rejection writes no tools/call",
+        "unconfirmed plain stdio cleanup rejects transport and client close with one retained cleanup outcome",
+        "an overridden builtin send cannot retain physical no-send authority from its constructor",
+        "modern and legacy stdio initialize, call and resource read through real child processes",
+        "stdio server receives explicit env only and stderr cannot enter model tool output",
+        "stdio abort sends cancellation and connection remains usable without replaying an effect",
+        "stdio request timeout cancels one request while late responses cannot settle later identities",
+        "invalid and oversized stdio frames disconnect and clean up the server",
+        "MCP remote tool annotations cannot grant read authority and disconnected catalogue is stale",
+        "tools/list_changed unregisters old scope and requires fresh discovery and approval",
+        "modern HTTP JSON/SSE mirror metadata and valid annotated params; invalid tool header is excluded",
+        "legacy HTTP session header, initialized notification and DELETE cleanup work",
+        "HTTP broker applies fixture host credential only to exact audience, never to tool data",
+        "HTTP stream abort is bounded and required host interactions are explicit unsupported",
+        "HTTP redirects, credentials in URL and wrong response IDs are rejected",
+        "JSON-RPC batch, missing IDs, multiple result/error and invalid UTF8 are rejected",
+        "stdio close terminates its owned POSIX descendant process group",
+        "HTTP wrong response id and total-byte limit close the captured transport"
+      ]
+    },
+    {
+      "phase": "mcp-compiled",
+      "rawLog": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/mcp/compiled-tests.log",
+        "bytes": 1354,
+        "sha256": "cee72f281900a254ba15c67a97536e807918eaa8a8c5ec9282a4e35ad63ac68f"
+      },
+      "derivedCounters": {
+        "tests": 12,
+        "suites": 0,
+        "pass": 12,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "executedTestNames": [
+        "plain reader cancellation failure preserves a terminal response but denies local cleanup proof",
+        "legacy DELETE best-effort peer termination does not hide an owned response body cleanup failure",
+        "bounded response cleanup cannot claim completion of a noncooperating send",
+        "a rejected cancellation is not a confirmed local cleanup receipt",
+        "close joins request observers and a plain close rejection remains cleanup-uncertain",
+        "actual stdio uses the write boundary and an observer rejection writes no tools/call",
+        "unconfirmed plain stdio cleanup rejects transport and client close with one retained cleanup outcome",
+        "modern and legacy stdio initialize, call and resource read through real child processes",
+        "stdio server receives explicit env only and stderr cannot enter model tool output",
+        "stdio abort sends cancellation and connection remains usable without replaying an effect",
+        "stdio request timeout cancels one request while late responses cannot settle later identities",
+        "invalid and oversized stdio frames disconnect and clean up the server"
+      ]
+    },
+    {
+      "phase": "resilience-script-existing",
+      "rawLog": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-report/test.log",
+        "bytes": 468,
+        "sha256": "3bfb5bc3270c701830b809f6bc11375450dfdf8b4efe785010ba5058b92859b3"
+      },
+      "derivedCounters": {
+        "tests": 4,
+        "suites": 0,
+        "pass": 4,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "executedTestNames": [
+        "quick and extended CLI bounds preserve all three compound scenarios",
+        "help and invalid options do not import the engine or start fixtures",
+        "a false result and cleanup/import failure return exit 1, never success",
+        "report persistence failure cannot turn a passing fixture result into a green CLI"
+      ]
+    }
+  ],
+  "mcpRecordedAndCurrentBindings": {
+    "sourcePhaseRecordedShaStable": 9,
+    "sourcePhaseProjectionQualification": "Before has path/realpath/bytes/SHA, after has only path/SHA. Compared shared path/SHA projection and independently rehashed current files; no false whole-object equality claim.",
+    "currentSourcePhasePins": [
+      {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 10032,
+        "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+      },
+      {
+        "path": "packages/engine/src/mcp/client.ts",
+        "bytes": 20124,
+        "sha256": "1f359ba38dac726973a017ea52a6025e6f74c5a742854999281cfa0ba46e3b35"
+      },
+      {
+        "path": "packages/engine/src/mcp/execution-observation.ts",
+        "bytes": 8311,
+        "sha256": "7b1f1a3862d1a05435902700578be295c4843516ddf0f69c7ee623f47c8859ea"
+      },
+      {
+        "path": "packages/engine/src/mcp/execution-observation.test.ts",
+        "bytes": 30360,
+        "sha256": "252f452968c44ceae316fab083b873a1df4914e37c75609d21be40ea07548ae5"
+      },
+      {
+        "path": "packages/engine/src/mcp/mcp.test.ts",
+        "bytes": 15408,
+        "sha256": "b83b5bbfa65cc8fdce2fb8604532427cdfe329155d55eaa871b68e020aa2222f"
+      },
+      {
+        "path": "packages/engine/src/mcp/fixtures/server.ts",
+        "bytes": 3270,
+        "sha256": "ad5a703a87ec0b445d097b1b683a18347dc2026c106824d46dd4d928518ac8dc"
+      },
+      {
+        "path": "packages/engine/src/tools/command/process-control.ts",
+        "bytes": 13000,
+        "sha256": "ff48257d45665c85f8077ea17d09d22b043fff41b768db0420fa2c9314ea1173"
+      },
+      {
+        "path": "packages/contracts/dist/index.js",
+        "bytes": 1164,
+        "sha256": "8a7cf64bebc8a04fe9bf08116ed185cb4fa847b6b4e457de08cb72db17ab6e6b"
+      },
+      {
+        "path": "node_modules/tsx/dist/loader.mjs",
+        "bytes": 604,
+        "sha256": "17e2a92c5f1f70065b01c65d5ee9ac260839d4fc0ea78fdbb4db7b1155ccd32f"
+      }
+    ],
+    "compiledPhaseRecordedPinsStable": 25,
+    "currentCompiledPhasePins": [
+      {
+        "path": "packages/contracts/dist/index.js",
+        "bytes": 1164,
+        "sha256": "8a7cf64bebc8a04fe9bf08116ed185cb4fa847b6b4e457de08cb72db17ab6e6b"
+      },
+      {
+        "path": "packages/engine/dist/mcp/client.js",
+        "bytes": 20704,
+        "sha256": "0e1e8fd574f11a43d4121690a2407052accbe463713b23bab22b4787407da073"
+      },
+      {
+        "path": "packages/engine/dist/mcp/execution-observation.js",
+        "bytes": 6737,
+        "sha256": "62757d790eb3632f5bc17775de8a90d54c5e7b0d1b639999734dc0418939a392"
+      },
+      {
+        "path": "packages/engine/dist/mcp/execution-observation.test.js",
+        "bytes": 30153,
+        "sha256": "33d60473446b88ef98b268bd826b1213f4d9bde3e1a3f5985784657eac3c1015"
+      },
+      {
+        "path": "packages/engine/dist/mcp/fixtures/server.js",
+        "bytes": 3547,
+        "sha256": "17b3365cfea39c35c496464f1cf206436ee7a9620eb81867e3bcf973c4a2e579"
+      },
+      {
+        "path": "packages/engine/dist/mcp/http.js",
+        "bytes": 12392,
+        "sha256": "043a4c07268c61d53733a6e8f75ad714aa6f9e9acf20a7e1e95b46e8847df660"
+      },
+      {
+        "path": "packages/engine/dist/mcp/index.js",
+        "bytes": 274,
+        "sha256": "f7816d4a8521e52ab64c79c51505790fc6e056b8438dbff6be44e24afb176bea"
+      },
+      {
+        "path": "packages/engine/dist/mcp/mcp.test.js",
+        "bytes": 15533,
+        "sha256": "7162e8a9313d4d9ffc640a8d40e0c79b118809b00a62fc6973dca4acfa6c19e5"
+      },
+      {
+        "path": "packages/engine/dist/mcp/protocol.js",
+        "bytes": 2807,
+        "sha256": "373eb7087978510c41fa70afa6f5fefe9cd10a9692d0bf2e98fabc4eea4c990d"
+      },
+      {
+        "path": "packages/engine/dist/mcp/registration.js",
+        "bytes": 5476,
+        "sha256": "ce81fd00689495da1c057914adb256a529fd0741d67eebff40074dfdbb504b24"
+      },
+      {
+        "path": "packages/engine/dist/mcp/schema-headers.js",
+        "bytes": 2706,
+        "sha256": "d26b2d212cca881b34c5f145099d9d8eefeb01d56300c05ed7dee7f709f688af"
+      },
+      {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10573,
+        "sha256": "4d53d3cc844cc392abd7fe9b79ad6d3ec29025726debd83be7d67b41cade23fe"
+      },
+      {
+        "path": "packages/engine/dist/tools/command/process-control.js",
+        "bytes": 12938,
+        "sha256": "4a687c905eaef651e7e024b85019c29cce8ab766dbd5944c47cc0af267f1c2ff"
+      },
+      {
+        "path": "packages/engine/src/mcp/client.ts",
+        "bytes": 20124,
+        "sha256": "1f359ba38dac726973a017ea52a6025e6f74c5a742854999281cfa0ba46e3b35"
+      },
+      {
+        "path": "packages/engine/src/mcp/execution-observation.test.ts",
+        "bytes": 30360,
+        "sha256": "252f452968c44ceae316fab083b873a1df4914e37c75609d21be40ea07548ae5"
+      },
+      {
+        "path": "packages/engine/src/mcp/execution-observation.ts",
+        "bytes": 8311,
+        "sha256": "7b1f1a3862d1a05435902700578be295c4843516ddf0f69c7ee623f47c8859ea"
+      },
+      {
+        "path": "packages/engine/src/mcp/fixtures/server.ts",
+        "bytes": 3270,
+        "sha256": "ad5a703a87ec0b445d097b1b683a18347dc2026c106824d46dd4d928518ac8dc"
+      },
+      {
+        "path": "packages/engine/src/mcp/http.ts",
+        "bytes": 11193,
+        "sha256": "2565a1761e97895d70be60d8d05ec86e5b2fa9897cd2f4123bfcc6f53e8f78d0"
+      },
+      {
+        "path": "packages/engine/src/mcp/index.ts",
+        "bytes": 786,
+        "sha256": "73907c5969f9eab3c9d30002fbdfb1adf43c48ea9a0e3555bb7da9a1d25b6ae4"
+      },
+      {
+        "path": "packages/engine/src/mcp/mcp.test.ts",
+        "bytes": 15408,
+        "sha256": "b83b5bbfa65cc8fdce2fb8604532427cdfe329155d55eaa871b68e020aa2222f"
+      },
+      {
+        "path": "packages/engine/src/mcp/protocol.ts",
+        "bytes": 3833,
+        "sha256": "193decd4613d24e925a47d913ac9b152433878d433cb3aeb0ecbde6a47512ba9"
+      },
+      {
+        "path": "packages/engine/src/mcp/registration.ts",
+        "bytes": 5493,
+        "sha256": "a41a5aa2f9f27eac75b7f7e547fe5004d12b00523a425b2ca1b6c6047f59929f"
+      },
+      {
+        "path": "packages/engine/src/mcp/schema-headers.ts",
+        "bytes": 2682,
+        "sha256": "f7ae7288e5d49f1e4ca8a66c90b7dc98ca4c6693a28845d6867770a3b4ceac04"
+      },
+      {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 10032,
+        "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+      },
+      {
+        "path": "packages/engine/src/tools/command/process-control.ts",
+        "bytes": 13000,
+        "sha256": "ff48257d45665c85f8077ea17d09d22b043fff41b768db0420fa2c9314ea1173"
+      }
+    ],
+    "buildInputPinsRecordedStable": 905,
+    "currentBuildInputByteMismatches": [
+      {
+        "recorded": {
+          "path": "packages/engine/src/child-tasks/engine-host.ts",
+          "bytes": 55784,
+          "sha256": "205ed85a5d0fc2a5770bcd291d932850dd3b4177f8ea3d5d76c5cad215ccadfb"
+        },
+        "current": {
+          "path": "packages/engine/src/child-tasks/engine-host.ts",
+          "bytes": 55823,
+          "sha256": "812d7edb60f145b3c288ea93f51d54787e0373ef2d973cfacf3651b9c4276e7f"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/code-mode/crash.integration.test.ts",
+          "bytes": 3230,
+          "sha256": "22c0b634d7ddec0feb7c4ddfb9b10739483e52fd416972763eafe0f8ff25e0c1"
+        },
+        "current": {
+          "path": "packages/engine/src/code-mode/crash.integration.test.ts",
+          "bytes": 3191,
+          "sha256": "8b1fc953394c5e2a7cb2e45b900ba4ef5f4a7939bfb5f6ff0b10363a38945d58"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/coding-runs/crash.integration.test.ts",
+          "bytes": 5016,
+          "sha256": "cd83b5309c2c516c3aa3979378f507beba72707d0d454138950a40f68407b57f"
+        },
+        "current": {
+          "path": "packages/engine/src/coding-runs/crash.integration.test.ts",
+          "bytes": 6122,
+          "sha256": "9e4e69129192fd3a0649436f488a7b4a8b2a04ff1399e96327eefb388ad248fd"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/git/commit-crash.integration.test.ts",
+          "bytes": 5146,
+          "sha256": "1888bdef55e59d745d57183e0806d245bcf5587352f0fbc243c5ed4008ba2510"
+        },
+        "current": {
+          "path": "packages/engine/src/git/commit-crash.integration.test.ts",
+          "bytes": 5782,
+          "sha256": "9b06663f7f9525ebd3e8a5aacdc840867f17d8af33e031c06f94dd2759dff39d"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/git/commit-fixture-retention.integration.test.ts",
+          "bytes": 4575,
+          "sha256": "f8843ac8fbeed1df287dec5aebfff0f72af4abadfd176676a82d37a6a898e237"
+        },
+        "current": {
+          "path": "packages/engine/src/git/commit-fixture-retention.integration.test.ts",
+          "bytes": 9049,
+          "sha256": "97c390c95c703cccdaa1f2535ba50d787bd02628fd6932a13ddc2105738ad5d3"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/git/commit-preview.ts",
+          "bytes": 11549,
+          "sha256": "2dff5540dc464d3bc68b77f29e0135571ad016ba0a42422036a2053ab48b583e"
+        },
+        "current": {
+          "path": "packages/engine/src/git/commit-preview.ts",
+          "bytes": 11630,
+          "sha256": "42c29c2aefc395b435d0db898c43ce337183872d6f49ba4c3541d481e1be6f75"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/git/commit.integration.test.ts",
+          "bytes": 6881,
+          "sha256": "245e8886a48a0bc2c100ebd2de3e91a2b8b7333b1ab63edeeae6592bef521fd3"
+        },
+        "current": {
+          "path": "packages/engine/src/git/commit.integration.test.ts",
+          "bytes": 11090,
+          "sha256": "baf3d568d5555e144770a4ad7e314170b7ffa8b406f5704b9928c08b316406f7"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/git/fixtures/commit.ts",
+          "bytes": 8784,
+          "sha256": "3b6de4015972667a77f7d1bd659199bd1dc44abc958b1d54b27934d6b436c190"
+        },
+        "current": {
+          "path": "packages/engine/src/git/fixtures/commit.ts",
+          "bytes": 8947,
+          "sha256": "d4254deb737fc164ea4e42c11ca805cedb5d9845c11d0f0f881a181fb3df73e3"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/jobs/command-lifetime-boundaries.integration.test.ts",
+          "bytes": 14659,
+          "sha256": "45b29e06327fdb4a29209baa85faab14331b1631a0b42be52e945069bbedc780"
+        },
+        "current": {
+          "path": "packages/engine/src/jobs/command-lifetime-boundaries.integration.test.ts",
+          "bytes": 18742,
+          "sha256": "973592a4b9f6b5e194d0928d891c359742e4d235a7b39dc85efb0a16f37af17d"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/plugins/index.ts",
+          "bytes": 8289,
+          "sha256": "e11fd348aa9281f8bb6e9121761036f25677dcaee6352f0563fe6e704a9be75f"
+        },
+        "current": {
+          "path": "packages/engine/src/plugins/index.ts",
+          "bytes": 8988,
+          "sha256": "623969bb9edbdec6b0c8e7da647c6e6e03622b51ff1e42a7c104ae984a43c94e"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/plugins/plugins.test.ts",
+          "bytes": 5432,
+          "sha256": "2ac0378ba14a95f222887bf1192655823e80a4f1894d4bb6cd4d0d1a47a40566"
+        },
+        "current": {
+          "path": "packages/engine/src/plugins/plugins.test.ts",
+          "bytes": 9122,
+          "sha256": "a8ff5555cd55fd1b62349f8916bb2b9af145b89ef0e8380753f98b1acc3667a5"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/provider/codex.test.ts",
+          "bytes": 37140,
+          "sha256": "77f9dc594779368ad211b5484b752b4e95c22cef7aa8e457a6c421df04380baf"
+        },
+        "current": {
+          "path": "packages/engine/src/provider/codex.test.ts",
+          "bytes": 37942,
+          "sha256": "a78912b861a7eebeca34fbdeba305ec3ade5ef44947dca63c88e470280db8dd4"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/provider/responses.test.ts",
+          "bytes": 64346,
+          "sha256": "872ded37a6243afe65c4af7b794287378c251de748bb047ec041241b39aec50e"
+        },
+        "current": {
+          "path": "packages/engine/src/provider/responses.test.ts",
+          "bytes": 65295,
+          "sha256": "7875a2a9f3feb28ab16bd6f99d4ab62047307238fd2fb5d6e0f662e5484466ee"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/recovery/provider-evidence.test.ts",
+          "bytes": 27288,
+          "sha256": "21971206ffb26a0cb06688fd3f3ee53614348d43b3c887f3f1786b8d84d9f487"
+        },
+        "current": {
+          "path": "packages/engine/src/recovery/provider-evidence.test.ts",
+          "bytes": 36358,
+          "sha256": "7d13346c524357dd7845cdbc57ce72cf3704aa8108bce728c52b9efcc549788f"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/recovery/provider-evidence.ts",
+          "bytes": 38183,
+          "sha256": "9ade301a1f2700ba8dd5073fb38a1739e53f3c9036ca0e31a3c1508bd743eaac"
+        },
+        "current": {
+          "path": "packages/engine/src/recovery/provider-evidence.ts",
+          "bytes": 38501,
+          "sha256": "03049480544067b5df541ae0a2f09855f5fc935815226e1ca5f2d337deca373f"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/sandbox/crash.integration.test.ts",
+          "bytes": 4703,
+          "sha256": "f2492a541ce53f05920b5200e4e093d03904360619d356c9f497cf64f4141b1b"
+        },
+        "current": {
+          "path": "packages/engine/src/sandbox/crash.integration.test.ts",
+          "bytes": 4662,
+          "sha256": "3b08b96d3a6e147cc6d94b0984172770ad8c17dbc3742e7fc6a7ee9609712ae1"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/sandbox/fixtures/engine.ts",
+          "bytes": 6597,
+          "sha256": "15b838445ed8d0885ff84addac73c8bfd81b3bb3efcd1ccc8a783b04f5561114"
+        },
+        "current": {
+          "path": "packages/engine/src/sandbox/fixtures/engine.ts",
+          "bytes": 9930,
+          "sha256": "89632cd835296609e758b00ffe3bc574bea453be454d6ef1e56ce635e9f72b5b"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/sandbox/host.ts",
+          "bytes": 27095,
+          "sha256": "6b31bff7b277786f633746c30098b0e70d231fa981bb6f1f1134d302cea45092"
+        },
+        "current": {
+          "path": "packages/engine/src/sandbox/host.ts",
+          "bytes": 26918,
+          "sha256": "4590b999da2f064258be5c6c6a984b7e8c37d070cb98617cf224b6909120abf7"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/sessions/fork-boundaries.integration.test.ts",
+          "bytes": 6869,
+          "sha256": "e6d95d162598d0916678c49a29be007104546a00f970cfcf406eeeb1183fdd4c"
+        },
+        "current": {
+          "path": "packages/engine/src/sessions/fork-boundaries.integration.test.ts",
+          "bytes": 13049,
+          "sha256": "1404d8a0c365dede772085ba95c89360294f1ad94d7657c03c40f8900ba48fe3"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/sessions/fork-native.ts",
+          "bytes": 25466,
+          "sha256": "dc6d1d13f1a4b4a652e4d3ca8fc6cdf1d63820df185a3d206b1cc253f30e80b1"
+        },
+        "current": {
+          "path": "packages/engine/src/sessions/fork-native.ts",
+          "bytes": 25485,
+          "sha256": "f00da8d7ecb1b02de52e324d57cc6610152c66803eb98c25fb848d76c00a8495"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/teams/resident.integration.test.ts",
+          "bytes": 15025,
+          "sha256": "610d6707079bb7b2b8c5a18523d02a82688625e2d38b603f8c39b302911d483c"
+        },
+        "current": {
+          "path": "packages/engine/src/teams/resident.integration.test.ts",
+          "bytes": 17817,
+          "sha256": "7f63098f828413fb49c1644de73ab72dfd3a2268dbfee6a87b6e0c7d83b29eb6"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/workflows/effects.integration.test.ts",
+          "bytes": 24756,
+          "sha256": "b64d3ad2620b55d6efba72756428467de9859dd60658561861dac114ac009e46"
+        },
+        "current": {
+          "path": "packages/engine/src/workflows/effects.integration.test.ts",
+          "bytes": 29480,
+          "sha256": "0a66cc49e04a3742fd2955e174af2bdb597f8e151653a3bf875de51f9b3c1853"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/workflows/engine-workflows.integration.test.ts",
+          "bytes": 22422,
+          "sha256": "99399bffb59e76610de2c703d5e9f9f484d919d211fa1832ae102bf18acb995f"
+        },
+        "current": {
+          "path": "packages/engine/src/workflows/engine-workflows.integration.test.ts",
+          "bytes": 24873,
+          "sha256": "fccaa4f5a68f13d021994e1df096c1a1e4c7e5a6cade9e0545cded92f476e8ab"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/workflows/fixtures/effects-data.ts",
+          "bytes": 2007,
+          "sha256": "bf94e49f0332c7068833a64322127295aaacb8e74f87e97bde3958c6899287cf"
+        },
+        "current": {
+          "path": "packages/engine/src/workflows/fixtures/effects-data.ts",
+          "bytes": 2039,
+          "sha256": "c8886a6cdd38bd3a265a92575d397e69227fe6a90732d0f91fb209b471370cd9"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/workflows/fixtures/effects.ts",
+          "bytes": 14428,
+          "sha256": "f81e11312746d3d8b34b12f57895eb2c1b76d2be1deca420248c709455af74d9"
+        },
+        "current": {
+          "path": "packages/engine/src/workflows/fixtures/effects.ts",
+          "bytes": 14571,
+          "sha256": "7924a2c57a2c71db5a30213d86564c1ec94116316198e5ce382a7b8ff28e4500"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/workflows/service.ts",
+          "bytes": 19281,
+          "sha256": "a49ea4bc2ae794d3ab7460be7b989d811cc87ba11d839b5819b345c74e8bf2f8"
+        },
+        "current": {
+          "path": "packages/engine/src/workflows/service.ts",
+          "bytes": 19395,
+          "sha256": "1ab173c6b4a31c1963ac368ee6d84d56686d2a51ec4b21c21276d73c67deb8f8"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/workflows/spec.test.ts",
+          "bytes": 20341,
+          "sha256": "2652dbc115d0df927982794a1d54b905d2ea9edd7c7a6c309107b5ed2f026526"
+        },
+        "current": {
+          "path": "packages/engine/src/workflows/spec.test.ts",
+          "bytes": 23897,
+          "sha256": "944077fe9c3f6477af442e37db616e0574f63fed7367caff9ad47c9b1a8176f1"
+        }
+      },
+      {
+        "recorded": {
+          "path": "packages/engine/src/workflows/spec.ts",
+          "bytes": 20363,
+          "sha256": "aa1ffe39984bbd64dd3d828e3ea9fbaf7a024c179f04aade2bad5ffb631f822a"
+        },
+        "current": {
+          "path": "packages/engine/src/workflows/spec.ts",
+          "bytes": 20861,
+          "sha256": "754f8c54ffe38b5a04df360c3c386ed2ff57ed0129bffe1366b0fbe5bcdc5e56"
+        }
+      }
+    ],
+    "currentBuildInputMetadataSha256": "361c2e3a9c1a96f047518c602ab0b068d9d99f8f1356adbfc4916585f6662c79",
+    "affectedOutputPinsDirect": [
+      {
+        "path": "packages/engine/dist/mcp/client.d.ts",
+        "bytes": 1907,
+        "sha256": "35314118de9dcbc446e71381f7acd7be6baf59570e99fa48f7549ccdc50581ae"
+      },
+      {
+        "path": "packages/engine/dist/mcp/client.js",
+        "bytes": 20704,
+        "sha256": "0e1e8fd574f11a43d4121690a2407052accbe463713b23bab22b4787407da073"
+      },
+      {
+        "path": "packages/engine/dist/mcp/client.js.map",
+        "bytes": 20016,
+        "sha256": "d38fb31ec39f73eb8b350e3fd3413e23e2bea76c5741dc7c1e29398c9b5d5cc6"
+      },
+      {
+        "path": "packages/engine/dist/mcp/execution-observation.d.ts",
+        "bytes": 3062,
+        "sha256": "5ef14a26b027f175bb1044dd2f67b85caad99c795bffbec89e8969538e562072"
+      },
+      {
+        "path": "packages/engine/dist/mcp/execution-observation.js",
+        "bytes": 6737,
+        "sha256": "62757d790eb3632f5bc17775de8a90d54c5e7b0d1b639999734dc0418939a392"
+      },
+      {
+        "path": "packages/engine/dist/mcp/execution-observation.js.map",
+        "bytes": 6067,
+        "sha256": "cbe1d49ef9be5289a7b40d1536885d73cb14a2ffdadf97135bbc99cd188a9c38"
+      },
+      {
+        "path": "packages/engine/dist/mcp/execution-observation.test.d.ts",
+        "bytes": 11,
+        "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+      },
+      {
+        "path": "packages/engine/dist/mcp/execution-observation.test.js",
+        "bytes": 30153,
+        "sha256": "33d60473446b88ef98b268bd826b1213f4d9bde3e1a3f5985784657eac3c1015"
+      },
+      {
+        "path": "packages/engine/dist/mcp/execution-observation.test.js.map",
+        "bytes": 35826,
+        "sha256": "4617cb1c8ba6f1c21f5aed607cd99e5390f36e16675bd8d07ea6dfe83f92bbcd"
+      },
+      {
+        "path": "packages/engine/dist/mcp/fixtures/server.d.ts",
+        "bytes": 11,
+        "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+      },
+      {
+        "path": "packages/engine/dist/mcp/fixtures/server.js",
+        "bytes": 3547,
+        "sha256": "17b3365cfea39c35c496464f1cf206436ee7a9620eb81867e3bcf973c4a2e579"
+      },
+      {
+        "path": "packages/engine/dist/mcp/fixtures/server.js.map",
+        "bytes": 4167,
+        "sha256": "03fdccca2d7e86f5bbc8ef0b2919207a2dbc68c5d81c90879fb6a781bddadc41"
+      },
+      {
+        "path": "packages/engine/dist/mcp/http.d.ts",
+        "bytes": 1505,
+        "sha256": "93500584692e925a6f71ddeff35c04be3b5a9a3314021cfb75597f008a4ab4f7"
+      },
+      {
+        "path": "packages/engine/dist/mcp/http.js",
+        "bytes": 12392,
+        "sha256": "043a4c07268c61d53733a6e8f75ad714aa6f9e9acf20a7e1e95b46e8847df660"
+      },
+      {
+        "path": "packages/engine/dist/mcp/http.js.map",
+        "bytes": 11193,
+        "sha256": "57f74f16c44f2892843111e699437a1a53e0d8517abee47882a3a65601616409"
+      },
+      {
+        "path": "packages/engine/dist/mcp/index.d.ts",
+        "bytes": 786,
+        "sha256": "73907c5969f9eab3c9d30002fbdfb1adf43c48ea9a0e3555bb7da9a1d25b6ae4"
+      },
+      {
+        "path": "packages/engine/dist/mcp/index.js",
+        "bytes": 274,
+        "sha256": "f7816d4a8521e52ab64c79c51505790fc6e056b8438dbff6be44e24afb176bea"
+      },
+      {
+        "path": "packages/engine/dist/mcp/index.js.map",
+        "bytes": 328,
+        "sha256": "6e2882df422036ede69a61eb0b1ba6b0e388e6db706b0370912b535c82efd64f"
+      },
+      {
+        "path": "packages/engine/dist/mcp/mcp.test.d.ts",
+        "bytes": 11,
+        "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+      },
+      {
+        "path": "packages/engine/dist/mcp/mcp.test.js",
+        "bytes": 15533,
+        "sha256": "7162e8a9313d4d9ffc640a8d40e0c79b118809b00a62fc6973dca4acfa6c19e5"
+      },
+      {
+        "path": "packages/engine/dist/mcp/mcp.test.js.map",
+        "bytes": 18749,
+        "sha256": "e8a798788f13b9563cd880c5a4b6bfdd450a824e9a4e20fa7427f5aec08340fb"
+      },
+      {
+        "path": "packages/engine/dist/mcp/protocol.d.ts",
+        "bytes": 1859,
+        "sha256": "a6edb1bb092294e94570b8fb0af111880a6a23226151833fbcd8df464533e78c"
+      },
+      {
+        "path": "packages/engine/dist/mcp/protocol.js",
+        "bytes": 2807,
+        "sha256": "373eb7087978510c41fa70afa6f5fefe9cd10a9692d0bf2e98fabc4eea4c990d"
+      },
+      {
+        "path": "packages/engine/dist/mcp/protocol.js.map",
+        "bytes": 2856,
+        "sha256": "f0ecf48f0d89b92126b9c65a6774f6ba512171b93fd4970044cf37d8ae072ef1"
+      },
+      {
+        "path": "packages/engine/dist/mcp/registration.d.ts",
+        "bytes": 566,
+        "sha256": "603a54f41e0d1eaff143a5f1847be68781496e0ee0e55125ee40cd80a654b52e"
+      },
+      {
+        "path": "packages/engine/dist/mcp/registration.js",
+        "bytes": 5476,
+        "sha256": "ce81fd00689495da1c057914adb256a529fd0741d67eebff40074dfdbb504b24"
+      },
+      {
+        "path": "packages/engine/dist/mcp/registration.js.map",
+        "bytes": 5514,
+        "sha256": "8b451582f2c8be1aa9019ef32bdfe2c7d2c625e3e7b3e24844f209603265394f"
+      },
+      {
+        "path": "packages/engine/dist/mcp/schema-headers.d.ts",
+        "bytes": 490,
+        "sha256": "3a2d3f092f2ca8dccc7b5dbd5266992b8545988aaf8bfe790a4ee47011b5756f"
+      },
+      {
+        "path": "packages/engine/dist/mcp/schema-headers.js",
+        "bytes": 2706,
+        "sha256": "d26b2d212cca881b34c5f145099d9d8eefeb01d56300c05ed7dee7f709f688af"
+      },
+      {
+        "path": "packages/engine/dist/mcp/schema-headers.js.map",
+        "bytes": 2719,
+        "sha256": "6c9388ab4571f5ee0833cb5e98ee70311426425dd11211157a7d9682bb9045d9"
+      },
+      {
+        "path": "packages/engine/dist/mcp/stdio.d.ts",
+        "bytes": 1578,
+        "sha256": "2de225babeeeeee9601862ee0f5c9b24e530c78709d82a99745447cf7afe86d5"
+      },
+      {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10573,
+        "sha256": "4d53d3cc844cc392abd7fe9b79ad6d3ec29025726debd83be7d67b41cade23fe"
+      },
+      {
+        "path": "packages/engine/dist/mcp/stdio.js.map",
+        "bytes": 11166,
+        "sha256": "6ec4bc61b7f869f16eb994eab4622e63a5e2cdf4a3fd5b447178f75f92a90169"
+      }
+    ],
+    "buildExitCode": 0,
+    "sourceExitCode": 0,
+    "compiledExitCode": 0,
+    "sourceCommand": [
+      "/usr/local/bin/node",
+      "--import",
+      "./node_modules/tsx/dist/loader.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-name-pattern=^(?!stdio close terminates its owned POSIX descendant process group)",
+      "packages/engine/src/mcp/mcp.test.ts",
+      "packages/engine/src/mcp/execution-observation.test.ts"
+    ],
+    "compiledCommand": [
+      "/usr/local/bin/node",
+      "--test",
+      "--test-concurrency=1",
+      "--test-name-pattern=(?:unconfirmed\\ plain\\ stdio\\ cleanup\\ rejects\\ transport\\ and\\ client\\ close\\ with\\ one\\ retained\\ cleanup\\ outcome|actual\\ stdio\\ uses\\ the\\ write\\ boundary\\ and\\ an\\ observer\\ rejection\\ writes\\ no\\ tools/call|modern\\ and\\ legacy\\ stdio\\ initialize,\\ call\\ and\\ resource\\ read\\ through\\ real\\ child\\ processes|stdio\\ server\\ receives\\ explicit\\ env\\ only\\ and\\ stderr\\ cannot\\ enter\\ model\\ tool\\ output|stdio\\ abort\\ sends\\ cancellation\\ and\\ connection\\ remains\\ usable\\ without\\ replaying\\ an\\ effect|stdio\\ request\\ timeout\\ cancels\\ one\\ request\\ while\\ late\\ responses\\ cannot\\ settle\\ later\\ identities|invalid\\ and\\ oversized\\ stdio\\ frames\\ disconnect\\ and\\ clean\\ up\\ the\\ server|close\\ joins\\ request\\ observers\\ and\\ a\\ plain\\ close\\ rejection\\ remains\\ cleanup\\-uncertain|bounded\\ response\\ cleanup\\ cannot\\ claim\\ completion\\ of\\ a\\ noncooperating\\ send|a\\ rejected\\ cancellation\\ is\\ not\\ a\\ confirmed\\ local\\ cleanup\\ receipt|plain\\ reader\\ cancellation\\ failure\\ preserves\\ a\\ terminal\\ response\\ but\\ denies\\ local\\ cleanup\\ proof|legacy\\ DELETE\\ best\\-effort\\ peer\\ termination\\ does\\ not\\ hide\\ an\\ owned\\ response\\ body\\ cleanup\\ failure)",
+      "packages/engine/dist/mcp/mcp.test.js",
+      "packages/engine/dist/mcp/execution-observation.test.js"
+    ],
+    "runtimeQualification": "Recorded Node26.9.0 path/version/SHA are producer run metadata. Node binary was not executed or rehashed. Source/compiled files, retained loader, original fixtures and emitted outputs were directly rehashed; this is recorded phase identity, not an in-process import attestation or whole-current runtime qualification."
+  },
+  "nativeOriginalEvidenceQualification": {
+    "currentUnchangedSourceFixturePins": [
+      {
+        "path": "packages/engine/src/mcp/mcp.test.ts",
+        "bytes": 15408,
+        "sha256": "b83b5bbfa65cc8fdce2fb8604532427cdfe329155d55eaa871b68e020aa2222f"
+      },
+      {
+        "path": "packages/engine/src/mcp/fixtures/server.ts",
+        "bytes": 3270,
+        "sha256": "ad5a703a87ec0b445d097b1b683a18347dc2026c106824d46dd4d928518ac8dc"
+      },
+      {
+        "path": "packages/engine/src/lsp/stdio-native-lifecycle.test.ts",
+        "bytes": 11001,
+        "sha256": "f382a29590b8e8fb756de6c32c0743257652c0176034aa89540263bdf0647657"
+      },
+      {
+        "path": "packages/engine/src/lsp/typescript-native.test.ts",
+        "bytes": 6327,
+        "sha256": "9a0c0f35c7beb2f88418ed899a660272d93d67acda7b9171f4f4839b5b5dfe4c"
+      }
+    ],
+    "existingObservationTestsBytePreserved": true,
+    "actualNativeSuccessNames": [
+      "modern and legacy stdio initialize, call and resource read through real child processes",
+      "actual stdio uses the write boundary and an observer rejection writes no tools/call",
+      "stdio abort sends cancellation and connection remains usable without replaying an effect",
+      "stdio request timeout cancels one request while late responses cannot settle later identities"
+    ],
+    "actualNativeSuccessEvidence": "Existing source/compiled tests and genuine child server fixture were source-read; raw success logs corroborate their executed Native paths. No runtime rerun.",
+    "controlledObserverRejection": "Authored dispatch-intent observer throws before actual stdin.write; existing test intercepts write on a real child and asserts zero tools/call writes. This is controlled durable-observer failure, not actual OS I/O denial.",
+    "controlledCloseFailure": "New authored EventEmitter child has undefined PID, returns false to kill and never emits exit. It demonstrates retained local cleanup uncertainty and repeated-close error identity/one outcome notification; no real OS termination denial or surviving Native process is proved.",
+    "sourceRunDeviation": "The attempted negative lookahead did not exclude the actual descendant POSIX case: it executed/passed in source46, including existing PID observations/signals from its source. Compiler12 uses positive explicit names and does exclude it. History is retained; this review signaled no PID.",
+    "originalArtifactLimit": "The native-original-evidence.json references unchanged Native test/fixture source files, not saved process-Original DB/archive files. Existing fixtures clean their own admitted test directories after ordinary closes. No new global Native cleanup, historical Original recovery or data deletion authority is established from this metadata."
+  },
+  "reviewedCallerPins": [
+    {
+      "path": "apps/desktop/src/worker/advanced.ts",
+      "bytes": 33874,
+      "sha256": "392b1c07741adb7de5aeb2683d078fe5fb577fa756552a41d96be3d0b07b3af8"
+    },
+    {
+      "path": "packages/engine/src/mcp/client.ts",
+      "bytes": 20124,
+      "sha256": "1f359ba38dac726973a017ea52a6025e6f74c5a742854999281cfa0ba46e3b35"
+    },
+    {
+      "path": "packages/engine/src/mcp/execution-observation.ts",
+      "bytes": 8311,
+      "sha256": "7b1f1a3862d1a05435902700578be295c4843516ddf0f69c7ee623f47c8859ea"
+    },
+    {
+      "path": "packages/engine/src/sandbox/host.ts",
+      "bytes": 26918,
+      "sha256": "4590b999da2f064258be5c6c6a984b7e8c37d070cb98617cf224b6909120abf7"
+    },
+    {
+      "path": "packages/engine/src/mcp/index.ts",
+      "bytes": 786,
+      "sha256": "73907c5969f9eab3c9d30002fbdfb1adf43c48ea9a0e3555bb7da9a1d25b6ae4"
+    }
+  ],
+  "mcpAcceptance": {
+    "requirement": "DP-MCP-STDIO-CLOSE-01",
+    "status": "accepted-scoped-fix",
+    "actionableFindings": [],
+    "productionChange": "False non-sandbox local process cleanup now rejects with MCP_TRANSPORT_CLEANUP_UNCERTAIN and cleanupUncertain:true/transportCleanupConfirmed:false. Before it resolved after a false observed outcome because its final guard redundantly required sandbox inside the plain branch.",
+    "exceptionPropagation": "Cached shutdown Promise retains the first rejection and executes the process close/observer once. McpClient.close wraps transport close failures into typed cleanup uncertainty and joins owned tool operations; no green cleanup receipt from a false close outcome. Observer.closed exceptions still reject; existing callback/error precedence outside the minimal guard was not changed.",
+    "cancelAndDispatch": "No start/send/stdio-write boundary/cancel protocol/parser/env/PID control/timing change. Existing explicit beforeSend rejection, cancellation and timeout Native child tests remain unchanged and passed. The sandbox supervisor close branch retains its original code and CLEANUP_UNCERTAIN contract.",
+    "effectsBoundary": "Local transport process absence/close does not revert remote effects or make arbitrary historical PID/group metadata current signal authority.",
+    "compatibility": "Intentional externally observable change is rejected close for previously silently fulfilled unconfirmed plain transport cleanup. No signature/declaration/protocol request shape changes; compiled stdio and regression output correspond to current source."
+  },
+  "resilienceSourceDiffAndPendingPins": [
+    {
+      "path": "scripts/verify-engine-resilience.mjs",
+      "before": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-report/verify-engine-resilience.mjs.before",
+        "bytes": 4842,
+        "sha256": "0f780766a5d49584424491591258200039ff34a8a8c6819a4b490d7572d64c64"
+      },
+      "existingApprovedAfterPin": {
+        "path": "scripts/verify-engine-resilience.mjs",
+        "bytes": 5475,
+        "sha256": "25d245c874c8f91da0ae83e77140d8a8a2d4ca30fa23060c71d2df23b6d35cf5"
+      },
+      "currentWhenReviewed": {
+        "path": "scripts/verify-engine-resilience.mjs",
+        "bytes": 5500,
+        "sha256": "237ca9276ecb91d7629478a61c30c14ba35e003f866cb2bcd16990629ea7ef18"
+      },
+      "matchesExistingApprovedPin": false,
+      "directDiffSha256": "82e17f50047e3df8dd5d07ec5dc8950c4c506c8c43bf19766cfeeaea2daafd5c",
+      "directDiffBytes": 1475
+    },
+    {
+      "path": "scripts/verify-engine-resilience.test.mjs",
+      "before": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-report/verify-engine-resilience.test.mjs.before",
+        "bytes": 3314,
+        "sha256": "923d194e32b0118f7ddc84abbecab913582ff230c29b481511580eb928f3c794"
+      },
+      "existingApprovedAfterPin": {
+        "path": "scripts/verify-engine-resilience.test.mjs",
+        "bytes": 4218,
+        "sha256": "7b0ed191717cbedc9b508f5fc27408c2f2cd6875e40ab2fe6c424e226a5b82db"
+      },
+      "currentWhenReviewed": {
+        "path": "scripts/verify-engine-resilience.test.mjs",
+        "bytes": 5457,
+        "sha256": "7d75500763720b88b9c9d3c833af55ddd62a6f30d7406d1321755fee3dd9a20a"
+      },
+      "matchesExistingApprovedPin": false,
+      "directDiffSha256": "6236ad5fe723a743de5adeb396eab190072fb9004e05d67511ac1e0f3f3eaefe",
+      "directDiffBytes": 3014
+    }
+  ],
+  "findings": [
+    {
+      "id": "DP-RESILIENCE-TEMP-OWNERSHIP-01",
+      "severity": "P2",
+      "path": "scripts/verify-engine-resilience.mjs",
+      "line": 110,
+      "state": "resolved-in-current-source-and-controlled-real-filesystem-oracle",
+      "trigger": "Successful rename consumes this invocation temporary path, but created remains true and finally still calls unlink(temporary). A later same-PID overlapping invocation or another path creator can recreate that pathname between rename and finally, causing a file not owned by the completed write to be unlinked.",
+      "impact": "Temporary path deletion authority persists after ownership was transferred; narrow violation of only deleting the invocation owned temp. Standalone CLI calls once per process and current tests were serial, so actual interleaving was not reproduced in this read-only audit.",
+      "evidence": "Direct current diff: created=true after wx open; await rename at110; unconditional if(created) unlink at121-123. Existing 4 passing script tests cover real rename failure cleanup and preexisting EEXIST, not post-rename recreation.",
+      "minimalCorrection": "Release temporary ownership immediately after successful await rename: created=false, or equivalent moved flag that skips finally unlink on rename success. Preserve write/close/rename first error and failed-owned-temp cleanup.",
+      "rootDisposition": "Parent confirmed narrow finding and authorized DP owner correction plus existing conflict/error verification and recreation oracle if feasible. Reviewer executes no tests or edits source.",
+      "resolution": {
+        "source": {
+          "path": "scripts/verify-engine-resilience.mjs",
+          "bytes": 5500,
+          "sha256": "237ca9276ecb91d7629478a61c30c14ba35e003f866cb2bcd16990629ea7ef18"
+        },
+        "productionDiff": "One created=false immediately after successful rename",
+        "existingCollisionAndErrorTestsRetained": true,
+        "red0pass1fail": {
+          "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/red-tests.log",
+          "bytes": 678,
+          "sha256": "9c04a9088c9da77c9c40546339861f2c89267845d5def4640069ef448514dd5b"
+        },
+        "green5pass0fail": {
+          "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/green-tests.log",
+          "bytes": 557,
+          "sha256": "478881410e5782e80ae1d8d7751b2c9d60efbc857feebdf5635878fb826c168b"
+        },
+        "actualNaturalConcurrencyReproduction": false
+      }
+    }
+  ],
+  "resilienceAcceptance": {
+    "requirement": "DP-RESILIENCE-TEMP-01",
+    "status": "accepted-scoped-fix-after-ownership-transfer-correction",
+    "existingScriptTests": "Historical4/4 kept; new focused green5/5 and intentionally failing red0/1 independently derived from raw logs. All old four bodies exact, current new script pins exact.",
+    "responsibility": "Exclusive wx open acquires temporary ownership; successful rename releases it. Failed write/close/rename attempts keep only their own temp cleanup and preserve first original failure. Existing foreign wx collision is untouched.",
+    "closedFinding": "DP-RESILIENCE-TEMP-OWNERSHIP-01",
+    "acceptanceLimit": "Narrow path ownership transfer regression and existing CLI report/error contracts only. Controlled rename interleaving with actual filesystem effects, not natural simultaneous user CLI runs, native resilience soak or arbitrary external tampering while a failed owned temporary is still admitted. No full Native cleanup or whole-current runtime acceptance."
+  },
+  "independentReadMethod": {
+    "uniqueDirectFiles": 965,
+    "directBytesRead": 14050299,
+    "fileMetadataLedgerSha256": "f8787065e07de3ff3b125bd41b04e28e9b63dce2df58d2fff9cbfb060f1b03a7",
+    "allDirectReadFilesStableAtFinish": true,
+    "elapsedMs": 156.803,
+    "limits": {
+      "files": 2048,
+      "totalBytes": 536870912,
+      "fileBytes": 67108864,
+      "seconds": 60
+    },
+    "method": "O_RDONLY|O_NOFOLLOW|O_NONBLOCK streaming SHA256; ordinary single-link files/no symlink components; descriptor/path signature before/after and all fingerprints at completion. Selected source/compiled/native source fixtures and every recorded905build input rehashed. No Node binary/SQLite/Native execution, content output or secret read."
+  },
+  "allTwoFixesAccepted": true,
+  "onlyWrite": "artifacts/next-continuation/final-audit/dp-fixes-independent-review.json",
+  "currentScopedSourcePins": [
+    {
+      "path": "packages/engine/src/mcp/stdio.ts",
+      "bytes": 10032,
+      "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+    },
+    {
+      "path": "packages/engine/src/mcp/execution-observation.test.ts",
+      "bytes": 30360,
+      "sha256": "252f452968c44ceae316fab083b873a1df4914e37c75609d21be40ea07548ae5"
+    },
+    {
+      "path": "scripts/verify-engine-resilience.mjs",
+      "bytes": 5500,
+      "sha256": "237ca9276ecb91d7629478a61c30c14ba35e003f866cb2bcd16990629ea7ef18"
+    },
+    {
+      "path": "scripts/verify-engine-resilience.test.mjs",
+      "bytes": 5457,
+      "sha256": "7d75500763720b88b9c9d3c833af55ddd62a6f30d7406d1321755fee3dd9a20a"
+    }
+  ],
+  "currentCompiledMcpPinsReconfirmed": true,
+  "initialMcpBindingsQualification": "The original source46/compiled12/native source evidence and independently hashed9/25/33 bindings are retained. The initial905build-input current-byte comparison belongs to that initial snapshot/time; it is not rerun or promoted to current-whole source/runtime acceptance after subsequent seven-owner followups. Current scoped MCP source2 and focused compiled bindings33/25 were directly rechecked; unrelated seven changes excluded.",
+  "concurrentNativeSourceOnlyDeltas": [],
+  "resilienceOwnershipTransferReview": {
+    "producerProgress": {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/progress.json",
+      "bytes": 1408,
+      "sha256": "2b2ec609ebad362e89152438653c2ce078b41968ab6db7603f9b1420ed0421c5"
+    },
+    "producerPlan": {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/plan.json",
+      "bytes": 1144,
+      "sha256": "75e587ec68821b8aa3faa27d0d4e4487aea1d5369f649467e808ce09fde5a315"
+    },
+    "allNewRawEvidencePins": [
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/final-source-map.json",
+        "bytes": 7405,
+        "sha256": "a66ddb6d752a119cbe1ea1f225986557b8c04b246c3e89f9a191a369466a025e"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/green-pins.json",
+        "bytes": 1670,
+        "sha256": "8450a6091705ec35b4123d6e12e7fb9c68473c8155b7b947da61eab0401dfa2c"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/green-tests.log",
+        "bytes": 557,
+        "sha256": "478881410e5782e80ae1d8d7751b2c9d60efbc857feebdf5635878fb826c168b"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/green-verify-engine-resilience.mjs.snapshot",
+        "bytes": 5500,
+        "sha256": "237ca9276ecb91d7629478a61c30c14ba35e003f866cb2bcd16990629ea7ef18"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/green-verify-engine-resilience.test.mjs.snapshot",
+        "bytes": 5457,
+        "sha256": "7d75500763720b88b9c9d3c833af55ddd62a6f30d7406d1321755fee3dd9a20a"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/plan.json",
+        "bytes": 1144,
+        "sha256": "75e587ec68821b8aa3faa27d0d4e4487aea1d5369f649467e808ce09fde5a315"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/progress.json",
+        "bytes": 1408,
+        "sha256": "2b2ec609ebad362e89152438653c2ce078b41968ab6db7603f9b1420ed0421c5"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/red-pins.json",
+        "bytes": 1769,
+        "sha256": "2d36b42c1443548d18868aaf62103f1e8a36f48a317a654516a23a0cbd9c859c"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/red-tests.log",
+        "bytes": 678,
+        "sha256": "9c04a9088c9da77c9c40546339861f2c89267845d5def4640069ef448514dd5b"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/red-verify-engine-resilience.mjs.snapshot",
+        "bytes": 5475,
+        "sha256": "25d245c874c8f91da0ae83e77140d8a8a2d4ca30fa23060c71d2df23b6d35cf5"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/red-verify-engine-resilience.test.mjs.snapshot",
+        "bytes": 5457,
+        "sha256": "7d75500763720b88b9c9d3c833af55ddd62a6f30d7406d1321755fee3dd9a20a"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/run-check.py",
+        "bytes": 2334,
+        "sha256": "1ff6ce55c62f5d0e780c5abde9c99ea8be62db906a845a77e7202c07bc917952"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/source.patch",
+        "bytes": 671,
+        "sha256": "1f1d087d3a0980d42acca311e7b75eb01b5f9d2717943de98090c40515b9f1bd"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/test.patch",
+        "bytes": 2137,
+        "sha256": "66868afe13765e3cdbc6074fb227c330b5d27de7ab2836e62a576271f9750fd3"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/verify-engine-resilience.mjs.before",
+        "bytes": 5475,
+        "sha256": "25d245c874c8f91da0ae83e77140d8a8a2d4ca30fa23060c71d2df23b6d35cf5"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/verify-engine-resilience.mjs.final",
+        "bytes": 5500,
+        "sha256": "237ca9276ecb91d7629478a61c30c14ba35e003f866cb2bcd16990629ea7ef18"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/verify-engine-resilience.test.mjs.before",
+        "bytes": 4218,
+        "sha256": "7b0ed191717cbedc9b508f5fc27408c2f2cd6875e40ab2fe6c424e226a5b82db"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/verify-engine-resilience.test.mjs.final",
+        "bytes": 5457,
+        "sha256": "7d75500763720b88b9c9d3c833af55ddd62a6f30d7406d1321755fee3dd9a20a"
+      },
+      {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/write-final-source-map.py",
+        "bytes": 6658,
+        "sha256": "d7991878af1e58d5083bf5335e9191ae42c1b6a3e0cc9cf096e957f003c50f44"
+      }
+    ],
+    "currentTwoScriptPins": [
+      {
+        "path": "scripts/verify-engine-resilience.mjs",
+        "bytes": 5500,
+        "sha256": "237ca9276ecb91d7629478a61c30c14ba35e003f866cb2bcd16990629ea7ef18"
+      },
+      {
+        "path": "scripts/verify-engine-resilience.test.mjs",
+        "bytes": 5457,
+        "sha256": "7d75500763720b88b9c9d3c833af55ddd62a6f30d7406d1321755fee3dd9a20a"
+      }
+    ],
+    "minimalDiffProof": [
+      {
+        "path": "scripts/verify-engine-resilience.mjs",
+        "before": {
+          "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/verify-engine-resilience.mjs.before",
+          "bytes": 5475,
+          "sha256": "25d245c874c8f91da0ae83e77140d8a8a2d4ca30fa23060c71d2df23b6d35cf5"
+        },
+        "current": {
+          "path": "scripts/verify-engine-resilience.mjs",
+          "bytes": 5500,
+          "sha256": "237ca9276ecb91d7629478a61c30c14ba35e003f866cb2bcd16990629ea7ef18"
+        },
+        "diffBytes": 312,
+        "diffSha256": "e336f1a497825cd3d5523cccb59060a1b229650d73bd4075715538bdf8c9e843"
+      },
+      {
+        "path": "scripts/verify-engine-resilience.test.mjs",
+        "before": {
+          "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/verify-engine-resilience.test.mjs.before",
+          "bytes": 4218,
+          "sha256": "7b0ed191717cbedc9b508f5fc27408c2f2cd6875e40ab2fe6c424e226a5b82db"
+        },
+        "current": {
+          "path": "scripts/verify-engine-resilience.test.mjs",
+          "bytes": 5457,
+          "sha256": "7d75500763720b88b9c9d3c833af55ddd62a6f30d7406d1321755fee3dd9a20a"
+        },
+        "diffBytes": 1746,
+        "diffSha256": "d1ce4f0aeea2b29a3474ae36f00230468d1a723490a75f4582f8960ee4baf881"
+      }
+    ],
+    "originalFourTestsExactBodyRetained": true,
+    "red": {
+      "rawLog": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/red-tests.log",
+        "bytes": 678,
+        "sha256": "9c04a9088c9da77c9c40546339861f2c89267845d5def4640069ef448514dd5b"
+      },
+      "runPins": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/red-pins.json",
+        "bytes": 1769,
+        "sha256": "2d36b42c1443548d18868aaf62103f1e8a36f48a317a654516a23a0cbd9c859c"
+      },
+      "logDerivedCounters": {
+        "tests": 1,
+        "suites": 0,
+        "pass": 0,
+        "fail": 1,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "exitCode": 1,
+      "boundSourceSnapshots": [
+        {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-engine-resilience.mjs",
+          "bytes": 5475,
+          "sha256": "25d245c874c8f91da0ae83e77140d8a8a2d4ca30fa23060c71d2df23b6d35cf5"
+        },
+        {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-engine-resilience.test.mjs",
+          "bytes": 5457,
+          "sha256": "7d75500763720b88b9c9d3c833af55ddd62a6f30d7406d1321755fee3dd9a20a"
+        }
+      ],
+      "failure": "ENOENT reading the newly created foreign temporary after original code deleted it",
+      "meaning": "Independent controlled post-rename interleaving establishes a real filesystem foreign-file removal at the old temporary path. Not an organically observed simultaneous production CLI invocation."
+    },
+    "green": {
+      "rawLog": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/green-tests.log",
+        "bytes": 557,
+        "sha256": "478881410e5782e80ae1d8d7751b2c9d60efbc857feebdf5635878fb826c168b"
+      },
+      "runPins": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/resilience-ownership-transfer/green-pins.json",
+        "bytes": 1670,
+        "sha256": "8450a6091705ec35b4123d6e12e7fb9c68473c8155b7b947da61eab0401dfa2c"
+      },
+      "logDerivedCounters": {
+        "tests": 5,
+        "suites": 0,
+        "pass": 5,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "exitCode": 0,
+      "boundSourceSnapshots": [
+        {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-engine-resilience.mjs",
+          "bytes": 5500,
+          "sha256": "237ca9276ecb91d7629478a61c30c14ba35e003f866cb2bcd16990629ea7ef18"
+        },
+        {
+          "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/scripts/verify-engine-resilience.test.mjs",
+          "bytes": 5457,
+          "sha256": "7d75500763720b88b9c9d3c833af55ddd62a6f30d7406d1321755fee3dd9a20a"
+        }
+      ],
+      "executedTestNames": [
+        "quick and extended CLI bounds preserve all three compound scenarios",
+        "help and invalid options do not import the engine or start fixtures",
+        "a false result and cleanup/import failure return exit 1, never success",
+        "report persistence failure cannot turn a passing fixture result into a green CLI",
+        "successful report rename releases the old temporary path before cleanup"
+      ]
+    },
+    "oracleQualification": "Test-only builtin rename interposition awaits actual OS rename, exclusively creates new foreign bytes at the vacated path, then returns. Snapshot test asserts actual persisted destination JSON and exact foreign bytes. Globals are restored in finally; no production I/O abstraction, no Engine Native/load/DB/account/OS termination scenario. The temp fixtures are removed by their own test finally, so after-run independent current-file hashing of those transient oracle files is unavailable; support is source+recorded actual failing/passing logs and stable source snapshots.",
+    "failureAndCollisionQualification": "Existing four test bodies unchanged and rerun in green5: real rename-to-directory failure still emits passed:false/exit1 with rename error, its owned temp disappears; wx conflict still emits EEXIST and preserves preexisting bytes; success persistence destination matches report. Write/close/unlink secondary failure precedence is source-reviewed via initial failure plus ??=, not actual OS multi-failure injection.",
+    "exceptionAndCancellationContract": "Successful rename now releases created ownership before finally; only failed still-owned temp can reach unlink. Open wx failure acquires no ownership. Original write/close/rename failure remains prior to later cleanup errors. Parser/help/exit/report-size/output/default verifier/scenarios/Engine cancellation unchanged.",
+    "runtimeQualification": "Recorded Node26.9.0 identical in red/green receipts. No Node binary execution or rehash by independent reviewer; current source/script snapshots directly rehashed."
+  },
+  "actionableFindings": [],
+  "completionIndependentRead": {
+    "uniqueDirectFileReads": 85,
+    "directBytesRead": 1082328,
+    "metadataLedgerSha256": "27fe0b5e23908db61cbe1121a71cd1059cba5abe4a617de55d0220c847838555",
+    "elapsedMs": 16.585,
+    "allReadFilesStableAtFinish": true,
+    "method": "Same bounded O_RDONLY|O_NOFOLLOW|O_NONBLOCK SHA streaming/no symlink ancestors/signature validation; no tests/build/DB/CI/git operations in this completion pass. Hashes of exact current source4, focused MCP output/binding files, producer evidence, all red/green source snapshots/raw logs/patch/driver files were checked."
+  },
+  "initialPendingReviewPreserved": {
+    "path": "artifacts/next-continuation/final-audit/dp-fixes-independent-review.initial.json",
+    "bytes": 53276,
+    "sha256": "8d850ecbff7933d6791d3621d0d5362b0672f4b3fc85e4e813189cb93e155e74",
+    "qualification": "Original MCP PASS/resilience pending ownership finding retained with exact historical source/log pins."
+  }
+}

@@ -68,6 +68,6 @@ export class StdioMcpTransport implements McpTransport {
     kill('SIGTERM'); await wait(100); kill('SIGKILL'); child.stdout.destroy(); child.stderr.destroy(); child.stdin.destroy(); await wait(100);
     const cleanupConfirmed=process.platform!=='win32'&&child.pid?await cleanupGroup(child.pid):this.finished;
     this.options.observer?.closed({exitCode:this.exitCode,cleanupConfirmed,started:Boolean(child.pid)});
-    if(this.options.sandbox&&!cleanupConfirmed)throw new EngineError('CLEANUP_UNCERTAIN','Sandbox MCP process group absence is unconfirmed');
+    if(!cleanupConfirmed)throw new EngineError('MCP_TRANSPORT_CLEANUP_UNCERTAIN','MCP process cleanup is unconfirmed',{cleanupUncertain:true,transportCleanupConfirmed:false});
   }
 }
