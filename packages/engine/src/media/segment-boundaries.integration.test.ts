@@ -505,40 +505,43 @@ test("actual 128-session media index capacity rejects new import atomically, kee
     { startMs: 0, endMs: 100 },
   ]);
   const sql = new DatabaseSync(f.dbPath);
-  const before = sql
-    .prepare("SELECT count(*) AS count FROM session_events WHERE session_id=?")
-    .get(sessions[128]!)!.count;
-  await assert.rejects(
-    f.engine.importMedia(sessions[128]!, wav(), "audio/wav", [
-      { startMs: 0, endMs: 100 },
-    ]),
-    code("MEDIA_INDEX_CAPACITY"),
-  );
-  assert.equal(
-    f.engine.store.getSessionDocument(sessions[128]!, "input_media_segments"),
-    null,
-  );
-  assert.equal(
-    sql
-      .prepare(
-        "SELECT count(*) AS count FROM session_events WHERE session_id=?",
-      )
-      .get(sessions[128]!)!.count,
-    before,
-  );
-  assert.equal(
-    sql
-      .prepare(
-        "SELECT count(*) AS count FROM session_documents WHERE kind='input_media_segments'",
-      )
-      .get()!.count,
-    128,
-  );
-  assert.deepEqual(await readdir(join(f.artifactDir, "input-segments")), [
-    ref.id + ".blob",
-  ]);
-  assert.equal(validateMediaDatabase(sql).sources.length, 1);
-  sql.close();
+  try {
+    const before = sql
+      .prepare("SELECT count(*) AS count FROM session_events WHERE session_id=?")
+      .get(sessions[128]!)!.count;
+    await assert.rejects(
+      f.engine.importMedia(sessions[128]!, wav(), "audio/wav", [
+        { startMs: 0, endMs: 100 },
+      ]),
+      code("MEDIA_INDEX_CAPACITY"),
+    );
+    assert.equal(
+      f.engine.store.getSessionDocument(sessions[128]!, "input_media_segments"),
+      null,
+    );
+    assert.equal(
+      sql
+        .prepare(
+          "SELECT count(*) AS count FROM session_events WHERE session_id=?",
+        )
+        .get(sessions[128]!)!.count,
+      before,
+    );
+    assert.equal(
+      sql
+        .prepare(
+          "SELECT count(*) AS count FROM session_documents WHERE kind='input_media_segments'",
+        )
+        .get()!.count,
+      128,
+    );
+    assert.deepEqual(await readdir(join(f.artifactDir, "input-segments")), [
+      ref.id + ".blob",
+    ]);
+    assert.equal(validateMediaDatabase(sql).sources.length, 1);
+  } finally {
+    sql.close();
+  }
   await f.engine.close();
   const reopened = createEngine({
     dbPath: f.dbPath,

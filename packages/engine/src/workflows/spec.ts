@@ -8,6 +8,7 @@ import {
   immutableKnowledgeJson,
   knowledgeHash,
 } from "../knowledge/validation.js";
+import { exactPath } from "../tools/file-actions/text.js";
 
 import type {
   WorkflowObjectSchema,
@@ -130,6 +131,23 @@ function stringArray(input: unknown, maximum: number): string[] {
   )
     workflowError("WORKFLOW_LIMIT");
   return input.map(workflowIdentifier).sort();
+}
+function sourcePathArray(input: unknown): string[] {
+  if (
+    !Array.isArray(input) ||
+    input.length > 32 ||
+    new Set(input).size !== input.length
+  )
+    workflowError("WORKFLOW_LIMIT");
+  return input.map((path) => {
+    try {
+      return exactPath(path);
+    } catch (error) {
+      if (error instanceof EngineError && error.code === "INVALID_FILE_ACTION_PATH")
+        workflowError();
+      throw error;
+    }
+  }).sort();
 }
 export function validateWorkflowSchema(input: unknown): WorkflowSchema {
   input = workflowJson(input);
@@ -465,7 +483,7 @@ function stage(input: unknown): WorkflowStageSpec {
   const verificationPolicy = verification
     ? {
         checkIds: stringArray(verification.checkIds, 8),
-        sourcePaths: stringArray(verification.sourcePaths, 32),
+        sourcePaths: sourcePathArray(verification.sourcePaths),
         maxRepairs: 0 as const,
       }
     : undefined;

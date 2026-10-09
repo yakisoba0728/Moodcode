@@ -315,6 +315,18 @@ test('text redaction holds split prefixes for access, refresh, identity and acco
   noCredentials(provider);
 });
 
+test('coding request metadata redacts all Codex credential classes through the delegate', async t => {
+  const codexHome = await home(t);
+  const reflectedId = `resp-${Object.values(TOKENS).join('-')}`;
+  const provider = new CodexProvider({ codexHome, fetch: async () => new Response(
+    wire(textStream()).replaceAll(RESPONSE_ID, reflectedId), { headers: { 'Content-Type': 'text/event-stream' } }) });
+  const events = await collect(provider, { ...request(), includeMetadata: true });
+  assert.deepEqual(events.find(event => event.type === 'progress' && event.providerRequestId !== undefined),
+    { type: 'progress', providerRequestId: 'resp-[REDACTED]-[REDACTED]-[REDACTED]-[REDACTED]' });
+  assert.equal(visibleText(events), 'fixture answer');
+  assert.equal(events.at(-1)?.type, 'finish');
+});
+
 test('tool calls and native replay redact all credential strings including JSON escapes', async t => {
   const codexHome = await home(t);
   const input: Native = Object.fromEntries(Object.entries(TOKENS).map(([key, value]) => [key, value]));

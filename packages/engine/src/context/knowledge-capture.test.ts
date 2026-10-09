@@ -10,6 +10,7 @@ import type { KnowledgeContextRequest, KnowledgeContextSourcePort, PreparedKnowl
 import { SqliteStore } from '../storage/index.js';
 import { ContextService } from './service.js';
 import { planContext } from './plan.js';
+import { InstructionSources } from './sources.js';
 
 const code = (expected: string) => (error: unknown) => error instanceof EngineError && error.code === expected;
 const signal = () => new AbortController().signal;
@@ -151,4 +152,47 @@ test('active actual Run captures are never evicted by a new owner, while a termi
   await assert.rejects(f.service.assertFresh(first.snapshot.session.id, messages[0]!, signal(), first.run!.id), code('KNOWLEDGE_CONTEXT_STALE'));
   for (const request of [...requests, extra]) f.service.releaseContext(request.snapshot.session.id);
   assert.equal(f.source.active.size, 0);
+});
+
+test('fork-only context uses the shared 128-owner reservation while a configured null contribution leaves it unused', async t => {
+  const f = await fixture(t), requests = await Promise.all(Array.from({ length: 129 }, (_, index) => f.request(`fork-pending-${index}`)));
+  const contribution = { sha256: sha('authored frozen fork data'), sourceIds: ['conversation-fork:authored'], messages: [{ role: 'assistant' as const, content: 'Readonly frozen fork lineage data.' }] };
+  const service = new ContextService(f.store, undefined, 0, undefined, { conversationFork: { prepare: () => contribution, assertFresh: (_session, hash) => { assert.equal(hash, contribution.sha256); } } });
+  const entered = deferred(), gate = deferred(), observe = InstructionSources.prototype.observe;
+  let observers = 0;
+  const mock = t.mock.method(InstructionSources.prototype, 'observe', async function(this: InstructionSources, ...args: Parameters<typeof observe>) {
+    if (++observers === 128) entered.resolve(); await gate.promise; return observe.apply(this, args);
+  });
+  const pending = requests.slice(0, 128).map(request => service.build(request));
+  try {
+    await entered.promise;
+    await assert.rejects(service.build(requests[128]!), code('CONTEXT_CAPTURE_LIMIT'));
+    await assert.rejects(service.build(requests[0]!), code('CONTEXT_CAPTURE_BUSY'));
+    assert.equal(observers, 128); gate.resolve(); await Promise.all(pending);
+    assert.equal((Reflect.get(service, 'contextCaptures') as Map<string, unknown>).size, 128);
+  } finally {
+    gate.resolve(); await Promise.allSettled(pending); mock.mock.restore();
+    for (const request of requests) service.releaseContext(request.snapshot.session.id);
+  }
+  const nullable = new ContextService(f.store, undefined, 0, undefined, { conversationFork: { prepare: () => null, assertFresh: () => assert.fail('No fork capture exists') } });
+  await nullable.build(requests[128]!);
+  assert.equal((Reflect.get(nullable, 'contextCaptures') as Map<string, unknown>).size, 0);
+  assert.equal((Reflect.get(nullable, 'contextReservations') as Map<string, unknown>).size, 0);
+});
+
+test('fork-only idle churn remains bounded and preserves an original active native Run capture', async t => {
+  const f = await fixture(t), active = await f.request('fork-active', true);
+  const contribution = { sha256: sha('active fork lineage'), sourceIds: ['conversation-fork:active'], messages: [{ role: 'assistant' as const, content: 'Authored active readonly fork lineage.' }] };
+  let noContribution = false;
+  const service = new ContextService(f.store, undefined, 0, undefined, { conversationFork: { prepare: () => noContribution ? null : contribution, assertFresh: (_session, hash) => { assert.equal(hash, contribution.sha256); } } });
+  const captures = Reflect.get(service, 'contextCaptures') as Map<string, unknown>, messages = await service.build(active), original = captures.get('fork-active');
+  try {
+    for (let index = 0; index < 160; index++) await service.build(await f.request(`fork-idle-${index}`));
+    assert.equal(captures.size, 128); assert.equal(captures.get('fork-active'), original);
+    assert.equal(captures.has('fork-idle-0'), false);
+    await service.assertFresh('fork-active', messages, signal(), active.run!.id);
+    noContribution = true; await service.build(await f.request('fork-configured-null'));
+    assert.equal(captures.size, 128, 'A null fork contribution does not evict an existing capture'); assert.equal(captures.get('fork-active'), original);
+  } finally { for (const sessionId of [...captures.keys()]) service.releaseContext(sessionId); }
+  assert.equal(captures.size, 0);
 });

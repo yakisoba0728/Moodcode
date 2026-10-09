@@ -4,7 +4,7 @@
   "recordedAt": "2026-10-09T11:41:00.757089+00:00",
   "mainAtAudit": "f3582bd1af33754e281810fe8e8bde5e0c3373a9",
   "previousAcceptedImplementation": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
-  "status": "whole-initial-review-complete; independent-mapping-review-and-authorized-fixes-in-progress",
+  "status": "whole-review-and-approved-current-source-local-gates-complete; persistent-and-actual-OS-acceptance-pending",
   "fullGoalAchieved": false,
   "previousTurnClassification": "progress; implementation, actual regression/CI/30-minute acceptance, documentation and main push",
   "currentProgress": [
@@ -226,7 +226,7 @@
     ]
   },
   "goalPolicy": "Keep the full original objective active while meaningful local review/fix work runs. External deferral is neither completion nor permission for live validation.",
-  "updatedAt": "2026-10-09T12:29:59.391734+00:00",
+  "updatedAt": "2026-10-09T13:23:02.620430+00:00",
   "initialSemanticReview": {
     "files": 1092,
     "physicalLines": 314309,
@@ -571,5 +571,11 @@
     "Native/tools10 and Automation/CI5 findings assigned to functional parallel fix units; affected/native OS gates preserved",
     "Desktop/provider7 further lifecycle/presentation/credential projections assigned; no live account requested",
     "CSTORE-002 genuine2-Run resident Native public usage red confirmed: 10,683-byte reduced budget accepted15,241 raw JSON bytes with4,572 uncharged; existing shared-budget minimum fix authorized"
+  ],
+  "currentSourceVerification": "docs/moodcode/next-whole-review-source-verification.json",
+  "remainingParentGates": [
+    "actual30min same-instance current production run",
+    "actualOS/NodeCI and unsigned packages",
+    "final TODO/docs and main synchronization"
   ]
 }

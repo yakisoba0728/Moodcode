@@ -1,20 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fork } from "node:child_process";
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { once } from "node:events";
 import { MoodcodeEngine } from "../engine.js";
 import type { ProviderAdapter } from "../ports.js";
 import { batchUntil, batchCommand } from "./fixtures/batch.js";
+import { retainCrashFixture } from "../git/fixtures/crash-retention.js";
 for (const boundary of [
   "child-complete",
   "selected",
@@ -31,7 +25,10 @@ for (const boundary of [
           mkdtempSync(join(tmpdir(), "moodcode-batch-crash-")),
         ),
         direct = fileURLToPath(
-          new URL("./fixtures/crash-batch.js", import.meta.url),
+          new URL(
+            `./fixtures/crash-batch.${import.meta.url.endsWith(".ts") ? "ts" : "js"}`,
+            import.meta.url,
+          ),
         ),
         fallback = fileURLToPath(
           new URL(
@@ -40,15 +37,40 @@ for (const boundary of [
           ),
         ),
         entry = existsSync(direct) ? direct : fallback;
-      let stderr = "";
+      let stderr = "",
+        reopenedEngine: MoodcodeEngine | undefined,
+        childClosed = false;
       const child = fork(entry, [base, boundary], {
-        execArgv: [],
+        execArgv: entry.endsWith(".ts")
+          ? ["--import", fileURLToPath(import.meta.resolve("tsx"))]
+          : [],
         stdio: ["ignore", "ignore", "pipe", "ipc"],
       });
-      child.stderr!.on("data", (b) => (stderr += String(b)));
-      t.after(() => {
-        if (child.exitCode === null) child.kill("SIGKILL");
-        rmSync(base, { recursive: true, force: true });
+      child.stderr!.on(
+        "data",
+        (b) => (stderr = (stderr + String(b)).slice(-8192)),
+      );
+      const exited = new Promise<void>((resolve) =>
+        child.once("close", () => {
+          childClosed = true;
+          resolve();
+        }),
+      );
+      t.after(async () => {
+        await retainCrashFixture({
+          base,
+          dbPath: join(base, "engine.sqlite"),
+          boundary,
+          stderr,
+          settleChild: async () => {
+            if (!childClosed) child.kill("SIGKILL");
+            await exited;
+          },
+          closeEngine: reopenedEngine
+            ? () => reopenedEngine!.close()
+            : undefined,
+          diagnostic: (message) => t.diagnostic(message),
+        });
       });
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -65,8 +87,11 @@ for (const boundary of [
             new Error("fixture exited before boundary " + code + " " + stderr),
           );
         });
+        child.once("error", (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
       });
-      const exited = once(child, "exit");
       child.kill("SIGKILL");
       await exited;
       const data = JSON.parse(
@@ -91,7 +116,7 @@ for (const boundary of [
         codingBatches: true,
         verificationTools: true,
       });
-      t.after(() => engine.close());
+      reopenedEngine = engine;
       const g = engine.inspectBatchEvidence(data.workspaceId, data.groupId);
       assert.equal(calls, 0);
       if (["child-complete", "selected", "merge-receipt"].includes(boundary)) {
@@ -152,5 +177,10 @@ for (const boundary of [
           .length,
         0,
       );
+      t.after(() => {
+        assert.ok(existsSync(join(base, "engine.sqlite")));
+        assert.ok(existsSync(join(base, "crash-retention.json")));
+        assert.ok(existsSync(join(base, "boundary.json")));
+      });
     },
   );

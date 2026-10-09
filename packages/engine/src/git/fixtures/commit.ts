@@ -51,27 +51,34 @@ export const gitFixture = (root: string, ...args: string[]) =>
   }).trim();
 export async function commitFixture(
   t: TestContext,
-  options: { enabled?: boolean; hooks?: string; timeoutMs?: number } = {},
+  options: {
+    enabled?: boolean;
+    hooks?: string;
+    timeoutMs?: number;
+    sourcePath?: string;
+    retainEvidence?: boolean;
+  } = {},
 ) {
   const base = await realpath(
       await mkdtemp(join(tmpdir(), "moodcode-approved-git-")),
     ),
     root = join(base, "repository"),
     dbPath = join(base, "engine.sqlite"),
-    artifactDir = join(base, "artifacts");
+    artifactDir = join(base, "artifacts"),
+    sourcePath = options.sourcePath ?? "a.ts";
   await mkdir(root);
   gitFixture(root, "init", "--quiet", "--template=");
   await mkdir(join(root, ".git", "hooks"));
   gitFixture(root, "config", "user.name", "Moodcode Fixture");
   gitFixture(root, "config", "user.email", "fixture@example.invalid");
   gitFixture(root, "config", "commit.gpgSign", "false");
-  await writeFile(join(root, "a.ts"), "const alpha = 1;\n");
+  await writeFile(join(root, sourcePath), "const alpha = 1;\n");
   await writeFile(join(root, "other.ts"), "const other = 1;\n");
   gitFixture(root, "add", ".");
   gitFixture(root, "commit", "-m", "Initial fixture");
-  await writeFile(join(root, "a.ts"), "const alpha = 2;\n");
+  await writeFile(join(root, sourcePath), "const alpha = 2;\n");
   await writeFile(join(root, "other.ts"), "const other = 2;\n");
-  gitFixture(root, "add", "a.ts", "other.ts");
+  gitFixture(root, "add", sourcePath, "other.ts");
   const provider: ProviderAdapter = {
     id: "commit-fixture",
     async *streamTurn(request): AsyncGenerator<ProviderEvent> {
@@ -114,7 +121,7 @@ export async function commitFixture(
   };
   let engine = createEngine(config);
   let preparationFailed = true,
-    retained = false;
+    retained = options.retainEvidence === true;
   const saveEvidence = async (phase: string, error?: unknown) => {
     retained = true;
     const evidence = nativeFixtureData(dbPath, evidenceTables);
@@ -204,7 +211,7 @@ export async function commitFixture(
   });
   await engine.configureVerificationSession(session.id, 0, {
     checkIds: ["check"],
-    sourcePaths: ["a.ts"],
+    sourcePaths: [sourcePath],
     maxRepairs: 0,
   });
   const submitted = await command<RunReceipt>("run.submit", {
@@ -252,7 +259,7 @@ export async function commitFixture(
       sessionId: session.id,
       requestId,
       runId: run.id,
-      paths: ["a.ts"],
+      paths: [sourcePath],
       message: "Reviewed alpha change",
       selection,
       ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),

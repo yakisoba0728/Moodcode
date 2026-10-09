@@ -6,7 +6,7 @@
 
 ## 다음 실행 순서 — 추가 작업 → 점검·TODO 재작성 → 테스트·엔진 리팩터링
 
-2026-10-09 사용자 요청에 따라 후속 작업을 먼저 완료한 뒤 전체 코드를 점검하고, 실제 근거에 따라 수정·삭제·추가·유지할 항목을 정리해 리팩터링 TODO를 다시 작성한다. 확정한 기능 단위 구현·점검·리팩터링과 최종 공동 소스의 전체 회귀·OS별 CI·실제 장기 실행 수용을 완료했다. 구조 점검은 전체 의미 감사나 미사용 코드 증명을 대신하지 않는다. 기존 E5·MC2·H 완료 집계는 유지한다.
+2026-10-09 사용자 요청에 따라 후속 작업을 먼저 완료한 뒤 전체 코드를 점검하고, 실제 근거에 따라 수정·삭제·추가·유지할 항목을 정리해 리팩터링 TODO를 다시 작성한다. 이전 유한 기능 단위 구현·리팩터링·공동 검증 수용은 보존한다. 추가 전체 의미 점검과 새 수정의 검증은 아래 RF 및 후속 목록에서 별도로 추적한다. 구조 점검은 전체 의미 감사나 미사용 코드 증명을 대신하지 않는다. 기존 E5·MC2·H 완료 집계는 유지한다.
 
 ### 1. 남은 기능과 제품 연결
 
@@ -29,8 +29,8 @@
 
 ### 2. 문제 목록 작성과 리팩터링 TODO 재작성
 
-- [ ] **RF-01 — 전체 소유 코드 inventory·기준 측정**: 구조 inventory와 유한 기능별 검토는 완료했다. 전체 1,092개 소유 파일의 실제 읽기·책임·호출/등록·transaction/resource·호환성·expected·판정 매핑을 네 영역에서 게시했다. 독립 매핑 감사와 새 수정 후의 현재 source 대조가 남아 있으므로 열린 상태로 둔다. clone·dependency·생성 결과는 제품 코드와 분리한다.
-- [ ] **RF-02 — 문제·수정·삭제·추가·유지 목록 작성**: 기존 기능별 목록은 보존한다. 전체 점검에서 각 항목의 ID·실제 경로/근거·영향·재현 또는 확인 방법·분류·해결안·선행 작업·검증·완료 조건을 보강한다. caller/export/동적 등록·기존 기록 호환까지 확인하며 미확인을 삭제 근거로 쓰지 않는다.
+- [x] **RF-01 — 전체 소유 코드 inventory·기준 측정**: 전체 1,092개 소유 파일의 실제 읽기·책임·호출/등록·transaction/resource·호환성·expected·판정 매핑과 독립 대조를 완료했다. 현재 수정·신규 소스는 별도 최종 핀·재독 addendum으로 확인했다. clone·dependency·생성 결과 및 unknown origin 선언은 제품 코드와 구분한다. 전체 correctness를 증명한 것으로 보지 않는다.
+- [x] **RF-02 — 문제·수정·삭제·추가·유지 목록 작성**: 최초 36건의 ID·경로·영향·실제 재현/확인·최소 수정·유지·검증 판정을 게시했다. Native close 도달성 미입증과 trusted-host 옵션 진단은 named keep으로 남겼다. source·compiled 수용과 실제 OS pending을 구분하며 기존 실패·기능별 목록을 보존한다.
 - [x] **RF-03 — 실제 근거로 TODO 재작성**: 우선순위를 정확성/cleanup → 테스트 신뢰성 → 책임·중복 → 성능·문서로 정한다. 기능 단위 작업·담당 파일·검증 범위·완료 조건을 확정하고, 현재 열린 목록과 완료/역사적 기록을 구분한다. 원래 ID·실패 근거·호환 계약은 보존한다.
 
 현재 확인한 점검 후보는 `agent-backends/store.ts` 4,088줄, `engine.ts` 2,815줄, `runner/index.ts` 2,411줄 및 1,000줄 이상 테스트 파일이다. 이는 변경 전 길이다. 확인한 중복만 기능 단위로 정리했고 동작/cleanup·거래·소유 경계를 보존했다. 전체 미사용 판정이나 줄 수 감소를 주장하지 않는다.
@@ -71,7 +71,7 @@
 
 - [x] **RF-04 — 테스트·fixture 정리**: 반복 setup·임시 repo/DB·실제 process·cleanup helper를 정리하고 큰 suite를 계약/시나리오별로 나눈다. 의도와 독립 expected 값을 유지하며 중복 테스트 삭제는 보존되는 회귀 시나리오를 기록한다. 실패 증거·미확정 cleanup은 보존하고 실제 구현과 같은 계산으로 expected를 만들지 않는다.
 - [x] **RF-05 — 메인 엔진 책임 분리**: API dispatch/admission/scheduler/turn/context/tool/permission/storage·recovery/lifecycle을 책임별로 정리한다. 큰 store는 native 소유권·transaction 경계에 맞춰 분리하고 의미가 같은 정책·검증만 공통화한다. 먼저 한 완결 기능을 변경·검증한 뒤 다음 범위로 진행한다.
-- [ ] **RF-06 — 미사용·중복·의존성·주석 정리**: 완료한 유한 정리 단위는 유지하고 전체 파일의 유지·정리 판정을 보강한다. 실제 소비·호환성이 확인된 불필요 코드와 dependency를 제거한다. 함수는 한 책임·명확한 이름·단순한 흐름으로 정리하고, 주석은 비자명한 이유·불변식·외부 제약·필수 고지만 남겨 현재 구현과 맞춘다. 검색 부재나 구조 수치만으로 미사용을 판정하지 않는다.
+- [x] **RF-06 — 미사용·중복·의존성·주석 정리**: 전체 파일의 실제 caller·동적 등록·유지/정리 근거를 남겼고 sandbox private 미소비 상태 네 줄만 제거했다. Context 소유 metadata·MCP/plugin 정산·복구 body 예산을 책임 경계에서 보강했다. 공개 entry·migration·dependency·필수 고지는 유지했으며 unknown source-absent 선언과 서로 다른 Native 검증을 삭제하지 않았다. 주석은 현재 불변식·필요 이유로 한정했다.
 - [x] **RF-07 — 성능·검증 실행 개선**: 병목은 측정 후 개선하고 focused/contract/integration/crash/OS/GUI 검증 경계를 정리한다. 작업 중에는 영향 검증, 큰 통합 경계와 최종 수용에는 전체 회귀·실제 지원 CI를 실행한다. 이력·context·event·summary·장기 자원 수명을 같은 조건으로 비교한다.
 - [ ] **RF-08 — 최종 수용·커밋·문서 최신화**: `663a3a0`의 유한 통합 수용·CI 근거는 보존한다. 전체 점검과 새 결함 수정 후 타입/build·엔진·코딩 과업·resilience·성능·지원 OS CI 및 변경된 GUI/package의 영향 범위를 검증한다. public API/event/DB/archive·승인·cancel/unknown/no-replay·예산 계약을 보존하고 필요한 전후 근거와 TODO를 정리해 커밋·푸시한다. 실제 외부 조건이 남으면 전체 goal을 완료하지 않는다.
 
@@ -108,7 +108,7 @@
 
 [두 수정의 독립 수용](docs/moodcode/next-followup-fixes-independent-review.json)·[backend 실제 검증](docs/moodcode/next-backend-crash-retention-verification.json)·[GUI 실제 검증](docs/moodcode/next-renderer-shared-style-verification.json)을 보존한다. 이 결과가 이후 동시 수정이나 전체 OS 검증을 대신하지 않는다.
 
-전체 최초 의미 점검은 네 영역의 1,092개 실제 읽기·매핑을 완료했고 원래 소스의 발견 사항 36건을 게시했다. 독립 provenance 감사·최종 수정 소스 대조·공동 회귀는 진행 중이다. 작업별 원 경로·후보/재현 구분·최소 수정안은 [현재 전체 계획](docs/moodcode/next-full-review-plan.json)의 `reviewDispositions`에 기록한다.
+전체 최초 의미 점검·독립 provenance 감사·최종 수정 소스 대조를 마쳤고 원래 소스의 발견 사항 36건을 판정했다. 현재 빌드·전체 compiled 5,243/5,240 pass/실패0/Windows skip3·코딩3/3·quick 복구·성능·실제 GUI7을 통과했다. 새 30분 장기 실행과 실제 OS CI·패키지·main 동기화는 RF-08에 남는다. [현재 공동 소스 근거](docs/moodcode/next-whole-review-source-verification.json). 작업별 원 경로·후보/재현 구분·최소 수정안은 [현재 전체 계획](docs/moodcode/next-full-review-plan.json)의 `reviewDispositions`에 기록한다.
 
 - [ ] **FR-CONTEXT — Context 소유 수명·미디어 경계**: Native 192-session metadata 증가·fork-only 128 capture 우회를 제한하고 pending owner·omitted/anchor·durable revision을 보존한다. audio/video fork는 명시적으로 거부하고 provider recovery는 정확한 입력 media 소유권·fingerprint·no-replay를 유지한다. source 영향 검증 후 compiled·통합 검증한다.
 - [ ] **FR-RECOVERY-BUDGET — 누적 복구 증거 예산**: 실제 ACP owner/SQLite에서 8,388,608B 초과 읽기 red를 재현했다. anchor event도 기존 공유 bounded body reader로 읽도록 보강한다. resident child의 추가 Run/metadata 후보는 genuine owner probe와 최소 수정안을 확인한 뒤 판정한다. DDL·예산 상한은 유지한다.

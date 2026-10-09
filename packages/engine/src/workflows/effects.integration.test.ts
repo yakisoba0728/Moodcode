@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
@@ -105,6 +106,98 @@ test(
     assert.equal(f.events.filter((e) => e === "parent-input").length, 1);
     assert.equal(f.engine.children.tasks.list(f.session.id).length, 2);
     assert.equal(f.engine.store.listCheckpoints(f.parent.runId).length, 1);
+  },
+);
+
+test(
+  "nested validator source executes genuine native verification and exact approved parent merge",
+  { timeout: 45000 },
+  async (t) => {
+    const relative = "src/foo.ts",
+      beforeBytes = "before workflow\n",
+      afterBytes = "editor-approved change\n",
+      beforeHash = createHash("sha256").update(beforeBytes).digest("hex"),
+      afterHash = createHash("sha256").update(afterBytes).digest("hex"),
+      f = await workflowEffectsFixture(t, {
+        sourcePath: relative,
+        automaticDelivery: false,
+        dbRoot: process.env.MOODCODE_WORKFLOW_EFFECTS_EVIDENCE_ROOT,
+      }),
+      parentPath = join(f.root, relative),
+      childPath = join(f.worktree.root, relative);
+    assert.equal(readFileSync(parentPath, "utf8"), beforeBytes);
+    await f.throughValidation();
+    assert.equal(f.record().state, "completed", JSON.stringify(f.record()));
+    assert.equal(readFileSync(parentPath, "utf8"), beforeBytes);
+    assert.equal(readFileSync(childPath, "utf8"), afterBytes);
+    const editor = f.engine.inspectWorkflowEffect(f.workspace.id, f.record().instanceId, "edit")!,
+      validator = f.engine.inspectWorkflowEffect(f.workspace.id, f.record().instanceId, "validate")!,
+      patch = editor.evidence.snapshot.tools.find((tool) => tool.name === "apply_patch")!,
+      patchCheckpoint = editor.evidence.checkpoints.find((checkpoint) => checkpoint.toolCallId === patch.id)!,
+      nativeVerify = validator.evidence.snapshot.tools.find((tool) => tool.name === "verify_changes")!,
+      receipt = validator.evidence.verification!.receipts[0]!;
+    assert.equal(patch.state, "completed");
+    assert.equal(patchCheckpoint.kind, "patch");
+    assert.deepEqual(patchCheckpoint.files, [{
+      path: relative,
+      before: beforeBytes,
+      after: afterBytes,
+      beforeHash,
+      afterHash,
+    }]);
+    for (const effect of [editor, validator]) {
+      assert.deepEqual(effect.files.map((file) => ({ path: file.path, sha256: file.sha256 })), [
+        { path: childPath, sha256: afterHash },
+      ]);
+    }
+    assert.equal(nativeVerify.state, "completed");
+    assert.equal(receipt.toolCallId, nativeVerify.id);
+    assert.equal(receipt.runId, validator.completion.child.childRunId);
+    assert.equal(receipt.sessionId, validator.completion.child.childSessionId);
+    assert.equal(receipt.checkId, "actual-required-check");
+    assert.equal(receipt.phase, "settled");
+    assert.equal(receipt.status, "pass");
+    assert.equal(receipt.sourceStale, false);
+    assert.equal(receipt.observation!.disposition, "executed");
+    assert.equal(receipt.observation!.exitCode, 0);
+    assert.equal(receipt.observation!.executionComplete, true);
+    assert.equal(receipt.observation!.cleanup.confirmed, true);
+    assert.ok(receipt.observation!.command.includes(JSON.stringify(relative)));
+    assert.deepEqual(receipt.observation!.sourceBefore, receipt.sourceBefore);
+    assert.deepEqual(receipt.observation!.sourceAfter, receipt.sourceBefore);
+    assert.ok(validator.evidence.parts.some((part) =>
+      part.type === "tool" && part.toolCallId === nativeVerify.id && part.state === "completed",
+    ));
+
+    const approval = await f.pendingParent("merge_workflow_stage");
+    assert.equal(readFileSync(parentPath, "utf8"), beforeBytes);
+    f.engine.approvals.decide(approval.id, "allow", approval.fingerprint);
+    await effectsUntil(
+      () => f.engine.store.getToolCall(approval.toolCallId).state === "completed" && f.sourceTerminal(),
+      "Nested source merge did not complete",
+    );
+    const merged = f.engine.inspectWorkflowEffect(f.workspace.id, f.record().instanceId, "edit")!,
+      checkpoints = f.engine.store.listCheckpoints(f.parent.runId);
+    assert.equal(readFileSync(parentPath, "utf8"), afterBytes);
+    assert.equal(merged.state, "merged");
+    assert.equal(merged.merge!.toolCallId, approval.toolCallId);
+    assert.equal(merged.merge!.approvalId, approval.id);
+    assert.equal(merged.merge!.preparedFingerprint, approval.fingerprint);
+    assert.equal(merged.merge!.validatorSha256, validator.sha256);
+    assert.deepEqual(merged.merge!.parentFiles.map((file) => ({ path: file.path, sha256: file.sha256 })), [
+      { path: parentPath, sha256: afterHash },
+    ]);
+    assert.equal(checkpoints.length, 1);
+    assert.equal(checkpoints[0]!.toolCallId, approval.toolCallId);
+    assert.deepEqual(merged.merge!.checkpointIds, [checkpoints[0]!.id]);
+    assert.deepEqual(checkpoints[0]!.files, [{
+      path: relative,
+      before: beforeBytes,
+      after: afterBytes,
+      beforeHash,
+      afterHash,
+    }]);
+    assert.equal(f.engine.inspectWorkflowDelivery(f.workspace.id, f.record().instanceId), null);
   },
 );
 

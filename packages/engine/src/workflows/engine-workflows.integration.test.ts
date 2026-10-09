@@ -6,6 +6,7 @@ import test from "node:test";
 import { EngineError } from "@moodcode/contracts";
 import type { WorkflowStartPreview } from "./host.js";
 import type { WorkflowInstanceRevision } from "./reducer.js";
+import type { WorkflowService } from "./service.js";
 import type { WorkflowRequestResult, WorkflowSpecRevision } from "./store.js";
 import type { WorkflowSpecInput } from "./types.js";
 import {
@@ -231,6 +232,70 @@ test(
         { encoding: "utf8" },
       ),
       "",
+    );
+  },
+);
+
+test(
+  "Original start duplicates reject another workspace while preserving request conflicts and closed-service history",
+  { timeout: 20000 },
+  async (t) => {
+    const f = await workflowFixture(t),
+      spec = await f.spec(),
+      selected = await preview(f, spec),
+      parent = await f.startParent(),
+      original = start(f, selected),
+      before = f.counts(),
+      budget = f.engine.coordinator.getRemainingChildBudget(parent.runId),
+      input = {
+        workspaceId: f.workspace.id,
+        requestId: "start",
+        approved: true,
+        preview: selected,
+      };
+    assert.throws(
+      () => f.engine.startWorkflow({ ...input, workspaceId: "another-workspace" }),
+      code("WORKFLOW_PREVIEW_STALE"),
+    );
+    assert.throws(
+      () => f.engine.startWorkflow({
+        ...input,
+        workspaceId: "another-workspace",
+        requestId: "different-request",
+      }),
+      code("WORKFLOW_REQUEST_CONFLICT"),
+    );
+    const retry = start(f, selected);
+    assert.equal(retry.duplicate, true);
+    assert.deepEqual(retry.record, original.record);
+    assert.deepEqual(retry.receipt, original.receipt);
+    (retry.record.parameters as Record<string, unknown>).question = "Caller mutation";
+    assert.deepEqual(start(f, selected).record, original.record);
+    assert.deepEqual(f.counts(), before);
+    assert.equal(f.children.length, 0);
+    const after = f.engine.coordinator.getRemainingChildBudget(parent.runId);
+    for (const key of ["turns", "toolCalls", "outputBytes"] as const)
+      assert.equal(after[key], budget[key]);
+
+    // The actual service retains receipt history after its transferred preview is closed.
+    const service = Reflect.get(f.engine, "workflowService") as WorkflowService;
+    await f.engine.close();
+    assert.throws(() => f.engine.startWorkflow(input), code("ENGINE_CLOSED"));
+    const history = service.start(input);
+    assert.equal(history.duplicate, true);
+    assert.deepEqual(history.record, original.record);
+    assert.deepEqual(history.receipt, original.receipt);
+    assert.throws(
+      () => service.start({ ...input, workspaceId: "another-workspace" }),
+      code("WORKFLOW_PREVIEW_STALE"),
+    );
+    assert.throws(
+      () => service.start({
+        ...input,
+        workspaceId: "another-workspace",
+        requestId: "different-request",
+      }),
+      code("WORKFLOW_REQUEST_CONFLICT"),
     );
   },
 );

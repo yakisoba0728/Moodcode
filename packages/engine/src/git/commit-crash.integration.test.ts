@@ -5,11 +5,11 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { assertExecutionLockAvailable } from "../tools/command/execution-lock.js";
 import { groupExists } from "../tools/command/process-control.js";
-import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createEngine } from "../engine.js";
 import { gitFixture } from "./fixtures/commit.js";
+import { retainCrashFixture } from "./fixtures/crash-retention.js";
 import type { ProviderAdapter, ProviderEvent } from "../ports.js";
 import type { CommitReviewedChangesInput } from "./types.js";
 for (const boundary of ["before", "after"] as const)
@@ -38,18 +38,24 @@ for (const boundary of ["before", "after"] as const)
         (b: Buffer) => (output = (output + b).slice(-8192)),
       );
       const ended = new Promise<void>((yes) =>
-        child.once("exit", () => {
+        child.once("close", () => {
           exited = true;
           yes();
         }),
       );
       t.after(async () => {
-        if (!exited) {
-          child.kill("SIGKILL");
-          await ended;
-        }
-        await engine?.close();
-        if (ready) await rm(ready.base, { recursive: true, force: true });
+        await retainCrashFixture({
+          base: ready?.base,
+          dbPath: ready?.dbPath,
+          boundary,
+          stderr: output,
+          settleChild: async () => {
+            if (!exited) child.kill("SIGKILL");
+            await ended;
+          },
+          closeEngine: engine ? () => engine!.close() : undefined,
+          diagnostic: (message) => t.diagnostic(message),
+        });
       });
       ready = await new Promise((yes, no) => {
         const timer = setTimeout(
@@ -63,6 +69,10 @@ for (const boundary of ["before", "after"] as const)
         child.once("exit", () => {
           clearTimeout(timer);
           no(new Error(output));
+        });
+        child.once("error", (error) => {
+          clearTimeout(timer);
+          no(error);
         });
       });
       assert.equal(ready.type, "ready");
@@ -152,5 +162,13 @@ for (const boundary of ["before", "after"] as const)
         boundary === "before" ? "1" : "2",
       );
       assert.equal(calls, 0);
+      t.after(() => {
+        assert.ok(existsSync(ready.dbPath));
+        assert.ok(existsSync(join(ready.base, "crash-retention.json")));
+        assert.equal(
+          gitFixture(ready.root, "rev-list", "--count", "HEAD"),
+          boundary === "before" ? "1" : "2",
+        );
+      });
     },
   );

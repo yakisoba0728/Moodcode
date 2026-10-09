@@ -419,7 +419,7 @@ export function projectForkTranscript(
 ): ProviderMessage[] {
   if (
     source.snapshot.messages.some(
-      (m) => m.attachments?.length || m.documents?.length,
+      (m) => m.attachments?.length || m.documents?.length || m.media?.length,
     )
   )
     forkError(

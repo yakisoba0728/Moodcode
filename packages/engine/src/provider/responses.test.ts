@@ -246,6 +246,20 @@ test('refusal deltas normalize to text and final snapshot is verified', async t 
   assert.equal(text(await collect(new ResponsesProvider({ baseURL: local.baseURL }))), 'cannot help');
 });
 
+test('coding request metadata redacts API and private redaction credentials without changing lifecycle identity', async () => {
+  const privateSecret = 'opaque-responses-metadata-fixture-private';
+  const reflectedId = `resp-${SECRET}-${privateSecret}`;
+  const provider = new ResponsesProvider({ apiKey: SECRET, redactionSecrets: [privateSecret], fetch: async () =>
+    new Response(wire(textStream()).replaceAll(RESPONSE_ID, reflectedId), { headers: { 'Content-Type': 'text/event-stream' } }) });
+  const events = await collect(provider, { ...request(), includeMetadata: true });
+  noSecret(events);
+  assert.ok(!JSON.stringify(events).includes(privateSecret));
+  assert.deepEqual(events.find(event => event.type === 'progress' && event.providerRequestId !== undefined),
+    { type: 'progress', providerRequestId: 'resp-[REDACTED]-[REDACTED]' });
+  assert.equal(text(events), 'fixture answer');
+  assert.equal(events.at(-1)?.type, 'finish');
+});
+
 test('split credential text and complete call identifiers, names, keys and values are redacted', async t => {
   const args = JSON.stringify({ nested: [SECRET, 'safe'], [`key-${SECRET}`]: `value-${SECRET}` });
   const completeText = `before ${SECRET} after ${SECRET}`;

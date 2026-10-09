@@ -577,6 +577,29 @@ function sourceSql(
     fail("OWNED_COMMAND_SOURCE_INVALID");
   return tool;
 }
+/** Match the Tool event only after the original native close and terminal Part were verified. */
+export function matchesOwnedCommandToolOutcome(
+  db: DatabaseSync,
+  r: OwnedCommandJobRecord,
+  tool: Record<string, unknown>,
+  payload: Record<string, unknown> | undefined,
+): boolean {
+  const c = r.completion;
+  if (!c || !payload || payload.output !== tool.output) return false;
+  if (payload.cleanupConfirmed === c.outcome.cleanupConfirmed) return true;
+  if (
+    r.state !== "cancelled" || tool.state !== "interrupted" ||
+    Object.hasOwn(payload, "cleanupConfirmed") ||
+    c.outcome.cleanupConfirmed !== true ||
+    (!c.outcome.cancelled && !c.outcome.timedOut) || c.observationFailure ||
+    payload.state !== "interrupted" || payload.name !== "run_command" ||
+    typeof tool.error !== "string" || payload.error !== tool.error
+  ) return false;
+  const preview = nativeBody(db, "approvals", r.source.approvalId).preview as Record<string, unknown>;
+  // Windows cancellation closes the Run's Tool before its independent command
+  // join. That event omits the outcome; its absence cannot override false.
+  return preview?.platform === "win32" && preview.termination === "windows-job-object";
+}
 function completionSql(
   db: DatabaseSync,
   r: OwnedCommandJobRecord,
@@ -680,27 +703,13 @@ function completionSql(
     `tool.${tool.state}`,
     r.source.toolCallId,
   );
-  const approvalPreview = r.state === "cancelled" && tool.state === "interrupted"
-    ? nativeBody(db, "approvals", r.source.approvalId).preview as Record<string, unknown>
-    : undefined;
-  const windowsInterrupted =
-    r.state === "cancelled" && tool.state === "interrupted" &&
-    approvalPreview?.platform === "win32" && approvalPreview.termination === "windows-job-object" &&
-    c.outcome.cleanupConfirmed === true && (c.outcome.cancelled || c.outcome.timedOut) && !c.observationFailure;
   if (
     !observed.some(
       (e) => {
         const payload = e.payload as Record<string, unknown>;
-        // The Run's interrupted event intentionally has no command outcome.
-        // Only the independently bound native close receipt above supplies that
-        // evidence, after the original interrupted Tool and Part have settled.
-        const cleanupMatches = payload?.cleanupConfirmed === c.outcome.cleanupConfirmed ||
-          (windowsInterrupted && payload && !Object.hasOwn(payload, "cleanupConfirmed") &&
-            payload.state === "interrupted" && payload.name === "run_command" &&
-            typeof tool.error === "string" && payload.error === tool.error);
         return e.runId === r.source.runId &&
           payload?.toolCallId === r.source.toolCallId &&
-          cleanupMatches && payload.output === tool.output;
+          matchesOwnedCommandToolOutcome(db, r, tool, payload);
       },
     )
   )

@@ -7,7 +7,8 @@ try {
   const output = await runLogged('native-tests', process.execPath, ['--test', '--test-reporter=tap', '--test-concurrency=1',
     join(root, 'packages/engine/dist/tools/command/windows-native.integration.test.js'),
     join(root, 'packages/engine/dist/tools/command/windows-job-host.test.js'),
-    join(root, 'packages/engine/dist/jobs/host-command-records.test.js')]);
+    join(root, 'packages/engine/dist/jobs/host-command-records.test.js'),
+    join(root, 'packages/engine/dist/jobs/owned-command-delivery-windows.integration.test.js')]);
   const value = name => {
     const matches = [...output.matchAll(new RegExp(`^# ${name} (\\d+)\\s*$`, 'gm'))];
     assert.equal(matches.length, 1, `Actual TAP output must include one ${name} summary`);

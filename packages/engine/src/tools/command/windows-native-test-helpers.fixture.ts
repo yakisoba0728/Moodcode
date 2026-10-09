@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { TestContext } from 'node:test';
@@ -46,14 +46,14 @@ export async function assertGone(pids: readonly number[]): Promise<void> {
 export function directoryFixture(t: TestContext): string {
   const directory = realpathSync(mkdtempSync(join(tmpdir(), 'moodcode-windows-native-')));
   t.after(() => {
-    const pids = ['root', 'branch', 'leaf'].flatMap(role => {
-      const path = join(directory, `${role}.pid`);
-      return existsSync(path) ? [Number(readFileSync(path, 'utf8'))] : [];
-    });
-    for (const pid of activePids(pids)) {
-      try { process.kill(pid, 'SIGKILL'); } catch { /* Preserve the original assertion failure. */ }
+    // This helper owns only the directory. Native callers own the original
+    // Job/ChildProcess or backend execution; copied PID DATA cannot close them.
+    // Keep raw originals because this helper cannot prove native cleanup.
+    try {
+      t.diagnostic(`Retained native Windows fixture: ${directory}`.slice(0, 512));
+    } catch {
+      // Diagnostic delivery must preserve the original test/cleanup failure.
     }
-    rmSync(directory, { recursive: true, force: true });
   });
   return directory;
 }

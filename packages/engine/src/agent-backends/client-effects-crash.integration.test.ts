@@ -40,7 +40,7 @@ for (const mode of ["terminal-hold", "direct-write"])
           ? []
           : [
               "--import",
-              "/Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs",
+              import.meta.resolve("tsx"),
             ],
         stdio: ["ignore", "ignore", "pipe", "ipc"],
       });

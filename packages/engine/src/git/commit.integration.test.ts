@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chmod, readFile, writeFile, mkdir } from "node:fs/promises";
+import {
+  chmod,
+  readFile,
+  writeFile,
+  mkdir,
+  mkdtemp,
+  realpath,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { commitFixture, gitFixture } from "./fixtures/commit.js";
@@ -9,8 +17,115 @@ import {
   validateGitCommitDatabase,
 } from "./commit-receipts.js";
 import { gitSha } from "./types.js";
+import { entriesFor, fileBytes } from "./commit-preview.js";
 const code = (expected: string) => (error: unknown) =>
   (error as { code: string }).code === expected;
+test(
+  "real Git selection accepts a two-dot basename and rejects parent traversal without changing HEAD or index",
+  { skip: process.platform === "win32", timeout: 10000 },
+  async (t) => {
+    const base = await realpath(
+        await mkdtemp(join(tmpdir(), "moodcode-git-path-")),
+      ),
+      root = join(base, "repository");
+    t.after(() => t.diagnostic(`Retained actual Git path fixture: ${base}`));
+    await mkdir(root);
+    gitFixture(root, "init", "--quiet", "--template=");
+    gitFixture(root, "config", "user.name", "Moodcode Fixture");
+    gitFixture(root, "config", "user.email", "fixture@example.invalid");
+    gitFixture(root, "config", "commit.gpgSign", "false");
+    await writeFile(join(root, "..notes.txt"), "original notes\n");
+    await writeFile(join(root, "other.txt"), "original other\n");
+    await writeFile(join(base, "outside.txt"), "outside the repository\n");
+    gitFixture(root, "add", ".");
+    gitFixture(root, "commit", "--quiet", "-m", "Initial fixture");
+    await writeFile(join(root, "..notes.txt"), "selected notes\n");
+    await writeFile(join(root, "other.txt"), "unrelated staged change\n");
+    gitFixture(root, "add", "..notes.txt", "other.txt");
+    assert.equal(
+      (await fileBytes(root, "..notes.txt"))?.toString("utf8"),
+      "selected notes\n",
+    );
+    await assert.rejects(
+      fileBytes(root, "../outside.txt"),
+      code("GIT_COMMIT_PATH"),
+    );
+    for (const selection of ["staged", "working-tree"] as const) {
+      if (selection === "working-tree")
+        gitFixture(root, "restore", "--staged", "..notes.txt");
+      const head = gitFixture(root, "rev-parse", "HEAD"),
+        index = await readFile(join(root, ".git", "index")),
+        entries = await entriesFor(
+          root,
+          {
+            sessionId: "actual-session",
+            runId: "actual-run",
+            requestId: `actual-${selection}`,
+            paths: ["..notes.txt"],
+            message: "Selected notes",
+            selection,
+          },
+          "sha1",
+        );
+      assert.equal(entries.length, 1);
+      assert.equal(entries[0]!.path, "..notes.txt");
+      assert.equal(
+        entries[0]!.oid,
+        gitFixture(root, "hash-object", "..notes.txt"),
+      );
+      assert.equal(gitFixture(root, "rev-parse", "HEAD"), head);
+      assert.deepEqual(await readFile(join(root, ".git", "index")), index);
+      assert.equal(
+        gitFixture(root, "show", "HEAD:other.txt"),
+        "original other",
+      );
+    }
+  },
+);
+for (const selection of ["staged", "working-tree"] as const)
+  test(
+    `actual verified ${selection} commit accepts a two-dot basename and rejects parent traversal`,
+    { skip: process.platform === "win32", timeout: 30000 },
+    async (t) => {
+      const f = await commitFixture(t, {
+        sourcePath: "..notes.txt",
+        retainEvidence: true,
+      });
+      if (selection === "working-tree")
+        gitFixture(f.root, "restore", "--staged", "..notes.txt");
+      await assert.rejects(
+        f.engine.previewGitCommit({
+          sessionId: f.session.id,
+          requestId: "reject-parent-traversal",
+          runId: f.run.id,
+          paths: ["../outside.txt"],
+          message: "Must not commit outside the workspace",
+          selection,
+        }),
+        code("GIT_COMMIT_VERIFICATION_SCOPE"),
+      );
+      assert.equal(gitFixture(f.root, "rev-list", "--count", "HEAD"), "1");
+      const original = await f.preview(undefined, selection),
+        result = await f.engine.commitReviewedChanges(
+          original,
+          f.input(original),
+        );
+      assert.equal(result.receipt.state, "committed", JSON.stringify(result));
+      assert.equal(
+        gitFixture(f.root, "show", "HEAD:..notes.txt"),
+        "const alpha = 2;",
+      );
+      assert.equal(
+        gitFixture(f.root, "show", "HEAD:other.ts"),
+        "const other = 1;",
+      );
+      assert.equal(
+        gitFixture(f.root, "diff", "--cached", "--name-only"),
+        "other.ts",
+      );
+      assert.equal(gitFixture(f.root, "rev-list", "--count", "HEAD"), "2");
+    },
+  );
 test(
   "actual verified selected commit preserves the complete unrelated staged index and deduplicates without Original",
   { skip: process.platform === "win32", timeout: 30000 },

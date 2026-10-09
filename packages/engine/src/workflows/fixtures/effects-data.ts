@@ -10,6 +10,7 @@ interface EffectsIdentityData {
 /** Captured identity DATA defines stages; registration and effects stay in the fixture. */
 export function effectsSpecData(
   identity: EffectsIdentityData,
+  sourcePath = "seed.txt",
 ): WorkflowSpecInput {
   const resultSchema = {
     type: "object" as const,
@@ -48,7 +49,7 @@ export function effectsSpecData(
         role: "editor",
         dependsOn: [],
         prompt:
-          "ACTUAL_EDITOR: change seed.txt through the native approved patch and then return strict JSON.",
+          `ACTUAL_EDITOR: change ${sourcePath} through the native approved patch and then return strict JSON.`,
         tools: ["read_file", "apply_patch"],
       },
       {
@@ -61,7 +62,7 @@ export function effectsSpecData(
         tools: ["read_file", "run_command", "verify_changes"],
         verification: {
           checkIds: ["actual-required-check"],
-          sourcePaths: ["seed.txt"],
+          sourcePaths: [sourcePath],
           maxRepairs: 0,
         },
       },

@@ -156,6 +156,8 @@ function ordinary(
 function actualSignal(signal?: AbortSignal): void {
   if (signal === undefined) return;
   if (
+    !signal ||
+    typeof signal !== "object" ||
     types.isProxy(signal) ||
     Object.getPrototypeOf(signal) !== AbortSignal.prototype ||
     !(signal instanceof AbortSignal)
@@ -185,6 +187,17 @@ function actualSignal(signal?: AbortSignal): void {
       "INVALID_KNOWLEDGE_FILE",
       "File cancellation observations cannot be overridden",
     );
+  try {
+    Object.getOwnPropertyDescriptor(
+      AbortSignal.prototype,
+      "aborted",
+    )!.get!.call(signal);
+  } catch {
+    fail(
+      "INVALID_KNOWLEDGE_FILE",
+      "File publication needs an actual AbortSignal",
+    );
+  }
 }
 
 /** Actual physical file executor; root paths and parent components are checked without following links. */

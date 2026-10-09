@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { constants, promises as fs } from 'node:fs';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,6 +12,7 @@ import { promisify } from 'node:util';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, type Checkpoint, type CommandResult, type JsonObject, type RunReceipt, type Session, type SubmitInput, type Workspace } from '@moodcode/contracts';
 import { createEngine, type RestoreCommandResult, type ReviewHistoryResult } from './engine.js';
+import { retainBackendFixture } from './agent-backends/fixtures/backend.js';
 import type { RestorePreview } from './review/index.js';
 import { assertExecutionLockAvailable, inspectExecutionLock } from './tools/command/execution-lock.js';
 import type { WorkspaceFilePresentation, WorkspaceFilesPresentation, WorkspaceStatusPresentation } from './workspace/presentation.js';
@@ -31,10 +32,11 @@ async function command<T>(engine: Engine, type: string, payload: JsonObject, com
 function rejected(reply: CommandResult, code: string): void { assert.equal(reply.ok, false); assert.equal(reply.error?.code, code); }
 
 async function fixture(t: TestContext) {
-  const directory = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-gui-facade-')));
+  const directory = await realpath(await mkdtemp(join(process.env.MOODCODE_CONTEXT_FIXTURE_ROOT ?? tmpdir(), 'moodcode-gui-facade-')));
   const dbPath = join(directory, 'engine.sqlite');
   const artifactDir = join(directory, 'artifacts');
   let engine = createEngine({ dbPath, artifactDir });
+  const engines = new Set([engine]);
   const workspaces: Workspace[] = [], sessions: Session[] = [];
   for (let index = 0; index < 2; index++) {
     const root = join(directory, `repo-${index}`);
@@ -44,12 +46,12 @@ async function fixture(t: TestContext) {
     workspaces.push(workspace);
     sessions.push(await command<Session>(engine, 'session.create', { workspaceId: workspace.id, title: `Facade ${index}` }));
   }
-  t.after(async () => { try { await engine.close(); } finally { await rm(directory, { recursive: true, force: true }); } });
+  t.after(async () => { await retainBackendFixture(t, directory, engines); });
   const input = (index = 0): SubmitInput => ({ sessionId: sessions[index]!.id, requestId: randomUUID(), prompt: 'Facade fixture', config: { providerId: 'scripted', modelId: 'local', mode: 'build', limits: { ...DEFAULT_LIMITS } } });
   return {
     directory, dbPath, artifactDir, workspaces, sessions, input,
     get engine() { return engine; },
-    async reopen() { await engine.close(); engine = createEngine({ dbPath, artifactDir }); return engine; },
+    async reopen() { await engine.close(); engine = createEngine({ dbPath, artifactDir }); engines.add(engine); return engine; },
   };
 }
 type Fixture = Awaited<ReturnType<typeof fixture>>;
@@ -80,6 +82,41 @@ function gate() {
   const promise = new Promise<void>((finish) => { resolve = finish; });
   return { promise, resolve };
 }
+
+test('facade fixture retains the original native database and attempts every Engine close when cleanup and diagnostics fail', async (t) => {
+  let cleanup!: () => Promise<void>;
+  const diagnosticError = new Error('Authored retention diagnostic failure');
+  const owner = {
+    after(callback: () => Promise<void>) { cleanup = callback; },
+    passed: true,
+    diagnostic() { throw diagnosticError; },
+  };
+  const f = await fixture(owner as unknown as TestContext), first = f.engine;
+  const firstClose = first.close.bind(first);
+  await f.reopen();
+  const second = f.engine, secondClose = second.close.bind(second);
+  t.after(async () => { await firstClose(); await secondClose(); });
+  const primary = Reflect.get(second.store, 'db') as DatabaseSync;
+  const ownership = Reflect.get(second.store, 'ownership') as DatabaseSync;
+  assert.equal(primary.isOpen, true); assert.equal(ownership.isOpen, true);
+  const originalError = new Error('Authored original Engine close failure');
+  let firstAttempts = 0, secondAttempts = 0;
+  t.mock.method(first, 'close', async () => { firstAttempts++; await firstClose(); throw originalError; });
+  t.mock.method(second, 'close', async () => { secondAttempts++; await secondClose(); });
+  // The manifest path and diagnostic callback both fail after real native closure.
+  await mkdir(join(f.directory, 'fixture-retention.json'));
+  await assert.rejects(cleanup(), error => error === originalError);
+  assert.equal(firstAttempts, 1); assert.equal(secondAttempts, 1);
+  assert.equal(primary.isOpen, false); assert.equal(ownership.isOpen, false);
+  const original = await readFile(f.dbPath);
+  const reader = new DatabaseSync(f.dbPath, { readOnly: true });
+  assert.equal(reader.isOpen, true);
+  try { assert.equal(reader.prepare('PRAGMA user_version').get()!.user_version, 23); }
+  finally { reader.close(); }
+  assert.equal(reader.isOpen, false);
+  assert.deepEqual(await readFile(f.dbPath), original);
+  assert.equal(await readFile(join(f.workspaces[0]!.root, 'target.txt'), 'utf8'), 'user preimage\n');
+});
 
 test('facade presents real Git files and restores once across simultaneous and durable duplicate requests without rewriting terminal history', { timeout: 15_000 }, async (t) => {
   const f = await fixture(t), saved = await saveCheckpoint(f);

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { JsonObject, JsonValue } from "@moodcode/contracts";
+import { terminalCleanupLabel } from "../terminal-status.js";
 import {
   number,
   object,
@@ -200,11 +201,7 @@ export function TerminalPanel({
               ? "미확정"
               : String(record?.exitCode ?? "미확정")}{" "}
             · cleanup{" "}
-            {record?.cleanupConfirmed === true
-              ? "확인됨"
-              : record?.cleanupConfirmed === false
-                ? "미확정"
-                : "실행 중"}
+            {terminalCleanupLabel(record?.cleanupConfirmed)}
           </p>
           <div className="advanced-inline-form">
             <label>

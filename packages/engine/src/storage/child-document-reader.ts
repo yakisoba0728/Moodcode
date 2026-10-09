@@ -195,10 +195,31 @@ function openReader(value: ChildDocumentReaderInput, frame: ChildDocumentReadFra
     frame.chargeRows(1);
     const counts = db.prepare('SELECT (SELECT count(*) FROM child.runs) AS runs,(SELECT count(*) FROM child.runs) BETWEEN 1 AND 32 AND (SELECT count(*) FROM child.sessions)=1 AND (SELECT count(*) FROM child.workspaces)=1 AS valid').get();
     if (counts?.valid!==1) fail('CHILD_DOCUMENT_STORAGE_OWNER_MISMATCH');
-    if(Number(counts.runs)>1){
-      frame.chargeRows(1);const retained=db.prepare("SELECT data FROM child.session_documents WHERE session_id=? AND kind='engine.resident_child' AND length(CAST(data AS BLOB))<=65536").get(binding.child.sessionId);if(!retained)fail('CHILD_DOCUMENT_STORAGE_OWNER_MISMATCH');
-      const resident=validateResidentRecord(JSON.parse(String(retained.data)));if(resident.taskId!==binding.lineage.taskId||resident.initialRunId!==binding.child.runId||resident.childSessionId!==binding.child.sessionId||resident.storageSha256!==record.sha256||resident.runs.length!==Number(counts.runs))fail('CHILD_DOCUMENT_STORAGE_OWNER_MISMATCH');
-      for(const run of resident.runs){frame.check();frame.chargeRows(1);const row=db.prepare("SELECT id,session_id,workspace_id,state,data FROM child.runs WHERE id=? AND length(CAST(data AS BLOB))<=262144").get(run.runId);if(!row||row.session_id!==binding.child.sessionId||row.workspace_id!==binding.child.workspaceId||!['completed','failed','cancelled'].includes(String(row.state)))fail('CHILD_DOCUMENT_STORAGE_OWNER_MISMATCH');const actual=JSON.parse(String(row.data));if(actual.id!==row.id||actual.state!==row.state||knowledgeHash(actual.config)!==run.configSha256)fail('CHILD_DOCUMENT_STORAGE_OWNER_MISMATCH');}
+    if (Number(counts.runs) > 1) {
+      frame.chargeRows(1);
+      const retainedHeader = db.prepare("SELECT length(CAST(data AS BLOB)) AS bytes FROM child.session_documents WHERE session_id=? AND kind='engine.resident_child' LIMIT 1").get(binding.child.sessionId);
+      const retainedBytes = Number(retainedHeader?.bytes);
+      if (!Number.isSafeInteger(retainedBytes) || retainedBytes < 1 || retainedBytes > 65_536) fail('CHILD_DOCUMENT_STORAGE_OWNER_MISMATCH');
+      frame.charge(retainedBytes); frame.chargeRows(1);
+      const retained = db.prepare("SELECT data FROM child.session_documents WHERE session_id=? AND kind='engine.resident_child' AND length(CAST(data AS BLOB))=? LIMIT 1").get(binding.child.sessionId, retainedBytes);
+      if (!retained || typeof retained.data !== 'string') fail('CHILD_DOCUMENT_STORAGE_OWNER_MISMATCH');
+      const resident = validateResidentRecord(JSON.parse(retained.data));
+      if (resident.taskId !== binding.lineage.taskId || resident.initialRunId !== binding.child.runId || resident.childSessionId !== binding.child.sessionId || resident.storageSha256 !== record.sha256 || resident.runs.length !== Number(counts.runs)) fail('CHILD_DOCUMENT_STORAGE_OWNER_MISMATCH');
+      for (const run of resident.runs) {
+        frame.check(); frame.chargeRows(1);
+        const runHeader = db.prepare(`SELECT CASE WHEN length(CAST(id AS BLOB))<=256 THEN id END AS id,
+          CASE WHEN length(CAST(session_id AS BLOB))<=256 THEN session_id END AS session_id,
+          CASE WHEN length(CAST(workspace_id AS BLOB))<=256 THEN workspace_id END AS workspace_id,
+          CASE WHEN length(CAST(state AS BLOB))<=16 AND state IN ('completed','failed','cancelled') THEN state END AS state,
+          length(CAST(data AS BLOB)) AS bytes FROM child.runs WHERE id=? LIMIT 1`).get(run.runId);
+        const runBytes = Number(runHeader?.bytes);
+        if (!runHeader || runHeader.id !== run.runId || runHeader.session_id !== binding.child.sessionId || runHeader.workspace_id !== binding.child.workspaceId || !['completed', 'failed', 'cancelled'].includes(String(runHeader.state)) || !Number.isSafeInteger(runBytes) || runBytes < 1 || runBytes > 262_144) fail('CHILD_DOCUMENT_STORAGE_OWNER_MISMATCH');
+        frame.charge(runBytes); frame.chargeRows(1);
+        const row = db.prepare('SELECT id,session_id,workspace_id,state,data FROM child.runs WHERE id=? AND session_id=? AND workspace_id=? AND state=? AND length(CAST(data AS BLOB))=? LIMIT 1').get(run.runId, binding.child.sessionId, binding.child.workspaceId, runHeader.state as string, runBytes);
+        if (!row || typeof row.data !== 'string') fail('CHILD_DOCUMENT_STORAGE_OWNER_MISMATCH');
+        const actual = JSON.parse(row.data);
+        if (actual.id !== row.id || actual.state !== row.state || knowledgeHash(actual.config) !== run.configSha256) fail('CHILD_DOCUMENT_STORAGE_OWNER_MISMATCH');
+      }
     }
     frame.chargeRows(1);
     const unfinished = db.prepare(`SELECT EXISTS(SELECT 1 FROM child.session_turns WHERE state IN ('created','streaming','awaiting_tools'))

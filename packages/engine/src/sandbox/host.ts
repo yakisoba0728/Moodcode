@@ -48,12 +48,10 @@ interface Flight {
 export class SandboxHost implements CommandExecutionObserver {
   private readonly epoch = knowledgeHash({ nonce: randomUUID() });
   private backend?: SandboxCapability;
-  private registered?: object;
   private readonly previews = new WeakMap<object, SandboxGrant>();
   private readonly grants = new Map<string, SandboxGrant>();
   private readonly entries = new WeakMap<object, Flight>();
   private readonly handles = new Set<object>();
-  private readonly flights = new Map<string, Flight>();
   private readonly mcpOwners = new WeakSet<object>();
   private readonly mcpBinders = new WeakMap<object, () => SandboxRecord>();
   private readonly childGuards = new Map<string, () => void>();
@@ -82,7 +80,6 @@ export class SandboxHost implements CommandExecutionObserver {
     this.active();
     this.backend = b;
     if (!b.available) sandboxError(b.code ?? "SANDBOX_UNSUPPORTED");
-    this.registered = Object.freeze({});
     return sandboxJson(b);
   }
   capability(): SandboxCapability | undefined {
@@ -406,7 +403,6 @@ export class SandboxHost implements CommandExecutionObserver {
     const original = Object.freeze({}),
       entry = { context, record: this.native.write(r, 0) };
     this.entries.set(original, entry);
-    this.flights.set(context.toolCallId, entry);
     return original;
   }
   private update(

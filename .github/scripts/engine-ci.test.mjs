@@ -12,6 +12,8 @@ import {
 } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { registerHooks } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -625,4 +627,58 @@ test("Windows selection includes contracts and selected SQLite/port fixtures wit
   );
   await rm(join(root, "packages/engine/dist/storage/native-inbox.test.js"));
   await assert.rejects(windowsTestFiles(root), { code: "ENOENT" });
+});
+
+test("native Windows workflow invokes every original gate file and the owned cancellation delivery case", async () => {
+  const verification = new URL("../../scripts/verify-windows-job.mjs", import.meta.url),
+    dependencyUrl = "moodcode-native-plan:" + randomUUID(),
+    key = Symbol.for(dependencyUrl),
+    fixtureRoot = join(tmpdir(), "moodcode-native-plan-root"),
+    state = { checks: 0, calls: [], records: [] },
+    tap = ["# tests 38", "# pass 38", "# fail 0", "# cancelled 0", "# skipped 0"].join("\n") + "\n";
+  globalThis[key] = state;
+  const dependency = [
+    "const state = globalThis[Symbol.for(" + JSON.stringify(dependencyUrl) + ")];",
+    "export const root = " + JSON.stringify(fixtureRoot) + ";",
+    "export function requireWindows() { state.checks++; }",
+    "export async function runLogged(name, executable, args) { state.calls.push({ name, executable, args }); return " + JSON.stringify(tap) + "; }",
+    "export async function record(name, value) { state.records.push({ name, value }); }",
+  ].join("\n");
+  const hooks = registerHooks({
+    resolve(specifier, context, next) {
+      if (context.parentURL?.startsWith(verification.href) && specifier === "./windows-job-ci.mjs")
+        return { url: dependencyUrl, shortCircuit: true };
+      return next(specifier, context);
+    },
+    load(url, context, next) {
+      if (url === dependencyUrl) return { format: "module", source: dependency, shortCircuit: true };
+      return next(url, context);
+    },
+  });
+  try {
+    // Execute the actual runner with inert launch/record ports; this is a plan oracle, not OS proof.
+    await import(verification.href + "?nativePlan=" + randomUUID());
+  } finally {
+    hooks.deregister();
+    delete globalThis[key];
+  }
+  assert.equal(state.checks, 1);
+  assert.deepEqual(state.calls, [{
+    name: "native-tests",
+    executable: process.execPath,
+    args: [
+      "--test", "--test-reporter=tap", "--test-concurrency=1",
+      join(fixtureRoot, "packages/engine/dist/tools/command/windows-native.integration.test.js"),
+      join(fixtureRoot, "packages/engine/dist/tools/command/windows-job-host.test.js"),
+      join(fixtureRoot, "packages/engine/dist/jobs/host-command-records.test.js"),
+      join(fixtureRoot, "packages/engine/dist/jobs/owned-command-delivery-windows.integration.test.js"),
+    ],
+  }]);
+  assert.deepEqual(state.records, [{
+    name: "native-verification",
+    value: { actualWindows: true, nativeRequired: true, counts: { tests: 38, pass: 38, fail: 0, cancelled: 0, skipped: 0 }, passed: true },
+  }]);
+  const workflow = await readFile(new URL("../workflows/engine-native-windows.yml", import.meta.url), "utf8");
+  assert.match(workflow, /run: node scripts\/verify-windows-job\.mjs/);
+  assert.ok(workflow.indexOf("engine-ci.mjs build") < workflow.indexOf("verify-windows-job.mjs"));
 });

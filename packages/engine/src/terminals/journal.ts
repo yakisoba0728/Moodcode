@@ -62,9 +62,17 @@ export class SqliteTerminalJournal implements TerminalJournal {
     this.db.exec('PRAGMA journal_mode=DELETE; CREATE TABLE IF NOT EXISTS terminals (id TEXT PRIMARY KEY, payload TEXT NOT NULL CHECK(length(payload) <= 4194304)); PRAGMA user_version=1;');
   }
   load(): TerminalSnapshot[] {
-    const rows = this.db.prepare('SELECT payload FROM terminals ORDER BY id LIMIT ?').all(TERMINAL_LIMITS.maxRecords + 1);
+    const rows = this.db.prepare('SELECT CAST(rowid AS TEXT) rowId, length(CAST(payload AS BLOB)) bytes FROM terminals ORDER BY id LIMIT ?').all(TERMINAL_LIMITS.maxRecords + 1);
     if (rows.length > TERMINAL_LIMITS.maxRecords) throw new EngineError('TERMINAL_RECORD_LIMIT', 'Terminal history capacity was exceeded');
-    return rows.map(row => { try { return validSnapshot(JSON.parse(String(row.payload))); } catch { throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Stored terminal history is invalid'); } });
+    for (const row of rows) {
+      if (!Number.isSafeInteger(row.bytes) || Number(row.bytes) < 0 || Number(row.bytes) > 4_194_304) throw new EngineError('TERMINAL_JOURNAL_LIMIT', 'Terminal observation exceeds its stored byte bound');
+    }
+    return rows.map(head => {
+      const row = this.db.prepare('SELECT payload FROM terminals WHERE rowid=? AND length(CAST(payload AS BLOB))=?').get(head.rowId!, Number(head.bytes));
+      if (!row) throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Stored terminal history changed during its bounded read');
+      try { return validSnapshot(JSON.parse(String(row.payload))); }
+      catch { throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Stored terminal history is invalid'); }
+    });
   }
   read(id: string): TerminalSnapshot | undefined {
     const head = this.db.prepare('SELECT length(CAST(payload AS BLOB)) bytes FROM terminals WHERE id=?').get(id);

@@ -93,7 +93,9 @@ async function fixture(
   });
   t.after(async () => {
     await engine.close();
-    rmSync(base, { recursive: true, force: true });
+    if (process.env.MOODCODE_HOST_VALIDATION_PRESERVE_FIXTURES === "1")
+      t.diagnostic(`Preserved native fixture: ${base}`);
+    else rmSync(base, { recursive: true, force: true });
   });
   const command = async <T>(type: string, payload: JsonObject): Promise<T> => {
     const result = await engine.dispatch({
@@ -722,6 +724,87 @@ test("request snapshot resists later host mutation and validates malformed execu
   );
   assert.equal(executable, 0);
   assert.equal(reads, 0);
+});
+
+test("native signal brand and descriptors reject before context preparation or freshness ports", async (t) => {
+  const f = await fixture(t);
+  let portCalls = 0,
+    traps = 0;
+  const counted = Object.fromEntries(
+    Object.entries(f.ports).map(([key, operation]) => [
+      key,
+      (...args: unknown[]) => {
+        portCalls++;
+        return Reflect.apply(operation, undefined, args);
+      },
+    ]),
+  ) as Ports;
+  const source = f.source(counted),
+    original = await source.prepare(
+      f.request({
+        signal: Object.assign(new AbortController().signal, {
+          hostObservation: "safe data",
+          [Symbol("hostObservation")]: "safe symbol data",
+        }),
+      }),
+    );
+  assert.equal(original.documents[0]!.documentKey, KEY);
+  portCalls = 0;
+  const accessor = (key: PropertyKey) => {
+    const controller = new AbortController();
+    if (key === "hostObservation" || typeof key === "symbol")
+      controller.abort();
+    return Object.defineProperty(controller.signal, key, {
+      get() {
+        traps++;
+        throw Error("signal getter must not execute");
+      },
+    });
+  };
+  const override = (key: string) =>
+    Object.defineProperty(new AbortController().signal, key, {
+      value: () => {
+        traps++;
+        throw Error("signal override must not execute");
+      },
+    });
+  const invalid = [
+    ["own aborted accessor", accessor("aborted")],
+    ["own reason accessor", accessor("reason")],
+    ["own addEventListener", override("addEventListener")],
+    ["own removeEventListener", override("removeEventListener")],
+    ["other own accessor", accessor("hostObservation")],
+    ["own symbol accessor", accessor(Symbol("hostObservation"))],
+    ["prototype without native brand", Object.create(AbortSignal.prototype)],
+  ] as const;
+  for (const [label, signal] of invalid) {
+    await t.test(`${label} / prepare`, async () => {
+      await assert.rejects(
+        source.prepare(f.request({ signal })),
+        errorCode("INVALID_KNOWLEDGE_CONTEXT"),
+      );
+    });
+    await t.test(`${label} / assertFresh`, async () => {
+      await assert.rejects(
+        source.assertFresh(original, signal),
+        errorCode("INVALID_KNOWLEDGE_CONTEXT"),
+      );
+    });
+  }
+  assert.equal(traps, 0);
+  assert.equal(portCalls, 0);
+  assert.equal(f.calls(), 1);
+  await assert.rejects(
+    source.prepare(f.request({ signal: AbortSignal.abort() })),
+    errorCode("KNOWLEDGE_CONTEXT_CANCELLED"),
+  );
+  await assert.rejects(
+    source.assertFresh(original, AbortSignal.abort()),
+    errorCode("KNOWLEDGE_CONTEXT_CANCELLED"),
+  );
+  assert.equal(portCalls, 0);
+  await source.assertFresh(original, new AbortController().signal);
+  source.release(original);
 });
 
 test("policy rejects sparse, duplicated, oversized or executable selection before evaluation", () => {

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { lstat, readFile, realpath } from "node:fs/promises";
-import { isAbsolute, resolve, dirname, relative } from "node:path";
+import { isAbsolute, resolve, dirname, relative, sep } from "node:path";
 import { runGit } from "../workspace/git.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import {
@@ -44,7 +44,12 @@ export async function fileBytes(
   path: string,
 ): Promise<Buffer | null> {
   const full = resolve(root, path);
-  if (relative(root, full).startsWith("..") || isAbsolute(relative(root, full)))
+  const relativePath = relative(root, full);
+  if (
+    relativePath === ".." ||
+    relativePath.startsWith(`..${sep}`) ||
+    isAbsolute(relativePath)
+  )
     gitCommitError("GIT_COMMIT_PATH");
   let st;
   try {

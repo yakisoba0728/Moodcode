@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -9,6 +9,7 @@ import { setImmediate as tick } from 'node:timers/promises';
 import test, { type TestContext } from 'node:test';
 import { EngineError, type ApprovalRecord, type JsonObject, type RunReceipt } from '@moodcode/contracts';
 import { createEngine, type EngineOptions } from '../engine.js';
+import { retainBackendFixture } from '../agent-backends/fixtures/backend.js';
 import type { PreparedTool, ProviderAdapter, ProviderEvent, ToolDefinition, TurnRequest } from '../ports.js';
 import { LifecycleHookRegistry, type LifecycleCapture, type LifecycleHookRegistration, type LifecycleHookResult, type LifecycleInvocation } from './index.js';
 
@@ -19,11 +20,11 @@ function deferred<T>() { let resolve!: (value: T) => void; const promise = new P
 async function until(predicate: () => boolean) { const deadline = performance.now() + 3_000; while (!predicate()) { if (performance.now() > deadline) assert.fail('Authored lifecycle boundary did not arrive'); await tick(); } }
 
 async function fixture(t: TestContext, provider: ProviderAdapter, options: Omit<EngineOptions, 'dbPath' | 'providers'> = {}) {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-host-lifecycle-'))), dbPath = join(root, 'state.sqlite');
+  const root = await realpath(await mkdtemp(join(process.env.MOODCODE_CONTEXT_FIXTURE_ROOT ?? tmpdir(), 'moodcode-host-lifecycle-'))), dbPath = join(root, 'state.sqlite');
   const engine = createEngine({ dbPath, artifactDir: join(root, 'artifacts'), tools: [], providers: [provider], ...options });
   engine.store.putWorkspace({ id: 'workspace', root, gitRoot: root, branch: null, createdAt: new Date().toISOString() });
   engine.store.createSession({ id: 'session', workspaceId: 'workspace', title: 'Host lifecycle integration', createdAt: new Date().toISOString() });
-  t.after(async () => { await engine.close(); await rm(root, { recursive: true, force: true }); });
+  t.after(async () => { await retainBackendFixture(t, root, new Set([engine])); });
   const submit = async () => {
     const response = await engine.dispatch({ schemaVersion: 1, commandId: randomUUID(), type: 'run.submit', payload: { sessionId: 'session', requestId: randomUUID(), prompt: 'Complete the authored local fixture', config: { providerId: provider.id, modelId: 'authored-model', mode: 'build', limits: { maxTurns: 4, maxDurationMs: 5_000 }, budgets: { maxProviderAttempts: 3, retryBaseDelayMs: 0 } } } });
     assert.equal(response.ok, true, JSON.stringify(response.error)); return response.result as unknown as RunReceipt;
@@ -205,7 +206,7 @@ test('tool registry mutation during model hook refuses the frozen eager capture 
 });
 
 test('actual owned child receives dynamically registered host policy through the shared registry', { timeout: 15_000 }, async t => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-lifecycle-child-'))), repo = join(root, 'repo'); await mkdir(repo);
+  const root = await realpath(await mkdtemp(join(process.env.MOODCODE_CONTEXT_FIXTURE_ROOT ?? tmpdir(), 'moodcode-lifecycle-child-'))), repo = join(root, 'repo'); await mkdir(repo);
   execFileSync('git', ['init', '-q', repo]); await writeFile(join(repo, 'file.txt'), 'Authored child source'); execFileSync('git', ['-C', repo, 'add', 'file.txt']); execFileSync('git', ['-C', repo, '-c', 'user.name=fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'Authored child source']);
   const parentEntered = deferred<void>(), release = deferred<void>(); let childInvokes = 0, shared = false, parentWorkspaceId = '', childFailure: string | undefined;
   const provider: ProviderAdapter = { id: 'authored-child-policy', async *streamTurn(request, signal) {
@@ -222,7 +223,7 @@ test('actual owned child receives dynamically registered host policy through the
     shared = child.lifecycleHooks === engine.lifecycleHooks;
     const wait = child.waitForRun.bind(child); child.waitForRun = id => wait(id).then(run => { childFailure = run.error?.code; return run; });
   } });
-  t.after(async () => { release.resolve(); try { await engine.close(); } finally { await rm(root, { recursive: true, force: true }); } });
+  t.after(async () => { release.resolve(); await retainBackendFixture(t, root, new Set([engine])); });
   const opened = await engine.dispatch({ schemaVersion: 1, commandId: 'open', type: 'workspace.open', payload: { path: repo } }); assert.equal(opened.ok, true); parentWorkspaceId = (opened.result as { id: string }).id;
   const session = engine.store.createSession({ id: 'root-session', workspaceId: parentWorkspaceId, title: 'Authored policy child', createdAt: new Date().toISOString() });
   const worktree = await engine.createWorktree(session.id, 'authored-child-worktree');

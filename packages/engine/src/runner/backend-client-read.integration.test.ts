@@ -5,7 +5,6 @@ import {
   mkdirSync,
   mkdtempSync,
   realpathSync,
-  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -35,6 +34,7 @@ import { backendReadResponse } from "../agent-backends/client-effects.js";
 import { createReadTools } from "../tools/read/index.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { LifecycleHookRegistry } from "../lifecycle/index.js";
+import { retainBackendFixture } from "../agent-backends/fixtures/backend.js";
 
 type Engine = ReturnType<typeof createEngine>;
 interface Fixture {
@@ -144,13 +144,7 @@ async function fixture(
     toolPolicy: options.policy,
     lifecycleHookRegistry: options.registry,
   });
-  t.after(async () => {
-    try {
-      await engine.close();
-    } finally {
-      rmSync(base, { recursive: true, force: true });
-    }
-  });
+  t.after(() => retainBackendFixture(t, base, new Set([engine])));
   const workspace = await command<Workspace>(engine, "workspace.open", {
       path: root,
     }),

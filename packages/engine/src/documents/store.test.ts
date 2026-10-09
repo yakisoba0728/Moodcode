@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { link, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,21 +10,35 @@ import { DocumentAttachmentStore, INPUT_DOCUMENT_KIND, type DocumentDocuments } 
 import { digest, type DocumentLimits } from './validation.js';
 const pdf=()=>Buffer.from('%PDF-1.7\nOpaque fixture bytes, not a parsed document.\n');
 const code=(expected:string)=>(error:unknown)=>{assert.ok(error instanceof EngineError);assert.equal(error.code,expected);assert.equal(error.details,undefined);assert.equal(error.cause,undefined);return true;};
+async function closeStoresAndRemove(root:string,stores:SqliteStore[]){
+  const failures:unknown[]=[];
+  for(const store of stores)try{store.close();}catch(error){failures.push(error);}
+  if(failures.length)throw new AggregateError(failures,'Document fixture SQLite cleanup failed; original root retained.');
+  await rm(root,{recursive:true,force:true});
+}
 async function fixture(t:TestContext,limits?:Partial<DocumentLimits>){
   const root=await realpath(await mkdtemp(join(tmpdir(),'moodcode-documents-'))),directory=join(root,'artifacts','input-documents'),dbPath=join(root,'engine.sqlite'),documents=new SqliteStore(dbPath);
   for(const id of ['workspace','other-workspace'])documents.putWorkspace({id,root:join(root,id),gitRoot:join(root,id),branch:null,createdAt:new Date().toISOString()});
   for(const [id,workspaceId]of [['session','workspace'],['same-workspace-session','workspace'],['other-session','other-workspace']] as const)documents.createSession({id,workspaceId,title:id,createdAt:new Date().toISOString()});
-  t.after(()=>{documents.close();return rm(root,{recursive:true,force:true});});
+  const stores=[documents];t.after(()=>closeStoresAndRemove(root,stores));
   const port:DocumentDocuments={getSession:id=>documents.getSession(id),getWorkspace:id=>documents.getWorkspace(id),getSessionDocument:(id,kind)=>documents.getSessionDocument(id,kind),putSessionDocument:(id,kind,revision,data)=>documents.putSessionDocument(id,kind,revision,data)};
-  return{root,directory,dbPath,documents,port,store:new DocumentAttachmentStore({directory,documents,limits})};
+  return{root,directory,dbPath,documents,stores,port,store:new DocumentAttachmentStore({directory,documents,limits})};
 }
 test('PDF refs store metadata only and survive reopening the actual SQLite database',async t=>{
   const f=await fixture(t),bytes=pdf(),ref=await f.store.import('session',bytes);
   assert.match(ref.id,/^doc_[a-f0-9]{32}$/u);assert.equal(ref.sha256,digest(bytes));assert.equal(ref.bytes,bytes.length);
   const index=f.documents.getSessionDocument('session',INPUT_DOCUMENT_KIND)!;assert.deepEqual(index.data.documents,[ref]);assert.equal(index.revision,1);assert.deepEqual(index.data.owner,{sessionId:'session',workspaceId:'workspace',workspaceRoot:join(f.root,'workspace')});
   assert.ok(!JSON.stringify(index).includes(bytes.toString('base64')));assert.equal((await lstat(join(f.directory,ref.id+'.blob'))).mode&0o777,0o600);
-  f.documents.close();const reopened=new SqliteStore(f.dbPath);t.after(()=>reopened.close());
+  f.documents.close();const reopened=new SqliteStore(f.dbPath);f.stores.push(reopened);
+  const close=reopened.close.bind(reopened);reopened.close=()=>{try{assert.ok(existsSync(f.dbPath),'Reopened SQLite must close before its original root is removed.');}finally{close();}};
   assert.deepEqual(await new DocumentAttachmentStore({directory:f.directory,documents:reopened}).resolve('session',[ref]),[{attachment:ref,data:bytes.toString('base64')}]);
+});
+test('document fixture attempts every actual SQLite close and retains its root after a close failure',async()=>{
+  const root=await realpath(await mkdtemp(join(tmpdir(),'moodcode-documents-cleanup-'))),first=new SqliteStore(join(root,'first.sqlite')),second=new SqliteStore(join(root,'second.sqlite'));
+  const failure=new Error('Synthetic close failure'),closeFirst=first.close.bind(first),closeSecond=second.close.bind(second);let secondClosed=false;
+  first.close=()=>{closeFirst();throw failure;};second.close=()=>{closeSecond();secondClosed=true;};
+  try{await assert.rejects(closeStoresAndRemove(root,[first,second]),error=>error instanceof AggregateError&&error.errors[0]===failure);assert.equal(secondClosed,true);assert.ok(existsSync(root),'Failed cleanup must retain the original root.');}
+  finally{try{closeFirst();}finally{closeSecond();console.error('Original document cleanup comparison root retained:',root);}}
 });
 test('import captures caller bytes before await and returned refs cannot mutate durable metadata',async t=>{
   const f=await fixture(t),bytes=pdf(),expected=Buffer.from(bytes),pending=f.store.import('session',bytes);bytes.fill(0);const ref=await pending,copy={...ref};ref.sha256='0'.repeat(64);

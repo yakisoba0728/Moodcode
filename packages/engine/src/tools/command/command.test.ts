@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { execFile, spawn } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
@@ -8,13 +8,42 @@ import { promisify } from 'node:util';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, type Checkpoint, type JsonObject } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolResult } from '../../ports.js';
-import { COMMAND_LIMITS, createCommandTool } from './index.js';
+import { COMMAND_LIMITS, createCommandTool as originalCreateCommandTool } from './index.js';
 import { acquireExecutionLock, assertExecutionLockAvailable } from './execution-lock.js';
 import { commandBackendCapability } from './backends.js';
+import { directoryFixture } from './windows-native-test-helpers.fixture.js';
 
 const posix = process.platform !== 'win32';
 const execFileAsync = promisify(execFile);
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+const fixtureExecutions = new WeakMap<AbortSignal, (execution: Promise<ToolResult>) => void>();
+function createCommandTool() {
+  const tool = originalCreateCommandTool();
+  return {
+    ...tool,
+    execute(prepared: PreparedTool, context: ToolContext) {
+      const execution = tool.execute(prepared, context);
+      fixtureExecutions.get(context.signal)?.(execution);
+      return execution;
+    },
+  };
+}
+const diagnosticText = (error: unknown): string => {
+  try { return String(error).slice(0, 512); }
+  catch { return 'Unprintable fixture failure'; }
+};
+function diagnostic(t: TestContext, message: string): void {
+  try { t.diagnostic(message.slice(0, 512)); }
+  catch { /* Reporting cannot replace the original failure. */ }
+}
+async function bounded<T>(operation: Promise<T>, milliseconds: number, detail: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([operation, new Promise<never>((_yes, no) => {
+      timer = setTimeout(() => no(new Error(detail)), milliseconds);
+    })]);
+  } finally { if (timer) clearTimeout(timer); }
+}
 
 interface OutputData {
   text: string;
@@ -46,7 +75,8 @@ async function fixture(t: TestContext, controller = new AbortController()) {
   await mkdir(join(temporary, 'workspace'));
   const root = await realpath(join(temporary, 'workspace'));
   const checkpoints: Checkpoint[] = [];
-  const ownedPids = new Set<number>();
+  const executions = new Map<Promise<ToolResult>, Record<string, unknown>>();
+  const children: { child: ChildProcess; closed: Promise<void>; exited: boolean; error?: unknown }[] = [];
   const context: ToolContext = {
     workspace: { id: 'workspace-command', root, gitRoot: root, branch: null, createdAt: '2026-10-04T00:00:00.000Z' },
     sessionId: 'session-command', runId: 'run-command', toolCallId: 'tool-command',
@@ -55,14 +85,67 @@ async function fixture(t: TestContext, controller = new AbortController()) {
     artifactDir: join(temporary, 'artifacts'),
     recordCheckpoint(checkpoint) { checkpoints.push(checkpoint); },
   };
-  t.after(async () => {
-    for (const pid of ownedPids) {
-      try { process.kill(pid, 'SIGKILL'); }
-      catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) throw error; }
-    }
-    await rm(temporary, { recursive: true, force: true });
+  fixtureExecutions.set(controller.signal, execution => {
+    const observation: Record<string, unknown> = { state: 'pending' };
+    executions.set(execution, observation);
+    void execution.then(result => {
+      observation.state = 'fulfilled'; observation.result = result;
+    }, error => {
+      observation.state = 'rejected'; observation.error = diagnosticText(error);
+    });
   });
-  return { temporary, root, context, controller, checkpoints, ownedPids };
+  const ownChild = (child: ChildProcess): Promise<void> => {
+    const original = { child, closed: Promise.resolve(), exited: false, error: undefined as unknown };
+    original.closed = new Promise<void>(yes => child.once('close', () => { original.exited = true; yes(); }));
+    child.on('error', error => { original.error = error; });
+    children.push(original);
+    return original.closed;
+  };
+  t.after(async () => {
+    const reasons = new Set<string>(['native-cleanup-not-proven']);
+    if (t.error) reasons.add('test-failed');
+    if (t.passed !== true) reasons.add('test-outcome-unknown-or-failed');
+    if (executions.size || children.length) reasons.add('native-effects-observed');
+    let cleanupError: unknown, cleanupFailed = false;
+    const save = async (phase: string) => {
+      try {
+        const raw = JSON.stringify({ schemaVersion: 1, phase, originalPath: temporary,
+          context: { workspaceId: context.workspace.id, sessionId: context.sessionId, runId: context.runId, toolCallId: context.toolCallId },
+          checkpoints, executions: [...executions.values()],
+          children: children.map(owner => ({ pidObservation: owner.child.pid, closedObserved: owner.exited,
+            error: owner.error === undefined ? null : diagnosticText(owner.error) })),
+          nativeCleanupConfirmed: null, retentionReasons: [...reasons] }, null, 2) + '\n';
+        assert.ok(Buffer.byteLength(raw) <= 8_388_608, 'Fixture native DATA exceeds its byte ceiling');
+        await writeFile(join(temporary, `${phase}.json`), raw, { mode: 0o600, flag: 'wx' });
+      } catch (error) {
+        reasons.add('native-evidence-capture-failed');
+        diagnostic(t, `Native fixture evidence failed: ${diagnosticText(error)}`);
+      }
+    }
+    await save('before-fixture-close');
+    controller.abort();
+    for (const original of children) {
+      try {
+        if (!original.exited) original.child.kill('SIGKILL');
+        await bounded(original.closed, 5_000, 'Original fixture ChildProcess close did not settle');
+      } catch (error) {
+        reasons.add('original-child-close-unknown');
+        if (!cleanupFailed) cleanupError = error;
+        cleanupFailed = true;
+      }
+    }
+    try {
+      await bounded(Promise.allSettled([...executions.keys()]), 8_000, 'Original fixture command executions did not settle after abort');
+    } catch (error) {
+      reasons.add('original-execution-close-unknown');
+      if (!cleanupFailed) cleanupError = error;
+      cleanupFailed = true;
+    }
+    await save('after-fixture-close');
+    diagnostic(t, `Retained native command fixture: ${temporary}`);
+    if (cleanupFailed) throw cleanupError;
+  });
+  return { temporary, root, context, controller, checkpoints, ownChild };
 }
 
 function shellQuote(value: string): string {
@@ -98,11 +181,6 @@ function verifyOutput(data: OutputData): void {
 }
 
 async function running(pid: number): Promise<boolean> {
-  try { process.kill(pid, 0); }
-  catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ESRCH') return false;
-    throw error;
-  }
   // A reparented zombie has stopped executing; its new parent owns reaping it.
   try {
     const result = await execFileAsync('ps', ['-o', 'stat=', '-p', String(pid)]);
@@ -139,7 +217,7 @@ function processTreeCommand(root: string, ignoreTerm = false): string {
   `);
 }
 
-async function observeTree(root: string, ownedPids: Set<number>): Promise<number[]> {
+async function observeTree(root: string): Promise<number[]> {
   const pids: number[] = [];
   for (const name of ['command.pid', 'grandchild.pid']) {
     const path = join(root, name);
@@ -147,7 +225,6 @@ async function observeTree(root: string, ownedPids: Set<number>): Promise<number
       try {
         const pid = Number(await readFile(path, 'utf8'));
         if (!Number.isSafeInteger(pid) || pid <= 0) return false;
-        ownedPids.add(pid);
         pids.push(pid);
         return true;
       } catch (error) {
@@ -159,6 +236,105 @@ async function observeTree(root: string, ownedPids: Set<number>): Promise<number
   for (const pid of pids) assert.equal(await running(pid), true, `Fixture process ${pid} started`);
   return pids;
 }
+
+test('diagnostic PID copies cannot retarget fixture cleanup', { timeout: 15_000 }, async t => {
+  const hooks: (() => void | Promise<void>)[] = [];
+  const observations: string[] = [];
+  const captured = {
+    error: null, passed: undefined,
+    after(hook: () => void | Promise<void>) { hooks.push(hook); },
+    diagnostic(message: string) { observations.push(message); },
+  } as unknown as TestContext;
+  const f = await fixture(captured);
+  const windowsDirectory = directoryFixture(captured);
+  const spawnOriginal = () => {
+    const child = spawn(process.execPath, ['-e', `
+      process.on('message', packet => process.send({ nonce: packet.nonce, pid: process.pid }));
+    `], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+    let closedObserved = false;
+    const closed = new Promise<void>(yes => child.once('close', () => { closedObserved = true; yes(); }));
+    child.on('error', () => {});
+    child.stderr?.on('data', bytes => observations.push(String(bytes).slice(0, 512)));
+    return { child, closed, get closedObserved() { return closedObserved; } };
+  };
+  const cleanupOwned = spawnOriginal(), unrelated = spawnOriginal();
+  const originalClosed = f.ownChild(cleanupOwned.child);
+  let originalFailure: unknown, failed = false;
+  const responses: { phase: string; nonce: number; pid: number }[] = [];
+  let nonce = 0;
+  const ping = async (child: ChildProcess, phase: string) => {
+    const request = ++nonce;
+    const response = await new Promise<{ nonce: number; pid: number }>((yes, no) => {
+      const timer = setTimeout(() => finish(new Error('Original live child did not respond over IPC')), 3_000);
+      const message = (value: unknown) => {
+        const packet = value as { nonce: number; pid: number };
+        if (packet.nonce === request) finish(undefined, packet);
+      };
+      const error = (failure: Error) => finish(failure);
+      const closed = () => finish(new Error('Original child closed before its IPC response'));
+      const finish = (failure?: Error, packet?: { nonce: number; pid: number }) => {
+        clearTimeout(timer);
+        child.off('message', message); child.off('error', error); child.off('close', closed);
+        if (failure) no(failure); else yes(packet!);
+      };
+      child.on('message', message); child.once('error', error); child.once('close', closed);
+      try { child.send({ nonce: request }, failure => { if (failure) finish(failure); }); }
+      catch (failure) { finish(failure as Error); }
+    });
+    assert.equal(response.pid, child.pid, 'The exact Original ChildProcess must answer');
+    responses.push({ phase, ...response });
+  };
+  try {
+    await ping(cleanupOwned.child, 'cleanup-owned-before'); await ping(unrelated.child, 'unrelated-before');
+    const diagnosticCopy = { pids: [cleanupOwned.child.pid!] };
+    const publishCopies = async () => {
+      for (const path of [
+        ...['command', 'grandchild', 'remaining'].map(role => join(f.root, `${role}.pid`)),
+        ...['root', 'branch', 'leaf'].map(role => join(windowsDirectory, `${role}.pid`)),
+      ]) await writeFile(path, String(diagnosticCopy.pids[0]));
+      await writeFile(join(windowsDirectory, 'ready.json'), JSON.stringify(diagnosticCopy));
+    };
+    await publishCopies();
+    diagnosticCopy.pids[0] = unrelated.child.pid!;
+    await publishCopies();
+    assert.equal(hooks.length, 2);
+    for (const hook of hooks) await hook();
+    await bounded(originalClosed, 5_000, 'Cleanup-owned Original child was not joined');
+    assert.equal(cleanupOwned.closedObserved, true);
+    assert.equal(f.controller.signal.aborted, true);
+    await ping(unrelated.child, 'unrelated-after-actual-hooks');
+    assert.equal(unrelated.closedObserved, false);
+    assert.equal(await readFile(join(windowsDirectory, 'root.pid'), 'utf8'), String(unrelated.child.pid));
+    assert.equal(await readFile(join(f.root, 'command.pid'), 'utf8'), String(unrelated.child.pid));
+    assert.ok(observations.every(value => Buffer.byteLength(value) <= 2048));
+    t.diagnostic(`Retained copied-PID oracle originals: ${f.temporary}, ${windowsDirectory}`);
+  } catch (error) {
+    originalFailure = error; failed = true;
+  } finally {
+    const joined = await Promise.allSettled([cleanupOwned, unrelated].map(async original => {
+      if (!original.closedObserved) original.child.kill('SIGKILL');
+      await bounded(original.closed, 5_000, 'Regression Original ChildProcess close did not settle');
+    }));
+    for (const result of joined) {
+      if (result.status !== 'rejected') continue;
+      diagnostic(t, `Original regression child join failed: ${diagnosticText(result.reason)}`);
+      if (!failed) { originalFailure = result.reason; failed = true; }
+    }
+    try {
+      await writeFile(join(f.temporary, 'copied-pid-oracle-data.json'), JSON.stringify({
+        schemaVersion: 1, responses, pidDataIsObservationOnly: true,
+        originalHandleCloseObservations: [cleanupOwned, unrelated].map(original => ({
+          pidObservation: original.child.pid, closedObserved: original.closedObserved,
+          exitCode: original.child.exitCode, signalCode: original.child.signalCode,
+        })), nativeCleanupConfirmed: null,
+      }, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+    } catch (error) {
+      diagnostic(t, `Original oracle DATA capture failed: ${diagnosticText(error)}`);
+      if (!failed) { originalFailure = error; failed = true; }
+    }
+  }
+  if (failed) throw originalFailure;
+});
 
 test('prepare has no effects and fingerprints the exact command, cwd, timeout, and execution identity', { skip: !posix }, async t => {
   const { root, context, checkpoints } = await fixture(t);
@@ -443,10 +619,10 @@ test('output artifacts inside the workspace are excluded from command checkpoint
 });
 
 test('cancellation confirms both child and grandchild stopped before returning', { skip: !posix, timeout: 12_000 }, async t => {
-  const { root, context, controller, ownedPids } = await fixture(t);
+  const { root, context, controller } = await fixture(t);
   const tool = createCommandTool();
   const execution = tool.execute(await tool.prepare({ command: processTreeCommand(root), timeoutMs: 5_000 }, context), context);
-  const pids = await observeTree(root, ownedPids);
+  const pids = await observeTree(root);
   controller.abort();
   const result = await execution;
   const data = dataOf(result);
@@ -459,11 +635,11 @@ test('cancellation confirms both child and grandchild stopped before returning',
 });
 
 test('the command supervisor holds the persistent effects lock until cancelled children are stopped', { skip: !posix, timeout: 12_000 }, async t => {
-  const { root, temporary, context, controller, ownedPids } = await fixture(t);
+  const { root, temporary, context, controller } = await fixture(t);
   context.executionLockPath = join(temporary, 'state', 'effects.sqlite');
   const tool = createCommandTool();
   const execution = tool.execute(await tool.prepare({ command: processTreeCommand(root, true) }, context), context);
-  const pids = await observeTree(root, ownedPids);
+  const pids = await observeTree(root);
   assert.throws(() => assertExecutionLockAvailable(context.executionLockPath!), { code: 'COMMAND_EFFECTS_BUSY' });
   controller.abort();
   const result = await execution;
@@ -493,11 +669,11 @@ test('a busy persistent effects lock prevents supervisor command effects', { ski
 });
 
 test('timeout escalates SIGTERM-ignoring child and grandchild to SIGKILL within a bound', { skip: !posix, timeout: 12_000 }, async t => {
-  const { root, context, ownedPids } = await fixture(t);
+  const { root, context } = await fixture(t);
   const tool = createCommandTool();
   const started = performance.now();
   const execution = tool.execute(await tool.prepare({ command: processTreeCommand(root, true), timeoutMs: 600 }, context), context);
-  const pids = await observeTree(root, ownedPids);
+  const pids = await observeTree(root);
   const result = await execution;
   const data = dataOf(result);
   assert.equal(data.status, 'timed_out');
@@ -510,7 +686,7 @@ test('timeout escalates SIGTERM-ignoring child and grandchild to SIGKILL within 
 });
 
 test('a shell that exits while a descendant lives returns failed after descendant cleanup', { skip: !posix, timeout: 12_000 }, async t => {
-  const { root, context, ownedPids } = await fixture(t);
+  const { root, context } = await fixture(t);
   const pidPath = join(root, 'remaining.pid');
   const descendantSource = `
     require('node:fs').writeFileSync(${JSON.stringify(pidPath)}, String(process.pid));
@@ -529,7 +705,6 @@ test('a shell that exits while a descendant lives returns failed after descendan
     try {
       descendantPid = Number(await readFile(pidPath, 'utf8'));
       if (!Number.isSafeInteger(descendantPid) || descendantPid <= 0) return false;
-      ownedPids.add(descendantPid);
       return true;
     } catch (error) {
       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return false;
@@ -548,7 +723,7 @@ test('a shell that exits while a descendant lives returns failed after descendan
 });
 
 test('the command tree is stopped and its effects lock released after its engine parent is killed', { skip: !posix, timeout: 15_000 }, async t => {
-  const { root, temporary, context, ownedPids } = await fixture(t);
+  const { root, temporary, context, ownChild } = await fixture(t);
   context.executionLockPath = join(temporary, 'state', 'effects.sqlite');
   const moduleUrl = new URL('./index.js', import.meta.url).href;
   const command = processTreeCommand(root, true);
@@ -566,19 +741,18 @@ test('the command tree is stopped and its effects lock released after its engine
   await writeFile(engineFixture, source);
   const tsxLoader = import.meta.resolve('tsx');
   const engineParent = spawn(process.execPath, ['--import', tsxLoader, engineFixture], { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'pipe'] });
+  const parentClosed = ownChild(engineParent);
   assert.ok(engineParent.pid);
-  ownedPids.add(engineParent.pid);
   let diagnostics = '';
-  engineParent.stdout.on('data', chunk => { diagnostics += String(chunk); });
-  engineParent.stderr.on('data', chunk => { diagnostics += String(chunk); });
-  engineParent.on('error', error => { diagnostics += error.message; });
+  engineParent.stdout.on('data', chunk => { diagnostics = (diagnostics + String(chunk)).slice(-2048); });
+  engineParent.stderr.on('data', chunk => { diagnostics = (diagnostics + String(chunk)).slice(-2048); });
+  engineParent.on('error', error => { diagnostics = (diagnostics + error.message).slice(-2048); });
   let pids: number[];
-  try { pids = await observeTree(root, ownedPids); }
+  try { pids = await observeTree(root); }
   catch (error) { assert.fail(`${error instanceof Error ? error.message : String(error)}\nEngine subprocess: ${diagnostics}`); }
   assert.throws(() => assertExecutionLockAvailable(context.executionLockPath!), { code: 'COMMAND_EFFECTS_BUSY' });
-  const parentExited = new Promise<void>(resolve => engineParent.once('exit', () => resolve()));
   engineParent.kill('SIGKILL');
-  await parentExited;
+  await bounded(parentClosed, 5_000, 'Original engine parent ChildProcess close did not settle');
   await waitUntil(async () => (await Promise.all(pids!.map(pid => running(pid)))).every(alive => !alive), 6_000);
   for (const pid of pids!) assert.equal(await running(pid), false, `Process ${pid} stopped after engine parent death`);
   await waitUntil(async () => {

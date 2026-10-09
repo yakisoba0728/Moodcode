@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import {
+  windowsOwnedDeliverySqlFixture,
+  preserveOwnedDeliveryEvidence,
+} from "./fixtures/owned-command-delivery-windows.js";
 import type { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
@@ -604,3 +608,113 @@ test(
     );
   },
 );
+
+test("Windows-shaped native SQL accepts absent interrupted cleanup only with exact approval, physical close, Tool and Part", (t) => {
+  const f = windowsOwnedDeliverySqlFixture(t),
+    original = f.images();
+  const userVersion = Number(f.db.prepare("PRAGMA user_version").get()!.user_version);
+  assert.equal(userVersion, 23);
+  preserveOwnedDeliveryEvidence("windows-sql-original", {
+    classification:
+      "trusted Windows-shaped SQL; no native Windows process proof",
+    original,
+    settled: f.settled,
+    userVersion,
+  });
+  const before = f.counts(),
+    result = f.deliver();
+  assert.equal(result.kind, "accepted");
+  assert.equal(
+    f.store.getInput(result.record.accepted.inputId).state,
+    "pending",
+  );
+  assert.equal(result.record.settled.sha256, f.settled.sha256);
+  assert.deepEqual(f.counts(), { accepts: before.accepts + 1, wakes: 1 });
+  assert.equal(
+    f.db
+      .prepare(
+        "SELECT count(*) n FROM session_events WHERE type='command.job.result_admitted'",
+      )
+      .get()!.n,
+    1,
+  );
+  assert.equal(
+    f.db
+      .prepare(
+        "SELECT count(*) n FROM session_documents WHERE kind GLOB 'command.delivery.*'",
+      )
+      .get()!.n,
+    1,
+  );
+  assert.equal(
+    f.db
+      .prepare(
+        "SELECT count(*) n FROM session_documents WHERE kind GLOB 'command.input.*'",
+      )
+      .get()!.n,
+    1,
+  );
+  validateOwnedCommandDeliveryDatabase(f.db);
+  const image = f.images(),
+    counts = f.counts();
+  assert.equal(f.deliver({ sqlFixture: true }).kind, "duplicate");
+  assert.deepEqual(f.images(), image);
+  assert.deepEqual(f.counts(), counts);
+  preserveOwnedDeliveryEvidence("windows-sql-accepted", {
+    classification: "trusted Windows-shaped SQL",
+    result,
+    image,
+    counts,
+  });
+});
+
+for (const [name, mutation] of [
+  [
+    "explicit false cleanup",
+    "UPDATE events SET data=json_set(data,'$.payload.cleanupConfirmed',false) WHERE type='tool.interrupted'",
+  ],
+  [
+    "foreign Tool",
+    "UPDATE events SET data=json_set(data,'$.payload.toolCallId','foreign') WHERE type='tool.interrupted'",
+  ],
+  [
+    "reopened Part",
+    "UPDATE message_parts SET state='open',data=json_set(data,'$.state','open') WHERE id='part'",
+  ],
+  [
+    "missing physical close",
+    "DELETE FROM session_events WHERE type='command.job.closed_observed'",
+  ],
+  [
+    "POSIX approval",
+    "UPDATE approvals SET data=json_set(data,'$.preview.platform','darwin','$.preview.termination','posix-process-group') WHERE id='approval'",
+  ],
+  [
+    "duplicate interrupted event",
+    "INSERT INTO events(session_id,seq,event_id,run_id,type,data) SELECT session_id,(SELECT max(seq)+1 FROM events WHERE session_id='session'),'duplicate-interrupted-event',run_id,type,json_set(data,'$.eventId','duplicate-interrupted-event','$.seq',(SELECT max(seq)+1 FROM events WHERE session_id='session')) FROM events WHERE type='tool.interrupted'",
+  ],
+] as const)
+  test(`Windows-shaped native SQL rejects ${name} and rolls back all delivery/input effects`, (t) => {
+    const f = windowsOwnedDeliverySqlFixture(t);
+    f.db.exec(mutation);
+    const before = f.images();
+    assert.throws(() => f.deliver(), invalid);
+    assert.deepEqual(f.images(), before);
+    assert.equal(f.counts().wakes, 0);
+    assert.equal(
+      f.db
+        .prepare(
+          "SELECT count(*) n FROM session_events WHERE type='command.job.result_admitted'",
+        )
+        .get()!.n,
+      0,
+    );
+    assert.equal(
+      f.db
+        .prepare(
+          "SELECT count(*) n FROM session_documents WHERE kind GLOB 'command.delivery.*' OR kind GLOB 'command.input.*'",
+        )
+        .get()!.n,
+      0,
+    );
+  });

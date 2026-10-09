@@ -1,13 +1,187 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { isTerminal, type RunReceipt } from "@moodcode/contracts";
+import { execFileSync } from "node:child_process";
+import {
+  mkdtempSync,
+  mkdirSync,
+  realpathSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  isTerminal,
+  type RunReceipt,
+  type Workspace,
+  type Session,
+} from "@moodcode/contracts";
+import { createEngine } from "../engine.js";
+import { OpenAICompatibleProvider } from "../provider/openai-compatible.js";
+import { avi, wav } from "../media/segment-fixtures.js";
 import {
   forkFixture,
   forkUntil,
   forkCounts,
   forkCommand,
 } from "./fixtures/fork.js";
+
+for (const kind of ["audio", "video"] as const)
+  for (const disposition of ["exact-replay", "semantic"] as const)
+    test(`actual ${kind} input refuses ${disposition} fork before materialization and preserves its native source`, async (t) => {
+      const evidence = process.env.MOODCODE_FORK_MEDIA_EVIDENCE_DIR;
+      if (evidence) mkdirSync(evidence, { recursive: true });
+      const directory = realpathSync(
+          mkdtempSync(join(evidence ?? tmpdir(), "moodcode-fork-media-")),
+        ),
+        root = join(directory, "repo"),
+        dbPath = join(directory, "engine.sqlite"),
+        artifactDir = join(directory, "artifacts");
+      mkdirSync(root);
+      writeFileSync(join(root, "seed.txt"), "original media source\n");
+      execFileSync("git", ["init", "--quiet", "--template=", root]);
+      execFileSync("git", ["-C", root, "add", "seed.txt"]);
+      execFileSync("git", [
+        "-C",
+        root,
+        "-c",
+        "user.name=fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "authored media source",
+      ]);
+      let calls = 0;
+      const providerId = "fork-media-fixture",
+        modelId = "fork-media-model";
+      const provider = new OpenAICompatibleProvider({
+        id: providerId,
+        audioModelIds: [modelId],
+        videoModelIds: [modelId],
+        fetch: async () => {
+          calls++;
+          return new Response(
+            'data: {"choices":[{"index":0,"delta":{"content":"Observed local media source"},"finish_reason":null}]}\n\ndata: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',
+            { headers: { "content-type": "text/event-stream" } },
+          );
+        },
+      });
+      const engine = createEngine({
+        dbPath,
+        artifactDir,
+        providers: [provider],
+        conversationForks: true,
+        allowUnknownMediaTokenCost: true,
+        modelSpecs: [
+          {
+            providerId,
+            modelId,
+            contextWindow: 1_000_000,
+            maxOutputTokens: 10_000,
+            modalities: ["text", "image", "audio", "video"],
+            mediaCapabilities: {
+              audioInput: true,
+              videoFrames: true,
+              audioOutput: false,
+            },
+            tools: true,
+            reasoning: false,
+            nativeReplay: false,
+            source: { kind: "fixture", observedAt: "2026-10-09T00:00:00Z" },
+          },
+        ],
+        defaults: {
+          providerId,
+          modelId,
+          mode: "plan",
+          limits: {
+            maxTurns: 2,
+            maxDurationMs: 10_000,
+            maxContextBytes: 131_072,
+          },
+        },
+      });
+      const primary = Reflect.get(engine.store, "db") as DatabaseSync,
+        owner = Reflect.get(engine.store, "ownership") as DatabaseSync;
+      t.after(async () => {
+        const before = {
+          primaryIsOpen: primary.isOpen,
+          ownerIsOpen: owner.isOpen,
+        };
+        try {
+          await engine.close();
+        } finally {
+          if (evidence)
+            writeFileSync(
+              join(directory, "close-evidence.json"),
+              JSON.stringify({
+                before,
+                after: {
+                  primaryIsOpen: primary.isOpen,
+                  ownerIsOpen: owner.isOpen,
+                },
+                retainedOriginalFixture: directory,
+              }) + "\n",
+            );
+        }
+        assert.equal(primary.isOpen, false);
+        assert.equal(owner.isOpen, false);
+        if (!evidence) rmSync(directory, { recursive: true, force: true });
+        else t.diagnostic(`Retained original native fixture: ${directory}`);
+      });
+      const workspace = await forkCommand<Workspace>(engine, "workspace.open", {
+          path: root,
+        }),
+        session = await forkCommand<Session>(engine, "session.create", {
+          workspaceId: workspace.id,
+          title: "Actual media source",
+        });
+      const bytes = kind === "audio" ? wav() : avi(),
+        mime = kind === "audio" ? "audio/wav" : "video/x-msvideo";
+      const media = await engine.importMedia(session.id, bytes, mime, [
+        { startMs: 0, endMs: 1_000 },
+      ]);
+      assert.equal(media.kind, kind);
+      const receipt = await forkCommand<RunReceipt>(engine, "run.submit", {
+        sessionId: session.id,
+        requestId: "actual-media-source",
+        prompt: "Inspect the exact imported source",
+        media: JSON.parse(JSON.stringify([media])),
+      });
+      const run = await engine.waitForRun(receipt.runId);
+      assert.equal(run.state, "completed", JSON.stringify(run));
+      const snapshot = engine.store.getSnapshot(session.id),
+        events = engine.store.readEvents(session.id, 0),
+        counts = forkCounts(dbPath),
+        callsBefore = calls;
+      assert.deepEqual(
+        snapshot.messages.find((message) => message.role === "user")?.media,
+        [media],
+      );
+      const blob = join(artifactDir, "input-segments", media.id + ".blob");
+      assert.deepEqual(readFileSync(blob), bytes);
+      try {
+        await assert.rejects(
+          engine.captureForkPreview({
+            sourceSessionId: session.id,
+            throughRunId: run.id,
+            prompt: "Readonly fork",
+            disposition,
+          }),
+          { code: "FORK_MEDIA_UNSUPPORTED" },
+        );
+      } finally {
+        assert.deepEqual(forkCounts(dbPath), counts);
+        assert.equal(calls, callsBefore);
+        assert.deepEqual(engine.store.getSnapshot(session.id), snapshot);
+        assert.deepEqual(engine.store.readEvents(session.id, 0), events);
+        assert.deepEqual(readFileSync(blob), bytes);
+      }
+    });
 test("actual nonterminal source and cancelled unresolved tool cannot authorize a frozen fork", async (t) => {
   const f = await forkFixture(t, { skipSource: true }),
     receipt = await forkCommand<RunReceipt>(f.engine, "run.submit", {

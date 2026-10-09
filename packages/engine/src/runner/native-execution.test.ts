@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setImmediate as tick } from 'node:timers/promises';
@@ -16,6 +16,18 @@ import { ArtifactStore } from '../artifacts/store.js';
 function gate() { let resolve!: () => void; const promise = new Promise<void>(yes => { resolve = yes; }); return { promise, resolve }; }
 async function until(predicate: () => boolean) { const deadline = Date.now() + 2500; while (!predicate()) { assert.ok(Date.now() < deadline, 'native operation must progress'); await tick(); } }
 const stop: ProviderEvent = { type: 'finish', reason: 'stop' };
+async function retainNativeFixture(t: Pick<TestContext, 'diagnostic' | 'error' | 'passed'>, root: string, resources: { scheduler: InputScheduler; coordinator: RunCoordinator; store: SqliteStore }) {
+  // Scheduler.close joins active flights; coordinator.close supplies their abort.
+  const joined = await Promise.allSettled([Promise.resolve().then(() => resources.scheduler.close()), Promise.resolve().then(() => resources.coordinator.close())]);
+  const failures: unknown[] = [], closedResources: string[] = [];
+  for (const [index, result] of joined.entries()) { if (result.status === 'rejected') failures.push(result.reason); else closedResources.push(index === 0 ? 'scheduler' : 'coordinator'); }
+  try { await resources.store.closeAsync(); closedResources.push('store'); } catch (error) { failures.push(error); }
+  const retention = { schemaVersion: 1, kind: 'runner-fixture-retention', root, outcome: failures.length ? 'close-error' : t.error ? 'failure' : t.passed === true ? 'success' : 'unknown', closedResources, closeFailures: failures.length, nativeCleanupConfirmed: null, databaseRemoved: false };
+  let manifestWritten = false;
+  try { await writeFile(join(root, 'fixture-retention.json'), JSON.stringify(retention) + '\n', { flag: 'wx', mode: 0o600 }); manifestWritten = true; } catch { /* Keep the original close failure even when diagnostics cannot be written. */ }
+  try { t.diagnostic(JSON.stringify({ ...retention, manifestWritten })); } catch { /* Diagnostics cannot replace close failure. */ }
+  if (failures.length) throw failures[0];
+}
 async function fixture(t: TestContext, provider: ProviderAdapter, tools: ToolDefinition[] = [], patch: Partial<RunConfig> = {}, extension: Partial<CoordinatorOptions> = {}) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-native-run-')));
   const store = new SqliteStore(':memory:');
@@ -26,10 +38,36 @@ async function fixture(t: TestContext, provider: ProviderAdapter, tools: ToolDef
   const coordinator = new RunCoordinator({ store, providers: new Map([[provider.id, provider]]), tools, approvals, artifactDir: root,
     buildContext: async ({ snapshot }) => snapshot.messages.map(({ role, content, toolCalls, toolCallId }) => ({ role, content, ...(toolCalls ? { toolCalls } : {}), ...(toolCallId ? { toolCallId } : {}) })), ...extension });
   const scheduler = new InputScheduler({ store, coordinator });
-  t.after(async () => { await Promise.allSettled([scheduler.close(), coordinator.close()]); store.close(); await rm(root, { recursive: true, force: true }); });
+  t.after(() => retainNativeFixture(t, root, { scheduler, coordinator, store }));
   const input = (requestId: string, prompt = requestId, delivery: AcceptInput['delivery'] = 'queue', sessionId = session.id): AcceptInput => ({ sessionId, requestId, prompt, delivery, config: structuredClone(config) });
   return { root, store, coordinator, scheduler, input, config };
 }
+
+test('native fixture retains Original and close error when diagnostic manifest writing fails', async t => {
+  const callbacks: Array<() => unknown> = [];
+  let cleanupAttempted = false;
+  t.after(async () => { if (!cleanupAttempted) for (const callback of callbacks) await callback(); });
+  const f = await fixture({ after(callback: () => unknown) { callbacks.push(callback); }, diagnostic: t.diagnostic.bind(t), passed: false } as unknown as TestContext, { id: 'retention', async *streamTurn() { yield stop; } });
+  await mkdir(join(f.root, 'fixture-retention.json')); // Actual EEXIST at the exclusive manifest write.
+  const entered = gate();
+  const operation = f.coordinator.withWorkspaceLease('w1', async signal => {
+    entered.resolve();
+    await new Promise<void>(resolve => signal.addEventListener('abort', () => resolve(), { once: true }));
+    return { effectsUncertain: true };
+  });
+  const operationRejected = assert.rejects(operation, error => error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN');
+  await entered.promise;
+  let observed: unknown;
+  try {
+    await assert.rejects(Promise.resolve().then(() => callbacks[0]!()), error => { observed = error; return error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN'; });
+  } finally { cleanupAttempted = true; }
+  await operationRejected;
+  await assert.rejects(f.coordinator.close(), error => error === observed, 'The original memoized close rejection survives diagnostic failure');
+  await f.scheduler.close();
+  assert.throws(() => f.store.getWorkspace('w1'), error => error instanceof EngineError && error.code === 'STORE_CLOSED', 'The other original storage owner was still closed');
+  assert.equal((await stat(f.root)).isDirectory(), true);
+  assert.equal((await stat(join(f.root, 'fixture-retention.json'))).isDirectory(), true, 'Failed metadata publication never deletes Original');
+});
 
 test('pending acceptance has no Run and duplicate wake joins one FIFO execution', async t => {
   const release = gate(); t.after(release.resolve);

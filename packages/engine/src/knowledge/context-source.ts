@@ -130,18 +130,38 @@ function signal(value: unknown): asserts value is AbortSignal {
       "INVALID_KNOWLEDGE_CONTEXT",
       "Knowledge context requires an actual native AbortSignal",
     );
-  const d = Object.getOwnPropertyDescriptors(value);
-  for (const key of [
-    "aborted",
-    "reason",
-    "addEventListener",
-    "removeEventListener",
-  ])
-    if (Object.hasOwn(d, key))
-      fail(
-        "INVALID_KNOWLEDGE_CONTEXT",
-        "Cancellation signal cannot replace native observations",
-      );
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  if (
+    Reflect.ownKeys(descriptors).some(
+      (key) =>
+        !Object.hasOwn(
+          descriptors[key as keyof typeof descriptors]!,
+          "value",
+        ) ||
+        (typeof key === "string" &&
+          [
+            "aborted",
+            "reason",
+            "addEventListener",
+            "removeEventListener",
+          ].includes(key)),
+    )
+  )
+    fail(
+      "INVALID_KNOWLEDGE_CONTEXT",
+      "Cancellation signal cannot replace native observations",
+    );
+  try {
+    Object.getOwnPropertyDescriptor(
+      AbortSignal.prototype,
+      "aborted",
+    )!.get!.call(value);
+  } catch {
+    fail(
+      "INVALID_KNOWLEDGE_CONTEXT",
+      "Knowledge context requires an actual native AbortSignal",
+    );
+  }
 }
 function check(value: AbortSignal): void {
   if (value.aborted)

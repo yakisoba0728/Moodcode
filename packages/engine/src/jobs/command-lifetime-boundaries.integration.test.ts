@@ -7,6 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { createEngine } from "../engine.js";
 import { jobUntil, jobCommand } from "./fixtures/job.js";
 import { lifetimeFixture } from "./fixtures/command-lifetime.js";
+import { preserveOwnedDeliveryEvidence as preserveCommandEvidence } from "./fixtures/owned-command-delivery-windows.js";
 import {
   exportEngineArchive,
   importEngineArchive,
@@ -433,5 +434,159 @@ test(
     });
     assert.equal(done.state, "settled");
     assert.equal(done.stdinSeq, 5);
+  },
+);
+
+test(
+  "foreground lifetime waiter rejects after actual physical join when both terminal native writes persistently fail",
+  posix,
+  async (t) => {
+    const f = await lifetimeFixture(t),
+      release = join(f.root, "settlement.release");
+    writeFileSync(
+      join(f.root, "lifetime.mjs"),
+      `import{writeFileSync,existsSync}from'node:fs';writeFileSync(${JSON.stringify(f.marker)},String(process.pid));const timer=setInterval(()=>{if(existsSync(${JSON.stringify(release)})){clearInterval(timer);process.stdout.write('PHYSICALLY_JOINED\\n');}},10);`,
+    );
+    const started = await f.start();
+    await jobUntil(
+      () => existsSync(f.marker),
+      "Original command did not start",
+    );
+    assert.equal(
+      Number(readFileSync(f.marker, "utf8")),
+      started.physical!.groupPid,
+    );
+    const db = Reflect.get(f.engine.store, "db") as DatabaseSync,
+      attempted: string[] = [];
+    preserveCommandEvidence("lifetime-native-original", {
+      classification:
+        "genuine HostCommandService-owned command, primary native SQLite",
+      started,
+      marker: readFileSync(f.marker, "utf8"),
+      host: f.engine.inspectHostCommands(f.workspace.id)[0],
+      userVersion: Number(db.prepare("PRAGMA user_version").get()!.user_version),
+    });
+    db.function("lifetime_terminal_probe", (kind) => {
+      attempted.push(String(kind));
+      return 1;
+    });
+    db.exec(`CREATE TEMP TRIGGER lifetime_terminal_fault BEFORE UPDATE ON session_documents
+      WHEN NEW.kind GLOB 'command.lifetime.*' AND json_extract(NEW.data,'$.operation.kind') IN ('closed','uncertain')
+      BEGIN SELECT lifetime_terminal_probe(json_extract(NEW.data,'$.operation.kind')); SELECT RAISE(ABORT,'persistent terminal lifetime fault'); END`);
+    const waiting = f.engine.waitForCommandLifetime({
+        workspaceId: f.workspace.id,
+        jobId: started.jobId,
+      }),
+      observed = waiting.then(
+        (record) => ({ kind: "resolved" as const, record }),
+        (error: unknown) => ({ kind: "rejected" as const, error }),
+      );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      writeFileSync(release, "original-command-only");
+      const host = await f.engine.waitForHostCommand({
+        workspaceId: f.workspace.id,
+        jobId: started.jobId,
+      });
+      assert.equal(host.completion!.outcome.cleanupConfirmed, true);
+      assert.equal(host.completion!.outcome.exitCode, 0);
+      assert.deepEqual(attempted, ["closed", "uncertain"]);
+      const result = await Promise.race([
+        observed,
+        new Promise<{ kind: "deadline" }>((resolve) => {
+          timer = setTimeout(() => resolve({ kind: "deadline" }), 1000);
+        }),
+      ]);
+      assert.equal(
+        result.kind,
+        "rejected",
+        "A physically joined command must not leave its no-signal waiter pending after both native writes fail",
+      );
+      if (result.kind === "rejected")
+        assert.match(
+          String(result.error),
+          /persistent terminal lifetime fault/u,
+        );
+      preserveCommandEvidence("lifetime-native-joined-fault", {
+        classification:
+          "genuine physical join with persistent injected primary SQLite terminal write failures",
+        host,
+        attempted,
+        waiter: result.kind,
+        error: result.kind === "rejected" ? String(result.error) : null,
+        lifetime: f.engine.inspectCommandLifetimes(f.workspace.id)[0],
+        documents: db
+          .prepare("SELECT * FROM session_documents ORDER BY session_id,kind")
+          .all(),
+        events: db
+          .prepare("SELECT * FROM session_events ORDER BY session_id,seq")
+          .all(),
+        waiterDeadlineMs: 1000,
+        approvedCommandLimits: { maxDurationMs: 10000, maxOutputBytes: 65536 },
+      });
+      assert.equal(
+        f.engine.inspectCommandLifetimes(f.workspace.id)[0]!.state,
+        "running",
+      );
+      assert.throws(
+        () => f.engine.coordinator.assertWorkspaceAvailable(f.workspace.id),
+        { code: "CLEANUP_PENDING" },
+      );
+      assert.equal(
+        db
+          .prepare(
+            "SELECT count(*) n FROM session_events WHERE type='command.lifetime.revision' AND json_extract(data,'$.payload.record.operation.kind') IN ('closed','uncertain')",
+          )
+          .get()!.n,
+        0,
+      );
+    } finally {
+      clearTimeout(timer);
+      db.exec("DROP TRIGGER lifetime_terminal_fault");
+    }
+  },
+);
+
+test(
+  "genuine background transfer releases an already waiting foreground caller before its original command closes",
+  posix,
+  async (t) => {
+    const f = await lifetimeFixture(t),
+      started = await f.start();
+    const waiting = f.engine.waitForCommandLifetime({
+      workspaceId: f.workspace.id,
+      jobId: started.jobId,
+    });
+    f.transfer(started.jobId, "background");
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const result = await Promise.race([
+        waiting,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(
+                new Error(
+                  "Background transfer did not release foreground wait",
+                ),
+              ),
+            1000,
+          );
+        }),
+      ]);
+      assert.equal(result.mode, "background");
+      assert.equal(result.state, "running");
+      assert.equal(result.completionSha256, null);
+      assert.equal(
+        f.engine.inspectHostCommands(f.workspace.id)[0]!.state,
+        "running",
+      );
+    } finally {
+      clearTimeout(timer);
+      await f.engine.cancelCommandLifetime({
+        workspaceId: f.workspace.id,
+        jobId: started.jobId,
+      });
+    }
   },
 );

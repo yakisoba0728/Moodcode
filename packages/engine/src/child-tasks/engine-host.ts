@@ -424,6 +424,7 @@ private readonly recoveredSessions = new Set<string>();
     sessionId: string,
     taskId: string,
   ): Promise<ChildTaskRecord> {
+    this.tasks.get(sessionId, taskId);
     const x = this.executions.get(taskId);
     if (!x?.resident || x.closed)
       throw new EngineError(

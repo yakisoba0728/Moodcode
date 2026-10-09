@@ -7,6 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { test,type TestContext } from 'node:test';
 import type { JsonObject } from '@moodcode/contracts';
 import { createEngine } from '../engine.js';
+import { retainBackendFixture } from '../agent-backends/fixtures/backend.js';
 import type { ChildTaskRecord } from '../child-tasks/index.js';
 import type { ManagedWorktree } from '../worktrees/index.js';
 import { admitChildStorageBinding, childStoragePhysicalIdentity, confirmChildStorageClosed, prepareChildStorageBinding, CHILD_STORAGE_MIRROR_KIND } from '../child-tasks/storage-binding.js';
@@ -21,7 +22,7 @@ async function fixture(t:TestContext){
   const root=await realpath(await mkdtemp(join(tmpdir(),'moodcode-child-document-reader-test-'))),artifacts=join(root,'artifacts'),children=join(artifacts,'children'),taskId='child_'+randomUUID().replaceAll('-',''),worktreeId='worktree_'+randomUUID().replaceAll('-',''),worktreeRoot=join(children,'worktrees',worktreeId),childRoot=join(children,taskId),childArtifacts=join(childRoot,'artifacts'),dbPath=join(childRoot,'engine.sqlite');
   await mkdir(worktreeRoot,{recursive:true});await writeFile(join(root,'engine.sqlite'),'');
   const engine=createEngine({dbPath,artifactDir:childArtifacts,tools:[]});
-  t.after(async()=>{await engine.close();await rm(root,{recursive:true,force:true});});
+  t.after(()=>retainBackendFixture(t,root,new Set([engine])));
   const createdAt=new Date().toISOString(),workspaceId='workspace_'+sha(worktreeRoot),workspace={id:workspaceId,root:worktreeRoot,gitRoot:worktreeRoot,branch:null,createdAt};
   engine.store.putWorkspace(workspace);engine.store.createSession({id:'child-session',workspaceId,title:'Authored child reader',createdAt});
   const data=new Map<string,{revision:number;data:JsonObject}>();

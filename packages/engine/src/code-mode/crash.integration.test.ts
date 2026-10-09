@@ -24,7 +24,7 @@ test(
           ? []
           : [
               "--import",
-              "/Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs",
+              fileURLToPath(import.meta.resolve("tsx")),
             ]),
         fileURLToPath(existsSync(compiled) ? compiled : source),
         JSON.stringify({

@@ -11,18 +11,19 @@ interface Active { descriptor: ActivePlugin; dispose: () => Promise<void>; abort
 export class EnginePluginManager {
   private active = new Map<string, Active>(); private pending = new Map<string, AbortController>(); private closing = false;
   private settlements = new Map<string, { promise: Promise<void>; failed: boolean }>();
+  private deactivations = new Map<string, Promise<void>>();
   private disposed = new WeakMap<PluginActivation, Promise<void>>();
   constructor(private readonly runtime: ScopedToolRuntime) {}
   list(): ActivePlugin[] { return structuredClone([...this.active.values()].map(item => item.descriptor)); }
   async activate(plugin: EnginePlugin, signal: AbortSignal): Promise<ActivePlugin> {
     if (this.closing || !/^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(plugin.id) || typeof plugin.activate !== 'function') throw new EngineError('INVALID_ENGINE_PLUGIN', 'Plugin must have a stable bounded id and an explicit host factory');
-    if (this.active.has(plugin.id) || this.pending.has(plugin.id) || this.settlements.has(plugin.id)) throw new EngineError('PLUGIN_ALREADY_ACTIVE', 'Plugin id is already active or activating');
-    if (this.active.size + this.settlements.size >= 32) throw new EngineError('PLUGIN_LIMIT', 'Plugin activation limit exceeded');
+    if (this.active.has(plugin.id) || this.pending.has(plugin.id) || this.settlements.has(plugin.id) || this.deactivations.has(plugin.id)) throw new EngineError('PLUGIN_ALREADY_ACTIVE', 'Plugin id is already active or activating');
+    if (this.active.size + this.settlements.size + this.deactivations.size >= 32) throw new EngineError('PLUGIN_LIMIT', 'Plugin activation limit exceeded');
     const controller = new AbortController(); const combined = AbortSignal.any([signal, controller.signal]); this.pending.set(plugin.id, controller);
     let activationDone!: () => void; let factoryDone!: () => void;
     const finished = new Promise<void>(resolve => { activationDone = resolve; }); const factory = new Promise<void>(resolve => { factoryDone = resolve; });
     const settlement = { promise: Promise.all([finished, factory]).then(() => {}), failed: false }; this.settlements.set(plugin.id, settlement);
-    void settlement.promise.then(() => { if (this.settlements.get(plugin.id) === settlement) this.settlements.delete(plugin.id); });
+    void settlement.promise.then(() => { if (!settlement.failed && this.settlements.get(plugin.id) === settlement) this.settlements.delete(plugin.id); });
     let factoryTracked = false;
     let activation: PluginActivation | undefined; const disposers: (() => void)[] = []; let published = false;
     try {
@@ -43,13 +44,21 @@ export class EnginePluginManager {
     finally { this.pending.delete(plugin.id); if (!factoryTracked) factoryDone(); activationDone(); }
   }
   async deactivate(id: string): Promise<void> {
-    this.pending.get(id)?.abort(); const active = this.active.get(id); if (!active) return; this.active.delete(id); active.abort.abort();
-    try { await active.dispose(); } catch { throw new EngineError('PLUGIN_CLEANUP_FAILED', 'Plugin registration was removed but cleanup failed'); }
+    this.pending.get(id)?.abort(); const prior = this.deactivations.get(id); if (prior) return prior;
+    const active = this.active.get(id); if (!active) return; this.active.delete(id);
+    let complete!: () => void; let fail!: (error: EngineError) => void;
+    const cleanup = new Promise<void>((resolve, reject) => { complete = resolve; fail = reject; });
+    this.deactivations.set(id, cleanup);
+    // Publish ownership before abort callbacks can reenter; retain failed cleanup for later close.
+    void cleanup.then(() => { if (this.deactivations.get(id) === cleanup) this.deactivations.delete(id); }, () => {});
+    active.abort.abort();
+    try { await active.dispose(); complete(); } catch { fail(new EngineError('PLUGIN_CLEANUP_FAILED', 'Plugin registration was removed but cleanup failed')); }
+    return cleanup;
   }
   private disposeOnce(activation: PluginActivation): Promise<void> { if (!activation || typeof activation !== 'object' || typeof activation.dispose !== 'function') return Promise.resolve(); let task = this.disposed.get(activation); if (!task) { task = Promise.resolve().then(() => activation.dispose!()).catch(() => { throw new EngineError('PLUGIN_CLEANUP_FAILED', 'Plugin activation cleanup failed'); }); this.disposed.set(activation, task); } return task; }
   async close(): Promise<void> {
     this.closing = true; const pending = [...this.settlements.values()]; for (const controller of this.pending.values()) controller.abort();
-    const cleanup = Promise.allSettled([...this.active.keys()].map(id => this.deactivate(id)));
+    const cleanup = Promise.allSettled([...this.deactivations.values(), ...[...this.active.keys()].map(id => this.deactivate(id))]);
     let timer: ReturnType<typeof setTimeout> | undefined;
     try { const results = await Promise.race([Promise.all([cleanup, ...pending.map(item => item.promise)]), new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new EngineError('PLUGIN_ACTIVATION_UNCERTAIN', 'Plugin shutdown could not confirm pending activation or teardown within its cleanup budget')), 1000); })]); if (results[0]!.some(result => result.status === 'rejected') || pending.some(item => item.failed)) throw new EngineError('PLUGIN_CLEANUP_FAILED', 'One or more plugin cleanups failed after registration removal'); }
     finally { if (timer) clearTimeout(timer); }

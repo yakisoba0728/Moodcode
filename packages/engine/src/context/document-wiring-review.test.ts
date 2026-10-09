@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
@@ -16,8 +16,8 @@ const pdf: InputDocumentAttachment = { id: `doc_${'a'.repeat(32)}`, kind: 'docum
 const image: InputImageAttachment = { id: `img_${'b'.repeat(32)}`, kind: 'image', mimeType: 'image/png', bytes: 32, sha256: 'b'.repeat(64) };
 const documentPolicy: DocumentHistoryPolicy = { kind: 'reference-only-older-documents', version: 1 };
 function fixture(t: TestContext, contextBytes = 10_000) {
-  const directory = mkdtempSync(join(tmpdir(), 'moodcode-document-wiring-review-')), store = new SqliteStore(join(directory, 'engine.sqlite'));
-  t.after(() => { store.close(); rmSync(directory, { recursive: true, force: true }); });
+  const directory = mkdtempSync(join(process.env.MOODCODE_CONTEXT_FIXTURE_ROOT ?? tmpdir(), 'moodcode-document-wiring-review-')), store = new SqliteStore(join(directory, 'engine.sqlite'));
+  t.after(async () => { await store.closeAsync(); });
   store.putWorkspace({ id: 'workspace', root: directory, gitRoot: directory, branch: null, createdAt: stamp() });
   store.createSession({ id: 'session', workspaceId: 'workspace', title: 'PDF review', createdAt: stamp() });
   const config: RunConfig = { providerId: 'fixture', modelId: 'model', mode: 'plan', limits: { ...DEFAULT_LIMITS, maxTurns: 64, maxContextBytes: contextBytes }, budgets: { ...DEFAULT_ENGINE_BUDGETS, turnAllowance: 64 } };
@@ -77,6 +77,28 @@ test('dual external anchors keep both message and Run pagination chronology when
   assert.deepEqual(page.snapshot.messages.map(message => message.runId), [oldImage.id, oldDocument.id, current.id, current.id]);
   assert.deepEqual(page.snapshot.runs.map(run => run.id), [oldImage.id, oldDocument.id, current.id]);
   assert.equal(page.beforeRunId, oldImage.id);
+});
+
+test('held and cloned native snapshots keep their own omitted history and dual anchors after another snapshot of the same session', async t => {
+  const f = fixture(t, 8192), oldImage = f.start('older-image', undefined, [image]);
+  f.store.commit(oldImage.id, 'run.completed', {}, { run: { state: 'completed' } });
+  const oldPdf = f.start('older-PDF', [pdf]);
+  f.store.commit(oldPdf.id, 'run.completed', {}, { run: { state: 'completed' } });
+  const current = f.start('current-goal');
+  for (let index = 0; index < 520; index++) f.store.commit(current.id, 'message.completed', {}, { message: { id: `held-${index}`, sessionId: 'session', runId: current.id, role: 'assistant', content: `Independent historical observation ${index}: ` + 'x'.repeat(220), createdAt: stamp() } });
+  const page = f.store.readModelHistory('session', 512, f.config.limits.maxContextBytes * 4);
+  assert.ok(page.omittedMessages > 0); assert.ok(page.activeWindow); assert.ok(page.sessionImageAnchor); assert.ok(page.sessionDocumentAnchor);
+  for (const mode of ['original', 'clone', 'original-after-native-write'] as const) {
+    const expected = f.store.readModelHistory('session', 512, f.config.limits.maxContextBytes * 4);
+    const service = new ContextService(f.store), held = service.snapshot('session', f.config);
+    const snapshot = mode === 'clone' ? structuredClone(held) : held;
+    if (mode === 'original-after-native-write') f.store.commit(current.id, 'message.completed', {}, { message: { id: 'newer-than-held-native-snapshot', sessionId: 'session', runId: current.id, role: 'assistant', content: 'Later native observation does not own the held snapshot metadata.', createdAt: stamp() } });
+    service.snapshot('session', { ...f.config, limits: { ...f.config.limits, maxContextBytes: 65536 } });
+    await service.build({ workspace: f.store.getWorkspace('workspace'), snapshot, config: f.config, run: f.store.getRun(current.id), signal: new AbortController().signal });
+    const diagnostic = service.diagnostics('session')!;
+    assert.equal(diagnostic.omittedDatabaseMessages, expected.omittedMessages); assert.equal(diagnostic.omittedDatabaseRuns, expected.omittedRuns);
+    assert.deepEqual(diagnostic.activeWindow, expected.activeWindow); assert.deepEqual(diagnostic.sessionImageAnchor, expected.sessionImageAnchor); assert.deepEqual(diagnostic.sessionDocumentAnchor, expected.sessionDocumentAnchor);
+  }
 });
 
 test('PDF-bearing goal permits a replacement prefix after the predecessor recent suffix grows beyond context', async t => {

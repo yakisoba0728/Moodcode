@@ -769,16 +769,6 @@ export class CommandLifetimeService {
         },
         abort = () => {
           f.abort.abort(input.signal?.reason);
-          void f.done.then(
-            (r) => {
-              cleanup();
-              yes(r);
-            },
-            (e) => {
-              cleanup();
-              no(e);
-            },
-          );
         },
         cleanup = () => {
           f.wake.delete(wake);
@@ -786,6 +776,18 @@ export class CommandLifetimeService {
         };
       f.wake.add(wake);
       input.signal?.addEventListener("abort", abort, { once: true });
+      // The original join can reject while both durable terminal writes fail,
+      // leaving the last readable record running. Every waiter must observe it.
+      void f.done.then(
+        (record) => {
+          cleanup();
+          yes(structuredClone(record));
+        },
+        (error) => {
+          cleanup();
+          no(error);
+        },
+      );
       wake();
     });
   }

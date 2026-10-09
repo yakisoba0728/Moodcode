@@ -13,6 +13,7 @@ import type { ScheduleTargetPin } from "../schedules/types.js";
 import type { JobAcceptedInputProof } from "./delivery.js";
 import {
   ownedCommandJobKind,
+  matchesOwnedCommandToolOutcome,
   readOwnedCommandJob,
   validateOwnedCommandJob,
   type OwnedCommandJobRecord,
@@ -654,8 +655,7 @@ function settledSql(db: DatabaseSync, r: OwnedCommandDeliveryRecord): void {
     if (
       e.runId === source.runId &&
       p?.toolCallId === source.toolCallId &&
-      p.cleanupConfirmed === saved.completion!.outcome.cleanupConfirmed &&
-      p.output === tool.output
+      matchesOwnedCommandToolOutcome(db, saved, tool, p)
     )
       observed++;
   }

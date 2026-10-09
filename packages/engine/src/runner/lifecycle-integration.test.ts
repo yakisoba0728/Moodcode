@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -77,8 +77,14 @@ async function fixture(t: TestContext, providers: ProviderAdapter[], workspaceCo
   });
   t.after(async () => {
     store.beforeCommit = undefined; store.afterCommit = undefined;
-    try { await runner.close(); }
-    finally { store.close(); await rm(root, { force: true, recursive: true }); }
+    const failures: unknown[] = [], closedResources: string[] = [];
+    try { await runner.close(); closedResources.push('runner'); } catch (error) { failures.push(error); }
+    try { await store.closeAsync(); closedResources.push('store'); } catch (error) { failures.push(error); }
+    const retention = { schemaVersion: 1, kind: 'runner-fixture-retention', root, outcome: failures.length ? 'close-error' : t.error ? 'failure' : t.passed === true ? 'success' : 'unknown', closedResources, closeFailures: failures.length, nativeCleanupConfirmed: null, databaseRemoved: false };
+    let manifestWritten = false;
+    try { await writeFile(join(root, 'fixture-retention.json'), JSON.stringify(retention) + '\n', { flag: 'wx', mode: 0o600 }); manifestWritten = true; } catch { /* Preserve the first owned close error. */ }
+    try { t.diagnostic(JSON.stringify({ ...retention, manifestWritten })); } catch { /* Diagnostics cannot replace close failure. */ }
+    if (failures.length) throw failures[0];
   });
   const workspaces: Workspace[] = [];
   const sessions: Session[] = [];

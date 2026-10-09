@@ -714,11 +714,14 @@ export class PrFeedbackHost {
       "intervalMs",
     ]) as unknown as typeof input;
     prInt(i.intervalMs, 3600000, PR_LIMITS.intervalMs);
+    const watch = this.records.get(i.workspaceId, i.sessionId, i.watchId);
+    if (!watch || watch.state !== "active") prFail("PR_WATCH_STALE");
     const key = knowledgeHash([i.workspaceId, i.sessionId, i.watchId]);
     if (this.loops.has(key)) prFail("PR_WATCH_RUNNING");
     const controller = new AbortController(),
       signal = AbortSignal.any([controller.signal, this.lifetime]);
-    const promise = (async () => {
+    // Register the original loop owner before its body can settle and release it.
+    const promise = Promise.resolve().then(async () => {
       try {
         while (!signal.aborted) {
           const watch = this.records.get(i.workspaceId, i.sessionId, i.watchId);
@@ -745,7 +748,7 @@ export class PrFeedbackHost {
       } finally {
         this.loops.delete(key);
       }
-    })();
+    });
     this.loops.set(key, { controller, promise });
     void promise.catch(() => {});
     return Object.freeze({ watchId: i.watchId });

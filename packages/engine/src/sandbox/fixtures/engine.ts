@@ -5,11 +5,12 @@ import {
   mkdirSync,
   realpathSync,
   writeFileSync,
-  rmSync,
+  readFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import type { TestContext } from "node:test";
 import {
   DEFAULT_LIMITS,
@@ -21,6 +22,37 @@ import {
 import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
 import { createEngine, type EngineOptions } from "../../engine.js";
 import type { ProviderAdapter, TurnRequest } from "../../ports.js";
+import { nativeFixtureData } from "../../test-fixtures/native-data.js";
+const evidenceTables = [
+  "runs",
+  "session_turns",
+  "provider_attempts",
+  "attempt_cleanup",
+  "tools",
+  "approvals",
+  "checkpoints",
+  "message_parts",
+  "session_documents",
+  "session_events",
+] as const;
+const digest = (bytes: Uint8Array | string) =>
+  createHash("sha256").update(bytes).digest("hex");
+const boundedDiagnostic = (
+  t: TestContext,
+  message: string,
+  error?: unknown,
+) => {
+  try {
+    t.diagnostic(
+      `${message}${error === undefined ? "" : `: ${String(error)}`}`.slice(
+        0,
+        512,
+      ),
+    );
+  } catch {
+    // Reporting must not replace the test or the original close failure.
+  }
+};
 export const quote = (s: string) => "'" + s.replaceAll("'", "'\\''") + "'";
 export async function until(
   predicate: () => boolean,
@@ -123,8 +155,79 @@ export async function fixture(
   let engine = createEngine(options);
   engines.add(engine);
   t.after(async () => {
-    for (const e of engines) await e.close().catch(() => {});
-    rmSync(base, { recursive: true, force: true });
+    const reasons = new Set<string>(["native-cleanup-not-proven"]);
+    let closeError: unknown;
+    let closeFailed = false;
+    let closeFulfilled = 0;
+    if (t.error) reasons.add("test-failed");
+    if (t.passed !== true) reasons.add("test-outcome-unknown-or-failed");
+    // This fixture has no Original native effect cleanup token. Passing tests,
+    // disabled capabilities, empty snapshots and fulfilled closes remain observations.
+    const save = (phase: "before-close" | "after-close") => {
+      const native = nativeFixtureData(dbPath, evidenceTables);
+      if (
+        Object.entries(native).some(
+          ([table, rows]) => table !== "session_events" && rows.length > 0,
+        )
+      )
+        reasons.add("native-effect-records-present");
+      const sourcePath = fileURLToPath(import.meta.url);
+      writeFileSync(
+        join(base, `${phase}.json`),
+        JSON.stringify(
+          {
+            schemaVersion: 1,
+            kind: "sandbox-fixture-native-evidence",
+            phase,
+            retainedEvidencePath: base,
+            dbPath,
+            artifactDir,
+            source: {
+              path: sourcePath,
+              sha256: digest(readFileSync(sourcePath)),
+            },
+            native,
+            nativeRecordsSha256: digest(JSON.stringify(native)),
+            observations: {
+              engineCloseFulfilled: closeFulfilled,
+              engineCloseFailed: closeFailed,
+              nativeCleanupConfirmed: null,
+            },
+            retentionReasons: [...reasons],
+          },
+          null,
+          2,
+        ) + "\n",
+        { mode: 0o600, flag: "wx" },
+      );
+    };
+    const capture = (phase: "before-close" | "after-close") => {
+      try {
+        save(phase);
+      } catch (error) {
+        reasons.add("native-evidence-capture-failed");
+        boundedDiagnostic(
+          t,
+          `Native evidence capture failed (${phase})`,
+          error,
+        );
+      }
+    };
+    capture("before-close");
+    for (const e of engines) {
+      try {
+        await e.close();
+        closeFulfilled++;
+      } catch (error) {
+        reasons.add("engine-close-failed");
+        if (!closeFailed) closeError = error;
+        closeFailed = true;
+        boundedDiagnostic(t, "Original Engine close failed", error);
+      }
+    }
+    capture("after-close");
+    boundedDiagnostic(t, `Retained native sandbox fixture: ${base}`);
+    if (closeFailed) throw closeError;
   });
   const dispatch = async <T>(type: string, payload: object) => {
     const r = await engine.dispatch({

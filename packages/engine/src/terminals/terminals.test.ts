@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, realpath, rm, symlink } from 'node:fs/promise
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
 import { EngineError } from '@moodcode/contracts';
 import { TerminalService } from './service.js';
@@ -71,11 +72,130 @@ test('session terminal and attachment counts are enforced and detach releases ca
   assert.throws(() => service.attach(terminal.id, owner), code('TERMINAL_ATTACH_LIMIT')); attachments[0]!.detach(); service.attach(terminal.id, owner).detach();
   await service.cancel(terminal.id, owner); assert.equal(service.get(terminal.id, owner).state, 'cancelled'); await service.create({ owner });
 });
+function authoredJournalSnapshot(root: string, id = 'authored_history'): TerminalSnapshot {
+  return {
+    record: {
+      version: 1, id, owner: { ...owner }, cwd: root, file: '/authored/history-only', args: [],
+      cols: 80, rows: 24, state: 'completed',
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      outputSeq: 2, oldestSeq: 1, observedBytes: 11, retainedBytes: 11,
+      cleanupConfirmed: true, exitCode: 0,
+    },
+    output: [{ seq: 1, data: '한글🙂', bytes: 10 }, { seq: 2, data: '\n', bytes: 1 }],
+  };
+}
+
+test('terminal journal save, load and read preserve authored history across reopen at the existing row byte cap', async t => {
+  const root = await temporary(t), filename = join(root, 'journal-roundtrip.sqlite'),
+    expected = authoredJournalSnapshot(root), journal = new SqliteTerminalJournal(filename);
+  try {
+    journal.save(expected);
+    assert.deepEqual(journal.load(), [expected]);
+    assert.deepEqual(journal.read(expected.record.id), expected);
+    assert.equal(journal.read('missing_history'), undefined);
+    const input = structuredClone(expected);
+    journal.save(input);
+    input.output[0]!.data = 'caller mutation';
+    assert.deepEqual(journal.read(expected.record.id), expected);
+    const boundary = { ...authoredJournalSnapshot(root, 'boundary_history'), padding: '' };
+    boundary.padding = 'x'.repeat(4_194_304 - Buffer.byteLength(JSON.stringify(boundary)));
+    assert.equal(Buffer.byteLength(JSON.stringify(boundary)), 4_194_304);
+    journal.save(boundary);
+    assert.deepEqual(journal.load(), [expected, boundary]);
+  } finally { journal.close(); }
+  const reopened = new SqliteTerminalJournal(filename);
+  try {
+    assert.deepEqual(reopened.read(expected.record.id), expected);
+    assert.deepEqual(reopened.load().map(value => value.record.id), ['authored_history', 'boundary_history']);
+    const observer = new DatabaseSync(filename, { readOnly: true });
+    try {
+      assert.equal(observer.prepare('PRAGMA user_version').get()!.user_version, 1);
+      assert.match(String(observer.prepare("SELECT sql FROM sqlite_master WHERE name='terminals'").get()!.sql), /CHECK\(length\(payload\) <= 4194304\)/);
+    } finally { observer.close(); }
+  } finally { reopened.close(); }
+});
+
+test('terminal journal preflights every native UTF8 header before fetching or parsing legacy payloads', async t => {
+  const root = process.env.MOODCODE_TERMINAL_JOURNAL_EVIDENCE_ROOT ?? await temporary(t),
+    filename = join(root, 'journal-multibyte.sqlite'), journal = new SqliteTerminalJournal(filename),
+    writer = new DatabaseSync(filename),
+    oversized = { ...authoredJournalSnapshot(root, 'z_legacy'), padding: '🙂'.repeat(1_100_000) },
+    payload = JSON.stringify(oversized);
+  t.after(() => journal.close()); t.after(() => writer.close());
+  writer.prepare('INSERT INTO terminals(id,payload) VALUES (?,?)').run('z_legacy', payload);
+  const native = writer.prepare('SELECT length(payload) characters, length(CAST(payload AS BLOB)) bytes FROM terminals').get()!;
+  assert.ok(Number(native.characters) <= 4_194_304, 'legacy SQL character CHECK accepts this row');
+  assert.ok(Number(native.bytes) > 4_194_304, 'independent native UTF8 size exceeds the byte cap');
+  assert.equal(Number(native.bytes), Buffer.byteLength(payload));
+  assert.throws(() => journal.load(), code('TERMINAL_JOURNAL_LIMIT'));
+  assert.throws(() => journal.read('z_legacy'), code('TERMINAL_JOURNAL_LIMIT'));
+  writer.prepare('INSERT INTO terminals(id,payload) VALUES (?,?)').run('a_malformed', '{');
+  assert.throws(() => journal.load(), code('TERMINAL_JOURNAL_LIMIT'), 'later oversized header must reject before earlier malformed JSON is parsed');
+});
+
+test('terminal journal keeps its record ceiling and checks count before invalid payloads', async t => {
+  const root = await temporary(t), filename = join(root, 'journal-count.sqlite'),
+    journal = new SqliteTerminalJournal(filename), writer = new DatabaseSync(filename);
+  t.after(() => journal.close()); t.after(() => writer.close());
+  assert.equal(TERMINAL_LIMITS.maxRecords, 128);
+  const records = Array.from({ length: 128 }, (_, i) => authoredJournalSnapshot(root, `history_${String(i).padStart(3, '0')}`));
+  for (const record of records) journal.save(record);
+  assert.deepEqual(journal.load(), records);
+  assert.throws(() => journal.save(authoredJournalSnapshot(root, 'history_overflow')), code('TERMINAL_RECORD_LIMIT'));
+  journal.save(records[0]!);
+  writer.prepare('INSERT INTO terminals(id,payload) VALUES (?,?)').run('a_malformed_overflow', '{');
+  assert.throws(() => journal.load(), code('TERMINAL_RECORD_LIMIT'));
+});
+
+test('terminal journal malformed JSON, replay and diagnostics remain invalid observations', async t => {
+  const root = await temporary(t), filename = join(root, 'journal-invalid.sqlite'),
+    journal = new SqliteTerminalJournal(filename), writer = new DatabaseSync(filename),
+    original = authoredJournalSnapshot(root);
+  t.after(() => journal.close()); t.after(() => writer.close());
+  for (const payload of [
+    '{',
+    JSON.stringify({ ...original, output: [{ seq: 1, data: '한글🙂', bytes: 9 }] }),
+    JSON.stringify({ ...original, record: { ...original.record, diagnostics: { version: 1, authority: 'live-process-handle' } } }),
+  ]) {
+    writer.prepare('INSERT INTO terminals(id,payload) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload').run(original.record.id, payload);
+    assert.throws(() => journal.load(), code('TERMINAL_JOURNAL_INVALID'));
+    assert.throws(() => journal.read(original.record.id), code('TERMINAL_JOURNAL_INVALID'));
+  }
+});
+
+for (const mutation of ['disappeared', 'changed-bytes'] as const)
+  test(`terminal journal guarded native body read rejects a ${mutation} row`, async t => {
+    const root = await temporary(t), journal = new SqliteTerminalJournal(join(root, `journal-${mutation}.sqlite`)),
+      original = authoredJournalSnapshot(root), db = Reflect.get(journal, 'db') as DatabaseSync;
+    t.after(() => journal.close());
+    journal.save(original);
+    const prepare = db.prepare.bind(db);
+    let changed = false;
+    t.mock.method(db, 'prepare', (sql: string) => {
+      const statement = prepare(sql);
+      if (/^SELECT payload FROM terminals/u.test(sql)) {
+        const get = statement.get.bind(statement);
+        t.mock.method(statement, 'get', (...args: Parameters<typeof get>) => {
+          if (!changed) {
+            changed = true;
+            if (mutation === 'disappeared') prepare('DELETE FROM terminals WHERE id=?').run(original.record.id);
+            else prepare('UPDATE terminals SET payload=? WHERE id=?').run(JSON.stringify({ ...original, padding: 'actual native byte change' }), original.record.id);
+          }
+          return get(...args);
+        });
+      }
+      return statement;
+    });
+    assert.throws(() => journal.load(), code('TERMINAL_JOURNAL_INVALID'));
+    assert.equal(changed, true, 'actual SQLite mutation occurred between header selection and guarded body observation');
+  });
+
 test('restart preserves durable cursor history and never treats a saved record as a live process', async t => {
   const root = await temporary(t), journal = new SqliteTerminalJournal(join(root, 'terminals.sqlite')), backend = fakeBackend();
   const service = new TerminalService({ backend, journal, resolveOwner: input => ({ ...input, root }) });
   const terminal = await service.create({ owner }); backend.outputs[0]!('saved output');
-  const restarted = new TerminalService({ backend: fakeBackend(), journal, resolveOwner: input => ({ ...input, root }) });
+  const restoredBackend = fakeBackend(), restarted = new TerminalService({ backend: restoredBackend, journal, resolveOwner: input => ({ ...input, root }) });
+  assert.equal(restoredBackend.outputs.length, 0); assert.equal(restoredBackend.cancels, 0);
   const recovered = restarted.get(terminal.id, owner); assert.equal(recovered.state, 'interrupted'); assert.equal(recovered.cleanupConfirmed, null); assert.equal(recovered.reason, 'engine_restarted'); assert.equal('pid' in recovered, false);
   assert.equal(restarted.replay(terminal.id, owner).output[0]?.data, 'saved output'); await assert.rejects(restarted.write(terminal.id, owner, 'must not replay'), code('TERMINAL_CLOSED'));
   await restarted.close(); await service.close(); journal.close();

@@ -1,7 +1,7 @@
 import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { createServer, type ServerResponse } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { DEFAULT_LIMITS, type CommandResult, type EngineCapabilities, type EngineEvent, type RunConfigInput, type SessionSnapshot } from '@moodcode/contracts';
 
 const entry = fileURLToPath(new URL(import.meta.url.endsWith('.ts') ? './index.ts' : './index.js', import.meta.url));
+const { retainBackendFixture } = await import(new URL(`../../../packages/engine/${import.meta.url.endsWith('.ts') ? 'src' : 'dist'}/agent-backends/fixtures/backend.${import.meta.url.endsWith('.ts') ? 'ts' : 'js'}`, import.meta.url).href) as typeof import('../../../packages/engine/src/agent-backends/fixtures/backend.js');
 const keyEnv = 'MOODCODE_RESPONSES_CLI_FIXTURE_KEY';
 const fixtureKey = 'responses-fixture-bearer-8462';
 interface ResultRecord extends CommandResult { type: 'result' }
@@ -104,19 +105,26 @@ async function bounded<T>(promise: Promise<T>): Promise<T> {
   } finally { if (timer) clearTimeout(timer); }
 }
 
-interface Paths { root: string; workspace: string; db: string; artifacts: string }
+interface Paths { root: string; workspace: string; db: string; artifacts: string; clients: Set<Client>; cleanup(): Promise<void> }
 async function workspace(t: TestContext): Promise<Paths> {
   // loadConfig intentionally refuses symlink parents; macOS /var aliases /private/var.
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-responses-cli-')));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  const root = await realpath(await mkdtemp(join(process.env.MOODCODE_HARNESS_FIXTURE_ROOT ?? tmpdir(), 'moodcode-responses-cli-')));
+  const clients = new Set<Client>();
+  const cleanup = async () => {
+    const settled = await Promise.allSettled([...clients].map(value => value.kill()));
+    const failure = settled.find(result => result.status === 'rejected');
+    await retainBackendFixture(t, root, new Set(), { originalAfterHookObserved: false,
+      ...(failure?.status === 'rejected' ? { ownerExitError: { error: failure.reason } } : {}) });
+  };
+  t.after(cleanup);
   const path = join(root, 'workspace');
   execFileSync('git', ['init', '-q', path], { stdio: 'pipe' });
-  return { root, workspace: path, db: join(root, 'engine.sqlite'), artifacts: join(root, 'artifacts') };
+  return { root, workspace: path, db: join(root, 'engine.sqlite'), artifacts: join(root, 'artifacts'), clients, cleanup };
 }
 
 function client(t: TestContext, paths: Paths, args: readonly string[], environment?: NodeJS.ProcessEnv): Client {
   const value = new Client(['--db', paths.db, '--artifacts', paths.artifacts, ...args], environment);
-  t.after(() => value.kill());
+  paths.clients.add(value);
   return value;
 }
 
@@ -442,4 +450,10 @@ test('CLI named credential env is exclusive and missing values fail before provi
   assert.equal(unknown.stdout, '');
   assert.match(unknown.diagnostics, /provider/i);
   assertPublicRedacted(unknown, fixtureKey);
+  await paths.cleanup();
+  assert.equal((await readFile(userConfigPath, 'utf8')).includes(missingEnv), true, 'Actual startup failure retains original configuration evidence');
+  const retained = JSON.parse(await readFile(join(paths.root, 'fixture-retention.json'), 'utf8'));
+  assert.equal(retained.databaseRemoved, false); assert.equal(retained.nativeCleanupConfirmed, null);
+  assert.equal(retained.originalAfterHookObserved, false);
+  assert.equal(value.process.exitCode, 1); assert.equal(unknown.process.exitCode, 1); assert.equal(fixture.requests.length, 0);
 });

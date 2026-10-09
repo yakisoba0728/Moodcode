@@ -69,11 +69,15 @@ function fixture(t: TestContext) {
     storageBindingSha256: knowledgeHash(storage),
   });
   let revisionReads = 0,
+    bindingReads = 0,
     guards = 0,
     releases = 0;
   const lockPath = join(base, "effects.sqlite");
   const host = new FileKnowledgePublicationHost({
-    checkBinding: () => binding,
+    checkBinding: () => {
+      bindingReads++;
+      return binding;
+    },
     readTargetRevision: (_binding, relative) => {
       revisionReads++;
       return Number(
@@ -94,7 +98,9 @@ function fixture(t: TestContext) {
   });
   t.after(() => {
     db.close();
-    rmSync(base, { recursive: true, force: true });
+    if (process.env.MOODCODE_HOST_VALIDATION_PRESERVE_FIXTURES === "1")
+      t.diagnostic(`Preserved native fixture: ${base}`);
+    else rmSync(base, { recursive: true, force: true });
   });
   return {
     base,
@@ -105,6 +111,7 @@ function fixture(t: TestContext) {
     db,
     lockPath,
     counts: () => ({ revisionReads, guards, releases }),
+    bindingReads: () => bindingReads,
     input: (
       beforeEffect: () => void | Promise<void>,
       changes: Partial<FileKnowledgePublicationApplyInput> = {},
@@ -277,6 +284,99 @@ test("copied/foreign/proxy/getter inputs and stale native revisions invoke no ph
   );
   assert.equal(f.counts().guards, 0);
   assert.equal(readFileSync(join(f.root, "MEMORY.md"), "utf8"), "Original.");
+});
+
+test("native signal brand and descriptors reject before physical capture freshness or apply effects", async (t) => {
+  const f = fixture(t);
+  writeFileSync(join(f.root, "MEMORY.md"), "Original native preimage.\n");
+  const prepared = await f.host.captureTarget(
+      f.binding,
+      "MEMORY.md",
+      Object.assign(new AbortController().signal, {
+        hostObservation: "safe data",
+        [Symbol("hostObservation")]: "safe symbol data",
+      }),
+    ),
+    counts = f.counts(),
+    bindingReads = f.bindingReads();
+  let traps = 0,
+    intents = 0;
+  const accessor = (key: PropertyKey) =>
+    Object.defineProperty(new AbortController().signal, key, {
+      get() {
+        traps++;
+        throw Error("signal getter must not execute");
+      },
+    });
+  const override = (key: string) =>
+    Object.defineProperty(new AbortController().signal, key, {
+      value: () => {
+        traps++;
+        throw Error("signal override must not execute");
+      },
+    });
+  const invalid = [
+    ["own aborted accessor", accessor("aborted")],
+    ["own reason accessor", accessor("reason")],
+    ["own addEventListener", override("addEventListener")],
+    ["own removeEventListener", override("removeEventListener")],
+    ["other own accessor", accessor("hostObservation")],
+    ["own symbol accessor", accessor(Symbol("hostObservation"))],
+    ["prototype without native brand", Object.create(AbortSignal.prototype)],
+    ["null signal", null as unknown as AbortSignal],
+    ["primitive signal", 1 as unknown as AbortSignal],
+  ] as const;
+  for (const [label, signal] of invalid) {
+    await t.test(`${label} / captureTarget`, async () => {
+      await assert.rejects(
+        f.host.captureTarget(f.binding, "MEMORY.md", signal),
+        code("INVALID_KNOWLEDGE_FILE"),
+      );
+    });
+    await t.test(`${label} / assertFresh`, async () => {
+      await assert.rejects(
+        f.host.assertFresh(prepared.capture, signal),
+        code("INVALID_KNOWLEDGE_FILE"),
+      );
+    });
+    await t.test(`${label} / apply`, async () => {
+      await assert.rejects(
+        f.host.apply(
+          prepared.capture,
+          f.input(() => {
+            intents++;
+          }, { signal }),
+        ),
+        code("INVALID_KNOWLEDGE_FILE"),
+      );
+    });
+  }
+  assert.equal(traps, 0);
+  assert.equal(intents, 0);
+  assert.deepEqual(f.counts(), counts);
+  assert.equal(f.bindingReads(), bindingReads);
+  assert.equal(
+    readFileSync(join(f.root, "MEMORY.md"), "utf8"),
+    "Original native preimage.\n",
+  );
+  assert.deepEqual(readdirSync(f.root), ["MEMORY.md"]);
+  await assert.rejects(
+    f.host.captureTarget(f.binding, "MEMORY.md", AbortSignal.abort()),
+    code("KNOWLEDGE_FILE_CANCELLED"),
+  );
+  await assert.rejects(
+    f.host.apply(
+      prepared.capture,
+      f.input(() => {
+        intents++;
+      }, { signal: AbortSignal.abort() }),
+    ),
+    code("KNOWLEDGE_FILE_CANCELLED"),
+  );
+  assert.deepEqual(f.counts(), counts);
+  assert.equal(f.bindingReads(), bindingReads);
+  await f.host.assertFresh(prepared.capture, new AbortController().signal);
+  f.host.releaseCapture(prepared.capture);
 });
 
 test("physical source edits, symlink and hardlink substitutions reject before intent or target writes", async (t) => {

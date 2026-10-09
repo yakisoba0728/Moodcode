@@ -15,6 +15,72 @@ import { fileURLToPath } from "node:url";
 import { createEngine } from "../engine.js";
 import { validateMediaDatabase } from "./native-validation.js";
 import type { DatabaseSync } from "node:sqlite";
+
+function childJoin(child: ReturnType<typeof spawn>): Promise<void> {
+  let exited = false, closed = false;
+  const joined = new Promise<void>((resolve, reject) => {
+    const check = () => { if (exited && closed) resolve(); };
+    child.once("exit", () => { exited = true; check(); });
+    child.once("close", () => { closed = true; check(); });
+    child.once("error", reject);
+  });
+  void joined.catch(() => {});
+  return joined;
+}
+
+async function stopAndJoin(child: ReturnType<typeof spawn>, joined: Promise<void>, timeoutMs = 2_000): Promise<void> {
+  if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([joined, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("Original media child exit/close join timed out.")), timeoutMs);
+    })]);
+  } finally { if (timer) clearTimeout(timer); }
+}
+
+async function cleanupFixture(root: string, child: ReturnType<typeof spawn> | undefined, joined: Promise<void> | undefined,
+  engine: { close(): Promise<void> } | undefined, passed: boolean, timeoutMs = 2_000): Promise<unknown[]> {
+  const failures: unknown[] = [];
+  if (child && joined) try { await stopAndJoin(child, joined, timeoutMs); } catch (error) { failures.push(error); }
+  else if (child) failures.push(new Error("Original media child join was not captured."));
+  try { await engine?.close(); } catch (error) { failures.push(error); }
+  if (passed && failures.length === 0) rmSync(root, { recursive: true, force: true });
+  else console.error("Original media fixture root retained:", root);
+  return failures;
+}
+
+test("failure cleanup joins the original child exit and close before engine cleanup and retains evidence", async () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "moodcode-media-crash-cleanup-")));
+  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: ["ignore", "pipe", "pipe"] });
+  const joined = childJoin(child);
+  let exited = false, closed = false, engineClosed = false;
+  child.once("exit", () => { exited = true; });
+  child.once("close", () => { closed = true; });
+  const closeFailure = new Error("Synthetic engine cleanup failure");
+  const failures = await cleanupFixture(root, child, joined, { async close() {
+    engineClosed = true;
+    assert.equal(exited, true); assert.equal(closed, true);
+    assert.ok(existsSync(root), "Original root must exist while cleanup owners settle.");
+    throw closeFailure;
+  } }, false);
+  assert.equal(engineClosed, true);
+  assert.deepEqual(failures, [closeFailure]);
+  assert.ok(existsSync(root), "Failed Original must be retained after joined cleanup.");
+});
+
+test("unconfirmed exit/close observation retains the Original and still attempts engine cleanup", async () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "moodcode-media-crash-unconfirmed-")));
+  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: ["ignore", "pipe", "pipe"] });
+  const actualJoin = childJoin(child);
+  let engineClosed = false;
+  // Deliberately missing observation is a comparison, not native join evidence.
+  const failures = await cleanupFixture(root, child, new Promise<void>(() => {}), { async close() { engineClosed = true; } }, true, 10);
+  assert.equal(engineClosed, true); assert.equal(failures.length, 1);
+  assert.match(String(failures[0]), /exit\/close join timed out/u);
+  assert.ok(existsSync(root), "Unconfirmed Original must not be deleted.");
+  await stopAndJoin(child, actualJoin);
+});
+
 for (const mode of ["streaming", "published", "receipt", "settled"])
   test(
     "actual SIGKILL " +
@@ -27,7 +93,9 @@ for (const mode of ["streaming", "published", "receipt", "settled"])
       mkdirSync(join(root, "repo"));
       execFileSync("git", ["init", "-q", join(root, "repo")]);
       let child: ReturnType<typeof spawn> | undefined;
+      let joined: Promise<void> | undefined;
       let engine: ReturnType<typeof createEngine> | undefined;
+      let passed = false, failed = false;
       try {
         const source = fileURLToPath(
             new URL("./fixtures/segment-crash.ts", import.meta.url),
@@ -54,9 +122,7 @@ for (const mode of ["streaming", "published", "receipt", "settled"])
         );
         let output = "";
         child.stderr?.on("data", (d) => (output += d.toString()));
-        const exit = new Promise<void>((resolve) =>
-          child!.once("exit", () => resolve()),
-        );
+        joined = childJoin(child);
         const end = Date.now() + 8000;
         while (!existsSync(join(root, "ready.json"))) {
           if (child.exitCode !== null || Date.now() > end)
@@ -70,8 +136,7 @@ for (const mode of ["streaming", "published", "receipt", "settled"])
         ) as { sessionId: string; runId: string; stage: string; pid: number };
         assert.equal(ready.stage, mode);
         assert.ok(ready.pid > 0);
-        child.kill("SIGKILL");
-        await exit;
+        await stopAndJoin(child, joined);
         let replay = 0;
         engine = createEngine({
           dbPath: join(root, "engine.sqlite"),
@@ -114,10 +179,13 @@ for (const mode of ["streaming", "published", "receipt", "settled"])
           engine.store.getSessionControl(ready.sessionId).paused,
           mode !== "settled",
         );
+        passed = true;
+      } catch (error) {
+        failed = true;
+        throw error;
       } finally {
-        child?.kill("SIGKILL");
-        await engine?.close();
-        rmSync(root, { recursive: true, force: true });
+        const failures = await cleanupFixture(root, child, joined, engine, passed);
+        if (!failed && failures.length) throw new AggregateError(failures, "Media fixture cleanup failed; original root retained.");
       }
     },
   );

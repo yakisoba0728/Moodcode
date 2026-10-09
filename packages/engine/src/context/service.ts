@@ -41,14 +41,17 @@ export interface ContextDiagnostics {
     summaryUsage: ActivePrefixCheckpoint['usage']; historicalFileEvidence: true; currentFileEvidence: false };
 }
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+type SnapshotHistory = Pick<ModelHistoryPage, 'omittedMessages' | 'omittedRuns' | 'activeWindow' | 'sessionImageAnchor' | 'sessionDocumentAnchor'>;
+const snapshotHistory = (page: ModelHistoryPage): SnapshotHistory => ({ omittedMessages: page.omittedMessages, omittedRuns: page.omittedRuns,
+  ...(page.activeWindow ? { activeWindow: page.activeWindow } : {}), ...(page.sessionImageAnchor ? { sessionImageAnchor: page.sessionImageAnchor } : {}),
+  ...(page.sessionDocumentAnchor ? { sessionDocumentAnchor: page.sessionDocumentAnchor } : {}) });
 
 /** Produces a persisted, inspectable context only at a coordinator's safe turn boundary. */
 export class ContextService {
   readonly memory: SemanticMemoryService;
   readonly activePrefix?: ActivePrefixMemoryService;
   private readonly sources = new Map<string, { source: InstructionSources; leases: number }>();
-  private readonly history = new Map<string, { omittedMessages: number; omittedRuns: number; activeWindow?: ModelHistoryPage['activeWindow']; sessionImageAnchor?: ModelHistoryPage['sessionImageAnchor']; sessionDocumentAnchor?: ModelHistoryPage['sessionDocumentAnchor'] }>();
-  private readonly revisions = new Map<string, string>();
+  private readonly history = new WeakMap<SessionSnapshot, SnapshotHistory>();
   private readonly mediaHistoryPolicy?: Required<MediaHistoryPolicy>;
   private readonly documentHistoryPolicy?: DocumentHistoryPolicy;
   private readonly repositoryContext?: { source: ContextSourcePort; policy: RepositoryContextPolicy };
@@ -133,11 +136,22 @@ export class ContextService {
   }
   snapshot(sessionId: string, config: RunConfig): SessionSnapshot {
     const page = this.store.readModelHistory(sessionId, 512, Math.max(1024, Math.min(33_554_432, config.limits.maxContextBytes * 4)));
-    this.history.set(sessionId, { omittedMessages: page.omittedMessages, omittedRuns: page.omittedRuns, ...(page.activeWindow ? { activeWindow: page.activeWindow } : {}), ...(page.sessionImageAnchor ? { sessionImageAnchor: page.sessionImageAnchor } : {}), ...(page.sessionDocumentAnchor ? { sessionDocumentAnchor: page.sessionDocumentAnchor } : {}) });
+    this.history.set(page.snapshot, snapshotHistory(page));
     return page.snapshot;
   }
+  private historyForSnapshot(snapshot: SessionSnapshot, config: RunConfig): SnapshotHistory | undefined {
+    const owned = this.history.get(snapshot);
+    if (owned) return owned;
+    // Public callers may copy or supply a snapshot. Current SQL metadata belongs
+    // to that copy only when the complete native snapshot still matches it.
+    let page: ModelHistoryPage;
+    try { page = this.store.readModelHistory(snapshot.session.id, 512, Math.max(1024, Math.min(33_554_432, config.limits.maxContextBytes * 4))); }
+    catch (error) { if (error instanceof EngineError && error.code === 'MODEL_HISTORY_LIMIT') return undefined; throw error; }
+    if (digest(page.snapshot) !== digest(snapshot)) return undefined;
+    const metadata = snapshotHistory(page); this.history.set(snapshot, metadata); return metadata;
+  }
   revisionId(sessionId: string): string | undefined {
-    return this.revisions.get(sessionId) ?? this.diagnostics(sessionId)?.revisionId;
+    return this.diagnostics(sessionId)?.revisionId;
   }
   diagnostics(sessionId: string): ContextDiagnostics | null {
     this.store.getSession(sessionId);
@@ -165,6 +179,7 @@ export class ContextService {
   }
   async build(request: ContextRequest, summaryAttempted = false, prefixAttempted = false, forcePrefix = false): Promise<ProviderMessage[]> {
     const sessionId = request.snapshot.session.id;
+    const history = this.historyForSnapshot(request.snapshot, request.config);
     const lifecycle = request.lifecycleCapture?.hooks.some(hook => hook.stages.includes('model-context')) ? request.lifecycleCapture : undefined;
     if (lifecycle && (!this.lifecycleHooks || !request.run || lifecycle.identity.runId !== request.run.id || lifecycle.identity.sessionId !== sessionId || lifecycle.identity.workspaceId !== request.workspace.id))
       throw new EngineError('LIFECYCLE_CONTEXT_STALE', 'Lifecycle context requires its original captured Run owner');
@@ -172,7 +187,8 @@ export class ContextService {
     const lifecycleSlot = lifecycle ? this.lifecycleContextSlotBytes : 0;
     const originalReservedBytes = request.reservedBytes ?? 0;
     const reservedBytes = originalReservedBytes + lifecycleSlot;
-    const reservation = this.repositoryContext || this.knowledgeContext || this.proposalContext || lifecycle ? this.reserveContextCapture(sessionId) : undefined;
+    const initialFork = this.conversationFork?.prepare(sessionId, request.config);
+    const reservation = this.repositoryContext || this.knowledgeContext || this.proposalContext || lifecycle || initialFork ? this.reserveContextCapture(sessionId) : undefined;
     const releaseReservation = () => { if (reservation && this.contextReservations.get(sessionId) === reservation) this.contextReservations.delete(sessionId); };
     const preparedKnowledge = new Set<PreparedKnowledgeContribution>();
     const preparedProposals = new Set<PreparedProposalContribution>();
@@ -231,7 +247,7 @@ export class ContextService {
         requiredHistoryMessageIds: [...new Set([...(prefix.requiredHistoryMessageIds ?? []), ...(image ? [image.id] : []), ...(document ? [document.id] : []), ...(segment ? [segment.id] : []), ...(media ? [...media.requiredTextMessageIds, ...media.requiredExchangeMessageIds] : []), ...(documents?.requiredTextMessageIds ?? [])])],
         ...(media?.requiredNotice ? { mediaHistoryNotice: media.requiredNotice } : {}), ...(documents?.requiredNotice ? { documentHistoryNotice: documents.requiredNotice } : {}) };
       const planRequest = { ...projected, reservedBytes, instructionSources: observation.sources };
-      const fork = this.conversationFork?.prepare(sessionId,request.config);
+      const fork = initialFork;
       const forkOptions = fork ? {forkMessages:fork.messages} : {};
       let contribution: PreparedRepositoryContribution | undefined;
       let knowledge: PreparedKnowledgeContribution | undefined;
@@ -314,7 +330,7 @@ export class ContextService {
       }
     }
     const omittedActive = projected.snapshot.messages.some(message => message.runId === request.run?.id && message.role !== 'user' && !selectedIds.has(message.id))
-      || (this.history.get(sessionId)?.activeWindow?.omittedMessages ?? 0) > 0;
+      || (history?.activeWindow?.omittedMessages ?? 0) > 0;
     if (!candidate && !prefixTried && this.activePrefix && request.run && request.budget && provider && (forcePrefix || omittedActive)) {
       try {
         candidate = await this.activePrefix.prepare(request, provider, { model, ...(request.activePrefixStage ? { stage: request.activePrefixStage } : {}) });
@@ -419,9 +435,9 @@ export class ContextService {
     // Text is retained in ContextRevision; diagnostics carry source hashes and observations only.
     const diagnostics: ContextDiagnostics = { revisionId, revision, plan: publicPlan,
       instructions: { ...observation, sources: observation.sources.map(source => ({ ...source, text: null })) },
-      ...(this.history.get(sessionId)?.activeWindow ? { activeWindow: this.history.get(sessionId)!.activeWindow } : {}),
-      ...(this.history.get(sessionId)?.sessionImageAnchor ? { sessionImageAnchor: this.history.get(sessionId)!.sessionImageAnchor } : {}),
-      ...(this.history.get(sessionId)?.sessionDocumentAnchor ? { sessionDocumentAnchor: this.history.get(sessionId)!.sessionDocumentAnchor } : {}),
+      ...(history?.activeWindow ? { activeWindow: history.activeWindow } : {}),
+      ...(history?.sessionImageAnchor ? { sessionImageAnchor: history.sessionImageAnchor } : {}),
+      ...(history?.sessionDocumentAnchor ? { sessionDocumentAnchor: history.sessionDocumentAnchor } : {}),
       ...(media ? { mediaHistory: { ...media.diagnostics, provenance: media.provenance } } : {}),
       ...(documents ? { documentHistory: { ...documents.diagnostics, provenance: documents.provenance } } : {}),
       ...(repositoryDiagnostics ? { repositoryContext: repositoryDiagnostics } : {}),
@@ -432,7 +448,7 @@ export class ContextService {
         factsSha256: prefixCheckpoint.factsSha256, manifestSha256: prefixCheckpoint.manifestSha256, policySha256: prefixCheckpoint.policySha256,
         coveredMessageIds: prefixCheckpoint.coveredMessageIds, protectedMessageIds: prefixCheckpoint.protectedMessageIds, summaryUsage: prefixCheckpoint.usage,
         historicalFileEvidence: true, currentFileEvidence: false } } : {}),
-      omittedDatabaseMessages: this.history.get(sessionId)?.omittedMessages ?? 0, omittedDatabaseRuns: this.history.get(sessionId)?.omittedRuns ?? 0 };
+      omittedDatabaseMessages: history?.omittedMessages ?? 0, omittedDatabaseRuns: history?.omittedRuns ?? 0 };
     const data = { revisionId, contextRevision: revision, bindingHash, diagnostics: JSON.parse(JSON.stringify(diagnostics)) as JsonObject };
     if (candidate && pendingRevision) {
       try { this.activePrefix!.publishWithContext(request, candidate, { contextRevision: pendingRevision, contextData: data }); }
@@ -449,7 +465,6 @@ export class ContextService {
     }
     else if (pendingRevision && request.run) this.store.commitContextDocument(request.run.id, 'context.revision.activated', { contextRevisionId: revisionId, revision, sha256: pendingRevision.sha256 }, { revision: pendingRevision, kind: 'context.head', expectedRevision: previous?.revision ?? 0, data });
     else { if (pendingRevision) this.store.putContextRevision(pendingRevision); this.store.putSessionDocument(sessionId, 'context.head', previous?.revision ?? 0, data); }
-    this.revisions.set(sessionId, revisionId);
     if (contribution || knowledge || proposal || lifecycle || fork) {
       this.releaseContext(sessionId);
       this.contextCaptures.set(sessionId, { ...(fork ? {fork:{sha256:fork.sha256,config:structuredClone(request.config)}} : {}), ...(contribution ? { repository: contribution } : {}), ...(knowledge ? { knowledge } : {}), ...(proposal ? { proposal } : {}), ...(lifecycle ? { lifecycle } : {}), revisionId, messagesSha256: digest(messages), ...(request.run ? { runId: request.run.id } : {}) });

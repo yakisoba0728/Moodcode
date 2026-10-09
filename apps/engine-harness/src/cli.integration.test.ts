@@ -1,7 +1,7 @@
 import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, execFileSync, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { createServer, type Server, type ServerResponse } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import type { CommandResult, EngineEvent, SessionSnapshot } from '@moodcode/contracts';
 
 const entry = fileURLToPath(new URL(import.meta.url.endsWith('.ts') ? './index.ts' : './index.js', import.meta.url));
+const { retainBackendFixture } = await import(new URL(`../../../packages/engine/${import.meta.url.endsWith('.ts') ? 'src' : 'dist'}/agent-backends/fixtures/backend.${import.meta.url.endsWith('.ts') ? 'ts' : 'js'}`, import.meta.url).href) as typeof import('../../../packages/engine/src/agent-backends/fixtures/backend.js');
 interface ResultRecord extends CommandResult { type: 'result' }
 interface EventRecord { type: 'event'; subscriptionId: string; event: EngineEvent }
 type Record = ResultRecord | EventRecord;
@@ -62,7 +63,7 @@ class Client {
 
   async kill(): Promise<void> {
     if (this.process.exitCode === null && this.process.signalCode === null) this.process.kill('SIGKILL');
-    await this.exited;
+    await bounded(this.exited, 12_000);
   }
 }
 
@@ -80,17 +81,25 @@ async function waitFor(condition: () => boolean, error: () => string = () => 'Co
   }
 }
 
-async function workspace(t: TestContext): Promise<{ root: string; db: string; artifacts: string; path: string }> {
-  const root = await mkdtemp(join(tmpdir(), 'moodcode-harness-test-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
+async function workspace(t: TestContext) {
+  const root = await mkdtemp(join(process.env.MOODCODE_HARNESS_FIXTURE_ROOT ?? tmpdir(), 'moodcode-harness-test-'));
+  const clients = new Set<Client>();
+  const cleanup = async () => {
+    const settled = await Promise.allSettled([...clients].map(value => value.kill()));
+    const failure = settled.find(result => result.status === 'rejected');
+    // Native child exit does not reconstruct its missing Engine after hook.
+    await retainBackendFixture(t, root, new Set(), { originalAfterHookObserved: false,
+      ...(failure?.status === 'rejected' ? { ownerExitError: { error: failure.reason } } : {}) });
+  };
+  t.after(cleanup);
   const path = join(root, 'workspace');
   execFileSync('git', ['init', '-q', path], { stdio: 'pipe' });
-  return { root, path, db: join(root, 'engine.sqlite'), artifacts: join(root, 'artifacts') };
+  return { root, path, db: join(root, 'engine.sqlite'), artifacts: join(root, 'artifacts'), clients, cleanup };
 }
 
 function client(t: TestContext, paths: Awaited<ReturnType<typeof workspace>>, args: string[] = []): Client {
   const value = new Client(['--db', paths.db, '--artifacts', paths.artifacts, ...args]);
-  t.after(() => value.kill());
+  paths.clients.add(value);
   return value;
 }
 
@@ -184,6 +193,15 @@ for (const method of ['eof', 'SIGTERM', 'SIGKILL'] as const) {
     assert.equal(snapshot.runs.find((run) => run.id === receipt.runId)?.state, method === 'SIGKILL' ? 'interrupted' : 'cancelled');
     assert.equal(fixture.requests(), 1);
     await second.finish();
+    if (method === 'SIGKILL') {
+      await paths.cleanup();
+      assert.ok((await readFile(paths.db)).length > 0, 'Actual interrupted Original database survives teardown');
+      const retained = JSON.parse(await readFile(join(paths.root, 'fixture-retention.json'), 'utf8'));
+      assert.equal(retained.databaseRemoved, false); assert.equal(retained.nativeCleanupConfirmed, null);
+      assert.equal(retained.originalAfterHookObserved, false);
+      assert.equal(first.process.signalCode, 'SIGKILL'); assert.equal(second.process.exitCode, 0);
+      assert.equal(fixture.requests(), 1, 'Retention never replays the original provider effect');
+    }
   });
 }
 

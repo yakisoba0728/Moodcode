@@ -8,7 +8,6 @@ import {
   mkdirSync,
   mkdtempSync,
   realpathSync,
-  rmSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -27,6 +26,7 @@ import {
   type Workspace,
 } from "@moodcode/contracts";
 import { createEngine, type EngineOptions } from "../engine.js";
+import { retainBackendFixture } from "../agent-backends/fixtures/backend.js";
 import { StdioLspConnection } from "../lsp/stdio.js";
 import { createTypeScriptNativeLspFactory } from "../lsp/typescript-native.js";
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from "../ports.js";
@@ -109,7 +109,7 @@ interface FixtureOptions {
 }
 async function fixture(t: TestContext, options: FixtureOptions = {}) {
   const base = realpathSync(
-      mkdtempSync(join(tmpdir(), "moodcode-native-semantic-engine-")),
+      mkdtempSync(join(process.env.MOODCODE_CONTEXT_FIXTURE_ROOT ?? tmpdir(), "moodcode-native-semantic-engine-")),
     ),
     root = join(base, "repo"),
     dbPath = join(base, "engine.sqlite");
@@ -231,25 +231,29 @@ async function fixture(t: TestContext, options: FixtureOptions = {}) {
   engine = createEngine(configuration);
   const engines = new Set([engine]);
   async function closeAndAssert() {
-    for (const current of engines) await current.close();
-    for (const child of children) {
-      assert.ok(
-        child.exitCode !== null || child.signalCode !== null,
-        "Original native child must actually exit before host close resolves",
-      );
-      if (child.pid)
-        assert.throws(
-          () => process.kill(child.pid!, 0),
-          (error) => (error as NodeJS.ErrnoException).code === "ESRCH",
-        );
+    const failures: unknown[] = [];
+    for (const current of engines) {
+      try { await current.close(); } catch (error) { failures.push(error); }
     }
+    for (const child of children) {
+      try {
+        assert.ok(
+          child.exitCode !== null || child.signalCode !== null,
+          "Original native child must actually exit before host close resolves",
+        );
+        if (child.pid)
+          assert.throws(
+            () => process.kill(child.pid!, 0),
+            (error) => (error as NodeJS.ErrnoException).code === "ESRCH",
+          );
+      } catch (error) { failures.push(error); }
+    }
+    if (failures.length) throw failures[0];
   }
   t.after(async () => {
-    try {
-      await closeAndAssert();
-    } finally {
-      rmSync(base, { recursive: true, force: true });
-    }
+    let ownerExitError: { error: unknown } | undefined;
+    try { await closeAndAssert(); } catch (error) { ownerExitError = { error }; }
+    await retainBackendFixture(t, base, engines, { ownerExitError });
   });
   function register(target = engine) {
     target.registerLanguageServer(

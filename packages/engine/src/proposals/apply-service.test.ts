@@ -299,7 +299,9 @@ async function fixture(t: TestContext) {
     await service.close();
     await source.close();
     db.close();
-    rmSync(base, { recursive: true, force: true });
+    if (process.env.MOODCODE_HOST_VALIDATION_PRESERVE_FIXTURES === "1")
+      t.diagnostic(`Preserved native fixture: ${base}`);
+    else rmSync(base, { recursive: true, force: true });
   });
   const rowCount = (table: string) =>
     Number(db.prepare(`SELECT count(*) AS count FROM ${table}`).get()!.count);
@@ -351,6 +353,10 @@ test("original preview applies native artifacts once, records original cleanup, 
     requestId: randomUUID(),
     approved: true,
     preview,
+    signal: Object.assign(new AbortController().signal, {
+      hostObservation: "safe data",
+      [Symbol("hostObservation")]: "safe symbol data",
+    }),
   };
   const result = await f.service.apply(request);
   assert.equal(result.duplicate, false);
@@ -442,6 +448,131 @@ test("copied, foreign, hostile, released, false-approved and preaborted inputs c
   assert.equal(f.counters().leaseCalls, 0);
   assert.equal(f.counters().applyCalls, 0);
   assert.equal(readFileSync(join(f.root, "a"), "utf8"), f.before);
+});
+
+test("native signal descriptors are rejected before preview or approved apply ports", async (t) => {
+  const f = await fixture(t),
+    selection = await f.stage(),
+    previewInput = {
+      workspaceId: f.binding.workspaceId,
+      proposalId: selection.set.id,
+      signal: new AbortController().signal,
+    },
+    preview = await f.service.preview(previewInput),
+    counters = f.counters();
+  let traps = 0,
+    portCalls = 0;
+  for (const port of [f.service.ports, f.service.native])
+    for (const [key, operation] of Object.entries(port))
+      if (typeof operation === "function")
+        Reflect.set(port, key, (...args: unknown[]) => {
+          portCalls++;
+          return Reflect.apply(operation, port, args);
+        });
+  const accessor = (key: PropertyKey) => {
+    const controller = new AbortController();
+    if (key !== "aborted") controller.abort();
+    return Object.defineProperty(controller.signal, key, {
+      get() {
+        traps++;
+        throw Error("signal getter must not execute");
+      },
+    });
+  };
+  const override = (key: string) =>
+    Object.defineProperty(AbortSignal.abort(), key, {
+      value: () => {
+        traps++;
+        throw Error("signal override must not execute");
+      },
+    });
+  const inheritedAccessor = (key: PropertyKey) => {
+    const controller = new AbortController();
+    if (key !== "aborted") controller.abort();
+    const prototype = Object.defineProperty(
+      Object.create(AbortSignal.prototype),
+      key,
+      {
+        get() {
+          traps++;
+          throw Error("inherited signal getter must not execute");
+        },
+      },
+    );
+    return Object.setPrototypeOf(controller.signal, prototype);
+  };
+  const invalid = [
+    ["own aborted accessor", accessor("aborted")],
+    ["own reason accessor", accessor("reason")],
+    ["own addEventListener", override("addEventListener")],
+    ["own removeEventListener", override("removeEventListener")],
+    ["other own accessor", accessor("hostObservation")],
+    ["own symbol accessor", accessor(Symbol("hostObservation"))],
+    ["prototype without native brand", Object.create(AbortSignal.prototype)],
+    ["inherited aborted accessor", inheritedAccessor("aborted")],
+    ["inherited reason accessor", inheritedAccessor("reason")],
+    [
+      "inherited addEventListener accessor",
+      inheritedAccessor("addEventListener"),
+    ],
+    [
+      "inherited removeEventListener accessor",
+      inheritedAccessor("removeEventListener"),
+    ],
+    ["other inherited accessor", inheritedAccessor("hostObservation")],
+    ["inherited symbol accessor", inheritedAccessor(Symbol("hostObservation"))],
+    [
+      "custom native prototype without overrides",
+      Object.setPrototypeOf(
+        AbortSignal.abort(),
+        Object.create(AbortSignal.prototype),
+      ),
+    ],
+  ] as const;
+  for (const [label, signal] of invalid) {
+    await t.test(`${label} / preview`, async () => {
+      await assert.rejects(
+        f.service.preview({ ...previewInput, signal }),
+        code("INVALID_PROPOSAL_APPLY"),
+      );
+    });
+    await t.test(`${label} / approved apply`, async () => {
+      await assert.rejects(
+        f.service.apply({
+          workspaceId: f.binding.workspaceId,
+          requestId: randomUUID(),
+          approved: true,
+          preview,
+          signal,
+        }),
+        code("INVALID_PROPOSAL_APPLY"),
+      );
+    });
+  }
+  assert.equal(traps, 0);
+  assert.equal(portCalls, 0);
+  assert.deepEqual(f.counters(), counters);
+  assert.equal(f.rowCount("proposal_apply_owners"), 0);
+  assert.equal(f.rowCount("proposal_apply_execution_guards"), 0);
+  assert.equal(readFileSync(join(f.root, "a"), "utf8"), f.before);
+  assert.equal(inspectExecutionLock(f.lockPath).status, "not_initialized");
+  await assert.rejects(
+    f.service.preview({ ...previewInput, signal: AbortSignal.abort() }),
+    code("CANCELLED"),
+  );
+  await assert.rejects(
+    f.service.apply({
+      workspaceId: f.binding.workspaceId,
+      requestId: randomUUID(),
+      approved: true,
+      preview,
+      signal: AbortSignal.abort(),
+    }),
+    code("CANCELLED"),
+  );
+  assert.equal(portCalls, 0);
+  assert.deepEqual(f.counters(), counters);
+  f.service.releasePreview(preview);
 });
 
 test("source edited after original preview is rejected before native intent or producer apply", async (t) => {

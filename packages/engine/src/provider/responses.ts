@@ -327,7 +327,7 @@ export class ResponsesProvider implements ProviderAdapter {
           responseId = nonempty(created.id);
           if (event.response_id !== undefined && event.response_id !== responseId) malformed();
           if (created.status !== 'in_progress') malformed();
-          if (request.includeMetadata) { checkCancellation(); yield { type: 'progress', providerRequestId: generation ? redactCredentialText(responseId, this.#secrets) : responseId }; }
+          if (request.includeMetadata) { checkCancellation(); yield { type: 'progress', providerRequestId: redactCredentialText(responseId, this.#secrets) }; }
           continue;
         }
         if (responseId === undefined) malformed();

@@ -39,11 +39,18 @@ async function fixture(t: TestContext, workspaceCount = 1) {
     store, providers: new Map([[scripted.id, scripted]]), tools: [],
     approvals: new ApprovalManager(store), artifactDir: join(directory, 'artifacts'), executionLockPath, buildContext,
   });
+  let expectedCloseError: unknown;
   t.after(async () => {
-    try {
-      try { await runner.close(); }
-      catch (error) { if (!hasCode('CLEANUP_UNCERTAIN')(error)) throw error; }
-    } finally { store.close(); await fs.rm(directory, { force: true, recursive: true }); }
+    const failures: unknown[] = [], closedResources: string[] = [];
+    try { await runner.close(); closedResources.push('runner'); } catch (error) { failures.push(error); }
+    try { await store.closeAsync(); closedResources.push('store'); } catch (error) { failures.push(error); }
+    const expectedFailureObserved = failures.length === 1 && failures[0] === expectedCloseError;
+    const retention = { schemaVersion: 1, kind: 'runner-fixture-retention', root: directory, outcome: failures.length ? 'close-error' : t.error ? 'failure' : t.passed === true ? 'success' : 'unknown', closedResources, closeFailures: failures.length, expectedFailureObserved, nativeCleanupConfirmed: null, databaseRemoved: false };
+    let manifestWritten = false;
+    try { await fs.writeFile(join(directory, 'fixture-retention.json'), JSON.stringify(retention) + '\n', { flag: 'wx', mode: 0o600 }); manifestWritten = true; } catch { /* Preserve the first owned close error. */ }
+    try { t.diagnostic(JSON.stringify({ ...retention, manifestWritten })); } catch { /* Diagnostics cannot replace close failure. */ }
+    // Only the exact close rejection already asserted by this test is acknowledged.
+    if (failures.length && !expectedFailureObserved) throw failures[0];
   });
   const workspaces: Workspace[] = [];
   const sessions: Session[] = [];
@@ -58,7 +65,7 @@ async function fixture(t: TestContext, workspaceCount = 1) {
     sessionId: session.id, requestId: randomUUID(), prompt: 'Check the maintenance fixture',
     config: { providerId, modelId: 'local', mode: 'build', limits: { ...DEFAULT_LIMITS, maxDurationMs: 10_000 } },
   });
-  return { directory, store, runner, scripted, executionLockPath, workspaces, sessions, input };
+  return { directory, store, runner, scripted, executionLockPath, workspaces, sessions, input, expectCloseError(error: unknown) { expectedCloseError = error; } };
 }
 
 type Fixture = Awaited<ReturnType<typeof fixture>>;
@@ -306,7 +313,7 @@ test('close rejects after actual restore observation fails during aborted accoun
     let closing: Promise<void> | undefined;
     try {
       await accountingEntered.promise;
-      closing = assert.rejects(f.runner.close(), hasCode('CLEANUP_UNCERTAIN'));
+      closing = assert.rejects(f.runner.close(), error => { assert.ok(hasCode('CLEANUP_UNCERTAIN')(error)); f.expectCloseError(error); return true; });
       accountingRelease.resolve();
       await Promise.all([rejected, closing]);
       assert.ok(result); assert.equal(result.cancelled, true); assert.equal(result.effectsUncertain, true);

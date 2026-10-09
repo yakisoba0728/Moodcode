@@ -2,19 +2,23 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdtemp, realpath, rm } from 'node:fs/promises';
+import { mkdtemp, realpath, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import test, { type TestContext } from 'node:test';
-import { EngineError, type JsonObject, type MessagePart, type ProviderAttempt, type ToolCallRecord, type TurnRecord } from '@moodcode/contracts';
+import { DEFAULT_LIMITS, EngineError, type EngineEvent, type JsonObject, type MessagePart, type ProviderAttempt, type ToolCallRecord, type TurnRecord } from '@moodcode/contracts';
 import { createEngine, type EngineOptions, type MoodcodeEngine } from '../engine.js';
 import type { ProviderAdapter, TurnRequest } from '../ports.js';
 import { canonical } from '../recovery/snapshot.js';
 import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
 import { SqliteStore } from '../storage/index.js';
+import { EVIDENCE_READ_LIMITS, readEvidenceBody } from '../storage/evidence-read.js';
+import { captureToolRecoveryFrontiers } from '../storage/tool-recovery-frontier.js';
+import type { NativeSessionStorage } from '../storage/native.js';
+import { retainBackendFixture } from '../agent-backends/fixtures/backend.js';
 
 const phases = ['proposal-only', 'requested', 'awaiting-approval', 'running-intent', 'execute-entered', 'mcp-response-terminal', 'mcp-not-dispatched'] as const;
 type Phase = typeof phases[number];
@@ -52,8 +56,14 @@ async function crash(t: TestContext, phase: Phase) {
   const worker = process.env.MOODCODE_TOOL_FRONTIER_WORKER ?? (import.meta.url.endsWith('.ts') ? sourceWorker : compiledWorker);
   const child = spawn(process.execPath, [...(worker.endsWith('.ts') ? ['--import', 'tsx'] : []), worker, directory, phase, url], { stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
   let stderr = '', exited = false, engine: MoodcodeEngine | undefined; child.stderr?.on('data', data => { stderr += String(data).slice(0, 4096); });
+  const engines = new Set<MoodcodeEngine>();
   const exit = new Promise<void>(resolve => child.once('exit', () => { exited = true; resolve(); }));
-  t.after(async () => { if (!exited) child.kill('SIGKILL'); await exit; await engine?.close(); peer.closeAllConnections(); await new Promise<void>(resolve => peer.close(() => resolve())); await rm(directory, { recursive: true, force: true }); });
+  t.after(async () => {
+    let ownerExitError: { error: unknown } | undefined;
+    try { if (!exited) child.kill('SIGKILL'); await exit; } catch (error) { ownerExitError = { error }; }
+    try { peer.closeAllConnections(); await new Promise<void>((resolve, reject) => peer.close(error => error ? reject(error) : resolve())); } catch (error) { ownerExitError ??= { error }; }
+    await retainBackendFixture(t, directory, engines, { originalAfterHookObserved: false, ownerExitError });
+  });
   const selected = await new Promise<Stopped>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`Private frontier timed out: ${phase}; ${stderr}`)), 10000);
     child.once('exit', () => { clearTimeout(timer); reject(new Error(`Private frontier worker exited early: ${phase}; ${stderr}`)); });
@@ -79,8 +89,9 @@ async function crash(t: TestContext, phase: Phase) {
   const provider: ProviderAdapter = { id: 'private-frontier', async *streamTurn(request) { modelRequests.push(structuredClone(request)); yield { type: 'text.delta', delta: 'Explicit private successor.' }; yield { type: 'finish', reason: 'stop' }; } };
   const options: EngineOptions = { dbPath, artifactDir, providers: [provider], tools: [], defaults: { providerId: provider.id, modelId: 'private-model', mode: 'build', limits: { maxContextBytes: 262144 } } };
   engine = construct(options, () => snapshots++);
-  return { directory, dbPath, artifactDir, reader, selected, before, options, modelRequests, remoteCalls: () => remoteCalls, snapshots: () => snapshots, callbacks: () => callbacks,
-    get engine() { return engine!; }, async restart() { await engine!.close(); engine = construct(options, () => snapshots++); },
+  engines.add(engine);
+  return { directory, dbPath, artifactDir, reader, selected, before, options, engines, modelRequests, remoteCalls: () => remoteCalls, snapshots: () => snapshots, callbacks: () => callbacks,
+    get engine() { return engine!; }, async restart() { await engine!.close(); engine = construct(options, () => snapshots++); engines.add(engine); },
     async maintenance() { return engine!.coordinator.withWorkspaceLease('workspace', async () => { callbacks++; return 'private maintenance observation'; }); },
   };
 }
@@ -150,6 +161,7 @@ for (const phase of phases) test(`actual native frontier ${phase} survives SIGKI
     const archived = await exportEngineArchive({ dbPath: f.dbPath, artifactDir: f.artifactDir, destination: join(f.directory, 'archive') });
     const imported = await importEngineArchive({ directory: archived.directory, destination: join(f.directory, 'imported') });
     const restored = construct({ ...f.options, dbPath: imported.dbPath, artifactDir: imported.artifactDir }, () => assert.fail('Imported tool recovery cannot use whole snapshots'));
+    f.engines.add(restored);
     try {
       assert.equal(restored.store.hasUncertainWorkspace('workspace'), true); assert.equal(restored.store.getTurn(turn.id).uncertainty?.kind, 'tool_effect');
       assert.throws(() => restored.scheduler.resume('session'), code('CLEANUP_PENDING')); assert.equal(restored.store.getSessionControl('session').paused, true);
@@ -176,4 +188,82 @@ for (const phase of phases) test(`actual native frontier ${phase} survives SIGKI
   assert.equal(Number(f.reader.prepare('SELECT count(*) AS n FROM summary_recovery_acknowledgments').get()!.n), 0);
   assert.equal(f.remoteCalls(), phase === 'mcp-response-terminal' ? 1 : 0); assert.equal(f.snapshots(), 0);
   t.diagnostic(JSON.stringify({ phase, callbackEntered: phase === 'execute-entered', externalEffectProof: false, originalExactRetryReplayed: false, workspaceBlocked: unsafe(phase), modelCallsAfterRestart: f.modelRequests.length, remoteCalls: f.remoteCalls(), automaticAcknowledgments: 0, wholeSnapshots: f.snapshots() }));
+});
+
+/** Authored native intent rows exercise proof reads; no provider or command is launched. */
+async function acpEvidenceFixture(t: TestContext, toolCount: number) {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-acp-frontier-evidence-')));
+  const store = new SqliteStore(join(directory, 'engine.sqlite')), db = Reflect.get(store, 'db') as DatabaseSync;
+  t.after(async () => {
+    let closeError: unknown, closed = false;
+    try { await store.closeAsync(); closed = true; } catch (error) { closeError = error; }
+    try { await writeFile(join(directory, 'fixture-retention.json'), JSON.stringify({ schemaVersion: 1, kind: 'acp-frontier-evidence-retention', directory, storeClosed: closed, nativeCleanupConfirmed: null, databaseRemoved: false }) + '\n', { flag: 'wx', mode: 0o600 }); } catch { /* Preserve original close rejection. */ }
+    if (closeError) throw closeError;
+  });
+  const createdAt = new Date().toISOString();
+  store.putWorkspace({ id: 'workspace', root: directory, gitRoot: directory, branch: null, createdAt });
+  store.createSession({ id: 'session', workspaceId: 'workspace', title: 'Authored ACP evidence', createdAt });
+  const accepted = store.acceptInput({ sessionId: 'session', requestId: 'intent', prompt: 'Persisted intent grants no execution', delivery: 'queue', config: { providerId: 'acp:fixture', modelId: 'fixture', mode: 'build', limits: { ...DEFAULT_LIMITS } } });
+  const run = store.promoteInput(accepted.inputId).run;
+  store.commit(run.id, 'run.started', {}, { run: { state: 'running' } });
+  const turn: TurnRecord = { schemaVersion: 2, id: 'turn', sessionId: 'session', runId: run.id, inputIds: [accepted.inputId], index: 0, state: 'created', createdAt };
+  store.putTurn(turn); store.putTurn({ ...turn, state: 'streaming' });
+  const attempt: ProviderAttempt = { schemaVersion: 2, id: 'attempt', sessionId: 'session', runId: run.id, turnId: turn.id, index: 0, providerId: 'acp:fixture', modelId: 'fixture', state: 'prepared', createdAt };
+  store.putAttempt(attempt); store.putAttempt({ ...attempt, state: 'dispatched', dispatchedAt: createdAt });
+  for (let index = 0; index < toolCount; index++) {
+    const tool: ToolCallRecord = { id: `tool-${index}`, sessionId: 'session', runId: run.id, name: 'run_command', input: { command: 'authored intent only', timeoutMs: 1000 }, state: 'running' };
+    store.commit(run.id, 'tool.running', { toolCallId: tool.id }, { tool });
+    const part: MessagePart = { schemaVersion: 2, id: `part-${index}`, sessionId: 'session', runId: run.id, turnId: turn.id, messageId: 'intent-message', index, revision: 0, type: 'tool', toolCallId: tool.id, providerCallId: `provider-${index}`, name: tool.name, input: tool.input, state: 'open', createdAt };
+    store.putPart(part);
+    const refs = { turnId: turn.id, attemptId: attempt.id };
+    store.commitRunObservation(run.id, 'backend.client_effect_proposed', { toolCallId: tool.id, providerToolCallId: part.providerCallId, effectMethod: 'terminal/create' }, refs);
+    store.commitRunObservation(run.id, 'backend.client_effect_dispatched', { toolCallId: tool.id, providerToolCallId: part.providerCallId, inputSha256: createHash('sha256').update(canonical(tool.input)).digest('hex') }, refs);
+  }
+  const native = Reflect.get(store, 'native') as NativeSessionStorage, append = Reflect.get(store, 'append') as (...args: unknown[]) => EngineEvent;
+  const capture = () => captureToolRecoveryFrontiers(native, { getMcpExecution() { throw new Error('Authored ACP intent has no MCP execution'); }, appendLegacy: (...args) => Reflect.apply(append, store, args) });
+  const journal = () => createHash('sha256').update(JSON.stringify(['tools','message_parts','session_turns','provider_attempts','events','session_events','session_sequences'].map(table => db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()))).digest('hex');
+  let copiedEventBodies = 0;
+  const prepare = db.prepare.bind(db);
+  t.mock.method(db, 'prepare', (sql: string) => {
+    const statement = prepare(sql);
+    if (sql.startsWith('SELECT data FROM session_events WHERE')) {
+      const get = statement.get.bind(statement);
+      t.mock.method(statement, 'get', (...args: Parameters<typeof statement.get>) => { const row = get(...args); if (row) copiedEventBodies++; return row; });
+    }
+    return statement;
+  });
+  const rollback = new Error('Preserve authored Original journals');
+  const observe = (operation: () => void) => {
+    const before = journal();
+    assert.throws(() => store.readExecutionObservationEvidence(() => { operation(); throw rollback; }), error => error === rollback);
+    assert.equal(journal(), before, 'Proof-only inspection rolls back every audit and preserves original owner rows');
+  };
+  return { store, db, run, capture, observe, copiedEventBodies: () => copiedEventBodies };
+}
+
+test('ACP recovery rejects event-body selection before the shared transaction budget overflows', async t => {
+  const f = await acpEvidenceFixture(t, 1);
+  assert.equal(EVIDENCE_READ_LIMITS.maxSelectedBytes, 8_388_608);
+  const owners = [ ['runs', f.run.id], ['sessions', 'session'], ['workspaces', 'workspace'], ['tools', 'tool-0'], ['message_parts', 'part-0'], ['session_turns', 'turn'], ['provider_attempts', 'attempt'] ] as const;
+  const selected = owners.map(([table,key]) => ({ table, key, ...(table === 'message_parts' ? { projection: 'mcp-proposal-v1' as const } : {}), bytes: Number(f.db.prepare(`SELECT length(CAST(${table === 'message_parts' ? "json_remove(data,'$.result')" : 'data'} AS BLOB)) bytes FROM ${table} WHERE id=?`).get(key)!.bytes) }));
+  let remaining = 8_388_608 - selected.reduce((sum,row) => sum + row.bytes,0) - 64;
+  const documents: string[] = [];
+  while (remaining > 0) { const bytes = Math.min(240000,remaining), kind = `probe.budget_${documents.length}`; f.store.putSessionDocument('session',kind,0,{text:'x'.repeat(bytes-11)}); documents.push(kind); remaining -= bytes; }
+  f.observe(() => {
+    for (const {bytes,...address} of selected) readEvidenceBody(f.db,address,{expectedBytes:bytes,maxBytes:1_048_576});
+    for (const kind of documents) readEvidenceBody(f.db,{table:'session_documents',key:['session',kind]},{maxBytes:262144});
+    assert.throws(f.capture,code('RECOVERY_EVIDENCE_LIMIT'));
+  });
+  assert.equal(f.copiedEventBodies(),0,'Overflowing anchor body is rejected before SQLite copies it into JavaScript');
+});
+
+test('ACP recovery reuses exact event bodies across tools while preserving owner and no-replay intent', async t => {
+  const f = await acpEvidenceFixture(t,2);
+  f.observe(() => {
+    const frontiers = [...f.capture().values()].flat();
+    assert.equal(frontiers.length,2);
+    assert.deepEqual(frontiers.map(frontier => frontier.toolCallId),['tool-0','tool-1']);
+    for (const frontier of frontiers) { assert.equal(frontier.effectOutcome,'unknown'); assert.equal(frontier.callbackEntry,'unverified'); assert.equal(frontier.turnId,'turn'); assert.equal(frontier.attemptId,'attempt'); }
+  });
+  assert.equal(f.copiedEventBodies(),4,'Each of four genuine scoped event rows is selected once, even when both tools inspect the same attempt');
 });

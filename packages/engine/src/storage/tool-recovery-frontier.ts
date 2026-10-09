@@ -141,7 +141,18 @@ export function captureToolRecoveryFrontiers(native: NativeSessionStorage, optio
         // a generic streaming proposal alone cannot establish callback ownership.
         let sameAttemptClientEffect=false;
         if(turn.state==='streaming'&&['dispatched','streaming'].includes(attempt.state)&&attempt.providerId.startsWith('acp:')&&part.state==='open'){
-          const anchors=(type:string)=>{const headers=db.prepare("SELECT seq,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND run_id=? AND turn_id=? AND attempt_id=? AND type=? LIMIT 129").all(run.sessionId,run.id,turn.id,attempt.id,type);if(headers.length>128)fail('LIMIT','Client effect source anchors exceed the bounded capture');return headers.map(header=>{bytes(header.bytes);const raw=db.prepare('SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?').get(run.sessionId,Number(header.seq),Number(header.bytes));if(!raw)fail('SOURCE_CHANGED','Original client effect anchor changed');return JSON.parse(String(raw.data)).payload as JsonObject;});};
+          const anchors=(type:string)=>{
+            const headers=db.prepare("SELECT CASE WHEN length(CAST(event_id AS BLOB))<=256 THEN event_id END AS event_id,seq,session_id,run_id,turn_id,attempt_id,type,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND run_id=? AND turn_id=? AND attempt_id=? AND type=? LIMIT 129").all(run.sessionId,run.id,turn.id,attempt.id,type);
+            if(headers.length>128)fail('LIMIT','Client effect source anchors exceed the bounded capture');
+            return headers.map(header=>{
+              if(!id(header.event_id)||!Number.isSafeInteger(header.seq)||Number(header.seq)<1||header.session_id!==run.sessionId||header.run_id!==run.id||header.turn_id!==turn.id||header.attempt_id!==attempt.id||header.type!==type)fail('BINDING_MISMATCH','Client effect anchor SQL owner is inconsistent');
+              const raw=readEvidenceBody(db,{table:'session_events',key:header.event_id},{expectedBytes:bytes(header.bytes),maxBytes:TOOL_RECOVERY_FRONTIER_LIMITS.maxOwnerBytes});
+              if(raw===undefined)fail('SOURCE_CHANGED','Original client effect anchor changed');
+              const event:unknown=JSON.parse(raw);
+              if(!object(event)||event.eventId!==header.event_id||event.seq!==header.seq||event.sessionId!==header.session_id||event.runId!==header.run_id||event.turnId!==header.turn_id||event.attemptId!==header.attempt_id||event.type!==header.type||!object(event.payload))fail('BINDING_MISMATCH','Client effect anchor payload disagrees with its SQL owner');
+              return event.payload as JsonObject;
+            });
+          };
           const proposed=anchors('backend.client_effect_proposed').some(value=>value.toolCallId===tool.id&&value.providerToolCallId===part.providerCallId&&(value.effectMethod==='terminal/create'||value.effectMethod==='fs/write_text_file'));
           const dispatched=anchors('backend.client_effect_dispatched').some(value=>value.toolCallId===tool.id&&value.providerToolCallId===part.providerCallId&&value.inputSha256===digest(tool.input));
           sameAttemptClientEffect=proposed&&dispatched;

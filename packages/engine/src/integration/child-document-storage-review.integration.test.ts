@@ -13,7 +13,11 @@ import { createEngine, type MoodcodeEngine } from '../engine.js';
 import type { ProviderAdapter } from '../ports.js';
 import { inspectInputDocumentIndex } from '../storage/input-document-index.js';
 import { SqliteStore } from '../storage/index.js';
-import { childStorageKind } from '../child-tasks/storage-binding.js';
+import { childStorageKind, validateChildStorageRecord } from '../child-tasks/storage-binding.js';
+import { retainBackendFixture } from '../agent-backends/fixtures/backend.js';
+import { nativeTeam } from '../teams/fixtures/native-team.js';
+import { residentUntil } from '../teams/fixtures/resident.js';
+import { createChildDocumentReadFrame, openChildDocumentReader, readChildDocumentIndex } from '../storage/child-document-reader.js';
 
 function deferred() {
   let resolve!: () => void;
@@ -62,7 +66,7 @@ async function fixture(t: TestContext, external: boolean, heldChild = false, cus
     configureChild: (engine: MoodcodeEngine) => { childEngine = engine; },
   };
   const engine = createEngine(options);
-  t.after(async () => { release.resolve(); childRelease.resolve(); await engine.close(); await rm(root, { recursive: true, force: true }); });
+  t.after(async () => { release.resolve(); childRelease.resolve(); await retainBackendFixture(t,root,new Set([engine,...(childEngine?[childEngine]:[])])); });
   const stamp = new Date().toISOString();
   engine.store.putWorkspace({ id: 'workspace', root: repository, gitRoot: repository, branch: null, createdAt: stamp });
   engine.store.createSession({ id: 'parent-session', workspaceId: 'workspace', title: 'Child storage review', createdAt: stamp });
@@ -257,4 +261,93 @@ test('an immutable attached reader under the child owner-file read lease observe
     reader.exec('COMMIT'); lease.exec('COMMIT');
   } finally { reader.close(); lease.close(); }
   await f.finishParent();
+});
+
+
+test('genuine multi-Run resident JSON consumes one shared budget before body reads and across children', async t => {
+  // The canonical fixture supplies the actual scheduler, managed worktrees and
+  // close proofs. Its deleting after hook is replaced by owned-handle retention.
+  const canonicalAfter: unknown[] = [];
+  const f = await nativeTeam({ after(callback: unknown) { canonicalAfter.push(callback); } } as TestContext, {
+    engine: { residentTeams: true, teamModelTools: true },
+    resident: { idleTimeoutMs: 5000, allocation: { turns: 3, toolCalls: 2, outputBytes: 8192, durationMs: 10000 } },
+    streamChild: async function* () { yield { type: 'finish', reason: 'stop' }; },
+  });
+  t.after(async () => {
+    f.parentRelease.resolve(); f.childRelease.resolve();
+    for (const release of f.childReleases) release.resolve();
+    await retainBackendFixture(t,f.base,new Set([...f.children,...f.engines]));
+  });
+  assert.equal(canonicalAfter.length,1);
+  const children: Awaited<ReturnType<typeof f.child>>[] = [];
+  for (let index=0; index<2; index++) {
+    const child=await f.child(`budget-worker-${index}`); children.push(child);
+    f.engine.bindTeamModelTools({ rootSessionId:f.session.id,teamId:f.created.record.id,memberId:child.member.memberId,generation:child.member.generation,childTaskId:child.task.id });
+    await residentUntil(()=>f.engine.inspectResidentChildTask(f.session.id,child.task.id)?.state==='idle','initial native resident Run');
+    f.send(child.member.memberId,child.member.generation,'Actual second untrusted resident input.',`budget-message-${index}`);
+    const page=f.read(child.member.memberId,child.member.generation);
+    f.engine.resumeChildTurn({ workspaceId:f.workspace.id,requestId:`budget-resume-${index}`,approved:true,page,expectedCursorRevision:page.cursor.revision });
+    await residentUntil(()=>{const resident=f.engine.inspectResidentChildTask(f.session.id,child.task.id);return resident?.state==='idle'&&resident.runs.length===2&&resident.runs.every(run=>run.state==='completed');},'second actual resident Run');
+    await f.engine.stopResidentChildTask(f.session.id,child.task.id);
+    assert.equal((Reflect.get(child.child.store,'db') as DatabaseSync).isOpen,false,'original child handle closed by the host');
+  }
+  f.parentRelease.resolve(); assert.equal((await f.engine.waitForRun(f.parent.runId)).state,'completed');
+  const records=children.map(child=>validateChildStorageRecord(f.engine.store.getSessionDocument(f.session.id,childStorageKind(child.task.id))!.data));
+  const bodyEvidence=records.map(record=>{
+    const database=record.binding.physical.database.path, original=fs.readFileSync(database), owner=fs.readFileSync(record.binding.physical.owner.path);
+    assert.ok(record.confirmedClose);
+    const db=new DatabaseSync(':memory:');
+    try {
+      const uri=pathToFileURL(database);uri.search='?mode=ro&immutable=1';db.prepare('ATTACH DATABASE ? AS proof').run(uri.href);
+      assert.equal(db.prepare('PRAGMA proof.user_version').get()!.user_version,23);
+      const resident=db.prepare("SELECT length(CAST(data AS BLOB)) AS bytes,data FROM proof.session_documents WHERE kind='engine.resident_child'").get()!;
+      const retained=JSON.parse(String(resident.data));
+      assert.equal(retained.runs.length,2);
+      const runs=retained.runs.map((run:{runId:string})=>db.prepare('SELECT length(CAST(data AS BLOB)) AS bytes,data FROM proof.runs WHERE id=?').get(run.runId)!);
+      assert.equal(Number(resident.bytes),Buffer.byteLength(String(resident.data)));
+      for (const run of runs) assert.equal(Number(run.bytes),Buffer.byteLength(String(run.data)));
+      return {database,original,owner,residentBytes:Number(resident.bytes),runBytes:runs.map((run:{bytes:unknown})=>Number(run.bytes)) as number[]};
+    } finally {db.close();}
+  });
+  const input={sessionId:f.session.id,sourceRunId:f.parent.runId,taskIds:children.map(child=>child.task.id)};
+  const full=await f.engine.getChildDocumentStorageUsage(input);
+  assert.equal(full.complete,true,JSON.stringify(full)); assert.equal(full.observedChildren,2);
+  const nativeProofBytes=bodyEvidence.reduce((bytes,child)=>bytes+child.residentBytes+child.runBytes.reduce((a,b)=>a+b,0),0);
+  const oldUnchargedBudget=full.stats.selectedMetadataBytes-nativeProofBytes+1;
+  const limited=await f.engine.getChildDocumentStorageUsage({...input,limits:{maxMetadataBytes:oldUnchargedBudget}});
+  assert.equal(limited.complete,false); assert.ok(limited.children.some(child=>child.reasons.includes('CHILD_DOCUMENT_STORAGE_METADATA_LIMIT')));
+  assert.equal(limited.stats.exhaustedReason,'CHILD_DOCUMENT_STORAGE_METADATA_LIMIT'); assert.ok(limited.stats.selectedMetadataBytes<=oldUnchargedBudget);
+  assert.equal(limited.declaredReferenceBytes.children,null); assert.equal(limited.declaredReferenceBytes.sum,null);
+
+  const originalPrepare=DatabaseSync.prototype.prepare;
+  const selectedBodies:string[]=[];
+  t.mock.method(DatabaseSync.prototype,'prepare',function(this:DatabaseSync,sql:string){
+    const statement=Reflect.apply(originalPrepare,this,[sql]);
+    return new Proxy(statement,{get(target,key){
+      const value=Reflect.get(target,key,target);
+      if(key==='get')return (...parameters:unknown[])=>{const row=Reflect.apply(value,target,parameters) as ReturnType<typeof target.get>;if(typeof row?.data==='string'&&(sql.includes("kind='engine.resident_child'")||sql.includes('state,data FROM child.runs')))selectedBodies.push(sql);return row;};
+      return typeof value==='function'?value.bind(target):value;
+    }});
+  });
+  try {
+    const proof=bodyEvidence[0]!, caps=[proof.residentBytes-1,proof.residentBytes+proof.runBytes[0]!-1,proof.residentBytes+proof.runBytes[0]!+proof.runBytes[1]!-1];
+    for (let index=0;index<caps.length;index++) {
+      selectedBodies.length=0;
+      const frame=createChildDocumentReadFrame({limits:{maxMetadataBytes:caps[index]!}});
+      const result=readChildDocumentIndex({mode:'source',record:records[0]!},frame);
+      assert.equal(result.status,'unchecked'); assert.deepEqual(result.reasons,['CHILD_DOCUMENT_STORAGE_METADATA_LIMIT']);
+      assert.equal(selectedBodies.length,index,'the body that exceeds remaining bytes must never reach a native get');
+      assert.ok(frame.stats().selectedMetadataBytes<=caps[index]!);
+    }
+  } finally {t.mock.restoreAll();}
+  const costs=records.map(record=>{const frame=createChildDocumentReadFrame();assert.equal(readChildDocumentIndex({mode:'source',record},frame).status,'observed');return frame.stats().selectedMetadataBytes;});
+  const shared=createChildDocumentReadFrame({limits:{maxMetadataBytes:costs[0]!+costs[1]!-1}});
+  assert.equal(readChildDocumentIndex({mode:'source',record:records[0]!},shared).status,'observed');
+  const last=readChildDocumentIndex({mode:'source',record:records[1]!},shared);
+  assert.equal(last.status,'unchecked'); assert.deepEqual(last.reasons,['CHILD_DOCUMENT_STORAGE_METADATA_LIMIT']);
+  assert.ok(shared.stats().selectedMetadataBytes<=shared.limits.maxMetadataBytes);
+  const cacheFrame=createChildDocumentReadFrame(),reader=openChildDocumentReader({mode:'source',record:records[0]!},cacheFrame);
+  try {const index=reader.readIndex(),before=cacheFrame.stats();assert.deepEqual(reader.readIndex(),index);const after=cacheFrame.stats();assert.equal(after.selectedMetadataBytes,before.selectedMetadataBytes);assert.equal(after.selectedRows,before.selectedRows);} finally {reader.close();}
+  for (const proof of bodyEvidence) {assert.deepEqual(fs.readFileSync(proof.database),proof.original);assert.deepEqual(fs.readFileSync(proof.database+'.owner.sqlite'),proof.owner);}
+  assert.equal((await f.engine.getChildDocumentStorageUsage(input)).complete,true);
 });

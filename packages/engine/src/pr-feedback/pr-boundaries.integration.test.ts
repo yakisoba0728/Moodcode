@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { type TestContext } from "node:test";
+import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
-import { EngineError } from "@moodcode/contracts";
+import { EngineError, type Session, type Workspace } from "@moodcode/contracts";
 import { createEngine } from "../engine.js";
+import type { ProviderAdapter } from "../ports.js";
 import {
   exportEngineArchive,
   importEngineArchive,
@@ -21,6 +26,217 @@ const posix = {
   skip: !["darwin", "linux", "freebsd"].includes(process.platform),
   timeout: 25000,
 };
+const hasCode = (code: string) => (error: unknown) =>
+  error instanceof EngineError && error.code === code;
+async function until(check: () => boolean, label: string) {
+  const deadline = Date.now() + 5000;
+  while (!check()) {
+    assert.ok(Date.now() < deadline, label);
+    await new Promise(resolve => setImmediate(resolve));
+  }
+}
+/** Real Root/SQLite/HTTP watch lifecycle without a coding Run or verification producer. */
+async function watchFixture(t: TestContext, enabled = true) {
+  const base = await realpath(await mkdtemp(join(tmpdir(), "moodcode-pr-watch-")));
+  const root = join(base, "repo"), dbPath = join(base, "engine.sqlite");
+  await mkdir(root);
+  execFileSync("git", ["init", "--quiet", "--template=", root]);
+  await writeFile(join(root, "a.ts"), "const passiveWatchSource = 1;\n");
+  const head = "a".repeat(40);
+  const remote = {
+    checks: [{ id: 1, name: "build", app: { id: 10 }, head_sha: head, status: "completed", conclusion: "failure", started_at: "2026-10-01T00:00:00Z", output: { summary: "Observed check failure" } }] as Record<string, unknown>[],
+    requests: [] as { method: string; url: string }[],
+    onRequest: null as ((request: IncomingMessage, response: ServerResponse) => boolean) | null,
+  };
+  const server = createServer((request, response) => {
+    remote.requests.push({ method: request.method!, url: request.url! });
+    if (remote.onRequest?.(request, response)) return;
+    const path = request.url!.split("?")[0]!;
+    const repository = { id: 100, name: "project", owner: { login: "acme" } };
+    let data: unknown;
+    if (path.endsWith("/pulls/1"))
+      data = { number: 1, state: "open", base: { sha: head, repo: repository }, head: { sha: head, repo: repository } };
+    else if (path.endsWith("/check-runs")) data = { total_count: remote.checks.length, check_runs: remote.checks };
+    else if (path.endsWith("/statuses") || path.endsWith("/reviews")) data = [];
+    else { response.writeHead(404); response.end("{}"); return; }
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify(data));
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const apiBase = "http://127.0.0.1:" + (server.address() as { port: number }).port;
+  let providerCalls = 0;
+  const provider: ProviderAdapter = {
+    id: "passive-watch",
+    async *streamTurn() { providerCalls++; throw new Error("Passive watch must never enter a provider"); },
+  };
+  const engine = createEngine({ dbPath, artifactDir: join(base, "artifacts"), prFeedback: enabled, prFeedbackLoopback: true, verificationTools: true, providers: [provider], defaults: { providerId: provider.id, modelId: "fixture", mode: "plan" } });
+  t.after(async () => {
+    await engine.close();
+    server.closeAllConnections();
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    await rm(base, { recursive: true, force: true });
+  });
+  const opened = await engine.dispatch({ schemaVersion: 1, commandId: randomUUID(), type: "workspace.open", payload: { path: root } });
+  assert.equal(opened.ok, true);
+  const workspace = opened.result as unknown as Workspace;
+  const created = await engine.dispatch({ schemaVersion: 1, commandId: randomUUID(), type: "session.create", payload: { workspaceId: workspace.id } });
+  assert.equal(created.ok, true);
+  const session = created.result as unknown as Session;
+  const preview = (watchId = "watch", sourceRunId: null = null) => engine.previewPrWatch({ sessionId: session.id, watchId, repository: { owner: "acme", name: "project", number: 1 }, policy: { required: [{ kind: "check", name: "build", appId: 10 }], reviews: "observe", maxRepairInputs: 1 }, config: { providerId: provider.id, modelId: "fixture", mode: "plan", limits: engine.getCapabilities().defaults.limits }, sourceRunId, apiBase });
+  const registration = (original: object, decision: "allow" | "deny" = "allow") => {
+    const description = engine.readPrWatchPreview(original);
+    return { workspaceId: workspace.id, sessionId: session.id, watchId: description.id, requestId: "register:" + description.id, expectedRevision: 0 as const, previewSha256: description.sha256, decision };
+  };
+  const register = async (watchId = "watch", sourceRunId: null = null) => {
+    const original = await preview(watchId, sourceRunId);
+    return engine.registerPrWatch(original, registration(original));
+  };
+  const pollInput = (requestId: string, watchId: string) => ({ workspaceId: workspace.id, sessionId: session.id, watchId, requestId, expectedRevision: engine.getPrWatch(workspace.id, session.id, watchId)!.revision });
+  return { base, root, dbPath, engine, workspace, session, remote, preview, registration, register, pollInput, get providerCalls() { return providerCalls; } };
+}
+async function preserveWatchEvidence(
+  f: Awaited<ReturnType<typeof watchFixture>>,
+  name: string,
+) {
+  const output = process.env.MOODCODE_PR_WATCH_EVIDENCE_DIR;
+  if (!output) return;
+  await f.engine.close();
+  const directory = join(output, name);
+  await mkdir(directory, { recursive: true });
+  await copyFile(f.dbPath, join(directory, "engine.sqlite"));
+  await copyFile(join(f.root, "a.ts"), join(directory, "source-a.ts"));
+  const db = new DatabaseSync(f.dbPath, { readOnly: true });
+  try {
+    await writeFile(join(directory, "native-evidence.json"), JSON.stringify({
+      sessionId: f.session.id,
+      workspaceId: f.workspace.id,
+      providerCalls: f.providerCalls,
+      httpRequests: f.remote.requests,
+      documents: db.prepare("SELECT kind,revision,data FROM session_documents WHERE session_id=? ORDER BY kind").all(f.session.id),
+      events: db.prepare("SELECT seq,type,data FROM session_events WHERE session_id=? ORDER BY seq").all(f.session.id),
+      inputs: db.prepare("SELECT id,state,data FROM session_inputs WHERE session_id=? ORDER BY id").all(f.session.id),
+    }, null, 2) + "\n");
+  } finally {
+    db.close();
+  }
+}
+function watchCounts(f: Awaited<ReturnType<typeof watchFixture>>) {
+  const db = new DatabaseSync(f.dbPath, { readOnly: true });
+  try {
+    const events = (type: string) => Number(db.prepare("SELECT count(*) n FROM session_events WHERE session_id=? AND type=?").get(f.session.id, type)!.n);
+    return {
+      admissions: events("pr.watch.admitted"),
+      transitions: events("pr.watch.transition"),
+      observations: events("pr.remote.observed"),
+      feedback: events("pr.feedback.admitted"),
+      duplicates: events("pr.request.duplicate"),
+      runs: Number(db.prepare("SELECT count(*) n FROM runs WHERE session_id=?").get(f.session.id)!.n),
+      inputs: Number(db.prepare("SELECT count(*) n FROM session_inputs WHERE session_id=?").get(f.session.id)!.n),
+    };
+  } finally {
+    db.close();
+  }
+}
+test(
+  "watch startup rejects a missing id and subsequent native registration can start, stop and restart",
+  posix,
+  async t => {
+    const f = await watchFixture(t);
+    f.engine.store.setSessionPaused(f.session.id, true, "user");
+    const input = { workspaceId: f.workspace.id, sessionId: f.session.id, watchId: "watch", intervalMs: 1000 };
+    const calls = f.providerCalls;
+    assert.equal(calls, 0);
+    assert.throws(() => f.engine.startPrWatch(input), hasCode("PR_WATCH_STALE"));
+    assert.equal(f.engine.getPrWatch(f.workspace.id, f.session.id, "watch"), null);
+    assert.equal(f.remote.requests.length, 0);
+    assert.deepEqual(watchCounts(f), { admissions: 0, transitions: 0, observations: 0, feedback: 0, duplicates: 0, runs: 0, inputs: 0 });
+    const registered = await f.register("watch", null);
+    assert.equal(registered.cursor, 0);
+    assert.deepEqual(f.engine.startPrWatch(input), { watchId: "watch" });
+    assert.throws(() => f.engine.startPrWatch(input), hasCode("PR_WATCH_RUNNING"));
+    await until(() => f.engine.getPrWatch(f.workspace.id, f.session.id, "watch")!.cursor === 1, "Original watch did not poll");
+    f.engine.stopPrWatch(f.workspace.id, f.session.id, "watch");
+    await new Promise(resolve => setImmediate(resolve));
+    const requests = f.remote.requests.length;
+    f.remote.checks[0]!.id = 2;
+    f.remote.checks[0]!.started_at = "2026-10-02T00:00:00Z";
+    assert.deepEqual(f.engine.startPrWatch(input), { watchId: "watch" });
+    await until(() => f.remote.requests.length > requests, "Restarted watch did not enter HTTP");
+    await until(() => f.engine.getPrWatch(f.workspace.id, f.session.id, "watch")!.cursor === 2, "Restarted watch did not settle");
+    f.engine.stopPrWatch(f.workspace.id, f.session.id, "watch");
+    assert.equal(f.engine.store.pendingInputs(f.session.id).length, 0);
+    assert.equal(f.engine.getPrWatch(f.workspace.id, f.session.id, "watch")!.revision, 3);
+    assert.deepEqual(watchCounts(f), { admissions: 1, transitions: 3, observations: 2, feedback: 2, duplicates: 0, runs: 0, inputs: 0 });
+    await f.engine.close();
+    const stoppedRequests = f.remote.requests.length;
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(f.remote.requests.length, stoppedRequests);
+    assert.equal(f.providerCalls, calls);
+    await preserveWatchEvidence(f, "missing-register-restart");
+  },
+);
+test(
+  "watch startup rejects denied and disabled native watches without HTTP or durable changes",
+  posix,
+  async t => {
+    const f = await watchFixture(t);
+    const calls = f.providerCalls;
+    assert.equal(calls, 0);
+    const deniedPreview = await f.preview("denied", null);
+    const denied = f.engine.registerPrWatch(deniedPreview, f.registration(deniedPreview, "deny"));
+    await f.register("disabled", null);
+    const disabled = f.engine.disablePrWatch(f.pollInput("disable-watch", "disabled"));
+    for (const [watchId, original] of [["denied", denied], ["disabled", disabled]] as const) {
+      assert.throws(() => f.engine.startPrWatch({ workspaceId: f.workspace.id, sessionId: f.session.id, watchId, intervalMs: 1000 }), hasCode("PR_WATCH_STALE"));
+      assert.deepEqual(f.engine.getPrWatch(f.workspace.id, f.session.id, watchId), original);
+    }
+    assert.equal(f.remote.requests.length, 0);
+    assert.equal(f.providerCalls, calls);
+    assert.equal(f.engine.store.pendingInputs(f.session.id).length, 0);
+    assert.deepEqual(watchCounts(f), { admissions: 2, transitions: 3, observations: 0, feedback: 0, duplicates: 0, runs: 0, inputs: 0 });
+    await preserveWatchEvidence(f, "denied-disabled");
+  },
+);
+test(
+  "watch startup preserves the public default-off feature error without native admission",
+  posix,
+  async t => {
+    const f = await watchFixture(t, false);
+    const calls = f.providerCalls;
+    assert.equal(calls, 0);
+    assert.throws(() => f.engine.startPrWatch({ workspaceId: f.workspace.id, sessionId: f.session.id, watchId: "watch", intervalMs: 1000 }), hasCode("PR_FEEDBACK_UNSUPPORTED"));
+    assert.equal(f.engine.getPrWatch(f.workspace.id, f.session.id, "watch"), null);
+    assert.equal(f.remote.requests.length, 0);
+    assert.equal(f.providerCalls, calls);
+    assert.deepEqual(watchCounts(f), { admissions: 0, transitions: 0, observations: 0, feedback: 0, duplicates: 0, runs: 0, inputs: 0 });
+    await preserveWatchEvidence(f, "default-off");
+  },
+);
+test(
+  "watch startup loop is drained by Root close without new HTTP or provider replay",
+  posix,
+  async t => {
+    const f = await watchFixture(t);
+    await f.register("watch", null);
+    const calls = f.providerCalls;
+    assert.equal(calls, 0);
+    let socketClosed = false;
+    f.remote.onRequest = (_request, response) => {
+      response.once("close", () => { socketClosed = true; });
+      return true;
+    };
+    f.engine.startPrWatch({ workspaceId: f.workspace.id, sessionId: f.session.id, watchId: "watch", intervalMs: 1000 });
+    await until(() => f.remote.requests.length === 1, "Original watch did not enter HTTP");
+    await f.engine.close();
+    await until(() => socketClosed, "Original HTTP response did not close");
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(f.remote.requests.length, 1);
+    assert.equal(f.providerCalls, calls);
+    assert.deepEqual(watchCounts(f), { admissions: 1, transitions: 1, observations: 0, feedback: 0, duplicates: 0, runs: 0, inputs: 0 });
+    assert.throws(() => f.engine.startPrWatch({ workspaceId: f.workspace.id, sessionId: f.session.id, watchId: "watch", intervalMs: 1000 }), hasCode("ENGINE_CLOSED"));
+    await preserveWatchEvidence(f, "root-close");
+  },
+);
 test(
   "outage and rate limit persist explicit gaps/backoff and never reuse old green for repair",
   posix,

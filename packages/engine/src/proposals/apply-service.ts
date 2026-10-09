@@ -198,8 +198,33 @@ function plain(
   return descriptors;
 }
 function actualSignal(value: unknown): asserts value is AbortSignal {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    types.isProxy(value) ||
+    Object.getPrototypeOf(value) !== AbortSignal.prototype
+  )
+    fail();
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  if (
+    Reflect.ownKeys(descriptors).some(
+      (key) =>
+        !Object.hasOwn(
+          descriptors[key as keyof typeof descriptors]!,
+          "value",
+        ) ||
+        (typeof key === "string" &&
+          [
+            "aborted",
+            "reason",
+            "addEventListener",
+            "removeEventListener",
+          ].includes(key)),
+    )
+  )
+    fail();
   try {
-    if (!value || typeof value !== "object" || types.isProxy(value)) fail();
+    // Probe the native brand only after rejecting caller-owned accessors.
     Object.getOwnPropertyDescriptor(
       AbortSignal.prototype,
       "aborted",

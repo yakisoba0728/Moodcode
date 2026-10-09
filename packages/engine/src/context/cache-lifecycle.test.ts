@@ -20,7 +20,15 @@ test('long-lived context service evicts idle instruction caches and reloads pers
     const id = 'session-' + index;
     store.createSession({ id, workspaceId: 'workspace', title: 'Long-lived fixture', createdAt });
     assert.ok((await build(id)).some(message => message.content.includes('Persist this exact workspace baseline')));
+    service.releaseContext(id);
   }
+  assert.equal(Reflect.get(service, 'history') instanceof Map, false, 'Settled sessions must not remain strongly retained by a session metadata Map');
+  assert.equal(Reflect.get(service, 'revisions') instanceof Map, false, 'The original durable revision is sufficient after an idle context is released');
+  const persisted = store.getSessionDocument('session-0', 'context.head')!;
+  assert.equal(service.revisionId('session-0'), persisted.data.revisionId);
+  assert.equal(new ContextService(store).revisionId('session-0'), persisted.data.revisionId);
+  const supplied = store.getSnapshot('session-0');
+  assert.ok((await service.build({ workspace: store.getWorkspace('workspace'), snapshot: structuredClone(supplied), config, signal })).some(message => message.content.includes('Persist this exact workspace baseline')));
   // A transient unreadable observation must reload the prior baseline even
   // after its in-memory entry was evicted. Oversized text never replaces it.
   await writeFile(join(root, 'AGENTS.md'), 'x'.repeat(32769));

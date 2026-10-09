@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
+import type { Session } from "@moodcode/contracts";
 import {
   exportEngineArchive,
   importEngineArchive,
@@ -11,7 +12,12 @@ import { teamBoardKind } from "./workflow-board.js";
 import { validateResidentTeamDatabase } from "./resident-validation.js";
 import { validateTeamDatabase } from "./store.js";
 import { nativeTeam } from "./fixtures/native-team.js";
-import { gate, failure } from "./fixtures/engine-team.js";
+import {
+  command,
+  gate,
+  failure,
+  readDatabase,
+} from "./fixtures/engine-team.js";
 import type { ProviderEvent } from "../ports.js";
 
 async function until(check: () => boolean, detail: string) {
@@ -22,7 +28,7 @@ async function until(check: () => boolean, detail: string) {
   }
 }
 test(
-  "one genuine resident child consumes two mailbox inputs as separate native Runs/Tool Parts and ACKs without closing its engine",
+  "one genuine resident child rejects a wrong-session stop and consumes two mailbox inputs as separate native Runs/Tool Parts and ACKs without closing its engine",
   { timeout: 15000 },
   async (t) => {
     const first = gate();
@@ -92,6 +98,90 @@ test(
     assert.equal(
       f.engine.children.tasks.get(f.session.id, x.task.id).state,
       "running",
+    );
+    const otherSession = await command<Session>(f.engine, "session.create", {
+      workspaceId: f.workspace.id,
+    });
+    const childDbPath = join(
+      f.configuration.worktreeDirectory ?? join(f.artifactDir, "children"),
+      x.task.id,
+      "engine.sqlite",
+    );
+    const nativeRows = (path: string, sessionId: string) =>
+      readDatabase(path, (db) =>
+        Object.fromEntries(
+          [
+            "runs",
+            "session_inputs",
+            "events",
+            "session_events",
+            "session_documents",
+          ].map((table) => [
+            table,
+            db
+              .prepare(
+                `SELECT * FROM ${table} WHERE session_id=? ORDER BY rowid`,
+              )
+              .all(sessionId),
+          ]),
+        ),
+      );
+    const observe = () => {
+      // Duration is a ticking deadline; native records pin it while these reservations stay fixed.
+      const { turns, toolCalls, outputBytes } =
+        f.engine.coordinator.getRemainingChildBudget(f.parent.runId);
+      return {
+        taskState: f.engine.children.tasks.get(f.session.id, x.task.id).state,
+        residentState: f.engine.inspectResidentChildTask(
+          f.session.id,
+          x.task.id,
+        )?.state,
+        root: nativeRows(f.dbPath, f.session.id),
+        child: nativeRows(childDbPath, x.member.owner.sessionId),
+        otherSession: nativeRows(f.dbPath, otherSession.id),
+        providerEntries: entries,
+        producerReturns: f.getProducerReturns(),
+        parentBudget: { turns, toolCalls, outputBytes },
+      };
+    };
+    const beforeWrongSession = observe();
+    await assert.rejects(
+      f.engine.stopResidentChildTask(otherSession.id, x.task.id),
+      failure("CHILD_TASK_NOT_FOUND"),
+    );
+    const afterWrongSession = observe();
+    const beforeRootEvents = beforeWrongSession.root.session_events,
+      afterRootEvents = afterWrongSession.root.session_events;
+    assert.ok(
+      beforeRootEvents,
+      "Root native events must exist before rejection",
+    );
+    assert.ok(afterRootEvents, "Root native events must exist after rejection");
+    t.diagnostic(
+      JSON.stringify({
+        wrongSessionStop: {
+          task: [beforeWrongSession.taskState, afterWrongSession.taskState],
+          resident: [
+            beforeWrongSession.residentState,
+            afterWrongSession.residentState,
+          ],
+          providerEntries: [
+            beforeWrongSession.providerEntries,
+            afterWrongSession.providerEntries,
+          ],
+          nativeEvents: [beforeRootEvents.length, afterRootEvents.length],
+        },
+      }),
+    );
+    assert.equal(
+      afterWrongSession.taskState,
+      beforeWrongSession.taskState,
+      "a rejected wrong-session stop must not cancel the actual resident task",
+    );
+    assert.deepEqual(
+      afterWrongSession,
+      beforeWrongSession,
+      "a rejected stop must preserve actual native inputs, Runs, events, storage ownership, provider cleanup and reserved budget",
     );
     const ids: string[] = [];
     for (let i = 0; i < 2; i++) {

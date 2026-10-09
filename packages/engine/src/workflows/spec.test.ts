@@ -74,6 +74,101 @@ const code =
     return true;
   };
 
+function validatorSpec(sourcePaths: string[]): WorkflowSpecInput {
+  return spec([{
+    ...stage("validate"),
+    role: "validator",
+    tools: ["run_command", "verify_changes"],
+    verification: { checkIds: ["host-check"], sourcePaths, maxRepairs: 0 },
+  }]);
+}
+
+test("validator source paths preserve exact nested paths, canonical order and immutable descriptor-safe data", () => {
+  const input = validatorSpec(["src/foo.ts", "lib/λ file.ts"]),
+    original = structuredClone(input),
+    validated = validateWorkflowSpec(input),
+    selected = validated.stages[0]!.verification!;
+  assert.deepEqual(selected.sourcePaths, ["lib/λ file.ts", "src/foo.ts"]);
+  assert.deepEqual(input, original);
+  assert.ok(Object.isFrozen(selected));
+  assert.ok(Object.isFrozen(selected.sourcePaths));
+  assert.equal(
+    validated.sha256,
+    validateWorkflowSpec(validatorSpec(["lib/λ file.ts", "src/foo.ts"])).sha256,
+  );
+  assert.deepEqual(
+    validateWorkflowSpec(validatorSpec(["é".repeat(254) + ".ts"]))
+      .stages[0]!.verification!.sourcePaths,
+    ["é".repeat(254) + ".ts"],
+  );
+  assert.throws(
+    () => validateWorkflowSpec(spec([{
+      ...input.stages[0]!,
+      verification: { ...input.stages[0]!.verification!, checkIds: ["host/check"] },
+    }])),
+    code("INVALID_WORKFLOW_SPEC"),
+  );
+  assert.throws(
+    () => validateWorkflowSpec(spec([{ ...input.stages[0]!, tools: ["run/command"] }])),
+    code("INVALID_WORKFLOW_SPEC"),
+  );
+
+  let reads = 0;
+  const accessor = validatorSpec(["seed.txt"]);
+  Object.defineProperty(accessor.stages[0]!.verification!, "sourcePaths", {
+    enumerable: true,
+    get() { reads++; return ["src/foo.ts"]; },
+  });
+  assert.throws(() => validateWorkflowSpec(accessor), code("INVALID_WORKFLOW_SPEC"));
+  assert.equal(reads, 0);
+  const proxy = validatorSpec(["seed.txt"]);
+  Object.defineProperty(proxy.stages[0]!.verification!, "sourcePaths", {
+    enumerable: true,
+    value: new Proxy(["src/foo.ts"], {
+      get() { reads++; throw new Error("Path proxy must not execute"); },
+    }),
+  });
+  assert.throws(() => validateWorkflowSpec(proxy), code("INVALID_WORKFLOW_SPEC"));
+  assert.equal(reads, 0);
+});
+
+test("validator source paths reject unsafe spellings, duplicates and existing count bounds", () => {
+  for (const path of [
+    ".", "..", "foo/../bar.ts", "./foo.ts", "foo/./bar.ts", "foo//bar.ts",
+    "/tmp/foo.ts", "C:/foo.ts", "C:\\foo.ts", "foo\\bar.ts", "foo:bar.ts",
+    ".git/config", "src/.GIT/config", "node_modules/file.js", "src/NODE_MODULES/file.js",
+    "foo\0bar.ts", "foo\nbar.ts", "foo\u007fbar.ts", "é".repeat(255) + ".ts",
+  ]) {
+    assert.throws(
+      () => validateWorkflowSpec(validatorSpec([path])),
+      code("INVALID_WORKFLOW_SPEC"),
+      JSON.stringify(path),
+    );
+  }
+  assert.throws(
+    () => validateWorkflowSpec(validatorSpec(["\ud800"])),
+    code("WORKFLOW_LIMIT"),
+  );
+  assert.throws(
+    () => validateWorkflowSpec(validatorSpec([123 as unknown as string])),
+    code("INVALID_WORKFLOW_SPEC"),
+  );
+  assert.throws(() => validateWorkflowSpec(validatorSpec([])), code("WORKFLOW_ROLE_TOOL_MISMATCH"));
+  assert.throws(
+    () => validateWorkflowSpec(validatorSpec(["seed.txt", "seed.txt"])),
+    code("WORKFLOW_LIMIT"),
+  );
+  assert.equal(
+    validateWorkflowSpec(validatorSpec(Array.from({ length: 32 }, (_, i) => `file${i}.txt`)))
+      .stages[0]!.verification!.sourcePaths.length,
+    32,
+  );
+  assert.throws(
+    () => validateWorkflowSpec(validatorSpec(Array.from({ length: 33 }, (_, i) => `file${i}.txt`))),
+    code("WORKFLOW_LIMIT"),
+  );
+});
+
 test("host workflow pins preserve explicit null profile, tool-free stages and router model IDs", () => {
   const input = spec([
     {

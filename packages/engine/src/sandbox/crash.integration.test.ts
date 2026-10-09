@@ -8,8 +8,7 @@ import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { fixture, until } from "./fixtures/engine.js";
 import { groupExists } from "../tools/command/process-control.js";
-const loader =
-  "/Users/yakisoba0728/Documents/GitHub/Moodcode/node_modules/tsx/dist/loader.mjs";
+const loader = fileURLToPath(import.meta.resolve("tsx"));
 for (const mode of ["command", "mcp"] as const)
   test(
     `actual Root SIGKILL ${mode} kills constrained descendants and native recovery never replays`,

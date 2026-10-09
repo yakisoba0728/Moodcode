@@ -1,0 +1,998 @@
+{
+  "schemaVersion": 1,
+  "kind": "whole-review-current-source-and-local-regression-progress",
+  "recordedAt": "2026-10-09T13:23:02.617544+00:00",
+  "implementationParent": "590c711c83523f132ea9c7f158fcf0db5669e7b5",
+  "historicalInventorySource": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+  "initialReview": {
+    "ownedFiles": 1092,
+    "physicalLines": 314309,
+    "initialFindings": 36,
+    "partitionMissing": 0,
+    "partitionDuplicate": 0,
+    "meaning": "actual owner reads and finite responsibility/caller/resource/compatibility maps; no proof of whole correctness"
+  },
+  "currentChangedSourcePins": [
+    {
+      "path": ".github/scripts/engine-ci.test.mjs",
+      "bytes": 22426,
+      "sha256": "088790bf9482f43deaa87952b719d8875ae42dd5077476d95d81bd4c536d5ea1"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/AdvancedConnections.tsx",
+      "bytes": 19368,
+      "sha256": "478fe6e8e35db0bc847ceeb64ee05842ccd351bbfcf475387e4dea91c1bca2d5"
+    },
+    {
+      "path": "apps/desktop/src/renderer/navigation.test.ts",
+      "bytes": 1957,
+      "sha256": "27f04a7f4b12a1937ff4f2267b5bdbede481f61ed396e6adad06d0162e604cac"
+    },
+    {
+      "path": "apps/desktop/src/renderer/navigation.ts",
+      "bytes": 1454,
+      "sha256": "43b0dfa3547b417d021d9b8231e6e9e32888dbcf88c23c63ce75fc39dff5ca2e"
+    },
+    {
+      "path": "apps/desktop/src/renderer/terminal-status.test.ts",
+      "bytes": 899,
+      "sha256": "f7c0b5784644aa84d2f310088b8317cc3aac15550031bddba54cf74b47a54eb6"
+    },
+    {
+      "path": "apps/desktop/src/renderer/terminal-status.ts",
+      "bytes": 240,
+      "sha256": "f69d552c5d6cb8d843e03875a2363f1c7d65ccfa9b8ec65a23e947859e2ce263"
+    },
+    {
+      "path": "apps/desktop/tsconfig.json",
+      "bytes": 650,
+      "sha256": "98bc9fc4c85d94c250a577ca7be2da167d659730dc5077a43faf0231376f13c9"
+    },
+    {
+      "path": "apps/engine-harness/src/cli.integration.test.ts",
+      "bytes": 14247,
+      "sha256": "9aa7414a078eada08d8601a996da58f72f4c4b71743c905075d597991adcfefa"
+    },
+    {
+      "path": "apps/engine-harness/src/responses.integration.test.ts",
+      "bytes": 27432,
+      "sha256": "abc9623f305952dd61bf6c44c8c4badd60c8086090fbd31b374b987d05446797"
+    },
+    {
+      "path": "packages/engine/src/agent-backends/client-effects-crash.integration.test.ts",
+      "bytes": 6964,
+      "sha256": "af29d06e0f48a9faaede9cc8614998887f09b94a003d03659e7a73814a00613a"
+    },
+    {
+      "path": "packages/engine/src/child-tasks/engine-host.ts",
+      "bytes": 55823,
+      "sha256": "812d7edb60f145b3c288ea93f51d54787e0373ef2d973cfacf3651b9c4276e7f"
+    },
+    {
+      "path": "packages/engine/src/code-mode/crash.integration.test.ts",
+      "bytes": 3191,
+      "sha256": "8b1fc953394c5e2a7cb2e45b900ba4ef5f4a7939bfb5f6ff0b10363a38945d58"
+    },
+    {
+      "path": "packages/engine/src/coding-runs/crash.integration.test.ts",
+      "bytes": 6122,
+      "sha256": "9e4e69129192fd3a0649436f488a7b4a8b2a04ff1399e96327eefb388ad248fd"
+    },
+    {
+      "path": "packages/engine/src/context/cache-lifecycle.test.ts",
+      "bytes": 3334,
+      "sha256": "f544e71930a43bb62fbabd554bcb86c484a0e45cba80723ffb54729722770c8f"
+    },
+    {
+      "path": "packages/engine/src/context/document-wiring-review.test.ts",
+      "bytes": 13052,
+      "sha256": "ed4a8e7ffd0405ab95305c6348cb31a737a183cf89a530976afc14e8cba0f3aa"
+    },
+    {
+      "path": "packages/engine/src/context/engine-typescript-semantic.test.ts",
+      "bytes": 33113,
+      "sha256": "15d968ac33e1460d5947f91eb10babd4377156d5178247f512014491d1a3d0c7"
+    },
+    {
+      "path": "packages/engine/src/context/knowledge-capture.test.ts",
+      "bytes": 16697,
+      "sha256": "ea6bbae5be4d7e19e1e41444e7135595e557896126b006a80a087e47e902b2c7"
+    },
+    {
+      "path": "packages/engine/src/context/service.ts",
+      "bytes": 44561,
+      "sha256": "2ddbf221fbb4b671278c6afd43cc392a9c6aabe78b4fce543a4172ddd36528bd"
+    },
+    {
+      "path": "packages/engine/src/documents/store.test.ts",
+      "bytes": 11970,
+      "sha256": "ece6e3c505ee9c17ff047d1d492639f4ac83f412f672f0f196b941b082389f93"
+    },
+    {
+      "path": "packages/engine/src/git/commit-crash.integration.test.ts",
+      "bytes": 5782,
+      "sha256": "9b06663f7f9525ebd3e8a5aacdc840867f17d8af33e031c06f94dd2759dff39d"
+    },
+    {
+      "path": "packages/engine/src/git/commit-fixture-retention.integration.test.ts",
+      "bytes": 9347,
+      "sha256": "6bc30efb8043fc78dfb78f9e8a77cb0f3a660444761eeb900940f09a79aac6d3"
+    },
+    {
+      "path": "packages/engine/src/git/commit-preview.ts",
+      "bytes": 11630,
+      "sha256": "42c29c2aefc395b435d0db898c43ce337183872d6f49ba4c3541d481e1be6f75"
+    },
+    {
+      "path": "packages/engine/src/git/commit.integration.test.ts",
+      "bytes": 11090,
+      "sha256": "baf3d568d5555e144770a4ad7e314170b7ffa8b406f5704b9928c08b316406f7"
+    },
+    {
+      "path": "packages/engine/src/git/fixtures/commit.ts",
+      "bytes": 8947,
+      "sha256": "d4254deb737fc164ea4e42c11ca805cedb5d9845c11d0f0f881a181fb3df73e3"
+    },
+    {
+      "path": "packages/engine/src/git/fixtures/crash-retention.ts",
+      "bytes": 3131,
+      "sha256": "3ec48985ff6e69bc607d8a2fce8887a8bf13d23221f79f532ebb033375888dfd"
+    },
+    {
+      "path": "packages/engine/src/gui-facade.integration.test.ts",
+      "bytes": 22597,
+      "sha256": "d2127a8727b6819d473a52594d6d7acb855ad5a74f472b8fc1115b0f51c87a20"
+    },
+    {
+      "path": "packages/engine/src/integration/child-document-storage-review.integration.test.ts",
+      "bytes": 28961,
+      "sha256": "8ed46dc3002a177c019e1e835345e3905409e7ff0a71761abe2c8e3084abd061"
+    },
+    {
+      "path": "packages/engine/src/integration/tool-recovery-frontier-review.integration.test.ts",
+      "bytes": 25815,
+      "sha256": "a63a9fd56133ed420efed39908c8bbe8236ef8d2d49816ae83a01ded19ca1154"
+    },
+    {
+      "path": "packages/engine/src/jobs/command-lifetime-boundaries.integration.test.ts",
+      "bytes": 20481,
+      "sha256": "4218c5bb9c33ce692865e503d859249411d60b0e77319db3d776fbd2b22aa96d"
+    },
+    {
+      "path": "packages/engine/src/jobs/command-lifetime.ts",
+      "bytes": 37986,
+      "sha256": "d3ec290376a0157e697733a6099c3ae6ef7c819fd9899db7979e289ad544055c"
+    },
+    {
+      "path": "packages/engine/src/jobs/fixtures/owned-command-delivery-windows.ts",
+      "bytes": 19724,
+      "sha256": "bf459817aab2d76a3fd1f5d53a29361a6653bf1b601d2006094d80bc146623f0"
+    },
+    {
+      "path": "packages/engine/src/jobs/owned-command-delivery-records.test.ts",
+      "bytes": 22514,
+      "sha256": "76c6b9d15e68731cfa71f227060ba4a9d75928e2cd877c562f10f11abef81d7e"
+    },
+    {
+      "path": "packages/engine/src/jobs/owned-command-delivery-records.ts",
+      "bytes": 33199,
+      "sha256": "765733e6829d10f8e7b93518cff00acb5fc1024d748b499022c98bf46ce9f1b3"
+    },
+    {
+      "path": "packages/engine/src/jobs/owned-command-delivery-windows.integration.test.ts",
+      "bytes": 2228,
+      "sha256": "97aec0b124e53b8a6f06100d17d3c9c2b9932835ac8ef18cfd66cdb150188fc5"
+    },
+    {
+      "path": "packages/engine/src/jobs/owned-command-records.ts",
+      "bytes": 27540,
+      "sha256": "13c7ee0b78e276ed244aec1bd84a248360133930ddb531081dae1cdbab6cc54b"
+    },
+    {
+      "path": "packages/engine/src/knowledge/context-source.test.ts",
+      "bytes": 33830,
+      "sha256": "c794d172d3dbdf93b9a980673da047a2840bf138195be75c0118079bc0d0bf80"
+    },
+    {
+      "path": "packages/engine/src/knowledge/context-source.ts",
+      "bytes": 39796,
+      "sha256": "08ed82bc58e8deaac00ed35016590b7ea947335ef0543be17f797d3ee9306ed9"
+    },
+    {
+      "path": "packages/engine/src/knowledge/file-publication-fs.test.ts",
+      "bytes": 23192,
+      "sha256": "fc3dd547b946eb318c414be47424367cf4d6fe3644a35dff30eccf991db53de8"
+    },
+    {
+      "path": "packages/engine/src/knowledge/file-publication-fs.ts",
+      "bytes": 34445,
+      "sha256": "563462a35314888f7f454e915a67a96007b3af512ca3f7733d03cc40a3b824b6"
+    },
+    {
+      "path": "packages/engine/src/lifecycle/engine-lifecycle.test.ts",
+      "bytes": 27555,
+      "sha256": "442b035905fbf1c4186678d5776f993ce94a992b70e1194e0f1bf210f64570bb"
+    },
+    {
+      "path": "packages/engine/src/media/segment-boundaries.integration.test.ts",
+      "bytes": 22997,
+      "sha256": "f92362e7a65966c02afaa8109b3086b4191505e1128e681355befec598fc4823"
+    },
+    {
+      "path": "packages/engine/src/media/segment-crash.integration.test.ts",
+      "bytes": 8126,
+      "sha256": "ef425e301f7d0d678e2ebd0a6e51e880b6a66f0499638b231d0a2fe5b7280ec0"
+    },
+    {
+      "path": "packages/engine/src/plugins/index.ts",
+      "bytes": 9010,
+      "sha256": "6151afe9f7b83e6fc0f92f2023049e62d95d62494f19b6ec5e618cf83c2895e4"
+    },
+    {
+      "path": "packages/engine/src/plugins/plugins.test.ts",
+      "bytes": 11309,
+      "sha256": "46d19b39ac7b9cc83c1b2421942eb827fd548fc31d25f892d1de6e586528b1e9"
+    },
+    {
+      "path": "packages/engine/src/pr-feedback/host.ts",
+      "bytes": 25452,
+      "sha256": "35b20ab190ca0110bc62969f95150f77e438e3bf7a40f53a518c55c137112b2b"
+    },
+    {
+      "path": "packages/engine/src/pr-feedback/pr-boundaries.integration.test.ts",
+      "bytes": 27628,
+      "sha256": "56b94fd28347fd8009770a652190734f69b33906a51ee87079d9bdb798880aab"
+    },
+    {
+      "path": "packages/engine/src/pr-feedback/pr-watch.test.ts",
+      "bytes": 4642,
+      "sha256": "3b467d8802352766b261c2849b7fdb01dbf02954e9fbf9e6bffc9dac7fdabc31"
+    },
+    {
+      "path": "packages/engine/src/proposals/apply-service.test.ts",
+      "bytes": 28287,
+      "sha256": "baf927991d6737b2ee9ad0eaf53e558ced1d35889c618377b1099583c21b0f80"
+    },
+    {
+      "path": "packages/engine/src/proposals/apply-service.ts",
+      "bytes": 23976,
+      "sha256": "119901fdf100f164dadf0085911732f981cdb35cfeca13db31bf6b7283679362"
+    },
+    {
+      "path": "packages/engine/src/provider/codex.test.ts",
+      "bytes": 37942,
+      "sha256": "a78912b861a7eebeca34fbdeba305ec3ade5ef44947dca63c88e470280db8dd4"
+    },
+    {
+      "path": "packages/engine/src/provider/responses.test.ts",
+      "bytes": 65295,
+      "sha256": "7875a2a9f3feb28ab16bd6f99d4ab62047307238fd2fb5d6e0f662e5484466ee"
+    },
+    {
+      "path": "packages/engine/src/provider/responses.ts",
+      "bytes": 35706,
+      "sha256": "0d7f6a9509bc9a680c7e69dbf586283eed3c0fe68ca2e0e3a2318a119d9f28a2"
+    },
+    {
+      "path": "packages/engine/src/recovery/provider-evidence.test.ts",
+      "bytes": 36358,
+      "sha256": "7d13346c524357dd7845cdbc57ce72cf3704aa8108bce728c52b9efcc549788f"
+    },
+    {
+      "path": "packages/engine/src/recovery/provider-evidence.ts",
+      "bytes": 38501,
+      "sha256": "03049480544067b5df541ae0a2f09855f5fc935815226e1ca5f2d337deca373f"
+    },
+    {
+      "path": "packages/engine/src/runner/backend-client-read.integration.test.ts",
+      "bytes": 24725,
+      "sha256": "1bba5128779a885e17232b6be33ebed97e765490f5c574ff82842e40cefbc3c1"
+    },
+    {
+      "path": "packages/engine/src/runner/lifecycle-integration.test.ts",
+      "bytes": 33887,
+      "sha256": "7990b60749549356458b502d0a98a7818a04388d8e75a8f7aa6686a26ae894ea"
+    },
+    {
+      "path": "packages/engine/src/runner/maintenance-integration.test.ts",
+      "bytes": 24136,
+      "sha256": "0ffa318983f78329ed068f07d664b5e7ad85dad7b54ffd93682f45be129536fc"
+    },
+    {
+      "path": "packages/engine/src/runner/native-execution.test.ts",
+      "bytes": 40975,
+      "sha256": "8f2c606841b3323517062b145107b8041c7fba0f1bde3fa9878c9de105d15b81"
+    },
+    {
+      "path": "packages/engine/src/sandbox/crash.integration.test.ts",
+      "bytes": 4662,
+      "sha256": "3b08b96d3a6e147cc6d94b0984172770ad8c17dbc3742e7fc6a7ee9609712ae1"
+    },
+    {
+      "path": "packages/engine/src/sandbox/fixtures/engine.test.ts",
+      "bytes": 6085,
+      "sha256": "a4c8cdece791ae19972a74036af0be76b02b2399aa367472f16bd40cf70cca9c"
+    },
+    {
+      "path": "packages/engine/src/sandbox/fixtures/engine.ts",
+      "bytes": 9708,
+      "sha256": "70661b120fa38555842b891575a0ccc21f1ed9c9b0e8104ac4e070e629b4d943"
+    },
+    {
+      "path": "packages/engine/src/sandbox/host.ts",
+      "bytes": 26918,
+      "sha256": "4590b999da2f064258be5c6c6a984b7e8c37d070cb98617cf224b6909120abf7"
+    },
+    {
+      "path": "packages/engine/src/sessions/fork-boundaries.integration.test.ts",
+      "bytes": 13049,
+      "sha256": "1404d8a0c365dede772085ba95c89360294f1ad94d7657c03c40f8900ba48fe3"
+    },
+    {
+      "path": "packages/engine/src/sessions/fork-native.ts",
+      "bytes": 25485,
+      "sha256": "f00da8d7ecb1b02de52e324d57cc6610152c66803eb98c25fb848d76c00a8495"
+    },
+    {
+      "path": "packages/engine/src/storage/child-document-reader.test.ts",
+      "bytes": 14555,
+      "sha256": "8f22b019e966e66532670b07b1ca7abe4ae40019f9d8331ec1af78fa75ee7c06"
+    },
+    {
+      "path": "packages/engine/src/storage/child-document-reader.ts",
+      "bytes": 27995,
+      "sha256": "2c6bf639af126490a6ba251152ddc5a219b152348c4cfc20e923c358762e2aac"
+    },
+    {
+      "path": "packages/engine/src/storage/tool-recovery-frontier.ts",
+      "bytes": 19433,
+      "sha256": "d21418d1e71870b894c954d45fef489bd7a72426cb0a22b4750ece0faa28dd96"
+    },
+    {
+      "path": "packages/engine/src/teams/resident.integration.test.ts",
+      "bytes": 18157,
+      "sha256": "bd4c142fb8153ce54a5c59a9db94e03507f00943607f1dba378a1ac25173dae1"
+    },
+    {
+      "path": "packages/engine/src/terminals/journal.ts",
+      "bytes": 7772,
+      "sha256": "0eba1cac2b45e37abd0d31b1545c8bfe5c5c9a4f038b48a78ba0b996ed1c9ab8"
+    },
+    {
+      "path": "packages/engine/src/terminals/terminals.test.ts",
+      "bytes": 23603,
+      "sha256": "5afdceed50e784c940ac3db49d722c3c24ad18093b0db0f0b587c281c66a768c"
+    },
+    {
+      "path": "packages/engine/src/tools/command/command.test.ts",
+      "bytes": 39832,
+      "sha256": "2005e9e1dce67bbdb84b658d0c1d5cb7150b7f156ce3d4c43594e9d860223100"
+    },
+    {
+      "path": "packages/engine/src/tools/command/windows-native-test-helpers.fixture.ts",
+      "bytes": 3185,
+      "sha256": "71462e1714ccb627574612690c297bc66060104446aa16db1c7613737018ff1d"
+    },
+    {
+      "path": "packages/engine/src/workflows/effects.integration.test.ts",
+      "bytes": 29480,
+      "sha256": "0a66cc49e04a3742fd2955e174af2bdb597f8e151653a3bf875de51f9b3c1853"
+    },
+    {
+      "path": "packages/engine/src/workflows/engine-workflows.integration.test.ts",
+      "bytes": 24873,
+      "sha256": "fccaa4f5a68f13d021994e1df096c1a1e4c7e5a6cade9e0545cded92f476e8ab"
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/effects-data.ts",
+      "bytes": 2039,
+      "sha256": "c8886a6cdd38bd3a265a92575d397e69227fe6a90732d0f91fb209b471370cd9"
+    },
+    {
+      "path": "packages/engine/src/workflows/fixtures/effects.ts",
+      "bytes": 14571,
+      "sha256": "7924a2c57a2c71db5a30213d86564c1ec94116316198e5ce382a7b8ff28e4500"
+    },
+    {
+      "path": "packages/engine/src/workflows/service.ts",
+      "bytes": 19395,
+      "sha256": "1ab173c6b4a31c1963ac368ee6d84d56686d2a51ec4b21c21276d73c67deb8f8"
+    },
+    {
+      "path": "packages/engine/src/workflows/spec.test.ts",
+      "bytes": 23897,
+      "sha256": "944077fe9c3f6477af442e37db616e0574f63fed7367caff9ad47c9b1a8176f1"
+    },
+    {
+      "path": "packages/engine/src/workflows/spec.ts",
+      "bytes": 20861,
+      "sha256": "754f8c54ffe38b5a04df360c3c386ed2ff57ed0129bffe1366b0fbe5bcdc5e56"
+    },
+    {
+      "path": "scripts/verify-windows-job.mjs",
+      "bytes": 1633,
+      "sha256": "46f023f6d6f462a2daeda0467ed5d38d9ac591817125f2fd144c2b1fb26c2d2a"
+    }
+  ],
+  "findingDispositions": [
+    {
+      "id": "CCTX-001",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CSTORE-001",
+      "currentDisposition": "named-retain-unproved-native-close-path",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CEXEC-FIXTURE-001",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CSTORE-002",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CSTORE-003",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CCTX-002",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CCTX-003",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CCTX-004",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CROOT-HARNESS-001",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CROOT-ENGINE002",
+      "currentDisposition": "retain-trusted-host-invalid-options-diagnostic",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CEXEC-PORTABLE001",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CEXEC-FIXTURE002",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "DP-MCP-STDIO-CLOSE-01",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "DP-RESILIENCE-TEMP-01",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "DP-PLUGIN-DEACTIVATE-01",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "DP-WINDOWS-NAVIGATION-01",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "DP-TERMINAL-UNKNOWN-LABEL-01",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "DP-DOCUMENT-REOPEN-TEARDOWN-01",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "DP-MEDIA-CRASH-CHILD-TEARDOWN-01",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "DP-MEDIA-CAPACITY-DB-TEARDOWN-01",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "DP-PROVIDER-REQUEST-ID-REDACTION-01",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CO-001",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "CO-002",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "TC-01",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "WF-001",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "WF-002",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "PT-001",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "PT-002",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "PT-RF02-001",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "PT-003",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "PT-004",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "COMMANDS-001",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "COMMANDS-002",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "AUTO-PR-001",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "PSR-APPLY-SIGNAL-ACCESSOR",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    },
+    {
+      "id": "KCTX-001",
+      "currentDisposition": "implemented; scoped-source-review-and-common-local-compiled-gate-pass; actual-OS-gates-pending",
+      "historicalInitialDispositionPreservedIn": "next-full-review-plan.json"
+    }
+  ],
+  "independentReports": [
+    {
+      "path": "artifacts/next-continuation/final-audit/full-review-maps-independent.json",
+      "bytes": 121186,
+      "sha256": "de29585091a36c323a47f430ed1d3e47f02700b165ea255b98da008c45a54796"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/core-media-independent-review.json",
+      "bytes": 129171,
+      "sha256": "78639092d0fb73a362eb22747733e42849486afdf103f0d91c561aee3f4b6a33"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/core-final-fixes-independent-review.json",
+      "bytes": 1162555,
+      "sha256": "83da2463016df5052f3b44e65cb88b1abdd5b5eacc61789c1dfaf81046dded84"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/native-fixes-independent-review.json",
+      "bytes": 571729,
+      "sha256": "60de6dcc330fef4c61c7b1e2f29a60e5b1231df17b42f2a8f564e76a1d9fbefe"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/dp-followup-seven-independent-review.json",
+      "bytes": 56725,
+      "sha256": "6cf3de1879e76415e28c9199d8459450fcf4efaceb8f60ef44fe6d9d1a97f1d6"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/automation-fixes-independent-review.json",
+      "bytes": 75038,
+      "sha256": "45b2231de62b09f0bf424ac87b27376c763e3200e0d320fb374294c7e875ed7a"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/automation-fixes-build-registration-addendum.json",
+      "bytes": 18970,
+      "sha256": "5df9e756d60c05031249f1649a9c9269fd41993faa9d0e478d6591f8c6345f11"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/native-fixes-final-pin-addendum.json",
+      "bytes": 18049,
+      "sha256": "3577a56a0718fcbb4b45d291ce1454d4e2eadf68464c397d9e17f166f0d4acef"
+    }
+  ],
+  "independentReportAvailability": "Exact raw independent reports and retained Originals remain local in ignored artifacts; these pins do not publish their contents. Old reports are not overwritten by later source acceptance.",
+  "localGates": {
+    "build-2": {
+      "completedAt": "2026-10-09T13:09:10.484711+00:00",
+      "exitCode": 0,
+      "sourceInputs": 1119,
+      "inputDrift": [],
+      "sourceStable": true,
+      "log": {
+        "path": "artifacts/next-continuation/full-review/integration/build-2.log",
+        "bytes": 34,
+        "sha256": "44e357c050e1abb371c32e097544ec13b0b9195e0930601c6afb09df82741cc9"
+      },
+      "firstFailedBuildPreserved": "build.log",
+      "qualification": "Shared TypeScript project build; renderer noEmit/bundle and test execution remain separate",
+      "rawReceipt": {
+        "path": "artifacts/next-continuation/full-review/integration/build-2.json"
+      },
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ]
+    },
+    "compiled-full": {
+      "completedAt": "2026-10-09T13:14:07.985Z",
+      "outcome": {
+        "code": 0,
+        "signal": null
+      },
+      "inputDrift": [],
+      "sourceStable": true,
+      "summary": {
+        "tests": 5243,
+        "suites": 0,
+        "pass": 5240,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 3,
+        "todo": 0,
+        "duration_ms": 297165.10275
+      },
+      "log": {
+        "path": "artifacts/next-continuation/full-review/integration/compiled-full.log",
+        "bytes": 1500748,
+        "sha256": "f318a7e773806c917a212767aea9476d6a8959ed4842ce502c3f0a9d3186b8cb"
+      },
+      "passed": true,
+      "qualification": "Actual local gate only; external accounts and OS CI acceptance are separate.",
+      "rawReceipt": {
+        "path": "artifacts/next-continuation/full-review/integration/compiled-full.json"
+      },
+      "selectedTestFiles": 478,
+      "actualCommandPrefix": [
+        "/usr/local/bin/node",
+        "--test",
+        "--test-reporter=tap",
+        "--test-concurrency=4",
+        "/Users/yakisoba0728/Documents/GitHub/Moodcode/apps/desktop/dist/types/main/accounts.test.js"
+      ],
+      "observedSourceAndCompiledInputFiles": 3082
+    },
+    "scripts-followup": {
+      "completedAt": "2026-10-09T13:09:54.260Z",
+      "outcome": {
+        "code": 0,
+        "signal": null
+      },
+      "inputDrift": [],
+      "sourceStable": true,
+      "summary": {
+        "tests": 13,
+        "suites": 0,
+        "pass": 13,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 1397.400584
+      },
+      "log": {
+        "path": "artifacts/next-continuation/full-review/integration/scripts-followup.log",
+        "bytes": 3571,
+        "sha256": "1c892df786db903480dba8b4889b2e79b9de274dc8ae46e2c4e8c327ce30513b"
+      },
+      "passed": true,
+      "qualification": "Actual local gate only; external accounts and OS CI acceptance are separate.",
+      "rawReceipt": {
+        "path": "artifacts/next-continuation/full-review/integration/scripts-followup.json"
+      },
+      "command": [
+        "/usr/local/bin/node",
+        "--test",
+        "--test-reporter=tap",
+        "--test-concurrency=2",
+        ".github/scripts/engine-ci.test.mjs",
+        "scripts/verify-engine-resilience.test.mjs"
+      ]
+    },
+    "db-contract": {
+      "completedAt": "2026-10-09T13:11:31.951Z",
+      "outcome": {
+        "code": 0,
+        "signal": null
+      },
+      "inputDrift": [],
+      "sourceStable": true,
+      "summary": {},
+      "log": {
+        "path": "artifacts/next-continuation/full-review/integration/db-contract.log",
+        "bytes": 90681,
+        "sha256": "e514fcfabfaae94d7309ee1a57e459410352ffbb5f1ef3d3cc20189f23b4c659"
+      },
+      "passed": true,
+      "qualification": "Actual local gate only; external accounts and OS CI acceptance are separate.",
+      "rawReceipt": {
+        "path": "artifacts/next-continuation/full-review/integration/db-contract.json"
+      },
+      "command": [
+        "/usr/local/bin/node",
+        "scripts/inspect-engine-db-contract.mjs",
+        "--runtime",
+        "compiled",
+        "--compare",
+        "docs/moodcode/next-db-contract-baseline.json",
+        "--report",
+        "artifacts/next-continuation/full-review/integration/db-current.json"
+      ]
+    },
+    "coding": {
+      "completedAt": "2026-10-09T13:15:21.138Z",
+      "outcome": {
+        "code": 0,
+        "signal": null
+      },
+      "inputDrift": [],
+      "sourceStable": true,
+      "summary": {},
+      "log": {
+        "path": "artifacts/next-continuation/full-review/integration/coding.log",
+        "bytes": 320210,
+        "sha256": "f9d69f9c437c5a877420befe1bc089f5f9b2593e31d364b70b7ecb0dec8184b9"
+      },
+      "passed": true,
+      "qualification": "Actual local gate only; external accounts and OS CI acceptance are separate.",
+      "rawReceipt": {
+        "path": "artifacts/next-continuation/full-review/integration/coding.json"
+      },
+      "command": [
+        "/usr/local/bin/node",
+        "scripts/evaluate-engine.mjs",
+        "--runtime",
+        "compiled",
+        "--seed",
+        "20261009",
+        "--commit",
+        "approved"
+      ],
+      "nativeReportPassed": true,
+      "sourceRuntimeStable": true,
+      "nativeCases": 3
+    },
+    "resilience-quick": {
+      "completedAt": "2026-10-09T13:15:18.271Z",
+      "outcome": {
+        "code": 0,
+        "signal": null
+      },
+      "inputDrift": [],
+      "sourceStable": true,
+      "summary": {},
+      "log": {
+        "path": "artifacts/next-continuation/full-review/integration/resilience-quick.log",
+        "bytes": 21560,
+        "sha256": "0e7866e559186c6591f8f0568c07bcbbff77ad4cf3b98c9f61d5a51a818294d9"
+      },
+      "passed": true,
+      "qualification": "Actual local gate only; external accounts and OS CI acceptance are separate.",
+      "rawReceipt": {
+        "path": "artifacts/next-continuation/full-review/integration/resilience-quick.json"
+      },
+      "command": [
+        "/usr/local/bin/node",
+        "scripts/verify-engine-resilience.mjs",
+        "--profile",
+        "quick",
+        "--runtime",
+        "compiled",
+        "--seed",
+        "20261009",
+        "--report",
+        "artifacts/next-continuation/full-review/integration/resilience-current.json"
+      ],
+      "nativeReportPassed": true,
+      "sourceRuntimeStable": null,
+      "nativeCases": 3
+    },
+    "benchmark-quick": {
+      "passed": true,
+      "outcome": {
+        "code": 0,
+        "signal": null
+      },
+      "sourceStable": true,
+      "log": {
+        "path": "artifacts/next-continuation/full-review/integration/benchmark-quick.log",
+        "bytes": 321378,
+        "sha256": "066ec925a880f7c16123202ef720264c91b7c637656b4dd0a5811a3ed355917c"
+      },
+      "parameters": {
+        "runs": 24,
+        "messageBytes": 256,
+        "samples": 5,
+        "warmup": 1,
+        "runtime": "compiled",
+        "profile": "quick",
+        "seed": 20261009
+      },
+      "sourceRuntimeStable": true,
+      "nativeFixture": {
+        "seed": 20261009,
+        "inputRuns": 24,
+        "persistedMessages": 48,
+        "messageUtf8Bytes": 256,
+        "promptSha256": "66786f73cb473e4a74a3df5bfbcf3243bd773b7906d55617328a820a2b2fe065",
+        "seedElapsedMs": 193.925,
+        "seedRunLatency": {
+          "count": 24,
+          "min": 6.277,
+          "p50": 7.13,
+          "p95": 10.041,
+          "p99": 20.105,
+          "max": 20.105,
+          "mean": 8.075,
+          "method": "nearest-rank",
+          "unit": "milliseconds"
+        },
+        "creation": "actual Engine run.submit/waitForRun; no direct SQL writes",
+        "dbAndArtifactLogicalBytes": 6742934,
+        "historyPaginationExact": true,
+        "nativeEventsReplayedPerSample": 512,
+        "actualRuns": 31,
+        "tools": 0,
+        "integrityOk": true,
+        "reopenedWithoutProviderReplay": true
+      },
+      "timingQualification": "Informational measurements under recorded local scheduling conditions; no controlled-GC, speedup, leak or absolute timing claim."
+    },
+    "benchmark-standard": {
+      "passed": true,
+      "outcome": {
+        "code": 0,
+        "signal": null
+      },
+      "sourceStable": true,
+      "log": {
+        "path": "artifacts/next-continuation/full-review/integration/benchmark-standard.log",
+        "bytes": 321482,
+        "sha256": "678e00b8bbdbea234ebb98e7fa25b0d97a4ff524ea30c2dcbe7bc1fbf0e02c63"
+      },
+      "parameters": {
+        "runs": 200,
+        "messageBytes": 1024,
+        "samples": 20,
+        "warmup": 3,
+        "runtime": "compiled",
+        "profile": "standard",
+        "seed": 20261009
+      },
+      "sourceRuntimeStable": true,
+      "nativeFixture": {
+        "seed": 20261009,
+        "inputRuns": 200,
+        "persistedMessages": 400,
+        "messageUtf8Bytes": 1024,
+        "promptSha256": "f380bb1a3086fd103e0caad7b0db7a9d1efb8b12f794779bd287f173b65f8f8d",
+        "seedElapsedMs": 4439.973,
+        "seedRunLatency": {
+          "count": 200,
+          "min": 7.305,
+          "p50": 23.29,
+          "p95": 31.588,
+          "p99": 40.971,
+          "max": 104.006,
+          "mean": 22.198,
+          "method": "nearest-rank",
+          "unit": "milliseconds"
+        },
+        "creation": "actual Engine run.submit/waitForRun; no direct SQL writes",
+        "dbAndArtifactLogicalBytes": 93347182,
+        "historyPaginationExact": true,
+        "nativeEventsReplayedPerSample": 3793,
+        "actualRuns": 224,
+        "tools": 0,
+        "integrityOk": true,
+        "reopenedWithoutProviderReplay": true
+      },
+      "timingQualification": "Informational measurements under recorded local scheduling conditions; no controlled-GC, speedup, leak or absolute timing claim."
+    }
+  },
+  "dbCatalogue": {
+    "version": 23,
+    "objects": 281,
+    "tables": 80,
+    "sha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b",
+    "equalToBaseline": true,
+    "scope": "actual freshly migrated :memory: primary catalogue; no existing Original SQLite connection"
+  },
+  "commonInputCatalog": {
+    "path": "artifacts/next-continuation/full-review/integration/common-input-before.json",
+    "bytes": 206205,
+    "sha256": "0e0790b9fb747dd3fc0d75bd7b50abb478f7ceb68a99fa6940c55f8b78dd176d"
+  },
+  "compiledDiscoveryQualification": "Full four-project compiled discovery includes Desktop main/shared/renderer-pure tests. Counts are not directly comparable to previous headless-only 4853-case runs. Three skips are actual Windows-only bodies, including new owned-command delivery.",
+  "pending": [
+    "new actual30-minute same-instance persistent soak",
+    "current OS/NodeCI and unsigned package jobs",
+    "final documentation and main synchronization"
+  ],
+  "externalDecision": "외부 검증은 준비 후 진행",
+  "externalStillOpen": [
+    "actual SIWC",
+    "actual Anthropic account/provider/media profiles",
+    "signed/notarized installed and published update acceptance",
+    "historical R-PTY-01 cause"
+  ],
+  "fullGoalAchieved": false,
+  "sourceSetupFailuresPreserved": [
+    "build.log (type/include errors before minimal six-file followup)",
+    "gate-runner-invalid-setup.mjs (artifact orchestration parse error; coding/resilience native bodies not invoked)"
+  ],
+  "unknownOriginalPolicy": "Original child/process handles, first-error retention and uncertainty qualifications are preserved; successful tests/close/hash/stat do not confer cleanup authority.",
+  "desktopLocal": {
+    "rendererNoEmit": {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/desktop-verification/renderer-noemit-result.json",
+      "bytes": 2361,
+      "sha256": "80682f9a2a5652f64a6ebd99167747663b655ec076659c549e63ef6c83a25432"
+    },
+    "bundle": {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/desktop-verification/desktop-bundle-result.json",
+      "bytes": 4347,
+      "sha256": "101c0ab055f7bf394237ff8a4d20fa3d040aa451b1b137cc98dcc9c9cae42c20"
+    },
+    "actualGui": {
+      "path": "artifacts/next-continuation/full-review/desktop-provider/fixes/desktop-verification/actual-gui-result.json",
+      "bytes": 240089,
+      "sha256": "9db0ff0e3384c4157b773cc38d46a0fe2ab1a6f6ecbbf82464cae9d445b4a024"
+    },
+    "actualGuiFlows": 7,
+    "rendererErrors": 0,
+    "networkAttempts": 0,
+    "sourceBundleRuntimeDrift": 0,
+    "originalCleanup": "Coding unconfirmed and slow unknown Originals retained; actual Original app exit and utility ACK/exit are separate observations",
+    "initialJsBytes": 261835,
+    "earlierSharedCssOnlyInitialJsBytes": 261484,
+    "currentProjectionFeatureIncreaseBytes": 351
+  }
+}

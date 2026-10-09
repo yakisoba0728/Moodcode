@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
-import { DEFAULT_LIMITS, EngineError, type EngineEvent, type JsonObject, type MessagePart, type ProviderAttempt, type Run, type TurnRecord } from '@moodcode/contracts';
+import { DEFAULT_LIMITS, EngineError, type EngineEvent, type InputMediaAttachment, type JsonObject, type MessagePart, type ProviderAttempt, type Run, type TurnRecord } from '@moodcode/contracts';
+import { createEngine, type MoodcodeEngine } from '../engine.js';
+import { avi, wav } from '../media/segment-fixtures.js';
+import { spec as mediaSpec } from '../media/segment-engine-fixture.js';
+import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 import { SqliteStore } from '../storage/index.js';
 import type { NativeSessionStorage } from '../storage/native.js';
 import { captureProviderRecoveryHighWater, ProviderRecoveryStorage } from './provider.js';
@@ -266,4 +270,100 @@ for (const target of ['original-message', 'original-input', 'promoted-input'] as
   if (target === 'original-input') f.db.prepare("UPDATE inputs SET data=json_set(data,'$.documents[0].sha256',?) WHERE id=?").run('b'.repeat(64), f.run.inputId);
   if (target === 'promoted-input') f.db.prepare("UPDATE session_inputs SET data=json_set(data,'$.documents[0].sha256',?) WHERE id=?").run('b'.repeat(64), f.run.inputId);
   assert.throws(() => f.read(), code('PROVIDER_RECOVERY_SOURCE_CHANGED'));
+});
+
+// Genuine native admission, media decoding, steering, dispatch and cleanup;
+// the provider is an authored local iterator with an unknown remote outcome.
+async function nativeMediaCandidate(t: TestContext, kind: 'audio' | 'video') {
+  const retained = process.env.MOODCODE_PROVIDER_MEDIA_EVIDENCE_DIRECTORY;
+  const root = mkdtempSync(join(retained ?? tmpdir(), `moodcode-provider-${kind}-`)), repository = join(root, 'repository');
+  mkdirSync(repository); writeFileSync(join(repository, 'observed.txt'), 'Independent completed read.\n');
+  const dbPath = join(root, 'engine.sqlite'), engines: MoodcodeEngine[] = [], observed: TurnRequest[] = [];
+  let engine!: MoodcodeEngine, steer!: InputMediaAttachment, steerId = '', returns = 0;
+  const provider: ProviderAdapter = { id: mediaSpec.providerId, supportsInputMedia: () => true, streamTurn(request) {
+    observed.push(structuredClone(request));
+    const first = request.turnIndex === 0;
+    if (first) steerId = engine.scheduler.accept({ sessionId: 'session', requestId: 'media-steer', prompt: 'Exact media steering',
+      config: engine.store.getRun(request.runId).config, delivery: 'steer', media: [steer] }).inputId;
+    const events: ProviderEvent[] = first
+      ? [{ type: 'tool.call', call: { id: 'completed-read', name: 'read_file', input: { path: 'observed.txt' } } }, { type: 'finish', reason: 'tool_calls' }]
+      : [{ type: 'usage', inputTokens: 11, outputTokens: 3 }, { type: 'text.delta', delta: 'Original partial observation' }];
+    let index = 0;
+    const iterator: AsyncIterableIterator<ProviderEvent> = { [Symbol.asyncIterator]() { return iterator; }, async next() {
+      if (index < events.length) return { done: false, value: events[index++]! };
+      if (first) return { done: true, value: undefined };
+      throw new EngineError('PROVIDER_TRANSPORT_ERROR', 'Authored transport failure after actual media dispatch');
+    }, async return() { returns++; return { done: true, value: undefined }; } };
+    return iterator;
+  } };
+  const options = { dbPath, artifactDir: join(root, 'artifacts'), providers: [provider], modelSpecs: [mediaSpec], allowUnknownMediaTokenCost: true,
+    allowedToolNames: ['read_file'], defaults: { providerId: provider.id, modelId: mediaSpec.modelId, mode: 'plan' as const,
+      limits: { maxContextBytes: 1048576, maxOutputBytes: 32768, maxDurationMs: 10000 } } };
+  let reader: DatabaseSync | undefined;
+  t.after(async () => {
+    const owners = engines.map(owner => ({ primary: Reflect.get(owner.store, 'db') as DatabaseSync, ownership: Reflect.get(owner.store, 'ownership') as DatabaseSync }));
+    const before = owners.map(owner => ({ primary: owner.primary.isOpen, ownership: owner.ownership.isOpen }));
+    const settled = await Promise.allSettled(engines.map(owner => owner.close()));
+    let closeError = settled.find(result => result.status === 'rejected');
+    try { reader?.close(); } catch (reason) { closeError ??= { status: 'rejected', reason }; }
+    const after = owners.map(owner => ({ primary: owner.primary.isOpen, ownership: owner.ownership.isOpen }));
+    if (retained || !t.passed || closeError) writeFileSync(join(root, 'close-evidence.json'), JSON.stringify({ before, after,
+      joined: settled.map(result => result.status), readerIsOpen: reader?.isOpen ?? null }, null, 2) + '\n');
+    for (const owner of after) assert.deepEqual(owner, { primary: false, ownership: false });
+    if (retained || !t.passed || closeError) t.diagnostic(`Original native media fixture retained: ${root}`);
+    else rmSync(root, { recursive: true, force: true });
+    if (closeError?.status === 'rejected') throw closeError.reason;
+  });
+  engine = createEngine(options); engines.push(engine);
+  const now = new Date().toISOString();
+  engine.store.putWorkspace({ id: 'workspace', root: repository, gitRoot: repository, branch: null, createdAt: now });
+  engine.store.createSession({ id: 'session', workspaceId: 'workspace', title: 'Actual media recovery', createdAt: now });
+  const bytes = kind === 'audio' ? wav() : avi(), mime = kind === 'audio' ? 'audio/wav' : 'video/x-msvideo';
+  const original = await engine.importMedia('session', bytes, mime, [{ startMs: 0, endMs: kind === 'audio' ? 100 : 500 }]);
+  steer = await engine.importMedia('session', bytes, mime, [{ startMs: kind === 'audio' ? 100 : 500, endMs: kind === 'audio' ? 200 : 1000 }]);
+  const receipt = engine.coordinator.submit({ sessionId: 'session', requestId: 'media-goal', prompt: 'Exact original media goal',
+    config: engine.getCapabilities().defaults, media: [original] });
+  assert.equal((await engine.waitForRun(receipt.runId)).state, 'failed'); await engine.waitForSession('session');
+  assert.equal(observed.length, 2); assert.ok(returns >= 1); assert.equal(engine.store.getInput(steerId).state, 'promoted');
+  assert.equal(engine.context.diagnostics('session')?.plan.inputEstimate.mediaTokens, null, 'Unknown media token cost stays unknown under the explicit host opt-in');
+  const attemptId = observed[1]!.attemptId!;
+  assert.equal(engine.store.getAttempt(attemptId).state, 'uncertain'); assert.equal(engine.getAttemptCleanup('session', attemptId).cleanupConfirmed, true);
+  await engine.close(); engine = createEngine(options); engines.push(engine);
+  reader = new DatabaseSync(dbPath, { readOnly: true });
+  const goalId = String(reader.prepare('SELECT id FROM messages WHERE run_id=? ORDER BY ordinal LIMIT 1').get(receipt.runId)!.id);
+  assert.equal(Number(reader.prepare('PRAGMA user_version').get()!.user_version), 23);
+  assert.deepEqual(engine.store.getRun(receipt.runId).media, [original]);
+  assert.deepEqual(engine.store.getInput(steerId).media, [steer]);
+  const rows = () => reader!.prepare('SELECT count(*) AS n FROM provider_recovery_acknowledgments').get()!.n;
+  const immutable = () => Object.fromEntries(['runs','inputs','session_inputs','messages','session_turns','provider_attempts','attempt_cleanup','attempt_usage','message_parts','tools','context_revisions']
+    .map(table => [table, reader!.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()]));
+  return { engine, reader, dbPath, observed, runId: receipt.runId, inputId: engine.store.getRun(receipt.runId).inputId, attemptId, goalId, steerId, rows, immutable };
+}
+
+for (const kind of ['audio','video'] as const) test(`actual ${kind} provider recovery preserves goal and steering media, rejects drift, and never replays`, { timeout: 30000 }, async t => {
+  const f = await nativeMediaCandidate(t, kind), original = f.immutable();
+  const preview = f.engine.getProviderRecoveryPreview('session', f.attemptId);
+  assert.equal(preview.status, 'eligible', JSON.stringify(preview)); assert.ok(preview.fingerprint);
+  const decision = { sessionId: 'session', attemptId: f.attemptId, requestId: `host-${kind}`, fingerprint: preview.fingerprint, acknowledged: true as const };
+  const writer = new DatabaseSync(f.dbPath);
+  try {
+    for (const [table, identity] of [['runs',f.runId],['inputs',f.inputId],['session_inputs',f.inputId],['messages',f.goalId],['messages',f.steerId]] as const) {
+      const raw = String(writer.prepare(`SELECT data FROM ${table} WHERE id=?`).get(identity)!.data), changed = JSON.parse(raw);
+      changed.media[0].sha256 = changed.media[0].sha256 === 'a'.repeat(64) ? 'b'.repeat(64) : 'a'.repeat(64);
+      writer.prepare(`UPDATE ${table} SET data=? WHERE id=?`).run(JSON.stringify(changed), identity);
+      try {
+        const blocked = f.engine.getProviderRecoveryPreview('session', f.attemptId);
+        assert.equal(blocked.status, 'blocked', `${table}:${identity}`); assert.ok(blocked.blockers.includes('PROVIDER_RECOVERY_SOURCE_CHANGED'));
+        await assert.rejects(f.engine.acknowledgeProviderRecovery(decision)); assert.equal(f.rows(), 0); assert.equal(f.observed.length, 2);
+      } finally { writer.prepare(`UPDATE ${table} SET data=? WHERE id=?`).run(raw, identity); }
+    }
+  } finally { writer.close(); }
+  assert.deepEqual(f.immutable(), original);
+  const receipt = await f.engine.acknowledgeProviderRecovery(decision);
+  assert.equal(receipt.cleanupConfirmed, true); assert.equal(receipt.providerOutcomeConfirmed, false);
+  assert.equal(receipt.providerRetried, false); assert.equal(receipt.executionResumed, false); assert.equal(receipt.checkpointActivated, false);
+  assert.equal(f.rows(), 1); assert.deepEqual(f.immutable(), original); assert.equal(f.observed.length, 2);
+  assert.deepEqual(await f.engine.acknowledgeProviderRecovery(decision), { ...receipt, duplicate: true });
+  assert.equal(f.engine.getProviderRecoveryPreview('session', f.attemptId).status, 'acknowledged');
+  assert.equal(f.engine.store.getAttempt(f.attemptId).state, 'uncertain'); assert.equal(f.engine.store.getRun(f.runId).state, 'failed');
 });

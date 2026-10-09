@@ -10,7 +10,7 @@ import {
   rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { TestContext } from "node:test";
 import {
   isTerminal,
@@ -93,6 +93,7 @@ export async function workflowEffectsFixture(
     manual?: boolean;
     automaticDelivery?: boolean;
     dbRoot?: string;
+    sourcePath?: string;
   } = {},
 ) {
   const base =
@@ -100,9 +101,10 @@ export async function workflowEffectsFixture(
       realpathSync(mkdtempSync(join(tmpdir(), "moodcode-workflow-effects-"))),
     root = join(base, "repository"),
     dbPath = join(base, "engine.sqlite"),
-    artifactDir = join(base, "artifacts");
-  mkdirSync(root, { recursive: true });
-  writeFileSync(join(root, "seed.txt"), EFFECT_BEFORE);
+    artifactDir = join(base, "artifacts"),
+    sourcePath = options.sourcePath ?? "seed.txt";
+  mkdirSync(dirname(join(root, sourcePath)), { recursive: true });
+  writeFileSync(join(root, sourcePath), EFFECT_BEFORE);
   execFileSync("git", ["init", "--quiet", "--template=", root]);
   execFileSync("git", ["-C", root, "add", "."]);
   execFileSync("git", [
@@ -207,7 +209,7 @@ export async function workflowEffectsFixture(
               : {
                   changes: [
                     {
-                      path: "seed.txt",
+                      path: sourcePath,
                       expectedHash: effectHash(EFFECT_BEFORE),
                       content: EFFECT_AFTER,
                     },
@@ -302,7 +304,7 @@ export async function workflowEffectsFixture(
   const profile = engine.profiles
     .list()
     .find((p) => p.id === "actual-workflow-effects")!;
-  const command = `'${process.execPath.replaceAll("'", "'\\''")}' -e 'require("node:assert/strict").equal(require("node:fs").readFileSync("seed.txt","utf8"),${JSON.stringify(EFFECT_AFTER)});${options.failedCheck ? "process.exit(7)" : 'console.log("actual check passed")'}'`;
+  const command = `'${process.execPath.replaceAll("'", "'\\''")}' -e 'require("node:assert/strict").equal(require("node:fs").readFileSync(${JSON.stringify(sourcePath)},"utf8"),${JSON.stringify(EFFECT_AFTER)});${options.failedCheck ? "process.exit(7)" : 'console.log("actual check passed")'}'`;
   engine.registerVerificationCheck({
     id: "actual-required-check",
     revision: 1,
@@ -329,7 +331,7 @@ export async function workflowEffectsFixture(
     profileRevision: profile.revision,
     providerId: run.config.providerId,
     modelId: run.config.modelId,
-  });
+  }, sourcePath);
   const registered = engine.registerWorkflow({
       workspaceId: workspace.id,
       requestId: "register-effect-workflow",
@@ -475,8 +477,8 @@ export async function workflowEffectsFixture(
     approveChild,
     throughValidation,
     throughMerge,
-    sourceBytes: () => readFileSync(join(root, "seed.txt"), "utf8"),
-    childBytes: () => readFileSync(join(worktree.root, "seed.txt"), "utf8"),
+    sourceBytes: () => readFileSync(join(root, sourcePath), "utf8"),
+    childBytes: () => readFileSync(join(worktree.root, sourcePath), "utf8"),
     sourceTerminal,
   };
 }

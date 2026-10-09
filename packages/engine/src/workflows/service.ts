@@ -210,6 +210,8 @@ export class WorkflowService {
     if (prior) {
       if (prior.requestId !== input.requestId)
         workflowError("WORKFLOW_REQUEST_CONFLICT");
+      if (prior.result.record.workspaceId !== input.workspaceId)
+        workflowError("WORKFLOW_PREVIEW_STALE");
       return structuredClone({ ...prior.result, duplicate: true });
     }
     this.open();
