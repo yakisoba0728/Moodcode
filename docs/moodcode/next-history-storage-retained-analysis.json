@@ -307,7 +307,8 @@
     "comparisonArtifact": {
       "path": "/Users/yakisoba0728/.codex/worktrees/next-history-optimize/Moodcode/artifacts/next-history-cost/comparison-PVwcFg/comparison.json",
       "bytes": 23396,
-      "sha256": "928ffafbef3d2ce572dd4b1b156e8fa541eb44cc922f46b564912a6b77279dca"
+      "sha256": "8682d60bb27b1a6c3ad1a07da843105bb8401d6cc6c608d5e8515906ea87c9b3",
+      "qualification": "Assembled summary includes post-measurement provenance/manifests and refreshed inspector references. Original baseline.json, candidate.json and helper-at-measurement.mjs are unchanged; worker metrics match this summary exactly excluding the appended independentStorageInspection metadata."
     },
     "measurementArtifacts": {
       "baseline": {
