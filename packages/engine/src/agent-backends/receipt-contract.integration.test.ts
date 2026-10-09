@@ -272,12 +272,8 @@ test("administrative SQL pairs preserve authentic unknown ownership, history and
       "dispatched",
     "The genuine Original request did not reach dispatched",
   );
-  const rootNative = Reflect.get(
-    f.engine,
-    "backendRecords",
-  ) as AgentBackendStorage;
   const snapshotPath = join(f.base, "held-history.sqlite");
-  await backup(rootNative.db, snapshotPath);
+  await f.engine.backup(snapshotPath);
   await f.engine.close();
   assert.equal((await submitted.done).state, "cancelled");
   const logs = f.logs();
