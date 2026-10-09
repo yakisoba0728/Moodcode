@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "kind": "NEXT-04 main utility close and N-05 local installer precondition",
+  "status": "verified within stated scope",
+  "observedAt": "2026-10-09T09:42:47.792538+00:00",
+  "baseCommit": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6",
+  "sourceCommit": "91c1254e0112b5353e48a8da1ff4284a53dd2408",
+  "branch": "codex/next-utility-close",
+  "worktree": "/Users/yakisoba0728/.codex/worktrees/next-utility-close/Moodcode",
+  "artifactDirectory": "/Users/yakisoba0728/.codex/worktrees/next-utility-close/Moodcode/artifacts/next-main-utility-close",
+  "implementation": {
+    "originalAuthority": "Exact original UtilityTransport objects; immutable connection UUID, scope and generation; runtime/fixture code never uses numeric PIDs as authority.",
+    "confirmation": "Only matching engine close ACK plus that original utility exit(0), with no sticky error/timeout/unobserved spawn.",
+    "observability": "Bounded DesktopHost.getUtilityCloseDiagnostics and read-only main app moodcode:utility-close event; no renderer controls.",
+    "quit": "Boundedly waits for original engine/storage exits; original listeners survive timeout for observation/retry.",
+    "updateGate": "closeForUpdate requires complete original ledger; ACK-less crash, nonzero/unknown exit, errors, timeout, unobserved spawn and eviction block installer. Truly never-started host allowed.",
+    "ledgerLimit": 64,
+    "fixtureProjectionLimit": 32,
+    "overflow": "Never evicts a live original; settled ledger omission stays incomplete and cannot approve update/deletion.",
+    "engineAndJournalSourceChanged": false,
+    "sqliteSchemaVersion": 23,
+    "automaticReplayAdded": false
+  },
+  "verification": {
+    "buildDesktop": {
+      "exitCode": 0,
+      "includesTypecheck": true
+    },
+    "focusedSource": {
+      "passed": 74,
+      "failed": 0
+    },
+    "focusedCompiled": {
+      "passed": 74,
+      "failed": 0
+    },
+    "canonical": {
+      "command": "node scripts/verify-desktop-next.mjs --no-build",
+      "desktopPassed": 242,
+      "policyAndEvidencePassed": 15,
+      "failed": 0,
+      "sourceSha256": "ddebed3c6bfa84652fc39cdffdbf4220a4ce9040a2baa104f1f869a1bcf3c0ce",
+      "sourceStableAndMatchesCommittedFiles": true
+    },
+    "actualElectron": {
+      "platform": "darwin",
+      "architecture": "arm64",
+      "passed": 7,
+      "productionMain": "Actual Engine/SQLite23 close ACK and original utility exit(0); application exit grants no authority.",
+      "controlledUtilityModes": [
+        "close-error",
+        "ack-absent",
+        "exit-without-ack",
+        "exit-timeout",
+        "late-original",
+        "never-started"
+      ],
+      "faultScope": "Real Electron UtilityProcess controlled protocol; no native Engine effects credit for controlled workers; all final cases require genuinely ready utility before close except never-started."
+    },
+    "actualAdvancedGui": {
+      "flowsPassed": 15,
+      "mainUtilityAckAndOriginalExit": true,
+      "expectedRunningPtyFailureExit": 1,
+      "failureVerifierExit": 0,
+      "originalFixturesRetained": true
+    },
+    "actualUnsignedPackage": {
+      "platform": "darwin",
+      "architecture": "arm64",
+      "electron": "44.5.1",
+      "node": "24.21.0",
+      "contextIsolation": true,
+      "sqliteVersion": 23,
+      "testOverridesIgnored": true,
+      "mainEngineOriginalConnections": 1,
+      "mainUtilityAckAndOriginalExit": true,
+      "commandAndPtyCleanupConfirmed": true,
+      "expectedStartedSupervisorFailureExit": 1,
+      "originalFixturesRetained": true
+    },
+    "retentionIntegrity": {
+      "bundles": 4,
+      "copiesAndCurrentOriginalBytesMatchDeclaredHashes": true,
+      "coherentRecoveryBackup": false
+    },
+    "historicalAttempts": "Original failed native assertion and generated-main launch deadlock retained separately. Verified owned deadlock stop is forced/unknown and grants no cleanup credit."
+  },
+  "commands": {
+    "source": "node --import ./node_modules/tsx/dist/loader.mjs --test --test-concurrency=2 apps/desktop/src/main/host.test.ts apps/desktop/src/main/next-stage-recovery-host.test.ts apps/desktop/src/main/updates.test.ts apps/desktop/src/worker/runtime.test.ts",
+    "compiled": "node --test --test-concurrency=2 apps/desktop/dist/types/main/host.test.js apps/desktop/dist/types/main/next-stage-recovery-host.test.js apps/desktop/dist/types/main/updates.test.js apps/desktop/dist/types/worker/runtime.test.js",
+    "nativeClose": "node scripts/verify-desktop-main-utility-close.mjs",
+    "normalGui": "node scripts/test-desktop-advanced.mjs",
+    "faultGui": "node scripts/verify-desktop-advanced-evidence.mjs",
+    "normalPackage": "node scripts/test-desktop-package.mjs",
+    "faultPackage": "node scripts/test-desktop-package.mjs --fail-supervisor-running",
+    "evidenceUnits": "node --test scripts/desktop-test-evidence.test.mjs scripts/desktop-main-utility-close.test.mjs"
+  },
+  "focusedFiles": [
+    "apps/desktop/src/main/host.test.ts",
+    "apps/desktop/src/main/next-stage-recovery-host.test.ts",
+    "apps/desktop/src/main/updates.test.ts",
+    "apps/desktop/src/worker/runtime.test.ts",
+    "scripts/desktop-main-utility-close.test.mjs"
+  ],
+  "limits": [
+    "Utility ACK plus original exit confirms only that utility scope. Partial DB23/native projections return null, explicit observed native uncertainty false; both retain original fixtures.",
+    "Fresh actual native GUI/package proof is macOS arm64 only. Root owns integrated Desktop3/Engine6/WindowsNative2 CI; no workflow edits, dispatch or push performed here.",
+    "Actual accounts, signing, notarization and public update feed are deferred by user; no real profiles/provider calls/signing/publishing touched."
+  ],
+  "rootCiHandoff": "Add scripts/desktop-main-utility-close.test.mjs to policy/native-evidence unit step; compiled desktop discovery covers host/update/runtime tests; run nativeClose on actual macOS alongside GUI/package.",
+  "evidence": {
+    "original-update-gate-defect.json": {
+      "bytes": 996,
+      "sha256": "43894d1f1f638298ae9e811f4f506899ab1492a98bc9737870a9dbf14a6568f4"
+    },
+    "focused-source.log": {
+      "bytes": 7505,
+      "sha256": "f30dca9c9a4369c4e2d47194b52c6eb5491052340d99dca3e02dac57b8d2e565"
+    },
+    "focused-compiled.log": {
+      "bytes": 7505,
+      "sha256": "5731ef767e7f171214d09928654a63486f8a6022fc213e56193672bcc2680906"
+    },
+    "canonical-verification.log": {
+      "bytes": 247,
+      "sha256": "25bd657b0f755f1771dc150d6891a8215334f224a8abccbbe592c10366c1be3c"
+    },
+    "build-desktop-final.log": {
+      "bytes": 1324,
+      "sha256": "ac029f1995812096b673a313490cb41a3bc5b2d49e95fcef92daa5440df6a305"
+    },
+    "native-close-boundary-400e6526-e513-4ad5-a4c9-c501ff77e641.json": {
+      "bytes": 15590,
+      "sha256": "4526b12c96f8d2e49b10d7bb9c55028f8aa1576929cd234b86eb2d9c7af02081"
+    },
+    "native-close-boundary-final-01.log": {
+      "bytes": 453,
+      "sha256": "a00af9fc6f0f7cc4845142469fd7a95e8a42354e48470ba268401dbfbe913634"
+    },
+    "advanced-positive-01.log": {
+      "bytes": 3783,
+      "sha256": "9c3d9b588568b03a44c3ac6a416185a11854aa74a258bc4429fea969d0ba3dd2"
+    },
+    "advanced-controlled-failure-01.log": {
+      "bytes": 537,
+      "sha256": "e37b30da0a10cb6aa89521a747c49cb0d862f80f68c488a55d266574652fb5b4"
+    },
+    "package-positive-frozen-01.log": {
+      "bytes": 1338,
+      "sha256": "59782032db7f86969ae9db8fec611dde3313b1f8725b2b050cb24eea288306ac"
+    },
+    "package-controlled-failure-frozen-01.log": {
+      "bytes": 1049,
+      "sha256": "2dc77308c4be12ad139a315adeb8e26d6b1b0d012fe45ab14a9adc447cbd51d0"
+    },
+    "package-failure-retention-frozen-01.json": {
+      "bytes": 536,
+      "sha256": "59deccc641dade287daf383b406bd5087db7f3bd5766e951abc29addc329d2b8"
+    },
+    "evidence-helper-frozen-01.log": {
+      "bytes": 1269,
+      "sha256": "11db5a29b48d5bccce4be3ac20d8091a06bc1eddaa5f05b18f65472fc471bf0e"
+    },
+    "retention-integrity-audit.json": {
+      "bytes": 3101,
+      "sha256": "b75e124f5258878f00902fbf928cb99446e386adf29d42037c0c7543afbbb796"
+    },
+    "original-native-close-boundary-e9a628f31b59ecb8.json": {
+      "bytes": 1859,
+      "sha256": "e9a628f31b59ecb87222283651210c1cf99e43de7b2ffcb3a18dedc30b53f18d"
+    },
+    "native-close-boundary-launch-deadlock-stop.json": {
+      "bytes": 971,
+      "sha256": "c96619c250c1a5f28d9401e65d35e74f464f4c488893955a0bf49771c50ad4ef"
+    }
+  }
+}
