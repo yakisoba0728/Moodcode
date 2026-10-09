@@ -42,7 +42,7 @@ npm run harness -- --db /tmp/moodcode-local.sqlite
 
 설정의 **Codex 계정 로그인**은 시스템 브라우저에서 인증한 계정을 Moodcode에 연결한다. SIWC 앱 등록·에이전트 이름 입력을 Codex PKCE 로그인으로 교체했고, 사용자가 실제 브라우저 로그인 성공을 확인했다. 선택한 앱 계정의 `gpt-6.1-sol` 코딩 검증도 통과했다. 모델 catalog GET 1회와 추론 POST 4회, 승인한 patch·고정 테스트 10개 통과, 같은 요청의 추가 HTTP 0을 확인했다. [현재 계정 흐름](docs/moodcode/desktop-account-auth.md)과 [코딩·갱신·LSP 후속 검증](docs/moodcode/engine-account-lsp-followup-verification.md)을 따른다.
 
-앱 계정의 Main은 매 provider turn 시작 전에 private broker로 최신 credential을 전달하며, 만료가 가까우면 암호화 저장소의 grant를 갱신한다. 같은 worker를 유지하고 취소·계정 변경·종료 뒤 늦은 credential 전달을 거절한다. 불확실한 회전 grant나 원격 401을 자동 재시도하지 않는다. 실제 Electron utility에서 새 credential 전달·취소·ACK와 exit 0을 확인했지만 이 검증의 credential·HTTP는 fixture였다. 실제 OAuth grant의 만료·갱신과 원격 실행·과금 정리는 확인하지 않았다. 기존 로컬 Codex 로그인 읽기 경로는 별도로 유지하며 인증 파일을 갱신하지 않는다. 토큰은 renderer·일반 설정·journal에 저장하지 않는다.
+앱 계정의 Main은 매 provider turn 시작 전에 private broker로 최신 credential을 전달하며, 만료가 가까우면 암호화 저장소의 grant를 갱신한다. 같은 worker를 유지하고 취소·계정 변경·종료 뒤 늦은 credential 전달을 거절한다. 불확실한 회전 grant나 원격 401을 자동 재시도하지 않는다. 실제 Electron utility에서 새 credential 전달·취소·ACK와 exit 0을 확인했지만 이 검증의 credential·HTTP는 fixture였다. 이후 선택 계정에서 이전 토큰 만료만 메모리에서 앞당겨 실제 OAuth grant 갱신·회전·저장과 같은 worker의 후속 turn을 관측했다([근거](docs/moodcode/desktop-account-renewal-live-verification.json)). 자연 만료 계기와 원격 실행·과금 정리는 확인하지 않았다. 기존 로컬 Codex 로그인 읽기 경로는 별도로 유지하며 인증 파일을 갱신하지 않는다. 토큰은 renderer·일반 설정·journal에 저장하지 않는다.
 
 인증이 없으면 화면에 표시된 로컬 테스트 모델로 시작한다. 설정에서 Codex나 API 공급자를 선택할 수 있다. Anthropic은 모델 ID·추론 강도·선택 Workspace ID를 지정하며 API 키를 입력하거나 host의 `ANTHROPIC_API_KEY`를 사용한다. 모델 목록은 계정 조회 또는 로컬 캐시의 메타데이터이며 실제 접근 권한은 요청 시 확인된다. 별도 API 키는 Electron safeStorage 암호화가 가능한 경우에만 저장한다.
 

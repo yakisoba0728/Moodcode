@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "kind": "moodcode-desktop-account-renewal-live",
+  "date": "2026-10-10",
+  "todo": "R-AUTH-LIVE",
+  "status": "partially-satisfied",
+  "userDecision": "The user chose to observe renewal now with an advanced freshness trigger instead of waiting for natural expiry (2026-10-20 03:28 KST at the time), accepting real account usage and real grant rotation.",
+  "firstRealRefreshPath": "First observation of the product's real oauth/token refresh_token grant, ID-token validation, encrypted save and same-worker continuation. Earlier R-AUTH evidence used fixture credentials and intercepted HTTP.",
+  "method": {
+    "script": "scripts/verify-desktop-codex-renewal-live.mjs",
+    "command": "node scripts/verify-desktop-codex-renewal-live.mjs --live --source-user-data \"$HOME/Library/Application Support/Moodcode\" --report artifacts/auth-renewal-20261010/renewal.json",
+    "productPath": "Production DesktopAccounts, read-only SettingsStore.load, production resolveCodexCredential mapping and DesktopHost with the bundled engine worker in an original Electron utility. Engine DB and repository were temporary.",
+    "freshnessTrigger": "On the vault's only decrypt, the selected account's previous access-token expiry was advanced in memory to load time + 180 s. The stored record was not changed by the harness. Real time then crossed the product's 60 s renewal window before turn 2.",
+    "realClockKept": "Token expiry computation and ID-token validation used the real clock; a shifted Main clock was rejected because ChatGPTAuth shares it and would persist a wrong expiry or fail JWT validation after consuming the grant.",
+    "allowList": "Main account requests: exact token, discovery, issuer-discovered JWKS and catalog URLs with per-kind caps; worker: the native responses endpoint, at most 3 POSTs. The JWKS URL came from a public preflight discovery GET.",
+    "abortBeforeGrant": "Any unexpected state before turn 2 stopped the run before the refresh_token grant could be consumed."
+  },
+  "observed": {
+    "electron": "44.5.1",
+    "platform": "darwin",
+    "modelId": "gpt-6.1-sol",
+    "preflightDiscoveryStatus": 200,
+    "accountRequests": [
+      { "ordinal": 1, "kind": "catalog", "atMs": 8, "status": 200 },
+      { "ordinal": 2, "kind": "token-refresh", "atMs": 125033, "status": 200 },
+      { "ordinal": 3, "kind": "discovery", "atMs": 125588, "status": 200 },
+      { "ordinal": 4, "kind": "jwks", "atMs": 125828, "status": 200 },
+      { "ordinal": 5, "kind": "catalog", "atMs": 125873, "status": 200 }
+    ],
+    "modelPosts": [
+      { "ordinal": 1, "dispatchedAtMs": 597, "status": 200 },
+      { "ordinal": 2, "dispatchedAtMs": 126322, "status": 200 },
+      { "ordinal": 3, "dispatchedAtMs": 128064, "status": 200 }
+    ],
+    "credentialResolutions": [
+      { "turn": 1, "startedAtMs": 587, "revision": 1, "refreshesAfter": 0, "routingUnchanged": true },
+      { "turn": 2, "startedAtMs": 125021, "revision": 2, "refreshesAfter": 1, "routingUnchanged": true },
+      { "turn": 3, "startedAtMs": 128056, "revision": 2, "refreshesAfter": 1, "routingUnchanged": true }
+    ],
+    "turnsCompleted": 3,
+    "sameWorker": { "generation": 1, "spawned": 1, "engineCloseAcknowledged": true, "utilityExitCode": 0, "cleanupConfirmed": true, "forcedStop": false },
+    "afterVault": {
+      "state": "connected", "pendingRefresh": false, "leaseReleased": true, "accessTokenChanged": true, "refreshTokenChanged": true,
+      "routingUnchanged": true, "sameSubject": true, "sameActiveAccount": true, "sameHost": true, "sameAccountCount": true,
+      "expiresAt": "2026-10-19T22:11:03.209Z", "remainingHours": 240, "advancedExpiryNotPersisted": true
+    },
+    "settingsUnchanged": true,
+    "renewalPersisted": true,
+    "exitCode": 0
+  },
+  "evidence": {
+    "localReport": { "path": "artifacts/auth-renewal-20261010/renewal.json", "bytes": 3993, "sha256": "4b3443f83b8bfb1b015ce54af900e0666dfa7eae6e644dc6b1c99ac62a5f7295", "tracked": false },
+    "reportRedaction": "The harness refuses to write or print a report containing any previous or renewed token, ID token or routing ID.",
+    "sourcePins": [
+      { "path": "scripts/verify-desktop-codex-renewal-live.mjs", "bytes": 21651, "sha256": "953bee81ecd9503f7ef4059d52543b0a2d62cbf00ecc31b19842c935557ce0c0" },
+      { "path": "scripts/verify-desktop-codex-renewal-live.test.mjs", "bytes": 3645, "sha256": "3b62f19528fe0926d1482749ded174c06cc147ac0747956bde817546b1f14553" }
+    ],
+    "runtimePins": [
+      { "path": "apps/desktop/dist/types/main/accounts.js", "bytes": 19770, "sha256": "6a02fe5aabb7a692b2b2928c2ef0d07ddbf01ef9012a892c47b0ae6e9bda2c8e" },
+      { "path": "apps/desktop/dist/types/main/account-auth.js", "bytes": 18405, "sha256": "cd8d71979c2edc3c7df2aed5c222df02db76350ce79616f4b2ad00e52b736381" },
+      { "path": "apps/desktop/dist/types/main/account-vault.js", "bytes": 11228, "sha256": "4f8a49c5c5eb7e13840c978027e4028fff92c6383d556086a09e9f8b3b099773" },
+      { "path": "apps/desktop/dist/types/main/host.js", "bytes": 32121, "sha256": "ff57d6783a9a49ffc77135fcaf266773603b2c3971709f53ae8be6748514be70" },
+      { "path": "apps/desktop/dist/types/main/settings.js", "bytes": 26932, "sha256": "8f30af78cf4dd6955f36b99c6f300bd2d2f03fbe206ff9c086a491a003a7946b" },
+      { "path": "apps/desktop/dist/main/engine-worker.js", "bytes": 4654699, "sha256": "b1a006746956e806ab6c67329ed45dc6fc6b3ef2fa40b2cc6f8db96430749472" }
+    ],
+    "helperTests": { "command": "node --test scripts/verify-desktop-codex-renewal-live.test.mjs", "pass": 4, "fail": 0 }
+  },
+  "stillOpen": [
+    "Natural expiry: the renewal was triggered by an in-memory expiry advance, not by the token's real expiry. The next natural renewal window opens at 2026-10-20 07:10 KST (expiresAt 2026-10-19T22:11:03Z minus 60 s).",
+    "Remote 401 recovery, cancellation during a real refresh, revocation, other accounts or workspaces, Windows/Linux keychains and the packaged app were not observed.",
+    "Remote usage and billing were observed only as HTTP statuses; this is not a billing or server-side cleanup verification."
+  ]
+}

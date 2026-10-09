@@ -1,6 +1,6 @@
 # Desktop Codex 계정 로그인
 
-확인일: 2026-10-10. Moodcode의 새 로그인은 Codex/OpenCode가 사용하는 브라우저 OAuth 경로로 교체했다. 기존 SIWC의 Moodcode 앱 연결·에이전트 이름 등록 흐름은 과거 구현으로 분리한다. 사용자가 수정한 앱의 실제 브라우저 로그인 성공을 확인했고, 선택한 앱 계정의 모델 조회·native 코딩 요청도 통과했다. Main 소유 자동 credential broker를 구현하고 로컬 회전·취소와 실제 Electron utility 연결을 검증했다. 실제 OAuth grant의 만료·갱신은 아직 검증하지 않았다.
+확인일: 2026-10-10. Moodcode의 새 로그인은 Codex/OpenCode가 사용하는 브라우저 OAuth 경로로 교체했다. 기존 SIWC의 Moodcode 앱 연결·에이전트 이름 등록 흐름은 과거 구현으로 분리한다. 사용자가 수정한 앱의 실제 브라우저 로그인 성공을 확인했고, 선택한 앱 계정의 모델 조회·native 코딩 요청도 통과했다. Main 소유 자동 credential broker를 구현하고 로컬 회전·취소와 실제 Electron utility 연결을 검증했다. 이후 선택 계정의 실제 OAuth grant 갱신(`oauth/token` 200·ID 토큰 검증·암호화 저장·access/refresh 회전·같은 worker 후속 turn)을 관측했다. 갱신 계기는 이전 토큰 만료를 메모리에서만 앞당긴 것이며, 자연 만료 계기는 아직 관측하지 않았다. [실제 갱신 근거](desktop-account-renewal-live-verification.json).
 
 ## 사용 흐름
 

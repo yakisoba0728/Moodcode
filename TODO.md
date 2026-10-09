@@ -29,7 +29,7 @@
 - [x] **R-LSP — native TypeScript BOM 좌표 수정**: native disk의 leading BOM 제거와 열린 문서의 BOM 보존 차이를 정규화했다. 실제 disk 37–42 RED→원문 38–43 GREEN, 원문/hash·UTF16·일반 LSP·승인·취소 유지, 새 fixture 8/8과 기존 512-module corpus 확인. 아래 R-LSP-HIST의 과거 trigger 조사는 분리한다.
 - [x] **R-AUTH — 실행 중 계정 토큰 자동 갱신**: 매 turn private Main broker에서 최신 credential을 제공한다. single-flight·계정 pin·개별/마지막 취소·종료·late reply·불확실 grant quarantine과 원래/새 토큰 redaction을 확인했다. 실제 utility generation 1에서 두 revision·취소·ACK/exit 0을 관측했고 401 blind retry·도구 replay를 추가하지 않았다. 실제 원격 만료/회전 검증은 아래 R-AUTH-LIVE로 분리한다.
 - [ ] **R-LSP-HIST — 원래 전체 경합 trigger**: `e3032f0`의 compiled 5,303/5,299 pass/1 fail/skip 3 및 단독 2/2 성공을 보존한다. 당시 BOM 35–42/26–33의 정확한 순서·원인은 재현되지 않았다. 확인한 별도 disk defect의 수정과 새 전체 PASS가 역사적 원인까지 입증하지 않는다.
-- [ ] **R-AUTH-LIVE — 실제 계정 만료·회전 관측**: 별도 승인된 유한 live 검증에서 실제 expiry/freshness→grant 회전→같은 worker 후속 turn을 관측한다. 이번 코딩 검증은 사용자 vault를 읽기 전용으로 유지했으며 강제 만료·refresh를 하지 않았다. 실제 계정을 test fixture로 수정하거나 원격 rotating grant를 자동 재시도하지 않는다.
+- [ ] **R-AUTH-LIVE — 실제 계정 만료·회전 관측**: 별도 승인된 유한 live 검증에서 실제 expiry/freshness→grant 회전→같은 worker 후속 turn을 관측한다. 이번 코딩 검증은 사용자 vault를 읽기 전용으로 유지했으며 강제 만료·refresh를 하지 않았다. 실제 계정을 test fixture로 수정하거나 원격 rotating grant를 자동 재시도하지 않는다. **부분 충족(2026-10-10, 사용자 결정)**: 이전 토큰 만료만 메모리에서 앞당겨(저장 기록 불변) production Main 경로로 실제 `oauth/token` 갱신 200·ID 토큰 검증·암호화 저장·access/refresh 회전·같은 worker(generation 1)의 후속 turn 3회 모두 200을 관측했다. [실제 갱신 근거](docs/moodcode/desktop-account-renewal-live-verification.json). 자연 만료 계기는 미관측이며 다음 갱신 구간은 2026-10-20 07:10 KST부터다.
 
 추가 기능은 첫 지원 OS·모델·GUI 흐름과 완료 조건을 구현 전에 고정한다. 계정·인증서·과거 실행 자료가 없는 항목은 대기 사유와 해제 조건을 남기고 완료 처리하지 않는다. 외부 조건과 독립인 구현·검증·점검은 계속 진행한다.
 

@@ -48,6 +48,7 @@ jobs:
           apps/desktop/src/worker/credential-broker.test.ts
           scripts/desktop-release-policy.test.mjs scripts/desktop-native-package.test.mjs
           scripts/desktop-test-evidence.test.mjs scripts/desktop-main-utility-close.test.mjs
+          scripts/verify-desktop-codex-renewal-live.test.mjs
       # The Engine never falls back to a direct child on Windows, so the account
       # coding test's run_command needs the Job Object addon built for this Node.
       # It is removed again so later Electron steps keep their original native state.
