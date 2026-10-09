@@ -38,7 +38,7 @@ npm run harness -- --db /tmp/moodcode-local.sqlite
 
 데스크톱에서 로컬 저장소를 열고 작업을 생성한다. Plan은 읽기·분석, Build는 승인받은 파일 수정·명령 실행을 진행한다. 대화·도구·승인·변경 전후 diff·파일 읽기·복원 기록을 확인할 수 있다. 화면 새로고침은 실행을 취소하지 않으며, 중지 버튼으로 취소한다. 대화는 표·코드 강조·원문 복사·파일 줄 이동을 지원하고, 이력은 20개 작업씩 읽는다. 탐색은 Git 제외 규칙과 가상환경·캐시를 반영하며 큰 결과는 continuation으로 나눠 읽는다. 상태 표시줄의 사용량은 공급자가 보고한 값만 표시한다.
 
-Codex에 로그인되어 있고 로컬 모델 설정이 있으면 기본 연결은 **Codex 계정**이다. API 키를 입력하지 않는다. 엔진은 매 turn 현재 Codex 인증을 읽고 고정된 Codex endpoint로 통신하며 자체 도구 loop를 실행한다. 인증 파일을 갱신하거나 토큰을 renderer·설정·journal에 저장하지 않는다. 인증이 없으면 화면에 표시된 로컬 테스트 모델로 시작한다. 설정에서 Codex나 API 공급자를 선택할 수 있다. Anthropic은 모델 ID·추론 강도·선택 Workspace ID를 지정하며 API 키를 입력하거나 host의 `ANTHROPIC_API_KEY`를 사용한다. 로컬 Codex 모델 목록과 모델별 추론 강도를 선택하고 로그인 상태·목록을 새로고침할 수 있다. 목록은 캐시의 메타데이터이며 실제 모델 접근 권한은 요청 시 확인된다. 별도 API 키는 Electron safeStorage 암호화가 가능한 경우에만 저장한다.
+설정의 **Codex 계정 로그인**은 시스템 브라우저에서 인증한 계정을 Moodcode에 연결하도록 구현했다. API 키나 에이전트 이름을 입력하는 SIWC 앱 등록과 구분하며, 로컬 인증·GUI fixture 검증은 완료했고 실제 사용자 브라우저 로그인·선택 계정 추론은 아직 pending이다. [현재 계정 흐름과 검증 상태](docs/moodcode/desktop-account-auth.md)를 따른다. 기존 로컬 Codex 로그인도 별도로 사용할 수 있다. 이 로컬 경로의 엔진은 매 turn 현재 로컬 인증을 읽고 고정된 Codex endpoint로 통신하며 인증 파일을 갱신하지 않는다. 앱이 관리하는 계정 worker는 credential snapshot을 사용하므로 실행 중 만료되면 명시적인 계정 갱신·worker 재시작이 필요하다. 토큰은 renderer·일반 설정·journal에 저장하지 않는다. 인증이 없으면 화면에 표시된 로컬 테스트 모델로 시작한다. 설정에서 Codex나 API 공급자를 선택할 수 있다. Anthropic은 모델 ID·추론 강도·선택 Workspace ID를 지정하며 API 키를 입력하거나 host의 `ANTHROPIC_API_KEY`를 사용한다. 모델 목록은 계정 조회 또는 로컬 캐시의 메타데이터이며 실제 접근 권한은 요청 시 확인된다. 별도 API 키는 Electron safeStorage 암호화가 가능한 경우에만 저장한다.
 
 `npm run package:desktop` 결과는 `release/mac-arm64/Moodcode.app`이다. 현재 서명·공증되지 않은 개발용 bundle이다. `npm run verify:codex`는 실제 계정 사용량을 소비하는 명시적 검증 명령이며, 기본 테스트에는 포함되지 않는다. 임시 저장소의 정확히 지정한 수정·명령만 자동 승인하고 fixture를 삭제한다.
 

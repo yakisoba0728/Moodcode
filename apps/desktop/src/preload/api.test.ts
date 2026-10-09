@@ -21,6 +21,20 @@ const status: HostStatus = { state: 'ready', generation: 1 };
 const settings: SaveDesktopSettings = { providerId: 'openai-responses', modelId: 'fixture-model', baseURL: 'https://example.test/v1', apiKey: 'fixture-secret' };
 const invalid = (error: unknown) => error instanceof Error && 'code' in error && (error.code === 'INVALID_INPUT' || error.code === 'UNKNOWN_COMMAND') && !error.message.includes('fixture-secret');
 
+test('ChatGPT account settings select Codex without accepting renderer credentials or destinations', () => {
+  const selected = { providerId: 'codex' as const, modelId: 'fixture-model', baseURL: '', credentialMode: 'chatgpt' as const, accountId: '12345678-1234-1234-1234-123456789012' };
+  assert.deepEqual(validateDesktopSettings(selected), selected);
+  for (const input of [
+    { ...selected, providerId: 'openai-responses', baseURL: 'https://api.openai.com/v1' },
+    { ...selected, baseURL: 'https://example.test' },
+    { ...selected, apiKey: 'fixture-secret' },
+    { ...selected, codexCredential: { accessToken: 'fixture-secret' } },
+    { ...selected, accountId: 'malformed' },
+    { ...selected, credentialMode: 'api-key' },
+    { providerId: 'codex', modelId: 'fixture-model', baseURL: '', credentialMode: 'api-key' },
+  ]) assert.throws(() => validateDesktopSettings(input), invalid);
+});
+
 test('desktop bridge is frozen and exposes only the typed API', () => {
   const api = createDesktopApi(new TransportDouble());
   assert.equal(Object.isFrozen(api), true);

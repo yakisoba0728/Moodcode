@@ -1,14 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import type { CredentialStorage } from './settings.js';
 import type { DesktopAccount, DesktopAccountAction, DesktopAccountView } from '../shared/account-protocol.js';
-import { AccountError, CHATGPT_API, ChatGPTAuth, accountFail, type AccountRegistration, type AccountTokens, type ChatGPTAuthOptions } from './account-auth.js';
+import { AccountError, CHATGPT_API, CHATGPT_CLIENT_ID, ChatGPTAuth, accountFail, type AccountRegistration, type AccountTokens, type ChatGPTAuthOptions } from './account-auth.js';
 import { AccountVault } from './account-vault.js';
 
 interface SavedAccount extends AccountRegistration {
-  id: string; state: DesktopAccount['state']; tokens?: AccountTokens;
+  id: string; state: DesktopAccount['state']; tokens?: AccountTokens; authKind: 'codex-oauth' | 'legacy-siwc';
 }
-interface SavedAccounts { schemaVersion: 1; hostId: string; accounts: SavedAccount[]; activeAccountId?: string }
-export interface PrivateAccountCredential { readonly apiKey: string; readonly accountId: string; readonly baseURL: typeof CHATGPT_API; readonly models: readonly { id: string; displayName: string }[] }
+interface SavedAccounts { schemaVersion: 2; hostId: string; accounts: SavedAccount[]; activeAccountId?: string }
+export interface PrivateAccountCredential {
+  readonly apiKey: string; readonly accountId: string; readonly baseURL: typeof CHATGPT_API;
+  readonly models: readonly { id: string; displayName: string }[]; readonly chatgptAccountId: string; readonly secrets: readonly string[];
+}
 export interface DesktopAccountsOptions extends ChatGPTAuthOptions {
   directory: string; safeStorage: CredentialStorage;
   assertIdle?(): Promise<void>;
@@ -17,23 +20,27 @@ export interface DesktopAccountsOptions extends ChatGPTAuthOptions {
 function validString(value: unknown, max = 512): value is string { return typeof value === 'string' && value.length > 0 && value.length <= max && !/[\u0000-\u001f\u007f]/u.test(value); }
 function parseSaved(value: unknown): SavedAccounts {
   const data = value as SavedAccounts;
-  if (!data || data.schemaVersion !== 1 || !validString(data.hostId) || !/^urn:uuid:[a-f0-9-]{36}$/u.test(data.hostId)
+  const legacy = (value as { schemaVersion?: number })?.schemaVersion === 1;
+  if (!data || (!legacy && data.schemaVersion !== 2) || !validString(data.hostId) || !/^urn:uuid:[a-f0-9-]{36}$/u.test(data.hostId)
     || !Array.isArray(data.accounts) || data.accounts.length > 16 || Object.keys(data).some(field => !['schemaVersion', 'hostId', 'accounts', 'activeAccountId'].includes(field))) accountFail('ACCOUNT_STORAGE_INVALID', 'The saved account record is invalid.');
   const ids = new Set<string>();
   for (const account of data.accounts) {
     if (!account || !validString(account.id, 36) || ids.has(account.id) || !validString(account.clientId) || account.clientId === 'dynamic_agent_client'
       || !validString(account.label, 256) || (account.subject !== undefined && !validString(account.subject)) || !['connected', 'signed-out', 'expired', 'failed'].includes(account.state)
-      || Object.keys(account).some(field => !['id', 'clientId', 'subject', 'label', 'state', 'tokens'].includes(field))) accountFail('ACCOUNT_STORAGE_INVALID', 'A saved account registration is invalid.');
+      || (!legacy && !['codex-oauth', 'legacy-siwc'].includes(account.authKind))
+      || (!legacy && account.authKind === 'codex-oauth' && account.clientId !== CHATGPT_CLIENT_ID)
+      || Object.keys(account).some(field => !['id', 'clientId', 'subject', 'label', 'state', 'tokens', ...(!legacy ? ['authKind'] : [])].includes(field))) accountFail('ACCOUNT_STORAGE_INVALID', 'A saved account registration is invalid.');
     ids.add(account.id);
     const tokens = account.tokens;
     if (tokens && (!validString(account.subject) || !validString(tokens.accessToken, 16_384) || !validString(tokens.idToken, 65_536)
       || (tokens.refreshToken !== undefined && !validString(tokens.refreshToken, 16_384)) || !Number.isFinite(tokens.expiresAt)
       || !Array.isArray(tokens.scopes) || tokens.scopes.length > 32 || tokens.scopes.some(scope => !validString(scope, 128))
-      || Object.keys(tokens).some(field => !['accessToken', 'refreshToken', 'idToken', 'expiresAt', 'scopes'].includes(field)))) accountFail('ACCOUNT_STORAGE_INVALID', 'A saved account session is invalid.');
+      || (!legacy && account.authKind === 'codex-oauth' && (typeof tokens.chatgptAccountId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,255}$/u.test(tokens.chatgptAccountId)))
+      || Object.keys(tokens).some(field => !['accessToken', 'refreshToken', 'idToken', 'expiresAt', 'scopes', ...(!legacy ? ['chatgptAccountId'] : [])].includes(field)))) accountFail('ACCOUNT_STORAGE_INVALID', 'A saved account session is invalid.');
     if (account.state === 'connected' && !tokens) accountFail('ACCOUNT_STORAGE_INVALID', 'A saved account session is missing.');
   }
   if (data.activeAccountId !== undefined && !ids.has(data.activeAccountId)) accountFail('ACCOUNT_STORAGE_INVALID', 'The active account registration is invalid.');
-  return data;
+  return legacy ? { ...data, schemaVersion: 2, accounts: data.accounts.map<SavedAccount>(account => ({ ...account, authKind: 'legacy-siwc', state: account.tokens ? 'expired' : 'signed-out' })) } : data;
 }
 
 /** Main owns accounts. The worker receives only the selected, fresh bearer credential. */
@@ -41,7 +48,7 @@ export class DesktopAccounts {
   readonly #vault: AccountVault;
   readonly #auth: ChatGPTAuth;
   readonly #now: () => number;
-  #saved: SavedAccounts = { schemaVersion: 1, hostId: `urn:uuid:${randomUUID()}`, accounts: [] };
+  #saved: SavedAccounts = { schemaVersion: 2, hostId: `urn:uuid:${randomUUID()}`, accounts: [] };
   #loaded = false;
   #operation: Promise<unknown> = Promise.resolve();
   #pending?: { owner: string; controller: AbortController };
@@ -58,6 +65,8 @@ export class DesktopAccounts {
     if (this.#loaded) return;
     const saved = await this.#vault.load();
     if (saved !== undefined) this.#saved = parseSaved(saved);
+    if (this.#saved.accounts.some(account => account.authKind === 'legacy-siwc' && account.tokens))
+      this.#error = { code: 'ACCOUNT_REAUTH_REQUIRED', message: 'Sign in again to connect your ChatGPT account to Codex.' };
     const uncertain = await this.#vault.pendingRefresh();
     if (uncertain) {
       this.#quarantined.add(uncertain);
@@ -70,7 +79,8 @@ export class DesktopAccounts {
   #view(): DesktopAccountView {
     return { accounts: this.#saved.accounts.map(account => ({ id: account.id, providerId: 'chatgpt', label: account.label,
       state: this.#quarantined.has(account.id) ? 'failed' : account.state === 'connected' && account.tokens && account.tokens.expiresAt <= this.#now() ? 'expired' : account.state,
-      sharing: account.state === 'connected' && !!account.tokens?.scopes.includes('chatgpt.tokens.use.direct'), ...(account.tokens ? { expiresAt: account.tokens.expiresAt } : {}) })),
+      sharing: account.authKind === 'codex-oauth' && !this.#quarantined.has(account.id) && account.state === 'connected'
+        && !!account.tokens?.chatgptAccountId && account.tokens.expiresAt > this.#now(), ...(account.tokens ? { expiresAt: account.tokens.expiresAt } : {}) })),
       ...(this.#saved.activeAccountId ? { activeAccountId: this.#saved.activeAccountId } : {}), pending: !!this.#pending,
       secureStorage: this.#vault.available() ? 'available' : 'unavailable', models: structuredClone(this.#models.get(this.#saved.activeAccountId ?? '') ?? []), revision: this.#revision,
       ...(this.#error ? { error: { ...this.#error } } : {}) };
@@ -91,7 +101,7 @@ export class DesktopAccounts {
   getCredential(): PrivateAccountCredential | undefined {
     if (!this.#credential || this.#pending) return undefined;
     const account = this.#account(this.#credential.accountId);
-    if (this.#quarantined.has(account.id) || account.state !== 'connected' || !account.tokens || account.tokens.expiresAt <= this.#now()) return undefined;
+    if (account.authKind !== 'codex-oauth' || this.#quarantined.has(account.id) || account.state !== 'connected' || !account.tokens || account.tokens.expiresAt <= this.#now()) return undefined;
     return this.#credential;
   }
   async resolveCredential(): Promise<PrivateAccountCredential | undefined> {
@@ -99,18 +109,22 @@ export class DesktopAccounts {
       await this.#load(); this.#credential = undefined;
       if (!this.#saved.activeAccountId) return undefined;
       const account = this.#account(this.#saved.activeAccountId);
-      if (this.#quarantined.has(account.id) || !account.tokens || !['connected', 'expired'].includes(account.state) || !account.tokens.scopes.includes('chatgpt.tokens.use.direct')) return undefined;
+      if (account.authKind !== 'codex-oauth' || this.#quarantined.has(account.id) || !account.tokens || !['connected', 'expired'].includes(account.state)) return undefined;
       await this.#vault.lease(async () => {
         if (account.tokens!.expiresAt <= this.#now() + 60_000) await this.#refresh(account, new AbortController().signal);
         if (!this.#models.has(account.id)) this.#models.set(account.id, await this.#auth.models(account.tokens!, new AbortController().signal));
       });
       const credential = { accountId: account.id, baseURL: CHATGPT_API, models: Object.freeze(structuredClone(this.#models.get(account.id) ?? [])) } as PrivateAccountCredential;
-      Object.defineProperty(credential, 'apiKey', { value: account.tokens!.accessToken, enumerable: false });
+      Object.defineProperties(credential, {
+        apiKey: { value: account.tokens!.accessToken, enumerable: false },
+        chatgptAccountId: { value: account.tokens!.chatgptAccountId!, enumerable: false },
+        secrets: { value: Object.freeze([account.tokens!.accessToken, account.tokens!.refreshToken, account.tokens!.idToken, account.tokens!.chatgptAccountId].filter((value): value is string => !!value)), enumerable: false },
+      });
       this.#credential = Object.freeze(credential); return this.#credential;
     });
   }
   async #refresh(account: SavedAccount, signal: AbortSignal): Promise<void> {
-    if (this.#quarantined.has(account.id) || !account.tokens) accountFail('ACCOUNT_REAUTH_REQUIRED', 'This account needs a new sign-in.');
+    if (account.authKind !== 'codex-oauth' || this.#quarantined.has(account.id) || !account.tokens) accountFail('ACCOUNT_REAUTH_REQUIRED', 'This account needs a new sign-in.');
     await this.#vault.beginRefresh(account.id);
     try {
       const tokens = await this.#auth.refresh(account, account.tokens, signal);
@@ -159,9 +173,9 @@ export class DesktopAccounts {
             let account = input.accountId ? this.#account(input.accountId) : undefined;
             if (!account && this.#saved.accounts.length >= 16) accountFail('ACCOUNT_LIMIT', 'Remove a saved account before adding another.');
             await this.#vault.save(this.#saved, pending.controller.signal); // Persist the installation ID before opening a browser.
-            const authenticated = await this.#auth.signIn(this.#saved.hostId, account ? { ...account, ...(account.tokens ? { idToken: account.tokens.idToken } : {}) } : undefined,
+            const authenticated = await this.#auth.signIn(this.#saved.hostId, account ? { ...account, ...(account.tokens ? { idToken: account.tokens.idToken, chatgptAccountId: account.tokens.chatgptAccountId } : {}) } : undefined,
               pending.controller.signal, async clientId => {
-                if (!account) { account = { id: randomUUID(), clientId, label: `ChatGPT account ${this.#saved.accounts.length + 1}`, state: 'signed-out' }; this.#saved.accounts.push(account); }
+                if (!account) { account = { id: randomUUID(), clientId, authKind: 'codex-oauth', label: `ChatGPT account ${this.#saved.accounts.length + 1}`, state: 'signed-out' }; this.#saved.accounts.push(account); }
                 await this.#vault.save(this.#saved, pending.controller.signal);
               });
             await this.options.assertIdle?.();
@@ -171,20 +185,20 @@ export class DesktopAccounts {
             next.activeAccountId = account!.id;
             await this.#vault.save(next, pending.controller.signal); this.#saved = next; this.#quarantined.delete(account!.id);
             await this.#vault.finishRefresh(account!.id);
-            if (authenticated.tokens.scopes.includes('chatgpt.tokens.use.direct')) this.#models.set(account!.id, await this.#auth.models(authenticated.tokens, pending.controller.signal));
+            this.#models.set(account!.id, await this.#auth.models(authenticated.tokens, pending.controller.signal));
           } else {
             const account = this.#account(input.accountId ?? this.#saved.activeAccountId);
             if (input.action === 'select') {
-              if (this.#quarantined.has(account.id) || !account.tokens || !['connected', 'expired'].includes(account.state)) accountFail('ACCOUNT_REAUTH_REQUIRED', 'Sign in again before selecting this account.');
+              if (account.authKind !== 'codex-oauth' || this.#quarantined.has(account.id) || !account.tokens || !['connected', 'expired'].includes(account.state)) accountFail('ACCOUNT_REAUTH_REQUIRED', 'Sign in again before selecting this account.');
               if (account.tokens.expiresAt <= this.#now() + 60_000) await this.#refresh(account, pending.controller.signal);
-              const models = account.tokens!.scopes.includes('chatgpt.tokens.use.direct') ? await this.#auth.models(account.tokens!, pending.controller.signal) : [];
+              const models = await this.#auth.models(account.tokens!, pending.controller.signal);
               await this.options.assertIdle?.();
               if (pending.controller.signal.aborted) accountFail('ACCOUNT_CANCELLED', 'Account selection was cancelled.');
               const next = structuredClone(this.#saved); next.activeAccountId = account.id;
               await this.#vault.save(next, pending.controller.signal); this.#saved = next; this.#models.set(account.id, models);
             } else if (input.action === 'refresh') {
               await this.#refresh(account, pending.controller.signal);
-              if (account.tokens!.scopes.includes('chatgpt.tokens.use.direct')) this.#models.set(account.id, await this.#auth.models(account.tokens!, pending.controller.signal));
+              this.#models.set(account.id, await this.#auth.models(account.tokens!, pending.controller.signal));
             } else if (input.action === 'sign-out' || input.action === 'forget') {
               const tokens = account.tokens;
               const revoked = !tokens || await this.#auth.revoke(account, tokens, pending.controller.signal);
@@ -192,7 +206,7 @@ export class DesktopAccounts {
               if (this.#saved.activeAccountId === account.id) delete this.#saved.activeAccountId;
               await this.#vault.save(this.#saved);
               await this.#vault.finishRefresh(account.id);
-              if (!revoked) this.#error = { code: 'ACCOUNT_REVOCATION_UNCONFIRMED', message: 'Signed out locally. Remote revocation was not confirmed; disconnect Moodcode in ChatGPT settings.' };
+              if (!revoked) this.#error = { code: 'ACCOUNT_REVOCATION_UNCONFIRMED', message: 'Signed out locally. The previous remote session may remain valid until it expires.' };
               if (input.action === 'forget') { this.#saved.accounts = this.#saved.accounts.filter(item => item.id !== account.id); await this.#vault.save(this.#saved); }
             } else accountFail('ACCOUNT_ACTION_INVALID', 'The account action is invalid.');
           }

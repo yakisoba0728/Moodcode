@@ -590,3 +590,47 @@ test('native empty output fallback enforces response bytes and tool argument lim
   await failure(new CodexProvider({ codexHome, maxResponseBytes: 100, fetch: async () => nativeResponse(stream) }), 'PROVIDER_LIMIT_EXCEEDED');
   await failure(new CodexProvider({ codexHome, maxToolArgumentBytes: 2, fetch: async () => nativeResponse(stream) }), 'PROVIDER_LIMIT_EXCEEDED');
 });
+
+test('host account credentials use the native route and are resolved for each turn', async () => {
+  const calls: { url: string; authorization: string | null; account: string | null }[] = [];
+  let reads = 0;
+  const provider = new CodexProvider({ credentialReader: {
+    async use(signal, callback) {
+      assert.equal(signal.aborted, false);
+      const accessToken = `host-fixture-access-${++reads}`;
+      return callback({ accessToken, accountId: TOKENS.account_id, secrets: [TOKENS.refresh_token, TOKENS.id_token] });
+    },
+  }, fetch: async (url, init) => {
+    const headers = new Headers(init?.headers);
+    calls.push({ url: String(url), authorization: headers.get('Authorization'), account: headers.get('ChatGPT-Account-ID') });
+    assert.equal(init?.redirect, 'error');
+    return response();
+  } });
+  assert.equal(reads, 0);
+  await collect(provider); await collect(provider);
+  assert.deepEqual(calls, [1, 2].map(index => ({ url: ENDPOINT, authorization: `Bearer host-fixture-access-${index}`, account: TOKENS.account_id })));
+  assert.equal(reads, 2);
+});
+
+test('host credential sources keep authentication redacted even with an incomplete secret list', async () => {
+  const provider = new CodexProvider({ credentialReader: {
+    async use(_signal, callback) { return callback({ accessToken: TOKENS.access_token, accountId: TOKENS.account_id, secrets: [TOKENS.refresh_token, TOKENS.id_token] }); },
+  }, fetch: async () => new Response(JSON.stringify({ error: { message: Object.values(TOKENS).join(' ') } }), { status: 401, headers: { 'content-type': 'application/json' } }) });
+  await failure(provider, 'PROVIDER_HTTP_ERROR');
+});
+
+test('invalid or cancelled host credentials cannot reach the network', async () => {
+  let fetches = 0;
+  const fetch: typeof globalThis.fetch = async () => { fetches++; return response(); };
+  for (const credential of [
+    { accessToken: TOKENS.access_token + '\r\nx-injected:yes', accountId: TOKENS.account_id, secrets: [] },
+    { accessToken: TOKENS.access_token, accountId: '', secrets: [] },
+    { accessToken: TOKENS.access_token, accountId: TOKENS.account_id, secrets: [''] },
+  ]) await failure(new CodexProvider({ credentialReader: { async use(_signal, callback) { return callback(credential); } }, fetch }), 'PROVIDER_INVALID_CONFIG');
+  const abort = new AbortController();
+  await failure(new CodexProvider({ credentialReader: { async use(_signal, callback) {
+    abort.abort(); return callback({ accessToken: TOKENS.access_token, accountId: TOKENS.account_id, secrets: [] });
+  } }, fetch }), 'PROVIDER_CANCELLED', request(), abort.signal);
+  assert.throws(() => new CodexProvider({ codexHome: '/unused', credentialReader: { async use() { throw new Error('Unused'); } } }), { code: 'PROVIDER_INVALID_CONFIG' });
+  assert.equal(fetches, 0);
+});

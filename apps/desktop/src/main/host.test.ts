@@ -252,6 +252,24 @@ test('initialization sends private config to utility but bootstrap/settings retu
   assert.ok(!JSON.stringify(host.getStatus()).includes(remote.apiKey!));
 });
 
+test('native app account credentials remain private across worker startup, bootstrap and failures', async t => {
+  const codexCredential = { accessToken: 'fixture-host-native-access', accountId: 'fixture-host-native-account', secrets: ['fixture-host-native-refresh', 'fixture-host-native-id'] };
+  const secrets = [codexCredential.accessToken, codexCredential.accountId, ...codexCredential.secrets];
+  const { host, settings, workers } = setup(t, { settingsInput: { providerId: 'codex', modelId: 'fixture-model', baseURL: '', credentialMode: 'chatgpt', accountId: '12345678-1234-1234-1234-123456789012' } });
+  settings.current = { view: { ...settings.current.view, credentialMode: 'chatgpt', accountId: '12345678-1234-1234-1234-123456789012', keyConfigured: true, keySource: 'chatgpt' },
+    engineConfig: { providerId: 'codex', modelId: 'fixture-model', baseURL: '', codexCredential } };
+  assert.equal((await host.initialize()).state, 'ready');
+  const payload = workers[0]!.requests('start')[0]!.payload as WorkerStartPayload;
+  assert.deepEqual(payload.config.codexCredential, codexCredential);
+  for (const secret of secrets) assert.ok(!JSON.stringify(await host.getBootstrap()).includes(secret));
+  workers[0]!.sendFailure = new Error(secrets.join(' '));
+  await assert.rejects(host.command(command()), (error: unknown) => {
+    assert.ok(error instanceof HostError);
+    for (const secret of secrets) assert.ok(!`${error.message}${JSON.stringify(error)}`.includes(secret));
+    return true;
+  });
+});
+
 test('settings save rejected by active Run does not close, spawn, or commit', async (t) => {
   const { host, workers, settings } = setup(t);
   await host.initialize();

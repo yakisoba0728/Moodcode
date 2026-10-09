@@ -6,8 +6,9 @@ import { join } from 'node:path';
 import { test, type TestContext } from 'node:test';
 import type { SaveDesktopSettings } from '../shared/protocol.js';
 import {
-  SettingsError, SettingsStore, type CredentialStorage, type DesktopCodexAuth, type PreparedSettings,
+  SettingsError, SettingsStore, type CredentialStorage, type DesktopCodexAuth, type PreparedSettings, type SettingsStoreOptions,
 } from './settings.js';
+import type { PrivateAccountCredential } from './accounts.js';
 
 class TestStorage implements CredentialStorage {
   available = true;
@@ -36,7 +37,7 @@ class TestStorage implements CredentialStorage {
   }
 }
 
-async function fixture(t: TestContext, extra: { environment?: Record<string, string | undefined>; codexAuth?: () => DesktopCodexAuth } = {}) {
+async function fixture(t: TestContext, extra: Pick<SettingsStoreOptions, 'environment' | 'codexAuth' | 'accountCredential'> = {}) {
   const root = await mkdtemp(join(tmpdir(), 'moodcode-settings-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const directory = join(root, 'private');
@@ -49,6 +50,80 @@ const remote = (extra: Partial<SaveDesktopSettings> = {}): SaveDesktopSettings =
   providerId: 'openai-compatible', modelId: 'fixture-model', baseURL: 'http://127.0.0.1:3000/v1', ...extra,
 });
 const scripted: SaveDesktopSettings = { providerId: 'scripted', modelId: 'local', baseURL: '' };
+
+function accountCredential(): PrivateAccountCredential {
+  const value = { accountId: randomUUID(), baseURL: 'https://chatgpt.com/backend-api/codex' as const, models: [{ id: 'fixture-account-model', displayName: 'Fixture account model' }] };
+  Object.defineProperties(value, { apiKey: { value: 'private-codex-access', enumerable: false }, chatgptAccountId: { value: 'private-native-account', enumerable: false },
+    secrets: { value: Object.freeze(['private-codex-access', 'private-native-account', 'private-codex-refresh', 'private-codex-id']), enumerable: false } });
+  return Object.freeze(value) as unknown as PrivateAccountCredential;
+}
+
+test('native browser Codex account binds public UUID and private frozen credential without falling back to API keys or local login', async t => {
+  const account = accountCredential();
+  const { directory, path, storage, store } = await fixture(t, { accountCredential: () => account, environment: { MOODCODE_API_KEY: 'private-api-key', OPENAI_API_KEY: 'private-api-key' } });
+  const prepared = await store.prepare({ providerId: 'codex', modelId: '', baseURL: '', credentialMode: 'chatgpt', accountId: account.accountId, reasoningEffort: 'high' });
+  assert.equal(prepared.view.modelId, account.models[0]!.id); assert.equal(prepared.view.keySource, 'chatgpt'); assert.equal(prepared.view.accountId, account.accountId);
+  assert.equal(prepared.engineConfig.apiKey, undefined); assert.equal(prepared.engineConfig.baseURL, '');
+  assert.deepEqual(prepared.engineConfig.codexCredential, { accessToken: account.apiKey, accountId: account.chatgptAccountId, secrets: account.secrets });
+  assert.ok(Object.isFrozen(prepared.engineConfig.codexCredential)); assert.ok(Object.isFrozen(prepared.engineConfig.codexCredential?.secrets));
+  assert.doesNotMatch(JSON.stringify(prepared), /private-codex|private-native|private-api-key/u);
+  const view = (await store.commit(prepared)).view;
+  assert.doesNotMatch(JSON.stringify(view), /private-codex|private-native|private-api-key/u);
+  const disk = await readFile(path, 'utf8'); assert.doesNotMatch(disk, /private-codex|private-native|private-api-key/u);
+  const reopened = new SettingsStore({ directory, safeStorage: storage, environment: {}, accountCredential: () => account });
+  const loaded = await reopened.load(); assert.equal(loaded.engineConfig.codexCredential?.accountId, account.chatgptAccountId);
+  assert.equal(loaded.view.credentialMode, 'chatgpt'); assert.equal(loaded.view.accountId, account.accountId);
+});
+
+test('browser account metadata never supplies the local Codex catalog or accepts another account/model/endpoint', async t => {
+  const account = accountCredential();
+  const { store } = await fixture(t, { accountCredential: () => account, codexAuth: () => ({ available: true, state: 'available', modelId: 'fixture-local-model', models: [{ id: 'fixture-local-model', displayName: 'Local', reasoningEfforts: ['low'] }] }) });
+  const input: SaveDesktopSettings = { providerId: 'codex', modelId: account.models[0]!.id, baseURL: '', credentialMode: 'chatgpt', accountId: account.accountId };
+  const selected = await store.prepare({ ...input, reasoningEffort: 'high' });
+  assert.equal(selected.view.codexModels, undefined); assert.equal(selected.view.codexModelId, undefined);
+  for (const change of [{ accountId: randomUUID() }, { accountId: '-'.repeat(36) }, { modelId: 'fixture-local-model' }, { baseURL: 'https://api.openai.com/v1' }, { providerId: 'openai-responses', baseURL: 'https://api.openai.com/v1' }, { providerId: 'anthropic', baseURL: 'https://api.anthropic.com/v1' }]) {
+    await assert.rejects(store.prepare({ ...input, ...change } as SaveDesktopSettings), error => error instanceof SettingsError && !/private-codex|private-native/u.test(error.message));
+  }
+  await assert.rejects(store.prepare({ ...input, apiKey: 'private-codex-api-injection' }), code('SETTINGS_INVALID', 'private-codex-api-injection'));
+  await assert.rejects(store.prepare({ providerId: 'codex', modelId: 'fixture-local-model', baseURL: '', credentialMode: 'api-key' }), code('SETTINGS_INVALID'));
+  const local = await store.prepare({ providerId: 'codex', modelId: 'fixture-local-model', baseURL: '' });
+  assert.equal(local.view.keySource, 'codex'); assert.equal(local.engineConfig.codexCredential, undefined);
+});
+
+test('missing/throwing/unsafe native account credential fails closed without API-key fallback or secret diagnostics', async t => {
+  const original = accountCredential();
+  const input: SaveDesktopSettings = { providerId: 'codex', modelId: original.models[0]!.id, baseURL: '', credentialMode: 'chatgpt', accountId: original.accountId };
+  const credentials: (() => PrivateAccountCredential | undefined)[] = [() => undefined, () => { throw new Error('private-codex-refresh'); },
+    ...[{ chatgptAccountId: 'x'.repeat(257) }, { chatgptAccountId: 'unsafe\r\nheader' }, { secrets: [''] }, { secrets: ['bad\nsecret'] }, { secrets: Array.from({ length: 17 }, (_, i) => `private-${i}`) },
+      { secrets: Array.from({ length: 16 }, (_, i) => `private-${i}`) }, { baseURL: 'https://foreign.example' }].map(change => () => ({ ...original, apiKey: original.apiKey, chatgptAccountId: original.chatgptAccountId, secrets: original.secrets, ...change }) as PrivateAccountCredential)];
+  for (const resolveCredential of credentials) {
+    const { store } = await fixture(t, { accountCredential: resolveCredential, environment: { MOODCODE_API_KEY: 'private-api-key' } });
+    await assert.rejects(store.prepare(input), code('SETTINGS_ACCOUNT_AUTH_REQUIRED', 'private-codex-refresh'));
+  }
+});
+
+test('legacy SIWC selection becomes a reauthentication-required Codex view without mutating disk or losing a prior encrypted API key', async t => {
+  const account = accountCredential(); const { directory, path, storage, store } = await fixture(t);
+  await store.commit(await store.prepare(remote({ providerId: 'openai-responses', baseURL: 'https://api.openai.com/v1', apiKey: 'private-prior-api-key' })));
+  const saved = JSON.parse(await readFile(path, 'utf8')); const bytes = JSON.stringify({ ...saved, credentialMode: 'chatgpt', accountId: account.accountId });
+  await writeFile(path, bytes, { mode: 0o600 });
+  const reopened = new SettingsStore({ directory, safeStorage: storage, environment: {} });
+  await assert.rejects(reopened.load(), code('SETTINGS_ACCOUNT_AUTH_REQUIRED'));
+  assert.equal(await readFile(path, 'utf8'), bytes); assert.equal(reopened.getView().providerId, 'codex'); assert.equal(reopened.getView().baseURL, ''); assert.equal(reopened.getView().keyConfigured, false);
+  const api = await reopened.prepare(remote({ providerId: 'openai-responses', baseURL: 'https://api.openai.com/v1', credentialMode: 'api-key' }));
+  assert.equal(api.engineConfig.apiKey, 'private-prior-api-key'); assert.equal(api.engineConfig.codexCredential, undefined);
+  assert.equal(await readFile(path, 'utf8'), bytes);
+});
+
+test('existing API-key selections and legacy local-Codex mode keep their authentication lanes', async t => {
+  const { directory, path, storage, store } = await fixture(t);
+  await store.commit(await store.prepare(remote({ providerId: 'openai-responses', baseURL: 'https://api.openai.com/v1', credentialMode: 'api-key', apiKey: 'private-existing-api-key' })));
+  const apiBytes = await readFile(path, 'utf8');const api = await new SettingsStore({ directory, safeStorage: storage, environment: {} }).load();
+  assert.equal(api.view.providerId, 'openai-responses'); assert.equal(api.engineConfig.apiKey, 'private-existing-api-key'); assert.equal(await readFile(path, 'utf8'), apiBytes);
+  const localBytes = JSON.stringify({ schemaVersion: 1, providerId: 'codex', modelId: 'fixture-local-model', baseURL: '', credentialMode: 'api-key' }); await writeFile(path, localBytes, { mode: 0o600 });
+  const local = await new SettingsStore({ directory, safeStorage: storage, environment: {}, codexAuth: () => ({ available: true, state: 'available', modelId: 'fixture-local-model' }) }).load();
+  assert.equal(local.view.keySource, 'codex'); assert.equal(local.view.credentialMode, undefined); assert.equal(local.engineConfig.codexCredential, undefined); assert.equal(await readFile(path, 'utf8'), localBytes);
+});
 
 test('Anthropic workspace and effort survive encrypted-key commit/reload without exposing the credential', async t => {
   const { directory, path, storage, store } = await fixture(t);

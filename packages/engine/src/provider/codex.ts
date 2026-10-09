@@ -1,6 +1,6 @@
 import { providerSegments } from '../media/segment-provider.js';
 import { EngineError } from '@moodcode/contracts';
-import { createCodexCredentialReader, type CodexAuthOptions } from '../auth/codex.js';
+import { createCodexCredentialReader, type CodexAuthOptions, type CodexCredentialReader } from '../auth/codex.js';
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 import { positiveLimit } from './helpers.js';
 import { ResponsesProvider, type ResponsesProviderOptions } from './responses.js';
@@ -8,8 +8,7 @@ import { providerImages } from '../media/provider.js';
 import { providerDocuments } from '../documents/provider.js';
 import { hostGenerationTransportRequest, validateHostGenerationRequest, type HostGenerationRequest, type ProviderTransportRequest } from './generation.js';
 
-// Existing Codex ChatGPT credentials are scoped to this native Codex route.
-// They are not the new Sign in with ChatGPT direct-API grant.
+// Codex OAuth credentials use this fixed native route.
 const BASE_URL = 'https://chatgpt.com/backend-api/codex';
 const ENDPOINT = BASE_URL + '/responses';
 const USER_AGENT = 'Moodcode/0.1.0';
@@ -21,13 +20,15 @@ export interface CodexProviderOptions extends Pick<ResponsesProviderOptions,
   codexHome?: CodexAuthOptions['codexHome'];
   /** Epoch milliseconds; deterministic local auth fixtures only. */
   now?: CodexAuthOptions['now'];
+  /** Trusted host credential source, kept outside renderer and persisted events. */
+  credentialReader?: CodexCredentialReader;
 }
 
 function invalidConfiguration(): never {
   throw new EngineError('PROVIDER_INVALID_CONFIG', 'Codex provider configuration is invalid.');
 }
 
-/** A native model turn using local Codex auth; the Moodcode runner owns tools. */
+/** A native model turn using Codex auth; the Moodcode runner owns tools. */
 export class CodexProvider implements ProviderAdapter {
   readonly id = 'codex';
   readonly replayProtocol = 'codex-responses';
@@ -39,7 +40,7 @@ export class CodexProvider implements ProviderAdapter {
   #requestBytes: number;
 
   constructor(options: CodexProviderOptions = {}) {
-    // No configurable destination, header injection or alternate credential.
+    // Destination and authentication headers remain fixed for every source.
     for (const forbidden of ['baseURL', 'endpoint', 'apiKey', 'id', 'headers', 'redactionSecrets', 'streamProfile', 'pdfModelIds', 'inputFileTypes']) {
       if (Object.hasOwn(options, forbidden)) invalidConfiguration();
     }
@@ -53,7 +54,9 @@ export class CodexProvider implements ProviderAdapter {
     };
     // Validate transport limits immediately without reading or caching auth.
     new ResponsesProvider({ ...this.#options, id: this.id, baseURL: BASE_URL, fetch: this.#fetch });
-    this.#reader = createCodexCredentialReader({ codexHome: options.codexHome, now: options.now });
+    if (options.credentialReader !== undefined && (typeof options.credentialReader?.use !== 'function'
+      || options.codexHome !== undefined || options.now !== undefined)) invalidConfiguration();
+    this.#reader = options.credentialReader ?? createCodexCredentialReader({ codexHome: options.codexHome, now: options.now });
   }
 
   streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
@@ -72,6 +75,13 @@ export class CodexProvider implements ProviderAdapter {
     providerImages(request, true, signal);
     providerSegments(request, () => false, signal);
     const provider = await this.#reader.use(signal, credential => {
+      if (typeof credential?.accessToken !== 'string' || !/^[\x21-\x7e]{1,32768}$/.test(credential.accessToken)
+        || typeof credential.accountId !== 'string' || !/^[\x21-\x7e]{1,256}$/.test(credential.accountId)
+        || !Array.isArray(credential.secrets) || credential.secrets.length > 16
+        || credential.secrets.some(secret => typeof secret !== 'string' || !/^[\x21-\x7e]{1,65536}$/.test(secret))) invalidConfiguration();
+      if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
+      const accessToken = credential.accessToken, accountId = credential.accountId;
+      const secrets = [...new Set([accessToken, accountId, ...credential.secrets])];
       const transport: typeof fetch = async (url, init) => {
         if (String(url) !== ENDPOINT || init?.method !== 'POST' || typeof init.body !== 'string' || init.redirect !== 'error') invalidConfiguration();
         // The delegate has already bounded and encoded the full native history.
@@ -90,8 +100,8 @@ export class CodexProvider implements ProviderAdapter {
         const serialized = JSON.stringify(payload);
         if (Buffer.byteLength(serialized, 'utf8') > this.#requestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');
         const headers = new Headers(init.headers);
-        headers.set('Authorization', `Bearer ${credential.accessToken}`);
-        headers.set('ChatGPT-Account-ID', credential.accountId);
+        headers.set('Authorization', `Bearer ${accessToken}`);
+        headers.set('ChatGPT-Account-ID', accountId);
         headers.set('originator', 'moodcode');
         headers.set('User-Agent', USER_AGENT);
         // Only the fixed OpenAI origin receives credentials; redirects are denied.
@@ -99,7 +109,7 @@ export class CodexProvider implements ProviderAdapter {
       };
       return new ResponsesProvider({
         ...this.#options, id: this.id, baseURL: BASE_URL, fetch: transport,
-        redactionSecrets: credential.secrets, streamProfile: 'codex',
+        redactionSecrets: secrets, streamProfile: 'codex',
       });
     });
     yield* delegate(provider);

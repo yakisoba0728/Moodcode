@@ -19,6 +19,11 @@ export interface HostSettingsStore {
   commit(prepared: PreparedSettings): Promise<ResolvedDesktopSettings>;
   getView(): DesktopSettings;
 }
+function credentialSecrets(config: WorkerEngineConfig): string[] {
+  const credential = config.codexCredential;
+  return credential ? [...new Set([credential.accessToken, credential.accountId, ...credential.secrets])]
+    : config.apiKey ? [config.apiKey] : [];
+}
 /** This receipt proves only original utility transport close/exit, never native effects. */
 export interface UtilityCloseConnectionDiagnostic {
   connectionId: string;
@@ -256,7 +261,7 @@ export class DesktopHost {
     if (this.connection && !this.connection.closed && !this.connection.exited) throw new HostError('ENGINE_BUSY', 'The previous engine must close before a new one starts.');
     this.status.generation += 1;
     this.publish('starting');
-    const secrets = config.apiKey ? [config.apiKey] : [];
+    const secrets = credentialSecrets(config);
     this.reserveUtilityConnection();
     let transport: UtilityTransport;
     try { transport = this.spawnUtility(); }
@@ -425,7 +430,7 @@ export class DesktopHost {
       this.publish('starting');
       await this.closeConnection(this.connection);
       try { await this.start(prepared.engineConfig, false); }
-      catch (error) { throw new HostError('SETTINGS_ENGINE_START_FAILED', `The previous engine closed, but the new configuration could not start: ${safeError(error, 'HOST_START_FAILED', prepared.engineConfig.apiKey ? [prepared.engineConfig.apiKey] : []).message}`); }
+      catch (error) { throw new HostError('SETTINGS_ENGINE_START_FAILED', `The previous engine closed, but the new configuration could not start: ${safeError(error, 'HOST_START_FAILED', credentialSecrets(prepared.engineConfig)).message}`); }
       try { await this.options.settings.commit(prepared); }
       catch {
         try { await this.closeConnection(this.connection); }

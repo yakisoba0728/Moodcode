@@ -86,10 +86,10 @@ export function AccountSettings({
   const account = view?.accounts.find((row) => row.id === displayedId);
   return (
     <section className="account-panel" aria-label="앱 계정 관리">
-      <h3>ChatGPT 계정</h3>
+      <h3>ChatGPT 로그인 · Codex</h3>
       <p className="field-help">
-        브라우저의 공식 로그인으로 연결해요. 로그인 정보를 화면이나 대화 기록에
-        표시하지 않아요.
+        브라우저에서 ChatGPT에 로그인해 Codex를 사용해요. 토큰은 화면이나
+        대화 기록에 표시하지 않아요. 만료되면 계정을 갱신하거나 다시 로그인하세요.
       </p>
       {view?.accounts.length ? (
         <label className="field-label">
@@ -149,7 +149,7 @@ export function AccountSettings({
             disabled={busy || view?.secureStorage === "unavailable"}
             onClick={() => void act({ action: "sign-in" })}
           >
-            ChatGPT로 계속
+            ChatGPT로 로그인 (Codex)
           </button>
         )}
         {account ? (
@@ -226,8 +226,7 @@ export function AccountSettings({
       ) : null}
       {account?.state === "connected" && !account.sharing ? (
         <p className="field-help">
-          이 계정은 앱 모델 사용 공유를 허용하지 않았어요. ChatGPT에서 연결
-          권한을 확인하세요.
+          Codex 로그인 정보가 없어요. ChatGPT로 다시 로그인하세요.
         </p>
       ) : null}
       {view?.models.length ? (

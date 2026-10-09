@@ -21,8 +21,8 @@ export function Settings({
   close: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [credentialMode, setCredentialMode] = useState<"api-key" | "chatgpt">(
-    settings.credentialMode ?? "api-key",
+  const [credentialMode, setCredentialMode] = useState<"local" | "chatgpt">(
+    settings.credentialMode === "chatgpt" ? "chatgpt" : "local",
   );
   const [accounts, setAccounts] = useState<DesktopAccountView | null>(null);
   const [provider, setProvider] = useState<DesktopProviderId>(
@@ -38,6 +38,7 @@ export function Settings({
   const [clearKey, setClearKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const accountLogin = provider === "codex" && credentialMode === "chatgpt";
   useEffect(() => {
     if (settings.credentialMode === "chatgpt" && settings.accountId) {
       setProvider(settings.providerId);
@@ -72,23 +73,14 @@ export function Settings({
               ? ""
               : endpoint.trim(),
           ...(key &&
-          (provider !== "openai-responses" || credentialMode !== "chatgpt") &&
           provider !== "codex" &&
           provider !== "scripted"
             ? { apiKey: key }
             : {}),
           ...(clearKey ? { clearKey: true } : {}),
-          ...(provider === "openai-responses"
-            ? {
-                credentialMode,
-                ...(credentialMode === "chatgpt"
-                  ? {
-                      accountId:
-                        accounts?.activeAccountId ?? settings.accountId,
-                    }
-                  : {}),
-              }
-            : { credentialMode: "api-key" as const }),
+          ...(accountLogin
+            ? { credentialMode: "chatgpt" as const, accountId: accounts?.activeAccountId ?? settings.accountId }
+            : provider === "codex" ? {} : { credentialMode: "api-key" as const }),
           ...(effort &&
           (provider === "codex" || provider === "openai-responses" || provider === "anthropic")
             ? { reasoningEffort: effort }
@@ -150,9 +142,10 @@ export function Settings({
             const id = event.target.value as DesktopProviderId;
             setProvider(id);
             setEffort("");
+            setCredentialMode(id === "codex" && settings.credentialMode === "chatgpt" ? "chatgpt" : "local");
             if (id === "anthropic" || provider === "anthropic") setKey("");
             setAnthropicWorkspaceId(id === "anthropic" ? settings.anthropicWorkspaceId ?? "" : "");
-            if (id === "codex") setModel(settings.codexModelId ?? "");
+            if (id === "codex") setModel(settings.credentialMode === "chatgpt" ? settings.modelId : settings.codexModelId ?? "");
             else if (id === "scripted") setModel("local");
             else if (id === "anthropic") setModel(settings.providerId === "anthropic" ? settings.modelId : "");
             else if (model === "local") setModel("");
@@ -164,31 +157,31 @@ export function Settings({
             else if (id === "anthropic") setEndpoint("https://api.anthropic.com/v1");
           }}
         >
-          <option value="codex">Codex 로그인 계정</option>
+          <option value="codex">Codex · ChatGPT 로그인</option>
           <option value="openai-responses">
-            OpenAI Responses · API 키 / 앱 계정
+            OpenAI Responses · API 키
           </option>
           <option value="openai-compatible">OpenAI 호환 API</option>
           <option value="anthropic">Anthropic · API 키</option>
           <option value="scripted">테스트 모델 · 로컬</option>
         </select>
       </label>
-      {provider === "openai-responses" ? (
+      {provider === "codex" ? (
         <label className="field-label">
-          OpenAI 인증 방식
+          Codex 인증 방식
           <select
             value={credentialMode}
             onChange={(event) => {
-              const value = event.target.value as "api-key" | "chatgpt";
+              const value = event.target.value as "local" | "chatgpt";
               setCredentialMode(value);
+              setEndpoint(""); setKey(""); setEffort("");
               if (value === "chatgpt") {
-                setEndpoint("https://api.openai.com/v1");
-                setKey("");
-              }
+                setModel(accounts?.models.find(item => item.id === model)?.id ?? accounts?.models[0]?.id ?? "");
+              } else setModel(settings.codexModelId ?? "");
             }}
           >
-            <option value="api-key">API 키</option>
-            <option value="chatgpt">앱 ChatGPT 계정</option>
+            <option value="chatgpt">앱에서 ChatGPT로 로그인</option>
+            <option value="local">이 컴퓨터의 Codex 로그인</option>
           </select>
         </label>
       ) : null}
@@ -211,18 +204,14 @@ export function Settings({
                 setEffort("");
               }}
               list={
-                provider === "codex"
-                  ? "codex-models"
-                  : provider === "openai-responses" && accounts?.activeAccountId
-                    ? "account-models"
-                    : undefined
+                accountLogin ? "account-models" : provider === "codex" ? "codex-models" : undefined
               }
               placeholder="사용할 모델 ID"
               autoComplete="off"
               spellCheck={false}
             />
           </label>
-          {provider === "openai-responses" && accounts?.activeAccountId ? (
+          {accountLogin && accounts?.activeAccountId ? (
             <datalist id="account-models">
               {accounts.models.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -231,7 +220,7 @@ export function Settings({
               ))}
             </datalist>
           ) : null}
-          {provider === "codex" && settings.codexModels?.length ? (
+          {provider === "codex" && !accountLogin && settings.codexModels?.length ? (
             <>
               <datalist id="codex-models">
                 {settings.codexModels.map((item) => (
@@ -256,7 +245,7 @@ export function Settings({
                 }
               >
                 <option value="">모델 기본값</option>
-                {(provider === "codex"
+                {(provider === "codex" && !accountLogin
                   ? (settings.codexModels?.find((item) => item.id === model)
                       ?.reasoningEfforts ?? REASONING_EFFORTS)
                   : provider === "anthropic" ? ANTHROPIC_REASONING_EFFORTS : REASONING_EFFORTS
@@ -276,34 +265,27 @@ export function Settings({
             <div className="settings-note">
               <Icon name="shield" />
               <div>
-                <strong>Codex 로그인 사용</strong>
+                <strong>{accountLogin ? "앱의 ChatGPT 로그인 사용" : "로컬 Codex 로그인 사용"}</strong>
                 <p>
-                  이 컴퓨터에 로그인된 Codex 계정으로 연결해요. 토큰은 화면에
-                  표시하거나 앱 설정에 복사하지 않아요.
+                  {accountLogin
+                    ? "브라우저에서 로그인한 ChatGPT 계정으로 Codex를 사용해요. 계정 모델 목록은 제공된 정보이며 실제 사용 권한은 요청할 때 확인해요."
+                    : "이 컴퓨터의 기존 Codex 로그인으로 연결해요. 로그인 파일은 읽기만 하며 앱에서 수정하지 않아요."}
+                  {" "}토큰은 화면이나 대화 기록에 표시하지 않아요.
                 </p>
                 <span
                   className={
-                    settings.codexAuthState === "available"
+                    (accountLogin ? settings.keySource === "chatgpt" : settings.codexAuthState === "available")
                       ? "connection-valid"
                       : "muted"
                   }
                 >
-                  {settings.codexAuthState === "available"
+                  {(accountLogin ? settings.keySource === "chatgpt" : settings.codexAuthState === "available")
                     ? "로그인 확인됨"
                     : settings.codexAuthState === "expired"
                       ? "Codex에서 로그인 갱신이 필요해요."
                       : "Codex 로그인 상태를 확인해 주세요."}
                 </span>
               </div>
-            </div>
-          ) : provider === "openai-responses" &&
-            credentialMode === "chatgpt" ? (
-            <div className="settings-note">
-              <Icon name="shield" />
-              <p>
-                선택한 앱 계정으로 공식 OpenAI Responses에 연결해요. 이 계정에
-                제공된 모델 목록에서 선택하세요.
-              </p>
             </div>
           ) : (
             <>
@@ -377,8 +359,7 @@ export function Settings({
           disabled={
             saving ||
             (provider !== "scripted" && !model.trim()) ||
-            (provider === "openai-responses" &&
-              credentialMode === "chatgpt" &&
+            (accountLogin &&
               !accounts?.activeAccountId &&
               !settings.accountId)
           }

@@ -8,6 +8,7 @@ export interface WorkerEngineConfig {
   baseURL: string;
   anthropicWorkspaceId?: string;
   apiKey?: string;
+  codexCredential?: { readonly accessToken: string; readonly accountId: string; readonly secrets: readonly string[] };
   reasoningEffort?: import('@moodcode/contracts').ReasoningEffort;
 }
 export interface WorkerStartPayload {

@@ -199,20 +199,24 @@ void app.whenReady().then(async () => {
   const accountTransport = scenario === 'account' ? await createAccountFixtureTransport() : { openExternal: (url: string) => shell.openExternal(url) };
   accounts = new DesktopAccounts({ directory: join(userData, 'accounts'), safeStorage: credentialStorage, ...accountTransport });
   const settingsStore = new SettingsStore({ directory: userData, safeStorage: credentialStorage, environment: scenario ? {} : process.env, codexAuth: () => authMetadata, accountCredential: () => accounts!.getCredential() });
-  refreshSettingsMetadata = async () => { if (settingsStore.getView().providerId === 'codex') await refreshCodexAuth(); settingsStore.refreshView(); };
+  refreshSettingsMetadata = async () => {
+    const selected = settingsStore.getView();
+    if (selected.providerId === 'codex' && selected.credentialMode !== 'chatgpt') await refreshCodexAuth();
+    settingsStore.refreshView();
+  };
   const settings = {
     load: async () => {
       if ((!scenario || scenario === 'account') && settingsStore.getView().credentialMode === 'chatgpt') await accounts!.resolveCredential();
       try { return await settingsStore.load(); }
       catch (error) {
         const provider = settingsStore.getView().providerId;
+        if ((!scenario || scenario === 'account') && provider === 'codex' && settingsStore.getView().credentialMode === 'chatgpt') { await accounts!.resolveCredential(); return settingsStore.load(); }
         if (!scenario && provider === 'codex') { await refreshCodexAuth(); return settingsStore.load(); }
-        if ((!scenario || scenario === 'account') && provider === 'openai-responses' && settingsStore.getView().credentialMode === 'chatgpt') { await accounts!.resolveCredential(); return settingsStore.load(); }
         throw error;
       }
     },
     prepare: async (input: SaveDesktopSettings) => {
-      if (!scenario && input.providerId === 'codex') await refreshCodexAuth();
+      if (!scenario && input.providerId === 'codex' && input.credentialMode !== 'chatgpt') await refreshCodexAuth();
       if ((!scenario || scenario === 'account') && input.credentialMode === 'chatgpt') await accounts!.resolveCredential();
       return settingsStore.prepare(input);
     },
@@ -223,10 +227,11 @@ void app.whenReady().then(async () => {
     const selected = view.accounts.find(account => account.id === view.activeAccountId);
     if (!selected?.sharing || !view.activeAccountId) return;
     const credential = await accounts!.resolveCredential();
-    if (!credential?.models.length) throw new HostError('ACCOUNT_MODEL_REQUIRED', 'The selected account did not offer a supported API model.');
+    if (!credential?.models.length) throw new HostError('ACCOUNT_MODEL_REQUIRED', 'The selected account did not offer a Codex model.');
     const previous = settingsStore.getView();
-    const prepared = await settingsStore.prepare({ providerId: 'openai-responses', baseURL: credential.baseURL,
-      modelId: credential.models.find(model => model.id === previous.modelId)?.id ?? credential.models[0]!.id,
+    const modelId = credential.models.find(model => model.id === previous.modelId)?.id ?? credential.models[0]!.id;
+    const prepared = await settingsStore.prepare({ providerId: 'codex', baseURL: '', modelId,
+      ...(previous.providerId === 'codex' && previous.modelId === modelId && previous.reasoningEffort ? { reasoningEffort: previous.reasoningEffort } : {}),
       credentialMode: 'chatgpt', accountId: view.activeAccountId });
     await settingsStore.commit(prepared);
   };

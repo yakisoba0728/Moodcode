@@ -88,7 +88,8 @@ export function validateDesktopSettings(value: unknown): SaveDesktopSettings {
     result.credentialMode = input.credentialMode as 'api-key' | 'chatgpt';
   }
   if (input.accountId !== undefined) result.accountId = boundedString(input.accountId, 36);
-  if (result.credentialMode === 'chatgpt' && (result.providerId !== 'openai-responses' || !result.accountId || input.apiKey !== undefined)
+  if (result.credentialMode === 'chatgpt' && (result.providerId !== 'codex' || !result.accountId || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(result.accountId) || input.apiKey !== undefined)
+    || result.credentialMode === 'api-key' && result.providerId === 'codex'
     || result.accountId && result.credentialMode !== 'chatgpt') invalid();
   if (Object.hasOwn(input, 'reasoningEffort')) {
     if (!REASONING_EFFORTS.includes(input.reasoningEffort as never) || !['codex', 'openai-responses', 'anthropic'].includes(result.providerId)

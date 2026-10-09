@@ -43,6 +43,7 @@ export interface DesktopEngineConfig {
   readonly anthropicWorkspaceId?: string;
   readonly reasoningEffort?: ReasoningEffort;
   readonly apiKey?: string;
+  readonly codexCredential?: Readonly<{ accessToken: string; accountId: string; secrets: readonly string[] }>;
 }
 
 /** Only `view` may be returned through renderer IPC. engineConfig stays in main/utility. */
@@ -137,9 +138,10 @@ function configFields(input: Record<string, unknown>): Pick<StoredSettings, 'pro
   const mode = input.credentialMode;
   if (mode !== undefined && mode !== 'api-key' && mode !== 'chatgpt') invalid('credentialMode');
   if (mode === 'chatgpt') {
-    if (providerId !== 'openai-responses' || input.baseURL.replace(/\/$/u, '') !== 'https://api.openai.com/v1'
-      || typeof input.accountId !== 'string' || !/^[a-f0-9-]{36}$/u.test(input.accountId)) invalid('accountId');
-  } else if (input.accountId !== undefined) invalid('accountId');
+    if (providerId !== 'codex' || typeof input.accountId !== 'string'
+      || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(input.accountId)) invalid('accountId');
+  } else if (mode === 'api-key' && providerId === 'codex') invalid('credentialMode');
+  else if (input.accountId !== undefined) invalid('accountId');
   return { providerId, modelId: input.modelId, baseURL: input.baseURL, ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffort }),
     ...(workspace === undefined ? {} : { anthropicWorkspaceId: workspace as string }),
     ...(mode === undefined ? {} : { credentialMode: mode }), ...(mode === 'chatgpt' ? { accountId: input.accountId as string } : {}) };
@@ -154,6 +156,12 @@ function key(value: unknown): string {
 function parseDocument(value: unknown): StoredSettings {
   const input = dataObject(value, ['schemaVersion', 'providerId', 'modelId', 'baseURL', 'anthropicWorkspaceId', 'credential', 'reasoningEffort', 'credentialMode', 'accountId']);
   if (input.schemaVersion !== 1) invalid('schemaVersion');
+  // Old SIWC selections must reauthenticate through the native Codex account lane.
+  // Reading the selection never rewrites it or discards its retained API key.
+  if (input.providerId === 'openai-responses' && input.credentialMode === 'chatgpt') {
+    if (typeof input.baseURL !== 'string' || !['https://api.openai.com/v1', 'https://api.openai.com/v1/'].includes(input.baseURL)) invalid('baseURL');
+    input.providerId = 'codex'; input.baseURL = '';
+  } else if (input.providerId === 'codex' && input.credentialMode === 'api-key') delete input.credentialMode;
   const result: StoredSettings = { schemaVersion: 1, ...configFields(input) };
   if (Object.hasOwn(input, 'credential')) {
     const credential = dataObject(input.credential, ['providerId', 'encryptedKey']);
@@ -218,12 +226,12 @@ export class SettingsStore {
       if (!this.#loaded) await this.#load();
       const fields = dataObject(input, ['providerId', 'modelId', 'baseURL', 'anthropicWorkspaceId', 'apiKey', 'clearKey', 'reasoningEffort', 'credentialMode', 'accountId']);
       if (fields.providerId === 'codex' && (fields.modelId === '' || fields.modelId === undefined)) {
-        fields.modelId = this.#auth().modelId;
+        fields.modelId = fields.credentialMode === 'chatgpt' ? this.#account()?.models[0]?.id : this.#auth().modelId;
         if (!fields.modelId) fail('SETTINGS_CODEX_MODEL_REQUIRED', 'The Codex provider requires an explicit model identifier.');
       }
       const config = configFields(fields);
       const knownModel = this.#auth().models?.find(model => model.id === config.modelId);
-      if (config.providerId === 'codex' && config.reasoningEffort && knownModel && !knownModel.reasoningEfforts.includes(config.reasoningEffort)) invalid('reasoningEffort');
+      if (config.providerId === 'codex' && config.credentialMode !== 'chatgpt' && config.reasoningEffort && knownModel && !knownModel.reasoningEfforts.includes(config.reasoningEffort)) invalid('reasoningEffort');
       if (fields.clearKey !== undefined && typeof fields.clearKey !== 'boolean') invalid('clearKey');
       if (fields.apiKey !== undefined && fields.clearKey === true) invalid('credential');
       const document: StoredSettings = { schemaVersion: 1, ...config };
@@ -344,7 +352,11 @@ export class SettingsStore {
       ...(document.credentialMode ? { credentialMode: document.credentialMode } : {}),
       ...(document.accountId ? { accountId: document.accountId } : {}),
     };
-    if (this.#codexAuth || document.providerId === 'codex') {
+    if (document.providerId === 'codex' && document.credentialMode === 'chatgpt') {
+      const available = keySource === 'chatgpt' && this.#account()?.accountId === document.accountId;
+      view.keyConfigured = available; view.keySource = available ? 'chatgpt' : 'none';
+      view.codexAuthState = available ? 'available' : 'missing';
+    } else if (this.#codexAuth || document.providerId === 'codex') {
       const auth = this.#auth();
       view.codexAuthState = auth.state;
       if (auth.modelId) view.codexModelId = auth.modelId;
@@ -365,25 +377,36 @@ export class SettingsStore {
     } catch { return { available: false, state: 'unreadable' }; }
   }
 
+  #account(): PrivateAccountCredential | undefined {
+    try { return this.#accountCredential?.(); } catch { return undefined; }
+  }
+
   #resolve(document: StoredSettings): ResolvedDesktopSettings {
-    const engineConfig: { providerId: DesktopProviderId; modelId: string; baseURL: string; anthropicWorkspaceId?: string; apiKey?: string; reasoningEffort?: ReasoningEffort } = {
+    const engineConfig: { providerId: DesktopProviderId; modelId: string; baseURL: string; anthropicWorkspaceId?: string; apiKey?: string; reasoningEffort?: ReasoningEffort; codexCredential?: DesktopEngineConfig['codexCredential'] } = {
       providerId: document.providerId, modelId: document.modelId, baseURL: document.baseURL,
       ...(document.anthropicWorkspaceId ? { anthropicWorkspaceId: document.anthropicWorkspaceId } : {}),
       ...(document.reasoningEffort ? { reasoningEffort: document.reasoningEffort } : {}),
     };
     let source: DesktopSettings['keySource'] = 'none';
     if (document.providerId === 'codex') {
+      if (document.credentialMode === 'chatgpt') {
+        const account = this.#account();
+        if (!account || account.accountId !== document.accountId || account.baseURL !== 'https://chatgpt.com/backend-api/codex'
+          || typeof account.apiKey !== 'string' || !/^[\u0021-\u007e]{1,16384}$/u.test(account.apiKey)
+          || typeof account.chatgptAccountId !== 'string' || !/^[\u0021-\u007e]{1,256}$/u.test(account.chatgptAccountId)
+          || !Array.isArray(account.secrets) || account.secrets.length > 16 || account.secrets.some(secret => typeof secret !== 'string' || !/^[\u0021-\u007e]{1,65536}$/u.test(secret))) {
+          fail('SETTINGS_ACCOUNT_AUTH_REQUIRED', 'The selected ChatGPT account is unavailable. Sign in again with Codex or select local Codex authentication.');
+        }
+        if (!account.models.some(model => model.id === document.modelId)) fail('SETTINGS_ACCOUNT_MODEL_REQUIRED', 'Choose a model offered by the selected ChatGPT account.');
+        const secrets = Object.freeze([...new Set([account.apiKey, account.chatgptAccountId, ...account.secrets])]);
+        if (secrets.length > 16) fail('SETTINGS_ACCOUNT_AUTH_REQUIRED', 'The selected ChatGPT credential is invalid. Sign in again with Codex.');
+        if (secrets.some(secret => secret && document.modelId.includes(secret))) invalid('modelId');
+        engineConfig.codexCredential = Object.freeze({ accessToken: account.apiKey, accountId: account.chatgptAccountId, secrets });
+        return freezeResolved(this.#makeView(document, 'chatgpt'), engineConfig);
+      }
       if (!this.#auth().available) fail('SETTINGS_CODEX_AUTH_REQUIRED', 'Codex authentication is unavailable. Sign in to Codex and retry, or explicitly select another provider.');
       source = 'codex';
     } else if (document.providerId !== 'scripted') {
-      const account = this.#accountCredential?.();
-      if (document.credentialMode === 'chatgpt') {
-        if (!account || account.accountId !== document.accountId) fail('SETTINGS_ACCOUNT_AUTH_REQUIRED', 'The selected ChatGPT account is unavailable. Sign in again or explicitly select API key authentication.');
-        if (!account.models.some(model => model.id === document.modelId)) fail('SETTINGS_ACCOUNT_MODEL_REQUIRED', 'Choose a model available to the selected ChatGPT account.');
-        engineConfig.apiKey = account.apiKey;
-        source = 'chatgpt';
-        return freezeResolved(this.#makeView(document, source), engineConfig);
-      }
       const environmentKey = this.#environment.MOODCODE_API_KEY || (document.providerId === 'anthropic' ? this.#environment.ANTHROPIC_API_KEY : this.#environment.OPENAI_API_KEY);
       if (environmentKey) {
         try { engineConfig.apiKey = key(environmentKey); }

@@ -80,7 +80,7 @@ function boundedJson(value: unknown): void {
 }
 
 function config(value: unknown, scenario?: 'coding' | 'slow' | 'advanced' | 'account'): WorkerEngineConfig {
-  const source = record(value, ['providerId', 'modelId', 'baseURL', 'anthropicWorkspaceId', 'apiKey', 'reasoningEffort']);
+  const source = record(value, ['providerId', 'modelId', 'baseURL', 'anthropicWorkspaceId', 'apiKey', 'codexCredential', 'reasoningEffort']);
   if (source.providerId !== 'scripted' && source.providerId !== 'openai-compatible' && source.providerId !== 'openai-responses' && source.providerId !== 'anthropic' && source.providerId !== 'codex') {
     throw new EngineError('INVALID_CONFIG', 'Desktop provider is not supported.');
   }
@@ -100,9 +100,23 @@ function config(value: unknown, scenario?: 'coding' | 'slow' | 'advanced' | 'acc
     apiKey = source.apiKey;
   }
   if (source.providerId === 'codex') {
-    if (apiKey || baseURL !== '') throw new EngineError('INVALID_CONFIG', 'Codex uses its local authenticated session and a fixed trusted endpoint.');
-    return { providerId: 'codex', modelId, baseURL: '', ...(reasoningEffort ? { reasoningEffort: reasoningEffort as import('@moodcode/contracts').ReasoningEffort } : {}) };
+    if (apiKey || baseURL !== '') throw new EngineError('INVALID_CONFIG', 'Codex uses an authenticated session and a fixed trusted endpoint.');
+    let codexCredential: WorkerEngineConfig['codexCredential'];
+    if (Object.hasOwn(source, 'codexCredential')) {
+      const credential = record(source.codexCredential, ['accessToken', 'accountId', 'secrets']);
+      if (typeof credential.accessToken !== 'string' || !/^[\x21-\x7e]{1,32768}$/.test(credential.accessToken)
+        || typeof credential.accountId !== 'string' || !/^[\x21-\x7e]{1,256}$/.test(credential.accountId)
+        || !Array.isArray(credential.secrets) || credential.secrets.length > 16
+        || credential.secrets.some(secret => typeof secret !== 'string' || !/^[\x21-\x7e]{1,65536}$/.test(secret))) {
+        throw new EngineError('INVALID_CONFIG', 'Codex account credential is invalid.');
+      }
+      const secrets = Object.freeze([...new Set([credential.accessToken, credential.accountId, ...credential.secrets as string[]])]);
+      if (secrets.some(secret => modelId.includes(secret))) throw new EngineError('INVALID_CONFIG', 'Provider metadata must not contain its credential.');
+      codexCredential = Object.freeze({ accessToken: credential.accessToken, accountId: credential.accountId, secrets });
+    }
+    return { providerId: 'codex', modelId, baseURL: '', ...(codexCredential ? { codexCredential } : {}), ...(reasoningEffort ? { reasoningEffort: reasoningEffort as import('@moodcode/contracts').ReasoningEffort } : {}) };
   }
+  if (Object.hasOwn(source, 'codexCredential')) throw new EngineError('INVALID_CONFIG', 'Codex account credentials require the native Codex provider.');
   if (source.providerId !== 'scripted') {
     if (!apiKey) throw new EngineError('API_KEY_MISSING', 'The selected remote provider requires an API key.');
     let url: URL;
@@ -130,7 +144,12 @@ function selectedProvider(payload: WorkerStartPayload): ProviderAdapter {
     case 'openai-compatible': return new OpenAICompatibleProvider(payload.config);
     case 'openai-responses': return new ResponsesProvider(payload.config);
     case 'anthropic': return new AnthropicProvider({ ...payload.config, ...(payload.config.anthropicWorkspaceId ? { workspaceId: payload.config.anthropicWorkspaceId } : {}) });
-    case 'codex': return new CodexProvider();
+    case 'codex': return new CodexProvider(payload.config.codexCredential ? { credentialReader: {
+      async use(signal, callback) {
+        if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
+        return await callback(payload.config.codexCredential!);
+      },
+    } } : {});
   }
 }
 
@@ -166,7 +185,7 @@ export class UtilityWorker {
         case 'start': {
           if (this.#engine) throw new EngineError('ENGINE_BUSY', 'Desktop engine has already started.');
           const payload = startPayload(request.payload);
-          this.#secrets = payload.config.apiKey ? [payload.config.apiKey] : [];
+          this.#secrets = payload.config.codexCredential ? [...payload.config.codexCredential.secrets] : payload.config.apiKey ? [payload.config.apiKey] : [];
           const provider = selectedProvider(payload);
           this.#engine = (this.#options.createEngine ?? createEngine)({
             dbPath: payload.dbPath, artifactDir: payload.artifactDir, providers: [provider],

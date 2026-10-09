@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-10",
+  "change": "Replace dynamic SIWC agent registration with Codex browser OAuth and native account transport.",
+  "baseCommit": "9af20745a379107822e0546f9e97c721cb16b6f7",
+  "boundary": "local implementation and real Electron synthetic account flow; genuine browser authentication pending",
+  "verification": {
+    "desktopBuild": "pass",
+    "accountSource": {
+      "tests": 25,
+      "pass": 25
+    },
+    "codexAdapter": {
+      "tests": 55,
+      "pass": 55
+    },
+    "compiledBridge": {
+      "tests": 102,
+      "pass": 102
+    },
+    "desktopSettings": {
+      "tests": 47,
+      "pass": 47,
+      "includedInWhole": true
+    },
+    "accountGui": {
+      "status": "pass",
+      "provider": "codex",
+      "checks": [
+        "sign-in",
+        "account selection",
+        "refresh",
+        "logout",
+        "reconnect",
+        "forget",
+        "encrypted storage",
+        "renderer and journal credential exclusion"
+      ],
+      "originalUtilities": 6,
+      "allOriginalUtilityExitCodes": 0,
+      "utilityCleanupConfirmed": true,
+      "applicationExitCode": 0,
+      "nativeEffectCleanupClaim": false,
+      "externalIdentityVerified": false,
+      "inferenceRequests": 0
+    },
+    "settingsGui": {
+      "status": "pass",
+      "providerRequests": 0,
+      "localCodexSwitchVerified": false
+    },
+    "wholeCompiled": {
+      "tests": 5303,
+      "pass": 5299,
+      "fail": 1,
+      "skip": 3,
+      "elapsedMs": 224700.516875,
+      "qualified": "Existing native TS7 BOM/CRLF/astral coordinate assertion failed; no whole-suite PASS claim."
+    },
+    "isolatedSemanticRerun": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "qualified": "Same compiled test file passed in isolation; original full-run failure remains preserved and cause unknown."
+    }
+  },
+  "catalog": {
+    "boundary": "existing-local-Codex-read-only-catalog",
+    "observedCodexVersion": "0.162.0-alpha.17.2",
+    "initialMoodcodeVersionQuery": {
+      "version": "0.1.0",
+      "requests": 2,
+      "status": 200,
+      "models": 0
+    },
+    "comparisons": [
+      {
+        "version": "0.162.0-alpha.17.2",
+        "status": 200,
+        "models": 11,
+        "slugs": [
+          "gpt-6.1-sol",
+          "gpt-6-astra",
+          "gpt-6-sol",
+          "gpt-6-luna",
+          "gpt-reserve",
+          "gpt-5.6-sol",
+          "gpt-5.6-terra",
+          "gpt-5.6-luna",
+          "gpt-daybreak-blue-latest",
+          "gpt-5.5",
+          "codex-auto-review"
+        ],
+        "displayNamesPresent": true
+      },
+      {
+        "version": "0.162.0",
+        "status": 200,
+        "models": 11,
+        "slugs": [
+          "gpt-6.1-sol",
+          "gpt-6-astra",
+          "gpt-6-sol",
+          "gpt-6-luna",
+          "gpt-reserve",
+          "gpt-5.6-sol",
+          "gpt-5.6-terra",
+          "gpt-5.6-luna",
+          "gpt-daybreak-blue-latest",
+          "gpt-5.5",
+          "codex-auto-review"
+        ],
+        "displayNamesPresent": true
+      }
+    ],
+    "browserLoginVerified": false,
+    "inferenceRequests": 0
+  },
+  "limitations": [
+    "Human browser OAuth login and inference using the newly issued grant remain pending.",
+    "Worker account credentials are refreshed on startup/preparation or an explicit account refresh, without a per-turn broker.",
+    "Signed delivery, wider model/media/cost coverage, historical PTY uncertainty remain separate open conditions.",
+    "Native TS7 coordinate instability has an open follow-up TODO."
+  ],
+  "sourcePins": [
+    {
+      "path": "apps/desktop/src/main/account-auth.ts",
+      "bytes": 18331,
+      "sha256": "9d7f096b0611bd3770f4e878d0ab30f6f307ab39d1dea72fc9a68700a2272045"
+    },
+    {
+      "path": "apps/desktop/src/main/account-fixture.ts",
+      "bytes": 3478,
+      "sha256": "881a5d300e1418860f1fe6e2b46c8011bcd6687959c5a518be7dda848a9daa6a"
+    },
+    {
+      "path": "apps/desktop/src/main/accounts.ts",
+      "bytes": 17561,
+      "sha256": "0fc080a5eb71b77bfffec536767974069830431f00afbf73165b0acb3f4ebeba"
+    },
+    {
+      "path": "apps/desktop/src/main/accounts.test.ts",
+      "bytes": 28875,
+      "sha256": "b6de26b1e4303f83cb7af2f3edc15c64d807adc5f34429283c77fe8d9d33e136"
+    },
+    {
+      "path": "apps/desktop/src/main/settings.ts",
+      "bytes": 27702,
+      "sha256": "049a681be579b0f56f4e53990acde780016cf9e684d0cf81d470236c3e0d006c"
+    },
+    {
+      "path": "apps/desktop/src/main/settings.test.ts",
+      "bytes": 37933,
+      "sha256": "5ce43c999b10f6cea38abb70aa681f63941b96eabd0e6c8e26d4aa3369ad63c9"
+    },
+    {
+      "path": "apps/desktop/src/main/index.ts",
+      "bytes": 16467,
+      "sha256": "497330e3c97cac74a48053970ff5e2c8f928a7f1f359c0371fc013af0aac8111"
+    },
+    {
+      "path": "apps/desktop/src/main/host.ts",
+      "bytes": 32176,
+      "sha256": "083da6b3cc555e25f81442c64d7e684c9ab7bd5cfe69a438a93ae5e3617679d1"
+    },
+    {
+      "path": "apps/desktop/src/main/host.test.ts",
+      "bytes": 49741,
+      "sha256": "de8a87e9ea212fb8718894d79d34e476ba3920d87a7ab70c84668a3d3dfdc247"
+    },
+    {
+      "path": "apps/desktop/src/preload/api.ts",
+      "bytes": 12267,
+      "sha256": "148b71d0612a2507c8e98e85817a0838d50caca35b881002b783c125b6a4e312"
+    },
+    {
+      "path": "apps/desktop/src/preload/api.test.ts",
+      "bytes": 17412,
+      "sha256": "73ed7779669933fa8261800445af8e16d492811494d60c621cb5776587e66fe2"
+    },
+    {
+      "path": "apps/desktop/src/worker/core.ts",
+      "bytes": 26363,
+      "sha256": "51ca27b76cbede68d0fbcf5693620bf30cec67c6b1d730be4ad09e227ad2c73b"
+    },
+    {
+      "path": "apps/desktop/src/worker/protocol.ts",
+      "bytes": 1352,
+      "sha256": "435f1487ebb2b14c117f46e238e118a1beb64657cb25231277d6d3602b15591c"
+    },
+    {
+      "path": "apps/desktop/src/worker/codex-account-config.test.ts",
+      "bytes": 4593,
+      "sha256": "e41b2aba5ea073b1d11324a8ade936a9da505613ac9239d912d46f5419b51294"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/Settings.tsx",
+      "bytes": 14847,
+      "sha256": "857c33f49c3773f36e998100b17538842d117d4588bb619ed4da1b1377f3a2bb"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/AccountSettings.tsx",
+      "bytes": 8113,
+      "sha256": "5b92c82a7f3782790052705bb451b3ace4739d3cbea134af8af82c62885c0a32"
+    },
+    {
+      "path": "packages/engine/src/provider/codex.ts",
+      "bytes": 7511,
+      "sha256": "e6a5dbd48a77fbc6dec1306060654b3acc375aa0ff5e16100c759c90f482689e"
+    },
+    {
+      "path": "packages/engine/src/provider/codex.test.ts",
+      "bytes": 40756,
+      "sha256": "17761b9352876cf8161328938c0055a186dc70eee78dad5154c87098aebb448a"
+    },
+    {
+      "path": "scripts/test-desktop-accounts.mjs",
+      "bytes": 11752,
+      "sha256": "fcc51be2025fd2dd2306ad689d7d457943d43a400c0f7cbe20f7a921777c3377"
+    }
+  ],
+  "proofs": [
+    {
+      "path": "artifacts/desktop-account-auth-20261010/desktop-build.log",
+      "bytes": 1621,
+      "sha256": "3cdf93b12c482845aff75370616287484f9b7cf861cd0eda939768f2a84f5d76"
+    },
+    {
+      "path": "artifacts/desktop-account-auth-20261010/engine-bridge-tests.log",
+      "bytes": 10268,
+      "sha256": "4f181a76ad3c2aa673f470754dde00ca791674ac90055fcc90d0507bd978f682"
+    },
+    {
+      "path": "artifacts/desktop-account-auth-20261010/account-gui.log",
+      "bytes": 3469,
+      "sha256": "4701dee5203e978147efa4dad1b379e6c64dcf3f7d7cc0db8cc1e4590dae13ab"
+    },
+    {
+      "path": "artifacts/desktop-account-auth-20261010/settings-gui.log",
+      "bytes": 227,
+      "sha256": "cddd136a026c44832eea9f8d79be0fc4947f8865e8e09bfb95093aba34b1a5dc"
+    },
+    {
+      "path": "artifacts/desktop-account-auth-20261010/full-compiled-tests.log",
+      "bytes": 760604,
+      "sha256": "39a23e78746a8af408f4d52a2e3d13231bcfb44774a028d9a6c793124c4d1931"
+    },
+    {
+      "path": "artifacts/desktop-account-auth-20261010/native-semantic-isolated.log",
+      "bytes": 52520,
+      "sha256": "fa68576c122eadd6b28c3e5df28bc365a6b82cf51b8b0881cdc89e72a73c0653"
+    },
+    {
+      "path": "artifacts/desktop-account-auth-20261010/source-commands-regression.log",
+      "bytes": 416,
+      "sha256": "ae244623379ed65e94e040bf1951e737684390aec0481573ac2e1fec6263f17e"
+    },
+    {
+      "path": "artifacts/desktop-account-auth-20261010/live-catalog-metadata.json",
+      "bytes": 1136,
+      "sha256": "db9794aa02e12947ad46caa90ce6db65ffa767ac7800ed4ed37085c327d1b299"
+    }
+  ]
+}
