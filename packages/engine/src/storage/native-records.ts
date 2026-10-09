@@ -86,9 +86,10 @@ export class NativeExecutionStorage {
     return this.native.write(turn.sessionId, () => {
       this.native.scopeRun(turn.sessionId, turn.runId);
       const row = this.database.prepare('SELECT data FROM session_turns WHERE id=?').get(turn.id);
+      const encoded = JSON.stringify(turn);
       if (row) {
         const previous = validateTurnRecord(JSON.parse(String(row.data)));
-        if (JSON.stringify(previous) === JSON.stringify(turn)) return previous;
+        if (JSON.stringify(previous) === encoded) return previous;
         this.requireActive(turn.sessionId, turn.runId);
         sameRecord([previous.id, previous.sessionId, previous.runId, previous.inputIds, previous.index, previous.createdAt],
           [turn.id, turn.sessionId, turn.runId, turn.inputIds, turn.index, turn.createdAt], 'Turn identity and input snapshot cannot change');
@@ -121,8 +122,8 @@ export class NativeExecutionStorage {
       }
       invalidateEvidenceRead(this.database);
       this.database.prepare('INSERT INTO session_turns(id,session_id,run_id,turn_index,state,data) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,data=excluded.data')
-        .run(turn.id, turn.sessionId, turn.runId, turn.index, turn.state, JSON.stringify(turn));
-      this.native.appendEvent(turn.sessionId, `turn.${turn.state}`, { turn: storedJson(turn) }, { runId: turn.runId, turnId: turn.id });
+        .run(turn.id, turn.sessionId, turn.runId, turn.index, turn.state, encoded);
+      this.native.appendEvent(turn.sessionId, `turn.${turn.state}`, { turn: JSON.parse(encoded) as JsonObject }, { runId: turn.runId, turnId: turn.id });
       if (turn.state === 'uncertain') this.native.setControlInTransaction(turn.sessionId, true, 'recovery_required');
       return turn;
     });
@@ -159,9 +160,10 @@ export class NativeExecutionStorage {
         if (context.sessionId !== attempt.sessionId || context.runId && context.runId !== attempt.runId || context.turnId && context.turnId !== attempt.turnId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Attempt context revision belongs to another owner');
       }
       const row = this.database.prepare('SELECT data FROM provider_attempts WHERE id=?').get(attempt.id);
+      const encoded = JSON.stringify(attempt);
       if (row) {
         const previous = validateProviderAttempt(JSON.parse(String(row.data)));
-        if (JSON.stringify(previous) === JSON.stringify(attempt)) return previous;
+        if (JSON.stringify(previous) === encoded) return previous;
         this.requireActive(attempt.sessionId, attempt.runId);
         if (FINAL.has(turn.state)) throw new EngineError('TURN_TERMINAL', 'Provider attempt cannot change after Turn settlement');
         sameRecord([previous.id, previous.sessionId, previous.runId, previous.turnId, previous.index, previous.providerId, previous.modelId, previous.contextRevisionId, previous.createdAt],
@@ -180,8 +182,8 @@ export class NativeExecutionStorage {
       }
       invalidateEvidenceRead(this.database);
       this.database.prepare('INSERT INTO provider_attempts(id,session_id,run_id,turn_id,attempt_index,state,data) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,data=excluded.data')
-        .run(attempt.id, attempt.sessionId, attempt.runId, attempt.turnId, attempt.index, attempt.state, JSON.stringify(attempt));
-      this.native.appendEvent(attempt.sessionId, `provider.attempt.${attempt.state}`, { attempt: storedJson(attempt) }, { runId: attempt.runId, turnId: attempt.turnId, attemptId: attempt.id });
+        .run(attempt.id, attempt.sessionId, attempt.runId, attempt.turnId, attempt.index, attempt.state, encoded);
+      this.native.appendEvent(attempt.sessionId, `provider.attempt.${attempt.state}`, { attempt: JSON.parse(encoded) as JsonObject }, { runId: attempt.runId, turnId: attempt.turnId, attemptId: attempt.id });
       if (attempt.state === 'uncertain') this.native.setControlInTransaction(attempt.sessionId, true, 'recovery_required');
       return attempt;
     });
@@ -193,7 +195,8 @@ export class NativeExecutionStorage {
       if (turn.sessionId !== part.sessionId || turn.runId !== part.runId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Message part belongs to another Turn');
       const row = this.database.prepare('SELECT data FROM message_parts WHERE id=?').get(part.id);
       const previous = row ? validateMessagePart(JSON.parse(String(row.data))) : undefined;
-      if (previous && JSON.stringify(previous) === JSON.stringify(part)) return previous;
+      const encoded = JSON.stringify(part);
+      if (previous && JSON.stringify(previous) === encoded) return previous;
       this.requireActive(part.sessionId, part.runId);
       if (FINAL.has(turn.state)) throw new EngineError('TURN_TERMINAL', 'Message parts cannot change after Turn settlement');
       if (previous) {
@@ -216,13 +219,12 @@ export class NativeExecutionStorage {
         if(header?.session_id!==attempt.sessionId||header.run_id!==attempt.runId||header.turn_id!==attempt.turnId||header.attempt_index!==attempt.index||header.state!==attempt.state)throw new EngineError('MEDIA_OWNER_INVALID','Media provider Attempt SQL owner disagrees with its native body');
         const latest=this.database.prepare('SELECT id FROM provider_attempts WHERE turn_id=? ORDER BY attempt_index DESC LIMIT 1').get(part.turnId);
         if(owner.source!=='provider'||owner.sessionId!==part.sessionId||owner.runId!==part.runId||owner.turnId!==part.turnId||attempt.turnId!==part.turnId||attempt.sessionId!==part.sessionId||attempt.runId!==part.runId||attempt.providerId!==owner.providerId||attempt.modelId!==owner.modelId||run.config.providerId!==owner.providerId||run.config.modelId!==owner.modelId||latest?.id!==attempt.id||!attempt.dispatchedAt)throw new EngineError('MEDIA_OWNER_INVALID','Media artifact lacks the exact native provider Attempt');
-        if(!previous)this.native.appendEvent(part.sessionId,'provider.media.admitted',{part:storedJson(part),attempt:storedJson(attempt)},{runId:part.runId,turnId:part.turnId,attemptId:attempt.id});
+        if(!previous)this.native.appendEvent(part.sessionId,'provider.media.admitted',{part:JSON.parse(encoded) as JsonObject,attempt:storedJson(attempt)},{runId:part.runId,turnId:part.turnId,attemptId:attempt.id});
       }
       if (part.type === 'tool') {
         const tool = this.database.prepare('SELECT session_id,run_id FROM tools WHERE id=?').get(part.toolCallId);
         if (tool && (tool.session_id !== part.sessionId || tool.run_id !== part.runId)) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Tool call identity belongs to another owner');
       }
-      const encoded = JSON.stringify(part);
       if (part.type === 'media' && 'source' in part.artifact.identity) assertProviderMediaPartCapacity(this.database, { encoded, previousBytes: row ? Buffer.byteLength(String(row.data)) : 0, previousOpen: previous?.state === 'open', nextOpen: part.state === 'open', newRecord: !previous });
       const sizes = this.database.prepare('SELECT count(*) AS count,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM message_parts WHERE turn_id=?').get(part.turnId)!;
       const bytes = Number(sizes.bytes) - (row ? Buffer.byteLength(String(row.data)) : 0) + Buffer.byteLength(encoded);
@@ -230,7 +232,7 @@ export class NativeExecutionStorage {
       invalidateEvidenceRead(this.database);
       this.database.prepare('INSERT INTO message_parts(id,session_id,run_id,turn_id,message_id,part_index,revision,state,data) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,state=excluded.state,data=excluded.data')
         .run(part.id, part.sessionId, part.runId, part.turnId, part.messageId, part.index, part.revision, part.state, encoded);
-      this.native.appendEvent(part.sessionId, previous ? 'message.part.updated' : 'message.part.created', { part: storedJson(part) }, { runId: part.runId, turnId: part.turnId });
+      this.native.appendEvent(part.sessionId, previous ? 'message.part.updated' : 'message.part.created', { part: JSON.parse(encoded) as JsonObject }, { runId: part.runId, turnId: part.turnId });
       return part;
     });
   }
@@ -288,9 +290,10 @@ export class NativeExecutionStorage {
       if (context.revision !== (last ? Number(last.revision) + 1 : 1)) throw new EngineError('REVISION_CONFLICT', 'Context revision must advance its session exactly once');
       if (context.supersedesId && context.supersedesId !== last?.id) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Context supersedes reference is not the previous session revision');
       invalidateEvidenceRead(this.database);
+      const encoded = JSON.stringify(context);
       this.database.prepare('INSERT INTO context_revisions(id,session_id,revision,run_id,turn_id,supersedes_id,data) VALUES(?,?,?,?,?,?,?)')
-        .run(context.id, context.sessionId, context.revision, context.runId ?? null, context.turnId ?? null, context.supersedesId ?? null, JSON.stringify(context));
-      this.native.appendEvent(context.sessionId, 'context.revision.recorded', { context: storedJson(context) }, { ...(context.runId ? { runId: context.runId } : {}), ...(context.turnId ? { turnId: context.turnId } : {}) });
+        .run(context.id, context.sessionId, context.revision, context.runId ?? null, context.turnId ?? null, context.supersedesId ?? null, encoded);
+      this.native.appendEvent(context.sessionId, 'context.revision.recorded', { context: JSON.parse(encoded) as JsonObject }, { ...(context.runId ? { runId: context.runId } : {}), ...(context.turnId ? { turnId: context.turnId } : {}) });
       return context;
     });
   }
