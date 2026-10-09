@@ -15,6 +15,8 @@ export interface AnthropicProviderOptions {
   /** Host-only API prefix; no environment lookup or account discovery. */
   baseURL?: string;
   apiKey?: string;
+  /** Explicit host scope for personal keys; workspace-scoped keys can omit it. */
+  workspaceId?: string;
   id?: string;
   fetch?: typeof globalThis.fetch;
   redactionSecrets?: readonly string[];
@@ -97,7 +99,7 @@ function streamError(value: unknown): EngineError {
     : new EngineError('PROVIDER_HTTP_ERROR', `Provider HTTP request failed with status ${status}.`, { status });
 }
 
-function accumulateUsage(previous: JsonObject, value: unknown): JsonObject {
+function accumulateUsage(previous: JsonObject, value: unknown, metadata: boolean): JsonObject {
   const source = record(value);
   const result = { ...previous };
   for (const key of ['input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens', 'output_tokens']) {
@@ -106,6 +108,16 @@ function accumulateUsage(previous: JsonObject, value: unknown): JsonObject {
     if (result[key] !== undefined && next < count(result[key])) malformed();
     result[key] = next;
   }
+  if (metadata && source.output_tokens_details !== undefined && source.output_tokens_details !== null) {
+    const details = record(source.output_tokens_details);
+    if (details.thinking_tokens !== undefined && details.thinking_tokens !== null) {
+      const next = count(details.thinking_tokens);
+      if (result.thinking_tokens !== undefined && next < count(result.thinking_tokens)) malformed();
+      result.thinking_tokens = next;
+    }
+  }
+  if (result.thinking_tokens !== undefined && result.output_tokens !== undefined
+    && count(result.thinking_tokens) > count(result.output_tokens)) malformed();
   return result;
 }
 function usageEvent(source: JsonObject, metadata: boolean): Usage {
@@ -117,7 +129,8 @@ function usageEvent(source: JsonObject, metadata: boolean): Usage {
   }
   if (source.output_tokens !== undefined) event.outputTokens = count(source.output_tokens);
   if (metadata && source.cache_read_input_tokens !== undefined) event.cachedInputTokens = count(source.cache_read_input_tokens);
-  // Output includes billed thinking tokens; summary length is not a reasoning token count.
+  if (metadata && source.thinking_tokens !== undefined) event.reasoningOutputTokens = count(source.thinking_tokens);
+  // Output already includes thinking; missing breakdowns stay unknown.
   return event;
 }
 
@@ -164,6 +177,7 @@ export class AnthropicProvider implements ProviderAdapter {
   readonly inputFileTypes = Object.freeze([] as const);
   #endpoint: string;
   #apiKey: string | undefined;
+  #workspaceId: string | undefined;
   #secrets: string[];
   #fetch: typeof globalThis.fetch;
   #limits: Limits;
@@ -175,6 +189,10 @@ export class AnthropicProvider implements ProviderAdapter {
     this.#apiKey = options.apiKey;
     if (this.#apiKey !== undefined && (typeof this.#apiKey !== 'string' || !this.#apiKey.length || this.#apiKey.length > 4096 || /[^\x21-\x7e]/u.test(this.#apiKey))) {
       throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider API key must be bounded printable text.');
+    }
+    this.#workspaceId = options.workspaceId;
+    if (this.#workspaceId !== undefined && (typeof this.#workspaceId !== 'string' || !/^wrkspc_[A-Za-z0-9]{1,128}$/u.test(this.#workspaceId))) {
+      throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider workspace identifier is invalid.');
     }
     this.#secrets = credentialSecrets(this.#apiKey, options.redactionSecrets);
     this.id = options.id ?? 'anthropic';
@@ -333,17 +351,21 @@ export class AnthropicProvider implements ProviderAdapter {
     } catch (error) { throw publicError(error instanceof EngineError ? error : new EngineError('PROVIDER_INVALID_REQUEST', 'Provider request is invalid.')); }
     if (Buffer.byteLength(serialized) > this.#limits.maxRequestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');
     const controller = new AbortController();
+    let response: Response | undefined, body: ReturnType<typeof boundedBody> | undefined;
     let timedOut = false;
-    const abort = () => controller.abort();
+    const abort = () => {
+      if (!body) controller.abort();
+      else void body.close().then(() => controller.abort(), () => controller.abort());
+    };
     signal.addEventListener('abort', abort, { once: true });
     const timer = setTimeout(() => { timedOut = true; controller.abort(); }, this.#limits.timeoutMs);
-    let response: Response | undefined, body: ReturnType<typeof boundedBody> | undefined;
-    const cancelled = () => { if (controller.signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.'); };
+    const cancelled = () => { if (signal.aborted || controller.signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.'); };
     try {
       if (signal.aborted) controller.abort();
       const fetching = Promise.resolve().then(() => this.#fetch(this.#endpoint, {
         method: 'POST', redirect: 'error', signal: controller.signal,
-        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', 'anthropic-version': '2023-06-01', ...(this.#apiKey ? { 'x-api-key': this.#apiKey } : {}) }, body: serialized,
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', 'anthropic-version': '2023-06-01',
+          ...(this.#apiKey ? { 'x-api-key': this.#apiKey } : {}), ...(this.#workspaceId ? { 'anthropic-workspace-id': this.#workspaceId } : {}) }, body: serialized,
       }));
       // A host owner cannot declare iterator cleanup while its actual fetch is still pending.
       response = generation ? await fetching : await abortable<Response>(fetching, controller.signal, late => { if (late.body && !late.body.locked) void settles(late.body.cancel(), this.#limits.cleanupTimeoutMs); });
@@ -373,7 +395,7 @@ export class AnthropicProvider implements ProviderAdapter {
           const message = record(event.message);
           if (message.type !== 'message' || message.role !== 'assistant' || !Array.isArray(message.content) || message.content.length || message.stop_reason !== null) malformed();
           nonempty(message.id); nonempty(message.model); started = true;
-          usage = accumulateUsage(usage, message.usage);
+          usage = accumulateUsage(usage, message.usage, request.includeMetadata === true);
           if (request.includeMetadata) {
             const id = requestId && redactCredentialText(requestId, this.#secrets);
             if (id && id.trim() && Buffer.byteLength(id) <= 256 && !/[\u0000-\u001f\u007f]/u.test(id)) yield { type: 'progress', providerRequestId: id };
@@ -440,7 +462,7 @@ export class AnthropicProvider implements ProviderAdapter {
           if (delta.stop_reason !== undefined && delta.stop_reason !== null) {
             const next = stopReason(delta.stop_reason); if (finish !== undefined && finish !== next) malformed(); finish = next;
           }
-          if (event.usage !== undefined) usage = accumulateUsage(usage, event.usage);
+          if (event.usage !== undefined) usage = accumulateUsage(usage, event.usage, request.includeMetadata === true);
           continue;
         }
         if (event.type === 'message_stop') { if (finish === undefined) malformed(); stopped = true; break; }

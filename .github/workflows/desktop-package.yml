@@ -42,6 +42,8 @@ jobs:
           node --import ./node_modules/tsx/dist/loader.mjs --test
           apps/desktop/src/main/host.test.ts apps/desktop/src/main/next-stage-recovery-host.test.ts
           apps/desktop/src/main/accounts.test.ts apps/desktop/src/main/updates.test.ts
+          apps/desktop/src/main/settings.test.ts apps/desktop/src/worker/anthropic-config.test.ts
+          apps/desktop/src/preload/api.test.ts apps/desktop/src/renderer/fixtures/anthropic-cleanup.test.mjs
           apps/desktop/src/worker/advanced-mcp.test.ts apps/desktop/src/worker/runtime.test.ts
           scripts/desktop-release-policy.test.mjs scripts/desktop-native-package.test.mjs
           scripts/desktop-test-evidence.test.mjs scripts/desktop-main-utility-close.test.mjs
@@ -59,6 +61,9 @@ jobs:
         run: |
           node -e "require('node:fs').mkdirSync('artifacts/renderer-delivery', { recursive: true })"
           node apps/desktop/src/renderer/fixtures/verify-delivery.mjs artifacts/renderer-delivery/verification.json
+      - name: macOS Anthropic settings, native tools, reconnect and cancellation
+        if: runner.os == 'macOS'
+        run: node apps/desktop/src/renderer/fixtures/verify-anthropic.mjs artifacts/anthropic-desktop/verification.json
       - name: macOS actual PTY failure and native evidence retention
         if: runner.os == 'macOS'
         run: node scripts/verify-desktop-advanced-evidence.mjs
@@ -96,6 +101,8 @@ jobs:
             artifacts/desktop-advanced/
             artifacts/desktop-package/
             artifacts/renderer-delivery/
+            artifacts/anthropic-desktop/
+            artifacts/renderer-anthropic/
             artifacts/next-main-utility-close/
           retention-days: 7
           include-hidden-files: true

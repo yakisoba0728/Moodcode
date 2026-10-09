@@ -9,6 +9,7 @@ import { Icon } from "./Icon.js";
 import { AccountSettings } from "./AccountSettings.js";
 import { UpdateSettings } from "./UpdateSettings.js";
 import type { DesktopAccountView } from "../../shared/account-protocol.js";
+import { ANTHROPIC_REASONING_EFFORTS } from "../../shared/protocol.js";
 
 export function Settings({
   settings,
@@ -32,6 +33,7 @@ export function Settings({
     settings.reasoningEffort ?? "",
   );
   const [endpoint, setEndpoint] = useState(settings.baseURL);
+  const [anthropicWorkspaceId, setAnthropicWorkspaceId] = useState(settings.anthropicWorkspaceId ?? "");
   const [key, setKey] = useState("");
   const [clearKey, setClearKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -88,8 +90,11 @@ export function Settings({
               }
             : { credentialMode: "api-key" as const }),
           ...(effort &&
-          (provider === "codex" || provider === "openai-responses")
+          (provider === "codex" || provider === "openai-responses" || provider === "anthropic")
             ? { reasoningEffort: effort }
+            : {}),
+          ...(provider === "anthropic" && anthropicWorkspaceId
+            ? { anthropicWorkspaceId }
             : {}),
         })
       ) {
@@ -145,14 +150,18 @@ export function Settings({
             const id = event.target.value as DesktopProviderId;
             setProvider(id);
             setEffort("");
+            if (id === "anthropic" || provider === "anthropic") setKey("");
+            setAnthropicWorkspaceId(id === "anthropic" ? settings.anthropicWorkspaceId ?? "" : "");
             if (id === "codex") setModel(settings.codexModelId ?? "");
             else if (id === "scripted") setModel("local");
+            else if (id === "anthropic") setModel(settings.providerId === "anthropic" ? settings.modelId : "");
             else if (model === "local") setModel("");
             if (id === "codex" || id === "scripted") {
               setEndpoint("");
               setKey("");
             } else if (id === "openai-responses")
               setEndpoint("https://api.openai.com/v1");
+            else if (id === "anthropic") setEndpoint("https://api.anthropic.com/v1");
           }}
         >
           <option value="codex">Codex 로그인 계정</option>
@@ -160,6 +169,7 @@ export function Settings({
             OpenAI Responses · API 키 / 앱 계정
           </option>
           <option value="openai-compatible">OpenAI 호환 API</option>
+          <option value="anthropic">Anthropic · API 키</option>
           <option value="scripted">테스트 모델 · 로컬</option>
         </select>
       </label>
@@ -236,7 +246,7 @@ export function Settings({
               </p>
             </>
           ) : null}
-          {provider === "codex" || provider === "openai-responses" ? (
+          {provider === "codex" || provider === "openai-responses" || provider === "anthropic" ? (
             <label className="field-label">
               추론 강도
               <select
@@ -249,7 +259,7 @@ export function Settings({
                 {(provider === "codex"
                   ? (settings.codexModels?.find((item) => item.id === model)
                       ?.reasoningEfforts ?? REASONING_EFFORTS)
-                  : REASONING_EFFORTS
+                  : provider === "anthropic" ? ANTHROPIC_REASONING_EFFORTS : REASONING_EFFORTS
                 ).map((value) => (
                   <option key={value} value={value}>
                     {value}
@@ -302,11 +312,19 @@ export function Settings({
                 <input
                   value={endpoint}
                   onChange={(event) => setEndpoint(event.target.value)}
-                  placeholder="https://api.openai.com/v1"
+                  placeholder={provider === "anthropic" ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"}
                   autoComplete="off"
                   spellCheck={false}
                 />
               </label>
+              {provider === "anthropic" ? (
+                <label className="field-label">
+                  Anthropic Workspace ID · 선택
+                  <input value={anthropicWorkspaceId} onChange={(event) => setAnthropicWorkspaceId(event.target.value)}
+                    placeholder="wrkspc_…" autoComplete="off" spellCheck={false} maxLength={135} />
+                  <span className="field-help">여러 Workspace에 접근하는 개인·서비스 계정 키는 ID가 필요해요. Claude Console의 Settings → Workspaces에서 확인하세요. Workspace 전용 키는 비워 둘 수 있어요.</span>
+                </label>
+              ) : null}
               <label className="field-label">
                 API 키
                 <input

@@ -178,6 +178,7 @@ export function commandPlan(mode) {
         join(root, "scripts", "verify-provider-coverage-anthropic.test.mjs"),
         join(root, "scripts", "verify-provider-coverage-pdf.test.mjs"),
         join(root, "scripts", "verify-provider-coverage-media.test.mjs"),
+        join(root, "scripts", "verify-anthropic-continuation.test.mjs"),
         join(root, ".github", "scripts", "followup-reports.test.mjs"),
         join(root, ".github", "scripts", "followup-evidence.test.mjs"),
       ];

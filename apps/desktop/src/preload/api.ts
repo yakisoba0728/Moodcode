@@ -9,6 +9,7 @@ import { validateAdvancedAction, type DesktopAdvancedAction } from '../shared/ad
 import type { DesktopAccountAction } from '../shared/account-protocol.js';
 import type { DesktopAppUpdateAction } from '../shared/update-protocol.js';
 import type { DesktopApi, DesktopUpdate, HostStatus, SaveDesktopSettings } from '../shared/protocol.js';
+import { ANTHROPIC_REASONING_EFFORTS } from '../shared/protocol.js';
 
 type TransportListener = (event: unknown, payload: unknown) => void;
 export interface DesktopTransport {
@@ -70,14 +71,18 @@ export function validateDesktopCommand(value: unknown): CommandEnvelope {
 }
 
 export function validateDesktopSettings(value: unknown): SaveDesktopSettings {
-  const input = record(value, ['providerId', 'modelId', 'baseURL', 'apiKey', 'clearKey', 'reasoningEffort', 'credentialMode', 'accountId']);
-  if (input.providerId !== 'scripted' && input.providerId !== 'openai-compatible' && input.providerId !== 'openai-responses' && input.providerId !== 'codex') invalid();
+  const input = record(value, ['providerId', 'modelId', 'baseURL', 'anthropicWorkspaceId', 'apiKey', 'clearKey', 'reasoningEffort', 'credentialMode', 'accountId']);
+  if (input.providerId !== 'scripted' && input.providerId !== 'openai-compatible' && input.providerId !== 'openai-responses' && input.providerId !== 'anthropic' && input.providerId !== 'codex') invalid();
   const result: SaveDesktopSettings = {
     providerId: input.providerId,
     modelId: boundedString(input.modelId, 256, input.providerId === 'codex'),
     baseURL: boundedString(input.baseURL, 2048, input.providerId === 'scripted' || input.providerId === 'codex'),
   };
   if (result.modelId.trim() !== result.modelId) invalid();
+  if (Object.hasOwn(input, 'anthropicWorkspaceId')) {
+    if (result.providerId !== 'anthropic' || typeof input.anthropicWorkspaceId !== 'string' || !/^wrkspc_[A-Za-z0-9]{1,128}$/u.test(input.anthropicWorkspaceId)) invalid();
+    result.anthropicWorkspaceId = input.anthropicWorkspaceId;
+  }
   if (input.credentialMode !== undefined) {
     if (!['api-key','chatgpt'].includes(input.credentialMode as string)) invalid();
     result.credentialMode = input.credentialMode as 'api-key' | 'chatgpt';
@@ -86,7 +91,8 @@ export function validateDesktopSettings(value: unknown): SaveDesktopSettings {
   if (result.credentialMode === 'chatgpt' && (result.providerId !== 'openai-responses' || !result.accountId || input.apiKey !== undefined)
     || result.accountId && result.credentialMode !== 'chatgpt') invalid();
   if (Object.hasOwn(input, 'reasoningEffort')) {
-    if (!REASONING_EFFORTS.includes(input.reasoningEffort as never) || !['codex', 'openai-responses'].includes(result.providerId)) invalid();
+    if (!REASONING_EFFORTS.includes(input.reasoningEffort as never) || !['codex', 'openai-responses', 'anthropic'].includes(result.providerId)
+      || result.providerId === 'anthropic' && !ANTHROPIC_REASONING_EFFORTS.includes(input.reasoningEffort as typeof ANTHROPIC_REASONING_EFFORTS[number])) invalid();
     result.reasoningEffort = input.reasoningEffort as import('@moodcode/contracts').ReasoningEffort;
   }
   if (result.providerId === 'scripted' || result.providerId === 'codex') {
@@ -97,7 +103,7 @@ export function validateDesktopSettings(value: unknown): SaveDesktopSettings {
   }
   if (Object.hasOwn(input, 'apiKey')) {
     result.apiKey = boundedString(input.apiKey, 4096);
-    if (/\s/u.test(result.apiKey)) invalid();
+    if (/\s/u.test(result.apiKey) || result.anthropicWorkspaceId?.includes(result.apiKey)) invalid();
   }
   if (Object.hasOwn(input, 'clearKey')) {
     if (typeof input.clearKey !== 'boolean') invalid();

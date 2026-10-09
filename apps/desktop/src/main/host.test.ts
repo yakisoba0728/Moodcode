@@ -17,13 +17,14 @@ const remote: SaveDesktopSettings = {
   providerId: 'openai-compatible', modelId: 'fixture-model', baseURL: 'http://127.0.0.1:3000/v1', apiKey: 'fixture-private-key',
 };
 function resolved(input: SaveDesktopSettings): ResolvedDesktopSettings {
-  const { providerId, modelId, baseURL, apiKey } = input;
+  const { providerId, modelId, baseURL, apiKey, anthropicWorkspaceId, reasoningEffort } = input;
+  const metadata = { ...(anthropicWorkspaceId ? { anthropicWorkspaceId } : {}), ...(reasoningEffort ? { reasoningEffort } : {}) };
   const view: DesktopSettings = {
-    providerId, modelId, baseURL, keyConfigured: !!apiKey, keySource: apiKey ? 'stored' : 'none', credentialStorage: 'available',
+    providerId, modelId, baseURL, ...metadata, keyConfigured: !!apiKey, keySource: apiKey ? 'stored' : 'none', credentialStorage: 'available',
   };
   const result = { view } as ResolvedDesktopSettings;
   Object.defineProperty(result, 'engineConfig', {
-    value: { providerId, modelId, baseURL, ...(apiKey ? { apiKey } : {}) }, enumerable: false,
+    value: { providerId, modelId, baseURL, ...metadata, ...(apiKey ? { apiKey } : {}) }, enumerable: false,
   });
   return result;
 }
@@ -856,6 +857,23 @@ test('public settings strip unexpectedly private store fields while preserving d
     'baseURL', 'codexAuthState', 'codexModelId', 'credentialStorage', 'keyConfigured', 'keySource', 'modelId', 'providerId',
   ]);
   assert.ok(!JSON.stringify(await host.getBootstrap()).includes(remote.apiKey!));
+});
+
+test('Anthropic workspace and effort pass only through documented settings and the private worker start', async t => {
+  const { host, workers } = setup(t);
+  await host.initialize();
+  const input: SaveDesktopSettings = { providerId: 'anthropic', modelId: 'fixture-anthropic-model', baseURL: 'https://api.anthropic.com/v1',
+    apiKey: 'sk-ant-fixture-private-host', anthropicWorkspaceId: 'wrkspc_fixtureDesktop', reasoningEffort: 'high' };
+  const view = await host.saveSettings(input);
+  assert.equal(view.anthropicWorkspaceId, input.anthropicWorkspaceId);
+  assert.equal(view.reasoningEffort, 'high');
+  assert.ok(!JSON.stringify(view).includes(input.apiKey!));
+  assert.ok(!JSON.stringify(await host.getBootstrap()).includes(input.apiKey!));
+  const start = workers[1]!.requests('start')[0]!.payload as WorkerStartPayload;
+  assert.equal(start.config.providerId, 'anthropic');
+  assert.equal(start.config.anthropicWorkspaceId, input.anthropicWorkspaceId);
+  assert.equal(start.config.reasoningEffort, 'high');
+  assert.equal(start.config.apiKey, input.apiKey);
 });
 
 

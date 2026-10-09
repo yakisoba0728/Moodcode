@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto';
 import { chmod, link, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -49,6 +49,60 @@ const remote = (extra: Partial<SaveDesktopSettings> = {}): SaveDesktopSettings =
   providerId: 'openai-compatible', modelId: 'fixture-model', baseURL: 'http://127.0.0.1:3000/v1', ...extra,
 });
 const scripted: SaveDesktopSettings = { providerId: 'scripted', modelId: 'local', baseURL: '' };
+
+test('Anthropic workspace and effort survive encrypted-key commit/reload without exposing the credential', async t => {
+  const { directory, path, storage, store } = await fixture(t);
+  const apiKey = `sk-ant-desktop-fixture-${randomUUID()}`;
+  const config: SaveDesktopSettings = { providerId: 'anthropic', modelId: 'fixture-anthropic-model', baseURL: 'https://api.anthropic.com/v1', anthropicWorkspaceId: 'wrkspc_fixtureDesktop', reasoningEffort: 'high' };
+  const prepared = await store.prepare({ ...config, apiKey });
+  assert.equal(prepared.engineConfig.apiKey, apiKey);
+  assert.equal(prepared.engineConfig.anthropicWorkspaceId, config.anthropicWorkspaceId);
+  assert.ok(!JSON.stringify(prepared).includes(apiKey));
+  await store.commit(prepared);
+  const bytes = await readFile(path, 'utf8');
+  assert.ok(!bytes.includes(apiKey));
+  assert.equal(JSON.parse(bytes).credential.providerId, 'anthropic');
+  const reopened = new SettingsStore({ directory, safeStorage: storage, environment: {} });
+  const loaded = await reopened.load();
+  assert.equal(loaded.view.anthropicWorkspaceId, config.anthropicWorkspaceId);
+  assert.equal(loaded.view.reasoningEffort, 'high');
+  assert.ok(!('apiKey' in loaded.view));
+  assert.equal(loaded.engineConfig.apiKey, apiKey);
+  const { anthropicWorkspaceId: _workspace, ...scoped } = config;
+  const cleared = await reopened.commit(await reopened.prepare(scoped));
+  assert.equal(cleared.view.anthropicWorkspaceId, undefined);
+  assert.equal(cleared.engineConfig.apiKey, apiKey);
+  await assert.rejects(reopened.prepare(remote()), code('SETTINGS_KEY_REQUIRED', apiKey));
+});
+
+test('Anthropic resolves only its selected credential environment and keeps workspace metadata key-free', async t => {
+  const config: SaveDesktopSettings = { providerId: 'anthropic', modelId: 'fixture-anthropic-model', baseURL: 'https://api.anthropic.com/v1' };
+  const { store } = await fixture(t, { environment: { ANTHROPIC_API_KEY: 'fixture-anthropic-key', OPENAI_API_KEY: 'fixture-openai-key' } });
+  const selected = await store.prepare(config);
+  assert.equal(selected.engineConfig.apiKey, 'fixture-anthropic-key');
+  assert.equal((await store.prepare(remote())).engineConfig.apiKey, 'fixture-openai-key');
+  const generic = await fixture(t, { environment: { MOODCODE_API_KEY: 'fixture-explicit-key', ANTHROPIC_API_KEY: 'fixture-anthropic-key' } });
+  assert.equal((await generic.store.prepare(config)).engineConfig.apiKey, 'fixture-explicit-key');
+  const openaiOnly = await fixture(t, { environment: { OPENAI_API_KEY: 'fixture-openai-key' } });
+  await assert.rejects(openaiOnly.store.prepare(config), code('SETTINGS_KEY_REQUIRED'));
+  const privateWorkspace = await fixture(t, { environment: { ANTHROPIC_API_KEY: 'wrkspc_fixturePrivate' } });
+  await assert.rejects(privateWorkspace.store.prepare({ ...config, anthropicWorkspaceId: 'wrkspc_fixturePrivate' }), code('SETTINGS_INVALID', 'wrkspc_fixturePrivate'));
+});
+
+test('Anthropic workspace input is provider-bound and fails before storage for header injection/accessors', async t => {
+  const { store } = await fixture(t, { environment: { ANTHROPIC_API_KEY: 'fixture-anthropic-key', OPENAI_API_KEY: 'fixture-openai-key' } });
+  const config: SaveDesktopSettings = { providerId: 'anthropic', modelId: 'fixture-anthropic-model', baseURL: 'https://api.anthropic.com/v1' };
+  for (const workspace of ['', 'wrkspc_ok\r\nx-injected: yes', ' wrkspc_valid', 'wrkspc_has-dash', 'wrkspc_' + 'a'.repeat(129), null, 12]) {
+    await assert.rejects(store.prepare({ ...config, anthropicWorkspaceId: workspace } as SaveDesktopSettings), code('SETTINGS_INVALID'));
+  }
+  await assert.rejects(store.prepare(remote({ anthropicWorkspaceId: 'wrkspc_fixtureDesktop' })), code('SETTINGS_INVALID'));
+  let accessorRead = false;
+  const input = Object.defineProperty({ ...config }, 'anthropicWorkspaceId', { enumerable: true, get() { accessorRead = true; return 'wrkspc_fixtureDesktop'; } });
+  await assert.rejects(store.prepare(input), code('SETTINGS_INVALID'));
+  assert.equal(accessorRead, false);
+  for (const effort of ['low', 'medium', 'high', 'xhigh', 'max'] as const) assert.equal((await store.prepare({ ...config, reasoningEffort: effort })).engineConfig.reasoningEffort, effort);
+  for (const effort of ['none', 'minimal', 'ultra'] as const) await assert.rejects(store.prepare({ ...config, reasoningEffort: effort }), code('SETTINGS_INVALID'));
+});
 function code(expected: string, secret?: string) {
   return (error: unknown): boolean => {
     assert.ok(error instanceof SettingsError);

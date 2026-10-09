@@ -201,6 +201,7 @@ export class DesktopHost {
     const view = this.options.settings.getView();
     const publicView: DesktopSettings = {
       providerId: view.providerId, modelId: view.modelId, baseURL: view.baseURL,
+      ...(view.anthropicWorkspaceId ? { anthropicWorkspaceId: view.anthropicWorkspaceId } : {}),
       keyConfigured: view.keyConfigured, keySource: view.keySource, credentialStorage: view.credentialStorage,
       ...(view.credentialMode ? { credentialMode: view.credentialMode } : {}), ...(view.accountId ? { accountId: view.accountId } : {}),
       ...(view.codexAuthState ? { codexAuthState: view.codexAuthState } : {}),

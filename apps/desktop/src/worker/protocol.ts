@@ -6,6 +6,7 @@ export interface WorkerEngineConfig {
   providerId: DesktopProviderId;
   modelId: string;
   baseURL: string;
+  anthropicWorkspaceId?: string;
   apiKey?: string;
   reasoningEffort?: import('@moodcode/contracts').ReasoningEffort;
 }

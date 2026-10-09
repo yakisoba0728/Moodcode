@@ -169,14 +169,23 @@ function runtimePins(runtime) {
     pins.files.push(...["/bin/sh", "/bin/ps"].map(filePin));
   return pins;
 }
-function childRun(args, timeoutMs, logPrefix) {
+export function runPtyRepeatabilityWorker(args, timeoutMs, logPrefix) {
   return new Promise((done) => {
-    let stdout = "",
-      stderr = "",
+    let stdout = Buffer.alloc(0),
+      stderr = Buffer.alloc(0),
+      stdoutBytes = 0,
+      stderrBytes = 0,
+      stdoutEnded = false,
+      stderrEnded = false,
+      exitObserved = false,
+      closeObserved = false,
+      exitCode = null,
+      exitSignal = null,
+      spawnError,
       timedOut = false,
       settled = false,
       escalated = false;
-    let escalation;
+    let escalation, forcedSettlement;
     const child = spawn(process.execPath, args, {
       cwd: repository,
       stdio: ["ignore", "pipe", "pipe"],
@@ -189,31 +198,70 @@ function childRun(args, timeoutMs, logPrefix) {
         child.kill("SIGKILL");
         child.stdout.destroy();
         child.stderr.destroy();
+        forcedSettlement = setImmediate(() => finish(exitCode, exitSignal));
       }, 1000);
     }, timeoutMs);
     child.stdout.on("data", (chunk) => {
-      stdout = (stdout + chunk.toString()).slice(-8192);
+      stdoutBytes += chunk.length;
+      stdout = Buffer.concat([stdout, chunk]).subarray(-8192);
     });
     child.stderr.on("data", (chunk) => {
-      stderr = (stderr + chunk.toString()).slice(-8192);
+      stderrBytes += chunk.length;
+      stderr = Buffer.concat([stderr, chunk]).subarray(-8192);
     });
-    const finish = (exitCode, signal, error) => {
+    child.stdout.once("end", () => {
+      stdoutEnded = true;
+    });
+    child.stderr.once("end", () => {
+      stderrEnded = true;
+    });
+    const finish = (code, signal) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       clearTimeout(escalation);
+      clearImmediate(forcedSettlement);
       writeFileSync(`${logPrefix}.stdout.log`, stdout, { mode: 0o600 });
       writeFileSync(`${logPrefix}.stderr.log`, stderr, { mode: 0o600 });
       done({
-        exitCode,
+        exitCode: code,
         signal,
+        exitObserved,
+        closeObserved,
         timedOut,
         escalated,
-        ...(error ? { error: String(error.message).slice(0, 1024) } : {}),
+        logs: {
+          limitBytes: 8192,
+          stdout: {
+            totalBytes: stdoutBytes,
+            retainedBytes: stdout.length,
+            truncated: stdoutBytes > stdout.length,
+            eofObserved: stdoutEnded,
+          },
+          stderr: {
+            totalBytes: stderrBytes,
+            retainedBytes: stderr.length,
+            truncated: stderrBytes > stderr.length,
+            eofObserved: stderrEnded,
+          },
+        },
+        ...(spawnError
+          ? { error: String(spawnError.message).slice(0, 1024) }
+          : {}),
       });
     };
-    child.once("error", (error) => finish(null, null, error));
-    child.once("exit", (code, signal) => finish(code, signal));
+    child.once("error", (error) => {
+      spawnError = error;
+    });
+    child.once("exit", (code, signal) => {
+      exitObserved = true;
+      exitCode = code;
+      exitSignal = signal;
+    });
+    child.once("close", (code, signal) => {
+      closeObserved = true;
+      finish(code, signal);
+    });
   });
 }
 function observeTimedOutCase(data) {
@@ -301,14 +349,14 @@ export async function verifyPtyRepeatability(
       );
     report.runtimePins = runtimePins(options.runtime);
     const identityPath = join(directory, "identity-before.json");
-    const before = await childRun(
+    const before = await runPtyRepeatabilityWorker(
       [...prefix, "--identity", identityPath],
       Math.min(15000, options.maxDurationMs),
       join(directory, "identity-before"),
     );
     assert.equal(
-      before.exitCode,
-      0,
+      before.exitCode === 0 && before.closeObserved && !before.timedOut,
+      true,
       "Source/runtime inventory failed; see retained identity worker logs",
     );
     beforeIdentity = readJson(identityPath);
@@ -338,7 +386,7 @@ export async function verifyPtyRepeatability(
             `${String(iteration).padStart(3, "0")}-${scenario}`,
           );
           mkdirSync(caseDirectory, { mode: 0o700 });
-          const child = await childRun(
+          const child = await runPtyRepeatabilityWorker(
             [
               ...prefix,
               scenario,
@@ -370,6 +418,7 @@ export async function verifyPtyRepeatability(
           data.worker = child;
           if (
             child.timedOut ||
+            !child.closeObserved ||
             child.exitCode !==
               (data.status === "passed"
                 ? 0
@@ -415,7 +464,7 @@ export async function verifyPtyRepeatability(
           code: "PTY_REPEATABILITY_BATCH_TIMEOUT",
         });
       const afterPath = join(directory, "identity-after.json");
-      const after = await childRun(
+      const after = await runPtyRepeatabilityWorker(
         [
           ...prefix,
           "--identity",
@@ -438,8 +487,8 @@ export async function verifyPtyRepeatability(
           });
       }
       assert.equal(
-        after.exitCode,
-        0,
+        after.exitCode === 0 && after.closeObserved && !after.timedOut,
+        true,
         "Final inventory failed; see identity worker logs",
       );
       assert.deepEqual(runtimePins(options.runtime), report.runtimePins);

@@ -4,12 +4,13 @@ import { chmod, lstat, mkdir, open, rename, unlink } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import type { DesktopProviderId, DesktopSettings, SaveDesktopSettings } from '../shared/protocol.js';
+import { ANTHROPIC_REASONING_EFFORTS } from '../shared/protocol.js';
 import type { PrivateAccountCredential } from './accounts.js';
 
 const MAX_FILE_BYTES = 32_768;
 const MAX_KEY_BYTES = 4_096;
 const MAX_CIPHERTEXT_BYTES = 16_384;
-const PROVIDERS: readonly DesktopProviderId[] = ['scripted', 'openai-compatible', 'openai-responses', 'codex'];
+const PROVIDERS: readonly DesktopProviderId[] = ['scripted', 'openai-compatible', 'openai-responses', 'anthropic', 'codex'];
 
 export interface DesktopCodexAuth {
   available: boolean;
@@ -39,6 +40,7 @@ export interface DesktopEngineConfig {
   readonly providerId: DesktopProviderId;
   readonly modelId: string;
   readonly baseURL: string;
+  readonly anthropicWorkspaceId?: string;
   readonly reasoningEffort?: ReasoningEffort;
   readonly apiKey?: string;
 }
@@ -70,6 +72,7 @@ interface StoredSettings {
   providerId: DesktopProviderId;
   modelId: string;
   baseURL: string;
+  anthropicWorkspaceId?: string;
   credential?: StoredCredential;
   reasoningEffort?: ReasoningEffort;
   credentialMode?: 'api-key' | 'chatgpt';
@@ -112,7 +115,7 @@ function provider(value: unknown): DesktopProviderId {
   return value as DesktopProviderId;
 }
 
-function configFields(input: Record<string, unknown>): Pick<StoredSettings, 'providerId' | 'modelId' | 'baseURL' | 'reasoningEffort' | 'credentialMode' | 'accountId'> {
+function configFields(input: Record<string, unknown>): Pick<StoredSettings, 'providerId' | 'modelId' | 'baseURL' | 'anthropicWorkspaceId' | 'reasoningEffort' | 'credentialMode' | 'accountId'> {
   const providerId = provider(input.providerId);
   if (typeof input.modelId !== 'string' || input.modelId.length === 0 || input.modelId.trim() !== input.modelId
     || Buffer.byteLength(input.modelId) > 512 || /[\u0000-\u001f\u007f]/u.test(input.modelId)) invalid('modelId');
@@ -127,7 +130,10 @@ function configFields(input: Record<string, unknown>): Pick<StoredSettings, 'pro
       || input.baseURL.includes('?') || input.baseURL.includes('#')) invalid('baseURL');
   }
   const effort = input.reasoningEffort;
-  if (Object.hasOwn(input, 'reasoningEffort') && (effort === undefined || !REASONING_EFFORTS.includes(effort as ReasoningEffort) || !['codex', 'openai-responses'].includes(providerId))) invalid('reasoningEffort');
+  if (Object.hasOwn(input, 'reasoningEffort') && (effort === undefined || !REASONING_EFFORTS.includes(effort as ReasoningEffort) || !['codex', 'openai-responses', 'anthropic'].includes(providerId)
+    || providerId === 'anthropic' && !ANTHROPIC_REASONING_EFFORTS.includes(effort as typeof ANTHROPIC_REASONING_EFFORTS[number]))) invalid('reasoningEffort');
+  const workspace = input.anthropicWorkspaceId;
+  if (Object.hasOwn(input, 'anthropicWorkspaceId') && (providerId !== 'anthropic' || typeof workspace !== 'string' || !/^wrkspc_[A-Za-z0-9]{1,128}$/u.test(workspace))) invalid('anthropicWorkspaceId');
   const mode = input.credentialMode;
   if (mode !== undefined && mode !== 'api-key' && mode !== 'chatgpt') invalid('credentialMode');
   if (mode === 'chatgpt') {
@@ -135,6 +141,7 @@ function configFields(input: Record<string, unknown>): Pick<StoredSettings, 'pro
       || typeof input.accountId !== 'string' || !/^[a-f0-9-]{36}$/u.test(input.accountId)) invalid('accountId');
   } else if (input.accountId !== undefined) invalid('accountId');
   return { providerId, modelId: input.modelId, baseURL: input.baseURL, ...(effort === undefined ? {} : { reasoningEffort: effort as ReasoningEffort }),
+    ...(workspace === undefined ? {} : { anthropicWorkspaceId: workspace as string }),
     ...(mode === undefined ? {} : { credentialMode: mode }), ...(mode === 'chatgpt' ? { accountId: input.accountId as string } : {}) };
 }
 
@@ -145,7 +152,7 @@ function key(value: unknown): string {
 }
 
 function parseDocument(value: unknown): StoredSettings {
-  const input = dataObject(value, ['schemaVersion', 'providerId', 'modelId', 'baseURL', 'credential', 'reasoningEffort', 'credentialMode', 'accountId']);
+  const input = dataObject(value, ['schemaVersion', 'providerId', 'modelId', 'baseURL', 'anthropicWorkspaceId', 'credential', 'reasoningEffort', 'credentialMode', 'accountId']);
   if (input.schemaVersion !== 1) invalid('schemaVersion');
   const result: StoredSettings = { schemaVersion: 1, ...configFields(input) };
   if (Object.hasOwn(input, 'credential')) {
@@ -209,7 +216,7 @@ export class SettingsStore {
   prepare(input: SaveDesktopSettings): Promise<PreparedSettings> {
     return this.#exclusive(async () => {
       if (!this.#loaded) await this.#load();
-      const fields = dataObject(input, ['providerId', 'modelId', 'baseURL', 'apiKey', 'clearKey', 'reasoningEffort', 'credentialMode', 'accountId']);
+      const fields = dataObject(input, ['providerId', 'modelId', 'baseURL', 'anthropicWorkspaceId', 'apiKey', 'clearKey', 'reasoningEffort', 'credentialMode', 'accountId']);
       if (fields.providerId === 'codex' && (fields.modelId === '' || fields.modelId === undefined)) {
         fields.modelId = this.#auth().modelId;
         if (!fields.modelId) fail('SETTINGS_CODEX_MODEL_REQUIRED', 'The Codex provider requires an explicit model identifier.');
@@ -330,6 +337,7 @@ export class SettingsStore {
   #makeView(document: StoredSettings, keySource: DesktopSettings['keySource']): DesktopSettings {
     const view: DesktopSettings = {
       providerId: document.providerId, modelId: document.modelId, baseURL: document.baseURL,
+      ...(document.anthropicWorkspaceId ? { anthropicWorkspaceId: document.anthropicWorkspaceId } : {}),
       keyConfigured: keySource !== 'none', keySource,
       credentialStorage: this.#storageAvailable() ? 'available' : 'unavailable',
       ...(document.reasoningEffort ? { reasoningEffort: document.reasoningEffort } : {}),
@@ -358,8 +366,9 @@ export class SettingsStore {
   }
 
   #resolve(document: StoredSettings): ResolvedDesktopSettings {
-    const engineConfig: { providerId: DesktopProviderId; modelId: string; baseURL: string; apiKey?: string; reasoningEffort?: ReasoningEffort } = {
+    const engineConfig: { providerId: DesktopProviderId; modelId: string; baseURL: string; anthropicWorkspaceId?: string; apiKey?: string; reasoningEffort?: ReasoningEffort } = {
       providerId: document.providerId, modelId: document.modelId, baseURL: document.baseURL,
+      ...(document.anthropicWorkspaceId ? { anthropicWorkspaceId: document.anthropicWorkspaceId } : {}),
       ...(document.reasoningEffort ? { reasoningEffort: document.reasoningEffort } : {}),
     };
     let source: DesktopSettings['keySource'] = 'none';
@@ -375,7 +384,7 @@ export class SettingsStore {
         source = 'chatgpt';
         return freezeResolved(this.#makeView(document, source), engineConfig);
       }
-      const environmentKey = this.#environment.MOODCODE_API_KEY || this.#environment.OPENAI_API_KEY;
+      const environmentKey = this.#environment.MOODCODE_API_KEY || (document.providerId === 'anthropic' ? this.#environment.ANTHROPIC_API_KEY : this.#environment.OPENAI_API_KEY);
       if (environmentKey) {
         try { engineConfig.apiKey = key(environmentKey); }
         catch { fail('SETTINGS_ENVIRONMENT_CREDENTIAL_INVALID', 'The configured credential environment variable is invalid.'); }
@@ -386,9 +395,10 @@ export class SettingsStore {
         catch { fail('SETTINGS_CREDENTIAL_DECRYPT_FAILED', 'The stored credential could not be decrypted. Enter a new credential or use a credential environment variable.'); }
         source = 'stored';
       } else {
-        fail('SETTINGS_KEY_REQUIRED', 'The selected provider requires its own credential. Enter a credential or set MOODCODE_API_KEY or OPENAI_API_KEY.');
+        fail('SETTINGS_KEY_REQUIRED', `The selected provider requires its own credential. Enter a credential or set MOODCODE_API_KEY or ${document.providerId === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY'}.`);
       }
     }
+    if (engineConfig.apiKey && document.anthropicWorkspaceId?.includes(engineConfig.apiKey)) invalid('anthropicWorkspaceId');
     return freezeResolved(this.#makeView(document, source), engineConfig);
   }
 

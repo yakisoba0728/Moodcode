@@ -524,6 +524,7 @@ test("standalone verification scripts trigger both path filters and POSIX checks
       for (const path of [
         "scripts/verify-media-account*.mjs",
         "scripts/verify-provider-coverage*.mjs",
+        "scripts/verify-anthropic-continuation*.mjs",
         "scripts/plan-media-verification*.mjs",
         "scripts/verify-engine-resilience*.mjs",
         "scripts/verify-engine-persistent-soak*.mjs",

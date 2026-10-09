@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import { EngineError, REASONING_EFFORTS, SCHEMA_VERSION, isTerminal, type EngineCapabilities } from '@moodcode/contracts';
-import { getRecoveryStatus, recoverEngine, createEngine, CodexProvider, OpenAICompatibleProvider, ResponsesProvider, ScriptedProvider, type EngineOptions, type MoodcodeEngine, type ProviderAdapter } from '@moodcode/engine';
+import { getRecoveryStatus, recoverEngine, createEngine, AnthropicProvider, CodexProvider, OpenAICompatibleProvider, ResponsesProvider, ScriptedProvider, type EngineOptions, type MoodcodeEngine, type ProviderAdapter } from '@moodcode/engine';
 import type { DesktopUpdate } from '../shared/protocol.js';
+import { ANTHROPIC_REASONING_EFFORTS } from '../shared/protocol.js';
 import type { WorkerBootstrap, WorkerEngineConfig, WorkerPush, WorkerResponse, WorkerStartPayload } from './protocol.js';
 import { testFixtureProvider } from './fixtures.js';
 import { AdvancedService } from './advanced.js';
@@ -79,13 +80,16 @@ function boundedJson(value: unknown): void {
 }
 
 function config(value: unknown, scenario?: 'coding' | 'slow' | 'advanced' | 'account'): WorkerEngineConfig {
-  const source = record(value, ['providerId', 'modelId', 'baseURL', 'apiKey', 'reasoningEffort']);
-  if (source.providerId !== 'scripted' && source.providerId !== 'openai-compatible' && source.providerId !== 'openai-responses' && source.providerId !== 'codex') {
+  const source = record(value, ['providerId', 'modelId', 'baseURL', 'anthropicWorkspaceId', 'apiKey', 'reasoningEffort']);
+  if (source.providerId !== 'scripted' && source.providerId !== 'openai-compatible' && source.providerId !== 'openai-responses' && source.providerId !== 'anthropic' && source.providerId !== 'codex') {
     throw new EngineError('INVALID_CONFIG', 'Desktop provider is not supported.');
   }
   if (scenario) return { providerId: 'scripted', modelId: `desktop-${scenario}-fixture`, baseURL: '' };
   const reasoningEffort = source.reasoningEffort;
-  if (reasoningEffort !== undefined && (!REASONING_EFFORTS.includes(reasoningEffort as never) || !['codex','openai-responses'].includes(String(source.providerId)))) throw new EngineError('INVALID_CONFIG', 'Provider reasoning effort is invalid.');
+  if (reasoningEffort !== undefined && (!REASONING_EFFORTS.includes(reasoningEffort as never) || !['codex','openai-responses','anthropic'].includes(String(source.providerId))
+    || source.providerId === 'anthropic' && !ANTHROPIC_REASONING_EFFORTS.includes(reasoningEffort as typeof ANTHROPIC_REASONING_EFFORTS[number]))) throw new EngineError('INVALID_CONFIG', 'Provider reasoning effort is invalid.');
+  const anthropicWorkspaceId = source.anthropicWorkspaceId;
+  if (Object.hasOwn(source, 'anthropicWorkspaceId') && (source.providerId !== 'anthropic' || typeof anthropicWorkspaceId !== 'string' || !/^wrkspc_[A-Za-z0-9]{1,128}$/u.test(anthropicWorkspaceId))) throw new EngineError('INVALID_CONFIG', 'Anthropic workspace identifier is invalid.');
   const modelId = text(source.modelId, 'modelId');
   const baseURL = text(source.baseURL, 'baseURL', 4096, source.providerId === 'scripted' || source.providerId === 'codex');
   let apiKey: string | undefined;
@@ -106,9 +110,9 @@ function config(value: unknown, scenario?: 'coding' | 'slow' | 'advanced' | 'acc
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
       throw new EngineError('INVALID_CONFIG', 'Provider base URL must be HTTP or HTTPS without credentials, query, or fragment.');
     }
-    if (baseURL.includes(apiKey) || modelId.includes(apiKey)) throw new EngineError('INVALID_CONFIG', 'Provider metadata must not contain its credential.');
+    if (baseURL.includes(apiKey) || modelId.includes(apiKey) || typeof anthropicWorkspaceId === 'string' && anthropicWorkspaceId.includes(apiKey)) throw new EngineError('INVALID_CONFIG', 'Provider metadata must not contain its credential.');
   }
-  return { providerId: source.providerId, modelId, baseURL, ...(apiKey ? { apiKey } : {}), ...(reasoningEffort ? { reasoningEffort: reasoningEffort as import('@moodcode/contracts').ReasoningEffort } : {}) };
+  return { providerId: source.providerId, modelId, baseURL, ...(anthropicWorkspaceId ? { anthropicWorkspaceId: anthropicWorkspaceId as string } : {}), ...(apiKey ? { apiKey } : {}), ...(reasoningEffort ? { reasoningEffort: reasoningEffort as import('@moodcode/contracts').ReasoningEffort } : {}) };
 }
 function startPayload(value: unknown): WorkerStartPayload {
   const source = record(value, ['dbPath', 'artifactDir', 'config', 'testScenario']);
@@ -125,6 +129,7 @@ function selectedProvider(payload: WorkerStartPayload): ProviderAdapter {
     case 'scripted': return new ScriptedProvider();
     case 'openai-compatible': return new OpenAICompatibleProvider(payload.config);
     case 'openai-responses': return new ResponsesProvider(payload.config);
+    case 'anthropic': return new AnthropicProvider({ ...payload.config, ...(payload.config.anthropicWorkspaceId ? { workspaceId: payload.config.anthropicWorkspaceId } : {}) });
     case 'codex': return new CodexProvider();
   }
 }

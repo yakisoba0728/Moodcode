@@ -153,6 +153,30 @@ test('settings rejects unknown, credential URLs, getter, extra and unbounded fie
   assert.equal(transport.invocations.length, 0);
 });
 
+test('Anthropic settings cross the closed preload bridge once with optional workspace and supported effort', async () => {
+  const transport = new TransportDouble(), api = createDesktopApi(transport);
+  const input: SaveDesktopSettings = { providerId: 'anthropic', modelId: 'fixture-anthropic-model', baseURL: 'https://api.anthropic.com/v1',
+    apiKey: 'sk-ant-fixture-bridge', anthropicWorkspaceId: 'wrkspc_fixtureDesktop', reasoningEffort: 'high' };
+  await api.saveSettings(input);
+  assert.deepEqual(transport.invocations, [{ channel: DESKTOP_CHANNELS.saveSettings, args: [input] }]);
+  const { anthropicWorkspaceId: _workspace, ...scoped } = input;
+  assert.deepEqual(validateDesktopSettings(scoped), scoped);
+});
+
+test('Anthropic workspace injection, wrong-provider binding and unsupported effort fail before IPC', async () => {
+  const transport = new TransportDouble(), api = createDesktopApi(transport);
+  const input: SaveDesktopSettings = { providerId: 'anthropic', modelId: 'fixture-anthropic-model', baseURL: 'https://api.anthropic.com/v1', apiKey: 'sk-ant-fixture-bridge' };
+  for (const change of [{ anthropicWorkspaceId: 'wrkspc_ok\r\nx-injected: yes' }, { anthropicWorkspaceId: null }, { anthropicWorkspaceId: '' },
+    { anthropicWorkspaceId: 'wrkspc_' + 'a'.repeat(129) }, { providerId: 'openai-responses', anthropicWorkspaceId: 'wrkspc_fixtureDesktop' },
+    { reasoningEffort: 'ultra' }, { apiKey: 'wrkspc_fixturePrivate', anthropicWorkspaceId: 'wrkspc_fixturePrivate' }]) {
+    await assert.rejects(api.saveSettings({ ...input, ...change } as SaveDesktopSettings), invalid);
+  }
+  let read = false;
+  const accessor = Object.defineProperty({ ...input }, 'anthropicWorkspaceId', { enumerable: true, get() { read = true; return 'wrkspc_fixtureDesktop'; } });
+  await assert.rejects(api.saveSettings(accessor), invalid);
+  assert.equal(read, false); assert.equal(transport.invocations.length, 0);
+});
+
 test('uninspectable settings are rejected with a safe input error', async () => {
   const transport = new TransportDouble();
   const api = createDesktopApi(transport);

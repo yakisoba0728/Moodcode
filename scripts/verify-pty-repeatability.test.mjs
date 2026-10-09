@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
@@ -9,6 +16,7 @@ import { queueHardeningCliEvidence } from "../.github/scripts/engine-ci.mjs";
 import {
   PTY_SCENARIOS,
   parsePtyRepeatabilityArgs,
+  runPtyRepeatabilityWorker,
   runPtyRepeatabilityCli,
 } from "./verify-pty-repeatability.mjs";
 
@@ -72,6 +80,83 @@ test("PTY repeatability help and invalid input never load a runtime or create ev
   );
   assert.equal(errors.length, 1);
 });
+
+test(
+  "actual worker close retains post-exit diagnostic tails with explicit byte bounds",
+  { timeout: 5000 },
+  async () => {
+    const directory = mkdtempSync(join(tmpdir(), "moodcode-pty-worker-drain-")),
+      prefix = join(directory, "worker");
+    const script = `
+    import { spawn } from 'node:child_process';
+    const child = spawn(process.execPath, ['-e', ${JSON.stringify("setTimeout(() => { process.stdout.write('a'.repeat(16384) + 'FINAL_STDOUT_DIAGNOSTIC\\n'); process.stderr.write('b'.repeat(16384) + 'FINAL_STDERR_DIAGNOSTIC\\n'); }, 150)")}], { stdio: ['ignore', 1, 2] });
+    child.unref();
+    process.stdout.write('BEFORE_EXIT\\n');
+  `;
+    const result = await runPtyRepeatabilityWorker(
+      ["--input-type=module", "-e", script],
+      2000,
+      prefix,
+    );
+    writeFileSync(
+      join(directory, "result.json"),
+      JSON.stringify(result, null, 2) + "\n",
+      { mode: 0o600 },
+    );
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.signal, null);
+    assert.equal(result.exitObserved, true);
+    assert.equal(result.closeObserved, true);
+    assert.equal(result.timedOut, false);
+    for (const name of ["stdout", "stderr"]) {
+      const bytes = readFileSync(`${prefix}.${name}.log`),
+        log = result.logs[name];
+      assert.equal(bytes.length, 8192);
+      assert.equal(log.retainedBytes, bytes.length);
+      assert.ok(log.totalBytes > bytes.length);
+      assert.equal(log.truncated, true);
+      assert.equal(log.eofObserved, true);
+      assert.match(
+        bytes.toString(),
+        new RegExp(`FINAL_${name.toUpperCase()}_DIAGNOSTIC\\n$`),
+      );
+    }
+  },
+);
+
+test(
+  "actual exit before inherited pipe drain cannot bypass the worker deadline",
+  { timeout: 5000 },
+  async () => {
+    const directory = mkdtempSync(
+        join(tmpdir(), "moodcode-pty-worker-deadline-"),
+      ),
+      prefix = join(directory, "worker");
+    const script = `
+    import { spawn } from 'node:child_process';
+    const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 1200)'], { stdio: ['ignore', 1, 2] });
+    child.unref();
+  `;
+    const result = await runPtyRepeatabilityWorker(
+      ["--input-type=module", "-e", script],
+      1000,
+      prefix,
+    );
+    writeFileSync(
+      join(directory, "result.json"),
+      JSON.stringify(result, null, 2) + "\n",
+      { mode: 0o600 },
+    );
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.signal, null);
+    assert.equal(result.exitObserved, true);
+    assert.equal(result.closeObserved, true);
+    assert.equal(result.timedOut, true);
+    assert.equal(result.escalated, false);
+    assert.equal(result.logs.stdout.eofObserved, true);
+    assert.equal(result.logs.stderr.eofObserved, true);
+  },
+);
 
 test(
   "actual source Engine repeatability retains normal, resized, cancelled and uncertain fault SQLite evidence",
@@ -166,6 +251,10 @@ test(
       assert.ok(existsSync(item.terminalSqlitePath));
       assert.equal(statSync(item.evidencePath).mode & 0o777, 0o600);
       assert.equal(item.worker.timedOut, false);
+      assert.equal(item.worker.exitObserved, true);
+      assert.equal(item.worker.closeObserved, true);
+      assert.equal(item.worker.logs.stdout.eofObserved, true);
+      assert.equal(item.worker.logs.stderr.eofObserved, true);
       assert.equal(
         item.backendOutcome.diagnostics.source.terminalPid,
         item.processSnapshot[0].pid,
