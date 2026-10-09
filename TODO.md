@@ -20,11 +20,12 @@
 
 - [x] **N-01 — 동일 엔진 장기 실행·부하 검증**: 같은 인스턴스에서 queue/steer·승인·취소·재시작 경합과 큰 이력을 검증한다. 유한 실행 시간·seed·입력량을 고정하고 메모리·FD·프로세스·SQLite·artifact 증가 및 종료 정산을 측정한다. 기존 60회 독립 반복 근거와 구분한다.
 - [x] **N-02 — 고급 엔진 기능의 GUI 연결**: inbox·tasks/questions·MCP·PTY·child/team·workflow·LSP·진단을 host/preload/renderer까지 연결한다. 기존 승인·owner·budget을 유지하고 실제 화면의 소비·reload·cancel·reconnect를 검증한다.
-- [ ] **N-03 — 앱 인증·계정 관리**: 기존 SIWC 동적 앱 등록의 구현·fixture 근거는 역사적 기록으로 보존한다. Codex/OpenCode 방식의 고정 client 브라우저 PKCE·native 계정·모델·worker 연결로 교체했고 로컬 회귀·계정 GUI fixture를 검증했다. [현재 계정 흐름과 전체 회귀 한계](docs/moodcode/desktop-account-auth.md)를 따른다. 남은 완료 조건은 사람이 실제 브라우저에서 로그인하고 선택 계정의 모델 조회·native 추론을 확인하는 검증이다. Fixture 성공으로 이 조건을 닫지 않는다.
+- [ ] **N-03 — 앱 인증·계정 관리**: 기존 SIWC 동적 앱 등록의 구현·fixture 근거는 역사적 기록으로 보존한다. Codex/OpenCode 방식의 고정 client 브라우저 PKCE·native 계정·모델·worker 연결로 교체했고 로컬 회귀·계정 GUI fixture를 검증했다. 2026-10-10 사용자가 실제 브라우저 로그인 성공을 확인했다. [현재 계정 흐름과 전체 회귀 한계](docs/moodcode/desktop-account-auth.md)를 따른다. 남은 완료 조건은 선택 계정의 모델 조회·native 추론 확인이다. 로그인 성공만으로 추론 완료를 기록하지 않는다.
 - [x] **N-04 — 지원 OS 패키지·최신 GUI 검증**: 최신 엔진의 macOS/Linux/Windows 지원 범위를 명시하고 해당 bundle·utility·SQLite·supervisor·renderer 및 서명 없는 bundle의 실제 실행 smoke를 해당 OS에서 확인했다. 서명 installer·설치 배포는 N-05로 별도 추적한다. Windows x64 명령은 실제 Job Object, Windows PTY·arm64는 미검증 범위다.
 - [ ] **N-05 — 서명·배포·업데이트**: 서명 준비·검토형 업데이트·실패 복구·main utility 설치 전 종료 증거를 구현하고 서명 없는 세 OS bundle과 실제 disposable 업데이트 범위를 검증했다. 실제 macOS·Windows 서명/공증·설치·공개 feed 검증은 자격 준비 후 진행한다.
 - [x] **N-06 — 추가 작업 수용·기준 동결**: 구현·실제 검증·외부 조건 대기를 구분하고 현재 지원 표·API·DB·코드/테스트 줄 수·성능·CI·GUI 근거를 고정한다. 이후 리팩터링의 동작 보존 기준으로 사용한다.
 - [ ] **R-LSP — native TypeScript 좌표 안정성**: 계정 후속 전체 compiled 5,303개 중 기존 `bom-crlf-astral-definition` 좌표 precision/recall 1건 실패(5,299 pass·skip 3)와 동일 파일 단독 2/2 pass를 보존하고, 전체 실행에서의 좌표 차이 원인과 의미 보존 수정을 확인한다. 단독 성공·부하 추정으로 전체 PASS나 원인 해결로 승격하지 않는다.
+- [ ] **R-AUTH — 실행 중 계정 토큰 자동 갱신** `[추가 개선]`: 현재 worker의 credential snapshot과 명시적 갱신·재시작 제한을 개선한다. Main이 소유한 갱신을 요청 전 private 채널로 연결하고, 계정 변경·동시 갱신·취소·불확실한 rotating grant를 처리한다. Renderer 비공개 경계와 요청·도구의 자동 재실행 금지를 유지한다. N-03의 원래 완료 조건과 별도 후속 기능이다.
 
 추가 기능은 첫 지원 OS·모델·GUI 흐름과 완료 조건을 구현 전에 고정한다. 계정·인증서·과거 실행 자료가 없는 항목은 대기 사유와 해제 조건을 남기고 완료 처리하지 않는다. 외부 조건과 독립인 구현·검증·점검은 계속 진행한다.
 
@@ -132,7 +133,7 @@
 - [x] **AF-04 — PTY·GUI 검증 도구의 종료 정리**: PTY 부모 exit 뒤 inherited stdio tail 누락을 재현해 close/EOF까지 관측했고 source5·compiled5·collector6을 검증했다. GUI 진단 실패 뒤에도 실제 응답·서버 정리를 수행하며 first-error·Original 보존4/4를 확인했다. 현재 진단 수집 개선이 역사적 R-PTY-01 원인 해결을 뜻하지 않는다.
 - [x] **AF-05 — 최종 CI·독립 감사·게시**: production `ea64a96`의 세 OS Desktop와 Windows native 두 작업, replay 검증 CLI 수정 `87323b9`의 여섯 headless 작업이 모두 통과했다. 두 커밋 사이의 차이는 검증 CLI·테스트 두 파일이며 제품 소스는 동일하다. 각 OS의 실제 skip·Windows portable 범위와 서명 없는 패키지 한계를 유지하고 실제 계정 근거·문서를 독립 검토해 게시한다.
 
-N-03은 현재 Codex 브라우저 계정 로그인·선택 계정 추론, N-05는 실제 서명·공증·설치·공개 feed, E5-13은 더 넓은 모델·PDF·미디어·비용 검증, R-PTY-01은 과거 실패의 원본 근거 확보와 원인 판정이 남는다. 이 네 항목은 완료 처리하지 않는다.
+N-03은 실제 브라우저 로그인 성공을 사용자 확인으로 기록했고 선택 계정의 모델 조회·추론 확인이 남는다. N-05는 실제 서명·공증·설치·공개 feed, E5-13은 더 넓은 모델·PDF·미디어·비용 검증, R-PTY-01은 과거 실패의 원본 근거 확보와 원인 판정이 남는다. 별도 R-LSP 좌표 실패와 추가 개선 R-AUTH 자동 갱신은 상단 목록에서 추적한다. 남은 조건을 완료 처리하지 않는다.
 
 ### 이전 수용 기록 — 확정한 후속 구현·리팩터링·통합 검증
 

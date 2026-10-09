@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-10",
+  "implementationCommit": "e3032f0998ea8897284f6a401667b7e764034a82",
+  "source": "user-report",
+  "message": "좋아 이제 남은거 있나? 성공했어",
+  "browserLogin": "user-confirmed-success",
+  "selectedAccountModelCatalog": "not-separately-confirmed",
+  "selectedAccountInference": "not-separately-confirmed",
+  "boundary": "User confirmed success after retrying the corrected Codex browser login. This report does not establish model inference, token expiry recovery, or signed distribution.",
+  "priorVerification": "desktop-account-auth-verification.json"
+}
