@@ -14,6 +14,8 @@ on:
       - "scripts/verify-pty-repeatability*.mjs"
       - "scripts/benchmark-engine.mjs"
       - "scripts/inspect-engine-db-contract*.mjs"
+      - "scripts/inspect-history-storage-cost*"
+      - "scripts/compare-history-storage-cost*"
       - "docs/moodcode/next-db-contract-baseline.json"
       - "scripts/prepare-pty.mjs"
       - "scripts/verify-media-account*.mjs"
@@ -36,6 +38,8 @@ on:
       - "scripts/verify-pty-repeatability*.mjs"
       - "scripts/benchmark-engine.mjs"
       - "scripts/inspect-engine-db-contract*.mjs"
+      - "scripts/inspect-history-storage-cost*"
+      - "scripts/compare-history-storage-cost*"
       - "docs/moodcode/next-db-contract-baseline.json"
       - "scripts/prepare-pty.mjs"
       - "scripts/verify-media-account*.mjs"
@@ -98,6 +102,8 @@ jobs:
         run: node .github/scripts/engine-ci.mjs build
       - name: Preserve the primary SQL database contract
         run: node .github/scripts/engine-ci.mjs db-contract
+      - name: Validate bounded history measurement and exact storage comparison
+        run: node --test scripts/inspect-history-storage-cost.test.mjs scripts/compare-history-storage-cost.test.mjs
       - name: Run local media CLI regression fixtures
         run: node .github/scripts/engine-ci.mjs test-media-local
       - name: Validate resilience CLI preflight and report failures

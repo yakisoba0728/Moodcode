@@ -10,6 +10,12 @@ import {
   createDesktopTestDirectory,
   preserveDesktopTestEvidence,
 } from "../../../../../scripts/desktop-test-evidence.mjs";
+import {
+  aggregateFixtureCleanup,
+  bindMainUtilityClose,
+  qualifyDesktopNativeCleanup,
+  readMainUtilityClose,
+} from "../../../../../scripts/desktop-main-utility-close.mjs";
 
 const output = process.argv[2];
 assert.ok(output, "Provide the report output path.");
@@ -75,37 +81,55 @@ async function close() {
   );
   assert.equal(fixture.networkAttempts, 0);
   application = undefined;
-  await current.close();
-  fixture.cleanup = {
-    state: "unknown",
-    applicationExitObserved: originalProcess.exitCode !== null,
-    applicationExitCode: originalProcess.exitCode,
-    nativeAcknowledged: null,
-    nativeExitObserved: null,
-    forcedStop: false,
-    originalPreserved: true,
+  let closeFailure;
+  try {
+    await current.close();
+  } catch (error) {
+    closeFailure = error;
+  }
+  const applicationClose = {
+    scope: "original-electron-application",
+    exitObserved:
+      Number.isInteger(originalProcess.exitCode) ||
+      typeof originalProcess.signalCode === "string",
+    exitCode: originalProcess.exitCode ?? null,
+    signal: originalProcess.signalCode ?? null,
+    establishesNativeCleanup: false,
   };
+  fixture.mainUtilityClose = await readMainUtilityClose(
+    fixture.mainUtilityClosePath,
+  );
   const nativeAfterClose = await captureDesktopNativeEvidence({
     sourceDirectory: fixture.directory,
     phase: "after-close",
     close: {
-      acknowledged: null,
-      exitObserved: null,
-      forcedStop: false,
-      applicationClose: {
-        exitObserved: fixture.cleanup.applicationExitObserved,
-        exitCode: fixture.cleanup.applicationExitCode,
-      },
+      mainUtility: fixture.mainUtilityClose,
+      acknowledged: fixture.mainUtilityClose?.utilityAcknowledged ?? null,
+      exitObserved: fixture.mainUtilityClose?.utilityExitObserved ?? null,
+      forcedStop: fixture.mainUtilityClose?.forcedStop === true,
+      applicationClose,
     },
   });
+  fixture.cleanup = {
+    ...aggregateFixtureCleanup({
+      mainReceipt: fixture.mainUtilityClose,
+      nativeConfirmed: qualifyDesktopNativeCleanup(nativeAfterClose),
+    }),
+    applicationExitObserved: applicationClose.exitObserved,
+    applicationExitCode: applicationClose.exitCode,
+    originalPreserved: true,
+  };
   fixture.preservedEvidence = await preserveDesktopTestEvidence({
     sourceDirectory: fixture.directory,
     artifactDirectory: resolve("artifacts/renderer-delivery"),
     scenario: `renderer-${fixture.scenario}`,
-    outcome: "unknown",
+    outcome: report.status === "failed" || closeFailure ? "failed" : "unknown",
     cleanup: fixture.cleanup,
     nativeAfterClose,
   });
+  if (closeFailure) throw closeFailure;
+  assert.equal(fixture.cleanup.utilityAcknowledged, true);
+  assert.equal(fixture.cleanup.utilityExitObserved, true);
 }
 async function launch(scenario) {
   const directory = await createDesktopTestDirectory(`renderer-${scenario}`),
@@ -130,6 +154,10 @@ async function launch(scenario) {
     delete env[key];
   application = await electron.launch({ args: [launchEntry], env });
   originalProcess = application.process();
+  fixture.mainUtilityClosePath = await bindMainUtilityClose(
+    application,
+    directory,
+  );
   page = await application.firstWindow();
   page.setDefaultTimeout(10_000);
   fixture.rendererErrors = [];
@@ -490,7 +518,7 @@ try {
   }
   report.originalFixtureRoots = report.fixtures.map((item) => item.directory);
   report.cleanupQualification =
-    "Application exit is observed; original utility close acknowledgment/exit is not exposed by production IPC. Generated native/profile originals are preserved; no numeric PID is signalled or used for deletion.";
+    "Original Electron main app events supply utility close ACK/exit receipts. Application or utility exit cannot prove complete native cleanup; bounded native qualification and aggregate cleanup remain independent. Generated originals and native copies are preserved; no numeric PID is signalled or used for deletion.";
   await writeFile(resolve(output), JSON.stringify(report, null, 2) + "\n");
   console.log(JSON.stringify(report));
 }

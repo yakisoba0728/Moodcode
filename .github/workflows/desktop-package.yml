@@ -40,13 +40,25 @@ jobs:
       - name: Native account, update, MCP and evidence regression
         run: >-
           node --import ./node_modules/tsx/dist/loader.mjs --test
+          apps/desktop/src/main/host.test.ts apps/desktop/src/main/next-stage-recovery-host.test.ts
           apps/desktop/src/main/accounts.test.ts apps/desktop/src/main/updates.test.ts
-          apps/desktop/src/worker/advanced-mcp.test.ts
+          apps/desktop/src/worker/advanced-mcp.test.ts apps/desktop/src/worker/runtime.test.ts
           scripts/desktop-release-policy.test.mjs scripts/desktop-native-package.test.mjs
-          scripts/desktop-test-evidence.test.mjs
+          scripts/desktop-test-evidence.test.mjs scripts/desktop-main-utility-close.test.mjs
+      - name: Linux original utility close, exit and fault boundaries
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/verify-desktop-main-utility-close.mjs
+      - name: macOS/Windows original utility close, exit and fault boundaries
+        if: runner.os != 'Linux'
+        run: node scripts/verify-desktop-main-utility-close.mjs
       - name: macOS actual advanced GUI flows
         if: runner.os == 'macOS'
         run: node scripts/test-desktop-advanced.mjs
+      - name: macOS actual delayed renderer delivery and restore theme
+        if: runner.os == 'macOS'
+        run: |
+          node -e "require('node:fs').mkdirSync('artifacts/renderer-delivery', { recursive: true })"
+          node apps/desktop/src/renderer/fixtures/verify-delivery.mjs artifacts/renderer-delivery/verification.json
       - name: macOS actual PTY failure and native evidence retention
         if: runner.os == 'macOS'
         run: node scripts/verify-desktop-advanced-evidence.mjs
@@ -83,6 +95,8 @@ jobs:
             artifacts/desktop-next/
             artifacts/desktop-advanced/
             artifacts/desktop-package/
+            artifacts/renderer-delivery/
+            artifacts/next-main-utility-close/
           retention-days: 7
           include-hidden-files: true
           if-no-files-found: warn
