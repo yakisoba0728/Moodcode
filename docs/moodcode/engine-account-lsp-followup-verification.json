@@ -1,0 +1,617 @@
+{
+  "schemaVersion": 1,
+  "kind": "moodcode-engine-account-lsp-followup-handoff",
+  "observedAt": "2026-10-09T19:29:31.016399+00:00",
+  "baseCommit": "2a13f2edab7cbb1cf35183450acc372288dfef8d",
+  "status": "local-finite-scope-passed-hosted-ci-pending",
+  "commitQualification": "These byte pins identify final local sources. Resolve the publication commit with git log -- HANDOFF.md; this record does not embed its own containing commit hash.",
+  "sourcePins": [
+    {
+      "path": ".github/workflows/desktop-package.yml",
+      "bytes": 5798,
+      "sha256": "d6684c7da4ad5688740a336c95ee8dc2718cc8b4fb639c18121c65236b42566f"
+    },
+    {
+      "path": "apps/desktop/src/main/accounts.test.ts",
+      "bytes": 36138,
+      "sha256": "2890969f4de32eef779b7520ef468b4857e6c2221570f9a07f67cafddc8f4075"
+    },
+    {
+      "path": "apps/desktop/src/main/accounts.ts",
+      "bytes": 18725,
+      "sha256": "91ab5f7fd9fc87fbaab6213846bfa0f2feb90dd51d467dfb52ac3ac225523542"
+    },
+    {
+      "path": "apps/desktop/src/main/host.test.ts",
+      "bytes": 53784,
+      "sha256": "d8829cf9183e0bd38b12ec4936cc32d24047302eda144254ae010c88f82e5ea6"
+    },
+    {
+      "path": "apps/desktop/src/main/host.ts",
+      "bytes": 33859,
+      "sha256": "1df21a3d168883bfe233ccaf0dde3c94ad019a089047ae436710672a432aa3eb"
+    },
+    {
+      "path": "apps/desktop/src/main/index.ts",
+      "bytes": 16966,
+      "sha256": "82148c154376a974d70df466bf554d76153873169823965e7fbea96e5aa8fa9b"
+    },
+    {
+      "path": "apps/desktop/src/worker/core.ts",
+      "bytes": 27770,
+      "sha256": "923f915ae84535f9cac72256290a5d4b87c755966e013039eb03b815ea0abad9"
+    },
+    {
+      "path": "apps/desktop/src/worker/credential-broker.test.ts",
+      "bytes": 12678,
+      "sha256": "401aa51fb03a635ea26a5b556be2a78bfc8b992979219c0e21b7759c67681ffb"
+    },
+    {
+      "path": "apps/desktop/src/worker/credential-broker.ts",
+      "bytes": 7445,
+      "sha256": "31aedfe7feee1923422a77d6502879a3ea8c041a2f6517272c94f77af5871ad7"
+    },
+    {
+      "path": "apps/desktop/src/worker/protocol.ts",
+      "bytes": 1735,
+      "sha256": "badc00e3ab8e2c2812a318f37e73a93c10bfbdab1d8a733a6ec48623c50e96c3"
+    },
+    {
+      "path": "apps/desktop/src/worker/runtime.ts",
+      "bytes": 2707,
+      "sha256": "7342e940f09c04aa065ef532df5a2b6b4ab8c049e40b39e5ad94b508847de499"
+    },
+    {
+      "path": "packages/engine/src/lsp/index.ts",
+      "bytes": 30785,
+      "sha256": "bf758bbce0e8ea3b2a064c2e3f2aa057e5700cf9b8cd78acd3e96ebfeffce13f"
+    },
+    {
+      "path": "packages/engine/src/lsp/native-bom.test.ts",
+      "bytes": 10839,
+      "sha256": "e8997b3f307111316dc33e58882f091aff08dd912aa5d892e2380bb1fd66b0e2"
+    },
+    {
+      "path": "packages/engine/src/lsp/native-bom.ts",
+      "bytes": 6061,
+      "sha256": "f95c2f62087a742d11df3264819ec47ba44be0dc154521e28bdd578ca920d85f"
+    },
+    {
+      "path": "packages/engine/src/lsp/navigation.ts",
+      "bytes": 10116,
+      "sha256": "be3981c648be7aad625a5a83ff8876b01ad56d2cb1f18772366c131c59844900"
+    },
+    {
+      "path": "packages/engine/src/lsp/typescript-native.ts",
+      "bytes": 7124,
+      "sha256": "2ffa660305e9be9d6a0cd3c9dea365363eb49fe21ddc1188317970a6d2cc6f10"
+    },
+    {
+      "path": "packages/engine/src/repository/native-typescript-bom.test.ts",
+      "bytes": 7293,
+      "sha256": "c9b851f19f357702239ff65bf40a70c717bd7f91f9b92296b0f6ee276996d582"
+    },
+    {
+      "path": "scripts/desktop-codex-account-verification.mjs",
+      "bytes": 18260,
+      "sha256": "a1bbd95ea74fbeee65d912c73bcb3cd0faf68a5944596a6a47edadcc0e6e6124"
+    },
+    {
+      "path": "scripts/desktop-codex-account-verification.test.mjs",
+      "bytes": 11151,
+      "sha256": "cbd3a45185783b79583a54d6fefff5ce2b6b599b7405ae772501ba54178fbd0b"
+    },
+    {
+      "path": "scripts/test-desktop-accounts.mjs",
+      "bytes": 11784,
+      "sha256": "ab8adb955e09631dd450872e3a16d16ecb6d00f90afc91dcd03cf8d8b700da33"
+    },
+    {
+      "path": "scripts/test-desktop-codex-refresh.mjs",
+      "bytes": 9786,
+      "sha256": "c3f70b8fe0a536f6475f0ae699a7b3dc98e6d3a6179c41f3a1299b73255675a3"
+    },
+    {
+      "path": "scripts/test.mjs",
+      "bytes": 1236,
+      "sha256": "be6be1ef29e2c8c4f3d30d6ee156b3d91012c3c73d5e542a96826ea858e527b2"
+    },
+    {
+      "path": "scripts/verify-desktop-codex-account.mjs",
+      "bytes": 13662,
+      "sha256": "deb3db9fdbfbf7982ec39629c89319b8e07291f3ffbc3c124fe65fd80af056c7"
+    }
+  ],
+  "liveSelectedAppAccount": {
+    "status": "passed",
+    "modelId": "gpt-6.1-sol",
+    "credentialSource": "selected Moodcode encrypted vault read-only; no local Codex fallback",
+    "catalogGET": 1,
+    "catalogModels": 8,
+    "inferencePOST": 4,
+    "allHttpStatus": 200,
+    "requestCap": 6,
+    "deadlineMs": 180000,
+    "runState": "completed",
+    "tenTestCasesPassed": true,
+    "originalTestsAndMultiplicationPreserved": true,
+    "duplicateAdditionalHttpRequests": 0,
+    "observedUsage": {
+      "inputTokens": 4154,
+      "outputTokens": 177,
+      "billingVerified": false
+    },
+    "sourceVaultSettingsDatabaseUnchanged": true,
+    "refreshedUserGrant": false,
+    "engineCloseCompleted": true,
+    "applicationExitCode": 0,
+    "overallNativeCleanup": {
+      "state": "unknown",
+      "nativeConfirmed": null
+    },
+    "exactCurrentCodePins": [
+      {
+        "path": "scripts/verify-desktop-codex-account.mjs",
+        "bytes": 13662,
+        "sha256": "deb3db9fdbfbf7982ec39629c89319b8e07291f3ffbc3c124fe65fd80af056c7"
+      },
+      {
+        "path": "scripts/desktop-codex-account-verification.mjs",
+        "bytes": 18260,
+        "sha256": "a1bbd95ea74fbeee65d912c73bcb3cd0faf68a5944596a6a47edadcc0e6e6124"
+      },
+      {
+        "path": "apps/desktop/dist/types/main/account-vault.js",
+        "bytes": 11228,
+        "sha256": "4f8a49c5c5eb7e13840c978027e4028fff92c6383d556086a09e9f8b3b099773"
+      },
+      {
+        "path": "apps/desktop/dist/types/main/account-auth.js",
+        "bytes": 18405,
+        "sha256": "cd8d71979c2edc3c7df2aed5c222df02db76350ce79616f4b2ad00e52b736381"
+      },
+      {
+        "path": "apps/desktop/dist/types/main/settings.js",
+        "bytes": 26932,
+        "sha256": "8f30af78cf4dd6955f36b99c6f300bd2d2f03fbe206ff9c086a491a003a7946b"
+      },
+      {
+        "path": "packages/engine/dist/index.js",
+        "bytes": 7233,
+        "sha256": "e7a7576bddfbbf50fb37709a59ad6ad78fb1bde889787975551e46b7fa14eaf3"
+      },
+      {
+        "path": "packages/engine/dist/provider/codex.js",
+        "bytes": 6599,
+        "sha256": "6f8e60e8ae30e4e92a994cfe8d9bedae9c2b0fd4e66ef997f51ebb2a1e111177"
+      },
+      {
+        "path": "packages/engine/dist/provider/responses.js",
+        "bytes": 39005,
+        "sha256": "5eee0e16f855806d320cf977d9872f4c6a793cef564b2d25040177dd81120bcc"
+      },
+      {
+        "path": "packages/engine/dist/runner/index.js",
+        "bytes": 172149,
+        "sha256": "ec60f53a572178584a6285c5047107ec16f8324e2caf6cf34b68b65212e581f7"
+      }
+    ],
+    "pinScope": "9 selected source/runtime files, not every transitive engine module; current whole regression is a separate gate",
+    "originalCopies": 14
+  },
+  "automaticRefresh": {
+    "implemented": true,
+    "mainOwnsVaultFreshnessAndRotation": true,
+    "privateTurnCredentialChannel": true,
+    "sameWorkerNoIdleTransition": true,
+    "singleFlight": true,
+    "perWaiterAndLastCancel": true,
+    "pinnedAccountModelConnection": true,
+    "uncertainGrantNoReplay": true,
+    "http401BlindRetry": false,
+    "sourceFocusedSeparateRuns": {
+      "accounts": 31,
+      "host": 55,
+      "broker": 7,
+      "workerCore": 25
+    },
+    "actualUtilitySyntheticProbe": {
+      "status": "passed",
+      "externalHTTP": 0,
+      "nativeTurns": 2,
+      "credentialRequests": 3,
+      "privateReplies": 2,
+      "cancelMessages": 1,
+      "abortedFlights": 1,
+      "generation": 1,
+      "spawned": 1,
+      "ownedUtilityAcknowledged": true,
+      "ownedUtilityExitCode": 0,
+      "applicationExitCode": 0,
+      "forcedStop": false,
+      "scope": "Actual original Electron utility with synthetic credentials and intercepted HTTP. Entire historic production graph was not pinned in this raw probe report."
+    },
+    "realExpiryAndRemoteGrantRotation": "not-performed"
+  },
+  "nativeLsp": {
+    "implemented": "leading BOM native-only wire/UTF16 projection; validated raw-source ranges/hashes",
+    "nativePackage": "typescript 7.0.2",
+    "upstreamBuildInfo": {
+      "commit": "2bd066d87f5bafd315be9f40889d0a60b9e58e0b",
+      "modified": true
+    },
+    "diskDefinitionRed": {
+      "line": 0,
+      "start": 37,
+      "end": 42
+    },
+    "rawDefinitionGreen": {
+      "line": 0,
+      "start": 38,
+      "end": 43
+    },
+    "newCompiledFixture": {
+      "tests": 8,
+      "suites": 0,
+      "pass": 8,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "duration_ms": 177.260625
+    },
+    "original512ModuleCorpusInFinalWhole": "passed",
+    "originalHistoricTrigger": "not-exactly-reproduced; preserve 35–42 and 26–33 historic whole results",
+    "publicCommandSchemaChanged": false,
+    "dbSchema": 23
+  },
+  "validation": {
+    "build": {
+      "command": "npm run build:desktop",
+      "exitCode": 0,
+      "log": "artifacts/engine-account-lsp-20261010/desktop-build-05.log"
+    },
+    "whole": {
+      "command": "node scripts/test.mjs",
+      "exitCode": 0,
+      "testFileConcurrency": 4,
+      "sameTestsAsFirstWhole": true,
+      "counts": {
+        "tests": 5326,
+        "suites": 0,
+        "pass": 5323,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 3,
+        "todo": 0,
+        "duration_ms": 278871.432083
+      }
+    },
+    "initialWhole": {
+      "command": "node scripts/test.mjs before explicit concurrency and fixture corrections",
+      "exitCode": 1,
+      "testFileConcurrency": "Node CPU default; host availableParallelism 10",
+      "counts": {
+        "tests": 5326,
+        "suites": 0,
+        "pass": 5316,
+        "fail": 7,
+        "cancelled": 0,
+        "skipped": 3,
+        "todo": 0,
+        "duration_ms": 249493.202292
+      }
+    },
+    "dbContract": {
+      "command": "node scripts/inspect-engine-db-contract.mjs --compare docs/moodcode/next-db-contract-baseline.json",
+      "passed": true,
+      "schema": 23,
+      "liveUserDataRead": false
+    },
+    "codingCli": {
+      "command": "node --test scripts/desktop-codex-account-verification.test.mjs",
+      "counts": {
+        "tests": 6,
+        "suites": 0,
+        "pass": 6,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 2868.232292
+      }
+    },
+    "isolatedNotAggregatedIntoWhole": {
+      "codeMode": {
+        "tests": 1,
+        "suites": 0,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 4802.570917
+      },
+      "longCodingLoop": {
+        "tests": 1,
+        "suites": 0,
+        "pass": 1,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0,
+        "duration_ms": 7827.143125
+      },
+      "prInbox": {
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "report": "artifacts/engine-account-lsp-20261010/pr-inbox-diagnosis/independent-review.json"
+      }
+    },
+    "accountGui": {
+      "command": "node scripts/test-desktop-accounts.mjs artifacts/engine-account-lsp-20261010/gui-accounts-01",
+      "status": "passed",
+      "externalAuthenticationFixture": true,
+      "modelRequests": 0,
+      "signInSelectRefreshLogoutReconnectForget": true,
+      "originalUtilities": 6,
+      "allAcknowledgedExitZero": true,
+      "applicationExitCode": 0,
+      "overallNativeCleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null
+      },
+      "report": "artifacts/engine-account-lsp-20261010/gui-accounts-01/verification.json"
+    },
+    "settingsGui": {
+      "command": "node scripts/test-desktop-settings.mjs",
+      "exitCode": 0,
+      "observed": {
+        "ok": true,
+        "nativeStorage": "available",
+        "fileMode": "0600",
+        "plaintextStored": false,
+        "rendererCredentialReflected": false,
+        "settingsErrorVisibleInDialog": true,
+        "storedKeyRemoved": true,
+        "codexSettingsSwitch": false,
+        "providerRequests": 0
+      },
+      "qualification": "API encrypted storage/removal/private UI/error flow. Isolated local-Codex switch not observed. Source script owns its successful temporary-fixture cleanup."
+    },
+    "hostedCi": {
+      "status": "not-yet-observed-on-publication-commit",
+      "expectedJobs": 11,
+      "nativeRefreshProbeAddedToThreeOSDesktopPackage": true,
+      "previousCommitSuccessDoesNotProveCurrentCommit": true
+    },
+    "localRuntime": {
+      "node": "26.9.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    }
+  },
+  "failureDispositions": [
+    {
+      "case": "3 new LSP metadata fixtures",
+      "change": "Correct no-Git typed sentinel to gitRoot empty string with branch null; keep all original assertions",
+      "productionLspDeltaAfterFreeze": false
+    },
+    {
+      "case": "account decline callback",
+      "change": "Only timeout outcome overrides deadline to 30ms; other outcomes consume existing fixture 500ms; settle owned callback HTTP, retain errors/no exchange/listener closed",
+      "productionAuthDeadlineChanged": false,
+      "firstFailurePhase": "unknown"
+    },
+    {
+      "case": "code-mode caps",
+      "initial": "7s allocation elapsed before step-limit oracle, native SIGTERM cleanup confirmed",
+      "isolatedPassed": true,
+      "budgetsAssertionsSkipsChanged": false,
+      "firstFailureDetailedPhase": "unknown"
+    },
+    {
+      "case": "PR/inbox",
+      "initial": "5s verify_changes TOOL_TIMEOUT",
+      "isolatedPassed": true,
+      "budgetsAssertionsSkipsChanged": false,
+      "firstFailureDetailedPhase": "unknown",
+      "historicFailedOriginalAvailability": "original old fixture removed its directory; retained first whole log remains; new diagnosed Original retained"
+    },
+    {
+      "case": "long coding loop",
+      "initial": "Run 30s duration exceeded after 31 model fixture calls",
+      "isolatedPassed": true,
+      "budgetsAssertionsSkipsChanged": false,
+      "firstFailureDetailedPhase": "unknown"
+    },
+    {
+      "case": "build/fixture/probe/live-launch setup",
+      "disposition": "Retain original type/SSE/no-Git/native readiness/storage failures with their own logs; setup failures made zero real provider requests"
+    }
+  ],
+  "retainedHistoricalEvidence": [
+    {
+      "path": "docs/moodcode/desktop-account-auth-verification.json",
+      "bytes": 8439,
+      "sha256": "dcf09a22e2a7a4677d81acff4d8c56b72803c9568869724aeba721c994056407"
+    }
+  ],
+  "rawArtifactPins": [
+    {
+      "path": "artifacts/desktop-account-coding-20261010/live-native-account-2.json",
+      "bytes": 9403,
+      "sha256": "d5286258b7e3950a614217208aad010f98ade1554b945b8b1e5c8967a523d838"
+    },
+    {
+      "path": "artifacts/desktop-account-coding-20261010/delivery-verification.json",
+      "bytes": 14869,
+      "sha256": "e37b9ff89c5ad2db2978aae161c8a1f33604ce8222feec29c0a1ca784f83ceb1"
+    },
+    {
+      "path": "artifacts/desktop-account-auth-20261010/automatic-refresh/implementation-report.json",
+      "bytes": 14530,
+      "sha256": "8c0d88962d52e7672cf2ccc0918f5d9e985bed871862e15afc18769555d73106"
+    },
+    {
+      "path": "artifacts/desktop-account-auth-20261010/automatic-refresh/decline-failure-analysis.json",
+      "bytes": 4759,
+      "sha256": "96d0659a3eae766a2303091d98b97247e6af83cbe2087b950d4987ce42ed9f9f"
+    },
+    {
+      "path": "artifacts/desktop-account-auth-20261010/automatic-refresh/decline-correction-result.json",
+      "bytes": 4495,
+      "sha256": "18b7cb9489742a7a636317e228bcbe6cdfef90f8be3a1a1172c0a50eed578c76"
+    },
+    {
+      "path": "artifacts/desktop-account-auth-20261010/automatic-refresh/source-accounts-decline-correction-06.log",
+      "bytes": 3197,
+      "sha256": "3ca7028c700dadbde7debe59b21878e5797bc905ab0567ae5e5603759da8b580"
+    },
+    {
+      "path": "artifacts/desktop-account-auth-20261010/native-bom-followup/verification.json",
+      "bytes": 18575,
+      "sha256": "7a5ef06b30349ff317c296c7ffde008246c69564e318d3dc1e5446d6006318a9"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/desktop-build-01.log",
+      "bytes": 1305,
+      "sha256": "a30820239bd45ec3438fd7677013dc7d76722aa31cf60130d3fe05770ab4181a"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/desktop-build-02.log",
+      "bytes": 661,
+      "sha256": "bcd94ccd3f9e338426a2dce08bf2527b53f267fd6e2dfd314e3916dd6537dec3"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/desktop-build-03.log",
+      "bytes": 1622,
+      "sha256": "bfb431632e406a7465f32f0a2fd63180f8a723881af0156112bc613a15c83520"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/desktop-build-04.log",
+      "bytes": 1621,
+      "sha256": "6a1c1b5addb04880de9544d6e780cf1d55be4a13ecdd592e21b87a3b7ed8f487"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/desktop-build-05.log",
+      "bytes": 1621,
+      "sha256": "543e4e7d4c70de9e990f0105d187e5fdfd2cabffca630f4dc1d0a93b785924ce"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/full-compiled-tests.log",
+      "bytes": 768716,
+      "sha256": "b7db89a31ac6c90f8f109a00e70af63ff6957af2d48996b96950be1a691f246b"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/full-compiled-tests-02.log",
+      "bytes": 763566,
+      "sha256": "8270b4fca9ab157fef6e61e9f83060926209165c732ba320facf9677eb659298"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/code-mode-isolated-01.json",
+      "bytes": 6467,
+      "sha256": "a5cc6bd49d71993eafe146ab462be528f6f0665ae9c1cd07c186b8ef39dda47d"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/code-mode-isolated-01.log",
+      "bytes": 352,
+      "sha256": "d81e70970fff780be1e0510017d6e66527dbc171bd3d88b526ce4614da46f8b1"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/long-coding-isolated-01.log",
+      "bytes": 719,
+      "sha256": "c37e1b9b905afee401d311d454a25b0c69b2ae086a59068b8e98d23a1689203b"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/pr-inbox-diagnosis/independent-review.json",
+      "bytes": 34620,
+      "sha256": "66587f0d433841f3bb988a9f5fb56f11bae587e519c30c3ae5dd8e6c94632aef"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/native-bom-typed-fixture.log",
+      "bytes": 4072,
+      "sha256": "483a729a904b240c43c686e67a676ef2dfb33f4cd4ded6ec6dec47eb60984067"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/native-bom-typed-fixture-02.log",
+      "bytes": 3132,
+      "sha256": "f62050e5b57259e5fb82dca656d396344a8a52ccf61058c48a09a4a583cc5806"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/native-broker-01.json",
+      "bytes": 378,
+      "sha256": "4f4fc1ea65f80436da4c6ed476e995b01a25669d5dc5d94d80ec5ea606363e7d"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/native-broker-01.log",
+      "bytes": 462,
+      "sha256": "1339ee28d6c37147f646b5a90353bbd22544b06c1063d3d830d87f07ad1c1e6b"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/native-broker-02.json",
+      "bytes": 1277,
+      "sha256": "a119521c58527a3a3acc6934ccb0bc38912dc093e7a0b95368373b75bae32c97"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/native-broker-02.log",
+      "bytes": 103,
+      "sha256": "f28dd0a7a97f0935036a9e537ae0d2bdd636dde60bca0c2c3d61edf1219772c3"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/native-refresh-and-live-pins-independent-review.json",
+      "bytes": 13058,
+      "sha256": "cda53c25fb6e1e9dfb1dbd7b08b08bd13e0a1a69d63c6cce859c88ffef900a83"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/coding-cli-tests.log",
+      "bytes": 860,
+      "sha256": "91513205ce2882f661e3cd20d09efaffb47376b5959eeadd8f77f49ad4e9aeb9"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/verification-regression.log",
+      "bytes": 946,
+      "sha256": "bfd67616f9c00abad1fbfb2577acabcfd72c71ae8821e94c260a89118d9539e3"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/db-contract.json",
+      "bytes": 90681,
+      "sha256": "e514fcfabfaae94d7309ee1a57e459410352ffbb5f1ef3d3cc20189f23b4c659"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/db-contract.log",
+      "bytes": 90681,
+      "sha256": "e514fcfabfaae94d7309ee1a57e459410352ffbb5f1ef3d3cc20189f23b4c659"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/gui-accounts-01.log",
+      "bytes": 3523,
+      "sha256": "b94b69742e47ebbf782edb5d07d88fab012ba9feef328e74cfff41bbbb24bb33"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/gui-accounts-01/verification.json",
+      "bytes": 4575,
+      "sha256": "c627a4753d9fd3af1d6571d31838d6ffff31790812367c000ab30c4acd876221"
+    },
+    {
+      "path": "artifacts/engine-account-lsp-20261010/gui-settings-01.log",
+      "bytes": 227,
+      "sha256": "cddd136a026c44832eea9f8d79be0fc4947f8865e8e09bfb95093aba34b1a5dc"
+    }
+  ],
+  "artifactAvailability": "ignored local originals, not included in a fresh clone; verify exact availability and hashes rather than reconstructing successful evidence",
+  "currentGoalObservation": {
+    "goal": null,
+    "scheduledContinuationCreated": false,
+    "qualification": "Earlier blocked-goal history remains; get_goal for this handoff returned null."
+  },
+  "remaining": [
+    "N-05 real signing/notarization/installer/public update feed",
+    "E5-13 broader models/PDF/media/unknown billing",
+    "R-PTY-01 historic native cleanup cause",
+    "R-LSP-HIST exact original scheduling trigger",
+    "R-AUTH-LIVE actual expiry and remote rotating grant"
+  ],
+  "userApp": "Original previously opened app remains running from an older bundle. Tests used isolated apps and did not restart or modify it. Reverify owned process and use normal close before launching current bundle."
+}

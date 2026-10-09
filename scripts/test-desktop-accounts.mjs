@@ -7,6 +7,7 @@ import { createDesktopTestDirectory, captureDesktopNativeEvidence, preserveDeskt
 import { aggregateFixtureCleanup, bindMainUtilityClose, readMainUtilityClose, qualifyDesktopNativeCleanup } from './desktop-main-utility-close.mjs';
 
 const directory = await createDesktopTestDirectory('account-gui');
+const artifactDirectory = resolve(process.argv[2] ?? 'artifacts/desktop-accounts');
 const userData = join(directory, 'userData');
 await mkdir(userData, { recursive: true, mode: 0o700 });
 await mkdir(join(directory, 'home'), { recursive: true });
@@ -114,12 +115,12 @@ try {
     try { nativeAfterClose = await captureDesktopNativeEvidence({ sourceDirectory: directory, phase: 'after-close', close: { mainUtility: report.mainUtilityClose, applicationClose: report.applicationClose } }); }
     catch { failed('native-capture'); }
     report.cleanup = { ...aggregateFixtureCleanup({ mainReceipt: report.mainUtilityClose, nativeConfirmed: report.diagnosticFailures ? null : qualifyDesktopNativeCleanup(nativeAfterClose) }), originalPreserved: true };
-    try { report.preservedEvidence = await preserveDesktopTestEvidence({ sourceDirectory: directory, artifactDirectory: resolve('artifacts/desktop-accounts'), scenario: 'account-gui', outcome: report.status === 'failed' ? 'failed' : 'unknown', cleanup: report.cleanup, nativeAfterClose }); }
+    try { report.preservedEvidence = await preserveDesktopTestEvidence({ sourceDirectory: directory, artifactDirectory, scenario: 'account-gui', outcome: report.status === 'failed' ? 'failed' : 'unknown', cleanup: report.cleanup, nativeAfterClose }); }
     catch { failed('evidence-preserve'); report.cleanup.state = 'unknown'; report.cleanup.nativeConfirmed = null; }
     if (report.cleanup.utilityAcknowledged !== true || report.cleanup.utilityExitObserved !== true || report.applicationClose.exitObserved !== true) failed('original-close-unconfirmed');
   }
   if (report.status === 'failed') process.exitCode = 1;
-  try { await mkdir('artifacts/desktop-accounts', { recursive: true }); await writeFile('artifacts/desktop-accounts/verification.json', `${JSON.stringify(report, null, 2)}\n`); }
+  try { await mkdir(artifactDirectory, { recursive: true }); await writeFile(join(artifactDirectory, 'verification.json'), `${JSON.stringify(report, null, 2)}\n`); }
   catch { failed('report-write'); process.exitCode = 1; }
   console.log(JSON.stringify(report));
 }

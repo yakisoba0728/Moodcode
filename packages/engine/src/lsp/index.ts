@@ -7,6 +7,7 @@ import {
   type JsonValue,
   type Workspace,
 } from "@moodcode/contracts";
+import { usesNativeBOMProjection } from "./native-bom.js";
 import { boundedJson } from "../artifacts/validation.js";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
 import {
@@ -806,6 +807,7 @@ export class LspManager {
         navigationCandidates(raw, kind, doc.uri),
         source,
         activeSignal,
+        usesNativeBOMProjection(entry.connection!),
       );
       if (
         entry.closed ||

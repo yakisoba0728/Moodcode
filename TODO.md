@@ -1,8 +1,10 @@
 # Moodcode 구현·리팩터링 TODO
 
-갱신일: 2026-10-10, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 2차 최종 검증 source: `99bf6f0`, 문서 커밋: `c4af35e`. 최신 보강 구현: `9563e97`, 검증 문서: `bd256ea`. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
+갱신일: 2026-10-10, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 2차 최종 검증 source: `99bf6f0`, 문서 커밋: `c4af35e`. 최신 계정·LSP 보강 기준: `2a13f2e`, [통합 결과](docs/moodcode/engine-account-lsp-followup-verification.md). 다른 세션은 [HANDOFF](HANDOFF.md)에서 시작한다. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
 
-상태: G1-29까지 1차 구현과 자체 메인 엔진 2차 MC2-01~20의 **80/80 항목·20/20 기능군**을 명시 지원 범위에서 완료했다. 원래 조건을 유지한 독립 감사, 전체 회귀와 실제 공개 CI 여섯 작업으로 확인했다. [최종 수용 근거](docs/moodcode/engine-phase-two-final-acceptance-verification.json)와 docs/moodcode/engine-phase-two-progress.json을 기준으로 사용한다. E5-08 native Windows x64 구현·실제 검증은 완료했고, E5-13·앱 실제 계정·서명 배포 및 과거 PTY 실패 진단 R-PTY-01은 열린 후속 범위로 남긴다.
+상태: G1-29까지 1차 구현과 자체 메인 엔진 2차 MC2-01~20의 **80/80 항목·20/20 기능군**을 명시 지원 범위에서 완료했다. 원래 조건을 유지한 독립 감사, 전체 회귀와 실제 공개 CI 여섯 작업으로 확인했다. [최종 수용 근거](docs/moodcode/engine-phase-two-final-acceptance-verification.json)와 docs/moodcode/engine-phase-two-progress.json을 기준으로 사용한다. E5-08 native Windows x64와 N-03의 선택 앱 계정 추론을 확인했다. E5-13·서명 배포·과거 PTY 실패 진단 R-PTY-01 및 아래 추가 검증은 열린 후속 범위다.
+
+최신 보강의 로컬 build·전체 compiled 5,326/5,323 pass/실패 0/취소 0/skip 3·DB23·CLI 6/6·계정/설정 GUI를 통과했다. 첫 전체 7개 실패는 보존하고 독립 실행 조건과 fixture 수정 근거를 분리했다. **다음 첫 작업은 게시 HEAD의 OS CI 11개 job 확인**이며, 아직 새 커밋의 hosted 성공은 기록하지 않았다.
 
 ## 다음 실행 순서 — 추가 작업 → 점검·TODO 재작성 → 테스트·엔진 리팩터링
 
@@ -20,12 +22,14 @@
 
 - [x] **N-01 — 동일 엔진 장기 실행·부하 검증**: 같은 인스턴스에서 queue/steer·승인·취소·재시작 경합과 큰 이력을 검증한다. 유한 실행 시간·seed·입력량을 고정하고 메모리·FD·프로세스·SQLite·artifact 증가 및 종료 정산을 측정한다. 기존 60회 독립 반복 근거와 구분한다.
 - [x] **N-02 — 고급 엔진 기능의 GUI 연결**: inbox·tasks/questions·MCP·PTY·child/team·workflow·LSP·진단을 host/preload/renderer까지 연결한다. 기존 승인·owner·budget을 유지하고 실제 화면의 소비·reload·cancel·reconnect를 검증한다.
-- [ ] **N-03 — 앱 인증·계정 관리**: 기존 SIWC 동적 앱 등록의 구현·fixture 근거는 역사적 기록으로 보존한다. Codex/OpenCode 방식의 고정 client 브라우저 PKCE·native 계정·모델·worker 연결로 교체했고 로컬 회귀·계정 GUI fixture를 검증했다. 2026-10-10 사용자가 실제 브라우저 로그인 성공을 확인했다. [현재 계정 흐름과 전체 회귀 한계](docs/moodcode/desktop-account-auth.md)를 따른다. 남은 완료 조건은 선택 계정의 모델 조회·native 추론 확인이다. 로그인 성공만으로 추론 완료를 기록하지 않는다.
+- [x] **N-03 — 앱 인증·계정 관리**: SIWC 동적 앱 등록의 과거 근거를 보존하고 Codex 고정 client PKCE·native 계정·모델·worker로 교체했다. 사용자가 실제 브라우저 로그인 성공을 확인했고, 선택한 Moodcode 계정 `gpt-6.1-sol`의 catalog GET 1회와 POST 4회로 read→승인 patch→승인 명령→10개 테스트 PASS를 확인했다. 기존 vault/settings/DB 불변·중복 요청 추가 HTTP 0. [계정 계약](docs/moodcode/desktop-account-auth.md)·[최신 증거](docs/moodcode/engine-account-lsp-followup-verification.json). 실제 모델 범위·전체 cleanup unknown을 유지한다.
 - [x] **N-04 — 지원 OS 패키지·최신 GUI 검증**: 최신 엔진의 macOS/Linux/Windows 지원 범위를 명시하고 해당 bundle·utility·SQLite·supervisor·renderer 및 서명 없는 bundle의 실제 실행 smoke를 해당 OS에서 확인했다. 서명 installer·설치 배포는 N-05로 별도 추적한다. Windows x64 명령은 실제 Job Object, Windows PTY·arm64는 미검증 범위다.
 - [ ] **N-05 — 서명·배포·업데이트**: 서명 준비·검토형 업데이트·실패 복구·main utility 설치 전 종료 증거를 구현하고 서명 없는 세 OS bundle과 실제 disposable 업데이트 범위를 검증했다. 실제 macOS·Windows 서명/공증·설치·공개 feed 검증은 자격 준비 후 진행한다.
 - [x] **N-06 — 추가 작업 수용·기준 동결**: 구현·실제 검증·외부 조건 대기를 구분하고 현재 지원 표·API·DB·코드/테스트 줄 수·성능·CI·GUI 근거를 고정한다. 이후 리팩터링의 동작 보존 기준으로 사용한다.
-- [ ] **R-LSP — native TypeScript 좌표 안정성**: 계정 후속 전체 compiled 5,303개 중 기존 `bom-crlf-astral-definition` 좌표 precision/recall 1건 실패(5,299 pass·skip 3)와 동일 파일 단독 2/2 pass를 보존하고, 전체 실행에서의 좌표 차이 원인과 의미 보존 수정을 확인한다. 단독 성공·부하 추정으로 전체 PASS나 원인 해결로 승격하지 않는다.
-- [ ] **R-AUTH — 실행 중 계정 토큰 자동 갱신** `[추가 개선]`: 현재 worker의 credential snapshot과 명시적 갱신·재시작 제한을 개선한다. Main이 소유한 갱신을 요청 전 private 채널로 연결하고, 계정 변경·동시 갱신·취소·불확실한 rotating grant를 처리한다. Renderer 비공개 경계와 요청·도구의 자동 재실행 금지를 유지한다. N-03의 원래 완료 조건과 별도 후속 기능이다.
+- [x] **R-LSP — native TypeScript BOM 좌표 수정**: native disk의 leading BOM 제거와 열린 문서의 BOM 보존 차이를 정규화했다. 실제 disk 37–42 RED→원문 38–43 GREEN, 원문/hash·UTF16·일반 LSP·승인·취소 유지, 새 fixture 8/8과 기존 512-module corpus 확인. 아래 R-LSP-HIST의 과거 trigger 조사는 분리한다.
+- [x] **R-AUTH — 실행 중 계정 토큰 자동 갱신**: 매 turn private Main broker에서 최신 credential을 제공한다. single-flight·계정 pin·개별/마지막 취소·종료·late reply·불확실 grant quarantine과 원래/새 토큰 redaction을 확인했다. 실제 utility generation 1에서 두 revision·취소·ACK/exit 0을 관측했고 401 blind retry·도구 replay를 추가하지 않았다. 실제 원격 만료/회전 검증은 아래 R-AUTH-LIVE로 분리한다.
+- [ ] **R-LSP-HIST — 원래 전체 경합 trigger**: `e3032f0`의 compiled 5,303/5,299 pass/1 fail/skip 3 및 단독 2/2 성공을 보존한다. 당시 BOM 35–42/26–33의 정확한 순서·원인은 재현되지 않았다. 확인한 별도 disk defect의 수정과 새 전체 PASS가 역사적 원인까지 입증하지 않는다.
+- [ ] **R-AUTH-LIVE — 실제 계정 만료·회전 관측**: 별도 승인된 유한 live 검증에서 실제 expiry/freshness→grant 회전→같은 worker 후속 turn을 관측한다. 이번 코딩 검증은 사용자 vault를 읽기 전용으로 유지했으며 강제 만료·refresh를 하지 않았다. 실제 계정을 test fixture로 수정하거나 원격 rotating grant를 자동 재시도하지 않는다.
 
 추가 기능은 첫 지원 OS·모델·GUI 흐름과 완료 조건을 구현 전에 고정한다. 계정·인증서·과거 실행 자료가 없는 항목은 대기 사유와 해제 조건을 남기고 완료 처리하지 않는다. 외부 조건과 독립인 구현·검증·점검은 계속 진행한다.
 

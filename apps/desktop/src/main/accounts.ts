@@ -57,6 +57,8 @@ export class DesktopAccounts {
   #models = new Map<string, { id: string; displayName: string }[]>();
   #credential?: PrivateAccountCredential;
   #quarantined = new Set<string>();
+  #closed = false;
+  #credentialReads = new Set<AbortController>();
   constructor(readonly options: DesktopAccountsOptions) {
     this.#vault = new AccountVault(options.directory, options.safeStorage);
     this.#auth = new ChatGPTAuth(options); this.#now = options.now ?? Date.now;
@@ -96,24 +98,37 @@ export class DesktopAccounts {
     return account;
   }
   cancelOwner(owner: string): void { if (this.#pending?.owner === owner) this.#pending.controller.abort(); }
-  async close(): Promise<void> { this.#pending?.controller.abort(); await this.#operation; this.#credential = undefined; }
+  async close(): Promise<void> {
+    this.#closed = true; this.#pending?.controller.abort();
+    for (const controller of this.#credentialReads) controller.abort();
+    await this.#operation; this.#credential = undefined;
+  }
   /** Non-enumerable bearer: do not send this object or its properties to renderer IPC. */
   getCredential(): PrivateAccountCredential | undefined {
-    if (!this.#credential || this.#pending) return undefined;
+    if (this.#closed || !this.#credential || this.#pending) return undefined;
     const account = this.#account(this.#credential.accountId);
     if (account.authKind !== 'codex-oauth' || this.#quarantined.has(account.id) || account.state !== 'connected' || !account.tokens || account.tokens.expiresAt <= this.#now()) return undefined;
     return this.#credential;
   }
-  async resolveCredential(): Promise<PrivateAccountCredential | undefined> {
+  async resolveCredential(signal?: AbortSignal, expectedAccountId?: string): Promise<PrivateAccountCredential | undefined> {
+    const controller = new AbortController(), abort = (): void => controller.abort();
+    if (signal?.aborted || this.#closed) abort();
+    signal?.addEventListener('abort', abort, { once: true }); this.#credentialReads.add(controller);
+    const current = (): void => { if (controller.signal.aborted || this.#closed) accountFail('ACCOUNT_CANCELLED', 'Credential renewal was cancelled.'); };
     return this.#exclusive(async () => {
+      current();
       await this.#load(); this.#credential = undefined;
-      if (!this.#saved.activeAccountId) return undefined;
+      current();
+      if (!this.#saved.activeAccountId || expectedAccountId && this.#saved.activeAccountId !== expectedAccountId) return undefined;
       const account = this.#account(this.#saved.activeAccountId);
       if (account.authKind !== 'codex-oauth' || this.#quarantined.has(account.id) || !account.tokens || !['connected', 'expired'].includes(account.state)) return undefined;
       await this.#vault.lease(async () => {
-        if (account.tokens!.expiresAt <= this.#now() + 60_000) await this.#refresh(account, new AbortController().signal);
-        if (!this.#models.has(account.id)) this.#models.set(account.id, await this.#auth.models(account.tokens!, new AbortController().signal));
+        current();
+        if (account.tokens!.expiresAt <= this.#now() + 60_000) await this.#refresh(account, controller.signal);
+        current();
+        if (!this.#models.has(account.id)) this.#models.set(account.id, await this.#auth.models(account.tokens!, controller.signal));
       });
+      current();
       const credential = { accountId: account.id, baseURL: CHATGPT_API, models: Object.freeze(structuredClone(this.#models.get(account.id) ?? [])) } as PrivateAccountCredential;
       Object.defineProperties(credential, {
         apiKey: { value: account.tokens!.accessToken, enumerable: false },
@@ -121,7 +136,7 @@ export class DesktopAccounts {
         secrets: { value: Object.freeze([account.tokens!.accessToken, account.tokens!.refreshToken, account.tokens!.idToken, account.tokens!.chatgptAccountId].filter((value): value is string => !!value)), enumerable: false },
       });
       this.#credential = Object.freeze(credential); return this.#credential;
-    });
+    }).finally(() => { signal?.removeEventListener('abort', abort); this.#credentialReads.delete(controller); });
   }
   async #refresh(account: SavedAccount, signal: AbortSignal): Promise<void> {
     if (account.authKind !== 'codex-oauth' || this.#quarantined.has(account.id) || !account.tokens) accountFail('ACCOUNT_REAUTH_REQUIRED', 'This account needs a new sign-in.');
@@ -151,6 +166,7 @@ export class DesktopAccounts {
     }
   }
   action(input: DesktopAccountAction, owner: string): Promise<DesktopAccountView> {
+    if (this.#closed) return Promise.reject(new AccountError('ACCOUNT_CANCELLED', 'Account storage is closed.'));
     if (!input || typeof input !== 'object') return Promise.reject(new AccountError('ACCOUNT_ACTION_INVALID', 'The account action is invalid.'));
     const fields: PropertyDescriptorMap = Object.getOwnPropertyDescriptors(input);
     if ((Object.getPrototypeOf(input) !== Object.prototype && Object.getPrototypeOf(input) !== null)
@@ -163,7 +179,9 @@ export class DesktopAccounts {
     if (input.action === 'cancel') { this.cancelOwner(owner); return this.getView(); }
     if (this.#pending) return Promise.reject(new AccountError('ACCOUNT_BUSY', 'An account operation is already running.'));
     return this.#exclusive(async () => {
+      if (this.#closed) accountFail('ACCOUNT_CANCELLED', 'Account storage is closed.');
       await this.#load(); await this.options.assertIdle?.();
+      if (this.#closed) accountFail('ACCOUNT_CANCELLED', 'Account storage is closed.');
       this.#credential = undefined; this.#error = undefined;
       const pending = { owner, controller: new AbortController() }; this.#pending = pending; this.#changed();
       try {

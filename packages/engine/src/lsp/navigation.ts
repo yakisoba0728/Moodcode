@@ -12,6 +12,7 @@ import {
   type TextRange,
 } from "../formatters/edits.js";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
+import { projectNativeBOMRange } from "./native-bom.js";
 import {
   excludedTraversalPath,
   ignoredWorkspacePaths,
@@ -195,6 +196,7 @@ export async function projectNavigation(
   candidates: Candidate[],
   source: { content: string; hash: string },
   signal: AbortSignal,
+  nativeBOMProjection = false,
 ): Promise<LspNavigationSnapshot> {
   const observed = new Map([[base.path, source]]);
   const result: LspNavigationSnapshot = {
@@ -256,12 +258,13 @@ export async function projectNavigation(
       }
       observed.set(path, file);
     }
-    const selectedRange = navigationRange(file.content, candidate.range);
+    const projected = (text: string, value: unknown) => nativeBOMProjection ? projectNativeBOMRange(text, value) : value;
+    const selectedRange = navigationRange(file.content, projected(file.content, candidate.range));
     if (candidate.enclosingRange !== undefined) {
-      const enclosing = navigationRange(file.content, candidate.enclosingRange);
+      const enclosing = navigationRange(file.content, projected(file.content, candidate.enclosingRange));
       if (positionOffset(file.content, selectedRange.start) < positionOffset(file.content, enclosing.start) || positionOffset(file.content, selectedRange.end) > positionOffset(file.content, enclosing.end)) return fail();
     }
-    if (candidate.originRange !== undefined) navigationRange(source.content, candidate.originRange);
+    if (candidate.originRange !== undefined) navigationRange(source.content, projected(source.content, candidate.originRange));
     const item: LspNavigationItem = {
       path,
       hash: file.hash,

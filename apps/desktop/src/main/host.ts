@@ -4,12 +4,13 @@ import type { DesktopAdvancedAction, DesktopAdvancedSnapshot } from '../shared/a
 import type { JsonValue } from '@moodcode/contracts';
 import type { CommandEnvelope, CommandResult } from '@moodcode/contracts';
 import type { DesktopBootstrap, DesktopSettings, DesktopUpdate, HostStatus, SaveDesktopSettings, DesktopRecoveryStatus, DesktopRecoveryResult } from '../shared/protocol.js';
-import type { WorkerBootstrap, WorkerEngineConfig, WorkerPush, WorkerRequest, WorkerStartPayload } from '../worker/protocol.js';
+import type { CodexCredential, WorkerBootstrap, WorkerCredentialResponse, WorkerEngineConfig, WorkerPush, WorkerRequest, WorkerStartPayload } from '../worker/protocol.js';
+import { MainCredentialBroker, retainSecrets } from '../worker/credential-broker.js';
 import type { PreparedSettings, ResolvedDesktopSettings } from './settings.js';
 
 export interface UtilityTransport {
   readonly diagnosticSource?: 'original-electron-utility';
-  postMessage(message: WorkerRequest): void;
+  postMessage(message: WorkerRequest | WorkerCredentialResponse): void;
   onMessage(listener: (message: unknown) => void): () => void;
   onExit(listener: (code: number) => void): () => void;
 }
@@ -68,6 +69,7 @@ export interface DesktopHostOptions {
   rpcTimeoutMs?: number;
   closeTimeoutMs?: number;
   utilityExitTimeoutMs?: number;
+  resolveCodexCredential?(accountId: string, modelId: string, signal: AbortSignal): Promise<CodexCredential>;
 }
 export class HostError extends Error {
   constructor(readonly code: string, message: string) { super(message); }
@@ -96,6 +98,7 @@ interface Connection {
   closed: boolean;
   closeRequested: boolean;
   secrets: string[];
+  credentials?: MainCredentialBroker;
 }
 function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -267,10 +270,28 @@ export class DesktopHost {
     try { transport = this.spawnUtility(); }
     catch (error) { throw safeError(error, 'HOST_SPAWN_FAILED', secrets); }
     const connection = this.attachConnection(transport, 'engine', secrets);
+    if (!this.options.testScenario && config.codexCredential && this.options.resolveCodexCredential) {
+      const accountId = this.options.settings.getView().accountId, nativeId = config.codexCredential.accountId;
+      connection.credentials = new MainCredentialBroker({
+        valid: () => {
+          const selected = this.options.settings.getView();
+          return !this.closing && !connection.closeRequested && !connection.closed && !connection.exited && this.connection === connection
+            && selected.providerId === 'codex' && selected.credentialMode === 'chatgpt' && !!accountId && selected.accountId === accountId;
+        },
+        resolve: async signal => {
+          const credential = await this.options.resolveCodexCredential!(accountId!, config.modelId, signal);
+          if (credential.accountId !== nativeId) throw new HostError('ACCOUNT_REAUTH_REQUIRED', 'The selected Codex account changed.');
+          connection.secrets = retainSecrets(connection.secrets, credential);
+          return credential;
+        },
+        post: response => connection.transport.postMessage(response),
+      });
+    }
     const payload: WorkerStartPayload = {
       dbPath: this.options.dbPath, artifactDir: this.options.artifactDir,
       config: this.options.testScenario ? { providerId: 'scripted', modelId: `desktop-${this.options.testScenario}-fixture`, baseURL: '' } : { ...config },
       ...(this.options.testScenario ? { testScenario: this.options.testScenario } : {}),
+      ...(connection.credentials ? { codexCredentialBroker: true } : {}),
     };
     try {
       await this.rpc(connection, 'start', payload);
@@ -286,6 +307,7 @@ export class DesktopHost {
   private exited(connection: Connection, code: number): void {
     if (connection.exited) return;
     connection.exited = true;
+    connection.credentials?.close();
     connection.exitCode = Number.isSafeInteger(code) && code >= -2_147_483_648 && code <= 2_147_483_647 ? code : null;
     for (const pending of connection.pending.values()) {
       clearTimeout(pending.timer);
@@ -301,6 +323,7 @@ export class DesktopHost {
   }
   private receive(connection: Connection, message: unknown): void {
     if (connection.exited || !object(message)) return;
+    if (connection.credentials?.receive(message)) return;
     if (message.type === 'update') {
       if (this.connection !== connection) return;
       const push = message as unknown as WorkerPush;
@@ -532,6 +555,7 @@ export class DesktopHost {
     if (!connection || connection.exited || connection.closed) return Promise.resolve();
     if (connection.closeTask) return connection.closeTask;
     connection.closeRequested = true;
+    connection.credentials?.close();
     this.publishUtilityClose();
     const task = this.rpc(connection, 'close', undefined, this.options.closeTimeoutMs ?? 120_000).then(() => undefined, error => {
       // Exit without its matching close ACK remains visible as such, while a
@@ -571,6 +595,7 @@ export class DesktopHost {
   close(): Promise<void> {
     if (this.closePromise) return this.closePromise;
     this.closing = true;
+    this.connection?.credentials?.close();
     this.closePromise = (async () => {
       await this.transitionSettled;
       await Promise.allSettled([...this.inflight]);

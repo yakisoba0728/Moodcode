@@ -1,16 +1,19 @@
 import type { EventEmitter } from 'node:events';
 import { UtilityWorker, type UtilityWorkerOptions } from './core.js';
-import type { WorkerPush, WorkerResponse } from './protocol.js';
+import type { WorkerCredentialRequest, WorkerPush, WorkerResponse } from './protocol.js';
+import { WorkerCredentialClient } from './credential-broker.js';
 
-export interface UtilityPort extends Pick<EventEmitter, 'on' | 'removeListener'> { postMessage(message: WorkerResponse | WorkerPush): void }
+export interface UtilityPort extends Pick<EventEmitter, 'on' | 'removeListener'> { postMessage(message: WorkerResponse | WorkerPush | WorkerCredentialRequest): void }
 export interface UtilityLifecycle extends Pick<EventEmitter, 'on' | 'removeListener'> { exit(code?: number): never | void }
 
 /** Concurrent request handling keeps cancellation and approval controls responsive. */
 export function attachUtilityWorker(port: UtilityPort, lifecycle: UtilityLifecycle, options: Pick<UtilityWorkerOptions, 'createEngine'> = {}): { worker: UtilityWorker; shutdown(): Promise<void> } {
   let shutdownPromise: Promise<void> | undefined;
   let exiting = false;
-  const worker = new UtilityWorker({ ...options, emit: push => port.postMessage(push) });
+  const credentials = new WorkerCredentialClient(request => port.postMessage(request));
+  const worker = new UtilityWorker({ ...options, emit: push => port.postMessage(push), requestCodexCredential: signal => credentials.request(signal) });
   const shutdown = (): Promise<void> => {
+    credentials.close();
     shutdownPromise ??= worker.close().then(() => {
       port.removeListener('message', message);
       port.removeListener('close', disconnected);
@@ -28,6 +31,8 @@ export function attachUtilityWorker(port: UtilityPort, lifecycle: UtilityLifecyc
   const disconnected = (): void => exitAfterClose();
   const interrupted = (): void => exitAfterClose();
   const message = (event: { data: unknown }): void => {
+    if (credentials.receive(event.data)) return;
+    if ((event.data as { type?: unknown } | null)?.type === 'close') credentials.close();
     void worker.handle(event.data).then(response => {
       try { port.postMessage(response); }
       catch { exitAfterClose(); return; }

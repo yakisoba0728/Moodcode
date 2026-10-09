@@ -238,6 +238,11 @@ void app.whenReady().then(async () => {
   host = new DesktopHost({
     spawn: spawnWorker, settings, dbPath: join(userData, 'engine.sqlite'), artifactDir: join(userData, 'artifacts'),
     platform: process.platform, version: app.getVersion(), ...(scenario ? { testScenario: scenario } : {}),
+    resolveCodexCredential: async (accountId, modelId, signal) => {
+      const credential = await accounts!.resolveCredential(signal, accountId);
+      if (!credential || credential.accountId !== accountId || !credential.models.some(model => model.id === modelId)) throw new HostError('ACCOUNT_REAUTH_REQUIRED', 'The selected Codex account or model is unavailable.');
+      return { accessToken: credential.apiKey, accountId: credential.chatgptAccountId, secrets: [...credential.secrets] };
+    },
     onUtilityClose: diagnostics => { app.emit('moodcode:utility-close', diagnostics); },
     onStatus: status => { if (window && !window.isDestroyed()) window.webContents.send(DESKTOP_CHANNELS.hostState, status); },
     onUpdate: (owner, update) => { if (owner === ownerId && window && !window.isDestroyed()) window.webContents.send(DESKTOP_CHANNELS.update, update); },

@@ -9,6 +9,7 @@ import { DesktopAccounts } from './accounts.js';
 import { AccountError, ChatGPTAuth, CHATGPT_API, CHATGPT_CLIENT_ID } from './account-auth.js';
 import { createServer, request } from 'node:http';
 import { SettingsStore, type CredentialStorage } from './settings.js';
+import { MainCredentialBroker, WorkerCredentialClient } from '../worker/credential-broker.js';
 
 const code = (expected: string) => (error: unknown): boolean => {
   assert.ok(error instanceof AccountError); assert.equal(error.code, expected);
@@ -46,6 +47,7 @@ async function fixture(t: TestContext) {
   let now = 1_800_000_000_000, authorize: URL | undefined, subject = 'fixture-subject', tokenClient = '', audienceOverride: string | undefined, headerId = 'fixture-private-account';
   let refreshFailure = false, revokeFailure = false, browserHeld = false, refreshCounter = 0, omitRefreshMetadata = false;
   let signatureFailure = false;
+  let refreshHold: Promise<void> | undefined, releaseRefresh: (() => void) | undefined;
   let jwksHold: Promise<void> | undefined, releaseJwks: (() => void) | undefined, jwksRequested = false;
   const calls: { url: string; body?: URLSearchParams; authorization?: string | null; headerAccountId?: string | null }[] = [];
   const fetchFixture: typeof fetch = async (input, init) => {
@@ -57,6 +59,12 @@ async function fixture(t: TestContext) {
     if (url === 'https://auth.openai.com/oauth/token') {
       if (body?.get('grant_type') === 'refresh_token') {
         refreshCounter += 1;
+        if (refreshHold) await new Promise<void>((resolve, reject) => {
+          const signal = init?.signal, abort = (): void => { signal?.removeEventListener('abort', abort); reject(new DOMException('Fixture renewal aborted', 'AbortError')); };
+          if (signal?.aborted) { abort(); return; }
+          signal?.addEventListener('abort', abort, { once: true });
+          void refreshHold!.then(() => { signal?.removeEventListener('abort', abort); resolve(); });
+        });
         if (refreshFailure) return Response.json({ error: 'invalid_grant', error_description: 'private-refresh' }, { status: 400 });
         return Response.json({ access_token: `private-access-refreshed-${refreshCounter}`,
           ...(!omitRefreshMetadata ? { refresh_token: `private-refresh-rotated-${refreshCounter}`, token_type: 'Bearer', expires_in: 3600 } : {}) });
@@ -90,7 +98,8 @@ async function fixture(t: TestContext) {
   return { parent, directory, storage, accounts, options, calls, authorize: () => authorize!, advance: (ms: number) => { now += ms; },
     changeSubject: () => { subject = 'different-subject'; }, badAudience: () => { audienceOverride = 'wrong-audience'; }, changeHeader: () => { headerId = 'different-private-account'; }, missingHeader: () => { headerId = ''; }, badSignature: () => { signatureFailure = true; },
     refreshFailure: () => { refreshFailure = true; }, omitRefreshMetadata: () => { omitRefreshMetadata = true; }, revokeFailure: () => { revokeFailure = true; }, holdBrowser: () => { browserHeld = true; }, refreshes: () => refreshCounter,
-    holdJwks: () => { jwksHold = new Promise<void>(resolve => { releaseJwks = resolve; }); }, releaseJwks: () => releaseJwks?.(), jwksRequested: () => jwksRequested };
+    holdJwks: () => { jwksHold = new Promise<void>(resolve => { releaseJwks = resolve; }); }, releaseJwks: () => releaseJwks?.(), jwksRequested: () => jwksRequested,
+    holdRefresh: () => { refreshHold = new Promise<void>(resolve => { releaseRefresh = resolve; }); }, releaseRefresh: () => releaseRefresh?.() };
 }
 
 test('Codex loopback PKCE verifies signed identity, encrypts sessions and binds private native account models', async t => {
@@ -226,14 +235,19 @@ test('only one state-bound callback is exchanged and malformed state requests ca
 for (const outcome of ['decline', 'duplicate-code', 'timeout', 'browser-cancel'] as const)
 test(`native ${outcome} closes the listener without exchanging credentials`, async t => {
   const f = await fixture(t), controller = new AbortController();
-  const auth = new ChatGPTAuth({ ...f.options, callbackTimeoutMs: 30, openExternal: async address => {
+  const auth = new ChatGPTAuth({ ...f.options, callbackTimeoutMs: outcome === 'timeout' ? 30 : f.options.callbackTimeoutMs, openExternal: async address => {
     if (outcome === 'timeout') return;
     if (outcome === 'browser-cancel') { controller.abort(); await new Promise<void>(() => undefined); return; }
     const authorize = new URL(address), callback = new URL(authorize.searchParams.get('redirect_uri')!);
     callback.searchParams.set('state', authorize.searchParams.get('state')!);
     if (outcome === 'decline') callback.searchParams.set('error', 'access_denied');
     else { callback.searchParams.append('code', 'private-code'); callback.searchParams.append('code', 'second-code'); }
-    assert.equal((await fetch(callback)).status, outcome === 'decline' ? 200 : 400);
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = request(callback, { hostname: '127.0.0.1', headers: { Host: callback.host }, agent: false }, response => {
+        response.resume(); response.on('end', () => resolve(response.statusCode!)); response.on('error', reject);
+      }); req.on('error', reject); req.end();
+    });
+    assert.equal(status, outcome === 'decline' ? 200 : 400);
   } });
   await assert.rejects(auth.signIn('unused-host', undefined, controller.signal, async () => undefined), code({ decline: 'ACCOUNT_ACCESS_DENIED', 'duplicate-code': 'ACCOUNT_CALLBACK_INVALID', timeout: 'ACCOUNT_CALLBACK_TIMEOUT', 'browser-cancel': 'ACCOUNT_CANCELLED' }[outcome]));
   assert.equal(f.calls.length, 0); await assert.rejects(fetch('http://localhost:1455/auth/callback'));
@@ -336,6 +350,69 @@ test('unsafe account files are rejected without changing their targets', async t
   const target = join(f.parent, 'untouched'); await writeFile(target, 'untouched fixture', { mode: 0o600 });
   await symlink(target, join(f.directory, 'accounts.enc.json'));
   await assert.rejects(f.accounts.getView(), code('ACCOUNT_FILE_UNSAFE')); assert.equal(await readFile(target, 'utf8'), 'untouched fixture');
+});
+
+test('running native credential broker shares rotating refresh without an idle/settings transition', async t => {
+  const f = await fixture(t), view = await f.accounts.action({ action: 'sign-in' }, 'owner');
+  f.advance(3_550_000); f.holdRefresh(); let calls = 0;
+  Object.assign(f.options, { assertIdle: async () => { assert.fail('Automatic token renewal must not require an idle engine.'); } });
+  const broker = new MainCredentialBroker({ valid: () => true, resolve: async signal => {
+    calls++; const value = await f.accounts.resolveCredential(signal, view.activeAccountId);
+    assert.ok(value); return { accessToken: value.apiKey, accountId: value.chatgptAccountId, secrets: value.secrets };
+  }, post: reply => { client.receive(structuredClone(reply)); } });
+  const client = new WorkerCredentialClient(request => { broker.receive(request); }); t.after(() => { client.close(); broker.close(); });
+  const first = new AbortController(), a = client.request(first.signal), aRejects = assert.rejects(a, { code: 'PROVIDER_CANCELLED' });
+  const b = client.request(new AbortController().signal);
+  const deadline = Date.now() + 5000; while (f.refreshes() === 0 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(f.refreshes(), 1); assert.equal(JSON.parse(await readFile(join(f.directory, 'refresh.pending.json'), 'utf8')).accountId, view.activeAccountId);
+  first.abort(); await aRejects; f.releaseRefresh(); assert.equal((await b).accessToken, 'private-access-refreshed-1');
+  assert.equal(calls, 1); assert.equal(f.refreshes(), 1); assert.equal(f.accounts.getCredential()?.apiKey, 'private-access-refreshed-1');
+});
+
+test('last cancelled rotating request retains uncertainty when persistence fails and never replays the grant', async t => {
+  const f = await fixture(t), view = await f.accounts.action({ action: 'sign-in' }, 'owner');
+  f.advance(3_550_000); f.holdRefresh(); const controller = new AbortController();
+  const pending = f.accounts.resolveCredential(controller.signal, view.activeAccountId), rejected = assert.rejects(pending, code('ACCOUNT_CANCELLED'));
+  const deadline = Date.now() + 5000; while (f.refreshes() === 0 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(f.refreshes(), 1); const marker = await readFile(join(f.directory, 'refresh.pending.json'));
+  f.storage.failEncryption = true; controller.abort(); await rejected; f.releaseRefresh();
+  assert.equal(f.accounts.getCredential(), undefined); assert.deepEqual(await readFile(join(f.directory, 'refresh.pending.json')), marker);
+  f.storage.failEncryption = false; assert.equal(await f.accounts.resolveCredential(), undefined);
+  const restored = new DesktopAccounts(f.options); t.after(() => restored.close()); assert.equal(await restored.resolveCredential(), undefined);
+  assert.equal((await restored.getView()).accounts[0]?.state, 'failed'); assert.equal(f.refreshes(), 1);
+});
+
+test('shutdown aborts outstanding rotation and refuses late credential activation', async t => {
+  const f = await fixture(t), view = await f.accounts.action({ action: 'sign-in' }, 'owner');
+  f.advance(3_550_000); f.holdRefresh(); const pending = f.accounts.resolveCredential(undefined, view.activeAccountId), rejected = assert.rejects(pending, code('ACCOUNT_CANCELLED'));
+  const deadline = Date.now() + 5000; while (f.refreshes() === 0 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(f.refreshes(), 1); await f.accounts.close(); await rejected; f.releaseRefresh();
+  assert.equal(f.accounts.getCredential(), undefined); assert.equal(f.refreshes(), 1);
+  await assert.rejects(f.accounts.resolveCredential(), code('ACCOUNT_CANCELLED'));
+  await assert.rejects(f.accounts.action({ action: 'sign-in' }, 'owner'), code('ACCOUNT_CANCELLED'));
+});
+
+test('a pinned worker account cannot renew another selection or reuse logged-out credentials', async t => {
+  const f = await fixture(t), view = await f.accounts.action({ action: 'sign-in' }, 'owner');
+  f.advance(3_550_000); assert.equal(await f.accounts.resolveCredential(undefined, 'ffffffff-ffff-4fff-8fff-ffffffffffff'), undefined); assert.equal(f.refreshes(), 0);
+  await f.accounts.action({ action: 'sign-out' }, 'owner'); assert.equal(await f.accounts.resolveCredential(undefined, view.activeAccountId), undefined); assert.equal(f.refreshes(), 0);
+});
+
+test('shutdown of pending browser login closes its listener before a terminal cleanup retry', async t => {
+  const f = await fixture(t); f.holdBrowser(); const pending = f.accounts.action({ action: 'sign-in' }, 'owner'), rejected = assert.rejects(pending, code('ACCOUNT_CANCELLED'));
+  const deadline = Date.now() + 5000; while (!f.authorize() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.ok(f.authorize()); await f.accounts.close(); await rejected; await f.accounts.close();
+  await assert.rejects(fetch('http://localhost:1455/auth/callback')); assert.equal(f.calls.length, 0); assert.equal(f.accounts.getCredential(), undefined);
+});
+
+test('shutdown cannot start a browser action queued behind an outstanding credential rotation', async t => {
+  const f = await fixture(t), view = await f.accounts.action({ action: 'sign-in' }, 'owner');
+  f.advance(3_550_000); f.holdRefresh(); const before = f.authorize();
+  const renewal = f.accounts.resolveCredential(undefined, view.activeAccountId), renewalRejects = assert.rejects(renewal, code('ACCOUNT_CANCELLED'));
+  const deadline = Date.now() + 5000; while (f.refreshes() === 0 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(f.refreshes(), 1); const queued = f.accounts.action({ action: 'sign-in', accountId: view.activeAccountId }, 'owner');
+  const queuedRejects = assert.rejects(queued, code('ACCOUNT_CANCELLED')); await f.accounts.close(); await Promise.all([renewalRejects, queuedRejects]);
+  assert.equal(f.authorize(), before); assert.equal(f.accounts.getCredential(), undefined); f.releaseRefresh();
 });
 
 test('account action data rejects accessors without reading their secret values', async t => {

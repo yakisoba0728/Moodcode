@@ -45,8 +45,10 @@ jobs:
           apps/desktop/src/main/settings.test.ts apps/desktop/src/worker/anthropic-config.test.ts
           apps/desktop/src/preload/api.test.ts apps/desktop/src/renderer/fixtures/anthropic-cleanup.test.mjs
           apps/desktop/src/worker/advanced-mcp.test.ts apps/desktop/src/worker/runtime.test.ts
+          apps/desktop/src/worker/credential-broker.test.ts
           scripts/desktop-release-policy.test.mjs scripts/desktop-native-package.test.mjs
           scripts/desktop-test-evidence.test.mjs scripts/desktop-main-utility-close.test.mjs
+          scripts/desktop-codex-account-verification.test.mjs
       - name: Linux original utility close, exit and fault boundaries
         if: runner.os == 'Linux'
         run: xvfb-run -a node scripts/verify-desktop-main-utility-close.mjs
@@ -56,6 +58,12 @@ jobs:
       - name: macOS actual advanced GUI flows
         if: runner.os == 'macOS'
         run: node scripts/test-desktop-advanced.mjs
+      - name: Linux original utility Codex credential refresh and cancellation
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/test-desktop-codex-refresh.mjs
+      - name: macOS/Windows original utility Codex credential refresh and cancellation
+        if: runner.os != 'Linux'
+        run: node scripts/test-desktop-codex-refresh.mjs
       - name: macOS actual delayed renderer delivery and restore theme
         if: runner.os == 'macOS'
         run: |
@@ -104,6 +112,7 @@ jobs:
             artifacts/anthropic-desktop/
             artifacts/renderer-anthropic/
             artifacts/next-main-utility-close/
+            artifacts/engine-account-lsp-20261010/
           retention-days: 7
           include-hidden-files: true
           if-no-files-found: warn

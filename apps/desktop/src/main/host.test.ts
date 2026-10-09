@@ -3,7 +3,7 @@ import { setImmediate as nextTurn } from 'node:timers/promises';
 import { test, type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, type CommandEnvelope, type EngineCapabilities } from '@moodcode/contracts';
 import type { DesktopSettings, DesktopUpdate, HostStatus, SaveDesktopSettings } from '../shared/protocol.js';
-import type { WorkerRequest, WorkerResponse, WorkerStartPayload } from '../worker/protocol.js';
+import type { CodexCredential, WorkerCredentialResponse, WorkerRequest, WorkerResponse, WorkerStartPayload } from '../worker/protocol.js';
 import { DesktopHost, HostError, UTILITY_CLOSE_DIAGNOSTIC_LIMIT, type HostSettingsStore, type UtilityTransport, type UtilityCloseDiagnostics } from './host.js';
 import type { PreparedSettings, ResolvedDesktopSettings } from './settings.js';
 
@@ -63,6 +63,7 @@ const capabilities: EngineCapabilities = {
 
 class FakeUtility implements UtilityTransport {
   readonly messages: WorkerRequest[] = [];
+  readonly credentialReplies: WorkerCredentialResponse[] = [];
   readonly outstanding = new Map<string, WorkerRequest>();
   readonly messageListeners = new Set<(message: unknown) => void>();
   readonly exitListeners = new Set<(code: number) => void>();
@@ -71,8 +72,9 @@ class FakeUtility implements UtilityTransport {
   sendFailure?: Error;
   autoExit = true;
   constructor(readonly index: number, readonly trace: string[]) {}
-  postMessage(message: WorkerRequest): void {
+  postMessage(message: WorkerRequest | WorkerCredentialResponse): void {
     if (this.sendFailure) throw this.sendFailure;
+    if (message.type === 'codex-credential-result') { this.credentialReplies.push(message); return; }
     this.messages.push(message);
     this.outstanding.set(message.id, message);
     this.trace.push(`worker${this.index}.${message.type}`);
@@ -171,6 +173,7 @@ function setup(t: TestContext, input: {
   utilityExitTimeoutMs?: number;
   onUtilityClose?: (diagnostics: UtilityCloseDiagnostics) => void;
   spawnFailure?: Error;
+  resolveCodexCredential?: (accountId: string, modelId: string, signal: AbortSignal) => Promise<CodexCredential>;
 } = {}) {
   const trace: string[] = [];
   const workers: FakeUtility[] = [];
@@ -182,6 +185,7 @@ function setup(t: TestContext, input: {
     ...(input.testScenario ? { testScenario: input.testScenario } : {}),
     rpcTimeoutMs: input.rpcTimeoutMs ?? 1_000, closeTimeoutMs: input.closeTimeoutMs ?? 500, utilityExitTimeoutMs: input.utilityExitTimeoutMs ?? 100,
     onUtilityClose: input.onUtilityClose,
+    ...(input.resolveCodexCredential ? { resolveCodexCredential: input.resolveCodexCredential } : {}),
     spawn: () => {
       if (input.spawnFailure) throw input.spawnFailure;
       trace.push(`worker${workers.length}.spawn`);
@@ -268,6 +272,42 @@ test('native app account credentials remain private across worker startup, boots
     for (const secret of secrets) assert.ok(!`${error.message}${JSON.stringify(error)}`.includes(secret));
     return true;
   });
+});
+
+test('private credential reads use the pinned native account without an idle, settings save or engine restart', async t => {
+  const credential = { accessToken: 'fixture-broker-initial', accountId: 'fixture-broker-header', secrets: ['fixture-broker-refresh'] };
+  const accountId = '12345678-1234-1234-1234-123456789012'; let calls = 0;
+  const f = setup(t, { resolveCodexCredential: async (selected, model, signal) => {
+    assert.equal(selected, accountId); assert.equal(model, 'fixture-model'); assert.equal(signal.aborted, false); calls++;
+    return { ...credential, accessToken: 'fixture-broker-fresh' };
+  } });
+  f.settings.current = { view: { ...f.settings.current.view, providerId: 'codex', modelId: 'fixture-model', credentialMode: 'chatgpt', accountId },
+    engineConfig: { providerId: 'codex', modelId: 'fixture-model', baseURL: '', codexCredential: credential } };
+  await f.host.initialize(); const worker = f.workers[0]!, before = [...f.trace];
+  assert.equal((worker.requests('start')[0]!.payload as WorkerStartPayload).codexCredentialBroker, true);
+  worker.emit({ type: 'codex-credential', id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' });
+  await until(() => worker.credentialReplies.length === 1); assert.equal(calls, 1); assert.deepEqual(f.trace, before);
+  const reply = worker.credentialReplies[0]!; assert.equal(reply.ok, true); if (!reply.ok) assert.fail('Fresh credential expected');
+  assert.equal(reply.credential.accessToken, 'fixture-broker-fresh'); assert.equal(f.host.getStatus().generation, 1);
+  worker.emit({ type: 'update', ownerId: 'fixture-owner', update: { subscriptionId: 'fixture-sub', sessionId: 'fixture-session', lastSeq: 1, error: { code: 'FIXTURE_ERROR', message: reply.credential.accessToken } } });
+  assert.ok(!JSON.stringify(f.updates).includes(reply.credential.accessToken));
+});
+
+test('failed owned close retains its first error and retry while cancelling the private rotation and rejecting its late reply', async t => {
+  const held = gate<CodexCredential>(); let rotating: AbortSignal | undefined, closes = 0;
+  const credential = { accessToken: 'fixture-shutdown-initial', accountId: 'fixture-shutdown-header', secrets: [] };
+  const f = setup(t, { resolveCodexCredential: async (_account, _model, signal) => { rotating = signal; return held.promise; }, configureWorker: worker => {
+    worker.onRequest = request => { if (request.type === 'close' && ++closes === 1) { queueMicrotask(() => worker.failure(request, 'FIXTURE_CLOSE_ERROR', 'original owned close failure')); return true; } return false; };
+  } });
+  f.settings.current = { view: { ...f.settings.current.view, providerId: 'codex', modelId: 'fixture-model', credentialMode: 'chatgpt', accountId: '12345678-1234-1234-1234-123456789012' },
+    engineConfig: { providerId: 'codex', modelId: 'fixture-model', baseURL: '', codexCredential: credential } };
+  await f.host.initialize(); const worker = f.workers[0]!;
+  worker.emit({ type: 'codex-credential', id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }); await until(() => !!rotating);
+  await assert.rejects(f.host.close(), errorCode('FIXTURE_CLOSE_ERROR')); assert.equal(rotating?.aborted, true);
+  held.resolve({ ...credential, accessToken: 'fixture-shutdown-late' }); await nextTurn();
+  assert.equal(worker.credentialReplies.some(reply => reply.ok), false); assert.equal(f.host.getUtilityCloseDiagnostics().connections[0]?.cleanupConfirmed, false);
+  await f.host.close(); assert.equal(closes, 2); assert.equal(f.host.getStatus().state, 'stopped');
+  assert.equal(worker.credentialReplies.some(reply => reply.ok), false);
 });
 
 test('settings save rejected by active Run does not close, spawn, or commit', async (t) => {

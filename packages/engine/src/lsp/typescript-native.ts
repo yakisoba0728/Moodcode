@@ -7,6 +7,7 @@ import { EngineError, type Workspace } from "@moodcode/contracts";
 import type { LspFactory } from "./index.js";
 import { captureTypeScriptProjectSources } from "./project-sources.js";
 import { StdioLspConnection } from "./stdio.js";
+import { installNativeBOMProjection } from "./native-bom.js";
 
 export interface TypeScriptNativeLspOptions {
   readonly executable: string;
@@ -208,6 +209,7 @@ export function createTypeScriptNativeLspFactory(
     });
     try {
       await assertCurrent(workspace, signal);
+      installNativeBOMProjection(connection);
       return connection;
     } catch (error) {
       await connection.close();

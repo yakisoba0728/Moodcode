@@ -4,7 +4,8 @@ import { EngineError, REASONING_EFFORTS, SCHEMA_VERSION, isTerminal, type Engine
 import { getRecoveryStatus, recoverEngine, createEngine, AnthropicProvider, CodexProvider, OpenAICompatibleProvider, ResponsesProvider, ScriptedProvider, type EngineOptions, type MoodcodeEngine, type ProviderAdapter } from '@moodcode/engine';
 import type { DesktopUpdate } from '../shared/protocol.js';
 import { ANTHROPIC_REASONING_EFFORTS } from '../shared/protocol.js';
-import type { WorkerBootstrap, WorkerEngineConfig, WorkerPush, WorkerResponse, WorkerStartPayload } from './protocol.js';
+import type { CodexCredential, WorkerBootstrap, WorkerEngineConfig, WorkerPush, WorkerResponse, WorkerStartPayload } from './protocol.js';
+import { checkedCredential, retainSecrets } from './credential-broker.js';
 import { testFixtureProvider } from './fixtures.js';
 import { AdvancedService } from './advanced.js';
 import { validateAdvancedAction } from '../shared/advanced.js';
@@ -16,6 +17,7 @@ type WorkerEngine = Pick<MoodcodeEngine, 'store' | 'dispatch' | 'subscribe' | 'c
 export interface UtilityWorkerOptions {
   emit(push: WorkerPush): void;
   createEngine?: (options: EngineOptions) => WorkerEngine;
+  requestCodexCredential?(signal: AbortSignal): Promise<CodexCredential>;
 }
 interface Subscription {
   id: string; ownerId: string; sessionId: string; abort: AbortController; task: Promise<void>;
@@ -129,15 +131,16 @@ function config(value: unknown, scenario?: 'coding' | 'slow' | 'advanced' | 'acc
   return { providerId: source.providerId, modelId, baseURL, ...(anthropicWorkspaceId ? { anthropicWorkspaceId: anthropicWorkspaceId as string } : {}), ...(apiKey ? { apiKey } : {}), ...(reasoningEffort ? { reasoningEffort: reasoningEffort as import('@moodcode/contracts').ReasoningEffort } : {}) };
 }
 function startPayload(value: unknown): WorkerStartPayload {
-  const source = record(value, ['dbPath', 'artifactDir', 'config', 'testScenario']);
+  const source = record(value, ['dbPath', 'artifactDir', 'config', 'testScenario', 'codexCredentialBroker']);
   const dbPath = text(source.dbPath, 'dbPath', 4096);
   const artifactDir = text(source.artifactDir, 'artifactDir', 4096);
   if ((dbPath !== ':memory:' && !isAbsolute(dbPath)) || !isAbsolute(artifactDir)) throw new EngineError('INVALID_CONFIG', 'Engine storage paths must be absolute.');
   if (source.testScenario !== undefined && source.testScenario !== 'coding' && source.testScenario !== 'slow' && source.testScenario !== 'advanced' && source.testScenario !== 'account') invalid('Unknown desktop test scenario.');
   const resolved = config(source.config, source.testScenario);
-  return { dbPath, artifactDir, config: resolved, ...(source.testScenario ? { testScenario: source.testScenario } : {}) };
+  if (source.codexCredentialBroker !== undefined && (source.codexCredentialBroker !== true || resolved.providerId !== 'codex' || !resolved.codexCredential)) invalid('Codex credential broker configuration is invalid.');
+  return { dbPath, artifactDir, config: resolved, ...(source.testScenario ? { testScenario: source.testScenario } : {}), ...(source.codexCredentialBroker ? { codexCredentialBroker: true } : {}) };
 }
-function selectedProvider(payload: WorkerStartPayload): ProviderAdapter {
+function selectedProvider(payload: WorkerStartPayload, credentialReader?: UtilityWorkerOptions['requestCodexCredential']): ProviderAdapter {
   if (payload.testScenario) return testFixtureProvider(payload.testScenario);
   switch (payload.config.providerId) {
     case 'scripted': return new ScriptedProvider();
@@ -147,7 +150,7 @@ function selectedProvider(payload: WorkerStartPayload): ProviderAdapter {
     case 'codex': return new CodexProvider(payload.config.codexCredential ? { credentialReader: {
       async use(signal, callback) {
         if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
-        return await callback(payload.config.codexCredential!);
+        return await callback(payload.codexCredentialBroker ? await credentialReader!(signal) : payload.config.codexCredential!);
       },
     } } : {});
   }
@@ -186,7 +189,14 @@ export class UtilityWorker {
           if (this.#engine) throw new EngineError('ENGINE_BUSY', 'Desktop engine has already started.');
           const payload = startPayload(request.payload);
           this.#secrets = payload.config.codexCredential ? [...payload.config.codexCredential.secrets] : payload.config.apiKey ? [payload.config.apiKey] : [];
-          const provider = selectedProvider(payload);
+          if (payload.codexCredentialBroker && !this.#options.requestCodexCredential) throw new EngineError('INVALID_CONFIG', 'The private Codex credential broker is unavailable.');
+          const provider = selectedProvider(payload, async signal => {
+            const credential = checkedCredential(await this.#options.requestCodexCredential!(signal));
+            if (this.#closing || signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
+            if (credential.accountId !== payload.config.codexCredential?.accountId || credential.secrets.some(secret => payload.config.modelId.includes(secret))) throw new EngineError('ACCOUNT_REAUTH_REQUIRED', 'The selected Codex account changed.');
+            this.#secrets = retainSecrets(this.#secrets, credential);
+            return credential;
+          });
           this.#engine = (this.#options.createEngine ?? createEngine)({
             dbPath: payload.dbPath, artifactDir: payload.artifactDir, providers: [provider],
             defaults: { providerId: payload.config.providerId, modelId: payload.config.modelId, ...(payload.config.reasoningEffort ? { reasoningEffort: payload.config.reasoningEffort } : {}) },
