@@ -12,6 +12,7 @@ import time
 LIMITS = {"maxFileBytes": 1073741824, "maxSchemaObjects": 1024,
           "maxTables": 256, "maxColumns": 64, "maxRowsPerTable": 1000000,
           "maxCategories": 256, "maxCategoryBytes": 256,
+          "revisionGroupsAtEachEnd": 8,
           "maxQueries": 600, "maxVmOperations": 100000000}
 GROWTH_TABLES = ["runs", "messages", "tools", "approvals", "checkpoints",
                  "session_inputs", "session_turns", "provider_attempts",
@@ -49,12 +50,16 @@ def fingerprint(path, deadline):
         opened = os.fstat(stream.fileno())
         if (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino):
             raise Refusal("file_changed_during_open")
+        read_bytes = 0
         while True:
             if time.monotonic() > deadline:
                 raise Refusal("inspection_deadline")
             chunk = stream.read(1048576)
             if not chunk:
                 break
+            read_bytes += len(chunk)
+            if read_bytes > LIMITS["maxFileBytes"]:
+                raise Refusal("file_byte_bound_during_read")
             h.update(chunk)
         after = os.fstat(stream.fileno())
     if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
@@ -69,9 +74,11 @@ def inspect(path, timeout_ms):
     deadline = started + timeout_ms / 1000
     query_deadline = started + timeout_ms * 0.75 / 1000
     files = {"primary": path, "wal": Path(str(path) + "-wal"),
-             "shm": Path(str(path) + "-shm"), "effects": Path(str(path) + ".effects.sqlite"),
+             "shm": Path(str(path) + "-shm"), "journal": Path(str(path) + "-journal"),
+             "effects": Path(str(path) + ".effects.sqlite"),
              "effectsWal": Path(str(path) + ".effects.sqlite-wal"),
-             "effectsShm": Path(str(path) + ".effects.sqlite-shm")}
+             "effectsShm": Path(str(path) + ".effects.sqlite-shm"),
+             "effectsJournal": Path(str(path) + ".effects.sqlite-journal")}
     report = {"schemaVersion": 1, "kind": "history-storage-cost", "status": "refused_before_open",
               "admission": {"callerAssertedClosedSnapshot": True,
                             "uriMode": "ro", "immutable": True, "opened": False},
@@ -99,7 +106,11 @@ def inspect(path, timeout_ms):
         wal = report["filesBefore"]["wal"]
         if wal["exists"] and wal["bytes"]:
             raise Refusal("nonempty_wal_requires_snapshot_not_immutable_read")
+        journal = report["filesBefore"]["journal"]
+        if journal["exists"] and journal["bytes"]:
+            raise Refusal("nonempty_rollback_journal_requires_recovery_not_immutable_read")
         report["admission"]["walAbsentOrEmpty"] = True
+        report["admission"]["rollbackJournalAbsentOrEmpty"] = True
         connection = sqlite3.connect(path.as_uri() + "?mode=ro&immutable=1", uri=True, timeout=0)
         report["admission"]["opened"] = True
         connection.execute("PRAGMA query_only=ON")
@@ -111,6 +122,8 @@ def inspect(path, timeout_ms):
                        (LIMITS["maxSchemaObjects"] + 1,)).fetchall()
         if len(schema) > LIMITS["maxSchemaObjects"]:
             raise Refusal("schema_object_bound")
+        if any(row[1].casefold() == "dbstat" for row in schema):
+            raise Refusal("dbstat_schema_name_shadow")
         tables = [row[1] for row in schema if row[0] == "table"]
         if len(tables) > LIMITS["maxTables"]:
             raise Refusal("table_bound")
@@ -153,6 +166,34 @@ def inspect(path, timeout_ms):
             groups = sorted([{"categorySha256": digest(row[0]), "rows": row[1], "dataBytes": row[2]} for row in rows],
                             key=lambda row: row["categorySha256"])
             report["categories"].append({"table": table, "groups": groups, "sha256": digest(groups)})
+        report["contextRevisionSamples"] = {"status": "unavailable",
+            "meaning": "Numeric revision groups across all sessions; first/last groups are not one owner's chronological history."}
+        try:
+            available = {row["table"]: row["serializedColumnBytes"] for row in report["tables"]}
+            sampled = {}
+            for table, revision, extra in [
+                ("context_revisions", "CASE WHEN typeof(revision)='integer' AND revision BETWEEN 1 AND 9007199254740991 THEN revision END", ""),
+                ("session_events", "CASE WHEN json_valid(data) THEN CASE WHEN json_type(data,'$.payload.context.revision')='integer' AND json_extract(data,'$.payload.context.revision') BETWEEN 1 AND 9007199254740991 THEN json_extract(data,'$.payload.context.revision') END END", " AND type='context.revision.recorded'")]:
+                required = ["data", "revision"] if table == "context_revisions" else ["data", "type"]
+                if table not in available or any(key not in available[table] for key in required):
+                    continue
+                source = " FROM " + identifier(table) + " WHERE (" + revision + ") IS NOT NULL" + extra
+                total_groups, rows = query("SELECT count(DISTINCT " + revision + "),count(*)" + source).fetchone()
+                ends = []
+                for direction in ["ASC", "DESC"]:
+                    ends.extend(query("SELECT " + revision + " AS revision,count(*),sum(length(CAST(data AS BLOB)))" +
+                                      source + " GROUP BY revision ORDER BY revision " + direction + " LIMIT ?",
+                                      (LIMITS["revisionGroupsAtEachEnd"],)).fetchall())
+                unique = {row[0]: {"revision": row[0], "rows": row[1], "dataBytes": row[2]} for row in ends}
+                sampled[table] = {"groupableRows": rows, "totalRevisionGroups": total_groups,
+                    "truncated": len(unique) < total_groups, "groups": [unique[key] for key in sorted(unique)]}
+            if sampled:
+                report["contextRevisionSamples"].update({"status": "measured", "tables": sampled})
+        except sqlite3.OperationalError as error:
+            code = getattr(error, "sqlite_errorname", "SQLITE_ERROR")
+            if code != "SQLITE_ERROR":
+                raise
+            report["contextRevisionSamples"].update({"status": "unavailable", "sqliteErrorCode": code})
         report["dbstat"] = {"compileOptionEnabled": bool(query("SELECT sqlite_compileoption_used('ENABLE_DBSTAT_VTAB')").fetchone()[0]),
                             "status": "unavailable", "createdVirtualTable": False}
         try:

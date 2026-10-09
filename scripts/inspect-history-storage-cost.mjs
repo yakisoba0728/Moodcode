@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const execute = promisify(execFile);
 const helper = fileURLToPath(new URL("./inspect-history-storage-cost.py", import.meta.url));
 const HELP = `Usage: node scripts/inspect-history-storage-cost.mjs --database PATH --closed-snapshot [--timeout-ms 1000..60000]
-Requires an already closed snapshot with absent/empty WAL. Refuses live WAL.
+Requires an already closed snapshot with absent/empty WAL and rollback journal.
 Python3 stdlib SQLite uses mode=ro&immutable=1; no Engine import or checkpoint.
 Prints bounded counts, byte totals, schema names and digests; no stored values.
 Exit 0: unchanged inspection; 1: refused/failed/changed; 2: invalid options.

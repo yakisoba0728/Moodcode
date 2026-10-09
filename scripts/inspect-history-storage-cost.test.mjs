@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { inspectHistoryStorage, parseHistoryStorageArgs, runHistoryStorageCli } from "./inspect-history-storage-cost.mjs";
 
 const execute = promisify(execFile);
@@ -67,6 +68,47 @@ test("nonempty WAL is refused before SQLite open and all file fingerprints remai
   assert.equal(report.tables, undefined);
 });
 
+test("rollback journals are fingerprinted and a nonempty primary journal is refused before open", async t => {
+  const path = await fixture(t, "CREATE TABLE messages(data TEXT);");
+  await writeFile(path + "-journal", "hot-rollback-evidence");
+  await writeFile(path + ".effects.sqlite-journal", "effects-rollback-evidence");
+  const report = await inspect(path);
+  assert.equal(report.status, "refused_before_open");
+  assert.equal(report.refusalCode, "nonempty_rollback_journal_requires_recovery_not_immutable_read");
+  assert.equal(report.admission.opened, false);
+  assert.equal(report.filesUnchanged, true);
+  assert.equal(report.filesBefore.journal.bytes, Buffer.byteLength("hot-rollback-evidence"));
+  assert.equal(report.filesBefore.effectsJournal.bytes, Buffer.byteLength("effects-rollback-evidence"));
+  await writeFile(path + "-journal", "");
+  const measured = await inspect(path);
+  assert.equal(measured.status, "measured_unchanged");
+  assert.equal(measured.admission.rollbackJournalAbsentOrEmpty, true);
+  assert.equal(measured.filesUnchanged, true);
+});
+
+test("fingerprint enforces its byte bound when a file grows after the initial stat", async t => {
+  const path = await fixture(t, "CREATE TABLE messages(data TEXT);");
+  const growing = path + ".growing";
+  await writeFile(growing, "x");
+  const helper = fileURLToPath(new URL("./inspect-history-storage-cost.py", import.meta.url));
+  const program = `
+import importlib.util,sys,time
+from pathlib import Path
+spec=importlib.util.spec_from_file_location('history_cost',sys.argv[1])
+module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+module.LIMITS['maxFileBytes']=4
+original_open=module.os.open
+def grow_before_open(path,flags):
+    with open(path,'ab') as stream: stream.write(b'12345678')
+    return original_open(path,flags)
+module.os.open=grow_before_open
+try: module.fingerprint(Path(sys.argv[2]),time.monotonic()+2)
+except module.Refusal as error: print(str(error))
+`;
+  const { stdout } = await execute("python3", ["-B", "-c", program, helper, growing]);
+  assert.equal(stdout.trim(), "file_byte_bound_during_read");
+});
+
 test("missing evidence is not created; empty WAL may be inspected immutably", async t => {
   const path = await fixture(t, "CREATE TABLE messages(data TEXT);");
   const missing = await inspect(path + ".absent");
@@ -94,6 +136,40 @@ test("unusual schema identifiers are refused without exposing stored contents", 
   assert.equal(report.refusalCode, "unsupported_schema_identifier");
   assert.equal(report.filesUnchanged, true);
   assert.equal(JSON.stringify(report).includes("private-history"), false);
+});
+
+test("an ordinary table cannot impersonate eponymous dbstat and expose stored values", async t => {
+  const path = await fixture(t, `CREATE TABLE DBSTAT(name TEXT,pagetype TEXT,pgsize INTEGER,payload INTEGER,unused INTEGER);
+    INSERT INTO DBSTAT VALUES('private-object-identity','private-history',4096,99,99);`);
+  const report = await inspect(path);
+  assert.equal(report.refusalCode, "dbstat_schema_name_shadow");
+  assert.equal(report.filesUnchanged, true);
+  assert.equal(report.dbstat, undefined);
+  for (const secret of ["private-object-identity", "private-history"])
+    assert.equal(JSON.stringify(report).includes(secret), false);
+});
+
+test("context revision samples bound first/last numeric groups and exclude malformed optional JSON", async t => {
+  let sql = "CREATE TABLE context_revisions(revision INTEGER,data TEXT); CREATE TABLE session_events(type TEXT,data TEXT);";
+  for (let revision = 1; revision <= 20; revision++) {
+    const context = JSON.stringify({ revision, text: `private-snapshot-${revision}` });
+    const event = JSON.stringify({ payload: { context: { revision, text: `private-snapshot-${revision}` } } });
+    sql += `INSERT INTO context_revisions VALUES(${revision},'${context}'); INSERT INTO session_events VALUES('context.revision.recorded','${event}');`;
+  }
+  sql += "INSERT INTO session_events VALUES('context.revision.recorded','private-malformed-json');";
+  const report = await inspect(await fixture(t, sql));
+  assert.equal(report.status, "measured_unchanged");
+  for (const table of ["context_revisions", "session_events"]) {
+    const sampled = report.contextRevisionSamples.tables[table];
+    assert.equal(sampled.totalRevisionGroups, 20);
+    assert.equal(sampled.groupableRows, 20);
+    assert.equal(sampled.truncated, true);
+    assert.equal(sampled.groups.length, 16);
+    assert.equal(sampled.groups[0].revision, 1);
+    assert.equal(sampled.groups.at(-1).revision, 20);
+  }
+  assert.equal(JSON.stringify(report).includes("private-snapshot"), false);
+  assert.equal(JSON.stringify(report).includes("private-malformed-json"), false);
 });
 
 test("CLI requires an explicit closed snapshot and finite bounds", async () => {
