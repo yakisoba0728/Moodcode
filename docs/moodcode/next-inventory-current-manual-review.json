@@ -1,0 +1,570 @@
+{
+  "schemaVersion": 1,
+  "kind": "inventory-unsupported-and-generated-output-coverage-review",
+  "recordedAt": "2026-10-09T11:34:57.755744+00:00",
+  "state": "manual-selected-language-coverage-reviewed-with-confirmed-shared-css-delivery-gap",
+  "requestedCurrentHead": "f3582bd1af33754e281810fe8e8bde5e0c3373a9",
+  "acceptedImplementationHead": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+  "sourceQualification": {
+    "rawInventory": {
+      "path": "artifacts/next-continuation/local/inventory-663a3a0-final-source.json",
+      "bytes": 11738170,
+      "sha256": "8eb9d7536370fc9a938326ed4a4ee5a5741cda0b8da550600e3b681d174f6112"
+    },
+    "compactInventory": {
+      "path": "docs/moodcode/next-continuation-inventory.json",
+      "bytes": 3298,
+      "sha256": "02593d88b442a9c014fafcfa886561bd875a83e6bed80ba7fca304be38719962"
+    },
+    "currentSourcePinReadOnlyRecheck": {
+      "files": 1094,
+      "owned": 1092,
+      "ancillary": 2,
+      "mismatches": [],
+      "currentFingerprint": "5db791880aec85ece1a3283a549a7ab495c93816baa53ff64f21d7d67762adfa",
+      "matchesCapturedFingerprint": true,
+      "method": "Read/hash existing inventory-selected regular files only; no AST/inventory subprocess, Git metadata operation, build/test or configuration execution."
+    },
+    "documentationOnlyHeadDelta": "Root existing remote-observation records18 docs/README/TODO-only changes from663a3a0 to f3582bd. This review observes every captured source hash equal before newly authorized CSS remediation.",
+    "preFixEvidencePreserved": true
+  },
+  "declaredVersusActual": {
+    "physical": {
+      "attempted": 1092,
+      "measured": 1092,
+      "failed": 0
+    },
+    "syntax": {
+      "attempted": 1092,
+      "measured": 1082,
+      "unsupported": 10,
+      "failed": 0
+    },
+    "unsupportedOwnedLanguages": {
+      "yml": 4,
+      "html": 1,
+      "css": 3,
+      "cc": 1,
+      "py": 1
+    },
+    "unsupportedMeaning": "Explicit unsupported parser format, not a parse/source-stability failure. These10 files have no scanner function/import/export/call metrics; manual semantics and operational callers are recorded here.",
+    "ancillaryUnsupported": [
+      "docs/coding-agent-engine-review/verify-comparison.py",
+      "docs/coding-agent-engine-review/verify-evidence.py"
+    ],
+    "ancillaryQualification": "Two additional unsupported Python analysis files are separately measured and excluded from owned totals; not part of requested ten manual reviews.",
+    "rawComplete": false,
+    "rawRefactorAcceptance": false,
+    "graph": {
+      "symbolResolution": false,
+      "callMatching": "syntax spelling only; may overcount or miss aliases, shadowing and dynamic calls",
+      "unresolvedRelativeSites": 8,
+      "computedModuleSites": 30
+    },
+    "manualGates": [
+      "Confirm actual callers and consumers, including callbacks, aliases, inheritance and computed calls.",
+      "Confirm dynamic registration and string-based dispatch; spelling matches are not symbol resolution.",
+      "Preserve public APIs, event contracts, DB transactions, archives and compatibility with existing records.",
+      "Compare semantics and resource/cleanup ownership before extracting, merging or deleting code."
+    ],
+    "todoReading": "RF01/RF02 checked rows document the prepared inventory/problem baseline; adjacent TODO text explicitly says structural baseline is not whole semantic audit or follow-up acceptance. No unsupported-format completion or repository-wide unused/dependency proof is inferred."
+  },
+  "manualFiles": [
+    {
+      "path": ".github/workflows/desktop-package.yml",
+      "sourcePin": {
+        "path": ".github/workflows/desktop-package.yml",
+        "bytes": 4743,
+        "sha256": "e14d22c770dd23fb4e423a97ba31674edcd5a7dab678a1dda3ea45e01d559093"
+      },
+      "physicalLines": 102,
+      "inventorySyntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.yml"
+      },
+      "fullFileManuallyRead": true,
+      "purpose": "Unsigned per-OS packaging, utility lifecycle/native package/update smoke and macOS advanced/delayed renderer flows.",
+      "operationalConsumers": [
+        "GitHub push/PR path filters and manual dispatch",
+        "scripts/build-desktop.mjs",
+        "scripts/verify-desktop-main-utility-close.mjs",
+        "apps/desktop/src/renderer/fixtures/verify-delivery.mjs",
+        "scripts/package-desktop.mjs",
+        "scripts/test-desktop-package.mjs",
+        "scripts/test-desktop-update.mjs"
+      ],
+      "contractsAndOwnership": "contents:read; checkout credentials not persisted; unsigned package mode; generated local fixtures and original native receipt authority belong to the invoked scripts, not YAML job success. Always-upload includes renderer-delivery and next-main-utility-close evidence.",
+      "existingVerification": "Three unsigned OS jobs at source663a3a0 succeed in the existing hosted report. macOS includes the existing six delayed renderer flows.",
+      "gaps": [
+        "Workflow semantics are manually read, not YAML parser metrics.",
+        "Passing existing six flows does not establish fresh Settings-before-Advanced shared CSS availability.",
+        "Job success cannot promote global native cleanup, signed distribution or real account acceptance."
+      ]
+    },
+    {
+      "path": ".github/workflows/desktop-release.yml",
+      "sourcePin": {
+        "path": ".github/workflows/desktop-release.yml",
+        "bytes": 2701,
+        "sha256": "aa7fd08abb0be751ebeb162272fc87aa938b713713ec61b8d229728b77b13f97"
+      },
+      "physicalLines": 68,
+      "inventorySyntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.yml"
+      },
+      "fullFileManuallyRead": true,
+      "purpose": "Manual signed release preparation for three OSes without publication.",
+      "operationalConsumers": [
+        "workflow_dispatch version input and desktop-release environment",
+        "scripts/package-desktop.mjs --release",
+        "scripts/verify-desktop-release.mjs",
+        "scripts/test-desktop-package.mjs --release"
+      ],
+      "contractsAndOwnership": "Secret references are declarative; this review reads no values. Source retains review-before-publication and platform signing verification. OS jobs own temporary packaging, while release approval/identity/entitlement remain external.",
+      "existingVerification": "Source routing and policy tests in the separate desktop scope; the current 11 hosted jobs are unsigned and do not execute this manual release workflow.",
+      "gaps": [
+        "Actual signing/notarization/publisher approval and published installed-user update remain unestablished.",
+        "No secret value, action version metadata or release environment state is independently read here."
+      ]
+    },
+    {
+      "path": ".github/workflows/engine-native-windows.yml",
+      "sourcePin": {
+        "path": ".github/workflows/engine-native-windows.yml",
+        "bytes": 3688,
+        "sha256": "d51b326ec6ccfaeff82411b90d175d96f75793dbfd982d8018f2d43abbe7bd1a"
+      },
+      "physicalLines": 102,
+      "inventorySyntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.yml"
+      },
+      "fullFileManuallyRead": true,
+      "purpose": "Actual Windows2025 x64 native Job Object, output/cancel/handle/crash-restart verification on Node24 and26.",
+      "operationalConsumers": [
+        "push/PR path filters and workflow_dispatch",
+        "scripts/prepare-windows-job.mjs",
+        "scripts/verify-windows-job.mjs",
+        "scripts/windows-job-ci.mjs metadata/summary",
+        ".github/scripts/engine-ci.mjs typecheck/build/test-windows"
+      ],
+      "contractsAndOwnership": "Native gate is distinct from portable Windows selection. Original native artifact hashes/upload are recorded even after failure. No fallback to POSIX/direct-child ownership is inferred.",
+      "existingVerification": "Existing source663a3a0 hosted native Windows24/26 jobs each record 37/37 actual native cases and separate159/159 portable regressions.",
+      "gaps": [
+        "Earlier RF01-NATIVE-CI-TRIGGER finding is resolved in current source: both automatic filters include .github/scripts/** and tsconfig*.json.",
+        "The accepted native lane is x64; no arm64 runtime acceptance follows from the supported source interface."
+      ]
+    },
+    {
+      "path": ".github/workflows/engine.yml",
+      "sourcePin": {
+        "path": ".github/workflows/engine.yml",
+        "bytes": 7777,
+        "sha256": "da737813069be911bd603e7d80c7aca9f071b4f10730e67815bee03890922679"
+      },
+      "physicalLines": 191,
+      "inventorySyntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.yml"
+      },
+      "fullFileManuallyRead": true,
+      "purpose": "Headless POSIX full fixtures and local quick profiles; separate Windows portable contracts/storage gate.",
+      "operationalConsumers": [
+        "push/PR path filters and workflow_dispatch",
+        ".github/scripts/engine-ci.mjs",
+        "scripts/inspect-history-storage-cost.test.mjs",
+        "scripts/compare-history-storage-cost.test.mjs"
+      ],
+      "contractsAndOwnership": "ELECTRON_SKIP_BINARY_DOWNLOAD prevents desktop installation scope. DB contract, actual fixtures and local evaluation reports are separate steps. Portable Windows explicitly gives no native Job Object/PTY credit. Always-upload retains failures and hidden bounded evidence.",
+      "existingVerification": "Existing source663a3a0 hosted six jobs succeed; POSIX4853 total cases retain2(macOS)/64(Linux) explicit skips, Windows159/159 portable cases.",
+      "gaps": [
+        "A successful portable job is not native Windows execution.",
+        "Hosted quick reports do not replace the separate actual30minute run or historical failed Original evidence.",
+        "YAML action version comments are labels beside pinned action SHAs; external action metadata is not independently audited here."
+      ]
+    },
+    {
+      "path": "apps/desktop/index.html",
+      "sourcePin": {
+        "path": "apps/desktop/index.html",
+        "bytes": 586,
+        "sha256": "a2be3e053d7ba83c05bf53e2f0a13d47d6c859e312dd1cd008d7622bfc8645b5"
+      },
+      "physicalLines": 11,
+      "inventorySyntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.html"
+      },
+      "fullFileManuallyRead": true,
+      "purpose": "Local renderer entry, Korean document, explicit dark color scheme and restrictive CSP.",
+      "operationalConsumers": [
+        "apps/desktop/vite.config.mjs root/base ./",
+        "apps/desktop/src/renderer/main.tsx",
+        "apps/desktop/src/main/index.ts rendererPath/loadFile"
+      ],
+      "contractsAndOwnership": "Only the local root module executes; renderer main/store rely on the isolated preload bridge. connect-src none, object/base/form restrictions remain. Vite rewrites the source entry to file-relative emitted assets.",
+      "existingVerification": "Pinned integrated renderer report observes file: URL, require/process undefined, hidden isolated windows, networkattempts0 and computed dark/light media behavior.",
+      "gaps": [
+        "HTML is manually read; no HTML AST/caller graph exists in this inventory.",
+        "The CSP/meta declaration alone is not a live account or complete renderer security acceptance claim."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/advanced.css",
+      "sourcePin": {
+        "path": "apps/desktop/src/renderer/components/advanced.css",
+        "bytes": 3131,
+        "sha256": "52139f5960cc84bada280a01d4a67ddedee4921cc764cadb60da6d0b4dc7b953"
+      },
+      "physicalLines": 166,
+      "inventorySyntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.css"
+      },
+      "fullFileManuallyRead": true,
+      "purpose": "Advanced dialog/tab/preview/list presentation plus shared composer/Settings presentation rules.",
+      "operationalConsumers": [
+        "AdvancedPanel.tsx:15 imports this stylesheet lazily",
+        "App.tsx:673 delivery-select",
+        "AccountSettings.tsx:88 account-panel and132 advanced-actions",
+        "UpdateSettings.tsx:71 account-panel and85 advanced-actions",
+        "Settings.tsx:105 settings-dialog",
+        "App.tsx:46 LoadingDialog settings-dialog",
+        "Recovery.tsx:123 settings-dialog recovery-dialog"
+      ],
+      "contractsAndOwnership": "Advanced-only rules may remain lazy. Shared selectors depend on the eager composer and independently loaded Settings/Recovery ownership boundary. CSS does not authorize native operations.",
+      "existingVerification": "Existing emitted graph and actual CSS assets show advanced.css only in the AdvancedPanel CSS chunk, while initial index CSS lacks delivery-select/account-panel/advanced-actions.",
+      "gaps": [
+        "Confirmed current source/delivery gap AUDIT-CSS-SHARED-01: shared formatting appears only after AdvancedPanel is loaded.",
+        "Existing six-flow fixture opens AdvancedPanel before Settings and cannot establish fresh-first consumer CSS availability.",
+        "Actual pre/post computed-style verification and minimal remediation are newly authorized separately; this inventory review preserves the pre-fix pins."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/conversation.css",
+      "sourcePin": {
+        "path": "apps/desktop/src/renderer/components/conversation.css",
+        "bytes": 5131,
+        "sha256": "bd3c71e45e9c88b2f1da239a4680e92f8295cb95cbf69ccbefbe5224c2e42fff"
+      },
+      "physicalLines": 251,
+      "inventorySyntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.css"
+      },
+      "fullFileManuallyRead": true,
+      "purpose": "Conversation markdown tables, code viewer/output/reference/highlight and approval preview presentation.",
+      "operationalConsumers": [
+        "ConversationMarkdown.tsx:6",
+        "LazyCodeBlock.tsx:3",
+        "CodeBlock.tsx:190 conversation-code",
+        "Timeline.tsx approval preview/tool/reference classes",
+        "ReviewPane.tsx lazy file CodeBlock"
+      ],
+      "contractsAndOwnership": "LazyCodeBlock imports presentation eagerly through the review pane, so legitimate code/loading/approval consumers retain styles before the heavy code/markdown modules mount. Literal highlight classes are external-generated consumers and cannot be declared unused by simple TSX searches.",
+      "existingVerification": "Existing native delayed approval/code/view-unmount/restore diff flows and renderer units pass at matching source pins.",
+      "gaps": [
+        "No CSS AST/specificity/unused-selector proof is supplied.",
+        "Rare markdown/highlight states and all responsive/accessibility conditions are not exhaustively exercised by the six finite flows."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/renderer/styles.css",
+      "sourcePin": {
+        "path": "apps/desktop/src/renderer/styles.css",
+        "bytes": 29245,
+        "sha256": "9ee464d1c50ef71d5dce28109dd3393ef12ad57a496446dabf5606aef1198808"
+      },
+      "physicalLines": 1691,
+      "inventorySyntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.css"
+      },
+      "fullFileManuallyRead": true,
+      "purpose": "Global dark tokens, shell/sidebar/composer/timeline/review/modal/history/recovery presentation, responsive and reduced-motion rules.",
+      "operationalConsumers": [
+        "main.tsx:4 eager styles import",
+        "App.tsx eager composer/shell/loading/history classes",
+        "Sidebar.tsx",
+        "Timeline.tsx",
+        "ReviewPane.tsx:416 restore-history and419 restore-history-entry",
+        "Settings.tsx/Recovery.tsx native dialog classes"
+      ],
+      "contractsAndOwnership": "Root --text names the existing primary color. Warning body remains separate. CSS values affect presentation only; restore preview/fingerprint/native audit authority stays in the store/host/engine.",
+      "existingVerification": "Old RF01-RESTORE-HISTORY-THEME candidate is resolved: current root --text #d9dce0 and existing actual completed native history strong computed rgb(217,220,224), warning body rgb(181,170,138), both media preferences retain explicitdark.",
+      "gaps": [
+        "Needs the shared rules from advanced.css under the actual eager/independent consumers boundary.",
+        "No blanket dead-selector deletion, cascade rewrite or broad UI acceptance follows from full manual reading."
+      ]
+    },
+    {
+      "path": "packages/windows-job/src/windows_job.cc",
+      "sourcePin": {
+        "path": "packages/windows-job/src/windows_job.cc",
+        "bytes": 27645,
+        "sha256": "9ab90de8a0341876a8ce0572c49cc721a59e4f4259a0fa266d1235b273c64ca4"
+      },
+      "physicalLines": 623,
+      "inventorySyntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.cc"
+      },
+      "fullFileManuallyRead": true,
+      "purpose": "Raw N-API8 Windows Job Object ownership: atomic suspended spawn, handle-restricted inheritance, assigned resume, bounded pipe reads, process/job accounting and kill-on-close.",
+      "operationalConsumers": [
+        "binding.gyp sources/windows native build",
+        "packages/windows-job/index.js loadBinding/createJob",
+        "packages/windows-job/index.d.ts maintained public declarations",
+        "packages/engine/src/tools/command/windows-job-host.ts adapter",
+        "packages/engine/src/tools/command/backends.ts owned command execution",
+        "scripts/verify-windows-job.mjs native fixtures",
+        "scripts/desktop-native-package.mjs package integrity"
+      ],
+      "contractsAndOwnership": "N-API object tags and same-owner state reject foreign objects. Noninheritable Job handle with JOB_LIST atomically assigns before explicit assign/resume; RAII/native cleanup/finalizers close original handles. PID is diagnostic; terminate operations use original native handles. Stdout/stderr buffers copied for Electron external-buffer restrictions. Output settlement is distinct from exit and persisted uncertainty. Public maintained JS/type entries match exposed native methods.",
+      "existingVerification": "Current source matches the captured raw inventory pin. Existing hosted native Windows24/26 each37/37 provide actual x64 lifecycle, output, cancellation, handle and crash/restart scope; unsigned Windows package smoke is separate.",
+      "gaps": [
+        "No C++ AST metrics, exhaustive interleaving proof or new native execution occurs in this review.",
+        "No arm64 acceptance, no same-source local macOS native execution, and no global cleanup upgrade follow from declarations or CI job success."
+      ]
+    },
+    {
+      "path": "scripts/inspect-history-storage-cost.py",
+      "sourcePin": {
+        "path": "scripts/inspect-history-storage-cost.py",
+        "bytes": 15749,
+        "sha256": "fc4cf4fc1cd02daf98e1432b76741599fc85684048e8bc452ec3be665fa60881"
+      },
+      "physicalLines": 264,
+      "inventorySyntax": {
+        "status": "unsupported",
+        "reason": "no-parser-for-.py"
+      },
+      "fullFileManuallyRead": true,
+      "purpose": "Bounded immutable closed SQLite snapshot aggregates, schema/category digests, logical column sizes and optional dbstat page/index attribution.",
+      "operationalConsumers": [
+        "scripts/inspect-history-storage-cost.mjs inspectHistoryStorage/runHistoryStorageCli",
+        "scripts/inspect-history-storage-cost.test.mjs direct helper boundary fixtures",
+        ".github/workflows/engine.yml bounded history regression step",
+        "Existing current frozen native history storage reports"
+      ],
+      "contractsAndOwnership": "Caller must establish closed snapshot. Primary mode=ro&immutable=1/query_only/trusted_schema off; refuses nonempty WAL/rollbackjournal, nonregular/oversized files, virtual/shadow tables, generated columns and DBSTAT shadow. Query/VM/deadline/schema/row/category/output bounds; effects companions fingerprinted without opening secondary DB. No Engine/checkpoint/migration/pruning.",
+      "existingVerification": "Current helper/wrapper/test SHA pins exactly match next-history-storage-independent-review.inspectorReview. Its existing four focused boundary cases and fresh80table immutableinspection retain eight unchanged companion fingerprints. Current hosted workflow includes bounded history measurement/comparison tests.",
+      "gaps": [
+        "New Python file was absent from the earlier selected-nine manual review; this review fills its manual semantic/consumer boundary.",
+        "Physical snapshot aggregates cannot reconstruct missing historical Original DBs or their retention cause.",
+        "Immutable ignores locks; unchanged before/after digests do not rule out transient concurrent writes; CAST logical bytes and dbstat/file pages are different quantities."
+      ]
+    }
+  ],
+  "generatedSourceAbsentDeclarations": [
+    {
+      "path": "packages/engine/dist/teams/model-tools.review-test.d.ts",
+      "pin": {
+        "path": "packages/engine/dist/teams/model-tools.review-test.d.ts",
+        "bytes": 11,
+        "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+      },
+      "directReadText": "export {};\\n",
+      "sourceCounterpartsCheckedAbsent": [
+        "packages/engine/src/teams/model-tools.review-test.ts",
+        "packages/engine/src/teams/model-tools.review-test.tsx",
+        "packages/engine/src/teams/model-tools.review-test.mts",
+        "packages/engine/src/teams/model-tools.review-test.cts",
+        "packages/engine/src/teams/model-tools.review-test.js",
+        "packages/engine/src/teams/model-tools.review-test.mjs",
+        "packages/engine/src/teams/model-tools.review-test.cjs"
+      ],
+      "siblingJsPresent": true,
+      "origin": "unknown; preexisting observed build leftover, not attributed to TEST03",
+      "publicApiEffect": "Empty module declarations export no API; package types entry is dist/index.d.ts and current public index contains no reference.",
+      "runtimeDiscovery": "scripts/test-engine.mjs and portable CI discovery select .test.js; these review-test.js suffixes are not selected. They are not present in the frozen production/evaluation graph.",
+      "qualification": "Dist outputs are explicitly outside RF01 owned inventory. Presence does not imply a current source omission or API change. No source rewrite, deletion or clean/build experiment is justified by this observation.",
+      "preserved": true
+    },
+    {
+      "path": "packages/engine/dist/teams/model-tools.integration.review-test.d.ts",
+      "pin": {
+        "path": "packages/engine/dist/teams/model-tools.integration.review-test.d.ts",
+        "bytes": 11,
+        "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+      },
+      "directReadText": "export {};\\n",
+      "sourceCounterpartsCheckedAbsent": [
+        "packages/engine/src/teams/model-tools.integration.review-test.ts",
+        "packages/engine/src/teams/model-tools.integration.review-test.tsx",
+        "packages/engine/src/teams/model-tools.integration.review-test.mts",
+        "packages/engine/src/teams/model-tools.integration.review-test.cts",
+        "packages/engine/src/teams/model-tools.integration.review-test.js",
+        "packages/engine/src/teams/model-tools.integration.review-test.mjs",
+        "packages/engine/src/teams/model-tools.integration.review-test.cjs"
+      ],
+      "siblingJsPresent": true,
+      "origin": "unknown; preexisting observed build leftover, not attributed to TEST03",
+      "publicApiEffect": "Empty module declarations export no API; package types entry is dist/index.d.ts and current public index contains no reference.",
+      "runtimeDiscovery": "scripts/test-engine.mjs and portable CI discovery select .test.js; these review-test.js suffixes are not selected. They are not present in the frozen production/evaluation graph.",
+      "qualification": "Dist outputs are explicitly outside RF01 owned inventory. Presence does not imply a current source omission or API change. No source rewrite, deletion or clean/build experiment is justified by this observation.",
+      "preserved": true
+    }
+  ],
+  "rf01EvidenceBoundaries": [
+    {
+      "aspect": "Actual callers/registrations",
+      "established": "Direct stylesheet imports, JSX class consumers, workflow script routes, C++ build/loader/adapter, Python subprocess wrapper and exact test-discovery suffix are manually mapped for this scope.",
+      "notEstablished": "Whole1092 source semantic symbol resolution, callback escapes, all aliases/barrels/inheritance/computed dispatch; existing scanner explicitly symbolResolutionfalse/8unresolvedrelative/30computed sites."
+    },
+    {
+      "aspect": "Public API and compatibility",
+      "established": "Windows maintained index.js/index.d.ts/native method surface manually matches; generated empty leftovers have no exports and no current public index consumers. Related existing integration/declaration reports qualify finite storage/renderer/host changes.",
+      "notEstablished": "An inventory count or empty leftover declaration does not independently prove every public API/event/archive compatibility obligation."
+    },
+    {
+      "aspect": "DB transaction/resources/cleanup",
+      "established": "Python opens primary readonly immutable after external closure admission and never prunes; native addon owns original handles and the Engine adapter separates output/exit/cleanup uncertainty; existing finite native/source reports preserve exact contracts.",
+      "notEstablished": "No all-transaction semantic audit, complete native ownership proof, historical failed Original reconstruction or global cleanup upgrade."
+    },
+    {
+      "aspect": "Dependencies",
+      "established": "Actual window-native build/JS/types/Engine/package consumers and Python3stdlib dependency mapped; old reports explicitly claim no overall unused dependency removal.",
+      "notEstablished": "ASTexternal-or-alias imports are syntax only. Package/lock JSON is excluded by inventory; only needed local package configs are manually read here, so no exhaustive unused dependency/dependency-security or license audit."
+    },
+    {
+      "aspect": "Comments",
+      "established": "All10 unsupported files read including comments; nontrivial immutable/atomic-job/output/ownership constraints align with current operations. Source/license/header bytes preserved. The old missing--text/CItrigger notes remain historical and are resolved in current source.",
+      "notEstablished": "Physical lines include comments but ASTduplication omits trivia. No repository-wide staleTODO/boilerplate comment audit or external action-version metadata confirmation."
+    }
+  ],
+  "newFinding": {
+    "id": "AUDIT-CSS-SHARED-01",
+    "classification": "confirmed-source-and-emitted-asset-consumer-delivery-gap",
+    "severity": "P2 presentation/load-order regression",
+    "source": "apps/desktop/src/renderer/components/advanced.css",
+    "affectedConsumers": [
+      "App eager delivery-select",
+      "Settings AccountSettings/UpdateSettings account-panel/advanced-actions",
+      "LoadingDialog/Settings/Recovery settings-dialog"
+    ],
+    "evidence": [
+      "AdvancedPanel.tsx:15 is the only advanced.css import; App lazy-loads AdvancedPanel and Settings independently.",
+      "advanced.css63-69 shared flex group includes advanced-actions;138-166 hold shared delivery/card/dialog rules.",
+      "Current built index.html loads only index-D10POMwM.css, which lacks delivery-select/account-panel/advanced-actions. AdvancedPanel-CYQcx1YV.css contains all shared declarations.",
+      "Existing coding fixture opens AdvancedPanel at230 before Settings at268, so it does not cover fresh Settings-first style availability."
+    ],
+    "observableCondition": "Fresh composer/Settings before any AdvancedPanel import receives missing shared formatting; opening AdvancedPanel publishes shared rules and changes those consumers. Actual computed-style before/after observation is newly authorized separately.",
+    "noUnverifiedRuntimeClaim": "Dialog UA max-height/overflow may mitigate clipping; this source review does not assert unreachable controls or browser layout failure.",
+    "minimalAuthorizedRemediation": "Move exact currently shared declarations to eager styles.css with the actual consumer/cascade ownership; keep Advanced-only lazy CSS. Strengthen existing fixture with first-Settings style/rule/asset assertions and compare unchanged styles after Advanced.",
+    "status": "Root authorized separate minimal3-source remediation; pending pre-fix actual observation at report capture",
+    "speculativeRewriteOrLineReductionRequired": false
+  },
+  "existingResolvedFindings": [
+    {
+      "id": "RF01-NATIVE-CI-TRIGGER",
+      "currentState": "Resolved source filter includes .github/scripts/** and tsconfig*.json in push/PR; existing native hosted jobs succeed."
+    },
+    {
+      "id": "RF01-RESTORE-HISTORY-THEME",
+      "currentState": "Resolved current --text declaration and existing actual completed native history computed styles. Warning body/dark theme preserved."
+    }
+  ],
+  "existingExecutionEvidence": {
+    "remoteObservation": {
+      "path": "artifacts/next-continuation/final-audit/remote-observation.json",
+      "bytes": 1436,
+      "sha256": "68f4ec938de101173e3ec08920875e0297d565a91eabb4e1fd10c10e64e819be"
+    },
+    "threeCurrentRuns": [
+      {
+        "id": 37919775610,
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37919775610"
+      },
+      {
+        "id": 37919775855,
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37919775855"
+      },
+      {
+        "id": 37919775652,
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37919775652"
+      }
+    ],
+    "hostedReport": {
+      "path": "docs/moodcode/next-continuation-hosted-663a3a0-verification.json",
+      "bytes": 111452,
+      "sha256": "117c5b322a03c33f9c18025f5eed4c42df29c7b18552433e0d733ce9652e39a3"
+    },
+    "hostedSource": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+    "existingHostedJobs": 11,
+    "existingHostedPass": 11,
+    "newRunOrArtifactRevalidation": false,
+    "qualification": "Existing source663 hosted exact-job/file qualification is referenced, not repeated. Remote current success alone does not define scope. Release/signing/accounts, native global cleanup, all-Original byte audit, historical root cause and current30minute proof remain separate."
+  },
+  "supportingEvidencePins": [
+    {
+      "path": "docs/moodcode/refactor-inventory-method.md",
+      "bytes": 14479,
+      "sha256": "3164d66b2b1b2fb537f8c1b103bb42cda6222746af5a0ad034d6710b648fc134"
+    },
+    {
+      "path": "docs/moodcode/next-inventory-manual-review.json",
+      "bytes": 52750,
+      "sha256": "54080e898f976d5b14247217c770456b1925816d639ed4cf230938c306200848"
+    },
+    {
+      "path": "docs/moodcode/next-continuation-independent-review.json",
+      "bytes": 32721,
+      "sha256": "a60c18cc81ed8c9aeb8f08190aac95d2f2cebb1c28e220480177f3ae8e0b4af9"
+    },
+    {
+      "path": "docs/moodcode/next-integrated-renderer-delivery-verification.json",
+      "bytes": 26458,
+      "sha256": "1b656cc80b7f0d6bb8a1bea2243a14fe38899ab561fb89dbd0e15acbf8b83a66"
+    },
+    {
+      "path": "docs/moodcode/next-history-storage-independent-review.json",
+      "bytes": 19486,
+      "sha256": "b6075fbd6bb03bf175a0789ebab53e13d36c801e9fbf284fd3b0c236ded112c2"
+    },
+    {
+      "path": "artifacts/renderer-delivery/baseline-measurement.json",
+      "bytes": 17447,
+      "sha256": "bdb26e32540ead5cca7d994edb3b2a56757b9dcd1ceed94f919b275c45dc6a03"
+    },
+    {
+      "path": "artifacts/renderer-delivery/final-measurement.json",
+      "bytes": 19133,
+      "sha256": "c6a528eff9a10467bf8b018206925fd058dafebe3c7b1ea8f3746e0ed569cea3"
+    },
+    {
+      "path": "apps/desktop/dist/renderer/index.html",
+      "bytes": 682,
+      "sha256": "1ff54ce330ed23771772cdb405f0d6d8680fa36c05e5f8c164665ca23c8b2551"
+    },
+    {
+      "path": "apps/desktop/dist/renderer/assets/index-D10POMwM.css",
+      "bytes": 27529,
+      "sha256": "03c61932ac36654c509607ae726ce617db5a2bb7ae0041df9429fcc0cb6cca43"
+    },
+    {
+      "path": "apps/desktop/dist/renderer/assets/AdvancedPanel-CYQcx1YV.css",
+      "bytes": 2610,
+      "sha256": "424753a7db56b343ff5469e3f894b559779864288dbd6a9014b724f98c7343e6"
+    }
+  ],
+  "actions": {
+    "sourceEditsAtReportCapture": 0,
+    "docsTodoReadmeGitGoalMutations": 0,
+    "astsReexecuted": 0,
+    "testsBuildsCiGuiReexecuted": 0,
+    "dataOrCredentialReads": false,
+    "generatedOrOriginalOutputsDeleted": false
+  },
+  "completionQualification": "Requested10 unsupported-owned files and2 source-absent declarations are manually reviewed. This fills the selected language/consumer gap, while scanner ASTcomplete remainsfalse and repository-wide semantic/refactor acceptance is not asserted. The one concrete CSS delivery finding proceeds under a new finite remediation scope."
+}

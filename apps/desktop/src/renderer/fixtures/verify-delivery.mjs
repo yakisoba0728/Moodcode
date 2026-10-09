@@ -224,9 +224,157 @@ async function theme(media) {
   report.themes.push(result);
 }
 
+async function sharedStyles() {
+  const view = await page.evaluate(() => {
+    const read = (node, properties) => {
+      const style = getComputedStyle(node);
+      return Object.fromEntries(properties.map((key) => [key, style[key]]));
+    };
+    const rules = [...document.styleSheets]
+      .flatMap((sheet) => [...sheet.cssRules])
+      .filter((rule) => "selectorText" in rule)
+      .filter((rule) =>
+        /delivery-select|account-panel|advanced-actions|settings-dialog/.test(
+          rule.selectorText,
+        ),
+      )
+      .map((rule) => ({
+        selector: rule.selectorText,
+        declarations: rule.style.cssText,
+      }));
+    const dialog = document.querySelector("dialog[open]");
+    return {
+      viewportHeight: innerHeight,
+      delivery: read(document.querySelector(".delivery-select"), [
+        "width",
+        "marginRight",
+        "borderTopWidth",
+        "borderTopStyle",
+        "borderTopColor",
+        "backgroundColor",
+        "borderRadius",
+        "padding",
+        "fontSize",
+      ]),
+      accountPanels: [...document.querySelectorAll(".account-panel")].map(
+        (node) => ({
+          label: node.getAttribute("aria-label"),
+          panel: read(node, [
+            "margin",
+            "padding",
+            "borderTopWidth",
+            "borderTopStyle",
+            "borderTopColor",
+            "borderRadius",
+          ]),
+          heading: read(node.querySelector("h3"), ["fontSize", "margin"]),
+          actions: read(node.querySelector(".advanced-actions"), [
+            "display",
+            "alignItems",
+            "gap",
+            "flexWrap",
+            "marginTop",
+          ]),
+        }),
+      ),
+      dialog: dialog ? read(dialog, ["maxHeight", "overflowY"]) : null,
+      rules,
+    };
+  });
+  return { ...view, assets: await assets() };
+}
+function expectSharedStyles(view, settings = false) {
+  assert.deepEqual(view.delivery, {
+    width: "88px",
+    marginRight: "8px",
+    borderTopWidth: "1px",
+    borderTopStyle: "solid",
+    borderTopColor: "rgb(44, 49, 54)",
+    backgroundColor: "rgb(27, 32, 35)",
+    borderRadius: "6px",
+    padding: "6px",
+    fontSize: "11px",
+  });
+  for (const selector of [
+    ".delivery-select",
+    ".advanced-actions",
+    ".account-panel",
+    ".account-panel h3",
+    ".account-panel .advanced-actions",
+    ".settings-dialog",
+  ]) {
+    assert.ok(
+      view.rules.some((rule) => rule.selector.split(/,\s*/).includes(selector)),
+      `Missing eager ${selector} rule.`,
+    );
+  }
+  if (view.dialog)
+    assert.deepEqual(view.dialog, {
+      maxHeight: `${view.viewportHeight - 48}px`,
+      overflowY: "auto",
+    });
+  if (!settings) return;
+  assert.deepEqual(
+    view.accountPanels.map((row) => row.label),
+    ["앱 계정 관리", "앱 업데이트"],
+  );
+  for (const row of view.accountPanels) {
+    assert.deepEqual(row.panel, {
+      margin: "18px 0px",
+      padding: "14px",
+      borderTopWidth: "1px",
+      borderTopStyle: "solid",
+      borderTopColor: "rgb(44, 49, 54)",
+      borderRadius: "7px",
+    });
+    assert.deepEqual(row.heading, { fontSize: "13px", margin: "0px 0px 10px" });
+    assert.deepEqual(row.actions, {
+      display: "flex",
+      alignItems: "center",
+      gap: "10px",
+      flexWrap: "wrap",
+      marginTop: "10px",
+    });
+  }
+}
+
 try {
   const workspace = await launch("coding"),
     firstSession = await selected();
+  report.sharedStyles = { composerBeforeAdvanced: await sharedStyles() };
+  expectSharedStyles(report.sharedStyles.composerBeforeAdvanced);
+  await hold("Settings-");
+  await page.getByRole("button", { name: "모델 설정", exact: true }).click();
+  await held("Settings-");
+  await expect(
+    page.getByRole("dialog", { name: "모델 연결 불러오는 중", exact: true }),
+  ).toBeVisible();
+  report.sharedStyles.loadingSettings = await sharedStyles();
+  expectSharedStyles(report.sharedStyles.loadingSettings);
+  await page.reload();
+  await expect(
+    page.getByText("무엇을 만들어볼까요?", { exact: true }),
+  ).toBeVisible();
+  await release();
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
+  await page.getByRole("button", { name: "모델 설정", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "모델 연결", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".account-panel")).toHaveCount(2);
+  report.sharedStyles.settingsBeforeAdvanced = await sharedStyles();
+  expectSharedStyles(report.sharedStyles.settingsBeforeAdvanced, true);
+  for (const view of Object.values(report.sharedStyles)) {
+    assert.ok(
+      !view.assets.some((file) => file.startsWith("AdvancedPanel-")),
+      "Fresh Settings must not load Advanced JS or CSS.",
+    );
+  }
+  await page.getByRole("button", { name: "설정 닫기", exact: true }).click();
+  report.checks.push(
+    "Reload during a delayed settings import cannot reopen the previous dialog; the new view opens normally.",
+  );
+
   await hold("AdvancedPanel-");
   await page.getByRole("button", { name: "고급 작업", exact: true }).click();
   await held("AdvancedPanel-");
@@ -265,25 +413,26 @@ try {
     "Delayed advanced dialog cancels; reopen after session change binds only the current native session.",
   );
 
-  await hold("Settings-");
-  await page.getByRole("button", { name: "모델 설정", exact: true }).click();
-  await held("Settings-");
-  await expect(
-    page.getByRole("dialog", { name: "모델 연결 불러오는 중", exact: true }),
-  ).toBeVisible();
-  await page.reload();
-  await expect(
-    page.getByText("무엇을 만들어볼까요?", { exact: true }),
-  ).toBeVisible();
-  await release();
-  await expect(page.locator("dialog[open]")).toHaveCount(0);
   await page.getByRole("button", { name: "모델 설정", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "모델 연결", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".account-panel")).toHaveCount(2);
+  report.sharedStyles.settingsAfterAdvanced = await sharedStyles();
+  expectSharedStyles(report.sharedStyles.settingsAfterAdvanced, true);
+  const before = report.sharedStyles.settingsBeforeAdvanced,
+    after = report.sharedStyles.settingsAfterAdvanced;
+  assert.ok(after.assets.some((file) => /^AdvancedPanel-.*\.css$/.test(file)));
+  for (const key of ["delivery", "accountPanels", "dialog"]) {
+    assert.deepEqual(
+      after[key],
+      before[key],
+      `Advanced import changed shared ${key} styles.`,
+    );
+  }
   await page.getByRole("button", { name: "설정 닫기", exact: true }).click();
   report.checks.push(
-    "Reload during a delayed settings import cannot reopen the previous dialog; the new view opens normally.",
+    "Fresh composer/loading Settings/account/update styles meet explicit expected values before Advanced assets load and remain unchanged after Advanced loads.",
   );
 
   await hold("Timeline-");

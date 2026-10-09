@@ -1,0 +1,570 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-full-scope-review-continuation",
+  "recordedAt": "2026-10-09T11:41:00.757089+00:00",
+  "mainAtAudit": "f3582bd1af33754e281810fe8e8bde5e0c3373a9",
+  "previousAcceptedImplementation": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+  "status": "whole-initial-review-complete; independent-mapping-review-and-authorized-fixes-in-progress",
+  "fullGoalAchieved": false,
+  "previousTurnClassification": "progress; implementation, actual regression/CI/30-minute acceptance, documentation and main push",
+  "currentProgress": [
+    "Independently verified all eleven retained ZIPs and all 4995 declared references, plus five additional managed content references",
+    "Direct manual review of all ten currently AST-unsupported owned files and source-absent declaration evidence",
+    "Found locally fixable CSS load-order and crash/load Original-retention gaps",
+    "Reopened original whole-owned-code responsibility/caller/registration/resource/compatibility/disposition review and dispatched all 1092 files without overlap or omission"
+  ],
+  "reopenedTodo": [
+    "RF-01",
+    "RF-02",
+    "RF-06",
+    "RF-08"
+  ],
+  "preservedAcceptance": "Previous feature-level refactors and exact frozen regression/CI results remain historical valid evidence. They do not fulfill the original complete-owned review, the new fixes, or deferred live conditions.",
+  "partition": {
+    "path": "artifacts/next-continuation/full-review/partition.json",
+    "bytes": 273884,
+    "sha256": "f4875fd7739c091b6906189568588b02de80633eb39409c70b02827029d51ef9",
+    "ownedFiles": 1092,
+    "physicalLines": 314309,
+    "overlap": 0,
+    "unassigned": 0,
+    "generatedDependenciesClonesExcluded": true
+  },
+  "workers": [
+    {
+      "group": "core",
+      "threadId": "01a11db0-05c1-7132-a980-099b26d11ee9",
+      "dispatch": "reused",
+      "model": "gpt-6.1-sol",
+      "reasoning": "xhigh",
+      "stateWhenObserved": "initial-review-complete; authorized-followup-fixes-active",
+      "files": 320,
+      "physicalLines": 89951,
+      "parallelAgentsRequested": true,
+      "writeBoundary": "artifacts/next-continuation/full-review/core/",
+      "sourceEditing": "read-only except exact fixes explicitly assigned by Root",
+      "initialFilesActuallyRead": 320,
+      "initialMapPin": {
+        "path": "artifacts/next-continuation/full-review/core/file-map.json",
+        "bytes": 4194918,
+        "sha256": "bc41382a27ff1248df77f7650405ccff05263b4d33e8faa906c9269dfab5d2c0"
+      },
+      "initialFindingsPin": {
+        "path": "artifacts/next-continuation/full-review/core/findings.json",
+        "bytes": 24787,
+        "sha256": "689d0f8571eb8085a60a77ae50725f58df64a3d7328fbc7e133f5169bd25f2d8"
+      }
+    },
+    {
+      "group": "desktop-provider",
+      "threadId": "01a11d5c-affa-79c3-89e4-2cef32922796",
+      "dispatch": "reused",
+      "model": "gpt-6.1-sol",
+      "reasoning": "xhigh",
+      "stateWhenObserved": "initial-review-complete; authorized-followup-fixes-active",
+      "files": 266,
+      "physicalLines": 55734,
+      "parallelAgentsRequested": true,
+      "writeBoundary": "artifacts/next-continuation/full-review/desktop-provider/",
+      "sourceEditing": "read-only except exact fixes explicitly assigned by Root",
+      "initialFilesActuallyRead": 266,
+      "initialMapPin": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/file-map.json",
+        "bytes": 3786035,
+        "sha256": "24ed27b43c0d923c029308a508eb7eb5148e1647801e18836d06f1f12d94fd3e"
+      },
+      "initialFindingsPin": {
+        "path": "artifacts/next-continuation/full-review/desktop-provider/findings.json",
+        "bytes": 19598,
+        "sha256": "843c5a42585de51c9c2ab36e3a5e7a57ef77dbef74a13d60e6a6c99dd042177e"
+      }
+    },
+    {
+      "group": "native-tools",
+      "threadId": "01a12071-8962-71f2-b351-b9131b17f1a1",
+      "dispatch": "created",
+      "model": "gpt-6.1-sol",
+      "reasoning": "xhigh",
+      "stateWhenObserved": "initial-review-complete; authorized-followup-fixes-active",
+      "files": 298,
+      "physicalLines": 79947,
+      "parallelAgentsRequested": true,
+      "writeBoundary": "artifacts/next-continuation/full-review/native-tools/",
+      "sourceEditing": "read-only except exact fixes explicitly assigned by Root",
+      "initialFilesActuallyRead": 298,
+      "initialMapPin": {
+        "path": "artifacts/next-continuation/full-review/native-tools/file-map.json",
+        "bytes": 2320694,
+        "sha256": "56c96a4f771511c5c6d73bbe6cd796200b964f1ea19f540fab5537101ad1061a"
+      },
+      "initialFindingsPin": {
+        "path": "artifacts/next-continuation/full-review/native-tools/findings.json",
+        "bytes": 28475,
+        "sha256": "c4632fe706786739b49d5ecbcaf4390830839a73e2404455f404de93864137c1"
+      }
+    },
+    {
+      "group": "automation-ci",
+      "threadId": "01a12071-8bc3-7b92-90ee-c66fc9b24763",
+      "dispatch": "created",
+      "model": "gpt-6.1-sol",
+      "reasoning": "xhigh",
+      "stateWhenObserved": "initial-review-complete; authorized-followup-fixes-active",
+      "files": 208,
+      "physicalLines": 88677,
+      "parallelAgentsRequested": true,
+      "writeBoundary": "artifacts/next-continuation/full-review/automation-ci/",
+      "sourceEditing": "read-only except exact fixes explicitly assigned by Root",
+      "initialFilesActuallyRead": 208,
+      "initialMapPin": {
+        "path": "artifacts/next-continuation/full-review/automation-ci/file-map.json",
+        "bytes": 1355749,
+        "sha256": "a4afc27c43cedd2b717da538d6769e9146ad3e773f80bc99f4e8d05e1be05a63"
+      },
+      "initialFindingsPin": {
+        "path": "artifacts/next-continuation/full-review/automation-ci/findings.json",
+        "bytes": 48209,
+        "sha256": "4f823e183dd0928ef511e173b1ada688178bef55d0649ff0b4f0c73326e36797"
+      }
+    }
+  ],
+  "reviewCompletionConditions": [
+    "Every assigned owned file actually read with source bytes/SHA and responsibility evidence",
+    "Caller/public-entry/dynamic-registration, native/resource and SQL transaction ownership documented with exact paths/lines and explicit unknowns",
+    "API/event/DB/archive, approval/cancel/unknown/no-replay/budget boundaries and independent test expected evidence cross-checked",
+    "Fix/delete/add/retain decisions must be evidence-backed; absent search results and AST counts are not unused-code proof",
+    "All four actual file maps cover the partition exactly; current source deltas separately reviewed before acceptance",
+    "Confirmed fixes integrated with one editor per file, affected verification first and a final common-source regression/OS/GUI/package gate as required; failures and unknown Original evidence retained"
+  ],
+  "confirmedLocalFixes": [
+    {
+      "id": "GUI-CSS-01",
+      "owner": "/root/renderer_delivery",
+      "state": "affected-local-verification-and-independent-acceptance-complete; common-source-OS-integration-pending",
+      "trigger": "Eager composer/Settings/account/update shared rules live only in Advanced lazy CSS",
+      "preservation": "Move exact shared declarations to eager ownership, keep Advanced-specific loading and compare fresh-before-Advanced computed styles"
+    },
+    {
+      "id": "TEST-04",
+      "owner": "/root/continuation_contract_review",
+      "state": "affected-local-verification-and-independent-acceptance-complete; common-source-OS-integration-pending",
+      "trigger": "Parent crash/load tests bypass child after hook, delete uncertain Originals and issue numeric fallback cleanup",
+      "preservation": "Keep real SIGKILL on original ChildProcess handle, exact assertions/deadlines/no-replay/archive, settle every owned Engine and retain Original/unknown metadata"
+    },
+    {
+      "id": "DP-MCP-STDIO-CLOSE-01",
+      "owner": "desktop-provider session; one delegated editor",
+      "state": "source46-and-compiled12-passed; independent-acceptance-pending",
+      "trigger": "Plain MCP stdio observer sees cleanup false while shutdown returns fulfilled",
+      "preservation": "Existing typed cleanup-uncertain contract, memoized close/cancel/observer and native effect uncertainty"
+    },
+    {
+      "id": "DP-RESILIENCE-TEMP-01",
+      "owner": "desktop-provider session; one delegated editor",
+      "state": "script4-passed; independent-review-found-rename-success-authority-gap; minimal-correction-active",
+      "trigger": "Failed report rename leaves this invocation exclusive temporary file",
+      "preservation": "Only dispose a temporary created by this invocation, retain foreign files and original failure/no-green contract"
+    }
+  ],
+  "notYetValidatedCandidates": [
+    "CSTORE-001 native SQLite close/ownership failure reachability remains unproved; retain named test-injection gap",
+    "CSTORE-002 genuine resident child cumulative metadata proof still being constructed; source change awaits actual minimum evidence"
+  ],
+  "evidencePins": [
+    {
+      "path": "docs/moodcode/next-hosted-independent-final-audit.json",
+      "bytes": 82690,
+      "sha256": "e79133cbad5efbb4ba3e6973734e9f5dc73e091c7ac80b99e94520f39f352be4"
+    },
+    {
+      "path": "docs/moodcode/next-inventory-current-manual-review.json",
+      "bytes": 33399,
+      "sha256": "18a07c91e9521c0a8f99a783b62745b6a5d5ce81c8aeac41d058f436ea1e9449"
+    },
+    {
+      "path": "docs/moodcode/next-followup-fixes-independent-review.json",
+      "bytes": 71873,
+      "sha256": "d05d4ee912591f41f0ab1042e0a4d1abd0719db6c7111de0454ce617365bf2c9"
+    },
+    {
+      "path": "docs/moodcode/next-backend-crash-retention-verification.json",
+      "bytes": 17163,
+      "sha256": "da4d4130a8e78d04efb770201770625e7f7fd794f7a4bfa521a3fc92bc693823"
+    },
+    {
+      "path": "docs/moodcode/next-renderer-shared-style-verification.json",
+      "bytes": 64301,
+      "sha256": "92d7c79b3e4f1dd71103f48af47ce0aed57467a195d0a4e157a91d64dfd56df4"
+    }
+  ],
+  "independentHostedAudit": {
+    "implementationSource": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+    "originalZips": 11,
+    "originalZipBytes": 759747087,
+    "entries": 6752,
+    "declaredReferences": 4995,
+    "additionalManagedContentReferences": 5,
+    "mismatches": 0,
+    "independentFullByteAudit": true,
+    "doesNotVerifyNewSource": true,
+    "backendIncompleteManifests": 12,
+    "nativeCleanupNullFalsePreserved": true
+  },
+  "externalDecision": {
+    "user": "외부 검증은 준비 후 진행",
+    "status": "deferred-until-prepared-inputs",
+    "liveAuthProviderSigningPublicationExecutedThisContinuation": false,
+    "remaining": [
+      "Actual SIWC browser login/inference",
+      "Actual Anthropic account/provider/media profiles",
+      "Signed/notarized installed/published-update acceptance",
+      "Historical R-PTY-01 cause still unconfirmed"
+    ]
+  },
+  "goalPolicy": "Keep the full original objective active while meaningful local review/fix work runs. External deferral is neither completion nor permission for live validation.",
+  "updatedAt": "2026-10-09T12:29:59.391734+00:00",
+  "initialSemanticReview": {
+    "files": 1092,
+    "physicalLines": 314309,
+    "duplicatePaths": 0,
+    "unassignedPaths": 0,
+    "qualification": "All four owners published actual-read semantic maps. Independent coverage/provenance checks and current post-fix source reconciliation are pending; no whole correctness, whole source/runtime or OS acceptance inferred."
+  },
+  "reviewDispositions": {
+    "totalFindings": 36,
+    "findings": [
+      {
+        "id": "CCTX-001",
+        "group": "core",
+        "statusAtReview": "static-candidate-under-validation",
+        "path": "packages/engine/src/context/service.ts",
+        "trigger": "Context builds across ever-new persisted sessions in one long-lived ContextService.",
+        "minimumProposal": null,
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CSTORE-001",
+        "group": "core",
+        "statusAtReview": "test-injected-exception-gap-native-reachability-unproven",
+        "path": "packages/engine/src/storage/index.ts",
+        "trigger": "Maintenance test injects primary close throw; no demonstrated native sqlite3_close_v2 throw while a genuinely open valid handle remains.",
+        "minimumProposal": null,
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CEXEC-FIXTURE-001",
+        "group": "core",
+        "statusAtReview": "resolved by parent-authorized postfix source read",
+        "path": "packages/engine/src/agent-backends/fixtures/crash-backend.ts",
+        "trigger": "A reverse cleanup callback throws in crash fixture setup/cleanup, or session-load crash setup fails before ready metadata.",
+        "minimumProposal": null,
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CSTORE-002",
+        "group": "core",
+        "statusAtReview": "static-supported-budget-defect-candidate",
+        "path": "packages/engine/src/storage/child-document-reader.ts",
+        "trigger": "Verified resident child has multiple authored Runs; reader returns resident document plus all Run bodies under per-row caps without charging shared metadata bytes.",
+        "minimumProposal": null,
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CSTORE-003",
+        "group": "core",
+        "statusAtReview": "static-supported-cumulative-budget-candidate",
+        "path": "packages/engine/src/storage/tool-recovery-frontier.ts",
+        "trigger": "ACP recovery running tool reads proposed/dispatched anchor event sets through direct SELECT data repeatedly inside an evidence frame.",
+        "minimumProposal": null,
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CCTX-002",
+        "group": "core",
+        "statusAtReview": "static-supported-media-compatibility-candidate",
+        "path": "packages/engine/src/sessions/fork-native.ts",
+        "trigger": "Fork frozen source contains valid user audio/video Run media refs. Fork guard rejects attachments/documents but omits media, projection keeps role/content and tool/replay fields.",
+        "minimumProposal": null,
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CCTX-003",
+        "group": "core",
+        "statusAtReview": "static-supported-failclosed-media-recovery-candidate",
+        "path": "packages/engine/src/recovery/provider-evidence.ts",
+        "trigger": "Genuine original provider-uncertain input includes audio/video media; recovery reconstructs input with images/documents only.",
+        "minimumProposal": null,
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CCTX-004",
+        "group": "core",
+        "statusAtReview": "candidate_static",
+        "path": "packages/engine/src/context/engine-typescript-semantic.test.ts",
+        "trigger": "Native semantic fixture teardown sees original Engine.close reject, or closeAndAssert detects actual captured LSP ChildProcess is not exited/absent",
+        "minimumProposal": "Run rmSync only after closeAndAssert successfully joins every captured original Engine and proves actual native ChildProcess exit; retain base on any rejection. Add independent actual close rejection retained-file assertion.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CROOT-HARNESS-001",
+        "group": "core",
+        "statusAtReview": "source-qualified fixture retention candidate; no runtime reproduction",
+        "path": "apps/engine-harness/src/cli.integration.test.ts",
+        "trigger": "CLI integration workspace hooks always remove root. SIGKILL branch deliberately preserves interrupted native Run; failures can also leave live/unknown original child. Separate client kill hook has no condition guarding workspace deletion.",
+        "minimumProposal": null,
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CROOT-ENGINE002",
+        "group": "core",
+        "statusAtReview": "static diagnostic-only malformed trusted-host configuration candidate",
+        "path": "packages/engine/src/engine.ts",
+        "trigger": "JavaScript public createEngine(null) or createEngine(undefined) reaches constructor with malformed host options.",
+        "minimumProposal": null,
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CEXEC-PORTABLE001",
+        "group": "core",
+        "statusAtReview": "static-candidate",
+        "path": "packages/engine/src/agent-backends/client-effects-crash.integration.test.ts",
+        "trigger": "Invoke source TypeScript test in checkout or user home other than hardcoded author path, with compiled crash-effects.js absent.",
+        "minimumProposal": "Use import.meta.resolve(\"tsx\") for source loader, consistent with sibling.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CEXEC-FIXTURE002",
+        "group": "core",
+        "statusAtReview": "static-candidate",
+        "path": "packages/engine/src/runner/backend-client-read.integration.test.ts",
+        "trigger": "Canonical Engine.close rejects during a backend client-read fixture teardown, including cleanup uncertainty.",
+        "minimumProposal": "Retain Original base on failed/unknown cleanup and record bounded metadata; apply the existing retainBackendFixture policy without numeric PID signals.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "DP-MCP-STDIO-CLOSE-01",
+        "group": "desktop-provider",
+        "statusAtReview": "fixed-and-verified",
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "trigger": "cleanupGroup returns false for a surviving/permission-denied owned POSIX group, or Windows direct child exit remains unconfirmed",
+        "minimumProposal": "Reject non-sandbox shutdown when cleanupConfirmed is false with MCP_TRANSPORT_CLEANUP_UNCERTAIN and cleanupUncertain:true/transportCleanupConfirmed:false; preserve the memoized close promise.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "DP-RESILIENCE-TEMP-01",
+        "group": "desktop-provider",
+        "statusAtReview": "fixed-and-verified",
+        "path": "scripts/verify-engine-resilience.mjs",
+        "trigger": "The exclusive write succeeds, then rename to an existing directory or another I/O failure rejects. Existing test supplies a directory as --report.",
+        "minimumProposal": "Use finally to unlink only a temporary successfully created by this invocation, preserving foreign/preexisting files and the failure exit contract, as in persistent-soak saveReport.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "DP-PLUGIN-DEACTIVATE-01",
+        "group": "desktop-provider",
+        "statusAtReview": "source-confirmed",
+        "path": "packages/engine/src/plugins/index.ts",
+        "trigger": "After activation has settled, call deactivate(id) whose dispose remains pending, then call close before disposal settles. A same-id activate can also be admitted while old cleanup is pending.",
+        "minimumProposal": "Track deactivation settlement or occupy closing IDs until disposal finishes; include these promises in the bounded close join and retain failed/unconfirmed teardown.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "DP-WINDOWS-NAVIGATION-01",
+        "group": "desktop-provider",
+        "statusAtReview": "source-confirmed-behavior-product-applicability-inferred",
+        "path": "apps/desktop/src/renderer/navigation.ts",
+        "trigger": "workspaceFilePath receives a native canonical Windows root such as C:\\repo and relative reference src/a.ts.",
+        "minimumProposal": "Admit canonical Windows root formats while retaining relative forward-slash reference/traversal restrictions and host-side validation; add independent pure Windows-root expectations.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "DP-TERMINAL-UNKNOWN-LABEL-01",
+        "group": "desktop-provider",
+        "statusAtReview": "source-confirmed",
+        "path": "apps/desktop/src/renderer/components/AdvancedConnections.tsx",
+        "trigger": "Reopen a session whose persisted active terminal was rewritten to interrupted with cleanupConfirmed:null after Engine restart.",
+        "minimumProposal": "Show unknown for null/missing cleanup, or use starting/running state explicitly to choose a running label, with an independent pure display expectation.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "DP-DOCUMENT-REOPEN-TEARDOWN-01",
+        "group": "desktop-provider",
+        "statusAtReview": "source-confirmed-ordering-runtime-effect-not-executed",
+        "path": "packages/engine/src/documents/store.test.ts",
+        "trigger": "PDF reopen test registers fixture cleanup at line16, opens a second SqliteStore at line25 and registers its close afterward. Local Node26 after hooks run insertion order.",
+        "minimumProposal": "Track each owned SqliteStore in the fixture, attempt their closes independently before deletion/retention decisions, and keep uncertain/failure Original evidence.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "DP-MEDIA-CRASH-CHILD-TEARDOWN-01",
+        "group": "desktop-provider",
+        "statusAtReview": "source-confirmed-failure-path-runtime-not-executed",
+        "path": "packages/engine/src/media/segment-crash.integration.test.ts",
+        "trigger": "Failure-path crash fixture deletes original native root before owned child exit joins",
+        "minimumProposal": "Boundedly join the original child handle before deleting any native root; retain failed/unjoined Original, keep physical child settlement separate from native cleanup effects.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "DP-MEDIA-CAPACITY-DB-TEARDOWN-01",
+        "group": "desktop-provider",
+        "statusAtReview": "source-confirmed-failure-path-runtime-not-executed",
+        "path": "packages/engine/src/media/segment-boundaries.integration.test.ts",
+        "trigger": "Capacity audit assertion failure leaves independently opened SQLite handle unowned",
+        "minimumProposal": "Wrap this independent capacity audit in try/finally closing its original handle before Engine close/reopen and fixture deletion; do not open extra databases to reproduce.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "DP-PROVIDER-REQUEST-ID-REDACTION-01",
+        "group": "desktop-provider",
+        "statusAtReview": "source-confirmed-projection-runtime-not-executed",
+        "path": "packages/engine/src/provider/responses.ts",
+        "trigger": "Coding Responses progress request ID bypasses known credential redaction",
+        "minimumProposal": "Always apply redactCredentialText(responseId, known secrets) before yielding progress; retain bounded ID invariants and add coding/Codex synthetic secret-ID expectations.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CO-001",
+        "group": "native-tools",
+        "statusAtReview": "validated-static",
+        "path": null,
+        "trigger": "After the crash fixture has created its original repository/SQLite/artifacts, any later native-state, physical-byte or no-replay assertion fails. Test after hooks still run. A successful Engine.close does not mean those assertions passed.",
+        "minimumProposal": "Track completion of all intended assertions and owner closes, join the exact original child handle on every teardown path, and delete only after that verified success. Otherwise retain the original base and publish a bounded path/stderr/readiness diagnostic. Keep failures and uncertain native cleanup qualified.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "CO-002",
+        "group": "native-tools",
+        "statusAtReview": "validated-static",
+        "path": null,
+        "trigger": "A staged or working-tree selection includes a valid workspace-root filename such as ..notes.txt (or a root directory beginning with two dots).",
+        "minimumProposal": "Compute the relative path once and reject only an exact parent segment or parent plus platform separator, and absolute results. Preserve all existing canonical/link/inode checks.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "TC-01",
+        "group": "native-tools",
+        "statusAtReview": "source-proven; no runtime test executed",
+        "path": "packages/engine/src/child-tasks/engine-host.ts",
+        "trigger": "Public MoodcodeEngine.stopResidentChildTask is called with session B and a live resident task belonging to session A.",
+        "minimumProposal": "Insert this.tasks.get(sessionId, taskId); as the first statement of stopResident, before executions.get(taskId) or resident.stop(). Existing inspectResident and child approval methods already use this ordering.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "WF-001",
+        "group": "native-tools",
+        "statusAtReview": "validated-by-static-control-flow",
+        "path": "packages/engine/src/workflows/service.ts",
+        "trigger": "Start a genuine approved Original preview captured for workspace A with requestId R; call engine.startWorkflow again with that same Original preview, requestId R, approved:true and any different syntactically valid workspaceId B.",
+        "minimumProposal": "Check input.workspaceId against prior.result.record.workspaceId (or store/cross-check original preview workspace in the cache) before duplicate return, preserving clone/dedupe precedence for exact retries. Keep existing host state consumption on first start.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "WF-002",
+        "group": "native-tools",
+        "statusAtReview": "validated-by-static-contract-trace",
+        "path": "packages/engine/src/workflows/spec.ts",
+        "trigger": "Register an otherwise valid editor/validator workflow whose validator pins verification:{checkIds:['host-check'],sourcePaths:['src/foo.ts'],maxRepairs:0}; the host source is a bounded ordinary nested UTF-8 file.",
+        "minimumProposal": "Introduce/reuse a pure descriptor-safe bounded exact relative-path validator specifically for verification.sourcePaths, preserving immutable JSON, canonical ordering and duplicate checks. Align to verification host exactPath semantics instead of weakening general workflowIdentifier.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "PT-001",
+        "group": "native-tools",
+        "statusAtReview": "source-qualified",
+        "path": "packages/engine/src/code-mode/crash.integration.test.ts",
+        "trigger": "Run source TypeScript integration from any checkout whose node_modules is not at the hardcoded developer home path.",
+        "minimumProposal": "Replace hardcoded loader string with fileURLToPath(import.meta.resolve(\"tsx\")); retain compiled .js fallback.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "PT-002",
+        "group": "native-tools",
+        "statusAtReview": "source-qualified",
+        "path": "packages/engine/src/sandbox/fixtures/engine.ts",
+        "trigger": "A sandbox test reaches failed/uncertain/interrupted native state, or engine.close throws, including passing crash and persistent SQL-fault cases.",
+        "minimumProposal": "Apply the already present code-mode fixtures/engine.ts evidence-preserving teardown pattern to sandbox fixture; retain normal clean deletion.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "PT-RF02-001",
+        "group": "native-tools",
+        "statusAtReview": "source-qualified",
+        "path": "packages/engine/src/sandbox/host.ts",
+        "trigger": "Every backend registration and command admission allocates unused state; completed command flights remain strongly retained for host lifetime.",
+        "minimumProposal": "Delete exactly private registered, private flights, this.registered assignment and this.flights.set call.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "PT-003",
+        "group": "native-tools",
+        "statusAtReview": "source-qualified",
+        "path": "packages/engine/src/terminals/journal.ts",
+        "trigger": "A terminal sidecar row is within SQL character CHECK but above the 4,194,304 UTF8-byte application limit, or many maximum rows load at restart.",
+        "minimumProposal": "SELECT id and bounded metadata on load, reject excess rows, map through read(id); optionally enforce SQL CAST(payload AS BLOB) byte constraint for newly created tables without assuming old schema changes.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "PT-004",
+        "group": "native-tools",
+        "statusAtReview": "source-qualified",
+        "path": "packages/engine/src/tools/command/windows-native-test-helpers.fixture.ts",
+        "trigger": "A PID observation file or the exposed ownedPids Set is changed to an unrelated live process, or a formerly observed child PID is reused before after-hook runs. Native command-tree success does not remove already-exited IDs from this Set.",
+        "minimumProposal": "Remove numeric PID signaling from helper and command test after hooks; retain lexical abort controller plus execution promise/Original native job or original owner ChildProcess, using handle cleanup and bounded join. Do not reconstruct a cleanup capability from PID files.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "COMMANDS-001",
+        "group": "automation-ci",
+        "statusAtReview": "validated-static",
+        "path": "packages/engine/src/jobs/command-lifetime.ts",
+        "trigger": "Start a foreground lifetime, call waitForCommandLifetime without a signal while it is running, then let the real host command close while all updates to its command.lifetime.* SessionDocument fail. A persistent SQLite BEFORE UPDATE trigger on that kind is a concrete existing-test-style injection; it blocks both operation.kind=closed and operation.kind=uncertain. Host-command native closure can commit independently.",
+        "minimumProposal": "Subscribe the foreground wait promise to f.done completion/rejection immediately, sharing cleanup with wake/abort; preserve the background-transfer wake rule. Do not pretend a failed terminal record write succeeded or mint cleanup authority.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "COMMANDS-002",
+        "group": "automation-ci",
+        "statusAtReview": "validated-static",
+        "path": "packages/engine/src/jobs/owned-command-delivery-records.ts",
+        "trigger": "On Windows native windows-job-object backend, cancel a genuine approved held run_command, join its source Run until the owned job is cancelled with actual cleanupConfirmed true/no observationFailure and original Tool and Part interrupted, then capture and explicitly deliver its genuine owned result target in the same Root.",
+        "minimumProposal": "Share or mirror the exact owned-command-records.ts:683-703 Windows interrupted-event predicate inside delivery settledSql while retaining independent native close/source checks and exact event count. Permit absence only under those Windows conditions; do not broaden to arbitrary interrupted or false cleanup payloads.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "AUTO-PR-001",
+        "group": "automation-ci",
+        "statusAtReview": "confirmed-bounded-source-probe",
+        "path": "packages/engine/src/pr-feedback/host.ts",
+        "trigger": "Call public engine.startPrWatch with a valid-shaped id before that watch exists (or for denied/disabled watch); then register the missing id and try to start it.",
+        "minimumProposal": "Validate current active watch before startup; arrange map installation before loop body runs (deferred Promise continuation or equivalent ownership registration); keep finally deletion and original stop/close semantics.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "PSR-APPLY-SIGNAL-ACCESSOR",
+        "group": "automation-ci",
+        "statusAtReview": "confirmed-bounded-source-probe",
+        "path": "packages/engine/src/proposals/apply-service.ts",
+        "trigger": "A genuine new AbortController().signal has an own accessor named aborted, supplied in a descriptor-safe previewProposalApply request, or with an authentic approved original preview in applyProposal. The built-in prototype getter used by actualSignal bypasses the own accessor and succeeds; open(signal) then reads signal.aborted normally.",
+        "minimumProposal": "Use the established proposals/host.ts35-40 genuine plain AbortSignal prototype + descriptor policy (or equivalent descriptor-safe validation plus built-in getter reads), rejecting own aborted/reason/addEventListener/removeEventListener and own accessors. Apply consistently to preview and apply before open/AbortSignal.any.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      },
+      {
+        "id": "KCTX-001",
+        "group": "automation-ci",
+        "statusAtReview": "validated-static-with-independent-native-probe",
+        "path": "packages/engine/src/knowledge/context-source.ts",
+        "trigger": "A direct host/public KnowledgeContextSource.prepare or assertFresh call receives Object.create(AbortSignal.prototype), with no own aborted/reason/method properties.",
+        "minimumProposal": "Use the native AbortSignal.prototype aborted getter as a brand probe in try/catch during signal() and translate native TypeError into INVALID_KNOWLEDGE_CONTEXT; preserve executable shadow/proxy rejection first.",
+        "sourceAcceptance": "Not implied by initial review; each authorized unit requires affected verification and final integration."
+      }
+    ],
+    "provenance": "Exact owner initial findings pins above; genuine Native/account tests, controlled probes and static-only candidates distinguished in those raw findings."
+  },
+  "confirmedAdditionalWork": [
+    "Core audio/video fork/recovery source fixes passed affected checks; compiled acceptance pending",
+    "Core ACP cumulative evidence budget actual Native red confirmed; same shared readEvidenceBody fix authorized",
+    "Context Native192-session retention growth and fork-only128-capture bypass confirmed; minimum lifecycle-bound fixes authorized",
+    "Native/tools10 and Automation/CI5 findings assigned to functional parallel fix units; affected/native OS gates preserved",
+    "Desktop/provider7 further lifecycle/presentation/credential projections assigned; no live account requested"
+  ]
+}

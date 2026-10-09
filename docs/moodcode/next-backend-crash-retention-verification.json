@@ -1,0 +1,388 @@
+{
+  "schemaVersion": 1,
+  "kind": "backend-crash-parent-retention-correction",
+  "initialHead": "f3582bd1af33754e281810fe8e8bde5e0c3373a9",
+  "currentHead": "f3582bd1af33754e281810fe8e8bde5e0c3373a9",
+  "completedUtc": "2026-10-09T11:50:47.060408+00:00",
+  "scope": "Only three existing backend crash parent tests and shared backend test fixture. No product/API/DB/native owner changes by this patch; concurrent MCP/desktop/diagnostic changes owned by others are not attributed to this patch.",
+  "sourceBefore": {
+    "path": "artifacts/next-continuation/final-audit/backend-crash/source-before.json",
+    "bytes": 878,
+    "sha256": "936cfbf851cc6c091bb0b502ce32a980ee30a9882a6ca39572f0a7dac8893231"
+  },
+  "sourceFinal": [
+    {
+      "path": "packages/engine/src/agent-backends/crash.integration.test.ts",
+      "bytes": 7350,
+      "sha256": "8cdaed773e0c9be8a285066a4a9a2d054a9abc48a49ee8622a59d31b01fce159"
+    },
+    {
+      "path": "packages/engine/src/agent-backends/client-effects-crash.integration.test.ts",
+      "bytes": 7018,
+      "sha256": "35af703610f3cf748fec0439635915f80aeab7cdee9525bfe47ddc8ff0bf0be3"
+    },
+    {
+      "path": "packages/engine/src/agent-backends/session-load.native.integration.test.ts",
+      "bytes": 12627,
+      "sha256": "0a8ba3ba797ac85fcd34ce7dcb5db3309d890e4ed152ad8645a3120af80a362c"
+    },
+    {
+      "path": "packages/engine/src/agent-backends/fixtures/backend.ts",
+      "bytes": 10190,
+      "sha256": "4a87cba51ede405d058da6149c195637b960afe554ef7cd1ebcb90f2992f9c4e"
+    }
+  ],
+  "compiledReady": {
+    "path": "artifacts/next-continuation/final-audit/backend-crash/compiled-ready.json",
+    "bytes": 2517,
+    "sha256": "adaf8fc54d28873dc4eb96f1763aa18b13d71fe1d51a39fa6a852c6c2c61d39d"
+  },
+  "sourceContract": {
+    "path": "artifacts/next-continuation/final-audit/backend-crash/source-contract-comparison.json",
+    "bytes": 2042,
+    "sha256": "f997ab58e69d785c22ba73a6867d761d777e7115573d6d1fa08eba7c1241a564"
+  },
+  "preservedContracts": "Original actual fork ChildProcess SIGKILL and read-only signal0/groupExists observations, admission/noReplay/unknown/paused archive assertions, all original deadlines and platform skip remain. All assertions were retained; diff contains no assertion or budget changes.",
+  "changes": [
+    "Removed historical numeric PID/PGID cleanupGroup fallback and Original rmSync from parents. Original native supervisor cleanup observations still must pass.",
+    "Serial Engine.close attempts now finish every owned Engine after errors; preceding owned child join failure and first Engine close error keep original order and identity.",
+    "Missing original owner after hook is explicit originalAfterHookObserved false; successful parent body remains outcome unknown. All outcomes retain Original; nativeCleanupConfirmed null and databaseRemoved false.",
+    "Exclusive bounded manifest/diagnostic writes cannot replace original test/close errors. Missing ready boundary is reported with base null/manifestWritten false; it does not fabricate an Original base or cleanup authority."
+  ],
+  "build": {
+    "command": [
+      "npm",
+      "run",
+      "build"
+    ],
+    "started": "2026-10-09T11:41:13.191387+00:00",
+    "completed": "2026-10-09T11:41:13.713605+00:00",
+    "durationMs": 522.1636660007789,
+    "exitCode": 0
+  },
+  "actualVerification": [
+    {
+      "nodeVersion": "v24.20.0",
+      "phase": "compiled",
+      "counters": {
+        "tests": 24,
+        "suites": 0,
+        "pass": 24,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "durationMs": 12461.254791000101,
+      "result": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-result.json",
+        "bytes": 2196,
+        "sha256": "b3a0d102dba17ac0dc88a3f5ed33fdb995f67bba5968bdead317bf060271fcf1"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled.log",
+        "bytes": 13644,
+        "sha256": "e3603249dc09f2c169fb1e3ef22e9ca02ff5e5416e72f8218b550c45f2466e68"
+      },
+      "collector": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-collector.json",
+        "bytes": 33050,
+        "sha256": "c1de46f693371f75f5bab0d3e325294a4e34aad755d6a03bc07969ce3a49f49f"
+      },
+      "originalEvidence": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-original-evidence.json",
+        "bytes": 144749,
+        "sha256": "76217e6bcadc572d1a728d8bdb88569b3d6094e15abd620eb18104e0f26041c4"
+      },
+      "originalRoots": 19,
+      "selectedFileReferences": 190,
+      "selectedBytes": 33809489,
+      "parentUnobservedOriginals": 4,
+      "beforeAfterSelectedPinsEqual": true,
+      "productionRuntimeMismatchBefore": [],
+      "productionRuntimeMismatchAfter": []
+    },
+    {
+      "nodeVersion": "v24.20.0",
+      "phase": "source",
+      "counters": {
+        "tests": 11,
+        "suites": 0,
+        "pass": 11,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "durationMs": 8098.468124999272,
+      "result": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-source-result.json",
+        "bytes": 2119,
+        "sha256": "e357e097841b817faa69b586b34d61295fabd6535757e788f6d7fc80cdb56374"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-source.log",
+        "bytes": 6575,
+        "sha256": "5aa8775a974176e182187d9f926b1d3c0d1b367704ae0605169d96a01c11d46d"
+      },
+      "collector": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-source-collector.json",
+        "bytes": 19386,
+        "sha256": "0f4701bbbec1f5685c56d7ab15fa05662a2a69538fd70263d4f75248608aa6fe"
+      },
+      "originalEvidence": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-source-original-evidence.json",
+        "bytes": 85673,
+        "sha256": "d22c707da2e12b53c6e2f75012fa74d041a4c35efa794ffd84b77e97ad35b62a"
+      },
+      "originalRoots": 11,
+      "selectedFileReferences": 110,
+      "selectedBytes": 20138497,
+      "parentUnobservedOriginals": 4,
+      "beforeAfterSelectedPinsEqual": true,
+      "productionRuntimeMismatchBefore": [],
+      "productionRuntimeMismatchAfter": []
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "phase": "compiled",
+      "counters": {
+        "tests": 24,
+        "suites": 0,
+        "pass": 24,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "durationMs": 17425.987625001653,
+      "result": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-result.json",
+        "bytes": 2745,
+        "sha256": "e730e2002f61cf7c544b1262314ea85403d1c8a0ca3d337acb814fdf5d1c3a42"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled.log",
+        "bytes": 13654,
+        "sha256": "b244fecd0aee6e3b493c9589a5e48b3b9b30ee879aa8ec3ab62ed03918c645d3"
+      },
+      "collector": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-collector.json",
+        "bytes": 33050,
+        "sha256": "561f7c6c5e02b9e526507d269fc25991ac1f27c068b7b8a53ffed79a029b249c"
+      },
+      "originalEvidence": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-original-evidence.json",
+        "bytes": 144749,
+        "sha256": "8e48086bd64dadd9aec487202a6df81d7ce324baac1bee12afd9781062bbc61b"
+      },
+      "originalRoots": 19,
+      "selectedFileReferences": 190,
+      "selectedBytes": 33899464,
+      "parentUnobservedOriginals": 4,
+      "beforeAfterSelectedPinsEqual": true,
+      "productionRuntimeMismatchBefore": [
+        {
+          "before": {
+            "path": "packages/engine/src/mcp/stdio.ts",
+            "bytes": 9998,
+            "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+          },
+          "now": {
+            "path": "packages/engine/src/mcp/stdio.ts",
+            "bytes": 10032,
+            "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+          }
+        }
+      ],
+      "productionRuntimeMismatchAfter": [
+        {
+          "before": {
+            "path": "packages/engine/src/mcp/stdio.ts",
+            "bytes": 9998,
+            "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+          },
+          "now": {
+            "path": "packages/engine/src/mcp/stdio.ts",
+            "bytes": 10032,
+            "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+          }
+        }
+      ]
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "phase": "source",
+      "counters": {
+        "tests": 11,
+        "suites": 0,
+        "pass": 11,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "durationMs": 8971.60737500053,
+      "result": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-source-result.json",
+        "bytes": 2667,
+        "sha256": "0f66787bbd638c2a6b476cd637fc21877054e2a510703543f20ad8b566385dee"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-source.log",
+        "bytes": 6574,
+        "sha256": "86e4cf8fc5207804a986b3fb51d4dd08e3147b9640e25abc84a63ef32511a5fe"
+      },
+      "collector": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-source-collector.json",
+        "bytes": 19386,
+        "sha256": "6b547a4d5703e6df255041baa9c5ef722dd0c955bb389d887c700952998893e1"
+      },
+      "originalEvidence": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-source-original-evidence.json",
+        "bytes": 85673,
+        "sha256": "6d901a01a8c4dd2d36bc59e2c48d5fa8d69e74cfaa5ffc2455ff8063dce78a5b"
+      },
+      "originalRoots": 11,
+      "selectedFileReferences": 110,
+      "selectedBytes": 20216321,
+      "parentUnobservedOriginals": 4,
+      "beforeAfterSelectedPinsEqual": true,
+      "productionRuntimeMismatchBefore": [
+        {
+          "before": {
+            "path": "packages/engine/src/mcp/stdio.ts",
+            "bytes": 9998,
+            "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+          },
+          "now": {
+            "path": "packages/engine/src/mcp/stdio.ts",
+            "bytes": 10032,
+            "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+          }
+        }
+      ],
+      "productionRuntimeMismatchAfter": [
+        {
+          "before": {
+            "path": "packages/engine/src/mcp/stdio.ts",
+            "bytes": 9998,
+            "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+          },
+          "now": {
+            "path": "packages/engine/src/mcp/stdio.ts",
+            "bytes": 10032,
+            "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+          }
+        }
+      ]
+    }
+  ],
+  "ownedErrorNativeProbes": [
+    {
+      "nodeVersion": "v24.20.0",
+      "result": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-owner-error-result.json",
+        "bytes": 1110,
+        "sha256": "092216205ec3846b2d3e70b924b4391e54c717e2143cd9627735b1ad1565f558"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-owner-error.log",
+        "bytes": 983,
+        "sha256": "fd953be3f24b87de878279e92d253e492e9db48eac3282855fcccbf53e1647d9"
+      },
+      "original": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-backend-evidence-JkYFCx/moodcode-backend-consumer-uLKIq6",
+      "primarySha256": "eceb0958ccdf236d4003a58f38db33c0e249fcffa2cafb8e503d09300fff4ef2",
+      "handlesClosed": [
+        true,
+        true
+      ],
+      "firstErrorIdentityPreserved": true,
+      "diagnosticErrorMasked": false,
+      "retention": {
+        "schemaVersion": 1,
+        "kind": "backend-fixture-retention",
+        "base": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-backend-evidence-JkYFCx/moodcode-backend-consumer-uLKIq6",
+        "outcome": "close-error",
+        "ownedEngines": 2,
+        "closedEngines": 1,
+        "closeFailures": 1,
+        "ownerExitFailures": 1,
+        "originalAfterHookObserved": false,
+        "nativeCleanupConfirmed": null,
+        "databaseRemoved": false
+      }
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "result": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-owner-error-result.json",
+        "bytes": 1183,
+        "sha256": "731d434c25396a11dc0d571f60ae59a88835bc77633a9d5d9b319ecb2ac9780f"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-owner-error.log",
+        "bytes": 1056,
+        "sha256": "6168fd1e7516dc8e702ce3ab19f2806217cd87f6961b0ab3de5f9107a54f3529"
+      },
+      "original": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendOwnerError-8dc513384db74b7889a3aa8f0e0b4c53/moodcode-backend-evidence-S8tOCM/moodcode-backend-consumer-zQSLkC",
+      "primarySha256": "fffc8f452aa8b50dba3449661bd06960aa25221f303a522d5978d22b6339f451",
+      "handlesClosed": [
+        true,
+        true
+      ],
+      "firstErrorIdentityPreserved": true,
+      "diagnosticErrorMasked": false,
+      "retention": {
+        "schemaVersion": 1,
+        "kind": "backend-fixture-retention",
+        "base": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendOwnerError-8dc513384db74b7889a3aa8f0e0b4c53/moodcode-backend-evidence-S8tOCM/moodcode-backend-consumer-zQSLkC",
+        "outcome": "close-error",
+        "ownedEngines": 2,
+        "closedEngines": 1,
+        "closeFailures": 1,
+        "ownerExitFailures": 1,
+        "originalAfterHookObserved": false,
+        "nativeCleanupConfirmed": null,
+        "databaseRemoved": false
+      }
+    }
+  ],
+  "probeQualification": "Two genuine Native Engine handles and an actual dispatched request. First close completes natively then a controlled close rejection is injected; a preceding controlled owner-exit error and throwing diagnostic check first-error identity and continued owned closes. Actual OS ChildProcess exit-error or missing-ready failure was not reproduced.",
+  "runtimeQualification": "At build and the Node24 compiled/source test phases the frozen771 source/effective-runtime graph was byte exact. During Node26, another owner changed mcp/stdio.ts by34B; compiled stdio.js remained16f1bb24 and before/after selected pins remained stable. Each mismatch is preserved in raw manifests. The four changed test/fixture files are outside frozen production771; no whole-current-runtime equivalence claim is made.",
+  "originalQualification": "All fresh Original directories and raw files retained; four killed owner Originals per phase (16 total) have unknown manifests and copy/currentOriginal SHA match. Selected diagnostics are not complete/coherent archive backups, Native cleanup proof or live replay authority. Old missing historical CI/PTY Originals are not recovered; source-policy correction does not establish old failure cause.",
+  "coverageLimits": "Actual macOS arm64 Node24.20.0 and Node26.9.0 focused source/compiled validation only. No live accounts, deployed/signing flow, CI, full regression or30-minute rerun was performed. Root owns final source integration/CI and cross-domain changes.",
+  "independentReview": "external_acceptance_audit final source review requested; pending notification.",
+  "completeFreshOriginalVerification": {
+    "qualification": "Read-only verification of all actual collector manifests in this correction scope, including shared retention child regressions and owned-error probes; no test rerun.",
+    "node24": {
+      "manifests": 10,
+      "uniqueOriginals": 36,
+      "selectedReferences": 381,
+      "selectedBytes": 67087348,
+      "incompleteManifests": 3,
+      "allOriginalsPresent": true,
+      "allCopyOriginalManifestHashesMatch": true
+    },
+    "node26": "Independent renderer_delivery report: ten manifests,36 fresh Originals,381 selected references,all hashes match; partial/refusal/metadata-write incomplete statuses preserved.",
+    "evidence": [
+      {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-all-originals-verification.json",
+        "bytes": 238925,
+        "sha256": "ee03bb0e7b14d138b2107d25c9339788603510b59fcfc7f7cfd17f8ab8372419"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-independent-verification.json",
+        "bytes": 65130,
+        "sha256": "154605ef3609bcd9eced87ebe18664d2ae0f544b095b909c5f41b9044ab28a3b"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-independent-native-hashes.json",
+        "bytes": 397162,
+        "sha256": "870a847b42d44feb0e29badcd945cb255e81cf3908af1dfd6b84aa880c154a95"
+      }
+    ],
+    "nativeCleanupConfirmed": null,
+    "fullFixtureCopy": false
+  }
+}

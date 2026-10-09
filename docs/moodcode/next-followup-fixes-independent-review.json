@@ -1,0 +1,1639 @@
+{
+  "schemaVersion": 1,
+  "kind": "followup-seven-file-fixes-final-independent-readonly-review",
+  "observedUtc": "2026-10-09T12:16:52.670304+00:00",
+  "scope": {
+    "backendSourceFiles": 4,
+    "rendererSourceFiles": 3,
+    "status": "accepted-seven-file-fix-scope-with-explicit-limits",
+    "noExecution": "No test, build, GUI, Native, SQLite, CI, previous runtime, live account, PID signal, deletion, source/docs/git/goal operation was run. Hashes and JSON/log metadata only."
+  },
+  "actionableFindings": [],
+  "errors": [],
+  "wholeGoalCompletionAsserted": false,
+  "nativeCleanupConfirmed": null,
+  "externalAcceptance": "deferred-until-user-prepared-inputs",
+  "historicalHosted663Qualification": "Previously frozen hosted acceptance remains historical; it is not acceptance of these seven fixes or separate current MCP/CLI fixes.",
+  "frozenLatestProducerReports": [
+    {
+      "path": "artifacts/next-continuation/final-audit/backend-crash/final-report.json",
+      "bytes": 17163,
+      "sha256": "da4d4130a8e78d04efb770201770625e7f7fd794f7a4bfa521a3fc92bc693823"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/renderer-style/post-fix-verification.json",
+      "bytes": 64301,
+      "sha256": "92d7c79b3e4f1dd71103f48af47ce0aed57467a195d0a4e157a91d64dfd56df4"
+    }
+  ],
+  "priorDraftQualification": "Earlier backend c10ff408 draft was read structurally before the final da4d4130 publication. This result admits only the latest pinned final report plus directly read raw evidence; no intermediate producer draft was overwritten.",
+  "currentExactSourcePins": [
+    {
+      "path": "packages/engine/src/agent-backends/crash.integration.test.ts",
+      "bytes": 7350,
+      "sha256": "8cdaed773e0c9be8a285066a4a9a2d054a9abc48a49ee8622a59d31b01fce159"
+    },
+    {
+      "path": "packages/engine/src/agent-backends/client-effects-crash.integration.test.ts",
+      "bytes": 7018,
+      "sha256": "35af703610f3cf748fec0439635915f80aeab7cdee9525bfe47ddc8ff0bf0be3"
+    },
+    {
+      "path": "packages/engine/src/agent-backends/session-load.native.integration.test.ts",
+      "bytes": 12627,
+      "sha256": "0a8ba3ba797ac85fcd34ce7dcb5db3309d890e4ed152ad8645a3120af80a362c"
+    },
+    {
+      "path": "packages/engine/src/agent-backends/fixtures/backend.ts",
+      "bytes": 10190,
+      "sha256": "4a87cba51ede405d058da6149c195637b960afe554ef7cd1ebcb90f2992f9c4e"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/advanced.css",
+      "bytes": 2617,
+      "sha256": "4a8aed71d1040d91a577c393949dad2f4712a591e613c6875f7550842dbe264d"
+    },
+    {
+      "path": "apps/desktop/src/renderer/styles.css",
+      "bytes": 29794,
+      "sha256": "19180fd4423b525046ff59fdc5c6a288fe1c44e76bdcbcb1aba321328be99e2a"
+    },
+    {
+      "path": "apps/desktop/src/renderer/fixtures/verify-delivery.mjs",
+      "bytes": 25145,
+      "sha256": "0ae537cadfe5aea5c3248f20992e2f731e80f01ce09d9368f6a3d6e3f5a840da"
+    }
+  ],
+  "currentExactCompiledBackend4": [
+    {
+      "path": "packages/engine/dist/agent-backends/crash.integration.test.js",
+      "bytes": 6922,
+      "sha256": "df27d5c12332ca09201cbc47b57b6cd3bdabe35b1ac2f66232537d61e4fc8ad2"
+    },
+    {
+      "path": "packages/engine/dist/agent-backends/client-effects-crash.integration.test.js",
+      "bytes": 6681,
+      "sha256": "e2ff93619f80770b25959d08f567fd63afdd97f16b15565e7fcca5c7480db86e"
+    },
+    {
+      "path": "packages/engine/dist/agent-backends/session-load.native.integration.test.js",
+      "bytes": 11963,
+      "sha256": "a4d38a4bc09924b85f1e5ebcfd0abbda8a0a1e50f686edd2f012ee6bc91c5254"
+    },
+    {
+      "path": "packages/engine/dist/agent-backends/fixtures/backend.js",
+      "bytes": 9489,
+      "sha256": "a112398ed3ff11d6532164913e4a7a29ea1cb6573162eb9a2a73cff9880d152d"
+    }
+  ],
+  "currentSeparateMcpPins": [
+    {
+      "path": "packages/engine/dist/mcp/stdio.js",
+      "bytes": 10573,
+      "sha256": "4d53d3cc844cc392abd7fe9b79ad6d3ec29025726debd83be7d67b41cade23fe"
+    },
+    {
+      "path": "packages/engine/src/mcp/stdio.ts",
+      "bytes": 10032,
+      "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+    }
+  ],
+  "backendAllNativeEvidence": {
+    "node24": {
+      "manifests": [
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/backend-fixture-copy-l7PYlr/manifest.json",
+          "bytes": 3731,
+          "sha256": "6945e042e411c7517541fd0ea5d54ff7b30368279f329c08b818ce8cc6eea14e"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-selected-diagnostics/backend-fixture-copy-QTvBvP/manifest.json",
+          "bytes": 2965,
+          "sha256": "1da64f19cad46a6eb6d1a2eba8174cfa37f78140332a40af7843fc0f25e7ce81"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-selected-diagnostics/backend-fixture-copy-gP5b7J/manifest.json",
+          "bytes": 3869,
+          "sha256": "903c4e6c5a8316c68e2a35ed53f8a6e397a8c310e882554a94dd3156f2888dc4"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-selected-diagnostics/backend-fixture-copy-leEGnY/manifest.json",
+          "bytes": 2965,
+          "sha256": "dbb234c4be4fe721386da86c572535e15efa48dbc53b109187ab503b9875cf6b"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-selected-diagnostics/backend-fixture-copy-nyZxeP/manifest.json",
+          "bytes": 1385,
+          "sha256": "06a00ea1ebd73710ebc228c6886ed12a610975e95b98269bcc3583727712a739"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-selected-diagnostics/backend-fixture-copy-sQSkGf/manifest.json",
+          "bytes": 3612,
+          "sha256": "f02f06cd25b092d428e829a6ecb26571535427bf5db6963edae39a8f249d6c19"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-selected-diagnostics/backend-fixture-copy-vC04Au/manifest.json",
+          "bytes": 2861,
+          "sha256": "0830f67595b1ca87bd0d0ea21b7d5335de901a3874e791e30d45dad892c27f12"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-selected-diagnostics/backend-fixture-copy-xBG3Ib/manifest.json",
+          "bytes": 44630,
+          "sha256": "dffb8285869b6c5085693c6c91d0523dd6cfb7f1920fda9f72147ca37e5abf8d"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-selected-diagnostics/backend-fixture-copy-xFiOTo/manifest.json",
+          "bytes": 2965,
+          "sha256": "4de518a03016bc0e9df3f4178579ea364a4e7f557cd7862f2cc70b3285e19f2d"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node24-source-selected-diagnostics/backend-fixture-copy-mY8zt8/manifest.json",
+          "bytes": 26126,
+          "sha256": "faa64cf713569012104d2d6b4c1c284b88d3fdf0a71c60751e5796bd5903f80b"
+        }
+      ],
+      "freshOriginals": 36,
+      "selectedReferences": 381,
+      "selectedBytes": 67087348,
+      "incompleteManifests": 3,
+      "metadataOutcomeCounts": {
+        "success": 23,
+        "unknown": 9,
+        "failure": 1,
+        "close-error": 2
+      },
+      "metadataWriteRefusal": [
+        {
+          "original": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-1a6f9aee6ff143af84e559f347d84eae/moodcode-backend-evidence-v7TOC1/moodcode-backend-consumer-gh7vmX",
+          "reason": "expected-metadata-write-refusal-directory-retained"
+        }
+      ],
+      "allDirectOriginalCopyManifestHashesMatch": true,
+      "nativeCleanupConfirmed": null,
+      "fullFixtureCopy": false
+    },
+    "node26": {
+      "manifests": [
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-selected-diagnostics/backend-fixture-copy-0xiiJh/manifest.json",
+          "bytes": 2965,
+          "sha256": "de46d21db4a4bdea75077c50903e5dfaa9caa6d923fa3dbd5decd649756f01ee"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-selected-diagnostics/backend-fixture-copy-DH9sUU/manifest.json",
+          "bytes": 2965,
+          "sha256": "7381aea218e85d9a405b99d97ea6e44aef9e224fcff16c6ee4ed81511e236aa7"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-selected-diagnostics/backend-fixture-copy-VjKSnc/manifest.json",
+          "bytes": 1385,
+          "sha256": "8dd675f1e5e3370e2eae0a9ea013cb74de00fbceb45619e80e226df9d21fedee"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-selected-diagnostics/backend-fixture-copy-W8oUaq/manifest.json",
+          "bytes": 3612,
+          "sha256": "f32efc11ab939bd7dcd72b3415464c746c94f2164d83c1a1e9306a17c6370123"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-selected-diagnostics/backend-fixture-copy-d9J84x/manifest.json",
+          "bytes": 3869,
+          "sha256": "d3d36dc0d094f2472b7a4ea634ac9bc93d03aa4001591888c4430bb7ef9f3951"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-selected-diagnostics/backend-fixture-copy-eDbPcu/manifest.json",
+          "bytes": 2965,
+          "sha256": "8100d9d9060654915696913679b9d895f6e4104c27f69584408c1cfc4174e80c"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-selected-diagnostics/backend-fixture-copy-kQnQ5D/manifest.json",
+          "bytes": 2861,
+          "sha256": "cf02a200727727142ca8f7dfc0ee1afd523d7fda76f4eabab84999e6a6f03204"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-selected-diagnostics/backend-fixture-copy-vVdhy9/manifest.json",
+          "bytes": 44630,
+          "sha256": "f1a1b57d839373b227cd595457265ad79b45faa76a3ccdc818e3b9aebaefea3b"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/node26-source-selected-diagnostics/backend-fixture-copy-TIcw4L/manifest.json",
+          "bytes": 26126,
+          "sha256": "240d477d0291da57f1afccf556c8fdd4491db0235c073705c2be94ddb5ffc68a"
+        },
+        {
+          "path": "artifacts/next-continuation/final-audit/backend-crash/backend-fixture-copy-rwq1kc/manifest.json",
+          "bytes": 3805,
+          "sha256": "f85bc55b95bf97c7b34addf1d02936ced1210e7af9f9fb844394d9dd64830544"
+        }
+      ],
+      "freshOriginals": 36,
+      "selectedReferences": 381,
+      "selectedBytes": 67263413,
+      "incompleteManifests": 3,
+      "metadataOutcomeCounts": {
+        "success": 23,
+        "unknown": 9,
+        "failure": 1,
+        "close-error": 2
+      },
+      "metadataWriteRefusal": [
+        {
+          "original": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-99c72a535c174f53bacc83f8df103bdf/moodcode-backend-evidence-OV8VBC/moodcode-backend-consumer-Px1WRR",
+          "reason": "expected-metadata-write-refusal-directory-retained"
+        }
+      ],
+      "allDirectOriginalCopyManifestHashesMatch": true,
+      "nativeCleanupConfirmed": null,
+      "fullFixtureCopy": false
+    }
+  },
+  "intentionalIncompleteDiagnosticCopies": [
+    {
+      "node": "node24",
+      "manifest": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-selected-diagnostics/backend-fixture-copy-nyZxeP/manifest.json",
+        "bytes": 1385,
+        "sha256": "06a00ea1ebd73710ebc228c6886ed12a610975e95b98269bcc3583727712a739"
+      },
+      "failure": "BACKEND_EVIDENCE_BYTE_OR_FILE_LIMIT",
+      "selectedFiles": 1,
+      "refusedRoots": [],
+      "limits": {
+        "entries": 1024,
+        "roots": 512,
+        "files": 8192,
+        "bytes": 536870912,
+        "fileBytes": 1
+      }
+    },
+    {
+      "node": "node24",
+      "manifest": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-selected-diagnostics/backend-fixture-copy-sQSkGf/manifest.json",
+        "bytes": 3612,
+        "sha256": "f02f06cd25b092d428e829a6ecb26571535427bf5db6963edae39a8f249d6c19"
+      },
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ROOT",
+      "selectedFiles": 11,
+      "refusedRoots": [
+        {
+          "original": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-1a6f9aee6ff143af84e559f347d84eae/moodcode-backend-evidence-x0Evzh/moodcode-backend-consumer-ordinary",
+          "reason": "not-directory"
+        },
+        {
+          "original": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-1a6f9aee6ff143af84e559f347d84eae/moodcode-backend-evidence-x0Evzh/moodcode-backend-consumer-symlink",
+          "reason": "not-directory"
+        }
+      ],
+      "limits": {
+        "entries": 1024,
+        "roots": 512,
+        "files": 8192,
+        "bytes": 536870912,
+        "fileBytes": 67108864
+      }
+    },
+    {
+      "node": "node24",
+      "manifest": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-selected-diagnostics/backend-fixture-copy-vC04Au/manifest.json",
+        "bytes": 2861,
+        "sha256": "0830f67595b1ca87bd0d0ea21b7d5335de901a3874e791e30d45dad892c27f12"
+      },
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ENTRY",
+      "selectedFiles": 9,
+      "refusedRoots": [],
+      "limits": {
+        "entries": 1024,
+        "roots": 512,
+        "files": 8192,
+        "bytes": 536870912,
+        "fileBytes": 67108864
+      }
+    },
+    {
+      "node": "node26",
+      "manifest": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-selected-diagnostics/backend-fixture-copy-VjKSnc/manifest.json",
+        "bytes": 1385,
+        "sha256": "8dd675f1e5e3370e2eae0a9ea013cb74de00fbceb45619e80e226df9d21fedee"
+      },
+      "failure": "BACKEND_EVIDENCE_BYTE_OR_FILE_LIMIT",
+      "selectedFiles": 1,
+      "refusedRoots": [],
+      "limits": {
+        "entries": 1024,
+        "roots": 512,
+        "files": 8192,
+        "bytes": 536870912,
+        "fileBytes": 1
+      }
+    },
+    {
+      "node": "node26",
+      "manifest": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-selected-diagnostics/backend-fixture-copy-W8oUaq/manifest.json",
+        "bytes": 3612,
+        "sha256": "f32efc11ab939bd7dcd72b3415464c746c94f2164d83c1a1e9306a17c6370123"
+      },
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ROOT",
+      "selectedFiles": 11,
+      "refusedRoots": [
+        {
+          "original": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-99c72a535c174f53bacc83f8df103bdf/moodcode-backend-evidence-58UHJf/moodcode-backend-consumer-ordinary",
+          "reason": "not-directory"
+        },
+        {
+          "original": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-99c72a535c174f53bacc83f8df103bdf/moodcode-backend-evidence-58UHJf/moodcode-backend-consumer-symlink",
+          "reason": "not-directory"
+        }
+      ],
+      "limits": {
+        "entries": 1024,
+        "roots": 512,
+        "files": 8192,
+        "bytes": 536870912,
+        "fileBytes": 67108864
+      }
+    },
+    {
+      "node": "node26",
+      "manifest": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-selected-diagnostics/backend-fixture-copy-kQnQ5D/manifest.json",
+        "bytes": 2861,
+        "sha256": "cf02a200727727142ca8f7dfc0ee1afd523d7fda76f4eabab84999e6a6f03204"
+      },
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ENTRY",
+      "selectedFiles": 9,
+      "refusedRoots": [],
+      "limits": {
+        "entries": 1024,
+        "roots": 512,
+        "files": 8192,
+        "bytes": 536870912,
+        "fileBytes": 67108864
+      }
+    }
+  ],
+  "backendActualPhases": [
+    {
+      "nodeVersion": "v24.20.0",
+      "phase": "compiled",
+      "result": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-result.json",
+        "bytes": 2196,
+        "sha256": "b3a0d102dba17ac0dc88a3f5ed33fdb995f67bba5968bdead317bf060271fcf1"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled.log",
+        "bytes": 13644,
+        "sha256": "e3603249dc09f2c169fb1e3ef22e9ca02ff5e5416e72f8218b550c45f2466e68"
+      },
+      "logDerivedCounters": {
+        "tests": 24,
+        "suites": 0,
+        "pass": 24,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "exitCode": 0,
+      "collectorExitCode": 0,
+      "before": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-before.json",
+        "bytes": 2744,
+        "sha256": "daa4ae6bc22994470f42a8edcfc1e67ff258f3069ef44d3aa0ec4bd5cf01760c"
+      },
+      "after": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-compiled-after.json",
+        "bytes": 2744,
+        "sha256": "daa4ae6bc22994470f42a8edcfc1e67ff258f3069ef44d3aa0ec4bd5cf01760c"
+      },
+      "recordedSelectedPinsStable": true,
+      "productionRuntimeQualification": {
+        "files": 771,
+        "bytes": 11899924,
+        "frozenGraphSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+        "mismatches": []
+      },
+      "originalRoots": 19,
+      "selectedReferences": 190
+    },
+    {
+      "nodeVersion": "v24.20.0",
+      "phase": "source",
+      "result": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-source-result.json",
+        "bytes": 2119,
+        "sha256": "e357e097841b817faa69b586b34d61295fabd6535757e788f6d7fc80cdb56374"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-source.log",
+        "bytes": 6575,
+        "sha256": "5aa8775a974176e182187d9f926b1d3c0d1b367704ae0605169d96a01c11d46d"
+      },
+      "logDerivedCounters": {
+        "tests": 11,
+        "suites": 0,
+        "pass": 11,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "exitCode": 0,
+      "collectorExitCode": 0,
+      "before": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-source-before.json",
+        "bytes": 2744,
+        "sha256": "daa4ae6bc22994470f42a8edcfc1e67ff258f3069ef44d3aa0ec4bd5cf01760c"
+      },
+      "after": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-source-after.json",
+        "bytes": 2744,
+        "sha256": "daa4ae6bc22994470f42a8edcfc1e67ff258f3069ef44d3aa0ec4bd5cf01760c"
+      },
+      "recordedSelectedPinsStable": true,
+      "productionRuntimeQualification": {
+        "files": 771,
+        "bytes": 11899924,
+        "frozenGraphSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+        "mismatches": []
+      },
+      "originalRoots": 11,
+      "selectedReferences": 110
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "phase": "compiled",
+      "result": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-result.json",
+        "bytes": 2745,
+        "sha256": "e730e2002f61cf7c544b1262314ea85403d1c8a0ca3d337acb814fdf5d1c3a42"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled.log",
+        "bytes": 13654,
+        "sha256": "b244fecd0aee6e3b493c9589a5e48b3b9b30ee879aa8ec3ab62ed03918c645d3"
+      },
+      "logDerivedCounters": {
+        "tests": 24,
+        "suites": 0,
+        "pass": 24,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "exitCode": 0,
+      "collectorExitCode": 0,
+      "before": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-before.json",
+        "bytes": 3157,
+        "sha256": "4b4cf5e18d7ce4285d3ba7bac6599cf745ba766409db224e65cd7a4d2347e379"
+      },
+      "after": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-compiled-after.json",
+        "bytes": 3157,
+        "sha256": "4b4cf5e18d7ce4285d3ba7bac6599cf745ba766409db224e65cd7a4d2347e379"
+      },
+      "recordedSelectedPinsStable": true,
+      "productionRuntimeQualification": {
+        "files": 771,
+        "bytes": 11899958,
+        "frozenGraphSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+        "mismatches": [
+          {
+            "before": {
+              "path": "packages/engine/src/mcp/stdio.ts",
+              "bytes": 9998,
+              "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+            },
+            "now": {
+              "path": "packages/engine/src/mcp/stdio.ts",
+              "bytes": 10032,
+              "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+            }
+          }
+        ]
+      },
+      "originalRoots": 19,
+      "selectedReferences": 190
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "phase": "source",
+      "result": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-source-result.json",
+        "bytes": 2667,
+        "sha256": "0f66787bbd638c2a6b476cd637fc21877054e2a510703543f20ad8b566385dee"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-source.log",
+        "bytes": 6574,
+        "sha256": "86e4cf8fc5207804a986b3fb51d4dd08e3147b9640e25abc84a63ef32511a5fe"
+      },
+      "logDerivedCounters": {
+        "tests": 11,
+        "suites": 0,
+        "pass": 11,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "exitCode": 0,
+      "collectorExitCode": 0,
+      "before": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-source-before.json",
+        "bytes": 3157,
+        "sha256": "4b4cf5e18d7ce4285d3ba7bac6599cf745ba766409db224e65cd7a4d2347e379"
+      },
+      "after": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-source-after.json",
+        "bytes": 3157,
+        "sha256": "4b4cf5e18d7ce4285d3ba7bac6599cf745ba766409db224e65cd7a4d2347e379"
+      },
+      "recordedSelectedPinsStable": true,
+      "productionRuntimeQualification": {
+        "files": 771,
+        "bytes": 11899958,
+        "frozenGraphSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+        "mismatches": [
+          {
+            "before": {
+              "path": "packages/engine/src/mcp/stdio.ts",
+              "bytes": 9998,
+              "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+            },
+            "now": {
+              "path": "packages/engine/src/mcp/stdio.ts",
+              "bytes": 10032,
+              "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+            }
+          }
+        ]
+      },
+      "originalRoots": 11,
+      "selectedReferences": 110
+    }
+  ],
+  "killedOriginalsRetainedUnknown": [
+    {
+      "nodeVersion": "v24.20.0",
+      "phase": "compiled",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-1a6f9aee6ff143af84e559f347d84eae/moodcode-backend-evidence-087972c225ea45e8a51019ab42994f4f/moodcode-backend-consumer-vRugKz/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "b0a34187d6818c03305f443e51cb967329a723fe610fdd6f89cbaa7c9a176a23"
+      },
+      "metadataSha256": "3aa48e185d6b02aa8192011da26b28828416dc321b1790212ad7014ee8c54326",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v24.20.0",
+      "phase": "compiled",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-1a6f9aee6ff143af84e559f347d84eae/moodcode-backend-evidence-087972c225ea45e8a51019ab42994f4f/moodcode-backend-consumer-uGX0a7/engine.sqlite",
+        "bytes": 1454080,
+        "sha256": "cedd7ed0d60f5eb1c95cca30a1ed62e5da57adcc067400f909a7be5580e8f889"
+      },
+      "metadataSha256": "3fe514d213cec1ebb76bfcb24fc06e7854ed7f33fa2018dc6d98ec4347389048",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v24.20.0",
+      "phase": "compiled",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-1a6f9aee6ff143af84e559f347d84eae/moodcode-backend-evidence-087972c225ea45e8a51019ab42994f4f/moodcode-backend-consumer-QBNdHL/engine.sqlite",
+        "bytes": 1630208,
+        "sha256": "f4b3d711aed4176a2219a524e5434b1d22b76a9d16939974074644a1e24a13c3"
+      },
+      "metadataSha256": "e3016c247f54bb51431f8fb5fdfc5db2eb7ca40f629bed157ef77c8f6141e827",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v24.20.0",
+      "phase": "compiled",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-1a6f9aee6ff143af84e559f347d84eae/moodcode-backend-evidence-087972c225ea45e8a51019ab42994f4f/moodcode-backend-consumer-HDWurj/engine.sqlite",
+        "bytes": 1482752,
+        "sha256": "1049e881b34e403c4f81d31b2d5b983c6e76fbb685dedad822d6a64f0caa5753"
+      },
+      "metadataSha256": "029a1481defc15d96bdee90dc559feacae3c4a109f4ebe255b0c9bcaac76c8b5",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v24.20.0",
+      "phase": "source",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-1d4d5fe7a4054d079c3e2c1516725c35/moodcode-backend-evidence-f417098b004d4d6790b128ee67ba8f51/moodcode-backend-consumer-yw0pxQ/engine.sqlite",
+        "bytes": 1482752,
+        "sha256": "ee8242d1dcd33c72bdb99892e010b7cbf01bc143e1fc0e265c5148b884576881"
+      },
+      "metadataSha256": "a051c7320d418fa7d1a40906ea74fec6956c9e98e98ab53ec3bf9ffd0da34c0a",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v24.20.0",
+      "phase": "source",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-1d4d5fe7a4054d079c3e2c1516725c35/moodcode-backend-evidence-f417098b004d4d6790b128ee67ba8f51/moodcode-backend-consumer-gtLwQj/engine.sqlite",
+        "bytes": 1454080,
+        "sha256": "d0a05d2303374518374c2a9df457a4d581cd7e247528f16ff78357c6c07706fe"
+      },
+      "metadataSha256": "dace728aefb7fd43ac1c2de412a020a4c87dd7960005c260cfa38535910e06be",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v24.20.0",
+      "phase": "source",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-1d4d5fe7a4054d079c3e2c1516725c35/moodcode-backend-evidence-f417098b004d4d6790b128ee67ba8f51/moodcode-backend-consumer-1mxNKu/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "8b21cd8caa2833f938abe8a1c1f4cc0d3b321c2b1152221294ede38f65be91f9"
+      },
+      "metadataSha256": "5e14c23350deb21d9f17edbec77f423a7270d70f7d1bbe546c5957aa2af94dc0",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v24.20.0",
+      "phase": "source",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-1d4d5fe7a4054d079c3e2c1516725c35/moodcode-backend-evidence-f417098b004d4d6790b128ee67ba8f51/moodcode-backend-consumer-vtqoJl/engine.sqlite",
+        "bytes": 1626112,
+        "sha256": "5c80aed4daedf3e6f2b56f30a53ad8d87ca23c29edc5089c9be8439caf61e971"
+      },
+      "metadataSha256": "682cef75d49d9f45a3e676a13f6f0d2f8c74ec1581df8aabc46d85215fa12672",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "phase": "compiled",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-99c72a535c174f53bacc83f8df103bdf/moodcode-backend-evidence-68e4c6975f664e0cb89ddc0de44611fc/moodcode-backend-consumer-1mMmEz/engine.sqlite",
+        "bytes": 1454080,
+        "sha256": "5eac81bfb24642355cd0a361b5a9db9bf01f66508a6f4615783bf6c69f1af27e"
+      },
+      "metadataSha256": "ae750593a923c734a50bc6d734a45a04934f31db6bceff1abd018528d7ebe7a6",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "phase": "compiled",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-99c72a535c174f53bacc83f8df103bdf/moodcode-backend-evidence-68e4c6975f664e0cb89ddc0de44611fc/moodcode-backend-consumer-jw413o/engine.sqlite",
+        "bytes": 1626112,
+        "sha256": "76dec3cb05607246f1310f81746eb1c0ddfd688ffaf381519ba3d68bcaa4fd10"
+      },
+      "metadataSha256": "82ca414e41d3b9dd31b9e4895b19ce3ffd444370d68bfd6bd126592977f3a87a",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "phase": "compiled",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-99c72a535c174f53bacc83f8df103bdf/moodcode-backend-evidence-68e4c6975f664e0cb89ddc0de44611fc/moodcode-backend-consumer-KR1KgD/engine.sqlite",
+        "bytes": 1474560,
+        "sha256": "415881bb62ec92522a90f905ccce42ed5bf8011588e174825800d563195e37b3"
+      },
+      "metadataSha256": "b829f871dd403bc4412830a271f36299ccf4d216e645e5663af8f64c88cedc40",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "phase": "compiled",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-99c72a535c174f53bacc83f8df103bdf/moodcode-backend-evidence-68e4c6975f664e0cb89ddc0de44611fc/moodcode-backend-consumer-CXwkUy/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "bd07ab09e166cd47416c3fdc67de7d34d6a14eb1106c9596da0e705ff8317d94"
+      },
+      "metadataSha256": "41a6c1498a68a298e33da9d1f63164949a808eadf1e3eef2371285c9be2ab1b0",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "phase": "source",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-5c6ecf82f68743f186b2b3acc379e0b4/moodcode-backend-evidence-47285f3bbc4943c7af9e3531fd2639d9/moodcode-backend-consumer-IliT2P/engine.sqlite",
+        "bytes": 1454080,
+        "sha256": "e83681c2458102ea6f036a268797b8d2d3259acc4862b84c7440e211e841011a"
+      },
+      "metadataSha256": "a1f10761feb9b76131fc73a8f92565eb4a5163fd259cba7a582b81eab765a584",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "phase": "source",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-5c6ecf82f68743f186b2b3acc379e0b4/moodcode-backend-evidence-47285f3bbc4943c7af9e3531fd2639d9/moodcode-backend-consumer-zWbmOX/engine.sqlite",
+        "bytes": 1626112,
+        "sha256": "1b938aa2670af94ecd5aad0ddf25a1f021bc4769231168334742cf380017b23f"
+      },
+      "metadataSha256": "8f487dc343cc385692aabddf918b223238b4c7c7210360669b850044af0b9b10",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "phase": "source",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-5c6ecf82f68743f186b2b3acc379e0b4/moodcode-backend-evidence-47285f3bbc4943c7af9e3531fd2639d9/moodcode-backend-consumer-En49PZ/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "305f79129378ce9597aa80333161880ba2ad03af84594d0d53c4010e8632ed03"
+      },
+      "metadataSha256": "0b714bd9e5ede88544389bc02b7429d1c23ed1d6f135352012ecd2972f2578b8",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "phase": "source",
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendCrash-5c6ecf82f68743f186b2b3acc379e0b4/moodcode-backend-evidence-47285f3bbc4943c7af9e3531fd2639d9/moodcode-backend-consumer-aUu9AS/engine.sqlite",
+        "bytes": 1474560,
+        "sha256": "db3db446d38d36f17bc50062a6d4b04c0d2810956163305b3a0d64661d022168"
+      },
+      "metadataSha256": "709873d60cfce1be728dcb5a01e247aa426c84066904b66c8af3dcbc3e041300",
+      "outcome": "unknown",
+      "originalAfterHookObserved": false,
+      "nativeCleanupConfirmed": null,
+      "databaseRemoved": false
+    }
+  ],
+  "backendFocusedTotalTests": 70,
+  "actualRuntimeIdentityLimit": "Raw run-focused.py explicitly chooses Node test paths, snapshots13selected source/compiled bindings before and after, uses fresh fixture parents, clears inherited NODE_TEST_CONTEXT and records actual collector results. These are recorded execution bindings, not a cryptographic in-process import attestation. Stable seven source/fixture pins do not accept the concurrent MCP change or assert whole-current771 equality.",
+  "driverPins": [
+    {
+      "path": "artifacts/next-continuation/final-audit/backend-crash/run-focused.py",
+      "bytes": 6142,
+      "sha256": "3e926f524725d860f2180fc528e602ed96e54b23b27dac12c08e34351947aa29"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/backend-crash/verify-owner-error.mjs",
+      "bytes": 3117,
+      "sha256": "1638255e7f848affa91be1be045bfcfd8016743974018f7f9c555c460a1db955"
+    }
+  ],
+  "nativeOwnedCloseOrderingProbes": [
+    {
+      "nodeVersion": "v24.20.0",
+      "result": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-owner-error-result.json",
+        "bytes": 1110,
+        "sha256": "092216205ec3846b2d3e70b924b4391e54c717e2143cd9627735b1ad1565f558"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node24-owner-error.log",
+        "bytes": 983,
+        "sha256": "fd953be3f24b87de878279e92d253e492e9db48eac3282855fcccbf53e1647d9"
+      },
+      "primary": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-backend-evidence-JkYFCx/moodcode-backend-consumer-uLKIq6/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "eceb0958ccdf236d4003a58f38db33c0e249fcffa2cafb8e503d09300fff4ef2"
+      },
+      "retention": {
+        "schemaVersion": 1,
+        "kind": "backend-fixture-retention",
+        "base": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-backend-evidence-JkYFCx/moodcode-backend-consumer-uLKIq6",
+        "outcome": "close-error",
+        "ownedEngines": 2,
+        "closedEngines": 1,
+        "closeFailures": 1,
+        "ownerExitFailures": 1,
+        "originalAfterHookObserved": false,
+        "nativeCleanupConfirmed": null,
+        "databaseRemoved": false
+      },
+      "handlesClosed": [
+        true,
+        true
+      ],
+      "firstErrorIdentityPreserved": true,
+      "diagnosticErrorMasked": false
+    },
+    {
+      "nodeVersion": "v26.9.0",
+      "result": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-owner-error-result.json",
+        "bytes": 1183,
+        "sha256": "731d434c25396a11dc0d571f60ae59a88835bc77633a9d5d9b319ecb2ac9780f"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/backend-crash/node26-owner-error.log",
+        "bytes": 1056,
+        "sha256": "6168fd1e7516dc8e702ce3ab19f2806217cd87f6961b0ab3de5f9107a54f3529"
+      },
+      "primary": {
+        "path": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendOwnerError-8dc513384db74b7889a3aa8f0e0b4c53/moodcode-backend-evidence-S8tOCM/moodcode-backend-consumer-zQSLkC/engine.sqlite",
+        "bytes": 1396736,
+        "sha256": "fffc8f452aa8b50dba3449661bd06960aa25221f303a522d5978d22b6339f451"
+      },
+      "retention": {
+        "schemaVersion": 1,
+        "kind": "backend-fixture-retention",
+        "base": "/Users/yakisoba0728/Library/Caches/MoodcodeBackendOwnerError-8dc513384db74b7889a3aa8f0e0b4c53/moodcode-backend-evidence-S8tOCM/moodcode-backend-consumer-zQSLkC",
+        "outcome": "close-error",
+        "ownedEngines": 2,
+        "closedEngines": 1,
+        "closeFailures": 1,
+        "ownerExitFailures": 1,
+        "originalAfterHookObserved": false,
+        "nativeCleanupConfirmed": null,
+        "databaseRemoved": false
+      },
+      "handlesClosed": [
+        true,
+        true
+      ],
+      "firstErrorIdentityPreserved": true,
+      "diagnosticErrorMasked": false
+    }
+  ],
+  "nativeOwnedCloseOrderingQualification": "Two genuine Native Engine handles and an actual dispatched request. First close completes natively then a controlled close rejection is injected; a preceding controlled owner-exit error and throwing diagnostic check first-error identity and continued owned closes. Actual OS ChildProcess exit-error or missing-ready failure was not reproduced. Existing script was source-read, not rerun. A successful native SQLite handle close is not proof of all peer/native effects closing or immutable snapshot admission.",
+  "rendererActualAcceptance": {
+    "preFixOriginal": {
+      "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-gui.json",
+      "bytes": 19083,
+      "sha256": "0d9a25f8239e096616e996d4b35270b70fe633eb6e5e72de2fe64b0a0ac45aca"
+    },
+    "preFixObservedWidths": [
+      "62px",
+      "88px"
+    ],
+    "freshExpectedWidth": "88px",
+    "cardPadding": "14px",
+    "actionsGap": "10px",
+    "dialogViewportHeight": 868,
+    "dialogMaxHeight": "820px",
+    "fixedExpectedBeforeAdvanced": true,
+    "advancedJsAndCssAbsentInFirstThreeSnapshots": true,
+    "advancedCssPresentInAfterSnapshot": true,
+    "afterComputedStylesEqualFixedBeforeValues": true,
+    "actualGuiRaw": {
+      "path": "artifacts/next-continuation/final-audit/renderer-style/post-fix-gui.json",
+      "bytes": 19384,
+      "sha256": "b57b7819bb160c1a84fc5ce025c23e0e479b93845054754d6a6e9f758701488e"
+    },
+    "actualGuiChecks": 7,
+    "unitLogDerivedCounters": {
+      "tests": 33,
+      "suites": 0,
+      "pass": 33,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "buildInputsBeforeAfterStable": 18,
+    "preservedPreFixRuntimeCopies": [
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/main/engine-worker.js",
+        "bytes": 4605805,
+        "sha256": "0235e636d3af6156cd2de59b9f0dbd0372c3d9b268859c227d122e08eb0f1867"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/main/index.js",
+        "bytes": 236914,
+        "sha256": "8b1a9fcb4c7ca8016f1a63036d8a236fee088a92a0bef31a423c8269dd16f084"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/main/preload.cjs",
+        "bytes": 40549,
+        "sha256": "ced9286c0217913390f33e52000f92a0f16823ec1694a5e632ba97ff54304184"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/main/supervisor.js",
+        "bytes": 39273,
+        "sha256": "69b1b32bcb177b2ad6112884996f3d591a4b0425396d2b8cb2b4a5368f6301f2"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/main/terminals/backend.js",
+        "bytes": 29121,
+        "sha256": "4e2379ac3560d9cf4a21e557bb386ae558c69f1b27c1ed1f87e6c7f2f469516b"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/main/terminals/supervisor.js",
+        "bytes": 27264,
+        "sha256": "4ae464fc22cc20e628561e2d8fe167ea5441103c0bc5f824cefd5156a8413274"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/renderer/assets/AdvancedPanel-B9q9Du-H.js",
+        "bytes": 34711,
+        "sha256": "f14228ad506312580828b6132ee841ab657cc1c6dd23a7f5070019a3a6a861f4"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/renderer/assets/AdvancedPanel-CYQcx1YV.css",
+        "bytes": 2610,
+        "sha256": "424753a7db56b343ff5469e3f894b559779864288dbd6a9014b724f98c7343e6"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/renderer/assets/CodeBlock-C3tExOdD.js",
+        "bytes": 171341,
+        "sha256": "584deac955c193f6ca55a299aca25f57d6f860bef0398aac9f49415065f6ef0c"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/renderer/assets/Recovery-Bi40RyMn.js",
+        "bytes": 5866,
+        "sha256": "b17c8295ee244cdf6c83aed63e84050736797aa2a9ec02afb011419ec644d1ac"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/renderer/assets/Settings-CLz_LULR.js",
+        "bytes": 15022,
+        "sha256": "007afbf9233e2da82e83bc2795270589b130390d3d13f7490edad1c7b239ed4b"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/renderer/assets/Timeline-BKjDLYnD.js",
+        "bytes": 46610,
+        "sha256": "fadd24c14fdd9d99ae1ff6791cb1119835c0ee516165b13c8982f6f754332b59"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/renderer/assets/conversation-C9Xlej2Y.js",
+        "bytes": 125500,
+        "sha256": "b506740ca305dab6a3b51d3ccf4a8d6e93eff7e7fc56f4814e88a22f5ba8dcba"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/renderer/assets/index-2f9ZJ-IV.js",
+        "bytes": 261484,
+        "sha256": "19a9907e8a939030d4e75e5e0369c45ad02eda5fcbf910e2afd0fcd5202f8ba4"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/renderer/assets/index-D10POMwM.css",
+        "bytes": 27529,
+        "sha256": "03c61932ac36654c509607ae726ce617db5a2bb7ae0041df9429fcc0cb6cca43"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime/apps/desktop/dist/renderer/index.html",
+        "bytes": 682,
+        "sha256": "1ff54ce330ed23771772cdb405f0d6d8680fa36c05e5f8c164665ca23c8b2551"
+      }
+    ],
+    "currentPostFixRuntimePins": [
+      {
+        "path": "apps/desktop/dist/main/engine-worker.js",
+        "bytes": 4605805,
+        "sha256": "0235e636d3af6156cd2de59b9f0dbd0372c3d9b268859c227d122e08eb0f1867"
+      },
+      {
+        "path": "apps/desktop/dist/main/index.js",
+        "bytes": 236914,
+        "sha256": "8b1a9fcb4c7ca8016f1a63036d8a236fee088a92a0bef31a423c8269dd16f084"
+      },
+      {
+        "path": "apps/desktop/dist/main/preload.cjs",
+        "bytes": 40549,
+        "sha256": "ced9286c0217913390f33e52000f92a0f16823ec1694a5e632ba97ff54304184"
+      },
+      {
+        "path": "apps/desktop/dist/main/supervisor.js",
+        "bytes": 39273,
+        "sha256": "69b1b32bcb177b2ad6112884996f3d591a4b0425396d2b8cb2b4a5368f6301f2"
+      },
+      {
+        "path": "apps/desktop/dist/main/terminals/backend.js",
+        "bytes": 29121,
+        "sha256": "4e2379ac3560d9cf4a21e557bb386ae558c69f1b27c1ed1f87e6c7f2f469516b"
+      },
+      {
+        "path": "apps/desktop/dist/main/terminals/supervisor.js",
+        "bytes": 27264,
+        "sha256": "4ae464fc22cc20e628561e2d8fe167ea5441103c0bc5f824cefd5156a8413274"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/AdvancedPanel-Bh2fDbop.css",
+        "bytes": 2185,
+        "sha256": "70eddfc8f097deb51a0c907f82224c440b31291a18190aedc5d7b73be7258d7f"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/AdvancedPanel-Bq-kA8eI.js",
+        "bytes": 34711,
+        "sha256": "103211b47835c1f8440abf71258c38170284f9323c1b4c0b19a95a41b31660c5"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/CodeBlock-CHdKuNaJ.js",
+        "bytes": 171341,
+        "sha256": "e9330ac340fbce1c3ffaa82a14aa8bb51376b95ab16a1749401b1d8512b6339e"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/Recovery-D21ak6Eq.js",
+        "bytes": 5866,
+        "sha256": "37c7902cd92f0f77c0e015bff17546e43bcda4be858d75e30bb30cebc7d08b43"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/Settings-BvU37TTN.js",
+        "bytes": 15022,
+        "sha256": "6de570ebf158f9cc1555a20d5afd52dbbb1e8ace4b6844f48c1c8f0bc563ac0f"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/Timeline-DyO7sN35.js",
+        "bytes": 46610,
+        "sha256": "036a31ce8c26932c0f03ee55f2f798319e46b3b1c33c6dc066dc892d7a995b12"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/conversation-BErur5tT.js",
+        "bytes": 125500,
+        "sha256": "bcdff5c924af801ed8c5d7ebabc04c5a6d16d021e43795f71bb265d46073bb78"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/index-1BeM0JLR.css",
+        "bytes": 27978,
+        "sha256": "bd95697cc079f72ce5319ee63d95c64d175927966448d73b3535f7545d63d6bd"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/index-EP2WXdMY.js",
+        "bytes": 261484,
+        "sha256": "398b6d5e9a7128401646e3b589462ef3b55c19d8d1aade96660891640ec34d61"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/index.html",
+        "bytes": 682,
+        "sha256": "c4f7a06a8fe789116acc09c22eed1c7fc834dff7d6bfdcef8853970f991dd74c"
+      }
+    ],
+    "sixMainWorkerPreloadSupervisorBundlesUnchanged": true,
+    "initialJsBytes": 261484,
+    "initialJsByteDelta": 0,
+    "eagerCssByteDelta": 449,
+    "advancedCssByteDelta": -425,
+    "actualDriver": {
+      "path": "apps/desktop/src/renderer/fixtures/verify-delivery.mjs",
+      "bytes": 25145,
+      "sha256": "0ae537cadfe5aea5c3248f20992e2f731e80f01ce09d9368f6a3d6e3f5a840da"
+    },
+    "runtimeLimit": "Actual renderer bundle contains the baseline MCP producer, not acceptance of the separately corrected MCP stdio source/compiled runtime."
+  },
+  "latestProducerReportStableThroughoutRead": true,
+  "currentSourceAndCompiledDeltas": [
+    {
+      "scope": "separate-MCP-owner-current-vs-backend-build",
+      "recorded": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/dist/mcp/stdio.js",
+        "bytes": 10535,
+        "sha256": "16f1bb24e9dbec9f37c7f60d30000d1147bdc85d65ae486988b629aafbfc0fc6"
+      },
+      "current": {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10573,
+        "sha256": "4d53d3cc844cc392abd7fe9b79ad6d3ec29025726debd83be7d67b41cade23fe"
+      },
+      "equal": false
+    },
+    {
+      "scope": "separate-MCP-owner-current-vs-backend-build",
+      "recorded": {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/packages/engine/src/mcp/stdio.ts",
+        "bytes": 9998,
+        "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+      },
+      "current": {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 10032,
+        "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+      },
+      "equal": false
+    },
+    {
+      "scope": "v24.20.0/compiled",
+      "recorded": {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 9998,
+        "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+      },
+      "current": {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 10032,
+        "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+      },
+      "equal": false
+    },
+    {
+      "scope": "v24.20.0/compiled",
+      "recorded": {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10535,
+        "sha256": "16f1bb24e9dbec9f37c7f60d30000d1147bdc85d65ae486988b629aafbfc0fc6"
+      },
+      "current": {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10573,
+        "sha256": "4d53d3cc844cc392abd7fe9b79ad6d3ec29025726debd83be7d67b41cade23fe"
+      },
+      "equal": false
+    },
+    {
+      "scope": "v24.20.0/source",
+      "recorded": {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 9998,
+        "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+      },
+      "current": {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 10032,
+        "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+      },
+      "equal": false
+    },
+    {
+      "scope": "v24.20.0/source",
+      "recorded": {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10535,
+        "sha256": "16f1bb24e9dbec9f37c7f60d30000d1147bdc85d65ae486988b629aafbfc0fc6"
+      },
+      "current": {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10573,
+        "sha256": "4d53d3cc844cc392abd7fe9b79ad6d3ec29025726debd83be7d67b41cade23fe"
+      },
+      "equal": false
+    },
+    {
+      "scope": "v26.9.0/compiled",
+      "recorded": {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 10032,
+        "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+      },
+      "current": {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 10032,
+        "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+      },
+      "equal": true
+    },
+    {
+      "scope": "v26.9.0/compiled",
+      "recorded": {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10535,
+        "sha256": "16f1bb24e9dbec9f37c7f60d30000d1147bdc85d65ae486988b629aafbfc0fc6"
+      },
+      "current": {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10573,
+        "sha256": "4d53d3cc844cc392abd7fe9b79ad6d3ec29025726debd83be7d67b41cade23fe"
+      },
+      "equal": false
+    },
+    {
+      "scope": "v26.9.0/source",
+      "recorded": {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 10032,
+        "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+      },
+      "current": {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 10032,
+        "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+      },
+      "equal": true
+    },
+    {
+      "scope": "v26.9.0/source",
+      "recorded": {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10535,
+        "sha256": "16f1bb24e9dbec9f37c7f60d30000d1147bdc85d65ae486988b629aafbfc0fc6"
+      },
+      "current": {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10573,
+        "sha256": "4d53d3cc844cc392abd7fe9b79ad6d3ec29025726debd83be7d67b41cade23fe"
+      },
+      "equal": false
+    },
+    {
+      "scope": "actual-renderer-desktop-build",
+      "recorded": {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 9998,
+        "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+      },
+      "current": {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 10032,
+        "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+      }
+    },
+    {
+      "scope": "actual-renderer-desktop-build",
+      "recorded": {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10535,
+        "sha256": "16f1bb24e9dbec9f37c7f60d30000d1147bdc85d65ae486988b629aafbfc0fc6"
+      },
+      "current": {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10573,
+        "sha256": "4d53d3cc844cc392abd7fe9b79ad6d3ec29025726debd83be7d67b41cade23fe"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "preserved-initial-source-hosted-and-requirement-evidence",
+      "status": "passed-after-independent-schema-or-reference-correction"
+    },
+    {
+      "name": "exact-current-seven-source-and-compiled-fixture-contract",
+      "status": "passed-after-independent-schema-or-reference-correction"
+    },
+    {
+      "name": "all-72-backend-originals-and-762-selected-reference-pairs-direct-hash",
+      "status": "passed"
+    },
+    {
+      "name": "four-actual-focused-phase-logs-bindings-and-sixteen-killed-originals",
+      "status": "passed"
+    },
+    {
+      "name": "two-actual-native-two-handle-owned-error-probes-with-controlled-injection",
+      "status": "passed"
+    },
+    {
+      "name": "actual-renderer-logs-cold-css-order-fixed-values-and-runtime-copies",
+      "status": "passed"
+    },
+    {
+      "name": "three-renderer-originals-26-native-pairs-and-fourteen-historical-root-presences",
+      "status": "passed-after-independent-schema-and-actual-scope-correction"
+    },
+    {
+      "name": "all-read-file-fingerprints-and-producer-reports-stable-at-finish",
+      "status": "passed"
+    }
+  ],
+  "scopedFixAcceptance": true,
+  "limits": [
+    "Actual focused macOS arm64 Node24/26 backend phases, controlled two-handle close error ordering probes and renderer recorded actual GUI only. No full-current runtime, hosted CI, Windows/Linux crash, 30-minute or whole source semantic acceptance.",
+    "Ready-absent source branch was reviewed; genuine missing-ready/OS-child-exit-error reproduction was not performed. Controlled errors do not prove that broader scenario.",
+    "Six intentionally incomplete backend selected diagnostic manifests remain incomplete; original bytes retained and selected copied bytes match. They are not full fixture archives or immutable/coherent snapshots.",
+    "Historical unknown/PID/PTY/native outcomes retain their original classifications. Existing source fixes do not identify the old failure cause or give signaling/deletion authority.",
+    "Separate current MCP source+compiled delta and separate CLI report fixes are excluded. Renderer bundled old MCP and Node24/26 phase bindings are not acceptance of those new fixes.",
+    "External SIWC/account, Anthropic, signed installation/update/distribution/feed inputs remain deferred by user direction; full original goal remains incomplete."
+  ],
+  "acceptedSevenFilesCurrentPinCount": 7,
+  "onlyWrite": "artifacts/next-continuation/final-audit/followup-fixes-final-independent-review.json",
+  "preservedEarlierEvidence": [
+    {
+      "path": "artifacts/next-continuation/final-audit/followup-fixes-independent-review.json",
+      "bytes": 21290,
+      "sha256": "3fd746391819374ea7c2c550193737ae60b624777a736e7425297d633e2e6028"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/followup-fixes-source-supplement.json",
+      "bytes": 11124,
+      "sha256": "1a827ee5102f2a2b9711d25f0cd0d5e87a4d5a4fab73687955930f305820c0f2"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/followup-fixes-final-independent-review.initial.json",
+      "bytes": 6805,
+      "sha256": "d0e9d6d65ab3e0c6e7b8621eff5a91f5d69550c571a99c2596af024b373f9e49"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/hosted-independent.json",
+      "bytes": 82690,
+      "sha256": "e79133cbad5efbb4ba3e6973734e9f5dc73e091c7ac80b99e94520f39f352be4"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/requirements-contract-review.initial.json",
+      "bytes": 21046,
+      "sha256": "380ab7c44c5011ffee94edf63e58b9298d4a0caaf03589ce9396dba141b8b6c1"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/requirements-contract-review.json",
+      "bytes": 31678,
+      "sha256": "d327100f9f977ece7f57686415345d86675fd158b18217c739ac8f7e2b284a36"
+    }
+  ],
+  "historicalMcpContentOnlyCrosscheck": [
+    {
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-continuation-frozen/Moodcode/packages/engine/dist/mcp/stdio.js",
+      "bytes": 10535,
+      "sha256": "16f1bb24e9dbec9f37c7f60d30000d1147bdc85d65ae486988b629aafbfc0fc6"
+    },
+    {
+      "path": "/Users/yakisoba0728/.codex/worktrees/next-continuation-frozen/Moodcode/packages/engine/src/mcp/stdio.ts",
+      "bytes": 9998,
+      "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+    }
+  ],
+  "historicalMcpQualification": "Correctly normalized repository-relative MCP files in immutable frozen16b2 worktree match historical producer bytes. This is content crosscheck only. Actual-phase bindings remain original recorded before/after manifests, driver and logs; no old runtime execution or new MCP acceptance.",
+  "sourceContractConclusion": {
+    "actionableFindings": [],
+    "allOwnedCloseAttemptsSerial": true,
+    "firstOwnerExitOrCloseErrorPreserved": true,
+    "diagnosticWriteAndDiagnosticErrorsDoNotMask": true,
+    "readyAbsentStillClosesOwnedSet": true,
+    "parentAfterMissingRemainsUnknown": true,
+    "originalRemovalAndStoredNumericSignalFallbackAbsent": true,
+    "freshOwnedChildKillScenarioPreserved": true,
+    "freshStyleBeforeAdvancedWithFixedExpectations": true,
+    "scope": "four test/fixture source files and two CSS/one verifier files; no production/API acceptance of separate MCP/CLI changes"
+  },
+  "correctedIndependentAuditAssumptions": [
+    {
+      "initialStage": "preserved-initial-source-hosted-and-requirement-evidence",
+      "initialReason": "PIN_MISMATCH:artifacts/next-continuation/final-audit/requirements-contract-review.initial.json",
+      "classification": "auditor typo: expected initial requirements SHA omitted its final1; immutable actual bytes match compiled-ready original pin"
+    },
+    {
+      "initialStage": "exact-current-seven-source-and-compiled-fixture-contract",
+      "initialReason": "FROZEN_MCP_CONTENT",
+      "classification": "auditor path resolution: absolute producer MCP path discarded frozen root; normalized relative path now matches frozen old bytes"
+    },
+    {
+      "initialStage": "three-renderer-originals-26-native-pairs-and-fourteen-historical-root-presences",
+      "initialReason": "RENDER_NATIVE_CLEANUP_MISMATCH",
+      "classification": "auditor schema projection: selected Native cleanup6fields match; GUI raw record supplies additional app-exit0/Original retained3fields"
+    },
+    {
+      "initialStage": "three-renderer-originals-26-native-pairs-and-fourteen-historical-root-presences",
+      "initialReason": "UTILITY_COVERAGE",
+      "classification": "auditor over-specific connection count: actual fixtures spawn engine1, engine/storage2, engine1 respectively; every actual utility ACK/observable exit0 and evicted0/spawnUnobservedfalse is checked, no missing storage owner inferred for fixtures which did not launch one"
+    }
+  ],
+  "independentReadMethod": {
+    "firstBoundedDirectRead": {
+      "implementation": "Independent Python stdlib SHA256 streaming via O_RDONLY|O_NOFOLLOW|O_NONBLOCK, ordinary single-link regular files and no symlink ancestors; descriptor/path fingerprints checked before/after and all at completion. Direct JSON manifest traversal, original/copy hashes, log-derived counters and fixed CSS value assertions. Prior collector verification booleans are not hash proof. No SQL/content emitted. Each unique file read once; repeated references compare against stable cached direct-read fingerprint.",
+      "uniqueDirectFileReads": 1635,
+      "directBytesRead": 279220209,
+      "directFileMetadataDigestSha256": "66e2b2c559d7a5215931ee2d247b8c511830423b1053f732e3e6b8a57ae19de7",
+      "limits": {
+        "files": 2048,
+        "totalBytes": 536870912,
+        "fileBytes": 67108864,
+        "durationSeconds": 60
+      },
+      "elapsedMs": 1035.668,
+      "allDirectReadFilesStableAtFinish": true,
+      "originalSqliteOpened": false
+    },
+    "completionBoundedDirectRead": {
+      "uniqueDirectFileReads": 38,
+      "directBytesRead": 2971608,
+      "directFileMetadataDigestSha256": "b75d96dd514887eed59d689c59a1e706dd9086f853a38b74adb4a79a122d8229",
+      "elapsedMs": 11.604,
+      "allFilesStableAtFinish": true,
+      "method": "Same O_RDONLY/O_NOFOLLOW/O_NONBLOCK streaming SHA with before/after descriptor/path signatures and no symlink ancestors; Native selected pairs read directly, SQLite never opened."
+    },
+    "combinedQualification": "First direct read established all762 backend selected Original/copy reference pairs and recorded logs plus sixteen killed Original metadata and two actual probe records. Completion read verified missing renderer26pairs/three Original utility and app exits, corrected immutable pin/path/schema comparisons, current exact source7, and stable latest producer reports. Repeated references use stable cached fingerprints within each bounded pass; no failed test or external execution was rerun.",
+    "finalRendererClosureRead": {
+      "uniqueDirectFileReads": 73,
+      "directBytesRead": 8352370,
+      "directFileMetadataDigestSha256": "227263907a733a6715d3b5173b8fbc2fe57da356025baea1accba0e77485c67a",
+      "elapsedMs": 21.593,
+      "allReadFilesStableAtFinish": true,
+      "nativeReferencePairs": 26,
+      "method": "Independent bounded O_RDONLY/O_NOFOLLOW/O_NONBLOCK byte SHA; exact Original/copy/manifest references and source7/compiled4 rechecked; original Utility JSON and GUI close records compared without executing runtime/SQLite."
+    }
+  },
+  "preservedFirstBoundedReadArtifact": {
+    "path": "artifacts/next-continuation/final-audit/followup-fixes-final-independent-review.bounded-read.initial.json",
+    "bytes": 56762,
+    "sha256": "477aaa671e83e93a2a3950255e6a301eae101c89534e4e6340ba24489910fc11",
+    "qualification": "Independent raw read and initial auditor-assumption failures frozen; corrected final admission is above."
+  },
+  "rendererNativeOriginalAndCopyEvidence": [
+    {
+      "phase": "pre-fix",
+      "scenario": "coding",
+      "original": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-pFZGaj",
+      "manifest": {
+        "path": "artifacts/renderer-delivery/renderer-coding-KHiC4Z/manifest.json",
+        "bytes": 8728,
+        "sha256": "73bca39482a65343d45a7d862f94398f8fb91332abbd47404a6a64251366b606"
+      },
+      "directNativeReferencePairs": 6,
+      "mainUtilityClose": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-pFZGaj/main-utility-close.json",
+        "bytes": 526,
+        "sha256": "c4fedf70610646c1b897cf26799ac710abb45c3a76f44ccc9c6653bf741f9841"
+      },
+      "rawGuiReport": {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-gui.json",
+        "bytes": 19083,
+        "sha256": "0d9a25f8239e096616e996d4b35270b70fe633eb6e5e72de2fe64b0a0ac45aca"
+      },
+      "actualUtilityCount": 1,
+      "actualUtilityScopes": [
+        "engine"
+      ],
+      "originalUtilityAckAndExitObserved": true,
+      "evictedUtilityCount": 0,
+      "spawnUnobserved": false,
+      "applicationExitObserved": true,
+      "applicationExitCode": 0,
+      "cleanupState": "unknown",
+      "nativeConfirmed": null,
+      "fullNativeCleanupEstablished": false
+    },
+    {
+      "phase": "post-fix",
+      "scenario": "coding",
+      "original": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP",
+      "manifest": {
+        "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/manifest.json",
+        "bytes": 23015,
+        "sha256": "4d5554b0b11030163f3ddd767bbba1899e6e8d47a29833e02c56475accd45731"
+      },
+      "directNativeReferencePairs": 14,
+      "mainUtilityClose": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/main-utility-close.json",
+        "bytes": 809,
+        "sha256": "c2a29e622a77f6be26acb6e822083d764ab79bb2fc1ad91aa7c9edb9969421f2"
+      },
+      "rawGuiReport": {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/post-fix-gui.json",
+        "bytes": 19384,
+        "sha256": "b57b7819bb160c1a84fc5ce025c23e0e479b93845054754d6a6e9f758701488e"
+      },
+      "actualUtilityCount": 2,
+      "actualUtilityScopes": [
+        "engine",
+        "storage"
+      ],
+      "originalUtilityAckAndExitObserved": true,
+      "evictedUtilityCount": 0,
+      "spawnUnobserved": false,
+      "applicationExitObserved": true,
+      "applicationExitCode": 0,
+      "cleanupState": "unconfirmed",
+      "nativeConfirmed": false,
+      "fullNativeCleanupEstablished": false
+    },
+    {
+      "phase": "post-fix",
+      "scenario": "slow",
+      "original": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-Q4ooP5",
+      "manifest": {
+        "path": "artifacts/renderer-delivery/renderer-slow-f2jb02/manifest.json",
+        "bytes": 10153,
+        "sha256": "5b83d6b1a87b39f52d5c603d7cf770aca9380064225dee9c9cb696fef0c8f266"
+      },
+      "directNativeReferencePairs": 6,
+      "mainUtilityClose": {
+        "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-Q4ooP5/main-utility-close.json",
+        "bytes": 526,
+        "sha256": "1ef7bd216abdf8db5f5b2a0a4133915ca1a1fc0349938498af9116b1a585c63f"
+      },
+      "rawGuiReport": {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/post-fix-gui.json",
+        "bytes": 19384,
+        "sha256": "b57b7819bb160c1a84fc5ce025c23e0e479b93845054754d6a6e9f758701488e"
+      },
+      "actualUtilityCount": 1,
+      "actualUtilityScopes": [
+        "engine"
+      ],
+      "originalUtilityAckAndExitObserved": true,
+      "evictedUtilityCount": 0,
+      "spawnUnobserved": false,
+      "applicationExitObserved": true,
+      "applicationExitCode": 0,
+      "cleanupState": "unknown",
+      "nativeConfirmed": null,
+      "fullNativeCleanupEstablished": false
+    }
+  ],
+  "rendererSelectedNativeReferencePairs": 26,
+  "historicalRendererOriginalDirectoriesStillPresent": [
+    {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-ZztkV9",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-WKE2tL",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-9JqLXo",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-5f8Zju",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-zI5FPy",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-9hVRUx",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-kz4l0p",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-ZGfiSc",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-lmQ0rl",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-v84tQp",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-3ZUmKT",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-theme-baseline-uJdGj4",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-82Ay8e",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    },
+    {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-WjW4mD",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "verification": "directory presence only; historical bytes/owner cleanup not reclassified"
+    }
+  ],
+  "ownerClosureBoundary": "Three Original application exits0 and genuine utility Engine close ACK/observable exits0 are recorded: pre-fix engine1, post-fix coding engine+storage2, post-fix slow engine1, with evicted0 and no unobserved spawn. Native state remains coding false and slow/pre-fix null. Backend recovered Engine handle closes do not reconstruct killed Original after hooks. Matching hashes, closed handles, utility exits and bounded copies establish no coherent/immutable SQLite snapshot, all-Native cleanup, PID signal or deletion authority.",
+  "preservedCompletionReadArtifact": {
+    "path": "artifacts/next-continuation/final-audit/followup-fixes-final-independent-review.completion-read.initial.json",
+    "bytes": 61739,
+    "sha256": "9810e97a296085a26c93de73056636cb7464c479e491f6c88e0f7d2580ef92b6",
+    "qualification": "Preserves direct source/pin correction and initial too-specific Utility count assertion; final actual1/2/1 scope above."
+  }
+}

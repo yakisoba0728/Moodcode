@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { fork } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
@@ -13,8 +13,8 @@ import {
   importEngineArchive,
 } from "../storage/archive.js";
 import { assertExecutionLockAvailable } from "../tools/command/execution-lock.js";
-import { cleanupGroup, groupExists } from "../tools/command/process-control.js";
-import { backendUntil } from "./fixtures/backend.js";
+import { groupExists } from "../tools/command/process-control.js";
+import { backendUntil, retainBackendFixture } from "./fixtures/backend.js";
 
 interface Ready {
   type: "ready";
@@ -50,15 +50,17 @@ test(
       stderr = (stderr + value.toString()).slice(-4096);
     });
     t.after(async () => {
-      if (child.exitCode === null && child.signalCode === null) {
-        const ended = once(child, "exit");
-        child.kill("SIGKILL");
-        await ended;
-      }
-      if (ready && groupExists(ready.peerPid))
-        await cleanupGroup(ready.peerPid);
-      for (const engine of engines) await engine.close();
-      if (ready) rmSync(ready.base, { recursive: true, force: true });
+      let ownerExitError: { error: unknown } | undefined;
+      try {
+        if (child.exitCode === null && child.signalCode === null) {
+          const ended = once(child, "exit");
+          child.kill("SIGKILL");
+          await ended;
+        }
+      } catch (error) { ownerExitError = { error }; }
+      await retainBackendFixture(t, ready?.base, engines, {
+        originalAfterHookObserved: false, ownerExitError,
+      });
     });
     ready = await new Promise<Ready>((resolve, reject) => {
       const timer = setTimeout(

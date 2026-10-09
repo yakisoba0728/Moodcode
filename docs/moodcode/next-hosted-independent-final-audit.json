@@ -1,0 +1,2254 @@
+{
+  "schemaVersion": 1,
+  "kind": "independent-complete-hosted-byte-and-original-manifest-audit",
+  "recordedAt": "2026-10-09T11:33:50.146177+00:00",
+  "mainWhenReviewed": "f3582bd1af33754e281810fe8e8bde5e0c3373a9",
+  "hostedImplementationSource": "663a3a0d9a96b973022f261a599becd5dc8aeb4f",
+  "status": "passed",
+  "complete": true,
+  "independentAll11ZipAnd4995ReferenceAuditComplete": true,
+  "totals": {
+    "archives": 11,
+    "originalZipBytes": 759747087,
+    "archiveEntries": 6752,
+    "uncompressedBytes": 2567522951,
+    "directReferenceFileReads": 5000,
+    "declaredReferenceFileReads": 4995,
+    "additionalDesktopManagedContentReferenceReads": 5,
+    "referenceBytes": 751789176,
+    "backendSelected": {
+      "manifests": 32,
+      "incomplete": 12,
+      "references": 3279,
+      "bytes": 535312854
+    }
+  },
+  "archives": [
+    {
+      "artifactId": 11611338657,
+      "runId": 37919775610,
+      "originalZip": {
+        "path": "artifacts/next-continuation/hosted/37919775610/original-zips/11611338657-engine-macos-15-node-24.x-attempt-1.zip",
+        "bytes": 8572252,
+        "sha256": "bacd8a7933b370ec1dc6c0b366d58bfde81a7f57041cb32f9f1f7f26e76d4ead"
+      },
+      "rawApiSnapshot": "artifacts/next-continuation/hosted/37919775610/artifacts-api-20261009T110018240120Z.json",
+      "apiDigestAndSizeMatch": true,
+      "entries": 1279,
+      "plainBytes": 188079893,
+      "crcPassed": true,
+      "allEntryPathsSafe": true,
+      "existingExtractionByteExact": true,
+      "extractionDirectory": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1",
+      "newExtractionPerformed": false,
+      "entryDigestRecordsSha256": "32d0fadc8ab992e33e99e8ddd3a0bafbe76cfc5351eebc02648d2c1dcdcf9bcf",
+      "originalManifestDerivedReferences": 1214,
+      "declaredReferenceFileReads": 1214,
+      "additionalManagedContentReferences": 0
+    },
+    {
+      "artifactId": 11611515384,
+      "runId": 37919775610,
+      "originalZip": {
+        "path": "artifacts/next-continuation/hosted/37919775610/original-zips/11611515384-engine-windows-portable-node-24.x-attempt-1.zip",
+        "bytes": 44042,
+        "sha256": "39c2fb228afb159ede17e004d2d4f6ae6cd1214f3d2feae89df36611452f2cbc"
+      },
+      "rawApiSnapshot": "artifacts/next-continuation/hosted/37919775610/artifacts-api-20261009T110018240120Z.json",
+      "apiDigestAndSizeMatch": true,
+      "entries": 21,
+      "plainBytes": 321631,
+      "crcPassed": true,
+      "allEntryPathsSafe": true,
+      "existingExtractionByteExact": true,
+      "extractionDirectory": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611515384-engine-windows-portable-node-24.x-attempt-1",
+      "newExtractionPerformed": false,
+      "entryDigestRecordsSha256": "3639cdd671c2c363080d1224170de753830f530dbcac0e48cce9db015a72bbb0",
+      "originalManifestDerivedReferences": 0,
+      "declaredReferenceFileReads": 0,
+      "additionalManagedContentReferences": 0
+    },
+    {
+      "artifactId": 11611665130,
+      "runId": 37919775610,
+      "originalZip": {
+        "path": "artifacts/next-continuation/hosted/37919775610/original-zips/11611665130-engine-windows-portable-node-26.x-attempt-1.zip",
+        "bytes": 44024,
+        "sha256": "7b39e0492674d09e9e068d52d9db851027159cce71f157dd7d8d924b5f562292"
+      },
+      "rawApiSnapshot": "artifacts/next-continuation/hosted/37919775610/artifacts-api-20261009T110018240120Z.json",
+      "apiDigestAndSizeMatch": true,
+      "entries": 21,
+      "plainBytes": 321590,
+      "crcPassed": true,
+      "allEntryPathsSafe": true,
+      "existingExtractionByteExact": true,
+      "extractionDirectory": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611665130-engine-windows-portable-node-26.x-attempt-1",
+      "newExtractionPerformed": false,
+      "entryDigestRecordsSha256": "3e6e31b5675a111968ad958a2afeeedcfcb2dff88f6c2a9daa05272cca20accd",
+      "originalManifestDerivedReferences": 0,
+      "declaredReferenceFileReads": 0,
+      "additionalManagedContentReferences": 0
+    },
+    {
+      "artifactId": 11611761316,
+      "runId": 37919775610,
+      "originalZip": {
+        "path": "artifacts/next-continuation/hosted/37919775610/original-zips/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1.zip",
+        "bytes": 8512260,
+        "sha256": "bc02ca51fa2f4f7d00a45164ce21a00565ba2d212dd150164a170bd037304265"
+      },
+      "rawApiSnapshot": "artifacts/next-continuation/hosted/37919775610/artifacts-api-20261009T110018240120Z.json",
+      "apiDigestAndSizeMatch": true,
+      "entries": 1255,
+      "plainBytes": 185005643,
+      "crcPassed": true,
+      "allEntryPathsSafe": true,
+      "existingExtractionByteExact": true,
+      "extractionDirectory": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1",
+      "newExtractionPerformed": false,
+      "entryDigestRecordsSha256": "688eaa2660810a096aba3d14e8965d482b225545f134f0978b526e3d4423d5ca",
+      "originalManifestDerivedReferences": 1190,
+      "declaredReferenceFileReads": 1190,
+      "additionalManagedContentReferences": 0
+    },
+    {
+      "artifactId": 11611981451,
+      "runId": 37919775610,
+      "originalZip": {
+        "path": "artifacts/next-continuation/hosted/37919775610/original-zips/11611981451-engine-macos-15-node-26.x-attempt-1.zip",
+        "bytes": 8592803,
+        "sha256": "ebd90706f9ddce7bc058ca90aaca01c3cc4b7f2150aaba9055f1847452f24153"
+      },
+      "rawApiSnapshot": "artifacts/next-continuation/hosted/37919775610/artifacts-api-20261009T110018240120Z.json",
+      "apiDigestAndSizeMatch": true,
+      "entries": 1290,
+      "plainBytes": 189346651,
+      "crcPassed": true,
+      "allEntryPathsSafe": true,
+      "existingExtractionByteExact": true,
+      "extractionDirectory": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1",
+      "newExtractionPerformed": false,
+      "entryDigestRecordsSha256": "e7a2ac486e1ed6ddd704f8725624bd58c2809e4ed0ba58732a7312190c7738c6",
+      "originalManifestDerivedReferences": 1225,
+      "declaredReferenceFileReads": 1225,
+      "additionalManagedContentReferences": 0
+    },
+    {
+      "artifactId": 11612290591,
+      "runId": 37919775610,
+      "originalZip": {
+        "path": "artifacts/next-continuation/hosted/37919775610/original-zips/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1.zip",
+        "bytes": 8566376,
+        "sha256": "e9a300aa1ff1e61e1d8f4c627c75142d6b549df6383ad2854fbd4978d1245401"
+      },
+      "rawApiSnapshot": "artifacts/next-continuation/hosted/37919775610/artifacts-api-20261009T110018240120Z.json",
+      "apiDigestAndSizeMatch": true,
+      "entries": 1270,
+      "plainBytes": 187667295,
+      "crcPassed": true,
+      "allEntryPathsSafe": true,
+      "existingExtractionByteExact": true,
+      "extractionDirectory": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1",
+      "newExtractionPerformed": false,
+      "entryDigestRecordsSha256": "b52f5e9d37ff6b2cee99a47b0517bdbe1746e7bc0adb500031383631206bc6ed",
+      "originalManifestDerivedReferences": 1205,
+      "declaredReferenceFileReads": 1205,
+      "additionalManagedContentReferences": 0
+    },
+    {
+      "artifactId": 11610354746,
+      "runId": 37919775855,
+      "originalZip": {
+        "path": "artifacts/next-continuation/hosted/37919775855/original-zips/11610354746-engine-native-windows-node-26.x-attempt-1.zip",
+        "bytes": 373994,
+        "sha256": "30d056537583cfb96ecdde2307e337f4244c7622ea6ec1cce7c53d51f9bda3b0"
+      },
+      "rawApiSnapshot": "artifacts/next-continuation/hosted/37919775855/artifacts-api-20261009T110018240120Z.json",
+      "apiDigestAndSizeMatch": true,
+      "entries": 20,
+      "plainBytes": 1181457,
+      "crcPassed": true,
+      "allEntryPathsSafe": true,
+      "existingExtractionByteExact": true,
+      "extractionDirectory": "artifacts/next-continuation/hosted/37919775855/extracted-originals/11610354746-engine-native-windows-node-26.x-attempt-1",
+      "newExtractionPerformed": false,
+      "entryDigestRecordsSha256": "da34addeca37c3d5f81e6c9826e1bf7e61e33d283cd82e8f2eb396e3333f26c6",
+      "originalManifestDerivedReferences": 20,
+      "declaredReferenceFileReads": 20,
+      "additionalManagedContentReferences": 0
+    },
+    {
+      "artifactId": 11611615501,
+      "runId": 37919775855,
+      "originalZip": {
+        "path": "artifacts/next-continuation/hosted/37919775855/original-zips/11611615501-engine-native-windows-node-24.x-attempt-1.zip",
+        "bytes": 107904,
+        "sha256": "f69f5488f58d198ed07d10f6d6afbc2781cdc8dc73270276931c7b99e52f629a"
+      },
+      "rawApiSnapshot": "artifacts/next-continuation/hosted/37919775855/artifacts-api-20261009T110018240120Z.json",
+      "apiDigestAndSizeMatch": true,
+      "entries": 20,
+      "plainBytes": 237597,
+      "crcPassed": true,
+      "allEntryPathsSafe": true,
+      "existingExtractionByteExact": true,
+      "extractionDirectory": "artifacts/next-continuation/hosted/37919775855/extracted-originals/11611615501-engine-native-windows-node-24.x-attempt-1",
+      "newExtractionPerformed": false,
+      "entryDigestRecordsSha256": "b988dae6af2b407baa129c99bd222fc58723754b7095f871a5e6681d20155e89",
+      "originalManifestDerivedReferences": 20,
+      "declaredReferenceFileReads": 20,
+      "additionalManagedContentReferences": 0
+    },
+    {
+      "artifactId": 11611466672,
+      "runId": 37919775652,
+      "originalZip": {
+        "path": "artifacts/next-continuation/hosted/37919775652/artifact-11611466672-original.zip",
+        "bytes": 179219071,
+        "sha256": "91eae1633e4ed5e64233ee5953fd5ece523bb42d6066a6b7749ac43bf3d96a44"
+      },
+      "rawApiSnapshot": "artifacts/next-continuation/hosted/37919775652/artifact-11611466672-metadata.json",
+      "apiDigestAndSizeMatch": true,
+      "entries": 308,
+      "plainBytes": 467152267,
+      "crcPassed": true,
+      "allEntryPathsSafe": true,
+      "existingExtractionByteExact": true,
+      "extractionDirectory": "artifacts/next-continuation/hosted/37919775652/artifact-11611466672-extracted",
+      "newExtractionPerformed": false,
+      "entryDigestRecordsSha256": "17b1e612fc773c8d1af6bbf4dcde289c095e9caec6b16ff01bd809ad70d86368",
+      "originalManifestDerivedReferences": 26,
+      "declaredReferenceFileReads": 26,
+      "additionalManagedContentReferences": 0
+    },
+    {
+      "artifactId": 11611431491,
+      "runId": 37919775652,
+      "originalZip": {
+        "path": "artifacts/next-continuation/hosted/37919775652/artifact-11611431491-original.zip",
+        "bytes": 138292071,
+        "sha256": "e42f0d2bbd29c3ac79f99923eb339a50489f08f1c0e771a1805de1c8c7c90876"
+      },
+      "rawApiSnapshot": "artifacts/next-continuation/hosted/37919775652/artifact-11611431491-metadata.json",
+      "apiDigestAndSizeMatch": true,
+      "entries": 271,
+      "plainBytes": 366876997,
+      "crcPassed": true,
+      "allEntryPathsSafe": true,
+      "existingExtractionByteExact": true,
+      "extractionDirectory": "artifacts/next-continuation/hosted/37919775652/artifact-11611431491-extracted",
+      "newExtractionPerformed": false,
+      "entryDigestRecordsSha256": "c2e10f3ae462a4cbf1172eec5c192acb9e34ea9e9d8aa2e65dd33afca0212eb2",
+      "originalManifestDerivedReferences": 19,
+      "declaredReferenceFileReads": 19,
+      "additionalManagedContentReferences": 0
+    },
+    {
+      "artifactId": 11610354644,
+      "runId": 37919775652,
+      "originalZip": {
+        "path": "artifacts/next-continuation/hosted/37919775652/artifact-11610354644-original.zip",
+        "bytes": 407422290,
+        "sha256": "4bcce561e898e6b5bbb066e07ba7362e2cc807abe98e7a9bd3224044f49ad22e"
+      },
+      "rawApiSnapshot": "artifacts/next-continuation/hosted/37919775652/artifact-11610354644-metadata.json",
+      "apiDigestAndSizeMatch": true,
+      "entries": 997,
+      "plainBytes": 981331930,
+      "crcPassed": true,
+      "allEntryPathsSafe": true,
+      "existingExtractionByteExact": true,
+      "extractionDirectory": "artifacts/next-continuation/hosted/37919775652/artifact-11610354644-extracted",
+      "newExtractionPerformed": false,
+      "entryDigestRecordsSha256": "daef507a043a8b5e645c59f37550785361465a79ab49d04e31efada149e3852e",
+      "originalManifestDerivedReferences": 81,
+      "declaredReferenceFileReads": 76,
+      "additionalManagedContentReferences": 5
+    }
+  ],
+  "originalManifestSemantics": [
+    {
+      "artifactId": 11611338657,
+      "path": "backend-fixture-copy-5hHLNZ/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 10,
+      "bytes": 1589237,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "backend-fixture-copy-B3TGky/manifest.json",
+      "kind": "selected-backend",
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_BYTE_OR_FILE_LIMIT",
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 1,
+      "bytes": 0,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "backend-fixture-copy-CC1oKr/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 15,
+      "bytes": 2756450,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "backend-fixture-copy-MkIeYt/manifest.json",
+      "kind": "selected-backend",
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ENTRY",
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 9,
+      "bytes": 1502756,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "backend-fixture-copy-PfvSrF/manifest.json",
+      "kind": "selected-backend",
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ROOT",
+      "refusedRoots": 2,
+      "fixtures": 1,
+      "files": 11,
+      "bytes": 1511262,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "backend-fixture-copy-XKvoVt/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 10,
+      "bytes": 1503070,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "backend-fixture-copy-YGQK9g/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 76,
+      "files": 754,
+      "bytes": 123051596,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "backend-fixture-copy-hvXxds/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 10,
+      "bytes": 1511262,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_2431ff9294c34c11bd7ae7927ae0992d/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_2fe92cd6a9874a15a05e65cfa0a6df72/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_bd46029d9f5b4a96a44bf8a922857f07/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_ef987d6dec534de6af249f1d6d2bdbe6/manifest.json",
+      "kind": "managed-artifact",
+      "complete": false,
+      "sourceComplete": false,
+      "outcome": "interrupted",
+      "storedBytes": 2102,
+      "producerTruncatedBytes": null,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_f9da512b57c6448aa1df26424a414310/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "persistent-soak-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 56,
+      "bytes": 3457584,
+      "outcome": "passed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "pty-repeatability-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 142,
+      "bytes": 19506728,
+      "outcome": "passed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "test-hardening-cli-evidence-ViJYlW/batch-deadline-copy-coQlQy/pty-repeatability-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 139,
+      "bytes": 19223551,
+      "outcome": "failed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11611338657,
+      "path": "test-hardening-cli-evidence-ViJYlW/native-lifecycle-copy-YzWr0f/pty-repeatability-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 52,
+      "bytes": 6578258,
+      "outcome": "passed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "backend-fixture-copy-0qyi1L/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 15,
+      "bytes": 2756344,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "backend-fixture-copy-47SB9Q/manifest.json",
+      "kind": "selected-backend",
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_BYTE_OR_FILE_LIMIT",
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 1,
+      "bytes": 0,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "backend-fixture-copy-EvFDhR/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 10,
+      "bytes": 1585035,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "backend-fixture-copy-F0GbhV/manifest.json",
+      "kind": "selected-backend",
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ROOT",
+      "refusedRoots": 2,
+      "fixtures": 1,
+      "files": 11,
+      "bytes": 1511156,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "backend-fixture-copy-Sw7ztb/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 10,
+      "bytes": 1511156,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "backend-fixture-copy-WzJdm0/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 10,
+      "bytes": 1511156,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "backend-fixture-copy-X6xdfD/manifest.json",
+      "kind": "selected-backend",
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ENTRY",
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 9,
+      "bytes": 1502702,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "backend-fixture-copy-tZMv9m/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 76,
+      "files": 754,
+      "bytes": 123845111,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_16849eac2e2e436493bb732e5e613ad0/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_6235049732d74639baa4836ed20ce4e2/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_6c67bfd193464540bdf32df72c705d0c/manifest.json",
+      "kind": "managed-artifact",
+      "complete": false,
+      "sourceComplete": false,
+      "outcome": "interrupted",
+      "storedBytes": 2102,
+      "producerTruncatedBytes": null,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_c500494fae9f460f83cf920cc47ad526/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_ed9f5c2d7d1a4566b83c1c7b92a78ef7/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "persistent-soak-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 56,
+      "bytes": 3457192,
+      "outcome": "passed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "pty-repeatability-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 142,
+      "bytes": 19502405,
+      "outcome": "passed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "test-hardening-cli-evidence-1toDol/batch-deadline-copy-szfXhJ/pty-repeatability-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 115,
+      "bytes": 15415716,
+      "outcome": "failed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11611761316,
+      "path": "test-hardening-cli-evidence-1toDol/native-lifecycle-copy-ggRnS2/pty-repeatability-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 52,
+      "bytes": 6576565,
+      "outcome": "passed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "backend-fixture-copy-1xcdW2/manifest.json",
+      "kind": "selected-backend",
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ENTRY",
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 9,
+      "bytes": 1502756,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "backend-fixture-copy-BSslBP/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 15,
+      "bytes": 2748258,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "backend-fixture-copy-Jab5xE/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 10,
+      "bytes": 1511262,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "backend-fixture-copy-OEucPY/manifest.json",
+      "kind": "selected-backend",
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ROOT",
+      "refusedRoots": 2,
+      "fixtures": 1,
+      "files": 11,
+      "bytes": 1511262,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "backend-fixture-copy-RxDHTh/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 10,
+      "bytes": 1503070,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "backend-fixture-copy-b8chzG/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 10,
+      "bytes": 1585141,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "backend-fixture-copy-ncjHK1/manifest.json",
+      "kind": "selected-backend",
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_BYTE_OR_FILE_LIMIT",
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 1,
+      "bytes": 0,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "backend-fixture-copy-vjlhoy/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 76,
+      "files": 753,
+      "bytes": 122994026,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_02d2bb8389aa4f14a2c172ac03451971/manifest.json",
+      "kind": "managed-artifact",
+      "complete": false,
+      "sourceComplete": false,
+      "outcome": "interrupted",
+      "storedBytes": 2102,
+      "producerTruncatedBytes": null,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_075d7335dfb54604819f83b26813ef67/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_74998448debe42f1b388b26fb8ab6468/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_8844bdc23152484fb434ead391ecc1a8/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_b3fa3a3c56254838a5e0aa670fc2c79a/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "persistent-soak-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 56,
+      "bytes": 3457582,
+      "outcome": "passed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "pty-repeatability-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 142,
+      "bytes": 19506722,
+      "outcome": "passed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "test-hardening-cli-evidence-HPKRUb/batch-deadline-copy-LblWN8/pty-repeatability-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 151,
+      "bytes": 20509827,
+      "outcome": "failed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11611981451,
+      "path": "test-hardening-cli-evidence-HPKRUb/native-lifecycle-copy-cAEaCJ/pty-repeatability-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 52,
+      "bytes": 6578460,
+      "outcome": "passed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "backend-fixture-copy-2BKvya/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 10,
+      "bytes": 1585035,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "backend-fixture-copy-6gHxiM/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 10,
+      "bytes": 1511156,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "backend-fixture-copy-BwTdv6/manifest.json",
+      "kind": "selected-backend",
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ROOT",
+      "refusedRoots": 2,
+      "fixtures": 1,
+      "files": 11,
+      "bytes": 1511156,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "backend-fixture-copy-EJn5Gq/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 15,
+      "bytes": 2756344,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "backend-fixture-copy-HeaEY2/manifest.json",
+      "kind": "selected-backend",
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_BYTE_OR_FILE_LIMIT",
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 1,
+      "bytes": 0,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "backend-fixture-copy-cK7v4F/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 10,
+      "bytes": 1511156,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "backend-fixture-copy-cti3GM/manifest.json",
+      "kind": "selected-backend",
+      "status": "incomplete-selected-diagnostics",
+      "failure": "BACKEND_EVIDENCE_UNSUPPORTED_ENTRY",
+      "refusedRoots": 0,
+      "fixtures": 1,
+      "files": 9,
+      "bytes": 1510894,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "backend-fixture-copy-tb4oQ3/manifest.json",
+      "kind": "selected-backend",
+      "status": "preserved-selected-diagnostics",
+      "failure": null,
+      "refusedRoots": 0,
+      "fixtures": 76,
+      "files": 754,
+      "bytes": 123923045,
+      "fullFixtureCopy": false,
+      "nativeCleanupConfirmed": null,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_21e08504585d47aebed10dcd2df9b81b/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_340bda3c22ac4c7485ed5784ac3ebefe/manifest.json",
+      "kind": "managed-artifact",
+      "complete": false,
+      "sourceComplete": false,
+      "outcome": "interrupted",
+      "storedBytes": 2102,
+      "producerTruncatedBytes": null,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_52b60bf2d3834205b1aab1077a4c3e9e/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_696dd8e102934428b2c0829d9c84b393/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "persistent-soak-evidence/fixture/artifacts/managed/artifact_e3a57601a8c34b48aa4346f530e0abc2/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 2038,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "persistent-soak-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 56,
+      "bytes": 3457193,
+      "outcome": "passed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "pty-repeatability-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 142,
+      "bytes": 19502388,
+      "outcome": "passed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "test-hardening-cli-evidence-akEpbH/batch-deadline-copy-fq9znh/pty-repeatability-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 130,
+      "bytes": 17959680,
+      "outcome": "failed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11612290591,
+      "path": "test-hardening-cli-evidence-akEpbH/native-lifecycle-copy-MlqVPN/pty-repeatability-evidence/manifest.json",
+      "kind": "whole-enumerated-bounded-followup-copy",
+      "files": 52,
+      "bytes": 6576586,
+      "outcome": "passed",
+      "remoteOriginalRechecked": false,
+      "nativeCleanupGranted": false
+    },
+    {
+      "artifactId": 11611466672,
+      "path": "artifacts/desktop-package/failures/package-HwdmmB/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "package",
+      "outcome": "unknown",
+      "files": 14,
+      "bytes": 2736289,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611466672,
+      "path": "artifacts/desktop-package/failures/package-OhiWmU/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "package",
+      "outcome": "unknown",
+      "files": 6,
+      "bytes": 1257472,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611466672,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-ack-absent-2jRbHx/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-ack-absent",
+      "outcome": "failed",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": false,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611466672,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-close-error-rm6aRU/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-close-error",
+      "outcome": "failed",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": false,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611466672,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-exit-timeout-BsoN2I/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-exit-timeout",
+      "outcome": "failed",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611466672,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-exit-without-ack-u4ApZm/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-exit-without-ack",
+      "outcome": "failed",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": false,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611466672,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-late-original-5XNVMy/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-late-original",
+      "outcome": "unknown",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611466672,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-never-started-MDx788/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-never-started",
+      "outcome": "unknown",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": null,
+        "utilityExitObserved": null,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611466672,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-positive-Hbh57n/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-positive",
+      "outcome": "unknown",
+      "files": 6,
+      "bytes": 1257472,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611431491,
+      "path": "artifacts/desktop-package/failures/package-UzsgD2/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "package",
+      "outcome": "unknown",
+      "files": 7,
+      "bytes": 1265664,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611431491,
+      "path": "artifacts/desktop-package/failures/package-s244Kj/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "package",
+      "outcome": "unknown",
+      "files": 6,
+      "bytes": 1257472,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611431491,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-ack-absent-WAUtDf/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-ack-absent",
+      "outcome": "failed",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": false,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611431491,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-close-error-ZFE00L/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-close-error",
+      "outcome": "failed",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": false,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611431491,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-exit-timeout-C9wlD1/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-exit-timeout",
+      "outcome": "failed",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611431491,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-exit-without-ack-BWdU6z/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-exit-without-ack",
+      "outcome": "failed",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": false,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611431491,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-late-original-4AOLRy/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-late-original",
+      "outcome": "unknown",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611431491,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-never-started-XgQKQM/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-never-started",
+      "outcome": "unknown",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": null,
+        "utilityExitObserved": null,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11611431491,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-positive-cBeY86/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-positive",
+      "outcome": "unknown",
+      "files": 6,
+      "bytes": 1257472,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/desktop-advanced/failures/advanced-4BKQeG/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "advanced",
+      "outcome": "failed",
+      "files": 8,
+      "bytes": 1257520,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/desktop-advanced/failures/advanced-NWP9cM/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "advanced",
+      "outcome": "unknown",
+      "files": 29,
+      "bytes": 5613201,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/desktop-advanced/failures/advanced-NWP9cM/native/userData/artifacts/managed/artifact_09a4893e50a24a2daa935e1ee0b0e299/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 133,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/desktop-advanced/failures/advanced-NWP9cM/native/userData/artifacts/managed/artifact_bbff65e957bf41058fe911cea8cd8251/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 25,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/desktop-package/failures/package-0M3xHi/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "package",
+      "outcome": "unknown",
+      "files": 6,
+      "bytes": 1257472,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/desktop-package/failures/package-UUnt1d/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "package",
+      "outcome": "unknown",
+      "files": 7,
+      "bytes": 1265664,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-ack-absent-5HYvGa/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-ack-absent",
+      "outcome": "failed",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": false,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-close-error-5SNO7M/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-close-error",
+      "outcome": "failed",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": false,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-exit-timeout-IAious/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-exit-timeout",
+      "outcome": "failed",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-exit-without-ack-R86m10/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-exit-without-ack",
+      "outcome": "failed",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": false,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-late-original-epZ8Qf/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-late-original",
+      "outcome": "unknown",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-never-started-cdsGeE/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-never-started",
+      "outcome": "unknown",
+      "files": 0,
+      "bytes": 0,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": null,
+        "utilityExitObserved": null,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/next-main-utility-close/fixtures/main-close-positive-udd2Lp/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "main-close-positive",
+      "outcome": "unknown",
+      "files": 6,
+      "bytes": 1257472,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/renderer-delivery/renderer-coding-K2qYVT/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "renderer-coding",
+      "outcome": "unknown",
+      "files": 14,
+      "bytes": 1489927,
+      "truncated": false,
+      "cleanup": {
+        "state": "unconfirmed",
+        "nativeConfirmed": false,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/renderer-delivery/renderer-coding-K2qYVT/native/userData/artifacts/managed/artifact_0b0032c5ba6d4555bbebde76ac01f2e0/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 219,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/renderer-delivery/renderer-coding-K2qYVT/native/userData/artifacts/managed/artifact_53494547447e4ab486304cfad4a77458/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 453,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/renderer-delivery/renderer-coding-K2qYVT/native/userData/artifacts/managed/artifact_8ff2e6eb79134c5ba57016af4840d4c0/manifest.json",
+      "kind": "managed-artifact",
+      "complete": true,
+      "sourceComplete": true,
+      "outcome": "completed",
+      "storedBytes": 27,
+      "producerTruncatedBytes": 0,
+      "artifactTruncatedBytes": 0,
+      "bytePinVerified": true,
+      "completenessPromoted": false
+    },
+    {
+      "artifactId": 11610354644,
+      "path": "artifacts/renderer-delivery/renderer-slow-3NYr9s/manifest.json",
+      "kind": "desktop-selected-retention",
+      "scenario": "renderer-slow",
+      "outcome": "unknown",
+      "files": 6,
+      "bytes": 1282048,
+      "truncated": false,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "originalSourceRetainedAsRecorded": true,
+      "remoteOriginalRechecked": false
+    }
+  ],
+  "independentOriginalJsonSemantics": [
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1/persistent-soak.json",
+      "kind": "persistent",
+      "profile": "quick",
+      "requestedMs": 1000,
+      "observationMs": 1053.8713339999997,
+      "cycles": 6,
+      "inputs": 28,
+      "nativeCleanupConfirmed": false,
+      "databaseRemoved": false,
+      "independentJsonContractPassed": true,
+      "long1532InputOr30MinuteCredit": false
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611338657-engine-macos-15-node-24.x-attempt-1/pty-repeatability.json",
+      "kind": "pty",
+      "iterations": 3,
+      "cases": 15,
+      "uncertainCases": 6,
+      "independentJsonContractPassed": true,
+      "historicalCauseConfirmed": false,
+      "numericPidAuthorityGranted": false,
+      "globalNativeCleanupGranted": false
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1/persistent-soak.json",
+      "kind": "persistent",
+      "profile": "quick",
+      "requestedMs": 1000,
+      "observationMs": 1217.528535,
+      "cycles": 6,
+      "inputs": 28,
+      "nativeCleanupConfirmed": false,
+      "databaseRemoved": false,
+      "independentJsonContractPassed": true,
+      "long1532InputOr30MinuteCredit": false
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611761316-engine-ubuntu-24.04-node-24.x-attempt-1/pty-repeatability.json",
+      "kind": "pty",
+      "iterations": 3,
+      "cases": 15,
+      "uncertainCases": 6,
+      "independentJsonContractPassed": true,
+      "historicalCauseConfirmed": false,
+      "numericPidAuthorityGranted": false,
+      "globalNativeCleanupGranted": false
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1/persistent-soak.json",
+      "kind": "persistent",
+      "profile": "quick",
+      "requestedMs": 1000,
+      "observationMs": 1023.361917,
+      "cycles": 6,
+      "inputs": 28,
+      "nativeCleanupConfirmed": false,
+      "databaseRemoved": false,
+      "independentJsonContractPassed": true,
+      "long1532InputOr30MinuteCredit": false
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11611981451-engine-macos-15-node-26.x-attempt-1/pty-repeatability.json",
+      "kind": "pty",
+      "iterations": 3,
+      "cases": 15,
+      "uncertainCases": 6,
+      "independentJsonContractPassed": true,
+      "historicalCauseConfirmed": false,
+      "numericPidAuthorityGranted": false,
+      "globalNativeCleanupGranted": false
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1/persistent-soak.json",
+      "kind": "persistent",
+      "profile": "quick",
+      "requestedMs": 1000,
+      "observationMs": 1067.0534090000003,
+      "cycles": 6,
+      "inputs": 28,
+      "nativeCleanupConfirmed": false,
+      "databaseRemoved": false,
+      "independentJsonContractPassed": true,
+      "long1532InputOr30MinuteCredit": false
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/extracted-originals/11612290591-engine-ubuntu-24.04-node-26.x-attempt-1/pty-repeatability.json",
+      "kind": "pty",
+      "iterations": 3,
+      "cases": 15,
+      "uncertainCases": 6,
+      "independentJsonContractPassed": true,
+      "historicalCauseConfirmed": false,
+      "numericPidAuthorityGranted": false,
+      "globalNativeCleanupGranted": false
+    }
+  ],
+  "inputPins": [
+    {
+      "path": "docs/moodcode/next-continuation-hosted-663a3a0-verification.json",
+      "bytes": 111452,
+      "sha256": "117c5b322a03c33f9c18025f5eed4c42df29c7b18552433e0d733ce9652e39a3"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/artifacts-api-20261009T110018240120Z.json",
+      "bytes": 4293,
+      "sha256": "7ee91cc578dfde6d21051d46f11bb717d73a936dabdf52df5436721bd82bdaf2"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/reference-validation-11611338657-20261009T110257143813Z.json",
+      "bytes": 665989,
+      "sha256": "4e1fcb76f85a1ffcb1051d9c5861c8707d7def2db700d424ef6da228df8d101e"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/artifacts-api-20261009T110018240120Z.json",
+      "bytes": 4293,
+      "sha256": "7ee91cc578dfde6d21051d46f11bb717d73a936dabdf52df5436721bd82bdaf2"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/reference-validation-11611515384-20261009T110257143813Z.json",
+      "bytes": 645,
+      "sha256": "7ff4c3b8d2f452316625c11903b648533c35bbc3560d279bd1b1e3fe492641ac"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/artifacts-api-20261009T110018240120Z.json",
+      "bytes": 4293,
+      "sha256": "7ee91cc578dfde6d21051d46f11bb717d73a936dabdf52df5436721bd82bdaf2"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/reference-validation-11611665130-20261009T110257143813Z.json",
+      "bytes": 645,
+      "sha256": "7ff4c3b8d2f452316625c11903b648533c35bbc3560d279bd1b1e3fe492641ac"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/artifacts-api-20261009T110018240120Z.json",
+      "bytes": 4293,
+      "sha256": "7ee91cc578dfde6d21051d46f11bb717d73a936dabdf52df5436721bd82bdaf2"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/reference-validation-11611761316-20261009T110257143813Z.json",
+      "bytes": 646561,
+      "sha256": "6d4ccdfc9b5f530229bca06d72a0b00ae91940bf382c4da950efb794f701b169"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/artifacts-api-20261009T110018240120Z.json",
+      "bytes": 4293,
+      "sha256": "7ee91cc578dfde6d21051d46f11bb717d73a936dabdf52df5436721bd82bdaf2"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/reference-validation-11611981451-20261009T110257143813Z.json",
+      "bytes": 672720,
+      "sha256": "5cc145e473d5f9e75f3c43c890c20af59d003dea162f544e7125260adfcbc06d"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/artifacts-api-20261009T110018240120Z.json",
+      "bytes": 4293,
+      "sha256": "7ee91cc578dfde6d21051d46f11bb717d73a936dabdf52df5436721bd82bdaf2"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/reference-validation-11612290591-20261009T110257143813Z.json",
+      "bytes": 655637,
+      "sha256": "f5077b5bb8f1658c20881302c287d75ff924d80c482af93fee65293543670d24"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775855/artifacts-api-20261009T110018240120Z.json",
+      "bytes": 1455,
+      "sha256": "5a2f7dba3b3a6158d74f2b9b89e8fb6ba3a9bee846c236d6810d48a45e38f62f"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775855/reference-validation-11610354746-20261009T105253032114Z.json",
+      "bytes": 9094,
+      "sha256": "6ac1550d1acdddb3109d3d80ee3cf814a031255de1d56074b955b0d9c93f4134"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775855/artifacts-api-20261009T110018240120Z.json",
+      "bytes": 1455,
+      "sha256": "5a2f7dba3b3a6158d74f2b9b89e8fb6ba3a9bee846c236d6810d48a45e38f62f"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775855/reference-validation-11611615501-20261009T105253032114Z.json",
+      "bytes": 9089,
+      "sha256": "4094739192574906730b244fda06fd588ae3a367e59e2f87a0ed09607752172f"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775652/artifact-11611466672-metadata.json",
+      "bytes": 704,
+      "sha256": "c183583ff4013a5d9d036077d5978bfb48cac20c89e844ae995b4002b98797b7"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775652/artifact-11611431491-metadata.json",
+      "bytes": 704,
+      "sha256": "cbf6c4f71381cdf905f98cd0f3b783430814ee9abaf1bfc0d82d04cfc9114a62"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775652/artifact-11610354644-metadata.json",
+      "bytes": 700,
+      "sha256": "cbc01321584f908f9ab084ce76107334f8d3638cc8664c7f88750e85fa686ef4"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/original-job-logs/113784636818-20261009T110018240120Z.log",
+      "bytes": 2993493,
+      "sha256": "49f26728bacab7dd1ac9190a45fe16349170b5c8b4fc3f055d07d9fd9226b223"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/original-job-logs/113784636840-20261009T105253032114Z.log",
+      "bytes": 205660,
+      "sha256": "dbf1c312f757dbd772c76ea2461c2779d875dc9c26ec89df061b6afde5eabfc8"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/original-job-logs/113784636565-20261009T105253032114Z.log",
+      "bytes": 205873,
+      "sha256": "45ae9cf931f60fbb83c38dd94cd991084c90a2c903031308d4681011b83b4188"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/original-job-logs/113784636625-20261009T105740680684Z.log",
+      "bytes": 2990582,
+      "sha256": "30d433892b2bf2dfcfdec57a56b823468e8e8d89caa23d3f362ad39d62862ec1"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/original-job-logs/113784636839-20261009T110018240120Z.log",
+      "bytes": 3010758,
+      "sha256": "ac043f0ed946055626ebdf13729cedf03958099a076256aad47ac402e0467349"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775610/original-job-logs/113784636697-20261009T105740680684Z.log",
+      "bytes": 2993886,
+      "sha256": "7d366bc98305427c660789266a9caf01633af27f07584baf7834061b6139e828"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775855/original-job-logs/113784638095-20261009T105253032114Z.log",
+      "bytes": 74765,
+      "sha256": "f1a2c0e692292546ed7d02c14625442d8775467d27676780fa0583dd89a74bf2"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775855/original-job-logs/113784637782-20261009T105253032114Z.log",
+      "bytes": 74322,
+      "sha256": "8ebecdf1d200c8e87ab2336f895b4e34db67b477ddc4a7259f244d2bd162767a"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775652/job-113784636720-original.log",
+      "bytes": 61754,
+      "sha256": "b734ac24ae150cf82a78610cb3d4ed94fca7f2db8d8c586bca5cff909440d54d"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775652/job-113784636986-original.log",
+      "bytes": 55380,
+      "sha256": "fcc3d8383db18fcbaa9489d52e46e211624c0d725d63f10a616428c71d506e2e"
+    },
+    {
+      "path": "artifacts/next-continuation/hosted/37919775652/job-113784637198-original.log",
+      "bytes": 72050,
+      "sha256": "4a55531ce3654f1729ea2b5c1016411b5864202a8c556091ecf87e5827a21944"
+    }
+  ],
+  "errors": [],
+  "bounds": {
+    "archives": 11,
+    "entries": 20000,
+    "plainBytes": 8589934592,
+    "fileBytes": 536870912,
+    "jsonBytes": 20971520,
+    "seconds": 600,
+    "chunkBytes": 1048576
+  },
+  "durationMs": 6936,
+  "method": "New Python code streams every original ZIP entry to SHA256 and CRC32, verifies canonical safe names, regular-file types, collision-free exact extracted tree, and separately rehashes every retained extraction and every original-manifest-derived reference. No collector verdict is trusted. Original expected reference lists are checked for exact multiset coverage.",
+  "safeExtractionQualification": "Existing extraction is independently reverified against every streamed ZIP byte and exact safe namespace. No new duplicate extraction directory is created; original archives and extracted files are unmodified.",
+  "scopeLimits": {
+    "rawApiSnapshotsAreHistoricalObservationsNotFreshRemoteAvailability": true,
+    "remoteTemporaryOriginalsRecheckedAfterTeardown": false,
+    "nativeSqliteOpened": false,
+    "nativeAddonOrProductionOrTestExecuted": false,
+    "newDownloadsAuthOrCIExecution": false,
+    "compiledCiJavaScriptDeclarationsAndNodeExecutablesSubstituted": false,
+    "wholeNativeCleanupGranted": false,
+    "numericPidSignalOrDeletionAuthorityGranted": false,
+    "selectedDiagnosticsAreFullFixturesOrRecoverySnapshots": false,
+    "passingOuterTestPromotesIncompleteDiagnostics": false,
+    "hostedQuickRunsEstablish1532InputOr30MinuteSoak": false,
+    "local1532Input30MinuteEvidence": "Separate frozen16b actual run; not credited to these hosted quick runs or reexecuted in this audit.",
+    "historicalRpty01OrEarlierCiCauseResolvedByNewPass": false,
+    "liveAccountProviderSignedDistributionAcceptance": "deferred until prepared inputs",
+    "wholeGoalCompletionAsserted": false
+  },
+  "unverifiedScopes": [
+    "Remote runner temporary Originals after teardown",
+    "Unuploaded new CI compiled JavaScript, declarations and Node executable bytes",
+    "Whole native effect cleanup and historical failure causes",
+    "Prepared live account/provider/signing/installation/feed acceptance"
+  ],
+  "writes": "Only new ignored final-audit code/report/digest records; existing evidence/source/docs/git/goal unmodified",
+  "auditArtifacts": [
+    {
+      "path": "artifacts/next-continuation/final-audit/audit_hosted_independent.py",
+      "bytes": 29723,
+      "sha256": "027192e2edd2e03f6e832f6a4caed03fcc6e93d67a0ab1543d54672e6974374c"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/zip-entry-digests.jsonl",
+      "bytes": 1587863,
+      "sha256": "0b3d98e93f32da7edbdab544e7e3ee71ac1a83cb675c04211814d9cbb4ede497"
+    },
+    {
+      "path": "artifacts/next-continuation/final-audit/reference-digests.jsonl",
+      "bytes": 1975773,
+      "sha256": "b49a975f495e4ae073c431b5f849e23a286c16c3e5e5bbaf358797542fa3da63"
+    }
+  ],
+  "preservedFirstAudit": {
+    "reason": "Auditor initially required managed artifacts complete=true; original interrupted complete=false is valid retained evidence. Only this audit predicate was corrected, with incompleteness recorded explicitly. No original/test/production change.",
+    "artifacts": [
+      {
+        "path": "artifacts/next-continuation/final-audit/first-audit-managed-interruption/audit_hosted_independent.py",
+        "bytes": 24983,
+        "sha256": "e59ebc2117b60de88a9dd51f3f000752359844ee5b009aec17960b0cc5812162"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/first-audit-managed-interruption/zip-entry-digests.jsonl",
+        "bytes": 295564,
+        "sha256": "32d0fadc8ab992e33e99e8ddd3a0bafbe76cfc5351eebc02648d2c1dcdcf9bcf"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/first-audit-managed-interruption/reference-digests.jsonl",
+        "bytes": 312496,
+        "sha256": "810e4d173535ec759f612f331b8d5eefddf24076f60f455c892bfa4867bee992"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/first-audit-managed-interruption/audit.log",
+        "bytes": 551,
+        "sha256": "2e224e900e1ffe66e3c5a78ccc2f5569a1b3306f878f162f04a28b8e0aaeb5f1"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/first-audit-managed-interruption/hosted-independent.json",
+        "bytes": 7646,
+        "sha256": "6ae27f1cfd627af3d38f98292ad5cc0fdeefd061aa55cec238832beb819be036"
+      }
+    ]
+  },
+  "preservedSecondAudit": {
+    "reason": "Auditor initially resolved desktop retention file names beside manifest instead of the declared native copy directory. Corrected only audit path mapping; no Original/reference pin/source change.",
+    "artifacts": [
+      {
+        "path": "artifacts/next-continuation/final-audit/second-audit-desktop-relative-path/audit_hosted_independent.py",
+        "bytes": 26130,
+        "sha256": "b8ed4ec83e25bc2906f69c1536516e69d014d222dcf31ebcd8efd483e3500720"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/second-audit-desktop-relative-path/zip-entry-digests.jsonl",
+        "bytes": 1260872,
+        "sha256": "50d4f39da33b3b5c857b193cead4969c731de6c43d1464c28bd77dc7c344b1c1"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/second-audit-desktop-relative-path/reference-digests.jsonl",
+        "bytes": 1921340,
+        "sha256": "e93a5750c1cb6d6fb8cf04df90f12f0b94d47effafd9e2c4cec9d944d00aa7ff"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/second-audit-desktop-relative-path/audit.log",
+        "bytes": 1416,
+        "sha256": "119ce1a167618ae37a0b2d2ea7f661adef01a8e6450e8ea2ab67b499a31d93a3"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/second-audit-desktop-relative-path/hosted-independent.json",
+        "bytes": 49362,
+        "sha256": "174c10dd4e7b5bf04c011a80351eaa7aa0d080454d61c6121b873ad090d5580c"
+      }
+    ]
+  },
+  "preservedThirdAudit": {
+    "reason": "Auditor initially admitted only unknown/null Desktop cleanup. One retained renderer-coding Original explicitly records unconfirmed/false. Both nonconfirmed states are now admitted and remain distinct; no native true or cleanup promotion is accepted.",
+    "artifacts": [
+      {
+        "path": "artifacts/next-continuation/final-audit/third-audit-desktop-unconfirmed-state/audit_hosted_independent.py",
+        "bytes": 26692,
+        "sha256": "32f49715608b766d25f8186f7c911884cd3a6fbae17cac8b8b8418aba827a4b7"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/third-audit-desktop-unconfirmed-state/zip-entry-digests.jsonl",
+        "bytes": 1587863,
+        "sha256": "0b3d98e93f32da7edbdab544e7e3ee71ac1a83cb675c04211814d9cbb4ede497"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/third-audit-desktop-unconfirmed-state/reference-digests.jsonl",
+        "bytes": 1965697,
+        "sha256": "b81b63d0efac5d17920ba7fda898cf27d9782126689197c83113eeb54b9ac8b0"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/third-audit-desktop-unconfirmed-state/audit.log",
+        "bytes": 1377,
+        "sha256": "7839a1abe53981e834a2a6b3d3fb07cc6575c12ab0c1f1ee9655710a18d89bcb"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/third-audit-desktop-unconfirmed-state/hosted-independent.json",
+        "bytes": 72414,
+        "sha256": "ffe5097aa4b8462ae25c1ab181771f6af3584657627f05d10106c481380547a6"
+      }
+    ]
+  },
+  "preservedFourthAudit": {
+    "reason": "Original-manifest enumeration independently includes five Desktop managed content pins outside the declared 4995 reference set. Initial exact count guard rejected the broader 5000 coverage; now exact declared multiset4995 and extra managed-only5 are checked and separated.",
+    "artifacts": [
+      {
+        "path": "artifacts/next-continuation/final-audit/fourth-audit-additional-managed-coverage/audit_hosted_independent.py",
+        "bytes": 27406,
+        "sha256": "a90c4589b0ec5f5e59f4b0c7d43689e2232481fc609c23c102d21c658661dab3"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/fourth-audit-additional-managed-coverage/zip-entry-digests.jsonl",
+        "bytes": 1587863,
+        "sha256": "0b3d98e93f32da7edbdab544e7e3ee71ac1a83cb675c04211814d9cbb4ede497"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/fourth-audit-additional-managed-coverage/reference-digests.jsonl",
+        "bytes": 1975773,
+        "sha256": "b49a975f495e4ae073c431b5f849e23a286c16c3e5e5bbaf358797542fa3da63"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/fourth-audit-additional-managed-coverage/audit.log",
+        "bytes": 1451,
+        "sha256": "c6a7e52be5c5b1ab674c265920a61409c92b0b6b32ed9642bb392325ebc7be6b"
+      },
+      {
+        "path": "artifacts/next-continuation/final-audit/fourth-audit-additional-managed-coverage/hosted-independent.json",
+        "bytes": 77577,
+        "sha256": "3763ef37758260dfc6299669f1234a8c49471a09be540406d6441b5c7927110f"
+      }
+    ]
+  }
+}

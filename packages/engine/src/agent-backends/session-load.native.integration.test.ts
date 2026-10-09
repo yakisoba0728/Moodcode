@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { fork } from "node:child_process";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { once } from "node:events";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { EngineOptions } from "../engine.js";
-import { backendUntil } from "./fixtures/backend.js";
+import { backendUntil, retainBackendFixture } from "./fixtures/backend.js";
 import test from "node:test";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { createEngine } from "../engine.js";
@@ -64,6 +65,21 @@ test(
       replaySha: string;
       logPath: string;
     };
+    let ready: Boundary | undefined;
+    const engines = new Set<ReturnType<typeof createEngine>>();
+    t.after(async () => {
+      let ownerExitError: { error: unknown } | undefined;
+      try {
+        if (child.exitCode === null && child.signalCode === null) {
+          const ended = once(child, "exit");
+          child.kill("SIGKILL");
+          await ended;
+        }
+      } catch (error) { ownerExitError = { error }; }
+      await retainBackendFixture(t, ready?.base, engines, {
+        originalAfterHookObserved: false, ownerExitError,
+      });
+    });
     const boundary = await new Promise<Boundary>((resolve, reject) => {
       const timer = setTimeout(() => {
         child.kill("SIGKILL");
@@ -86,10 +102,7 @@ test(
         );
       });
     });
-    t.after(() => {
-      child.kill("SIGKILL");
-      rmSync(boundary.base, { recursive: true, force: true });
-    });
+    ready = boundary;
     const exited = new Promise<void>((resolve) =>
       child.once("exit", () => resolve()),
     );
@@ -117,7 +130,7 @@ test(
       }
     }, "Original supervisor did not release the physical Root cleanup lease");
     const restored = reopened!;
-    t.after(() => restored.close());
+    engines.add(restored);
     const history = restored
       .inspectAgentBackendConnections(boundary.workspaceId)
       .find((r) => r.connectionId === boundary.connectionId)!;

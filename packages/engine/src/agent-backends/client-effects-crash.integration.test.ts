@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { fork } from "node:child_process";
 import { once } from "node:events";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { createEngine } from "../engine.js";
@@ -10,8 +10,8 @@ import {
   importEngineArchive,
 } from "../storage/archive.js";
 import { assertExecutionLockAvailable } from "../tools/command/execution-lock.js";
-import { groupExists, cleanupGroup } from "../tools/command/process-control.js";
-import { backendUntil } from "./fixtures/backend.js";
+import { groupExists } from "../tools/command/process-control.js";
+import { backendUntil, retainBackendFixture } from "./fixtures/backend.js";
 interface Ready {
   type: "ready";
   base: string;
@@ -52,17 +52,17 @@ for (const mode of ["terminal-hold", "direct-write"])
       );
       const engines = new Set<ReturnType<typeof createEngine>>();
       t.after(async () => {
-        if (child.exitCode === null && child.signalCode === null) {
-          const exited = once(child, "exit");
-          child.kill("SIGKILL");
-          await exited;
-        }
-        if (ready) {
-          for (const pid of [ready.peerPid, ready.commandGroupPid])
-            if (pid && groupExists(pid)) await cleanupGroup(pid);
-          for (const engine of engines) await engine.close();
-          rmSync(ready.base, { recursive: true, force: true });
-        }
+        let ownerExitError: { error: unknown } | undefined;
+        try {
+          if (child.exitCode === null && child.signalCode === null) {
+            const exited = once(child, "exit");
+            child.kill("SIGKILL");
+            await exited;
+          }
+        } catch (error) { ownerExitError = { error }; }
+        await retainBackendFixture(t, ready?.base, engines, {
+          originalAfterHookObserved: false, ownerExitError,
+        });
       });
       ready = await new Promise<Ready>((resolve, reject) => {
         const timer = setTimeout(

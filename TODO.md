@@ -29,8 +29,8 @@
 
 ### 2. 문제 목록 작성과 리팩터링 TODO 재작성
 
-- [x] **RF-01 — 전체 소유 코드 inventory·기준 측정**: engine/contracts/harness/desktop/scripts/CI와 테스트·fixture의 책임·호출자·공개 API·DB transaction·자원 소유·의존성을 조사한다. 파일/함수 길이·복잡도·중복·미사용 코드·실행 시간·메모리 기준을 기록한다. clone·dependency·생성 결과는 제품 코드와 분리한다.
-- [x] **RF-02 — 문제·수정·삭제·추가·유지 목록 작성**: 각 항목에 ID·실제 경로/근거·영향·재현 또는 확인 방법·분류·해결안·선행 작업·검증·완료 조건을 붙인다. 확인된 결함과 조사 후보를 구분하고 caller/export/동적 등록·기존 기록 호환까지 확인한다.
+- [ ] **RF-01 — 전체 소유 코드 inventory·기준 측정**: 구조 inventory와 유한 기능별 검토는 완료했다. 전체 1,092개 소유 파일의 실제 읽기·책임·호출/등록·transaction/resource·호환성·expected·판정 매핑을 네 영역에서 게시했다. 독립 매핑 감사와 새 수정 후의 현재 source 대조가 남아 있으므로 열린 상태로 둔다. clone·dependency·생성 결과는 제품 코드와 분리한다.
+- [ ] **RF-02 — 문제·수정·삭제·추가·유지 목록 작성**: 기존 기능별 목록은 보존한다. 전체 점검에서 각 항목의 ID·실제 경로/근거·영향·재현 또는 확인 방법·분류·해결안·선행 작업·검증·완료 조건을 보강한다. caller/export/동적 등록·기존 기록 호환까지 확인하며 미확인을 삭제 근거로 쓰지 않는다.
 - [x] **RF-03 — 실제 근거로 TODO 재작성**: 우선순위를 정확성/cleanup → 테스트 신뢰성 → 책임·중복 → 성능·문서로 정한다. 기능 단위 작업·담당 파일·검증 범위·완료 조건을 확정하고, 현재 열린 목록과 완료/역사적 기록을 구분한다. 원래 ID·실패 근거·호환 계약은 보존한다.
 
 현재 확인한 점검 후보는 `agent-backends/store.ts` 4,088줄, `engine.ts` 2,815줄, `runner/index.ts` 2,411줄 및 1,000줄 이상 테스트 파일이다. 이는 변경 전 길이다. 확인한 중복만 기능 단위로 정리했고 동작/cleanup·거래·소유 경계를 보존했다. 전체 미사용 판정이나 줄 수 감소를 주장하지 않는다.
@@ -71,11 +71,11 @@
 
 - [x] **RF-04 — 테스트·fixture 정리**: 반복 setup·임시 repo/DB·실제 process·cleanup helper를 정리하고 큰 suite를 계약/시나리오별로 나눈다. 의도와 독립 expected 값을 유지하며 중복 테스트 삭제는 보존되는 회귀 시나리오를 기록한다. 실패 증거·미확정 cleanup은 보존하고 실제 구현과 같은 계산으로 expected를 만들지 않는다.
 - [x] **RF-05 — 메인 엔진 책임 분리**: API dispatch/admission/scheduler/turn/context/tool/permission/storage·recovery/lifecycle을 책임별로 정리한다. 큰 store는 native 소유권·transaction 경계에 맞춰 분리하고 의미가 같은 정책·검증만 공통화한다. 먼저 한 완결 기능을 변경·검증한 뒤 다음 범위로 진행한다.
-- [x] **RF-06 — 미사용·중복·의존성·주석 정리**: 실제 소비·호환성이 확인된 불필요 코드와 dependency를 제거한다. 함수는 한 책임·명확한 이름·단순한 흐름으로 정리하고, 주석은 비자명한 이유·불변식·외부 제약·필수 고지만 남겨 현재 구현과 맞춘다. 코드와 같은 설명·오래된 TODO 주석은 정리한다.
+- [ ] **RF-06 — 미사용·중복·의존성·주석 정리**: 완료한 유한 정리 단위는 유지하고 전체 파일의 유지·정리 판정을 보강한다. 실제 소비·호환성이 확인된 불필요 코드와 dependency를 제거한다. 함수는 한 책임·명확한 이름·단순한 흐름으로 정리하고, 주석은 비자명한 이유·불변식·외부 제약·필수 고지만 남겨 현재 구현과 맞춘다. 검색 부재나 구조 수치만으로 미사용을 판정하지 않는다.
 - [x] **RF-07 — 성능·검증 실행 개선**: 병목은 측정 후 개선하고 focused/contract/integration/crash/OS/GUI 검증 경계를 정리한다. 작업 중에는 영향 검증, 큰 통합 경계와 최종 수용에는 전체 회귀·실제 지원 CI를 실행한다. 이력·context·event·summary·장기 자원 수명을 같은 조건으로 비교한다.
-- [x] **RF-08 — 최종 수용·커밋·문서 최신화**: 타입/build·전체 엔진·코딩 과업·resilience·성능·OS CI와 변경된 GUI/package를 검증한다. public API/event/DB/archive·승인·cancel/unknown/no-replay·예산 계약을 보존하고 코드 양·중복·복잡도·실행 시간의 전후 차이를 기록한다. 남은 조건을 명시한 검증 근거와 TODO를 정리하고 커밋·푸시한다.
+- [ ] **RF-08 — 최종 수용·커밋·문서 최신화**: `663a3a0`의 유한 통합 수용·CI 근거는 보존한다. 전체 점검과 새 결함 수정 후 타입/build·엔진·코딩 과업·resilience·성능·지원 OS CI 및 변경된 GUI/package의 영향 범위를 검증한다. public API/event/DB/archive·승인·cancel/unknown/no-replay·예산 계약을 보존하고 필요한 전후 근거와 TODO를 정리해 커밋·푸시한다. 실제 외부 조건이 남으면 전체 goal을 완료하지 않는다.
 
-리팩터링은 완결 기능별로 병렬 분담하되 `engine.ts`·공통 contracts·동일 store 등 공유 파일의 편집 담당은 하나로 고정한다. 테스트 실패를 숨기는 skip·assertion 축소·timeout 완화로 완료하지 않는다. 줄 수에 임의 목표를 두어 필요한 검증을 없애거나 함수/파일을 과하게 분할하지 않는다. 리팩터링 중 새로운 기능은 별도 TODO로 기록해 완료 범위를 유지한다. RF-04/05/06 완료는 위에서 확정한 테스트·CORE·STORE·RUNNER·정리 단위의 구현과 영향 검증에 한정하며, 전체 코드의 의미 감사나 임의의 모든 모듈 재작성을 뜻하지 않는다.
+리팩터링은 완결 기능별로 병렬 분담하되 `engine.ts`·공통 contracts·동일 store 등 공유 파일의 편집 담당은 하나로 고정한다. 테스트 실패를 숨기는 skip·assertion 축소·timeout 완화로 완료하지 않는다. 줄 수에 임의 목표를 두어 필요한 검증을 없애거나 함수/파일을 과하게 분할하지 않는다. 리팩터링 중 새로운 기능은 별도 TODO로 기록해 완료 범위를 유지한다. 완료한 RF-04/05와 유한 정리 단위는 보존하며, 전체 책임·호출·소유·호환성 점검을 대신하지 않는다.
 
 ### 후속 개선 후보 — 현재 수용과 분리
 
@@ -86,9 +86,40 @@
 - [x] **NEXT-03 — 복원 이력의 테마 색상**: 실제 computed 제목 색상이 undefined `--text`로 warning 색상에 의존하던 것을 확인했다. 기존 root 기본색 #d9dce0를 토큰으로 명명했고 완성된 native 복원 이력에서 rgb(217,220,224)를 확인했다. 기존 explicit dark 테마와 warning 본문색은 유지했다. [검증](docs/moodcode/next-renderer-delivery-verification.json).
 - [x] **NEXT-04 — 데스크톱 main utility 종료 관측**: 실제 main의 bounded Original 연결 기록에 close ACK·exit를 관측하고, updater 설치에는 모든 Original의 ACK·정상 종료 증거를 요구한다. 누락·timeout·abnormal exit·ledger eviction이면 설치를 차단한다. 잘못된 receipt의 null·누락 flags도 unknown을 유지한다. `974a4c4`의 실제 세 OS Desktop CI와 로컬 native 7개·지연 GUI 6개를 통과했다. 물리적 종료가 native cleanup을 증명하지 않으며 unknown 원본은 보존한다. [통합 GUI](docs/moodcode/next-integrated-renderer-delivery-verification.json)·[독립 계약 검토](docs/moodcode/next-continuation-contract-review.json)·[실제 hosted](docs/moodcode/next-continuation-hosted-verification.json).
 
-현재 엔진 검증은 `16b2a10`의 전체 4,848개 중 4,846 pass·실패 0·기존 Windows skip 2, 코딩 과업 3/3, 새 실제 30분 관측 1,804,836.490583ms·382회·입력 1,532개다. `1fd6061`의 receipt 테스트는 실행 중인 writer 직접 백업을 보호된 Engine 백업으로 바꿨고 Node 24·26 각각 receipt/storage 12개를 통과했다. 현재 엔진 source/runtime input 771개는 동결본과 byte-identical이다. 소유 소스는 1,092파일·314,309줄(제품 147,549줄)이며 구조 측정은 전체 의미 감사를 대신하지 않는다. `663a3a0`의 최종 OS·Node CI 11개가 모두 통과했다. 원본 ZIP 11개와 파일 참조 4,995건의 무결성 검사도 통과했다. [최종 hosted 근거](docs/moodcode/next-continuation-hosted-663a3a0-verification.json)를 따른다. 별도 검토자의 전체 바이트 재검증은 미실행이며 수집 담당 검증과 제한된 독립 검토를 구분한다. 이전 `1fd6061`의 11/11 근거도 보존한다. [엔진 검증](docs/moodcode/next-continuation-engine-verification.json)·[구조 측정](docs/moodcode/next-continuation-inventory.json).
+이전 유한 수용의 엔진 검증은 `16b2a10`의 전체 4,848개 중 4,846 pass·실패 0·기존 Windows skip 2, 코딩 과업 3/3, 새 실제 30분 관측 1,804,836.490583ms·382회·입력 1,532개다. `1fd6061`의 receipt 테스트는 실행 중인 writer 직접 백업을 보호된 Engine 백업으로 바꿨고 Node 24·26 각각 receipt/storage 12개를 통과했다. 그 수용의 엔진 source/runtime input 771개는 동결본과 byte-identical이었다. 새 MCP 수정 소스의 차이는 후속 검증에서 별도로 기록한다. 소유 소스는 1,092파일·314,309줄(제품 147,549줄)이며 구조 측정은 전체 의미 감사를 대신하지 않는다. `663a3a0`의 최종 OS·Node CI 11개가 모두 통과했다. 원본 ZIP 11개와 파일 참조 4,995건의 무결성 검사도 통과했다. [최종 hosted 근거](docs/moodcode/next-continuation-hosted-663a3a0-verification.json)를 따른다. 당시 별도 검토자의 전체 바이트 재검증은 미실행이었다. 이후 [별도 전체 감사](docs/moodcode/next-hosted-independent-final-audit.json)에서 ZIP 11개·참조 4,995건을 독립 검증했으며 수집 담당의 이전 근거도 보존한다. 이전 `1fd6061`의 11/11 근거도 보존한다. [엔진 검증](docs/moodcode/next-continuation-engine-verification.json)·[구조 측정](docs/moodcode/next-continuation-inventory.json).
 
 - [x] **TEST-03 — backend fixture 실패·unknown 원본 보존**: 모든 owned Engine을 기존 순서로 close하며 오류 뒤에도 나머지를 정산하고 첫 원래 오류를 유지한다. typed native cleanup 근거가 없어 성공도 원본을 보존한다. Node 24의 새 실제 보존 5개·Node 26의 영향 범위 37개와 `663a3a0`의 실제 CI 11개를 통과했다. bounded 선택 진단 사본은 예산 초과·경로 거부·manifest 오류를 incomplete로 남기며 전체 원본 복사나 cleanup 권한을 뜻하지 않는다. [구현·검증](docs/moodcode/next-native-sqlite-failure-analysis.json)·[독립 검토](docs/moodcode/next-continuation-independent-review.json).
+
+### 전체 종료 조건 감사에서 다시 연 내부 작업
+
+`f3582bd`에서 전체 점검의 의미 근거가 부족한 것을 확인해 RF-01/02/06/08을 다시 열었다. 기존 기능별 리팩터링과 실제 검증 결과를 취소하거나 전체 점검으로 승격하지 않는다. 구조 inventory의 소유 1,092개 파일을 아래 네 그룹에 중복·누락 없이 배정했다. 모든 세션은 `gpt-6.1-sol / xhigh`와 병렬 에이전트를 사용하며 실제 파일 읽기·caller/등록·transaction/resource·호환성·테스트 expected·유지/수정 판정을 남긴다. [전체 점검 계획](docs/moodcode/next-full-review-plan.json).
+
+| 담당 | 파일·물리 줄 수 | 범위 |
+|---|---:|---|
+| 기존 Core 세션 | 320·89,951 | contracts/harness·engine·store/backend·runner·lifecycle/recovery·context·진단 |
+| 기존 Desktop/provider 세션 | 266·55,734 | Desktop·scripts·provider/media/auth·permission·MCP/LSP·artifact |
+| 새 native/tools 세션 | 298·79,947 | command/PTY/sandbox·Git/worktree·child/team/workflow·integration |
+| 새 automation/CI 세션 | 208·88,677 | jobs/knowledge/schedules/proposals/review·Windows native·CI |
+
+- [x] **GUI-CSS-01 — 공유 스타일의 lazy 의존 제거**: 공유 규칙을 eager 소유 경계로 옮겼다. Renderer 33/33과 기존 실제 6-flow·새 fresh-before-Advanced style 검증을 통과했다. 초기 JS 261,484B는 동일하며 eager CSS +449B·Advanced CSS −425B다. 새 소스의 전체 OS/package 수용은 RF-08에 남는다.
+- [x] **TEST-04 — crash/load 부모의 unknown 원본 보존**: 실제 Original ChildProcess SIGKILL·assertion·deadline·no-replay/archive를 유지하고 숫자 fallback 신호와 unknown 삭제를 제거했다. 모든 owned Engine을 정산하며 첫 오류를 보존한다. Node 24·26 총 70 tests와 2 owner-error probes, Original 72개·selected 참조 762개를 검증했다. SIGKILL 뒤 cleanup은 unknown/null이며 partial 진단도 보존한다. 새 loader 등 후속 변경은 별도 영향 검증이 필요하다.
+- [ ] **DP-MCP-STDIO-CLOSE-01 — MCP 로컬 transport 종료의 미확정 처리**: 일반 stdio 종료에서 observer의 `cleanupConfirmed:false`를 무시하고 Promise를 성공시키는 분기를 수정한다. 기존 cleanup-uncertain 오류·memoized close/cancel/관측 및 native effect의 unknown을 보존하고 실제 정상 종료·독립 실패 경계를 검증한다.
+- [ ] **DP-RESILIENCE-TEMP-01 — 보고서 임시 파일의 소유 정산**: 보고서 rename 실패 뒤 이번 호출이 exclusive 생성한 임시 파일만 정산한다. 선재 파일·원래 실패·no-green 계약을 보존하고 독립 filesystem assertion으로 확인한다.
+
+[두 수정의 독립 수용](docs/moodcode/next-followup-fixes-independent-review.json)·[backend 실제 검증](docs/moodcode/next-backend-crash-retention-verification.json)·[GUI 실제 검증](docs/moodcode/next-renderer-shared-style-verification.json)을 보존한다. 이 결과가 이후 동시 수정이나 전체 OS 검증을 대신하지 않는다.
+
+전체 최초 의미 점검은 네 영역의 1,092개 실제 읽기·매핑을 완료했고 원래 소스의 발견 사항 36건을 게시했다. 독립 provenance 감사·최종 수정 소스 대조·공동 회귀는 진행 중이다. 작업별 원 경로·후보/재현 구분·최소 수정안은 [현재 전체 계획](docs/moodcode/next-full-review-plan.json)의 `reviewDispositions`에 기록한다.
+
+- [ ] **FR-CONTEXT — Context 소유 수명·미디어 경계**: Native 192-session metadata 증가·fork-only 128 capture 우회를 제한하고 pending owner·omitted/anchor·durable revision을 보존한다. audio/video fork는 명시적으로 거부하고 provider recovery는 정확한 입력 media 소유권·fingerprint·no-replay를 유지한다. source 영향 검증 후 compiled·통합 검증한다.
+- [ ] **FR-RECOVERY-BUDGET — 누적 복구 증거 예산**: 실제 ACP owner/SQLite에서 8,388,608B 초과 읽기 red를 재현했다. anchor event도 기존 공유 bounded body reader로 읽도록 보강한다. resident child의 추가 Run/metadata 후보는 genuine owner probe와 최소 수정안을 확인한 뒤 판정한다. DDL·예산 상한은 유지한다.
+- [ ] **FR-NATIVE — 명령·child·workflow·Git 경계**: wrong-session resident stop, duplicate workflow workspace, nested verification path, `..notes.txt` Git path, source loader, sandbox private 미소비 상태를 수정한다. 실제 승인·취소·owner·DB/API/event·원자성 계약과 독립 기대를 유지한다.
+- [ ] **FR-FIXTURE — 실패·unknown Original 수명**: Git/coding/sandbox/harness/semantic/media/document/runner fixture의 실제 owner join과 보존 규칙을 보강한다. 복사 PID나 파일 관찰을 cleanup 권한으로 쓰지 않고 첫 오류·bounded 진단을 보존한다. Windows PID fixture는 원본 handle 중심으로 수정하고 실제 Windows CI 전까지 미확정이다.
+- [ ] **FR-EXTENSIONS — plugin·GUI·provider projection**: deactivate/close의 원본 dispose 정산과 same-ID 재활성화, Windows canonical workspace link, terminal unknown 표시, 알려진 credential의 Responses progress redaction을 보강한다. 실제 계정·설치 검증은 포함하지 않는다.
+- [ ] **FR-AUTOMATION — jobs·PR·host signal**: lifetime dual-write failure waiter 정산, Windows cancelled command delivery의 정확한 native evidence predicate, PR watch startup/finally race, proposals/knowledge의 descriptor-safe·branded AbortSignal 검증을 보강한다. Windows 실제 native 수용은 CI에서 확인한다.
+
+`RF06-DEPS-02`의 Prettier는 자동 runtime caller가 없으나 문서화된 수동 format/check 소비가 있어 유지한다. 검색 부재만으로 삭제하지 않는다. native DB close 실패의 실제 도달 가능성은 아직 증명되지 않았으며 주입 실패를 제품 결함으로 승격하지 않는다. source-absent dts 두 개도 origin unknown으로 보존한다.
+
+독립 전체 hosted 바이트 감사는 `663a3a0`의 원본 ZIP 11개·entry 6,752개·참조 4,995건을 별도 직접 검증해 불일치 0을 확인했다. 선택 진단의 incomplete 및 native cleanup의 null/false는 그대로 유지한다. 이 감사가 새 수정 소스나 외부 계정·서명·과거 PTY 원인을 검증하는 것은 아니다.
 
 ### 이전 수용 기록 — 확정한 후속 구현·리팩터링·통합 검증
 

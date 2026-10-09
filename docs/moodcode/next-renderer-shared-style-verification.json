@@ -1,0 +1,1564 @@
+{
+  "kind": "renderer-shared-styles-boundary-verification",
+  "observedAt": "2026-10-09T11:50:57.268911+00:00",
+  "status": "passed-for-shared-style-and-existing-renderer-flows",
+  "providedMainHeadAtBaseline": "f3582bd1af33754e281810fe8e8bde5e0c3373a9",
+  "scope": "Only two renderer CSS files and the existing verify-delivery fixture changed. Existing desktop build, renderer 33 units, and six actual flow groups plus one shared-style check ran once. No engine full test, AST rerun, CI rerun, live provider, credentials, or signing/publishing.",
+  "preFix": {
+    "inventoryCoverageReport": {
+      "path": "artifacts/next-continuation/final-audit/inventory-coverage-review.json",
+      "bytes": 33399,
+      "sha256": "18a07c91e9521c0a8f99a783b62745b6a5d5ce81c8aeac41d058f436ea1e9449"
+    },
+    "pins": {
+      "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-pins.json",
+      "bytes": 5015,
+      "sha256": "834fda7b6305b62f975c5e1601429fa602808a55dd577037ba6c3d7abde3489c"
+    },
+    "actual": {
+      "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-gui.json",
+      "bytes": 19083,
+      "sha256": "0d9a25f8239e096616e996d4b35270b70fe633eb6e5e72de2fe64b0a0ac45aca"
+    },
+    "probe": {
+      "path": "artifacts/next-continuation/final-audit/renderer-style/fresh-styles-baseline-probe.mjs",
+      "bytes": 12774,
+      "sha256": "f277b59652adda8a309fccafab4d59612adbace969611ce18378b672bcf826e6"
+    },
+    "log": {
+      "path": "artifacts/next-continuation/final-audit/renderer-style/pre-fix-gui.log",
+      "bytes": 250,
+      "sha256": "910edc98e9655b3a247f1f81220170ded8bf4477a4e7d48df4ec6095c48e6128"
+    },
+    "runtimeCopies": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/next-continuation/final-audit/renderer-style/pre-fix-runtime",
+    "initialRuntimeCopiesExact": true,
+    "originalSourcePins": [
+      {
+        "path": "apps/desktop/src/renderer/components/advanced.css",
+        "bytes": 3131,
+        "sha256": "52139f5960cc84bada280a01d4a67ddedee4921cc764cadb60da6d0b4dc7b953"
+      },
+      {
+        "path": "apps/desktop/src/renderer/styles.css",
+        "bytes": 29245,
+        "sha256": "9ee464d1c50ef71d5dce28109dd3393ef12ad57a496446dabf5606aef1198808"
+      },
+      {
+        "path": "apps/desktop/src/renderer/fixtures/verify-delivery.mjs",
+        "bytes": 20111,
+        "sha256": "f7e95868191a8d6166fd10bd92a64d3f43061684137aa39be1d0976ce5c56144"
+      },
+      {
+        "path": "apps/desktop/src/renderer/components/AdvancedPanel.tsx",
+        "bytes": 8883,
+        "sha256": "767a865b81cdacdf355582d39bce48eb407f3d2da87a8a2817e1b5b995aa16bc"
+      },
+      {
+        "path": "apps/desktop/src/renderer/components/Settings.tsx",
+        "bytes": 13202,
+        "sha256": "845163a7b1604d5e0909524feba09980f45cbefb74db53ce65941558a79f18c5"
+      },
+      {
+        "path": "apps/desktop/src/renderer/App.tsx",
+        "bytes": 29322,
+        "sha256": "20bb476c0619d2d89b6bd2e967e6f1552b6d45df3027589ca5d59a884ff9f251"
+      },
+      {
+        "path": "scripts/desktop-main-utility-close.mjs",
+        "bytes": 7872,
+        "sha256": "6d1acc6c52e27a4d15aa9bf3a3849b1615d553cb4f1c544cfdd39568522a82ce"
+      },
+      {
+        "path": "scripts/desktop-test-evidence.mjs",
+        "bytes": 24102,
+        "sha256": "50fd3d5668234fe66c121bcb8d62c08e098c2c7dd3aa6c2090e2a0f33864a4bb"
+      },
+      {
+        "path": "apps/desktop/src/renderer/fixtures/delivery-launch.cjs",
+        "bytes": 1343,
+        "sha256": "b6ddd970f73b59f70473e0a2fe8f72c104739009491e42030e75b663cc38f426"
+      }
+    ],
+    "originalRuntimePins": [
+      {
+        "path": "apps/desktop/dist/main/engine-worker.js",
+        "bytes": 4605805,
+        "sha256": "0235e636d3af6156cd2de59b9f0dbd0372c3d9b268859c227d122e08eb0f1867"
+      },
+      {
+        "path": "apps/desktop/dist/main/index.js",
+        "bytes": 236914,
+        "sha256": "8b1a9fcb4c7ca8016f1a63036d8a236fee088a92a0bef31a423c8269dd16f084"
+      },
+      {
+        "path": "apps/desktop/dist/main/preload.cjs",
+        "bytes": 40549,
+        "sha256": "ced9286c0217913390f33e52000f92a0f16823ec1694a5e632ba97ff54304184"
+      },
+      {
+        "path": "apps/desktop/dist/main/supervisor.js",
+        "bytes": 39273,
+        "sha256": "69b1b32bcb177b2ad6112884996f3d591a4b0425396d2b8cb2b4a5368f6301f2"
+      },
+      {
+        "path": "apps/desktop/dist/main/terminals/backend.js",
+        "bytes": 29121,
+        "sha256": "4e2379ac3560d9cf4a21e557bb386ae558c69f1b27c1ed1f87e6c7f2f469516b"
+      },
+      {
+        "path": "apps/desktop/dist/main/terminals/supervisor.js",
+        "bytes": 27264,
+        "sha256": "4ae464fc22cc20e628561e2d8fe167ea5441103c0bc5f824cefd5156a8413274"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/AdvancedPanel-B9q9Du-H.js",
+        "bytes": 34711,
+        "sha256": "f14228ad506312580828b6132ee841ab657cc1c6dd23a7f5070019a3a6a861f4"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/AdvancedPanel-CYQcx1YV.css",
+        "bytes": 2610,
+        "sha256": "424753a7db56b343ff5469e3f894b559779864288dbd6a9014b724f98c7343e6"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/CodeBlock-C3tExOdD.js",
+        "bytes": 171341,
+        "sha256": "584deac955c193f6ca55a299aca25f57d6f860bef0398aac9f49415065f6ef0c"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/Recovery-Bi40RyMn.js",
+        "bytes": 5866,
+        "sha256": "b17c8295ee244cdf6c83aed63e84050736797aa2a9ec02afb011419ec644d1ac"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/Settings-CLz_LULR.js",
+        "bytes": 15022,
+        "sha256": "007afbf9233e2da82e83bc2795270589b130390d3d13f7490edad1c7b239ed4b"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/Timeline-BKjDLYnD.js",
+        "bytes": 46610,
+        "sha256": "fadd24c14fdd9d99ae1ff6791cb1119835c0ee516165b13c8982f6f754332b59"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/conversation-C9Xlej2Y.js",
+        "bytes": 125500,
+        "sha256": "b506740ca305dab6a3b51d3ccf4a8d6e93eff7e7fc56f4814e88a22f5ba8dcba"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/index-2f9ZJ-IV.js",
+        "bytes": 261484,
+        "sha256": "19a9907e8a939030d4e75e5e0369c45ad02eda5fcbf910e2afd0fcd5202f8ba4"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/index-D10POMwM.css",
+        "bytes": 27529,
+        "sha256": "03c61932ac36654c509607ae726ce617db5a2bb7ae0041df9429fcc0cb6cca43"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/index.html",
+        "bytes": 682,
+        "sha256": "1ff54ce330ed23771772cdb405f0d6d8680fa36c05e5f8c164665ca23c8b2551"
+      }
+    ],
+    "gapInPreviousSixFlows": "Advanced was opened before Settings, so its CSS already supplied shared rules. The previous six-flow result did not cover fresh Settings or composer before Advanced.",
+    "actualMissingRules": [
+      ".delivery-select",
+      ".account-panel",
+      ".account-panel h3",
+      ".account-panel .advanced-actions",
+      ".advanced-actions"
+    ],
+    "observedComposerWidthBeforeAfterAdvanced": [
+      "62px",
+      "88px"
+    ],
+    "observedCardPaddingBeforeAfterAdvanced": [
+      "0px",
+      "14px"
+    ],
+    "observedActionsDisplayBeforeAfterAdvanced": [
+      "block",
+      "flex"
+    ],
+    "dialogQualification": "UA max-height was calc(100% - 32px); intended viewport max-height appeared only after Advanced. No clipped or unreachable controls were demonstrated."
+  },
+  "change": {
+    "paths": [
+      "apps/desktop/src/renderer/components/advanced.css",
+      "apps/desktop/src/renderer/styles.css",
+      "apps/desktop/src/renderer/fixtures/verify-delivery.mjs"
+    ],
+    "declarations": "Move shared delivery/account/action selectors to eager styles.css and settings-dialog viewport constraints into its existing eager rule. Advanced heading/inline/preview and all other Advanced rules remain lazy; original values and specificity stay unchanged.",
+    "additionalHost": null,
+    "thresholdsAndDeadlinesChanged": false,
+    "lazySettingsFirst": true,
+    "independentExpectedValues": true
+  },
+  "postFix": {
+    "sourcePinsAtBuildEnd": [
+      {
+        "path": "apps/desktop/src/renderer/components/advanced.css",
+        "bytes": 2617,
+        "sha256": "4a8aed71d1040d91a577c393949dad2f4712a591e613c6875f7550842dbe264d"
+      },
+      {
+        "path": "apps/desktop/src/renderer/styles.css",
+        "bytes": 29794,
+        "sha256": "19180fd4423b525046ff59fdc5c6a288fe1c44e76bdcbcb1aba321328be99e2a"
+      },
+      {
+        "path": "apps/desktop/src/renderer/fixtures/verify-delivery.mjs",
+        "bytes": 25145,
+        "sha256": "0ae537cadfe5aea5c3248f20992e2f731e80f01ce09d9368f6a3d6e3f5a840da"
+      },
+      {
+        "path": "apps/desktop/src/renderer/components/AdvancedPanel.tsx",
+        "bytes": 8883,
+        "sha256": "767a865b81cdacdf355582d39bce48eb407f3d2da87a8a2817e1b5b995aa16bc"
+      },
+      {
+        "path": "apps/desktop/src/renderer/components/Settings.tsx",
+        "bytes": 13202,
+        "sha256": "845163a7b1604d5e0909524feba09980f45cbefb74db53ce65941558a79f18c5"
+      },
+      {
+        "path": "apps/desktop/src/renderer/App.tsx",
+        "bytes": 29322,
+        "sha256": "20bb476c0619d2d89b6bd2e967e6f1552b6d45df3027589ca5d59a884ff9f251"
+      },
+      {
+        "path": "scripts/desktop-main-utility-close.mjs",
+        "bytes": 7872,
+        "sha256": "6d1acc6c52e27a4d15aa9bf3a3849b1615d553cb4f1c544cfdd39568522a82ce"
+      },
+      {
+        "path": "scripts/desktop-test-evidence.mjs",
+        "bytes": 24102,
+        "sha256": "50fd3d5668234fe66c121bcb8d62c08e098c2c7dd3aa6c2090e2a0f33864a4bb"
+      },
+      {
+        "path": "apps/desktop/src/renderer/fixtures/delivery-launch.cjs",
+        "bytes": 1343,
+        "sha256": "b6ddd970f73b59f70473e0a2fe8f72c104739009491e42030e75b663cc38f426"
+      },
+      {
+        "path": "scripts/build-desktop.mjs",
+        "bytes": 2027,
+        "sha256": "b9a70bcfc73dddfe5580ed4d0b00754eefe6bc46381f28cabf98ca8579155970"
+      },
+      {
+        "path": "apps/desktop/vite.config.mjs",
+        "bytes": 297,
+        "sha256": "a753242dbe73283837badfdf01310a4352b170efc6b58df558e2092ce4bbdfe7"
+      },
+      {
+        "path": "apps/desktop/tsconfig.renderer.json",
+        "bytes": 426,
+        "sha256": "7d8baff52b405398cb7ce046c0b879700a80aed0cefdc17d3350c19e2966f43c"
+      },
+      {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 9998,
+        "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+      },
+      {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10535,
+        "sha256": "16f1bb24e9dbec9f37c7f60d30000d1147bdc85d65ae486988b629aafbfc0fc6"
+      },
+      {
+        "path": "apps/desktop/src/main/index.ts",
+        "bytes": 16222,
+        "sha256": "08a7847c3c5278853c1eaf098752574e0789d6623ce8b1732f611e365fe37b3b"
+      },
+      {
+        "path": "apps/desktop/src/worker/index.ts",
+        "bytes": 216,
+        "sha256": "d532450bfe453026e533774f15b76a760e267302d3f0e7a68f982f15864f63f2"
+      },
+      {
+        "path": "apps/desktop/src/preload/index.ts",
+        "bytes": 391,
+        "sha256": "66aea30fa643bc38743fd7feb8afbc483ece9c7d4295bc3e8bc1e69cbd11bd93"
+      },
+      {
+        "path": "package.json",
+        "bytes": 3035,
+        "sha256": "2ddee2bcf17d79b6bedb2637b2cdbc4e7be5e8ac8dbab0881ee87a2c28e15e4d"
+      }
+    ],
+    "currentSourcePins": [
+      {
+        "path": "apps/desktop/src/renderer/components/advanced.css",
+        "bytes": 2617,
+        "sha256": "4a8aed71d1040d91a577c393949dad2f4712a591e613c6875f7550842dbe264d"
+      },
+      {
+        "path": "apps/desktop/src/renderer/styles.css",
+        "bytes": 29794,
+        "sha256": "19180fd4423b525046ff59fdc5c6a288fe1c44e76bdcbcb1aba321328be99e2a"
+      },
+      {
+        "path": "apps/desktop/src/renderer/fixtures/verify-delivery.mjs",
+        "bytes": 25145,
+        "sha256": "0ae537cadfe5aea5c3248f20992e2f731e80f01ce09d9368f6a3d6e3f5a840da"
+      },
+      {
+        "path": "apps/desktop/src/renderer/components/AdvancedPanel.tsx",
+        "bytes": 8883,
+        "sha256": "767a865b81cdacdf355582d39bce48eb407f3d2da87a8a2817e1b5b995aa16bc"
+      },
+      {
+        "path": "apps/desktop/src/renderer/components/Settings.tsx",
+        "bytes": 13202,
+        "sha256": "845163a7b1604d5e0909524feba09980f45cbefb74db53ce65941558a79f18c5"
+      },
+      {
+        "path": "apps/desktop/src/renderer/App.tsx",
+        "bytes": 29322,
+        "sha256": "20bb476c0619d2d89b6bd2e967e6f1552b6d45df3027589ca5d59a884ff9f251"
+      },
+      {
+        "path": "scripts/desktop-main-utility-close.mjs",
+        "bytes": 7872,
+        "sha256": "6d1acc6c52e27a4d15aa9bf3a3849b1615d553cb4f1c544cfdd39568522a82ce"
+      },
+      {
+        "path": "scripts/desktop-test-evidence.mjs",
+        "bytes": 24102,
+        "sha256": "50fd3d5668234fe66c121bcb8d62c08e098c2c7dd3aa6c2090e2a0f33864a4bb"
+      },
+      {
+        "path": "apps/desktop/src/renderer/fixtures/delivery-launch.cjs",
+        "bytes": 1343,
+        "sha256": "b6ddd970f73b59f70473e0a2fe8f72c104739009491e42030e75b663cc38f426"
+      },
+      {
+        "path": "scripts/build-desktop.mjs",
+        "bytes": 2027,
+        "sha256": "b9a70bcfc73dddfe5580ed4d0b00754eefe6bc46381f28cabf98ca8579155970"
+      },
+      {
+        "path": "apps/desktop/vite.config.mjs",
+        "bytes": 297,
+        "sha256": "a753242dbe73283837badfdf01310a4352b170efc6b58df558e2092ce4bbdfe7"
+      },
+      {
+        "path": "apps/desktop/tsconfig.renderer.json",
+        "bytes": 426,
+        "sha256": "7d8baff52b405398cb7ce046c0b879700a80aed0cefdc17d3350c19e2966f43c"
+      },
+      {
+        "path": "packages/engine/src/mcp/stdio.ts",
+        "bytes": 10032,
+        "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+      },
+      {
+        "path": "packages/engine/dist/mcp/stdio.js",
+        "bytes": 10535,
+        "sha256": "16f1bb24e9dbec9f37c7f60d30000d1147bdc85d65ae486988b629aafbfc0fc6"
+      },
+      {
+        "path": "apps/desktop/src/main/index.ts",
+        "bytes": 16222,
+        "sha256": "08a7847c3c5278853c1eaf098752574e0789d6623ce8b1732f611e365fe37b3b"
+      },
+      {
+        "path": "apps/desktop/src/worker/index.ts",
+        "bytes": 216,
+        "sha256": "d532450bfe453026e533774f15b76a760e267302d3f0e7a68f982f15864f63f2"
+      },
+      {
+        "path": "apps/desktop/src/preload/index.ts",
+        "bytes": 391,
+        "sha256": "66aea30fa643bc38743fd7feb8afbc483ece9c7d4295bc3e8bc1e69cbd11bd93"
+      },
+      {
+        "path": "package.json",
+        "bytes": 3035,
+        "sha256": "2ddee2bcf17d79b6bedb2637b2cdbc4e7be5e8ac8dbab0881ee87a2c28e15e4d"
+      }
+    ],
+    "changedSourcesSinceBuild": [
+      {
+        "built": {
+          "path": "packages/engine/src/mcp/stdio.ts",
+          "bytes": 9998,
+          "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+        },
+        "current": {
+          "path": "packages/engine/src/mcp/stdio.ts",
+          "bytes": 10032,
+          "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+        }
+      }
+    ],
+    "runtimePins": [
+      {
+        "path": "apps/desktop/dist/main/engine-worker.js",
+        "bytes": 4605805,
+        "sha256": "0235e636d3af6156cd2de59b9f0dbd0372c3d9b268859c227d122e08eb0f1867"
+      },
+      {
+        "path": "apps/desktop/dist/main/index.js",
+        "bytes": 236914,
+        "sha256": "8b1a9fcb4c7ca8016f1a63036d8a236fee088a92a0bef31a423c8269dd16f084"
+      },
+      {
+        "path": "apps/desktop/dist/main/preload.cjs",
+        "bytes": 40549,
+        "sha256": "ced9286c0217913390f33e52000f92a0f16823ec1694a5e632ba97ff54304184"
+      },
+      {
+        "path": "apps/desktop/dist/main/supervisor.js",
+        "bytes": 39273,
+        "sha256": "69b1b32bcb177b2ad6112884996f3d591a4b0425396d2b8cb2b4a5368f6301f2"
+      },
+      {
+        "path": "apps/desktop/dist/main/terminals/backend.js",
+        "bytes": 29121,
+        "sha256": "4e2379ac3560d9cf4a21e557bb386ae558c69f1b27c1ed1f87e6c7f2f469516b"
+      },
+      {
+        "path": "apps/desktop/dist/main/terminals/supervisor.js",
+        "bytes": 27264,
+        "sha256": "4ae464fc22cc20e628561e2d8fe167ea5441103c0bc5f824cefd5156a8413274"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/AdvancedPanel-Bh2fDbop.css",
+        "bytes": 2185,
+        "sha256": "70eddfc8f097deb51a0c907f82224c440b31291a18190aedc5d7b73be7258d7f"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/AdvancedPanel-Bq-kA8eI.js",
+        "bytes": 34711,
+        "sha256": "103211b47835c1f8440abf71258c38170284f9323c1b4c0b19a95a41b31660c5"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/CodeBlock-CHdKuNaJ.js",
+        "bytes": 171341,
+        "sha256": "e9330ac340fbce1c3ffaa82a14aa8bb51376b95ab16a1749401b1d8512b6339e"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/Recovery-D21ak6Eq.js",
+        "bytes": 5866,
+        "sha256": "37c7902cd92f0f77c0e015bff17546e43bcda4be858d75e30bb30cebc7d08b43"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/Settings-BvU37TTN.js",
+        "bytes": 15022,
+        "sha256": "6de570ebf158f9cc1555a20d5afd52dbbb1e8ace4b6844f48c1c8f0bc563ac0f"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/Timeline-DyO7sN35.js",
+        "bytes": 46610,
+        "sha256": "036a31ce8c26932c0f03ee55f2f798319e46b3b1c33c6dc066dc892d7a995b12"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/conversation-BErur5tT.js",
+        "bytes": 125500,
+        "sha256": "bcdff5c924af801ed8c5d7ebabc04c5a6d16d021e43795f71bb265d46073bb78"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/index-1BeM0JLR.css",
+        "bytes": 27978,
+        "sha256": "bd95697cc079f72ce5319ee63d95c64d175927966448d73b3535f7545d63d6bd"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/assets/index-EP2WXdMY.js",
+        "bytes": 261484,
+        "sha256": "398b6d5e9a7128401646e3b589462ef3b55c19d8d1aade96660891640ec34d61"
+      },
+      {
+        "path": "apps/desktop/dist/renderer/index.html",
+        "bytes": 682,
+        "sha256": "c4f7a06a8fe789116acc09c22eed1c7fc834dff7d6bfdcef8853970f991dd74c"
+      }
+    ],
+    "selectedRuntimeUnchangedSinceBuild": true,
+    "mainPreloadWorkerAndSupervisorsMatchBaseline": true,
+    "buildBoundaryBefore": {
+      "path": "artifacts/next-continuation/final-audit/renderer-style/post-fix-build-before.json",
+      "bytes": 3630,
+      "sha256": "4d5816b0a0803f48ab115edf279df1d142961de954463c2ba4a09d3346e9a0e4"
+    },
+    "buildBoundaryAfter": {
+      "path": "artifacts/next-continuation/final-audit/renderer-style/post-fix-build-after.json",
+      "bytes": 33655,
+      "sha256": "7e00cc0635113334577bb13b6bd06383feb9a11ab7a673753c142d2c7ac255bd"
+    },
+    "buildInputsStableDuringBuild": true,
+    "productionEngineAtBuild": {
+      "files": 771,
+      "bytes": 11899924,
+      "frozenSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+      "mismatches": []
+    },
+    "productionEngineWhenSummarized": {
+      "files": 771,
+      "frozenSha256": "cc4858578a7cdb0f5afbd9e2f4c308d4eb4ef0b24cc2c24e119ba6f4bfb75ba8",
+      "mismatches": [
+        {
+          "frozen": {
+            "path": "packages/engine/src/mcp/stdio.ts",
+            "bytes": 9998,
+            "sha256": "bbc01d2ed46dcd587b4b88f536c74f94932030d60d63952d4f421b815c79ae0b"
+          },
+          "current": {
+            "path": "packages/engine/src/mcp/stdio.ts",
+            "bytes": 10032,
+            "sha256": "4a7033f601a06712b03686f4952604407fdbe25e9296cceb5ea09865ee2d5ebc"
+          }
+        }
+      ]
+    },
+    "pendingMcpQualification": "Desktop build observed baseline stdio source bbc01d2e and compiled16f1bb24 at both boundaries. Actual renderer uses the pinned baseline bundle. A later MCP owner source change is recorded separately; this renderer verification does not accept or verify that pending fix."
+  },
+  "bytes": {
+    "initialJavaScriptBefore": {
+      "path": "apps/desktop/dist/renderer/assets/index-2f9ZJ-IV.js",
+      "bytes": 261484,
+      "sha256": "19a9907e8a939030d4e75e5e0369c45ad02eda5fcbf910e2afd0fcd5202f8ba4"
+    },
+    "initialJavaScriptAfter": {
+      "path": "apps/desktop/dist/renderer/assets/index-EP2WXdMY.js",
+      "bytes": 261484,
+      "sha256": "398b6d5e9a7128401646e3b589462ef3b55c19d8d1aade96660891640ec34d61"
+    },
+    "initialJavaScriptDelta": 0,
+    "allRendererJavaScriptBefore": 660534,
+    "allRendererJavaScriptAfter": 660534,
+    "eagerCssBefore": {
+      "path": "apps/desktop/dist/renderer/assets/index-D10POMwM.css",
+      "bytes": 27529,
+      "sha256": "03c61932ac36654c509607ae726ce617db5a2bb7ae0041df9429fcc0cb6cca43"
+    },
+    "eagerCssAfter": {
+      "path": "apps/desktop/dist/renderer/assets/index-1BeM0JLR.css",
+      "bytes": 27978,
+      "sha256": "bd95697cc079f72ce5319ee63d95c64d175927966448d73b3535f7545d63d6bd"
+    },
+    "eagerCssDelta": 449,
+    "advancedCssBefore": {
+      "path": "apps/desktop/dist/renderer/assets/AdvancedPanel-CYQcx1YV.css",
+      "bytes": 2610,
+      "sha256": "424753a7db56b343ff5469e3f894b559779864288dbd6a9014b724f98c7343e6"
+    },
+    "advancedCssAfter": {
+      "path": "apps/desktop/dist/renderer/assets/AdvancedPanel-Bh2fDbop.css",
+      "bytes": 2185,
+      "sha256": "70eddfc8f097deb51a0c907f82224c440b31291a18190aedc5d7b73be7258d7f"
+    },
+    "advancedCssDelta": -425
+  },
+  "verification": {
+    "rendererTypecheck": {
+      "command": "./node_modules/.bin/tsc -p apps/desktop/tsconfig.renderer.json --noEmit",
+      "exitCode": 0,
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/post-fix-typecheck.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "desktopBuild": {
+      "command": "node scripts/build-desktop.mjs",
+      "exitCode": 0,
+      "engineBuildRepeated": false,
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/post-fix-build.log",
+        "bytes": 1450,
+        "sha256": "70fa72f404417d5dc4ddb890f87be956a263a81f1a950a22c8b3df900a4d86e9"
+      }
+    },
+    "rendererUnits": {
+      "command": "node --import ./node_modules/tsx/dist/loader.mjs --test apps/desktop/src/renderer/store.test.ts apps/desktop/src/renderer/advanced-store.test.ts apps/desktop/src/renderer/next-stage-history-store.test.ts apps/desktop/src/renderer/model.test.ts apps/desktop/src/renderer/conversation.test.ts",
+      "exitCode": 0,
+      "counters": {
+        "tests": 33,
+        "pass": 33,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "todo": 0
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/post-fix-renderer-units.log",
+        "bytes": 3406,
+        "sha256": "fe720697c3bceda49603dea68fdbbe2b4185b8e1e5b8bc75bb04748d2c826122"
+      }
+    },
+    "actualGui": {
+      "command": "node apps/desktop/src/renderer/fixtures/verify-delivery.mjs artifacts/next-continuation/final-audit/renderer-style/post-fix-gui.json",
+      "exitCode": 0,
+      "checks": [
+        "Reload during a delayed settings import cannot reopen the previous dialog; the new view opens normally.",
+        "Delayed advanced dialog cancels; reopen after session change binds only the current native session.",
+        "Fresh composer/loading Settings/account/update styles meet explicit expected values before Advanced assets load and remain unchanged after Advanced loads.",
+        "Timeline/code imports remain deferred; approval actions wait for the preview; session change/reload preserves native approval without stale UI or replay.",
+        "With file CodeBlock still deferred and unmounted, restore's eager before/after diff is visible; native restore preserves the exact preview fingerprint and the late code view stays absent.",
+        "Native approve/edit/command/diff/stale-restore/restore/history reload/file preview/recovery flows pass; the terminal event sequence remains unchanged by restore.",
+        "Reload and cancel operate while the delayed Timeline is absent; its eventual mount receives the current cancelled native Run."
+      ],
+      "themes": [
+        {
+          "media": "dark",
+          "rootColor": "rgb(217, 220, 224)",
+          "rootTextToken": "#d9dce0",
+          "historyStrongColor": "rgb(217, 220, 224)",
+          "historyColor": "rgb(181, 170, 138)",
+          "colorScheme": "dark"
+        },
+        {
+          "media": "light",
+          "rootColor": "rgb(217, 220, 224)",
+          "rootTextToken": "#d9dce0",
+          "historyStrongColor": "rgb(217, 220, 224)",
+          "historyColor": "rgb(181, 170, 138)",
+          "colorScheme": "dark"
+        }
+      ],
+      "sharedStyles": {
+        "composerBeforeAdvanced": {
+          "viewportHeight": 868,
+          "delivery": {
+            "width": "88px",
+            "marginRight": "8px",
+            "borderTopWidth": "1px",
+            "borderTopStyle": "solid",
+            "borderTopColor": "rgb(44, 49, 54)",
+            "backgroundColor": "rgb(27, 32, 35)",
+            "borderRadius": "6px",
+            "padding": "6px",
+            "fontSize": "11px"
+          },
+          "accountPanels": [],
+          "dialog": null,
+          "rules": [
+            {
+              "selector": ".settings-dialog",
+              "declarations": "color: rgb(216, 226, 209); background: rgb(32, 39, 35); border: 1px solid rgb(72, 83, 64); border-radius: 12px; width: 460px; max-width: 90vw; max-height: calc(-48px + 100vh); padding: 25px; overflow-y: auto; box-shadow: rgba(3, 8, 5, 0.5) 0px 20px 60px;"
+            },
+            {
+              "selector": ".delivery-select",
+              "declarations": "border: 1px solid var(--border); background: rgb(27, 32, 35); border-radius: 6px; width: 88px; margin-right: 8px; padding: 6px; font-size: 11px;"
+            },
+            {
+              "selector": ".advanced-actions",
+              "declarations": "align-items: center; gap: 10px; display: flex;"
+            },
+            {
+              "selector": ".account-panel",
+              "declarations": "border: 1px solid var(--border); border-radius: 7px; margin: 18px 0px; padding: 14px;"
+            },
+            {
+              "selector": ".account-panel h3",
+              "declarations": "margin: 0px 0px 10px; font-size: 13px;"
+            },
+            {
+              "selector": ".account-panel .advanced-actions",
+              "declarations": "flex-wrap: wrap; margin-top: 10px;"
+            },
+            {
+              "selector": ".settings-dialog::backdrop",
+              "declarations": "backdrop-filter: blur(3px); background: rgba(9, 17, 11, 0.66);"
+            }
+          ],
+          "assets": [
+            "index-EP2WXdMY.js",
+            "index-1BeM0JLR.css"
+          ]
+        },
+        "loadingSettings": {
+          "viewportHeight": 868,
+          "delivery": {
+            "width": "88px",
+            "marginRight": "8px",
+            "borderTopWidth": "1px",
+            "borderTopStyle": "solid",
+            "borderTopColor": "rgb(44, 49, 54)",
+            "backgroundColor": "rgb(27, 32, 35)",
+            "borderRadius": "6px",
+            "padding": "6px",
+            "fontSize": "11px"
+          },
+          "accountPanels": [],
+          "dialog": {
+            "maxHeight": "820px",
+            "overflowY": "auto"
+          },
+          "rules": [
+            {
+              "selector": ".settings-dialog",
+              "declarations": "color: rgb(216, 226, 209); background: rgb(32, 39, 35); border: 1px solid rgb(72, 83, 64); border-radius: 12px; width: 460px; max-width: 90vw; max-height: calc(-48px + 100vh); padding: 25px; overflow-y: auto; box-shadow: rgba(3, 8, 5, 0.5) 0px 20px 60px;"
+            },
+            {
+              "selector": ".delivery-select",
+              "declarations": "border: 1px solid var(--border); background: rgb(27, 32, 35); border-radius: 6px; width: 88px; margin-right: 8px; padding: 6px; font-size: 11px;"
+            },
+            {
+              "selector": ".advanced-actions",
+              "declarations": "align-items: center; gap: 10px; display: flex;"
+            },
+            {
+              "selector": ".account-panel",
+              "declarations": "border: 1px solid var(--border); border-radius: 7px; margin: 18px 0px; padding: 14px;"
+            },
+            {
+              "selector": ".account-panel h3",
+              "declarations": "margin: 0px 0px 10px; font-size: 13px;"
+            },
+            {
+              "selector": ".account-panel .advanced-actions",
+              "declarations": "flex-wrap: wrap; margin-top: 10px;"
+            },
+            {
+              "selector": ".settings-dialog::backdrop",
+              "declarations": "backdrop-filter: blur(3px); background: rgba(9, 17, 11, 0.66);"
+            }
+          ],
+          "assets": [
+            "index-EP2WXdMY.js",
+            "index-1BeM0JLR.css",
+            "Settings-BvU37TTN.js"
+          ]
+        },
+        "settingsBeforeAdvanced": {
+          "viewportHeight": 868,
+          "delivery": {
+            "width": "88px",
+            "marginRight": "8px",
+            "borderTopWidth": "1px",
+            "borderTopStyle": "solid",
+            "borderTopColor": "rgb(44, 49, 54)",
+            "backgroundColor": "rgb(27, 32, 35)",
+            "borderRadius": "6px",
+            "padding": "6px",
+            "fontSize": "11px"
+          },
+          "accountPanels": [
+            {
+              "label": "앱 계정 관리",
+              "panel": {
+                "margin": "18px 0px",
+                "padding": "14px",
+                "borderTopWidth": "1px",
+                "borderTopStyle": "solid",
+                "borderTopColor": "rgb(44, 49, 54)",
+                "borderRadius": "7px"
+              },
+              "heading": {
+                "fontSize": "13px",
+                "margin": "0px 0px 10px"
+              },
+              "actions": {
+                "display": "flex",
+                "alignItems": "center",
+                "gap": "10px",
+                "flexWrap": "wrap",
+                "marginTop": "10px"
+              }
+            },
+            {
+              "label": "앱 업데이트",
+              "panel": {
+                "margin": "18px 0px",
+                "padding": "14px",
+                "borderTopWidth": "1px",
+                "borderTopStyle": "solid",
+                "borderTopColor": "rgb(44, 49, 54)",
+                "borderRadius": "7px"
+              },
+              "heading": {
+                "fontSize": "13px",
+                "margin": "0px 0px 10px"
+              },
+              "actions": {
+                "display": "flex",
+                "alignItems": "center",
+                "gap": "10px",
+                "flexWrap": "wrap",
+                "marginTop": "10px"
+              }
+            }
+          ],
+          "dialog": {
+            "maxHeight": "820px",
+            "overflowY": "auto"
+          },
+          "rules": [
+            {
+              "selector": ".settings-dialog",
+              "declarations": "color: rgb(216, 226, 209); background: rgb(32, 39, 35); border: 1px solid rgb(72, 83, 64); border-radius: 12px; width: 460px; max-width: 90vw; max-height: calc(-48px + 100vh); padding: 25px; overflow-y: auto; box-shadow: rgba(3, 8, 5, 0.5) 0px 20px 60px;"
+            },
+            {
+              "selector": ".delivery-select",
+              "declarations": "border: 1px solid var(--border); background: rgb(27, 32, 35); border-radius: 6px; width: 88px; margin-right: 8px; padding: 6px; font-size: 11px;"
+            },
+            {
+              "selector": ".advanced-actions",
+              "declarations": "align-items: center; gap: 10px; display: flex;"
+            },
+            {
+              "selector": ".account-panel",
+              "declarations": "border: 1px solid var(--border); border-radius: 7px; margin: 18px 0px; padding: 14px;"
+            },
+            {
+              "selector": ".account-panel h3",
+              "declarations": "margin: 0px 0px 10px; font-size: 13px;"
+            },
+            {
+              "selector": ".account-panel .advanced-actions",
+              "declarations": "flex-wrap: wrap; margin-top: 10px;"
+            },
+            {
+              "selector": ".settings-dialog::backdrop",
+              "declarations": "backdrop-filter: blur(3px); background: rgba(9, 17, 11, 0.66);"
+            }
+          ],
+          "assets": [
+            "index-EP2WXdMY.js",
+            "index-1BeM0JLR.css",
+            "Settings-BvU37TTN.js",
+            "index-EP2WXdMY.js",
+            "index-1BeM0JLR.css",
+            "Settings-BvU37TTN.js"
+          ]
+        },
+        "settingsAfterAdvanced": {
+          "viewportHeight": 868,
+          "delivery": {
+            "width": "88px",
+            "marginRight": "8px",
+            "borderTopWidth": "1px",
+            "borderTopStyle": "solid",
+            "borderTopColor": "rgb(44, 49, 54)",
+            "backgroundColor": "rgb(27, 32, 35)",
+            "borderRadius": "6px",
+            "padding": "6px",
+            "fontSize": "11px"
+          },
+          "accountPanels": [
+            {
+              "label": "앱 계정 관리",
+              "panel": {
+                "margin": "18px 0px",
+                "padding": "14px",
+                "borderTopWidth": "1px",
+                "borderTopStyle": "solid",
+                "borderTopColor": "rgb(44, 49, 54)",
+                "borderRadius": "7px"
+              },
+              "heading": {
+                "fontSize": "13px",
+                "margin": "0px 0px 10px"
+              },
+              "actions": {
+                "display": "flex",
+                "alignItems": "center",
+                "gap": "10px",
+                "flexWrap": "wrap",
+                "marginTop": "10px"
+              }
+            },
+            {
+              "label": "앱 업데이트",
+              "panel": {
+                "margin": "18px 0px",
+                "padding": "14px",
+                "borderTopWidth": "1px",
+                "borderTopStyle": "solid",
+                "borderTopColor": "rgb(44, 49, 54)",
+                "borderRadius": "7px"
+              },
+              "heading": {
+                "fontSize": "13px",
+                "margin": "0px 0px 10px"
+              },
+              "actions": {
+                "display": "flex",
+                "alignItems": "center",
+                "gap": "10px",
+                "flexWrap": "wrap",
+                "marginTop": "10px"
+              }
+            }
+          ],
+          "dialog": {
+            "maxHeight": "820px",
+            "overflowY": "auto"
+          },
+          "rules": [
+            {
+              "selector": ".settings-dialog",
+              "declarations": "color: rgb(216, 226, 209); background: rgb(32, 39, 35); border: 1px solid rgb(72, 83, 64); border-radius: 12px; width: 460px; max-width: 90vw; max-height: calc(-48px + 100vh); padding: 25px; overflow-y: auto; box-shadow: rgba(3, 8, 5, 0.5) 0px 20px 60px;"
+            },
+            {
+              "selector": ".delivery-select",
+              "declarations": "border: 1px solid var(--border); background: rgb(27, 32, 35); border-radius: 6px; width: 88px; margin-right: 8px; padding: 6px; font-size: 11px;"
+            },
+            {
+              "selector": ".advanced-actions",
+              "declarations": "align-items: center; gap: 10px; display: flex;"
+            },
+            {
+              "selector": ".account-panel",
+              "declarations": "border: 1px solid var(--border); border-radius: 7px; margin: 18px 0px; padding: 14px;"
+            },
+            {
+              "selector": ".account-panel h3",
+              "declarations": "margin: 0px 0px 10px; font-size: 13px;"
+            },
+            {
+              "selector": ".account-panel .advanced-actions",
+              "declarations": "flex-wrap: wrap; margin-top: 10px;"
+            },
+            {
+              "selector": ".settings-dialog::backdrop",
+              "declarations": "backdrop-filter: blur(3px); background: rgba(9, 17, 11, 0.66);"
+            },
+            {
+              "selector": ".advanced-preview .advanced-actions",
+              "declarations": "justify-content: flex-end; margin-top: 12px;"
+            }
+          ],
+          "assets": [
+            "index-EP2WXdMY.js",
+            "index-1BeM0JLR.css",
+            "Settings-BvU37TTN.js",
+            "index-EP2WXdMY.js",
+            "index-1BeM0JLR.css",
+            "Settings-BvU37TTN.js",
+            "AdvancedPanel-Bq-kA8eI.js",
+            "AdvancedPanel-Bh2fDbop.css"
+          ]
+        }
+      },
+      "raw": {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/post-fix-gui.json",
+        "bytes": 19384,
+        "sha256": "b57b7819bb160c1a84fc5ce025c23e0e479b93845054754d6a6e9f758701488e"
+      },
+      "log": {
+        "path": "artifacts/next-continuation/final-audit/renderer-style/post-fix-gui.log",
+        "bytes": 14149,
+        "sha256": "834b30a1fec3c62d2f86d2d1d88e27432f4ca1e0b83ca93ea6cf49a7dcf4854b"
+      }
+    }
+  },
+  "nativePreservation": [
+    {
+      "phase": "pre-fix",
+      "scenario": "coding",
+      "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-pFZGaj",
+      "originalExists": true,
+      "manifest": {
+        "path": "artifacts/renderer-delivery/renderer-coding-KHiC4Z/manifest.json",
+        "bytes": 8728,
+        "sha256": "73bca39482a65343d45a7d862f94398f8fb91332abbd47404a6a64251366b606"
+      },
+      "selectedFiles": [
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-pFZGaj/userData/engine.sqlite",
+            "bytes": 1228800,
+            "sha256": "7a9ce03a378f048a22bbe6428eaafa7ad228be4916d7132c033d138f63752ab2"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-KHiC4Z/native/userData/engine.sqlite",
+            "bytes": 1228800,
+            "sha256": "7a9ce03a378f048a22bbe6428eaafa7ad228be4916d7132c033d138f63752ab2"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-pFZGaj/userData/engine.sqlite.effects.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-KHiC4Z/native/userData/engine.sqlite.effects.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-pFZGaj/userData/engine.sqlite.owner.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-KHiC4Z/native/userData/engine.sqlite.owner.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-pFZGaj/userData/engine.sqlite.review.sqlite",
+            "bytes": 16384,
+            "sha256": "5e94da8ad86efa6ac97a0ef364e0dd97a920d23bf67ee30cb14c22775dca5fc3"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-KHiC4Z/native/userData/engine.sqlite.review.sqlite",
+            "bytes": 16384,
+            "sha256": "5e94da8ad86efa6ac97a0ef364e0dd97a920d23bf67ee30cb14c22775dca5fc3"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-pFZGaj/userData/engine.sqlite.review.sqlite.owner.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-KHiC4Z/native/userData/engine.sqlite.review.sqlite.owner.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-pFZGaj/userData/artifacts/terminals.sqlite",
+            "bytes": 12288,
+            "sha256": "2edd2c10732d7272e75e6284115b8d5e9da72c59921b74ff40aa1ec0272df1ee"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-KHiC4Z/native/userData/artifacts/terminals.sqlite",
+            "bytes": 12288,
+            "sha256": "2edd2c10732d7272e75e6284115b8d5e9da72c59921b74ff40aa1ec0272df1ee"
+          },
+          "matchesManifest": true
+        }
+      ],
+      "selectedFilesExact": true,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility",
+        "applicationExitObserved": true,
+        "applicationExitCode": 0,
+        "originalPreserved": true
+      },
+      "mainUtilityClose": {
+        "schemaVersion": 1,
+        "utilityScope": "main-utilities",
+        "complete": true,
+        "spawnAttempted": true,
+        "spawnUnobserved": false,
+        "evictedCount": 0,
+        "connections": [
+          {
+            "connectionId": "80498955-4f06-4387-b8b3-9f2247237f60",
+            "scope": "engine",
+            "source": "original-electron-utility",
+            "generation": 1,
+            "utilityExitObservable": true,
+            "engineCloseAcknowledged": true,
+            "utilityExitObserved": true,
+            "exitCode": 0,
+            "cleanupConfirmed": true,
+            "forcedStop": false,
+            "reason": null
+          }
+        ],
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "cleanupConfirmed": true,
+        "forcedStop": false
+      },
+      "networkAttempts": 0,
+      "fullNativeCleanupEstablished": false
+    },
+    {
+      "phase": "post-fix",
+      "scenario": "coding",
+      "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP",
+      "originalExists": true,
+      "manifest": {
+        "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/manifest.json",
+        "bytes": 23015,
+        "sha256": "4d5554b0b11030163f3ddd767bbba1899e6e8d47a29833e02c56475accd45731"
+      },
+      "selectedFiles": [
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/engine.sqlite",
+            "bytes": 1449984,
+            "sha256": "46637f9229e0358637a727e8bf3f7565e71653876632e007970805a459db7cb5"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/engine.sqlite",
+            "bytes": 1449984,
+            "sha256": "46637f9229e0358637a727e8bf3f7565e71653876632e007970805a459db7cb5"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/engine.sqlite.effects.sqlite",
+            "bytes": 8192,
+            "sha256": "e9d03b935a29b8a442a068d38d7077e8c13c1a16f75fb542b0401b85f5484697"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/engine.sqlite.effects.sqlite",
+            "bytes": 8192,
+            "sha256": "e9d03b935a29b8a442a068d38d7077e8c13c1a16f75fb542b0401b85f5484697"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/engine.sqlite.owner.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/engine.sqlite.owner.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/engine.sqlite.review.sqlite",
+            "bytes": 16384,
+            "sha256": "39afc12a386ec637fbf8005504bf8b002ef5245e164863f9d8008d7a0fb39311"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/engine.sqlite.review.sqlite",
+            "bytes": 16384,
+            "sha256": "39afc12a386ec637fbf8005504bf8b002ef5245e164863f9d8008d7a0fb39311"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/engine.sqlite.review.sqlite.owner.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/engine.sqlite.review.sqlite.owner.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/artifacts/terminals.sqlite",
+            "bytes": 12288,
+            "sha256": "2edd2c10732d7272e75e6284115b8d5e9da72c59921b74ff40aa1ec0272df1ee"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/artifacts/terminals.sqlite",
+            "bytes": 12288,
+            "sha256": "2edd2c10732d7272e75e6284115b8d5e9da72c59921b74ff40aa1ec0272df1ee"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/artifacts/command-N4FoLu/stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/artifacts/command-N4FoLu/stderr.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/artifacts/command-N4FoLu/stdout.log",
+            "bytes": 133,
+            "sha256": "b15cf5b9d83b65d99aad43e7843dffecd650416586aabfcb48ea01e1510c20f1"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/artifacts/command-N4FoLu/stdout.log",
+            "bytes": 133,
+            "sha256": "b15cf5b9d83b65d99aad43e7843dffecd650416586aabfcb48ea01e1510c20f1"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/artifacts/managed/artifact_027f61480f5648f5ae42caf562fc24c7/content",
+            "bytes": 453,
+            "sha256": "f408a17c684a4cc3b8230cde8c8d4198c491a90bcb506a2c2bdd4b5dbfd02fb0"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/artifacts/managed/artifact_027f61480f5648f5ae42caf562fc24c7/content",
+            "bytes": 453,
+            "sha256": "f408a17c684a4cc3b8230cde8c8d4198c491a90bcb506a2c2bdd4b5dbfd02fb0"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/artifacts/managed/artifact_027f61480f5648f5ae42caf562fc24c7/manifest.json",
+            "bytes": 748,
+            "sha256": "04ae6e31052e9dcc2d1618ae2ac61c66e6c1d944ec4a9e9c21f5984fa0f35bb8"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/artifacts/managed/artifact_027f61480f5648f5ae42caf562fc24c7/manifest.json",
+            "bytes": 748,
+            "sha256": "04ae6e31052e9dcc2d1618ae2ac61c66e6c1d944ec4a9e9c21f5984fa0f35bb8"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/artifacts/managed/artifact_17d97af00a654057abe6b4072c14fb71/content",
+            "bytes": 217,
+            "sha256": "911a2f99363fb67ff2292c1c753b301fdaabfe7dd7d559c78441bf8ead0d77b8"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/artifacts/managed/artifact_17d97af00a654057abe6b4072c14fb71/content",
+            "bytes": 217,
+            "sha256": "911a2f99363fb67ff2292c1c753b301fdaabfe7dd7d559c78441bf8ead0d77b8"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/artifacts/managed/artifact_17d97af00a654057abe6b4072c14fb71/manifest.json",
+            "bytes": 750,
+            "sha256": "aa29d899e52156e38a07ab8efb30b51c791ad3f5078e487837109ed2d1282060"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/artifacts/managed/artifact_17d97af00a654057abe6b4072c14fb71/manifest.json",
+            "bytes": 750,
+            "sha256": "aa29d899e52156e38a07ab8efb30b51c791ad3f5078e487837109ed2d1282060"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/artifacts/managed/artifact_286bd3f978fa4cdaa3be49e1237f67b0/content",
+            "bytes": 27,
+            "sha256": "15eb0f65ced1e113686e65f908a83cf7368f82781bba4265084b3163301a8633"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/artifacts/managed/artifact_286bd3f978fa4cdaa3be49e1237f67b0/content",
+            "bytes": 27,
+            "sha256": "15eb0f65ced1e113686e65f908a83cf7368f82781bba4265084b3163301a8633"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-zbPiYP/userData/artifacts/managed/artifact_286bd3f978fa4cdaa3be49e1237f67b0/manifest.json",
+            "bytes": 747,
+            "sha256": "4e1fbc5f9db0573dd0958c656adbe3a8e49df757061ad94bc5078b0e39628114"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-coding-pPER7I/native/userData/artifacts/managed/artifact_286bd3f978fa4cdaa3be49e1237f67b0/manifest.json",
+            "bytes": 747,
+            "sha256": "4e1fbc5f9db0573dd0958c656adbe3a8e49df757061ad94bc5078b0e39628114"
+          },
+          "matchesManifest": true
+        }
+      ],
+      "selectedFilesExact": true,
+      "cleanup": {
+        "state": "unconfirmed",
+        "nativeConfirmed": false,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility",
+        "applicationExitObserved": true,
+        "applicationExitCode": 0,
+        "originalPreserved": true
+      },
+      "mainUtilityClose": {
+        "schemaVersion": 1,
+        "utilityScope": "main-utilities",
+        "complete": true,
+        "spawnAttempted": true,
+        "spawnUnobserved": false,
+        "evictedCount": 0,
+        "connections": [
+          {
+            "connectionId": "16410ceb-4e2b-47ca-8150-15f84369f0db",
+            "scope": "engine",
+            "source": "original-electron-utility",
+            "generation": 1,
+            "utilityExitObservable": true,
+            "engineCloseAcknowledged": true,
+            "utilityExitObserved": true,
+            "exitCode": 0,
+            "cleanupConfirmed": true,
+            "forcedStop": false,
+            "reason": null
+          },
+          {
+            "connectionId": "4aa5b66b-f059-49e6-a6a9-78b0df28f075",
+            "scope": "storage",
+            "source": "original-electron-utility",
+            "generation": 1,
+            "utilityExitObservable": true,
+            "engineCloseAcknowledged": true,
+            "utilityExitObserved": true,
+            "exitCode": 0,
+            "cleanupConfirmed": true,
+            "forcedStop": false,
+            "reason": null
+          }
+        ],
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "cleanupConfirmed": true,
+        "forcedStop": false
+      },
+      "networkAttempts": 0,
+      "fullNativeCleanupEstablished": false
+    },
+    {
+      "phase": "post-fix",
+      "scenario": "slow",
+      "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-Q4ooP5",
+      "originalExists": true,
+      "manifest": {
+        "path": "artifacts/renderer-delivery/renderer-slow-f2jb02/manifest.json",
+        "bytes": 10153,
+        "sha256": "5b83d6b1a87b39f52d5c603d7cf770aca9380064225dee9c9cb696fef0c8f266"
+      },
+      "selectedFiles": [
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-Q4ooP5/userData/engine.sqlite",
+            "bytes": 1253376,
+            "sha256": "243beeda4bafa7461e978ae3a53e987f0ca83705c46b546e4a91c885daa7b95c"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-slow-f2jb02/native/userData/engine.sqlite",
+            "bytes": 1253376,
+            "sha256": "243beeda4bafa7461e978ae3a53e987f0ca83705c46b546e4a91c885daa7b95c"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-Q4ooP5/userData/engine.sqlite.effects.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-slow-f2jb02/native/userData/engine.sqlite.effects.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-Q4ooP5/userData/engine.sqlite.owner.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-slow-f2jb02/native/userData/engine.sqlite.owner.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-Q4ooP5/userData/engine.sqlite.review.sqlite",
+            "bytes": 16384,
+            "sha256": "5e94da8ad86efa6ac97a0ef364e0dd97a920d23bf67ee30cb14c22775dca5fc3"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-slow-f2jb02/native/userData/engine.sqlite.review.sqlite",
+            "bytes": 16384,
+            "sha256": "5e94da8ad86efa6ac97a0ef364e0dd97a920d23bf67ee30cb14c22775dca5fc3"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-Q4ooP5/userData/engine.sqlite.review.sqlite.owner.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-slow-f2jb02/native/userData/engine.sqlite.review.sqlite.owner.sqlite",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "matchesManifest": true
+        },
+        {
+          "original": {
+            "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-Q4ooP5/userData/artifacts/terminals.sqlite",
+            "bytes": 12288,
+            "sha256": "2edd2c10732d7272e75e6284115b8d5e9da72c59921b74ff40aa1ec0272df1ee"
+          },
+          "copy": {
+            "path": "artifacts/renderer-delivery/renderer-slow-f2jb02/native/userData/artifacts/terminals.sqlite",
+            "bytes": 12288,
+            "sha256": "2edd2c10732d7272e75e6284115b8d5e9da72c59921b74ff40aa1ec0272df1ee"
+          },
+          "matchesManifest": true
+        }
+      ],
+      "selectedFilesExact": true,
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility",
+        "applicationExitObserved": true,
+        "applicationExitCode": 0,
+        "originalPreserved": true
+      },
+      "mainUtilityClose": {
+        "schemaVersion": 1,
+        "utilityScope": "main-utilities",
+        "complete": true,
+        "spawnAttempted": true,
+        "spawnUnobserved": false,
+        "evictedCount": 0,
+        "connections": [
+          {
+            "connectionId": "c3fc442a-d1f1-422e-89d8-e54231c1c827",
+            "scope": "engine",
+            "source": "original-electron-utility",
+            "generation": 1,
+            "utilityExitObservable": true,
+            "engineCloseAcknowledged": true,
+            "utilityExitObserved": true,
+            "exitCode": 0,
+            "cleanupConfirmed": true,
+            "forcedStop": false,
+            "reason": null
+          }
+        ],
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "cleanupConfirmed": true,
+        "forcedStop": false
+      },
+      "networkAttempts": 0,
+      "fullNativeCleanupEstablished": false
+    }
+  ],
+  "historicalReportsUnmodified": [
+    {
+      "path": "docs/moodcode/next-renderer-delivery-verification.json",
+      "bytes": 20196,
+      "sha256": "780451156fecadb3a924d267521877353df4323c33c4f8f70c51c06667b7a226"
+    },
+    {
+      "path": "docs/moodcode/next-integrated-renderer-delivery-verification.json",
+      "bytes": 26458,
+      "sha256": "1b656cc80b7f0d6bb8a1bea2243a14fe38899ab561fb89dbd0e15acbf8b83a66"
+    }
+  ],
+  "historicalUnknownOriginalRetention": [
+    {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-ZztkV9",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-WKE2tL",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-9JqLXo",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-5f8Zju",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-zI5FPy",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-9hVRUx",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-kz4l0p",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-ZGfiSc",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-lmQ0rl",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-v84tQp",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-3ZUmKT",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-theme-baseline-uJdGj4",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-82Ay8e",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    },
+    {
+      "path": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-WjW4mD",
+      "currentlyExists": true,
+      "nativeCleanupAuthority": null,
+      "deletedByThisTask": false
+    }
+  ],
+  "cleanupQualification": "Each Original application exit0 and utility ACK/exit is observed without forced stop. Actual native coverage remains coding unconfirmed(false), slow unknown(null), pre-fix unknown(null); selected originals/copies match manifest SHA and are all preserved. Utility scope is not promoted to complete native cleanup. No numeric PID signal or original deletion, and no claim about unknown historical utility survival."
+}

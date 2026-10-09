@@ -87,6 +87,40 @@ export interface BackendFixtureOptions {
   tools?: string[];
   peerFile?: URL;
 }
+/** A parent cannot reconstruct the killed Original owner's missing after hook. */
+export async function retainBackendFixture(
+  t: Pick<TestContext, "error" | "passed" | "diagnostic">,
+  base: string | undefined,
+  engines: ReadonlySet<BackendEngine>,
+  options: {
+    originalAfterHookObserved?: boolean;
+    ownerExitError?: { error: unknown };
+  } = {},
+) {
+  const failures: unknown[] = options.ownerExitError ? [options.ownerExitError.error] : [];
+  let closedEngines = 0, closeFailures = 0;
+  for (const current of engines) {
+    try { await current.close(); closedEngines++; }
+    catch (error) { failures.push(error); closeFailures++; }
+  }
+  const originalAfterHookObserved = options.originalAfterHookObserved ?? true;
+  const retention = {
+    schemaVersion: 1, kind: "backend-fixture-retention", base: base ?? null,
+    outcome: failures.length ? "close-error" : t.error ? "failure" : originalAfterHookObserved && t.passed === true ? "success" : "unknown",
+    ownedEngines: engines.size, closedEngines, closeFailures,
+    ownerExitFailures: options.ownerExitError ? 1 : 0, originalAfterHookObserved,
+    nativeCleanupConfirmed: null, databaseRemoved: false,
+  };
+  let manifestWritten = false;
+  try {
+    if (base) {
+      writeFileSync(join(base, "fixture-retention.json"), JSON.stringify(retention) + "\n", { flag: "wx", mode: 0o600 });
+      manifestWritten = true;
+    }
+  } catch { /* Diagnostics never replace the original test or close error. */ }
+  try { t.diagnostic?.(JSON.stringify({ ...retention, manifestWritten })); } catch { /* Keep the owned close result. */ }
+  if (failures.length) throw failures[0];
+}
 /** Real Engine, committed source, IPC-supervised stdio peer and native tool/Attempt storage. */
 export async function backendFixture(
   t: TestContext,
@@ -177,27 +211,7 @@ export async function backendFixture(
   };
   const engine = createEngine(configuration),
     engines = new Set([engine]);
-  t.after(async () => {
-    const failures: unknown[] = [];
-    let closedEngines = 0;
-    for (const current of engines) {
-      try { await current.close(); closedEngines++; }
-      catch (error) { failures.push(error); }
-    }
-    const retention = {
-      schemaVersion: 1, kind: "backend-fixture-retention", base,
-      outcome: failures.length ? "close-error" : t.error ? "failure" : t.passed === true ? "success" : "unknown",
-      ownedEngines: engines.size, closedEngines, closeFailures: failures.length,
-      nativeCleanupConfirmed: null, databaseRemoved: false,
-    };
-    let manifestWritten = false;
-    try {
-      writeFileSync(join(base, "fixture-retention.json"), JSON.stringify(retention) + "\n", { flag: "wx", mode: 0o600 });
-      manifestWritten = true;
-    } catch { /* Diagnostics never replace the original test or close error. */ }
-    try { t.diagnostic?.(JSON.stringify({ ...retention, manifestWritten })); } catch { /* Keep the owned close result. */ }
-    if (failures.length) throw failures[0];
-  });
+  t.after(() => retainBackendFixture(t, base, engines));
   const workspace = await backendCommand<Workspace>(engine, "workspace.open", {
     path: root,
   });
