@@ -8,7 +8,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const digest = value => createHash('sha256').update(value).digest('hex');
 const direct = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 const flags = new Set(['live']);
-const strings = new Set(['lane', 'model', 'max-requests', 'credential-env', 'credential-file', 'capability-reference', 'report']);
+const strings = new Set(['lane', 'model', 'max-requests', 'credential-env', 'credential-file', 'capability-reference', 'report', 'workspace-id']);
 const ceilings = Object.freeze({ pdf: 1, anthropic: 3, media: 1 });
 const invalid = () => { throw Object.assign(new Error('Invalid provider coverage arguments.'), { code: 'VERIFY_INVALID_ARGUMENT' }); };
 
@@ -28,6 +28,7 @@ export function parseProviderCoverageArgs(argv) {
     }
   }
   if (!Object.hasOwn(ceilings, args.lane) || !args.model || Buffer.byteLength(args.model) > 256) invalid();
+  if (args['workspace-id'] && (args.lane !== 'anthropic' || !/^wrkspc_[A-Za-z0-9]{1,128}$/u.test(args['workspace-id']))) invalid();
   if (args['credential-env'] && !/^[A-Z][A-Z0-9_]{0,127}$/u.test(args['credential-env'])) invalid();
   const maximum = args['max-requests'] ?? String(ceilings[args.lane]);
   if (!/^[1-3]$/u.test(maximum) || Number(maximum) > ceilings[args.lane]) invalid();
@@ -122,6 +123,14 @@ function errorRecord(error) {
   return { code, ...(Number.isSafeInteger(status) && status >= 100 && status <= 599 ? { status } : {}) };
 }
 
+export function qualifyProviderCoverageAccount(report, options, realTransport) {
+  return Boolean(realTransport && report.passed && report.cleanupConfirmed && report.sourceRuntimeUnchanged
+    && report.actualRequestCountKnown && report.actualRequests.length > 0 && report.actualRequests.length <= options.maxRequests
+    && report.actualRequests.every(request => request.modelId === options.model && request.status === 200
+      && (!options['workspace-id'] || request.workspaceBindingConfirmed === true))
+    && (options.lane !== 'media' || report.evidence?.accountVerified === true));
+}
+
 /** Direct CLI transport owns account credit; dependency-injected tests retain fixture status. */
 export async function verifyProviderCoverage(argv, runtime = {}) {
   const options = parseProviderCoverageArgs(argv);
@@ -133,7 +142,8 @@ export async function verifyProviderCoverage(argv, runtime = {}) {
     maxRequests: options.maxRequests, actualRequests: [], actualRequestCountKnown: true, actualRequestCount: 0, credentialReads: 0,
     accountVerified: false, passed: false, cleanupConfirmed: null, sourceRuntimeUnchanged: null,
     capabilityReference: options['capability-reference'] ?? null,
-    authentication: { method: 'api-key', credentialOwner: 'host', rendererCredentialExposure: false, persistentAccountIdentity: null },
+    authentication: { method: 'api-key', credentialOwner: 'host', rendererCredentialExposure: false, persistentAccountIdentity: null,
+      ...(options['workspace-id'] ? { workspace: 'host-specified' } : {}) },
     credentialReference: options.live ? `process:${options['credential-env']}` : null,
     accountReference: options.live ? `probe-account-${randomUUID()}` : null,
     accountIdentityClaimed: false,
@@ -175,8 +185,11 @@ export async function verifyProviderCoverage(argv, runtime = {}) {
       const request = { ordinal: report.actualRequests.length + 1, endpoint, modelId: body.model,
         bodyBytes: Buffer.byteLength(String(init.body)), bodySha256: digest(String(init.body)), status: null };
       report.actualRequests.push(request);
-      const response = await requestFetch(url, { ...init, redirect: 'error' });
+      const headers = options['workspace-id'] ? new Headers(init.headers) : undefined;
+      if (headers) headers.set('anthropic-workspace-id', options['workspace-id']);
+      const response = await requestFetch(url, { ...init, ...(headers ? { headers } : {}), redirect: 'error' });
       request.status = response.status;
+      if (options['workspace-id']) request.workspaceBindingConfirmed = response.headers.get('anthropic-workspace-id') === options['workspace-id'];
       if (response.redirected || realTransport && response.url !== endpoint) {
         if (!await closeRejectedProviderResponse(response)) {
           physicalUnknown = true;
@@ -224,10 +237,7 @@ export async function verifyProviderCoverage(argv, runtime = {}) {
       report.transportFailure = { code: 'CLEANUP_UNCERTAIN' };
     }
     report.actualRequestCount = report.actualRequestCountKnown ? report.actualRequests.length : null;
-    report.accountVerified = Boolean(realTransport && report.passed && report.cleanupConfirmed && report.sourceRuntimeUnchanged
-      && report.actualRequestCountKnown && report.actualRequests.length > 0 && report.actualRequests.length <= options.maxRequests
-      && report.actualRequests.every(request => request.modelId === options.model && request.status === 200)
-      && (options.lane !== 'media' || report.evidence?.accountVerified === true));
+    report.accountVerified = qualifyProviderCoverageAccount(report, options, realTransport);
     if (!report.sourceRuntimeUnchanged && frozen) { report.passed = false; report.state = 'failed'; report.error ??= { code: 'VERIFY_SOURCE_CHANGED' }; }
   }
   if (api?.describeProviderCoverage && report.qualification) {
