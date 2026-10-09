@@ -46,7 +46,7 @@ LSP의 기존 전체 실패는 `bom-crlf-astral-definition`이다. `e3032f0` 로
 - N-03: 실제 브라우저 로그인 사용자 확인과 선택한 앱 계정의 모델 조회·코딩 추론 확인 완료. 완료한 실제 요청을 상태 확인만을 위해 반복하지 않는다.
 - R-AUTH·R-LSP: 위 유한 구현 범위와 원격 갱신·역사적 경합의 미확정 범위를 구분한다. 최신 전체 gate 결과는 검증 문서에서 확인한다.
 - R-AUTH-LIVE: 2026-10-10 사용자 결정으로 이전 토큰 만료만 메모리에서 앞당겨 실제 `oauth/token` 갱신·ID 토큰 검증·저장·access/refresh 회전·같은 worker 후속 turn을 관측했다(부분 충족). [근거](docs/moodcode/desktop-account-renewal-live-verification.json). 자연 만료 관측은 열려 있으며 다음 갱신 구간은 2026-10-20 07:10 KST(만료 07:11)부터다. 이 하네스는 실제 grant를 회전시키므로 다시 실행하려면 새 승인이 필요하다.
-- R-CI-VERIFY-01: 같은 엔진 소스의 hosted macOS Node 24에서 `engine-verification.test`의 승인 대기(5초) 실패 1회를 관측했다(run 37997957814 attempt 1, 재실행 통과). 원인 미확정이며 TODO에서 추적한다.
+- R-CI-VERIFY-01(해결): hosted macOS Node 24의 `engine-verification.test` 승인 대기 실패는 승인 전 git 프로세스 약 180개가 부하 중 느려져 5초 helper 한도에 걸린 것이었다. helper를 이벤트 기반 대기로 바꿨다. [조사 근거](docs/moodcode/ci-verify-01-investigation.json). 비용 자체는 PERF-GIT-01로 열어 두었다.
 - N-05: 실제 macOS·Windows 서명/공증·설치·공개 update feed. 인증서·배포 자격 준비가 필요하다.
 - E5-13: 더 넓은 공급자/모델·PDF·미디어·usage/cost 검증. 이미 검증한 모델·MIME·상한과 구분한다.
 - R-PTY-01: 과거 정상 종료 불일치의 원본 PID/PGID/native outcome 근거와 원인 판단. 새 collector 개선·현재 성공으로 과거 원인 해결을 주장하지 않는다.

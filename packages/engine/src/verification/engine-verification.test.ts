@@ -30,7 +30,23 @@ async function fixture(t: test.TestContext, commandText: string, options: { prof
   engine.registerVerificationCheck({ id: 'fixture-check', revision: 1, workspaceId: workspace.id, command: commandText, cwd: directory, profileId: profile.id, profileRevision: profile.revision, sourceRevision: 'host-fixture-v1', timeoutMs: 2000, maxOutputBytes: 8192, required: true });
   await engine.configureVerificationSession(session.id, 0, { checkIds: ['fixture-check'], sourcePaths: ['a.ts'], maxRepairs: options.maxRepairs ?? 0 });
   const submit = () => command<RunReceipt>('run.submit', { sessionId: session.id, requestId: randomUUID(), prompt: 'Execute the host fixture check.', config: { agentProfileId: 'verifier' } });
-  async function pendingApproval(runId: string): Promise<ApprovalRecord> { const deadline = Date.now() + 5000; for (;;) { const snapshot = engine.store.getSnapshot(session.id), pending = snapshot.approvals.find(value => value.runId === runId && value.status === 'pending'); if (pending) return pending; assert.ok(Date.now() < deadline, JSON.stringify(snapshot.tools)); await tick(); } }
+  // The next approval request event decides, not a wall-clock proxy: a Run that settles without one fails at once,
+  // and the test timeout bounds a hang. Repository context makes the pre-approval path slow on loaded hosts.
+  async function pendingApproval(runId: string): Promise<ApprovalRecord> {
+    const find = (snapshot: ReturnType<typeof engine.store.getSnapshot>) => snapshot.approvals.find(value => value.runId === runId && value.status === 'pending');
+    const before = engine.store.getSnapshot(session.id), existing = find(before);
+    if (existing) return existing;
+    const controller = new AbortController();
+    // Events after this snapshot only: an earlier, already decided approval must not satisfy a later wait.
+    const requested = (async () => { for await (const event of engine.subscribe(session.id, before.lastSeq, controller.signal)) if (event.type === 'approval.requested' && event.runId === runId) return true; return false; })();
+    requested.catch(() => undefined);
+    try {
+      const observed = await Promise.race([requested, engine.waitForRun(runId).then(() => false)]);
+      const snapshot = engine.store.getSnapshot(session.id), pending = find(snapshot);
+      assert.ok(observed && pending, JSON.stringify(snapshot.tools));
+      return pending;
+    } finally { controller.abort(); }
+  }
   return { directory, source, engine, session, workspace, requests, command, submit, pendingApproval };
 }
 

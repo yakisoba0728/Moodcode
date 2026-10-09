@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "kind": "moodcode-ci-verify-01-investigation",
+  "date": "2026-10-10",
+  "todo": "R-CI-VERIFY-01",
+  "status": "resolved-test-boundary-product-cost-open",
+  "original": {
+    "commit": "be4e8abbebb2be2e8421375ee09d200616e47890",
+    "run": 37997957814, "attempt": 1, "job": 114048696613, "jobName": "Headless macos-15 / Node 24.x",
+    "test": "packages/engine/src/verification/engine-verification.test.ts: missing verification resumes the same native Run and publishes completion only after actual pass",
+    "failure": "pendingApproval polled snapshots with setImmediate and asserted a pending approval within a 5 s wall-clock deadline; none was observed (test 5,427.9 ms).",
+    "gate": { "tests": 5034, "pass": 5030, "fail": 1, "skipped": 3 },
+    "rerun": { "attempt": 2, "job": 114052212033, "conclusion": "success", "sameTestMs": 5580.8 }
+  },
+  "findings": {
+    "nearDeadlineOnHostedMac": "The passing rerun took 5,580.8 ms, longer than the failing attempt, so the approval routinely arrives close to the 5 s helper deadline on hosted macOS under the 4-way test concurrency. Other tests in the file took 0.9-1.8 s there.",
+    "localIsolated": { "platform": "darwin arm64", "node": "26.9.0", "testMs": [1319.1, 1377.3, 1317.0] },
+    "phaseTimingsLocalMs": {
+      "repositoryContextOn": { "submitToTurn0": [248, 276], "turn0ToTurn1": [369, 422], "submitToApproval": [673, 748] },
+      "repositoryContextOff": { "submitToTurn0": [25, 27], "turn0ToTurn1": [160, 178], "submitToApproval": [235, 257] }
+    },
+    "busyPolling": "setImmediate polling read about 19,500 snapshots in 750 ms; it added roughly 10% locally and is not the main cost.",
+    "gitProcesses": {
+      "perRun": 276, "withoutRepositoryContext": 84, "beforeFirstApproval": "about 180",
+      "probe": "Each RepositoryContextService.preview spawns 4 git processes in this unborn repository: check-ignore --no-index --stdin, rev-parse --verify HEAD, rev-parse --verify --quiet HEAD, symbolic-ref --quiet --short HEAD.",
+      "previewCallers": [
+        { "path": "RepositoryContextSource.assertFresh (ContextService.assertFresh 6x, ContextService.build 3x)", "calls": 9, "previewsEach": 4, "note": "two direct previews plus a re-observing query that previews twice" },
+        { "path": "RepositoryContextSource.prepare (per provider turn)", "calls": 3, "previewsEach": 4 },
+        { "path": "VerificationHostService.observe/source (controller evaluate, execution observation, run start, stop, before-provider)", "previews": 18 }
+      ]
+    },
+    "cause": "The pre-approval path performs about 45 four-process git probes. Process spawning slows sharply on a loaded hosted macOS runner, which moves the approval to about 5 s; the fixed 5 s helper deadline then fails intermittently. The engine's behavior was correct in both attempts."
+  },
+  "resolution": {
+    "change": "pendingApproval returns an already pending approval, otherwise waits for the next approval.requested event after its snapshot's lastSeq, raced against waitForRun. A Run that settles without an approval fails immediately with the snapshot's tools.",
+    "boundary": "The wall-clock proxy (5 s) is replaced by the causal condition it approximated. The hang bound moved from the 5 s helper to each test's own timeout (20-25 s). A missing approval still fails, now as soon as the Run settles.",
+    "preservedAssertions": true,
+    "productCodeChanged": false,
+    "localVerification": { "command": "node --test packages/engine/dist/verification/engine-verification.test.js", "runs": 3, "tests": 16, "pass": 16, "fail": 0 },
+    "intermediateFailure": "A first version subscribed from seq 0; the repair test's second wait then matched the earlier, already decided approval and failed 2/2 locally. Subscribing after the snapshot's lastSeq fixed it."
+  },
+  "followUp": "PERF-GIT-01: bounded reduction of repository-context git probes (for example one combined HEAD/branch probe, or reusing the query observation's own preview inside assertFresh) that preserves the never-bypass-fresh-check contract and passes the full gate."
+}
