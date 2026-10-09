@@ -51,12 +51,29 @@ test(
       duplicate.record.accepted.inputId,
       result.record.accepted.inputId,
     );
-    assert.equal(
-      f.engine.store
-        .readSessionEvents(f.session.id, 0, 1024)
-        .filter((e) => e.type === "command.job.result_admitted").length,
-      1,
-    );
+    let afterSeq = 0,
+      scannedEvents = 0,
+      admittedEvents = 0,
+      exhausted = false;
+    while (scannedEvents < 1024) {
+      const page = f.engine.store.readSessionEvents(
+        f.session.id,
+        afterSeq,
+        Math.min(100, 1024 - scannedEvents),
+      );
+      if (page.length === 0) {
+        exhausted = true;
+        break;
+      }
+      for (const event of page) {
+        assert.ok(event.seq > afterSeq, "session event cursor must advance");
+        afterSeq = event.seq;
+        scannedEvents++;
+        if (event.type === "command.job.result_admitted") admittedEvents++;
+      }
+    }
+    assert.equal(exhausted, true, "session event scan exhausted its row budget");
+    assert.equal(admittedEvents, 1);
     assert.equal(f.entries(), 1);
     preserveOwnedDeliveryEvidence("windows-native-delivered", {
       classification: "actual Windows Job Object",

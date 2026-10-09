@@ -57,19 +57,25 @@ test("source change, deletion and replacement after preview block its original h
     () => f.service.set(input),
     hasCode("KNOWLEDGE_SOURCE_CHANGED"),
   );
-  rmSync(join(f.root, "AGENTS.md"));
+  // Keep the actual preview inode allocated while its original path is missing.
+  renameSync(join(f.root, "AGENTS.md"), join(f.root, "retained-old-inode.md"));
+  const retained = lstatSync(join(f.root, "retained-old-inode.md"), { bigint: true });
+  assert.deepEqual(
+    [retained.dev.toString(), retained.ino.toString()],
+    [preview.sources[0]!.device, preview.sources[0]!.inode],
+  );
   assert.throws(
     () => f.service.set(input),
     hasCode("KNOWLEDGE_SOURCE_UNAVAILABLE"),
-  ); // Keep an actual old inode alive: unlink/recreate may reuse the same inode on Linux.
+  );
   writeFileSync(
     join(f.root, "AGENTS.md"),
     "Host-authored trusted instructions.\n",
   );
-  renameSync(join(f.root, "AGENTS.md"), join(f.root, "retained-old-inode.md"));
-  writeFileSync(
-    join(f.root, "AGENTS.md"),
-    "Host-authored trusted instructions.\n",
+  const replacement = lstatSync(join(f.root, "AGENTS.md"), { bigint: true });
+  assert.notDeepEqual(
+    [replacement.dev.toString(), replacement.ino.toString()],
+    [preview.sources[0]!.device, preview.sources[0]!.inode],
   );
   assert.throws(
     () => f.service.set(input),

@@ -328,7 +328,7 @@ test('actual patch effects with a missing durable checkpoint fail closed during 
 });
 
 test('duration budget stops a real command before failed terminal and preserves its checkpoint', { timeout: 15_000, skip: process.platform === 'win32' }, async (t) => {
-  const code = "const fs=require('node:fs');fs.writeFileSync('started.pid',String(process.pid));fs.writeFileSync('effect.txt','command started\\n');setInterval(()=>{},1000)";
+  const code = "const fs=require('node:fs');fs.writeFileSync('effect.txt','command started\\n');fs.writeFileSync('started.pid',String(process.pid));setInterval(()=>{},1000)";
   const p = provider('duration', [[commandCall('command', code), toolFinish], [stop]]);
   const f = await fixture(t, [p]);
   const receipt = f.runner.submit(f.input(undefined, undefined, { maxDurationMs: 900 }));
@@ -392,7 +392,7 @@ test('context exhaustion after a real patch and read result retains the patch an
 });
 
 test('close waits for an actual command cleanup and expires another workspace approval before returning', { timeout: 15_000, skip: process.platform === 'win32' }, async (t) => {
-  const code = "const fs=require('node:fs');fs.writeFileSync('started.pid',String(process.pid));fs.writeFileSync('effect.txt','close effect\\n');setInterval(()=>{},1000)";
+  const code = "const fs=require('node:fs');fs.writeFileSync('effect.txt','close effect\\n');fs.writeFileSync('started.pid',String(process.pid));setInterval(()=>{},1000)";
   const command = provider('closing-command', [[commandCall('command', code), toolFinish], [stop]]);
   const patch = provider('closing-patch', [[patchCall('patch', 'target.txt', 'baseline-1\n', 'forbidden\n'), toolFinish], [stop]]);
   const f = await fixture(t, [command, patch], 2);

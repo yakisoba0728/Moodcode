@@ -63,7 +63,7 @@ test(
     const script = join(f.root, "held.mjs");
     writeFileSync(
       script,
-      "import{writeFileSync}from'node:fs';writeFileSync('held.pid',String(process.pid));setInterval(()=>{},20);",
+      "import{writeFileSync,renameSync}from'node:fs';writeFileSync('held.pid.tmp',String(process.pid));renameSync('held.pid.tmp','held.pid');setInterval(()=>{},20);",
     );
     await f.grant();
     const r = await f.submit(`${quote(process.execPath)} ${quote(script)}`),
@@ -74,6 +74,7 @@ test(
       "owned process absent",
     );
     const pid = Number(readFileSync(join(f.root, "held.pid"), "utf8"));
+    assert.ok(Number.isSafeInteger(pid) && pid > 0, "owned process PID must be a positive safe integer");
     await f.dispatch("run.cancel", { runId: r.runId });
     await f.wait(r);
     assert.throws(() => process.kill(pid, 0));
