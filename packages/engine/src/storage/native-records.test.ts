@@ -179,3 +179,38 @@ test('context revisions verify hashes, ownership, monotonic revision and immutab
   assert.equal(update.supersedesId, context.id);
   assert.throws(() => f.store.putTurn({ ...f.turn, contextRevisionId: update.id }), hasCode('RECORD_CONFLICT'));
 });
+
+test('native execution row bytes and event copies preserve normalized records and rejected writes', t => {
+  const f = fixture(t), database = f.observe();
+  const recorded: { table: string; type: string; field: string; value: TurnRecord | ProviderAttempt | MessagePart | ContextRevision }[] = [];
+  const context = f.store.putContextRevision({ schemaVersion: 2, id: 'encoded-context', sessionId: 'session', revision: 1,
+    kind: 'baseline', sourceIds: ['fixture:private'], text: 'Dummy context: 한국어 🚀', sha256: hash('Dummy context: 한국어 🚀'), createdAt: stamp() });
+  recorded.push({ table: 'context_revisions', type: 'context.revision.recorded', field: 'context', value: context });
+  const turn = f.store.putTurn({ ...f.turn, state: 'streaming', contextRevisionId: context.id });
+  recorded.push({ table: 'session_turns', type: 'turn.streaming', field: 'turn', value: turn });
+  const prepared = f.store.putAttempt({ ...f.attempt, contextRevisionId: context.id });
+  const attempt = f.store.putAttempt({ ...prepared, state: 'dispatched', dispatchedAt: stamp() });
+  recorded.push({ table: 'provider_attempts', type: 'provider.attempt.dispatched', field: 'attempt', value: attempt });
+  const initial = f.store.putPart({ ...f.part, type: 'reasoning', text: 'Dummy prefix',
+    providerData: { '2': 'numeric key', nested: { unicode: '한국어 🚀', escaped: '\\"\n', negativeZero: -0 }, dense: [null, true, 7] } });
+  assert.equal(initial.type, 'reasoning');
+  if (initial.type !== 'reasoning') assert.fail('Expected reasoning part');
+  const part = f.store.putPart({ ...initial, revision: 1, text: 'Dummy prefix + continuation' });
+  if (part.type !== 'reasoning') assert.fail('Expected reasoning part');
+  recorded.push({ table: 'message_parts', type: 'message.part.updated', field: 'part', value: part });
+  for (const record of recorded) {
+    const raw = String(database.prepare(`SELECT data FROM ${record.table} WHERE id=?`).get(record.value.id)!.data);
+    assert.equal(raw, JSON.stringify(record.value), 'SQL stores exactly the normalized returned record');
+    const event = JSON.parse(String(database.prepare('SELECT data FROM session_events WHERE type=? ORDER BY seq DESC LIMIT 1').get(record.type)!.data));
+    assert.equal(JSON.stringify(event.payload[record.field]), raw, 'Journal record copies preserve the exact SQL JSON bytes');
+  }
+  const before = database.prepare('SELECT data FROM session_events ORDER BY seq').all();
+  assert.deepEqual(f.store.putTurn(turn), turn);
+  assert.deepEqual(f.store.putAttempt(attempt), attempt);
+  assert.equal(JSON.stringify(f.store.putPart(part)), JSON.stringify(part), 'Idempotent replay keeps JSON normalization, including negative zero');
+  assert.deepEqual(f.store.putContextRevision(context), context);
+  assert.throws(() => f.store.putPart({ ...part, revision: 2, text: 'rewritten prefix' }), hasCode('RECORD_CONFLICT'));
+  assert.deepEqual(database.prepare('SELECT data FROM session_events ORDER BY seq').all(), before, 'Idempotency and rejection do not change journal bytes');
+  if (part.type === 'reasoning') part.text = 'Caller mutation after commit';
+  assert.notEqual(f.store.listParts(f.turn.id)[0]?.type === 'reasoning' && (f.store.listParts(f.turn.id)[0] as { text: string }).text, 'Caller mutation after commit');
+});
