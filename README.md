@@ -8,6 +8,8 @@ Electron 기반 로컬 코딩 에이전트다. 자체 TypeScript/Node 엔진, �
 
 전체 최초 점검은 소유 1,092개 파일의 실제 읽기·매핑과 독립 대조를 마쳤고, 처음 발견한 36건의 수정·유지 판정을 기록했다. `35796ab`의 공동 빌드·네 프로젝트 compiled 회귀는 5,243개 중 5,240 pass·실패 0·Windows 전용 skip 3이며 코딩 과업 3/3·복구·성능·실제 GUI 7-flow도 통과했다. 이후 실제 OS CI에서 드러난 네 fixture 조건을 보강한 `864f68a`의 CI 11개가 모두 통과했다. macOS Node 24·26은 각각 4,991 pass·skip 3, Linux는 4,929 pass·skip 65, native Windows x64는 각각 38/38이며 세 OS 패키지 작업도 통과했다. 새 실제 30분 관측은 990회·입력 3,964개이고 제품 source/runtime 771개가 현재 소스와 동일하다. 이 실행은 `35796ab`에서 수행했고 테스트만 바뀐 후속 커밋의 새 실행으로 취급하지 않는다. 공개 API·DB23과 승인·취소·unknown·no-replay·예산 계약을 유지했다. [현재 검증 근거](docs/moodcode/next-whole-review-source-verification.json)를 따른다.
 
+2026-10-10 실제 Anthropic `claude-haiku-5-5` 호출을 확인했다. 짧은 응답과 Engine의 read_file·tool replay·PNG 인식·중복 입력이 통과했고 지정 workspace의 세 요청 모두 HTTP 200이다. 관련 Anthropic/PDF/media 회귀 98/98을 통과했다. [Haiku 실제 계정 근거](docs/moodcode/next-provider-anthropic-haiku-live.json)를 따른다. 공개 reasoning summary·thinking block replay·remote cancel·다른 모델/입력은 이 결과에 포함하지 않는다.
+
 OpenCode/pi/Amp/Claude Code/Codex 등 19개 공개 코딩 에이전트의 근거를 비교하며 자체 엔진을 구현했다. 2차 최종 source `99bf6f0`의 전체 로컬 gate는 4,701개 중 4,699 pass·실패 0·기존 Windows 조건부 skip 2이며 실제 공개 CI 여섯 작업도 통과했다. macOS/Linux 전체 엔진과 Windows portable 범위를 구분하며, 이 결과가 모든 OS·공급자·GUI의 검증을 의미하지는 않는다. [최종 검증](docs/moodcode/engine-phase-two-final-acceptance-verification.json), [기본 도구 문맥 계약](docs/moodcode/engine-eager-catalogue-context.md), [TODO](TODO.md)를 따른다. 후속 PTY 진단·복합 실행 검증·코딩 평가·성능 baseline을 구현했다. 별도 932개 입력 동결본에서 전체 회귀 4,723개 중 4,721 pass·실패 0·기존 skip 2, 60회 반복, native 코딩 과업 3/3, quick/standard 성능 gate를 통과했다. 공개 CI 여섯 작업도 통과했으며 [보강 검증 근거](docs/moodcode/engine-hardening-verification.json)를 따른다.
 
 ## 개발 실행

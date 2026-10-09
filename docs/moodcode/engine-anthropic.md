@@ -1,6 +1,6 @@
 # Anthropic Messages provider
 
-확인일: 2026-10-07. 구현은 Moodcode의 `ProviderAdapter` 계약을 사용하는 독립 HTTP/SSE adapter이며 Anthropic SDK나 OpenCode 코드를 가져오지 않는다. 테스트 데이터는 직접 작성한 가짜 protocol event와 loopback HTTP 응답이다. 실제 계정, 모델, API key를 사용한 호출이나 capability 검증은 수행하지 않았다.
+확인일: 2026-10-10. 구현은 Moodcode의 `ProviderAdapter` 계약을 사용하는 독립 HTTP/SSE adapter이며 Anthropic SDK나 OpenCode 코드를 가져오지 않는다. 초기 테스트는 직접 작성한 protocol event와 loopback HTTP 응답이다. 이후 실제 `claude-haiku-5-5`의 짧은 응답과 Engine의 파일 읽기·tool replay·PNG 인식·중복 입력을 검증했다. [실제 계정 근거](next-provider-anthropic-haiku-live.json)의 모델·설정·입력 범위에 한정한다.
 
 ## 사용과 host 경계
 
@@ -72,4 +72,4 @@ HTTP 400/413의 오류 본문은 최대 8192 byte만 검사하며 명시적 stru
 ./node_modules/.bin/tsc -p packages/engine/tsconfig.json --noEmit
 ```
 
-실제 Anthropic endpoint 호출, 모델 capability/catalog 확인, Linux/Windows 실행, GUI 통합, provider 기본값 변경은 이 검증에 포함하지 않는다. provider barrel 등록과 전체 engine 회귀는 root 통합 단계에서 수행한다.
+위 초기 fixture 검증에는 실제 Anthropic endpoint·모델 catalog·Linux/Windows·GUI·provider 기본값 변경이 포함되지 않는다. 후속 실제 Haiku 계정 근거는 첫 문단 링크의 별도 범위를 따른다. provider barrel 등록과 전체 engine 회귀는 root 통합 단계에서 수행한다.

@@ -16,7 +16,9 @@ Official references checked on 2026-10-09:
 - [Vision](https://platform.claude.com/docs/en/build-with-claude/vision) documents base64 image source blocks and PNG input.
 - [Thinking tool workflows](https://platform.claude.com/docs/en/build-with-claude/thinking-tool-workflows) documents preserving native thinking blocks through tool continuation. Successful replay does not prove every model/configuration combination.
 
-The host inventory reports no Anthropic credential in the approved local credential file or process. Actual Anthropic requests: **0**. The external account condition remains `missing-credential`; the local fixture is not substituted for account evidence.
+The 2026-10-09 inventory reported no Anthropic credential in the approved local credential file or process, so that original report records **0** requests and `missing-credential`. It remains historical evidence. On 2026-10-10, an explicitly supplied personal key and workspace selected `claude-haiku-5-5`: one small response and all three native Engine requests passed. [Actual account evidence](next-provider-anthropic-haiku-live.json) records the bounded text/tool/replay/PNG/duplicate scope; thinking block replay, public reasoning summaries and remote cancellation remain unverified.
+
+Personal keys that span workspaces require the host's workspace header. The central CLI accepts optional `--workspace-id wrkspc_Example123` only for the Anthropic lane; the key stays in the host environment or explicitly selected credential file. Account qualification requires every response's workspace header to match. The adapter's injectable fetch port and existing workspace-scoped keys retain their previous behavior.
 
 Verification:
 

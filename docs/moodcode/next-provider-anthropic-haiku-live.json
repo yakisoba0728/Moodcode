@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "kind": "anthropic-haiku-actual-account-acceptance",
+  "recordedAt": "2026-10-09T16:22:05.939616+00:00",
+  "userFacingDate": "2026-10-10 Asia/Seoul",
+  "codeCommit": "33e750d09a9aca7fe4e666ad93a1f84493a60cfb",
+  "modelId": "claude-haiku-5-5",
+  "runtime": {
+    "node": "26.9.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "transport": "real-remote",
+  "accountVerified": true,
+  "persistentAccountIdentityClaimed": false,
+  "workspace": "explicit host parameter; three response workspace bindings confirmed; identifier not published",
+  "smoke": {
+    "requests": 1,
+    "status": 200,
+    "response": "MOODCODE_OK",
+    "inputTokens": 25,
+    "outputTokens": 11
+  },
+  "nativeEngine": {
+    "requests": 3,
+    "requestCeiling": 3,
+    "statuses": [
+      200,
+      200,
+      200
+    ],
+    "workspaceBindings": [
+      true,
+      true,
+      true
+    ],
+    "scope": [
+      "actual read_file tool round trip with a random value absent from the first request",
+      "source-bound native tool_use/text replay",
+      "384x128 PNG three-color recognition; exact expected output",
+      "two duplicate input deliveries with identical native identity and zero additional requests"
+    ],
+    "inputTokens": 3416,
+    "outputTokens": 87,
+    "observedReplayBlockTypes": [
+      "text",
+      "tool_use"
+    ],
+    "thinkingBlockReplayObserved": false,
+    "cleanupConfirmed": true,
+    "sourceRuntimeUnchanged": true,
+    "sourceFreeze": {
+      "files": 990,
+      "sha256": "2ed5a599f06982c587f5d725cf99a221ce1d70e3682f38bafe1e324528ddfd71"
+    },
+    "runtimeFreeze": {
+      "files": 912,
+      "sha256": "7894b261a6fd0bcb89ffa124306381f5e58b3778d61200110000e0af5ecfaa36"
+    }
+  },
+  "focusedRegression": {
+    "tests": 98,
+    "pass": 98,
+    "fail": 0,
+    "skipped": 0,
+    "lanes": [
+      "Anthropic",
+      "PDF",
+      "media"
+    ],
+    "sourcePins": [
+      {
+        "path": "scripts/verify-provider-coverage.mjs",
+        "bytes": 17442,
+        "sha256": "2d644a409ce6de2c225aafd985a00958b724dbdbba588f216849efb97c657da1"
+      },
+      {
+        "path": "scripts/verify-provider-coverage.test.mjs",
+        "bytes": 18702,
+        "sha256": "ec2ba9bb2154ded9f5f57d87aad504de1e064cd2d82cc6835527dde680c7c315"
+      }
+    ]
+  },
+  "independentReview": {
+    "actionableFindings": 0,
+    "scope": "optional workspace transport support; preservation of account qualification and resource contracts"
+  },
+  "initialFailuresPreserved": {
+    "nativeMessagesWithoutWorkspace": 400,
+    "modelsWithoutWorkspace": 400,
+    "automaticWorkspaceLookup": 403,
+    "cause": "personal key requires the anthropic-workspace-id header; this key cannot list workspaces"
+  },
+  "cumulativeRequests": {
+    "messages": 5,
+    "successfulMessages": 4,
+    "failedMessages": 1,
+    "readOnlyDiagnostics": 3,
+    "total": 8
+  },
+  "unverifiedScopes": [
+    "public reasoning summary",
+    "thinking/signature replay on a response that actually emits thinking blocks",
+    "remote cancellation",
+    "Anthropic PDF/audio/video/media output",
+    "GUI Anthropic account integration",
+    "other Anthropic models"
+  ],
+  "costQualification": "Actual reported token usage only; no price, billing or tokenizer estimates.",
+  "originalEvidenceAvailability": "Original scoped reports are retained locally in ignored artifacts; public pins do not publish credentials, workspace ID or opaque model payloads.",
+  "originalEvidencePins": [
+    {
+      "path": "artifacts/provider-haiku-20261010/actual-anthropic-haiku-report.json",
+      "bytes": 255135,
+      "sha256": "e2a3f565c2f15e7f9c530243f845a93f89a648f8752ea8e77c59f759ab5f75f0"
+    },
+    {
+      "path": "artifacts/provider-haiku-20261010/actual-diagnostic.json",
+      "bytes": 760,
+      "sha256": "51c4dea5fa12705d66951a9f9d83d269427fb0e193e51c760f4bcfd6e7d3afca"
+    },
+    {
+      "path": "artifacts/provider-haiku-20261010/actual-workspace-lookup.json",
+      "bytes": 699,
+      "sha256": "c064c72aa01c80a5101e3520176081576cf1d05f6104b425d1cace770239ad86"
+    },
+    {
+      "path": "artifacts/provider-haiku-20261010/actual-workspace-diagnostic.json",
+      "bytes": 1383,
+      "sha256": "39f753c8abec0ca185a901cfabab19dba39ea487b20d3712493fd5146f777a63"
+    },
+    {
+      "path": "artifacts/provider-haiku-20261010/actual-anthropic-haiku-workspace-report.json",
+      "bytes": 265983,
+      "sha256": "2f2727f1a09f26699e4268562fa161219256d1aedfa0fdf22c01ec3705083580"
+    },
+    {
+      "path": "artifacts/provider-haiku-20261010/actual-workspace-cli-execution.json",
+      "bytes": 1425,
+      "sha256": "ec27fa5113784e36183585b340428aa4f43cb9d86b55f2f55da2e2fe2ddfd908"
+    },
+    {
+      "path": "artifacts/provider-haiku-20261010/focused-provider-coverage-result.json",
+      "bytes": 1321,
+      "sha256": "0ac65425d9052204b635739961a8f129a648c9d851f2e1574742d7cd95652f91"
+    },
+    {
+      "path": "artifacts/provider-haiku-20261010/workspace-support-independent-review.json",
+      "bytes": 9146,
+      "sha256": "d229012006bd0a021750c7a1e052c5e4c13e9eaf8b235d15322319e0d6bba561"
+    }
+  ],
+  "officialReferences": [
+    "https://platform.claude.com/docs/en/models/haiku-5-5/overview",
+    "https://platform.claude.com/docs/en/manage-claude/workspaces"
+  ],
+  "hostedCi": {
+    "runId": 37958105404,
+    "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37958105404",
+    "codeCommit": "33e750d09a9aca7fe4e666ad93a1f84493a60cfb",
+    "state": "completed",
+    "conclusion": "success",
+    "successfulJobs": 6,
+    "totalJobs": 6,
+    "scopes": [
+      "macOS 15 and Ubuntu 24.04: Node 24/26 headless build, complete fixtures and local media CLI regression fixtures",
+      "Windows: Node 24/26 portable contracts/storage only; no native Anthropic account calls"
+    ],
+    "qualification": "This run verifies the code commit; subsequent documentation publication and actual account calls have separate evidence."
+  },
+  "remainingOriginalTodoItems": [
+    "N-03",
+    "N-05",
+    "E5-13",
+    "R-PTY-01"
+  ],
+  "fullGoalAchieved": false
+}
