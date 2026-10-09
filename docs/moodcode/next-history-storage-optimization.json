@@ -1,0 +1,430 @@
+{
+  "schemaVersion": 1,
+  "kind": "next-history-storage-optimization",
+  "task": "NEXT-01",
+  "status": "bounded-native-byte-preserving-optimization-verified",
+  "sourceQualification": {
+    "historicalSource": "a89d749ea2a13e1b291dbf5de9dd813178496d46",
+    "historicalReport": "docs/moodcode/next-current-persistent-30min-verification.json",
+    "historicalOriginalDatabaseAvailable": false,
+    "baselineSource": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6",
+    "candidateProductionCommit": "1cc8081af0811c6eb3ab11dffdacb5815d852b2d",
+    "testCommit": "b145ae3da7e82f279cedb16b44e7e01db86d9e2d",
+    "sourcePins": {
+      "baseline": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6",
+      "candidateHead": "1cc8081af0811c6eb3ab11dffdacb5815d852b2d",
+      "baselineNativeRecordsCompiledSha256": "7e86748131aad77d4c1217d8aad460ffec1ff3954cf80c1442d4c23d78adc2e3",
+      "candidateNativeRecordsCompiledSha256": "ccd62cb95ec7bd23f443c79d463beac164370a2dfc14bcba24e3b51ecc29cbeb",
+      "candidateNativeRecordsSourceSha256": "05864c8c2394fe851600226a7cdc545a708393021268f8e94ac434f7c7964eaf",
+      "baselineProvenance": "Exact f695 parent checkout compiled runtime captured before integration; retained capture.json and runtime graph manifest establish source provenance.",
+      "measurementCandidateHead": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6",
+      "measurementHelperSha256": "104e78a9c68bf696ca1a6c7941105c7df259bb5a4437f91f9b7d0f6bc868bcda",
+      "finalHelperSha256": "b80d5dc2f77a7a499aff4b498d9436446d4ae65c967787c54351d681b29ecd6c",
+      "packageLockSha256": "d7944de18f9cfdf41ecf51afa1350186d93a59f23edd829d99cc88574dd39dfe"
+    },
+    "runtimeGraphs": {
+      "baseline": {
+        "file": "baseline-runtime-manifest.json",
+        "sha256": "634645b5d84926e55132de860155ae9c62af4a6a73c314f5fa94cc42c6ad4e3a",
+        "filesSha256": "c3364f3004f92b7006239d5ce0ef7bdb1079e8a643eed060b155e71060038293",
+        "totalFiles": 1790,
+        "totalBytes": 13564433
+      },
+      "candidate": {
+        "file": "candidate-runtime-manifest.json",
+        "sha256": "91784aef5b2c1d8fa6c0d7f9c1fe89064cce3eef32fe86ca4f584b692dad276c",
+        "filesSha256": "1aeacf0f48d5fa005f202a92aa8b1e2451666034eb8e9b3e2d35bc8b9f61e2cb",
+        "totalFiles": 1790,
+        "totalBytes": 13567773
+      }
+    },
+    "qualification": "The historical compact report is the only available original evidence. The original retained DB/raw report/logs are absent. Exact per-table attribution of its 333576240-byte sampled growth cannot be measured. Fresh bounded native fixtures establish the causal pattern and candidate equivalence, without recreating or qualifying the historical 30-minute run."
+  },
+  "historicalGrowth": {
+    "sampledFirstSqliteBytes": 1314096,
+    "sampledLastSqliteBytes": 334890336,
+    "sampledDeltaBytes": 333576240,
+    "sampledDurationMs": 1822802,
+    "sampleMeaning": "Sum of primary SQLite, WAL, SHM and effects companion sizes at the sampling endpoints; this is neither logical JSON growth nor post-close primary allocation.",
+    "afterClose": {
+      "primaryBytes": 330448896,
+      "walBytes": 0,
+      "shmBytes": 32768,
+      "effectsBytes": 8192,
+      "counts": {
+        "runs": 835,
+        "messages": 2562,
+        "tools": 62,
+        "approvals": 62,
+        "checkpoints": 61,
+        "session_inputs": 1672,
+        "session_turns": 1251,
+        "provider_attempts": 1251,
+        "message_parts": 1251,
+        "attempt_cleanup": 1251,
+        "session_documents": 70,
+        "session_events": 22791
+      }
+    },
+    "afterCloseTotalBytes": 330489856,
+    "originalTableAttribution": "Unavailable; the historical 12-table count set excludes context_revisions and other schema tables."
+  },
+  "causalEvidence": {
+    "unchangedHistoricalToBaselineSource": [
+      "packages/engine/src/context/service.ts",
+      "packages/engine/src/storage/native-records.ts",
+      "packages/engine/src/storage/native-schema.ts",
+      "packages/engine/src/resilience/persistent-native.ts"
+    ],
+    "sourceProof": [
+      {
+        "file": "packages/engine/src/context/service.ts",
+        "line": 403,
+        "behavior": "A changed binding persists JSON.stringify(plan.messages), sourceIds and a new ContextRevision."
+      },
+      {
+        "file": "packages/engine/src/storage/native-records.ts",
+        "line": 278,
+        "behavior": "Each ContextRevision is immutable and its entire normalized body also enters context.revision.recorded."
+      },
+      {
+        "file": "packages/engine/src/storage/native-records.ts",
+        "line": 236,
+        "behavior": "Each durable streaming Part update journals the complete current prefix; earlier journal records remain available."
+      },
+      {
+        "file": "packages/engine/src/storage/native-records.ts",
+        "line": 316,
+        "behavior": "Session documents retain the latest body per namespace; updates journal kind/revision/hash, so document-count growth alone does not imply revision-body accumulation."
+      }
+    ],
+    "freshFixtureContext": {
+      "revisions": 12,
+      "rowDataUtf8Bytes": 793478,
+      "journalDataUtf8Bytes": 796664,
+      "combinedDataUtf8Bytes": 1590142,
+      "perRevisionRowBytes": [
+        1813,
+        13549,
+        25233,
+        36917,
+        48601,
+        60285,
+        71969,
+        83653,
+        95337,
+        107022,
+        118707,
+        130392
+      ],
+      "perRevisionJournalBytes": [
+        2077,
+        13814,
+        25498,
+        37182,
+        48866,
+        60551,
+        72235,
+        83919,
+        95603,
+        107288,
+        118973,
+        130658
+      ],
+      "latestSessionDocuments": {
+        "rows": 2,
+        "dataUtf8Bytes": 2442
+      },
+      "interpretation": "Growing bounded message snapshots are retained once in context_revisions and once in the native journal. This measured short-fixture mechanism explains a credible history-growth contributor, while its share of the absent historical Original remains unknown.",
+      "shareOfAllDataColumnBytesPercent": 58.03531151595135
+    }
+  },
+  "optimization": {
+    "productionFile": "packages/engine/src/storage/native-records.ts",
+    "methods": [
+      "putTurn",
+      "putAttempt",
+      "putPart",
+      "putContextRevision"
+    ],
+    "behavior": "Reuse a single encoding of the validated current record for idempotency comparison, SQL body, byte capacity checks and an independently parsed journal copy.",
+    "equalityProof": "Validators create detached plain acyclic finite JSON with stable normalized field order. No caller receives or mutates the normalized record between encoding and event construction. JSON.parse(encoded) equals the previous storedJson(record) operation, including escapes, numeric keys and negative-zero JSON normalization. Previous rows still pass their validator and are re-encoded before idempotency comparison.",
+    "preserved": [
+      "DB23 and all public return shapes",
+      "Native row bytes and both event journals",
+      "Context revision/hash/source ownership",
+      "Provider media admission event before later capacity gates",
+      "CAS document reads and parse/evidence behavior",
+      "Terminal identity/revision/prefix invariants and transaction rollback",
+      "Archive records and uncertainty/noReplay behavior; signed-receipt and approval authority code paths are untouched"
+    ],
+    "result": "Reduces repeated write-side serialization work. Durable storage bytes, SQL work and read materialization remain identical."
+  },
+  "fixture": {
+    "seed": "next01-private-history-v1",
+    "runs": 12,
+    "textDeltas": 4,
+    "deltaCharacters": 2048,
+    "reasoningCharacters": 1024,
+    "querySamples": 12,
+    "warmups": 2,
+    "timestamp": "2026-10-09T00:00:00.000Z",
+    "modelMessages": 200,
+    "modelBytes": 8388608,
+    "fixtureSha256": "5d229f32a0bed11e071a1f199dee63a73753768c35271de600c4560a0f5c587c",
+    "provider": "Native ScriptedProvider through createEngine and scheduler.submitLegacy; no bulk SQL history manufacture.",
+    "identityQualification": "Fixture-only seeded UUIDs and fixed wall-clock timestamps make exact raw SQL row comparisons possible. Independent identity/time/path normalization supplies separate semantic digests. Performance clocks and native SQL remain real.",
+    "providerCalls": 12,
+    "schemaTablesInspected": 80,
+    "nativeRows": {
+      "attempt_cleanup": {
+        "rows": 12,
+        "dataUtf8Bytes": 8978
+      },
+      "attempt_usage": {
+        "rows": 12,
+        "dataUtf8Bytes": 3204
+      },
+      "context_revisions": {
+        "rows": 12,
+        "dataUtf8Bytes": 793478
+      },
+      "events": {
+        "rows": 156,
+        "dataUtf8Bytes": 207253
+      },
+      "inputs": {
+        "rows": 12,
+        "dataUtf8Bytes": 3880
+      },
+      "message_parts": {
+        "rows": 24,
+        "dataUtf8Bytes": 156972
+      },
+      "messages": {
+        "rows": 24,
+        "dataUtf8Bytes": 142394
+      },
+      "provider_attempts": {
+        "rows": 12,
+        "dataUtf8Bytes": 5376
+      },
+      "runs": {
+        "rows": 12,
+        "dataUtf8Bytes": 6484
+      },
+      "session_documents": {
+        "rows": 2,
+        "dataUtf8Bytes": 2442
+      },
+      "session_events": {
+        "rows": 265,
+        "dataUtf8Bytes": 1397204
+      },
+      "session_inputs": {
+        "rows": 12,
+        "dataUtf8Bytes": 7312
+      },
+      "session_turns": {
+        "rows": 12,
+        "dataUtf8Bytes": 4500
+      },
+      "sessions": {
+        "rows": 1,
+        "dataUtf8Bytes": 121
+      },
+      "workspaces": {
+        "rows": 1,
+        "dataUtf8Bytes": 358
+      }
+    }
+  },
+  "comparison": {
+    "equivalence": {
+      "sameInputs": true,
+      "sameExactOrderedRows": true,
+      "sameNormalizedOrderedRows": true,
+      "samePublicAndModelHistory": true,
+      "sameArchiveRows": true,
+      "sameSqlReadAndWriteCounts": true,
+      "serializedUtf8BytesSaved": 1706882,
+      "stringifyCallsSaved": 276
+    },
+    "writeBaseline": {
+      "stringifyCalls": 7386,
+      "serializedUtf8Bytes": 18041806,
+      "parseCalls": 2855,
+      "parsedUtf8Bytes": 9892234,
+      "sqlPrepareCalls": 6009,
+      "sqlExecCalls": 1049,
+      "sqlReadCalls": 4959,
+      "sqlWriteCalls": 1049,
+      "sqlReturnedRows": 4235,
+      "sqlReturnedJsonUtf8Bytes": 8543100,
+      "nativeRowWrites": 168,
+      "exactEventRecordCopies": 168
+    },
+    "writeCandidate": {
+      "stringifyCalls": 7110,
+      "serializedUtf8Bytes": 16334924,
+      "parseCalls": 2855,
+      "parsedUtf8Bytes": 9892234,
+      "sqlPrepareCalls": 6009,
+      "sqlExecCalls": 1049,
+      "sqlReadCalls": 4959,
+      "sqlWriteCalls": 1049,
+      "sqlReturnedRows": 4235,
+      "sqlReturnedJsonUtf8Bytes": 8543100,
+      "nativeRowWrites": 168,
+      "exactEventRecordCopies": 168
+    },
+    "readBaseline": {
+      "stringifyCalls": 1284,
+      "serializedUtf8Bytes": 14279496,
+      "parseCalls": 2100,
+      "parsedUtf8Bytes": 7561512,
+      "sqlPrepareCalls": 288,
+      "sqlExecCalls": 72,
+      "sqlReadCalls": 288,
+      "sqlWriteCalls": 0,
+      "sqlReturnedRows": 3516,
+      "sqlReturnedJsonUtf8Bytes": 7561512,
+      "nativeRowWrites": 0,
+      "exactEventRecordCopies": 0
+    },
+    "readCandidate": {
+      "stringifyCalls": 1284,
+      "serializedUtf8Bytes": 14279496,
+      "parseCalls": 2100,
+      "parsedUtf8Bytes": 7561512,
+      "sqlPrepareCalls": 288,
+      "sqlExecCalls": 72,
+      "sqlReadCalls": 288,
+      "sqlWriteCalls": 0,
+      "sqlReturnedRows": 3516,
+      "sqlReturnedJsonUtf8Bytes": 7561512,
+      "nativeRowWrites": 0,
+      "exactEventRecordCopies": 0
+    },
+    "serializedWriteBytesReductionPercent": 9.460704765365508,
+    "allocation": {
+      "primaryBytes": 4362240,
+      "walBytes": 0,
+      "shmBytes": 32768,
+      "effectsBytes": 0,
+      "allocatedPrimaryPageBytes": 4362240,
+      "sqlitePayloadBytes": 2927970,
+      "sqliteUnusedPageBytes": 1417067,
+      "freelistBytes": 0,
+      "contextRowsIncludingIndexes": {
+        "pages": 200,
+        "allocatedBytes": 819200,
+        "payloadBytes": 795585,
+        "unusedBytes": 22532
+      },
+      "sessionEventsIncludingIndexes": {
+        "pages": 394,
+        "allocatedBytes": 1613824,
+        "payloadBytes": 1453361,
+        "unusedBytes": 154147
+      },
+      "distinction": "Logical data-column UTF-8 bytes, dbstat record payload/index bytes and allocated file/page bytes are separate quantities. All baseline/candidate aggregates match; immutable inspector file fingerprints stayed unchanged.",
+      "totalLogicalDataColumnUtf8Bytes": 2739956
+    },
+    "digests": {
+      "exactOrderedRowsSha256": "d331dadc863322c60ce855d8425648f7c41b7df7d8476a614dc7db9754ee6cd6",
+      "normalizedOrderedRowsSha256": "e6593062a3e012b757f1beb8058df36916e2ec7238cad6e4df4c21052eb4960c",
+      "modelSha256": "5f6b257601920e66df03ac2a8be32c6271333fb78cab6068c581c326fdb0f08c",
+      "publicHistorySha256": "8c919fbdceeb931e4c315224f0dc885d809a3014d0f7fc4fc5173d02b25b66d1",
+      "modelBytes": 149177,
+      "publicHistoryBytes": 147140,
+      "archiveExactOrderedRowsSha256": "d331dadc863322c60ce855d8425648f7c41b7df7d8476a614dc7db9754ee6cd6",
+      "archiveNormalizedOrderedRowsSha256": "e6593062a3e012b757f1beb8058df36916e2ec7238cad6e4df4c21052eb4960c"
+    },
+    "timingInformationOnly": {
+      "baselineWriteMs": 201.4085,
+      "candidateWriteMs": 194.55754200000004,
+      "baselineReadP50Ms": 4.117125000000044,
+      "candidateReadP50Ms": 4.268582999999978,
+      "baselineReadP95Ms": 5.058709000000022,
+      "candidateReadP95Ms": 5.876709000000005,
+      "baselineResources": {
+        "peakHeapDeltaBytes": 29726056,
+        "rssBytes": 224673792
+      },
+      "candidateResources": {
+        "peakHeapDeltaBytes": 36534776,
+        "rssBytes": 231129088
+      },
+      "qualification": "Local bounded observations under fixture instrumentation. No statistically established latency/heap improvement, storage reduction, leak verdict, long-run, desktop or live-provider claim."
+    }
+  },
+  "verification": {
+    "originalBeforeProduction": {
+      "sourceNativeRecordsPassed": 10
+    },
+    "candidate": {
+      "typecheck": "passed",
+      "sourceNativeRecordsHistoryDocumentsArchivePassed": 40,
+      "compiledNativeRecordsHistoryDocumentsArchivePassed": 40,
+      "comparisonHelperTestsPassed": 4,
+      "exactNativeRowEventCopiesEachRuntime": 168,
+      "archive": "Export and independent validation preserve every ordered row and source rows in both runtimes."
+    },
+    "retainedEvidence": {
+      "directory": "artifacts/next-history-cost/comparison-PVwcFg",
+      "comparison": {
+        "file": "comparison.json",
+        "sha256": "8682d60bb27b1a6c3ad1a07da843105bb8401d6cc6c608d5e8515906ea87c9b3"
+      },
+      "measurementHelper": {
+        "file": "helper-at-measurement.mjs",
+        "sha256": "104e78a9c68bf696ca1a6c7941105c7df259bb5a4437f91f9b7d0f6bc868bcda"
+      },
+      "compiledTestLog": {
+        "file": "../focused-compiled.log",
+        "sha256": "1842d968898f1909c07152c003dc7d31bfa58da644b18f8ead8ada0d20c4442a"
+      },
+      "helperTestLog": {
+        "file": "../comparison-helper-tests.log",
+        "sha256": "082086653c9387173546fc650d741ffedbb5b66980936245670e28ae7ffe453e"
+      },
+      "baselineInspector": {
+        "file": "baseline/storage-inspection.json",
+        "sha256": "25aac3964a0c0ae94902a6ac470fedfc09811dda4667b7c2e73c80c49559dd6f",
+        "status": "measured_unchanged"
+      },
+      "candidateInspector": {
+        "file": "candidate/storage-inspection.json",
+        "sha256": "2b7469f4b1547db8af1588685bc9eabbd14cfbbb5c3fa00586b29830355c1aff",
+        "status": "measured_unchanged"
+      },
+      "fixtureFolders": [
+        "baseline",
+        "candidate"
+      ],
+      "runtimeFolders": [
+        "artifacts/next-history-cost/baseline-runtime",
+        "artifacts/next-history-cost/candidate-runtime"
+      ]
+    },
+    "metadataQualification": "Production source and compiled candidate bytes are unchanged from the successful exact-pair measurement. Only runtime manifest/provenance metadata was added afterward; no extra fixture run was performed."
+  },
+  "futureComparisonsOnly": [
+    {
+      "option": "Store history snapshots through immutable references or deltas",
+      "possibleBenefit": "Reduce repeated context body persistence.",
+      "requiredProof": "Versioned DB/API migration with exact reconstruction, source/hash semantics, replay, archive, approval and authority checks."
+    },
+    {
+      "option": "Compress immutable history bodies",
+      "possibleBenefit": "Reduce physical payload with decoding cost.",
+      "requiredProof": "Explicit storage format/migration and byte-reconstruction validation; schema/pruning/compression were not changed."
+    },
+    {
+      "option": "Move old history to a separate cold store",
+      "possibleBenefit": "Bound hot database working set.",
+      "requiredProof": "Transactional ownership, public pagination, independent original evidence and archive completeness; no hot/cold or retention policy change authorized here."
+    }
+  ]
+}
