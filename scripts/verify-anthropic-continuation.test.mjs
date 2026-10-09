@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { access, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import * as api from '../packages/engine/dist/index.js';
-import { parseAnthropicContinuationArgs, verifyAnthropicContinuation } from './verify-anthropic-continuation.mjs';
+import { canonicalReplayBlocks, parseAnthropicContinuationArgs, verifyAnthropicContinuation } from './verify-anthropic-continuation.mjs';
 
 const model = 'local-anthropic-continuation', workspace = 'wrkspc_Local123', key = 'fixture-only-auth-not-an-account';
 const wire = events => events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('');
@@ -69,6 +69,8 @@ async function fixture(mode = 'complete', engineModule = api, loopback) {
       usage.output_tokens = 0; usage.output_tokens_details.thinking_tokens = 0;
     }
     if (mode === 'response-model-mismatch') events[0].message.model = 'foreign-model';
+    if (mode === 'api-field-order') for (const event of events) if (event.content_block)
+      event.content_block = { _server_metadata: { observation: true }, ...Object.fromEntries(Object.entries(event.content_block).reverse()) };
     const bytes = Buffer.from(mode === 'malformed-json' ? 'data: invalid-json\n\n' : wire(events)); let at = 0;
     return new Response(new ReadableStream({ pull(controller) {
       if (at === bytes.length) controller.close(); else controller.enqueue(bytes.subarray(at, at = Math.min(bytes.length, at + 17)));
@@ -137,6 +139,38 @@ test('no thinking blocks stays unobserved and does not increase the request budg
   assert.equal(report.actualRequestCount, 3); assert.equal(f.requests.length, 3);
 });
 
+test('semantic projection preserves exact replay values and array order while ignoring API field order and metadata', () => {
+  const blocks = [{ type: 'text', text: 'Visible text 🌊' }, { type: 'thinking', thinking: 'Summary', signature: 'opaque-signature' },
+    { type: 'redacted_thinking', data: 'opaque-redacted' },
+    { type: 'tool_use', id: 'toolu-exact', name: 'read_file', input: { path: 'challenge.txt', nested: { z: [1, { b: true, a: null }], a: '1' } } }];
+  const reordered = blocks.map(block => ({ server_only: true, ...Object.fromEntries(Object.entries(block).reverse()) }));
+  reordered[3].input = { nested: { a: '1', z: [1, { a: null, b: true }] }, path: 'challenge.txt' };
+  assert.deepEqual(canonicalReplayBlocks(reordered), canonicalReplayBlocks(blocks));
+  for (const [index, field, value] of [[0, 'text', 'Changed'], [1, 'thinking', 'Changed'], [1, 'signature', 'forged'],
+    [2, 'data', 'forged'], [3, 'id', 'foreign'], [3, 'name', 'foreign'],
+    [3, 'input', { ...blocks[3].input, nested: { ...blocks[3].input.nested, a: 1 } }],
+    [3, 'input', { ...blocks[3].input, nested: { ...blocks[3].input.nested, z: [{ b: true, a: null }, 1] } }]]) {
+    const changed = blocks.map((block, at) => at === index ? { ...block, [field]: value } : block);
+    assert.notDeepEqual(canonicalReplayBlocks(changed), canonicalReplayBlocks(blocks));
+  }
+  assert.notDeepEqual(canonicalReplayBlocks([...blocks].reverse()), canonicalReplayBlocks(blocks));
+  assert.throws(() => canonicalReplayBlocks([{ type: 'thinking', thinking: 'Summary' }]), { code: 'VERIFY_REPLAY_SOURCE_MISMATCH' });
+});
+
+test('native API field order and extra server metadata do not prevent exact tool replay', { timeout: 30000 }, async () => {
+  const f = await fixture('api-field-order'), report = await f.run();
+  assert.equal(report.passed, true, JSON.stringify(report)); assert.equal(report.actualRequestCount, 3); assert.equal(report.accountVerified, false);
+  const comparison = report.toolContinuation.replayComparison;
+  assert.equal(comparison.projection, 'semantic-replay-fields-v1');
+  assert.notEqual(comparison.source.rawJsonSha256, comparison.native.rawJsonSha256);
+  assert.equal(comparison.source.semanticSha256, comparison.native.semanticSha256);
+  assert.equal(comparison.native.semanticSha256, comparison.wire.semanticSha256);
+  assert.ok(comparison.source.blocks.every(block => block.keys.includes('_server_metadata')));
+  assert.ok(comparison.native.blocks.every(block => !block.keys.includes('_server_metadata')));
+  assert.equal(JSON.stringify(report).includes('opaque-fixture-signature'), false);
+  assert.equal(JSON.stringify(report).includes('Visible fixture summary'), false);
+});
+
 for (const [mode, code, count] of [['missing-signature', 'PROVIDER_MALFORMED_STREAM', 1], ['malformed-json', 'PROVIDER_MALFORMED_STREAM', 1], ['wrong-answer', 'VERIFY_RECOGNITION_MISMATCH', 2],
   ['usage-missing', 'VERIFY_USAGE_MISSING', 2],
   ['cancel-unobserved', 'PROVIDER_INCOMPLETE_STREAM', 3], ['cancel-rejected', 'CLEANUP_UNCERTAIN', 3], ['cancel-unjoinable', 'CLEANUP_UNCERTAIN', 3]])
@@ -152,12 +186,16 @@ for (const [mode, code, count] of [['missing-signature', 'PROVIDER_MALFORMED_STR
     await access(join(report.retainedEvidenceDirectory, 'engine.sqlite'));
   });
 
-test('changed signed native replay is rejected before its continuation reaches transport', { timeout: 30000 }, async () => {
+for (const changedField of ['signature', 'input', 'id'])
+test(`changed native replay ${changedField} is rejected before its continuation reaches transport`, { timeout: 30000 }, async () => {
   class ChangedReplay extends api.AnthropicProvider {
     async *streamTurn(request, signal) {
+      const changedTool = call => ({ ...call, [changedField]: changedField === 'input' ? { path: './challenge.txt' } : call.id + '-changed' });
       for await (const event of super.streamTurn(request, signal)) {
-        if (event.type === 'finish') yield { ...event, replayItems: event.replayItems.map(block => block.type === 'thinking'
-          ? { ...block, signature: block.signature + '-changed' } : block) };
+        if (event.type === 'finish') yield { ...event, replayItems: event.replayItems.map(block => changedField === 'signature' && block.type === 'thinking'
+          ? { ...block, signature: block.signature + '-changed' } : changedField !== 'signature' && block.type === 'tool_use'
+            ? changedTool(block) : block) };
+        else if (event.type === 'tool.call' && changedField !== 'signature') yield { ...event, call: changedTool(event.call) };
         else yield event;
       }
     }
@@ -166,6 +204,7 @@ test('changed signed native replay is rejected before its continuation reaches t
   assert.equal(report.passed, false); assert.equal(report.accountVerified, false); assert.equal(report.error.code, 'PROVIDER_TRANSPORT_ERROR');
   assert.equal(report.originalHostFailure.code, 'VERIFY_REPLAY_SOURCE_MISMATCH');
   assert.equal(report.actualRequestCount, 1); assert.equal(f.requests.length, 1); assert.equal(report.cleanupConfirmed, true);
+  assert.notEqual(report.toolContinuation.replayComparison.source.semanticSha256, report.toolContinuation.replayComparison.native.semanticSha256);
 });
 
 test('foreign response model is rejected without switching or dispatching continuation', { timeout: 30000 }, async () => {

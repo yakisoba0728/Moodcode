@@ -50,6 +50,33 @@ function sourceBlocks(frames) {
   for (const [index, value] of argumentsByIndex) blocks[index].input = JSON.parse(value);
   return blocks;
 }
+const replayFields = { text: ['type', 'text'], thinking: ['type', 'thinking', 'signature'],
+  redacted_thinking: ['type', 'data'], tool_use: ['type', 'id', 'name', 'input'] };
+function canonicalJson(value) {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (value !== null && typeof value === 'object')
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalJson(value[key])]));
+  return value;
+}
+export function canonicalReplayBlocks(blocks) {
+  requireEvidence(Array.isArray(blocks), 'VERIFY_REPLAY_SOURCE_MISMATCH');
+  return blocks.map(block => {
+    const fields = block && Object.hasOwn(replayFields, block.type) && replayFields[block.type];
+    requireEvidence(fields && fields.every(field => Object.hasOwn(block, field)), 'VERIFY_REPLAY_SOURCE_MISMATCH');
+    return canonicalJson(Object.fromEntries(fields.map(field => [field, block[field]])));
+  });
+}
+const replayHash = blocks => jsonHash(canonicalReplayBlocks(blocks));
+function replayDiagnostics(blocks) {
+  if (!Array.isArray(blocks)) return { observed: false };
+  const projected = canonicalReplayBlocks(blocks);
+  return { observed: true, count: blocks.length, rawJsonSha256: jsonHash(blocks), semanticSha256: jsonHash(projected),
+    blocks: blocks.slice(0, 16).map((block, index) => ({ type: block.type,
+      keys: Object.keys(block).filter(key => /^[A-Za-z_][A-Za-z0-9_]{0,63}$/u.test(key)).sort().slice(0, 16),
+      keyCount: Object.keys(block).length, semanticSha256: jsonHash(projected[index]),
+      fields: Object.fromEntries(Object.entries(projected[index]).map(([field, value]) => [field, jsonHash(value)])) })),
+    truncated: blocks.length > 16 };
+}
 
 export async function verifyAnthropicContinuation(argv, runtime = {}) {
   const options = parseAnthropicContinuationArgs(argv);
@@ -103,11 +130,14 @@ export async function verifyAnthropicContinuation(argv, runtime = {}) {
           const source = sourceBlocks(sourceFrames(wire[0].chunks));
           const native = finishes[0]?.replayItems;
           const replay = body.messages.find(message => message.role === 'assistant' && message.content.some(block => block.type === 'tool_use'))?.content;
-          requireEvidence(native && replay && jsonHash(source) === jsonHash(native) && jsonHash(native) === jsonHash(replay), 'VERIFY_REPLAY_SOURCE_MISMATCH');
+          report.toolContinuation.replayComparison = { projection: 'semantic-replay-fields-v1',
+            source: replayDiagnostics(source), native: replayDiagnostics(native), wire: replayDiagnostics(replay) };
+          requireEvidence(native && replay && replayHash(source) === replayHash(native) && replayHash(native) === replayHash(replay), 'VERIFY_REPLAY_SOURCE_MISMATCH');
           const result = body.messages.flatMap(message => message.content).find(block => block.type === 'tool_result');
           const tool = native.find(block => block.type === 'tool_use');
           requireEvidence(result?.tool_use_id === tool?.id && result.content.includes(nonce), 'VERIFY_TOOL_RESULT_MISMATCH');
-          report.toolContinuation.replay = { sourceSha256: jsonHash(source), nativeSha256: jsonHash(native), wireSha256: jsonHash(replay),
+          report.toolContinuation.replay = { projection: 'semantic-replay-fields-v1',
+            sourceSha256: replayHash(source), nativeSha256: replayHash(native), wireSha256: replayHash(replay),
             bytes: Buffer.byteLength(JSON.stringify(replay)), toolUseId: tool.id, exactMatch: true };
         }
         const record = { ordinal: report.actualRequests.length + 1, phase, ...activeOwner,
@@ -183,7 +213,7 @@ export async function verifyAnthropicContinuation(argv, runtime = {}) {
         observations.push({ ...activeOwner, phase });
         const replay = request.messages.find(message => message.role === 'assistant' && message.toolCalls?.length)?.providerReplay;
         if (replay) requireEvidence(replay.providerId === providerId && replay.modelId === options.model
-          && replay.protocol === adapter.replayProtocol && replay.version === 1 && jsonHash(replay.items) === jsonHash(finishes[0]?.replayItems), 'VERIFY_REPLAY_BINDING_MISMATCH');
+          && replay.protocol === adapter.replayProtocol && replay.version === 1 && replayHash(replay.items) === replayHash(finishes[0]?.replayItems), 'VERIFY_REPLAY_BINDING_MISMATCH');
         try {
           for await (const event of adapter.streamTurn(request, signal)) {
             if (phase === 'tool-continuation' && event.type === 'finish') finishes.push(event);
@@ -234,9 +264,11 @@ export async function verifyAnthropicContinuation(argv, runtime = {}) {
         && (request.explicitThinkingTokens === undefined || usage.reasoningOutputTokens === request.explicitThinkingTokens);
     }), 'VERIFY_USAGE_MISSING');
     const nativeReplays = tool.snapshot.messages.filter(message => message.runId === tool.run.id && message.providerReplay).map(message => message.providerReplay);
+    report.toolContinuation.nativeReplayComparison = nativeReplays.slice(0, 2).map((replay, index) => ({ turn: index + 1,
+      source: replayDiagnostics(sourceBlocks(sourceFrames(wire[index].chunks))), native: replayDiagnostics(replay.items) }));
     requireEvidence(nativeReplays.length === 2 && nativeReplays.every((replay, index) => replay.providerId === providerId && replay.modelId === options.model
-      && replay.protocol === adapter.replayProtocol && replay.version === 1 && jsonHash(replay.items) === jsonHash(finishes[index].replayItems)
-      && jsonHash(replay.items) === jsonHash(sourceBlocks(sourceFrames(wire[index].chunks)))), 'VERIFY_NATIVE_REPLAY_MISMATCH');
+      && replay.protocol === adapter.replayProtocol && replay.version === 1 && replayHash(replay.items) === replayHash(finishes[index].replayItems)
+      && replayHash(replay.items) === replayHash(sourceBlocks(sourceFrames(wire[index].chunks)))), 'VERIFY_NATIVE_REPLAY_MISMATCH');
     const tools = tool.snapshot.tools.filter(item => item.runId === tool.run.id);
     requireEvidence(tools.length === 1 && tools[0].name === 'read_file' && tools[0].state === 'completed', 'VERIFY_TOOL_EFFECT_MISMATCH');
     const output = tool.snapshot.messages.filter(message => message.runId === tool.run.id && message.role === 'assistant' && !message.toolCalls?.length).map(message => message.content).join('').trim();
