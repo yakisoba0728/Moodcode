@@ -19,13 +19,13 @@ export function projectMainUtilityClose(value) {
     utilityExitObserved: boolean(item?.utilityExitObserved),
     exitCode: Number.isInteger(item?.exitCode) && Math.abs(item.exitCode) <= 1_000_000 ? item.exitCode : null,
     cleanupConfirmed: boolean(item?.cleanupConfirmed),
-    forcedStop: item?.forcedStop === true,
+    forcedStop: boolean(item?.forcedStop),
     reason: reasons.includes(item?.reason) ? item.reason : item?.reason === null ? null : 'observation-limit',
   })) : [];
-  const complete = value.complete === true && value.spawnUnobserved !== true && Array.isArray(value.connections) && value.connections.length <= 64;
+  const complete = value.complete === true && value.spawnUnobserved === false && Array.isArray(value.connections) && value.connections.length <= 64;
   return { schemaVersion: 1, utilityScope: 'main-utilities', complete, spawnAttempted: boolean(value.spawnAttempted), spawnUnobserved: boolean(value.spawnUnobserved), evictedCount: number(value.evictedCount), connections,
     utilityAcknowledged: boolean(value.utilityAcknowledged), utilityExitObserved: boolean(value.utilityExitObserved),
-    cleanupConfirmed: boolean(value.cleanupConfirmed), forcedStop: value.forcedStop === true };
+    cleanupConfirmed: boolean(value.cleanupConfirmed), forcedStop: boolean(value.forcedStop) };
 }
 
 /** Only fixture code binds this read-only event; production main has no test file writer. */
@@ -57,7 +57,7 @@ export function qualifyMainUtilityClose(receipt) {
     && safe.connections.every(item => item.connectionId && item.scope && item.source === 'original-electron-utility' && item.utilityExitObservable === true);
   const acknowledged = covered ? safe.connections.every(item => item.engineCloseAcknowledged === true) : null;
   const exitObserved = covered ? safe.connections.every(item => item.utilityExitObserved === true) : null;
-  const confirmed = covered && acknowledged && exitObserved && safe.forcedStop === false
+  const confirmed = covered && acknowledged && exitObserved && safe.spawnAttempted === true && safe.forcedStop === false
     && safe.connections.every(item => item.exitCode === 0 && item.cleanupConfirmed === true && item.forcedStop === false && item.reason === null)
     && safe.utilityAcknowledged === true && safe.utilityExitObserved === true && safe.cleanupConfirmed === true;
   return { state: confirmed ? 'confirmed' : 'unknown', utilityAcknowledged: acknowledged, utilityExitObserved: exitObserved,

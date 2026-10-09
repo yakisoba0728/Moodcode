@@ -8,7 +8,7 @@ import { aggregateFixtureCleanup, projectMainUtilityClose, qualifyDesktopNativeC
 import { captureDesktopNativeEvidence, createDesktopTestDirectory } from './desktop-test-evidence.mjs';
 
 function receipt() {
-  return { schemaVersion: 1, utilityScope: 'main-utilities', complete: true, evictedCount: 0, utilityAcknowledged: true, utilityExitObserved: true,
+  return { schemaVersion: 1, utilityScope: 'main-utilities', complete: true, spawnAttempted: true, spawnUnobserved: false, evictedCount: 0, utilityAcknowledged: true, utilityExitObserved: true,
     cleanupConfirmed: true, forcedStop: false, connections: [{ connectionId: randomUUID(), scope: 'engine', generation: 1, source: 'original-electron-utility',
       utilityExitObservable: true, engineCloseAcknowledged: true, utilityExitObserved: true, exitCode: 0, cleanupConfirmed: true, forcedStop: false, reason: null }] };
 }
@@ -29,6 +29,20 @@ test('every original utility needs its own observable exit and ACK; app exit or 
   assert.equal(qualifyMainUtilityClose({ ...value, connections: [] }).state, 'unknown');
   assert.equal(qualifyMainUtilityClose({ ...value, connections: [value.connections[0], value.connections[0]] }).state, 'unknown');
   assert.equal(JSON.stringify(projectMainUtilityClose({ ...value, token: 'private', connections: [{ ...value.connections[0], path: '/private', message: 'private' }] })).includes('private'), false);
+});
+test('incomplete original JSON flags cannot qualify cleanup even with clean ACK and exit fields', () => {
+  for (const value of [undefined, null, 'false', 0]) {
+    for (const [scope, key] of [['top', 'forcedStop'], ['connection', 'forcedStop'], ['top', 'spawnUnobserved'], ['top', 'spawnAttempted']]) {
+      const partial = receipt(), target = scope === 'top' ? partial : partial.connections[0];
+      if (value === undefined) delete target[key]; else target[key] = value;
+      const decoded = JSON.parse(JSON.stringify(partial));
+      const projected = projectMainUtilityClose(decoded);
+      if (key === 'forcedStop') assert.equal((scope === 'top' ? projected : projected.connections[0]).forcedStop, null);
+      assert.equal(qualifyMainUtilityClose(decoded).state, 'unknown');
+      assert.equal(qualifyMainUtilityClose(projected).state, 'unknown');
+      assert.equal(aggregateFixtureCleanup({ mainReceipt: projected, nativeConfirmed: true }).state, 'unknown');
+    }
+  }
 });
 test('native cleanup requires complete stable clones and no blocked, unresolved or omitted native records', () => {
   assert.equal(qualifyDesktopNativeCleanup(native()), null, 'A bounded projection cannot cover every native store or document.');
