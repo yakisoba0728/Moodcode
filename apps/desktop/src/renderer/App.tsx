@@ -1,15 +1,63 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { RunConfigInput } from "@moodcode/contracts";
 import type { DesktopStore } from "./store.js";
 import { activeRun, latestRun, RUN_LABELS, shortPath } from "./model.js";
 import { Icon } from "./components/Icon.js";
-import { Timeline } from "./components/Timeline.js";
 import { ReviewPane } from "./components/ReviewPane.js";
 import { workspaceFilePath, type FileTarget } from "./navigation.js";
-import { Recovery } from "./components/Recovery.js";
-import { Settings } from "./components/Settings.js";
-import { AdvancedPanel } from "./components/AdvancedPanel.js";
-import "./components/advanced.css";
+
+const Timeline = lazy(() =>
+  import("./components/Timeline.js").then((module) => ({
+    default: module.Timeline,
+  })),
+);
+const Recovery = lazy(() =>
+  import("./components/Recovery.js").then((module) => ({
+    default: module.Recovery,
+  })),
+);
+const Settings = lazy(() =>
+  import("./components/Settings.js").then((module) => ({
+    default: module.Settings,
+  })),
+);
+const AdvancedPanel = lazy(() =>
+  import("./components/AdvancedPanel.js").then((module) => ({
+    default: module.AdvancedPanel,
+  })),
+);
+
+function LoadingDialog({ title, close }: { title: string; close: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const node = dialog.current;
+    node?.showModal();
+    return () => node?.close();
+  }, []);
+  return (
+    <dialog
+      className="settings-dialog"
+      ref={dialog}
+      aria-label={`${title} 불러오는 중`}
+      onCancel={(event) => {
+        event.preventDefault();
+        close();
+      }}
+    >
+      <p role="status">{title} 화면을 불러오는 중이에요.</p>
+      <button className="button secondary" onClick={close}>
+        취소
+      </button>
+    </dialog>
+  );
+}
 
 const suggestions = [
   {
@@ -477,11 +525,19 @@ export function App({ store }: { store: DesktopStore }) {
                   </span>
                 ) : null}
               </div>
-              <Timeline
-                snapshot={state.historyPage ?? state.snapshot}
-                store={store}
-                onOpenFile={openFile}
-              />
+              <Suspense
+                fallback={
+                  <p className="pane-note" role="status">
+                    대화를 불러오는 중이에요.
+                  </p>
+                }
+              >
+                <Timeline
+                  snapshot={state.historyPage ?? state.snapshot}
+                  store={store}
+                  onOpenFile={openFile}
+                />
+              </Suspense>
             </>
           ) : (
             <div className="welcome">
@@ -732,33 +788,62 @@ export function App({ store }: { store: DesktopStore }) {
         </div>
       </footer>
       {advancedOpen && advancedApi && state.sessionId ? (
-        <AdvancedPanel
-          api={
-            advancedApi as Required<
-              Pick<
-                NonNullable<typeof window.moodcode>,
-                "getAdvancedSnapshot" | "advanced"
-              >
-            >
+        <Suspense
+          fallback={
+            <LoadingDialog
+              title="고급 작업"
+              close={() => setAdvancedOpen(false)}
+            />
           }
-          sessionId={state.sessionId}
-          generation={state.host.generation}
-          parentRunId={active?.id}
-          settings={state.settings}
-          close={() => setAdvancedOpen(false)}
-          onOpenFile={(path, line) => {
-            openFile(path, line);
-            setAdvancedOpen(false);
-          }}
-        />
+        >
+          <AdvancedPanel
+            api={
+              advancedApi as Required<
+                Pick<
+                  NonNullable<typeof window.moodcode>,
+                  "getAdvancedSnapshot" | "advanced"
+                >
+              >
+            }
+            sessionId={state.sessionId}
+            generation={state.host.generation}
+            parentRunId={active?.id}
+            settings={state.settings}
+            close={() => setAdvancedOpen(false)}
+            onOpenFile={(path, line) => {
+              openFile(path, line);
+              setAdvancedOpen(false);
+            }}
+          />
+        </Suspense>
       ) : null}
-      {recoveryOpen ? <Recovery close={() => setRecoveryOpen(false)} /> : null}
+      {recoveryOpen ? (
+        <Suspense
+          fallback={
+            <LoadingDialog
+              title="진단·복구"
+              close={() => setRecoveryOpen(false)}
+            />
+          }
+        >
+          <Recovery close={() => setRecoveryOpen(false)} />
+        </Suspense>
+      ) : null}
       {settingsOpen && state.settings ? (
-        <Settings
-          settings={state.settings}
-          store={store}
-          close={() => setSettingsOpen(false)}
-        />
+        <Suspense
+          fallback={
+            <LoadingDialog
+              title="모델 연결"
+              close={() => setSettingsOpen(false)}
+            />
+          }
+        >
+          <Settings
+            settings={state.settings}
+            store={store}
+            close={() => setSettingsOpen(false)}
+          />
+        </Suspense>
       ) : null}
     </div>
   );

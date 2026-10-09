@@ -6,7 +6,8 @@
     "Segoe UI",
     "Noto Sans KR",
     sans-serif;
-  color: #d9dce0;
+  --text: #d9dce0;
+  color: var(--text);
   background: #181b1e;
   font-synthesis: none;
   font-size: 13px;

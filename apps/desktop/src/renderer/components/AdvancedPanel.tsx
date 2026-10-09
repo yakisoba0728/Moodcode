@@ -12,6 +12,7 @@ import { Inbox, Questions, Tasks } from "./AdvancedTasks.js";
 import { LspPanel, McpPanel, TerminalPanel } from "./AdvancedConnections.js";
 import { ChildrenPanel, TeamPanel, WorkflowPanel } from "./AdvancedAgents.js";
 import { Icon } from "./Icon.js";
+import "./advanced.css";
 
 const tabs = [
   "대기열·작업",

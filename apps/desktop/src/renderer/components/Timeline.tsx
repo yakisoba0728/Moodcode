@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ApprovalRecord,
   Message,
@@ -8,7 +8,7 @@ import type {
 import type { DesktopStore } from "../store.js";
 import { RUN_LABELS, TOOL_LABELS, timelineRows } from "../model.js";
 import { Icon } from "./Icon.js";
-import { CodeBlock } from "./CodeBlock.js";
+import { CodeBlock, DeferredCodeBlock } from "./LazyCodeBlock.js";
 import {
   ConversationMarkdown,
   type OpenConversationFile,
@@ -238,7 +238,7 @@ export function ApprovalPanel({
         <span className="pill amber">승인 대기</span>
       </div>
       <div className="approval-preview">
-        <CodeBlock
+        <DeferredCodeBlock
           source={JSON.stringify(approval.preview, null, 2)}
           language="json"
           label="승인 미리보기"
@@ -333,11 +333,16 @@ export function Timeline({
               ),
             )}
             {pending.map((approval) => (
-              <ApprovalPanel
+              <Suspense
                 key={approval.id}
-                approval={approval}
-                store={store}
-              />
+                fallback={
+                  <p className="pane-note" role="status">
+                    승인 미리보기를 불러오는 중이에요.
+                  </p>
+                }
+              >
+                <ApprovalPanel approval={approval} store={store} />
+              </Suspense>
             ))}
             {run.state === "running" && !pending.length ? (
               <div className="working">

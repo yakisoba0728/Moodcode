@@ -2,7 +2,7 @@ import { memo, useMemo, type ComponentProps } from "react";
 import Markdown, { type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { conversationLink } from "../conversation.js";
-import { CodeBlock } from "./CodeBlock.js";
+import { CodeBlock } from "./LazyCodeBlock.js";
 import "./conversation.css";
 
 export type OpenConversationFile = (path: string, line?: number) => void;

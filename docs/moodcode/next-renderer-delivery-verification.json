@@ -1,0 +1,485 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-09T09:23:36.218Z",
+  "baselineRevision": "f6953e6256fd3fc2d54b0cb89f10deff59cebbd6",
+  "scope": [
+    "NEXT-02 renderer initial loading",
+    "NEXT-03 restore history theme color"
+  ],
+  "status": "passed",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "node": "v26.9.0",
+  "sourceFiles": [
+    {
+      "path": "apps/desktop/src/renderer/App.tsx",
+      "sha256": "20bb476c0619d2d89b6bd2e967e6f1552b6d45df3027589ca5d59a884ff9f251"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/AdvancedPanel.tsx",
+      "sha256": "767a865b81cdacdf355582d39bce48eb407f3d2da87a8a2817e1b5b995aa16bc"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/Timeline.tsx",
+      "sha256": "2daaed100334e1c4eadc6e0672b6afbf5ccf39c52d92aa038574183d5e9bf01d"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/ConversationMarkdown.tsx",
+      "sha256": "f491f0da06cccc0a84aafd63781ec5347946f31ca00cd0003e9d4ea75c892987"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/ReviewPane.tsx",
+      "sha256": "20843ef7984f0e277bfccae57107e992c198aa8c27635271018ac1067f6d4a53"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/LazyCodeBlock.tsx",
+      "sha256": "43db30622cc4aa671e2be1b327ccfd58d1248ef7c6ebc5bb859561a195fb57e0"
+    },
+    {
+      "path": "apps/desktop/src/renderer/styles.css",
+      "sha256": "9ee464d1c50ef71d5dce28109dd3393ef12ad57a496446dabf5606aef1198808"
+    },
+    {
+      "path": "apps/desktop/src/renderer/fixtures/delivery-launch.cjs",
+      "sha256": "b6ddd970f73b59f70473e0a2fe8f72c104739009491e42030e75b663cc38f426"
+    },
+    {
+      "path": "apps/desktop/src/renderer/fixtures/verify-delivery.mjs",
+      "sha256": "ba224c697ada8227d671f6fb11a16cecdc9bd233b242d5895f141cfcd407ba24"
+    },
+    {
+      "path": "apps/desktop/src/renderer/fixtures/measure-delivery.mjs",
+      "sha256": "ce46e13ec83b049207a3334677aed6082cd9e956748d5bb5cf1e39fbac9e995c"
+    },
+    {
+      "path": "apps/desktop/vite.config.mjs",
+      "sha256": "a753242dbe73283837badfdf01310a4352b170efc6b58df558e2092ce4bbdfe7"
+    },
+    {
+      "path": "apps/desktop/index.html",
+      "sha256": "a2be3e053d7ba83c05bf53e2f0a13d47d6c859e312dd1cd008d7622bfc8645b5"
+    },
+    {
+      "path": "scripts/desktop-test-evidence.mjs",
+      "readOnlyDependency": true,
+      "sha256": "18a6c6761f81095ed6a93dfc63f0fa0591338a2a080a26ccd3125d7c643d258d"
+    }
+  ],
+  "build": {
+    "base": "./",
+    "target": "chrome152",
+    "chunkSizeWarningLimitUnchanged": true,
+    "manualChunkConfigurationAdded": false,
+    "baseline": {
+      "initialJSBytes": 656738,
+      "totalJSBytes": 656738,
+      "largestChunkBytes": 656738,
+      "warningAbove500kB": true,
+      "includedModuleCount": 274
+    },
+    "final": {
+      "initialJSBytes": 261484,
+      "totalJSBytes": 660534,
+      "largestChunkBytes": 261484,
+      "initialModuleCount": 24,
+      "warningAbove500kB": false
+    },
+    "initialBytesSaved": 395254,
+    "initialReductionPercent": 60.18,
+    "totalBytesAdded": 3796,
+    "initialFiles": [
+      "assets/index-2f9ZJ-IV.js"
+    ],
+    "initialRendererModules": [
+      "apps/desktop/src/renderer/model.ts",
+      "apps/desktop/src/renderer/components/Icon.tsx",
+      "apps/desktop/src/renderer/components/conversation.css",
+      "apps/desktop/src/renderer/components/LazyCodeBlock.tsx",
+      "apps/desktop/src/renderer/components/ReviewPane.tsx",
+      "apps/desktop/src/renderer/navigation.ts",
+      "apps/desktop/src/renderer/App.tsx",
+      "apps/desktop/src/renderer/store.ts",
+      "apps/desktop/src/renderer/styles.css",
+      "apps/desktop/src/renderer/main.tsx"
+    ],
+    "heavyPackagesInInitialGraph": [],
+    "graph": [
+      {
+        "file": "assets/index-2f9ZJ-IV.js",
+        "bytes": 261484,
+        "entry": true,
+        "imports": [],
+        "dynamicImports": [
+          "assets/CodeBlock-C3tExOdD.js",
+          "assets/Timeline-BKjDLYnD.js",
+          "assets/Recovery-Bi40RyMn.js",
+          "assets/Settings-CLz_LULR.js",
+          "assets/AdvancedPanel-B9q9Du-H.js"
+        ],
+        "moduleCount": 24
+      },
+      {
+        "file": "assets/AdvancedPanel-B9q9Du-H.js",
+        "bytes": 34711,
+        "entry": false,
+        "imports": [
+          "assets/index-2f9ZJ-IV.js"
+        ],
+        "dynamicImports": [],
+        "moduleCount": 6
+      },
+      {
+        "file": "assets/CodeBlock-C3tExOdD.js",
+        "bytes": 171341,
+        "entry": false,
+        "imports": [
+          "assets/index-2f9ZJ-IV.js",
+          "assets/conversation-C9Xlej2Y.js"
+        ],
+        "dynamicImports": [],
+        "moduleCount": 46
+      },
+      {
+        "file": "assets/Recovery-Bi40RyMn.js",
+        "bytes": 5866,
+        "entry": false,
+        "imports": [
+          "assets/index-2f9ZJ-IV.js"
+        ],
+        "dynamicImports": [],
+        "moduleCount": 1
+      },
+      {
+        "file": "assets/Settings-CLz_LULR.js",
+        "bytes": 15022,
+        "entry": false,
+        "imports": [
+          "assets/index-2f9ZJ-IV.js"
+        ],
+        "dynamicImports": [],
+        "moduleCount": 5
+      },
+      {
+        "file": "assets/Timeline-BKjDLYnD.js",
+        "bytes": 46610,
+        "entry": false,
+        "imports": [
+          "assets/index-2f9ZJ-IV.js",
+          "assets/conversation-C9Xlej2Y.js"
+        ],
+        "dynamicImports": [],
+        "moduleCount": 58
+      },
+      {
+        "file": "assets/conversation-C9Xlej2Y.js",
+        "bytes": 125500,
+        "entry": false,
+        "imports": [
+          "assets/index-2f9ZJ-IV.js"
+        ],
+        "dynamicImports": [],
+        "moduleCount": 136
+      }
+    ],
+    "rawBaselineGraph": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/baseline-measurement.json",
+    "rawFinalGraph": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/final-measurement.json"
+  },
+  "loading": {
+    "timeline": "When a selected session has Runs, including reloaded history.",
+    "code": "When a file, expanded tool, fenced Markdown code, or approval preview is rendered.",
+    "modals": "When settings, recovery, or advanced tools are opened; fallback dialogs support cancellation.",
+    "approval": "The entire approval panel waits for its preview; actions cannot appear before the code preview.",
+    "store": "App subscription and existing store/native transport remain in place; late module resolution receives current props."
+  },
+  "theme": {
+    "baselineProbe": "The exact restore-history classes were probed inside the actual hidden Electron ReviewPane before modification.",
+    "before": {
+      "rootColor": "rgb(217, 220, 224)",
+      "rootTextToken": "",
+      "warningColor": "rgb(181, 170, 138)",
+      "historyStrongColor": "rgb(181, 170, 138)",
+      "colorScheme": "dark"
+    },
+    "afterActualRestoreHistory": [
+      {
+        "media": "dark",
+        "rootColor": "rgb(217, 220, 224)",
+        "rootTextToken": "#d9dce0",
+        "historyStrongColor": "rgb(217, 220, 224)",
+        "historyColor": "rgb(181, 170, 138)",
+        "colorScheme": "dark"
+      },
+      {
+        "media": "light",
+        "rootColor": "rgb(217, 220, 224)",
+        "rootTextToken": "#d9dce0",
+        "historyStrongColor": "rgb(217, 220, 224)",
+        "historyColor": "rgb(181, 170, 138)",
+        "colorScheme": "dark"
+      }
+    ],
+    "intendedTheme": "The existing app explicitly uses dark color-scheme, including under light OS preference. --text now names the existing root primary color; warning/body color is unchanged."
+  },
+  "verification": {
+    "rendererTypecheck": "passed",
+    "rendererUnitTests": {
+      "pass": 33,
+      "fail": 0,
+      "skipped": 0
+    },
+    "gui": {
+      "status": "passed",
+      "checks": [
+        "Delayed advanced dialog cancels; reopen after session change binds only the current native session.",
+        "Reload during a delayed settings import cannot reopen the previous dialog; the new view opens normally.",
+        "Timeline/code imports remain deferred; approval actions wait for the preview; session change/reload preserves native approval without stale UI or replay.",
+        "With file CodeBlock still deferred and unmounted, restore's eager before/after diff is visible; native restore preserves the exact preview fingerprint and the late code view stays absent.",
+        "Native approve/edit/command/diff/stale-restore/restore/history reload/file preview/recovery flows pass; the terminal event sequence remains unchanged by restore.",
+        "Reload and cancel operate while the delayed Timeline is absent; its eventual mount receives the current cancelled native Run."
+      ],
+      "fixtures": [
+        {
+          "scenario": "coding",
+          "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-ZztkV9",
+          "hidden": true,
+          "isolation": {
+            "require": "undefined",
+            "process": "undefined",
+            "urlProtocol": "file:"
+          },
+          "initialAssets": [
+            "index-2f9ZJ-IV.js",
+            "index-D10POMwM.css"
+          ],
+          "networkAttempts": 0,
+          "rendererErrors": [],
+          "cleanup": {
+            "state": "unknown",
+            "applicationExitObserved": true,
+            "applicationExitCode": 0,
+            "nativeAcknowledged": null,
+            "nativeExitObserved": null,
+            "forcedStop": false,
+            "originalPreserved": true
+          },
+          "preservedEvidence": {
+            "directory": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-coding-PlfDZG",
+            "manifestPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-coding-PlfDZG/manifest.json",
+            "copiedFiles": 14,
+            "totalBytes": 1489929,
+            "truncated": false,
+            "originalSourceRetained": true,
+            "originalSourceDirectory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-ZztkV9"
+          }
+        },
+        {
+          "scenario": "slow",
+          "directory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-WKE2tL",
+          "hidden": true,
+          "isolation": {
+            "require": "undefined",
+            "process": "undefined",
+            "urlProtocol": "file:"
+          },
+          "initialAssets": [
+            "index-2f9ZJ-IV.js",
+            "index-D10POMwM.css"
+          ],
+          "networkAttempts": 0,
+          "rendererErrors": [],
+          "cleanup": {
+            "state": "unknown",
+            "applicationExitObserved": true,
+            "applicationExitCode": 0,
+            "nativeAcknowledged": null,
+            "nativeExitObserved": null,
+            "forcedStop": false,
+            "originalPreserved": true
+          },
+          "preservedEvidence": {
+            "directory": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-slow-Wt3DN0",
+            "manifestPath": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-slow-Wt3DN0/manifest.json",
+            "copiedFiles": 6,
+            "totalBytes": 1282048,
+            "truncated": false,
+            "originalSourceRetained": true,
+            "originalSourceDirectory": "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-WKE2tL"
+          }
+        }
+      ],
+      "rawReport": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/final-gui.json",
+      "sha256": "f819c2d094021d8ce9dd864758c3ea5940ece4b5ebba8dfec0d091e0f2b8677e"
+    },
+    "reactReview": [
+      "Static lazy declarations and analyzable direct imports.",
+      "Independent Suspense boundaries retain shell, composer, and cancel controls.",
+      "Dialog effects close on unmount; native AdvancedStore bind/dispose behavior is unchanged.",
+      "Existing bounded code pages, clipboard guards, and Markdown/link validation are retained."
+    ],
+    "runtimeBundles": [
+      {
+        "path": "apps/desktop/dist/main/index.js",
+        "sha256": "bc1fcca45c5fe35b08177e8dc71e9989acc44f62d738ef1fa9ef8d7c34ff4b45"
+      },
+      {
+        "path": "apps/desktop/dist/main/engine-worker.js",
+        "sha256": "820a5d3782d5b8981805826464f65d31cd4ff363a0be523575b0d3cb981ca65e"
+      },
+      {
+        "path": "apps/desktop/dist/main/preload.cjs",
+        "sha256": "ced9286c0217913390f33e52000f92a0f16823ec1694a5e632ba97ff54304184"
+      }
+    ],
+    "runtimeQualification": "Renderer changes were tested against these existing main/worker/preload bundles. This report does not assert a new build or source provenance for those unchanged runtime bundles."
+  },
+  "driverDevelopment": {
+    "failures": 5,
+    "causes": [
+      "Two runs used the Electron evaluate callback user argument in the first parameter rather than the second.",
+      "One run matched the New Task button with an incomplete exact accessible name.",
+      "Two restore tests used file-inspector for absence although the same class legitimately hosts the selected eager diff."
+    ],
+    "originalFixtureRoots": [
+      "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-zI5FPy",
+      "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-9hVRUx",
+      "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-kz4l0p",
+      "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-ZGfiSc",
+      "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-lmQ0rl"
+    ],
+    "originalsPreserved": true,
+    "qualifications": "These were corrected fixture assertions/driver failures; the final native renderer flow passed. Earlier generated profile/native originals were retained.",
+    "preservedDriverReports": [
+      {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/driver-final-gui-retry1.json",
+        "sha256": "124b1a7bb5f2287aea973f45ad8666b4068bdf18254ba7fdb0a61a22874c5e8e"
+      },
+      {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/driver-final-gui-retry2.json",
+        "sha256": "8b2bf3b6ecaf1c8ce960b1cf9bcd74a33e2777e1da339c26c9c862b945862a99"
+      },
+      {
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/driver-final-gui-restore-retry.json",
+        "sha256": "b2fe1ec42fc87ad2a3a152ddcfd9a3597e93f398e7a0180aa2ede7a2dc313fb2"
+      }
+    ]
+  },
+  "cleanup": {
+    "applicationExitObserved": true,
+    "utilityAcknowledged": null,
+    "utilityExitObserved": null,
+    "utilitySurvival": "unknown",
+    "nativeConfirmed": null,
+    "state": "unknown",
+    "forcedStop": false,
+    "originalFixtureRoots": [
+      "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-coding-ZztkV9",
+      "/private/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-desktop-test-renderer-slow-WKE2tL"
+    ],
+    "originalsPreserved": true,
+    "qualification": "Application exit is observed; original utility close acknowledgment/exit is not exposed by production IPC. Generated native/profile originals are preserved; no numeric PID is signalled or used for deletion."
+  },
+  "reproduce": {
+    "baseline": "node apps/desktop/src/renderer/fixtures/measure-delivery.mjs /tmp/moodcode-renderer-before.json f6953e6256fd3fc2d54b0cb89f10deff59cebbd6",
+    "final": "node apps/desktop/src/renderer/fixtures/measure-delivery.mjs /tmp/moodcode-renderer-after.json",
+    "gui": "node apps/desktop/src/renderer/fixtures/verify-delivery.mjs artifacts/renderer-delivery/final-gui.json",
+    "guiPrerequisite": "Built apps/desktop/dist/main and apps/desktop/dist/renderer from npm run build:desktop; scripted-only disposable profiles and hidden windows.",
+    "typecheck": "npx tsc -p apps/desktop/tsconfig.renderer.json --noEmit --pretty false",
+    "units": "node --import ./node_modules/tsx/dist/loader.mjs --test apps/desktop/src/renderer/store.test.ts apps/desktop/src/renderer/advanced-store.test.ts apps/desktop/src/renderer/next-stage-history-store.test.ts apps/desktop/src/renderer/model.test.ts apps/desktop/src/renderer/conversation.test.ts"
+  },
+  "artifacts": {
+    "directory": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery",
+    "graphCopies": [
+      {
+        "kind": "baseline",
+        "report": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/baseline-measurement.json",
+        "sha256": "bdb26e32540ead5cca7d994edb3b2a56757b9dcd1ceed94f919b275c45dc6a03",
+        "dist": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/baseline-renderer-dist"
+      },
+      {
+        "kind": "final",
+        "report": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/final-measurement.json",
+        "sha256": "c6a528eff9a10467bf8b018206925fd058dafebe3c7b1ea8f3746e0ed569cea3",
+        "dist": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/final-renderer-dist"
+      }
+    ],
+    "baselineGUI": {
+      "report": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/baseline-gui.json",
+      "sha256": "a5635fd1e721fa4e55d30ede2dc7f8f12bccd4f77b25eb61db7329252f0ad402"
+    },
+    "nativeManifests": [
+      {
+        "scenario": "coding",
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-coding-PlfDZG/manifest.json",
+        "sha256": "ff445f6cf7c4d159131166108637b4a8b14f5ae78638f3bf6c123b754c6c6db7",
+        "copiedFiles": 14,
+        "bytes": 1489929,
+        "rawCopiesMatchManifestHashes": true,
+        "originalSourceExists": true,
+        "cleanupState": "unknown",
+        "coherentRecoveryBackup": false
+      },
+      {
+        "scenario": "slow",
+        "path": "/Users/yakisoba0728/Documents/GitHub/Moodcode/artifacts/renderer-delivery/renderer-slow-Wt3DN0/manifest.json",
+        "sha256": "f4c9f96f22c6177473d6ec34b8361fbd233231a20eb0d1033654948d97437d8d",
+        "copiedFiles": 6,
+        "bytes": 1282048,
+        "rawCopiesMatchManifestHashes": true,
+        "originalSourceExists": true,
+        "cleanupState": "unknown",
+        "coherentRecoveryBackup": false
+      }
+    ]
+  },
+  "oldUnknownRetention": [
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-zI5FPy",
+      "originalExists": true,
+      "cleanupAuthority": null,
+      "deletionAuthorized": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-9hVRUx",
+      "originalExists": true,
+      "cleanupAuthority": null,
+      "deletionAuthorized": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-kz4l0p",
+      "originalExists": true,
+      "cleanupAuthority": null,
+      "deletionAuthorized": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-ZGfiSc",
+      "originalExists": true,
+      "cleanupAuthority": null,
+      "deletionAuthorized": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-lmQ0rl",
+      "originalExists": true,
+      "cleanupAuthority": null,
+      "deletionAuthorized": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-v84tQp",
+      "originalExists": true,
+      "cleanupAuthority": null,
+      "deletionAuthorized": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-delivery-3ZUmKT",
+      "originalExists": true,
+      "cleanupAuthority": null,
+      "deletionAuthorized": false
+    },
+    {
+      "path": "/var/folders/zr/vy43gthn00q9wntc4xvs_k8h0000gn/T/moodcode-renderer-theme-baseline-uJdGj4",
+      "originalExists": true,
+      "cleanupAuthority": null,
+      "deletionAuthorized": false
+    }
+  ],
+  "sourcePinsVerified": true
+}

@@ -9,7 +9,7 @@ import type {
 } from "@moodcode/engine";
 import type { DesktopStore, FileListing, FilePreview } from "../store.js";
 import { buildDiff, shortPath } from "../model.js";
-import { CodeBlock } from "./CodeBlock.js";
+import { CodeBlock } from "./LazyCodeBlock.js";
 import type { FileTarget } from "../navigation.js";
 import { Icon } from "./Icon.js";
 
