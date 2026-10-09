@@ -92,8 +92,9 @@ test('local HTTP native Codex flow observes red/green, exact approvals, immutabl
   const address = `http://127.0.0.1:${server.address().port}`;
   // Child tools need the same non-test environment as the opt-in verifier.
   // NODE_TEST_CONTEXT would make a native `node --test` silently skip its file.
+  // A failed verifier still prints its secret-free report, and exits normally so stdout is flushed.
   const helper = new URL('./desktop-codex-account-verification.mjs', import.meta.url).href;
-  const program = `import {selectReadonlyAccount,verifyAccountCoding} from ${JSON.stringify(helper)};const account=selectReadonlyAccount(${JSON.stringify(f.settings)},${JSON.stringify(f.vault)});const report={};await verifyAccountCoding({directory:${JSON.stringify(directory)},account,engineModule:await import('@moodcode/engine'),fetch:(_url,init)=>fetch(${JSON.stringify(address)},init),report,timeoutMs:30000});console.log(JSON.stringify(report));`;
+  const program = `import {selectReadonlyAccount,verifyAccountCoding} from ${JSON.stringify(helper)};const account=selectReadonlyAccount(${JSON.stringify(f.settings)},${JSON.stringify(f.vault)});const report={};try{await verifyAccountCoding({directory:${JSON.stringify(directory)},account,engineModule:await import('@moodcode/engine'),fetch:(_url,init)=>fetch(${JSON.stringify(address)},init),report,timeoutMs:30000});}catch(error){process.exitCode=1;console.error(error);}finally{console.log(JSON.stringify(report));}`;
   const env = Object.fromEntries(['PATH', 'TMPDIR', 'LANG', 'LC_ALL', 'SYSTEMROOT'].filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
   const output = await promisify(execFile)(process.execPath, ['--input-type=module', '--eval', program], { env, timeout: 45_000, maxBuffer: 131_072 });
   Object.assign(report, JSON.parse(output.stdout.trim()));

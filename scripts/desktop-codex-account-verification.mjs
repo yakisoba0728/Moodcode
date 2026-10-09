@@ -111,6 +111,12 @@ export function exactFixtureApproval(tool, currentContent) {
     && currentContent === FIXTURE_AFTER;
 }
 
+/** Only the code of the Engine's tool-error envelope is reported; its message and command output stay in the Original. */
+function toolErrorCode(tool) {
+  try { const code = JSON.parse(tool.output ?? '')?.error?.code; return typeof code === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/u.test(code) ? code : undefined; }
+  catch { return undefined; }
+}
+
 const execute = promisify(execFile);
 export async function verifyAccountCoding({ directory, account, engineModule, fetch, report, nodePath = 'node', timeoutMs = ACCOUNT_DEADLINE_MS }) {
   const { createEngine, CodexProvider } = engineModule;
@@ -191,7 +197,7 @@ export async function verifyAccountCoding({ directory, account, engineModule, fe
     const patch = await readFile(join(repository, 'math.mjs'), 'utf8'), test = await readFile(join(repository, 'math.test.mjs'), 'utf8');
     const testTool = snapshot.tools.find(tool => tool.name === 'run_command' && tool.state === 'completed');
     report.runState = run.state; report.errorCode = run.error?.code ?? null;
-    report.tools = snapshot.tools.map(tool => ({ name: tool.name, state: tool.state }));
+    report.tools = snapshot.tools.map(tool => { const errorCode = toolErrorCode(tool); return { name: tool.name, state: tool.state, ...(errorCode ? { errorCode } : {}) }; });
     report.patchVerified = patch === FIXTURE_AFTER; report.originalTestUnchanged = sha256(test) === sha256(FIXTURE_TEST);
     report.observedTest = { nativeExitZero: testTool?.output?.includes('exitCode=0') === true, nativeCleanupConfirmed: testTool?.output?.includes('cleanupConfirmed=true') === true,
       tenCasesPassed: /# pass 10/u.test(testTool?.output ?? ''), zeroFailures: /# fail 0/u.test(testTool?.output ?? '') };
