@@ -10,6 +10,7 @@
 const provider = new AnthropicProvider({
   id: 'anthropic',
   apiKey: hostResolvedApiKey,
+  workspaceId: hostSelectedWorkspaceId,
   maxTokens: 4096,
   thinking: 'adaptive',
   publicReasoningSummary: false,
@@ -20,6 +21,8 @@ const model = anthropicModelSpec(hostSelectedModelId);
 API key는 host가 주입한 값만 사용하며 환경 변수, Codex/Claude 계정 파일, 브라우저 토큰을 탐색하지 않는다. 기본 API prefix는 `https://api.anthropic.com/v1`이며 host가 HTTPS 또는 loopback HTTP prefix를 명시할 수 있다. URL의 사용자명·암호·query·fragment와 redirect를 허용하지 않는다. key는 private field와 `x-api-key` header에만 두고 진단에 포함하지 않는다. 추가 host 비밀은 `redactionSecrets`로 지정할 수 있다. 요청에는 `anthropic-version: 2023-06-01`과 `stream: true`를 넣는다. 인증·Messages 요청 형태의 근거는 [Messages API](https://platform.claude.com/docs/en/api/messages/create)다.
 
 요청마다 `modelId`가 필요하다. `maxTokens` 기본값 4096은 adapter의 요청 ceiling이며 특정 모델의 최대 출력 능력을 뜻하지 않는다. `anthropicModelSpec`은 실제 encoding 구현 범위인 text/image/client-tool/replay 및 host의 thinking 선택만 표시하고 `contextWindow`, `maxOutputTokens`는 `null`로 둔다. 실제 모델별 지원과 window 정보는 host가 별도 확인해야 한다. catalog 응답에서 제공하는 `max_input_tokens`와 `max_tokens`의 의미는 [Models API](https://platform.claude.com/docs/en/api/models/retrieve)에 명시돼 있으나 여기서는 catalog 호출을 하지 않는다.
+
+`workspaceId`는 선택한 host 옵션이며 `wrkspc_` 다음 1~128개의 영숫자를 검증해 `anthropic-workspace-id` 헤더로 전달한다. 개인 키에 워크스페이스 지정이 필요한 경우 명시하고, 워크스페이스에 연결된 키는 생략할 수 있다. 대화·replay identity에는 넣지 않는다. Electron 설정에서 Anthropic·모델·추론 강도와 선택 Workspace ID를 지정할 수 있으며 API 키는 기존 safeStorage 경계를 사용한다. 환경 변수는 `ANTHROPIC_API_KEY`, 명시적 공통 override는 `MOODCODE_API_KEY`다.
 
 ## 메시지와 도구
 
@@ -45,7 +48,7 @@ native replay는 text/tool_use/thinking/redacted_thinking의 제한된 필드만
 
 ## usage, 종료와 실패
 
-usage는 delta마다 더하지 않고 마지막 누적 값을 사용한다. `inputTokens`는 일반 `input_tokens` + `cache_creation_input_tokens` + `cache_read_input_tokens`다. metadata가 요청됐을 때 `cachedInputTokens`에는 cache read만 넣는다. output에는 billed thinking도 포함될 수 있으므로 공개 요약 길이로 `reasoningOutputTokens`를 추정하지 않는다. usage 정의의 근거는 [Messages API usage](https://platform.claude.com/docs/en/api/messages/create)다.
+usage는 delta마다 더하지 않고 마지막 누적 값을 사용한다. `inputTokens`는 일반 `input_tokens` + `cache_creation_input_tokens` + `cache_read_input_tokens`다. metadata가 요청됐을 때 `cachedInputTokens`에는 cache read만 넣고, 서버의 명시적 `usage.output_tokens_details.thinking_tokens`가 있으면 `reasoningOutputTokens`로 기록한다. 안전한 비음수 정수·누적 단조성·전체 output 이하를 검증한다. thinking은 이미 output에 포함되므로 다시 더하지 않으며, 누락된 상세 값은 unknown이다. 공개 요약 길이로 추정하지 않는다. 근거는 [Messages API usage](https://platform.claude.com/docs/en/api/messages/create)와 [adaptive thinking usage](https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking)다.
 
 | Anthropic stop_reason | Moodcode 결과 |
 | --- | --- |
@@ -63,7 +66,11 @@ HTTP 400/413의 오류 본문은 최대 8192 byte만 검사하며 명시적 stru
 
 요청 timeout 기본 60초, cleanup 기본 1초, frame 256KiB, response 8MiB, request/replay 각각 2MiB, 전체 도구 argument 1MiB, 도구 128개, output block 256개다. JSON은 plain bounded data/depth/node 제한을 적용한다. caller abort, timeout, iterator return 모두 owned reader와 fetch signal을 정리하고 원래 caller의 abort listener를 제거한다. cancellation이 끝나지 않는 body는 제한 시간 뒤 `CLEANUP_UNCERTAIN`으로 보고하여 성공이나 executable call을 공개하지 않는다. host가 주입한 fetch 자체가 abort를 무시하면 늦게 도착한 response를 별도 정리하지만 원격 서버의 실제 처리 여부까지 보장할 수는 없다.
 
+실제 HTTP 스트림의 caller 취소에서는 owned reader의 제한된 close를 먼저 시작하고 정산 뒤 fetch signal을 abort한다. caller signal은 즉시 검사해 이미 버퍼에 들어온 후속 delta·tool·finish도 공개하지 않는다. abort를 먼저 보내면 Node reader의 cancel이 `AbortError`로 실패하는 경합을 재현해 수정했다. timeout은 기존 즉시 abort 계약을 유지하며 정리 실패·stall은 여전히 uncertain이다. 클라이언트 정리가 원격 실행 종료나 과금 취소를 증명하지 않는다.
+
 ## 확인된 검증 범위
+
+2026-10-10 후속 검증은 host 옵션·usage·버퍼 취소29개, continuation CLI21개, 네 프로젝트 compiled 5,277 pass·기존 skip3·실패0과 실제 로컬 GUI5개를 확인했다. 새 실제 Haiku3요청에서 공개 요약·서명 replay·클라이언트 취소를 확인했고 별도4요청에서 승인한 파일 수정·Node 테스트(경계 입력5쌍)·중복 요청0을 확인했다. 첫 replay 비교 실패1요청은 보존했다. [후속 근거](engine-followup-20261010-verification.json)의 모델·설정·호출 경계에 한정한다.
 
 `anthropic.test.ts`의 synthetic fixture 53개가 macOS arm64 / Node 26.9.0에서 source 실행과 독립 JavaScript bundle 실행으로 통과했다. scoped engine noEmit typecheck도 통과했다. 한 loopback HTTP server fixture는 실제 POST/header/body/반복 요청의 stateless 동작을 확인한다. 나머지는 UTF-8/SSE byte split, 여러 JSON fragment, 전체 call validation, 부분/실패 종료, 공개 요약과 암호화 replay 분리, cache usage, credential redaction, HTTP/SSE 오류, bound, abort, timeout, reader cleanup, non-cooperative transport를 검증한다.
 
@@ -72,4 +79,4 @@ HTTP 400/413의 오류 본문은 최대 8192 byte만 검사하며 명시적 stru
 ./node_modules/.bin/tsc -p packages/engine/tsconfig.json --noEmit
 ```
 
-위 초기 fixture 검증에는 실제 Anthropic endpoint·모델 catalog·Linux/Windows·GUI·provider 기본값 변경이 포함되지 않는다. 후속 실제 Haiku 계정 근거는 첫 문단 링크의 별도 범위를 따른다. provider barrel 등록과 전체 engine 회귀는 root 통합 단계에서 수행한다.
+위 초기 fixture 검증에는 실제 Anthropic endpoint·모델 catalog·Linux/Windows·GUI·provider 기본값 변경이 포함되지 않았다. 이후 provider 등록·전체 엔진 회귀·Desktop 연결은 통합했다. 최초 계정 근거와 새 후속 근거는 각각 기록한 모델·설정·OS 범위만 검증한다.

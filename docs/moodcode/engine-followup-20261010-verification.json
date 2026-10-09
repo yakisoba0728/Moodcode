@@ -1,0 +1,333 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-09T17:30:27.618957+00:00",
+  "scope": "Finite agent-only engine, Anthropic desktop and validation-tool follow-up; original four external/history TODO conditions remain open.",
+  "status": "passed-finite-followup-original-external-history-TODOs-open",
+  "implementationCommit": "87323b927fd8ae066a04197ed1f5b900872848bd",
+  "productionCommit": "ea64a96c4eb76b3d81a655808380fad6df40a589",
+  "compatibility": {
+    "databaseSchemaVersion": 23,
+    "approvalCancelUnknownNoReplayBudgetContractsRetained": true,
+    "engineCommandSchemaChanged": false,
+    "optionalHostConfigurationAdded": true
+  },
+  "changes": [
+    "Anthropic optional host workspace header and explicit thinking-token metadata",
+    "Desktop Anthropic selection, host credentials, effort and optional workspace configuration",
+    "Owned response close before caller abort with immediate buffered-event suppression",
+    "Semantic replay comparison independent of JSON property order and server-only caller metadata",
+    "PTY collector waits for native worker close and stdio EOF; retains bounded diagnostic tails",
+    "GUI fixture diagnostics failures still settle owned HTTP streams and preserve first errors and Originals"
+  ],
+  "localValidation": {
+    "runtime": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "node": "26.9.0"
+    },
+    "fourProjectCompiled": {
+      "projects": [
+        "contracts",
+        "engine",
+        "engine-harness",
+        "desktop-types"
+      ],
+      "testFiles": 480,
+      "counts": {
+        "tests": 5280,
+        "pass": 5277,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 3
+      },
+      "exitCode": 0,
+      "receipt": {
+        "path": "artifacts/engine-followup-20261010/final-compiled-regression-result.json",
+        "bytes": 53815,
+        "sha256": "77336f91048545449d9c57d3d684e0373021d55c512c461afe64f5134734f077"
+      },
+      "log": {
+        "path": "artifacts/engine-followup-20261010/final-compiled-regression.log",
+        "bytes": 1512254,
+        "sha256": "4c418f3258c383234f4f2ca917e5843d8cf030f756a3547e7e123e3e2f0cfd63"
+      },
+      "qualification": "Current production and compiled inputs; subsequent replay CLI/test-only change separately verified."
+    },
+    "anthropicHostOptions": {
+      "passed": 29,
+      "failed": 0,
+      "log": {
+        "path": "artifacts/engine-followup-20261010/anthropic-host-options-final.log",
+        "bytes": 6074,
+        "sha256": "a4bd374f73197c35ab3833666a342845bef6750f6359d9e3aaceeb8de7797afb"
+      }
+    },
+    "continuationCli": {
+      "passed": 21,
+      "failed": 0,
+      "log": {
+        "path": "artifacts/next-continuation/anthropic-continuation-fixtures/canonical-replay-focused-l18ouhzz/node-test.log",
+        "bytes": 2375,
+        "sha256": "faed532e194285c106f6f22660e8b8fce2bf0410cae7b77f2c6a1a674d5451db"
+      }
+    },
+    "desktopFocused": {
+      "passed": 116,
+      "failed": 0,
+      "qualification": "Prior focused execution with unchanged current compiled inputs; whole current compiled regression independently covers Desktop."
+    },
+    "cliAndGuiCleanup": {
+      "passed": 12,
+      "failed": 0,
+      "scope": "CI launcher 8 and actual HTTP GUI cleanup fault tests 4",
+      "log": {
+        "path": "artifacts/engine-followup-20261010/final-cli-cleanup-regression.log",
+        "bytes": 5231,
+        "sha256": "9f56ee363030d4f19abfe022f0655f953e6a1b0f67c7b25ac95392aa910fd567"
+      }
+    },
+    "actualElectronGui": {
+      "flowsPassed": 5,
+      "localHttpRequests": 4,
+      "aggregateNativeCleanup": null,
+      "perCancelledAttemptCleanupConfirmed": true,
+      "originalsPreserved": true,
+      "accountCalls": 0,
+      "receipt": {
+        "path": "artifacts/next-continuation/anthropic-desktop/db51a234-e2be-41d7-b42a-450a2902dd10/final-provider/verification-final.json",
+        "bytes": 53193,
+        "sha256": "80840a17f26b7b7a899a1384b8085763b4addae12b0ff9ac7bfa762b6504db49"
+      }
+    },
+    "pty": {
+      "collectorTestsPassed": 6,
+      "sourceScenariosPassed": 5,
+      "compiledScenariosPassed": 5,
+      "iterations": 1,
+      "historicalFailureCauseResolved": false,
+      "originalsPreserved": true,
+      "receipt": {
+        "path": "artifacts/pty-diagnostics-20261010/pty-diagnostics-followup-verification.json",
+        "bytes": 18535,
+        "sha256": "ca13f57c91264d67b8ee7b07a900bfb90f25fb494886bf6b5d20f83bad4ac968"
+      }
+    }
+  },
+  "actualAnthropic": {
+    "modelId": "claude-haiku-5-5",
+    "newMessagesRequests": 8,
+    "allHttpStatuses200": true,
+    "credentialPersisted": false,
+    "persistentAccountIdentity": null,
+    "firstFailedAttempt": {
+      "messagesRequests": 1,
+      "accountVerified": false,
+      "failure": "VERIFY_REPLAY_SOURCE_MISMATCH",
+      "qualification": "Harness rejected raw-source/native replay comparison before a second remote request; first tool turn was completed. Original evidence retained.",
+      "receipt": {
+        "path": "artifacts/engine-followup-20261010/actual-continuation-report.json",
+        "bytes": 5450,
+        "sha256": "0fbfc1b63a0480f29dda32a1dcb45de221095b85c11d2f525d16220acc03e2ab"
+      }
+    },
+    "continuation": {
+      "messagesRequests": 3,
+      "accountVerified": true,
+      "publicSummaryObserved": true,
+      "signedThinkingReplayObserved": true,
+      "replayProjection": "semantic-replay-fields-v1; exact field values, signature, call IDs and array order; raw response bytes separately hashed",
+      "thinkingBlocks": [
+        {
+          "thinkingBytes": 145,
+          "thinkingSha256": "3391d38360c428efd86efed91d6d1bd57d4553ba520857ab88ddee484937910a",
+          "signatureBytes": 1016,
+          "signatureSha256": "0dedd36eb843c1dd319d0c1f2cc0535225eff57a6464418fc04424057710c830"
+        }
+      ],
+      "completedUsage": [
+        {
+          "inputTokens": 1016,
+          "outputTokens": 109,
+          "cachedInputTokens": 0,
+          "reasoningOutputTokens": 56
+        },
+        {
+          "inputTokens": 1366,
+          "outputTokens": 30,
+          "cachedInputTokens": 0,
+          "reasoningOutputTokens": 0
+        }
+      ],
+      "clientCancellationVerified": true,
+      "cancelledAttemptState": "interrupted",
+      "cancelledAttemptCleanupConfirmed": true,
+      "serverExecutionStopped": null,
+      "billingCancelled": null,
+      "cancelledUsage": null,
+      "workspaceResponseBindingsConfirmed": true,
+      "sourceRuntimeUnchanged": true,
+      "receipt": {
+        "path": "artifacts/engine-followup-20261010/actual-continuation-final-report.json",
+        "bytes": 20088,
+        "sha256": "0c40e2a6928c368277682d1b0d5be9468849c53e8498f07095d05bdfa17d4171"
+      },
+      "cliReceipt": {
+        "path": "artifacts/engine-followup-20261010/actual-continuation-final-cli-execution.json",
+        "bytes": 1244,
+        "sha256": "d1fab86793a374d7623aa3d2a68b124f20d2b563495e20b3d905bf3fcfd9221d"
+      },
+      "configuration": {
+        "thinking": "adaptive",
+        "effort": "high",
+        "publicReasoningSummary": true,
+        "maxTokens": 2048,
+        "maxRequests": 3
+      }
+    },
+    "coding": {
+      "messagesRequests": 4,
+      "accountVerified": true,
+      "tasks": 1,
+      "fixture": "Fix addition while preserving multiplication; one Node test checks five input pairs and ten assertions.",
+      "toolCalls": [
+        {
+          "name": "read_file",
+          "state": "completed",
+          "outputSha256": "8808cb6ac0259fa358ad9fc9e787716e14dd2314dd0ee65033746a3f95b69ce4"
+        },
+        {
+          "name": "apply_patch",
+          "state": "completed",
+          "outputSha256": "15eb0f65ced1e113686e65f908a83cf7368f82781bba4265084b3163301a8633"
+        },
+        {
+          "name": "run_command",
+          "state": "completed",
+          "outputSha256": "2c29053d9fef41078d13f767dc30e7c23acf1d680bf05eb214c5e4bd50fa333d",
+          "nativeSuccess": true,
+          "cleanupConfirmed": true
+        }
+      ],
+      "approvals": [
+        "apply_patch",
+        "run_command"
+      ],
+      "externalNodeTestExitCode": 0,
+      "nodeTests": 1,
+      "boundaryInputPairs": 5,
+      "assertions": 10,
+      "patchVerified": true,
+      "testSourcePreserved": true,
+      "duplicateAdditionalRequests": 0,
+      "nativeAttemptCleanupConfirmed": true,
+      "engineClosed": true,
+      "workspaceResponseBindingsConfirmed": true,
+      "runnerFreeze": {
+        "beforeSha256": "14aedf958f2fdd1804e29992e0f1fa5d45b3b6b3b0842129de13556605fc2066",
+        "afterSha256": "14aedf958f2fdd1804e29992e0f1fa5d45b3b6b3b0842129de13556605fc2066",
+        "unchanged": true
+      },
+      "sourceRuntimeUnchanged": true,
+      "qualification": "One bounded model-directed bug fix with preserved multiply and five executable boundary cases; not a general coding benchmark.",
+      "receipt": {
+        "path": "artifacts/engine-followup-20261010/actual-coding-report.json",
+        "bytes": 253248,
+        "sha256": "3a108fb12d083c93adb37f2b0b47a8b5b6735896111feae38d8781c9ee43fe99"
+      },
+      "cliReceipt": {
+        "path": "artifacts/engine-followup-20261010/actual-coding-cli-execution.json",
+        "bytes": 1322,
+        "sha256": "1384fe60e645f6a32ef7cb6ba8a37f9d2417be28fb8dfb05696e309b1e020eb1"
+      },
+      "configuration": {
+        "thinking": "adaptive",
+        "effort": "medium",
+        "publicReasoningSummary": false,
+        "maxTokens": 2048,
+        "maxRequests": 6
+      }
+    }
+  },
+  "hosted": {
+    "desktop": {
+      "runId": 37964237105,
+      "headSha": "ea64a96c4eb76b3d81a655808380fad6df40a589",
+      "jobs": 3,
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37964237105",
+      "receipt": {
+        "path": "artifacts/engine-followup-20261010/desktop-hosted-evidence.json",
+        "bytes": 34657,
+        "sha256": "1773446bf2fa45b93c29adfb1de8dce9056582dcb8496fba82a95f1347f178d6"
+      },
+      "qualification": "Unsigned packages only; actual Anthropic GUI only macOS; Windows actual x64 Job Object and approval gate; no large artifact byte audit."
+    },
+    "nativeWindows": {
+      "runId": 37964237313,
+      "headSha": "ea64a96c4eb76b3d81a655808380fad6df40a589",
+      "jobs": 2,
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37964237313",
+      "receipt": {
+        "path": "artifacts/engine-followup-20261010/hosted-37964237313-final.json",
+        "bytes": 9771,
+        "sha256": "af63c6afc072d4fed314e5118a559c7df39be4a7863cbff2278d21e063e90231"
+      }
+    },
+    "latestHeadless": {
+      "runId": 37964951208,
+      "headSha": "87323b927fd8ae066a04197ed1f5b900872848bd",
+      "jobs": 6,
+      "conclusion": "success",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/37964951208",
+      "receipt": {
+        "path": "artifacts/engine-followup-20261010/headless-hosted-evidence.json",
+        "bytes": 84298,
+        "sha256": "7f3c45fdbf87836ee47188af6ffdf5fc520030216beec93bbacacf97c96138e2"
+      },
+      "qualification": "Four complete POSIX headless lanes and two Windows portable lanes; separate native Windows and Desktop evidence is at unchanged production ancestor.",
+      "wholeCounts": {
+        "macosNode24And26Each": {
+          "tests": 5023,
+          "pass": 5020,
+          "skipped": 3,
+          "fail": 0,
+          "cancelled": 0
+        },
+        "linuxNode24And26Each": {
+          "tests": 5023,
+          "pass": 4958,
+          "skipped": 65,
+          "fail": 0,
+          "cancelled": 0
+        },
+        "windowsPortableNode24And26Each": {
+          "tests": 159,
+          "pass": 159,
+          "skipped": 0,
+          "fail": 0,
+          "cancelled": 0
+        }
+      },
+      "localCliCountsEachPosix": {
+        "totalPass": 143,
+        "anthropicContinuationPassWithinTotal": 21
+      }
+    },
+    "ancestorQualification": "Only verify-anthropic-continuation.mjs and its test differ between production commit and latest implementation commit; Desktop, provider and Windows native product sources are byte-identical.",
+    "acceptedJobs": 11
+  },
+  "openTodo": [
+    "N-03: actual SIWC browser login",
+    "N-05: actual signing, notarization, installation and public update feed",
+    "E5-13: broader provider/model, remote PDF, media and cost validation",
+    "R-PTY-01: historical failed execution evidence and root-cause determination"
+  ],
+  "limits": [
+    "One Haiku account/workspace and selected settings; no general provider/model/coding quality claim.",
+    "Client-side cancellation and native settlement do not prove server execution stopped or billing cancelled.",
+    "Per-attempt cleanup and physical utility exit do not promote aggregate Desktop native cleanup from unknown.",
+    "Current diagnostic improvements do not establish the cause of historical PTY failures.",
+    "Original SQLite and uncertain/error evidence retained; keys, raw signatures and summary content omitted from publication."
+  ]
+}

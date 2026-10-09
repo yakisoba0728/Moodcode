@@ -1,6 +1,6 @@
 # Moodcode 구현·리팩터링 TODO
 
-갱신일: 2026-10-09, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 2차 최종 검증 source: `99bf6f0`, 문서 커밋: `c4af35e`. 최신 보강 구현: `9563e97`, 검증 문서: `bd256ea`. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
+갱신일: 2026-10-10, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 2차 최종 검증 source: `99bf6f0`, 문서 커밋: `c4af35e`. 최신 보강 구현: `9563e97`, 검증 문서: `bd256ea`. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
 
 상태: G1-29까지 1차 구현과 자체 메인 엔진 2차 MC2-01~20의 **80/80 항목·20/20 기능군**을 명시 지원 범위에서 완료했다. 원래 조건을 유지한 독립 감사, 전체 회귀와 실제 공개 CI 여섯 작업으로 확인했다. [최종 수용 근거](docs/moodcode/engine-phase-two-final-acceptance-verification.json)와 docs/moodcode/engine-phase-two-progress.json을 기준으로 사용한다. E5-08 native Windows x64 구현·실제 검증은 완료했고, E5-13·앱 실제 계정·서명 배포 및 과거 PTY 실패 진단 R-PTY-01은 열린 후속 범위로 남긴다.
 
@@ -79,7 +79,7 @@
 
 ### 후속 개선 후보 — 현재 수용과 분리
 
-2026-10-09 goal 재개로 아래 독립 가능한 개선을 이어간다. 실제 SIWC·Anthropic 계정·서명/공증·공개 배포 검증은 사용자의 “외부 검증은 준비 후 진행” 결정으로 대기하며 완료 처리하지 않는다. [재개 진행](docs/moodcode/next-continuation-progress.json)·[필수 조건 감사](docs/moodcode/next-external-acceptance-audit.json).
+2026-10-09 goal 재개로 아래 독립 가능한 개선을 이어간다. 실제 SIWC·서명/공증·공개 배포 검증은 사용자의 “외부 검증은 준비 후 진행” 결정으로 대기하며 완료 처리하지 않는다. Anthropic은 이후 사용자가 지정한 키·워크스페이스와 Haiku 5.5의 명시한 범위에서 실제 호출하며 broader E5-13은 유지한다. [재개 진행](docs/moodcode/next-continuation-progress.json)·[필수 조건 감사](docs/moodcode/next-external-acceptance-audit.json).
 
 - [x] **NEXT-01 — 큰 이력의 SQLite 저장 비용**: 새 실제 30분 이력의 종료된 원본 DB 303,001,600bytes를 변경 없이 측정하고 현 구조·압축·immutable cold 보관을 비교했다. context 1,201개와 해당 이벤트 사본의 data 열은 각각 119,872,717·120,228,769bytes다. DB23·원본·archive를 유지하면서 동일 JSON 인코딩을 재사용했고, 독립 12회 비교에서 직렬화 276회·임시 UTF-8 1,706,882bytes를 줄였다. 저장량·지연 감소를 주장하지 않는다. [실제 측정](docs/moodcode/next-continuation-engine-verification.json)·[비교안](docs/moodcode/next-history-storage-layout-comparison.json)·[최적화 검증](docs/moodcode/next-history-storage-integration.json).
 - [x] **NEXT-02 — renderer 초기 로딩 분할**: 화면별 lazy loading으로 실제 initial JS 656,738→261,484bytes(−60.18%)를 확인했다. total JS는 660,534bytes로 3,796bytes 늘었고 chunk 경고 임계값은 유지했다. 지연 중 취소·reload·승인 preview·native 복원/이력 등 6개 실제 Electron flow와 33개 renderer 회귀를 통과했다. 구현 `9cdecba`, [검증](docs/moodcode/next-renderer-delivery-verification.json).
@@ -108,7 +108,7 @@
 
 [두 수정의 독립 수용](docs/moodcode/next-followup-fixes-independent-review.json)·[backend 실제 검증](docs/moodcode/next-backend-crash-retention-verification.json)·[GUI 실제 검증](docs/moodcode/next-renderer-shared-style-verification.json)을 보존한다. 이 결과가 이후 동시 수정이나 전체 OS 검증을 대신하지 않는다.
 
-전체 최초 의미 점검·독립 provenance 감사·수정 소스 대조와 36건 판정을 마쳤다. `35796ab` 전체 compiled 5,243/5,240 pass/실패0/Windows skip3·코딩3/3·복구·성능·GUI7을 보존하며, 네 실제 CI fixture 수정 후 `864f68a`의 지원 OS CI11/11·세 OS 패키지를 확인했다. 새 30분 관측 1,804,587.011167ms·990회·입력3,964개와 현재 제품 graph771개가 동일하고 native cleanup false·불확실한 원본은 그대로 보존한다. `864f68a` 수용 당시 소유 소스는 1,100파일·318,797줄(제품147,715·테스트138,863·fixture16,817·tooling15,402; 공백·주석 포함)이다. [현재 공동 소스 근거](docs/moodcode/next-whole-review-source-verification.json)·[현재 hosted 근거](docs/moodcode/next-whole-review-hosted-verification.json). 작업별 최초 경로·후보·최소 수정안은 [전체 계획](docs/moodcode/next-full-review-plan.json)의 `reviewDispositions`에 보존한다.
+전체 최초 의미 점검·독립 provenance 감사·수정 소스 대조와 36건 판정을 마쳤다. `35796ab` 전체 compiled 5,243/5,240 pass/실패0/Windows skip3·코딩3/3·복구·성능·GUI7을 보존하며, 네 실제 CI fixture 수정 후 `864f68a`의 지원 OS CI11/11·세 OS 패키지를 확인했다. 당시 30분 관측 1,804,587.011167ms·990회·입력3,964개의 제품 graph771개는 `864f68a` 수용 소스와 동일했고 native cleanup false·불확실한 원본은 그대로 보존한다. 이번 Anthropic 후속 소스의 새 30분 관측을 뜻하지 않는다. `864f68a` 수용 당시 소유 소스는 1,100파일·318,797줄(제품147,715·테스트138,863·fixture16,817·tooling15,402; 공백·주석 포함)이다. [당시 공동 소스 근거](docs/moodcode/next-whole-review-source-verification.json)·[현재 hosted 근거](docs/moodcode/next-whole-review-hosted-verification.json). 작업별 최초 경로·후보·최소 수정안은 [전체 계획](docs/moodcode/next-full-review-plan.json)의 `reviewDispositions`에 보존한다.
 
 - [x] **FR-CONTEXT — Context 소유 수명·미디어 경계**: 192-session metadata 증가·fork-only 128 capture 우회를 제한했고 pending owner·omitted/anchor·durable revision을 보존했다. audio/video fork를 명시적으로 거부하고 provider recovery는 정확한 media 소유권·fingerprint·no-replay를 유지한다. source·compiled·실제 지원 OS 회귀를 통과했다.
 - [x] **FR-RECOVERY-BUDGET — 누적 복구 증거 예산**: 실제 ACP/resident owner·SQLite의 초과 읽기 red를 재현한 뒤 anchor event·Run·metadata를 기존 공유 bounded reader 예산에 포함했다. DDL·8,388,608B 상한과 원 owner 범위를 유지했고 실제 affected·전체 compiled·지원 OS 검증을 통과했다.
@@ -120,6 +120,18 @@
 `RF06-DEPS-02`의 Prettier는 자동 runtime caller가 없으나 문서화된 수동 format/check 소비가 있어 유지한다. 검색 부재만으로 삭제하지 않는다. native DB close 실패의 실제 도달 가능성은 아직 증명되지 않았으며 주입 실패를 제품 결함으로 승격하지 않는다. source-absent dts 두 개도 origin unknown으로 보존한다.
 
 독립 전체 hosted 바이트 감사는 `663a3a0`의 원본 ZIP 11개·entry 6,752개·참조 4,995건을 별도 직접 검증해 불일치 0을 확인했다. 선택 진단의 incomplete 및 native cleanup의 null/false는 그대로 유지한다. 이 감사가 새 수정 소스나 외부 계정·서명·과거 PTY 원인을 검증하는 것은 아니다.
+
+### 2026-10-10 에이전트 후속 보강
+
+새 앱 세션 없이 세 에이전트를 재사용했다. 기존 E5·MC2 완료 집계와 외부 조건을 유지하며 아래 한정 범위를 추가한다. [통합 근거](docs/moodcode/engine-followup-20261010-verification.json)를 따른다.
+
+- [x] **AF-01 — Anthropic host·Desktop 연결**: 선택 Workspace ID·공급자별 환경 변수·추론 강도·safeStorage를 host/preload/worker/GUI에 연결했다. 명시적 thinking usage만 기록하고 중복 합산·누락 추정을 하지 않는다. 현재 네 프로젝트 compiled 회귀 5,280개 중 5,277 pass·실패0·기존 Windows 전용 skip3, Desktop focused116과 실제 GUI5/HTTP4를 확인했다.
+- [x] **AF-02 — 실제 HTTP 취소·서명 replay 검증**: abort-first reader 경합의 genuine RED→GREEN과 버퍼 후속 event 차단을 검증했다. API 부가 `caller`·JSON 필드 순서로 검증 도구가 거부한 최초 계정 요청은 보존했고, semantic replay 필드의 값·서명·배열 순서를 비교하도록 수정했다. CLI21/21, 새 실제 Haiku3요청에서 공개 요약·서명 replay·SSE 중 클라이언트 취소와 native cleanup을 확인했다. 원격 실행 종료·과금 취소는 unknown이다.
+- [x] **AF-03 — 실제 Haiku 코딩 과업**: 별도 임시 Git 저장소에서 read_file·승인한 apply_patch·승인한 run_command를 각각 한 번 실행했다. 덧셈 결함 수정·곱셈 보존·실제 Node 테스트(경계 입력5쌍)·동일 요청 중복의 추가 HTTP0을 확인했다. 실제4요청·한 과업의 결과이며 일반 코딩 품질 평가가 아니다. 최초 실패1+continuation3+코딩4로 이번 새 실제 호출은 총8회다.
+- [x] **AF-04 — PTY·GUI 검증 도구의 종료 정리**: PTY 부모 exit 뒤 inherited stdio tail 누락을 재현해 close/EOF까지 관측했고 source5·compiled5·collector6을 검증했다. GUI 진단 실패 뒤에도 실제 응답·서버 정리를 수행하며 first-error·Original 보존4/4를 확인했다. 현재 진단 수집 개선이 역사적 R-PTY-01 원인 해결을 뜻하지 않는다.
+- [x] **AF-05 — 최종 CI·독립 감사·게시**: production `ea64a96`의 세 OS Desktop와 Windows native 두 작업, replay 검증 CLI 수정 `87323b9`의 여섯 headless 작업이 모두 통과했다. 두 커밋 사이의 차이는 검증 CLI·테스트 두 파일이며 제품 소스는 동일하다. 각 OS의 실제 skip·Windows portable 범위와 서명 없는 패키지 한계를 유지하고 실제 계정 근거·문서를 독립 검토해 게시한다.
+
+N-03은 실제 SIWC 로그인, N-05는 실제 서명·공증·설치·공개 feed, E5-13은 더 넓은 모델·PDF·미디어·비용 검증, R-PTY-01은 과거 실패의 원본 근거 확보와 원인 판정이 남는다. 이 네 항목은 완료 처리하지 않는다.
 
 ### 이전 수용 기록 — 확정한 후속 구현·리팩터링·통합 검증
 
