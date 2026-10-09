@@ -7,7 +7,6 @@ import {
   mkdtempSync,
   readFileSync,
   realpathSync,
-  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -94,7 +93,7 @@ export async function backendFixture(
   options: BackendFixtureOptions = {},
 ) {
   const base = realpathSync(
-      mkdtempSync(join(tmpdir(), "moodcode-backend-consumer-")),
+      mkdtempSync(join(process.env.MOODCODE_CI_BACKEND_FIXTURE_ROOT ?? tmpdir(), "moodcode-backend-consumer-")),
     ),
     root = join(base, "repository"),
     dbPath = join(base, "engine.sqlite"),
@@ -179,11 +178,25 @@ export async function backendFixture(
   const engine = createEngine(configuration),
     engines = new Set([engine]);
   t.after(async () => {
-    try {
-      for (const current of engines) await current.close();
-    } finally {
-      rmSync(base, { recursive: true, force: true });
+    const failures: unknown[] = [];
+    let closedEngines = 0;
+    for (const current of engines) {
+      try { await current.close(); closedEngines++; }
+      catch (error) { failures.push(error); }
     }
+    const retention = {
+      schemaVersion: 1, kind: "backend-fixture-retention", base,
+      outcome: failures.length ? "close-error" : t.error ? "failure" : t.passed === true ? "success" : "unknown",
+      ownedEngines: engines.size, closedEngines, closeFailures: failures.length,
+      nativeCleanupConfirmed: null, databaseRemoved: false,
+    };
+    let manifestWritten = false;
+    try {
+      writeFileSync(join(base, "fixture-retention.json"), JSON.stringify(retention) + "\n", { flag: "wx", mode: 0o600 });
+      manifestWritten = true;
+    } catch { /* Diagnostics never replace the original test or close error. */ }
+    try { t.diagnostic?.(JSON.stringify({ ...retention, manifestWritten })); } catch { /* Keep the owned close result. */ }
+    if (failures.length) throw failures[0];
   });
   const workspace = await backendCommand<Workspace>(engine, "workspace.open", {
     path: root,

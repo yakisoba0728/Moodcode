@@ -1,10 +1,12 @@
 # Headless engine CI와 OS 검증 범위
 
+최신 후속 검증은 [continuation hosted 보고서](next-continuation-hosted-verification.json)와 [진행 기록](next-continuation-progress.json)에 정확한 source·OS·Node·원본 artifact hash로 기록한다. main utility ACK·Original exit·unsigned bundle·실제 Windows Job Object와 renderer 지연 흐름의 검증을 구분한다. SQLite receipt fixture는 실행 중인 writer의 직접 백업 대신 보호된 Engine snapshot을 사용한다. 과거 실패의 실제 원인은 미확정이며 새 통과 결과로 소급 확정하지 않는다. 아래 source별 결과는 역사적 기준이다.
+
 2026-10-09 [Moodcode 저장소](https://github.com/yakisoba0728/Moodcode)는 Public이다. 2차 최종 source `99bf6f0`의 [실제 Actions run](https://github.com/yakisoba0728/Moodcode/actions/runs/37827176532)은 ACP session/load 보강과 code-mode drain fixture 수정까지 포함하여 여섯 lane 모두 통과했다. [최종 POSIX 검토](engine-ci-final-posix-verification.json), [최종 Windows 검토](engine-ci-final-windows-verification.json), [artifact SHA](engine-ci-final-artifact-sha256.json)를 따른다. 아래 초기/836db4b 결과와 실패 기록은 역사적 증거이며 이후 변경의 통과 증거로 확대하지 않는다. 새로운 안정성·평가·성능 작업은 별도의 현재 source에서 검증한다.
 
 표준 GitHub-hosted runner의 Public 저장소 사용은 [공식 무료 사용 범위](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)에 해당한다. [job별 실행 시간·동시 실행 제한](https://docs.github.com/en/actions/reference/limits)과 이 workflow의 20~25분 timeout은 유지된다. Larger runner는 별도 과금 범위다.
 
-현재 보강 후보는 별도 932개 입력 동결본으로 로컬 전체 회귀 4,723개 중4,721pass·실패0·기존skip2, compiled media26/26, CLI unit8/8, native 코딩 과업3/3·승인 commit, 복합 반복60/60, quick/standard 성능 검증을 통과했다. source `9563e97`의 [실제 새 run](https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036)은 여섯 작업 모두 성공했다. macOS Node24/26은 각4,723/4,721pass/실패0/skip2, Linux는 각4,723/4,661pass/실패0/skip62, Windows portable은 각152/151pass/실패0/native skip1이다. 네 POSIX lane의 media26/26·CLI4/4·native coding3/3·quick resilience3/3·benchmark10개 측정군도 성공했다. 원본 ZIP6개와 추출174개 파일을 대조했고 평가/benchmark의 source/runtime inventory735개도 로컬과 일치했다. [보강 통합 근거](engine-hardening-verification.json)와 [실제 hosted 근거](engine-hardening-hosted-verification.json)에 별도로 기록한다.
+이전 보강 source는 별도 932개 입력 동결본으로 로컬 전체 회귀 4,723개 중4,721pass·실패0·기존skip2, compiled media26/26, CLI unit8/8, native 코딩 과업3/3·승인 commit, 복합 반복60/60, quick/standard 성능 검증을 통과했다. source `9563e97`의 [실제 run](https://github.com/yakisoba0728/Moodcode/actions/runs/37840729036)은 여섯 작업 모두 성공했다. macOS Node24/26은 각4,723/4,721pass/실패0/skip2, Linux는 각4,723/4,661pass/실패0/skip62, Windows portable은 각152/151pass/실패0/native skip1이다. 네 POSIX lane의 media26/26·CLI4/4·native coding3/3·quick resilience3/3·benchmark10개 측정군도 성공했다. 원본 ZIP6개와 추출174개 파일을 대조했고 평가/benchmark의 source/runtime inventory735개도 로컬과 일치했다. [보강 통합 근거](engine-hardening-verification.json)와 [실제 hosted 근거](engine-hardening-hosted-verification.json)에 별도로 기록한다.
 
 ## 구성한 matrix
 

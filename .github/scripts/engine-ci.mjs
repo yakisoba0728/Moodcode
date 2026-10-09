@@ -1,17 +1,22 @@
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { createWriteStream } from "node:fs";
+import { createHash } from "node:crypto";
+import { constants, createWriteStream } from "node:fs";
 import {
   appendFile,
+  lstat,
   mkdir,
   mkdtemp,
+  open,
+  opendir,
   readFile,
   readdir,
   realpath,
   rename,
   writeFile,
 } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { performance } from "node:perf_hooks";
 import { assertDatabaseContractEqual } from "../../scripts/inspect-engine-db-contract.mjs";
@@ -61,6 +66,75 @@ const databaseBaselinePath = join(
   root,
   "docs/moodcode/next-db-contract-baseline.json",
 );
+
+export const BACKEND_FIXTURE_EVIDENCE_LIMITS = Object.freeze({ entries: 1024, roots: 512, files: 8192, bytes: 536870912, fileBytes: 67108864 });
+/** Selected raw diagnostics only; originals remain retained and native cleanup stays unknown. */
+export async function preserveBackendFixtureEvidence(sourceRoot, destinationRoot, limits = BACKEND_FIXTURE_EVIDENCE_LIMITS) {
+  if (Object.keys(limits).length !== Object.keys(BACKEND_FIXTURE_EVIDENCE_LIMITS).length || Object.entries(BACKEND_FIXTURE_EVIDENCE_LIMITS).some(([key, maximum]) => !Number.isSafeInteger(limits[key]) || limits[key] < 1 || limits[key] > maximum))
+    throw new Error("BACKEND_EVIDENCE_LIMIT_INVALID");
+  const source = await realpath(sourceRoot);
+  if (source !== sourceRoot || !/^moodcode-backend-evidence-[A-Za-z0-9]+$/.test(basename(source)))
+    throw new Error("BACKEND_EVIDENCE_ROOT_INVALID");
+  const destination = await mkdtemp(join(await realpath(destinationRoot), "backend-fixture-copy-"));
+  const fixtures = [], refusedRoots = [];
+  let entriesSeen = 0, files = 0, bytes = 0, failure = null;
+  try {
+    for await (const entry of await opendir(source)) {
+      if (++entriesSeen > limits.entries) throw new Error("BACKEND_EVIDENCE_ENTRY_LIMIT");
+      if (!/^moodcode-backend-consumer-[A-Za-z0-9]+$/.test(entry.name)) continue;
+      if (!entry.isDirectory()) { refusedRoots.push({ original: join(source, entry.name), reason: "not-directory" }); continue; }
+      if (fixtures.length === limits.roots) throw new Error("BACKEND_EVIDENCE_ROOT_LIMIT");
+      const original = join(source, entry.name), copy = join(destination, entry.name);
+      if (await realpath(original) !== original) throw new Error("BACKEND_EVIDENCE_PATH_CHANGED");
+      await mkdir(copy);
+      const selected = [], refused = [], captured = [];
+      fixtures.push({ original, copy, files: captured, refused, originalRemoved: false, nativeCleanupConfirmed: null });
+      let entries = 0;
+      for await (const file of await opendir(original)) {
+        if (++entries > 256) throw new Error("BACKEND_EVIDENCE_ENTRY_LIMIT");
+        if (file.name === "fixture-retention.json" || file.name === "peer.log" || /^[A-Za-z0-9._-]+\.sqlite(?:-(?:wal|shm|journal))?$/.test(file.name)) selected.push(file.name);
+      }
+      for (const name of ["peer.mjs", "seed.txt", "large.txt"]) selected.push(`repository/${name}`);
+      for (const name of selected.sort()) {
+        const path = join(original, name);
+        let stat;
+        try { stat = await lstat(path, { bigint: true }); } catch (error) { if (error.code === "ENOENT") continue; throw error; }
+        if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1n || await realpath(dirname(path)) !== dirname(path)) { refused.push(name); continue; }
+        if (files + 1 > limits.files || stat.size > BigInt(limits.fileBytes) || bytes + Number(stat.size) > limits.bytes)
+          throw new Error("BACKEND_EVIDENCE_BYTE_OR_FILE_LIMIT");
+        const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | (constants.O_NONBLOCK ?? 0));
+        let data;
+        try {
+          const before = await handle.stat({ bigint: true });
+          if (before.dev !== stat.dev || before.ino !== stat.ino || before.size !== stat.size) throw new Error("BACKEND_EVIDENCE_SOURCE_CHANGED");
+          data = Buffer.alloc(Number(stat.size) + 1);
+          let count = 0;
+          while (count < data.length) {
+            const { bytesRead } = await handle.read(data, count, data.length - count, count);
+            if (!bytesRead) break;
+            count += bytesRead;
+          }
+          const after = await handle.stat({ bigint: true }), published = await lstat(path, { bigint: true });
+          if (BigInt(count) !== stat.size || before.size !== after.size || before.mtimeNs !== after.mtimeNs || before.ctimeNs !== after.ctimeNs || published.dev !== after.dev || published.ino !== after.ino)
+            throw new Error("BACKEND_EVIDENCE_SOURCE_CHANGED");
+          data = data.subarray(0, count);
+        } finally { await handle.close(); }
+        const output = join(copy, name);
+        await mkdir(dirname(output), { recursive: true });
+        await writeFile(output, data, { flag: "wx", mode: 0o600 });
+        files++; bytes += data.length;
+        captured.push({ path: name, bytes: data.length, sha256: createHash("sha256").update(data).digest("hex") });
+      }
+    }
+  } catch (error) { failure = String(error.code ?? error.message).slice(0, 128); }
+  if (!failure && refusedRoots.length) failure = "BACKEND_EVIDENCE_UNSUPPORTED_ROOT";
+  if (!failure && fixtures.some(fixture => fixture.refused.length)) failure = "BACKEND_EVIDENCE_UNSUPPORTED_ENTRY";
+  const result = { schemaVersion: 1, status: failure ? "incomplete-selected-diagnostics" : "preserved-selected-diagnostics", failure, source, destination, files, bytes, fixtures, refusedRoots,
+    fullFixtureCopy: false, nativeCleanupConfirmed: null, limits };
+  try { await writeFile(join(destination, "manifest.json"), JSON.stringify(result, null, 2) + "\n", { flag: "wx", mode: 0o600 }); }
+  catch (error) { error.evidence = result; throw error; }
+  return result;
+}
 
 export function commandPlan(mode) {
   const tsc = join(root, "node_modules", "typescript", "bin", "tsc");
@@ -515,7 +589,9 @@ async function run(mode, argv) {
               join(await realpath(resultsDir), "test-hardening-cli-evidence-"),
             ),
           }
-        : {};
+        : mode === "test"
+          ? { MOODCODE_CI_BACKEND_FIXTURE_ROOT: await mkdtemp(join(await realpath(tmpdir()), "moodcode-backend-evidence-")), MOODCODE_CI_BACKEND_FIXTURE_REPORT_DIR: await realpath(resultsDir) }
+          : {};
   try {
     status = await new Promise((resolveStatus, reject) => {
       const child = spawn(argv[0], argv.slice(1), {
@@ -561,7 +637,7 @@ async function run(mode, argv) {
     exitCode: status?.code ?? null,
     signal: status?.signal ?? null,
     state: !failure && status?.code === 0 ? "passed" : "failed",
-    ...(["test-media-local", "test-hardening-cli"].includes(mode)
+    ...(["test", "test-media-local", "test-hardening-cli"].includes(mode)
       ? { environmentOverrides }
       : {}),
     ...(failure ? { failure } : {}),
@@ -649,6 +725,20 @@ export async function main(mode) {
       ...(await windowsTestFiles()),
     ];
   const exitCode = await run(mode, argv);
+  if (mode === "test") {
+    try {
+      const steps = JSON.parse(await readFile(recordPath, "utf8")).steps;
+      const source = steps.at(-1)?.environmentOverrides?.MOODCODE_CI_BACKEND_FIXTURE_ROOT;
+      const evidence = await preserveBackendFixtureEvidence(source, await realpath(resultsDir));
+      await writeFile(join(resultsDir, "test-backend-fixture-evidence.json"), JSON.stringify(evidence, null, 2) + "\n");
+      await record({ operation: "test-backend-fixture-evidence", state: evidence.failure ? "failed" : "passed", exitCode: evidence.failure ? 1 : 0 });
+      if (evidence.failure) return exitCode || 1;
+    } catch (error) {
+      await writeFile(join(resultsDir, "test-backend-fixture-evidence.json"), JSON.stringify({ status: "unavailable", originalsRemoved: false, nativeCleanupConfirmed: null, failure: String(error.code ?? error.message).slice(0, 128), ...(error.evidence ? { evidence: error.evidence } : {}) }) + "\n");
+      await record({ operation: "test-backend-fixture-evidence", state: "failed", exitCode: 1 });
+      return exitCode || 1;
+    }
+  }
   if (mode === "test-hardening-cli") {
     try {
       const steps = JSON.parse(await readFile(recordPath, "utf8")).steps;
