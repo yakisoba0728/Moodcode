@@ -238,3 +238,50 @@ test("actual failed terminal retains its allowed native approval and rejects his
   }
   validateAgentBackendDatabase(db);
 });
+/** Runs a peer that polls terminal/output until the engine refuses a reply. */
+async function pollTerminalOutput(t: test.TestContext, mode: string) {
+  const f = await approvedEffect(t, mode);
+  await decideEffect(f);
+  const run = await f.done;
+  // The cancel follows any written reply on the same pipe.
+  await backendUntil(
+    () => f.logs().some((v) => v.type === "cancel-received"),
+    "Prompt cancellation was not delivered",
+  );
+  const replies = f
+    .logs()
+    .filter(
+      (v) =>
+        v.type === "received" &&
+        typeof v.message?.id === "string" &&
+        v.message.id.startsWith("poll-"),
+    );
+  return {
+    run,
+    replies,
+    effect: f.engine.inspectAgentBackendEffects(f.workspace.id)[0]!,
+  };
+}
+test("a terminal past its 32 journaled controls refuses the next output reply with BACKEND_LIMIT", async (t) => {
+  const { run, replies, effect } = await pollTerminalOutput(
+    t,
+    "terminal-poll-many",
+  );
+  assert.equal(run.error?.code, "BACKEND_LIMIT", JSON.stringify(run.error));
+  assert.equal(effect.controls?.length, 32);
+  assert.equal(replies.length, 31);
+});
+test("terminal output polls that outgrow the effect revision fail with BACKEND_LIMIT before the reply", async (t) => {
+  const { run, replies, effect } = await pollTerminalOutput(
+    t,
+    "terminal-poll-large",
+  );
+  assert.equal(run.error?.code, "BACKEND_LIMIT", JSON.stringify(run.error));
+  assert.ok(replies.length >= 1 && replies.length < 31, String(replies.length));
+  for (const reply of replies)
+    assert.equal(
+      (reply.message?.result as { output: string }).output.length,
+      16384,
+    );
+  assert.equal(effect.controls?.length, replies.length + 1);
+});

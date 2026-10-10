@@ -389,6 +389,16 @@ function digest<T extends { sha256: string }>(value: T): T {
   if (!/^[a-f0-9]{64}$/.test(sha256) || knowledgeHash(body) !== sha256) fail();
   return copy;
 }
+/** A terminal control that outgrows its effect revision is a backend capacity failure. */
+function terminalCapacity<T>(operation: () => T): T {
+  try {
+    return operation();
+  } catch (error) {
+    if (error instanceof EngineError && error.code === "KNOWLEDGE_LIMIT")
+      fail("BACKEND_LIMIT");
+    throw error;
+  }
+}
 function id(value: unknown): string {
   if (
     typeof value !== "string" ||
@@ -687,7 +697,8 @@ export class AgentBackendStorage {
       duplicate: true,
     });
   }
-  private append<T extends AgentBackendRecord>(
+  /** Builds the next revision and its receipt under every journal bound, without writing them. */
+  private admit<T extends AgentBackendRecord>(
     kind: BackendJournalKind,
     eid: string,
     op: string,
@@ -744,6 +755,20 @@ export class AgentBackendStorage {
         AGENT_BACKEND_STORAGE_LIMITS.bytes
     )
       fail("BACKEND_LIMIT");
+    return json({ record, receipt, duplicate: false });
+  }
+  private append<T extends AgentBackendRecord>(
+    kind: BackendJournalKind,
+    eid: string,
+    op: string,
+    input: BackendMutationInput,
+    before: T | undefined,
+    body: Omit<T, keyof BackendRevisionBase>,
+  ): BackendRequestResult<T> {
+    const admitted = this.admit(kind, eid, op, input, before, body),
+      { record, receipt } = admitted,
+      rid = record.id,
+      receiptId = receipt.id;
     const owner = ownerOf(record),
       scope = `${kind}:${eid}:${op}`,
       connectionId =
@@ -826,7 +851,7 @@ export class AgentBackendStorage {
           "INSERT INTO backend_heads(workspace_id,kind,entity_id,revision_id,revision,sha256) VALUES(?,?,?,?,?,?)",
         )
         .run(input.workspaceId, kind, eid, rid, record.revision, record.sha256);
-    return json({ record, receipt, duplicate: false });
+    return admitted;
   }
   private input<T extends BackendMutationInput>(
     input: T,
@@ -1591,60 +1616,117 @@ export class AgentBackendStorage {
         x,
       );
       if (d) return d;
-      const before = this.required(
-        this.getClientEffect(x.workspaceId, x.effectId),
+      const { before, body } = this.terminalControl(
+        originalTurn,
+        originalFrame,
+        originalWrite,
+        x,
       );
-      if (
-        !("method" in before.input) ||
-        before.input.method !== "terminal/create" ||
-        (before.completion && !before.completion.cleanupConfirmed) ||
-        (before.controls?.length ?? 0) >= 32
-      )
-        fail("BACKEND_TERMINAL_STALE");
-      if (this.owner(originalTurn, "dispatch").sha256 !== before.owner.sha256)
-        fail("BACKEND_OWNER_INVALID");
-      const parent = this.required(
-          this.getRequest(x.workspaceId, before.remoteRequestId),
+      return terminalCapacity(() =>
+        this.append(
+          "client-effect",
+          x.effectId,
+          "terminal-control",
+          x,
+          before,
+          body,
         ),
-        connection = this.liveConnection(parent),
-        frame = this.frame(originalFrame, connection);
-      if (frame.receiveOrdinal > connection.receiveOrdinal)
-        fail("BACKEND_FRAME_NOT_RECORDED");
-      const write = digest(this.ports.readWrite(originalWrite));
-      this.writeMatches(
-        write,
-        before.connectionId,
-        before.epoch,
-        x.workspaceId,
-        knowledgeHash(x.message),
       );
-      validateTerminalControl(
-        before,
-        { frame, write, message: x.message },
-        parent.remoteSessionId,
-      );
-      validateTerminalOutputSql(this.db, before, {
-        frame,
-        write,
-        message: x.message,
-      });
-      if (before.controls?.some((c) => c.frame.wireId === frame.wireId))
-        fail("BACKEND_EFFECT_ALREADY_BOUND");
-      return this.append(
+    });
+  }
+  /** Dry run of recordTerminalControl, so a reply the journal cannot hold is never written. */
+  assertTerminalControl(
+    originalTurn: object,
+    originalFrame: object,
+    input: DeliverBackendClientEffectInput,
+  ): void {
+    const x = this.input(input, ["effectId", "message"]);
+    const { before, body } = this.terminalControl(
+      originalTurn,
+      originalFrame,
+      null,
+      x,
+    );
+    terminalCapacity(() =>
+      this.admit(
         "client-effect",
         x.effectId,
         "terminal-control",
         x,
         before,
-        {
-          ...bodyOf(before),
-          controls: [
-            ...(before.controls ?? []),
-            { frame, write, message: x.message },
-          ],
-        },
-      );
+        body,
+      ),
+    );
+  }
+  /** Checks a terminal control and builds its body; before the write, a maximal-ordinal stand-in bounds the row. */
+  private terminalControl(
+    originalTurn: object,
+    originalFrame: object,
+    originalWrite: object | null,
+    x: DeliverBackendClientEffectInput,
+  ): {
+    before: BackendClientEffectRevision;
+    body: Omit<BackendClientEffectRevision, keyof BackendRevisionBase>;
+  } {
+    const before = this.required(
+      this.getClientEffect(x.workspaceId, x.effectId),
+    );
+    if (
+      !("method" in before.input) ||
+      before.input.method !== "terminal/create" ||
+      (before.completion && !before.completion.cleanupConfirmed)
+    )
+      fail("BACKEND_TERMINAL_STALE");
+    if ((before.controls?.length ?? 0) >= 32) fail("BACKEND_LIMIT");
+    if (this.owner(originalTurn, "dispatch").sha256 !== before.owner.sha256)
+      fail("BACKEND_OWNER_INVALID");
+    const parent = this.required(
+        this.getRequest(x.workspaceId, before.remoteRequestId),
+      ),
+      connection = this.liveConnection(parent),
+      frame = this.frame(originalFrame, connection);
+    if (frame.receiveOrdinal > connection.receiveOrdinal)
+      fail("BACKEND_FRAME_NOT_RECORDED");
+    const write = originalWrite
+      ? digest(this.ports.readWrite(originalWrite))
+      : signed<Omit<BackendWriteProof, "sha256">>({
+          workspaceId: x.workspaceId,
+          backendId: connection.backendId,
+          connectionId: before.connectionId,
+          epoch: before.epoch,
+          writeOrdinal: Number.MAX_SAFE_INTEGER,
+          frameSha256: knowledgeHash(x.message),
+          writtenBytes: Number.MAX_SAFE_INTEGER,
+        });
+    this.writeMatches(
+      write,
+      before.connectionId,
+      before.epoch,
+      x.workspaceId,
+      knowledgeHash(x.message),
+    );
+    validateTerminalControl(
+      before,
+      { frame, write, message: x.message },
+      parent.remoteSessionId,
+    );
+    validateTerminalOutputSql(this.db, before, {
+      frame,
+      write,
+      message: x.message,
     });
+    if (before.controls?.some((c) => c.frame.wireId === frame.wireId))
+      fail("BACKEND_EFFECT_ALREADY_BOUND");
+    return {
+      before,
+      body: {
+        ...bodyOf(before),
+        controls: [
+          ...(before.controls ?? []),
+          { frame, write, message: x.message },
+        ],
+      },
+    };
   }
   markClientEffectUncertain(
     input: MutateBackendClientEffectInput & { errorCode: string },

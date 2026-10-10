@@ -372,19 +372,26 @@ export class BackendNativeEffects {
         };
     }
     const response: AcpV1Response = { jsonrpc: "2.0", id: message.id, result };
+    const requestId = randomUUID(),
+      control = () => ({
+        workspaceId: this.scope.workspaceId,
+        requestId,
+        expectedRevision: entry.record.revision,
+        effectId: entry.record.effectId,
+        message: response,
+      });
+    this.options.store.assertTerminalControl(
+      this.scope.originalTurn,
+      originalFrame,
+      control(),
+    );
     const receipt = await this.send(response);
     try {
       entry.record = this.options.store.recordTerminalControl(
         this.scope.originalTurn,
         originalFrame,
         receipt,
-        {
-          workspaceId: this.scope.workspaceId,
-          requestId: randomUUID(),
-          expectedRevision: entry.record.revision,
-          effectId: entry.record.effectId,
-          message: response,
-        },
+        control(),
       ).record;
     } finally {
       this.options.processes.releaseWrite(receipt);

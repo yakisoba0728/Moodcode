@@ -42,6 +42,10 @@ if (mode === "terminal-args") {
     "literal's $(untrusted) value",
   ];
 }
+if (mode === "terminal-poll-large") {
+  terminal.command = `${JSON.stringify(process.execPath)} -e 'process.stdout.write("x".repeat(20000))'`;
+  terminal.outputByteLimit = 16384;
+}
 
 const request = (id, method, params) =>
   send({ jsonrpc: "2.0", id, method, params });
@@ -165,6 +169,13 @@ lines.on("line", (text) => {
     else liveKill = true;
     if (liveWait && liveKill)
       request("release", "terminal/release", { sessionId, terminalId });
+  } else if (
+    mode.startsWith("terminal-poll") &&
+    (v.id === "wait" || String(v.id).startsWith("poll-"))
+  ) {
+    const next = v.id === "wait" ? 1 : Number(v.id.slice(5)) + 1;
+    if (next > 40) finish();
+    else request(`poll-${next}`, "terminal/output", { sessionId, terminalId });
   } else if (v.id === "wait" || v.id === "kill")
     request("output", "terminal/output", { sessionId, terminalId });
   else if (v.id === "output")
