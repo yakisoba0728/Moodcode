@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EngineError } from '@moodcode/contracts';
-import { readSseData } from './sse.js';
+import { readSseData, SseDataParser } from './sse.js';
 
 const limits = { maxFrameBytes: 4096, maxResponseBytes: 65_536 };
 function body(chunks: Uint8Array[]): ReadableStream<Uint8Array> {
@@ -57,6 +57,16 @@ test('SSE counts both CRLF bytes before dispatch, including a split delimiter', 
     await assert.rejects(collectStream(readSseData(body(chunks), new AbortController().signal, { maxFrameBytes: 10, maxResponseBytes: 128 })), code('PROVIDER_LIMIT_EXCEEDED'));
     assert.deepEqual(await collectStream(readSseData(body(chunks), new AbortController().signal, { maxFrameBytes: 11, maxResponseBytes: 128 })), ['x']);
   }
+});
+
+test('SSE parser reports frame limits and malformed UTF-8 with the caller errors', () => {
+  const errors = { frameLimit: () => new EngineError('CALLER_LIMIT', 'limit'), malformed: () => new EngineError('CALLER_MALFORMED', 'malformed') };
+  assert.throws(() => [...new SseDataParser(8, errors).push(new TextEncoder().encode('data: large\n\n'))], code('CALLER_LIMIT'));
+  assert.throws(() => [...new SseDataParser(64, errors).push(Uint8Array.of(100, 97, 116, 97, 58, 32, 0xff, 10, 10))], code('CALLER_MALFORMED'));
+  const parser = new SseDataParser(64, errors);
+  assert.deepEqual([...parser.push(new TextEncoder().encode('data: x\r\r'))], []);
+  assert.equal(parser.end(), 'x');
+  assert.equal(parser.partial, false);
 });
 
 test('SSE consumer return cancels the underlying reader', async () => {

@@ -1,9 +1,12 @@
 import { EngineError } from '@moodcode/contracts';
 import type { CredentialBroker, CredentialReference } from '../credentials/index.js';
+import { SseDataParser } from '../provider/sse.js';
 import { encodeMessage, markMcpDispatchTransport, MCP_LIMITS, parseMessage, type JsonRpcMessage, type McpProtocolVersion, type McpTransport, type McpTransportSendObservation } from './protocol.js';
 export interface HttpMcpOptions { url: string; protocolVersion?: McpProtocolVersion; credential?: { broker: CredentialBroker; reference: CredentialReference }; fetch?: typeof fetch }
 function cleanupFailure(message: string): EngineError { return new EngineError('MCP_TRANSPORT_CLEANUP_UNCERTAIN', message, { cleanupUncertain: true, transportCleanupConfirmed: false }); }
 async function cancelBody(body: ReadableStream<Uint8Array> | null | undefined): Promise<void> { try { await body?.cancel(); } catch { throw cleanupFailure('MCP HTTP response body did not confirm local cleanup'); } }
+const messageLimit = () => new EngineError('MCP_MESSAGE_LIMIT', 'MCP HTTP response exceeds its total byte budget');
+const sseErrors = { frameLimit: messageLimit, malformed: () => new EngineError('MCP_HTTP_FAILED', 'MCP HTTP transport failed') };
 export function headerValue(value: string): string { return /^[\x20-\x7e]*$/.test(value) && value.trim() === value && !(value.startsWith('=?base64?') && value.endsWith('?=')) ? value : `=?base64?${Buffer.from(value).toString('base64')}?=`; }
 /** POST JSON/SSE transport. Legacy sessions are supported only under the explicit 2025 pin. */
 export class HttpMcpTransport implements McpTransport {
@@ -47,19 +50,17 @@ export class HttpMcpTransport implements McpTransport {
       const type = (response.headers.get('Content-Type') ?? '').split(';')[0]?.trim().toLowerCase();
       if (type !== 'application/json' && type !== 'text/event-stream') { await cancelBody(response.body); throw new EngineError('MCP_HTTP_STATUS', 'MCP server returned unsupported response content type'); }
       const reader = (() => { try { return response.body!.getReader(); } catch { throw cleanupFailure('MCP HTTP response reader could not be acquired for local cleanup'); } })();
-      let total = 0; let pending = ''; const decoder = new TextDecoder('utf-8', { fatal: true });
+      let total = 0; let json = ''; const decoder = new TextDecoder('utf-8', { fatal: true }); const sse = type === 'text/event-stream' ? new SseDataParser(MCP_LIMITS.maxMessageBytes, sseErrors) : undefined;
       try {
         const receive = (raw: string) => { const value = parseMessage(raw); if ('id' in value && !('method' in value) && value.id !== id) throw new EngineError('MCP_RESPONSE_ID_MISMATCH', 'MCP response belongs to a different request'); this.receive?.(value); return 'id' in value && !('method' in value); };
         while (true) {
-          const chunk = await reader.read(); if (chunk.done) break; total += chunk.value.byteLength; if (total > MCP_LIMITS.maxMessageBytes) throw new EngineError('MCP_MESSAGE_LIMIT', 'MCP HTTP response exceeds its total byte budget'); pending += decoder.decode(chunk.value, { stream: true });
-          if (type === 'text/event-stream') {
-            pending = pending.replace(/\r\n/g, '\n'); let ending: number;
-            while ((ending = pending.indexOf('\n\n')) >= 0) { const event = pending.slice(0, ending); pending = pending.slice(ending + 2); const lines = event.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).replace(/^ /, '')); if (lines.length && lines.join('\n').length && receive(lines.join('\n'))) return; }
-          }
+          const chunk = await reader.read(); if (chunk.done) break; total += chunk.value.byteLength; if (total > MCP_LIMITS.maxMessageBytes) throw messageLimit();
+          if (!sse) json += decoder.decode(chunk.value, { stream: true });
+          else for (const data of sse.push(chunk.value)) if (data && receive(data)) return;
         }
-        pending += decoder.decode();
-        if (type === 'application/json') { receive(pending); if (!response.ok) return; }
-        else throw new EngineError('MCP_DISCONNECTED', 'MCP SSE response ended before its correlated result');
+        if (!sse) { receive(json + decoder.decode()); return; }
+        const data = sse.end(); if (data && receive(data)) return;
+        throw new EngineError('MCP_DISCONNECTED', 'MCP SSE response ended before its correlated result');
       } finally {
         try { await reader.cancel(); }
         catch { throw cleanupFailure('MCP HTTP response reader did not confirm local cleanup'); }

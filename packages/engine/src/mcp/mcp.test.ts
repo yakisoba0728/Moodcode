@@ -45,3 +45,21 @@ test('HTTP redirects, credentials in URL and wrong response IDs are rejected', a
 test('JSON-RPC batch, missing IDs, multiple result/error and invalid UTF8 are rejected', () => { for (const data of [[], { jsonrpc: '2.0', result: {} }, { jsonrpc: '2.0', id: 1, result: {}, error: { code: -1, message: 'x' } }]) assert.throws(() => parseMessage(JSON.stringify(data)), code('MCP_INVALID_MESSAGE')); assert.throws(() => parseMessage(Buffer.from([0xff])), code('MCP_INVALID_MESSAGE')); });
 test('stdio close terminates its owned POSIX descendant process group', { skip: process.platform === 'win32' }, async t => { const { client } = await stdio(t); const result = await client.callTool('start_descendant', {}, client.revision, new AbortController().signal); const pid = Number((result.content as { text: string }[])[0]!.text); assert.ok(pid > 0); await client.close(); let alive = true; for (let attempt = 0; attempt < 25; attempt++) { try { process.kill(pid, 0); } catch { alive = false; break; } await new Promise(resolve => setTimeout(resolve, 20)); } assert.equal(alive, false); });
 test('HTTP wrong response id and total-byte limit close the captured transport', async () => { for (const [response, expected] of [[JSON.stringify({ jsonrpc: '2.0', id: 999, result: {} }), 'MCP_RESPONSE_ID_MISMATCH'], [JSON.stringify({ jsonrpc: '2.0', id: 1, result: { text: 'x'.repeat(1_048_576) } }), 'MCP_MESSAGE_LIMIT']]) { let closed = false; const transport = new HttpMcpTransport({ url: 'http://127.0.0.1:1/mcp', fetch: (async () => new Response(response, { headers: { 'Content-Type': 'application/json' } })) as typeof fetch }); await transport.start(() => assert.fail('invalid response must not be delivered'), () => { closed = true; }); await assert.rejects(transport.send({ jsonrpc: '2.0', id: 1, method: 'server/discover', params: { _meta: { 'io.modelcontextprotocol/protocolVersion': '2026-07-28' } } }), code(expected!)); assert.equal(closed, true); } });
+test('HTTP SSE parses byte-dripped frames and keeps MCP failure codes', async () => {
+  const encoder = new TextEncoder();
+  const send = async (chunks: readonly Uint8Array[]) => {
+    const received: unknown[] = []; let closed = false;
+    const transport = new HttpMcpTransport({ url: 'http://127.0.0.1:1/mcp', fetch: (async () => new Response(new ReadableStream<Uint8Array>({ start(controller) { for (const chunk of chunks) controller.enqueue(chunk); controller.close(); } }), { headers: { 'Content-Type': 'text/event-stream' } })) as typeof fetch });
+    await transport.start(message => received.push(message), () => { closed = true; });
+    const sent = transport.send({ jsonrpc: '2.0', id: 1, method: 'server/discover', params: { _meta: { 'io.modelcontextprotocol/protocolVersion': '2026-07-28' } } });
+    return { sent, received, closed: () => closed };
+  };
+  const stream = encoder.encode('\uFEFF: comment\r\n\r\nevent: message\r\nid: 7\r\ndata:\r\n\r\ndata: {"jsonrpc":"2.0","method":"notifications/message",\r\ndata:"params":{"text":"한글"}}\r\n\r\ndata: {"jsonrpc":"2.0","id":1,"result":{}}\n\n');
+  const dripped = await send([...stream].map(byte => Uint8Array.of(byte))); await dripped.sent;
+  assert.deepEqual(dripped.received, [{ jsonrpc: '2.0', method: 'notifications/message', params: { text: '한글' } }, { jsonrpc: '2.0', id: 1, result: {} }]);
+  for (const [chunks, expected, closes] of [
+    [[encoder.encode('data: {"jsonrpc":"2.0","id":1,"result":{}}\n')], 'MCP_DISCONNECTED', true],
+    [[Uint8Array.of(...encoder.encode('data: '), 0xff, 10, 10)], 'MCP_HTTP_FAILED', false],
+    [[encoder.encode('data: '), ...Array.from({ length: 17 }, () => new Uint8Array(65_536).fill(120))], 'MCP_MESSAGE_LIMIT', true],
+  ] as const) { const result = await send(chunks); await assert.rejects(result.sent, code(expected)); assert.equal(result.closed(), closes); assert.deepEqual(result.received, []); }
+});
