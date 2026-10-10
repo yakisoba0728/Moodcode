@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { realpath, stat } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { EngineError } from '@moodcode/contracts';
-import { PosixPtyBackend } from './backend.js';
+import { PosixPtyBackend, startupFailureOutcome } from './backend.js';
 import { MemoryTerminalJournal } from './journal.js';
 import { validatePtyOutcome, PtyDiagnosticRecorder } from './diagnostics.js';
 import { knowledgeHash } from '../knowledge/validation.js';
@@ -185,15 +185,21 @@ export class TerminalService {
       this.terminals.set(record.id, entry); this.persist(entry);
       try {
         const handle = await this.backend.spawn({ file, args, cwd, cols, rows, maxDurationMs: this.duration }, data => this.output(entry, data));
-        entry.process = handle; entry.birthNonce = randomUUID(); record.state = 'running'; record.updatedAt = new Date().toISOString(); this.persist(entry);
+        entry.process = handle; entry.birthNonce = randomUUID();
         const abort = () => { void handle.cancel().catch(() => {}); };
         request.signal?.addEventListener('abort', abort, { once: true });
         void handle.closed.then(outcome => { this.finish(entry, outcome); request.signal?.removeEventListener('abort', abort); }, () => { this.finish(entry, { exitCode: null, cancelled: false, timedOut: false, cleanupConfirmed: false, reason: 'backend_closed_failed' }); request.signal?.removeEventListener('abort', abort); });
+        record.state = 'running'; record.updatedAt = new Date().toISOString(); this.persist(entry);
         this.state(entry);
         if (this.closing || request.signal?.aborted) { await handle.cancel(); throw failure('ABORTED', 'Terminal creation was cancelled'); }
         return structuredClone(record);
       } catch (error) {
-        if (active(record.state)) { record.state = 'failed'; record.reason = 'start_failed'; record.cleanupConfirmed = entry.process === undefined; record.updatedAt = new Date().toISOString(); try { this.persist(entry); } catch { /* Original startup error is authoritative. */ } this.state(entry); }
+        if (active(record.state)) {
+          const outcome = startupFailureOutcome(error);
+          record.state = outcome?.cleanupConfirmed === false ? 'uncertain' : 'failed'; record.reason = 'start_failed'; record.cleanupConfirmed = outcome?.cleanupConfirmed ?? entry.process === undefined; record.updatedAt = new Date().toISOString();
+          if (outcome?.diagnostics) record.diagnostics = structuredClone(outcome.diagnostics);
+          try { this.persist(entry); } catch { /* Original startup error is authoritative. */ } this.state(entry);
+        }
         throw error;
       }
     } finally { this.reservations--; }

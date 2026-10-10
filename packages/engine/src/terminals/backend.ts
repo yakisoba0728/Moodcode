@@ -30,6 +30,11 @@ function loaderArgs(): string[] {
   if (import.meta.url.endsWith(".ts")) return ["--import", "tsx"];
   return [];
 }
+const startupOutcomes = new WeakMap<Error, PtyOutcome>();
+/** Engine-internal: the settled outcome behind a post-fork startup rejection. */
+export function startupFailureOutcome(error: unknown): PtyOutcome | undefined {
+  return error instanceof Error ? startupOutcomes.get(error) : undefined;
+}
 export class PosixPtyBackend implements PtyBackend {
   async capability(): Promise<PtyCapability> {
     const base = {
@@ -399,7 +404,7 @@ export class PosixPtyBackend implements PtyBackend {
       await started;
     } catch (error) {
       if (child.connected) child.disconnect();
-      await closed;
+      startupOutcomes.set(error as Error, await closed);
       throw error;
     }
     const request = (packet: object): Promise<void> => {

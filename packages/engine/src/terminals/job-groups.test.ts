@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   analyzeJobGroupsFromSnapshot as analyze,
   observedJobGroupsFromSnapshot as groups,
+  sessionGroupsFromSnapshot as sessions,
 } from "./job-groups.js";
 
 test("unrelated Linux kernel PGID zero rows do not prevent exact PTY descendant observation", () => {
@@ -130,4 +131,31 @@ test("snapshot rejection precedence stays input then global rows then leader the
     analyze("20 10 20\n21 20 0\n10 21 99", 20, 10).errorCode,
     "PROCESS_SNAPSHOT_UNOWNED_GROUP",
   );
+});
+
+test("an exited leader's session yields every remaining member group and nothing else", () => {
+  assert.deepEqual(
+    sessions("2 0 0\n10 10 10\n21 21 20\n22 21 20\n23 23 20\n30 30 30\n", 20, 10),
+    [21, 23],
+  );
+  assert.deepEqual(sessions("2 0 0\n10 10 10\n30 30 30", 20, 10), []);
+});
+test("a live process holding the exited leader pid ends the session instead of selecting a reused one", () => {
+  assert.deepEqual(sessions("10 10 10\n20 20 20\n21 21 20", 20, 10), []);
+});
+test("missing session ids, malformed rows and unowned session groups stay unconfirmed", () => {
+  for (const rows of [
+    "10 10\n21 21",
+    "",
+    "10 10 10\n21 21 20 4",
+    "10 10 10\n21 x 20",
+    "10 10 10\n21 21 -1",
+    "10 10 10\n10 10 10",
+    "10 10 10\n21 0 20",
+    "10 10 10\n21 1 20",
+    "10 10 10\n21 10 20",
+  ])
+    assert.equal(sessions(rows, 20, 10), undefined);
+  assert.equal(sessions("10 10 10", 1, 10), undefined);
+  assert.equal(sessions("0".repeat(2_097_153), 20, 10), undefined);
 });

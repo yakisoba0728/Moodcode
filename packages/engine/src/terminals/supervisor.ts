@@ -1,6 +1,9 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { analyzeJobGroupsFromSnapshot } from "./job-groups.js";
+import {
+  analyzeJobGroupsFromSnapshot,
+  sessionGroupsFromSnapshot,
+} from "./job-groups.js";
 import {
   createCommandEnvironment,
   cleanupGroup,
@@ -68,6 +71,12 @@ const finish = (outcome: PtyOutcome): void => {
   );
 };
 const inspectProcesses = promisify(execFile);
+const snapshotOptions = {
+  encoding: "utf8",
+  timeout: 750,
+  maxBuffer: 2_097_152,
+  env: createCommandEnvironment(),
+} as const;
 // A PTY shell creates job-control groups outside its original process group.
 // Observe their actual ancestry before the shell disappears; a HUP relay alone
 // cannot prove cleanup when the shell is stopped or cannot run its handler.
@@ -78,12 +87,7 @@ async function observedJobGroups(
     const { stdout } = await inspectProcesses(
       "/bin/ps",
       ["-axo", "pid=,ppid=,pgid="],
-      {
-        encoding: "utf8",
-        timeout: 750,
-        maxBuffer: 2_097_152,
-        env: createCommandEnvironment(),
-      },
+      snapshotOptions,
     );
     const analysis = analyzeJobGroupsFromSnapshot(stdout, pid, process.pid);
     const groups = analysis.groups;
@@ -112,6 +116,57 @@ async function observedJobGroups(
     });
     return undefined;
   }
+}
+// After native exit the shell's session id still names every remaining member
+// of the PTY session, including job-control groups outside the original group.
+// macOS ps reports no session id, so there only the original group is observed.
+const sessionIds = process.platform !== "darwin";
+async function sessionGroups(
+  sid: number,
+): Promise<readonly number[] | undefined> {
+  try {
+    const { stdout } = await inspectProcesses(
+      "/bin/ps",
+      ["-axo", "pid=,pgid=,sid="],
+      snapshotOptions,
+    );
+    const groups = sessionGroupsFromSnapshot(stdout, sid, process.pid);
+    if (!groups)
+      diagnostics.note({
+        kind: "error",
+        errorCode: "PROCESS_SNAPSHOT_UNCONFIRMED",
+      });
+    return groups;
+  } catch (error) {
+    diagnostics.note({
+      kind: "error",
+      errorCode: ptyDiagnosticErrorCode(error),
+    });
+    return undefined;
+  }
+}
+async function cleanGroups(
+  groups: readonly number[],
+  leader: number,
+): Promise<boolean> {
+  const results = await Promise.all(
+    groups.map(async (group) => {
+      const confirmed = await cleanupGroup(
+        group,
+        group === leader ? () => exited : () => true,
+      ).catch((error) => {
+        diagnostics.note({
+          kind: "error",
+          groupPid: group,
+          errorCode: ptyDiagnosticErrorCode(error),
+        });
+        return false;
+      });
+      diagnostics.note({ kind: "group-cleanup", groupPid: group, confirmed });
+      return confirmed;
+    }),
+  );
+  return results.every(Boolean);
 }
 const stop = (
   reason: "cancel" | "timeout" | "parent_lost" | "descendants",
@@ -146,24 +201,9 @@ const stop = (
       });
       /* Every observed group is independently cleaned below. */
     }
-    const results = await Promise.all(
-      (groups ?? [terminal.pid]).map(async (group) => {
-        const confirmed = await cleanupGroup(
-          group,
-          group === terminal!.pid ? () => exited : () => true,
-        ).catch((error) => {
-          diagnostics.note({
-            kind: "error",
-            groupPid: group,
-            errorCode: ptyDiagnosticErrorCode(error),
-          });
-          return false;
-        });
-        diagnostics.note({ kind: "group-cleanup", groupPid: group, confirmed });
-        return confirmed;
-      }),
-    );
-    const confirmed = groups !== undefined && results.every(Boolean);
+    const confirmed =
+      (await cleanGroups(groups ?? [terminal.pid], terminal.pid)) &&
+      groups !== undefined;
     return {
       exitCode,
       cancelled: reason !== "descendants",
@@ -174,6 +214,28 @@ const stop = (
   })();
   void cleanup.then(finish);
   return cleanup;
+};
+const settleExit = (pid: number): void => {
+  const present = observePtyGroupExists(pid, diagnostics);
+  const exit = { exitCode, cancelled: false, timedOut: false };
+  if (!sessionIds) {
+    if (present) void stop("descendants");
+    else finish({ ...exit, cleanupConfirmed: true });
+    return;
+  }
+  cleanup = (async () => {
+    const groups = await sessionGroups(pid);
+    if (groups?.length === 0) return { ...exit, cleanupConfirmed: true };
+    diagnostics.groupSnapshot(groups, "group-cleanup");
+    const cleaned = await cleanGroups(groups ?? (present ? [pid] : []), pid);
+    const remaining = groups && cleaned ? await sessionGroups(pid) : undefined;
+    return {
+      ...exit,
+      cleanupConfirmed: remaining?.length === 0,
+      reason: "descendants",
+    };
+  })();
+  void cleanup.then(finish);
 };
 process.on("disconnect", () => {
   disconnected = true;
@@ -272,20 +334,7 @@ process.on("message", async (message: unknown) => {
           type: "diagnostics",
           diagnostics: diagnostics.snapshot(currentOutcome()),
         });
-        if (cleanup) return;
-        const present = terminal
-          ? observePtyGroupExists(terminal.pid, diagnostics)
-          : false;
-        if (terminal && present) {
-          void stop("descendants");
-          return;
-        }
-        finish({
-          exitCode,
-          cancelled: false,
-          timedOut: false,
-          cleanupConfirmed: true,
-        });
+        if (!cleanup) settleExit(terminal!.pid);
       });
       timer = setTimeout(() => {
         void stop("timeout");

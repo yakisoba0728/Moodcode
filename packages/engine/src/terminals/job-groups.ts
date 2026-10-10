@@ -92,3 +92,43 @@ export function analyzeJobGroupsFromSnapshot(
   }
   return { groups: [...groups] };
 }
+
+/** Groups still holding members of an exited leader's session. A live process
+ * with the leader's pid means that pid was reused after the session ended. */
+export function sessionGroupsFromSnapshot(
+  stdout: string,
+  sid: number,
+  ownerPid: number,
+): readonly number[] | undefined {
+  if (
+    typeof stdout !== "string" ||
+    Buffer.byteLength(stdout) > 2_097_152 ||
+    ![sid, ownerPid].every((value) => Number.isSafeInteger(value) && value > 1)
+  )
+    return undefined;
+  const rows = stdout.trim().split("\n");
+  if (rows.length > 65_536) return undefined;
+  const groups = new Set<number>(),
+    seen = new Set<number>();
+  let reused = false;
+  for (const row of rows) {
+    const fields = row.trim().split(/\s+/);
+    if (fields.length !== 3) return undefined;
+    const [child, group, session] = fields.map(Number);
+    if (
+      ![child, group, session].every(Number.isSafeInteger) ||
+      child! <= 0 ||
+      group! < 0 ||
+      session! < 0 ||
+      seen.has(child!)
+    )
+      return undefined;
+    seen.add(child!);
+    if (child === sid) reused = true;
+    else if (session === sid) {
+      if (group! <= 1 || group === ownerPid) return undefined;
+      groups.add(group!);
+    }
+  }
+  return reused ? [] : [...groups];
+}

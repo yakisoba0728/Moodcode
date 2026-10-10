@@ -218,6 +218,17 @@ test('close joins a PTY creation that already dispatched and cancels its late ow
   let closed = false; const closing = service.close().then(() => { closed = true; }); await pause(); assert.equal(closed, false);
   release(); await assert.rejects(creation, code('ABORTED')); await closing; assert.equal(backend.cancels, 1); assert.equal(service.list(owner)[0]!.cleanupConfirmed, true);
 });
+test('a failed running persist still settles the spawned handle through its actual outcome', async t => {
+  const root = await temporary(t), backend = fakeBackend(), journal = new MemoryTerminalJournal(), save = journal.save.bind(journal), broken = new Error('fixture journal failure');
+  let saves = 0;
+  journal.save = snapshot => { if (++saves === 2) throw broken; save(snapshot); };
+  const service = new TerminalService({ backend, journal, resolveOwner: input => ({ ...input, root }) }); t.after(() => service.close());
+  await assert.rejects(service.create({ owner }), error => error === broken); await pause();
+  const record = service.list(owner)[0]!;
+  assert.equal(backend.cancels, 1); assert.equal(record.state, 'failed'); assert.equal(record.cleanupConfirmed, true);
+  assert.deepEqual(journal.read(record.id)!.record, record);
+  await assert.rejects(service.resize(record.id, owner, 100, 40), code('TERMINAL_CLOSED'));
+});
 
 const posix = { skip: !['darwin', 'linux', 'freebsd'].includes(process.platform) };
 test('real PTY has a tty, accepts input, resizes and yields bounded replay after normal exit', posix, async t => {
@@ -276,4 +287,19 @@ test('macOS interactive shell relays hangup to its separate background job proce
   await service.cancel(terminal.id, owner);
   await until(() => pids.every(pid => { try { process.kill(pid, 0); return false; } catch (error) { return (error as NodeJS.ErrnoException).code === 'ESRCH'; } }), 'interactive background job removed');
   assert.equal(service.get(terminal.id, owner).cleanupConfirmed, true);
+});
+test('normal exit of a job-control shell cleans the surviving job group in its PTY session', { skip: !['linux', 'freebsd'].includes(process.platform) }, async t => {
+  const root = await temporary(t), service = new TerminalService({ resolveOwner: input => ({ ...input, root }), maxDurationMs: 15_000 }); t.after(() => service.close());
+  const terminal = await service.create({ owner, file: '/bin/sh', args: ['-c', 'set -m; sleep 60 & printf "PIDS:%s:%s\\n" "$$" "$!"; read answer'] });
+  let pids: number[] = [];
+  await until(() => { const match = /PIDS:(\d+):(\d+)/.exec(service.replay(terminal.id, owner).output.map(item => item.data).join('')); if (match) pids = [Number(match[1]), Number(match[2])]; return pids.length > 0; }, 'job-control shell readiness');
+  const groups = execFileSync('/bin/ps', ['-o', 'pgid=', '-p', pids.join(',')], { encoding: 'utf8' }).trim().split('\n').map(Number);
+  assert.equal(groups.length, 2); assert.notEqual(groups[0], groups[1]);
+  await service.write(terminal.id, owner, 'done\r');
+  await until(() => service.get(terminal.id, owner).state !== 'running', 'job-control shell exit settles');
+  let survived = true;
+  try { process.kill(pids[1]!, 0); } catch (error) { survived = (error as NodeJS.ErrnoException).code !== 'ESRCH'; }
+  if (survived) process.kill(-pids[1]!, 'SIGKILL');
+  const record = service.get(terminal.id, owner);
+  assert.equal(survived, false); assert.equal(record.state, 'completed'); assert.equal(record.cleanupConfirmed, true); assert.equal(record.reason, 'descendants');
 });

@@ -13,7 +13,7 @@
 | Windows | `WindowsJobCommandBackend` + `WindowsJobHostPort` orchestration 계약 | 실제 native Job Object binding이 없으면 명시적 unavailable; POSIX·taskkill fallback 없음 |
 | 격리 sandbox | 이 backend에 없음 | capability `isolation:host-user`, `fileIsolation:false`, `networkIsolation:false` |
 
-POSIX group 정리는 해당 process group의 관찰에 근거한다. interactive shell에는 먼저 SIGHUP을 보내 별도 job group에 hangup을 전달한다. 다른 session으로 탈출하거나 HUP를 무시하는 사용자가 직접 시작한 daemon까지 강제 격리하는 기능은 제공하지 않는다. 이 경계를 파일/네트워크 sandbox 또는 모든 프로세스의 포괄적 추적으로 표시해서는 안 된다.
+POSIX group 정리는 해당 process group의 관찰에 근거한다. interactive shell에는 먼저 SIGHUP을 보내 별도 job group에 hangup을 전달한다. shell이 스스로 종료하면 Linux·FreeBSD에서는 `ps`의 session id로 PTY session에 남은 job group을 찾아 같은 방식으로 정리하고, 남은 구성원이 없을 때만 정리를 확인한다. macOS `ps`는 session id를 제공하지 않으므로 정상 종료 시 원래 group만 관찰하며, 종료하는 shell이 HUP를 보내지 않는 job(`disown`, `&!`, `NO_HUP`)은 이 경계 밖이다. 다른 session으로 탈출하거나 HUP를 무시하는 사용자가 직접 시작한 daemon까지 강제 격리하는 기능은 제공하지 않는다. 이 경계를 파일/네트워크 sandbox 또는 모든 프로세스의 포괄적 추적으로 표시해서는 안 된다.
 
 ## Host API와 수명
 
@@ -23,7 +23,7 @@ POSIX group 정리는 해당 process group의 관찰에 근거한다. interactiv
 
 기본 상한은 host 전체 활성 terminal 16개, session당 4개, 보관 history 128개, terminal당 attach 4개, UTF-8 ring 256 KiB, output event 16 KiB, attachment 대기 64 KiB, 단일 write 16 KiB, pending write 4개, 수명 1시간이다. buffer는 오래된 event부터 제거하며 `oldestSeq`, `nextSeq`, `gap`, `hasMore`로 replay 누락을 명시한다. Unicode code point를 중간에서 잘라 replacement character를 생성하지 않는다. 느린 attach가 대기 상한을 넘으면 그 attach만 `TERMINAL_ATTACH_BACKPRESSURE`로 닫힌다.
 
-`MemoryTerminalJournal` 또는 선택적인 `SqliteTerminalJournal`이 bounded history를 보관한다. terminal 기록에는 live PID를 넣지 않는다. 재시작 시 `starting/running` 기록은 `interrupted`, `reason:engine_restarted`, `cleanupConfirmed:null`로 전환하며 과거 프로세스에 재접속하거나 커맨드를 재실행하지 않는다. 종료가 관찰되지 않은 backend는 `uncertain`으로 기록한다. 저장된 output은 살아 있는 PTY의 증거가 아니다.
+`MemoryTerminalJournal` 또는 선택적인 `SqliteTerminalJournal`이 bounded history를 보관한다. terminal 기록에는 live PID를 넣지 않는다. 재시작 시 `starting/running` 기록은 `interrupted`, `reason:engine_restarted`, `cleanupConfirmed:null`로 전환하며 과거 프로세스에 재접속하거나 커맨드를 재실행하지 않는다. 종료가 관찰되지 않은 backend와, fork 이후 시작에 실패하고 정리를 확인하지 못한 backend는 `uncertain`으로 기록한다. 저장된 output은 살아 있는 PTY의 증거가 아니다.
 
 ## Native dependency 준비
 

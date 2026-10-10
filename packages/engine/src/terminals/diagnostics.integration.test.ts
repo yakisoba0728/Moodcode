@@ -333,6 +333,32 @@ for (const mode of ["disconnect", "kill"] as const)
   );
 
 test(
+  "actual supervisor loss before PTY start persists the backend's unconfirmed startup outcome",
+  posix,
+  async (t) => {
+    const supervisors = originalSupervisor(t, (packet) => {
+      if (packet.type === "ready") supervisors[0]!.kill("SIGKILL");
+    });
+    const f = serviceFixture(t);
+    await assert.rejects(
+      f.service.create({ owner, file: "/bin/sh", args: ["-c", "exit 0"] }),
+      code("PTY_START_FAILED"),
+    );
+    assert.equal(supervisors.length, 1);
+    const record = f.service.list(owner)[0]!,
+      data = checked(record.diagnostics);
+    assert.equal(record.state, "uncertain");
+    assert.equal(record.reason, "start_failed");
+    assert.equal(record.cleanupConfirmed, false);
+    assert.equal(data.outcome.cleanupConfirmed, false);
+    assert.equal(data.outcome.reason, "supervisor_lost");
+    assert.equal(data.source.terminalPid, null);
+    assert.equal(data.supervisorExit.signal, "SIGKILL");
+    assert.ok(data.events.some((event) => event.kind === "supervisor-lost"));
+  },
+);
+
+test(
   "corrupted actual supervisor result is rejected instead of substituting successful cleanup",
   posix,
   async (t) => {
