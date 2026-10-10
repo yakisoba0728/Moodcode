@@ -10,8 +10,9 @@ import {
   writeSync,
 } from "node:fs";
 import { chmod, mkdir, mkdtemp, realpath, stat } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { types } from "node:util";
 import {
   EngineError,
@@ -311,6 +312,7 @@ async function createCaptures(
 export function supervisorExecArgv(): string[] {
   // Consumers may run the engine through node -e, --test, or Electron. Only
   // module-loader options belong to this different program's script entry.
+  // Supervisors do not start in this process's cwd, so values are resolved.
   const result: string[] = [];
   const loaderOptions = [
     "--import",
@@ -320,15 +322,32 @@ export function supervisorExecArgv(): string[] {
     "-r",
     "--conditions",
   ];
+  const resolveLoader = (option: string, value: string): string => {
+    if (option === "--conditions") return value;
+    const cjs = option === "--require" || option === "-r";
+    if (value.startsWith(".") || isAbsolute(value)) {
+      const path = resolve(process.cwd(), value);
+      return cjs ? path : pathToFileURL(path).href;
+    }
+    return cjs
+      ? createRequire(import.meta.url).resolve(value)
+      : import.meta.resolve(value);
+  };
   for (let index = 0; index < process.execArgv.length; index++) {
     const argument = process.execArgv[index]!;
     if (loaderOptions.includes(argument)) {
       const value = process.execArgv[++index];
-      if (value !== undefined) result.push(argument, value);
-    } else if (
-      loaderOptions.some((option) => argument.startsWith(`${option}=`))
-    )
-      result.push(argument);
+      if (value !== undefined)
+        result.push(argument, resolveLoader(argument, value));
+    } else {
+      const option = loaderOptions.find((option) =>
+        argument.startsWith(`${option}=`),
+      );
+      if (option)
+        result.push(
+          `${option}=${resolveLoader(option, argument.slice(option.length + 1))}`,
+        );
+    }
   }
   result.push("--no-warnings");
   return result;
@@ -548,14 +567,28 @@ async function runProcess(
       lock?.release(outcome?.cleanupConfirmed === true);
     }
   }
+  let execArgv: string[];
+  try {
+    execArgv = supervisorExecArgv();
+  } catch {
+    return {
+      exitCode: null,
+      signal: null,
+      cancelled: false,
+      timedOut: false,
+      cleanupConfirmed: true,
+      started: false,
+      error: "Supervisor could not start: a host loader option could not be resolved.",
+    };
+  }
   const compiled = fileURLToPath(new URL("./supervisor.js", import.meta.url));
   const source = fileURLToPath(new URL("./supervisor.ts", import.meta.url));
   const child = fork(existsSync(compiled) ? compiled : source, [], {
-    cwd: context.workspace.root,
+    cwd: dirname(process.execPath),
     detached: true,
     stdio: ["ignore", "pipe", "pipe", "ipc"],
     execPath: process.execPath,
-    execArgv: supervisorExecArgv(),
+    execArgv,
     env: { ...createCommandEnvironment(), ELECTRON_RUN_AS_NODE: "1" },
   });
   let groupPid: number | undefined;

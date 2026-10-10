@@ -5,7 +5,7 @@ import {groupExists,cleanupGroup} from '../tools/command/process-control.js';
 import type {SandboxLaunch} from '../sandbox/types.js';
 import { fork,spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { once } from 'node:events';
-import { isAbsolute } from 'node:path';
+import { dirname, isAbsolute } from 'node:path';
 import { EngineError } from '@moodcode/contracts';
 import { encodeMessage, markMcpDispatchTransport, MCP_LIMITS, parseMessage, type JsonRpcMessage, type McpTransport, type McpTransportSendObservation } from './protocol.js';
 export interface StdioMcpOptions { command: string; args?: readonly string[]; cwd: string; env?: Readonly<Record<string, string>>; sandbox?:(message?:JsonRpcMessage)=>SandboxLaunch; observer?:{beforeStart():void;started(pid:number):void;closed(outcome:{exitCode:number|null;cleanupConfirmed:boolean;started:boolean}):void} }
@@ -24,9 +24,9 @@ export class StdioMcpTransport implements McpTransport {
     for (const [key, value] of Object.entries(this.options.env ?? {})) { if (!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(key) || typeof value !== 'string' || Buffer.byteLength(value) > 16_384 || value.includes('\0')) throw new EngineError('INVALID_MCP_STDIO', 'Explicit MCP environment contains invalid values'); env[key] = value; }
     const launch=this.options.sandbox?.();
     if(launch&&(process.platform!=='darwin'||launch.executable!=='/usr/bin/sandbox-exec'))throw new EngineError('SANDBOX_MCP_UNSUPPORTED','No unsandboxed MCP fallback');
+    const compiled=fileURLToPath(new URL('../sandbox/mcp-supervisor.js',import.meta.url)),source=fileURLToPath(new URL('../sandbox/mcp-supervisor.ts',import.meta.url)),execArgv=launch?supervisorExecArgv():[];
     this.options.observer?.beforeStart();
-    const compiled=fileURLToPath(new URL('../sandbox/mcp-supervisor.js',import.meta.url)),source=fileURLToPath(new URL('../sandbox/mcp-supervisor.ts',import.meta.url));
-    const child = (launch?fork(existsSync(compiled)?compiled:source,[],{cwd:this.options.cwd,env:{PATH:'/usr/bin:/bin',ELECTRON_RUN_AS_NODE:'1'},execPath:process.execPath,execArgv:supervisorExecArgv(),detached:true,stdio:['pipe','pipe','pipe','ipc']}):spawn(this.options.command,[...this.options.args??[]],{cwd:this.options.cwd,env,detached:process.platform!=='win32',shell:false,stdio:['pipe','pipe','pipe']})) as ChildProcessWithoutNullStreams;this.child=child;
+    const child = (launch?fork(existsSync(compiled)?compiled:source,[],{cwd:dirname(process.execPath),env:{PATH:'/usr/bin:/bin',ELECTRON_RUN_AS_NODE:'1'},execPath:process.execPath,execArgv,detached:true,stdio:['pipe','pipe','pipe','ipc']}):spawn(this.options.command,[...this.options.args??[]],{cwd:this.options.cwd,env,detached:process.platform!=='win32',shell:false,stdio:['pipe','pipe','pipe']})) as ChildProcessWithoutNullStreams;this.child=child;
     let admit:()=>void=()=>{};let admissionFailed:(error:unknown)=>void=()=>{};const admission=new Promise<void>((resolve,reject)=>{admit=resolve;admissionFailed=reject;});
     if(launch){child.on('message',(packet:unknown)=>{if(!packet||typeof packet!=='object')return;const p=packet as{type?:string;pid?:number;outcome?:{exitCode:number|null;cleanupConfirmed:boolean;started:boolean}};if(p.type==='started'&&Number.isSafeInteger(p.pid)&&Number(p.pid)>0&&!this.effectPid){this.effectPid=p.pid;try{this.options.observer?.started(p.pid!);admit();}catch(error){admissionFailed(error);void this.close().catch(()=>{});}}else if(p.type==='result'&&p.outcome&&typeof p.outcome.cleanupConfirmed==='boolean'){this.sandboxOutcome=p.outcome;}});child.once('exit',()=>admissionFailed(new EngineError('MCP_START_FAILED','Sandbox supervisor exited before actual server admission')));}
 

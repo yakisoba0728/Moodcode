@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, type Checkpoint, type JsonObject } from '@moodcode/contracts';
@@ -762,6 +764,73 @@ test('the command tree is stopped and its effects lock released after its engine
       throw error;
     }
   }, 6_000);
+});
+
+test('supervisor loader flags resolve against the engine host instead of the supervisor cwd', { skip: !posix }, async t => {
+  const host = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-command-host-')));
+  t.after(() => rm(host, { recursive: true, force: true }));
+  await writeFile(join(host, 'hook.mjs'), '');
+  await writeFile(join(host, 'hook.cjs'), '');
+  const tsxLoader = import.meta.resolve('tsx');
+  const cjs = createRequire(import.meta.url);
+  const bare = 'tsx/suppress-warnings';
+  const probe = `const { supervisorExecArgv } = await import(${JSON.stringify(new URL('./index.js', import.meta.url).href)}); process.stdout.write(JSON.stringify(supervisorExecArgv()));`;
+  const { stdout } = await execFileAsync(process.execPath, ['--import', tsxLoader, '--import', './hook.mjs', '--require=./hook.cjs', '-r', bare, '--input-type=module', '-e', probe],
+    { cwd: host, env: { PATH: process.env.PATH, NODE_PATH: dirname(dirname(cjs.resolve('tsx/package.json'))) }, timeout: 10_000 });
+  assert.deepEqual(JSON.parse(stdout), ['--import', tsxLoader, '--import', pathToFileURL(join(host, 'hook.mjs')).href,
+    `--require=${join(host, 'hook.cjs')}`, '-r', cjs.resolve(bare), '--no-warnings']);
+});
+
+async function executeInEngineParent(temporary: string, context: ToolContext, execArgv: string[], options: { cwd: string; env?: NodeJS.ProcessEnv }) {
+  const source = `
+    const { createCommandTool } = await import(${JSON.stringify(new URL('./index.js', import.meta.url).href)});
+    const context = ${JSON.stringify({ ...context, signal: undefined, recordCheckpoint: undefined })};
+    context.signal = new AbortController().signal;
+    context.recordCheckpoint = () => {};
+    const calls = [], record = name => () => { calls.push(name); };
+    const observer = { beforeSpawn: () => (calls.push('beforeSpawn'), {}), started: record('started'), output() {}, closed: record('closed'), failed: record('failed') };
+    const tool = createCommandTool({ observer });
+    const result = await tool.execute(await tool.prepare({ command: 'echo ok' }, context), context);
+    process.stdout.write(JSON.stringify({ data: result.data, calls }), () => process.exit(0));
+  `;
+  const engineFixture = join(temporary, 'engine-parent.mjs');
+  await writeFile(engineFixture, source);
+  const { stdout } = await execFileAsync(process.execPath, ['--import', import.meta.resolve('tsx'), ...execArgv, engineFixture], { ...options, timeout: 10_000 });
+  return JSON.parse(stdout) as { data: CommandData; calls: string[] };
+}
+
+test('a relative host loader is never resolved from the workspace by the command supervisor', { skip: !posix, timeout: 15_000 }, async t => {
+  const { root, temporary, context } = await fixture(t);
+  const host = join(temporary, 'host'), marker = join(temporary, 'workspace-loader-ran');
+  await mkdir(host);
+  await writeFile(join(host, 'hook.mjs'), '');
+  await writeFile(join(root, 'hook.mjs'), `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(marker)}, 'ran');`);
+  const { data } = await executeInEngineParent(temporary, context, ['--import', './hook.mjs'], { cwd: host });
+  assert.equal(data.status, 'completed');
+  assert.equal(data.exitCode, 0);
+  await assert.rejects(stat(marker), { code: 'ENOENT' });
+});
+
+test('an inherited NODE_OPTIONS loader is never resolved from the workspace by the command supervisor', { skip: !posix, timeout: 15_000 }, async t => {
+  const { root, temporary, context } = await fixture(t);
+  const host = join(temporary, 'host'), marker = join(temporary, 'workspace-loader-ran');
+  await mkdir(host);
+  await writeFile(join(host, 'hook.mjs'), '');
+  await writeFile(join(root, 'hook.mjs'), `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(marker)}, 'ran');`);
+  await executeInEngineParent(temporary, context, [], { cwd: host, env: { ...process.env, NODE_OPTIONS: '--import ./hook.mjs' } });
+  await assert.rejects(stat(marker), { code: 'ENOENT' });
+});
+
+test('a host loader the engine cannot resolve leaves the command definitely not started', { skip: !posix, timeout: 15_000 }, async t => {
+  const { temporary, context } = await fixture(t);
+  const host = join(temporary, 'host'), loader = join(host, 'node_modules', 'moodcode-host-only-loader');
+  await mkdir(loader, { recursive: true });
+  await writeFile(join(loader, 'index.js'), '');
+  const { data, calls } = await executeInEngineParent(temporary, context, ['-r', 'moodcode-host-only-loader'], { cwd: host });
+  assert.deepEqual(calls, ['beforeSpawn', 'closed']);
+  assert.equal(data.status, 'failed');
+  assert.equal(data.started, false);
+  assert.equal(data.cleanupConfirmed, true);
 });
 
 test('Windows commands require the available real native process-tree backend', { skip: posix }, async t => {
