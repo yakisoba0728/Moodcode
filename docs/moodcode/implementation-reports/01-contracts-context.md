@@ -129,7 +129,7 @@ interface ResolvedConfig {
 }
 ```
 
-우선순위는 defaults < user file < workspace file다. 각 파일을 독립적으로 검증한 후 병합하므로 잘못된 하위 파일이 상위 override에 가려지지 않는다. 실행 설정은 `@moodcode/contracts/validation`의 `normalizeSubmitInput`을 재사용한다. limits와 provider별 metadata는 필드 단위로 병합하며, final runConfig/limits/providers/각 metadata/result를 모두 freeze한다. provider map은 null-prototype이어서 `__proto__`, `constructor` 같은 유효 ID도 일반 own key로 보존한다.
+우선순위는 defaults < user file < workspace file다. 각 파일을 독립적으로 검증한 후 병합하므로 잘못된 하위 파일이 상위 override에 가려지지 않는다. 실행 설정은 `@moodcode/contracts/validation`의 `normalizeSubmitInput`을 재사용한다. limits는 필드 단위로 병합한다. provider 항목은 layer마다 한 단위로 교체하므로 workspace가 baseURL만 지정하면 user의 apiKeyEnv를 물려받지 않는다. final runConfig/limits/providers/각 metadata/result를 모두 freeze한다. provider map은 null-prototype이어서 `__proto__`, `constructor` 같은 유효 ID도 일반 own key로 보존한다.
 
 설정 경로는 명시적으로 받은 값만 사용하고 상대 경로는 현재 cwd를 기준으로 resolve한다. `~`·환경변수 확장·기본 설정 파일 탐색·파일 생성은 하지 않는다. 파일이나 부모가 존재하지 않으면 해당 layer 없이 기본값을 사용한다. 파일과 모든 부모의 symlink, 비정규 파일, 비-directory 부모는 거절한다. macOS `/var`처럼 symlink인 시스템 경로도 거절하므로 호출자가 canonical 경로를 전달해야 한다.
 

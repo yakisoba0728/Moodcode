@@ -254,7 +254,10 @@ function configPath(value: unknown, field: 'userConfigPath' | 'workspaceConfigPa
   return resolve(value);
 }
 
-/** Load defaults < user file < workspace file, without environment lookup or side effects. */
+/**
+ * Load defaults < user file < workspace file, without environment lookup or side effects.
+ * A provider entry replaces the lower layer's entry whole, so a redirected baseURL never inherits apiKeyEnv.
+ */
 export async function loadConfig(options: LoadConfigOptions = {}): Promise<ResolvedConfig> {
   const input = dataObject(options, 'options', 'options', ['userConfigPath', 'workspaceConfigPath', 'signal']);
   let signal: AbortSignal | undefined;
@@ -280,7 +283,7 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Resol
       ...runConfig, ...layer.runConfig, limits: { ...runConfig.limits, ...layer.runConfig.limits },
       ...(runConfig.budgets === undefined && layer.runConfig.budgets === undefined ? {} : { budgets: { ...runConfig.budgets, ...layer.runConfig.budgets } }),
     }, source);
-    for (const [id, metadata] of Object.entries(layer.providers)) providers[id] = { ...providers[id], ...metadata };
+    for (const [id, metadata] of Object.entries(layer.providers)) providers[id] = metadata;
     if (Object.keys(providers).length > MAX_PROVIDERS) invalid(source, 'providers', 'must not exceed 64 resolved provider entries');
   }
   cancelled(signal, 'options');

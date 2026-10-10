@@ -264,7 +264,7 @@ test('CLI file-only Responses selection uses named env auth, preserves defaults 
   assertPublicRedacted(reopened, fixtureKey);
 });
 
-test('CLI workspace config overrides user fields and merges provider env references and partial limits', { timeout: 25_000 }, async (t) => {
+test('CLI workspace config overrides user fields and provider entries and merges partial limits', { timeout: 25_000 }, async (t) => {
   const paths = await workspace(t);
   const userFixture = await responsesFixture(t);
   const workspaceFixture = await responsesFixture(t, ['workspace fixture']);
@@ -274,7 +274,7 @@ test('CLI workspace config overrides user fields and merges provider env referen
   });
   const workspaceConfigPath = await config(paths, 'workspace.json', {
     modelId: 'workspace-model', mode: 'build', limits: { maxToolCalls: 6, maxOutputBytes: 4_096 },
-    providers: { 'openai-responses': { baseURL: workspaceFixture.baseURL } },
+    providers: { 'openai-responses': { baseURL: workspaceFixture.baseURL, apiKeyEnv: keyEnv } },
   });
   const value = client(t, paths, ['--config', userConfigPath, '--workspace-config', workspaceConfigPath]);
   const sessionId = await openSession(value, paths.workspace);
@@ -308,8 +308,8 @@ test('CLI explicit provider, model and base URL override both files and contact 
   const workspaceConfigPath = await config(paths, 'workspace.json', {
     modelId: 'workspace-model', mode: 'build', limits: { maxTurns: 5 },
     providers: {
-      'openai-compatible': { baseURL: workspaceFixture.baseURL },
-      'openai-responses': { baseURL: workspaceFixture.baseURL },
+      'openai-compatible': { baseURL: workspaceFixture.baseURL, apiKeyEnv: keyEnv },
+      'openai-responses': { baseURL: workspaceFixture.baseURL, apiKeyEnv: keyEnv },
     },
   });
   const value = client(t, paths, ['--config', userConfigPath, '--workspace-config', workspaceConfigPath,

@@ -67,7 +67,7 @@ test('loadConfig treats missing explicit files and a valid empty object as defau
   assert.deepEqual(Object.keys(missing.providers), []);
 });
 
-test('loadConfig merges defaults, user, and workspace fields including partial limits and provider metadata', async (t) => {
+test('loadConfig merges defaults, user, and workspace fields including partial limits and provider entries', async (t) => {
   const root = await fixture(t);
   const userPath = await jsonFile(root, 'user.json', {
     providerId: 'custom', modelId: 'user-model', mode: 'build',
@@ -86,13 +86,37 @@ test('loadConfig merges defaults, user, and workspace fields including partial l
     limits: { ...DEFAULT_LIMITS, maxTurns: 7, maxToolCalls: 9, maxOutputBytes: 1_024, toolTimeoutMs: 4_000 },
   });
   assert.deepEqual({ ...result.providers }, {
-    custom: { baseURL: 'https://workspace.example.test/v2', apiKeyEnv: 'USER_API_TOKEN' },
+    custom: { baseURL: 'https://workspace.example.test/v2' },
     other: { baseURL: 'http://localhost:8080/v1' }, workspace: { apiKeyEnv: '_WORKSPACE_TOKEN2' },
   });
   assert.equal(Object.getPrototypeOf(result.providers), null);
   assert.ok(Object.values(result.providers).every(Object.isFrozen));
   assert.equal(await readFile(userPath, 'utf8'), beforeUser);
   assert.equal(await readFile(workspacePath, 'utf8'), beforeWorkspace);
+});
+
+test('loadConfig replaces a user provider entry whole so a workspace baseURL redirect drops the user apiKeyEnv', async (t) => {
+  const root = await fixture(t);
+  const userPath = await jsonFile(root, 'user.json', {
+    providers: {
+      redirected: { baseURL: 'https://user.example.test/v1', apiKeyEnv: 'USER_API_TOKEN' },
+      restated: { baseURL: 'https://user.example.test/v1', apiKeyEnv: 'USER_API_TOKEN' },
+      keyOnly: { baseURL: 'https://user.example.test/v1', apiKeyEnv: 'USER_API_TOKEN' },
+    },
+  });
+  const workspacePath = await jsonFile(root, 'workspace.json', {
+    providers: {
+      redirected: { baseURL: 'https://redirect.example.test/v1' },
+      restated: { baseURL: 'http://127.0.0.1:8080/v1', apiKeyEnv: 'USER_API_TOKEN' },
+      keyOnly: { apiKeyEnv: 'WORKSPACE_API_TOKEN' },
+    },
+  });
+  const result = await loadConfig({ userConfigPath: userPath, workspaceConfigPath: workspacePath });
+  assert.deepEqual({ ...result.providers }, {
+    redirected: { baseURL: 'https://redirect.example.test/v1' },
+    restated: { baseURL: 'http://127.0.0.1:8080/v1', apiKeyEnv: 'USER_API_TOKEN' },
+    keyOnly: { apiKeyEnv: 'WORKSPACE_API_TOKEN' },
+  });
 });
 
 test('loadConfig preserves special provider IDs in a null-prototype map without prototype pollution', async (t) => {
