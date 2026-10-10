@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { isImportedKnowledgeUncertaintyResolved } from "./import-recovery-store.js";
+import {
+  isImportedKnowledgeUncertaintyResolved,
+  resolvedImportedKnowledgeOwners,
+} from "./import-recovery-store.js";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
@@ -1974,6 +1977,9 @@ function rawRow(
     );
   return row;
 }
+const UNRESOLVED_FILE_OWNERS_SQL = `WITH resolved AS MATERIALIZED (SELECT json_extract(value,'$.id') AS id,json_extract(value,'$.sha256') AS sha256 FROM json_each(?2))
+SELECT f.id,length(CAST(f.data AS BLOB)) AS bytes FROM knowledge_file_publications f WHERE f.workspace_id=?1 AND f.state IN ('prepared','dispatched','uncertain')
+ AND NOT (f.state='uncertain' AND EXISTS (SELECT 1 FROM resolved r WHERE r.id=f.id AND r.sha256=CASE WHEN json_valid(f.data) THEN json_extract(f.data,'$.sha256') END)) ORDER BY f.id LIMIT 129`;
 function fileFrontier(
   db: DatabaseSync,
   workspaceId: string,
@@ -1982,21 +1988,14 @@ function fileFrontier(
   readonly sha256: string;
 } {
   identifier(workspaceId);
-  const acknowledgments = db
+  const resolved: { readonly id: string; readonly sha256: string }[] = [
+    ...resolvedImportedKnowledgeOwners(db, workspaceId, "file"),
+  ];
+  for (const metadata of db
     .prepare(
-      "SELECT id,length(CAST(data AS BLOB)) AS bytes FROM knowledge_file_recovery_acknowledgments WHERE workspace_id=? AND operation='acknowledge' ORDER BY id LIMIT 129",
+      "SELECT id FROM knowledge_file_recovery_acknowledgments WHERE workspace_id=? AND operation='acknowledge' ORDER BY id",
     )
-    .all(workspaceId);
-  if (
-    acknowledgments.length > 128 ||
-    acknowledgments.reduce((sum, row) => sum + Number(row.bytes), 0) > 1048576
-  )
-    filePublicationError(
-      "KNOWLEDGE_FILE_RECOVERY_LIMIT",
-      "File recovery decisions exceed their bounded native read",
-    );
-  const acknowledged = new Map<string, Set<string>>();
-  for (const metadata of acknowledgments) {
+    .iterate(workspaceId)) {
     const row = rawRow(
       db,
       "knowledge_file_recovery_acknowledgments",
@@ -2007,17 +2006,11 @@ function fileFrontier(
       row,
       "knowledge_file_recovery_acknowledgments",
     ) as KnowledgeFileRecoveryAcknowledgment;
-    for (const owner of ack.ownerHashes) {
-      const hashes = acknowledged.get(owner.id) ?? new Set<string>();
-      hashes.add(owner.sha256);
-      acknowledged.set(owner.id, hashes);
-    }
+    resolved.push(...ack.ownerHashes);
   }
   const rows = db
-    .prepare(
-      "SELECT id,length(CAST(data AS BLOB)) AS bytes FROM knowledge_file_publications WHERE workspace_id=? AND state IN ('prepared','dispatched','uncertain') ORDER BY id LIMIT 129",
-    )
-    .all(workspaceId);
+    .prepare(UNRESOLVED_FILE_OWNERS_SQL)
+    .all(workspaceId, JSON.stringify(resolved));
   if (
     rows.length > 128 ||
     rows.reduce((sum, row) => sum + Number(row.bytes), 0) > 1048576
@@ -2038,11 +2031,6 @@ function fileFrontier(
       row,
       "knowledge_file_publications",
     ) as KnowledgeFilePublicationRecord;
-    if (
-      owner.state === "uncertain" &&
-      (acknowledged.get(owner.id)?.has(owner.sha256) || isImportedKnowledgeUncertaintyResolved(db, workspaceId, "file", owner.id, owner.sha256))
-    )
-      continue;
     owners.push(owner);
   }
   return Object.freeze({

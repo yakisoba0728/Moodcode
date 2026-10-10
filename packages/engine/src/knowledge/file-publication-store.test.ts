@@ -660,6 +660,82 @@ test("explicit original ACK and separate resume retain immutable uncertainty and
   assert.equal(existsSync(join(f.root, "MEMORY.md")), false);
   validateKnowledgeFilePublicationDatabase(f.db);
 });
+test("acknowledged uncertain history and acknowledgments never fill the bounded recovery frontier", (t) => {
+  const f = fixture(t),
+    decide = (operation: "acknowledge" | "resume", requestId: string) =>
+      f.store[operation]({
+        workspaceId: "workspace",
+        requestId,
+        approved: true,
+        preview: f.store.previewRecovery("workspace"),
+        reason: "observed cleanup",
+      });
+  for (let index = 0; index < 129; index++) {
+    const p = f.prepare();
+    f.store.dispatch(p.capture);
+    f.store.uncertain(p.capture, {
+      errorCode: "ACTUAL_UNCONFIRMED",
+      cleanupConfirmed: false,
+    });
+    f.store.release(p.capture);
+    decide("acknowledge", `ack-${index}`);
+    decide("resume", `resume-${index}`);
+  }
+  assert.equal(f.store.hasBlocker("workspace"), false);
+  assert.equal(hasKnowledgeFilePublicationBlocker(f.db, "workspace"), false);
+  const open = f.prepare();
+  f.store.dispatch(open.capture);
+  f.store.uncertain(open.capture, {
+    errorCode: "ACTUAL_UNCONFIRMED",
+    cleanupConfirmed: false,
+  });
+  assert.equal(hasKnowledgeFilePublicationBlocker(f.db, "workspace"), true);
+  assert.deepEqual(
+    f.store.previewRecovery("workspace").owners.map((owner) => owner.id),
+    [open.record.id],
+  );
+});
+test("tampered acknowledgment fails closed instead of hiding its uncertain owner", (t) => {
+  const f = fixture(t),
+    p = f.prepare(),
+    decide = (operation: "acknowledge" | "resume") =>
+      f.store[operation]({
+        workspaceId: "workspace",
+        requestId: operation,
+        approved: true,
+        preview: f.store.previewRecovery("workspace"),
+        reason: "observed cleanup",
+      });
+  f.store.dispatch(p.capture);
+  f.store.uncertain(p.capture, {
+    errorCode: "ACTUAL_UNCONFIRMED",
+    cleanupConfirmed: false,
+  });
+  f.store.release(p.capture);
+  const ack = decide("acknowledge");
+  decide("resume");
+  assert.equal(hasKnowledgeFilePublicationBlocker(f.db, "workspace"), false);
+  const tamper = (data: string) =>
+    f.db
+      .prepare(
+        "UPDATE knowledge_file_recovery_acknowledgments SET data=? WHERE id=?",
+      )
+      .run(data, ack.id);
+  tamper(JSON.stringify({ ...ack, reason: "rewritten cleanup" }));
+  assert.throws(
+    () => hasKnowledgeFilePublicationBlocker(f.db, "workspace"),
+    code("KNOWLEDGE_FILE_HASH_MISMATCH"),
+  );
+  assert.throws(
+    () => f.store.previewRecovery("workspace"),
+    code("KNOWLEDGE_FILE_HASH_MISMATCH"),
+  );
+  tamper("{invalid}");
+  assert.throws(
+    () => hasKnowledgeFilePublicationBlocker(f.db, "workspace"),
+    code("KNOWLEDGE_FILE_RECORD_INVALID"),
+  );
+});
 test("recovery validation failure never invokes external marker reconciliation", (t) => {
   const f = fixture(t),
     p = f.prepare();

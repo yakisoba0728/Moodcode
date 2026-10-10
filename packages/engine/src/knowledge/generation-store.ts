@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { isImportedKnowledgeUncertaintyResolved } from "./import-recovery-store.js";
+import {
+  isImportedKnowledgeUncertaintyResolved,
+  resolvedImportedKnowledgeOwners,
+} from "./import-recovery-store.js";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import type {
   KnowledgeGenerationPlan,
@@ -658,27 +661,50 @@ function boundedRows(
     );
   return db.prepare(sql).all(...args) as Row[];
 }
-function acknowledged(
+const BINDING_FIELDS = [
+  "workspaceId",
+  "root",
+  "rootDevice",
+  "rootInode",
+  "storageBindingSha256",
+];
+const UNRESOLVED_GENERATIONS_SQL = `WITH acknowledged AS MATERIALIZED (SELECT json_extract(value,'$.id') AS id,json_extract(value,'$.sha256') AS sha256,${BINDING_FIELDS.map((key) => `json_extract(value,'$.binding.${key}') AS ${key}`).join(",")} FROM json_each(?2)),
+imported AS MATERIALIZED (SELECT json_extract(value,'$.id') AS id,json_extract(value,'$.sha256') AS sha256 FROM json_each(?3))
+SELECT g.* FROM knowledge_generations g WHERE g.workspace_id=?1 AND (g.state IN ('prepared','dispatched','streaming','output-finished') OR (g.state='uncertain'
+ AND NOT EXISTS (SELECT 1 FROM acknowledged k WHERE k.id=g.id AND k.sha256=json_extract(g.data,'$.sha256') AND ${BINDING_FIELDS.map((key) => `k.${key}=json_extract(g.data,'$.binding.${key}')`).join(" AND ")})
+ AND NOT EXISTS (SELECT 1 FROM imported i WHERE i.id=g.id AND i.sha256=json_extract(g.data,'$.sha256')))) ORDER BY g.id LIMIT 129`;
+/** Active and unresolved uncertain generations; validated acknowledgment and import pins exclude resolved history before the bounded read. */
+function unresolvedGenerations(
   db: DatabaseSync,
-  generation: KnowledgeGenerationRecord,
-): boolean {
-  const rows = boundedRows(
-    db,
-    "SELECT a.* FROM knowledge_generation_recovery_acknowledgments a WHERE a.workspace_id=? AND a.operation='acknowledge' AND EXISTS (SELECT 1 FROM json_each(a.data,'$.generations') p WHERE json_extract(p.value,'$.id')=?) LIMIT 129",
-    [generation.workspaceId, generation.id],
-  );
-  return rows.some((row) => {
+  workspaceId: string,
+): { rows: Row[]; generations: KnowledgeGenerationRecord[] } {
+  const acknowledged: { id: string; sha256: string; binding: KnowledgeHostBinding }[] = [];
+  for (const row of db
+    .prepare(
+      "SELECT * FROM knowledge_generation_recovery_acknowledgments WHERE workspace_id=? AND operation='acknowledge' ORDER BY id",
+    )
+    .iterate(workspaceId) as Iterable<Row>) {
     const ack = decode(
       row,
       "knowledge_generation_recovery_acknowledgments",
     ) as KnowledgeGenerationRecoveryAcknowledgment;
-    return (
-      knowledgeHash(ack.binding) === knowledgeHash(generation.binding) &&
-      ack.generations.some(
-        (pin) => pin.id === generation.id && pin.sha256 === generation.sha256,
-      )
-    );
-  });
+    for (const pin of ack.generations)
+      acknowledged.push({ ...pin, binding: ack.binding });
+  }
+  const rows = boundedRows(db, UNRESOLVED_GENERATIONS_SQL, [
+    workspaceId,
+    JSON.stringify(acknowledged),
+    JSON.stringify(
+      resolvedImportedKnowledgeOwners(db, workspaceId, "generation"),
+    ),
+  ]);
+  return {
+    rows,
+    generations: rows.map(
+      (row) =>
+        decode(row, "knowledge_generations") as KnowledgeGenerationRecord,
+    ),
+  };
 }
 /** Pure persisted predicate available before host adapters are installed. Corrupt records fail closed. */
 export function hasKnowledgeGenerationBlocker(
@@ -695,18 +721,7 @@ export function hasKnowledgeGenerationBlocker(
     const value = decode(barrier, "knowledge_generation_workspace_barriers") as KnowledgeGenerationWorkspaceBarrier;
     if (value.state !== "clear" && !isImportedKnowledgeUncertaintyResolved(db, workspaceId, "generation-barrier", value.workspaceId, value.sha256)) return true;
   }
-  const rows = boundedRows(
-    db,
-    "SELECT * FROM knowledge_generations WHERE workspace_id=? AND state IN ('prepared','dispatched','streaming','output-finished','uncertain') ORDER BY id LIMIT 129",
-    [workspaceId],
-  );
-  return rows.some((row) => {
-    const generation = decode(
-      row,
-      "knowledge_generations",
-    ) as KnowledgeGenerationRecord;
-    return ACTIVE.has(generation.state) || (!acknowledged(db, generation) && !isImportedKnowledgeUncertaintyResolved(db, workspaceId, "generation", generation.id, generation.sha256));
-  });
+  return unresolvedGenerations(db, workspaceId).generations.length > 0;
 }
 
 export class KnowledgeGenerationStorage {
@@ -1902,17 +1917,7 @@ export class KnowledgeGenerationStorage {
     attempts: KnowledgeGenerationAttempt[];
     sha256: string;
   } {
-    const rows = boundedRows(
-      this.#db,
-      "SELECT * FROM knowledge_generations WHERE workspace_id=? AND state IN ('prepared','dispatched','streaming','output-finished','uncertain') ORDER BY id LIMIT 129",
-      [workspaceId],
-    );
-    const generations = rows
-      .map(
-        (row) =>
-          decode(row, "knowledge_generations") as KnowledgeGenerationRecord,
-      )
-      .filter((g) => ACTIVE.has(g.state) || (!acknowledged(this.#db, g) && !isImportedKnowledgeUncertaintyResolved(this.#db, workspaceId, "generation", g.id, g.sha256)));
+    const { rows, generations } = unresolvedGenerations(this.#db, workspaceId);
     let readBytes = rows.reduce((n, row) => n + Buffer.byteLength(row.data), 0);
     const attempts: KnowledgeGenerationAttempt[] = [];
     for (const generation of generations)

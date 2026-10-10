@@ -763,21 +763,13 @@ function originalPinCurrent(
         : data.state === "uncertain")
   );
 }
-/** Only unchanged originally imported uncertainty is resolved; later owners are never covered. */
-export function isImportedKnowledgeUncertaintyResolved(
+function acknowledgedImportPins(
   db: DatabaseSync,
   workspaceId: string,
-  kind: KnowledgeImportUncertaintyKind,
-  ownerId: string,
-  sha256: string,
-): boolean {
-  id(workspaceId);
-  id(ownerId);
-  digest(sha256);
-  if (!Object.hasOwn(uncertaintyTables, kind)) fail();
+): readonly KnowledgeImportUncertaintyPin[] | undefined {
   const view = frontier(db, workspaceId);
   if (!view || !resumeDecision(db, view) || !view.head.acknowledgeDecisionId)
-    return false;
+    return undefined;
   const ack = read<KnowledgeImportRecoveryDecision>(
     db,
     "knowledge_import_recovery_decisions",
@@ -791,19 +783,49 @@ export function isImportedKnowledgeUncertaintyResolved(
     ack.frontierSha256 !== view.frontier.sha256 ||
     ack.uncertaintyPinsSha256 !== knowledgeHash(view.frontier.uncertainties)
   )
-    return false;
-  const pin = view.frontier.uncertainties.find(
-    (p) => p.kind === kind && p.id === ownerId && p.sha256 === sha256,
-  );
+    return undefined;
+  return view.frontier.uncertainties;
+}
+/** Only unchanged originally imported uncertainty is resolved; later owners are never covered. */
+export function isImportedKnowledgeUncertaintyResolved(
+  db: DatabaseSync,
+  workspaceId: string,
+  kind: KnowledgeImportUncertaintyKind,
+  ownerId: string,
+  sha256: string,
+): boolean {
+  id(workspaceId);
+  id(ownerId);
+  digest(sha256);
+  if (!Object.hasOwn(uncertaintyTables, kind)) fail();
+  const pins = acknowledgedImportPins(db, workspaceId);
   return (
-    !!pin &&
-    view.frontier.uncertainties
+    !!pins?.some(
+      (p) => p.kind === kind && p.id === ownerId && p.sha256 === sha256,
+    ) &&
+    pins
       .filter(
         (p) =>
           !p.kind.endsWith("barrier") || (p.kind === kind && p.id === ownerId),
       )
       .every((p) => originalPinCurrent(db, workspaceId, p))
   );
+}
+/** The owner pins of one kind that isImportedKnowledgeUncertaintyResolved accepts, read once per frontier. */
+export function resolvedImportedKnowledgeOwners(
+  db: DatabaseSync,
+  workspaceId: string,
+  kind: "generation" | "file",
+): readonly KnowledgeImportUncertaintyPin[] {
+  id(workspaceId);
+  const pins = acknowledgedImportPins(db, workspaceId) ?? [],
+    owners = pins.filter((p) => p.kind === kind);
+  return owners.length &&
+    pins
+      .filter((p) => !p.kind.endsWith("barrier"))
+      .every((p) => originalPinCurrent(db, workspaceId, p))
+    ? owners
+    : [];
 }
 
 const historicalTables = Object.freeze([

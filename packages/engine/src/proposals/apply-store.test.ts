@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { EngineError } from "@moodcode/contracts";
+import { knowledgeHash } from "../knowledge/validation.js";
 import {
   ProposalApplyStorage,
   validateProposalApplyDatabase,
@@ -181,6 +182,91 @@ test("oversized actual native owner is rejected from metadata without selecting 
       result.owner.id,
     );
     db.exec("PRAGMA ignore_check_constraints=OFF");
+  }
+  f.assertNoCoding();
+});
+
+test("resolved uncertain history and older resume decisions never fill the bounded recovery frontier", async (t) => {
+  const f = await applyFixture(t);
+  await f.stage();
+  const original = (await f.apply(await f.preview(), "resolved-history")).owner,
+    db = database(f.engine),
+    workspaceId = original.workspaceId,
+    signed = <T extends object>(body: T) => ({
+      ...body,
+      sha256: knowledgeHash(body),
+    });
+  let revision = 0;
+  const uncertain = (index: number, pinned: boolean) => {
+    const { sha256: _owner, ...completed } = original,
+      { requestSha256: _request, ...request } = {
+        ...input(original),
+        requestId: `history-${index}`,
+      },
+      owner = signed({
+        ...completed,
+        id: `history-owner-${String(index).padStart(3, "0")}`,
+        requestId: request.requestId,
+        requestSha256: knowledgeHash(request),
+        state: "uncertain",
+        checkpointId: null,
+        checkpointSha256: null,
+        cleanupConfirmed: false,
+        errorCode: "PROPOSAL_APPLY_INTERRUPTED",
+      });
+    db.prepare(
+      "INSERT INTO proposal_apply_owners(id,workspace_id,proposal_id,revision_id,request_id,request_sha256,state,revision,data) VALUES(?,?,?,?,?,?,?,?,?)",
+    ).run(
+      owner.id,
+      workspaceId,
+      owner.proposalId,
+      `history-revision-${index}`,
+      owner.requestId,
+      owner.requestSha256,
+      owner.state,
+      owner.revision,
+      JSON.stringify(owner),
+    );
+    if (!pinned) return;
+    const owners = [
+        {
+          id: owner.id,
+          sha256: owner.sha256,
+          checkpointSha256: null,
+          guardSha256: owner.guardSha256,
+        },
+      ],
+      decision = signed({
+        id: `history-decision-${index}`,
+        workspaceId,
+        requestId: `history-resume-${index}`,
+        operation: "resume",
+        revision: ++revision,
+        binding: owner.binding,
+        frontierSha256: knowledgeHash({ workspaceId, owners }),
+        owners,
+        reason: "Historical explicit resume",
+        createdAt: new Date().toISOString(),
+      });
+    db.prepare(
+      "INSERT INTO proposal_apply_recovery_decisions(id,workspace_id,revision,operation,data) VALUES(?,?,?,?,?)",
+    ).run(
+      decision.id,
+      workspaceId,
+      decision.revision,
+      decision.operation,
+      JSON.stringify(decision),
+    );
+  };
+  db.exec("PRAGMA foreign_keys=OFF");
+  try {
+    for (let index = 0; index < 130; index++) uncertain(index, true);
+    assert.equal(f.engine.store.hasUncertainWorkspace(workspaceId), false);
+    assert.deepEqual(native(f.engine).previewRecovery(workspaceId).owners, []);
+    uncertain(130, false);
+    assert.equal(f.engine.store.hasUncertainWorkspace(workspaceId), true);
+  } finally {
+    db.exec("PRAGMA foreign_keys=ON");
   }
   f.assertNoCoding();
 });

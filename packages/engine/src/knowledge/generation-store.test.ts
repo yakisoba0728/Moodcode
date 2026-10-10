@@ -927,6 +927,69 @@ test("recovery ack preserves immutable uncertain records and nullable usage; exp
     false,
   );
 });
+test("acknowledged uncertain history never fills the bounded recovery frontier", (t) => {
+  const f = fixture(t);
+  for (let index = 0; index < 129; index++) {
+    const a = f.uncertain();
+    f.native.releaseAttempt(a.attempt);
+    f.native.release(a.owner);
+    const preview = f.native.getRecoveryPreview("workspace"),
+      ack = f.native.acknowledgeRecovery(preview, {
+        requestId: `ack-${index}`,
+        reason: "Host inspected original native evidence",
+      });
+    f.native.releaseRecoveryPreview(preview);
+    f.native.resumeWorkspace({
+      workspaceId: "workspace",
+      requestId: `resume-${index}`,
+      expectedRevision: ack.barrier.revision,
+      expectedFrontierSha256: ack.barrier.frontierSha256,
+    });
+  }
+  assert.equal(f.native.hasBlocker("workspace"), false);
+  assert.equal(hasKnowledgeGenerationBlocker(f.db, "workspace"), false);
+  const open = f.uncertain();
+  assert.equal(hasKnowledgeGenerationBlocker(f.db, "workspace"), true);
+  assert.deepEqual(
+    f.native.getRecoveryPreview("workspace").generations.map((g) => g.id),
+    [open.record.id],
+  );
+});
+test("tampered acknowledgment fails closed instead of hiding its uncertain generation", (t) => {
+  const f = fixture(t),
+    a = f.uncertain();
+  f.native.releaseAttempt(a.attempt);
+  f.native.release(a.owner);
+  const preview = f.native.getRecoveryPreview("workspace"),
+    { acknowledgment, barrier } = f.native.acknowledgeRecovery(preview, {
+      requestId: "ack",
+      reason: "Host inspected original native evidence",
+    });
+  f.native.releaseRecoveryPreview(preview);
+  f.native.resumeWorkspace({
+    workspaceId: "workspace",
+    requestId: "resume",
+    expectedRevision: barrier.revision,
+    expectedFrontierSha256: barrier.frontierSha256,
+  });
+  assert.equal(hasKnowledgeGenerationBlocker(f.db, "workspace"), false);
+  f.db
+    .prepare(
+      "UPDATE knowledge_generation_recovery_acknowledgments SET data=? WHERE id=?",
+    )
+    .run(
+      JSON.stringify({ ...acknowledgment, reason: "Rewritten inspection" }),
+      acknowledgment.id,
+    );
+  assert.throws(
+    () => hasKnowledgeGenerationBlocker(f.db, "workspace"),
+    code("KNOWLEDGE_HASH_MISMATCH"),
+  );
+  assert.throws(
+    () => f.native.getRecoveryPreview("workspace"),
+    code("KNOWLEDGE_HASH_MISMATCH"),
+  );
+});
 test("recovery decisions reject changed preview/barrier/current binding and current source deletion cannot rewrite evidence", (t) => {
   const f = fixture(t),
     a = f.uncertain(),

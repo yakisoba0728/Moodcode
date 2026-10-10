@@ -1562,45 +1562,54 @@ function rawGuard(
     decoded(row.data, PROPOSAL_APPLY_LIMITS.rowBytes),
   );
 }
+type ResumePin = {
+  readonly pin: ProposalApplyRecoveryPreview["owners"][number];
+  readonly binding: string;
+};
+function resumePins(db: DatabaseSync, ws: string): Map<string, ResumePin[]> {
+  const pins = new Map<string, ResumePin[]>();
+  for (const row of db
+    .prepare(
+      "SELECT id FROM proposal_apply_recovery_decisions WHERE workspace_id=? AND operation='resume' ORDER BY revision",
+    )
+    .iterate(ws)) {
+    const decision = validateProposalApplyRecoveryDecision(
+        readRow(db, "proposal_apply_recovery_decisions", ws, id(row.id)),
+      ),
+      binding = knowledgeHash(decision.binding);
+    for (const pin of decision.owners)
+      pins.set(pin.id, [...(pins.get(pin.id) ?? []), { pin, binding }]);
+  }
+  return pins;
+}
 function resolved(
   db: DatabaseSync,
   owner: ProposalApplyOwner,
   guard: ProposalApplyGuard | undefined,
+  pins: ReadonlyMap<string, readonly ResumePin[]>,
+  resumable: Map<string, boolean>,
 ): boolean {
-  const head = db
-    .prepare(
-      "SELECT data,length(CAST(data AS BLOB)) AS bytes FROM proposal_heads WHERE workspace_id=? AND id=? AND length(CAST(data AS BLOB))<=65536",
-    )
-    .get(owner.workspaceId, owner.proposalId);
-  if (
-    !head ||
-    validateProposalSet(decoded(head.data, 65536)).status === "paused-import"
-  )
-    return false;
-  for (const row of db
-    .prepare(
-      "SELECT id FROM proposal_apply_recovery_decisions WHERE workspace_id=? AND operation='resume' ORDER BY revision DESC LIMIT 129",
-    )
-    .iterate(owner.workspaceId)) {
-    const decision = validateProposalApplyRecoveryDecision(
-      readRow(
-        db,
-        "proposal_apply_recovery_decisions",
-        owner.workspaceId,
-        id(row.id),
-      ),
-    );
-    const pin = decision.owners.find((p) => p.id === owner.id);
-    if (
-      pin &&
+  let open = resumable.get(owner.proposalId);
+  if (open === undefined) {
+    const head = db
+      .prepare(
+        "SELECT data,length(CAST(data AS BLOB)) AS bytes FROM proposal_heads WHERE workspace_id=? AND id=? AND length(CAST(data AS BLOB))<=65536",
+      )
+      .get(owner.workspaceId, owner.proposalId);
+    open =
+      !!head &&
+      validateProposalSet(decoded(head.data, 65536)).status !== "paused-import";
+    resumable.set(owner.proposalId, open);
+  }
+  if (!open) return false;
+  const binding = knowledgeHash(owner.binding);
+  return (pins.get(owner.id) ?? []).some(
+    ({ pin, binding: pinned }) =>
       pin.sha256 === owner.sha256 &&
       pin.checkpointSha256 === owner.checkpointSha256 &&
       pin.guardSha256 === (guard?.sha256 ?? owner.guardSha256) &&
-      knowledgeHash(decision.binding) === knowledgeHash(owner.binding)
-    )
-      return true;
-  }
-  return false;
+      pinned === binding,
+  );
 }
 function frontier(
   db: DatabaseSync,
@@ -1610,24 +1619,29 @@ function frontier(
     key,
   ) => rawGuard(db, ws, key),
 ): ProposalApplyRecoveryPreview["owners"] {
-  const rows = db
-    .prepare(
-      "SELECT id,length(CAST(data AS BLOB)) AS bytes FROM proposal_apply_owners WHERE workspace_id=? AND state IN ('prepared','dispatched','uncertain') ORDER BY id LIMIT 129",
-    )
-    .all(ws);
-  if (rows.length > 128) fail("PROPOSAL_APPLY_RECOVERY_LIMIT");
+  const resumed = resumePins(db, ws),
+    resumable = new Map<string, boolean>();
   let bytes = 0;
   const pins: ProposalApplyRecoveryPreview["owners"][number][] = [];
-  for (const row of rows) {
-    bytes += count(row.bytes, PROPOSAL_APPLY_LIMITS.rowBytes);
-    if (bytes > PROPOSAL_APPLY_LIMITS.frontierBytes)
-      fail("PROPOSAL_APPLY_RECOVERY_LIMIT");
-    const owner = validateProposalApplyOwner(
+  for (const row of db
+    .prepare(
+      "SELECT id,length(CAST(data AS BLOB)) AS bytes FROM proposal_apply_owners WHERE workspace_id=? AND state IN ('prepared','dispatched','uncertain') ORDER BY id",
+    )
+    .iterate(ws)) {
+    const size = count(row.bytes, PROPOSAL_APPLY_LIMITS.rowBytes),
+      owner = validateProposalApplyOwner(
         readRow(db, "proposal_apply_owners", ws, id(row.id)),
       ),
       guard = getGuard(ws, owner.id);
     if (guard) validateProposalApplyGuard(guard);
-    if (owner.state === "uncertain" && resolved(db, owner, guard)) continue;
+    if (
+      owner.state === "uncertain" &&
+      resolved(db, owner, guard, resumed, resumable)
+    )
+      continue;
+    bytes += size;
+    if (bytes > PROPOSAL_APPLY_LIMITS.frontierBytes)
+      fail("PROPOSAL_APPLY_RECOVERY_LIMIT");
     pins.push({
       id: owner.id,
       sha256: owner.sha256,
