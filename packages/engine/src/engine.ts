@@ -519,6 +519,7 @@ private readonly workflowRecords: WorkflowStorage;
   private readonly runtimeProviders: Map<string, ProviderAdapter>;
   private readonly backendProviderIds = new Set<string>();
   private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
+  private readonly liveKnowledgeRecoveryPreviews = new Map<string, KnowledgeGenerationRecoveryPreview>();
   private readonly verificationHost: VerificationHostService;
   private readonly verificationEnabled: boolean;
   readonly formatters: FormatterRegistry;
@@ -2605,6 +2606,7 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     const preview = this.knowledgeGenerations.getRecoveryPreview(workspaceId);
     this.knowledgeRecoveryPreviews.set(preview, workspaceId);
+    this.liveKnowledgeRecoveryPreviews.set(workspaceId, preview);
     return preview;
   }
 
@@ -2853,6 +2855,8 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
         this.hostCommandDelivery.close();
         // Both calls synchronously stop admissions before either awaits active work.
         const outcomes = await Promise.allSettled([this.commandLifetimes.close(), this.hostCommands.close(), this.gitCommitHost.close(), this.prFeedbackHost.close(), this.backendHost.close(), this.scheduleDispatcher.close(), this.codingBatches.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...[...this.watchConsumers.values()].map(consumer => consumer.done), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        for (const preview of this.liveKnowledgeRecoveryPreviews.values()) this.knowledgeGenerations.releaseRecoveryPreview(preview);
+        this.liveKnowledgeRecoveryPreviews.clear();
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }

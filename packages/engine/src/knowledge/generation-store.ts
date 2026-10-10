@@ -736,7 +736,10 @@ export class KnowledgeGenerationStorage {
     object,
     KnowledgeGenerationRecoveryPreview
   >();
-  readonly #livePreviews = new Set<object>();
+  readonly #livePreviews = new Map<
+    string,
+    KnowledgeGenerationRecoveryPreview
+  >();
   constructor(db: DatabaseSync, ports: KnowledgeGenerationStoragePorts) {
     for (const key of [
       "writeTx",
@@ -2107,7 +2110,8 @@ export class KnowledgeGenerationStorage {
   }
   getRecoveryPreview(workspaceId: string): KnowledgeGenerationRecoveryPreview {
     identifier(workspaceId);
-    if (this.#livePreviews.size >= 128)
+    const previous = this.#livePreviews.get(workspaceId);
+    if (!previous && this.#livePreviews.size >= 128)
       knowledgeError(
         "KNOWLEDGE_GENERATION_LIMIT",
         "Recovery preview capture limit reached",
@@ -2146,8 +2150,9 @@ export class KnowledgeGenerationStorage {
         "KNOWLEDGE_GENERATION_LIMIT",
         "Native recovery preview exceeds its bounded projection",
       );
+    if (previous) this.releaseRecoveryPreview(previous);
     this.#previews.set(preview, preview);
-    this.#livePreviews.add(preview);
+    this.#livePreviews.set(workspaceId, preview);
     return preview;
   }
   private receipt(
@@ -2193,7 +2198,6 @@ export class KnowledgeGenerationStorage {
     if (
       !preview ||
       typeof preview !== "object" ||
-      !this.#livePreviews.has(preview) ||
       this.#previews.get(preview) !== preview
     )
       knowledgeError(
@@ -2351,12 +2355,12 @@ export class KnowledgeGenerationStorage {
     });
   }
   releaseRecoveryPreview(preview: KnowledgeGenerationRecoveryPreview): void {
-    if (!preview || !this.#livePreviews.has(preview))
+    if (!preview || this.#previews.get(preview) !== preview)
       knowledgeError(
         "KNOWLEDGE_GENERATION_HANDLE_INVALID",
         "Recovery preview is foreign or released",
       );
-    this.#livePreviews.delete(preview);
+    this.#livePreviews.delete(preview.workspaceId);
     this.#previews.delete(preview);
   }
   listGenerations(

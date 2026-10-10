@@ -14,6 +14,7 @@ import { buildKnowledgeGenerationRequest } from './generation-request.js';
 import type { KnowledgeSourceProjection } from './host.js';
 import type { KnowledgeCandidate, KnowledgeGenerationPlan } from './types.js';
 import type { KnowledgeGenerationAttempt, KnowledgeGenerationBudget, KnowledgeGenerationRecord, KnowledgeGenerationRecoveryPreview, KnowledgeGenerationRecoveryResult } from './generation-types.js';
+import type { KnowledgeGenerationStorage } from './generation-store.js';
 
 type Engine = ReturnType<typeof createEngine>;
 interface GenerationInput { workspaceId: string; planId: string; requestId: string; projection: KnowledgeSourceProjection; budget?: Partial<KnowledgeGenerationBudget>; reasoningEffort?: import('@moodcode/contracts').ReasoningEffort; signal?: AbortSignal }
@@ -264,4 +265,6 @@ test('unconfirmed actual iterator return survives restart as native quarantine, 
   assert.equal(resumed.barrier.state, 'clear'); assert.deepEqual(await restored.api.resumeWorkspaceKnowledge(resumeInput), resumed);
   const after = restored.api.getWorkspaceKnowledgeGeneration(f.workspace.id, result.generation.id); assert.equal(after.generation.state, 'uncertain'); assert.equal(after.attempt!.cleanup!.confirmed, false); assert.equal(after.candidate, null);
   assert.equal(f.generations.length, 1); assert.deepEqual(nativeCounts(f.dbPath), before); f.assertNoCodingEffects();
+  const native = Reflect.get(restored.engine, 'knowledgeGenerations') as KnowledgeGenerationStorage; await restored.engine.close();
+  assert.throws(() => native.releaseRecoveryPreview(preview), errorCode('KNOWLEDGE_GENERATION_HANDLE_INVALID'));
 });

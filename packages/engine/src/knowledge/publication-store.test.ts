@@ -63,6 +63,7 @@ function fixture(t: TestContext) {
     asyncCurrent: false,
     beforeCurrent: undefined as
       ((record: KnowledgePublicationRecord) => void) | undefined,
+    beforeCandidate: undefined as (() => void) | undefined,
   };
   function binding(): KnowledgeHostBinding {
     state.bindingReads++;
@@ -141,6 +142,7 @@ function fixture(t: TestContext) {
     checkBinding: () => binding(),
     getCandidate: (workspace, id) => {
       state.candidateReads++;
+      state.beforeCandidate?.();
       return knowledge.getCandidate(workspace, id);
     },
     assertCommitCurrent: (record) => {
@@ -809,6 +811,24 @@ test("approval expiry and changed physical/database binding reject effects witho
     p.record.expiresAt,
   );
   assert.equal(f.counts().workspace_document_revisions, 0);
+});
+test("commit time is taken at the final expiry check so a deadline crossed later never persists late rows", (t) => {
+  const f = fixture(t),
+    p = f.prepare(),
+    checked = f.state.now;
+  f.state.beforeCurrent = () => {
+    f.state.beforeCandidate = () => {
+      f.state.now = Date.parse(p.record.expiresAt);
+    };
+  };
+  const result = f.publications.commit(p.capture);
+  assert.equal(f.state.now, Date.parse(p.record.expiresAt));
+  for (const time of [
+    result.publication.updatedAt,
+    result.document.createdAt,
+    result.receipt.createdAt,
+  ])
+    assert.equal(time, new Date(checked).toISOString());
 });
 test("cancellation and capture release record no application and every late approval remains fenced", (t) => {
   const f = fixture(t),

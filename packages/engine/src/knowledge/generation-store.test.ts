@@ -955,6 +955,34 @@ test("acknowledged uncertain history never fills the bounded recovery frontier",
     [open.record.id],
   );
 });
+test("reissuing a recovery preview replaces the workspace's previous one instead of exhausting the capture limit", (t) => {
+  const f = fixture(t);
+  f.uncertain();
+  let previous = f.native.getRecoveryPreview("workspace");
+  for (let index = 0; index < 129; index++) {
+    const preview = f.native.getRecoveryPreview("workspace");
+    assert.throws(
+      () =>
+        f.native.acknowledgeRecovery(previous, {
+          requestId: `replaced-${index}`,
+          reason: "Host inspected original native evidence",
+        }),
+      code("KNOWLEDGE_GENERATION_HANDLE_INVALID"),
+    );
+    assert.throws(
+      () => f.native.releaseRecoveryPreview(previous),
+      code("KNOWLEDGE_GENERATION_HANDLE_INVALID"),
+    );
+    previous = preview;
+  }
+  assert.equal(
+    f.native.acknowledgeRecovery(previous, {
+      requestId: "ack",
+      reason: "Host inspected original native evidence",
+    }).barrier.state,
+    "pending-resume",
+  );
+});
 test("tampered acknowledgment fails closed instead of hiding its uncertain generation", (t) => {
   const f = fixture(t),
     a = f.uncertain();

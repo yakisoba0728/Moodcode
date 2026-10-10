@@ -133,6 +133,18 @@ for (const scenario of [
   assert.equal(f.counters.settlements, 1); assert.equal(result.candidate?.state, 'withheld'); assert.equal(result.events, 0);
 });
 
+test('request timeout at the operation deadline leaves the cleanup window for a closing iterator', async t => {
+  const start = Date.now(); t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: start });
+  const timers = t.mock.method(globalThis, 'setTimeout'), f = fixture([], { neverDone: true });
+  const operation = streamKnowledgeGeneration({ ...f.options, deadline: start + 100, budget: budgets({ maxDurationMs: 100, providerRequestTimeoutMs: 100, inactivityTimeoutMs: 100, cleanupTimeoutMs: 25 }) });
+  await f.entered;
+  const request = timers.mock.calls[0]!.arguments;
+  t.mock.timers.setTime(start + (request[1] as number));
+  (request[0] as () => void)();
+  const result = await operation;
+  assert.equal(result.errorCode, 'KNOWLEDGE_REQUEST_TIMEOUT'); assert.equal(result.state, 'failed'); assert.equal(result.cleanup.confirmed, true); assert.equal(f.counters.returned, 1);
+});
+
 test('late request/inactivity timer callbacks cannot reclassify an already observed caller cancellation', async t => {
   const start = Date.now(); t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: start });
   const timers = t.mock.method(globalThis, 'setTimeout'), f = fixture([], { neverDone: true });
@@ -187,17 +199,17 @@ test('cancellation during durable observation does not invoke producer next agai
 });
 
 test('expired original deadline after dispatch intent prevents adapter invocation', async () => {
-  const f = fixture(), deadline = Date.now() + 8, result = await streamKnowledgeGeneration({ ...f.options, deadline, onDispatch() { f.counters.dispatch++; while (Date.now() <= deadline) { /* synchronous durable host transaction */ } } });
+  const f = fixture(), deadline = Date.now() + 8, result = await streamKnowledgeGeneration({ ...f.options, deadline, budget: budgets({ cleanupTimeoutMs: 1 }), onDispatch() { f.counters.dispatch++; while (Date.now() <= deadline) { /* synchronous durable host transaction */ } } });
   assert.equal(result.state, 'failed'); assert.equal(result.errorCode, 'KNOWLEDGE_REQUEST_TIMEOUT'); assert.equal(f.counters.dispatch, 1); assert.equal(f.counters.entered, 0); assert.equal(f.counters.returned, 0); assert.equal(result.cleanup.confirmed, true);
 });
 
 test('deadline crossed by durable observation prevents another producer call', async () => {
-  const f = fixture([text('partial'), finish]), deadline = Date.now() + 8, result = await streamKnowledgeGeneration({ ...f.options, deadline, onObservation(value) { f.observations.push(value); while (Date.now() <= deadline) { /* synchronous durable host transaction */ } } });
+  const f = fixture([text('partial'), finish]), deadline = Date.now() + 8, result = await streamKnowledgeGeneration({ ...f.options, deadline, budget: budgets({ cleanupTimeoutMs: 1 }), onObservation(value) { f.observations.push(value); while (Date.now() <= deadline) { /* synchronous durable host transaction */ } } });
   assert.equal(result.errorCode, 'KNOWLEDGE_REQUEST_TIMEOUT'); assert.equal(f.counters.next, 1); assert.equal(result.state, 'uncertain'); assert.equal(f.counters.returned, 1); assert.equal(result.cleanup.confirmed, false);
 });
 
 test('finished stream whose durable done observation exhausts original deadline is withheld', async () => {
-  const f = fixture(), deadline = Date.now() + 8, result = await streamKnowledgeGeneration({ ...f.options, deadline, onObservation(value) { f.observations.push(value); if (value.streamDone) while (Date.now() <= deadline) { /* durable callback cannot renew admission */ } } });
+  const f = fixture(), deadline = Date.now() + 8, result = await streamKnowledgeGeneration({ ...f.options, deadline, budget: budgets({ cleanupTimeoutMs: 1 }), onObservation(value) { f.observations.push(value); if (value.streamDone) while (Date.now() <= deadline) { /* durable callback cannot renew admission */ } } });
   assert.equal(result.state, 'failed'); assert.equal(result.errorCode, 'KNOWLEDGE_GENERATION_DEADLINE'); assert.equal(result.streamDone, true); assert.equal(result.cleanup.confirmed, true); assert.equal(result.candidate?.state, 'withheld');
 });
 

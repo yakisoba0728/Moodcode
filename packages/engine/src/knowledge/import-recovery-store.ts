@@ -1102,8 +1102,11 @@ export class KnowledgeImportRecoveryStorage {
       fail("INVALID_KNOWLEDGE_IMPORT_RECOVERY_CLOCK");
     return now;
   }
-  private stamp(): string {
-    return new Date(this.now()).toISOString();
+  private stamp(...floors: (string | undefined)[]): string {
+    let time = this.now();
+    for (const floor of floors)
+      if (floor !== undefined) time = Math.max(time, Date.parse(floor));
+    return new Date(time).toISOString();
   }
   private binding(ws: string): KnowledgeHostBinding {
     const binding = scope(this.#ports.checkBinding(ws), ws),
@@ -1389,7 +1392,20 @@ export class KnowledgeImportRecoveryStorage {
         fail("INVALID_KNOWLEDGE_IMPORT_RECOVERY_PORTS");
       this.assertFresh(preview);
       const view = this.getFrontier(p.workspaceId)!;
-      const timestamp = this.stamp();
+      const prior = p.documentProof
+        ? this.getActivation(p.workspaceId, p.documentProof.documentKey)
+        : undefined;
+      // A resumed head's updatedAt is its resume decision time.
+      const timestamp = this.stamp(
+        view.head.updatedAt,
+        view.frontier.importedAt,
+        prior?.createdAt,
+      );
+      if (
+        p.operation === "activate" &&
+        Date.parse(timestamp) >= Date.parse(p.documentProof!.expiresAt!)
+      )
+        fail("KNOWLEDGE_IMPORT_RECOVERY_EXPIRED");
       const activationId = p.documentProof ? randomUUID() : null;
       const decision = signed({
         id: randomUUID(),

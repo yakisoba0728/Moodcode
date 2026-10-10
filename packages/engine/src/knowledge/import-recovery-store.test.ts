@@ -171,6 +171,71 @@ test("native seed/resume preserves raw paused history and resume does not activa
   );
   validateKnowledgeImportRecoveryDatabase(f.db);
 });
+test("a backwards clock step between native decisions keeps their timestamps ordered", (t) => {
+  const f = fixture(t),
+    acknowledged = f.native.commit(f.preview("acknowledge"), {
+      requestId: "acknowledge",
+      approved: true,
+      reason: "host acknowledged imported uncertainty",
+    });
+  f.state.now -= 60_000;
+  const resumed = f.native.commit(f.preview(), {
+    requestId: "resume",
+    approved: true,
+    reason: "host explicit resume",
+  });
+  assert.equal(resumed.decision.createdAt, acknowledged.decision.createdAt);
+  assert.equal(isKnowledgeImportPaused(f.db, "workspace"), false);
+  validateKnowledgeImportRecoveryDatabase(f.db);
+});
+test("activation rejects when a backwards clock step floors its commit time at or past the proof expiry", (t) => {
+  const f = fixture(t),
+    resumed = f.native.commit(f.preview(), {
+      requestId: "resume",
+      approved: true,
+      reason: "host explicit resume",
+    });
+  f.state.now -= 60_000;
+  const p = f.native.preview({
+      workspaceId: "workspace",
+      operation: "activate",
+      documentProof: {
+        documentKey: "document",
+        headRevision: 1,
+        headSha256: sha256("head"),
+        documentRevisionId: "document-revision",
+        documentSha256: sha256("document"),
+        publicationId: "publication",
+        publicationSha256: sha256("publication"),
+        receiptId: "receipt",
+        receiptSha256: sha256("receipt"),
+        provenanceSha256: sha256("provenance"),
+        sourceManifestSha256: sha256("source-manifest"),
+        originalBinding: f.binding(),
+        currentTrustId: "trust",
+        currentTrustRevision: 1,
+        currentTrustSha256: sha256("trust"),
+        expiresAt: resumed.decision.createdAt,
+      },
+      expiresAt: new Date(f.state.now + 30_000).toISOString(),
+    }),
+    before = f.rows();
+  assert.throws(
+    () =>
+      f.native.commit(p, {
+        requestId: "activate",
+        approved: true,
+        reason: "host explicit activation",
+      }),
+    code("KNOWLEDGE_IMPORT_RECOVERY_EXPIRED"),
+  );
+  assert.deepEqual(f.rows(), before);
+  assert.equal(
+    readActiveKnowledgeImportActivation(f.db, "workspace", "document"),
+    undefined,
+  );
+  validateKnowledgeImportRecoveryDatabase(f.db);
+});
 test("exact historical duplicate remains observable after release/expiry/binding change without another approval callback", (t) => {
   const f = fixture(t),
     p = f.preview(),

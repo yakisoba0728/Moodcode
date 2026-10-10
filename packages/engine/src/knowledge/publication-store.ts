@@ -1138,7 +1138,10 @@ export class KnowledgePublicationStorage {
         );
       this.active(capture);
       this.assertBinding(record.binding);
-      if (this.now() >= Date.parse(record.expiresAt))
+      const time = new Date(
+        this.now(Date.parse(record.updatedAt)),
+      ).toISOString();
+      if (Date.parse(time) >= Date.parse(record.expiresAt))
         knowledgeError(
           "KNOWLEDGE_PUBLICATION_EXPIRED",
           "Approval expired during current provenance checks",
@@ -1169,10 +1172,7 @@ export class KnowledgePublicationStorage {
             "Original active publication changed during revoke approval",
           );
       }
-      const time = new Date(
-          this.now(Date.parse(record.updatedAt)),
-        ).toISOString(),
-        document = validateDocument(
+      const document = validateDocument(
           hashed({
             id: randomUUID(),
             workspaceId: record.workspaceId,

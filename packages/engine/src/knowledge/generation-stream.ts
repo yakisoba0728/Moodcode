@@ -128,7 +128,7 @@ export async function streamKnowledgeGeneration(options: KnowledgeGenerationStre
   const request = validateHostGenerationRequest(options.request), budget = normalizeKnowledgeGenerationBudget(options.budget);
   const generate = method(options.provider, 'streamGeneration');
   if (!Number.isSafeInteger(options.deadline) || options.deadline < 0 || options.deadline > 8_640_000_000_000_000 || !generate || !options.signal || typeof options.signal.addEventListener !== 'function' || typeof options.onDispatch !== 'function' || typeof options.onObservation !== 'function' || typeof options.onSettlement !== 'function') fail('INVALID_KNOWLEDGE_GENERATION_STREAM');
-  const start = Date.now(), deadline = Math.min(options.deadline, start + budget.maxDurationMs), requestDeadline = Math.min(deadline, start + budget.providerRequestTimeoutMs), controller = new AbortController();
+  const start = Date.now(), deadline = Math.min(options.deadline, start + budget.maxDurationMs), requestDeadline = Math.min(deadline - budget.cleanupTimeoutMs, start + budget.providerRequestTimeoutMs), controller = new AbortController();
   let text = '', observedTextBytes = 0, retainedBytes = 0, observationBytes = 0, events = 0, usage = emptyUsage(), providerRequestId: string | null = null, finishReason: 'stop' | null = null, streamDone = false, outputTruncated = false;
   let iterator: AsyncIterator<unknown> | undefined, providerEntered = false, callbackFailed = false, errorCode: string | undefined, timeout: 'request' | 'inactivity' | undefined;
   let requestTimer: ReturnType<typeof setTimeout> | undefined, inactivityTimer: ReturnType<typeof setTimeout> | undefined;
