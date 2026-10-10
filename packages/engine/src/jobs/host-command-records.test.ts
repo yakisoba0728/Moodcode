@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
-import type { JsonObject } from '@moodcode/contracts';
+import type { JsonObject, JsonValue } from '@moodcode/contracts';
 import { knowledgeHash } from '../knowledge/validation.js';
 import { signJobData } from './validation.js';
 import { sandboxSign } from '../sandbox/types.js';
@@ -49,13 +49,13 @@ test('Windows host journal never accepts a Darwin-only sandbox launch', () => {
 });
 
 /** Real SQLite journal DATA; no command, OS process, or effect marker is created. */
-async function markerJournal(t: TestContext, options: { platform?: NodeJS.Platform; reserved?: boolean; approved?: boolean } = {}) {
+async function markerJournal(t: TestContext, options: { platform?: NodeJS.Platform; reserved?: boolean; approved?: boolean; files?: JsonValue[] } = {}) {
   const f = await jobFixture(t, { createTerminal: false, jobs: false });
   const journal = f.engine.store.createHostCommandStorage(), path = f.dbPath + '.effects.sqlite';
   const marker = { ...readExecutionLockReservation(reserveExecutionLock(path)) };
   const rootBinding = knowledgeHash({ workspaceId: f.workspace.id, root: f.root, database: f.dbPath });
   const append = () => {
-    const payload: JsonObject = { files: [], warnings: [] };
+    const payload: JsonObject = { files: options.files ?? [], warnings: [] };
     if (options.reserved !== false) payload.executionLock = { path, marker: { ...marker } };
     const previewBody = { version: 1 as const, workspaceId: f.workspace.id, sessionId: f.session.id,
       input: { command: 'unexecuted Windows journal DATA', cwd: f.root, timeoutMs: 1000 },
@@ -141,13 +141,27 @@ test('Windows marker recognition rejects imported history and SQLite prevents du
 });
 
 test('Windows marker recognition verifies the original SQLite approval witness instead of trusting its copied proof', async t => {
-  const f = await markerJournal(t);
-  assert.equal(f.known(), true);
-  const db = new DatabaseSync(f.dbPath);
-  try {
-    const changed = db.prepare("UPDATE session_events SET data=json_set(data,'$.payload.snapshot.executionLock.marker.ownerPid',?) WHERE session_id=? AND type='host.command.approval'")
-      .run(f.marker.ownerPid + 1, f.session.id);
-    assert.equal(changed.changes, 1);
-  } finally { db.close(); }
-  assert.throws(() => f.known(), { code: 'HOST_COMMAND_EVIDENCE_INVALID' });
+  const content = 'API_KEY=fixture\n', sha256 = createHash('sha256').update(content).digest('hex');
+  for (const [name, file] of [
+    ['content-free manifest', { path: '.env', sha256, bytes: Buffer.byteLength(content) }],
+    ['historical content-bearing snapshot', { path: '.env', content, sha256 }],
+  ] as const) await t.test(name, async t => {
+    const f = await markerJournal(t, { files: [file] });
+    assert.equal(f.known(), true);
+    const db = new DatabaseSync(f.dbPath);
+    try {
+      for (const [path, value] of [
+        ['$.payload.snapshot.executionLock.marker.ownerPid', f.marker.ownerPid + 1],
+        ['$.payload.snapshot.files[0].sha256', 'b'.repeat(64)],
+      ] as const) {
+        const original = db.prepare("SELECT seq,data FROM session_events WHERE session_id=? AND type='host.command.approval'").get(f.session.id)!;
+        const changed = db.prepare(`UPDATE session_events SET data=json_set(data,'${path}',?) WHERE session_id=? AND type='host.command.approval'`)
+          .run(value, f.session.id);
+        assert.equal(changed.changes, 1);
+        assert.throws(() => f.known(), { code: 'HOST_COMMAND_EVIDENCE_INVALID' }, path);
+        db.prepare('UPDATE session_events SET data=? WHERE session_id=? AND seq=?').run(original.data!, f.session.id, original.seq!);
+        assert.equal(f.known(), true);
+      }
+    } finally { db.close(); }
+  });
 });

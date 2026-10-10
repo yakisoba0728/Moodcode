@@ -461,13 +461,33 @@ function readRow(db: DatabaseSync, id: string): HostCommandRecord {
       })
     )
       failure();
-  if (r.kind === "closed")
+  if (r.kind === "closed") {
+    const witness = knowledgeHash(anchor(db, r, "host.command.closed"));
     if (
-      knowledgeHash(anchor(db, r, "host.command.closed")) !==
-      knowledgeHash({ jobId: r.jobId, pid: r.pid, completion: r.completion })
+      witness !== knowledgeHash(closedWitness(r)) &&
+      witness !==
+        knowledgeHash({ jobId: r.jobId, pid: r.pid, completion: r.completion })
     )
       failure();
+  }
   return r;
+}
+/** Closed event witness: changed-file bodies stay in the revision, bound by their hashes. */
+function closedWitness(r: HostCommandRecord): JsonObject {
+  const c = r.completion;
+  if (!c) failure();
+  return {
+    jobId: r.jobId,
+    pid: r.pid,
+    completion: {
+      ...c,
+      files: c.files.map(({ path, beforeHash, afterHash }) => ({
+        path,
+        beforeHash,
+        afterHash,
+      })),
+    } as unknown as JsonObject,
+  };
 }
 function anchor(db: DatabaseSync, r: HostCommandRecord, type: string): unknown {
   const hs = db
@@ -849,11 +869,11 @@ export class HostCommandStorage {
           previewFingerprint: record.preview.fingerprint,
         });
       if (record.kind === "closed")
-        this.ports.appendEvent(record.sessionId, "host.command.closed", {
-          jobId: record.jobId,
-          pid: record.pid,
-          completion: record.completion as unknown as JsonObject,
-        });
+        this.ports.appendEvent(
+          record.sessionId,
+          "host.command.closed",
+          closedWitness(record),
+        );
       if (previous)
         this.db
           .prepare(

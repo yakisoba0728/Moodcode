@@ -120,6 +120,7 @@ function cwdIdentity(path: string): string {
     ino: st.ino.toString(),
   });
 }
+/** Content-free before-effects manifest; capture may include ignored files. */
 function checkpointBefore(before: WorkspaceCapture): JsonObject {
   return jobJson(
     {
@@ -127,8 +128,8 @@ function checkpointBefore(before: WorkspaceCapture): JsonObject {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([path, file]) => ({
           path,
-          content: file.content,
           sha256: file.hash,
+          bytes: Buffer.byteLength(file.content),
         })),
       warnings: before.warnings,
     },

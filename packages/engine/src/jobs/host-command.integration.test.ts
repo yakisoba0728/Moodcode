@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -15,7 +15,10 @@ import {
   importEngineArchive,
 } from "../storage/archive.js";
 import { jobCommand, jobFixture, jobUntil } from "./fixtures/job.js";
-import type { HostCommandRecord } from "./host-command-records.js";
+import {
+  validateHostCommandDatabase,
+  type HostCommandRecord,
+} from "./host-command-records.js";
 const posix = {
   skip: !["darwin", "linux", "freebsd"].includes(process.platform),
   timeout: 25000,
@@ -414,6 +417,84 @@ test(
       assert.equal(f.counts().runs, 0);
       assert.equal(f.providerCalls.length, 0);
     }
+  },
+);
+
+test(
+  "approval and closed journals keep workspace file contents out while historical closed witnesses still validate",
+  posix,
+  async (t) => {
+    const f = await fixture(t),
+      secret = `API_KEY=host-secret-${randomUUID()}\n`,
+      effect = "Actual independent host effect\n",
+      sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
+    writeFileSync(join(f.root, ".env"), secret);
+    const closed = await f.complete(await f.start(await f.preview()));
+    assert.equal(closed.state, "completed");
+    assert.equal(
+      closed.completion?.files.find((v) => v.path === "host-effect.txt")?.after,
+      effect,
+    );
+    const db = new DatabaseSync(f.dbPath);
+    t.after(() => db.close());
+    const approved = JSON.parse(
+      String(
+        db
+          .prepare(
+            "SELECT data FROM host_command_revisions WHERE job_id=? AND revision=1",
+          )
+          .get(closed.jobId)!.data,
+      ),
+    );
+    assert.deepEqual(
+      approved.payload.files.find((v: { path: string }) => v.path === ".env"),
+      { path: ".env", sha256: sha256(secret), bytes: Buffer.byteLength(secret) },
+    );
+    for (const [table, text] of [
+      ["host_command_revisions", secret],
+      ["session_events", secret],
+      ["session_events", effect],
+    ] as const)
+      assert.equal(
+        Number(
+          db
+            .prepare(`SELECT count(*) n FROM ${table} WHERE instr(data,?)>0`)
+            .get(text)!.n,
+        ),
+        0,
+        `${table} retained ${JSON.stringify(text)}`,
+      );
+    const row = db
+        .prepare(
+          "SELECT seq,data FROM session_events WHERE type='host.command.closed' AND json_extract(data,'$.payload.jobId')=?",
+        )
+        .get(closed.jobId)!,
+      event = JSON.parse(String(row.data)),
+      witnessed = event.payload.completion.files.find(
+        (v: { path: string }) => v.path === "host-effect.txt",
+      );
+    assert.deepEqual(witnessed, {
+      path: "host-effect.txt",
+      beforeHash: null,
+      afterHash: sha256(effect),
+    });
+    const rewrite = (payload: unknown) =>
+      db
+        .prepare("UPDATE session_events SET data=? WHERE session_id=? AND seq=?")
+        .run(JSON.stringify({ ...event, payload }), f.session.id, row.seq!);
+    db.exec("BEGIN");
+    try {
+      rewrite({ ...event.payload, completion: closed.completion });
+      validateHostCommandDatabase(db);
+      witnessed.afterHash = "f".repeat(64);
+      rewrite(event.payload);
+      assert.throws(() => validateHostCommandDatabase(db), {
+        code: "HOST_COMMAND_EVIDENCE_INVALID",
+      });
+    } finally {
+      db.exec("ROLLBACK");
+    }
+    validateHostCommandDatabase(db);
   },
 );
 
