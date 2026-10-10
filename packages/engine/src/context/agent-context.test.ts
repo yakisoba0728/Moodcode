@@ -71,7 +71,7 @@ test('Plan/Build instructions communicate project/request priority, discovery, t
     assert.match(defaults.content, /approval denial and cancellation/);
     assert.match(defaults.content, /observed check results.*not run/);
     assert.match(defaults.content, mode === 'plan' ? /Current mode: Plan.*Do not apply file edits/ : /Current mode: Build.*required approval/);
-    assert.equal(result[0]?.content, 'Workspace instructions (AGENTS.md):\nPROJECT_GUIDANCE: use package-local checks.\n');
+    assert.equal(result[0]?.content, 'Workspace instructions (AGENTS.md):\n[Scope: workspace root; source: AGENTS.md]\nPROJECT_GUIDANCE: use package-local checks.\n');
     assert.deepEqual(result.at(-1), { role: 'user', content: current.content });
     assert.ok(bytes(result) <= request.config.limits.maxContextBytes);
   }

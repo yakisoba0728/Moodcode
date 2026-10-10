@@ -82,7 +82,7 @@ known conservative window remaining
 
 prepare는 before preview, expected-preview query, exact snippet reads, after preview를 결합한다. source/HEAD/branch/effective ignore/host routing 변경은 거부된다. `assertFresh`는 explicit query의 preview, 선택한 target의 ignore/hash, query generation/LSP document version을 다시 관측한 뒤 같은 capture인지 확인한다. 원래 prepare signal과 dispatch signal을 결합하므로 취소된 Run의 handle은 새 signal로 재사용할 수 없다.
 
-`ContextService.assertFresh(sessionId, messages, signal, runId?)`는 session capture의 merged message hash/context revision/Run owner를 검사하고 source freshness를 호출한다. 배열 clone은 같은 exact JSON이면 허용한다. await 중 같은 session이 다른 capture로 교체되어도 거부한다. map의 128개 한도를 넘겨 퇴거된 capture는 fail-closed다. `releaseRepositoryContext(sessionId, runId?)`는 지정한 owner만 제거한다.
+`ContextService.assertFresh(sessionId, messages, signal, runId?)`는 session capture의 merged message hash/context revision/Run owner를 검사하고 source freshness를 호출한다. 배열 clone은 같은 exact JSON이면 허용한다. await 중 같은 session이 다른 capture로 교체되어도 거부한다. map의 128개 한도를 넘겨 퇴거된 capture는 fail-closed다. `releaseContext(sessionId, runId?)`는 지정한 owner만 제거한다.
 
 현재 actual wiring은 다음 경계를 사용한다.
 

@@ -1,11 +1,10 @@
-import { constants } from 'node:fs';
-import { lstat, open } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
+import { isAbsolute } from 'node:path';
 import { EngineError, type JsonObject, type JsonValue, type Message, type ProviderReplay, type ProviderToolCall, type RunConfig } from '@moodcode/contracts';
 import { normalizeDocumentAttachments, normalizeMediaAttachments, normalizeImageAttachments } from '@moodcode/contracts/validation';
 import type { ContextRequest, ProviderMessage } from '../ports.js';
 import { agentInstructions } from './instructions.js';
 import { extractiveMemory, MAX_MEMORY_BYTES, MIN_MEMORY_BYTES, type MemorySource } from './memory.js';
+import { InstructionSources } from './sources.js';
 
 export { EXTRACTIVE_MEMORY_PREFIX } from './memory.js';
 export { AGENT_DEFAULTS_PREFIX } from './instructions.js';
@@ -246,59 +245,16 @@ function historyBlocks(request: ContextRequest): ContextBlock[] {
   return blocks;
 }
 
-function fsCode(error: unknown): string | undefined {
-  return isRecord(error) && typeof error.code === 'string' ? error.code : undefined;
-}
-
 async function readInstructions(request: ContextRequest): Promise<{ text: string; truncated: boolean } | undefined> {
   checkAbort(request.signal);
-  if (request.instructionSources !== undefined) {
-    const sections = request.instructionSources.filter(source => source.text !== null)
-      .map(source => `[Scope: ${source.scope || 'workspace root'}; source: ${source.path}]\n${source.text}`);
-    const combined = sections.join('\n\n');
-    if (!combined) return undefined;
-    const bytes = Buffer.from(combined);
-    const truncated = bytes.length > MAX_INSTRUCTION_BYTES;
-    return { text: new TextDecoder().decode(bytes.subarray(0, MAX_INSTRUCTION_BYTES), { stream: truncated }), truncated };
-  }
-  const path = join(request.workspace.root, 'AGENTS.md');
-  try {
-    const initial = await lstat(path);
-    checkAbort(request.signal);
-    if (!initial.isFile() || initial.isSymbolicLink()) return undefined;
-    // O_NOFOLLOW closes the symlink replacement race between lstat and open.
-    // O_NONBLOCK prevents a substituted FIFO from blocking engine cancellation.
-    const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-    try {
-      checkAbort(request.signal);
-      const info = await handle.stat();
-      checkAbort(request.signal);
-      if (!info.isFile() || info.dev !== initial.dev || info.ino !== initial.ino) {
-        throw new EngineError('CONTEXT_INSTRUCTIONS', 'Workspace instructions changed while being opened.');
-      }
-      const buffer = Buffer.alloc(MAX_INSTRUCTION_BYTES);
-      let bytes = 0;
-      while (bytes < buffer.length) {
-        checkAbort(request.signal);
-        const result = await handle.read(buffer, bytes, buffer.length - bytes, bytes);
-        checkAbort(request.signal);
-        if (result.bytesRead === 0) break;
-        bytes += result.bytesRead;
-      }
-      if (bytes === 0 || buffer.subarray(0, bytes).includes(0)) return undefined;
-      const truncated = info.size > bytes;
-      // Streaming decode excludes a partial UTF-8 codepoint at a bounded edge.
-      const text = new TextDecoder('utf-8').decode(buffer.subarray(0, bytes), { stream: truncated });
-      return text.length === 0 ? undefined : { text, truncated };
-    } finally {
-      await handle.close();
-    }
-  } catch (error) {
-    checkAbort(request.signal);
-    if (error instanceof EngineError) throw error;
-    if (['ENOENT', 'ENOTDIR', 'ELOOP'].includes(fsCode(error) ?? '')) return undefined;
-    throw new EngineError('CONTEXT_INSTRUCTIONS', 'Workspace instructions could not be read.');
-  }
+  const sources = request.instructionSources ?? (await new InstructionSources(request.workspace.root).observe([], request.signal)).sources;
+  const sections = sources.filter(source => source.text !== null)
+    .map(source => `[Scope: ${source.scope || 'workspace root'}; source: ${source.path}]\n${source.text}`);
+  const combined = sections.join('\n\n');
+  if (!combined) return undefined;
+  const bytes = Buffer.from(combined);
+  const truncated = bytes.length > MAX_INSTRUCTION_BYTES;
+  return { text: new TextDecoder().decode(bytes.subarray(0, MAX_INSTRUCTION_BYTES), { stream: truncated }), truncated };
 }
 
 function codepointPrefix(text: string, length: number): string {

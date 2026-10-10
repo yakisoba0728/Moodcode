@@ -44,9 +44,9 @@ runner의 예약 계산은 `Buffer.byteLength(JSON.stringify({messages: [], tool
 
 최근 user와 그 뒤의 모든 정상 assistant/tool 블록은 현재 요청의 필수 suffix다. 이 suffix가 예약 후 한도를 넘으면 `CONTEXT_LIMIT`로 실패하며 이미 실행한 tool result를 잘라 재실행을 유도하지 않는다. 남는 용량에 project instructions와 오래된 history suffix를 넣고, 이전 tool 블록은 통째로 제거한다. mandatory overflow 오류 details는 원래 `maxContextBytes`, `reservedBytes`, 남은 `availableContextBytes`, message의 `requiredBytes`를 구분한다.
 
-workspace root `AGENTS.md`만 읽는다. raw read와 최종 system content를 각각 최대 32 KiB로 제한하고, 전체 context 여유가 적으면 codepoint 경계를 지킨 instruction prefix와 truncation 표시를 넣는다. 파일이 없거나 비정규 파일·symlink이면 생략한다. open에 `O_NOFOLLOW | O_NONBLOCK`을 사용하며 lstat/open의 inode/dev를 재확인한다. NUL이 포함된 instruction 파일은 생략한다. nested AGENTS는 읽지 않는다.
+`instructionSources`가 없으면 `InstructionSources`로 workspace root `AGENTS.md`만 관측한다. 32 KiB를 넘거나 비정규 파일·symlink이거나 읽는 중 바뀌었거나 UTF-8이 아닌 파일은 생략한다. 합친 instruction text와 최종 system content는 최대 32 KiB이고, 전체 context 여유가 적으면 codepoint 경계를 지킨 instruction prefix와 truncation 표시를 넣는다. nested AGENTS는 읽지 않는다.
 
-AbortSignal을 구성 시작·history 순회·파일 await 전후·반환 직전에 확인하고 `CANCELLED`로 실패한다. workspace/session 불일치는 `INVALID_CONTEXT`, 예상하지 못한 instruction I/O나 파일 교체는 `CONTEXT_INSTRUCTIONS`다. 메시지 내용이나 native I/O 오류 원문을 에러에 복사하지 않는다.
+AbortSignal을 구성 시작·history 순회·파일 await 전후·반환 직전에 확인하고 `CANCELLED`로 실패한다. workspace/session 불일치는 `INVALID_CONTEXT`다. 읽을 수 없는 instruction source는 오류 없이 생략한다. 메시지 내용이나 native I/O 오류 원문을 에러에 복사하지 않는다.
 
 ## 실제 검증
 

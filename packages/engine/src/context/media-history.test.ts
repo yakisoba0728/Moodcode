@@ -35,7 +35,7 @@ test('disabled policy clones raw history, including more than four frames, and a
 
 test('opt-in omits only old pixels and emits complete reference provenance without changing user text', () => {
   const source = freeze(snapshot([user('goal', 'old', [ref(1)], '사용자 원문 🌊\r\nkeep this exact'), assistant('reply', 'old'), user('latest-image', 'current', [ref(2)]), user('latest-text', 'current', undefined, 'Latest steer text')])), before = structuredClone(source);
-  const result = projectMediaHistory(source, { policy, activeRunId: 'current', latestSteerMessageId: 'latest-text' });
+  const result = projectMediaHistory(source, { policy, activeRunId: 'current' });
   assert.equal(Object.hasOwn(result.snapshot.messages[0]!, 'attachments'), false); assert.equal(result.snapshot.messages[0]!.content, before.messages[0]!.content);
   assert.deepEqual(result.snapshot.messages.slice(1), before.messages.slice(1)); assert.deepEqual(source, before);
   assert.deepEqual(result.provenance, [{ version: 1, sessionId: 'session', runId: 'old', messageId: 'goal', sourceOrdinal: 1, sourceContentSha256: hash(before.messages[0]!.content), attachments: [ref(1)], pixels: 'unavailable-in-this-request', reason: 'host-reference-only-history', summarized: false, currentFileEvidence: false }]);
@@ -60,23 +60,17 @@ test('latest historical image remains mandatory when the current Run has only te
   assert.deepEqual(result.requiredTextMessageIds, ['goal', 'current-goal']); assert.equal(result.diagnostics.retainedImageOccurrences, 1);
 });
 
-test('explicit pixel pins retain old frames and still count repeated references as separate transport occurrences', () => {
-  const source = snapshot([user('a', 'old', [ref()]), user('b', 'old', [ref()]), user('latest', 'current', [ref()])]);
-  const result = projectMediaHistory(source, { policy, preservePixelMessageIds: ['a', 'b'] });
-  assert.equal(result.requiredNotice, null); assert.deepEqual(result.snapshot, source); assert.equal(result.diagnostics.retainedImageOccurrences, 3); assert.equal(result.diagnostics.uniqueRetainedImages, 1);
-  assert.equal(result.diagnostics.retainedImageBytes, ref().bytes * 3); assert.equal(result.diagnostics.omittedImageOccurrences, 0);
-});
-
-test('required pixel frame overflow fails rather than evicting latest pixels or silently deduplicating message blocks', () => {
+test('required pixel frame overflow fails rather than evicting latest pixels', () => {
   const source = freeze(snapshot([user('old', 'old', [ref(1), ref(2)]), user('latest', 'current', [ref(3), ref(4), ref(5)])])), before = structuredClone(source);
-  assert.throws(() => projectMediaHistory(source, { policy, preservePixelMessageIds: ['old'] }), errorCode('IMAGE_HISTORY_REQUIRED_LIMIT')); assert.deepEqual(source, before);
+  assert.throws(() => projectMediaHistory(source, { policy: { ...policy, maxImageOccurrences: 2 } }), errorCode('IMAGE_HISTORY_REQUIRED_LIMIT')); assert.deepEqual(source, before);
+  assert.equal(projectMediaHistory(source, { policy: { ...policy, maxImageOccurrences: 3 } }).diagnostics.retainedImageOccurrences, 3);
 });
 
-test('required decoded image byte caps can tighten independently of unique blob and frame counts', () => {
-  const source = snapshot([user('old', 'old', [ref()]), user('latest', 'current', [ref()])]);
-  assert.throws(() => projectMediaHistory(source, { policy: { ...policy, maxImageBytes: ref().bytes }, preservePixelMessageIds: ['old'] }), errorCode('IMAGE_HISTORY_REQUIRED_LIMIT'));
-  assert.throws(() => projectMediaHistory(source, { policy: { ...policy, maxImageOccurrences: 1 }, preservePixelMessageIds: ['old'] }), errorCode('IMAGE_HISTORY_REQUIRED_LIMIT'));
-  assert.equal(projectMediaHistory(source, { policy: { ...policy, maxImageBytes: ref().bytes } }).diagnostics.retainedImageBytes, ref().bytes);
+test('required decoded image byte caps can tighten independently of frame counts', () => {
+  const source = snapshot([user('old', 'old', [ref()]), user('latest', 'current', [ref(), ref(2)])]);
+  assert.throws(() => projectMediaHistory(source, { policy: { ...policy, maxImageBytes: ref().bytes } }), errorCode('IMAGE_HISTORY_REQUIRED_LIMIT'));
+  assert.throws(() => projectMediaHistory(source, { policy: { ...policy, maxImageOccurrences: 1 } }), errorCode('IMAGE_HISTORY_REQUIRED_LIMIT'));
+  assert.equal(projectMediaHistory(source, { policy: { ...policy, maxImageBytes: ref().bytes * 2 } }).diagnostics.retainedImageBytes, ref().bytes * 2);
 });
 
 test('metadata sidecar plus notice have an exact byte boundary and a conservative text estimate', () => {
@@ -115,19 +109,11 @@ test('foreign-session and duplicate message identities fail before derived metad
   assert.throws(() => projectMediaHistory(snapshot([user('duplicate', 'a'), user('duplicate', 'b')]), { policy }), errorCode('IMAGE_HISTORY_INVALID_SOURCE'));
 });
 
-test('initial goal, current initial goal, latest user and explicit latest steer text anchors are returned intact', () => {
+test('initial goal, current initial goal and latest user text anchors are returned intact', () => {
   const source = snapshot([user('original', 'past', [ref()]), user('current-original', 'current'), user('steer', 'current'), user('latest', 'current', [ref(2)])]);
-  const result = projectMediaHistory(source, { policy, activeRunId: 'current', latestSteerMessageId: 'steer' });
-  assert.deepEqual(result.requiredTextMessageIds, ['original', 'current-original', 'latest', 'steer']);
+  const result = projectMediaHistory(source, { policy, activeRunId: 'current' });
+  assert.deepEqual(result.requiredTextMessageIds, ['original', 'current-original', 'latest']);
   assert.deepEqual(result.snapshot.messages.map(message => message.content), source.messages.map(message => message.content));
-  for (const id of ['missing', 'original']) assert.throws(() => projectMediaHistory(source, { policy, activeRunId: 'current', latestSteerMessageId: id }), errorCode('IMAGE_HISTORY_INVALID_ANCHOR'));
-});
-
-test('pixel pins require exact image-bearing source user IDs and reject sparse/accessor lists', () => {
-  const source = snapshot([user('plain', 'old'), user('latest', 'current', [ref()])]);
-  for (const pins of [['missing'], ['plain'], ['latest', 'latest'], new Array(1)]) assert.throws(() => projectMediaHistory(source, { policy, preservePixelMessageIds: pins }), errorCode('IMAGE_HISTORY_INVALID_ANCHOR'));
-  let invoked = 0; const pins: string[] = []; pins.length = 1; Object.defineProperty(pins, '0', { enumerable: true, get() { invoked++; return 'latest'; } });
-  assert.throws(() => projectMediaHistory(source, { policy, preservePixelMessageIds: pins }), errorCode('IMAGE_HISTORY_INVALID_ANCHOR')); assert.equal(invoked, 0);
 });
 
 test('complete calls/results and opaque reasoning replay remain byte-for-byte while incomplete pairs are not anchors', () => {

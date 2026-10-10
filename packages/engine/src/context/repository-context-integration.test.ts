@@ -74,8 +74,8 @@ test('actual ContextService merges repository evidence, recalculates its plan an
   const changed = structuredClone(messages); changed.at(-1)!.content += 'altered';
   await assert.rejects(f.service.assertFresh('session', changed, signal(), f.run.id), errorCode('REPOSITORY_CONTEXT_STALE'));
   await assert.rejects(f.service.assertFresh('session', messages, signal(), 'other-run'), errorCode('REPOSITORY_CONTEXT_STALE'));
-  f.service.releaseRepositoryContext('session', 'other-run'); await f.service.assertFresh('session', messages, signal(), f.run.id);
-  f.service.releaseRepositoryContext('session', f.run.id);
+  f.service.releaseContext('session', 'other-run'); await f.service.assertFresh('session', messages, signal(), f.run.id);
+  f.service.releaseContext('session', f.run.id);
   await assert.rejects(f.service.assertFresh('session', messages, signal(), f.run.id), errorCode('REPOSITORY_CONTEXT_STALE'));
 });
 test('a tight actual ContextService preserves the mandatory current exchange and explicitly omits optional evidence', async t => {
@@ -134,7 +134,7 @@ test('the bounded session capture cache rejects an evicted handle and releases o
   }
   await assert.rejects(service.assertFresh('bounded-0', first, signal()), errorCode('REPOSITORY_CONTEXT_STALE'));
   await service.assertFresh('bounded-128', latest, signal());
-  service.releaseRepositoryContext('bounded-128');
+  service.releaseContext('bounded-128');
   await assert.rejects(service.assertFresh('bounded-128', latest, signal()), errorCode('REPOSITORY_CONTEXT_STALE'));
 });
 test('planner evidence reservation counts escaped JSON exactly and never splits the required tool exchange', async t => {

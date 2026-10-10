@@ -125,7 +125,6 @@ export class ContextService {
       if (captured.proposal) this.proposalContext!.source.release(captured.proposal);
     }
   }
-  releaseRepositoryContext(sessionId: string, runId?: string): void { this.releaseContext(sessionId, runId); }
   private reserveContextCapture(sessionId: string): symbol {
     if (this.contextReservations.has(sessionId)) throw new EngineError('CONTEXT_CAPTURE_BUSY', 'This session already has a context construction owner');
     const pending = [...this.contextReservations.keys()].filter(id => !this.contextCaptures.has(id)).length;

@@ -33,22 +33,22 @@ Codex 공개 main은 조회 시점의 SHA `0b863c69f50335acd92164aab971cb58d298c
 | source messages | 최대 512 | 이미 bounded 조회된 snapshot만 받음 |
 | opaque replay 검사 | 4,096 nodes/keys, depth 32 | metadata 탐색의 별도 상한 |
 
-`projectMediaHistory(snapshot, options, signal?)`의 options는 policy, activeRunId, latestSteerMessageId, preservePixelMessageIds다. 반환값은 다음과 같다.
+`projectMediaHistory(snapshot, options, signal?)`의 options는 policy, activeRunId다. 반환값은 다음과 같다.
 
 | 필드 | 계약 |
 | --- | --- |
 | snapshot | 전체 message 순서/ID/text/replay/calls/results를 clone. 선택하지 않은 오래된 user image attachments만 제거 |
 | requiredNotice | 생략이 있으면 assistant role의 quoted JSON 관측. 사용자 원문에는 marker를 덧붙이지 않음 |
 | provenance | old message/session/run ID, source window ordinal, 원문 content SHA, 모든 old exact image refs |
-| requiredTextMessageIds | snapshot 내 최초 goal, current 최초 user, current 최신 user, 호스트가 지정한 최신 steer |
+| requiredTextMessageIds | snapshot 내 최초 goal, current 최초 user, current 최신 user |
 | requiredExchangeMessageIds | current Run의 최신 complete assistant 및 contiguous call/result 묶음 |
 | diagnostics | 정책/source SHA, source/retained/omitted occurrence, retained decoded bytes/unique ID 수, metadata/notice bytes |
 
-source ordinal은 이 bounded snapshot 안에서의 순서이며 DB 전체의 journal ordinal이나 새 active cutoff가 아니다. 필수 goal/steer는 원문 text를 보존하는 요구이고, 오래된 goal의 픽셀까지 자동으로 필수라는 의미는 아니다. 호스트가 그 픽셀도 유지하려면 exact message ID를 preservePixelMessageIds에 넣는다. 최신 image-bearing user의 모든 image refs와 host pins는 항상 필수다. 최신 image-bearing user가 이전 Run에 있고 현재 Run은 text-only여도 최신 이미지 픽셀을 유지한다.
+source ordinal은 이 bounded snapshot 안에서의 순서이며 DB 전체의 journal ordinal이나 새 active cutoff가 아니다. 필수 goal/최신 user는 원문 text를 보존하는 요구이고, 오래된 goal의 픽셀까지 필수라는 의미는 아니다. 최신 image-bearing user의 모든 image refs는 항상 필수다. 최신 image-bearing user가 이전 Run에 있고 현재 Run은 text-only여도 최신 이미지 픽셀을 유지한다.
 
-오래된 reference의 provenance는 `pixels: unavailable-in-this-request`, `summarized:false`, `currentFileEvidence:false`를 명시한다. Notice는 `permissionOrInstruction:false`, `pixelScope:historical-message-occurrence`를 갖는다. 같은 exact image가 최신/pinned 메시지에서 별도로 전송되는 경우 그 픽셀은 retained occurrence에 있다. 따라서 old occurrence를 생략했다는 관측을 동일 이미지의 픽셀이 요청 전체에 없다는 주장으로 바꾸지 않는다. `older-exact-reference` reason은 이 경우의 identity 관계만 표시하며 이미지의 의미나 모델이 본 사실을 추정하지 않는다.
+오래된 reference의 provenance는 `pixels: unavailable-in-this-request`, `summarized:false`, `currentFileEvidence:false`를 명시한다. Notice는 `permissionOrInstruction:false`, `pixelScope:historical-message-occurrence`를 갖는다. 같은 exact image가 최신 메시지에서 별도로 전송되는 경우 그 픽셀은 retained occurrence에 있다. 따라서 old occurrence를 생략했다는 관측을 동일 이미지의 픽셀이 요청 전체에 없다는 주장으로 바꾸지 않는다. `older-exact-reference` reason은 이 경우의 identity 관계만 표시하며 이미지의 의미나 모델이 본 사실을 추정하지 않는다.
 
-source의 refs에 ID/hash/bytes/MIME 충돌이 있으면 old pixels를 생략해도 숨기지 않고 거부한다. session 불일치, duplicate message ID, invalid imported refs, 접근자, sparse arrays도 거부한다. 필요한 최신/pinned 픽셀이 상한을 넘으면 `IMAGE_HISTORY_REQUIRED_LIMIT`, 전체 provenance/notice를 byte budget에 넣을 수 없으면 `IMAGE_HISTORY_METADATA_LIMIT`을 반환한다. 부분 provenance나 일부 필수 픽셀만 남겨 성공하지 않는다.
+source의 refs에 ID/hash/bytes/MIME 충돌이 있으면 old pixels를 생략해도 숨기지 않고 거부한다. session 불일치, duplicate message ID, invalid imported refs, 접근자, sparse arrays도 거부한다. 필요한 최신 픽셀이 상한을 넘으면 `IMAGE_HISTORY_REQUIRED_LIMIT`, 전체 provenance/notice를 byte budget에 넣을 수 없으면 `IMAGE_HISTORY_METADATA_LIMIT`을 반환한다. 부분 provenance나 일부 필수 픽셀만 남겨 성공하지 않는다.
 
 opaque replay는 추론하거나 재작성하지 않는다. known image/audio/video-shaped replay는 imported image reference와 같은 예산으로 계산할 수 없으므로 정책 활성 시 `IMAGE_HISTORY_REPLAY_MEDIA_UNSUPPORTED`로 거부한다. 그 외 native reasoning/signature metadata는 원형 clone하고 문자열 속 단어를 이미지 의미로 해석하지 않는다. Replay를 plain transcript나 model-visible summary에 추가하지 않는다.
 

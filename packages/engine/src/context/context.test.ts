@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type JsonObject, type Message, type ProviderReplay, type ProviderToolCall, type SessionSnapshot, type Workspace } from '@moodcode/contracts';
 import type { ContextRequest, ProviderMessage, ProviderTool } from '../ports.js';
 import { AGENT_DEFAULTS_PREFIX, buildContext as buildAgentContext, EXTRACTIVE_MEMORY_PREFIX } from './index.js';
 import { agentInstructions } from './instructions.js';
+import type { InstructionSource } from './sources.js';
 
 const DEFAULTS_ENTRY_BYTES = Buffer.byteLength(JSON.stringify(agentInstructions('plan')), 'utf8') + 1;
 
@@ -102,10 +103,14 @@ test('buildContext includes root AGENTS.md before history and ignores nested ins
   assert.deepEqual(messages.filter((message) => message.role !== 'system'), [{ role: 'user', content: 'Implement the feature' }]);
 });
 
-test('buildContext bounds project instructions even when AGENTS.md is much larger than 32 KiB', async (t) => {
+test('buildContext leaves out an AGENTS.md over 32 KiB and bounds combined instruction sources', async (t) => {
   const request = await fixture(t, [history('user', 'Keep this request')]);
   await writeFile(join(request.workspace.root, 'AGENTS.md'), '지침 😀\n'.repeat(20_000) + 'UNBOUNDED_INSTRUCTION_TAIL');
+  assert.deepEqual(await buildContext(request), [{ role: 'user', content: 'Keep this request' }]);
 
+  const source = (path: string, text: string): InstructionSource => ({ id: `instruction:${path}`, path, scope: dirname(path) === '.' ? '' : dirname(path),
+    status: 'available', text, sha256: 'a'.repeat(64), observedAt: createdAt, retainedBaseline: false });
+  request.instructionSources = [source('AGENTS.md', '지침 😀\n'.repeat(2_000)), source(join('src', 'AGENTS.md'), '지침 😀\n'.repeat(2_000) + 'UNBOUNDED_INSTRUCTION_TAIL')];
   const messages: ProviderMessage[] = await buildContext(request);
   const instructions = messages.filter((message) => message.role === 'system');
   assert.ok(instructions.length > 0);
@@ -119,7 +124,7 @@ test('buildContext bounds project instructions even when AGENTS.md is much large
 
 test('buildContext keeps the latest user request when optional instructions exceed the total budget', async (t) => {
   const request = await fixture(t, [history('user', 'Required request 😀')], 256);
-  await writeFile(join(request.workspace.root, 'AGENTS.md'), 'Long optional instruction.\n'.repeat(4_000));
+  await writeFile(join(request.workspace.root, 'AGENTS.md'), 'Long optional instruction.\n'.repeat(1_000));
 
   const messages: ProviderMessage[] = await buildContext(request);
   assert.ok(jsonBytes(messages) <= 256);

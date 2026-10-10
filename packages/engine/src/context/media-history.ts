@@ -16,8 +16,6 @@ export interface MediaHistoryPolicy {
 export interface MediaHistoryOptions {
   policy?: MediaHistoryPolicy;
   activeRunId?: string;
-  latestSteerMessageId?: string;
-  preservePixelMessageIds?: readonly string[];
 }
 export interface ImageHistoryProvenance {
   version: 1;
@@ -133,17 +131,17 @@ export function projectMediaHistory(source: SessionSnapshot, options: MediaHisto
   const policy = validateMediaHistoryPolicy(options.policy);
   if (!dataRecord(source) || !dataRecord(source.session) || !identifier(source.session.id) || !Array.isArray(source.messages) || source.messages.length > MEDIA_HISTORY_LIMITS.maxSourceMessages
       || Reflect.ownKeys(source.messages).length !== source.messages.length + 1) fail('IMAGE_HISTORY_SOURCE_LIMIT', 'Image history requires a bounded dense source snapshot');
-  if (options.activeRunId !== undefined && !identifier(options.activeRunId) || options.latestSteerMessageId !== undefined && !identifier(options.latestSteerMessageId)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history owner identifiers must be bounded');
-  const imageRefs = new Map<string, InputImageAttachment[]>(), identities = new Map<string, InputImageAttachment>(), messagesById = new Map<string, Message>();
+  if (options.activeRunId !== undefined && !identifier(options.activeRunId)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history owner identifiers must be bounded');
+  const imageRefs = new Map<string, InputImageAttachment[]>(), identities = new Map<string, InputImageAttachment>(), messageIds = new Set<string>();
   let sourceOccurrences = 0;
   for (let index = 0; index < source.messages.length; index++) {
     checkAbort(signal);
     const descriptor = Object.getOwnPropertyDescriptor(source.messages, String(index));
     if (!descriptor || !('value' in descriptor)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history cannot contain sparse messages or accessors');
     const message: Message = descriptor.value;
-    if (!dataRecord(message) || !identifier(message.id) || !identifier(message.runId) || message.sessionId !== source.session.id || !['user', 'assistant', 'tool'].includes(message.role) || typeof message.content !== 'string' || messagesById.has(message.id)
+    if (!dataRecord(message) || !identifier(message.id) || !identifier(message.runId) || message.sessionId !== source.session.id || !['user', 'assistant', 'tool'].includes(message.role) || typeof message.content !== 'string' || messageIds.has(message.id)
         || message.toolCalls !== undefined && !Array.isArray(message.toolCalls)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history messages must have exact same-session identities');
-    messagesById.set(message.id, message);
+    messageIds.add(message.id);
     if (message.providerReplay !== undefined) inspectReplay(message.providerReplay, signal);
     if (message.attachments === undefined) continue;
     let refs: InputImageAttachment[];
@@ -154,24 +152,14 @@ export function projectMediaHistory(source: SessionSnapshot, options: MediaHisto
   }
   const users = source.messages.filter(message => message.role === 'user'), activeUsers = users.filter(message => options.activeRunId === undefined || message.runId === options.activeRunId);
   const requiredText = new Set([users[0]?.id, activeUsers[0]?.id, activeUsers.at(-1)?.id].filter((id): id is string => !!id));
-  if (options.latestSteerMessageId !== undefined) {
-    const steer = messagesById.get(options.latestSteerMessageId);
-    if (steer?.role !== 'user' || options.activeRunId !== undefined && steer.runId !== options.activeRunId) fail('IMAGE_HISTORY_INVALID_ANCHOR', 'Latest steer must identify a present user message in the active Run');
-    requiredText.add(steer.id);
-  }
-  const preserve = options.preservePixelMessageIds ?? [];
-  if (!Array.isArray(preserve) || preserve.length > DEFAULT_IMAGE_LIMITS.maxInputImages || Reflect.ownKeys(preserve).length !== preserve.length + 1
-      || Array.from({ length: preserve.length }, (_, index) => Object.getOwnPropertyDescriptor(preserve, String(index))).some(descriptor => !descriptor?.enumerable || !('value' in descriptor))
-      || new Set(preserve).size !== preserve.length || preserve.some(id => !identifier(id) || !imageRefs.has(id))) fail('IMAGE_HISTORY_INVALID_ANCHOR', 'Pixel preservation requires exact present image-bearing user message identities');
-  const requiredPixels = new Set(preserve), latestImageId = source.messages.findLast(message => imageRefs.has(message.id))?.id;
-  if (latestImageId) requiredPixels.add(latestImageId);
+  const latestImageId = source.messages.findLast(message => imageRefs.has(message.id))?.id;
   const retained = new Map<string, InputImageAttachment>(); let retainedOccurrences = 0, retainedBytes = 0;
-  for (const id of requiredPixels) for (const ref of imageRefs.get(id)!) { retainedOccurrences++; retainedBytes += ref.bytes; retained.set(ref.id, ref); }
-  if (retainedOccurrences > policy.maxImageOccurrences || retainedBytes > policy.maxImageBytes) fail('IMAGE_HISTORY_REQUIRED_LIMIT', 'Required latest or host-pinned pixels exceed the request image frame or decoded-byte bound');
+  for (const ref of latestImageId ? imageRefs.get(latestImageId)! : []) { retainedOccurrences++; retainedBytes += ref.bytes; retained.set(ref.id, ref); }
+  if (retainedOccurrences > policy.maxImageOccurrences || retainedBytes > policy.maxImageBytes) fail('IMAGE_HISTORY_REQUIRED_LIMIT', 'Required latest pixels exceed the request image frame or decoded-byte bound');
   const snapshot = structuredClone(source), provenance: ImageHistoryProvenance[] = [];
   for (let index = 0; index < snapshot.messages.length; index++) {
     checkAbort(signal); const message = snapshot.messages[index]!, refs = imageRefs.get(message.id);
-    if (!refs || requiredPixels.has(message.id)) continue;
+    if (!refs || message.id === latestImageId) continue;
     // Keep the exact text, identity, chronology and surrounding replay/tool pairs.
     delete message.attachments;
     provenance.push({ version: 1, sessionId: source.session.id, runId: message.runId, messageId: message.id, sourceOrdinal: index + 1,
