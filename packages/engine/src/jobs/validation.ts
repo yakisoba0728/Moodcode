@@ -233,7 +233,6 @@ export function validateTerminalJobSourceProof(
   digest(p);
   return p as unknown as TerminalJobSourceProof;
 }
-export const validateTerminalSourcePin = validateTerminalJobSourceProof;
 export function validateJobOwnerProof(value: unknown): JobOwnerProof {
   const p = jobObject(value, [
     "workspaceId",

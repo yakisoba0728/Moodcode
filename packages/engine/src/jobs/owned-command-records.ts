@@ -86,9 +86,7 @@ export interface OwnedCommandJobValidationOptions {
 export interface OwnedCommandJobControlOptions {
   /** Native putSessionDocument in the caller's existing primary transaction. */
   readonly writeDocument: OwnedCommandJobWriteDocument;
-  readonly now?: () => number;
 }
-export type OwnedCommandJobDatabase = DatabaseSync;
 
 export const OWNED_COMMAND_JOB_LIMITS = Object.freeze({
   jobs: 128,
@@ -899,7 +897,7 @@ function control(
           )
             ? "COMMAND_JOB_CLEANUP_UNCERTAIN"
             : errorCode,
-        updatedAt: new Date(options.now?.() ?? Date.now()).toISOString(),
+        updatedAt: new Date().toISOString(),
       }),
     );
     const written = jobJson(

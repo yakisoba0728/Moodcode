@@ -88,16 +88,14 @@ export interface HostCommandDeliveryPorts {
     payload: JsonObject,
     refs: { inputId: string },
   ): unknown;
-  readonly now?: () => number;
 }
 export interface HostCommandDeliveryControlOptions {
   writeDocument: HostCommandDeliveryPorts["writeDocument"];
-  readonly now?: () => number;
 }
 export interface HostCommandDeliveryValidationOptions {
   readonly check?: () => void;
 }
-export const HOST_COMMAND_DELIVERY_LIMITS = Object.freeze({
+const HOST_COMMAND_DELIVERY_LIMITS = Object.freeze({
   deliveries: 128,
   documents: 256,
   bytes: 16_777_216,
@@ -141,7 +139,7 @@ function inputData(value: unknown): HostCommandDeliveryInput {
   if (p.expectedRevision !== 0) fail("REVISION_CONFLICT");
   return p as unknown as HostCommandDeliveryInput;
 }
-export function hostCommandDeliveryId(
+function hostCommandDeliveryId(
   workspaceId: string,
   jobId: string,
   jobDigest: string,
@@ -156,11 +154,11 @@ export function hostCommandDeliveryId(
     jobDigest,
   ]);
 }
-export function hostCommandDeliveryKind(deliveryId: string): string {
+function hostCommandDeliveryKind(deliveryId: string): string {
   jobIdentifier(deliveryId);
   return `host.command.delivery.${knowledgeHash(deliveryId).slice(0, 32)}`;
 }
-export function hostCommandInputKind(inputId: string): string {
+function hostCommandInputKind(inputId: string): string {
   jobIdentifier(inputId);
   return `host.command.input.${knowledgeHash(inputId).slice(0, 32)}`;
 }
@@ -814,7 +812,7 @@ export function deliverHostCommandResultAtomic(
     fail("HOST_COMMAND_DELIVERY_STALE");
   const prompt = formatHostCommandJobResult(proof.settled, proof),
     inputRequestId = `host-command-result:${x.jobId}:${proof.jobSha256}`;
-  const at = new Date(ports.now?.() ?? Date.now()).toISOString();
+  const at = new Date().toISOString();
   // Reject metadata/output bounds before producing an actual input.
   jobJson(
     { proof, prompt, inputRequestId, requestId: x.requestId },
@@ -914,7 +912,7 @@ export function pauseImportedHostCommandDeliveries(
   let count = 0;
   for (const before of readHostCommandDeliveries(db, workspaceId)) {
     if (before.state === "paused-import") continue;
-    const at = new Date(options.now?.() ?? Date.now()).toISOString();
+    const at = new Date().toISOString();
     const { sha256: _sha, ...body } = before;
     const next = validateHostCommandDeliveryRecord(
       signJobData(

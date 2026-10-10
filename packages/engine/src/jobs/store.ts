@@ -82,7 +82,7 @@ export interface JobStoragePorts {
   assertOwnerCurrent(
     original: object,
     expected: JobOwnerProof,
-    phase: "attach" | "observe" | "deliver",
+    phase: "attach" | "observe",
   ): void;
   readSource(original: object): TerminalJobSourceProof;
   assertSourceCurrent(
@@ -639,9 +639,6 @@ function proofSql(db: DatabaseSync, r: JobRecord): void {
     });
   if (r.kind === "delivery") acceptedSql(db, r);
 }
-function state(r: JobRecord): string {
-  return r.state;
-}
 function assertOutputProgress(
   cursor: JobOutputCursor | null,
   page: JobOutputPage,
@@ -927,9 +924,6 @@ export class JobStorage {
     return hs.map((h) =>
       this.read<JobOutputRevision>(ws, String(h.id), "output"),
     );
-  }
-  inspectOutputs(ws: string, jobId: string): JobOutputRevision[] {
-    return this.readOutputs(ws, jobId, 0, 32);
   }
   inspectDeliveries(ws: string): JobDelivery[] {
     const hs = this.db
@@ -1645,17 +1639,6 @@ export class JobStorage {
       prompt: x.prompt,
     });
   }
-  private accepted(
-    originalTarget: object,
-    originalAccepted: object,
-    value: MutateJobDeliveryInput,
-    op: "delivery-accepted" | "delivery-reconcile",
-  ): JobRequestResult<JobDelivery> {
-    const x = input(value, [...mutationFields, "deliveryId"]);
-    return this.ports.writeTx(() =>
-      this.acceptedDelivery(originalTarget, originalAccepted, x, op),
-    );
-  }
   private acceptedDelivery(
     originalTarget: object,
     originalAccepted: object,
@@ -1688,23 +1671,14 @@ export class JobStorage {
     originalAccepted: object,
     value: MutateJobDeliveryInput,
   ): JobRequestResult<JobDelivery> {
-    return this.accepted(
-      originalTarget,
-      originalAccepted,
-      value,
-      "delivery-accepted",
-    );
-  }
-  reconcileJobDelivery(
-    originalTarget: object,
-    originalAccepted: object,
-    value: MutateJobDeliveryInput,
-  ): JobRequestResult<JobDelivery> {
-    return this.accepted(
-      originalTarget,
-      originalAccepted,
-      value,
-      "delivery-reconcile",
+    const x = input(value, [...mutationFields, "deliveryId"]);
+    return this.ports.writeTx(() =>
+      this.acceptedDelivery(
+        originalTarget,
+        originalAccepted,
+        x,
+        "delivery-accepted",
+      ),
     );
   }
   abandonJobDelivery(
@@ -2023,7 +1997,7 @@ export class JobStorage {
   }
 }
 
-function metadataPorts(db: DatabaseSync): JobStoragePorts {
+function metadataPorts(): JobStoragePorts {
   const unavailable = (): never => fail("JOB_ORIGINAL_REQUIRED");
   return {
     writeTx: (op) => op(),
@@ -2056,13 +2030,12 @@ export function validateJobDatabase(
   options: { check?: () => void } = {},
 ): void {
   options.check?.();
-  new JobStorage(db, metadataPorts(db)).validateGraph();
+  new JobStorage(db, metadataPorts()).validateGraph();
   options.check?.();
 }
-export const validateJobsDatabase = validateJobDatabase;
-export function recoverInterruptedJobs(db: DatabaseSync): number {
+function recoverInterruptedJobs(db: DatabaseSync): number {
   return transaction(db, () =>
-    new JobStorage(db, metadataPorts(db)).rewriteLocal("recover"),
+    new JobStorage(db, metadataPorts()).rewriteLocal("recover"),
   );
 }
 export function markImportedJobsPaused(
@@ -2071,7 +2044,7 @@ export function markImportedJobsPaused(
   workspaceId?: string,
 ): number {
   return transaction(db, () =>
-    new JobStorage(db, metadataPorts(db)).rewriteLocal(
+    new JobStorage(db, metadataPorts()).rewriteLocal(
       "pause-import",
       archiveSha,
       workspaceId,

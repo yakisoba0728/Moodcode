@@ -3,12 +3,7 @@ import { isAbsolute, posix } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import { knowledgeHash, sha256 } from "../knowledge/validation.js";
-import {
-  jobIdentifier,
-  jobJson,
-  jobObject,
-  signJobData,
-} from "./validation.js";
+import { jobIdentifier, jobObject, signJobData } from "./validation.js";
 import type {
   CommandInput,
   PhysicalCommandResult,
@@ -672,7 +667,7 @@ export function readHostCommand(
   }
   return result;
 }
-export function inspectHostCommands(
+function inspectHostCommands(
   db: DatabaseSync,
   workspaceId?: string,
 ): readonly HostCommandRecord[] {

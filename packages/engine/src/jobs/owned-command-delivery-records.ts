@@ -86,16 +86,14 @@ export interface OwnedCommandDeliveryPorts {
     payload: JsonObject,
     refs: { inputId: string },
   ): unknown;
-  readonly now?: () => number;
 }
 export interface OwnedCommandDeliveryControlOptions {
   writeDocument: OwnedCommandDeliveryPorts["writeDocument"];
-  readonly now?: () => number;
 }
 export interface OwnedCommandDeliveryValidationOptions {
   readonly check?: () => void;
 }
-export const OWNED_COMMAND_DELIVERY_LIMITS = Object.freeze({
+const OWNED_COMMAND_DELIVERY_LIMITS = Object.freeze({
   deliveries: 128,
   documents: 256,
   bytes: 16_777_216,
@@ -139,7 +137,7 @@ function inputData(value: unknown): OwnedCommandDeliveryInput {
   if (p.expectedRevision !== 0) fail("REVISION_CONFLICT");
   return p as unknown as OwnedCommandDeliveryInput;
 }
-export function ownedCommandDeliveryId(
+function ownedCommandDeliveryId(
   workspaceId: string,
   jobId: string,
   jobDigest: string,
@@ -929,7 +927,7 @@ export function deliverOwnedCommandResultAtomic(
     fail("OWNED_COMMAND_DELIVERY_STALE");
   const prompt = formatOwnedCommandJobResult(proof.settled, proof),
     inputRequestId = `owned-command-result:${x.jobId}:${proof.jobSha256}`;
-  const at = new Date(ports.now?.() ?? Date.now()).toISOString();
+  const at = new Date().toISOString();
   // Reject metadata/output bounds before producing an actual input.
   jobJson(
     { proof, prompt, inputRequestId, requestId: x.requestId },
@@ -1029,7 +1027,7 @@ export function pauseImportedOwnedCommandDeliveries(
   let count = 0;
   for (const before of readOwnedCommandDeliveries(db, workspaceId)) {
     if (before.state === "paused-import") continue;
-    const at = new Date(options.now?.() ?? Date.now()).toISOString();
+    const at = new Date().toISOString();
     const { sha256: _sha, ...body } = before;
     const next = validateOwnedCommandDeliveryRecord(
       signJobData(

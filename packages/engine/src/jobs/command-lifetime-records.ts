@@ -1,8 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
-import { EngineError} from "@moodcode/contracts";
+import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
 import {
-  jobJson,
   jobObject,
   jobIdentifier,
   jobSha256,
@@ -216,18 +215,19 @@ export function readCommandLifetimes(
   db: DatabaseSync,
   workspaceId?: string,
 ): CommandLifetimeRecord[] {
+  const kinds = `${COMMAND_LIFETIME_PREFIX}*`;
   const cap = db
     .prepare(
-      "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM session_documents WHERE kind GLOB 'command.lifetime.*'",
+      "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM session_documents WHERE kind GLOB ?",
     )
-    .get()!;
+    .get(kinds)!;
   if (Number(cap.n) > 128 || Number(cap.bytes) > 2097152) fail();
   const rows = db
     .prepare(
-      "SELECT d.session_id,d.revision,d.data,s.workspace_id,d.kind FROM session_documents d JOIN sessions s ON s.id=d.session_id WHERE d.kind GLOB 'command.lifetime.*'" +
+      "SELECT d.session_id,d.revision,d.data,s.workspace_id,d.kind FROM session_documents d JOIN sessions s ON s.id=d.session_id WHERE d.kind GLOB ?" +
         (workspaceId ? " AND s.workspace_id=?" : ""),
     )
-    .all(...(workspaceId ? [workspaceId] : []));
+    .all(kinds, ...(workspaceId ? [workspaceId] : []));
   return rows.map((h) => {
     const r = validateCommandLifetimeRecord(JSON.parse(String(h.data)));
     if (
