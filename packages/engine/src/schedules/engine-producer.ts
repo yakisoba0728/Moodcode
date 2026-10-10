@@ -16,10 +16,7 @@ import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { ToolCatalogue } from "../tools/runtime/index.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
-import type {
-  ActualScheduleInputPort,
-  ActualScheduleOwnerPort,
-} from "./host.js";
+import type { ActualScheduleInputPort } from "./host.js";
 import { scheduleHostError, scheduleHostRecord } from "./host.js";
 import type {
   ScheduleAcceptedInputProof,
@@ -621,25 +618,14 @@ export class EngineScheduleProducer {
   beforeProviderDispatch(run: Run): void {
     this.beforePromotion(this.engine.store.getInput(run.inputId));
   }
-  ownerPort(): ActualScheduleOwnerPort {
-    return {
-      capture: (id) => this.captureWorker(id),
-      read: (value) => this.readWorker(value),
-      assertCurrent: (value, expected, phase) =>
-        this.assertWorkerCurrent(value, expected, phase),
-      release: (value) => this.release(value),
-    };
-  }
   inputPort(): ActualScheduleInputPort {
     return {
       capture: (claim, request) => this.captureInput(claim, request),
       readTarget: (value) => this.readTarget(value),
       assertCurrent: (value) => this.assertInputCurrent(value),
       accept: (value) => this.acceptInput(value),
-      readAccepted: (value) => this.readAcceptedInput(value),
       captureObservation: (value) => this.captureInputObservation(value),
       observe: (value) => this.observeInput(value),
-      readObservation: (value) => this.readInputObservation(value),
       release: (value) => this.release(value),
     };
   }

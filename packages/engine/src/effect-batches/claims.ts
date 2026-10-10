@@ -71,7 +71,7 @@ export async function assertPreparedResourceCurrent(
     );
   await c.fresh(signal);
 }
-export function conflictingResources(
+function conflictingResources(
   a: PreparedResourceClaim | null,
   b: PreparedResourceClaim | null,
 ): boolean {

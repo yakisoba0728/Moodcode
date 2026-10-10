@@ -1,4 +1,3 @@
-import type { JsonObject } from "@moodcode/contracts";
 export interface PreparedResourceClaim {
   readonly version: 1;
   readonly producer: "physical-patch";
@@ -81,4 +80,3 @@ export interface EffectBatchRecord {
   readonly createdAt: string;
   readonly sha256: string;
 }
-export const effectBatchData = (value: unknown) => value as JsonObject;

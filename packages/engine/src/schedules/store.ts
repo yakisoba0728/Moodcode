@@ -18,6 +18,8 @@ import {
 } from "../knowledge/validation.js";
 import { requestIdentity } from "../storage/native-schema.js";
 import type {
+  ScheduleDueBatch,
+  ScheduleDueCursor,
   ScheduleSpec,
   ScheduleSpecInput,
   ScheduleOccurrenceCandidate,
@@ -104,8 +106,8 @@ export interface ScheduleStoragePorts {
   ): void;
   readAcceptedInput(original: object): ScheduleAcceptedInputProof;
   readInputObservation(original: object): ScheduleInputObservationProof;
-  readDueBatch?(original: object): ScheduleDueBatchProof;
-  assertDueBatchCurrent?(
+  readDueBatch(original: object): ScheduleDueBatchProof;
+  assertDueBatchCurrent(
     original: object,
     proof: ScheduleDueBatchProof,
     spec: ScheduleSpec,
@@ -135,7 +137,7 @@ interface Revision {
 export interface ScheduleRevision extends Revision {
   readonly scheduleId: string;
   readonly spec: ScheduleSpec;
-  readonly cursor: import("./types.js").ScheduleDueCursor | null;
+  readonly cursor: ScheduleDueCursor | null;
   readonly due: ScheduleDueBatchProof | null;
   readonly target: ScheduleTargetProof;
   readonly worker: SchedulerWorkerProof | null;
@@ -271,7 +273,7 @@ export interface ScheduleDueBatchProof {
   readonly scheduleRevisionId: string;
   readonly scheduleSha256: string;
   readonly previousCursorSha256: string;
-  readonly batch: import("./types.js").ScheduleDueBatch;
+  readonly batch: ScheduleDueBatch;
   readonly sha256: string;
 }
 export interface AdvanceScheduleDueInput extends DisableScheduleInput {}
@@ -1146,11 +1148,6 @@ export class ScheduleStorage {
     });
     return { ...result, lease };
   }
-  readLease(original: object): SchedulerLease {
-    const cap = this.leases.get(original);
-    if (!cap) fail("SCHEDULE_ORIGINAL_REQUIRED");
-    return json(cap.lease);
-  }
   renewLease(
     original: object,
     input: AcquireSchedulerLeaseInput,
@@ -1803,9 +1800,6 @@ export class ScheduleStorage {
       knowledgeHash(run.config) !== knowledgeHash(record.config)
     )
       fail("SCHEDULE_INPUT_INVALID");
-    if (proof.usage !== null) {
-      for (const value of Object.values(proof.usage)) integer(value);
-    }
   }
   settleObserved(
     original: object,
@@ -2035,9 +2029,12 @@ export class ScheduleStorage {
         occurrences:
           duplicate.record.due?.batch.occurrences
             .map((candidate) =>
-              this.getOccurrence(safe.workspaceId, candidate.occurrenceId)!,
+              this.getOccurrence(safe.workspaceId, candidate.occurrenceId),
             )
-            .filter(Boolean) ?? [],
+            .filter(
+              (occurrence): occurrence is TriggerOccurrence =>
+                occurrence !== undefined,
+            ) ?? [],
       };
     return this.ports.writeTx(() => {
       const worker = this.worker(originalWorker, "dispatch"),
@@ -2046,9 +2043,7 @@ export class ScheduleStorage {
         !before ||
         before.revision !== safe.expectedRevision ||
         !before.spec.enabled ||
-        worker.workspaceId !== safe.workspaceId ||
-        !this.ports.readDueBatch ||
-        !this.ports.assertDueBatchCurrent
+        worker.workspaceId !== safe.workspaceId
       )
         fail("SCHEDULE_DUE_STALE");
       const proof = digest(this.ports.readDueBatch(originalDue));
@@ -2630,6 +2625,8 @@ function historical(db: DatabaseSync): ScheduleStorage {
     assertTriggerCurrent: denied,
     readAcceptedInput: denied,
     readInputObservation: denied,
+    readDueBatch: denied,
+    assertDueBatchCurrent: denied,
   });
 }
 export function validateScheduleDatabase(

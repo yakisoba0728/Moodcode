@@ -12,7 +12,7 @@ export const EFFECT_BATCH_LIMITS = Object.freeze({
   nativeBytes: 131072,
   revisions: 32,
 });
-export const effectBatchKind = (id: string) => `effect.batch.${id}`;
+const effectBatchKind = (id: string) => `effect.batch.${id}`;
 const fail = (): never => {
   throw new EngineError(
     "EFFECT_BATCH_EVIDENCE_INVALID",
@@ -373,7 +373,7 @@ export function readEffectBatch(
     )
       fail();
     const event = JSON.parse(String(row.data)),
-      p = validateEffectBatch(event.payload?.record ?? event.record);
+      p = validateEffectBatch(event.payload?.record);
     if (
       p.id !== id ||
       p.revision !== (prior?.revision ?? 0) + 1 ||

@@ -9,30 +9,7 @@ import {
   scheduleSha,
   validateScheduleTarget,
 } from "./spec.js";
-import type {
-  ScheduleAcceptedInputProof,
-  ScheduleClaimImage,
-  ScheduleInputObservationProof,
-  ScheduleTargetProof,
-  SchedulerWorkerProof,
-} from "./store.js";
-
-export type {
-  ScheduleAcceptedInputProof,
-  ScheduleInputObservationProof,
-} from "./store.js";
-
-/** This root lifetime issues worker capabilities; native lease expiry cannot prove Run termination. */
-export interface ActualScheduleOwnerPort {
-  capture(workspaceId: string): object;
-  read(originalWorker: object): SchedulerWorkerProof;
-  assertCurrent(
-    originalWorker: object,
-    expected: SchedulerWorkerProof,
-    phase: "dispatch" | "observe",
-  ): void;
-  release(originalWorker: object): void;
-}
+import type { ScheduleClaimImage, ScheduleTargetProof } from "./store.js";
 
 /** Every returned object is issued by the actual root InputScheduler/storage producer. */
 export interface ActualScheduleInputPort {
@@ -44,11 +21,9 @@ export interface ActualScheduleInputPort {
   assertCurrent(originalTarget: object): void;
   /** Synchronous durable queue acceptance. Configuration is privately pinned by capture. */
   accept(originalTarget: object): object;
-  readAccepted(originalAccepted: object): ScheduleAcceptedInputProof;
   captureObservation(originalObservation: object): object;
   /** One bounded native observation; never starts, resumes or cancels a Run. */
   observe(originalTarget: object): object;
-  readObservation(originalObserved: object): ScheduleInputObservationProof;
   release(original: object): void;
 }
 
@@ -302,9 +277,6 @@ export class ScheduleHost {
     const binding = this.original(original);
     return this.ports.input.accept(binding.originalTarget);
   }
-  readAccepted(original: object): ScheduleAcceptedInputProof {
-    return scheduleJson(this.ports.input.readAccepted(original));
-  }
   observe(original: object, signal?: AbortSignal): object {
     const binding = this.original(original);
     if (binding.authority !== "observe")
@@ -312,9 +284,6 @@ export class ScheduleHost {
     scheduleHostAbort(signal);
     this.ports.native.assertClaimCurrent(binding.originalNative, "observe");
     return this.ports.input.observe(binding.originalTarget);
-  }
-  readObserved(original: object): ScheduleInputObservationProof {
-    return scheduleJson(this.ports.input.readObservation(original));
   }
   releaseProduced(original: object): void {
     this.ports.input.release(original);
