@@ -14,7 +14,7 @@ function limit(message: string): never { throw new EngineError('ACTIVE_PREFIX_SO
 const object = (value: unknown): value is JsonObject => !!value && typeof value === 'object' && !Array.isArray(value);
 const string = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value);
 const ids = (value: unknown, max = 1024): value is string[] => Array.isArray(value) && value.length <= max && value.every(string) && new Set(value).size === value.length;
-export function activePrefixCanonical(value: unknown): string {
+function activePrefixCanonical(value: unknown): string {
   if (Array.isArray(value)) return '[' + value.map(activePrefixCanonical).join(',') + ']';
   if (value !== null && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + activePrefixCanonical((value as Record<string, unknown>)[key])).join(',') + '}';
   const encoded = JSON.stringify(value); if (encoded === undefined) mismatch('Active-prefix values must be JSON'); return encoded;

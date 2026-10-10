@@ -4,7 +4,7 @@ import { EngineError, type EngineEvent, type JsonObject, type Run, type ToolCall
 import { validateMessagePart, validateProviderAttempt, validateTurnRecord } from '@moodcode/contracts/validation';
 import { canonical } from '../recovery/snapshot.js';
 import { readEvidenceBody, withEvidenceRead, type EvidenceTable } from './evidence-read.js';
-import type { McpExecutionRecord } from './mcp-executions.js';
+import { toolProposalSha256, type McpExecutionRecord } from './mcp-executions.js';
 import type { NativeSessionStorage } from './native.js';
 
 export const TOOL_RECOVERY_FRONTIER_LIMITS = Object.freeze({ maxCandidates: 1024, pageSize: 64, maxOwnerBytes: 1_048_576 });
@@ -159,7 +159,7 @@ export function captureToolRecoveryFrontiers(native: NativeSessionStorage, optio
         }
         if ((!sameAttemptClientEffect&&(turn.state !== 'awaiting_tools' || attempt.state !== 'completed')) || part.state !== 'open') fail('UNSETTLED_OWNER','Unresolved running tools require an active awaiting-tools owner; terminal states cannot be rewritten');
         const frontier: ToolRecoveryFrontier = {schemaVersion:1,scope:'native-running-tool-intent',sessionId:run.sessionId,workspaceId:run.workspaceId,runId:run.id,turnId:turn.id,attemptId:attempt.id,toolCallId:tool.id,toolName:tool.name,proposalPartId:part.id,providerId:attempt.providerId,modelId:attempt.modelId,
-          ...(attempt.contextRevisionId ? {contextRevisionId:attempt.contextRevisionId} : {}),originalToolOrdinal:cursor,originalToolState:'running',toolRecordSha256:digest(tool),proposalSha256:digest(Object.fromEntries(Object.entries(part).filter(([key])=>!['state','revision','completedAt','result'].includes(key)))),turnRecordSha256:digest(turn),attemptRecordSha256:digest(attempt),capturedAt:new Date().toISOString(),effectOutcome:'unknown',callbackEntry:'unverified'};
+          ...(attempt.contextRevisionId ? {contextRevisionId:attempt.contextRevisionId} : {}),originalToolOrdinal:cursor,originalToolState:'running',toolRecordSha256:digest(tool),proposalSha256:toolProposalSha256(part),turnRecordSha256:digest(turn),attemptRecordSha256:digest(attempt),capturedAt:new Date().toISOString(),effectOutcome:'unknown',callbackEntry:'unverified'};
         const payload = {frontier:JSON.parse(JSON.stringify(frontier)) as JsonObject};
         audits.push({run,type:'tool.recovery_frontier',payload,turnId:turn.id,attemptId:attempt.id});
         const previous = result.get(turn.id) ?? []; previous.push(frontier); result.set(turn.id,previous);

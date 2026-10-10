@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { types } from 'node:util';
-import { EngineError, isTerminal, type ApprovalRecord, type EngineEvent, type JsonObject, type Run, type ToolCallRecord} from '@moodcode/contracts';
+import { EngineError, isTerminal, type ApprovalRecord, type EngineEvent, type JsonObject, type MessagePart, type Run, type ToolCallRecord} from '@moodcode/contracts';
 import { validateMessagePart, validateProviderAttempt, validateTurnRecord } from '@moodcode/contracts/validation';
 import { NativeSessionStorage } from './native.js';
 import { invalidateEvidenceRead, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
@@ -133,7 +133,7 @@ function toObservation(value: McpExecutionRecord): McpExecutionSettlement {
   return { outcome: value.state as McpExecutionSettlement['outcome'], reason: value.reason!, transportCleanupConfirmed: value.transportCleanupConfirmed!,
     ...Object.fromEntries(['errorCode','responseKind','responseSha256','responseBytes','isError'].filter(key => value[key as keyof McpExecutionRecord] !== undefined).map(key => [key,value[key as keyof McpExecutionRecord]])) };
 }
-export function canonicalMcpExecutionSha256(value: McpExecutionRecord): string { validateRecord(value); return digest(value); }
+export function toolProposalSha256(part: MessagePart): string { return digest(Object.fromEntries(Object.entries(part).filter(([key]) => !['state','revision','completedAt','result'].includes(key)))); }
 
 /** A tools/call receipt records local dispatch intent and a peer-declared outcome, never remote acceptance or abort. */
 export class McpExecutionStorage {
@@ -182,8 +182,7 @@ export class McpExecutionStorage {
     const part = validateMessagePart(parse(readEvidenceBody(this.db,{table:'message_parts',key:String(header.id),projection:'mcp-proposal-v1'},{expectedBytes:size(header.bytes,MCP_EXECUTION_LIMITS.maxOwnerBytes),maxBytes:MCP_EXECUTION_LIMITS.maxOwnerBytes})));
     if (part.type !== 'tool' || part.id !== header.id || part.sessionId !== input.sessionId || part.runId !== input.runId || part.turnId !== input.turnId || part.messageId !== header.message_id || part.index !== header.part_index || part.revision !== header.revision || part.state !== header.state
       || part.toolCallId !== input.toolCallId || part.name !== input.toolName || canonical(part.input) !== canonical(tool.input)) fail('BINDING_MISMATCH', 'MCP native proposal and ToolRecord disagree');
-    const proposal = Object.fromEntries(Object.entries(part).filter(([key]) => !['state','revision','completedAt','result'].includes(key)));
-    return { run,turn,attempt,tool,part,proposalPartId:part.id,proposalSha256:digest(proposal),approvalSha256:digest(approval) };
+    return { run,turn,attempt,tool,part,proposalPartId:part.id,proposalSha256:toolProposalSha256(part),approvalSha256:digest(approval) };
   }
   private read(toolCallId: string, expectedSessionId?: string) {
     if (!id(toolCallId) || expectedSessionId !== undefined && !id(expectedSessionId)) fail('INVALID','MCP receipt lookup requires bounded identities');

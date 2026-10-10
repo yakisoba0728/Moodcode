@@ -1,16 +1,14 @@
-import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { EngineError, type ExecutionUncertainty, type TurnRecord } from '@moodcode/contracts';
 import { validateTurnRecord } from '@moodcode/contracts/validation';
 import type { SqliteStore } from './index.js';
-import { canonical } from '../recovery/snapshot.js';
+import { canonicalAttemptCleanupSha256 } from './attempt-cleanup.js';
 import { readEvidenceBody } from './evidence-read.js';
 import { hasMcpExecutionUncertainty } from './mcp-executions.js';
 
-export const EXECUTION_UNCERTAINTY_LIMITS = Object.freeze({ maxTurns: 64, maxOwnerBytes: 1_048_576, maxSelectedTurnPayloadBytes: 8_388_608 });
+const EXECUTION_UNCERTAINTY_LIMITS = Object.freeze({ maxTurns: 64, maxOwnerBytes: 1_048_576, maxSelectedTurnPayloadBytes: 8_388_608 });
 type Dependency = NonNullable<ExecutionUncertainty['summaryDependency']>;
 type Store = Pick<SqliteStore, 'getAttemptCleanup' | 'getSummaryAttempt' | 'getTurn' | 'getAttempt'>;
-export function cleanupRecordSha256(value: unknown): string { return createHash('sha256').update(canonical(value)).digest('hex'); }
 function mismatch(): never { throw new EngineError('SUMMARY_OVERFLOW_BINDING_MISMATCH', 'Summary uncertainty requires its exact failed ordinary attempt and confirmed cleanup'); }
 function ownerProbe(db: DatabaseSync, table: 'session_turns' | 'provider_attempts', id: string) {
   const row = db.prepare(`SELECT id,session_id,run_id,state,length(CAST(data AS BLOB)) AS bytes FROM ${table} WHERE id=?`).get(id);
@@ -37,7 +35,7 @@ export function summaryOverflowDependency(db: DatabaseSync, store: Store, summar
     || cleanup.sessionId !== turn.sessionId || cleanup.runId !== turn.runId || cleanup.workspaceId !== summary.workspaceId
     || cleanup.providerId !== attempt.providerId || cleanup.modelId !== attempt.modelId || cleanup.contextRevisionId !== attempt.contextRevisionId
     || !cleanup.settledAt || Date.parse(summary.createdAt) < Date.parse(cleanup.settledAt)) mismatch();
-  return { summaryAttemptId, failedAttemptId, cleanupRecordSha256: cleanupRecordSha256(cleanup) };
+  return { summaryAttemptId, failedAttemptId, cleanupRecordSha256: canonicalAttemptCleanupSha256(cleanup) };
 }
 
 /** Bounded persisted blockers remain effective across process restarts and other sessions. */

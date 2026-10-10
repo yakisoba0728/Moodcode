@@ -10,7 +10,7 @@ const primaryKeys = {
   context_revisions: 'id', session_documents: 'session_id', summary_recovery_acknowledgments: 'id', provider_recovery_acknowledgments: 'id',
 } as const;
 export type EvidenceTable = keyof typeof primaryKeys;
-export type EvidenceProjection = 'data' | 'summary-metadata-v1' | 'context-owner-v1' | 'mcp-proposal-v1';
+export type EvidenceProjection = 'data' | 'summary-metadata-v1' | 'mcp-proposal-v1';
 export interface EvidenceAddress { table: EvidenceTable; key: string | readonly [sessionId: string, kind: string]; projection?: EvidenceProjection }
 export interface EvidenceBodyBounds { expectedBytes?: number; maxBytes: number }
 interface Frame { bytes: number; exhausted: boolean; epoch?: string; cache: Map<string, { raw: string; bytes: number }> }
@@ -30,8 +30,8 @@ function address(value: EvidenceAddress): { table: EvidenceTable; parameters: st
   plain(value, ['table','key','projection'], ['table','key']);
   if (typeof value.table !== 'string' || !Object.hasOwn(primaryKeys, value.table)) fail('INVALID_REQUEST', 'Evidence reads require a known primary table');
   const table = value.table as EvidenceTable, projection = Object.hasOwn(value, 'projection') ? value.projection : 'data';
-  if (typeof projection !== 'string' || !['data','summary-metadata-v1','context-owner-v1','mcp-proposal-v1'].includes(projection) || projection === 'summary-metadata-v1' && table !== 'summary_attempts'
-    || projection === 'context-owner-v1' && table !== 'context_revisions' || projection === 'mcp-proposal-v1' && table !== 'message_parts') fail('INVALID_REQUEST', 'Evidence reads require a known table projection');
+  if (typeof projection !== 'string' || !['data','summary-metadata-v1','mcp-proposal-v1'].includes(projection) || projection === 'summary-metadata-v1' && table !== 'summary_attempts'
+    || projection === 'mcp-proposal-v1' && table !== 'message_parts') fail('INVALID_REQUEST', 'Evidence reads require a known table projection');
   let parameters: string[], where: string;
   if (table === 'session_documents') {
     if (!Array.isArray(value.key) || types.isProxy(value.key) || value.key.length !== 2) fail('INVALID_REQUEST', 'Session document evidence requires its exact composite key');
@@ -43,8 +43,7 @@ function address(value: EvidenceAddress): { table: EvidenceTable; parameters: st
     if (!identifier(value.key)) fail('INVALID_REQUEST', 'Evidence reads require a bounded primary identity');
     parameters = [value.key]; where = `${primaryKeys[table]}=?`;
   }
-  const expression = projection === 'summary-metadata-v1' ? "json_remove(data,'$.partialText')" : projection === 'context-owner-v1'
-    ? "json_object('id',json_extract(data,'$.id'),'sessionId',json_extract(data,'$.sessionId'),'runId',json_extract(data,'$.runId'),'turnId',json_extract(data,'$.turnId'))" : projection === 'mcp-proposal-v1' ? "json_remove(data,'$.result')" : 'data';
+  const expression = projection === 'summary-metadata-v1' ? "json_remove(data,'$.partialText')" : projection === 'mcp-proposal-v1' ? "json_remove(data,'$.result')" : 'data';
   return { table, parameters, where, projection: projection as EvidenceProjection, expression, cacheKey: JSON.stringify([table, parameters, projection]) };
 }
 function observedEpoch(db: DatabaseSync): string {

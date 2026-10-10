@@ -4,7 +4,7 @@ import test, { type TestContext } from 'node:test';
 import type { DatabaseSync } from 'node:sqlite';
 import { DEFAULT_LIMITS, EngineError, type ApprovalRecord, type MessagePart, type ProviderAttempt, type ToolCallRecord, type TurnRecord } from '@moodcode/contracts';
 import { SqliteStore } from './index.js';
-import { MCP_EXECUTION_LIMITS, canonicalMcpExecutionSha256, hasMcpExecutionUncertainty, type McpExecutionIdentity, type McpExecutionSettlement } from './mcp-executions.js';
+import { MCP_EXECUTION_LIMITS, hasMcpExecutionUncertainty, type McpExecutionIdentity, type McpExecutionSettlement } from './mcp-executions.js';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const code = (expected: string) => (error: unknown) => error instanceof EngineError && error.code === expected;
@@ -240,11 +240,4 @@ test('startup settlement and original v1 interruption roll back together on jour
   f.db.exec("CREATE TRIGGER fail_mcp_recovery BEFORE INSERT ON events WHEN NEW.type='mcp.execution.uncertain' BEGIN SELECT RAISE(ABORT,'mcp recovery fixture'); END");
   assert.throws(()=>f.store.recoverInterrupted(),/mcp recovery fixture/u);assert.deepEqual(f.db.prepare('SELECT data FROM mcp_executions').all(),before);assert.deepEqual(f.store.getRun(f.run.id),run);assert.deepEqual(f.store.getTurn('turn'),turn);assert.deepEqual(f.store.readEvents('session',0),events);
   f.db.exec('DROP TRIGGER fail_mcp_recovery');f.store.recoverInterrupted();assert.equal(f.store.getMcpExecution(f.tool.id).state,'uncertain');
-});
-
-test('canonical receipt digest is order-independent and terminal source pins remain immutable',t=>{
-  const f=fixture(t);f.dispatch();const receipt=f.store.settleMcpExecution(f.tool.id,f.terminal);
-  assert.equal(canonicalMcpExecutionSha256(receipt),canonicalMcpExecutionSha256(Object.fromEntries(Object.entries(receipt).reverse()) as typeof receipt));
-  assert.notEqual(canonicalMcpExecutionSha256(receipt),canonicalMcpExecutionSha256({...receipt,requestSha256:hash('other')}));
-  assert.throws(()=>canonicalMcpExecutionSha256(new Proxy(receipt,{})),code('MCP_EXECUTION_INVALID'));
 });

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import test, { type TestContext } from 'node:test';
 import { EngineError, type Run, type RunConfig } from '@moodcode/contracts';
 import { createEngine, type EngineOptions, type MoodcodeEngine } from '../engine.js';
+import { canonical } from '../recovery/snapshot.js';
 import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
 import { DB_VERSION } from '../storage/migrations.js';
 import type { AttemptCleanupRecord } from '../storage/attempt-cleanup.js';
@@ -234,6 +235,7 @@ async function overflowFixture(t: TestContext) {
   assert.equal(turn.state, 'uncertain'); assert.equal(turn.uncertainty?.kind, 'cleanup');
   assert.equal(turn.uncertainty?.summaryDependency?.summaryAttemptId, summaryId); assert.equal(turn.uncertainty?.summaryDependency?.failedAttemptId, ordinary.attemptId);
   assert.match(turn.uncertainty?.summaryDependency?.cleanupRecordSha256 ?? '', /^[a-f0-9]{64}$/u);
+  assert.equal(turn.uncertainty?.summaryDependency?.cleanupRecordSha256, createHash('sha256').update(canonical(proof)).digest('hex'));
   const summary = f.engine.store.getSummaryAttempt(summaryId, 'session'); assert.equal(summary.state, 'uncertain'); assert.equal(summary.cleanupConfirmed, false); assert.equal(summary.currentTurnId, ordinary.turnId); assert.equal(summary.failedAttemptId, ordinary.attemptId);
   assertBlocked(f); return { f, ordinary, summaryId, proof, turn, summary, run };
 }

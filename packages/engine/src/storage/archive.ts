@@ -64,8 +64,8 @@ import { buildArchivedChildDocumentStorageReport, validateArchivedChildDocumentS
   type ArchivedChildDocumentStorageRequest, type ArchivedChildDocumentStorageReport } from '../diagnostics/archive-child-documents.js';
 type DocumentFrame = ReturnType<typeof createChildDocumentReadFrame>;
 
-export const ENGINE_ARCHIVE_VERSION = 1;
-export const ENGINE_ARCHIVE_LIMITS = Object.freeze({ maxFiles: 4096, maxFileBytes: 268_435_456, maxTotalBytes: 536_870_912, maxManifestBytes: 4_194_304 });
+const ENGINE_ARCHIVE_VERSION = 1;
+const ENGINE_ARCHIVE_LIMITS = Object.freeze({ maxFiles: 4096, maxFileBytes: 268_435_456, maxTotalBytes: 536_870_912, maxManifestBytes: 4_194_304 });
 type Role = 'primary' | 'review' | 'ledger' | 'effect';
 const databaseFiles: Record<Role, string> = { primary: 'engine.sqlite', review: 'engine.sqlite.review.sqlite', ledger: 'engine.sqlite.recovery.sqlite', effect: 'engine.sqlite.effects.sqlite' };
 const primaryTables = ['workspaces', 'sessions', 'inputs', 'runs', 'messages', 'tools', 'approvals', 'checkpoints', 'events'];

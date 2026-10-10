@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { SESSION_SCHEMA_VERSION, type AcceptInput, type InputRecord, type Run, type SessionEventV2 } from '@moodcode/contracts';
 
 /** Independent v2 identities and sequence; the existing Run-owned v1 journal is unchanged. */
-export const NATIVE_SESSION_SCHEMA = `
+const NATIVE_SESSION_SCHEMA = `
   CREATE INDEX model_messages_run ON messages(run_id,ordinal);
   CREATE INDEX model_tools_run ON tools(run_id,ordinal);
   CREATE INDEX model_approvals_run ON approvals(run_id,ordinal);

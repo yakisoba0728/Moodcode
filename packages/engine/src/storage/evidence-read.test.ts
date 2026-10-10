@@ -16,7 +16,7 @@ function fixture(t: TestContext, path = ':memory:') {
     CREATE TABLE session_documents(session_id TEXT,kind TEXT,data TEXT,PRIMARY KEY(session_id,kind));`);
   db.prepare('INSERT INTO messages VALUES(?,?,?)').run('message','session',JSON.stringify({ text: 'original' }));
   const prepare = db.prepare.bind(db), bodies: string[] = [];
-  db.prepare = ((sql: string) => { if (/^SELECT (?:data FROM|json_remove\(|json_object\()/u.test(sql)) bodies.push(sql); return prepare(sql); }) as typeof db.prepare;
+  db.prepare = ((sql: string) => { if (/^SELECT (?:data FROM|json_remove\()/u.test(sql)) bodies.push(sql); return prepare(sql); }) as typeof db.prepare;
   t.after(() => db.close());
   const read = (maxBytes = 1024, expectedBytes?: number) => readEvidenceBody(db, { table: 'messages', key: 'message' }, { maxBytes, ...(expectedBytes === undefined ? {} : { expectedBytes }) });
   function transaction<T>(operation: () => T) { db.exec('BEGIN'); try { const result = withEvidenceRead(db, operation); db.exec('COMMIT'); return result; } catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); throw error; } }
@@ -108,7 +108,7 @@ test('COMMIT/BEGIN with an external same-size update cannot reuse the earlier sn
   }); f.db.exec('COMMIT'); assert.equal(hasEvidenceRead(f.db),false);
 });
 
-test('summary text-free and context owner projections use distinct bounded cache keys', t => {
+test('summary text-free projection uses distinct bounded cache keys and context owner projection is rejected', t => {
   const f = fixture(t), summary = { id:'summary',state:'uncertain',partialText:'private-partial'.repeat(4096) };
   f.db.prepare('INSERT INTO summary_attempts VALUES(?,?)').run('summary',JSON.stringify(summary));
   f.db.prepare('INSERT INTO context_revisions VALUES(?,?)').run('context',JSON.stringify({id:'context',sessionId:'session',runId:'run',text:'large-context'.repeat(4096)}));
@@ -117,7 +117,7 @@ test('summary text-free and context owner projections use distinct bounded cache
     const metadata = () => readEvidenceBody(f.db,{table:'summary_attempts',key:'summary',projection:'summary-metadata-v1'},{maxBytes:1024});
     assert.equal(JSON.parse(metadata()!).partialText,undefined); metadata(); assert.equal(f.bodies.length,1);
     const raw = readEvidenceBody(f.db,{table:'summary_attempts',key:'summary'},{maxBytes:1_048_576}); assert.equal(JSON.parse(raw!).partialText,summary.partialText); assert.equal(f.bodies.length,2);
-    const owner = readEvidenceBody(f.db,{table:'context_revisions',key:'context',projection:'context-owner-v1'},{maxBytes:1024}); assert.deepEqual(JSON.parse(owner!),{id:'context',sessionId:'session',runId:'run',turnId:null});
+    assert.throws(() => readEvidenceBody(f.db,{table:'context_revisions',key:'context',projection:'context-owner-v1'} as never,{maxBytes:1024}),code('INVALID_REQUEST')); assert.equal(f.bodies.length,2);
     assert.equal(readEvidenceBody(f.db,{table:'session_documents',key:['session','context.head']},{maxBytes:1024}),'{"revisionId":"context"}');
   });
 });
