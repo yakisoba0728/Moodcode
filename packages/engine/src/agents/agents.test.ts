@@ -18,3 +18,20 @@ test('profile model, instructions, tools and allowance have an immutable revisio
   assert.notEqual(profiles.apply('s', { ...config, agentProfileRevision: undefined }).agentProfileRevision, revision);
   assert.throws(() => profiles.register({ id: 'bad', description: '', instructions: '', tools: ['read_file', 'read_file'] }));
 });
+
+test('profile model accepts only provider, model and reasoning, so Plan mode and user limits survive selection', t => {
+  const store = new SqliteStore(':memory:'); t.after(() => store.close()); const createdAt = new Date().toISOString();
+  store.putWorkspace({ id: 'w', root: process.cwd(), gitRoot: process.cwd(), branch: null, createdAt }); store.createSession({ id: 's', workspaceId: 'w', title: 'profiles', createdAt });
+  const profiles = new AgentProfiles(store);
+  const base = { id: 'review', description: 'Read changes', instructions: 'Check current files before conclusions.' };
+  const model = { providerId: 'fixture', modelId: 'review-model' };
+  for (const extra of [{ mode: 'build' }, { limits: { maxToolCalls: 1024, maxDurationMs: 3_600_000 } }]) {
+    assert.throws(() => profiles.register({ ...base, model: { ...model, ...extra } } as never), { code: 'INVALID_AGENT_PROFILE' });
+  }
+  assert.throws(() => profiles.register({ ...base, model: { ...model, reasoningEffort: 'extreme' } } as never), { code: 'INVALID_INPUT' });
+  assert.deepEqual(profiles.list(), []);
+  profiles.register({ ...base, model: { ...model, reasoningEffort: 'high' } });
+  const selected = profiles.apply('s', { providerId: 'scripted', modelId: 'local', mode: 'plan', limits: { ...DEFAULT_LIMITS, maxToolCalls: 5 }, agentProfileId: 'review' });
+  assert.equal(selected.mode, 'plan'); assert.equal(selected.limits.maxToolCalls, 5);
+  assert.equal(selected.providerId, 'fixture'); assert.equal(selected.modelId, 'review-model'); assert.equal(selected.reasoningEffort, 'high');
+});

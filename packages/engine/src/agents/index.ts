@@ -10,6 +10,7 @@ export interface AgentProfileSpec {
   turnAllowance?: number;
 }
 export interface AgentProfile extends AgentProfileSpec { revision: string }
+const MODEL_KEYS: readonly string[] = ['providerId', 'modelId', 'reasoningEffort'];
 const key = (id: string, revision: string) => `profile.${createHash('sha256').update(JSON.stringify([id, revision])).digest('hex').slice(0, 32)}`;
 /** A profile supplies execution configuration; Plan/Build remains an independent safety mode. */
 export class AgentProfiles {
@@ -23,7 +24,10 @@ export class AgentProfiles {
       || typeof profile.instructions !== 'string' || Buffer.byteLength(profile.instructions) > 32_768
       || profile.tools !== undefined && (!Array.isArray(profile.tools) || profile.tools.length > 256 || new Set(profile.tools).size !== profile.tools.length || profile.tools.some(name => typeof name !== 'string' || !/^[A-Za-z0-9_.-]{1,128}$/.test(name)))
       || profile.turnAllowance !== undefined && (!Number.isSafeInteger(profile.turnAllowance) || profile.turnAllowance < 1 || profile.turnAllowance > 10_000)) throw new EngineError('INVALID_AGENT_PROFILE', 'Profile identity, instructions, tools or allowance are invalid');
-    if (profile.model !== undefined) normalizeSubmitInput({ sessionId: 'validation', requestId: 'validation', prompt: 'validation', config: profile.model });
+    if (profile.model !== undefined) {
+      if (profile.model !== null && typeof profile.model === 'object' && !Array.isArray(profile.model) && Object.keys(profile.model).some(key => !MODEL_KEYS.includes(key))) throw new EngineError('INVALID_AGENT_PROFILE', 'Profile model accepts only providerId, modelId and reasoningEffort');
+      normalizeSubmitInput({ sessionId: 'validation', requestId: 'validation', prompt: 'validation', config: profile.model });
+    }
     if (!this.profiles.has(profile.id) && this.profiles.size >= 32) throw new EngineError('AGENT_PROFILE_LIMIT', 'Host agent profile registry is full');
     const revision = createHash('sha256').update(JSON.stringify(profile)).digest('hex');
     const result = { ...structuredClone(profile), revision }; this.profiles.set(profile.id, result); return structuredClone(result);
@@ -36,7 +40,8 @@ export class AgentProfiles {
     if (config.agentProfileRevision && config.agentProfileRevision !== profile.revision) throw new EngineError('AGENT_PROFILE_STALE', 'Requested profile revision differs from the registered configuration');
     const stored = this.store.getSessionDocument(sessionId, key(profile.id, profile.revision));
     if (!stored) this.store.putSessionDocument(sessionId, key(profile.id, profile.revision), 0, JSON.parse(JSON.stringify(profile)) as JsonObject);
-    const merged = { ...config, ...profile.model, agentProfileId: profile.id, agentProfileRevision: profile.revision,
+    const model = Object.fromEntries(Object.entries(profile.model ?? {}).filter(([key]) => MODEL_KEYS.includes(key)));
+    const merged = { ...config, ...model, agentProfileId: profile.id, agentProfileRevision: profile.revision,
       budgets: { ...normalizeEngineBudgets(config.budgets), ...(profile.turnAllowance === undefined ? {} : { turnAllowance: Math.min(profile.turnAllowance, config.limits.maxTurns) }) } };
     return normalizeSubmitInput({ sessionId, requestId: 'profile-validation', prompt: 'profile-validation', config: merged }).config;
   }
