@@ -4,7 +4,6 @@ import {CodeModeHost} from './code-mode/host.js';
 import {jobJson} from './jobs/validation.js';
 import { MediaSegmentStore } from './media/segment-store.js';
 import { providerSegments } from './media/segment-provider.js';
-import type { InputMediaAttachment,InputMediaSegment } from '@moodcode/contracts';
 import { PrFeedbackHost } from './pr-feedback/host.js';
 import {EngineHostCommandDeliveryProducer} from './jobs/host-command-delivery-producer.js';
 import {EngineHostCommandDeliverySource} from './jobs/host-command-delivery-source.js';
@@ -27,9 +26,9 @@ import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { types } from 'node:util';
 import { createHash, randomUUID } from 'node:crypto';
-import { EngineError, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, SESSION_COMMAND_TYPES, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type JsonValue, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
+import { EngineError, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type InputDocumentAttachment, type InputImageAttachment, type InputMediaAttachment, type InputMediaSegment, type JsonValue, type ReasoningEffort, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
 import { assertInputMediaBudget, normalizeAcceptInput, normalizeEngineBudgets, normalizeSubmitInput, validateCommand, validateSessionCommand } from '@moodcode/contracts/validation';
-import type { ProviderAdapter, ProviderEvent, ToolDefinition } from './ports.js';
+import type { PreparedTool, ProviderAdapter, ProviderEvent, ToolContext, ToolDefinition } from './ports.js';
 import { SqliteStore, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './storage/index.js';
 import type { SummaryAttemptListOptions } from './storage/summary-attempts.js';
 import { RunCoordinator } from './runner/index.js';
@@ -54,8 +53,7 @@ import type { KnowledgeImportRecoveryStorage } from './knowledge/import-recovery
 import { KnowledgeImportRecoveryService } from './knowledge/import-recovery-service.js';
 import { ProposalSourceCaptureHost } from './proposals/source-capture.js';
 import { ProposalHostService, type CreateProposalSetInput } from './proposals/host.js';
-import { ProposalOverlayContextSource, proposalContextPolicy } from './proposals/overlay.js';
-import type { ProposalContextPolicy } from './proposals/overlay.js';
+import { ProposalOverlayContextSource, proposalContextPolicy, type ProposalContextPolicy } from './proposals/overlay.js';
 import type { ProposalStorage } from './proposals/store.js';
 import type { ProposalApplyStorage } from './proposals/apply-store.js';
 import type { ProposalApplyCapture, ProposalApplyCleanup, ProposalApplyRecoveryPreview } from './proposals/apply-types.js';
@@ -79,16 +77,16 @@ import { bindChildTeamModelCatalogue, consumeChildTeamModelCatalogue } from './t
 import { EngineTeamModelToolHost, type BindTeamModelToolsInput, type TeamModelToolsBinding } from './teams/model-tool-host.js';
 import { createTeamModelTools, TEAM_MODEL_TOOL_NAMES, TEAM_MODEL_WRITE_TOOL_NAMES } from './teams/model-tools.js';
 import { ScriptedProvider } from './provider/index.js';
-import { validateHostGenerationRequest } from './provider/generation.js';
+import { validateHostGenerationRequest, type HostGenerationProviderPort, type HostGenerationRequest } from './provider/generation.js';
 import { ApprovalManager } from './permission/index.js';
 import { openWorkspace } from './workspace/index.js';
 import { getWorkspaceStatus, listWorkspaceFiles, readWorkspaceFile } from './workspace/presentation.js';
-import { buildContext } from './context/index.js';
 import { ContextService } from './context/service.js';
 import { ModelRegistry, type ModelSpec } from './context/model-spec.js';
 import { createReadTools } from './tools/read/index.js';
 import { createPatchTool } from './tools/patch/index.js';
 import { createCommandTool } from './tools/command/index.js';
+import type { CommandExecutionCompletion } from './tools/command/observation.js';
 import { commandBackendCapability } from './tools/command/backends.js';
 import { registerCredentialEnvNames } from './tools/command/process-control.js';
 import { createExactEditTool } from './tools/edit/index.js';
@@ -156,7 +154,6 @@ import { ImageAttachmentStore } from './media/index.js';
 import { providerImages } from './media/provider.js';
 import { DocumentAttachmentStore } from './documents/store.js';
 import { providerDocuments } from './documents/provider.js';
-import type { InputDocumentAttachment, InputImageAttachment } from '@moodcode/contracts';
 import { createDelegateTaskTool } from './child-tasks/delegation.js';
 import { validateMediaHistoryPolicy, type MediaHistoryPolicy } from './context/media-history.js';
 import { validateActivePrefixPolicy, type ActivePrefixPolicy } from './context/active-prefix.js';
@@ -340,7 +337,7 @@ function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore,
     ...(provider.inputFileTypes ? { inputFileTypes: provider.inputFileTypes } : {}),
     ...(provider.allowUnknownDocumentTokenCost === undefined ? {} : { allowUnknownDocumentTokenCost: provider.allowUnknownDocumentTokenCost }),
     ...(provider.supportsInputFile ? { supportsInputFile: (modelId: string, mimeType: 'application/pdf') => provider.supportsInputFile!(modelId, mimeType) } : {}),
-    ...(provider.streamGeneration ? { streamGeneration(request: import('./provider/generation.js').HostGenerationRequest, signal: AbortSignal) {
+    ...(provider.streamGeneration ? { streamGeneration(request: HostGenerationRequest, signal: AbortSignal) {
       return provider.streamGeneration!(validateHostGenerationRequest(request), signal);
     } } : {}),
     streamTurn(request, signal) {
@@ -444,7 +441,6 @@ export class MoodcodeEngine {
   readonly workspaceTrust: WorkspaceTrustService;
   private readonly knowledgeHost: KnowledgeHostAdapter;
   private readonly knowledgeGenerationEnabled: boolean;
-  private readonly hostGenerationProviders: ReadonlyMap<string, ProviderAdapter>;
   private readonly knowledgeGenerations: KnowledgeGenerationStorage;
   private readonly knowledgeGenerationService: KnowledgeGenerationService;
   private readonly knowledgePublicationEnabled: boolean;
@@ -540,7 +536,7 @@ private readonly workflowRecords: WorkflowStorage;
   private closePromise?: Promise<void>;
   private readonly defaults: RunConfig;
   private readonly hostAllowedTools?: readonly string[];
-  private readonly capabilities: EngineCapabilities;
+  private readonly capabilities: Omit<EngineCapabilities, 'providerIds' | 'tools'>;
   private readonly gitCommitHost: GitCommitHost;
   private readonly prFeedbackHost: PrFeedbackHost;
   private readonly executionLockPath: string;
@@ -993,7 +989,6 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       this.mediaCapabilities=(providerId,modelId)=>{const spec=models.get(providerId,modelId),provider=providers.get(providerId);return{audioInput:spec.mediaCapabilities?.audioInput===true&&provider?.supportsInputMedia?.(modelId,'audio')===true,videoFrames:spec.mediaCapabilities?.videoFrames===true&&provider?.supportsInputMedia?.(modelId,'video')===true,audioOutput:spec.mediaCapabilities?.audioOutput===true&&provider?.requestedOutputMedia?.(modelId)==='audio/wav',unknownTokenCostAllowed:allowMediaCost,tokenCost:null,source:spec.source};};
       this.validateSegmentInput=async(sessionId,config,refs)=>{assertSegmentSupport(providers.get(config.providerId),models,config.modelId,refs,allowMediaCost);await this.segments.resolve(sessionId,refs,this.hostResources.signal);};
       for (const [id, provider] of providers) providers.set(id, withInputMedia(provider, this.images, this.documents, this.segments,this.store, models, options.allowUnknownDocumentTokenCost === true,allowMediaCost));
-      this.hostGenerationProviders = providers;
       this.knowledgeGenerationService = new KnowledgeGenerationService({ native: this.knowledgeGenerations, knowledge: this.workspaceKnowledge, host: this.knowledgeHost,
         provider: id => this.knowledgeGenerationProvider(id), assertPlanCurrent: plan => this.workspaceKnowledge.assertGenerationPlanCurrent(plan),
         withLease: (workspaceId, operation) => this.coordinator.withHostGenerationLease(workspaceId, operation) });
@@ -1097,17 +1092,17 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}), ...(knowledgeContext ? { knowledgeContext } : {}), ...(proposalContext ? { proposalContext } : {}) });
       if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
       const commandObserver = (this.jobsEnabled || options.osSandbox) ? {
-        beforeSpawn:(context:import('./ports.js').ToolContext,prepared:import('./ports.js').PreparedTool)=>{
+        beforeSpawn:(context:ToolContext,prepared:PreparedTool)=>{
           const own= this.jobsEnabled ? this.ownedCommandHost.beforeSpawn(context,prepared) : undefined;
           const sandbox= options.osSandbox ? this.sandboxHost.beforeSpawn(context,prepared) : undefined;
           return Object.freeze({own,sandbox});
         },
         started:(original:object,pid:number)=>{const x=original as {own?:object;sandbox?:object};if(x.sandbox)this.sandboxHost.started(x.sandbox,pid);if(x.own)this.ownedCommandHost.started(x.own,pid);},
         output:(original:object,stream:'stdout'|'stderr',bytes:Buffer)=>{const x=original as {own?:object;sandbox?:object};if(x.own)this.ownedCommandHost.output(x.own,stream,bytes);},
-        closed:(original:object,completion:import('./tools/command/observation.js').CommandExecutionCompletion)=>{const x=original as {own?:object;sandbox?:object};if(x.sandbox)this.sandboxHost.closed(x.sandbox,completion);if(x.own)this.ownedCommandHost.closed(x.own,completion);},
+        closed:(original:object,completion:CommandExecutionCompletion)=>{const x=original as {own?:object;sandbox?:object};if(x.sandbox)this.sandboxHost.closed(x.sandbox,completion);if(x.own)this.ownedCommandHost.closed(x.own,completion);},
         failed:(original:object,error:unknown)=>{const x=original as {own?:object;sandbox?:object};if(x.sandbox)this.sandboxHost.failed(x.sandbox,error);if(x.own)this.ownedCommandHost.failed(x.own,error);},
       } : undefined;
-      const coreCommand = createCommandTool({...commandObserver?{observer:commandObserver}:{},...options.osSandbox?{sandbox:(context:import('./ports.js').ToolContext)=>this.sandboxHost.launch(context)}:{}});
+      const coreCommand = createCommandTool({...commandObserver?{observer:commandObserver}:{},...options.osSandbox?{sandbox:(context:ToolContext)=>this.sandboxHost.launch(context)}:{}});
       const allCoreTools = options.tools ?? [...createReadTools(), createPatchTool(), coreCommand, ...(options.commandLifetimes===true?createCommandLifetimeTools(()=>this.commandLifetimes):[]), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
       // Effect paths with no OS-bound producer are deliberately absent from this catalogue.
       const coreTools=options.osSandbox ? allCoreTools.filter(t=>['run_command','delegate_task'].includes(t.name)) : allCoreTools;
@@ -1154,8 +1149,6 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       this.capabilities = {
         schemaVersion: SCHEMA_VERSION,
         runtime: { node: process.versions.node, electron: process.versions.electron ?? null, platform: process.platform, commandExecution: commandCapability.processTree === 'windows-job-object' ? 'windows-job-object' : commandCapability.available ? 'posix-process-group' : 'unsupported' },
-        providerIds: [...providers.keys()].sort(),
-        tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema: structuredClone(inputSchema) })),
         modes: ['plan', 'build'], defaults: structuredClone(this.defaults),
         features: { historyPaging: true, sessionMetrics: true },
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
@@ -1974,7 +1967,8 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
   importConversationForkHistory(input: ForkCommitInput) { return this.conversationForkHost.importHistory(input); }
   releaseForkPreview(original: object): void { this.conversationForkHost.release(original); }
   getCapabilities(): EngineCapabilities {
-    return { ...structuredClone(this.capabilities), providerIds: [...this.runtimeProviders.keys()].sort(), tools: [...this.toolRuntime.catalogue('engine', 'build', this.hostAllowedTools).tools] };
+    const { schemaVersion, runtime, ...rest } = structuredClone(this.capabilities);
+    return { schemaVersion, runtime, providerIds: [...this.runtimeProviders.keys()].sort(), tools: [...this.toolRuntime.catalogue('engine', 'build', this.hostAllowedTools).tools], ...rest };
   }
 
   private assertAgentBackendsEnabled(): void {
@@ -2431,7 +2425,7 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
     return this.knowledgeHost.captureSources({ workspaceId, selection });
   }
 
-  previewWorkspaceKnowledgeGeneration(input: { providerId: string; modelId: string; projection: KnowledgeSourceProjection; reasoningEffort?: import('@moodcode/contracts').ReasoningEffort }) {
+  previewWorkspaceKnowledgeGeneration(input: { providerId: string; modelId: string; projection: KnowledgeSourceProjection; reasoningEffort?: ReasoningEffort }) {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     assertKnowledgeGenerationHostInput(input, ['providerId', 'modelId', 'projection'], ['reasoningEffort']);
     this.knowledgeGenerationProvider(input.providerId);
@@ -2444,11 +2438,11 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
     return request;
   }
 
-  private knowledgeGenerationProvider(providerId: string): ProviderAdapter & import('./provider/generation.js').HostGenerationProviderPort {
+  private knowledgeGenerationProvider(providerId: string): ProviderAdapter & HostGenerationProviderPort {
     if (!this.knowledgeGenerationEnabled) throw new EngineError('KNOWLEDGE_GENERATION_DISABLED', 'Host knowledge extraction requires explicit opt-in');
-    const provider = this.hostGenerationProviders.get(providerId);
+    const provider = this.runtimeProviders.get(providerId);
     if (!provider || typeof provider.streamGeneration !== 'function') throw new EngineError('KNOWLEDGE_PROVIDER_UNSUPPORTED', 'Provider does not support an independently owned tools-free generation');
-    return provider as ProviderAdapter & import('./provider/generation.js').HostGenerationProviderPort;
+    return provider as ProviderAdapter & HostGenerationProviderPort;
   }
 
   releaseWorkspaceKnowledgeSources(projection: KnowledgeSourceProjection): void {
