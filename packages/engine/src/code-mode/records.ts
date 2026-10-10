@@ -102,7 +102,7 @@ function digest(v: Record<string, any>): void {
 function sha(v: unknown): void {
   if (typeof v !== "string" || !/^[a-f0-9]{64}$/.test(v)) codeModeError();
 }
-export function validateCodeModeRecord(value: unknown): CodeModeRecord {
+function validateCodeModeRecord(value: unknown): CodeModeRecord {
   const r = codeJson(value) as CodeModeRecord;
   digest(r);
   if (

@@ -94,7 +94,7 @@ const field = (
     codeModeError();
   return x;
 };
-export function codeIdentifier(value: unknown): string {
+function codeIdentifier(value: unknown): string {
   if (typeof value !== "string" || !/^[-A-Za-z0-9_]{1,64}$/.test(value))
     codeModeError();
   return value;

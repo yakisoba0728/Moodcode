@@ -2,20 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   analyzeJobGroupsFromSnapshot as analyze,
-  observedJobGroupsFromSnapshot as groups,
   sessionGroupsFromSnapshot as sessions,
 } from "./job-groups.js";
 
 test("unrelated Linux kernel PGID zero rows do not prevent exact PTY descendant observation", () => {
   assert.deepEqual(
-    groups("2 0 0\n3 2 0\n10 1 10\n20 10 20\n21 20 20\n22 20 22\n", 20, 10),
+    analyze("2 0 0\n3 2 0\n10 1 10\n20 10 20\n21 20 20\n22 20 22\n", 20, 10).groups,
     [20, 22],
   );
 });
 test("selected zero, init or current-owner groups cannot be signalled as owned descendants", () => {
   for (const pgid of [0, 1, 10])
-    assert.equal(groups(`10 1 10\n20 10 20\n21 20 ${pgid}`, 20, 10), undefined);
-  assert.equal(groups("10 1 10\n20 10 0", 20, 10), undefined);
+    assert.equal(analyze(`10 1 10\n20 10 20\n21 20 ${pgid}`, 20, 10).groups, undefined);
+  assert.equal(analyze("10 1 10\n20 10 0", 20, 10).groups, undefined);
 });
 test("unknown or foreign PTY leader and malformed global observations remain unconfirmed", () => {
   for (const rows of [
@@ -26,13 +25,13 @@ test("unknown or foreign PTY leader and malformed global observations remain unc
     "10 1 10\n20 10 20\n2 0 0\n2 0 0",
     "10 1 10\n20 10 20\nbroken",
   ])
-    assert.equal(groups(rows, 20, 10), undefined);
+    assert.equal(analyze(rows, 20, 10).groups, undefined);
 });
 test("row and ancestry bounds reject oversized observations without granting a partial tree", () => {
   const rows = ["10 1 10", "20 10 20"];
   for (let i = 21; i <= 8212; i++) rows.push(`${i} 20 20`);
-  assert.equal(groups(rows.join("\n"), 20, 10), undefined);
-  assert.equal(groups("0".repeat(2_097_153), 20, 10), undefined);
+  assert.equal(analyze(rows.join("\n"), 20, 10).groups, undefined);
+  assert.equal(analyze("0".repeat(2_097_153), 20, 10).groups, undefined);
 });
 
 test("snapshot rejection metadata distinguishes absent, foreign and malformed DATA without granting a partial tree", () => {
@@ -51,7 +50,6 @@ test("snapshot rejection metadata distinguishes absent, foreign and malformed DA
   ] as const;
   for (const [rows, errorCode] of cases) {
     assert.deepEqual(analyze(rows, 20, 10), { groups: undefined, errorCode });
-    assert.equal(groups(rows, 20, 10), undefined);
   }
   assert.deepEqual(analyze("2 0 0\n20 10 20\n21 20 21\n22 20 21", 20, 10), {
     groups: [20, 21],

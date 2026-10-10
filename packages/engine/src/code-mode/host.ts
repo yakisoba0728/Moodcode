@@ -7,12 +7,7 @@ import type {
 } from "@moodcode/contracts";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
 import type { MoodcodeEngine } from "../engine.js";
-import type {
-  ToolContext,
-  ToolDefinition,
-  PreparedTool,
-  ToolResult,
-} from "../ports.js";
+import type { ToolContext, PreparedTool, ToolResult } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { knowledgeHash } from "../knowledge/validation.js";
@@ -220,105 +215,66 @@ export class CodeModeHost {
       codeModeError("CODE_MODE_GRANT_STALE");
     return { proof, grant: g, binding: this.binding(proof.workspaceId) };
   }
-  tools(): ToolDefinition[] {
-    const host = this;
-    return [
-      {
-        name: "execute_code",
-        description:
-          "Execute a bounded moodcode-json-v1 data program in an OS-isolated runtime. Each nested effect has its own native approval and Run budget. JavaScript, imports, direct file/network/process access and recursion are unsupported.",
-        effectClass: "execute",
-        inputSchema: {
-          type: "object",
-          additionalProperties: false,
-          required: ["source", "allocation"],
-          properties: {
-            source: { type: "string", maxLength: 16384 },
-            allocation: {
-              type: "object",
-              additionalProperties: false,
-              required: [
-                "maxSteps",
-                "maxNestedCalls",
-                "maxResultBytes",
-                "maxDurationMs",
-              ],
-              properties: {
-                maxSteps: { type: "integer", minimum: 1, maximum: 4096 },
-                maxNestedCalls: { type: "integer", minimum: 1, maximum: 16 },
-                maxResultBytes: { type: "integer", minimum: 1, maximum: 32768 },
-                maxDurationMs: { type: "integer", minimum: 1, maximum: 30000 },
-              },
-            },
-          },
-        },
-        async prepare(input, context) {
-          const x = codeJson(input) as any;
-          if (
-            !x ||
-            Object.keys(x).length !== 2 ||
-            !Object.hasOwn(x, "source") ||
-            !Object.hasOwn(x, "allocation")
-          )
-            codeModeError();
-          parseCodeProgram(x.source);
-          const allocation = validateCodeAllocation(x.allocation),
-            c = host.grantContext(context, "prepare");
-          if (
-            allocation.maxDurationMs > context.limits.toolTimeoutMs ||
-            allocation.maxResultBytes > context.limits.maxOutputBytes
-          )
-            codeModeError("CODE_MODE_BUDGET");
-          const sourceSha256 = createHash("sha256")
-              .update(x.source)
-              .digest("hex"),
-            preview = {
-              codeModeSourceSha256: sourceSha256,
-              codeModeGrantSha256: c.grant.sha256,
-              language: "moodcode-json-v1",
-              source: x.source,
-              runtime: c.grant.runtime,
-              allocation,
-              tools: CODE_MODE_TOOLS.filter((n) =>
-                c.grant.target.tools.includes(n),
-              ),
-              targetSha256: knowledgeHash(c.grant.target),
-            };
-          const p: PreparedTool = {
-            name: "execute_code",
-            input: { source: x.source, allocation } as unknown as JsonObject,
-            fingerprint: knowledgeHash(preview),
-            requiresApproval: true,
-            preview: preview as unknown as JsonObject,
-          };
-          host.prepared.set(p, {
-            source: x.source,
-            allocation,
-            grant: c.grant,
-            binding: c.binding,
-            fingerprint: p.fingerprint,
-            used: false,
-          });
-          return p;
-        },
-        async execute(p, context) {
-          const captured = host.prepared.get(p);
-          if (
-            !captured ||
-            captured.used ||
-            p.fingerprint !== captured.fingerprint ||
-            knowledgeHash(p.input) !==
-              knowledgeHash({
-                source: captured.source,
-                allocation: captured.allocation,
-              })
-          )
-            codeModeError("CODE_MODE_PREPARED_STALE");
-          captured.used = true;
-          return host.execute(context, captured);
-        },
-      },
-    ];
+  async prepare(input: unknown, context: ToolContext): Promise<PreparedTool> {
+    const x = codeJson(input) as any;
+    if (
+      !x ||
+      Object.keys(x).length !== 2 ||
+      !Object.hasOwn(x, "source") ||
+      !Object.hasOwn(x, "allocation")
+    )
+      codeModeError();
+    parseCodeProgram(x.source);
+    const allocation = validateCodeAllocation(x.allocation),
+      c = this.grantContext(context, "prepare");
+    if (
+      allocation.maxDurationMs > context.limits.toolTimeoutMs ||
+      allocation.maxResultBytes > context.limits.maxOutputBytes
+    )
+      codeModeError("CODE_MODE_BUDGET");
+    const sourceSha256 = createHash("sha256").update(x.source).digest("hex"),
+      preview = {
+        codeModeSourceSha256: sourceSha256,
+        codeModeGrantSha256: c.grant.sha256,
+        language: "moodcode-json-v1",
+        source: x.source,
+        runtime: c.grant.runtime,
+        allocation,
+        tools: CODE_MODE_TOOLS.filter((n) => c.grant.target.tools.includes(n)),
+        targetSha256: knowledgeHash(c.grant.target),
+      };
+    const p: PreparedTool = {
+      name: "execute_code",
+      input: { source: x.source, allocation } as unknown as JsonObject,
+      fingerprint: knowledgeHash(preview),
+      requiresApproval: true,
+      preview: preview as unknown as JsonObject,
+    };
+    this.prepared.set(p, {
+      source: x.source,
+      allocation,
+      grant: c.grant,
+      binding: c.binding,
+      fingerprint: p.fingerprint,
+      used: false,
+    });
+    return p;
+  }
+  async executePrepared(p: PreparedTool, context: ToolContext) {
+    const captured = this.prepared.get(p);
+    if (
+      !captured ||
+      captured.used ||
+      p.fingerprint !== captured.fingerprint ||
+      knowledgeHash(p.input) !==
+        knowledgeHash({
+          source: captured.source,
+          allocation: captured.allocation,
+        })
+    )
+      codeModeError("CODE_MODE_PREPARED_STALE");
+    captured.used = true;
+    return this.run(context, captured);
   }
   private update(f: Flight, change: Partial<CodeModeRecord>) {
     const { sha256, ...body } = f.record;
@@ -330,7 +286,7 @@ export class CodeModeHost {
     });
     f.record = this.native.put(f, r, f.record.revision);
   }
-  private async execute(
+  private async run(
     context: ToolContext,
     captured: Prepared,
   ): Promise<ToolResult> {

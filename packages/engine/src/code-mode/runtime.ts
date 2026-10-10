@@ -20,12 +20,12 @@ import {
   codeSign,
   type CodeModeRuntimeCapability,
 } from "./types.js";
-export const codeModeWorkerPath = () => {
+const codeModeWorkerPath = () => {
   const compiled = new URL("./worker.mjs", import.meta.url),
     source = new URL("../../src/code-mode/worker.mjs", import.meta.url);
   return realpathSync(fileURLToPath(existsSync(compiled) ? compiled : source));
 };
-export function codeModeProfile(node: string, worker: string): string {
+function codeModeProfile(node: string, worker: string): string {
   const q = JSON.stringify;
   return `(version 1)(deny default)(allow process-exec (literal ${q(node)}))(deny process-fork)(allow signal (target same-sandbox))(allow sysctl-read)(allow file-read-metadata)(allow file-read* file-map-executable (literal "/")(subpath "/System/Library")(subpath "/usr/lib")(literal ${q(node)})(literal ${q(worker)})(literal "/dev/urandom")(literal "/dev/random")(literal "/dev/null"))(allow file-write* (literal "/dev/null"))`;
 }

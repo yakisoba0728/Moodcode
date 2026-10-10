@@ -1,12 +1,3 @@
-/** Kernel process rows are observation DATA; only the selected fresh PTY tree is owned. */
-export function observedJobGroupsFromSnapshot(
-  stdout: string,
-  pid: number,
-  ownerPid: number,
-): readonly number[] | undefined {
-  return analyzeJobGroupsFromSnapshot(stdout, pid, ownerPid).groups;
-}
-
 type JobGroupSnapshotErrorCode =
   | "PROCESS_SNAPSHOT_INVALID_INPUT"
   | "PROCESS_SNAPSHOT_BYTE_LIMIT"
@@ -23,7 +14,10 @@ type JobGroupSnapshotAnalysis =
   | { groups: readonly number[]; errorCode?: never }
   | { groups: undefined; errorCode: JobGroupSnapshotErrorCode };
 
-/** Internal rejection metadata; neither a partial tree nor renewed cleanup authority. */
+/**
+ * Kernel process rows are observation DATA; only the selected fresh PTY tree is owned.
+ * Rejection metadata is internal: neither a partial tree nor renewed cleanup authority.
+ */
 export function analyzeJobGroupsFromSnapshot(
   stdout: string,
   pid: number,

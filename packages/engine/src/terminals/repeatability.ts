@@ -102,7 +102,7 @@ function evidence(record: TerminalRecord): TerminalEvidence {
     ...(record.diagnostics ? { diagnostics: record.diagnostics } : {}),
   };
 }
-export function writePtyRepeatabilityCase(data: PtyRepeatabilityCase): void {
+function writePtyRepeatabilityCase(data: PtyRepeatabilityCase): void {
   const temporary = `${data.evidencePath}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(data, null, 2)}\n`, {
     mode: 0o600,
@@ -208,7 +208,7 @@ async function until(
   }
 }
 
-export function assertPtyRepeatabilityOutcome(
+function assertPtyRepeatabilityOutcome(
   scenario: PtyRepeatabilityScenario,
   record: TerminalEvidence,
   outcome: PtyOutcome,
