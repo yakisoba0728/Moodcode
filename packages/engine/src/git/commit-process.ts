@@ -9,7 +9,6 @@ import {
 export interface OwnedGitProcess {
   readonly supervisorPid: number;
   start(): Promise<GitCommitOutcome>;
-  stop(): void;
   stopAndJoin(): Promise<void>;
 }
 export async function openGitCommitProcess(
@@ -125,7 +124,6 @@ export async function openGitCommitProcess(
       if (signal.aborted) stop();
       return completion;
     },
-    stop,
     async stopAndJoin() {
       stop();
       await closedPromise;

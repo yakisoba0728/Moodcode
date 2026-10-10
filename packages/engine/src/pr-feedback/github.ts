@@ -5,7 +5,6 @@ import {
   prFail,
   prGitSha,
   prInt,
-  prJson,
   prSign,
   validatePrRepository,
   type PrPolicy,

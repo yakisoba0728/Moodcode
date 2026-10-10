@@ -10,7 +10,6 @@ import type { MoodcodeEngine } from "../engine.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { knowledgeHash } from "../knowledge/validation.js";
-import { verificationHash } from "../verification/types.js";
 import { verificationDocumentKind } from "../verification/plans.js";
 import type { VerificationHostService } from "../verification/host.js";
 import { describeEngineQueueTarget } from "../jobs/queue-target.js";

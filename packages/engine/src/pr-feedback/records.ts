@@ -212,7 +212,7 @@ function event(
     return JSON.parse(String(r.data)).payload as Record<string, any>;
   });
 }
-export function validatePrSnapshot(
+function validatePrSnapshot(
   value: unknown,
   policy: PrWatchPreview["policy"],
 ): PrRemoteSnapshot {
@@ -382,7 +382,7 @@ export function validatePrPreview(value: unknown): PrWatchPreview {
   }
   return p;
 }
-export function validatePrWatch(value: unknown): PrWatchRecord {
+function validatePrWatch(value: unknown): PrWatchRecord {
   const r = prSigned(prJson(value) as PrWatchRecord);
   prFields(r, [
     "version",
@@ -417,7 +417,7 @@ export function validatePrWatch(value: unknown): PrWatchRecord {
   if (r.snapshot) validatePrSnapshot(r.snapshot, r.preview.policy);
   return r;
 }
-export function validatePrOccurrence(value: unknown): PrFeedbackOccurrence {
+function validatePrOccurrence(value: unknown): PrFeedbackOccurrence {
   const o = prSigned(prJson(value) as PrFeedbackOccurrence);
   prFields(o, [
     "version",

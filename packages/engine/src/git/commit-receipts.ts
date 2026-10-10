@@ -658,7 +658,7 @@ function readHeader(
   validateCommitVerification(db, r.preview);
   return r;
 }
-export function readGitCommitReceipts(
+function readGitCommitReceipts(
   db: DatabaseSync,
   workspaceId?: string,
 ): GitCommitReceipt[] {

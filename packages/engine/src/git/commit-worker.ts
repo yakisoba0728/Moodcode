@@ -68,9 +68,8 @@ process.on("message", (message: any) => {
     input = message.input;
     try {
       lock = acquireExecutionLock(input!.executionLockPath);
-      send({ type: "ready", supervisorPid: process.pid });
+      send({ type: "ready" });
     } catch {
-      send({ type: "init-failed" });
       process.exit(1);
     }
   } else if (message?.type === "stop") {
@@ -97,7 +96,6 @@ process.on("message", (message: any) => {
         try {
           lock?.release(false);
         } catch {}
-        send({ type: "lost" });
         process.disconnect?.();
       },
     );

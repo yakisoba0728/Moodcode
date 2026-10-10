@@ -14,7 +14,7 @@ import {
   type GitRepositoryPin,
   type PreviewGitCommitInput,
 } from "./types.js";
-export async function gitRead(
+async function gitRead(
   root: string,
   args: string[],
   signal?: AbortSignal,
@@ -278,7 +278,7 @@ export function objectOid(
     .update(data)
     .digest("hex");
 }
-export async function treeEntries(
+async function treeEntries(
   root: string,
   signal?: AbortSignal,
   revision = "HEAD",
