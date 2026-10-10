@@ -2,9 +2,7 @@ import { fork, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { isAbsolute } from "node:path";
-import { resolve } from "node:path";
-import { createRequire } from "node:module";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { EngineError } from "@moodcode/contracts";
 import {
   immutableKnowledgeJson,
@@ -14,6 +12,7 @@ import {
   cleanupGroup,
   createCommandEnvironment,
 } from "../tools/command/process-control.js";
+import { supervisorExecArgv } from "../tools/command/index.js";
 import type { TurnRequest } from "../ports.js";
 import type { AcpV1Message, AgentBackendSpec } from "./types.js";
 import {
@@ -176,46 +175,6 @@ interface ProcessState {
 function signed<T extends object>(body: T): T & { sha256: string } {
   return immutableKnowledgeJson({ ...body, sha256: knowledgeHash(body) });
 }
-function loaderArguments(): string[] {
-  const options = [
-    "--import",
-    "--loader",
-    "--experimental-loader",
-    "--require",
-    "-r",
-    "--conditions",
-  ];
-  const result: string[] = [];
-  const resolveLoader = (option: string, value: string): string => {
-    if (option === "--conditions") return value;
-    if (value.startsWith(".") || isAbsolute(value)) {
-      const path = resolve(process.cwd(), value);
-      return ["--require", "-r"].includes(option)
-        ? path
-        : pathToFileURL(path).href;
-    }
-    if (["--require", "-r"].includes(option))
-      return createRequire(import.meta.url).resolve(value);
-    return import.meta.resolve(value);
-  };
-  for (let index = 0; index < process.execArgv.length; index++) {
-    const argument = process.execArgv[index]!;
-    if (options.includes(argument)) {
-      const next = process.execArgv[++index];
-      if (next !== undefined)
-        result.push(argument, resolveLoader(argument, next));
-    } else {
-      const option = options.find((option) =>
-        argument.startsWith(`${option}=`),
-      );
-      if (option)
-        result.push(
-          `${option}=${resolveLoader(option, argument.slice(option.length + 1))}`,
-        );
-    }
-  }
-  return [...result, "--no-warnings"];
-}
 async function abortable<T>(
   operation: Promise<T>,
   signal: AbortSignal,
@@ -319,7 +278,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
         detached: true,
         stdio: ["ignore", "pipe", "pipe", "ipc"],
         execPath: process.execPath,
-        execArgv: loaderArguments(),
+        execArgv: supervisorExecArgv(),
         env: { ...createCommandEnvironment(), ELECTRON_RUN_AS_NODE: "1" },
       });
       let started!: (pid: number) => void,
