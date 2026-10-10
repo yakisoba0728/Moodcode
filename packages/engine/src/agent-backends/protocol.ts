@@ -1,5 +1,6 @@
 
 import { knowledgeHash } from "../knowledge/validation.js";
+import { rejectDuplicateJsonKeys } from "../code-mode/source-json.js";
 import type {
   AcpV1Id,
   AcpV1InitializeParams,
@@ -623,68 +624,6 @@ export function validateAcpV1Result(method: string, input: unknown): object {
   }
 }
 
-/** Detect duplicate JSON property names before ordinary JSON parsing can silently discard them. */
-function uniqueJsonKeys(source: string): void {
-  let cursor = 0,
-    nodes = 0;
-  const space = () => {
-    while (/\s/u.test(source[cursor] ?? "") && cursor < source.length) cursor++;
-  };
-  function quoted(): string {
-    const start = cursor++;
-    while (cursor < source.length) {
-      const char = source[cursor++]!;
-      if (char === "\\") cursor++;
-      else if (char === '"')
-        return JSON.parse(source.slice(start, cursor)) as string;
-    }
-    return agentBackendError("ACP_INVALID_MESSAGE");
-  }
-  function value(depth: number): void {
-    if (depth > 12 || ++nodes > 4096) agentBackendError("AGENT_BACKEND_LIMIT");
-    space();
-    if (source[cursor] === '"') {
-      quoted();
-      return;
-    }
-    if (source[cursor] === "{") {
-      cursor++;
-      space();
-      const keys = new Set<string>();
-      if (source[cursor] === "}") {
-        cursor++;
-        return;
-      }
-      while (cursor < source.length) {
-        space();
-        const key = quoted();
-        if (keys.has(key)) agentBackendError("ACP_DUPLICATE_KEY");
-        keys.add(key);
-        space();
-        cursor++;
-        value(depth + 1);
-        space();
-        if (source[cursor++] === "}") return;
-      }
-    } else if (source[cursor] === "[") {
-      cursor++;
-      space();
-      if (source[cursor] === "]") {
-        cursor++;
-        return;
-      }
-      while (cursor < source.length) {
-        value(depth + 1);
-        space();
-        if (source[cursor++] === "]") return;
-      }
-    } else {
-      while (cursor < source.length && !/[\s,\]}]/u.test(source[cursor]!))
-        cursor++;
-    }
-  }
-  value(0);
-}
 export function validateAcpV1Message(input: unknown): AcpV1Message {
   const value = agentBackendObject(
     input,
@@ -755,7 +694,18 @@ export function parseAcpV1Message(input: string | Uint8Array): AcpV1Message {
   } catch {
     return agentBackendError("ACP_INVALID_MESSAGE");
   }
-  uniqueJsonKeys(text);
+  rejectDuplicateJsonKeys(text, {
+    maxDepth: 12,
+    maxNodes: 4096,
+    fail: (kind) =>
+      agentBackendError(
+        {
+          limit: "AGENT_BACKEND_LIMIT",
+          duplicate: "ACP_DUPLICATE_KEY",
+          invalid: "ACP_INVALID_MESSAGE",
+        }[kind],
+      ),
+  });
   return validateAcpV1Message(parsed);
 }
 export function encodeAcpV1Message(input: unknown): string {

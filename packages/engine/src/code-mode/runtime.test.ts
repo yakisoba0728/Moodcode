@@ -80,3 +80,12 @@ test("source duplicate and escaped duplicate keys are rejected before execution"
       code: "CODE_MODE_DUPLICATE_KEY",
     });
 });
+test("source nested deeper than 32 JSON levels is a code-mode limit", () => {
+  let value: unknown = 0;
+  for (let i = 0; i < 29; i++) value = [value];
+  const source = JSON.stringify({
+    version: 1,
+    statements: [{ op: "return", value: { op: "literal", value } }],
+  });
+  assert.throws(() => parseCodeProgram(source), { code: "CODE_MODE_LIMIT" });
+});

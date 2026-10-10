@@ -1,4 +1,4 @@
-import { rejectDuplicateCodeKeys } from "./source-json.js";
+import { rejectDuplicateJsonKeys } from "./source-json.js";
 import {
   EngineError,
   type JsonValue,
@@ -129,7 +129,17 @@ export function parseCodeProgram(source: unknown): CodeProgram {
   } catch {
     codeModeError();
   }
-  rejectDuplicateCodeKeys(source);
+  rejectDuplicateJsonKeys(source, {
+    maxDepth: 32,
+    fail: (kind) =>
+      codeModeError(
+        {
+          limit: "CODE_MODE_LIMIT",
+          duplicate: "CODE_MODE_DUPLICATE_KEY",
+          invalid: "CODE_MODE_INVALID",
+        }[kind],
+      ),
+  });
   const program = codeJson(value, CODE_MODE_LIMITS.sourceBytes);
   let nodes = 0;
   const charge = (depth: number) => {
