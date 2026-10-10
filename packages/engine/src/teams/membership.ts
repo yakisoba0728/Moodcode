@@ -44,9 +44,9 @@ export function createTeam(s: TeamStorage, input: CreateTeamInput) {
     if (s.getTeam(ws, team)) teamError("TEAM_EXISTS");
     const count = s.db
       .prepare(
-        "SELECT count(*) AS n FROM team_state_heads WHERE workspace_id=? AND kind='team'",
+        "SELECT count(*) AS n FROM team_state_heads h JOIN team_state_revisions r ON r.id=h.revision_id WHERE h.workspace_id=? AND h.kind='team' AND json_extract(r.data,'$.status')='active' AND json_extract(r.data,'$.expiresAt')>?",
       )
-      .get(ws)!.n;
+      .get(ws, s.stamp())!.n;
     if (Number(count) >= TEAM_LIMITS.teams) teamError("TEAM_LIMIT");
     const binding = validateBinding(s.ports.checkBinding(ws)),
       workspace = s.ports.getWorkspace(ws);

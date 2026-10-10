@@ -234,7 +234,8 @@ export function readMailbox(
       )
       .all(team, id, gen, cursor.claimedSeq, limit + 1);
     const messages = [];
-    let bytes = 2048;
+    let bytes = 2048,
+      expiredPage = false;
     for (const row of rows) {
       teamInteger(row.bytes, 65536);
       if (
@@ -249,8 +250,9 @@ export function readMailbox(
         message.recipientGeneration !== gen
       )
         teamError("TEAM_SCOPE_MISMATCH");
-      if (Date.parse(message.expiresAt) <= s.now())
-        teamError("TEAM_MESSAGE_EXPIRED");
+      const expired = Date.parse(message.expiresAt) <= s.now();
+      if (!messages.length) expiredPage = expired;
+      else if (expired !== expiredPage) break;
       messages.push(message);
       bytes += Buffer.byteLength(JSON.stringify(message));
     }
@@ -282,7 +284,11 @@ export function readMailbox(
     return page;
   });
 }
-function ownedPage(s: TeamStorage, page: TeamMailboxPage) {
+function ownedPage(
+  s: TeamStorage,
+  page: TeamMailboxPage,
+  expiredOk = false,
+) {
   const own = s.pages.get(page);
   if (!own || own.used) teamError("TEAM_PAGE_REQUIRED");
   const actual = s.activeMember(
@@ -305,14 +311,14 @@ function ownedPage(s: TeamStorage, page: TeamMailboxPage) {
     cursor.pendingDeliveryId !== null
   )
     teamError("TEAM_STALE");
+  let expired = 0;
   for (const message of page.messages) {
     const stored = s.getMessage(page.workspaceId, message.id);
-    if (
-      stored?.sha256 !== message.sha256 ||
-      Date.parse(message.expiresAt) <= s.now()
-    )
-      teamError("TEAM_STALE");
+    if (stored?.sha256 !== message.sha256) teamError("TEAM_STALE");
+    if (Date.parse(message.expiresAt) <= s.now()) expired++;
   }
+  if (expired && (!expiredOk || expired !== page.messages.length))
+    teamError("TEAM_STALE");
   return own;
 }
 export function claimMailbox(
@@ -334,20 +340,18 @@ export function claimMailbox(
       requestSha,
     );
   if (duplicate) {
-    const c = teamHash({
-      ...page.cursor,
-      revision: page.cursor.revision + 1,
-      claimedSeq: page.messages.at(-1)?.seq ?? page.cursor.claimedSeq,
-    });
+    const proof = duplicate.claimProof;
+    if (!proof || proof.pageSha256 !== page.sha256)
+      teamError("TEAM_SCOPE_MISMATCH");
     return Object.freeze({
       receipt: duplicate,
-      cursor: validateTeamCursor(c),
+      cursor: proof.after,
       messages: page.messages,
       duplicate: true,
     });
   }
   return s.tx(() => {
-    const own = ownedPage(s, page);
+    const own = ownedPage(s, page, true);
     if (page.cursor.revision !== revision || !page.messages.length)
       teamError("TEAM_STALE");
     const cursor = s.updateCursor(page.cursor, {

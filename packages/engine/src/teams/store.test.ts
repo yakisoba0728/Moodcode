@@ -75,6 +75,7 @@ async function fixture(t: Parameters<typeof teamFixture>[0]) {
   function sendInput(
     requestId: string = randomUUID(),
     text = "actual native message",
+    expiresAt = expiry,
   ): SendAgentMessageInput {
     return {
       workspaceId: f.workspace.id,
@@ -85,13 +86,13 @@ async function fixture(t: Parameters<typeof teamFixture>[0]) {
       recipientGeneration: second.record.generation,
       requestId,
       text,
-      expiresAt: expiry,
+      expiresAt,
     };
   }
-  function send(requestId?: string, text?: string) {
+  function send(requestId?: string, text?: string, expiresAt?: string) {
     const capture = owner();
     try {
-      return storage.send(capture, sendInput(requestId, text));
+      return storage.send(capture, sendInput(requestId, text, expiresAt));
     } finally {
       host.releaseOwner(capture);
     }
@@ -242,6 +243,108 @@ test("mailbox exact ordering and original page CAS reject copy and post-read app
   assert.equal(claimed.messages.length, 3);
   f.storage.releasePage(fresh);
   f.host.releaseOwner(freshOwner);
+});
+test("an expired mailbox head is read as its own page that can be claimed but not delivered", async (t) => {
+  const f = await fixture(t);
+  let clock = Date.now();
+  Reflect.set(f.storage.ports, "now", () => clock);
+  const short = new Date(clock + 1000).toISOString();
+  f.send("expired-first", "expired first", short);
+  f.send("live-second", "live second");
+  f.send("expired-third", "expired third", short);
+  clock += 1000;
+  const owner = f.owner(),
+    read = () =>
+      f.storage.readMailbox(owner, {
+        workspaceId: f.workspace.id,
+        teamId: "native-team",
+        memberId: "second",
+        generation: 1,
+      }),
+    head = read();
+  assert.deepEqual(
+    head.messages.map((m) => m.text),
+    ["expired first"],
+  );
+  assert.equal(head.hasMore, true);
+  assert.throws(
+    () =>
+      f.storage.prepareDelivery(head, {
+        requestId: "expired-delivery",
+        expectedCursorRevision: head.cursor.revision,
+      }),
+    error("TEAM_STALE"),
+  );
+  assert.equal(
+    f.db.prepare("SELECT count(*) AS n FROM team_deliveries").get()!.n,
+    0,
+  );
+  const acknowledged = f.storage.claimMailbox(head, {
+    requestId: "expired-ack",
+    expectedCursorRevision: head.cursor.revision,
+  });
+  assert.equal(acknowledged.cursor.claimedSeq, 1);
+  const live = read();
+  assert.deepEqual(
+    live.messages.map((m) => m.text),
+    ["live second"],
+  );
+  assert.equal(live.hasMore, true);
+  f.storage.claimMailbox(live, {
+    requestId: "live-claim",
+    expectedCursorRevision: live.cursor.revision,
+  });
+  const tail = read();
+  assert.deepEqual(
+    tail.messages.map((m) => m.text),
+    ["expired third"],
+  );
+  assert.equal(tail.hasMore, false);
+  assert.doesNotThrow(() => validateTeamDatabase(f.db));
+  for (const page of [head, live, tail]) f.storage.releasePage(page);
+  f.host.releaseOwner(owner);
+});
+test("native claim replay returns the stored receipt and cursor", async (t) => {
+  const f = await fixture(t);
+  f.send("replayed-claim-source");
+  const owner = f.owner(),
+    page = f.storage.readMailbox(owner, {
+      workspaceId: f.workspace.id,
+      teamId: "native-team",
+      memberId: "second",
+      generation: 1,
+    }),
+    input = {
+      requestId: "replayed-claim",
+      expectedCursorRevision: page.cursor.revision,
+    },
+    claim = f.storage.claimMailbox(page, input),
+    replay = f.storage.claimMailbox(page, input);
+  assert.equal(replay.duplicate, true);
+  assert.deepEqual(replay.receipt, claim.receipt);
+  assert.deepEqual(replay.cursor, claim.cursor);
+  assert.deepEqual(replay.messages, claim.messages);
+  f.storage.releasePage(page);
+  f.host.releaseOwner(owner);
+});
+test("the team limit counts only active unexpired teams", async (t) => {
+  const f = await teamFixture(t, { engine: { teams: true } }),
+    storage = Reflect.get(f.engine, "teamRecords");
+  assert.ok(storage instanceof TeamStorage);
+  let clock = Date.now();
+  Reflect.set(storage.ports, "now", () => clock);
+  const create = (i: number) =>
+    storage.createTeam({
+      workspaceId: f.workspace.id,
+      requestId: `limited-team-${i}`,
+      expiresAt: new Date(clock + 1000).toISOString(),
+    });
+  for (let i = 0; i < 9; i++) {
+    create(i);
+    clock += 1000;
+  }
+  for (let i = 9; i < 17; i++) create(i);
+  assert.throws(() => create(17), error("TEAM_LIMIT"));
 });
 test("a worker sharing the exact real child owner cannot borrow coordinator board permissions", async (t) => {
   const f = await fixture(t),
