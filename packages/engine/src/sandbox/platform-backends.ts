@@ -12,12 +12,15 @@ import {
   mkdirSync,
   writeFileSync,
   existsSync,
+  readlinkSync,
   rmSync,
+  statSync,
 } from "node:fs";
 import { release, tmpdir } from "node:os";
-import { join, isAbsolute, relative, dirname } from "node:path";
+import { join, isAbsolute, relative, dirname, resolve } from "node:path";
 import { createServer } from "node:net";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { GIT_SAFE_ARGS, gitEnvironment } from "../workspace/git.js";
 import {
   sandboxError,
   sandboxSign,
@@ -92,18 +95,150 @@ export function canonicalWorkspacePath(root: string, value: string): string {
   return p;
 }
 const q = (v: string) => JSON.stringify(v);
-/** Unsandboxed Git later runs hooks and config commands from these paths, and `.git` or `commondir` can redirect it to a planted gitdir. Reads and other `.git` writes stay allowed. */
-const gitControlWrites = (root: string) => {
-  const git = join(root, ".git");
-  return `(deny file-write* (literal ${q(git)}) (literal ${q(join(git, "config.worktree"))}) ${["config", "commondir", "hooks", "info", "modules"].map((p) => `(subpath ${q(join(git, p))})`).join(" ")})`;
+/** Read-only Git with the workspace hardening; a spawn failure, timeout or output overflow fails closed. */
+function readGit(cwd: string, args: readonly string[]) {
+  try {
+    return {
+      status: 0,
+      out: execFileSync("git", [...GIT_SAFE_ARGS, "-C", cwd, ...args], {
+        env: gitEnvironment(),
+        encoding: "utf8",
+        timeout: 10_000,
+        killSignal: "SIGKILL",
+        maxBuffer: 2 * 1024 * 1024,
+        stdio: ["ignore", "pipe", "ignore"],
+      }),
+    };
+  } catch (e) {
+    const status = (e as { status?: unknown }).status;
+    if (typeof status !== "number") sandboxError("SANDBOX_SOURCE_STALE");
+    return { status, out: "" };
+  }
+}
+/** Include targets declared in all config or one `--file`, resolved like Git against the including file. */
+function includeTargets(cwd: string, scope: readonly string[]): string[] {
+  const r = readGit(cwd, [
+    "config",
+    ...scope,
+    "--show-origin",
+    "-z",
+    "--type=path",
+    "--get-regexp",
+    "^include(if\\..+)?\\.path$",
+  ]);
+  if (r.status === 1) return [];
+  if (r.status !== 0) sandboxError("SANDBOX_SOURCE_STALE");
+  const fields = r.out.split("\0"),
+    targets: string[] = [];
+  for (let i = 0; i + 1 < fields.length; i += 2) {
+    const origin = fields[i]!,
+      entry = fields[i + 1]!,
+      value = entry.slice(entry.indexOf("\n") + 1);
+    if (origin.startsWith("file:") && entry.includes("\n") && value)
+      targets.push(resolve(cwd, dirname(origin.slice(5)), value));
+  }
+  return targets;
+}
+/** Physical path the kernel reaches through `path`; `entries` receives every directory entry visited, symlinks included. */
+function physicalWalk(path: string, entries: string[]): string {
+  let hops = 0;
+  const walk = (p: string): string => {
+    let dir = "/";
+    for (const name of p.split("/")) {
+      if (name === "" || name === ".") continue;
+      if (name === "..") {
+        dir = dirname(dir);
+        continue;
+      }
+      const entry = join(dir, name);
+      entries.push(entry);
+      let link: string | undefined;
+      try {
+        link = readlinkSync(entry);
+      } catch {}
+      if (link === undefined) dir = entry;
+      else if (++hops > 32) sandboxError("SANDBOX_PATH");
+      else dir = walk(isAbsolute(link) ? link : `${dir}/${link}`);
+    }
+    return dir;
+  };
+  return walk(path);
+}
+const isFile = (p: string) => {
+  try {
+    return statSync(p).isFile();
+  } catch {
+    return false;
+  }
 };
+export interface GitControlPaths {
+  literal: readonly string[];
+  subpath: readonly string[];
+}
+/**
+ * Writes that let unsandboxed Git later run planted hooks or config commands or
+ * switch to a planted gitdir: `<root>/.git` control entries, plus the effective
+ * hooks directory and every config include target inside a write grant, with each
+ * directory entry on their way there so they cannot be renamed or re-pointed.
+ * Reads and other `.git` writes stay allowed.
+ */
+export function gitControlPaths(
+  root: string,
+  writePaths: readonly string[],
+): GitControlPaths {
+  const git = join(root, ".git"),
+    literal = new Set([git, join(git, "config.worktree")]),
+    subpath = new Set(
+      [
+        "config",
+        "commondir",
+        "hooks",
+        "info",
+        "modules",
+        "rebase-merge",
+        "worktrees",
+      ].map((p) => join(git, p)),
+    );
+  if (writePaths.length) {
+    const rev = readGit(root, [
+      "rev-parse",
+      "--show-toplevel",
+      "--git-path",
+      "hooks",
+    ]);
+    if (rev.status !== 0 && existsSync(git))
+      sandboxError("SANDBOX_SOURCE_STALE");
+    const [top, hooks] = rev.status === 0 ? rev.out.split("\n") : [],
+      targets = includeTargets(top || root, []),
+      seen = new Set<string>();
+    for (let i = 0; i < targets.length; i++) {
+      const t = targets[i]!;
+      if (seen.has(t)) continue;
+      seen.add(t);
+      if (seen.size > 64) sandboxError("SANDBOX_LIMIT");
+      if (isFile(t)) targets.push(...includeTargets(root, ["--file", t]));
+    }
+    const inside = (p: string) =>
+      writePaths.some((w) => p === w || p.startsWith(w + "/"));
+    for (const c of hooks ? [resolve(root, hooks), ...seen] : seen) {
+      const entries: string[] = [],
+        target = physicalWalk(c, entries);
+      for (const e of entries)
+        if (e !== root && e !== target && inside(e)) literal.add(e);
+      if (inside(target)) subpath.add(target);
+    }
+  }
+  return { literal: [...literal], subpath: [...subpath] };
+}
+const gitWrites = (git: GitControlPaths) =>
+  `(deny file-write* ${[...git.literal.map((p) => `(literal ${q(p)})`), ...git.subpath.map((p) => `(subpath ${q(p)})`)].join(" ")})`;
 /** No network, Mach service discovery, user-home mount, inherited credential environment or external application execution. */
 export function seatbeltProfile(
   readonlyPaths: readonly string[],
   writePaths: readonly string[],
   excluded: readonly string[],
   executables: readonly string[],
-  gitRoot: string | null,
+  git: GitControlPaths | null,
 ): string {
   const read = [
     '(literal "/")',
@@ -117,7 +252,7 @@ export function seatbeltProfile(
     ...executables.map((p) => `(literal ${q(p)})`),
     ...readonlyPaths.map((p) => `(subpath ${q(p)})`),
   ].join(" ");
-  return `(version 1)(deny default)(allow process-exec process-fork)(allow signal (target same-sandbox))(allow sysctl-read)(allow file-read-metadata)(allow file-read* file-map-executable ${read})(allow file-write* (literal "/dev/null") ${writePaths.map((p) => `(subpath ${q(p)})`).join(" ")})(deny file-read* file-write* ${excluded.map((p) => `(subpath ${q(p)})`).join(" ")})${gitRoot === null ? "" : gitControlWrites(gitRoot)}`;
+  return `(version 1)(deny default)(allow process-exec process-fork)(allow signal (target same-sandbox))(allow sysctl-read)(allow file-read-metadata)(allow file-read* file-map-executable ${read})(allow file-write* (literal "/dev/null") ${writePaths.map((p) => `(subpath ${q(p)})`).join(" ")})(deny file-read* file-write* ${excluded.map((p) => `(subpath ${q(p)})`).join(" ")})${git === null ? "" : gitWrites(git)}`;
 }
 export async function probeSeatbelt(): Promise<SandboxCapability> {
   const base = {

@@ -25,6 +25,7 @@ import {
   physicalPin,
   assertPin,
   canonicalWorkspacePath,
+  gitControlPaths,
   seatbeltProfile,
 } from "./platform-backends.js";
 import {
@@ -209,7 +210,7 @@ export class SandboxHost implements CommandExecutionObserver {
         write,
         excluded,
         [realpathSync(process.execPath)],
-        root,
+        gitControlPaths(root, write),
       ),
       restriction = knowledgeHash({
         backend: this.backend.sha256,
@@ -516,7 +517,7 @@ export class SandboxHost implements CommandExecutionObserver {
         write,
         excluded,
         [realpathSync(process.execPath)],
-        workspace.root,
+        gitControlPaths(workspace.root, write),
       ),
       pins = [
         physicalPin(workspace.root),

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import {
   existsSync,
@@ -72,6 +73,12 @@ test(
   darwin,
   async (t) => {
     const f = await fixture(t);
+    mkdirSync(join(f.root, "tools", "hooks"), { recursive: true });
+    for (const setting of [
+      "core.hooksPath=tools/hooks",
+      "include.path=../local.cfg",
+    ])
+      execFileSync("git", ["-C", f.root, "config", ...setting.split("=")]);
     const git = join(f.root, ".git"),
       config = readFileSync(join(git, "config"), "utf8");
     await f.grant();
@@ -85,6 +92,14 @@ test(
         "printf '[core]' >> .git/config.worktree",
         "printf ../planted > .git/commondir",
         "mkdir .git/info .git/modules",
+        "mkdir -p .git/worktrees/w",
+        "printf ../planted > .git/worktrees/w/commondir",
+        "mkdir .git/rebase-merge",
+        "printf 'exec touch pwned' > .git/rebase-merge/git-rebase-todo",
+        "printf hook > tools/hooks/pre-commit",
+        "mv tools moved-tools",
+        "printf sibling > tools/sibling",
+        "printf '[core]' > local.cfg",
         "mv .git moved-git",
         "printf kept > after-git",
       ].join("; "),
@@ -97,8 +112,16 @@ test(
       "commondir",
       "info",
       "modules",
+      "worktrees",
+      "rebase-merge",
     ])
       assert.equal(existsSync(join(git, p)), false, p);
+    for (const p of ["tools/hooks/pre-commit", "moved-tools", "local.cfg"])
+      assert.equal(existsSync(join(f.root, p)), false, p);
+    assert.equal(
+      readFileSync(join(f.root, "tools", "sibling"), "utf8"),
+      "sibling",
+    );
     assert.equal(readFileSync(join(git, "sandbox-probe"), "utf8"), "allowed");
     assert.equal(readFileSync(join(f.root, "after-git"), "utf8"), "kept");
     const output = f.engine.store.getToolCall(x.approval.toolCallId).output!;
