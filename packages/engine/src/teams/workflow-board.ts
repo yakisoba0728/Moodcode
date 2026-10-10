@@ -354,9 +354,8 @@ export class TeamWorkflowBoard {
     input: TeamModelInput,
     context: ToolContext,
     fingerprint: string,
-    nativeApprovalFingerprint?: string,
+    nativeApprovalFingerprint: string,
   ): JsonObject {
-    if (operation === "read_team_board") return this.read(member, input);
     const data = immutableKnowledgeJson(input) as unknown as {
       taskId: string;
       expectedRevision: number;

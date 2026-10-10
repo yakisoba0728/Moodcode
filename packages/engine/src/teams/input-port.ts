@@ -47,10 +47,10 @@ export interface TeamChildInputPort {
     originalTarget: object,
     originalAccepted: object,
   ): TeamAcceptedInputProof;
-  confirmDelivery?(originalTarget:object,originalAccepted:object):void;
+  confirmDelivery(originalTarget:object,originalAccepted:object):void;
   release(original: object): void;
 }
-export const TEAM_INPUT_PREFIX = "[Moodcode team mailbox v1]\n";
+const TEAM_INPUT_PREFIX = "[Moodcode team mailbox v1]\n";
 /** Complete quoted DATA; this message does not grant tool, source or completion authority. */
 export function teamMailboxInput(page: TeamMailboxPage): {
   readonly prompt: string;

@@ -54,7 +54,7 @@ import {
   validateDeliveryReceipt,
 } from "./mailbox.js";
 import { putTask, claimTask, completeTask } from "./board.js";
-export { TEAM_SCHEMA_SQL, TEAM_TABLES } from "./schema.js";
+export { TEAM_TABLES } from "./schema.js";
 export class TeamStorage {
   readonly epoch = randomUUID();
   readonly pages = new WeakMap<object, { original: object; used: boolean }>();
@@ -627,26 +627,6 @@ export class TeamStorage {
       record,
       receipt,
     });
-  }
-  listDeliveries(ws: string, team: string, limit = 32) {
-    teamId(ws);
-    teamId(team);
-    if (!teamInteger(limit, 32)) teamError("TEAM_LIMIT");
-    const out = [];
-    let bytes = 0;
-    for (const row of this.db
-      .prepare(
-        "SELECT id,length(CAST(data AS BLOB)) AS bytes FROM team_deliveries WHERE workspace_id=? AND team_id=? ORDER BY id LIMIT ?",
-      )
-      .iterate(ws, team, limit)) {
-      teamInteger(row.bytes, 65536);
-      if (bytes + Number(row.bytes) > 65536) break;
-      const value = this.getDeliveryHistory(ws, teamId(row.id));
-      if (!value) teamError();
-      bytes += Number(row.bytes);
-      out.push(value);
-    }
-    return Object.freeze(out);
   }
   readMailbox(original: object, input: Parameters<typeof readMailbox>[2]) {
     return readMailbox(this, original, input);

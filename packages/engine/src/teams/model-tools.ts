@@ -28,7 +28,7 @@ export const TEAM_MODEL_WRITE_TOOL_NAMES = Object.freeze([
   "submit_team_task",
   "review_team_task",
 ] as const);
-export const TEAM_MODEL_LIMITS = Object.freeze({
+const TEAM_MODEL_LIMITS = Object.freeze({
   inputBytes: 8192,
   messageBytes: 4096,
   snapshotBytes: 32768,

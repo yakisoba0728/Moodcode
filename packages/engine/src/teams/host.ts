@@ -59,7 +59,6 @@ export interface TeamHostNativePort {
 export interface TeamHostServicePorts {
   readonly native: TeamHostNativePort;
   readonly owner: TeamOwnerPort;
-  readonly now?: () => number;
 }
 export interface PreviewTeamMemberInput extends Omit<
   RegisterTeamMemberInput,
@@ -116,9 +115,6 @@ export class TeamHostService {
   private readonly retainedPreviews = new Set<object>();
   private closed = false;
   constructor(private readonly ports: TeamHostServicePorts) {}
-  private now(): number {
-    return this.ports.now?.() ?? Date.now();
-  }
   private open(): void {
     if (this.closed) teamHostError("TEAM_CLOSED");
   }
@@ -239,7 +235,7 @@ export class TeamHostService {
     if (!team || team.status !== "active") teamHostError("TEAM_INACTIVE");
     const expiresAt = teamHostExpiry(
       input.expiresAt,
-      this.now(),
+      Date.now(),
       Date.parse(team.expiresAt),
     );
     if (this.retainedPreviews.size >= 128) teamHostError("TEAM_LIMIT");
@@ -317,7 +313,7 @@ export class TeamHostService {
     teamHostAbort(input.signal);
     if (
       !this.retainedPreviews.has(input.preview) ||
-      Date.parse(state.public.expiresAt) <= this.now()
+      Date.parse(state.public.expiresAt) <= Date.now()
     )
       teamHostError("TEAM_PREVIEW_STALE");
     const team = this.ports.native.getTeam(

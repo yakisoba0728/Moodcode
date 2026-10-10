@@ -18,6 +18,7 @@ import {
   type TeamModelToolHost,
 } from "./model-tools.js";
 import type { TeamService } from "./service.js";
+import type { TeamWorkflowBoard } from "./workflow-board.js";
 import type {
   TeamMailboxCursor,
   TeamMailboxPage,
@@ -64,7 +65,7 @@ export interface TeamModelExecution {
   readonly artifactDir: string;
 }
 export interface EngineTeamModelToolHostPorts {
-  readonly board?: import("./workflow-board.js").TeamWorkflowBoard;
+  readonly board: TeamWorkflowBoard;
   readonly owner: TeamOwnerPort;
   readonly service: Pick<
     TeamService,
@@ -99,7 +100,6 @@ export interface EngineTeamModelToolHostPorts {
   /** Uses the private engine execution graph, never a caller-supplied database path. */
   resolveExecution(proof: TeamMemberOwnerProof): TeamModelExecution;
   assertEnabled(): void;
-  readonly now?: () => number;
 }
 export interface TeamModelToolsBinding {
   readonly actor: JsonObject;
@@ -238,9 +238,6 @@ export class EngineTeamModelToolHost {
     if (this.closed) fail("TEAM_MODEL_CLOSED");
     this.ports.assertEnabled();
   }
-  private now(): number {
-    return this.ports.now?.() ?? Date.now();
-  }
   private observe(member: TeamMemberRevision): TeamMemberOwnerProof {
     const original = this.ports.owner.capture({
       workspaceId: member.workspaceId,
@@ -275,7 +272,7 @@ export class EngineTeamModelToolHost {
       member.memberId !== memberId ||
       member.generation !== generation ||
       member.status !== "active" ||
-      Date.parse(member.expiresAt) <= this.now()
+      Date.parse(member.expiresAt) <= Date.now()
     )
       fail("TEAM_MODEL_MEMBER_STALE");
     return member;
@@ -308,7 +305,7 @@ export class EngineTeamModelToolHost {
     if (
       !team ||
       team.status !== "active" ||
-      Date.parse(team.expiresAt) <= this.now()
+      Date.parse(team.expiresAt) <= Date.now()
     )
       fail("TEAM_MODEL_MEMBER_STALE");
     const member = this.activeMember(
@@ -376,7 +373,7 @@ export class EngineTeamModelToolHost {
       !team ||
       team.status !== "active" ||
       team.sha256 !== binding.teamSha256 ||
-      Date.parse(team.expiresAt) <= this.now()
+      Date.parse(team.expiresAt) <= Date.now()
     )
       fail("TEAM_MODEL_MEMBER_STALE");
     const member = this.activeMember(
@@ -521,7 +518,6 @@ export class EngineTeamModelToolHost {
         operation,
       )
     ) {
-      if (!this.ports.board) fail("TEAM_WORKFLOW_UNAVAILABLE");
       resources =
         operation === "read_team_board"
           ? this.ports.board.read(binding.member, parsed)
@@ -611,7 +607,7 @@ export class EngineTeamModelToolHost {
       if (
         !task ||
         task.revision !== mutation.expectedRevision ||
-        Date.parse(task.expiresAt) <= this.now()
+        Date.parse(task.expiresAt) <= Date.now()
       )
         fail("TEAM_MODEL_TASK_STALE");
       if (
@@ -709,7 +705,7 @@ export class EngineTeamModelToolHost {
     if (
       ["submit_team_task", "review_team_task"].includes(captured.operation) &&
       knowledgeHash(
-        this.ports.board!.prepare(
+        this.ports.board.prepare(
           captured.binding.member,
           captured.operation,
           captured.input,
@@ -733,7 +729,7 @@ export class EngineTeamModelToolHost {
     if (captured.page) {
       if (
         captured.page.messages.some(
-          (message) => Date.parse(message.expiresAt) <= this.now(),
+          (message) => Date.parse(message.expiresAt) <= Date.now(),
         )
       )
         fail("TEAM_MODEL_PAGE_STALE");
@@ -772,7 +768,6 @@ export class EngineTeamModelToolHost {
     if (operation === "read_team_board")
       return immutableKnowledgeJson(captured.snapshot.resources);
     if (["submit_team_task", "review_team_task"].includes(operation)) {
-      let approvalFingerprint: string | undefined;
       const execution = this.current(
         captured.binding,
         context,
@@ -789,14 +784,13 @@ export class EngineTeamModelToolHost {
             a.preview.teamModelRequestFingerprint === fingerprint,
         );
       if (approvals.length !== 1) fail("TEAM_MODEL_APPROVAL_REQUIRED");
-      approvalFingerprint = approvals[0]!.fingerprint;
-      return this.ports.board!.invoke(
+      return this.ports.board.invoke(
         member,
         operation,
         captured.input,
         context,
         fingerprint,
-        approvalFingerprint,
+        approvals[0]!.fingerprint,
       );
     }
     if (operation === "read_agent_mailbox")
@@ -849,37 +843,6 @@ export class EngineTeamModelToolHost {
       captured.released = true;
       this.originals.delete(original);
     }
-  }
-  scope(original: TeamModelToolsBinding): TeamModelToolHost {
-    const binding = this.binding(original);
-    const scoped = (capture: object): Invocation => {
-      const invocation = this.invocation(capture);
-      if (invocation.binding !== binding) fail("TEAM_MODEL_BINDING_STALE");
-      return invocation;
-    };
-    return {
-      capture: (context, operation, input) =>
-        this.capture(binding, context, operation, input),
-      read: (originalCapture) => scoped(originalCapture).snapshot,
-      assertCurrent: (originalCapture, context, phase, expected) => {
-        scoped(originalCapture);
-        this.assertCurrent(originalCapture, context, phase, expected);
-      },
-      invoke: (originalCapture, operation, input, context, fingerprint) => {
-        scoped(originalCapture);
-        return this.invoke(
-          originalCapture,
-          operation,
-          input,
-          context,
-          fingerprint,
-        );
-      },
-      release: (originalCapture) => {
-        scoped(originalCapture);
-        this.release(originalCapture);
-      },
-    };
   }
   /** One aggregate port supports fixed catalogues before any selected binding exists. */
   port(): TeamModelToolHost {

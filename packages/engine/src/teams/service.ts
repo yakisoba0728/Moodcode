@@ -94,7 +94,7 @@ export interface TeamServiceNativePort {
     original: TeamDeliveryCapture,
     originalAccepted: object,
   ): { record: TeamDeliveryRecord; receipt: TeamDeliveryReceipt };
-  cancelDelivery(original: TeamDeliveryCapture, errorCode?: string): void;
+  cancelDelivery(original: TeamDeliveryCapture): void;
   releaseDelivery(original: TeamDeliveryCapture): void;
   getDeliveryHistory(
     workspaceId: string,
@@ -113,7 +113,7 @@ export interface TeamTaskMutationInput {
   readonly expectedRevision: number;
 }
 export interface TeamServicePorts {
-  beforeCompleteTask?(input:TeamTaskMutationInput):void;
+  beforeCompleteTask(input:TeamTaskMutationInput):void;
   readonly native: TeamServiceNativePort;
   readonly host: TeamHostService;
   readonly input: TeamChildInputPort;
@@ -150,8 +150,6 @@ interface Page {
 }
 interface Delivery {
   readonly target: object;
-  readonly page: Page;
-  readonly prompt: string;
   readonly inputRequestId: string;
   accepted?: object;
 }
@@ -331,7 +329,7 @@ export class TeamService {
   completeTeamTask(
     input: TeamTaskMutationInput,
   ): TeamRequestResult<TeamTaskRevision> {
-    this.ports.beforeCompleteTask?.(teamHostData(input));
+    this.ports.beforeCompleteTask(teamHostData(input));
     return this.task(input, true);
   }
   /** Called only through the private exact-approved board review producer. */
@@ -432,7 +430,6 @@ export class TeamService {
       member.owner.childTaskId,
     );
     let capture: TeamDeliveryCapture | undefined,
-      dispatched = false,
       failed = false;
     try {
       const described = this.ports.input.readTarget(target);
@@ -465,18 +462,12 @@ export class TeamService {
       capture = prepared.capture;
       const formatted = teamMailboxInput(page.original),
         inputRequestId = `team-delivery:${prepared.record.id}`;
-      const state: Delivery = {
-        target,
-        page,
-        prompt: formatted.prompt,
-        inputRequestId,
-      };
+      const state: Delivery = { target, inputRequestId };
       this.deliveries.set(capture, state);
       teamHostAbort(input.signal);
       this.ports.input.assertAdmissible(target);
       this.ports.host.assertMemberOwnerCurrent(page.owner, member);
       this.ports.native.dispatchDelivery(capture);
-      dispatched = true;
       // Synchronous original acceptance: no scheduler wake or budget reset.
       teamHostAbort(input.signal);
       this.ports.input.assertCurrent(target);
@@ -487,7 +478,7 @@ export class TeamService {
       state.accepted = accepted;
       const completed = this.ports.native.completeDelivery(capture, accepted),
         result = teamHostData({ ...completed, duplicate: false });
-      this.ports.input.confirmDelivery?.(target,accepted);
+      this.ports.input.confirmDelivery(target,accepted);
       page.deliveryRequestId = input.requestId;
       page.delivery = result;
       this.releasePage(page.original);
@@ -496,10 +487,7 @@ export class TeamService {
       failed = true;
       if (capture !== undefined)
         try {
-          this.ports.native.cancelDelivery(
-            capture,
-            dispatched ? "TEAM_DELIVERY_UNCERTAIN" : "TEAM_DELIVERY_CANCELLED",
-          );
+          this.ports.native.cancelDelivery(capture);
           const history = this.ports.native.getDeliveryHistory(
             input.workspaceId,
             capture.deliveryId,
