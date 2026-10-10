@@ -45,7 +45,24 @@
       { "command": "node --test --test-concurrency=2 packages/engine/dist/{repository,context,verification}/**/*.test.js", "files": 37, "tests": 430, "pass": 430, "fail": 0, "includesNativeCorpus": true },
       { "command": "node --test --test-concurrency=2 lifecycle/engine-transforms, proposals/engine-proposals, lsp/*.test.js", "tests": 80, "pass": 80, "fail": 0 }
     ],
-    "localWholeGate": "Deliberately not run locally at the user's request to limit load; acceptance of the whole suite rests on hosted CI."
+    "localWholeGate": "Deliberately not run locally at the user's request to limit load; acceptance of the whole suite rests on hosted CI.",
+    "hostedCi": {
+      "branch": { "commit": "c287ac42e345e65a68fd746598d9e07b193e6b09", "runs": { "Engine headless": 38005380957, "Desktop packages": 38005380979 }, "jobs": "9/9 success" },
+      "main": {
+        "commit": "92c1fb36e64c72d0847d91821e795d1af12caa39",
+        "Desktop packages": { "run": 38006403112, "jobs": "3/3 success" },
+        "Engine native Windows": { "run": 38006403135, "jobs": "2/2 success", "note": "exercises the single rev-parse --verify --quiet branch against real Windows git" },
+        "Engine headless": {
+          "run": 38006403237,
+          "attempt1": { "conclusion": "failure", "failures": [
+            { "job": 114076091840, "lane": "macos-15 / Node 24.x", "gate": "5034 tests, 5030 pass, 1 fail, 3 skipped", "test": "integration/host-git-fork: one actual workspace owner fences Git commit and fork admission", "assertion": "Missing expected exception (commit or fork admitted while a host command owned the workspace)" },
+            { "job": 114076091782, "lane": "macos-15 / Node 26.x", "gate": "5034 tests, 5030 pass, 1 fail, 3 skipped", "test": "agent-backends/fixture-retention: backend Original survives failure after native test cleanup", "assertion": "child test process exited 0 where the failure mode expects 1" }
+          ] },
+          "attempt2": { "conclusion": "success", "jobs": "6/6" }
+        },
+        "assessment": "The same engine source passed all six jobs on the branch, and neither failing test reaches repository-context previews or gitIdentity. Both files passed 3/3 locally (6/6 tests each run). Cause unconfirmed; tracked as R-CI-HOSTED-02."
+      }
+    }
   },
   "followUp": "PERF-GIT-02: assertFresh runs 3 times per turn with 4 previews each (leading, query leading/trailing, trailing). Collapsing any of them removes a freshness observation point or changes the REPOSITORY_CONTEXT_STALE/REPOSITORY_SOURCE_STALE codes, so it needs an explicit contract decision."
 }

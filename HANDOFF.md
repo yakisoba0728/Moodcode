@@ -47,6 +47,7 @@ LSP의 기존 전체 실패는 `bom-crlf-astral-definition`이다. `e3032f0` 로
 - R-AUTH·R-LSP: 위 유한 구현 범위와 원격 갱신·역사적 경합의 미확정 범위를 구분한다. 최신 전체 gate 결과는 검증 문서에서 확인한다.
 - R-AUTH-LIVE: 2026-10-10 사용자 결정으로 이전 토큰 만료만 메모리에서 앞당겨 실제 `oauth/token` 갱신·ID 토큰 검증·저장·access/refresh 회전·같은 worker 후속 turn을 관측했다(부분 충족). [근거](docs/moodcode/desktop-account-renewal-live-verification.json). 자연 만료 관측은 열려 있으며 다음 갱신 구간은 2026-10-20 07:10 KST(만료 07:11)부터다. 이 하네스는 실제 grant를 회전시키므로 다시 실행하려면 새 승인이 필요하다.
 - PERF-GIT-01(완료): 의미가 같은 두 곳만 줄여(그중 하나는 query 직전의 중복 preview 1개 제거) 저장소 context 실행의 git 프로세스를 커밋 있는 저장소 203→194(약 4%), 커밋 없는 fixture 저장소 270→194로 낮췄다. 남은 주 비용인 `assertFresh` 확인 지점은 계약 결정이 필요해 PERF-GIT-02로 남겼다. [근거](docs/moodcode/perf-git-01-verification.json).
+- R-CI-HOSTED-02(미해결): main `92c1fb3`의 Engine headless macOS 첫 시도에서 서로 다른 테스트 2건(`host-git-fork` 접수 차단, `fixture-retention` 자식 종료 코드)이 실패했고 재실행은 통과했다. 원인 미확정이다. [근거](docs/moodcode/perf-git-01-verification.json).
 - R-LSP-HIST(미해결): `e3032f0`을 경합 조건에서 28회 실행했지만 재현되지 않았다. 과거 표기는 해석할 수 없고 원본 로그도 없다. [재현 시도](docs/moodcode/r-lsp-hist-reproduction.json).
 - R-CI-VERIFY-01(해결): hosted macOS Node 24의 `engine-verification.test` 승인 대기 실패는 승인 전 git 프로세스 약 180개가 부하 중 느려져 5초 helper 한도에 걸린 것이었다. helper를 이벤트 기반 대기로 바꿨다. [조사 근거](docs/moodcode/ci-verify-01-investigation.json). 비용 자체는 PERF-GIT-01로 열어 두었다.
 - N-05: 실제 macOS·Windows 서명/공증·설치·공개 update feed. 인증서·배포 자격 준비가 필요하다.
