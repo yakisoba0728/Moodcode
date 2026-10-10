@@ -453,7 +453,17 @@ function validateNative(db: DatabaseSync, r: CodeModeRecord): void {
       codeModeError("CODE_MODE_PART_INVALID");
   }
   if (["completed", "failed"].includes(r.state)) {
-    if (tool.state !== r.state) codeModeError("CODE_MODE_FINAL_INVALID");
+    // A cleanly closed run whose outer Tool was interrupted settles as cancelled;
+    // its Tool Part was closed without a result.
+    const cancelled = tool.state === "interrupted";
+    if (
+      cancelled
+        ? r.state !== "failed" ||
+          r.errorCode !== "CANCELLED" ||
+          typeof tool.error !== "string"
+        : tool.state !== r.state
+    )
+      codeModeError("CODE_MODE_FINAL_INVALID");
     const parts = db
       .prepare(
         "SELECT id FROM message_parts WHERE run_id=? AND turn_id=? AND instr(data,?)>0 LIMIT 17",
@@ -468,7 +478,10 @@ function validateNative(db: DatabaseSync, r: CodeModeRecord): void {
           x.name === tool.name &&
           x.turnId === s.turnId &&
           x.result?.output === tool.output &&
-          ["completed", "failed"].includes(x.state)
+          (cancelled
+            ? ["interrupted", "failed"]
+            : ["completed", "failed"]
+          ).includes(x.state)
         );
       }).length !== 1
     )
@@ -607,12 +620,22 @@ export class CodeModeStorage {
     for (const old of this.inspect()) {
       if (["prepared", "running", "settling"].includes(old.state)) {
         const { sha256, ...body } = old;
+        const cancelled =
+          old.state === "settling" &&
+          old.outcome?.cleanupConfirmed &&
+          old.pendingCall === null &&
+          native(this.db, "tools", old.source.toolCallId).state ===
+            "interrupted";
         this.append(
           codeSign({
             ...body,
             revision: old.revision + 1,
-            state: "uncertain" as const,
-            errorCode: "CODE_MODE_RESTART_UNCERTAIN",
+            ...(cancelled
+              ? { state: "failed" as const, errorCode: "CANCELLED" }
+              : {
+                  state: "uncertain" as const,
+                  errorCode: "CODE_MODE_RESTART_UNCERTAIN",
+                }),
             updatedAt: new Date().toISOString(),
           }),
           old.revision,

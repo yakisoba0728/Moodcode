@@ -647,13 +647,16 @@ export class CodeModeHost {
     const f = this.flights.get(tool.id);
     if (!f) return;
     f.settlingTool = tool;
+    const closed = f.record.outcome?.cleanupConfirmed && !f.record.pendingCall;
     try {
-      if (
-        f.record.outcome?.cleanupConfirmed &&
-        !f.record.pendingCall &&
-        ["completed", "failed"].includes(tool.state)
-      )
+      if (closed && ["completed", "failed"].includes(tool.state))
         this.update(f, { state: tool.state as "completed" | "failed" });
+      else if (
+        closed &&
+        f.record.state === "settling" &&
+        tool.state === "interrupted"
+      )
+        this.update(f, { state: "failed", errorCode: "CANCELLED" });
       else
         this.update(f, {
           state: "uncertain",

@@ -64,6 +64,7 @@ interface Owner {
   invocations: Map<string, string>;
   activeTools: Map<string, ToolCallRecord>;
   interruptedWindowsCommands?: ToolCallRecord[];
+  interruptedCodeModeTools?: ToolCallRecord[];
   readBatchWidth: number;
   effectOutputShare?:number;
   effectArtifactShare?:number;
@@ -1855,14 +1856,20 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       try { owner.turn?.fail(failure); }
       catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Execution records could not be durably settled'); }
       for (const tool of owner.activeTools.values()) if (!['completed', 'denied', 'failed', 'interrupted'].includes(tool.state)) this.setTool(owner, tool, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
-      // Windows native cancellation can prove physical cleanup before the Run
-      // interrupts its Tool. Settle its observation only after Turn.fail has
-      // closed the original Part; a Tool interruption alone proves no cleanup.
+      // Windows native cancellation and code mode can prove physical cleanup
+      // before the Run interrupts their Tool. Settle those observations only
+      // after Turn.fail has closed the original Part; a Tool interruption alone
+      // proves no cleanup.
       for (const tool of owner.interruptedWindowsCommands ?? []) {
         try { this.options.onOwnedCommandToolSettled?.(tool); }
         catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Native command cancellation observation could not be durably settled'); }
       }
       owner.interruptedWindowsCommands = undefined;
+      for (const tool of owner.interruptedCodeModeTools ?? []) {
+        try { this.options.onCodeModeToolSettled?.(tool); }
+        catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Code-mode cancellation observation could not be durably settled'); }
+      }
+      owner.interruptedCodeModeTools = undefined;
       try { this.options.approvals.cancelRun(run.id); }
       catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Pending approval cleanup could not be confirmed'); }
       const terminalError = owner.cleanupError ?? failure;
@@ -2153,7 +2160,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     Object.assign(tool, { state }, fields);
     this.options.store.commit(owner.run.id, `tool.${state}`, { toolCallId: tool.id, name: tool.name, state, ...fields }, { tool: { ...tool } });
     if(['run_command_job','command_job_input','wait_command_job'].includes(tool.name)&&state==='interrupted')this.options.onCommandLifetimeToolSettled?.(tool);
-    if(tool.name==='execute_code'&&state==='interrupted')this.options.onCodeModeToolSettled?.(tool);
+    if(tool.name==='execute_code'&&state==='interrupted')(owner.interruptedCodeModeTools??=[]).push(tool);
     if (tool.name === 'run_command' && state === 'interrupted') {
       if (process.platform === 'win32') (owner.interruptedWindowsCommands ??= []).push(tool);
       else this.options.onOwnedCommandToolSettled?.(tool);

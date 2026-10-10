@@ -50,7 +50,7 @@ DB version 23 and its existing catalogue are unchanged. Records use bounded rese
 
 The native call intent commits before broker dispatch. Physical process completion is recorded before the outer final ToolPart; the job becomes terminal only after that real Part exists. SQL failure before admission starts no worker. SQL failure after process admission or after the final Part retains uncertainty without creating another result or retrying effects.
 
-Parent cancellation and engine close join the runtime supervisor and existing command group. Actual Root SIGKILL tests also wait for both groups and the physical command lock to disappear. Interrupted restart history becomes `uncertain`; imported history becomes `paused-import`. Neither path registers a runtime, reconstructs a live Original grant or automatically replays a provider/tool call. Unknown effects block further workspace execution through the existing recovery guard. Partial approved command effects remain on disk.
+Parent cancellation and engine close join the runtime supervisor and existing command group. Actual Root SIGKILL tests also wait for both groups and the physical command lock to disappear. A cancelled or closed run whose runtime close is confirmed with no nested call pending settles as `failed` with `CANCELLED`, live or at restart. Other interrupted restart history becomes `uncertain`; imported history becomes `paused-import`. None of these paths registers a runtime, reconstructs a live Original grant or automatically replays a provider/tool call. Unknown effects block further workspace execution through the existing recovery guard. Partial approved command effects remain on disk.
 
 ## Limits and evidence
 

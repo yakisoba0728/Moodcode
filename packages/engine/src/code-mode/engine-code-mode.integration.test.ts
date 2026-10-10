@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { randomUUID } from "node:crypto";
 import {
   fixture,
   program,
@@ -244,6 +245,72 @@ test(
         assert.equal(captured.requests.length, requests);
       }
     });
+  },
+);
+async function cancelAfterNestedRead(f: Awaited<ReturnType<typeof fixture>>) {
+  const coordinator = f.engine.coordinator,
+    original = coordinator.executeCodeModeNested.bind(coordinator);
+  coordinator.executeCodeModeNested = async (context, input) => {
+    const result = await original(context, input);
+    await f.dispatch("run.cancel", { runId: context.runId });
+    return result;
+  };
+  const r = await f.submit(
+    program([
+      call("read", "read_file", { path: "seed" }),
+      { op: "return", value: literal(true) },
+    ]),
+  );
+  await f.allow(r);
+  return f.wait(r);
+}
+test(
+  "cancel after a settled nested call with confirmed runtime close settles as cancelled and keeps the workspace usable",
+  actual,
+  async (t) => {
+    const f = await fixture(t);
+    await f.grant();
+    assert.equal((await cancelAfterNestedRead(f)).state, "cancelled");
+    const row = f.engine.inspectCodeMode(f.workspace.id)[0]!;
+    assert.equal(row.state, "failed");
+    assert.equal(row.errorCode, "CANCELLED");
+    assert.equal(row.outcome?.cleanupConfirmed, true);
+    assert.equal(row.pendingCall, null);
+    assert.equal(row.calls.length, 1);
+    assert.equal(f.engine.store.hasUncertainWorkspace(f.workspace.id), false);
+    await f.reopen();
+    assert.equal(f.engine.inspectCodeMode(f.workspace.id)[0]!.state, "failed");
+    assert.equal(f.engine.store.hasUncertainWorkspace(f.workspace.id), false);
+    const resumed = await f.engine.dispatchSession({
+      schemaVersion: 2,
+      commandId: randomUUID(),
+      type: "session.resume",
+      payload: { sessionId: f.session.id },
+    });
+    assert.equal(resumed.ok, true, JSON.stringify(resumed.error));
+    await f.grant();
+    const next = await f.submit(program([{ op: "return", value: literal(1) }]));
+    await f.allow(next);
+    assert.equal((await f.wait(next)).state, "completed");
+  },
+);
+test(
+  "restart settles a confirmed closed run whose interrupted Tool settlement was lost as cancelled",
+  actual,
+  async (t) => {
+    const f = await fixture(t);
+    await f.grant();
+    Reflect.set(Reflect.get(f.engine, "codeModeHost"), "toolSettled", () => {});
+    await cancelAfterNestedRead(f);
+    assert.equal(
+      f.engine.inspectCodeMode(f.workspace.id)[0]!.state,
+      "settling",
+    );
+    await f.reopen();
+    const row = f.engine.inspectCodeMode(f.workspace.id)[0]!;
+    assert.equal(row.state, "failed");
+    assert.equal(row.errorCode, "CANCELLED");
+    assert.equal(f.engine.store.hasUncertainWorkspace(f.workspace.id), false);
   },
 );
 test(
