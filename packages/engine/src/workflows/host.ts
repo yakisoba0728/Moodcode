@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { ChildBudget } from "../child-tasks/index.js";
+import { CHILD_BUDGET_KEYS } from "../child-tasks/journal.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type {
   WorkflowSpecRevision,
@@ -202,17 +203,11 @@ export class WorkflowHost {
         )
       )
         workflowError("WORKFLOW_STAGE_TOOL_ESCALATION");
-      for (const key of ["turns", "toolCalls", "outputBytes"] as const)
+      // Native child pools reserve all four dimensions, including duration, across siblings.
+      for (const key of CHILD_BUDGET_KEYS)
         allocation[key] += stage.allocation[key];
-      // Existing native child pools reserve all four dimensions across siblings.
-      allocation.durationMs += stage.allocation.durationMs;
     }
-    for (const key of [
-      "turns",
-      "toolCalls",
-      "outputBytes",
-      "durationMs",
-    ] as const)
+    for (const key of CHILD_BUDGET_KEYS)
       if (!reserved && allocation[key] > configuration.remainingBudget[key])
         workflowError("WORKFLOW_BUDGET_EXCEEDED");
     return configuration;

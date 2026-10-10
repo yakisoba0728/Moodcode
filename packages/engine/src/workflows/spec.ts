@@ -4,6 +4,8 @@ import {
   type JsonObject,
   type JsonValue,
 } from "@moodcode/contracts";
+import { DELEGATION_READ_TOOLS } from "../child-tasks/delegation.js";
+import { CHILD_BUDGET_KEYS, CHILD_BUDGET_MAX } from "../child-tasks/journal.js";
 import {
   immutableKnowledgeJson,
   knowledgeHash,
@@ -31,13 +33,7 @@ export const WORKFLOW_LIMITS = Object.freeze({
   promptBytes: 32768,
   tools: 64,
 });
-export const WORKFLOW_READ_TOOLS = Object.freeze([
-  "glob_files",
-  "list_files",
-  "read_file",
-  "regex_search",
-  "search_files",
-]);
+export const WORKFLOW_READ_TOOLS = DELEGATION_READ_TOOLS;
 export function workflowError(code = "INVALID_WORKFLOW_SPEC"): never {
   throw new EngineError(
     code,
@@ -450,23 +446,9 @@ function stage(input: unknown): WorkflowStageSpec {
     !REASONING_EFFORTS.includes(model.reasoningEffort as never)
   )
     workflowError();
-  const allocation = workflowObject(value.allocation, [
-    "turns",
-    "toolCalls",
-    "outputBytes",
-    "durationMs",
-  ]);
-  for (const key of [
-    "turns",
-    "toolCalls",
-    "outputBytes",
-    "durationMs",
-  ] as const)
-    workflowInteger(
-      allocation[key],
-      key === "durationMs" ? 3600000 : key === "outputBytes" ? 16777216 : 10000,
-      1,
-    );
+  const allocation = workflowObject(value.allocation, CHILD_BUDGET_KEYS);
+  for (const key of CHILD_BUDGET_KEYS)
+    workflowInteger(allocation[key], CHILD_BUDGET_MAX[key], 1);
   const verification =
     value.verification === undefined
       ? undefined

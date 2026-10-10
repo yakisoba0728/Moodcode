@@ -6,6 +6,15 @@ import {
 } from "@moodcode/contracts";
 import type { GrantDocumentPort } from "../permission/grants.js";
 import type { WorktreeManager } from "../worktrees/index.js";
+import {
+  CHILD_BUDGET_KEYS as KEYS,
+  CHILD_BUDGET_MAX,
+  CHILD_OUTCOME_STATES,
+  CHILD_TASK_JOURNAL,
+  CHILD_TASK_STATES,
+  CHILD_TERMINAL_STATES as TERMINAL,
+  CHILD_USAGE_KEYS,
+} from "./journal.js";
 
 export interface ChildBudget {
   turns: number;
@@ -13,14 +22,7 @@ export interface ChildBudget {
   outputBytes: number;
   durationMs: number;
 }
-export type ChildTaskState =
-  | "starting"
-  | "running"
-  | "cancelling"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "uncertain";
+export type ChildTaskState = (typeof CHILD_TASK_STATES)[number];
 export interface ChildOutcome {
   state: "completed" | "failed" | "cancelled";
   content: string;
@@ -114,24 +116,13 @@ interface Live {
   unlink(): void;
   timer: ReturnType<typeof setTimeout>;
 }
-const KIND = "engine.child_tasks";
-const KEYS = ["turns", "toolCalls", "outputBytes", "durationMs"] as const;
-const TERMINAL = ["completed", "failed", "cancelled", "uncertain"];
-const STATES = ["starting", "running", "cancelling", ...TERMINAL];
 const clone = <T>(value: T): T => structuredClone(value);
 function validBudget(b: ChildBudget): boolean {
   return (
     !!b &&
     KEYS.every(
       (k) =>
-        Number.isSafeInteger(b[k]) &&
-        b[k] >= 0 &&
-        b[k] <=
-          (k === "durationMs"
-            ? 3_600_000
-            : k === "outputBytes"
-              ? 16_777_216
-              : 10_000),
+        Number.isSafeInteger(b[k]) && b[k] >= 0 && b[k] <= CHILD_BUDGET_MAX[k],
     ) &&
     b.turns > 0 &&
     b.durationMs > 0
@@ -157,15 +148,14 @@ function boundedOutcome(
 ): ChildOutcome {
   if (
     !value ||
-    !["completed", "failed", "cancelled"].includes(value.state) ||
+    !CHILD_OUTCOME_STATES.includes(value.state) ||
     typeof value.content !== "string" ||
     !value.usage ||
-    ["turns", "toolCalls", "outputBytes"].some(
+    CHILD_USAGE_KEYS.some(
       (k) =>
-        !Number.isSafeInteger(value.usage[k as keyof ChildOutcome["usage"]]) ||
-        value.usage[k as keyof ChildOutcome["usage"]] < 0 ||
-        value.usage[k as keyof ChildOutcome["usage"]] >
-          budget[k as keyof ChildBudget],
+        !Number.isSafeInteger(value.usage[k]) ||
+        value.usage[k] < 0 ||
+        value.usage[k] > budget[k],
     )
   )
     throw new EngineError(
@@ -247,14 +237,17 @@ export class ChildTaskManager {
       );
   }
   private journal(sessionId: string): Journal {
-    const document = this.options.documents.getSessionDocument(sessionId, KIND);
+    const document = this.options.documents.getSessionDocument(
+      sessionId,
+      CHILD_TASK_JOURNAL.kind,
+    );
     if (!document) return { revision: 0, tasks: [], pools: [] };
     const tasks = document.data.tasks as unknown as ChildTaskRecord[];
     const pools = document.data.pools as unknown as Pool[];
     if (
       document.data.schemaVersion !== 1 ||
       !Array.isArray(tasks) ||
-      tasks.length > 32 ||
+      tasks.length > CHILD_TASK_JOURNAL.maxTasks ||
       !Array.isArray(pools) ||
       pools.length > 32 ||
       tasks.some(
@@ -262,7 +255,7 @@ export class ChildTaskManager {
           !t ||
           t.sessionId !== sessionId ||
           !/^child_[a-f0-9]{32}$/.test(t.id) ||
-          !STATES.includes(t.state) ||
+          !CHILD_TASK_STATES.includes(t.state) ||
           !validBudget(t.budget) ||
           !Number.isSafeInteger(t.depth) ||
           t.depth < 1 ||
@@ -308,14 +301,14 @@ export class ChildTaskManager {
       tasks: journal.tasks,
       pools: journal.pools,
     } as unknown as JsonObject;
-    if (Buffer.byteLength(JSON.stringify(data)) > 240 * 1024)
+    if (Buffer.byteLength(JSON.stringify(data)) > CHILD_TASK_JOURNAL.maxBytes)
       throw new EngineError(
         "CHILD_JOURNAL_LIMIT",
         "Child task journal exceeds its durable byte limit",
       );
     this.options.documents.putSessionDocument(
       sessionId,
-      KIND,
+      CHILD_TASK_JOURNAL.kind,
       journal.revision,
       data,
     );
@@ -472,7 +465,7 @@ export class ChildTaskManager {
         "Nested child authority must come from its live parent task",
       );
     const depth = parent ? parent.depth + 1 : 1;
-    if (depth > 3 || journal.tasks.length >= 32)
+    if (depth > 3 || journal.tasks.length >= CHILD_TASK_JOURNAL.maxTasks)
       throw new EngineError(
         "CHILD_TASK_LIMIT",
         "Child depth or session task count exceeded",
@@ -502,7 +495,7 @@ export class ChildTaskManager {
     if (this.closing || parentSignal.aborted) throw cancelled();
     // Reload after asynchronous filesystem observation; reserve in the same CAS as dispatch intent.
     journal = this.journal(input.sessionId);
-    if (journal.tasks.length >= 32)
+    if (journal.tasks.length >= CHILD_TASK_JOURNAL.maxTasks)
       throw new EngineError(
         "CHILD_TASK_LIMIT",
         "Session child count changed during admission",
@@ -748,10 +741,7 @@ export class ChildTaskManager {
   async deliver(sessionId: string, id: string): Promise<ChildTaskRecord> {
     const task = this.get(sessionId, id);
     if (task.deliveryState === "delivered") return task;
-    if (
-      !task.outcome ||
-      !["completed", "failed", "cancelled"].includes(task.state)
-    )
+    if (!task.outcome || !CHILD_OUTCOME_STATES.includes(task.state))
       throw new EngineError(
         "CHILD_RESULT_UNAVAILABLE",
         "Only an observed terminal child outcome can be delivered",

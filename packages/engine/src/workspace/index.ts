@@ -35,6 +35,10 @@ async function validateRoot(workspace: Workspace): Promise<string> {
   }
 }
 
+export function workspaceIdForRoot(root: string): string {
+  return `workspace_${createHash('sha256').update(root).digest('hex')}`;
+}
+
 /** Opens the canonical Git top-level directory, including unborn repositories. */
 export async function openWorkspace(inputPath: string, options: GitOperationOptions = {}): Promise<Workspace> {
   if (typeof inputPath !== 'string' || inputPath.length === 0 || inputPath.includes('\0')) {
@@ -55,7 +59,7 @@ export async function openWorkspace(inputPath: string, options: GitOperationOpti
   const root = await realpath(discovery.stdout.toString('utf8').replace(/\r?\n$/, ''));
   const branch = await readBranch(root, options);
   return {
-    id: `workspace_${createHash('sha256').update(root).digest('hex')}`,
+    id: workspaceIdForRoot(root),
     root, gitRoot: root, branch, createdAt: new Date().toISOString(),
   };
 }

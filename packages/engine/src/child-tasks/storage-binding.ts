@@ -5,11 +5,15 @@ import type { DatabaseSync } from 'node:sqlite';
 import { types } from 'node:util';
 import { EngineError, type JsonObject, type Workspace } from '@moodcode/contracts';
 import type { GrantDocumentPort } from '../permission/grants.js';
+import { workspaceIdForRoot } from '../workspace/index.js';
 import type { ManagedWorktree } from '../worktrees/index.js';
-import type { ChildTaskRecord } from './index.js';
+import { WORKTREE_JOURNAL } from '../worktrees/journal.js';
+import type { EngineChildRequest } from './engine-host.js';
+import type { ChildTaskRecord, ChildTaskState } from './index.js';
+import { CHILD_BUDGET_KEYS, CHILD_OUTCOME_STATES, CHILD_TASK_JOURNAL, CHILD_TASK_STATES, CHILD_TERMINAL_STATES } from './journal.js';
 
 export const CHILD_STORAGE_MIRROR_KIND = 'engine.child_owner';
-const CHILD_STORAGE_LIMITS = { maxTasks: 32, maxRecordBytes: 32768, maxMetadataBytes: 8388608 } as const;
+const CHILD_STORAGE_LIMITS = { maxTasks: CHILD_TASK_JOURNAL.maxTasks, maxRecordBytes: 32768, maxMetadataBytes: 8388608 } as const;
 export interface ChildStoragePhysicalIdentity { path: string; dev: string; ino: string }
 export interface ChildStorageHostIdentity {
   database: ChildStoragePhysicalIdentity | { memory: string };
@@ -65,9 +69,9 @@ function denseIds(value: unknown): string[] {
 }
 function taskRecord(value: unknown): ChildTaskRecord {
   const task = plain(value);
-  if (typeof task.id !== 'string' || !/^child_[a-f0-9]{32}$/.test(task.id) || ![task.requestId,task.sessionId,task.parentRunId,task.rootRunId,task.worktreeId].every(id) || typeof task.worktreeId !== 'string' || !/^worktree_[a-f0-9]{32}$/.test(task.worktreeId) || !sha(task.fingerprint) || !Number.isSafeInteger(task.depth) || Number(task.depth) < 1 || Number(task.depth) > 3 || typeof task.state !== 'string' || !['starting','running','cancelling','completed','failed','cancelled','uncertain'].includes(task.state) || (task.childRunId !== undefined && !id(task.childRunId)) || (task.parentTaskId !== undefined && (typeof task.parentTaskId !== 'string' || !/^child_[a-f0-9]{32}$/.test(task.parentTaskId)))) fail('Task journal member identity is invalid');
+  if (typeof task.id !== 'string' || !/^child_[a-f0-9]{32}$/.test(task.id) || ![task.requestId,task.sessionId,task.parentRunId,task.rootRunId,task.worktreeId].every(id) || typeof task.worktreeId !== 'string' || !/^worktree_[a-f0-9]{32}$/.test(task.worktreeId) || !sha(task.fingerprint) || !Number.isSafeInteger(task.depth) || Number(task.depth) < 1 || Number(task.depth) > 3 || typeof task.state !== 'string' || !CHILD_TASK_STATES.includes(task.state as ChildTaskState) || (task.childRunId !== undefined && !id(task.childRunId)) || (task.parentTaskId !== undefined && (typeof task.parentTaskId !== 'string' || !/^child_[a-f0-9]{32}$/.test(task.parentTaskId)))) fail('Task journal member identity is invalid');
   const allocation = plain(task.budget);
-  if (['turns','toolCalls','outputBytes','durationMs'].some(name => !Number.isSafeInteger(allocation[name]) || Number(allocation[name]) < 0)) fail('Task journal member budget is invalid');
+  if (CHILD_BUDGET_KEYS.some(name => !Number.isSafeInteger(allocation[name]) || Number(allocation[name]) < 0)) fail('Task journal member budget is invalid');
   return task as unknown as ChildTaskRecord;
 }
 function physical(value: unknown): ChildStoragePhysicalIdentity {
@@ -86,6 +90,8 @@ export function childStorageKind(taskId: string): string {
   if (!/^child_[a-f0-9]{32}$/.test(taskId)) return fail('Task identity is invalid');
   return `child.storage.${taskId}`;
 }
+export function childRequestKind(requestId: string): string { return `child.request.${hash(requestId).slice(0, 32)}`; }
+export function childRequestFingerprint(request: EngineChildRequest): string { return hash(request); }
 export function childStorageBindingSha256(binding: ChildStorageBinding): string { return hash(binding); }
 export function validateChildStorageRecord(value: unknown): ChildStorageRecord {
   const record = plain(value); keys(record, ['schemaVersion', 'binding', 'sha256'], ['confirmedClose']);
@@ -104,7 +110,7 @@ export function validateChildStorageRecord(value: unknown): ChildStorageRecord {
   if (typeof worktree.id !== 'string' || !/^worktree_[a-f0-9]{32}$/.test(worktree.id) || !id(worktree.workspaceId) || !path(worktree.root) || !path(worktree.baseRoot) || !id(worktree.baseCommit) || !id(worktree.reference) || !sha(worktree.fingerprint) || ![worktree.device,worktree.inode].every(value => typeof value === 'string' && /^\d{1,30}$/.test(value))) fail('Historical worktree identity is invalid');
   if (worktree.root !== join(String(binding.childrenDirectory), 'worktrees', worktree.id)) fail('Worktree is outside its configured base');
   const child = plain(binding.child); keys(child, ['sessionId','workspaceId','root'], ['runId']);
-  if (!id(child.sessionId) || !id(child.workspaceId) || child.root !== worktree.root || child.workspaceId !== `workspace_${createHash('sha256').update(String(child.root)).digest('hex')}` || child.sessionId === lineage.sessionId) fail('Child workspace/session is invalid');
+  if (!id(child.sessionId) || !id(child.workspaceId) || child.root !== worktree.root || child.workspaceId !== workspaceIdForRoot(String(child.root)) || child.sessionId === lineage.sessionId) fail('Child workspace/session is invalid');
   if (binding.phase === 'admitted' ? !id(child.runId) || !date(binding.admittedAt) : child.runId !== undefined || binding.admittedAt !== undefined) fail('Admission proof is incomplete');
   if (!sha(record.sha256) || record.sha256 !== hash(binding)) fail('Binding digest does not match');
   if (record.confirmedClose !== undefined) { const close = plain(record.confirmedClose); keys(close, ['method','bindingSha256','closedAt']); if (binding.phase !== 'admitted' || close.method !== 'engine-close-resolved' || close.bindingSha256 !== record.sha256 || !date(close.closedAt)) fail('Close proof is invalid'); }
@@ -196,8 +202,8 @@ export function readChildStorageSelection(database: DatabaseSync, value: ChildSt
   if (taskIds.length === 0) { report.selectedMetadataBytes = used; return report; }
   let tasks: ChildTaskRecord[] = [], worktrees: ManagedWorktree[] = [];
   try {
-    const taskJournal = plain(document('engine.child_tasks', 245760)), worktreeJournal = plain(document('engine.worktrees', 204800));
-    if (taskJournal.schemaVersion !== 1 || worktreeJournal.schemaVersion !== 1 || !Array.isArray(taskJournal.tasks) || taskJournal.tasks.length > 32 || !Array.isArray(worktreeJournal.records) || worktreeJournal.records.length > 128) fail('Task/worktree journal is unsupported');
+    const taskJournal = plain(document(CHILD_TASK_JOURNAL.kind, CHILD_TASK_JOURNAL.maxBytes)), worktreeJournal = plain(document(WORKTREE_JOURNAL.kind, WORKTREE_JOURNAL.maxBytes));
+    if (taskJournal.schemaVersion !== 1 || worktreeJournal.schemaVersion !== 1 || !Array.isArray(taskJournal.tasks) || taskJournal.tasks.length > CHILD_TASK_JOURNAL.maxTasks || !Array.isArray(worktreeJournal.records) || worktreeJournal.records.length > WORKTREE_JOURNAL.maxRecords) fail('Task/worktree journal is unsupported');
     tasks = taskJournal.tasks.map(taskRecord); worktrees = worktreeJournal.records.map(item => plain(item)) as unknown as ManagedWorktree[];
     if (new Set(tasks.map(task => task.id)).size !== tasks.length || new Set(worktrees.map(worktree => worktree.id)).size !== worktrees.length) fail('Task/worktree journal contains duplicate identities');
   } catch (error) {
@@ -215,7 +221,7 @@ export function readChildStorageSelection(database: DatabaseSync, value: ChildSt
         if (!raw) selection = { taskId, status: 'legacy', reasons: ['CHILD_STORAGE_BINDING_MISSING'] };
         else {
           const record = validateChildStorageRecord(raw), binding = record.binding, lineage = binding.lineage;
-          const requestBinding = plain(document(`child.request.${hash(task.requestId).slice(0, 32)}`, 1024));
+          const requestBinding = plain(document(childRequestKind(task.requestId), 1024));
           keys(requestBinding, ['fingerprint']);
           const worktree = worktrees.find(item => item.id === task.worktreeId);
           if (!worktree || lineage.sessionId !== task.sessionId || lineage.sourceRunId !== task.rootRunId || lineage.parentRunId !== task.parentRunId || lineage.parentTaskId !== task.parentTaskId || lineage.depth !== task.depth || lineage.taskId !== task.id || lineage.taskRequestId !== task.requestId || lineage.taskFingerprint !== task.fingerprint || requestBinding.fingerprint !== lineage.requestFingerprint || binding.worktree.id !== worktree.id || worktree.sessionId !== task.sessionId) fail('Task/request/worktree provenance differs');
@@ -229,8 +235,8 @@ export function readChildStorageSelection(database: DatabaseSync, value: ChildSt
           const historical = binding.worktree;
           if (historical.workspaceId !== worktree.workspaceId || historical.baseRoot !== worktree.baseRoot || historical.baseCommit !== worktree.baseCommit || historical.reference !== worktree.reference || historical.fingerprint !== worktree.fingerprint || historical.device !== worktree.device || historical.inode !== worktree.inode) fail('Historical worktree provenance differs');
           selection.record = record;
-          if (['starting','running','cancelling'].includes(task.state)) { selection.status = 'active'; selection.reasons = ['CHILD_STORAGE_ACTIVE']; }
-          else if (!['completed','failed','cancelled'].includes(task.state) || binding.phase !== 'admitted' || !record.confirmedClose || binding.child.runId !== task.childRunId) { selection.status = 'unconfirmed'; selection.reasons = ['CHILD_STORAGE_CLOSE_UNCONFIRMED']; }
+          if (!CHILD_TERMINAL_STATES.includes(task.state)) { selection.status = 'active'; selection.reasons = ['CHILD_STORAGE_ACTIVE']; }
+          else if (!CHILD_OUTCOME_STATES.includes(task.state) || binding.phase !== 'admitted' || !record.confirmedClose || binding.child.runId !== task.childRunId) { selection.status = 'unconfirmed'; selection.reasons = ['CHILD_STORAGE_CLOSE_UNCONFIRMED']; }
           else if (mode === 'archive-historical') {
             const external = relative(binding.hostIdentity.artifacts.path, binding.childrenDirectory);
             if (external !== 'children') { selection.status = 'archive-unsupported'; selection.reasons = ['CHILD_STORAGE_EXTERNAL_ARCHIVE_UNSUPPORTED']; }

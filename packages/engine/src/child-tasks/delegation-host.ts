@@ -8,6 +8,7 @@ import type { WorktreeManager } from '../worktrees/index.js';
 import type { ChildTaskManager, ChildTaskRecord } from './index.js';
 import type { EngineChildRequest } from './engine-host.js';
 import { DELEGATION_READ_TOOLS, assertDelegationBudget, delegationDigest, delegationFingerprint, parseDelegationInput, type DelegationHost, type DelegationInput, type DelegationInspection, type PreparedDelegation } from './delegation.js';
+import { childRequestFingerprint, childRequestKind } from './storage-binding.js';
 
 export interface EngineDelegationPorts {
   engine: MoodcodeEngine;
@@ -15,6 +16,11 @@ export interface EngineDelegationPorts {
   tasks: ChildTaskManager;
   executionLockPath: string;
   start(request: EngineChildRequest, signal: AbortSignal): Promise<ChildTaskRecord>;
+}
+
+const delegatedRequestId = (runId: string, requestId: string): string => `delegate:${runId}:${requestId}`;
+function delegatedRequest(runId: string, sessionId: string, input: Pick<DelegationInput, 'requestId' | 'prompt' | 'allocation'>, worktreeId: string, tools: string[]): EngineChildRequest {
+  return { sessionId, requestId: delegatedRequestId(runId, input.requestId), parentRunId: runId, worktreeId, prompt: input.prompt, tools, allocation: input.allocation };
 }
 
 /** A scoped capability for an actual approved serial tool; never acquires a second workspace lease. */
@@ -44,12 +50,12 @@ export function createApprovedDelegationHost(ports: EngineDelegationPorts): Dele
     const allowedReadTools = DELEGATION_READ_TOOLS.filter(name => exposed.has(name) && catalogue.tools.some(tool => tool.name === name) && ports.engine.toolRuntime.resolve(catalogue, name).effectClass === 'read');
     const baseCommit = await delegationBaseCommit(context.workspace.root, context.signal);
     owner(context, phase, fingerprint);
-    const requestId = `delegate:${run.id}:${input.requestId}`, existing = ports.tasks.list(run.sessionId).find(task => task.requestId === requestId);
+    const requestId = delegatedRequestId(run.id, input.requestId), existing = ports.tasks.list(run.sessionId).find(task => task.requestId === requestId);
     if (existing) {
-      const expected: EngineChildRequest = { sessionId: run.sessionId, requestId, parentRunId: run.id, worktreeId: existing.worktreeId, prompt: input.prompt, tools: input.tools ?? [...allowedReadTools], allocation: input.allocation };
-      const stored = ports.engine.store.getSessionDocument(run.sessionId, `child.request.${delegationDigest(requestId).slice(0, 32)}`);
+      const expected = delegatedRequest(run.id, run.sessionId, input, existing.worktreeId, input.tools ?? [...allowedReadTools]);
+      const stored = ports.engine.store.getSessionDocument(run.sessionId, childRequestKind(requestId));
       const worktree = ports.worktrees.get(run.sessionId, existing.worktreeId);
-      if (stored?.data.fingerprint !== delegationDigest(expected) || worktree.baseCommit !== baseCommit || worktree.baseRoot !== context.workspace.root) throw new EngineError('CHILD_REQUEST_CONFLICT', 'Delegation request already belongs to different content, allocation, commit or tools');
+      if (stored?.data.fingerprint !== childRequestFingerprint(expected) || worktree.baseCommit !== baseCommit || worktree.baseRoot !== context.workspace.root) throw new EngineError('CHILD_REQUEST_CONFLICT', 'Delegation request already belongs to different content, allocation, commit or tools');
     }
     return { baseCommit, allowedReadTools: [...allowedReadTools], parentIdentity: delegationDigest({ runId: run.id, sessionId: run.sessionId, workspaceId: run.workspaceId, root: context.workspace.root, gitRoot: context.workspace.gitRoot, config: run.config, allowedReadTools }), remainingBudget: ports.engine.coordinator.getRemainingChildBudget(run.id), ...(existing ? { existingTaskId: existing.id } : {}) };
   }
@@ -65,7 +71,6 @@ export function createApprovedDelegationHost(ports: EngineDelegationPorts): Dele
       if (claimed.has(context.toolCallId) || claimed.size >= 256) throw new EngineError('DELEGATION_TOOL_REUSED', 'This delegation host tool was already used or its invocation bound was reached');
       claimed.add(context.toolCallId);
       const worktreeRequestId = `delegate:${delegationDigest([context.runId, request.requestId]).slice(0, 40)}`;
-      const childRequestId = `delegate:${context.runId}:${request.requestId}`;
       let worktreeId: string;
       const lock = acquireExecutionLock(ports.executionLockPath);
       let cleanupConfirmed = true;
@@ -90,7 +95,7 @@ export function createApprovedDelegationHost(ports: EngineDelegationPorts): Dele
       } finally { lock.release(cleanupConfirmed); }
       owner(context, 'execute', fingerprint);
       if (!current.existingTaskId) assertDelegationBudget(request.allocation, ports.engine.coordinator.getRemainingChildBudget(context.runId), context.limits.toolTimeoutMs);
-      const task = await ports.start({ sessionId: context.sessionId, requestId: childRequestId, parentRunId: context.runId, worktreeId, prompt: request.prompt, tools: request.tools, allocation: request.allocation }, context.signal);
+      const task = await ports.start(delegatedRequest(context.runId, context.sessionId, request, worktreeId, request.tools), context.signal);
       const terminal = await ports.tasks.wait(context.sessionId, task.id);
       if (terminal.state === 'uncertain') throw new EngineError('CLEANUP_UNCERTAIN', 'Child dispatch or cleanup is unconfirmed; its worktree owner was retained');
       return terminal;

@@ -8,15 +8,10 @@ import {
 } from "@moodcode/contracts";
 import type { GrantDocumentPort } from "../permission/grants.js";
 import { runGit } from "../workspace/git.js";
+import { workspaceIdForRoot } from "../workspace/index.js";
+import { WORKTREE_JOURNAL, WORKTREE_STATES } from "./journal.js";
 import { safeCheckoutArguments } from "./safe-checkout.js";
-export type WorktreeState =
-  | "creating"
-  | "booting"
-  | "ready"
-  | "failed"
-  | "cleaning"
-  | "removed"
-  | "uncertain";
+export type WorktreeState = (typeof WORKTREE_STATES)[number];
 export interface ManagedWorktree {
   id: string;
   requestId: string;
@@ -52,7 +47,6 @@ export interface WorktreeManagerOptions {
   bootTimeoutMs?: number;
   now?: () => number;
 }
-const KIND = "engine.worktrees";
 async function safeDirectory(directory: string): Promise<void> {
   let current = parse(directory).root;
   for (const component of directory
@@ -149,13 +143,16 @@ export class WorktreeManager {
     revision: number;
     records: ManagedWorktree[];
   } {
-    const stored = this.options.documents.getSessionDocument(sessionId, KIND);
+    const stored = this.options.documents.getSessionDocument(
+      sessionId,
+      WORKTREE_JOURNAL.kind,
+    );
     if (!stored) return { revision: 0, records: [] };
     const items = stored.data.records;
     if (
       stored.data.schemaVersion !== 1 ||
       !Array.isArray(items) ||
-      items.length > 128
+      items.length > WORKTREE_JOURNAL.maxRecords
     )
       throw new EngineError(
         "INVALID_WORKTREE_JOURNAL",
@@ -169,15 +166,7 @@ export class WorktreeManager {
           record.sessionId !== sessionId ||
           !/^worktree_[a-f0-9]{32}$/.test(record.id) ||
           record.root !== join(this.directory, record.id) ||
-          ![
-            "creating",
-            "booting",
-            "ready",
-            "failed",
-            "cleaning",
-            "removed",
-            "uncertain",
-          ].includes(record.state) ||
+          !WORKTREE_STATES.includes(record.state) ||
           !Number.isSafeInteger(record.revision) ||
           record.revision < 1 ||
           !/^[a-f0-9]{40,64}$/.test(record.baseCommit),
@@ -196,12 +185,17 @@ export class WorktreeManager {
     revision: number,
   ): void {
     const data = { schemaVersion: 1, records } as unknown as JsonObject;
-    if (Buffer.byteLength(JSON.stringify(data)) > 200 * 1024)
+    if (Buffer.byteLength(JSON.stringify(data)) > WORKTREE_JOURNAL.maxBytes)
       throw new EngineError(
         "WORKTREE_JOURNAL_LIMIT",
         "Worktree journal exceeds its durable byte limit",
       );
-    this.options.documents.putSessionDocument(sessionId, KIND, revision, data);
+    this.options.documents.putSessionDocument(
+      sessionId,
+      WORKTREE_JOURNAL.kind,
+      revision,
+      data,
+    );
   }
   private update(
     sessionId: string,
@@ -403,7 +397,7 @@ export class WorktreeManager {
     }
     if (signal.aborted)
       throw new EngineError("CANCELLED", "Worktree preparation cancelled");
-    if (journal.records.length >= 128)
+    if (journal.records.length >= WORKTREE_JOURNAL.maxRecords)
       throw new EngineError(
         "WORKTREE_LIMIT",
         "Session worktree record limit exceeded",
@@ -558,7 +552,7 @@ export class WorktreeManager {
         "Managed worktree no longer belongs to its parent Git repository",
       );
     return {
-      id: `workspace_${createHash("sha256").update(record.root).digest("hex")}`,
+      id: workspaceIdForRoot(record.root),
       root: record.root,
       gitRoot: record.root,
       branch: null,

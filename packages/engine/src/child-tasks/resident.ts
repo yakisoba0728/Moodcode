@@ -11,10 +11,17 @@ import {
   type JsonObject,
   type Run,
   type RunConfig,
+  type RunState,
 } from "@moodcode/contracts";
 import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
 import type { MoodcodeEngine } from "../engine.js";
 import type { ChildBudget, ChildOutcome, ChildTaskRecord } from "./index.js";
+import {
+  CHILD_BUDGET_KEYS,
+  CHILD_BUDGET_MAX,
+  CHILD_OUTCOME_STATES,
+  CHILD_USAGE_KEYS,
+} from "./journal.js";
 import {
   knowledgeHash,
   immutableKnowledgeJson,
@@ -90,17 +97,9 @@ export function validateResidentRecord(value: unknown): ResidentChildRecord {
   ] as const)
     teamSha(r[k]);
   teamDate(r.expiresAt);
-  teamObject(r.allocation, ["turns", "toolCalls", "outputBytes", "durationMs"]);
-  for (const k of [
-    "turns",
-    "toolCalls",
-    "outputBytes",
-    "durationMs",
-  ] as const) {
-    teamInteger(
-      r.allocation[k],
-      k === "durationMs" ? 3600000 : k === "outputBytes" ? 16777216 : 10000,
-    );
+  teamObject(r.allocation, CHILD_BUDGET_KEYS);
+  for (const k of CHILD_BUDGET_KEYS) {
+    teamInteger(r.allocation[k], CHILD_BUDGET_MAX[k]);
     if (r.allocation[k] < 1)
       throw new EngineError(
         "RESIDENT_RECORD_INVALID",
@@ -133,8 +132,8 @@ export function validateResidentRecord(value: unknown): ResidentChildRecord {
         teamSha(x.inputSha256);
       }
       if (x.usage !== null) {
-        teamObject(x.usage, ["turns", "toolCalls", "outputBytes"]);
-        for (const k of ["turns", "toolCalls", "outputBytes"] as const)
+        teamObject(x.usage, CHILD_USAGE_KEYS);
+        for (const k of CHILD_USAGE_KEYS)
           teamInteger(x.usage[k], r.allocation[k]);
         teamSha(x.outcomeSha256);
       } else if (
@@ -153,7 +152,7 @@ export function validateResidentRecord(value: unknown): ResidentChildRecord {
     }
   if (
     ["idle", "closed"].includes(r.state) &&
-    r.runs.some((x) => !["completed", "failed", "cancelled"].includes(x.state))
+    r.runs.some((x) => !CHILD_OUTCOME_STATES.includes(x.state))
   )
     throw new EngineError(
       "RESIDENT_RECORD_INVALID",
@@ -196,17 +195,15 @@ export function validateResidentRecord(value: unknown): ResidentChildRecord {
       ) ||
       !/^[a-f0-9]{64}$/.test(x.configSha256) ||
       (x.usage &&
-        ["turns", "toolCalls", "outputBytes"].some(
-          (k) =>
-            !Number.isSafeInteger(x.usage![k as keyof typeof x.usage]) ||
-            x.usage![k as keyof typeof x.usage] < 0,
+        CHILD_USAGE_KEYS.some(
+          (k) => !Number.isSafeInteger(x.usage![k]) || x.usage![k] < 0,
         ))
     )
       throw new EngineError(
         "RESIDENT_RECORD_INVALID",
         "Resident Run evidence is invalid",
       );
-  for (const k of ["turns", "toolCalls", "outputBytes"] as const)
+  for (const k of CHILD_USAGE_KEYS)
     if (r.runs.reduce((a, x) => a + (x.usage?.[k] ?? 0), 0) > r.allocation[k])
       throw new EngineError(
         "RESIDENT_BUDGET_EXCEEDED",
@@ -214,6 +211,37 @@ export function validateResidentRecord(value: unknown): ResidentChildRecord {
       );
   return r;
 }
+export function childRunConfig(
+  config: RunConfig,
+  budget: ChildBudget,
+): RunConfig {
+  const inherited = normalizeEngineBudgets(config.budgets);
+  return {
+    ...config,
+    limits: {
+      ...config.limits,
+      maxTurns: budget.turns,
+      maxToolCalls: budget.toolCalls,
+      maxOutputBytes: budget.outputBytes,
+      maxDurationMs: budget.durationMs,
+      toolTimeoutMs: Math.min(config.limits.toolTimeoutMs, budget.durationMs),
+    },
+    budgets: {
+      ...inherited,
+      turnAllowance: Math.min(inherited.turnAllowance, budget.turns),
+      maxToolCallsPerTurn: Math.min(
+        inherited.maxToolCallsPerTurn,
+        budget.toolCalls,
+      ),
+    },
+  };
+}
+export const childOutcomeState = (state: RunState): ChildOutcome["state"] =>
+  state === "completed"
+    ? "completed"
+    : state === "cancelled"
+      ? "cancelled"
+      : "failed";
 export interface ResidentPorts {
   assertCurrent(): void;
   close(): Promise<void>;
@@ -412,8 +440,7 @@ export class ResidentChild {
     const u = this.usage();
     if (this.record.runs.at(-1)?.state === "running") {
       const current = this.engine.coordinator.getRunUsage(this.currentRunId);
-      for (const k of ["turns", "toolCalls", "outputBytes"] as const)
-        u[k] += current[k];
+      for (const k of CHILD_USAGE_KEYS) u[k] += current[k];
     }
     return {
       turns: this.task.budget.turns - u.turns,
@@ -457,12 +484,7 @@ export class ResidentChild {
             x.runId === run.id
               ? {
                   ...x,
-                  state:
-                    run.state === "completed"
-                      ? "completed"
-                      : run.state === "cancelled"
-                        ? "cancelled"
-                        : "failed",
+                  state: childOutcomeState(run.state),
                   usage: { ...usage },
                   outcomeSha256: knowledgeHash({
                     run,
@@ -483,16 +505,7 @@ export class ResidentChild {
           r.durationMs < 1 ||
           this.record.runs.length >= 32
         ) {
-          queueMicrotask(
-            () =>
-              void this.stop(
-                run.state === "cancelled"
-                  ? "cancelled"
-                  : run.state === "failed"
-                    ? "failed"
-                    : "completed",
-              ),
-          );
+          queueMicrotask(() => void this.stop(childOutcomeState(run.state)));
           return;
         }
         this.idleDeadline =
@@ -540,24 +553,7 @@ export class ResidentChild {
     inputSha256: string;
     release(): void;
   } {
-    const r = this.assertAdmissible();
-    const budget = normalizeEngineBudgets(this.config.budgets);
-    const config = {
-      ...this.config,
-      limits: {
-        ...this.config.limits,
-        maxTurns: r.turns,
-        maxToolCalls: r.toolCalls,
-        maxOutputBytes: r.outputBytes,
-        maxDurationMs: r.durationMs,
-        toolTimeoutMs: Math.min(this.config.limits.toolTimeoutMs, r.durationMs),
-      },
-      budgets: {
-        ...budget,
-        turnAllowance: Math.min(budget.turnAllowance, r.turns),
-        maxToolCallsPerTurn: Math.min(budget.maxToolCallsPerTurn, r.toolCalls),
-      },
-    };
+    const config = childRunConfig(this.config, this.assertAdmissible());
     const accepted = {
       sessionId: this.record.childSessionId,
       requestId: input.requestId,

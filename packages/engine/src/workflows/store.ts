@@ -7,6 +7,7 @@ import {
   knowledgeHash,
   immutableKnowledgeJson,
 } from "../knowledge/validation.js";
+import { CHILD_BUDGET_KEYS } from "../child-tasks/journal.js";
 import {
   childStorageKind,
   validateChildStorageRecord,
@@ -326,12 +327,7 @@ function childProof(
   )
     workflowError("WORKFLOW_CHILD_INVALID");
   for (const name of proof.tools) workflowIdentifier(name);
-  workflowObject(proof.allocation, [
-    "turns",
-    "toolCalls",
-    "outputBytes",
-    "durationMs",
-  ]);
+  workflowObject(proof.allocation, CHILD_BUDGET_KEYS);
   for (const cap of Object.values(proof.allocation))
     workflowInteger(cap, 16777216, 1);
   return proof;

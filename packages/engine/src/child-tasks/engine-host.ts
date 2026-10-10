@@ -4,12 +4,13 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, realpathSync } from "node:fs";
 import { join, relative, isAbsolute, sep } from "node:path";
 import { EngineError, type Run, type Session } from "@moodcode/contracts";
-import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
 import type { MoodcodeEngine, EngineOptions } from "../engine.js";
 import { createApprovedDelegationHost } from "./delegation-host.js";
 import type { DelegationHost } from "./delegation.js";
 import {
   CHILD_STORAGE_MIRROR_KIND,
+  childRequestFingerprint,
+  childRequestKind,
   childStorageKind,
   validateChildStorageRecord,
   admitChildStorageBinding,
@@ -36,6 +37,8 @@ import type {
 import {
   ResidentChild,
   bindResidentProviderGuard,
+  childOutcomeState,
+  childRunConfig,
   RESIDENT_KIND_PREFIX,
   validateResidentRecord,
   type ResidentChildRecord,
@@ -49,6 +52,7 @@ import {
   type ChildStart,
   type ChildRunHandle,
 } from "./index.js";
+import { CHILD_OUTCOME_STATES, CHILD_TERMINAL_STATES } from "./journal.js";
 
 export interface EngineChildRequest {
   sessionId: string;
@@ -77,8 +81,6 @@ interface Execution {
   admittedRun: Run;
   workflowEvidence?:WorkflowChildEvidence;
 }
-const digest = (value: unknown) =>
-  createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 /** Actual child engines inherit configuration and consume a reservation in their live parent. */
 export class EngineChildren {
@@ -167,7 +169,7 @@ private readonly recoveredSessions = new Set<string>();
           );
         this.root.store.putSessionDocument(
           task.sessionId,
-          `child.request.${digest(task.requestId).slice(0, 32)}`,
+          childRequestKind(task.requestId),
           0,
           { fingerprint: admission.fingerprint },
         );
@@ -522,7 +524,7 @@ private readonly recoveredSessions = new Set<string>();
         "Child host request is invalid",
       );
     const key = JSON.stringify([request.sessionId, request.requestId]),
-      fingerprint = digest(request);
+      fingerprint = childRequestFingerprint(request);
     const prior = this.admissions.get(key);
     if (prior) {
       if (prior.fingerprint !== fingerprint)
@@ -532,7 +534,7 @@ private readonly recoveredSessions = new Set<string>();
         );
       return prior.done;
     }
-    const documentKey = `child.request.${digest(request.requestId).slice(0, 32)}`;
+    const documentKey = childRequestKind(request.requestId);
     const binding = this.root.store.getSessionDocument(
       request.sessionId,
       documentKey,
@@ -546,12 +548,7 @@ private readonly recoveredSessions = new Set<string>();
           "CHILD_REQUEST_CONFLICT",
           "Durable child request differs from this input",
         );
-      if (
-        ["completed", "failed", "cancelled", "uncertain"].includes(
-          durable.state,
-        )
-      )
-        return durable;
+      if (CHILD_TERMINAL_STATES.includes(durable.state)) return durable;
       this.recover(request.sessionId);
       return this.tasks.get(request.sessionId, durable.id); // Recovery observes unfinished work without redispatch.
     }
@@ -701,8 +698,7 @@ const slot = this.batchSlots.get(
       parent.run.config,
     );
     const { revision: _revision, ...definition } = profile ?? { revision: "" };
-    const inherited = normalizeEngineBudgets(parent.run.config.budgets),
-      allocation = request.task.budget;
+    const allocation = request.task.budget;
 
 const engine = this.create({
       ...this.options,
@@ -746,28 +742,7 @@ const engine = this.create({
         worktrees: this.worktrees,
         sessionId: request.task.sessionId,
       },
-      defaults: {
-        ...parent.run.config,
-        limits: {
-          ...parent.run.config.limits,
-          maxTurns: allocation.turns,
-          maxToolCalls: allocation.toolCalls,
-          maxOutputBytes: allocation.outputBytes,
-          maxDurationMs: allocation.durationMs,
-          toolTimeoutMs: Math.min(
-            parent.run.config.limits.toolTimeoutMs,
-            allocation.durationMs,
-          ),
-        },
-        budgets: {
-          ...inherited,
-          turnAllowance: Math.min(inherited.turnAllowance, allocation.turns),
-          maxToolCallsPerTurn: Math.min(
-            inherited.maxToolCallsPerTurn,
-            allocation.toolCalls,
-          ),
-        },
-      },
+      defaults: childRunConfig(parent.run.config, allocation),
     });
     const batchGuard = this.batchProviderGuards.get(
       JSON.stringify([request.task.sessionId, request.task.requestId]),
@@ -1014,16 +989,7 @@ const engine = this.create({
           }
           const usage = engine.coordinator.getRunUsage(run.id);
           const content = engine.store.getLastRunAssistantContent(run.id);
-          return {
-            state:
-              run.state === "completed"
-                ? ("completed" as const)
-                : run.state === "cancelled"
-                  ? ("cancelled" as const)
-                  : ("failed" as const),
-            content,
-            usage,
-          };
+          return { state: childOutcomeState(run.state), content, usage };
         })
         .finally(async () => {
           unlink?.();
@@ -1122,7 +1088,7 @@ const engine = this.create({
       );
       if (
         !admission ||
-        admission.fingerprint !== digest(request) ||
+        admission.fingerprint !== childRequestFingerprint(request) ||
         this.executions.get(task.id) !== execution ||
         !execution.storageRecord ||
         !document
@@ -1211,7 +1177,11 @@ const engine = this.create({
         try {
           const starting = await this.start(request, signal);
           const admission = this.admissions.get(key);
-          if (!admission || admission.fingerprint !== digest(request)) fail();
+          if (
+            !admission ||
+            admission.fingerprint !== childRequestFingerprint(request)
+          )
+            fail();
           await observeWait(
             Promise.race([
               admission.confirmed,
@@ -1308,7 +1278,7 @@ const engine = this.create({
             !actual ||
             !outcome ||
             !child.execution.closed ||
-            !["completed", "failed", "cancelled"].includes(settled.state) ||
+            !CHILD_OUTCOME_STATES.includes(settled.state) ||
             actual.state !== outcome.state ||
             knowledgeHash(actual.usage) !== knowledgeHash(outcome.usage) ||
             knowledgeHash(measured) !== knowledgeHash(actual.usage)
@@ -1478,7 +1448,7 @@ const engine = this.create({
     if (
       execution.closed &&
       record.confirmedClose &&
-      ["completed", "failed", "cancelled"].includes(task.state)
+      CHILD_OUTCOME_STATES.includes(task.state)
     )
       cleanup = "confirmed";
     else if (

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolDefinition, ToolResult } from '../ports.js';
 import type { ChildBudget, ChildTaskRecord } from './index.js';
+import { CHILD_BUDGET_KEYS as KEYS, CHILD_BUDGET_MAX } from './journal.js';
 
 export const DELEGATION_READ_TOOLS = Object.freeze(['glob_files', 'list_files', 'read_file', 'regex_search', 'search_files']);
 export interface DelegationInput { requestId: string; prompt: string; allocation: ChildBudget; tools?: string[] }
@@ -12,7 +13,6 @@ export interface DelegationHost {
   inspect(context: ToolContext, input: DelegationInput): Promise<DelegationInspection>;
   run(request: PreparedDelegation, context: ToolContext): Promise<ChildTaskRecord>;
 }
-const KEYS = ['turns', 'toolCalls', 'outputBytes', 'durationMs'] as const;
 export const delegationDigest = (value: unknown): string => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
 function object(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype; }
@@ -24,7 +24,7 @@ export function parseDelegationInput(value: unknown): DelegationInput {
     throw new EngineError('INVALID_DELEGATION_INPUT', 'Delegation requires an exact request identity, bounded prompt and allocation');
   }
   const allocation = value.allocation as unknown as ChildBudget;
-  if (KEYS.some(key => !Number.isSafeInteger(allocation[key]) || allocation[key] < 1 || allocation[key] > (key === 'durationMs' ? 3_600_000 : key === 'outputBytes' ? 16_777_216 : 10_000))) throw new EngineError('INVALID_DELEGATION_BUDGET', 'Delegation allocation must contain bounded positive integer caps');
+  if (KEYS.some(key => !Number.isSafeInteger(allocation[key]) || allocation[key] < 1 || allocation[key] > CHILD_BUDGET_MAX[key])) throw new EngineError('INVALID_DELEGATION_BUDGET', 'Delegation allocation must contain bounded positive integer caps');
   const tools = value.tools;
   if (tools !== undefined && (!Array.isArray(tools) || tools.length < 1 || tools.length > DELEGATION_READ_TOOLS.length || new Set(tools).size !== tools.length || tools.some(tool => typeof tool !== 'string' || !DELEGATION_READ_TOOLS.includes(tool)))) throw new EngineError('DELEGATION_TOOL_ESCALATION', 'Delegation only supports the explicit core read tool allowlist');
   return { requestId: value.requestId, prompt: value.prompt, allocation: structuredClone(allocation), ...(tools === undefined ? {} : { tools: [...tools as string[]].sort() }) };
