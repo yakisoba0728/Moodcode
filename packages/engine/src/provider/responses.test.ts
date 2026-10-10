@@ -503,6 +503,24 @@ test('invalid provider configuration remains private and fails immediately', () 
   for (const option of options) assert.throws(() => new ResponsesProvider(option), error => { assert.ok(error instanceof EngineError); assert.equal(error.code, 'PROVIDER_INVALID_CONFIG'); noSecret(error); return true; });
 });
 
+test('an API key travels only to an HTTPS or loopback HTTP base URL while keyless LAN HTTP still works', async () => {
+  const seen: { url: string; authorization: string | null }[] = [];
+  const transport: typeof fetch = async (input, init) => {
+    seen.push({ url: String(input), authorization: new Headers(init?.headers).get('authorization') });
+    return new Response(null, { status: 503 });
+  };
+  for (const baseURL of ['http://10.0.0.5:8000/v1', 'http://proxy.corp/v1']) {
+    assert.throws(() => new ResponsesProvider({ baseURL, apiKey: SECRET, fetch: transport }), error => {
+      assert.ok(error instanceof EngineError); assert.equal(error.code, 'PROVIDER_INVALID_CONFIG'); noSecret(error); return true;
+    });
+    await failure(new ResponsesProvider({ baseURL, fetch: transport }), 'PROVIDER_HTTP_ERROR');
+  }
+  assert.deepEqual(seen, [
+    { url: 'http://10.0.0.5:8000/v1/responses', authorization: null },
+    { url: 'http://proxy.corp/v1/responses', authorization: null },
+  ]);
+});
+
 test('two HTTP turns replay native reasoning, commentary phase and call before tool output', async t => {
   const received: Event[] = [];
   const reasoning = { id: 'rs-two-turn', type: 'reasoning', status: 'completed', encrypted_content: 'opaque-two-turn-ciphertext', summary: [{ type: 'summary_text', text: 'checking the file' }] };

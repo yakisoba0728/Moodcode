@@ -4,7 +4,7 @@ import { EngineError, type JsonObject, type JsonValue, type ProviderToolCall } f
 import type { ModelSpec } from '../context/model-spec.js';
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 import { boundedJson, JsonBudgetError } from '../artifacts/validation.js';
-import { credentialSecrets, CredentialTextRedactor, malformed, positiveLimit, providerHttpFailure, providerRemoteError, publicError, record, redactCredentialJson, redactCredentialText } from './helpers.js';
+import { credentialSecrets, CredentialTextRedactor, malformed, positiveLimit, providerHttpFailure, providerRemoteError, providerURLAllowed, publicError, record, redactCredentialJson, redactCredentialText } from './helpers.js';
 import { replayCompatible } from './replay.js';
 import { readSseData } from './sse.js';
 import { messageImages, providerImages } from '../media/provider.js';
@@ -199,7 +199,7 @@ export class AnthropicProvider implements ProviderAdapter {
     if (!/^[a-z][a-z0-9_-]{0,63}$/u.test(this.id) || this.#secrets.some(secret => this.id.includes(secret))) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider identifier is invalid.');
     let base: URL;
     try { base = new URL(options.baseURL ?? 'https://api.anthropic.com/v1'); } catch { throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider base URL is invalid.'); }
-    if (base.username || base.password || base.search || base.hash || base.protocol !== 'https:' && (base.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(base.hostname))) {
+    if (!providerURLAllowed(base, true)) {
       throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider URL requires HTTPS or loopback HTTP without credentials, query or fragment.');
     }
     base.pathname = base.pathname.replace(/\/+$/u, '') + '/messages';

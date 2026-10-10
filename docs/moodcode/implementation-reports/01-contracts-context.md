@@ -135,7 +135,7 @@ interface ResolvedConfig {
 
 각 파일의 stat과 실제 read를 65,536 bytes로 제한하고 MAX+1 buffer로 읽는 도중 커진 파일도 감지한다. open에는 `O_NOFOLLOW | O_NONBLOCK`을 사용하고 inode/dev·읽기 전후 size/mtime/ctime·부모 경로를 재확인한다. UTF-8은 fatal decoding 후 JSON.parse하며 invalid UTF-8/JSON의 native 오류 원문을 반환하지 않는다. 실제 파일 읽기 전후와 layer 경계에서 AbortSignal을 확인하고 열린 handle은 finally에서 닫는다. signal은 native brand를 확인하고 자체 getter override 대신 native aborted getter로 읽는다.
 
-provider metadata는 `baseURL`, `apiKeyEnv`만 허용한다. baseURL은 최대 2,048 UTF-8 bytes의 HTTP(S) URL이고 username/password/query/fragment를 거절한다. apiKeyEnv는 최대 128자의 ASCII 환경변수 이름이다. provider ID는 계약의 identifier 검증을 재사용하며 파일별·resolved provider 수는 최대 64개다. credential 원문 필드와 알 수 없는 필드는 거절한다. `process.env`를 조회·변경하지 않고 provider 생성·네트워크 호출·값 실행·DB 저장도 하지 않는다.
+provider metadata는 `baseURL`, `apiKeyEnv`만 허용한다. baseURL은 최대 2,048 UTF-8 bytes의 HTTP(S) URL이고 username/password/query/fragment를 거절한다. 같은 항목에 apiKeyEnv가 있으면 HTTPS 또는 loopback HTTP만 허용한다. apiKeyEnv는 최대 128자의 ASCII 환경변수 이름이다. provider ID는 계약의 identifier 검증을 재사용하며 파일별·resolved provider 수는 최대 64개다. credential 원문 필드와 알 수 없는 필드는 거절한다. `process.env`를 조회·변경하지 않고 provider 생성·네트워크 호출·값 실행·DB 저장도 하지 않는다.
 
 오류는 기존 `EngineError`이며 code는 `CONFIG_INVALID`, `CONFIG_JSON`, `CONFIG_FILE_LIMIT`, `CONFIG_FILE_TYPE`, `CONFIG_IO`, `CANCELLED`다. details는 source=`options`/`user`/`workspace`와 고정 schema field만 포함한다. 입력 값·알 수 없는 key/provider 이름·설정 파일 경로·native 오류 원문을 복사하지 않는다.
 

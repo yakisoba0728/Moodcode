@@ -89,6 +89,13 @@ export function optionalString(value: unknown): string | undefined {
   return value;
 }
 
+const LOOPBACK_HOSTS: readonly string[] = ['127.0.0.1', 'localhost', '[::1]'];
+/** Keys travel only over HTTPS or loopback HTTP; a keyless endpoint may use plain HTTP on any host. */
+export function providerURLAllowed(url: URL, credentialed: boolean): boolean {
+  return !url.username && !url.password && !url.search && !url.hash
+    && (url.protocol === 'https:' || url.protocol === 'http:' && (!credentialed || LOOPBACK_HOSTS.includes(url.hostname)));
+}
+
 export function positiveLimit(value: number | undefined, fallback: number): number {
   const limit = value ?? fallback;
   if (!Number.isSafeInteger(limit) || limit <= 0 || limit > 2_147_483_647) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider limits must be positive safe integers within the timer and byte range.');

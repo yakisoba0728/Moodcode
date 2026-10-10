@@ -3,6 +3,7 @@ import { lstat, open } from 'node:fs/promises';
 import { dirname, join, parse, relative, resolve, sep } from 'node:path';
 import { EngineError, type EngineBudgets, type RunConfig, type RunLimits } from '@moodcode/contracts';
 import { normalizeSubmitInput } from '@moodcode/contracts/validation';
+import { providerURLAllowed } from '../provider/helpers.js';
 
 const MAX_CONFIG_BYTES = 65_536;
 const MAX_PROVIDERS = 64;
@@ -105,13 +106,13 @@ function validateRun(value: unknown, source: Source): RunConfig {
 function providerMetadata(value: unknown, source: Source): ConfigProviderMetadata {
   const input = dataObject(value, source, 'providers', ['baseURL', 'apiKeyEnv']);
   const result: { baseURL?: string; apiKeyEnv?: string } = {};
+  let url: URL | undefined;
   if (Object.hasOwn(input, 'baseURL')) {
     const value = input.baseURL;
     if (typeof value !== 'string' || value.length === 0 || value.length > 2_048
       || Buffer.byteLength(value, 'utf8') > 2_048 || value.trim() !== value || /[\u0000-\u0020\u007f]/u.test(value)) {
       invalid(source, 'providers.baseURL', 'must be a bounded HTTP or HTTPS URL');
     }
-    let url: URL;
     try { url = new URL(value); } catch { invalid(source, 'providers.baseURL', 'must be an HTTP or HTTPS URL'); }
     if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password || url.search || url.hash) {
       invalid(source, 'providers.baseURL', 'must use HTTP or HTTPS without authentication, query, or fragment');
@@ -123,6 +124,9 @@ function providerMetadata(value: unknown, source: Source): ConfigProviderMetadat
       invalid(source, 'providers.apiKeyEnv', 'must name a credential environment variable');
     }
     result.apiKeyEnv = input.apiKeyEnv;
+  }
+  if (url && result.apiKeyEnv !== undefined && !providerURLAllowed(url, true)) {
+    invalid(source, 'providers.baseURL', 'must use HTTPS or loopback HTTP when apiKeyEnv is set');
   }
   return result;
 }

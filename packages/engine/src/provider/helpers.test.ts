@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EngineError } from '@moodcode/contracts';
-import { redactJson, redactText, TextRedactor } from './helpers.js';
+import { providerURLAllowed, redactJson, redactText, TextRedactor } from './helpers.js';
 
 const REGULAR_KEY = 'sk-fixture-redactor-private-1234567890';
 const FALLBACK = '█';
@@ -126,4 +126,19 @@ test('fallback JSON redaction preserves an own __proto__ property safely', () =>
   assert.equal(Object.getPrototypeOf(output), Object.prototype);
   assert.ok(Object.hasOwn(output, '__proto__'));
   absentJson(output, 'REDACTED');
+});
+
+test('provider URLs carry keys only over HTTPS or loopback HTTP', () => {
+  for (const url of ['https://api.example.test/v1', 'http://127.0.0.1:8080/v1', 'http://localhost/v1', 'http://[::1]:9000/v1', 'http://127.1/v1']) {
+    assert.equal(providerURLAllowed(new URL(url), true), true, url);
+    assert.equal(providerURLAllowed(new URL(url), false), true, url);
+  }
+  for (const url of ['http://10.0.0.5:8000/v1', 'http://proxy.corp/v1', 'http://localhost.example.test/v1', 'http://127.0.0.1.example.test/v1']) {
+    assert.equal(providerURLAllowed(new URL(url), true), false, url);
+    assert.equal(providerURLAllowed(new URL(url), false), true, url);
+  }
+  for (const url of ['https://user:pass@api.example.test/v1', 'https://user@api.example.test/v1', 'https://api.example.test/v1?key=x', 'https://api.example.test/v1#x', 'ftp://api.example.test/v1', 'file:///tmp/private']) {
+    assert.equal(providerURLAllowed(new URL(url), true), false, url);
+    assert.equal(providerURLAllowed(new URL(url), false), false, url);
+  }
 });

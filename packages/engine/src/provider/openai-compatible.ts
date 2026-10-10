@@ -4,7 +4,7 @@ import { EngineError, type ProviderToolCall } from '@moodcode/contracts';
 import type { ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
 import { hostGenerationTransportRequest, type HostGenerationRequest, type ProviderTransportRequest } from './generation.js';
 import { boundedGenerationBody } from './generation-body.js';
-import { malformed, optionalString, positiveLimit, providerHttpFailure, providerRemoteError, publicError, record, redactJson, redactText, TextRedactor } from './helpers.js';
+import { malformed, optionalString, positiveLimit, providerHttpFailure, providerRemoteError, providerURLAllowed, publicError, record, redactJson, redactText, TextRedactor } from './helpers.js';
 import { readSseData } from './sse.js';
 import { messageImages, providerImages } from '../media/provider.js';
 import type { ResolvedInputImage } from '../ports.js';
@@ -248,7 +248,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
     if (!/^[a-z][a-z0-9_-]{0,63}$/.test(this.id) || (this.#apiKey && this.id.includes(this.#apiKey))) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider identifier is invalid.');
     let base: URL;
     try { base = new URL(options.baseURL ?? 'https://api.openai.com/v1'); } catch { throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider base URL is invalid.'); }
-    if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider base URL must be an HTTP API prefix without credentials, query or fragment.');
+    if (!providerURLAllowed(base, this.#apiKey !== undefined)) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider base URL must be an HTTP API prefix without credentials, query or fragment, using HTTPS or loopback HTTP when it carries an API key.');
     base.pathname = base.pathname.replace(/\/+$/, '') + '/chat/completions';
     this.#endpoint = base.href;
     this.#fetch = options.fetch ?? globalThis.fetch;

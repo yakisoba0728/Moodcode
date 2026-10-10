@@ -229,6 +229,22 @@ test('loadConfig rejects URL credentials, queries, fragments, unsupported protoc
   }
 });
 
+test('loadConfig rejects an apiKeyEnv entry whose baseURL is plain HTTP off loopback but keeps keyless LAN HTTP', async (t) => {
+  const root = await fixture(t);
+  const path = join(root, `${secret}-cleartext.json`);
+  for (const baseURL of ['http://10.0.0.5:8000/v1', `http://${secret.toLowerCase()}.example.test/v1`]) {
+    await writeFile(path, JSON.stringify({ providers: { [secret]: { baseURL, apiKeyEnv: 'LAN_API_TOKEN' } } }));
+    await assert.rejects(loadConfig({ workspaceConfigPath: path }), configError('CONFIG_INVALID', 'workspace', [secret, secret.toLowerCase(), path], 'providers.baseURL'));
+  }
+  const keyless = await jsonFile(root, 'keyless.json', { providers: { lan: { baseURL: 'http://10.0.0.5:8000/v1' } } });
+  const loopback = await jsonFile(root, 'loopback.json', { providers: { local: { baseURL: 'http://[::1]:8080/v1', apiKeyEnv: 'LOCAL_API_TOKEN' } } });
+  const result = await loadConfig({ userConfigPath: keyless, workspaceConfigPath: loopback });
+  assert.deepEqual({ ...result.providers }, {
+    lan: { baseURL: 'http://10.0.0.5:8000/v1' },
+    local: { baseURL: 'http://[::1]:8080/v1', apiKeyEnv: 'LOCAL_API_TOKEN' },
+  });
+});
+
 test('loadConfig validates environment name references at exact identifier boundaries', async (t) => {
   const root = await fixture(t);
   const path = await jsonFile(root, 'envname.json', { providers: { custom: { apiKeyEnv: '_' + 'A'.repeat(127) } } });

@@ -517,6 +517,24 @@ test('malformed response diagnostics expose a fixed response stage without refle
   assert.throws(() => new OpenAICompatibleProvider({ onMalformedStream: 'invalid' } as unknown as OpenAICompatibleProviderOptions), error => error instanceof EngineError && error.code === 'PROVIDER_INVALID_CONFIG');
 });
 
+test('an API key travels only to an HTTPS or loopback HTTP base URL while keyless LAN HTTP still works', async () => {
+  const seen: { url: string; authorization: string | null }[] = [];
+  const transport: typeof fetch = async (input, init) => {
+    seen.push({ url: String(input), authorization: new Headers(init?.headers).get('authorization') });
+    return new Response(null, { status: 503 });
+  };
+  for (const baseURL of ['http://10.0.0.5:8000/v1', 'http://proxy.corp/v1']) {
+    assert.throws(() => new OpenAICompatibleProvider({ baseURL, apiKey: SECRET, fetch: transport }), error => {
+      assert.ok(error instanceof EngineError); assert.equal(error.code, 'PROVIDER_INVALID_CONFIG'); noSecret(error); return true;
+    });
+    await failure(new OpenAICompatibleProvider({ baseURL, fetch: transport }), 'PROVIDER_HTTP_ERROR');
+  }
+  assert.deepEqual(seen, [
+    { url: 'http://10.0.0.5:8000/v1/chat/completions', authorization: null },
+    { url: 'http://proxy.corp/v1/chat/completions', authorization: null },
+  ]);
+});
+
 test('choice-less frame diagnostics retain only three preceding fixed top-level shapes', async t => {
   const diagnostics: ChatMalformedStreamDiagnostic[] = [];
   const privateText = 'private-remote-shape-value';

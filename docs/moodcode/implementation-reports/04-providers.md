@@ -21,7 +21,7 @@
 
 | 옵션 | 기본값 / 의미 |
 |---|---|
-| `baseURL` | `https://api.openai.com/v1`; API prefix에 `/chat/completions`를 붙임 |
+| `baseURL` | `https://api.openai.com/v1`; API prefix에 `/chat/completions`를 붙임; `apiKey`가 있으면 HTTPS 또는 loopback HTTP만 허용 |
 | `apiKey` | 선택적 주입; 없으면 Authorization header 생략; 환경변수/계정 검색 없음 |
 | `id` | `openai-compatible`; 안전한 짧은 식별자로 검증 |
 | `fetch` | Node 내장 fetch; transport 실패 fixture 주입 가능 |
