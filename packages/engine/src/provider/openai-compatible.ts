@@ -295,16 +295,20 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
     }
     if (Buffer.byteLength(serialized, 'utf8') > this.#limits.maxRequestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');
     const controller = new AbortController();
-    const checkCancellation = () => {
-      if (controller.signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
-    };
-    const abort = () => controller.abort();
-    signal.addEventListener('abort', abort, { once: true });
-    // Covers both the initial HTTP response and a server stalled during the stream.
-    let timedOut = false;
-    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, this.#limits.timeoutMs);
     let response: Response | undefined;
     let generationBody: ReturnType<typeof boundedGenerationBody> | undefined;
+    let timedOut = false;
+    const checkCancellation = () => {
+      if (signal.aborted || timedOut || controller.signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
+    };
+    // Close an owned body before aborting fetch: abort errors an unread body, so its cancellation could not be confirmed.
+    const abort = () => {
+      if (!generationBody) controller.abort();
+      else void generationBody.close().then(() => controller.abort(), () => controller.abort());
+    };
+    signal.addEventListener('abort', abort, { once: true });
+    // Covers both the initial HTTP response and a server stalled during the stream.
+    const timer = setTimeout(() => { timedOut = true; abort(); }, this.#limits.timeoutMs);
     let diagnosticFrame: unknown;
     let frameOrdinal = 0;
     const precedingFrames: ChatStreamFrameShape[] = [];
@@ -487,10 +491,11 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
     } finally {
       clearTimeout(timer);
       signal.removeEventListener('abort', abort);
-      controller.abort();
-      if (generationBody) {
-        if (!await generationBody.close()) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');
-      } else if (response?.body && !response.body.locked) await response.body.cancel().catch(() => {});
+      let clean = true;
+      try { if (generationBody) clean = await generationBody.close(); }
+      finally { controller.abort(); }
+      if (!clean) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');
+      if (!generationBody && response?.body && !response.body.locked) await response.body.cancel().catch(() => {});
     }
   }
 }

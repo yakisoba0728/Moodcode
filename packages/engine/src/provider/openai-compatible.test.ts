@@ -11,6 +11,7 @@ import { EngineError, type JsonObject } from '@moodcode/contracts';
 import { createEngine } from '../engine.js';
 import { decodePcmWave } from '../media/segments.js';
 import type { ProviderEvent, TurnRequest } from '../ports.js';
+import type { HostGenerationRequest } from './generation.js';
 import { OpenAICompatibleProvider, type ChatMalformedStreamDiagnostic, type OpenAICompatibleProviderOptions } from './openai-compatible.js';
 
 const SECRET = 'sk-fixture-private-1234567890';
@@ -359,6 +360,29 @@ test('consumer return closes a response that has not reached DONE', async t => {
   await deadline(iterator.return(undefined));
   await deadline(closed.promise);
   assert.equal(getEventListeners(controller.signal, 'abort').length, 0);
+});
+
+test('real fetch keeps HTTP 429, mid-stream cancel and timeout outcomes for an owned body', async t => {
+  const rejected = await fixture(t, (_incoming, outgoing) => {
+    outgoing.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '1' });
+    outgoing.end(JSON.stringify({ error: { message: SECRET } }));
+  });
+  const stalled = await fixture(t, (_incoming, outgoing) => { sse(outgoing); outgoing.write(chunk({ content: 'first' })); });
+  const generation: HostGenerationRequest = { owner: { kind: 'host-generation', workspaceId: 'workspace-fixture', generationId: 'generation-fixture', attemptId: 'attempt-fixture' },
+    modelId: 'explicit-fixture-model', messages: [{ role: 'user', content: 'fixture prompt' }], tools: [], reasoningEffort: 'high', includeMetadata: true };
+  const outcome = async (options: OpenAICompatibleProviderOptions, code: string, cancel?: AbortController) => {
+    const events: ProviderEvent[] = [];
+    let found!: EngineError;
+    await assert.rejects(deadline((async () => {
+      for await (const event of new OpenAICompatibleProvider(options).streamGeneration(generation, cancel?.signal ?? new AbortController().signal)) { events.push(event); cancel?.abort(new Error(SECRET)); }
+    })()), error => { assert.ok(error instanceof EngineError); assert.equal(error.code, code); noSecret(error); found = error; return true; });
+    return { events, error: found };
+  };
+  assert.deepEqual((await outcome({ baseURL: rejected.baseURL, apiKey: SECRET }, 'PROVIDER_HTTP_ERROR')).error.details, { status: 429, retryAfterMs: 1_000 });
+  assert.deepEqual((await outcome({ baseURL: stalled.baseURL }, 'PROVIDER_CANCELLED', new AbortController())).events, [{ type: 'text.delta', delta: 'first' }]);
+  assert.deepEqual((await outcome({ baseURL: stalled.baseURL, timeoutMs: 300 }, 'PROVIDER_TIMEOUT')).events, [{ type: 'text.delta', delta: 'first' }]);
+  const audio = await failure(new OpenAICompatibleProvider({ baseURL: rejected.baseURL, outputAudio: { modelIds: ['explicit-fixture-model'], voice: 'alloy', sampleRate: 8_000, channels: 1 } }), 'PROVIDER_HTTP_ERROR');
+  assert.deepEqual(audio.error.details, { status: 429, retryAfterMs: 1_000 });
 });
 
 const exceeded: { name: string; options: OpenAICompatibleProviderOptions; wire: string }[] = [

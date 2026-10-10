@@ -213,15 +213,26 @@ test('text/tool JSON/request identity redacts explicit secrets across deltas wit
   await failure(provider([], { fetch: async () => { throw new Error(SECRET); } }), 'PROVIDER_TRANSPORT_ERROR');
 });
 
-test('credential boundaries across text blocks keep public text and native replay bound', async () => {
-  const events = await collect(provider([start(), ...textBlocks(`before ${SECRET.slice(0, 13)}`), ...textBlocks(`${SECRET.slice(13)} after`, 1), delta('end_turn'), stop()]));
+test('credential boundaries across text blocks keep public text redacted and reject native replay', async () => {
+  const prefix = SECRET.slice(0, 13), suffix = SECRET.slice(13);
+  const { events } = await failure(provider([start(), ...textBlocks(`before ${prefix}`), ...textBlocks(`${suffix} after`, 1), delta('end_turn'), stop()]), 'PROVIDER_INVALID_REPLAY');
   const content = events.filter(event => event.type === 'text.delta').map(event => event.delta).join('');
   assert.equal(content, 'before [REDACTED] after');
-  const finish = events.find(event => event.type === 'finish'); assert.ok(finish?.type === 'finish');
-  assert.equal(finish.replayItems!.filter(block => block.type === 'text').map(block => block.text).join(''), content);
-  const adapter = provider(), input = request(); input.messages.push({ role: 'assistant', content, providerReplay: { providerId: adapter.id, modelId: input.modelId, protocol: adapter.replayProtocol, version: 1, items: finish.replayItems! } }, { role: 'user', content: 'continue' });
-  await collect(adapter, input);
+  const adapter = provider(), input = request(); input.messages.push({ role: 'assistant', content, providerReplay: { providerId: adapter.id, modelId: input.modelId, protocol: adapter.replayProtocol, version: 1,
+    items: [{ type: 'text', text: `before ${prefix}` }, { type: 'text', text: `${suffix} after` }] } }, { role: 'user', content: 'continue' });
+  await failure(adapter, 'PROVIDER_INVALID_REPLAY', input);
   await failure(provider([start(), ...thinkingBlocks(SECRET.slice(0, 13)), ...thinkingBlocks(SECRET.slice(13), 'second-signature', 1), delta('end_turn'), stop()], { publicReasoningSummary: true }), 'PROVIDER_INVALID_REPLAY');
+});
+
+test('native replay keeps every text block when one ends with a credential prefix', async () => {
+  const events = await collect(provider([start(), ...textBlocks('Checking the logs'), ...textBlocks('s', 1), ...textBlocks('Now done', 2), delta('end_turn'), stop()]));
+  const finish = events.find(event => event.type === 'finish'); assert.ok(finish?.type === 'finish');
+  assert.deepEqual(finish.replayItems, [{ type: 'text', text: 'Checking the logs' }, { type: 'text', text: 's' }, { type: 'text', text: 'Now done' }]);
+  let encoded!: Wire;
+  const adapter = provider([], { fetch: async (_url, init) => { encoded = JSON.parse(String(init?.body)) as Wire; return new Response(wire(textStream()), { headers: { 'Content-Type': 'text/event-stream' } }); } });
+  const input = request(); input.messages.push({ role: 'assistant', content: 'Checking the logssNow done', providerReplay: { providerId: adapter.id, modelId: input.modelId, protocol: adapter.replayProtocol, version: 1, items: finish.replayItems! } }, { role: 'user', content: 'continue' });
+  await collect(adapter, input);
+  assert.deepEqual((encoded.messages as Wire[])[1]!.content, finish.replayItems);
 });
 
 for (const status of [400, 401, 403, 413, 429, 500, 503, 504, 529]) test(`HTTP ${status} keeps only status/retry delay and performs one dispatch`, async () => {
@@ -284,6 +295,25 @@ test('timeout and early iterator return cancel the transport without waiting for
   const stalled = new ReadableStream<Uint8Array>({ cancel() { cancelled++; } });
   await failure(provider([], { fetch: async () => new Response(stalled, { headers: { 'Content-Type': 'text/event-stream' } }), timeoutMs: 20 }), 'PROVIDER_TIMEOUT');
   assert.equal(cancelled, 2);
+});
+
+test('real fetch keeps HTTP 429, mid-stream cancel and timeout outcomes instead of cleanup uncertainty', async t => {
+  const server = createServer((incoming, outgoing) => {
+    if (incoming.url === '/rejected/messages') { outgoing.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '1' }); outgoing.end(JSON.stringify({ error: { type: 'rate_limit_error', message: SECRET } })); return; }
+    outgoing.writeHead(200, { 'Content-Type': 'text/event-stream' }); outgoing.write(wire([start(), blockStart(0, { type: 'text', text: '' }), blockDelta(0, { type: 'text_delta', text: 'first' })]));
+  });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(async () => { server.closeAllConnections(); await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); });
+  const address = server.address(); assert.ok(address && typeof address === 'object');
+  const origin = `http://127.0.0.1:${address.port}`;
+  const rejected = await failure(new AnthropicProvider({ apiKey: SECRET, baseURL: `${origin}/rejected` }), 'PROVIDER_HTTP_ERROR');
+  assert.deepEqual(rejected.error.details, { status: 429, retryAfterMs: 1_000 });
+  const controller = new AbortController(), events: ProviderEvent[] = [];
+  await assert.rejects(async () => { for await (const event of new AnthropicProvider({ apiKey: SECRET, baseURL: `${origin}/stalled` }).streamTurn(request(), controller.signal)) { events.push(event); controller.abort(); } },
+    error => error instanceof EngineError && error.code === 'PROVIDER_CANCELLED');
+  assert.deepEqual(events, [{ type: 'text.delta', delta: 'first' }]);
+  const timed = await failure(new AnthropicProvider({ apiKey: SECRET, baseURL: `${origin}/stalled`, timeoutMs: 300 }), 'PROVIDER_TIMEOUT');
+  assert.deepEqual(timed.events, [{ type: 'text.delta', delta: 'first' }]);
 });
 
 test('non-cooperative cancellation is bounded and reported as cleanup uncertainty', async () => {

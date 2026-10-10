@@ -6,6 +6,7 @@ import { setImmediate as nextTick } from 'node:timers/promises';
 import test, { type TestContext } from 'node:test';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { ProviderEvent, TurnRequest } from '../ports.js';
+import type { HostGenerationRequest } from './generation.js';
 import { ResponsesProvider, type ResponsesProviderOptions } from './responses.js';
 import { imageFixture } from '../media/fixtures.js';
 
@@ -433,6 +434,25 @@ test('consumer return closes unfinished stream and removes abort listeners', asy
   const iterator = new ResponsesProvider({ baseURL: local.baseURL }).streamTurn(request(), controller.signal)[Symbol.asyncIterator]();
   assert.equal((await deadline(iterator.next())).done, false); assert.ok(iterator.return);
   await deadline(iterator.return(undefined)); await deadline(closed.promise); assert.equal(getEventListeners(controller.signal, 'abort').length, 0);
+});
+
+test('real fetch keeps HTTP 429, mid-stream cancel and timeout outcomes for host generation', async t => {
+  const rejected = await fixture(t, (_incoming, outgoing) => { outgoing.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '1' }); outgoing.end(JSON.stringify({ error: { message: SECRET } })); });
+  const stalled = await fixture(t, (_incoming, outgoing) => { sse(outgoing); outgoing.write(wire([created(), messageAdded(), textEvent('response.output_text.delta', 'first')])); });
+  const generation: HostGenerationRequest = { owner: { kind: 'host-generation', workspaceId: 'workspace-fixture', generationId: 'generation-fixture', attemptId: 'attempt-fixture' },
+    modelId: 'explicit-fixture-model', messages: [{ role: 'user', content: 'fixture prompt' }], tools: [], reasoningEffort: 'high', includeMetadata: true };
+  const outcome = async (options: ResponsesProviderOptions, code: string, cancel?: AbortController) => {
+    const events: ProviderEvent[] = [];
+    let found!: EngineError;
+    await assert.rejects(deadline((async () => {
+      for await (const event of new ResponsesProvider(options).streamGeneration(generation, cancel?.signal ?? new AbortController().signal)) { events.push(event); cancel?.abort(new Error(SECRET)); }
+    })()), error => { assert.ok(error instanceof EngineError); assert.equal(error.code, code); noSecret(error); found = error; return true; });
+    return { events, error: found };
+  };
+  const progress = { type: 'progress', providerRequestId: RESPONSE_ID };
+  assert.deepEqual((await outcome({ baseURL: rejected.baseURL, apiKey: SECRET }, 'PROVIDER_HTTP_ERROR')).error.details, { status: 429, retryAfterMs: 1_000 });
+  assert.deepEqual((await outcome({ baseURL: stalled.baseURL }, 'PROVIDER_CANCELLED', new AbortController())).events, [progress]);
+  assert.deepEqual((await outcome({ baseURL: stalled.baseURL, timeoutMs: 300 }, 'PROVIDER_TIMEOUT')).events, [progress, { type: 'text.delta', delta: 'first' }]);
 });
 
 const limits: { name: string; options: ResponsesProviderOptions; events?: Event[]; raw?: string }[] = [

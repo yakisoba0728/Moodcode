@@ -255,11 +255,10 @@ export class AnthropicProvider implements ProviderAdapter {
       });
       const summaries = safeBlocks.filter(block => block.type === 'thinking').map(block => String(block.thinking)).join('');
       if (this.#secrets.some(secret => summaries.includes(secret))) invalidReplay();
-      // Streaming redaction spans text blocks as well as network deltas. Replay must
-      // preserve the same normalized text even when a credential straddled blocks.
-      const texts = safeBlocks.filter(block => block.type === 'text');
-      const textRedactor = new CredentialTextRedactor(this.#secrets);
-      for (const [index, block] of texts.entries()) block.text = textRedactor.push(String(block.text), index === texts.length - 1);
+      // Each text block is redacted on its own, keeping block boundaries. A credential
+      // straddling blocks cannot be redacted without moving text between them.
+      const texts = safeBlocks.filter(block => block.type === 'text').map(block => String(block.text)).join('');
+      if (this.#secrets.some(secret => texts.includes(secret))) invalidReplay();
       return safeBlocks;
     } catch { invalidReplay(); }
   }
@@ -358,8 +357,8 @@ export class AnthropicProvider implements ProviderAdapter {
       else void body.close().then(() => controller.abort(), () => controller.abort());
     };
     signal.addEventListener('abort', abort, { once: true });
-    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, this.#limits.timeoutMs);
-    const cancelled = () => { if (signal.aborted || controller.signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.'); };
+    const timer = setTimeout(() => { timedOut = true; abort(); }, this.#limits.timeoutMs);
+    const cancelled = () => { if (signal.aborted || timedOut || controller.signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.'); };
     try {
       if (signal.aborted) controller.abort();
       const fetching = Promise.resolve().then(() => this.#fetch(this.#endpoint, {
