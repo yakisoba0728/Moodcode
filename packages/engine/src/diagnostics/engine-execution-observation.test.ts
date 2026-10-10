@@ -151,6 +151,68 @@ test("actual parallel core reads beyond the in-flight capture limit complete ins
   );
   assert.equal(f.page(run.id).items.length, paths.length);
 });
+test("actual stall advisory joins a late journal window with observations past the first inspector page", async (t) => {
+  const paths = Array.from({ length: 100 }, (_, index) => `early-${index}.ts`);
+  const f = await observationFixture(t, {
+      setup(root) {
+        for (const path of [...paths, "late.ts"])
+          writeFileSync(join(root, path), `export const value = "${path}";\n`);
+      },
+      script: async function* (request): AsyncGenerator<ProviderEvent> {
+        if (request.turnIndex === 0) {
+          for (const path of paths)
+            yield {
+              type: "tool.call",
+              call: { id: path, name: "read_file", input: { path } },
+            };
+          yield { type: "finish", reason: "tool_calls" };
+        } else if (request.turnIndex === 1) {
+          yield {
+            type: "tool.call",
+            call: { id: "late", name: "read_file", input: { path: "late.ts" } },
+          };
+          yield { type: "finish", reason: "tool_calls" };
+        } else yield stop;
+      },
+    }),
+    submitted = await f.submit({
+      limits: { maxToolCalls: 128 },
+      budgets: { maxToolCallsPerTurn: 128, maxReadConcurrency: 16 },
+    }),
+    run = await f.engine.waitForRun(submitted.runId);
+  assert.equal(run.state, "completed", JSON.stringify(run.error));
+  const first = f.page(run.id),
+    rest = f.page(run.id, { afterOrdinal: first.next! }).items;
+  assert.equal(first.items.length, 100);
+  assert.equal(rest.length, 1);
+  const late = rest[0]!.toolCallId;
+  let lateSeq = 0;
+  for (let afterSeq = 0, cursor = true; cursor; ) {
+    const page = f.engine.getTrajectory({
+      sessionId: f.session.id,
+      runId: run.id,
+      afterSeq,
+      limit: 100,
+      maxBytes: 262_144,
+    });
+    for (const event of page.events)
+      if (event.tool?.toolCallId === late) lateSeq = event.seq;
+    cursor = page.range.inspectedThroughSeq > afterSeq;
+    afterSeq = page.range.inspectedThroughSeq;
+  }
+  assert.ok(lateSeq > 40);
+  const stall = f.engine.getStallObservation({
+    sessionId: f.session.id,
+    runId: run.id,
+    afterSeq: lateSeq - 40,
+    limit: 100,
+    maxBytes: 262_144,
+  });
+  assert.equal(stall.signal, "no-signal");
+  assert.equal(stall.reason, "changed-observation");
+  assert.equal(stall.lastSeq, lateSeq);
+  assert.match(stall.sourceSha256!, /^[a-f0-9]{64}$/);
+});
 test("actual external requested-file edit permits a fresh core read rather than the old input-only repeat guard", async (t) => {
   const f = await observationFixture(t, {
       script: async function* (request): AsyncGenerator<ProviderEvent> {

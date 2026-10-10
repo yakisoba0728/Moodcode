@@ -1867,7 +1867,8 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     return this.store.readExecutionObservationEvidence(() => {
       const trajectory = this.getTrajectory(options), run = trajectory.runId ? this.store.getRun(trajectory.runId) : undefined;
-      const observations = run ? this.executionObserver.storage.listRun(run.workspaceId, run.id).items : [];
+      const toolCallIds = new Set(trajectory.events.flatMap(event => run && event.runId === run.id && event.tool?.toolCallId ? [event.tool.toolCallId] : []));
+      const observations = run ? [...toolCallIds].flatMap(id => this.executionObserver.storage.getObservation(run.workspaceId, id) ?? []) : [];
       return getTrajectoryStallObservation(trajectory, limits, observations);
     });
   }
