@@ -22,7 +22,7 @@ engine.registerLanguageServer(
 
 기존 selected query/target hash만으로는 native compiler가 읽은 미개방 import 파일의 변경을 감지하지 못한다. 실제 Engine fixture에서 barrel 파일의 export target은 그대로 두고 comment만 바꾸면 기존 source 검사에서 놓쳤다.
 
-native factory는 호스트의 `projectSources` read port를 제공한다. `captureTypeScriptProjectSources`가 workspace 안의 TS/JS 소스, JSON 설정, ignore 파일을 bounded content-addressed snapshot으로 읽는다. generated/dependency tree와 Git-ignored 경로는 제외한다. 저장되는 정보는 digest·file count·byte count이며 전체 프로젝트 본문을 모델 문맥에 넣지 않는다. ordinary canonical root/file, 파일별 UTF-8/1MiB, traversal 16,384 entries·4,096 files/directories·총64MiB·동시16·15초 상한을 적용한다.
+native factory는 호스트의 `projectSources` read port를 제공한다. `captureTypeScriptProjectSources`가 workspace 안의 TS/JS 소스, JSON 설정, ignore 파일을 bounded content-addressed snapshot으로 읽는다. generated/dependency tree와 Git-ignored 경로는 제외한다. 제외되지 않은 이름이 exact workspace path 규칙(콜론·역슬래시·제어 문자, 점이나 공백으로 끝나는 이름 등)을 벗어나면 digest로 고정할 수 없으므로 capture를 `UNSAFE_LSP_WORKSPACE`로 거절한다. 저장되는 정보는 digest·file count·byte count이며 전체 프로젝트 본문을 모델 문맥에 넣지 않는다. ordinary canonical root/file, 파일별 UTF-8/1MiB, traversal 16,384 entries·4,096 files/directories·총64MiB·동시16·15초 상한을 적용한다.
 
 각 snapshot은 파일 내용과 경로·현재 physical root를 결합하고 읽는 중 파일 identity/membership 변경을 거절한다. 순서가 정해진 파일 배열로 digest를 계산한다. 설정·미개방 소스·파일 추가/삭제·ignore 변경이 동일 compiler snapshot으로 재사용되지 않는다.
 

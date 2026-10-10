@@ -103,26 +103,35 @@ test("project snapshot excludes Git-ignored and generated/dependency trees and b
 });
 
 test(
-  "names outside the exact-path grammar are recorded as digest omissions instead of failing the capture",
+  "Git-ignored names outside the exact-path grammar are skipped and any other such name fails closed",
   { skip: process.platform === "win32" },
   async (t) => {
     const f = await fixture(t);
-    await writeFile(join(f.root, ".gitignore"), "tmp:old/\n");
+    const rules = ["tmp:old/\n", "old\\ \n", "odd:c.ts\n"];
+    const ignore = `${rules.join("")}lead\na\\\\b\nC:drive\n`;
+    const capture = () =>
+      captureTypeScriptProjectSources(f.workspace, signal());
+    await writeFile(join(f.root, ".gitignore"), ignore);
     await writeFile(join(f.root, "a.ts"), "export const value = 1;");
-    await writeFile(join(f.root, "b:c.ts"), "export const odd = 1;");
-    for (const name of ["tmp:old", "Notes 1:2"]) {
+    await writeFile(join(f.root, "odd:c.ts"), "export const odd = 1;");
+    for (const name of ["tmp:old", "old "]) {
       await mkdir(join(f.root, name));
       await writeFile(join(f.root, name, "hidden.ts"), "export {};");
     }
-    const first = await captureTypeScriptProjectSources(f.workspace, signal());
+    const first = await capture();
     assert.equal(first.fileCount, 2);
-    await rm(join(f.root, "Notes 1:2"), { recursive: true });
-    const without = await captureTypeScriptProjectSources(
-      f.workspace,
-      signal(),
-    );
-    assert.equal(without.fileCount, 2);
-    assert.notEqual(without.sha256, first.sha256);
+    await rm(join(f.root, "tmp:old"), { recursive: true });
+    assert.equal((await capture()).sha256, first.sha256);
+    await mkdir(join(f.root, "tmp:old"));
+    for (const name of [":lead", "a\\b", "C:drive"]) {
+      await mkdir(join(f.root, name));
+      await assert.rejects(capture(), code("UNSAFE_LSP_WORKSPACE"));
+      await rm(join(f.root, name), { recursive: true });
+    }
+    for (const rule of rules) {
+      await writeFile(join(f.root, ".gitignore"), ignore.replace(rule, ""));
+      await assert.rejects(capture(), code("UNSAFE_LSP_WORKSPACE"));
+    }
   },
 );
 

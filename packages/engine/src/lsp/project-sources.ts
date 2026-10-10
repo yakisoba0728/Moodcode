@@ -57,6 +57,10 @@ function isExactPath(path: string): boolean {
     return false;
   }
 }
+// Ignore lookup rejects backslashes and drive prefixes, and Git parses a leading colon as pathspec magic.
+function gitLiteralPath(path: string): boolean {
+  return !/^[A-Za-z]?:|\\/.test(path);
+}
 /** Bounded host read: content-addressed workspace sources, never native compiler cache or provider execution. */
 export async function captureTypeScriptProjectSources(
   workspace: Workspace,
@@ -85,7 +89,6 @@ export async function captureTypeScriptProjectSources(
       );
     const directories = new Map<string, string>();
     const paths: string[] = [];
-    const omitted: string[] = [];
     let entries = 0;
     async function walk(relative: string): Promise<void> {
       check(observedSignal);
@@ -118,25 +121,28 @@ export async function captureTypeScriptProjectSources(
         const path = relative ? `${relative}/${entry.name}` : entry.name;
         const isDirectory = entry.isDirectory();
         if (!isDirectory && !eligible(path)) continue;
-        // Names outside the exact-path grammar cannot be read or served, so the digest records them as omitted.
-        if (!isExactPath(path)) omitted.push(isDirectory ? `${path}/` : path);
-        else
-          children.push({
-            path,
-            directory: isDirectory,
-            ordinary: entry.isFile() && !entry.isSymbolicLink(),
-          });
+        children.push({
+          path,
+          directory: isDirectory,
+          ordinary: entry.isFile() && !entry.isSymbolicLink(),
+        });
       }
       children.sort((a, b) => a.path.localeCompare(b.path, "en"));
       const ignored = workspace.gitRoot
         ? await ignoredWorkspacePaths(
             workspace,
-            children.map((item) => item.path),
+            children.map((item) => item.path).filter(gitLiteralPath),
             observedSignal,
           )
         : new Set<string>();
       for (const child of children) {
         if (ignored.has(child.path)) continue;
+        // The native server can still read a name the snapshot cannot pin.
+        if (!isExactPath(child.path))
+          fail(
+            "UNSAFE_LSP_WORKSPACE",
+            "Project sources require exact workspace-relative names",
+          );
         if (child.directory) await walk(child.path);
         else {
           // Native semantic evidence cannot silently follow selected source/config aliases.
@@ -156,7 +162,6 @@ export async function captureTypeScriptProjectSources(
     }
     await walk("");
     paths.sort();
-    omitted.sort();
     let cursor = 0,
       bytes = 0;
     const files = new Array<{ path: string; hash: string }>(paths.length);
@@ -233,7 +238,6 @@ export async function captureTypeScriptProjectSources(
           physicalRoot: { dev: root.dev.toString(), ino: root.ino.toString() },
           scope: "workspace-typescript-files",
           files,
-          ...(omitted.length ? { omitted } : {}),
         }),
       )
       .digest("hex");
