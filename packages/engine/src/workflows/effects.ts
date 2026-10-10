@@ -121,6 +121,22 @@ function pinsCurrent(pins: readonly WorkflowFilePin[]): void {
     if (knowledgeHash(filePin(pin.path)) !== knowledgeHash(pin))
       effectFail("WORKFLOW_SOURCE_STALE");
 }
+function mergeBound(
+  inner: PreparedTool,
+  editor: WorkflowEffectRecord,
+  root: string,
+): void {
+  const files = inner.preview.files,
+    merged = Array.isArray(files)
+      ? files.map((file) => {
+          const { path, afterHash } = file as JsonObject;
+          return `${join(root, String(path))}\0${afterHash}`;
+        })
+      : [],
+    pinned = editor.files.map((pin) => `${pin.path}\0${pin.sha256}`);
+  if (knowledgeHash(merged.sort()) !== knowledgeHash(pinned.sort()))
+    effectFail("WORKFLOW_VERIFICATION_SOURCE_STALE");
+}
 interface Binding {
   readonly workspaceId: string;
   readonly instanceId: string;
@@ -685,6 +701,11 @@ private closed = false;
               { childTaskId: selection.editor.completion.child.taskId },
               context,
             );
+          mergeBound(
+            inner,
+            selection.editor,
+            a.record.worktrees[String(data.stageId)]!.root,
+          );
           this.actor(context, "prepare", a.original);
           const preview = {
             ...inner.preview,
@@ -855,6 +876,7 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
       now.head !== p.head
     )
       effectFail("WORKFLOW_SOURCE_STALE");
+    mergeBound(p.inner, now.editor, a.record.worktrees[p.editor.stageId]!.root);
     this.actor(context, "execute", p.binding);
     const approval = this.engine.coordinator.getWorkflowToolApproval(context);
     const intent = signEffect({

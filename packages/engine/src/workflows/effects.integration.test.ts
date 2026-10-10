@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -287,6 +287,53 @@ for (const variant of [
       assert.equal(f.engine.store.listCheckpoints(f.parent.runId).length, 0);
     },
   );
+
+test(
+  "native merge refuses shared worktree changes outside the pinned editor effect",
+  { timeout: 20000 },
+  async (t) => {
+    const f = await workflowEffectsFixture(t);
+    f.proceed.resolve();
+    await f.approveParent("request_workflow_stage");
+    await f.approveChild("apply_patch");
+    await f.pendingParent("request_workflow_stage");
+    assert.deepEqual(
+      f.engine
+        .inspectWorkflowEffect(f.workspace.id, f.record().instanceId, "edit")!
+        .files.map((file) => file.path),
+      [join(f.worktree.root, "seed.txt")],
+    );
+    writeFileSync(join(f.worktree.root, "extra.txt"), "validator output\n");
+    await f.approveParent("request_workflow_stage");
+    await f.approveChild("verify_changes");
+    const merge = () =>
+      f.engine.store
+        .getSnapshot(f.session.id)
+        .tools.find((tool) => tool.name === "merge_workflow_stage");
+    await effectsUntil(
+      () => !["requested", "running", undefined].includes(merge()?.state),
+      "Merge was not prepared",
+    );
+    assert.equal(merge()!.state, "failed");
+    assert.match(merge()!.output ?? "", /WORKFLOW_VERIFICATION_SOURCE_STALE/);
+    await effectsUntil(() => f.sourceTerminal(), "Stale source did not stop");
+    assert.equal(f.sourceBytes(), EFFECT_BEFORE);
+    assert.equal(existsSync(join(f.root, "extra.txt")), false);
+    assert.equal(f.engine.store.listCheckpoints(f.parent.runId).length, 0);
+    assert.equal(
+      f.engine.inspectWorkflowEffect(
+        f.workspace.id,
+        f.record().instanceId,
+        "edit",
+      )!.state,
+      "observed",
+    );
+    assert.equal(
+      f.engine.inspectWorkflowDelivery(f.workspace.id, f.record().instanceId),
+      null,
+    );
+  },
+);
 
 test(
   "failed genuine verification cannot become a merge or result receipt",
