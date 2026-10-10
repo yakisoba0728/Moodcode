@@ -88,10 +88,10 @@ export type { ContextDiagnostics, ContextServiceOptions } from './context/servic
 export { projectMediaHistory, validateMediaHistoryPolicy, MEDIA_HISTORY_NOTICE_PREFIX, MEDIA_HISTORY_LIMITS } from './context/media-history.js';
 export type { MediaHistoryPolicy, MediaHistoryOptions, ImageHistoryProvenance, MediaHistoryDiagnostics, MediaHistoryProjection } from './context/media-history.js';
 export { inspectEngineStorage, DEFAULT_STORAGE_USAGE_LIMITS } from './diagnostics/storage-usage.js';
-export type { StorageUsageOptions, StorageUsageReport, StorageUsageLimits, StorageUsageGroup, StorageImageIndex, StorageUsageSample } from './diagnostics/storage-usage.js';
+export type { StorageUsageOptions, StorageUsageReport, StorageUsageLimits, StorageUsageGroup, StorageImageIndex, StorageDocumentIndex, StorageGroupUsage, StorageStopReason, StorageUsageSample } from './diagnostics/storage-usage.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './storage/input-image-index.js';
 export type { InputDocumentIndexOptions, InputDocumentIndexReport } from './storage/input-document-index.js';
-export type { ChildDocumentStorageRequest, ChildDocumentStorageReport, ChildDocumentStorageLimits } from './diagnostics/child-document-storage.js';
+export type { ChildDocumentStorageRequest, ChildDocumentStorageReport, ChildDocumentStorageItem, ChildDocumentStorageLimits } from './diagnostics/child-document-storage.js';
 export { SemanticMemoryService, SEMANTIC_MEMORY_PREFIX } from './context/semantic-memory.js';
 export type { SemanticCheckpoint } from './context/semantic-memory.js';
 export type { ProviderRecoveryRequest, ProviderRecoveryReceipt, ProviderRecoveryPreview } from './recovery/provider-contract.js';
@@ -135,8 +135,8 @@ export * from './media/index.js';
 export { DocumentAttachmentStore, INPUT_DOCUMENT_KIND } from './documents/store.js';
 export { DEFAULT_DOCUMENT_LIMITS } from './documents/validation.js';
 export type { DocumentLimits } from './documents/validation.js';
-export { validateDocumentHistoryPolicy, projectDocumentHistory, DOCUMENT_HISTORY_NOTICE_PREFIX } from './context/document-history.js';
-export type { DocumentHistoryPolicy, DocumentHistoryDiagnostics, DocumentHistoryProvenance } from './context/document-history.js';
+export { validateDocumentHistoryPolicy, projectDocumentHistory, DOCUMENT_HISTORY_NOTICE_PREFIX, DOCUMENT_HISTORY_LIMITS } from './context/document-history.js';
+export type { DocumentHistoryPolicy, DocumentHistoryOptions, DocumentHistoryDiagnostics, DocumentHistoryProvenance, DocumentHistoryProjection } from './context/document-history.js';
 export * from './lsp/index.js';
 export * from './repository/index.js';
 export { createRepositoryContextTool } from './repository/tool.js';
@@ -170,11 +170,11 @@ export type { BindTeamModelToolsInput, TeamModelToolsBinding } from './teams/mod
 
 export type { PreviewHostCommandInput, StartHostCommandInput, HostCommandOutputCursor, HostCommandOutputPage } from './jobs/host-command-service.js';
 export type { HostCommandRecord, HostCommandPreview, HostCommandState } from './jobs/host-command-records.js';
-export * from './git/types.js';
+export type { PreviewGitCommitInput, GitCommitEntry, GitRepositoryPin, GitCommitPreview, CommitReviewedChangesInput, GitCommitOutcome, GitCommitReceipt, GitCommitResult } from './git/types.js';
 export { validateGitCommitDatabase, validateGitCommitReceipt } from './git/commit-receipts.js';
 export type { CaptureForkPreviewInput, ForkPreview, ForkCommitInput, ForkResult, ConversationFork, FrozenHistoryManifest } from './sessions/fork-types.js';
 
-export * from './pr-feedback/types.js';
+export type { PrRepository, PrRequiredCheck, PrPolicy, PrSourcePin, PrWatchPreview, PreviewPrWatchInput, RegisterPrWatchInput, PrCheckSnapshot, PrReviewSnapshot, PrRemoteSnapshot, PrWatchRecord, PrAcceptedInput, PrFeedbackOccurrence, PollPrWatchInput, PrPollResult } from './pr-feedback/types.js';
 export { GitHubPrReader } from './pr-feedback/github.js';
 export type {BindCommandJobModelToolsInput,CommandJobReadSelection,CommandJobSourceKind,CommandJobModelCursor} from './jobs/command-model-tools.js';
 
