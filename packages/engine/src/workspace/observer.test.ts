@@ -8,7 +8,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { test, type TestContext } from 'node:test';
 import { promisify } from 'node:util';
-import { openWorkspace, WorkspaceObserver, type WorkspaceObservation, type WorkspaceObserverOptions } from './index.js';
+import { openWorkspace } from './index.js';
+import { WorkspaceObserver, type WorkspaceObservation, type WorkspaceObserverOptions } from './observer.js';
 
 const exec = promisify(execFile);
 const hash = (content: string) => createHash('sha256').update(content).digest('hex');

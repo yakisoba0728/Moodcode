@@ -5,11 +5,6 @@ import path from 'node:path';
 import { EngineError, type Workspace } from '@moodcode/contracts';
 import { gitFailure, readBranch, runGit, type GitOperationOptions } from './git.js';
 
-export { WorkspaceObserver, DEFAULT_WORKSPACE_OBSERVER_OPTIONS } from './observer.js';
-export type { WorkspaceObserverOptions, WorkspaceObserverState, WorkspaceObservation, ObservedWorkspaceFile, ObservedWorkspaceChange, ObservedGitStatus } from './observer.js';
-
-export type { GitOperationOptions } from './git.js';
-
 function codeOf(error: unknown): string | undefined {
   return error instanceof Error && 'code' in error ? String(error.code) : undefined;
 }

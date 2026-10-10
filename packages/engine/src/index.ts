@@ -147,8 +147,9 @@ export type { ExecutionLockInspection, ExecutionLockInspectionOptions, Execution
 export { getReviewDiff, previewRestoreCheckpoint, restoreCheckpoint } from './review/index.js';
 export { ReviewJournal, type RestoreOperation, type RestoreOperationInput, type BoundedRestoreResult } from './review/audit.js';
 export type { RestoreOptions, RestorePreview, RestorePreviewFile, RestoreResult, RestoreObservation, RestoreConflict, RestoreFailure } from './review/index.js';
-export { openWorkspace, resolveWorkspacePath, getGitStatus, captureWorkspace, WorkspaceObserver } from './workspace/index.js';
-export type { WorkspaceObserverOptions, WorkspaceObserverState, WorkspaceObservation, ObservedWorkspaceFile, ObservedWorkspaceChange, ObservedGitStatus } from './workspace/index.js';
+export { openWorkspace, resolveWorkspacePath, getGitStatus, captureWorkspace } from './workspace/index.js';
+export { WorkspaceObserver } from './workspace/observer.js';
+export type { WorkspaceObserverOptions, WorkspaceObserverState, WorkspaceObservation, ObservedWorkspaceFile, ObservedWorkspaceChange, ObservedGitStatus } from './workspace/observer.js';
 export { getWorkspaceStatus, listWorkspaceFiles, readWorkspaceFile } from './workspace/presentation.js';
 
 export { getRecoveryStatus, recoverEngine, readRecoveryAcknowledgments, isRestoreAcknowledged, RECOVERY_LIMITS } from './recovery/index.js';

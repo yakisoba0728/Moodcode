@@ -14,7 +14,7 @@ export interface WorkspaceObserverOptions {
   capture?: Omit<CaptureWorkspaceOptions, 'signal'>;
 }
 
-export const DEFAULT_WORKSPACE_OBSERVER_OPTIONS = Object.freeze({ intervalMs: 1_000, gitTimeoutMs: 10_000, maxGitEntries: 2_000 });
+const DEFAULT_WORKSPACE_OBSERVER_OPTIONS = Object.freeze({ intervalMs: 1_000, gitTimeoutMs: 10_000, maxGitEntries: 2_000 });
 
 export interface ObservedWorkspaceFile { hash: string; bytes: number }
 export interface ObservedGitStatus extends GitStatus { totalEntries: number; entriesTruncated: boolean }

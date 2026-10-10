@@ -216,8 +216,6 @@ export function validateResidentRecord(value: unknown): ResidentChildRecord {
 }
 export interface ResidentPorts {
   assertCurrent(): void;
-  admitted(run: Run): void;
-  beforeProvider?(run: Run): void;
   close(): Promise<void>;
 }
 /** One actual child engine, one fixed reservation, and sequential genuinely admitted Runs. */
@@ -399,7 +397,6 @@ export class ResidentChild {
         "RESIDENT_RUN_STALE",
         "Resident provider admission changed",
       );
-    this.ports.beforeProvider?.(run);
   }
   private usage() {
     return this.record.runs.reduce(
@@ -595,7 +592,6 @@ export class ResidentChild {
       });
       clearTimeout(this.idleTimer);
       this.idleDeadline = null;
-      this.ports.admitted(promoted.run);
       // No native scheduler wake occurs until the caller has saved its Team receipt/ACK.
       return {
         run: promoted.run,

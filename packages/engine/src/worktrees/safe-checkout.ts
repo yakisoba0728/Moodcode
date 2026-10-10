@@ -18,7 +18,7 @@ const BASE = Object.freeze([
   '-c', 'checkout.workers=1',
 ]);
 
-export const SAFE_CHECKOUT_LIMITS = Object.freeze({ configBytes: 32_768, configKeys: 256, drivers: 32, hooks: 64 });
+const SAFE_CHECKOUT_LIMITS = Object.freeze({ configBytes: 32_768, configKeys: 256, drivers: 32, hooks: 64 });
 
 /**
  * Resolve only bounded, ordinary config names. Values (which may contain shell

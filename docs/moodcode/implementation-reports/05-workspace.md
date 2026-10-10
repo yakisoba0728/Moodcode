@@ -17,7 +17,7 @@ getGitStatus(workspace: Workspace, options?: GitOperationOptions): Promise<GitSt
 captureWorkspace(workspace: Workspace, options?: CaptureWorkspaceOptions): Promise<WorkspaceCapture>
 ```
 
-`index.ts`는 `GitOperationOptions`, `GitStatusEntry`, `GitStatus`, `CaptureWorkspaceOptions`, `WorkspaceCapture`, `DEFAULT_CAPTURE_LIMITS`도 export한다. 고정 `Workspace` 계약과 capture 반환형은 그대로 사용한다. 추가 contracts/ports 변경은 필요 없다.
+`index.ts`는 `GitStatusEntry`, `GitStatus`, `CaptureWorkspaceOptions`, `WorkspaceCapture`, `DEFAULT_CAPTURE_LIMITS`도 export한다. `GitOperationOptions`는 `git.ts`가 export한다. 고정 `Workspace` 계약과 capture 반환형은 그대로 사용한다. 추가 contracts/ports 변경은 필요 없다.
 
 `GitOperationOptions`는 `{ signal?: AbortSignal; timeoutMs?: number }`다. 기본 timeout은 각 Git subprocess당 10초이고 명시 값은 1~60,000ms 정수다. stdout+stderr 합계 2MiB를 넘으면 중단한다. 상속된 `GIT_*` 환경변수는 repository/config 선택을 바꾸지 못하도록 제거하고 optional index refresh와 fsmonitor/untracked cache를 끈다. shell과 공급자 API를 호출하지 않는다.
 
@@ -59,7 +59,7 @@ npx --no-install tsc --ignoreConfig --noEmit --module NodeNext --moduleResolutio
 
 ## 추가 단계 — bounded WorkspaceObserver
 
-2026-10-04에 기존 담당 범위에서 polling 기반 관찰 service를 구현했다. 추가 파일은 `packages/engine/src/workspace/observer.ts`, `observer.test.ts`이고 기존 workspace `index.ts`에서 class와 관련 타입을 export한다. root facade·contracts·ports·package 설정은 수정하지 않았다.
+2026-10-04에 기존 담당 범위에서 polling 기반 관찰 service를 구현했다. 추가 파일은 `packages/engine/src/workspace/observer.ts`, `observer.test.ts`이고 class와 관련 타입은 `observer.ts`에서 export한다. root facade·contracts·ports·package 설정은 수정하지 않았다.
 
 공개 API:
 
@@ -99,7 +99,7 @@ observer 13개 테스트는 실제 임시 Git repo에서 initial/add/edit/delete
 - polling 사이에서 발생했다가 되돌아오는 변경은 놓칠 수 있고 slow consumer는 중간 event를 잃는다. 이 service는 durable event journal/replay가 아니다. `coalesced`와 전체 최신 snapshot을 사용해야 한다.
 - binary/oversized/permission/limits 등의 capture warning은 보수적으로 전체 capture를 incomplete로 취급한다. unrelated warning이 있어도 absence를 `unobserved`로 표시할 수 있다. 이전 hash를 무한 보존하지 않으므로 다시 보인 경로의 `beforeHash=null`·`kind=observed`는 이전 부재의 증명이 아니다. 제외된 파일의 내용 변경이 Git status를 바꾸지 않으면 관찰되지 않을 수 있다.
 - sample 전후 검사도 root/parent TOCTOU를 원자적으로 제거하지 못한다. cancellation은 이미 진행 중인 일반 filesystem await가 반환되는 것을 기다린다. filesystem이 무한정 응답하지 않는 환경을 강제로 중단하는 별도 worker/process 분리는 구현하지 않았다. Git subprocess에는 기존 timeout과 abort가 적용된다.
-- Electron/GUI 연결과 Windows runtime 검증은 실행하지 않았다. root가 engine public exports에 `WorkspaceObserver`, `DEFAULT_WORKSPACE_OBSERVER_OPTIONS`와 관련 observation/options 타입을 re-export하면 Electron utility process에서 직접 사용할 수 있다. 공통 facade/contract 변경은 이 service에 필요하지 않다. Electron owner는 lifetime 종료 시 `stop()`을 await하고 IPC에서 Map을 배열로 명시적으로 serialize하는 것이 적절하다.
+- Electron/GUI 연결과 Windows runtime 검증은 실행하지 않았다. root는 engine public exports에서 `observer.ts`의 `WorkspaceObserver`와 관련 observation/options 타입을 re-export하므로 Electron utility process에서 직접 사용할 수 있다. 공통 facade/contract 변경은 이 service에 필요하지 않다. Electron owner는 lifetime 종료 시 `stop()`을 await하고 IPC에서 Map을 배열로 명시적으로 serialize하는 것이 적절하다.
 
 ## 추가 단계 — 첫 GUI용 읽기 전용 presentation
 

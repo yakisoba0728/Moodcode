@@ -62,8 +62,6 @@ export interface EngineChildRequest {
 }
 interface Admission {
   fingerprint: string;
-  input: ChildStart;
-  signal: AbortSignal;
   done: Promise<ChildTaskRecord>;
   confirmed: Promise<void>;
   confirm(): void;
@@ -678,14 +676,7 @@ const slot = this.batchSlots.get(
         });
       return accepted;
     });
-    this.admissions.set(key, {
-      fingerprint,
-      input,
-      signal,
-      done,
-      confirmed,
-      confirm,
-    });
+    this.admissions.set(key, { fingerprint, done, confirmed, confirm });
     // An admission counts toward the engine bound until its task is terminal and its child engine close has settled.
     this.liveAdmissions.add(key);
     void done
@@ -966,7 +957,6 @@ const engine = this.create({
                   "Parent profile changed",
                 );
             },
-            admitted: () => {},
             close: async () => {
               unlink?.();
               await engine.close();

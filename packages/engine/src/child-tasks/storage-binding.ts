@@ -9,7 +9,7 @@ import type { ManagedWorktree } from '../worktrees/index.js';
 import type { ChildTaskRecord } from './index.js';
 
 export const CHILD_STORAGE_MIRROR_KIND = 'engine.child_owner';
-export const CHILD_STORAGE_LIMITS = { maxTasks: 32, maxRecordBytes: 32768, maxMetadataBytes: 8388608 } as const;
+const CHILD_STORAGE_LIMITS = { maxTasks: 32, maxRecordBytes: 32768, maxMetadataBytes: 8388608 } as const;
 export interface ChildStoragePhysicalIdentity { path: string; dev: string; ino: string }
 export interface ChildStorageHostIdentity {
   database: ChildStoragePhysicalIdentity | { memory: string };
@@ -25,10 +25,10 @@ export interface ChildStorageBinding {
   physical: { database: ChildStoragePhysicalIdentity; owner: ChildStoragePhysicalIdentity; artifacts: ChildStoragePhysicalIdentity };
   preparedAt: string; admittedAt?: string;
 }
-export interface ChildStorageCloseProof { method: 'engine-close-resolved'; bindingSha256: string; closedAt: string }
+interface ChildStorageCloseProof { method: 'engine-close-resolved'; bindingSha256: string; closedAt: string }
 export interface ChildStorageRecord { schemaVersion: 1; binding: ChildStorageBinding; sha256: string; confirmedClose?: ChildStorageCloseProof }
-export type ChildStorageSelectionStatus = 'eligible' | 'historical' | 'active' | 'legacy' | 'foreign' | 'relocated' | 'unconfirmed' | 'invalid' | 'missing' | 'limit' | 'archive-unsupported';
-export interface ChildStorageSelection {
+type ChildStorageSelectionStatus = 'eligible' | 'historical' | 'active' | 'legacy' | 'foreign' | 'relocated' | 'unconfirmed' | 'invalid' | 'missing' | 'limit' | 'archive-unsupported';
+interface ChildStorageSelection {
   taskId: string; status: ChildStorageSelectionStatus; reasons: string[]; record?: ChildStorageRecord;
 }
 export interface ChildStorageSelectionReport {
