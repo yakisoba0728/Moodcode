@@ -749,9 +749,11 @@ private readonly workflowRecords: WorkflowStorage;
         acquireExecutionGuard: async capture => {
           const owner = this.proposalApplies.getOwner(capture.workspaceId, capture.ownerId);
           if (!owner) throw new EngineError('PROPOSAL_APPLY_NOT_FOUND', 'Native proposal apply owner is absent');
+          // A busy lock found here leaves no guard row, so the owner settles as cancelled, not uncertain.
+          assertExecutionLockAvailable(this.executionLockPath);
           const reservation = reserveExecutionLock(this.executionLockPath);
-          const originalGuard = this.proposalApplyGuards.reserve(owner.binding, owner.id, this.executionLockPath, readExecutionLockReservation(reservation));
-          this.proposalApplies.claim(capture, originalGuard);
+          const originalGuard = this.proposalApplies.claim(capture, () =>
+            this.proposalApplyGuards.reserve(owner.binding, owner.id, this.executionLockPath, readExecutionLockReservation(reservation)));
           let lock;
           try { lock = acquireExecutionLock(this.executionLockPath, reservation); }
           catch (error) { this.proposalApplies.uncertain(capture, error instanceof EngineError ? error.code : 'PROPOSAL_APPLY_LOCK_FAILED'); throw error; }

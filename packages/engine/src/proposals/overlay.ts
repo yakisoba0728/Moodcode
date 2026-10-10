@@ -846,6 +846,27 @@ export function buildProposalDiff(
     sourceManifestSha256: revision.sourceManifestSha256,
     sourceFreshness,
   };
+  // A non-empty page ends before an omission it cannot fit; an empty page still advances.
+  const omit = (path: string): boolean => {
+    const omission = { path, reason: "page-budget" as const };
+    if (
+      files.length + omissions.length > 0 &&
+      Buffer.byteLength(
+        JSON.stringify({
+          ...base,
+          files,
+          omissions: [...omissions, omission],
+          next: cursor + 1,
+          bytes: 0,
+        }),
+      ) +
+        64 >
+        maxBytes
+    )
+      return false;
+    omissions.push(omission);
+    return true;
+  };
   for (; cursor < revision.files.length && cursor < after + limit; cursor++) {
     const file = revision.files[cursor]!,
       mock = {
@@ -871,7 +892,7 @@ export function buildProposalDiff(
         64 >
       maxBytes
     ) {
-      omissions.push({ path: file.path, reason: "page-budget" });
+      if (!omit(file.path)) break;
       continue;
     }
     const value = payload(
@@ -891,7 +912,7 @@ export function buildProposalDiff(
         64 >
       maxBytes
     ) {
-      omissions.push({ path: file.path, reason: "page-budget" });
+      if (!omit(file.path)) break;
       continue;
     }
     files.push(value);

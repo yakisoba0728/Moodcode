@@ -42,10 +42,7 @@ export interface ProposalApplyNativePort {
     originalApproved: object,
     input: PrepareProposalApply,
   ): PrepareProposalApplyResult;
-  claim(
-    capture: ProposalApplyCapture,
-    originalGuard: object,
-  ): ProposalApplyOwner;
+  claim(capture: ProposalApplyCapture, reserveGuard: () => object): object;
   dispatch(capture: ProposalApplyCapture): ProposalApplyOwner;
   checkpoint(
     capture: ProposalApplyCapture,
@@ -155,6 +152,7 @@ interface PreviewState {
   readonly before: readonly (string | null)[];
   used: boolean;
   released: boolean;
+  expired: boolean;
   request?: PrepareProposalApply;
 }
 interface OperationState {
@@ -233,6 +231,8 @@ function actualSignal(value: unknown): asserts value is AbortSignal {
     fail();
   }
 }
+/** Effects need this much preview validity left so expiry cannot cross a held lock. */
+const EFFECT_VALIDITY_MS = 10_000;
 function errorCode(error: unknown): string {
   return error instanceof EngineError ? error.code : "PROPOSAL_APPLY_FAILED";
 }
@@ -292,6 +292,8 @@ export class ProposalApplyService {
     const caller = fields.signal?.value;
     if (caller !== undefined) actualSignal(caller);
     this.open(caller);
+    // Execution guards accept only POSIX lock paths.
+    if (process.platform === "win32") fail("PROPOSAL_APPLY_UNSUPPORTED");
     const signal = AbortSignal.any([
       this.#close.signal,
       this.hostSignal,
@@ -304,6 +306,9 @@ export class ProposalApplyService {
           : stamp(fields.expiresAt.value);
     if (Date.parse(expiresAt) <= now || Date.parse(expiresAt) > now + 90_000)
       fail("PROPOSAL_APPLY_PREVIEW_EXPIRED");
+    for (const state of this.#retained)
+      if (!state.used && now >= Date.parse(state.preview.expiresAt))
+        this.release(state, true);
     if (this.#retained.size + this.#previewReservations >= 128)
       fail("PROPOSAL_APPLY_CAPACITY");
     this.#previewReservations++;
@@ -388,6 +393,7 @@ export class ProposalApplyService {
         before: selected.before,
         used: false,
         released: false,
+        expired: false,
       };
       this.assertStateCurrent(state, signal);
       this.#previews.set(preview, state);
@@ -458,6 +464,10 @@ export class ProposalApplyService {
       }),
     );
     if (duplicate) return { ...duplicate, duplicate: true };
+    if (state.expired) {
+      state.expired = false;
+      fail("PROPOSAL_APPLY_PREVIEW_EXPIRED");
+    }
     if (state.used || state.released) fail("PROPOSAL_APPLY_PREVIEW_USED");
     state.used = true;
     state.request = request;
@@ -492,7 +502,13 @@ export class ProposalApplyService {
             signal: current,
             beforeEffect: async () => {
               this.assertStateCurrent(state, current);
-              // Root reserves SQL intent and claims it before acquisition. It owns the original cleanup token.
+              if (
+                Date.parse(preview.expiresAt) -
+                  (this.ports.now?.() ?? Date.now()) <
+                EFFECT_VALIDITY_MS
+              )
+                fail("PROPOSAL_APPLY_PREVIEW_EXPIRED");
+              // Root checks the lock, then reserves and claims SQL intent in one transaction before acquisition. It owns the original cleanup token.
               guard = await this.ports.acquireExecutionGuard(capture!);
               await this.ports.physical.assertFresh(state.physical, current);
               this.assertStateCurrent(state, current);
@@ -533,16 +549,18 @@ export class ProposalApplyService {
       throw error;
     } finally {
       if (capture) this.native.release(capture);
-      state.released = true;
-      this.#retained.delete(state);
-      this.ports.physical.release(state.physical);
+      this.release(state);
       this.#approved.delete(approved);
     }
   }
   releasePreview(preview: ProposalApplyPreview): void {
     const state = this.#previews.get(preview);
     if (!state) fail("PROPOSAL_APPLY_PREVIEW_INVALID");
+    this.release(state);
+  }
+  private release(state: PreviewState, expired = false): void {
     state.released = true;
+    state.expired = expired;
     this.#retained.delete(state);
     this.ports.physical.release(state.physical);
   }

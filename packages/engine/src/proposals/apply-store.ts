@@ -67,11 +67,11 @@ CREATE TABLE proposal_apply_recovery_decisions (
 ) STRICT, WITHOUT ROWID;
 `;
 
-function fail(code = "INVALID_PROPOSAL_APPLY"): never {
-  throw new EngineError(
-    code,
-    "Proposal apply requires exact native original ownership and observed effect proof",
-  );
+function fail(
+  code = "INVALID_PROPOSAL_APPLY",
+  message = "Proposal apply requires exact native original ownership and observed effect proof",
+): never {
+  throw new EngineError(code, message);
 }
 function id(v: unknown): string {
   if (
@@ -825,7 +825,10 @@ export class ProposalApplyStorage {
           .prepare("SELECT id FROM proposal_apply_owners WHERE revision_id=?")
           .get(normalized.revisionId)
       )
-        fail("PROPOSAL_APPLY_REVISION_USED");
+        fail(
+          "PROPOSAL_APPLY_REVISION_USED",
+          "A proposal revision is never applied twice, even when an earlier attempt changed no file; append a new revision to apply again",
+        );
       const ownerId = randomUUID(),
         capture = immutable({
           workspaceId: normalized.workspaceId,
@@ -873,16 +876,15 @@ export class ProposalApplyStorage {
       return Object.freeze({ kind: "created" as const, capture, owner });
     });
   }
-  claim(
-    capture: ProposalApplyCapture,
-    originalGuard: object,
-  ): ProposalApplyOwner {
+  /** Reserves the guard row and claims it in one transaction, so a failed claim leaves no guard. */
+  claim(capture: ProposalApplyCapture, reserveGuard: () => object): object {
     return this.#tx(() => {
       const { record, owned } = this.#owner(capture);
       if (record.state !== "prepared" || record.guardSha256 !== null)
         fail("PROPOSAL_APPLY_STALE");
       this.#current(record);
       this.ports.assertCurrent(owned.original, capture, "prepare");
+      const originalGuard = reserveGuard();
       const guard = validateProposalApplyGuard(
         this.ports.readExecutionGuard(capture, originalGuard),
       );
@@ -894,7 +896,8 @@ export class ProposalApplyStorage {
           guard.sha256
       )
         fail("PROPOSAL_APPLY_GUARD_INVALID");
-      return this.#update(record, { guardSha256: guard.sha256 });
+      this.#update(record, { guardSha256: guard.sha256 });
+      return originalGuard;
     });
   }
   dispatch(capture: ProposalApplyCapture): ProposalApplyOwner {

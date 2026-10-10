@@ -40,6 +40,7 @@ import {
 import {
   ProposalApplyService,
   type ProposalApplyExecutionLease,
+  type ProposalApplyPreview,
   type ProposalApplyServicePorts,
 } from "./apply-service.js";
 import type {
@@ -234,14 +235,16 @@ async function fixture(t: TestContext) {
       lastCapture = capture;
       const owner = native.getOwner(capture.workspaceId, capture.ownerId);
       assert.ok(owner);
+      assertExecutionLockAvailable(lockPath);
       const reservation = reserveExecutionLock(lockPath),
-        original = guards.reserve(
-          owner.binding,
-          owner.id,
-          lockPath,
-          readExecutionLockReservation(reservation),
+        original = native.claim(capture, () =>
+          guards.reserve(
+            owner.binding,
+            owner.id,
+            lockPath,
+            readExecutionLockReservation(reservation),
+          ),
         );
-      native.claim(capture, original);
       const lock = acquireExecutionLock(lockPath, reservation);
       afterAcquire?.();
       let released = false;
@@ -842,4 +845,92 @@ test("a valid staged five MiB proposal is metadata-rejected before physical prep
   assert.equal(f.counters().prepareCalls, 0);
   assert.equal(f.rowCount("proposal_apply_owners"), 0);
   assert.equal(f.rowCount("proposal_apply_execution_guards"), 0);
+});
+
+test("an approval with under ten seconds of preview validity is cancelled before any guard or lock intent", async (t) => {
+  const f = await fixture(t),
+    selection = await f.stage(),
+    preview = await f.service.preview({
+      workspaceId: f.binding.workspaceId,
+      proposalId: selection.set.id,
+    });
+  const request = {
+    workspaceId: f.binding.workspaceId,
+    requestId: randomUUID(),
+    approved: true,
+    preview,
+  };
+  f.setNow(Date.parse(preview.expiresAt) - 5_000);
+  await assert.rejects(
+    f.service.apply(request),
+    code("PROPOSAL_APPLY_PREVIEW_EXPIRED"),
+  );
+  const history = f.native.getRequest(
+    f.binding.workspaceId,
+    request.requestId,
+  )!;
+  assert.equal(history.owner.state, "cancelled");
+  assert.equal(history.owner.cleanupConfirmed, true);
+  assert.equal(f.counters().acquireCalls, 0);
+  assert.equal(f.rowCount("proposal_apply_execution_guards"), 0);
+  assert.notEqual(inspectExecutionLock(f.lockPath).status, "uncertain");
+  assert.equal(readFileSync(join(f.root, "a"), "utf8"), f.before);
+});
+
+test("expired unused previews are reclaimed so preview capacity recovers", async (t) => {
+  const f = await fixture(t),
+    selection = await f.stage(),
+    input = {
+      workspaceId: f.binding.workspaceId,
+      proposalId: selection.set.id,
+    };
+  const previews = [];
+  for (let index = 0; index < 128; index++)
+    previews.push(await f.service.preview(input));
+  await assert.rejects(
+    f.service.preview(input),
+    code("PROPOSAL_APPLY_CAPACITY"),
+  );
+  f.setNow(Date.parse(previews.at(-1)!.expiresAt));
+  await f.service.preview(input);
+  const apply = (preview: ProposalApplyPreview) =>
+    f.service.apply({
+      workspaceId: f.binding.workspaceId,
+      requestId: randomUUID(),
+      approved: true,
+      preview,
+    });
+  await assert.rejects(
+    apply(previews[0]!),
+    code("PROPOSAL_APPLY_PREVIEW_EXPIRED"),
+  );
+  await assert.rejects(
+    apply(previews[0]!),
+    code("PROPOSAL_APPLY_PREVIEW_USED"),
+  );
+  f.service.releasePreview(previews[1]!);
+  await assert.rejects(
+    apply(previews[1]!),
+    code("PROPOSAL_APPLY_PREVIEW_USED"),
+  );
+  assert.equal(f.rowCount("proposal_apply_owners"), 0);
+});
+
+test("win32 hosts are refused at preview before physical preparation or any owner", async (t) => {
+  const f = await fixture(t),
+    selection = await f.stage(),
+    platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+  Object.defineProperty(process, "platform", { ...platform, value: "win32" });
+  let pending: Promise<unknown>;
+  try {
+    pending = f.service.preview({
+      workspaceId: f.binding.workspaceId,
+      proposalId: selection.set.id,
+    });
+  } finally {
+    Object.defineProperty(process, "platform", platform);
+  }
+  await assert.rejects(pending, code("PROPOSAL_APPLY_UNSUPPORTED"));
+  assert.equal(f.counters().prepareCalls, 0);
+  assert.equal(f.rowCount("proposal_apply_owners"), 0);
 });

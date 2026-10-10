@@ -8,7 +8,6 @@ import type { ProviderAdapter } from "../../ports.js";
 import { PhysicalPatchProducer } from "../../tools/patch/physical.js";
 import { inspectExecutionLock } from "../../tools/command/execution-lock.js";
 import { ProposalApplyStorage } from "../apply-store.js";
-import { ProposalApplyExecutionGuards } from "../execution-guards.js";
 import type {
   ApplyProposalResult,
   ProposalApplyPreview,
@@ -112,9 +111,9 @@ ProposalApplyStorage.prototype.prepare = function (...args) {
   if (result.kind === "created") stopAt("prepared");
   return result;
 };
-const originalReserve = ProposalApplyExecutionGuards.prototype.reserve;
-ProposalApplyExecutionGuards.prototype.reserve = function (...args) {
-  const result = originalReserve.apply(this, args);
+const originalClaim = ProposalApplyStorage.prototype.claim;
+ProposalApplyStorage.prototype.claim = function (...args) {
+  const result = originalClaim.apply(this, args);
   stopAt("reserved");
   return result;
 };

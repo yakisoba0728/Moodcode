@@ -12,7 +12,11 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { PhysicalPatchProducer } from "../tools/patch/physical.js";
-import { inspectExecutionLock } from "../tools/command/execution-lock.js";
+import {
+  acquireExecutionLock,
+  inspectExecutionLock,
+} from "../tools/command/execution-lock.js";
+import { ProposalApplyExecutionGuards } from "./execution-guards.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { ProposalSelection } from "./types.js";
 import type { ProposalReadonlyDiff } from "./overlay.js";
@@ -749,4 +753,96 @@ test("a failed acknowledgment of an original FileHandle close preserves its firs
     failure("CLEANUP_PENDING", "PROPOSAL_APPLY_NOT_PENDING"),
   );
   f.assertNoCoding();
+});
+
+test("a busy effects lock at approval cancels the owner without guard or quarantine, and the revision is never replayed", async (t) => {
+  const f = await applyFixture(t);
+  await f.stage();
+  const preview = await f.preview(),
+    held = acquireExecutionLock(`${f.dbPath}.effects.sqlite`);
+  try {
+    await assert.rejects(
+      f.apply(preview, "busy-lock"),
+      failure("COMMAND_EFFECTS_BUSY"),
+    );
+  } finally {
+    held.release(true);
+  }
+  const history = f.history("busy-lock");
+  assert.ok(history);
+  assert.equal(history.owner.state, "cancelled");
+  assert.equal(history.owner.cleanupConfirmed, true);
+  assert.equal(history.owner.errorCode, "COMMAND_EFFECTS_BUSY");
+  assert.deepEqual(nativeRows(f.dbPath, ["proposal_apply_execution_guards"]), {
+    proposal_apply_execution_guards: [],
+  });
+  assert.equal(f.engine.store.hasUncertainWorkspace(f.workspace.id), false);
+  assert.equal(f.userBytes()["first.ts"], BEFORE);
+  await assert.rejects(f.apply(await f.preview(), "busy-retry"), (error) => {
+    failure("PROPOSAL_APPLY_REVISION_USED")(error);
+    assert.match((error as Error).message, /append a new revision/);
+    return true;
+  });
+  f.assertNoCoding();
+});
+
+test("a failure after the guard is reserved inside claim rolls back the guard and cancels the owner", async (t) => {
+  const f = await applyFixture(t);
+  await f.stage();
+  const preview = await f.preview(),
+    readOriginal = ProposalApplyExecutionGuards.prototype.readOriginal;
+  let calls = 0;
+  t.mock.method(
+    ProposalApplyExecutionGuards.prototype,
+    "readOriginal",
+    function (this: ProposalApplyExecutionGuards, original: object) {
+      if (calls++ === 0)
+        throw new Error("Claim validation failed after reservation");
+      return readOriginal.call(this, original);
+    },
+  );
+  await assert.rejects(f.apply(preview, "claim-failed"));
+  assert.equal(calls, 1);
+  const history = f.history("claim-failed");
+  assert.ok(history);
+  assert.equal(history.owner.state, "cancelled");
+  assert.equal(history.owner.guardSha256, null);
+  assert.deepEqual(nativeRows(f.dbPath, ["proposal_apply_execution_guards"]), {
+    proposal_apply_execution_guards: [],
+  });
+  assert.equal(f.engine.store.hasUncertainWorkspace(f.workspace.id), false);
+  assert.equal(f.userBytes()["first.ts"], BEFORE);
+  f.assertNoCoding();
+});
+
+test("recovery acknowledgment reports a busy effects lock as retriable busy, not a guard mismatch", async (t) => {
+  const f = await applyFixture(t);
+  await f.stage();
+  const preview = await f.preview(),
+    db = Reflect.get(f.engine.store, "db");
+  assert.ok(db instanceof DatabaseSync);
+  const prepare = db.prepare.bind(db),
+    failing = t.mock.method(db, "prepare", (sql: string) => {
+      if (sql.includes("INSERT INTO proposal_apply_checkpoints"))
+        throw new Error("Actual checkpoint SQL failure");
+      return prepare(sql);
+    });
+  f.allowUncertainClose();
+  await assert.rejects(f.apply(preview, "checkpoint-failed"));
+  failing.mock.restore();
+  const lockPath = `${f.dbPath}.effects.sqlite`,
+    recovery = f.recovery();
+  assert.equal(inspectExecutionLock(lockPath).status, "uncertain");
+  const holder = new DatabaseSync(lockPath, { timeout: 0 });
+  try {
+    holder.exec("BEGIN EXCLUSIVE");
+    assert.equal(inspectExecutionLock(lockPath).status, "busy");
+    await assert.rejects(
+      f.acknowledge(recovery),
+      failure("COMMAND_EFFECTS_BUSY"),
+    );
+  } finally {
+    holder.close();
+  }
+  assert.equal(f.engine.store.hasUncertainWorkspace(f.workspace.id), true);
 });

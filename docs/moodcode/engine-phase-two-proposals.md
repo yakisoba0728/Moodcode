@@ -6,7 +6,7 @@ Physical capture reads actual selected file descriptors and pins canonical works
 
 Exact request replay returns the immutable original revision and explicitly current head without another source capture or artifact producer. It neither restores an older head nor grants application authority. Source reads cancelled or closed during an original descriptor operation are drained before the host releases its capacity and storage.
 
-`getProposalSet`, `listProposalSets` and `getProposalDiff` inspect stored native history even when authoring is disabled. Pages have separate row and serialized byte bounds. Diff uses exact captured before and after content; an external edit changes its source-freshness observation and does not replace the stored preimage. Oversized files are omitted as whole files rather than exposed as complete truncated evidence.
+`getProposalSet`, `listProposalSets` and `getProposalDiff` inspect stored native history even when authoring is disabled. Pages have separate row and serialized byte bounds. Diff uses exact captured before and after content; an external edit changes its source-freshness observation and does not replace the stored preimage. Oversized files are omitted as whole files rather than exposed as complete truncated evidence; a page ends early when another omission would exceed its byte bound.
 
 `proposalContextPolicy` selects exact pending proposal IDs and a slot of at most 32 KiB, optionally restricted to exact admitted profiles. The actual ContextService reads current native head, revision and artifact references in one primary snapshot and validates the physical source manifest. It sends one quoted assistant DATA entry explicitly marked pending and unapplied. Native file reads and LSP still observe the actual disk.
 

@@ -28,6 +28,7 @@ import {
   proposalContextPolicy,
   proposalContributionSourceIds,
   type ProposalContextRequest,
+  type ProposalDiffOptions,
   type ProposalOverlayContextSourcePorts,
 } from "./overlay.js";
 import type { ProposalBlobReference, ProposalSelection } from "./types.js";
@@ -465,6 +466,57 @@ test("readonly diff pages omit oversized whole files before body reads and never
   assert.equal(diff.next, null);
   assert.ok(diff.bytes <= 1024);
   assert.equal(readFileSync(join(f.root, "a"), "utf8"), f.before);
+});
+test("readonly diff pages end before an omission that would exceed the byte budget", async (t) => {
+  const f = await fixture(t);
+  const operations = [
+    { path: "a", expectedSha256: sha(f.before), after: "a".repeat(3000) },
+    ...Array.from({ length: 20 }, (_, index) => ({
+      path: `omitted-${String(index).padStart(2, "0")}`,
+      expectedSha256: null,
+      after: "b".repeat(2000),
+    })),
+  ];
+  const begun = f.native.beginCapture({
+    workspaceId: f.binding.workspaceId,
+    requestId: randomUUID(),
+    expectedHeadRevision: 0,
+    operations,
+  });
+  assert.equal(begun.kind, "created");
+  if (begun.kind !== "created") throw Error("actual producer required");
+  const capture = await f.physical.capture(f.binding, operations);
+  const { revision } = f.native.appendRevision(begun.capture, capture);
+  f.physical.release(capture);
+  f.native.release(begun.capture);
+  const page = (options: ProposalDiffOptions) =>
+    f.tx(() =>
+      buildProposalDiff(revision, (ref) => f.blobs.readText(ref), options),
+    );
+  assert.equal(revision.files[0]!.path, "a");
+  const maxBytes = page({ limit: 1 }).bytes + 164,
+    seen: string[] = [];
+  let after: number | null = 0;
+  while (after !== null) {
+    const diff = page({ after, maxBytes });
+    assert.ok(diff.bytes <= maxBytes);
+    const count = diff.files.length + diff.omissions.length;
+    assert.ok(count > 0);
+    if (after === 0) {
+      assert.equal(diff.files[0]?.path, "a");
+      assert.ok(diff.omissions.length < 20);
+    }
+    seen.push(
+      ...diff.files.map((file) => file.path),
+      ...diff.omissions.map((omission) => omission.path),
+    );
+    if (diff.next !== null) assert.equal(diff.next, after + count);
+    after = diff.next;
+  }
+  assert.deepEqual(
+    seen.sort(),
+    revision.files.map((file) => file.path),
+  );
 });
 test("close joins an original trusted source observation and late completion issues no overlay capture", async (t) => {
   const f = await fixture(t);

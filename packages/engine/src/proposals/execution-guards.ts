@@ -70,5 +70,6 @@ export class ProposalApplyExecutionGuards {
       if(!['prepared','dispatched','uncertain','cancelled'].includes(owner.state)||knowledgeHash(owner.binding)!==knowledgeHash(guard.binding)||knowledgeHash(this.ports.checkBinding(guard.workspaceId))!==knowledgeHash(guard.binding))fail();return guard;
     }return undefined;
   }
-  reconcile(workspaceId:string,path:string):void {const observed=inspectExecutionLock(path);if(observed.status==='available'||observed.status==='not_initialized')return;const guard=this.matching(path,workspaceId);if(!guard)fail();reconcileStoppedExecutionLock(path,guard.marker);}
+  reconcile(workspaceId:string,path:string):void {const observed=inspectExecutionLock(path);if(observed.status==='available'||observed.status==='not_initialized')return;
+    if(observed.status==='busy')throw new EngineError('COMMAND_EFFECTS_BUSY','A command supervisor still holds the execution lock.');const guard=this.matching(path,workspaceId);if(!guard)fail();reconcileStoppedExecutionLock(path,guard.marker);}
 }
